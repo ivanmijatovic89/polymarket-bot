@@ -14,6 +14,7 @@ export type RotatingRecorderOptions = {
 
 type WriterState = {
   marketId: string
+  fileKey: string
   windowStartMs: number
   filePath: string
   writer: parquet.ParquetWriter
@@ -25,6 +26,7 @@ export class RotatingParquetEventRecorder {
   private readonly windowMs: number
 
   private readonly writersByMarket = new Map<string, WriterState>()
+  private readonly chainByMarket = new Map<string, Promise<void>>()
 
   constructor(opts: RotatingRecorderOptions) {
     this.baseDir = opts.baseDir
@@ -33,31 +35,39 @@ export class RotatingParquetEventRecorder {
 
   async append(row: RawMarketEventRow): Promise<void> {
     const marketId = row.market ?? 'unknown'
-    const tsExchangeMs = row.ts_exchange_ms ? Number(row.ts_exchange_ms) : Number(row.ts_local_ms)
-    const windowStartMs = floorToWindowStart(tsExchangeMs, this.windowMs)
+    await this.enqueue(marketId, async () => {
+      const tsExchangeMs = row.ts_exchange_ms ? Number(row.ts_exchange_ms) : Number(row.ts_local_ms)
+      const windowStartMs = floorToWindowStart(tsExchangeMs, this.windowMs)
+      const fileKey = safeFileKey(row.market_slug ?? row.market ?? 'unknown')
 
-    let state = this.writersByMarket.get(marketId)
-    if (!state || state.windowStartMs !== windowStartMs) {
-      if (state) await this.closeMarket(marketId)
-      state = await this.openMarketWindow({ marketId, windowStartMs })
-      this.writersByMarket.set(marketId, state)
-    }
+      let state = this.writersByMarket.get(marketId)
 
-    if (row.event_type === 'book') state.sawBook = true
-    if (!state.sawBook && row.event_type !== 'book') {
-      // Not fatal, but it means this file may not be self-contained for replay.
-      // We still record to avoid gaps.
-      console.warn(
-        `[recorder] market=${marketId} windowStart=${state.windowStartMs} saw non-book before book (${row.event_type})`,
-      )
-    }
+      // We want each file to be self-contained; we only start a file once we see a `book`.
+      if (!state && row.event_type !== 'book') return
 
-    await state.writer.appendRow(row)
+      if (!state || state.windowStartMs !== windowStartMs || state.fileKey !== fileKey) {
+        if (state) await this.closeMarket(marketId)
+        if (row.event_type !== 'book') return
+        state = await this.openMarketWindow({ marketId, windowStartMs, fileKey })
+        this.writersByMarket.set(marketId, state)
+      }
+
+      if (row.event_type === 'book') state.sawBook = true
+      if (!state.sawBook && row.event_type !== 'book') {
+        // Drop pre-book events to keep file self-contained.
+        return
+      }
+
+      await state.writer.appendRow(row)
+    })
   }
 
   async closeAll(): Promise<void> {
+    const chains = [...this.chainByMarket.values()]
+    await Promise.all(chains.map((p) => p.catch(() => undefined)))
+
     const markets = [...this.writersByMarket.keys()]
-    await Promise.all(markets.map((m) => this.closeMarket(m)))
+    for (const m of markets) await this.closeMarket(m)
   }
 
   async closeMarket(marketId: string): Promise<void> {
@@ -68,25 +78,30 @@ export class RotatingParquetEventRecorder {
     console.log(`[recorder] closed parquet file ${state.filePath}`)
   }
 
+  private async enqueue(marketId: string, fn: () => Promise<void>): Promise<void> {
+    const prev = this.chainByMarket.get(marketId) ?? Promise.resolve()
+    const next = prev.then(fn, fn)
+    this.chainByMarket.set(
+      marketId,
+      next.catch(() => undefined),
+    )
+    await next
+  }
+
   private async openMarketWindow(args: {
     marketId: string
     windowStartMs: number
+    fileKey: string
   }): Promise<WriterState> {
-    const windowStartLabel = formatWindowStartUtc(args.windowStartMs)
-    const dir = path.join(
-      this.baseDir,
-      `market=${args.marketId}`,
-      `windowStart=${windowStartLabel}`,
-    )
-    await mkdir(dir, { recursive: true })
-
-    const filePath = path.join(dir, 'events.parquet')
+    await mkdir(this.baseDir, { recursive: true })
+    const filePath = path.join(this.baseDir, `${args.fileKey}.parquet`)
     const writer = await parquet.ParquetWriter.openFile(rawMarketEventParquetSchema, filePath)
 
     console.log(`[recorder] opened parquet file ${filePath}`)
 
     return {
       marketId: args.marketId,
+      fileKey: args.fileKey,
       windowStartMs: args.windowStartMs,
       filePath,
       writer,
@@ -99,12 +114,8 @@ export function floorToWindowStart(tsMs: number, windowMs: number): number {
   return Math.floor(tsMs / windowMs) * windowMs
 }
 
-export function formatWindowStartUtc(windowStartMs: number): string {
-  const d = new Date(windowStartMs)
-  const yyyy = d.getUTCFullYear().toString().padStart(4, '0')
-  const mm = (d.getUTCMonth() + 1).toString().padStart(2, '0')
-  const dd = d.getUTCDate().toString().padStart(2, '0')
-  const hh = d.getUTCHours().toString().padStart(2, '0')
-  const mi = d.getUTCMinutes().toString().padStart(2, '0')
-  return `${yyyy}${mm}${dd}_${hh}${mi}UTC`
+function safeFileKey(s: string): string {
+  // Keep it simple and filesystem-safe.
+  // Allowed: a-zA-Z0-9._- ; everything else becomes '-'
+  return s.replace(/[^a-zA-Z0-9._-]+/g, '-')
 }
