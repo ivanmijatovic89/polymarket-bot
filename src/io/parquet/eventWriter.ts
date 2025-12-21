@@ -47,7 +47,6 @@ export class RotatingParquetEventRecorder {
     if (!state.sawBook && row.event_type !== 'book') {
       // Not fatal, but it means this file may not be self-contained for replay.
       // We still record to avoid gaps.
-      // eslint-disable-next-line no-console
       console.warn(
         `[recorder] market=${marketId} windowStart=${state.windowStartMs} saw non-book before book (${row.event_type})`,
       )
@@ -66,7 +65,6 @@ export class RotatingParquetEventRecorder {
     if (!state) return
     this.writersByMarket.delete(marketId)
     await state.writer.close()
-    // eslint-disable-next-line no-console
     console.log(`[recorder] closed parquet file ${state.filePath}`)
   }
 
@@ -78,7 +76,6 @@ export class RotatingParquetEventRecorder {
     const filePath = path.join(dir, 'events.parquet')
     const writer = await parquet.ParquetWriter.openFile(rawMarketEventParquetSchema, filePath)
 
-    // eslint-disable-next-line no-console
     console.log(`[recorder] opened parquet file ${filePath}`)
 
     return {

@@ -44,7 +44,13 @@ function parseEventIndexFields(rawJson: string): {
       ts_exchange_ms = BigInt(rec.timestamp)
     }
 
-    return { event_type, market, asset_id, ts_exchange_ms }
+    const out: { event_type: string; market?: string; asset_id?: string; ts_exchange_ms?: bigint } = {
+      event_type,
+    }
+    if (market) out.market = market
+    if (asset_id) out.asset_id = asset_id
+    if (ts_exchange_ms) out.ts_exchange_ms = ts_exchange_ms
+    return out
   } catch {
     return { event_type: 'invalid_json' }
   }
@@ -67,11 +73,8 @@ async function main(): Promise<void> {
   const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events')
   const auth = parseOptionalAuth()
 
-  // eslint-disable-next-line no-console
   console.log(`[record-live] wsUrl=${wsUrl}`)
-  // eslint-disable-next-line no-console
   console.log(`[record-live] assetsIds=${assetsIds.length}`)
-  // eslint-disable-next-line no-console
   console.log(`[record-live] baseDir=${baseDir}`)
 
   const recorder = new RotatingParquetEventRecorder({
@@ -87,42 +90,43 @@ async function main(): Promise<void> {
   const connect = (): void => {
     if (shouldStop) return
 
-    // eslint-disable-next-line no-console
     console.log('[record-live] connecting...')
 
     currentClient = createMarketWsClient({
       url: wsUrl,
       assetsIds,
-      auth,
+      ...(auth ? { auth } : {}),
       onOpen: () => {
-        // eslint-disable-next-line no-console
         console.log('[record-live] connected + subscribed')
       },
       onMessage: (raw) => {
         void (async () => {
           const tsLocalMs = BigInt(Date.now())
-          ingestSeq += 1n
-
           const idx = parseEventIndexFields(raw)
+
+          // We rotate/write per market. If a message doesn't carry `market` (e.g. acks),
+          // we ignore it to avoid polluting `market=unknown` files.
+          if (!idx.market) return
+          if (idx.event_type === 'unknown' || idx.event_type === 'invalid_json') return
+
+          ingestSeq += 1n
 
           const row: RawMarketEventRow = {
             ingest_seq: ingestSeq,
             ts_local_ms: tsLocalMs,
             ...(idx.ts_exchange_ms ? { ts_exchange_ms: idx.ts_exchange_ms } : {}),
             event_type: idx.event_type,
-            ...(idx.market ? { market: idx.market } : {}),
+            market: idx.market,
             ...(idx.asset_id ? { asset_id: idx.asset_id } : {}),
             raw_json: raw,
           }
 
           await recorder.append(row)
         })().catch((err) => {
-          // eslint-disable-next-line no-console
           console.error('[record-live] append failed', err)
         })
       },
       onClose: (code, reason) => {
-        // eslint-disable-next-line no-console
         console.log(`[record-live] ws closed code=${code} reason=${reason.toString()}`)
         currentClient = undefined
 
@@ -131,7 +135,6 @@ async function main(): Promise<void> {
         setTimeout(connect, 1_000)
       },
       onError: (err) => {
-        // eslint-disable-next-line no-console
         console.error('[record-live] ws error', err)
       },
     })
@@ -139,13 +142,11 @@ async function main(): Promise<void> {
 
   const rotateAndReconnect = (): void => {
     void (async () => {
-      // eslint-disable-next-line no-console
       console.log('[record-live] 15m boundary: closing parquet writers + reconnecting ws')
       await recorder.closeAll()
       currentClient?.close()
       currentClient = undefined
     })().catch((err) => {
-      // eslint-disable-next-line no-console
       console.error('[record-live] rotate failed', err)
     })
   }
@@ -160,7 +161,6 @@ async function main(): Promise<void> {
   }
 
   process.on('SIGINT', () => {
-    // eslint-disable-next-line no-console
     console.log('[record-live] SIGINT received, shutting down...')
     shouldStop = true
     currentClient?.close()
@@ -168,7 +168,6 @@ async function main(): Promise<void> {
   })
 
   process.on('SIGTERM', () => {
-    // eslint-disable-next-line no-console
     console.log('[record-live] SIGTERM received, shutting down...')
     shouldStop = true
     currentClient?.close()
@@ -179,5 +178,8 @@ async function main(): Promise<void> {
   scheduleNextBoundary()
 }
 
-await main()
+main().catch((err) => {
+  console.error('[record-live] fatal error', err)
+  process.exit(1)
+})
 

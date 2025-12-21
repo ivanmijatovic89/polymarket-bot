@@ -1,4 +1,4 @@
-import WebSocket from 'ws'
+import WebSocket, { type RawData } from 'ws'
 
 export type PolymarketAuth = {
   apiKey: string
@@ -68,16 +68,16 @@ export function createMarketWsClient(opts: MarketWsClientOptions): MarketWsClien
     isAlive = true
   })
 
-  ws.on('message', (data, isBinary) => {
+  ws.on('message', (data: RawData, isBinary: boolean) => {
     if (isBinary) return
     opts.onMessage(data.toString())
   })
 
-  ws.on('error', (err) => {
+  ws.on('error', (err: Error) => {
     opts.onError?.(err)
   })
 
-  ws.on('close', (code, reason) => {
+  ws.on('close', (code: number, reason: Buffer) => {
     if (heartbeatInterval) clearInterval(heartbeatInterval)
     opts.onClose?.(code, reason)
   })

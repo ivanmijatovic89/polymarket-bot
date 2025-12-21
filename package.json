@@ -3,9 +3,13 @@
   "version": "1.0.0",
   "description": "",
   "main": "index.js",
+  "type": "module",
+  "engines": {
+    "node": ">=20 <21"
+  },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "record:live": "node --loader ts-node/esm src/scripts/record-live.ts",
+    "record:live": "ts-node --esm src/scripts/record-live.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier . --write",
@@ -16,6 +20,7 @@
   "license": "ISC",
   "devDependencies": {
     "@types/node": "^25.0.3",
+    "@types/ws": "^8.18.1",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
     "eslint": "^9.39.2",
