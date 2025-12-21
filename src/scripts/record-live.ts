@@ -44,9 +44,10 @@ function parseEventIndexFields(rawJson: string): {
       ts_exchange_ms = BigInt(rec.timestamp)
     }
 
-    const out: { event_type: string; market?: string; asset_id?: string; ts_exchange_ms?: bigint } = {
-      event_type,
-    }
+    const out: { event_type: string; market?: string; asset_id?: string; ts_exchange_ms?: bigint } =
+      {
+        event_type,
+      }
     if (market) out.market = market
     if (asset_id) out.asset_id = asset_id
     if (ts_exchange_ms) out.ts_exchange_ms = ts_exchange_ms
@@ -182,4 +183,3 @@ main().catch((err) => {
   console.error('[record-live] fatal error', err)
   process.exit(1)
 })
-

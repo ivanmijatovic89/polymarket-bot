@@ -16,4 +16,3 @@ export const rawMarketEventParquetSchema = new parquet.ParquetSchema({
   asset_id: { type: 'UTF8', optional: true },
   raw_json: { type: 'UTF8' },
 })
-

@@ -15,4 +15,3 @@ export type RawMarketEventRow = {
   asset_id?: string
   raw_json: string
 }
-

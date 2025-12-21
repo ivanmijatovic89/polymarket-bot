@@ -68,9 +68,16 @@ export class RotatingParquetEventRecorder {
     console.log(`[recorder] closed parquet file ${state.filePath}`)
   }
 
-  private async openMarketWindow(args: { marketId: string; windowStartMs: number }): Promise<WriterState> {
+  private async openMarketWindow(args: {
+    marketId: string
+    windowStartMs: number
+  }): Promise<WriterState> {
     const windowStartLabel = formatWindowStartUtc(args.windowStartMs)
-    const dir = path.join(this.baseDir, `market=${args.marketId}`, `windowStart=${windowStartLabel}`)
+    const dir = path.join(
+      this.baseDir,
+      `market=${args.marketId}`,
+      `windowStart=${windowStartLabel}`,
+    )
     await mkdir(dir, { recursive: true })
 
     const filePath = path.join(dir, 'events.parquet')
@@ -101,4 +108,3 @@ export function formatWindowStartUtc(windowStartMs: number): string {
   const mi = d.getUTCMinutes().toString().padStart(2, '0')
   return `${yyyy}${mm}${dd}_${hh}${mi}UTC`
 }
-
