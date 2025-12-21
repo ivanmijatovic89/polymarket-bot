@@ -12,6 +12,15 @@ export type RotatingRecorderOptions = {
   windowMs: number
 }
 
+export type MarketEventWrite = {
+  /** Market identifier used for routing/ordering. Not persisted. */
+  marketId: string
+  /** File key (e.g. slug) used for output filename. Not persisted. */
+  fileKey: string
+  /** Persisted row payload (matches Parquet schema). */
+  row: RawMarketEventRow
+}
+
 type WriterState = {
   marketId: string
   fileKey: string
@@ -34,10 +43,9 @@ export class RotatingParquetEventRecorder {
     this.windowMs = opts.windowMs
   }
 
-  async append(row: RawMarketEventRow): Promise<void> {
-    const marketId = row.market ?? 'unknown'
-    await this.enqueue(marketId, async () => {
-      await this.appendUnlocked(marketId, row)
+  async append(write: MarketEventWrite): Promise<void> {
+    await this.enqueue(write.marketId, async () => {
+      await this.appendUnlocked(write)
     })
   }
 
@@ -45,21 +53,20 @@ export class RotatingParquetEventRecorder {
    * Append a batch of rows. Rows are processed in-order per market, but markets
    * may be processed concurrently.
    */
-  async appendMany(rows: RawMarketEventRow[]): Promise<void> {
-    if (rows.length === 0) return
+  async appendMany(writes: MarketEventWrite[]): Promise<void> {
+    if (writes.length === 0) return
 
-    const byMarket = new Map<string, RawMarketEventRow[]>()
-    for (const row of rows) {
-      const marketId = row.market ?? 'unknown'
-      const arr = byMarket.get(marketId)
-      if (arr) arr.push(row)
-      else byMarket.set(marketId, [row])
+    const byMarket = new Map<string, MarketEventWrite[]>()
+    for (const w of writes) {
+      const arr = byMarket.get(w.marketId)
+      if (arr) arr.push(w)
+      else byMarket.set(w.marketId, [w])
     }
 
     await Promise.all(
       [...byMarket.entries()].map(([marketId, batch]) =>
         this.enqueue(marketId, async () => {
-          for (const row of batch) await this.appendUnlocked(marketId, row)
+          for (const w of batch) await this.appendUnlocked(w)
         }),
       ),
     )
@@ -115,12 +122,12 @@ export class RotatingParquetEventRecorder {
     await next
   }
 
-  private async appendUnlocked(marketId: string, row: RawMarketEventRow): Promise<void> {
+  private async appendUnlocked(write: MarketEventWrite): Promise<void> {
+    const marketId = write.marketId
+    const row = write.row
     const tsExchangeMs = row.ts_exchange_ms ? Number(row.ts_exchange_ms) : Number(row.ts_local_ms)
     const windowStartMs = floorToWindowStart(tsExchangeMs, this.windowMs)
-    const fileKey = row.market_slug
-      ? safeFileKey(row.market_slug)
-      : safeFileKey(`market-${marketId}`)
+    const fileKey = safeFileKey(write.fileKey)
 
     let state = this.writersByMarket.get(marketId)
 

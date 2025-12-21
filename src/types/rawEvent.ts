@@ -11,8 +11,5 @@ export type RawMarketEventRow = {
   ts_local_ms: bigint
   ts_exchange_ms?: bigint
   event_type: PolymarketMarketChannelEventType
-  market?: string
-  market_slug?: string
-  asset_id?: string
   raw_json: string
 }

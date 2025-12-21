@@ -122,7 +122,8 @@ async function main(): Promise<void> {
     windowMs: FIFTEEN_MIN_MS,
   })
 
-  let ingestSeq = 0n
+  // Per-market ingestion sequence (resets automatically for each new market id).
+  const ingestSeqByMarket = new Map<string, bigint>()
   let shouldStop = false
   let isRotating = false
 
@@ -263,18 +264,19 @@ async function main(): Promise<void> {
           if (!idx.market) return
           if (idx.event_type === 'unknown' || idx.event_type === 'invalid_json') return
 
-          ingestSeq += 1n
+          const marketId = idx.market
+          const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
+          ingestSeqByMarket.set(marketId, nextSeq)
 
           const row: RawMarketEventRow = {
-            ingest_seq: ingestSeq,
+            ingest_seq: nextSeq,
             ts_local_ms: tsLocalMs,
             ...(idx.ts_exchange_ms ? { ts_exchange_ms: idx.ts_exchange_ms } : {}),
             event_type: idx.event_type,
-            market: idx.market,
-            ...(currentSlug ? { market_slug: currentSlug } : {}),
-            ...(idx.asset_id ? { asset_id: idx.asset_id } : {}),
             raw_json: raw,
           }
+
+          const fileKey = currentSlug ?? `market-${marketId}`
 
           // No queue: write immediately. If disk can't keep up, we disconnect to avoid
           // unbounded memory growth from piling up promises/buffers.
@@ -292,7 +294,7 @@ async function main(): Promise<void> {
           inFlightAppends += 1
           totalAppends += 1
           void recorder
-            .append(row)
+            .append({ marketId, fileKey, row })
             .catch((err) => {
               appendErrors += 1
               console.error('[record-live] append failed', err)

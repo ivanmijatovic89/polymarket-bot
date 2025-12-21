@@ -12,8 +12,5 @@ export const rawMarketEventParquetSchema = new parquet.ParquetSchema({
   ts_local_ms: { type: 'INT64' },
   ts_exchange_ms: { type: 'INT64', optional: true },
   event_type: { type: 'UTF8' },
-  market: { type: 'UTF8', optional: true },
-  market_slug: { type: 'UTF8', optional: true },
-  asset_id: { type: 'UTF8', optional: true },
   raw_json: { type: 'UTF8' },
 })
