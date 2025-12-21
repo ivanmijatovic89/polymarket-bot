@@ -77,8 +77,6 @@ function floorToWindowStart(tsMs: number, windowMs: number): number {
   return Math.floor(tsMs / windowMs) * windowMs
 }
 
-type CandleCount = { windowStartMs: number; ok: number; err: number }
-
 function formatMsAsMmSs(ms: number): string {
   const sec = Math.max(0, Math.ceil(ms / 1000))
   const min = Math.floor(sec / 60)
@@ -136,9 +134,6 @@ async function main(): Promise<void> {
   let totalAppends = 0
   let appendErrors = 0
 
-  // Per-market candle counters (reset automatically when windowStartMs changes).
-  const candleCountsByMarket = new Map<string, CandleCount>()
-
   const waitForInFlightAppends = async (timeoutMs: number): Promise<boolean> => {
     const start = Date.now()
     while (Date.now() - start < timeoutMs) {
@@ -156,8 +151,7 @@ async function main(): Promise<void> {
       isWaitingForNextWindow &&
       inFlightAppends === 0 &&
       totalAppends === 0 &&
-      appendErrors === 0 &&
-      candleCountsByMarket.size === 0
+      appendErrors === 0
     ) {
       return
     }
@@ -168,13 +162,8 @@ async function main(): Promise<void> {
     const secRemainder = secLeft % 60
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
-    const candleEntries = [...candleCountsByMarket.entries()]
-      .sort(([a], [b]) => a.localeCompare(b))
-      .map(([market, c]) => `${market}:${c.ok}${c.err ? `/${c.err}err` : ''}`)
-      .join(' ')
-
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} candle_rows_by_market=${candleEntries || '-'}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft}`,
     )
   }, statsIntervalMs)
 
@@ -287,10 +276,6 @@ async function main(): Promise<void> {
             raw_json: raw,
           }
 
-          const tsForWindowMs = idx.ts_exchange_ms ? Number(idx.ts_exchange_ms) : Number(tsLocalMs)
-          const windowStartMs = floorToWindowStart(tsForWindowMs, FIFTEEN_MIN_MS)
-          const marketId = idx.market
-
           // No queue: write immediately. If disk can't keep up, we disconnect to avoid
           // unbounded memory growth from piling up promises/buffers.
           if (inFlightAppends >= maxInFlightAppends) {
@@ -308,31 +293,17 @@ async function main(): Promise<void> {
           totalAppends += 1
           void recorder
             .append(row)
-            .then(() => {
-              const prev = candleCountsByMarket.get(marketId)
-              if (!prev || prev.windowStartMs !== windowStartMs) {
-                candleCountsByMarket.set(marketId, { windowStartMs, ok: 1, err: 0 })
-                return
-              }
-              prev.ok += 1
-            })
             .catch((err) => {
               appendErrors += 1
               console.error('[record-live] append failed', err)
-
-              const prev = candleCountsByMarket.get(marketId)
-              if (!prev || prev.windowStartMs !== windowStartMs) {
-                candleCountsByMarket.set(marketId, { windowStartMs, ok: 0, err: 1 })
-                return
-              }
-              prev.err += 1
             })
             .finally(() => {
               inFlightAppends -= 1
             })
         },
         onClose: (code, reason) => {
-          console.log(`[record-live] disconnected code=${code} reason=${reason.toString()}`)
+          const msg = `[record-live] disconnected code=${code} reason=${reason.toString()}`
+          console.error(`\x1b[31m${msg}\x1b[0m`)
           currentClient = undefined
 
           if (shouldStop || isRotating) return

@@ -18,4 +18,3 @@ export function buildBtcUpDown15mSlug(date: Date): string {
   const epoch = toEpochSeconds(windowStart)
   return `btc-updown-15m-${epoch}`
 }
-
