@@ -16,7 +16,7 @@ process.on('uncaughtException', (err) => {
 
 const FIFTEEN_MIN_MS = 15 * 60 * 1000
 const DEFAULT_STATS_INTERVAL_MS = 10_000
-const DEFAULT_SKIP_IF_OLDER_MS = 5_000
+const DEFAULT_SKIP_IF_OLDER_MS = 10_000
 
 function parseEnvInt(name: string, fallback: number): number {
   const raw = process.env[name]
@@ -50,9 +50,21 @@ function parseEventIndexFields(rawJson: string): {
     const asset_id = typeof rec.asset_id === 'string' ? rec.asset_id : undefined
 
     let ts_exchange_ms: bigint | undefined
-    if (typeof rec.timestamp === 'string' && rec.timestamp.trim() !== '') {
-      // Polymarket uses unix ms timestamps encoded as strings.
-      ts_exchange_ms = BigInt(rec.timestamp)
+    const ts = rec.timestamp
+    if (typeof ts === 'string' && ts.trim() !== '') {
+      // Polymarket typically uses unix ms timestamps encoded as strings.
+      try {
+        ts_exchange_ms = BigInt(ts)
+      } catch {
+        // ignore
+      }
+    } else if (typeof ts === 'number' && Number.isFinite(ts)) {
+      // Be tolerant if timestamp comes through as a number.
+      try {
+        ts_exchange_ms = BigInt(Math.trunc(ts))
+      } catch {
+        // ignore
+      }
     }
 
     const out: { event_type: string; market?: string; asset_id?: string; ts_exchange_ms?: bigint } =
@@ -137,6 +149,9 @@ async function main(): Promise<void> {
   let totalAppends = 0
   let appendErrors = 0
   let disconnects = 0
+  let droppedNoMarket = 0
+  let droppedBadJson = 0
+  let droppedUnknownType = 0
 
   const waitForInFlightAppends = async (timeoutMs: number): Promise<boolean> => {
     const start = Date.now()
@@ -167,7 +182,7 @@ async function main(): Promise<void> {
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} dropped_no_market=${droppedNoMarket} dropped_bad_json=${droppedBadJson} dropped_unknown_type=${droppedUnknownType}`,
     )
   }, statsIntervalMs)
 
@@ -181,6 +196,17 @@ async function main(): Promise<void> {
     // the current slug's single parquet file on restarts.
     const windowStartMsFromSlug = tryParseBtcUpDown15mSlugEpochMs(m.slug)
     if (windowStartMsFromSlug !== null) {
+      // After a 15m boundary, Gamma may briefly still return the previous market.
+      // If so, retry quickly rather than skipping a whole 15m window.
+      const expectedWindowStartMs = floorToWindowStart(Date.now(), FIFTEEN_MIN_MS)
+      if (windowStartMsFromSlug < expectedWindowStartMs) {
+        currentSlug = undefined
+        throw new SkipWindowError(
+          `[record-live] gamma still returning previous market slug=${m.slug}; waiting for current window market`,
+          500,
+        )
+      }
+
       const ageMs = Date.now() - windowStartMsFromSlug
       if (ageMs > skipIfOlderMs) {
         currentSlug = undefined
@@ -265,8 +291,18 @@ async function main(): Promise<void> {
 
           // We rotate/write per market. If a message doesn't carry `market` (e.g. acks),
           // we ignore it to avoid polluting `market=unknown` files.
-          if (!idx.market) return
-          if (idx.event_type === 'unknown' || idx.event_type === 'invalid_json') return
+          if (!idx.market) {
+            droppedNoMarket += 1
+            return
+          }
+          if (idx.event_type === 'invalid_json') {
+            droppedBadJson += 1
+            return
+          }
+          if (idx.event_type === 'unknown') {
+            droppedUnknownType += 1
+            return
+          }
 
           const marketId = idx.market
           seenMarketIds.add(marketId)
