@@ -1,20 +1,6 @@
 const GAMMA_DEFAULT = 'https://gamma-api.polymarket.com'
 
-function floorTo15mUtc(date: Date): Date {
-  const ms = date.getTime()
-  const fifteen = 15 * 60 * 1000
-  return new Date(Math.floor(ms / fifteen) * fifteen)
-}
-
-function toEpochSeconds(date: Date): number {
-  return Math.floor(date.getTime() / 1000)
-}
-
-function buildSlug(date: Date): string {
-  const windowStart = floorTo15mUtc(date)
-  const epoch = toEpochSeconds(windowStart)
-  return `btc-updown-15m-${epoch}`
-}
+import { buildBtcUpDown15mSlug, FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 
 function parseJsonArrayString(s: unknown): unknown[] | null {
   if (typeof s !== 'string') return null
@@ -57,7 +43,10 @@ export async function getCurrentBtcUpDown15mMarket(
 ): Promise<BtcUpDown15mMarket | null> {
   const gammaBaseUrl = process.env.GAMMA_API_BASE_URL ?? GAMMA_DEFAULT
 
-  const candidates = [buildSlug(date), buildSlug(new Date(date.getTime() - 15 * 60 * 1000))]
+  const candidates = [
+    buildBtcUpDown15mSlug(date),
+    buildBtcUpDown15mSlug(new Date(date.getTime() - FIFTEEN_MIN_MS)),
+  ]
 
   for (const slug of candidates) {
     const raw = await fetchGammaMarketBySlug({ gammaBaseUrl, slug })
