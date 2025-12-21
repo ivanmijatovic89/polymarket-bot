@@ -124,6 +124,8 @@ async function main(): Promise<void> {
 
   // Per-market ingestion sequence (resets automatically for each new market id).
   const ingestSeqByMarket = new Map<string, bigint>()
+  // Market ids observed on the current WS connection (used for synthetic disconnect markers).
+  const seenMarketIds = new Set<string>()
   let shouldStop = false
   let isRotating = false
 
@@ -134,6 +136,7 @@ async function main(): Promise<void> {
   let inFlightAppends = 0
   let totalAppends = 0
   let appendErrors = 0
+  let disconnects = 0
 
   const waitForInFlightAppends = async (timeoutMs: number): Promise<boolean> => {
     const start = Date.now()
@@ -164,7 +167,7 @@ async function main(): Promise<void> {
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects}`,
     )
   }, statsIntervalMs)
 
@@ -234,6 +237,7 @@ async function main(): Promise<void> {
         throw err
       }
       currentAssetsIds = assetsIds
+      seenMarketIds.clear()
 
       console.log(
         `[record-live] connecting... attempt=${connectAttempt} assets=${assetsIds.length} source=${label}`,
@@ -265,6 +269,7 @@ async function main(): Promise<void> {
           if (idx.event_type === 'unknown' || idx.event_type === 'invalid_json') return
 
           const marketId = idx.market
+          seenMarketIds.add(marketId)
           const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
           ingestSeqByMarket.set(marketId, nextSeq)
 
@@ -304,11 +309,51 @@ async function main(): Promise<void> {
             })
         },
         onClose: (code, reason) => {
-          const msg = `[record-live] disconnected code=${code} reason=${reason.toString()}`
+          const reasonStr = reason.toString()
+          const msg = `[record-live] disconnected code=${code} reason=${reasonStr}`
           console.error(`\x1b[31m${msg}\x1b[0m`)
           currentClient = undefined
 
           if (shouldStop || isRotating) return
+          disconnects += 1
+
+          // Persist a synthetic disconnect marker so backtests can detect data gaps.
+          // Note: this will only be written if a parquet writer is already open for the market
+          // (writer opens on the first `book` event).
+          const ts = BigInt(Date.now())
+          const markets = [...seenMarketIds]
+          for (const marketId of markets) {
+            const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
+            ingestSeqByMarket.set(marketId, nextSeq)
+
+            const fileKey = currentSlug ?? `market-${marketId}`
+            const row: RawMarketEventRow = {
+              ingest_seq: nextSeq,
+              ts_local_ms: ts,
+              ts_exchange_ms: ts,
+              event_type: 'disconnect',
+              raw_json: JSON.stringify({
+                event_type: 'disconnect',
+                market: marketId,
+                timestamp: ts.toString(),
+                ws_close_code: code,
+                ws_close_reason: reasonStr,
+              }),
+            }
+
+            inFlightAppends += 1
+            totalAppends += 1
+            void recorder
+              .append({ marketId, fileKey, row })
+              .catch((err) => {
+                appendErrors += 1
+                console.error('[record-live] disconnect append failed', err)
+              })
+              .finally(() => {
+                inFlightAppends -= 1
+              })
+          }
+
           // quick reconnect loop (we also reconnect on every 15m boundary)
           scheduleReconnect(1_000)
         },
