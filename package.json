@@ -9,7 +9,8 @@
   },
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "record:live": "node --loader ts-node/esm src/scripts/record-live.ts",
+    "record:live": "tsx src/scripts/record-live.ts",
+    "verify:parquet": "tsx src/scripts/verify-parquet.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier . --write",
@@ -27,6 +28,7 @@
     "eslint-config-prettier": "^10.1.8",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
+    "tsx": "^4.21.0",
     "typescript": "^5.9.3"
   },
   "dependencies": {
