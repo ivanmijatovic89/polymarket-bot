@@ -60,4 +60,3 @@ export async function getCurrentUpDown15mMarket(
 
   return null
 }
-

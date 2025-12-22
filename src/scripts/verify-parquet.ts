@@ -53,7 +53,8 @@ async function main(): Promise<void> {
 
   const limit = parseLimit(process.argv.slice(3))
   const metadataOnly =
-    hasFlag(process.argv.slice(3), '--metadata-only') || hasFlag(process.argv.slice(3), '--meta-only')
+    hasFlag(process.argv.slice(3), '--metadata-only') ||
+    hasFlag(process.argv.slice(3), '--meta-only')
 
   const st = await stat(filePath)
   console.log(`[verify-parquet] file=${filePath}`)

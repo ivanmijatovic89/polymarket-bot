@@ -105,7 +105,10 @@ class SkipWindowError extends Error {
   }
 }
 
-function tryParseUpDown15mSlugEpochMs(args: { slug: string; symbol: UpDown15mSymbol }): number | null {
+function tryParseUpDown15mSlugEpochMs(args: {
+  slug: string
+  symbol: UpDown15mSymbol
+}): number | null {
   // Expected: <symbol>-updown-15m-<epochSeconds>
   // Note: RegExp(string) needs a single escaped `\\d` to mean digit.
   // `\\\\d` would match the literal string "\d" and would break the skip-if-older logic.
@@ -205,7 +208,9 @@ async function main(): Promise<void> {
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
     const m = await getCurrentUpDown15mMarket(symbol, new Date())
     if (!m)
-      throw new Error(`[record-live] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`)
+      throw new Error(
+        `[record-live] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`,
+      )
 
     const nextSlug = m.slug
     currentSlug = m.slug

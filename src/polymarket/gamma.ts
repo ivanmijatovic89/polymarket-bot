@@ -12,4 +12,3 @@ export async function fetchGammaMarketBySlug(args: {
   if (!first || typeof first !== 'object') return null
   return first as Record<string, unknown>
 }
-
