@@ -164,9 +164,48 @@ async function main(): Promise<void> {
   let totalAppends = 0
   let appendErrors = 0
   let disconnects = 0
+  let expectedCloses = 0
   let droppedNoMarket = 0
   let droppedBadJson = 0
   let droppedUnknownType = 0
+
+  const classifyClose = (
+    code: number,
+    reasonStr: string,
+  ): { kind: 'expected' | 'unexpected'; tag: string } => {
+    const r = reasonStr.toLowerCase()
+
+    // Codes are per RFC6455 / ws conventions:
+    // - 1000: Normal closure
+    // - 1001: Going away
+    // - 1005/1006: No status code / Abnormal closure (should be treated as unexpected)
+    if (code === 1000 || code === 1001) {
+      // Some providers send empty reasons on normal close.
+      // When this happens around a 15m market boundary/end, we do NOT want to count it as a disconnect.
+      return { kind: 'expected', tag: 'normal_close' }
+    }
+
+    // Heuristics for "market ended / subscription no longer valid" closes.
+    if (
+      r.includes('market') ||
+      r.includes('closed') ||
+      r.includes('inactive') ||
+      r.includes('not active') ||
+      r.includes('no longer') ||
+      r.includes('expired') ||
+      r.includes('asset') ||
+      r.includes('token') ||
+      r.includes('unsubscribe')
+    ) {
+      // If a server closes with a specific error code + reason, prefer to treat it as expected.
+      // (We still reconnect immediately, but we won't write synthetic `disconnect` markers.)
+      if (code >= 1000 && code < 4000) {
+        return { kind: 'expected', tag: 'market_end_or_subscription' }
+      }
+    }
+
+    return { kind: 'unexpected', tag: 'disconnect' }
+  }
 
   // Stats scoping: `totalAppends` should track the current market (slug) only.
   // We treat the Gamma slug as the market key because it rotates every 15m.
@@ -201,7 +240,7 @@ async function main(): Promise<void> {
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} dropped_no_market=${droppedNoMarket} dropped_bad_json=${droppedBadJson} dropped_unknown_type=${droppedUnknownType}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${droppedNoMarket} dropped_bad_json=${droppedBadJson} dropped_unknown_type=${droppedUnknownType}`,
     )
   }, statsIntervalMs)
 
@@ -382,6 +421,29 @@ async function main(): Promise<void> {
           currentClient = undefined
 
           if (shouldStop || isRotating) return
+
+          let closeKind = classifyClose(code, reasonStr)
+
+          // Special case: Polymarket may close the WS right as the 15m market ends.
+          // That should not count as an "unexpected disconnect".
+          const msToBoundary = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+          const isNearBoundary = msToBoundary <= 2_000
+          const slugStartMs =
+            currentSlug ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol }) : null
+          const isNearWindowEnd =
+            slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
+
+          if (closeKind.kind === 'unexpected' && (isNearBoundary || isNearWindowEnd)) {
+            closeKind = { kind: 'expected', tag: 'window_end' }
+          }
+
+          if (closeKind.kind === 'expected') {
+            expectedCloses += 1
+            // quick reconnect loop (we also reconnect on every 15m boundary)
+            scheduleReconnect(1_000)
+            return
+          }
+
           disconnects += 1
 
           // Persist a synthetic disconnect marker so backtests can detect data gaps.
@@ -398,9 +460,9 @@ async function main(): Promise<void> {
               ingest_seq: nextSeq,
               ts_local_ms: ts,
               ts_exchange_ms: ts,
-              event_type: 'disconnect',
+              event_type: closeKind.tag,
               raw_json: JSON.stringify({
-                event_type: 'disconnect',
+                event_type: closeKind.tag,
                 market: marketId,
                 timestamp: ts.toString(),
                 ws_close_code: code,
