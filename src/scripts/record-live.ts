@@ -165,6 +165,10 @@ async function main(): Promise<void> {
   let droppedBadJson = 0
   let droppedUnknownType = 0
 
+  // Stats scoping: `totalAppends` should track the current market (slug) only.
+  // We treat the Gamma slug as the market key because it rotates every 15m.
+  let statsMarketKey: string | undefined
+
   const waitForInFlightAppends = async (timeoutMs: number): Promise<boolean> => {
     const start = Date.now()
     while (Date.now() - start < timeoutMs) {
@@ -203,6 +207,7 @@ async function main(): Promise<void> {
     if (!m)
       throw new Error(`[record-live] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`)
 
+    const nextSlug = m.slug
     currentSlug = m.slug
 
     // If the market already started, don't join mid-candle. This prevents overwriting
@@ -236,7 +241,7 @@ async function main(): Promise<void> {
     console.log('[record-live] chosen market from Gamma:', { slug: m.slug, question: m.question })
     console.log('[record-live] token ids:', map)
 
-    return { assetsIds, label: `gamma:${m.slug}` }
+    return { assetsIds, label: `gamma:${nextSlug}` }
   }
 
   let connectInFlight: Promise<void> | undefined
@@ -274,6 +279,14 @@ async function main(): Promise<void> {
           return
         }
         throw err
+      }
+
+      // Reset per-market stats when the selected Gamma market changes.
+      // `currentSlug` is set by `resolveAssetsIds()` when we pick a market.
+      const nextStatsKey = currentSlug
+      if (nextStatsKey && nextStatsKey !== statsMarketKey) {
+        statsMarketKey = nextStatsKey
+        totalAppends = 0
       }
       currentAssetsIds = assetsIds
       seenMarketIds.clear()
