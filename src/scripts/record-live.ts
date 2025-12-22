@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { getCurrentBtcUpDown15mMarket } from '../polymarket/btcUpDown15m.js'
+import { getCurrentUpDown15mMarket, type UpDown15mSymbol } from '../polymarket/upDown15m.js'
 import { createMarketWsClient, type PolymarketAuth } from '../polymarket/marketWs.js'
 import { RotatingParquetEventRecorder } from '../io/parquet/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
@@ -105,9 +105,11 @@ class SkipWindowError extends Error {
   }
 }
 
-function tryParseBtcUpDown15mSlugEpochMs(slug: string): number | null {
-  // Expected: btc-updown-15m-<epochSeconds>
-  const m = /^btc-updown-15m-(\d+)$/.exec(slug)
+function tryParseUpDown15mSlugEpochMs(args: { slug: string; symbol: UpDown15mSymbol }): number | null {
+  // Expected: <symbol>-updown-15m-<epochSeconds>
+  // Note: RegExp(string) needs a single escaped `\\d` to mean digit.
+  // `\\\\d` would match the literal string "\d" and would break the skip-if-older logic.
+  const m = new RegExp(`^${args.symbol}-updown-15m-(\\d+)$`).exec(args.slug)
   if (!m) return null
   const seconds = Number(m[1])
   if (!Number.isFinite(seconds) || seconds <= 0) return null
@@ -118,13 +120,23 @@ async function main(): Promise<void> {
   const wsUrl =
     process.env.POLYMARKET_WS_URL ?? 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
 
-  const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events')
+  const rawSymbol = process.env.RECORD_SYMBOL
+  if (!rawSymbol) {
+    throw new Error('[record-live] RECORD_SYMBOL is required (BTC|ETH|SOL|XRP)')
+  }
+  const symbol = rawSymbol.trim().toLowerCase() as UpDown15mSymbol
+  if (symbol !== 'btc' && symbol !== 'eth' && symbol !== 'sol' && symbol !== 'xrp') {
+    throw new Error(`[record-live] invalid RECORD_SYMBOL=${rawSymbol} (expected BTC|ETH|SOL|XRP)`)
+  }
+
+  const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events', symbol)
   const auth = parseOptionalAuth()
 
   const statsIntervalMs = parseEnvInt('RECORD_STATS_INTERVAL_MS', DEFAULT_STATS_INTERVAL_MS)
   const maxInFlightAppends = parseEnvInt('RECORD_MAX_INFLIGHT_APPENDS', 10_000)
   const skipIfOlderMs = parseEnvInt('RECORD_SKIP_IF_OLDER_MS', DEFAULT_SKIP_IF_OLDER_MS)
 
+  console.log(`[record-live] symbol=${symbol}`)
   console.log(`[record-live] wsUrl=${wsUrl}`)
   console.log(`[record-live] baseDir=${baseDir}`)
   console.log(`[record-live] maxInFlightAppends=${maxInFlightAppends}`)
@@ -187,14 +199,15 @@ async function main(): Promise<void> {
   }, statsIntervalMs)
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
-    const m = await getCurrentBtcUpDown15mMarket(new Date())
-    if (!m) throw new Error('No current BTC 15m Up/Down market found on Gamma')
+    const m = await getCurrentUpDown15mMarket(symbol, new Date())
+    if (!m)
+      throw new Error(`[record-live] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`)
 
     currentSlug = m.slug
 
     // If the market already started, don't join mid-candle. This prevents overwriting
     // the current slug's single parquet file on restarts.
-    const windowStartMsFromSlug = tryParseBtcUpDown15mSlugEpochMs(m.slug)
+    const windowStartMsFromSlug = tryParseUpDown15mSlugEpochMs({ slug: m.slug, symbol })
     if (windowStartMsFromSlug !== null) {
       // After a 15m boundary, Gamma may briefly still return the previous market.
       // If so, retry quickly rather than skipping a whole 15m window.

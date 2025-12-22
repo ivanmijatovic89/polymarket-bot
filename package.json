@@ -10,6 +10,10 @@
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "record:live": "tsx src/scripts/record-live.ts",
+    "record:live:btc": "RECORD_SYMBOL=BTC tsx src/scripts/record-live.ts",
+    "record:live:eth": "RECORD_SYMBOL=ETH tsx src/scripts/record-live.ts",
+    "record:live:sol": "RECORD_SYMBOL=SOL tsx src/scripts/record-live.ts",
+    "record:live:xrp": "RECORD_SYMBOL=XRP tsx src/scripts/record-live.ts",
     "verify:parquet": "tsx src/scripts/verify-parquet.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
