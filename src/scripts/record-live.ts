@@ -1,9 +1,12 @@
 import path from 'node:path'
 
 import { getCurrentUpDown15mMarket, type UpDown15mSymbol } from '../polymarket/upDown15m.js'
-import { createMarketWsClient, type PolymarketAuth } from '../polymarket/marketWs.js'
+import type { PolymarketAuth } from '../polymarket/marketWs.js'
+import { parseEventIndexFields } from '../polymarket/marketEventIndex.js'
+import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { RotatingParquetEventRecorder } from '../io/parquet/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
+import { createWindowBoundaryScheduler, formatMsAsMmSs, msUntilNextBoundary } from '../utils/windowBoundary.js'
 
 process.on('unhandledRejection', (reason) => {
   console.error('[record-live] unhandledRejection', reason)
@@ -34,66 +37,8 @@ function parseOptionalAuth(): PolymarketAuth | undefined {
   return { apiKey, secret, passphrase }
 }
 
-function parseEventIndexFields(rawJson: string): {
-  event_type: string
-  market?: string
-  asset_id?: string
-  ts_exchange_ms?: bigint
-} {
-  try {
-    const obj: unknown = JSON.parse(rawJson)
-    if (!obj || typeof obj !== 'object') return { event_type: 'unknown' }
-
-    const rec = obj as Record<string, unknown>
-    const event_type = typeof rec.event_type === 'string' ? rec.event_type : 'unknown'
-    const market = typeof rec.market === 'string' ? rec.market : undefined
-    const asset_id = typeof rec.asset_id === 'string' ? rec.asset_id : undefined
-
-    let ts_exchange_ms: bigint | undefined
-    const ts = rec.timestamp
-    if (typeof ts === 'string' && ts.trim() !== '') {
-      // Polymarket typically uses unix ms timestamps encoded as strings.
-      try {
-        ts_exchange_ms = BigInt(ts)
-      } catch {
-        // ignore
-      }
-    } else if (typeof ts === 'number' && Number.isFinite(ts)) {
-      // Be tolerant if timestamp comes through as a number.
-      try {
-        ts_exchange_ms = BigInt(Math.trunc(ts))
-      } catch {
-        // ignore
-      }
-    }
-
-    const out: { event_type: string; market?: string; asset_id?: string; ts_exchange_ms?: bigint } =
-      {
-        event_type,
-      }
-    if (market) out.market = market
-    if (asset_id) out.asset_id = asset_id
-    if (ts_exchange_ms) out.ts_exchange_ms = ts_exchange_ms
-    return out
-  } catch {
-    return { event_type: 'invalid_json' }
-  }
-}
-
-function msUntilNextBoundary(nowMs: number, windowMs: number): number {
-  const next = (Math.floor(nowMs / windowMs) + 1) * windowMs
-  return Math.max(0, next - nowMs)
-}
-
 function floorToWindowStart(tsMs: number, windowMs: number): number {
   return Math.floor(tsMs / windowMs) * windowMs
-}
-
-function formatMsAsMmSs(ms: number): string {
-  const sec = Math.max(0, Math.ceil(ms / 1000))
-  const min = Math.floor(sec / 60)
-  const rem = sec % 60
-  return `${String(min).padStart(2, '0')}:${String(rem).padStart(2, '0')}`
 }
 
 function asTerminatedParquetPath(filePathFinal: string): string {
@@ -163,9 +108,11 @@ async function main(): Promise<void> {
   let shouldStop = false
   let isRotating = false
 
-  let currentClient: { close: () => void } | undefined
   let currentAssetsIds: string[] = []
   let currentSlug: string | undefined
+
+  let everConnected = false
+  let isWaitingForNextWindow = false
 
   let inFlightAppends = 0
   let totalAppends = 0
@@ -275,6 +222,7 @@ async function main(): Promise<void> {
       const expectedWindowStartMs = floorToWindowStart(Date.now(), FIFTEEN_MIN_MS)
       if (windowStartMsFromSlug < expectedWindowStartMs) {
         currentSlug = undefined
+        isWaitingForNextWindow = true
         throw new SkipWindowError(
           `[record-live] gamma still returning previous market slug=${m.slug}; waiting for current window market`,
           500,
@@ -284,6 +232,7 @@ async function main(): Promise<void> {
       const ageMs = Date.now() - windowStartMsFromSlug
       if (!everConnected && ageMs > skipIfOlderMs) {
         currentSlug = undefined
+        isWaitingForNextWindow = true
         const waitMs = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS) + 250
         throw new SkipWindowError(
           `[record-live] market already started ageMs=${ageMs} > skipIfOlderMs=${skipIfOlderMs}; waiting for next window`,
@@ -297,220 +246,180 @@ async function main(): Promise<void> {
     console.log('[record-live] chosen market from Gamma:', { slug: m.slug, question: m.question })
     console.log('[record-live] token ids:', map)
 
+    // Reset per-market stats when the selected Gamma market changes.
+    const nextStatsKey = currentSlug
+    if (nextStatsKey && nextStatsKey !== statsMarketKey) {
+      statsMarketKey = nextStatsKey
+      totalAppends = 0
+    }
+
+    // Remember the current subscription targets for logging and markers.
+    currentAssetsIds = assetsIds
+    seenMarketIds.clear()
+
     return { assetsIds, label: `gamma:${nextSlug}` }
   }
 
-  let connectInFlight: Promise<void> | undefined
-  let reconnectTimer: NodeJS.Timeout | undefined
-  let everConnected = false
-  let connectAttempt = 0
-  let isWaitingForNextWindow = false
+  let manualReconnectTimer: NodeJS.Timeout | undefined
 
-  const scheduleReconnect = (delayMs: number): void => {
+  const source = createLiveMarketEventSource({
+    url: wsUrl,
+    ...(auth ? { auth } : {}),
+    resolveAssetsIds,
+  })
+
+  const requestReconnect = (delayMs: number, why: string): void => {
     if (shouldStop) return
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    reconnectTimer = setTimeout(() => {
-      connect()
+    if (manualReconnectTimer) clearTimeout(manualReconnectTimer)
+    manualReconnectTimer = setTimeout(() => {
+      if (shouldStop) return
+      source.start()
     }, delayMs)
-    console.log(`[record-live] scheduled reconnect in ${formatMsAsMmSs(delayMs)}`)
+    console.log(`[record-live] scheduled reconnect in ${formatMsAsMmSs(delayMs)} (${why})`)
   }
 
-  const connect = (): void => {
-    if (shouldStop) return
-    if (connectInFlight) return
+  source.onEvent(({ tsLocalMs, raw }) => {
+    if (shouldStop || isRotating) return
 
-    connectInFlight = (async () => {
-      connectAttempt += 1
-      let assetsIds: string[]
-      let label: string
-      try {
-        const resolved = await resolveAssetsIds()
-        assetsIds = resolved.assetsIds
-        label = resolved.label
-      } catch (err) {
-        if (err instanceof SkipWindowError) {
-          isWaitingForNextWindow = true
-          console.log(err.message)
-          scheduleReconnect(err.waitMs)
-          return
-        }
-        throw err
-      }
+    const idx = parseEventIndexFields(raw)
 
-      // Reset per-market stats when the selected Gamma market changes.
-      // `currentSlug` is set by `resolveAssetsIds()` when we pick a market.
-      const nextStatsKey = currentSlug
-      if (nextStatsKey && nextStatsKey !== statsMarketKey) {
-        statsMarketKey = nextStatsKey
-        totalAppends = 0
-      }
-      currentAssetsIds = assetsIds
-      seenMarketIds.clear()
+    // We rotate/write per market. If a message doesn't carry `market` (e.g. acks),
+    // we ignore it to avoid polluting `market=unknown` files.
+    if (!idx.market) {
+      droppedNoMarket += 1
+      return
+    }
+    if (idx.event_type === 'invalid_json') {
+      droppedBadJson += 1
+      return
+    }
+    if (idx.event_type === 'unknown') {
+      droppedUnknownType += 1
+      return
+    }
 
-      console.log(
-        `[record-live] connecting... attempt=${connectAttempt} assets=${assetsIds.length} source=${label}`,
+    const marketId = idx.market
+    seenMarketIds.add(marketId)
+    const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
+    ingestSeqByMarket.set(marketId, nextSeq)
+
+    const row: RawMarketEventRow = {
+      ingest_seq: nextSeq,
+      ts_local_ms: tsLocalMs,
+      ...(idx.ts_exchange_ms ? { ts_exchange_ms: idx.ts_exchange_ms } : {}),
+      event_type: idx.event_type,
+      raw_json: raw,
+    }
+
+    const fileKey = currentSlug ?? `market-${marketId}`
+
+    // No queue: write immediately. If disk can't keep up, we disconnect to avoid
+    // unbounded memory growth from piling up promises/buffers.
+    if (inFlightAppends >= maxInFlightAppends) {
+      console.warn(
+        `[record-live] writer lag detected (inFlightAppends=${inFlightAppends} >= ${maxInFlightAppends}); disconnecting`,
       )
+      source.stop()
+      requestReconnect(1_000, 'writer_lag')
+      return
+    }
 
-      // Ensure we don't have a stale client lying around.
-      currentClient?.close()
-      currentClient = undefined
-
-      currentClient = createMarketWsClient({
-        url: wsUrl,
-        assetsIds,
-        ...(auth ? { auth } : {}),
-        onOpen: () => {
-          const msg = everConnected ? 'reconnected + subscribed' : 'connected + subscribed'
-          everConnected = true
-          isWaitingForNextWindow = false
-          console.log(`[record-live] ${msg}`)
-        },
-        onMessage: (raw) => {
-          if (shouldStop || isRotating) return
-
-          const tsLocalMs = BigInt(Date.now())
-          const idx = parseEventIndexFields(raw)
-
-          // We rotate/write per market. If a message doesn't carry `market` (e.g. acks),
-          // we ignore it to avoid polluting `market=unknown` files.
-          if (!idx.market) {
-            droppedNoMarket += 1
-            return
-          }
-          if (idx.event_type === 'invalid_json') {
-            droppedBadJson += 1
-            return
-          }
-          if (idx.event_type === 'unknown') {
-            droppedUnknownType += 1
-            return
-          }
-
-          const marketId = idx.market
-          seenMarketIds.add(marketId)
-          const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
-          ingestSeqByMarket.set(marketId, nextSeq)
-
-          const row: RawMarketEventRow = {
-            ingest_seq: nextSeq,
-            ts_local_ms: tsLocalMs,
-            ...(idx.ts_exchange_ms ? { ts_exchange_ms: idx.ts_exchange_ms } : {}),
-            event_type: idx.event_type,
-            raw_json: raw,
-          }
-
-          const fileKey = currentSlug ?? `market-${marketId}`
-
-          // No queue: write immediately. If disk can't keep up, we disconnect to avoid
-          // unbounded memory growth from piling up promises/buffers.
-          if (inFlightAppends >= maxInFlightAppends) {
-            if (currentClient) {
-              console.warn(
-                `[record-live] writer lag detected (inFlightAppends=${inFlightAppends} >= ${maxInFlightAppends}); disconnecting`,
-              )
-              currentClient.close()
-              currentClient = undefined
-            }
-            return
-          }
-
-          inFlightAppends += 1
-          totalAppends += 1
-          void recorder
-            .append({ marketId, fileKey, row })
-            .catch((err) => {
-              appendErrors += 1
-              console.error('[record-live] append failed', err)
-            })
-            .finally(() => {
-              inFlightAppends -= 1
-            })
-        },
-        onClose: (code, reason) => {
-          const reasonStr = reason.toString()
-          const msg = `[record-live] disconnected code=${code} reason=${reasonStr}`
-          console.error(`\x1b[31m${msg}\x1b[0m`)
-          currentClient = undefined
-
-          if (shouldStop || isRotating) return
-
-          let closeKind = classifyClose(code, reasonStr)
-
-          // Special case: Polymarket may close the WS right as the 15m market ends.
-          // That should not count as an "unexpected disconnect".
-          const msToBoundary = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
-          const isNearBoundary = msToBoundary <= 2_000
-          const slugStartMs =
-            currentSlug ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol }) : null
-          const isNearWindowEnd =
-            slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
-
-          if (closeKind.kind === 'unexpected' && (isNearBoundary || isNearWindowEnd)) {
-            closeKind = { kind: 'expected', tag: 'window_end' }
-          }
-
-          if (closeKind.kind === 'expected') {
-            expectedCloses += 1
-            // quick reconnect loop (we also reconnect on every 15m boundary)
-            scheduleReconnect(1_000)
-            return
-          }
-
-          disconnects += 1
-
-          // Persist a synthetic disconnect marker so backtests can detect data gaps.
-          // Note: the parquet writer may open on this marker even if the initial `book`
-          // snapshot was never received.
-          const ts = BigInt(Date.now())
-          const markets = [...seenMarketIds]
-          for (const marketId of markets) {
-            const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
-            ingestSeqByMarket.set(marketId, nextSeq)
-
-            const fileKey = currentSlug ?? `market-${marketId}`
-            const row: RawMarketEventRow = {
-              ingest_seq: nextSeq,
-              ts_local_ms: ts,
-              ts_exchange_ms: ts,
-              event_type: closeKind.tag,
-              raw_json: JSON.stringify({
-                event_type: closeKind.tag,
-                market: marketId,
-                timestamp: ts.toString(),
-                ws_close_code: code,
-                ws_close_reason: reasonStr,
-              }),
-            }
-
-            inFlightAppends += 1
-            totalAppends += 1
-            void recorder
-              .append({ marketId, fileKey, row })
-              .catch((err) => {
-                appendErrors += 1
-                console.error('[record-live] disconnect append failed', err)
-              })
-              .finally(() => {
-                inFlightAppends -= 1
-              })
-          }
-
-          // quick reconnect loop (we also reconnect on every 15m boundary)
-          scheduleReconnect(1_000)
-        },
-        onError: (err) => {
-          console.error('[record-live] ws error', err)
-        },
-      })
-    })()
+    inFlightAppends += 1
+    totalAppends += 1
+    void recorder
+      .append({ marketId, fileKey, row })
       .catch((err) => {
-        console.error('[record-live] connect failed', err)
-        if (!shouldStop) scheduleReconnect(2_000)
+        appendErrors += 1
+        console.error('[record-live] append failed', err)
       })
       .finally(() => {
-        connectInFlight = undefined
+        inFlightAppends -= 1
       })
-  }
+  })
+
+  source.onStatus((s) => {
+    if (shouldStop || isRotating) return
+
+    if (s.kind === 'connected') {
+      const msg = everConnected ? 'reconnected + subscribed' : 'connected + subscribed'
+      everConnected = true
+      isWaitingForNextWindow = false
+      console.log(`[record-live] ${msg}`)
+      return
+    }
+
+    if (s.kind === 'reconnecting') {
+      // Keep console readable: show delays in mm:ss format.
+      const extra = s.info ? ` (${s.info})` : ''
+      console.log(`[record-live] scheduled reconnect in ${formatMsAsMmSs(s.delayMs)}${extra}`)
+      return
+    }
+
+    if (s.kind !== 'disconnected') return
+    if (typeof s.code !== 'number') return
+    const code = s.code
+    const reasonStr = s.reason ?? ''
+
+    const msg = `[record-live] disconnected code=${code} reason=${reasonStr}`
+    console.error(`\x1b[31m${msg}\x1b[0m`)
+
+    let closeKind = classifyClose(code, reasonStr)
+
+    // Special case: Polymarket may close the WS right as the 15m market ends.
+    // That should not count as an "unexpected disconnect".
+    const msToBoundary = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+    const isNearBoundary = msToBoundary <= 2_000
+    const slugStartMs = currentSlug ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol }) : null
+    const isNearWindowEnd = slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
+
+    if (closeKind.kind === 'unexpected' && (isNearBoundary || isNearWindowEnd)) {
+      closeKind = { kind: 'expected', tag: 'window_end' }
+    }
+
+    if (closeKind.kind === 'expected') {
+      expectedCloses += 1
+      return
+    }
+
+    disconnects += 1
+
+    // Persist a synthetic disconnect marker so backtests can detect data gaps.
+    // Note: the parquet writer may open on this marker even if the initial `book`
+    // snapshot was never received.
+    const ts = BigInt(Date.now())
+    const markets = [...seenMarketIds]
+    for (const marketId of markets) {
+      const nextSeq = (ingestSeqByMarket.get(marketId) ?? 0n) + 1n
+      ingestSeqByMarket.set(marketId, nextSeq)
+
+      const fileKey = currentSlug ?? `market-${marketId}`
+      const row: RawMarketEventRow = {
+        ingest_seq: nextSeq,
+        ts_local_ms: ts,
+        ts_exchange_ms: ts,
+        event_type: closeKind.tag,
+        raw_json: JSON.stringify({
+          event_type: closeKind.tag,
+          market: marketId,
+          timestamp: ts.toString(),
+          ws_close_code: code,
+          ws_close_reason: reasonStr,
+        }),
+      }
+
+      inFlightAppends += 1
+      totalAppends += 1
+      void recorder
+        .append({ marketId, fileKey, row })
+        .catch((err) => {
+          appendErrors += 1
+          console.error('[record-live] disconnect append failed', err)
+        })
+        .finally(() => {
+          inFlightAppends -= 1
+        })
+    }
+  })
 
   const rotateAndReconnect = (): void => {
     void (async () => {
@@ -523,12 +432,8 @@ async function main(): Promise<void> {
       if (currentAssetsIds.length)
         console.log(`[record-live] last assets=${currentAssetsIds.length}`)
 
-      if (reconnectTimer) clearTimeout(reconnectTimer)
-      reconnectTimer = undefined
-
       // Stop inbound first, then flush queue, then close writers (writes footer + renames tmp).
-      currentClient?.close()
-      currentClient = undefined
+      source.stop()
 
       const drained = await waitForInFlightAppends(10_000)
       if (!drained) {
@@ -540,34 +445,33 @@ async function main(): Promise<void> {
       await recorder.closeAll()
       // Reconnect will re-resolve the current market slug/token ids.
       isRotating = false
-      scheduleReconnect(500)
+      requestReconnect(500, 'window_boundary')
     })().catch((err) => {
       console.error('[record-live] rotate failed', err)
       isRotating = false
-      if (!shouldStop) scheduleReconnect(2_000)
+      requestReconnect(2_000, 'rotate_failed')
     })
   }
 
-  const scheduleNextBoundary = (): void => {
-    const delay = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
-    setTimeout(() => {
+  const boundaryScheduler = createWindowBoundaryScheduler({
+    windowMs: FIFTEEN_MIN_MS,
+    onBoundary: () => {
       if (shouldStop) return
       rotateAndReconnect()
-      scheduleNextBoundary()
-    }, delay)
-  }
+    },
+  })
 
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
     console.log(`[record-live] ${signal} received, shutting down...`)
     shouldStop = true
     isRotating = true
-    if (reconnectTimer) clearTimeout(reconnectTimer)
-    reconnectTimer = undefined
+    boundaryScheduler.stop()
+    if (manualReconnectTimer) clearTimeout(manualReconnectTimer)
+    manualReconnectTimer = undefined
     if (statsInterval) clearInterval(statsInterval)
     statsInterval = undefined
 
-    currentClient?.close()
-    currentClient = undefined
+    source.stop()
 
     void (async () => {
       const drained = await waitForInFlightAppends(10_000)
@@ -590,8 +494,8 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => shutdown('SIGINT'))
   process.on('SIGTERM', () => shutdown('SIGTERM'))
 
-  connect()
-  scheduleNextBoundary()
+  source.start()
+  boundaryScheduler.start()
 }
 
 main().catch((err) => {

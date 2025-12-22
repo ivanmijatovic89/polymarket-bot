@@ -24,6 +24,23 @@ The goal is to use these exact raw ticks for both:
   - `npm run record:live:sol`
   - `npm run record:live:xrp`
 
+### Trading bot entrypoint (stub)
+
+- Script: `src/scripts/trading-bot.ts`
+- Main command(s):
+  - `npm run trade:bot:btc`
+  - `npm run trade:bot:eth`
+  - `npm run trade:bot:sol`
+  - `npm run trade:bot:xrp`
+
+This currently connects + subscribes + logs basic stats. Strategy/order logic will plug into the same raw event pipeline as backtests.
+
+### Backtesting entrypoint (Parquet replay)
+
+- Script: `src/scripts/backtesting.ts`
+- Main command:
+  - `npm run backtest -- <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]`
+
 High-level flow:
 
 1. **Pick the current market (Gamma)**
@@ -92,6 +109,8 @@ Requirements:
 
 - Node.js **v20**
 
+Note: if your terminal is on an older Node (e.g. v10), `tsx` and ESLint will fail. Use Node 20 (e.g. via `nvm use 20`).
+
 Install:
 
 ```bash
@@ -102,6 +121,7 @@ Environment variables (optional unless noted):
 
 - **Required**
   - `RECORD_SYMBOL`: `BTC|ETH|SOL|XRP` (the `npm run record:live:*` scripts set this for you)
+  - `TRADING_SYMBOL`: `BTC|ETH|SOL|XRP` (optional; `trading-bot` uses `TRADING_SYMBOL` and falls back to `RECORD_SYMBOL`)
 - **Gamma**
   - `GAMMA_API_BASE_URL` (default: `https://gamma-api.polymarket.com`)
 - **WebSocket**
@@ -140,6 +160,38 @@ What you’ll see:
 - Periodic stats (in-flight writes, total appended rows, drops, disconnects)
 - Rotation logs on each 15m boundary
 
+### Run the trading bot (stub)
+
+```bash
+npm run trade:bot:btc
+```
+
+Or choose symbol explicitly:
+
+```bash
+TRADING_SYMBOL=ETH npm run trade:bot
+```
+
+### Backtest (replay recorded Parquet)
+
+Fast (event-driven), in recorded-time order:
+
+```bash
+npm run backtest -- "data/events/btc/<slug>.parquet" --order recorded
+```
+
+Time-driven (sleeps based on timestamps), in exchange-time order:
+
+```bash
+npm run backtest -- "data/events/btc/<slug>.parquet" --order exchange_time --time-driven
+```
+
+Notes:
+
+- `--order recorded` uses the original recorded local timestamps (`ts_local_ms`) as the replay clock.
+- `--order exchange_time` uses exchange timestamps when present (`ts_exchange_ms`, falling back to `ts_local_ms`).
+- You can pass multiple files; replay merges deterministically using `(order_timestamp, ingest_seq, file_index)` so runs are reproducible.
+
 ### Verify a parquet file
 
 The verifier checks:
@@ -168,17 +220,28 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
   - `src/polymarket/gamma.ts`: fetch market by slug
   - `src/polymarket/upDown15m.ts`: compute candidate slugs + select current market
   - `src/utils/timeWindows.ts`: 15m window helpers + slug format
-- **WebSocket client**
+- **Event stream (shared by live + replay)**
+  - `src/ingest/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
+  - `src/polymarket/marketEventIndex.ts`: tolerant JSON indexer (`event_type`, `market`, timestamps)
+  - `src/ingest/rawMarketEventLogger.ts`: small shared “raw event handler” used by trading + backtesting
+- **WebSocket (live)**
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + ping/pong heartbeat)
+  - `src/polymarket/liveMarketEventSource.ts`: session runner (connect/reconnect) emitting `MarketEvent`
 - **Parquet output**
   - `src/io/parquet/eventSchema.ts`: Parquet schema
   - `src/io/parquet/eventWriter.ts`: per-market ordered writer + 15m rotation support
+- **Backtesting / replay**
+  - `src/backtest/parquetReplaySource.ts`: reads Parquet and emits `MarketEvent` deterministically
+- **Time/window helpers**
+  - `src/utils/windowBoundary.ts`: 15m boundary scheduler used by `record-live` and `trading-bot`
 - **Scripts**
   - `src/scripts/record-live.ts`: live ingest → Parquet
+  - `src/scripts/trading-bot.ts`: live ingest → strategy pipeline (stub)
+  - `src/scripts/backtesting.ts`: Parquet replay → strategy pipeline (stub)
   - `src/scripts/verify-parquet.ts`: Parquet validator
 
 ## Notes / current limitations
 
 - `src/index.ts` is currently a placeholder.
-- There is **no backtest replay engine yet** in this repo; we’re only recording the raw unit (`RawMarketEventRow`) needed for it.
+- Backtesting currently replays **raw WS JSON** from Parquet into a shared handler; the full decoder/orderbook/strategy pipeline is still WIP.
 - For safety, the recorder will disconnect if disk can’t keep up (controlled by `RECORD_MAX_INFLIGHT_APPENDS`) to prevent unbounded memory growth.
