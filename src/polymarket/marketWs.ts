@@ -61,7 +61,7 @@ export function createMarketWsClient(opts: MarketWsClientOptions): MarketWsClien
       }
       isAlive = false
       ws.ping()
-    }, 30_000)
+    }, 1_000)
   })
 
   ws.on('pong', () => {
