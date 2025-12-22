@@ -96,6 +96,13 @@ function formatMsAsMmSs(ms: number): string {
   return `${String(min).padStart(2, '0')}:${String(rem).padStart(2, '0')}`
 }
 
+function asTerminatedParquetPath(filePathFinal: string): string {
+  // Mark incomplete files created by manual termination (Ctrl+C / SIGTERM).
+  if (filePathFinal.endsWith('-terminated.parquet')) return filePathFinal
+  if (filePathFinal.endsWith('.parquet')) return filePathFinal.replace(/\.parquet$/, '-terminated.parquet')
+  return `${filePathFinal}-terminated`
+}
+
 class SkipWindowError extends Error {
   readonly waitMs: number
   constructor(message: string, waitMs: number) {
@@ -254,8 +261,13 @@ async function main(): Promise<void> {
     const nextSlug = m.slug
     currentSlug = m.slug
 
-    // If the market already started, don't join mid-candle. This prevents overwriting
-    // the current slug's single parquet file on restarts.
+    // If the market already started, don't join mid-candle on *initial startup*.
+    // This prevents overwriting the current slug's single parquet file on restarts.
+    //
+    // IMPORTANT: once we've connected at least once (`everConnected=true`), we MUST allow
+    // mid-window reconnects, otherwise a single disconnect after ~10s would cause us to
+    // stop recording until the next 15m boundary (producing "short files" ending with
+    // a synthetic `disconnect` marker).
     const windowStartMsFromSlug = tryParseUpDown15mSlugEpochMs({ slug: m.slug, symbol })
     if (windowStartMsFromSlug !== null) {
       // After a 15m boundary, Gamma may briefly still return the previous market.
@@ -270,7 +282,7 @@ async function main(): Promise<void> {
       }
 
       const ageMs = Date.now() - windowStartMsFromSlug
-      if (ageMs > skipIfOlderMs) {
+      if (!everConnected && ageMs > skipIfOlderMs) {
         currentSlug = undefined
         const waitMs = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS) + 250
         throw new SkipWindowError(
@@ -447,8 +459,8 @@ async function main(): Promise<void> {
           disconnects += 1
 
           // Persist a synthetic disconnect marker so backtests can detect data gaps.
-          // Note: this will only be written if a parquet writer is already open for the market
-          // (writer opens on the first `book` event).
+          // Note: the parquet writer may open on this marker even if the initial `book`
+          // snapshot was never received.
           const ts = BigInt(Date.now())
           const markets = [...seenMarketIds]
           for (const marketId of markets) {
@@ -565,7 +577,9 @@ async function main(): Promise<void> {
         )
       }
 
-      await recorder.closeAll()
+      await recorder.closeAll({
+        finalPathTransform: ({ filePathFinal }) => asTerminatedParquetPath(filePathFinal),
+      })
       process.exit(0)
     })().catch((err) => {
       console.error('[record-live] shutdown failed', err)

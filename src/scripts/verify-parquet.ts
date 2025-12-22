@@ -11,6 +11,16 @@ function parseLimit(argv: string[]): number {
   return n
 }
 
+function parsePrint(argv: string[]): number {
+  const idx = argv.indexOf('--print')
+  if (idx === -1) return 0
+  const raw = argv[idx + 1]
+  if (!raw) return 0
+  const n = Number(raw)
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return 0
+  return n
+}
+
 function hasFlag(argv: string[], flag: string): boolean {
   return argv.includes(flag)
 }
@@ -52,6 +62,7 @@ async function main(): Promise<void> {
   }
 
   const limit = parseLimit(process.argv.slice(3))
+  const printN = parsePrint(process.argv.slice(3))
   const metadataOnly =
     hasFlag(process.argv.slice(3), '--metadata-only') ||
     hasFlag(process.argv.slice(3), '--meta-only')
@@ -112,6 +123,28 @@ async function main(): Promise<void> {
       const row = await cursor.next()
       if (!row) break
       count += 1
+
+      if (printN > 0 && count <= printN) {
+        let parsed: unknown = undefined
+        try {
+          parsed = JSON.parse((row as { raw_json?: unknown }).raw_json as string)
+        } catch {
+          // ignore
+        }
+
+        const rec = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined
+        console.log('[verify-parquet] row=', {
+          n: count,
+          ingest_seq: (row as { ingest_seq?: unknown }).ingest_seq,
+          ts_local_ms: (row as { ts_local_ms?: unknown }).ts_local_ms,
+          ts_exchange_ms: (row as { ts_exchange_ms?: unknown }).ts_exchange_ms,
+          event_type: (row as { event_type?: unknown }).event_type,
+          json_market: rec?.market,
+          json_asset_id: rec?.asset_id,
+          json_timestamp: rec?.timestamp,
+        })
+      }
+
       if (limit > 0 && count >= limit) break
     }
 
