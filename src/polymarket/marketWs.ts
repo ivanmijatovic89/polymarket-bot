@@ -26,6 +26,11 @@ export type MarketWsClient = {
   close: () => void
 }
 
+// Keep pings frequent to keep NAT/proxies warm.
+const HEARTBEAT_INTERVAL_MS = 2_000
+// Be lenient: markets can go quiet; rely on pong to prove liveness.
+const HEARTBEAT_DEAD_AFTER_MS = 90_000
+
 /**
  * Minimal ws client for Polymarket market channel.
  *
@@ -41,7 +46,7 @@ export function createMarketWsClient(opts: MarketWsClientOptions): MarketWsClien
   })
 
   let heartbeatInterval: NodeJS.Timeout | undefined
-  let isAlive = true
+  let lastSeenAtMs = Date.now()
 
   ws.on('open', () => {
     const msg: MarketWsSubscribeMessage = {
@@ -53,23 +58,25 @@ export function createMarketWsClient(opts: MarketWsClientOptions): MarketWsClien
     opts.onOpen?.()
 
     // Heartbeat: ping/pong.
-    isAlive = true
+    lastSeenAtMs = Date.now()
     heartbeatInterval = setInterval(() => {
-      if (!isAlive) {
+      const now = Date.now()
+      // If we're receiving messages frequently, rely on that as "alive" signal too.
+      if (now - lastSeenAtMs > HEARTBEAT_DEAD_AFTER_MS) {
         ws.terminate()
         return
       }
-      isAlive = false
       ws.ping()
-    }, 1_000)
+    }, HEARTBEAT_INTERVAL_MS)
   })
 
   ws.on('pong', () => {
-    isAlive = true
+    lastSeenAtMs = Date.now()
   })
 
   ws.on('message', (data: RawData, isBinary: boolean) => {
     if (isBinary) return
+    lastSeenAtMs = Date.now()
     opts.onMessage(data.toString())
   })
 
