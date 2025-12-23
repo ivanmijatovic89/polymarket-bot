@@ -34,7 +34,6 @@ function asString(d: RawData): string | null {
   if (Buffer.isBuffer(d)) return d.toString('utf8')
   try {
     // ws RawData can be ArrayBuffer, etc.
-    // eslint-disable-next-line @typescript-eslint/no-base-to-string
     return d.toString()
   } catch {
     return null
@@ -142,7 +141,12 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
 
     ws.on('open', () => {
       backoffMs = baseDelayMs
-      emit({ kind: 'account_stream_status', tsMs: Date.now(), source: 'user_ws', status: 'connected' })
+      emit({
+        kind: 'account_stream_status',
+        tsMs: Date.now(),
+        source: 'user_ws',
+        status: 'connected',
+      })
 
       // Per docs: send auth fields on connection.
       ws?.send(
@@ -194,4 +198,3 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
     },
   }
 }
-

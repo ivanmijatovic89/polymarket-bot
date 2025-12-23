@@ -100,13 +100,14 @@ async function main(): Promise<void> {
         auth: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
       })
     : null
-  const poller = haveCreds && havePrivateKey
-    ? createRestPollAccountSource({
-        creds: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
-        // Start disabled; enable only when user WS disconnects.
-        enabled: false,
-      })
-    : null
+  const poller =
+    haveCreds && havePrivateKey
+      ? createRestPollAccountSource({
+          creds: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
+          // Start disabled; enable only when user WS disconnects.
+          enabled: false,
+        })
+      : null
 
   userWs?.onAccountEvent((ev) => {
     // If user WS disconnects, enable polling fallback; if connected, disable it.

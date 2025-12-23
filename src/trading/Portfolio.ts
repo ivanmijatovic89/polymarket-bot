@@ -1,4 +1,10 @@
-import type { AccountEvent, Fill, OpenOrder, PortfolioSnapshot, Position } from '../strategy/Strategy.js'
+import type {
+  AccountEvent,
+  Fill,
+  OpenOrder,
+  PortfolioSnapshot,
+  Position,
+} from '../strategy/Strategy.js'
 
 function clampFinite(n: number, fallback = 0): number {
   if (!Number.isFinite(n)) return fallback
@@ -166,8 +172,7 @@ export class Portfolio {
     const sellQty = Math.min(size, prev.qty)
     const remainingQty = prev.qty - sellQty
     const avg = prev.avgEntryPrice
-    const realized =
-      avg === null ? 0 : round2(prev.realizedPnl + (price - avg) * sellQty)
+    const realized = avg === null ? 0 : round2(prev.realizedPnl + (price - avg) * sellQty)
     this.positionsByAssetId.set(key, {
       assetId,
       qty: round2(remainingQty),
@@ -176,4 +181,3 @@ export class Portfolio {
     })
   }
 }
-

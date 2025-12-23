@@ -1,4 +1,4 @@
-import type { AccountEvent, Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 
 /**
  * Very simple taker strategy that forces fills under the current backtest fill model:
@@ -67,10 +67,7 @@ export function createExampleTakerFlipStrategy(cfg: TakerFlipConfig): Strategy {
     ]
   }
 
-  const onAccountEvent = (_ev: AccountEvent, _portfolio: PortfolioSnapshot): Intent[] => {
-    return []
-  }
+  const onAccountEvent: Strategy['onAccountEvent'] = () => []
 
   return { name, onMarketTick, onAccountEvent }
 }
-

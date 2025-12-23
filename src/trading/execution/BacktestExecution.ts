@@ -40,7 +40,11 @@ function sumFillableSize(o: SimOrder, book: OrderBookSnapshot | undefined): numb
   return sum
 }
 
-function buildFillsFromBook(o: SimOrder, book: OrderBookSnapshot | undefined, tsMs: number): Fill[] {
+function buildFillsFromBook(
+  o: SimOrder,
+  book: OrderBookSnapshot | undefined,
+  tsMs: number,
+): Fill[] {
   if (!book) return []
   const fills: Fill[] = []
   let remaining = o.remaining
@@ -87,7 +91,10 @@ function buildFillsFromBook(o: SimOrder, book: OrderBookSnapshot | undefined, ts
 export class BacktestExecution implements ExecutionAdapter {
   private readonly openByClientId = new Map<string, SimOrder>()
 
-  async placeLimit(intent: PlaceLimitIntent, ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async placeLimit(
+    intent: PlaceLimitIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const orderId = `bt-${intent.clientOrderId}`
     const o: SimOrder = {
@@ -159,7 +166,10 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events }
   }
 
-  async cancelOrder(intent: CancelOrderIntent, ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async cancelOrder(
+    intent: CancelOrderIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const cid = intent.clientOrderId
     if (!cid) return { events: [] }
@@ -171,16 +181,31 @@ export class BacktestExecution implements ExecutionAdapter {
     this.openByClientId.delete(cid)
     return {
       events: [
-        { kind: 'order_done', tsMs: nowMs, clientOrderId: cid, orderId: o.orderId, reason: 'canceled' },
+        {
+          kind: 'order_done',
+          tsMs: nowMs,
+          clientOrderId: cid,
+          orderId: o.orderId,
+          reason: 'canceled',
+        },
       ],
     }
   }
 
-  async cancelAll(_intent: CancelAllIntent, ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async cancelAll(
+    _intent: CancelAllIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
     const events: AccountEvent[] = []
     for (const [cid, o] of this.openByClientId.entries()) {
-      events.push({ kind: 'order_done', tsMs: nowMs, clientOrderId: cid, orderId: o.orderId, reason: 'canceled' })
+      events.push({
+        kind: 'order_done',
+        tsMs: nowMs,
+        clientOrderId: cid,
+        orderId: o.orderId,
+        reason: 'canceled',
+      })
     }
     this.openByClientId.clear()
     return { events }
@@ -197,7 +222,13 @@ export class BacktestExecution implements ExecutionAdapter {
       // GTD expiry
       if (o.orderType === 'GTD' && typeof o.expireAtMs === 'number' && nowMs >= o.expireAtMs) {
         this.openByClientId.delete(cid)
-        events.push({ kind: 'order_done', tsMs: nowMs, clientOrderId: cid, orderId: o.orderId, reason: 'expired' })
+        events.push({
+          kind: 'order_done',
+          tsMs: nowMs,
+          clientOrderId: cid,
+          orderId: o.orderId,
+          reason: 'expired',
+        })
         continue
       }
 
@@ -210,7 +241,13 @@ export class BacktestExecution implements ExecutionAdapter {
 
       if (o.remaining <= 0) {
         this.openByClientId.delete(cid)
-        events.push({ kind: 'order_done', tsMs: nowMs, clientOrderId: cid, orderId: o.orderId, reason: 'filled' })
+        events.push({
+          kind: 'order_done',
+          tsMs: nowMs,
+          clientOrderId: cid,
+          orderId: o.orderId,
+          reason: 'filled',
+        })
       } else {
         o.updatedAtMs = nowMs
         this.openByClientId.set(cid, o)
@@ -220,4 +257,3 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events }
   }
 }
-

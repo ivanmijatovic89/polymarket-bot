@@ -307,7 +307,11 @@ async function main(): Promise<void> {
     console.log(`[backtest] strategy=${strategy.name}`)
     const exec = new BacktestExecution()
     const orderManager = new OrderManager({ execution: exec, dryRun: false })
-    const runner = new StrategyRunner({ strategy, orderManager, log: (msg, extra) => console.log(msg, extra ?? '') })
+    const runner = new StrategyRunner({
+      strategy,
+      orderManager,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
 
     // IMPORTANT: each parquet file corresponds to a single 15m market episode.
     // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
@@ -329,7 +333,10 @@ async function main(): Promise<void> {
     }
 
     const ps = runner.getPortfolio().snapshot()
-    const realized = Object.values(ps.positionsByAssetId).reduce((acc, p) => acc + (p.realizedPnl ?? 0), 0)
+    const realized = Object.values(ps.positionsByAssetId).reduce(
+      (acc, p) => acc + (p.realizedPnl ?? 0),
+      0,
+    )
     console.log('[backtest] portfolio', {
       fills: ps.recentFills.length,
       positions: ps.positionsByAssetId,

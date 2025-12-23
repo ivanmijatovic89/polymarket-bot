@@ -97,7 +97,11 @@ export class LiveExecution implements ExecutionAdapter {
     this.client = new (ClobClient as any)(host, chainId, wallet, creds, signatureType, funder)
   }
 
-  async placeLimit(intent: PlaceLimitIntent, _ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async placeLimit(
+    intent: PlaceLimitIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    void ctx
     const nowMs = Date.now()
     try {
       const signed = await this.client.createOrder({
@@ -136,8 +140,18 @@ export class LiveExecution implements ExecutionAdapter {
             : undefined
 
       const events: AccountEvent[] = [
-        { kind: 'order_accepted', tsMs: nowMs, clientOrderId: intent.clientOrderId, ...(orderId ? { orderId } : {}) },
-        { kind: 'order_open', tsMs: nowMs, clientOrderId: intent.clientOrderId, ...(orderId ? { orderId } : {}) },
+        {
+          kind: 'order_accepted',
+          tsMs: nowMs,
+          clientOrderId: intent.clientOrderId,
+          ...(orderId ? { orderId } : {}),
+        },
+        {
+          kind: 'order_open',
+          tsMs: nowMs,
+          clientOrderId: intent.clientOrderId,
+          ...(orderId ? { orderId } : {}),
+        },
       ]
 
       // Fast-path: if FOK matched, response may include orderHashes.
@@ -158,7 +172,11 @@ export class LiveExecution implements ExecutionAdapter {
     }
   }
 
-  async cancelOrder(intent: CancelOrderIntent, _ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async cancelOrder(
+    intent: CancelOrderIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    void ctx
     const nowMs = Date.now()
     if (intent.orderId) {
       await this.client.cancelOrder(intent.orderId).catch(() => undefined)
@@ -183,14 +201,19 @@ export class LiveExecution implements ExecutionAdapter {
     return { events: [] }
   }
 
-  async cancelAll(_intent: CancelAllIntent, _ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async cancelAll(
+    intent: CancelAllIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    void intent
+    void ctx
     await this.client.cancelAll().catch(() => undefined)
     return { events: [] }
   }
 
-  async onMarketTick(_ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+  async onMarketTick(ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
+    void ctx
     // Live fills should come from user WS/polling; no synthetic fills here.
     return { events: [] }
   }
 }
-

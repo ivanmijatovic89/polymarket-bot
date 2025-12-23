@@ -93,4 +93,3 @@ export class StrategyRunner {
     for (const e of nextEvents) await this.applyAccountEvent(e, depth + 1)
   }
 }
-

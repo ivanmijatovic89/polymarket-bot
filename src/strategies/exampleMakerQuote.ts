@@ -1,4 +1,4 @@
-import type { AccountEvent, Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 
 export type MakerQuoteConfig = {
   /** Which assetId (tokenID) to trade. If omitted, picks the first available in snapshot. */
@@ -43,8 +43,16 @@ export function createExampleMakerQuoteStrategy(cfg: MakerQuoteConfig): Strategy
     // If spread is too wide (or book is weird), pull quotes.
     if (book.spread <= 0 || book.spread > cfg.maxSpread) {
       return [
-        { kind: 'cancel_order', clientOrderId: clientBidId(assetId), reason: 'spread_out_of_bounds' },
-        { kind: 'cancel_order', clientOrderId: clientAskId(assetId), reason: 'spread_out_of_bounds' },
+        {
+          kind: 'cancel_order',
+          clientOrderId: clientBidId(assetId),
+          reason: 'spread_out_of_bounds',
+        },
+        {
+          kind: 'cancel_order',
+          clientOrderId: clientAskId(assetId),
+          reason: 'spread_out_of_bounds',
+        },
       ]
     }
 
@@ -63,7 +71,8 @@ export function createExampleMakerQuoteStrategy(cfg: MakerQuoteConfig): Strategy
 
     const existingBid = portfolio.openOrdersByClientId[clientBidId(assetId)]
     if (!existingBid || Math.abs(existingBid.price - bidPrice) > 1e-9) {
-      if (existingBid) intents.push({ kind: 'cancel_order', clientOrderId: existingBid.clientOrderId })
+      if (existingBid)
+        intents.push({ kind: 'cancel_order', clientOrderId: existingBid.clientOrderId })
       intents.push({
         kind: 'place_limit',
         clientOrderId: clientBidId(assetId),
@@ -81,7 +90,8 @@ export function createExampleMakerQuoteStrategy(cfg: MakerQuoteConfig): Strategy
 
     const existingAsk = portfolio.openOrdersByClientId[clientAskId(assetId)]
     if (!existingAsk || Math.abs(existingAsk.price - askPrice) > 1e-9) {
-      if (existingAsk) intents.push({ kind: 'cancel_order', clientOrderId: existingAsk.clientOrderId })
+      if (existingAsk)
+        intents.push({ kind: 'cancel_order', clientOrderId: existingAsk.clientOrderId })
       intents.push({
         kind: 'place_limit',
         clientOrderId: clientAskId(assetId),
@@ -100,11 +110,7 @@ export function createExampleMakerQuoteStrategy(cfg: MakerQuoteConfig): Strategy
     return intents
   }
 
-  const onAccountEvent = (_ev: AccountEvent, _portfolio: PortfolioSnapshot): Intent[] => {
-    // For v1: no immediate reactions; market ticks will keep quotes updated.
-    return []
-  }
+  const onAccountEvent: Strategy['onAccountEvent'] = () => []
 
   return { name, onMarketTick, onAccountEvent }
 }
-

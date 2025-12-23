@@ -25,7 +25,10 @@ export type ExecutionCancelResult = {
 
 export type ExecutionAdapter = {
   placeLimit: (intent: PlaceLimitIntent, ctx: OrderManagerContext) => Promise<ExecutionPlaceResult>
-  cancelOrder: (intent: CancelOrderIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
+  cancelOrder: (
+    intent: CancelOrderIntent,
+    ctx: OrderManagerContext,
+  ) => Promise<ExecutionCancelResult>
   cancelAll: (intent: CancelAllIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
   /**
    * Optional: backtest execution can simulate resting order fills on each market tick.
@@ -90,7 +93,10 @@ export class OrderManager {
     return res.events
   }
 
-  private async handlePlaceLimit(intent: PlaceLimitIntent, ctx: OrderManagerContext): Promise<AccountEvent[]> {
+  private async handlePlaceLimit(
+    intent: PlaceLimitIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
     // Dedupe by clientOrderId.
     if (this.activeClientOrders.has(intent.clientOrderId)) return []
     this.activeClientOrders.add(intent.clientOrderId)
@@ -180,7 +186,10 @@ export class OrderManager {
     return res.events
   }
 
-  private async handleCancelAll(intent: CancelAllIntent, ctx: OrderManagerContext): Promise<AccountEvent[]> {
+  private async handleCancelAll(
+    intent: CancelAllIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
     if (this.dryRun) {
       // We don't have the list of orders here; the Portfolio will still reflect whatever was simulated.
       this.activeClientOrders.clear()
@@ -211,4 +220,3 @@ export class OrderManager {
     return null
   }
 }
-

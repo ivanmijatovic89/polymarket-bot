@@ -157,4 +157,3 @@ export type Strategy = {
     lastMarket?: MarketOrderBooksSnapshot,
   ) => Intent[] | Promise<Intent[]>
 }
-

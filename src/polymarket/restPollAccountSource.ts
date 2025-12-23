@@ -41,11 +41,14 @@ function asMsFromSecString(raw: unknown): number | null {
   return null
 }
 
-export function createRestPollAccountSource(opts: RestPollAccountSourceOptions): RestPollAccountSource {
+export function createRestPollAccountSource(
+  opts: RestPollAccountSourceOptions,
+): RestPollAccountSource {
   const host = opts.host ?? env('CLOB_API_URL') ?? 'https://clob.polymarket.com'
   const chainId = opts.chainId ?? parseIntEnv('CLOB_CHAIN_ID', 137)
   const pk = opts.privateKey ?? env('PRIVATE_KEY') ?? env('POLYMARKET_PRIVATE_KEY')
-  if (!pk) throw new Error('[restPollAccountSource] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
+  if (!pk)
+    throw new Error('[restPollAccountSource] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
   const wallet = new Wallet(pk)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -125,7 +128,10 @@ export function createRestPollAccountSource(opts: RestPollAccountSourceOptions):
 
   const loop = (): void => {
     if (!running) return
-    const interval = Math.max(250, opts.pollIntervalMs ?? parseIntEnv('CLOB_POLL_INTERVAL_MS', 1_000))
+    const interval = Math.max(
+      250,
+      opts.pollIntervalMs ?? parseIntEnv('CLOB_POLL_INTERVAL_MS', 1_000),
+    )
     timer = setTimeout(() => {
       void pollOnce().finally(() => loop())
     }, interval)
@@ -141,7 +147,12 @@ export function createRestPollAccountSource(opts: RestPollAccountSourceOptions):
       running = false
       if (timer) clearTimeout(timer)
       timer = undefined
-      emit({ kind: 'account_stream_status', tsMs: Date.now(), source: 'rest_poll', status: 'disconnected' })
+      emit({
+        kind: 'account_stream_status',
+        tsMs: Date.now(),
+        source: 'rest_poll',
+        status: 'disconnected',
+      })
     },
     onAccountEvent: (cb) => {
       listeners.add(cb)
@@ -152,4 +163,3 @@ export function createRestPollAccountSource(opts: RestPollAccountSourceOptions):
     },
   }
 }
-

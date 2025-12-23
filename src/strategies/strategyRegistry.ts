@@ -36,4 +36,3 @@ export function loadStrategyFromEnv(): Strategy {
 
   throw new Error(`[strategy] unknown STRATEGY=${JSON.stringify(name)}`)
 }
-
