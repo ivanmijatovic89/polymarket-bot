@@ -103,6 +103,13 @@ export type PortfolioSnapshot = {
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
   recentFills: Fill[]
+  /**
+   * Best-effort mapping from assetId -> market (condition id).
+   * Populated from fills and any order placement that includes a market.
+   *
+   * Useful for grouping positions across YES/NO pairs to compute merge PnL.
+   */
+  marketByAssetId: Record<string, string>
 }
 
 export type AccountEvent =

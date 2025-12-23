@@ -6,6 +6,12 @@ import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
 import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
 import { MarketEngine } from '../engine/MarketEngine.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
+import {
+  computeMergeOpportunities,
+  mergePnlPctTotal,
+  sumMergeCost,
+  sumMergePnl,
+} from '../trading/portfolioMetrics.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
@@ -341,11 +347,22 @@ async function main(): Promise<void> {
       (acc, p) => acc + (p.realizedPnl ?? 0),
       0,
     )
+    const sharesByAssetId = Object.fromEntries(
+      Object.entries(ps.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+    )
+    const mergeOps = computeMergeOpportunities(ps)
     console.log('[backtest] portfolio', {
       fills: ps.recentFills.length,
       positions: ps.positionsByAssetId,
+      sharesByAssetId,
       openOrders: Object.keys(ps.openOrdersByClientId).length,
       realizedPnl: realized,
+      merge: {
+        opportunities: mergeOps,
+        totalPnl: sumMergePnl(mergeOps),
+        totalCost: sumMergeCost(mergeOps),
+        totalPnlPct: mergePnlPctTotal(mergeOps),
+      },
     })
 
     console.log('[backtest] orderbook summary', {

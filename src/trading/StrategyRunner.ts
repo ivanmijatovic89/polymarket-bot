@@ -72,7 +72,8 @@ export class StrategyRunner {
 
   private async applyAccountEvent(ev: AccountEvent, depth: number): Promise<void> {
     if (ev.kind === 'fill') {
-      this.log?.('[trade]', ev.fill)
+      const timeIso = new Date(ev.fill.tsMs).toISOString()
+      this.log?.('[trade]', { ...ev.fill, timeIso })
     }
     this.portfolio.apply(ev)
     if (depth >= this.maxCascadeDepth) {

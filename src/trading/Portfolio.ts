@@ -25,6 +25,7 @@ export class Portfolio {
   private readonly openOrdersByClientId = new Map<string, OpenOrder>()
   private readonly recentFills: Fill[] = []
   private readonly maxRecentFills: number
+  private readonly marketByAssetId = new Map<string, string>()
 
   constructor(opts?: { maxRecentFills?: number }) {
     this.maxRecentFills = Math.max(0, opts?.maxRecentFills ?? 500)
@@ -36,6 +37,7 @@ export class Portfolio {
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
       openOrdersByClientId: Object.fromEntries([...this.openOrdersByClientId.entries()]),
       recentFills: [...this.recentFills],
+      marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),
     }
   }
 
@@ -52,12 +54,13 @@ export class Portfolio {
       case 'order_submitted': {
         const o = ev.order
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        if (o.market) this.marketByAssetId.set(o.assetId, o.market)
         return
       }
       case 'order_accepted': {
         const o = this.openOrdersByClientId.get(ev.clientOrderId)
         if (!o) return
-        o.orderId = ev.orderId ?? o.orderId
+        if (ev.orderId !== undefined) o.orderId = ev.orderId
         o.state = o.state === 'requested' ? 'open' : o.state
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
@@ -68,7 +71,7 @@ export class Portfolio {
           const o = this.openOrdersByClientId.get(ev.clientOrderId)
           if (!o) return
           o.state = 'open'
-          o.orderId = ev.orderId ?? o.orderId
+          if (ev.orderId !== undefined) o.orderId = ev.orderId
           o.updatedAtMs = this.nowMs
           this.openOrdersByClientId.set(o.clientOrderId, o)
         }
@@ -106,6 +109,7 @@ export class Portfolio {
         this.pushFill(ev.fill)
         this.applyFillToOrders(ev.fill)
         this.applyFillToPosition(ev.fill)
+        if (ev.fill.market) this.marketByAssetId.set(ev.fill.assetId, ev.fill.market)
         return
       }
       case 'account_stream_status':
