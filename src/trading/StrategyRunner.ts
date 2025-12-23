@@ -24,6 +24,10 @@ export class StrategyRunner {
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
 
+  private round8(n: number): number {
+    return Math.round(n * 1e8) / 1e8
+  }
+
   constructor(opts: StrategyRunnerOptions) {
     this.strategy = opts.strategy
     this.orderManager = opts.orderManager
@@ -73,7 +77,14 @@ export class StrategyRunner {
   private async applyAccountEvent(ev: AccountEvent, depth: number): Promise<void> {
     if (ev.kind === 'fill') {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
-      this.log?.('[trade]', { ...ev.fill, timeIso })
+      const notional = this.round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
+      const cashDelta = ev.fill.side === 'BUY' ? this.round8(-notional) : notional
+      const isBacktestSettlement =
+        (typeof ev.fill.orderId === 'string' &&
+          (ev.fill.orderId.startsWith('bt-merge:') || ev.fill.orderId.startsWith('bt-settle:'))) ||
+        (typeof ev.fill.clientOrderId === 'string' &&
+          (ev.fill.clientOrderId.includes(':merge:') || ev.fill.clientOrderId.includes(':settle:')))
+      if (!isBacktestSettlement) this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta })
     }
     this.portfolio.apply(ev)
     if (depth >= this.maxCascadeDepth) {

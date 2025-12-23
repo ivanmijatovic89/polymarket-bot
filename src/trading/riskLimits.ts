@@ -30,6 +30,8 @@ export const DEFAULT_RISK_LIMITS: RiskLimits = {
 type Blocked = { intent: Intent; reason: string }
 
 function realizedPnlTotal(p: PortfolioSnapshot): number {
+  if (typeof p.realizedPnlTotal === 'number' && Number.isFinite(p.realizedPnlTotal))
+    return p.realizedPnlTotal
   let sum = 0
   for (const pos of Object.values(p.positionsByAssetId)) {
     if (Number.isFinite(pos.realizedPnl)) sum += pos.realizedPnl

@@ -15,7 +15,7 @@ import {
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
-import type { PortfolioSnapshot } from '../strategy/Strategy.js'
+import type { AccountEvent, Fill, PortfolioSnapshot } from '../strategy/Strategy.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -36,11 +36,13 @@ function parseArgs(argv: string[]): {
   mode: BacktestMode
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
+  carry: boolean
 } {
   const filePaths: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
   let mode: BacktestMode = 'raw'
+  let carry = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -60,6 +62,10 @@ function parseArgs(argv: string[]): {
       timeDriven = true
       continue
     }
+    if (a === '--carry' || a === '--carry-portfolio') {
+      carry = true
+      continue
+    }
     if (a.startsWith('-')) {
       // Unknown flag: ignore for now.
       continue
@@ -68,7 +74,7 @@ function parseArgs(argv: string[]): {
     filePaths.push(a)
   }
 
-  return { filePaths, mode, order, timeDriven }
+  return { filePaths, mode, order, timeDriven, carry }
 }
 
 type ReplayRow = {
@@ -177,11 +183,171 @@ function round8(n: number): number {
 }
 
 function realizedPnlTotal(p: PortfolioSnapshot): number {
+  if (typeof p.realizedPnlTotal === 'number' && Number.isFinite(p.realizedPnlTotal))
+    return round8(p.realizedPnlTotal)
   let sum = 0
   for (const pos of Object.values(p.positionsByAssetId)) {
     if (Number.isFinite(pos.realizedPnl)) sum += pos.realizedPnl
   }
   return round8(sum)
+}
+
+function safeFinite(n: unknown, fallback = 0): number {
+  return typeof n === 'number' && Number.isFinite(n) ? n : fallback
+}
+
+function isSettlementFill(f: Fill): boolean {
+  return (
+    (typeof f.orderId === 'string' && (f.orderId.startsWith('bt-merge:') || f.orderId.startsWith('bt-settle:'))) ||
+    (typeof f.clientOrderId === 'string' && (f.clientOrderId.includes(':merge:') || f.clientOrderId.includes(':settle:')))
+  )
+}
+
+function settlementActionSummary(fills: Fill[]): { count: number; merge: boolean; redeem: boolean } {
+  let merge = false
+  let redeem = false
+  for (const f of fills) {
+    const cid = typeof f.clientOrderId === 'string' ? f.clientOrderId : ''
+    const oid = typeof f.orderId === 'string' ? f.orderId : ''
+    if (!merge && (cid.includes(':merge:') || oid.startsWith('bt-merge:'))) merge = true
+    if (!redeem && (cid.includes(':settle:') || oid.startsWith('bt-settle:'))) redeem = true
+    if (merge && redeem) break
+  }
+  return { count: (merge ? 1 : 0) + (redeem ? 1 : 0), merge, redeem }
+}
+
+async function applySyntheticFills(params: {
+  runner: StrategyRunner
+  fills: Fill[]
+}): Promise<void> {
+  for (const f of params.fills) {
+    const ev: AccountEvent = { kind: 'fill', fill: f }
+    await params.runner.onAccountEvent(ev)
+  }
+}
+
+/**
+ * Backtest-only settlement:
+ * - "Merge" any paired YES/NO holdings into $1 collateral per pair (synthetic fills at 1 and 0).
+ * - Liquidate any remaining holdings in this market at the last observed bestBid (fallback bestAsk).
+ *
+ * Why: strategies like `hybrid_production` track internal cash based on fills; without settlement,
+ * capital stays locked across sequential 15m episodes and the bot stops trading after a few markets.
+ */
+async function settleMarketEpisode(params: {
+  runner: StrategyRunner
+  strategyName: string
+  market: string
+}): Promise<void> {
+  const last = params.runner.getLastMarketSnapshot()
+  if (!last) return
+
+  // Work off a market-filtered snapshot so we only settle the episode that just ended.
+  const before = params.runner.getPortfolio().snapshot()
+  const p = portfolioForMarket(before, params.market)
+  const mergeOps = computeMergeOpportunities(p)
+
+  const tsMs = safeFinite(last.timestamp, before.nowMs)
+  const fills: Fill[] = []
+
+  // 1) MERGE paired positions (guaranteed $1 per pair; deterministic even if winner inference is wrong).
+  let mergedQty = 0
+  for (const op of mergeOps) {
+    const qty = safeFinite(op.mergeQty, 0)
+    if (!(qty > 0)) continue
+    const [a, b] = op.assetIds
+    if (!a || !b) continue
+    mergedQty = round8(mergedQty + qty)
+
+    // Synthetic merge: sell one leg at 1, the other at 0 -> net proceeds = qty * 1.
+    // (This avoids adding new event kinds and works with strategy cash accounting.)
+    fills.push({
+      id: `${params.strategyName}:${params.market}:merge:${tsMs}:${a}:1`,
+      tsMs,
+      market: params.market,
+      assetId: a,
+      side: 'SELL',
+      price: 1.0,
+      size: qty,
+      clientOrderId: `${params.strategyName}:${params.market}:merge:${tsMs}:${a}`,
+      orderId: `bt-merge:${params.strategyName}:${params.market}:${a}`,
+      liquidity: 'TAKER',
+    })
+    fills.push({
+      id: `${params.strategyName}:${params.market}:merge:${tsMs}:${b}:1`,
+      tsMs,
+      market: params.market,
+      assetId: b,
+      side: 'SELL',
+      price: 0.0,
+      size: qty,
+      clientOrderId: `${params.strategyName}:${params.market}:merge:${tsMs}:${b}`,
+      orderId: `bt-merge:${params.strategyName}:${params.market}:${b}`,
+      liquidity: 'TAKER',
+    })
+  }
+
+  if (mergedQty > 0) {
+    const totalPnl = sumMergePnl(mergeOps)
+    const totalCost = sumMergeCost(mergeOps)
+    const totalPnlPct = mergePnlPctTotal(mergeOps)
+    console.log(`[backtest] settle_merge market=${params.market}`, {
+      mergedQty: round8(mergedQty),
+      cost: totalCost,
+      pnl: totalPnl,
+      pnlPct: totalPnlPct,
+    })
+  }
+
+  if (fills.length > 0) await applySyntheticFills({ runner: params.runner, fills })
+
+  // 2) REDEEM any remaining single-sided positions at payout:
+  // winner asset pays 1, loser pays 0. We infer winner from the final orderbook snapshot.
+  const afterMerge = params.runner.getPortfolio().snapshot()
+  const p2 = portfolioForMarket(afterMerge, params.market)
+  const redeems: Fill[] = []
+
+  const assetIds = Object.keys(last.byAssetId ?? {}).sort()
+  if (assetIds.length < 2) return
+  const a = assetIds[0]
+  const b = assetIds[1]
+  if (!a || !b || a === b) return
+
+  const bookA = last.byAssetId[a]
+  const bookB = last.byAssetId[b]
+  const bidA = safeFinite(bookA?.bestBid, 0) || safeFinite(bookA?.bestAsk, 0)
+  const bidB = safeFinite(bookB?.bestBid, 0) || safeFinite(bookB?.bestAsk, 0)
+  const winner = bidA >= bidB ? a : b
+  let redeemedQty = 0
+
+  for (const [assetId, pos] of Object.entries(p2.positionsByAssetId)) {
+    const qty = safeFinite(pos?.qty, 0)
+    if (!(qty > 0)) continue
+    const payout = assetId === winner ? 1.0 : 0.0
+    redeemedQty = round8(redeemedQty + qty)
+
+    redeems.push({
+      id: `${params.strategyName}:${params.market}:settle:${tsMs}:${assetId}:1`,
+      tsMs,
+      market: params.market,
+      assetId,
+      side: 'SELL',
+      price: payout,
+      size: qty,
+      clientOrderId: `${params.strategyName}:${params.market}:settle:${tsMs}:${assetId}`,
+      orderId: `bt-settle:${params.strategyName}:${params.market}:${assetId}`,
+      liquidity: 'TAKER',
+    })
+  }
+
+  if (redeemedQty > 0) {
+    console.log(`[backtest] settle_redeem market=${params.market}`, {
+      winnerAssetId: winner,
+      redeemedQty: round8(redeemedQty),
+    })
+  }
+
+  if (redeems.length > 0) await applySyntheticFills({ runner: params.runner, fills: redeems })
 }
 
 function portfolioForMarket(p: PortfolioSnapshot, market: string): PortfolioSnapshot {
@@ -216,6 +382,7 @@ function portfolioForMarket(p: PortfolioSnapshot, market: string): PortfolioSnap
 
   return {
     nowMs: p.nowMs,
+    ...(typeof p.realizedPnlTotal === 'number' ? { realizedPnlTotal: p.realizedPnlTotal } : {}),
     positionsByAssetId,
     openOrdersByClientId,
     recentFills,
@@ -342,7 +509,7 @@ async function main(): Promise<void> {
         '  Raw replay (existing):\n' +
         '    tsx src/scripts/backtest.ts <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Orderbook replay:\n' +
-        '    tsx src/scripts/backtest.ts --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time]',
+        '    tsx src/scripts/backtest.ts --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--carry]',
     )
     process.exit(2)
   }
@@ -350,6 +517,7 @@ async function main(): Promise<void> {
   if (parsed.mode === 'orderbook') {
     console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
     console.log(`[backtest] order=${parsed.order}`)
+    console.log(`[backtest] carry=${parsed.carry}`)
 
     let shouldStop = false
     const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
@@ -361,19 +529,27 @@ async function main(): Promise<void> {
     let events = 0
     const byType = new Map<string, number>()
 
-    const strategy = loadStrategyFromEnv()
-    console.log(`[backtest] strategy=${strategy.name}`)
-    const exec = new BacktestExecution()
-    const orderManager = new OrderManager({
-      execution: exec,
-      dryRun: false,
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
-    const runner = new StrategyRunner({
-      strategy,
-      orderManager,
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
+    const mkRunner = (): { strategy: ReturnType<typeof loadStrategyFromEnv>; runner: StrategyRunner } => {
+      const strategy = loadStrategyFromEnv()
+      const exec = new BacktestExecution()
+      const orderManager = new OrderManager({
+        execution: exec,
+        dryRun: false,
+        log: (msg, extra) => console.log(msg, extra ?? ''),
+      })
+      const runner = new StrategyRunner({
+        strategy,
+        orderManager,
+        log: (msg, extra) => console.log(msg, extra ?? ''),
+      })
+      return { strategy, runner }
+    }
+
+    // Default: each parquet file is treated as an independent market episode with fresh bot state/capital.
+    // Use --carry to keep a single runner/portfolio across all files.
+    const carried = parsed.carry ? mkRunner() : null
+    const strategyName = carried?.strategy.name ?? loadStrategyFromEnv().name
+    console.log(`[backtest] strategy=${strategyName}`)
 
     type MarketPnlRow = {
       filePath: string
@@ -390,6 +566,9 @@ async function main(): Promise<void> {
     for (const fp of filePaths) {
       if (shouldStop) break
       console.log(`[backtest] orderbook replay file=${fp}`)
+      const active = carried ?? mkRunner()
+      const runner = active.runner
+      const strategy = active.strategy
       await replayOrderBookForMarket({
         filePaths: [fp],
         order: parsed.order,
@@ -404,23 +583,27 @@ async function main(): Promise<void> {
       })
 
       const market = runner.getLastMarketSnapshot()?.market ?? '(unknown)'
-      const all = runner.getPortfolio().snapshot()
-      const p = market !== '(unknown)' ? portfolioForMarket(all, market) : all
-      const sharesByAssetId = Object.fromEntries(
-        Object.entries(p.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+      const allBefore = runner.getPortfolio().snapshot()
+      const pBefore = market !== '(unknown)' ? portfolioForMarket(allBefore, market) : allBefore
+      const tradeFillsBefore = pBefore.recentFills.filter((f) => !isSettlementFill(f)).length
+      const settlementBefore = settlementActionSummary(pBefore.recentFills.filter((f) => isSettlementFill(f)))
+      const sharesByAssetIdBefore = Object.fromEntries(
+        Object.entries(pBefore.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
       )
-      const mergeOps = computeMergeOpportunities(p)
+      const mergeOps = computeMergeOpportunities(pBefore)
       const totalPnl = sumMergePnl(mergeOps)
       const totalCost = sumMergeCost(mergeOps)
       const totalPnlPct = mergePnlPctTotal(mergeOps)
       const totalMergeQty = round8(mergeOps.reduce((acc, o) => acc + (o.mergeQty ?? 0), 0))
 
-      console.log(`[backtest] portfolio market=${market}`, {
-        fills: p.recentFills.length,
-        positions: p.positionsByAssetId,
-        sharesByAssetId,
-        openOrders: Object.keys(p.openOrdersByClientId).length,
-        realizedPnl: realizedPnlTotal(p),
+      console.log(`[backtest] portfolio_pre_settlement market=${market}`, {
+        tradeFills: tradeFillsBefore,
+        settlementFills: settlementBefore.count,
+        settlement: { merge: settlementBefore.merge, redeem: settlementBefore.redeem },
+        positions: pBefore.positionsByAssetId,
+        sharesByAssetId: sharesByAssetIdBefore,
+        openOrders: Object.keys(pBefore.openOrdersByClientId).length,
+        realizedPnl: realizedPnlTotal(pBefore),
         merge: {
           opportunities: mergeOps,
           totalPnl,
@@ -428,6 +611,29 @@ async function main(): Promise<void> {
           totalPnlPct,
         },
       })
+
+      // Settle this market episode so capital doesn't remain locked across sequential 15m files.
+      if (market !== '(unknown)') {
+        console.log(`[backtest] settling market=${market}`)
+        await settleMarketEpisode({ runner, strategyName: strategy.name, market })
+
+        const allAfter = runner.getPortfolio().snapshot()
+        const pAfter = portfolioForMarket(allAfter, market)
+        const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
+        const settlementAfter = settlementActionSummary(pAfter.recentFills.filter((f) => isSettlementFill(f)))
+        const sharesByAssetIdAfter = Object.fromEntries(
+          Object.entries(pAfter.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+        )
+        console.log(`[backtest] portfolio_post_settlement market=${market}`, {
+          tradeFills: tradeFillsAfter,
+          settlementFills: settlementAfter.count,
+          settlement: { merge: settlementAfter.merge, redeem: settlementAfter.redeem },
+          positions: pAfter.positionsByAssetId,
+          sharesByAssetId: sharesByAssetIdAfter,
+          openOrders: Object.keys(pAfter.openOrdersByClientId).length,
+          realizedPnl: realizedPnlTotal(pAfter),
+        })
+      }
 
       marketRows.push({
         filePath: fp,

@@ -26,6 +26,7 @@ export class Portfolio {
   private readonly recentFills: Fill[] = []
   private readonly maxRecentFills: number
   private readonly marketByAssetId = new Map<string, string>()
+  private realizedPnlTotal = 0
 
   constructor(opts?: { maxRecentFills?: number }) {
     this.maxRecentFills = Math.max(0, opts?.maxRecentFills ?? 500)
@@ -34,6 +35,7 @@ export class Portfolio {
   snapshot(): PortfolioSnapshot {
     return {
       nowMs: this.nowMs,
+      realizedPnlTotal: this.realizedPnlTotal,
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
       openOrdersByClientId: Object.fromEntries([...this.openOrdersByClientId.entries()]),
       recentFills: [...this.recentFills],
@@ -176,12 +178,33 @@ export class Portfolio {
     const sellQty = Math.min(size, prev.qty)
     const remainingQty = prev.qty - sellQty
     const avg = prev.avgEntryPrice
-    const realized = avg === null ? 0 : round2(prev.realizedPnl + (price - avg) * sellQty)
-    this.positionsByAssetId.set(key, {
-      assetId,
-      qty: round2(remainingQty),
-      avgEntryPrice: remainingQty > 0 ? avg : null,
-      realizedPnl: realized,
-    })
+    const realized = avg === null ? prev.realizedPnl : round2(prev.realizedPnl + (price - avg) * sellQty)
+    const realizedDelta = round2(realized - prev.realizedPnl)
+    if (Number.isFinite(realizedDelta)) this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
+    if (remainingQty > 0) {
+      this.positionsByAssetId.set(key, {
+        assetId,
+        qty: round2(remainingQty),
+        avgEntryPrice: avg,
+        realizedPnl: realized,
+      })
+      return
+    }
+
+    // IMPORTANT: keep Portfolio state bounded.
+    // If a position is fully closed, remove it. Otherwise positionsByAssetId grows forever across markets,
+    // and StrategyRunner's per-tick `portfolio.snapshot()` becomes increasingly expensive.
+    this.positionsByAssetId.delete(key)
+
+    // Best-effort: also clear market mapping for this asset if we have no other exposure.
+    // (If a new fill/open order appears later, mapping will be re-populated.)
+    let stillExposed = false
+    for (const o of this.openOrdersByClientId.values()) {
+      if (o.assetId === assetId) {
+        stillExposed = true
+        break
+      }
+    }
+    if (!stillExposed) this.marketByAssetId.delete(assetId)
   }
 }

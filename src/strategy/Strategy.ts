@@ -100,6 +100,11 @@ export type Fill = {
 
 export type PortfolioSnapshot = {
   nowMs: number
+  /**
+   * Cumulative realized PnL across all assets, including positions that are now closed.
+   * This avoids losing realized PnL when closed positions are removed from `positionsByAssetId`.
+   */
+  realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
   recentFills: Fill[]
