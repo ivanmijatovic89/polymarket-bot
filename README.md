@@ -251,3 +251,27 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
 - `src/index.ts` is currently a placeholder.
 - Backtesting currently replays **raw WS JSON** from Parquet into a shared handler; the full decoder/orderbook/strategy pipeline is still WIP.
 - For safety, the recorder will disconnect if disk can’t keep up (controlled by `RECORD_MAX_INFLIGHT_APPENDS`) to prevent unbounded memory growth.
+
+
+## References / Docs used
+
+### Polymarket
+- **Gamma API (market metadata / slug lookup)**:
+  - https://docs.polymarket.com/developers/gamma-markets-api/overview
+
+- **CLOB WebSocket (market channel subscriptions)**:
+  - https://docs.polymarket.com/api-reference/markets/get-market-by-slug
+
+- **CLOB REST / Trading API (orders, cancels, fills, balances)**:
+  - https://docs.polymarket.com/developers/CLOB/introduction
+
+- **Price to Beat** - endpoint not in docs
+  - https://polymarket.com/api/crypto/crypto-price?symbol=BTC&eventStartTime=2025-12-23T11:00:00Z&variant=fifteen&endDate=2025-12-23T11:15:00Z
+
+- **Real Time Data Stream** - RTDS Crypto Prices
+  - https://docs.polymarket.com/developers/RTDS/RTDS-crypto-prices
+
+### Libraries used by this repo
+- **ws (WebSocket client)**: https://github.com/websockets/ws
+- **@dsnp/parquetjs (Parquet writer/reader)**: https://github.com/ironSource/parquetjs
+
