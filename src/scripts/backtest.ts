@@ -15,6 +15,7 @@ import {
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
+import type { PortfolioSnapshot } from '../strategy/Strategy.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -171,6 +172,57 @@ type ReplayApplyEvent = {
   source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
 }
 
+function round8(n: number): number {
+  return Math.round(n * 1e8) / 1e8
+}
+
+function realizedPnlTotal(p: PortfolioSnapshot): number {
+  let sum = 0
+  for (const pos of Object.values(p.positionsByAssetId)) {
+    if (Number.isFinite(pos.realizedPnl)) sum += pos.realizedPnl
+  }
+  return round8(sum)
+}
+
+function portfolioForMarket(p: PortfolioSnapshot, market: string): PortfolioSnapshot {
+  const positionsByAssetId: PortfolioSnapshot['positionsByAssetId'] = {}
+  const marketByAssetId: PortfolioSnapshot['marketByAssetId'] = {}
+
+  for (const [assetId, m] of Object.entries(p.marketByAssetId ?? {})) {
+    if (m !== market) continue
+    marketByAssetId[assetId] = m
+    const pos = p.positionsByAssetId[assetId]
+    if (pos) positionsByAssetId[assetId] = pos
+  }
+
+  // Fallback: if marketByAssetId wasn't populated, try best-effort from open orders + fills.
+  if (Object.keys(positionsByAssetId).length === 0) {
+    for (const [assetId, pos] of Object.entries(p.positionsByAssetId)) {
+      const inferred =
+        p.recentFills.find((f) => f.assetId === assetId)?.market ??
+        Object.values(p.openOrdersByClientId).find((o) => o.assetId === assetId)?.market
+      if (inferred !== market) continue
+      positionsByAssetId[assetId] = pos
+      marketByAssetId[assetId] = market
+    }
+  }
+
+  const openOrdersByClientId: PortfolioSnapshot['openOrdersByClientId'] = {}
+  for (const [cid, o] of Object.entries(p.openOrdersByClientId)) {
+    if (o.market === market) openOrdersByClientId[cid] = o
+  }
+
+  const recentFills = p.recentFills.filter((f) => f.market === market)
+
+  return {
+    nowMs: p.nowMs,
+    positionsByAssetId,
+    openOrdersByClientId,
+    recentFills,
+    marketByAssetId,
+  }
+}
+
 /**
  * Replay parquet WS events and reconstruct order books tick-by-tick.
  *
@@ -323,6 +375,16 @@ async function main(): Promise<void> {
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
 
+    type MarketPnlRow = {
+      filePath: string
+      market: string
+      mergeQty: number
+      pnl: number
+      cost: number
+      pnlPct: number
+    }
+    const marketRows: MarketPnlRow[] = []
+
     // IMPORTANT: each parquet file corresponds to a single 15m market episode.
     // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
     for (const fp of filePaths) {
@@ -340,29 +402,62 @@ async function main(): Promise<void> {
           await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
         },
       })
+
+      const market = runner.getLastMarketSnapshot()?.market ?? '(unknown)'
+      const all = runner.getPortfolio().snapshot()
+      const p = market !== '(unknown)' ? portfolioForMarket(all, market) : all
+      const sharesByAssetId = Object.fromEntries(
+        Object.entries(p.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+      )
+      const mergeOps = computeMergeOpportunities(p)
+      const totalPnl = sumMergePnl(mergeOps)
+      const totalCost = sumMergeCost(mergeOps)
+      const totalPnlPct = mergePnlPctTotal(mergeOps)
+      const totalMergeQty = round8(mergeOps.reduce((acc, o) => acc + (o.mergeQty ?? 0), 0))
+
+      console.log(`[backtest] portfolio market=${market}`, {
+        fills: p.recentFills.length,
+        positions: p.positionsByAssetId,
+        sharesByAssetId,
+        openOrders: Object.keys(p.openOrdersByClientId).length,
+        realizedPnl: realizedPnlTotal(p),
+        merge: {
+          opportunities: mergeOps,
+          totalPnl,
+          totalCost,
+          totalPnlPct,
+        },
+      })
+
+      marketRows.push({
+        filePath: fp,
+        market,
+        mergeQty: totalMergeQty,
+        pnl: totalPnl,
+        cost: totalCost,
+        pnlPct: totalPnlPct,
+      })
     }
 
-    const ps = runner.getPortfolio().snapshot()
-    const realized = Object.values(ps.positionsByAssetId).reduce(
-      (acc, p) => acc + (p.realizedPnl ?? 0),
-      0,
+    // Strategy-level PnL across markets (based on merge opportunities per market).
+    const traded = marketRows.filter((r) => r.mergeQty > 0 && r.cost > 0)
+    const wins = traded.filter((r) => r.pnl > 0)
+    const losses = traded.filter((r) => r.pnl <= 0)
+    const totalPnl = round8(traded.reduce((acc, r) => acc + r.pnl, 0))
+    const avgWin = round8(wins.length ? wins.reduce((acc, r) => acc + r.pnl, 0) / wins.length : 0)
+    const avgLose = round8(
+      losses.length ? losses.reduce((acc, r) => acc + r.pnl, 0) / losses.length : 0,
     )
-    const sharesByAssetId = Object.fromEntries(
-      Object.entries(ps.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
-    )
-    const mergeOps = computeMergeOpportunities(ps)
-    console.log('[backtest] portfolio', {
-      fills: ps.recentFills.length,
-      positions: ps.positionsByAssetId,
-      sharesByAssetId,
-      openOrders: Object.keys(ps.openOrdersByClientId).length,
-      realizedPnl: realized,
-      merge: {
-        opportunities: mergeOps,
-        totalPnl: sumMergePnl(mergeOps),
-        totalCost: sumMergeCost(mergeOps),
-        totalPnlPct: mergePnlPctTotal(mergeOps),
-      },
+
+    console.log('[backtest] strategy pnl', {
+      markets: marketRows.length,
+      tradedMarkets: traded.length,
+      successfulTrades: wins.length,
+      unsuccessfulTrades: losses.length,
+      totalPnl,
+      avgWin,
+      avgLose,
+      rows: marketRows,
     })
 
     console.log('[backtest] orderbook summary', {

@@ -20,6 +20,7 @@
     "trade:bot:sol": "TRADING_SYMBOL=SOL tsx src/scripts/trading-bot.ts",
     "trade:bot:xrp": "TRADING_SYMBOL=XRP tsx src/scripts/trading-bot.ts",
     "backtest": "tsx src/scripts/backtest.ts --mode orderbook",
+    "list:backtest-files": "tsx src/scripts/list-backtest-files.ts",
     "verify:parquet": "tsx src/scripts/verify-parquet.ts",
     "lint": "eslint \"src/**/*.{ts,tsx}\"",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
