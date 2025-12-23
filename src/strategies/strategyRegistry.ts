@@ -2,6 +2,7 @@ import type { Strategy } from '../strategy/Strategy.js'
 import { createExampleMakerQuoteStrategy } from './exampleMakerQuote.js'
 import { createExampleTakerFlipStrategy } from './exampleTakerFlip.js'
 import { createHybridProductionStrategy } from './hybridProduction.js'
+import { createHybridProduction2Strategy } from './hybridProduction2.js'
 
 export function loadStrategyFromEnv(): Strategy {
   const name = (process.env.STRATEGY ?? 'example_maker_quote').trim()
@@ -50,6 +51,38 @@ export function loadStrategyFromEnv(): Strategy {
       capital: Number.isFinite(capital) ? capital : 10,
       ...(assetIds ? { assetIds } : {}),
       ...(debug ? { debug } : {}),
+    })
+  }
+
+  if (name === 'hybrid_production2') {
+    const capital = Number(process.env.STRAT_CAPITAL ?? '10')
+    const debug = (process.env.STRAT_DEBUG ?? 'false').toLowerCase() === 'true'
+
+    const a = process.env.STRAT_ASSET_ID_A
+    const b = process.env.STRAT_ASSET_ID_B
+    const assetIds = a && b ? ([a, b] as [string, string]) : undefined
+
+    const minLockedProfitPerShare = Number(process.env.STRAT_MIN_LOCKED_PROFIT_PER_SHARE ?? '0.01')
+    const costBuffer = Number(process.env.STRAT_COST_BUFFER ?? '1.02')
+    const maxSingleTradePct = Number(process.env.STRAT_MAX_SINGLE_TRADE_PCT ?? '0.3')
+    const minTradeValue = Number(process.env.STRAT_MIN_TRADE_VALUE ?? '0.5')
+    const minPairSize = Number(process.env.STRAT_MIN_PAIR_SIZE ?? '2')
+    const maxPairSize = Number(process.env.STRAT_MAX_PAIR_SIZE ?? '10')
+    const minSecondsLeftToEnter = Number(process.env.STRAT_MIN_SECONDS_LEFT_TO_ENTER ?? '5')
+    const maxUnhedgedHoldMs = Number(process.env.STRAT_MAX_UNHEDGED_HOLD_MS ?? '2500')
+
+    return createHybridProduction2Strategy({
+      capital: Number.isFinite(capital) ? capital : 10,
+      ...(assetIds ? { assetIds } : {}),
+      ...(debug ? { debug } : {}),
+      ...(Number.isFinite(minLockedProfitPerShare) ? { minLockedProfitPerShare } : {}),
+      ...(Number.isFinite(costBuffer) ? { costBuffer } : {}),
+      ...(Number.isFinite(maxSingleTradePct) ? { maxSingleTradePct } : {}),
+      ...(Number.isFinite(minTradeValue) ? { minTradeValue } : {}),
+      ...(Number.isFinite(minPairSize) ? { minPairSize } : {}),
+      ...(Number.isFinite(maxPairSize) ? { maxPairSize } : {}),
+      ...(Number.isFinite(minSecondsLeftToEnter) ? { minSecondsLeftToEnter } : {}),
+      ...(Number.isFinite(maxUnhedgedHoldMs) ? { maxUnhedgedHoldMs } : {}),
     })
   }
 
