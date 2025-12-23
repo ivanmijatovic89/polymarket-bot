@@ -41,6 +41,12 @@ This currently connects + subscribes + logs basic stats. Strategy/order logic wi
 - Main command:
   - `npm run backtest -- <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]`
 
+Backtest (fast/event-driven):
+`npm run backtest -- data/events/btc/<file>.parquet --order recorded`
+
+Backtest (time-driven):
+`npm run backtest -- data/events/btc/<file>.parquet --time-driven --order exchange_time`
+
 High-level flow:
 
 1. **Pick the current market (Gamma)**

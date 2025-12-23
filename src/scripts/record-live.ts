@@ -2,11 +2,13 @@ import path from 'node:path'
 
 import { getCurrentUpDown15mMarket, type UpDown15mSymbol } from '../polymarket/upDown15m.js'
 import type { PolymarketAuth } from '../polymarket/marketWs.js'
+import { parseOptionalAuth } from '../polymarket/auth.js'
 import { parseEventIndexFields } from '../polymarket/marketEventIndex.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { RotatingParquetEventRecorder } from '../io/parquet/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
 import { createWindowBoundaryScheduler, formatMsAsMmSs, msUntilNextBoundary } from '../utils/windowBoundary.js'
+import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 
 process.on('unhandledRejection', (reason) => {
   console.error('[record-live] unhandledRejection', reason)
@@ -17,7 +19,6 @@ process.on('uncaughtException', (err) => {
   process.exit(1)
 })
 
-const FIFTEEN_MIN_MS = 15 * 60 * 1000
 const DEFAULT_STATS_INTERVAL_MS = 10_000
 const DEFAULT_SKIP_IF_OLDER_MS = 10_000
 
@@ -27,14 +28,6 @@ function parseEnvInt(name: string, fallback: number): number {
   const n = Number(raw)
   if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return fallback
   return n
-}
-
-function parseOptionalAuth(): PolymarketAuth | undefined {
-  const apiKey = process.env.POLYMARKET_API_KEY
-  const secret = process.env.POLYMARKET_API_SECRET
-  const passphrase = process.env.POLYMARKET_API_PASSPHRASE
-  if (!apiKey || !secret || !passphrase) return undefined
-  return { apiKey, secret, passphrase }
 }
 
 function floorToWindowStart(tsMs: number, windowMs: number): number {
