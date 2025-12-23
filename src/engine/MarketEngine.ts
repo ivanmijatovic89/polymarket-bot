@@ -29,14 +29,25 @@ export type MarketEngineOptions = {
  * raw_json -> decoder -> MarketOrderBookEngine -> strategy ticks
  */
 export class MarketEngine {
-  private readonly ob: MarketOrderBookEngine
+  private ob: MarketOrderBookEngine
+  private readonly expectedAssetIds: [string, string] | undefined
   private readonly onTick?: (t: EngineTick) => void | Promise<void>
 
   constructor(opts?: MarketEngineOptions) {
+    this.expectedAssetIds = opts?.expectedAssetIds
     this.ob = new MarketOrderBookEngine({
       ...(opts?.expectedAssetIds ? { expectedAssetIds: opts.expectedAssetIds } : {}),
     })
     this.onTick = opts?.onTick
+  }
+
+  /**
+   * Reset orderbook state (e.g. when rotating to a new market).
+   */
+  reset(): void {
+    this.ob = new MarketOrderBookEngine({
+      ...(this.expectedAssetIds ? { expectedAssetIds: this.expectedAssetIds } : {}),
+    })
   }
 
   getOrderBookEngine(): MarketOrderBookEngine {

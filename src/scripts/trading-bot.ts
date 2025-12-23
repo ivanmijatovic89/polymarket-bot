@@ -7,6 +7,12 @@ import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/win
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
+import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
+import { StrategyRunner } from '../trading/StrategyRunner.js'
+import { OrderManager } from '../trading/OrderManager.js'
+import { LiveExecution } from '../trading/execution/LiveExecution.js'
+import { createUserWsAccountSource } from '../polymarket/userWsAccountSource.js'
+import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -28,6 +34,9 @@ async function main(): Promise<void> {
   console.log(`[trading-bot] symbol=${symbol}`)
   console.log(`[trading-bot] wsUrl=${wsUrl}`)
 
+  const dryRun = (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
+  console.log(`[trading-bot] dryRun=${dryRun}`)
+
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined
@@ -37,23 +46,30 @@ async function main(): Promise<void> {
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
+  const strategy = loadStrategyFromEnv()
+  console.log(`[trading-bot] strategy=${strategy.name}`)
+  const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
+
+  // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.
+  const exec = dryRun
+    ? {
+        placeLimit: async () => ({ events: [] }),
+        cancelOrder: async () => ({ events: [] }),
+        cancelAll: async () => ({ events: [] }),
+        onMarketTick: async () => ({ events: [] }),
+      }
+    : new LiveExecution()
+  const orderManager = new OrderManager({ execution: exec, dryRun })
+  const runner = new StrategyRunner({
+    strategy,
+    orderManager,
+    ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
+  })
+
   const marketEngine = new MarketEngine({
     onTick: ({ source, msg, snapshot }) => {
-      // Strategy hook (stub): log only on book + price_change (enforced by MarketEngine).
-      const assets = Object.keys(snapshot.byAssetId)
-      const bests = Object.fromEntries(
-        assets.map((assetId) => {
-          const b = snapshot.byAssetId[assetId]
-          return [assetId, { bestBid: b?.bestBid ?? null, bestAsk: b?.bestAsk ?? null }]
-        }),
-      )
-      console.log('[trading-bot][tick]', {
-        event: msg.event_type,
-        market: snapshot.market,
-        ts: snapshot.timestamp,
-        source,
-        bests,
-      })
+      // Drive shared runner on the same cadence live/backtest.
+      void runner.onMarketTick({ source, msg, snapshot })
     },
   })
 
@@ -69,20 +85,63 @@ async function main(): Promise<void> {
     resolveAssetsIds,
   })
 
+  // Account event sources (user WS + REST polling fallback).
+  const apiKey = process.env.POLYMARKET_API_KEY
+  const secret = process.env.POLYMARKET_API_SECRET
+  const passphrase = process.env.POLYMARKET_API_PASSPHRASE
+  const haveCreds = !!apiKey && !!secret && !!passphrase
+  const havePrivateKey = !!(process.env.PRIVATE_KEY ?? process.env.POLYMARKET_PRIVATE_KEY)
+  if (!haveCreds) {
+    console.warn('[trading-bot] missing POLYMARKET_API_* creds; account streams disabled')
+  }
+
+  const userWs = haveCreds
+    ? createUserWsAccountSource({
+        auth: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
+      })
+    : null
+  const poller = haveCreds && havePrivateKey
+    ? createRestPollAccountSource({
+        creds: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
+        // Start disabled; enable only when user WS disconnects.
+        enabled: false,
+      })
+    : null
+
+  userWs?.onAccountEvent((ev) => {
+    // If user WS disconnects, enable polling fallback; if connected, disable it.
+    if (ev.kind === 'account_stream_status' && poller) {
+      if (ev.source === 'user_ws' && ev.status === 'disconnected') poller.setEnabled(true)
+      if (ev.source === 'user_ws' && ev.status === 'connected') poller.setEnabled(false)
+    }
+    void runner.onAccountEvent(ev)
+  })
+  poller?.onAccountEvent((ev) => {
+    void runner.onAccountEvent(ev)
+  })
+
   source.onEvent((ev) => {
     if (shouldStop || isRotating) return
     handler.handle(ev)
 
-    void marketEngine.handleRaw({
-      rawJson: ev.raw,
-      source: { kind: 'live', attempt: wsAttempt },
-    })
+    void marketEngine
+      .handleRaw({
+        rawJson: ev.raw,
+        source: { kind: 'live', attempt: wsAttempt },
+      })
+      .catch((err) => {
+        console.error('[trading-bot] MarketEngine.handleRaw failed', err)
+        // If we somehow see a different market than expected, reset and keep going.
+        marketEngine.reset()
+      })
   })
 
   source.onStatus((s) => {
     if (shouldStop || isRotating) return
     if (s.kind === 'connected') {
       wsAttempt = s.attempt
+      // New websocket session / potential new market: reset local orderbook state.
+      marketEngine.reset()
       console.log(`[trading-bot] connected (${s.info ?? 'ws'})`)
       return
     }
@@ -120,6 +179,7 @@ async function main(): Promise<void> {
       isRotating = true
       source.stop()
       // No stateful resources yet (strategy/order manager will flush here).
+      marketEngine.reset()
       isRotating = false
       source.start()
     })().catch((err) => {
@@ -143,6 +203,8 @@ async function main(): Promise<void> {
     boundaryScheduler.stop()
     if (statsInterval) clearInterval(statsInterval)
     statsInterval = undefined
+    userWs?.stop()
+    poller?.stop()
     source.stop()
     process.exit(0)
   }
@@ -150,6 +212,8 @@ async function main(): Promise<void> {
 
   source.start()
   boundaryScheduler.start()
+  userWs?.start()
+  poller?.start()
 }
 
 main().catch((err) => {

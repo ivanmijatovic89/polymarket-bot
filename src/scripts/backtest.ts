@@ -5,6 +5,10 @@ import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
 import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
 import { MarketEngine } from '../engine/MarketEngine.js'
+import { StrategyRunner } from '../trading/StrategyRunner.js'
+import { OrderManager } from '../trading/OrderManager.js'
+import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
+import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -299,34 +303,38 @@ async function main(): Promise<void> {
     let events = 0
     const byType = new Map<string, number>()
 
-    await replayOrderBookForMarket({
-      filePaths,
-      order: parsed.order,
-      shouldStop: () => shouldStop,
-      onSnapshot: (snap, raw) => {
-        if (shouldStop) return
-        events += 1
-        byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
-        // Keep console reasonably quiet: print a summary every 100 events.
-        if (events % 100 === 0) {
-          console.log('[orderbook]', {
-            n: events,
-            ts: snap.timestamp,
-            market: snap.market,
-            assets: Object.keys(snap.byAssetId).length,
-          })
-        }
+    const strategy = loadStrategyFromEnv()
+    console.log(`[backtest] strategy=${strategy.name}`)
+    const exec = new BacktestExecution()
+    const orderManager = new OrderManager({ execution: exec, dryRun: false })
+    const runner = new StrategyRunner({ strategy, orderManager, log: (msg, extra) => console.log(msg, extra ?? '') })
 
-        // For debugging/inspection: on each `book` snapshot, print the full order book (all levels).
-        if (raw.msg.event_type === 'book') {
-          console.log('[orderbook:full]', {
-            n: events,
-            ts: snap.timestamp,
-            market: snap.market,
-            byAssetId: snap.byAssetId,
-          })
-        }
-      },
+    // IMPORTANT: each parquet file corresponds to a single 15m market episode.
+    // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
+    for (const fp of filePaths) {
+      if (shouldStop) break
+      console.log(`[backtest] orderbook replay file=${fp}`)
+      await replayOrderBookForMarket({
+        filePaths: [fp],
+        order: parsed.order,
+        shouldStop: () => shouldStop,
+        onSnapshot: async (snap, raw) => {
+          if (shouldStop) return
+          events += 1
+          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+
+          await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+        },
+      })
+    }
+
+    const ps = runner.getPortfolio().snapshot()
+    const realized = Object.values(ps.positionsByAssetId).reduce((acc, p) => acc + (p.realizedPnl ?? 0), 0)
+    console.log('[backtest] portfolio', {
+      fills: ps.recentFills.length,
+      positions: ps.positionsByAssetId,
+      openOrders: Object.keys(ps.openOrdersByClientId).length,
+      realizedPnl: realized,
     })
 
     console.log('[backtest] orderbook summary', {
