@@ -51,7 +51,10 @@ export class MarketEngine {
    * Accept raw JSON and apply it to the shared orderbook.
    * Returns the decoded message (or null if ignored).
    */
-  async handleRaw(args: { rawJson: string; source: EngineSource }): Promise<AnyMarketMessage | null> {
+  async handleRaw(args: {
+    rawJson: string
+    source: EngineSource
+  }): Promise<AnyMarketMessage | null> {
     const msg = decodeMarketChannelMessage(args.rawJson)
     if (!msg) return null
 
@@ -64,4 +67,3 @@ export class MarketEngine {
     return msg
   }
 }
-

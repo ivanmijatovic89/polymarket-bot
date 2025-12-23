@@ -246,11 +246,11 @@ export async function replayOrderBookForMarket(params: {
             // Only run strategy ticks on book+price_change (per project rules).
             if (msg.event_type === 'book' || msg.event_type === 'price_change') {
               await params.onSnapshot(eng.snapshot(), {
-              msg,
-              rawJson,
-              market: activeMarket,
+                msg,
+                rawJson,
+                market: activeMarket,
                 source: { kind: 'parquet', filePath, ingestSeq },
-            })
+              })
             }
           }
         }
