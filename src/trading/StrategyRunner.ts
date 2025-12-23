@@ -47,6 +47,7 @@ export class StrategyRunner {
     const preEvents = await this.orderManager.onMarketTick({
       nowMs: tick.snapshot.timestamp || Date.now(),
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+      portfolio: this.portfolio.snapshot(),
     })
     for (const ev of preEvents) await this.applyAccountEvent(ev, 0)
 
@@ -64,6 +65,7 @@ export class StrategyRunner {
     const events = await this.orderManager.handleIntents(intents, {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+      portfolio: this.portfolio.snapshot(),
     })
     for (const ev of events) await this.applyAccountEvent(ev, 0)
   }
@@ -89,6 +91,7 @@ export class StrategyRunner {
     const nextEvents = await this.orderManager.handleIntents(nextIntents, {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+      portfolio: this.portfolio.snapshot(),
     })
     for (const e of nextEvents) await this.applyAccountEvent(e, depth + 1)
   }

@@ -59,7 +59,11 @@ async function main(): Promise<void> {
         onMarketTick: async () => ({ events: [] }),
       }
     : new LiveExecution()
-  const orderManager = new OrderManager({ execution: exec, dryRun })
+  const orderManager = new OrderManager({
+    execution: exec,
+    dryRun,
+    log: (msg, extra) => console.log(msg, extra ?? ''),
+  })
   const runner = new StrategyRunner({
     strategy,
     orderManager,

@@ -40,6 +40,58 @@ function sumFillableSize(o: SimOrder, book: OrderBookSnapshot | undefined): numb
   return sum
 }
 
+function buildMakerFillTouchCross(
+  o: SimOrder,
+  book: OrderBookSnapshot | undefined,
+  tsMs: number,
+): Fill | null {
+  if (!book) return null
+  if (o.remaining <= 0) return null
+
+  if (o.side === 'BUY') {
+    const bestAsk = book.bestAsk
+    if (bestAsk === null || !Number.isFinite(bestAsk)) return null
+    if (bestAsk > o.limitPrice) return null
+
+    o.fillSeq += 1
+    const f: Fill = {
+      id: `${o.clientOrderId}:${o.fillSeq}`,
+      tsMs,
+      market: o.market,
+      assetId: o.assetId,
+      side: o.side,
+      // Conservative: fill at the crossing best price, not always at our limit.
+      price: bestAsk,
+      size: o.remaining,
+      clientOrderId: o.clientOrderId,
+      orderId: o.orderId,
+      liquidity: 'MAKER',
+    }
+    o.remaining = 0
+    return f
+  }
+
+  const bestBid = book.bestBid
+  if (bestBid === null || !Number.isFinite(bestBid)) return null
+  if (bestBid < o.limitPrice) return null
+
+  o.fillSeq += 1
+  const f: Fill = {
+    id: `${o.clientOrderId}:${o.fillSeq}`,
+    tsMs,
+    market: o.market,
+    assetId: o.assetId,
+    side: o.side,
+    price: bestBid,
+    size: o.remaining,
+    clientOrderId: o.clientOrderId,
+    orderId: o.orderId,
+    liquidity: 'MAKER',
+  }
+  o.remaining = 0
+  return f
+}
+
 function buildFillsFromBook(
   o: SimOrder,
   book: OrderBookSnapshot | undefined,
@@ -233,11 +285,10 @@ export class BacktestExecution implements ExecutionAdapter {
       }
 
       const book = snap.byAssetId[o.assetId]
-      const fillable = sumFillableSize(o, book)
-      if (fillable <= 0) continue
+      const fill = buildMakerFillTouchCross(o, book, nowMs)
+      if (!fill) continue
 
-      const fills = buildFillsFromBook(o, book, nowMs)
-      for (const f of fills) events.push({ kind: 'fill', fill: f })
+      events.push({ kind: 'fill', fill })
 
       if (o.remaining <= 0) {
         this.openByClientId.delete(cid)
@@ -248,9 +299,6 @@ export class BacktestExecution implements ExecutionAdapter {
           orderId: o.orderId,
           reason: 'filled',
         })
-      } else {
-        o.updatedAtMs = nowMs
-        this.openByClientId.set(cid, o)
       }
     }
 

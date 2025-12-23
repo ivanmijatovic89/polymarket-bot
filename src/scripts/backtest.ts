@@ -306,7 +306,11 @@ async function main(): Promise<void> {
     const strategy = loadStrategyFromEnv()
     console.log(`[backtest] strategy=${strategy.name}`)
     const exec = new BacktestExecution()
-    const orderManager = new OrderManager({ execution: exec, dryRun: false })
+    const orderManager = new OrderManager({
+      execution: exec,
+      dryRun: false,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
     const runner = new StrategyRunner({
       strategy,
       orderManager,

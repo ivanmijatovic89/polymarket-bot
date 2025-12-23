@@ -8,11 +8,14 @@ import type {
   OpenOrder,
   OrderType,
   PlaceLimitIntent,
+  PortfolioSnapshot,
 } from '../strategy/Strategy.js'
+import { enforceRiskLimits } from './riskLimits.js'
 
 export type OrderManagerContext = {
   nowMs: number
   lastMarket?: MarketOrderBooksSnapshot
+  portfolio?: PortfolioSnapshot
 }
 
 export type ExecutionPlaceResult = {
@@ -63,6 +66,9 @@ export class OrderManager {
   // Internal dedupe of clientOrderId to avoid spamming the same intent every tick.
   private readonly activeClientOrders = new Set<ClientOrderId>()
 
+  // 1-tick latency: intents submitted on tick N execute on tick N+1.
+  private pendingIntents: Intent[] = []
+
   constructor(opts: OrderManagerOptions) {
     this.execution = opts.execution
     this.dryRun = opts.dryRun ?? false
@@ -71,6 +77,53 @@ export class OrderManager {
   }
 
   async handleIntents(intents: Intent[], ctx: OrderManagerContext): Promise<AccountEvent[]> {
+    void ctx // latency queue does not use ctx at enqueue-time
+    if (!intents || intents.length === 0) return []
+    this.pendingIntents.push(...intents)
+    return []
+  }
+
+  async onMarketTick(ctx: OrderManagerContext): Promise<AccountEvent[]> {
+    const out: AccountEvent[] = []
+
+    // 1) Execute intents queued from previous ticks.
+    if (this.pendingIntents.length > 0) {
+      const queued = this.pendingIntents
+      this.pendingIntents = []
+
+      const { allowed, rejectedEvents, blocked } = enforceRiskLimits({
+        nowMs: ctx.nowMs,
+        intents: queued,
+        ...(ctx.portfolio ? { portfolio: ctx.portfolio } : {}),
+      })
+
+      if (blocked.length > 0) {
+        this.log?.('[risk] blocked intents', {
+          count: blocked.length,
+          reasons: blocked.map((b) => b.reason),
+        })
+      }
+
+      out.push(...rejectedEvents)
+      out.push(...(await this.executeIntentsNow(allowed, ctx)))
+    }
+
+    // 2) Let execution layer simulate fills (backtests) for orders resting on the book.
+    if (this.execution.onMarketTick) {
+      const res = await this.execution.onMarketTick(ctx)
+      out.push(...res.events)
+    }
+
+    // 3) Maintain clientOrderId dedupe: if an order is done/rejected, allow re-use.
+    for (const ev of out) {
+      if (ev.kind === 'order_rejected') this.activeClientOrders.delete(ev.clientOrderId)
+      if (ev.kind === 'order_done' && ev.clientOrderId) this.activeClientOrders.delete(ev.clientOrderId)
+    }
+
+    return out
+  }
+
+  private async executeIntentsNow(intents: Intent[], ctx: OrderManagerContext): Promise<AccountEvent[]> {
     const out: AccountEvent[] = []
     for (const intent of intents) {
       if (intent.kind === 'place_limit') {
@@ -85,12 +138,6 @@ export class OrderManager {
       }
     }
     return out
-  }
-
-  async onMarketTick(ctx: OrderManagerContext): Promise<AccountEvent[]> {
-    if (!this.execution.onMarketTick) return []
-    const res = await this.execution.onMarketTick(ctx)
-    return res.events
   }
 
   private async handlePlaceLimit(
