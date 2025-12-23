@@ -252,10 +252,10 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
 - Backtesting currently replays **raw WS JSON** from Parquet into a shared handler; the full decoder/orderbook/strategy pipeline is still WIP.
 - For safety, the recorder will disconnect if disk can’t keep up (controlled by `RECORD_MAX_INFLIGHT_APPENDS`) to prevent unbounded memory growth.
 
-
 ## References / Docs used
 
 ### Polymarket
+
 - **Gamma API (market metadata / slug lookup)**:
   - https://docs.polymarket.com/developers/gamma-markets-api/overview
 
@@ -272,6 +272,6 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
   - https://docs.polymarket.com/developers/RTDS/RTDS-crypto-prices
 
 ### Libraries used by this repo
+
 - **ws (WebSocket client)**: https://github.com/websockets/ws
 - **@dsnp/parquetjs (Parquet writer/reader)**: https://github.com/ironSource/parquetjs
-

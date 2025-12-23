@@ -209,7 +209,11 @@ export class OrderBookEngine {
   }
 
   applyBook(msg: BookMessage): void {
-    this.assertMarketAsset({ market: msg.market, asset_id: msg.asset_id, event_type: msg.event_type })
+    this.assertMarketAsset({
+      market: msg.market,
+      asset_id: msg.asset_id,
+      event_type: msg.event_type,
+    })
     const bids = toSortedLevelsFromBookSide('bids', msg.bids)
     const asks = toSortedLevelsFromBookSide('asks', msg.asks)
     this.state.bids = rebuildMapSorted(bids)
@@ -253,7 +257,11 @@ export class OrderBookEngine {
   }
 
   applyTickSizeChange(msg: TickSizeChangeMessage): void {
-    this.assertMarketAsset({ market: msg.market, asset_id: msg.asset_id, event_type: msg.event_type })
+    this.assertMarketAsset({
+      market: msg.market,
+      asset_id: msg.asset_id,
+      event_type: msg.event_type,
+    })
     this.state.lastUpdateTs = parseTsMs(msg.timestamp)
     const newTick = parseNum('tick_size_change.new_tick_size', msg.new_tick_size)
 
@@ -267,7 +275,11 @@ export class OrderBookEngine {
   }
 
   applyLastTradePrice(msg: LastTradePriceMessage): void {
-    this.assertMarketAsset({ market: msg.market, asset_id: msg.asset_id, event_type: msg.event_type })
+    this.assertMarketAsset({
+      market: msg.market,
+      asset_id: msg.asset_id,
+      event_type: msg.event_type,
+    })
     this.state.lastUpdateTs = parseTsMs(msg.timestamp)
 
     // DO NOT mutate the order book here. Book impact comes via `book` and/or `price_change`.
@@ -300,7 +312,10 @@ export class OrderBookEngine {
         return
       default: {
         const _exhaustive: never = msg
-        throw new Error(`[orderbook] unknown event_type ${(msg as { event_type?: unknown }).event_type}`)
+        void _exhaustive
+        throw new Error(
+          `[orderbook] unknown event_type ${(msg as { event_type?: unknown }).event_type}`,
+        )
       }
     }
   }
@@ -427,6 +442,7 @@ export class MarketOrderBookEngine {
       }
       default: {
         const _exhaustive: never = msg
+        void _exhaustive
         throw new Error(
           `[orderbook] MarketOrderBookEngine unknown event_type ${(msg as { event_type?: unknown }).event_type}`,
         )
@@ -454,4 +470,3 @@ export class MarketOrderBookEngine {
     }
   }
 }
-

@@ -1,10 +1,6 @@
 import * as parquet from '@dsnp/parquetjs'
 
-import type {
-  MarketEvent,
-  MarketEventSource,
-  MarketEventStatus,
-} from '../marketEventSource.js'
+import type { MarketEvent, MarketEventSource, MarketEventStatus } from '../marketEventSource.js'
 
 type ReplayRow = {
   ingest_seq?: unknown
@@ -228,4 +224,3 @@ export function createParquetReplaySource(opts: ParquetReplaySourceOptions): Mar
     },
   }
 }
-

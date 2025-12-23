@@ -173,59 +173,6 @@ function asRecord(x: unknown): Record<string, unknown> | null {
   return x as Record<string, unknown>
 }
 
-function decodeMessageForMarketAsset(args: {
-  rawJson: string
-  rowEventType: string | undefined
-  market: string
-  assetId: string
-}): AnyMarketMessage | null {
-  const obj = parseWsJson(args.rawJson)
-  const rec = asRecord(obj)
-  if (!rec) return null
-
-  const eventType = (typeof rec.event_type === 'string' ? rec.event_type : args.rowEventType) ?? 'unknown'
-
-  // Ignore synthetic markers recorded by record-live.ts.
-  if (eventType === 'disconnect' || eventType === 'window_end' || eventType === 'writer_lag_disconnect')
-    return null
-
-  if (eventType === 'book') {
-    const market = rec.market
-    const asset = rec.asset_id
-    if (market !== args.market || asset !== args.assetId) return null
-    return rec as unknown as BookMessage
-  }
-
-  if (eventType === 'price_change') {
-    const market = rec.market
-    if (market !== args.market) return null
-    const changes = rec.price_changes
-    if (!Array.isArray(changes)) return null
-    const filtered = changes.filter((c) => {
-      const cr = asRecord(c)
-      return cr?.asset_id === args.assetId
-    })
-    if (filtered.length === 0) return null
-    return { ...(rec as unknown as PriceChangeMessage), price_changes: filtered } as PriceChangeMessage
-  }
-
-  if (eventType === 'tick_size_change') {
-    const market = rec.market
-    const asset = rec.asset_id
-    if (market !== args.market || asset !== args.assetId) return null
-    return rec as unknown as TickSizeChangeMessage
-  }
-
-  if (eventType === 'last_trade_price') {
-    const market = rec.market
-    const asset = rec.asset_id
-    if (market !== args.market || asset !== args.assetId) return null
-    return rec as unknown as LastTradePriceMessage
-  }
-
-  return null
-}
-
 type ReplayApplyEvent = { msg: AnyMarketMessage; rawJson: string; market: string }
 
 /**
@@ -245,7 +192,8 @@ export async function replayOrderBookForMarket(params: {
   ) => void | Promise<void>
 }): Promise<void> {
   const filePaths = params.filePaths
-  if (filePaths.length === 0) throw new Error('[backtest] replayOrderBookForMarket: filePaths is required')
+  if (filePaths.length === 0)
+    throw new Error('[backtest] replayOrderBookForMarket: filePaths is required')
 
   const order = params.order ?? 'recorded'
   const timeDriven = params.timeDriven ?? false
@@ -286,7 +234,8 @@ export async function replayOrderBookForMarket(params: {
 
       const row = item.row
       const rowEventType = typeof row.event_type === 'string' ? row.event_type : undefined
-      const rawJson = typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
+      const rawJson =
+        typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
 
       // Fast-path skip for non-market-channel types without JSON parse.
       if (
@@ -324,12 +273,18 @@ export async function replayOrderBookForMarket(params: {
                 let msg: AnyMarketMessage | null = null
                 if (eventType === 'book') msg = rec as unknown as BookMessage
                 else if (eventType === 'price_change') msg = rec as unknown as PriceChangeMessage
-                else if (eventType === 'tick_size_change') msg = rec as unknown as TickSizeChangeMessage
-                else if (eventType === 'last_trade_price') msg = rec as unknown as LastTradePriceMessage
+                else if (eventType === 'tick_size_change')
+                  msg = rec as unknown as TickSizeChangeMessage
+                else if (eventType === 'last_trade_price')
+                  msg = rec as unknown as LastTradePriceMessage
 
                 if (msg) {
                   marketEngine.applyAny(msg)
-                  await params.onSnapshot(marketEngine.snapshot(), { msg, rawJson, market: activeMarket })
+                  await params.onSnapshot(marketEngine.snapshot(), {
+                    msg,
+                    rawJson,
+                    market: activeMarket,
+                  })
                 }
               }
             }
@@ -470,4 +425,3 @@ main().catch((err) => {
   console.error('[backtest] failed', err)
   process.exit(1)
 })
-
