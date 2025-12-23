@@ -117,13 +117,17 @@ export class OrderManager {
     // 3) Maintain clientOrderId dedupe: if an order is done/rejected, allow re-use.
     for (const ev of out) {
       if (ev.kind === 'order_rejected') this.activeClientOrders.delete(ev.clientOrderId)
-      if (ev.kind === 'order_done' && ev.clientOrderId) this.activeClientOrders.delete(ev.clientOrderId)
+      if (ev.kind === 'order_done' && ev.clientOrderId)
+        this.activeClientOrders.delete(ev.clientOrderId)
     }
 
     return out
   }
 
-  private async executeIntentsNow(intents: Intent[], ctx: OrderManagerContext): Promise<AccountEvent[]> {
+  private async executeIntentsNow(
+    intents: Intent[],
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
     const out: AccountEvent[] = []
     for (const intent of intents) {
       if (intent.kind === 'place_limit') {

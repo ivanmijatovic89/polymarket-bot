@@ -1,6 +1,7 @@
 import type { Strategy } from '../strategy/Strategy.js'
 import { createExampleMakerQuoteStrategy } from './exampleMakerQuote.js'
 import { createExampleTakerFlipStrategy } from './exampleTakerFlip.js'
+import { createHybridProductionStrategy } from './hybridProduction.js'
 
 export function loadStrategyFromEnv(): Strategy {
   const name = (process.env.STRATEGY ?? 'example_maker_quote').trim()
@@ -31,6 +32,24 @@ export function loadStrategyFromEnv(): Strategy {
       size: Number.isFinite(size) ? size : 5,
       maxSpread: Number.isFinite(maxSpread) ? maxSpread : 0.02,
       cooldownMs: Number.isFinite(cooldownMs) ? cooldownMs : 5000,
+    })
+  }
+
+  if (name === 'hybrid_production') {
+    const capital = Number(
+      process.env.STRAT_CAPITAL ?? process.env.HYBRID_PRODUCTION_BOT_CAPITAL ?? '10',
+    )
+    const debug =
+      (process.env.STRAT_DEBUG ?? process.env.HYBRID_PROD_DEBUG ?? 'false').toLowerCase() === 'true'
+
+    const a = process.env.STRAT_ASSET_ID_A
+    const b = process.env.STRAT_ASSET_ID_B
+    const assetIds = a && b ? ([a, b] as [string, string]) : undefined
+
+    return createHybridProductionStrategy({
+      capital: Number.isFinite(capital) ? capital : 10,
+      ...(assetIds ? { assetIds } : {}),
+      ...(debug ? { debug } : {}),
     })
   }
 

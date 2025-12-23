@@ -1,4 +1,9 @@
-import type { AccountEvent, Intent, PlaceLimitIntent, PortfolioSnapshot } from '../strategy/Strategy.js'
+import type {
+  AccountEvent,
+  Intent,
+  PlaceLimitIntent,
+  PortfolioSnapshot,
+} from '../strategy/Strategy.js'
 
 export type RiskLimits = {
   /** Maximum number of open orders allowed (global). */
@@ -138,9 +143,7 @@ export function enforceRiskLimits(params: {
 
     // Conservative worst-case: buys add, sells subtract.
     const projectedQty =
-      intent.side === 'BUY'
-        ? posQty + openBuys + intent.size
-        : posQty - (openSells + intent.size)
+      intent.side === 'BUY' ? posQty + openBuys + intent.size : posQty - (openSells + intent.size)
 
     if (Math.abs(projectedQty) > limits.maxAbsPosition) {
       const reason = `risk_max_abs_position(max=${limits.maxAbsPosition})`
@@ -161,4 +164,3 @@ export function enforceRiskLimits(params: {
 
   return { allowed, rejectedEvents, blocked }
 }
-

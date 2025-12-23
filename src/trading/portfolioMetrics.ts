@@ -96,4 +96,3 @@ export function mergePnlPctTotal(ops: MergeOpportunity[]): number {
   const pnl = sumMergePnl(ops)
   return round8(cost > 0 ? (pnl / cost) * 100 : 0)
 }
-
