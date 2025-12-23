@@ -30,10 +30,14 @@ export function decodeMarketChannelMessage(rawJson: string): AnyMarketMessage | 
 
   if (SYNTHETIC_EVENT_TYPES.has(t)) return null
 
-  if (t === 'book' || t === 'price_change' || t === 'tick_size_change' || t === 'last_trade_price') {
+  if (
+    t === 'book' ||
+    t === 'price_change' ||
+    t === 'tick_size_change' ||
+    t === 'last_trade_price'
+  ) {
     return obj as AnyMarketMessage
   }
 
   return null
 }
-

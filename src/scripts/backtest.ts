@@ -221,7 +221,8 @@ export async function replayOrderBookForMarket(params: {
         typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
       const ingestSeq = toBigInt(row.ingest_seq, 0n)
       const tsLocalMs = toBigInt(row.ts_local_ms, 0n)
-      const tsExchangeMs = row.ts_exchange_ms !== undefined ? toBigInt(row.ts_exchange_ms, 0n) : undefined
+      const tsExchangeMs =
+        row.ts_exchange_ms !== undefined ? toBigInt(row.ts_exchange_ms, 0n) : undefined
       const filePath = filePaths[item.fileIdx] ?? '(unknown)'
 
       // Fast-path skip for non-market-channel types without JSON parse.
@@ -247,7 +248,12 @@ export async function replayOrderBookForMarket(params: {
               tsLocalMs,
               ...(tsExchangeMs ? { tsExchangeMs } : {}),
             }
-            await params.onSnapshot(marketEngine.snapshot(), { msg, rawJson, market: activeMarket, meta })
+            await params.onSnapshot(marketEngine.snapshot(), {
+              msg,
+              rawJson,
+              market: activeMarket,
+              meta,
+            })
           }
         }
       }
