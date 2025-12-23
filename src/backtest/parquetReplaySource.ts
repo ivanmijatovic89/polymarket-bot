@@ -1,6 +1,10 @@
 import * as parquet from '@dsnp/parquetjs'
 
-import type { MarketEvent, MarketEventSource, MarketEventStatus } from '../ingest/marketEventSource.js'
+import type {
+  MarketEvent,
+  MarketEventSource,
+  MarketEventStatus,
+} from '../ingest/marketEventSource.js'
 
 type ReplayRow = {
   ingest_seq?: unknown
@@ -168,7 +172,10 @@ export function createParquetReplaySource(opts: ParquetReplaySourceOptions): Mar
       const item = heap.pop()
       if (!item) break
 
-      const raw = typeof item.row.raw_json === 'string' ? item.row.raw_json : JSON.stringify(item.row.raw_json ?? null)
+      const raw =
+        typeof item.row.raw_json === 'string'
+          ? item.row.raw_json
+          : JSON.stringify(item.row.raw_json ?? null)
       const tsLocalMs = toBigInt(item.row.ts_local_ms, item.keyTs)
 
       if (timeDriven) {
@@ -221,4 +228,3 @@ export function createParquetReplaySource(opts: ParquetReplaySourceOptions): Mar
     },
   }
 }
-

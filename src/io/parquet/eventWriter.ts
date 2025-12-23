@@ -190,7 +190,8 @@ export class RotatingParquetEventRecorder {
     let state = this.writersByMarket.get(marketId)
 
     const canOpenFile =
-      RotatingParquetEventRecorder.OPEN_ON_EVENT_TYPES.has(row.event_type) || row.event_type === 'book'
+      RotatingParquetEventRecorder.OPEN_ON_EVENT_TYPES.has(row.event_type) ||
+      row.event_type === 'book'
 
     // We want each file to be self-contained; in general we start a file once we see a `book`.
     // Exception: allow certain synthetic markers (e.g. `disconnect`) to open a file so we can
@@ -262,7 +263,12 @@ async function pathExists(p: string): Promise<boolean> {
     await stat(p)
     return true
   } catch (err) {
-    if (err && typeof err === 'object' && 'code' in err && (err as { code?: string }).code === 'ENOENT')
+    if (
+      err &&
+      typeof err === 'object' &&
+      'code' in err &&
+      (err as { code?: string }).code === 'ENOENT'
+    )
       return false
     throw err
   }

@@ -1,5 +1,8 @@
 import { createParquetReplaySource } from '../backtest/parquetReplaySource.js'
-import { createRawMarketEventLogger } from '../ingest/rawMarketEventLogger.js'
+import { createMarketEventHandler } from '../engine/marketEventHandler.js'
+import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
+
+installProcessCrashHandlers({ prefix: 'backtesting' })
 
 function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' {
   if (raw === 'recorded' || raw === 'exchange_time') return raw
@@ -57,7 +60,7 @@ async function main(): Promise<void> {
   console.log(`[backtesting] order=${order}`)
   console.log(`[backtesting] timeDriven=${timeDriven}`)
 
-  const logger = createRawMarketEventLogger()
+  const handler = createMarketEventHandler()
 
   let doneResolve: (() => void) | undefined
   const done = new Promise<void>((resolve) => {
@@ -67,9 +70,7 @@ async function main(): Promise<void> {
   const source = createParquetReplaySource({ filePaths, order, timeDriven })
 
   source.onEvent((ev) => {
-    logger.onEvent(ev)
-    // Future: shared pipeline hook
-    // raw_json -> decoder -> orderbook -> Tick -> strategy
+    handler.handle(ev)
   })
 
   source.onStatus((s) => {
@@ -92,13 +93,12 @@ async function main(): Promise<void> {
     console.log(`[backtesting] ${signal} received, stopping...`)
     source.stop()
   }
-  process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  installSignalHandlers({ onSignal: shutdown })
 
   source.start()
   await done
 
-  const snap = logger.snapshot()
+  const snap = handler.snapshot()
   console.log('[backtesting] summary', snap)
 }
 
@@ -106,4 +106,3 @@ main().catch((err) => {
   console.error('[backtesting] failed', err)
   process.exit(1)
 })
-

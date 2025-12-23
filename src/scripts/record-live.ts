@@ -1,23 +1,21 @@
 import path from 'node:path'
 
-import { getCurrentUpDown15mMarket, type UpDown15mSymbol } from '../polymarket/upDown15m.js'
-import type { PolymarketAuth } from '../polymarket/marketWs.js'
 import { parseOptionalAuth } from '../polymarket/auth.js'
-import { parseEventIndexFields } from '../polymarket/marketEventIndex.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { RotatingParquetEventRecorder } from '../io/parquet/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
-import { createWindowBoundaryScheduler, formatMsAsMmSs, msUntilNextBoundary } from '../utils/windowBoundary.js'
+import {
+  createWindowBoundaryScheduler,
+  formatMsAsMmSs,
+  msUntilNextBoundary,
+} from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
+import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
+import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
+import { createMarketEventHandler } from '../engine/marketEventHandler.js'
+import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[record-live] unhandledRejection', reason)
-})
-
-process.on('uncaughtException', (err) => {
-  console.error('[record-live] uncaughtException', err)
-  process.exit(1)
-})
+installProcessCrashHandlers({ prefix: 'record-live' })
 
 const DEFAULT_STATS_INTERVAL_MS = 10_000
 const DEFAULT_SKIP_IF_OLDER_MS = 10_000
@@ -37,7 +35,8 @@ function floorToWindowStart(tsMs: number, windowMs: number): number {
 function asTerminatedParquetPath(filePathFinal: string): string {
   // Mark incomplete files created by manual termination (Ctrl+C / SIGTERM).
   if (filePathFinal.endsWith('-terminated.parquet')) return filePathFinal
-  if (filePathFinal.endsWith('.parquet')) return filePathFinal.replace(/\.parquet$/, '-terminated.parquet')
+  if (filePathFinal.endsWith('.parquet'))
+    return filePathFinal.replace(/\.parquet$/, '-terminated.parquet')
   return `${filePathFinal}-terminated`
 }
 
@@ -50,10 +49,7 @@ class SkipWindowError extends Error {
   }
 }
 
-function tryParseUpDown15mSlugEpochMs(args: {
-  slug: string
-  symbol: UpDown15mSymbol
-}): number | null {
+function tryParseUpDown15mSlugEpochMs(args: { slug: string; symbol: string }): number | null {
   // Expected: <symbol>-updown-15m-<epochSeconds>
   // Note: RegExp(string) needs a single escaped `\\d` to mean digit.
   // `\\\\d` would match the literal string "\d" and would break the skip-if-older logic.
@@ -68,14 +64,11 @@ async function main(): Promise<void> {
   const wsUrl =
     process.env.POLYMARKET_WS_URL ?? 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
 
-  const rawSymbol = process.env.RECORD_SYMBOL
-  if (!rawSymbol) {
-    throw new Error('[record-live] RECORD_SYMBOL is required (BTC|ETH|SOL|XRP)')
-  }
-  const symbol = rawSymbol.trim().toLowerCase() as UpDown15mSymbol
-  if (symbol !== 'btc' && symbol !== 'eth' && symbol !== 'sol' && symbol !== 'xrp') {
-    throw new Error(`[record-live] invalid RECORD_SYMBOL=${rawSymbol} (expected BTC|ETH|SOL|XRP)`)
-  }
+  const symbol = requireUpDown15mSymbolFromEnv({
+    primaryEnv: 'RECORD_SYMBOL',
+    requiredName: 'RECORD_SYMBOL',
+    script: 'record-live',
+  })
 
   const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events', symbol)
   const auth = parseOptionalAuth()
@@ -112,9 +105,7 @@ async function main(): Promise<void> {
   let appendErrors = 0
   let disconnects = 0
   let expectedCloses = 0
-  let droppedNoMarket = 0
-  let droppedBadJson = 0
-  let droppedUnknownType = 0
+  const handler = createMarketEventHandler()
 
   const classifyClose = (
     code: number,
@@ -169,13 +160,15 @@ async function main(): Promise<void> {
 
   let statsInterval: NodeJS.Timeout | undefined
   statsInterval = setInterval(() => {
+    const snap = handler.snapshot()
     // If we're intentionally waiting for the next window and nothing has been written yet,
     // keep the console clean (avoid repeating "all zeros" stats lines).
     if (
       isWaitingForNextWindow &&
       inFlightAppends === 0 &&
       totalAppends === 0 &&
-      appendErrors === 0
+      appendErrors === 0 &&
+      snap.total === 0
     ) {
       return
     }
@@ -187,19 +180,13 @@ async function main(): Promise<void> {
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${droppedNoMarket} dropped_bad_json=${droppedBadJson} dropped_unknown_type=${droppedUnknownType}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType}`,
     )
   }, statsIntervalMs)
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
-    const m = await getCurrentUpDown15mMarket(symbol, new Date())
-    if (!m)
-      throw new Error(
-        `[record-live] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`,
-      )
-
-    const nextSlug = m.slug
-    currentSlug = m.slug
+    const resolved = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+    currentSlug = resolved.slug
 
     // If the market already started, don't join mid-candle on *initial startup*.
     // This prevents overwriting the current slug's single parquet file on restarts.
@@ -208,7 +195,7 @@ async function main(): Promise<void> {
     // mid-window reconnects, otherwise a single disconnect after ~10s would cause us to
     // stop recording until the next 15m boundary (producing "short files" ending with
     // a synthetic `disconnect` marker).
-    const windowStartMsFromSlug = tryParseUpDown15mSlugEpochMs({ slug: m.slug, symbol })
+    const windowStartMsFromSlug = tryParseUpDown15mSlugEpochMs({ slug: resolved.slug, symbol })
     if (windowStartMsFromSlug !== null) {
       // After a 15m boundary, Gamma may briefly still return the previous market.
       // If so, retry quickly rather than skipping a whole 15m window.
@@ -217,7 +204,7 @@ async function main(): Promise<void> {
         currentSlug = undefined
         isWaitingForNextWindow = true
         throw new SkipWindowError(
-          `[record-live] gamma still returning previous market slug=${m.slug}; waiting for current window market`,
+          `[record-live] gamma still returning previous market slug=${resolved.slug}; waiting for current window market`,
           500,
         )
       }
@@ -234,10 +221,11 @@ async function main(): Promise<void> {
       }
     }
 
-    const assetsIds = m.clobTokenIds.slice(0, 2)
-    const map = Object.fromEntries(m.outcomes.slice(0, 2).map((o, i) => [o, assetsIds[i]]))
-    console.log('[record-live] chosen market from Gamma:', { slug: m.slug, question: m.question })
-    console.log('[record-live] token ids:', map)
+    console.log('[record-live] chosen market from Gamma:', {
+      slug: resolved.slug,
+      question: resolved.market.question,
+    })
+    console.log('[record-live] token ids:', resolved.tokenMap)
 
     // Reset per-market stats when the selected Gamma market changes.
     const nextStatsKey = currentSlug
@@ -247,10 +235,10 @@ async function main(): Promise<void> {
     }
 
     // Remember the current subscription targets for logging and markers.
-    currentAssetsIds = assetsIds
+    currentAssetsIds = resolved.assetsIds
     seenMarketIds.clear()
 
-    return { assetsIds, label: `gamma:${nextSlug}` }
+    return { assetsIds: resolved.assetsIds, label: resolved.label }
   }
 
   let manualReconnectTimer: NodeJS.Timeout | undefined
@@ -274,22 +262,12 @@ async function main(): Promise<void> {
   source.onEvent(({ tsLocalMs, raw }) => {
     if (shouldStop || isRotating) return
 
-    const idx = parseEventIndexFields(raw)
+    const decision = handler.handle({ tsLocalMs, raw })
 
     // We rotate/write per market. If a message doesn't carry `market` (e.g. acks),
     // we ignore it to avoid polluting `market=unknown` files.
-    if (!idx.market) {
-      droppedNoMarket += 1
-      return
-    }
-    if (idx.event_type === 'invalid_json') {
-      droppedBadJson += 1
-      return
-    }
-    if (idx.event_type === 'unknown') {
-      droppedUnknownType += 1
-      return
-    }
+    if (!decision.ok) return
+    const idx = decision.idx
 
     const marketId = idx.market
     seenMarketIds.add(marketId)
@@ -362,8 +340,11 @@ async function main(): Promise<void> {
     // That should not count as an "unexpected disconnect".
     const msToBoundary = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
     const isNearBoundary = msToBoundary <= 2_000
-    const slugStartMs = currentSlug ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol }) : null
-    const isNearWindowEnd = slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
+    const slugStartMs = currentSlug
+      ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol })
+      : null
+    const isNearWindowEnd =
+      slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
 
     if (closeKind.kind === 'unexpected' && (isNearBoundary || isNearWindowEnd)) {
       closeKind = { kind: 'expected', tag: 'window_end' }
@@ -484,8 +465,7 @@ async function main(): Promise<void> {
     })
   }
 
-  process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  installSignalHandlers({ onSignal: shutdown })
 
   source.start()
   boundaryScheduler.start()

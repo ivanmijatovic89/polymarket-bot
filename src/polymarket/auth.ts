@@ -7,4 +7,3 @@ export function parseOptionalAuth(): PolymarketAuth | undefined {
   if (!apiKey || !secret || !passphrase) return undefined
   return { apiKey, secret, passphrase }
 }
-

@@ -1,4 +1,8 @@
-import type { MarketEvent, MarketEventSource, MarketEventStatus } from '../ingest/marketEventSource.js'
+import type {
+  MarketEvent,
+  MarketEventSource,
+  MarketEventStatus,
+} from '../ingest/marketEventSource.js'
 import { createMarketWsClient, type MarketWsClient, type PolymarketAuth } from './marketWs.js'
 
 export type LiveMarketEventSourceOptions = {
@@ -98,11 +102,15 @@ export function createLiveMarketEventSource(opts: LiveMarketEventSourceOptions):
       } catch (err) {
         if (!running || mySession !== session) return
         const waitMs = getWaitMsFromError(err)
-        const msg = waitMs !== undefined ? asErrorMessage(err) : `resolveAssetsIds failed: ${asErrorMessage(err)}`
+        const msg =
+          waitMs !== undefined
+            ? asErrorMessage(err)
+            : `resolveAssetsIds failed: ${asErrorMessage(err)}`
         // If the resolver is telling us to wait (e.g. "no current market yet"), obey.
         scheduleReconnect(waitMs ?? backoffMs, msg)
         // Increase backoff only for generic errors (not for explicit waits).
-        if (waitMs === undefined) backoffMs = Math.min(maxDelayMs, Math.max(baseDelayMs, backoffMs * 2))
+        if (waitMs === undefined)
+          backoffMs = Math.min(maxDelayMs, Math.max(baseDelayMs, backoffMs * 2))
         return
       }
 
@@ -158,7 +166,9 @@ export function createLiveMarketEventSource(opts: LiveMarketEventSourceOptions):
           emitStatus({
             kind: 'disconnected',
             attempt,
-            ...(lastLabel ? { info: `${lastLabel} ws error: ${err.message}` } : { info: `ws error: ${err.message}` }),
+            ...(lastLabel
+              ? { info: `${lastLabel} ws error: ${err.message}` }
+              : { info: `ws error: ${err.message}` }),
           })
         },
       })
@@ -203,4 +213,3 @@ export function createLiveMarketEventSource(opts: LiveMarketEventSourceOptions):
     },
   }
 }
-

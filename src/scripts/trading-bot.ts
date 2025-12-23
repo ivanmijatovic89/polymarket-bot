@@ -1,18 +1,13 @@
-import { getCurrentUpDown15mMarket, type UpDown15mSymbol } from '../polymarket/upDown15m.js'
 import { parseOptionalAuth } from '../polymarket/auth.js'
+import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
-import { createRawMarketEventLogger } from '../ingest/rawMarketEventLogger.js'
+import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
+import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
+import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 
-process.on('unhandledRejection', (reason) => {
-  console.error('[trading-bot] unhandledRejection', reason)
-})
-
-process.on('uncaughtException', (err) => {
-  console.error('[trading-bot] uncaughtException', err)
-  process.exit(1)
-})
+installProcessCrashHandlers({ prefix: 'trading-bot' })
 
 // Keep a local alias for readability in logs/schedulers.
 const FIFTEEN_MIN_MS = FIFTEEN_MIN_MS_CONST
@@ -21,14 +16,12 @@ async function main(): Promise<void> {
   const wsUrl =
     process.env.POLYMARKET_WS_URL ?? 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
 
-  const rawSymbol = process.env.TRADING_SYMBOL ?? process.env.RECORD_SYMBOL
-  if (!rawSymbol) {
-    throw new Error('[trading-bot] TRADING_SYMBOL is required (BTC|ETH|SOL|XRP)')
-  }
-  const symbol = rawSymbol.trim().toLowerCase() as UpDown15mSymbol
-  if (symbol !== 'btc' && symbol !== 'eth' && symbol !== 'sol' && symbol !== 'xrp') {
-    throw new Error(`[trading-bot] invalid TRADING_SYMBOL=${rawSymbol} (expected BTC|ETH|SOL|XRP)`)
-  }
+  const symbol = requireUpDown15mSymbolFromEnv({
+    primaryEnv: 'TRADING_SYMBOL',
+    fallbackEnv: 'RECORD_SYMBOL',
+    requiredName: 'TRADING_SYMBOL',
+    script: 'trading-bot',
+  })
 
   const auth = parseOptionalAuth()
   console.log(`[trading-bot] symbol=${symbol}`)
@@ -38,17 +31,12 @@ async function main(): Promise<void> {
   let isRotating = false
   let currentSlug: string | undefined
 
-  const logger = createRawMarketEventLogger()
+  const handler = createMarketEventHandler()
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
-    const m = await getCurrentUpDown15mMarket(symbol, new Date())
-    if (!m)
-      throw new Error(
-        `[trading-bot] No current ${symbol.toUpperCase()} 15m Up/Down market found on Gamma`,
-      )
-    currentSlug = m.slug
-    const assetsIds = m.clobTokenIds.slice(0, 2)
-    return { assetsIds, label: `gamma:${m.slug}` }
+    const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+    currentSlug = r.slug
+    return { assetsIds: r.assetsIds, label: r.label }
   }
 
   const source = createLiveMarketEventSource({
@@ -59,9 +47,7 @@ async function main(): Promise<void> {
 
   source.onEvent((ev) => {
     if (shouldStop || isRotating) return
-    // Strategy pipeline will eventually go here:
-    // raw_json -> decoder -> orderbook -> Tick -> strategy -> orders
-    logger.onEvent(ev)
+    handler.handle(ev)
   })
 
   source.onStatus((s) => {
@@ -77,14 +63,18 @@ async function main(): Promise<void> {
     }
     if (s.kind === 'disconnected') {
       const extra =
-        typeof s.code === 'number' ? ` code=${s.code} reason=${s.reason ?? ''}` : s.info ? ` ${s.info}` : ''
+        typeof s.code === 'number'
+          ? ` code=${s.code} reason=${s.reason ?? ''}`
+          : s.info
+            ? ` ${s.info}`
+            : ''
       console.log(`[trading-bot] disconnected${extra}`)
     }
   })
 
   let statsInterval: NodeJS.Timeout | undefined
   statsInterval = setInterval(() => {
-    const snap = logger.snapshot()
+    const snap = handler.snapshot()
     const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
     console.log(
       `[trading-bot] stats total=${snap.total} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
@@ -124,9 +114,7 @@ async function main(): Promise<void> {
     source.stop()
     process.exit(0)
   }
-
-  process.on('SIGINT', () => shutdown('SIGINT'))
-  process.on('SIGTERM', () => shutdown('SIGTERM'))
+  installSignalHandlers({ onSignal: shutdown })
 
   source.start()
   boundaryScheduler.start()
@@ -136,4 +124,3 @@ main().catch((err) => {
   console.error('[trading-bot] fatal error', err)
   process.exit(1)
 })
-

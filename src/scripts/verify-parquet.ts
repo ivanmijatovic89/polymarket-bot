@@ -132,7 +132,8 @@ async function main(): Promise<void> {
           // ignore
         }
 
-        const rec = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined
+        const rec =
+          parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined
         console.log('[verify-parquet] row=', {
           n: count,
           ingest_seq: (row as { ingest_seq?: unknown }).ingest_seq,

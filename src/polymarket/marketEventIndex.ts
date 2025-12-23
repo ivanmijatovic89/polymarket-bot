@@ -48,4 +48,3 @@ export function parseEventIndexFields(rawJson: string): MarketEventIndex {
     return { event_type: 'invalid_json' }
   }
 }
-
