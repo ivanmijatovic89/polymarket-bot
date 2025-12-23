@@ -37,7 +37,7 @@ This currently connects + subscribes + logs basic stats. Strategy/order logic wi
 
 ### Backtesting entrypoint (Parquet replay)
 
-- Script: `src/scripts/backtesting.ts`
+- Script: `src/scripts/backtest.ts`
 - Main command:
   - `npm run backtest -- <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]`
 
@@ -229,7 +229,7 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
 - **Event stream (shared by live + replay)**
   - `src/ingest/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
   - `src/polymarket/marketEventIndex.ts`: tolerant JSON indexer (`event_type`, `market`, timestamps)
-  - `src/ingest/rawMarketEventLogger.ts`: small shared “raw event handler” used by trading + backtesting
+  - `src/engine/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters today)
 - **WebSocket (live)**
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + ping/pong heartbeat)
   - `src/polymarket/liveMarketEventSource.ts`: session runner (connect/reconnect) emitting `MarketEvent`
@@ -237,13 +237,13 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
   - `src/io/parquet/eventSchema.ts`: Parquet schema
   - `src/io/parquet/eventWriter.ts`: per-market ordered writer + 15m rotation support
 - **Backtesting / replay**
-  - `src/backtest/parquetReplaySource.ts`: reads Parquet and emits `MarketEvent` deterministically
+  - `src/ingest/replay/parquetReplaySource.ts`: reads Parquet and emits `MarketEvent` deterministically
 - **Time/window helpers**
   - `src/utils/windowBoundary.ts`: 15m boundary scheduler used by `record-live` and `trading-bot`
 - **Scripts**
   - `src/scripts/record-live.ts`: live ingest → Parquet
   - `src/scripts/trading-bot.ts`: live ingest → strategy pipeline (stub)
-  - `src/scripts/backtesting.ts`: Parquet replay → strategy pipeline (stub)
+  - `src/scripts/backtest.ts`: Parquet replay → strategy pipeline (stub)
   - `src/scripts/verify-parquet.ts`: Parquet validator
 
 ## Notes / current limitations

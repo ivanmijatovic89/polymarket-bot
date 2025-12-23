@@ -4,7 +4,7 @@ import type {
   MarketEvent,
   MarketEventSource,
   MarketEventStatus,
-} from '../ingest/marketEventSource.js'
+} from '../marketEventSource.js'
 
 type ReplayRow = {
   ingest_seq?: unknown
@@ -228,3 +228,4 @@ export function createParquetReplaySource(opts: ParquetReplaySourceOptions): Mar
     },
   }
 }
+

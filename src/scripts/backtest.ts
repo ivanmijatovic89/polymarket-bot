@@ -1,8 +1,8 @@
-import { createParquetReplaySource } from '../backtest/parquetReplaySource.js'
+import { createParquetReplaySource } from '../ingest/replay/parquetReplaySource.js'
 import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 
-installProcessCrashHandlers({ prefix: 'backtesting' })
+installProcessCrashHandlers({ prefix: 'backtest' })
 
 function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' {
   if (raw === 'recorded' || raw === 'exchange_time') return raw
@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   const filePaths = parsed.filePaths
   if (filePaths.length === 0) {
     console.error(
-      'Usage: tsx src/scripts/backtesting.ts <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
+      'Usage: tsx src/scripts/backtest.ts <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
     )
     process.exit(2)
   }
@@ -56,9 +56,9 @@ async function main(): Promise<void> {
   const order = parsed.order
   const timeDriven = parsed.timeDriven
 
-  console.log(`[backtesting] files=${filePaths.length}`)
-  console.log(`[backtesting] order=${order}`)
-  console.log(`[backtesting] timeDriven=${timeDriven}`)
+  console.log(`[backtest] files=${filePaths.length}`)
+  console.log(`[backtest] order=${order}`)
+  console.log(`[backtest] timeDriven=${timeDriven}`)
 
   const handler = createMarketEventHandler()
 
@@ -75,22 +75,22 @@ async function main(): Promise<void> {
 
   source.onStatus((s) => {
     if (s.kind === 'connected') {
-      console.log(`[backtesting] started (${s.info ?? 'parquet'})`)
+      console.log(`[backtest] started (${s.info ?? 'parquet'})`)
       return
     }
     if (s.kind === 'disconnected') {
-      console.log(`[backtesting] finished (${s.info ?? 'done'})`)
+      console.log(`[backtest] finished (${s.info ?? 'done'})`)
       doneResolve?.()
       return
     }
     if (s.kind === 'reconnecting') {
       // replay source doesn't reconnect, but keep this for interface parity
-      console.log(`[backtesting] reconnecting in ${s.delayMs}ms (${s.info ?? ''})`)
+      console.log(`[backtest] reconnecting in ${s.delayMs}ms (${s.info ?? ''})`)
     }
   })
 
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
-    console.log(`[backtesting] ${signal} received, stopping...`)
+    console.log(`[backtest] ${signal} received, stopping...`)
     source.stop()
   }
   installSignalHandlers({ onSignal: shutdown })
@@ -99,10 +99,11 @@ async function main(): Promise<void> {
   await done
 
   const snap = handler.snapshot()
-  console.log('[backtesting] summary', snap)
+  console.log('[backtest] summary', snap)
 }
 
 main().catch((err) => {
-  console.error('[backtesting] failed', err)
+  console.error('[backtest] failed', err)
   process.exit(1)
 })
+
