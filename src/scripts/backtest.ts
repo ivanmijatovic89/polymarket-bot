@@ -3,14 +3,10 @@ import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import { MarketOrderBookEngine } from '../orderbook/OrderBookEngine.js'
-import type {
-  AnyMarketMessage,
-  BookMessage,
-  LastTradePriceMessage,
-  PriceChangeMessage,
-  TickSizeChangeMessage,
-} from '../orderbook/OrderBookEngine.js'
+import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
 import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
+import type { EventMeta } from '../orderbook/eventMeta.js'
+import { decodeMarketChannelMessage } from '../orderbook/marketChannelDecoder.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -160,20 +156,7 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-function parseWsJson(rawJson: string): unknown {
-  try {
-    return JSON.parse(rawJson)
-  } catch {
-    return null
-  }
-}
-
-function asRecord(x: unknown): Record<string, unknown> | null {
-  if (!x || typeof x !== 'object') return null
-  return x as Record<string, unknown>
-}
-
-type ReplayApplyEvent = { msg: AnyMarketMessage; rawJson: string; market: string }
+type ReplayApplyEvent = { msg: AnyMarketMessage; rawJson: string; market: string; meta: EventMeta }
 
 /**
  * Replay parquet WS events and reconstruct order books tick-by-tick.
@@ -236,6 +219,10 @@ export async function replayOrderBookForMarket(params: {
       const rowEventType = typeof row.event_type === 'string' ? row.event_type : undefined
       const rawJson =
         typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
+      const ingestSeq = toBigInt(row.ingest_seq, 0n)
+      const tsLocalMs = toBigInt(row.ts_local_ms, 0n)
+      const tsExchangeMs = row.ts_exchange_ms !== undefined ? toBigInt(row.ts_exchange_ms, 0n) : undefined
+      const filePath = filePaths[item.fileIdx] ?? '(unknown)'
 
       // Fast-path skip for non-market-channel types without JSON parse.
       if (
@@ -247,47 +234,20 @@ export async function replayOrderBookForMarket(params: {
       ) {
         // skip
       } else {
-        const obj = parseWsJson(rawJson)
-        const rec = asRecord(obj)
-        if (rec) {
-          const eventType =
-            (typeof rec.event_type === 'string' ? rec.event_type : rowEventType) ?? 'unknown'
-
-          // Ignore synthetic markers recorded by record-live.ts.
-          if (
-            eventType === 'disconnect' ||
-            eventType === 'window_end' ||
-            eventType === 'writer_lag_disconnect'
-          ) {
-            // ignore
-          } else {
-            const m = rec.market
-            const market = typeof m === 'string' ? m : undefined
-            if (market) {
-              if (!activeMarket) activeMarket = market
-              if (activeMarket !== market) {
-                // Files are expected to be single-market, but be defensive.
-                // Ignore other-market rows.
-              } else {
-                // Decode a message and apply it to the market-level engine (which manages all assets).
-                let msg: AnyMarketMessage | null = null
-                if (eventType === 'book') msg = rec as unknown as BookMessage
-                else if (eventType === 'price_change') msg = rec as unknown as PriceChangeMessage
-                else if (eventType === 'tick_size_change')
-                  msg = rec as unknown as TickSizeChangeMessage
-                else if (eventType === 'last_trade_price')
-                  msg = rec as unknown as LastTradePriceMessage
-
-                if (msg) {
-                  marketEngine.applyAny(msg)
-                  await params.onSnapshot(marketEngine.snapshot(), {
-                    msg,
-                    rawJson,
-                    market: activeMarket,
-                  })
-                }
-              }
+        const msg = decodeMarketChannelMessage(rawJson)
+        if (msg) {
+          const market = msg.market
+          if (!activeMarket) activeMarket = market
+          if (activeMarket === market) {
+            marketEngine.applyAny(msg)
+            const meta: EventMeta = {
+              source: 'parquet',
+              filePath,
+              ingestSeq,
+              tsLocalMs,
+              ...(tsExchangeMs ? { tsExchangeMs } : {}),
             }
+            await params.onSnapshot(marketEngine.snapshot(), { msg, rawJson, market: activeMarket, meta })
           }
         }
       }
