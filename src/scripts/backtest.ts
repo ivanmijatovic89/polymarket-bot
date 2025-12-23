@@ -2,11 +2,9 @@ import { createParquetReplaySource } from '../ingest/replay/parquetReplaySource.
 import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
-import { MarketOrderBookEngine } from '../orderbook/OrderBookEngine.js'
-import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
 import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
-import type { EventMeta } from '../orderbook/eventMeta.js'
-import { decodeMarketChannelMessage } from '../orderbook/marketChannelDecoder.js'
+import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
+import { MarketEngine } from '../engine/MarketEngine.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -156,7 +154,12 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
-type ReplayApplyEvent = { msg: AnyMarketMessage; rawJson: string; market: string; meta: EventMeta }
+type ReplayApplyEvent = {
+  msg: AnyMarketMessage
+  rawJson: string
+  market: string
+  source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+}
 
 /**
  * Replay parquet WS events and reconstruct order books tick-by-tick.
@@ -198,7 +201,7 @@ export async function replayOrderBookForMarket(params: {
 
     let activeMarket: string | undefined
 
-    const marketEngine = new MarketOrderBookEngine()
+    const eng = new MarketEngine()
 
     let prevKeyTs: bigint | undefined
     while (true) {
@@ -220,9 +223,6 @@ export async function replayOrderBookForMarket(params: {
       const rawJson =
         typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
       const ingestSeq = toBigInt(row.ingest_seq, 0n)
-      const tsLocalMs = toBigInt(row.ts_local_ms, 0n)
-      const tsExchangeMs =
-        row.ts_exchange_ms !== undefined ? toBigInt(row.ts_exchange_ms, 0n) : undefined
       const filePath = filePaths[item.fileIdx] ?? '(unknown)'
 
       // Fast-path skip for non-market-channel types without JSON parse.
@@ -235,25 +235,23 @@ export async function replayOrderBookForMarket(params: {
       ) {
         // skip
       } else {
-        const msg = decodeMarketChannelMessage(rawJson)
+        const msg = await eng.handleRaw({
+          rawJson,
+          source: { kind: 'parquet', filePath, ingestSeq },
+        })
         if (msg) {
           const market = msg.market
           if (!activeMarket) activeMarket = market
           if (activeMarket === market) {
-            marketEngine.applyAny(msg)
-            const meta: EventMeta = {
-              source: 'parquet',
-              filePath,
-              ingestSeq,
-              tsLocalMs,
-              ...(tsExchangeMs ? { tsExchangeMs } : {}),
-            }
-            await params.onSnapshot(marketEngine.snapshot(), {
+            // Only run strategy ticks on book+price_change (per project rules).
+            if (msg.event_type === 'book' || msg.event_type === 'price_change') {
+              await params.onSnapshot(eng.snapshot(), {
               msg,
               rawJson,
               market: activeMarket,
-              meta,
+                source: { kind: 'parquet', filePath, ingestSeq },
             })
+            }
           }
         }
       }

@@ -2,6 +2,7 @@ import { parseOptionalAuth } from '../polymarket/auth.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { createMarketEventHandler } from '../engine/marketEventHandler.js'
+import { MarketEngine } from '../engine/MarketEngine.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
@@ -33,6 +34,29 @@ async function main(): Promise<void> {
 
   const handler = createMarketEventHandler()
 
+  // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
+  let wsAttempt = 1
+
+  const marketEngine = new MarketEngine({
+    onTick: ({ source, msg, snapshot }) => {
+      // Strategy hook (stub): log only on book + price_change (enforced by MarketEngine).
+      const assets = Object.keys(snapshot.byAssetId)
+      const bests = Object.fromEntries(
+        assets.map((assetId) => {
+          const b = snapshot.byAssetId[assetId]
+          return [assetId, { bestBid: b?.bestBid ?? null, bestAsk: b?.bestAsk ?? null }]
+        }),
+      )
+      console.log('[trading-bot][tick]', {
+        event: msg.event_type,
+        market: snapshot.market,
+        ts: snapshot.timestamp,
+        source,
+        bests,
+      })
+    },
+  })
+
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
     const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
     currentSlug = r.slug
@@ -48,20 +72,28 @@ async function main(): Promise<void> {
   source.onEvent((ev) => {
     if (shouldStop || isRotating) return
     handler.handle(ev)
+
+    void marketEngine.handleRaw({
+      rawJson: ev.raw,
+      source: { kind: 'live', attempt: wsAttempt },
+    })
   })
 
   source.onStatus((s) => {
     if (shouldStop || isRotating) return
     if (s.kind === 'connected') {
+      wsAttempt = s.attempt
       console.log(`[trading-bot] connected (${s.info ?? 'ws'})`)
       return
     }
     if (s.kind === 'reconnecting') {
+      wsAttempt = s.attempt
       const extra = s.info ? ` (${s.info})` : ''
       console.log(`[trading-bot] reconnecting in ${s.delayMs}ms${extra}`)
       return
     }
     if (s.kind === 'disconnected') {
+      wsAttempt = s.attempt
       const extra =
         typeof s.code === 'number'
           ? ` code=${s.code} reason=${s.reason ?? ''}`
