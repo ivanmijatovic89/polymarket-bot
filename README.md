@@ -13,6 +13,26 @@ The goal is to use these exact raw ticks for both:
 - **Live trading** (consume WS stream directly)
 - **Backtests** (replay the recorded Parquet row-by-row, tick-by-tick)
 
+## Table of Contents
+
+- [What exists today](#what-exists-today)
+  - [Live recording entrypoint](#live-recording-entrypoint)
+  - [Trading bot entrypoint (stub)](#trading-bot-entrypoint-stub)
+  - [Backtesting entrypoint (Parquet replay)](#backtesting-entrypoint-parquet-replay)
+  - [Parquet format (the persisted unit)](#parquet-format-the-persisted-unit)
+  - [Output directory layout](#output-directory-layout)
+- [Orderbook](#orderbook)
+- [Setup](#setup)
+- [Usage](#usage)
+  - [Record live events](#record-live-events)
+  - [Run the trading bot (stub)](#run-the-trading-bot-stub)
+  - [Backtest (replay recorded Parquet)](#backtest-replay-recorded-parquet)
+  - [Backtest (orderbook reconstruction)](#backtest-orderbook-reconstruction)
+  - [Verify a parquet file](#verify-a-parquet-file)
+- [Code map](#code-map)
+- [Notes / current limitations](#notes--current-limitations)
+- [References / Docs used](#references--docs-used)
+
 ## What exists today
 
 ### Live recording entrypoint
@@ -40,12 +60,17 @@ This currently connects + subscribes + logs basic stats. Strategy/order logic wi
 - Script: `src/scripts/backtest.ts`
 - Main command:
   - `npm run backtest -- <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]`
+  - Orderbook replay mode:
+    - `npm run backtest -- --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time]`
 
 Backtest (fast/event-driven):
 `npm run backtest -- data/events/btc/<file>.parquet --order recorded`
 
 Backtest (time-driven):
 `npm run backtest -- data/events/btc/<file>.parquet --time-driven --order exchange_time`
+
+Backtest (orderbook reconstruction):
+`npm run backtest -- --mode orderbook data/events/btc/<file>.parquet --order recorded`
 
 High-level flow:
 
@@ -108,6 +133,30 @@ Important behavior:
 - A Parquet file is only opened once we observe the first `event_type === "book"` for that market.
   (Pre-book events are dropped to keep each file self-contained.)
 - Files are written as `*.parquet.tmp` and only renamed to `*.parquet` on close/rotation/shutdown.
+
+## Orderbook
+
+This repo now includes a shared order book reconstructor for **Polymarket CLOB Market channel** events.
+
+- **Module**: `src/orderbook/OrderBookEngine.ts`
+- **Message types supported** (per Polymarket docs):
+  - `book` (snapshot, source-of-truth)
+  - `price_change` (delta: new aggregate size at a price level)
+  - `tick_size_change` (tracked for validation; does not mutate levels)
+  - `last_trade_price` (does not mutate the book; book changes come from `book`/`price_change`)
+
+Two engine layers:
+
+- **`OrderBookEngine`**: maintains the full order book for a single `(market, assetId)` (one CLOB token id)
+  - `snapshot()` returns **all levels** (`bids` sorted DESC, `asks` sorted ASC) plus `bestBid/bestAsk/mid/spread`
+- **`MarketOrderBookEngine`**: maintains **all token books** for a single `market`
+  - `snapshot()` returns `{ byAssetId: { [assetId]: OrderBookSnapshot } }`
+  - This is useful for strategies that need both tokens at once (e.g. arbitrage between YES/NO).
+
+Implementation notes:
+
+- Internally uses `number` for prices/sizes (with a TODO to move to integer ticks later for precision).
+- `tick_size_change.side` is treated as optional (docs/examples can omit it); when missing, the engine stores the tick size for both BUY/SELL.
 
 ## Setup
 
@@ -198,6 +247,21 @@ Notes:
 - `--order exchange_time` uses exchange timestamps when present (`ts_exchange_ms`, falling back to `ts_local_ms`).
 - You can pass multiple files; replay merges deterministically using `(order_timestamp, ingest_seq, file_index)` so runs are reproducible.
 
+### Backtest (orderbook reconstruction)
+
+This mode reconstructs the order book tick-by-tick from the persisted WS events.
+
+```bash
+npm run backtest -- --mode orderbook "data/events/btc/<slug>.parquet" --order recorded
+```
+
+Behavior:
+
+- Events are merged deterministically and applied to `MarketOrderBookEngine`
+- Logs print:
+  - periodic summaries
+  - full `byAssetId` books on each `book` snapshot (for inspection/debugging)
+
 ### Verify a parquet file
 
 The verifier checks:
@@ -238,18 +302,22 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
   - `src/io/parquet/eventWriter.ts`: per-market ordered writer + 15m rotation support
 - **Backtesting / replay**
   - `src/ingest/replay/parquetReplaySource.ts`: reads Parquet and emits `MarketEvent` deterministically
+- **Orderbook reconstruction**
+  - `src/orderbook/OrderBookEngine.ts`: `OrderBookEngine` (per token) and `MarketOrderBookEngine` (per market)
 - **Time/window helpers**
   - `src/utils/windowBoundary.ts`: 15m boundary scheduler used by `record-live` and `trading-bot`
 - **Scripts**
   - `src/scripts/record-live.ts`: live ingest → Parquet
   - `src/scripts/trading-bot.ts`: live ingest → strategy pipeline (stub)
-  - `src/scripts/backtest.ts`: Parquet replay → strategy pipeline (stub)
+  - `src/scripts/backtest.ts`: Parquet replay → raw stats OR orderbook reconstruction (`--mode orderbook`)
   - `src/scripts/verify-parquet.ts`: Parquet validator
 
 ## Notes / current limitations
 
 - `src/index.ts` is currently a placeholder.
-- Backtesting currently replays **raw WS JSON** from Parquet into a shared handler; the full decoder/orderbook/strategy pipeline is still WIP.
+- Backtesting supports both:
+  - raw event replay (existing counters/indexing), and
+  - orderbook reconstruction (`--mode orderbook`), which is the basis for strategy simulation.
 - For safety, the recorder will disconnect if disk can’t keep up (controlled by `RECORD_MAX_INFLIGHT_APPENDS`) to prevent unbounded memory growth.
 
 ## References / Docs used
@@ -259,8 +327,10 @@ npm run verify:parquet -- "data/events/btc/<slug>.parquet" --limit 10000
 - **Gamma API (market metadata / slug lookup)**:
   - https://docs.polymarket.com/developers/gamma-markets-api/overview
 
-- **CLOB WebSocket (market channel subscriptions)**:
-  - https://docs.polymarket.com/api-reference/markets/get-market-by-slug
+- **CLOB WebSocket (market channel)**:
+  - https://docs.polymarket.com/developers/CLOB/websocket/market-channel
+- **Price change schema migration guide**:
+  - https://docs.polymarket.com/developers/CLOB/websocket/market-channel-migration-guide
 
 - **CLOB REST / Trading API (orders, cancels, fills, balances)**:
   - https://docs.polymarket.com/developers/CLOB/introduction
