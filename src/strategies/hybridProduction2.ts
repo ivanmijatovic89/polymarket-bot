@@ -1,6 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 import { msUntilNextBoundary } from '../utils/windowBoundary.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import * as z from 'zod'
 
 /**
  * Hybrid Production 2 (arb-first, minimal unhedged risk)
@@ -17,51 +19,49 @@ import { msUntilNextBoundary } from '../utils/windowBoundary.js'
  * - Backtests model FOK as fill-or-kill atomically per order; live may produce partial/async fills.
  */
 
-export type HybridProduction2Config = {
-  /**
-   * Starting capital used for internal "cash" tracking (strategy-only).
-   * This does NOT query the real exchange balance.
-   */
-  capital: number
+// NOTE: config type is inferred from the schema to stay aligned with Zod outputs
+// under `exactOptionalPropertyTypes`.
 
-  /** Optional: explicitly choose which two outcome tokens to trade. */
-  assetIds?: [string, string]
+const assetIdPairSchema = z
+  .tuple([z.string().min(1), z.string().min(1)])
+  .refine(([a, b]) => a !== b, { message: 'assetIds must contain 2 distinct strings' })
 
-  /** Toggle verbose logging. */
-  debug?: boolean
+const jsonString = <T>(inner: z.ZodType<T>) =>
+  z
+    .string()
+    .transform((s, ctx) => {
+      try {
+        return JSON.parse(s) as unknown
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        ctx.addIssue({ code: 'custom', message: `invalid json: ${msg}` })
+        return z.NEVER
+      }
+    })
+    .pipe(inner)
 
-  /**
-   * Minimum locked profit per paired share AFTER applying fee/slippage buffers.
-   * Example: 0.01 means we require at least 1 cent per pair.
-   */
-  minLockedProfitPerShare?: number
+export const HybridProduction2ConfigSchema = z.strictObject({
+  capital: z.coerce.number().finite().default(10),
+  assetIds: jsonString(assetIdPairSchema).optional(),
+  debug: z.coerce.boolean().default(false),
+  minLockedProfitPerShare: z.coerce.number().finite().default(0.01),
+  costBuffer: z.coerce.number().finite().default(1.02),
+  maxSingleTradePct: z.coerce.number().finite().default(0.3),
+  minTradeValue: z.coerce.number().finite().default(0.5),
+  minPairSize: z.coerce.number().finite().default(2),
+  maxPairSize: z.coerce.number().finite().default(10),
+  minSecondsLeftToEnter: z.coerce.number().finite().default(5),
+  maxUnhedgedHoldMs: z.coerce.number().finite().default(2500),
+})
 
-  /**
-   * Simple multiplicative buffer applied to notional costs to approximate fees/slippage.
-   * (HybridProduction uses 1.02.)
-   */
-  costBuffer?: number
+export type HybridProduction2Config = z.infer<typeof HybridProduction2ConfigSchema>
 
-  /** Never risk more than this fraction of remaining cash per new pair trade. */
-  maxSingleTradePct?: number
-
-  /** Minimum spend (notional) per trade batch. */
-  minTradeValue?: number
-
-  /** Minimum shares (pairs) per trade. */
-  minPairSize?: number
-
-  /** Cap max shares (pairs) per trade to stay conservative. */
-  maxPairSize?: number
-
-  /** Minimum seconds left in the 15m window to open a new position. */
-  minSecondsLeftToEnter?: number
-
-  /**
-   * If we end up unhedged (one leg filled), how long we allow it before forcing an unwind.
-   * (In live, missing-leg fills can arrive async; keep this short.)
-   */
-  maxUnhedgedHoldMs?: number
+export const definition: StrategyDefinition<HybridProduction2Config> = {
+  id: 'hybrid_production2',
+  title: 'Hybrid production 2',
+  description: 'Arb-first paired entry/hedge with minimal unhedged risk.',
+  schema: HybridProduction2ConfigSchema,
+  create: (params) => createHybridProduction2Strategy(params),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: [string, string]): [string, string] | null {
@@ -616,15 +616,20 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
     }
 
     // Order finalized / rejected => mark failures for active pair legs (important in backtests).
-    if (activePair && ev.clientOrderId && ev.clientOrderId.startsWith(clientPrefix)) {
-      const cid = ev.clientOrderId
-      if (ev.kind === 'order_done' && ev.reason === 'killed') {
-        if (cid === activePair.cidA) activePair.statusA = 'failed'
-        if (cid === activePair.cidB) activePair.statusB = 'failed'
+    if (activePair) {
+      if (ev.kind === 'order_done') {
+        const cid = ev.clientOrderId
+        if (cid && cid.startsWith(clientPrefix) && ev.reason === 'killed') {
+          if (cid === activePair.cidA) activePair.statusA = 'failed'
+          if (cid === activePair.cidB) activePair.statusB = 'failed'
+        }
       }
       if (ev.kind === 'order_rejected') {
-        if (cid === activePair.cidA) activePair.statusA = 'failed'
-        if (cid === activePair.cidB) activePair.statusB = 'failed'
+        const cid = ev.clientOrderId
+        if (cid.startsWith(clientPrefix)) {
+          if (cid === activePair.cidA) activePair.statusA = 'failed'
+          if (cid === activePair.cidB) activePair.statusB = 'failed'
+        }
       }
     }
 

@@ -7,12 +7,12 @@ import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/win
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import { loadStrategyFromEnv } from '../strategy/strategyRegistry.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
+import { buildStrategyFromCliArgs, printCliArgsError } from './strategyArgs.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -46,8 +46,16 @@ async function main(): Promise<void> {
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
-  const strategy = loadStrategyFromEnv()
-  console.log(`[trading-bot] strategy=${strategy.name}`)
+  const built = (() => {
+    try {
+      return buildStrategyFromCliArgs({ argv: process.argv.slice(2), script: 'trading-bot' })
+    } catch (err) {
+      printCliArgsError({ script: 'trading-bot', err })
+      process.exit(2)
+    }
+  })()
+  const strategy = built.strategy
+  console.log(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.

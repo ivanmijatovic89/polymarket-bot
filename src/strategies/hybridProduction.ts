@@ -1,6 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 import { msUntilNextBoundary } from '../utils/windowBoundary.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import * as z from 'zod'
 
 /**
  * Hybrid Production Bot - REAL MONEY READY
@@ -25,18 +27,41 @@ import { msUntilNextBoundary } from '../utils/windowBoundary.js'
  * - We use FOK limit orders at bestAsk to behave like a taker entry/hedge.
  */
 
-export type HybridProductionConfig = {
-  /**
-   * Starting capital used for internal "cash" tracking (strategy-only).
-   * This does NOT query the real exchange balance.
-   */
-  capital: number
+// NOTE: config type is inferred from the schema to stay aligned with Zod outputs
+// under `exactOptionalPropertyTypes`.
 
-  /** Optional: explicitly choose which two outcome tokens to trade. */
-  assetIds?: [string, string]
+const assetIdPairSchema = z
+  .tuple([z.string().min(1), z.string().min(1)])
+  .refine(([a, b]) => a !== b, { message: 'assetIds must contain 2 distinct strings' })
 
-  /** Toggle verbose logging (the original bot logs a lot). */
-  debug?: boolean
+const jsonString = <T>(inner: z.ZodType<T>) =>
+  z
+    .string()
+    .transform((s, ctx) => {
+      try {
+        return JSON.parse(s) as unknown
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        ctx.addIssue({ code: 'custom', message: `invalid json: ${msg}` })
+        return z.NEVER
+      }
+    })
+    .pipe(inner)
+
+export const HybridProductionConfigSchema = z.strictObject({
+  capital: z.coerce.number().finite().default(10),
+  assetIds: jsonString(assetIdPairSchema).optional(),
+  debug: z.coerce.boolean().default(false),
+})
+
+export type HybridProductionConfig = z.infer<typeof HybridProductionConfigSchema>
+
+export const definition: StrategyDefinition<HybridProductionConfig> = {
+  id: 'hybrid_production',
+  title: 'Hybrid production',
+  description: 'Production bot (v1) for 15m Up/Down markets (entry + hedge logic).',
+  schema: HybridProductionConfigSchema,
+  create: (params) => createHybridProductionStrategy(params),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: [string, string]): [string, string] | null {
