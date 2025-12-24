@@ -36,6 +36,8 @@ Replay a captured Parquet file and reconstruct order books:
 
 ```bash
 npm run backtest -- "data/events/btc/<slug>.parquet"
+# or multiple files
+npm run backtest -- data/events/btc/<slug>.parquet data/events/btc/<slug-2>.parquet
 ```
 
 Run a backtest strategy (example):
@@ -178,6 +180,27 @@ Run (default for `npm run backtest`):
 ```bash
 npm run backtest -- "data/events/btc/<slug>.parquet" --order recorded
 ```
+
+### Backtest a whole folder (avoid listing every file)
+
+The backtest script accepts multiple positional parquet paths, so you can let your shell expand them:
+
+```bash
+STRATEGY=winnerLimit STRAT_SIZE=5 STRAT_TRIGGER_PRICE=0.88 STRAT_LIMIT_PRICE=0.88 STRAT_MIN_DELAY_MS=600000 \
+npm run backtest -- data/events/btc/*.parquet
+```
+
+If you want a deterministic sorted list (by the epoch suffix in the filename), use:
+
+```bash
+STRATEGY=winnerLimit STRAT_SIZE=5 STRAT_TRIGGER_PRICE=0.88 STRAT_LIMIT_PRICE=0.88 STRAT_MIN_DELAY_MS=600000 \
+npm run backtest -- $(npm run -s list:backtest-files -- --symbol btc)
+```
+
+Notes:
+
+- `--` is required to forward args through `npm run`.
+- If you have many files and hit "argument list too long", add a directory-reading option to the backtest CLI (not implemented yet).
 
 Backtest output:
 
