@@ -165,7 +165,7 @@ npm run backtest -- --mode raw "data/events/btc/<slug>.parquet" --order recorded
 
 ### 2) Order book reconstruction (tick-by-tick)
 
-This uses the shared engine (`src/engine/MarketEngine.ts`) which does:
+This uses the shared engine (`src/market/MarketEngine.ts`) which does:
 
 `raw_json → decodeMarketChannelMessage → MarketOrderBookEngine → onTick()`
 
@@ -296,7 +296,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
 - **Event stream (shared shape)**:
   - `src/types/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
   - `src/polymarket/marketEventIndex.ts`: tolerant indexer (`event_type`, `market`, timestamps)
-  - `src/engine/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
+  - `src/market/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
 - **WebSocket (live)**:
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + heartbeat)
   - `src/polymarket/liveMarketEventSource.ts`: connect/reconnect loop emitting `MarketEvent`
@@ -308,8 +308,8 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/cli/backtest.ts`: raw replay + orderbook reconstruction modes
 - **Orderbook / shared engine**:
   - `src/orderbook/*`: orderbook engines (OrderBookEngine, MarketOrderBookEngine)
-  - `src/engine/marketChannelDecoder.ts`: decode raw JSON → Polymarket market-channel messages
-  - `src/engine/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
+  - `src/market/marketChannelDecoder.ts`: decode raw JSON → Polymarket market-channel messages
+  - `src/market/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
 - **Strategy / trading**
   - `src/strategy/Strategy.ts`: shared types (`Strategy`, `Intent`, `AccountEvent`, `PortfolioSnapshot`)
   - `src/trading/StrategyRunner.ts`: shared event loop (market ticks + account events)
