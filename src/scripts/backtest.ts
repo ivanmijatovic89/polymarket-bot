@@ -554,6 +554,8 @@ async function main(): Promise<void> {
     type MarketPnlRow = {
       filePath: string
       market: string
+      tradeFills: number
+      realizedPnlDelta: number
       mergeQty: number
       pnl: number
       cost: number
@@ -569,6 +571,10 @@ async function main(): Promise<void> {
       const active = carried ?? mkRunner()
       const runner = active.runner
       const strategy = active.strategy
+
+      // Track realized PnL changes for this episode (includes synthetic settlement fills).
+      const episodeRealizedBefore = safeFinite(runner.getPortfolio().snapshot().realizedPnlTotal, 0)
+
       await replayOrderBookForMarket({
         filePaths: [fp],
         order: parsed.order,
@@ -613,11 +619,13 @@ async function main(): Promise<void> {
       })
 
       // Settle this market episode so capital doesn't remain locked across sequential 15m files.
+      let episodeRealizedAfter = episodeRealizedBefore
       if (market !== '(unknown)') {
         console.log(`[backtest] settling market=${market}`)
         await settleMarketEpisode({ runner, strategyName: strategy.name, market })
 
         const allAfter = runner.getPortfolio().snapshot()
+        episodeRealizedAfter = safeFinite(allAfter.realizedPnlTotal, episodeRealizedBefore)
         const pAfter = portfolioForMarket(allAfter, market)
         const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
         const settlementAfter = settlementActionSummary(pAfter.recentFills.filter((f) => isSettlementFill(f)))
@@ -638,6 +646,8 @@ async function main(): Promise<void> {
       marketRows.push({
         filePath: fp,
         market,
+        tradeFills: tradeFillsBefore,
+        realizedPnlDelta: round8(episodeRealizedAfter - episodeRealizedBefore),
         mergeQty: totalMergeQty,
         pnl: totalPnl,
         cost: totalCost,
@@ -645,14 +655,19 @@ async function main(): Promise<void> {
       })
     }
 
-    // Strategy-level PnL across markets (based on merge opportunities per market).
-    const traded = marketRows.filter((r) => r.mergeQty > 0 && r.cost > 0)
-    const wins = traded.filter((r) => r.pnl > 0)
-    const losses = traded.filter((r) => r.pnl <= 0)
-    const totalPnl = round8(traded.reduce((acc, r) => acc + r.pnl, 0))
-    const avgWin = round8(wins.length ? wins.reduce((acc, r) => acc + r.pnl, 0) / wins.length : 0)
+    // Strategy-level PnL across markets (based on realized PnL deltas per episode).
+    // A "traded market" is one that had at least one non-settlement fill.
+    const traded = marketRows.filter((r) => r.tradeFills > 0)
+    const wins = traded.filter((r) => r.realizedPnlDelta > 0)
+    const losses = traded.filter((r) => r.realizedPnlDelta <= 0)
+    const totalPnl = round8(traded.reduce((acc, r) => acc + r.realizedPnlDelta, 0))
+    const avgWin = round8(
+      wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
+    )
     const avgLose = round8(
-      losses.length ? losses.reduce((acc, r) => acc + r.pnl, 0) / losses.length : 0,
+      losses.length
+        ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length
+        : 0,
     )
 
     console.log('[backtest] strategy pnl', {
