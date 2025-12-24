@@ -198,12 +198,18 @@ function safeFinite(n: unknown, fallback = 0): number {
 
 function isSettlementFill(f: Fill): boolean {
   return (
-    (typeof f.orderId === 'string' && (f.orderId.startsWith('bt-merge:') || f.orderId.startsWith('bt-settle:'))) ||
-    (typeof f.clientOrderId === 'string' && (f.clientOrderId.includes(':merge:') || f.clientOrderId.includes(':settle:')))
+    (typeof f.orderId === 'string' &&
+      (f.orderId.startsWith('bt-merge:') || f.orderId.startsWith('bt-settle:'))) ||
+    (typeof f.clientOrderId === 'string' &&
+      (f.clientOrderId.includes(':merge:') || f.clientOrderId.includes(':settle:')))
   )
 }
 
-function settlementActionSummary(fills: Fill[]): { count: number; merge: boolean; redeem: boolean } {
+function settlementActionSummary(fills: Fill[]): {
+  count: number
+  merge: boolean
+  redeem: boolean
+} {
   let merge = false
   let redeem = false
   for (const f of fills) {
@@ -529,7 +535,10 @@ async function main(): Promise<void> {
     let events = 0
     const byType = new Map<string, number>()
 
-    const mkRunner = (): { strategy: ReturnType<typeof loadStrategyFromEnv>; runner: StrategyRunner } => {
+    const mkRunner = (): {
+      strategy: ReturnType<typeof loadStrategyFromEnv>
+      runner: StrategyRunner
+    } => {
       const strategy = loadStrategyFromEnv()
       const exec = new BacktestExecution()
       const orderManager = new OrderManager({
@@ -592,7 +601,9 @@ async function main(): Promise<void> {
       const allBefore = runner.getPortfolio().snapshot()
       const pBefore = market !== '(unknown)' ? portfolioForMarket(allBefore, market) : allBefore
       const tradeFillsBefore = pBefore.recentFills.filter((f) => !isSettlementFill(f)).length
-      const settlementBefore = settlementActionSummary(pBefore.recentFills.filter((f) => isSettlementFill(f)))
+      const settlementBefore = settlementActionSummary(
+        pBefore.recentFills.filter((f) => isSettlementFill(f)),
+      )
       const sharesByAssetIdBefore = Object.fromEntries(
         Object.entries(pBefore.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
       )
@@ -628,7 +639,9 @@ async function main(): Promise<void> {
         episodeRealizedAfter = safeFinite(allAfter.realizedPnlTotal, episodeRealizedBefore)
         const pAfter = portfolioForMarket(allAfter, market)
         const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
-        const settlementAfter = settlementActionSummary(pAfter.recentFills.filter((f) => isSettlementFill(f)))
+        const settlementAfter = settlementActionSummary(
+          pAfter.recentFills.filter((f) => isSettlementFill(f)),
+        )
         const sharesByAssetIdAfter = Object.fromEntries(
           Object.entries(pAfter.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
         )
@@ -665,9 +678,7 @@ async function main(): Promise<void> {
       wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
     )
     const avgLose = round8(
-      losses.length
-        ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length
-        : 0,
+      losses.length ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length : 0,
     )
 
     console.log('[backtest] strategy pnl', {

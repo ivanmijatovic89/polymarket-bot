@@ -37,4 +37,3 @@ npm run -s scan:disconnect-events -- <folder>
   - `total_disconnects_without_next_event`: disconnects that had no following row (typically because disconnect was the last row)
   - `gaps` and `gap_ms_*`: aggregated gap stats across all files
   - `files_errored`: how many files failed to read
-

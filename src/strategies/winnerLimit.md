@@ -3,6 +3,7 @@
 Minimal one-shot strategy for backtest debugging.
 
 ## Behavior
+
 - Watches a **2-outcome market** (two `assetId`s / CLOB token IDs).
 - Waits **10 minutes** from the **first market tick observed**.
 - Tracks whether each token’s price has **ever crossed above** `triggerPrice`.
@@ -13,11 +14,14 @@ Minimal one-shot strategy for backtest debugging.
 Prices in this codebase are **0..1** (so 0.90 = “90c”).
 
 ## Env config
+
 Set:
+
 - `STRATEGY=winnerLimit`
 - `STRAT_SIZE=5`
 
 Optional:
+
 - `STRAT_ASSET_ID_A=<tokenIdA>`
 - `STRAT_ASSET_ID_B=<tokenIdB>`
   - If omitted, the strategy picks the first two asset IDs it sees in the snapshot.
@@ -30,6 +34,6 @@ Optional:
 - `STRAT_DEBUG=true`
 
 ## Notes
+
 - The emitted order uses a stable client id: `winnerLimit:buy`.
 - If you rerun a backtest, this helps you see exactly when the first order gets submitted.
-

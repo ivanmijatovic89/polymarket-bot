@@ -98,7 +98,11 @@ function posAvg(portfolio: PortfolioSnapshot, assetId: string): number | null {
   return typeof v === 'number' && Number.isFinite(v) ? v : null
 }
 
-function openBuyNotional(portfolio: PortfolioSnapshot, clientPrefix: string, buffer: number): number {
+function openBuyNotional(
+  portfolio: PortfolioSnapshot,
+  clientPrefix: string,
+  buffer: number,
+): number {
   let sum = 0
   for (const o of Object.values(portfolio.openOrdersByClientId)) {
     if (!o.clientOrderId.startsWith(clientPrefix)) continue
@@ -183,7 +187,11 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
     return params.totalCostBuffered > 0 && params.totalCostBuffered <= params.remainingCapital
   }
 
-  function totalBufferedCostForPairs(params: { askA: number; askB: number; pairs: number }): number {
+  function totalBufferedCostForPairs(params: {
+    askA: number
+    askB: number
+    pairs: number
+  }): number {
     return (params.askA + params.askB) * params.pairs * costBuffer
   }
 
@@ -195,7 +203,10 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
     enforceMinTradeValue?: boolean
   }): boolean {
     const total = (params.askA + params.askB) * params.pairs * costBuffer
-    const ok = canAffordCost({ totalCostBuffered: total, remainingCapital: params.remainingCapital })
+    const ok = canAffordCost({
+      totalCostBuffered: total,
+      remainingCapital: params.remainingCapital,
+    })
     if (!ok) return false
     const enforceMin = params.enforceMinTradeValue ?? true
     return enforceMin ? total >= minTradeValue : true
@@ -495,7 +506,12 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
         if (canAffordCost({ totalCostBuffered: total, remainingCapital })) {
           lastActionMs = nowMs
           const cid = `${clientPrefix}${tick.snapshot.market}:${nowMs}:bootstrap:buy:${missingAsset}`
-          log(`[HYBRID-PROD-2] bootstrap hedge`, { filledAsset, missingAsset, hedgeSize, missingAsk })
+          log(`[HYBRID-PROD-2] bootstrap hedge`, {
+            filledAsset,
+            missingAsset,
+            hedgeSize,
+            missingAsk,
+          })
           return [
             {
               kind: 'place_limit',
@@ -541,9 +557,7 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
     if (!canAffordPairs({ askA, askB, pairs: size, remainingCapital })) return []
 
     const reason =
-      `HYBRID-PROD-2 ARB: buy BOTH @ asks A=${askA.toFixed(3)} B=${askB.toFixed(
-        3,
-      )} ` +
+      `HYBRID-PROD-2 ARB: buy BOTH @ asks A=${askA.toFixed(3)} B=${askB.toFixed(3)} ` +
       `costBuffered=${((askA + askB) * costBuffer).toFixed(3)} locked=${locked.toFixed(3)} ` +
       `size=${size} cash=${cash.toFixed(2)} reserved=${reserved.toFixed(2)} tLeft=${tLeft}s`
 
@@ -622,4 +636,3 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
 
   return { name, onMarketTick, onAccountEvent }
 }
-

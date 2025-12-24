@@ -47,11 +47,17 @@ function pickTwoAssetIds(tick: MarketTick, preferred?: [string, string]): [strin
   return [a, b]
 }
 
-function bookProbability(book: { mid: number | null; bestBid: number | null; bestAsk: number | null }): number | null {
+function bookProbability(book: {
+  mid: number | null
+  bestBid: number | null
+  bestAsk: number | null
+}): number | null {
   if (typeof book.mid === 'number' && Number.isFinite(book.mid)) return clamp01(book.mid)
 
-  const bid = typeof book.bestBid === 'number' && Number.isFinite(book.bestBid) ? book.bestBid : null
-  const ask = typeof book.bestAsk === 'number' && Number.isFinite(book.bestAsk) ? book.bestAsk : null
+  const bid =
+    typeof book.bestBid === 'number' && Number.isFinite(book.bestBid) ? book.bestBid : null
+  const ask =
+    typeof book.bestAsk === 'number' && Number.isFinite(book.bestAsk) ? book.bestAsk : null
   if (bid !== null && ask !== null) return clamp01((bid + ask) / 2)
   if (ask !== null) return clamp01(ask)
   if (bid !== null) return clamp01(bid)
@@ -147,7 +153,8 @@ export function createWinnerLimitStrategy(cfg: WinnerLimitConfig): Strategy {
 
   const onAccountEvent: Strategy['onAccountEvent'] = (ev) => {
     // Make one-shot behavior robust even if strategy state is re-entered via cascades.
-    if (ev.kind === 'order_submitted' && ev.order.clientOrderId === clientOrderId) didPlaceOrder = true
+    if (ev.kind === 'order_submitted' && ev.order.clientOrderId === clientOrderId)
+      didPlaceOrder = true
     if (ev.kind === 'fill' && ev.fill.clientOrderId === clientOrderId) didPlaceOrder = true
     if (ev.kind === 'order_accepted' && ev.clientOrderId === clientOrderId) didPlaceOrder = true
     return []
@@ -155,4 +162,3 @@ export function createWinnerLimitStrategy(cfg: WinnerLimitConfig): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-

@@ -75,9 +75,7 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const files = entries
-    .filter((e) => e.isFile && e.name.endsWith('.parquet'))
-    .map((e) => e.name)
+  const files = entries.filter((e) => e.isFile && e.name.endsWith('.parquet')).map((e) => e.name)
 
   if (files.length === 0) {
     console.error(`[list-backtest-files] no .parquet files found in "${dirAbs}"`)
@@ -99,4 +97,3 @@ async function main(): Promise<void> {
 }
 
 await main()
-

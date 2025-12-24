@@ -178,9 +178,11 @@ export class Portfolio {
     const sellQty = Math.min(size, prev.qty)
     const remainingQty = prev.qty - sellQty
     const avg = prev.avgEntryPrice
-    const realized = avg === null ? prev.realizedPnl : round2(prev.realizedPnl + (price - avg) * sellQty)
+    const realized =
+      avg === null ? prev.realizedPnl : round2(prev.realizedPnl + (price - avg) * sellQty)
     const realizedDelta = round2(realized - prev.realizedPnl)
-    if (Number.isFinite(realizedDelta)) this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
+    if (Number.isFinite(realizedDelta))
+      this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
     if (remainingQty > 0) {
       this.positionsByAssetId.set(key, {
         assetId,

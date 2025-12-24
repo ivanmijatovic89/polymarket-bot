@@ -55,14 +55,17 @@ function codecName(codec: unknown): string {
 async function main(): Promise<void> {
   const filePath = process.argv[2]
   if (!filePath || filePath.startsWith('-')) {
-    console.error('Usage: tsx src/scripts/parquet/verify-parquet.ts <file.parquet> [--limit N] [--print N] [--metadata-only]')
+    console.error(
+      'Usage: tsx src/scripts/parquet/verify-parquet.ts <file.parquet> [--limit N] [--print N] [--metadata-only]',
+    )
     process.exit(2)
   }
 
   const limit = parseLimit(process.argv.slice(3))
   const printN = parsePrint(process.argv.slice(3))
   const metadataOnly =
-    hasFlag(process.argv.slice(3), '--metadata-only') || hasFlag(process.argv.slice(3), '--meta-only')
+    hasFlag(process.argv.slice(3), '--metadata-only') ||
+    hasFlag(process.argv.slice(3), '--meta-only')
 
   const st = await stat(filePath)
   console.log(`[verify-parquet] file=${filePath}`)
@@ -129,7 +132,8 @@ async function main(): Promise<void> {
           // ignore
         }
 
-        const rec = parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined
+        const rec =
+          parsed && typeof parsed === 'object' ? (parsed as Record<string, unknown>) : undefined
         console.log('[verify-parquet] row=', {
           n: count,
           ingest_seq: (row as { ingest_seq?: unknown }).ingest_seq,
@@ -156,4 +160,3 @@ main().catch((err) => {
   console.error('[verify-parquet] failed', err)
   process.exit(1)
 })
-
