@@ -14,10 +14,9 @@ export type ResolvedUpDown15mAssets = {
 
 export async function resolveCurrentUpDown15mAssets(args: {
   symbol: UpDown15mSymbol
-  gammaBaseUrl: string
   date?: Date
 }): Promise<ResolvedUpDown15mAssets> {
-  const m = await getCurrentUpDown15mMarket(args.symbol, args.gammaBaseUrl, args.date ?? new Date())
+  const m = await getCurrentUpDown15mMarket(args.symbol, args.date ?? new Date())
   if (!m) {
     throw new Error(
       `[resolveUpDown15mAssets] No current ${args.symbol.toUpperCase()} 15m Up/Down market found on Gamma`,
