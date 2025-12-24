@@ -3,6 +3,7 @@ import { createExampleMakerQuoteStrategy } from './exampleMakerQuote.js'
 import { createExampleTakerFlipStrategy } from './exampleTakerFlip.js'
 import { createHybridProductionStrategy } from './hybridProduction.js'
 import { createHybridProduction2Strategy } from './hybridProduction2.js'
+import { createWinnerLimitStrategy } from './winnerLimit.js'
 
 export function loadStrategyFromEnv(): Strategy {
   const name = (process.env.STRATEGY ?? 'example_maker_quote').trim()
@@ -83,6 +84,28 @@ export function loadStrategyFromEnv(): Strategy {
       ...(Number.isFinite(maxPairSize) ? { maxPairSize } : {}),
       ...(Number.isFinite(minSecondsLeftToEnter) ? { minSecondsLeftToEnter } : {}),
       ...(Number.isFinite(maxUnhedgedHoldMs) ? { maxUnhedgedHoldMs } : {}),
+    })
+  }
+
+  if (name === 'winnerLimit') {
+    const size = Number(process.env.STRAT_SIZE ?? '5')
+    const triggerPrice = Number(process.env.STRAT_TRIGGER_PRICE ?? '0.9')
+    const limitPriceRaw = process.env.STRAT_LIMIT_PRICE
+    const limitPrice = limitPriceRaw !== undefined ? Number(limitPriceRaw) : undefined
+    const minDelayMs = Number(process.env.STRAT_MIN_DELAY_MS ?? '600000')
+    const debug = (process.env.STRAT_DEBUG ?? 'false').toLowerCase() === 'true'
+
+    const a = process.env.STRAT_ASSET_ID_A
+    const b = process.env.STRAT_ASSET_ID_B
+    const assetIds = a && b ? ([a, b] as [string, string]) : undefined
+
+    return createWinnerLimitStrategy({
+      ...(assetIds ? { assetIds } : {}),
+      size: Number.isFinite(size) ? size : 5,
+      triggerPrice: Number.isFinite(triggerPrice) ? triggerPrice : 0.9,
+      ...(limitPrice !== undefined && Number.isFinite(limitPrice) ? { limitPrice } : {}),
+      minDelayMs: Number.isFinite(minDelayMs) ? minDelayMs : 600000,
+      ...(debug ? { debug } : {}),
     })
   }
 
