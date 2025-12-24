@@ -1,11 +1,11 @@
 import type { MarketEvent } from '../types/marketEventSource.js'
-import { parseEventIndexFields, type MarketEventIndex } from '../polymarket/marketEventIndex.js'
+import { parseEventIndexFields, type PolymarketEventIndex } from './polymarketEventIndex.js'
 
 export type RawMarketEventDropReason = 'no_market' | 'bad_json' | 'unknown_type'
 
 export type RawMarketEventDecision =
-  | { ok: true; idx: MarketEventIndex & { market: string } }
-  | { ok: false; reason: RawMarketEventDropReason; idx: MarketEventIndex }
+  | { ok: true; idx: PolymarketEventIndex & { market: string } }
+  | { ok: false; reason: RawMarketEventDropReason; idx: PolymarketEventIndex }
 
 export type MarketEventHandlerSnapshot = {
   total: number
@@ -54,7 +54,7 @@ export function createMarketEventHandler(): MarketEventHandler {
       }
 
       bump(idx.event_type)
-      return { ok: true, idx: idx as MarketEventIndex & { market: string } }
+      return { ok: true, idx: idx as PolymarketEventIndex & { market: string } }
     },
     snapshot: () => ({
       total,
