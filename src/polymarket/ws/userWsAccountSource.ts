@@ -1,10 +1,11 @@
 import type { AccountEvent } from '../../strategy/Strategy.js'
 
 import { createWsConnection, type WsConnection } from './wsConnection.js'
+import type { PolymarketCredentials } from '../config.js'
 
 export type UserWsAccountSourceOptions = {
   url?: string
-  auth: { apiKey: string; secret: string; passphrase: string }
+  auth: PolymarketCredentials
   /**
    * Optional filter. Polymarket docs mention user channel can be filtered by market condition IDs.
    * If undefined, we subscribe to all user events.
@@ -64,12 +65,12 @@ function parseUserChannelEvent(raw: string): AccountEvent[] {
         fill: {
           id,
           tsMs,
-          market,
+          ...(market !== undefined ? { market } : {}),
           assetId: asset_id,
           side,
           price,
           size,
-          orderId: takerOrderId,
+          ...(takerOrderId !== undefined ? { orderId: takerOrderId } : {}),
           liquidity: 'TAKER',
         },
       },

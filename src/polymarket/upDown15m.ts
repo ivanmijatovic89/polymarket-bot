@@ -1,5 +1,5 @@
 import { buildUpDown15mSlug, FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
-import { fetchGammaMarketBySlug, GAMMA_DEFAULT } from './gamma.js'
+import { fetchGammaMarketBySlug } from './gamma.js'
 
 function parseJsonArrayString(s: unknown): unknown[] | null {
   if (typeof s !== 'string') return null
@@ -28,10 +28,9 @@ export type UpDown15mMarket = {
  */
 export async function getCurrentUpDown15mMarket(
   symbol: UpDown15mSymbol,
+  gammaBaseUrl: string,
   date = new Date(),
 ): Promise<UpDown15mMarket | null> {
-  const gammaBaseUrl = process.env.GAMMA_API_BASE_URL ?? GAMMA_DEFAULT
-
   const candidates = [
     buildUpDown15mSlug(symbol, date),
     buildUpDown15mSlug(symbol, new Date(date.getTime() - FIFTEEN_MIN_MS)),

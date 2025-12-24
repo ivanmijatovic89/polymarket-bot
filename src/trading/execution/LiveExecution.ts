@@ -7,34 +7,8 @@ import type {
   CancelOrderIntent,
   PlaceLimitIntent,
 } from '../../strategy/Strategy.js'
+import type { PolymarketCredentials } from '../../polymarket/config.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
-
-function env(name: string): string | undefined {
-  const v = process.env[name]
-  return v && v.trim() !== '' ? v : undefined
-}
-
-function parseIntEnv(name: string, fallback: number): number {
-  const raw = env(name)
-  if (!raw) return fallback
-  const n = Number(raw)
-  return Number.isFinite(n) ? Math.trunc(n) : fallback
-}
-
-type ApiCreds = { apiKey: string; secret: string; passphrase: string }
-
-function parseApiCreds(): ApiCreds {
-  // Prefer existing envs you already use for WS subscribe payload.
-  const apiKey = env('POLYMARKET_API_KEY') ?? env('CLOB_API_KEY')
-  const secret = env('POLYMARKET_API_SECRET') ?? env('CLOB_SECRET')
-  const passphrase = env('POLYMARKET_API_PASSPHRASE') ?? env('CLOB_PASS_PHRASE')
-  if (!apiKey || !secret || !passphrase) {
-    throw new Error(
-      '[liveExecution] missing API creds (need POLYMARKET_API_KEY/POLYMARKET_API_SECRET/POLYMARKET_API_PASSPHRASE or CLOB_* equivalents)',
-    )
-  }
-  return { apiKey, secret, passphrase }
-}
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -49,17 +23,21 @@ function toPolyOrderType(t: 'FOK' | 'GTC' | 'GTD'): PolyOrderType {
 
 export type LiveExecutionOptions = {
   /**
-   * Default: https://clob.polymarket.com
+   * CLOB host, e.g. https://clob.polymarket.com
    */
-  host?: string
+  host: string
   /**
-   * Default: 137 (Polygon mainnet)
+   * Chain id, e.g. 137 (Polygon mainnet)
    */
-  chainId?: number
+  chainId: number
   /**
-   * Wallet private key for signing orders. Defaults to PRIVATE_KEY then POLYMARKET_PRIVATE_KEY.
+   * Wallet private key for signing orders.
    */
-  privateKey?: string
+  privateKey: string
+  /**
+   * API creds for signing/auth.
+   */
+  creds: PolymarketCredentials
   /**
    * Signature type (see Polymarket docs). Default 0 (EOA).
    */
@@ -78,23 +56,23 @@ export type LiveExecutionOptions = {
 export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
 
-  constructor(opts?: LiveExecutionOptions) {
-    const host = opts?.host ?? env('CLOB_API_URL') ?? 'https://clob.polymarket.com'
-    const chainId = opts?.chainId ?? parseIntEnv('CLOB_CHAIN_ID', 137)
-    const pk = opts?.privateKey ?? env('PRIVATE_KEY') ?? env('POLYMARKET_PRIVATE_KEY')
-    if (!pk) {
-      throw new Error('[liveExecution] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
-    }
-    const wallet = new Wallet(pk)
+  constructor(opts: LiveExecutionOptions) {
+    const wallet = new Wallet(opts.privateKey)
 
-    const creds = parseApiCreds()
-    const signatureType = opts?.signatureType ?? parseIntEnv('CLOB_SIGNATURE_TYPE', 0)
-    const funder = opts?.funder ?? env('CLOB_FUNDER')
+    const signatureType = opts.signatureType ?? 0
+    const funder = opts.funder
 
     // clob-client constructor supports (host, chainId, signer, creds, signatureType, funder?)
     // We keep this explicit to match docs and avoid surprises.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.client = new (ClobClient as any)(host, chainId, wallet, creds, signatureType, funder)
+    this.client = new (ClobClient as any)(
+      opts.host,
+      opts.chainId,
+      wallet,
+      opts.creds,
+      signatureType,
+      funder,
+    )
   }
 
   async placeLimit(
@@ -179,7 +157,7 @@ export class LiveExecution implements ExecutionAdapter {
     void ctx
     const nowMs = Date.now()
     if (intent.orderId) {
-      await this.client.cancelOrder(intent.orderId).catch(() => undefined)
+      await this.client.cancelOrder({ orderID: intent.orderId }).catch(() => undefined)
       return {
         events: intent.clientOrderId
           ? [

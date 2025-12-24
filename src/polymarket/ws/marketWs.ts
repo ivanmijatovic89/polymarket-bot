@@ -1,21 +1,16 @@
 import { createWsConnection } from './wsConnection.js'
-
-export type PolymarketAuth = {
-  apiKey: string
-  secret: string
-  passphrase: string
-}
+import type { PolymarketCredentials } from '../config.js'
 
 export type MarketWsSubscribeMessage = {
   type: 'market'
   assets_ids: string[]
-  auth?: PolymarketAuth
+  auth?: PolymarketCredentials
 }
 
 export type MarketWsClientOptions = {
   url: string
   assetsIds: string[]
-  auth?: PolymarketAuth
+  auth?: PolymarketCredentials
   onMessage: (raw: string) => void
   onOpen?: () => void
   onClose?: (code: number, reason: Buffer) => void

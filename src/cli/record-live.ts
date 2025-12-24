@@ -1,6 +1,6 @@
 import path from 'node:path'
 
-import { parseOptionalAuth } from '../polymarket/auth.js'
+import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { RotatingParquetEventRecorder } from '../parquet/io/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
@@ -61,8 +61,8 @@ function tryParseUpDown15mSlugEpochMs(args: { slug: string; symbol: string }): n
 }
 
 async function main(): Promise<void> {
-  const wsUrl =
-    process.env.POLYMARKET_WS_URL ?? 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
+  const cfg = loadPolymarketConfigFromEnv()
+  const wsUrl = cfg.ws.marketUrl
 
   const symbol = requireUpDown15mSymbolFromEnv({
     primaryEnv: 'RECORD_SYMBOL',
@@ -71,7 +71,7 @@ async function main(): Promise<void> {
   })
 
   const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events', symbol)
-  const auth = parseOptionalAuth()
+  const auth = cfg.creds
 
   const statsIntervalMs = parseEnvInt('RECORD_STATS_INTERVAL_MS', DEFAULT_STATS_INTERVAL_MS)
   const maxInFlightAppends = parseEnvInt('RECORD_MAX_INFLIGHT_APPENDS', 10_000)
@@ -185,7 +185,11 @@ async function main(): Promise<void> {
   }, statsIntervalMs)
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
-    const resolved = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+    const resolved = await resolveCurrentUpDown15mAssets({
+      symbol,
+      gammaBaseUrl: cfg.gamma.baseUrl,
+      date: new Date(),
+    })
     currentSlug = resolved.slug
 
     // If the market already started, don't join mid-candle on *initial startup*.
