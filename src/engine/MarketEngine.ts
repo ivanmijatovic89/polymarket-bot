@@ -1,6 +1,6 @@
 import type { AnyMarketMessage, MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
 import { MarketOrderBookEngine } from '../orderbook/OrderBookEngine.js'
-import { decodeMarketChannelMessage } from '../orderbook/marketChannelDecoder.js'
+import { decodeMarketChannelMessage } from './marketChannelDecoder.js'
 
 export type EngineSource =
   | { kind: 'live'; attempt: number }
