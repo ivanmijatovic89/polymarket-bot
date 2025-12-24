@@ -14,7 +14,7 @@ import {
 } from '../trading/portfolioMetrics.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
-import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
+import { loadStrategyFromEnv } from '../strategy/strategyRegistry.js'
 import type { AccountEvent, Fill, PortfolioSnapshot } from '../strategy/Strategy.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })

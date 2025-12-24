@@ -7,7 +7,7 @@ import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/win
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
+import { loadStrategyFromEnv } from '../strategy/strategyRegistry.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
