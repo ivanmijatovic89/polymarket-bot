@@ -307,7 +307,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/parquet/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
   - `src/cli/backtest.ts`: raw replay + orderbook reconstruction modes
 - **Orderbook / shared engine**:
-  - `src/orderbook/*`: orderbook engines (OrderBookEngine, MarketOrderBookEngine)
+  - `src/market/orderbook/*`: orderbook engines (OrderBookEngine, MarketOrderBookEngine)
   - `src/market/marketChannelDecoder.ts`: decode raw JSON → Polymarket market-channel messages
   - `src/market/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
 - **Strategy / trading**

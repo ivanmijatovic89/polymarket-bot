@@ -12,7 +12,7 @@ import {
 import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
-import { createMarketEventHandler } from '../engine/marketEventHandler.js'
+import { createMarketEventHandler } from '../market/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
