@@ -16,7 +16,7 @@ import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import type { AccountEvent, Fill, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
-import { buildStrategyFromCliArgs, printCliArgsError } from './strategyArgs.js'
+import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 

@@ -12,7 +12,7 @@ import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
-import { buildStrategyFromCliArgs, printCliArgsError } from './strategyArgs.js'
+import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
