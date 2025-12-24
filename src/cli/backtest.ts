@@ -2,8 +2,8 @@ import { createParquetReplaySource } from '../parquet/replay/parquetReplaySource
 import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
-import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
-import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
+import type { MarketOrderBooksSnapshot } from '../engine/orderbook/index.js'
+import type { AnyMarketMessage } from '../engine/orderbook/index.js'
 import { MarketEngine } from '../engine/MarketEngine.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import {

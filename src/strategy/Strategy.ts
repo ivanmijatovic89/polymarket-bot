@@ -1,5 +1,5 @@
 import type { EngineTick } from '../engine/MarketEngine.js'
-import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
+import type { MarketOrderBooksSnapshot } from '../engine/orderbook/index.js'
 
 export type OrderSide = 'BUY' | 'SELL'
 

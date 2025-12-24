@@ -1,5 +1,5 @@
-import type { AnyMarketMessage, MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
-import { MarketOrderBookEngine } from '../orderbook/OrderBookEngine.js'
+import type { AnyMarketMessage, MarketOrderBooksSnapshot } from './orderbook/index.js'
+import { MarketOrderBookEngine } from './orderbook/index.js'
 import { decodeMarketChannelMessage } from './marketChannelDecoder.js'
 
 export type EngineSource =
