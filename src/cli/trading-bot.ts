@@ -104,11 +104,7 @@ async function main(): Promise<void> {
   })
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
-    const r = await resolveCurrentUpDown15mAssets({
-      symbol,
-      gammaBaseUrl: cfg.gamma.baseUrl,
-      date: new Date(),
-    })
+    const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
     currentSlug = r.slug
     return { assetsIds: r.assetsIds, label: r.label }
   }

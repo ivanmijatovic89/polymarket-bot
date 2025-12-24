@@ -28,7 +28,6 @@ export type UpDown15mMarket = {
  */
 export async function getCurrentUpDown15mMarket(
   symbol: UpDown15mSymbol,
-  gammaBaseUrl: string,
   date = new Date(),
 ): Promise<UpDown15mMarket | null> {
   const candidates = [
@@ -37,7 +36,7 @@ export async function getCurrentUpDown15mMarket(
   ]
 
   for (const slug of candidates) {
-    const raw = await fetchGammaMarketBySlug({ gammaBaseUrl, slug })
+    const raw = await fetchGammaMarketBySlug({ slug })
     if (!raw) continue
 
     const outcomesRaw = parseJsonArrayString(raw.outcomes) ?? []

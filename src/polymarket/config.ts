@@ -1,4 +1,4 @@
-import { GAMMA_DEFAULT } from './gamma.js'
+export const GAMMA_DEFAULT = 'https://gamma-api.polymarket.com'
 
 export type PolymarketCredentials = {
   apiKey: string

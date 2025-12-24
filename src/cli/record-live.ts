@@ -185,11 +185,7 @@ async function main(): Promise<void> {
   }, statsIntervalMs)
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
-    const resolved = await resolveCurrentUpDown15mAssets({
-      symbol,
-      gammaBaseUrl: cfg.gamma.baseUrl,
-      date: new Date(),
-    })
+    const resolved = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
     currentSlug = resolved.slug
 
     // If the market already started, don't join mid-candle on *initial startup*.
