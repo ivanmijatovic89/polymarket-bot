@@ -1,4 +1,4 @@
-import { createParquetReplaySource } from '../ingest/replay/parquetReplaySource.js'
+import { createParquetReplaySource } from '../parquet/replay/parquetReplaySource.js'
 import { createMarketEventHandler } from '../engine/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'

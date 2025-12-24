@@ -53,9 +53,9 @@ async function main(): Promise<void> {
   if (!parsed) {
     console.error(
       'Usage:\n' +
-        '  tsx src/scripts/parquet/list-backtest-files.ts --symbol <btc|eth|sol|...> [--root data/events]\n' +
+        '  tsx src/parquet/cli/list-backtest-files.ts --symbol <btc|eth|sol|...> [--root data/events]\n' +
         'Examples:\n' +
-        '  tsx src/scripts/parquet/list-backtest-files.ts --symbol btc\n' +
+        '  tsx src/parquet/cli/list-backtest-files.ts --symbol btc\n' +
         '  npm run -s list:backtest-files -- --symbol btc',
     )
     process.exit(2)

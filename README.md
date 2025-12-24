@@ -90,7 +90,7 @@ npm run trade:bot:btc
   - Override mode: `npm run backtest -- --mode raw <file.parquet>`
   - Ordering: `--order recorded|exchange_time`
   - Realtime-ish: `--time-driven` (caps large sleeps)
-- **Verify a Parquet file**: `src/scripts/verify-parquet.ts`
+- **Verify a Parquet file**: `src/parquet/cli/verify-parquet.ts`
   - `npm run verify:parquet -- <file.parquet> [--metadata-only] [--limit N] [--print N]`
 
 ## How recording works (live → Parquet)
@@ -127,7 +127,7 @@ Persisted row type: `RawMarketEventRow` (`src/types/rawEvent.ts`)
 - `event_type` (**UTF8**): message `event_type` (or `"disconnect"` for synthetic markers)
 - `raw_json` (**UTF8**): full original WS message string
 
-Schema: `src/io/parquet/eventSchema.ts` (all columns GZIP-compressed).
+Schema: `src/parquet/io/eventSchema.ts` (all columns GZIP-compressed).
 
 ### Output directory layout & file finalization
 
@@ -152,7 +152,7 @@ This repo has two replay paths:
 
 ### 1) Raw replay (counts & indexing)
 
-This uses `createParquetReplaySource` (`src/ingest/replay/parquetReplaySource.ts`) to emit the same `MarketEvent` shape used by live ingestion:
+This uses `createParquetReplaySource` (`src/parquet/replay/parquetReplaySource.ts`) to emit the same `MarketEvent` shape used by live ingestion:
 
 - `--order recorded`: merge deterministically by `(ts_local_ms, ingest_seq, file_index)`
 - `--order exchange_time`: merge deterministically by `(ts_exchange_ms ?? ts_local_ms, ingest_seq, file_index)`
@@ -301,10 +301,10 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + heartbeat)
   - `src/polymarket/liveMarketEventSource.ts`: connect/reconnect loop emitting `MarketEvent`
 - **Parquet output**:
-  - `src/io/parquet/eventSchema.ts`: schema
-  - `src/io/parquet/eventWriter.ts`: per-market ordered writer + rotation + tmp→final rename
+  - `src/parquet/io/eventSchema.ts`: schema
+  - `src/parquet/io/eventWriter.ts`: per-market ordered writer + rotation + tmp→final rename
 - **Replay**:
-  - `src/ingest/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
+  - `src/parquet/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
   - `src/scripts/backtest.ts`: raw replay + orderbook reconstruction modes
 - **Orderbook / shared engine**:
   - `src/orderbook/*`: decoding + orderbook engines
@@ -323,7 +323,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/scripts/record-live.ts`: live ingest → Parquet
   - `src/scripts/trading-bot.ts`: live ingest → `MarketEngine` → `StrategyRunner` (dry-run by default)
   - `src/scripts/backtest.ts`: Parquet replay (raw or orderbook)
-  - `src/scripts/verify-parquet.ts`: validator / reader
+  - `src/parquet/cli/verify-parquet.ts`: validator / reader
 
 ## Notes / current limitations
 

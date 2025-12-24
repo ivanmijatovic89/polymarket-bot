@@ -4,13 +4,13 @@ Scans a folder of `.parquet` files and counts `event_type === "disconnect"` even
 
 ## Script location
 
-`src/scripts/parquet/scan-disconnect-events.ts`
+`src/parquet/cli/scan-disconnect-events.ts`
 
 ## Run
 
 ```bash
 # direct
-tsx src/scripts/parquet/scan-disconnect-events.ts <folder>
+tsx src/parquet/cli/scan-disconnect-events.ts <folder>
 
 # via npm
 npm run -s scan:disconnect-events -- <folder>

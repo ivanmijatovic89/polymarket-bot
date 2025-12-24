@@ -2,7 +2,7 @@ import path from 'node:path'
 
 import { parseOptionalAuth } from '../polymarket/auth.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
-import { RotatingParquetEventRecorder } from '../io/parquet/eventWriter.js'
+import { RotatingParquetEventRecorder } from '../parquet/io/eventWriter.js'
 import type { RawMarketEventRow } from '../types/rawEvent.js'
 import {
   createWindowBoundaryScheduler,
