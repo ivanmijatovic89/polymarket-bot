@@ -294,7 +294,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/polymarket/upDown15m.ts`: compute candidate slugs + select current market
   - `src/utils/timeWindows.ts`: 15m window helpers + slug format
 - **Event stream (shared shape)**:
-  - `src/ingest/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
+  - `src/types/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
   - `src/polymarket/marketEventIndex.ts`: tolerant indexer (`event_type`, `market`, timestamps)
   - `src/engine/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
 - **WebSocket (live)**:

@@ -2,7 +2,7 @@ import type {
   MarketEvent,
   MarketEventSource,
   MarketEventStatus,
-} from '../ingest/marketEventSource.js'
+} from '../types/marketEventSource.js'
 import { createMarketWsClient, type MarketWsClient, type PolymarketAuth } from './marketWs.js'
 
 export type LiveMarketEventSourceOptions = {

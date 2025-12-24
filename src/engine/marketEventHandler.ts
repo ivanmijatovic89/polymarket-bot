@@ -1,4 +1,4 @@
-import type { MarketEvent } from '../ingest/marketEventSource.js'
+import type { MarketEvent } from '../types/marketEventSource.js'
 import { parseEventIndexFields, type MarketEventIndex } from '../polymarket/marketEventIndex.js'
 
 export type RawMarketEventDropReason = 'no_market' | 'bad_json' | 'unknown_type'

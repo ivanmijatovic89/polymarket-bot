@@ -4,7 +4,7 @@ import type {
   MarketEvent,
   MarketEventSource,
   MarketEventStatus,
-} from '../../ingest/marketEventSource.js'
+} from '../../types/marketEventSource.js'
 
 type ReplayRow = {
   ingest_seq?: unknown

@@ -20,3 +20,4 @@ export type MarketEventSource = {
   onEvent: (cb: (ev: MarketEvent) => void) => () => void
   onStatus: (cb: (s: MarketEventStatus) => void) => () => void
 }
+
