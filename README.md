@@ -79,13 +79,13 @@ npm run trade:bot:btc
 
 ## Scripts
 
-- **Live recording**: `src/scripts/record-live.ts`
+- **Live recording**: `src/cli/record-live.ts`
   - `npm run record:live:btc|eth|sol|xrp`
   - or `RECORD_SYMBOL=BTC npm run record:live`
-- **Trading bot (strategy runner)**: `src/scripts/trading-bot.ts`
+- **Trading bot (strategy runner)**: `src/cli/trading-bot.ts`
   - `npm run trade:bot:btc|eth|sol|xrp`
   - or `TRADING_SYMBOL=BTC npm run trade:bot`
-- **Backtest / replay**: `src/scripts/backtest.ts`
+- **Backtest / replay**: `src/cli/backtest.ts`
   - `npm run backtest -- <file1.parquet> [file2.parquet ...]`
   - Override mode: `npm run backtest -- --mode raw <file.parquet>`
   - Ordering: `--order recorded|exchange_time`
@@ -305,7 +305,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/parquet/io/eventWriter.ts`: per-market ordered writer + rotation + tmp→final rename
 - **Replay**:
   - `src/parquet/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
-  - `src/scripts/backtest.ts`: raw replay + orderbook reconstruction modes
+  - `src/cli/backtest.ts`: raw replay + orderbook reconstruction modes
 - **Orderbook / shared engine**:
   - `src/orderbook/*`: decoding + orderbook engines
   - `src/engine/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
@@ -320,9 +320,9 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/polymarket/restPollAccountSource.ts`: REST polling fallback → AccountEvents (fills)
   - `src/strategies/*`: example strategies + env strategy loader
 - **Scripts**:
-  - `src/scripts/record-live.ts`: live ingest → Parquet
-  - `src/scripts/trading-bot.ts`: live ingest → `MarketEngine` → `StrategyRunner` (dry-run by default)
-  - `src/scripts/backtest.ts`: Parquet replay (raw or orderbook)
+  - `src/cli/record-live.ts`: live ingest → Parquet
+  - `src/cli/trading-bot.ts`: live ingest → `MarketEngine` → `StrategyRunner` (dry-run by default)
+  - `src/cli/backtest.ts`: Parquet replay (raw or orderbook)
   - `src/parquet/cli/verify-parquet.ts`: validator / reader
 
 ## Notes / current limitations
