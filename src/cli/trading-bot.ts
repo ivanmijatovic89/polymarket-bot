@@ -10,7 +10,7 @@ import { installProcessCrashHandlers, installSignalHandlers } from '../utils/run
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
-import { createUserWsAccountSource } from '../polymarket/userWsAccountSource.js'
+import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 

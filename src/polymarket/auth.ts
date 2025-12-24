@@ -1,4 +1,4 @@
-import type { PolymarketAuth } from './marketWs.js'
+import type { PolymarketAuth } from './ws/marketWs.js'
 
 export function parseOptionalAuth(): PolymarketAuth | undefined {
   const apiKey = process.env.POLYMARKET_API_KEY

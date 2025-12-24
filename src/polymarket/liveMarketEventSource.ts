@@ -3,7 +3,7 @@ import type {
   MarketEventSource,
   MarketEventStatus,
 } from '../types/marketEventSource.js'
-import { createMarketWsClient, type MarketWsClient, type PolymarketAuth } from './marketWs.js'
+import { createMarketWsClient, type MarketWsClient, type PolymarketAuth } from './ws/marketWs.js'
 
 export type LiveMarketEventSourceOptions = {
   url: string
