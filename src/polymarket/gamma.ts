@@ -1,10 +1,10 @@
-export const GAMMA_DEFAULT = 'https://gamma-api.polymarket.com'
+import { loadPolymarketConfigFromEnv } from './config.js'
 
 export async function fetchGammaMarketBySlug(args: {
-  gammaBaseUrl: string
   slug: string
 }): Promise<Record<string, unknown> | null> {
-  const url = `${args.gammaBaseUrl}/markets?slug=${encodeURIComponent(args.slug)}`
+  const gammaBaseUrl = loadPolymarketConfigFromEnv().gamma.baseUrl
+  const url = `${gammaBaseUrl}/markets?slug=${encodeURIComponent(args.slug)}`
   const res = await fetch(url)
   if (!res.ok) throw new Error(`Gamma HTTP ${res.status}: ${await res.text()}`)
   const arr: unknown = await res.json()

@@ -1,18 +1,18 @@
-import { parseOptionalAuth } from '../polymarket/auth.js'
+import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
-import { createMarketEventHandler } from '../engine/marketEventHandler.js'
-import { MarketEngine } from '../engine/MarketEngine.js'
+import { createMarketEventHandler } from '../market/marketEventHandler.js'
+import { MarketEngine } from '../market/MarketEngine.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { LiveExecution } from '../trading/execution/LiveExecution.js'
-import { createUserWsAccountSource } from '../polymarket/userWsAccountSource.js'
+import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
+import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -20,8 +20,8 @@ installProcessCrashHandlers({ prefix: 'trading-bot' })
 const FIFTEEN_MIN_MS = FIFTEEN_MIN_MS_CONST
 
 async function main(): Promise<void> {
-  const wsUrl =
-    process.env.POLYMARKET_WS_URL ?? 'wss://ws-subscriptions-clob.polymarket.com/ws/market'
+  const cfg = loadPolymarketConfigFromEnv()
+  const wsUrl = cfg.ws.marketUrl
 
   const symbol = requireUpDown15mSymbolFromEnv({
     primaryEnv: 'TRADING_SYMBOL',
@@ -30,7 +30,7 @@ async function main(): Promise<void> {
     script: 'trading-bot',
   })
 
-  const auth = parseOptionalAuth()
+  const auth = cfg.creds
   console.log(`[trading-bot] symbol=${symbol}`)
   console.log(`[trading-bot] wsUrl=${wsUrl}`)
 
@@ -46,11 +46,30 @@ async function main(): Promise<void> {
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
-  const strategy = loadStrategyFromEnv()
-  console.log(`[trading-bot] strategy=${strategy.name}`)
+  const built = (() => {
+    try {
+      return buildStrategyFromCliArgs({ argv: process.argv.slice(2), script: 'trading-bot' })
+    } catch (err) {
+      printCliArgsError({ script: 'trading-bot', err })
+      process.exit(2)
+    }
+  })()
+  const strategy = built.strategy
+  console.log(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.
+  if (!dryRun) {
+    if (!cfg.privateKey) {
+      throw new Error('[trading-bot] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
+    }
+    if (!cfg.creds) {
+      throw new Error(
+        '[trading-bot] missing API creds (need POLYMARKET_API_KEY/POLYMARKET_API_SECRET/POLYMARKET_API_PASSPHRASE or CLOB_* equivalents)',
+      )
+    }
+  }
+
   const exec = dryRun
     ? {
         placeLimit: async () => ({ events: [] }),
@@ -58,7 +77,14 @@ async function main(): Promise<void> {
         cancelAll: async () => ({ events: [] }),
         onMarketTick: async () => ({ events: [] }),
       }
-    : new LiveExecution()
+    : new LiveExecution({
+        host: cfg.clob.host,
+        chainId: cfg.clob.chainId,
+        privateKey: cfg.privateKey!,
+        creds: cfg.creds!,
+        signatureType: cfg.clob.signatureType,
+        ...(cfg.clob.funder ? { funder: cfg.clob.funder } : {}),
+      })
   const orderManager = new OrderManager({
     execution: exec,
     dryRun,
@@ -90,24 +116,26 @@ async function main(): Promise<void> {
   })
 
   // Account event sources (user WS + REST polling fallback).
-  const apiKey = process.env.POLYMARKET_API_KEY
-  const secret = process.env.POLYMARKET_API_SECRET
-  const passphrase = process.env.POLYMARKET_API_PASSPHRASE
-  const haveCreds = !!apiKey && !!secret && !!passphrase
-  const havePrivateKey = !!(process.env.PRIVATE_KEY ?? process.env.POLYMARKET_PRIVATE_KEY)
+  const haveCreds = !!cfg.creds
+  const havePrivateKey = !!cfg.privateKey
   if (!haveCreds) {
     console.warn('[trading-bot] missing POLYMARKET_API_* creds; account streams disabled')
   }
 
   const userWs = haveCreds
     ? createUserWsAccountSource({
-        auth: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
+        url: cfg.ws.userUrl,
+        auth: cfg.creds!,
       })
     : null
   const poller =
     haveCreds && havePrivateKey
       ? createRestPollAccountSource({
-          creds: { apiKey: apiKey!, secret: secret!, passphrase: passphrase! },
+          host: cfg.clob.host,
+          chainId: cfg.clob.chainId,
+          privateKey: cfg.privateKey!,
+          pollIntervalMs: cfg.clob.pollIntervalMs,
+          creds: cfg.creds!,
           // Start disabled; enable only when user WS disconnects.
           enabled: false,
         })

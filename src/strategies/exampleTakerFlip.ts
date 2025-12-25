@@ -1,4 +1,6 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import * as z from 'zod'
 
 /**
  * Very simple taker strategy that forces fills under the current backtest fill model:
@@ -7,11 +9,21 @@ import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strateg
  *
  * This is NOT a profitable strategy; it exists to validate plumbing end-to-end.
  */
-export type TakerFlipConfig = {
-  assetId?: string
-  size: number
-  maxSpread: number
-  cooldownMs: number
+export const TakerFlipConfigSchema = z.strictObject({
+  assetId: z.string().min(1).optional(),
+  size: z.coerce.number().finite().default(5),
+  maxSpread: z.coerce.number().finite().default(0.02),
+  cooldownMs: z.coerce.number().finite().default(5000),
+})
+
+export type TakerFlipConfig = z.infer<typeof TakerFlipConfigSchema>
+
+export const definition: StrategyDefinition<TakerFlipConfig> = {
+  id: 'example_taker_flip',
+  title: 'Example taker flip',
+  description: 'Buys at bestAsk with FOK, then sells at bestBid with FOK (plumbing validation).',
+  schema: TakerFlipConfigSchema,
+  create: (params) => createExampleTakerFlipStrategy(params),
 }
 
 function pickAssetId(tick: MarketTick, preferred?: string): string | null {

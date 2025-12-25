@@ -1,23 +1,42 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import * as z from 'zod'
 
-export type WinnerLimitConfig = {
-  /** Optional explicit YES/NO (or tokenA/tokenB) clobTokenIds. */
-  assetIds?: [string, string]
-  /** Shares to buy. */
-  size: number
-  /**
-   * Trigger price threshold. Strategy only becomes eligible after a token has crossed above this.
-   * Price units are 0..1 in this codebase.
-   */
-  triggerPrice: number
-  /** Limit price for the buy order (defaults to triggerPrice). */
-  limitPrice?: number
-  /**
-   * Minimum delay before placing an order (ms). Measured from the first tick we observe.
-   * Default 10 minutes.
-   */
-  minDelayMs?: number
-  debug?: boolean
+const assetIdPairSchema = z
+  .tuple([z.string().min(1), z.string().min(1)])
+  .refine(([a, b]) => a !== b, { message: 'assetIds must contain 2 distinct strings' })
+
+const jsonString = <T>(inner: z.ZodType<T>) =>
+  z
+    .string()
+    .transform((s, ctx) => {
+      try {
+        return JSON.parse(s) as unknown
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        ctx.addIssue({ code: 'custom', message: `invalid json: ${msg}` })
+        return z.NEVER
+      }
+    })
+    .pipe(inner)
+
+export const WinnerLimitConfigSchema = z.strictObject({
+  assetIds: jsonString(assetIdPairSchema).optional(),
+  size: z.coerce.number().finite().default(5),
+  triggerPrice: z.coerce.number().finite().min(0).max(1).default(0.9),
+  limitPrice: z.coerce.number().finite().min(0).max(1).optional(),
+  minDelayMs: z.coerce.number().finite().int().nonnegative().default(600_000),
+  debug: z.coerce.boolean().default(false),
+})
+
+export type WinnerLimitConfig = z.infer<typeof WinnerLimitConfigSchema>
+
+export const definition: StrategyDefinition<WinnerLimitConfig> = {
+  id: 'winnerLimit',
+  title: 'Winner limit',
+  description: 'After a delay, buys the outcome with higher probability above a trigger price.',
+  schema: WinnerLimitConfigSchema,
+  create: (params) => createWinnerLimitStrategy(params),
 }
 
 function finiteOr(v: number | null | undefined, fallback: number): number {

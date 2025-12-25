@@ -3,11 +3,12 @@ import type {
   MarketEventSource,
   MarketEventStatus,
 } from '../types/marketEventSource.js'
-import { createMarketWsClient, type MarketWsClient, type PolymarketAuth } from './marketWs.js'
+import { createMarketWsClient, type MarketWsClient } from './ws/marketWs.js'
+import type { PolymarketCredentials } from './config.js'
 
 export type LiveMarketEventSourceOptions = {
   url: string
-  auth?: PolymarketAuth
+  auth?: PolymarketCredentials
   /**
    * Resolve the current subscription targets.
    * This is called on every (re)connect attempt, allowing callers to rotate markets.

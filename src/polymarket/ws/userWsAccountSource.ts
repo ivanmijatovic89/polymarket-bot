@@ -1,10 +1,11 @@
-import WebSocket, { type RawData } from 'ws'
+import type { AccountEvent } from '../../strategy/Strategy.js'
 
-import type { AccountEvent } from '../strategy/Strategy.js'
+import { createWsConnection, type WsConnection } from './wsConnection.js'
+import type { PolymarketCredentials } from '../config.js'
 
 export type UserWsAccountSourceOptions = {
   url?: string
-  auth: { apiKey: string; secret: string; passphrase: string }
+  auth: PolymarketCredentials
   /**
    * Optional filter. Polymarket docs mention user channel can be filtered by market condition IDs.
    * If undefined, we subscribe to all user events.
@@ -27,17 +28,6 @@ function jitter(delayMs: number, jitterMs: number): number {
   if (jitterMs <= 0) return delayMs
   const j = Math.floor(Math.random() * (jitterMs + 1))
   return Math.max(0, delayMs + j)
-}
-
-function asString(d: RawData): string | null {
-  if (typeof d === 'string') return d
-  if (Buffer.isBuffer(d)) return d.toString('utf8')
-  try {
-    // ws RawData can be ArrayBuffer, etc.
-    return d.toString()
-  } catch {
-    return null
-  }
 }
 
 function parseUserChannelEvent(raw: string): AccountEvent[] {
@@ -75,12 +65,12 @@ function parseUserChannelEvent(raw: string): AccountEvent[] {
         fill: {
           id,
           tsMs,
-          market,
+          ...(market !== undefined ? { market } : {}),
           assetId: asset_id,
           side,
           price,
           size,
-          orderId: takerOrderId,
+          ...(takerOrderId !== undefined ? { orderId: takerOrderId } : {}),
           liquidity: 'TAKER',
         },
       },
@@ -106,7 +96,7 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
   const listeners = new Set<(ev: AccountEvent) => void>()
 
   let running = false
-  let ws: WebSocket | undefined
+  let conn: WsConnection | undefined
   let backoffMs = baseDelayMs
   let reconnectTimer: NodeJS.Timeout | undefined
 
@@ -136,45 +126,45 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
 
   const connect = (): void => {
     if (!running) return
-    ws?.close()
-    ws = new WebSocket(url, { perMessageDeflate: false, handshakeTimeout: 10_000 })
+    conn?.close()
+    conn = undefined
 
-    ws.on('open', () => {
-      backoffMs = baseDelayMs
-      emit({
-        kind: 'account_stream_status',
-        tsMs: Date.now(),
-        source: 'user_ws',
-        status: 'connected',
-      })
+    conn = createWsConnection({
+      url,
+      wsOptions: { perMessageDeflate: false, handshakeTimeout: 10_000 },
+      // Keep-alive only: user streams can be quiet; do NOT terminate due to inactivity.
+      heartbeat: { pingIntervalMs: 10_000 },
+      onOpen: () => {
+        backoffMs = baseDelayMs
+        emit({
+          kind: 'account_stream_status',
+          tsMs: Date.now(),
+          source: 'user_ws',
+          status: 'connected',
+        })
 
-      // Per docs: send auth fields on connection.
-      ws?.send(
-        JSON.stringify({
-          apikey: opts.auth.apiKey,
-          secret: opts.auth.secret,
-          passphrase: opts.auth.passphrase,
-          ...(opts.markets ? { markets: opts.markets } : {}),
-        }),
-      )
-    })
-
-    ws.on('message', (data: RawData, isBinary: boolean) => {
-      if (isBinary) return
-      const raw = asString(data)
-      if (!raw) return
-      const events = parseUserChannelEvent(raw)
-      for (const ev of events) emit(ev)
-    })
-
-    ws.on('close', (code, reason) => {
-      if (!running) return
-      scheduleReconnect(`ws close code=${code} reason=${reason.toString()}`)
-    })
-
-    ws.on('error', (err) => {
-      if (!running) return
-      scheduleReconnect(`ws error: ${err.message}`)
+        // Per docs: send auth fields on connection.
+        conn?.send(
+          JSON.stringify({
+            apikey: opts.auth.apiKey,
+            secret: opts.auth.secret,
+            passphrase: opts.auth.passphrase,
+            ...(opts.markets ? { markets: opts.markets } : {}),
+          }),
+        )
+      },
+      onMessageText: (raw) => {
+        const events = parseUserChannelEvent(raw)
+        for (const ev of events) emit(ev)
+      },
+      onClose: (code, reason) => {
+        if (!running) return
+        scheduleReconnect(`ws close code=${code} reason=${reason.toString()}`)
+      },
+      onError: (err) => {
+        if (!running) return
+        scheduleReconnect(`ws error: ${err.message}`)
+      },
     })
   }
 
@@ -189,8 +179,8 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
     stop: () => {
       running = false
       clearReconnect()
-      ws?.close()
-      ws = undefined
+      conn?.close()
+      conn = undefined
     },
     onAccountEvent: (cb) => {
       listeners.add(cb)
@@ -198,3 +188,5 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
     },
   }
 }
+
+

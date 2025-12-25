@@ -1,18 +1,24 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import * as z from 'zod'
 
-export type MakerQuoteConfig = {
-  /** Which assetId (tokenID) to trade. If omitted, picks the first available in snapshot. */
-  assetId?: string
-  /** Order size (shares). */
-  size: number
-  /** Quote one tick inside best bid/ask by this amount (in price units). */
-  improveBy: number
-  /** Max spread allowed to quote; if spread is wider, cancel orders and wait. */
-  maxSpread: number
-  /** Order type for resting quotes. */
-  orderType?: 'GTC' | 'GTD'
-  /** GTD expiry offset (ms) when orderType=GTD. */
-  gtdTtlMs?: number
+export const MakerQuoteConfigSchema = z.strictObject({
+  assetId: z.string().min(1).optional(),
+  size: z.coerce.number().finite().default(5),
+  improveBy: z.coerce.number().finite().default(0.001),
+  maxSpread: z.coerce.number().finite().default(0.05),
+  orderType: z.enum(['GTC', 'GTD']).default('GTC'),
+  gtdTtlMs: z.coerce.number().finite().default(120_000),
+})
+
+export type MakerQuoteConfig = z.infer<typeof MakerQuoteConfigSchema>
+
+export const definition: StrategyDefinition<MakerQuoteConfig> = {
+  id: 'example_maker_quote',
+  title: 'Example maker quote',
+  description: 'Places bid/ask quotes inside the spread (plumbing validation).',
+  schema: MakerQuoteConfigSchema,
+  create: (params) => createExampleMakerQuoteStrategy(params),
 }
 
 function pickAssetId(tick: MarketTick, preferred?: string): string | null {

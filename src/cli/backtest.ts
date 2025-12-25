@@ -1,10 +1,10 @@
 import { createParquetReplaySource } from '../parquet/replay/parquetReplaySource.js'
-import { createMarketEventHandler } from '../engine/marketEventHandler.js'
+import { createMarketEventHandler } from '../market/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
-import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
-import type { AnyMarketMessage } from '../orderbook/OrderBookEngine.js'
-import { MarketEngine } from '../engine/MarketEngine.js'
+import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
+import type { AnyMarketMessage } from '../market/orderbook/index.js'
+import { MarketEngine } from '../market/MarketEngine.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import {
   computeMergeOpportunities,
@@ -14,8 +14,9 @@ import {
 } from '../trading/portfolioMetrics.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
-import { loadStrategyFromEnv } from '../strategies/strategyRegistry.js'
-import type { AccountEvent, Fill, PortfolioSnapshot } from '../strategy/Strategy.js'
+import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
+import type { AccountEvent, Fill, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -64,6 +65,20 @@ function parseArgs(argv: string[]): {
     }
     if (a === '--carry' || a === '--carry-portfolio') {
       carry = true
+      continue
+    }
+    if (a === '--strategy') {
+      i += 1 // consume value
+      continue
+    }
+    if (a.startsWith('--strategy=')) {
+      continue
+    }
+    if (a === '--param') {
+      i += 1 // consume key=value
+      continue
+    }
+    if (a.startsWith('--param=')) {
       continue
     }
     if (a.startsWith('-')) {
@@ -508,14 +523,22 @@ export async function replayOrderBookForMarket(params: {
 async function main(): Promise<void> {
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
+  const built = (() => {
+    try {
+      return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
+    } catch (err) {
+      printCliArgsError({ script: 'backtest', err })
+      process.exit(2)
+    }
+  })()
   const filePaths = parsed.filePaths
   if (filePaths.length === 0) {
     console.error(
       'Usage:\n' +
         '  Raw replay (existing):\n' +
-        '    tsx src/cli/backtest.ts <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Orderbook replay:\n' +
-        '    tsx src/cli/backtest.ts --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--carry]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--carry]',
     )
     process.exit(2)
   }
@@ -536,10 +559,11 @@ async function main(): Promise<void> {
     const byType = new Map<string, number>()
 
     const mkRunner = (): {
-      strategy: ReturnType<typeof loadStrategyFromEnv>
+      strategy: Strategy
       runner: StrategyRunner
     } => {
-      const strategy = loadStrategyFromEnv()
+      const def = getStrategyDefinition(built.strategyId)
+      const strategy = def.create(built.params as never)
       const exec = new BacktestExecution()
       const orderManager = new OrderManager({
         execution: exec,
@@ -557,8 +581,7 @@ async function main(): Promise<void> {
     // Default: each parquet file is treated as an independent market episode with fresh bot state/capital.
     // Use --carry to keep a single runner/portfolio across all files.
     const carried = parsed.carry ? mkRunner() : null
-    const strategyName = carried?.strategy.name ?? loadStrategyFromEnv().name
-    console.log(`[backtest] strategy=${strategyName}`)
+    console.log(`[backtest] strategy=${built.strategyId}`)
 
     type MarketPnlRow = {
       filePath: string

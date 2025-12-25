@@ -1,4 +1,4 @@
-import type { AnyMarketMessage } from './OrderBookEngine.js'
+import type { AnyMarketMessage } from './orderbook/index.js'
 
 export const SYNTHETIC_EVENT_TYPES = new Set<string>([
   // Synthetic markers recorded by record-live.ts

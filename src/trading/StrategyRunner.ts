@@ -1,4 +1,4 @@
-import type { MarketOrderBooksSnapshot } from '../orderbook/OrderBookEngine.js'
+import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
 import { Portfolio } from './Portfolio.js'
 import { OrderManager } from '../trading/OrderManager.js'

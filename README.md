@@ -43,7 +43,12 @@ npm run backtest -- data/events/btc/<slug>.parquet data/events/btc/<slug-2>.parq
 Run a backtest strategy (example):
 
 ```bash
-STRATEGY=example_taker_flip npm run backtest -- "data/events/btc/<slug>.parquet"
+npm run backtest -- \
+  --strategy example_taker_flip \
+  --param size=5 \
+  --param maxSpread=0.02 \
+  --param cooldownMs=5000 \
+  "data/events/btc/<slug>.parquet"
 ```
 
 ## Examples
@@ -51,31 +56,62 @@ STRATEGY=example_taker_flip npm run backtest -- "data/events/btc/<slug>.parquet"
 Backtest (maker quotes; may produce 0 fills with current simulator):
 
 ```bash
-STRATEGY=example_maker_quote STRAT_SIZE=5 STRAT_IMPROVE_BY=0.001 STRAT_MAX_SPREAD=0.05 \
-npm run backtest -- "data/events/btc/<slug>.parquet"
+npm run backtest -- \
+  --strategy example_maker_quote \
+  --param size=5 \
+  --param improveBy=0.001 \
+  --param maxSpread=0.05 \
+  "data/events/btc/<slug>.parquet"
 ```
 
 Backtest (taker flip; should produce fills, usually negative due to spread):
 
 ```bash
-STRATEGY=example_taker_flip STRAT_SIZE=5 STRAT_MAX_SPREAD=0.02 STRAT_COOLDOWN_MS=5000 \
-npm run backtest -- "data/events/btc/<slug>.parquet"
+npm run backtest -- \
+  --strategy example_taker_flip \
+  --param size=5 \
+  --param maxSpread=0.02 \
+  --param cooldownMs=5000 \
+  "data/events/btc/<slug>.parquet"
 ```
 
 Trading bot (dry-run, safe default; no real orders):
 
 ```bash
-TRADING_SYMBOL=BTC DRY_RUN=true STRATEGY=example_maker_quote npm run trade:bot
+TRADING_SYMBOL=BTC DRY_RUN=true npm run trade:bot -- \
+  --strategy example_maker_quote \
+  --param size=5 \
+  --param improveBy=0.001 \
+  --param maxSpread=0.05
 ```
 
 Trading bot (live trading enabled; real orders):
 
 ```bash
-DRY_RUN=false LOG_TRADES=true STRATEGY=example_maker_quote \
+DRY_RUN=false LOG_TRADES=true \
 POLYMARKET_API_KEY=... POLYMARKET_API_SECRET=... POLYMARKET_API_PASSPHRASE=... \
 PRIVATE_KEY=... \
-npm run trade:bot:btc
+npm run trade:bot:btc -- \
+  --strategy example_maker_quote \
+  --param size=5 \
+  --param improveBy=0.001 \
+  --param maxSpread=0.05
 ```
+
+## Strategy selection and params
+
+Strategies are selected and configured via CLI args (shared by `backtest` and `trading-bot`):
+
+- `--strategy <id>` (required)
+- repeated `--param key=value` (strict: unknown keys / invalid values error out)
+
+Some params are JSON (pass JSON as a string), e.g.:
+
+```bash
+--param assetIds='["tokenA","tokenB"]'
+```
+
+Internally we validate/coerce params with **Zod**.
 
 ## Scripts
 
@@ -165,7 +201,7 @@ npm run backtest -- --mode raw "data/events/btc/<slug>.parquet" --order recorded
 
 ### 2) Order book reconstruction (tick-by-tick)
 
-This uses the shared engine (`src/engine/MarketEngine.ts`) which does:
+This uses the shared engine (`src/market/MarketEngine.ts`) which does:
 
 `raw_json → decodeMarketChannelMessage → MarketOrderBookEngine → onTick()`
 
@@ -186,15 +222,25 @@ npm run backtest -- "data/events/btc/<slug>.parquet" --order recorded
 The backtest script accepts multiple positional parquet paths, so you can let your shell expand them:
 
 ```bash
-STRATEGY=winnerLimit STRAT_SIZE=5 STRAT_TRIGGER_PRICE=0.88 STRAT_LIMIT_PRICE=0.88 STRAT_MIN_DELAY_MS=600000 \
-npm run backtest -- data/events/btc/*.parquet
+npm run backtest -- \
+  --strategy winnerLimit \
+  --param size=5 \
+  --param triggerPrice=0.88 \
+  --param limitPrice=0.88 \
+  --param minDelayMs=600000 \
+  data/events/btc/*.parquet
 ```
 
 If you want a deterministic sorted list (by the epoch suffix in the filename), use:
 
 ```bash
-STRATEGY=winnerLimit STRAT_SIZE=5 STRAT_TRIGGER_PRICE=0.88 STRAT_LIMIT_PRICE=0.88 STRAT_MIN_DELAY_MS=600000 \
-npm run backtest -- $(npm run -s list:backtest-files -- --symbol btc)
+npm run backtest -- \
+  --strategy winnerLimit \
+  --param size=5 \
+  --param triggerPrice=0.88 \
+  --param limitPrice=0.88 \
+  --param minDelayMs=600000 \
+  $(npm run -s list:backtest-files -- --symbol btc)
 ```
 
 Notes:
@@ -246,24 +292,13 @@ Optional auth (if all present, included in subscribe payload):
 
 Trading / strategies:
 
-- `STRATEGY` (default: `example_maker_quote`)
-  - `example_maker_quote`: places resting limit quotes (maker-style)
-  - `example_taker_flip`: places FOK taker orders to validate end-to-end plumbing (will usually lose spread; not a profitable strategy)
+- Strategy selection/config is **NOT** done via env vars anymore.
+  - Use `--strategy <id>` and repeated `--param key=value` (see “Strategy selection and params” above).
 - `DRY_RUN` (default: `true`)
   - `true`: do NOT place real orders (safe default)
   - `false`: enable real order placement (requires `PRIVATE_KEY` and API creds)
 - `LOG_TRADES` (default: `false` for trading-bot)
   - `true`: print `[trade] ...` for each fill event (live fills from user WS/polling)
-
-Strategy config envs (examples):
-
-- `STRAT_ASSET_ID`: explicit token id to trade (otherwise picks the first available from the snapshot)
-- `STRAT_SIZE`: order size (shares)
-- `STRAT_MAX_SPREAD`: max spread threshold
-- `STRAT_IMPROVE_BY`: quote improvement inside spread (`example_maker_quote`)
-- `STRAT_ORDER_TYPE`: `GTC|GTD` for maker quotes
-- `STRAT_GTD_TTL_MS`: GTD TTL in ms (maker quotes)
-- `STRAT_COOLDOWN_MS`: cooldown between actions (`example_taker_flip`)
 
 Live trading keys:
 
@@ -296,7 +331,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
 - **Event stream (shared shape)**:
   - `src/types/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
   - `src/polymarket/marketEventIndex.ts`: tolerant indexer (`event_type`, `market`, timestamps)
-  - `src/engine/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
+  - `src/market/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
 - **WebSocket (live)**:
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + heartbeat)
   - `src/polymarket/liveMarketEventSource.ts`: connect/reconnect loop emitting `MarketEvent`
@@ -307,8 +342,9 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/parquet/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
   - `src/cli/backtest.ts`: raw replay + orderbook reconstruction modes
 - **Orderbook / shared engine**:
-  - `src/orderbook/*`: decoding + orderbook engines
-  - `src/engine/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
+  - `src/market/orderbook/*`: orderbook engines (OrderBookEngine, MarketOrderBookEngine)
+  - `src/market/marketChannelDecoder.ts`: decode raw JSON → Polymarket market-channel messages
+  - `src/market/MarketEngine.ts`: shared “raw_json → orderbook → ticks” engine
 - **Strategy / trading**
   - `src/strategy/Strategy.ts`: shared types (`Strategy`, `Intent`, `AccountEvent`, `PortfolioSnapshot`)
   - `src/trading/StrategyRunner.ts`: shared event loop (market ticks + account events)
@@ -318,7 +354,9 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/trading/execution/LiveExecution.ts`: real order placement via `@polymarket/clob-client`
   - `src/polymarket/userWsAccountSource.ts`: authenticated user WS → AccountEvents (fills)
   - `src/polymarket/restPollAccountSource.ts`: REST polling fallback → AccountEvents (fills)
-  - `src/strategies/*`: example strategies + env strategy loader
+- `src/strategy/strategyRegistry.ts`: strategy registry (definitions + Zod schemas)
+- `src/cli/strategyArgs.ts`: shared `--strategy` / `--param` parser + Zod validation
+- `src/strategies/*`: strategies (each exports a `definition` with a Zod schema)
 - **Scripts**:
   - `src/cli/record-live.ts`: live ingest → Parquet
   - `src/cli/trading-bot.ts`: live ingest → `MarketEngine` → `StrategyRunner` (dry-run by default)

@@ -4,11 +4,13 @@ import path from 'node:path'
 type Args = {
   symbol: string
   root: string
+  limit?: number
 }
 
 function parseArgs(argv: string[]): Args | null {
   let symbol: string | undefined
   let root = 'data/events'
+  let limit: number | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -26,6 +28,15 @@ function parseArgs(argv: string[]): Args | null {
       continue
     }
 
+    if (a === '--limit' || a === '-l') {
+      const raw = argv[i + 1]
+      const n = raw ? Number(raw) : NaN
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return null
+      limit = n
+      i += 1
+      continue
+    }
+
     if (a === '--help' || a === '-h') return null
 
     // Positional: first positional is symbol.
@@ -36,7 +47,7 @@ function parseArgs(argv: string[]): Args | null {
   }
 
   if (!symbol) return null
-  return { symbol, root }
+  return { symbol, root, ...(typeof limit === 'number' ? { limit } : {}) }
 }
 
 function epochFromFilename(fileName: string): number | null {
@@ -53,9 +64,10 @@ async function main(): Promise<void> {
   if (!parsed) {
     console.error(
       'Usage:\n' +
-        '  tsx src/parquet/cli/list-backtest-files.ts --symbol <btc|eth|sol|...> [--root data/events]\n' +
+        '  tsx src/parquet/cli/list-backtest-files.ts --symbol <btc|eth|sol|...> [--root data/events] [--limit N]\n' +
         'Examples:\n' +
         '  tsx src/parquet/cli/list-backtest-files.ts --symbol btc\n' +
+        '  tsx src/parquet/cli/list-backtest-files.ts --symbol btc --limit 10\n' +
         '  npm run -s list:backtest-files -- --symbol btc',
     )
     process.exit(2)
@@ -63,6 +75,7 @@ async function main(): Promise<void> {
 
   const symbol = parsed.symbol.toLowerCase()
   const rootRel = parsed.root
+  const limit = parsed.limit
   const dirAbs = path.resolve(process.cwd(), rootRel, symbol)
 
   let entries: Array<{ name: string; isFile: boolean }>
@@ -89,12 +102,13 @@ async function main(): Promise<void> {
     return a.localeCompare(b)
   })
 
+  const limitedFiles = typeof limit === 'number' ? files.slice(0, limit) : files
+
   // Print in the exact format expected by `npm run backtest -- <file1> <file2> ...`
   // Prefer forward slashes to keep it copy/paste friendly.
   const rootPosix = rootRel.split(path.sep).join(path.posix.sep)
-  const out = files.map((f) => path.posix.join(rootPosix, symbol, f)).join(' ')
+  const out = limitedFiles.map((f) => path.posix.join(rootPosix, symbol, f)).join(' ')
   process.stdout.write(`${out}\n`)
 }
 
 await main()
-

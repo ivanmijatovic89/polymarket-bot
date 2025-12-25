@@ -2,12 +2,13 @@ import { ClobClient } from '@polymarket/clob-client'
 import { Wallet } from 'ethers'
 
 import type { AccountEvent, Fill } from '../strategy/Strategy.js'
+import type { PolymarketCredentials } from './config.js'
 
 export type RestPollAccountSourceOptions = {
-  host?: string
-  chainId?: number
-  privateKey?: string
-  creds: { apiKey: string; secret: string; passphrase: string }
+  host: string
+  chainId: number
+  privateKey: string
+  creds: PolymarketCredentials
   pollIntervalMs?: number
   enabled?: boolean
 }
@@ -17,18 +18,6 @@ export type RestPollAccountSource = {
   stop: () => void
   onAccountEvent: (cb: (ev: AccountEvent) => void) => () => void
   setEnabled: (enabled: boolean) => void
-}
-
-function env(name: string): string | undefined {
-  const v = process.env[name]
-  return v && v.trim() !== '' ? v : undefined
-}
-
-function parseIntEnv(name: string, fallback: number): number {
-  const raw = env(name)
-  if (!raw) return fallback
-  const n = Number(raw)
-  return Number.isFinite(n) ? Math.trunc(n) : fallback
 }
 
 function asMsFromSecString(raw: unknown): number | null {
@@ -44,15 +33,10 @@ function asMsFromSecString(raw: unknown): number | null {
 export function createRestPollAccountSource(
   opts: RestPollAccountSourceOptions,
 ): RestPollAccountSource {
-  const host = opts.host ?? env('CLOB_API_URL') ?? 'https://clob.polymarket.com'
-  const chainId = opts.chainId ?? parseIntEnv('CLOB_CHAIN_ID', 137)
-  const pk = opts.privateKey ?? env('PRIVATE_KEY') ?? env('POLYMARKET_PRIVATE_KEY')
-  if (!pk)
-    throw new Error('[restPollAccountSource] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
-  const wallet = new Wallet(pk)
+  const wallet = new Wallet(opts.privateKey)
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = new (ClobClient as any)(host, chainId, wallet, opts.creds)
+  const client = new (ClobClient as any)(opts.host, opts.chainId, wallet, opts.creds)
 
   const listeners = new Set<(ev: AccountEvent) => void>()
   let running = false
@@ -130,7 +114,7 @@ export function createRestPollAccountSource(
     if (!running) return
     const interval = Math.max(
       250,
-      opts.pollIntervalMs ?? parseIntEnv('CLOB_POLL_INTERVAL_MS', 1_000),
+      opts.pollIntervalMs ?? 1_000,
     )
     timer = setTimeout(() => {
       void pollOnce().finally(() => loop())

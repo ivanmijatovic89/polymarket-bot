@@ -1,4 +1,4 @@
-export type MarketEventIndex = {
+export type PolymarketEventIndex = {
   event_type: string
   market?: string
   asset_id?: string
@@ -11,7 +11,7 @@ export type MarketEventIndex = {
  * We intentionally keep this tolerant: recorders and bots should be able to
  * handle provider quirks (e.g. timestamps encoded as strings).
  */
-export function parseEventIndexFields(rawJson: string): MarketEventIndex {
+export function parseEventIndexFields(rawJson: string): PolymarketEventIndex {
   try {
     const obj: unknown = JSON.parse(rawJson)
     if (!obj || typeof obj !== 'object') return { event_type: 'unknown' }
@@ -39,7 +39,7 @@ export function parseEventIndexFields(rawJson: string): MarketEventIndex {
       }
     }
 
-    const out: MarketEventIndex = { event_type }
+    const out: PolymarketEventIndex = { event_type }
     if (market) out.market = market
     if (asset_id) out.asset_id = asset_id
     if (ts_exchange_ms) out.ts_exchange_ms = ts_exchange_ms
@@ -48,3 +48,5 @@ export function parseEventIndexFields(rawJson: string): MarketEventIndex {
     return { event_type: 'invalid_json' }
   }
 }
+
+

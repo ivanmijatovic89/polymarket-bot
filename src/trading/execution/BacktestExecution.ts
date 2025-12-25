@@ -1,4 +1,4 @@
-import type { OrderBookSnapshot } from '../../orderbook/OrderBookEngine.js'
+import type { OrderBookSnapshot } from '../../market/orderbook/index.js'
 import type {
   AccountEvent,
   CancelAllIntent,
