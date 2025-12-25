@@ -12,7 +12,7 @@ graph TB
 
     subgraph "Data Sources Layer"
         LiveWS[ liveMarketEventSource<br/>WebSocket Client ]
-        ParquetReplay[ parquetReplaySource<br/>Parquet Reader ]
+        ParquetReplay[ ParquetReader ]
         UserWS[ userWsAccountSource<br/>Account Events WS ]
         RestPoll[ restPollAccountSource<br/>REST Polling Fallback ]
         GammaAPI[ resolveUpDown15mAssets<br/>Gamma API Client ]

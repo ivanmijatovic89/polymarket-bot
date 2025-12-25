@@ -1,5 +1,3 @@
-import { createParquetReplaySource } from '../parquet/replay/parquetReplaySource.js'
-import { createMarketEventHandler } from '../market/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -25,16 +23,8 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
   return 'recorded'
 }
 
-type BacktestMode = 'raw' | 'orderbook'
-
-function parseModeValue(raw: string | undefined): BacktestMode {
-  if (raw === 'orderbook') return 'orderbook'
-  return 'raw'
-}
-
 function parseArgs(argv: string[]): {
   filePaths: string[]
-  mode: BacktestMode
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   carry: boolean
@@ -42,7 +32,6 @@ function parseArgs(argv: string[]): {
   const filePaths: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
-  let mode: BacktestMode = 'raw'
   let carry = false
 
   for (let i = 0; i < argv.length; i += 1) {
@@ -50,8 +39,13 @@ function parseArgs(argv: string[]): {
     if (!a) continue
 
     if (a === '--mode') {
-      mode = parseModeValue(argv[i + 1])
-      i += 1
+      const v = argv[i + 1]
+      if (v !== 'orderbook') {
+        throw new Error(
+          `[backtest] unsupported --mode ${String(v)} (raw mode removed; omit --mode or use --mode orderbook)`,
+        )
+      }
+      i += 1 // consume value
       continue
     }
     if (a === '--order') {
@@ -89,7 +83,7 @@ function parseArgs(argv: string[]): {
     filePaths.push(a)
   }
 
-  return { filePaths, mode, order, timeDriven, carry }
+  return { filePaths, order, timeDriven, carry }
 }
 
 type ReplayRow = {
@@ -535,240 +529,185 @@ async function main(): Promise<void> {
   if (filePaths.length === 0) {
     console.error(
       'Usage:\n' +
-        '  Raw replay (existing):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Orderbook replay:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --mode orderbook <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--carry]',
+        '  Orderbook replay (default):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven] [--carry]',
     )
     process.exit(2)
   }
 
-  if (parsed.mode === 'orderbook') {
-    console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
-    console.log(`[backtest] order=${parsed.order}`)
-    console.log(`[backtest] carry=${parsed.carry}`)
+  console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
+  console.log(`[backtest] order=${parsed.order}`)
+  console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  console.log(`[backtest] carry=${parsed.carry}`)
 
-    let shouldStop = false
-    const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
-      console.log(`[backtest] ${signal} received, stopping...`)
-      shouldStop = true
-    }
-    installSignalHandlers({ onSignal: shutdown })
-
-    let events = 0
-    const byType = new Map<string, number>()
-
-    const mkRunner = (): {
-      strategy: Strategy
-      runner: StrategyRunner
-    } => {
-      const def = getStrategyDefinition(built.strategyId)
-      const strategy = def.create(built.params as never)
-      const exec = new BacktestExecution()
-      const orderManager = new OrderManager({
-        execution: exec,
-        dryRun: false,
-        log: (msg, extra) => console.log(msg, extra ?? ''),
-      })
-      const runner = new StrategyRunner({
-        strategy,
-        orderManager,
-        log: (msg, extra) => console.log(msg, extra ?? ''),
-      })
-      return { strategy, runner }
-    }
-
-    // Default: each parquet file is treated as an independent market episode with fresh bot state/capital.
-    // Use --carry to keep a single runner/portfolio across all files.
-    const carried = parsed.carry ? mkRunner() : null
-    console.log(`[backtest] strategy=${built.strategyId}`)
-
-    type MarketPnlRow = {
-      filePath: string
-      market: string
-      tradeFills: number
-      realizedPnlDelta: number
-      mergeQty: number
-      pnl: number
-      cost: number
-      pnlPct: number
-    }
-    const marketRows: MarketPnlRow[] = []
-
-    // IMPORTANT: each parquet file corresponds to a single 15m market episode.
-    // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
-    for (const fp of filePaths) {
-      if (shouldStop) break
-      console.log(`[backtest] orderbook replay file=${fp}`)
-      const active = carried ?? mkRunner()
-      const runner = active.runner
-      const strategy = active.strategy
-
-      // Track realized PnL changes for this episode (includes synthetic settlement fills).
-      const episodeRealizedBefore = safeFinite(runner.getPortfolio().snapshot().realizedPnlTotal, 0)
-
-      await replayOrderBookForMarket({
-        filePaths: [fp],
-        order: parsed.order,
-        shouldStop: () => shouldStop,
-        onSnapshot: async (snap, raw) => {
-          if (shouldStop) return
-          events += 1
-          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
-
-          await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
-        },
-      })
-
-      const market = runner.getLastMarketSnapshot()?.market ?? '(unknown)'
-      const allBefore = runner.getPortfolio().snapshot()
-      const pBefore = market !== '(unknown)' ? portfolioForMarket(allBefore, market) : allBefore
-      const tradeFillsBefore = pBefore.recentFills.filter((f) => !isSettlementFill(f)).length
-      const settlementBefore = settlementActionSummary(
-        pBefore.recentFills.filter((f) => isSettlementFill(f)),
-      )
-      const sharesByAssetIdBefore = Object.fromEntries(
-        Object.entries(pBefore.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
-      )
-      const mergeOps = computeMergeOpportunities(pBefore)
-      const totalPnl = sumMergePnl(mergeOps)
-      const totalCost = sumMergeCost(mergeOps)
-      const totalPnlPct = mergePnlPctTotal(mergeOps)
-      const totalMergeQty = round8(mergeOps.reduce((acc, o) => acc + (o.mergeQty ?? 0), 0))
-
-      console.log(`[backtest] portfolio_pre_settlement market=${market}`, {
-        tradeFills: tradeFillsBefore,
-        settlementFills: settlementBefore.count,
-        settlement: { merge: settlementBefore.merge, redeem: settlementBefore.redeem },
-        positions: pBefore.positionsByAssetId,
-        sharesByAssetId: sharesByAssetIdBefore,
-        openOrders: Object.keys(pBefore.openOrdersByClientId).length,
-        realizedPnl: realizedPnlTotal(pBefore),
-        merge: {
-          opportunities: mergeOps,
-          totalPnl,
-          totalCost,
-          totalPnlPct,
-        },
-      })
-
-      // Settle this market episode so capital doesn't remain locked across sequential 15m files.
-      let episodeRealizedAfter = episodeRealizedBefore
-      if (market !== '(unknown)') {
-        console.log(`[backtest] settling market=${market}`)
-        await settleMarketEpisode({ runner, strategyName: strategy.name, market })
-
-        const allAfter = runner.getPortfolio().snapshot()
-        episodeRealizedAfter = safeFinite(allAfter.realizedPnlTotal, episodeRealizedBefore)
-        const pAfter = portfolioForMarket(allAfter, market)
-        const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
-        const settlementAfter = settlementActionSummary(
-          pAfter.recentFills.filter((f) => isSettlementFill(f)),
-        )
-        const sharesByAssetIdAfter = Object.fromEntries(
-          Object.entries(pAfter.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
-        )
-        console.log(`[backtest] portfolio_post_settlement market=${market}`, {
-          tradeFills: tradeFillsAfter,
-          settlementFills: settlementAfter.count,
-          settlement: { merge: settlementAfter.merge, redeem: settlementAfter.redeem },
-          positions: pAfter.positionsByAssetId,
-          sharesByAssetId: sharesByAssetIdAfter,
-          openOrders: Object.keys(pAfter.openOrdersByClientId).length,
-          realizedPnl: realizedPnlTotal(pAfter),
-        })
-      }
-
-      marketRows.push({
-        filePath: fp,
-        market,
-        tradeFills: tradeFillsBefore,
-        realizedPnlDelta: round8(episodeRealizedAfter - episodeRealizedBefore),
-        mergeQty: totalMergeQty,
-        pnl: totalPnl,
-        cost: totalCost,
-        pnlPct: totalPnlPct,
-      })
-    }
-
-    // Strategy-level PnL across markets (based on realized PnL deltas per episode).
-    // A "traded market" is one that had at least one non-settlement fill.
-    const traded = marketRows.filter((r) => r.tradeFills > 0)
-    const wins = traded.filter((r) => r.realizedPnlDelta > 0)
-    const losses = traded.filter((r) => r.realizedPnlDelta <= 0)
-    const totalPnl = round8(traded.reduce((acc, r) => acc + r.realizedPnlDelta, 0))
-    const avgWin = round8(
-      wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
-    )
-    const avgLose = round8(
-      losses.length ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length : 0,
-    )
-
-    console.log('[backtest] strategy pnl', {
-      markets: marketRows.length,
-      tradedMarkets: traded.length,
-      successfulTrades: wins.length,
-      unsuccessfulTrades: losses.length,
-      totalPnl,
-      avgWin,
-      avgLose,
-      rows: marketRows,
-    })
-
-    console.log('[backtest] orderbook summary', {
-      events,
-      byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
-    })
-    return
-  }
-
-  const order = parsed.order
-  const timeDriven = parsed.timeDriven
-
-  console.log(`[backtest] files=${filePaths.length}`)
-  console.log(`[backtest] order=${order}`)
-  console.log(`[backtest] timeDriven=${timeDriven}`)
-
-  const handler = createMarketEventHandler()
-
-  let doneResolve: (() => void) | undefined
-  const done = new Promise<void>((resolve) => {
-    doneResolve = resolve
-  })
-
-  const source = createParquetReplaySource({ filePaths, order, timeDriven })
-
-  source.onEvent((ev) => {
-    handler.handle(ev)
-  })
-
-  source.onStatus((s) => {
-    if (s.kind === 'connected') {
-      console.log(`[backtest] started (${s.info ?? 'parquet'})`)
-      return
-    }
-    if (s.kind === 'disconnected') {
-      console.log(`[backtest] finished (${s.info ?? 'done'})`)
-      doneResolve?.()
-      return
-    }
-    if (s.kind === 'reconnecting') {
-      // replay source doesn't reconnect, but keep this for interface parity
-      console.log(`[backtest] reconnecting in ${s.delayMs}ms (${s.info ?? ''})`)
-    }
-  })
-
+  let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
     console.log(`[backtest] ${signal} received, stopping...`)
-    source.stop()
+    shouldStop = true
   }
   installSignalHandlers({ onSignal: shutdown })
 
-  source.start()
-  await done
+  let events = 0
+  const byType = new Map<string, number>()
 
-  const snap = handler.snapshot()
-  console.log('[backtest] summary', snap)
+  const mkRunner = (): {
+    strategy: Strategy
+    runner: StrategyRunner
+  } => {
+    const def = getStrategyDefinition(built.strategyId)
+    const strategy = def.create(built.params as never)
+    const exec = new BacktestExecution()
+    const orderManager = new OrderManager({
+      execution: exec,
+      dryRun: false,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
+    const runner = new StrategyRunner({
+      strategy,
+      orderManager,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
+    return { strategy, runner }
+  }
+
+  // Default: each parquet file is treated as an independent market episode with fresh bot state/capital.
+  // Use --carry to keep a single runner/portfolio across all files.
+  const carried = parsed.carry ? mkRunner() : null
+  console.log(`[backtest] strategy=${built.strategyId}`)
+
+  type MarketPnlRow = {
+    filePath: string
+    market: string
+    tradeFills: number
+    realizedPnlDelta: number
+    mergeQty: number
+    pnl: number
+    cost: number
+    pnlPct: number
+  }
+  const marketRows: MarketPnlRow[] = []
+
+  // IMPORTANT: each parquet file corresponds to a single 15m market episode.
+  // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
+  for (const fp of filePaths) {
+    if (shouldStop) break
+    console.log(`[backtest] orderbook replay file=${fp}`)
+    const active = carried ?? mkRunner()
+    const runner = active.runner
+    const strategy = active.strategy
+
+    // Track realized PnL changes for this episode (includes synthetic settlement fills).
+    const episodeRealizedBefore = safeFinite(runner.getPortfolio().snapshot().realizedPnlTotal, 0)
+
+    await replayOrderBookForMarket({
+      filePaths: [fp],
+      order: parsed.order,
+      timeDriven: parsed.timeDriven,
+      shouldStop: () => shouldStop,
+      onSnapshot: async (snap, raw) => {
+        if (shouldStop) return
+        events += 1
+        byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+
+        await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+      },
+    })
+
+    const market = runner.getLastMarketSnapshot()?.market ?? '(unknown)'
+    const allBefore = runner.getPortfolio().snapshot()
+    const pBefore = market !== '(unknown)' ? portfolioForMarket(allBefore, market) : allBefore
+    const tradeFillsBefore = pBefore.recentFills.filter((f) => !isSettlementFill(f)).length
+    const settlementBefore = settlementActionSummary(pBefore.recentFills.filter((f) => isSettlementFill(f)))
+    const sharesByAssetIdBefore = Object.fromEntries(
+      Object.entries(pBefore.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+    )
+    const mergeOps = computeMergeOpportunities(pBefore)
+    const totalPnl = sumMergePnl(mergeOps)
+    const totalCost = sumMergeCost(mergeOps)
+    const totalPnlPct = mergePnlPctTotal(mergeOps)
+    const totalMergeQty = round8(mergeOps.reduce((acc, o) => acc + (o.mergeQty ?? 0), 0))
+
+    console.log(`[backtest] portfolio_pre_settlement market=${market}`, {
+      tradeFills: tradeFillsBefore,
+      settlementFills: settlementBefore.count,
+      settlement: { merge: settlementBefore.merge, redeem: settlementBefore.redeem },
+      positions: pBefore.positionsByAssetId,
+      sharesByAssetId: sharesByAssetIdBefore,
+      openOrders: Object.keys(pBefore.openOrdersByClientId).length,
+      realizedPnl: realizedPnlTotal(pBefore),
+      merge: {
+        opportunities: mergeOps,
+        totalPnl,
+        totalCost,
+        totalPnlPct,
+      },
+    })
+
+    // Settle this market episode so capital doesn't remain locked across sequential 15m files.
+    let episodeRealizedAfter = episodeRealizedBefore
+    if (market !== '(unknown)') {
+      console.log(`[backtest] settling market=${market}`)
+      await settleMarketEpisode({ runner, strategyName: strategy.name, market })
+
+      const allAfter = runner.getPortfolio().snapshot()
+      episodeRealizedAfter = safeFinite(allAfter.realizedPnlTotal, episodeRealizedBefore)
+      const pAfter = portfolioForMarket(allAfter, market)
+      const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
+      const settlementAfter = settlementActionSummary(pAfter.recentFills.filter((f) => isSettlementFill(f)))
+      const sharesByAssetIdAfter = Object.fromEntries(
+        Object.entries(pAfter.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
+      )
+      console.log(`[backtest] portfolio_post_settlement market=${market}`, {
+        tradeFills: tradeFillsAfter,
+        settlementFills: settlementAfter.count,
+        settlement: { merge: settlementAfter.merge, redeem: settlementAfter.redeem },
+        positions: pAfter.positionsByAssetId,
+        sharesByAssetId: sharesByAssetIdAfter,
+        openOrders: Object.keys(pAfter.openOrdersByClientId).length,
+        realizedPnl: realizedPnlTotal(pAfter),
+      })
+    }
+
+    marketRows.push({
+      filePath: fp,
+      market,
+      tradeFills: tradeFillsBefore,
+      realizedPnlDelta: round8(episodeRealizedAfter - episodeRealizedBefore),
+      mergeQty: totalMergeQty,
+      pnl: totalPnl,
+      cost: totalCost,
+      pnlPct: totalPnlPct,
+    })
+  }
+
+  // Strategy-level PnL across markets (based on realized PnL deltas per episode).
+  // A "traded market" is one that had at least one non-settlement fill.
+  const traded = marketRows.filter((r) => r.tradeFills > 0)
+  const wins = traded.filter((r) => r.realizedPnlDelta > 0)
+  const losses = traded.filter((r) => r.realizedPnlDelta <= 0)
+  const totalPnl2 = round8(traded.reduce((acc, r) => acc + r.realizedPnlDelta, 0))
+  const avgWin = round8(
+    wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
+  )
+  const avgLose = round8(
+    losses.length ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length : 0,
+  )
+
+  console.log('[backtest] strategy pnl', {
+    markets: marketRows.length,
+    tradedMarkets: traded.length,
+    successfulTrades: wins.length,
+    unsuccessfulTrades: losses.length,
+    totalPnl: totalPnl2,
+    avgWin,
+    avgLose,
+    rows: marketRows,
+  })
+
+  console.log('[backtest] orderbook summary', {
+    events,
+    byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+  })
 }
 
 main().catch((err) => {

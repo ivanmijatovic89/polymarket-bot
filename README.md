@@ -123,7 +123,6 @@ Internally we validate/coerce params with **Zod**.
   - or `TRADING_SYMBOL=BTC npm run trade:bot`
 - **Backtest / replay**: `src/cli/backtest.ts`
   - `npm run backtest -- <file1.parquet> [file2.parquet ...]`
-  - Override mode: `npm run backtest -- --mode raw <file.parquet>`
   - Ordering: `--order recorded|exchange_time`
   - Realtime-ish: `--time-driven` (caps large sleeps)
 - **Verify a Parquet file**: `src/parquet/cli/verify-parquet.ts`
@@ -184,22 +183,7 @@ Important behavior:
 
 ## Backtesting / replay
 
-This repo has two replay paths:
-
-### 1) Raw replay (counts & indexing)
-
-This uses `createParquetReplaySource` (`src/parquet/replay/parquetReplaySource.ts`) to emit the same `MarketEvent` shape used by live ingestion:
-
-- `--order recorded`: merge deterministically by `(ts_local_ms, ingest_seq, file_index)`
-- `--order exchange_time`: merge deterministically by `(ts_exchange_ms ?? ts_local_ms, ingest_seq, file_index)`
-
-Run:
-
-```bash
-npm run backtest -- --mode raw "data/events/btc/<slug>.parquet" --order recorded
-```
-
-### 2) Order book reconstruction (tick-by-tick)
+### Order book reconstruction (tick-by-tick)
 
 This uses the shared engine (`src/market/MarketEngine.ts`) which does:
 
@@ -339,8 +323,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/parquet/io/eventSchema.ts`: schema
   - `src/parquet/io/eventWriter.ts`: per-market ordered writer + rotation + tmp→final rename
 - **Replay**:
-  - `src/parquet/replay/parquetReplaySource.ts`: deterministic Parquet merge + replay
-  - `src/cli/backtest.ts`: raw replay + orderbook reconstruction modes
+  - `src/cli/backtest.ts`: orderbook reconstruction mode (tick-by-tick)
 - **Orderbook / shared engine**:
   - `src/market/orderbook/*`: orderbook engines (OrderBookEngine, MarketOrderBookEngine)
   - `src/market/marketChannelDecoder.ts`: decode raw JSON → Polymarket market-channel messages
