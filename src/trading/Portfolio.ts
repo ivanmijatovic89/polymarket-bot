@@ -5,14 +5,11 @@ import type {
   PortfolioSnapshot,
   Position,
 } from '../strategy/Strategy.js'
+import { round2 } from './utils/rounding.js'
 
 function clampFinite(n: number, fallback = 0): number {
   if (!Number.isFinite(n)) return fallback
   return n
-}
-
-function round2(n: number): number {
-  return Math.round(n * 1e8) / 1e8
 }
 
 function positionKey(assetId: string): string {

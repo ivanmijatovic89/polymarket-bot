@@ -1,7 +1,8 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
 import { Portfolio } from './Portfolio.js'
-import { OrderManager } from '../trading/OrderManager.js'
+import { OrderManager } from './OrderManager.js'
+import { round8 } from './utils/rounding.js'
 
 export type StrategyRunnerOptions = {
   strategy: Strategy
@@ -23,10 +24,6 @@ export class StrategyRunner {
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
-
-  private round8(n: number): number {
-    return Math.round(n * 1e8) / 1e8
-  }
 
   constructor(opts: StrategyRunnerOptions) {
     this.strategy = opts.strategy
@@ -77,8 +74,8 @@ export class StrategyRunner {
   private async applyAccountEvent(ev: AccountEvent, depth: number): Promise<void> {
     if (ev.kind === 'fill') {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
-      const notional = this.round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
-      const cashDelta = ev.fill.side === 'BUY' ? this.round8(-notional) : notional
+      const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
+      const cashDelta = ev.fill.side === 'BUY' ? round8(-notional) : notional
       const isBacktestSettlement =
         (typeof ev.fill.orderId === 'string' &&
           (ev.fill.orderId.startsWith('bt-merge:') || ev.fill.orderId.startsWith('bt-settle:'))) ||

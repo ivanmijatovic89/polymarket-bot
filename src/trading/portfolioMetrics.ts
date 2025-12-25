@@ -1,8 +1,5 @@
 import type { PortfolioSnapshot, Position } from '../strategy/Strategy.js'
-
-function round8(n: number): number {
-  return Math.round(n * 1e8) / 1e8
-}
+import { round8 } from './utils/rounding.js'
 
 export type MergeOpportunity = {
   market: string
