@@ -615,6 +615,13 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
       return []
     }
 
+    // Market settled: clear active pair state for next market
+    if (ev.kind === 'market_settled') {
+      activePair = null
+      if (cfg.debug) console.log(`[${name}] market_settled(${ev.market}), clearing activePair`)
+      return []
+    }
+
     // Order finalized / rejected => mark failures for active pair legs (important in backtests).
     if (activePair) {
       if (ev.kind === 'order_done') {
@@ -634,7 +641,7 @@ export function createHybridProduction2Strategy(cfg: HybridProduction2Config): S
     }
 
     // If we have an unhedged position and get an account event but no market snapshot,
-    // we can’t safely unwind/repair (needs bestBid/Ask). So we only act on ticks.
+    // we can't safely unwind/repair (needs bestBid/Ask). So we only act on ticks.
     void lastMarketSnap
     return []
   }

@@ -13,6 +13,9 @@ import { parseArgs } from './helpers/backtestArgs.js'
 import { sleep } from '../utils/sleep.js'
 import { toBigInt } from '../utils/toBigInt.js'
 import { MinHeap } from '../utils/minHeap.js'
+import { SettlementCoordinator } from '../settlement/SettlementCoordinator.js'
+import { MarketRotationDetector } from '../settlement/detectors/MarketRotationDetector.js'
+import { GammaApiPayoutResolver } from '../settlement/resolvers/GammaApiPayoutResolver.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -187,9 +190,26 @@ async function main(): Promise<void> {
       dryRun: false,
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
+
+    // Create settlement coordinator for backtests
+    const detector = new MarketRotationDetector()
+    const resolver = new GammaApiPayoutResolver({
+      useFallbackOnError: true, // Fall back to orderbook inference if API fails
+    })
+    const settlementCoordinator = new SettlementCoordinator(detector, resolver, {
+      detector: 'market_rotation',
+      resolver: 'gamma_api',
+      orderbookInference: {
+        enabled: true,
+        fallbackToInference: true,
+      },
+      cacheResults: true,
+    })
+
     const runner = new StrategyRunner({
       strategy,
       orderManager,
+      settlementCoordinator,
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
     return { strategy, runner }

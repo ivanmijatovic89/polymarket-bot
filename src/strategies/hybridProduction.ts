@@ -458,6 +458,12 @@ export function createHybridProductionStrategy(cfg: HybridProductionConfig): Str
       return []
     }
 
+    // Market settled: reset cycle to allow new entries in next market
+    if (ev.kind === 'market_settled') {
+      resetCycle(`market_settled(${ev.market})`)
+      return []
+    }
+
     // If our entry order was killed/rejected, allow re-entry.
     if (ev.kind === 'order_rejected' && ev.clientOrderId.startsWith(clientPrefix)) {
       if (ev.clientOrderId.includes(':entry:')) resetCycle(`entry_order_rejected(${ev.reason})`)

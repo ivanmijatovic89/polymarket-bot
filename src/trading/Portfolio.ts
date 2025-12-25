@@ -113,10 +113,80 @@ export class Portfolio {
       }
       case 'account_stream_status':
         return
+      case 'market_settled': {
+        this.applySettlement(ev)
+        return
+      }
       default: {
         const _exhaustive: never = ev
         void _exhaustive
         return
+      }
+    }
+  }
+
+  /**
+   * Handle market settlement by generating synthetic SELL fills at payout prices.
+   *
+   * For each position in the settled market:
+   * - Generate a synthetic fill selling the position at the payout price ($0.00 or $1.00)
+   * - This realizes PnL through the existing sell logic
+   * - Clean up marketByAssetId entries for the settled market
+   *
+   * Example:
+   * - Hold 10 YES shares, bought at $0.40
+   * - Market settles, YES wins (payout = $1.00)
+   * - Generate sell 10 @ $1.00 → realizes PnL of $6.00
+   */
+  private applySettlement(ev: Extract<AccountEvent, { kind: 'market_settled' }>): void {
+    const { market, payouts, tsMs } = ev
+
+    // Find all positions in the settled market
+    const settledAssets: string[] = []
+    for (const [assetId, m] of this.marketByAssetId.entries()) {
+      if (m === market) {
+        settledAssets.push(assetId)
+      }
+    }
+
+    // Generate settlement fills for each position
+    for (const assetId of settledAssets) {
+      const pos = this.positionsByAssetId.get(assetId)
+      if (!pos || pos.qty <= 0) continue
+
+      const payout = payouts[assetId] ?? 0
+
+      // Create synthetic settlement fill
+      const settlementFill: Fill = {
+        id: `settlement:${market}:${assetId}:${tsMs}`,
+        tsMs,
+        market,
+        assetId,
+        side: 'SELL',
+        price: payout,
+        size: pos.qty,
+        clientOrderId: `system:settlement:${market}:${assetId}`,
+        orderId: `settlement:${market}:${assetId}`,
+        liquidity: 'TAKER',
+      }
+
+      // Apply settlement fill through existing logic
+      this.pushFill(settlementFill)
+      this.applyFillToPosition(settlementFill)
+    }
+
+    // Clean up marketByAssetId entries for settled market
+    for (const assetId of settledAssets) {
+      // Only remove if no open orders remain for this asset
+      let hasOpenOrders = false
+      for (const o of this.openOrdersByClientId.values()) {
+        if (o.assetId === assetId) {
+          hasOpenOrders = true
+          break
+        }
+      }
+      if (!hasOpenOrders) {
+        this.marketByAssetId.delete(assetId)
       }
     }
   }

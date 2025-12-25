@@ -159,6 +159,13 @@ export type AccountEvent =
       status: 'connected' | 'disconnected'
       info?: string
     }
+  | {
+      kind: 'market_settled'
+      tsMs: number
+      market: string
+      payouts: Record<string, number> // assetId -> payout per share (0.0 or 1.0)
+      reason: 'expired' | 'resolved' | 'cancelled'
+    }
 
 export type Strategy = {
   name: string
