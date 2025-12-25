@@ -140,5 +140,3 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
     },
   }
 }
-
-

@@ -10,7 +10,13 @@ export type PolymarketConfig = {
   creds?: PolymarketCredentials
   privateKey?: string
   ws: { marketUrl: string; userUrl: string }
-  clob: { host: string; chainId: number; pollIntervalMs: number; signatureType: number; funder?: string }
+  clob: {
+    host: string
+    chainId: number
+    pollIntervalMs: number
+    signatureType: number
+    funder?: string
+  }
   gamma: { baseUrl: string }
 }
 
@@ -72,5 +78,3 @@ export function loadPolymarketConfigFromEnv(): PolymarketConfig {
 
   return out
 }
-
-

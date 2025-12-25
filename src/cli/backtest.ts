@@ -617,7 +617,9 @@ async function main(): Promise<void> {
     const allBefore = runner.getPortfolio().snapshot()
     const pBefore = market !== '(unknown)' ? portfolioForMarket(allBefore, market) : allBefore
     const tradeFillsBefore = pBefore.recentFills.filter((f) => !isSettlementFill(f)).length
-    const settlementBefore = settlementActionSummary(pBefore.recentFills.filter((f) => isSettlementFill(f)))
+    const settlementBefore = settlementActionSummary(
+      pBefore.recentFills.filter((f) => isSettlementFill(f)),
+    )
     const sharesByAssetIdBefore = Object.fromEntries(
       Object.entries(pBefore.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
     )
@@ -653,7 +655,9 @@ async function main(): Promise<void> {
       episodeRealizedAfter = safeFinite(allAfter.realizedPnlTotal, episodeRealizedBefore)
       const pAfter = portfolioForMarket(allAfter, market)
       const tradeFillsAfter = pAfter.recentFills.filter((f) => !isSettlementFill(f)).length
-      const settlementAfter = settlementActionSummary(pAfter.recentFills.filter((f) => isSettlementFill(f)))
+      const settlementAfter = settlementActionSummary(
+        pAfter.recentFills.filter((f) => isSettlementFill(f)),
+      )
       const sharesByAssetIdAfter = Object.fromEntries(
         Object.entries(pAfter.positionsByAssetId).map(([assetId, pos]) => [assetId, pos.qty]),
       )

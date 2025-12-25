@@ -48,5 +48,3 @@ export function parseEventIndexFields(rawJson: string): PolymarketEventIndex {
     return { event_type: 'invalid_json' }
   }
 }
-
-

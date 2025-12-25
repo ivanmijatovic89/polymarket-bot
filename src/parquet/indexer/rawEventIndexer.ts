@@ -1,5 +1,8 @@
 import type { MarketEvent } from '../../types/marketEventSource.js'
-import { parseEventIndexFields, type PolymarketEventIndex } from '../../market/polymarketEventIndex.js'
+import {
+  parseEventIndexFields,
+  type PolymarketEventIndex,
+} from '../../market/polymarketEventIndex.js'
 
 export type RawMarketEventDropReason = 'no_market' | 'bad_json' | 'unknown_type'
 
@@ -66,5 +69,3 @@ export function createRawEventIndexer(): RawEventIndexer {
     }),
   }
 }
-
-

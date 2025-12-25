@@ -12,7 +12,8 @@ export type BuildStrategyFromCliArgsResult = {
 function schemaKeys(schema: unknown): string[] | null {
   const s = schema as Record<string, unknown> | null
   if (!s) return null
-  const rawShape = (s as any).shape
+  // ZodObject has a `shape` property that can be a function or an object
+  const rawShape = (s as { shape?: unknown }).shape
   const shape = typeof rawShape === 'function' ? rawShape() : rawShape
   if (!shape || typeof shape !== 'object') return null
   return Object.keys(shape as object).sort()
@@ -34,10 +35,7 @@ export function formatStrategyHelp(args: { script: string }): string {
   return lines.join('\n')
 }
 
-export function formatStrategyParamsHelp(args: {
-  script: string
-  strategyId: string
-}): string {
+export function formatStrategyParamsHelp(args: { script: string; strategyId: string }): string {
   const def = getStrategyDefinition(args.strategyId)
   const lines: string[] = []
   lines.push(`Usage:`)
@@ -85,5 +83,3 @@ export function printCliArgsError(args: { script: string; err: unknown }): void 
     console.error(formatStrategyHelp({ script: args.script }))
   }
 }
-
-

@@ -11,16 +11,18 @@ export const strategyRegistry = {
   [hybridProduction.id]: hybridProduction,
   [hybridProduction2.id]: hybridProduction2,
   [winnerLimit.id]: winnerLimit,
-} as const satisfies Record<string, StrategyDefinition<any>>
+} as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry
 
-export function getStrategyDefinition(id: string): StrategyDefinition<any> {
-  const def = (strategyRegistry as Record<string, StrategyDefinition<any>>)[id]
+export function getStrategyDefinition(id: string): StrategyDefinition<unknown> {
+  const def = (strategyRegistry as Record<string, StrategyDefinition<unknown>>)[id]
   if (!def) throw new Error(`[strategy] unknown strategy id=${JSON.stringify(id)}`)
   return def
 }
 
-export function listStrategies(): StrategyDefinition<any>[] {
-  return Object.values(strategyRegistry).slice().sort((a, b) => a.id.localeCompare(b.id))
+export function listStrategies(): StrategyDefinition<unknown>[] {
+  return Object.values(strategyRegistry)
+    .slice()
+    .sort((a, b) => a.id.localeCompare(b.id))
 }

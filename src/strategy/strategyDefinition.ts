@@ -31,7 +31,8 @@ function mustGetNextValue(argv: string[], i: number, flag: string): string {
 
 function parseParamKv(raw: string): { key: string; value: string } {
   const idx = raw.indexOf('=')
-  if (idx <= 0) throw new CliArgsError(`invalid --param ${JSON.stringify(raw)} (expected key=value)`)
+  if (idx <= 0)
+    throw new CliArgsError(`invalid --param ${JSON.stringify(raw)} (expected key=value)`)
   const key = raw.slice(0, idx).trim()
   const value = raw.slice(idx + 1)
   if (!key) throw new CliArgsError(`invalid --param ${JSON.stringify(raw)} (empty key)`)

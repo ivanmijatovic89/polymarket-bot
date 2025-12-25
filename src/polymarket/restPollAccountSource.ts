@@ -112,10 +112,7 @@ export function createRestPollAccountSource(
 
   const loop = (): void => {
     if (!running) return
-    const interval = Math.max(
-      250,
-      opts.pollIntervalMs ?? 1_000,
-    )
+    const interval = Math.max(250, opts.pollIntervalMs ?? 1_000)
     timer = setTimeout(() => {
       void pollOnce().finally(() => loop())
     }, interval)
