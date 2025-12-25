@@ -76,12 +76,7 @@ export class StrategyRunner {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
       const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
       const cashDelta = ev.fill.side === 'BUY' ? round8(-notional) : notional
-      const isBacktestSettlement =
-        (typeof ev.fill.orderId === 'string' &&
-          (ev.fill.orderId.startsWith('bt-merge:') || ev.fill.orderId.startsWith('bt-settle:'))) ||
-        (typeof ev.fill.clientOrderId === 'string' &&
-          (ev.fill.clientOrderId.includes(':merge:') || ev.fill.clientOrderId.includes(':settle:')))
-      if (!isBacktestSettlement) this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta })
+      this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta })
     }
     this.portfolio.apply(ev)
     if (depth >= this.maxCascadeDepth) {
