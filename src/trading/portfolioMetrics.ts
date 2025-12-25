@@ -17,7 +17,10 @@ export type MergeOpportunity = {
 function pickTwoLargestPositions(pos: Position[]): [Position, Position] | null {
   const sorted = [...pos].sort((a, b) => (b.qty ?? 0) - (a.qty ?? 0))
   if (sorted.length < 2) return null
-  return [sorted[0], sorted[1]]
+  const p0 = sorted[0]
+  const p1 = sorted[1]
+  if (!p0 || !p1) return null
+  return [p0, p1]
 }
 
 /**

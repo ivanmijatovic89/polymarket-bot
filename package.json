@@ -21,6 +21,7 @@
     "trade:bot:sol": "TRADING_SYMBOL=SOL tsx src/cli/trading-bot.ts",
     "trade:bot:xrp": "TRADING_SYMBOL=XRP tsx src/cli/trading-bot.ts",
     "backtest": "tsx src/cli/backtest.ts --mode orderbook",
+    "backtest-parallel": "tsx src/cli/backtest-parallel.ts --mode orderbook",
     "list:backtest-files": "tsx src/parquet/cli/list-backtest-files.ts",
     "verify:parquet": "tsx src/parquet/cli/verify-parquet.ts",
     "scan:disconnect-events": "tsx src/parquet/cli/scan-disconnect-events.ts",
@@ -46,7 +47,12 @@
       ".ts"
     ],
     "transform": {
-      "^.+\\.ts$": ["ts-jest", { "useESM": true }]
+      "^.+\\.ts$": [
+        "ts-jest",
+        {
+          "useESM": true
+        }
+      ]
     }
   },
   "devDependencies": {

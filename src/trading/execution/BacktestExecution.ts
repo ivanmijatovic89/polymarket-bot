@@ -57,7 +57,7 @@ function buildMakerFillTouchCross(
     const f: Fill = {
       id: `${o.clientOrderId}:${o.fillSeq}`,
       tsMs,
-      market: o.market,
+      market: o.market ?? '',
       assetId: o.assetId,
       side: o.side,
       // Conservative: fill at the crossing best price, not always at our limit.
@@ -79,7 +79,7 @@ function buildMakerFillTouchCross(
   const f: Fill = {
     id: `${o.clientOrderId}:${o.fillSeq}`,
     tsMs,
-    market: o.market,
+    market: o.market ?? '',
     assetId: o.assetId,
     side: o.side,
     price: bestBid,
@@ -109,7 +109,7 @@ function buildFillsFromBook(
     fills.push({
       id: `${o.clientOrderId}:${o.fillSeq}`,
       tsMs,
-      market: o.market,
+      market: o.market ?? '',
       assetId: o.assetId,
       side: o.side,
       price,
@@ -152,7 +152,7 @@ export class BacktestExecution implements ExecutionAdapter {
     const o: SimOrder = {
       clientOrderId: intent.clientOrderId,
       orderId,
-      market: ctx.lastMarket?.market,
+      market: ctx.lastMarket?.market ?? '',
       assetId: intent.assetId,
       side: intent.side,
       limitPrice: intent.price,

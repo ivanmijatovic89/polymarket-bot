@@ -10,6 +10,12 @@ out/
 coverage/
 *.tsbuildinfo
 
+# TypeScript compiled files (generated alongside source)
+src/**/*.js
+src/**/*.js.map
+src/**/*.d.ts
+src/**/*.d.ts.map
+
 # env / secrets
 .env
 .env.*
