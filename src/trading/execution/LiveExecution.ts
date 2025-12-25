@@ -79,8 +79,7 @@ export class LiveExecution implements ExecutionAdapter {
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
-    void ctx
-    const nowMs = Date.now()
+    const nowMs = ctx.nowMs
     try {
       const signed = await this.client.createOrder({
         tokenID: intent.assetId,
@@ -154,8 +153,7 @@ export class LiveExecution implements ExecutionAdapter {
     intent: CancelOrderIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
-    void ctx
-    const nowMs = Date.now()
+    const nowMs = ctx.nowMs
     if (intent.orderId) {
       await this.client.cancelOrder({ orderID: intent.orderId }).catch(() => undefined)
       return {
