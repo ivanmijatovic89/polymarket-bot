@@ -20,7 +20,6 @@ graph TB
 
     subgraph "Market Processing Layer"
         MarketEngine[ MarketEngine<br/>Orchestrator ]
-        MarketHandler[ marketEventHandler<br/>Event Filtering ]
         Decoder[ marketChannelDecoder<br/>JSON Parser ]
         OrderBookEngine[ MarketOrderBookEngine<br/>Multi-Asset Orderbook ]
         SingleBook[ OrderBookEngine<br/>Per-Asset Orderbook ]

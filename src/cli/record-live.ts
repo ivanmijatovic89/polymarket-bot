@@ -12,7 +12,7 @@ import {
 import { FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
-import { createMarketEventHandler } from '../market/marketEventHandler.js'
+import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
@@ -105,7 +105,7 @@ async function main(): Promise<void> {
   let appendErrors = 0
   let disconnects = 0
   let expectedCloses = 0
-  const handler = createMarketEventHandler()
+  const handler = createRawEventIndexer()
 
   const classifyClose = (
     code: number,

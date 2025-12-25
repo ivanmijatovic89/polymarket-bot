@@ -1,7 +1,6 @@
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
-import { createMarketEventHandler } from '../market/marketEventHandler.js'
 import { MarketEngine } from '../market/MarketEngine.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
@@ -41,7 +40,7 @@ async function main(): Promise<void> {
   let isRotating = false
   let currentSlug: string | undefined
 
-  const handler = createMarketEventHandler()
+  let totalWsEvents = 0
 
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
@@ -155,7 +154,7 @@ async function main(): Promise<void> {
 
   source.onEvent((ev) => {
     if (shouldStop || isRotating) return
-    handler.handle(ev)
+    totalWsEvents += 1
 
     void marketEngine
       .handleRaw({
@@ -198,10 +197,9 @@ async function main(): Promise<void> {
 
   let statsInterval: NodeJS.Timeout | undefined
   statsInterval = setInterval(() => {
-    const snap = handler.snapshot()
     const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
     console.log(
-      `[trading-bot] stats total=${snap.total} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
+      `[trading-bot] stats ws_events_total=${totalWsEvents} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
     )
   }, 10_000)
 

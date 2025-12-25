@@ -314,8 +314,8 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
   - `src/utils/timeWindows.ts`: 15m window helpers + slug format
 - **Event stream (shared shape)**:
   - `src/types/marketEventSource.ts`: `MarketEvent` + `MarketEventSource` interface
-  - `src/polymarket/marketEventIndex.ts`: tolerant indexer (`event_type`, `market`, timestamps)
-  - `src/market/marketEventHandler.ts`: shared pipeline entrypoint (indexing + counters)
+  - `src/market/polymarketEventIndex.ts`: tolerant indexer (`event_type`, `market`, timestamps)
+  - `src/parquet/indexer/rawEventIndexer.ts`: recording-focused indexer (indexing + counters)
 - **WebSocket (live)**:
   - `src/polymarket/marketWs.ts`: minimal `ws` client (subscribe + heartbeat)
   - `src/polymarket/liveMarketEventSource.ts`: connect/reconnect loop emitting `MarketEvent`
@@ -343,7 +343,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
 - **Scripts**:
   - `src/cli/record-live.ts`: live ingest → Parquet
   - `src/cli/trading-bot.ts`: live ingest → `MarketEngine` → `StrategyRunner` (dry-run by default)
-  - `src/cli/backtest.ts`: Parquet replay (raw or orderbook)
+  - `src/cli/backtest.ts`: Parquet replay (orderbook)
   - `src/parquet/cli/verify-parquet.ts`: validator / reader
 
 ## Notes / current limitations
