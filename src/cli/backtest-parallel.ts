@@ -1,6 +1,7 @@
 import { createParquetReplaySource } from '../parquet/replay/parquetReplaySource.js'
 import { createMarketEventHandler } from '../market/marketEventHandler.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
+import type { MarketEvent, MarketEventStatus } from '../types/marketEventSource.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AnyMarketMessage } from '../market/orderbook/index.js'
@@ -21,6 +22,7 @@ import { Worker, isMainThread } from 'worker_threads'
 import { cpus } from 'os'
 import { fileURLToPath } from 'url'
 import { dirname, join } from 'path'
+import { existsSync } from 'fs'
 
 const __filename = fileURLToPath(import.meta.url)
 const __dirname = dirname(__filename)
@@ -95,6 +97,9 @@ function parseArgs(argv: string[]): {
         break
       case '--strategy':
         i += 1 // consume value
+        break
+      case '--param':
+        i += 1 // consume param value (key=value format)
         break
       default:
         if (a.startsWith('--strategy=')) {
@@ -567,13 +572,57 @@ export async function replayOrderBookForMarket(params: {
   }
 }
 
+/**
+ * Filter out CLI-specific options from argv before passing to strategy parser.
+ * This prevents CLI options like --workers, --concurrency, etc. from being
+ * treated as strategy parameters when incorrectly passed as --param workers=4.
+ */
+function filterCliOptionsForStrategy(argv: string[]): string[] {
+  const filtered: string[] = []
+  const cliFlags = new Set([
+    '--mode',
+    '--order',
+    '--time-driven',
+    '--realtime',
+    '--carry',
+    '--carry-portfolio',
+    '--concurrency',
+    '--workers',
+    '--verbose',
+    '-v',
+  ])
+
+  for (let i = 0; i < argv.length; i++) {
+    const arg = argv[i]
+    if (!arg) continue
+
+    // Skip CLI flags and their values
+    if (cliFlags.has(arg)) {
+      i += 1 // Skip the flag value too
+      continue
+    }
+
+    // Skip inline CLI flags like --workers=4, --concurrency=2
+    if (arg.startsWith('--workers=') || arg.startsWith('--concurrency=')) {
+      continue
+    }
+
+    // Keep everything else (strategy, params, file paths)
+    filtered.push(arg)
+  }
+
+  return filtered
+}
+
 async function main(): Promise<void> {
   const startTime = Date.now()
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
   const built = (() => {
     try {
-      return buildStrategyFromCliArgs({ argv: args, script: 'backtest-parallel' })
+      // Filter out CLI-specific options before parsing strategy args
+      const strategyArgs = filterCliOptionsForStrategy(args)
+      return buildStrategyFromCliArgs({ argv: strategyArgs, script: 'backtest-parallel' })
     } catch (err) {
       printCliArgsError({ script: 'backtest-parallel', err })
       process.exit(2)
@@ -604,11 +653,37 @@ async function main(): Promise<void> {
 
     // Worker thread mode
     if (parsed.workers > 0 && !parsed.carry) {
+      // Worker threads require compiled JavaScript (don't work with tsx)
+      // Detect if running with tsx (.ts) or node (.js)
+      const isTypeScript = __filename.endsWith('.ts')
+
+      if (isTypeScript) {
+        console.error('[backtest-parallel] ERROR: Worker threads are not supported when running with tsx.')
+        console.error('[backtest-parallel] Worker threads require compiled JavaScript.')
+        console.error('')
+        console.error('Please build first:')
+        console.error('  npx tsc')
+        console.error('')
+        console.error('Then run with:')
+        console.error('  node dist/cli/backtest-parallel.js \\')
+        console.error('    --strategy winnerLimit \\')
+        console.error('    --mode orderbook \\')
+        console.error('    --workers 4 \\')
+        console.error('    data/events/btc/*.parquet')
+        process.exit(1)
+      }
+
       const poolSize = parsed.workers
       console.log(`[backtest-parallel] using ${poolSize} worker threads for true parallel execution`)
 
-      // Worker script path: use .js when running compiled code, .ts when using tsx
       const workerScriptPath = join(__dirname, 'backtest-worker.js')
+
+      // Check if worker script exists
+      if (!existsSync(workerScriptPath)) {
+        console.error(`[backtest-parallel] ERROR: Worker script not found: ${workerScriptPath}`)
+        console.error('[backtest-parallel] Please ensure the project is built: npx tsc')
+        process.exit(1)
+      }
 
       type WorkerInput = {
         filePath: string
@@ -640,7 +715,7 @@ async function main(): Promise<void> {
         reject: (error: Error) => void
       }> = []
 
-      // Create worker pool (no tsx loader needed for compiled JS)
+      // Create worker pool
       for (let i = 0; i < poolSize; i++) {
         const worker = new Worker(workerScriptPath)
 
@@ -970,11 +1045,11 @@ async function main(): Promise<void> {
 
   const source = createParquetReplaySource({ filePaths, order, timeDriven })
 
-  source.onEvent((ev) => {
+  source.onEvent((ev: MarketEvent) => {
     handler.handle(ev)
   })
 
-  source.onStatus((s) => {
+  source.onStatus((s: MarketEventStatus) => {
     if (s.kind === 'connected') {
       console.log(`[backtest-parallel] started (${s.info ?? 'parquet'})`)
       return

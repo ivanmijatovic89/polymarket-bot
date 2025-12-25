@@ -59,7 +59,8 @@ async function main() {
       // Delete each key
       console.log("🗑️  Step 2: Deleting all existing keys...");
       for (const key of apiKeysResponse.apiKeys) {
-        console.log(`   Deleting key: ${key.substring(0, 20)}...`);
+        const keyStr = typeof key === 'string' ? key : String(key)
+        console.log(`   Deleting key: ${keyStr.substring(0, 20)}...`);
         await clobClient.deleteApiKey();
       }
       console.log("✅ All keys deleted\n");

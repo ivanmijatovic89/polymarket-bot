@@ -51,18 +51,54 @@ export function formatStrategyParamsHelp(args: { script: string; strategyId: str
   return lines.join('\n')
 }
 
+// Common CLI options that should not be passed as strategy parameters
+const CLI_OPTIONS = new Set([
+  'workers',
+  'concurrency',
+  'mode',
+  'order',
+  'time-driven',
+  'realtime',
+  'carry',
+  'carry-portfolio',
+  'verbose',
+])
+
 export function buildStrategyFromCliArgs(args: {
   argv: string[]
   script: string
 }): BuildStrategyFromCliArgsResult {
   const { strategyId, rawParams } = parseStrategyArgs(args.argv)
+
+  // Check for common CLI options passed as strategy parameters
+  const cliOptionsFound: string[] = []
+  for (const key of Object.keys(rawParams)) {
+    if (CLI_OPTIONS.has(key)) {
+      cliOptionsFound.push(key)
+    }
+  }
+
+  if (cliOptionsFound.length > 0) {
+    const suggestions = cliOptionsFound.map(k => {
+      if (k === 'workers') return `Use --workers <N> instead of --param workers=<N>`
+      if (k === 'concurrency') return `Use --concurrency <N> instead of --param concurrency=<N>`
+      return `"${k}" is a CLI option, not a strategy parameter`
+    }).join('\n')
+    throw new CliArgsError(
+      `invalid params for --strategy ${strategyId}:\n` +
+      `Unrecognized key${cliOptionsFound.length > 1 ? 's' : ''}: ${cliOptionsFound.map(k => `"${k}"`).join(', ')}\n\n` +
+      `Hint: ${suggestions}`
+    )
+  }
+
   const def = getStrategyDefinition(strategyId)
   const parsed = def.schema.safeParse(rawParams)
   if (!parsed.success) {
     const flat = z.flattenError(parsed.error)
     const parts: string[] = []
     for (const e of flat.formErrors) parts.push(e)
-    for (const [k, errs] of Object.entries(flat.fieldErrors)) {
+    const fieldErrors = flat.fieldErrors as Record<string, string[] | undefined>
+    for (const [k, errs] of Object.entries(fieldErrors)) {
       if (!errs || errs.length === 0) continue
       parts.push(`${k}: ${errs.join('; ')}`)
     }
