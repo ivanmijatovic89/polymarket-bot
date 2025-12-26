@@ -1,3 +1,5 @@
+import 'dotenv/config'
+
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -72,9 +74,19 @@ export async function replayOrderBookForMarket(params: {
     : null
 
   // Load parquet files (from disk or Azure with streaming)
+  // IMPORTANT: Check for Azure blob paths BEFORE calling ParquetReader.openFile()
+  // because openFile() internally calls stat() which will fail on Azure blob paths
   const readers = await Promise.all(
     filePaths.map(async (p) => {
-      if (azureDownloader && isAzureBlobPath(p)) {
+      // Check if this is an Azure blob path BEFORE calling any file operations
+      const isAzurePath = isAzureBlobPath(p)
+
+      if (isAzurePath) {
+        if (!azureDownloader) {
+          throw new Error(
+            `[backtest] Azure blob path detected but AZURE_STORAGE_CONNECTION_STRING is not set: ${p}`,
+          )
+        }
         // Stream directly from Azure Blob Storage using range requests
         const parsed = parseAzureBlobPath(p)
         if (!parsed) {
