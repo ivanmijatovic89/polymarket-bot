@@ -18,6 +18,11 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import {
+  AzureBlobDownloader,
+  isAzureBlobPath,
+  parseAzureBlobPath,
+} from '../parquet/AzureBlobDownloader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -59,7 +64,32 @@ export async function replayOrderBookForMarket(params: {
   const order = params.order ?? 'recorded'
   const timeDriven = params.timeDriven ?? false
 
-  const readers = await Promise.all(filePaths.map((p) => parquet.ParquetReader.openFile(p)))
+  // Initialize Azure Blob Downloader if needed
+  const azureConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  const azureContainer = process.env.AZURE_STORAGE_CONTAINER ?? 'markets-parquet'
+  const azureDownloader = azureConnectionString
+    ? new AzureBlobDownloader(azureConnectionString)
+    : null
+
+  // Load parquet files (from disk or Azure with streaming)
+  const readers = await Promise.all(
+    filePaths.map(async (p) => {
+      if (azureDownloader && isAzureBlobPath(p)) {
+        // Stream directly from Azure Blob Storage using range requests
+        const parsed = parseAzureBlobPath(p)
+        if (!parsed) {
+          throw new Error(`[backtest] Invalid Azure blob path: ${p}`)
+        }
+        return await azureDownloader.openParquetReader(
+          parsed.container || azureContainer,
+          parsed.blobName,
+        )
+      } else {
+        // Read from local file system
+        return await parquet.ParquetReader.openFile(p)
+      }
+    }),
+  )
   try {
     const cursors = readers.map((r) => r.getCursor())
 
