@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -15,6 +16,7 @@ import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
 import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import type { AccountEvent, Fill, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
+import { AzureBlobDownloader } from '../parquet/AzureBlobDownloader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -28,11 +30,15 @@ function parseArgs(argv: string[]): {
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   carry: boolean
+  azureBlob: boolean
+  azureContainer?: string
 } {
   const filePaths: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
   let carry = false
+  let azureBlob = false
+  let azureContainer: string | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -61,6 +67,15 @@ function parseArgs(argv: string[]): {
       carry = true
       continue
     }
+    if (a === '--azure-blob') {
+      azureBlob = true
+      continue
+    }
+    if (a === '--azure-container') {
+      azureContainer = argv[i + 1]
+      i += 1 // consume value
+      continue
+    }
     if (a === '--strategy') {
       i += 1 // consume value
       continue
@@ -83,7 +98,7 @@ function parseArgs(argv: string[]): {
     filePaths.push(a)
   }
 
-  return { filePaths, order, timeDriven, carry }
+  return { filePaths, order, timeDriven, carry, azureBlob, ...(azureContainer ? { azureContainer } : {}) }
 }
 
 type ReplayRow = {
@@ -530,15 +545,60 @@ async function main(): Promise<void> {
     console.error(
       'Usage:\n' +
         '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven] [--carry]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven] [--carry]\n' +
+        '  Azure Blob Storage:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure-blob --azure-container <container> <blob1> [blob2 ...] [--order recorded|exchange_time] [--time-driven] [--carry]\n' +
+        '    Requires AZURE_STORAGE_CONNECTION_STRING environment variable',
     )
     process.exit(2)
   }
 
-  console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
+  // Handle Azure Blob Storage downloads
+  let localFilePaths: string[] = filePaths
+  let tempFiles: string[] = []
+  let downloader: AzureBlobDownloader | undefined
+
+  if (parsed.azureBlob) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (!connectionString) {
+      console.error('[backtest] AZURE_STORAGE_CONNECTION_STRING environment variable is required when using --azure-blob')
+      process.exit(2)
+    }
+    if (!parsed.azureContainer) {
+      console.error('[backtest] --azure-container is required when using --azure-blob')
+      process.exit(2)
+    }
+
+    downloader = new AzureBlobDownloader(connectionString)
+    console.log(`[backtest] downloading ${filePaths.length} files from Azure Blob Storage`)
+    console.log(`[backtest] container=${parsed.azureContainer}`)
+
+    try {
+      localFilePaths = []
+      for (const blobName of filePaths) {
+        console.log(`[backtest] downloading blob: ${blobName}`)
+        const tempPath = await downloader.downloadToTempFile(parsed.azureContainer, blobName)
+        localFilePaths.push(tempPath)
+        tempFiles.push(tempPath)
+      }
+      console.log(`[backtest] downloaded ${localFilePaths.length} files to temporary locations`)
+    } catch (err) {
+      console.error('[backtest] failed to download files from Azure Blob Storage:', err)
+      // Cleanup any downloaded files
+      if (downloader) {
+        for (const tempPath of tempFiles) {
+          await downloader.cleanupTempFile(tempPath).catch(() => undefined)
+        }
+      }
+      process.exit(1)
+    }
+  }
+
+  console.log(`[backtest] mode=orderbook files=${localFilePaths.length}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
   console.log(`[backtest] carry=${parsed.carry}`)
+  console.log(`[backtest] azureBlob=${parsed.azureBlob}`)
 
   let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
@@ -589,29 +649,30 @@ async function main(): Promise<void> {
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
-  for (const fp of filePaths) {
-    if (shouldStop) break
-    console.log(`[backtest] orderbook replay file=${fp}`)
-    const active = carried ?? mkRunner()
-    const runner = active.runner
-    const strategy = active.strategy
+  try {
+    for (const fp of localFilePaths) {
+      if (shouldStop) break
+      console.log(`[backtest] orderbook replay file=${fp}`)
+      const active = carried ?? mkRunner()
+      const runner = active.runner
+      const strategy = active.strategy
 
-    // Track realized PnL changes for this episode (includes synthetic settlement fills).
-    const episodeRealizedBefore = safeFinite(runner.getPortfolio().snapshot().realizedPnlTotal, 0)
+      // Track realized PnL changes for this episode (includes synthetic settlement fills).
+      const episodeRealizedBefore = safeFinite(runner.getPortfolio().snapshot().realizedPnlTotal, 0)
 
-    await replayOrderBookForMarket({
-      filePaths: [fp],
-      order: parsed.order,
-      timeDriven: parsed.timeDriven,
-      shouldStop: () => shouldStop,
-      onSnapshot: async (snap, raw) => {
-        if (shouldStop) return
-        events += 1
-        byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+      await replayOrderBookForMarket({
+        filePaths: [fp],
+        order: parsed.order,
+        timeDriven: parsed.timeDriven,
+        shouldStop: () => shouldStop,
+        onSnapshot: async (snap, raw) => {
+          if (shouldStop) return
+          events += 1
+          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
-        await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
-      },
-    })
+          await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+        },
+      })
 
     const market = runner.getLastMarketSnapshot()?.market ?? '(unknown)'
     const allBefore = runner.getPortfolio().snapshot()
@@ -672,46 +733,55 @@ async function main(): Promise<void> {
       })
     }
 
-    marketRows.push({
-      filePath: fp,
-      market,
-      tradeFills: tradeFillsBefore,
-      realizedPnlDelta: round8(episodeRealizedAfter - episodeRealizedBefore),
-      mergeQty: totalMergeQty,
-      pnl: totalPnl,
-      cost: totalCost,
-      pnlPct: totalPnlPct,
+      marketRows.push({
+        filePath: fp,
+        market,
+        tradeFills: tradeFillsBefore,
+        realizedPnlDelta: round8(episodeRealizedAfter - episodeRealizedBefore),
+        mergeQty: totalMergeQty,
+        pnl: totalPnl,
+        cost: totalCost,
+        pnlPct: totalPnlPct,
+      })
+    }
+
+    // Strategy-level PnL across markets (based on realized PnL deltas per episode).
+    // A "traded market" is one that had at least one non-settlement fill.
+    const traded = marketRows.filter((r) => r.tradeFills > 0)
+    const wins = traded.filter((r) => r.realizedPnlDelta > 0)
+    const losses = traded.filter((r) => r.realizedPnlDelta <= 0)
+    const totalPnl2 = round8(traded.reduce((acc, r) => acc + r.realizedPnlDelta, 0))
+    const avgWin = round8(
+      wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
+    )
+    const avgLose = round8(
+      losses.length ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length : 0,
+    )
+
+    console.log('[backtest] strategy pnl', {
+      markets: marketRows.length,
+      tradedMarkets: traded.length,
+      successfulTrades: wins.length,
+      unsuccessfulTrades: losses.length,
+      totalPnl: totalPnl2,
+      avgWin,
+      avgLose,
+      rows: marketRows,
     })
+
+    console.log('[backtest] orderbook summary', {
+      events,
+      byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+    })
+  } finally {
+    // Cleanup temporary files downloaded from Azure Blob Storage
+    if (downloader && tempFiles.length > 0) {
+      console.log(`[backtest] cleaning up ${tempFiles.length} temporary files`)
+      for (const tempPath of tempFiles) {
+        await downloader.cleanupTempFile(tempPath)
+      }
+    }
   }
-
-  // Strategy-level PnL across markets (based on realized PnL deltas per episode).
-  // A "traded market" is one that had at least one non-settlement fill.
-  const traded = marketRows.filter((r) => r.tradeFills > 0)
-  const wins = traded.filter((r) => r.realizedPnlDelta > 0)
-  const losses = traded.filter((r) => r.realizedPnlDelta <= 0)
-  const totalPnl2 = round8(traded.reduce((acc, r) => acc + r.realizedPnlDelta, 0))
-  const avgWin = round8(
-    wins.length ? wins.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / wins.length : 0,
-  )
-  const avgLose = round8(
-    losses.length ? losses.reduce((acc, r) => acc + r.realizedPnlDelta, 0) / losses.length : 0,
-  )
-
-  console.log('[backtest] strategy pnl', {
-    markets: marketRows.length,
-    tradedMarkets: traded.length,
-    successfulTrades: wins.length,
-    unsuccessfulTrades: losses.length,
-    totalPnl: totalPnl2,
-    avgWin,
-    avgLose,
-    rows: marketRows,
-  })
-
-  console.log('[backtest] orderbook summary', {
-    events,
-    byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
-  })
 }
 
 main().catch((err) => {
