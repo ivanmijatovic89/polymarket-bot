@@ -179,20 +179,24 @@ export class RotatingParquetEventRecorder {
       await rename(state.filePathTmp, finalPath)
       console.log(`[recorder] closed parquet file ${finalPath} rows=${state.rowsWritten}`)
 
-      if (this.onFinalized) {
-        try {
-          await this.onFinalized({
-            marketId: state.marketId,
-            fileKey: state.fileKey,
-            windowStartMs: state.windowStartMs,
-            filePathFinal: state.filePathFinal,
-            finalPath,
-          })
-        } catch (err) {
-          console.warn(
-            `[recorder] onFinalized failed for ${finalPath}: ${err instanceof Error ? err.message : String(err)}`,
-          )
-        }
+      const onFinalized = this.onFinalized
+      if (onFinalized) {
+        // Fire-and-forget: don't block rotation on uploads
+        void (async () => {
+          try {
+            await onFinalized({
+              marketId: state.marketId,
+              fileKey: state.fileKey,
+              windowStartMs: state.windowStartMs,
+              filePathFinal: state.filePathFinal,
+              finalPath,
+            })
+          } catch (err) {
+            console.warn(
+              `[recorder] onFinalized failed for ${finalPath}: ${err instanceof Error ? err.message : String(err)}`,
+            )
+          }
+        })()
       }
     } finally {
       // Always drop the state; writer is not reusable after close attempt.

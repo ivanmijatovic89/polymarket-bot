@@ -95,8 +95,10 @@ async function main(): Promise<void> {
       if (!uploader) return
       // Mirror the local path inside blob storage (posix separators).
       const rel = path.relative(process.cwd(), finalPath).split(path.sep).join(path.posix.sep)
+      const t0 = Date.now()
+      console.log(`[record-live] uploading ${rel}...`)
       await uploader.uploadFile(azureContainer, rel, finalPath)
-      console.log(`[record-live] uploaded ${rel}`)
+      console.log(`[record-live] uploaded ${rel} in ${Date.now() - t0}ms`)
     },
   })
 
