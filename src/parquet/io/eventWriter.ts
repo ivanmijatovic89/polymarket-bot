@@ -10,6 +10,16 @@ export type RotatingRecorderOptions = {
   baseDir: string
   /** Rotation interval in milliseconds (15min default) */
   windowMs: number
+  /**
+   * If true (default), partition output by UTC date derived from the window start:
+   *   <baseDir>/<YYYY-MM-DD>/<fileKey>.parquet
+   */
+  partitionByUtcDate?: boolean
+  /**
+   * Optional hook invoked after a parquet file is finalized (tmp -> final rename).
+   * Any error thrown by this hook is caught and logged (finalization still succeeds).
+   */
+  onFinalized?: (args: FinalPathTransformArgs & { finalPath: string }) => Promise<void> | void
 }
 
 export type MarketEventWrite = {
@@ -50,6 +60,8 @@ type WriterState = {
 export class RotatingParquetEventRecorder {
   private readonly baseDir: string
   private readonly windowMs: number
+  private readonly partitionByUtcDate: boolean
+  private readonly onFinalized?: RotatingRecorderOptions['onFinalized']
 
   private readonly writersByMarket = new Map<string, WriterState>()
   private readonly chainByMarket = new Map<string, Promise<void>>()
@@ -77,6 +89,8 @@ export class RotatingParquetEventRecorder {
   constructor(opts: RotatingRecorderOptions) {
     this.baseDir = opts.baseDir
     this.windowMs = opts.windowMs
+    this.partitionByUtcDate = opts.partitionByUtcDate ?? true
+    this.onFinalized = opts.onFinalized
   }
 
   async append(write: MarketEventWrite): Promise<void> {
@@ -164,6 +178,22 @@ export class RotatingParquetEventRecorder {
 
       await rename(state.filePathTmp, finalPath)
       console.log(`[recorder] closed parquet file ${finalPath} rows=${state.rowsWritten}`)
+
+      if (this.onFinalized) {
+        try {
+          await this.onFinalized({
+            marketId: state.marketId,
+            fileKey: state.fileKey,
+            windowStartMs: state.windowStartMs,
+            filePathFinal: state.filePathFinal,
+            finalPath,
+          })
+        } catch (err) {
+          console.warn(
+            `[recorder] onFinalized failed for ${finalPath}: ${err instanceof Error ? err.message : String(err)}`,
+          )
+        }
+      }
     } finally {
       // Always drop the state; writer is not reusable after close attempt.
       this.writersByMarket.delete(marketId)
@@ -224,8 +254,11 @@ export class RotatingParquetEventRecorder {
     windowStartMs: number
     fileKey: string
   }): Promise<WriterState> {
-    await mkdir(this.baseDir, { recursive: true })
-    const filePathFinal = path.join(this.baseDir, `${args.fileKey}.parquet`)
+    const dir = this.partitionByUtcDate
+      ? path.join(this.baseDir, formatUtcYYYYMMDD(args.windowStartMs))
+      : this.baseDir
+    await mkdir(dir, { recursive: true })
+    const filePathFinal = path.join(dir, `${args.fileKey}.parquet`)
     const filePathTmp = `${filePathFinal}.tmp`
 
     // Best-effort cleanup if a previous run left a temp file behind.
@@ -250,6 +283,12 @@ export class RotatingParquetEventRecorder {
 
 export function floorToWindowStart(tsMs: number, windowMs: number): number {
   return Math.floor(tsMs / windowMs) * windowMs
+}
+
+function formatUtcYYYYMMDD(tsMs: number): string {
+  // UTC partitioning to keep deterministic behavior across machines.
+  // Example: 2025-12-26
+  return new Date(tsMs).toISOString().slice(0, 10)
 }
 
 function safeFileKey(s: string): string {

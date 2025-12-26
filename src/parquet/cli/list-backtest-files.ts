@@ -59,6 +59,20 @@ function epochFromFilename(fileName: string): number | null {
   return n
 }
 
+async function walkParquetFiles(dirAbs: string): Promise<string[]> {
+  const out: string[] = []
+  const dirents = await fs.readdir(dirAbs, { withFileTypes: true })
+  for (const d of dirents) {
+    const full = path.join(dirAbs, d.name)
+    if (d.isDirectory()) {
+      out.push(...(await walkParquetFiles(full)))
+      continue
+    }
+    if (d.isFile() && d.name.endsWith('.parquet')) out.push(full)
+  }
+  return out
+}
+
 async function main(): Promise<void> {
   const parsed = parseArgs(process.argv.slice(2))
   if (!parsed) {
@@ -78,36 +92,40 @@ async function main(): Promise<void> {
   const limit = parsed.limit
   const dirAbs = path.resolve(process.cwd(), rootRel, symbol)
 
-  let entries: Array<{ name: string; isFile: boolean }>
+  let filesAbs: string[]
   try {
-    const dirents = await fs.readdir(dirAbs, { withFileTypes: true })
-    entries = dirents.map((d) => ({ name: d.name, isFile: d.isFile() }))
+    filesAbs = await walkParquetFiles(dirAbs)
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e)
     console.error(`[list-backtest-files] failed to read "${dirAbs}": ${msg}`)
     process.exit(2)
   }
 
-  const files = entries.filter((e) => e.isFile && e.name.endsWith('.parquet')).map((e) => e.name)
+  const filesRel = filesAbs
+    .map((abs) => path.relative(dirAbs, abs))
+    .filter((rel) => rel.length > 0)
 
-  if (files.length === 0) {
+  if (filesRel.length === 0) {
     console.error(`[list-backtest-files] no .parquet files found in "${dirAbs}"`)
     process.exit(2)
   }
 
-  files.sort((a, b) => {
-    const ea = epochFromFilename(a)
-    const eb = epochFromFilename(b)
+  filesRel.sort((a, b) => {
+    const ea = epochFromFilename(path.basename(a))
+    const eb = epochFromFilename(path.basename(b))
     if (ea !== null && eb !== null && ea !== eb) return ea - eb
     return a.localeCompare(b)
   })
 
-  const limitedFiles = typeof limit === 'number' ? files.slice(0, limit) : files
+  const limitedFiles = typeof limit === 'number' ? filesRel.slice(0, limit) : filesRel
 
   // Print in the exact format expected by `npm run backtest -- <file1> <file2> ...`
   // Prefer forward slashes to keep it copy/paste friendly.
   const rootPosix = rootRel.split(path.sep).join(path.posix.sep)
-  const out = limitedFiles.map((f) => path.posix.join(rootPosix, symbol, f)).join(' ')
+  const out = limitedFiles
+    .map((f) => f.split(path.sep).join(path.posix.sep))
+    .map((f) => path.posix.join(rootPosix, symbol, f))
+    .join(' ')
   process.stdout.write(`${out}\n`)
 }
 

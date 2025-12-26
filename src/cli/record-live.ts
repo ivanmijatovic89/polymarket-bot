@@ -14,6 +14,7 @@ import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
+import { AzureBlobUploader } from '../parquet/AzureBlobUploader.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
 
@@ -73,6 +74,10 @@ async function main(): Promise<void> {
   const baseDir = path.resolve(process.env.RECORD_BASE_DIR ?? 'data/events', symbol)
   const auth = cfg.creds
 
+  const azureConnectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+  const azureContainer = process.env.AZURE_STORAGE_CONTAINER ?? 'markets-parquet'
+  const uploader = azureConnectionString ? new AzureBlobUploader(azureConnectionString) : null
+
   const statsIntervalMs = parseEnvInt('RECORD_STATS_INTERVAL_MS', DEFAULT_STATS_INTERVAL_MS)
   const maxInFlightAppends = parseEnvInt('RECORD_MAX_INFLIGHT_APPENDS', 10_000)
   const skipIfOlderMs = parseEnvInt('RECORD_SKIP_IF_OLDER_MS', DEFAULT_SKIP_IF_OLDER_MS)
@@ -81,10 +86,18 @@ async function main(): Promise<void> {
   console.log(`[record-live] wsUrl=${wsUrl}`)
   console.log(`[record-live] baseDir=${baseDir}`)
   console.log(`[record-live] maxInFlightAppends=${maxInFlightAppends}`)
+  console.log(`[record-live] azure_upload=${uploader ? 'enabled' : 'disabled'} container=${azureContainer}`)
 
   const recorder = new RotatingParquetEventRecorder({
     baseDir,
     windowMs: FIFTEEN_MIN_MS,
+    onFinalized: async ({ finalPath }) => {
+      if (!uploader) return
+      // Mirror the local path inside blob storage (posix separators).
+      const rel = path.relative(process.cwd(), finalPath).split(path.sep).join(path.posix.sep)
+      await uploader.uploadFile(azureContainer, rel, finalPath)
+      console.log(`[record-live] uploaded ${rel}`)
+    },
   })
 
   // Per-market ingestion sequence (resets automatically for each new market id).
