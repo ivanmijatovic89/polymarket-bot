@@ -1,3 +1,5 @@
+import 'dotenv/config'
+
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -18,6 +20,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import { openParquetReaderFromSource } from '../parquet/azure/azureParquetSource.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -47,6 +50,8 @@ export async function replayOrderBookForMarket(params: {
   order?: 'recorded' | 'exchange_time'
   timeDriven?: boolean
   shouldStop?: () => boolean
+  source?: 'local' | 'azure'
+  azure?: { connectionString: string; containerName: string; sasTtlMs?: number }
   onSnapshot: (
     snapshot: MarketOrderBooksSnapshot,
     rawEvent: ReplayApplyEvent,
@@ -58,8 +63,21 @@ export async function replayOrderBookForMarket(params: {
 
   const order = params.order ?? 'recorded'
   const timeDriven = params.timeDriven ?? false
+  const source = params.source ?? 'local'
 
-  const readers = await Promise.all(filePaths.map((p) => parquet.ParquetReader.openFile(p)))
+  if (source === 'azure' && !params.azure) {
+    throw new Error('[backtest] replayOrderBookForMarket: source=azure requires azure config')
+  }
+
+  const readers = await Promise.all(
+    filePaths.map((p) =>
+      openParquetReaderFromSource({
+        source,
+        filePathOrBlobName: p,
+        ...(source === 'azure' ? { azure: params.azure! } : {}),
+      }),
+    ),
+  )
   try {
     const cursors = readers.map((r) => r.getCursor())
 
@@ -161,7 +179,11 @@ async function main(): Promise<void> {
     console.error(
       'Usage:\n' +
         '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] [--source local|azure] [--azure-container <name>] <file1.parquet|blobName> [file2.parquet|blobName ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Azure mode:\n' +
+        '    - set AZURE_STORAGE_CONNECTION_STRING\n' +
+        '    - optional: AZURE_SAS_TTL_MS=<ms> (defaults to 12h)\n' +
+        '    - pass blob names as positional args (e.g. data/events/btc/2025-12-26/<file>.parquet)\n',
     )
     process.exit(2)
   }
@@ -169,6 +191,31 @@ async function main(): Promise<void> {
   console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  console.log(`[backtest] source=${parsed.source}`)
+
+  let azure:
+    | { connectionString: string; containerName: string; sasTtlMs?: number }
+    | undefined
+  if (parsed.source === 'azure') {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (!connectionString) {
+      throw new Error('[backtest] --source azure requires AZURE_STORAGE_CONNECTION_STRING')
+    }
+
+    const sasTtlMs = (() => {
+      const raw = process.env.AZURE_SAS_TTL_MS
+      if (!raw) return undefined
+      const n = Number(raw)
+      if (!Number.isFinite(n) || n <= 0) return undefined
+      return n
+    })()
+
+    azure = {
+      connectionString,
+      containerName: parsed.azureContainer,
+      ...(typeof sasTtlMs === 'number' ? { sasTtlMs } : {}),
+    }
+  }
 
   let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
@@ -228,6 +275,8 @@ async function main(): Promise<void> {
       filePaths: [fp],
       order: parsed.order,
       timeDriven: parsed.timeDriven,
+      source: parsed.source,
+      ...(azure ? { azure } : {}),
       shouldStop: () => shouldStop,
       onSnapshot: async (snap, raw) => {
         if (shouldStop) return
