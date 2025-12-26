@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -18,6 +19,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import { AzureBlobDownloader } from '../parquet/AzureBlobDownloader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -161,14 +163,59 @@ async function main(): Promise<void> {
     console.error(
       'Usage:\n' +
         '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Azure Blob Storage:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure-blob --azure-container <container> <blob1> [blob2 ...]\n' +
+        '    Requires AZURE_STORAGE_CONNECTION_STRING environment variable',
     )
     process.exit(2)
   }
 
-  console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
+  // Handle Azure Blob Storage downloads
+  let localFilePaths: string[] = filePaths
+  let tempFiles: string[] = []
+  let downloader: AzureBlobDownloader | undefined
+
+  if (parsed.azureBlob) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (!connectionString) {
+      console.error('[backtest] AZURE_STORAGE_CONNECTION_STRING environment variable is required when using --azure-blob')
+      process.exit(2)
+    }
+    if (!parsed.azureContainer) {
+      console.error('[backtest] --azure-container is required when using --azure-blob')
+      process.exit(2)
+    }
+
+    downloader = new AzureBlobDownloader(connectionString)
+    console.log(`[backtest] downloading ${filePaths.length} files from Azure Blob Storage`)
+    console.log(`[backtest] container=${parsed.azureContainer}`)
+
+    try {
+      localFilePaths = []
+      for (const blobName of filePaths) {
+        console.log(`[backtest] downloading blob: ${blobName}`)
+        const tempPath = await downloader.downloadToTempFile(parsed.azureContainer, blobName)
+        localFilePaths.push(tempPath)
+        tempFiles.push(tempPath)
+      }
+      console.log(`[backtest] downloaded ${localFilePaths.length} files to temporary locations`)
+    } catch (err) {
+      console.error('[backtest] failed to download files from Azure Blob Storage:', err)
+      // Cleanup any downloaded files
+      if (downloader) {
+        for (const tempPath of tempFiles) {
+          await downloader.cleanupTempFile(tempPath).catch(() => undefined)
+        }
+      }
+      process.exit(1)
+    }
+  }
+
+  console.log(`[backtest] mode=orderbook files=${localFilePaths.length}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  console.log(`[backtest] azureBlob=${parsed.azureBlob}`)
 
   let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
@@ -208,7 +255,8 @@ async function main(): Promise<void> {
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
-  for (const fp of filePaths) {
+  try {
+    for (const fp of localFilePaths) {
     if (shouldStop) break
     console.log(`[backtest] orderbook replay file=${fp}`)
     const active = mkRunner()
@@ -293,26 +341,35 @@ async function main(): Promise<void> {
     } else if (!marketResolution) {
       console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
     }
-  }
-
-  // Compute batch stats
-  if (marketStats.length > 0) {
-    const batchStats = computeBatchStats(marketStats, initialCapital)
-
-    // Print results
-    console.log('\n[backtest] ===== MARKET STATS =====')
-    for (const stats of marketStats) {
-      console.log(JSON.stringify(stats, null, 2))
     }
 
-    console.log('\n[backtest] ===== BATCH STATS =====')
-    console.log(JSON.stringify(batchStats, null, 2))
-  }
+    // Compute batch stats
+    if (marketStats.length > 0) {
+      const batchStats = computeBatchStats(marketStats, initialCapital)
 
-  console.log('\n[backtest] orderbook summary', {
-    events,
-    byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
-  })
+      // Print results
+      console.log('\n[backtest] ===== MARKET STATS =====')
+      for (const stats of marketStats) {
+        console.log(JSON.stringify(stats, null, 2))
+      }
+
+      console.log('\n[backtest] ===== BATCH STATS =====')
+      console.log(JSON.stringify(batchStats, null, 2))
+    }
+
+    console.log('\n[backtest] orderbook summary', {
+      events,
+      byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+    })
+  } finally {
+    // Cleanup temporary files downloaded from Azure Blob Storage
+    if (downloader && tempFiles.length > 0) {
+      console.log(`[backtest] cleaning up ${tempFiles.length} temporary files`)
+      for (const tempPath of tempFiles) {
+        await downloader.cleanupTempFile(tempPath)
+      }
+    }
+  }
 }
 
 main().catch((err) => {
