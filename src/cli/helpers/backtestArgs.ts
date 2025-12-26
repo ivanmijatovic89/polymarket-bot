@@ -9,6 +9,8 @@ export type BacktestArgs = {
   timeDriven: boolean
   azureBlob: boolean
   azureContainer?: string
+  symbol?: string
+  limit?: number
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -17,6 +19,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let timeDriven = false
   let azureBlob = false
   let azureContainer: string | undefined
+  let symbol: string | undefined
+  let limit: number | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -53,6 +57,23 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--symbol':
+      case '-s':
+        symbol = argv[i + 1]
+        i += 1
+        break
+
+      case '--limit':
+      case '-l': {
+        const raw = argv[i + 1]
+        const n = raw ? Number(raw) : NaN
+        if (Number.isFinite(n) && Number.isInteger(n) && n > 0) {
+          limit = n
+        }
+        i += 1
+        break
+      }
+
       case '--strategy':
       case '--param':
         i += 1
@@ -70,5 +91,13 @@ export function parseArgs(argv: string[]): BacktestArgs {
     }
   }
 
-  return { filePaths, order, timeDriven, azureBlob, ...(azureContainer ? { azureContainer } : {}) }
+  return {
+    filePaths,
+    order,
+    timeDriven,
+    azureBlob,
+    ...(azureContainer ? { azureContainer } : {}),
+    ...(symbol ? { symbol } : {}),
+    ...(typeof limit === 'number' ? { limit } : {})
+  }
 }

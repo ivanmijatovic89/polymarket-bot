@@ -19,7 +19,8 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
-import { AzureBlobDownloader } from '../parquet/AzureBlobDownloader.js'
+import { listAzureBlobs } from '../parquet/listAzureBlobs.js'
+import { openParquetFromAzureBlob } from '../parquet/AzureBlobStreamReader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -45,7 +46,8 @@ type ReplayApplyEvent = {
  * All assets within that market are replayed (e.g. both tokens).
  */
 export async function replayOrderBookForMarket(params: {
-  filePaths: string[]
+  filePaths?: string[]
+  readers?: parquet.ParquetReader[]
   order?: 'recorded' | 'exchange_time'
   timeDriven?: boolean
   shouldStop?: () => boolean
@@ -54,14 +56,14 @@ export async function replayOrderBookForMarket(params: {
     rawEvent: ReplayApplyEvent,
   ) => void | Promise<void>
 }): Promise<void> {
-  const filePaths = params.filePaths
-  if (filePaths.length === 0)
-    throw new Error('[backtest] replayOrderBookForMarket: filePaths is required')
+  const filePaths = params.filePaths ?? []
+  if (filePaths.length === 0 && !params.readers)
+    throw new Error('[backtest] replayOrderBookForMarket: filePaths or readers is required')
 
   const order = params.order ?? 'recorded'
   const timeDriven = params.timeDriven ?? false
 
-  const readers = await Promise.all(filePaths.map((p) => parquet.ParquetReader.openFile(p)))
+  const readers = params.readers ?? await Promise.all(filePaths.map((p) => parquet.ParquetReader.openFile(p)))
   try {
     const cursors = readers.map((r) => r.getCursor())
 
@@ -158,25 +160,10 @@ async function main(): Promise<void> {
       process.exit(2)
     }
   })()
-  const filePaths = parsed.filePaths
-  if (filePaths.length === 0) {
-    console.error(
-      'Usage:\n' +
-        '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Azure Blob Storage:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure-blob --azure-container <container> <blob1> [blob2 ...]\n' +
-        '    Requires AZURE_STORAGE_CONNECTION_STRING environment variable',
-    )
-    process.exit(2)
-  }
+  let filePaths = parsed.filePaths
 
-  // Handle Azure Blob Storage downloads
-  let localFilePaths: string[] = filePaths
-  let tempFiles: string[] = []
-  let downloader: AzureBlobDownloader | undefined
-
-  if (parsed.azureBlob) {
+  // If --symbol is provided with --azure-blob, list files automatically
+  if (parsed.symbol && parsed.azureBlob) {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
     if (!connectionString) {
       console.error('[backtest] AZURE_STORAGE_CONNECTION_STRING environment variable is required when using --azure-blob')
@@ -187,35 +174,81 @@ async function main(): Promise<void> {
       process.exit(2)
     }
 
-    downloader = new AzureBlobDownloader(connectionString)
-    console.log(`[backtest] downloading ${filePaths.length} files from Azure Blob Storage`)
+    console.log(`[backtest] listing files for symbol=${parsed.symbol} limit=${parsed.limit ?? 'all'}`)
+    try {
+      filePaths = await listAzureBlobs({
+        connectionString,
+        containerName: parsed.azureContainer,
+        symbol: parsed.symbol,
+        limit: parsed.limit
+      })
+      console.log(`[backtest] found ${filePaths.length} files`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      console.error(`[backtest] failed to list blobs: ${msg}`)
+      process.exit(2)
+    }
+  }
+
+  if (filePaths.length === 0) {
+    console.error(
+      'Usage:\n' +
+        '  Orderbook replay (default):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Azure Blob Storage (with explicit files):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure-blob --azure-container <container> <blob1> [blob2 ...]\n' +
+        '  Azure Blob Storage (with symbol):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure-blob --azure-container <container> --symbol <symbol> [--limit N]\n' +
+        '    Requires AZURE_STORAGE_CONNECTION_STRING environment variable',
+    )
+    process.exit(2)
+  }
+
+  // Handle Azure Blob Storage - stream files directly into memory
+  let localFilePaths: string[] = filePaths
+  let azureBlobNames: string[] = []
+  let azureReaders: parquet.ParquetReader[] = []
+  const useAzureStreaming = parsed.azureBlob
+
+  if (useAzureStreaming) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (!connectionString) {
+      console.error('[backtest] AZURE_STORAGE_CONNECTION_STRING environment variable is required when using --azure-blob')
+      process.exit(2)
+    }
+    if (!parsed.azureContainer) {
+      console.error('[backtest] --azure-container is required when using --azure-blob')
+      process.exit(2)
+    }
+
+    console.log(`[backtest] streaming ${filePaths.length} files from Azure Blob Storage (no disk download)`)
     console.log(`[backtest] container=${parsed.azureContainer}`)
 
     try {
-      localFilePaths = []
-      for (const blobName of filePaths) {
-        console.log(`[backtest] downloading blob: ${blobName}`)
-        const tempPath = await downloader.downloadToTempFile(parsed.azureContainer, blobName)
-        localFilePaths.push(tempPath)
-        tempFiles.push(tempPath)
-      }
-      console.log(`[backtest] downloaded ${localFilePaths.length} files to temporary locations`)
+      azureBlobNames = filePaths
+      // Stream files directly into memory in parallel
+      console.log(`[backtest] opening ${azureBlobNames.length} parquet files from Azure...`)
+      const startTime = Date.now()
+      azureReaders = await Promise.all(
+        azureBlobNames.map(blobName =>
+          openParquetFromAzureBlob(connectionString, parsed.azureContainer!, blobName)
+        )
+      )
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(2)
+      console.log(`[backtest] opened ${azureReaders.length} files in ${elapsed}s (streamed to memory)`)
     } catch (err) {
-      console.error('[backtest] failed to download files from Azure Blob Storage:', err)
-      // Cleanup any downloaded files
-      if (downloader) {
-        for (const tempPath of tempFiles) {
-          await downloader.cleanupTempFile(tempPath).catch(() => undefined)
-        }
-      }
+      console.error('[backtest] failed to stream files from Azure Blob Storage:', err)
+      // Close any opened readers
+      await Promise.all(azureReaders.map(r => r.close().catch(() => undefined)))
       process.exit(1)
     }
   }
 
-  console.log(`[backtest] mode=orderbook files=${localFilePaths.length}`)
+  const fileCount = useAzureStreaming ? azureBlobNames.length : localFilePaths.length
+  console.log(`[backtest] mode=orderbook files=${fileCount}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
-  console.log(`[backtest] azureBlob=${parsed.azureBlob}`)
+  console.log(`[backtest] azureBlob=${parsed.azureBlob} (streaming=${useAzureStreaming})`)
 
   let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
@@ -256,51 +289,58 @@ async function main(): Promise<void> {
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
   try {
-    for (const fp of localFilePaths) {
-    if (shouldStop) break
-    console.log(`[backtest] orderbook replay file=${fp}`)
-    const active = mkRunner()
-    const runner = active.runner
+    const filesToProcess = useAzureStreaming ? azureBlobNames : localFilePaths
 
-    // Parse slug and fetch market resolution (tokenMap + outcome) in one call
-    const slug = parseSlugFromFilename(fp)
-    const marketResolution = slug ? await getMarketResolution(slug) : null
+    for (let i = 0; i < filesToProcess.length; i++) {
+      if (shouldStop) break
+      const fp = filesToProcess[i]!
+      console.log(`[backtest] orderbook replay file=${fp}`)
+      const active = mkRunner()
+      const runner = active.runner
 
-    // Track market data during replay
-    let currentMarketId: string | undefined
-    let currentMarketTrades: Fill[] = []
-    const seenFillIds = new Set<string>()
+      // Parse slug and fetch market resolution (tokenMap + outcome) in one call
+      const slug = parseSlugFromFilename(fp)
+      const marketResolution = slug ? await getMarketResolution(slug) : null
 
-    // Always replay - stats are optional
-    await replayOrderBookForMarket({
-      filePaths: [fp],
-      order: parsed.order,
-      timeDriven: parsed.timeDriven,
-      shouldStop: () => shouldStop,
-      onSnapshot: async (snap, raw) => {
-        if (shouldStop) return
-        events += 1
-        byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+      // Track market data during replay
+      let currentMarketId: string | undefined
+      let currentMarketTrades: Fill[] = []
+      const seenFillIds = new Set<string>()
 
-        // Track market ID on first snapshot
-        if (!currentMarketId) {
-          currentMarketId = snap.market
-        }
+      // Always replay - stats are optional
+      // Use pre-opened Azure reader if streaming, otherwise open from local file
+      await replayOrderBookForMarket({
+        ...(useAzureStreaming
+          ? { readers: [azureReaders[i]!] }
+          : { filePaths: [fp] }
+        ),
+        order: parsed.order,
+        timeDriven: parsed.timeDriven,
+        shouldStop: () => shouldStop,
+        onSnapshot: async (snap, raw) => {
+          if (shouldStop) return
+          events += 1
+          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
-        await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+          // Track market ID on first snapshot
+          if (!currentMarketId) {
+            currentMarketId = snap.market
+          }
 
-        // Collect fills from portfolio (avoid duplicates)
-        if (currentMarketId) {
-          const portfolio = runner.getPortfolio().snapshot()
-          for (const fill of portfolio.recentFills) {
-            if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
-              currentMarketTrades.push(fill)
-              seenFillIds.add(fill.id)
+          await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+
+          // Collect fills from portfolio (avoid duplicates)
+          if (currentMarketId) {
+            const portfolio = runner.getPortfolio().snapshot()
+            for (const fill of portfolio.recentFills) {
+              if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
+                currentMarketTrades.push(fill)
+                seenFillIds.add(fill.id)
+              }
             }
           }
-        }
-      },
-    })
+        },
+      })
 
     // Compute stats AFTER replay (only if we have all required data)
     if (slug && currentMarketId && marketResolution) {
@@ -362,12 +402,10 @@ async function main(): Promise<void> {
       byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
     })
   } finally {
-    // Cleanup temporary files downloaded from Azure Blob Storage
-    if (downloader && tempFiles.length > 0) {
-      console.log(`[backtest] cleaning up ${tempFiles.length} temporary files`)
-      for (const tempPath of tempFiles) {
-        await downloader.cleanupTempFile(tempPath)
-      }
+    // Cleanup: close Azure readers if streaming was used
+    if (useAzureStreaming && azureReaders.length > 0) {
+      console.log(`[backtest] closing ${azureReaders.length} Azure parquet readers`)
+      await Promise.all(azureReaders.map(r => r.close().catch(() => undefined)))
     }
   }
 }
