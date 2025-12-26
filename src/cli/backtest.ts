@@ -270,36 +270,40 @@ async function main(): Promise<void> {
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
   try {
-    // Azure streaming: download in batches and process as we go
-    // Local files: process directly from disk
+    // Azure streaming: download and process files in parallel
+    // Local files: process directly from disk in parallel
     if (useAzureStreaming && azureConnectionString && azureContainerName) {
-      // Batched streaming: download batch of 5 files, process them, then download next batch
-      const batchSize = parseInt(process.env.AZURE_BATCH_SIZE ?? '5', 10)
-      console.log(`[backtest] using batch size of ${batchSize} for Azure streaming`)
+      // Parallel processing with controlled concurrency
+      const concurrency = parseInt(process.env.AZURE_CONCURRENCY ?? '10', 10)
+      console.log(`[backtest] processing ${filePaths.length} files with concurrency=${concurrency}`)
 
-      let processedCount = 0
-      const totalFiles = filePaths.length
       const overallStartTime = Date.now()
 
-      for await (const { reader, blobName, index } of openParquetFromAzureBlobBatched(
-        azureConnectionString,
-        azureContainerName,
-        filePaths,
-        batchSize
-      )) {
-        if (shouldStop) {
-          await reader.close().catch(() => undefined)
-          break
+      // Process files in parallel with concurrency limit
+      const processFile = async (blobName: string, index: number) => {
+        const progress = `[${index + 1}/${filePaths.length}]`
+        console.log(`${progress} [backtest] downloading & processing: ${blobName}`)
+
+        // Download and open the file
+        const fileStartTime = Date.now()
+        const reader = await openParquetFromAzureBlobBatched(
+          azureConnectionString!,
+          azureContainerName!,
+          [blobName],
+          1
+        ).next().then(result => result.value?.reader)
+
+        if (!reader) {
+          console.warn(`${progress} [backtest] failed to open: ${blobName}`)
+          return null
         }
 
-        processedCount++
-        const progress = `[${processedCount}/${totalFiles}]`
-        console.log(`${progress} [backtest] processing file: ${blobName}`)
+        const downloadTime = ((Date.now() - fileStartTime) / 1000).toFixed(2)
 
         const active = mkRunner()
         const runner = active.runner
 
-        // Parse slug and fetch market resolution (tokenMap + outcome) in one call
+        // Parse slug and fetch market resolution
         const slug = parseSlugFromFilename(blobName)
         const marketResolution = slug ? await getMarketResolution(slug) : null
 
@@ -307,8 +311,10 @@ async function main(): Promise<void> {
         let currentMarketId: string | undefined
         let currentMarketTrades: Fill[] = []
         const seenFillIds = new Set<string>()
+        let localEvents = 0
 
         // Process with pre-opened reader
+        const processStartTime = Date.now()
         await replayOrderBookForMarket({
           readers: [reader],
           order: parsed.order,
@@ -316,6 +322,7 @@ async function main(): Promise<void> {
           shouldStop: () => shouldStop,
           onSnapshot: async (snap, raw) => {
             if (shouldStop) return
+            localEvents++
             events += 1
             byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
@@ -340,7 +347,11 @@ async function main(): Promise<void> {
         // Close reader immediately after processing
         await reader.close().catch(() => undefined)
 
+        const processTime = ((Date.now() - processStartTime) / 1000).toFixed(2)
+        const totalTime = ((Date.now() - fileStartTime) / 1000).toFixed(2)
+
         // Compute stats AFTER replay
+        let stats: MarketStats | null = null
         if (slug && currentMarketId && marketResolution) {
           const portfolio = runner.getPortfolio().snapshot()
           const finalPositions = portfolio.positionsByAssetId
@@ -353,7 +364,7 @@ async function main(): Promise<void> {
             (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
 
           if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
-            const stats = computeMarketStats({
+            stats = computeMarketStats({
               marketId: currentMarketId,
               trades: currentMarketTrades,
               finalPositions,
@@ -362,31 +373,49 @@ async function main(): Promise<void> {
               tokenMap: marketResolution.tokenMap,
             })
 
-            marketStats.push(stats)
             console.log(
-              `${progress} [backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+              `${progress} [backtest] ✓ market=${currentMarketId} slug=${slug} pnl=${stats.pnl} trades=${stats.tradeCount} (dl=${downloadTime}s proc=${processTime}s total=${totalTime}s events=${localEvents})`,
             )
           } else if (marketResolution.outcome === null) {
-            console.warn(`${progress} [backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
+            console.warn(`${progress} [backtest] Market not resolved yet for slug: ${slug}`)
           } else {
-            console.log(`${progress} [backtest] market=${currentMarketId} no positions or trades, skipping stats`)
+            console.log(`${progress} [backtest] ✓ no positions/trades (${totalTime}s)`)
           }
         } else if (!slug) {
-          console.warn(`${progress} [backtest] Could not parse slug from filename: ${blobName}, skipping stats`)
-        } else if (!marketResolution) {
-          console.warn(`${progress} [backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
+          console.warn(`${progress} [backtest] Could not parse slug from: ${blobName}`)
         }
+
+        return stats
       }
 
-      const overallElapsed = ((Date.now() - overallStartTime) / 1000).toFixed(2)
-      console.log(`[backtest] processed ${processedCount} files in ${overallElapsed}s total`)
-    } else {
-      // Local file processing
-      for (let i = 0; i < filePaths.length; i++) {
+      // Run with controlled concurrency
+      const results: (MarketStats | null)[] = []
+      for (let i = 0; i < filePaths.length; i += concurrency) {
         if (shouldStop) break
-        const fp = filePaths[i]!
-        const progress = `[${i + 1}/${filePaths.length}]`
-        console.log(`${progress} [backtest] orderbook replay file=${fp}`)
+        const batch = filePaths.slice(i, i + concurrency)
+        const batchResults = await Promise.all(
+          batch.map((blobName, batchIndex) => processFile(blobName, i + batchIndex))
+        )
+        results.push(...batchResults)
+      }
+
+      // Collect non-null stats
+      marketStats.push(...results.filter((s): s is MarketStats => s !== null))
+
+      const overallElapsed = ((Date.now() - overallStartTime) / 1000).toFixed(2)
+      console.log(`[backtest] ✓ processed ${filePaths.length} files in ${overallElapsed}s total (${(filePaths.length / parseFloat(overallElapsed)).toFixed(2)} files/sec)`)
+    } else {
+      // Local file processing - also parallel for speed
+      const concurrency = parseInt(process.env.LOCAL_CONCURRENCY ?? '10', 10)
+      console.log(`[backtest] processing ${filePaths.length} local files with concurrency=${concurrency}`)
+
+      const overallStartTime = Date.now()
+
+      const processFile = async (fp: string, index: number) => {
+        const progress = `[${index + 1}/${filePaths.length}]`
+        console.log(`${progress} [backtest] processing: ${fp}`)
+
+        const fileStartTime = Date.now()
         const active = mkRunner()
         const runner = active.runner
 
@@ -396,6 +425,7 @@ async function main(): Promise<void> {
         let currentMarketId: string | undefined
         let currentMarketTrades: Fill[] = []
         const seenFillIds = new Set<string>()
+        let localEvents = 0
 
         await replayOrderBookForMarket({
           filePaths: [fp],
@@ -404,6 +434,7 @@ async function main(): Promise<void> {
           shouldStop: () => shouldStop,
           onSnapshot: async (snap, raw) => {
             if (shouldStop) return
+            localEvents++
             events += 1
             byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
@@ -425,7 +456,10 @@ async function main(): Promise<void> {
           },
         })
 
+        const totalTime = ((Date.now() - fileStartTime) / 1000).toFixed(2)
+
         // Compute stats AFTER replay
+        let stats: MarketStats | null = null
         if (slug && currentMarketId && marketResolution) {
           const portfolio = runner.getPortfolio().snapshot()
           const finalPositions = portfolio.positionsByAssetId
@@ -438,7 +472,7 @@ async function main(): Promise<void> {
             (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
 
           if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
-            const stats = computeMarketStats({
+            stats = computeMarketStats({
               marketId: currentMarketId,
               trades: currentMarketTrades,
               finalPositions,
@@ -447,21 +481,37 @@ async function main(): Promise<void> {
               tokenMap: marketResolution.tokenMap,
             })
 
-            marketStats.push(stats)
             console.log(
-              `${progress} [backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+              `${progress} [backtest] ✓ market=${currentMarketId} slug=${slug} pnl=${stats.pnl} trades=${stats.tradeCount} (${totalTime}s events=${localEvents})`,
             )
           } else if (marketResolution.outcome === null) {
-            console.warn(`${progress} [backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
+            console.warn(`${progress} [backtest] Market not resolved yet for slug: ${slug}`)
           } else {
-            console.log(`${progress} [backtest] market=${currentMarketId} no positions or trades, skipping stats`)
+            console.log(`${progress} [backtest] ✓ no positions/trades (${totalTime}s)`)
           }
         } else if (!slug) {
-          console.warn(`${progress} [backtest] Could not parse slug from filename: ${fp}, skipping stats`)
-        } else if (!marketResolution) {
-          console.warn(`${progress} [backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
+          console.warn(`${progress} [backtest] Could not parse slug from: ${fp}`)
         }
+
+        return stats
       }
+
+      // Run with controlled concurrency
+      const results: (MarketStats | null)[] = []
+      for (let i = 0; i < filePaths.length; i += concurrency) {
+        if (shouldStop) break
+        const batch = filePaths.slice(i, i + concurrency)
+        const batchResults = await Promise.all(
+          batch.map((fp, batchIndex) => processFile(fp, i + batchIndex))
+        )
+        results.push(...batchResults)
+      }
+
+      // Collect non-null stats
+      marketStats.push(...results.filter((s): s is MarketStats => s !== null))
+
+      const overallElapsed = ((Date.now() - overallStartTime) / 1000).toFixed(2)
+      console.log(`[backtest] ✓ processed ${filePaths.length} files in ${overallElapsed}s total (${(filePaths.length / parseFloat(overallElapsed)).toFixed(2)} files/sec)`)
     }
 
     // Compute batch stats
