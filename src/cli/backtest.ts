@@ -13,6 +13,11 @@ import { parseArgs } from './helpers/backtestArgs.js'
 import { sleep } from '../utils/sleep.js'
 import { toBigInt } from '../utils/toBigInt.js'
 import { MinHeap } from '../utils/minHeap.js'
+import { computeMarketStats } from '../backtest/stats/marketStats.js'
+import { computeBatchStats } from '../backtest/stats/batchStats.js'
+import type { MarketStats } from '../backtest/stats/marketStats.js'
+import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
+import type { Fill } from '../strategy/Strategy.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -197,6 +202,10 @@ async function main(): Promise<void> {
 
   console.log(`[backtest] strategy=${built.strategyId}`)
 
+  // Stats tracking
+  const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '10000')
+  const marketStats: MarketStats[] = []
+
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
   for (const fp of filePaths) {
@@ -205,6 +214,16 @@ async function main(): Promise<void> {
     const active = mkRunner()
     const runner = active.runner
 
+    // Parse slug and fetch market resolution (tokenMap + outcome) in one call
+    const slug = parseSlugFromFilename(fp)
+    const marketResolution = slug ? await getMarketResolution(slug) : null
+
+    // Track market data during replay
+    let currentMarketId: string | undefined
+    let currentMarketTrades: Fill[] = []
+    const seenFillIds = new Set<string>()
+
+    // Always replay - stats are optional
     await replayOrderBookForMarket({
       filePaths: [fp],
       order: parsed.order,
@@ -215,12 +234,82 @@ async function main(): Promise<void> {
         events += 1
         byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
+        // Track market ID on first snapshot
+        if (!currentMarketId) {
+          currentMarketId = snap.market
+        }
+
         await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+
+        // Collect fills from portfolio (avoid duplicates)
+        if (currentMarketId) {
+          const portfolio = runner.getPortfolio().snapshot()
+          for (const fill of portfolio.recentFills) {
+            if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
+              currentMarketTrades.push(fill)
+              seenFillIds.add(fill.id)
+            }
+          }
+        }
       },
     })
+
+    // Compute stats AFTER replay (only if we have all required data)
+    if (slug && currentMarketId && marketResolution) {
+      const portfolio = runner.getPortfolio().snapshot()
+      const finalPositions = portfolio.positionsByAssetId
+      const realizedPnl = portfolio.realizedPnlTotal ?? 0
+
+      // Check if we have positions for this market
+      const upAssetId = marketResolution.tokenMap['UP']
+      const downAssetId = marketResolution.tokenMap['DOWN']
+      const hasPositions =
+        (upAssetId && finalPositions[upAssetId] && finalPositions[upAssetId]!.qty > 0) ||
+        (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
+
+      if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
+        const stats = computeMarketStats({
+          marketId: currentMarketId,
+          trades: currentMarketTrades,
+          finalPositions,
+          realizedPnl,
+          finalOutcome: marketResolution.outcome,
+          tokenMap: marketResolution.tokenMap,
+        })
+
+        marketStats.push(stats)
+        console.log(
+          `[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+        )
+      } else if (marketResolution.outcome === null) {
+        console.warn(
+          `[backtest] Market not resolved yet for slug: ${slug}, skipping stats`,
+        )
+      } else {
+        console.log(`[backtest] market=${currentMarketId} no positions or trades, skipping stats`)
+      }
+    } else if (!slug) {
+      console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
+    } else if (!marketResolution) {
+      console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
+    }
   }
 
-  console.log('[backtest] orderbook summary', {
+  // Compute batch stats
+  if (marketStats.length > 0) {
+    const batchStats = computeBatchStats(marketStats, initialCapital)
+
+    // Print results
+    console.log('\n[backtest] ===== MARKET STATS =====')
+    for (const stats of marketStats) {
+      console.log(JSON.stringify(stats, null, 2))
+    }
+
+    console.log('\n[backtest] ===== BATCH STATS =====')
+    console.log(JSON.stringify(batchStats, null, 2))
+  }
+
+  console.log('\n[backtest] orderbook summary', {
     events,
     byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
   })
