@@ -46,3 +46,31 @@ export async function openMultipleParquetFromAzureBlob(
     )
   )
 }
+
+/**
+ * Opens parquet files in batches, yielding readers as they become available.
+ * This allows processing to start before all files are downloaded.
+ *
+ * @param batchSize Number of files to download concurrently (default: 5)
+ */
+export async function* openParquetFromAzureBlobBatched(
+  connectionString: string,
+  containerName: string,
+  blobNames: string[],
+  batchSize: number = 5
+): AsyncGenerator<{ reader: parquet.ParquetReader; blobName: string; index: number }> {
+  for (let i = 0; i < blobNames.length; i += batchSize) {
+    const batch = blobNames.slice(i, i + batchSize)
+    const readers = await Promise.all(
+      batch.map(async (blobName, batchIndex) => ({
+        reader: await openParquetFromAzureBlob(connectionString, containerName, blobName),
+        blobName,
+        index: i + batchIndex
+      }))
+    )
+
+    for (const result of readers) {
+      yield result
+    }
+  }
+}
