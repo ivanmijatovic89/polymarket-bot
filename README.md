@@ -364,3 +364,65 @@ Libraries used:
 - `@dsnp/parquetjs`: `https://github.com/ironSource/parquetjs`
 - `@polymarket/clob-client`: `https://www.npmjs.com/package/@polymarket/clob-client`
 - `ethers`: `https://www.npmjs.com/package/ethers`
+
+
+# Database
+
+## PostgreSQL Setup
+
+Install and start PostgreSQL:
+
+```bash
+brew install postgresql@16
+brew services start postgresql@16
+brew services stop postgresql@16
+```
+
+Create the database:
+
+```bash
+psql postgres
+CREATE DATABASE polymarket_bot;
+```
+
+## Drizzle ORM
+
+This project uses [Drizzle ORM](https://orm.drizzle.team/) for database access and migrations.
+
+### Environment Variables
+
+- `DATABASE_URL` - PostgreSQL connection string (required)
+  - Format: `postgresql://user:password@host:port/database`
+  - Example: `postgresql://postgres:password@localhost:5432/polymarket_bot`
+
+### Database Scripts
+
+- `npm run db:generate` - Generate migration files from schema changes
+- `npm run db:migrate` - Apply migrations to the database
+- `npm run db:push` - Push schema changes directly to database (useful for development)
+- `npm run db:studio` - Open Drizzle Studio (visual database browser)
+
+### Usage
+
+Import the database instance:
+
+```typescript
+import { getDb } from './db/index.js'
+
+const db = getDb()
+// Use db to query tables defined in src/db/schema.ts
+```
+
+### Schema Definitions
+
+Schema definitions are located in `src/db/schema.ts`. Schemas will be added manually in a future step.
+
+### Migrations
+
+Migration files are stored in the `drizzle/` directory. After modifying schemas:
+
+1. Generate migrations: `npm run db:generate`
+2. Review the generated SQL in `drizzle/` directory
+3. Apply migrations: `npm run db:migrate`
+
+For rapid development, you can use `npm run db:push` to sync schema changes directly without generating migration files.
