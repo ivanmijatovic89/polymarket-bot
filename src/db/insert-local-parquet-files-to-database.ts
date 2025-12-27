@@ -1,7 +1,6 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { eq } from 'drizzle-orm'
-import { getDb, closeDb, markets } from './index.js'
+import { closeDb, marketExistsBySlug, insertMarket } from './index.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
 
 /**
@@ -14,14 +13,6 @@ function extractSlugFromFilename(fileName: string): string | null {
   return fileName.slice(0, -'.parquet'.length)
 }
 
-/**
- * Check if market with given slug already exists in database.
- */
-async function marketExists(slug: string): Promise<boolean> {
-  const db = getDb()!
-  const existing = await db.select().from(markets).where(eq(markets.slug, slug)).limit(1)
-  return existing.length > 0
-}
 
 /**
  * Process a single parquet file: fetch market data and insert into database.
@@ -39,7 +30,7 @@ async function processFile(
   }
 
   // Check if market already exists
-  const exists = await marketExists(slug)
+  const exists = await marketExistsBySlug(slug)
   if (exists) {
     return { inserted: false, skipped: true, error: false }
   }
@@ -58,8 +49,7 @@ async function processFile(
 
   // Insert into database
   try {
-    const db = getDb()!
-    await db.insert(markets).values(marketData)
+    await insertMarket(marketData)
     return { inserted: true, skipped: false, error: false }
   } catch (err) {
     const msg = err instanceof Error ? err.message : String(err)

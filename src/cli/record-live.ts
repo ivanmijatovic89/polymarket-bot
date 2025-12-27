@@ -15,8 +15,7 @@ import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAss
 import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
-import { getDb, markets } from '../db/index.js'
-import { eq } from 'drizzle-orm'
+import { marketExistsBySlug, insertMarket, updateMarketBySlug } from '../db/index.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
 
@@ -433,20 +432,6 @@ async function main(): Promise<void> {
     }
   })
 
-  /**
-   * Check if market with given slug already exists in database.
-   */
-  async function marketExists(slug: string): Promise<boolean> {
-    try {
-      const db = getDb()!
-      const existing = await db.select().from(markets).where(eq(markets.slug, slug)).limit(1)
-      return existing.length > 0
-    } catch (err) {
-      // If database check fails, assume it doesn't exist (will try to insert)
-      console.warn(`[record-live] Failed to check if market exists for slug "${slug}":`, err)
-      return false
-    }
-  }
 
   /**
    * Insert market into database when parquet file is finalized.
@@ -463,7 +448,7 @@ async function main(): Promise<void> {
     try {
       // Check if market already exists
       console.log(`[record-live] 🔍 Checking if market exists: ${slug}`)
-      const exists = await marketExists(slug)
+      const exists = await marketExistsBySlug(slug)
       if (exists) {
         console.log(`[record-live] ⏭️  Market already exists in database, skipping insert: ${slug}`)
         // Still schedule update in case it wasn't scheduled before
@@ -491,8 +476,7 @@ async function main(): Promise<void> {
 
       // Insert into database
       console.log(`[record-live] 💾 Inserting market into database: ${slug}`)
-      const db = getDb()!
-      await db.insert(markets).values(marketData)
+      await insertMarket(marketData)
       console.log(`[record-live] ✅ Successfully inserted market into database: ${slug}`)
 
       // Schedule resolution update callback for 15 minutes later
@@ -517,8 +501,6 @@ async function main(): Promise<void> {
   async function updateMarketFromGamma(slug: string, filePath: string): Promise<void> {
     console.log(`[record-live] 🔄 Resolution update callback STARTED for: ${slug}`)
     try {
-      const db = getDb()!
-
       // Fetch latest market data from Gamma API
       console.log(`[record-live] 🌐 Fetching latest market data from Gamma API for update: ${slug}`)
       const marketData = await fetchGammaMarketBySlugAndMapApiResponseToMarketTable({
@@ -535,19 +517,15 @@ async function main(): Promise<void> {
 
       // Update only fields that might have changed after resolution
       console.log(`[record-live] 💾 Updating market in database: ${slug}`)
-      await db
-        .update(markets)
-        .set({
-          resolvedOutcome: marketData.resolvedOutcome,
-          outcomePrices: marketData.outcomePrices,
-          umaResolutionStatus: marketData.umaResolutionStatus,
-          active: marketData.active,
-          closed: marketData.closed,
-          volume: marketData.volume,
-          rawJson: marketData.rawJson,
-          updatedAt: new Date(),
-        })
-        .where(eq(markets.slug, slug))
+      await updateMarketBySlug(slug, {
+        resolvedOutcome: marketData.resolvedOutcome,
+        outcomePrices: marketData.outcomePrices,
+        umaResolutionStatus: marketData.umaResolutionStatus,
+        active: marketData.active,
+        closed: marketData.closed,
+        volume: marketData.volume,
+        rawJson: marketData.rawJson,
+      })
 
       scheduledResolutionUpdates.delete(slug)
       const resolved = marketData.resolvedOutcome ?? 'pending'

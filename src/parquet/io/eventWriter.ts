@@ -58,6 +58,7 @@ export class RotatingParquetEventRecorder {
 
   private readonly writersByMarket = new Map<string, WriterState>()
   private readonly chainByMarket = new Map<string, Promise<void>>()
+  private currentCloseOpts: CloseAllOptions | undefined // Store opts for automatic rotations
 
   /**
    * Event types that are allowed to create a file even before the first `book`
@@ -114,6 +115,9 @@ export class RotatingParquetEventRecorder {
   }
 
   async closeAll(opts?: CloseAllOptions): Promise<void> {
+    // Store opts for automatic rotations (when windowStartMs or fileKey changes)
+    this.currentCloseOpts = opts
+
     const chains = [...this.chainByMarket.values()]
     await Promise.all(chains.map((p) => p.catch(() => undefined)))
 
@@ -221,7 +225,8 @@ export class RotatingParquetEventRecorder {
     if (!state && !canOpenFile) return
 
     if (!state || state.windowStartMs !== windowStartMs || state.fileKey !== fileKey) {
-      if (state) await this.closeMarket(marketId)
+      // Use stored opts for automatic rotations (when windowStartMs or fileKey changes)
+      if (state) await this.closeMarket(marketId, this.currentCloseOpts)
       if (!canOpenFile) return
       state = await this.openMarketWindow({ marketId, windowStartMs, fileKey })
       this.writersByMarket.set(marketId, state)

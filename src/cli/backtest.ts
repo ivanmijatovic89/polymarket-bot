@@ -19,9 +19,7 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
-import { getDb, closeDb } from '../db/index.js'
-import { markets } from '../db/schema.js'
-import { eq, asc } from 'drizzle-orm'
+import { closeDb, getMarketsBySymbol } from '../db/index.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -40,25 +38,6 @@ type ReplayApplyEvent = {
   source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
 }
 
-/**
- * Load market records from database by symbol.
- * Returns complete market objects (all columns) for future use.
- */
-async function loadMarketsFromDatabase(
-  symbol: string,
-  limit?: number,
-): Promise<Array<{ dataset: string | null; [key: string]: unknown }>> {
-  const db = getDb()!
-  const results = await db
-    .select()
-    .from(markets)
-    .where(eq(markets.symbol, symbol.toLowerCase()))
-    .orderBy(asc(markets.slug))
-    .limit(limit ?? 1000)
-
-  // Filter out rows where dataset is null or empty
-  return results.filter((row) => row.dataset && row.dataset.trim() !== '')
-}
 
 /**
  * Replay parquet WS events and reconstruct order books tick-by-tick.
@@ -188,7 +167,10 @@ async function main(): Promise<void> {
 
   if (parsed.symbol) {
     try {
-      marketRecords = await loadMarketsFromDatabase(parsed.symbol, parsed.limit)
+      marketRecords = await getMarketsBySymbol(parsed.symbol, {
+        ...(parsed.limit !== undefined && { limit: parsed.limit }),
+        onlyWithDataset: true
+      })
       filePaths = marketRecords.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
       if (filePaths.length === 0) {
         console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
