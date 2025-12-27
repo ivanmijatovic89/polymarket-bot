@@ -4,8 +4,8 @@ import * as z from 'zod'
 
 /**
  * Basic FAK strategy that buys once when bestAsk price reaches target price.
- * - Monitors bestAsk price from orderbook
- * - When bestAsk reaches 0.30, buys 5 shares using FOK order type
+ * - Monitors bestAsk price from orderbook for both assets (UP/DOWN)
+ * - When bestAsk reaches targetPrice on either asset, buys that asset using FOK order type
  * - Executes only once per strategy instance
  */
 export const BasicFakConfigSchema = z.strictObject({
@@ -19,15 +19,25 @@ export type BasicFakConfig = z.infer<typeof BasicFakConfigSchema>
 export const definition: StrategyDefinition<BasicFakConfig> = {
   id: 'basicFak.v1',
   title: 'Basic FAK v1',
-  description: 'Buys 5 shares when bestAsk reaches 0.30, executes only once.',
+  description: 'Buys 5 shares when bestAsk reaches 0.30 on either asset, executes only once.',
   schema: BasicFakConfigSchema,
   create: (params) => createBasicFakStrategy(params),
 }
 
-function pickAssetId(tick: MarketTick, preferred?: string): string | null {
-  if (preferred && tick.snapshot.byAssetId[preferred]) return preferred
-  const ids = Object.keys(tick.snapshot.byAssetId)
-  return ids[0] ?? null
+function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string] | null {
+  // If preferred asset is specified, still check both assets but prioritize preferred
+  if (preferred && tick.snapshot.byAssetId[preferred]) {
+    const ids = Object.keys(tick.snapshot.byAssetId).sort()
+    const otherId = ids.find(id => id !== preferred)
+    if (otherId) return [preferred, otherId]
+  }
+
+  const ids = Object.keys(tick.snapshot.byAssetId).sort()
+  if (ids.length < 2) return null
+  const a = ids[0]
+  const b = ids[1]
+  if (!a || !b || a === b) return null
+  return [a, b]
 }
 
 export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
@@ -38,35 +48,72 @@ export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
     // Strategy can only execute once
     if (hasPurchased) return []
 
-    const assetId = pickAssetId(tick, cfg.assetId)
-    if (!assetId) return []
+    const assetIds = pickTwoAssetIds(tick, cfg.assetId)
+    if (!assetIds) return []
 
-    const book = tick.snapshot.byAssetId[assetId]
-    if (!book || book.bestAsk === null) return []
+    const [assetA, assetB] = assetIds
 
-    // console log both buy and sell best ask and bid
-    // console.log('buy best ask', book.bestAsk)
-    // console.log('sell best bid', book.bestBid)
-    return [];
+    // Check both assets to see which one (if any) has reached target price
+    const bookA = tick.snapshot.byAssetId[assetA]
+    const bookB = tick.snapshot.byAssetId[assetB]
 
-    // if (book.bestAsk > cfg.targetPrice) return []
+    // Check asset A
+    if (bookA && bookA.bestAsk !== null && bookA.bestAsk <= cfg.targetPrice) {
+      hasPurchased = true
+      const now = tick.snapshot.timestamp || Date.now()
+      console.log('placing buy order', {
+        kind: 'place_limit',
+        clientOrderId: `${name}:${assetA}:buy:${now}`,
+        assetId: assetA,
+        side: 'BUY',
+        price: bookA.bestAsk,
+        size: cfg.size,
+        orderType: 'FOK',
+        reason: 'target_price_reached',
+      })
+      return [
+        {
+          kind: 'place_limit',
+          clientOrderId: `${name}:${assetA}:buy:${now}`,
+          assetId: assetA,
+          side: 'BUY',
+          price: bookA.bestAsk,
+          size: cfg.size,
+          orderType: 'FOK',
+          reason: 'target_price_reached',
+        },
+      ]
+    }
 
-    // // Price reached target, execute buy order
-    // hasPurchased = true
-    // const now = tick.snapshot.timestamp || Date.now()
+    // Check asset B
+    if (bookB && bookB.bestAsk !== null && bookB.bestAsk <= cfg.targetPrice) {
+      hasPurchased = true
+      const now = tick.snapshot.timestamp || Date.now()
+      console.log('placing buy order', {
+        kind: 'place_limit',
+        clientOrderId: `${name}:${assetB}:buy:${now}`,
+        assetId: assetB,
+        side: 'BUY',
+        price: bookB.bestAsk,
+        size: cfg.size,
+        orderType: 'FOK',
+        reason: 'target_price_reached',
+      })
+      return [
+        {
+          kind: 'place_limit',
+          clientOrderId: `${name}:${assetB}:buy:${now}`,
+          assetId: assetB,
+          side: 'BUY',
+          price: bookB.bestAsk,
+          size: cfg.size,
+          orderType: 'FOK',
+          reason: 'target_price_reached',
+        },
+      ]
+    }
 
-    // return [
-    //   {
-    //     kind: 'place_limit',
-    //     clientOrderId: `${name}:${assetId}:buy:${now}`,
-    //     assetId,
-    //     side: 'BUY',
-    //     price: book.bestAsk,
-    //     size: cfg.size,
-    //     orderType: 'FOK',
-    //     reason: 'target_price_reached',
-    //   },
-    // ]
+    return []
   }
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []
