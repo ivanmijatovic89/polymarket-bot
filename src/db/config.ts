@@ -1,3 +1,5 @@
+import '../config/env.js' // Učitaj .env automatski - dostupno svuda
+
 export type DatabaseConfig = {
   host: string
   port: number
@@ -30,7 +32,7 @@ export function loadDatabaseConfigFromEnv(): DatabaseConfig {
   const password = env('DATABASE_PASSWORD')
   const database = envRequired('DATABASE_NAME')
 
-  const config: DatabaseConfig = {
+  const dbConfig: DatabaseConfig = {
     host,
     port,
     user,
@@ -38,8 +40,8 @@ export function loadDatabaseConfigFromEnv(): DatabaseConfig {
   }
 
   if (password !== undefined) {
-    config.password = password
+    dbConfig.password = password
   }
 
-  return config
+  return dbConfig
 }

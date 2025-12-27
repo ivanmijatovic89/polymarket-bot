@@ -34,6 +34,11 @@ export type CloseAllOptions = {
    * Used to mark incomplete recordings (e.g. `*-terminated.parquet`).
    */
   finalPathTransform?: (args: FinalPathTransformArgs) => string
+  /**
+   * Optional callback called after a file is finalized (tmp → parquet rename).
+   * Called with the final file path and file key (slug).
+   */
+  onFileFinalized?: (args: { filePath: string; fileKey: string }) => void | Promise<void>
 }
 
 type WriterState = {
@@ -164,6 +169,23 @@ export class RotatingParquetEventRecorder {
 
       await rename(state.filePathTmp, finalPath)
       console.log(`[recorder] closed parquet file ${finalPath} rows=${state.rowsWritten}`)
+
+      // Call onFileFinalized callback if provided
+      // Execute asynchronously in background (fire-and-forget) so rotation doesn't wait
+      // This allows the callback to do long-running operations (e.g., DB insert, file upload) without blocking rotation
+      if (opts?.onFileFinalized) {
+        console.log(`[recorder] Calling onFileFinalized callback for fileKey: ${state.fileKey}`)
+        void Promise.resolve(opts.onFileFinalized({ filePath: finalPath, fileKey: state.fileKey })).catch(
+          (err) => {
+            console.error(`[recorder] onFileFinalized callback failed for ${finalPath}:`, err)
+            if (err instanceof Error && err.stack) {
+              console.error(`[recorder] Stack trace:`, err.stack)
+            }
+          },
+        )
+      } else {
+        console.log(`[recorder] No onFileFinalized callback provided`)
+      }
     } finally {
       // Always drop the state; writer is not reusable after close attempt.
       this.writersByMarket.delete(marketId)

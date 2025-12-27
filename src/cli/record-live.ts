@@ -14,11 +14,14 @@ import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
 import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
+import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
+import { getDb, markets } from '../db/index.js'
+import { eq } from 'drizzle-orm'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
 
 const DEFAULT_STATS_INTERVAL_MS = 10_000
-const DEFAULT_SKIP_IF_OLDER_MS = 10_000
+const DEFAULT_SKIP_IF_OLDER_MS = 10_000_000_000
 
 function parseEnvInt(name: string, fallback: number): number {
   const raw = process.env[name]
@@ -77,14 +80,22 @@ async function main(): Promise<void> {
   const maxInFlightAppends = parseEnvInt('RECORD_MAX_INFLIGHT_APPENDS', 10_000)
   const skipIfOlderMs = parseEnvInt('RECORD_SKIP_IF_OLDER_MS', DEFAULT_SKIP_IF_OLDER_MS)
 
+  // TEST MODE: Use 15 seconds instead of 15 minutes for faster testing
+  // TODO: Remove this before production
+  const TEST_MODE = process.env.RECORD_TEST_MODE === 'true'
+  const windowMs = TEST_MODE ? 30_000 : FIFTEEN_MIN_MS // 15 seconds in test mode, 15 minutes otherwise
+
   console.log(`[record-live] symbol=${symbol}`)
   console.log(`[record-live] wsUrl=${wsUrl}`)
   console.log(`[record-live] baseDir=${baseDir}`)
   console.log(`[record-live] maxInFlightAppends=${maxInFlightAppends}`)
+  if (TEST_MODE) {
+    console.log(`[record-live] ⚠️  TEST MODE ENABLED: Using ${windowMs / 1000}s window instead of 15 minutes`)
+  }
 
   const recorder = new RotatingParquetEventRecorder({
     baseDir,
-    windowMs: FIFTEEN_MIN_MS,
+    windowMs,
   })
 
   // Per-market ingestion sequence (resets automatically for each new market id).
@@ -106,6 +117,9 @@ async function main(): Promise<void> {
   let disconnects = 0
   let expectedCloses = 0
   const handler = createRawEventIndexer()
+
+  // Track scheduled resolution update callbacks: slug -> scheduledTimeMs
+  const scheduledResolutionUpdates = new Map<string, number>()
 
   const classifyClose = (
     code: number,
@@ -173,14 +187,28 @@ async function main(): Promise<void> {
       return
     }
 
-    const msLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+    const msLeft = msUntilNextBoundary(Date.now(), windowMs)
     const secLeft = Math.max(0, Math.ceil(msLeft / 1000))
     const minLeft = Math.floor(secLeft / 60)
     const secRemainder = secLeft % 60
     const candleLeft = `${String(minLeft).padStart(2, '0')}:${String(secRemainder).padStart(2, '0')}`
 
+    // Format scheduled resolution updates
+    const now = Date.now()
+    const updateResolvedParts: string[] = []
+    for (const [slug, scheduledTimeMs] of scheduledResolutionUpdates.entries()) {
+      const remainingMs = scheduledTimeMs - now
+      if (remainingMs > 0) {
+        const remainingSec = Math.ceil(remainingMs / 1000)
+        const remainingMin = Math.floor(remainingSec / 60)
+        const remainingSecRemainder = remainingSec % 60
+        updateResolvedParts.push(`${slug}:${remainingMin}m${remainingSecRemainder}sec`)
+      }
+    }
+    const updateResolvedStr = updateResolvedParts.length > 0 ? ` updateResolved=${updateResolvedParts.join('|')}` : ''
+
     console.log(
-      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType}`,
+      `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType}${updateResolvedStr}`,
     )
   }, statsIntervalMs)
 
@@ -197,27 +225,37 @@ async function main(): Promise<void> {
     // a synthetic `disconnect` marker).
     const windowStartMsFromSlug = tryParseUpDown15mSlugEpochMs({ slug: resolved.slug, symbol })
     if (windowStartMsFromSlug !== null) {
+      // In test mode, Gamma API still returns 15-minute markets, so we need to use FIFTEEN_MIN_MS
+      // for window boundary checks instead of the test windowMs (15 seconds)
+      const gammaWindowMs = TEST_MODE ? FIFTEEN_MIN_MS : windowMs
+
       // After a 15m boundary, Gamma may briefly still return the previous market.
       // If so, retry quickly rather than skipping a whole 15m window.
-      const expectedWindowStartMs = floorToWindowStart(Date.now(), FIFTEEN_MIN_MS)
-      if (windowStartMsFromSlug < expectedWindowStartMs) {
-        currentSlug = undefined
-        isWaitingForNextWindow = true
-        throw new SkipWindowError(
-          `[record-live] gamma still returning previous market slug=${resolved.slug}; waiting for current window market`,
-          500,
-        )
+      // In test mode, skip this check since Gamma markets are always 15 minutes
+      if (!TEST_MODE) {
+        const expectedWindowStartMs = floorToWindowStart(Date.now(), windowMs)
+        if (windowStartMsFromSlug < expectedWindowStartMs) {
+          currentSlug = undefined
+          isWaitingForNextWindow = true
+          throw new SkipWindowError(
+            `[record-live] gamma still returning previous market slug=${resolved.slug}; waiting for current window market`,
+            500,
+          )
+        }
       }
 
-      const ageMs = Date.now() - windowStartMsFromSlug
-      if (!everConnected && ageMs > skipIfOlderMs) {
-        currentSlug = undefined
-        isWaitingForNextWindow = true
-        const waitMs = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS) + 250
-        throw new SkipWindowError(
-          `[record-live] market already started ageMs=${ageMs} > skipIfOlderMs=${skipIfOlderMs}; waiting for next window`,
-          waitMs,
-        )
+      // In test mode, skip the age check since we want to join any available market
+      if (!TEST_MODE) {
+        const ageMs = Date.now() - windowStartMsFromSlug
+        if (!everConnected && ageMs > skipIfOlderMs) {
+          currentSlug = undefined
+          isWaitingForNextWindow = true
+          const waitMs = msUntilNextBoundary(Date.now(), windowMs) + 250
+          throw new SkipWindowError(
+            `[record-live] market already started ageMs=${ageMs} > skipIfOlderMs=${skipIfOlderMs}; waiting for next window`,
+            waitMs,
+          )
+        }
       }
     }
 
@@ -338,13 +376,13 @@ async function main(): Promise<void> {
 
     // Special case: Polymarket may close the WS right as the 15m market ends.
     // That should not count as an "unexpected disconnect".
-    const msToBoundary = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+    const msToBoundary = msUntilNextBoundary(Date.now(), windowMs)
     const isNearBoundary = msToBoundary <= 2_000
     const slugStartMs = currentSlug
       ? tryParseUpDown15mSlugEpochMs({ slug: currentSlug, symbol })
       : null
     const isNearWindowEnd =
-      slugStartMs !== null ? Date.now() - slugStartMs >= FIFTEEN_MIN_MS - 2_000 : false
+      slugStartMs !== null ? Date.now() - slugStartMs >= windowMs - 2_000 : false
 
     if (closeKind.kind === 'unexpected' && (isNearBoundary || isNearWindowEnd)) {
       closeKind = { kind: 'expected', tag: 'window_end' }
@@ -395,6 +433,165 @@ async function main(): Promise<void> {
     }
   })
 
+  /**
+   * Check if market with given slug already exists in database.
+   */
+  async function marketExists(slug: string): Promise<boolean> {
+    try {
+      const db = getDb()!
+      const existing = await db.select().from(markets).where(eq(markets.slug, slug)).limit(1)
+      return existing.length > 0
+    } catch (err) {
+      // If database check fails, assume it doesn't exist (will try to insert)
+      console.warn(`[record-live] Failed to check if market exists for slug "${slug}":`, err)
+      return false
+    }
+  }
+
+  /**
+   * Insert market into database when parquet file is finalized.
+   */
+  async function insertMarketOnFileFinalized(args: { filePath: string; fileKey: string }): Promise<void> {
+    console.log(`[record-live] 🔵 onFileFinalized callback STARTED for fileKey: ${args.fileKey}, filePath: ${args.filePath}`)
+
+    const slug = args.fileKey
+    if (!slug) {
+      console.warn(`[record-live] ⚠️  Cannot insert market: fileKey is empty`)
+      return
+    }
+
+    try {
+      // Check if market already exists
+      console.log(`[record-live] 🔍 Checking if market exists: ${slug}`)
+      const exists = await marketExists(slug)
+      if (exists) {
+        console.log(`[record-live] ⏭️  Market already exists in database, skipping insert: ${slug}`)
+        // Still schedule update in case it wasn't scheduled before
+        if (!scheduledResolutionUpdates.has(slug)) {
+          console.log(`[record-live] 📅 Scheduling resolution update for existing market: ${slug}`)
+          scheduleResolutionUpdate(slug, args.filePath)
+        } else {
+          console.log(`[record-live] ✅ Resolution update already scheduled for: ${slug}`)
+        }
+        return
+      }
+
+      // Fetch and map market data from Gamma API
+      console.log(`[record-live] 🌐 Fetching market data from Gamma API for slug: ${slug}`)
+      const marketData = await fetchGammaMarketBySlugAndMapApiResponseToMarketTable({
+        slug,
+        filePath: args.filePath,
+        symbol,
+      })
+
+      if (!marketData) {
+        console.warn(`[record-live] ⚠️  Failed to fetch or map market for slug: ${slug}`)
+        return
+      }
+
+      // Insert into database
+      console.log(`[record-live] 💾 Inserting market into database: ${slug}`)
+      const db = getDb()!
+      await db.insert(markets).values(marketData)
+      console.log(`[record-live] ✅ Successfully inserted market into database: ${slug}`)
+
+      // Schedule resolution update callback for 15 minutes later
+      console.log(`[record-live] 📅 Scheduling resolution update for: ${slug}`)
+      scheduleResolutionUpdate(slug, args.filePath)
+      console.log(`[record-live] 🟢 onFileFinalized callback COMPLETED for: ${slug}`)
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : String(err)
+      const stack = err instanceof Error ? err.stack : undefined
+      // Don't throw - this shouldn't block rotation
+      console.error(`[record-live] ❌ Failed to insert market "${slug}" into database: ${msg}`)
+      if (stack) {
+        console.error(`[record-live] Stack trace:`, stack)
+      }
+    }
+  }
+
+  /**
+   * Update market in database with latest data from Gamma API.
+   * Used to refresh resolved outcome after market closes.
+   */
+  async function updateMarketFromGamma(slug: string, filePath: string): Promise<void> {
+    console.log(`[record-live] 🔄 Resolution update callback STARTED for: ${slug}`)
+    try {
+      const db = getDb()!
+
+      // Fetch latest market data from Gamma API
+      console.log(`[record-live] 🌐 Fetching latest market data from Gamma API for update: ${slug}`)
+      const marketData = await fetchGammaMarketBySlugAndMapApiResponseToMarketTable({
+        slug,
+        filePath,
+        symbol,
+      })
+
+      if (!marketData) {
+        console.warn(`[record-live] ⚠️  Failed to fetch market data for update: ${slug}`)
+        scheduledResolutionUpdates.delete(slug)
+        return
+      }
+
+      // Update only fields that might have changed after resolution
+      console.log(`[record-live] 💾 Updating market in database: ${slug}`)
+      await db
+        .update(markets)
+        .set({
+          resolvedOutcome: marketData.resolvedOutcome,
+          outcomePrices: marketData.outcomePrices,
+          umaResolutionStatus: marketData.umaResolutionStatus,
+          active: marketData.active,
+          closed: marketData.closed,
+          volume: marketData.volume,
+          rawJson: marketData.rawJson,
+          updatedAt: new Date(),
+        })
+        .where(eq(markets.slug, slug))
+
+      scheduledResolutionUpdates.delete(slug)
+      const resolved = marketData.resolvedOutcome ?? 'pending'
+      console.log(`[record-live] ✅ Resolution update COMPLETED: ${slug} (resolved: ${resolved})`)
+    } catch (err) {
+      scheduledResolutionUpdates.delete(slug)
+      const msg = err instanceof Error ? err.message : String(err)
+      const stack = err instanceof Error ? err.stack : undefined
+      console.error(`[record-live] ❌ Resolution update FAILED for "${slug}": ${msg}`)
+      if (stack) {
+        console.error(`[record-live] Stack trace:`, stack)
+      }
+    }
+  }
+
+  /**
+   * Schedule a delayed callback to update market resolution status.
+   * Called 15 minutes after file finalization to check if market is resolved.
+   */
+  function scheduleResolutionUpdate(slug: string, filePath: string): void {
+    // Check if already scheduled
+    if (scheduledResolutionUpdates.has(slug)) {
+      console.log(`[record-live] ⚠️  Resolution update already scheduled for ${slug}, skipping duplicate`)
+      return
+    }
+
+    const delayMs = 15 * 60 * 1000 // 15 minutes
+    const scheduledTimeMs = Date.now() + delayMs
+    scheduledResolutionUpdates.set(slug, scheduledTimeMs)
+
+    const timeoutId = setTimeout(() => {
+      console.log(`[record-live] ⏰ Resolution update timeout triggered for: ${slug}`)
+      void updateMarketFromGamma(slug, filePath).catch((err) => {
+        scheduledResolutionUpdates.delete(slug)
+        console.error(`[record-live] Scheduled resolution update failed for ${slug}:`, err)
+      })
+    }, delayMs)
+
+    // Store timeout ID for potential cleanup (if needed in future)
+    const delayMin = Math.floor(delayMs / 60_000)
+    const delaySec = Math.floor((delayMs % 60_000) / 1000)
+    console.log(`[record-live] 📅 Scheduled resolution update for ${slug} in ${delayMin}m${delaySec}s (timeoutId: ${timeoutId})`)
+  }
+
   const rotateAndReconnect = (): void => {
     void (async () => {
       if (shouldStop) return
@@ -416,7 +613,9 @@ async function main(): Promise<void> {
         )
       }
 
-      await recorder.closeAll()
+      await recorder.closeAll({
+        onFileFinalized: insertMarketOnFileFinalized,
+      })
       // Reconnect will re-resolve the current market slug/token ids.
       isRotating = false
       requestReconnect(500, 'window_boundary')
@@ -428,7 +627,7 @@ async function main(): Promise<void> {
   }
 
   const boundaryScheduler = createWindowBoundaryScheduler({
-    windowMs: FIFTEEN_MIN_MS,
+    windowMs,
     onBoundary: () => {
       if (shouldStop) return
       rotateAndReconnect()
@@ -457,6 +656,7 @@ async function main(): Promise<void> {
 
       await recorder.closeAll({
         finalPathTransform: ({ filePathFinal }) => asTerminatedParquetPath(filePathFinal),
+        onFileFinalized: insertMarketOnFileFinalized,
       })
       process.exit(0)
     })().catch((err) => {

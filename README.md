@@ -438,3 +438,10 @@ Migration files are stored in the `drizzle/` directory. After modifying schemas:
 3. Apply migrations: `npm run db:migrate`
 
 For rapid development, you can use `npm run db:push` to sync schema changes directly without generating migration files.
+
+```
+# create tables
+npm run db:generate; npm run db:migrate
+# insert markets to database from filenames + gama
+npm run db:insert-parquet
+```
