@@ -120,4 +120,3 @@ export function createExampleMakerQuoteStrategy(cfg: MakerQuoteConfig): Strategy
 
   return { name, onMarketTick, onAccountEvent }
 }
-

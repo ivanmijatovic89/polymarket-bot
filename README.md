@@ -365,7 +365,6 @@ Libraries used:
 - `@polymarket/clob-client`: `https://www.npmjs.com/package/@polymarket/clob-client`
 - `ethers`: `https://www.npmjs.com/package/ethers`
 
-
 # Database
 
 ## PostgreSQL Setup

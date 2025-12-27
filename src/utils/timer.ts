@@ -31,9 +31,7 @@ export class Timer {
     const elapsedMinutes = Math.floor(elapsedMs / 60000)
     const remainingSeconds = ((elapsedMs % 60000) / 1000).toFixed(2)
 
-    return elapsedMinutes > 0
-      ? `${elapsedMinutes}m ${remainingSeconds}s`
-      : `${remainingSeconds}s`
+    return elapsedMinutes > 0 ? `${elapsedMinutes}m ${remainingSeconds}s` : `${remainingSeconds}s`
   }
 
   /**
@@ -46,4 +44,3 @@ export class Timer {
     }
   }
 }
-

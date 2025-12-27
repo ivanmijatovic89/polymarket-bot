@@ -181,4 +181,3 @@ export function createWinnerLimitStrategy(cfg: WinnerLimitConfig): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-

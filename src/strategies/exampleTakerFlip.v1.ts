@@ -83,4 +83,3 @@ export function createExampleTakerFlipStrategy(cfg: TakerFlipConfig): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-

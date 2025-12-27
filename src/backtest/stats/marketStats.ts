@@ -111,11 +111,11 @@ export function computeMarketStats(params: {
     pnl: Math.round(pnl * 100) / 100, // Round to 2 decimals
     tradeCount: trades.length,
     avgEntryPriceUp: avgEntryPriceUp !== null ? Math.round(avgEntryPriceUp * 10000) / 10000 : null,
-    avgEntryPriceDown: avgEntryPriceDown !== null ? Math.round(avgEntryPriceDown * 10000) / 10000 : null,
+    avgEntryPriceDown:
+      avgEntryPriceDown !== null ? Math.round(avgEntryPriceDown * 10000) / 10000 : null,
     upShares: Math.round(upShares * 100) / 100,
     downShares: Math.round(downShares * 100) / 100,
     mergableShares: Math.round(mergableShares * 100) / 100,
     cost: Math.round(cost * 100) / 100,
   }
 }
-

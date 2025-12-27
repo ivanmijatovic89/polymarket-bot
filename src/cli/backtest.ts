@@ -287,9 +287,7 @@ async function main(): Promise<void> {
           `${pnlColor}[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}${resetColor}`,
         )
       } else if (marketResolution.outcome === null) {
-        console.warn(
-          `[backtest] Market not resolved yet for slug: ${slug}, skipping stats`,
-        )
+        console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
       } else {
         console.log(`[backtest] market=${currentMarketId} no positions or trades, skipping stats`)
       }

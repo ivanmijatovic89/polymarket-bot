@@ -34,4 +34,3 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     totalTrades,
   }
 }
-

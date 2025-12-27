@@ -46,11 +46,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
         break
 
       default:
-        if (
-          arg.startsWith('--strategy=') ||
-          arg.startsWith('--param=') ||
-          arg.startsWith('-')
-        ) {
+        if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
         filePaths.push(arg)

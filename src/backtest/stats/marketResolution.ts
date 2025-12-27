@@ -84,7 +84,8 @@ export async function getMarketResolution(slug: string): Promise<MarketResolutio
 
   // Check umaResolutionStatus - if "resolved", market is resolved
   const resolutionStatus = raw.umaResolutionStatus
-  const isResolved = typeof resolutionStatus === 'string' && resolutionStatus.toLowerCase() === 'resolved'
+  const isResolved =
+    typeof resolutionStatus === 'string' && resolutionStatus.toLowerCase() === 'resolved'
 
   if (isResolved) {
     // Parse outcomePrices to determine winner
@@ -123,4 +124,3 @@ export async function getMarketResolution(slug: string): Promise<MarketResolutio
     outcome,
   }
 }
-
