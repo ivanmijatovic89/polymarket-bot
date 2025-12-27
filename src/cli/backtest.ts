@@ -1,3 +1,4 @@
+import 'dotenv/config'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -18,6 +19,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import { AzureBlobDownloader } from '../parquet/AzureBlobDownloader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -156,12 +158,88 @@ async function main(): Promise<void> {
       process.exit(2)
     }
   })()
-  const filePaths = parsed.filePaths
+
+  let filePaths = parsed.filePaths
+  let downloader: AzureBlobDownloader | null = null
+  const tempFiles: string[] = []
+
+  // Handle Azure Blob Storage mode
+  if (parsed.useAzure) {
+    const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
+    if (!connectionString) {
+      console.error('[backtest] ERROR: AZURE_STORAGE_CONNECTION_STRING environment variable not set')
+      process.exit(2)
+    }
+
+    const containerName = parsed.azureContainer
+    if (!containerName) {
+      console.error('[backtest] ERROR: --azure-container is required when using --azure mode')
+      process.exit(2)
+    }
+
+    downloader = new AzureBlobDownloader(connectionString)
+
+    console.log(`[backtest] mode=azure container=${containerName} prefix=${parsed.azurePrefix || '(none)'}`)
+
+    // If blob names provided as arguments
+    if (filePaths.length > 0) {
+      console.log(`[backtest] downloading ${filePaths.length} blobs...`)
+      const downloaded: string[] = []
+      for (const blobName of filePaths) {
+        const tempPath = await downloader.downloadToTempFile(containerName, blobName)
+        downloaded.push(tempPath)
+        tempFiles.push(tempPath)
+      }
+      filePaths = downloaded
+    }
+    // If using prefix-based discovery
+    else if (parsed.azurePrefix) {
+      const { BlobServiceClient } = await import('@azure/storage-blob')
+      const blobServiceClient = BlobServiceClient.fromConnectionString(connectionString)
+      const containerClient = blobServiceClient.getContainerClient(containerName)
+
+      const blobs: string[] = []
+      for await (const blob of containerClient.listBlobsFlat({ prefix: parsed.azurePrefix })) {
+        if (blob.name.endsWith('.parquet')) {
+          blobs.push(blob.name)
+        }
+        if (parsed.azureLimit && blobs.length >= parsed.azureLimit) {
+          break
+        }
+      }
+
+      console.log(`[backtest] found ${blobs.length} blobs`)
+      console.log(`[backtest] downloading ${blobs.length} blobs...`)
+
+      const downloaded: string[] = []
+      for (const blobName of blobs) {
+        const tempPath = await downloader.downloadToTempFile(containerName, blobName)
+        downloaded.push(tempPath)
+        tempFiles.push(tempPath)
+      }
+      filePaths = downloaded
+      console.log(`[backtest] downloaded ${filePaths.length} files successfully`)
+    } else {
+      console.error('[backtest] ERROR: Either provide blob names or use --azure-prefix')
+      process.exit(2)
+    }
+  }
+
   if (filePaths.length === 0) {
     console.error(
       'Usage:\n' +
-        '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
+        '  Local files:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '\n' +
+        '  Azure Blob Storage (explicit files):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure --azure-container <container> <blob1> [blob2 ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '\n' +
+        '  Azure Blob Storage (auto-discover with prefix):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --azure --azure-container <container> --azure-prefix <prefix> [--azure-limit <N>] [--order recorded|exchange_time] [--time-driven]\n' +
+        '\n' +
+        'Examples:\n' +
+        '  tsx src/cli/backtest.ts --strategy hybrid_production --azure --azure-container markets-parquet --azure-prefix "data/events/btc/2025-12-22/" --azure-limit 5\n' +
+        '  tsx src/cli/backtest.ts --strategy winner_limit --param threshold=0.03 --azure --azure-container markets-parquet "data/events/btc/2025-12-22/btc-updown-15m-1766364300.parquet"',
     )
     process.exit(2)
   }
@@ -313,6 +391,14 @@ async function main(): Promise<void> {
     events,
     byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
   })
+
+  // Cleanup Azure temporary files
+  if (tempFiles.length > 0 && downloader) {
+    console.log('[backtest] cleaning up Azure temporary files...')
+    for (const tempFile of tempFiles) {
+      await downloader.cleanupTempFile(tempFile)
+    }
+  }
 }
 
 main().catch((err) => {

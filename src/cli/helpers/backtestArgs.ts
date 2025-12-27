@@ -7,12 +7,20 @@ export type BacktestArgs = {
   filePaths: string[]
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
+  useAzure: boolean
+  azureContainer?: string
+  azurePrefix?: string
+  azureLimit?: number
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
+  let useAzure = false
+  let azureContainer: string | undefined
+  let azurePrefix: string | undefined
+  let azureLimit: number | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -40,6 +48,25 @@ export function parseArgs(argv: string[]): BacktestArgs {
         timeDriven = true
         break
 
+      case '--azure':
+        useAzure = true
+        break
+
+      case '--azure-container':
+        azureContainer = argv[i + 1]
+        i += 1
+        break
+
+      case '--azure-prefix':
+        azurePrefix = argv[i + 1]
+        i += 1
+        break
+
+      case '--azure-limit':
+        azureLimit = parseInt(argv[i + 1] || '0', 10)
+        i += 1
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -57,5 +84,5 @@ export function parseArgs(argv: string[]): BacktestArgs {
     }
   }
 
-  return { filePaths, order, timeDriven }
+  return { filePaths, order, timeDriven, useAzure, azureContainer, azurePrefix, azureLimit }
 }
