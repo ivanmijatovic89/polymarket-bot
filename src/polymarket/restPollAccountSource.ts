@@ -35,8 +35,25 @@ export function createRestPollAccountSource(
 ): RestPollAccountSource {
   const wallet = new Wallet(opts.privateKey)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const client = new (ClobClient as any)(opts.host, opts.chainId, wallet, opts.creds)
+  // Validate credentials before creating client
+  if (!opts.creds) {
+    throw new Error('[rest-poll] Missing credentials in RestPollAccountSourceOptions')
+  }
+  if (!opts.creds.apiKey || !opts.creds.secret || !opts.creds.passphrase) {
+    throw new Error(
+      '[rest-poll] Invalid credentials: apiKey, secret, and passphrase are required',
+    )
+  }
+
+  // Lazy initialization: only create ClobClient when we actually need it (when enabled)
+  let client: any = undefined
+  const getClient = (): any => {
+    if (!client) {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      client = new (ClobClient as any)(opts.host, opts.chainId, wallet, opts.creds)
+    }
+    return client
+  }
 
   const listeners = new Set<(ev: AccountEvent) => void>()
   let running = false
@@ -52,16 +69,23 @@ export function createRestPollAccountSource(
   }
 
   const pollOnce = async (): Promise<void> => {
-    if (!running || !enabled) return
+    if (!running || !enabled) {
+      // Safety check: if somehow pollOnce is called when disabled, log it
+      if (running && !enabled) {
+        console.warn('[rest-poll] pollOnce called but poller is disabled - this should not happen')
+      }
+      return
+    }
     const nowMs = Date.now()
     emit({ kind: 'account_stream_status', tsMs: nowMs, source: 'rest_poll', status: 'connected' })
 
     // Pull recent trades. Prefer incremental `after` by seconds.
     try {
+      const clobClient = getClient()
       const after = lastAfterSec !== undefined ? String(lastAfterSec) : undefined
       // clob-client getTrades supports params; we keep minimal.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const trades: any[] = await client.getTrades(after ? { after } : undefined)
+      const trades: any[] = await clobClient.getTrades(after ? { after } : undefined)
       for (const t of trades) {
         const id = typeof t?.id === 'string' ? t.id : undefined
         if (!id || seenTradeIds.has(id)) continue
@@ -98,12 +122,32 @@ export function createRestPollAccountSource(
         if (lastAfterSec === undefined || sec > lastAfterSec) lastAfterSec = sec
       }
     } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : String(err)
+      const isAuthError =
+        errorMsg.includes('401') ||
+        errorMsg.includes('Unauthorized') ||
+        errorMsg.includes('Invalid api key')
+
+      if (isAuthError) {
+        console.error(
+          '[rest-poll] Authentication failed when fetching trades. ' +
+          'Check your POLYMARKET_API_KEY, POLYMARKET_API_SECRET, and POLYMARKET_API_PASSPHRASE credentials. ' +
+          'The API key may be invalid or expired. Disabling REST poller to avoid repeated errors.',
+        )
+        // Disable poller on auth error to avoid spamming errors
+        enabled = false
+        if (timer) {
+          clearTimeout(timer)
+          timer = undefined
+        }
+      }
+
       emit({
         kind: 'account_stream_status',
         tsMs: Date.now(),
         source: 'rest_poll',
         status: 'disconnected',
-        info: `getTrades failed: ${err instanceof Error ? err.message : String(err)}`,
+        info: `getTrades failed: ${errorMsg}`,
       })
     }
 
@@ -122,7 +166,10 @@ export function createRestPollAccountSource(
     start: () => {
       if (running) return
       running = true
-      void pollOnce().finally(() => loop())
+      // Only start polling if enabled, otherwise just mark as running but don't poll
+      if (enabled) {
+        void pollOnce().finally(() => loop())
+      }
     },
     stop: () => {
       running = false
@@ -140,7 +187,19 @@ export function createRestPollAccountSource(
       return () => listeners.delete(cb)
     },
     setEnabled: (v) => {
+      const wasEnabled = enabled
       enabled = v
+      // If we're running and just got enabled, start polling
+      if (running && enabled && !wasEnabled) {
+        console.log('[rest-poll] Poller enabled and starting to poll')
+        void pollOnce().finally(() => loop())
+      } else if (running && !enabled && wasEnabled) {
+        console.log('[rest-poll] Poller disabled - stopping polling loop')
+        if (timer) {
+          clearTimeout(timer)
+          timer = undefined
+        }
+      }
     },
   }
 }

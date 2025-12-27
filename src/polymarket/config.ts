@@ -1,3 +1,8 @@
+import { config } from 'dotenv'
+
+// Load environment variables from .env file
+config()
+
 export const GAMMA_DEFAULT = 'https://gamma-api.polymarket.com'
 
 export type PolymarketCredentials = {
@@ -22,7 +27,18 @@ export type PolymarketConfig = {
 
 function env(name: string): string | undefined {
   const v = process.env[name]
-  return v && v.trim() !== '' ? v : undefined
+  if (!v) return undefined
+  // Trim whitespace and remove surrounding quotes if present
+  const trimmed = v.trim()
+  if (trimmed === '') return undefined
+  // Remove surrounding quotes (single or double) if they wrap the entire value
+  if (
+    (trimmed.startsWith('"') && trimmed.endsWith('"')) ||
+    (trimmed.startsWith("'") && trimmed.endsWith("'"))
+  ) {
+    return trimmed.slice(1, -1)
+  }
+  return trimmed
 }
 
 function parseIntEnv(name: string, fallback: number): number {
@@ -43,7 +59,10 @@ function loadOptionalCredentialsFromEnv(): PolymarketCredentials | undefined {
   const apiKey = env('POLYMARKET_API_KEY') ?? env('CLOB_API_KEY')
   const secret = env('POLYMARKET_API_SECRET') ?? env('CLOB_SECRET')
   const passphrase = env('POLYMARKET_API_PASSPHRASE') ?? env('CLOB_PASS_PHRASE')
-  if (!apiKey || !secret || !passphrase) return undefined
+
+  if (!apiKey || !secret || !passphrase) {
+    return undefined
+  }
   return { apiKey, secret, passphrase }
 }
 

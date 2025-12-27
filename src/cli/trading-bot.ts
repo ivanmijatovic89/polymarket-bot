@@ -12,6 +12,7 @@ import { LiveExecution } from '../trading/execution/LiveExecution.js'
 import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.js'
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
+import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -33,7 +34,7 @@ async function main(): Promise<void> {
   console.log(`[trading-bot] symbol=${symbol}`)
   console.log(`[trading-bot] wsUrl=${wsUrl}`)
 
-  const dryRun = (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
+  const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
   console.log(`[trading-bot] dryRun=${dryRun}`)
 
   let shouldStop = false
@@ -68,6 +69,24 @@ async function main(): Promise<void> {
       )
     }
   }
+
+  // Check balance and approval before starting (only if not dry run and we have private key)
+  if (!dryRun && cfg.privateKey) {
+    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+    try {
+      await logBalanceAndApproval({
+        rpcUrl,
+        privateKey: cfg.privateKey,
+        chainId: cfg.clob.chainId,
+        clobHost: cfg.clob.host,
+      })
+    } catch (err) {
+      console.error('[trading-bot] Balance/approval check failed:', err)
+      console.error('[trading-bot] Exiting. Please fix approvals and balance before starting.')
+      process.exit(1)
+    }
+  }
+
 
   const exec = dryRun
     ? {
@@ -140,11 +159,62 @@ async function main(): Promise<void> {
         })
       : null
 
+  // Track if user WS has been stably connected (to avoid enabling poller on brief connections)
+  let userWsStablyConnected = false
+  let userWsConnectedAt: number | undefined
+  let stableConnectionTimeout: NodeJS.Timeout | undefined
+  let disconnectTimeout: NodeJS.Timeout | undefined
+
   userWs?.onAccountEvent((ev) => {
     // If user WS disconnects, enable polling fallback; if connected, disable it.
     if (ev.kind === 'account_stream_status' && poller) {
-      if (ev.source === 'user_ws' && ev.status === 'disconnected') poller.setEnabled(true)
-      if (ev.source === 'user_ws' && ev.status === 'connected') poller.setEnabled(false)
+      if (ev.source === 'user_ws') {
+        if (ev.status === 'connected') {
+          userWsConnectedAt = Date.now()
+          // Clear any pending disconnect timeout
+          if (disconnectTimeout) {
+            clearTimeout(disconnectTimeout)
+            disconnectTimeout = undefined
+          }
+          // Clear any existing stable connection timeout
+          if (stableConnectionTimeout) {
+            clearTimeout(stableConnectionTimeout)
+          }
+          // Mark as stably connected only after 10 seconds of stable connection
+          stableConnectionTimeout = setTimeout(() => {
+            userWsStablyConnected = true
+            console.log('[trading-bot] User WS stably connected (10s+) - disabling REST poller')
+            poller.setEnabled(false)
+            stableConnectionTimeout = undefined
+          }, 10_000)
+        } else if (ev.status === 'disconnected') {
+          // Clear stable connection timeout if connection was too brief
+          if (stableConnectionTimeout) {
+            clearTimeout(stableConnectionTimeout)
+            stableConnectionTimeout = undefined
+          }
+
+          if (userWsStablyConnected && userWsConnectedAt) {
+            // Only enable poller if user WS was stably connected and then disconnected
+            const connectedDuration = Date.now() - userWsConnectedAt
+            // Clear any existing timeout
+            if (disconnectTimeout) {
+              clearTimeout(disconnectTimeout)
+            }
+            // Wait 3 seconds before enabling poller (in case WS reconnects quickly)
+            disconnectTimeout = setTimeout(() => {
+              console.log(
+                `[trading-bot] User WS disconnected (was stably connected for ${Math.round(connectedDuration / 1000)}s) - enabling REST poller fallback`,
+              )
+              poller.setEnabled(true)
+              disconnectTimeout = undefined
+            }, 3000)
+            userWsStablyConnected = false
+            userWsConnectedAt = undefined
+          }
+          // If connection was too brief, don't enable poller - just wait for reconnect
+        }
+      }
     }
     void runner.onAccountEvent(ev)
   })
