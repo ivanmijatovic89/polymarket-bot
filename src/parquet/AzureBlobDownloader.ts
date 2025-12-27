@@ -1,8 +1,13 @@
 import { BlobServiceClient, ContainerClient } from '@azure/storage-blob';
 import { tmpdir } from 'os';
-import { join } from 'path';
+import { join, basename } from 'path';
 import { writeFile, unlink } from 'fs/promises';
 import { randomBytes } from 'crypto';
+
+export type DownloadedBlob = {
+  tempFilePath: string;
+  originalBlobName: string;
+}
 
 export class AzureBlobDownloader {
   private blobServiceClient: BlobServiceClient;
@@ -11,17 +16,19 @@ export class AzureBlobDownloader {
     this.blobServiceClient = BlobServiceClient.fromConnectionString(connectionString);
   }
 
-  async downloadToTempFile(containerName: string, blobName: string): Promise<string> {
+  async downloadToTempFile(containerName: string, blobName: string): Promise<DownloadedBlob> {
     const containerClient: ContainerClient = this.blobServiceClient.getContainerClient(containerName);
     const blockBlobClient = containerClient.getBlockBlobClient(blobName);
 
     const downloadResponse = await blockBlobClient.download();
     const data = await this.streamToBuffer(downloadResponse.readableStreamBody!);
 
-    const tempFilePath = join(tmpdir(), `parquet_${randomBytes(8).toString('hex')}.parquet`);
+    // Use original filename in temp file to preserve slug parsing
+    const originalFilename = basename(blobName);
+    const tempFilePath = join(tmpdir(), `azure_${randomBytes(4).toString('hex')}_${originalFilename}`);
     await writeFile(tempFilePath, data);
 
-    return tempFilePath;
+    return { tempFilePath, originalBlobName: blobName };
   }
 
   async cleanupTempFile(filePath: string): Promise<void> {

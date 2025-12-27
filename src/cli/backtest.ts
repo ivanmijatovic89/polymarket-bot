@@ -19,7 +19,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
-import { AzureBlobDownloader } from '../parquet/AzureBlobDownloader.js'
+import { AzureBlobDownloader, type DownloadedBlob } from '../parquet/AzureBlobDownloader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -163,6 +163,14 @@ async function main(): Promise<void> {
   let downloader: AzureBlobDownloader | null = null
   const tempFiles: string[] = []
 
+  // Statistics tracking
+  type AzureStats = {
+    totalBlobs: number
+    downloadTimeMs: number
+    processingTimeMs: number
+  }
+  let azureStats: AzureStats | null = null
+
   // Handle Azure Blob Storage mode
   if (parsed.useAzure) {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -181,16 +189,11 @@ async function main(): Promise<void> {
 
     console.log(`[backtest] mode=azure container=${containerName} prefix=${parsed.azurePrefix || '(none)'}`)
 
+    let blobNames: string[] = []
+
     // If blob names provided as arguments
     if (filePaths.length > 0) {
-      console.log(`[backtest] downloading ${filePaths.length} blobs...`)
-      const downloaded: string[] = []
-      for (const blobName of filePaths) {
-        const tempPath = await downloader.downloadToTempFile(containerName, blobName)
-        downloaded.push(tempPath)
-        tempFiles.push(tempPath)
-      }
-      filePaths = downloaded
+      blobNames = filePaths
     }
     // If using prefix-based discovery
     else if (parsed.azurePrefix) {
@@ -209,20 +212,52 @@ async function main(): Promise<void> {
       }
 
       console.log(`[backtest] found ${blobs.length} blobs`)
-      console.log(`[backtest] downloading ${blobs.length} blobs...`)
-
-      const downloaded: string[] = []
-      for (const blobName of blobs) {
-        const tempPath = await downloader.downloadToTempFile(containerName, blobName)
-        downloaded.push(tempPath)
-        tempFiles.push(tempPath)
-      }
-      filePaths = downloaded
-      console.log(`[backtest] downloaded ${filePaths.length} files successfully`)
+      blobNames = blobs
     } else {
       console.error('[backtest] ERROR: Either provide blob names or use --azure-prefix')
       process.exit(2)
     }
+
+    if (blobNames.length === 0) {
+      console.error('[backtest] ERROR: No blobs found to process')
+      process.exit(2)
+    }
+
+    console.log(`[backtest] downloading ${blobNames.length} blobs with parallel pipeline...`)
+
+    const downloadStartTime = Date.now()
+
+    // Parallel download pipeline: download next blob while processing current one
+    const downloaded: string[] = []
+    let downloadPromise: Promise<DownloadedBlob> | null = null
+
+    // Start first download
+    downloadPromise = downloader.downloadToTempFile(containerName, blobNames[0]!)
+
+    for (let i = 0; i < blobNames.length; i++) {
+      // Wait for current download to complete
+      const blob = await downloadPromise!
+      downloaded.push(blob.tempFilePath)
+      tempFiles.push(blob.tempFilePath)
+
+      // Start next download immediately (if there is one)
+      if (i + 1 < blobNames.length) {
+        downloadPromise = downloader.downloadToTempFile(containerName, blobNames[i + 1]!)
+      }
+
+      console.log(`[backtest] downloaded ${i + 1}/${blobNames.length}: ${blob.originalBlobName}`)
+    }
+
+    filePaths = downloaded
+    const downloadEndTime = Date.now()
+
+    azureStats = {
+      totalBlobs: blobNames.length,
+      downloadTimeMs: downloadEndTime - downloadStartTime,
+      processingTimeMs: 0, // Will be updated later
+    }
+
+    console.log(`[backtest] download completed in ${(azureStats.downloadTimeMs / 1000).toFixed(2)}s`)
   }
 
   if (filePaths.length === 0) {
@@ -283,6 +318,9 @@ async function main(): Promise<void> {
   // Stats tracking
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '10000')
   const marketStats: MarketStats[] = []
+
+  // Start processing timer
+  const processingStartTime = Date.now()
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
@@ -387,17 +425,40 @@ async function main(): Promise<void> {
     console.log(JSON.stringify(batchStats, null, 2))
   }
 
+  // End processing timer
+  const processingEndTime = Date.now()
+
+  // Update Azure stats if applicable
+  if (azureStats) {
+    azureStats.processingTimeMs = processingEndTime - processingStartTime
+  }
+
   console.log('\n[backtest] orderbook summary', {
     events,
     byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
   })
 
+  // Print Azure statistics
+  if (azureStats) {
+    const totalTimeMs = azureStats.downloadTimeMs + azureStats.processingTimeMs
+    console.log('\n[backtest] ===== AZURE BLOB STATISTICS =====')
+    console.log(JSON.stringify({
+      totalBlobs: azureStats.totalBlobs,
+      downloadTimeSeconds: (azureStats.downloadTimeMs / 1000).toFixed(2),
+      processingTimeSeconds: (azureStats.processingTimeMs / 1000).toFixed(2),
+      totalTimeSeconds: (totalTimeMs / 1000).toFixed(2),
+      averageDownloadPerBlobMs: (azureStats.downloadTimeMs / azureStats.totalBlobs).toFixed(0),
+      averageProcessingPerBlobMs: (azureStats.processingTimeMs / azureStats.totalBlobs).toFixed(0),
+    }, null, 2))
+  }
+
   // Cleanup Azure temporary files
   if (tempFiles.length > 0 && downloader) {
-    console.log('[backtest] cleaning up Azure temporary files...')
+    console.log('\n[backtest] cleaning up Azure temporary files...')
     for (const tempFile of tempFiles) {
       await downloader.cleanupTempFile(tempFile)
     }
+    console.log('[backtest] cleanup completed')
   }
 }
 

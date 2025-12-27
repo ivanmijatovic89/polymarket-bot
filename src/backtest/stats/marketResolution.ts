@@ -3,13 +3,22 @@ import { fetchGammaMarketBySlug } from '../../polymarket/gamma.js'
 /**
  * Parses slug from parquet filename.
  * Expected format: `<symbol>-updown-15m-<epochSeconds>.parquet`
+ * Also supports Azure downloaded files: `azure_<hex>_<symbol>-updown-15m-<epochSeconds>.parquet`
  * Returns null if format doesn't match.
  */
 export function parseSlugFromFilename(filePath: string): string | null {
-  const basename = filePath.split('/').pop() ?? filePath
-  const match = basename.match(/^([a-z]+)-updown-15m-(\d+)\.parquet$/)
+  // Handle both Unix and Windows path separators
+  const basename = filePath.split(/[/\\]/).pop() ?? filePath
+
+  // Try to match the slug pattern, with optional azure prefix
+  const match = basename.match(/(?:azure_[0-9a-f]+_)?([a-z]+)-updown-15m-(\d+)\.parquet$/)
   if (!match) return null
-  return match[0]!.replace(/\.parquet$/, '')
+
+  // Extract the slug part (without .parquet extension)
+  // If there's an azure prefix, remove it
+  const slugWithExt = match[0]!
+  const slug = slugWithExt.replace(/^azure_[0-9a-f]+_/, '').replace(/\.parquet$/, '')
+  return slug
 }
 
 /**
