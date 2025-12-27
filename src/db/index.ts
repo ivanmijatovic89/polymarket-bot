@@ -1,10 +1,10 @@
-import { drizzle } from 'drizzle-orm/postgres-js'
-import postgres from 'postgres'
+import { drizzle } from 'drizzle-orm/mysql2'
+import mysql from 'mysql2/promise'
 import { loadDatabaseConfigFromEnv } from './config.js'
 import * as schema from './schema.js'
 
 let dbInstance: ReturnType<typeof drizzle> | null = null
-let sqlInstance: ReturnType<typeof postgres> | null = null
+let poolInstance: ReturnType<typeof mysql.createPool> | null = null
 
 export function getDb() {
   if (dbInstance) {
@@ -12,16 +12,25 @@ export function getDb() {
   }
 
   const config = loadDatabaseConfigFromEnv()
-  sqlInstance = postgres(config.url)
-  dbInstance = drizzle(sqlInstance, { schema })
+  const poolConfig: mysql.PoolOptions = {
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    database: config.database,
+  }
+  if (config.password !== undefined) {
+    poolConfig.password = config.password
+  }
+  poolInstance = mysql.createPool(poolConfig)
+  dbInstance = drizzle({ client: poolInstance, schema })
 
   return dbInstance
 }
 
-export function closeDb() {
-  if (sqlInstance) {
-    sqlInstance.end()
-    sqlInstance = null
+export async function closeDb() {
+  if (poolInstance) {
+    await poolInstance.end()
+    poolInstance = null
     dbInstance = null
   }
 }

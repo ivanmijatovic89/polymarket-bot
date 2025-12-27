@@ -367,21 +367,27 @@ Libraries used:
 
 # Database
 
-## PostgreSQL Setup
+## MySQL Setup
 
-Install and start PostgreSQL:
+Install and start MySQL:
 
 ```bash
-brew install postgresql@16
-brew services start postgresql@16
-brew services stop postgresql@16
+brew install mysql
+brew services start mysql
+brew services stop mysql
 ```
 
 Create the database:
 
 ```bash
-psql postgres
+mysql -u root -p
 CREATE DATABASE polymarket_bot;
+```
+
+Or using Docker:
+
+```bash
+docker run --name drizzle-mysql -e MYSQL_ROOT_PASSWORD=mypassword -d -p 3306:3306 mysql
 ```
 
 ## Drizzle ORM
@@ -390,9 +396,16 @@ This project uses [Drizzle ORM](https://orm.drizzle.team/) for database access a
 
 ### Environment Variables
 
-- `DATABASE_URL` - PostgreSQL connection string (required)
-  - Format: `postgresql://user:password@host:port/database`
-  - Example: `postgresql://postgres:password@localhost:5432/polymarket_bot`
+- `DATABASE_HOST` - MySQL host (required)
+  - Example: `localhost`
+- `DATABASE_PORT` - MySQL port (required)
+  - Example: `3306`
+- `DATABASE_USERNAME` - MySQL username (required)
+  - Example: `root`
+- `DATABASE_PASSWORD` - MySQL password (optional)
+  - Example: `password`
+- `DATABASE_NAME` - MySQL database name (required)
+  - Example: `polymarket_bot`
 
 ### Database Scripts
 
