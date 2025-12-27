@@ -20,7 +20,7 @@ import { marketExistsBySlug, insertMarket, updateMarketBySlug } from '../db/inde
 installProcessCrashHandlers({ prefix: 'record-live' })
 
 const DEFAULT_STATS_INTERVAL_MS = 10_000
-const DEFAULT_SKIP_IF_OLDER_MS = 10_000_000_000
+const DEFAULT_SKIP_IF_OLDER_MS = 10_000
 
 function parseEnvInt(name: string, fallback: number): number {
   const raw = process.env[name]
