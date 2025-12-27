@@ -53,16 +53,42 @@ export function createRestPollAccountSource(
     if (!client) {
       const signatureType = opts.signatureType ?? 0
       const funder = opts.funder
+
+      console.log('[rest-poll] Initializing ClobClient', {
+        host: opts.host,
+        chainId: opts.chainId,
+        signatureType,
+        funder: funder ?? 'none',
+        walletAddress: wallet.address,
+        hasApiKey: !!opts.creds.apiKey,
+        hasSecret: !!opts.creds.secret,
+        hasPassphrase: !!opts.creds.passphrase,
+      })
+
+      // ClobClient expects { key, secret, passphrase } format (not { apiKey, secret, passphrase })
+      // Convert our format to what ClobClient expects
+      const credsForClient = {
+        key: opts.creds.apiKey,
+        secret: opts.creds.secret,
+        passphrase: opts.creds.passphrase,
+      }
+
       // clob-client constructor: (host, chainId, signer, creds, signatureType, funder?)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      client = new (ClobClient as any)(
-        opts.host,
-        opts.chainId,
-        wallet,
-        opts.creds,
-        signatureType,
-        funder,
-      )
+      try {
+        client = new (ClobClient as any)(
+          opts.host,
+          opts.chainId,
+          wallet,
+          credsForClient,
+          signatureType,
+          funder,
+        )
+        console.log('[rest-poll] ClobClient initialized successfully')
+      } catch (err) {
+        console.error('[rest-poll] Failed to initialize ClobClient:', err)
+        throw err
+      }
     }
     return client
   }
@@ -95,9 +121,13 @@ export function createRestPollAccountSource(
     try {
       const clobClient = getClient()
       const after = lastAfterSec !== undefined ? String(lastAfterSec) : undefined
+      console.log('[rest-poll] Fetching trades', { after, lastAfterSec })
+
       // clob-client getTrades supports params; we keep minimal.
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const trades: any[] = await clobClient.getTrades(after ? { after } : undefined)
+
+      console.log('[rest-poll] Received trades', { count: trades?.length ?? 0, trades })
       for (const t of trades) {
         const id = typeof t?.id === 'string' ? t.id : undefined
         if (!id || seenTradeIds.has(id)) continue

@@ -62,6 +62,14 @@ export class LiveExecution implements ExecutionAdapter {
     const signatureType = opts.signatureType ?? 0
     const funder = opts.funder
 
+    // ClobClient expects { key, secret, passphrase } format (not { apiKey, secret, passphrase })
+    // Convert our format to what ClobClient expects
+    const credsForClient = {
+      key: opts.creds.apiKey,
+      secret: opts.creds.secret,
+      passphrase: opts.creds.passphrase,
+    }
+
     // clob-client constructor supports (host, chainId, signer, creds, signatureType, funder?)
     // We keep this explicit to match docs and avoid surprises.
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -69,7 +77,7 @@ export class LiveExecution implements ExecutionAdapter {
       opts.host,
       opts.chainId,
       wallet,
-      opts.creds,
+      credsForClient,
       signatureType,
       funder,
     )
