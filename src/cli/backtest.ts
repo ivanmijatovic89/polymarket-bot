@@ -18,6 +18,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import { Timer } from '../utils/timer.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -146,6 +147,7 @@ export async function replayOrderBookForMarket(params: {
 }
 
 async function main(): Promise<void> {
+  const timer = new Timer()
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
   const built = (() => {
@@ -312,6 +314,7 @@ async function main(): Promise<void> {
   console.log('\n[backtest] orderbook summary', {
     events,
     byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+    ...timer.summary(),
   })
 }
 
