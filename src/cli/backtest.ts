@@ -20,6 +20,7 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
 import { AzureBlobDownloader, type DownloadedBlob } from '../parquet/AzureBlobDownloader.js'
+import { Semaphore } from '../utils/Semaphore.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -265,22 +266,32 @@ async function main(): Promise<void> {
     let totalDownloadTime = 0
     let totalProcessingTime = 0
 
-    // True parallel pipeline: process file N while downloading file N+1
+    // Result type for processFile (thread-safe, no shared state mutations)
+    type FileStats = {
+      events: number
+      byType: Map<string, number>
+      marketStat: MarketStats | null
+      downloadTime: number
+      processingTime: number
+      tempFilePath: string
+    }
+
     type ProcessTask = {
       blob: DownloadedBlob
       downloadTime: number
       index: number
     }
 
-    const processFile = async (task: ProcessTask): Promise<void> => {
+    const processFile = async (task: ProcessTask): Promise<FileStats> => {
       const { blob, downloadTime, index } = task
       const fp = blob.tempFilePath
 
-      totalDownloadTime += downloadTime
-      tempFiles.push(fp)
-
       console.log(`[backtest] processing file ${index + 1}/${blobNames.length}: ${blob.originalBlobName}`)
       const processingStart = Date.now()
+
+      // Local counters (thread-safe, no shared state)
+      let localEvents = 0
+      const localByType = new Map<string, number>()
 
       const active = mkRunner()
       const runner = active.runner
@@ -302,8 +313,10 @@ async function main(): Promise<void> {
         shouldStop: () => shouldStop,
         onSnapshot: async (snap, raw) => {
           if (shouldStop) return
-          events += 1
-          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+
+          // Local accumulation (no race conditions)
+          localEvents += 1
+          localByType.set(raw.msg.event_type, (localByType.get(raw.msg.event_type) ?? 0) + 1)
 
           if (!currentMarketId) {
             currentMarketId = snap.market
@@ -324,6 +337,8 @@ async function main(): Promise<void> {
       })
 
       // Compute stats
+      let marketStat: MarketStats | null = null
+
       if (slug && currentMarketId && marketResolution) {
         const portfolio = runner.getPortfolio().snapshot()
         const finalPositions = portfolio.positionsByAssetId
@@ -336,7 +351,7 @@ async function main(): Promise<void> {
           (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
 
         if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
-          const stats = computeMarketStats({
+          marketStat = computeMarketStats({
             marketId: currentMarketId,
             trades: currentMarketTrades,
             finalPositions,
@@ -345,9 +360,8 @@ async function main(): Promise<void> {
             tokenMap: marketResolution.tokenMap,
           })
 
-          marketStats.push(stats)
           console.log(
-            `[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+            `[backtest] market=${currentMarketId} slug=${slug} outcome=${marketStat.finalOutcome} pnl=${marketStat.pnl} trades=${marketStat.tradeCount}`,
           )
         } else if (marketResolution.outcome === null) {
           console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
@@ -362,52 +376,107 @@ async function main(): Promise<void> {
 
       const processingEnd = Date.now()
       const processingTime = processingEnd - processingStart
-      totalProcessingTime += processingTime
       console.log(`[backtest] file ${index + 1} processing took ${(processingTime / 1000).toFixed(2)}s`)
+
+      // Return results instead of mutating globals
+      return {
+        events: localEvents,
+        byType: localByType,
+        marketStat,
+        downloadTime,
+        processingTime,
+        tempFilePath: fp,
+      }
     }
 
-    // True parallel pipeline: download N+1 while processing N
-    let pendingDownload: Promise<DownloadedBlob> | null = null
-    let downloadStartTime = 0
-    let downloadedBlob: DownloadedBlob | null = null
+    // Configuration for parallel processing
+    const DOWNLOAD_CONCURRENCY = parseInt(process.env.AZURE_DOWNLOAD_CONCURRENCY || '8')
+    const PROCESS_CONCURRENCY = parseInt(process.env.PROCESS_CONCURRENCY || '2')
+    const BATCH_SIZE = parseInt(process.env.BATCH_SIZE || '10')
 
-    for (let i = 0; i < blobNames.length; i++) {
+    console.log(`[backtest] parallel config: ${DOWNLOAD_CONCURRENCY} concurrent downloads, ${PROCESS_CONCURRENCY} concurrent processing, batch size ${BATCH_SIZE}`)
+
+    // Collect all file stats for aggregation
+    const allFileStats: FileStats[] = []
+    const processSemaphore = new Semaphore(PROCESS_CONCURRENCY)
+
+    // Process in batches to manage memory
+    for (let batchStart = 0; batchStart < blobNames.length; batchStart += BATCH_SIZE) {
       if (shouldStop) break
 
-      // Download current file (or wait for pending download from previous iteration)
-      if (pendingDownload) {
-        // This download was started in previous iteration while we were processing
-        const downloadEnd = Date.now()
-        downloadedBlob = await pendingDownload
-        const downloadTime = downloadEnd - downloadStartTime
-        console.log(`[backtest] downloaded ${i + 1}/${blobNames.length} in ${(downloadTime / 1000).toFixed(2)}s (parallel with previous processing)`)
-        totalDownloadTime += downloadTime
-      } else {
-        // First file - download it now
-        console.log(`[backtest] downloading ${i + 1}/${blobNames.length}: ${blobNames[i]}`)
-        downloadStartTime = Date.now()
-        downloadedBlob = await downloader.downloadToTempFile(containerName, blobNames[i]!)
-        const downloadEnd = Date.now()
-        const downloadTime = downloadEnd - downloadStartTime
-        console.log(`[backtest] downloaded ${i + 1}/${blobNames.length} in ${(downloadTime / 1000).toFixed(2)}s`)
-        totalDownloadTime += downloadTime
-      }
+      const batchEnd = Math.min(batchStart + BATCH_SIZE, blobNames.length)
+      const batchNames = blobNames.slice(batchStart, batchEnd)
 
-      tempFiles.push(downloadedBlob.tempFilePath)
+      console.log(`[backtest] ===== Batch ${Math.floor(batchStart / BATCH_SIZE) + 1}/${Math.ceil(blobNames.length / BATCH_SIZE)}: files ${batchStart + 1}-${batchEnd} =====`)
 
-      // Start downloading NEXT file (don't await - let it run in background)
-      if (i + 1 < blobNames.length) {
-        console.log(`[backtest] starting download ${i + 2}/${blobNames.length} in background (parallel with processing)...`)
-        downloadStartTime = Date.now()
-        pendingDownload = downloader.downloadToTempFile(containerName, blobNames[i + 1]!)
-      }
+      // Phase 1: Download batch (8 concurrent downloads)
+      console.log(`[backtest] downloading ${batchNames.length} files with ${DOWNLOAD_CONCURRENCY} concurrent connections...`)
+      const batchDownloadStart = Date.now()
 
-      // Process current file (while next file downloads in background)
-      console.log(`[backtest] processing file ${i + 1}/${blobNames.length}`)
-      await processFile({ blob: downloadedBlob, downloadTime: 0, index: i })
+      const downloadPromises = batchNames.map((name, idx) =>
+        downloader!.downloadToTempFile(containerName, name).then((blob) => ({
+          blob,
+          index: batchStart + idx,
+          name,
+        })),
+      )
+
+      const downloads = await Promise.all(downloadPromises)
+      const batchDownloadTime = Date.now() - batchDownloadStart
+      totalDownloadTime += batchDownloadTime
+
+      console.log(`[backtest] batch download completed in ${(batchDownloadTime / 1000).toFixed(2)}s (${(batchDownloadTime / batchNames.length / 1000).toFixed(2)}s avg per file)`)
+
+      // Phase 2: Process batch with concurrency limit (2-3 concurrent processing)
+      console.log(`[backtest] processing ${batchNames.length} files with ${PROCESS_CONCURRENCY} concurrent workers...`)
+      const batchProcessStart = Date.now()
+
+      const processPromises = downloads.map(async ({ blob, index, name }) => {
+        await processSemaphore.acquire()
+        try {
+          console.log(`[backtest] [worker] processing ${index + 1}/${blobNames.length}: ${name} (${processSemaphore.waiting()} waiting)`)
+          return await processFile({ blob, downloadTime: 0, index })
+        } finally {
+          processSemaphore.release()
+        }
+      })
+
+      const batchResults = await Promise.all(processPromises)
+      const batchProcessTime = Date.now() - batchProcessStart
+      totalProcessingTime += batchProcessTime
+
+      console.log(`[backtest] batch processing completed in ${(batchProcessTime / 1000).toFixed(2)}s (${(batchProcessTime / batchNames.length / 1000).toFixed(2)}s avg per file)`)
+
+      allFileStats.push(...batchResults)
+
+      // Phase 3: Cleanup batch temp files immediately (free memory)
+      console.log(`[backtest] cleaning up ${batchResults.length} temp files...`)
+      await Promise.all(batchResults.map((r) => downloader!.cleanupTempFile(r.tempFilePath)))
+
+      const batchTotalTime = Date.now() - batchDownloadStart
+      console.log(`[backtest] batch ${Math.floor(batchStart / BATCH_SIZE) + 1} total time: ${(batchTotalTime / 1000).toFixed(2)}s\n`)
     }
 
     const pipelineEndTime = Date.now()
+
+    // Aggregate stats from all processed files
+    console.log(`[backtest] aggregating stats from ${allFileStats.length} files...`)
+
+    // Total events
+    events = allFileStats.reduce((sum, stat) => sum + stat.events, 0)
+
+    // Merge event type counts
+    for (const stat of allFileStats) {
+      for (const [type, count] of stat.byType) {
+        byType.set(type, (byType.get(type) ?? 0) + count)
+      }
+    }
+
+    // Collect market stats (filter out null)
+    const allMarketStats = allFileStats.map((stat) => stat.marketStat).filter((s): s is MarketStats => s !== null)
+    marketStats.push(...allMarketStats)
+
+    console.log(`[backtest] aggregated: ${events} events, ${byType.size} event types, ${allMarketStats.length} market stats`)
 
     azureStats = {
       totalBlobs: blobNames.length,
@@ -417,6 +486,7 @@ async function main(): Promise<void> {
 
     console.log(`[backtest] pipeline completed in ${((pipelineEndTime - pipelineStartTime) / 1000).toFixed(2)}s`)
     console.log(`[backtest] total download: ${(totalDownloadTime / 1000).toFixed(2)}s, total processing: ${(totalProcessingTime / 1000).toFixed(2)}s`)
+    console.log(`[backtest] speedup from parallelization: ${((totalDownloadTime + totalProcessingTime) / (pipelineEndTime - pipelineStartTime)).toFixed(2)}x`)
 
     // Set filePaths to empty to skip the regular processing loop
     filePaths = []
