@@ -1,5 +1,5 @@
-import { ClobClient, OrderType as PolyOrderType, Side as PolySide } from '@polymarket/clob-client'
-import { Wallet } from 'ethers'
+import { OrderType as PolyOrderType, Side as PolySide } from '@polymarket/clob-client'
+import type { ClobClient } from '@polymarket/clob-client'
 
 import type {
   AccountEvent,
@@ -7,7 +7,8 @@ import type {
   CancelOrderIntent,
   PlaceLimitIntent,
 } from '../../strategy/Strategy.js'
-import type { PolymarketCredentials } from '../../polymarket/config.js'
+import type { PolymarketConfig } from '../../polymarket/config.js'
+import { createClobClient } from '../../polymarket/clobClient.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
@@ -23,29 +24,20 @@ function toPolyOrderType(t: 'FOK' | 'GTC' | 'GTD'): PolyOrderType {
 
 export type LiveExecutionOptions = {
   /**
-   * CLOB host, e.g. https://clob.polymarket.com
+   * Optional config override. If not provided, config will be loaded from environment variables.
    */
-  host: string
+  config?: PolymarketConfig
   /**
-   * Chain id, e.g. 137 (Polygon mainnet)
+   * Optional overrides for specific config values.
    */
-  chainId: number
-  /**
-   * Wallet private key for signing orders.
-   */
-  privateKey: string
-  /**
-   * API creds for signing/auth.
-   */
-  creds: PolymarketCredentials
-  /**
-   * Signature type (see Polymarket docs). Default 0 (EOA).
-   */
-  signatureType?: number
-  /**
-   * Optional funder address (required for some wallet types like Safe/proxy).
-   */
-  funder?: string
+  overrides?: {
+    host?: string
+    chainId?: number
+    privateKey?: string
+    creds?: PolymarketConfig['creds']
+    signatureType?: number
+    funder?: string
+  }
   /**
    * Optional tickSize / negRisk passed to createOrder/createAndPostOrder when applicable.
    * For now we keep undefined and rely on defaults; strategy/backtest uses live book prices already.
@@ -56,31 +48,16 @@ export type LiveExecutionOptions = {
 export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
 
-  constructor(opts: LiveExecutionOptions) {
-    const wallet = new Wallet(opts.privateKey)
-
-    const signatureType = opts.signatureType ?? 0
-    const funder = opts.funder
-
-    // ClobClient expects { key, secret, passphrase } format (not { apiKey, secret, passphrase })
-    // Convert our format to what ClobClient expects
-    const credsForClient = {
-      key: opts.creds.apiKey,
-      secret: opts.creds.secret,
-      passphrase: opts.creds.passphrase,
+  constructor(opts: LiveExecutionOptions = {}) {
+    // If no config or overrides provided, createClobClient will auto-load from env vars
+    if (opts.config !== undefined || opts.overrides !== undefined) {
+      this.client = createClobClient({
+        ...(opts.config !== undefined ? { config: opts.config } : {}),
+        ...(opts.overrides !== undefined ? { overrides: opts.overrides } : {}),
+      })
+    } else {
+      this.client = createClobClient()
     }
-
-    // clob-client constructor supports (host, chainId, signer, creds, signatureType, funder?)
-    // We keep this explicit to match docs and avoid surprises.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    this.client = new (ClobClient as any)(
-      opts.host,
-      opts.chainId,
-      wallet,
-      credsForClient,
-      signatureType,
-      funder,
-    )
   }
 
   async placeLimit(
@@ -88,6 +65,13 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
+    console.log('placing limit order in LiveExecution', {
+      assetId: intent.assetId,
+      price: intent.price,
+      size: intent.size,
+      side: intent.side,
+      orderType: intent.orderType,
+    })
     try {
       const signed = await this.client.createOrder({
         tokenID: intent.assetId,
@@ -101,6 +85,8 @@ export class LiveExecution implements ExecutionAdapter {
 
       const resp = await this.client.postOrder(signed, toPolyOrderType(intent.orderType))
       // Resp shape varies; docs show {success, orderId, orderHashes, errorMsg}.
+      console.log('LiveExecution > response api >',  resp )
+
       const ok = (resp as { success?: unknown }).success
       if (ok === false) {
         const msg = (resp as { errorMsg?: unknown }).errorMsg
@@ -144,6 +130,7 @@ export class LiveExecution implements ExecutionAdapter {
       // Strategy can still treat this as accepted/open; fill will arrive via account stream quickly.
       return { events }
     } catch (err) {
+      console.log('LiveExecution > error >',  err )
       return {
         events: [
           {
