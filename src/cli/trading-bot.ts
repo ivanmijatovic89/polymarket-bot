@@ -96,12 +96,7 @@ async function main(): Promise<void> {
         onMarketTick: async () => ({ events: [] }),
       }
     : new LiveExecution({
-        host: cfg.clob.host,
-        chainId: cfg.clob.chainId,
-        privateKey: cfg.privateKey!,
-        creds: cfg.creds!,
-        signatureType: cfg.clob.signatureType,
-        ...(cfg.clob.funder ? { funder: cfg.clob.funder } : {}),
+        config: cfg,
       })
   const orderManager = new OrderManager({
     execution: exec,
@@ -146,28 +141,15 @@ async function main(): Promise<void> {
         auth: cfg.creds!,
       })
     : null
-  // For testing: enable REST poller immediately if TEST_REST_POLLER=true
-  const testRestPoller = (process.env.TEST_REST_POLLER ?? 'false').toLowerCase() === 'true'
   const poller =
     haveCreds && havePrivateKey
       ? createRestPollAccountSource({
-          host: cfg.clob.host,
-          chainId: cfg.clob.chainId,
-          privateKey: cfg.privateKey!,
+          config: cfg,
           pollIntervalMs: cfg.clob.pollIntervalMs,
-          creds: cfg.creds!,
-          signatureType: cfg.clob.signatureType,
-          ...(cfg.clob.funder ? { funder: cfg.clob.funder } : {}),
-          // Start enabled if testing, otherwise disabled (enable only when user WS disconnects).
-          enabled: testRestPoller,
+          // Disabled by default (enable only when user WS disconnects).
+          enabled: false,
         })
       : null
-
-  // If testing, enable poller immediately
-  if (testRestPoller && poller) {
-    console.log('[trading-bot] TEST_REST_POLLER=true - enabling REST poller immediately for testing')
-    poller.setEnabled(true)
-  }
 
   // Track if user WS has been stably connected (to avoid enabling poller on brief connections)
   let userWsStablyConnected = false
