@@ -30,7 +30,8 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:insert-parquet": "tsx src/db/insert-local-parquet-files-to-database.ts"
   },
   "keywords": [],
   "author": "",
@@ -53,6 +54,7 @@
     "@dsnp/parquetjs": "^1.8.7",
     "@polymarket/clob-client": "^5.1.2",
     "blessed": "^0.1.81",
+    "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.1",
     "ethers": "^6.16.0",
     "pino": "^10.1.0",

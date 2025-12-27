@@ -22,7 +22,7 @@ export function getDb() {
     poolConfig.password = config.password
   }
   poolInstance = mysql.createPool(poolConfig)
-  dbInstance = drizzle({ client: poolInstance, schema })
+  dbInstance = drizzle({ client: poolInstance, schema, mode: 'default' })
 
   return dbInstance
 }
