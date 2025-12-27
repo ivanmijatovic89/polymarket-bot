@@ -52,6 +52,7 @@
   },
   "dependencies": {
     "@dsnp/parquetjs": "^1.8.7",
+    "@ethersproject/wallet": "^5.7.2",
     "@polymarket/clob-client": "^5.1.2",
     "blessed": "^0.1.81",
     "dotenv": "^16.4.7",
