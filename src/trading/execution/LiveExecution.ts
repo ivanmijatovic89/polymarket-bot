@@ -110,6 +110,47 @@ export class LiveExecution implements ExecutionAdapter {
             ? ((resp as { orderID?: string }).orderID as string)
             : undefined
 
+      // For FOK orders, handle immediately - they either fill completely or get killed
+      if (intent.orderType === 'FOK') {
+        const events: AccountEvent[] = [
+          {
+            kind: 'order_accepted',
+            tsMs: nowMs,
+            clientOrderId: intent.clientOrderId,
+            ...(orderId ? { orderId } : {}),
+          },
+        ]
+
+        // Check if FOK order filled or was killed
+        // If orderHashes exist, it likely filled (but we don't have fill details here)
+        // If no orderId or specific indicators, it was killed
+        const orderHashes = (resp as { orderHashes?: unknown[] }).orderHashes
+        const hasFills = Array.isArray(orderHashes) && orderHashes.length > 0
+
+        if (hasFills || orderId) {
+          // FOK filled - but we don't synthesize fills here without details
+          // Fill events will come via WS/polling, but we mark order as done
+          events.push({
+            kind: 'order_done',
+            tsMs: nowMs,
+            clientOrderId: intent.clientOrderId,
+            ...(orderId ? { orderId } : {}),
+            reason: 'filled',
+          })
+        } else {
+          // FOK was killed (couldn't fill completely)
+          events.push({
+            kind: 'order_done',
+            tsMs: nowMs,
+            clientOrderId: intent.clientOrderId,
+            reason: 'killed',
+          })
+        }
+
+        return { events }
+      }
+
+      // For GTC/GTD orders, emit order_accepted and order_open
       const events: AccountEvent[] = [
         {
           kind: 'order_accepted',
@@ -125,9 +166,6 @@ export class LiveExecution implements ExecutionAdapter {
         },
       ]
 
-      // Fast-path: if FOK matched, response may include orderHashes.
-      // We *do not* synthesize fills here without a guaranteed fill breakdown; user WS/polling will reconcile.
-      // Strategy can still treat this as accepted/open; fill will arrive via account stream quickly.
       return { events }
     } catch (err) {
       console.log('LiveExecution > error >',  err )

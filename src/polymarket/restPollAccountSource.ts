@@ -1,18 +1,28 @@
-import { ClobClient } from '@polymarket/clob-client'
+import type { ClobClient } from '@polymarket/clob-client'
 import { Wallet } from 'ethers'
 
 import type { AccountEvent, Fill } from '../strategy/Strategy.js'
-import type { PolymarketCredentials } from './config.js'
+import { loadPolymarketConfigFromEnv, type PolymarketConfig } from './config.js'
+import { createClobClient } from './clobClient.js'
 
 export type RestPollAccountSourceOptions = {
-  host: string
-  chainId: number
-  privateKey: string
-  creds: PolymarketCredentials
+  /**
+   * Optional config override. If not provided, config will be loaded from environment variables.
+   */
+  config?: PolymarketConfig
+  /**
+   * Optional overrides for specific config values.
+   */
+  overrides?: {
+    host?: string
+    chainId?: number
+    privateKey?: string
+    creds?: PolymarketConfig['creds']
+    signatureType?: number
+    funder?: string
+  }
   pollIntervalMs?: number
   enabled?: boolean
-  signatureType?: number
-  funder?: string
 }
 
 export type RestPollAccountSource = {
@@ -33,57 +43,33 @@ function asMsFromSecString(raw: unknown): number | null {
 }
 
 export function createRestPollAccountSource(
-  opts: RestPollAccountSourceOptions,
+  opts: RestPollAccountSourceOptions = {},
 ): RestPollAccountSource {
-  const wallet = new Wallet(opts.privateKey)
-
-  // Validate credentials before creating client
-  if (!opts.creds) {
-    throw new Error('[rest-poll] Missing credentials in RestPollAccountSourceOptions')
-  }
-  if (!opts.creds.apiKey || !opts.creds.secret || !opts.creds.passphrase) {
-    throw new Error(
-      '[rest-poll] Invalid credentials: apiKey, secret, and passphrase are required',
-    )
-  }
-
   // Lazy initialization: only create ClobClient when we actually need it (when enabled)
-  let client: any = undefined
-  const getClient = (): any => {
+  let client: ClobClient | undefined = undefined
+  let wallet: Wallet | undefined = undefined
+
+  const getClient = (): ClobClient => {
     if (!client) {
-      const signatureType = opts.signatureType ?? 0
-      const funder = opts.funder
-
-      console.log('[rest-poll] Initializing ClobClient', {
-        host: opts.host,
-        chainId: opts.chainId,
-        signatureType,
-        funder: funder ?? 'none',
-        walletAddress: wallet.address,
-        hasApiKey: !!opts.creds.apiKey,
-        hasSecret: !!opts.creds.secret,
-        hasPassphrase: !!opts.creds.passphrase,
-      })
-
-      // ClobClient expects { key, secret, passphrase } format (not { apiKey, secret, passphrase })
-      // Convert our format to what ClobClient expects
-      const credsForClient = {
-        key: opts.creds.apiKey,
-        secret: opts.creds.secret,
-        passphrase: opts.creds.passphrase,
+      // Get wallet address for logging (create wallet temporarily if needed)
+      if (!wallet) {
+        const config = opts.config ?? loadPolymarketConfigFromEnv()
+        const privateKey = opts.overrides?.privateKey ?? config.privateKey
+        if (!privateKey) {
+          throw new Error('[rest-poll] Missing privateKey')
+        }
+        wallet = new Wallet(privateKey)
       }
 
-      // clob-client constructor: (host, chainId, signer, creds, signatureType, funder?)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      console.log('[rest-poll] Initializing ClobClient', {
+        walletAddress: wallet.address,
+      })
+
       try {
-        client = new (ClobClient as any)(
-          opts.host,
-          opts.chainId,
-          wallet,
-          credsForClient,
-          signatureType,
-          funder,
-        )
+        client = createClobClient({
+          ...(opts.config !== undefined ? { config: opts.config } : {}),
+          ...(opts.overrides !== undefined ? { overrides: opts.overrides } : {}),
+        })
         console.log('[rest-poll] ClobClient initialized successfully')
       } catch (err) {
         console.error('[rest-poll] Failed to initialize ClobClient:', err)
