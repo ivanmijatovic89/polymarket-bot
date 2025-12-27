@@ -280,8 +280,11 @@ async function main(): Promise<void> {
         })
 
         marketStats.push(stats)
+        // Print in green if pnl >= 0, red if < 0, using ANSI escape codes
+        const pnlColor = stats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
+        const resetColor = '\x1b[0m'
         console.log(
-          `[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+          `${pnlColor}[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}${resetColor}`,
         )
       } else if (marketResolution.outcome === null) {
         console.warn(
