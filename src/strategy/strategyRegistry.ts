@@ -1,16 +1,12 @@
 import type { StrategyDefinition } from './strategyDefinition.js'
-import { definition as exampleMakerQuote } from '../strategies/exampleMakerQuote.js'
-import { definition as exampleTakerFlip } from '../strategies/exampleTakerFlip.js'
-import { definition as hybridProduction } from '../strategies/hybridProduction.js'
-import { definition as hybridProduction2 } from '../strategies/hybridProduction2.js'
-import { definition as winnerLimit } from '../strategies/winnerLimit.js'
+import { definition as exampleMakerQuoteV1 } from '../strategies/exampleMakerQuote.v1.js'
+import { definition as exampleTakerFlipV1 } from '../strategies/exampleTakerFlip.v1.js'
+import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 
 export const strategyRegistry = {
-  [exampleMakerQuote.id]: exampleMakerQuote,
-  [exampleTakerFlip.id]: exampleTakerFlip,
-  [hybridProduction.id]: hybridProduction,
-  [hybridProduction2.id]: hybridProduction2,
-  [winnerLimit.id]: winnerLimit,
+  [exampleMakerQuoteV1.id]: exampleMakerQuoteV1,
+  [exampleTakerFlipV1.id]: exampleTakerFlipV1,
+  [winnerLimitV1.id]: winnerLimitV1,
 } as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry

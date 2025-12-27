@@ -30,7 +30,7 @@ export function formatStrategyHelp(args: { script: string }): string {
   lines.push(``)
   lines.push(`Example:`)
   lines.push(
-    `  ${args.script} --strategy winnerLimit --param size=5 --param triggerPrice=0.9 --param minDelayMs=600000`,
+    `  ${args.script} --strategy winnerLimit.v1 --param size=5 --param triggerPrice=0.9 --param minDelayMs=600000`,
   )
   return lines.join('\n')
 }
