@@ -171,6 +171,42 @@ async function main(): Promise<void> {
   }
   let azureStats: AzureStats | null = null
 
+  // Declare shared variables before Azure block
+  let shouldStop = false
+  const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
+    console.log(`[backtest] ${signal} received, stopping...`)
+    shouldStop = true
+  }
+  installSignalHandlers({ onSignal: shutdown })
+
+  let events = 0
+  const byType = new Map<string, number>()
+
+  const mkRunner = (): {
+    strategy: Strategy
+    runner: StrategyRunner
+  } => {
+    const def = getStrategyDefinition(built.strategyId)
+    const strategy = def.create(built.params as never)
+    const exec = new BacktestExecution()
+    const orderManager = new OrderManager({
+      execution: exec,
+      dryRun: false,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
+    const runner = new StrategyRunner({
+      strategy,
+      orderManager,
+      log: (msg, extra) => console.log(msg, extra ?? ''),
+    })
+    return { strategy, runner }
+  }
+
+  const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '10000')
+  const marketStats: MarketStats[] = []
+
+  console.log(`[backtest] strategy=${built.strategyId}`)
+
   // Handle Azure Blob Storage mode
   if (parsed.useAzure) {
     const connectionString = process.env.AZURE_STORAGE_CONNECTION_STRING
@@ -223,44 +259,144 @@ async function main(): Promise<void> {
       process.exit(2)
     }
 
-    console.log(`[backtest] downloading ${blobNames.length} blobs with parallel pipeline...`)
+    console.log(`[backtest] processing ${blobNames.length} blobs with parallel download pipeline...`)
 
-    const downloadStartTime = Date.now()
+    const pipelineStartTime = Date.now()
+    let totalDownloadTime = 0
+    let totalProcessingTime = 0
 
-    // Parallel download pipeline: download next blob while processing current one
-    const downloaded: string[] = []
+    // Pipeline: download file N+1 while processing file N
     let downloadPromise: Promise<DownloadedBlob> | null = null
+    let downloadStartTime = 0
 
-    // Start first download
-    downloadPromise = downloader.downloadToTempFile(containerName, blobNames[0]!)
+    // Start downloading first file
+    if (blobNames.length > 0) {
+      downloadStartTime = Date.now()
+      downloadPromise = downloader.downloadToTempFile(containerName, blobNames[0]!)
+    }
 
     for (let i = 0; i < blobNames.length; i++) {
+      if (shouldStop) break
+
       // Wait for current download to complete
       const blob = await downloadPromise!
-      downloaded.push(blob.tempFilePath)
-      tempFiles.push(blob.tempFilePath)
+      const downloadEnd = Date.now()
+      totalDownloadTime += downloadEnd - downloadStartTime
 
-      // Start next download immediately (if there is one)
+      tempFiles.push(blob.tempFilePath)
+      console.log(`[backtest] downloaded ${i + 1}/${blobNames.length}: ${blob.originalBlobName}`)
+
+      // Start downloading NEXT file immediately (while we process current one)
       if (i + 1 < blobNames.length) {
+        downloadStartTime = Date.now()
         downloadPromise = downloader.downloadToTempFile(containerName, blobNames[i + 1]!)
       }
 
-      console.log(`[backtest] downloaded ${i + 1}/${blobNames.length}: ${blob.originalBlobName}`)
+      // Process current file
+      const processingStart = Date.now()
+      const fp = blob.tempFilePath
+
+      console.log(`[backtest] processing file ${i + 1}/${blobNames.length}`)
+      const active = mkRunner()
+      const runner = active.runner
+
+      // Parse slug and fetch market resolution
+      const slug = parseSlugFromFilename(fp)
+      const marketResolution = slug ? await getMarketResolution(slug) : null
+
+      // Track market data during replay
+      let currentMarketId: string | undefined
+      let currentMarketTrades: Fill[] = []
+      const seenFillIds = new Set<string>()
+
+      // Replay orderbook
+      await replayOrderBookForMarket({
+        filePaths: [fp],
+        order: parsed.order,
+        timeDriven: parsed.timeDriven,
+        shouldStop: () => shouldStop,
+        onSnapshot: async (snap, raw) => {
+          if (shouldStop) return
+          events += 1
+          byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+
+          if (!currentMarketId) {
+            currentMarketId = snap.market
+          }
+
+          await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+
+          if (currentMarketId) {
+            const portfolio = runner.getPortfolio().snapshot()
+            for (const fill of portfolio.recentFills) {
+              if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
+                currentMarketTrades.push(fill)
+                seenFillIds.add(fill.id)
+              }
+            }
+          }
+        },
+      })
+
+      // Compute stats
+      if (slug && currentMarketId && marketResolution) {
+        const portfolio = runner.getPortfolio().snapshot()
+        const finalPositions = portfolio.positionsByAssetId
+        const realizedPnl = portfolio.realizedPnlTotal ?? 0
+
+        const upAssetId = marketResolution.tokenMap['UP']
+        const downAssetId = marketResolution.tokenMap['DOWN']
+        const hasPositions =
+          (upAssetId && finalPositions[upAssetId] && finalPositions[upAssetId]!.qty > 0) ||
+          (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
+
+        if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
+          const stats = computeMarketStats({
+            marketId: currentMarketId,
+            trades: currentMarketTrades,
+            finalPositions,
+            realizedPnl,
+            finalOutcome: marketResolution.outcome,
+            tokenMap: marketResolution.tokenMap,
+          })
+
+          marketStats.push(stats)
+          console.log(
+            `[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}`,
+          )
+        } else if (marketResolution.outcome === null) {
+          console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
+        } else {
+          console.log(`[backtest] market=${currentMarketId} no positions or trades, skipping stats`)
+        }
+      } else if (!slug) {
+        console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
+      } else if (!marketResolution) {
+        console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
+      }
+
+      const processingEnd = Date.now()
+      const processingTime = processingEnd - processingStart
+      totalProcessingTime += processingTime
+      console.log(`[backtest] file ${i + 1} processing took ${(processingTime / 1000).toFixed(2)}s`)
     }
 
-    filePaths = downloaded
-    const downloadEndTime = Date.now()
+    const pipelineEndTime = Date.now()
 
     azureStats = {
       totalBlobs: blobNames.length,
-      downloadTimeMs: downloadEndTime - downloadStartTime,
-      processingTimeMs: 0, // Will be updated later
+      downloadTimeMs: totalDownloadTime,
+      processingTimeMs: totalProcessingTime,
     }
 
-    console.log(`[backtest] download completed in ${(azureStats.downloadTimeMs / 1000).toFixed(2)}s`)
+    console.log(`[backtest] pipeline completed in ${((pipelineEndTime - pipelineStartTime) / 1000).toFixed(2)}s`)
+    console.log(`[backtest] total download: ${(totalDownloadTime / 1000).toFixed(2)}s, total processing: ${(totalProcessingTime / 1000).toFixed(2)}s`)
+
+    // Set filePaths to empty to skip the regular processing loop
+    filePaths = []
   }
 
-  if (filePaths.length === 0) {
+  if (filePaths.length === 0 && !parsed.useAzure) {
     console.error(
       'Usage:\n' +
         '  Local files:\n' +
@@ -279,48 +415,12 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
-  console.log(`[backtest] order=${parsed.order}`)
-  console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
-
-  let shouldStop = false
-  const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
-    console.log(`[backtest] ${signal} received, stopping...`)
-    shouldStop = true
+  // For non-Azure mode, print file info and process files
+  if (!parsed.useAzure && filePaths.length > 0) {
+    console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
+    console.log(`[backtest] order=${parsed.order}`)
+    console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
   }
-  installSignalHandlers({ onSignal: shutdown })
-
-  let events = 0
-  const byType = new Map<string, number>()
-
-  const mkRunner = (): {
-    strategy: Strategy
-    runner: StrategyRunner
-  } => {
-    const def = getStrategyDefinition(built.strategyId)
-    const strategy = def.create(built.params as never)
-    const exec = new BacktestExecution()
-    const orderManager = new OrderManager({
-      execution: exec,
-      dryRun: false,
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
-    const runner = new StrategyRunner({
-      strategy,
-      orderManager,
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
-    return { strategy, runner }
-  }
-
-  console.log(`[backtest] strategy=${built.strategyId}`)
-
-  // Stats tracking
-  const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '10000')
-  const marketStats: MarketStats[] = []
-
-  // Start processing timer
-  const processingStartTime = Date.now()
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
@@ -423,14 +523,6 @@ async function main(): Promise<void> {
 
     console.log('\n[backtest] ===== BATCH STATS =====')
     console.log(JSON.stringify(batchStats, null, 2))
-  }
-
-  // End processing timer
-  const processingEndTime = Date.now()
-
-  // Update Azure stats if applicable
-  if (azureStats) {
-    azureStats.processingTimeMs = processingEndTime - processingStartTime
   }
 
   console.log('\n[backtest] orderbook summary', {
