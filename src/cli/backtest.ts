@@ -19,7 +19,7 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
-import { getDb } from '../db/index.js'
+import { getDb, closeDb } from '../db/index.js'
 import { markets } from '../db/schema.js'
 import { eq, asc } from 'drizzle-orm'
 
@@ -335,7 +335,7 @@ async function main(): Promise<void> {
       } else if (marketResolution.outcome === null) {
         console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
       } else {
-        console.log(`[backtest] market=${currentMarketId} no positions or trades, skipping stats`)
+        console.log(`[backtest] slug=${slug} no positions or trades, skipping stats`)
       }
     } else if (!slug) {
       console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
@@ -363,9 +363,13 @@ async function main(): Promise<void> {
     byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
     ...timer.summary(),
   })
+
+  // Close database connection pool
+  await closeDb()
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('[backtest] failed', err)
+  await closeDb()
   process.exit(1)
 })
