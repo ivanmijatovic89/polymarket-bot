@@ -154,6 +154,8 @@ async function main(): Promise<void> {
           privateKey: cfg.privateKey!,
           pollIntervalMs: cfg.clob.pollIntervalMs,
           creds: cfg.creds!,
+          signatureType: cfg.clob.signatureType,
+          ...(cfg.clob.funder ? { funder: cfg.clob.funder } : {}),
           // Start disabled; enable only when user WS disconnects.
           enabled: false,
         })

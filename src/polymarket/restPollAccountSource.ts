@@ -11,6 +11,8 @@ export type RestPollAccountSourceOptions = {
   creds: PolymarketCredentials
   pollIntervalMs?: number
   enabled?: boolean
+  signatureType?: number
+  funder?: string
 }
 
 export type RestPollAccountSource = {
@@ -49,8 +51,18 @@ export function createRestPollAccountSource(
   let client: any = undefined
   const getClient = (): any => {
     if (!client) {
+      const signatureType = opts.signatureType ?? 0
+      const funder = opts.funder
+      // clob-client constructor: (host, chainId, signer, creds, signatureType, funder?)
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      client = new (ClobClient as any)(opts.host, opts.chainId, wallet, opts.creds)
+      client = new (ClobClient as any)(
+        opts.host,
+        opts.chainId,
+        wallet,
+        opts.creds,
+        signatureType,
+        funder,
+      )
     }
     return client
   }
