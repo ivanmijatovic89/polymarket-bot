@@ -19,6 +19,9 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
+import { getDb } from '../db/index.js'
+import { markets } from '../db/schema.js'
+import { eq, asc } from 'drizzle-orm'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -35,6 +38,26 @@ type ReplayApplyEvent = {
   rawJson: string
   market: string
   source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+}
+
+/**
+ * Load market records from database by symbol.
+ * Returns complete market objects (all columns) for future use.
+ */
+async function loadMarketsFromDatabase(
+  symbol: string,
+  limit?: number,
+): Promise<Array<{ dataset: string | null; [key: string]: unknown }>> {
+  const db = getDb()!
+  const results = await db
+    .select()
+    .from(markets)
+    .where(eq(markets.symbol, symbol.toLowerCase()))
+    .orderBy(asc(markets.slug))
+    .limit(limit ?? 1000)
+
+  // Filter out rows where dataset is null or empty
+  return results.filter((row) => row.dataset && row.dataset.trim() !== '')
 }
 
 /**
@@ -158,12 +181,35 @@ async function main(): Promise<void> {
       process.exit(2)
     }
   })()
-  const filePaths = parsed.filePaths
+  // Priority logic: if symbol is provided, load from database
+  // Fallback: use file paths if provided
+  let filePaths: string[] = []
+  let marketRecords: Array<{ dataset: string | null; [key: string]: unknown }> = []
+
+  if (parsed.symbol) {
+    try {
+      marketRecords = await loadMarketsFromDatabase(parsed.symbol, parsed.limit)
+      filePaths = marketRecords.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
+      if (filePaths.length === 0) {
+        console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
+        process.exit(2)
+      }
+      console.log(`[backtest] Loaded ${filePaths.length} file(s) from database for symbol: ${parsed.symbol}`)
+    } catch (err) {
+      console.error(`[backtest] Failed to load markets from database:`, err)
+      process.exit(2)
+    }
+  } else {
+    filePaths = parsed.filePaths
+  }
+
   if (filePaths.length === 0) {
     console.error(
       'Usage:\n' +
         '  Orderbook replay (default):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Or query from database:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--order recorded|exchange_time] [--time-driven]',
     )
     process.exit(2)
   }

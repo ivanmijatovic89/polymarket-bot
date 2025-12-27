@@ -7,12 +7,16 @@ export type BacktestArgs = {
   filePaths: string[]
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
+  symbol?: string
+  limit?: number
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
+  let symbol: string | undefined
+  let limit: number | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -40,6 +44,22 @@ export function parseArgs(argv: string[]): BacktestArgs {
         timeDriven = true
         break
 
+      case '--symbol':
+        symbol = argv[i + 1]
+        i += 1
+        break
+
+      case '--limit': {
+        const raw = argv[i + 1]
+        const n = raw ? Number(raw) : NaN
+        if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+          throw new Error(`[backtest] --limit must be a positive integer, got: ${String(raw)}`)
+        }
+        limit = n
+        i += 1
+        break
+      }
+
       case '--strategy':
       case '--param':
         i += 1
@@ -53,5 +73,5 @@ export function parseArgs(argv: string[]): BacktestArgs {
     }
   }
 
-  return { filePaths, order, timeDriven }
+  return { filePaths, order, timeDriven, ...(symbol ? { symbol } : {}), ...(limit !== undefined ? { limit } : {}) }
 }
