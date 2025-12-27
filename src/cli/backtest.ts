@@ -246,7 +246,7 @@ async function main(): Promise<void> {
 
     // Parse slug and fetch market resolution (tokenMap + outcome) in one call
     const slug = parseSlugFromFilename(fp)
-    const marketResolution = slug ? await getMarketResolution(slug) : null
+    const marketResolution = slug ? await getMarketResolution(slug, fp) : null
 
     // Track market data during replay
     let currentMarketId: string | undefined
