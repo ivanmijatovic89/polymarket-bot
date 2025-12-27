@@ -366,35 +366,45 @@ async function main(): Promise<void> {
       console.log(`[backtest] file ${index + 1} processing took ${(processingTime / 1000).toFixed(2)}s`)
     }
 
-    // Download first file
-    console.log(`[backtest] downloading 1/${blobNames.length}: ${blobNames[0]}`)
-    let downloadStart = Date.now()
-    let currentDownload = downloader.downloadToTempFile(containerName, blobNames[0]!)
+    // True parallel pipeline: download N+1 while processing N
+    let pendingDownload: Promise<DownloadedBlob> | null = null
+    let downloadStartTime = 0
+    let downloadedBlob: DownloadedBlob | null = null
 
     for (let i = 0; i < blobNames.length; i++) {
       if (shouldStop) break
 
-      // Wait for current download
-      const blob = await currentDownload
-      const downloadEnd = Date.now()
-      const downloadTime = downloadEnd - downloadStart
-      console.log(`[backtest] downloaded ${i + 1}/${blobNames.length} in ${(downloadTime / 1000).toFixed(2)}s`)
+      // Download current file (or wait for pending download from previous iteration)
+      if (pendingDownload) {
+        // This download was started in previous iteration while we were processing
+        const downloadEnd = Date.now()
+        downloadedBlob = await pendingDownload
+        const downloadTime = downloadEnd - downloadStartTime
+        console.log(`[backtest] downloaded ${i + 1}/${blobNames.length} in ${(downloadTime / 1000).toFixed(2)}s (parallel with previous processing)`)
+        totalDownloadTime += downloadTime
+      } else {
+        // First file - download it now
+        console.log(`[backtest] downloading ${i + 1}/${blobNames.length}: ${blobNames[i]}`)
+        downloadStartTime = Date.now()
+        downloadedBlob = await downloader.downloadToTempFile(containerName, blobNames[i]!)
+        const downloadEnd = Date.now()
+        const downloadTime = downloadEnd - downloadStartTime
+        console.log(`[backtest] downloaded ${i + 1}/${blobNames.length} in ${(downloadTime / 1000).toFixed(2)}s`)
+        totalDownloadTime += downloadTime
+      }
 
-      // Start NEXT download immediately (in parallel with processing)
-      let nextDownload: Promise<DownloadedBlob> | null = null
+      tempFiles.push(downloadedBlob.tempFilePath)
+
+      // Start downloading NEXT file (don't await - let it run in background)
       if (i + 1 < blobNames.length) {
-        console.log(`[backtest] starting download ${i + 2}/${blobNames.length} in background...`)
-        downloadStart = Date.now()
-        nextDownload = downloader.downloadToTempFile(containerName, blobNames[i + 1]!)
+        console.log(`[backtest] starting download ${i + 2}/${blobNames.length} in background (parallel with processing)...`)
+        downloadStartTime = Date.now()
+        pendingDownload = downloader.downloadToTempFile(containerName, blobNames[i + 1]!)
       }
 
-      // Process current file (WHILE next downloads in parallel!)
-      await processFile({ blob, downloadTime, index: i })
-
-      // Move to next download for next iteration
-      if (nextDownload) {
-        currentDownload = nextDownload
-      }
+      // Process current file (while next file downloads in background)
+      console.log(`[backtest] processing file ${i + 1}/${blobNames.length}`)
+      await processFile({ blob: downloadedBlob, downloadTime: 0, index: i })
     }
 
     const pipelineEndTime = Date.now()
