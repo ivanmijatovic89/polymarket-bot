@@ -20,6 +20,13 @@ export class Portfolio {
   private nowMs = Date.now()
   private readonly positionsByAssetId = new Map<string, Position>()
   private readonly openOrdersByClientId = new Map<string, OpenOrder>()
+  // Many exchange events reference exchange `orderId` but not our `clientOrderId`.
+  // Keep an index so we can reconcile order lifecycle + fills by orderId.
+  private readonly clientOrderIdByOrderId = new Map<string, string>()
+
+  // Idempotency: protect portfolio from duplicate fill events across sources (WS status updates, REST polling, reconnects).
+  private readonly seenFillIds = new Map<string, number>()
+  private readonly maxSeenFillIds = 50_000
   private readonly recentFills: Fill[] = []
   private readonly maxRecentFills: number
   private readonly marketByAssetId = new Map<string, string>()
@@ -44,36 +51,69 @@ export class Portfolio {
     return this.openOrdersByClientId.get(clientOrderId)
   }
 
+  private indexOrder(o: OpenOrder): void {
+    if (o.orderId) this.clientOrderIdByOrderId.set(o.orderId, o.clientOrderId)
+  }
+
+  private unindexOrder(o: OpenOrder): void {
+    if (o.orderId) this.clientOrderIdByOrderId.delete(o.orderId)
+  }
+
+  private fillSeenOnce(id: string, tsMs: number): boolean {
+    if (this.seenFillIds.has(id)) return false
+    this.seenFillIds.set(id, tsMs)
+
+    // Bound memory: delete oldest insertion-order entries.
+    if (this.seenFillIds.size > this.maxSeenFillIds) {
+      const drop = Math.ceil(this.maxSeenFillIds * 0.1)
+      let i = 0
+      for (const k of this.seenFillIds.keys()) {
+        this.seenFillIds.delete(k)
+        i++
+        if (i >= drop) break
+      }
+    }
+    return true
+  }
+
   apply(ev: AccountEvent): void {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
-
+    console.log('Portfolio > apply >',  ev )
     switch (ev.kind) {
       case 'order_submitted': {
         const o = ev.order
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        this.indexOrder(o)
         if (o.market) this.marketByAssetId.set(o.assetId, o.market)
         return
       }
       case 'order_accepted': {
+        console.log('Portfolio > order_accepted >',  ev )
         const o = this.openOrdersByClientId.get(ev.clientOrderId)
+        console.log('Portfolio > order_accepted > o >',  o )
         if (!o) return
         if (ev.orderId !== undefined) o.orderId = ev.orderId
+        this.indexOrder(o)
         o.state = o.state === 'requested' ? 'open' : o.state
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
         return
       }
       case 'order_open': {
-        if (ev.clientOrderId) {
-          const o = this.openOrdersByClientId.get(ev.clientOrderId)
-          if (!o) return
-          o.state = 'open'
-          if (ev.orderId !== undefined) o.orderId = ev.orderId
-          o.updatedAtMs = this.nowMs
-          this.openOrdersByClientId.set(o.clientOrderId, o)
-        }
+        const clientId =
+          ev.clientOrderId ??
+          (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
+        if (!clientId) return
+        const o = this.openOrdersByClientId.get(clientId)
+        console.log('Portfolio > order_open > o >',  o )
+        if (!o) return
+        o.state = 'open'
+        if (ev.orderId !== undefined) o.orderId = ev.orderId
+        this.indexOrder(o)
+        o.updatedAtMs = this.nowMs
+        this.openOrdersByClientId.set(o.clientOrderId, o)
         return
       }
       case 'order_rejected': {
@@ -84,11 +124,15 @@ export class Portfolio {
         o.remaining = 0
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.delete(ev.clientOrderId)
+        this.unindexOrder(o)
         return
       }
       case 'order_done': {
-        if (!ev.clientOrderId) return
-        const o = this.openOrdersByClientId.get(ev.clientOrderId)
+        const clientId =
+          ev.clientOrderId ??
+          (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
+        if (!clientId) return
+        const o = this.openOrdersByClientId.get(clientId)
         if (!o) return
         const next =
           ev.reason === 'filled'
@@ -101,10 +145,12 @@ export class Portfolio {
         o.state = next
         o.remaining = 0
         o.updatedAtMs = this.nowMs
-        this.openOrdersByClientId.delete(ev.clientOrderId)
+        this.openOrdersByClientId.delete(clientId)
+        this.unindexOrder(o)
         return
       }
       case 'fill': {
+        if (!this.fillSeenOnce(ev.fill.id, ev.fill.tsMs)) return
         this.pushFill(ev.fill)
         this.applyFillToOrders(ev.fill)
         this.applyFillToPosition(ev.fill)
@@ -129,7 +175,8 @@ export class Portfolio {
   }
 
   private applyFillToOrders(f: Fill): void {
-    const cid = f.clientOrderId
+    const cid =
+      f.clientOrderId ?? (f.orderId ? this.clientOrderIdByOrderId.get(f.orderId) : undefined)
     if (!cid) return
     const o = this.openOrdersByClientId.get(cid)
     if (!o) return
@@ -138,7 +185,10 @@ export class Portfolio {
     o.remaining = round2(Math.max(0, o.size - o.filled))
     o.updatedAtMs = this.nowMs
     o.state = o.remaining > 0 ? 'partially_filled' : 'filled'
-    if (o.state === 'filled') this.openOrdersByClientId.delete(cid)
+    if (o.state === 'filled') {
+      this.openOrdersByClientId.delete(cid)
+      this.unindexOrder(o)
+    }
     else this.openOrdersByClientId.set(cid, o)
   }
 
@@ -168,6 +218,9 @@ export class Portfolio {
         avgEntryPrice: avg === null ? null : round2(avg),
         realizedPnl: prev.realizedPnl,
       })
+
+      // Log positions after BUY
+      this.logPositionsByMarket()
       return
     }
 
@@ -187,6 +240,9 @@ export class Portfolio {
         avgEntryPrice: avg,
         realizedPnl: realized,
       })
+
+      // Log positions after SELL (partial)
+      this.logPositionsByMarket()
       return
     }
 
@@ -194,6 +250,9 @@ export class Portfolio {
     // If a position is fully closed, remove it. Otherwise positionsByAssetId grows forever across markets,
     // and StrategyRunner's per-tick `portfolio.snapshot()` becomes increasingly expensive.
     this.positionsByAssetId.delete(key)
+
+    // Log positions after SELL (closed)
+    this.logPositionsByMarket()
 
     // Best-effort: also clear market mapping for this asset if we have no other exposure.
     // (If a new fill/open order appears later, mapping will be re-populated.)
@@ -205,5 +264,73 @@ export class Portfolio {
       }
     }
     if (!stillExposed) this.marketByAssetId.delete(assetId)
+  }
+
+  private logPositionsByMarket(): void {
+    const shortAsset = (assetId: string) => assetId.slice(-8)
+    const fmt4 = (n: number | null | undefined) =>
+      typeof n === 'number' && Number.isFinite(n) ? n.toFixed(4) : 'N/A'
+
+    // ---- Positions table ----
+    const positions = [...this.positionsByAssetId.values()]
+    if (positions.length === 0) {
+      console.log('[Portfolio] All positions: (none)')
+    } else {
+      const positionRows = positions
+        .map((p) => {
+          const market = this.marketByAssetId.get(p.assetId) ?? 'unknown'
+          const costBasis = p.avgEntryPrice === null ? null : p.avgEntryPrice * p.qty
+          return {
+            market,
+            asset: shortAsset(p.assetId),
+            qty: p.qty,
+            avgEntry: fmt4(p.avgEntryPrice),
+            costBasis: costBasis === null ? 'N/A' : Number(costBasis.toFixed(4)),
+            realizedPnl: Number(p.realizedPnl.toFixed(4)),
+          }
+        })
+        .sort((a, b) => (a.market < b.market ? -1 : a.market > b.market ? 1 : 0))
+
+      console.log(`[Portfolio] Positions (${positions.length}):`)
+      console.table(positionRows)
+    }
+
+    // ---- Open orders table ----
+    const orders = [...this.openOrdersByClientId.values()]
+    if (orders.length === 0) {
+      console.log('[Portfolio] Open orders: (none)')
+    } else {
+      const anyExpires = orders.some((o) => typeof o.expireAtMs === 'number')
+
+      const orderRows = orders
+        .map((o) => {
+          const market = o.market ?? this.marketByAssetId.get(o.assetId) ?? 'unknown'
+          const base = {
+            market,
+            asset: shortAsset(o.assetId),
+            side: o.side,
+            price: Number(o.price.toFixed(4)),
+            size: o.size,
+            filled: o.filled,
+            remaining: o.remaining,
+            state: o.state,
+            tif: o.orderType,
+            clientOrderId: o.clientOrderId.slice(-10),
+            orderId: o.orderId ?? '',
+          }
+
+          if (!anyExpires) return base
+          return {
+            ...base,
+            expireAt: o.expireAtMs ? new Date(o.expireAtMs).toISOString() : '',
+          }
+        })
+        .sort((a, b) => (a.market < b.market ? -1 : a.market > b.market ? 1 : 0))
+
+      console.log(`[Portfolio] Open orders (${orders.length}):`)
+      console.table(orderRows)
+    }
+
+    console.log(`[Portfolio] Total realized PnL: ${this.realizedPnlTotal.toFixed(4)}`)
   }
 }

@@ -135,10 +135,22 @@ async function main(): Promise<void> {
     console.warn('[trading-bot] missing POLYMARKET_API_* creds; account streams disabled')
   }
 
+  const emitTradeFillsAtStatusEnv = (process.env.USER_WS_FILL_AT_STATUS ?? '').toUpperCase()
+  const emitTradeFillsAtStatus =
+    emitTradeFillsAtStatusEnv === 'MATCHED' ||
+    emitTradeFillsAtStatusEnv === 'MINED' ||
+    emitTradeFillsAtStatusEnv === 'CONFIRMED'
+      ? (emitTradeFillsAtStatusEnv as 'MATCHED' | 'MINED' | 'CONFIRMED')
+      : undefined
+  if (emitTradeFillsAtStatus) {
+    console.log(`[trading-bot] user ws fills emitAt=${emitTradeFillsAtStatus} (USER_WS_FILL_AT_STATUS)`)
+  }
+
   const userWs = haveCreds
     ? createUserWsAccountSource({
         url: cfg.ws.userUrl,
         auth: cfg.creds!,
+        ...(emitTradeFillsAtStatus ? { emitTradeFillsAtStatus } : {}),
       })
     : null
   const poller =
