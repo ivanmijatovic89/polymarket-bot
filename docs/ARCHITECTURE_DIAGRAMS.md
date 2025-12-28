@@ -165,6 +165,113 @@ flowchart TD
     style UpdatePortfolio fill:#e8f5e9
 ```
 
+## `trading-bot.ts` Runtime Flow (Focused)
+
+### Startup + steady-state loops (Market WS + Account WS + optional REST poll fallback)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant CLI as trading-bot.ts (CLI)
+    participant CFG as loadPolymarketConfigFromEnv
+    participant BAL as logBalanceAndApproval (rpc)
+    participant GAM as resolveCurrentUpDown15mAssets (Gamma)
+    participant MWS as Market WS (createLiveMarketEventSource)
+    participant UWS as User WS (createUserWsAccountSource)
+    participant POLL as REST Poll (createRestPollAccountSource)
+    participant ENG as MarketEngine
+    participant RUN as StrategyRunner
+    participant OM as OrderManager
+    participant STR as Strategy
+    participant PF as Portfolio
+
+    CLI->>CFG: Load config (urls, creds, privateKey)
+    CLI->>BAL: Check balance + allowance (USDC + ERC1155 approvals)
+    CLI->>GAM: Resolve current 15m market assetsIds + slug
+    CLI->>ENG: Construct MarketEngine(onTick → runner.onMarketTick)
+    CLI->>OM: Construct OrderManager(execution = LiveExecution)
+    CLI->>RUN: Construct StrategyRunner(strategy, orderManager, portfolio)
+    CLI->>MWS: start() subscribe MARKET assets_ids
+    CLI->>UWS: start() subscribe USER (auth + optional markets filter)
+    CLI->>POLL: start() but disabled initially
+
+    Note over UWS,POLL: Fallback policy\n- if user WS disconnects after stable period → enable poller\n- if user WS is stably connected → disable poller
+
+    loop Market WS messages
+        MWS-->>ENG: raw_json (book/price_change/...)
+        ENG-->>RUN: onMarketTick(tick, portfolio.snapshot)
+        RUN->>OM: onMarketTick() executes queued intents (1-tick latency)
+        RUN->>STR: strategy.onMarketTick(tick, portfolio.snapshot)
+        STR-->>RUN: intents (place_limit/cancel/...)
+        RUN->>OM: handleIntents(intents) (queued for next tick)
+    end
+
+    loop Account events (User WS or REST poll)
+        UWS-->>RUN: AccountEvent(s) (fill/order/ws_order_update/status)
+        RUN->>PF: portfolio.apply(ev)
+        RUN->>STR: strategy.onAccountEvent(ev, portfolio.snapshot, lastMarket)
+        STR-->>RUN: follow-up intents (optional)
+        RUN->>OM: handleIntents(intents)
+    end
+```
+
+### Order lifecycle + portfolio updates (fast fills + out-of-order handling)
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant STR as Strategy
+    participant RUN as StrategyRunner
+    participant OM as OrderManager
+    participant EX as LiveExecution (CLOB client)
+    participant UWS as User WS
+    participant PF as Portfolio
+
+    Note over PF: Portfolio tracks:\n- bot open orders by clientOrderId\n- ws open orders by orderId (ws_order_update)\n- fill idempotency (seenFillIds)\n- out-of-order fill buffering by orderId (pendingFilledByOrderId)
+
+    STR-->>RUN: Intent: place_limit(clientOrderId, price, size, tif)
+    RUN->>OM: handleIntents() (queued)
+
+    Note over OM: 1-tick latency\nintents execute on next Market tick
+
+    OM->>PF: AccountEvent.order_submitted (requested)
+    OM->>EX: createOrder + postOrder
+
+    par Exchange/WS can publish before local execution returns
+        UWS-->>RUN: AccountEvent.fill (MATCHED/MINED/CONFIRMED depending config)
+        RUN->>PF: apply(fill)
+        Note over PF: If fill arrives before orderId↔clientOrderId mapping,\nbuffer size by orderId and apply once mapping exists.
+    and Local execution returns
+        EX-->>OM: postOrder response (orderID)
+        OM-->>RUN: AccountEvent.order_accepted(clientOrderId, orderId)
+        RUN->>PF: apply(order_accepted) → index orderId↔clientOrderId → apply pending fills
+    end
+
+    UWS-->>RUN: AccountEvent.ws_order_update (PLACEMENT/UPDATE/CANCELLATION)
+    RUN->>PF: update wsOpenOrdersByOrderId
+
+    UWS-->>RUN: AccountEvent.order_done(orderId, reason=filled/canceled)
+    RUN->>PF: remove from open order tracking (bot + ws)
+```
+
+### What updates balances/positions?
+
+```mermaid
+flowchart LR
+    subgraph "Portfolio state"
+      POS[positionsByAssetId]
+      ORD[openOrdersByClientId]
+      WSORD[wsOpenOrdersByOrderId]
+      PNL[realizedPnlTotal]
+    end
+
+    FILL[AccountEvent.fill] -->|BUY/SELL| POS
+    FILL -->|filled/remaining update by orderId/clientOrderId| ORD
+    DONE[AccountEvent.order_done] -->|remove| ORD
+    WSUPD[AccountEvent.ws_order_update] -->|track all account open orders| WSORD
+    FILL -->|SELL realizes pnl vs avg entry| PNL
+```
+
 ## System Flow Diagram - Backtesting
 
 ```mermaid
