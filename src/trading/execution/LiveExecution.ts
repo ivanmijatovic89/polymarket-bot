@@ -87,9 +87,27 @@ export class LiveExecution implements ExecutionAdapter {
       // Resp shape varies; docs show {success, orderId, orderHashes, errorMsg}.
       console.log('LiveExecution > response api >',  resp )
 
+      // Check for HTTP error first (from errorHandling in http-helpers)
+      if (resp && typeof resp === 'object' && 'error' in resp) {
+        const errorMsg = typeof resp.error === 'string' ? resp.error : 'order_rejected'
+        console.log('LiveExecution > errorMsg (HTTP error) >',  errorMsg )
+        return {
+          events: [
+            {
+              kind: 'order_rejected',
+              tsMs: nowMs,
+              clientOrderId: intent.clientOrderId,
+              reason: errorMsg,
+            },
+          ],
+        }
+      }
+
+      // Check for API-level error (success: false)
       const ok = (resp as { success?: unknown }).success
       if (ok === false) {
         const msg = (resp as { errorMsg?: unknown }).errorMsg
+        console.log('LiveExecution > errorMsg (API error) >',  msg )
         return {
           events: [
             {
@@ -111,44 +129,44 @@ export class LiveExecution implements ExecutionAdapter {
             : undefined
 
       // For FOK orders, handle immediately - they either fill completely or get killed
-      if (intent.orderType === 'FOK') {
-        const events: AccountEvent[] = [
-          {
-            kind: 'order_accepted',
-            tsMs: nowMs,
-            clientOrderId: intent.clientOrderId,
-            ...(orderId ? { orderId } : {}),
-          },
-        ]
+      // if (intent.orderType === 'FOK') {
+      //   const events: AccountEvent[] = [
+      //     {
+      //       kind: 'order_accepted',
+      //       tsMs: nowMs,
+      //       clientOrderId: intent.clientOrderId,
+      //       ...(orderId ? { orderId } : {}),
+      //     },
+      //   ]
 
-        // Check if FOK order filled or was killed
-        // If orderHashes exist, it likely filled (but we don't have fill details here)
-        // If no orderId or specific indicators, it was killed
-        const orderHashes = (resp as { orderHashes?: unknown[] }).orderHashes
-        const hasFills = Array.isArray(orderHashes) && orderHashes.length > 0
+      //   // Check if FOK order filled or was killed
+      //   // If orderHashes exist, it likely filled (but we don't have fill details here)
+      //   // If no orderId or specific indicators, it was killed
+      //   const orderHashes = (resp as { orderHashes?: unknown[] }).orderHashes
+      //   const hasFills = Array.isArray(orderHashes) && orderHashes.length > 0
 
-        if (hasFills || orderId) {
-          // FOK filled - but we don't synthesize fills here without details
-          // Fill events will come via WS/polling, but we mark order as done
-          events.push({
-            kind: 'order_done',
-            tsMs: nowMs,
-            clientOrderId: intent.clientOrderId,
-            ...(orderId ? { orderId } : {}),
-            reason: 'filled',
-          })
-        } else {
-          // FOK was killed (couldn't fill completely)
-          events.push({
-            kind: 'order_done',
-            tsMs: nowMs,
-            clientOrderId: intent.clientOrderId,
-            reason: 'killed',
-          })
-        }
+      //   if (hasFills || orderId) {
+      //     // FOK filled - but we don't synthesize fills here without details
+      //     // Fill events will come via WS/polling, but we mark order as done
+      //     events.push({
+      //       kind: 'order_done',
+      //       tsMs: nowMs,
+      //       clientOrderId: intent.clientOrderId,
+      //       ...(orderId ? { orderId } : {}),
+      //       reason: 'filled',
+      //     })
+      //   } else {
+      //     // FOK was killed (couldn't fill completely)
+      //     events.push({
+      //       kind: 'order_done',
+      //       tsMs: nowMs,
+      //       clientOrderId: intent.clientOrderId,
+      //       reason: 'killed',
+      //     })
+      //   }
 
-        return { events }
-      }
+      //   return { events }
+      // }
 
       // For GTC/GTD orders, emit order_accepted and order_open
       const events: AccountEvent[] = [
