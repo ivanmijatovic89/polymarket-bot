@@ -1,4 +1,4 @@
-import type { AccountEvent } from '../../strategy/Strategy.js'
+import type { AccountEvent, WsOrderUpdate } from '../../strategy/Strategy.js'
 
 import { createWsConnection, type WsConnection } from './wsConnection.js'
 import type { PolymarketCredentials } from '../config.js'
@@ -231,25 +231,60 @@ function parseUserChannelEvent(
     // Capture our owner id early from order messages.
     if (typeof rec.owner === 'string') state.myOwnerId = rec.owner
 
+    const sideRaw = rec.side
+    const side = sideRaw === 'BUY' || sideRaw === 'SELL' ? sideRaw : undefined
+    const price = Number(rec.price)
+    const originalSize = Number(rec.original_size)
+    const sizeMatched = Number(rec.size_matched)
+    const market = typeof rec.market === 'string' ? rec.market : undefined
+    const assetId = typeof rec.asset_id === 'string' ? rec.asset_id : undefined
+    const owner = typeof rec.owner === 'string' ? rec.owner : undefined
+    const status = typeof rec.status === 'string' ? rec.status : undefined
+    const orderType = typeof rec.order_type === 'string' ? rec.order_type : undefined
+    const outcome = typeof rec.outcome === 'string' ? rec.outcome : undefined
+    const expirationSec = Number(rec.expiration)
+    const createdAtSec = Number(rec.created_at)
+
+    const wsOrder: WsOrderUpdate = {
+      orderId,
+      ...(owner ? { owner } : {}),
+      ...(market ? { market } : {}),
+      ...(assetId ? { assetId } : {}),
+      ...(side ? { side } : {}),
+      ...(Number.isFinite(price) ? { price } : {}),
+      ...(Number.isFinite(originalSize) ? { originalSize } : {}),
+      ...(Number.isFinite(sizeMatched) ? { sizeMatched } : {}),
+      ...(status ? { status } : {}),
+      ...(orderType ? { orderType } : {}),
+      ...(outcome ? { outcome } : {}),
+      ...(Number.isFinite(expirationSec) ? { expirationSec } : {}),
+      ...(Number.isFinite(createdAtSec) ? { createdAtSec } : {}),
+      event: type ?? 'UPDATE',
+    }
+
+    // Always emit a detailed order update so Portfolio can track all account orders.
+    const out: AccountEvent[] = [{ kind: 'ws_order_update', tsMs, order: wsOrder }]
+
     if (type === 'CANCELLATION') {
-      return [{ kind: 'order_done', tsMs, orderId, reason: 'canceled' }]
+      out.push({ kind: 'order_done', tsMs, orderId, reason: 'canceled' })
+      return out
     }
 
     // If we have sizes, infer filled when matched size >= original.
-    const originalSize = Number(rec.original_size)
-    const sizeMatched = Number(rec.size_matched)
     if (
       Number.isFinite(originalSize) &&
       Number.isFinite(sizeMatched) &&
       originalSize > 0 &&
       sizeMatched >= originalSize
     ) {
-      return [{ kind: 'order_done', tsMs, orderId, reason: 'filled' }]
+      out.push({ kind: 'order_done', tsMs, orderId, reason: 'filled' })
+      return out
     }
 
     // Otherwise treat as open/update. We can't map clientOrderId from ws payload reliably, so
     // Portfolio must reconcile by orderId.
-    return [{ kind: 'order_open', tsMs, orderId }]
+    out.push({ kind: 'order_open', tsMs, orderId })
+    return out
   }
 
   return []

@@ -168,23 +168,20 @@ export class LiveExecution implements ExecutionAdapter {
       //   return { events }
       // }
 
-      // For GTC/GTD orders, emit order_accepted and order_open
-      const events: AccountEvent[] = [
-        {
-          kind: 'order_accepted',
-          tsMs: nowMs,
-          clientOrderId: intent.clientOrderId,
-          ...(orderId ? { orderId } : {}),
-        },
-        {
-          kind: 'order_open',
-          tsMs: nowMs,
-          clientOrderId: intent.clientOrderId,
-          ...(orderId ? { orderId } : {}),
-        },
-      ]
-
-      return { events }
+      // IMPORTANT (live trading):
+      // Emit ONLY `order_accepted` so we can link clientOrderId <-> orderId for later reconciliation.
+      // Do NOT emit `order_open` / `order_done` here; user WS order messages reflect the actual lifecycle,
+      // and emitting both causes duplicate/confusing transitions.
+      return {
+        events: [
+          {
+            kind: 'order_accepted',
+            tsMs: nowMs,
+            clientOrderId: intent.clientOrderId,
+            ...(orderId ? { orderId } : {}),
+          },
+        ],
+      }
     } catch (err) {
       console.log('LiveExecution > error >',  err )
       return {

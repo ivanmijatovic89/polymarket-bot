@@ -98,6 +98,23 @@ export type Fill = {
   liquidity?: 'MAKER' | 'TAKER'
 }
 
+export type WsOrderUpdate = {
+  orderId: ExchangeOrderId
+  owner?: string
+  market?: string
+  assetId?: string
+  side?: OrderSide
+  price?: number
+  originalSize?: number
+  sizeMatched?: number
+  status?: string
+  orderType?: string
+  outcome?: string
+  expirationSec?: number
+  createdAtSec?: number
+  event: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION'
+}
+
 export type PortfolioSnapshot = {
   nowMs: number
   /**
@@ -158,6 +175,13 @@ export type AccountEvent =
       source: 'user_ws' | 'rest_poll'
       status: 'connected' | 'disconnected'
       info?: string
+    }
+  | {
+      // Raw-but-normalized order updates from Polymarket USER ws channel.
+      // Useful for tracking all account orders (including those not placed by this bot).
+      kind: 'ws_order_update'
+      tsMs: number
+      order: WsOrderUpdate
     }
 
 export type Strategy = {

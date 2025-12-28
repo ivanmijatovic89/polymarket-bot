@@ -24,6 +24,29 @@ export class Portfolio {
   // Keep an index so we can reconcile order lifecycle + fills by orderId.
   private readonly clientOrderIdByOrderId = new Map<string, string>()
 
+  // WS can deliver fills before our local order lifecycle events are applied.
+  // Buffer unmatched fill sizes by exchange orderId, then apply once the order appears/index is known.
+  private readonly pendingFilledByOrderId = new Map<string, number>()
+
+  // Track open orders observed from USER ws channel, including orders not placed by this bot.
+  private readonly wsOpenOrdersByOrderId = new Map<
+    string,
+    {
+      orderId: string
+      owner?: string
+      market?: string
+      assetId?: string
+      side?: 'BUY' | 'SELL'
+      price?: number
+      originalSize?: number
+      sizeMatched?: number
+      status?: string
+      orderType?: string
+      outcome?: string
+      updatedAtMs: number
+    }
+  >()
+
   // Idempotency: protect portfolio from duplicate fill events across sources (WS status updates, REST polling, reconnects).
   private readonly seenFillIds = new Map<string, number>()
   private readonly maxSeenFillIds = 50_000
@@ -59,6 +82,43 @@ export class Portfolio {
     if (o.orderId) this.clientOrderIdByOrderId.delete(o.orderId)
   }
 
+  private applyPendingFillsForOrderId(orderId: string): boolean {
+    const pending = this.pendingFilledByOrderId.get(orderId)
+    if (pending === undefined) return false
+    const cid = this.clientOrderIdByOrderId.get(orderId)
+    if (!cid) return false
+    const o = this.openOrdersByClientId.get(cid)
+    if (!o) return false
+
+    const size = Math.max(0, clampFinite(pending, 0))
+    if (size <= 0) {
+      this.pendingFilledByOrderId.delete(orderId)
+      return false
+    }
+
+    const prevFilled = o.filled
+    const prevRemaining = o.remaining
+    const prevState = o.state
+
+    o.filled = round2(o.filled + size)
+    o.remaining = round2(Math.max(0, o.size - o.filled))
+    o.updatedAtMs = this.nowMs
+    o.state = o.remaining > 0 ? 'partially_filled' : 'filled'
+
+    const changed = o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
+
+    // Consumed.
+    this.pendingFilledByOrderId.delete(orderId)
+
+    if (o.state === 'filled') {
+      this.openOrdersByClientId.delete(cid)
+      this.unindexOrder(o)
+    } else {
+      this.openOrdersByClientId.set(cid, o)
+    }
+    return changed
+  }
+
   private fillSeenOnce(id: string, tsMs: number): boolean {
     if (this.seenFillIds.has(id)) return false
     this.seenFillIds.set(id, tsMs)
@@ -82,11 +142,54 @@ export class Portfolio {
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
     console.log('Portfolio > apply >',  ev )
     switch (ev.kind) {
+      case 'ws_order_update': {
+        const o = ev.order
+        const orderId = o.orderId
+        const prev = this.wsOpenOrdersByOrderId.get(orderId)
+        const next = {
+          orderId,
+          ...(o.owner ? { owner: o.owner } : {}),
+          ...(o.market ? { market: o.market } : {}),
+          ...(o.assetId ? { assetId: o.assetId } : {}),
+          ...(o.side ? { side: o.side } : {}),
+          ...(typeof o.price === 'number' ? { price: o.price } : {}),
+          ...(typeof o.originalSize === 'number' ? { originalSize: o.originalSize } : {}),
+          ...(typeof o.sizeMatched === 'number' ? { sizeMatched: o.sizeMatched } : {}),
+          ...(o.status ? { status: o.status } : {}),
+          ...(o.orderType ? { orderType: o.orderType } : {}),
+          ...(o.outcome ? { outcome: o.outcome } : {}),
+          updatedAtMs: this.nowMs,
+        }
+
+        // Determine if it's still open.
+        const originalSize = typeof o.originalSize === 'number' ? o.originalSize : undefined
+        const sizeMatched = typeof o.sizeMatched === 'number' ? o.sizeMatched : undefined
+        const filled =
+          originalSize !== undefined &&
+          sizeMatched !== undefined &&
+          Number.isFinite(originalSize) &&
+          Number.isFinite(sizeMatched) &&
+          originalSize > 0 &&
+          sizeMatched >= originalSize
+        const canceled = o.event === 'CANCELLATION' || o.status === 'CANCELED'
+
+        if (filled || canceled) {
+          this.wsOpenOrdersByOrderId.delete(orderId)
+        } else {
+          this.wsOpenOrdersByOrderId.set(orderId, next)
+        }
+
+        // Show table whenever WS order state changes.
+        const changed = JSON.stringify(prev ?? null) !== JSON.stringify(next)
+        if (changed || filled || canceled) this.logOpenOrdersTable()
+        return
+      }
       case 'order_submitted': {
         const o = ev.order
         this.openOrdersByClientId.set(o.clientOrderId, o)
         this.indexOrder(o)
         if (o.market) this.marketByAssetId.set(o.assetId, o.market)
+        this.logOpenOrdersTable()
         return
       }
       case 'order_accepted': {
@@ -99,6 +202,8 @@ export class Portfolio {
         o.state = o.state === 'requested' ? 'open' : o.state
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        if (ev.orderId) this.applyPendingFillsForOrderId(ev.orderId)
+        this.logOpenOrdersTable()
         return
       }
       case 'order_open': {
@@ -114,6 +219,8 @@ export class Portfolio {
         this.indexOrder(o)
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        if (ev.orderId) this.applyPendingFillsForOrderId(ev.orderId)
+        this.logOpenOrdersTable()
         return
       }
       case 'order_rejected': {
@@ -125,6 +232,7 @@ export class Portfolio {
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.delete(ev.clientOrderId)
         this.unindexOrder(o)
+        this.logOpenOrdersTable()
         return
       }
       case 'order_done': {
@@ -147,14 +255,16 @@ export class Portfolio {
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.delete(clientId)
         this.unindexOrder(o)
+        this.logOpenOrdersTable()
         return
       }
       case 'fill': {
         if (!this.fillSeenOnce(ev.fill.id, ev.fill.tsMs)) return
         this.pushFill(ev.fill)
-        this.applyFillToOrders(ev.fill)
+        const orderChanged = this.applyFillToOrders(ev.fill)
         this.applyFillToPosition(ev.fill)
         if (ev.fill.market) this.marketByAssetId.set(ev.fill.assetId, ev.fill.market)
+        if (orderChanged) this.logOpenOrdersTable()
         return
       }
       case 'account_stream_status':
@@ -174,22 +284,38 @@ export class Portfolio {
     }
   }
 
-  private applyFillToOrders(f: Fill): void {
+  private applyFillToOrders(f: Fill): boolean {
     const cid =
       f.clientOrderId ?? (f.orderId ? this.clientOrderIdByOrderId.get(f.orderId) : undefined)
-    if (!cid) return
+    if (!cid) {
+      // Out-of-order: we got a fill before we know/mapped the order. Buffer by orderId.
+      if (f.orderId) {
+        const size = Math.max(0, clampFinite(f.size, 0))
+        if (size > 0) {
+          const prev = this.pendingFilledByOrderId.get(f.orderId) ?? 0
+          this.pendingFilledByOrderId.set(f.orderId, round2(prev + size))
+        }
+      }
+      return false
+    }
     const o = this.openOrdersByClientId.get(cid)
-    if (!o) return
+    if (!o) return false
     const size = Math.max(0, clampFinite(f.size, 0))
+    const prevFilled = o.filled
+    const prevRemaining = o.remaining
+    const prevState = o.state
     o.filled = round2(o.filled + size)
     o.remaining = round2(Math.max(0, o.size - o.filled))
     o.updatedAtMs = this.nowMs
     o.state = o.remaining > 0 ? 'partially_filled' : 'filled'
+    const changed = o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
     if (o.state === 'filled') {
       this.openOrdersByClientId.delete(cid)
       this.unindexOrder(o)
+    } else {
+      this.openOrdersByClientId.set(cid, o)
     }
-    else this.openOrdersByClientId.set(cid, o)
+    return changed
   }
 
   private applyFillToPosition(f: Fill): void {
@@ -295,42 +421,69 @@ export class Portfolio {
       console.table(positionRows)
     }
 
-    // ---- Open orders table ----
-    const orders = [...this.openOrdersByClientId.values()]
-    if (orders.length === 0) {
+    console.log(`[Portfolio] Total realized PnL: ${this.realizedPnlTotal.toFixed(4)}`)
+  }
+
+  private logOpenOrdersTable(): void {
+    const shortAsset = (assetId: string) => assetId.slice(-8)
+    const botOrders = [...this.openOrdersByClientId.values()]
+    const wsOrders = [...this.wsOpenOrdersByOrderId.values()]
+
+    if (botOrders.length === 0 && wsOrders.length === 0) {
       console.log('[Portfolio] Open orders: (none)')
-    } else {
-      const anyExpires = orders.some((o) => typeof o.expireAtMs === 'number')
-
-      const orderRows = orders
-        .map((o) => {
-          const market = o.market ?? this.marketByAssetId.get(o.assetId) ?? 'unknown'
-          const base = {
-            market,
-            asset: shortAsset(o.assetId),
-            side: o.side,
-            price: Number(o.price.toFixed(4)),
-            size: o.size,
-            filled: o.filled,
-            remaining: o.remaining,
-            state: o.state,
-            tif: o.orderType,
-            clientOrderId: o.clientOrderId.slice(-10),
-            orderId: o.orderId ?? '',
-          }
-
-          if (!anyExpires) return base
-          return {
-            ...base,
-            expireAt: o.expireAtMs ? new Date(o.expireAtMs).toISOString() : '',
-          }
-        })
-        .sort((a, b) => (a.market < b.market ? -1 : a.market > b.market ? 1 : 0))
-
-      console.log(`[Portfolio] Open orders (${orders.length}):`)
-      console.table(orderRows)
+      return
     }
 
-    console.log(`[Portfolio] Total realized PnL: ${this.realizedPnlTotal.toFixed(4)}`)
+    const anyExpires = botOrders.some((o) => typeof o.expireAtMs === 'number')
+
+    const rows: Array<Record<string, unknown>> = []
+
+    // Bot-tracked orders
+    for (const o of botOrders) {
+      const market = o.market ?? this.marketByAssetId.get(o.assetId) ?? 'unknown'
+      const base: Record<string, unknown> = {
+        source: 'bot',
+        market,
+        asset: shortAsset(o.assetId),
+        side: o.side,
+        price: Number(o.price.toFixed(4)),
+        originalSize: o.size,
+        sizeMatched: o.filled,
+        remaining: o.remaining,
+        state: o.state,
+        tif: o.orderType,
+        clientOrderId: o.clientOrderId.slice(-10),
+        orderId: o.orderId ?? '',
+      }
+      if (anyExpires) base.expireAt = o.expireAtMs ? new Date(o.expireAtMs).toISOString() : ''
+      rows.push(base)
+    }
+
+    // WS-tracked orders (not placed by bot, or bot orderId not yet known)
+    for (const o of wsOrders) {
+      // Avoid duplicate display if this WS orderId maps to a bot order already tracked
+      if (this.clientOrderIdByOrderId.has(o.orderId)) continue
+      rows.push({
+        source: 'ws',
+        market: o.market ?? 'unknown',
+        asset: o.assetId ? shortAsset(o.assetId) : '',
+        side: o.side ?? '',
+        price: typeof o.price === 'number' ? Number(o.price.toFixed(4)) : '',
+        originalSize: typeof o.originalSize === 'number' ? o.originalSize : '',
+        sizeMatched: typeof o.sizeMatched === 'number' ? o.sizeMatched : '',
+        remaining:
+          typeof o.originalSize === 'number' && typeof o.sizeMatched === 'number'
+            ? Number((o.originalSize - o.sizeMatched).toFixed(6))
+            : '',
+        state: o.status ?? '',
+        tif: o.orderType ?? '',
+        clientOrderId: '',
+        orderId: o.orderId,
+      })
+    }
+
+    rows.sort((a, b) => String(a.market).localeCompare(String(b.market)))
+    console.log(`[Portfolio] Open orders (${rows.length}):`)
+    console.table(rows)
   }
 }
