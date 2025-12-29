@@ -148,12 +148,34 @@ function parseUserChannelEvent(
       if (firstKey) state.tradeRankById.delete(firstKey)
     }
 
+    // Always emit status progression as an existing ws_order_update event so strategies can
+    // react to MATCHED/MINED/CONFIRMED independently from fill emission policy.
+    //
+    // IMPORTANT: this event does NOT impact positions/PnL (Portfolio only moves on `fill`),
+    // so there is no double counting.
+    const out: AccountEvent[] = []
+    if (status && takerOrderId) {
+      const wsOrder: WsOrderUpdate = {
+        orderId: takerOrderId,
+        ...(market !== undefined ? { market } : {}),
+        ...(asset_id !== undefined ? { assetId: asset_id } : {}),
+        ...(side !== undefined ? { side } : {}),
+        ...(Number.isFinite(price) ? { price } : {}),
+        // Mark as "filled" for Portfolio's wsOpenOrdersByOrderId bookkeeping (prevents growth),
+        // while still preserving status string for strategies.
+        ...(Number.isFinite(size) ? { originalSize: size, sizeMatched: size } : {}),
+        status,
+        event: 'UPDATE',
+      }
+      out.push({ kind: 'ws_order_update', tsMs, order: wsOrder })
+    }
+
     // Emit policy: allow earlier signal (MATCHED) if configured.
-    // Once we emit for a trade id, never emit again for later statuses (prevents double-counting).
+    // Once we emit the *fill* for a trade id, never emit it again for later statuses (prevents double-counting).
     const emitRank = USER_TRADE_STATUS_RANK[state.emitAt]
-    if (!status) return []
-    if (USER_TRADE_STATUS_RANK[status] < emitRank) return []
-    if (state.emittedTradeIds.has(id)) return []
+    if (!status) return out
+    if (USER_TRADE_STATUS_RANK[status] < emitRank) return out
+    if (state.emittedTradeIds.has(id)) return out
     state.emittedTradeIds.add(id)
 
     // If we are a MAKER in this trade, emit fills only for our maker_orders entries.
@@ -196,13 +218,14 @@ function parseUserChannelEvent(
           },
         })
       }
-      if (makerFills.length > 0) return makerFills
-      return []
+      if (makerFills.length > 0) return [...out, ...makerFills]
+      return out
     }
 
     // TAKER trade: single fill, use top-level fields.
-    if (!asset_id || !side || !Number.isFinite(price) || !Number.isFinite(size)) return []
+    if (!asset_id || !side || !Number.isFinite(price) || !Number.isFinite(size)) return out
     return [
+      ...out,
       {
         kind: 'fill',
         fill: {
