@@ -115,6 +115,34 @@ export type WsOrderUpdate = {
   event: 'PLACEMENT' | 'UPDATE' | 'CANCELLATION'
 }
 
+/**
+ * Trade status rank for Polymarket user trade progression:
+ * - 0: unknown / not a trade status we care about
+ * - 1: MATCHED
+ * - 2: MINED
+ * - 3: CONFIRMED
+ */
+export type TradeStatusRank = 0 | 1 | 2 | 3
+
+/**
+ * Strategy-friendly, normalized view of an order (keyed by clientOrderId in PortfolioSnapshot).
+ * This allows strategies to avoid correlating account events manually.
+ */
+export type OrderSnapshot = {
+  clientOrderId: ClientOrderId
+  orderId?: ExchangeOrderId
+  assetId: string
+  side: OrderSide
+  price?: number
+  originalSize?: number
+  sizeMatched?: number
+  remaining?: number
+  lifecycleState?: OrderLifecycleState
+  tradeStatusRaw?: string
+  tradeStatusRank: TradeStatusRank
+  updatedAtMs: number
+}
+
 export type PortfolioSnapshot = {
   nowMs: number
   /**
@@ -124,6 +152,7 @@ export type PortfolioSnapshot = {
   realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
+  ordersByClientId: Record<string, OrderSnapshot>
   recentFills: Fill[]
   /**
    * Best-effort mapping from assetId -> market (condition id).

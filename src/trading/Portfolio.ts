@@ -2,8 +2,10 @@ import type {
   AccountEvent,
   Fill,
   OpenOrder,
+  OrderSnapshot,
   PortfolioSnapshot,
   Position,
+  TradeStatusRank,
 } from '../strategy/Strategy.js'
 import { round2 } from './utils/rounding.js'
 
@@ -20,9 +22,14 @@ export class Portfolio {
   private nowMs = Date.now()
   private readonly positionsByAssetId = new Map<string, Position>()
   private readonly openOrdersByClientId = new Map<string, OpenOrder>()
+  private readonly ordersByClientIdSnapshot = new Map<string, OrderSnapshot>()
   // Many exchange events reference exchange `orderId` but not our `clientOrderId`.
   // Keep an index so we can reconcile order lifecycle + fills by orderId.
   private readonly clientOrderIdByOrderId = new Map<string, string>()
+  // Persistent mapping for snapshot purposes: keep orderId -> clientOrderId even after the bot order is closed.
+  // This allows late ws trade-status progression (MINED/CONFIRMED) to still attach to the correct OrderSnapshot.
+  private readonly clientOrderIdByOrderIdSnapshot = new Map<string, string>()
+  private readonly maxClientOrderIdByOrderIdSnapshot = 50_000
 
   // WS can deliver fills before our local order lifecycle events are applied.
   // Buffer unmatched fill sizes by exchange orderId, then apply once the order appears/index is known.
@@ -47,6 +54,16 @@ export class Portfolio {
     }
   >()
 
+  // Best-effort: status progression can arrive (ws_order_update) before we can map orderId -> clientOrderId.
+  // Store latest observed trade status by orderId so we can merge once mapping is known.
+  private readonly pendingTradeStatusByOrderId = new Map<
+    string,
+    { tradeStatusRaw?: string; tradeStatusRank: TradeStatusRank; updatedAtMs: number }
+  >()
+  private readonly maxPendingTradeStatus = 10_000
+
+  private readonly maxOrderSnapshots = 10_000
+
   // Idempotency: protect portfolio from duplicate fill events across sources (WS status updates, REST polling, reconnects).
   private readonly seenFillIds = new Map<string, number>()
   private readonly maxSeenFillIds = 50_000
@@ -65,6 +82,7 @@ export class Portfolio {
       realizedPnlTotal: this.realizedPnlTotal,
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
       openOrdersByClientId: Object.fromEntries([...this.openOrdersByClientId.entries()]),
+      ordersByClientId: Object.fromEntries([...this.ordersByClientIdSnapshot.entries()]),
       recentFills: [...this.recentFills],
       marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),
     }
@@ -80,6 +98,64 @@ export class Portfolio {
 
   private unindexOrder(o: OpenOrder): void {
     if (o.orderId) this.clientOrderIdByOrderId.delete(o.orderId)
+  }
+
+  private tradeStatusRankFromRaw(raw?: string): TradeStatusRank {
+    if (raw === 'MATCHED') return 1
+    if (raw === 'MINED') return 2
+    if (raw === 'CONFIRMED') return 3
+    return 0
+  }
+
+  private tradeStatusRawField(raw: unknown): { tradeStatusRaw: string } | {} {
+    return typeof raw === 'string' ? { tradeStatusRaw: raw } : {}
+  }
+
+  private upsertOrderSnapshot(clientOrderId: string, next: OrderSnapshot): void {
+    // Maintain persistent orderId -> clientOrderId mapping for snapshot merges.
+    if (next.orderId) {
+      // Refresh insertion order so pruning drops the oldest.
+      if (this.clientOrderIdByOrderIdSnapshot.has(next.orderId))
+        this.clientOrderIdByOrderIdSnapshot.delete(next.orderId)
+      this.clientOrderIdByOrderIdSnapshot.set(next.orderId, clientOrderId)
+      if (this.clientOrderIdByOrderIdSnapshot.size > this.maxClientOrderIdByOrderIdSnapshot) {
+        const drop = Math.ceil(this.maxClientOrderIdByOrderIdSnapshot * 0.1)
+        let i = 0
+        for (const k of this.clientOrderIdByOrderIdSnapshot.keys()) {
+          this.clientOrderIdByOrderIdSnapshot.delete(k)
+          i++
+          if (i >= drop) break
+        }
+      }
+    }
+
+    // Refresh insertion order so pruning drops the oldest.
+    if (this.ordersByClientIdSnapshot.has(clientOrderId)) this.ordersByClientIdSnapshot.delete(clientOrderId)
+    this.ordersByClientIdSnapshot.set(clientOrderId, next)
+    if (this.ordersByClientIdSnapshot.size > this.maxOrderSnapshots) {
+      const drop = Math.ceil(this.maxOrderSnapshots * 0.1)
+      let i = 0
+      for (const k of this.ordersByClientIdSnapshot.keys()) {
+        this.ordersByClientIdSnapshot.delete(k)
+        i++
+        if (i >= drop) break
+      }
+    }
+  }
+
+  private mergePendingTradeStatusIntoSnapshot(clientOrderId: string, orderId?: string): void {
+    if (!orderId) return
+    const pending = this.pendingTradeStatusByOrderId.get(orderId)
+    if (!pending) return
+    const prev = this.ordersByClientIdSnapshot.get(clientOrderId)
+    if (!prev) return
+    const next: OrderSnapshot = {
+      ...prev,
+      ...this.tradeStatusRawField(pending.tradeStatusRaw ?? prev.tradeStatusRaw),
+      tradeStatusRank: Math.max(prev.tradeStatusRank, pending.tradeStatusRank) as TradeStatusRank,
+      updatedAtMs: Math.max(prev.updatedAtMs, pending.updatedAtMs),
+    }
+    this.upsertOrderSnapshot(clientOrderId, next)
   }
 
   private applyPendingFillsForOrderId(orderId: string): boolean {
@@ -140,7 +216,7 @@ export class Portfolio {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
-    console.log('Portfolio > apply >',  ev )
+    console.log(`Portfolio > apply > ${ev.kind}`,  ev )
     switch (ev.kind) {
       case 'ws_order_update': {
         const o = ev.order
@@ -182,6 +258,69 @@ export class Portfolio {
         // Show table whenever WS order state changes.
         const changed = JSON.stringify(prev ?? null) !== JSON.stringify(next)
         if (changed || filled || canceled) this.logOpenOrdersTable()
+
+        // Capture trade status progression (MATCHED/MINED/CONFIRMED) for strategy-friendly snapshots.
+        const statusRaw = o.status
+        const rank = this.tradeStatusRankFromRaw(statusRaw)
+        if (statusRaw || rank > 0) {
+          // Store pending by orderId even if we can't map to clientOrderId yet.
+          this.pendingTradeStatusByOrderId.set(orderId, {
+            ...this.tradeStatusRawField(statusRaw),
+            tradeStatusRank: rank,
+            updatedAtMs: this.nowMs,
+          })
+          if (this.pendingTradeStatusByOrderId.size > this.maxPendingTradeStatus) {
+            const drop = Math.ceil(this.maxPendingTradeStatus * 0.1)
+            let i = 0
+            for (const k of this.pendingTradeStatusByOrderId.keys()) {
+              this.pendingTradeStatusByOrderId.delete(k)
+              i++
+              if (i >= drop) break
+            }
+          }
+        }
+
+        // If this orderId belongs to a bot order, merge into the corresponding OrderSnapshot.
+        const clientOrderId =
+          this.clientOrderIdByOrderId.get(orderId) ?? this.clientOrderIdByOrderIdSnapshot.get(orderId)
+        if (clientOrderId) {
+          const prevSnap = this.ordersByClientIdSnapshot.get(clientOrderId)
+          const bot = this.openOrdersByClientId.get(clientOrderId)
+          if (prevSnap || bot) {
+            const base: OrderSnapshot =
+              prevSnap ??
+              ({
+                clientOrderId,
+                ...(bot?.orderId ? { orderId: bot.orderId } : { orderId }),
+                assetId: bot?.assetId ?? (o.assetId ?? ''),
+                side: bot?.side ?? (o.side ?? 'BUY'),
+                ...(typeof bot?.price === 'number' ? { price: bot.price } : {}),
+                ...(typeof bot?.size === 'number' ? { originalSize: bot.size } : {}),
+                ...(typeof bot?.filled === 'number' ? { sizeMatched: bot.filled } : {}),
+                ...(typeof bot?.remaining === 'number' ? { remaining: bot.remaining } : {}),
+                ...(bot?.state ? { lifecycleState: bot.state } : {}),
+                tradeStatusRank: 0,
+                updatedAtMs: this.nowMs,
+              } as OrderSnapshot)
+
+            const nextSnap: OrderSnapshot = {
+              ...base,
+              ...(o.orderId ? { orderId: o.orderId } : {}),
+              ...(o.assetId ? { assetId: o.assetId } : {}),
+              ...(o.side ? { side: o.side } : {}),
+              ...(typeof o.price === 'number' ? { price: o.price } : {}),
+              ...(typeof o.originalSize === 'number' ? { originalSize: o.originalSize } : {}),
+              ...(typeof o.sizeMatched === 'number' ? { sizeMatched: o.sizeMatched } : {}),
+              ...(typeof o.originalSize === 'number' && typeof o.sizeMatched === 'number'
+                ? { remaining: round2(Math.max(0, o.originalSize - o.sizeMatched)) }
+                : {}),
+              ...this.tradeStatusRawField(typeof statusRaw === 'string' ? statusRaw : base.tradeStatusRaw),
+              tradeStatusRank: Math.max(base.tradeStatusRank, rank) as TradeStatusRank,
+              updatedAtMs: this.nowMs,
+            }
+            this.upsertOrderSnapshot(clientOrderId, nextSnap)
+          }
+        }
         return
       }
       case 'order_submitted': {
@@ -189,19 +328,46 @@ export class Portfolio {
         this.openOrdersByClientId.set(o.clientOrderId, o)
         this.indexOrder(o)
         if (o.market) this.marketByAssetId.set(o.assetId, o.market)
+        this.upsertOrderSnapshot(o.clientOrderId, {
+          clientOrderId: o.clientOrderId,
+          ...(o.orderId ? { orderId: o.orderId } : {}),
+          assetId: o.assetId,
+          side: o.side,
+          price: o.price,
+          originalSize: o.size,
+          sizeMatched: o.filled,
+          remaining: o.remaining,
+          lifecycleState: o.state,
+          tradeStatusRank: 0,
+          updatedAtMs: this.nowMs,
+        })
+        this.mergePendingTradeStatusIntoSnapshot(o.clientOrderId, o.orderId)
         this.logOpenOrdersTable()
         return
       }
       case 'order_accepted': {
-        console.log('Portfolio > order_accepted >',  ev )
         const o = this.openOrdersByClientId.get(ev.clientOrderId)
-        console.log('Portfolio > order_accepted > o >',  o )
         if (!o) return
         if (ev.orderId !== undefined) o.orderId = ev.orderId
         this.indexOrder(o)
         o.state = o.state === 'requested' ? 'open' : o.state
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        this.upsertOrderSnapshot(o.clientOrderId, {
+          clientOrderId: o.clientOrderId,
+          ...(o.orderId ? { orderId: o.orderId } : {}),
+          assetId: o.assetId,
+          side: o.side,
+          price: o.price,
+          originalSize: o.size,
+          sizeMatched: o.filled,
+          remaining: o.remaining,
+          lifecycleState: o.state,
+          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw),
+          tradeStatusRank: this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRank ?? 0,
+          updatedAtMs: this.nowMs,
+        })
+        this.mergePendingTradeStatusIntoSnapshot(o.clientOrderId, o.orderId)
         if (ev.orderId) this.applyPendingFillsForOrderId(ev.orderId)
         this.logOpenOrdersTable()
         return
@@ -212,13 +378,27 @@ export class Portfolio {
           (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
         if (!clientId) return
         const o = this.openOrdersByClientId.get(clientId)
-        console.log('Portfolio > order_open > o >',  o )
         if (!o) return
         o.state = 'open'
         if (ev.orderId !== undefined) o.orderId = ev.orderId
         this.indexOrder(o)
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.set(o.clientOrderId, o)
+        this.upsertOrderSnapshot(o.clientOrderId, {
+          clientOrderId: o.clientOrderId,
+          ...(o.orderId ? { orderId: o.orderId } : {}),
+          assetId: o.assetId,
+          side: o.side,
+          price: o.price,
+          originalSize: o.size,
+          sizeMatched: o.filled,
+          remaining: o.remaining,
+          lifecycleState: o.state,
+          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw),
+          tradeStatusRank: this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRank ?? 0,
+          updatedAtMs: this.nowMs,
+        })
+        this.mergePendingTradeStatusIntoSnapshot(o.clientOrderId, o.orderId)
         if (ev.orderId) this.applyPendingFillsForOrderId(ev.orderId)
         this.logOpenOrdersTable()
         return
@@ -232,6 +412,21 @@ export class Portfolio {
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.delete(ev.clientOrderId)
         this.unindexOrder(o)
+        this.upsertOrderSnapshot(ev.clientOrderId, {
+          clientOrderId: ev.clientOrderId,
+          ...(o.orderId ? { orderId: o.orderId } : {}),
+          assetId: o.assetId,
+          side: o.side,
+          price: o.price,
+          originalSize: o.size,
+          sizeMatched: o.filled,
+          remaining: 0,
+          lifecycleState: 'rejected',
+          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRaw),
+          tradeStatusRank: this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRank ?? 0,
+          updatedAtMs: this.nowMs,
+        })
+        this.mergePendingTradeStatusIntoSnapshot(ev.clientOrderId, o.orderId)
         this.logOpenOrdersTable()
         return
       }
@@ -255,6 +450,21 @@ export class Portfolio {
         o.updatedAtMs = this.nowMs
         this.openOrdersByClientId.delete(clientId)
         this.unindexOrder(o)
+        this.upsertOrderSnapshot(clientId, {
+          clientOrderId: clientId,
+          ...(o.orderId ? { orderId: o.orderId } : {}),
+          assetId: o.assetId,
+          side: o.side,
+          price: o.price,
+          originalSize: o.size,
+          sizeMatched: o.filled,
+          remaining: 0,
+          lifecycleState: next,
+          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(clientId)?.tradeStatusRaw),
+          tradeStatusRank: this.ordersByClientIdSnapshot.get(clientId)?.tradeStatusRank ?? 0,
+          updatedAtMs: this.nowMs,
+        })
+        this.mergePendingTradeStatusIntoSnapshot(clientId, o.orderId)
         this.logOpenOrdersTable()
         return
       }
