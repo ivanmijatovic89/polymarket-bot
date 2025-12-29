@@ -1,6 +1,6 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
-import { isOrderTradeStatusAtLeast, safeProbabilityPrice } from '../strategy/strategyToolkit.js'
+import * as strategyToolkit from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 /**
@@ -156,7 +156,8 @@ export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
     if (hasPlacedSell) return []
     if (!boughtAssetId || !buyClientOrderId) return []
 
-    if (!isOrderTradeStatusAtLeast(portfolio, buyClientOrderId, cfg.sellWhenStatus)) return []
+    if (!strategyToolkit.isOrderTradeStatusAtLeast(portfolio, buyClientOrderId, cfg.sellWhenStatus))
+      return []
 
     const pos = portfolio.positionsByAssetId[boughtAssetId]
     if (cfg.requirePositionBeforeSell) {
@@ -167,7 +168,7 @@ export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
     if (entry === null || !Number.isFinite(entry)) return []
 
     const tpInc = Number.isFinite(cfg.takeProfitPct) ? cfg.takeProfitPct : 0.01
-    const sellPrice = safeProbabilityPrice(entry + tpInc)
+    const sellPrice = strategyToolkit.safeProbabilityPrice(entry + tpInc)
     // Sell the full position qty (i.e. "sell all I bought"), which also handles partial fills.
     // If requirePositionBeforeSell=true (default), `pos.qty` is guaranteed to be > 0 here.
     const sizeToSell = pos ? pos.qty : 0
