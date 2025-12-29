@@ -323,6 +323,39 @@ export class Portfolio {
         }
         return
       }
+      case 'positions_merged': {
+        const a = ev.assetIdA
+        const b = ev.assetIdB
+        const requested = clampFinite(ev.size, 0)
+        if (!a || !b || a === b) return
+        if (!Number.isFinite(requested) || requested <= 0) return
+
+        const posA = this.positionsByAssetId.get(positionKey(a))
+        const posB = this.positionsByAssetId.get(positionKey(b))
+        const qa = clampFinite(posA?.qty ?? 0, 0)
+        const qb = clampFinite(posB?.qty ?? 0, 0)
+
+        const actual = Math.min(requested, qa, qb)
+        if (!Number.isFinite(actual) || actual <= 0) return
+
+        const nextA = round2(qa - actual)
+        const nextB = round2(qb - actual)
+
+        if (posA) {
+          if (nextA > 0) this.positionsByAssetId.set(positionKey(a), { ...posA, qty: nextA })
+          else this.positionsByAssetId.delete(positionKey(a))
+        }
+        if (posB) {
+          if (nextB > 0) this.positionsByAssetId.set(positionKey(b), { ...posB, qty: nextB })
+          else this.positionsByAssetId.delete(positionKey(b))
+        }
+
+        this.logPositionsByMarket()
+        return
+      }
+      case 'merge_failed':
+        // No state change; execution reported a failure.
+        return
       case 'order_submitted': {
         const o = ev.order
         this.openOrdersByClientId.set(o.clientOrderId, o)

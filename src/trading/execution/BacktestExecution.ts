@@ -4,7 +4,9 @@ import type {
   CancelAllIntent,
   CancelOrderIntent,
   Fill,
+  MergePositionsIntent,
   PlaceLimitIntent,
+  WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
 
@@ -143,6 +145,31 @@ function buildFillsFromBook(
 export class BacktestExecution implements ExecutionAdapter {
   private readonly openByClientId = new Map<string, SimOrder>()
 
+  async mergePositions(
+    intent: MergePositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const snap = ctx.portfolio
+    const qa = snap?.positionsByAssetId[intent.assetIdA]?.qty ?? 0
+    const qb = snap?.positionsByAssetId[intent.assetIdB]?.qty ?? 0
+    const actual = Math.max(0, Math.min(requested, qa, qb))
+    if (!Number.isFinite(actual) || actual <= 0) return { events: [] }
+    return {
+      events: [
+        {
+          kind: 'positions_merged',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          size: actual,
+          ...(intent.reason ? { reason: intent.reason } : {}),
+        },
+      ],
+    }
+  }
+
   async placeLimit(
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
@@ -169,10 +196,42 @@ export class BacktestExecution implements ExecutionAdapter {
 
     const events: AccountEvent[] = [
       { kind: 'order_accepted', tsMs: nowMs, clientOrderId: intent.clientOrderId, orderId },
+      // Backtest-only: emit status progression so strategies can gate on MATCHED/MINED/CONFIRMED
+      // using the same Portfolio/strategy logic as live (user ws emits these).
+      {
+        kind: 'ws_order_update',
+        tsMs: nowMs,
+        order: {
+          orderId,
+          assetId: intent.assetId,
+          side: intent.side,
+          price: intent.price,
+          originalSize: intent.size,
+          sizeMatched: 0,
+          status: 'MATCHED',
+          orderType: intent.orderType,
+          event: 'UPDATE',
+        } satisfies WsOrderUpdate,
+      },
     ]
 
     if (intent.orderType === 'FOK') {
       if (fillable < intent.size) {
+        events.push({
+          kind: 'ws_order_update',
+          tsMs: nowMs,
+          order: {
+            orderId,
+            assetId: intent.assetId,
+            side: intent.side,
+            price: intent.price,
+            originalSize: intent.size,
+            sizeMatched: 0,
+            status: 'CANCELED',
+            orderType: intent.orderType,
+            event: 'CANCELLATION',
+          } satisfies WsOrderUpdate,
+        })
         events.push({
           kind: 'order_done',
           tsMs: nowMs,
@@ -191,6 +250,21 @@ export class BacktestExecution implements ExecutionAdapter {
         clientOrderId: intent.clientOrderId,
         orderId,
         reason: 'filled',
+      })
+      events.push({
+        kind: 'ws_order_update',
+        tsMs: nowMs,
+        order: {
+          orderId,
+          assetId: intent.assetId,
+          side: intent.side,
+          price: intent.price,
+          originalSize: intent.size,
+          sizeMatched: intent.size,
+          status: 'CONFIRMED',
+          orderType: intent.orderType,
+          event: 'UPDATE',
+        } satisfies WsOrderUpdate,
       })
       return { events }
     }

@@ -5,6 +5,7 @@ import type {
   CancelOrderIntent,
   ClientOrderId,
   Intent,
+  MergePositionsIntent,
   OpenOrder,
   OrderType,
   PlaceLimitIntent,
@@ -26,6 +27,10 @@ export type ExecutionCancelResult = {
   events: AccountEvent[]
 }
 
+export type ExecutionMergeResult = {
+  events: AccountEvent[]
+}
+
 export type ExecutionAdapter = {
   placeLimit: (intent: PlaceLimitIntent, ctx: OrderManagerContext) => Promise<ExecutionPlaceResult>
   cancelOrder: (
@@ -33,6 +38,7 @@ export type ExecutionAdapter = {
     ctx: OrderManagerContext,
   ) => Promise<ExecutionCancelResult>
   cancelAll: (intent: CancelAllIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
+  mergePositions: (intent: MergePositionsIntent, ctx: OrderManagerContext) => Promise<ExecutionMergeResult>
   /**
    * Optional: backtest execution can simulate resting order fills on each market tick.
    * Live execution typically does nothing here (fills come via user WS/polling).
@@ -164,12 +170,52 @@ export class OrderManager {
         out.push(...(await this.handleCancelOrder(intent, ctx)))
       } else if (intent.kind === 'cancel_all') {
         out.push(...(await this.handleCancelAll(intent, ctx)))
+      } else if (intent.kind === 'merge_positions') {
+        out.push(...(await this.handleMergePositions(intent, ctx)))
       } else {
         const _exhaustive: never = intent
         void _exhaustive
       }
     }
     return out
+  }
+
+  private async handleMergePositions(
+    intent: MergePositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
+    const nowMs = ctx.nowMs
+    const size = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
+      return [
+        {
+          kind: 'merge_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: size,
+          reason: 'invalid asset ids',
+        },
+      ]
+    }
+    if (size <= 0) return []
+
+    if (this.dryRun) {
+      // Dry-run: treat as successful merge for strategy wiring tests.
+      return [
+        {
+          kind: 'positions_merged',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          size,
+          ...(intent.reason ? { reason: intent.reason } : {}),
+        },
+      ]
+    }
+
+    const res = await this.execution.mergePositions(intent, ctx)
+    return res.events
   }
 
   private async handlePlaceLimit(

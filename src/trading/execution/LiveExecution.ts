@@ -5,11 +5,14 @@ import type {
   AccountEvent,
   CancelAllIntent,
   CancelOrderIntent,
+  MergePositionsIntent,
   PlaceLimitIntent,
 } from '../../strategy/Strategy.js'
 import type { PolymarketConfig } from '../../polymarket/config.js'
 import { createClobClient } from '../../polymarket/clobClient.js'
+import { loadPolymarketConfigFromEnv } from '../../polymarket/config.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
+import { mergeBinaryOutcomePositions } from '../../blockchain/conditionalTokens.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -47,8 +50,20 @@ export type LiveExecutionOptions = {
 
 export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
+  private readonly config: PolymarketConfig
 
   constructor(opts: LiveExecutionOptions = {}) {
+    // Keep a local copy of config for non-CLOB operations (e.g. on-chain merge via privateKey).
+    // createClobClient() also loads from env, but we need access to privateKey/chainId here too.
+    const baseCfg = opts.config ?? loadPolymarketConfigFromEnv()
+    const overrides = opts.overrides
+    const cfg: PolymarketConfig = {
+      ...baseCfg,
+      ...(overrides?.privateKey ? { privateKey: overrides.privateKey } : {}),
+      ...(overrides?.chainId ? { clob: { ...baseCfg.clob, chainId: overrides.chainId } } : {}),
+    }
+    this.config = cfg
+
     // If no config or overrides provided, createClobClient will auto-load from env vars
     if (opts.config !== undefined || opts.overrides !== undefined) {
       this.client = createClobClient({
@@ -239,5 +254,81 @@ export class LiveExecution implements ExecutionAdapter {
     void ctx
     // Live fills should come from user WS/polling; no synthetic fills here.
     return { events: [] }
+  }
+
+  async mergePositions(
+    intent: MergePositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const conditionId = ctx.lastMarket?.market
+    const privateKey = this.config.privateKey
+    const chainId = this.config.clob?.chainId ?? 137
+    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+
+    if (!conditionId) {
+      return {
+        events: [
+          {
+            kind: 'merge_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'missing conditionId (ctx.lastMarket.market)',
+          },
+        ],
+      }
+    }
+    if (!privateKey) {
+      return {
+        events: [
+          {
+            kind: 'merge_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'missing privateKey in PolymarketConfig',
+          },
+        ],
+      }
+    }
+
+    try {
+      const res = await mergeBinaryOutcomePositions({
+        rpcUrl,
+        chainId,
+        privateKey,
+        conditionId,
+        shares: requested,
+      })
+      return {
+        events: [
+          {
+            kind: 'positions_merged',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            size: res.mergedShares,
+            reason: intent.reason ? `${intent.reason}; tx=${res.txHash}` : `tx=${res.txHash}`,
+          },
+        ],
+      }
+    } catch (err) {
+      return {
+        events: [
+          {
+            kind: 'merge_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: err instanceof Error ? err.message : String(err),
+          },
+        ],
+      }
+    }
   }
 }

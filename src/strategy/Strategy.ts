@@ -46,7 +46,22 @@ export type CancelAllIntent = {
   reason?: string
 }
 
-export type Intent = PlaceLimitIntent | CancelOrderIntent | CancelAllIntent
+export type MergePositionsIntent = {
+  kind: 'merge_positions'
+  /**
+   * The two assetIds (tokens) to merge against each other (e.g. YES/NO or UP/DOWN pair).
+   */
+  assetIdA: string
+  assetIdB: string
+  /**
+   * Requested merge size in "shares" (same units strategies use for order sizes).
+   * Execution may return a smaller actual size in `positions_merged`.
+   */
+  size: number
+  reason?: string
+}
+
+export type Intent = PlaceLimitIntent | CancelOrderIntent | CancelAllIntent | MergePositionsIntent
 
 export type OrderLifecycleState =
   | 'requested'
@@ -211,6 +226,26 @@ export type AccountEvent =
       kind: 'ws_order_update'
       tsMs: number
       order: WsOrderUpdate
+    }
+  | {
+      /**
+       * Merge result: indicates that `size` shares were actually merged (may be <= requested).
+       * Portfolio should treat this as authoritative but still clamp for safety.
+       */
+      kind: 'positions_merged'
+      tsMs: number
+      assetIdA: string
+      assetIdB: string
+      size: number
+      reason?: string
+    }
+  | {
+      kind: 'merge_failed'
+      tsMs: number
+      assetIdA: string
+      assetIdB: string
+      requestedSize: number
+      reason: string
     }
 
 export type Strategy = {
