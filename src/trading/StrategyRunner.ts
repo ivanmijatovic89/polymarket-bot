@@ -1,6 +1,7 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
 import { Portfolio } from './Portfolio.js'
+import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
 
@@ -9,10 +10,18 @@ export type StrategyRunnerOptions = {
   orderManager: OrderManager
   portfolio?: Portfolio
   /**
-   * Prevent infinite feedback loops (account-event triggers more intents triggers more account events).
-   * Default 25.
+   * How intents should be handled:
+   * - queued: submit now, execute on next market tick (legacy 1-tick latency)
+   * - immediate: execute now and emit AccountEvents immediately (live-friendly)
+   *
+   * Default 'queued' (backtest-friendly).
    */
-  maxCascadeDepth?: number
+  intentExecutionMode?: IntentExecutionMode
+  /**
+   * Prevent infinite feedback loops (account-event triggers more intents triggers more account events).
+   * Default 100.
+   */
+  maxEventsPerDrain?: number
   log?: (msg: string, extra?: unknown) => void
 }
 
@@ -20,16 +29,21 @@ export class StrategyRunner {
   private readonly strategy: Strategy
   private readonly orderManager: OrderManager
   private readonly portfolio: Portfolio
-  private readonly maxCascadeDepth: number
+  private readonly intentExecutionMode: IntentExecutionMode
+  private readonly maxEventsPerDrain: number
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
+  private readonly accountEventQueue: AccountEvent[] = []
+  private draining = false
+  private readonly recentDrainEvents: { kind: AccountEvent['kind']; tsMs?: number }[] = []
 
   constructor(opts: StrategyRunnerOptions) {
     this.strategy = opts.strategy
     this.orderManager = opts.orderManager
     this.portfolio = opts.portfolio ?? new Portfolio()
-    this.maxCascadeDepth = Math.max(1, opts.maxCascadeDepth ?? 25)
+    this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
+    this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.log = opts.log
   }
 
@@ -50,14 +64,17 @@ export class StrategyRunner {
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
       portfolio: this.portfolio.snapshot(),
     })
-    for (const ev of preEvents) await this.applyAccountEvent(ev, 0)
+    for (const ev of preEvents) this.enqueueAccountEvent(ev)
+    await this.drainAccountEvents()
 
     const intents = await this.strategy.onMarketTick(tick, this.portfolio.snapshot())
     await this.applyIntents(intents)
+    await this.drainAccountEvents()
   }
 
   async onAccountEvent(ev: AccountEvent): Promise<void> {
-    await this.applyAccountEvent(ev, 0)
+    this.enqueueAccountEvent(ev)
+    await this.drainAccountEvents()
   }
 
   private async applyIntents(intents: Intent[]): Promise<void> {
@@ -67,11 +84,46 @@ export class StrategyRunner {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
       portfolio: this.portfolio.snapshot(),
-    })
-    for (const ev of events) await this.applyAccountEvent(ev, 0)
+    }, { mode: this.intentExecutionMode })
+    for (const ev of events) this.enqueueAccountEvent(ev)
   }
 
-  private async applyAccountEvent(ev: AccountEvent, depth: number): Promise<void> {
+  private enqueueAccountEvent(ev: AccountEvent): void {
+    this.accountEventQueue.push(ev)
+  }
+
+  private pushRecentDrainEvent(ev: AccountEvent): void {
+    this.recentDrainEvents.push({ kind: ev.kind, ...(typeof (ev as { tsMs?: unknown }).tsMs === 'number' ? { tsMs: (ev as { tsMs: number }).tsMs } : {}) })
+    if (this.recentDrainEvents.length > 10) this.recentDrainEvents.shift()
+  }
+
+  private async drainAccountEvents(): Promise<void> {
+    if (this.draining) return
+    this.draining = true
+    try {
+      let processed = 0
+      while (this.accountEventQueue.length > 0) {
+        if (processed >= this.maxEventsPerDrain) {
+          this.log?.('[runner] maxEventsPerDrain exceeded; halting drain and dropping queued events', {
+            maxEventsPerDrain: this.maxEventsPerDrain,
+            remaining: this.accountEventQueue.length,
+            recent: this.recentDrainEvents.slice(),
+          })
+          this.accountEventQueue.length = 0
+          return
+        }
+
+        const ev = this.accountEventQueue.shift()!
+        processed += 1
+        this.pushRecentDrainEvent(ev)
+        await this.processAccountEvent(ev)
+      }
+    } finally {
+      this.draining = false
+    }
+  }
+
+  private async processAccountEvent(ev: AccountEvent): Promise<void> {
     if (ev.kind === 'fill') {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
       const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
@@ -79,10 +131,6 @@ export class StrategyRunner {
       this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta })
     }
     this.portfolio.apply(ev)
-    if (depth >= this.maxCascadeDepth) {
-      this.log?.(`[runner] cascade depth exceeded, stopping`, { depth, ev })
-      return
-    }
 
     const nextIntents = await this.strategy.onAccountEvent(
       ev,
@@ -96,7 +144,7 @@ export class StrategyRunner {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
       portfolio: this.portfolio.snapshot(),
-    })
-    for (const e of nextEvents) await this.applyAccountEvent(e, depth + 1)
+    }, { mode: this.intentExecutionMode })
+    for (const e of nextEvents) this.enqueueAccountEvent(e)
   }
 }

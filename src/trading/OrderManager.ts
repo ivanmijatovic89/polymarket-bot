@@ -51,6 +51,8 @@ export type OrderManagerOptions = {
   log?: (msg: string, extra?: unknown) => void
 }
 
+export type IntentExecutionMode = 'queued' | 'immediate'
+
 /**
  * Minimal order manager:
  * - enforces basic validation (GTD expiry)
@@ -66,7 +68,7 @@ export class OrderManager {
   // Internal dedupe of clientOrderId to avoid spamming the same intent every tick.
   private readonly activeClientOrders = new Set<ClientOrderId>()
 
-  // 1-tick latency: intents submitted on tick N execute on tick N+1.
+  // Optional 1-tick latency mode: intents submitted on tick N execute on tick N+1.
   private pendingIntents: Intent[] = []
 
   constructor(opts: OrderManagerOptions) {
@@ -76,11 +78,37 @@ export class OrderManager {
     this.log = opts.log
   }
 
-  async handleIntents(intents: Intent[], ctx: OrderManagerContext): Promise<AccountEvent[]> {
-    void ctx // latency queue does not use ctx at enqueue-time
+  async handleIntents(
+    intents: Intent[],
+    ctx: OrderManagerContext,
+    opts?: { mode?: IntentExecutionMode },
+  ): Promise<AccountEvent[]> {
+    const mode: IntentExecutionMode = opts?.mode ?? 'queued'
     if (!intents || intents.length === 0) return []
-    this.pendingIntents.push(...intents)
-    return []
+
+    if (mode === 'queued') {
+      void ctx // latency queue does not use ctx at enqueue-time
+      this.pendingIntents.push(...intents)
+      return []
+    }
+
+    const { allowed, rejectedEvents, blocked } = enforceRiskLimits({
+      nowMs: ctx.nowMs,
+      intents,
+      ...(ctx.portfolio ? { portfolio: ctx.portfolio } : {}),
+    })
+
+    if (blocked.length > 0) {
+      this.log?.('[risk] blocked intents', {
+        count: blocked.length,
+        reasons: blocked.map((b) => b.reason),
+      })
+    }
+
+    const out: AccountEvent[] = []
+    out.push(...rejectedEvents)
+    out.push(...(await this.executeIntentsNow(allowed, ctx)))
+    return out
   }
 
   async onMarketTick(ctx: OrderManagerContext): Promise<AccountEvent[]> {

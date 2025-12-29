@@ -37,6 +37,21 @@ async function main(): Promise<void> {
   const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
   console.log(`[trading-bot] dryRun=${dryRun}`)
 
+  const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
+  const intentExecutionMode =
+    intentExecutionModeEnv === 'queued' || intentExecutionModeEnv === 'immediate'
+      ? (intentExecutionModeEnv as 'queued' | 'immediate')
+      : 'immediate'
+  console.log(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
+
+  const maxEventsPerDrainRaw = process.env.MAX_EVENTS_PER_DRAIN
+  const maxEventsPerDrainParsed = maxEventsPerDrainRaw ? Number(maxEventsPerDrainRaw) : NaN
+  const maxEventsPerDrain =
+    Number.isFinite(maxEventsPerDrainParsed) && Number.isInteger(maxEventsPerDrainParsed)
+      ? Math.max(1, maxEventsPerDrainParsed)
+      : 100
+  console.log(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
+
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined
@@ -106,6 +121,8 @@ async function main(): Promise<void> {
   const runner = new StrategyRunner({
     strategy,
     orderManager,
+    intentExecutionMode,
+    maxEventsPerDrain,
     ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
   })
 
