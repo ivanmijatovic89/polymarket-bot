@@ -1,5 +1,6 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import { isOrderTradeStatusAtLeast, safeProbabilityPrice } from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 /**
@@ -58,17 +59,6 @@ function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string]
   const b = ids[1]
   if (!a || !b || a === b) return null
   return [a, b]
-}
-
-function clamp01(p: number): number {
-  if (!Number.isFinite(p)) return 0
-  return Math.max(0, Math.min(1, p))
-}
-
-function requiredTradeRank(s: BasicFakConfig['sellWhenStatus']): 1 | 2 | 3 {
-  if (s === 'MATCHED') return 1
-  if (s === 'MINED') return 2
-  return 3
 }
 
 export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
@@ -166,9 +156,7 @@ export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
     if (hasPlacedSell) return []
     if (!boughtAssetId || !buyClientOrderId) return []
 
-    const buy = portfolio.ordersByClientId[buyClientOrderId]
-    if (!buy) return []
-    if ((buy.tradeStatusRank ?? 0) < requiredTradeRank(cfg.sellWhenStatus)) return []
+    if (!isOrderTradeStatusAtLeast(portfolio, buyClientOrderId, cfg.sellWhenStatus)) return []
 
     const pos = portfolio.positionsByAssetId[boughtAssetId]
     if (cfg.requirePositionBeforeSell) {
@@ -179,7 +167,7 @@ export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
     if (entry === null || !Number.isFinite(entry)) return []
 
     const tpInc = Number.isFinite(cfg.takeProfitPct) ? cfg.takeProfitPct : 0.01
-    const sellPrice = clamp01(entry + tpInc)
+    const sellPrice = safeProbabilityPrice(entry + tpInc)
     // Sell the full position qty (i.e. "sell all I bought"), which also handles partial fills.
     // If requirePositionBeforeSell=true (default), `pos.qty` is guaranteed to be > 0 here.
     const sizeToSell = pos ? pos.qty : 0
