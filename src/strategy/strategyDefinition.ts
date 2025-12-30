@@ -6,7 +6,8 @@ export type StrategyDefinition<TParams> = {
   title?: string
   description?: string
   schema: z.ZodType<TParams>
-  create: (params: TParams) => Strategy
+  // Method signature (not a function property) so registry can safely type-erase params as `unknown`.
+  create(params: TParams): Strategy
 }
 
 export class CliArgsError extends Error {
