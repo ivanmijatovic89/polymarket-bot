@@ -306,6 +306,21 @@ Recorder tuning:
 
 Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
 
+## Live execution: fill status vs on-chain settlement (important)
+
+We deliberately use **two different notions of “done”**:
+
+- **Position updates (fast)**:
+  - We use `USER_WS_FILL_AT_STATUS=MATCHED` to update positions as soon as a fill is *matched* (user WS).
+- **Actions that require on-chain state (safe)**:
+  - To **sell shares you just bought**, you must wait until the buy is **`MINED`**.
+  - To **merge shares**, you must wait until the relevant buys are **`MINED`**.
+
+### Buy-both-sides strategies
+
+- For **buy both sides** strategies you can run with `USER_WS_FILL_AT_STATUS=MATCHED`.
+- For **leg 2**, you can also use **`MATCHED`** (positions update quickly), but any subsequent **sell/merge** must still wait for **`MINED`**.
+
 ## Code map
 
 - **Market selection (Gamma)**:

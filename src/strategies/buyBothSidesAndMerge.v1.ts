@@ -8,7 +8,7 @@ export const BuyBothSidesAndMergeConfigSchema = z.strictObject({
   size: z.coerce.number().finite().default(5),
   triggerPrice: z.coerce.number().finite().default(0.40),
   buyPriceBump: z.coerce.number().finite().default(0.05),
-  mergeWhenStatus: z.enum(['MATCHED', 'MINED', 'CONFIRMED']).default('CONFIRMED'),
+  mergeWhenStatus: z.enum(['MATCHED', 'MINED', 'CONFIRMED']).default('MINED'),
 })
 
 export type BuyBothSidesAndMergeConfig = z.infer<typeof BuyBothSidesAndMergeConfigSchema>

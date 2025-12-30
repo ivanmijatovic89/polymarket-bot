@@ -265,7 +265,7 @@ export class LiveExecution implements ExecutionAdapter {
     const conditionId = ctx.lastMarket?.market
     const privateKey = this.config.privateKey
     const chainId = this.config.clob?.chainId ?? 137
-    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-bor-rpc.publicnode.com'
 
     if (!conditionId) {
       return {
