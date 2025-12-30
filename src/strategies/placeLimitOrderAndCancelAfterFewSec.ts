@@ -27,113 +27,118 @@ export const definition: StrategyDefinition<PlaceLimitOrderAndCancelAfterFewSecC
   create: (params) => createPlaceLimitOrderAndCancelAfterFewSecStrategy(params),
 }
 
+type Phase = 'waiting_trigger' | 'order_placed' | 'done'
+
+type LocalState =
+  | { phase: 'waiting_trigger' }
+  | {
+      phase: 'order_placed'
+      assetId: string
+      clientOrderId: string
+      placedAtMs: number
+      cancelEmitted: boolean
+    }
+  | { phase: 'done' }
+
+function tickNowMs(tick: MarketTick): number {
+  // IMPORTANT: use a single tick-derived clock for placement + cancel timing.
+  return tick.snapshot.timestamp || Date.now()
+}
+
+function isFinalLifecycleState(s: unknown): boolean {
+  return s === 'filled' || s === 'canceled' || s === 'rejected' || s === 'expired' || s === 'killed'
+}
+
 function pickTriggerAssetId(tick: MarketTick, cfg: PlaceLimitOrderAndCancelAfterFewSecConfig): string | null {
   const byAssetId = tick.snapshot.byAssetId
 
+  // Optional override: only watch a single assetId.
   if (cfg.assetId) {
-    const b = byAssetId[cfg.assetId]
-    const ask = b?.bestAsk ?? null
-    if (ask !== null && Number.isFinite(ask) && ask <= cfg.triggerPrice) return cfg.assetId
-    return null
+    const ask = byAssetId[cfg.assetId]?.bestAsk ?? null
+    return ask !== null && Number.isFinite(ask) && ask <= cfg.triggerPrice ? cfg.assetId : null
   }
 
+  // Otherwise, pick deterministically: lowest ask that crosses; tie-break by assetId string.
   let best: { assetId: string; ask: number } | null = null
   for (const assetId of Object.keys(byAssetId)) {
     const ask = byAssetId[assetId]?.bestAsk ?? null
-    if (ask === null || !Number.isFinite(ask)) continue
-    if (ask > cfg.triggerPrice) continue
-
-    if (!best || ask < best.ask || (ask === best.ask && assetId < best.assetId)) {
-      best = { assetId, ask }
-    }
+    if (ask === null || !Number.isFinite(ask) || ask > cfg.triggerPrice) continue
+    if (!best || ask < best.ask || (ask === best.ask && assetId < best.assetId)) best = { assetId, ask }
   }
   return best?.assetId ?? null
 }
 
-function isFinalLifecycleState(s: unknown): boolean {
-  return (
-    s === 'filled' ||
-    s === 'canceled' ||
-    s === 'rejected' ||
-    s === 'expired' ||
-    s === 'killed'
-  )
+function orderLifecycleState(portfolio: PortfolioSnapshot, clientOrderId: string): unknown {
+  return portfolio.ordersByClientId[clientOrderId]?.lifecycleState
+}
+
+function resolveOrderIdForCancel(portfolio: PortfolioSnapshot, clientOrderId: string): string | null {
+  const snap = portfolio.ordersByClientId[clientOrderId]
+  const open = portfolio.openOrdersByClientId[clientOrderId]
+  const orderId = snap?.orderId ?? open?.orderId
+  return typeof orderId === 'string' && orderId.length > 0 ? orderId : null
+}
+
+function makeClientOrderId(base: string, assetId: string, placedAtMs: number): string {
+  return `${base}:${assetId}:${placedAtMs}`
 }
 
 export function createPlaceLimitOrderAndCancelAfterFewSecStrategy(
   cfg: PlaceLimitOrderAndCancelAfterFewSecConfig,
 ): Strategy {
   const name = 'place_limit_then_cancel'
-
-  let state: 'waiting_trigger' | 'order_placed' | 'done' = 'waiting_trigger'
-  let assetId: string | null = null
-  let clientOrderId: string | null = null
-  let placedAtMs: number | null = null
-  let hasEmittedCancel = false
+  let state: LocalState = { phase: 'waiting_trigger' }
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot): Intent[] => {
-    const nowMs = tick.snapshot.timestamp || Date.now()
+    const nowMs = tickNowMs(tick)
+    if (state.phase === 'done') return []
 
-    if (state === 'done') return []
+    if (state.phase === 'waiting_trigger') {
+      const assetId = pickTriggerAssetId(tick, cfg)
+      if (!assetId) return []
 
-    if (state === 'waiting_trigger') {
-      const picked = pickTriggerAssetId(tick, cfg)
-      if (!picked) return []
+      const placedAtMs = nowMs
+      const clientOrderId = makeClientOrderId(name, assetId, placedAtMs)
+      const size = Number.isFinite(cfg.size) ? cfg.size : 10
+      const orderPrice = Number.isFinite(cfg.orderPrice) ? cfg.orderPrice : 0.1
 
-      // Use a single tick-derived clock for both placement + cancel timing.
-      const safeSize = Number.isFinite(cfg.size) ? cfg.size : 10
-      const safeOrderPrice = Number.isFinite(cfg.orderPrice) ? cfg.orderPrice : 0.1
-
-      state = 'order_placed'
-      assetId = picked
-      placedAtMs = nowMs
-      clientOrderId = `${name}:${picked}:${nowMs}`
-      hasEmittedCancel = false
+      state = { phase: 'order_placed', assetId, clientOrderId, placedAtMs, cancelEmitted: false }
 
       return [
         {
           kind: 'place_limit',
           clientOrderId,
-          assetId: picked,
+          assetId,
           side: 'BUY',
-          price: safeOrderPrice,
-          size: safeSize,
+          price: orderPrice,
+          size,
           orderType: 'GTC',
           reason: 'cancel_test_place_gtc',
         },
       ]
     }
 
-    // state === 'order_placed'
-    if (!clientOrderId || !assetId || placedAtMs === null) return []
-
-    const snap = portfolio.ordersByClientId[clientOrderId]
-    if (snap?.lifecycleState && isFinalLifecycleState(snap.lifecycleState)) {
-      state = 'done'
-      return []
-    }
-
-    // If not in openOrders anymore and we have a final snapshot, consider it done.
-    const open = portfolio.openOrdersByClientId[clientOrderId]
-    if (!open && snap?.lifecycleState && isFinalLifecycleState(snap.lifecycleState)) {
-      state = 'done'
+    // state.phase === 'order_placed'
+    const lifecycle = orderLifecycleState(portfolio, state.clientOrderId)
+    if (isFinalLifecycleState(lifecycle)) {
+      state = { phase: 'done' }
       return []
     }
 
     const cancelAfterMs = Number.isFinite(cfg.cancelAfterMs) ? cfg.cancelAfterMs : 10_000
-    if (cancelAfterMs <= 0) return []
-    if (nowMs - placedAtMs < cancelAfterMs) return []
-    if (hasEmittedCancel) return []
+    const isPastDeadline = cancelAfterMs > 0 && nowMs - state.placedAtMs >= cancelAfterMs
+    if (!isPastDeadline) return []
+    if (state.cancelEmitted) return []
 
-    // Live cancel needs orderId; get it from the portfolio snapshot.
-    const orderId = snap?.orderId ?? open?.orderId
+    // Live cancel requires exchange orderId.
+    const orderId = resolveOrderIdForCancel(portfolio, state.clientOrderId)
     if (!orderId) return []
 
-    hasEmittedCancel = true
+    state = { ...state, cancelEmitted: true }
     return [
       {
         kind: 'cancel_order',
-        clientOrderId,
+        clientOrderId: state.clientOrderId,
         orderId,
         reason: `cancel_after_ms_${cancelAfterMs}`,
       },
@@ -142,18 +147,14 @@ export function createPlaceLimitOrderAndCancelAfterFewSecStrategy(
 
   const onAccountEvent: Strategy['onAccountEvent'] = (_ev, portfolio) => {
     // Drive completion even if the market is quiet (fills/cancels will surface as account events).
-    if (state !== 'order_placed') return []
-    if (!clientOrderId) return []
-
-    const snap = portfolio.ordersByClientId[clientOrderId]
-    if (snap?.lifecycleState && isFinalLifecycleState(snap.lifecycleState)) {
-      state = 'done'
-      return []
-    }
+    if (state.phase !== 'order_placed') return []
+    const lifecycle = orderLifecycleState(portfolio, state.clientOrderId)
+    if (isFinalLifecycleState(lifecycle)) state = { phase: 'done' }
     return []
   }
 
   return { name, onMarketTick, onAccountEvent }
 }
+
 
 

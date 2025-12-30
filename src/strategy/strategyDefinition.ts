@@ -1,13 +1,22 @@
 import type { Strategy } from './Strategy.js'
 import type { z } from 'zod'
 
+/**
+ * Bivariant function type helper.
+ *
+ * We use this so a `StrategyDefinition<SpecificParams>` can be stored in a registry typed as
+ * `StrategyDefinition<unknown>` without tripping `strictFunctionTypes` / `exactOptionalPropertyTypes`.
+ */
+export type BivariantStrategyFactory<TParams> = {
+  bivarianceHack(params: TParams): Strategy
+}['bivarianceHack']
+
 export type StrategyDefinition<TParams> = {
   id: string
   title?: string
   description?: string
   schema: z.ZodType<TParams>
-  // Method signature (not a function property) so registry can safely type-erase params as `unknown`.
-  create(params: TParams): Strategy
+  create: BivariantStrategyFactory<TParams>
 }
 
 export class CliArgsError extends Error {
