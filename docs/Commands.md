@@ -30,3 +30,9 @@ npm run trade:bot:btc -- \
 npm run trade:bot:btc -- \
   --strategy readVolatilityIndicator.v1 \
   --param logEveryMs=1000
+
+# External FEED
+
+npm run trade:bot:btc -- \
+  --strategy readExternalFeedBinanceAndChainlinkBitcoinPrice.v1 \
+  --param logEveryMs=1000

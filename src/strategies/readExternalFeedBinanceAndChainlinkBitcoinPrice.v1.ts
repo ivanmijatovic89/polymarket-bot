@@ -33,14 +33,24 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
     // remove decimal places and format ( add comma as thousands separator)
     const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
     const c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
+    const bw = ctx?.feeds?.binanceWsSpotPrice
 
     // add comma as thousands separator without regex
     const bStr =
       b && Number.isFinite(b.value) ? `${b.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
     const cStr =
       c && Number.isFinite(c.value) ? `${c.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
+    const bwStr =
+      bw && Number.isFinite(bw.value) ? `${bw.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
 
-    console.log(`[feed > ] ${label} nowMs=${nowMs} binance=${bStr} chainlink=${cStr}`)
+    const diffStr =
+      bw && b && Number.isFinite(bw.value) && Number.isFinite(b.value)
+        ? (bw.value - b.value).toFixed(2)
+        : 'n/a'
+
+    console.log(
+      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr}  wsMinusRtds=${diffStr}`,
+    )
   }
 
   const onMarketTick = (tick: MarketTick, _portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
@@ -70,6 +80,9 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
         // - Chainlink symbol format is slash-separated, e.g. "btc/usd"
         binanceSymbols: ['btcusdt'],
         chainlinkSymbols: ['btc/usd'],
+      },
+      binanceWsSpotPrice: {
+        symbol: 'btcusdt',
       },
     },
     onMarketTick,

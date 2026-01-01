@@ -264,6 +264,17 @@ export type Strategy = {
       /** Chainlink RTDS symbols, e.g. ["btc/usd"] */
       chainlinkSymbols?: string[]
     }
+    /**
+     * Direct Binance Spot websocket price feed (aggTrade last price).
+     *
+     * Docs:
+     * - Base: wss://stream.binance.com:9443/ws/<symbol>@aggTrade
+     * - All symbols are lowercase.
+     */
+    binanceWsSpotPrice?: {
+      /** e.g. "btcusdt" */
+      symbol?: string
+    }
   }
   onMarketTick: (
     tick: MarketTick,

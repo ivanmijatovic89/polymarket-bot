@@ -16,6 +16,7 @@ import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
+import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -90,7 +91,18 @@ async function main(): Promise<void> {
     )
   }
 
-  const feedsStore = rtdsReq && rtdsEnabled ? createExternalFeedsStore() : null
+  const binanceWsReq = strategy.requiredFeeds?.binanceWsSpotPrice
+  const binanceWsSymbol = (binanceWsReq?.symbol ?? '').toLowerCase().trim()
+  const binanceWsEnabled = binanceWsSymbol.length > 0
+  if (binanceWsReq && !binanceWsEnabled) {
+    console.warn(
+      '[trading-bot] binanceWsSpotPrice requested but no symbol configured; Binance WS feed disabled (no prices will be available)',
+    )
+  }
+
+  const feedsEnabled = (rtdsReq && rtdsEnabled) || (binanceWsReq && binanceWsEnabled)
+  const feedsStore = feedsEnabled ? createExternalFeedsStore() : null
+
   const rtdsClient =
     rtdsReq && rtdsEnabled
       ? createRtdsCryptoPricesClient({
@@ -101,6 +113,18 @@ async function main(): Promise<void> {
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
             console.log(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
+          },
+        })
+      : null
+
+  const binanceWsClient =
+    binanceWsReq && binanceWsEnabled
+      ? createBinanceWsSpotPriceClient({
+          symbol: binanceWsSymbol,
+          onPrice: (u) => feedsStore!.updateBinanceWsSpotPrice(u),
+          onStatus: (s) => {
+            const extra = s.info ? ` ${s.info}` : ''
+            console.log(`[trading-bot] binance_ws ${s.kind} attempt=${s.attempt}${extra}`)
           },
         })
       : null
@@ -383,6 +407,7 @@ async function main(): Promise<void> {
     poller?.stop()
     source.stop()
     rtdsClient?.stop()
+    binanceWsClient?.stop()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
@@ -392,6 +417,7 @@ async function main(): Promise<void> {
   userWs?.start()
   poller?.start()
   rtdsClient?.start()
+  binanceWsClient?.start()
 }
 
 main().catch((err) => {
