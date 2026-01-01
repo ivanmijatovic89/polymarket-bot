@@ -14,6 +14,8 @@ import { createRestPollAccountSource } from '../polymarket/restPollAccountSource
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
+import { createExternalFeedsStore } from '../feeds/externalFeeds.js'
+import { createRtdsCryptoPricesClient } from '../polymarket/rtds/rtdsCryptoPricesClient.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -75,6 +77,23 @@ async function main(): Promise<void> {
   console.log(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
+  // Optional external feeds (live-only). Enabled only if strategy opts in.
+  const rtdsReq = strategy.requiredFeeds?.rtdsCryptoPrices
+  const feedsStore = rtdsReq ? createExternalFeedsStore() : null
+  const rtdsClient = rtdsReq
+    ? createRtdsCryptoPricesClient({
+        binanceSymbols: rtdsReq.binanceSymbols ?? [],
+        // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
+        chainlinkSymbols: rtdsReq.chainlinkSymbols ?? [],
+        onBinanceUpdate: (u) => feedsStore!.updateBinance(u),
+        onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
+        onStatus: (s) => {
+          const extra = s.info ? ` ${s.info}` : ''
+          console.log(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
+        },
+      })
+    : null
+
   // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.
   if (!dryRun) {
     if (!cfg.privateKey) {
@@ -125,6 +144,7 @@ async function main(): Promise<void> {
     strategy,
     orderManager,
     ...(indicatorSet ? { indicatorSet } : {}),
+    ...(feedsStore ? { getFeedsSnapshot: () => feedsStore.snapshot() } : {}),
     intentExecutionMode,
     maxEventsPerDrain,
     ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
@@ -286,6 +306,7 @@ async function main(): Promise<void> {
       // New websocket session / potential new market: reset local orderbook state.
       marketEngine.reset()
       indicatorSet?.reset()
+      // External feeds are independent of market WS; do NOT reset them here.
       console.log(`[trading-bot] connected (${s.info ?? 'ws'})`)
       return
     }
@@ -350,6 +371,7 @@ async function main(): Promise<void> {
     userWs?.stop()
     poller?.stop()
     source.stop()
+    rtdsClient?.stop()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
@@ -358,6 +380,7 @@ async function main(): Promise<void> {
   boundaryScheduler.start()
   userWs?.start()
   poller?.start()
+  rtdsClient?.start()
 }
 
 main().catch((err) => {

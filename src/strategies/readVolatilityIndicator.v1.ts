@@ -67,7 +67,7 @@ export function createReadVolatilityIndicatorStrategy(cfg: ReadVolatilityIndicat
     if (nowMs - lastLogAtMs < cfg.logEveryMs) return []
     lastLogAtMs = nowMs
 
-    const vol = ctx?.indicators.volatility
+    const vol = ctx?.indicators?.volatility
 
     // Render a readable table in terminal (updates in-place when TTY).
     if (process.stdout.isTTY) {

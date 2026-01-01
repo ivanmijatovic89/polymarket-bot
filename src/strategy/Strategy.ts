@@ -251,6 +251,20 @@ export type AccountEvent =
 
 export type Strategy = {
   name: string
+  /**
+   * Optional, strategy-declared external feed requirements.
+   *
+   * Live-only: CLIs (like `src/cli/trading-bot.ts`) may enable these feeds.
+   * Backtests should ignore them (no external data).
+   */
+  requiredFeeds?: {
+    rtdsCryptoPrices?: {
+      /** Binance RTDS symbols, e.g. ["btcusdt"] */
+      binanceSymbols?: string[]
+      /** Chainlink RTDS symbols, e.g. ["btc/usd"] */
+      chainlinkSymbols?: string[]
+    }
+  }
   onMarketTick: (
     tick: MarketTick,
     portfolio: PortfolioSnapshot,

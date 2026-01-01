@@ -106,8 +106,8 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
     bump()
   })
 
-  ws.on('message', (data: RawData, isBinary: boolean) => {
-    if (isBinary) return
+  ws.on('message', (data: RawData) => {
+    // Some servers send JSON as "binary" frames. We still try to decode as UTF-8 text.
     if (treatMessagesAsActivity) bump()
     const s = rawDataToString(data)
     if (s === null) return

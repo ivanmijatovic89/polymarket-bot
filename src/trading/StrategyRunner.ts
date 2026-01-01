@@ -1,6 +1,7 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
 import type { IndicatorSet, StrategyContext } from '../indicators/IndicatorSet.js'
+import type { ExternalFeedsSnapshot } from '../feeds/externalFeeds.js'
 import { Portfolio } from './Portfolio.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
@@ -15,6 +16,13 @@ export type StrategyRunnerOptions = {
    * If omitted, indicators have near-zero overhead (single null-check).
    */
   indicatorSet?: IndicatorSet
+  /**
+   * Optional external feeds snapshot provider (live-only).
+   *
+   * NOTE: These snapshots are passed ONLY on onMarketTick (not onAccountEvent),
+   * to keep all data access tick-scoped and backtest-friendly.
+   */
+  getFeedsSnapshot?: () => ExternalFeedsSnapshot | undefined
   /**
    * How intents should be handled:
    * - queued: submit now, execute on next market tick (legacy 1-tick latency)
@@ -36,6 +44,7 @@ export class StrategyRunner {
   private readonly orderManager: OrderManager
   private readonly portfolio: Portfolio
   private readonly indicatorSet: IndicatorSet | undefined
+  private readonly getFeedsSnapshot: (() => ExternalFeedsSnapshot | undefined) | undefined
   private readonly intentExecutionMode: IntentExecutionMode
   private readonly maxEventsPerDrain: number
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
@@ -50,6 +59,7 @@ export class StrategyRunner {
     this.orderManager = opts.orderManager
     this.portfolio = opts.portfolio ?? new Portfolio()
     this.indicatorSet = opts.indicatorSet
+    this.getFeedsSnapshot = opts.getFeedsSnapshot
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.log = opts.log
@@ -66,9 +76,15 @@ export class StrategyRunner {
   async onMarketTick(tick: MarketTick): Promise<void> {
     this.lastMarket = tick.snapshot
     this.indicatorSet?.onMarketTick(tick)
-    const ctx: StrategyContext | undefined = this.indicatorSet
-      ? { indicators: this.indicatorSet.snapshot() }
-      : undefined
+    const indicators = this.indicatorSet?.snapshot()
+    const feeds = this.getFeedsSnapshot?.()
+    const ctx: StrategyContext | undefined =
+      indicators || feeds
+        ? {
+            ...(indicators ? { indicators } : {}),
+            ...(feeds ? { feeds } : {}),
+          }
+        : undefined
 
     // Allow execution layer to emit fills/state updates that happen "because the market moved"
     // (only used in backtests; live fills arrive via user WS / polling).
@@ -145,9 +161,17 @@ export class StrategyRunner {
     }
     this.portfolio.apply(ev)
 
-    const ctx: StrategyContext | undefined = this.indicatorSet
-      ? { indicators: this.indicatorSet.snapshot() }
-      : undefined
+    // Pass the latest cached indicator snapshot + latest external feeds snapshot.
+    // Note: IndicatorSet snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.
+    const indicators = this.indicatorSet?.snapshot()
+    const feeds = this.getFeedsSnapshot?.()
+    const ctx: StrategyContext | undefined =
+      indicators || feeds
+        ? {
+            ...(indicators ? { indicators } : {}),
+            ...(feeds ? { feeds } : {}),
+          }
+        : undefined
 
     const nextIntents = await this.strategy.onAccountEvent(
       ev,

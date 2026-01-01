@@ -1,5 +1,6 @@
 import type { MarketTick } from '../strategy/Strategy.js'
 import type { VolatilitySnapshot } from './volatility/TimeWindowVolatility.js'
+import type { ExternalFeedsSnapshot } from '../feeds/externalFeeds.js'
 
 export type IndicatorId = string
 
@@ -8,7 +9,16 @@ export type IndicatorsSnapshot = {
 }
 
 export type StrategyContext = {
-  indicators: IndicatorsSnapshot
+  /**
+   * Optional per-tick indicator snapshots.
+   * Present only on onMarketTick (not onAccountEvent).
+   */
+  indicators?: IndicatorsSnapshot
+  /**
+   * Optional external feed snapshots (live-only; trading-bot wires these).
+   * Present only on onMarketTick (not onAccountEvent).
+   */
+  feeds?: ExternalFeedsSnapshot
 }
 
 export interface Indicator {
