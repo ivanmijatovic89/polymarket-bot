@@ -79,20 +79,31 @@ async function main(): Promise<void> {
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
   const rtdsReq = strategy.requiredFeeds?.rtdsCryptoPrices
-  const feedsStore = rtdsReq ? createExternalFeedsStore() : null
-  const rtdsClient = rtdsReq
-    ? createRtdsCryptoPricesClient({
-        binanceSymbols: rtdsReq.binanceSymbols ?? [],
-        // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
-        chainlinkSymbols: rtdsReq.chainlinkSymbols ?? [],
-        onBinanceUpdate: (u) => feedsStore!.updateBinance(u),
-        onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
-        onStatus: (s) => {
-          const extra = s.info ? ` ${s.info}` : ''
-          console.log(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
-        },
-      })
-    : null
+  const rtdsBinanceSymbols = rtdsReq?.binanceSymbols ?? []
+  // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
+  const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols ?? []
+  const rtdsEnabled = rtdsBinanceSymbols.length > 0 || rtdsChainlinkSymbols.length > 0
+
+  if (rtdsReq && !rtdsEnabled) {
+    console.warn(
+      '[trading-bot] rtdsCryptoPrices requested but no symbols configured; RTDS feed disabled (no prices will be available)',
+    )
+  }
+
+  const feedsStore = rtdsReq && rtdsEnabled ? createExternalFeedsStore() : null
+  const rtdsClient =
+    rtdsReq && rtdsEnabled
+      ? createRtdsCryptoPricesClient({
+          binanceSymbols: rtdsBinanceSymbols,
+          chainlinkSymbols: rtdsChainlinkSymbols,
+          onBinanceUpdate: (u) => feedsStore!.updateBinance(u),
+          onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
+          onStatus: (s) => {
+            const extra = s.info ? ` ${s.info}` : ''
+            console.log(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
+          },
+        })
+      : null
 
   // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.
   if (!dryRun) {

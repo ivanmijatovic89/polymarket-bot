@@ -146,7 +146,8 @@ export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions
         if (msg.topic === 'crypto_prices' && msg.type === 'update') {
           const p = parseUpdatePayload(msg.payload)
           if (!p) return
-          if (allowedBinance.size > 0 && !allowedBinance.has(p.symbol.toLowerCase())) return
+          // Require explicit allow-list: empty list means "accept none"
+          if (!allowedBinance.has(p.symbol.toLowerCase())) return
           opts.onBinanceUpdate({
             symbol: p.symbol,
             tsMs: p.timestamp,
@@ -158,7 +159,8 @@ export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions
         if (msg.topic === 'crypto_prices_chainlink' && msg.type === 'update') {
           const p = parseUpdatePayload(msg.payload)
           if (!p) return
-          if (allowedChainlink.size > 0 && !allowedChainlink.has(p.symbol.toLowerCase())) return
+          // Require explicit allow-list: empty list means "accept none"
+          if (!allowedChainlink.has(p.symbol.toLowerCase())) return
           opts.onChainlinkUpdate({
             symbol: p.symbol,
             tsMs: p.timestamp,
