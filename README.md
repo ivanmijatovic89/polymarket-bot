@@ -133,6 +133,25 @@ How it works (high-level):
 
 - [`readVolatilityIndicator.v1`](src/strategies/readVolatilityIndicator.v1.ts)
 
+## External Feeds
+
+External feeds are **live-only** data sources (not available in backtests) exposed to strategies via `ctx.feeds`.
+
+### Available feeds
+
+- **Polymarket RTDS crypto prices**: `ctx.feeds.rtdsPolymarketCryptoPrices`
+  - backed by Polymarket RTDS (Binance source + Chainlink source)
+- **Direct Binance spot price (aggTrade)**: `ctx.feeds.binanceWsSpotPrice`
+  - backed by Binance Spot WebSocket `aggTrade` (last trade price)
+
+### How to enable
+
+Strategies opt-in by setting `strategy.requiredFeeds` (see [`src/strategy/Strategy.ts`](src/strategy/Strategy.ts)).
+`src/cli/trading-bot.ts` will only start feed clients that are requested by the selected strategy.
+
+Read more: [`src/trading/feeds/README.md`](src/trading/feeds/README.md)
+Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/strategies/readExternalFeedBinanceAndChainlinkBitcoinPrice.v1.ts)
+
 ## Scripts
 
 - **Live recording**: `src/cli/record-live.ts`
