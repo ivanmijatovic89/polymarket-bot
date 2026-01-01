@@ -15,7 +15,7 @@ import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyA
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
-import { createRtdsCryptoPricesClient } from '../polymarket/ws/rtdsCryptoPricesClient.js'
+import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 

@@ -1,4 +1,4 @@
-import { createWsConnection, type WsConnection } from './wsConnection.js'
+import { createWsConnection, type WsConnection } from '../../polymarket/ws/wsConnection.js'
 
 type RtdsMessage = {
   topic: string
