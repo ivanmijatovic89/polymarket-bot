@@ -24,10 +24,8 @@ export const definition: StrategyDefinition<PlaceLimitOrderAndCancelAfterFewSecC
   description:
     'Test strategy: wait until any asset bestAsk <= triggerPrice, place BUY GTC at orderPrice, then cancel after cancelAfterMs if still open.',
   schema: PlaceLimitOrderAndCancelAfterFewSecConfigSchema,
-  create: (params) => createPlaceLimitOrderAndCancelAfterFewSecStrategy(params),
+  create: (params) => ({ strategy: createPlaceLimitOrderAndCancelAfterFewSecStrategy(params) }),
 }
-
-type Phase = 'waiting_trigger' | 'order_placed' | 'done'
 
 type LocalState =
   | { phase: 'waiting_trigger' }

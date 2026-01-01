@@ -19,7 +19,7 @@ export const definition: StrategyDefinition<BuyBothSidesAndMergeConfig> = {
   description:
     'When either side bestAsk <= triggerPrice, buy BOTH sides (FOK). After both orders are CONFIRMED, merge min(qtyA, qtyB).',
   schema: BuyBothSidesAndMergeConfigSchema,
-  create: (params) => createBuyBothSidesAndMergeStrategy(params),
+  create: (params) => ({ strategy: createBuyBothSidesAndMergeStrategy(params) }),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string] | null {
@@ -49,6 +49,7 @@ export function createBuyBothSidesAndMergeStrategy(cfg: BuyBothSidesAndMergeConf
   let buyCidB: string | null = null
 
   const onMarketTick = (tick: MarketTick, _portfolio: PortfolioSnapshot): Intent[] => {
+    void _portfolio
     if (hasPlacedBuys) return []
 
     const ids = pickTwoAssetIds(tick, cfg.assetId)

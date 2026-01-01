@@ -16,6 +16,11 @@ import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
 import { marketExistsBySlug, insertMarket, updateMarketBySlug } from '../db/index.js'
+import {
+  RetryLaterError,
+  parseUpDown15mSlugEpochMs,
+  throwIfPreviousWindowSlug,
+} from '../polymarket/upDown15mWindowGuard.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
 
@@ -30,10 +35,6 @@ function parseEnvInt(name: string, fallback: number): number {
   return n
 }
 
-function floorToWindowStart(tsMs: number, windowMs: number): number {
-  return Math.floor(tsMs / windowMs) * windowMs
-}
-
 function asTerminatedParquetPath(filePathFinal: string): string {
   // Mark incomplete files created by manual termination (Ctrl+C / SIGTERM).
   if (filePathFinal.endsWith('-terminated.parquet')) return filePathFinal
@@ -42,7 +43,7 @@ function asTerminatedParquetPath(filePathFinal: string): string {
   return `${filePathFinal}-terminated`
 }
 
-class SkipWindowError extends Error {
+class SkipWindowError extends RetryLaterError {
   readonly waitMs: number
   constructor(message: string, waitMs: number) {
     super(message)
@@ -51,16 +52,7 @@ class SkipWindowError extends Error {
   }
 }
 
-function tryParseUpDown15mSlugEpochMs(args: { slug: string; symbol: string }): number | null {
-  // Expected: <symbol>-updown-15m-<epochSeconds>
-  // Note: RegExp(string) needs a single escaped `\\d` to mean digit.
-  // `\\\\d` would match the literal string "\d" and would break the skip-if-older logic.
-  const m = new RegExp(`^${args.symbol}-updown-15m-(\\d+)$`).exec(args.slug)
-  if (!m) return null
-  const seconds = Number(m[1])
-  if (!Number.isFinite(seconds) || seconds <= 0) return null
-  return seconds * 1000
-}
+const tryParseUpDown15mSlugEpochMs = parseUpDown15mSlugEpochMs
 
 async function main(): Promise<void> {
   const cfg = loadPolymarketConfigFromEnv()
@@ -226,20 +218,27 @@ async function main(): Promise<void> {
     if (windowStartMsFromSlug !== null) {
       // In test mode, Gamma API still returns 15-minute markets, so we need to use FIFTEEN_MIN_MS
       // for window boundary checks instead of the test windowMs (15 seconds)
-      const gammaWindowMs = TEST_MODE ? FIFTEEN_MIN_MS : windowMs
+      void (TEST_MODE ? FIFTEEN_MIN_MS : windowMs)
 
       // After a 15m boundary, Gamma may briefly still return the previous market.
       // If so, retry quickly rather than skipping a whole 15m window.
       // In test mode, skip this check since Gamma markets are always 15 minutes
       if (!TEST_MODE) {
-        const expectedWindowStartMs = floorToWindowStart(Date.now(), windowMs)
-        if (windowStartMsFromSlug < expectedWindowStartMs) {
+        try {
+          throwIfPreviousWindowSlug({
+            slug: resolved.slug,
+            symbol,
+            windowMs,
+            nowMs: Date.now(),
+            messagePrefix: '[record-live]',
+            waitMs: 500,
+          })
+        } catch (err) {
           currentSlug = undefined
           isWaitingForNextWindow = true
-          throw new SkipWindowError(
-            `[record-live] gamma still returning previous market slug=${resolved.slug}; waiting for current window market`,
-            500,
-          )
+          // Keep backwards-compatible error name for logs.
+          const msg = err instanceof Error ? err.message : String(err)
+          throw new SkipWindowError(msg, 500)
         }
       }
 

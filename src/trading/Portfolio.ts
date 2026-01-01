@@ -107,7 +107,7 @@ export class Portfolio {
     return 0
   }
 
-  private tradeStatusRawField(raw: unknown): { tradeStatusRaw: string } | {} {
+  private tradeStatusRawField(raw: unknown): { tradeStatusRaw?: string } {
     return typeof raw === 'string' ? { tradeStatusRaw: raw } : {}
   }
 

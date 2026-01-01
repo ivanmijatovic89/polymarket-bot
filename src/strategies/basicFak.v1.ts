@@ -42,7 +42,7 @@ export const definition: StrategyDefinition<BasicFakConfig> = {
   title: 'Basic FAK v1',
   description: 'Buys 5 shares when bestAsk reaches 0.30 on either asset, executes only once.',
   schema: BasicFakConfigSchema,
-  create: (params) => createBasicFakStrategy(params),
+  create: (params) => ({ strategy: createBasicFakStrategy(params) }),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string] | null {

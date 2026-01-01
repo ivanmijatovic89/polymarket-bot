@@ -1,4 +1,5 @@
 import type { Strategy } from '../../strategy/Strategy.js'
+import type { IndicatorSet } from '../../indicators/IndicatorSet.js'
 import { CliArgsError, parseStrategyArgs } from '../../strategy/strategyDefinition.js'
 import { getStrategyDefinition, listStrategies } from '../../strategy/strategyRegistry.js'
 import * as z from 'zod'
@@ -7,6 +8,7 @@ export type BuildStrategyFromCliArgsResult = {
   strategyId: string
   params: Record<string, unknown>
   strategy: Strategy
+  indicatorSet?: IndicatorSet
 }
 
 function schemaKeys(schema: unknown): string[] | null {
@@ -71,8 +73,8 @@ export function buildStrategyFromCliArgs(args: {
     throw new CliArgsError(`invalid params for --strategy ${strategyId}:\n${msg}`)
   }
   const params = parsed.data as Record<string, unknown>
-  const strategy = def.create(parsed.data as never)
-  return { strategyId, params, strategy }
+  const built = def.create(parsed.data as never)
+  return { strategyId, params, ...built }
 }
 
 export function printCliArgsError(args: { script: string; err: unknown }): void {

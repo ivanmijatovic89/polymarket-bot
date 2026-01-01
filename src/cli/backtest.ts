@@ -215,7 +215,8 @@ async function main(): Promise<void> {
     runner: StrategyRunner
   } => {
     const def = getStrategyDefinition(built.strategyId)
-    const strategy = def.create(built.params as never)
+    const builtStrategy = def.create(built.params as never)
+    const strategy = builtStrategy.strategy
     const exec = new BacktestExecution()
     const orderManager = new OrderManager({
       execution: exec,
@@ -225,6 +226,7 @@ async function main(): Promise<void> {
     const runner = new StrategyRunner({
       strategy,
       orderManager,
+      ...(builtStrategy.indicatorSet ? { indicatorSet: builtStrategy.indicatorSet } : {}),
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
     return { strategy, runner }

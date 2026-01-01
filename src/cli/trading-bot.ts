@@ -13,6 +13,7 @@ import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
+import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -70,6 +71,7 @@ async function main(): Promise<void> {
     }
   })()
   const strategy = built.strategy
+  const indicatorSet = built.indicatorSet
   console.log(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
@@ -122,6 +124,7 @@ async function main(): Promise<void> {
   const runner = new StrategyRunner({
     strategy,
     orderManager,
+    ...(indicatorSet ? { indicatorSet } : {}),
     intentExecutionMode,
     maxEventsPerDrain,
     ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
@@ -136,6 +139,21 @@ async function main(): Promise<void> {
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
     const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+    // Avoid subscribing to the previous-window market around boundaries.
+    // If Gamma is behind, retry soon instead of connecting to the old slug.
+    try {
+      throwIfPreviousWindowSlug({
+        slug: r.slug,
+        symbol,
+        windowMs: FIFTEEN_MIN_MS,
+        nowMs: Date.now(),
+        messagePrefix: '[trading-bot]',
+      })
+    } catch (err) {
+      currentSlug = undefined
+      throw err
+    }
+
     currentSlug = r.slug
     return { assetsIds: r.assetsIds, label: r.label }
   }
@@ -257,6 +275,7 @@ async function main(): Promise<void> {
         console.error('[trading-bot] MarketEngine.handleRaw failed', err)
         // If we somehow see a different market than expected, reset and keep going.
         marketEngine.reset()
+        indicatorSet?.reset()
       })
   })
 
@@ -266,6 +285,7 @@ async function main(): Promise<void> {
       wsAttempt = s.attempt
       // New websocket session / potential new market: reset local orderbook state.
       marketEngine.reset()
+      indicatorSet?.reset()
       console.log(`[trading-bot] connected (${s.info ?? 'ws'})`)
       return
     }
@@ -303,6 +323,7 @@ async function main(): Promise<void> {
       source.stop()
       // No stateful resources yet (strategy/order manager will flush here).
       marketEngine.reset()
+      indicatorSet?.reset()
       isRotating = false
       source.start()
     })().catch((err) => {

@@ -1,5 +1,6 @@
 import type { EngineTick } from '../market/MarketEngine.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
+import type { StrategyContext } from '../indicators/IndicatorSet.js'
 
 export type OrderSide = 'BUY' | 'SELL'
 
@@ -250,10 +251,15 @@ export type AccountEvent =
 
 export type Strategy = {
   name: string
-  onMarketTick: (tick: MarketTick, portfolio: PortfolioSnapshot) => Intent[] | Promise<Intent[]>
+  onMarketTick: (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ) => Intent[] | Promise<Intent[]>
   onAccountEvent: (
     ev: AccountEvent,
     portfolio: PortfolioSnapshot,
     lastMarket?: MarketOrderBooksSnapshot,
+    ctx?: StrategyContext,
   ) => Intent[] | Promise<Intent[]>
 }

@@ -36,7 +36,7 @@ export const definition: StrategyDefinition<WinnerLimitConfig> = {
   title: 'Winner limit v1',
   description: 'After a delay, buys the outcome with higher probability above a trigger price.',
   schema: WinnerLimitConfigSchema,
-  create: (params) => createWinnerLimitStrategy(params),
+  create: (params) => ({ strategy: createWinnerLimitStrategy(params) }),
 }
 
 function finiteOr(v: number | null | undefined, fallback: number): number {

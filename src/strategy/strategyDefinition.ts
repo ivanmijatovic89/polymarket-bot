@@ -1,5 +1,11 @@
 import type { Strategy } from './Strategy.js'
+import type { IndicatorSet } from '../indicators/IndicatorSet.js'
 import type { z } from 'zod'
+
+export type BuiltStrategy = {
+  strategy: Strategy
+  indicatorSet?: IndicatorSet
+}
 
 /**
  * Bivariant function type helper.
@@ -8,7 +14,7 @@ import type { z } from 'zod'
  * `StrategyDefinition<unknown>` without tripping `strictFunctionTypes` / `exactOptionalPropertyTypes`.
  */
 export type BivariantStrategyFactory<TParams> = {
-  bivarianceHack(params: TParams): Strategy
+  bivarianceHack(params: TParams): BuiltStrategy
 }['bivarianceHack']
 
 export type StrategyDefinition<TParams> = {
