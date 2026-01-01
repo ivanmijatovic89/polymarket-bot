@@ -113,6 +113,26 @@ Some params are JSON (pass JSON as a string), e.g.:
 
 Internally we validate/coerce params with **Zod**.
 
+## Indicators
+
+Indicators are **optional, reusable computations** that are updated on every market tick and exposed to strategies via a `ctx` argument.
+
+Key properties in this repo:
+- **Same in live + backtest**: indicators receive the same `MarketTick` stream (from `MarketEngine` → `StrategyRunner`).
+- **Zero cost when unused**: a strategy only constructs an `IndicatorSet` if it needs indicators.
+
+How it works (high-level):
+- A strategy can return `{ strategy, indicatorSet }` from its `definition.create(...)`.
+- `StrategyRunner` updates `indicatorSet` once per tick and passes `ctx.indicators` into `onMarketTick` and `onAccountEvent`.
+
+### Full list of indicators
+
+- [`TimeWindowVolatility`](src/indicators/volatility/TimeWindowVolatility.md)
+
+### Example strategy using an indicator
+
+- [`readVolatilityIndicator.v1`](src/strategies/readVolatilityIndicator.v1.ts)
+
 ## Scripts
 
 - **Live recording**: `src/cli/record-live.ts`
