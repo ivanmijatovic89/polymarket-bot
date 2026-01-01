@@ -6,7 +6,7 @@ export type RtdsPricePoint = {
 }
 
 export type ExternalFeedsSnapshot = {
-  cryptoPrices?: {
+  rtdsPolymarketCryptoPrices?: {
     binance?: RtdsPricePoint
     chainlink?: RtdsPricePoint
   }
@@ -25,7 +25,7 @@ export function createExternalFeedsStore(): ExternalFeedsStore {
 
   return {
     snapshot: () => ({
-      cryptoPrices: {
+      rtdsPolymarketCryptoPrices: {
         ...(binance ? { binance } : {}),
         ...(chainlink ? { chainlink } : {}),
       },

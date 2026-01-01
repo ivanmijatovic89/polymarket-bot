@@ -1,6 +1,6 @@
 import type { MarketTick } from '../strategy/Strategy.js'
 import type { VolatilitySnapshot } from './volatility/TimeWindowVolatility.js'
-import type { ExternalFeedsSnapshot } from '../feeds/externalFeeds.js'
+import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 
 export type IndicatorId = string
 

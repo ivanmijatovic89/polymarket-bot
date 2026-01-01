@@ -14,8 +14,8 @@ import { createRestPollAccountSource } from '../polymarket/restPollAccountSource
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
-import { createExternalFeedsStore } from '../feeds/externalFeeds.js'
-import { createRtdsCryptoPricesClient } from '../polymarket/rtds/rtdsCryptoPricesClient.js'
+import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
+import { createRtdsCryptoPricesClient } from '../polymarket/ws/rtdsCryptoPricesClient.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 

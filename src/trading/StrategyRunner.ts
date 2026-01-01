@@ -1,7 +1,7 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
 import type { IndicatorSet, StrategyContext } from '../indicators/IndicatorSet.js'
-import type { ExternalFeedsSnapshot } from '../feeds/externalFeeds.js'
+import type { ExternalFeedsSnapshot } from './feeds/externalFeeds.js'
 import { Portfolio } from './Portfolio.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'

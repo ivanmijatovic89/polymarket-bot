@@ -30,15 +30,17 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
   let lastLogAtMs = 0
 
   const log = (label: string, nowMs: number, ctx?: StrategyContext): void => {
-    const b = ctx?.feeds?.cryptoPrices?.binance
-    const c = ctx?.feeds?.cryptoPrices?.chainlink
+    // remove decimal places and format ( add comma as thousands separator)
+    const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
+    const c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
 
+    // add comma as thousands separator without regex
     const bStr =
-      b && Number.isFinite(b.value) ? `${b.value} (sym=${b.symbol} ts=${b.tsMs} recv=${b.receivedAtMs})` : 'n/a'
+      b && Number.isFinite(b.value) ? `${b.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
     const cStr =
-      c && Number.isFinite(c.value) ? `${c.value} (sym=${c.symbol} ts=${c.tsMs} recv=${c.receivedAtMs})` : 'n/a'
+      c && Number.isFinite(c.value) ? `${c.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
 
-    console.log(`[${definition.id}] ${label} nowMs=${nowMs} binance=${bStr} chainlink=${cStr}`)
+    console.log(`[feed > ] ${label} nowMs=${nowMs} binance=${bStr} chainlink=${cStr}`)
   }
 
   const onMarketTick = (tick: MarketTick, _portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {

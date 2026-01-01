@@ -1,4 +1,4 @@
-import { createWsConnection, type WsConnection } from '../ws/wsConnection.js'
+import { createWsConnection, type WsConnection } from './wsConnection.js'
 
 type RtdsMessage = {
   topic: string
@@ -91,13 +91,13 @@ export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions
   const subscribe = (): void => {
     if (!conn) return
 
-    const subs: Array<{ topic: string; type: string; filters?: string }> = []
-
     // Subscribe broadly and filter locally.
     // This avoids any quirks with server-side filter formats while still allowing
     // strategies to request only the symbols they care about.
-    subs.push({ topic: 'crypto_prices', type: 'update' })
-    subs.push({ topic: 'crypto_prices_chainlink', type: '*', filters: '' })
+    const subs: Array<{ topic: string; type: string; filters?: string }> = [
+      { topic: 'crypto_prices', type: 'update' },
+      { topic: 'crypto_prices_chainlink', type: '*', filters: '' },
+    ]
 
     conn.send(
       JSON.stringify({
@@ -164,7 +164,6 @@ export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions
             tsMs: p.timestamp,
             value: p.value,
           })
-          return
         }
       },
       onError: (err) => {
