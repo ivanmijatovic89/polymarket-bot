@@ -61,6 +61,21 @@ export type VolatilityWindowStats = {
    * and expose how stale they are. Null means either never ready yet, or no samples.
    */
   staleMs: number | null
+  /**
+   * Oldest sample price in this window.
+   * Only populated when the window is ready, otherwise kept from the last computed ready value (if any).
+   */
+  startPrice: number | null
+  /**
+   * Newest sample price in this window.
+   * Only populated when the window is ready, otherwise kept from the last computed ready value (if any).
+   */
+  endPrice: number | null
+  /**
+   * Net move over the window: endPrice - startPrice.
+   * Only populated when the window is ready, otherwise kept from the last computed ready value (if any).
+   */
+  netChange: number | null
   low: number | null
   high: number | null
   stddev: number | null
@@ -95,6 +110,9 @@ class RollingTimeWindow {
   private lastComputed:
     | {
         atTsMs: number
+        startPrice: number
+        endPrice: number
+        netChange: number
         low: number | null
         high: number | null
         stddev: number
@@ -166,6 +184,9 @@ class RollingTimeWindow {
         coverageMs: null,
         ready: false,
         staleMs: null,
+        startPrice: null,
+        endPrice: null,
+        netChange: null,
         low: null,
         high: null,
         stddev: null,
@@ -190,6 +211,9 @@ class RollingTimeWindow {
         coverageMs,
         ready,
         staleMs,
+        startPrice: this.lastComputed ? this.lastComputed.startPrice : null,
+        endPrice: this.lastComputed ? this.lastComputed.endPrice : null,
+        netChange: this.lastComputed ? this.lastComputed.netChange : null,
         low: this.lastComputed ? this.lastComputed.low : null,
         high: this.lastComputed ? this.lastComputed.high : null,
         stddev: this.lastComputed ? this.lastComputed.stddev : null,
@@ -197,6 +221,10 @@ class RollingTimeWindow {
         avgAbsChange: this.lastComputed ? this.lastComputed.avgAbsChange : null,
       }
     }
+
+    const startPrice = this.samples.peekFirst()!.price
+    const endPrice = this.samples.peekLast()!.price
+    const netChange = endPrice - startPrice
 
     const mean = this.sum / this.n
     const variance = Math.max(0, this.sumSq / this.n - mean * mean)
@@ -208,7 +236,17 @@ class RollingTimeWindow {
 
     const avgAbsChange = this.n >= 2 ? this.sumAbsDiff / (this.n - 1) : 0
 
-    this.lastComputed = { atTsMs: endTsMs, low, high, stddev, highLowRange, avgAbsChange }
+    this.lastComputed = {
+      atTsMs: endTsMs,
+      startPrice,
+      endPrice,
+      netChange,
+      low,
+      high,
+      stddev,
+      highLowRange,
+      avgAbsChange,
+    }
 
     return {
       windowMs: this.windowMs,
@@ -218,6 +256,9 @@ class RollingTimeWindow {
       coverageMs,
       ready,
        staleMs: 0,
+      startPrice,
+      endPrice,
+      netChange,
       low,
       high,
       stddev,

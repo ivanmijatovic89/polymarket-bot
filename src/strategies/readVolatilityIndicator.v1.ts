@@ -99,6 +99,9 @@ export function createReadVolatilityIndicatorStrategy(cfg: ReadVolatilityIndicat
         return {
           window: label,
           ready: s?.ready ?? false,
+          start: fmtCents(s?.startPrice ?? null),
+          end: fmtCents(s?.endPrice ?? null),
+          net: fmtCents(s?.netChange ?? null),
           low: fmtCents(s?.low ?? null),
           high: fmtCents(s?.high ?? null),
           highLowRange: fmtCents(s?.highLowRange ?? null),

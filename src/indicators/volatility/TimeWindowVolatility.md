@@ -42,6 +42,16 @@ For a specific `(assetId, windowLabel)`:
   - When `ready=false` but we have previously computed a ready value: how many ms have passed since that last ready value was computed.
   - When never ready yet: `null`
 
+### Net direction (raw-only)
+
+- `startPrice`: oldest sample price in the window (bestAsk)
+- `endPrice`: newest sample price in the window (bestAsk)
+- `netChange`: `endPrice - startPrice`
+  - `> 0` means the price ended higher than it started over the window
+  - `< 0` means the price ended lower than it started over the window
+
+These are **raw** values (no “up/down/flat” label). Strategies can apply their own thresholds (e.g. cents for binary markets).
+
 ### Price extrema
 
 - `low`: lowest observed bestAsk within the window (when ready). Uses a monotonic min queue.
