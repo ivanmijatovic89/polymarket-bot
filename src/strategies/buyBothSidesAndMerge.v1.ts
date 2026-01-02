@@ -3,7 +3,7 @@ import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as strategyToolkit from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
-export const BuyBothSidesAndMergeConfigSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   assetId: z.string().min(1).optional(),
   size: z.coerce.number().finite().default(5),
   triggerPrice: z.coerce.number().finite().default(0.40),
@@ -11,15 +11,15 @@ export const BuyBothSidesAndMergeConfigSchema = z.strictObject({
   mergeWhenStatus: z.enum(['MATCHED', 'MINED', 'CONFIRMED']).default('MINED'),
 })
 
-export type BuyBothSidesAndMergeConfig = z.infer<typeof BuyBothSidesAndMergeConfigSchema>
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<BuyBothSidesAndMergeConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'buyBothSidesAndMerge.v1',
   title: 'Buy both sides + merge v1',
   description:
     'When either side bestAsk <= triggerPrice, buy BOTH sides (FOK). After both orders are CONFIRMED, merge min(qtyA, qtyB).',
-  schema: BuyBothSidesAndMergeConfigSchema,
-  create: (params) => ({ strategy: createBuyBothSidesAndMergeStrategy(params) }),
+  schema: ConfigSchema,
+  create: (params) => ({ strategy: createStrategy(params) }),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string] | null {
@@ -37,7 +37,7 @@ function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string]
   return [a, b]
 }
 
-export function createBuyBothSidesAndMergeStrategy(cfg: BuyBothSidesAndMergeConfig): Strategy {
+export function createStrategy(cfg: Config): Strategy {
   const name = 'buy_both_and_merge'
 
   let hasPlacedBuys = false

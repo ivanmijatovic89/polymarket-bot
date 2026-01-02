@@ -3,25 +3,25 @@ import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as z from 'zod'
 
-export const ReadExternalFeedsExampleSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   /**
    * Log throttling. Keeps the strategy cheap even at high tick rates.
    */
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
-export type ReadExternalFeedsExampleConfig = z.infer<typeof ReadExternalFeedsExampleSchema>
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<ReadExternalFeedsExampleConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'readExternalFeedsExample.v1',
   title: 'Read external feed BTC price (Binance + Chainlink) v1',
   description:
     'Example strategy: opts into RTDS crypto prices and logs BTC price from Binance (btcusdt) and Chainlink (btc/usd).',
-  schema: ReadExternalFeedsExampleSchema,
-  create: (cfg) => createReadExternalFeedsExampleStrategy(cfg),
+  schema: ConfigSchema,
+  create: (cfg) => createStrategy(cfg),
 }
 
-export function createReadExternalFeedsExampleStrategy(cfg: ReadExternalFeedsExampleConfig): {
+export function createStrategy(cfg: Config): {
   strategy: Strategy
 } {
   const name = 'read_external_feed_binance_chainlink_btc_price'
@@ -36,7 +36,7 @@ export function createReadExternalFeedsExampleStrategy(cfg: ReadExternalFeedsExa
 
     const priceDiff =
       ptb && c && Number.isFinite(ptb.openPrice) && Number.isFinite(c.value)
-        ? (ptb.openPrice - c.value).toFixed(2)
+        ? (c.value - ptb.openPrice).toFixed(2)
         : 'n/a'
 
     // add comma as thousands separator without regex

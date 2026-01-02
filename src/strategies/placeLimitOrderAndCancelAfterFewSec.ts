@@ -2,7 +2,7 @@ import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strateg
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as z from 'zod'
 
-export const PlaceLimitOrderAndCancelAfterFewSecConfigSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   /**
    * Optional: restrict triggering + order placement to this specific assetId.
    * If omitted, the strategy will pick the best (lowest ask) asset that crosses triggerPrice.
@@ -14,17 +14,15 @@ export const PlaceLimitOrderAndCancelAfterFewSecConfigSchema = z.strictObject({
   cancelAfterMs: z.coerce.number().finite().default(10_000),
 })
 
-export type PlaceLimitOrderAndCancelAfterFewSecConfig = z.infer<
-  typeof PlaceLimitOrderAndCancelAfterFewSecConfigSchema
->
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<PlaceLimitOrderAndCancelAfterFewSecConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'placeLimitOrderAndCancelAfterFewSec.v1',
   title: 'Place GTC limit then cancel after few sec (test) v1',
   description:
     'Test strategy: wait until any asset bestAsk <= triggerPrice, place BUY GTC at orderPrice, then cancel after cancelAfterMs if still open.',
-  schema: PlaceLimitOrderAndCancelAfterFewSecConfigSchema,
-  create: (params) => ({ strategy: createPlaceLimitOrderAndCancelAfterFewSecStrategy(params) }),
+  schema: ConfigSchema,
+  create: (params) => ({ strategy: createStrategy(params) }),
 }
 
 type LocalState =
@@ -47,7 +45,7 @@ function isFinalLifecycleState(s: unknown): boolean {
   return s === 'filled' || s === 'canceled' || s === 'rejected' || s === 'expired' || s === 'killed'
 }
 
-function pickTriggerAssetId(tick: MarketTick, cfg: PlaceLimitOrderAndCancelAfterFewSecConfig): string | null {
+function pickTriggerAssetId(tick: MarketTick, cfg: Config): string | null {
   const byAssetId = tick.snapshot.byAssetId
 
   // Optional override: only watch a single assetId.
@@ -81,9 +79,7 @@ function makeClientOrderId(base: string, assetId: string, placedAtMs: number): s
   return `${base}:${assetId}:${placedAtMs}`
 }
 
-export function createPlaceLimitOrderAndCancelAfterFewSecStrategy(
-  cfg: PlaceLimitOrderAndCancelAfterFewSecConfig,
-): Strategy {
+export function createStrategy(cfg: Config): Strategy {
   const name = 'place_limit_then_cancel'
   let state: LocalState = { phase: 'waiting_trigger' }
 

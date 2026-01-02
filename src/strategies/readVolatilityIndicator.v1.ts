@@ -5,7 +5,7 @@ import { IndicatorSet } from '../indicators/IndicatorSet.js'
 import { TimeWindowVolatility } from '../indicators/volatility/TimeWindowVolatility.js'
 import * as z from 'zod'
 
-export const ReadVolatilityIndicatorConfigSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   /**
    * Optional: restrict logs to a specific assetId (token id).
    * If omitted, we pick the first assetId in the snapshot (sorted).
@@ -17,18 +17,18 @@ export const ReadVolatilityIndicatorConfigSchema = z.strictObject({
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
-export type ReadVolatilityIndicatorConfig = z.infer<typeof ReadVolatilityIndicatorConfigSchema>
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<ReadVolatilityIndicatorConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'readVolatilityIndicator.v1',
   title: 'Read volatility indicator (example) v1',
   description:
     'Example strategy: constructs a TimeWindowVolatility indicator (bestAsk) and logs 1/2/3/5/10/30/60s stats on market ticks.',
-  schema: ReadVolatilityIndicatorConfigSchema,
-  create: (cfg) => createReadVolatilityIndicatorStrategy(cfg),
+  schema: ConfigSchema,
+  create: (cfg) => createStrategy(cfg),
 }
 
-export function createReadVolatilityIndicatorStrategy(cfg: ReadVolatilityIndicatorConfig): {
+export function createStrategy(cfg: Config): {
   strategy: Strategy
   indicatorSet: IndicatorSet
 } {

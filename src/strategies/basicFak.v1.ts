@@ -9,7 +9,7 @@ import * as z from 'zod'
  * - When bestAsk reaches targetPrice on either asset, buys that asset using FOK order type
  * - Executes only once per strategy instance
  */
-export const BasicFakConfigSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   assetId: z.string().min(1).optional(),
   size: z.coerce.number().finite().default(5),
   targetPrice: z.coerce.number().finite().default(0.30),
@@ -35,14 +35,14 @@ export const BasicFakConfigSchema = z.strictObject({
   requirePositionBeforeSell: z.coerce.boolean().default(true),
 })
 
-export type BasicFakConfig = z.infer<typeof BasicFakConfigSchema>
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<BasicFakConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'basicFak.v1',
   title: 'Basic FAK v1',
   description: 'Buys 5 shares when bestAsk reaches 0.30 on either asset, executes only once.',
-  schema: BasicFakConfigSchema,
-  create: (params) => ({ strategy: createBasicFakStrategy(params) }),
+  schema: ConfigSchema,
+  create: (params) => ({ strategy: createStrategy(params) }),
 }
 
 function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string] | null {
@@ -61,7 +61,7 @@ function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string]
   return [a, b]
 }
 
-export function createBasicFakStrategy(cfg: BasicFakConfig): Strategy {
+export function createStrategy(cfg: Config): Strategy {
   const name = 'basic_fak'
   let hasPlacedBuy = false
   let hasPlacedSell = false

@@ -20,7 +20,7 @@ const jsonString = <T>(inner: z.ZodType<T>) =>
     })
     .pipe(inner)
 
-export const WinnerLimitConfigSchema = z.strictObject({
+export const ConfigSchema = z.strictObject({
   assetIds: jsonString(assetIdPairSchema).optional(),
   size: z.coerce.number().finite().default(5),
   triggerPrice: z.coerce.number().finite().min(0).max(1).default(0.9),
@@ -29,14 +29,14 @@ export const WinnerLimitConfigSchema = z.strictObject({
   debug: z.coerce.boolean().default(false),
 })
 
-export type WinnerLimitConfig = z.infer<typeof WinnerLimitConfigSchema>
+export type Config = z.infer<typeof ConfigSchema>
 
-export const definition: StrategyDefinition<WinnerLimitConfig> = {
+export const definition: StrategyDefinition<Config> = {
   id: 'winnerLimit.v1',
   title: 'Winner limit v1',
   description: 'After a delay, buys the outcome with higher probability above a trigger price.',
-  schema: WinnerLimitConfigSchema,
-  create: (params) => ({ strategy: createWinnerLimitStrategy(params) }),
+  schema: ConfigSchema,
+  create: (params) => ({ strategy: createStrategy(params) }),
 }
 
 function finiteOr(v: number | null | undefined, fallback: number): number {
@@ -88,7 +88,7 @@ function posQty(portfolio: PortfolioSnapshot, assetId: string): number {
   return typeof q === 'number' && Number.isFinite(q) ? q : 0
 }
 
-export function createWinnerLimitStrategy(cfg: WinnerLimitConfig): Strategy {
+export function createStrategy(cfg: Config): Strategy {
   const name = 'winnerLimit'
 
   const size = Math.max(0, Math.floor(finiteOr(cfg.size, 0)))
