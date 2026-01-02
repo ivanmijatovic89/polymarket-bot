@@ -1,4 +1,5 @@
 import blessed from 'blessed'
+import { createRequire } from 'node:module'
 import type { MarketOrderBooksSnapshot, OrderBookSnapshot } from '../../market/orderbook/index.js'
 
 export type TradingBotTui = {
@@ -21,9 +22,13 @@ export type TradingBotTuiOptions = {
   title: string
   getState: () => TradingBotTuiState
   /**
-   * Entire log history as lines. We'll append diffs into a blessed.log widget.
+   * Entire log history as lines. We'll append diffs into a log widget.
    */
   getLogLines: () => string[]
+  /**
+   * Optional: intention-specific log history (typically filtered from the main logger).
+   */
+  getIntentLogLines?: () => string[]
   onExitRequest?: () => void
   /**
    * How many orderbook levels per side to render. Default 8.
@@ -34,6 +39,10 @@ export type TradingBotTuiOptions = {
    */
   refreshMs?: number
 }
+
+const require = createRequire(import.meta.url)
+// blessed-contrib is CommonJS (export =) so require() is the most reliable interop under NodeNext ESM.
+const contrib = require('blessed-contrib') as typeof import('blessed-contrib')
 
 function fmtPrice(n: number | null | undefined, width = 7): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'.padStart(width, ' ')
@@ -114,7 +123,8 @@ function getUpDownBooks(state: TradingBotTuiState): { up?: OrderBookSnapshot; do
 export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
   let running = false
   let renderTimer: NodeJS.Timeout | undefined
-  let lastLogLen = 0
+  let lastLogLenAll = 0
+  let lastLogLenIntents = 0
 
   const screen = blessed.screen({
     smartCSR: true,
@@ -123,53 +133,47 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
     fullUnicode: true,
   })
 
-  const top = blessed.box({
-    top: 0,
-    left: 0,
-    width: '100%',
-    height: 4,
+  // Use blessed-contrib grid for layout (no more brittle % math).
+  // Keep widgets as blessed primitives for now; we'll swap in contrib.table/log later.
+  // Use 24 columns so we can split the right pane into 2 equal columns cleanly.
+  const grid = new contrib.grid({ rows: 12, cols: 24, screen })
+
+  const top = grid.set(0, 0, 2, 24, blessed.box, {
     tags: true,
     border: 'line',
     style: { border: { fg: 'green' } },
     content: '',
-  })
+  }) as blessed.Widgets.BoxElement
 
-  const log = blessed.log({
-    top: 4,
-    left: 0,
-    width: '80%',
-    height: '100%-7',
+  const logAll = grid.set(2, 0, 4, 18, contrib.log, {
+    label: 'log',
     tags: true,
     border: 'line',
     style: { border: { fg: 'gray' } },
-    scrollable: true,
-    alwaysScroll: true,
+    bufferLength: 5000,
     scrollbar: { ch: ' ' },
     keys: true,
     vi: true,
     mouse: true,
-  })
+  }) as unknown as { log: (s: string) => void; setItems?: (items: string[]) => void; logLines?: string[] }
 
-  const right = blessed.box({
-    top: 4,
-    left: '80%',
-    width: '20%',
-    height: '100%-7',
+  const logIntents = grid.set(6, 0, 4, 18, contrib.log, {
+    label: 'intents',
+    tags: true,
+    border: 'line',
+    style: { border: { fg: 'gray' } },
+    bufferLength: 2000,
+    scrollbar: { ch: ' ' },
+    keys: true,
+    vi: true,
+    mouse: true,
+  }) as unknown as { log: (s: string) => void; setItems?: (items: string[]) => void; logLines?: string[] }
+
+  const rightUp = grid.set(2, 18, 8, 3, blessed.box, {
     tags: true,
     border: 'line',
     style: { border: { fg: 'magenta' } },
     content: '',
-  })
-
-  // Two child boxes so UP and DOWN are guaranteed visible (no string padding/clipping issues).
-  const rightUp = blessed.box({
-    parent: right,
-    top: 0,
-    left: 0,
-    width: '50%',
-    height: '100%',
-    tags: true,
-    // No border here: outer `right` already has a border. Nested borders waste space.
     padding: { left: 1, right: 1 },
     scrollable: true,
     alwaysScroll: true,
@@ -177,17 +181,13 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
     keys: true,
     vi: true,
     mouse: true,
-    content: '',
-  })
+  }) as blessed.Widgets.BoxElement
 
-  const rightDown = blessed.box({
-    parent: right,
-    top: 0,
-    left: '50%',
-    width: '50%',
-    height: '100%',
+  const rightDown = grid.set(2, 21, 8, 3, blessed.box, {
     tags: true,
-    // No border here: outer `right` already has a border. Nested borders waste space.
+    border: 'line',
+    style: { border: { fg: 'magenta' } },
+    content: '',
     padding: { left: 1, right: 1 },
     scrollable: true,
     alwaysScroll: true,
@@ -195,24 +195,14 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
     keys: true,
     vi: true,
     mouse: true,
-    content: '',
-  })
+  }) as blessed.Widgets.BoxElement
 
-  const status = blessed.box({
-    bottom: 0,
-    left: 0,
-    width: '100%',
-    height: 3,
+  const status = grid.set(10, 0, 2, 24, blessed.box, {
     tags: false,
     border: 'line',
     style: { border: { fg: 'cyan' } },
     content: '',
-  })
-
-  screen.append(top)
-  screen.append(log)
-  screen.append(right)
-  screen.append(status)
+  }) as blessed.Widgets.BoxElement
 
   const renderOnce = (): void => {
     const state = (() => {
@@ -242,27 +232,46 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
       status.setContent('(error rendering status)')
     }
 
-    // Log lines (append only new lines to avoid re-rendering the whole buffer)
-    const lines = (() => {
+    const readLines = (get: () => string[]): string[] => {
       try {
-        return opts.getLogLines()
+        return get()
       } catch {
         return []
       }
-    })()
-
-    if (lines.length < lastLogLen) {
-      // buffer trimmed -> rebuild the widget content
-      ;(log as unknown as { setContent: (s: string) => void }).setContent('')
-      for (const ln of lines) log.log(ln)
-      lastLogLen = lines.length
-    } else if (lines.length > lastLogLen) {
-      for (let i = lastLogLen; i < lines.length; i++) {
-        const ln = lines[i]
-        if (typeof ln === 'string') log.log(ln)
-      }
-      lastLogLen = lines.length
     }
+
+    const resetLog = (w: { setItems?: (items: string[]) => void; logLines?: string[] }): void => {
+      // blessed-contrib log maintains an internal `logLines` buffer; clear it if present.
+      if (Array.isArray(w.logLines)) w.logLines.length = 0
+      w.setItems?.([])
+    }
+
+    const syncLog = (
+      w: { log: (s: string) => void; setItems?: (items: string[]) => void; logLines?: string[] },
+      lines: string[],
+      lastLen: number,
+    ): number => {
+      if (lines.length < lastLen) {
+        resetLog(w)
+        for (const ln of lines) if (typeof ln === 'string') w.log(ln)
+        return lines.length
+      }
+      if (lines.length > lastLen) {
+        for (let i = lastLen; i < lines.length; i++) {
+          const ln = lines[i]
+          if (typeof ln === 'string') w.log(ln)
+        }
+        return lines.length
+      }
+      return lastLen
+    }
+
+    // Log panes: append only new lines to avoid re-rendering the whole buffer.
+    const allLines = readLines(opts.getLogLines)
+    lastLogLenAll = syncLog(logAll, allLines, lastLogLenAll)
+
+    const intentLines = opts.getIntentLogLines ? readLines(opts.getIntentLogLines) : []
+    lastLogLenIntents = syncLog(logIntents, intentLines, lastLogLenIntents)
 
     // Right pane
     try {

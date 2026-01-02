@@ -18,7 +18,14 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
-import { consoleSink, createLogger, formatRecordToBlessedLine, patchConsole, ringBufferSink } from '../utils/logger.js'
+import {
+  consoleSink,
+  createLogger,
+  formatRecordToBlessedLine,
+  patchConsole,
+  ringBufferSink,
+  type LogSink,
+} from '../utils/logger.js'
 import { createTradingBotTui, type TradingBotTui } from './tui/tradingBotTui.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
@@ -46,12 +53,22 @@ async function main(): Promise<void> {
       ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
       : 'info'
 
-  const ring = enableTui ? ringBufferSink({ maxLines: 5000, format: formatRecordToBlessedLine }) : null
+  const ringAll = enableTui ? ringBufferSink({ maxLines: 5000, format: formatRecordToBlessedLine }) : null
+  const ringIntents = enableTui ? ringBufferSink({ maxLines: 2000, format: formatRecordToBlessedLine }) : null
+
+  const intentFilterSink: LogSink | null = enableTui
+    ? (r) => {
+        const ch = r.fields && typeof r.fields.channel === 'string' ? String(r.fields.channel) : ''
+        if (ch === 'intent') ringIntents!.sink(r)
+      }
+    : null
+
   const logger = createLogger({
     level: logLevel,
     baseFields: { app: 'trading-bot' },
-    sinks: enableTui ? [ring!.sink] : [consoleSink()],
+    sinks: enableTui ? [ringAll!.sink, intentFilterSink!] : [consoleSink()],
   })
+  const intentLogger = logger.child({ channel: 'intent' })
 
   let tui: TradingBotTui | null = null
   let restoreConsole: (() => void) | null = null
@@ -251,6 +268,9 @@ async function main(): Promise<void> {
     getMarket: () => currentMarket,
     intentExecutionMode,
     maxEventsPerDrain,
+    ...(enableTui
+      ? { intentLog: (msg, extra) => intentLogger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) }
+      : {}),
     ...(logTrades ? { log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) } : {}),
   })
 
@@ -567,7 +587,8 @@ async function main(): Promise<void> {
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
         }
       },
-      getLogLines: () => ring!.snapshotLines(),
+      getLogLines: () => ringAll!.snapshotLines(),
+      getIntentLogLines: () => ringIntents!.snapshotLines(),
       onExitRequest: () => {
         shutdown('SIGINT')
       },

@@ -44,6 +44,11 @@ export type StrategyRunnerOptions = {
    * Default 100.
    */
   maxEventsPerDrain?: number
+  /**
+   * Optional intent log hook (useful for a dedicated "intentions" TUI pane).
+   * Keep messages compact; this is called on hot paths.
+   */
+  intentLog?: (msg: string, extra?: unknown) => void
   log?: (msg: string, extra?: unknown) => void
 }
 
@@ -56,6 +61,7 @@ export class StrategyRunner {
   private readonly getMarket: (() => GammaMarketMeta | undefined) | undefined
   private readonly intentExecutionMode: IntentExecutionMode
   private readonly maxEventsPerDrain: number
+  private readonly intentLog: ((msg: string, extra?: unknown) => void) | undefined
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
@@ -72,6 +78,7 @@ export class StrategyRunner {
     this.getMarket = opts.getMarket
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
+    this.intentLog = opts.intentLog
     this.log = opts.log
   }
 
@@ -120,6 +127,42 @@ export class StrategyRunner {
 
   private async applyIntents(intents: Intent[]): Promise<void> {
     if (!intents || intents.length === 0) return
+    this.intentLog?.('[intent] batch', {
+      count: intents.length,
+      sample: intents.slice(0, 20).map((i) => {
+        if (i.kind === 'place_limit') {
+          return {
+            kind: i.kind,
+            clientOrderId: i.clientOrderId,
+            assetId: i.assetId,
+            side: i.side,
+            price: i.price,
+            size: i.size,
+            orderType: i.orderType,
+            ...(i.reason ? { reason: i.reason } : {}),
+          }
+        }
+        if (i.kind === 'cancel_order') {
+          return {
+            kind: i.kind,
+            ...(i.clientOrderId ? { clientOrderId: i.clientOrderId } : {}),
+            ...(i.orderId ? { orderId: i.orderId } : {}),
+            ...(i.reason ? { reason: i.reason } : {}),
+          }
+        }
+        if (i.kind === 'cancel_all') {
+          return { kind: i.kind, ...(i.reason ? { reason: i.reason } : {}) }
+        }
+        return {
+          kind: i.kind,
+          assetIdA: i.assetIdA,
+          assetIdB: i.assetIdB,
+          size: i.size,
+          ...(i.reason ? { reason: i.reason } : {}),
+        }
+      }),
+      executionMode: this.intentExecutionMode,
+    })
     const nowMs = this.lastMarket?.timestamp || Date.now()
     const events = await this.orderManager.handleIntents(intents, {
       nowMs,
