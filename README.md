@@ -150,7 +150,7 @@ Strategies opt-in by setting `strategy.requiredFeeds` (see [`src/strategy/Strate
 `src/cli/trading-bot.ts` will only start feed clients that are requested by the selected strategy.
 
 Read more: [`src/trading/feeds/README.md`](src/trading/feeds/README.md)
-Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/strategies/readExternalFeedBinanceAndChainlinkBitcoinPrice.v1.ts)
+Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/strategies/readExternalFeedsExample.v1.ts)
 
 ## Scripts
 

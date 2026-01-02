@@ -3,29 +3,27 @@ import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as z from 'zod'
 
-export const ReadExternalFeedBinanceAndChainlinkBitcoinPriceSchema = z.strictObject({
+export const ReadExternalFeedsExampleSchema = z.strictObject({
   /**
    * Log throttling. Keeps the strategy cheap even at high tick rates.
    */
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
-export type ReadExternalFeedBinanceAndChainlinkBitcoinPriceConfig = z.infer<
-  typeof ReadExternalFeedBinanceAndChainlinkBitcoinPriceSchema
->
+export type ReadExternalFeedsExampleConfig = z.infer<typeof ReadExternalFeedsExampleSchema>
 
-export const definition: StrategyDefinition<ReadExternalFeedBinanceAndChainlinkBitcoinPriceConfig> = {
+export const definition: StrategyDefinition<ReadExternalFeedsExampleConfig> = {
   id: 'readExternalFeedBinanceAndChainlinkBitcoinPrice.v1',
   title: 'Read external feed BTC price (Binance + Chainlink) v1',
   description:
     'Example strategy: opts into RTDS crypto prices and logs BTC price from Binance (btcusdt) and Chainlink (btc/usd).',
-  schema: ReadExternalFeedBinanceAndChainlinkBitcoinPriceSchema,
-  create: (cfg) => createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(cfg),
+  schema: ReadExternalFeedsExampleSchema,
+  create: (cfg) => createReadExternalFeedsExampleStrategy(cfg),
 }
 
-export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
-  cfg: ReadExternalFeedBinanceAndChainlinkBitcoinPriceConfig,
-): { strategy: Strategy } {
+export function createReadExternalFeedsExampleStrategy(cfg: ReadExternalFeedsExampleConfig): {
+  strategy: Strategy
+} {
   const name = 'read_external_feed_binance_chainlink_btc_price'
   let lastLogAtMs = 0
 
@@ -36,29 +34,39 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
     const bw = ctx?.feeds?.binanceWsSpotPrice
     const ptb = ctx?.feeds?.polymarketPriceToBeat
 
+    const priceDiff =
+      ptb && c && Number.isFinite(ptb.openPrice) && Number.isFinite(c.value)
+        ? (ptb.openPrice - c.value).toFixed(2)
+        : 'n/a'
+
     // add comma as thousands separator without regex
     const bStr =
-      b && Number.isFinite(b.value) ? `${b.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
+      b && Number.isFinite(b.value)
+        ? `${b.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : 'n/a'
     const cStr =
-      c && Number.isFinite(c.value) ? `${c.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
+      c && Number.isFinite(c.value)
+        ? `${c.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : 'n/a'
     const bwStr =
-      bw && Number.isFinite(bw.value) ? `${bw.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
+      bw && Number.isFinite(bw.value)
+        ? `${bw.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : 'n/a'
     const ptbStr =
       ptb && Number.isFinite(ptb.openPrice)
         ? `${ptb.openPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
         : 'n/a'
 
-    const diffStr =
-      bw && b && Number.isFinite(bw.value) && Number.isFinite(b.value)
-        ? (bw.value - b.value).toFixed(2)
-        : 'n/a'
-
     console.log(
-      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} wsMinusRtds=${diffStr}`,
+      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} diff=${priceDiff}`,
     )
   }
 
-  const onMarketTick = (tick: MarketTick, _portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    _portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     void _portfolio
     const nowMs = tick.snapshot.timestamp || Date.now()
     if (nowMs - lastLogAtMs < cfg.logEveryMs) return []

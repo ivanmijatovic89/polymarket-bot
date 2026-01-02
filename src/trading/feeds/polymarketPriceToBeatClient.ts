@@ -95,7 +95,6 @@ export function createPolymarketPriceToBeatClient(
         },
       })
 
-      console.log('calling api url', url)
 
 
       // Endpoint can return 400s; treat as retryable.
@@ -104,7 +103,7 @@ export function createPolymarketPriceToBeatClient(
       }
 
       const json: unknown = await res.json()
-      console.log('json', json)
+
       const body = json as Partial<ApiResponse>
       const openPrice = asFiniteNumber(body.openPrice)
       if (openPrice === null) return

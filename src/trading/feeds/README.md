@@ -57,7 +57,7 @@ Notes:
 
 ## Example strategy
 
-See [`src/strategies/readExternalFeedBinanceAndChainlinkBitcoinPrice.v1.ts`](../../strategies/readExternalFeedBinanceAndChainlinkBitcoinPrice.v1.ts) for:
+See [`src/strategies/readExternalFeedsExample.v1.ts`](../../strategies/readExternalFeedsExample.v1.ts) for:
 - enabling RTDS + Binance WS feeds
 - reading `ctx.feeds.*`
 - printing a simple diff (`binanceWsSpotPrice - rtdsBinance`)
