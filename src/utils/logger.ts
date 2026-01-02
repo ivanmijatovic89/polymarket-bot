@@ -40,13 +40,20 @@ export type Logger = {
 
 function toErr(e: unknown): LogRecord['err'] | undefined {
   if (!e) return undefined
-  if (e instanceof Error) return { name: e.name, message: e.message, stack: e.stack }
+  if (e instanceof Error) {
+    return {
+      ...(typeof e.name === 'string' && e.name.length > 0 ? { name: e.name } : {}),
+      ...(typeof e.message === 'string' && e.message.length > 0 ? { message: e.message } : {}),
+      ...(typeof e.stack === 'string' && e.stack.length > 0 ? { stack: e.stack } : {}),
+    }
+  }
   if (typeof e === 'object') {
     const any = e as Record<string, unknown>
     return {
-      name: typeof any.name === 'string' ? any.name : undefined,
-      message: typeof any.message === 'string' ? any.message : String(e),
-      stack: typeof any.stack === 'string' ? any.stack : undefined,
+      ...(typeof any.name === 'string' && any.name.length > 0 ? { name: any.name } : {}),
+      ...(typeof any.message === 'string' && any.message.length > 0 ? { message: any.message } : {}),
+      ...(typeof any.stack === 'string' && any.stack.length > 0 ? { stack: any.stack } : {}),
+      ...(typeof any.message !== 'string' ? { message: String(e) } : {}),
     }
   }
   return { message: String(e) }
@@ -69,13 +76,14 @@ export function createLogger(opts: {
     if (LEVEL_RANK[level] < LEVEL_RANK[minLevel]) return
     const mergedFields = { ...baseFields, ...(args?.fields ?? {}) }
     const haveFields = Object.keys(mergedFields).length > 0
+    const err = args?.err ? toErr(args.err) : undefined
     const r: LogRecord = {
       tsMs: Date.now(),
       level,
       msg,
       ...(haveFields ? { fields: mergedFields } : {}),
       ...(args?.data !== undefined ? { data: args.data } : {}),
-      ...(args?.err ? { err: toErr(args.err) } : {}),
+      ...(err ? { err } : {}),
     }
     for (const s of sinks) s(r)
   }
@@ -111,6 +119,49 @@ export function formatRecordToLine(
   const raw = `${time} ${lvl} ${r.msg}${metaStr}`
   const maxLen = opts?.maxLen ?? 5000
   return raw.length > maxLen ? raw.slice(0, Math.max(0, maxLen - 1)) + '…' : raw
+}
+
+function escapeBlessedTags(s: string): string {
+  // Prevent accidental blessed tag parsing from arbitrary log content.
+  // Prefer blessed's documented {open}/{close} escapes so we don't render backslashes.
+  return s.replaceAll('{', '{open}').replaceAll('}', '{close}')
+}
+
+export function formatRecordToBlessedLine(r: LogRecord): string {
+  const timeIso = new Date(r.tsMs).toISOString()
+  const time = escapeBlessedTags(timeIso.slice(11, 23))
+
+  const lvlRaw = r.level.toUpperCase().padEnd(5, ' ')
+  const lvl =
+    r.level === 'error'
+      ? `{red-fg}${lvlRaw}{/}`
+      : r.level === 'warn'
+        ? `{yellow-fg}${lvlRaw}{/}`
+        : r.level === 'debug'
+          ? `{cyan-fg}${lvlRaw}{/}`
+          : `{white-fg}${lvlRaw}{/}`
+
+  const msg = escapeBlessedTags(r.msg)
+
+  // TUI formatting: keep meta compact and avoid noisy duplication.
+  // - fields: key=value
+  // - err: message (and optional name)
+  const parts: string[] = []
+  if (r.fields) {
+    for (const [k, v] of Object.entries(r.fields)) {
+      if (v === undefined) continue
+      const vv = typeof v === 'string' ? v : safeInspect(v)
+      parts.push(`${k}=${vv}`)
+    }
+  }
+  if (r.err) {
+    const e = `${r.err.name ? `${r.err.name}:` : ''}${r.err.message ?? 'error'}`
+    parts.push(`err=${e}`)
+  }
+  const metaStr =
+    parts.length > 0 ? ` {gray-fg}${escapeBlessedTags(parts.join(' '))}{/}` : ''
+
+  return `${time} ${lvl} ${msg}${metaStr}`
 }
 
 function safeInspect(v: unknown): string {
@@ -178,18 +229,16 @@ type ConsoleLike = {
   info: (...args: unknown[]) => void
   warn: (...args: unknown[]) => void
   error: (...args: unknown[]) => void
-  table: (tabularData?: unknown, properties?: readonly string[]) => void
+  table: (tabularData?: unknown, properties?: string[]) => void
 }
 
-function formatConsoleArgs(args: unknown[]): { msg: string; data?: unknown } {
+function formatConsoleArgs(args: unknown[]): { msg: string } {
   // Match Node formatting semantics as closely as practical.
   const msg = format(...args)
-  // Preserve original args as optional payload for deeper debugging (but keep it small).
-  const data = args.length > 1 ? args : args.length === 1 ? args[0] : undefined
-  return { msg, ...(data !== undefined ? { data } : {}) }
+  return { msg }
 }
 
-function renderTable(tabularData: unknown, properties?: readonly string[]): string {
+function renderTable(tabularData: unknown, properties?: string[]): string {
   // We intentionally do NOT mimic Node's ASCII table precisely; we just make it readable in a log pane.
   const header = properties && properties.length > 0 ? `properties=${properties.join(',')}` : ''
   const body = safeInspect(tabularData)
@@ -212,24 +261,24 @@ export function patchConsole(logger: Logger): () => void {
   }
 
   console.log = (...args: unknown[]) => {
-    const { msg, data } = formatConsoleArgs(args)
-    logger.info(msg, ...(data !== undefined ? [{ data }] : []))
+    const { msg } = formatConsoleArgs(args)
+    logger.info(msg)
   }
   console.info = (...args: unknown[]) => {
-    const { msg, data } = formatConsoleArgs(args)
-    logger.info(msg, ...(data !== undefined ? [{ data }] : []))
+    const { msg } = formatConsoleArgs(args)
+    logger.info(msg)
   }
   console.warn = (...args: unknown[]) => {
-    const { msg, data } = formatConsoleArgs(args)
-    logger.warn(msg, ...(data !== undefined ? [{ data }] : []))
+    const { msg } = formatConsoleArgs(args)
+    logger.warn(msg)
   }
   console.error = (...args: unknown[]) => {
     // If an Error is passed, attach it for stack rendering downstream.
     const err = args.find((a) => a instanceof Error)
-    const { msg, data } = formatConsoleArgs(args)
-    logger.error(msg, { ...(data !== undefined ? { data } : {}), ...(err ? { err } : {}) })
+    const { msg } = formatConsoleArgs(args)
+    logger.error(msg, { ...(err ? { err } : {}) })
   }
-  console.table = (tabularData?: unknown, properties?: readonly string[]) => {
+  console.table = (tabularData?: unknown, properties?: string[]) => {
     logger.info(renderTable(tabularData, properties))
   }
 

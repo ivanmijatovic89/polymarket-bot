@@ -18,7 +18,7 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
-import { consoleSink, createLogger, patchConsole, ringBufferSink } from '../utils/logger.js'
+import { consoleSink, createLogger, formatRecordToBlessedLine, patchConsole, ringBufferSink } from '../utils/logger.js'
 import { createTradingBotTui, type TradingBotTui } from './tui/tradingBotTui.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
@@ -46,7 +46,7 @@ async function main(): Promise<void> {
       ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
       : 'info'
 
-  const ring = enableTui ? ringBufferSink({ maxLines: 5000 }) : null
+  const ring = enableTui ? ringBufferSink({ maxLines: 5000, format: formatRecordToBlessedLine }) : null
   const logger = createLogger({
     level: logLevel,
     baseFields: { app: 'trading-bot' },
@@ -547,36 +547,31 @@ async function main(): Promise<void> {
       return kind === 'up' ? a[0] : a[1]
     }
 
-    const fmtPrice = (p: number | null | undefined): string => {
-      if (typeof p !== 'number' || !Number.isFinite(p)) return 'n/a'
-      return p.toFixed(4)
-    }
+    const orderbookLevels = Math.max(1, Number(process.env.TUI_ORDERBOOK_LEVELS ?? 8) || 8)
 
     tui = createTradingBotTui({
       title: `polymarket-bot trading-bot (${symbol})`,
-      getTopText: () => {
-        const snap = runner.getLastMarketSnapshot()
-        const upId = pickAssetId('up')
-        const downId = pickAssetId('down')
-        const up = upId ? snap?.byAssetId[upId] : undefined
-        const down = downId ? snap?.byAssetId[downId] : undefined
-
-        const upAsk = fmtPrice(up?.bestAsk ?? null)
-        const downAsk = fmtPrice(down?.bestAsk ?? null)
-
-        const upLabel = upId ? upId.slice(-8) : 'n/a'
-        const downLabel = downId ? downId.slice(-8) : 'n/a'
-
-        return `UP   bestAsk=${upAsk}  asset=${upLabel}\nDOWN bestAsk=${downAsk}  asset=${downLabel}`
-      },
-      getBottomStatusLine: () => {
-        const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
-        return `[trading-bot] symbol=${symbol} slug=${currentSlug ?? 'n/a'} candle_left_ms=${candleLeft} ws_attempt=${wsAttempt} ws_events_total=${totalWsEvents}`
+      getState: () => {
+        const slug = currentSlug
+        const market = runner.getLastMarketSnapshot()
+        const upAssetId = pickAssetId('up')
+        const downAssetId = pickAssetId('down')
+        return {
+          symbol: String(symbol),
+          candleLeftMs: msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS),
+          wsAttempt,
+          wsEventsTotal: totalWsEvents,
+          ...(typeof slug === 'string' ? { slug } : {}),
+          ...(market ? { market } : {}),
+          ...(typeof upAssetId === 'string' ? { upAssetId } : {}),
+          ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
+        }
       },
       getLogLines: () => ring!.snapshotLines(),
       onExitRequest: () => {
         shutdown('SIGINT')
       },
+      orderbookLevels,
       refreshMs: 250,
     })
     tui.start()
