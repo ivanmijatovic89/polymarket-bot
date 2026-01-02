@@ -160,6 +160,9 @@ Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/str
 - **Trading bot (strategy runner)**: `src/cli/trading-bot.ts`
   - `npm run trade:bot:btc|eth|sol|xrp`
   - or `TRADING_SYMBOL=BTC npm run trade:bot`
+- **Web UI (build/dev)**:
+  - `npm run webui:build` (builds the UI into `webui/dist/`)
+  - `npm run webui:dev` (runs the Vite dev server for UI development)
 - **Backtest / replay**: `src/cli/backtest.ts`
   - `npm run backtest -- <file1.parquet> [file2.parquet ...]`
   - Ordering: `--order recorded|exchange_time`
@@ -322,6 +325,46 @@ Trading / strategies:
   - `false`: enable real order placement (requires `PRIVATE_KEY` and API creds)
 - `LOG_TRADES` (default: `false` for trading-bot)
   - `true`: print `[trade] ...` for each fill event (live fills from user WS/polling)
+
+### Web UI (Phase 1, read-only)
+
+The trading bot can optionally expose a **local-only** Web UI (HTTP + WebSocket) per bot process.
+
+- `ENABLE_WEB_UI` (default: `false`)
+  - `true`: start the embedded UI server
+- `WEB_UI_HOST` (default: `127.0.0.1`)
+  - keep this as `127.0.0.1` while developing; later you can switch to `0.0.0.0` behind auth/reverse proxy
+- `WEB_UI_PORT` (required when enabled)
+  - example: `3001`, `3002`, ...
+- `WEB_UI_REFRESH_MS` (default: `250`)
+  - UI push cadence (snapshot + log deltas)
+- `WEB_UI_ORDERBOOK_LEVELS` (default: `8`)
+  - how many levels per side to include in the snapshot
+- `BOT_INSTANCE_ID` (optional)
+  - free-form identifier shown in the UI title; useful when running multiple bots
+
+Run example:
+
+```bash
+ENABLE_WEB_UI=true WEB_UI_HOST=127.0.0.1 WEB_UI_PORT=3001 \
+  npm run trade:bot:btc -- \
+  --strategy readVolatilityIndicator.v1 \
+  --param logEveryMs=1000
+```
+
+Open: `http://127.0.0.1:3001/`
+
+Multi-bot (separate processes, different ports):
+
+```bash
+ENABLE_WEB_UI=true WEB_UI_PORT=3001 BOT_INSTANCE_ID=botA \
+  npm run trade:bot:btc -- --strategy readVolatilityIndicator.v1 --param logEveryMs=500
+
+ENABLE_WEB_UI=true WEB_UI_PORT=3002 BOT_INSTANCE_ID=botB \
+  npm run trade:bot:btc -- --strategy readVolatilityIndicator.v1 --param logEveryMs=1500
+```
+
+See also: `webui/README.md`
 
 Live trading keys:
 
