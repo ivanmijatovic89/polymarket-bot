@@ -15,9 +15,9 @@ function BookTable(props: { side: 'up' | 'down'; book: BotUiOrderBook }) {
   const bids = props.book.bids ?? []
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-2 gap-2">
       <div>
-        <div className="mb-1 text-xs font-semibold text-zinc-300">ASK</div>
+        <div className="mb-1 text-[11px] font-semibold text-zinc-300">ASK</div>
         <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
           <div className="grid grid-cols-2 gap-2 border-b border-zinc-800 px-2 py-1 text-[11px] text-zinc-400">
             <div>price</div>
@@ -28,7 +28,7 @@ function BookTable(props: { side: 'up' | 'down'; book: BotUiOrderBook }) {
               .slice()
               .reverse()
               .map((a, idx) => (
-                <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-1">
+                <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
                   <div className="text-red-300">{fmtPrice(a.price)}</div>
                   <div className="text-right text-zinc-200">{fmtSize(a.size)}</div>
                 </div>
@@ -38,7 +38,7 @@ function BookTable(props: { side: 'up' | 'down'; book: BotUiOrderBook }) {
       </div>
 
       <div>
-        <div className="mb-1 text-xs font-semibold text-zinc-300">BID</div>
+        <div className="mb-1 text-[11px] font-semibold text-zinc-300">BID</div>
         <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
           <div className="grid grid-cols-2 gap-2 border-b border-zinc-800 px-2 py-1 text-[11px] text-zinc-400">
             <div>price</div>
@@ -46,7 +46,7 @@ function BookTable(props: { side: 'up' | 'down'; book: BotUiOrderBook }) {
           </div>
           <div className="font-mono text-xs">
             {bids.map((b, idx) => (
-              <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-1">
+              <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
                 <div className="text-emerald-300">{fmtPrice(b.price)}</div>
                 <div className="text-right text-zinc-200">{fmtSize(b.size)}</div>
               </div>
@@ -71,10 +71,10 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
       : undefined
 
   return (
-    <div className="rounded-lg bg-zinc-950/40 p-3 ring-1 ring-zinc-800">
-      <div className="mb-2 flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold">{props.label}</div>
-        <div className="flex items-center gap-2 font-mono text-xs text-zinc-300">
+    <div className="panel p-2">
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <div className="text-[12px] font-semibold">{props.label}</div>
+        <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-300">
           <span className="text-red-300">ask {ba}</span>
           <span className="text-zinc-500">/</span>
           <span className="text-emerald-300">bid {bb}</span>
@@ -86,7 +86,7 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
       {book ? (
         <BookTable side={props.label === 'UP' ? 'up' : 'down'} book={book} />
       ) : (
-        <div className="text-sm text-zinc-400">no data</div>
+        <div className="text-[12px] text-zinc-400">no data</div>
       )}
     </div>
   )
