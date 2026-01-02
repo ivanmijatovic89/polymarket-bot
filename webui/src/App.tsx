@@ -120,8 +120,10 @@ export function App() {
             {/* Row below: orderbooks + logs */}
             <div className="grid grid-cols-1 gap-2 xl:grid-cols-[520px_1fr]">
               <div className="space-y-2 min-w-0">
-                <OrderbookPanel label="UP" book={snapshot.books.up} />
-                <OrderbookPanel label="DOWN" book={snapshot.books.down} />
+                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
+                  <OrderbookPanel label="UP" book={snapshot.books.up} compact />
+                  <OrderbookPanel label="DOWN" book={snapshot.books.down} compact />
+                </div>
               </div>
               <div className="space-y-2 min-w-0">
                 <LogsPanel logLines={logLines} logRecords={logRecords} />
