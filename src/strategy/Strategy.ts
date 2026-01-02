@@ -1,6 +1,6 @@
 import type { EngineTick } from '../market/MarketEngine.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
-import type { StrategyContext } from '../indicators/IndicatorSet.js'
+import type { StrategyContext } from './StrategyContext.js'
 
 export type OrderSide = 'BUY' | 'SELL'
 

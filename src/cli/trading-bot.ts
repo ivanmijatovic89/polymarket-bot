@@ -17,6 +17,7 @@ import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
+import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -59,6 +60,7 @@ async function main(): Promise<void> {
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined
+  let currentMarket: GammaMarketMeta | undefined
 
   let totalWsEvents = 0
 
@@ -180,6 +182,7 @@ async function main(): Promise<void> {
     orderManager,
     ...(indicatorSet ? { indicatorSet } : {}),
     ...(feedsStore ? { getFeedsSnapshot: () => feedsStore.snapshot() } : {}),
+    getMarket: () => currentMarket,
     intentExecutionMode,
     maxEventsPerDrain,
     ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
@@ -194,6 +197,8 @@ async function main(): Promise<void> {
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
     const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+
+    // console.log(`[trading-bot] resolveCurrentUpDown15mAssets market=${JSON.stringify(r)}`)
     // Avoid subscribing to the previous-window market around boundaries.
     // If Gamma is behind, retry soon instead of connecting to the old slug.
     try {
@@ -206,10 +211,29 @@ async function main(): Promise<void> {
       })
     } catch (err) {
       currentSlug = undefined
+      currentMarket = undefined
       throw err
     }
 
+    const prevSlug = currentSlug
     currentSlug = r.slug
+    currentMarket = r.market
+
+    if (prevSlug !== r.slug) {
+      const id = typeof r.market.id === 'string' ? r.market.id : undefined
+      const q = typeof r.market.question === 'string' ? r.market.question : undefined
+      const active = typeof r.market.active === 'boolean' ? r.market.active : undefined
+      const closed = typeof r.market.closed === 'boolean' ? r.market.closed : undefined
+      console.log('[trading-bot] market changed', {
+        from: prevSlug ?? null,
+        to: r.slug,
+        ...(id ? { id } : {}),
+        ...(q ? { question: q } : {}),
+        ...(typeof active === 'boolean' ? { active } : {}),
+        ...(typeof closed === 'boolean' ? { closed } : {}),
+      })
+    }
+
     return { assetsIds: r.assetsIds, label: r.label }
   }
 

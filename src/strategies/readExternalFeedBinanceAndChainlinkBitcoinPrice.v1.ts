@@ -1,5 +1,5 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
-import type { StrategyContext } from '../indicators/IndicatorSet.js'
+import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as z from 'zod'
 

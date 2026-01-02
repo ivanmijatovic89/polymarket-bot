@@ -1,8 +1,10 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
-import type { IndicatorSet, StrategyContext } from '../indicators/IndicatorSet.js'
+import type { IndicatorSet } from '../indicators/IndicatorSet.js'
+import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { ExternalFeedsSnapshot } from './feeds/externalFeeds.js'
 import { Portfolio } from './Portfolio.js'
+import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
@@ -23,6 +25,12 @@ export type StrategyRunnerOptions = {
    * to keep all data access tick-scoped and backtest-friendly.
    */
   getFeedsSnapshot?: () => ExternalFeedsSnapshot | undefined
+  /**
+   * Optional market metadata snapshot provider (live + backtest).
+   *
+   * NOTE: This should be episode-scoped (e.g. 15m window market), not computed per tick.
+   */
+  getMarket?: () => GammaMarketMeta | undefined
   /**
    * How intents should be handled:
    * - queued: submit now, execute on next market tick (legacy 1-tick latency)
@@ -45,6 +53,7 @@ export class StrategyRunner {
   private readonly portfolio: Portfolio
   private readonly indicatorSet: IndicatorSet | undefined
   private readonly getFeedsSnapshot: (() => ExternalFeedsSnapshot | undefined) | undefined
+  private readonly getMarket: (() => GammaMarketMeta | undefined) | undefined
   private readonly intentExecutionMode: IntentExecutionMode
   private readonly maxEventsPerDrain: number
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
@@ -60,6 +69,7 @@ export class StrategyRunner {
     this.portfolio = opts.portfolio ?? new Portfolio()
     this.indicatorSet = opts.indicatorSet
     this.getFeedsSnapshot = opts.getFeedsSnapshot
+    this.getMarket = opts.getMarket
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.log = opts.log
@@ -78,11 +88,13 @@ export class StrategyRunner {
     this.indicatorSet?.onMarketTick(tick)
     const indicators = this.indicatorSet?.snapshot()
     const feeds = this.getFeedsSnapshot?.()
+    const market = this.getMarket?.()
     const ctx: StrategyContext | undefined =
-      indicators || feeds
+      indicators || feeds || market
         ? {
             ...(indicators ? { indicators } : {}),
             ...(feeds ? { feeds } : {}),
+            ...(market ? { market } : {}),
           }
         : undefined
 
@@ -165,11 +177,13 @@ export class StrategyRunner {
     // Note: IndicatorSet snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.
     const indicators = this.indicatorSet?.snapshot()
     const feeds = this.getFeedsSnapshot?.()
+    const market = this.getMarket?.()
     const ctx: StrategyContext | undefined =
-      indicators || feeds
+      indicators || feeds || market
         ? {
             ...(indicators ? { indicators } : {}),
             ...(feeds ? { feeds } : {}),
+            ...(market ? { market } : {}),
           }
         : undefined
 

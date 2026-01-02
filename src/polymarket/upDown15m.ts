@@ -1,24 +1,10 @@
 import { buildUpDown15mSlug, FIFTEEN_MIN_MS } from '../utils/timeWindows.js'
 import { fetchGammaMarketBySlug } from './gamma.js'
-
-function parseJsonArrayString(s: unknown): unknown[] | null {
-  if (typeof s !== 'string') return null
-  try {
-    const parsed: unknown = JSON.parse(s)
-    return Array.isArray(parsed) ? parsed : null
-  } catch {
-    return null
-  }
-}
+import { buildGammaMarketMeta, type GammaMarketMeta } from './gammaMarketMeta.js'
 
 export type UpDown15mSymbol = 'btc' | 'eth' | 'sol' | 'xrp'
 
-export type UpDown15mMarket = {
-  slug: string
-  question?: string
-  outcomes: string[]
-  clobTokenIds: string[]
-}
+export type UpDown15mMarket = GammaMarketMeta
 
 /**
  * Returns the active "<SYMBOL> Up or Down (15 minute intervals)" market for the current
@@ -38,22 +24,9 @@ export async function getCurrentUpDown15mMarket(
   for (const slug of candidates) {
     const raw = await fetchGammaMarketBySlug({ slug })
     if (!raw) continue
-
-    const outcomesRaw = parseJsonArrayString(raw.outcomes) ?? []
-    const clobTokenIdsRaw = parseJsonArrayString(raw.clobTokenIds) ?? []
-
-    const outcomes = outcomesRaw.filter((x): x is string => typeof x === 'string')
-    const clobTokenIds = clobTokenIdsRaw.filter((x): x is string => typeof x === 'string')
-
-    if (outcomes.length < 2) continue
-    if (clobTokenIds.length < 2) continue
-
-    return {
-      slug,
-      outcomes,
-      clobTokenIds,
-      ...(typeof raw.question === 'string' ? { question: raw.question } : {}),
-    }
+    const m = buildGammaMarketMeta(raw, slug)
+    if (!m) continue
+    return m
   }
 
   return null

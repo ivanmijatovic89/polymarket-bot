@@ -19,7 +19,8 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
-import { closeDb, getMarketsBySymbol } from '../db/index.js'
+import { closeDb, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
+import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -163,7 +164,8 @@ async function main(): Promise<void> {
   // Priority logic: if symbol is provided, load from database
   // Fallback: use file paths if provided
   let filePaths: string[] = []
-  let marketRecords: Array<{ dataset: string | null; [key: string]: unknown }> = []
+  let marketRecords: Market[] = []
+  const marketBySlug = new Map<string, Market>()
 
   if (parsed.symbol) {
     try {
@@ -171,6 +173,7 @@ async function main(): Promise<void> {
         ...(parsed.limit !== undefined && { limit: parsed.limit }),
         onlyWithDataset: true
       })
+      for (const m of marketRecords) marketBySlug.set(m.slug, m)
       filePaths = marketRecords.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
       if (filePaths.length === 0) {
         console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
@@ -210,7 +213,7 @@ async function main(): Promise<void> {
   let events = 0
   const byType = new Map<string, number>()
 
-  const mkRunner = (): {
+  const mkRunner = (opts?: { getMarket?: () => GammaMarketMeta | undefined }): {
     strategy: Strategy
     runner: StrategyRunner
   } => {
@@ -227,6 +230,7 @@ async function main(): Promise<void> {
       strategy,
       orderManager,
       ...(builtStrategy.indicatorSet ? { indicatorSet: builtStrategy.indicatorSet } : {}),
+      ...(opts?.getMarket ? { getMarket: opts.getMarket } : {}),
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
     return { strategy, runner }
@@ -243,11 +247,28 @@ async function main(): Promise<void> {
   for (const fp of filePaths) {
     if (shouldStop) break
     console.log(`[backtest] orderbook replay file=${fp}`)
-    const active = mkRunner()
-    const runner = active.runner
 
     // Parse slug and fetch market resolution (tokenMap + outcome) in one call
     const slug = parseSlugFromFilename(fp)
+    const dbMarket =
+      slug && marketBySlug.size > 0 ? (marketBySlug.get(slug) ?? null) : slug ? await getMarketBySlug(slug) : null
+    const marketMeta: GammaMarketMeta | undefined = (() => {
+      if (!slug) return undefined
+      if (!dbMarket) return undefined
+      const raw = dbMarket.rawJson
+      if (!raw || typeof raw !== 'object') return undefined
+      const built = buildGammaMarketMeta(raw as Record<string, unknown>, slug)
+      return built ?? undefined
+    })()
+
+    if (slug && marketMeta) {
+      const id = typeof marketMeta.id === 'string' ? marketMeta.id : undefined
+      const q = typeof marketMeta.question === 'string' ? marketMeta.question : undefined
+      console.log('[backtest] market meta', { slug, ...(id ? { id } : {}), ...(q ? { question: q } : {}) })
+    }
+
+    const active = mkRunner({ getMarket: () => marketMeta })
+    const runner = active.runner
     const marketResolution = slug ? await getMarketResolution(slug, fp) : null
 
     // Track market data during replay

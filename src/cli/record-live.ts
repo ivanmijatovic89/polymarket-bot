@@ -21,6 +21,7 @@ import {
   parseUpDown15mSlugEpochMs,
   throwIfPreviousWindowSlug,
 } from '../polymarket/upDown15mWindowGuard.js'
+import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'record-live' })
 
@@ -98,6 +99,7 @@ async function main(): Promise<void> {
 
   let currentAssetsIds: string[] = []
   let currentSlug: string | undefined
+  let currentMarket: GammaMarketMeta | undefined
 
   let everConnected = false
   let isWaitingForNextWindow = false
@@ -205,7 +207,9 @@ async function main(): Promise<void> {
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label: string }> => {
     const resolved = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
+    const prevSlug = currentSlug
     currentSlug = resolved.slug
+    currentMarket = resolved.market
 
     // If the market already started, don't join mid-candle on *initial startup*.
     // This prevents overwriting the current slug's single parquet file on restarts.
@@ -262,6 +266,21 @@ async function main(): Promise<void> {
       question: resolved.market.question,
     })
     console.log('[record-live] token ids:', resolved.tokenMap)
+
+    if (prevSlug !== resolved.slug) {
+      const id = typeof currentMarket.id === 'string' ? currentMarket.id : undefined
+      const q = typeof currentMarket.question === 'string' ? currentMarket.question : undefined
+      const active = typeof currentMarket.active === 'boolean' ? currentMarket.active : undefined
+      const closed = typeof currentMarket.closed === 'boolean' ? currentMarket.closed : undefined
+      console.log('[record-live] market changed', {
+        from: prevSlug ?? null,
+        to: resolved.slug,
+        ...(id ? { id } : {}),
+        ...(q ? { question: q } : {}),
+        ...(typeof active === 'boolean' ? { active } : {}),
+        ...(typeof closed === 'boolean' ? { closed } : {}),
+      })
+    }
 
     // Reset per-market stats when the selected Gamma market changes.
     const nextStatsKey = currentSlug
