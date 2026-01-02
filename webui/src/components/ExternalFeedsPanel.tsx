@@ -62,7 +62,6 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
   }
 
   return (
-    <div className="panel p-3">
       <div className="grid grid-cols-1 gap-2 lg:grid-cols-4">
         {tiles.map((t, idx) => (
           <div key={idx} className="rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
@@ -76,7 +75,6 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
           </div>
         ))}
       </div>
-    </div>
   )
 }
 

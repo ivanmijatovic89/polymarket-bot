@@ -8,9 +8,9 @@ export const ConfigSchema = z.strictObject({
    * If omitted, the strategy will pick the best (lowest ask) asset that crosses triggerPrice.
    */
   assetId: z.string().min(1).optional(),
-  triggerPrice: z.coerce.number().finite().default(0.4),
-  orderPrice: z.coerce.number().finite().default(0.1),
-  size: z.coerce.number().finite().default(10),
+  triggerPrice: z.coerce.number().finite().default(0.45),
+  orderPrice: z.coerce.number().finite().default(0.01),
+  size: z.coerce.number().finite().default(25),
   cancelAfterMs: z.coerce.number().finite().default(10_000),
 })
 
