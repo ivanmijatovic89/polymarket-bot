@@ -1,4 +1,4 @@
-import type { BotUiOrderBook } from '../types'
+import type { BotUiOrderBook, BotUiOrderBookLevel } from '../types'
 
 function fmtPrice(n: number | undefined): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'
@@ -10,48 +10,24 @@ function fmtSize(n: number | undefined): string {
   return n.toFixed(3)
 }
 
-function BookTable(props: { side: 'up' | 'down'; book: BotUiOrderBook }) {
-  const asks = props.book.asks ?? []
-  const bids = props.book.bids ?? []
+function SideTable(props: { title: 'ASK' | 'BID'; rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid' }) {
+  const { title, rows, side } = props
 
   return (
-    <div className="grid grid-cols-2 gap-2">
-      <div>
-        <div className="mb-1 text-[11px] font-semibold text-zinc-300">ASK</div>
-        <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
-          <div className="grid grid-cols-2 gap-2 border-b border-zinc-800 px-2 py-1 text-[11px] text-zinc-400">
-            <div>price</div>
-            <div className="text-right">size</div>
-          </div>
-          <div className="font-mono text-xs">
-            {asks
-              .slice()
-              .reverse()
-              .map((a, idx) => (
-                <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
-                  <div className="text-red-300">{fmtPrice(a.price)}</div>
-                  <div className="text-right text-zinc-200">{fmtSize(a.size)}</div>
-                </div>
-              ))}
-          </div>
-        </div>
-      </div>
+    <div>
 
-      <div>
-        <div className="mb-1 text-[11px] font-semibold text-zinc-300">BID</div>
-        <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
-          <div className="grid grid-cols-2 gap-2 border-b border-zinc-800 px-2 py-1 text-[11px] text-zinc-400">
-            <div>price</div>
-            <div className="text-right">size</div>
-          </div>
-          <div className="font-mono text-xs">
-            {bids.map((b, idx) => (
+      <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
+        <div className="font-mono text-xs">
+          {rows.length === 0 ? (
+            <div className="px-2 py-2 text-[11px] text-zinc-500">n/a</div>
+          ) : (
+            rows.map((r, idx) => (
               <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
-                <div className="text-emerald-300">{fmtPrice(b.price)}</div>
-                <div className="text-right text-zinc-200">{fmtSize(b.size)}</div>
+                <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>{fmtPrice(r.price)}</div>
+                <div className="text-right text-zinc-200">{fmtSize(r.size)}</div>
               </div>
-            ))}
-          </div>
+            ))
+          )}
         </div>
       </div>
     </div>
@@ -70,6 +46,11 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
       ? book.bestAsk - book.bestBid
       : undefined
 
+  // For readability: keep best ask closest to spread (bottom of asks),
+  // and best bid closest to spread (top of bids).
+  const asksForView = (book?.asks ?? []).slice().reverse()
+  const bidsForView = book?.bids ?? []
+
   return (
     <div className="panel p-2">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -78,13 +59,20 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
           <span className="text-red-300">ask {ba}</span>
           <span className="text-zinc-500">/</span>
           <span className="text-emerald-300">bid {bb}</span>
-          <span className="text-zinc-500">/</span>
-          <span className="text-zinc-300">spr {typeof spread === 'number' ? spread.toFixed(4) : 'n/a'}</span>
         </div>
       </div>
 
       {book ? (
-        <BookTable side={props.label === 'UP' ? 'up' : 'down'} book={book} />
+        <div className="space-y-2">
+          <SideTable title="ASK" rows={asksForView} side="ask" />
+
+            <div className="flex items-center justify-between gap-2 text-[11px]">
+              <div className="text-zinc-400">spread</div>
+              <div className="font-mono text-zinc-200">{typeof spread === 'number' ? spread.toFixed(4) : 'n/a'}</div>
+            </div>
+
+          <SideTable title="BID" rows={bidsForView} side="bid" />
+        </div>
       ) : (
         <div className="text-[12px] text-zinc-400">no data</div>
       )}

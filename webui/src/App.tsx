@@ -1,7 +1,6 @@
 import { ConnectionBadge } from './components/ConnectionBadge'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbookPanel } from './components/OrderbookPanel'
-import { StatusBar } from './components/StatusBar'
 import { useBotWs } from './hooks/useBotWs'
 
 function bestAskFromBook(book?: { bestAsk?: number }): number | null {
@@ -78,37 +77,6 @@ export function App() {
           <div className="grid grid-cols-1 gap-2 xl:grid-cols-[420px_1fr_520px]">
             {/* LEFT COLUMN */}
             <div className="space-y-2">
-              <StatusBar snapshot={snapshot} />
-
-              <div className="panel">
-                <div className="panel-h">
-                  <div className="panel-t">Market</div>
-                  <div className="text-[11px] text-zinc-500">current</div>
-                </div>
-                <div className="panel-b kv">
-                  <div className="k">UP ask</div>
-                  <div className="v">{upAsk === null ? 'n/a' : upAsk.toFixed(4)}</div>
-                  <div className="k">DOWN ask</div>
-                  <div className="v">{downAsk === null ? 'n/a' : downAsk.toFixed(4)}</div>
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-h">
-                  <div className="panel-t">Strategy</div>
-                  <div className="text-[11px] text-zinc-500">coming next</div>
-                </div>
-                <div className="panel-b kv">
-                  <div className="k">name</div>
-                  <div className="v">n/a</div>
-                  <div className="k">params</div>
-                  <div className="v">n/a</div>
-                  <div className="k">indicators</div>
-                  <div className="v">n/a</div>
-                  <div className="k">external feeds</div>
-                  <div className="v">n/a</div>
-                </div>
-              </div>
 
               <div className="panel">
                 <div className="panel-h">
