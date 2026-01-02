@@ -72,17 +72,30 @@ function renderBottomStatus(state: TradingBotTuiState): string {
 function renderOneBook(label: 'UP' | 'DOWN', book: OrderBookSnapshot | undefined, levels: number): string {
   const bb = fmtPrice(book?.bestBid ?? null)
   const ba = fmtPrice(book?.bestAsk ?? null)
+  const spread =
+    typeof book?.bestBid === 'number' &&
+    Number.isFinite(book.bestBid) &&
+    typeof book?.bestAsk === 'number' &&
+    Number.isFinite(book.bestAsk)
+      ? book.bestAsk - book.bestBid
+      : null
+  const spreadStr = spread === null ? 'n/a' : spread.toFixed(4)
   const out: string[] = []
-  out.push(`{bold}${label}{/bold}  bestBid=${bb} bestAsk=${ba}`)
-  out.push(`{gray-fg}   BID(px/size)            ASK(px/size){/}`)
+  out.push(`{bold}${label}{/bold}  bestAsk=${ba} bestBid=${bb}`)
   const bids = book?.bids ?? []
   const asks = book?.asks ?? []
+  out.push(`{gray-fg}ASK (px/size){/}`)
+  for (let i = 0; i < levels; i++) {
+    const a = asks[i]
+    const aStr = a ? `{red-fg}${fmtPrice(a.price)}{/}/${fmtSize(a.size)}` : '   -   /   -   '
+    out.push(`${String(i + 1).padStart(2, ' ')} ${aStr}`)
+  }
+  out.push(`{gray-fg}--- spread=${spreadStr} ---{/}`)
+  out.push(`{gray-fg}BID (px/size){/}`)
   for (let i = 0; i < levels; i++) {
     const b = bids[i]
-    const a = asks[i]
     const bStr = b ? `{green-fg}${fmtPrice(b.price)}{/}/${fmtSize(b.size)}` : '   -   /   -   '
-    const aStr = a ? `{red-fg}${fmtPrice(a.price)}{/}/${fmtSize(a.size)}` : '   -   /   -   '
-    out.push(`${String(i + 1).padStart(2, ' ')} ${bStr}    ${aStr}`)
+    out.push(`${String(i + 1).padStart(2, ' ')} ${bStr}`)
   }
   return out.join('\n')
 }
