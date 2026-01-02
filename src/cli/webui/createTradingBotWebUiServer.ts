@@ -161,7 +161,7 @@ function buildSnapshot(args: {
       ...(upBook ? { up: upBook } : {}),
       ...(downBook ? { down: downBook } : {}),
     },
-    ...(args.state.meta ? { meta: args.state.meta } : {}),
+    ...(args.state.strategy ? { strategy: args.state.strategy } : {}),
   }
 }
 
@@ -214,7 +214,6 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
   server.on('error', (err) => {
     // Surface bind issues like EADDRINUSE, EACCES, etc.
     try {
-      // eslint-disable-next-line no-console
       console.error('[web-ui] server error', err)
     } catch {
       // ignore
@@ -327,7 +326,6 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     running = true
     server.listen(opts.port, opts.host, () => {
       try {
-        // eslint-disable-next-line no-console
         console.log(`[web-ui] listening http://${opts.host}:${opts.port} (ws: /ws)`)
       } catch {
         // ignore

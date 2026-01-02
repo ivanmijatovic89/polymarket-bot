@@ -47,9 +47,9 @@ export function App() {
   const { status, snapshot, logLines, logRecords } = useBotWs()
   const upAsk = snapshot ? bestAskFromBook(snapshot.books.up) : null
   const downAsk = snapshot ? bestAskFromBook(snapshot.books.down) : null
-  const strategy = snapshot?.meta?.strategy
-  const indEnabled = snapshot?.meta?.indicators?.enabled ?? []
-  const feedsEnabled = enabledFeedKeys(snapshot?.meta?.externalFeeds?.enabled)
+  const strategy = snapshot?.strategy
+  const indEnabled = snapshot?.strategy?.indicators ?? []
+  const feedsEnabled = enabledFeedKeys(snapshot?.strategy?.externalFeeds?.enabled as unknown as Record<string, unknown> | undefined)
 
   return (
     <div className="min-h-screen">
@@ -167,9 +167,6 @@ export function App() {
       <footer className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
           <div className="flex flex-wrap items-center gap-2">
-            <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              bot <span className="ml-1 font-mono">{snapshot?.title ?? 'n/a'}</span>
-            </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
               strategy <span className="ml-1 font-mono">{strategy?.id ?? 'n/a'}</span>
             </span>

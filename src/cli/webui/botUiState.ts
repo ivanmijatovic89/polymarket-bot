@@ -1,4 +1,5 @@
 import type { MarketOrderBooksSnapshot, OrderBookSnapshot } from '../../market/orderbook/index.js'
+import type { StrategyRunnerMeta } from '../../trading/StrategyRunner.js'
 
 /**
  * Minimal state needed for a read-only bot monitoring UI (web or otherwise).
@@ -14,18 +15,7 @@ export type BotUiSourceState = {
   market?: MarketOrderBooksSnapshot
   upAssetId?: string
   downAssetId?: string
-  meta?: {
-    strategy?: { id: string; name: string; params: Record<string, unknown> }
-    indicators?: { enabled: string[] }
-    externalFeeds?: {
-      requested?: Record<string, unknown>
-      enabled?: {
-        rtdsCryptoPrices?: boolean
-        binanceWsSpotPrice?: boolean
-        polymarketPriceToBeat?: boolean
-      }
-    }
-  }
+  strategy?: StrategyRunnerMeta
 }
 
 export type BotUiOrderBookLevel = {
@@ -56,7 +46,7 @@ export type BotUiSnapshot = {
     up?: BotUiOrderBook
     down?: BotUiOrderBook
   }
-  meta?: BotUiSourceState['meta']
+  strategy?: StrategyRunnerMeta
 }
 
 export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: number): BotUiOrderBook | undefined {

@@ -313,6 +313,13 @@ async function main(): Promise<void> {
     log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
   })
   const runner = new StrategyRunner({
+    strategyId: built.strategyId,
+    strategyParams: built.params,
+    externalFeedsEnabled: {
+      ...(rtdsReq ? { rtdsCryptoPrices: rtdsEnabled } : {}),
+      ...(binanceWsReq ? { binanceWsSpotPrice: binanceWsEnabled } : {}),
+      ...(priceToBeatReq ? { polymarketPriceToBeat: priceToBeatEnabled } : {}),
+    },
     strategy,
     orderManager,
     ...(indicatorSet ? { indicatorSet } : {}),
@@ -729,18 +736,7 @@ async function main(): Promise<void> {
           ...(market ? { market } : {}),
           ...(typeof upAssetId === 'string' ? { upAssetId } : {}),
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
-          meta: {
-            strategy: { id: built.strategyId, name: strategy.name, params: built.params },
-            indicators: { enabled: indicatorSet ? indicatorSet.listIds() : [] },
-            externalFeeds: {
-              ...(strategy.requiredFeeds ? { requested: strategy.requiredFeeds as unknown as Record<string, unknown> } : {}),
-              enabled: {
-                ...(rtdsReq ? { rtdsCryptoPrices: rtdsEnabled } : {}),
-                ...(binanceWsReq ? { binanceWsSpotPrice: binanceWsEnabled } : {}),
-                ...(priceToBeatReq ? { polymarketPriceToBeat: priceToBeatEnabled } : {}),
-              },
-            },
-          },
+          ...(runner.getStrategyMeta() ? { strategy: runner.getStrategyMeta() } : {}),
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

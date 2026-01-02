@@ -244,12 +244,10 @@ function createSequencedRingBuffer<T>(maxItems: number): {
 } {
   const max = Math.max(1, maxItems)
   const buf: T[] = []
-  let nextSeq = 0 // seq of the next pushed item
   let startSeq = 0 // seq of buf[0]
 
   const push = (t: T): void => {
     buf.push(t)
-    nextSeq += 1
     if (buf.length > max) {
       const drop = buf.length - max
       buf.splice(0, drop)

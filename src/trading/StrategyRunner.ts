@@ -9,7 +9,27 @@ import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
 
+export type StrategyExternalFeedsEnabled = {
+  rtdsCryptoPrices?: boolean
+  binanceWsSpotPrice?: boolean
+  polymarketPriceToBeat?: boolean
+}
+
+export type StrategyRunnerMeta = {
+  id: string
+  name: string
+  params: Record<string, unknown>
+  indicators: string[]
+  externalFeeds: {
+    requested?: Record<string, unknown>
+    enabled?: StrategyExternalFeedsEnabled
+  }
+}
+
 export type StrategyRunnerOptions = {
+  strategyId?: string
+  strategyParams?: Record<string, unknown>
+  externalFeedsEnabled?: StrategyExternalFeedsEnabled
   strategy: Strategy
   orderManager: OrderManager
   portfolio?: Portfolio
@@ -53,6 +73,9 @@ export type StrategyRunnerOptions = {
 }
 
 export class StrategyRunner {
+  private readonly strategyId: string | undefined
+  private readonly strategyParams: Record<string, unknown> | undefined
+  private readonly externalFeedsEnabled: StrategyExternalFeedsEnabled | undefined
   private readonly strategy: Strategy
   private readonly orderManager: OrderManager
   private readonly portfolio: Portfolio
@@ -70,6 +93,9 @@ export class StrategyRunner {
   private readonly recentDrainEvents: { kind: AccountEvent['kind']; tsMs?: number }[] = []
 
   constructor(opts: StrategyRunnerOptions) {
+    this.strategyId = opts.strategyId
+    this.strategyParams = opts.strategyParams
+    this.externalFeedsEnabled = opts.externalFeedsEnabled
     this.strategy = opts.strategy
     this.orderManager = opts.orderManager
     this.portfolio = opts.portfolio ?? new Portfolio()
@@ -88,6 +114,21 @@ export class StrategyRunner {
 
   getLastMarketSnapshot(): MarketOrderBooksSnapshot | undefined {
     return this.lastMarket
+  }
+
+  getStrategyMeta(): StrategyRunnerMeta | undefined {
+    if (!this.strategyId || !this.strategyParams) return undefined
+    const requested = this.strategy.requiredFeeds
+    return {
+      id: this.strategyId,
+      name: this.strategy.name,
+      params: this.strategyParams,
+      indicators: this.indicatorSet ? this.indicatorSet.listIds() : [],
+      externalFeeds: {
+        ...(requested ? { requested: requested as unknown as Record<string, unknown> } : {}),
+        ...(this.externalFeedsEnabled ? { enabled: this.externalFeedsEnabled } : {}),
+      },
+    }
   }
 
   async onMarketTick(tick: MarketTick): Promise<void> {

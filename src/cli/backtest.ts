@@ -227,6 +227,8 @@ async function main(): Promise<void> {
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })
     const runner = new StrategyRunner({
+      strategyId: built.strategyId,
+      strategyParams: built.params as Record<string, unknown>,
       strategy,
       orderManager,
       ...(builtStrategy.indicatorSet ? { indicatorSet: builtStrategy.indicatorSet } : {}),

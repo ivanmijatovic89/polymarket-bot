@@ -37,10 +37,12 @@ export type BotUiSnapshot = {
     up?: BotUiOrderBook
     down?: BotUiOrderBook
   }
-  meta?: {
-    strategy?: { id: string; name: string; params: Record<string, unknown> }
-    indicators?: { enabled: string[] }
-    externalFeeds?: {
+  strategy?: {
+    id: string
+    name: string
+    params: Record<string, unknown>
+    indicators: string[]
+    externalFeeds: {
       requested?: Record<string, unknown>
       enabled?: {
         rtdsCryptoPrices?: boolean
