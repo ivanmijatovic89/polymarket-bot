@@ -326,6 +326,26 @@ Trading / strategies:
 - `LOG_TRADES` (default: `false` for trading-bot)
   - `true`: print `[trade] ...` for each fill event (live fills from user WS/polling)
 
+### File logs (per-run JSONL)
+
+For debugging and post-mortems you can persist logs to a per-run JSONL file:
+
+- `LOG_TO_FILE` (default: `false`)
+  - `true`: write a JSONL log file under `logs/trading-bot/`
+
+Filename format:
+
+- `logs/trading-bot/<YYYYMMDD-HHMMSS-mmm>-<strategy>.jsonl`
+
+Example:
+
+```bash
+LOG_TO_FILE=true \
+TRADING_SYMBOL=BTC DRY_RUN=true \
+ENABLE_WEB_UI=true WEB_UI_PORT=3001 \
+  npm run trade:bot:btc -- --strategy readExternalFeedsExample.v1 --param logEveryMs=1000
+```
+
 ### Web UI (Phase 1, read-only)
 
 The trading bot can optionally expose a **local-only** Web UI (HTTP + WebSocket) per bot process.

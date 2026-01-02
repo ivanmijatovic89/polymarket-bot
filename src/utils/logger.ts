@@ -232,6 +232,66 @@ export function ringBufferRecordsSink(opts: { maxRecords: number }): {
   }
 }
 
+export type SequencedWindow<T> = {
+  startSeq: number
+  endSeq: number
+  items: T[]
+}
+
+function createSequencedRingBuffer<T>(maxItems: number): {
+  push: (t: T) => void
+  snapshotWindow: () => SequencedWindow<T>
+} {
+  const max = Math.max(1, maxItems)
+  const buf: T[] = []
+  let nextSeq = 0 // seq of the next pushed item
+  let startSeq = 0 // seq of buf[0]
+
+  const push = (t: T): void => {
+    buf.push(t)
+    nextSeq += 1
+    if (buf.length > max) {
+      const drop = buf.length - max
+      buf.splice(0, drop)
+      startSeq += drop
+    }
+  }
+
+  const snapshotWindow = (): SequencedWindow<T> => ({
+    startSeq,
+    endSeq: startSeq + buf.length,
+    items: buf.slice(),
+  })
+
+  return { push, snapshotWindow }
+}
+
+/**
+ * Sequenced ring buffer for UI streaming:
+ * - keeps a fixed-size window in memory
+ * - also keeps a monotonic sequence (startSeq/endSeq) so consumers can request deltas reliably
+ */
+export function ringBufferSequencedLinesSink(opts: { maxLines: number; format?: (r: LogRecord) => string }): {
+  sink: LogSink
+  snapshotWindow: () => SequencedWindow<string>
+} {
+  const rb = createSequencedRingBuffer<string>(opts.maxLines)
+  const sink: LogSink = (r) => {
+    const line = (opts.format ?? ((x) => formatRecordToLine(x)))(r)
+    rb.push(line)
+  }
+  return { sink, snapshotWindow: rb.snapshotWindow }
+}
+
+export function ringBufferSequencedRecordsSink(opts: { maxRecords: number }): {
+  sink: LogSink
+  snapshotWindow: () => SequencedWindow<LogRecord>
+} {
+  const rb = createSequencedRingBuffer<LogRecord>(opts.maxRecords)
+  const sink: LogSink = (r) => rb.push(r)
+  return { sink, snapshotWindow: rb.snapshotWindow }
+}
+
 /** Optional JSONL sink (handy for later replay). */
 export function jsonlFileSink(opts: { filePath: string }): { sink: LogSink; close: () => void } {
   const stream: WriteStream = createWriteStream(opts.filePath, { flags: 'a' })

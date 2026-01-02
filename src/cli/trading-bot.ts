@@ -18,12 +18,16 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
+import { format as nodeFormat } from 'node:util'
+import { mkdir } from 'node:fs/promises'
+import { join } from 'node:path'
 import {
   consoleSink,
   createLogger,
-  ringBufferSink,
-  ringBufferRecordsSink,
+  ringBufferSequencedLinesSink,
+  ringBufferSequencedRecordsSink,
   formatRecordToLine,
+  jsonlFileSink,
 } from '../utils/logger.js'
 import { createTradingBotWebUiServer, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
@@ -46,53 +50,71 @@ async function main(): Promise<void> {
 
   const auth = cfg.creds
   const enableWebUi = (process.env.ENABLE_WEB_UI ?? 'false').toLowerCase() === 'true'
+  const logToFile = (process.env.LOG_TO_FILE ?? 'false').toLowerCase() === 'true'
   const logLevelEnv = (process.env.LOG_LEVEL ?? 'info').toLowerCase()
   const logLevel =
     logLevelEnv === 'debug' || logLevelEnv === 'info' || logLevelEnv === 'warn' || logLevelEnv === 'error'
       ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
       : 'info'
 
-  const ringLines = enableWebUi ? ringBufferSink({ maxLines: 5000, format: (r) => formatRecordToLine(r) }) : null
-  const ringRecords = enableWebUi ? ringBufferRecordsSink({ maxRecords: 2000 }) : null
+  const fmtRunStamp = (d: Date): string => {
+    const iso = d.toISOString() // YYYY-MM-DDTHH:mm:ss.sssZ (UTC)
+    const ymd = iso.slice(0, 10).replaceAll('-', '')
+    const hms = iso.slice(11, 19).replaceAll(':', '')
+    const ms = iso.slice(20, 23)
+    return `${ymd}-${hms}-${ms}`
+  }
 
-  const logger = createLogger({
-    level: logLevel,
-    baseFields: { app: 'trading-bot' },
-    sinks: [
-      consoleSink(),
-      ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
-    ],
-  })
-  const intentLogger = logger.child({ channel: 'intent' })
+  const sanitizeFilePart = (s: string): string => s.replaceAll(/[^a-zA-Z0-9._-]/g, '_')
+
+  const ringLines = enableWebUi
+    ? ringBufferSequencedLinesSink({ maxLines: 5000, format: (r) => formatRecordToLine(r) })
+    : null
+  const ringRecords = enableWebUi ? ringBufferSequencedRecordsSink({ maxRecords: 2000 }) : null
+
+  const origConsole = {
+    log: console.log.bind(console),
+    info: console.info.bind(console),
+    warn: console.warn.bind(console),
+    error: console.error.bind(console),
+    table: console.table.bind(console),
+  }
+
+  const teeConsoleToWebUi = enableWebUi && !!ringLines && !!ringRecords
+
+  // Important: if we patch console.*, we must NOT use consoleSink() (it would double-log into rings).
+  const rawConsoleSink =
+    () =>
+    (r: { tsMs: number; level: 'debug' | 'info' | 'warn' | 'error'; msg: string; fields?: Record<string, unknown>; data?: unknown; err?: unknown }) => {
+      const line = formatRecordToLine(r as never, { includeIsoDate: true })
+      if (r.level === 'error') origConsole.error(line)
+      else if (r.level === 'warn') origConsole.warn(line)
+      else origConsole.log(line)
+    }
 
   let webUi: TradingBotWebUiServer | null = null
+  let restoreConsole: (() => void) | null = null
+  let closeJsonl: (() => void) | null = null
+  let jsonlSink: ((r: unknown) => void) | null = null
 
   // Keep these available for the TUI status bar.
   let totalWsEvents = 0
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
-  logger.info(`[trading-bot] symbol=${symbol}`)
-  logger.info(`[trading-bot] wsUrl=${wsUrl}`)
-
   const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
-  logger.info(`[trading-bot] dryRun=${dryRun}`)
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
   const intentExecutionMode =
     intentExecutionModeEnv === 'queued' || intentExecutionModeEnv === 'immediate'
       ? (intentExecutionModeEnv as 'queued' | 'immediate')
       : 'immediate'
-  logger.info(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
-
   const maxEventsPerDrainRaw = process.env.MAX_EVENTS_PER_DRAIN
   const maxEventsPerDrainParsed = maxEventsPerDrainRaw ? Number(maxEventsPerDrainRaw) : NaN
   const maxEventsPerDrain =
     Number.isFinite(maxEventsPerDrainParsed) && Number.isInteger(maxEventsPerDrainParsed)
       ? Math.max(1, maxEventsPerDrainParsed)
       : 100
-  logger.info(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
-
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined
@@ -110,8 +132,44 @@ async function main(): Promise<void> {
   })()
   const strategy = built.strategy
   const indicatorSet = built.indicatorSet
-  logger.info(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
+
+  // Optional per-run JSONL logging
+  if (logToFile) {
+    const dir = join(process.cwd(), 'logs', 'trading-bot')
+    await mkdir(dir, { recursive: true })
+    const stamp = fmtRunStamp(new Date())
+    const strategyIdSafe = sanitizeFilePart(built.strategyId)
+    const filePath = join(dir, `${stamp}-${strategyIdSafe}.jsonl`)
+    const jsonl = jsonlFileSink({ filePath })
+    closeJsonl = jsonl.close
+    jsonlSink = (r: unknown) => {
+      try {
+        jsonl.sink(r as never)
+      } catch {
+        // ignore
+      }
+    }
+    origConsole.log(`[trading-bot] LOG_TO_FILE enabled -> ${filePath}`)
+  }
+
+  const logger = createLogger({
+    level: logLevel,
+    baseFields: { app: 'trading-bot' },
+    sinks: [
+      ...(teeConsoleToWebUi || logToFile ? [rawConsoleSink()] : [consoleSink()]),
+      ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
+      ...(jsonlSink ? [jsonlSink as never] : []),
+    ],
+  })
+  const intentLogger = logger.child({ channel: 'intent' })
+
+  logger.info(`[trading-bot] symbol=${symbol}`)
+  logger.info(`[trading-bot] wsUrl=${wsUrl}`)
+  logger.info(`[trading-bot] dryRun=${dryRun}`)
+  logger.info(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
+  logger.info(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
+  logger.info(`[trading-bot] strategy=${built.strategyId}`)
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
   const rtdsReq = strategy.requiredFeeds?.rtdsCryptoPrices
@@ -542,9 +600,76 @@ async function main(): Promise<void> {
     binanceWsClient?.stop()
     priceToBeatClient?.stop()
     webUi?.stop()
+    restoreConsole?.()
+    closeJsonl?.()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
+
+  if (teeConsoleToWebUi || logToFile) {
+    const toErr = (e: unknown): { name?: string; message?: string; stack?: string } | undefined => {
+      if (!e) return undefined
+      if (e instanceof Error) return { name: e.name, message: e.message, stack: e.stack }
+      return { message: String(e) }
+    }
+
+    const emitConsoleRecord = (
+      level: 'info' | 'warn' | 'error',
+      args: unknown[],
+    ): void => {
+      const err = args.find((a) => a instanceof Error)
+      const msg = nodeFormat(...args)
+      const r = {
+        tsMs: Date.now(),
+        level,
+        msg,
+        fields: { app: 'trading-bot', channel: 'console' },
+        ...(err ? { err: toErr(err) } : {}),
+      }
+      try {
+        if (ringLines) ringLines.sink(r as never)
+        if (ringRecords) ringRecords.sink(r as never)
+        if (jsonlSink) jsonlSink(r)
+      } catch {
+        // ignore
+      }
+    }
+
+    console.log = (...args: unknown[]) => {
+      origConsole.log(...args)
+      emitConsoleRecord('info', args)
+    }
+    console.info = (...args: unknown[]) => {
+      origConsole.info(...args)
+      emitConsoleRecord('info', args)
+    }
+    console.warn = (...args: unknown[]) => {
+      origConsole.warn(...args)
+      emitConsoleRecord('warn', args)
+    }
+    console.error = (...args: unknown[]) => {
+      origConsole.error(...args)
+      emitConsoleRecord('error', args)
+    }
+    console.table = (tabularData?: unknown, properties?: string[]) => {
+      origConsole.table(tabularData as never, properties as never)
+      emitConsoleRecord('info', ['[table]', tabularData, ...(properties ? [{ properties }] : [])])
+    }
+
+    restoreConsole = () => {
+      console.log = origConsole.log
+      console.info = origConsole.info
+      console.warn = origConsole.warn
+      console.error = origConsole.error
+      console.table = origConsole.table
+    }
+
+    // Best-effort cleanup even on fatal exits.
+    process.on('exit', () => {
+      restoreConsole?.()
+      closeJsonl?.()
+    })
+  }
 
   if (enableWebUi) {
     const pickAssetId = (kind: 'up' | 'down'): string | undefined => {
@@ -600,8 +725,8 @@ async function main(): Promise<void> {
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
         }
       },
-      getLogLines: () => ringLines!.snapshotLines(),
-      getLogRecords: () => ringRecords!.snapshotRecords(),
+      getLogLinesWindow: () => ringLines!.snapshotWindow(),
+      getLogRecordsWindow: () => ringRecords!.snapshotWindow(),
       orderbookLevels,
       refreshMs,
     })
