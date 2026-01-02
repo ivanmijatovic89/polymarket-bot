@@ -2,6 +2,7 @@ import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbookPanel } from './components/OrderbookPanel'
+import { OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
 
@@ -106,64 +107,25 @@ export function App() {
         {!snapshot ? (
           <div className="panel panel-b text-zinc-300">waiting for snapshot…</div>
         ) : (
-          <div className="grid grid-cols-1 gap-2 xl:grid-cols-[420px_1fr_520px]">
-            {/* LEFT COLUMN */}
+          <div className="space-y-2">
+            {/* Full-width row under header */}
+            <ExternalFeedsPanel snapshot={snapshot} />
+
+            {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
-
-              <div className="panel">
-                <div className="panel-h">
-                  <div className="panel-t">Portfolio</div>
-                  <div className="text-[14px] text-zinc-500">coming next</div>
-                </div>
-                <div className="panel-b kv">
-                  <div className="k">UP</div>
-                  <div className="v">n/a</div>
-                  <div className="k">DOWN</div>
-                  <div className="v">n/a</div>
-                  <div className="k">avg UP</div>
-                  <div className="v">n/a</div>
-                  <div className="k">avg DOWN</div>
-                  <div className="v">n/a</div>
-                  <div className="k">mergeable</div>
-                  <div className="v">n/a</div>
-                  <div className="k">PnL</div>
-                  <div className="v">n/a</div>
-                </div>
-              </div>
-
-              <div className="panel">
-                <div className="panel-h">
-                  <div className="panel-t">Balances</div>
-                  <div className="text-[14px] text-zinc-500">coming next</div>
-                </div>
-                <div className="panel-b kv">
-                  <div className="k">wallet</div>
-                  <div className="v">n/a</div>
-                </div>
-              </div>
+              <PositionsTablePanel snapshot={snapshot} />
+              <OpenOrdersTablePanel snapshot={snapshot} />
             </div>
 
-            {/* MIDDLE COLUMN */}
-            <div className="space-y-2">
-              <div className="grid grid-cols-1 gap-2 lg:grid-cols-2">
+            {/* Row below: orderbooks + logs */}
+            <div className="grid grid-cols-1 gap-2 xl:grid-cols-[520px_1fr]">
+              <div className="space-y-2 min-w-0">
                 <OrderbookPanel label="UP" book={snapshot.books.up} />
                 <OrderbookPanel label="DOWN" book={snapshot.books.down} />
               </div>
-            </div>
-
-            {/* RIGHT COLUMN */}
-            <div className="space-y-2">
-              <div className="panel">
-                <div className="panel-h">
-                  <div className="panel-t">Open orders</div>
-                  <div className="text-[14px] text-zinc-500">coming next</div>
-                </div>
-                <div className="panel-b text-[16px] text-zinc-400">n/a</div>
+              <div className="space-y-2 min-w-0">
+                <LogsPanel logLines={logLines} logRecords={logRecords} />
               </div>
-
-              <ExternalFeedsPanel snapshot={snapshot} />
-
-              <LogsPanel logLines={logLines} logRecords={logRecords} />
             </div>
           </div>
         )}
