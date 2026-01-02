@@ -211,6 +211,27 @@ export function ringBufferSink(opts: { maxLines: number; format?: (r: LogRecord)
   }
 }
 
+/** Ring buffer sink: keeps structured records for JSON UI / later replay. */
+export function ringBufferRecordsSink(opts: { maxRecords: number }): {
+  sink: LogSink
+  snapshotRecords: () => LogRecord[]
+} {
+  const maxRecords = Math.max(1, opts.maxRecords)
+  const buf: LogRecord[] = []
+
+  const sink: LogSink = (r) => {
+    buf.push(r)
+    if (buf.length > maxRecords) {
+      buf.splice(0, buf.length - maxRecords)
+    }
+  }
+
+  return {
+    sink,
+    snapshotRecords: () => buf.slice(),
+  }
+}
+
 /** Optional JSONL sink (handy for later replay). */
 export function jsonlFileSink(opts: { filePath: string }): { sink: LogSink; close: () => void } {
   const stream: WriteStream = createWriteStream(opts.filePath, { flags: 'a' })

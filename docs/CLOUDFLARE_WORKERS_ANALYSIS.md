@@ -6,7 +6,7 @@
 
 - ✅ **Compatible**: Strategy logic, orderbook processing, portfolio management, backtest execution simulation
 - ⚠️ **Requires Refactoring**: Parquet I/O, WebSocket connections, file system operations
-- ❌ **Not Compatible**: Long-running processes, Node.js-specific APIs, `ws` library, `blessed` TUI
+- ❌ **Not Compatible**: Long-running processes, Node.js-specific APIs, `ws` library, bot-hosted Web UI (HTTP + WS)
 
 **Recommendation**: Use a **hybrid architecture**:
 - **Cloudflare Workers**: API endpoints, stateless strategy evaluation, batch job orchestration
@@ -155,19 +155,17 @@ process.cwd()
 - Replace `process.exit()` with `return` statements
 - Remove signal handlers (not applicable)
 
-### ❌ TUI Library (`blessed`)
+### ❌ Bot-hosted Web UI (HTTP + WebSocket)
 
-**Dependency:**
-- `blessed` - Terminal UI library (if used)
+**Dependency/Feature:**
+- Local bot monitoring UI served from the bot process (HTTP + WebSocket)
 
 **Workers Limitation:**
-- No terminal/stdout access
-- Workers return HTTP responses, not console output
+- Workers are request-driven and not a good fit for **running a long-lived server** that maintains WS client connections to exchanges and also hosts a UI
+- Even if you built a UI, it should be hosted separately (static hosting) and consume telemetry via APIs/queues
 
 **Migration Path:**
-- Remove TUI components
-- Use HTTP endpoints for status/monitoring
-- Use Cloudflare Dashboard or external monitoring
+- Host UI as a static site (Pages / any static host)\n+- Push bot telemetry to a store/queue (Durable Objects/Queues/R2/DB)\n+- UI reads telemetry via HTTP APIs
 
 ### ❌ Parquet Library Compatibility
 
@@ -303,7 +301,7 @@ const writer = new R2MultipartWriter(env.R2_BUCKET, key)
 - ✅ `ethers` - Should work (check WebCrypto compatibility)
 - ⚠️ `@polymarket/clob-client` - Check if it uses Node.js-specific APIs
 - ❌ `ws` - Not compatible (Node.js-specific)
-- ❌ `blessed` - Not compatible (terminal UI)
+- ❌ Bot-hosted Web UI (HTTP + WS) - Not compatible (long-running server model)
 - ⚠️ `@dsnp/parquetjs` - May need stream support
 - ⚠️ `pino` - Logger, may need adapter for Workers
 
@@ -461,7 +459,7 @@ WebSocket Client (Compute) → Queue → Worker (Process Events)
 3. Replace `process.*` APIs with Workers equivalents
 4. Split backtesting into chunks or use Compute
 5. Find Parquet library with stream support
-6. Remove TUI/blessed dependencies
+6. Avoid bot-hosted UI servers in Workers (host UI separately, consume telemetry via HTTP/queues)
 
 **Effort:** High (6-12 weeks)
 **Risk:** High (many unknowns)

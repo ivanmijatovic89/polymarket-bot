@@ -1,0 +1,8 @@
+@import "tailwindcss";
+
+/* Small app defaults */
+:root {
+  color-scheme: dark;
+}
+
+

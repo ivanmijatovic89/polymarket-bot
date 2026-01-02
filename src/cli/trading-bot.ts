@@ -21,12 +21,11 @@ import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPr
 import {
   consoleSink,
   createLogger,
-  formatRecordToBlessedLine,
-  patchConsole,
   ringBufferSink,
-  type LogSink,
+  ringBufferRecordsSink,
+  formatRecordToLine,
 } from '../utils/logger.js'
-import { createTradingBotTui, type TradingBotTui } from './tui/tradingBotTui.js'
+import { createTradingBotWebUiServer, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
@@ -46,32 +45,27 @@ async function main(): Promise<void> {
   })
 
   const auth = cfg.creds
-  const enableTui = (process.env.ENABLE_TUI ?? 'false').toLowerCase() === 'true'
+  const enableWebUi = (process.env.ENABLE_WEB_UI ?? 'false').toLowerCase() === 'true'
   const logLevelEnv = (process.env.LOG_LEVEL ?? 'info').toLowerCase()
   const logLevel =
     logLevelEnv === 'debug' || logLevelEnv === 'info' || logLevelEnv === 'warn' || logLevelEnv === 'error'
       ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
       : 'info'
 
-  const ringAll = enableTui ? ringBufferSink({ maxLines: 5000, format: formatRecordToBlessedLine }) : null
-  const ringIntents = enableTui ? ringBufferSink({ maxLines: 2000, format: formatRecordToBlessedLine }) : null
-
-  const intentFilterSink: LogSink | null = enableTui
-    ? (r) => {
-        const ch = r.fields && typeof r.fields.channel === 'string' ? String(r.fields.channel) : ''
-        if (ch === 'intent') ringIntents!.sink(r)
-      }
-    : null
+  const ringLines = enableWebUi ? ringBufferSink({ maxLines: 5000, format: (r) => formatRecordToLine(r) }) : null
+  const ringRecords = enableWebUi ? ringBufferRecordsSink({ maxRecords: 2000 }) : null
 
   const logger = createLogger({
     level: logLevel,
     baseFields: { app: 'trading-bot' },
-    sinks: enableTui ? [ringAll!.sink, intentFilterSink!] : [consoleSink()],
+    sinks: [
+      consoleSink(),
+      ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
+    ],
   })
   const intentLogger = logger.child({ channel: 'intent' })
 
-  let tui: TradingBotTui | null = null
-  let restoreConsole: (() => void) | null = null
+  let webUi: TradingBotWebUiServer | null = null
 
   // Keep these available for the TUI status bar.
   let totalWsEvents = 0
@@ -268,7 +262,7 @@ async function main(): Promise<void> {
     getMarket: () => currentMarket,
     intentExecutionMode,
     maxEventsPerDrain,
-    ...(enableTui
+    ...(enableWebUi
       ? { intentLog: (msg, extra) => intentLogger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) }
       : {}),
     ...(logTrades ? { log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) } : {}),
@@ -500,7 +494,7 @@ async function main(): Promise<void> {
   })
 
   let statsInterval: NodeJS.Timeout | undefined
-  if (!enableTui) {
+  if (!enableWebUi) {
     statsInterval = setInterval(() => {
       const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
       logger.info(
@@ -547,13 +541,12 @@ async function main(): Promise<void> {
     rtdsClient?.stop()
     binanceWsClient?.stop()
     priceToBeatClient?.stop()
-    tui?.stop()
-    restoreConsole?.()
+    webUi?.stop()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
 
-  if (enableTui) {
+  if (enableWebUi) {
     const pickAssetId = (kind: 'up' | 'down'): string | undefined => {
       const tokenMap = currentTokenMap
       if (tokenMap) {
@@ -567,10 +560,30 @@ async function main(): Promise<void> {
       return kind === 'up' ? a[0] : a[1]
     }
 
-    const orderbookLevels = Math.max(1, Number(process.env.TUI_ORDERBOOK_LEVELS ?? 8) || 8)
+    const host = (process.env.WEB_UI_HOST ?? '127.0.0.1').trim() || '127.0.0.1'
+    const portRaw = process.env.WEB_UI_PORT
+    const portParsed = portRaw ? Number(portRaw) : NaN
+    if (!Number.isFinite(portParsed) || !Number.isInteger(portParsed) || portParsed <= 0) {
+      throw new Error('[trading-bot] ENABLE_WEB_UI=true requires WEB_UI_PORT to be a valid integer port')
+    }
+    const port = portParsed
+    const refreshMsRaw = process.env.WEB_UI_REFRESH_MS
+    const refreshMsParsed = refreshMsRaw ? Number(refreshMsRaw) : NaN
+    const refreshMs =
+      Number.isFinite(refreshMsParsed) && Number.isInteger(refreshMsParsed) ? Math.max(50, refreshMsParsed) : 250
 
-    tui = createTradingBotTui({
-      title: `polymarket-bot trading-bot (${symbol})`,
+    const levelsRaw = process.env.WEB_UI_ORDERBOOK_LEVELS
+    const levelsParsed = levelsRaw ? Number(levelsRaw) : NaN
+    const orderbookLevels =
+      Number.isFinite(levelsParsed) && Number.isInteger(levelsParsed) ? Math.max(1, levelsParsed) : 8
+
+    const instanceId = (process.env.BOT_INSTANCE_ID ?? '').trim()
+    const title = `polymarket-bot trading-bot${instanceId ? ` (${instanceId})` : ''} [${symbol}]`
+
+    webUi = createTradingBotWebUiServer({
+      title,
+      host,
+      port,
       getState: () => {
         const slug = currentSlug
         const market = runner.getLastMarketSnapshot()
@@ -587,25 +600,12 @@ async function main(): Promise<void> {
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
         }
       },
-      getLogLines: () => ringAll!.snapshotLines(),
-      getIntentLogLines: () => ringIntents!.snapshotLines(),
-      onExitRequest: () => {
-        shutdown('SIGINT')
-      },
+      getLogLines: () => ringLines!.snapshotLines(),
+      getLogRecords: () => ringRecords!.snapshotRecords(),
       orderbookLevels,
-      refreshMs: 250,
+      refreshMs,
     })
-    tui.start()
-    // Route all stdout logs into the logger (prevents blessed screen corruption).
-    restoreConsole = patchConsole(logger)
-    // Best-effort cleanup even on fatal exits.
-    process.on('exit', () => {
-      try {
-        tui?.stop()
-      } finally {
-        restoreConsole?.()
-      }
-    })
+    webUi.start()
   }
 
   source.start()
