@@ -81,11 +81,12 @@ function renderOneBook(label: 'UP' | 'DOWN', book: OrderBookSnapshot | undefined
       : null
   const spreadStr = spread === null ? 'n/a' : spread.toFixed(4)
   const out: string[] = []
-  out.push(`{bold}${label}{/bold}  bestAsk=${ba} bestBid=${bb}`)
+  // Keep header short so side-by-side columns don't push each other off-screen.
+  out.push(`{bold}${label}{/bold} {red-fg}${ba}{/} / {green-fg}${bb}{/}`)
   const bids = book?.bids ?? []
   const asks = book?.asks ?? []
   out.push(`{gray-fg}ASK (px/size){/}`)
-  for (let i = 0; i < levels; i++) {
+  for (let i = levels - 1; i >= 0; i--) {
     const a = asks[i]
     const aStr = a ? `{red-fg}${fmtPrice(a.price)}{/}/${fmtSize(a.size)}` : '   -   /   -   '
     out.push(`${String(i + 1).padStart(2, ' ')} ${aStr}`)
@@ -100,11 +101,14 @@ function renderOneBook(label: 'UP' | 'DOWN', book: OrderBookSnapshot | undefined
   return out.join('\n')
 }
 
-function renderRight(state: TradingBotTuiState, levels: number): string {
+function getUpDownBooks(state: TradingBotTuiState): { up?: OrderBookSnapshot; down?: OrderBookSnapshot } {
   const snap = state.market
   const up = state.upAssetId ? snap?.byAssetId[state.upAssetId] : undefined
   const down = state.downAssetId ? snap?.byAssetId[state.downAssetId] : undefined
-  return [renderOneBook('UP', up, levels), '', renderOneBook('DOWN', down, levels)].join('\n')
+  return {
+    ...(up ? { up } : {}),
+    ...(down ? { down } : {}),
+  }
 }
 
 export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
@@ -133,7 +137,7 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
   const log = blessed.log({
     top: 4,
     left: 0,
-    width: '50%',
+    width: '80%',
     height: '100%-7',
     tags: true,
     border: 'line',
@@ -148,12 +152,43 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
 
   const right = blessed.box({
     top: 4,
-    left: '50%',
-    width: '50%',
+    left: '80%',
+    width: '20%',
     height: '100%-7',
     tags: true,
     border: 'line',
     style: { border: { fg: 'magenta' } },
+    content: '',
+  })
+
+  // Two child boxes so UP and DOWN are guaranteed visible (no string padding/clipping issues).
+  const rightUp = blessed.box({
+    parent: right,
+    top: 0,
+    left: 0,
+    width: '50%',
+    height: '100%',
+    tags: true,
+    // No border here: outer `right` already has a border. Nested borders waste space.
+    padding: { left: 1, right: 1 },
+    scrollable: true,
+    alwaysScroll: true,
+    scrollbar: { ch: ' ' },
+    keys: true,
+    vi: true,
+    mouse: true,
+    content: '',
+  })
+
+  const rightDown = blessed.box({
+    parent: right,
+    top: 0,
+    left: '50%',
+    width: '50%',
+    height: '100%',
+    tags: true,
+    // No border here: outer `right` already has a border. Nested borders waste space.
+    padding: { left: 1, right: 1 },
     scrollable: true,
     alwaysScroll: true,
     scrollbar: { ch: ' ' },
@@ -232,9 +267,12 @@ export function createTradingBotTui(opts: TradingBotTuiOptions): TradingBotTui {
     // Right pane
     try {
       const levels = Math.max(1, opts.orderbookLevels ?? 8)
-      right.setContent(renderRight(state, levels))
+      const { up, down } = getUpDownBooks(state)
+      rightUp.setContent(renderOneBook('UP', up, levels))
+      rightDown.setContent(renderOneBook('DOWN', down, levels))
     } catch {
-      right.setContent('(error rendering right pane)')
+      rightUp.setContent('(error)')
+      rightDown.setContent('(error)')
     }
 
     screen.render()
