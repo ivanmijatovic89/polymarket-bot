@@ -18,6 +18,8 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
+import { consoleSink, createLogger, patchConsole, ringBufferSink } from '../utils/logger.js'
+import { createTradingBotTui, type TradingBotTui } from './tui/tradingBotTui.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
@@ -37,18 +39,40 @@ async function main(): Promise<void> {
   })
 
   const auth = cfg.creds
-  console.log(`[trading-bot] symbol=${symbol}`)
-  console.log(`[trading-bot] wsUrl=${wsUrl}`)
+  const enableTui = (process.env.ENABLE_TUI ?? 'false').toLowerCase() === 'true'
+  const logLevelEnv = (process.env.LOG_LEVEL ?? 'info').toLowerCase()
+  const logLevel =
+    logLevelEnv === 'debug' || logLevelEnv === 'info' || logLevelEnv === 'warn' || logLevelEnv === 'error'
+      ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
+      : 'info'
+
+  const ring = enableTui ? ringBufferSink({ maxLines: 5000 }) : null
+  const logger = createLogger({
+    level: logLevel,
+    baseFields: { app: 'trading-bot' },
+    sinks: enableTui ? [ring!.sink] : [consoleSink()],
+  })
+
+  let tui: TradingBotTui | null = null
+  let restoreConsole: (() => void) | null = null
+
+  // Keep these available for the TUI status bar.
+  let totalWsEvents = 0
+  // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
+  let wsAttempt = 1
+
+  logger.info(`[trading-bot] symbol=${symbol}`)
+  logger.info(`[trading-bot] wsUrl=${wsUrl}`)
 
   const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
-  console.log(`[trading-bot] dryRun=${dryRun}`)
+  logger.info(`[trading-bot] dryRun=${dryRun}`)
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
   const intentExecutionMode =
     intentExecutionModeEnv === 'queued' || intentExecutionModeEnv === 'immediate'
       ? (intentExecutionModeEnv as 'queued' | 'immediate')
       : 'immediate'
-  console.log(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
+  logger.info(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
 
   const maxEventsPerDrainRaw = process.env.MAX_EVENTS_PER_DRAIN
   const maxEventsPerDrainParsed = maxEventsPerDrainRaw ? Number(maxEventsPerDrainRaw) : NaN
@@ -56,17 +80,14 @@ async function main(): Promise<void> {
     Number.isFinite(maxEventsPerDrainParsed) && Number.isInteger(maxEventsPerDrainParsed)
       ? Math.max(1, maxEventsPerDrainParsed)
       : 100
-  console.log(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
+  logger.info(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
 
   let shouldStop = false
   let isRotating = false
   let currentSlug: string | undefined
   let currentMarket: GammaMarketMeta | undefined
-
-  let totalWsEvents = 0
-
-  // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
-  let wsAttempt = 1
+  let currentAssetsIds: string[] | undefined
+  let currentTokenMap: Record<string, string> | undefined
 
   const built = (() => {
     try {
@@ -78,7 +99,7 @@ async function main(): Promise<void> {
   })()
   const strategy = built.strategy
   const indicatorSet = built.indicatorSet
-  console.log(`[trading-bot] strategy=${built.strategyId}`)
+  logger.info(`[trading-bot] strategy=${built.strategyId}`)
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
@@ -89,7 +110,7 @@ async function main(): Promise<void> {
   const rtdsEnabled = rtdsBinanceSymbols.length > 0 || rtdsChainlinkSymbols.length > 0
 
   if (rtdsReq && !rtdsEnabled) {
-    console.warn(
+    logger.warn(
       '[trading-bot] rtdsCryptoPrices requested but no symbols configured; RTDS feed disabled (no prices will be available)',
     )
   }
@@ -98,7 +119,7 @@ async function main(): Promise<void> {
   const binanceWsSymbol = (binanceWsReq?.symbol ?? '').toLowerCase().trim()
   const binanceWsEnabled = binanceWsSymbol.length > 0
   if (binanceWsReq && !binanceWsEnabled) {
-    console.warn(
+    logger.warn(
       '[trading-bot] binanceWsSpotPrice requested but no symbol configured; Binance WS feed disabled (no prices will be available)',
     )
   }
@@ -119,7 +140,7 @@ async function main(): Promise<void> {
           onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
-            console.log(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
+            logger.info(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
           },
         })
       : null
@@ -131,7 +152,7 @@ async function main(): Promise<void> {
           onPrice: (u) => feedsStore!.updateBinanceWsSpotPrice(u),
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
-            console.log(`[trading-bot] binance_ws ${s.kind} attempt=${s.attempt}${extra}`)
+            logger.info(`[trading-bot] binance_ws ${s.kind} attempt=${s.attempt}${extra}`)
           },
         })
       : null
@@ -166,9 +187,11 @@ async function main(): Promise<void> {
         feedsStore.updatePolymarketPriceToBeat(u)
       },
       onStatus: (s) => {
-        if (s.kind === 'polling') console.log(`[trading-bot] price_to_beat polling`)
+        if (s.kind === 'polling') logger.info(`[trading-bot] price_to_beat polling`)
         if (s.kind === 'resolved')
-          console.log(`[trading-bot] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`)
+          logger.info(
+            `[trading-bot] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
+          )
       },
     })
     priceToBeatClient.start()
@@ -197,8 +220,8 @@ async function main(): Promise<void> {
         clobHost: cfg.clob.host,
       })
     } catch (err) {
-      console.error('[trading-bot] Balance/approval check failed:', err)
-      console.error('[trading-bot] Exiting. Please fix approvals and balance before starting.')
+      logger.error('[trading-bot] Balance/approval check failed', { err })
+      logger.error('[trading-bot] Exiting. Please fix approvals and balance before starting.')
       process.exit(1)
     }
   }
@@ -218,7 +241,7 @@ async function main(): Promise<void> {
   const orderManager = new OrderManager({
     execution: exec,
     dryRun,
-    log: (msg, extra) => console.log(msg, extra ?? ''),
+    log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
   })
   const runner = new StrategyRunner({
     strategy,
@@ -228,7 +251,7 @@ async function main(): Promise<void> {
     getMarket: () => currentMarket,
     intentExecutionMode,
     maxEventsPerDrain,
-    ...(logTrades ? { log: (msg, extra) => console.log(msg, extra ?? '') } : {}),
+    ...(logTrades ? { log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) } : {}),
   })
 
   const marketEngine = new MarketEngine({
@@ -261,6 +284,8 @@ async function main(): Promise<void> {
     const prevSlug = currentSlug
     currentSlug = r.slug
     currentMarket = r.market
+    currentAssetsIds = r.assetsIds
+    currentTokenMap = r.tokenMap
 
 
     if (priceToBeatEnabled) {
@@ -418,7 +443,7 @@ async function main(): Promise<void> {
         source: { kind: 'live', attempt: wsAttempt },
       })
       .catch((err) => {
-        console.error('[trading-bot] MarketEngine.handleRaw failed', err)
+        logger.error('[trading-bot] MarketEngine.handleRaw failed', { err })
         // If we somehow see a different market than expected, reset and keep going.
         marketEngine.reset()
         indicatorSet?.reset()
@@ -433,13 +458,13 @@ async function main(): Promise<void> {
       marketEngine.reset()
       indicatorSet?.reset()
       // External feeds are independent of market WS; do NOT reset them here.
-      console.log(`[trading-bot] connected (${s.info ?? 'ws'})`)
+      logger.info(`[trading-bot] connected (${s.info ?? 'ws'})`)
       return
     }
     if (s.kind === 'reconnecting') {
       wsAttempt = s.attempt
       const extra = s.info ? ` (${s.info})` : ''
-      console.log(`[trading-bot] reconnecting in ${s.delayMs}ms${extra}`)
+      logger.info(`[trading-bot] reconnecting in ${s.delayMs}ms${extra}`)
       return
     }
     if (s.kind === 'disconnected') {
@@ -450,17 +475,19 @@ async function main(): Promise<void> {
           : s.info
             ? ` ${s.info}`
             : ''
-      console.log(`[trading-bot] disconnected${extra}`)
+      logger.info(`[trading-bot] disconnected${extra}`)
     }
   })
 
   let statsInterval: NodeJS.Timeout | undefined
-  statsInterval = setInterval(() => {
-    const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
-    console.log(
-      `[trading-bot] stats ws_events_total=${totalWsEvents} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
-    )
-  }, 10_000)
+  if (!enableTui) {
+    statsInterval = setInterval(() => {
+      const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+      logger.info(
+        `[trading-bot] stats ws_events_total=${totalWsEvents} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
+      )
+    }, 10_000)
+  }
 
   const rotateAndReconnect = (): void => {
     void (async () => {
@@ -488,7 +515,7 @@ async function main(): Promise<void> {
   })
 
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {
-    console.log(`[trading-bot] ${signal} received, shutting down...`)
+    logger.info(`[trading-bot] ${signal} received, shutting down...`)
     shouldStop = true
     isRotating = true
     boundaryScheduler.stop()
@@ -500,9 +527,70 @@ async function main(): Promise<void> {
     rtdsClient?.stop()
     binanceWsClient?.stop()
     priceToBeatClient?.stop()
+    tui?.stop()
+    restoreConsole?.()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
+
+  if (enableTui) {
+    const pickAssetId = (kind: 'up' | 'down'): string | undefined => {
+      const tokenMap = currentTokenMap
+      if (tokenMap) {
+        const entries = Object.entries(tokenMap)
+        const key = entries.find(([k]) => k.toLowerCase().includes(kind))?.[0]
+        const id = key ? tokenMap[key] : undefined
+        if (typeof id === 'string' && id.length > 0) return id
+      }
+      const a = currentAssetsIds
+      if (!a || a.length < 2) return undefined
+      return kind === 'up' ? a[0] : a[1]
+    }
+
+    const fmtPrice = (p: number | null | undefined): string => {
+      if (typeof p !== 'number' || !Number.isFinite(p)) return 'n/a'
+      return p.toFixed(4)
+    }
+
+    tui = createTradingBotTui({
+      title: `polymarket-bot trading-bot (${symbol})`,
+      getTopText: () => {
+        const snap = runner.getLastMarketSnapshot()
+        const upId = pickAssetId('up')
+        const downId = pickAssetId('down')
+        const up = upId ? snap?.byAssetId[upId] : undefined
+        const down = downId ? snap?.byAssetId[downId] : undefined
+
+        const upAsk = fmtPrice(up?.bestAsk ?? null)
+        const downAsk = fmtPrice(down?.bestAsk ?? null)
+
+        const upLabel = upId ? upId.slice(-8) : 'n/a'
+        const downLabel = downId ? downId.slice(-8) : 'n/a'
+
+        return `UP   bestAsk=${upAsk}  asset=${upLabel}\nDOWN bestAsk=${downAsk}  asset=${downLabel}`
+      },
+      getBottomStatusLine: () => {
+        const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
+        return `[trading-bot] symbol=${symbol} slug=${currentSlug ?? 'n/a'} candle_left_ms=${candleLeft} ws_attempt=${wsAttempt} ws_events_total=${totalWsEvents}`
+      },
+      getLogLines: () => ring!.snapshotLines(),
+      onExitRequest: () => {
+        shutdown('SIGINT')
+      },
+      refreshMs: 250,
+    })
+    tui.start()
+    // Route all stdout logs into the logger (prevents blessed screen corruption).
+    restoreConsole = patchConsole(logger)
+    // Best-effort cleanup even on fatal exits.
+    process.on('exit', () => {
+      try {
+        tui?.stop()
+      } finally {
+        restoreConsole?.()
+      }
+    })
+  }
 
   source.start()
   boundaryScheduler.start()
