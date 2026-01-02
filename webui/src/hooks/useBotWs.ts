@@ -17,7 +17,20 @@ export function useBotWs(): {
 
   const wsUrl = useMemo(() => {
     const proto = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
-    return `${proto}//${window.location.host}/ws`
+
+    // Allow explicit override (useful in dev without relying on Vite proxy).
+    const env = (import.meta as unknown as { env?: Record<string, string | undefined> }).env ?? {}
+    const explicit = (env['VITE_BOT_UI_WS_URL'] ?? '').trim()
+    if (explicit) return explicit
+
+    // In dev, Vite runs on :5173 but the bot UI server runs on :3001.
+    // Connecting directly avoids noisy ws-proxy EPIPE logs in the Vite dev server.
+    const devHost = (env['VITE_BOT_UI_HOST'] ?? window.location.hostname).trim() || window.location.hostname
+    const devPort = (env['VITE_BOT_UI_PORT'] ?? '3001').trim() || '3001'
+    const devDirect = `${proto}//${devHost}:${devPort}/ws`
+
+    const sameOrigin = `${proto}//${window.location.host}/ws`
+    return window.location.port === '5173' ? devDirect : sameOrigin
   }, [])
 
   const keepLastLines = 5000

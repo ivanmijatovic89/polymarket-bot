@@ -208,10 +208,21 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     serveStatic(distDir, req, res)
   })
 
+  server.on('error', (err) => {
+    // Surface bind issues like EADDRINUSE, EACCES, etc.
+    try {
+      // eslint-disable-next-line no-console
+      console.error('[web-ui] server error', err)
+    } catch {
+      // ignore
+    }
+  })
+
   server.on('upgrade', (request, socket, head) => {
     try {
       const { pathname } = new URL(request.url ?? '', 'wss://base.url')
-      if (pathname !== '/ws') {
+      // Be tolerant of trailing slash to avoid dev-proxy quirks.
+      if (pathname !== '/ws' && pathname !== '/ws/') {
         socket.destroy()
         return
       }
@@ -311,7 +322,14 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
   const start = (): void => {
     if (running) return
     running = true
-    server.listen(opts.port, opts.host)
+    server.listen(opts.port, opts.host, () => {
+      try {
+        // eslint-disable-next-line no-console
+        console.log(`[web-ui] listening http://${opts.host}:${opts.port} (ws: /ws)`)
+      } catch {
+        // ignore
+      }
+    })
     timer = setInterval(tick, refreshMs)
     tick()
   }

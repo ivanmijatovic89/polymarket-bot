@@ -731,6 +731,7 @@ async function main(): Promise<void> {
       refreshMs,
     })
     webUi.start()
+    logger.info(`[trading-bot] web-ui http://${host}:${port} ws=ws://${host}:${port}/ws`)
   }
 
   source.start()
