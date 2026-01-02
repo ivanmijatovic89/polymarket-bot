@@ -28,6 +28,18 @@ export class IndicatorSet {
     this.indicators.push(ind)
   }
 
+  listIds(): IndicatorId[] {
+    const out: IndicatorId[] = []
+    const seen = new Set<string>()
+    for (const ind of this.indicators) {
+      if (!ind?.id) continue
+      if (seen.has(ind.id)) continue
+      seen.add(ind.id)
+      out.push(ind.id)
+    }
+    return out
+  }
+
   reset(): void {
     for (const ind of this.indicators) ind.reset?.()
     this.cached = {}

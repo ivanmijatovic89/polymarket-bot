@@ -14,6 +14,18 @@ export type BotUiSourceState = {
   market?: MarketOrderBooksSnapshot
   upAssetId?: string
   downAssetId?: string
+  meta?: {
+    strategy?: { id: string; name: string; params: Record<string, unknown> }
+    indicators?: { enabled: string[] }
+    externalFeeds?: {
+      requested?: Record<string, unknown>
+      enabled?: {
+        rtdsCryptoPrices?: boolean
+        binanceWsSpotPrice?: boolean
+        polymarketPriceToBeat?: boolean
+      }
+    }
+  }
 }
 
 export type BotUiOrderBookLevel = {
@@ -44,6 +56,7 @@ export type BotUiSnapshot = {
     up?: BotUiOrderBook
     down?: BotUiOrderBook
   }
+  meta?: BotUiSourceState['meta']
 }
 
 export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: number): BotUiOrderBook | undefined {

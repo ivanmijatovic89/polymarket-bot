@@ -609,7 +609,13 @@ async function main(): Promise<void> {
   if (teeConsoleToWebUi || logToFile) {
     const toErr = (e: unknown): { name?: string; message?: string; stack?: string } | undefined => {
       if (!e) return undefined
-      if (e instanceof Error) return { name: e.name, message: e.message, stack: e.stack }
+      if (e instanceof Error) {
+        return {
+          name: e.name,
+          message: e.message,
+          ...(typeof e.stack === 'string' ? { stack: e.stack } : {}),
+        }
+      }
       return { message: String(e) }
     }
 
@@ -723,6 +729,18 @@ async function main(): Promise<void> {
           ...(market ? { market } : {}),
           ...(typeof upAssetId === 'string' ? { upAssetId } : {}),
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
+          meta: {
+            strategy: { id: built.strategyId, name: strategy.name, params: built.params },
+            indicators: { enabled: indicatorSet ? indicatorSet.listIds() : [] },
+            externalFeeds: {
+              ...(strategy.requiredFeeds ? { requested: strategy.requiredFeeds as unknown as Record<string, unknown> } : {}),
+              enabled: {
+                ...(rtdsReq ? { rtdsCryptoPrices: rtdsEnabled } : {}),
+                ...(binanceWsReq ? { binanceWsSpotPrice: binanceWsEnabled } : {}),
+                ...(priceToBeatReq ? { polymarketPriceToBeat: priceToBeatEnabled } : {}),
+              },
+            },
+          },
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

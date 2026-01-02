@@ -2,11 +2,37 @@ import { ConnectionBadge } from './components/ConnectionBadge'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbookPanel } from './components/OrderbookPanel'
 import { useBotWs } from './hooks/useBotWs'
+import { fmtCents } from './utils/format'
 
 function bestAskFromBook(book?: { bestAsk?: number }): number | null {
   const a = book?.bestAsk
   if (typeof a !== 'number' || !Number.isFinite(a)) return null
   return a
+}
+
+function fmtShortJson(x: unknown, maxLen: number): string {
+  try {
+    const s = JSON.stringify(x)
+    if (!s) return 'n/a'
+    if (s.length <= maxLen) return s
+    return `${s.slice(0, Math.max(0, maxLen - 1))}…`
+  } catch {
+    return 'n/a'
+  }
+}
+
+function fmtList(xs: string[] | undefined, emptyLabel = 'none'): string {
+  if (!xs || xs.length === 0) return emptyLabel
+  return xs.join(', ')
+}
+
+function enabledFeedKeys(enabled: Record<string, unknown> | undefined): string[] {
+  if (!enabled) return []
+  const out: string[] = []
+  for (const [k, v] of Object.entries(enabled)) {
+    if (v === true) out.push(k)
+  }
+  return out
 }
 
 function fmtMs(ms: number): string {
@@ -21,6 +47,9 @@ export function App() {
   const { status, snapshot, logLines, logRecords } = useBotWs()
   const upAsk = snapshot ? bestAskFromBook(snapshot.books.up) : null
   const downAsk = snapshot ? bestAskFromBook(snapshot.books.down) : null
+  const strategy = snapshot?.meta?.strategy
+  const indEnabled = snapshot?.meta?.indicators?.enabled ?? []
+  const feedsEnabled = enabledFeedKeys(snapshot?.meta?.externalFeeds?.enabled)
 
   return (
     <div className="min-h-screen">
@@ -40,12 +69,12 @@ export function App() {
             <div className="flex items-baseline gap-3 rounded-md bg-zinc-900/40 px-2 py-1 ring-1 ring-zinc-800">
               <div className="flex items-baseline gap-1 font-mono text-[16px]">
                 <span className="text-zinc-500">UP</span>
-                <span className="text-cyan-200">{upAsk === null ? 'n/a' : upAsk.toFixed(4)}</span>
+                <span className="text-green-400">{fmtCents(upAsk)}</span>
               </div>
               <span className="text-zinc-700">|</span>
               <div className="flex items-baseline gap-1 font-mono text-[16px]">
                 <span className="text-zinc-500">DOWN</span>
-                <span className="text-fuchsia-200">{downAsk === null ? 'n/a' : downAsk.toFixed(4)}</span>
+                <span className="text-red-400">{fmtCents(downAsk)}</span>
               </div>
             </div>
           </div>
@@ -142,19 +171,19 @@ export function App() {
               bot <span className="ml-1 font-mono">{snapshot?.title ?? 'n/a'}</span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              strategy <span className="ml-1 font-mono">n/a</span>
+              strategy <span className="ml-1 font-mono">{strategy?.id ?? 'n/a'}</span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              params <span className="ml-1 font-mono">n/a</span>
+              params <span className="ml-1 font-mono">{fmtShortJson(strategy?.params ?? null, 80)}</span>
             </span>
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              indicators <span className="ml-1 font-mono">n/a</span>
+              indicators <span className="ml-1 font-mono">{fmtList(indEnabled)}</span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              external feeds <span className="ml-1 font-mono">n/a</span>
+              external feeds <span className="ml-1 font-mono">{fmtList(feedsEnabled)}</span>
             </span>
           </div>
         </div>

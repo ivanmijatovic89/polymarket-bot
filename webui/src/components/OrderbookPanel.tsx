@@ -1,9 +1,5 @@
 import type { BotUiOrderBook, BotUiOrderBookLevel } from '../types'
-
-function fmtPrice(n: number | undefined): string {
-  if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'
-  return n.toFixed(4)
-}
+import { fmtCents } from '../utils/format'
 
 function fmtSize(n: number | undefined): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'
@@ -23,7 +19,7 @@ function SideTable(props: { title: 'ASK' | 'BID'; rows: BotUiOrderBookLevel[]; s
           ) : (
             rows.map((r, idx) => (
               <div key={idx} className="grid grid-cols-2 gap-2 px-3 py-1">
-                <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>{fmtPrice(r.price)}</div>
+                <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>{fmtCents(r.price)}</div>
                 <div className="text-right text-zinc-200">{fmtSize(r.size)}</div>
               </div>
             ))
@@ -36,8 +32,8 @@ function SideTable(props: { title: 'ASK' | 'BID'; rows: BotUiOrderBookLevel[]; s
 
 export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
   const book = props.book
-  const bb = fmtPrice(book?.bestBid)
-  const ba = fmtPrice(book?.bestAsk)
+  const bb = fmtCents(book?.bestBid)
+  const ba = fmtCents(book?.bestAsk)
   const spread =
     typeof book?.bestBid === 'number' &&
     Number.isFinite(book.bestBid) &&
@@ -69,7 +65,7 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
           <div className="rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
             <div className="flex items-center justify-between gap-2 text-[16px]">
               <div className="text-zinc-400">spread</div>
-              <div className="font-mono text-zinc-200">{typeof spread === 'number' ? spread.toFixed(4) : 'n/a'}</div>
+              <div className="font-mono text-zinc-200">{fmtCents(spread)}</div>
             </div>
           </div>
 

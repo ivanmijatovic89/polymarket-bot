@@ -142,6 +142,8 @@ function buildSnapshot(args: {
   const snap = args.state.market
   const up = args.state.upAssetId ? snap?.byAssetId[args.state.upAssetId] : undefined
   const down = args.state.downAssetId ? snap?.byAssetId[args.state.downAssetId] : undefined
+  const upBook = up ? toBotUiOrderBook(up, args.orderbookLevels) : undefined
+  const downBook = down ? toBotUiOrderBook(down, args.orderbookLevels) : undefined
 
   return {
     nowMs,
@@ -156,9 +158,10 @@ function buildSnapshot(args: {
       ...(typeof args.state.downAssetId === 'string' ? { downAssetId: args.state.downAssetId } : {}),
     },
     books: {
-      ...(up ? { up: toBotUiOrderBook(up, args.orderbookLevels) } : {}),
-      ...(down ? { down: toBotUiOrderBook(down, args.orderbookLevels) } : {}),
+      ...(upBook ? { up: upBook } : {}),
+      ...(downBook ? { down: downBook } : {}),
     },
+    ...(args.state.meta ? { meta: args.state.meta } : {}),
   }
 }
 
