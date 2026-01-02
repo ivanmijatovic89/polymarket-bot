@@ -13,7 +13,7 @@ export const ReadExternalFeedsExampleSchema = z.strictObject({
 export type ReadExternalFeedsExampleConfig = z.infer<typeof ReadExternalFeedsExampleSchema>
 
 export const definition: StrategyDefinition<ReadExternalFeedsExampleConfig> = {
-  id: 'readExternalFeedBinanceAndChainlinkBitcoinPrice.v1',
+  id: 'readExternalFeedsExample.v1',
   title: 'Read external feed BTC price (Binance + Chainlink) v1',
   description:
     'Example strategy: opts into RTDS crypto prices and logs BTC price from Binance (btcusdt) and Chainlink (btc/usd).',
