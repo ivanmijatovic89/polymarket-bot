@@ -1,7 +1,7 @@
 import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
-import { OrderbookPanel } from './components/OrderbookPanel'
+import { OrderbooksPanel } from './components/OrderbooksPanel'
 import { OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
@@ -57,19 +57,19 @@ export function App() {
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
-        <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-2 px-2 py-2">
-          <div className="flex min-w-[260px] items-center gap-2">
+      <header className="sticky top-0 z-10 border-b border-zinc-800  backdrop-blur">
+        <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
+          <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
             <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
             <ConnectionBadge status={status} />
             {snapshot ? (
               <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                candle left <span className="ml-1 font-mono">{fmtMs(snapshot.status.candleLeftMs)}</span>
+                ⏳ <span className="ml-1 font-mono">{fmtMs(snapshot.status.candleLeftMs)}</span>
               </span>
             ) : null}
           </div>
 
-          <div className="flex flex-1 items-center justify-center">
+          <div className="flex min-w-0 flex-1 items-center justify-center">
             <div className="flex items-baseline gap-3 rounded-md bg-zinc-900/40 px-2 py-1 ring-1 ring-zinc-800">
               <div className="flex items-baseline gap-1 font-mono text-[16px]">
                 <span className="text-zinc-500">UP</span>
@@ -83,7 +83,7 @@ export function App() {
             </div>
           </div>
 
-          <div className="flex min-w-[360px] items-center justify-end gap-2">
+          <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
             {snapshot ? (
               <>
                 <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
@@ -118,29 +118,29 @@ export function App() {
             </div>
 
             {/* Row below: orderbooks + logs */}
-            <div className="grid grid-cols-1 gap-2 xl:grid-cols-[520px_1fr]">
+            <div>
+              <LogsPanel logLines={logLines} logRecords={logRecords} />
+            </div>
+            <div className="grid grid-cols-1 gap-2 xl:grid-cols-[420px_1fr]">
               <div className="space-y-2 min-w-0">
-                <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
-                  <OrderbookPanel label="UP" book={snapshot.books.up} compact />
-                  <OrderbookPanel label="DOWN" book={snapshot.books.down} compact />
-                </div>
+                <OrderbooksPanel up={snapshot.books.up} down={snapshot.books.down} />
               </div>
               <div className="space-y-2 min-w-0">
-                <LogsPanel logLines={logLines} logRecords={logRecords} />
+                {/* <LogsPanel logLines={logLines} logRecords={logRecords} /> */}
               </div>
             </div>
           </div>
         )}
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800 bg-zinc-950/90 backdrop-blur">
+      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800  backdrop-blur">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              strategy <span className="ml-1 font-mono">{strategy?.id ?? 'n/a'}</span>
+              <span className="ml-1 font-mono">{strategy?.id ?? 'n/a'}</span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              params <span className="ml-1 font-mono">{fmtShortJson(strategy?.params ?? null, 80)}</span>
+              <span className="ml-1 font-mono">{fmtShortJson(strategy?.params ?? null, 80)}</span>
             </span>
           </div>
 

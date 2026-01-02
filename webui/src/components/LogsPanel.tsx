@@ -19,13 +19,16 @@ function levelColor(level: string): string {
 }
 
 export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }) {
-  const [mode, setMode] = useState<Mode>('text')
+  const [mode, setMode] = useState<Mode>('json')
   const [autoScroll, setAutoScroll] = useState(true)
-  const tailRef = useRef<HTMLDivElement | null>(null)
+  const scrollerRef = useRef<HTMLDivElement | null>(null)
 
   useEffect(() => {
     if (!autoScroll) return
-    tailRef.current?.scrollIntoView({ block: 'end' })
+    const el = scrollerRef.current
+    if (!el) return
+    // Scroll ONLY the log container (avoid scrolling the whole page).
+    el.scrollTop = el.scrollHeight
   }, [autoScroll, props.logLines.length, props.logRecords.length, mode])
 
   const jsonText = useMemo(() => {
@@ -39,6 +42,10 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
       })
       .join('\n')
   }, [props.logRecords])
+
+  const text = useMemo(() => {
+    return mode === 'text' ? props.logLines.slice(-2000).join('\n') : jsonText
+  }, [mode, props.logLines, jsonText])
 
   return (
     <div className="panel p-3 w-full max-w-full min-w-0">
@@ -72,7 +79,10 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         </div>
       </div>
 
-      <div className="h-[22rem] overflow-auto max-w-full min-w-0 rounded-md bg-zinc-900/40 p-3 font-mono text-[16px] ring-1 ring-zinc-800">
+      <div
+        ref={scrollerRef}
+        className="h-[22rem] overflow-auto overscroll-contain max-w-full min-w-0 rounded-md bg-zinc-900/40 p-3 font-mono text-[16px] ring-1 ring-zinc-800"
+      >
         {mode === 'text' ? (
           <>
             {props.logLines.length === 0 ? (
@@ -103,7 +113,6 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
             )}
           </>
         )}
-        <div ref={tailRef} />
       </div>
     </div>
   )

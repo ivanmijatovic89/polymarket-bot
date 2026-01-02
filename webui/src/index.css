@@ -7,17 +7,16 @@
 
   html {
     font-size: 14px; /* readable baseline */
-  }
 
-  body {
-    @apply bg-zinc-950 text-zinc-200 antialiased;
-  }
-
-  /* Prevent "infinite" rubber-band scroll past the top/bottom on some browsers/trackpads. */
-  html,
-  body {
     overscroll-behavior-y: none;
+    overscroll-behavior-x: none;
   }
+
+  body {
+    background: #1d2b3a;
+  }
+
+  /* Keep default overscroll behavior on the page. We contain overscroll on inner scroll panels instead. */
 }
 
 @layer components {
