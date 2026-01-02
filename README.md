@@ -499,3 +499,11 @@ npm run db:generate; npm run db:migrate
 # insert markets to database from filenames + gama
 npm run db:insert-parquet
 ```
+
+
+# Polymarket Server Infrastructure
+
+https://docs.polymarket.com/developers/CLOB/geoblock#server-infrastructure
+
+Primary Servers: eu-west-2
+Closest Non-Georestricted Region: eu-west-1

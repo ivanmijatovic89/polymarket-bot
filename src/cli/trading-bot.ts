@@ -17,6 +17,7 @@ import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
+import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
@@ -102,7 +103,11 @@ async function main(): Promise<void> {
     )
   }
 
-  const feedsEnabled = (rtdsReq && rtdsEnabled) || (binanceWsReq && binanceWsEnabled)
+  const priceToBeatReq = strategy.requiredFeeds?.polymarketPriceToBeat
+  const priceToBeatEnabled = priceToBeatReq?.enabled === true
+
+  const feedsEnabled =
+    (rtdsReq && rtdsEnabled) || (binanceWsReq && binanceWsEnabled) || priceToBeatEnabled
   const feedsStore = feedsEnabled ? createExternalFeedsStore() : null
 
   const rtdsClient =
@@ -130,6 +135,44 @@ async function main(): Promise<void> {
           },
         })
       : null
+
+  let priceToBeatClient: ReturnType<typeof createPolymarketPriceToBeatClient> | null = null
+  let priceToBeatSlug: string | null = null
+
+  const restartPriceToBeatIfNeeded = (args: {
+    slug: string
+    symbolUpper: string
+    eventStartTimeIso: string
+    endDateIso: string
+  }): void => {
+    if (!priceToBeatEnabled) return
+    if (!feedsStore) return
+    if (priceToBeatSlug === args.slug && priceToBeatClient) return
+
+    priceToBeatClient?.stop()
+    priceToBeatClient = null
+    priceToBeatSlug = args.slug
+    // Important: clear previous window's openPrice immediately on market rotation,
+    // so strategies don't see stale priceToBeat while polling for the new window.
+    feedsStore.clearPolymarketPriceToBeat()
+
+    priceToBeatClient = createPolymarketPriceToBeatClient({
+      symbol: args.symbolUpper,
+      eventStartTimeIso: args.eventStartTimeIso,
+      endDateIso: args.endDateIso,
+      variant: 'fifteen',
+      pollIntervalMs: 1000,
+      onOpenPrice: (u) => {
+        feedsStore.updatePolymarketPriceToBeat(u)
+      },
+      onStatus: (s) => {
+        if (s.kind === 'polling') console.log(`[trading-bot] price_to_beat polling`)
+        if (s.kind === 'resolved')
+          console.log(`[trading-bot] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`)
+      },
+    })
+    priceToBeatClient.start()
+  }
 
   // In dry-run, don't require PRIVATE_KEY or construct LiveExecution.
   if (!dryRun) {
@@ -218,6 +261,30 @@ async function main(): Promise<void> {
     const prevSlug = currentSlug
     currentSlug = r.slug
     currentMarket = r.market
+
+
+    if (priceToBeatEnabled) {
+      const m = currentMarket as Record<string, unknown> | undefined
+      const eventStartTimeIso =
+        (typeof m?.eventStartTime === 'string' && m.eventStartTime.length > 0
+          ? (m.eventStartTime as string)
+          : typeof m?.startDate === 'string' && (m.startDate as string).length > 0
+            ? (m.startDate as string)
+            : null)
+      const endDateIso =
+        typeof m?.endDate === 'string' && (m.endDate as string).length > 0 ? (m.endDate as string) : null
+
+      if (eventStartTimeIso && endDateIso) {
+        restartPriceToBeatIfNeeded({
+          slug: r.slug,
+          symbolUpper: symbol.toUpperCase(),
+          eventStartTimeIso,
+          endDateIso,
+        })
+      } else {
+        console.warn('[trading-bot] price_to_beat enabled but missing eventStartTime/endDate on currentMarket')
+      }
+    }
 
     if (prevSlug !== r.slug) {
       const id = typeof r.market.id === 'string' ? r.market.id : undefined
@@ -432,6 +499,7 @@ async function main(): Promise<void> {
     source.stop()
     rtdsClient?.stop()
     binanceWsClient?.stop()
+    priceToBeatClient?.stop()
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })

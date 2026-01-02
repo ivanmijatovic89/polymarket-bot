@@ -275,6 +275,15 @@ export type Strategy = {
       /** e.g. "btcusdt" */
       symbol?: string
     }
+    /**
+     * Polymarket price-to-beat for Up/Down markets (open price for the interval).
+     *
+     * Live-only: `trading-bot` polls Polymarket public endpoint until `openPrice` is available,
+     * then freezes it for the rest of the market.
+     */
+    polymarketPriceToBeat?: {
+      enabled?: boolean
+    }
   }
   onMarketTick: (
     tick: MarketTick,

@@ -34,6 +34,7 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
     const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
     const c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
     const bw = ctx?.feeds?.binanceWsSpotPrice
+    const ptb = ctx?.feeds?.polymarketPriceToBeat
 
     // add comma as thousands separator without regex
     const bStr =
@@ -42,6 +43,10 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
       c && Number.isFinite(c.value) ? `${c.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
     const bwStr =
       bw && Number.isFinite(bw.value) ? `${bw.value.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}` : 'n/a'
+    const ptbStr =
+      ptb && Number.isFinite(ptb.openPrice)
+        ? `${ptb.openPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+        : 'n/a'
 
     const diffStr =
       bw && b && Number.isFinite(bw.value) && Number.isFinite(b.value)
@@ -49,7 +54,7 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
         : 'n/a'
 
     console.log(
-      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr}  wsMinusRtds=${diffStr}`,
+      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} wsMinusRtds=${diffStr}`,
     )
   }
 
@@ -83,6 +88,9 @@ export function createReadExternalFeedBinanceAndChainlinkBitcoinPriceStrategy(
       },
       binanceWsSpotPrice: {
         symbol: 'btcusdt',
+      },
+      polymarketPriceToBeat: {
+        enabled: true,
       },
     },
     onMarketTick,
