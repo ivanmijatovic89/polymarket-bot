@@ -162,6 +162,9 @@ function buildSnapshot(args: {
       ...(downBook ? { down: downBook } : {}),
     },
     ...(args.state.strategy ? { strategy: args.state.strategy } : {}),
+    ...(typeof args.state.portfolio !== 'undefined' ? { portfolio: args.state.portfolio } : {}),
+    ...(typeof args.state.indicators !== 'undefined' ? { indicators: args.state.indicators } : {}),
+    ...(typeof args.state.feeds !== 'undefined' ? { feeds: args.state.feeds } : {}),
   }
 }
 

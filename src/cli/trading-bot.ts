@@ -727,6 +727,34 @@ async function main(): Promise<void> {
         const market = runner.getLastMarketSnapshot()
         const upAssetId = pickAssetId('up')
         const downAssetId = pickAssetId('down')
+        const strategyMeta = (() => {
+          try {
+            return runner.getStrategyMeta()
+          } catch {
+            return undefined
+          }
+        })()
+        const portfolio = (() => {
+          try {
+            return runner.getPortfolio().snapshot()
+          } catch {
+            return undefined
+          }
+        })()
+        const indicators = (() => {
+          try {
+            return indicatorSet?.snapshot()
+          } catch {
+            return undefined
+          }
+        })()
+        const feeds = (() => {
+          try {
+            return feedsStore?.snapshot()
+          } catch {
+            return undefined
+          }
+        })()
         return {
           symbol: String(symbol),
           candleLeftMs: msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS),
@@ -736,7 +764,10 @@ async function main(): Promise<void> {
           ...(market ? { market } : {}),
           ...(typeof upAssetId === 'string' ? { upAssetId } : {}),
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
-          ...(runner.getStrategyMeta() ? { strategy: runner.getStrategyMeta() } : {}),
+          ...(strategyMeta ? { strategy: strategyMeta } : {}),
+          ...(portfolio ? { portfolio } : {}),
+          ...(typeof indicators !== 'undefined' ? { indicators } : {}),
+          ...(typeof feeds !== 'undefined' ? { feeds } : {}),
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

@@ -51,6 +51,11 @@ export type BotUiSnapshot = {
       }
     }
   }
+  // These are forwarded from the backend as raw snapshot objects.
+  // We keep them permissive here so the UI doesn't break when backend evolves.
+  feeds?: unknown
+  indicators?: unknown
+  portfolio?: unknown
 }
 
 export type WsSnapshotMsg = {

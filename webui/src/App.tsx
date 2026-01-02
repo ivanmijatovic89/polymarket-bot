@@ -1,4 +1,5 @@
 import { ConnectionBadge } from './components/ConnectionBadge'
+import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbookPanel } from './components/OrderbookPanel'
 import { useBotWs } from './hooks/useBotWs'
@@ -26,12 +27,14 @@ function fmtList(xs: string[] | undefined, emptyLabel = 'none'): string {
   return xs.join(', ')
 }
 
-function enabledFeedKeys(enabled: Record<string, unknown> | undefined): string[] {
-  if (!enabled) return []
+function feedKeysFromData(snapshot: unknown): string[] {
+  const s = snapshot as any
+  const feeds = s?.feeds
   const out: string[] = []
-  for (const [k, v] of Object.entries(enabled)) {
-    if (v === true) out.push(k)
-  }
+  if (feeds?.rtdsPolymarketCryptoPrices?.binance) out.push('rtds:binance')
+  if (feeds?.rtdsPolymarketCryptoPrices?.chainlink) out.push('rtds:chainlink')
+  if (feeds?.binanceWsSpotPrice) out.push('binance_ws')
+  if (feeds?.polymarketPriceToBeat) out.push('price_to_beat')
   return out
 }
 
@@ -49,7 +52,7 @@ export function App() {
   const downAsk = snapshot ? bestAskFromBook(snapshot.books.down) : null
   const strategy = snapshot?.strategy
   const indEnabled = snapshot?.strategy?.indicators ?? []
-  const feedsEnabled = enabledFeedKeys(snapshot?.strategy?.externalFeeds?.enabled as unknown as Record<string, unknown> | undefined)
+  const feedsDataKeys = snapshot ? feedKeysFromData(snapshot) : []
 
   return (
     <div className="min-h-screen">
@@ -158,6 +161,8 @@ export function App() {
                 <div className="panel-b text-[16px] text-zinc-400">n/a</div>
               </div>
 
+              <ExternalFeedsPanel snapshot={snapshot} />
+
               <LogsPanel logLines={logLines} logRecords={logRecords} />
             </div>
           </div>
@@ -180,7 +185,7 @@ export function App() {
               indicators <span className="ml-1 font-mono">{fmtList(indEnabled)}</span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              external feeds <span className="ml-1 font-mono">{fmtList(feedsEnabled)}</span>
+              external feeds <span className="ml-1 font-mono">{fmtList(feedsDataKeys)}</span>
             </span>
           </div>
         </div>
