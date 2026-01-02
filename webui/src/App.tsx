@@ -27,7 +27,7 @@ export function App() {
       <header className="sticky top-0 z-10 border-b border-zinc-800 bg-zinc-950/90 backdrop-blur">
         <div className="mx-auto flex max-w-[1800px] items-center justify-between gap-2 px-2 py-2">
           <div className="flex min-w-[260px] items-center gap-2">
-            <div className="text-xs font-semibold text-zinc-100">polymarket-bot</div>
+            <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
             <ConnectionBadge status={status} />
             {snapshot ? (
               <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
@@ -38,12 +38,12 @@ export function App() {
 
           <div className="flex flex-1 items-center justify-center">
             <div className="flex items-baseline gap-3 rounded-md bg-zinc-900/40 px-2 py-1 ring-1 ring-zinc-800">
-              <div className="flex items-baseline gap-1 font-mono text-[12px]">
+              <div className="flex items-baseline gap-1 font-mono text-[16px]">
                 <span className="text-zinc-500">UP</span>
                 <span className="text-cyan-200">{upAsk === null ? 'n/a' : upAsk.toFixed(4)}</span>
               </div>
               <span className="text-zinc-700">|</span>
-              <div className="flex items-baseline gap-1 font-mono text-[12px]">
+              <div className="flex items-baseline gap-1 font-mono text-[16px]">
                 <span className="text-zinc-500">DOWN</span>
                 <span className="text-fuchsia-200">{downAsk === null ? 'n/a' : downAsk.toFixed(4)}</span>
               </div>
@@ -64,7 +64,7 @@ export function App() {
                 </span>
               </>
             ) : (
-              <div className="text-[11px] text-zinc-500">webui</div>
+              <div className="text-[14px] text-zinc-500">webui</div>
             )}
           </div>
         </div>
@@ -81,7 +81,7 @@ export function App() {
               <div className="panel">
                 <div className="panel-h">
                   <div className="panel-t">Portfolio</div>
-                  <div className="text-[11px] text-zinc-500">coming next</div>
+                  <div className="text-[14px] text-zinc-500">coming next</div>
                 </div>
                 <div className="panel-b kv">
                   <div className="k">UP</div>
@@ -102,7 +102,7 @@ export function App() {
               <div className="panel">
                 <div className="panel-h">
                   <div className="panel-t">Balances</div>
-                  <div className="text-[11px] text-zinc-500">coming next</div>
+                  <div className="text-[14px] text-zinc-500">coming next</div>
                 </div>
                 <div className="panel-b kv">
                   <div className="k">wallet</div>
@@ -124,9 +124,9 @@ export function App() {
               <div className="panel">
                 <div className="panel-h">
                   <div className="panel-t">Open orders</div>
-                  <div className="text-[11px] text-zinc-500">coming next</div>
+                  <div className="text-[14px] text-zinc-500">coming next</div>
                 </div>
-                <div className="panel-b text-[12px] text-zinc-400">n/a</div>
+                <div className="panel-b text-[16px] text-zinc-400">n/a</div>
               </div>
 
               <LogsPanel logLines={logLines} logRecords={logRecords} />

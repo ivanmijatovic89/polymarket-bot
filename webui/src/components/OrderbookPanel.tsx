@@ -17,12 +17,12 @@ function SideTable(props: { title: 'ASK' | 'BID'; rows: BotUiOrderBookLevel[]; s
     <div>
 
       <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
-        <div className="font-mono text-xs">
+        <div className="font-mono text-[16px]">
           {rows.length === 0 ? (
-            <div className="px-2 py-2 text-[11px] text-zinc-500">n/a</div>
+            <div className="px-3 py-2 text-[16px] text-zinc-500">n/a</div>
           ) : (
             rows.map((r, idx) => (
-              <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
+              <div key={idx} className="grid grid-cols-2 gap-2 px-3 py-1">
                 <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>{fmtPrice(r.price)}</div>
                 <div className="text-right text-zinc-200">{fmtSize(r.size)}</div>
               </div>
@@ -52,10 +52,10 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
   const bidsForView = book?.bids ?? []
 
   return (
-    <div className="panel p-2">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[12px] font-semibold">{props.label}</div>
-        <div className="flex items-center gap-2 font-mono text-[11px] text-zinc-300">
+    <div className="panel p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-[17px] font-semibold">{props.label}</div>
+        <div className="flex items-center gap-2 font-mono text-[16px] text-zinc-300">
           <span className="text-red-300">ask {ba}</span>
           <span className="text-zinc-500">/</span>
           <span className="text-emerald-300">bid {bb}</span>
@@ -66,15 +66,17 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
         <div className="space-y-2">
           <SideTable title="ASK" rows={asksForView} side="ask" />
 
-            <div className="flex items-center justify-between gap-2 text-[11px]">
+          <div className="rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
+            <div className="flex items-center justify-between gap-2 text-[16px]">
               <div className="text-zinc-400">spread</div>
               <div className="font-mono text-zinc-200">{typeof spread === 'number' ? spread.toFixed(4) : 'n/a'}</div>
             </div>
+          </div>
 
           <SideTable title="BID" rows={bidsForView} side="bid" />
         </div>
       ) : (
-        <div className="text-[12px] text-zinc-400">no data</div>
+        <div className="text-[16px] text-zinc-400">no data</div>
       )}
     </div>
   )

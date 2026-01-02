@@ -41,12 +41,12 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
   }, [props.logRecords])
 
   return (
-    <div className="panel p-2">
-      <div className="mb-1 flex items-center justify-between gap-2">
-        <div className="text-[12px] font-semibold">logs</div>
+    <div className="panel p-3">
+      <div className="mb-2 flex items-center justify-between gap-2">
+        <div className="text-[17px] font-semibold">logs</div>
 
         <div className="flex items-center gap-2">
-          <div className="rounded-md bg-zinc-900/60 p-1 text-[11px] ring-1 ring-zinc-800">
+          <div className="rounded-md bg-zinc-900/60 p-1 text-[16px] ring-1 ring-zinc-800">
             <button
               className={`rounded px-2 py-1 ${mode === 'text' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800/60'}`}
               onClick={() => setMode('text')}
@@ -61,7 +61,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
             </button>
           </div>
 
-          <label className="flex items-center gap-2 text-[11px] text-zinc-300">
+          <label className="flex items-center gap-2 text-[16px] text-zinc-300">
             <input
               type="checkbox"
               checked={autoScroll}
@@ -72,7 +72,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         </div>
       </div>
 
-      <div className="h-[18rem] overflow-auto rounded-md bg-zinc-900/40 p-2 font-mono text-xs ring-1 ring-zinc-800">
+      <div className="h-[22rem] overflow-auto rounded-md bg-zinc-900/40 p-3 font-mono text-[16px] ring-1 ring-zinc-800">
         {mode === 'text' ? (
           <>
             {props.logLines.length === 0 ? (

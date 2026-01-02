@@ -6,7 +6,7 @@
   }
 
   html {
-    font-size: 13px; /* compact baseline */
+    font-size: 14px; /* readable baseline */
   }
 
   body {
@@ -20,19 +20,19 @@
   }
 
   .panel-h {
-    @apply flex items-center justify-between gap-2 border-b border-zinc-800 px-2 py-1;
+    @apply flex items-center justify-between gap-2 border-b border-zinc-800 px-3 py-1.5;
   }
 
   .panel-t {
-    @apply text-[11px] font-semibold uppercase tracking-wide text-zinc-300;
+    @apply text-[15px] font-semibold uppercase tracking-wide text-zinc-300;
   }
 
   .panel-b {
-    @apply px-2 py-2;
+    @apply px-3 py-2.5;
   }
 
   .kv {
-    @apply grid grid-cols-[auto_1fr] gap-x-2 gap-y-1 text-[12px];
+    @apply grid grid-cols-[auto_1fr] gap-x-3 gap-y-1.5 text-[16px];
   }
   .k {
     @apply text-zinc-500;
@@ -42,7 +42,7 @@
   }
 
   .chip {
-    @apply inline-flex items-center rounded px-1.5 py-0.5 text-[11px] ring-1;
+    @apply inline-flex items-center rounded-md px-2 py-1 text-[16px] ring-1;
   }
 }
 
