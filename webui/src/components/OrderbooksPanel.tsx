@@ -23,7 +23,7 @@ function SideTable(props: { rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid' }) 
   })()
   return (
     <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
-      <div className="font-mono text-[14px]">
+      <div className="font-mono text-[18px]">
         {padded.map((r, idx) => (
           <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
             <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>
@@ -59,8 +59,8 @@ function OneBook(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-2">
-        <div className="text-[15px] font-semibold">{props.label}</div>
-        <div className="flex items-center gap-2 font-mono text-[14px] text-zinc-300">
+        <div className="text-[18px] font-semibold">{props.label}</div>
+        <div className="flex items-center gap-2 font-mono text-[18px] text-zinc-300">
           <span className="text-red-300">ask {ba}</span>
           <span className="text-zinc-500">/</span>
           <span className="text-emerald-300">bid {bb}</span>
@@ -72,7 +72,7 @@ function OneBook(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
           <SideTable rows={asksForView} side="ask" />
 
           <div className="rounded-md bg-zinc-900/40 px-2 py-1.5 ring-1 ring-zinc-800">
-            <div className="flex items-center justify-between gap-2 text-[14px]">
+            <div className="flex items-center justify-between gap-2 text-[18px]">
               <div className="font-mono text-zinc-200">{fmtCents(spread, { fixed: true, digits: 2 })}</div>
               <div className="text-zinc-400">spread</div>
             </div>
@@ -91,7 +91,7 @@ export function OrderbooksPanel(props: { up?: BotUiOrderBook; down?: BotUiOrderB
   return (
     <div className="panel p-2.5">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-[15px] font-semibold text-zinc-200">orderbooks</div>
+        <div className="text-[18px] font-semibold text-zinc-200">orderbooks</div>
       </div>
 
       <div className="grid grid-cols-1 gap-2 md:grid-cols-2">

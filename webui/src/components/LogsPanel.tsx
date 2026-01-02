@@ -81,7 +81,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
 
       <div
         ref={scrollerRef}
-        className="h-[22rem] overflow-auto overscroll-contain max-w-full min-w-0 rounded-md bg-zinc-900/40 p-3 font-mono text-[16px] ring-1 ring-zinc-800"
+        className="h-[42rem] overflow-auto overscroll-contain max-w-full min-w-0 rounded-md bg-zinc-900/40 p-3 font-mono text-[16px] ring-1 ring-zinc-800"
       >
         {mode === 'text' ? (
           <>

@@ -3,6 +3,7 @@ import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
 import { OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
+import { VolatilityPanel } from './components/VolatilityPanel'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
 
@@ -54,6 +55,7 @@ export function App() {
   const strategy = snapshot?.strategy
   const indEnabled = snapshot?.strategy?.indicators ?? []
   const feedsDataKeys = snapshot ? feedKeysFromData(snapshot) : []
+  const hasVolatility = Boolean((snapshot as any)?.indicators?.volatility)
 
   return (
     <div className="min-h-screen">
@@ -103,7 +105,7 @@ export function App() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-[1800px] px-2 py-2 pb-16">
+      <main className="mx-auto  px-2 py-2 pb-16">
         {!snapshot ? (
           <div className="panel panel-b text-zinc-300">waiting for snapshot…</div>
         ) : (
@@ -117,17 +119,25 @@ export function App() {
               <OpenOrdersTablePanel snapshot={snapshot} />
             </div>
 
-            {/* Row below: orderbooks + logs */}
-            <div>
-              <LogsPanel logLines={logLines} logRecords={logRecords} />
+
+            <div className="space-y-2">
+            <LogsPanel logLines={logLines} logRecords={logRecords} />
             </div>
-            <div className="grid grid-cols-1 gap-2 xl:grid-cols-[420px_1fr]">
+
+            {/* Row below: orderbooks + logs */}
+            <div
+              className={`grid grid-cols-1 gap-2 ${
+                hasVolatility ? 'xl:grid-cols-[360px_1fr]' : 'xl:grid-cols-[420px_1fr]'
+              }`}
+            >
               <div className="space-y-2 min-w-0">
                 <OrderbooksPanel up={snapshot.books.up} down={snapshot.books.down} />
               </div>
-              <div className="space-y-2 min-w-0">
-                {/* <LogsPanel logLines={logLines} logRecords={logRecords} /> */}
-              </div>
+              {hasVolatility ? (
+                <div className="space-y-2 min-w-0">
+                  <VolatilityPanel snapshot={snapshot} />
+                </div>
+              ) : null}
             </div>
           </div>
         )}
