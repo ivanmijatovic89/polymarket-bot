@@ -51,6 +51,22 @@ function Section(props: { label: 'UP' | 'DOWN'; assetId?: string; vol: Volatilit
         .sort((a, b) => (a.s.windowMs ?? 0) - (b.s.windowMs ?? 0))
     : []
 
+  const cols: Array<{ key: string; className: string }> = [
+    { key: 'window', className: 'w-[72px]' },
+    { key: 'low', className: 'w-[96px]' },
+    { key: 'high', className: 'w-[96px]' },
+    { key: 'highLowRange', className: 'w-[132px]' },
+    { key: 'stddev', className: 'w-[128px]' },
+    { key: 'avgAbsChange', className: 'w-[148px]' },
+    { key: 'n', className: 'w-[64px]' },
+    { key: 'startPrice', className: 'w-[120px]' },
+    { key: 'endPrice', className: 'w-[120px]' },
+    { key: 'netChange', className: 'w-[120px]' },
+    { key: 'ready', className: 'w-[92px]' },
+    { key: 'coverageMs', className: 'w-[128px]' },
+    { key: 'staleMs', className: 'w-[120px]' },
+  ]
+
   return (
     <div className="min-w-0">
       <div className="mb-1 flex items-center justify-between gap-2">
@@ -65,21 +81,7 @@ function Section(props: { label: 'UP' | 'DOWN'; assetId?: string; vol: Volatilit
       ) : (
         <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
           <table className="w-full table-fixed border-separate border-spacing-0 text-[18px]">
-            <colgroup>
-              <col className="w-[72px]" />  {/* window */}
-              <col className="w-[96px]" />  {/* low */}
-              <col className="w-[96px]" />  {/* high */}
-              <col className="w-[132px]" /> {/* highLowRange */}
-              <col className="w-[128px]" /> {/* stddev */}
-              <col className="w-[148px]" /> {/* avgAbsChange */}
-              <col className="w-[64px]" />  {/* n */}
-              <col className="w-[120px]" /> {/* startPrice */}
-              <col className="w-[120px]" /> {/* endPrice */}
-              <col className="w-[120px]" /> {/* netChange */}
-              <col className="w-[92px]" />  {/* ready */}
-              <col className="w-[128px]" /> {/* coverageMs */}
-              <col className="w-[120px]" /> {/* staleMs */}
-            </colgroup>
+            <colgroup>{cols.map((c) => <col key={c.key} className={c.className} />)}</colgroup>
             <thead>
               <tr className="text-left text-zinc-400">
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">window</th>
