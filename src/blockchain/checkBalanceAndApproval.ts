@@ -116,7 +116,7 @@ async function getContractAddresses(
       }
     }
   } catch (err) {
-    console.warn('[blockchain] Failed to fetch contract addresses from API:', err)
+    console.warn('[blockchain][⛔️] Failed to fetch contract addresses from API:', err)
   }
 
   // Fallback: Known addresses (may need to be updated)
@@ -179,7 +179,7 @@ export async function checkBalanceAndApproval(
       exchangeAddress,
     )
   } catch (err) {
-    console.warn('[blockchain] Failed to check conditional token approval:', err)
+    console.warn('[blockchain][⛔️] Failed to check conditional token approval:', err)
   }
 
   return {

@@ -107,16 +107,16 @@ export function formatRecordToLine(
   r: LogRecord,
   opts?: { includeIsoDate?: boolean; maxLen?: number },
 ): string {
-  const timeIso = new Date(r.tsMs).toISOString()
-  const time = opts?.includeIsoDate ? timeIso : timeIso.slice(11, 23) // HH:MM:SS.mmm
-  const lvl = r.level.toUpperCase().padEnd(5, ' ')
+  // const timeIso = new Date(r.tsMs).toISOString()
+  // const time = opts?.includeIsoDate ? timeIso : timeIso.slice(11, 23) // HH:MM:SS.mmm
+  // const lvl = r.level.toUpperCase().padEnd(5, ' ')
   const meta: Record<string, unknown> = {}
   if (r.fields && Object.keys(r.fields).length > 0) meta.fields = r.fields
   if (r.data !== undefined) meta.data = r.data
   if (r.err) meta.err = r.err
 
   const metaStr = Object.keys(meta).length > 0 ? ` ${safeInspect(meta)}` : ''
-  const raw = `${time} ${lvl} ${r.msg}${metaStr}`
+  const raw = `${r.msg}${metaStr}`
   const maxLen = opts?.maxLen ?? 5000
   return raw.length > maxLen ? raw.slice(0, Math.max(0, maxLen - 1)) + '…' : raw
 }

@@ -57,9 +57,9 @@ export function createStrategy(cfg: Config): {
         ? `${ptb.openPrice.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
         : 'n/a'
 
-    console.log(
-      `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} diff=${priceDiff}`,
-    )
+    // console.log(
+    //   `[feed > ] ${label} nowMs=${nowMs} binanceWsSpotPrice=${bwStr} rtdsBinance=${bStr} rtdsChainlink=${cStr} priceToBeatOpen=${ptbStr} diff=${priceDiff}`,
+    // )
   }
 
   const onMarketTick = (

@@ -201,14 +201,12 @@ async function main(): Promise<void> {
     })
   }
 
-  logger.warn(`[trading-bot] symbol=${symbol}`)
-  logger.error(`🚀 [trading-bot] symbol=${symbol}`)
-  logger.info(`[trading-bot] symbol=${symbol}`)
-  logger.info(`[trading-bot] wsUrl=${wsUrl}`)
-  logger.info(`[trading-bot] dryRun=${dryRun}`)
-  logger.info(`[trading-bot] intentExecutionMode=${intentExecutionMode}`)
-  logger.info(`[trading-bot] maxEventsPerDrain=${maxEventsPerDrain}`)
-  logger.info(`[trading-bot] strategy=${built.strategyId}`)
+  logger.info(`[trading-bot][⚙️] symbol=${symbol}`)
+  logger.info(`[trading-bot][⚙️] wsUrl=${wsUrl}`)
+  logger.info(`[trading-bot][⚙️] dryRun=${dryRun}`)
+  logger.info(`[trading-bot][⚙️] intentExecutionMode=${intentExecutionMode}`)
+  logger.info(`[trading-bot][⚙️] maxEventsPerDrain=${maxEventsPerDrain}`)
+  logger.info(`[trading-bot][⚙️] strategy=${built.strategyId}`)
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
   const rtdsReq = strategy.requiredFeeds?.rtdsCryptoPrices
@@ -295,10 +293,10 @@ async function main(): Promise<void> {
         feedsStore.updatePolymarketPriceToBeat(u)
       },
       onStatus: (s) => {
-        if (s.kind === 'polling') logger.info(`[trading-bot] price_to_beat polling`)
+        if (s.kind === 'polling') logger.info(`[feeds] price_to_beat polling`)
         if (s.kind === 'resolved')
           logger.info(
-            `[trading-bot] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
+            `[feeds] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
           )
       },
     })
@@ -434,7 +432,7 @@ async function main(): Promise<void> {
       const q = typeof r.market.question === 'string' ? r.market.question : undefined
       const active = typeof r.market.active === 'boolean' ? r.market.active : undefined
       const closed = typeof r.market.closed === 'boolean' ? r.market.closed : undefined
-      console.log('[trading-bot] market changed', {
+      console.log('[trading-bot][⟳] market changed', {
         from: prevSlug ?? null,
         to: r.slug,
         ...(id ? { id } : {}),
@@ -468,7 +466,7 @@ async function main(): Promise<void> {
       ? (emitTradeFillsAtStatusEnv as 'MATCHED' | 'MINED' | 'CONFIRMED')
       : undefined
   if (emitTradeFillsAtStatus) {
-    console.log(`[trading-bot] user ws fills emitAt=${emitTradeFillsAtStatus} (USER_WS_FILL_AT_STATUS)`)
+    console.log(`[trading-bot][⚙️] user ws fills emitAt=${emitTradeFillsAtStatus} (USER_WS_FILL_AT_STATUS)`)
   }
 
   const userWs = haveCreds
@@ -743,7 +741,7 @@ async function main(): Promise<void> {
       refreshMs,
     })
     webUi.start()
-    logger.info(`[trading-bot] web-ui http://${host}:${port} ws=ws://${host}:${port}/ws`)
+    logger.info(`[trading-bot][⚙️] web-ui http://${host}:${port} ws=ws://${host}:${port}/ws`)
   }
 
   source.start()

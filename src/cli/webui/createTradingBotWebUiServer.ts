@@ -210,7 +210,7 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
   server.on('error', (err) => {
     // Surface bind issues like EADDRINUSE, EACCES, etc.
     try {
-      console.error('[web-ui] server error', err)
+      console.error('[web-ui][⛔️] server error', err)
     } catch {
       // ignore
     }
@@ -297,7 +297,7 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     running = true
     server.listen(opts.port, opts.host, () => {
       try {
-        console.log(`[web-ui] listening http://${opts.host}:${opts.port} (ws: /ws)`)
+        console.log(`[web-ui][⚙️] listening http://${opts.host}:${opts.port} (ws: /ws)`)
       } catch {
         // ignore
       }
