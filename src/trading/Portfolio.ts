@@ -82,6 +82,7 @@ export class Portfolio {
       realizedPnlTotal: this.realizedPnlTotal,
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
       openOrdersByClientId: Object.fromEntries([...this.openOrdersByClientId.entries()]),
+      wsOpenOrdersByOrderId: Object.fromEntries([...this.wsOpenOrdersByOrderId.entries()]),
       ordersByClientId: Object.fromEntries([...this.ordersByClientIdSnapshot.entries()]),
       recentFills: [...this.recentFills],
       marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),

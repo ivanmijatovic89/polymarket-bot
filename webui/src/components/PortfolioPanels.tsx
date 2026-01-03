@@ -34,11 +34,27 @@ type OpenOrder = {
   lastError?: string
 }
 
+type WsOpenOrder = {
+  orderId: string
+  owner?: string
+  market?: string
+  assetId?: string
+  side?: 'BUY' | 'SELL'
+  price?: number
+  originalSize?: number
+  sizeMatched?: number
+  status?: string
+  orderType?: string
+  outcome?: string
+  updatedAtMs: number
+}
+
 type PortfolioSnapshot = {
   nowMs: number
   realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
+  wsOpenOrdersByOrderId?: Record<string, WsOpenOrder>
   marketByAssetId: Record<string, string>
 }
 
@@ -121,7 +137,77 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
 
 export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
   const portfolio = asPortfolio(props.snapshot)
-  const openOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
+  const botOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
+  const wsOrders = portfolio?.wsOpenOrdersByOrderId ? Object.entries(portfolio.wsOpenOrdersByOrderId) : []
+
+  const botOrderIds = new Set<string>()
+  for (const [, o] of botOrders) {
+    if (typeof o?.orderId === 'string' && o.orderId.length > 0) botOrderIds.add(o.orderId)
+  }
+
+  type Row = {
+    key: string
+    source: 'bot' | 'ws'
+    assetId?: string
+    side?: string
+    price?: number
+    size?: number
+    filled?: number
+    remaining?: number
+    orderType?: string
+    expireAtMs?: number
+    state?: string
+    createdAtMs?: number
+    updatedAtMs?: number
+    lastError?: string
+  }
+
+  const rows: Row[] = []
+  for (const [clientOrderId, o] of botOrders) {
+    const r: Row = {
+      key: `bot:${clientOrderId}`,
+      source: 'bot',
+      assetId: o?.assetId,
+      side: o?.side,
+      price: o?.price,
+      size: o?.size,
+      filled: o?.filled,
+      remaining: o?.remaining,
+      orderType: o?.orderType,
+      createdAtMs: o?.createdAtMs,
+      updatedAtMs: o?.updatedAtMs,
+    }
+    if (typeof o?.expireAtMs === 'number') r.expireAtMs = o.expireAtMs
+    if (typeof o?.state === 'string') r.state = o.state
+    if (typeof o?.lastError === 'string') r.lastError = o.lastError
+    rows.push(r)
+  }
+
+  for (const [orderId, o] of wsOrders) {
+    if (botOrderIds.has(orderId)) continue
+    const originalSize = typeof o?.originalSize === 'number' ? o.originalSize : undefined
+    const sizeMatched = typeof o?.sizeMatched === 'number' ? o.sizeMatched : undefined
+    const remaining =
+      typeof originalSize === 'number' && typeof sizeMatched === 'number'
+        ? Math.max(0, originalSize - sizeMatched)
+        : undefined
+    const r: Row = {
+      key: `ws:${orderId}`,
+      source: 'ws',
+      updatedAtMs: o?.updatedAtMs,
+    }
+    if (typeof o?.assetId === 'string') r.assetId = o.assetId
+    if (typeof o?.side === 'string') r.side = o.side
+    if (typeof o?.price === 'number') r.price = o.price
+    if (typeof originalSize === 'number') r.size = originalSize
+    if (typeof sizeMatched === 'number') r.filled = sizeMatched
+    if (typeof remaining === 'number') r.remaining = remaining
+    if (typeof o?.orderType === 'string') r.orderType = o.orderType
+    if (typeof o?.status === 'string') r.state = o.status
+    rows.push(r)
+  }
+
+  rows.sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0))
 
   return (
     <div className="panel">
@@ -133,13 +219,14 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
       <div className="panel-b">
         {!portfolio ? (
           <div className="text-[16px] text-zinc-400">n/a</div>
-        ) : openOrders.length === 0 ? (
+        ) : rows.length === 0 ? (
           <div className="text-[16px] text-zinc-400">no open orders</div>
         ) : (
-          <div className="overflow-x-auto overscroll-x-contain rounded-md bg-purple-500 ring-1 ring-zinc-800">
+          <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
             <table className="w-full border-separate border-spacing-0 text-[14px]">
               <thead>
                 <tr className="text-left text-zinc-400">
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">source</th>
                   <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">asset</th>
                   <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">side</th>
                   <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">price</th>
@@ -155,20 +242,21 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                 </tr>
               </thead>
               <tbody className="font-mono text-zinc-200">
-                {openOrders.map(([clientOrderId, o]) => (
-                  <tr key={clientOrderId} className="border-t border-zinc-800/60">
-                    <td className="px-3 py-2 whitespace-nowrap">{assetTag(props.snapshot, o?.assetId)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(o?.side)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtCents(o?.price)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.size)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.filled)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.remaining)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(o?.orderType)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.expireAtMs)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(o?.state)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.createdAtMs)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(o?.updatedAtMs)}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(o?.lastError)}</td>
+                {rows.map((r) => (
+                  <tr key={r.key} className="border-t border-zinc-800/60">
+                    <td className="px-3 py-2 whitespace-nowrap">{r.source}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{assetTag(props.snapshot, r?.assetId)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(r?.side)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtCents(r?.price)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.size)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.filled)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.remaining)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(r?.orderType)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.expireAtMs)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(r?.state)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.createdAtMs)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.updatedAtMs)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(r?.lastError)}</td>
                   </tr>
                 ))}
               </tbody>

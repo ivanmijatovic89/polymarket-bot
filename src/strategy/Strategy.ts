@@ -132,6 +132,25 @@ export type WsOrderUpdate = {
 }
 
 /**
+ * Snapshot-friendly view of open orders observed from the Polymarket USER ws channel.
+ * These orders may not have a `clientOrderId` (i.e. not placed by this bot).
+ */
+export type WsOpenOrder = {
+  orderId: ExchangeOrderId
+  owner?: string
+  market?: string
+  assetId?: string
+  side?: OrderSide
+  price?: number
+  originalSize?: number
+  sizeMatched?: number
+  status?: string
+  orderType?: string
+  outcome?: string
+  updatedAtMs: number
+}
+
+/**
  * Trade status rank for Polymarket user trade progression:
  * - 0: unknown / not a trade status we care about
  * - 1: MATCHED
@@ -168,6 +187,11 @@ export type PortfolioSnapshot = {
   realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
+  /**
+   * Open orders observed via USER ws channel, keyed by exchange orderId.
+   * Optional for backwards compatibility.
+   */
+  wsOpenOrdersByOrderId?: Record<string, WsOpenOrder>
   ordersByClientId: Record<string, OrderSnapshot>
   recentFills: Fill[]
   /**
