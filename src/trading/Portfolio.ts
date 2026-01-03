@@ -217,7 +217,7 @@ export class Portfolio {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
-    console.log(`[portfolio][apply][${ev.kind}]`,  ev )
+    console.log(`[portfolio][${ev.kind}]`,  ev )
     switch (ev.kind) {
       case 'ws_order_update': {
         const o = ev.order
@@ -637,6 +637,7 @@ export class Portfolio {
   }
 
   private logPositionsByMarket(): void {
+    return;
     const shortAsset = (assetId: string) => assetId.slice(-8)
     const fmt4 = (n: number | null | undefined) =>
       typeof n === 'number' && Number.isFinite(n) ? n.toFixed(4) : 'N/A'
@@ -669,6 +670,7 @@ export class Portfolio {
   }
 
   private logOpenOrdersTable(): void {
+    return;
     const shortAsset = (assetId: string) => assetId.slice(-8)
     const botOrders = [...this.openOrdersByClientId.values()]
     const wsOrders = [...this.wsOpenOrdersByOrderId.values()]

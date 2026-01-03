@@ -80,7 +80,7 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    console.log('[live-execution] placing limit order >', {
+    console.log('[live-execution] placeLimit', {
       assetId: intent.assetId,
       price: intent.price,
       size: intent.size,
@@ -143,46 +143,6 @@ export class LiveExecution implements ExecutionAdapter {
             ? ((resp as { orderID?: string }).orderID as string)
             : undefined
 
-      // For FOK orders, handle immediately - they either fill completely or get killed
-      // if (intent.orderType === 'FOK') {
-      //   const events: AccountEvent[] = [
-      //     {
-      //       kind: 'order_accepted',
-      //       tsMs: nowMs,
-      //       clientOrderId: intent.clientOrderId,
-      //       ...(orderId ? { orderId } : {}),
-      //     },
-      //   ]
-
-      //   // Check if FOK order filled or was killed
-      //   // If orderHashes exist, it likely filled (but we don't have fill details here)
-      //   // If no orderId or specific indicators, it was killed
-      //   const orderHashes = (resp as { orderHashes?: unknown[] }).orderHashes
-      //   const hasFills = Array.isArray(orderHashes) && orderHashes.length > 0
-
-      //   if (hasFills || orderId) {
-      //     // FOK filled - but we don't synthesize fills here without details
-      //     // Fill events will come via WS/polling, but we mark order as done
-      //     events.push({
-      //       kind: 'order_done',
-      //       tsMs: nowMs,
-      //       clientOrderId: intent.clientOrderId,
-      //       ...(orderId ? { orderId } : {}),
-      //       reason: 'filled',
-      //     })
-      //   } else {
-      //     // FOK was killed (couldn't fill completely)
-      //     events.push({
-      //       kind: 'order_done',
-      //       tsMs: nowMs,
-      //       clientOrderId: intent.clientOrderId,
-      //       reason: 'killed',
-      //     })
-      //   }
-
-      //   return { events }
-      // }
-
       // IMPORTANT (live trading):
       // Emit ONLY `order_accepted` so we can link clientOrderId <-> orderId for later reconciliation.
       // Do NOT emit `order_open` / `order_done` here; user WS order messages reflect the actual lifecycle,
@@ -217,6 +177,10 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
+    console.log('[live-execution] cancelOrder', {
+      orderId: intent.orderId,
+      clientOrderId: intent.clientOrderId,
+    })
     if (intent.orderId) {
       await this.client.cancelOrder({ orderID: intent.orderId }).catch(() => undefined)
       return {
@@ -246,6 +210,7 @@ export class LiveExecution implements ExecutionAdapter {
   ): Promise<{ events: AccountEvent[] }> {
     void intent
     void ctx
+    console.log('[live-execution] cancelAll')
     await this.client.cancelAll().catch(() => undefined)
     return { events: [] }
   }
@@ -260,6 +225,7 @@ export class LiveExecution implements ExecutionAdapter {
     intent: MergePositionsIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
+    console.log('[live-execution] mergePositions');
     const nowMs = ctx.nowMs
     const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     const conditionId = ctx.lastMarket?.market

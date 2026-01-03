@@ -578,13 +578,13 @@ async function main(): Promise<void> {
       marketEngine.reset()
       indicatorSet?.reset()
       // External feeds are independent of market WS; do NOT reset them here.
-      logger.info(`[trading-bot] connected (${s.info ?? 'ws'})`)
+      logger.info(`[trading-bot] 🟢 connected (${s.info ?? 'ws'})`)
       return
     }
     if (s.kind === 'reconnecting') {
       wsAttempt = s.attempt
       const extra = s.info ? ` (${s.info})` : ''
-      logger.info(`[trading-bot] reconnecting in ${s.delayMs}ms${extra}`)
+      logger.info(`[trading-bot] 🔄 reconnecting in ${s.delayMs}ms${extra}`)
       return
     }
     if (s.kind === 'disconnected') {
@@ -595,7 +595,7 @@ async function main(): Promise<void> {
           : s.info
             ? ` ${s.info}`
             : ''
-      logger.info(`[trading-bot] disconnected${extra}`)
+      logger.info(`[trading-bot] 🔴 disconnected${extra}`)
     }
   })
 
