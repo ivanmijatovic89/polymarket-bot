@@ -65,7 +65,7 @@ export function App() {
             <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
             <ConnectionBadge status={status} />
             {snapshot ? (
-              <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+              <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
                 ⏳ <span className="ml-1 font-mono">{fmtMs(snapshot.status.candleLeftMs)}</span>
               </span>
             ) : null}

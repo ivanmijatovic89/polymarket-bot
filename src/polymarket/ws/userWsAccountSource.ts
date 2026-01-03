@@ -415,7 +415,7 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
         if (events.length === 0) {
           console.log('[ws-user] Message did not parse into any events (might be error/subscription response)')
         } else {
-          console.log('[ws-user] Parsed into', events.length, 'event(s)')
+          console.log('[ws-user] Parsed into', events.length, 'event(s):', events.map((e) => e.kind).join(', '))
         }
         for (const ev of events) emit(ev)
       },

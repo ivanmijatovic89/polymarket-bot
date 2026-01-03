@@ -10,7 +10,8 @@ type Tile = {
   hoverLabel?: string
   symbol?: string
   value?: string
-  accent?: 'cyan' | 'amber' | 'emerald' | 'fuchsia'
+  diff?: string
+  accent?: 'cyan' | 'amber' | 'emerald' | 'fuchsia' | 'yellow' | 'orange' | 'silver'
 }
 
 export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
@@ -23,34 +24,37 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'Price to Beat',
     symbol: typeof ptb?.symbol === 'string' ? ptb.symbol : undefined,
     value: ptb ? fmtNum(ptb.openPrice, { maximumFractionDigits: 2 }) : 'n/a',
-    accent: 'amber',
+    accent: 'cyan',
   })
 
   const rtdsChainlink = feeds?.rtdsPolymarketCryptoPrices?.chainlink
   tiles.push({
     label: 'Current price',
-    hoverLabel: 'RTDS Chainlink',
-    symbol: typeof rtdsChainlink?.symbol === 'string' ? rtdsChainlink.symbol : undefined,
+    hoverLabel: 'RTDS PolymarketChainlink',
+    symbol: 'vs Price to Beat',
+    diff: feeds?.polymarketPriceToBeat ? fmtNum(feeds.polymarketPriceToBeat.openPrice - rtdsChainlink.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: rtdsChainlink ? fmtNum(rtdsChainlink.value, { maximumFractionDigits: 2 }) : 'n/a',
-    accent: 'cyan',
+    accent: 'yellow',
   })
 
   const rtdsBinance = feeds?.rtdsPolymarketCryptoPrices?.binance
   tiles.push({
-    label: '(RTDS Binance)',
-    hoverLabel: 'RTDS Binance',
-    symbol: typeof rtdsBinance?.symbol === 'string' ? rtdsBinance.symbol : undefined,
+    label: 'RTDS Polymarket Binance',
+    hoverLabel: 'RTDS Polymarket Binance',
+    symbol: 'vs Current Price',
+    diff: feeds?.rtdsPolymarketCryptoPrices?.chainlink ? fmtNum(rtdsChainlink.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: rtdsBinance ? fmtNum(rtdsBinance.value, { maximumFractionDigits: 2 }) : 'n/a',
-    accent: 'emerald',
+    accent: 'orange',
   })
 
   const binanceWs = feeds?.binanceWsSpotPrice
   tiles.push({
-    label: '(Binance WS)',
-    hoverLabel: 'Binance WS',
-    symbol: typeof binanceWs?.symbol === 'string' ? binanceWs.symbol : undefined,
+    label: 'RTDS Binance',
+    hoverLabel: 'RTDS Binance',
+    symbol: 'VS RTDS Polymarket Binance',
+    diff: feeds?.rtdsPolymarketCryptoPrices?.binance ? fmtNum(binanceWs.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: binanceWs ? fmtNum(binanceWs.value, { maximumFractionDigits: 2 }) : 'n/a',
-    accent: 'fuchsia',
+    accent: 'orange',
   })
 
   const accentClass = (a: Tile['accent']): string => {
@@ -58,6 +62,9 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     if (a === 'cyan') return 'text-cyan-200'
     if (a === 'emerald') return 'text-emerald-200'
     if (a === 'fuchsia') return 'text-fuchsia-200'
+    if (a === 'yellow') return 'text-yellow-500'
+    if (a === 'silver') return 'text-silver-500'
+    if (a === 'orange') return 'text-orange-500'
     return 'text-zinc-200'
   }
 
@@ -71,7 +78,10 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
               </div>
               {t.symbol ? <div className="text-[12px] font-mono text-zinc-500">{t.symbol}</div> : null}
             </div>
-            <div className={`mt-1 font-mono text-[18px] ${accentClass(t.accent)}`}>{t.value ?? 'n/a'}</div>
+            <div className="flex items-center justify-between gap-2">
+              <div className={`mt-1 font-mono text-[18px] ${accentClass(t.accent)}`}>{t.value ?? 'n/a'}</div>
+              {t.diff ? <div className={`text-[16px] font-mono ${(t.diff === '0' || t.diff === '-0') ? 'text-zinc-500' : (t.diff.startsWith('-') ? 'text-red-500' : 'text-green-500')}`}>{t.diff.startsWith('-') ? '' : '+'} {t.diff}</div> : null}
+            </div>
           </div>
         ))}
       </div>
