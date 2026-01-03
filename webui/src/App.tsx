@@ -72,17 +72,12 @@ export function App() {
           </div>
 
           <div className="flex min-w-0 flex-1 items-center justify-center">
-            <div className="flex items-baseline gap-3 rounded-md bg-zinc-900/40 px-2 py-1 ring-1 ring-zinc-800">
-              <div className="flex items-baseline gap-1 font-mono text-[16px]">
-                <span className="text-zinc-500">UP</span>
-                <span className="text-green-400">{fmtCents(upAsk)}</span>
+              <div className="flex  bg-green-500 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-r-none ">
+                <span className="text-white">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
-              <span className="text-zinc-700">|</span>
-              <div className="flex items-baseline gap-1 font-mono text-[16px]">
-                <span className="text-zinc-500">DOWN</span>
-                <span className="text-red-400">{fmtCents(downAsk)}</span>
+              <div className="flex  bg-red-500 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-l-none ">
+                <span className="text-white">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
-            </div>
           </div>
 
           <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
@@ -127,7 +122,7 @@ export function App() {
             {/* Row below: orderbooks + logs */}
             <div
               className={`grid grid-cols-1 gap-2 ${
-                hasVolatility ? 'xl:grid-cols-[360px_1fr]' : 'xl:grid-cols-[420px_1fr]'
+                hasVolatility ? 'xl:grid-cols-[420px_1fr]' : 'xl:grid-cols-[420px_1fr]'
               }`}
             >
               <div className="space-y-2 min-w-0">

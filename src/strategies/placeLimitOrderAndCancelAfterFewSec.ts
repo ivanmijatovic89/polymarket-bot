@@ -11,7 +11,7 @@ export const ConfigSchema = z.strictObject({
   triggerPrice: z.coerce.number().finite().default(0.45),
   orderPrice: z.coerce.number().finite().default(0.01),
   size: z.coerce.number().finite().default(25),
-  cancelAfterMs: z.coerce.number().finite().default(10_000),
+  cancelAfterMs: z.coerce.number().finite().default(15_000),
 })
 
 export type Config = z.infer<typeof ConfigSchema>

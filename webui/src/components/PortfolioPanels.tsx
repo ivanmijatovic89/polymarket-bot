@@ -136,7 +136,7 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
         ) : openOrders.length === 0 ? (
           <div className="text-[16px] text-zinc-400">no open orders</div>
         ) : (
-          <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
+          <div className="overflow-x-auto overscroll-x-contain rounded-md bg-purple-500 ring-1 ring-zinc-800">
             <table className="w-full border-separate border-spacing-0 text-[14px]">
               <thead>
                 <tr className="text-left text-zinc-400">
