@@ -18,7 +18,6 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
-import { format as nodeFormat } from 'node:util'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -28,6 +27,7 @@ import {
   ringBufferSequencedRecordsSink,
   formatRecordToLine,
   jsonlFileSink,
+  patchConsole,
 } from '../utils/logger.js'
 import { createTradingBotWebUiServer, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
@@ -86,10 +86,24 @@ async function main(): Promise<void> {
   const rawConsoleSink =
     () =>
     (r: { tsMs: number; level: 'debug' | 'info' | 'warn' | 'error'; msg: string; fields?: Record<string, unknown>; data?: unknown; err?: unknown }) => {
-      const line = formatRecordToLine(r as never, { includeIsoDate: true })
-      if (r.level === 'error') origConsole.error(line)
-      else if (r.level === 'warn') origConsole.warn(line)
-      else origConsole.log(line)
+      // Match Node's default console output in the terminal.
+      // Keep extra structured info as a second arg (so it's inspectable without prefixes).
+      const meta: Record<string, unknown> = {}
+      if (r.fields && Object.keys(r.fields).length > 0) meta.fields = r.fields
+      if (r.data !== undefined) meta.data = r.data
+      if (r.err !== undefined) meta.err = r.err
+      const haveMeta = Object.keys(meta).length > 0
+
+      if (r.level === 'error') {
+        if (haveMeta) origConsole.error(r.msg, meta)
+        else origConsole.error(r.msg)
+      } else if (r.level === 'warn') {
+        if (haveMeta) origConsole.warn(r.msg, meta)
+        else origConsole.warn(r.msg)
+      } else {
+        if (haveMeta) origConsole.log(r.msg, meta)
+        else origConsole.log(r.msg)
+      }
     }
 
   let webUi: TradingBotWebUiServer | null = null
@@ -155,7 +169,6 @@ async function main(): Promise<void> {
 
   const logger = createLogger({
     level: logLevel,
-    baseFields: { app: 'trading-bot' },
     sinks: [
       ...(teeConsoleToWebUi || logToFile ? [rawConsoleSink()] : [consoleSink()]),
       ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
@@ -163,6 +176,32 @@ async function main(): Promise<void> {
     ],
   })
   const intentLogger = logger.child({ type: 'intent' })
+
+  // When we patch console.*, keep terminal output identical to Node's default by teeing
+  // to the original console, but capture into WebUI/jsonl using a logger with NO terminal sink.
+  const consoleCaptureLogger =
+    teeConsoleToWebUi || logToFile
+      ? createLogger({
+          level: logLevel,
+          sinks: [
+            ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
+            ...(jsonlSink ? [jsonlSink as never] : []),
+          ],
+        })
+      : null
+
+  // Patch early so logs from deep modules (e.g. blockchain balance checks) show up in WebUI/jsonl too.
+  if (teeConsoleToWebUi || logToFile) {
+    restoreConsole = patchConsole((consoleCaptureLogger ?? logger).child({ channel: 'console' }), {
+      teeToOrigConsole: true,
+    })
+
+    // Best-effort cleanup even on fatal exits.
+    process.on('exit', () => {
+      restoreConsole?.()
+      closeJsonl?.()
+    })
+  }
 
   logger.warn(`[trading-bot] symbol=${symbol}`)
   logger.error(`🚀 [trading-bot] symbol=${symbol}`)
@@ -614,77 +653,6 @@ async function main(): Promise<void> {
     process.exit(0)
   }
   installSignalHandlers({ onSignal: shutdown })
-
-  if (teeConsoleToWebUi || logToFile) {
-    const toErr = (e: unknown): { name?: string; message?: string; stack?: string } | undefined => {
-      if (!e) return undefined
-      if (e instanceof Error) {
-        return {
-          name: e.name,
-          message: e.message,
-          ...(typeof e.stack === 'string' ? { stack: e.stack } : {}),
-        }
-      }
-      return { message: String(e) }
-    }
-
-    const emitConsoleRecord = (
-      level: 'info' | 'warn' | 'error',
-      args: unknown[],
-    ): void => {
-      const err = args.find((a) => a instanceof Error)
-      const msg = nodeFormat(...args)
-      const r = {
-        tsMs: Date.now(),
-        level,
-        msg,
-        fields: { app: 'trading-bot', channel: 'console' },
-        ...(err ? { err: toErr(err) } : {}),
-      }
-      try {
-        if (ringLines) ringLines.sink(r as never)
-        if (ringRecords) ringRecords.sink(r as never)
-        if (jsonlSink) jsonlSink(r)
-      } catch {
-        // ignore
-      }
-    }
-
-    console.log = (...args: unknown[]) => {
-      origConsole.log(...args)
-      emitConsoleRecord('info', args)
-    }
-    console.info = (...args: unknown[]) => {
-      origConsole.info(...args)
-      emitConsoleRecord('info', args)
-    }
-    console.warn = (...args: unknown[]) => {
-      origConsole.warn(...args)
-      emitConsoleRecord('warn', args)
-    }
-    console.error = (...args: unknown[]) => {
-      origConsole.error(...args)
-      emitConsoleRecord('error', args)
-    }
-    console.table = (tabularData?: unknown, properties?: string[]) => {
-      origConsole.table(tabularData as never, properties as never)
-      emitConsoleRecord('info', ['[table]', tabularData, ...(properties ? [{ properties }] : [])])
-    }
-
-    restoreConsole = () => {
-      console.log = origConsole.log
-      console.info = origConsole.info
-      console.warn = origConsole.warn
-      console.error = origConsole.error
-      console.table = origConsole.table
-    }
-
-    // Best-effort cleanup even on fatal exits.
-    process.on('exit', () => {
-      restoreConsole?.()
-      closeJsonl?.()
-    })
-  }
 
   if (enableWebUi) {
     const pickAssetId = (kind: 'up' | 'down'): string | undefined => {

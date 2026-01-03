@@ -182,10 +182,24 @@ function safeInspect(v: unknown): string {
 /** Console sink: readable lines (use only when TUI is OFF). */
 export function consoleSink(): LogSink {
   return (r) => {
-    const line = formatRecordToLine(r, { includeIsoDate: true })
-    if (r.level === 'error') console.error(line)
-    else if (r.level === 'warn') console.warn(line)
-    else console.log(line)
+    // Terminal output should match Node's default console formatting.
+    // Keep structured data as a 2nd arg so it's still inspectable without prefixes.
+    const meta: Record<string, unknown> = {}
+    if (r.fields && Object.keys(r.fields).length > 0) meta.fields = r.fields
+    if (r.data !== undefined) meta.data = r.data
+    if (r.err) meta.err = r.err
+    const haveMeta = Object.keys(meta).length > 0
+
+    if (r.level === 'error') {
+      if (haveMeta) console.error(r.msg, meta)
+      else console.error(r.msg)
+    } else if (r.level === 'warn') {
+      if (haveMeta) console.warn(r.msg, meta)
+      else console.warn(r.msg)
+    } else {
+      if (haveMeta) console.log(r.msg, meta)
+      else console.log(r.msg)
+    }
   }
 }
 
@@ -330,7 +344,10 @@ function renderTable(tabularData: unknown, properties?: string[]): string {
  * Intended for TUI mode, where stdout/stderr output corrupts the screen.
  * Returns a restore function.
  */
-export function patchConsole(logger: Logger): () => void {
+export function patchConsole(
+  logger: Logger,
+  opts?: { teeToOrigConsole?: boolean },
+): () => void {
   const orig: ConsoleLike = {
     log: console.log.bind(console),
     info: console.info.bind(console),
@@ -339,25 +356,32 @@ export function patchConsole(logger: Logger): () => void {
     table: console.table.bind(console),
   }
 
+  const tee = opts?.teeToOrigConsole === true
+
   console.log = (...args: unknown[]) => {
+    if (tee) orig.log(...args)
     const { msg } = formatConsoleArgs(args)
     logger.info(msg)
   }
   console.info = (...args: unknown[]) => {
+    if (tee) orig.info(...args)
     const { msg } = formatConsoleArgs(args)
     logger.info(msg)
   }
   console.warn = (...args: unknown[]) => {
+    if (tee) orig.warn(...args)
     const { msg } = formatConsoleArgs(args)
     logger.warn(msg)
   }
   console.error = (...args: unknown[]) => {
+    if (tee) orig.error(...args)
     // If an Error is passed, attach it for stack rendering downstream.
     const err = args.find((a) => a instanceof Error)
     const { msg } = formatConsoleArgs(args)
     logger.error(msg, { ...(err ? { err } : {}) })
   }
   console.table = (tabularData?: unknown, properties?: string[]) => {
+    if (tee) orig.table(tabularData as never, properties as never)
     logger.info(renderTable(tabularData, properties))
   }
 

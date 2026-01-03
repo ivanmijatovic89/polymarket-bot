@@ -11,6 +11,33 @@ function fmtTime(tsMs: number): string {
   }
 }
 
+function safeStringify(v: unknown): string {
+  try {
+    const seen = new WeakSet<object>()
+    return JSON.stringify(
+      v,
+      (_key, value) => {
+        if (typeof value === 'bigint') return `${value}n`
+        if (value instanceof Error) {
+          return {
+            name: value.name,
+            message: value.message,
+            stack: value.stack,
+          }
+        }
+        if (typeof value === 'object' && value !== null) {
+          if (seen.has(value)) return '[Circular]'
+          seen.add(value)
+        }
+        return value
+      },
+      0,
+    )
+  } catch (err) {
+    return `[unserializable: ${(err as Error)?.message ?? String(err)}]`
+  }
+}
+
 function levelColor(level: string): string {
   if (level === 'error') return 'text-red-300'
   if (level === 'warn') return 'text-amber-300'
@@ -60,11 +87,10 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
     return filteredRecords
       .slice(-500)
       .map((r) => {
-        const fields = r.fields ? ` ${JSON.stringify(r.fields)}` : ''
-        const data = r.data !== undefined ? ` data=${JSON.stringify(r.data)}` : ''
-        const err = r.err ? ` err=${JSON.stringify(r.err)}` : ''
-        // We intentionally omit the level label (INFO/WARN/ERROR) from the visible log line.
-        return `${fmtTime(r.tsMs)} ${r.msg}${fields}${data}${err}`
+        const fields = r.fields ? ` ${safeStringify(r.fields)}` : ''
+        const data = r.data !== undefined ? ` data=${safeStringify(r.data)}` : ''
+        const err = r.err ? ` err=${safeStringify(r.err)}` : ''
+        return `${fmtTime(r.tsMs)} ${r.level.toUpperCase()} ${r.msg}${fields}${data}${err}`
       })
       .join('\n')
   }, [filteredRecords])
@@ -146,10 +172,11 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
               filteredRecords.slice(-500).map((r, idx) => (
                 <div key={idx} className="whitespace-pre-wrap break-words">
                   <span className="text-zinc-500">{fmtTime(r.tsMs)}</span>{' '}
-                  <span className={levelColor(r.level)}>{r.msg}</span>
-                  {r.fields ? <span className="text-zinc-400"> {JSON.stringify(r.fields)}</span> : null}
-                  {r.data !== undefined ? <span className="text-zinc-500"> data={JSON.stringify(r.data)}</span> : null}
-                  {r.err ? <span className="text-red-200"> err={JSON.stringify(r.err)}</span> : null}
+                  <span className={levelColor(r.level)}>{r.level.toUpperCase()}</span>{' '}
+                  <span className="text-zinc-200">{r.msg}</span>
+                  {r.fields ? <span className="text-zinc-400"> {safeStringify(r.fields)}</span> : null}
+                  {r.data !== undefined ? <span className="text-zinc-500"> data={safeStringify(r.data)}</span> : null}
+                  {r.err ? <span className="text-red-200"> err={safeStringify(r.err)}</span> : null}
                 </div>
               ))
             )}
