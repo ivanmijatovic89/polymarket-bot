@@ -217,7 +217,7 @@ export class Portfolio {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
-    console.log(`Portfolio > apply > ${ev.kind}`,  ev )
+    console.log(`[portfolio][apply][${ev.kind}]`,  ev )
     switch (ev.kind) {
       case 'ws_order_update': {
         const o = ev.order
@@ -644,7 +644,7 @@ export class Portfolio {
     // ---- Positions table ----
     const positions = [...this.positionsByAssetId.values()]
     if (positions.length === 0) {
-      console.log('[Portfolio] All positions: (none)')
+      console.log('[portfolio][positions]: (none)')
     } else {
       const positionRows = positions
         .map((p) => {
@@ -661,11 +661,11 @@ export class Portfolio {
         })
         .sort((a, b) => (a.market < b.market ? -1 : a.market > b.market ? 1 : 0))
 
-      console.log(`[Portfolio] Positions (${positions.length}):`)
+      console.log(`[portfolio][positions]: (${positions.length})`)
       console.table(positionRows)
     }
 
-    console.log(`[Portfolio] Total realized PnL: ${this.realizedPnlTotal.toFixed(4)}`)
+    console.log(`[portfolio][Total realized PnL]: ${this.realizedPnlTotal.toFixed(4)}`)
   }
 
   private logOpenOrdersTable(): void {
@@ -674,7 +674,7 @@ export class Portfolio {
     const wsOrders = [...this.wsOpenOrdersByOrderId.values()]
 
     if (botOrders.length === 0 && wsOrders.length === 0) {
-      console.log('[Portfolio] Open orders: (none)')
+      console.log('[portfolio][open-orders]: (none)')
       return
     }
 
@@ -727,7 +727,7 @@ export class Portfolio {
     }
 
     rows.sort((a, b) => String(a.market).localeCompare(String(b.market)))
-    console.log(`[Portfolio] Open orders (${rows.length}):`)
+    console.log(`[portfolio][open-orders]: (${rows.length})`)
     console.table(rows)
   }
 }

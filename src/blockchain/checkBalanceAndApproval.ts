@@ -223,35 +223,35 @@ export async function logBalanceAndApproval(
 
     if (result.usdcBalanceRaw === 0n) {
       console.error(
-        `${RED}[blockchain] ERROR: USDC balance is 0. You need USDC to buy shares.${RESET}`,
+        `${RED}[blockchain][⛔️] ERROR: USDC balance is 0. You need USDC to buy shares.${RESET}`,
       )
       hasErrors = true
     }
 
     if (result.usdcAllowanceRaw === 0n) {
       console.error(
-        `${RED}[blockchain] ERROR: USDC allowance is 0. You need to approve USDC for the Exchange contract.${RESET}`,
+        `${RED}[blockchain][⛔️] ERROR: USDC allowance is 0. You need to approve USDC for the Exchange contract.${RESET}`,
       )
       hasErrors = true
     }
 
     if (!result.conditionalTokensApproved) {
       console.error(
-        `${RED}[blockchain] ERROR: Conditional tokens not approved. You need to call setApprovalForAll on the conditional token contract.${RESET}`,
+        `${RED}[blockchain][⛔️] ERROR: Conditional tokens not approved. You need to call setApprovalForAll on the conditional token contract.${RESET}`,
       )
       hasErrors = true
     }
 
     if (hasErrors) {
       console.error(
-        `${RED}[blockchain] FATAL: Missing required approvals or balance. Trading bot cannot start.${RESET}`,
+        `${RED}[blockchain][⛔️] FATAL: Missing required approvals or balance. Trading bot cannot start.${RESET}`,
       )
       throw new Error(
         'Missing required approvals or balance. Please approve tokens and ensure sufficient USDC balance.',
       )
     }
   } catch (err) {
-    console.error('[blockchain] Failed to check balance and approval:', err)
+    console.error('[blockchain][⛔️] Failed to check balance and approval:', err)
     throw err
   }
 }

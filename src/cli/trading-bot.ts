@@ -108,6 +108,7 @@ async function main(): Promise<void> {
   let restoreConsole: (() => void) | null = null
   let closeJsonl: (() => void) | null = null
   let jsonlSink: ((r: unknown) => void) | null = null
+  let logFilePath: string | null = null
 
   // Keep these available for the TUI status bar.
   let totalWsEvents = 0
@@ -153,6 +154,7 @@ async function main(): Promise<void> {
     const stamp = fmtRunStamp(new Date())
     const strategyIdSafe = sanitizeFilePart(built.strategyId)
     const filePath = join(dir, `${stamp}-${strategyIdSafe}.jsonl`)
+    logFilePath = filePath
     const jsonl = jsonlFileSink({ filePath })
     closeJsonl = jsonl.close
     jsonlSink = (r: unknown) => {
@@ -162,7 +164,6 @@ async function main(): Promise<void> {
         // ignore
       }
     }
-    origConsole.log(`[trading-bot] LOG_TO_FILE enabled -> ${filePath}`)
   }
 
   const logger = createLogger({
@@ -199,6 +200,10 @@ async function main(): Promise<void> {
       restoreConsole?.()
       closeJsonl?.()
     })
+  }
+
+  if (logFilePath) {
+    logger.info(`[trading-bot][⚙️] LOG_TO_FILE enabled -> ${logFilePath}`)
   }
 
   logger.info(`[trading-bot][⚙️] symbol=${symbol}`)
@@ -246,7 +251,7 @@ async function main(): Promise<void> {
           onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
-            logger.info(`[trading-bot] rtds ${s.kind} attempt=${s.attempt}${extra}`)
+            logger.info(`[feeds][rtds_polymarket_ws] ${s.kind} attempt=${s.attempt}${extra}`)
           },
         })
       : null
@@ -258,7 +263,7 @@ async function main(): Promise<void> {
           onPrice: (u) => feedsStore!.updateBinanceWsSpotPrice(u),
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
-            logger.info(`[trading-bot] binance_ws ${s.kind} attempt=${s.attempt}${extra}`)
+            logger.info(`[trading-bot][binance_ws] ${s.kind} attempt=${s.attempt}${extra}`)
           },
         })
       : null
@@ -293,10 +298,10 @@ async function main(): Promise<void> {
         feedsStore.updatePolymarketPriceToBeat(u)
       },
       onStatus: (s) => {
-        if (s.kind === 'polling') logger.info(`[feeds] price_to_beat polling`)
+        if (s.kind === 'polling') logger.info(`[feeds][polymarket_price_to_beat][🔄] polling`)
         if (s.kind === 'resolved')
           logger.info(
-            `[feeds] price_to_beat resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
+            `[feeds][polymarket_price_to_beat][🟢] resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
           )
       },
     })
@@ -380,7 +385,6 @@ async function main(): Promise<void> {
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
     const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
 
-    // console.log(`[trading-bot] resolveCurrentUpDown15mAssets market=${JSON.stringify(r)}`)
     // Avoid subscribing to the previous-window market around boundaries.
     // If Gamma is behind, retry soon instead of connecting to the old slug.
     try {
@@ -423,7 +427,7 @@ async function main(): Promise<void> {
           endDateIso,
         })
       } else {
-        console.warn('[trading-bot] price_to_beat enabled but missing eventStartTime/endDate on currentMarket')
+        console.warn('[feeds][polymarket_price_to_beat][⛔️] enabled but missing eventStartTime/endDate on currentMarket')
       }
     }
 
@@ -432,7 +436,7 @@ async function main(): Promise<void> {
       const q = typeof r.market.question === 'string' ? r.market.question : undefined
       const active = typeof r.market.active === 'boolean' ? r.market.active : undefined
       const closed = typeof r.market.closed === 'boolean' ? r.market.closed : undefined
-      console.log('[trading-bot][⟳] market changed', {
+      console.log('[trading-bot][🔄] market changed', {
         from: prevSlug ?? null,
         to: r.slug,
         ...(id ? { id } : {}),
@@ -455,7 +459,7 @@ async function main(): Promise<void> {
   const haveCreds = !!cfg.creds
   const havePrivateKey = !!cfg.privateKey
   if (!haveCreds) {
-    console.warn('[trading-bot] missing POLYMARKET_API_* creds; account streams disabled')
+    console.warn('[trading-bot][⛔️] missing POLYMARKET_API_* creds; account streams disabled')
   }
 
   const emitTradeFillsAtStatusEnv = (process.env.USER_WS_FILL_AT_STATUS ?? '').toUpperCase()
@@ -510,7 +514,7 @@ async function main(): Promise<void> {
           // Mark as stably connected only after 10 seconds of stable connection
           stableConnectionTimeout = setTimeout(() => {
             userWsStablyConnected = true
-            console.log('[trading-bot] User WS stably connected (10s+) - disabling REST poller')
+            console.log('[ws-user][🟢] User WS stably connected (10s+) - disabling REST poller')
             poller.setEnabled(false)
             stableConnectionTimeout = undefined
           }, 10_000)
@@ -531,7 +535,7 @@ async function main(): Promise<void> {
             // Wait 3 seconds before enabling poller (in case WS reconnects quickly)
             disconnectTimeout = setTimeout(() => {
               console.log(
-                `[trading-bot] User WS disconnected (was stably connected for ${Math.round(connectedDuration / 1000)}s) - enabling REST poller fallback`,
+                `[ws-user][🔴] User WS disconnected (was stably connected for ${Math.round(connectedDuration / 1000)}s) - enabling REST poller fallback`,
               )
               poller.setEnabled(true)
               disconnectTimeout = undefined
@@ -617,7 +621,7 @@ async function main(): Promise<void> {
       isRotating = false
       source.start()
     })().catch((err) => {
-      console.error('[trading-bot] rotate failed', err)
+      console.error('[trading-bot][⛔️] rotate failed', err)
       isRotating = false
     })
   }
@@ -753,6 +757,6 @@ async function main(): Promise<void> {
 }
 
 main().catch((err) => {
-  console.error('[trading-bot] fatal error', err)
+  console.error('[trading-bot][⛔️] fatal error', err)
   process.exit(1)
 })

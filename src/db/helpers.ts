@@ -46,7 +46,7 @@ export async function marketExistsBySlug(slug: string): Promise<boolean> {
     return market !== null
   } catch (err) {
     // If database check fails, assume it doesn't exist (will try to insert)
-    console.warn(`[db] Failed to check if market exists for slug "${slug}":`, err)
+    console.warn(`[db][⛔️] Failed to check if market exists for slug "${slug}":`, err)
     return false
   }
 }

@@ -80,7 +80,7 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    console.log('placing limit order in LiveExecution', {
+    console.log('[live-execution] placing limit order >', {
       assetId: intent.assetId,
       price: intent.price,
       size: intent.size,
@@ -100,12 +100,12 @@ export class LiveExecution implements ExecutionAdapter {
 
       const resp = await this.client.postOrder(signed, toPolyOrderType(intent.orderType))
       // Resp shape varies; docs show {success, orderId, orderHashes, errorMsg}.
-      console.log('LiveExecution > response api >',  resp )
+      console.log('[live-execution][⚡️] API response ',  resp )
 
       // Check for HTTP error first (from errorHandling in http-helpers)
       if (resp && typeof resp === 'object' && 'error' in resp) {
         const errorMsg = typeof resp.error === 'string' ? resp.error : 'order_rejected'
-        console.log('LiveExecution > errorMsg (HTTP error) >',  errorMsg )
+        console.log('[live-execution][⛔️] errorMsg (HTTP error) ',  errorMsg )
         return {
           events: [
             {
@@ -122,7 +122,7 @@ export class LiveExecution implements ExecutionAdapter {
       const ok = (resp as { success?: unknown }).success
       if (ok === false) {
         const msg = (resp as { errorMsg?: unknown }).errorMsg
-        console.log('LiveExecution > errorMsg (API error) >',  msg )
+        console.log('[live-execution][⛔️] errorMsg (API error) ',  msg )
         return {
           events: [
             {
@@ -198,7 +198,7 @@ export class LiveExecution implements ExecutionAdapter {
         ],
       }
     } catch (err) {
-      console.log('LiveExecution > error >',  err )
+      console.log('[live-execution][⛔️] error 1234',  err )
       return {
         events: [
           {

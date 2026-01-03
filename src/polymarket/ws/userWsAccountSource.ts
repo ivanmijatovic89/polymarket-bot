@@ -399,30 +399,30 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
           },
           ...(opts.markets ? { markets: opts.markets } : {}),
         }
-        console.log('[userWsAccountSource] Sending auth message:', {
+        console.log('[ws-user][⚙️] Sending auth message:', {
           type: 'USER',
           apiKey: opts.auth.apiKey.substring(0, 8) + '...',
           hasSecret: !!opts.auth.secret,
           hasPassphrase: !!opts.auth.passphrase,
           markets: opts.markets,
         })
-        console.log('[userWsAccountSource] Full auth message (without secrets):', JSON.stringify({ ...authMsg, auth: { ...authMsg.auth, secret: '***', passphrase: '***' } }))
+        console.log('[ws-user][⚙️] Full auth message (without secrets):', JSON.stringify({ ...authMsg, auth: { ...authMsg.auth, secret: '***', passphrase: '***' } }))
         conn?.send(JSON.stringify(authMsg))
       },
       onMessageText: (raw) => {
-        console.log('[userWsAccountSource] Received raw message:', raw)
+        console.log('[ws-user][⚡️] Received raw message:', raw)
         const events = parseUserChannelEvent(raw, parseState)
         if (events.length === 0) {
-          console.log('[userWsAccountSource] Message did not parse into any events (might be error/subscription response)')
+          console.log('[ws-user] Message did not parse into any events (might be error/subscription response)')
         } else {
-          console.log('[userWsAccountSource] Parsed into', events.length, 'event(s)')
+          console.log('[ws-user] Parsed into', events.length, 'event(s)')
         }
         for (const ev of events) emit(ev)
       },
       onClose: (code, reason) => {
         if (!running) return
         const reasonStr = reason.toString()
-        console.log('[userWsAccountSource] Connection closed:', {
+        console.log('[ws-user][🔴] Connection closed:', {
           code,
           reason: reasonStr,
           code1006: code === 1006 ? 'ABNORMAL_CLOSURE' : undefined,
@@ -431,7 +431,7 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
       },
       onError: (err) => {
         if (!running) return
-        console.log('[userWsAccountSource] Connection error:', err.message)
+        console.log('[ws-user][🔴] Connection error:', err.message)
         scheduleReconnect(`ws error: ${err.message}`)
       },
     })
