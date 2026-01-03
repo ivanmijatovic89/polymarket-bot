@@ -21,7 +21,32 @@ function levelColor(level: string): string {
 export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }) {
   const [mode, setMode] = useState<Mode>('json')
   const [autoScroll, setAutoScroll] = useState(true)
+  const TYPE_ALL = '__all__'
+  const TYPE_NONE = '__none__'
+  const [typeFilter, setTypeFilter] = useState<string>(TYPE_ALL)
   const scrollerRef = useRef<HTMLDivElement | null>(null)
+
+  const types = useMemo(() => {
+    const set = new Set<string>()
+    let hasNone = false
+    for (const r of props.logRecords) {
+      const t = (r.fields as any)?.type
+      if (typeof t === 'string' && t.trim().length > 0) set.add(t)
+      else hasNone = true
+    }
+    return { list: Array.from(set).sort(), hasNone }
+  }, [props.logRecords])
+
+  const filteredRecords = useMemo(() => {
+    if (typeFilter === TYPE_ALL) return props.logRecords
+    if (typeFilter === TYPE_NONE) {
+      return props.logRecords.filter((r) => {
+        const t = (r.fields as any)?.type
+        return !(typeof t === 'string' && t.trim().length > 0)
+      })
+    }
+    return props.logRecords.filter((r) => (r.fields as any)?.type === typeFilter)
+  }, [props.logRecords, typeFilter])
 
   useEffect(() => {
     if (!autoScroll) return
@@ -29,10 +54,10 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
     if (!el) return
     // Scroll ONLY the log container (avoid scrolling the whole page).
     el.scrollTop = el.scrollHeight
-  }, [autoScroll, props.logLines.length, props.logRecords.length, mode])
+  }, [autoScroll, props.logLines.length, filteredRecords.length, mode])
 
   const jsonText = useMemo(() => {
-    return props.logRecords
+    return filteredRecords
       .slice(-500)
       .map((r) => {
         const fields = r.fields ? ` ${JSON.stringify(r.fields)}` : ''
@@ -41,7 +66,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         return `${fmtTime(r.tsMs)} ${r.level.toUpperCase().padEnd(5, ' ')} ${r.msg}${fields}${data}${err}`
       })
       .join('\n')
-  }, [props.logRecords])
+  }, [filteredRecords])
 
   const text = useMemo(() => {
     return mode === 'text' ? props.logLines.slice(-2000).join('\n') : jsonText
@@ -53,6 +78,23 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         <div className="text-[17px] font-semibold">logs</div>
 
         <div className="flex items-center gap-2">
+          {mode === 'json' ? (
+            <select
+              className="rounded-md bg-zinc-900/60 px-2 py-1 text-[16px] text-zinc-200 ring-1 ring-zinc-800"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              title="Filter by fields.type"
+            >
+              <option value={TYPE_ALL}>type: all</option>
+              {types.hasNone ? <option value={TYPE_NONE}>type: (none)</option> : null}
+              {types.list.map((t) => (
+                <option key={t} value={t}>
+                  type: {t}
+                </option>
+              ))}
+            </select>
+          ) : null}
+
           <div className="rounded-md bg-zinc-900/60 p-1 text-[16px] ring-1 ring-zinc-800">
             <button
               className={`rounded px-2 py-1 ${mode === 'text' ? 'bg-zinc-800 text-zinc-100' : 'text-zinc-300 hover:bg-zinc-800/60'}`}
@@ -97,10 +139,10 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
           </>
         ) : (
           <>
-            {props.logRecords.length === 0 ? (
+            {filteredRecords.length === 0 ? (
               <div className="text-zinc-500">no logs yet</div>
             ) : (
-              props.logRecords.slice(-500).map((r, idx) => (
+              filteredRecords.slice(-500).map((r, idx) => (
                 <div key={idx} className="whitespace-pre-wrap break-words">
                   <span className="text-zinc-500">{fmtTime(r.tsMs)}</span>{' '}
                   <span className={levelColor(r.level)}>{r.level.toUpperCase().padEnd(5, ' ')}</span>{' '}

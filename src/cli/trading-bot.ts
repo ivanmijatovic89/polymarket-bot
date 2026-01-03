@@ -162,8 +162,10 @@ async function main(): Promise<void> {
       ...(jsonlSink ? [jsonlSink as never] : []),
     ],
   })
-  const intentLogger = logger.child({ channel: 'intent' })
+  const intentLogger = logger.child({ type: 'intent' })
 
+  logger.warn(`[trading-bot] symbol=${symbol}`)
+  logger.error(`🚀 [trading-bot] symbol=${symbol}`)
   logger.info(`[trading-bot] symbol=${symbol}`)
   logger.info(`[trading-bot] wsUrl=${wsUrl}`)
   logger.info(`[trading-bot] dryRun=${dryRun}`)
