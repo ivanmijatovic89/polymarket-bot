@@ -24,7 +24,6 @@ import {
   consoleSink,
   createLogger,
   ringBufferSequencedLinesSink,
-  ringBufferSequencedRecordsSink,
   formatRecordToLine,
   jsonlFileSink,
   patchConsole,
@@ -70,7 +69,6 @@ async function main(): Promise<void> {
   const ringLines = enableWebUi
     ? ringBufferSequencedLinesSink({ maxLines: 5000, format: (r) => formatRecordToLine(r) })
     : null
-  const ringRecords = enableWebUi ? ringBufferSequencedRecordsSink({ maxRecords: 2000 }) : null
 
   const origConsole = {
     log: console.log.bind(console),
@@ -80,7 +78,7 @@ async function main(): Promise<void> {
     table: console.table.bind(console),
   }
 
-  const teeConsoleToWebUi = enableWebUi && !!ringLines && !!ringRecords
+  const teeConsoleToWebUi = enableWebUi && !!ringLines
 
   // Important: if we patch console.*, we must NOT use consoleSink() (it would double-log into rings).
   const rawConsoleSink =
@@ -171,7 +169,7 @@ async function main(): Promise<void> {
     level: logLevel,
     sinks: [
       ...(teeConsoleToWebUi || logToFile ? [rawConsoleSink()] : [consoleSink()]),
-      ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
+      ...(enableWebUi ? [ringLines!.sink] : []),
       ...(jsonlSink ? [jsonlSink as never] : []),
     ],
   })
@@ -184,7 +182,7 @@ async function main(): Promise<void> {
       ? createLogger({
           level: logLevel,
           sinks: [
-            ...(enableWebUi ? [ringLines!.sink, ringRecords!.sink] : []),
+            ...(enableWebUi ? [ringLines!.sink] : []),
             ...(jsonlSink ? [jsonlSink as never] : []),
           ],
         })
@@ -741,7 +739,6 @@ async function main(): Promise<void> {
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),
-      getLogRecordsWindow: () => ringRecords!.snapshotWindow(),
       orderbookLevels,
       refreshMs,
     })

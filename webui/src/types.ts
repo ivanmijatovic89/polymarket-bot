@@ -1,14 +1,5 @@
 export type LogLevel = 'debug' | 'info' | 'warn' | 'error'
 
-export type LogRecord = {
-  tsMs: number
-  level: LogLevel
-  msg: string
-  fields?: Record<string, unknown>
-  data?: unknown
-  err?: { name?: string; message?: string; stack?: string }
-}
-
 export type BotUiOrderBookLevel = {
   price: number
   size: number
@@ -62,7 +53,6 @@ export type WsSnapshotMsg = {
   type: 'snapshot'
   snapshot: BotUiSnapshot
   logsText?: { from: number; to: number; lines: string[] }
-  logsJson?: { from: number; to: number; records: LogRecord[] }
 }
 
 

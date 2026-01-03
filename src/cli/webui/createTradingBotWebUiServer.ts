@@ -2,7 +2,7 @@ import { createServer, type IncomingMessage, type ServerResponse } from 'node:ht
 import { readFileSync, existsSync, statSync } from 'node:fs'
 import { extname, join, normalize } from 'node:path'
 import WebSocket, { WebSocketServer } from 'ws'
-import type { LogRecord, SequencedWindow } from '../../utils/logger.js'
+import type { SequencedWindow } from '../../utils/logger.js'
 import { toBotUiOrderBook, type BotUiSnapshot, type BotUiSourceState } from './botUiState.js'
 
 export type TradingBotWebUiServer = {
@@ -26,8 +26,6 @@ export type TradingBotWebUiServerOptions = {
   getState: () => BotUiSourceState
   /** Sequenced, fixed-size window for log lines (preferred). */
   getLogLinesWindow?: () => SequencedWindow<string>
-  /** Sequenced, fixed-size window for structured log records (preferred). */
-  getLogRecordsWindow?: () => SequencedWindow<LogRecord>
 
   /**
    * Where the frontend build output lives. Default: <repo>/webui/dist
@@ -40,14 +38,12 @@ export type TradingBotWebUiServerOptions = {
 type ClientState = {
   ws: WebSocket
   nextLineSeq: number
-  nextRecordSeq: number
 }
 
 type WsSnapshotMsg = {
   type: 'snapshot'
   snapshot: BotUiSnapshot
   logsText?: { from: number; to: number; lines: string[] }
-  logsJson?: { from: number; to: number; records: LogRecord[] }
 }
 
 function safeJson(x: unknown): string {
@@ -180,7 +176,7 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
   const wss = new WebSocketServer({ noServer: true })
 
   wss.on('connection', (ws) => {
-    const c: ClientState = { ws, nextLineSeq: 0, nextRecordSeq: 0 }
+    const c: ClientState = { ws, nextLineSeq: 0 }
     clients.add(c)
     ws.on('close', () => clients.delete(c))
     ws.on('error', () => clients.delete(c))
@@ -188,14 +184,11 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     try {
       const state = opts.getState()
       const linesWin = opts.getLogLinesWindow ? opts.getLogLinesWindow() : null
-      const recWin = opts.getLogRecordsWindow ? opts.getLogRecordsWindow() : null
       if (linesWin) c.nextLineSeq = linesWin.endSeq
-      if (recWin) c.nextRecordSeq = recWin.endSeq
       const msg: WsSnapshotMsg = {
         type: 'snapshot',
         snapshot: buildSnapshot({ title: opts.title, state, orderbookLevels }),
         ...(linesWin ? { logsText: { from: linesWin.startSeq, to: linesWin.endSeq, lines: linesWin.items } } : {}),
-        ...(recWin ? { logsJson: { from: recWin.startSeq, to: recWin.endSeq, records: recWin.items } } : {}),
       }
       ws.send(safeJson(msg))
     } catch {
@@ -258,15 +251,6 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
           }
         })()
       : null
-    const recWin: SequencedWindow<LogRecord> | null = opts.getLogRecordsWindow
-      ? (() => {
-          try {
-            return opts.getLogRecordsWindow!()
-          } catch {
-            return null
-          }
-        })()
-      : null
 
     for (const c of clients) {
       if (c.ws.readyState !== WebSocket.OPEN) continue
@@ -287,26 +271,10 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
         return out
       })()
 
-      const logsJson = (() => {
-        if (!recWin) return undefined
-        if (c.nextRecordSeq < recWin.startSeq) {
-          const out = { from: recWin.startSeq, to: recWin.endSeq, records: recWin.items }
-          c.nextRecordSeq = recWin.endSeq
-          return out
-        }
-        if (c.nextRecordSeq >= recWin.endSeq) return undefined
-        const offset = Math.max(0, c.nextRecordSeq - recWin.startSeq)
-        const records = recWin.items.slice(offset)
-        const out = { from: c.nextRecordSeq, to: recWin.endSeq, records }
-        c.nextRecordSeq = recWin.endSeq
-        return out
-      })()
-
       const msg: WsSnapshotMsg = {
         type: 'snapshot',
         snapshot,
         ...(logsText ? { logsText } : {}),
-        ...(logsJson ? { logsJson } : {}),
       }
 
       try {

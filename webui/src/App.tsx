@@ -49,7 +49,7 @@ function fmtMs(ms: number): string {
 }
 
 export function App() {
-  const { status, snapshot, logLines, logRecords } = useBotWs()
+  const { status, snapshot, logLines } = useBotWs()
   const upAsk = snapshot ? bestAskFromBook(snapshot.books.up) : null
   const downAsk = snapshot ? bestAskFromBook(snapshot.books.down) : null
   const strategy = snapshot?.strategy
@@ -117,7 +117,7 @@ export function App() {
 
 
             <div className="space-y-2">
-            <LogsPanel logLines={logLines} logRecords={logRecords} />
+            <LogsPanel logLines={logLines} />
             </div>
 
             {/* Row below: orderbooks + logs */}
