@@ -49,12 +49,27 @@ type WsOpenOrder = {
   updatedAtMs: number
 }
 
+type Fill = {
+  id: string
+  tsMs: number
+  market?: string
+  assetId: string
+  side: 'BUY' | 'SELL'
+  price: number
+  size: number
+  feeRateBps?: number
+  clientOrderId?: string
+  orderId?: string
+  liquidity?: 'MAKER' | 'TAKER'
+}
+
 type PortfolioSnapshot = {
   nowMs: number
   realizedPnlTotal?: number
   positionsByAssetId: Record<string, Position>
   openOrdersByClientId: Record<string, OpenOrder>
   wsOpenOrdersByOrderId?: Record<string, WsOpenOrder>
+  recentFills?: Fill[]
   marketByAssetId: Record<string, string>
 }
 
@@ -83,6 +98,21 @@ function fmtNum(n: unknown): string {
 
 function fmtMaybeStr(s: unknown): string {
   return typeof s === 'string' && s.length > 0 ? s : 'n/a'
+}
+
+function fmtIso(tsMs: unknown): string {
+  if (typeof tsMs !== 'number' || !Number.isFinite(tsMs)) return 'n/a'
+  try {
+    return new Date(tsMs).toISOString()
+  } catch {
+    return 'n/a'
+  }
+}
+
+function shortId(s: unknown, keep = 10): string {
+  if (typeof s !== 'string' || s.length === 0) return 'n/a'
+  if (s.length <= keep) return s
+  return s.slice(-keep)
 }
 
 export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
@@ -257,6 +287,67 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                     <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.createdAtMs)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{fmtNum(r?.updatedAtMs)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(r?.lastError)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
+  const portfolio = asPortfolio(props.snapshot)
+  const fills = portfolio?.recentFills ? [...portfolio.recentFills] : []
+
+  fills.sort((a, b) => (b.tsMs ?? 0) - (a.tsMs ?? 0))
+
+  return (
+    <div className="panel">
+      <div className="panel-h">
+        <div className="panel-t">Executed orders (fills)</div>
+        <div className="text-[14px] text-zinc-500">from portfolio.recentFills</div>
+      </div>
+
+      <div className="panel-b">
+        {!portfolio ? (
+          <div className="text-[16px] text-zinc-400">n/a</div>
+        ) : fills.length === 0 ? (
+          <div className="text-[16px] text-zinc-400">no fills yet</div>
+        ) : (
+          <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
+            <table className="w-full border-separate border-spacing-0 text-[14px]">
+              <thead>
+                <tr className="text-left text-zinc-400">
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">time</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">asset</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">side</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">price</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">size</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">liquidity</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">feeBps</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">market</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">orderId</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">clientOrderId</th>
+                  <th className="sticky top-0 bg-zinc-900/60 px-3 py-2">fillId</th>
+                </tr>
+              </thead>
+              <tbody className="font-mono text-zinc-200">
+                {fills.map((f) => (
+                  <tr key={f.id} className="border-t border-zinc-800/60">
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtIso(f.tsMs)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{assetTag(props.snapshot, f.assetId)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(f.side)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtCents(f.price)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(f.size)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(f.liquidity)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtNum(f.feeRateBps)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{fmtMaybeStr(f.market)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{shortId(f.orderId, 12)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{shortId(f.clientOrderId, 12)}</td>
+                    <td className="px-3 py-2 whitespace-nowrap">{shortId(f.id, 12)}</td>
                   </tr>
                 ))}
               </tbody>

@@ -2,7 +2,7 @@ import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
-import { OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
+import { ExecutedOrdersTablePanel, OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
 import { VolatilityPanel } from './components/VolatilityPanel'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
@@ -112,6 +112,7 @@ export function App() {
             <div className="space-y-2">
               <PositionsTablePanel snapshot={snapshot} />
               <OpenOrdersTablePanel snapshot={snapshot} />
+              <ExecutedOrdersTablePanel snapshot={snapshot} />
             </div>
 
 
