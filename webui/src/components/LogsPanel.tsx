@@ -90,7 +90,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         const fields = r.fields ? ` ${safeStringify(r.fields)}` : ''
         const data = r.data !== undefined ? ` data=${safeStringify(r.data)}` : ''
         const err = r.err ? ` err=${safeStringify(r.err)}` : ''
-        return `${fmtTime(r.tsMs)} ${r.level.toUpperCase()} ${r.msg}${fields}${data}${err}`
+        return `${fmtTime(r.tsMs)} ${r.msg}${fields}${data}${err}`
       })
       .join('\n')
   }, [filteredRecords])
@@ -171,12 +171,13 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
             ) : (
               filteredRecords.slice(-500).map((r, idx) => (
                 <div key={idx} className="whitespace-pre-wrap break-words">
-                  <span className="text-zinc-500">{fmtTime(r.tsMs)}</span>{' '}
-                  <span className={levelColor(r.level)}>{r.level.toUpperCase()}</span>{' '}
-                  <span className="text-zinc-200">{r.msg}</span>
-                  {r.fields ? <span className="text-zinc-400"> {safeStringify(r.fields)}</span> : null}
-                  {r.data !== undefined ? <span className="text-zinc-500"> data={safeStringify(r.data)}</span> : null}
-                  {r.err ? <span className="text-red-200"> err={safeStringify(r.err)}</span> : null}
+                  {/* <span className="text-zinc-500">{fmtTime(r.tsMs)}</span>{' '} */}
+                  <span className={levelColor(r.level)}>{r.msg}</span>
+                  {r.fields ? <span className={levelColor(r.level)}> {safeStringify(r.fields)}</span> : null}
+                  {r.data !== undefined ? (
+                    <span className={levelColor(r.level)}> data={safeStringify(r.data)}</span>
+                  ) : null}
+                  {r.err ? <span className={levelColor(r.level)}> err={safeStringify(r.err)}</span> : null}
                 </div>
               ))
             )}
