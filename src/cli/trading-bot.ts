@@ -192,7 +192,7 @@ async function main(): Promise<void> {
 
   // Patch early so logs from deep modules (e.g. blockchain balance checks) show up in WebUI/jsonl too.
   if (teeConsoleToWebUi || logToFile) {
-    restoreConsole = patchConsole((consoleCaptureLogger ?? logger).child({ channel: 'console' }), {
+    restoreConsole = patchConsole(consoleCaptureLogger ?? logger, {
       teeToOrigConsole: true,
     })
 
