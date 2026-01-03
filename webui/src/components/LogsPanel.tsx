@@ -63,7 +63,8 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
         const fields = r.fields ? ` ${JSON.stringify(r.fields)}` : ''
         const data = r.data !== undefined ? ` data=${JSON.stringify(r.data)}` : ''
         const err = r.err ? ` err=${JSON.stringify(r.err)}` : ''
-        return `${fmtTime(r.tsMs)} ${r.level.toUpperCase().padEnd(5, ' ')} ${r.msg}${fields}${data}${err}`
+        // We intentionally omit the level label (INFO/WARN/ERROR) from the visible log line.
+        return `${fmtTime(r.tsMs)} ${r.msg}${fields}${data}${err}`
       })
       .join('\n')
   }, [filteredRecords])
@@ -145,8 +146,7 @@ export function LogsPanel(props: { logLines: string[]; logRecords: LogRecord[] }
               filteredRecords.slice(-500).map((r, idx) => (
                 <div key={idx} className="whitespace-pre-wrap break-words">
                   <span className="text-zinc-500">{fmtTime(r.tsMs)}</span>{' '}
-                  <span className={levelColor(r.level)}>{r.level.toUpperCase().padEnd(5, ' ')}</span>{' '}
-                  <span className="text-zinc-200">{r.msg}</span>
+                  <span className={levelColor(r.level)}>{r.msg}</span>
                   {r.fields ? <span className="text-zinc-400"> {JSON.stringify(r.fields)}</span> : null}
                   {r.data !== undefined ? <span className="text-zinc-500"> data={JSON.stringify(r.data)}</span> : null}
                   {r.err ? <span className="text-red-200"> err={JSON.stringify(r.err)}</span> : null}
