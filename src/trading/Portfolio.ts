@@ -570,7 +570,6 @@ export class Portfolio {
       qty: 0,
       avgEntryPrice: null,
       costBasis: 0,
-      realizedPnl: 0,
     }
 
     const size = Math.max(0, clampFinite(f.size, 0))
@@ -593,7 +592,6 @@ export class Portfolio {
         qty: round2(newQty),
         avgEntryPrice: avg === null ? null : round2(avg),
         costBasis: round2(newCostBasis),
-        realizedPnl: prev.realizedPnl,
       })
 
       // Log positions after BUY
@@ -615,8 +613,8 @@ export class Portfolio {
     const remainingCostBasis = Math.max(0, prevCostBasis - costRemoved)
 
     // Realize PnL against average cost-per-share (more consistent than rounded avgEntryPrice).
-    const realized = round2(prev.realizedPnl + (price - avgCostPerShare) * sellQty)
-    const realizedDelta = round2(realized - prev.realizedPnl)
+    // We keep only portfolio-level realized PnL (cumulative across all assets).
+    const realizedDelta = round2((price - avgCostPerShare) * sellQty)
     if (Number.isFinite(realizedDelta))
       this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
     if (remainingQty > 0) {
@@ -626,7 +624,6 @@ export class Portfolio {
         qty: round2(remainingQty),
         avgEntryPrice: nextAvg === null ? null : round2(nextAvg),
         costBasis: round2(remainingCostBasis),
-        realizedPnl: realized,
       })
 
       // Log positions after SELL (partial)
@@ -675,7 +672,6 @@ export class Portfolio {
             qty: p.qty,
             avgEntry: fmt4(p.avgEntryPrice),
             costBasis: costBasis === null ? 'N/A' : Number(costBasis.toFixed(4)),
-            realizedPnl: Number(p.realizedPnl.toFixed(4)),
           }
         })
         .sort((a, b) => (a.market < b.market ? -1 : a.market > b.market ? 1 : 0))

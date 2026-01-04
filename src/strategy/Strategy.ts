@@ -102,7 +102,6 @@ export type Position = {
    * without tracking FIFO lots.
    */
   costBasis: number
-  realizedPnl: number
 }
 
 export type Fill = {

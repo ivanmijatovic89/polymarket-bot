@@ -14,7 +14,7 @@ export type RiskLimits = {
   maxAbsPosition: number
   /**
    * Stop trading (block new place_limit intents) once realized PnL breaches this loss.
-   * Units are the same as Portfolio's realizedPnl (price units * shares).
+   * Units are the same as Portfolio's realizedPnlTotal (price units * shares).
    */
   maxLossStop: number
 }
@@ -30,13 +30,8 @@ export const DEFAULT_RISK_LIMITS: RiskLimits = {
 type Blocked = { intent: Intent; reason: string }
 
 function realizedPnlTotal(p: PortfolioSnapshot): number {
-  if (typeof p.realizedPnlTotal === 'number' && Number.isFinite(p.realizedPnlTotal))
-    return p.realizedPnlTotal
-  let sum = 0
-  for (const pos of Object.values(p.positionsByAssetId)) {
-    if (Number.isFinite(pos.realizedPnl)) sum += pos.realizedPnl
-  }
-  return sum
+  const x = p.realizedPnlTotal
+  return typeof x === 'number' && Number.isFinite(x) ? x : 0
 }
 
 function openExposureByAssetId(p: PortfolioSnapshot): {
