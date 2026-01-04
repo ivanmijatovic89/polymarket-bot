@@ -261,24 +261,21 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
           <div className="text-[16px] text-zinc-400">n/a</div>
         ) : pm ? (
           <div className="space-y-2">
-            <div className="rounded-md bg-zinc-900/40 ring-1 ring-zinc-800 px-3 py-2">
-              <div className="flex items-center justify-between gap-3 mb-2">
-                <div className="text-[14px] text-zinc-300 font-semibold">Position Metrics</div>
-                <div className="text-[12px] text-zinc-500 font-mono">avg-cost + costBasis</div>
+            {/* compact inline Position Metrics (easy to move elsewhere later) */}
+            <div className="flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md bg-zinc-900/25 ring-1 ring-zinc-700/60 px-2 py-1.5">
+              <div className="flex items-center gap-2">
+                <div className="text-[12px] font-semibold text-zinc-300">Position Metrics</div>
+                <div className="text-[11px] text-zinc-500 font-mono">avg-cost + costBasis</div>
               </div>
 
-              <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
-                {/* Shares */}
-                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
-                  <div className="text-[12px] text-zinc-500 mb-1">Shares</div>
-                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
-                    <div className="text-zinc-400">mergeable</div>
-                    <div className="text-right">{fmtNum(pm.shares_mergeable)}</div>
-                    <div className="text-zinc-400">imbalance</div>
-                    <div className="text-right">{fmtNum(pm.imbalance)}</div>
-                  </div>
-                </div>
+              <div className="mx-1 hidden h-4 w-px bg-zinc-700/60 sm:block" />
 
+              <div className="flex items-center gap-2">
+                <div className="text-[12px] text-zinc-400">Shares</div>
+                <div className="text-[12px] text-zinc-500">mergeable</div>
+                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">{fmtNum(pm.shares_mergeable)}</div>
+                <div className="text-[12px] text-zinc-500">imbalance</div>
+                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">{fmtNum(pm.imbalance)}</div>
               </div>
             </div>
 
