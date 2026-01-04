@@ -1,5 +1,5 @@
 import type { BotUiSnapshot } from '../types'
-import { fmtCents, fmtPrice } from '../utils/format'
+import { clsRedGreen, fmtCents, fmtPrice } from '../utils/format'
 
 const thBase = 'sticky top-0 bg-zinc-900/60 px-3 py-2'
 const tdBase = 'px-3 py-2 whitespace-nowrap'
@@ -53,7 +53,6 @@ type Position = {
   qty: number
   avgEntryPrice: number | null
   costBasis: number
-  realizedPnl: number
 }
 
 type OpenOrder = {
@@ -293,7 +292,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <th className={thNum}>costBasis</th>
                       <th className={thNum}>REDEEM/MERGE pnl</th>
                       <th className={thBase}>market</th>
-                      <th className={thNum}>realizedPnl</th>
+                      {/* realizedPnl (per-asset) removed; only global realizedPnlTotal is tracked */}
                     </tr>
                   </thead>
                   <tbody className="font-mono text-zinc-200 tabular-nums">
@@ -312,9 +311,9 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                           <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
                           <td className={tdNum}>{fmtCents(avg, { fixed: true })}</td>
                           <td className={tdNum}>{fmtCents(p?.costBasis, { fixed: true })}</td>
-                          <td className={tdNum}>{fmtPrice(pnl_if_asset_wins)}</td>
+                          <td className={`${tdNum} ${clsRedGreen(pnl_if_asset_wins)}`}>{fmtPrice(pnl_if_asset_wins)}</td>
                           <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
-                          <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
+                          {/* realizedPnl removed */}
                         </tr>
                       )
                     })}
@@ -329,8 +328,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <td className={`${tdNum} ${colPrice}`}>-</td>
                       <td className={tdNum}>{fmtCents(pm.pair_avg, { fixed: true })}</td>
                       <td className={tdNum}>{fmtCents(pm.total_cost, { fixed: true })}</td>
-                      <td className={tdNum}>{fmtPrice(pm.pnl_merge)}</td>
-                      <td className={tdBase}>—</td>
+                      <td className={`${tdNum} ${clsRedGreen(pm.pnl_merge)}`}>{fmtPrice(pm.pnl_merge)}</td>
                       <td className={tdBase}>—</td>
                     </tr>
                   </tbody>
@@ -352,7 +350,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <th className={thNum}>avgEntryPrice</th>
                   <th className={thNum}>costBasis</th>
                   <th className={thBase}>market</th>
-                  <th className={thNum}>realizedPnl</th>
+                  {/* realizedPnl (per-asset) removed; only global realizedPnlTotal is tracked */}
                 </tr>
               </thead>
               <tbody className="font-mono text-zinc-200 tabular-nums">
@@ -371,7 +369,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <td className={tdNum}>{fmtCents(avg)}</td>
                       <td className={tdNum}>{fmtNum(p?.costBasis)}</td>
                       <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
-                      <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
+                      {/* realizedPnl removed */}
                     </tr>
                   )
                 })}

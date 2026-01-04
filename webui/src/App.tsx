@@ -95,13 +95,12 @@ function makeMockPortfolio(snapshot: any) {
     nowMs: now,
     realizedPnlTotal: 0.42,
     positionsByAssetId: {
-      [up]: { assetId: up, qty: posUpQty, avgEntryPrice: upAvgEntry, costBasis: upCostBasis, realizedPnl: 0.12 },
+      [up]: { assetId: up, qty: posUpQty, avgEntryPrice: upAvgEntry, costBasis: upCostBasis },
       [down]: {
         assetId: down,
         qty: posDownQty,
         avgEntryPrice: downAvgEntry,
         costBasis: downCostBasis,
-        realizedPnl: -0.03,
       },
     },
     positionMetrics: {
@@ -280,10 +279,10 @@ export function App() {
           </div>
 
           <div className="flex min-w-0 flex-1 items-center justify-center">
-              <div className="flex  bg-green-500 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-r-none ">
+              <div className="flex ring-1 bg-green-600/80 ring-green-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-r-none">
                 <span className="text-white">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
-              <div className="flex  bg-red-500 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-l-none ">
+              <div className="flex ring-1 bg-red-600/80 ring-red-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-l-none">
                 <span className="text-white">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
           </div>

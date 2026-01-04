@@ -42,4 +42,15 @@ export function fmtPrice(n: number | undefined | null, opts?: FmtPriceOptions): 
   }).format(n)
 }
 
+/**
+ * Returns Tailwind classes to color text red/green based on sign.
+ * Uses the same colors as Open Orders "side" (BUY/SELL) labels.
+ */
+export function clsRedGreen(n: number | undefined | null): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return ''
+  if (n > 0) return 'font-semibold text-green-400'
+  if (n < 0) return 'font-semibold text-red-400'
+  return ''
+}
+
 
