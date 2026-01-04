@@ -2,7 +2,12 @@ import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
-import { ExecutedOrdersTablePanel, OpenOrdersTablePanel, PositionsTablePanel } from './components/PortfolioPanels'
+import {
+  ExecutedOrdersTablePanel,
+  OpenOrdersTablePanel,
+  OrdersByClientIdTablePanel,
+  PositionsTablePanel,
+} from './components/PortfolioPanels'
 import { VolatilityPanel } from './components/VolatilityPanel'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
@@ -48,14 +53,191 @@ function fmtMs(ms: number): string {
   return `${m}:${ss}`
 }
 
+function makeMockPortfolio(snapshot: any) {
+  const now = Date.now()
+  const up = snapshot?.status?.upAssetId ?? 'UP_ASSET_ID'
+  const down = snapshot?.status?.downAssetId ?? 'DOWN_ASSET_ID'
+  const slug = snapshot?.status?.slug ?? 'up-down-15m-mock'
+
+  const clientA = 'mock_cli_001'
+  const clientB = 'mock_cli_002'
+  const clientC = 'mock_cli_003'
+  const orderA = '0xmock_order_a'
+  const orderB = '0xmock_order_b'
+  const orderC = '0xmock_order_c'
+
+  // Polymarket-style prices: 0..100 cents.
+  // Make them roughly complementary so UP + DOWN ~= 100.
+  const pxUp = 54.2
+  const pxDown = 45.8
+
+  // Shares are typically small integers/decimals.
+  // We'll keep sizes simple and consistent with fills/orders.
+  const posUpQty = 18 // shares
+  const posDownQty = 6 // shares
+
+  // Weighted average entry for UP: 10 @ 54.0 + 8 @ 54.5 => 54.222...
+  const upAvgEntry = (10 * 54.0 + 8 * 54.5) / 18
+  const downAvgEntry = 46.1 // bought earlier slightly worse than current 45.8
+
+  return {
+    nowMs: now,
+    realizedPnlTotal: 0.42,
+    positionsByAssetId: {
+      [up]: { assetId: up, qty: posUpQty, avgEntryPrice: upAvgEntry, realizedPnl: 0.12 },
+      [down]: { assetId: down, qty: posDownQty, avgEntryPrice: downAvgEntry, realizedPnl: -0.03 },
+    },
+    openOrdersByClientId: {
+      [clientA]: {
+        clientOrderId: clientA,
+        orderId: orderA,
+        market: slug,
+        assetId: up,
+        side: 'BUY',
+        // Recently placed bid slightly below last traded price
+        price: 54.0,
+        size: 25,
+        remaining: 17,
+        filled: 8,
+        orderType: 'GTC',
+        state: 'partially_filled',
+        createdAtMs: now - 75_000,
+        updatedAtMs: now - 4_000,
+      },
+      [clientB]: {
+        clientOrderId: clientB,
+        orderId: orderB,
+        market: slug,
+        assetId: down,
+        side: 'SELL',
+        // Offer slightly above "fair" for DOWN
+        price: 46.6,
+        size: 6,
+        remaining: 6,
+        filled: 0,
+        orderType: 'GTC',
+        state: 'open',
+        createdAtMs: now - 40_000,
+        updatedAtMs: now - 10_000,
+      },
+    },
+    ordersByClientId: {
+      [clientA]: {
+        clientOrderId: clientA,
+        orderId: orderA,
+        assetId: up,
+        side: 'BUY',
+        price: 54.0,
+        originalSize: 25,
+        sizeMatched: 8,
+        remaining: 17,
+        lifecycleState: 'partially_filled',
+        tradeStatusRaw: 'MATCHED',
+        tradeStatusRank: 1,
+        updatedAtMs: now - 4_000,
+      },
+      [clientB]: {
+        clientOrderId: clientB,
+        orderId: orderB,
+        assetId: down,
+        side: 'SELL',
+        price: 46.6,
+        originalSize: 6,
+        sizeMatched: 0,
+        remaining: 6,
+        lifecycleState: 'open',
+        tradeStatusRank: 0,
+        updatedAtMs: now - 10_000,
+      },
+      [clientC]: {
+        clientOrderId: clientC,
+        orderId: orderC,
+        assetId: up,
+        side: 'BUY',
+        // Older completed order: fully filled and confirmed
+        price: 54.5,
+        originalSize: 10,
+        sizeMatched: 10,
+        remaining: 0,
+        lifecycleState: 'filled',
+        tradeStatusRaw: 'CONFIRMED',
+        tradeStatusRank: 3,
+        updatedAtMs: now - 180_000,
+      },
+    },
+    wsOpenOrdersByOrderId: {
+      '0xmock_ws_only': {
+        orderId: '0xmock_ws_only',
+        market: slug,
+        assetId: up,
+        side: 'SELL',
+        // A small ask sitting above the market
+        price: 55.5,
+        originalSize: 5,
+        sizeMatched: 0,
+        status: 'OPEN',
+        orderType: 'GTC',
+        updatedAtMs: now - 2_500,
+      },
+    },
+    recentFills: [
+      {
+        id: 'mock_fill_003',
+        tsMs: now - 12_000,
+        market: slug,
+        assetId: up,
+        side: 'BUY',
+        price: 54.0,
+        size: 8,
+        feeRateBps: 2,
+        clientOrderId: clientA,
+        orderId: orderA,
+        liquidity: 'MAKER',
+      },
+      {
+        id: 'mock_fill_002',
+        tsMs: now - 160_000,
+        market: slug,
+        assetId: up,
+        side: 'BUY',
+        price: 54.5,
+        size: 10,
+        feeRateBps: 5,
+        clientOrderId: clientC,
+        orderId: orderC,
+        liquidity: 'TAKER',
+      },
+      {
+        id: 'mock_fill_001',
+        tsMs: now - 300_000,
+        market: slug,
+        assetId: down,
+        side: 'BUY',
+        price: 46.1,
+        size: posDownQty,
+        feeRateBps: 2,
+        liquidity: 'MAKER',
+      },
+    ],
+    marketByAssetId: {
+      [up]: slug,
+      [down]: slug,
+    },
+  }
+}
+
 export function App() {
   const { status, snapshot, logLines } = useBotWs()
-  const upAsk = snapshot ? bestAskFromBook(snapshot.books.up) : null
-  const downAsk = snapshot ? bestAskFromBook(snapshot.books.down) : null
-  const strategy = snapshot?.strategy
-  const indEnabled = snapshot?.strategy?.indicators ?? []
-  const feedsDataKeys = snapshot ? feedKeysFromData(snapshot) : []
-  const hasVolatility = Boolean((snapshot as any)?.indicators?.volatility)
+  const mockPortfolioEnabled = new URLSearchParams(window.location.search).has('mockPortfolio')
+  const displaySnapshot =
+    snapshot && mockPortfolioEnabled ? ({ ...snapshot, portfolio: makeMockPortfolio(snapshot) } as any) : snapshot
+
+  const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
+  const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
+  const strategy = displaySnapshot?.strategy
+  const indEnabled = displaySnapshot?.strategy?.indicators ?? []
+  const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
+  const hasVolatility = Boolean((displaySnapshot as any)?.indicators?.volatility)
 
   return (
     <div className="min-h-screen">
@@ -64,9 +246,9 @@ export function App() {
           <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
             <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
             <ConnectionBadge status={status} />
-            {snapshot ? (
+            {displaySnapshot ? (
               <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                ⏳ <span className="ml-1 font-mono">{fmtMs(snapshot.status.candleLeftMs)}</span>
+                ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
               </span>
             ) : null}
           </div>
@@ -81,16 +263,16 @@ export function App() {
           </div>
 
           <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
-            {snapshot ? (
+            {displaySnapshot ? (
               <>
                 <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  slug <span className="ml-1 font-mono">{snapshot.status.slug ?? 'n/a'}</span>
+                  slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
                 </span>
                 <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  ws attempt <span className="ml-1 font-mono">{snapshot.status.wsAttempt}</span>
+                  ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
                 </span>
                 <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  ws events <span className="ml-1 font-mono">{snapshot.status.wsEventsTotal}</span>
+                  ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
                 </span>
               </>
             ) : (
@@ -101,18 +283,19 @@ export function App() {
       </header>
 
       <main className="mx-auto  px-2 py-2 pb-16">
-        {!snapshot ? (
+        {!displaySnapshot ? (
           <div className="panel panel-b text-zinc-300">waiting for snapshot…</div>
         ) : (
           <div className="space-y-2">
             {/* Full-width row under header */}
-            <ExternalFeedsPanel snapshot={snapshot} />
+            <ExternalFeedsPanel snapshot={displaySnapshot} />
 
             {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
-              <PositionsTablePanel snapshot={snapshot} />
-              <OpenOrdersTablePanel snapshot={snapshot} />
-              <ExecutedOrdersTablePanel snapshot={snapshot} />
+              <PositionsTablePanel snapshot={displaySnapshot} />
+              <OpenOrdersTablePanel snapshot={displaySnapshot} />
+              <OrdersByClientIdTablePanel snapshot={displaySnapshot} />
+              <ExecutedOrdersTablePanel snapshot={displaySnapshot} />
             </div>
 
 
@@ -127,11 +310,11 @@ export function App() {
               }`}
             >
               <div className="space-y-2 min-w-0">
-                <OrderbooksPanel up={snapshot.books.up} down={snapshot.books.down} />
+                <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
               </div>
               {hasVolatility ? (
                 <div className="space-y-2 min-w-0">
-                  <VolatilityPanel snapshot={snapshot} />
+                  <VolatilityPanel snapshot={displaySnapshot} />
                 </div>
               ) : null}
             </div>
