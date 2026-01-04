@@ -1,5 +1,5 @@
 import type { BotUiSnapshot } from '../types'
-import { fmtCents } from '../utils/format'
+import { fmtCents, fmtPrice } from '../utils/format'
 
 const thBase = 'sticky top-0 bg-zinc-900/60 px-3 py-2'
 const tdBase = 'px-3 py-2 whitespace-nowrap'
@@ -28,6 +28,14 @@ function AssetBadge(props: { snapshot: BotUiSnapshot; assetId?: string | null })
       className={`inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-semibold tracking-wide text-white ring-1 ${cls}`}
     >
       {tag}
+    </span>
+  )
+}
+
+function MergeBadge() {
+  return (
+    <span className="inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-semibold tracking-wide text-white ring-1 bg-purple-600/80 ring-purple-400/30">
+      MERGE
     </span>
   )
 }
@@ -137,19 +145,12 @@ type PortfolioSnapshot = {
   marketByAssetId: Record<string, string>
   positionMetrics?: {
     shares_mergeable: number
-    shares_up_unpaired: number
-    shares_down_unpaired: number
-    is_fully_hedged: boolean
     pair_avg: number | null
-    up_avg: number | null
-    down_avg: number | null
-    up_cost: number
-    down_cost: number
     total_cost: number
     pnl_merge: number
     pnl_if_up_wins: number
     pnl_if_down_wins: number
-    net_shares: number
+    imbalance: number
   }
 }
 
@@ -212,8 +213,8 @@ function markPriceCents(snapshot: BotUiSnapshot, assetId: string | undefined | n
   const ask = book?.bestAsk
   const bidOk = typeof bid === 'number' && Number.isFinite(bid)
   const askOk = typeof ask === 'number' && Number.isFinite(ask)
-  if (bidOk && askOk) return (bid! + ask!) / 2
   if (askOk) return ask!
+  if (bidOk && askOk) return (bid! + ask!) / 2
   if (bidOk) return bid!
   return null
 }
@@ -239,6 +240,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
   const portfolio = asPortfolio(props.snapshot)
   const positions = portfolio ? Object.entries(portfolio.positionsByAssetId) : []
   const pm = portfolio?.positionMetrics
+
 
   return (
     <div className="panel">
@@ -268,48 +270,11 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
                     <div className="text-zinc-400">mergeable</div>
                     <div className="text-right">{fmtNum(pm.shares_mergeable)}</div>
-                    <div className="text-zinc-400">up unpaired</div>
-                    <div className="text-right">{fmtNum(pm.shares_up_unpaired)}</div>
-                    <div className="text-zinc-400">down unpaired</div>
-                    <div className="text-right">{fmtNum(pm.shares_down_unpaired)}</div>
-                    <div className="text-zinc-400">fully hedged</div>
-                    <div className="text-right">{fmtBool(pm.is_fully_hedged)}</div>
-                    <div className="text-zinc-400">net shares</div>
-                    <div className="text-right">{fmtNum(pm.net_shares)}</div>
+                    <div className="text-zinc-400">imbalance</div>
+                    <div className="text-right">{fmtNum(pm.imbalance)}</div>
                   </div>
                 </div>
 
-                {/* Costs */}
-                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
-                  <div className="text-[12px] text-zinc-500 mb-1">Costs</div>
-                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
-                    <div className="text-zinc-400">up avg</div>
-                    <div className="text-right">{fmtNum(pm.up_avg)}</div>
-                    <div className="text-zinc-400">down avg</div>
-                    <div className="text-right">{fmtNum(pm.down_avg)}</div>
-                    <div className="text-zinc-400">pair avg</div>
-                    <div className="text-right">{fmtNum(pm.pair_avg)}</div>
-                    <div className="text-zinc-400">up cost</div>
-                    <div className="text-right">{fmtNum(pm.up_cost)}</div>
-                    <div className="text-zinc-400">down cost</div>
-                    <div className="text-right">{fmtNum(pm.down_cost)}</div>
-                    <div className="text-zinc-400">total cost</div>
-                    <div className="text-right">{fmtNum(pm.total_cost)}</div>
-                  </div>
-                </div>
-
-                {/* Scenarios */}
-                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
-                  <div className="text-[12px] text-zinc-500 mb-1">Scenarios (PnL)</div>
-                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
-                    <div className="text-zinc-400">merge</div>
-                    <div className="text-right">{fmtNum(pm.pnl_merge)}</div>
-                    <div className="text-zinc-400">if UP wins</div>
-                    <div className="text-right">{fmtNum(pm.pnl_if_up_wins)}</div>
-                    <div className="text-zinc-400">if DOWN wins</div>
-                    <div className="text-right">{fmtNum(pm.pnl_if_down_wins)}</div>
-                  </div>
-                </div>
               </div>
             </div>
 
@@ -325,6 +290,8 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <th className={`${thNum} ${colSize}`}>size</th>
                       <th className={`${thNum} ${colPrice}`}>price</th>
                       <th className={thNum}>avgEntryPrice</th>
+                      <th className={thNum}>costBasis</th>
+                      <th className={thNum}>REDEEM/MERGE pnl</th>
                       <th className={thBase}>market</th>
                       <th className={thNum}>realizedPnl</th>
                     </tr>
@@ -334,6 +301,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       const resolvedAssetId = p?.assetId ?? assetId
                       const mark = markPriceCents(props.snapshot, resolvedAssetId)
                       const avg = typeof p?.avgEntryPrice === 'number' ? p.avgEntryPrice : null
+                      const pnl_if_asset_wins = assetTag(props.snapshot, p?.assetId) === 'UP' ? pm.pnl_if_up_wins : pm.pnl_if_down_wins
                       return (
                         <tr key={assetId} className={`${rowBase} ${rowZebra}`}>
                           <td className={`${tdBase} ${colAsset}`}>
@@ -342,12 +310,29 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                           <td className={`${tdBase} ${colSide}`}>—</td>
                           <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
                           <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
-                          <td className={tdNum}>{fmtCents(avg)}</td>
+                          <td className={tdNum}>{fmtCents(avg, { fixed: true })}</td>
+                          <td className={tdNum}>{fmtCents(p?.costBasis, { fixed: true })}</td>
+                          <td className={tdNum}>{fmtPrice(pnl_if_asset_wins)}</td>
                           <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
                           <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
                         </tr>
                       )
                     })}
+
+                    {/* Synthetic row: merge outcome summary */}
+                    <tr key="merge" className={`${rowBase} ${rowZebra}`}>
+                      <td className={`${tdBase} ${colAsset}`}>
+                        <MergeBadge />
+                      </td>
+                      <td className={`${tdBase} ${colSide}`}>—</td>
+                      <td className={`${tdNum} ${colSize}`}>{fmtNum(pm.shares_mergeable)}</td>
+                      <td className={`${tdNum} ${colPrice}`}>-</td>
+                      <td className={tdNum}>{fmtCents(pm.pair_avg, { fixed: true })}</td>
+                      <td className={tdNum}>{fmtCents(pm.total_cost, { fixed: true })}</td>
+                      <td className={tdNum}>{fmtPrice(pm.pnl_merge)}</td>
+                      <td className={tdBase}>—</td>
+                      <td className={tdBase}>—</td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -365,6 +350,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <th className={`${thNum} ${colSize}`}>size</th>
                   <th className={`${thNum} ${colPrice}`}>price</th>
                   <th className={thNum}>avgEntryPrice</th>
+                  <th className={thNum}>costBasis</th>
                   <th className={thBase}>market</th>
                   <th className={thNum}>realizedPnl</th>
                 </tr>
@@ -383,6 +369,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
                       <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
                       <td className={tdNum}>{fmtCents(avg)}</td>
+                      <td className={tdNum}>{fmtNum(p?.costBasis)}</td>
                       <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
                       <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
                     </tr>

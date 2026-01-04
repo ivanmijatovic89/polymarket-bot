@@ -89,7 +89,7 @@ function makeMockPortfolio(snapshot: any) {
   const sharesUpUnpaired = posUpQty - sharesMergeable
   const sharesDownUnpaired = posDownQty - sharesMergeable
   const totalShares = posUpQty + posDownQty
-  const pairAvg = totalShares > 0 ? totalCost / totalShares : null
+  const pairAvg = upAvgEntry + downAvgEntry
 
   return {
     nowMs: now,
@@ -106,19 +106,12 @@ function makeMockPortfolio(snapshot: any) {
     },
     positionMetrics: {
       shares_mergeable: sharesMergeable,
-      shares_up_unpaired: sharesUpUnpaired,
-      shares_down_unpaired: sharesDownUnpaired,
-      is_fully_hedged: posUpQty === posDownQty,
       pair_avg: pairAvg,
-      up_avg: upAvgEntry,
-      down_avg: downAvgEntry,
-      up_cost: upCostBasis,
-      down_cost: downCostBasis,
       total_cost: totalCost,
       pnl_merge: sharesMergeable - totalCost,
       pnl_if_up_wins: posUpQty - totalCost,
       pnl_if_down_wins: posDownQty - totalCost,
-      net_shares: posUpQty - posDownQty,
+      imbalance: posUpQty - posDownQty,
     },
     openOrdersByClientId: {
       [clientA]: {

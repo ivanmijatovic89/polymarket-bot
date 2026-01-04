@@ -191,28 +191,19 @@ export type OrderSnapshot = {
  */
 export type PositionMetrics = {
   shares_mergeable: number
-  shares_up_unpaired: number
-  shares_down_unpaired: number
-  is_fully_hedged: boolean
 
-  /** Overall blended average cost/share across UP+DOWN combined. */
+  /**
+   * Cost of 1 "merge pair" (1 UP share + 1 DOWN share) under average-cost accounting:
+   * pair_avg = up_avg + down_avg
+   */
   pair_avg: number | null
-  /** Average cost/share for UP position (average-cost). */
-  up_avg: number | null
-  /** Average cost/share for DOWN position (average-cost). */
-  down_avg: number | null
-
-  /** Average-cost cost basis of remaining UP shares. */
-  up_cost: number
-  /** Average-cost cost basis of remaining DOWN shares. */
-  down_cost: number
   /** Total cost basis across UP+DOWN. */
   total_cost: number
 
   pnl_merge: number
   pnl_if_up_wins: number
   pnl_if_down_wins: number
-  net_shares: number
+  imbalance: number
 }
 
 export type PortfolioSnapshot = {

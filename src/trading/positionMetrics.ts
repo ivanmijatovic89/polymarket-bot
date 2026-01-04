@@ -34,29 +34,16 @@ export function computePositionMetrics(args: {
   const down_avg = down_shares > 0 ? down_cost / down_shares : null
 
   const shares_mergeable = Math.min(up_shares, down_shares)
-  const shares_up_unpaired = up_shares - shares_mergeable
-  const shares_down_unpaired = down_shares - shares_mergeable
-  const is_fully_hedged = up_shares === down_shares
-
-  // Overall blended avg cost/share across UP+DOWN combined (not just mergeable portion).
-  const total_shares = up_shares + down_shares
-  const pair_avg = total_shares > 0 ? total_cost / total_shares : null
+  const pair_avg = up_avg !== null && down_avg !== null ? up_avg + down_avg : null
 
   return {
     shares_mergeable,
-    shares_up_unpaired,
-    shares_down_unpaired,
-    is_fully_hedged,
     pair_avg,
-    up_avg,
-    down_avg,
-    up_cost,
-    down_cost,
     total_cost,
     pnl_merge: shares_mergeable - total_cost,
     pnl_if_up_wins: up_shares - total_cost,
     pnl_if_down_wins: down_shares - total_cost,
-    net_shares: up_shares - down_shares,
+    imbalance: up_shares - down_shares,
   }
 }
 

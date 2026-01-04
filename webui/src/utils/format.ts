@@ -17,4 +17,29 @@ export function fmtCents(n: number | undefined | null, opts?: FmtCentsOptions): 
   return cents.toFixed(digits)
 }
 
+export type FmtPriceOptions = {
+  /**
+   * Number of decimal places to show.
+   * - 0 => rounds to whole numbers
+   * - 2 => typical USD/USDT
+   *
+   * Default: 2
+   */
+  decimals?: number
+}
+
+/**
+ * Formats a number with thousands separators, e.g. 1000.55 => "1,000.55".
+ * Uses en-US formatting to match the requested output.
+ */
+export function fmtPrice(n: number | undefined | null, opts?: FmtPriceOptions): string {
+  if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'
+  const decimalsRaw = typeof opts?.decimals === 'number' && Number.isFinite(opts.decimals) ? opts.decimals : 2
+  const decimals = Math.max(0, Math.floor(decimalsRaw))
+  return new Intl.NumberFormat('en-US', {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(n)
+}
+
 
