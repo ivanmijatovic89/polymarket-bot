@@ -82,6 +82,52 @@ function asTsMsFromSecish(tsSec: unknown): number {
   return Date.now()
 }
 
+function fmtNum(v: unknown, dp = 6): string {
+  const n = typeof v === 'string' ? Number(v) : Number(v)
+  if (!Number.isFinite(n)) return '?'
+  return n.toFixed(dp).replace(/\.?0+$/, '')
+}
+
+function summarizeUserWsRaw(raw: string): string | null {
+  let obj: unknown
+  try {
+    obj = JSON.parse(raw)
+  } catch {
+    return null
+  }
+
+  const top = asTopLevelRecord(obj)
+  if (!top) return null
+  const rec = unwrapUserWsPayload(top)
+
+  const eventType = rec.event_type
+
+  if (eventType === 'trade') {
+    const status = typeof rec.status === 'string' ? rec.status : 'UNKNOWN'
+    const side = rec.side === 'BUY' || rec.side === 'SELL' ? rec.side : '?'
+    const outcome =
+      typeof rec.outcome === 'string' ? rec.outcome : typeof rec.asset_id === 'string' ? rec.asset_id : '?'
+    const size = fmtNum(rec.size, 4)
+    const price = fmtNum(rec.price, 6)
+    return `TRADE ${status} > ${side} ${outcome} ${size}@${price}`
+  }
+
+  if (eventType === 'order') {
+    const type =
+      rec.type === 'PLACEMENT' || rec.type === 'UPDATE' || rec.type === 'CANCELLATION' ? rec.type : 'UPDATE'
+    const side = rec.side === 'BUY' || rec.side === 'SELL' ? rec.side : '?'
+    const outcome =
+      typeof rec.outcome === 'string' ? rec.outcome : typeof rec.asset_id === 'string' ? rec.asset_id : '?'
+    const price = fmtNum(rec.price, 6)
+    const orig = fmtNum(rec.original_size, 4)
+    const matched = fmtNum(rec.size_matched, 4)
+    return `ORDER ${type} > ${side} ${outcome} ${matched}/${orig}@${price}`
+  }
+
+  if (typeof eventType === 'string') return `EVENT ${eventType}`
+  return null
+}
+
 function parseUserChannelEvent(
   raw: string,
   state: {
@@ -410,7 +456,12 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
         conn?.send(JSON.stringify(authMsg))
       },
       onMessageText: (raw) => {
+
+        const summary = summarizeUserWsRaw(raw)
+        if (summary) console.log('[ws-user][⚡️]', summary)
+
         console.log('[ws-user][⚡️] Received raw message:', raw)
+
         const events = parseUserChannelEvent(raw, parseState)
         if (events.length === 0) {
           console.log('[ws-user] Message did not parse into any events (might be error/subscription response)')
