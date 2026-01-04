@@ -1,8 +1,12 @@
 import type { BotUiSnapshot } from '../types'
 import { clsRedGreen, fmtCents, fmtPrice } from '../utils/format'
 
-const thBase = 'sticky top-0 bg-zinc-900/60 px-3 py-2'
-const tdBase = 'px-3 py-2 whitespace-nowrap'
+// Table styling for portfolio sections:
+// - keep tables readable in dark mode (lighter surfaces, clearer borders)
+// - avoid stretching columns on wide screens (use natural/max-content width)
+const thBase =
+  'sticky top-0 z-10 bg-zinc-800/40 backdrop-blur px-3 py-2 border-b border-zinc-700/50 text-[12px] font-semibold uppercase tracking-wide text-zinc-300'
+const tdBase = 'px-3 py-2 whitespace-nowrap align-middle'
 const colAsset = 'w-[80px] min-w-[80px]'
 const colSide = 'w-[80px] min-w-[80px]'
 const colSize = 'w-[80px] min-w-[80px]'
@@ -10,9 +14,10 @@ const colPrice = 'w-[110px] min-w-[110px]'
 const thNum = `${thBase} text-right`
 const tdNum = `${tdBase} text-right tabular-nums`
 const rowBase = 'border-t border-zinc-800/60 hover:bg-zinc-800/20'
-const rowZebra = 'odd:bg-zinc-900/20'
-const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800'
-const tableBase = 'w-full border-separate border-spacing-0 text-[14px]'
+const rowZebra = 'odd:bg-zinc-900/10'
+const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-950/20 ring-1 ring-zinc-700/60'
+// w-max prevents columns from stretching as the viewport grows; the wrapper provides horizontal scroll when needed.
+const tableBase = 'w-max border-separate border-spacing-0 text-[14px] table-auto'
 
 function AssetBadge(props: { snapshot: BotUiSnapshot; assetId?: string | null }) {
   if (!props.assetId) return <span className="text-zinc-400">n/a</span>
@@ -283,7 +288,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
               <div className={tableWrap}>
                 <table className={tableBase}>
                   <thead>
-                    <tr className="text-left text-zinc-400">
+                    <tr className="text-left">
                       <th className={`${thBase} ${colAsset}`}>asset</th>
                       <th className={`${thBase} ${colSide}`}>side</th>
                       <th className={`${thNum} ${colSize}`}>size</th>
@@ -342,7 +347,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
           <div className={tableWrap}>
             <table className={tableBase}>
               <thead>
-                <tr className="text-left text-zinc-400">
+                <tr className="text-left">
                   <th className={`${thBase} ${colAsset}`}>asset</th>
                   <th className={`${thBase} ${colSide}`}>side</th>
                   <th className={`${thNum} ${colSize}`}>size</th>
@@ -477,7 +482,7 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
           <div className={tableWrap}>
             <table className={tableBase}>
               <thead>
-                <tr className="text-left text-zinc-400">
+                <tr className="text-left">
                   <th className={`${thBase} ${colAsset}`}>asset</th>
                   <th className={`${thBase} ${colSide}`}>side</th>
                   <th className={`${thNum} ${colSize}`}>size</th>
@@ -554,7 +559,7 @@ export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
           <div className={tableWrap}>
             <table className={tableBase}>
               <thead>
-                <tr className="text-left text-zinc-400">
+                <tr className="text-left">
                   <th className={`${thBase} ${colAsset}`}>asset</th>
                   <th className={`${thBase} ${colSide}`}>side</th>
                   <th className={`${thNum} ${colSize}`}>size</th>
@@ -659,7 +664,7 @@ export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot }) {
           <div className={tableWrap}>
             <table className={tableBase}>
               <thead>
-                <tr className="text-left text-zinc-400">
+                <tr className="text-left">
                   <th className={`${thBase} ${colAsset}`}>asset</th>
                   <th className={`${thBase} ${colSide}`}>side</th>
                   <th className={`${thNum} ${colSize}`}>size</th>
