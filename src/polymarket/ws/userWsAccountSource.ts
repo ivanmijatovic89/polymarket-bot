@@ -88,7 +88,7 @@ function fmtNum(v: unknown, dp = 6): string {
   return n.toFixed(dp).replace(/\.?0+$/, '')
 }
 
-function summarizeUserWsRaw(raw: string): string | null {
+function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
   let obj: unknown
   try {
     obj = JSON.parse(raw)
@@ -104,6 +104,45 @@ function summarizeUserWsRaw(raw: string): string | null {
 
   if (eventType === 'trade') {
     const status = typeof rec.status === 'string' ? rec.status : 'UNKNOWN'
+    const traderSide = rec.trader_side === 'MAKER' || rec.trader_side === 'TAKER' ? rec.trader_side : undefined
+
+    // NOTE: For MAKER trades, the top-level `side/size` typically reflect the taker.
+    // To summarize "our" perspective, use maker_orders filtered by our owner id.
+    if (traderSide === 'MAKER' && myOwnerId) {
+      const makerOrdersRaw = rec.maker_orders
+      const makerOrders = Array.isArray(makerOrdersRaw) ? makerOrdersRaw : []
+
+      let side: 'BUY' | 'SELL' | '?' = '?'
+      let outcome: string = '?'
+      let price: string = '?'
+      let matchedSum = 0
+
+      for (const mo of makerOrders) {
+        if (!mo || typeof mo !== 'object') continue
+        const mor = mo as Record<string, unknown>
+        const owner = typeof mor.owner === 'string' ? mor.owner : undefined
+        if (owner !== myOwnerId) continue
+
+        const moSide = mor.side === 'BUY' || mor.side === 'SELL' ? (mor.side as 'BUY' | 'SELL') : undefined
+        if (moSide) side = moSide
+
+        const moOutcome = typeof mor.outcome === 'string' ? mor.outcome : undefined
+        if (moOutcome) outcome = moOutcome
+
+        const moPriceN = typeof mor.price === 'string' ? Number(mor.price) : Number(mor.price)
+        if (Number.isFinite(moPriceN)) price = fmtNum(moPriceN, 6)
+
+        const moMatchedN =
+          typeof mor.matched_amount === 'string' ? Number(mor.matched_amount) : Number(mor.matched_amount)
+        if (Number.isFinite(moMatchedN)) matchedSum += moMatchedN
+      }
+
+      // If we couldn't find our maker_orders entry, fall back to top-level fields.
+      if (matchedSum > 0 && side !== '?') {
+        return `TRADE ${status} > ${side} ${outcome} ${fmtNum(matchedSum, 4)}@${price}`
+      }
+    }
+
     const side = rec.side === 'BUY' || rec.side === 'SELL' ? rec.side : '?'
     const outcome =
       typeof rec.outcome === 'string' ? rec.outcome : typeof rec.asset_id === 'string' ? rec.asset_id : '?'
@@ -457,7 +496,7 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
       },
       onMessageText: (raw) => {
 
-        const summary = summarizeUserWsRaw(raw)
+        const summary = summarizeUserWsRaw(raw, parseState.myOwnerId)
         if (summary) console.log('[ws-user][⚡️]', summary)
 
         console.log('[ws-user][⚡️] Received raw message:', raw)
