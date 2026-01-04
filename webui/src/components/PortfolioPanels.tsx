@@ -287,12 +287,11 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <thead>
                     <tr className="text-left">
                       <th className={`${thBase} ${colAsset}`}>asset</th>
-                      <th className={`${thBase} ${colSide}`}>side</th>
+                      <th className={`${thBase} ${colSide}`}>pnl</th>
                       <th className={`${thNum} ${colSize}`}>size</th>
-                      <th className={`${thNum} ${colPrice}`}>price</th>
-                      <th className={thNum}>avgEntryPrice</th>
-                      <th className={thNum}>costBasis</th>
-                      <th className={thNum}>REDEEM/MERGE pnl</th>
+                      <th className={`${thNum} ${colPrice}`}>avg price</th>
+                      <th className={thNum}>COST</th>
+                      <th className={`${thNum} ${colPrice}`}>MARK price</th>
                       <th className={thBase}>market</th>
                       {/* realizedPnl (per-asset) removed; only global realizedPnlTotal is tracked */}
                     </tr>
@@ -308,12 +307,11 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                           <td className={`${tdBase} ${colAsset}`}>
                             <AssetBadge snapshot={props.snapshot} assetId={resolvedAssetId} />
                           </td>
-                          <td className={`${tdBase} ${colSide}`}>—</td>
+                          <td className={`${tdBase} ${colSide} ${clsRedGreen(pnl_if_asset_wins)}`}>{fmtPrice(pnl_if_asset_wins)}</td>
                           <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
-                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
-                          <td className={tdNum}>{fmtCents(avg, { fixed: true })}</td>
+                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(avg, { fixed: true })}</td>
                           <td className={tdNum}>{fmtCents(p?.costBasis, { fixed: true })}</td>
-                          <td className={`${tdNum} ${clsRedGreen(pnl_if_asset_wins)}`}>{fmtPrice(pnl_if_asset_wins)}</td>
+                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark, { fixed: true })}</td>
                           <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
                           {/* realizedPnl removed */}
                         </tr>
@@ -325,12 +323,11 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <td className={`${tdBase} ${colAsset}`}>
                         <MergeBadge />
                       </td>
-                      <td className={`${tdBase} ${colSide}`}>—</td>
+                      <td className={`${tdBase} ${colSide} ${clsRedGreen(pm.pnl_merge)}`}>{fmtPrice(pm.pnl_merge)}</td>
                       <td className={`${tdNum} ${colSize}`}>{fmtNum(pm.shares_mergeable)}</td>
-                      <td className={`${tdNum} ${colPrice}`}>-</td>
-                      <td className={tdNum}>{fmtCents(pm.pair_avg, { fixed: true })}</td>
+                      <td className={`${tdNum} ${colPrice}`}>{fmtCents(pm.pair_avg, { fixed: true })}</td>
                       <td className={tdNum}>{fmtCents(pm.total_cost, { fixed: true })}</td>
-                      <td className={`${tdNum} ${clsRedGreen(pm.pnl_merge)}`}>{fmtPrice(pm.pnl_merge)}</td>
+                      <td className={`${tdNum} ${colPrice}`}>-</td>
                       <td className={tdBase}>—</td>
                     </tr>
                   </tbody>
@@ -367,7 +364,7 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                       </td>
                       <td className={`${tdBase} ${colSide}`}>—</td>
                       <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
-                      <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
+                      <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark, { fixed: true })}</td>
                       <td className={tdNum}>{fmtCents(avg)}</td>
                       <td className={tdNum}>{fmtNum(p?.costBasis)}</td>
                       <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
@@ -507,7 +504,7 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <SideText side={r?.side} />
                     </td>
                     <td className={`${tdNum} ${colSize}`}>{fmtNum(r?.size)}</td>
-                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(r?.price)}</td>
+                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(r?.price, { fixed: true })}</td>
                     <td className={tdBase}>{r.source}</td>
                     <td className={tdNum}>{fmtNum(r?.filled)}</td>
                     <td className={tdNum}>{fmtNum(r?.remaining)}</td>
@@ -580,7 +577,7 @@ export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <SideText side={f.side} />
                     </td>
                     <td className={`${tdNum} ${colSize}`}>{fmtNum(f.size)}</td>
-                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(f.price)}</td>
+                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(f.price, { fixed: true })}</td>
                     <td className={tdBase}>{fmtMaybeStr(f.liquidity)}</td>
                     <td className={tdNum}>{fmtNum(f.feeRateBps)}</td>
                     <td className={tdBase}>{fmtMaybeStr(f.market)}</td>
@@ -685,7 +682,7 @@ export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot }) {
                       <SideText side={r.side} />
                     </td>
                     <td className={`${tdNum} ${colSize}`}>{fmtNum(r.originalSize)}</td>
-                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(r.price)}</td>
+                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(r.price, { fixed: true })}</td>
                     <td className={tdNum}>{fmtNum(r.sizeMatched)}</td>
                     <td className={tdNum}>{fmtNum(r.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r.lifecycleState)}</td>
