@@ -32,7 +32,7 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'Current price',
     hoverLabel: 'RTDS PolymarketChainlink',
     symbol: 'vs Price to Beat',
-    diff: feeds?.polymarketPriceToBeat ? fmtNum(feeds.polymarketPriceToBeat.openPrice - rtdsChainlink.value, { maximumFractionDigits: 0 }) : 'n/a',
+    diff: feeds?.polymarketPriceToBeat ? fmtNum(rtdsChainlink.value - feeds.polymarketPriceToBeat.openPrice, { maximumFractionDigits: 0 }) : 'n/a',
     value: rtdsChainlink ? fmtNum(rtdsChainlink.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'yellow',
   })
@@ -42,7 +42,7 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'RTDS Polymarket Binance',
     hoverLabel: 'RTDS Polymarket Binance',
     symbol: 'vs Current Price',
-    diff: feeds?.rtdsPolymarketCryptoPrices?.chainlink ? fmtNum(rtdsChainlink.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
+    diff: feeds?.rtdsPolymarketCryptoPrices?.chainlink ? fmtNum(rtdsBinance.value - rtdsChainlink.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: rtdsBinance ? fmtNum(rtdsBinance.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'orange',
   })
@@ -52,7 +52,7 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'RTDS Binance',
     hoverLabel: 'RTDS Binance',
     symbol: 'VS RTDS Polymarket Binance',
-    diff: feeds?.rtdsPolymarketCryptoPrices?.binance ? fmtNum(binanceWs.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
+    diff: feeds?.rtdsPolymarketCryptoPrices?.binance ? fmtNum(rtdsBinance.value - binanceWs.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: binanceWs ? fmtNum(binanceWs.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'orange',
   })

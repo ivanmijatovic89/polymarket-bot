@@ -6,6 +6,7 @@ import { definition as readVolatilityIndicatorV1 } from '../strategies/readVolat
 import { definition as readExternalFeedsExampleV1 } from '../strategies/readExternalFeedsExample.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/Template.v1.js'
+import { definition as batchLimitOrdersV1 } from '../strategies/batchLimitOrders.v1.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,
@@ -15,6 +16,7 @@ export const strategyRegistry = {
   [readVolatilityIndicatorV1.id]: readVolatilityIndicatorV1,
   [winnerLimitV1.id]: winnerLimitV1,
   [templateV1.id]: templateV1,
+  [batchLimitOrdersV1.id]: batchLimitOrdersV1,
 } as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry
