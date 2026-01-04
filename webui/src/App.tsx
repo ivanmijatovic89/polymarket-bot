@@ -73,20 +73,52 @@ function makeMockPortfolio(snapshot: any) {
 
   // Shares are typically small integers/decimals.
   // We'll keep sizes simple and consistent with fills/orders.
-  const posUpQty = 18 // shares
-  const posDownQty = 6 // shares
+  const posUpQty: number = 18 // shares
+  const posDownQty: number = 6 // shares
 
   // Prices are stored as 0..1 (displayed as cents in UI via fmtCents()).
   // Weighted average entry for UP: 10 @ 0.540 + 8 @ 0.545 => 0.54222...
   const upAvgEntry = (10 * 0.54 + 8 * 0.545) / 18
   const downAvgEntry = 0.461 // bought earlier slightly worse than current 0.458
 
+  // Position Metrics (same simplified math as backend)
+  const upCostBasis = posUpQty * upAvgEntry
+  const downCostBasis = posDownQty * downAvgEntry
+  const totalCost = upCostBasis + downCostBasis
+  const sharesMergeable = Math.min(posUpQty, posDownQty)
+  const sharesUpUnpaired = posUpQty - sharesMergeable
+  const sharesDownUnpaired = posDownQty - sharesMergeable
+  const totalShares = posUpQty + posDownQty
+  const pairAvg = totalShares > 0 ? totalCost / totalShares : null
+
   return {
     nowMs: now,
     realizedPnlTotal: 0.42,
     positionsByAssetId: {
-      [up]: { assetId: up, qty: posUpQty, avgEntryPrice: upAvgEntry, realizedPnl: 0.12 },
-      [down]: { assetId: down, qty: posDownQty, avgEntryPrice: downAvgEntry, realizedPnl: -0.03 },
+      [up]: { assetId: up, qty: posUpQty, avgEntryPrice: upAvgEntry, costBasis: upCostBasis, realizedPnl: 0.12 },
+      [down]: {
+        assetId: down,
+        qty: posDownQty,
+        avgEntryPrice: downAvgEntry,
+        costBasis: downCostBasis,
+        realizedPnl: -0.03,
+      },
+    },
+    positionMetrics: {
+      shares_mergeable: sharesMergeable,
+      shares_up_unpaired: sharesUpUnpaired,
+      shares_down_unpaired: sharesDownUnpaired,
+      is_fully_hedged: posUpQty === posDownQty,
+      pair_avg: pairAvg,
+      up_avg: upAvgEntry,
+      down_avg: downAvgEntry,
+      up_cost: upCostBasis,
+      down_cost: downCostBasis,
+      total_cost: totalCost,
+      pnl_merge: sharesMergeable - totalCost,
+      pnl_if_up_wins: posUpQty - totalCost,
+      pnl_if_down_wins: posDownQty - totalCost,
+      net_shares: posUpQty - posDownQty,
     },
     openOrdersByClientId: {
       [clientA]: {

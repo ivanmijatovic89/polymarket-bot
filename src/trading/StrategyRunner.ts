@@ -1,5 +1,6 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
+import type { PortfolioSnapshot } from '../strategy/Strategy.js'
 import type { IndicatorSet } from '../indicators/IndicatorSet.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { ExternalFeedsSnapshot } from './feeds/externalFeeds.js'
@@ -8,6 +9,7 @@ import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
+import { computePositionMetrics } from './positionMetrics.js'
 
 export type StrategyExternalFeedsEnabled = {
   rtdsCryptoPrices?: boolean
@@ -112,6 +114,42 @@ export class StrategyRunner {
     return this.portfolio
   }
 
+  /**
+   * Canonical portfolio snapshot accessor: returns `Portfolio.snapshot()` enriched with
+   * optional computed convenience fields (like `positionMetrics`).
+   *
+   * Prefer this over `runner.getPortfolio().snapshot()` in callers outside the runner pipeline
+   * (UI/backtests/CLIs) so everything sees the same snapshot shape.
+   */
+  getPortfolioSnapshot(): PortfolioSnapshot {
+    const p = this.portfolio.snapshot()
+
+    // Only compute if we can reliably resolve UP/DOWN ids from market meta.
+    const m = this.getMarket?.()
+    if (!m) return p
+    const outcomes = Array.isArray(m.outcomes) ? m.outcomes : []
+    const tokenIds = Array.isArray(m.clobTokenIds) ? m.clobTokenIds : []
+
+    let upAssetId: string | undefined
+    let downAssetId: string | undefined
+    const n = Math.min(outcomes.length, tokenIds.length)
+    for (let i = 0; i < n; i += 1) {
+      const outcome = outcomes[i]
+      const tokenId = tokenIds[i]
+      const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
+      const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
+      if (!id) continue
+      if (!upAssetId && o.includes('up')) upAssetId = id
+      if (!downAssetId && o.includes('down')) downAssetId = id
+    }
+
+    const metricsArgs: { portfolio: PortfolioSnapshot; upAssetId?: string; downAssetId?: string } = { portfolio: p }
+    if (upAssetId) metricsArgs.upAssetId = upAssetId
+    if (downAssetId) metricsArgs.downAssetId = downAssetId
+    const positionMetrics = computePositionMetrics(metricsArgs)
+    return positionMetrics ? { ...p, positionMetrics } : p
+  }
+
   getLastMarketSnapshot(): MarketOrderBooksSnapshot | undefined {
     return this.lastMarket
   }
@@ -151,12 +189,12 @@ export class StrategyRunner {
     const preEvents = await this.orderManager.onMarketTick({
       nowMs: tick.snapshot.timestamp || Date.now(),
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
+      portfolio: this.getPortfolioSnapshot(),
     })
     for (const ev of preEvents) this.enqueueAccountEvent(ev)
     await this.drainAccountEvents()
 
-    const intents = await this.strategy.onMarketTick(tick, this.portfolio.snapshot(), ctx)
+    const intents = await this.strategy.onMarketTick(tick, this.getPortfolioSnapshot(), ctx)
     await this.applyIntents(intents)
     await this.drainAccountEvents()
   }
@@ -208,7 +246,7 @@ export class StrategyRunner {
     const events = await this.orderManager.handleIntents(intents, {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
+      portfolio: this.getPortfolioSnapshot(),
     }, { mode: this.intentExecutionMode })
     for (const ev of events) this.enqueueAccountEvent(ev)
   }
@@ -273,17 +311,17 @@ export class StrategyRunner {
 
     const nextIntents = await this.strategy.onAccountEvent(
       ev,
-      this.portfolio.snapshot(),
+      this.getPortfolioSnapshot(),
       this.lastMarket,
       ctx,
     )
     if (!nextIntents || nextIntents.length === 0) return
 
-    const nowMs = this.lastMarket?.timestamp || this.portfolio.snapshot().nowMs || Date.now()
+    const nowMs = this.lastMarket?.timestamp || this.getPortfolioSnapshot().nowMs || Date.now()
     const nextEvents = await this.orderManager.handleIntents(nextIntents, {
       nowMs,
       ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
+      portfolio: this.getPortfolioSnapshot(),
     }, { mode: this.intentExecutionMode })
     for (const e of nextEvents) this.enqueueAccountEvent(e)
   }

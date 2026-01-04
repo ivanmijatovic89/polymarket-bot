@@ -44,6 +44,7 @@ type Position = {
   assetId: string
   qty: number
   avgEntryPrice: number | null
+  costBasis: number
   realizedPnl: number
 }
 
@@ -134,6 +135,22 @@ type PortfolioSnapshot = {
   ordersByClientId?: Record<string, OrderSnapshot>
   recentFills?: Fill[]
   marketByAssetId: Record<string, string>
+  positionMetrics?: {
+    shares_mergeable: number
+    shares_up_unpaired: number
+    shares_down_unpaired: number
+    is_fully_hedged: boolean
+    pair_avg: number | null
+    up_avg: number | null
+    down_avg: number | null
+    up_cost: number
+    down_cost: number
+    total_cost: number
+    pnl_merge: number
+    pnl_if_up_wins: number
+    pnl_if_down_wins: number
+    net_shares: number
+  }
 }
 
 function asPortfolio(snapshot: BotUiSnapshot): PortfolioSnapshot | null {
@@ -161,6 +178,10 @@ function fmtNum(n: unknown): string {
 
 function fmtMaybeStr(s: unknown): string {
   return typeof s === 'string' && s.length > 0 ? s : 'n/a'
+}
+
+function fmtBool(b: unknown): string {
+  return typeof b === 'boolean' ? (b ? 'true' : 'false') : 'n/a'
 }
 
 function fmtIso(tsMs: unknown): string {
@@ -217,6 +238,7 @@ function IdCell(props: { value?: string | null; keep?: number }) {
 export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
   const portfolio = asPortfolio(props.snapshot)
   const positions = portfolio ? Object.entries(portfolio.positionsByAssetId) : []
+  const pm = portfolio?.positionMetrics
 
   return (
     <div className="panel">
@@ -231,6 +253,106 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
       <div className="panel-b">
         {!portfolio ? (
           <div className="text-[16px] text-zinc-400">n/a</div>
+        ) : pm ? (
+          <div className="space-y-2">
+            <div className="rounded-md bg-zinc-900/40 ring-1 ring-zinc-800 px-3 py-2">
+              <div className="flex items-center justify-between gap-3 mb-2">
+                <div className="text-[14px] text-zinc-300 font-semibold">Position Metrics</div>
+                <div className="text-[12px] text-zinc-500 font-mono">avg-cost + costBasis</div>
+              </div>
+
+              <div className="grid grid-cols-1 gap-2 lg:grid-cols-3">
+                {/* Shares */}
+                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
+                  <div className="text-[12px] text-zinc-500 mb-1">Shares</div>
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
+                    <div className="text-zinc-400">mergeable</div>
+                    <div className="text-right">{fmtNum(pm.shares_mergeable)}</div>
+                    <div className="text-zinc-400">up unpaired</div>
+                    <div className="text-right">{fmtNum(pm.shares_up_unpaired)}</div>
+                    <div className="text-zinc-400">down unpaired</div>
+                    <div className="text-right">{fmtNum(pm.shares_down_unpaired)}</div>
+                    <div className="text-zinc-400">fully hedged</div>
+                    <div className="text-right">{fmtBool(pm.is_fully_hedged)}</div>
+                    <div className="text-zinc-400">net shares</div>
+                    <div className="text-right">{fmtNum(pm.net_shares)}</div>
+                  </div>
+                </div>
+
+                {/* Costs */}
+                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
+                  <div className="text-[12px] text-zinc-500 mb-1">Costs</div>
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
+                    <div className="text-zinc-400">up avg</div>
+                    <div className="text-right">{fmtNum(pm.up_avg)}</div>
+                    <div className="text-zinc-400">down avg</div>
+                    <div className="text-right">{fmtNum(pm.down_avg)}</div>
+                    <div className="text-zinc-400">pair avg</div>
+                    <div className="text-right">{fmtNum(pm.pair_avg)}</div>
+                    <div className="text-zinc-400">up cost</div>
+                    <div className="text-right">{fmtNum(pm.up_cost)}</div>
+                    <div className="text-zinc-400">down cost</div>
+                    <div className="text-right">{fmtNum(pm.down_cost)}</div>
+                    <div className="text-zinc-400">total cost</div>
+                    <div className="text-right">{fmtNum(pm.total_cost)}</div>
+                  </div>
+                </div>
+
+                {/* Scenarios */}
+                <div className="rounded-md bg-zinc-950/30 ring-1 ring-zinc-800/60 px-3 py-2">
+                  <div className="text-[12px] text-zinc-500 mb-1">Scenarios (PnL)</div>
+                  <div className="grid grid-cols-[1fr_auto] gap-x-4 gap-y-1 font-mono text-[13px] text-zinc-200 tabular-nums">
+                    <div className="text-zinc-400">merge</div>
+                    <div className="text-right">{fmtNum(pm.pnl_merge)}</div>
+                    <div className="text-zinc-400">if UP wins</div>
+                    <div className="text-right">{fmtNum(pm.pnl_if_up_wins)}</div>
+                    <div className="text-zinc-400">if DOWN wins</div>
+                    <div className="text-right">{fmtNum(pm.pnl_if_down_wins)}</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {positions.length === 0 ? (
+              <div className="text-[16px] text-zinc-400">no positions</div>
+            ) : (
+              <div className={tableWrap}>
+                <table className={tableBase}>
+                  <thead>
+                    <tr className="text-left text-zinc-400">
+                      <th className={`${thBase} ${colAsset}`}>asset</th>
+                      <th className={`${thBase} ${colSide}`}>side</th>
+                      <th className={`${thNum} ${colSize}`}>size</th>
+                      <th className={`${thNum} ${colPrice}`}>price</th>
+                      <th className={thNum}>avgEntryPrice</th>
+                      <th className={thBase}>market</th>
+                      <th className={thNum}>realizedPnl</th>
+                    </tr>
+                  </thead>
+                  <tbody className="font-mono text-zinc-200 tabular-nums">
+                    {positions.map(([assetId, p]) => {
+                      const resolvedAssetId = p?.assetId ?? assetId
+                      const mark = markPriceCents(props.snapshot, resolvedAssetId)
+                      const avg = typeof p?.avgEntryPrice === 'number' ? p.avgEntryPrice : null
+                      return (
+                        <tr key={assetId} className={`${rowBase} ${rowZebra}`}>
+                          <td className={`${tdBase} ${colAsset}`}>
+                            <AssetBadge snapshot={props.snapshot} assetId={resolvedAssetId} />
+                          </td>
+                          <td className={`${tdBase} ${colSide}`}>—</td>
+                          <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
+                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
+                          <td className={tdNum}>{fmtCents(avg)}</td>
+                          <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
+                          <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
+                        </tr>
+                      )
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
         ) : positions.length === 0 ? (
           <div className="text-[16px] text-zinc-400">no positions</div>
         ) : (

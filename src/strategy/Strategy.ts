@@ -96,6 +96,12 @@ export type Position = {
   assetId: string
   qty: number
   avgEntryPrice: number | null
+  /**
+   * Average-cost cost basis of the *remaining* shares.
+   * This is the best "how much did I actually pay" number for current inventory,
+   * without tracking FIFO lots.
+   */
+  costBasis: number
   realizedPnl: number
 }
 
@@ -178,6 +184,37 @@ export type OrderSnapshot = {
   updatedAtMs: number
 }
 
+/**
+ * Derived, strategy/UI-friendly metrics for a 2-outcome UP/DOWN market.
+ *
+ * NOTE: This is intentionally "basic math" and should be stable across live + backtests.
+ */
+export type PositionMetrics = {
+  shares_mergeable: number
+  shares_up_unpaired: number
+  shares_down_unpaired: number
+  is_fully_hedged: boolean
+
+  /** Overall blended average cost/share across UP+DOWN combined. */
+  pair_avg: number | null
+  /** Average cost/share for UP position (average-cost). */
+  up_avg: number | null
+  /** Average cost/share for DOWN position (average-cost). */
+  down_avg: number | null
+
+  /** Average-cost cost basis of remaining UP shares. */
+  up_cost: number
+  /** Average-cost cost basis of remaining DOWN shares. */
+  down_cost: number
+  /** Total cost basis across UP+DOWN. */
+  total_cost: number
+
+  pnl_merge: number
+  pnl_if_up_wins: number
+  pnl_if_down_wins: number
+  net_shares: number
+}
+
 export type PortfolioSnapshot = {
   nowMs: number
   /**
@@ -201,6 +238,12 @@ export type PortfolioSnapshot = {
    * Useful for grouping positions across YES/NO pairs to compute merge PnL.
    */
   marketByAssetId: Record<string, string>
+
+  /**
+   * Optional computed fields for convenience (UI + strategies).
+   * Kept optional for backwards compatibility.
+   */
+  positionMetrics?: PositionMetrics
 }
 
 export type AccountEvent =

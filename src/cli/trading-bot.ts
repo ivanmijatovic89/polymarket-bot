@@ -706,7 +706,7 @@ async function main(): Promise<void> {
         })()
         const portfolio = (() => {
           try {
-            return runner.getPortfolio().snapshot()
+            return runner.getPortfolioSnapshot()
           } catch {
             return undefined
           }

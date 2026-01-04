@@ -569,6 +569,7 @@ export class Portfolio {
       assetId,
       qty: 0,
       avgEntryPrice: null,
+      costBasis: 0,
       realizedPnl: 0,
     }
 
@@ -577,15 +578,21 @@ export class Portfolio {
     if (size <= 0) return
 
     if (f.side === 'BUY') {
-      // Increase position, update average.
+      // Increase position, update avg + cost basis (average-cost accounting).
+      const prevCostBasis =
+        typeof (prev as { costBasis?: unknown }).costBasis === 'number'
+          ? (prev as { costBasis: number }).costBasis
+          : prev.avgEntryPrice === null
+            ? 0
+            : prev.avgEntryPrice * prev.qty
       const newQty = prev.qty + size
-      const prevCost = prev.avgEntryPrice === null ? 0 : prev.avgEntryPrice * prev.qty
-      const newCost = prevCost + price * size
-      const avg = newQty > 0 ? newCost / newQty : null
+      const newCostBasis = prevCostBasis + price * size
+      const avg = newQty > 0 ? newCostBasis / newQty : null
       this.positionsByAssetId.set(key, {
         assetId,
         qty: round2(newQty),
         avgEntryPrice: avg === null ? null : round2(avg),
+        costBasis: round2(newCostBasis),
         realizedPnl: prev.realizedPnl,
       })
 
@@ -597,17 +604,28 @@ export class Portfolio {
     // SELL: reduce position; realize PnL against avg entry when available.
     const sellQty = Math.min(size, prev.qty)
     const remainingQty = prev.qty - sellQty
-    const avg = prev.avgEntryPrice
-    const realized =
-      avg === null ? prev.realizedPnl : round2(prev.realizedPnl + (price - avg) * sellQty)
+    const prevCostBasis =
+      typeof (prev as { costBasis?: unknown }).costBasis === 'number'
+        ? (prev as { costBasis: number }).costBasis
+        : prev.avgEntryPrice === null
+          ? 0
+          : prev.avgEntryPrice * prev.qty
+    const avgCostPerShare = prev.qty > 0 ? prevCostBasis / prev.qty : 0
+    const costRemoved = avgCostPerShare * sellQty
+    const remainingCostBasis = Math.max(0, prevCostBasis - costRemoved)
+
+    // Realize PnL against average cost-per-share (more consistent than rounded avgEntryPrice).
+    const realized = round2(prev.realizedPnl + (price - avgCostPerShare) * sellQty)
     const realizedDelta = round2(realized - prev.realizedPnl)
     if (Number.isFinite(realizedDelta))
       this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
     if (remainingQty > 0) {
+      const nextAvg = remainingQty > 0 ? remainingCostBasis / remainingQty : null
       this.positionsByAssetId.set(key, {
         assetId,
         qty: round2(remainingQty),
-        avgEntryPrice: avg,
+        avgEntryPrice: nextAvg === null ? null : round2(nextAvg),
+        costBasis: round2(remainingCostBasis),
         realizedPnl: realized,
       })
 
@@ -670,66 +688,7 @@ export class Portfolio {
   }
 
   private logOpenOrdersTable(): void {
-    return;
-    const shortAsset = (assetId: string) => assetId.slice(-8)
-    const botOrders = [...this.openOrdersByClientId.values()]
-    const wsOrders = [...this.wsOpenOrdersByOrderId.values()]
-
-    if (botOrders.length === 0 && wsOrders.length === 0) {
-      console.log('[portfolio][open-orders]: (none)')
-      return
-    }
-
-    const anyExpires = botOrders.some((o) => typeof o.expireAtMs === 'number')
-
-    const rows: Array<Record<string, unknown>> = []
-
-    // Bot-tracked orders
-    for (const o of botOrders) {
-      const market = o.market ?? this.marketByAssetId.get(o.assetId) ?? 'unknown'
-      const base: Record<string, unknown> = {
-        source: 'bot',
-        market,
-        asset: shortAsset(o.assetId),
-        side: o.side,
-        price: Number(o.price.toFixed(4)),
-        originalSize: o.size,
-        sizeMatched: o.filled,
-        remaining: o.remaining,
-        state: o.state,
-        tif: o.orderType,
-        clientOrderId: o.clientOrderId.slice(-10),
-        orderId: o.orderId ?? '',
-      }
-      if (anyExpires) base.expireAt = o.expireAtMs ? new Date(o.expireAtMs).toISOString() : ''
-      rows.push(base)
-    }
-
-    // WS-tracked orders (not placed by bot, or bot orderId not yet known)
-    for (const o of wsOrders) {
-      // Avoid duplicate display if this WS orderId maps to a bot order already tracked
-      if (this.clientOrderIdByOrderId.has(o.orderId)) continue
-      rows.push({
-        source: 'ws',
-        market: o.market ?? 'unknown',
-        asset: o.assetId ? shortAsset(o.assetId) : '',
-        side: o.side ?? '',
-        price: typeof o.price === 'number' ? Number(o.price.toFixed(4)) : '',
-        originalSize: typeof o.originalSize === 'number' ? o.originalSize : '',
-        sizeMatched: typeof o.sizeMatched === 'number' ? o.sizeMatched : '',
-        remaining:
-          typeof o.originalSize === 'number' && typeof o.sizeMatched === 'number'
-            ? Number((o.originalSize - o.sizeMatched).toFixed(6))
-            : '',
-        state: o.status ?? '',
-        tif: o.orderType ?? '',
-        clientOrderId: '',
-        orderId: o.orderId,
-      })
-    }
-
-    rows.sort((a, b) => String(a.market).localeCompare(String(b.market)))
-    console.log(`[portfolio][open-orders]: (${rows.length})`)
-    console.table(rows)
+    // Debug-only (table logging). Keep disabled in hot paths; can be re-enabled when needed.
+    return
   }
 }
