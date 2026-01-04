@@ -5,7 +5,7 @@ const thBase = 'sticky top-0 bg-zinc-900/60 px-3 py-2'
 const tdBase = 'px-3 py-2 whitespace-nowrap'
 const colAsset = 'w-[80px] min-w-[80px]'
 const colSide = 'w-[80px] min-w-[80px]'
-const colSize = 'w-[110px] min-w-[110px]'
+const colSize = 'w-[80px] min-w-[80px]'
 const colPrice = 'w-[110px] min-w-[110px]'
 const thNum = `${thBase} text-right`
 const tdNum = `${tdBase} text-right tabular-nums`
@@ -243,44 +243,29 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <th className={`${thNum} ${colSize}`}>size</th>
                   <th className={`${thNum} ${colPrice}`}>price</th>
                   <th className={thNum}>avgEntryPrice</th>
-                  <th className={thBase}>avgEntryPrice</th>
                   <th className={thBase}>market</th>
                   <th className={thNum}>realizedPnl</th>
-                  <th className={thNum}>unrealizedPnl</th>
-                  <th className={thNum}>totalPnl</th>
                 </tr>
               </thead>
               <tbody className="font-mono text-zinc-200 tabular-nums">
-                {positions.map(([assetId, p]) => (
-                  (() => {
-                    const qty = typeof p?.qty === 'number' ? p.qty : NaN
-                    const avg = typeof p?.avgEntryPrice === 'number' ? p.avgEntryPrice : null
-                    const mark = markPriceCents(props.snapshot, p?.assetId ?? assetId)
-                    const unrealized =
-                      avg !== null && typeof mark === 'number' && Number.isFinite(mark) && Number.isFinite(qty)
-                        ? (mark - avg) * qty
-                        : null
-                    const realized = typeof p?.realizedPnl === 'number' ? p.realizedPnl : null
-                    const total =
-                      typeof unrealized === 'number' && typeof realized === 'number' ? unrealized + realized : null
-
-                    return (
-                  <tr key={assetId} className={`${rowBase} ${rowZebra}`}>
-                    <td className={`${tdBase} ${colAsset}`}>
-                      <AssetBadge snapshot={props.snapshot} assetId={p?.assetId ?? assetId} />
-                    </td>
-                    <td className={`${tdBase} ${colSide}`}>—</td>
-                    <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
-                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
-                    <td className={tdNum}>{fmtCents(avg)}</td>
-                    <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
-                    <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
-                    <td className={tdNum}>{typeof unrealized === 'number' ? unrealized.toFixed(2) : 'n/a'}</td>
-                    <td className={tdNum}>{typeof total === 'number' ? total.toFixed(2) : 'n/a'}</td>
-                  </tr>
-                    )
-                  })()
-                ))}
+                {positions.map(([assetId, p]) => {
+                  const resolvedAssetId = p?.assetId ?? assetId
+                  const mark = markPriceCents(props.snapshot, resolvedAssetId)
+                  const avg = typeof p?.avgEntryPrice === 'number' ? p.avgEntryPrice : null
+                  return (
+                    <tr key={assetId} className={`${rowBase} ${rowZebra}`}>
+                      <td className={`${tdBase} ${colAsset}`}>
+                        <AssetBadge snapshot={props.snapshot} assetId={resolvedAssetId} />
+                      </td>
+                      <td className={`${tdBase} ${colSide}`}>—</td>
+                      <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
+                      <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark)}</td>
+                      <td className={tdNum}>{fmtCents(avg)}</td>
+                      <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
+                      <td className={tdNum}>{fmtNum(p?.realizedPnl)}</td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           </div>

@@ -68,17 +68,18 @@ function makeMockPortfolio(snapshot: any) {
 
   // Polymarket-style prices: 0..100 cents.
   // Make them roughly complementary so UP + DOWN ~= 100.
-  const pxUp = 54.2
-  const pxDown = 45.8
+  const pxUp = 0.542
+  const pxDown = 0.458
 
   // Shares are typically small integers/decimals.
   // We'll keep sizes simple and consistent with fills/orders.
   const posUpQty = 18 // shares
   const posDownQty = 6 // shares
 
-  // Weighted average entry for UP: 10 @ 54.0 + 8 @ 54.5 => 54.222...
-  const upAvgEntry = (10 * 54.0 + 8 * 54.5) / 18
-  const downAvgEntry = 46.1 // bought earlier slightly worse than current 45.8
+  // Prices are stored as 0..1 (displayed as cents in UI via fmtCents()).
+  // Weighted average entry for UP: 10 @ 0.540 + 8 @ 0.545 => 0.54222...
+  const upAvgEntry = (10 * 0.54 + 8 * 0.545) / 18
+  const downAvgEntry = 0.461 // bought earlier slightly worse than current 0.458
 
   return {
     nowMs: now,
@@ -95,7 +96,7 @@ function makeMockPortfolio(snapshot: any) {
         assetId: up,
         side: 'BUY',
         // Recently placed bid slightly below last traded price
-        price: 54.0,
+        price: 0.54,
         size: 25,
         remaining: 17,
         filled: 8,
@@ -111,7 +112,7 @@ function makeMockPortfolio(snapshot: any) {
         assetId: down,
         side: 'SELL',
         // Offer slightly above "fair" for DOWN
-        price: 46.6,
+        price: 0.466,
         size: 6,
         remaining: 6,
         filled: 0,
@@ -127,7 +128,7 @@ function makeMockPortfolio(snapshot: any) {
         orderId: orderA,
         assetId: up,
         side: 'BUY',
-        price: 54.0,
+        price: 0.54,
         originalSize: 25,
         sizeMatched: 8,
         remaining: 17,
@@ -141,7 +142,7 @@ function makeMockPortfolio(snapshot: any) {
         orderId: orderB,
         assetId: down,
         side: 'SELL',
-        price: 46.6,
+        price: 0.466,
         originalSize: 6,
         sizeMatched: 0,
         remaining: 6,
@@ -155,7 +156,7 @@ function makeMockPortfolio(snapshot: any) {
         assetId: up,
         side: 'BUY',
         // Older completed order: fully filled and confirmed
-        price: 54.5,
+        price: 0.545,
         originalSize: 10,
         sizeMatched: 10,
         remaining: 0,
@@ -172,7 +173,7 @@ function makeMockPortfolio(snapshot: any) {
         assetId: up,
         side: 'SELL',
         // A small ask sitting above the market
-        price: 55.5,
+        price: 0.555,
         originalSize: 5,
         sizeMatched: 0,
         status: 'OPEN',
@@ -187,7 +188,7 @@ function makeMockPortfolio(snapshot: any) {
         market: slug,
         assetId: up,
         side: 'BUY',
-        price: 54.0,
+        price: 0.54,
         size: 8,
         feeRateBps: 2,
         clientOrderId: clientA,
@@ -200,7 +201,7 @@ function makeMockPortfolio(snapshot: any) {
         market: slug,
         assetId: up,
         side: 'BUY',
-        price: 54.5,
+        price: 0.545,
         size: 10,
         feeRateBps: 5,
         clientOrderId: clientC,
@@ -213,7 +214,7 @@ function makeMockPortfolio(snapshot: any) {
         market: slug,
         assetId: down,
         side: 'BUY',
-        price: 46.1,
+        price: 0.461,
         size: posDownQty,
         feeRateBps: 2,
         liquidity: 'MAKER',
@@ -294,8 +295,8 @@ export function App() {
             <div className="space-y-2">
               <PositionsTablePanel snapshot={displaySnapshot} />
               <OpenOrdersTablePanel snapshot={displaySnapshot} />
-              <OrdersByClientIdTablePanel snapshot={displaySnapshot} />
               <ExecutedOrdersTablePanel snapshot={displaySnapshot} />
+              <OrdersByClientIdTablePanel snapshot={displaySnapshot} />
             </div>
 
 
