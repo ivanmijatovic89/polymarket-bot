@@ -5,7 +5,7 @@ import { clsRedGreen, fmtCents, fmtPrice } from '../utils/format'
 // - keep tables readable in dark mode (lighter surfaces, clearer borders)
 // - avoid stretching columns on wide screens (use natural/max-content width)
 const thBase =
-  'sticky top-0 z-10 bg-zinc-800/40 backdrop-blur px-3 py-2 border-b border-zinc-700/50 text-[12px] font-semibold uppercase tracking-wide text-zinc-300'
+  'sticky top-0 z-10 bg-gradient-to-b from-zinc-800/85 to-zinc-800/65 backdrop-blur px-3 py-2 border-b border-zinc-700/60 text-[12px] font-semibold uppercase tracking-wide text-zinc-200/90'
 const tdBase = 'px-3 py-2 whitespace-nowrap align-middle'
 const colAsset = 'w-[80px] min-w-[80px]'
 const colSide = 'w-[80px] min-w-[80px]'
@@ -13,9 +13,9 @@ const colSize = 'w-[80px] min-w-[80px]'
 const colPrice = 'w-[110px] min-w-[110px]'
 const thNum = `${thBase} text-right`
 const tdNum = `${tdBase} text-right tabular-nums`
-const rowBase = 'border-t border-zinc-800/60 hover:bg-zinc-800/20'
-const rowZebra = 'odd:bg-zinc-900/10'
-const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-950/20 ring-1 ring-zinc-700/60'
+const rowBase = 'border-t border-zinc-800/50 hover:bg-zinc-800/18'
+const rowZebra = 'odd:bg-white/[0.035]'
+const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60'
 // w-max prevents columns from stretching as the viewport grows; the wrapper provides horizontal scroll when needed.
 const tableBase = 'w-max border-separate border-spacing-0 text-[14px] table-auto'
 

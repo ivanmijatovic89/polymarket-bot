@@ -21,11 +21,12 @@
 
 @layer components {
   .panel {
-    @apply rounded-md bg-zinc-950/40 ring-1 ring-zinc-800;
+    /* Softer "light on dark" surface for long viewing sessions */
+    @apply rounded-md bg-zinc-900/30 ring-1 ring-zinc-700/70;
   }
 
   .panel-h {
-    @apply flex items-center justify-between gap-2 border-b border-zinc-800 px-3 py-1.5;
+    @apply flex items-center justify-between gap-2 border-b border-zinc-700/70 px-3 py-1.5 bg-zinc-900/20;
   }
 
   .panel-t {
@@ -33,7 +34,8 @@
   }
 
   .panel-b {
-    @apply px-3 py-2.5;
+    /* Slightly lift the body area so content is easier to read */
+    @apply px-3 py-2.5 bg-zinc-950/10;
   }
 
   .kv {
