@@ -15,7 +15,8 @@ const thNum = `${thBase} text-right`
 const tdNum = `${tdBase} text-right tabular-nums`
 const rowBase = 'border-t border-zinc-800/50 hover:bg-zinc-800/18'
 const rowZebra = 'odd:bg-white/[0.035]'
-const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60'
+// w-full + max-w-max => background hugs the table when narrow, but stays constrained to the panel when content is wider
+const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60 w-full max-w-max'
 // w-max prevents columns from stretching as the viewport grows; the wrapper provides horizontal scroll when needed.
 const tableBase = 'w-max border-separate border-spacing-0 text-[14px] table-auto'
 
@@ -481,11 +482,11 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <th className={`${thBase} ${colSide}`}>side</th>
                   <th className={`${thNum} ${colSize}`}>size</th>
                   <th className={`${thNum} ${colPrice}`}>price</th>
-                  <th className={thBase}>source</th>
                   <th className={thNum}>filled</th>
                   <th className={thNum}>remaining</th>
                   <th className={thBase}>orderType</th>
                   <th className={thBase}>state</th>
+                  <th className={thBase}>source</th>
                   <th className={thBase}>orderId</th>
                   <th className={thBase}>clientOrderId</th>
                   <th className={thNum}>expireAtMs</th>
@@ -505,11 +506,11 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                     </td>
                     <td className={`${tdNum} ${colSize}`}>{fmtNum(r?.size)}</td>
                     <td className={`${tdNum} ${colPrice}`}>{fmtCents(r?.price, { fixed: true })}</td>
-                    <td className={tdBase}>{r.source}</td>
                     <td className={tdNum}>{fmtNum(r?.filled)}</td>
                     <td className={tdNum}>{fmtNum(r?.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r?.orderType)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r?.state)}</td>
+                    <td className={tdBase}>{r.source}</td>
                     <td className={tdBase}>
                       <IdCell value={r?.orderId ?? null} keep={12} />
                     </td>
