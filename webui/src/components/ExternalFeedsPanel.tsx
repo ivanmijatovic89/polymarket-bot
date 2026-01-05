@@ -52,7 +52,7 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'RTDS Binance',
     hoverLabel: 'RTDS Binance',
     symbol: 'VS RTDS Polymarket Binance',
-    diff: feeds?.rtdsPolymarketCryptoPrices?.binance ? fmtNum(rtdsBinance.value - binanceWs.value, { maximumFractionDigits: 0 }) : 'n/a',
+    diff: feeds?.rtdsPolymarketCryptoPrices?.binance ? fmtNum(binanceWs.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
     value: binanceWs ? fmtNum(binanceWs.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'orange',
   })
