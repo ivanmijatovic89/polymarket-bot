@@ -146,6 +146,7 @@ function MergedCompareTable(props: {
     <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60 w-full max-w-max">
       <table className="w-max table-fixed border-separate border-spacing-0 text-[14px]">
         <colgroup>
+          <col className="w-[28px]" />
           <col className="w-[52px]" />
           <col className="w-[88px]" />
           <col className="w-[72px]" />
@@ -160,7 +161,8 @@ function MergedCompareTable(props: {
 
         <thead>
           <tr className="text-left">
-            {/* Group header row intentionally does NOT cover the `lvl` column */}
+            {/* Group header row intentionally does NOT cover the ASK/BID label column nor the `lvl` column */}
+            <th className="sticky top-0 z-20 bg-transparent px-2 py-1" />
             <th className="sticky top-0 z-20 bg-transparent px-2 py-1" />
             <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={3}>
               UP
@@ -173,6 +175,7 @@ function MergedCompareTable(props: {
             </th>
           </tr>
           <tr className="text-left">
+            <th className={thBase} />
             <th className={thBase}>LVL</th>
             <th className={`${thBase} text-right`}>UP SHARES</th>
             <th className={thBase}>UP PRICE</th>
@@ -195,6 +198,14 @@ function MergedCompareTable(props: {
             const pxClass = 'text-red-300'
             return (
               <tr key={`ask-${i}`} className="border-t border-zinc-800/60">
+                {askRows > 0 && i === 0 ? (
+                  <td
+                    rowSpan={askRows}
+                    className="px-1 py-2 text-[12px] font-semibold text-zinc-300 bg-zinc-900/10 border-r border-zinc-800/60 align-middle"
+                  >
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>ASK - UP &amp; DOWN</div>
+                  </td>
+                ) : null}
                 <td className={`${tdBase} tabular-nums`}>{idx + 1}</td>
                 <td className={`${tdBase} text-right tabular-nums`}>{up ? fmtSize(up.size) : '—'}</td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>{up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}</td>
@@ -217,6 +228,7 @@ function MergedCompareTable(props: {
 
           {/* Spread separator row */}
           <tr className="border-t border-zinc-800/60 bg-zinc-900/25">
+            <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase}`}>
@@ -251,6 +263,14 @@ function MergedCompareTable(props: {
             const pxClass = 'text-emerald-300'
             return (
               <tr key={`bid-${i}`} className="border-t border-zinc-800/60">
+                {bidRows > 0 && i === 0 ? (
+                  <td
+                    rowSpan={bidRows}
+                    className="px-1 py-2 text-[12px] font-semibold text-zinc-300 bg-zinc-900/10 border-r border-zinc-800/60 align-middle"
+                  >
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>BID - UP &amp; DOWN</div>
+                  </td>
+                ) : null}
                 <td className={`${tdBase} tabular-nums`}>{idx + 1}</td>
                 <td className={`${tdBase} text-right tabular-nums`}>{up ? fmtSize(up.size) : '—'}</td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>{up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}</td>
