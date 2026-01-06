@@ -1,4 +1,5 @@
-import type { BotUiSnapshot } from '../types'
+import { useMemo, useState } from 'react'
+import type { BotUiCommand, BotUiSnapshot, WsCommandAckMsg } from '../types'
 import { clsRedGreen, fmtCents, fmtPrice } from '../utils/format'
 
 // Table styling for portfolio sections:
@@ -196,10 +197,6 @@ function fmtMaybeStr(s: unknown): string {
   return typeof s === 'string' && s.length > 0 ? s : 'n/a'
 }
 
-function fmtBool(b: unknown): string {
-  return typeof b === 'boolean' ? (b ? 'true' : 'false') : 'n/a'
-}
-
 function fmtIso(tsMs: unknown): string {
   if (typeof tsMs !== 'number' || !Number.isFinite(tsMs)) return 'n/a'
   try {
@@ -392,7 +389,10 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
   )
 }
 
-export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
+export function OpenOrdersTablePanel(props: {
+  snapshot: BotUiSnapshot
+  sendCommand?: (cmd: BotUiCommand) => Promise<WsCommandAckMsg>
+}) {
   const portfolio = asPortfolio(props.snapshot)
   const botOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
   const wsOrders = portfolio?.wsOpenOrdersByOrderId ? Object.entries(portfolio.wsOpenOrdersByOrderId) : []
@@ -471,11 +471,63 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
 
   rows.sort((a, b) => (b.updatedAtMs ?? 0) - (a.updatedAtMs ?? 0))
 
+  const [pendingByKey, setPendingByKey] = useState<Record<string, boolean>>({})
+  const [pendingCancelAll, setPendingCancelAll] = useState<boolean>(false)
+
+  const canCancelAll = useMemo(() => rows.length > 0, [rows.length])
+  const sendCommand = props.sendCommand
+
+  const doCancel = async (r: Row): Promise<void> => {
+    if (!sendCommand) return
+    const orderId = typeof r.orderId === 'string' && r.orderId.length > 0 ? r.orderId : undefined
+    const clientOrderId = typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0 ? r.clientOrderId : undefined
+    if (!orderId && !clientOrderId) return
+
+    setPendingByKey((prev) => ({ ...prev, [r.key]: true }))
+    try {
+      const ack = await sendCommand({
+        kind: 'cancel_order',
+        ...(orderId ? { orderId } : {}),
+        ...(clientOrderId ? { clientOrderId } : {}),
+      })
+      if (!ack.ok) window.alert(`Cancel failed: ${ack.error ?? 'unknown_error'}`)
+    } catch (err) {
+      window.alert(`Cancel failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setPendingByKey((prev) => ({ ...prev, [r.key]: false }))
+    }
+  }
+
+  const doCancelAll = async (): Promise<void> => {
+    if (!sendCommand) return
+    if (!canCancelAll) return
+    if (!window.confirm('Cancel ALL open orders?')) return
+    setPendingCancelAll(true)
+    try {
+      const ack = await sendCommand({ kind: 'cancel_all' })
+      if (!ack.ok) window.alert(`Cancel all failed: ${ack.error ?? 'unknown_error'}`)
+    } catch (err) {
+      window.alert(`Cancel all failed: ${err instanceof Error ? err.message : String(err)}`)
+    } finally {
+      setPendingCancelAll(false)
+    }
+  }
+
   return (
     <div className="panel">
       <div className="panel-h">
         <div className="panel-t">Open orders</div>
-        <div className="text-[14px] text-zinc-500">raw snapshot (no computed)</div>
+        <div className="flex items-center gap-2">
+          <button
+            className="rounded-md px-2.5 py-1 text-[12px] font-semibold uppercase tracking-wide ring-1 ring-red-500/30 bg-red-600/70 text-white hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={doCancelAll}
+            disabled={!sendCommand || pendingCancelAll || !canCancelAll}
+            title={!sendCommand ? 'not connected' : !canCancelAll ? 'no cancelable orders' : 'Cancel all open orders'}
+          >
+            {pendingCancelAll ? 'Canceling…' : 'Cancel all orders'}
+          </button>
+          <div className="text-[14px] text-zinc-500">raw snapshot (no computed)</div>
+        </div>
       </div>
 
       <div className="panel-b">
@@ -495,6 +547,7 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                   <th className={thNum}>filled</th>
                   <th className={thNum}>remaining</th>
                   <th className={thBase}>orderType</th>
+                  <th className={thBase}>actions</th>
                   <th className={thBase}>state</th>
                   <th className={thBase}>source</th>
                   <th className={thBase}>orderId</th>
@@ -519,6 +572,32 @@ export function OpenOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
                     <td className={tdNum}>{fmtNum(r?.filled)}</td>
                     <td className={tdNum}>{fmtNum(r?.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r?.orderType)}</td>
+                    <td className={tdBase}>
+                      <button
+                        className="rounded-md px-2 py-1 text-[12px] font-semibold uppercase tracking-wide ring-1 ring-red-500/30 bg-red-600/70 text-white hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+                        onClick={() => void doCancel(r)}
+                        disabled={
+                          !sendCommand ||
+                          Boolean(pendingByKey[r.key]) ||
+                          !(
+                            (typeof r.orderId === 'string' && r.orderId.length > 0) ||
+                            (typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0)
+                          )
+                        }
+                        title={
+                          !sendCommand
+                            ? 'not connected'
+                            : !(
+                                  (typeof r.orderId === 'string' && r.orderId.length > 0) ||
+                                  (typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0)
+                                )
+                              ? 'missing ids (cannot cancel)'
+                              : 'Cancel this order'
+                        }
+                      >
+                        {pendingByKey[r.key] ? 'Canceling…' : 'Cancel'}
+                      </button>
+                    </td>
                     <td className={tdBase}>{fmtMaybeStr(r?.state)}</td>
                     <td className={tdBase}>{r.source}</td>
                     <td className={tdBase}>

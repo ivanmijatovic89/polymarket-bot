@@ -30,8 +30,9 @@ import {
   jsonlFileSink,
   patchConsole,
 } from '../utils/logger.js'
-import { createTradingBotWebUiServer, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
+import { createTradingBotWebUiServer, type BotUiCommand, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
+import type { CancelAllIntent, CancelOrderIntent, Intent } from '../strategy/Strategy.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -769,6 +770,52 @@ async function main(): Promise<void> {
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),
+      onCommand: async (cmd: BotUiCommand) => {
+        const nowMs = Date.now()
+        const lastMarket = runner.getLastMarketSnapshot()
+        const portfolio = runner.getPortfolio().snapshot()
+
+        const ctx = {
+          nowMs,
+          ...(lastMarket ? { lastMarket } : {}),
+          portfolio,
+        }
+
+        if (cmd.kind === 'cancel_all') {
+          const intent: CancelAllIntent = { kind: 'cancel_all', reason: 'webui' }
+          const intents: Intent[] = [intent]
+          const events = await orderManager.handleIntents(intents, ctx, { mode: 'immediate' })
+          for (const ev of events) await runner.onAccountEvent(ev)
+          return
+        }
+
+        // cancel_order
+        const clientOrderId =
+          typeof cmd.clientOrderId === 'string' && cmd.clientOrderId.length > 0 ? cmd.clientOrderId : undefined
+        let orderId = typeof cmd.orderId === 'string' && cmd.orderId.length > 0 ? cmd.orderId : undefined
+
+        // If UI only provided clientOrderId, attempt to resolve orderId from the Portfolio.
+        if (!orderId && clientOrderId) {
+          try {
+            const o = runner.getPortfolio().getOpenOrderByClientId(clientOrderId)
+            if (typeof o?.orderId === 'string' && o.orderId.length > 0) orderId = o.orderId
+          } catch {
+            // ignore
+          }
+        }
+
+        if (!orderId && !clientOrderId) return
+
+        const intent: CancelOrderIntent = {
+          kind: 'cancel_order',
+          ...(clientOrderId ? { clientOrderId } : {}),
+          ...(orderId ? { orderId } : {}),
+          reason: 'webui',
+        }
+        const intents: Intent[] = [intent]
+        const events = await orderManager.handleIntents(intents, ctx, { mode: 'immediate' })
+        for (const ev of events) await runner.onAccountEvent(ev)
+      },
       orderbookLevels,
       refreshMs,
     })

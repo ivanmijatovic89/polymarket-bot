@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { BotUiSnapshot, WsSnapshotMsg } from '../types'
+import type { BotUiCommand, BotUiSnapshot, WsClientMsg, WsCommandAckMsg, WsServerMsg, WsSnapshotMsg } from '../types'
 
 export type WsStatus = 'connecting' | 'open' | 'closed' | 'error'
 
@@ -7,6 +7,7 @@ export function useBotWs(): {
   status: WsStatus
   snapshot: BotUiSnapshot | null
   logLines: string[]
+  sendCommand: (cmd: BotUiCommand) => Promise<WsCommandAckMsg>
   clearLogs: () => void
 } {
   const [status, setStatus] = useState<WsStatus>('connecting')
@@ -33,6 +34,10 @@ export function useBotWs(): {
 
   const keepLastLines = 5000
   const wsRef = useRef<WebSocket | null>(null)
+  const idSeqRef = useRef<number>(0)
+  const pendingRef = useRef<Map<string, { resolve: (v: WsCommandAckMsg) => void; reject: (e: Error) => void; t: number }>>(
+    new Map(),
+  )
 
   useEffect(() => {
     let stopped = false
@@ -56,6 +61,16 @@ export function useBotWs(): {
 
       ws.onclose = () => {
         setStatus('closed')
+        // Reject all pending command promises on disconnect.
+        for (const [, p] of pendingRef.current.entries()) {
+          window.clearTimeout(p.t)
+          try {
+            p.reject(new Error('ws_closed'))
+          } catch {
+            // ignore
+          }
+        }
+        pendingRef.current.clear()
         if (stopped) return
         const delay = Math.min(10_000, 250 * Math.pow(2, retry))
         retry += 1
@@ -64,14 +79,27 @@ export function useBotWs(): {
 
       ws.onmessage = (ev) => {
         try {
-          const msg = JSON.parse(String(ev.data)) as WsSnapshotMsg
-          if (!msg || msg.type !== 'snapshot') return
-          setSnapshot(msg.snapshot)
-          if (msg.logsText?.lines && msg.logsText.lines.length > 0) {
-            setLogLines((prev) => {
-              const next = prev.concat(msg.logsText!.lines)
-              return next.length > keepLastLines ? next.slice(next.length - keepLastLines) : next
-            })
+          const msg = JSON.parse(String(ev.data)) as WsServerMsg
+          if (!msg) return
+          if (msg.type === 'snapshot') {
+            const snapMsg = msg as WsSnapshotMsg
+            setSnapshot(snapMsg.snapshot)
+            if (snapMsg.logsText?.lines && snapMsg.logsText.lines.length > 0) {
+              setLogLines((prev) => {
+                const next = prev.concat(snapMsg.logsText!.lines)
+                return next.length > keepLastLines ? next.slice(next.length - keepLastLines) : next
+              })
+            }
+            return
+          }
+          if (msg.type === 'command_ack') {
+            const ack = msg as WsCommandAckMsg
+            const p = pendingRef.current.get(ack.id)
+            if (!p) return
+            pendingRef.current.delete(ack.id)
+            window.clearTimeout(p.t)
+            p.resolve(ack)
+            return
           }
         } catch {
           // ignore
@@ -97,6 +125,28 @@ export function useBotWs(): {
     status,
     snapshot,
     logLines,
+    sendCommand: async (cmd: BotUiCommand) => {
+      const ws = wsRef.current
+      if (!ws || ws.readyState !== WebSocket.OPEN) {
+        throw new Error('ws_not_open')
+      }
+      const id = `${Date.now()}-${(idSeqRef.current += 1)}`
+      const msg: WsClientMsg = { type: 'command', id, command: cmd }
+      return await new Promise<WsCommandAckMsg>((resolve, reject) => {
+        const t = window.setTimeout(() => {
+          pendingRef.current.delete(id)
+          reject(new Error('command_timeout'))
+        }, 10_000)
+        pendingRef.current.set(id, { resolve, reject, t })
+        try {
+          ws.send(JSON.stringify(msg))
+        } catch (err) {
+          window.clearTimeout(t)
+          pendingRef.current.delete(id)
+          reject(err instanceof Error ? err : new Error(String(err)))
+        }
+      })
+    },
     clearLogs: () => {
       setLogLines([])
     },

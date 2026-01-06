@@ -149,11 +149,6 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
   const orderB = '0xmock_order_b'
   const orderC = '0xmock_order_c'
 
-  // Polymarket-style prices: 0..100 cents.
-  // Make them roughly complementary so UP + DOWN ~= 100.
-  const pxUp = 0.542
-  const pxDown = 0.458
-
   // Shares are typically small integers/decimals.
   // We'll keep sizes simple and consistent with fills/orders.
   const posUpQty: number = 18 // shares
@@ -169,9 +164,6 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
   const downCostBasis = posDownQty * downAvgEntry
   const totalCost = upCostBasis + downCostBasis
   const sharesMergeable = Math.min(posUpQty, posDownQty)
-  const sharesUpUnpaired = posUpQty - sharesMergeable
-  const sharesDownUnpaired = posDownQty - sharesMergeable
-  const totalShares = posUpQty + posDownQty
   const pairAvg = upAvgEntry + downAvgEntry
 
   const positionMetrics = {
@@ -342,7 +334,7 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
 }
 
 export function App() {
-  const { status, snapshot, logLines } = useBotWs()
+  const { status, snapshot, logLines, sendCommand } = useBotWs()
   const mockPortfolioEnabled = new URLSearchParams(window.location.search).has('mockPortfolio')
   const displaySnapshot =
     snapshot && mockPortfolioEnabled ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any) : snapshot
@@ -449,7 +441,7 @@ export function App() {
             {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
               <PositionsTablePanel snapshot={displaySnapshot} />
-              <OpenOrdersTablePanel snapshot={displaySnapshot} />
+              <OpenOrdersTablePanel snapshot={displaySnapshot} sendCommand={sendCommand} />
               <ExecutedOrdersTablePanel snapshot={displaySnapshot} />
               <OrdersByClientIdTablePanel snapshot={displaySnapshot} />
             </div>

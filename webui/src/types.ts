@@ -59,4 +59,24 @@ export type WsSnapshotMsg = {
   logsText?: { from: number; to: number; lines: string[] }
 }
 
+export type BotUiCommand =
+  | { kind: 'cancel_order'; orderId?: string; clientOrderId?: string }
+  | { kind: 'cancel_all' }
+
+export type WsCommandMsg = {
+  type: 'command'
+  id: string
+  command: BotUiCommand
+}
+
+export type WsCommandAckMsg = {
+  type: 'command_ack'
+  id: string
+  ok: boolean
+  error?: string
+}
+
+export type WsClientMsg = WsCommandMsg
+export type WsServerMsg = WsSnapshotMsg | WsCommandAckMsg
+
 

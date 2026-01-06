@@ -28,6 +28,12 @@ export type TradingBotWebUiServerOptions = {
   getLogLinesWindow?: () => SequencedWindow<string>
 
   /**
+   * Optional inbound command handler (for WebUI control actions).
+   * If omitted, the WebUI websocket is read-only (snapshots only).
+   */
+  onCommand?: (cmd: BotUiCommand) => Promise<void> | void
+
+  /**
    * Where the frontend build output lives. Default: <repo>/webui/dist
    *
    * NOTE: We keep it runtime-configurable so you can point it at a custom build dir.
@@ -46,12 +52,33 @@ type WsSnapshotMsg = {
   logsText?: { from: number; to: number; lines: string[] }
 }
 
+export type BotUiCommand =
+  | { kind: 'cancel_order'; orderId?: string; clientOrderId?: string }
+  | { kind: 'cancel_all' }
+
+type WsClientMsg = {
+  type: 'command'
+  id: string
+  command: BotUiCommand
+}
+
+type WsCommandAckMsg = {
+  type: 'command_ack'
+  id: string
+  ok: boolean
+  error?: string
+}
+
 function safeJson(x: unknown): string {
   try {
     return JSON.stringify(x)
   } catch {
     return JSON.stringify({ type: 'error', error: 'json_stringify_failed' })
   }
+}
+
+function nonEmptyStr(x: unknown): string | undefined {
+  return typeof x === 'string' && x.trim().length > 0 ? x : undefined
 }
 
 function mimeForExt(ext: string): string {
@@ -176,11 +203,79 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
 
   const wss = new WebSocketServer({ noServer: true })
 
+  const handleClientCommand = async (ws: WebSocket, raw: unknown): Promise<void> => {
+    if (!opts.onCommand) return
+    const msg = raw as Partial<WsClientMsg>
+    if (msg?.type !== 'command') return
+    const id = nonEmptyStr(msg.id) ?? ''
+    if (!id) return
+
+    const cmd = msg.command as Partial<BotUiCommand> | undefined
+    const kind = nonEmptyStr(cmd?.kind) ?? ''
+    if (kind !== 'cancel_order' && kind !== 'cancel_all') {
+      const ack: WsCommandAckMsg = { type: 'command_ack', id, ok: false, error: 'unknown_command' }
+      try {
+        ws.send(safeJson(ack))
+      } catch {
+        // ignore
+      }
+      return
+    }
+
+    const orderId = nonEmptyStr((cmd as { orderId?: unknown } | undefined)?.orderId)
+    const clientOrderId = nonEmptyStr((cmd as { clientOrderId?: unknown } | undefined)?.clientOrderId)
+
+    const normalized: BotUiCommand =
+      kind === 'cancel_all'
+        ? { kind: 'cancel_all' }
+        : {
+            kind: 'cancel_order',
+            ...(orderId ? { orderId } : {}),
+            ...(clientOrderId ? { clientOrderId } : {}),
+          }
+
+    // Send an ACK immediately so the UI doesn't depend on downstream latency (API calls, rate limits, etc).
+    // The actual effects will be reflected via subsequent snapshots.
+    try {
+      const ack: WsCommandAckMsg = { type: 'command_ack', id, ok: true }
+      try {
+        ws.send(safeJson(ack))
+      } catch {
+        // ignore
+      }
+
+      void Promise.resolve()
+        .then(() => opts.onCommand!(normalized))
+        .catch((err) => {
+          try {
+            console.error('[web-ui][⛔️] onCommand failed', err)
+          } catch {
+            // ignore
+          }
+        })
+      return
+    } catch {
+      // ignore
+    }
+  }
+
   wss.on('connection', (ws) => {
     const c: ClientState = { ws, nextLineSeq: 0 }
     clients.add(c)
     ws.on('close', () => clients.delete(c))
     ws.on('error', () => clients.delete(c))
+    ws.on('message', (data) => {
+      // Best-effort: accept JSON command messages.
+      // Keep this lightweight; validate inside handler.
+      if (!opts.onCommand) return
+      try {
+        const s = typeof data === 'string' ? data : Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
+        const parsed = JSON.parse(s)
+        void handleClientCommand(ws, parsed)
+      } catch {
+        // ignore
+      }
+    })
     // First snapshot ASAP
     try {
       const state = opts.getState()
