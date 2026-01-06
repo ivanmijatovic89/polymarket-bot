@@ -228,12 +228,6 @@ export type PortfolioSnapshot = {
    * Useful for grouping positions across YES/NO pairs to compute merge PnL.
    */
   marketByAssetId: Record<string, string>
-
-  /**
-   * Optional computed fields for convenience (UI + strategies).
-   * Kept optional for backwards compatibility.
-   */
-  positionMetrics?: PositionMetrics
 }
 
 export type AccountEvent =

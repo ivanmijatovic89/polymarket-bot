@@ -18,6 +18,7 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
+import { computePositionMetricsFromMarket } from '../trading/positionMetrics.js'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -706,7 +707,16 @@ async function main(): Promise<void> {
         })()
         const portfolio = (() => {
           try {
-            return runner.getPortfolioSnapshot()
+            return runner.getPortfolio().snapshot()
+          } catch {
+            return undefined
+          }
+        })()
+        const positionMetrics = (() => {
+          try {
+            return portfolio
+              ? computePositionMetricsFromMarket({ portfolio, ...(currentMarket ? { market: currentMarket } : {}) })
+              : undefined
           } catch {
             return undefined
           }
@@ -736,6 +746,7 @@ async function main(): Promise<void> {
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
           ...(strategyMeta ? { strategy: strategyMeta } : {}),
           ...(portfolio ? { portfolio } : {}),
+          ...(positionMetrics ? { positionMetrics } : {}),
           ...(typeof indicators !== 'undefined' ? { indicators } : {}),
           ...(typeof feeds !== 'undefined' ? { feeds } : {}),
         }

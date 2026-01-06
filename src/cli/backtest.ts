@@ -298,7 +298,7 @@ async function main(): Promise<void> {
 
         // Collect fills from portfolio (avoid duplicates)
         if (currentMarketId) {
-          const portfolio = runner.getPortfolioSnapshot()
+          const portfolio = runner.getPortfolio().snapshot()
           for (const fill of portfolio.recentFills) {
             if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
               currentMarketTrades.push(fill)
@@ -311,7 +311,7 @@ async function main(): Promise<void> {
 
     // Compute stats AFTER replay (only if we have all required data)
     if (slug && currentMarketId && marketResolution) {
-      const portfolio = runner.getPortfolioSnapshot()
+      const portfolio = runner.getPortfolio().snapshot()
       const finalPositions = portfolio.positionsByAssetId
       const realizedPnl = portfolio.realizedPnlTotal ?? 0
 

@@ -53,7 +53,7 @@ function fmtMs(ms: number): string {
   return `${m}:${ss}`
 }
 
-function makeMockPortfolio(snapshot: any) {
+function makeMockPortfolio(snapshot: any): { portfolio: any; positionMetrics: any } {
   const now = Date.now()
   const up = snapshot?.status?.upAssetId ?? 'UP_ASSET_ID'
   const down = snapshot?.status?.downAssetId ?? 'DOWN_ASSET_ID'
@@ -91,7 +91,17 @@ function makeMockPortfolio(snapshot: any) {
   const totalShares = posUpQty + posDownQty
   const pairAvg = upAvgEntry + downAvgEntry
 
-  return {
+  const positionMetrics = {
+    shares_mergeable: sharesMergeable,
+    pair_avg: pairAvg,
+    total_cost: totalCost,
+    pnl_merge: sharesMergeable - totalCost,
+    pnl_if_up_wins: posUpQty - totalCost,
+    pnl_if_down_wins: posDownQty - totalCost,
+    imbalance: posUpQty - posDownQty,
+  }
+
+  const portfolio = {
     nowMs: now,
     realizedPnlTotal: 0.42,
     positionsByAssetId: {
@@ -102,15 +112,6 @@ function makeMockPortfolio(snapshot: any) {
         avgEntryPrice: downAvgEntry,
         costBasis: downCostBasis,
       },
-    },
-    positionMetrics: {
-      shares_mergeable: sharesMergeable,
-      pair_avg: pairAvg,
-      total_cost: totalCost,
-      pnl_merge: sharesMergeable - totalCost,
-      pnl_if_up_wins: posUpQty - totalCost,
-      pnl_if_down_wins: posDownQty - totalCost,
-      imbalance: posUpQty - posDownQty,
     },
     openOrdersByClientId: {
       [clientA]: {
@@ -249,13 +250,15 @@ function makeMockPortfolio(snapshot: any) {
       [down]: slug,
     },
   }
+
+  return { portfolio, positionMetrics }
 }
 
 export function App() {
   const { status, snapshot, logLines } = useBotWs()
   const mockPortfolioEnabled = new URLSearchParams(window.location.search).has('mockPortfolio')
   const displaySnapshot =
-    snapshot && mockPortfolioEnabled ? ({ ...snapshot, portfolio: makeMockPortfolio(snapshot) } as any) : snapshot
+    snapshot && mockPortfolioEnabled ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any) : snapshot
 
   const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
   const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null

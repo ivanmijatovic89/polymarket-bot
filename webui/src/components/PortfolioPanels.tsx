@@ -148,15 +148,6 @@ type PortfolioSnapshot = {
   ordersByClientId?: Record<string, OrderSnapshot>
   recentFills?: Fill[]
   marketByAssetId: Record<string, string>
-  positionMetrics?: {
-    shares_mergeable: number
-    pair_avg: number | null
-    total_cost: number
-    pnl_merge: number
-    pnl_if_up_wins: number
-    pnl_if_down_wins: number
-    imbalance: number
-  }
 }
 
 function asPortfolio(snapshot: BotUiSnapshot): PortfolioSnapshot | null {
@@ -166,6 +157,25 @@ function asPortfolio(snapshot: BotUiSnapshot): PortfolioSnapshot | null {
   if (!p.openOrdersByClientId || typeof p.openOrdersByClientId !== 'object') return null
   if (!p.marketByAssetId || typeof p.marketByAssetId !== 'object') return null
   return p as PortfolioSnapshot
+}
+
+type PositionMetrics = {
+  shares_mergeable: number
+  pair_avg: number | null
+  total_cost: number
+  pnl_merge: number
+  pnl_if_up_wins: number
+  pnl_if_down_wins: number
+  imbalance: number
+}
+
+function asPositionMetrics(snapshot: BotUiSnapshot): PositionMetrics | null {
+  const pm = (snapshot as unknown as { positionMetrics?: unknown }).positionMetrics as any
+  if (!pm || typeof pm !== 'object') return null
+  if (typeof pm.shares_mergeable !== 'number') return null
+  if (typeof pm.total_cost !== 'number') return null
+  // pair_avg may be null; pnl_* should be numbers when present.
+  return pm as PositionMetrics
 }
 
 function assetTag(snapshot: BotUiSnapshot, assetId: string | undefined | null): 'UP' | 'DOWN' | 'OTHER' {
@@ -244,7 +254,7 @@ function IdCell(props: { value?: string | null; keep?: number }) {
 export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
   const portfolio = asPortfolio(props.snapshot)
   const positions = portfolio ? Object.entries(portfolio.positionsByAssetId) : []
-  const pm = portfolio?.positionMetrics
+  const pm = asPositionMetrics(props.snapshot)
 
 
   return (

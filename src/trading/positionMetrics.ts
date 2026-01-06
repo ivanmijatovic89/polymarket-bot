@@ -1,3 +1,4 @@
+import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { PortfolioSnapshot, PositionMetrics } from '../strategy/Strategy.js'
 
 function n(x: unknown): number {
@@ -45,6 +46,38 @@ export function computePositionMetrics(args: {
     pnl_if_down_wins: down_shares - total_cost,
     imbalance: up_shares - down_shares,
   }
+}
+
+/**
+ * Convenience wrapper: resolve UP/DOWN assetIds from market meta, then compute metrics.
+ *
+ * Keeps the math in `computePositionMetrics()` and the market-mapping logic here (same file),
+ * so call sites stay tiny (StrategyRunner, trading-bot webui payload, etc.).
+ */
+export function computePositionMetricsFromMarket(args: {
+  portfolio: PortfolioSnapshot
+  market?: GammaMarketMeta
+}): PositionMetrics | undefined {
+  const m = args.market
+  if (!m) return undefined
+
+  const outcomes = Array.isArray(m.outcomes) ? m.outcomes : []
+  const tokenIds = Array.isArray(m.clobTokenIds) ? m.clobTokenIds : []
+
+  let upAssetId: string | undefined
+  let downAssetId: string | undefined
+  const n = Math.min(outcomes.length, tokenIds.length)
+  for (let i = 0; i < n; i += 1) {
+    const outcome = outcomes[i]
+    const tokenId = tokenIds[i]
+    const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
+    const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
+    if (!id) continue
+    if (!upAssetId && o.includes('up')) upAssetId = id
+    if (!downAssetId && o.includes('down')) downAssetId = id
+  }
+
+  return computePositionMetrics({ portfolio: args.portfolio, upAssetId, downAssetId })
 }
 
 

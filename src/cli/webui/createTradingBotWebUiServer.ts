@@ -159,6 +159,7 @@ function buildSnapshot(args: {
     },
     ...(args.state.strategy ? { strategy: args.state.strategy } : {}),
     ...(typeof args.state.portfolio !== 'undefined' ? { portfolio: args.state.portfolio } : {}),
+    ...(typeof args.state.positionMetrics !== 'undefined' ? { positionMetrics: args.state.positionMetrics } : {}),
     ...(typeof args.state.indicators !== 'undefined' ? { indicators: args.state.indicators } : {}),
     ...(typeof args.state.feeds !== 'undefined' ? { feeds: args.state.feeds } : {}),
   }

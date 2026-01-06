@@ -1,6 +1,6 @@
 import type { MarketOrderBooksSnapshot, OrderBookSnapshot } from '../../market/orderbook/index.js'
 import type { StrategyRunnerMeta } from '../../trading/StrategyRunner.js'
-import type { PortfolioSnapshot } from '../../strategy/Strategy.js'
+import type { PortfolioSnapshot, PositionMetrics } from '../../strategy/Strategy.js'
 import type { IndicatorsSnapshot } from '../../indicators/IndicatorSet.js'
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 
@@ -20,6 +20,7 @@ export type BotUiSourceState = {
   downAssetId?: string
   strategy?: StrategyRunnerMeta
   portfolio?: PortfolioSnapshot
+  positionMetrics?: PositionMetrics
   indicators?: IndicatorsSnapshot
   feeds?: ExternalFeedsSnapshot
 }
@@ -54,6 +55,7 @@ export type BotUiSnapshot = {
   }
   strategy?: StrategyRunnerMeta
   portfolio?: PortfolioSnapshot
+  positionMetrics?: PositionMetrics
   indicators?: IndicatorsSnapshot
   feeds?: ExternalFeedsSnapshot
 }
