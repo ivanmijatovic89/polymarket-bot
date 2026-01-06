@@ -15,10 +15,37 @@ import { VolatilityPanel } from './components/VolatilityPanel'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
 
-function bestAskFromBook(book?: { bestAsk?: number }): number | null {
+function bestAskFromBook(book?: { bestAsk?: number; asks?: Array<{ price: number }> }): number | null {
   const a = book?.bestAsk
-  if (typeof a !== 'number' || !Number.isFinite(a)) return null
-  return a
+  if (typeof a === 'number' && Number.isFinite(a) && a > 0) return a
+
+  // Fallback: if bestAsk is missing, pull it from level 1 ask.
+  // NOTE: asks are sorted ASC with best ask first.
+  const lvl0 = book?.asks?.[0]?.price
+  if (typeof lvl0 === 'number' && Number.isFinite(lvl0) && lvl0 > 0) return lvl0
+
+  // No offers (or invalid)
+  return null
+}
+
+function computeUpDownSplitFromAsks(
+  asks: { up: number | null; down: number | null },
+): { up: number; down: number; winner: 'UP' | 'DOWN' | 'NONE' } {
+  const u = typeof asks.up === 'number' && Number.isFinite(asks.up) && asks.up > 0 ? asks.up : 0
+  const d = typeof asks.down === 'number' && Number.isFinite(asks.down) && asks.down > 0 ? asks.down : 0
+  const sum = u + d
+
+  // Edge cases:
+  // - No asks on both sides => neutral 50/50
+  // - No asks on one side => 0/100 (full bar to the side with offers)
+  if (sum <= 0) return { up: 50, down: 50, winner: 'NONE' }
+  if (u <= 0) return { up: 0, down: 100, winner: 'DOWN' }
+  if (d <= 0) return { up: 100, down: 0, winner: 'UP' }
+
+  const up = Math.max(0, Math.min(100, (u / sum) * 100))
+  const down = 100 - up
+  const winner = up > down ? 'UP' : down > up ? 'DOWN' : 'NONE'
+  return { up, down, winner }
 }
 
 function fmtShortJson(x: unknown, maxLen: number): string {
@@ -273,49 +300,60 @@ export function App() {
   const indEnabled = displaySnapshot?.strategy?.indicators ?? []
   const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
   const hasVolatility = Boolean((displaySnapshot as any)?.indicators?.volatility)
+  const pm15m = computeUpDownSplitFromAsks({ up: upAsk, down: downAsk })
+  const pm15mWinnerClass =
+    pm15m.winner === 'UP' ? 'winner-up' : pm15m.winner === 'DOWN' ? 'winner-down' : 'winner-none'
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-10 border-b border-zinc-800  backdrop-blur">
-        <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
-          <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
-            <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
-            <ConnectionBadge status={status} />
-            {displaySnapshot ? (
-              <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
-              </span>
-            ) : null}
-          </div>
+      <div className="sticky top-0 z-10">
+        {/* Polymarket BTC 15m UP/DOWN status bar (split indicator) */}
+        <div className={`pm-btc15m-bar ${pm15mWinnerClass}`}>
+          <div className="up-segment" style={{ width: `${pm15m.up}%` }} />
+          <div className="down-segment" style={{ width: `${pm15m.down}%` }} />
+        </div>
 
-          <div className="flex min-w-0 flex-1 items-center justify-center">
+        <header className="border-b border-zinc-800  backdrop-blur">
+          <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
+            <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
+              <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
+              <ConnectionBadge status={status} />
+              {displaySnapshot ? (
+                <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                  ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
+                </span>
+              ) : null}
+            </div>
+
+            <div className="flex min-w-0 flex-1 items-center justify-center">
               <div className="flex ring-1 bg-green-600/80 ring-green-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-r-none">
                 <span className="text-white">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
               <div className="flex ring-1 bg-red-600/80 ring-red-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-l-none">
                 <span className="text-white">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
               </div>
-          </div>
+            </div>
 
-          <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
-            {displaySnapshot ? (
-              <>
-                <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
-                </span>
-                <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
-                </span>
-                <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
-                </span>
-              </>
-            ) : (
-              <div className="text-[14px] text-zinc-500">webui</div>
-            )}
+            <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
+              {displaySnapshot ? (
+                <>
+                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                    slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
+                  </span>
+                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                    ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
+                  </span>
+                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                    ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
+                  </span>
+                </>
+              ) : (
+                <div className="text-[14px] text-zinc-500">webui</div>
+              )}
+            </div>
           </div>
-        </div>
-      </header>
+        </header>
+      </div>
 
       <main className="mx-auto  px-2 py-2 pb-16">
         {!displaySnapshot ? (

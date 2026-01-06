@@ -51,6 +51,39 @@
   .chip {
     @apply inline-flex items-center rounded-md px-2 py-1 text-[16px] ring-1;
   }
+
+  /* Polymarket BTC 15m UP/DOWN split status bar (App header) */
+  .pm-btc15m-bar {
+    height: 12px; /* requirement: 10–15px */
+    width: 100%;
+    display: flex;
+    overflow: hidden;
+  }
+
+  .pm-btc15m-bar .up-segment,
+  .pm-btc15m-bar .down-segment {
+    height: 100%;
+    flex: 0 0 auto; /* respect inline width percentages */
+  }
+
+  .pm-btc15m-bar .up-segment {
+    background: #22c55e; /* green */
+  }
+
+  .pm-btc15m-bar .down-segment {
+    background: #ef4444; /* red */
+  }
+
+  /* Optional: emphasize the winning side on the whole bar (keeps split colors visible) */
+  .pm-btc15m-bar.winner-up {
+    box-shadow: inset 0 -1px 0 rgba(34, 197, 94, 0.8);
+  }
+  .pm-btc15m-bar.winner-down {
+    box-shadow: inset 0 -1px 0 rgba(239, 68, 68, 0.8);
+  }
+  .pm-btc15m-bar.winner-none {
+    box-shadow: inset 0 -1px 0 rgba(161, 161, 170, 0.6);
+  }
 }
 
 
