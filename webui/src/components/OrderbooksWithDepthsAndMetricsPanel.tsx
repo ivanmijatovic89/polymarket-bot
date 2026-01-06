@@ -58,6 +58,50 @@ function WeakBadge(props: { weak: unknown }) {
   )
 }
 
+function RatioBar(props: { weak: unknown; ratio: unknown }) {
+  const weak = fmtSide(props.weak)
+  const rRaw = typeof props.ratio === 'number' && Number.isFinite(props.ratio) ? props.ratio : NaN
+  const ratio = Number.isFinite(rRaw) ? Math.max(0, Math.min(1, rRaw)) : NaN
+
+  let upPct = 50
+  let downPct = 50
+
+  if (Number.isFinite(ratio)) {
+    if (weak === 'UP') {
+      // UP is weak: up/down = ratio/1
+      upPct = (ratio / (1 + ratio)) * 100
+      downPct = (1 / (1 + ratio)) * 100
+    } else if (weak === 'DOWN') {
+      // DOWN is weak: up/down = 1/ratio
+      upPct = (1 / (1 + ratio)) * 100
+      downPct = (ratio / (1 + ratio)) * 100
+    } else if (weak === 'NONE') {
+      upPct = 50
+      downPct = 50
+    }
+  }
+
+  // Keep both colors visible even in extreme ratios (but preserve ordering).
+  const minPct = 2
+  if (upPct > 0 && upPct < minPct) {
+    upPct = minPct
+    downPct = 100 - minPct
+  }
+  if (downPct > 0 && downPct < minPct) {
+    downPct = minPct
+    upPct = 100 - minPct
+  }
+
+  return (
+    <div className="h-[10px] w-[76px] overflow-hidden rounded bg-zinc-800/70 ring-1 ring-zinc-700/60">
+      <div className="flex h-full w-full">
+        <div className="h-full bg-green-500/80" style={{ width: `${upPct}%` }} />
+        <div className="h-full bg-red-500/80" style={{ width: `${downPct}%` }} />
+      </div>
+    </div>
+  )
+}
+
 function spreadFromBook(book?: BotUiOrderBook): number | undefined {
   if (
     typeof book?.bestBid === 'number' &&
@@ -108,6 +152,7 @@ function MergedCompareTable(props: {
           <col className="w-[100px]" />
           <col className="w-[72px]" />
           <col className="w-[86px]" />
+          <col className="w-[90px]" />
           <col className="w-[100px]" />
           <col className="w-[72px]" />
           <col className="w-[88px]" />
@@ -120,7 +165,7 @@ function MergedCompareTable(props: {
             <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={3}>
               UP
             </th>
-            <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={2}>
+            <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={3}>
               metrics
             </th>
             <th className={`${thGroup} text-center`} colSpan={3}>
@@ -133,7 +178,8 @@ function MergedCompareTable(props: {
             <th className={thBase}>UP PRICE</th>
             <th className={`${thBase} border-r border-zinc-700/60`}>UP DEPTH</th>
             <th className={thBase}>WEAK</th>
-            <th className={`${thBase} border-r border-zinc-700/60`}>RATIO</th>
+            <th className={thBase}>RATIO</th>
+            <th className={`${thBase} border-r border-zinc-700/60`}>BAR</th>
             <th className={thBase}>DOWN DEPTH</th>
             <th className={thBase}>DOWN PRICE</th>
             <th className={`${thBase} text-right`}>DOWN SHARES</th>
@@ -157,6 +203,9 @@ function MergedCompareTable(props: {
                   <WeakBadge weak={props.weakAskSideByLevel[idx]} />
                 </td>
                 <td className={`${tdBase} tabular-nums`}>{fmtRatio(props.weakAskRatioByLevel[idx])}</td>
+                <td className={`${tdBase} border-r border-zinc-800/60`}>
+                  <RatioBar weak={props.weakAskSideByLevel[idx]} ratio={props.weakAskRatioByLevel[idx]} />
+                </td>
                 <td className={`${tdBase} text-right tabular-nums text-red-300`}>{fmtDepth(props.downAsksDepth[idx])}</td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>
                   {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
@@ -181,6 +230,7 @@ function MergedCompareTable(props: {
             <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase} text-zinc-500 border-r border-zinc-800/60`} />
             <td className={`${tdBase} text-zinc-500`} />
             <td className={`${tdBase}`}>
               <div className="text-[12px] text-zinc-400">DOWN spread</div>
@@ -209,6 +259,9 @@ function MergedCompareTable(props: {
                   <WeakBadge weak={props.weakBidSideByLevel[idx]} />
                 </td>
                 <td className={`${tdBase} tabular-nums`}>{fmtRatio(props.weakBidRatioByLevel[idx])}</td>
+                <td className={`${tdBase} border-r border-zinc-800/60`}>
+                  <RatioBar weak={props.weakBidSideByLevel[idx]} ratio={props.weakBidRatioByLevel[idx]} />
+                </td>
                 <td className={`${tdBase} text-right tabular-nums text-red-300`}>{fmtDepth(props.downBidsDepth[idx])}</td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>
                   {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
