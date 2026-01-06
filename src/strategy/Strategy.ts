@@ -205,6 +205,16 @@ export type PositionMetrics = {
   imbalance: number
 }
 
+/**
+ * Container for derived, strategy/UI-friendly metrics.
+ *
+ * This keeps StrategyContext stable as we add more metrics (orderbook, execution, etc.)
+ * without adding more top-level fields.
+ */
+export type Metrics = {
+  position?: PositionMetrics
+}
+
 export type PortfolioSnapshot = {
   nowMs: number
   /**

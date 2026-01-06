@@ -151,13 +151,14 @@ export class StrategyRunner {
 
     const portfolio = this.portfolio.snapshot()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
+    const metrics = positionMetrics ? { position: positionMetrics } : undefined
     const ctx: StrategyContext | undefined =
-      indicators || feeds || market || positionMetrics
+      indicators || feeds || market || metrics
         ? {
             ...(indicators ? { indicators } : {}),
             ...(feeds ? { feeds } : {}),
             ...(market ? { market } : {}),
-            ...(positionMetrics ? { positionMetrics } : {}),
+            ...(metrics ? { metrics } : {}),
           }
         : undefined
 
@@ -269,13 +270,14 @@ export class StrategyRunner {
     const feeds = this.getFeedsSnapshot?.()
     const market = this.getMarket?.()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
+    const metrics = positionMetrics ? { position: positionMetrics } : undefined
     const ctx: StrategyContext | undefined =
-      indicators || feeds || market || positionMetrics
+      indicators || feeds || market || metrics
         ? {
             ...(indicators ? { indicators } : {}),
             ...(feeds ? { feeds } : {}),
             ...(market ? { market } : {}),
-            ...(positionMetrics ? { positionMetrics } : {}),
+            ...(metrics ? { metrics } : {}),
           }
         : undefined
 

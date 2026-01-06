@@ -50,7 +50,7 @@ export type BotUiSnapshot = {
   feeds?: unknown
   indicators?: unknown
   portfolio?: unknown
-  positionMetrics?: unknown
+  metrics?: unknown
 }
 
 export type WsSnapshotMsg = {

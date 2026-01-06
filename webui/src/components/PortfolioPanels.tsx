@@ -170,7 +170,7 @@ type PositionMetrics = {
 }
 
 function asPositionMetrics(snapshot: BotUiSnapshot): PositionMetrics | null {
-  const pm = (snapshot as unknown as { positionMetrics?: unknown }).positionMetrics as any
+  const pm = (snapshot as unknown as { metrics?: { position?: unknown } }).metrics?.position as any
   if (!pm || typeof pm !== 'object') return null
   if (typeof pm.shares_mergeable !== 'number') return null
   if (typeof pm.total_cost !== 'number') return null

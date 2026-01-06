@@ -721,6 +721,7 @@ async function main(): Promise<void> {
             return undefined
           }
         })()
+        const metrics = positionMetrics ? { position: positionMetrics } : undefined
         const indicators = (() => {
           try {
             return indicatorSet?.snapshot()
@@ -746,7 +747,7 @@ async function main(): Promise<void> {
           ...(typeof downAssetId === 'string' ? { downAssetId } : {}),
           ...(strategyMeta ? { strategy: strategyMeta } : {}),
           ...(portfolio ? { portfolio } : {}),
-          ...(positionMetrics ? { positionMetrics } : {}),
+          ...(metrics ? { metrics } : {}),
           ...(typeof indicators !== 'undefined' ? { indicators } : {}),
           ...(typeof feeds !== 'undefined' ? { feeds } : {}),
         }

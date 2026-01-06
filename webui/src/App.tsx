@@ -54,7 +54,7 @@ function fmtMs(ms: number): string {
   return `${m}:${ss}`
 }
 
-function makeMockPortfolio(snapshot: any): { portfolio: any; positionMetrics: any } {
+function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
   const now = Date.now()
   const up = snapshot?.status?.upAssetId ?? 'UP_ASSET_ID'
   const down = snapshot?.status?.downAssetId ?? 'DOWN_ASSET_ID'
@@ -101,6 +101,7 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; positionMetrics: an
     pnl_if_down_wins: posDownQty - totalCost,
     imbalance: posUpQty - posDownQty,
   }
+  const metrics = { position: positionMetrics }
 
   const portfolio = {
     nowMs: now,
@@ -252,7 +253,7 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; positionMetrics: an
     },
   }
 
-  return { portfolio, positionMetrics }
+  return { portfolio, metrics }
 }
 
 export function App() {
