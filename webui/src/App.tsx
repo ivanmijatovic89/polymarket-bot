@@ -2,6 +2,7 @@ import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
 import { OrderbookDepthsPanel } from './components/OrderbookDepthsPanel'
+import { OrderbookMetricsPanel } from './components/OrderbookMetricsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
 import {
   ExecutedOrdersTablePanel,
@@ -101,7 +102,10 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
     pnl_if_down_wins: posDownQty - totalCost,
     imbalance: posUpQty - posDownQty,
   }
-  const metrics = { position: positionMetrics }
+  const metrics = {
+    ...(snapshot?.metrics && typeof snapshot.metrics === 'object' ? snapshot.metrics : {}),
+    position: positionMetrics,
+  }
 
   const portfolio = {
     nowMs: now,
@@ -334,9 +338,10 @@ export function App() {
             </div>
 
             <div className="space-y-2 min-w-0">
-              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2">
+              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2 2xl:grid-cols-3">
                 <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
                 <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
+                <OrderbookMetricsPanel snapshot={displaySnapshot} />
               </div>
               {hasVolatility ? <VolatilityPanel snapshot={displaySnapshot} /> : null}
             </div>

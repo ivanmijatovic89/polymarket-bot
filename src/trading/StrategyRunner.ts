@@ -9,6 +9,7 @@ import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
 import { computePositionMetricsFromMarket } from './positionMetrics.js'
+import { computeOrderbookMetricsFromMarket } from './orderbookMetrics.js'
 
 export type StrategyExternalFeedsEnabled = {
   rtdsCryptoPrices?: boolean
@@ -151,7 +152,17 @@ export class StrategyRunner {
 
     const portfolio = this.portfolio.snapshot()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
-    const metrics = positionMetrics ? { position: positionMetrics } : undefined
+    const orderbookMetrics = computeOrderbookMetricsFromMarket({
+      marketBooks: tick.snapshot,
+      ...(market ? { market } : {}),
+    })
+    const metrics =
+      positionMetrics || orderbookMetrics
+        ? {
+            ...(positionMetrics ? { position: positionMetrics } : {}),
+            ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
+          }
+        : undefined
     const ctx: StrategyContext | undefined =
       indicators || feeds || market || metrics
         ? {
@@ -270,7 +281,19 @@ export class StrategyRunner {
     const feeds = this.getFeedsSnapshot?.()
     const market = this.getMarket?.()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
-    const metrics = positionMetrics ? { position: positionMetrics } : undefined
+    const orderbookMetrics = this.lastMarket
+      ? computeOrderbookMetricsFromMarket({
+          marketBooks: this.lastMarket,
+          ...(market ? { market } : {}),
+        })
+      : undefined
+    const metrics =
+      positionMetrics || orderbookMetrics
+        ? {
+            ...(positionMetrics ? { position: positionMetrics } : {}),
+            ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
+          }
+        : undefined
     const ctx: StrategyContext | undefined =
       indicators || feeds || market || metrics
         ? {

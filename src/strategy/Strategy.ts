@@ -205,6 +205,22 @@ export type PositionMetrics = {
   imbalance: number
 }
 
+export type OrderbookWeakSide = 'UP' | 'DOWN' | 'NONE'
+
+export type OrderbookMetrics = {
+  /**
+   * Computed levels (array index 0 == L1).
+   * Typically equals min(up.depthLevels, down.depthLevels) and also bounded by array lengths.
+   */
+  depthLevels: number
+
+  weakBidSideByLevel: OrderbookWeakSide[]
+  weakBidRatioByLevel: number[]
+
+  weakAskSideByLevel: OrderbookWeakSide[]
+  weakAskRatioByLevel: number[]
+}
+
 /**
  * Container for derived, strategy/UI-friendly metrics.
  *
@@ -213,6 +229,7 @@ export type PositionMetrics = {
  */
 export type Metrics = {
   position?: PositionMetrics
+  orderbook?: OrderbookMetrics
 }
 
 export type PortfolioSnapshot = {

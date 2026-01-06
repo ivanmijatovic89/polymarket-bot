@@ -19,6 +19,7 @@ import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesC
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
 import { computePositionMetricsFromMarket } from '../trading/positionMetrics.js'
+import { computeOrderbookMetricsFromMarket } from '../trading/orderbookMetrics.js'
 import { mkdir } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
@@ -721,7 +722,22 @@ async function main(): Promise<void> {
             return undefined
           }
         })()
-        const metrics = positionMetrics ? { position: positionMetrics } : undefined
+        const orderbookMetrics = (() => {
+          try {
+            return market
+              ? computeOrderbookMetricsFromMarket({ marketBooks: market, ...(currentMarket ? { market: currentMarket } : {}) })
+              : undefined
+          } catch {
+            return undefined
+          }
+        })()
+        const metrics =
+          positionMetrics || orderbookMetrics
+            ? {
+                ...(positionMetrics ? { position: positionMetrics } : {}),
+                ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
+              }
+            : undefined
         const indicators = (() => {
           try {
             return indicatorSet?.snapshot()
