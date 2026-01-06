@@ -695,7 +695,7 @@ async function main(): Promise<void> {
       port,
       getState: () => {
         const slug = currentSlug
-        const market = runner.getLastMarketSnapshot()
+        const market = runner.getLastMarketSnapshot()// if marketEngine.snapshot()
         const upAssetId = pickAssetId('up')
         const downAssetId = pickAssetId('down')
         const strategyMeta = (() => {
