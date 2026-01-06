@@ -339,16 +339,17 @@ export function App() {
             </div>
 
             <div className="space-y-2 min-w-0">
-              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2 2xl:grid-cols-3">
-                <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
-                <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
-                <OrderbookMetricsPanel snapshot={displaySnapshot} />
-              </div>
+
               <OrderbooksWithDepthsAndMetricsPanel
                 snapshot={displaySnapshot}
                 up={displaySnapshot.books.up}
                 down={displaySnapshot.books.down}
               />
+              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2 2xl:grid-cols-3">
+                <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
+                <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
+                <OrderbookMetricsPanel snapshot={displaySnapshot} />
+              </div>
               {hasVolatility ? <VolatilityPanel snapshot={displaySnapshot} /> : null}
             </div>
           </div>
