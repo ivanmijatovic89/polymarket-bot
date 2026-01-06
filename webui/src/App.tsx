@@ -370,42 +370,53 @@ export function App() {
         </div>
 
         <header className="border-b border-zinc-800  backdrop-blur">
-          <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
-            <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
-              {displaySnapshot ? (
-                <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                  ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
-                </span>
-              ) : null}
-              <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
-              <ConnectionBadge status={status} />
-            </div>
-
-            <div className="flex min-w-0 flex-1 items-center justify-center">
-              <div className="flex ring-1 bg-green-600/80 ring-green-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-r-none">
-                <span className="text-white">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
+          <div className="mx-auto max-w-[1800px] px-2 py-2">
+            {/* Responsive header layout:
+              - mobile: stacked sections (price remains centered)
+              - tablet/desktop: 3-zone grid where center price stays EXACTLY centered
+            */}
+            <div className="grid grid-cols-1 items-center gap-2 sm:grid-cols-[1fr_auto_1fr]">
+              {/* Left */}
+              <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
+                {displaySnapshot ? (
+                  <span className="chip text-[18px] sm:text-[22px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                    ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
+                  </span>
+                ) : null}
+                <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
+                <ConnectionBadge status={status} />
               </div>
-              <div className="flex ring-1 bg-red-600/80 ring-red-500/30 font-mono text-[22px] text-white px-10 py-3 rounded-md rounded-l-none">
-                <span className="text-white">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
-              </div>
-            </div>
 
-            <div className="flex min-w-0 items-center justify-end gap-2 md:min-w-[360px]">
-              {displaySnapshot ? (
-                <>
-                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                    slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
-                  </span>
-                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                    ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
-                  </span>
-                  <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                    ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
-                  </span>
-                </>
-              ) : (
-                <div className="text-[14px] text-zinc-500">webui</div>
-              )}
+              {/* Center (always centered) */}
+              <div className="flex min-w-0 flex-wrap items-center justify-center justify-self-center">
+                <div className="flex">
+                  <div className="flex ring-1 bg-green-600/80 ring-green-500/30 font-mono text-[18px] sm:text-[22px] text-white px-4 sm:px-10 py-2 sm:py-3 rounded-md rounded-r-none">
+                    <span className="text-white whitespace-nowrap">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
+                  </div>
+                  <div className="flex ring-1 bg-red-600/80 ring-red-500/30 font-mono text-[18px] sm:text-[22px] text-white px-4 sm:px-10 py-2 sm:py-3 rounded-md rounded-l-none">
+                    <span className="text-white whitespace-nowrap">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Right */}
+              <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 sm:justify-end">
+                {displaySnapshot ? (
+                  <>
+                    <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                      slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
+                    </span>
+                    <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                      ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
+                    </span>
+                    <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+                      ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
+                    </span>
+                  </>
+                ) : (
+                  <div className="text-[14px] text-zinc-500">webui</div>
+                )}
+              </div>
             </div>
           </div>
         </header>

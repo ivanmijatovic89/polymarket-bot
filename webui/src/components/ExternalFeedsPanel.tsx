@@ -69,22 +69,44 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
   }
 
   return (
-      <div className="grid grid-cols-1 gap-2 lg:grid-cols-4">
-        {tiles.map((t, idx) => (
-          <div key={idx} className="rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
-            <div className="flex items-center justify-between gap-2">
-              <div className="text-[14px] text-zinc-400" title={t.hoverLabel ?? t.label}>
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-4">
+      {tiles.map((t, idx) => (
+        <div key={idx} className="min-w-0 rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
+          <div className="flex min-w-0 items-start justify-between gap-2">
+            <div className="min-w-0">
+              <div className="text-[12px] sm:text-[14px] text-zinc-400" title={t.hoverLabel ?? t.label}>
                 {t.label}
               </div>
-              {t.symbol ? <div className="text-[12px] font-mono text-zinc-500">{t.symbol}</div> : null}
             </div>
-            <div className="flex items-center justify-between gap-2">
-              <div className={`mt-1 font-mono text-[18px] ${accentClass(t.accent)}`}>{t.value ?? 'n/a'}</div>
-              {t.diff ? <div className={`text-[16px] font-mono ${(t.diff === '0' || t.diff === '-0') ? 'text-zinc-500' : (t.diff.startsWith('-') ? 'text-red-500' : 'text-green-500')}`}>{t.diff.startsWith('-') ? '' : '+'} {t.diff}</div> : null}
-            </div>
+            {t.symbol ? (
+              <div className="shrink-0 text-[11px] sm:text-[12px] font-mono text-zinc-500">
+                {t.symbol}
+              </div>
+            ) : null}
           </div>
-        ))}
-      </div>
+
+          <div className="mt-1 flex items-end justify-between gap-2">
+            <div className={`min-w-0 font-mono text-[16px] sm:text-[18px] ${accentClass(t.accent)}`}>
+              <span className="block whitespace-nowrap">{t.value ?? 'n/a'}</span>
+            </div>
+            {t.diff ? (
+              <div
+                className={`shrink-0 whitespace-nowrap font-mono tabular-nums text-[13px] sm:text-[16px] ${
+                  t.diff === '0' || t.diff === '-0'
+                    ? 'text-zinc-500'
+                    : t.diff.startsWith('-')
+                      ? 'text-red-500'
+                      : 'text-green-500'
+                }`}
+              >
+                {t.diff.startsWith('-') ? '' : '+'}
+                {t.diff}
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ))}
+    </div>
   )
 }
 
