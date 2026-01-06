@@ -1,5 +1,7 @@
 import type { OrderLevel, PriceChange, SideBook } from './types.js'
 
+export const DEFAULT_DEPTH_LEVELS = 10
+
 export function parseNum(label: string, raw: string): number {
   const n = Number(raw)
   if (!Number.isFinite(n)) {
@@ -58,6 +60,24 @@ export function groupPriceChangesByAsset(changes: PriceChange[]): Map<string, Pr
     const arr = out.get(ch.asset_id) ?? []
     arr.push(ch)
     out.set(ch.asset_id, arr)
+  }
+  return out
+}
+
+/**
+ * Compute cumulative depth for the first N levels.
+ * Array index 0 corresponds to level 1.
+ */
+export function cumulativeDepthByLevel(
+  levels: readonly OrderLevel[],
+  depthLevels: number = DEFAULT_DEPTH_LEVELS,
+): number[] {
+  const n = Math.max(0, Math.floor(depthLevels))
+  const out: number[] = []
+  let sum = 0
+  for (let i = 0; i < n && i < levels.length; i++) {
+    sum += levels[i]!.size
+    out.push(sum)
   }
   return out
 }

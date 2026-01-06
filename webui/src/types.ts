@@ -10,6 +10,9 @@ export type BotUiOrderBook = {
   bestAsk?: number
   bids: BotUiOrderBookLevel[]
   asks: BotUiOrderBookLevel[]
+  depthLevels?: number
+  bidsDepthByLevel?: number[]
+  asksDepthByLevel?: number[]
 }
 
 export type BotUiSnapshot = {

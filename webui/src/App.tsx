@@ -1,6 +1,7 @@
 import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
+import { OrderbookDepthsPanel } from './components/OrderbookDepthsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
 import {
   ExecutedOrdersTablePanel,
@@ -331,20 +332,12 @@ export function App() {
             <LogsPanel logLines={logLines} />
             </div>
 
-            {/* Row below: orderbooks + logs */}
-            <div
-              className={`grid grid-cols-1 gap-2 ${
-                hasVolatility ? 'xl:grid-cols-[420px_1fr]' : 'xl:grid-cols-[420px_1fr]'
-              }`}
-            >
-              <div className="space-y-2 min-w-0">
+            <div className="space-y-2 min-w-0">
+              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2">
                 <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
+                <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
               </div>
-              {hasVolatility ? (
-                <div className="space-y-2 min-w-0">
-                  <VolatilityPanel snapshot={displaySnapshot} />
-                </div>
-              ) : null}
+              {hasVolatility ? <VolatilityPanel snapshot={displaySnapshot} /> : null}
             </div>
           </div>
         )}

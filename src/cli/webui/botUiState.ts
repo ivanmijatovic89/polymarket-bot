@@ -35,6 +35,9 @@ export type BotUiOrderBook = {
   bestAsk?: number
   bids: BotUiOrderBookLevel[]
   asks: BotUiOrderBookLevel[]
+  depthLevels?: number
+  bidsDepthByLevel?: number[]
+  asksDepthByLevel?: number[]
 }
 
 export type BotUiSnapshot = {
@@ -70,6 +73,9 @@ export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: nu
     ...(typeof book.bestAsk === 'number' ? { bestAsk: book.bestAsk } : {}),
     bids,
     asks,
+    depthLevels: book.depthLevels,
+    bidsDepthByLevel: book.bidsDepthByLevel,
+    asksDepthByLevel: book.asksDepthByLevel,
   }
 }
 

@@ -11,6 +11,8 @@ import type {
 } from './types.js'
 import {
   bestFromSortedMap,
+  cumulativeDepthByLevel,
+  DEFAULT_DEPTH_LEVELS,
   getMid,
   getSpread,
   parseNum,
@@ -48,6 +50,8 @@ export class OrderBookEngine {
   snapshot(): OrderBookSnapshot {
     const bestBid = bestFromSortedMap(this.state.bids)
     const bestAsk = bestFromSortedMap(this.state.asks)
+    const bids = [...this.state.bids.values()]
+    const asks = [...this.state.asks.values()]
     return {
       market: this.state.market,
       assetId: this.state.assetId,
@@ -56,8 +60,11 @@ export class OrderBookEngine {
       bestAsk,
       mid: getMid(bestBid, bestAsk),
       spread: getSpread(bestBid, bestAsk),
-      bids: [...this.state.bids.values()],
-      asks: [...this.state.asks.values()],
+      bids,
+      asks,
+      depthLevels: DEFAULT_DEPTH_LEVELS,
+      bidsDepthByLevel: cumulativeDepthByLevel(bids),
+      asksDepthByLevel: cumulativeDepthByLevel(asks),
     }
   }
 

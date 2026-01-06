@@ -34,6 +34,22 @@ export interface OrderBookSnapshot {
   spread: number | null
   bids: OrderLevel[] // ALL levels, sorted DESC by price
   asks: OrderLevel[] // ALL levels, sorted ASC by price
+
+  /**
+   * How many top levels were used to compute the cumulative arrays below.
+   * Hardcoded to 10 for now.
+   */
+  depthLevels: number
+
+  /**
+   * Cumulative depth by level (array index 0 == level 1).
+   * Example: [250, 400, 600] means:
+   * - L1 = 250
+   * - L2 = 250 + lvl2Size = 400
+   * - L3 = 250 + lvl2Size + lvl3Size = 600
+   */
+  bidsDepthByLevel: number[]
+  asksDepthByLevel: number[]
 }
 
 export interface BookMessage {
