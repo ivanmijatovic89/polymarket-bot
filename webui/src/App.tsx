@@ -55,16 +55,31 @@ function computeUpDownSplitFromAsks(
   return { up, down, winner }
 }
 
-function impliedAskIfMissing(ask: number | null, otherAsk: number | null): number | null {
-  // If we have a real ask, use it.
-  if (typeof ask === 'number' && Number.isFinite(ask) && ask > 0) return ask
+function adjustAsksForEndOfMarket(upAskRaw: number | null, downAskRaw: number | null): {
+  up: number | null
+  down: number | null
+} {
+  const u = typeof upAskRaw === 'number' && Number.isFinite(upAskRaw) && upAskRaw > 0 ? upAskRaw : null
+  const d = typeof downAskRaw === 'number' && Number.isFinite(downAskRaw) && downAskRaw > 0 ? downAskRaw : null
 
-  // Near end-of-market, one side can stop having offers. If the other side has an ask,
-  // treat the missing side as 100¢ (1.0).
-  if (typeof otherAsk === 'number' && Number.isFinite(otherAsk) && otherAsk > 0) return 1
+  // Only apply the "missing => 100¢" rule when the missing side is inferred to be the winner.
+  // Heuristic: if the other side's ask is below ~50¢, the missing side is likely near 100¢.
+  const THRESH = 0.5
 
-  // If both sides are missing, keep it unknown.
-  return null
+  if (u == null && d != null) {
+    // Missing UP: only force UP=1.0 if DOWN is priced low (=> UP likely winner).
+    return { up: d <= THRESH ? 1 : null, down: d }
+  }
+  if (d == null && u != null) {
+    // Missing DOWN: only force DOWN=1.0 if UP is priced low (=> DOWN likely winner).
+    return { up: u, down: u <= THRESH ? 1 : null }
+  }
+  return { up: u, down: d }
+}
+
+function computeSplitBar(upAsk: number | null, downAsk: number | null): { up: number; down: number; winner: 'UP' | 'DOWN' | 'NONE' } {
+  const adj = adjustAsksForEndOfMarket(upAsk, downAsk)
+  return computeUpDownSplitFromAsks({ up: adj.up, down: adj.down })
 }
 
 function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number }) {
@@ -332,16 +347,15 @@ export function App() {
   const displaySnapshot =
     snapshot && mockPortfolioEnabled ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any) : snapshot
 
-  const upAskRaw = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
-  const downAskRaw = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
-
-  const upAsk = impliedAskIfMissing(upAskRaw, downAskRaw)
-  const downAsk = impliedAskIfMissing(downAskRaw, upAskRaw)
+  // "Real" asks used throughout the UI (header price chips, etc).
+  const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
+  const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
   const strategy = displaySnapshot?.strategy
   const indEnabled = displaySnapshot?.strategy?.indicators ?? []
   const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
   const hasVolatility = Boolean((displaySnapshot as any)?.indicators?.volatility)
-  const pm15m = computeUpDownSplitFromAsks({ up: upAsk, down: downAsk })
+  // Split bar above header: apply end-of-market adjustment (missing side => 100¢) ONLY here.
+  const pm15m = computeSplitBar(upAsk, downAsk)
   const pm15mWinnerClass =
     pm15m.winner === 'UP' ? 'winner-up' : pm15m.winner === 'DOWN' ? 'winner-down' : 'winner-none'
 

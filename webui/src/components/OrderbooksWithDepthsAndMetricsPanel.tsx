@@ -63,6 +63,9 @@ function RatioBar(props: { weak: unknown; ratio: unknown }) {
   const rRaw = typeof props.ratio === 'number' && Number.isFinite(props.ratio) ? props.ratio : NaN
   const ratio = Number.isFinite(rRaw) ? Math.max(0, Math.min(1, rRaw)) : NaN
 
+  // If ratio is missing/invalid (or side is unknown), don't render the bar at all.
+  if (!Number.isFinite(ratio) || weak === '—') return null
+
   let upPct = 50
   let downPct = 50
 
