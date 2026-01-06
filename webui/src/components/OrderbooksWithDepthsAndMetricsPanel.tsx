@@ -51,66 +51,20 @@ function spreadFromBook(book?: BotUiOrderBook): number | undefined {
   return undefined
 }
 
-function SideTable(props: { rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid'; levels: number }) {
-  const { rows, side, levels } = props
-  const padded: Array<BotUiOrderBookLevel | null> = (() => {
-    // Keep best levels closest to the spread:
-    // - asks: best ask at the bottom -> pad missing rows at the TOP
-    // - bids: best bid at the top -> pad missing rows at the BOTTOM
-    // IMPORTANT: `book.asks` is already sorted ASC with best ask first.
-    // We must slice FIRST (take best levels) and only then reverse for display (best ask at bottom).
-    const baseRaw: Array<BotUiOrderBookLevel | null> = rows.slice(0, levels)
-    const base: Array<BotUiOrderBookLevel | null> = side === 'ask' ? baseRaw.slice().reverse() : baseRaw
-    while (base.length < levels) {
-      if (side === 'ask') base.unshift(null)
-      else base.push(null)
-    }
-    return base.slice(0, levels)
-  })()
-
-  return (
-    <div className="rounded-md bg-zinc-900/60 ring-1 ring-zinc-800">
-      <div className="font-mono text-[18px]">
-        {padded.map((r, idx) => (
-          <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
-            <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>
-              {r ? fmtCents(r.price, { fixed: true, digits: 2 }) : <span className="text-zinc-600">—</span>}
-            </div>
-            <div className="text-right text-zinc-200">
-              {r ? fmtSize(r.size) : <span className="text-zinc-600">—</span>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function OneBookHeader(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
-  const book = props.book
-  const bb = fmtCents(book?.bestBid, { fixed: true, digits: 2 })
-  const ba = fmtCents(book?.bestAsk, { fixed: true, digits: 2 })
-  return (
-    <div className="mb-1.5 flex items-center justify-between gap-2">
-      <div className="text-[18px] font-semibold">{props.label}</div>
-      <div className="flex items-center gap-2 font-mono text-[18px] text-zinc-300">
-        <span className="text-red-300">ask {ba}</span>
-        <span className="text-zinc-500">/</span>
-        <span className="text-emerald-300">bid {bb}</span>
-      </div>
-    </div>
-  )
-}
-
-function MidDepthMetricsTable(props: {
+function MergedSideCompareTable(props: {
   title: string
+  side: 'ask' | 'bid'
   levels: number
+  upRows: BotUiOrderBookLevel[]
+  downRows: BotUiOrderBookLevel[]
   upDepthByLevel: number[]
   downDepthByLevel: number[]
   weakSideByLevel: ('UP' | 'DOWN' | 'NONE')[]
   weakRatioByLevel: number[]
 }) {
   const rows = Math.max(0, Math.floor(props.levels))
+  const sideLabel = props.side === 'ask' ? 'ask' : 'bid'
+
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-2">
@@ -124,31 +78,67 @@ function MidDepthMetricsTable(props: {
         <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
           <table className="w-full table-fixed border-separate border-spacing-0 text-[16px]">
             <colgroup>
-              <col className="w-[64px]" />
-              <col className="w-[160px]" />
-              <col className="w-[160px]" />
-              <col className="w-[100px]" />
+              <col className="w-[56px]" />
               <col className="w-[120px]" />
+              <col className="w-[110px]" />
+              <col className="w-[120px]" />
+              <col className="w-[110px]" />
+              <col className="w-[120px]" />
+              <col className="w-[120px]" />
+              <col className="w-[90px]" />
+              <col className="w-[120px]" />
+              <col className="w-[90px]" />
             </colgroup>
+
             <thead>
               <tr className="text-left text-zinc-400">
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">lvl</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">upDepth</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">downDepth</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">side</th>
+
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP px</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP sz</th>
+
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN px</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN sz</th>
+
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP depth</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN depth</th>
+
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">weak</th>
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">ratio</th>
+
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">side</th>
               </tr>
             </thead>
+
             <tbody className="font-mono text-zinc-200">
-              {Array.from({ length: rows }).map((_, i) => (
-                <tr key={i} className="border-t border-zinc-800/60">
-                  <td className="px-2 py-1.5 whitespace-nowrap">{i + 1}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-emerald-300">{fmtDepth(props.upDepthByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-red-300">{fmtDepth(props.downDepthByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtSide(props.weakSideByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtRatio(props.weakRatioByLevel[i])}</td>
-                </tr>
-              ))}
+              {Array.from({ length: rows }).map((_, i) => {
+                const up = props.upRows[i]
+                const down = props.downRows[i]
+                const pxClass = props.side === 'ask' ? 'text-red-300' : 'text-emerald-300'
+                return (
+                  <tr key={i} className="border-t border-zinc-800/60">
+                    <td className="px-2 py-1.5 whitespace-nowrap">{i + 1}</td>
+
+                    <td className={`px-2 py-1.5 whitespace-nowrap ${pxClass}`}>
+                      {up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{up ? fmtSize(up.size) : '—'}</td>
+
+                    <td className={`px-2 py-1.5 whitespace-nowrap ${pxClass}`}>
+                      {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{down ? fmtSize(down.size) : '—'}</td>
+
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{fmtDepth(props.upDepthByLevel[i])}</td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{fmtDepth(props.downDepthByLevel[i])}</td>
+
+                    <td className="px-2 py-1.5 whitespace-nowrap">{fmtSide(props.weakSideByLevel[i])}</td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">{fmtRatio(props.weakRatioByLevel[i])}</td>
+
+                    <td className="px-2 py-1.5 whitespace-nowrap text-zinc-500">{sideLabel}</td>
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
@@ -166,8 +156,9 @@ export function OrderbooksWithDepthsAndMetricsPanel(props: {
   const down = props.down
   const om = asOrderbookMetrics(props.snapshot)
 
-  // Note: asks/bids arrays are already sliced server-side by WEB_UI_ORDERBOOK_LEVELS.
-  // NOTE: do not reverse here; `SideTable` handles ask rendering.
+  // Keep arrays in level order for alignment with depth arrays:
+  // - asks: ASC (best ask first)
+  // - bids: DESC (best bid first)
   const upAsks = up?.asks ?? []
   const downAsks = down?.asks ?? []
   const upBids = up?.bids ?? []
@@ -190,29 +181,17 @@ export function OrderbooksWithDepthsAndMetricsPanel(props: {
         <div className="text-[18px] font-semibold text-zinc-200">orderbooks + depths + metrics (compare)</div>
       </div>
 
-      {/* ASKS: UP | (depths + weakAsk) | DOWN */}
-      <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-3">
-        <div className="min-w-0">
-          <OneBookHeader label="UP" book={up} />
-          <SideTable rows={upAsks} side="ask" levels={askLevels} />
-        </div>
-
-        <div className="min-w-0">
-          <MidDepthMetricsTable
-            title="asksDepth + weakAsk"
-            levels={askLevels}
-            upDepthByLevel={upAsksDepth}
-            downDepthByLevel={downAsksDepth}
-            weakSideByLevel={om?.weakAskSideByLevel ?? []}
-            weakRatioByLevel={om?.weakAskRatioByLevel ?? []}
-          />
-        </div>
-
-        <div className="min-w-0">
-          <OneBookHeader label="DOWN" book={down} />
-          <SideTable rows={downAsks} side="ask" levels={askLevels} />
-        </div>
-      </div>
+      <MergedSideCompareTable
+        title="ASKS: UP vs DOWN (+ depths + weakAsk)"
+        side="ask"
+        levels={askLevels}
+        upRows={upAsks}
+        downRows={downAsks}
+        upDepthByLevel={upAsksDepth}
+        downDepthByLevel={downAsksDepth}
+        weakSideByLevel={om?.weakAskSideByLevel ?? []}
+        weakRatioByLevel={om?.weakAskRatioByLevel ?? []}
+      />
 
       {/* SPREAD ROW */}
       <div className="mt-2 grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-3">
@@ -235,26 +214,18 @@ export function OrderbooksWithDepthsAndMetricsPanel(props: {
         </div>
       </div>
 
-      {/* BIDS: UP | (depths + weakBid) | DOWN */}
-      <div className="mt-2 grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-3">
-        <div className="min-w-0">
-          <SideTable rows={upBids} side="bid" levels={bidLevels} />
-        </div>
-
-        <div className="min-w-0">
-          <MidDepthMetricsTable
-            title="bidsDepth + weakBid"
-            levels={bidLevels}
-            upDepthByLevel={upBidsDepth}
-            downDepthByLevel={downBidsDepth}
-            weakSideByLevel={om?.weakBidSideByLevel ?? []}
-            weakRatioByLevel={om?.weakBidRatioByLevel ?? []}
-          />
-        </div>
-
-        <div className="min-w-0">
-          <SideTable rows={downBids} side="bid" levels={bidLevels} />
-        </div>
+      <div className="mt-2">
+        <MergedSideCompareTable
+          title="BIDS: UP vs DOWN (+ depths + weakBid)"
+          side="bid"
+          levels={bidLevels}
+          upRows={upBids}
+          downRows={downBids}
+          upDepthByLevel={upBidsDepth}
+          downDepthByLevel={downBidsDepth}
+          weakSideByLevel={om?.weakBidSideByLevel ?? []}
+          weakRatioByLevel={om?.weakBidRatioByLevel ?? []}
+        />
       </div>
     </div>
   )
