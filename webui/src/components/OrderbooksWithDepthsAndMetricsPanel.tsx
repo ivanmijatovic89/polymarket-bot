@@ -39,6 +39,25 @@ function fmtSide(x: unknown): string {
   return x === 'UP' || x === 'DOWN' || x === 'NONE' ? x : '—'
 }
 
+function WeakBadge(props: { weak: unknown }) {
+  const w = fmtSide(props.weak)
+  const cls =
+    w === 'UP'
+      ? 'bg-green-600/80 ring-green-500/30'
+      : w === 'DOWN'
+        ? 'bg-red-600/80 ring-red-500/30'
+        : w === 'NONE'
+          ? 'bg-zinc-700/60 ring-zinc-500/20'
+          : 'bg-zinc-800/50 ring-zinc-500/20'
+  return (
+    <span
+      className={`inline-flex items-center rounded-md px-2 py-0.5 text-[12px] font-semibold tracking-wide text-white ring-1 ${cls}`}
+    >
+      {w}
+    </span>
+  )
+}
+
 function spreadFromBook(book?: BotUiOrderBook): number | undefined {
   if (
     typeof book?.bestBid === 'number' &&
@@ -63,7 +82,6 @@ function MergedSideCompareTable(props: {
   weakRatioByLevel: number[]
 }) {
   const rows = Math.max(0, Math.floor(props.levels))
-  const sideLabel = props.side === 'ask' ? 'ask' : 'bid'
 
   return (
     <div className="min-w-0">
@@ -75,67 +93,57 @@ function MergedSideCompareTable(props: {
       {rows === 0 ? (
         <div className="text-[14px] text-zinc-400">no data</div>
       ) : (
-        <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
-          <table className="w-full table-fixed border-separate border-spacing-0 text-[16px]">
-            <colgroup>
-              <col className="w-[56px]" />
-              <col className="w-[120px]" />
-              <col className="w-[110px]" />
-              <col className="w-[120px]" />
-              <col className="w-[110px]" />
-              <col className="w-[120px]" />
-              <col className="w-[120px]" />
-              <col className="w-[90px]" />
-              <col className="w-[120px]" />
-              <col className="w-[90px]" />
-            </colgroup>
-
+        <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60 w-full max-w-max">
+          <table className="w-max border-separate border-spacing-0 text-[14px] table-auto">
             <thead>
               <tr className="text-left text-zinc-400">
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">lvl</th>
 
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5 text-right">UP sz</th>
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP px</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP sz</th>
-
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN px</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN sz</th>
-
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">UP depth</th>
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN depth</th>
-
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">weak</th>
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">ratio</th>
 
-                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">side</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN depth</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">DOWN px</th>
+                <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5 text-right">DOWN sz</th>
               </tr>
             </thead>
 
             <tbody className="font-mono text-zinc-200">
               {Array.from({ length: rows }).map((_, i) => {
-                const up = props.upRows[i]
-                const down = props.downRows[i]
+                // For ASKS, render from highest level -> lowest level (so table starts with the deepest level).
+                // For BIDS, keep natural order (level 1 at top).
+                const idx = props.side === 'ask' ? rows - 1 - i : i
+                const up = props.upRows[idx]
+                const down = props.downRows[idx]
                 const pxClass = props.side === 'ask' ? 'text-red-300' : 'text-emerald-300'
                 return (
                   <tr key={i} className="border-t border-zinc-800/60">
-                    <td className="px-2 py-1.5 whitespace-nowrap">{i + 1}</td>
+                    <td className="px-2 py-1.5 whitespace-nowrap">{idx + 1}</td>
 
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right tabular-nums">{up ? fmtSize(up.size) : '—'}</td>
                     <td className={`px-2 py-1.5 whitespace-nowrap ${pxClass}`}>
                       {up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}
                     </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{up ? fmtSize(up.size) : '—'}</td>
 
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right tabular-nums text-emerald-300">
+                      {fmtDepth(props.upDepthByLevel[idx])}
+                    </td>
+
+                    <td className="px-2 py-1.5 whitespace-nowrap">
+                      <WeakBadge weak={props.weakSideByLevel[idx]} />
+                    </td>
+                    <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{fmtRatio(props.weakRatioByLevel[idx])}</td>
+
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right tabular-nums text-red-300">
+                      {fmtDepth(props.downDepthByLevel[idx])}
+                    </td>
                     <td className={`px-2 py-1.5 whitespace-nowrap ${pxClass}`}>
                       {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
                     </td>
-                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{down ? fmtSize(down.size) : '—'}</td>
-
-                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{fmtDepth(props.upDepthByLevel[i])}</td>
-                    <td className="px-2 py-1.5 whitespace-nowrap text-right">{fmtDepth(props.downDepthByLevel[i])}</td>
-
-                    <td className="px-2 py-1.5 whitespace-nowrap">{fmtSide(props.weakSideByLevel[i])}</td>
-                    <td className="px-2 py-1.5 whitespace-nowrap">{fmtRatio(props.weakRatioByLevel[i])}</td>
-
-                    <td className="px-2 py-1.5 whitespace-nowrap text-zinc-500">{sideLabel}</td>
+                    <td className="px-2 py-1.5 whitespace-nowrap text-right tabular-nums">{down ? fmtSize(down.size) : '—'}</td>
                   </tr>
                 )
               })}

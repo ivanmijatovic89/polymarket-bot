@@ -4,6 +4,7 @@ import { LogsPanel } from './components/LogsPanel'
 import { OrderbookDepthsPanel } from './components/OrderbookDepthsPanel'
 import { OrderbookMetricsPanel } from './components/OrderbookMetricsPanel'
 import { OrderbooksPanel } from './components/OrderbooksPanel'
+import { OrderbooksWithDepthsAndMetricsPanel } from './components/OrderbooksWithDepthsAndMetricsPanel'
 import {
   ExecutedOrdersTablePanel,
   OpenOrdersTablePanel,
@@ -343,6 +344,11 @@ export function App() {
                 <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
                 <OrderbookMetricsPanel snapshot={displaySnapshot} />
               </div>
+              <OrderbooksWithDepthsAndMetricsPanel
+                snapshot={displaySnapshot}
+                up={displaySnapshot.books.up}
+                down={displaySnapshot.books.down}
+              />
               {hasVolatility ? <VolatilityPanel snapshot={displaySnapshot} /> : null}
             </div>
           </div>
