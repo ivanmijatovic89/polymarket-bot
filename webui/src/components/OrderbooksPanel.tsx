@@ -14,7 +14,10 @@ function SideTable(props: { rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid' }) 
     // Keep the "best" level closest to the spread:
     // - asks are rendered with best ask at the bottom -> pad missing rows at the TOP
     // - bids are rendered with best bid at the top -> pad missing rows at the BOTTOM
-    const base: Array<BotUiOrderBookLevel | null> = rows.slice(0, LEVEL_ROWS)
+    // IMPORTANT: `book.asks` is already sorted ASC with best ask first.
+    // We must slice FIRST (take best levels) and only then reverse for display (best ask at bottom).
+    const baseRaw: Array<BotUiOrderBookLevel | null> = rows.slice(0, LEVEL_ROWS)
+    const base: Array<BotUiOrderBookLevel | null> = side === 'ask' ? baseRaw.slice().reverse() : baseRaw
     while (base.length < LEVEL_ROWS) {
       if (side === 'ask') base.unshift(null)
       else base.push(null)
@@ -53,7 +56,8 @@ function OneBook(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
 
   // Keep best ask closest to spread (bottom of asks),
   // and best bid closest to spread (top of bids).
-  const asksForView = (book?.asks ?? []).slice().reverse()
+  // NOTE: do not reverse here; `SideTable` handles ask rendering.
+  const asksForView = book?.asks ?? []
   const bidsForView = book?.bids ?? []
 
   return (

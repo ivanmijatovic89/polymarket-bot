@@ -45,6 +45,8 @@ export function OrderbookPanel(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderB
 
   // For readability: keep best ask closest to spread (bottom of asks),
   // and best bid closest to spread (top of bids).
+  // NOTE: `book.asks` is sorted ASC with best ask first; the backend already slices to WEB_UI_ORDERBOOK_LEVELS.
+  // Reverse only for display so best ask ends up closest to the spread (bottom).
   const asksForView = (book?.asks ?? []).slice().reverse()
   const bidsForView = book?.bids ?? []
 
