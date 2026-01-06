@@ -55,6 +55,18 @@ function computeUpDownSplitFromAsks(
   return { up, down, winner }
 }
 
+function impliedAskIfMissing(ask: number | null, otherAsk: number | null): number | null {
+  // If we have a real ask, use it.
+  if (typeof ask === 'number' && Number.isFinite(ask) && ask > 0) return ask
+
+  // Near end-of-market, one side can stop having offers. If the other side has an ask,
+  // treat the missing side as 100¢ (1.0).
+  if (typeof otherAsk === 'number' && Number.isFinite(otherAsk) && otherAsk > 0) return 1
+
+  // If both sides are missing, keep it unknown.
+  return null
+}
+
 function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number }) {
   const leftRaw =
     typeof props.candleLeftMs === 'number' && Number.isFinite(props.candleLeftMs) ? props.candleLeftMs : NaN
@@ -320,8 +332,11 @@ export function App() {
   const displaySnapshot =
     snapshot && mockPortfolioEnabled ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any) : snapshot
 
-  const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
-  const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
+  const upAskRaw = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
+  const downAskRaw = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
+
+  const upAsk = impliedAskIfMissing(upAskRaw, downAskRaw)
+  const downAsk = impliedAskIfMissing(downAskRaw, upAskRaw)
   const strategy = displaySnapshot?.strategy
   const indEnabled = displaySnapshot?.strategy?.indicators ?? []
   const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
