@@ -94,7 +94,8 @@ function MergedCompareTable(props: {
 
   if (rowsTotal === 0) return <div className="text-[14px] text-zinc-400">no data</div>
 
-  const thBase = 'sticky top-0 bg-zinc-900/60 px-2 py-1.5 text-zinc-400'
+  const thGroup = 'sticky top-0 z-20 bg-zinc-900/80 px-2 py-1 text-[12px] font-semibold text-zinc-300'
+  const thBase = 'sticky top-[28px] z-10 bg-zinc-900/60 px-2 py-1.5 text-zinc-400'
   const tdBase = 'px-2 py-1.5 whitespace-nowrap'
 
   return (
@@ -114,15 +115,28 @@ function MergedCompareTable(props: {
 
         <thead>
           <tr className="text-left">
-            <th className={thBase}>lvl</th>
-            <th className={`${thBase} text-right`}>UP sz</th>
-            <th className={thBase}>UP px</th>
-            <th className={thBase}>UP depth</th>
-            <th className={thBase}>weak</th>
-            <th className={thBase}>ratio</th>
-            <th className={thBase}>DOWN depth</th>
-            <th className={thBase}>DOWN px</th>
-            <th className={`${thBase} text-right`}>DOWN sz</th>
+            {/* Group header row intentionally does NOT cover the `lvl` column */}
+            <th className="sticky top-0 z-20 bg-transparent px-2 py-1" />
+            <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={3}>
+              UP
+            </th>
+            <th className={`${thGroup} text-center border-r border-zinc-700/60`} colSpan={2}>
+              metrics
+            </th>
+            <th className={`${thGroup} text-center`} colSpan={3}>
+              DOWN
+            </th>
+          </tr>
+          <tr className="text-left">
+            <th className={thBase}>LVL</th>
+            <th className={`${thBase} text-right`}>UP SHARES</th>
+            <th className={thBase}>UP PRICE</th>
+            <th className={`${thBase} border-r border-zinc-700/60`}>UP DEPTH</th>
+            <th className={thBase}>WEAK</th>
+            <th className={`${thBase} border-r border-zinc-700/60`}>RATIO</th>
+            <th className={thBase}>DOWN DEPTH</th>
+            <th className={thBase}>DOWN PRICE</th>
+            <th className={`${thBase} text-right`}>DOWN SHARES</th>
           </tr>
         </thead>
 
@@ -153,23 +167,30 @@ function MergedCompareTable(props: {
           })}
 
           {/* Spread separator row */}
-          <tr className="border-t border-zinc-800/60">
-            <td colSpan={9} className="px-2 py-2">
-              <div className="flex items-center justify-between gap-4 rounded-md bg-zinc-900/30 ring-1 ring-zinc-800 px-3 py-1.5">
-                <div className="flex items-center gap-2">
-                  <div className="text-[12px] text-zinc-400">UP spread</div>
-                  <div className="font-mono text-[14px] tabular-nums text-zinc-200">
-                    {fmtCents(props.upSpread, { fixed: true, digits: 2 })}
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="text-[12px] text-zinc-400">DOWN spread</div>
-                  <div className="font-mono text-[14px] tabular-nums text-zinc-200">
-                    {fmtCents(props.downSpread, { fixed: true, digits: 2 })}
-                  </div>
-                </div>
+          <tr className="border-t border-zinc-800/60 bg-zinc-900/25">
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase}`}>
+              <div className="text-[12px] text-zinc-400">UP spread</div>
+              <div className="tabular-nums text-zinc-200">
+                {typeof props.upSpread === 'number' && Number.isFinite(props.upSpread)
+                  ? fmtCents(props.upSpread, { fixed: true, digits: 2 })
+                  : 'n/a'}
               </div>
             </td>
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase} text-zinc-500`} />
+            <td className={`${tdBase}`}>
+              <div className="text-[12px] text-zinc-400">DOWN spread</div>
+              <div className="tabular-nums text-zinc-200">
+                {typeof props.downSpread === 'number' && Number.isFinite(props.downSpread)
+                  ? fmtCents(props.downSpread, { fixed: true, digits: 2 })
+                  : 'n/a'}
+              </div>
+            </td>
+            <td className={`${tdBase} text-zinc-500`} />
           </tr>
 
           {/* BIDS section (level 1 -> deeper) */}
