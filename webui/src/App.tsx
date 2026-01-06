@@ -1,3 +1,4 @@
+import { useEffect, useRef, useState } from 'react'
 import { ConnectionBadge } from './components/ConnectionBadge'
 import { ExternalFeedsPanel } from './components/ExternalFeedsPanel'
 import { LogsPanel } from './components/LogsPanel'
@@ -14,6 +15,12 @@ import {
 import { VolatilityPanel } from './components/VolatilityPanel'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
+
+const CANDLE_MS_15M = 15 * 60 * 1000
+
+function clamp(n: number, lo: number, hi: number): number {
+  return Math.max(lo, Math.min(hi, n))
+}
 
 function bestAskFromBook(book?: { bestAsk?: number; asks?: Array<{ price: number }> }): number | null {
   const a = book?.bestAsk
@@ -46,6 +53,25 @@ function computeUpDownSplitFromAsks(
   const down = 100 - up
   const winner = up > down ? 'UP' : down > up ? 'DOWN' : 'NONE'
   return { up, down, winner }
+}
+
+function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number }) {
+  const leftRaw =
+    typeof props.candleLeftMs === 'number' && Number.isFinite(props.candleLeftMs) ? props.candleLeftMs : NaN
+  const left = Number.isFinite(leftRaw) ? clamp(leftRaw, 0, CANDLE_MS_15M) : NaN
+  const remainingPct = Number.isFinite(left) ? (left / CANDLE_MS_15M) * 100 : 0
+
+  return (
+    <div
+      className="pm-timebar"
+      style={{ top: `${props.topPx}px`, bottom: `${props.bottomPx}px` }}
+      title={Number.isFinite(left) ? `${Math.round(left / 1000)}s left` : 'time n/a'}
+    >
+      <div className="pm-timebar-track">
+        <div className="pm-timebar-remaining" style={{ height: `${remainingPct}%` }} />
+      </div>
+    </div>
+  )
 }
 
 function fmtShortJson(x: unknown, maxLen: number): string {
@@ -304,9 +330,24 @@ export function App() {
   const pm15mWinnerClass =
     pm15m.winner === 'UP' ? 'winner-up' : pm15m.winner === 'DOWN' ? 'winner-down' : 'winner-none'
 
+  const headerWrapRef = useRef<HTMLDivElement | null>(null)
+  const footerRef = useRef<HTMLElement | null>(null)
+  const [chrome, setChrome] = useState({ topPx: 0, bottomPx: 0 })
+
+  useEffect(() => {
+    const update = () => {
+      const topPx = headerWrapRef.current?.getBoundingClientRect().height ?? 0
+      const bottomPx = footerRef.current?.getBoundingClientRect().height ?? 0
+      setChrome({ topPx, bottomPx })
+    }
+    update()
+    window.addEventListener('resize', update)
+    return () => window.removeEventListener('resize', update)
+  }, [])
+
   return (
     <div className="min-h-screen">
-      <div className="sticky top-0 z-10">
+      <div ref={headerWrapRef} className="sticky top-0 z-10">
         {/* Polymarket BTC 15m UP/DOWN status bar (split indicator) */}
         <div className={`pm-btc15m-bar ${pm15mWinnerClass}`}>
           <div className="up-segment" style={{ width: `${pm15m.up}%` }} />
@@ -316,13 +357,13 @@ export function App() {
         <header className="border-b border-zinc-800  backdrop-blur">
           <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
             <div className="flex min-w-0 items-center gap-2 md:min-w-[260px]">
-              <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
-              <ConnectionBadge status={status} />
               {displaySnapshot ? (
                 <span className="chip text-[24px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
                   ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
                 </span>
               ) : null}
+              <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
+              <ConnectionBadge status={status} />
             </div>
 
             <div className="flex min-w-0 flex-1 items-center justify-center">
@@ -355,7 +396,9 @@ export function App() {
         </header>
       </div>
 
-      <main className="mx-auto  px-2 py-2 pb-16">
+      <TimeBar candleLeftMs={displaySnapshot?.status?.candleLeftMs} topPx={chrome.topPx} bottomPx={chrome.bottomPx} />
+
+      <main className="mx-auto  px-2 py-2 pb-16 pm-timebar-safe">
         {!displaySnapshot ? (
           <div className="panel panel-b text-zinc-300">waiting for snapshot…</div>
         ) : (
@@ -394,7 +437,7 @@ export function App() {
         )}
       </main>
 
-      <footer className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800  backdrop-blur">
+      <footer ref={footerRef} className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800  backdrop-blur">
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
