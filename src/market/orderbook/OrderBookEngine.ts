@@ -12,9 +12,9 @@ import type {
 import {
   bestFromSortedMap,
   cumulativeDepthByLevel,
-  DEFAULT_DEPTH_LEVELS,
   getMid,
   getSpread,
+  getWebUiOrderbookLevels,
   parseNum,
   parseTsMs,
   rebuildMapSorted,
@@ -52,6 +52,7 @@ export class OrderBookEngine {
     const bestAsk = bestFromSortedMap(this.state.asks)
     const bids = [...this.state.bids.values()]
     const asks = [...this.state.asks.values()]
+    const depthLevels = getWebUiOrderbookLevels()
     return {
       market: this.state.market,
       assetId: this.state.assetId,
@@ -62,9 +63,9 @@ export class OrderBookEngine {
       spread: getSpread(bestBid, bestAsk),
       bids,
       asks,
-      depthLevels: DEFAULT_DEPTH_LEVELS,
-      bidsDepthByLevel: cumulativeDepthByLevel(bids),
-      asksDepthByLevel: cumulativeDepthByLevel(asks),
+      depthLevels,
+      bidsDepthByLevel: cumulativeDepthByLevel(bids, depthLevels),
+      asksDepthByLevel: cumulativeDepthByLevel(asks, depthLevels),
     }
   }
 

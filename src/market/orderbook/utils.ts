@@ -1,6 +1,15 @@
 import type { OrderLevel, PriceChange, SideBook } from './types.js'
 
-export const DEFAULT_DEPTH_LEVELS = 10
+export function getWebUiOrderbookLevels(): number {
+  const raw = process.env.WEB_UI_ORDERBOOK_LEVELS
+  if (raw == null || raw === '') return 10
+  const n = Number(raw)
+  if (!Number.isFinite(n)) {
+    throw new Error(`[orderbook] invalid WEB_UI_ORDERBOOK_LEVELS: ${JSON.stringify(raw)}`)
+  }
+  // Keep it sane and predictable.
+  return Math.max(1, Math.floor(n))
+}
 
 export function parseNum(label: string, raw: string): number {
   const n = Number(raw)
@@ -70,7 +79,7 @@ export function groupPriceChangesByAsset(changes: PriceChange[]): Map<string, Pr
  */
 export function cumulativeDepthByLevel(
   levels: readonly OrderLevel[],
-  depthLevels: number = DEFAULT_DEPTH_LEVELS,
+  depthLevels: number = getWebUiOrderbookLevels(),
 ): number[] {
   const n = Math.max(0, Math.floor(depthLevels))
   const out: number[] = []
