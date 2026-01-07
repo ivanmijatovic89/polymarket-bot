@@ -17,6 +17,9 @@ function weakSideAndRatio(
 
   const minV = Math.min(u, d)
   const maxV = Math.max(u, d)
+  // if diff is 20% or less return none.
+  // const diff = Math.abs(u - d) / Math.max(u, d)
+  // if (diff <= 0.2) return { side: 'NONE', ratio: maxV > 0 ? minV / maxV : 0 }
   return {
     side: u < d ? 'UP' : 'DOWN',
     ratio: maxV > 0 ? minV / maxV : 0,
