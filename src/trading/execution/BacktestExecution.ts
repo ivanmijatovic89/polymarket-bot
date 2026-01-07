@@ -5,6 +5,7 @@ import type {
   CancelOrderIntent,
   Fill,
   MergePositionsIntent,
+  PlaceBatchIntent,
   PlaceLimitIntent,
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
@@ -168,6 +169,140 @@ export class BacktestExecution implements ExecutionAdapter {
         },
       ],
     }
+  }
+
+  async placeBatch(
+    intent: PlaceBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const events: AccountEvent[] = []
+
+    if (!intent.orders || intent.orders.length === 0) {
+      return { events: [] }
+    }
+
+    // Process each order in the batch
+    for (const orderIntent of intent.orders) {
+      const orderId = `bt-${orderIntent.clientOrderId}`
+      const o: SimOrder = {
+        clientOrderId: orderIntent.clientOrderId,
+        orderId,
+        market: ctx.lastMarket?.market,
+        assetId: orderIntent.assetId,
+        side: orderIntent.side,
+        limitPrice: orderIntent.price,
+        remaining: orderIntent.size,
+        orderType: orderIntent.orderType,
+        ...(orderIntent.orderType === 'GTD' ? { expireAtMs: orderIntent.expireAtMs } : {}),
+        createdAtMs: nowMs,
+        updatedAtMs: nowMs,
+        fillSeq: 0,
+      }
+
+      const book = ctx.lastMarket?.byAssetId[orderIntent.assetId]
+      const fillable = sumFillableSize(o, book)
+
+      const orderEvents: AccountEvent[] = [
+        { kind: 'order_accepted', tsMs: nowMs, clientOrderId: orderIntent.clientOrderId, orderId },
+        {
+          kind: 'ws_order_update',
+          tsMs: nowMs,
+          order: {
+            orderId,
+            assetId: orderIntent.assetId,
+            side: orderIntent.side,
+            price: orderIntent.price,
+            originalSize: orderIntent.size,
+            sizeMatched: 0,
+            status: 'MATCHED',
+            orderType: orderIntent.orderType,
+            event: 'UPDATE',
+          } satisfies WsOrderUpdate,
+        },
+      ]
+
+      if (orderIntent.orderType === 'FOK') {
+        if (fillable < orderIntent.size) {
+          orderEvents.push({
+            kind: 'ws_order_update',
+            tsMs: nowMs,
+            order: {
+              orderId,
+              assetId: orderIntent.assetId,
+              side: orderIntent.side,
+              price: orderIntent.price,
+              originalSize: orderIntent.size,
+              sizeMatched: 0,
+              status: 'CANCELED',
+              orderType: orderIntent.orderType,
+              event: 'CANCELLATION',
+            } satisfies WsOrderUpdate,
+          })
+          orderEvents.push({
+            kind: 'order_done',
+            tsMs: nowMs,
+            clientOrderId: orderIntent.clientOrderId,
+            orderId,
+            reason: 'killed',
+          })
+        } else {
+          const fills = buildFillsFromBook(o, book, nowMs)
+          for (const f of fills) orderEvents.push({ kind: 'fill', fill: f })
+          orderEvents.push({
+            kind: 'order_done',
+            tsMs: nowMs,
+            clientOrderId: orderIntent.clientOrderId,
+            orderId,
+            reason: 'filled',
+          })
+          orderEvents.push({
+            kind: 'ws_order_update',
+            tsMs: nowMs,
+            order: {
+              orderId,
+              assetId: orderIntent.assetId,
+              side: orderIntent.side,
+              price: orderIntent.price,
+              originalSize: orderIntent.size,
+              sizeMatched: orderIntent.size,
+              status: 'CONFIRMED',
+              orderType: orderIntent.orderType,
+              event: 'UPDATE',
+            } satisfies WsOrderUpdate,
+          })
+        }
+      } else {
+        // GTC/GTD: take what's immediately available, rest the remainder
+        if (fillable > 0) {
+          const fills = buildFillsFromBook(o, book, nowMs)
+          for (const f of fills) orderEvents.push({ kind: 'fill', fill: f })
+        }
+
+        if (o.remaining <= 0) {
+          orderEvents.push({
+            kind: 'order_done',
+            tsMs: nowMs,
+            clientOrderId: orderIntent.clientOrderId,
+            orderId,
+            reason: 'filled',
+          })
+        } else {
+          // Resting order becomes open
+          this.openByClientId.set(orderIntent.clientOrderId, o)
+          orderEvents.push({
+            kind: 'order_open',
+            tsMs: nowMs,
+            clientOrderId: orderIntent.clientOrderId,
+            orderId,
+          })
+        }
+      }
+
+      events.push(...orderEvents)
+    }
+
+    return { events }
   }
 
   async placeLimit(

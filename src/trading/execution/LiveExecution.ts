@@ -6,6 +6,7 @@ import type {
   CancelAllIntent,
   CancelOrderIntent,
   MergePositionsIntent,
+  PlaceBatchIntent,
   PlaceLimitIntent,
 } from '../../strategy/Strategy.js'
 import type { PolymarketConfig } from '../../polymarket/config.js'
@@ -72,6 +73,158 @@ export class LiveExecution implements ExecutionAdapter {
       })
     } else {
       this.client = createClobClient()
+    }
+  }
+
+  async placeBatch(
+    intent: PlaceBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    console.log('[live-execution] placeBatch', {
+      orderCount: intent.orders.length,
+      orders: intent.orders.map((o) => ({
+        clientOrderId: o.clientOrderId,
+        assetId: o.assetId,
+        side: o.side,
+        price: o.price,
+        size: o.size,
+        orderType: o.orderType,
+      })),
+    })
+
+    if (!intent.orders || intent.orders.length === 0) {
+      return { events: [] }
+    }
+
+    // Polymarket allows up to 15 orders per batch (based on common API limits)
+    if (intent.orders.length > 15) {
+      const events: AccountEvent[] = []
+      for (const order of intent.orders) {
+        events.push({
+          kind: 'order_rejected',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+          reason: 'batch_too_large(max_15_orders)',
+        })
+      }
+      return { events }
+    }
+
+    try {
+      // Create signed orders for all intents
+      const batchOrders = await Promise.all(
+        intent.orders.map(async (order) => {
+          const signed = await this.client.createOrder({
+            tokenID: order.assetId,
+            price: order.price,
+            size: order.size,
+            side: toPolySide(order.side),
+            ...(order.orderType === 'GTD' && order.expireAtMs
+              ? { expiration: Math.floor(order.expireAtMs / 1000) }
+              : {}),
+          })
+          return {
+            order: signed,
+            orderType: toPolyOrderType(order.orderType),
+          }
+        }),
+      )
+
+      // Post all orders in a single batch request
+      const resp = await this.client.postOrders(batchOrders)
+      console.log('[live-execution][⚡️] Batch API response', resp)
+
+      const events: AccountEvent[] = []
+
+      // Handle response - Polymarket batch API returns array of results
+      if (Array.isArray(resp)) {
+        for (let i = 0; i < resp.length && i < intent.orders.length; i++) {
+          const orderResult = resp[i]
+          const orderIntent = intent.orders[i]
+          if (!orderIntent) continue
+
+          // Check for HTTP error
+          if (orderResult && typeof orderResult === 'object' && 'error' in orderResult) {
+            const errorMsg = typeof orderResult.error === 'string' ? orderResult.error : 'order_rejected'
+            events.push({
+              kind: 'order_rejected',
+              tsMs: nowMs,
+              clientOrderId: orderIntent.clientOrderId,
+              reason: errorMsg,
+            })
+            continue
+          }
+
+          // Check for API-level error (success: false)
+          const ok = (orderResult as { success?: unknown }).success
+          if (ok === false) {
+            const msg = (orderResult as { errorMsg?: unknown }).errorMsg
+            events.push({
+              kind: 'order_rejected',
+              tsMs: nowMs,
+              clientOrderId: orderIntent.clientOrderId,
+              reason: typeof msg === 'string' ? msg : 'order_rejected',
+            })
+            continue
+          }
+
+          // Success - extract orderId
+          const orderIdRaw = (orderResult as { orderId?: unknown; orderID?: unknown }).orderId
+          const orderId =
+            typeof orderIdRaw === 'string'
+              ? orderIdRaw
+              : typeof (orderResult as { orderID?: unknown }).orderID === 'string'
+                ? ((orderResult as { orderID?: string }).orderID as string)
+                : undefined
+
+          events.push({
+            kind: 'order_accepted',
+            tsMs: nowMs,
+            clientOrderId: orderIntent.clientOrderId,
+            ...(orderId ? { orderId } : {}),
+          })
+        }
+
+        // If response array is shorter than orders array, reject remaining orders
+        if (resp.length < intent.orders.length) {
+          for (let i = resp.length; i < intent.orders.length; i++) {
+            const orderIntent = intent.orders[i]
+            if (orderIntent) {
+              events.push({
+                kind: 'order_rejected',
+                tsMs: nowMs,
+                clientOrderId: orderIntent.clientOrderId,
+                reason: 'missing_batch_response',
+              })
+            }
+          }
+        }
+      } else {
+        // Fallback: if response is not an array, reject all orders
+        for (const order of intent.orders) {
+          events.push({
+            kind: 'order_rejected',
+            tsMs: nowMs,
+            clientOrderId: order.clientOrderId,
+            reason: 'invalid_batch_response',
+          })
+        }
+      }
+
+      return { events }
+    } catch (err) {
+      console.log('[live-execution][⛔️] Batch error', err)
+      const events: AccountEvent[] = []
+      for (const order of intent.orders) {
+        events.push({
+          kind: 'order_rejected',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+          reason: `postOrders failed: ${err instanceof Error ? err.message : String(err)}`,
+        })
+      }
+      return { events }
     }
   }
 

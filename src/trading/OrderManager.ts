@@ -8,6 +8,7 @@ import type {
   MergePositionsIntent,
   OpenOrder,
   OrderType,
+  PlaceBatchIntent,
   PlaceLimitIntent,
   PortfolioSnapshot,
 } from '../strategy/Strategy.js'
@@ -33,6 +34,7 @@ export type ExecutionMergeResult = {
 
 export type ExecutionAdapter = {
   placeLimit: (intent: PlaceLimitIntent, ctx: OrderManagerContext) => Promise<ExecutionPlaceResult>
+  placeBatch: (intent: PlaceBatchIntent, ctx: OrderManagerContext) => Promise<ExecutionPlaceResult>
   cancelOrder: (
     intent: CancelOrderIntent,
     ctx: OrderManagerContext,
@@ -166,6 +168,8 @@ export class OrderManager {
     for (const intent of intents) {
       if (intent.kind === 'place_limit') {
         out.push(...(await this.handlePlaceLimit(intent, ctx)))
+      } else if (intent.kind === 'place_batch') {
+        out.push(...(await this.handlePlaceBatch(intent, ctx)))
       } else if (intent.kind === 'cancel_order') {
         out.push(...(await this.handleCancelOrder(intent, ctx)))
       } else if (intent.kind === 'cancel_all') {
@@ -325,7 +329,117 @@ export class OrderManager {
     return res.events
   }
 
+  private async handlePlaceBatch(
+    intent: PlaceBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
+    const nowMs = ctx.nowMs
+    const events: AccountEvent[] = []
+
+    if (!intent.orders || intent.orders.length === 0) {
+      return events
+    }
+
+    // Validate all orders first and create order_submitted events
+    const validOrders: Array<{ order: PlaceBatchIntent['orders'][number]; submitted: OpenOrder }> = []
+
+    for (const order of intent.orders) {
+      // Dedupe by clientOrderId
+      if (this.activeClientOrders.has(order.clientOrderId)) {
+        events.push({
+          kind: 'order_rejected',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+          reason: 'duplicate_clientOrderId',
+        })
+        continue
+      }
+
+      const err = this.validatePlaceLimitOrder(order, nowMs)
+      if (err) {
+        events.push({
+          kind: 'order_rejected',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+          reason: err,
+        })
+        continue
+      }
+
+      this.activeClientOrders.add(order.clientOrderId)
+
+      const submitted: OpenOrder = {
+        clientOrderId: order.clientOrderId,
+        ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
+        assetId: order.assetId,
+        side: order.side,
+        price: order.price,
+        size: order.size,
+        remaining: order.size,
+        filled: 0,
+        orderType: order.orderType,
+        ...(order.orderType === 'GTD' ? { expireAtMs: order.expireAtMs } : {}),
+        state: 'requested',
+        createdAtMs: nowMs,
+        updatedAtMs: nowMs,
+      }
+
+      events.push({ kind: 'order_submitted', tsMs: nowMs, order: submitted })
+      validOrders.push({ order, submitted })
+    }
+
+    if (validOrders.length === 0) {
+      return events
+    }
+
+    if (this.dryRun) {
+      // In dry-run, simulate acceptance for all valid orders
+      for (const { order } of validOrders) {
+        events.push({
+          kind: 'order_accepted',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+        })
+        events.push({
+          kind: 'order_open',
+          tsMs: nowMs,
+          clientOrderId: order.clientOrderId,
+        })
+      }
+      return events
+    }
+
+    // Execute batch via execution adapter
+    const batchIntent: PlaceBatchIntent = {
+      kind: 'place_batch',
+      orders: validOrders.map(({ order }) => order),
+      reason: intent.reason,
+    }
+
+    const res = await this.execution.placeBatch(batchIntent, ctx)
+    events.push(...res.events)
+
+    // Clean up clientOrderIds for rejected/done orders
+    for (const ev of res.events) {
+      if (ev.kind === 'order_rejected' && ev.clientOrderId) {
+        this.activeClientOrders.delete(ev.clientOrderId)
+      }
+      if (ev.kind === 'order_done' && ev.clientOrderId) {
+        this.activeClientOrders.delete(ev.clientOrderId)
+      }
+    }
+
+    return events
+  }
+
   private validatePlaceLimit(intent: PlaceLimitIntent, nowMs: number): string | null {
+    return this.validatePlaceLimitOrder(intent, nowMs)
+  }
+
+  private validatePlaceLimitOrder(
+    intent: PlaceLimitIntent | PlaceBatchIntent['orders'][number],
+    nowMs: number,
+  ): string | null {
     if (!Number.isFinite(intent.price) || intent.price <= 0) return 'invalid_price'
     if (!Number.isFinite(intent.size) || intent.size <= 0) return 'invalid_size'
     if (!intent.assetId) return 'missing_assetId'
@@ -338,7 +452,7 @@ export class OrderManager {
     }
     if (intent.orderType !== 'GTD' && intent.expireAtMs !== undefined) {
       this.log?.('[orderManager] ignoring expireAtMs for non-GTD orderType', {
-        clientOrderId: intent.clientOrderId,
+        clientOrderId: 'clientOrderId' in intent ? intent.clientOrderId : 'unknown',
         orderType: intent.orderType as OrderType,
       })
     }

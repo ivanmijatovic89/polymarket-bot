@@ -62,7 +62,30 @@ export type MergePositionsIntent = {
   reason?: string
 }
 
-export type Intent = PlaceLimitIntent | CancelOrderIntent | CancelAllIntent | MergePositionsIntent
+export type PlaceBatchIntent = {
+  kind: 'place_batch'
+  /**
+   * Array of orders to place in a single batch request.
+   * Polymarket supports up to 15 orders per batch.
+   */
+  orders: Array<{
+    clientOrderId: ClientOrderId
+    assetId: string
+    side: OrderSide
+    price: number
+    size: number
+    orderType: OrderType
+    /**
+     * Required for GTD. Epoch ms.
+     * Note: Polymarket has a minimum expiry threshold; we'll enforce in OrderManager.
+     */
+    expireAtMs?: number
+    reason?: string
+  }>
+  reason?: string
+}
+
+export type Intent = PlaceLimitIntent | PlaceBatchIntent | CancelOrderIntent | CancelAllIntent | MergePositionsIntent
 
 export type OrderLifecycleState =
   | 'requested'

@@ -1,6 +1,7 @@
 import type {
   AccountEvent,
   Intent,
+  PlaceBatchIntent,
   PlaceLimitIntent,
   PortfolioSnapshot,
 } from '../strategy/Strategy.js'
@@ -22,8 +23,8 @@ export type RiskLimits = {
 // Hardcoded defaults for now (per plan). Keep these conservative.
 export const DEFAULT_RISK_LIMITS: RiskLimits = {
   maxOpenOrders: 20,
-  maxOrderSize: 25,
-  maxAbsPosition: 50,
+  maxOrderSize: 200,
+  maxAbsPosition: 200,
   maxLossStop: 50,
 }
 
@@ -57,6 +58,14 @@ function blockPlace(nowMs: number, intent: PlaceLimitIntent, reason: string): Ac
   return { kind: 'order_rejected', tsMs: nowMs, clientOrderId: intent.clientOrderId, reason }
 }
 
+function blockBatchOrder(
+  nowMs: number,
+  clientOrderId: string,
+  reason: string,
+): AccountEvent {
+  return { kind: 'order_rejected', tsMs: nowMs, clientOrderId, reason }
+}
+
 /**
  * Apply basic risk limits to a batch of intents. Cancels are always allowed.
  *
@@ -86,6 +95,70 @@ export function enforceRiskLimits(params: {
   const openSellsByAssetId = exp.openSellsByAssetId
 
   for (const intent of params.intents) {
+    if (intent.kind === 'place_batch') {
+      // Handle batch orders: validate each order individually
+      if (lossStopActive) {
+        // Block entire batch if loss stop is active
+        const reason = `risk_loss_stop(realized=${realized})`
+        blocked.push({ intent, reason })
+        for (const order of intent.orders) {
+          rejectedEvents.push(blockBatchOrder(params.nowMs, order.clientOrderId, reason))
+        }
+        continue
+      }
+
+      // Process batch orders individually - allow partial batches
+      const validOrders: PlaceBatchIntent['orders'] = []
+      for (const order of intent.orders) {
+        if (!Number.isFinite(order.size) || order.size <= 0) {
+          // Not a risk error (handled elsewhere), but don't count it against limits here.
+          validOrders.push(order)
+          continue
+        }
+
+        if (order.size > limits.maxOrderSize) {
+          const reason = `risk_max_order_size(max=${limits.maxOrderSize})`
+          rejectedEvents.push(blockBatchOrder(params.nowMs, order.clientOrderId, reason))
+          continue
+        }
+
+        if (openOrdersCount + 1 > limits.maxOpenOrders) {
+          const reason = `risk_max_open_orders(max=${limits.maxOpenOrders})`
+          rejectedEvents.push(blockBatchOrder(params.nowMs, order.clientOrderId, reason))
+          continue
+        }
+
+        const posQty = p.positionsByAssetId[order.assetId]?.qty ?? 0
+        const openBuys = openBuysByAssetId.get(order.assetId) ?? 0
+        const openSells = openSellsByAssetId.get(order.assetId) ?? 0
+
+        // Conservative worst-case: buys add, sells subtract.
+        const projectedQty =
+          order.side === 'BUY' ? posQty + openBuys + order.size : posQty - (openSells + order.size)
+
+        if (Math.abs(projectedQty) > limits.maxAbsPosition) {
+          const reason = `risk_max_abs_position(max=${limits.maxAbsPosition})`
+          rejectedEvents.push(blockBatchOrder(params.nowMs, order.clientOrderId, reason))
+          continue
+        }
+
+        // Allowed: update counters so subsequent orders in this batch see it.
+        validOrders.push(order)
+        openOrdersCount += 1
+        if (order.side === 'BUY') {
+          openBuysByAssetId.set(order.assetId, openBuys + order.size)
+        } else {
+          openSellsByAssetId.set(order.assetId, openSells + order.size)
+        }
+      }
+
+      // If any orders passed validation, create a new batch intent with only valid orders
+      if (validOrders.length > 0) {
+        allowed.push({ ...intent, orders: validOrders })
+      }
+      continue
+    }
+
     if (intent.kind !== 'place_limit') {
       allowed.push(intent)
       // Best-effort reduce open order count/exposure when we see cancels for existing open orders.
