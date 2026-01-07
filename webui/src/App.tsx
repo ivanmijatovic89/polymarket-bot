@@ -458,11 +458,11 @@ export function App() {
                 up={displaySnapshot.books.up}
                 down={displaySnapshot.books.down}
               />
-              <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2 2xl:grid-cols-3">
+              {/* <div className="grid grid-cols-1 gap-2 min-w-0 xl:grid-cols-2 2xl:grid-cols-3">
                 <OrderbooksPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
                 <OrderbookDepthsPanel up={displaySnapshot.books.up} down={displaySnapshot.books.down} />
                 <OrderbookMetricsPanel snapshot={displaySnapshot} />
-              </div>
+              </div> */}
               {hasVolatility ? <VolatilityPanel snapshot={displaySnapshot} /> : null}
             </div>
           </div>
