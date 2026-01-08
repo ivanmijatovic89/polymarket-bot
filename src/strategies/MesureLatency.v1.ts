@@ -31,7 +31,10 @@ function getAssetIdBySide(
     const assetIds = Object.keys(tick.snapshot.byAssetId).sort()
     if (assetIds.length === 0) return null
     // For binary markets, first asset is typically UP, second is DOWN
-    return side === 'up' ? assetIds[0] : assetIds[1] || null
+    if (side === 'up') {
+      return assetIds[0] ?? null
+    }
+    return assetIds[1] ?? null
   }
 
   const outcomes = Array.isArray(market.outcomes) ? market.outcomes : []
@@ -61,6 +64,11 @@ export function createStrategy(cfg: Config): {
   let lastLoggedSecond = -1
   const delayMs = 3000 // 3 seconds delay
 
+  // Latency measurement tracking
+  let intentSentAtMs: number | null = null
+  let clientOrderIdSent: string | null = null
+  let latencyMeasured = false
+
   const price = parseFloat(cfg.price)
   const size = parseFloat(cfg.size)
 
@@ -76,7 +84,25 @@ export function createStrategy(cfg: Config): {
     portfolio: PortfolioSnapshot,
     ctx?: StrategyContext,
   ): Intent[] => {
-    void portfolio
+    // Check if order appears in portfolio after intent was sent
+    if (hasPlacedOrder && intentSentAtMs !== null && clientOrderIdSent && !latencyMeasured) {
+      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+      if (openOrder) {
+        const nowMs = portfolio.nowMs
+        const latencyMs = nowMs - intentSentAtMs
+        latencyMeasured = true
+
+        console.warn(`[${name}] ✅ LATENCY MEASURED!`, {
+          clientOrderId: clientOrderIdSent,
+          intentSentAtMs,
+          orderAppearedAtMs: nowMs,
+          latencyMs: latencyMs.toFixed(2) + 'ms',
+          latencySec: (latencyMs / 1000).toFixed(3) + 's',
+          orderState: openOrder.state,
+          orderId: openOrder.orderId,
+        })
+      }
+    }
 
     // Only trigger once
     if (hasPlacedOrder) return []
@@ -110,6 +136,10 @@ export function createStrategy(cfg: Config): {
 
     // Delay has passed, place the order
     hasPlacedOrder = true
+    // Use Date.now() for precise intent timestamp (not tick timestamp which may be same as portfolio.nowMs)
+    intentSentAtMs = Date.now()
+    const clientOrderId = `${name}:${assetId}:buy:${nowMs}`
+    clientOrderIdSent = clientOrderId
 
     console.log(`[${name}] ⚡️ Placing ${cfg.side.toUpperCase()} order NOW!`, {
       assetId,
@@ -118,12 +148,14 @@ export function createStrategy(cfg: Config): {
       size,
       orderType: 'GTC',
       elapsedMs: elapsedMs.toFixed(0) + 'ms',
+      intentSentAtMs,
+      clientOrderId,
     })
 
     return [
       {
         kind: 'place_limit',
-        clientOrderId: `${name}:${assetId}:buy:${nowMs}`,
+        clientOrderId,
         assetId,
         side: 'BUY',
         price,
