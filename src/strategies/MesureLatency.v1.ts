@@ -64,10 +64,17 @@ export function createStrategy(cfg: Config): {
   let lastLoggedSecond = -1
   const delayMs = 3000 // 3 seconds delay
 
-  // Latency measurement tracking
+  // Latency measurement tracking for order placement
   let intentSentAtMs: number | null = null
   let clientOrderIdSent: string | null = null
   let latencyMeasured = false
+
+  // Cancel tracking
+  const cancelAfterMs = 2000 // 2 seconds after order appears
+  let orderAppearedAtMs: number | null = null
+  let cancelSentAtMs: number | null = null
+  let cancelLatencyMeasured = false
+  let cancelEmitted = false
 
   const price = parseFloat(cfg.price)
   const size = parseFloat(cfg.size)
@@ -88,11 +95,13 @@ export function createStrategy(cfg: Config): {
     if (hasPlacedOrder && intentSentAtMs !== null && clientOrderIdSent && !latencyMeasured) {
       const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
       if (openOrder) {
-        const nowMs = portfolio.nowMs
+        // Use tick timestamp for consistent timing
+        const nowMs = tick.snapshot.timestamp || Date.now()
         const latencyMs = nowMs - intentSentAtMs
         latencyMeasured = true
+        orderAppearedAtMs = nowMs
 
-        console.warn(`[${name}] ✅ LATENCY MEASURED!`, {
+        console.warn(`[${name}] ✅ PLACEMENT LATENCY MEASURED!`, {
           clientOrderId: clientOrderIdSent,
           intentSentAtMs,
           orderAppearedAtMs: nowMs,
@@ -104,7 +113,90 @@ export function createStrategy(cfg: Config): {
       }
     }
 
-    // Only trigger once
+    // Check if order disappeared after cancel was sent
+    if (
+      cancelSentAtMs !== null &&
+      clientOrderIdSent &&
+      !cancelLatencyMeasured &&
+      cancelEmitted
+    ) {
+      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+      if (!openOrder) {
+        // Order no longer exists in openOrdersByClientId
+        const nowMs = portfolio.nowMs
+        const cancelLatencyMs = nowMs - cancelSentAtMs
+        cancelLatencyMeasured = true
+
+        console.warn(`[${name}] ✅ CANCEL LATENCY MEASURED!`, {
+          clientOrderId: clientOrderIdSent,
+          cancelSentAtMs,
+          orderDisappearedAtMs: nowMs,
+          cancelLatencyMs: cancelLatencyMs.toFixed(2) + 'ms',
+          cancelLatencySec: (cancelLatencyMs / 1000).toFixed(3) + 's',
+        })
+      }
+    }
+
+    // Handle cancel after order appears
+    if (
+      hasPlacedOrder &&
+      latencyMeasured &&
+      orderAppearedAtMs !== null &&
+      !cancelEmitted &&
+      clientOrderIdSent
+    ) {
+      // Use tick timestamp for consistent timing (same clock as order placement)
+      const nowMs = tick.snapshot.timestamp || Date.now()
+      const elapsedSinceAppeared = nowMs - orderAppearedAtMs
+
+      // Debug log every 500ms to see what's happening
+      if (elapsedSinceAppeared > 0 && elapsedSinceAppeared % 500 < 100) {
+        const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+        // console.log(`[${name}] ⏳ Cancel check:`, {
+        //   elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
+        //   cancelAfterMs: cancelAfterMs + 'ms',
+        //   hasOrder: !!openOrder,
+        //   orderId: openOrder?.orderId,
+        //   orderState: openOrder?.state,
+        // })
+      }
+
+      if (elapsedSinceAppeared >= cancelAfterMs) {
+        // Get orderId for cancel
+        const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+        const orderId = openOrder?.orderId
+
+        if (!orderId) {
+          console.warn(`[${name}] ⚠️ Cannot cancel: orderId not available yet`, {
+            clientOrderId: clientOrderIdSent,
+            openOrder: openOrder ? 'exists but no orderId' : 'not found',
+            elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
+          })
+          return []
+        }
+
+        cancelSentAtMs = Date.now()
+        cancelEmitted = true
+
+        console.log(`[${name}] 🚫 Sending CANCEL intent NOW!`, {
+          clientOrderId: clientOrderIdSent,
+          orderId,
+          cancelSentAtMs,
+          elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
+        })
+
+        return [
+          {
+            kind: 'cancel_order',
+            clientOrderId: clientOrderIdSent,
+            orderId,
+            reason: `test_cancel_latency_${cfg.side}`,
+          },
+        ]
+      }
+    }
+
+    // Only trigger order placement once
     if (hasPlacedOrder) return []
 
     const assetId = getAssetIdBySide(tick, ctx, cfg.side)
