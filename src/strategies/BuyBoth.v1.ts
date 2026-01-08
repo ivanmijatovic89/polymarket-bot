@@ -102,6 +102,9 @@ export function createStrategy(cfg: Config): {
           `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio < 0.1, weak side: ${weakSide ?? 'N/A'}`,
         )
       }
+    //   console.log(
+    //     `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio ${depth3RatioIndex2} < 0.1, weak side: ${weakSide ?? 'N/A'}`,
+    //   )
 
     //   // Check index 3 (depth 3 if starting from 0)
     //   if (depth3RatioIndex3 !== undefined && depth3RatioIndex3 < 0.2) {
