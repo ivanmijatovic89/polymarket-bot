@@ -8,6 +8,7 @@ import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/Template.v1.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
 import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
+import { definition as mesureLatencyV1 } from '../strategies/MesureLatency.v1.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,
@@ -19,6 +20,7 @@ export const strategyRegistry = {
   [templateV1.id]: templateV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
+  [mesureLatencyV1.id]: mesureLatencyV1,
 } as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry
