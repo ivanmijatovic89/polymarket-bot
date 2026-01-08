@@ -59,6 +59,18 @@ export function createStrategy(cfg: Config): {
   strategy: Strategy
 } {
   const name = 'mesureLatency.v1'
+
+  // Cycle tracking
+  const totalCycles = 10
+  const pauseBetweenCyclesMs = 1000 // 1 second pause
+  let currentCycle = 1 // Start from 1, go to 10
+  const measurements: Array<{
+    cycle: number
+    placementLatencyMs: number
+    cancelLatencyMs: number
+  }> = []
+
+  // Per-cycle state
   let hasPlacedOrder = false
   let startTimeMs: number | null = null
   let lastLoggedSecond = -1
@@ -75,6 +87,7 @@ export function createStrategy(cfg: Config): {
   let cancelSentAtMs: number | null = null
   let cancelLatencyMeasured = false
   let cancelEmitted = false
+  let cycleCompletedAtMs: number | null = null
 
   const price = parseFloat(cfg.price)
   const size = parseFloat(cfg.size)
@@ -86,22 +99,87 @@ export function createStrategy(cfg: Config): {
     throw new Error(`[${name}] Invalid size: ${cfg.size}`)
   }
 
+  function resetCycleState(): void {
+    hasPlacedOrder = false
+    startTimeMs = null
+    lastLoggedSecond = -1
+    intentSentAtMs = null
+    clientOrderIdSent = null
+    latencyMeasured = false
+    orderAppearedAtMs = null
+    cancelSentAtMs = null
+    cancelLatencyMeasured = false
+    cancelEmitted = false
+    cycleCompletedAtMs = null
+  }
+
+  function logFinalResults(): void {
+    if (measurements.length === 0) return
+
+    const placementLatencies = measurements.map((m) => m.placementLatencyMs)
+    const cancelLatencies = measurements.map((m) => m.cancelLatencyMs)
+
+    const avgPlacement = placementLatencies.reduce((a, b) => a + b, 0) / placementLatencies.length
+    const avgCancel = cancelLatencies.reduce((a, b) => a + b, 0) / cancelLatencies.length
+
+    const minPlacement = Math.min(...placementLatencies)
+    const maxPlacement = Math.max(...placementLatencies)
+    const minCancel = Math.min(...cancelLatencies)
+    const maxCancel = Math.max(...cancelLatencies)
+
+    console.warn(`[${name}] 📊 FINAL RESULTS (${measurements.length} cycles):`, {
+      allMeasurements: measurements.map((m) => ({
+        cycle: m.cycle,
+        placementMs: m.placementLatencyMs.toFixed(2),
+        cancelMs: m.cancelLatencyMs.toFixed(2),
+      })),
+      placementLatency: {
+        avg: avgPlacement.toFixed(2) + 'ms',
+        min: minPlacement.toFixed(2) + 'ms',
+        max: maxPlacement.toFixed(2) + 'ms',
+      },
+      cancelLatency: {
+        avg: avgCancel.toFixed(2) + 'ms',
+        min: minCancel.toFixed(2) + 'ms',
+        max: maxCancel.toFixed(2) + 'ms',
+      },
+    })
+  }
+
   const onMarketTick = (
     tick: MarketTick,
     portfolio: PortfolioSnapshot,
     ctx?: StrategyContext,
   ): Intent[] => {
+    // Check if we need to start next cycle after pause
+    if (
+      cycleCompletedAtMs !== null &&
+      currentCycle < totalCycles
+    ) {
+      // Use Date.now() for consistent local time measurement
+      const nowMs = Date.now()
+      const elapsedSinceCompletion = nowMs - cycleCompletedAtMs
+
+      if (elapsedSinceCompletion >= pauseBetweenCyclesMs) {
+        currentCycle++
+        resetCycleState()
+        console.log(`[${name}] 🔄 Starting cycle ${currentCycle}/${totalCycles}`)
+      } else {
+        return []
+      }
+    }
+
     // Check if order appears in portfolio after intent was sent
     if (hasPlacedOrder && intentSentAtMs !== null && clientOrderIdSent && !latencyMeasured) {
       const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
       if (openOrder) {
-        // Use tick timestamp for consistent timing
-        const nowMs = tick.snapshot.timestamp || Date.now()
+        // Use Date.now() for consistent local time measurement
+        const nowMs = Date.now()
         const latencyMs = nowMs - intentSentAtMs
         latencyMeasured = true
         orderAppearedAtMs = nowMs
 
-        console.warn(`[${name}] ✅ PLACEMENT LATENCY MEASURED!`, {
+        console.warn(`[${name}] ✅ PLACEMENT LATENCY MEASURED! [Cycle ${currentCycle}]`, {
           clientOrderId: clientOrderIdSent,
           intentSentAtMs,
           orderAppearedAtMs: nowMs,
@@ -123,17 +201,39 @@ export function createStrategy(cfg: Config): {
       const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
       if (!openOrder) {
         // Order no longer exists in openOrdersByClientId
-        const nowMs = portfolio.nowMs
+        // Use Date.now() for consistent local time measurement
+        const nowMs = Date.now()
         const cancelLatencyMs = nowMs - cancelSentAtMs
         cancelLatencyMeasured = true
 
-        console.warn(`[${name}] ✅ CANCEL LATENCY MEASURED!`, {
+        // Get placement latency for this cycle (also using Date.now() timestamps)
+        const placementLatencyMs = orderAppearedAtMs && intentSentAtMs
+          ? orderAppearedAtMs - intentSentAtMs
+          : 0
+
+        measurements.push({
+          cycle: currentCycle,
+          placementLatencyMs,
+          cancelLatencyMs,
+        })
+
+        console.warn(`[${name}] ✅ CANCEL LATENCY MEASURED! [Cycle ${currentCycle}]`, {
           clientOrderId: clientOrderIdSent,
           cancelSentAtMs,
           orderDisappearedAtMs: nowMs,
           cancelLatencyMs: cancelLatencyMs.toFixed(2) + 'ms',
           cancelLatencySec: (cancelLatencyMs / 1000).toFixed(3) + 's',
         })
+
+        // Check if all cycles are done
+        if (currentCycle >= totalCycles) {
+          logFinalResults()
+          return []
+        }
+
+        // Mark cycle as completed and start pause
+        cycleCompletedAtMs = Date.now()
+        return []
       }
     }
 
@@ -178,7 +278,7 @@ export function createStrategy(cfg: Config): {
         cancelSentAtMs = Date.now()
         cancelEmitted = true
 
-        console.log(`[${name}] 🚫 Sending CANCEL intent NOW!`, {
+        console.log(`[${name}] 🚫 Sending CANCEL intent NOW! [Cycle ${currentCycle}]`, {
           clientOrderId: clientOrderIdSent,
           orderId,
           cancelSentAtMs,
@@ -190,13 +290,13 @@ export function createStrategy(cfg: Config): {
             kind: 'cancel_order',
             clientOrderId: clientOrderIdSent,
             orderId,
-            reason: `test_cancel_latency_${cfg.side}`,
+            reason: `test_cancel_latency_${cfg.side}_cycle_${currentCycle}`,
           },
         ]
       }
     }
 
-    // Only trigger order placement once
+    // Only trigger order placement once per cycle
     if (hasPlacedOrder) return []
 
     const assetId = getAssetIdBySide(tick, ctx, cfg.side)
@@ -204,11 +304,11 @@ export function createStrategy(cfg: Config): {
 
     const nowMs = tick.snapshot.timestamp || Date.now()
 
-    // Initialize start time on first tick
+    // Initialize start time on first tick of cycle
     if (startTimeMs === null) {
       startTimeMs = nowMs
       console.log(
-        `[${name}] ⏱️  Starting countdown, will place ${cfg.side.toUpperCase()} order in 3 seconds...`,
+        `[${name}] ⏱️  [Cycle ${currentCycle}] Starting countdown, will place ${cfg.side.toUpperCase()} order in 3 seconds...`,
       )
     }
 
@@ -221,7 +321,7 @@ export function createStrategy(cfg: Config): {
       const secondsRemaining = Math.ceil(remainingMs / 1000)
       if (secondsRemaining !== lastLoggedSecond) {
         lastLoggedSecond = secondsRemaining
-        console.log(`[${name}] ⏱️  Countdown: ${secondsRemaining} second(s) remaining...`)
+        console.log(`[${name}] ⏱️  [Cycle ${currentCycle}] Countdown: ${secondsRemaining} second(s) remaining...`)
       }
       return []
     }
@@ -230,10 +330,10 @@ export function createStrategy(cfg: Config): {
     hasPlacedOrder = true
     // Use Date.now() for precise intent timestamp (not tick timestamp which may be same as portfolio.nowMs)
     intentSentAtMs = Date.now()
-    const clientOrderId = `${name}:${assetId}:buy:${nowMs}`
+    const clientOrderId = `${name}:${assetId}:buy:${nowMs}:cycle${currentCycle}`
     clientOrderIdSent = clientOrderId
 
-    console.log(`[${name}] ⚡️ Placing ${cfg.side.toUpperCase()} order NOW!`, {
+    console.log(`[${name}] ⚡️ Placing ${cfg.side.toUpperCase()} order NOW! [Cycle ${currentCycle}]`, {
       assetId,
       side: cfg.side,
       price,
@@ -253,7 +353,7 @@ export function createStrategy(cfg: Config): {
         price,
         size,
         orderType: 'GTC',
-        reason: `test_latency_${cfg.side}`,
+        reason: `test_latency_${cfg.side}_cycle_${currentCycle}`,
       },
     ]
   }
