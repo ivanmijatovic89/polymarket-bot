@@ -3,6 +3,7 @@ import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import { IndicatorSet } from '../indicators/IndicatorSet.js'
 import { TimeWindowVolatility } from '../indicators/volatility/TimeWindowVolatility.js'
+import { isWarmed } from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -43,6 +44,10 @@ export function createStrategy(cfg: Config): {
     ctx?: StrategyContext,
   ): Intent[] => {
     void _portfolio
+    void tick
+
+    // Live-only warmup gate (recommended for any strategy that places orders).
+    if (!isWarmed(ctx)) return []
 
     // feeds
     const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance

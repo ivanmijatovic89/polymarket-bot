@@ -1,4 +1,5 @@
 import type { PortfolioSnapshot } from './Strategy.js'
+import type { StrategyContext } from './StrategyContext.js'
 
 /**
  * Clamp Polymarket probability prices to [0,1].
@@ -29,6 +30,22 @@ export function isOrderTradeStatusAtLeast(
   const o = portfolio.ordersByClientId[clientOrderId]
   if (!o) return false
   return (o.tradeStatusRank ?? 0) >= requiredTradeRank(atLeast)
+}
+
+/**
+ * Live-only warmup gating helper.
+ *
+ * Semantics:
+ * - If ctx.warmup is missing (e.g. backtests / runners that don't implement warmup), treat as warmed.
+ * - If warmup is in progress, treat as NOT warmed.
+ * - If warmup succeeded, warmed.
+ * - If warmup errored, still treat as warmed (so we don't deadlock trading), but strategies may log it.
+ */
+export function isWarmed(ctx?: StrategyContext): boolean {
+  const w = ctx?.warmup
+  if (!w) return true
+  if (w.status === 'warming') return false
+  return true
 }
 
 

@@ -1,6 +1,7 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import { isWarmed } from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -84,6 +85,7 @@ export function createStrategy(cfg: Config): {
   // Cancel tracking
   const cancelAfterMs = 2000 // 2 seconds after order appears
   let orderAppearedAtMs: number | null = null
+  let cancelDueAtMs: number | null = null
   let cancelSentAtMs: number | null = null
   let cancelLatencyMeasured = false
   let cancelEmitted = false
@@ -107,6 +109,7 @@ export function createStrategy(cfg: Config): {
     clientOrderIdSent = null
     latencyMeasured = false
     orderAppearedAtMs = null
+    cancelDueAtMs = null
     cancelSentAtMs = null
     cancelLatencyMeasured = false
     cancelEmitted = false
@@ -151,6 +154,10 @@ export function createStrategy(cfg: Config): {
     portfolio: PortfolioSnapshot,
     ctx?: StrategyContext,
   ): Intent[] => {
+    // Don't place new orders until the current market tokens are warmed (live-only).
+    // Note: cancel path can still run once an order exists.
+    if (!hasPlacedOrder && !isWarmed(ctx)) return []
+
     // Check if we need to start next cycle after pause
     if (
       cycleCompletedAtMs !== null &&
@@ -169,131 +176,41 @@ export function createStrategy(cfg: Config): {
       }
     }
 
-    // Check if order appears in portfolio after intent was sent
-    if (hasPlacedOrder && intentSentAtMs !== null && clientOrderIdSent && !latencyMeasured) {
-      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
-      if (openOrder) {
-        // Use Date.now() for consistent local time measurement
-        const nowMs = Date.now()
-        const latencyMs = nowMs - intentSentAtMs
-        latencyMeasured = true
-        orderAppearedAtMs = nowMs
-
-        console.warn(`[${name}] ✅ PLACEMENT LATENCY MEASURED! [Cycle ${currentCycle}]`, {
-          clientOrderId: clientOrderIdSent,
-          intentSentAtMs,
-          orderAppearedAtMs: nowMs,
-          latencyMs: latencyMs.toFixed(2) + 'ms',
-          latencySec: (latencyMs / 1000).toFixed(3) + 's',
-          orderState: openOrder.state,
-          orderId: openOrder.orderId,
-        })
-      }
-    }
-
-    // Check if order disappeared after cancel was sent
-    if (
-      cancelSentAtMs !== null &&
-      clientOrderIdSent &&
-      !cancelLatencyMeasured &&
-      cancelEmitted
-    ) {
-      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
-      if (!openOrder) {
-        // Order no longer exists in openOrdersByClientId
-        // Use Date.now() for consistent local time measurement
-        const nowMs = Date.now()
-        const cancelLatencyMs = nowMs - cancelSentAtMs
-        cancelLatencyMeasured = true
-
-        // Get placement latency for this cycle (also using Date.now() timestamps)
-        const placementLatencyMs = orderAppearedAtMs && intentSentAtMs
-          ? orderAppearedAtMs - intentSentAtMs
-          : 0
-
-        measurements.push({
-          cycle: currentCycle,
-          placementLatencyMs,
-          cancelLatencyMs,
-        })
-
-        console.warn(`[${name}] ✅ CANCEL LATENCY MEASURED! [Cycle ${currentCycle}]`, {
-          clientOrderId: clientOrderIdSent,
-          cancelSentAtMs,
-          orderDisappearedAtMs: nowMs,
-          cancelLatencyMs: cancelLatencyMs.toFixed(2) + 'ms',
-          cancelLatencySec: (cancelLatencyMs / 1000).toFixed(3) + 's',
-        })
-
-        // Check if all cycles are done
-        if (currentCycle >= totalCycles) {
-          logFinalResults()
-          return []
-        }
-
-        // Mark cycle as completed and start pause
-        cycleCompletedAtMs = Date.now()
-        return []
-      }
-    }
-
-    // Handle cancel after order appears
+    // Handle cancel after order appears (measured + scheduled in onAccountEvent)
     if (
       hasPlacedOrder &&
       latencyMeasured &&
-      orderAppearedAtMs !== null &&
+      cancelDueAtMs !== null &&
       !cancelEmitted &&
       clientOrderIdSent
     ) {
-      // Use tick timestamp for consistent timing (same clock as order placement)
-      const nowMs = tick.snapshot.timestamp || Date.now()
-      const elapsedSinceAppeared = nowMs - orderAppearedAtMs
-
-      // Debug log every 500ms to see what's happening
-      if (elapsedSinceAppeared > 0 && elapsedSinceAppeared % 500 < 100) {
-        const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
-        // console.log(`[${name}] ⏳ Cancel check:`, {
-        //   elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
-        //   cancelAfterMs: cancelAfterMs + 'ms',
-        //   hasOrder: !!openOrder,
-        //   orderId: openOrder?.orderId,
-        //   orderState: openOrder?.state,
-        // })
+      const nowMs = Date.now()
+      if (nowMs < cancelDueAtMs) {
+        return []
       }
 
-      if (elapsedSinceAppeared >= cancelAfterMs) {
-        // Get orderId for cancel
-        const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
-        const orderId = openOrder?.orderId
+      // Get orderId for cancel
+      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+      const orderId = openOrder?.orderId
+      if (!orderId) return []
 
-        if (!orderId) {
-          console.warn(`[${name}] ⚠️ Cannot cancel: orderId not available yet`, {
-            clientOrderId: clientOrderIdSent,
-            openOrder: openOrder ? 'exists but no orderId' : 'not found',
-            elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
-          })
-          return []
-        }
+      cancelSentAtMs = Date.now()
+      cancelEmitted = true
 
-        cancelSentAtMs = Date.now()
-        cancelEmitted = true
+      console.log(`[${name}] 🚫 Sending CANCEL intent NOW! [Cycle ${currentCycle}]`, {
+        clientOrderId: clientOrderIdSent,
+        orderId,
+        cancelSentAtMs,
+      })
 
-        console.log(`[${name}] 🚫 Sending CANCEL intent NOW! [Cycle ${currentCycle}]`, {
+      return [
+        {
+          kind: 'cancel_order',
           clientOrderId: clientOrderIdSent,
           orderId,
-          cancelSentAtMs,
-          elapsedSinceAppeared: elapsedSinceAppeared.toFixed(0) + 'ms',
-        })
-
-        return [
-          {
-            kind: 'cancel_order',
-            clientOrderId: clientOrderIdSent,
-            orderId,
-            reason: `test_cancel_latency_${cfg.side}_cycle_${currentCycle}`,
-          },
-        ]
-      }
+          reason: `test_cancel_latency_${cfg.side}_cycle_${currentCycle}`,
+        },
+      ]
     }
 
     // Only trigger order placement once per cycle
@@ -302,7 +219,8 @@ export function createStrategy(cfg: Config): {
     const assetId = getAssetIdBySide(tick, ctx, cfg.side)
     if (!assetId) return []
 
-    const nowMs = tick.snapshot.timestamp || Date.now()
+    // Use Date.now() consistently for all timing (not tick.snapshot.timestamp)
+    const nowMs = Date.now()
 
     // Initialize start time on first tick of cycle
     if (startTimeMs === null) {
@@ -358,11 +276,65 @@ export function createStrategy(cfg: Config): {
     ]
   }
 
-  const onAccountEvent: Strategy['onAccountEvent'] = (_ev, _portfolio, _lastMarket) => {
-    void _ev
-    void _portfolio
+  const onAccountEvent: Strategy['onAccountEvent'] = (ev, portfolio, _lastMarket) => {
+    void ev
     void _lastMarket
-    // No action needed on account events for this test strategy
+
+    // Measure placement latency as soon as the order appears in the Portfolio snapshot.
+    if (hasPlacedOrder && intentSentAtMs !== null && clientOrderIdSent && !latencyMeasured) {
+      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+      if (openOrder) {
+        const nowMs = Date.now()
+        const latencyMs = nowMs - intentSentAtMs
+        latencyMeasured = true
+        orderAppearedAtMs = nowMs
+        cancelDueAtMs = nowMs + cancelAfterMs
+
+        console.warn(`[${name}] ✅ PLACEMENT LATENCY MEASURED! [Cycle ${currentCycle}]`, {
+          clientOrderId: clientOrderIdSent,
+          intentSentAtMs,
+          orderAppearedAtMs: nowMs,
+          latencyMs: latencyMs.toFixed(2) + 'ms',
+          latencySec: (latencyMs / 1000).toFixed(3) + 's',
+          orderState: openOrder.state,
+          orderId: openOrder.orderId,
+        })
+      }
+    }
+
+    // Measure cancel latency as soon as the order disappears from Portfolio open orders.
+    if (cancelEmitted && cancelSentAtMs !== null && clientOrderIdSent && !cancelLatencyMeasured) {
+      const openOrder = portfolio.openOrdersByClientId[clientOrderIdSent]
+      if (!openOrder) {
+        const nowMs = Date.now()
+        const cancelLatencyMs = nowMs - cancelSentAtMs
+        cancelLatencyMeasured = true
+
+        const placementLatencyMs =
+          orderAppearedAtMs !== null && intentSentAtMs !== null ? orderAppearedAtMs - intentSentAtMs : 0
+
+        measurements.push({
+          cycle: currentCycle,
+          placementLatencyMs,
+          cancelLatencyMs,
+        })
+
+        console.warn(`[${name}] ✅ CANCEL LATENCY MEASURED! [Cycle ${currentCycle}]`, {
+          clientOrderId: clientOrderIdSent,
+          cancelSentAtMs,
+          orderDisappearedAtMs: nowMs,
+          cancelLatencyMs: cancelLatencyMs.toFixed(2) + 'ms',
+          cancelLatencySec: (cancelLatencyMs / 1000).toFixed(3) + 's',
+        })
+
+        if (currentCycle >= totalCycles) {
+          logFinalResults()
+        } else {
+          cycleCompletedAtMs = nowMs
+        }
+      }
+    }
+
     return []
   }
 

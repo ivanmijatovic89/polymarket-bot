@@ -33,6 +33,7 @@ import {
 import { createTradingBotWebUiServer, type BotUiCommand, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { CancelAllIntent, CancelOrderIntent, Intent } from '../strategy/Strategy.js'
+import type { WarmupSnapshot } from '../strategy/StrategyContext.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
 
@@ -137,6 +138,7 @@ async function main(): Promise<void> {
   let currentMarket: GammaMarketMeta | undefined
   let currentAssetsIds: string[] | undefined
   let currentTokenMap: Record<string, string> | undefined
+  let currentWarmup: WarmupSnapshot | undefined
 
   const built = (() => {
     try {
@@ -344,6 +346,7 @@ async function main(): Promise<void> {
   const exec = dryRun
     ? {
         placeLimit: async () => ({ events: [] }),
+        placeBatch: async () => ({ events: [] }),
         cancelOrder: async () => ({ events: [] }),
         cancelAll: async () => ({ events: [] }),
         mergePositions: async () => ({ events: [] }),
@@ -370,6 +373,7 @@ async function main(): Promise<void> {
     ...(indicatorSet ? { indicatorSet } : {}),
     ...(feedsStore ? { getFeedsSnapshot: () => feedsStore.snapshot() } : {}),
     getMarket: () => currentMarket,
+    getWarmup: () => currentWarmup,
     intentExecutionMode,
     maxEventsPerDrain,
     ...(enableWebUi
@@ -409,6 +413,65 @@ async function main(): Promise<void> {
     currentMarket = r.market
     currentAssetsIds = r.assetsIds
     currentTokenMap = r.tokenMap
+
+    // Warmup token metadata caches on startup and on market change.
+    // Strategies can gate order placement via ctx.warmup.
+    // Note: warmup is live-only; in dry-run exec is a stub.
+    if (prevSlug !== r.slug) {
+      const assetIds = Array.isArray(r.assetsIds) ? r.assetsIds.slice(0, 2) : []
+      const startedAtMs = Date.now()
+      currentWarmup = {
+        status: 'warming',
+        slug: r.slug,
+        assetIds,
+        startedAtMs,
+      }
+
+      if (!dryRun && exec instanceof LiveExecution && assetIds.length > 0) {
+        void (async () => {
+          try {
+            await exec.warmupMarket({ assetIds, slug: r.slug })
+            const finishedAtMs = Date.now()
+            console.log('[trading-bot][warmup-market][🟢] warmed', {
+              slug: r.slug,
+              assetIds,
+              durationMs: finishedAtMs - startedAtMs,
+            })
+            currentWarmup = {
+              status: 'warmed',
+              slug: r.slug,
+              assetIds,
+              startedAtMs,
+              finishedAtMs,
+            }
+          } catch (err) {
+            const msg = err instanceof Error ? err.message : String(err)
+            console.warn('[trading-bot][warmup-market][⚠️] warmupMarket failed', {
+              slug: r.slug,
+              assetIds,
+              err: msg,
+            })
+            currentWarmup = {
+              status: 'error',
+              slug: r.slug,
+              assetIds,
+              startedAtMs,
+              finishedAtMs: Date.now(),
+              error: msg,
+            }
+          }
+        })()
+      } else {
+        // No warmup available (dry-run or non-live execution). Treat as warmed.
+        currentWarmup = {
+          status: 'warmed',
+          slug: r.slug,
+          assetIds,
+          startedAtMs,
+          finishedAtMs: Date.now(),
+        }
+      }
+    }
 
 
     if (priceToBeatEnabled) {

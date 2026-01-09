@@ -52,6 +52,7 @@ export type LiveExecutionOptions = {
 export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
   private readonly config: PolymarketConfig
+  private readonly warmedTokenIds = new Set<string>()
 
   constructor(opts: LiveExecutionOptions = {}) {
     // Keep a local copy of config for non-CLOB operations (e.g. on-chain merge via privateKey).
@@ -74,6 +75,43 @@ export class LiveExecution implements ExecutionAdapter {
     } else {
       this.client = createClobClient()
     }
+  }
+
+  /**
+   * Pre-warm token metadata caches inside @polymarket/clob-client for a market's tokens.
+   *
+   * This avoids first-order cold-start overhead where clob-client fetches per-token:
+   * - tickSize
+   * - negRisk
+   * - feeRate
+   *
+   * This is intentionally *not* part of the Intent pipeline; trading-bot should call it on startup
+   * and on market rotation.
+   */
+  async warmupMarket(args: { assetIds: string[]; slug?: string }): Promise<void> {
+    const ids = Array.isArray(args.assetIds)
+      ? args.assetIds.filter((x) => typeof x === 'string' && x.length > 0)
+      : []
+    if (ids.length === 0) return
+
+    const toWarm = ids.filter((id) => !this.warmedTokenIds.has(id))
+    for (const id of toWarm) this.warmedTokenIds.add(id)
+    if (toWarm.length === 0) return
+
+    console.log('[live-execution][warmup-market][🔥] warming tokens', {
+      ...(args.slug ? { slug: args.slug } : {}),
+      assetIds: toWarm,
+    })
+
+    await Promise.all(
+      toWarm.map(async (tokenID) => {
+        await Promise.all([
+          this.client.getTickSize(tokenID).catch(() => undefined),
+          this.client.getNegRisk(tokenID).catch(() => undefined),
+          this.client.getFeeRateBps(tokenID).catch(() => undefined),
+        ])
+      }),
+    )
   }
 
   async placeBatch(
