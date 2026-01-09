@@ -113,6 +113,12 @@ Some params are JSON (pass JSON as a string), e.g.:
 
 Internally we validate/coerce params with **Zod**.
 
+## Measure Latency (`measureLatency.v1`)
+
+`measureLatency.v1` is a test strategy that measures **end-to-end live execution latency** (place + cancel) on your current environment (local machine or server/droplet). The measured latency can then be added to `.env` so backtests can simulate the same latency and better match live behavior.
+
+Docs: [`docs/MeasureLatency.md`](docs/MeasureLatency.md)
+
 ## Indicators
 
 Indicators are **optional, reusable computations** that are updated on every market tick and exposed to strategies via a `ctx` argument.
@@ -151,6 +157,27 @@ Strategies opt-in by setting `strategy.requiredFeeds` (see [`src/strategy/Strate
 
 Read more: [`src/trading/feeds/README.md`](src/trading/feeds/README.md)
 Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/strategies/readExternalFeedsExample.v1.ts)
+
+## Warmup: `warmupMarket()` (live-only)
+
+The Polymarket client library (`@polymarket/clob-client`) does extra per-token metadata fetches the **first time** you place an order for a token in a fresh process (or a fresh market window), including:
+- tick size
+- fee rate
+- negRisk flag
+
+That makes the **first order** noticeably slower than subsequent orders (caches + keep-alive warm up).
+
+To avoid that cold-start cost impacting the first real order, the trading bot performs a **market warmup**:
+- **Implementation**: `LiveExecution.warmupMarket()` (`src/trading/execution/LiveExecution.ts`)
+- **When it runs**: on trading-bot startup and whenever the 15m market rotates/changes (`src/cli/trading-bot.ts`)
+- **What it does**: pre-fetches and caches token metadata for the market’s UP+DOWN token IDs so later order placement is faster.
+
+### Strategy gating (optional)
+
+The trading bot also exposes warmup state to strategies via `ctx.warmup`. Strategies that place orders can gate like:
+- `if (!isWarmed(ctx)) return []` (helper in `src/strategy/strategyToolkit.ts`)
+
+In backtests, `ctx.warmup` is typically absent, and `isWarmed(ctx)` returns true (no warmup concept in backtests).
 
 ## Scripts
 
@@ -570,3 +597,13 @@ https://docs.polymarket.com/developers/CLOB/geoblock#server-infrastructure
 
 Primary Servers: eu-west-2
 Closest Non-Georestricted Region: eu-west-1
+
+
+# FIX
+// inside createTradingBotWebUiServer({ getState: () => { ... } })
+
+// before
+const market = runner.getLastMarketSnapshot()
+
+// after
+const market = marketEngine.snapshot()
