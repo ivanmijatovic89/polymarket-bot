@@ -4,6 +4,7 @@ import { definition as buyBothSidesAndMergeV1 } from '../strategies/buyBothSides
 import { definition as placeLimitOrderAndCancelAfterFewSecV1 } from '../strategies/placeLimitOrderAndCancelAfterFewSec.js'
 import { definition as readVolatilityIndicatorV1 } from '../strategies/readVolatilityIndicator.v1.js'
 import { definition as readExternalFeedsExampleV1 } from '../strategies/readExternalFeedsExample.v1.js'
+import { definition as orderbookV1 } from '../strategies/signals/Orderbook.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/Template.v1.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
@@ -16,6 +17,7 @@ export const strategyRegistry = {
   [placeLimitOrderAndCancelAfterFewSecV1.id]: placeLimitOrderAndCancelAfterFewSecV1,
   [readExternalFeedsExampleV1.id]: readExternalFeedsExampleV1,
   [readVolatilityIndicatorV1.id]: readVolatilityIndicatorV1,
+  [orderbookV1.id]: orderbookV1,
   [winnerLimitV1.id]: winnerLimitV1,
   [templateV1.id]: templateV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
