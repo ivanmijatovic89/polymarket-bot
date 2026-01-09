@@ -39,6 +39,18 @@ npm run trade:bot:btc -- \
   --param logEveryMs=1000
 ```
 
+# Mesure Latency ⚡️
+
+```
+npm run trade:bot:btc -- \
+  --strategy measureLatency.v1 \
+  --param side=up \
+  --param size=100 \
+  --param price=0.01 \
+  --param totalCycles=20 \
+  --param delayMs=3000
+```
+
 # Web UI (Phase 1)
 
 The bot can expose a read-only local Web UI (per process) on `127.0.0.1:<port>`.
