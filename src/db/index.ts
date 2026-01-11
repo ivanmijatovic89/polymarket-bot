@@ -6,7 +6,7 @@ import * as schema from './schema.js'
 let dbInstance: ReturnType<typeof drizzle> | null = null
 let poolInstance: ReturnType<typeof mysql.createPool> | null = null
 
-export function getDb() {
+export function getDb(): ReturnType<typeof drizzle> {
   if (dbInstance) {
     return dbInstance
   }

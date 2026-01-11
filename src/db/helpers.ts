@@ -6,12 +6,20 @@ import type { MarketDataForTable } from '../polymarket/gamma.js'
 export type Market = typeof markets.$inferSelect
 export type MarketInsert = typeof markets.$inferInsert
 
+function mustGetDb(): ReturnType<typeof getDb> {
+  const db = getDb()
+  if (!db) {
+    throw new Error('[db] getDb() returned null (unexpected)')
+  }
+  return db
+}
+
 /**
  * Get market by slug from database.
  * Returns null if market not found.
  */
 export async function getMarketBySlug(slug: string): Promise<Market | null> {
-  const db = getDb()
+  const db = mustGetDb()
   const results = await db
     .select()
     .from(markets)
@@ -26,7 +34,7 @@ export async function getMarketBySlug(slug: string): Promise<Market | null> {
  * Returns null if market not found.
  */
 export async function getMarketByPolymarketId(polymarketId: string): Promise<Market | null> {
-  const db = getDb()
+  const db = mustGetDb()
   const results = await db
     .select()
     .from(markets)
@@ -62,7 +70,7 @@ export async function getMarketsBySymbol(
     onlyWithDataset?: boolean
   }
 ): Promise<Market[]> {
-  const db = getDb()
+  const db = mustGetDb()
   const results = await db
     .select()
     .from(markets)
@@ -85,7 +93,7 @@ export async function getMarketsBySymbol(
  * Accepts MarketDataForTable type from gamma.ts which is compatible with Drizzle insert.
  */
 export async function insertMarket(marketData: MarketDataForTable): Promise<void> {
-  const db = getDb()
+  const db = mustGetDb()
   await db.insert(markets).values(marketData)
 }
 
@@ -100,7 +108,7 @@ export async function updateMarketBySlug(
     'active' | 'closed' | 'volume' | 'rawJson'
   >>
 ): Promise<void> {
-  const db = getDb()
+  const db = mustGetDb()
   await db
     .update(markets)
     .set({
@@ -118,7 +126,7 @@ export async function insertBacktestRun(row: {
   batchStats: Record<string, unknown>
   marketStats: unknown[]
 }): Promise<void> {
-  const db = getDb()
+  const db = mustGetDb()
   await db.insert(backtests).values({
     strategy: row.strategy,
     params: row.params,

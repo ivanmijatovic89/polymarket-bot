@@ -1,4 +1,4 @@
-import { mysqlTable, text, varchar, decimal, timestamp, boolean, json, int } from 'drizzle-orm/mysql-core'
+import { mysqlTable, text, varchar, decimal, timestamp, boolean, json, int, bigint } from 'drizzle-orm/mysql-core'
 
 // Markets table
 export const markets = mysqlTable('markets', {
@@ -24,4 +24,20 @@ export const markets = mysqlTable('markets', {
   rawJson: json('raw_json').$type<Record<string, unknown>>(), // Complete API response as JSON
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// Backtests table
+export const backtests = mysqlTable('backtests', {
+  id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+
+  strategy: varchar('strategy', { length: 255 }).notNull(),
+  params: json('params').$type<Record<string, unknown>>().notNull(),
+
+  symbol: varchar('symbol', { length: 10 }),
+  limit: int('limit'),
+
+  batchStats: json('batch_stats').$type<Record<string, unknown>>().notNull(),
+  marketStats: json('market_stats').$type<unknown[]>().notNull(),
+
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
