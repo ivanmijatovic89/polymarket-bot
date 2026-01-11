@@ -18,6 +18,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
+import type { PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
@@ -241,7 +242,7 @@ async function main(): Promise<void> {
   console.log(`[backtest] strategy=${built.strategyId}`)
 
   // Stats tracking
-  const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '10000')
+  const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
   const marketStats: MarketStats[] = []
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
@@ -277,6 +278,8 @@ async function main(): Promise<void> {
     let currentMarketId: string | undefined
     let currentMarketTrades: Fill[] = []
     const seenFillIds = new Set<string>()
+    let currentMarketSplits: PositionsSplit[] = []
+    const seenSplitIds = new Set<string>()
 
     // Always replay - stats are optional
     await replayOrderBookForMarket({
@@ -305,6 +308,13 @@ async function main(): Promise<void> {
               seenFillIds.add(fill.id)
             }
           }
+          // Collect split events from portfolio (avoid duplicates)
+          for (const s of portfolio.recentSplits ?? []) {
+            if (s.market === currentMarketId && !seenSplitIds.has(s.id)) {
+              currentMarketSplits.push(s)
+              seenSplitIds.add(s.id)
+            }
+          }
         }
       },
     })
@@ -326,6 +336,7 @@ async function main(): Promise<void> {
         const stats = computeMarketStats({
           marketId: currentMarketId,
           trades: currentMarketTrades,
+          splits: currentMarketSplits,
           finalPositions,
           realizedPnl,
           finalOutcome: marketResolution.outcome,

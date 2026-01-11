@@ -169,6 +169,19 @@ export type Fill = {
   liquidity?: 'MAKER' | 'TAKER'
 }
 
+export type PositionsSplit = {
+  id: string
+  tsMs: number
+  market?: string
+  assetIdA: string
+  assetIdB: string
+  /** Full-set size in shares (split N => +N on both sides) */
+  size: number
+  /** Collateral spent to split (USDC). For Polymarket binary full-sets, this is typically == size. */
+  splitCost: number
+  reason?: string
+}
+
 export type WsOrderUpdate = {
   orderId: ExchangeOrderId
   owner?: string
@@ -299,6 +312,12 @@ export type PortfolioSnapshot = {
   ordersByClientId: Record<string, OrderSnapshot>
   recentFills: Fill[]
   /**
+   * Recent position split events (CTF splitPosition) for backtest stats/accounting.
+   *
+   * These are NOT trades and should not be counted as fills/tradeCount.
+   */
+  recentSplits?: PositionsSplit[]
+  /**
    * Best-effort mapping from assetId -> market (condition id).
    * Populated from fills and any order placement that includes a market.
    *
@@ -341,6 +360,10 @@ export type AccountEvent =
   | {
       kind: 'fill'
       fill: Fill
+    }
+  | {
+      kind: 'positions_split'
+      split: PositionsSplit
     }
   | {
       kind: 'account_stream_status'

@@ -186,41 +186,21 @@ export class BacktestExecution implements ExecutionAdapter {
       }
     }
 
-    const costPerShare =
-      typeof intent.costPerShare === 'number' && Number.isFinite(intent.costPerShare)
-        ? intent.costPerShare
-        : 0.5
-    const px = Math.max(0, Math.min(1, costPerShare))
     const market = ctx.lastMarket?.market
 
-    // NOTE: We do NOT emit order lifecycle events here (order_submitted/order_open/etc).
-    // A split is an on-chain position operation; for backtests we model it as two synthetic BUY fills.
     return {
       events: [
         {
-          kind: 'fill',
-          fill: {
-            id: `bt-split:${nowMs}:${intent.assetIdA}`,
+          kind: 'positions_split',
+          split: {
+            id: `bt-split:${nowMs}:${intent.assetIdA}:${intent.assetIdB}`,
             tsMs: nowMs,
             ...(market ? { market } : {}),
-            assetId: intent.assetIdA,
-            side: 'BUY',
-            price: px,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
             size: requested,
-            liquidity: 'TAKER',
-          },
-        },
-        {
-          kind: 'fill',
-          fill: {
-            id: `bt-split:${nowMs}:${intent.assetIdB}`,
-            tsMs: nowMs,
-            ...(market ? { market } : {}),
-            assetId: intent.assetIdB,
-            side: 'BUY',
-            price: px,
-            size: requested,
-            liquidity: 'TAKER',
+            splitCost: requested, // 1 collateral per full set
+            ...(intent.reason ? { reason: intent.reason } : {}),
           },
         },
       ],

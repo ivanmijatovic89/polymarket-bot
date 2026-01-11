@@ -1,4 +1,4 @@
-import type { Fill, Position } from '../../strategy/Strategy.js'
+import type { Fill, Position, PositionsSplit } from '../../strategy/Strategy.js'
 
 export type TradeEvent = Fill
 
@@ -37,12 +37,13 @@ export type MarketStats = {
 export function computeMarketStats(params: {
   marketId: string
   trades: TradeEvent[]
+  splits?: PositionsSplit[]
   finalPositions: Record<string, Position>
   realizedPnl: number
   finalOutcome: 'UP' | 'DOWN'
   tokenMap: Record<string, string> // { "UP": assetId, "DOWN": assetId }
 }): MarketStats {
-  const { marketId, trades, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
+  const { marketId, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
 
   // Get asset IDs from tokenMap
   const upAssetId = tokenMap['UP']
@@ -65,7 +66,6 @@ export function computeMarketStats(params: {
 
   // Calculate total cost (all BUY fills)
   let cost = 0
-  let splitBuySizeSum = 0
   let totalUpBuySize = 0
   let totalUpBuyCost = 0
   let totalDownBuySize = 0
@@ -76,14 +76,6 @@ export function computeMarketStats(params: {
     if (trade.side === 'BUY') {
       const notional = trade.price * trade.size
       cost += notional
-      // If strategy sets costPerShare=0 for split, notional won't reflect collateral usage.
-      // Infer splitCost from synthetic split fill ids.
-      if (
-        typeof trade.id === 'string' &&
-        (trade.id.startsWith('bt-split:') || trade.id.startsWith('live-split:'))
-      ) {
-        splitBuySizeSum += trade.size
-      }
 
       if (trade.assetId === upAssetId) {
         totalUpBuySize += trade.size
@@ -117,9 +109,9 @@ export function computeMarketStats(params: {
     redeemValue = remainingUp * 0.0 + remainingDown * 1.0
   }
 
-  // Split cost: for binary full-set split we get two BUY fills of size N (UP + DOWN),
-  // so total size sum is 2N; collateral cost is N.
-  const splitCost = splitBuySizeSum > 0 ? splitBuySizeSum / 2 : 0
+  const splitCost = Array.isArray(splits)
+    ? splits.reduce((sum, s) => sum + (Number.isFinite(s.splitCost) ? s.splitCost : 0), 0)
+    : 0
 
   // 4. Total PnL = realized (from sells) + merge + redeem - cost - splitCost
   const pnl = realizedPnl + mergeValue + redeemValue - cost - splitCost

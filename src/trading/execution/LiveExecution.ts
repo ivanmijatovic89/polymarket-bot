@@ -478,38 +478,20 @@ export class LiveExecution implements ExecutionAdapter {
         shares: requested,
       })
 
-      const costPerShare =
-        typeof intent.costPerShare === 'number' && Number.isFinite(intent.costPerShare)
-          ? intent.costPerShare
-          : 0.5
-      const px = Math.max(0, Math.min(1, costPerShare))
-
-      // NOTE: we model the outcome positions as synthetic BUY fills so Portfolio inventory is
-      // consistent across live + backtest. The actual collateral transfer happens on-chain via CTF.
+      // Emit a non-trade position operation event so split does not count as a trade/fill.
       return {
         events: [
           {
-            kind: 'fill',
-            fill: {
-              id: `live-split:${res.txHash}:${intent.assetIdA}`,
+            kind: 'positions_split',
+            split: {
+              id: `live-split:${res.txHash}:${intent.assetIdA}:${intent.assetIdB}`,
               tsMs: nowMs,
               market: conditionId,
-              assetId: intent.assetIdA,
-              side: 'BUY',
-              price: px,
+              assetIdA: intent.assetIdA,
+              assetIdB: intent.assetIdB,
               size: res.splitShares,
-            },
-          },
-          {
-            kind: 'fill',
-            fill: {
-              id: `live-split:${res.txHash}:${intent.assetIdB}`,
-              tsMs: nowMs,
-              market: conditionId,
-              assetId: intent.assetIdB,
-              side: 'BUY',
-              price: px,
-              size: res.splitShares,
+              splitCost: res.splitShares,
+              reason: intent.reason ? `${intent.reason}; tx=${res.txHash}` : `tx=${res.txHash}`,
             },
           },
         ],

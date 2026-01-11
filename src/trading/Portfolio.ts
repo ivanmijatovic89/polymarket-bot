@@ -4,6 +4,7 @@ import type {
   OpenOrder,
   OrderSnapshot,
   PortfolioSnapshot,
+  PositionsSplit,
   Position,
   TradeStatusRank,
 } from '../strategy/Strategy.js'
@@ -69,6 +70,8 @@ export class Portfolio {
   private readonly maxSeenFillIds = 50_000
   private readonly recentFills: Fill[] = []
   private readonly maxRecentFills: number
+  private readonly recentSplits: PositionsSplit[] = []
+  private readonly maxRecentSplits = 500
   private readonly marketByAssetId = new Map<string, string>()
   private realizedPnlTotal = 0
 
@@ -85,6 +88,7 @@ export class Portfolio {
       wsOpenOrdersByOrderId: Object.fromEntries([...this.wsOpenOrdersByOrderId.entries()]),
       ordersByClientId: Object.fromEntries([...this.ordersByClientIdSnapshot.entries()]),
       recentFills: [...this.recentFills],
+      ...(this.recentSplits.length > 0 ? { recentSplits: [...this.recentSplits] } : {}),
       marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),
     }
   }
@@ -216,6 +220,7 @@ export class Portfolio {
   apply(ev: AccountEvent): void {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
+    else if (ev.kind === 'positions_split') this.nowMs = Math.max(this.nowMs, ev.split.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
     // console.log(`[portfolio][${ev.kind}]`,  ev )
     switch (ev.kind) {
@@ -512,6 +517,34 @@ export class Portfolio {
         this.applyFillToPosition(ev.fill)
         if (ev.fill.market) this.marketByAssetId.set(ev.fill.assetId, ev.fill.market)
         if (orderChanged) this.logOpenOrdersTable()
+        return
+      }
+      case 'positions_split': {
+        const s = ev.split
+        const size = Math.max(0, clampFinite(s.size, 0))
+        if (!s.assetIdA || !s.assetIdB || s.assetIdA === s.assetIdB) return
+        if (!Number.isFinite(size) || size <= 0) return
+
+        // Mint shares on both sides. This is NOT a trade fill and should not affect realizedPnlTotal.
+        // We intentionally keep costBasis at 0 so later sells are treated as pure proceeds unless
+        // you explicitly model basis via normal BUY fills.
+        const mint = (assetId: string): void => {
+          const key = positionKey(assetId)
+          const prev = this.positionsByAssetId.get(key)
+          if (!prev) {
+            this.positionsByAssetId.set(key, { assetId, qty: round2(size), avgEntryPrice: null, costBasis: 0 })
+          } else {
+            this.positionsByAssetId.set(key, { ...prev, qty: round2(prev.qty + size) })
+          }
+          if (s.market) this.marketByAssetId.set(assetId, s.market)
+        }
+        mint(s.assetIdA)
+        mint(s.assetIdB)
+
+        this.recentSplits.push(s)
+        if (this.maxRecentSplits > 0 && this.recentSplits.length > this.maxRecentSplits) {
+          this.recentSplits.splice(0, this.recentSplits.length - this.maxRecentSplits)
+        }
         return
       }
       case 'account_stream_status':
