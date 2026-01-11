@@ -53,23 +53,8 @@ export function createStrategy(cfg: Config): {
       const weakSide = orderbookMetrics.weakBidSideByLevel[1]
 
       // Get UP and DOWN assetIds from market meta (Up/Down 15m markets)
-      const market = ctx?.market
-      let upAssetId: string | undefined
-      let downAssetId: string | undefined
-      if (market) {
-        const outcomes = Array.isArray(market.outcomes) ? market.outcomes : []
-        const tokenIds = Array.isArray(market.clobTokenIds) ? market.clobTokenIds : []
-        const k = Math.min(outcomes.length, tokenIds.length)
-        for (let i = 0; i < k; i += 1) {
-          const outcome = outcomes[i]
-          const tokenId = tokenIds[i]
-          const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
-          const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
-          if (!id) continue
-          if (!upAssetId && o.includes('up')) upAssetId = id
-          if (!downAssetId && o.includes('down')) downAssetId = id
-        }
-      }
+      const upAssetId = ctx?.market?.upAssetId ?? undefined
+      const downAssetId = ctx?.market?.downAssetId ?? undefined
 
       // Get depth values at level 3 (index 1)
       let depthAtLevel3: number | undefined
@@ -84,10 +69,10 @@ export function createStrategy(cfg: Config): {
           // Use the depth of the weak side, else min(up, down)
           if (weakSide === 'UP' && upDepth !== undefined) {
             depthAtLevel3 = upDepth
-            weekSideBook = upBook;
+            weekSideBook = upBook
           } else if (weakSide === 'DOWN' && downDepth !== undefined) {
             depthAtLevel3 = downDepth
-            weekSideBook = downBook;
+            weekSideBook = downBook
           } else {
             depthAtLevel3 = Math.min(
               upDepth !== undefined ? upDepth : Infinity,
@@ -98,9 +83,9 @@ export function createStrategy(cfg: Config): {
         }
 
         if (depth3Ratio !== undefined && depth3Ratio < 0.1) {
-            console.log(
-              `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio < 0.1, weak side: ${weakSide ?? 'N/A'} ${weekSideBook?.bestAsk}`,
-            )
+          console.log(
+            `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio < 0.1, weak side: ${weakSide ?? 'N/A'} ${weekSideBook?.bestAsk}`,
+          )
         }
       }
 

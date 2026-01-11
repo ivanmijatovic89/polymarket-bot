@@ -40,22 +40,8 @@ function getAssetIdBySide(
     return assetIds[1] ?? null
   }
 
-  const outcomes = Array.isArray(market.outcomes) ? market.outcomes : []
-  const tokenIds = Array.isArray(market.clobTokenIds) ? market.clobTokenIds : []
-  const k = Math.min(outcomes.length, tokenIds.length)
-
-  for (let i = 0; i < k; i += 1) {
-    const outcome = outcomes[i]
-    const tokenId = tokenIds[i]
-    const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
-    const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
-    if (!id) continue
-
-    if (side === 'up' && o.includes('up')) return id
-    if (side === 'down' && o.includes('down')) return id
-  }
-
-  return null
+  if (side === 'up') return market.upAssetId
+  return market.downAssetId
 }
 
 export function createStrategy(cfg: Config): {

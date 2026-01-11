@@ -61,23 +61,11 @@ export function computePositionMetricsFromMarket(args: {
   const m = args.market
   if (!m) return undefined
 
-  const outcomes = Array.isArray(m.outcomes) ? m.outcomes : []
-  const tokenIds = Array.isArray(m.clobTokenIds) ? m.clobTokenIds : []
-
-  let upAssetId: string | undefined
-  let downAssetId: string | undefined
-  const n = Math.min(outcomes.length, tokenIds.length)
-  for (let i = 0; i < n; i += 1) {
-    const outcome = outcomes[i]
-    const tokenId = tokenIds[i]
-    const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
-    const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
-    if (!id) continue
-    if (!upAssetId && o.includes('up')) upAssetId = id
-    if (!downAssetId && o.includes('down')) downAssetId = id
-  }
-
-  return computePositionMetrics({ portfolio: args.portfolio, upAssetId, downAssetId })
+  return computePositionMetrics({
+    portfolio: args.portfolio,
+    ...(m.upAssetId ? { upAssetId: m.upAssetId } : {}),
+    ...(m.downAssetId ? { downAssetId: m.downAssetId } : {}),
+  })
 }
 
 

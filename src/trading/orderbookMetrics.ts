@@ -82,22 +82,8 @@ export function computeOrderbookMetricsFromMarket(args: {
   const m = args.market
   if (!m) return undefined
 
-  const outcomes = Array.isArray(m.outcomes) ? m.outcomes : []
-  const tokenIds = Array.isArray(m.clobTokenIds) ? m.clobTokenIds : []
-
-  let upAssetId: string | undefined
-  let downAssetId: string | undefined
-
-  const k = Math.min(outcomes.length, tokenIds.length)
-  for (let i = 0; i < k; i += 1) {
-    const outcome = outcomes[i]
-    const tokenId = tokenIds[i]
-    const o = typeof outcome === 'string' ? outcome.toLowerCase() : ''
-    const id = typeof tokenId === 'string' && tokenId.length > 0 ? tokenId : undefined
-    if (!id) continue
-    if (!upAssetId && o.includes('up')) upAssetId = id
-    if (!downAssetId && o.includes('down')) downAssetId = id
-  }
+  const upAssetId = m.upAssetId
+  const downAssetId = m.downAssetId
 
   if (!upAssetId || !downAssetId) return undefined
 
