@@ -11,6 +11,7 @@ import type {
   PlaceBatchIntent,
   PlaceLimitIntent,
   PortfolioSnapshot,
+  SplitPositionsIntent,
 } from '../strategy/Strategy.js'
 import { enforceRiskLimits } from './riskLimits.js'
 
@@ -41,6 +42,7 @@ export type ExecutionAdapter = {
   ) => Promise<ExecutionCancelResult>
   cancelAll: (intent: CancelAllIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
   mergePositions: (intent: MergePositionsIntent, ctx: OrderManagerContext) => Promise<ExecutionMergeResult>
+  splitPositions: (intent: SplitPositionsIntent, ctx: OrderManagerContext) => Promise<{ events: AccountEvent[] }>
   /**
    * Optional: backtest execution can simulate resting order fills on each market tick.
    * Live execution typically does nothing here (fills come via user WS/polling).
@@ -176,12 +178,50 @@ export class OrderManager {
         out.push(...(await this.handleCancelAll(intent, ctx)))
       } else if (intent.kind === 'merge_positions') {
         out.push(...(await this.handleMergePositions(intent, ctx)))
+      } else if (intent.kind === 'split_positions') {
+        out.push(...(await this.handleSplitPositions(intent, ctx)))
       } else {
         const _exhaustive: never = intent
         void _exhaustive
       }
     }
     return out
+  }
+
+  private async handleSplitPositions(
+    intent: SplitPositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<AccountEvent[]> {
+    const nowMs = ctx.nowMs
+    const size = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
+      return [
+        {
+          kind: 'split_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: size,
+          reason: 'invalid asset ids',
+        },
+      ]
+    }
+    if (size <= 0) {
+      return [
+        {
+          kind: 'split_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: size,
+          reason: 'invalid size',
+        },
+      ]
+    }
+
+    // Split is not an order and should not be deduped by clientOrderId. Delegate to execution.
+    const res = await this.execution.splitPositions(intent, ctx)
+    return res.events
   }
 
   private async handleMergePositions(
@@ -413,7 +453,7 @@ export class OrderManager {
     const batchIntent: PlaceBatchIntent = {
       kind: 'place_batch',
       orders: validOrders.map(({ order }) => order),
-      reason: intent.reason,
+      ...(typeof intent.reason === 'string' ? { reason: intent.reason } : {}),
     }
 
     const res = await this.execution.placeBatch(batchIntent, ctx)

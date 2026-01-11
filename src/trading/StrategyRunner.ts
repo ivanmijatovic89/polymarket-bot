@@ -206,6 +206,13 @@ export class StrategyRunner {
             ...(i.reason ? { reason: i.reason } : {}),
           }
         }
+        if (i.kind === 'place_batch') {
+          return {
+            kind: i.kind,
+            orderCount: i.orders.length,
+            ...(i.reason ? { reason: i.reason } : {}),
+          }
+        }
         if (i.kind === 'cancel_order') {
           return {
             kind: i.kind,
@@ -216,6 +223,16 @@ export class StrategyRunner {
         }
         if (i.kind === 'cancel_all') {
           return { kind: i.kind, ...(i.reason ? { reason: i.reason } : {}) }
+        }
+        if (i.kind === 'split_positions') {
+          return {
+            kind: i.kind,
+            assetIdA: i.assetIdA,
+            assetIdB: i.assetIdB,
+            size: i.size,
+            ...(typeof i.costPerShare === 'number' ? { costPerShare: i.costPerShare } : {}),
+            ...(i.reason ? { reason: i.reason } : {}),
+          }
         }
         return {
           kind: i.kind,

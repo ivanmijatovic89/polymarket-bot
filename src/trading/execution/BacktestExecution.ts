@@ -7,6 +7,7 @@ import type {
   MergePositionsIntent,
   PlaceBatchIntent,
   PlaceLimitIntent,
+  SplitPositionsIntent,
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
@@ -57,10 +58,11 @@ function buildMakerFillTouchCross(
     if (bestAsk > o.limitPrice) return null
 
     o.fillSeq += 1
+    const market = o.market
     const f: Fill = {
       id: `${o.clientOrderId}:${o.fillSeq}`,
       tsMs,
-      market: o.market,
+      ...(market ? { market } : {}),
       assetId: o.assetId,
       side: o.side,
       // Conservative: fill at the crossing best price, not always at our limit.
@@ -79,10 +81,11 @@ function buildMakerFillTouchCross(
   if (bestBid < o.limitPrice) return null
 
   o.fillSeq += 1
+  const market = o.market
   const f: Fill = {
     id: `${o.clientOrderId}:${o.fillSeq}`,
     tsMs,
-    market: o.market,
+    ...(market ? { market } : {}),
     assetId: o.assetId,
     side: o.side,
     price: bestBid,
@@ -109,10 +112,11 @@ function buildFillsFromBook(
     const take = Math.min(remaining, size)
     if (take <= 0) return
     o.fillSeq += 1
+    const market = o.market
     fills.push({
       id: `${o.clientOrderId}:${o.fillSeq}`,
       tsMs,
-      market: o.market,
+      ...(market ? { market } : {}),
       assetId: o.assetId,
       side: o.side,
       price,
@@ -145,6 +149,83 @@ function buildFillsFromBook(
 
 export class BacktestExecution implements ExecutionAdapter {
   private readonly openByClientId = new Map<string, SimOrder>()
+
+  async splitPositions(
+    intent: SplitPositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+
+    if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'invalid asset ids',
+          },
+        ],
+      }
+    }
+    if (!Number.isFinite(requested) || requested <= 0) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'invalid size',
+          },
+        ],
+      }
+    }
+
+    const costPerShare =
+      typeof intent.costPerShare === 'number' && Number.isFinite(intent.costPerShare)
+        ? intent.costPerShare
+        : 0.5
+    const px = Math.max(0, Math.min(1, costPerShare))
+    const market = ctx.lastMarket?.market
+
+    // NOTE: We do NOT emit order lifecycle events here (order_submitted/order_open/etc).
+    // A split is an on-chain position operation; for backtests we model it as two synthetic BUY fills.
+    return {
+      events: [
+        {
+          kind: 'fill',
+          fill: {
+            id: `bt-split:${nowMs}:${intent.assetIdA}`,
+            tsMs: nowMs,
+            ...(market ? { market } : {}),
+            assetId: intent.assetIdA,
+            side: 'BUY',
+            price: px,
+            size: requested,
+            liquidity: 'TAKER',
+          },
+        },
+        {
+          kind: 'fill',
+          fill: {
+            id: `bt-split:${nowMs}:${intent.assetIdB}`,
+            tsMs: nowMs,
+            ...(market ? { market } : {}),
+            assetId: intent.assetIdB,
+            side: 'BUY',
+            price: px,
+            size: requested,
+            liquidity: 'TAKER',
+          },
+        },
+      ],
+    }
+  }
 
   async mergePositions(
     intent: MergePositionsIntent,
@@ -188,7 +269,7 @@ export class BacktestExecution implements ExecutionAdapter {
       const o: SimOrder = {
         clientOrderId: orderIntent.clientOrderId,
         orderId,
-        market: ctx.lastMarket?.market,
+        ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
         assetId: orderIntent.assetId,
         side: orderIntent.side,
         limitPrice: orderIntent.price,
@@ -314,7 +395,7 @@ export class BacktestExecution implements ExecutionAdapter {
     const o: SimOrder = {
       clientOrderId: intent.clientOrderId,
       orderId,
-      market: ctx.lastMarket?.market,
+      ...(ctx.lastMarket?.market ? { market: ctx.lastMarket.market } : {}),
       assetId: intent.assetId,
       side: intent.side,
       limitPrice: intent.price,

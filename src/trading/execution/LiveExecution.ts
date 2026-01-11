@@ -8,12 +8,13 @@ import type {
   MergePositionsIntent,
   PlaceBatchIntent,
   PlaceLimitIntent,
+  SplitPositionsIntent,
 } from '../../strategy/Strategy.js'
 import type { PolymarketConfig } from '../../polymarket/config.js'
 import { createClobClient } from '../../polymarket/clobClient.js'
 import { loadPolymarketConfigFromEnv } from '../../polymarket/config.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
-import { mergeBinaryOutcomePositions } from '../../blockchain/conditionalTokens.js'
+import { mergeBinaryOutcomePositions, splitBinaryOutcomePositions } from '../../blockchain/conditionalTokens.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -410,6 +411,123 @@ export class LiveExecution implements ExecutionAdapter {
     void ctx
     // Live fills should come from user WS/polling; no synthetic fills here.
     return { events: [] }
+  }
+
+  async splitPositions(
+    intent: SplitPositionsIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const conditionId = ctx.lastMarket?.market
+    const privateKey = this.config.privateKey
+    const chainId = this.config.clob?.chainId ?? 137
+    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-bor-rpc.publicnode.com'
+
+    if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'invalid asset ids',
+          },
+        ],
+      }
+    }
+
+    if (!conditionId) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'missing conditionId (ctx.lastMarket.market)',
+          },
+        ],
+      }
+    }
+
+    if (!privateKey) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: 'missing privateKey in PolymarketConfig',
+          },
+        ],
+      }
+    }
+
+    try {
+      const res = await splitBinaryOutcomePositions({
+        rpcUrl,
+        chainId,
+        privateKey,
+        conditionId,
+        shares: requested,
+      })
+
+      const costPerShare =
+        typeof intent.costPerShare === 'number' && Number.isFinite(intent.costPerShare)
+          ? intent.costPerShare
+          : 0.5
+      const px = Math.max(0, Math.min(1, costPerShare))
+
+      // NOTE: we model the outcome positions as synthetic BUY fills so Portfolio inventory is
+      // consistent across live + backtest. The actual collateral transfer happens on-chain via CTF.
+      return {
+        events: [
+          {
+            kind: 'fill',
+            fill: {
+              id: `live-split:${res.txHash}:${intent.assetIdA}`,
+              tsMs: nowMs,
+              market: conditionId,
+              assetId: intent.assetIdA,
+              side: 'BUY',
+              price: px,
+              size: res.splitShares,
+            },
+          },
+          {
+            kind: 'fill',
+            fill: {
+              id: `live-split:${res.txHash}:${intent.assetIdB}`,
+              tsMs: nowMs,
+              market: conditionId,
+              assetId: intent.assetIdB,
+              side: 'BUY',
+              price: px,
+              size: res.splitShares,
+            },
+          },
+        ],
+      }
+    } catch (err) {
+      return {
+        events: [
+          {
+            kind: 'split_failed',
+            tsMs: nowMs,
+            assetIdA: intent.assetIdA,
+            assetIdB: intent.assetIdB,
+            requestedSize: requested,
+            reason: err instanceof Error ? err.message : String(err),
+          },
+        ],
+      }
+    }
   }
 
   async mergePositions(

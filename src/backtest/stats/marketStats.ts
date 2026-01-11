@@ -13,6 +13,11 @@ export type MarketStats = {
   downShares: number
   mergableShares: number
   cost: number
+  /**
+   * Split collateral cost (USDC) inferred from synthetic split fills.
+   * For binary splits we expect two BUY fills (UP+DOWN) each of size N; splitCost is N.
+   */
+  splitCost: number
 }
 
 /**
@@ -60,15 +65,25 @@ export function computeMarketStats(params: {
 
   // Calculate total cost (all BUY fills)
   let cost = 0
+  let splitBuySizeSum = 0
   let totalUpBuySize = 0
   let totalUpBuyCost = 0
   let totalDownBuySize = 0
   let totalDownBuyCost = 0
 
   for (const trade of trades) {
+
     if (trade.side === 'BUY') {
       const notional = trade.price * trade.size
       cost += notional
+      // If strategy sets costPerShare=0 for split, notional won't reflect collateral usage.
+      // Infer splitCost from synthetic split fill ids.
+      if (
+        typeof trade.id === 'string' &&
+        (trade.id.startsWith('bt-split:') || trade.id.startsWith('live-split:'))
+      ) {
+        splitBuySizeSum += trade.size
+      }
 
       if (trade.assetId === upAssetId) {
         totalUpBuySize += trade.size
@@ -102,8 +117,12 @@ export function computeMarketStats(params: {
     redeemValue = remainingUp * 0.0 + remainingDown * 1.0
   }
 
-  // 4. Total PnL = realized (from sells) + merge + redeem - cost
-  const pnl = realizedPnl + mergeValue + redeemValue - cost
+  // Split cost: for binary full-set split we get two BUY fills of size N (UP + DOWN),
+  // so total size sum is 2N; collateral cost is N.
+  const splitCost = splitBuySizeSum > 0 ? splitBuySizeSum / 2 : 0
+
+  // 4. Total PnL = realized (from sells) + merge + redeem - cost - splitCost
+  const pnl = realizedPnl + mergeValue + redeemValue - cost - splitCost
 
   return {
     marketId,
@@ -117,5 +136,6 @@ export function computeMarketStats(params: {
     downShares: Math.round(downShares * 100) / 100,
     mergableShares: Math.round(mergableShares * 100) / 100,
     cost: Math.round(cost * 100) / 100,
+    splitCost: Math.round(splitCost * 100) / 100,
   }
 }

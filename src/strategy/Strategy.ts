@@ -62,6 +62,27 @@ export type MergePositionsIntent = {
   reason?: string
 }
 
+export type SplitPositionsIntent = {
+  kind: 'split_positions'
+  /**
+   * The two outcome token assetIds to receive (e.g. UP/DOWN).
+   *
+   * Split N "full sets" => receive N shares of assetIdA and N shares of assetIdB.
+   */
+  assetIdA: string
+  assetIdB: string
+  /**
+   * Split size in "shares" (1 share == $1 collateral).
+   */
+  size: number
+  /**
+   * Optional accounting price per share (used by backtest/live simulation to book cost basis).
+   * Default 0.5 (so total cost == size, since you receive 2*size shares).
+   */
+  costPerShare?: number
+  reason?: string
+}
+
 export type PlaceBatchIntent = {
   kind: 'place_batch'
   /**
@@ -85,7 +106,13 @@ export type PlaceBatchIntent = {
   reason?: string
 }
 
-export type Intent = PlaceLimitIntent | PlaceBatchIntent | CancelOrderIntent | CancelAllIntent | MergePositionsIntent
+export type Intent =
+  | PlaceLimitIntent
+  | PlaceBatchIntent
+  | CancelOrderIntent
+  | CancelAllIntent
+  | MergePositionsIntent
+  | SplitPositionsIntent
 
 export type OrderLifecycleState =
   | 'requested'
@@ -343,6 +370,14 @@ export type AccountEvent =
     }
   | {
       kind: 'merge_failed'
+      tsMs: number
+      assetIdA: string
+      assetIdB: string
+      requestedSize: number
+      reason: string
+    }
+  | {
+      kind: 'split_failed'
       tsMs: number
       assetIdA: string
       assetIdB: string

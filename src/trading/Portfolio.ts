@@ -217,7 +217,7 @@ export class Portfolio {
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else this.nowMs = Math.max(this.nowMs, ev.tsMs)
-    console.log(`[portfolio][${ev.kind}]`,  ev )
+    // console.log(`[portfolio][${ev.kind}]`,  ev )
     switch (ev.kind) {
       case 'ws_order_update': {
         const o = ev.order
@@ -355,6 +355,9 @@ export class Portfolio {
         return
       }
       case 'merge_failed':
+        // No state change; execution reported a failure.
+        return
+      case 'split_failed':
         // No state change; execution reported a failure.
         return
       case 'order_submitted': {

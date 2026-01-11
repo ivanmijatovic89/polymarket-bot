@@ -350,6 +350,7 @@ async function main(): Promise<void> {
         cancelOrder: async () => ({ events: [] }),
         cancelAll: async () => ({ events: [] }),
         mergePositions: async () => ({ events: [] }),
+        splitPositions: async () => ({ events: [] }),
         onMarketTick: async () => ({ events: [] }),
       }
     : new LiveExecution({
