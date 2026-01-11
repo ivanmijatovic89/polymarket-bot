@@ -22,6 +22,7 @@ import type { Fill } from '../strategy/Strategy.js'
 import type { PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
+import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
@@ -373,18 +374,28 @@ async function main(): Promise<void> {
   }
 
   // Compute batch stats
-  if (marketStats.length > 0) {
-    const batchStats = computeBatchStats(marketStats, initialCapital)
+  const batchStats = computeBatchStats(marketStats, initialCapital)
 
-    // Print results
+  // Save run results (even if marketStats is empty)
+  await insertBacktestRun({
+    strategy: built.strategyId,
+    params: built.params as Record<string, unknown>,
+    symbol: parsed.symbol ?? null,
+    limit: parsed.limit ?? null,
+    batchStats: batchStats as unknown as Record<string, unknown>,
+    marketStats: marketStats as unknown as unknown[],
+  })
+
+  // Print results
+  if (marketStats.length > 0) {
     console.log('\n[backtest] ===== MARKET STATS =====')
     for (const stats of marketStats) {
       console.log(JSON.stringify(stats, null, 2))
     }
-
-    console.log('\n[backtest] ===== BATCH STATS =====')
-    console.log(JSON.stringify(batchStats, null, 2))
   }
+
+  console.log('\n[backtest] ===== BATCH STATS =====')
+  console.log(JSON.stringify(batchStats, null, 2))
 
   console.log('\n[backtest] orderbook summary', {
     events,
