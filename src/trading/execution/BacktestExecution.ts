@@ -73,8 +73,8 @@ function buildMakerFillTouchCross(
       ...(market ? { market } : {}),
       assetId: o.assetId,
       side: o.side,
-      // Conservative: fill at the crossing best price, not always at our limit.
-      price: bestAsk,
+      // Maker fill executes at the resting (maker) price.
+      price: o.limitPrice,
       size: o.remaining,
       clientOrderId: o.clientOrderId,
       orderId: o.orderId,
@@ -101,7 +101,8 @@ function buildMakerFillTouchCross(
     ...(market ? { market } : {}),
     assetId: o.assetId,
     side: o.side,
-    price: bestBid,
+    // Maker fill executes at the resting (maker) price.
+    price: o.limitPrice,
     size: o.remaining,
     clientOrderId: o.clientOrderId,
     orderId: o.orderId,
