@@ -119,6 +119,26 @@ Internally we validate/coerce params with **Zod**.
 
 Docs: [`docs/MeasureLatency.md`](docs/MeasureLatency.md)
 
+## Backtest latency simulation (intent → exchange-visible)
+
+Backtests can simulate **order/ack latency** (roughly: when your system emits an intent → when you can be confident the order/cancel “arrived” at the exchange and is visible/acknowledged) using env vars:
+
+- `BACKTEST_LATENCY_DELAY` (ms): base delay (example `140`)
+- `BACKTEST_LATENCY_JITTER` (ms): symmetric jitter range (uniform in `[-jitter, +jitter]`)
+
+Behavior (backtest-only):
+
+- **Placement/cancel are delayed** in the backtest execution adapter (`src/trading/execution/BacktestExecution.ts`).
+  - This affects: `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll`.
+  - Cancels are also delayed, so an order may fill before the cancel “arrives” (more realistic).
+- **Maker fills use a conservative “worst-queue” model**:
+  - BUY resting @ price `P` fills only when `bestAsk < P` (price trades *through* your level)
+  - SELL resting @ price `P` fills only when `bestBid > P`
+
+Setup:
+
+- Copy `env.example` → `.env` and edit values (the backtest CLI loads `.env`).
+
 ## Indicators
 
 Indicators are **optional, reusable computations** that are updated on every market tick and exposed to strategies via a `ctx` argument.
