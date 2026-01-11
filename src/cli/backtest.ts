@@ -1,3 +1,4 @@
+import '../config/env.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
@@ -221,7 +222,15 @@ async function main(): Promise<void> {
     const def = getStrategyDefinition(built.strategyId)
     const builtStrategy = def.create(built.params as never)
     const strategy = builtStrategy.strategy
-    const exec = new BacktestExecution()
+    const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
+    const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
+
+    const exec = new BacktestExecution({
+      latencyMs,
+      jitterMs: latencyMs > 0 ? jitterMs : 0,
+      cancelLatency: true,
+      makerFillMode: 'worst_queue',
+    })
     const orderManager = new OrderManager({
       execution: exec,
       dryRun: false,
@@ -232,6 +241,7 @@ async function main(): Promise<void> {
       strategyParams: built.params as Record<string, unknown>,
       strategy,
       orderManager,
+      intentExecutionMode: 'immediate',
       ...(builtStrategy.indicatorSet ? { indicatorSet: builtStrategy.indicatorSet } : {}),
       ...(opts?.getMarket ? { getMarket: opts.getMarket } : {}),
       log: (msg, extra) => console.log(msg, extra ?? ''),

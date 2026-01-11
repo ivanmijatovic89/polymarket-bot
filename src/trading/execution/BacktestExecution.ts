@@ -27,6 +27,8 @@ type SimOrder = {
   fillSeq: number
 }
 
+type MakerFillMode = 'touch_or_better' | 'worst_queue'
+
 function sumFillableSize(o: SimOrder, book: OrderBookSnapshot | undefined): number {
   if (!book) return 0
   let sum = 0
@@ -48,6 +50,7 @@ function buildMakerFillTouchCross(
   o: SimOrder,
   book: OrderBookSnapshot | undefined,
   tsMs: number,
+  mode: MakerFillMode,
 ): Fill | null {
   if (!book) return null
   if (o.remaining <= 0) return null
@@ -55,7 +58,12 @@ function buildMakerFillTouchCross(
   if (o.side === 'BUY') {
     const bestAsk = book.bestAsk
     if (bestAsk === null || !Number.isFinite(bestAsk)) return null
-    if (bestAsk > o.limitPrice) return null
+    if (mode === 'touch_or_better') {
+      if (bestAsk > o.limitPrice) return null
+    } else {
+      // worst-queue: require price to go THROUGH our level (e.g. limit=40 fills only when ask is 39 or lower)
+      if (bestAsk >= o.limitPrice) return null
+    }
 
     o.fillSeq += 1
     const market = o.market
@@ -78,7 +86,12 @@ function buildMakerFillTouchCross(
 
   const bestBid = book.bestBid
   if (bestBid === null || !Number.isFinite(bestBid)) return null
-  if (bestBid < o.limitPrice) return null
+  if (mode === 'touch_or_better') {
+    if (bestBid < o.limitPrice) return null
+  } else {
+    // worst-queue: require price to go THROUGH our level
+    if (bestBid <= o.limitPrice) return null
+  }
 
   o.fillSeq += 1
   const market = o.market
@@ -149,6 +162,38 @@ function buildFillsFromBook(
 
 export class BacktestExecution implements ExecutionAdapter {
   private readonly openByClientId = new Map<string, SimOrder>()
+
+  private readonly latencyMs: number
+  private readonly jitterMs: number
+  private readonly cancelLatency: boolean
+  private readonly makerFillMode: MakerFillMode
+
+  private seq = 0
+
+  private readonly pending: Array<
+    | { kind: 'place_limit'; executeAtMs: number; seq: number; intent: PlaceLimitIntent }
+    | { kind: 'place_batch'; executeAtMs: number; seq: number; intent: PlaceBatchIntent }
+    | { kind: 'cancel_order'; executeAtMs: number; seq: number; intent: CancelOrderIntent }
+    | { kind: 'cancel_all'; executeAtMs: number; seq: number; intent: CancelAllIntent }
+  > = []
+
+  constructor(opts?: {
+    latencyMs?: number
+    jitterMs?: number
+    cancelLatency?: boolean
+    makerFillMode?: MakerFillMode
+  }) {
+    this.latencyMs = Math.max(0, Math.trunc(opts?.latencyMs ?? 0))
+    this.jitterMs = Math.max(0, Math.trunc(opts?.jitterMs ?? 0))
+    this.cancelLatency = opts?.cancelLatency ?? true
+    this.makerFillMode = opts?.makerFillMode ?? 'worst_queue'
+  }
+
+  private computeExecuteAtMs(nowMs: number): number {
+    const jitter =
+      this.jitterMs > 0 ? Math.trunc((Math.random() * 2 - 1) * this.jitterMs) : 0
+    return Math.max(nowMs, nowMs + this.latencyMs + jitter)
+  }
 
   async splitPositions(
     intent: SplitPositionsIntent,
@@ -232,7 +277,7 @@ export class BacktestExecution implements ExecutionAdapter {
     }
   }
 
-  async placeBatch(
+  private async placeBatchNow(
     intent: PlaceBatchIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
@@ -366,7 +411,18 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events }
   }
 
-  async placeLimit(
+  async placeBatch(
+    intent: PlaceBatchIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const executeAtMs = this.computeExecuteAtMs(nowMs)
+    if (executeAtMs <= nowMs) return await this.placeBatchNow(intent, ctx)
+    this.pending.push({ kind: 'place_batch', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
+  private async placeLimitNow(
     intent: PlaceLimitIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
@@ -488,7 +544,18 @@ export class BacktestExecution implements ExecutionAdapter {
     return { events }
   }
 
-  async cancelOrder(
+  async placeLimit(
+    intent: PlaceLimitIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    const executeAtMs = this.computeExecuteAtMs(nowMs)
+    if (executeAtMs <= nowMs) return await this.placeLimitNow(intent, ctx)
+    this.pending.push({ kind: 'place_limit', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
+  private async cancelOrderNow(
     intent: CancelOrderIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
@@ -514,8 +581,20 @@ export class BacktestExecution implements ExecutionAdapter {
     }
   }
 
-  async cancelAll(
-    _intent: CancelAllIntent,
+  async cancelOrder(
+    intent: CancelOrderIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    if (!this.cancelLatency) return await this.cancelOrderNow(intent, ctx)
+    const executeAtMs = this.computeExecuteAtMs(nowMs)
+    if (executeAtMs <= nowMs) return await this.cancelOrderNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_order', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
+  }
+
+  private async cancelAllNow(
+    intent: CancelAllIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
@@ -530,7 +609,20 @@ export class BacktestExecution implements ExecutionAdapter {
       })
     }
     this.openByClientId.clear()
+    void intent
     return { events }
+  }
+
+  async cancelAll(
+    intent: CancelAllIntent,
+    ctx: OrderManagerContext,
+  ): Promise<{ events: AccountEvent[] }> {
+    const nowMs = ctx.nowMs
+    if (!this.cancelLatency) return await this.cancelAllNow(intent, ctx)
+    const executeAtMs = this.computeExecuteAtMs(nowMs)
+    if (executeAtMs <= nowMs) return await this.cancelAllNow(intent, ctx)
+    this.pending.push({ kind: 'cancel_all', executeAtMs, seq: this.seq++, intent })
+    return { events: [] }
   }
 
   async onMarketTick(ctx: OrderManagerContext): Promise<{ events: AccountEvent[] }> {
@@ -539,6 +631,31 @@ export class BacktestExecution implements ExecutionAdapter {
     if (!snap) return { events: [] }
 
     const events: AccountEvent[] = []
+
+    // 0) Execute any due pending actions (latency simulation) before maker-fill checks.
+    if (this.pending.length > 0) {
+      const due = this.pending.filter((p) => p.executeAtMs <= nowMs)
+      const future = this.pending.filter((p) => p.executeAtMs > nowMs)
+      this.pending.length = 0
+      this.pending.push(...future)
+
+      due.sort((a, b) => (a.executeAtMs !== b.executeAtMs ? a.executeAtMs - b.executeAtMs : a.seq - b.seq))
+
+      for (const p of due) {
+        if (p.kind === 'place_limit') {
+          events.push(...(await this.placeLimitNow(p.intent, ctx)).events)
+        } else if (p.kind === 'place_batch') {
+          events.push(...(await this.placeBatchNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_order') {
+          events.push(...(await this.cancelOrderNow(p.intent, ctx)).events)
+        } else if (p.kind === 'cancel_all') {
+          events.push(...(await this.cancelAllNow(p.intent, ctx)).events)
+        } else {
+          const _exhaustive: never = p
+          void _exhaustive
+        }
+      }
+    }
 
     for (const [cid, o] of [...this.openByClientId.entries()]) {
       // GTD expiry
@@ -555,7 +672,7 @@ export class BacktestExecution implements ExecutionAdapter {
       }
 
       const book = snap.byAssetId[o.assetId]
-      const fill = buildMakerFillTouchCross(o, book, nowMs)
+      const fill = buildMakerFillTouchCross(o, book, nowMs, this.makerFillMode)
       if (!fill) continue
 
       events.push({ kind: 'fill', fill })
