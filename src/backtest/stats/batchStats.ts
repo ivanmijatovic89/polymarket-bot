@@ -12,6 +12,8 @@ export type BatchStats = {
   winRate: number
   winRatePercentage: string
   totalTrades: number
+  totalTradesAsMaker: number
+  totalTradesAsTaker: number
 }
 
 /**
@@ -26,7 +28,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
   const winningMarkets = results.filter((r) => r.pnl > 0).length
   const losingMarkets = results.filter((r) => r.pnl < 0).length
   const totalTrades = results.reduce((sum, r) => sum + r.tradeCount, 0)
-
+  const totalTradesAsMaker = results.reduce((sum, r) => sum + r.tradeAsMaker, 0)
+  const totalTradesAsTaker = results.reduce((sum, r) => sum + r.tradeAsTaker, 0)
   const winRate = totalMarketsStrategyPlayed > 0 ? winningMarkets / totalMarketsStrategyPlayed : 0
 
   return {
@@ -41,5 +44,7 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     winRate: Math.round(winRate * 10000) / 10000, // 4 decimal places for percentage
     winRatePercentage: (winRate * 100).toFixed(2), // 2 decimal places for percentage
     totalTrades,
+    totalTradesAsMaker,
+    totalTradesAsTaker,
   }
 }

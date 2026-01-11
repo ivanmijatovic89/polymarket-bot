@@ -7,6 +7,8 @@ export type MarketStats = {
   finalOutcome: 'UP' | 'DOWN'
   pnl: number
   tradeCount: number
+  tradeAsMaker: number
+  tradeAsTaker: number
   avgEntryPriceUp: number | null
   avgEntryPriceDown: number | null
   upShares: number
@@ -121,6 +123,8 @@ export function computeMarketStats(params: {
     finalOutcome,
     pnl: Math.round(pnl * 100) / 100, // Round to 2 decimals
     tradeCount: trades.length,
+    tradeAsMaker: trades.filter((t) => t.liquidity === 'MAKER').length,
+    tradeAsTaker: trades.filter((t) => t.liquidity === 'TAKER').length,
     avgEntryPriceUp: avgEntryPriceUp !== null ? Math.round(avgEntryPriceUp * 10000) / 10000 : null,
     avgEntryPriceDown:
       avgEntryPriceDown !== null ? Math.round(avgEntryPriceDown * 10000) / 10000 : null,
