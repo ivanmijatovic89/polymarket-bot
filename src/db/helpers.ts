@@ -1,6 +1,6 @@
 import { eq, asc } from 'drizzle-orm'
 import { getDb } from './index.js'
-import { markets } from './schema.js'
+import { backtests, markets } from './schema.js'
 import type { MarketDataForTable } from '../polymarket/gamma.js'
 
 export type Market = typeof markets.$inferSelect
@@ -110,3 +110,21 @@ export async function updateMarketBySlug(
     .where(eq(markets.slug, slug))
 }
 
+export async function insertBacktestRun(row: {
+  strategy: string
+  params: Record<string, unknown>
+  symbol: string | null
+  limit: number | null
+  batchStats: Record<string, unknown>
+  marketStats: unknown[]
+}): Promise<void> {
+  const db = getDb()
+  await db.insert(backtests).values({
+    strategy: row.strategy,
+    params: row.params,
+    symbol: row.symbol,
+    limit: row.limit,
+    batchStats: row.batchStats,
+    marketStats: row.marketStats,
+  })
+}
