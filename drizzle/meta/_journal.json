@@ -15,6 +15,13 @@
       "when": 1768168674846,
       "tag": "0001_spotty_blackheart",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1768184455563,
+      "tag": "0002_chemical_spitfire",
+      "breakpoints": true
     }
   ]
 }

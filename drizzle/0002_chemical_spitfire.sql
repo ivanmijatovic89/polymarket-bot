@@ -1,0 +1,1 @@
+ALTER TABLE `backtests` ADD `random` boolean DEFAULT false NOT NULL;
