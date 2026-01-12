@@ -1,50 +1,116 @@
 import type { MarketStats } from './marketStats.js'
 
 export type BatchStats = {
-  initialCapital: number
-  finalCapital: number
-  totalPnl: number
-  totalMarkets: number
-  skippedMarkets: number
-  totalMarketsStrategyPlayed: number
-  winningMarkets: number
-  losingMarkets: number
+  /** Starting capital for the backtest batch (USDC). */
+  capitalInitial: number
+  /** Ending capital for the backtest batch (USDC). */
+  capitalFinal: number
+
+  /** Total PnL across all markets in the batch (USDC). */
+  pnlTotal: number
+
+  marketsTotal: number
+  marketsWon: number
+  marketsLost: number
+  /** Markets with pnl === 0 (breakeven). */
+  marketsBreakeven: number
+  /** marketsWon + marketsLost (excludes breakeven). */
+  marketsDecisive: number
+
+  /** wins / decisive (0..1). */
   winRate: number
-  winRatePercentage: string
-  totalTrades: number
-  totalTradesAsMaker: number
-  totalTradesAsTaker: number
+  /** winRate * 100 as a number. */
+  winRatePct: number
+  /** winRate * 100 formatted to 2 decimals (string). */
+  winRatePctStr: string
+
+  tradesTotal: number
+  tradesMaker: number
+  tradesTaker: number
+
+  pnlAvgWin: number
+  pnlAvgLose: number
+  pnlMaxWin: number
+  pnlMaxLose: number
 }
+
+const round2 = (n: number): number => Math.round(n * 100) / 100
+const round4 = (n: number): number => Math.round(n * 10000) / 10000
 
 /**
  * Computes aggregated statistics across all markets in a backtest batch.
  */
 export function computeBatchStats(results: MarketStats[], initialCapital: number): BatchStats {
-  const totalPnl = results.reduce((sum, r) => sum + r.pnl, 0)
-  const finalCapital = initialCapital + totalPnl
-  const totalMarkets = results.length
-  const skippedMarkets = results.filter((r) => r.pnl === 0).length
-  const totalMarketsStrategyPlayed = totalMarkets - skippedMarkets
-  const winningMarkets = results.filter((r) => r.pnl > 0).length
-  const losingMarkets = results.filter((r) => r.pnl < 0).length
-  const totalTrades = results.reduce((sum, r) => sum + r.tradeCount, 0)
-  const totalTradesAsMaker = results.reduce((sum, r) => sum + r.tradeAsMaker, 0)
-  const totalTradesAsTaker = results.reduce((sum, r) => sum + r.tradeAsTaker, 0)
-  const winRate = totalMarketsStrategyPlayed > 0 ? winningMarkets / totalMarketsStrategyPlayed : 0
+  const acc = results.reduce(
+    (a, r) => {
+      a.pnlTotal += r.pnl
+      a.tradesTotal += r.tradeCount
+      a.tradesMaker += r.tradeAsMaker
+      a.tradesTaker += r.tradeAsTaker
+
+      if (r.pnl > 0) {
+        a.marketsWon += 1
+        a.pnlWinSum += r.pnl
+        a.pnlMaxWin = Math.max(a.pnlMaxWin, r.pnl)
+      } else if (r.pnl < 0) {
+        a.marketsLost += 1
+        a.pnlLoseSum += r.pnl
+        a.pnlMaxLose = Math.min(a.pnlMaxLose, r.pnl)
+      } else {
+        a.marketsBreakeven += 1
+      }
+
+      return a
+    },
+    {
+      pnlTotal: 0,
+      tradesTotal: 0,
+      tradesMaker: 0,
+      tradesTaker: 0,
+      marketsWon: 0,
+      marketsLost: 0,
+      marketsBreakeven: 0,
+      pnlWinSum: 0,
+      pnlLoseSum: 0,
+      pnlMaxWin: 0,
+      pnlMaxLose: 0,
+    },
+  )
+
+  const marketsTotal = results.length
+  const marketsDecisive = acc.marketsWon + acc.marketsLost
+
+  const winRate = marketsDecisive > 0 ? acc.marketsWon / marketsDecisive : 0
+  const winRatePct = winRate * 100
+
+  const capitalFinal = initialCapital + acc.pnlTotal
+
+  const pnlAvgWin = acc.marketsWon > 0 ? acc.pnlWinSum / acc.marketsWon : 0
+  const pnlAvgLose = acc.marketsLost > 0 ? acc.pnlLoseSum / acc.marketsLost : 0
 
   return {
-    initialCapital,
-    finalCapital: Math.round(finalCapital * 100) / 100,
-    totalPnl: Math.round(totalPnl * 100) / 100,
-    totalMarkets,
-    skippedMarkets,
-    totalMarketsStrategyPlayed,
-    winningMarkets,
-    losingMarkets,
-    winRate: Math.round(winRate * 10000) / 10000, // 4 decimal places for percentage
-    winRatePercentage: (winRate * 100).toFixed(2), // 2 decimal places for percentage
-    totalTrades,
-    totalTradesAsMaker,
-    totalTradesAsTaker,
+    capitalInitial: initialCapital,
+    capitalFinal: round2(capitalFinal),
+
+    pnlTotal: round2(acc.pnlTotal),
+
+    marketsTotal,
+    marketsWon: acc.marketsWon,
+    marketsLost: acc.marketsLost,
+    marketsBreakeven: acc.marketsBreakeven,
+    marketsDecisive,
+
+    winRate: round4(winRate),
+    winRatePct: round2(winRatePct),
+    winRatePctStr: winRatePct.toFixed(2),
+
+    tradesTotal: acc.tradesTotal,
+    tradesMaker: acc.tradesMaker,
+    tradesTaker: acc.tradesTaker,
+
+    pnlAvgWin: round2(pnlAvgWin),
+    pnlAvgLose: round2(pnlAvgLose),
+    pnlMaxWin: round2(acc.pnlMaxWin),
+    pnlMaxLose: round2(acc.pnlMaxLose),
   }
 }

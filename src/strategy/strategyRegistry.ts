@@ -10,7 +10,7 @@ import { definition as templateV1 } from '../strategies/Template.v1.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
 import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
 import { definition as measureLatencyV1 } from '../strategies/MeasureLatency.v1.js'
-import { definition as splitSellRedeemV1 } from '../strategies/SplitSellRedeem.v1.js'
+import { definition as splitSellRedeemV1 } from '../strategies/split/SplitSellRedeem.v1.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,

@@ -1,6 +1,6 @@
-import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
-import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
-import * as strategyToolkit from '../strategy/strategyToolkit.js'
+import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
+import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
+import * as strategyToolkit from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({

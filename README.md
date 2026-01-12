@@ -326,6 +326,16 @@ Backtest output:
 - prints `[trade] ...` for every simulated fill (AccountEvent `fill`)
 - prints a final `[backtest] portfolio ...` summary (fills, positions, open orders, realized PnL)
 
+### Run many backtests in parallel (GNU `parallel`)
+
+This repo supports running many backtests concurrently by putting one command per line in a jobs file (example: `src/strategies/split/backtest-jobs.txt`) and executing them with GNU `parallel`:
+
+```bash
+parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
+```
+
+See: [`docs/ParallelBacktestRunner.md`](docs/ParallelBacktestRunner.md)
+
 ## Order book module
 
 Order book reconstruction is implemented for Polymarket CLOB market-channel events:
