@@ -174,6 +174,7 @@ async function main(): Promise<void> {
     try {
       marketRecords = await getMarketsBySymbol(parsed.symbol, {
         ...(parsed.limit !== undefined && { limit: parsed.limit }),
+        ...(parsed.random ? { random: true } : {}),
         onlyWithDataset: true
       })
       for (const m of marketRecords) marketBySlug.set(m.slug, m)
@@ -197,7 +198,7 @@ async function main(): Promise<void> {
         '  Orderbook replay (default):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query from database:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]',
     )
     process.exit(2)
   }
@@ -382,6 +383,7 @@ async function main(): Promise<void> {
     params: built.params as Record<string, unknown>,
     symbol: parsed.symbol ?? null,
     limit: parsed.limit ?? null,
+    random: parsed.random ?? false,
     batchStats: batchStats as unknown as Record<string, unknown>,
     marketStats: marketStats as unknown as unknown[],
   })

@@ -40,6 +40,19 @@ npm run backtest -- "data/events/btc/<slug>.parquet"
 npm run backtest -- data/events/btc/<slug>.parquet data/events/btc/<slug-2>.parquet
 ```
 
+Backtest random Parquet files from the database for a symbol (use `--limit` to control how many, and `--random` to randomize selection):
+
+```bash
+npm run backtest -- \
+  --strategy example_taker_flip \
+  --param size=5 \
+  --param maxSpread=0.02 \
+  --param cooldownMs=5000 \
+  --symbol btc \
+  --limit 100 \
+  --random
+```
+
 Run a backtest strategy (example):
 
 ```bash

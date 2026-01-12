@@ -1,4 +1,4 @@
-import { eq, asc } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { backtests, markets } from './schema.js'
 import type { MarketDataForTable } from '../polymarket/gamma.js'
@@ -68,20 +68,25 @@ export async function getMarketsBySymbol(
   options?: {
     limit?: number
     onlyWithDataset?: boolean
+    random?: boolean
   }
 ): Promise<Market[]> {
   const db = mustGetDb()
+  const symbolWhere = eq(markets.symbol, symbol.toLowerCase())
+  const where = options?.onlyWithDataset
+    ? and(
+        symbolWhere,
+        sql`${markets.dataset} is not null`,
+        sql`TRIM(${markets.dataset}) <> ''`,
+      )
+    : symbolWhere
+
   const results = await db
     .select()
     .from(markets)
-    .where(eq(markets.symbol, symbol.toLowerCase()))
-    .orderBy(asc(markets.slug))
+    .where(where)
+    .orderBy(options?.random ? sql`RAND()` : asc(markets.slug))
     .limit(options?.limit ?? 1000)
-
-  // Filter out rows where dataset is null or empty if requested
-  if (options?.onlyWithDataset) {
-    return results.filter((row) => row.dataset && row.dataset.trim() !== '')
-  }
 
   return results
 }
@@ -123,6 +128,7 @@ export async function insertBacktestRun(row: {
   params: Record<string, unknown>
   symbol: string | null
   limit: number | null
+  random: boolean
   batchStats: Record<string, unknown>
   marketStats: unknown[]
 }): Promise<void> {
@@ -132,6 +138,7 @@ export async function insertBacktestRun(row: {
     params: row.params,
     symbol: row.symbol,
     limit: row.limit,
+    random: row.random,
     batchStats: row.batchStats,
     marketStats: row.marketStats,
   })

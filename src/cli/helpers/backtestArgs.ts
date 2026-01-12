@@ -9,6 +9,7 @@ export type BacktestArgs = {
   timeDriven: boolean
   symbol?: string
   limit?: number
+  random?: boolean
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -17,6 +18,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let timeDriven = false
   let symbol: string | undefined
   let limit: number | undefined
+  let random = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -60,6 +62,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         break
       }
 
+      case '--random':
+        random = true
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -73,5 +79,16 @@ export function parseArgs(argv: string[]): BacktestArgs {
     }
   }
 
-  return { filePaths, order, timeDriven, ...(symbol ? { symbol } : {}), ...(limit !== undefined ? { limit } : {}) }
+  if (random && limit === undefined) {
+    throw new Error('[backtest] --random requires --limit N (how many random parquet files to sample)')
+  }
+
+  return {
+    filePaths,
+    order,
+    timeDriven,
+    ...(symbol ? { symbol } : {}),
+    ...(limit !== undefined ? { limit } : {}),
+    ...(random ? { random } : {}),
+  }
 }
