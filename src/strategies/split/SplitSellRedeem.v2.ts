@@ -6,26 +6,27 @@ import * as z from 'zod'
 export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(100),
   triggerBidBelow: z.coerce.number().finite().default(0.29),
-  sellPrice: z.coerce.number().finite().default(0.31),
   sellSize: z.coerce.number().finite().positive().default(10),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
 
 export const definition: StrategyDefinition<Config> = {
-  id: 'SplitSellRedeem.v1',
-  title: 'Split + sell GTC on bid drop v1',
+  id: 'SplitSellRedeem.v2',
+  title: 'Split + sell TAKER on bid drop v2',
   description:
-    'Splits collateral into UP+DOWN (full set). Then when bestBid drops below threshold, places a GTC sell at a fixed limit price.',
+    'Splits collateral into UP+DOWN (full set). Then when bestBid drops below threshold, places a marketable (taker) SELL at bestBid minus 1 tick.',
   schema: ConfigSchema,
   create: (cfg) => ({ strategy: createStrategy(cfg) }),
 }
 
 export function createStrategy(cfg: Config): Strategy {
-  const name = 'SplitSellRedeem.v1'
+  const name = 'SplitSellRedeem.v2'
 
   let splitRequested = false
   let sellPlaced = false
+
+  const priceBumpDown = 0.01
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: unknown): Intent[] => {
     const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
@@ -58,7 +59,6 @@ export function createStrategy(cfg: Config): Strategy {
     const downBid = tick.snapshot.byAssetId[downAssetId]?.bestBid ?? null
 
     const trigger = cfg.triggerBidBelow
-    const sellPrice = strategyToolkit.safeProbabilityPrice(cfg.sellPrice)
     const sellSize = cfg.sellSize
 
     const intents: Intent[] = []
@@ -79,6 +79,14 @@ export function createStrategy(cfg: Config): Strategy {
     if (candidates.length > 0) {
       candidates.sort((a, b) => (a.bid !== b.bid ? a.bid - b.bid : a.side === 'UP' ? -1 : 1))
       const chosen = candidates[0]!
+
+      const book = tick.snapshot.byAssetId[chosen.assetId]
+      const bestBid = book?.bestBid ?? null
+      if (bestBid === null || !Number.isFinite(bestBid)) return []
+
+      // Place a marketable-ish SELL: go 0.01 below current best bid so we cross immediately.
+      const sellPrice = strategyToolkit.safeProbabilityPrice(bestBid - priceBumpDown)
+
       sellPlaced = true
       intents.push({
         kind: 'place_limit',
@@ -88,7 +96,7 @@ export function createStrategy(cfg: Config): Strategy {
         price: sellPrice,
         size: sellSize,
         orderType: 'GTC',
-        reason: `${chosen.side}_bestBid(${chosen.bid.toFixed(4)})<${trigger}`,
+        reason: `${chosen.side}_bestBid(${chosen.bid.toFixed(4)})<${trigger}; sell@bestBid(${bestBid.toFixed(4)})-0.01`,
       })
       return intents
     }

@@ -5,6 +5,7 @@ import { IndicatorSet } from '../indicators/IndicatorSet.js'
 import { TimeWindowVolatility } from '../indicators/volatility/TimeWindowVolatility.js'
 import { isWarmed } from '../strategy/strategyToolkit.js'
 import * as z from 'zod'
+import { fmtCents } from '../../webui/src/utils/format.js'
 
 export const ConfigSchema = z.strictObject({
 
@@ -22,10 +23,11 @@ export const definition: StrategyDefinition<Config> = {
   create: (cfg) => createStrategy(cfg),
 }
 
-export function createStrategy(cfg: Config): {
+export function createStrategy(_cfg: Config): {
   strategy: Strategy,
   indicatorSet: IndicatorSet
 } {
+  void _cfg
   const name = 'template.v1'
 
   const windows = {
@@ -44,27 +46,43 @@ export function createStrategy(cfg: Config): {
     ctx?: StrategyContext,
   ): Intent[] => {
     void _portfolio
-    void tick
 
     // Live-only warmup gate (recommended for any strategy that places orders).
     if (!isWarmed(ctx)) return []
 
     // feeds
-    const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
-    const c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
-    const bw = ctx?.feeds?.binanceWsSpotPrice
-    const ptb = ctx?.feeds?.polymarketPriceToBeat
-    console.log('feeds', b, c, bw, ptb)
+    const _b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
+    const _c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
+    const _bw = ctx?.feeds?.binanceWsSpotPrice
+    const _ptb = ctx?.feeds?.polymarketPriceToBeat
+    void _b
+    void _c
+    void _bw
+    void _ptb
+
+    const upAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestAsk
+    const downAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestAsk
+    const upBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestBid
+    const downBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestBid
+    // console.log('upAskBestPrice', upAskBestPrice, 'downAskBestPrice', downAskBestPrice)
+    console.log(fmtCents(upAskBestPrice ?? 0) + ' - ' + fmtCents(downAskBestPrice ?? 0) + ' ..... ' + fmtCents(upBidBestPrice ?? 0) + ' - ' + fmtCents(downBidBestPrice ?? 0))
+    // const diff = bw?.value && b?.value ? bw.value - b.value : undefined;
+    // if(diff && (diff > 1 || diff < -1)) {
+    //   console.log('diff', diff?.toFixed(0), 'UP:'+ upAskBestPrice, ' DOWN:'+ downAskBestPrice)
+    // }
+    // console.log('feeds', b, c, bw, ptb)
 
     // indicators
-    const vol = ctx?.indicators?.volatility
-    console.log('indicators', vol)
+    // const vol = ctx?.indicators?.volatility
+    // console.log('indicators', vol)
     return []
   }
 
-  const onAccountEvent: Strategy['onAccountEvent'] = (ev, _portfolio, _lastMarket, ctx) => {
+  const onAccountEvent: Strategy['onAccountEvent'] = (ev, _portfolio, _lastMarket, _ctx) => {
     void _portfolio
     void _lastMarket
+    void ev
+    void _ctx
 
     return []
   }

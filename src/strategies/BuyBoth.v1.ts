@@ -21,10 +21,11 @@ export const definition: StrategyDefinition<Config> = {
   create: (cfg) => createStrategy(cfg),
 }
 
-export function createStrategy(cfg: Config): {
+export function createStrategy(_cfg: Config): {
   strategy: Strategy,
   indicatorSet: IndicatorSet
 } {
+  void _cfg
   const name = 'buyBoth.v1'
 
   const windows = {
@@ -100,9 +101,11 @@ export function createStrategy(cfg: Config): {
     return []
   }
 
-  const onAccountEvent: Strategy['onAccountEvent'] = (ev, _portfolio, _lastMarket, ctx) => {
+  const onAccountEvent: Strategy['onAccountEvent'] = (ev, _portfolio, _lastMarket, _ctx) => {
     void _portfolio
     void _lastMarket
+    void ev
+    void _ctx
 
     return []
   }
