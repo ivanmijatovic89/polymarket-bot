@@ -8,14 +8,19 @@ export type BatchStats = {
 
   /** Total PnL across all markets in the batch (USDC). */
   pnlTotal: number
+  /** Empirical expected PnL per market (pnlTotal / marketsTotal). */
+  evPerMarketPlayed: number
+  evPerMarketTotal: number
 
   marketsTotal: number
+  /** Markets where the strategy placed 0 trades (tradeCount === 0). */
+  marketsSkipped: number
+  /** Markets where the strategy placed >= 1 trade (tradeCount > 0). */
+  marketsPlayed: number
   marketsWon: number
   marketsLost: number
-  /** Markets with pnl === 0 (breakeven). */
+  /** Played markets with pnl === 0. */
   marketsBreakeven: number
-  /** marketsWon + marketsLost (excludes breakeven). */
-  marketsDecisive: number
 
   /** wins / decisive (0..1). */
   winRate: number
@@ -48,6 +53,13 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       a.tradesMaker += r.tradeAsMaker
       a.tradesTaker += r.tradeAsTaker
 
+      if (r.tradeCount === 0) {
+        a.marketsSkipped += 1
+        return a
+      }
+
+      a.marketsPlayed += 1
+
       if (r.pnl > 0) {
         a.marketsWon += 1
         a.pnlWinSum += r.pnl
@@ -67,6 +79,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       tradesTotal: 0,
       tradesMaker: 0,
       tradesTaker: 0,
+      marketsSkipped: 0,
+      marketsPlayed: 0,
       marketsWon: 0,
       marketsLost: 0,
       marketsBreakeven: 0,
@@ -84,6 +98,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
   const winRatePct = winRate * 100
 
   const capitalFinal = initialCapital + acc.pnlTotal
+  const evPerMarketPlayed = acc.marketsPlayed > 0 ? acc.pnlTotal / acc.marketsPlayed : 0
+  const evPerMarketTotal = marketsTotal > 0 ? acc.pnlTotal / marketsTotal : 0
 
   const pnlAvgWin = acc.marketsWon > 0 ? acc.pnlWinSum / acc.marketsWon : 0
   const pnlAvgLose = acc.marketsLost > 0 ? acc.pnlLoseSum / acc.marketsLost : 0
@@ -93,12 +109,15 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     capitalFinal: round2(capitalFinal),
 
     pnlTotal: round2(acc.pnlTotal),
+    evPerMarketPlayed: round2(evPerMarketPlayed),
+    evPerMarketTotal: round2(evPerMarketTotal),
 
     marketsTotal,
+    marketsSkipped: acc.marketsSkipped,
+    marketsPlayed: acc.marketsPlayed,
     marketsWon: acc.marketsWon,
     marketsLost: acc.marketsLost,
     marketsBreakeven: acc.marketsBreakeven,
-    marketsDecisive,
 
     winRate: round4(winRate),
     winRatePct: round2(winRatePct),

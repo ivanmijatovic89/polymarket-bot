@@ -87,3 +87,16 @@ ENABLE_WEB_UI=true WEB_UI_PORT=3002 BOT_INSTANCE_ID=botB \
 Open:
 - `http://127.0.0.1:3001/`
 - `http://127.0.0.1:3002/`
+
+
+# Backtests
+
+```
+npm run backtest --  --strategy SplitSellRedeem.v1 --param splitShares=100 --param triggerBidBelow=0.07 --param sellPrice=0.08 --param sellSize=10 --symbol btc --limit 600 --random
+```
+
+Parallel backtesting
+
+```
+parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
+```

@@ -31,7 +31,7 @@ export function parseGammaMarketStartMs(market?: unknown): number | null {
 }
 
 export type TimeWindowGate = {
-  check(args: { nowMs: number; firstTickMs: number; market?: unknown }): boolean
+  check(args: { nowMs: number; market?: unknown }): boolean
 }
 
 export function createTimeWindowGate(cfg: {
@@ -40,8 +40,9 @@ export function createTimeWindowGate(cfg: {
 }): TimeWindowGate {
   return {
     check(args) {
-      const startMs = parseGammaMarketStartMs(args.market) ?? args.firstTickMs
-      if (!Number.isFinite(args.nowMs) || !Number.isFinite(startMs)) return false
+      const startMs = parseGammaMarketStartMs(args.market)
+      if (startMs === null) return false
+      if (!Number.isFinite(args.nowMs)) return false
       const elapsed = args.nowMs - startMs
       return elapsed >= cfg.allowAfterMs && elapsed <= cfg.disableAfterMs
     },
