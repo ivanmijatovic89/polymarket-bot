@@ -90,6 +90,21 @@ const CTF_SPLIT_ABI = [
   },
 ] as const
 
+const CTF_MERGE_ABI = [
+  {
+    name: 'mergePositions',
+    type: 'function',
+    inputs: [
+      { name: 'collateralToken', type: 'address' },
+      { name: 'parentCollectionId', type: 'bytes32' },
+      { name: 'conditionId', type: 'bytes32' },
+      { name: 'partition', type: 'uint256[]' },
+      { name: 'amount', type: 'uint256' },
+    ],
+    outputs: [],
+  },
+] as const
+
 function isBytes32Hex(s: string): boolean {
   return /^0x[0-9a-fA-F]{64}$/.test(s)
 }
@@ -208,6 +223,36 @@ export async function splitViaRelayer(
     throw new Error('[relayer] split failed (no transactionHash)')
   }
   return { txHash: result.transactionHash, splitShares: args.shares }
+}
+
+export async function mergeViaRelayer(
+  args: SplitViaRelayerArgs,
+): Promise<{ txHash: string; mergedShares: number }> {
+  if (!isBytes32Hex(args.conditionId)) {
+    throw new Error('[relayer] invalid conditionId (expected bytes32 hex)')
+  }
+  const amount = toUsdcBaseUnits(args.shares)
+  if (amount <= 0n) {
+    throw new Error(`[relayer] invalid shares=${args.shares}`)
+  }
+
+  const tx: Transaction = {
+    to: CONDITIONAL_TOKENS_ADDRESS,
+    data: encodeFunctionData({
+      abi: CTF_MERGE_ABI,
+      functionName: 'mergePositions',
+      args: [USDC_ADDRESS, zeroHash, args.conditionId, [1n, 2n], amount],
+    }),
+    value: '0',
+  }
+
+  const client = createRelayerClient()
+  const response = await client.execute([tx], 'merge via relayer')
+  const result = await response.wait()
+  if (!result?.transactionHash) {
+    throw new Error('[relayer] merge failed (no transactionHash)')
+  }
+  return { txHash: result.transactionHash, mergedShares: args.shares }
 }
 
 export async function approveViaRelayer(

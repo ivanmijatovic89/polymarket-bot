@@ -15,10 +15,10 @@ import { createClobClient } from '../../polymarket/clobClient.js'
 import { loadPolymarketConfigFromEnv } from '../../polymarket/config.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
 import {
-  mergeBinaryOutcomePositions,
+  mergeBinaryOutcomePositions as mergeViaCtf,
   splitBinaryOutcomePositions as splitViaCtf,
 } from '../../blockchain/conditionalTokens.js'
-import { splitViaRelayer } from '../../polymarket/relayerClient.js'
+import { mergeViaRelayer, splitViaRelayer } from '../../polymarket/relayerClient.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -567,14 +567,21 @@ export class LiveExecution implements ExecutionAdapter {
       }
     }
 
+    const mergeMode = (process.env.POLYMARKET_TX_MODE_MERGE ?? 'direct').toLowerCase()
     try {
-      const res = await mergeBinaryOutcomePositions({
-        rpcUrl,
-        chainId,
-        privateKey,
-        conditionId,
-        shares: requested,
-      })
+      const res =
+        mergeMode === 'relayer'
+          ? await mergeViaRelayer({
+              conditionId,
+              shares: requested,
+            })
+          : await mergeViaCtf({
+              rpcUrl,
+              chainId,
+              privateKey,
+              conditionId,
+              shares: requested,
+            })
       return {
         events: [
           {
@@ -583,7 +590,10 @@ export class LiveExecution implements ExecutionAdapter {
             assetIdA: intent.assetIdA,
             assetIdB: intent.assetIdB,
             size: res.mergedShares,
-            reason: intent.reason ? `${intent.reason}; tx=${res.txHash}` : `tx=${res.txHash}`,
+            reason:
+              intent.reason
+                ? `${intent.reason}; tx=${res.txHash}; mode=${mergeMode}`
+                : `tx=${res.txHash}; mode=${mergeMode}`,
           },
         ],
       }

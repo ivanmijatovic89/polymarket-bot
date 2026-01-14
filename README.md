@@ -478,6 +478,7 @@ Relayer env vars (builder credentials):
 - `POLYMARKET_RELAYER_CHAIN_ID` (default `137`)
 - `POLYMARKET_RELAYER_TX_TYPE` (default `SAFE`)
 - `POLYMARKET_TX_MODE_SPLIT` = `relayer` or `direct`
+- `POLYMARKET_TX_MODE_MERGE` = `relayer` or `direct`
 
 SAFE funding + CLOB:
 

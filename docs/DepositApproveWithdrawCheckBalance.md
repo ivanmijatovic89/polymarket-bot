@@ -22,6 +22,8 @@ Set these in your `.env`:
   - `POLYMARKET_RELAYER_TX_TYPE=SAFE`
 - Split mode:
   - `POLYMARKET_TX_MODE_SPLIT=relayer`
+- Merge mode:
+  - `POLYMARKET_TX_MODE_MERGE=relayer`
 - SAFE funder:
   - `CLOB_FUNDER=<safeAddress>`
   - `CLOB_SIGNATURE_TYPE=2`
