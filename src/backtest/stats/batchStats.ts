@@ -19,8 +19,6 @@ export type BatchStats = {
   marketsPlayed: number
   marketsWon: number
   marketsLost: number
-  /** Played markets with pnl === 0. */
-  marketsBreakeven: number
 
   /** wins / decisive (0..1). */
   winRate: number
@@ -53,23 +51,18 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       a.tradesMaker += r.tradeAsMaker
       a.tradesTaker += r.tradeAsTaker
 
-      if (r.tradeCount === 0) {
-        a.marketsSkipped += 1
-        return a
-      }
-
-      a.marketsPlayed += 1
-
       if (r.pnl > 0) {
+        a.marketsPlayed += 1
         a.marketsWon += 1
         a.pnlWinSum += r.pnl
         a.pnlMaxWin = Math.max(a.pnlMaxWin, r.pnl)
       } else if (r.pnl < 0) {
+        a.marketsPlayed += 1
         a.marketsLost += 1
         a.pnlLoseSum += r.pnl
         a.pnlMaxLose = Math.min(a.pnlMaxLose, r.pnl)
       } else {
-        a.marketsBreakeven += 1
+        a.marketsSkipped += 1
       }
 
       return a
@@ -83,7 +76,6 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       marketsPlayed: 0,
       marketsWon: 0,
       marketsLost: 0,
-      marketsBreakeven: 0,
       pnlWinSum: 0,
       pnlLoseSum: 0,
       pnlMaxWin: 0,
@@ -117,7 +109,6 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     marketsPlayed: acc.marketsPlayed,
     marketsWon: acc.marketsWon,
     marketsLost: acc.marketsLost,
-    marketsBreakeven: acc.marketsBreakeven,
 
     winRate: round4(winRate),
     winRatePct: round2(winRatePct),

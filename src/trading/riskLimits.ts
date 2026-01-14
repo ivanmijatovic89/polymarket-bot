@@ -23,9 +23,9 @@ export type RiskLimits = {
 // Hardcoded defaults for now (per plan). Keep these conservative.
 export const DEFAULT_RISK_LIMITS: RiskLimits = {
   maxOpenOrders: 20,
-  maxOrderSize: 200,
-  maxAbsPosition: 200,
-  maxLossStop: 50,
+  maxOrderSize: 2000,
+  maxAbsPosition: 2000,
+  maxLossStop: 500,
 }
 
 type Blocked = { intent: Intent; reason: string }
