@@ -465,6 +465,49 @@ Live trading keys:
   - `CLOB_SIGNATURE_TYPE` (default `0`)
   - `CLOB_FUNDER` (optional; required for some wallet types)
 
+### Relayer (SAFE) gasless split setup
+
+This repo supports **gasless split** via Polymarket’s Relayer Client using a **SAFE wallet**. The SAFE becomes the **funding wallet** (USDC + outcome tokens live there), while your EOA key still signs.
+
+Relayer env vars (builder credentials):
+
+- `POLYMARKET_BUILDER_API_KEY`
+- `POLYMARKET_BUILDER_API_SECRET`
+- `POLYMARKET_BUILDER_API_PASSPHRASE`
+- `POLYMARKET_RELAYER_URL` (default `https://relayer-v2.polymarket.com/`)
+- `POLYMARKET_RELAYER_CHAIN_ID` (default `137`)
+- `POLYMARKET_RELAYER_TX_TYPE` (default `SAFE`)
+- `POLYMARKET_TX_MODE_SPLIT` = `relayer` or `direct`
+
+SAFE funding + CLOB:
+
+- Set `CLOB_FUNDER=<safeAddress>`
+- Set `CLOB_SIGNATURE_TYPE=2` for SAFE funder (Polymarket docs: Safe signature type)
+
+Helper commands:
+
+- Deploy SAFE and print its address:
+  - `npm run relayer:deploy-safe`
+- Show current SAFE (from `CLOB_FUNDER`):
+  - `npm run relayer:show-safe`
+- Approve USDC + CTF (SAFE → CTF + Exchange) via relayer:
+  - `npm run relayer:approve`
+- Deposit USDC from your EOA to SAFE (EOA pays gas):
+  - `npm run relayer:deposit-usdc -- --to <safeAddress> --amount <usdc>`
+  - Example (send 5 USDC to SAFE):
+    - `npm run relayer:deposit-usdc -- --to 0xYourSafeAddressHere --amount 5`
+- Withdraw USDC from SAFE to your EOA (gasless via relayer):
+  - `npm run relayer:withdraw-usdc -- --to <eoaAddress> --amount <usdc>`
+  - Example (withdraw 5 USDC to EOA):
+    - `npm run relayer:withdraw-usdc -- --to 0xYourEoaAddressHere --amount 5`
+- Check balances/approvals (logs EOA + SAFE):
+  - `npm run check:balances`
+
+Startup checks (testing):
+
+- The trading bot logs **both** EOA and SAFE balances/approvals.
+- If `POLYMARKET_TX_MODE_SPLIT=relayer`, startup fails unless **both** wallets have required balance/approvals.
+
 Polling fallback:
 
 - `CLOB_POLL_INTERVAL_MS` (default `1000`): REST polling interval for trades when user WS is down
@@ -650,3 +693,8 @@ const market = runner.getLastMarketSnapshot()
 
 // after
 const market = marketEngine.snapshot()
+
+# RECORD FROM WINDOWS
+```
+npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
+```

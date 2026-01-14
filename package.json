@@ -34,7 +34,14 @@
     "db:insert-parquet": "tsx src/db/insert-local-parquet-files-to-database.ts",
     "webui:dev": "npm --prefix webui run dev",
     "webui:build": "npm --prefix webui run build",
-    "webui:preview": "npm --prefix webui run preview"
+    "webui:preview": "npm --prefix webui run preview",
+    "generate:grid:jobs": "tsx ./src/backtest/generate-jobs.ts",
+    "relayer:deploy-safe": "tsx src/cli/relayer.ts deploy-safe",
+    "relayer:show-safe": "tsx src/cli/relayer.ts show-safe",
+    "relayer:approve": "tsx src/cli/relayer.ts approve",
+    "relayer:withdraw-usdc": "tsx src/cli/relayer.ts withdraw-usdc",
+    "relayer:deposit-usdc": "tsx src/cli/relayer.ts deposit-usdc",
+    "check:balances": "tsx src/cli/check-balances.ts"
   },
   "keywords": [],
   "author": "",
@@ -55,12 +62,15 @@
   "dependencies": {
     "@dsnp/parquetjs": "^1.8.7",
     "@ethersproject/wallet": "^5.7.2",
+    "@polymarket/builder-relayer-client": "^0.0.8",
+    "@polymarket/builder-signing-sdk": "^0.0.8",
     "@polymarket/clob-client": "^5.1.2",
     "dotenv": "^16.4.7",
     "drizzle-orm": "^0.45.1",
     "ethers": "^6.16.0",
     "mysql2": "^3.11.5",
     "pino": "^10.1.0",
+    "viem": "^2.33.3",
     "ws": "^8.18.3",
     "zod": "^4.2.1"
   }

@@ -14,7 +14,11 @@ import type { PolymarketConfig } from '../../polymarket/config.js'
 import { createClobClient } from '../../polymarket/clobClient.js'
 import { loadPolymarketConfigFromEnv } from '../../polymarket/config.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
-import { mergeBinaryOutcomePositions, splitBinaryOutcomePositions } from '../../blockchain/conditionalTokens.js'
+import {
+  mergeBinaryOutcomePositions,
+  splitBinaryOutcomePositions as splitViaCtf,
+} from '../../blockchain/conditionalTokens.js'
+import { splitViaRelayer } from '../../polymarket/relayerClient.js'
 
 function toPolySide(side: 'BUY' | 'SELL'): PolySide {
   return side === 'BUY' ? PolySide.BUY : PolySide.SELL
@@ -469,14 +473,21 @@ export class LiveExecution implements ExecutionAdapter {
       }
     }
 
+    const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
     try {
-      const res = await splitBinaryOutcomePositions({
-        rpcUrl,
-        chainId,
-        privateKey,
-        conditionId,
-        shares: requested,
-      })
+      const res =
+        splitMode === 'relayer'
+          ? await splitViaRelayer({
+              conditionId,
+              shares: requested,
+            })
+          : await splitViaCtf({
+              rpcUrl,
+              chainId,
+              privateKey,
+              conditionId,
+              shares: requested,
+            })
 
       // Emit a non-trade position operation event so split does not count as a trade/fill.
       return {
@@ -491,7 +502,10 @@ export class LiveExecution implements ExecutionAdapter {
               assetIdB: intent.assetIdB,
               size: res.splitShares,
               splitCost: res.splitShares,
-              reason: intent.reason ? `${intent.reason}; tx=${res.txHash}` : `tx=${res.txHash}`,
+              reason:
+                intent.reason
+                  ? `${intent.reason}; tx=${res.txHash}; mode=${splitMode}`
+                  : `tx=${res.txHash}; mode=${splitMode}`,
             },
           },
         ],

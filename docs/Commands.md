@@ -100,3 +100,12 @@ Parallel backtesting
 ```
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
+
+# Withdrow
+```
+npm run relayer:withdraw-usdc -- --to 0xD6882F5fCb931a076141d695A8335D88dFb2359f --amount 4
+```
+# Deposit
+```
+npm run relayer:deposit-usdc -- --to 0x5e16B6b5e9a4d3DF14E87B7af41E9d2251FcF909 --amount 2
+```

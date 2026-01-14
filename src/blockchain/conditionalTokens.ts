@@ -1,16 +1,6 @@
 import { Contract, JsonRpcProvider, Wallet, ZeroHash } from 'ethers'
 
-/**
- * USDC.e on Polygon mainnet.
- * NOTE: This is the same address used in checkBalanceAndApproval.ts.
- */
-const USDC_ADDRESS = '0x2791Bca1f2de4661ED88A30C99A7a9449Aa84174'
-
-/**
- * Polymarket Conditional Tokens Framework (ERC1155) on Polygon mainnet.
- * NOTE: This is the same address used in checkBalanceAndApproval.ts.
- */
-const CONDITIONAL_TOKENS_ADDRESS = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045'
+import { CONDITIONAL_TOKENS_ADDRESS, USDC_ADDRESS } from '../polymarket/contractAddresses.js'
 
 /**
  * Minimal ABI required for merging binary outcome positions back to collateral.

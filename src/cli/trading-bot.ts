@@ -325,19 +325,49 @@ async function main(): Promise<void> {
     }
   }
 
-  // Check balance and approval before starting (only if not dry run and we have private key)
-  if (!dryRun && cfg.privateKey) {
+  // Check balance and approval before starting (only if not dry run)
+  if (!dryRun) {
     const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+    const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
+    const safeFunder = cfg.clob.funder
+
+    if (splitMode === 'relayer' && !safeFunder) {
+      throw new Error('[trading-bot] POLYMARKET_TX_MODE_SPLIT=relayer requires CLOB_FUNDER')
+    }
+
+    let eoaOk = true
+    let safeOk = true
+
     try {
       await logBalanceAndApproval({
         rpcUrl,
         privateKey: cfg.privateKey,
         chainId: cfg.clob.chainId,
         clobHost: cfg.clob.host,
+        addressLabel: 'EOA',
       })
     } catch (err) {
-      logger.error('[trading-bot] Balance/approval check failed', { err })
-      logger.error('[trading-bot] Exiting. Please fix approvals and balance before starting.')
+      eoaOk = false
+      logger.error('[trading-bot] EOA balance/approval check failed', { err })
+    }
+
+    if (safeFunder) {
+      try {
+        await logBalanceAndApproval({
+          rpcUrl,
+          chainId: cfg.clob.chainId,
+          clobHost: cfg.clob.host,
+          addressOverride: safeFunder,
+          addressLabel: 'SAFE',
+        })
+      } catch (err) {
+        safeOk = false
+        logger.error('[trading-bot] SAFE balance/approval check failed', { err })
+      }
+    }
+
+    if (splitMode === 'relayer' && (!eoaOk || !safeOk)) {
+      logger.error('[trading-bot] Exiting. Fix EOA/SAFE approvals and balances before starting.')
       process.exit(1)
     }
   }
