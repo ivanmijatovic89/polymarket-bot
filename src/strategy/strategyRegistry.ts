@@ -7,6 +7,8 @@ import { definition as readExternalFeedsExampleV1 } from '../strategies/readExte
 import { definition as orderbookV1 } from '../strategies/signals/Orderbook.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
+import { definition as templateTimeWindowGate } from '../strategies/templates/TemplateTimeWindowGate.js'
+import { definition as templateDwellGate } from '../strategies/templates/TemplateDwellGate.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
 import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
 import { definition as measureLatencyV1 } from '../strategies/MeasureLatency.v1.js'
@@ -23,7 +25,6 @@ export const strategyRegistry = {
   [readVolatilityIndicatorV1.id]: readVolatilityIndicatorV1,
   [orderbookV1.id]: orderbookV1,
   [winnerLimitV1.id]: winnerLimitV1,
-  [templateV1.id]: templateV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
   [measureLatencyV1.id]: measureLatencyV1,
@@ -31,6 +32,11 @@ export const strategyRegistry = {
   [splitSellRedeemV2.id]: splitSellRedeemV2,
   [splitSellRedeemV3.id]: splitSellRedeemV3,
   [splitSellRedeemV4.id]: splitSellRedeemV4,
+
+  // templates
+  [templateV1.id]: templateV1,
+  [templateTimeWindowGate.id]: templateTimeWindowGate,
+  [templateDwellGate.id]: templateDwellGate,
 } as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry
