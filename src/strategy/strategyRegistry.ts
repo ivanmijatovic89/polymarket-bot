@@ -6,13 +6,14 @@ import { definition as readVolatilityIndicatorV1 } from '../strategies/readVolat
 import { definition as readExternalFeedsExampleV1 } from '../strategies/readExternalFeedsExample.v1.js'
 import { definition as orderbookV1 } from '../strategies/signals/Orderbook.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
-import { definition as templateV1 } from '../strategies/Template.v1.js'
+import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
 import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
 import { definition as measureLatencyV1 } from '../strategies/MeasureLatency.v1.js'
 import { definition as splitSellRedeemV1 } from '../strategies/split/SplitSellRedeem.v1.js'
 import { definition as splitSellRedeemV2 } from '../strategies/split/SplitSellRedeem.v2.js'
 import { definition as splitSellRedeemV3 } from '../strategies/split/SplitSellRedeem.v3.js'
+import { definition as splitSellRedeemV4 } from '../strategies/split/SplitSellRedeem.v4.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,
@@ -29,6 +30,7 @@ export const strategyRegistry = {
   [splitSellRedeemV1.id]: splitSellRedeemV1,
   [splitSellRedeemV2.id]: splitSellRedeemV2,
   [splitSellRedeemV3.id]: splitSellRedeemV3,
+  [splitSellRedeemV4.id]: splitSellRedeemV4,
 } as const satisfies Record<string, StrategyDefinition<unknown>>
 
 export type StrategyId = keyof typeof strategyRegistry

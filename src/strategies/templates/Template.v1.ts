@@ -1,11 +1,11 @@
-import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
-import type { StrategyContext } from '../strategy/StrategyContext.js'
-import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
-import { IndicatorSet } from '../indicators/IndicatorSet.js'
-import { TimeWindowVolatility } from '../indicators/volatility/TimeWindowVolatility.js'
-import { isWarmed } from '../strategy/strategyToolkit.js'
+import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
+import type { StrategyContext } from '../../strategy/StrategyContext.js'
+import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
+import { IndicatorSet } from '../../indicators/IndicatorSet.js'
+import { TimeWindowVolatility } from '../../indicators/volatility/TimeWindowVolatility.js'
+import { isWarmed } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
-import { fmtCents } from '../../webui/src/utils/format.js'
+import { fmtCents } from '../../../webui/src/utils/format.js'
 
 export const ConfigSchema = z.strictObject({
 
