@@ -24,6 +24,11 @@ Set these in your `.env`:
   - `POLYMARKET_TX_MODE_SPLIT=relayer`
 - Merge mode:
   - `POLYMARKET_TX_MODE_MERGE=relayer`
+- Redeem watcher settings (optional):
+  - `REDEEM_WATCH_INTERVAL_MS` (default `30000`)
+  - `REDEEM_LOOKBACK_HOURS` (default `48`)
+  - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
+  - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
 - SAFE funder:
   - `CLOB_FUNDER=<safeAddress>`
   - `CLOB_SIGNATURE_TYPE=2`
@@ -74,3 +79,12 @@ npm run check:balances
 ```
 
 If `POLYMARKET_TX_MODE_SPLIT=relayer`, this command exits non‑zero if either wallet is missing approvals or balance.
+
+## 5) Redeem watcher (background)
+
+Continuously scans recent BTC/ETH/SOL/XRP 15m markets for resolution and redeems
+any SAFE-held outcome tokens automatically.
+
+```bash
+npm run relayer:redeem-watcher
+```

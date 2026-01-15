@@ -105,6 +105,20 @@ const CTF_MERGE_ABI = [
   },
 ] as const
 
+const CTF_REDEEM_ABI = [
+  {
+    name: 'redeemPositions',
+    type: 'function',
+    inputs: [
+      { name: 'collateralToken', type: 'address' },
+      { name: 'parentCollectionId', type: 'bytes32' },
+      { name: 'conditionId', type: 'bytes32' },
+      { name: 'indexSets', type: 'uint256[]' },
+    ],
+    outputs: [],
+  },
+] as const
+
 function isBytes32Hex(s: string): boolean {
   return /^0x[0-9a-fA-F]{64}$/.test(s)
 }
@@ -253,6 +267,32 @@ export async function mergeViaRelayer(
     throw new Error('[relayer] merge failed (no transactionHash)')
   }
   return { txHash: result.transactionHash, mergedShares: args.shares }
+}
+
+export async function redeemViaRelayer(args: {
+  conditionId: string
+}): Promise<{ txHash: string }> {
+  if (!isBytes32Hex(args.conditionId)) {
+    throw new Error('[relayer] invalid conditionId (expected bytes32 hex)')
+  }
+
+  const tx: Transaction = {
+    to: CONDITIONAL_TOKENS_ADDRESS,
+    data: encodeFunctionData({
+      abi: CTF_REDEEM_ABI,
+      functionName: 'redeemPositions',
+      args: [USDC_ADDRESS, zeroHash, args.conditionId, [1n, 2n]],
+    }),
+    value: '0',
+  }
+
+  const client = createRelayerClient()
+  const response = await client.execute([tx], 'redeem via relayer')
+  const result = await response.wait()
+  if (!result?.transactionHash) {
+    throw new Error('[relayer] redeem failed (no transactionHash)')
+  }
+  return { txHash: result.transactionHash }
 }
 
 export async function approveViaRelayer(

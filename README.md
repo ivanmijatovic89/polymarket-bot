@@ -480,6 +480,15 @@ Relayer env vars (builder credentials):
 - `POLYMARKET_TX_MODE_SPLIT` = `relayer` or `direct`
 - `POLYMARKET_TX_MODE_MERGE` = `relayer` or `direct`
 
+Redeem watcher (background):
+
+- `npm run relayer:redeem-watcher`
+- Optional envs:
+  - `REDEEM_WATCH_INTERVAL_MS` (default `30000`)
+  - `REDEEM_LOOKBACK_HOURS` (default `48`)
+  - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
+  - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
+
 SAFE funding + CLOB:
 
 - Set `CLOB_FUNDER=<safeAddress>`

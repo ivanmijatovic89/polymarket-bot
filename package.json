@@ -41,7 +41,8 @@
     "relayer:approve": "tsx src/cli/relayer.ts approve",
     "relayer:withdraw-usdc": "tsx src/cli/relayer.ts withdraw-usdc",
     "relayer:deposit-usdc": "tsx src/cli/relayer.ts deposit-usdc",
-    "check:balances": "tsx src/cli/check-balances.ts"
+    "check:balances": "tsx src/cli/check-balances.ts",
+    "relayer:redeem-watcher": "tsx src/cli/redeem-watcher.ts"
   },
   "keywords": [],
   "author": "",
