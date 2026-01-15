@@ -8,6 +8,8 @@ export type BatchStats = {
 
   /** Total PnL across all markets in the batch (USDC). */
   pnlTotal: number
+  /** Total taker fees paid across all markets (USDC). */
+  totalFeesPaid: number
   /** Empirical expected PnL per market (pnlTotal / marketsTotal). */
   evPerMarketPlayed: number
   evPerMarketTotal: number
@@ -47,6 +49,7 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
   const acc = results.reduce(
     (a, r) => {
       a.pnlTotal += r.pnl
+      a.totalFeesPaid += r.feesPaid
       a.tradesTotal += r.tradeCount
       a.tradesMaker += r.tradeAsMaker
       a.tradesTaker += r.tradeAsTaker
@@ -69,6 +72,7 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     },
     {
       pnlTotal: 0,
+      totalFeesPaid: 0,
       tradesTotal: 0,
       tradesMaker: 0,
       tradesTaker: 0,
@@ -101,6 +105,7 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     capitalFinal: round2(capitalFinal),
 
     pnlTotal: round2(acc.pnlTotal),
+    totalFeesPaid: round2(acc.totalFeesPaid),
     evPerMarketPlayed: round2(evPerMarketPlayed),
     evPerMarketTotal: round2(evPerMarketTotal),
 

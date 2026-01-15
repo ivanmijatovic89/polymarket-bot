@@ -9,6 +9,7 @@ import type {
   TradeStatusRank,
 } from '../strategy/Strategy.js'
 import { round2 } from './utils/rounding.js'
+import { computePolymarketTakerFee } from './fees.js'
 
 function clampFinite(n: number, fallback = 0): number {
   if (!Number.isFinite(n)) return fallback
@@ -612,6 +613,13 @@ export class Portfolio {
     const price = clampFinite(f.price, 0)
     if (size <= 0) return
 
+    const feeRateBps =
+      typeof f.feeRateBps === 'number' && Number.isFinite(f.feeRateBps) ? f.feeRateBps : undefined
+    const shouldApplyFee = f.liquidity === 'TAKER' && feeRateBps !== undefined && feeRateBps > 0
+    const fee = shouldApplyFee
+      ? computePolymarketTakerFee({ feeRateBps, price, size, side: f.side })
+      : { feeBase: 0, feeQuote: 0 }
+
     if (f.side === 'BUY') {
       // Increase position, update avg + cost basis (average-cost accounting).
       const prevCostBasis =
@@ -620,7 +628,8 @@ export class Portfolio {
           : prev.avgEntryPrice === null
             ? 0
             : prev.avgEntryPrice * prev.qty
-      const newQty = prev.qty + size
+      const netSize = Math.max(0, size - fee.feeBase)
+      const newQty = prev.qty + netSize
       const newCostBasis = prevCostBasis + price * size
       const avg = newQty > 0 ? newCostBasis / newQty : null
       this.positionsByAssetId.set(key, {
@@ -650,7 +659,9 @@ export class Portfolio {
 
     // Realize PnL against average cost-per-share (more consistent than rounded avgEntryPrice).
     // We keep only portfolio-level realized PnL (cumulative across all assets).
-    const realizedDelta = round2((price - avgCostPerShare) * sellQty)
+    const grossProceeds = price * sellQty
+    const netProceeds = grossProceeds - fee.feeQuote
+    const realizedDelta = round2(netProceeds - avgCostPerShare * sellQty)
     if (Number.isFinite(realizedDelta))
       this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
     if (remainingQty > 0) {

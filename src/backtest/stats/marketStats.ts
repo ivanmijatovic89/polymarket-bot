@@ -1,4 +1,5 @@
 import type { Fill, Position, PositionsSplit } from '../../strategy/Strategy.js'
+import { computePolymarketTakerFee } from '../../trading/fees.js'
 
 export type TradeEvent = Fill
 
@@ -9,6 +10,7 @@ export type MarketStats = {
   tradeCount: number
   tradeAsMaker: number
   tradeAsTaker: number
+  feesPaid: number
   avgEntryPriceUp: number | null
   avgEntryPriceDown: number | null
   upShares: number
@@ -72,6 +74,7 @@ export function computeMarketStats(params: {
   let totalUpBuyCost = 0
   let totalDownBuySize = 0
   let totalDownBuyCost = 0
+  let feesPaid = 0
 
   for (const trade of trades) {
 
@@ -86,6 +89,16 @@ export function computeMarketStats(params: {
         totalDownBuySize += trade.size
         totalDownBuyCost += notional
       }
+    }
+
+    if (trade.liquidity === 'TAKER' && typeof trade.feeRateBps === 'number') {
+      const fee = computePolymarketTakerFee({
+        feeRateBps: trade.feeRateBps,
+        price: trade.price,
+        size: trade.size,
+        side: trade.side,
+      })
+      feesPaid += fee.feeQuote + fee.feeBase * trade.price
     }
   }
 
@@ -125,6 +138,7 @@ export function computeMarketStats(params: {
     tradeCount: trades.length,
     tradeAsMaker: trades.filter((t) => t.liquidity === 'MAKER').length,
     tradeAsTaker: trades.filter((t) => t.liquidity === 'TAKER').length,
+    feesPaid: Math.round(feesPaid * 100) / 100,
     avgEntryPriceUp: avgEntryPriceUp !== null ? Math.round(avgEntryPriceUp * 10000) / 10000 : null,
     avgEntryPriceDown:
       avgEntryPriceDown !== null ? Math.round(avgEntryPriceDown * 10000) / 10000 : null,

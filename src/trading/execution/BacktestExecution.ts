@@ -11,6 +11,7 @@ import type {
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
+import { getBacktestTakerFeeBps } from '../fees.js'
 
 type SimOrder = {
   clientOrderId: string
@@ -116,6 +117,7 @@ function buildFillsFromBook(
   o: SimOrder,
   book: OrderBookSnapshot | undefined,
   tsMs: number,
+  feeRateBps: number,
 ): Fill[] {
   if (!book) return []
   const fills: Fill[] = []
@@ -138,6 +140,9 @@ function buildFillsFromBook(
       clientOrderId: o.clientOrderId,
       orderId: o.orderId,
       liquidity: 'TAKER',
+      ...(typeof feeRateBps === 'number' && Number.isFinite(feeRateBps) && feeRateBps > 0
+        ? { feeRateBps }
+        : {}),
     })
     remaining -= take
   }
@@ -168,6 +173,7 @@ export class BacktestExecution implements ExecutionAdapter {
   private readonly jitterMs: number
   private readonly cancelLatency: boolean
   private readonly makerFillMode: MakerFillMode
+  private readonly feeRateBps: number
 
   private seq = 0
 
@@ -188,6 +194,7 @@ export class BacktestExecution implements ExecutionAdapter {
     this.jitterMs = Math.max(0, Math.trunc(opts?.jitterMs ?? 0))
     this.cancelLatency = opts?.cancelLatency ?? true
     this.makerFillMode = opts?.makerFillMode ?? 'worst_queue'
+    this.feeRateBps = getBacktestTakerFeeBps()
   }
 
   private computeExecuteAtMs(nowMs: number): number {
@@ -354,7 +361,7 @@ export class BacktestExecution implements ExecutionAdapter {
             reason: 'killed',
           })
         } else {
-          const fills = buildFillsFromBook(o, book, nowMs)
+          const fills = buildFillsFromBook(o, book, nowMs, this.feeRateBps)
           for (const f of fills) orderEvents.push({ kind: 'fill', fill: f })
           orderEvents.push({
             kind: 'order_done',
@@ -382,7 +389,7 @@ export class BacktestExecution implements ExecutionAdapter {
       } else {
         // GTC/GTD: take what's immediately available, rest the remainder
         if (fillable > 0) {
-          const fills = buildFillsFromBook(o, book, nowMs)
+          const fills = buildFillsFromBook(o, book, nowMs, this.feeRateBps)
           for (const f of fills) orderEvents.push({ kind: 'fill', fill: f })
         }
 
@@ -495,7 +502,7 @@ export class BacktestExecution implements ExecutionAdapter {
         return { events }
       }
 
-      const fills = buildFillsFromBook(o, book, nowMs)
+      const fills = buildFillsFromBook(o, book, nowMs, this.feeRateBps)
       for (const f of fills) events.push({ kind: 'fill', fill: f })
       events.push({
         kind: 'order_done',
@@ -524,7 +531,7 @@ export class BacktestExecution implements ExecutionAdapter {
 
     // GTC/GTD: take what’s immediately available, rest the remainder.
     if (fillable > 0) {
-      const fills = buildFillsFromBook(o, book, nowMs)
+      const fills = buildFillsFromBook(o, book, nowMs, this.feeRateBps)
       for (const f of fills) events.push({ kind: 'fill', fill: f })
     }
 
