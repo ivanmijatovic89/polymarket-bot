@@ -71,6 +71,7 @@ async function main(): Promise<void> {
   const statsIntervalMs = parseEnvInt('RECORD_STATS_INTERVAL_MS', DEFAULT_STATS_INTERVAL_MS)
   const maxInFlightAppends = parseEnvInt('RECORD_MAX_INFLIGHT_APPENDS', 10_000)
   const skipIfOlderMs = parseEnvInt('RECORD_SKIP_IF_OLDER_MS', DEFAULT_SKIP_IF_OLDER_MS)
+  const insertDb = process.env.RECORD_LIVE_INSERT_DB === 'true' // default: false
 
   // TEST MODE: Use 15 seconds instead of 15 minutes for faster testing
   // TODO: Remove this before production
@@ -81,6 +82,7 @@ async function main(): Promise<void> {
   console.log(`[record-live] wsUrl=${wsUrl}`)
   console.log(`[record-live] baseDir=${baseDir}`)
   console.log(`[record-live] maxInFlightAppends=${maxInFlightAppends}`)
+  console.log(`[record-live] insertDb=${insertDb}`)
   if (TEST_MODE) {
     console.log(`[record-live] ⚠️  TEST MODE ENABLED: Using ${windowMs / 1000}s window instead of 15 minutes`)
   }
@@ -610,7 +612,7 @@ async function main(): Promise<void> {
       }
 
       await recorder.closeAll({
-        onFileFinalized: insertMarketOnFileFinalized,
+        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
       })
       // Reconnect will re-resolve the current market slug/token ids.
       isRotating = false
@@ -652,7 +654,7 @@ async function main(): Promise<void> {
 
       await recorder.closeAll({
         finalPathTransform: ({ filePathFinal }) => asTerminatedParquetPath(filePathFinal),
-        onFileFinalized: insertMarketOnFileFinalized,
+        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
       })
       process.exit(0)
     })().catch((err) => {
