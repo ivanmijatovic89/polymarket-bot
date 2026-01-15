@@ -101,11 +101,26 @@ Parallel backtesting
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
 
+
+# Deposit
+```
+npm run relayer:deposit-usdc -- --to 0x5e16B6b5e9a4d3DF14E87B7af41E9d2251FcF909 --amount 2
+```
+
 # Withdrow
 ```
 npm run relayer:withdraw-usdc -- --to 0xD6882F5fCb931a076141d695A8335D88dFb2359f --amount 4
 ```
-# Deposit
+
+# Check balances
 ```
-npm run relayer:deposit-usdc -- --to 0x5e16B6b5e9a4d3DF14E87B7af41E9d2251FcF909 --amount 2
+npm run check:balances
+```
+
+# Redeem watcher (background)
+
+Continuously scans recent BTC/ETH/SOL/XRP 15m markets for resolution and redeems any SAFE-held outcome tokens automatically.
+
+```bash
+npm run relayer:redeem-watcher
 ```
