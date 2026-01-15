@@ -8,8 +8,11 @@ import type { RawMarketEventRow } from '../../types/rawEvent.js'
 export type RotatingRecorderOptions = {
   /** Root directory where Parquet files are stored */
   baseDir: string
-  /** Rotation interval in milliseconds (15min default) */
-  windowMs: number
+  /**
+   * @deprecated No longer used - rotation is controlled by fileKey changes and explicit closeAll() calls.
+   * Kept for backwards compatibility.
+   */
+  windowMs?: number
 }
 
 export type MarketEventWrite = {
@@ -24,7 +27,6 @@ export type MarketEventWrite = {
 export type FinalPathTransformArgs = {
   marketId: string
   fileKey: string
-  windowStartMs: number
   filePathFinal: string
 }
 
@@ -44,7 +46,6 @@ export type CloseAllOptions = {
 type WriterState = {
   marketId: string
   fileKey: string
-  windowStartMs: number
   filePathFinal: string
   filePathTmp: string
   writer: parquet.ParquetWriter
@@ -54,7 +55,6 @@ type WriterState = {
 
 export class RotatingParquetEventRecorder {
   private readonly baseDir: string
-  private readonly windowMs: number
 
   private readonly writersByMarket = new Map<string, WriterState>()
   private readonly chainByMarket = new Map<string, Promise<void>>()
@@ -82,7 +82,6 @@ export class RotatingParquetEventRecorder {
 
   constructor(opts: RotatingRecorderOptions) {
     this.baseDir = opts.baseDir
-    this.windowMs = opts.windowMs
   }
 
   async append(write: MarketEventWrite): Promise<void> {
@@ -115,7 +114,7 @@ export class RotatingParquetEventRecorder {
   }
 
   async closeAll(opts?: CloseAllOptions): Promise<void> {
-    // Store opts for automatic rotations (when windowStartMs or fileKey changes)
+    // Store opts for automatic rotations (when fileKey changes)
     this.currentCloseOpts = opts
 
     const chains = [...this.chainByMarket.values()]
@@ -165,7 +164,6 @@ export class RotatingParquetEventRecorder {
         const desired = opts.finalPathTransform({
           marketId: state.marketId,
           fileKey: state.fileKey,
-          windowStartMs: state.windowStartMs,
           filePathFinal: state.filePathFinal,
         })
         finalPath = await ensureNonExistingPath(desired)
@@ -209,8 +207,6 @@ export class RotatingParquetEventRecorder {
   private async appendUnlocked(write: MarketEventWrite): Promise<void> {
     const marketId = write.marketId
     const row = write.row
-    const tsExchangeMs = row.ts_exchange_ms ? Number(row.ts_exchange_ms) : Number(row.ts_local_ms)
-    const windowStartMs = floorToWindowStart(tsExchangeMs, this.windowMs)
     const fileKey = safeFileKey(write.fileKey)
 
     let state = this.writersByMarket.get(marketId)
@@ -224,11 +220,13 @@ export class RotatingParquetEventRecorder {
     // persist data-gap metadata even if the connection drops before the initial `book`.
     if (!state && !canOpenFile) return
 
-    if (!state || state.windowStartMs !== windowStartMs || state.fileKey !== fileKey) {
-      // Use stored opts for automatic rotations (when windowStartMs or fileKey changes)
+    // Rotate only when fileKey changes (i.e., when slug changes after reconnect).
+    // Wall-clock boundary scheduler controls rotation via closeAll(), not event timestamps.
+    if (!state || state.fileKey !== fileKey) {
+      // Use stored opts for automatic rotations (when fileKey changes)
       if (state) await this.closeMarket(marketId, this.currentCloseOpts)
       if (!canOpenFile) return
-      state = await this.openMarketWindow({ marketId, windowStartMs, fileKey })
+      state = await this.openMarketWindow({ marketId, fileKey })
       this.writersByMarket.set(marketId, state)
     }
 
@@ -248,7 +246,6 @@ export class RotatingParquetEventRecorder {
 
   private async openMarketWindow(args: {
     marketId: string
-    windowStartMs: number
     fileKey: string
   }): Promise<WriterState> {
     await mkdir(this.baseDir, { recursive: true })
@@ -265,7 +262,6 @@ export class RotatingParquetEventRecorder {
     return {
       marketId: args.marketId,
       fileKey: args.fileKey,
-      windowStartMs: args.windowStartMs,
       filePathFinal,
       filePathTmp,
       writer,
