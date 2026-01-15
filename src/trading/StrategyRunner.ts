@@ -8,6 +8,7 @@ import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { IntentExecutionMode } from './OrderManager.js'
 import { OrderManager } from './OrderManager.js'
 import { round8 } from './utils/rounding.js'
+import { computePolymarketTakerFee } from './fees.js'
 import { computePositionMetricsFromMarket } from './positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from './orderbookMetrics.js'
 
@@ -293,7 +294,19 @@ export class StrategyRunner {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
       const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
       const cashDelta = ev.fill.side === 'BUY' ? round8(-notional) : notional
-      this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta })
+      const feePaid = (() => {
+        if (ev.fill.liquidity !== 'TAKER') return 0
+        if (typeof ev.fill.feeRateBps !== 'number' || !Number.isFinite(ev.fill.feeRateBps)) return 0
+        if (!Number.isFinite(ev.fill.price) || !Number.isFinite(ev.fill.size)) return 0
+        const fee = computePolymarketTakerFee({
+          feeRateBps: ev.fill.feeRateBps,
+          price: ev.fill.price,
+          size: ev.fill.size,
+          side: ev.fill.side,
+        })
+        return round8(fee.feeQuote + fee.feeBase * ev.fill.price)
+      })()
+      this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta, feePaid })
     }
     this.portfolio.apply(ev)
 
