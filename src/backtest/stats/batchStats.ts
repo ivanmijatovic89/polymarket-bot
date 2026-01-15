@@ -10,6 +10,10 @@ export type BatchStats = {
   pnlTotal: number
   /** Total taker fees paid across all markets (USDC). */
   totalFeesPaid: number
+  /** avg(pnlsMarketsTotal) / std(pnlsMarketsTotal) */
+  qualitySystem: number | null
+  /** avg(pnlsMarketsPlayed) / std(pnlsMarketsPlayed) */
+  qualityTrade: number | null
   /** Empirical expected PnL per market (pnlTotal / marketsTotal). */
   evPerMarketPlayed: number
   evPerMarketTotal: number
@@ -41,6 +45,15 @@ export type BatchStats = {
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
 const round4 = (n: number): number => Math.round(n * 10000) / 10000
+
+const computeQuality = (pnls: number[]): number | null => {
+  if (pnls.length === 0) return null
+  const avg = pnls.reduce((sum, v) => sum + v, 0) / pnls.length
+  const variance = pnls.reduce((sum, v) => sum + (v - avg) ** 2, 0) / pnls.length
+  const std = Math.sqrt(variance)
+  if (!Number.isFinite(std) || std === 0) return null
+  return round4(avg / std)
+}
 
 /**
  * Computes aggregated statistics across all markets in a backtest batch.
@@ -100,12 +113,19 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
   const pnlAvgWin = acc.marketsWon > 0 ? acc.pnlWinSum / acc.marketsWon : 0
   const pnlAvgLose = acc.marketsLost > 0 ? acc.pnlLoseSum / acc.marketsLost : 0
 
+  const pnlsMarketsTotal = results.map((r) => r.pnl)
+  const pnlsMarketsPlayed = results.filter((r) => r.pnl > 0 || r.pnl < 0).map((r) => r.pnl)
+  const qualitySystem = computeQuality(pnlsMarketsTotal)
+  const qualityTrade = computeQuality(pnlsMarketsPlayed)
+
   return {
     capitalInitial: initialCapital,
     capitalFinal: round2(capitalFinal),
 
     pnlTotal: round2(acc.pnlTotal),
     totalFeesPaid: round2(acc.totalFeesPaid),
+    qualitySystem,
+    qualityTrade,
     evPerMarketPlayed: round2(evPerMarketPlayed),
     evPerMarketTotal: round2(evPerMarketTotal),
 
