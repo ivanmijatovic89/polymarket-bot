@@ -29,6 +29,7 @@ Set these in your `.env`:
   - `REDEEM_LOOKBACK_HOURS` (default `48`)
   - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
   - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
+  - `POLYMARKET_TX_MODE_REDEEM` (default `relayer`)
 - SAFE funder:
   - `CLOB_FUNDER=<safeAddress>`
   - `CLOB_SIGNATURE_TYPE=2`
@@ -86,5 +87,12 @@ Continuously scans recent BTC/ETH/SOL/XRP 15m markets for resolution and redeems
 any SAFE-held outcome tokens automatically.
 
 ```bash
-npm run relayer:redeem-watcher
+npm run redeem-watcher
+```
+
+Force relayer or direct mode:
+
+```bash
+npm run redeem-watcher:relayer
+npm run redeem-watcher:direct
 ```

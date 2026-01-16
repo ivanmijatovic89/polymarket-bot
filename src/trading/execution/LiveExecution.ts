@@ -475,6 +475,13 @@ export class LiveExecution implements ExecutionAdapter {
 
     const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
     try {
+      console.log('[live-execution] splitPositions', {
+        mode: splitMode,
+        assetIdA: intent.assetIdA,
+        assetIdB: intent.assetIdB,
+        size: requested,
+        conditionId,
+      })
       const res =
         splitMode === 'relayer'
           ? await splitViaRelayer({
@@ -511,6 +518,7 @@ export class LiveExecution implements ExecutionAdapter {
         ],
       }
     } catch (err) {
+      console.log('[live-execution][⛔️] split error', err)
       return {
         events: [
           {

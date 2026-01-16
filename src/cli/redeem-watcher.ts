@@ -1,9 +1,12 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
+import { JsonRpcProvider, Wallet } from 'ethers'
+
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { fetchRedeemablePositions } from '../polymarket/dataApi.js'
 import { redeemViaRelayer } from '../polymarket/relayerClient.js'
+import { redeemBinaryOutcomePositions } from '../blockchain/conditionalTokens.js'
 
 type RedeemState = {
   redeemedConditionIds: string[]
@@ -35,9 +38,19 @@ async function saveRedeemState(filePath: string, state: RedeemState): Promise<vo
 
 async function main(): Promise<void> {
   const cfg = loadPolymarketConfigFromEnv()
-  const safeAddress = cfg.clob.funder
-  if (!safeAddress) {
-    throw new Error('[redeem-watcher] missing CLOB_FUNDER (SAFE address)')
+  const redeemMode = (process.env.POLYMARKET_TX_MODE_REDEEM ?? 'relayer').toLowerCase()
+  const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-bor-rpc.publicnode.com'
+  const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
+  const eoaAddress = cfg.privateKey ? await new Wallet(cfg.privateKey, provider).getAddress() : null
+  const safeAddress = cfg.clob.funder ?? null
+
+  const redeemAddress = redeemMode === 'relayer' ? safeAddress : eoaAddress
+  if (!redeemAddress) {
+    throw new Error(
+      redeemMode === 'relayer'
+        ? '[redeem-watcher] missing CLOB_FUNDER (SAFE address)'
+        : '[redeem-watcher] missing PRIVATE_KEY (EOA address)',
+    )
   }
 
   const intervalMs = envInt('REDEEM_WATCH_INTERVAL_MS', 30_000)
@@ -59,7 +72,7 @@ async function main(): Promise<void> {
     console.log('[redeem-watcher] tick', { timestamp })
 
     // Fetch all redeemable positions in ONE API call
-    const positions = await fetchRedeemablePositions(safeAddress)
+    const positions = await fetchRedeemablePositions(redeemAddress)
 
     console.log('[redeem-watcher] found redeemable positions', {
       count: positions.length,
@@ -89,7 +102,15 @@ async function main(): Promise<void> {
           currentValue: pos.currentValue,
         })
 
-        const res = await redeemViaRelayer({ conditionId: pos.conditionId })
+        const res =
+          redeemMode === 'relayer'
+            ? await redeemViaRelayer({ conditionId: pos.conditionId })
+            : await redeemBinaryOutcomePositions({
+                rpcUrl,
+                chainId: cfg.clob.chainId,
+                privateKey: cfg.privateKey as string,
+                conditionId: pos.conditionId,
+              })
 
         console.log('[redeem-watcher] redeemed', {
           slug: pos.slug,
@@ -109,7 +130,8 @@ async function main(): Promise<void> {
 
   console.log('[redeem-watcher] started', {
     intervalMs,
-    safeAddress,
+    redeemMode,
+    redeemAddress,
     statePath,
   })
 

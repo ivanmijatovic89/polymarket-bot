@@ -13,6 +13,9 @@ const ERC20_TRANSFER_ABI = [
   'function transfer(address to, uint256 amount) returns (bool)',
 ] as const
 
+const ERC20_APPROVE_ABI = [
+  'function approve(address spender, uint256 amount) returns (bool)',
+] as const
 function readArg(name: string, args: string[]): string | undefined {
   const idx = args.indexOf(name)
   if (idx === -1) return undefined
@@ -89,6 +92,23 @@ async function depositUsdcFromEoa(args: string[]): Promise<void> {
   }
 }
 
+async function approveCtfFromEoa(): Promise<void> {
+  const cfg = loadPolymarketConfigFromEnv()
+  if (!cfg.privateKey) {
+    throw new Error('[relayer] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
+  }
+  const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+  const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
+  const wallet = new Wallet(cfg.privateKey, provider)
+  const usdc = new Contract(USDC_ADDRESS, ERC20_APPROVE_ABI, wallet) as unknown as {
+    approve: (spender: string, amount: bigint) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+  }
+  const ctfAddress = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045'
+  const tx = await usdc.approve(ctfAddress, (2n ** 256n) - 1n)
+  const receipt = await tx.wait()
+  console.log('[relayer][eoa-approve-ctf] txHash=', receipt?.hash ?? tx.hash)
+}
+
 async function withdrawUsdcToEoa(args: string[]): Promise<void> {
   const to = readArg('--to', args)
   const amountRaw = readArg('--amount', args)
@@ -134,7 +154,9 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2)
   const cmd = args[0]
   if (!cmd) {
-    throw new Error('[relayer] missing command (deploy-safe|show-safe|approve|withdraw-usdc|deposit-usdc)')
+    throw new Error(
+      '[relayer] missing command (deploy-safe|show-safe|approve|withdraw-usdc|deposit-usdc|eoa-approve-ctf)',
+    )
   }
   if (cmd === 'deploy-safe') {
     await deploySafe()
@@ -142,6 +164,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'show-safe') {
     await showSafe()
+    return
+  }
+  if (cmd === 'eoa-approve-ctf') {
+    await approveCtfFromEoa()
     return
   }
   if (cmd === 'approve') {

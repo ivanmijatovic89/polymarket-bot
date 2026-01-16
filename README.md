@@ -482,12 +482,15 @@ Relayer env vars (builder credentials):
 
 Redeem watcher (background):
 
-- `npm run relayer:redeem-watcher`
+- `npm run redeem-watcher`
+- `npm run redeem-watcher:relayer`
+- `npm run redeem-watcher:direct`
 - Optional envs:
   - `REDEEM_WATCH_INTERVAL_MS` (default `30000`)
   - `REDEEM_LOOKBACK_HOURS` (default `48`)
   - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
   - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
+  - `POLYMARKET_TX_MODE_REDEEM` (default `relayer`)
 
 SAFE funding + CLOB:
 
@@ -510,6 +513,8 @@ Helper commands:
   - `npm run relayer:withdraw-usdc -- --to <eoaAddress> --amount <usdc>`
   - Example (withdraw 5 USDC to EOA):
     - `npm run relayer:withdraw-usdc -- --to 0xYourEoaAddressHere --amount 5`
+- Approve USDC → CTF from your EOA (needed for direct split/redeem):
+  - `npm run eoa:approve-ctf`
 - Check balances/approvals (logs EOA + SAFE):
   - `npm run check:balances`
 

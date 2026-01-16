@@ -78,6 +78,14 @@ export type BalanceAndApprovalResult = {
    */
   usdcAllowanceRaw: bigint
   /**
+   * USDC allowance for CTF contract (split/redeem)
+   */
+  usdcCtfAllowance: string
+  /**
+   * USDC allowance in raw units (wei) for CTF
+   */
+  usdcCtfAllowanceRaw: bigint
+  /**
    * Exchange contract address (fetched from API or fallback)
    */
   exchangeAddress: string
@@ -124,6 +132,8 @@ export async function checkBalanceAndApproval(
   // Check USDC allowance for Exchange contract
   const usdcAllowanceRaw = await usdcContract.allowance!(address, exchangeAddress)
   const usdcAllowance = formatUnits(usdcAllowanceRaw, decimals)
+  const usdcCtfAllowanceRaw = await usdcContract.allowance!(address, conditionalTokenAddress)
+  const usdcCtfAllowance = formatUnits(usdcCtfAllowanceRaw, decimals)
 
   // Check ERC1155 approval (isApprovedForAll) on the conditional token contract
   // This approval covers ALL token IDs in the contract (all markets)
@@ -149,6 +159,8 @@ export async function checkBalanceAndApproval(
     conditionalTokensApproved,
     usdcAllowance,
     usdcAllowanceRaw,
+    usdcCtfAllowance,
+    usdcCtfAllowanceRaw,
     exchangeAddress,
     conditionalTokenAddress,
   }
@@ -176,6 +188,7 @@ export async function logBalanceAndApproval(
     console.log(`[blockchain]${label} conditional token contract: ${result.conditionalTokenAddress}`)
     console.log(`[blockchain]${label} USDC balance: ${result.usdcBalance} USDC`)
     console.log(`[blockchain]${label} USDC allowance for Exchange: ${result.usdcAllowance} USDC`)
+    console.log(`[blockchain]${label} USDC allowance for CTF: ${result.usdcCtfAllowance} USDC`)
     console.log(
       `[blockchain]${label} conditional tokens approved (ERC1155): ${result.conditionalTokensApproved ? 'YES' : 'NO'}`,
     )
