@@ -474,6 +474,7 @@ export class LiveExecution implements ExecutionAdapter {
     }
 
     const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
+    const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
     try {
       console.log('[live-execution] splitPositions', {
         mode: splitMode,
@@ -494,7 +495,15 @@ export class LiveExecution implements ExecutionAdapter {
               privateKey,
               conditionId,
               shares: requested,
+              gasMultiplier: eoaGasMultiplier,
             })
+
+      console.log('[live-execution] split tx ok', {
+        mode: splitMode,
+        txHash: res.txHash,
+        splitShares: res.splitShares,
+        conditionId,
+      })
 
       // Emit a non-trade position operation event so split does not count as a trade/fill.
       return {
@@ -576,6 +585,7 @@ export class LiveExecution implements ExecutionAdapter {
     }
 
     const mergeMode = (process.env.POLYMARKET_TX_MODE_MERGE ?? 'direct').toLowerCase()
+    const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
     try {
       const res =
         mergeMode === 'relayer'
@@ -589,6 +599,7 @@ export class LiveExecution implements ExecutionAdapter {
               privateKey,
               conditionId,
               shares: requested,
+              gasMultiplier: eoaGasMultiplier,
             })
       return {
         events: [

@@ -479,6 +479,7 @@ Relayer env vars (builder credentials):
 - `POLYMARKET_RELAYER_TX_TYPE` (default `SAFE`)
 - `POLYMARKET_TX_MODE_SPLIT` = `relayer` or `direct`
 - `POLYMARKET_TX_MODE_MERGE` = `relayer` or `direct`
+- `POLYMARKET_EOA_GAS_MULTIPLIER` (default `2`, direct EOA split/merge/redeem)
 
 Redeem watcher (background):
 

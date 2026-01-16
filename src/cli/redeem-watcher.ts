@@ -4,7 +4,7 @@ import path from 'node:path'
 import { JsonRpcProvider, Wallet } from 'ethers'
 
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
-import { fetchRedeemablePositions } from '../polymarket/dataApi.js'
+import { fetchAllPositions, type Position } from '../polymarket/dataApi.js'
 import { redeemViaRelayer } from '../polymarket/relayerClient.js'
 import { redeemBinaryOutcomePositions } from '../blockchain/conditionalTokens.js'
 
@@ -39,6 +39,7 @@ async function saveRedeemState(filePath: string, state: RedeemState): Promise<vo
 async function main(): Promise<void> {
   const cfg = loadPolymarketConfigFromEnv()
   const redeemMode = (process.env.POLYMARKET_TX_MODE_REDEEM ?? 'relayer').toLowerCase()
+  const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-bor-rpc.publicnode.com'
   const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
   const eoaAddress = cfg.privateKey ? await new Wallet(cfg.privateKey, provider).getAddress() : null
@@ -58,31 +59,53 @@ async function main(): Promise<void> {
   const state = await loadRedeemState(statePath)
   const redeemed = new Set(state.redeemedConditionIds)
 
-  const tick = async (): Promise<void> => {
+  const formatTimestamp = (): string => {
     const now = new Date()
-    const timestamp = now.toLocaleString('en-US', {
-      year: 'numeric',
+    return now.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
+      year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       second: '2-digit',
       hour12: false,
     })
-    console.log('[redeem-watcher] tick', { timestamp })
+  }
 
-    // Fetch all redeemable positions in ONE API call
-    const positions = await fetchRedeemablePositions(redeemAddress)
+  const printPositionsTable = (title: string, positions: Position[]): void => {
+    if (positions.length === 0) return
 
-    console.log('[redeem-watcher] found redeemable positions', {
-      count: positions.length,
-      positions: positions.map((p) => ({
-        slug: p.slug,
-        conditionId: p.conditionId,
-        size: p.size,
-        outcome: p.outcome,
-      })),
-    })
+    const header = '  Slug                              Size    Outcome   Value'
+    const separator = '  ' + '─'.repeat(56)
+
+    console.log('')
+    console.log(`  ${title}:`)
+    console.log(header)
+    console.log(separator)
+    for (const p of positions) {
+      const slug = p.slug.padEnd(32)
+      const size = String(p.size).padStart(6)
+      const outcome = p.outcome.padEnd(8)
+      const value = `$${p.currentValue.toFixed(2)}`
+      console.log(`  ${slug}  ${size}    ${outcome}  ${value}`)
+    }
+  }
+
+  const tick = async (): Promise<void> => {
+    // Fetch all positions in ONE API call
+    const allPositions = await fetchAllPositions(redeemAddress)
+    const redeemablePositions = allPositions.filter((p) => p.redeemable)
+    const pendingPositions = allPositions.filter((p) => !p.redeemable)
+
+    console.log(
+      `[redeem-watcher] tick @ ${formatTimestamp()} | ${allPositions.length} positions (${redeemablePositions.length} redeemable, ${pendingPositions.length} pending)`,
+    )
+
+    printPositionsTable('Redeemable', redeemablePositions)
+    printPositionsTable('Pending', pendingPositions)
+    console.log('')
+
+    const positions = redeemablePositions
 
     for (const pos of positions) {
       if (redeemed.has(pos.conditionId)) {
@@ -110,6 +133,7 @@ async function main(): Promise<void> {
                 chainId: cfg.clob.chainId,
                 privateKey: cfg.privateKey as string,
                 conditionId: pos.conditionId,
+                gasMultiplier: eoaGasMultiplier,
               })
 
         console.log('[redeem-watcher] redeemed', {
@@ -132,6 +156,7 @@ async function main(): Promise<void> {
     intervalMs,
     redeemMode,
     redeemAddress,
+    eoaGasMultiplier,
     statePath,
   })
 

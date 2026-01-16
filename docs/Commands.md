@@ -104,7 +104,7 @@ parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategie
 
 # Deposit
 ```
-npm run relayer:deposit-usdc -- --to 0x5e16B6b5e9a4d3DF14E87B7af41E9d2251FcF909 --amount 2
+npm run relayer:deposit-usdc -- --to 0x5e16B6b5e9a4d3DF14E87B7af41E9d2251FcF909 --amount 10
 ```
 
 # Withdrow

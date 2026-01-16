@@ -197,6 +197,7 @@ export function createLiveMarketEventSource(opts: LiveMarketEventSourceOptions):
       running = false
       session += 1
       clearReconnect()
+      connectInFlight = undefined
       client?.close()
       client = undefined
     },
