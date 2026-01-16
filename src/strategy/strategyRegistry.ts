@@ -16,6 +16,7 @@ import { definition as splitSellRedeemV1 } from '../strategies/split/SplitSellRe
 import { definition as splitSellRedeemV2 } from '../strategies/split/SplitSellRedeem.v2.js'
 import { definition as splitSellRedeemV3 } from '../strategies/split/SplitSellRedeem.v3.js'
 import { definition as splitSellRedeemV4 } from '../strategies/split/SplitSellRedeem.v4.js'
+import { definition as splitSellRedeemV5 } from '../strategies/split/SplitSellRedeem.v5.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,
@@ -32,6 +33,7 @@ export const strategyRegistry = {
   [splitSellRedeemV2.id]: splitSellRedeemV2,
   [splitSellRedeemV3.id]: splitSellRedeemV3,
   [splitSellRedeemV4.id]: splitSellRedeemV4,
+  [splitSellRedeemV5.id]: splitSellRedeemV5,
 
   // templates
   [templateV1.id]: templateV1,

@@ -75,7 +75,7 @@ export function createTimeWindowGate(cfg: {
 
           if (isActive) {
             const endsInSec = disableAfterSec - currentSec
-            console.log(`⌛️ 🟢 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ends in ${endsInSec} sec`)
+            console.log(`⏳ 🟢 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ends in ${endsInSec} sec`)
           } else if (elapsed < cfg.allowAfterMs) {
             const startsInSec = allowAfterSec - currentSec
             console.log(`⌛️ 🔴 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | starts in ${startsInSec} sec`)
@@ -124,7 +124,7 @@ function createSingleDwellTracker(cfg: {
 
       if (!inRange) {
         if (cfg.label && inRangeSinceMs !== null) {
-          console.log(`🔴 ${cfg.label} left range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
+          console.log(`🕸️ ⏱️ 🔴 ${cfg.label} LEFT range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
         }
         inRangeSinceMs = null
         lastLogBucket = -1
@@ -135,7 +135,7 @@ function createSingleDwellTracker(cfg: {
         inRangeSinceMs = nowMs
         lastLogBucket = -1
         if (cfg.label) {
-          console.log(`🟡 ${cfg.label} entered range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
+          console.log(`🕸️ ⏱️ 🟢 ${cfg.label} ENTERED range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
         }
       }
 
@@ -146,7 +146,7 @@ function createSingleDwellTracker(cfg: {
         if (bucket !== lastLogBucket) {
           lastLogBucket = bucket
           console.log(
-            `🟡 ${cfg.label} ${Math.floor(elapsedMs / 1000)}s in range ` +
+            `🕸️ ⏱️ 🟢 ${cfg.label} ${Math.floor(elapsedMs / 1000)}s IN RANGE ` +
               `[${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`,
           )
         }

@@ -42,7 +42,11 @@
     "relayer:withdraw-usdc": "tsx src/cli/relayer.ts withdraw-usdc",
     "relayer:deposit-usdc": "tsx src/cli/relayer.ts deposit-usdc",
     "check:balances": "tsx src/cli/check-balances.ts",
-    "relayer:redeem-watcher": "tsx src/cli/redeem-watcher.ts"
+    "relayer:redeem-watcher": "tsx src/cli/redeem-watcher.ts",
+    "relayer:redeem-watcher:btc": "REDEEM_SYMBOL=btc tsx src/cli/redeem-watcher.ts",
+    "relayer:redeem-watcher:eth": "REDEEM_SYMBOL=eth tsx src/cli/redeem-watcher.ts",
+    "relayer:redeem-watcher:sol": "REDEEM_SYMBOL=sol tsx src/cli/redeem-watcher.ts",
+    "relayer:redeem-watcher:xrp": "REDEEM_SYMBOL=xrp tsx src/cli/redeem-watcher.ts"
   },
   "keywords": [],
   "author": "",

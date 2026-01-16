@@ -234,6 +234,9 @@ export async function splitViaRelayer(
   const response = await client.execute([tx], 'split via relayer')
   const result = await response.wait()
   if (!result?.transactionHash) {
+    console.log('🔴🔴🔴[relayer] split failed🔴🔴🔴');
+    console.log('RESULT:', JSON.stringify(result, null, 2))  // <-- dodaj ovo
+    console.log('🔴🔴🔴[relayer] split failed🔴🔴🔴');
     throw new Error('[relayer] split failed (no transactionHash)')
   }
   return { txHash: result.transactionHash, splitShares: args.shares }

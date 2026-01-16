@@ -10,7 +10,18 @@ import { redeemViaRelayer } from '../polymarket/relayerClient.js'
 import { CONDITIONAL_TOKENS_ADDRESS } from '../polymarket/contractAddresses.js'
 import { buildUpDown15mSlug, FIFTEEN_MIN_MS, floorTo15mUtc } from '../utils/timeWindows.js'
 
-const SYMBOLS = ['btc', 'eth', 'sol', 'xrp'] as const
+const ALL_SYMBOLS = ['btc', 'eth', 'sol', 'xrp'] as const
+type Symbol = (typeof ALL_SYMBOLS)[number]
+
+function getSymbolsFromEnv(): Symbol[] {
+  const raw = process.env.REDEEM_SYMBOL?.toLowerCase().trim()
+  if (!raw) return [...ALL_SYMBOLS]
+  if (ALL_SYMBOLS.includes(raw as Symbol)) return [raw as Symbol]
+  console.warn(`[redeem-watcher] unknown REDEEM_SYMBOL="${raw}", using all symbols`)
+  return [...ALL_SYMBOLS]
+}
+
+const SYMBOLS = getSymbolsFromEnv()
 
 const ERC1155_ABI = [
   'function balanceOf(address account, uint256 id) view returns (uint256)',
@@ -70,7 +81,9 @@ async function main(): Promise<void> {
   const batchSize = envInt('REDEEM_MAX_MARKETS_PER_TICK', 20)
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-bor-rpc.publicnode.com'
 
-  const statePath = process.env.REDEEM_STATE_PATH ?? 'data/redeem/redeemed.json'
+  const symbolSuffix = SYMBOLS.length === 1 ? `-${SYMBOLS[0]}` : ''
+  const defaultStatePath = `data/redeem/redeemed${symbolSuffix}.json`
+  const statePath = process.env.REDEEM_STATE_PATH ?? defaultStatePath
   const state = await loadRedeemState(statePath)
   const redeemed = new Set(state.redeemedConditionIds)
 
@@ -82,6 +95,12 @@ async function main(): Promise<void> {
   const tick = async (): Promise<void> => {
     const slugs = buildLookbackSlugs(lookbackHours)
     if (slugs.length === 0) return
+
+    console.log('[redeem-watcher] tick', {
+      timestamp: new Date().toISOString(),
+      totalSlugs: slugs.length,
+      cursor,
+    })
 
     const startIdx = cursor % slugs.length
     const batch: { slug: string; symbol: string }[] = []
@@ -143,16 +162,24 @@ async function main(): Promise<void> {
   }
 
   console.log('[redeem-watcher] started', {
+    symbols: SYMBOLS,
     intervalMs,
     lookbackHours,
     batchSize,
     safeAddress,
+    statePath,
   })
 
-  await tick()
-  setInterval(() => {
-    void tick()
-  }, intervalMs)
+  const runLoop = async (): Promise<void> => {
+    try {
+      await tick()
+    } catch (err) {
+      console.error('[redeem-watcher] tick error', err)
+    }
+    setTimeout(() => void runLoop(), intervalMs)
+  }
+
+  await runLoop()
 }
 
 main().catch((err) => {
