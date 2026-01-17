@@ -248,9 +248,20 @@ function IdCell(props: { value?: string | null; keep?: number }) {
   )
 }
 
-export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
+export function PositionsTablePanel(props: {
+  snapshot: BotUiSnapshot
+  showOther?: boolean
+  onToggleShowOther?: () => void
+}) {
   const portfolio = asPortfolio(props.snapshot)
-  const positions = portfolio ? Object.entries(portfolio.positionsByAssetId) : []
+  const allPositions = portfolio ? Object.entries(portfolio.positionsByAssetId) : []
+  // Filter out OTHER items unless showOther is true
+  const positions = props.showOther
+    ? allPositions
+    : allPositions.filter(([, p]) => {
+        const tag = assetTag(props.snapshot, p?.assetId)
+        return tag === 'UP' || tag === 'DOWN'
+      })
   const pm = asPositionMetrics(props.snapshot)
 
 
@@ -258,9 +269,26 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
     <div className="panel">
       <div className="panel-h">
         <div className="panel-t">Positions</div>
-        <div className="text-[14px] text-zinc-500 font-mono">
-          nowMs {portfolio ? fmtNum(portfolio.nowMs) : 'n/a'} | realizedPnlTotal{' '}
-          {portfolio ? fmtNum(portfolio.realizedPnlTotal) : 'n/a'}
+        <div className="flex items-center gap-3">
+          <div className="text-[14px] text-zinc-500 font-mono">
+            nowMs {portfolio ? fmtNum(portfolio.nowMs) : 'n/a'} | realizedPnlTotal{' '}
+            {portfolio ? fmtNum(portfolio.realizedPnlTotal) : 'n/a'}
+          </div>
+          {props.onToggleShowOther && (
+            <>
+              <div className="h-4 w-px bg-zinc-700/60" />
+              <button
+                onClick={props.onToggleShowOther}
+                className={`rounded-md px-2 py-1 text-[11px] font-semibold uppercase tracking-wide ring-1 transition-colors ${
+                  props.showOther
+                    ? 'bg-purple-600/70 ring-purple-500/30 text-white'
+                    : 'bg-zinc-800/60 ring-zinc-700/50 text-zinc-400 hover:text-zinc-200'
+                }`}
+              >
+                {props.showOther ? '✓ Historical' : 'Show OTHER'}
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -392,10 +420,25 @@ export function PositionsTablePanel(props: { snapshot: BotUiSnapshot }) {
 export function OpenOrdersTablePanel(props: {
   snapshot: BotUiSnapshot
   sendCommand?: (cmd: BotUiCommand) => Promise<WsCommandAckMsg>
+  showOther?: boolean
 }) {
   const portfolio = asPortfolio(props.snapshot)
-  const botOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
-  const wsOrders = portfolio?.wsOpenOrdersByOrderId ? Object.entries(portfolio.wsOpenOrdersByOrderId) : []
+  const allBotOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
+  const allWsOrders = portfolio?.wsOpenOrdersByOrderId ? Object.entries(portfolio.wsOpenOrdersByOrderId) : []
+
+  // Filter out OTHER items unless showOther is true
+  const botOrders = props.showOther
+    ? allBotOrders
+    : allBotOrders.filter(([, o]) => {
+        const tag = assetTag(props.snapshot, o?.assetId)
+        return tag === 'UP' || tag === 'DOWN'
+      })
+  const wsOrders = props.showOther
+    ? allWsOrders
+    : allWsOrders.filter(([, o]) => {
+        const tag = assetTag(props.snapshot, o?.assetId)
+        return tag === 'UP' || tag === 'DOWN'
+      })
 
   const botOrderIds = new Set<string>()
   for (const [, o] of botOrders) {
@@ -621,9 +664,17 @@ export function OpenOrdersTablePanel(props: {
   )
 }
 
-export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
+export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot; showOther?: boolean }) {
   const portfolio = asPortfolio(props.snapshot)
-  const fills = portfolio?.recentFills ? [...portfolio.recentFills] : []
+  const allFills = portfolio?.recentFills ? [...portfolio.recentFills] : []
+
+  // Filter out OTHER items unless showOther is true
+  const fills = props.showOther
+    ? allFills
+    : allFills.filter((f) => {
+        const tag = assetTag(props.snapshot, f.assetId)
+        return tag === 'UP' || tag === 'DOWN'
+      })
 
   fills.sort((a, b) => (b.tsMs ?? 0) - (a.tsMs ?? 0))
 
@@ -692,9 +743,17 @@ export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot }) {
   )
 }
 
-export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot }) {
+export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot; showOther?: boolean }) {
   const portfolio = asPortfolio(props.snapshot)
-  const orders = portfolio?.ordersByClientId ? Object.entries(portfolio.ordersByClientId) : []
+  const allOrders = portfolio?.ordersByClientId ? Object.entries(portfolio.ordersByClientId) : []
+
+  // Filter out OTHER items unless showOther is true
+  const orders = props.showOther
+    ? allOrders
+    : allOrders.filter(([, o]) => {
+        const tag = assetTag(props.snapshot, o?.assetId)
+        return tag === 'UP' || tag === 'DOWN'
+      })
 
   type Row = {
     clientOrderId: string

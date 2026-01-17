@@ -355,6 +355,7 @@ export function App() {
   const headerWrapRef = useRef<HTMLDivElement | null>(null)
   const footerRef = useRef<HTMLElement | null>(null)
   const [chrome, setChrome] = useState({ topPx: 0, bottomPx: 0 })
+  const [showOther, setShowOther] = useState(false)
 
   useEffect(() => {
     const update = () => {
@@ -441,10 +442,10 @@ export function App() {
 
             {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
-              <PositionsTablePanel snapshot={displaySnapshot} />
-              <OpenOrdersTablePanel snapshot={displaySnapshot} sendCommand={sendCommand} />
-              <ExecutedOrdersTablePanel snapshot={displaySnapshot} />
-              <OrdersByClientIdTablePanel snapshot={displaySnapshot} />
+              <PositionsTablePanel snapshot={displaySnapshot} showOther={showOther} onToggleShowOther={() => setShowOther((v) => !v)} />
+              <OpenOrdersTablePanel snapshot={displaySnapshot} sendCommand={sendCommand} showOther={showOther} />
+              <ExecutedOrdersTablePanel snapshot={displaySnapshot} showOther={showOther} />
+              <OrdersByClientIdTablePanel snapshot={displaySnapshot} showOther={showOther} />
             </div>
 
 
