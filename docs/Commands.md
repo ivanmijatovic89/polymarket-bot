@@ -124,3 +124,8 @@ Continuously scans recent BTC/ETH/SOL/XRP 15m markets for resolution and redeems
 ```bash
 npm run relayer:redeem-watcher
 ```
+
+# Get PNL from activity endpoints
+```
+npx tsx src/cli/pnl-report.ts --symbol btc --limit 5000
+```

@@ -121,10 +121,11 @@ function feedKeysFromData(snapshot: unknown): string[] {
   const s = snapshot as any
   const feeds = s?.feeds
   const out: string[] = []
-  if (feeds?.rtdsPolymarketCryptoPrices?.binance) out.push('rtds:binance')
-  if (feeds?.rtdsPolymarketCryptoPrices?.chainlink) out.push('rtds:chainlink')
-  if (feeds?.binanceWsSpotPrice) out.push('binance_ws')
-  if (feeds?.polymarketPriceToBeat) out.push('price_to_beat')
+  // Check for actual values, not just object existence
+  if (feeds?.rtdsPolymarketCryptoPrices?.binance?.value != null) out.push('rtds:binance')
+  if (feeds?.rtdsPolymarketCryptoPrices?.chainlink?.value != null) out.push('rtds:chainlink')
+  if (feeds?.binanceWsSpotPrice?.value != null) out.push('binance_ws')
+  if (feeds?.polymarketPriceToBeat?.openPrice != null) out.push('price_to_beat')
   return out
 }
 
@@ -435,8 +436,8 @@ export function App() {
           <div className="panel panel-b text-zinc-300">waiting for snapshot…</div>
         ) : (
           <div className="space-y-2">
-            {/* Full-width row under header */}
-            <ExternalFeedsPanel snapshot={displaySnapshot} />
+            {/* Full-width row under header - only show if there are external feeds */}
+            {feedsDataKeys.length > 0 && <ExternalFeedsPanel snapshot={displaySnapshot} />}
 
             {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
