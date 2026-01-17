@@ -487,6 +487,52 @@ function printJson(address: string, portfolioValue: number, markets: MarketPnl[]
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// Fetch all activities with pagination
+// ─────────────────────────────────────────────────────────────────────────────
+
+async function fetchAllActivities(address: string, debug = false, maxActivities = 5000): Promise<Activity[]> {
+  const allActivities: Activity[] = []
+  const pageSize = 500
+  let offset = 0
+  let page = 1
+
+  while (allActivities.length < maxActivities) {
+    if (debug) {
+      console.log(`[debug] Fetching page ${page}, offset ${offset}...`)
+    }
+
+    // Don't use sortBy/sortDirection - API returns newest first by default
+    // and those params seem to cause issues with pagination
+    const batch = await fetchActivity({
+      user: address,
+      limit: pageSize,
+      offset,
+    })
+
+    if (debug) {
+      console.log(`[debug] Page ${page}: got ${batch.length} activities`)
+      if (batch.length > 0) {
+        console.log(`[debug] Page ${page} first timestamp: ${batch[0]?.timestamp}, slug: ${batch[0]?.slug}`)
+      }
+    }
+
+    if (batch.length === 0) break
+
+    allActivities.push(...batch)
+    offset += batch.length
+    page++
+
+    // If we got less than pageSize, we've reached the end
+    if (batch.length < pageSize) break
+  }
+
+  // Sort by timestamp descending (newest first) to ensure correct order
+  allActivities.sort((a, b) => b.timestamp - a.timestamp)
+
+  return allActivities
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Main
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -501,14 +547,9 @@ async function main(): Promise<void> {
   const address = await resolveWalletAddress()
   console.log(`[pnl-report] Fetching activity for ${address}...`)
 
-  // Fetch all activity types we care about
+  // Fetch all activities with pagination + portfolio value
   const [activities, portfolioValue] = await Promise.all([
-    fetchActivity({
-      user: address,
-      limit: 500, // Get more activities to cover multiple markets
-      sortBy: 'TIMESTAMP',
-      sortDirection: 'DESC',
-    }),
+    fetchAllActivities(address, args.debug),
     fetchPortfolioValue(address),
   ])
 
