@@ -757,3 +757,7 @@ const market = marketEngine.snapshot()
 ```
 npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 ```
+
+# Running Multiple Bots
+
+See [`docs/MultipleBots.md`](docs/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).

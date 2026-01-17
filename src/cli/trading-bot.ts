@@ -765,7 +765,10 @@ async function main(): Promise<void> {
       return kind === 'up' ? a[0] : a[1]
     }
 
-    const host = (process.env.WEB_UI_HOST ?? '127.0.0.1').trim() || '127.0.0.1'
+    // Default to 0.0.0.0 to allow network access in development.
+    // This enables accessing the UI from other machines on the same LAN.
+    // For production/security, explicitly set WEB_UI_HOST=127.0.0.1 if needed.
+    const host = (process.env.WEB_UI_HOST ?? '0.0.0.0').trim() || '0.0.0.0'
     const portRaw = process.env.WEB_UI_PORT
     const portParsed = portRaw ? Number(portRaw) : NaN
     if (!Number.isFinite(portParsed) || !Number.isInteger(portParsed) || portParsed <= 0) {

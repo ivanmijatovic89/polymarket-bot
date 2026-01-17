@@ -22,14 +22,15 @@ export function useBotWs(): {
     const explicit = (env['VITE_BOT_UI_WS_URL'] ?? '').trim()
     if (explicit) return explicit
 
-    // In dev, Vite runs on :5173 but the bot UI server runs on :3001.
-    // Connecting directly avoids noisy ws-proxy EPIPE logs in the Vite dev server.
-    const devHost = (env['VITE_BOT_UI_HOST'] ?? window.location.hostname).trim() || window.location.hostname
-    const devPort = (env['VITE_BOT_UI_PORT'] ?? '3001').trim() || '3001'
-    const devDirect = `${proto}//${devHost}:${devPort}/ws`
-
+    // In dev, use the Vite proxy for WebSocket connections.
+    // This ensures WebSocket works whether accessed locally or from the network,
+    // as the proxy handles routing to the bot server correctly.
+    // The proxy is configured in vite.config.ts to forward /ws to the bot server.
     const sameOrigin = `${proto}//${window.location.host}/ws`
-    return window.location.port === '5173' ? devDirect : sameOrigin
+
+    // Always use same-origin (via Vite proxy) in dev mode for consistent behavior
+    // regardless of whether accessed locally or from network.
+    return sameOrigin
   }, [])
 
   const keepLastLines = 5000
