@@ -693,6 +693,49 @@ npm run db:insert-parquet
 ```
 
 
+## PnL Report
+
+Generate a PnL report from your Polymarket activity (trades, splits, merges, redeems) using the [Activity API](https://docs.polymarket.com/api-reference/core/get-user-activity):
+
+```bash
+# Basic usage (shows last 50 markets)
+npx tsx src/cli/pnl-report.ts
+
+# Filter by symbol
+npx tsx src/cli/pnl-report.ts --symbol btc
+
+# Filter by slug pattern
+npx tsx src/cli/pnl-report.ts --slug btc-updown-15m
+
+# Limit number of markets
+npx tsx src/cli/pnl-report.ts --symbol btc --limit 100
+
+# Output as JSON
+npx tsx src/cli/pnl-report.ts --json
+
+# Debug mode (shows raw API response)
+npx tsx src/cli/pnl-report.ts --debug
+```
+
+The report shows:
+- **Bought**: USDC spent on BUY trades
+- **Sold**: USDC received from SELL trades
+- **Split**: USDC spent on SPLIT operations
+- **Merge**: USDC received from MERGE operations
+- **Redeem**: USDC received from REDEEM (after market resolution)
+- **Net PnL**: Total profit/loss = (Sold + Merge + Redeem) - (Bought + Split)
+
+Market status:
+- **open**: Still holding shares
+- **closed**: Position exited via SELL or MERGE
+- **redeemed**: Market resolved and shares redeemed
+
+Wallet selection:
+- Uses `CLOB_FUNDER` (SAFE address) if set in `.env`
+- Otherwise uses EOA address derived from `PRIVATE_KEY`
+
+API calls: **2 requests** per run (`/activity` + `/value`)
+
 # Polymarket Server Infrastructure
 
 https://docs.polymarket.com/developers/CLOB/geoblock#server-infrastructure
