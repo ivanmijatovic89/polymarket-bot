@@ -40,7 +40,9 @@ npm run backtest -- "data/events/btc/<slug>.parquet"
 npm run backtest -- data/events/btc/<slug>.parquet data/events/btc/<slug-2>.parquet
 ```
 
-Backtest random Parquet files from the database for a symbol (use `--limit` to control how many, and `--random` to randomize selection):
+Backtest Parquet files from the database for a symbol (use `--limit` to control how many):
+
+Random selection (use `--random` to randomize selection):
 
 ```bash
 npm run backtest -- \
@@ -52,6 +54,20 @@ npm run backtest -- \
   --limit 100 \
   --random
 ```
+
+Latest markets (use `--latest` to get the most recently created markets):
+
+```bash
+npm run backtest -- \
+  --strategy SplitSellRedeem.v3 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --symbol btc \
+  --limit 300 \
+  --latest
+```
+
+The `--latest` option counts total markets matching the symbol, then uses an offset to skip older markets and return only the latest N markets (where N is `--limit`).
 
 Run a backtest strategy (example):
 

@@ -175,6 +175,7 @@ async function main(): Promise<void> {
       marketRecords = await getMarketsBySymbol(parsed.symbol, {
         ...(parsed.limit !== undefined && { limit: parsed.limit }),
         ...(parsed.random ? { random: true } : {}),
+        ...(parsed.latest ? { latest: true } : {}),
         onlyWithDataset: true
       })
       for (const m of marketRecords) marketBySlug.set(m.slug, m)
@@ -206,6 +207,7 @@ async function main(): Promise<void> {
   console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  if (parsed.latest) console.log(`[backtest] latest=true`)
 
   let shouldStop = false
   const shutdown = (signal: 'SIGINT' | 'SIGTERM'): void => {

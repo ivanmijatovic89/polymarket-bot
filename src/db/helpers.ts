@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, count, desc, eq, sql } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { backtests, markets } from './schema.js'
 import type { MarketDataForTable } from '../polymarket/gamma.js'
@@ -69,6 +69,7 @@ export async function getMarketsBySymbol(
     limit?: number
     onlyWithDataset?: boolean
     random?: boolean
+    latest?: boolean
   }
 ): Promise<Market[]> {
   const db = mustGetDb()
@@ -81,12 +82,36 @@ export async function getMarketsBySymbol(
       )
     : symbolWhere
 
-  const results = await db
+  let orderBy
+  if (options?.random) {
+    orderBy = sql`RAND()`
+  } else {
+    orderBy = asc(markets.slug)
+  }
+
+  let offset: number | undefined
+  if (options?.latest && options?.limit !== undefined) {
+    // Count total markets matching the where clause
+    const countResult = await db
+      .select({ count: count() })
+      .from(markets)
+      .where(where)
+
+    const total = countResult[0]?.count ?? 0
+    // Calculate offset: skip older markets, get only the latest N
+    offset = Math.max(0, total - options.limit)
+  }
+
+  const queryBuilder = db
     .select()
     .from(markets)
     .where(where)
-    .orderBy(options?.random ? sql`RAND()` : asc(markets.slug))
+    .orderBy(orderBy)
     .limit(options?.limit ?? 1000)
+
+  const results = offset !== undefined
+    ? await queryBuilder.offset(offset)
+    : await queryBuilder
 
   return results
 }

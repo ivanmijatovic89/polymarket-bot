@@ -10,6 +10,7 @@ export type BacktestArgs = {
   symbol?: string
   limit?: number
   random?: boolean
+  latest?: boolean
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -19,6 +20,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let symbol: string | undefined
   let limit: number | undefined
   let random = false
+  let latest = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -64,6 +66,12 @@ export function parseArgs(argv: string[]): BacktestArgs {
 
       case '--random':
         random = true
+        latest = false // random takes precedence over latest
+        break
+
+      case '--latest':
+        latest = true
+        random = false // latest takes precedence over random
         break
 
       case '--strategy':
@@ -83,6 +91,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --random requires --limit N (how many random parquet files to sample)')
   }
 
+  if (latest && limit === undefined) {
+    throw new Error('[backtest] --latest requires --limit N (how many latest markets to fetch)')
+  }
+
   return {
     filePaths,
     order,
@@ -90,5 +102,6 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(symbol ? { symbol } : {}),
     ...(limit !== undefined ? { limit } : {}),
     ...(random ? { random } : {}),
+    ...(latest ? { latest } : {}),
   }
 }
