@@ -41,6 +41,17 @@ export type BatchStats = {
   pnlAvgLose: number
   pnlMaxWin: number
   pnlMaxLose: number
+
+  /** Maximum consecutive winning markets. */
+  streakMaxWin: number
+  /** Maximum consecutive losing markets. */
+  streakMaxLose: number
+  /** Total PnL accumulated during the max win streak. */
+  streakMaxWinPnl: number
+  /** Total PnL accumulated during the max lose streak. */
+  streakMaxLosePnl: number
+  /** Maximum consecutive skipped markets. */
+  streakMaxSkipped: number
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
@@ -72,13 +83,40 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
         a.marketsWon += 1
         a.pnlWinSum += r.pnl
         a.pnlMaxWin = Math.max(a.pnlMaxWin, r.pnl)
+        // Win streak tracking
+        a.currentWinStreak += 1
+        a.currentWinStreakPnl += r.pnl
+        if (a.currentWinStreak > a.streakMaxWin) {
+          a.streakMaxWin = a.currentWinStreak
+          a.streakMaxWinPnl = a.currentWinStreakPnl
+        }
+        // Reset lose streak and skipped streak
+        a.currentLoseStreak = 0
+        a.currentLoseStreakPnl = 0
+        a.currentSkippedStreak = 0
       } else if (r.pnl < 0) {
         a.marketsPlayed += 1
         a.marketsLost += 1
         a.pnlLoseSum += r.pnl
         a.pnlMaxLose = Math.min(a.pnlMaxLose, r.pnl)
+        // Lose streak tracking
+        a.currentLoseStreak += 1
+        a.currentLoseStreakPnl += r.pnl
+        if (a.currentLoseStreak > a.streakMaxLose) {
+          a.streakMaxLose = a.currentLoseStreak
+          a.streakMaxLosePnl = a.currentLoseStreakPnl
+        }
+        // Reset win streak and skipped streak
+        a.currentWinStreak = 0
+        a.currentWinStreakPnl = 0
+        a.currentSkippedStreak = 0
       } else {
         a.marketsSkipped += 1
+        // Skipped streak tracking
+        a.currentSkippedStreak += 1
+        if (a.currentSkippedStreak > a.streakMaxSkipped) {
+          a.streakMaxSkipped = a.currentSkippedStreak
+        }
       }
 
       return a
@@ -97,6 +135,17 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       pnlLoseSum: 0,
       pnlMaxWin: 0,
       pnlMaxLose: 0,
+      // Streak tracking
+      currentWinStreak: 0,
+      currentWinStreakPnl: 0,
+      currentLoseStreak: 0,
+      currentLoseStreakPnl: 0,
+      streakMaxWin: 0,
+      streakMaxWinPnl: 0,
+      streakMaxLose: 0,
+      streakMaxLosePnl: 0,
+      currentSkippedStreak: 0,
+      streakMaxSkipped: 0,
     },
   )
 
@@ -147,5 +196,11 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     pnlAvgLose: round2(pnlAvgLose),
     pnlMaxWin: round2(acc.pnlMaxWin),
     pnlMaxLose: round2(acc.pnlMaxLose),
+
+    streakMaxWin: acc.streakMaxWin,
+    streakMaxLose: acc.streakMaxLose,
+    streakMaxWinPnl: round2(acc.streakMaxWinPnl),
+    streakMaxLosePnl: round2(acc.streakMaxLosePnl),
+    streakMaxSkipped: acc.streakMaxSkipped,
   }
 }
