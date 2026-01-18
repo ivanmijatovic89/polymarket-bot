@@ -123,6 +123,30 @@ export async function updateMarketBySlug(
     .where(eq(markets.slug, slug))
 }
 
+/**
+ * Get all markets from database.
+ * Returns all markets ordered by symbol and slug.
+ */
+export async function getAllMarkets(): Promise<Market[]> {
+  const db = mustGetDb()
+  const results = await db
+    .select()
+    .from(markets)
+    .orderBy(asc(markets.symbol), asc(markets.slug))
+
+  return results
+}
+
+/**
+ * Delete market by slug from database.
+ */
+export async function deleteMarketBySlug(slug: string): Promise<void> {
+  const db = mustGetDb()
+  await db
+    .delete(markets)
+    .where(eq(markets.slug, slug))
+}
+
 export async function insertBacktestRun(row: {
   strategy: string
   params: Record<string, unknown>

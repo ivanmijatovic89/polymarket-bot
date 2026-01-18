@@ -1,7 +1,16 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { closeDb, marketExistsBySlug, insertMarket } from './index.js'
+import readline from 'node:readline/promises'
+import { stdin as input, stdout as output } from 'node:process'
+import { closeDb, marketExistsBySlug, insertMarket, getAllMarkets, deleteMarketBySlug, type Market } from './index.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
+
+/**
+ * Sleep/delay helper function.
+ */
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
 
 /**
  * Extract slug from parquet filename.
@@ -13,6 +22,102 @@ function extractSlugFromFilename(fileName: string): string | null {
   return fileName.slice(0, -'.parquet'.length)
 }
 
+/**
+ * Check if file exists on disk.
+ */
+async function fileExists(filePath: string): Promise<boolean> {
+  try {
+    await fs.access(filePath)
+    return true
+  } catch {
+    return false
+  }
+}
+
+/**
+ * Get expected file path for a market based on slug and symbol.
+ */
+function getExpectedFilePath(slug: string, symbol: string, rootDir: string): string {
+  return path.join(rootDir, symbol, `${slug}.parquet`)
+}
+
+/**
+ * Check all markets in database and find those without files on disk.
+ */
+async function checkMarketsWithoutFiles(rootDir: string): Promise<Array<{ market: Market; filePath: string }>> {
+  const allMarkets = await getAllMarkets()
+  const missingFiles: Array<{ market: Market; filePath: string }> = []
+
+  for (const market of allMarkets) {
+    const filePath = getExpectedFilePath(market.slug, market.symbol, rootDir)
+    const exists = await fileExists(filePath)
+
+    if (!exists) {
+      missingFiles.push({ market, filePath })
+    }
+  }
+
+  return missingFiles
+}
+
+/**
+ * Prompt user for yes/no answer.
+ */
+async function promptUser(question: string): Promise<boolean> {
+  const rl = readline.createInterface({ input, output })
+
+  try {
+    const answer = await rl.question(`${question} (Y/n): `)
+    const normalized = answer.trim().toLowerCase()
+    return normalized === 'y' || normalized === 'yes' || normalized === ''
+  } finally {
+    rl.close()
+  }
+}
+
+/**
+ * Clean up markets that don't have files on disk.
+ */
+async function cleanupMissingFiles(rootDir: string): Promise<void> {
+  console.log('[insert-local-parquet] Checking for markets in database without files on disk...')
+
+  const missingFiles = await checkMarketsWithoutFiles(rootDir)
+
+  if (missingFiles.length === 0) {
+    console.log('[insert-local-parquet] All markets in database have corresponding files on disk.')
+    return
+  }
+
+  console.log(`\n[insert-local-parquet] Found ${missingFiles.length} markets in database without files on disk:`)
+  console.log('Files in database but not on HDD:')
+  for (const { filePath } of missingFiles) {
+    console.log(`  - ${filePath}`)
+  }
+
+  const shouldDelete = await promptUser('\nDo you want to delete these records from the database?')
+
+  if (shouldDelete) {
+    console.log('[insert-local-parquet] Deleting markets from database...')
+    let deleted = 0
+    let errors = 0
+
+    for (const { market } of missingFiles) {
+      try {
+        await deleteMarketBySlug(market.slug)
+        deleted += 1
+      } catch (err) {
+        const msg = err instanceof Error ? err.message : String(err)
+        console.error(`[insert-local-parquet] Failed to delete market "${market.slug}": ${msg}`)
+        errors += 1
+      }
+    }
+
+    console.log(`[insert-local-parquet] Cleanup complete: ${deleted} deleted, ${errors} errors`)
+  } else {
+    console.log('[insert-local-parquet] Skipping deletion. Continuing with existing records.')
+  }
+}
+
 
 /**
  * Process a single parquet file: fetch market data and insert into database.
@@ -21,6 +126,7 @@ async function processFile(
   filePath: string,
   fileName: string,
   symbol: string,
+  delayMs: number = 50, // Delay between API calls (50ms = ~20 req/s, well under 300/10s limit)
 ): Promise<{ inserted: boolean; skipped: boolean; error: boolean }> {
   // Extract slug from filename
   const slug = extractSlugFromFilename(fileName)
@@ -34,6 +140,10 @@ async function processFile(
   if (exists) {
     return { inserted: false, skipped: true, error: false }
   }
+
+  // Add delay before API call to respect rate limit (300 requests / 10s = ~33ms minimum)
+  // Using 50ms to be safe and account for network latency
+  await sleep(delayMs)
 
   // Fetch and map market data from Gamma API
   const marketData = await fetchGammaMarketBySlugAndMapApiResponseToMarketTable({
@@ -61,7 +171,11 @@ async function processFile(
 /**
  * Process all parquet files in a symbol directory.
  */
-async function processSymbolDirectory(symbol: string, rootDir: string): Promise<{
+async function processSymbolDirectory(
+  symbol: string,
+  rootDir: string,
+  delayMs: number = 50,
+): Promise<{
   inserted: number
   skipped: number
   errors: number
@@ -93,7 +207,7 @@ async function processSymbolDirectory(symbol: string, rootDir: string): Promise<
 
   for (const fileName of parquetFiles) {
     const filePath = path.join(symbolDir, fileName)
-    const result = await processFile(filePath, fileName, symbol)
+    const result = await processFile(filePath, fileName, symbol, delayMs)
 
     if (result.inserted) inserted += 1
     else if (result.skipped) skipped += 1
@@ -108,6 +222,14 @@ async function processSymbolDirectory(symbol: string, rootDir: string): Promise<
  */
 async function main(): Promise<void> {
   const rootDir = path.resolve(process.cwd(), 'data/events')
+
+  // Delay between API calls (in milliseconds)
+  // Gamma /markets limit: 300 requests / 10s = 30 req/s = ~33ms minimum
+  // Using 50ms to be safe and account for network latency
+  const API_DELAY_MS = 50
+
+  // First, check for markets in database without files and clean them up
+  await cleanupMissingFiles(rootDir)
 
   // Read all symbol directories
   let symbolDirs: string[]
@@ -136,7 +258,7 @@ async function main(): Promise<void> {
 
   // Process each symbol directory
   for (const symbol of symbolDirs) {
-    const stats = await processSymbolDirectory(symbol, rootDir)
+    const stats = await processSymbolDirectory(symbol, rootDir, API_DELAY_MS)
     totalInserted += stats.inserted
     totalSkipped += stats.skipped
     totalErrors += stats.errors
