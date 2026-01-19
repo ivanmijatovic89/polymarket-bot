@@ -475,71 +475,86 @@ export class LiveExecution implements ExecutionAdapter {
 
     const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
     const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
-    try {
-      console.log('[live-execution] splitPositions', {
-        mode: splitMode,
-        assetIdA: intent.assetIdA,
-        assetIdB: intent.assetIdB,
-        size: requested,
-        conditionId,
-      })
-      const res =
-        splitMode === 'relayer'
-          ? await splitViaRelayer({
-              conditionId,
-              shares: requested,
-            })
-          : await splitViaCtf({
-              rpcUrl,
-              chainId,
-              privateKey,
-              conditionId,
-              shares: requested,
-              gasMultiplier: eoaGasMultiplier,
-            })
+    const maxRetries = 2
+    const retryDelayMs = 3000
 
-      console.log('[live-execution] split tx ok', {
-        mode: splitMode,
-        txHash: res.txHash,
-        splitShares: res.splitShares,
-        conditionId,
-      })
+    let lastError: Error | null = null
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log('[live-execution] splitPositions', {
+          mode: splitMode,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          size: requested,
+          conditionId,
+          attempt,
+        })
 
-      // Emit a non-trade position operation event so split does not count as a trade/fill.
-      return {
-        events: [
-          {
-            kind: 'positions_split',
-            split: {
-              id: `live-split:${res.txHash}:${intent.assetIdA}:${intent.assetIdB}`,
-              tsMs: nowMs,
-              market: conditionId,
-              assetIdA: intent.assetIdA,
-              assetIdB: intent.assetIdB,
-              size: res.splitShares,
-              splitCost: res.splitShares,
-              reason:
-                intent.reason
+        const res =
+          splitMode === 'relayer'
+            ? await splitViaRelayer({ conditionId, shares: requested })
+            : await splitViaCtf({
+                rpcUrl,
+                chainId,
+                privateKey,
+                conditionId,
+                shares: requested,
+                gasMultiplier: eoaGasMultiplier,
+              })
+
+        if (attempt > 1) {
+          console.log(`[live-execution][split] ✅ Succeeded on attempt ${attempt}/${maxRetries}`)
+        }
+
+        console.log('[live-execution][split] tx ok', {
+          mode: splitMode,
+          txHash: res.txHash,
+          splitShares: res.splitShares,
+          conditionId,
+        })
+
+        return {
+          events: [
+            {
+              kind: 'positions_split',
+              split: {
+                id: `live-split:${res.txHash}:${intent.assetIdA}:${intent.assetIdB}`,
+                tsMs: nowMs,
+                market: conditionId,
+                assetIdA: intent.assetIdA,
+                assetIdB: intent.assetIdB,
+                size: res.splitShares,
+                splitCost: res.splitShares,
+                reason: intent.reason
                   ? `${intent.reason}; tx=${res.txHash}; mode=${splitMode}`
                   : `tx=${res.txHash}; mode=${splitMode}`,
+              },
             },
-          },
-        ],
+          ],
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        console.warn(`[live-execution][split] ⚠️ Attempt ${attempt}/${maxRetries} failed:`, lastError.message)
+
+        if (attempt < maxRetries) {
+          console.log(`[live-execution][split] Waiting ${retryDelayMs}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs))
+        }
       }
-    } catch (err) {
-      console.log('[live-execution][⛔️] split error', err)
-      return {
-        events: [
-          {
-            kind: 'split_failed',
-            tsMs: nowMs,
-            assetIdA: intent.assetIdA,
-            assetIdB: intent.assetIdB,
-            requestedSize: requested,
-            reason: err instanceof Error ? err.message : String(err),
-          },
-        ],
-      }
+    }
+
+    console.log('[live-execution][⛔️] split failed after all retries', lastError)
+    return {
+      events: [
+        {
+          kind: 'split_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: requested,
+          reason: lastError?.message ?? 'split failed after all retries',
+        },
+      ],
     }
   }
 
