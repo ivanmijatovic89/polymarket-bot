@@ -276,12 +276,23 @@ export async function mergeViaRelayer(
     value: '0',
   }
 
+  console.log('[relayer][merge] executing', { conditionId: args.conditionId, shares: args.shares })
+
   const client = createRelayerClient()
   const response = await client.execute([tx], 'merge via relayer')
   const result = await response.wait()
+
   if (!result?.transactionHash) {
+    console.log('🔴🔴🔴[relayer] merge failed🔴🔴🔴')
     throw new Error('[relayer] merge failed (no transactionHash)')
   }
+
+  const state = result.state as RelayerTransactionState | undefined
+  if (state === RelayerTransactionState.STATE_FAILED) {
+    throw new Error(`[relayer] merge failed (STATE_FAILED, txHash: ${result.transactionHash})`)
+  }
+
+  console.log('[relayer][merge] ✅ succeeded', { txHash: result.transactionHash, state })
   return { txHash: result.transactionHash, mergedShares: args.shares }
 }
 
@@ -302,12 +313,23 @@ export async function redeemViaRelayer(args: {
     value: '0',
   }
 
+  console.log('[relayer][redeem] executing', { conditionId: args.conditionId })
+
   const client = createRelayerClient()
   const response = await client.execute([tx], 'redeem via relayer')
   const result = await response.wait()
+
   if (!result?.transactionHash) {
+    console.log('🔴🔴🔴[relayer] redeem failed🔴🔴🔴')
     throw new Error('[relayer] redeem failed (no transactionHash)')
   }
+
+  const state = result.state as RelayerTransactionState | undefined
+  if (state === RelayerTransactionState.STATE_FAILED) {
+    throw new Error(`[relayer] redeem failed (STATE_FAILED, txHash: ${result.transactionHash})`)
+  }
+
+  console.log('[relayer][redeem] ✅ succeeded', { txHash: result.transactionHash, state })
   return { txHash: result.transactionHash }
 }
 

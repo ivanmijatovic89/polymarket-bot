@@ -475,8 +475,8 @@ export class LiveExecution implements ExecutionAdapter {
 
     const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
     const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
-    const maxRetries = 2
-    const retryDelayMs = 3000
+    const maxRetries = Number(process.env.SPLIT_MAX_RETRY ?? '2')
+    const retryDelayMs = Number(process.env.SPLIT_RETRY_DELAY_MS ?? '3000')
 
     let lastError: Error | null = null
     for (let attempt = 1; attempt <= maxRetries; attempt++) {
@@ -562,7 +562,6 @@ export class LiveExecution implements ExecutionAdapter {
     intent: MergePositionsIntent,
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
-    console.log('[live-execution] mergePositions');
     const nowMs = ctx.nowMs
     const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     const conditionId = ctx.lastMarket?.market
@@ -601,49 +600,81 @@ export class LiveExecution implements ExecutionAdapter {
 
     const mergeMode = (process.env.POLYMARKET_TX_MODE_MERGE ?? 'direct').toLowerCase()
     const eoaGasMultiplier = Number(process.env.POLYMARKET_EOA_GAS_MULTIPLIER ?? '2')
-    try {
-      const res =
-        mergeMode === 'relayer'
-          ? await mergeViaRelayer({
-              conditionId,
-              shares: requested,
-            })
-          : await mergeViaCtf({
-              rpcUrl,
-              chainId,
-              privateKey,
-              conditionId,
-              shares: requested,
-              gasMultiplier: eoaGasMultiplier,
-            })
-      return {
-        events: [
-          {
-            kind: 'positions_merged',
-            tsMs: nowMs,
-            assetIdA: intent.assetIdA,
-            assetIdB: intent.assetIdB,
-            size: res.mergedShares,
-            reason:
-              intent.reason
+    const maxRetries = Number(process.env.MERGE_MAX_RETRY ?? '2')
+    const retryDelayMs = Number(process.env.MERGE_RETRY_DELAY_MS ?? '3000')
+
+    let lastError: Error | null = null
+    for (let attempt = 1; attempt <= maxRetries; attempt++) {
+      try {
+        console.log('[live-execution] mergePositions', {
+          mode: mergeMode,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          size: requested,
+          conditionId,
+          attempt,
+        })
+
+        const res =
+          mergeMode === 'relayer'
+            ? await mergeViaRelayer({ conditionId, shares: requested })
+            : await mergeViaCtf({
+                rpcUrl,
+                chainId,
+                privateKey,
+                conditionId,
+                shares: requested,
+                gasMultiplier: eoaGasMultiplier,
+              })
+
+        if (attempt > 1) {
+          console.log(`[live-execution][merge] ✅ Succeeded on attempt ${attempt}/${maxRetries}`)
+        }
+
+        console.log('[live-execution][merge] tx ok', {
+          mode: mergeMode,
+          txHash: res.txHash,
+          mergedShares: res.mergedShares,
+          conditionId,
+        })
+
+        return {
+          events: [
+            {
+              kind: 'positions_merged',
+              tsMs: nowMs,
+              assetIdA: intent.assetIdA,
+              assetIdB: intent.assetIdB,
+              size: res.mergedShares,
+              reason: intent.reason
                 ? `${intent.reason}; tx=${res.txHash}; mode=${mergeMode}`
                 : `tx=${res.txHash}; mode=${mergeMode}`,
-          },
-        ],
+            },
+          ],
+        }
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err))
+        console.warn(`[live-execution][merge] ⚠️ Attempt ${attempt}/${maxRetries} failed:`, lastError.message)
+
+        if (attempt < maxRetries) {
+          console.log(`[live-execution][merge] Waiting ${retryDelayMs}ms before retry...`)
+          await new Promise(resolve => setTimeout(resolve, retryDelayMs))
+        }
       }
-    } catch (err) {
-      return {
-        events: [
-          {
-            kind: 'merge_failed',
-            tsMs: nowMs,
-            assetIdA: intent.assetIdA,
-            assetIdB: intent.assetIdB,
-            requestedSize: requested,
-            reason: err instanceof Error ? err.message : String(err),
-          },
-        ],
-      }
+    }
+
+    console.log('[live-execution][⛔️] merge failed after all retries', lastError)
+    return {
+      events: [
+        {
+          kind: 'merge_failed',
+          tsMs: nowMs,
+          assetIdA: intent.assetIdA,
+          assetIdB: intent.assetIdB,
+          requestedSize: requested,
+          reason: lastError?.message ?? 'merge failed after all retries',
+        },
+      ],
     }
   }
 }
