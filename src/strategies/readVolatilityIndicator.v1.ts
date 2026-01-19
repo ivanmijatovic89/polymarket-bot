@@ -1,8 +1,9 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
-import { IndicatorSet } from '../indicators/IndicatorSet.js'
-import { TimeWindowVolatility } from '../indicators/volatility/TimeWindowVolatility.js'
+import type { Plugin } from '../strategy/plugins/PluginSet.js'
+import type { VolatilitySnapshot } from '../strategy/plugins/TimeWindowVolatility.js'
+import { TimeWindowVolatility } from '../strategy/plugins/TimeWindowVolatility.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -30,7 +31,7 @@ export const definition: StrategyDefinition<Config> = {
 
 export function createStrategy(cfg: Config): {
   strategy: Strategy
-  indicatorSet: IndicatorSet
+  plugins: Plugin[]
 } {
   const windows = {
     '1s': 1_000,
@@ -42,8 +43,7 @@ export function createStrategy(cfg: Config): {
     '60s': 60_000,
   } as const
 
-  const indicatorSet = new IndicatorSet()
-  indicatorSet.register(new TimeWindowVolatility({ windows }))
+  const plugins: Plugin[] = [new TimeWindowVolatility({ windows })]
 
   const name = 'read_volatility_indicator'
   let lastLogAtMs = 0
@@ -67,7 +67,7 @@ export function createStrategy(cfg: Config): {
     if (nowMs - lastLogAtMs < cfg.logEveryMs) return []
     lastLogAtMs = nowMs
 
-    const vol = ctx?.indicators?.volatility
+    const vol = (ctx?.plugins?.['timeWindowVolatility'] as VolatilitySnapshot | undefined) ?? undefined
 
     // Render a readable table in terminal (updates in-place when TTY).
     if (process.stdout.isTTY) {
@@ -123,7 +123,7 @@ export function createStrategy(cfg: Config): {
 
   return {
     strategy: { name, onMarketTick, onAccountEvent },
-    indicatorSet,
+    plugins,
   }
 }
 

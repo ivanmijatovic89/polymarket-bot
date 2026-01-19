@@ -35,8 +35,8 @@ function fmtBool(b: unknown): string {
 }
 
 function pickVol(snapshot: BotUiSnapshot): VolatilitySnapshot | null {
-  const ind = (snapshot as unknown as { indicators?: any }).indicators
-  const vol = ind?.volatility
+  const plugins = (snapshot as unknown as { plugins?: any }).plugins
+  const vol = plugins?.timeWindowVolatility
   if (!vol || typeof vol !== 'object') return null
   if (!vol.byAssetId || typeof vol.byAssetId !== 'object') return null
   return vol as VolatilitySnapshot

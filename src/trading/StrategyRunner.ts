@@ -1,8 +1,7 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
-import type { IndicatorSet } from '../indicators/IndicatorSet.js'
 import type { StrategyContext, WarmupSnapshot } from '../strategy/StrategyContext.js'
-import type { ExternalFeedsSnapshot } from './feeds/externalFeeds.js'
+import type { PluginsSnapshot, PluginSet } from '../strategy/plugins/PluginSet.js'
 import { Portfolio } from './Portfolio.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { IntentExecutionMode } from './OrderManager.js'
@@ -37,17 +36,10 @@ export type StrategyRunnerOptions = {
   orderManager: OrderManager
   portfolio?: Portfolio
   /**
-   * Optional indicator set to update on every market tick.
-   * If omitted, indicators have near-zero overhead (single null-check).
+   * Optional plugin set to update on every market tick.
+   * If omitted, plugins have near-zero overhead (single null-check).
    */
-  indicatorSet?: IndicatorSet
-  /**
-   * Optional external feeds snapshot provider (live-only).
-   *
-   * NOTE: These snapshots are passed ONLY on onMarketTick (not onAccountEvent),
-   * to keep all data access tick-scoped and backtest-friendly.
-   */
-  getFeedsSnapshot?: () => ExternalFeedsSnapshot | undefined
+  pluginSet?: PluginSet
   /**
    * Optional market metadata snapshot provider (live + backtest).
    *
@@ -84,8 +76,7 @@ export class StrategyRunner {
   private readonly strategy: Strategy
   private readonly orderManager: OrderManager
   private readonly portfolio: Portfolio
-  private readonly indicatorSet: IndicatorSet | undefined
-  private readonly getFeedsSnapshot: (() => ExternalFeedsSnapshot | undefined) | undefined
+  private readonly pluginSet: PluginSet | undefined
   private readonly getMarket: (() => GammaMarketMeta | undefined) | undefined
   private readonly getWarmup: (() => WarmupSnapshot | undefined) | undefined
   private readonly intentExecutionMode: IntentExecutionMode
@@ -94,6 +85,8 @@ export class StrategyRunner {
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
+  private lastMarketKey: string | null = null
+  private cachedPlugins: PluginsSnapshot | undefined
   private readonly accountEventQueue: AccountEvent[] = []
   private draining = false
   private readonly recentDrainEvents: { kind: AccountEvent['kind']; tsMs?: number }[] = []
@@ -105,8 +98,7 @@ export class StrategyRunner {
     this.strategy = opts.strategy
     this.orderManager = opts.orderManager
     this.portfolio = opts.portfolio ?? new Portfolio()
-    this.indicatorSet = opts.indicatorSet
-    this.getFeedsSnapshot = opts.getFeedsSnapshot
+    this.pluginSet = opts.pluginSet
     this.getMarket = opts.getMarket
     this.getWarmup = opts.getWarmup
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
@@ -130,7 +122,7 @@ export class StrategyRunner {
       id: this.strategyId,
       name: this.strategy.name,
       params: this.strategyParams,
-      indicators: this.indicatorSet ? this.indicatorSet.listIds() : [],
+      indicators: this.pluginSet ? this.pluginSet.listIds() : [],
       externalFeeds: {
         ...(requested ? { requested: requested as unknown as Record<string, unknown> } : {}),
         ...(this.externalFeedsEnabled ? { enabled: this.externalFeedsEnabled } : {}),
@@ -140,11 +132,16 @@ export class StrategyRunner {
 
   async onMarketTick(tick: MarketTick): Promise<void> {
     this.lastMarket = tick.snapshot
-    this.indicatorSet?.onMarketTick(tick)
-    const indicators = this.indicatorSet?.snapshot()
-    const feeds = this.getFeedsSnapshot?.()
     const market = this.getMarket?.()
     const warmup = this.getWarmup?.()
+
+    // Reset per-episode plugin state on market change (align with strategy reset semantics).
+    const marketKey = tick.snapshot.market ?? null
+    if (marketKey && this.lastMarketKey && marketKey !== this.lastMarketKey) {
+      this.pluginSet?.reset()
+      this.cachedPlugins = undefined
+    }
+    if (marketKey) this.lastMarketKey = marketKey
 
     // Allow execution layer to emit fills/state updates that happen "because the market moved"
     // (only used in backtests; live fills arrive via user WS / polling).
@@ -169,11 +166,24 @@ export class StrategyRunner {
             ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
           }
         : undefined
-    const ctx: StrategyContext | undefined =
-      indicators || feeds || market || metrics || warmup
+
+    const baseCtx: StrategyContext | undefined =
+      market || metrics || warmup
         ? {
-            ...(indicators ? { indicators } : {}),
-            ...(feeds ? { feeds } : {}),
+            ...(market ? { market } : {}),
+            ...(metrics ? { metrics } : {}),
+            ...(warmup ? { warmup } : {}),
+          }
+        : undefined
+
+    this.pluginSet?.onMarketTick(tick, baseCtx)
+    const plugins = this.pluginSet ? this.pluginSet.snapshot() : undefined
+    if (plugins) this.cachedPlugins = plugins
+
+    const ctx: StrategyContext | undefined =
+      plugins || market || metrics || warmup
+        ? {
+            ...(plugins ? { plugins } : {}),
             ...(market ? { market } : {}),
             ...(metrics ? { metrics } : {}),
             ...(warmup ? { warmup } : {}),
@@ -310,11 +320,9 @@ export class StrategyRunner {
     }
     this.portfolio.apply(ev)
 
-    // Pass the latest cached indicator snapshot + latest external feeds snapshot.
-    // Note: IndicatorSet snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.
+    // Pass the latest cached plugin snapshot.
+    // Note: Plugin snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.
     const portfolio = this.portfolio.snapshot()
-    const indicators = this.indicatorSet?.snapshot()
-    const feeds = this.getFeedsSnapshot?.()
     const market = this.getMarket?.()
     const warmup = this.getWarmup?.()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
@@ -331,11 +339,13 @@ export class StrategyRunner {
             ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
           }
         : undefined
+
+    const plugins = this.cachedPlugins ?? this.pluginSet?.snapshot()
+
     const ctx: StrategyContext | undefined =
-      indicators || feeds || market || metrics || warmup
+      plugins || market || metrics || warmup
         ? {
-            ...(indicators ? { indicators } : {}),
-            ...(feeds ? { feeds } : {}),
+            ...(plugins ? { plugins } : {}),
             ...(market ? { market } : {}),
             ...(metrics ? { metrics } : {}),
             ...(warmup ? { warmup } : {}),

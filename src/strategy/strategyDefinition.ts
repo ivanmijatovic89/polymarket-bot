@@ -1,10 +1,11 @@
 import type { Strategy } from './Strategy.js'
-import type { IndicatorSet } from '../indicators/IndicatorSet.js'
+import type { Plugin, PluginSet } from './plugins/PluginSet.js'
 import type { z } from 'zod'
 
 export type BuiltStrategy = {
   strategy: Strategy
-  indicatorSet?: IndicatorSet
+  pluginSet?: PluginSet
+  plugins?: Plugin[]
 }
 
 /**

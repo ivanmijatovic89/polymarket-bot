@@ -1,7 +1,6 @@
-import type { IndicatorsSnapshot } from '../indicators/IndicatorSet.js'
-import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { Metrics } from './Strategy.js'
+import type { PluginsSnapshot } from './plugins/PluginSet.js'
 
 export type WarmupSnapshot = {
   status: 'warming' | 'warmed' | 'error'
@@ -15,8 +14,7 @@ export type WarmupSnapshot = {
 }
 
 export type StrategyContext = {
-  indicators?: IndicatorsSnapshot
-  feeds?: ExternalFeedsSnapshot
+  plugins?: PluginsSnapshot
   market?: GammaMarketMeta
   metrics?: Metrics
   /** Live-only: token warmup readiness (used to gate order placement). */

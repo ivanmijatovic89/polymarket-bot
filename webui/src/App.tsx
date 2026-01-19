@@ -119,7 +119,7 @@ function fmtList(xs: string[] | undefined, emptyLabel = 'none'): string {
 
 function feedKeysFromData(snapshot: unknown): string[] {
   const s = snapshot as any
-  const feeds = s?.feeds
+  const feeds = s?.plugins?.externalFeeds
   const out: string[] = []
   // Check for actual values, not just object existence
   if (feeds?.rtdsPolymarketCryptoPrices?.binance?.value != null) out.push('rtds:binance')
@@ -344,9 +344,12 @@ export function App() {
   const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
   const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
   const strategy = displaySnapshot?.strategy
-  const indEnabled = displaySnapshot?.strategy?.indicators ?? []
+  const pluginIds = (() => {
+    const p = (displaySnapshot as any)?.plugins
+    return p && typeof p === 'object' ? Object.keys(p).sort() : []
+  })()
   const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
-  const hasVolatility = Boolean((displaySnapshot as any)?.indicators?.volatility)
+  const hasVolatility = Boolean((displaySnapshot as any)?.plugins?.timeWindowVolatility)
   // Split bar above header: apply end-of-market adjustment (missing side => 100¢) ONLY here.
   const pm15m = computeSplitBar(upAsk, downAsk)
   const pm15mWinnerClass =
@@ -484,10 +487,7 @@ export function App() {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              indicators <span className="ml-1 font-mono">{fmtList(indEnabled)}</span>
-            </span>
-            <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              external feeds <span className="ml-1 font-mono">{fmtList(feedsDataKeys)}</span>
+              plugins <span className="ml-1 font-mono">{fmtList(pluginIds)}</span>
             </span>
           </div>
         </div>

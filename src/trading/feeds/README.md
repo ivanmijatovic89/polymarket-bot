@@ -1,6 +1,6 @@
-# Trading external feeds (`ctx.feeds`)
+# Trading external feeds (`ctx.plugins.externalFeeds`)
 
-This folder contains **live-only external data feeds** that can be consumed by strategies via `ctx.feeds`.
+This folder contains **live-only external data feeds** that can be consumed by strategies via `ctx.plugins.externalFeeds`.
 
 External feeds are **not available in backtests** (unless you explicitly record/replay them later).
 
@@ -13,18 +13,18 @@ External feeds are **not available in backtests** (unless you explicitly record/
 
 - A strategy declares which feeds it needs via `strategy.requiredFeeds` (see [`src/strategy/Strategy.ts`](../../strategy/Strategy.ts)).
 - `src/cli/trading-bot.ts` reads `requiredFeeds` and **only starts the requested feed clients**.
-- Feed clients update an in-memory store (`createExternalFeedsStore()`), and `StrategyRunner` passes `ctx.feeds` into:
-  - `onMarketTick(...)`
-  - `onAccountEvent(...)`
+- Feed clients update an in-memory store (`createExternalFeedsStore()`).
+- `src/cli/trading-bot.ts` registers an `ExternalFeedsPlugin` into the runner’s `PluginSet`.
+- `StrategyRunner` snapshots plugins once per market tick and strategies read `ctx.plugins.externalFeeds`.
 
 ## Current feed snapshot shape
 
-Defined in [`externalFeeds.ts`](externalFeeds.ts):
+Defined in [`externalFeeds.ts`](externalFeeds.ts) (this exact object is exposed under `ctx.plugins.externalFeeds`):
 
-- `ctx.feeds.rtdsPolymarketCryptoPrices`
+- `ctx.plugins.externalFeeds.rtdsPolymarketCryptoPrices`
   - `binance`: price point from Polymarket RTDS “Binance source”
   - `chainlink`: price point from Polymarket RTDS “Chainlink source”
-- `ctx.feeds.binanceWsSpotPrice`
+- `ctx.plugins.externalFeeds.binanceWsSpotPrice`
   - “Direct Binance” spot price derived from the Binance Spot WebSocket `aggTrade` stream (last trade price)
 
 Each price point has:
@@ -59,7 +59,7 @@ Notes:
 
 See [`src/strategies/readExternalFeedsExample.v1.ts`](../../strategies/readExternalFeedsExample.v1.ts) for:
 - enabling RTDS + Binance WS feeds
-- reading `ctx.feeds.*`
+- reading `ctx.plugins.externalFeeds.*`
 - printing a simple diff (`binanceWsSpotPrice - rtdsBinance`)
 
 

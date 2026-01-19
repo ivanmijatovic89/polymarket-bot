@@ -168,35 +168,36 @@ Setup:
 
 - Copy `env.example` → `.env` and edit values (the backtest CLI loads `.env`).
 
-## Indicators
+## Plugins (strategy inputs)
 
-Indicators are **optional, reusable computations** that are updated on every market tick and exposed to strategies via a `ctx` argument.
+Plugins are **optional, reusable computations/data sources** that are updated once per market tick and exposed to strategies via `ctx.plugins`.
 
 Key properties in this repo:
-- **Same in live + backtest**: indicators receive the same `MarketTick` stream (from `MarketEngine` → `StrategyRunner`).
-- **Zero cost when unused**: a strategy only constructs an `IndicatorSet` if it needs indicators.
+- **Same in live + backtest**: plugins receive the same `MarketTick` stream (from `MarketEngine` → `StrategyRunner`).
+- **Tick-scoped snapshots**: `StrategyRunner` caches plugin snapshots on market ticks and reuses the cached snapshot on `onAccountEvent` (backtest-friendly and deterministic).
+- **Zero cost when unused**: a strategy only constructs a `PluginSet` if it needs plugins.
 
 How it works (high-level):
-- A strategy can return `{ strategy, indicatorSet }` from its `definition.create(...)`.
-- `StrategyRunner` updates `indicatorSet` once per tick and passes `ctx.indicators` into `onMarketTick` and `onAccountEvent`.
+- A strategy can return `{ strategy, pluginSet }` from its `definition.create(...)`.
+- `StrategyRunner` updates `pluginSet` once per tick and passes `ctx.plugins` into `onMarketTick` and `onAccountEvent`.
 
-### Full list of indicators
+### Example plugins
 
-- [`TimeWindowVolatility`](src/indicators/volatility/TimeWindowVolatility.md)
+- [`TimeWindowVolatility`](src/strategy/plugins/TimeWindowVolatility.md) (reads via `ctx.plugins.timeWindowVolatility`)
 
-### Example strategy using an indicator
+### Example strategy using a plugin
 
 - [`readVolatilityIndicator.v1`](src/strategies/readVolatilityIndicator.v1.ts)
 
 ## External Feeds
 
-External feeds are **live-only** data sources (not available in backtests) exposed to strategies via `ctx.feeds`.
+External feeds are **live-only** data sources (not available in backtests) exposed to strategies via `ctx.plugins.externalFeeds`.
 
 ### Available feeds
 
-- **Polymarket RTDS crypto prices**: `ctx.feeds.rtdsPolymarketCryptoPrices`
+- **Polymarket RTDS crypto prices**: `ctx.plugins.externalFeeds.rtdsPolymarketCryptoPrices`
   - backed by Polymarket RTDS (Binance source + Chainlink source)
-- **Direct Binance spot price (aggTrade)**: `ctx.feeds.binanceWsSpotPrice`
+- **Direct Binance spot price (aggTrade)**: `ctx.plugins.externalFeeds.binanceWsSpotPrice`
   - backed by Binance Spot WebSocket `aggTrade` (last trade price)
 
 ### How to enable

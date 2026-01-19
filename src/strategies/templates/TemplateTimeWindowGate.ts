@@ -1,7 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
-import * as strategyToolkit from '../../strategy/strategyToolkit.js'
+import type { Plugin } from '../../strategy/plugins/PluginSet.js'
+import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -17,25 +18,24 @@ export const definition: StrategyDefinition<Config> = {
   description:
     'Template time window gate',
   schema: ConfigSchema,
-  create: (cfg) => ({ strategy: createStrategy(cfg) }),
+  create: (cfg) => createStrategy(cfg),
 }
 
-export function createStrategy(cfg: Config): Strategy {
+export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plugin[] } {
   const name = 'TemplateTimeWindowGate'
-  // Gates
-  const timeGate = strategyToolkit.createTimeWindowGate({
-    allowAfterMs: cfg.timeFilterAllowTradingAfterSeconds * 1000,
-    disableAfterMs: cfg.timeFilterDisableTradingAfterSeconds * 1000,
-  })
+  const plugins: Plugin[] = [
+    new TimeWindowGatePlugin({
+      allowAfterMs: cfg.timeFilterAllowTradingAfterSeconds * 1000,
+      disableAfterMs: cfg.timeFilterDisableTradingAfterSeconds * 1000,
+    }),
+  ]
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
     const nowMs = tick.snapshot.timestamp
+    void nowMs
+    void portfolio
 
-    // Time window check
-    const withinWindow = timeGate.check({
-      nowMs,
-      market: ctx?.market,
-    })
+    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
 
     if( withinWindow ) {
       console.log(`🟢 inside time window`);
@@ -48,5 +48,5 @@ export function createStrategy(cfg: Config): Strategy {
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []
 
-  return { name, onMarketTick, onAccountEvent }
+  return { strategy: { name, onMarketTick, onAccountEvent }, plugins }
 }

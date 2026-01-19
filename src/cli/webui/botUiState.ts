@@ -1,8 +1,7 @@
 import type { MarketOrderBooksSnapshot, OrderBookSnapshot } from '../../market/orderbook/index.js'
 import type { StrategyRunnerMeta } from '../../trading/StrategyRunner.js'
 import type { Metrics, PortfolioSnapshot } from '../../strategy/Strategy.js'
-import type { IndicatorsSnapshot } from '../../indicators/IndicatorSet.js'
-import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
+import type { PluginsSnapshot } from '../../strategy/plugins/PluginSet.js'
 
 /**
  * Minimal state needed for a read-only bot monitoring UI (web or otherwise).
@@ -21,8 +20,7 @@ export type BotUiSourceState = {
   strategy?: StrategyRunnerMeta
   portfolio?: PortfolioSnapshot
   metrics?: Metrics
-  indicators?: IndicatorsSnapshot
-  feeds?: ExternalFeedsSnapshot
+  plugins?: PluginsSnapshot
 }
 
 export type BotUiOrderBookLevel = {
@@ -59,8 +57,7 @@ export type BotUiSnapshot = {
   strategy?: StrategyRunnerMeta
   portfolio?: PortfolioSnapshot
   metrics?: Metrics
-  indicators?: IndicatorsSnapshot
-  feeds?: ExternalFeedsSnapshot
+  plugins?: PluginsSnapshot
 }
 
 export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: number): BotUiOrderBook | undefined {

@@ -1,11 +1,15 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
-import { IndicatorSet } from '../../indicators/IndicatorSet.js'
-import { TimeWindowVolatility } from '../../indicators/volatility/TimeWindowVolatility.js'
+import type { Plugin } from '../../strategy/plugins/PluginSet.js'
+import { TimeWindowVolatility } from '../../strategy/plugins/TimeWindowVolatility.js'
 import { isWarmed } from '../../strategy/strategyToolkit.js'
+import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
+import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import * as z from 'zod'
 import { fmtCents } from '../../../webui/src/utils/format.js'
+import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
+import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 
 export const ConfigSchema = z.strictObject({
 
@@ -25,7 +29,7 @@ export const definition: StrategyDefinition<Config> = {
 
 export function createStrategy(_cfg: Config): {
   strategy: Strategy,
-  indicatorSet: IndicatorSet
+  plugins: Plugin[]
 } {
   void _cfg
   const name = 'template.v1'
@@ -37,8 +41,26 @@ export function createStrategy(_cfg: Config): {
     '60s': 60_000,
   } as const
 
-  const indicatorSet = new IndicatorSet()
-  indicatorSet.register(new TimeWindowVolatility({ windows }))
+  const plugins = [
+    new TimeWindowVolatility({ windows }),
+    new ExternalFeedsRequestPlugin({
+      rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
+      binanceWsSpotPrice: { symbol: 'btcusdt' },
+      polymarketPriceToBeat: { enabled: true },
+    }),
+    new DwellGatePlugin({
+      from: 0.10,
+      to: 0.45,
+      requiredMs: 60 * 1000,
+      trackPrice: 'bid',
+      log: true,
+    }),
+    new TimeWindowGatePlugin({
+      allowAfterMs: 100 * 1000,
+      disableAfterMs: 800 * 1000,
+      log: true,
+    }),
+  ]
 
   const onMarketTick = (
     tick: MarketTick,
@@ -51,10 +73,11 @@ export function createStrategy(_cfg: Config): {
     if (!isWarmed(ctx)) return []
 
     // feeds
-    const _b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
-    const _c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
-    const _bw = ctx?.feeds?.binanceWsSpotPrice
-    const _ptb = ctx?.feeds?.polymarketPriceToBeat
+    const feeds = (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
+    const _b = feeds?.rtdsPolymarketCryptoPrices?.binance
+    const _c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
+    const _bw = feeds?.binanceWsSpotPrice
+    const _ptb = feeds?.polymarketPriceToBeat
     void _b
     void _c
     void _bw
@@ -65,16 +88,16 @@ export function createStrategy(_cfg: Config): {
     const upBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestBid
     const downBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestBid
     // console.log('upAskBestPrice', upAskBestPrice, 'downAskBestPrice', downAskBestPrice)
-    console.log(fmtCents(upAskBestPrice ?? 0) + ' - ' + fmtCents(downAskBestPrice ?? 0) + ' ..... ' + fmtCents(upBidBestPrice ?? 0) + ' - ' + fmtCents(downBidBestPrice ?? 0))
+    // console.log(fmtCents(upAskBestPrice ?? 0) + ' - ' + fmtCents(downAskBestPrice ?? 0) + ' ..... ' + fmtCents(upBidBestPrice ?? 0) + ' - ' + fmtCents(downBidBestPrice ?? 0))
     // const diff = bw?.value && b?.value ? bw.value - b.value : undefined;
     // if(diff && (diff > 1 || diff < -1)) {
     //   console.log('diff', diff?.toFixed(0), 'UP:'+ upAskBestPrice, ' DOWN:'+ downAskBestPrice)
     // }
     // console.log('feeds', b, c, bw, ptb)
 
-    // indicators
-    // const vol = ctx?.indicators?.volatility
-    // console.log('indicators', vol)
+    // plugins
+    // const vol = ctx?.plugins?.['timeWindowVolatility']
+    // console.log('plugins', vol)
     return []
   }
 
@@ -89,23 +112,11 @@ export function createStrategy(_cfg: Config): {
 
   const strategy: Strategy = {
     name,
-    requiredFeeds: {
-      rtdsCryptoPrices: {
-        binanceSymbols: ['btcusdt'],
-        chainlinkSymbols: ['btc/usd'],
-      },
-      binanceWsSpotPrice: {
-        symbol: 'btcusdt',
-      },
-      polymarketPriceToBeat: {
-        enabled: true,
-      },
-    },
     onMarketTick,
     onAccountEvent,
   }
 
-  return { strategy, indicatorSet }
+  return { strategy, plugins }
 }
 
 

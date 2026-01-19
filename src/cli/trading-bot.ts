@@ -18,6 +18,9 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
+import { ExternalFeedsPlugin } from '../strategy/plugins/ExternalFeedsPlugin.js'
+import { PluginSet } from '../strategy/plugins/PluginSet.js'
+import { ExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { computePositionMetricsFromMarket } from '../trading/positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from '../trading/orderbookMetrics.js'
 import { mkdir } from 'node:fs/promises'
@@ -149,7 +152,11 @@ async function main(): Promise<void> {
     }
   })()
   const strategy = built.strategy
-  const indicatorSet = built.indicatorSet
+  let pluginSet = built.pluginSet ?? null
+  if (!pluginSet && Array.isArray(built.plugins) && built.plugins.length > 0) {
+    pluginSet = new PluginSet()
+    for (const p of built.plugins) pluginSet.register(p)
+  }
   const logTrades = (process.env.LOG_TRADES ?? 'false').toLowerCase() === 'true'
 
   // Optional per-run JSONL logging
@@ -219,7 +226,12 @@ async function main(): Promise<void> {
   logger.info(`[trading-bot][⚙️] strategy=${built.strategyId}`)
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
-  const rtdsReq = strategy.requiredFeeds?.rtdsCryptoPrices
+  const externalFeedsReqPlugin = pluginSet?.list().find((p) => p instanceof ExternalFeedsRequestPlugin) as
+    | ExternalFeedsRequestPlugin
+    | undefined
+  const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
+
+  const rtdsReq = requiredFeeds?.rtdsCryptoPrices
   const rtdsBinanceSymbols = rtdsReq?.binanceSymbols ?? []
   // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
   const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols ?? []
@@ -231,7 +243,7 @@ async function main(): Promise<void> {
     )
   }
 
-  const binanceWsReq = strategy.requiredFeeds?.binanceWsSpotPrice
+  const binanceWsReq = requiredFeeds?.binanceWsSpotPrice
   const binanceWsSymbol = (binanceWsReq?.symbol ?? '').toLowerCase().trim()
   const binanceWsEnabled = binanceWsSymbol.length > 0
   if (binanceWsReq && !binanceWsEnabled) {
@@ -240,12 +252,20 @@ async function main(): Promise<void> {
     )
   }
 
-  const priceToBeatReq = strategy.requiredFeeds?.polymarketPriceToBeat
+  const priceToBeatReq = requiredFeeds?.polymarketPriceToBeat
   const priceToBeatEnabled = priceToBeatReq?.enabled === true
 
   const feedsEnabled =
     (rtdsReq && rtdsEnabled) || (binanceWsReq && binanceWsEnabled) || priceToBeatEnabled
   const feedsStore = feedsEnabled ? createExternalFeedsStore() : null
+  if (feedsStore) {
+    if (!pluginSet) pluginSet = new PluginSet()
+    if (externalFeedsReqPlugin) {
+      externalFeedsReqPlugin.fulfill(() => feedsStore.snapshot())
+    } else {
+      pluginSet.register(new ExternalFeedsPlugin(() => feedsStore.snapshot()))
+    }
+  }
 
   const rtdsClient =
     rtdsReq && rtdsEnabled
@@ -338,17 +358,22 @@ async function main(): Promise<void> {
     let eoaOk = true
     let safeOk = true
 
-    try {
-      await logBalanceAndApproval({
-        rpcUrl,
-        privateKey: cfg.privateKey,
-        chainId: cfg.clob.chainId,
-        clobHost: cfg.clob.host,
-        addressLabel: 'EOA',
-      })
-    } catch (err) {
+    if (!cfg.privateKey) {
       eoaOk = false
-      logger.error('[trading-bot] EOA balance/approval check failed', { err })
+      logger.error('[trading-bot] missing private key; cannot check EOA balance/approval')
+    } else {
+      try {
+        await logBalanceAndApproval({
+          rpcUrl,
+          privateKey: cfg.privateKey,
+          chainId: cfg.clob.chainId,
+          clobHost: cfg.clob.host,
+          addressLabel: 'EOA',
+        })
+      } catch (err) {
+        eoaOk = false
+        logger.error('[trading-bot] EOA balance/approval check failed', { err })
+      }
     }
 
     if (safeFunder) {
@@ -401,8 +426,7 @@ async function main(): Promise<void> {
     },
     strategy,
     orderManager,
-    ...(indicatorSet ? { indicatorSet } : {}),
-    ...(feedsStore ? { getFeedsSnapshot: () => feedsStore.snapshot() } : {}),
+    ...(pluginSet ? { pluginSet } : {}),
     getMarket: () => currentMarket,
     getWarmup: () => currentWarmup,
     intentExecutionMode,
@@ -650,8 +674,29 @@ async function main(): Promise<void> {
     void runner.onAccountEvent(ev)
   })
 
+  // Debug: track when currentMarket is missing
+  let warnedMissingCurrentMarket = false
+
   source.onEvent((ev) => {
     if (shouldStop || isRotating) return
+
+    // Debug: log when currentMarket is missing (only once per "missing" period)
+    if (!currentMarket) {
+      if (!warnedMissingCurrentMarket) {
+        logger.warn('[trading-bot][⚠️] tick received but currentMarket is undefined', {
+          data: { currentSlug, hasCurrentMarket: false },
+        })
+        warnedMissingCurrentMarket = true
+      }
+      // Skip tick - strategy can't work without market metadata
+      return
+    }
+    // Reset warning when market becomes available
+    if (warnedMissingCurrentMarket) {
+      logger.info('[trading-bot][🟢] currentMarket now available', { data: { slug: currentSlug } })
+      warnedMissingCurrentMarket = false
+    }
+
     totalWsEvents += 1
 
     void marketEngine
@@ -663,7 +708,7 @@ async function main(): Promise<void> {
         logger.error('[trading-bot] MarketEngine.handleRaw failed', { err })
         // If we somehow see a different market than expected, reset and keep going.
         marketEngine.reset()
-        indicatorSet?.reset()
+        pluginSet?.reset()
       })
   })
 
@@ -673,7 +718,7 @@ async function main(): Promise<void> {
       wsAttempt = s.attempt
       // New websocket session / potential new market: reset local orderbook state.
       marketEngine.reset()
-      indicatorSet?.reset()
+      pluginSet?.reset()
       // External feeds are independent of market WS; do NOT reset them here.
       logger.info(`[trading-bot] 🟢 connected (${s.info ?? 'ws'})`)
       return
@@ -714,7 +759,7 @@ async function main(): Promise<void> {
       source.stop()
       // No stateful resources yet (strategy/order manager will flush here).
       marketEngine.reset()
-      indicatorSet?.reset()
+      pluginSet?.reset()
       isRotating = false
       source.start()
     })().catch((err) => {
@@ -836,16 +881,9 @@ async function main(): Promise<void> {
                 ...(orderbookMetrics ? { orderbook: orderbookMetrics } : {}),
               }
             : undefined
-        const indicators = (() => {
+        const plugins = (() => {
           try {
-            return indicatorSet?.snapshot()
-          } catch {
-            return undefined
-          }
-        })()
-        const feeds = (() => {
-          try {
-            return feedsStore?.snapshot()
+            return pluginSet?.snapshot()
           } catch {
             return undefined
           }
@@ -862,8 +900,7 @@ async function main(): Promise<void> {
           ...(strategyMeta ? { strategy: strategyMeta } : {}),
           ...(portfolio ? { portfolio } : {}),
           ...(metrics ? { metrics } : {}),
-          ...(typeof indicators !== 'undefined' ? { indicators } : {}),
-          ...(typeof feeds !== 'undefined' ? { feeds } : {}),
+          ...(typeof plugins !== 'undefined' ? { plugins } : {}),
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

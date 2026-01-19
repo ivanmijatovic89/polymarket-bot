@@ -1,5 +1,5 @@
-import type { Indicator } from '../IndicatorSet.js'
-import type { MarketTick } from '../../strategy/Strategy.js'
+import type { MarketTick } from '../Strategy.js'
+import type { Plugin } from './PluginSet.js'
 
 type Sample = { tsMs: number; price: number }
 
@@ -255,7 +255,7 @@ class RollingTimeWindow {
       endTsMs,
       coverageMs,
       ready,
-       staleMs: 0,
+      staleMs: 0,
       startPrice,
       endPrice,
       netChange,
@@ -277,12 +277,12 @@ export type TimeWindowVolatilityConfig = {
 }
 
 /**
- * Time-based volatility indicator using bestAsk (\"price you can buy\") per asset.
+ * Time-based volatility plugin using bestAsk ("price you can buy") per asset.
  *
  * Updates every tick and exposes precomputed stats via snapshot().
  */
-export class TimeWindowVolatility implements Indicator {
-  readonly id = 'volatility'
+export class TimeWindowVolatility implements Plugin {
+  readonly id = 'timeWindowVolatility'
 
   private readonly windows: Record<string, number>
   private readonly byAssetId = new Map<string, Record<string, RollingTimeWindow>>()
@@ -331,5 +331,4 @@ export class TimeWindowVolatility implements Indicator {
     return out
   }
 }
-
 

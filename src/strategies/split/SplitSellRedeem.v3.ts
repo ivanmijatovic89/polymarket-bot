@@ -1,7 +1,10 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
-import * as strategyToolkit from '../../strategy/strategyToolkit.js'
+import type { Plugin } from '../../strategy/plugins/PluginSet.js'
+import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
+import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
+import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -25,10 +28,10 @@ export const definition: StrategyDefinition<Config> = {
   description:
     'Splits collateral into UP+DOWN (full set). Tracks dwell time per side and trades only within an allowed time window.',
   schema: ConfigSchema,
-  create: (cfg) => ({ strategy: createStrategy(cfg) }),
+  create: (cfg) => createStrategy(cfg),
 }
 
-export function createStrategy(cfg: Config): Strategy {
+export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plugin[] } {
   const name = 'SplitSellRedeem.v3'
 
   // Episode state
@@ -36,26 +39,26 @@ export function createStrategy(cfg: Config): Strategy {
   let sellPlaced = false
   let lastMarketKey: string | null = null
 
-  // Gates
-  const timeGate = strategyToolkit.createTimeWindowGate({
+  const timeWindowGatePlugin = new TimeWindowGatePlugin({
     allowAfterMs: cfg.timeFilterAllowTradingAfterSeconds * 1000,
     disableAfterMs: cfg.timeFilterDisableTradingAfterSeconds * 1000,
   })
 
-  const dwellGate = strategyToolkit.createDwellGate({
+  const dwellGatePlugin = new DwellGatePlugin({
     from: cfg.dwellRangeFrom,
     to: cfg.dwellRangeTo,
     requiredMs: cfg.dwellSecondsRequired * 1000,
     trackPrice: cfg.dwellTrackPrice,
   })
 
+  const plugins: Plugin[] = [timeWindowGatePlugin, dwellGatePlugin]
+
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) return []
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
-    const upAssetId = m?.market?.upAssetId ?? null
-    const downAssetId = m?.market?.downAssetId ?? null
+    const upAssetId = ctx?.market?.upAssetId ?? null
+    const downAssetId = ctx?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) return []
 
     // Reset on market change
@@ -63,7 +66,8 @@ export function createStrategy(cfg: Config): Strategy {
     if (marketKey && lastMarketKey && marketKey !== lastMarketKey) {
       splitRequested = false
       sellPlaced = false
-      dwellGate.reset()
+      dwellGatePlugin.reset()
+      timeWindowGatePlugin.reset()
     }
     if (marketKey) lastMarketKey = marketKey
 
@@ -72,6 +76,9 @@ export function createStrategy(cfg: Config): Strategy {
     // Split once
     if (!splitRequested) {
       splitRequested = true
+      // Preserve original semantics: dwell/time tracking starts AFTER split has been requested.
+      dwellGatePlugin.reset()
+      timeWindowGatePlugin.reset()
       return [
         {
           kind: 'split_positions',
@@ -84,19 +91,10 @@ export function createStrategy(cfg: Config): Strategy {
       ]
     }
 
-    // Time window check
-    const withinWindow = timeGate.check({
-      nowMs,
-      market: ctx?.market,
-    })
-
-    // Dwell check (always update, even outside window)
-    const { dwellUpOk, dwellDownOk } = dwellGate.update({
-      nowMs,
-      upAssetId,
-      downAssetId,
-      snapshot: tick.snapshot,
-    })
+    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
+    const dwell = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const dwellUpOk = dwell?.dwellUpOk === true
+    const dwellDownOk = dwell?.dwellDownOk === true
 
     if (!withinWindow) return []
 
@@ -119,7 +117,7 @@ export function createStrategy(cfg: Config): Strategy {
     // Place sell
     const assetId = side === 'UP' ? upAssetId : downAssetId
     const bestBid = side === 'UP' ? upBid! : downBid!
-    const sellPrice = strategyToolkit.safeProbabilityPrice(bestBid - 0.01)
+    const sellPrice = safeProbabilityPrice(bestBid - 0.01)
 
     sellPlaced = true
     return [
@@ -138,5 +136,5 @@ export function createStrategy(cfg: Config): Strategy {
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []
 
-  return { name, onMarketTick, onAccountEvent }
+  return { strategy: { name, onMarketTick, onAccountEvent }, plugins }
 }

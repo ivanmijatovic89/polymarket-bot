@@ -1,5 +1,5 @@
 import type { Strategy } from '../../strategy/Strategy.js'
-import type { IndicatorSet } from '../../indicators/IndicatorSet.js'
+import type { Plugin, PluginSet } from '../../strategy/plugins/PluginSet.js'
 import { CliArgsError, parseStrategyArgs } from '../../strategy/strategyDefinition.js'
 import { getStrategyDefinition, listStrategies } from '../../strategy/strategyRegistry.js'
 import * as z from 'zod'
@@ -8,7 +8,8 @@ export type BuildStrategyFromCliArgsResult = {
   strategyId: string
   params: Record<string, unknown>
   strategy: Strategy
-  indicatorSet?: IndicatorSet
+  pluginSet?: PluginSet
+  plugins?: Plugin[]
 }
 
 function schemaKeys(schema: unknown): string[] | null {
@@ -65,8 +66,9 @@ export function buildStrategyFromCliArgs(args: {
     const parts: string[] = []
     for (const e of flat.formErrors) parts.push(e)
     for (const [k, errs] of Object.entries(flat.fieldErrors)) {
-      if (!errs || errs.length === 0) continue
-      parts.push(`${k}: ${errs.join('; ')}`)
+      const list = errs as unknown as string[] | undefined
+      if (!list || list.length === 0) continue
+      parts.push(`${k}: ${list.join('; ')}`)
     }
     const msg =
       parts.length > 0 ? parts.join('\n') : parsed.error.issues.map((i) => i.message).join('\n')

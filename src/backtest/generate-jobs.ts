@@ -172,7 +172,7 @@ const dir = path.dirname(absGridPath);
 let parsed: GridJSON;
 try {
   parsed = JSON.parse(fs.readFileSync(absGridPath, "utf8"));
-} catch (e) {
+} catch {
   die(`Failed to parse JSON: ${absGridPath}`);
 }
 

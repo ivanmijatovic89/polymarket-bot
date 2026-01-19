@@ -1,8 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
-import { IndicatorSet } from '../../indicators/IndicatorSet.js'
-import { TimeWindowVolatility } from '../../indicators/volatility/TimeWindowVolatility.js'
+import type { Plugin } from '../../strategy/plugins/PluginSet.js'
+import { TimeWindowVolatility } from '../../strategy/plugins/TimeWindowVolatility.js'
 import type { OrderBookSnapshot } from '../../market/orderbook/types.js'
 import * as z from 'zod'
 
@@ -23,7 +23,7 @@ export const definition: StrategyDefinition<Config> = {
 
 export function createStrategy(cfg: Config): {
   strategy: Strategy,
-  indicatorSet: IndicatorSet
+  plugins: Plugin[]
 } {
   void cfg
   const name = 'orderbook.v1'
@@ -35,8 +35,7 @@ export function createStrategy(cfg: Config): {
     '60s': 60_000,
   } as const
 
-  const indicatorSet = new IndicatorSet()
-  indicatorSet.register(new TimeWindowVolatility({ windows }))
+  const plugins: Plugin[] = [new TimeWindowVolatility({ windows })]
 
   const onMarketTick = (
     tick: MarketTick,
@@ -105,21 +104,9 @@ export function createStrategy(cfg: Config): {
 
   const strategy: Strategy = {
     name,
-    // requiredFeeds: {
-    //   rtdsCryptoPrices: {
-    //     binanceSymbols: ['btcusdt'],
-    //     chainlinkSymbols: ['btc/usd'],
-    //   },
-    //   binanceWsSpotPrice: {
-    //     symbol: 'btcusdt',
-    //   },
-    //   polymarketPriceToBeat: {
-    //     enabled: true,
-    //   },
-    // },
     onMarketTick,
     onAccountEvent,
   }
 
-  return { strategy, indicatorSet }
+  return { strategy, plugins }
 }

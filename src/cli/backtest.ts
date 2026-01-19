@@ -7,6 +7,7 @@ import { MarketEngine } from '../market/MarketEngine.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
+import { PluginSet } from '../strategy/plugins/PluginSet.js'
 import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import type { Strategy } from '../strategy/Strategy.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
@@ -226,6 +227,15 @@ async function main(): Promise<void> {
     const def = getStrategyDefinition(built.strategyId)
     const builtStrategy = def.create(built.params as never)
     const strategy = builtStrategy.strategy
+    const pluginSet = (() => {
+      if (builtStrategy.pluginSet) return builtStrategy.pluginSet
+      if (Array.isArray(builtStrategy.plugins) && builtStrategy.plugins.length > 0) {
+        const s = new PluginSet()
+        for (const p of builtStrategy.plugins) s.register(p)
+        return s
+      }
+      return undefined
+    })()
     const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
     const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
@@ -246,7 +256,7 @@ async function main(): Promise<void> {
       strategy,
       orderManager,
       intentExecutionMode: 'immediate',
-      ...(builtStrategy.indicatorSet ? { indicatorSet: builtStrategy.indicatorSet } : {}),
+      ...(pluginSet ? { pluginSet } : {}),
       ...(opts?.getMarket ? { getMarket: opts.getMarket } : {}),
       log: (msg, extra) => console.log(msg, extra ?? ''),
     })

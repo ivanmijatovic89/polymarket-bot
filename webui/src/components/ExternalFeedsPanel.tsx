@@ -15,7 +15,7 @@ type Tile = {
 }
 
 export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
-  const feeds = (props.snapshot as unknown as { feeds?: any }).feeds
+  const feeds = (props.snapshot as unknown as { plugins?: any }).plugins?.externalFeeds
 
   const tiles: Tile[] = []
 

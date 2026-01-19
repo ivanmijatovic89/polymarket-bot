@@ -1,7 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
-import * as strategyToolkit from '../../strategy/strategyToolkit.js'
+import type { Plugin } from '../../strategy/plugins/PluginSet.js'
+import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -19,45 +20,34 @@ export const definition: StrategyDefinition<Config> = {
   description:
     'Template dwell gate',
   schema: ConfigSchema,
-  create: (cfg) => ({ strategy: createStrategy(cfg) }),
+  create: (cfg) => createStrategy(cfg),
 }
 
-export function createStrategy(cfg: Config): Strategy {
+export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plugin[] } {
   const name = 'TemplateDwellGate'
 
-  let lastMarketKey: string | null = null
-
-  const dwellGate = strategyToolkit.createDwellGate({
-    from: cfg.dwellRangeFrom,
-    to: cfg.dwellRangeTo,
-    requiredMs: cfg.dwellSecondsRequired * 1000,
-    trackPrice: cfg.dwellTrackPrice,
-    log: true,
-  })
+  const plugins: Plugin[] = [
+    new DwellGatePlugin({
+      from: cfg.dwellRangeFrom,
+      to: cfg.dwellRangeTo,
+      requiredMs: cfg.dwellSecondsRequired * 1000,
+      trackPrice: cfg.dwellTrackPrice,
+      log: true,
+    }),
+  ]
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) return []
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
-    const upAssetId = m?.market?.upAssetId ?? null
-    const downAssetId = m?.market?.downAssetId ?? null
+    const upAssetId = ctx?.market?.upAssetId ?? null
+    const downAssetId = ctx?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) return []
 
-    // Reset on market change
-    const marketKey = tick.snapshot.market ?? null
-    if (marketKey && lastMarketKey && marketKey !== lastMarketKey) {
-      dwellGate.reset()
-    }
-    if (marketKey) lastMarketKey = marketKey
-
-    // Dwell check (always update, even outside window)
-    const { dwellUpOk, dwellDownOk } = dwellGate.update({
-      nowMs,
-      upAssetId,
-      downAssetId,
-      snapshot: tick.snapshot,
-    })
+    void portfolio
+    const dwell = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const dwellUpOk = dwell?.dwellUpOk === true
+    const dwellDownOk = dwell?.dwellDownOk === true
 
     // Pick side to sell
     const upBid = tick.snapshot.byAssetId[upAssetId]?.bestBid ?? null
@@ -77,12 +67,12 @@ export function createStrategy(cfg: Config): Strategy {
     const assetId = side === 'UP' ? upAssetId : downAssetId
     const bestBid = side === 'UP' ? upBid! : downBid!
 
-    console.log(`🟢 ${side} can sell`);
+    console.log(`🟢 ${side} can sell assetId=${assetId.slice(-8)} bestBid=${bestBid}`)
 
     return [];
   }
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []
 
-  return { name, onMarketTick, onAccountEvent }
+  return { strategy: { name, onMarketTick, onAccountEvent }, plugins }
 }

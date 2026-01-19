@@ -1,6 +1,8 @@
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
+import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
+import { ExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
@@ -23,16 +25,18 @@ export const definition: StrategyDefinition<Config> = {
 
 export function createStrategy(cfg: Config): {
   strategy: Strategy
+  plugins: ExternalFeedsRequestPlugin[]
 } {
   const name = 'read_external_feed_binance_chainlink_btc_price'
   let lastLogAtMs = 0
 
   const log = (label: string, nowMs: number, ctx?: StrategyContext): void => {
     // remove decimal places and format ( add comma as thousands separator)
-    const b = ctx?.feeds?.rtdsPolymarketCryptoPrices?.binance
-    const c = ctx?.feeds?.rtdsPolymarketCryptoPrices?.chainlink
-    const bw = ctx?.feeds?.binanceWsSpotPrice
-    const ptb = ctx?.feeds?.polymarketPriceToBeat
+    const feeds = (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
+    const b = feeds?.rtdsPolymarketCryptoPrices?.binance
+    const c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
+    const bw = feeds?.binanceWsSpotPrice
+    const ptb = feeds?.polymarketPriceToBeat
 
     const priceDiff =
       ptb && c && Number.isFinite(ptb.openPrice) && Number.isFinite(c.value)
@@ -86,26 +90,23 @@ export function createStrategy(cfg: Config): {
 
   const strategy: Strategy = {
     name,
-    requiredFeeds: {
-      rtdsCryptoPrices: {
-        // RTDS docs:
-        // - Binance symbol: "btcusdt"
-        // - Chainlink symbol format is slash-separated, e.g. "btc/usd"
-        binanceSymbols: ['btcusdt'],
-        chainlinkSymbols: ['btc/usd'],
-      },
-      binanceWsSpotPrice: {
-        symbol: 'btcusdt',
-      },
-      polymarketPriceToBeat: {
-        enabled: true,
-      },
-    },
     onMarketTick,
     onAccountEvent,
   }
 
-  return { strategy }
+  return {
+    strategy,
+    plugins: [
+      new ExternalFeedsRequestPlugin({
+        rtdsCryptoPrices: {
+          binanceSymbols: ['btcusdt'],
+          chainlinkSymbols: ['btc/usd'],
+        },
+        binanceWsSpotPrice: { symbol: 'btcusdt' },
+        polymarketPriceToBeat: { enabled: true },
+      }),
+    ],
+  }
 }
 
 
