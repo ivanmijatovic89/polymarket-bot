@@ -5,6 +5,7 @@ export type TradeEvent = Fill
 
 export type MarketStats = {
   marketId: string
+  slug: string
   finalOutcome: 'UP' | 'DOWN'
   pnl: number
   tradeCount: number
@@ -40,6 +41,7 @@ export type MarketStats = {
  */
 export function computeMarketStats(params: {
   marketId: string
+  slug: string
   trades: TradeEvent[]
   splits?: PositionsSplit[]
   finalPositions: Record<string, Position>
@@ -47,7 +49,7 @@ export function computeMarketStats(params: {
   finalOutcome: 'UP' | 'DOWN'
   tokenMap: Record<string, string> // { "UP": assetId, "DOWN": assetId }
 }): MarketStats {
-  const { marketId, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
+  const { marketId, slug, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
 
   // Get asset IDs from tokenMap
   const upAssetId = tokenMap['UP']
@@ -132,6 +134,7 @@ export function computeMarketStats(params: {
   const pnl = realizedPnl + mergeValue + redeemValue - cost - splitCost
 
   return {
+    slug,
     marketId,
     finalOutcome,
     pnl: Math.round(pnl * 100) / 100, // Round to 2 decimals

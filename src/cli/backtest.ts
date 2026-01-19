@@ -349,6 +349,7 @@ async function main(): Promise<void> {
       if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
         const stats = computeMarketStats({
           marketId: currentMarketId,
+          slug,
           trades: currentMarketTrades,
           splits: currentMarketSplits,
           finalPositions,
