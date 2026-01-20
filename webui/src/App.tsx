@@ -13,6 +13,7 @@ import {
   PositionsTablePanel,
 } from './components/PortfolioPanels'
 import { VolatilityPanel } from './components/VolatilityPanel'
+import { DwellGateStatus } from './components/DwellGateStatus'
 import { useBotWs } from './hooks/useBotWs'
 import { fmtCents } from './utils/format'
 
@@ -82,7 +83,7 @@ function computeSplitBar(upAsk: number | null, downAsk: number | null): { up: nu
   return computeUpDownSplitFromAsks({ up: adj.up, down: adj.down })
 }
 
-function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number }) {
+function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number; timeWindowGate?: any }) {
   const leftRaw =
     typeof props.candleLeftMs === 'number' && Number.isFinite(props.candleLeftMs) ? props.candleLeftMs : NaN
   const left = Number.isFinite(leftRaw) ? clamp(leftRaw, 0, CANDLE_MS_15M) : NaN
@@ -90,12 +91,12 @@ function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number
 
   return (
     <div
-      className="pm-timebar"
+      className={`pm-timebar`}
       style={{ top: `${props.topPx}px`, bottom: `${props.bottomPx}px` }}
       title={Number.isFinite(left) ? `${Math.round(left / 1000)}s left` : 'time n/a'}
     >
       <div className="pm-timebar-track">
-        <div className="pm-timebar-remaining" style={{ height: `${remainingPct}%` }} />
+        <div className={`pm-timebar-remaining`} style={{ height: `${remainingPct}%` }} />
       </div>
     </div>
   )
@@ -350,6 +351,8 @@ export function App() {
   })()
   const feedsDataKeys = displaySnapshot ? feedKeysFromData(displaySnapshot) : []
   const hasVolatility = Boolean((displaySnapshot as any)?.plugins?.timeWindowVolatility)
+  const timeWindowGate = (displaySnapshot as any)?.plugins?.timeWindowGate
+  const dwellGate = (displaySnapshot as any)?.plugins?.dwellGate
   // Split bar above header: apply end-of-market adjustment (missing side => 100¢) ONLY here.
   const pm15m = computeSplitBar(upAsk, downAsk)
   const pm15mWinnerClass =
@@ -391,11 +394,15 @@ export function App() {
               <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
                 {displaySnapshot ? (
                   <span className="chip text-[18px] sm:text-[22px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                    ⏳ <span className="ml-1 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
+                    <span className="cursor-help" title={`${timeWindowGate?.allowAfterMs && timeWindowGate?.disableAfterMs ? `allow after ${fmtMs(timeWindowGate?.allowAfterMs)} - disable after ${fmtMs(timeWindowGate?.disableAfterMs)}` : ''}`}>
+                      {timeWindowGate?.withinWindow ? '🟢' : '🔴'}
+                    </span>
+                    <span className="ml-3 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
                   </span>
                 ) : null}
                 <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
                 <ConnectionBadge status={status} />
+                <DwellGateStatus dwellGate={dwellGate} />
               </div>
 
               {/* Center (always centered) */}
@@ -433,7 +440,7 @@ export function App() {
         </header>
       </div>
 
-      <TimeBar candleLeftMs={displaySnapshot?.status?.candleLeftMs} topPx={chrome.topPx} bottomPx={chrome.bottomPx} />
+      <TimeBar candleLeftMs={displaySnapshot?.status?.candleLeftMs} topPx={chrome.topPx} bottomPx={chrome.bottomPx} timeWindowGate={timeWindowGate}/>
 
       <main className="mx-auto  px-2 py-2 pb-16 pm-timebar-safe">
         {!displaySnapshot ? (

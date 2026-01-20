@@ -85,6 +85,8 @@ function createTimeWindowGate(cfg: {
 }
 
 export type TimeWindowGateSnapshot = {
+  allowAfterMs: number
+  disableAfterMs: number
   withinWindow: boolean
   startMs: number | null
   nowMs: number | null
@@ -94,8 +96,12 @@ export type TimeWindowGateSnapshot = {
 export class TimeWindowGatePlugin implements Plugin {
   readonly id = 'timeWindowGate'
 
+  private readonly allowAfterMs: number
+  private readonly disableAfterMs: number
   private readonly gate: ReturnType<typeof createTimeWindowGate>
   private cached: TimeWindowGateSnapshot = {
+    allowAfterMs: 0,
+    disableAfterMs: 0,
     withinWindow: false,
     startMs: null,
     nowMs: null,
@@ -103,12 +109,29 @@ export class TimeWindowGatePlugin implements Plugin {
   }
 
   constructor(cfg: Parameters<typeof createTimeWindowGate>[0]) {
+    this.allowAfterMs = cfg.allowAfterMs
+    this.disableAfterMs = cfg.disableAfterMs
     this.gate = createTimeWindowGate(cfg)
+    this.cached = {
+      allowAfterMs: this.allowAfterMs,
+      disableAfterMs: this.disableAfterMs,
+      withinWindow: false,
+      startMs: null,
+      nowMs: null,
+      elapsedMs: null,
+    }
   }
 
   reset(): void {
     this.gate.reset()
-    this.cached = { withinWindow: false, startMs: null, nowMs: null, elapsedMs: null }
+    this.cached = {
+      allowAfterMs: this.allowAfterMs,
+      disableAfterMs: this.disableAfterMs,
+      withinWindow: false,
+      startMs: null,
+      nowMs: null,
+      elapsedMs: null,
+    }
   }
 
   onMarketTick(tick: MarketTick, ctx?: StrategyContext): void {
@@ -116,7 +139,14 @@ export class TimeWindowGatePlugin implements Plugin {
     const startMs = parseGammaMarketStartMs(ctx?.market)
     const elapsedMs = nowMs !== null && startMs !== null ? nowMs - startMs : null
     const withinWindow = nowMs !== null ? this.gate.check({ nowMs, market: ctx?.market }) : false
-    this.cached = { withinWindow, startMs, nowMs, elapsedMs }
+    this.cached = {
+      allowAfterMs: this.allowAfterMs,
+      disableAfterMs: this.disableAfterMs,
+      withinWindow,
+      startMs,
+      nowMs,
+      elapsedMs,
+    }
   }
 
   snapshot(): TimeWindowGateSnapshot {
