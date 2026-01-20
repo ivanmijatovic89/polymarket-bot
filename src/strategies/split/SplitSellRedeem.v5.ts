@@ -4,6 +4,7 @@ import type { StrategyContext } from '../../strategy/StrategyContext.js'
 import type { Plugin } from '../../strategy/plugins/PluginSet.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
+import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
@@ -46,7 +47,7 @@ export function createStrategy(cfg: Config): {
   const timeWindowGatePlugin = new TimeWindowGatePlugin({
     allowAfterMs: cfg.timeFilterAllowTradingAfterSeconds * 1000,
     disableAfterMs: cfg.timeFilterDisableTradingAfterSeconds * 1000,
-    log: { everyMs: 15000 },
+    // log: { everyMs: 15000 },
   })
 
   const dwellGatePlugin = new DwellGatePlugin({
@@ -54,10 +55,16 @@ export function createStrategy(cfg: Config): {
     to: cfg.dwellRangeTo,
     requiredMs: cfg.dwellSecondsRequired * 1000,
     trackPrice: cfg.dwellTrackPrice,
-    log: { everyMs: 5000 },
+    // log: { everyMs: 5000 },
   })
 
-  const plugins: Plugin[] = [timeWindowGatePlugin, dwellGatePlugin]
+  const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
+    rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
+    binanceWsSpotPrice: { symbol: 'btcusdt' },
+    polymarketPriceToBeat: { enabled: true },
+  })
+
+  const plugins: Plugin[] = [timeWindowGatePlugin, dwellGatePlugin, externalFeedsPlugin]
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
     const nowMs = tick.snapshot.timestamp
