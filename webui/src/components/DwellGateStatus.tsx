@@ -34,7 +34,7 @@ function buildText(d: DwellGateSnapshot | undefined): string {
   const downInRange = d?.down && (d.down.inRange === true)
   if (upInRange) return fmtSide('UP', d?.up)
   if (downInRange) return fmtSide('DOWN', d?.down)
-  return ''
+  return 'dwell not in range'
 }
 
 export function DwellGateStatus(props: { dwellGate?: unknown }) {
