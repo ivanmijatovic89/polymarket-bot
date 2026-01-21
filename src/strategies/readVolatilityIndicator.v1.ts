@@ -24,7 +24,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'readVolatilityIndicator.v1',
   title: 'Read volatility indicator (example) v1',
   description:
-    'Example strategy: constructs a TimeWindowVolatility indicator (bestAsk) and logs 1/2/3/5/10/30/60s stats on market ticks.',
+    'Example strategy: constructs a TimeWindowVolatility indicator (default: mid) and logs 1/2/3/5/10/30/60s stats on market ticks.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }

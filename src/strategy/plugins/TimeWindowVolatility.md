@@ -1,6 +1,7 @@
 # TimeWindowVolatility plugin (`ctx.plugins.timeWindowVolatility`)
 
-Time-based volatility plugin using **bestAsk** (\"price you can buy\") per asset.
+Time-based volatility plugin using a chosen price (**bid**/**ask**/**mid**) per asset.
+Default tracked price: **mid**.
 
 ## Usage
 
@@ -19,6 +20,7 @@ pluginSet.register(
       '10s': 10_000,
       '60s': 60_000,
     },
+    // trackPrice: 'mid', // default; can also be 'bid' or 'ask'
   }),
 )
 ```

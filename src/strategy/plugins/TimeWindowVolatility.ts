@@ -198,7 +198,7 @@ class RollingTimeWindow {
     const startTsMs = this.samples.peekFirst()!.tsMs
     const endTsMs = this.samples.peekLast()!.tsMs
     const coverageMs = Math.max(0, endTsMs - startTsMs)
-    const ready = coverageMs >= this.windowMs
+    const ready = coverageMs >= this.windowMs * 0.93 && this.n >= 6
 
     if (!ready) {
       const staleMs =
@@ -274,10 +274,20 @@ export type TimeWindowVolatilityConfig = {
    * Example: { '1s': 1000, '2s': 2000 }
    */
   windows: Record<string, number>
+  /**
+   * Which orderbook-derived price to track.
+   *
+   * - `bid`: uses `book.bestBid`
+   * - `ask`: uses `book.bestAsk`
+   * - `mid`: uses `book.mid`
+   *
+   * Default: `mid`
+   */
+  trackPrice?: 'bid' | 'ask' | 'mid'
 }
 
 /**
- * Time-based volatility plugin using bestAsk ("price you can buy") per asset.
+ * Time-based volatility plugin using a chosen price (bid/ask/mid) per asset.
  *
  * Updates every tick and exposes precomputed stats via snapshot().
  */
@@ -285,11 +295,13 @@ export class TimeWindowVolatility implements Plugin {
   readonly id = 'timeWindowVolatility'
 
   private readonly windows: Record<string, number>
+  private readonly trackPrice: 'bid' | 'ask' | 'mid'
   private readonly byAssetId = new Map<string, Record<string, RollingTimeWindow>>()
   private asOfTsMs: number | null = null
 
   constructor(cfg: TimeWindowVolatilityConfig) {
     this.windows = cfg.windows
+    this.trackPrice = cfg.trackPrice ?? 'mid'
   }
 
   reset(): void {
@@ -305,7 +317,12 @@ export class TimeWindowVolatility implements Plugin {
     this.asOfTsMs = tsMs
 
     for (const [assetId, book] of Object.entries(tick.snapshot.byAssetId)) {
-      const price = book.bestAsk
+      const price =
+        this.trackPrice === 'bid'
+          ? book.bestBid
+          : this.trackPrice === 'ask'
+            ? book.bestAsk
+            : book.mid
       if (price == null) continue
 
       let ws = this.byAssetId.get(assetId)
