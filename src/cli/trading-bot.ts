@@ -458,8 +458,14 @@ async function main(): Promise<void> {
         messagePrefix: '[trading-bot]',
       })
     } catch (err) {
-      currentSlug = undefined
-      currentMarket = undefined
+      // Only reset if we haven't successfully set the market yet.
+      // This avoids a race condition where a second connect() call (e.g. from
+      // a delayed reconnect timer) could reset valid state that was already set
+      // by a successful first connect() call.
+      if (!currentMarket) {
+        currentSlug = undefined
+        currentMarket = undefined
+      }
       throw err
     }
 

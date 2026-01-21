@@ -28,6 +28,14 @@ import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaM
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
+function formatDurationHuman(ms: number): string {
+  const safeMs = Number.isFinite(ms) ? Math.max(0, ms) : 0
+  const totalSeconds = Math.round(safeMs / 1000)
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${minutes}min ${seconds} sec`
+}
+
 type ReplayRow = {
   ingest_seq?: unknown
   ts_local_ms?: unknown
@@ -271,9 +279,17 @@ async function main(): Promise<void> {
 
   // IMPORTANT: each parquet file corresponds to a single 15m market episode.
   // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
-  for (const fp of filePaths) {
+  const totalMarkets = filePaths.length
+  const backtestStartMs = Date.now()
+  let completedMarkets = 0
+  let completedMarketsMsTotal = 0
+
+  for (let idx = 0; idx < filePaths.length; idx += 1) {
+    const fp = filePaths[idx]!
     if (shouldStop) break
-    console.log(`[backtest] orderbook replay file=${fp}`)
+    const marketIdx = idx + 1
+    console.log(`[backtest][${marketIdx}/${totalMarkets}] orderbook replay file=${fp}`)
+    const marketStartMs = Date.now()
 
     // Parse slug and fetch market resolution (tokenMap + outcome) in one call
     const slug = parseSlugFromFilename(fp)
@@ -385,6 +401,20 @@ async function main(): Promise<void> {
     } else if (!marketResolution) {
       console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
     }
+
+    // Progress + ETA (based on average completed market time)
+    const marketElapsedMs = Date.now() - marketStartMs
+    completedMarkets += 1
+    completedMarketsMsTotal += marketElapsedMs
+    const avgPerMarketMs = completedMarketsMsTotal / Math.max(1, completedMarkets)
+    const remainingMarkets = Math.max(0, totalMarkets - completedMarkets)
+    const etaMs = avgPerMarketMs * remainingMarkets
+    const totalElapsedMs = Date.now() - backtestStartMs
+    console.log(
+      `[backtest][${completedMarkets}/${totalMarkets}] finished in ${formatDurationHuman(marketElapsedMs)} | elapsed ${formatDurationHuman(
+        totalElapsedMs,
+      )} | eta ${formatDurationHuman(etaMs)}`,
+    )
   }
 
   // Compute batch stats
