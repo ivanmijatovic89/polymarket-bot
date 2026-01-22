@@ -9,15 +9,15 @@ import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
-  splitShares: z.coerce.number().finite().positive().default(100),
+  splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
 
   dwellRangeFrom: z.coerce.number().finite().default(0.20),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
-  dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(60),
+  dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
 
-  timeFilterAllowTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(180),
+  timeFilterAllowTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(240),
   timeFilterDisableTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(600),
 })
 
