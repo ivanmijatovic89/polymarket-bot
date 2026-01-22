@@ -427,6 +427,7 @@ async function main(): Promise<void> {
   // Save run results (even if marketStats is empty)
   await insertBacktestRun({
     batchUid,
+    baselineId: parsed.baselineId ?? null,
     cmd,
     comment: parsed.comment ?? null,
     strategy: built.strategyId,

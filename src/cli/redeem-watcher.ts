@@ -72,22 +72,69 @@ async function main(): Promise<void> {
     })
   }
 
+  const parseMarketStartFromSlug = (slug: string): number | null => {
+    const m = /-(\d{10,13})$/.exec(slug.trim())
+    if (!m) return null
+    const raw = Number(m[1])
+    if (!Number.isFinite(raw) || raw <= 0) return null
+    return m[1].length === 10 ? raw * 1000 : raw
+  }
+
+  const formatStart = (startMs: number | null): string => {
+    if (!startMs) return '-'
+    const d = new Date(startMs)
+    const parts = new Intl.DateTimeFormat('en-US', {
+      month: 'short',
+      day: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
+      hour12: false,
+    }).formatToParts(d)
+    const get = (type: string): string => parts.find((p) => p.type === type)?.value ?? ''
+    return `${get('month')} ${get('day')} ${get('year')} ${get('hour')}:${get('minute')}`.trim()
+  }
+
+  const formatAge = (startMs: number | null, nowMs: number): string => {
+    if (!startMs) return '-'
+    const diffMs = Math.max(0, nowMs - startMs)
+    const totalSeconds = Math.floor(diffMs / 1000)
+    if (totalSeconds < 60) return `${totalSeconds}s`
+    const totalMinutes = Math.floor(totalSeconds / 60)
+    if (totalMinutes < 60) return `${totalMinutes}m`
+    const totalHours = Math.floor(totalMinutes / 60)
+    if (totalHours < 24) return `${totalHours}h ${totalMinutes % 60}m`
+    const totalDays = Math.floor(totalHours / 24)
+    if (totalDays < 7) return `${totalDays}d ${totalHours % 24}h`
+    const totalWeeks = Math.floor(totalDays / 7)
+    return `${totalWeeks}w ${totalDays % 7}d`
+  }
+
   const printPositionsTable = (title: string, positions: Position[]): void => {
     if (positions.length === 0) return
 
-    const header = '  Slug                              Size    Outcome   Value'
-    const separator = '  ' + '─'.repeat(56)
+    const header = '  Slug                              Size    Outcome   Value    Start               Ago'
+    const separator = '  ' + '─'.repeat(82)
+    const nowMs = Date.now()
+    const ordered = [...positions].sort((a, b) => {
+      const aStart = parseMarketStartFromSlug(a.slug) ?? -Infinity
+      const bStart = parseMarketStartFromSlug(b.slug) ?? -Infinity
+      return bStart - aStart
+    })
 
     console.log('')
     console.log(`  ${title}:`)
     console.log(header)
     console.log(separator)
-    for (const p of positions) {
+    for (const p of ordered) {
       const slug = p.slug.padEnd(32)
       const size = String(p.size).padStart(6)
       const outcome = p.outcome.padEnd(8)
       const value = `$${p.currentValue.toFixed(2)}`
-      console.log(`  ${slug}  ${size}    ${outcome}  ${value}`)
+      const startMs = parseMarketStartFromSlug(p.slug)
+      const start = formatStart(startMs).padEnd(18)
+      const ago = formatAge(startMs, nowMs).padEnd(9)
+      console.log(`  ${slug}  ${size}    ${outcome}  ${value.padEnd(7)}  ${start}  ${ago}`)
     }
   }
 

@@ -13,6 +13,7 @@ export type BacktestArgs = {
   latest?: boolean
   comment?: string
   batchUid?: string
+  baselineId?: string
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -25,6 +26,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let latest = false
   let comment: string | undefined
   let batchUid: string | undefined
+  let baselineId: string | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -89,6 +91,14 @@ export function parseArgs(argv: string[]): BacktestArgs {
         batchUid = argv[i + 1]
         i += 1
         break
+      
+      case '--baselineId':
+        if (typeof argv[i + 1] !== 'string') {
+          throw new Error('[backtest] missing value for --baselineId')
+        }
+        baselineId = argv[i + 1]
+        i += 1
+        break
 
       case '--strategy':
       case '--param':
@@ -102,6 +112,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         }
         if (arg.startsWith('--batchUid=')) {
           batchUid = arg.slice('--batchUid='.length)
+          break
+        }
+        if (arg.startsWith('--baselineId=')) {
+          baselineId = arg.slice('--baselineId='.length)
           break
         }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
@@ -129,5 +143,6 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(latest ? { latest } : {}),
     ...(comment !== undefined ? { comment } : {}),
     ...(batchUid !== undefined ? { batchUid } : {}),
+    ...(baselineId !== undefined ? { baselineId } : {}),
   }
 }

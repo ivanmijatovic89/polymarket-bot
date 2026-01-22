@@ -97,10 +97,10 @@ Open:
 # Backtests
 
 ```
-npm run backtest --  --strategy SplitSellRedeem.v1 --param splitShares=100 --param triggerBidBelow=0.07 --param sellPrice=0.08 --param sellSize=10 --symbol btc --limit 600 --random
+npm run backtest --  --strategy SplitSellRedeem.v1 --param splitShares=100 --param triggerBidBelow=0.07 --param sellPrice=0.08 --param sellSize=10 --symbol btc --limit 600 --random --comment "search grid for dwell start"  --batchUid "123123"
 ```
 
-Parallel backtesting
+Parallel backtesting ( old )
 
 ```
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt

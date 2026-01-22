@@ -174,6 +174,7 @@ export async function deleteMarketBySlug(slug: string): Promise<void> {
 
 export async function insertBacktestRun(row: {
   batchUid: string
+  baselineId: string | null
   cmd: string
   comment: string | null
   strategy: string
@@ -188,6 +189,7 @@ export async function insertBacktestRun(row: {
   const db = mustGetDb()
   await db.insert(backtests).values({
     batchUid: row.batchUid,
+    baselineId: row.baselineId,
     cmd: row.cmd,
     comment: row.comment,
     strategy: row.strategy,

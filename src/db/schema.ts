@@ -39,6 +39,7 @@ export const backtests = mysqlTable('backtests', {
   latest: boolean('latest').default(false).notNull(),
 
   batchUid: varchar('batch_uid', { length: 255 }),
+  baselineId: varchar('baseline_id', { length: 255 }),
   cmd: text('cmd'),
   comment: text('comment'),
 
