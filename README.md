@@ -779,7 +779,8 @@ npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 
 See [`docs/MultipleBots.md`](docs/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).
 
-## Batch Execution & Grid Search
+
+## Queue-based Batch Runner / Batch Execution & Grid Search
 
 This project uses a **folder-based batch execution system** built on top of GNU parallel.
 
@@ -796,9 +797,22 @@ queue/
 - `running/` – currently executing batch
 - `done/` – successfully completed batches
 - `failed/` – failed batches
-- `logs/results/` – execution logs per batch
+- `logs/parallel.log` – per-command execution metadata
+- `logs/results/` – optional batch stdout/stderr (disabled by default)
 
 A long-running runner script (`queue/run-queue.sh`) watches the `pending/` folder and
 executes batches automatically.
+
+Configure parallelism (default: 4):
+
+```bash
+./queue/run-queue.sh --jobs 8
+```
+
+Batch stdout/stderr logging can be enabled explicitly:
+
+```bash
+./queue/run-queue.sh --save-results
+```
 
 Docs: [`queue/README.md`](queue/README.md) for full details.

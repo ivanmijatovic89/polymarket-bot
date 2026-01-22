@@ -17,18 +17,20 @@ The goal of this system is to:
 ```
 queue/
 ├── run-queue.sh
-├── approve/
-├── pending/
-├── running/
-├── done/
-├── failed/
+├── approve/            # Generated batches (not executed)
+├── pending/            # Approved batches waiting to run
+├── running/            # Currently executing batch
+├── done/               # Successfully completed batches
+├── failed/             # Failed batches
 └── logs/
-    └── results/
-        ├── parallel.log
+    ├── parallel.log            # Per-command metadata (always written)
+    └── results/                # OPTIONAL batch stdout/stderr (only when enabled)
         └── <batch-name>/
             ├── out.log
             └── err.log
 ```
+
+> Note: `logs/results/` is **disabled by default** and is only created when explicitly enabled.
 
 ---
 
@@ -37,7 +39,7 @@ queue/
 1. Generator creates batch files in `approve/`
 2. Approved batches are moved to `pending/`
 3. `run-queue.sh` watches `pending/` and executes batches
-4. Logs are written per batch
+4. (Optional) Batch logs are written to `logs/results/`
 5. Batch file is moved to `done/` or `failed/`
 
 ---
@@ -48,43 +50,118 @@ queue/
 - Blank lines are ignored
 - Lines starting with `#` are comments
 
+Example:
+
+```txt
+# v5 grid search
+npm run backtest -- --strategy A --param x=1
+npm run backtest -- --strategy A --param x=2
+```
+
 ---
 
 ## Running the Queue
+
+From the project root:
 
 ```bash
 chmod +x queue/run-queue.sh
 ./queue/run-queue.sh
 ```
 
+### Set parallelism
+
+Default is **4** parallel jobs. Change it with:
+
+```bash
+./queue/run-queue.sh --jobs 8
+# or:
+./queue/run-queue.sh -j 8
+```
+
+### Enable batch stdout/stderr logs (optional)
+
+By default, batch stdout/stderr is **not saved** to avoid disk usage.
+
+To enable it:
+
+```bash
+./queue/run-queue.sh --save-results
+```
+
+You can combine both:
+
+```bash
+./queue/run-queue.sh --save-results --jobs 8
+```
+
+This creates per-batch logs under:
+
+```
+queue/logs/results/<batch-name>/
+```
+
 ---
 
-## Logs
+## Logs & Debugging
+
+### Job metadata (always on)
+
+```
+queue/logs/parallel.log
+```
+
+Contains one row per command:
+- command string
+- runtime
+- exit code
+- signal (if any)
+
+This is the primary source for identifying failed commands.
+
+### Batch stdout/stderr (optional)
 
 For a batch `v5-grid.txt`:
 
 ```
 queue/logs/results/v5-grid/
-├── out.log
-└── err.log
+├── out.log   # Combined stdout of all commands
+└── err.log   # Combined stderr of all commands
 ```
 
-Job-level metadata is stored in:
-
-```
-queue/logs/results/parallel.log
-```
+> Output may be interleaved because commands run in parallel.
 
 ---
 
 ## Pause / Resume
 
-- Pause: `Ctrl + Z`
-- Resume: `fg`
+- Pause execution: `Ctrl + Z`
+- Resume execution: `fg`
+
+State is preserved while paused.
+
+---
+
+## Stopping the Runner
+
+To stop completely:
+
+```
+Ctrl + C
+```
+
+This exits cleanly and removes the runner lock.
 
 ---
 
 ## Recovery
 
-If a batch is interrupted, it remains in `running/`.
-Move it back to `pending/` to retry.
+If a batch is interrupted (crash / reboot), it remains in `running/`.
+
+To retry it:
+
+```bash
+mv queue/running/*.txt queue/pending/
+```
+
+No automatic retries are performed by design.
