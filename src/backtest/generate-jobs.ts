@@ -104,7 +104,7 @@ function buildJobs(grid: GridJSON): string[] {
 
   for (const combo of combos) {
     const kv: Record<string, unknown> = {};
-    for (let i = 0; i < keys.length; i++) kv[keys[i]] = combo[i];
+    for (let i = 0; i < keys.length; i++) kv[keys[i]!] = combo[i];
 
     const allow = kv["timeFilterAllowTradingAfterSeconds"];
     const disable = kv["timeFilterDisableTradingAfterSeconds"];
@@ -181,7 +181,9 @@ if (!parsed || typeof parsed !== "object") die(`Invalid JSON structure in ${absG
 const jobs = buildJobs(parsed);
 
 const baseName = inferBaseNameFromGridFile(absGridPath);
-const outPath = nextAvailableFilename(dir, baseName);
+const outDir = path.resolve(process.cwd(), "queue", "approve");
+fs.mkdirSync(outDir, { recursive: true });
+const outPath = nextAvailableFilename(outDir, baseName);
 
 fs.writeFileSync(outPath, jobs.join("\n") + "\n", "utf8");
 console.log(`Wrote ${jobs.length} jobs to ${outPath}`);
