@@ -173,21 +173,29 @@ export async function deleteMarketBySlug(slug: string): Promise<void> {
 }
 
 export async function insertBacktestRun(row: {
+  batchUid: string
+  cmd: string
+  comment: string | null
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
   limit: number | null
   random: boolean
+  latest: boolean
   batchStats: Record<string, unknown>
   marketStats: unknown[]
 }): Promise<void> {
   const db = mustGetDb()
   await db.insert(backtests).values({
+    batchUid: row.batchUid,
+    cmd: row.cmd,
+    comment: row.comment,
     strategy: row.strategy,
     params: row.params,
     symbol: row.symbol,
     limit: row.limit,
     random: row.random,
+    latest: row.latest,
     batchStats: row.batchStats,
     marketStats: row.marketStats,
   })

@@ -1,6 +1,7 @@
 import '../config/env.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import * as parquet from '@dsnp/parquetjs'
+import { randomUUID } from 'crypto'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AnyMarketMessage } from '../market/orderbook/index.js'
 import { MarketEngine } from '../market/MarketEngine.js'
@@ -12,6 +13,7 @@ import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
 import type { Strategy } from '../strategy/Strategy.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { parseArgs } from './helpers/backtestArgs.js'
+import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { sleep } from '../utils/sleep.js'
 import { toBigInt } from '../utils/toBigInt.js'
 import { MinHeap } from '../utils/minHeap.js'
@@ -165,6 +167,8 @@ async function main(): Promise<void> {
   const timer = new Timer()
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
+  const batchUid = parsed.batchUid ?? randomUUID()
+  const cmd = buildBacktestCmdInline(args)
   const built = (() => {
     try {
       return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
@@ -422,11 +426,15 @@ async function main(): Promise<void> {
 
   // Save run results (even if marketStats is empty)
   await insertBacktestRun({
+    batchUid,
+    cmd,
+    comment: parsed.comment ?? null,
     strategy: built.strategyId,
     params: built.params as Record<string, unknown>,
     symbol: parsed.symbol ?? null,
     limit: parsed.limit ?? null,
     random: parsed.random ?? false,
+    latest: parsed.latest ?? false,
     batchStats: batchStats as unknown as Record<string, unknown>,
     marketStats: marketStats as unknown as unknown[],
   })

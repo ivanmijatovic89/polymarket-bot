@@ -36,6 +36,11 @@ export const backtests = mysqlTable('backtests', {
   symbol: varchar('symbol', { length: 10 }),
   limit: int('limit'),
   random: boolean('random').default(false).notNull(),
+  latest: boolean('latest').default(false).notNull(),
+
+  batchUid: varchar('batch_uid', { length: 255 }),
+  cmd: text('cmd'),
+  comment: text('comment'),
 
   batchStats: json('batch_stats').$type<Record<string, unknown>>().notNull(),
   marketStats: json('market_stats').$type<unknown[]>().notNull(),

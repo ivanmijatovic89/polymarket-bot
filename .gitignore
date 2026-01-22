@@ -3,6 +3,8 @@ node_modules/
 .npm-cache/
 data/
 
+queue/.runner.lock/
+
 # build output
 dist/
 build/

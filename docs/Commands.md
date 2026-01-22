@@ -1,3 +1,8 @@
+# Run backtest on parallel queue
+```bash
+./queue/run-queue.sh
+```
+
 # buyBothSidesAndMerge
 
 ```

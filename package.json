@@ -19,7 +19,7 @@
     "trade:bot:eth": "TRADING_SYMBOL=ETH tsx src/cli/trading-bot.ts",
     "trade:bot:sol": "TRADING_SYMBOL=SOL tsx src/cli/trading-bot.ts",
     "trade:bot:xrp": "TRADING_SYMBOL=XRP tsx src/cli/trading-bot.ts",
-    "backtest": "tsx src/cli/backtest.ts --mode orderbook",
+    "backtest": "tsx src/cli/backtest.ts",
     "list:backtest-files": "tsx src/parquet/cli/list-backtest-files.ts",
     "verify:parquet": "tsx src/parquet/cli/verify-parquet.ts",
     "scan:disconnect-events": "tsx src/parquet/cli/scan-disconnect-events.ts",

@@ -22,6 +22,20 @@
       "when": 1768184455563,
       "tag": "0002_chemical_spitfire",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1769037475764,
+      "tag": "0003_amused_masked_marvel",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1769038744985,
+      "tag": "0004_spooky_sabretooth",
+      "breakpoints": true
     }
   ]
 }

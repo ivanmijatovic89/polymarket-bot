@@ -11,6 +11,8 @@ export type BacktestArgs = {
   limit?: number
   random?: boolean
   latest?: boolean
+  comment?: string
+  batchUid?: string
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -21,6 +23,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let limit: number | undefined
   let random = false
   let latest = false
+  let comment: string | undefined
+  let batchUid: string | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -28,12 +32,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
 
     switch (arg) {
       case '--mode': {
-        const val = argv[i + 1]
-        if (val !== 'orderbook') {
-          throw new Error(
-            `[backtest] unsupported --mode ${String(val)} (raw mode removed; omit --mode or use --mode orderbook)`,
-          )
-        }
+        // Legacy/compat: ignore `--mode orderbook` if passed.
+        // Raw mode was removed; this flag should not affect behavior.
         i += 1
         break
       }
@@ -74,12 +74,36 @@ export function parseArgs(argv: string[]): BacktestArgs {
         random = false // latest takes precedence over random
         break
 
+      case '--comment':
+        if (typeof argv[i + 1] !== 'string') {
+          throw new Error('[backtest] missing value for --comment')
+        }
+        comment = argv[i + 1]
+        i += 1
+        break
+
+      case '--batchUid':
+        if (typeof argv[i + 1] !== 'string') {
+          throw new Error('[backtest] missing value for --batchUid')
+        }
+        batchUid = argv[i + 1]
+        i += 1
+        break
+
       case '--strategy':
       case '--param':
         i += 1
         break
 
       default:
+        if (arg.startsWith('--comment=')) {
+          comment = arg.slice('--comment='.length)
+          break
+        }
+        if (arg.startsWith('--batchUid=')) {
+          batchUid = arg.slice('--batchUid='.length)
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -103,5 +127,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(limit !== undefined ? { limit } : {}),
     ...(random ? { random } : {}),
     ...(latest ? { latest } : {}),
+    ...(comment !== undefined ? { comment } : {}),
+    ...(batchUid !== undefined ? { batchUid } : {}),
   }
 }
