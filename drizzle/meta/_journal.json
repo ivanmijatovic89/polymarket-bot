@@ -36,6 +36,13 @@
       "when": 1769038744985,
       "tag": "0004_spooky_sabretooth",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1769120362723,
+      "tag": "0005_serious_major_mapleleaf",
+      "breakpoints": true
     }
   ]
 }
