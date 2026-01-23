@@ -45,6 +45,7 @@ export const backtests = mysqlTable('backtests', {
 
   batchStats: json('batch_stats').$type<Record<string, unknown>>().notNull(),
   marketStats: json('market_stats').$type<unknown[]>().notNull(),
+  chunkedBatchStats: json('chunked_batch_stats').$type<Record<string, unknown> | null>(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

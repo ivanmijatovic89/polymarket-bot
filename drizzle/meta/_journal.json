@@ -43,6 +43,13 @@
       "when": 1769120362723,
       "tag": "0005_serious_major_mapleleaf",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1769141648000,
+      "tag": "0006_mellow_chunked_batch_stats",
+      "breakpoints": true
     }
   ]
 }
