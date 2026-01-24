@@ -29,6 +29,7 @@ export const markets = mysqlTable('markets', {
 // Backtests table
 export const backtests = mysqlTable('backtests', {
   id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+  status: varchar('status', { length: 50 }),
 
   strategy: varchar('strategy', { length: 255 }).notNull(),
   params: json('params').$type<Record<string, unknown>>().notNull(),

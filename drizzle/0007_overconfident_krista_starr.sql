@@ -1,0 +1,1 @@
+ALTER TABLE `backtests` ADD `status` varchar(50);

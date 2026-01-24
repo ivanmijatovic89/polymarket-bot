@@ -32,6 +32,8 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:insert-parquet": "tsx src/db/insert-local-parquet-files-to-database.ts",
+    "rebuild:chunked-batch-stats": "tsx src/cli/rebuild-chunked-batch-stats.ts --onlyNull",
+    "rebuild:chunked-batch-stats:all": "tsx src/cli/rebuild-chunked-batch-stats.ts --force",
     "webui:dev": "npm --prefix webui run dev",
     "webui:build": "npm --prefix webui run build",
     "webui:preview": "npm --prefix webui run preview",
