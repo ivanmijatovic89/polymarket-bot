@@ -185,6 +185,7 @@ export async function insertBacktestRun(row: {
   latest: boolean
   batchStats: Record<string, unknown>
   marketStats: unknown[]
+  chunkedBatchStats?: Record<string, unknown> | null
 }): Promise<void> {
   const db = mustGetDb()
   await db.insert(backtests).values({
@@ -200,5 +201,6 @@ export async function insertBacktestRun(row: {
     latest: row.latest,
     batchStats: row.batchStats,
     marketStats: row.marketStats,
+    ...(row.chunkedBatchStats !== undefined ? { chunkedBatchStats: row.chunkedBatchStats } : {}),
   })
 }

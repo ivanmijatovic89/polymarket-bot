@@ -19,6 +19,7 @@ import { toBigInt } from '../utils/toBigInt.js'
 import { MinHeap } from '../utils/minHeap.js'
 import { computeMarketStats } from '../backtest/stats/marketStats.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
+import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill } from '../strategy/Strategy.js'
@@ -423,6 +424,7 @@ async function main(): Promise<void> {
 
   // Compute batch stats
   const batchStats = computeBatchStats(marketStats, initialCapital)
+  const chunkedBatchStats = computeChunkedBatchStats(marketStats, initialCapital, [96, 200, 300])
 
   // Save run results (even if marketStats is empty)
   await insertBacktestRun({
@@ -437,6 +439,7 @@ async function main(): Promise<void> {
     random: parsed.random ?? false,
     latest: parsed.latest ?? false,
     batchStats: batchStats as unknown as Record<string, unknown>,
+    chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
     marketStats: marketStats as unknown as unknown[],
   })
 
