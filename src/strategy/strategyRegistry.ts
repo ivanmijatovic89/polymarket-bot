@@ -17,7 +17,10 @@ import { definition as splitSellRedeemV2 } from '../strategies/split/SplitSellRe
 import { definition as splitSellRedeemV3 } from '../strategies/split/SplitSellRedeem.v3.js'
 import { definition as splitSellRedeemV4 } from '../strategies/split/SplitSellRedeem.v4.js'
 import { definition as splitSellRedeemV5 } from '../strategies/split/SplitSellRedeem.v5.js'
+import { definition as splitSellRedeemV51ResearchMetrics } from '../strategies/split/SplitSellRedeem.v5.1-research-metrics.js'
+import { definition as splitSellRedeemV52NetChange } from '../strategies/split/SplitSellRedeem.v5.2-netChange.js'
 import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
+import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
 export const strategyRegistry = {
   [basicFakV1.id]: basicFakV1,
@@ -36,7 +39,9 @@ export const strategyRegistry = {
   [splitSellRedeemV4.id]: splitSellRedeemV4,
   [splitSellRedeemV5.id]: splitSellRedeemV5,
   [splitSellRedeemV6.id]: splitSellRedeemV6,
-
+  [splitSellRedeemV51ResearchMetrics.id]: splitSellRedeemV51ResearchMetrics,
+  [splitSellRedeemV52NetChange.id]: splitSellRedeemV52NetChange,
+  [scalpV1.id]: scalpV1,
   // templates
   [templateV1.id]: templateV1,
   [templateTimeWindowGate.id]: templateTimeWindowGate,

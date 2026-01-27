@@ -23,6 +23,7 @@ export type MarketStats = {
    * For binary splits we expect two BUY fills (UP+DOWN) each of size N; splitCost is N.
    */
   splitCost: number
+  intentMeta: Array<Record<string, unknown>>
 }
 
 /**
@@ -70,8 +71,8 @@ export function computeMarketStats(params: {
   // Calculate mergable shares (can be merged for $1 per pair)
   const mergableShares = Math.min(upShares, downShares)
 
-  // Calculate total cost (all BUY fills)
-  let cost = 0
+  // Track total BUY notional for avg entry; PnL should use remaining cost basis.
+  let totalBuyNotional = 0
   let totalUpBuySize = 0
   let totalUpBuyCost = 0
   let totalDownBuySize = 0
@@ -79,10 +80,9 @@ export function computeMarketStats(params: {
   let feesPaid = 0
 
   for (const trade of trades) {
-
     if (trade.side === 'BUY') {
       const notional = trade.price * trade.size
-      cost += notional
+      totalBuyNotional += notional
 
       if (trade.assetId === upAssetId) {
         totalUpBuySize += trade.size
@@ -130,8 +130,24 @@ export function computeMarketStats(params: {
     ? splits.reduce((sum, s) => sum + (Number.isFinite(s.splitCost) ? s.splitCost : 0), 0)
     : 0
 
-  // 4. Total PnL = realized (from sells) + merge + redeem - cost - splitCost
-  const pnl = realizedPnl + mergeValue + redeemValue - cost - splitCost
+  // Remaining cost basis (what is still invested).
+  const remainingCostBasis =
+    (typeof upPosition?.costBasis === 'number' ? upPosition.costBasis : 0) +
+    (typeof downPosition?.costBasis === 'number' ? downPosition.costBasis : 0)
+
+  // 4. Total PnL = realized (from sells) + merge + redeem - remaining cost basis - splitCost
+  const pnl = realizedPnl + mergeValue + redeemValue - remainingCostBasis - splitCost
+
+  const intentMeta: Array<Record<string, unknown>> = []
+  const seenOrderIds = new Set<string>()
+  for (const t of trades) {
+    if (!t.intentMeta || typeof t.intentMeta !== 'object') continue
+    if (t.clientOrderId) {
+      if (seenOrderIds.has(t.clientOrderId)) continue
+      seenOrderIds.add(t.clientOrderId)
+    }
+    intentMeta.push(t.intentMeta as Record<string, unknown>)
+  }
 
   return {
     slug,
@@ -148,7 +164,8 @@ export function computeMarketStats(params: {
     upShares: Math.round(upShares * 100) / 100,
     downShares: Math.round(downShares * 100) / 100,
     mergableShares: Math.round(mergableShares * 100) / 100,
-    cost: Math.round(cost * 100) / 100,
+    cost: Math.round(remainingCostBasis * 100) / 100,
     splitCost: Math.round(splitCost * 100) / 100,
+    intentMeta,
   }
 }

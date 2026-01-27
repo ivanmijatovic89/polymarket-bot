@@ -14,6 +14,8 @@ export type OrderType = 'FOK' | 'GTC' | 'GTD'
 export type ClientOrderId = string
 export type ExchangeOrderId = string
 
+export type IntentMeta = Record<string, unknown>
+
 export type MarketTick = EngineTick & {
   // MarketEngine emits ticks only for book + price_change, but keep type permissive.
   snapshot: MarketOrderBooksSnapshot
@@ -27,6 +29,7 @@ export type PlaceLimitIntent = {
   price: number
   size: number
   orderType: OrderType
+  meta?: IntentMeta
   /**
    * Required for GTD. Epoch ms.
    * Note: Polymarket has a minimum expiry threshold; we’ll enforce in OrderManager.
@@ -96,6 +99,7 @@ export type PlaceBatchIntent = {
     price: number
     size: number
     orderType: OrderType
+    meta?: IntentMeta
     /**
      * Required for GTD. Epoch ms.
      * Note: Polymarket has a minimum expiry threshold; we'll enforce in OrderManager.
@@ -135,6 +139,7 @@ export type OpenOrder = {
   remaining: number
   filled: number
   orderType: OrderType
+  meta?: IntentMeta
   expireAtMs?: number
   state: OrderLifecycleState
   createdAtMs: number
@@ -167,6 +172,7 @@ export type Fill = {
   orderId?: ExchangeOrderId
   /** MAKER/TAKER when known (user channel trade messages include this implicitly via maker_orders) */
   liquidity?: 'MAKER' | 'TAKER'
+  intentMeta?: IntentMeta
 }
 
 export type PositionsSplit = {
@@ -244,6 +250,7 @@ export type OrderSnapshot = {
   tradeStatusRaw?: string
   tradeStatusRank: TradeStatusRank
   updatedAtMs: number
+  meta?: IntentMeta
 }
 
 /**

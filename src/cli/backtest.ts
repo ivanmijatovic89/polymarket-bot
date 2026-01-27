@@ -22,8 +22,7 @@ import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
-import type { Fill } from '../strategy/Strategy.js'
-import type { PositionsSplit } from '../strategy/Strategy.js'
+import type { Fill, PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
 import { insertBacktestRun } from '../db/helpers.js'
@@ -349,7 +348,9 @@ async function main(): Promise<void> {
           const portfolio = runner.getPortfolio().snapshot()
           for (const fill of portfolio.recentFills) {
             if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
-              currentMarketTrades.push(fill)
+              const orderMeta =
+                fill.clientOrderId ? portfolio.ordersByClientId[fill.clientOrderId]?.meta : undefined
+              currentMarketTrades.push(orderMeta ? { ...fill, intentMeta: orderMeta } : fill)
               seenFillIds.add(fill.id)
             }
           }
