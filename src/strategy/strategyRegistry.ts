@@ -20,6 +20,7 @@ import { definition as splitSellRedeemV5 } from '../strategies/split/SplitSellRe
 import { definition as splitSellRedeemV51ResearchMetrics } from '../strategies/split/SplitSellRedeem.v5.1-research-metrics.js'
 import { definition as splitSellRedeemV52NetChange } from '../strategies/split/SplitSellRedeem.v5.2-netChange.js'
 import { definition as splitSellRedeemV53TechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.3-technical-indicators.js'
+import { definition as splitSellRedeemV54ResearchMetricsAndTechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.4-research-metrics-and-technical-indicators.js'
 import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
 import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
@@ -43,6 +44,7 @@ export const strategyRegistry = {
   [splitSellRedeemV51ResearchMetrics.id]: splitSellRedeemV51ResearchMetrics,
   [splitSellRedeemV52NetChange.id]: splitSellRedeemV52NetChange,
   [splitSellRedeemV53TechnicalIndicators.id]: splitSellRedeemV53TechnicalIndicators,
+  [splitSellRedeemV54ResearchMetricsAndTechnicalIndicators.id]: splitSellRedeemV54ResearchMetricsAndTechnicalIndicators,
   [scalpV1.id]: scalpV1,
   // templates
   [templateV1.id]: templateV1,

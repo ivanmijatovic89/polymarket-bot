@@ -106,6 +106,13 @@ Parallel backtesting ( old )
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
 
+Backtest wait for TechnicalIndicators Plugin
+
+You must set `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1` so it will wait for TA plugin
+```
+BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1 npm run backtest -- --strategy SplitSellRedeem.v5.3-technical-indicators --param splitShares=10 --param sellSize=10 --param timeFilterAllowTradingAfterSeconds=240 --param timeFilterDisableTradingAfterSeconds=600 --param dwellTrackPrice=bid --param dwellSecondsRequired=40 --param dwellRangeFrom=0.20 --param dwellRangeTo=0.35 --symbol btc --limit 1350 --latest --comment "TA - da bi posle mogao da poredis zasto gubis a zasto dobijas" --batchUid TA-getter-do-not-delete
+```
+
 
 # Deposit
 ```
