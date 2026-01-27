@@ -192,6 +192,8 @@ async function main(): Promise<void> {
   }
 
   let filesWithDisconnect = 0
+  const filesByDisconnectCount = new Map<number, number>()
+  let filesProcessed = 0
   let totalDisconnects = 0
   let filesWithLastEventDisconnect = 0
   let totalGaps = 0
@@ -201,12 +203,18 @@ async function main(): Promise<void> {
   let totalDisconnectsWithoutNextEvent = 0
   let filesErrored = 0
 
-  for (const filePath of files) {
+  for (let i = 0; i < files.length; i += 1) {
+    const filePath = files[i] as string
     const rel = path.relative(dirAbs, filePath) || path.basename(filePath)
-    console.log(rel)
+    console.log(`${i + 1}/${files.length} ${rel}`)
 
     try {
       const res = await countDisconnectsInFile(filePath, parsed.limitRows)
+      filesProcessed += 1
+      filesByDisconnectCount.set(
+        res.disconnects,
+        (filesByDisconnectCount.get(res.disconnects) ?? 0) + 1,
+      )
       if (res.disconnects > 0) {
         filesWithDisconnect += 1
         totalDisconnects += res.disconnects
@@ -250,6 +258,45 @@ async function main(): Promise<void> {
       totalDisconnectGapMaxMs === null ? 'n/a' : totalDisconnectGapMaxMs
     } files_errored=${filesErrored}`,
   )
+
+  if (filesProcessed > 0) {
+    const levels = Array.from(filesByDisconnectCount.keys()).sort((a, b) => a - b)
+    if (!filesByDisconnectCount.has(0)) filesByDisconnectCount.set(0, 0)
+    if (levels[0] !== 0) levels.unshift(0)
+    const countsByLevel = levels.map((level) => filesByDisconnectCount.get(level) ?? 0)
+    const geCounts: number[] = []
+    let suffix = 0
+    for (let i = countsByLevel.length - 1; i >= 0; i -= 1) {
+      suffix += countsByLevel[i] ?? 0
+      geCounts[i] = suffix
+    }
+    const colLevel = 'level'
+    const colCount = 'count'
+    const colGe = 'count_ge'
+    const rows = levels.map((level, i) => ({
+      level: String(level),
+      count: String(countsByLevel[i] ?? 0),
+      ge: String(geCounts[i] ?? 0),
+    }))
+    const widthLevel = Math.max(colLevel.length, ...rows.map((r) => r.level.length))
+    const widthCount = Math.max(colCount.length, ...rows.map((r) => r.count.length))
+    const widthGe = Math.max(colGe.length, ...rows.map((r) => r.ge.length))
+
+    console.log('[scan-disconnect-events] disconnects_per_file:')
+    console.log(
+      `  ${colLevel.padStart(widthLevel)} ${colCount.padStart(widthCount)} ${colGe.padStart(widthGe)}`,
+    )
+    console.log(
+      `  ${'-'.repeat(widthLevel)} ${'-'.repeat(widthCount)} ${'-'.repeat(widthGe)}`,
+    )
+    for (const row of rows) {
+      console.log(
+        `  ${row.level.padStart(widthLevel)} ${row.count.padStart(widthCount)} ${row.ge.padStart(
+          widthGe,
+        )}`,
+      )
+    }
+  }
 }
 
 await main()
