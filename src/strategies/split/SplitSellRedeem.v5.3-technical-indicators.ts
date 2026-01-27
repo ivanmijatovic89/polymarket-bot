@@ -6,7 +6,6 @@ import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugi
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { TechnicalIndicatorsPlugin } from '../../strategy/plugins/TechnicalIndicatorsPlugin.js'
-import { DeribitVolatilityIndexPlugin } from '../../strategy/plugins/DeribitVolatilityIndexPlugin.js'
 import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
@@ -67,14 +66,12 @@ export function createStrategy(cfg: Config): {
   })
 
   const technicalIndicatorsPlugin = new TechnicalIndicatorsPlugin()
-  const deribitVolatilityIndexPlugin = new DeribitVolatilityIndexPlugin()
 
   const plugins: Plugin[] = [
     timeWindowGatePlugin,
     dwellGatePlugin,
     externalFeedsPlugin,
     technicalIndicatorsPlugin,
-    deribitVolatilityIndexPlugin,
   ]
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
@@ -184,15 +181,9 @@ export function createStrategy(cfg: Config): {
     sellPlaced = true
 
     const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
-    console.log('technicalIndicatorsSnap', technicalIndicatorsSnap)
-
-
-    const deribitVolatilityIndexSnap = deribitVolatilityIndexPlugin.snapshot()
-    console.log('deribitVolatilityIndexSnap', deribitVolatilityIndexSnap)
 
     const intentMeta = {
       ...(technicalIndicatorsSnap ? { technicalIndicators: technicalIndicatorsSnap } : {}),
-      ...(deribitVolatilityIndexSnap ? { deribitVolatilityIndex: deribitVolatilityIndexSnap } : {}),
     }
 
     return [

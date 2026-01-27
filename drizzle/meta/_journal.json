@@ -57,6 +57,13 @@
       "when": 1769222672530,
       "tag": "0007_overconfident_krista_starr",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1769539881025,
+      "tag": "0008_add_backtest_slugs",
+      "breakpoints": true
     }
   ]
 }

@@ -35,6 +35,7 @@ export const backtests = mysqlTable('backtests', {
   params: json('params').$type<Record<string, unknown>>().notNull(),
 
   symbol: varchar('symbol', { length: 10 }),
+  slugs: json('slugs').$type<string[] | null>(),
   limit: int('limit'),
   random: boolean('random').default(false).notNull(),
   latest: boolean('latest').default(false).notNull(),

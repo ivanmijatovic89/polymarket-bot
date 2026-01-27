@@ -69,6 +69,26 @@ npm run backtest -- \
 
 The `--latest` option counts total markets matching the symbol, then uses an offset to skip older markets and return only the latest N markets (where N is `--limit`).
 
+Backtest by slug(s) from the database:
+
+```bash
+npm run backtest -- \
+  --strategy SplitSellRedeem.v3 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --slug btc-updown-15m-1766699100
+```
+
+Multiple slugs:
+
+```bash
+npm run backtest -- \
+  --strategy SplitSellRedeem.v3 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --slug btc-updown-15m-1766699100,eth-updown-15m-1766699100
+```
+
 Run a backtest strategy (example):
 
 ```bash

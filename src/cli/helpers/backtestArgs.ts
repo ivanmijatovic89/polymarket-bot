@@ -7,6 +7,7 @@ export type BacktestArgs = {
   filePaths: string[]
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
+  slugs?: string[]
   symbol?: string
   limit?: number
   random?: boolean
@@ -18,6 +19,7 @@ export type BacktestArgs = {
 
 export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
+  const slugs: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
   let symbol: string | undefined
@@ -54,6 +56,20 @@ export function parseArgs(argv: string[]): BacktestArgs {
         symbol = argv[i + 1]
         i += 1
         break
+
+      case '--slug': {
+        const raw = argv[i + 1]
+        if (typeof raw !== 'string') {
+          throw new Error('[backtest] missing value for --slug')
+        }
+        const parts = raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+        if (parts.length === 0) {
+          throw new Error('[backtest] --slug must be a non-empty string')
+        }
+        slugs.push(...parts)
+        i += 1
+        break
+      }
 
       case '--limit': {
         const raw = argv[i + 1]
@@ -118,6 +134,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
           baselineId = arg.slice('--baselineId='.length)
           break
         }
+        if (arg.startsWith('--slug=')) {
+          const raw = arg.slice('--slug='.length)
+          const parts = raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+          if (parts.length === 0) {
+            throw new Error('[backtest] --slug must be a non-empty string')
+          }
+          slugs.push(...parts)
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -133,10 +158,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --latest requires --limit N (how many latest markets to fetch)')
   }
 
+  if (slugs.length > 0 && symbol) {
+    throw new Error('[backtest] --slug and --symbol are mutually exclusive')
+  }
+
   return {
     filePaths,
     order,
     timeDriven,
+    ...(slugs.length > 0 ? { slugs } : {}),
     ...(symbol ? { symbol } : {}),
     ...(limit !== undefined ? { limit } : {}),
     ...(random ? { random } : {}),

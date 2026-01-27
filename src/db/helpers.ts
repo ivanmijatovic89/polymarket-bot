@@ -1,4 +1,4 @@
-import { and, asc, count, eq, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { backtests, markets } from './schema.js'
 import type { MarketDataForTable } from '../polymarket/gamma.js'
@@ -27,6 +27,20 @@ export async function getMarketBySlug(slug: string): Promise<Market | null> {
     .limit(1)
 
   return results[0] ?? null
+}
+
+/**
+ * Get markets by slug list from database.
+ * Returns any matching markets (order not guaranteed).
+ */
+export async function getMarketsBySlugs(slugs: string[]): Promise<Market[]> {
+  if (slugs.length === 0) return []
+  const db = mustGetDb()
+  const results = await db
+    .select()
+    .from(markets)
+    .where(inArray(markets.slug, slugs))
+  return results
 }
 
 /**
@@ -180,6 +194,7 @@ export async function insertBacktestRun(row: {
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
+  slugs: string[] | null
   limit: number | null
   random: boolean
   latest: boolean
@@ -196,6 +211,7 @@ export async function insertBacktestRun(row: {
     strategy: row.strategy,
     params: row.params,
     symbol: row.symbol,
+    slugs: row.slugs,
     limit: row.limit,
     random: row.random,
     latest: row.latest,

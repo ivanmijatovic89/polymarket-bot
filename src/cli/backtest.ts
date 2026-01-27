@@ -24,7 +24,7 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill, PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
-import { closeDb, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
+import { closeDb, getMarketsBySlugs, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
 import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 
@@ -183,7 +183,28 @@ async function main(): Promise<void> {
   let marketRecords: Market[] = []
   const marketBySlug = new Map<string, Market>()
 
-  if (parsed.symbol) {
+  if (parsed.slugs && parsed.slugs.length > 0) {
+    try {
+      const uniqueSlugs = Array.from(new Set(parsed.slugs))
+      const results = await getMarketsBySlugs(uniqueSlugs)
+      const marketMap = new Map(results.map((m) => [m.slug, m] as const))
+      const foundMarkets = uniqueSlugs.map((slug) => marketMap.get(slug)).filter((m): m is Market => m !== undefined)
+      for (const m of foundMarkets) marketBySlug.set(m.slug, m)
+      const missingSlugs = uniqueSlugs.filter((slug) => !marketMap.has(slug))
+      if (missingSlugs.length > 0) {
+        console.warn(`[backtest] Missing markets for slugs: ${missingSlugs.join(', ')}`)
+      }
+      filePaths = foundMarkets.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
+      if (filePaths.length === 0) {
+        console.error(`[backtest] No markets found in database for slugs: ${uniqueSlugs.join(', ')}`)
+        process.exit(2)
+      }
+      console.log(`[backtest] Loaded ${filePaths.length} file(s) from database for slugs: ${uniqueSlugs.join(', ')}`)
+    } catch (err) {
+      console.error('[backtest] Failed to load markets from database:', err)
+      process.exit(2)
+    }
+  } else if (parsed.symbol) {
     try {
       marketRecords = await getMarketsBySymbol(parsed.symbol, {
         ...(parsed.limit !== undefined && { limit: parsed.limit }),
@@ -212,7 +233,9 @@ async function main(): Promise<void> {
         '  Orderbook replay (default):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query from database:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Or query by slug(s):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]',
     )
     process.exit(2)
   }
@@ -436,6 +459,7 @@ async function main(): Promise<void> {
     strategy: built.strategyId,
     params: built.params as Record<string, unknown>,
     symbol: parsed.symbol ?? null,
+    slugs: parsed.slugs ?? null,
     limit: parsed.limit ?? null,
     random: parsed.random ?? false,
     latest: parsed.latest ?? false,
