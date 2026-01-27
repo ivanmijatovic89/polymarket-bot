@@ -86,6 +86,7 @@ export class StrategyRunner {
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
   private lastMarketKey: string | null = null
+  private waitedTechIndicatorsMarketKey: string | null = null
   private cachedPlugins: PluginsSnapshot | undefined
   private readonly accountEventQueue: AccountEvent[] = []
   private draining = false
@@ -140,6 +141,7 @@ export class StrategyRunner {
     if (marketKey && this.lastMarketKey && marketKey !== this.lastMarketKey) {
       this.pluginSet?.reset()
       this.cachedPlugins = undefined
+      this.waitedTechIndicatorsMarketKey = null
     }
     if (marketKey) this.lastMarketKey = marketKey
 
@@ -177,6 +179,28 @@ export class StrategyRunner {
         : undefined
 
     this.pluginSet?.onMarketTick(tick, baseCtx)
+
+    const waitForTechIndicators = process.env.BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS === '1'
+    if (waitForTechIndicators && this.pluginSet && marketKey && this.waitedTechIndicatorsMarketKey !== marketKey) {
+      const timeoutMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_TECH_IND_TIMEOUT_MS ?? '3000') || 0))
+      const pollMs = Math.max(1, Math.trunc(Number(process.env.BACKTEST_TECH_IND_POLL_MS ?? '10') || 10))
+      const startedAt = Date.now()
+
+      let snap = this.pluginSet.refreshSnapshot()
+      while (!snap?.technicalIndicators && Date.now() - startedAt < timeoutMs) {
+        await new Promise((r) => setTimeout(r, pollMs))
+        snap = this.pluginSet.refreshSnapshot()
+      }
+
+      if (!snap?.technicalIndicators) {
+        console.warn('[backtest] technicalIndicators not ready before timeout', {
+          market: marketKey,
+          timeoutMs,
+        })
+      }
+      this.waitedTechIndicatorsMarketKey = marketKey
+    }
+
     const plugins = this.pluginSet ? this.pluginSet.snapshot() : undefined
     if (plugins) this.cachedPlugins = plugins
 

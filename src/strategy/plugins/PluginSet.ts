@@ -49,7 +49,19 @@ export class PluginSet {
 
   onMarketTick(tick: MarketTick, ctx?: StrategyContext): void {
     for (const p of this.plugins) p.onMarketTick(tick, ctx)
+    this.cached = this.buildSnapshot()
+  }
 
+  snapshot(): PluginsSnapshot {
+    return this.cached
+  }
+
+  refreshSnapshot(): PluginsSnapshot {
+    this.cached = this.buildSnapshot()
+    return this.cached
+  }
+
+  private buildSnapshot(): PluginsSnapshot {
     // Build a single snapshot for this tick (O(1) reads for strategies/UI without triggering computation).
     const snap: PluginsSnapshot = {}
     for (const p of this.plugins) {
@@ -59,11 +71,6 @@ export class PluginSet {
       if (typeof v === 'undefined') continue
       snap[p.id] = v
     }
-    this.cached = snap
-  }
-
-  snapshot(): PluginsSnapshot {
-    return this.cached
+    return snap
   }
 }
-
