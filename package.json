@@ -48,7 +48,8 @@
     "redeem-watcher": "tsx src/cli/redeem-watcher.ts",
     "redeem-watcher:direct": "POLYMARKET_TX_MODE_REDEEM=direct tsx src/cli/redeem-watcher.ts",
     "redeem-watcher:relayer": "POLYMARKET_TX_MODE_REDEEM=relayer tsx src/cli/redeem-watcher.ts",
-    "eoa:approve-ctf": "tsx src/cli/relayer.ts eoa-approve-ctf"
+    "eoa:approve-ctf": "tsx src/cli/relayer.ts eoa-approve-ctf",
+    "make:csv": "tsx src/strategies/split/makeCsv.ts"
   },
   "keywords": [],
   "author": "",
@@ -77,6 +78,7 @@
     "ethers": "^6.16.0",
     "mysql2": "^3.11.5",
     "pino": "^10.1.0",
+    "technicalindicators": "^3.1.0",
     "viem": "^2.33.3",
     "ws": "^8.18.3",
     "zod": "^4.2.1"
