@@ -201,11 +201,60 @@ export function createStrategy(cfg: Config): {
       }
     })
 
-    const intentMeta = windowsMetrics.length > 0
-      ? {
-          windowsMetrics,
-        }
-      : undefined
+    const orderbook = ctx?.metrics?.orderbook
+    const upBook = tick.snapshot.byAssetId[upAssetId]
+    const downBook = tick.snapshot.byAssetId[downAssetId]
+    const orderbookLevels = (() => {
+      if (!orderbook || !upBook || !downBook) return undefined
+      const upBids = upBook.bidsDepthByLevel ?? []
+      const upAsks = upBook.asksDepthByLevel ?? []
+      const downBids = downBook.bidsDepthByLevel ?? []
+      const downAsks = downBook.asksDepthByLevel ?? []
+      const levels = Math.max(
+        0,
+        Math.min(
+          orderbook.depthLevels ?? 0,
+          upBids.length,
+          upAsks.length,
+          downBids.length,
+          downAsks.length,
+        ),
+      )
+      if (levels <= 0) return undefined
+      const out: Array<{
+        level: number
+        isMyOrderOnWeakBidSide: boolean
+        weakBidSide: string
+        weakBidRatio: number
+        // weakAskSide: string
+        // weakAskRatio: number
+        upBidDepth: number
+        // upAskDepth: number
+        downBidDepth: number
+        // downAskDepth: number
+      }> = []
+      for (let i = 0; i < levels; i += 1) {
+        out.push({
+          level: i + 1,
+          isMyOrderOnWeakBidSide: orderbook.weakBidSideByLevel[i] === side ? true : false,
+          weakBidSide: orderbook.weakBidSideByLevel[i] ?? 'NONE',
+          weakBidRatio: orderbook.weakBidRatioByLevel[i] ?? 0,
+          // weakAskSide: orderbook.weakAskSideByLevel[i] ?? 'NONE',
+          // weakAskRatio: orderbook.weakAskRatioByLevel[i] ?? 0,
+          upBidDepth: upBids[i] ?? 0,
+          // upAskDepth: upAsks[i] ?? 0,
+          downBidDepth: downBids[i] ?? 0,
+          // downAskDepth: downAsks[i] ?? 0,
+        })
+      }
+      return out
+    })()
+    const intentMeta = {
+      tradeSide: side,
+      ...(windowsMetrics.length > 0 ? { windowsMetrics } : {}),
+      ...(orderbookLevels ? { orderbookLevels } : {}),
+    }
+    const hasIntentMeta = Object.keys(intentMeta).length > 0
 
     return [
       {
@@ -217,7 +266,7 @@ export function createStrategy(cfg: Config): {
         size: cfg.sellSize,
         orderType: 'GTC',
         reason: `${side}_dwell>=${cfg.dwellSecondsRequired}s; bestBid=${bestBid.toFixed(4)}`,
-        ...(intentMeta ? { meta: intentMeta } : {}),
+        ...(hasIntentMeta ? { meta: intentMeta } : {}),
       },
     ]
   }
