@@ -1,17 +1,22 @@
 import * as parquet from '@dsnp/parquetjs'
 import fs from 'node:fs/promises'
 import path from 'node:path'
+import readline from 'node:readline/promises'
 
 type Args = {
   dir: string
   recursive: boolean
   limitRows: number
+  deleteDisconnectsEqualOrGreater: number | null
+  deleteFilesWithLastEventDisconnect: boolean
 }
 
 function parseArgs(argv: string[]): Args | null {
   let dir: string | undefined
   let recursive = true
   let limitRows = 0
+  let deleteDisconnectsEqualOrGreater: number | null = null
+  let deleteFilesWithLastEventDisconnect = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -32,8 +37,30 @@ function parseArgs(argv: string[]): Args | null {
       const raw = argv[i + 1]
       i += 1
       const n = raw ? Number(raw) : NaN
-      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 1) return null
       limitRows = n
+      continue
+    }
+
+    if (
+      a === '--delete-files-where-disconnects-equal-or-greater' ||
+      a.startsWith('--delete-files-where-disconnects-equal-or-greater=')
+    ) {
+      let raw: string | undefined
+      if (a.includes('=')) {
+        raw = a.split('=')[1]
+      } else {
+        raw = argv[i + 1]
+        i += 1
+      }
+      const n = raw ? Number(raw) : NaN
+      if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null
+      deleteDisconnectsEqualOrGreater = n
+      continue
+    }
+
+    if (a === '--delete-files-with-last-event-disconnect') {
+      deleteFilesWithLastEventDisconnect = true
       continue
     }
 
@@ -45,7 +72,13 @@ function parseArgs(argv: string[]): Args | null {
   }
 
   if (!dir) return null
-  return { dir, recursive, limitRows }
+  return {
+    dir,
+    recursive,
+    limitRows,
+    deleteDisconnectsEqualOrGreater,
+    deleteFilesWithLastEventDisconnect,
+  }
 }
 
 async function walkParquetFiles(dirAbs: string, recursive: boolean): Promise<string[]> {
@@ -165,9 +198,13 @@ async function main(): Promise<void> {
     console.error(
       'Usage:\n' +
         '  tsx src/parquet/cli/scan-disconnect-events.ts <folder> [--recursive|--no-recursive] [--limit-rows N]\n' +
+        '  tsx src/parquet/cli/scan-disconnect-events.ts <folder> --delete-files-where-disconnects-equal-or-greater=2\n' +
+        '  tsx src/parquet/cli/scan-disconnect-events.ts <folder> --delete-files-with-last-event-disconnect\n' +
         'Examples:\n' +
         '  tsx src/parquet/cli/scan-disconnect-events.ts data/events\n' +
         '  tsx src/parquet/cli/scan-disconnect-events.ts data/events/btc --no-recursive\n' +
+        '  tsx src/parquet/cli/scan-disconnect-events.ts data/events/btc --delete-files-where-disconnects-equal-or-greater=2\n' +
+        '  tsx src/parquet/cli/scan-disconnect-events.ts data/events/btc --delete-files-with-last-event-disconnect\n' +
         '  npm run -s scan:disconnect-events -- data/events/btc --no-recursive\n',
     )
     process.exit(2)
@@ -202,6 +239,7 @@ async function main(): Promise<void> {
   let totalDisconnectGapMaxMs: number | null = null
   let totalDisconnectsWithoutNextEvent = 0
   let filesErrored = 0
+  const filesToDelete: string[] = []
 
   for (let i = 0; i < files.length; i += 1) {
     const filePath = files[i] as string
@@ -215,6 +253,15 @@ async function main(): Promise<void> {
         res.disconnects,
         (filesByDisconnectCount.get(res.disconnects) ?? 0) + 1,
       )
+      if (
+        parsed.deleteDisconnectsEqualOrGreater !== null &&
+        res.disconnects >= parsed.deleteDisconnectsEqualOrGreater
+      ) {
+        filesToDelete.push(filePath)
+      }
+      if (parsed.deleteFilesWithLastEventDisconnect && res.lastEventDisconnect) {
+        filesToDelete.push(filePath)
+      }
       if (res.disconnects > 0) {
         filesWithDisconnect += 1
         totalDisconnects += res.disconnects
@@ -295,6 +342,91 @@ async function main(): Promise<void> {
           widthGe,
         )}`,
       )
+    }
+  }
+
+  if (
+    parsed.deleteDisconnectsEqualOrGreater !== null ||
+    parsed.deleteFilesWithLastEventDisconnect
+  ) {
+    const toDelete = Array.from(new Set(filesToDelete))
+    const deleteCount = toDelete.length
+    if (deleteCount === 0) {
+      const deleteReasons: string[] = []
+      if (parsed.deleteDisconnectsEqualOrGreater !== null) {
+        deleteReasons.push(
+          `disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`,
+        )
+      }
+      if (parsed.deleteFilesWithLastEventDisconnect) {
+        deleteReasons.push('last_event_disconnect=true')
+      }
+      const reasonText =
+        deleteReasons.length === 1
+          ? deleteReasons[0] ?? ''
+          : deleteReasons.map((r) => `(${r})`).join(' OR ')
+      console.log(
+        `[scan-disconnect-events] no files to delete for criteria: ${reasonText}`,
+      )
+      return
+    }
+    const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
+    try {
+      const deleteReasons: string[] = []
+      if (parsed.deleteDisconnectsEqualOrGreater !== null) {
+        deleteReasons.push(
+          `disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`,
+        )
+      }
+      if (parsed.deleteFilesWithLastEventDisconnect) {
+        deleteReasons.push('last_event_disconnect=true')
+      }
+      const reasonText =
+        deleteReasons.length === 1
+          ? deleteReasons[0] ?? ''
+          : deleteReasons.map((r) => `(${r})`).join(' OR ')
+
+      console.log(
+        `You requested to delete files where ${reasonText}, there is ${deleteCount} files to be deleted. Before we delete files please double check files:`,
+      )
+
+      let choice = ''
+      while (choice !== 'show files' && choice !== 'cancel') {
+        choice = (
+          await rl.question('Choose: show files | cancel\n')
+        ).trim().toLowerCase()
+      }
+
+      if (choice === 'cancel') return
+
+      for (const filePath of toDelete) {
+        const rel = path.relative(dirAbs, filePath) || path.basename(filePath)
+        const displayPath = path.join(parsed.dir, rel)
+        console.log(displayPath)
+      }
+
+      const confirm = (
+        await rl.question(
+          `Please confirm you wanna delete ${deleteCount} files where ${reasonText}.\nType 'delete' to confirm:\n`,
+        )
+      ).trim()
+      if (confirm !== 'delete') return
+
+      let deleted = 0
+      let deleteErrors = 0
+      for (const filePath of toDelete) {
+        try {
+          await fs.unlink(filePath)
+          deleted += 1
+        } catch {
+          deleteErrors += 1
+        }
+      }
+      console.log(
+        `[scan-disconnect-events] delete done: deleted=${deleted} errors=${deleteErrors}`,
+      )
+    } finally {
+      rl.close()
     }
   }
 }

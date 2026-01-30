@@ -20,6 +20,10 @@ npm run -s scan:disconnect-events -- <folder>
 
 - `--no-recursive`: only scan the given folder (default is recursive)
 - `--limit-rows N`: scan at most N rows per file (default 0 = scan all rows)
+- `--delete-files-where-disconnects-equal-or-greater=N`: delete files where disconnect count is >= N (N must be >= 1)
+- `--delete-files-with-last-event-disconnect`: delete files where the last event is a disconnect
+
+Both delete flags can be used together; deletion uses OR logic.
 
 ## Output
 
@@ -37,3 +41,7 @@ npm run -s scan:disconnect-events -- <folder>
   - `total_disconnects_without_next_event`: disconnects that had no following row (typically because disconnect was the last row)
   - `gaps` and `gap_ms_*`: aggregated gap stats across all files
   - `files_errored`: how many files failed to read
+- Prints a `disconnects_per_file` table with `level`, `count`, and `count_ge` (>= level).
+- If delete flags are provided and matches exist, it prompts to:
+  - show the list of files that will be deleted
+  - confirm by typing `delete`
