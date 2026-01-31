@@ -5,6 +5,8 @@ data/
 
 queue/.runner.lock/
 
+do-not-commit/
+
 # build output
 dist/
 build/

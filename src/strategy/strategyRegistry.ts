@@ -21,6 +21,14 @@ import { definition as splitSellRedeemV51ResearchMetrics } from '../strategies/s
 import { definition as splitSellRedeemV52NetChange } from '../strategies/split/SplitSellRedeem.v5.2-netChange.js'
 import { definition as splitSellRedeemV53TechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.3-technical-indicators.js'
 import { definition as splitSellRedeemV54ResearchMetricsAndTechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.4-research-metrics-and-technical-indicators.js'
+// Gate Research
+import { definition as splitSellRedeemV5GateNetChange } from '../strategies/split/SplitSellRedeem.v5.gate-netChange.js'
+import { definition as splitSellRedeemV5GateHighLowRange } from '../strategies/split/SplitSellRedeem.v5.gate-highLowRange.js'
+import { definition as splitSellRedeemV5GateOrderbookImbalance } from '../strategies/split/SplitSellRedeem.v5.gate-orderbookImbalance.js'
+import { definition as splitSellRedeemV5GateTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf15mWickRatio.js'
+import { definition as splitSellRedeemV5GateTaTf1hWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.js'
+import { definition as splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.js'
+
 import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
 import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
@@ -45,6 +53,15 @@ export const strategyRegistry = {
   [splitSellRedeemV52NetChange.id]: splitSellRedeemV52NetChange,
   [splitSellRedeemV53TechnicalIndicators.id]: splitSellRedeemV53TechnicalIndicators,
   [splitSellRedeemV54ResearchMetricsAndTechnicalIndicators.id]: splitSellRedeemV54ResearchMetricsAndTechnicalIndicators,
+
+  // Gate Research
+  [splitSellRedeemV5GateNetChange.id]: splitSellRedeemV5GateNetChange,
+  [splitSellRedeemV5GateHighLowRange.id]: splitSellRedeemV5GateHighLowRange,
+  [splitSellRedeemV5GateOrderbookImbalance.id]: splitSellRedeemV5GateOrderbookImbalance,
+  [splitSellRedeemV5GateTaTf15mWickRatio.id]: splitSellRedeemV5GateTaTf15mWickRatio,
+  [splitSellRedeemV5GateTaTf1hWickRatio.id]: splitSellRedeemV5GateTaTf1hWickRatio,
+  [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]: splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
+
   [scalpV1.id]: scalpV1,
   // templates
   [templateV1.id]: templateV1,
