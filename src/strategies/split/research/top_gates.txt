@@ -1,0 +1,304 @@
+TOP GATES (FINAL ranking by TEST only)
+Protocol: SEARCH on train+val, FINAL on test
+N=943, time_col=asOfTimeMs
+
+#1
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.0306926129)
+FINAL: ev_test=1.029259 kept_n_test=54 placebo=None
+SEARCH: score=-0.054145 tv_skip=31.08% ev_train=0.324352 ev_val=0.219248
+SEARCH chunk: valid=8 chunk_ev_std=0.373763 beat_frac=0.875
+
+#2
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.0306926129)
+FINAL: ev_test=1.002264 kept_n_test=53 placebo=None
+SEARCH: score=-0.089798 tv_skip=32.67% ev_train=0.339105 ev_val=0.180157
+SEARCH chunk: valid=8 chunk_ev_std=0.387018 beat_frac=0.750
+
+#3
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.932336 kept_n_test=107 placebo=None
+SEARCH: score=-0.024354 tv_skip=26.29% ev_train=0.341310 ev_val=0.197025
+SEARCH chunk: valid=8 chunk_ev_std=0.315558 beat_frac=0.750
+
+#4
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.931402 kept_n_test=107 placebo=None
+SEARCH: score=-0.071876 tv_skip=31.21% ev_train=0.343256 ev_val=0.212187
+SEARCH chunk: valid=8 chunk_ev_std=0.396513 beat_frac=0.750
+
+#5
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.1322947635 OR tf15m_wickRatio >= 8.419461199) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.921868 kept_n_test=91 placebo=None
+SEARCH: score=-0.107714 tv_skip=43.82% ev_train=0.327895 ev_val=0.591700
+SEARCH chunk: valid=8 chunk_ev_std=0.457589 beat_frac=0.875
+
+#6
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.917925 kept_n_test=106 placebo=None
+SEARCH: score=-0.078709 tv_skip=27.62% ev_train=0.350305 ev_val=0.145695
+SEARCH chunk: valid=8 chunk_ev_std=0.337524 beat_frac=0.625
+
+#7
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003863715503) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.910667 kept_n_test=105 placebo=None
+SEARCH: score=-0.048572 tv_skip=27.09% ev_train=0.360409 ev_val=0.197025
+SEARCH chunk: valid=8 chunk_ev_std=0.350335 beat_frac=0.875
+
+#8
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.910472 kept_n_test=106 placebo=94.5
+SEARCH: score=0.024441 tv_skip=36.79% ev_train=0.377285 ev_val=0.360348
+SEARCH chunk: valid=8 chunk_ev_std=0.425355 beat_frac=0.750
+
+#9
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct >= 0.003863715503) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.895769 kept_n_test=104 placebo=None
+SEARCH: score=-0.095939 tv_skip=28.42% ev_train=0.369691 ev_val=0.145695
+SEARCH chunk: valid=8 chunk_ev_std=0.363600 beat_frac=0.750
+
+#10
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.895714 kept_n_test=105 placebo=None
+SEARCH: score=-0.008575 tv_skip=37.98% ev_train=0.387486 ev_val=0.322569
+SEARCH chunk: valid=8 chunk_ev_std=0.435564 beat_frac=0.750
+
+#11
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.002688801682)
+FINAL: ev_test=0.895227 kept_n_test=88 placebo=None
+SEARCH: score=-0.102004 tv_skip=32.67% ev_train=0.304773 ev_val=0.149419
+SEARCH chunk: valid=8 chunk_ev_std=0.352006 beat_frac=0.750
+
+#12
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.03498540081)
+FINAL: ev_test=0.885000 kept_n_test=72 placebo=None
+SEARCH: score=-0.098954 tv_skip=28.15% ev_train=0.302647 ev_val=0.219248
+SEARCH chunk: valid=8 chunk_ev_std=0.424248 beat_frac=0.750
+
+#13
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.002688801682)
+FINAL: ev_test=0.877241 kept_n_test=87 placebo=None
+SEARCH: score=-0.131560 tv_skip=34.00% ev_train=0.314613 ev_val=0.094797
+SEARCH chunk: valid=8 chunk_ev_std=0.338509 beat_frac=0.750
+
+#14
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth >= 0.0306926129)
+FINAL: ev_test=0.873265 kept_n_test=49 placebo=84.5
+SEARCH: score=0.025152 tv_skip=39.44% ev_train=0.409561 ev_val=0.325965
+SEARCH chunk: valid=8 chunk_ev_std=0.402140 beat_frac=0.875
+
+#15
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth >= 0.0306926129) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.873265 kept_n_test=49 placebo=None
+SEARCH: score=-0.053253 tv_skip=29.35% ev_train=0.350933 ev_val=0.171019
+SEARCH chunk: valid=8 chunk_ev_std=0.326417 beat_frac=0.750
+
+#16
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.870459 kept_n_test=109 placebo=None
+SEARCH: score=-0.039302 tv_skip=29.75% ev_train=0.322658 ev_val=0.249552
+SEARCH chunk: valid=8 chunk_ev_std=0.383611 beat_frac=0.750
+
+#17
+RULE: SKIP = (tf15m_hlRangePct <= 0.0007218898852 OR tf15m_hlRangePct >= 0.003464653504) OR (tf15m_wickRatio <= 0.2317762659) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.864565 kept_n_test=92 placebo=None
+SEARCH: score=-0.120402 tv_skip=48.07% ev_train=0.314673 ev_val=0.422000
+SEARCH chunk: valid=8 chunk_ev_std=0.505930 beat_frac=0.625
+
+#18
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.03498540081)
+FINAL: ev_test=0.862817 kept_n_test=71 placebo=None
+SEARCH: score=-0.117636 tv_skip=29.88% ev_train=0.336110 ev_val=0.180157
+SEARCH chunk: valid=8 chunk_ev_std=0.422823 beat_frac=0.750
+
+#19
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003464653504) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.851569 kept_n_test=102 placebo=None
+SEARCH: score=-0.042113 tv_skip=28.29% ev_train=0.358089 ev_val=0.197025
+SEARCH chunk: valid=8 chunk_ev_std=0.340680 beat_frac=0.875
+
+#20
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.1322947635) OR (tf1h_bbWidth >= 0.0306926129)
+FINAL: ev_test=0.840208 kept_n_test=48 placebo=None
+SEARCH: score=-0.026167 tv_skip=40.50% ev_train=0.396912 ev_val=0.285926
+SEARCH chunk: valid=8 chunk_ev_std=0.426037 beat_frac=0.875
+
+#21
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf1h_bbWidth >= 0.0306926129) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.840208 kept_n_test=48 placebo=None
+SEARCH: score=-0.120368 tv_skip=30.54% ev_train=0.339088 ev_val=0.118133
+SEARCH chunk: valid=8 chunk_ev_std=0.357010 beat_frac=0.750
+
+#22
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct >= 0.003464653504) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.835644 kept_n_test=101 placebo=None
+SEARCH: score=-0.086488 tv_skip=29.61% ev_train=0.367573 ev_val=0.145695
+SEARCH chunk: valid=8 chunk_ev_std=0.349885 beat_frac=0.875
+
+#23
+RULE: SKIP = (tf15m_hlRangePct >= 0.002398938572)
+FINAL: ev_test=0.820849 kept_n_test=106 placebo=None
+SEARCH: score=-1.048074 tv_skip=26.43% ev_train=0.149869 ev_val=-0.030462
+SEARCH chunk: valid=8 chunk_ev_std=0.470581 beat_frac=0.375
+
+#24
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth >= 0.03498540081) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.816897 kept_n_test=58 placebo=None
+SEARCH: score=-0.131704 tv_skip=30.01% ev_train=0.306356 ev_val=0.079603
+SEARCH chunk: valid=8 chunk_ev_std=0.324640 beat_frac=0.625
+
+#25
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_hlRangePct >= 0.002688801682)
+FINAL: ev_test=0.815238 kept_n_test=105 placebo=None
+SEARCH: score=-0.134823 tv_skip=33.20% ev_train=0.245908 ev_val=0.185149
+SEARCH chunk: valid=8 chunk_ev_std=0.417707 beat_frac=0.750
+
+#26
+RULE: SKIP = (tf15m_hlRangePct <= 0.0007218898852 OR tf15m_hlRangePct >= 0.003464653504) OR (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.813500 kept_n_test=100 placebo=None
+SEARCH: score=-0.078983 tv_skip=43.96% ev_train=0.346111 ev_val=0.545000
+SEARCH chunk: valid=8 chunk_ev_std=0.464797 beat_frac=0.750
+
+#27
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf1h_bbWidth >= 0.03498540081) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.808621 kept_n_test=58 placebo=None
+SEARCH: score=-0.022824 tv_skip=39.18% ev_train=0.405308 ev_val=0.324103
+SEARCH chunk: valid=8 chunk_ev_std=0.458481 beat_frac=0.750
+
+#28
+RULE: SKIP = (tf15m_wickRatio <= 0.4001083947) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.800000 kept_n_test=88 placebo=None
+SEARCH: score=-0.131863 tv_skip=44.75% ev_train=0.228359 ev_val=0.193656
+SEARCH chunk: valid=8 chunk_ev_std=0.418890 beat_frac=0.625
+
+#29
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_hlRangePct >= 0.002688801682)
+FINAL: ev_test=0.799423 kept_n_test=104 placebo=None
+SEARCH: score=-0.144975 tv_skip=34.40% ev_train=0.254809 ev_val=0.144766
+SEARCH chunk: valid=8 chunk_ev_std=0.395311 beat_frac=0.625
+
+#30
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth <= 0.008166229779) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.797545 kept_n_test=110 placebo=None
+SEARCH: score=-0.059699 tv_skip=51.39% ev_train=0.370895 ev_val=0.170755
+SEARCH chunk: valid=6 chunk_ev_std=0.376927 beat_frac=0.667
+
+#31
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.797545 kept_n_test=110 placebo=None
+SEARCH: score=-0.157037 tv_skip=23.24% ev_train=0.312488 ev_val=0.105250
+SEARCH chunk: valid=8 chunk_ev_std=0.385674 beat_frac=0.750
+
+#32
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_wickRatio <= 0.05545740001)
+FINAL: ev_test=0.797545 kept_n_test=110 placebo=None
+SEARCH: score=-0.157037 tv_skip=23.24% ev_train=0.312488 ev_val=0.105250
+SEARCH chunk: valid=8 chunk_ev_std=0.385674 beat_frac=0.750
+
+#33
+RULE: SKIP = (tf15m_hlRangePct <= 0.0007218898852 OR tf15m_hlRangePct >= 0.003464653504) OR (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.796869 kept_n_test=99 placebo=None
+SEARCH: score=-0.060350 tv_skip=44.89% ev_train=0.357196 ev_val=0.556915
+SEARCH chunk: valid=8 chunk_ev_std=0.453655 beat_frac=0.750
+
+#34
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.015594 tv_skip=31.74% ev_train=0.403660 ev_val=0.339206
+SEARCH chunk: valid=8 chunk_ev_std=0.464034 beat_frac=0.875
+
+#35
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.015594 tv_skip=31.74% ev_train=0.403660 ev_val=0.339206
+SEARCH chunk: valid=8 chunk_ev_std=0.464034 beat_frac=0.875
+
+#36
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.015594 tv_skip=31.74% ev_train=0.403660 ev_val=0.339206
+SEARCH chunk: valid=8 chunk_ev_std=0.464034 beat_frac=0.875
+
+#37
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct <= 0.000997456038 OR tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.029722 tv_skip=47.54% ev_train=0.402145 ev_val=0.341562
+SEARCH chunk: valid=8 chunk_ev_std=0.489700 beat_frac=1.000
+
+#38
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_atr14Pct <= 0.000997456038 OR tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.029722 tv_skip=47.54% ev_train=0.402145 ev_val=0.341562
+SEARCH chunk: valid=8 chunk_ev_std=0.489700 beat_frac=1.000
+
+#39
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct <= 0.000997456038 OR tf15m_atr14Pct >= 0.003114683896) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.029722 tv_skip=47.54% ev_train=0.402145 ev_val=0.341562
+SEARCH chunk: valid=8 chunk_ev_std=0.489700 beat_frac=1.000
+
+#40
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct <= 0.000997456038 OR tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+FINAL: ev_test=0.794174 kept_n_test=115 placebo=None
+SEARCH: score=-0.029722 tv_skip=47.54% ev_train=0.402145 ev_val=0.341562
+SEARCH chunk: valid=8 chunk_ev_std=0.489700 beat_frac=1.000
+
+#41
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003464653504) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.784369 kept_n_test=103 placebo=None
+SEARCH: score=-0.070246 tv_skip=29.75% ev_train=0.287474 ev_val=0.176577
+SEARCH chunk: valid=8 chunk_ev_std=0.338794 beat_frac=0.625
+
+#42
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003038471103) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.783878 kept_n_test=98 placebo=None
+SEARCH: score=-0.104091 tv_skip=32.54% ev_train=0.270526 ev_val=0.140816
+SEARCH chunk: valid=8 chunk_ev_std=0.340286 beat_frac=0.625
+
+#43
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_rv20 >= 0.00241490384)
+FINAL: ev_test=0.783860 kept_n_test=114 placebo=None
+SEARCH: score=-0.068860 tv_skip=37.18% ev_train=0.419213 ev_val=0.324103
+SEARCH chunk: valid=8 chunk_ev_std=0.521239 beat_frac=0.875
+
+#44
+RULE: SKIP = (tf15m_atr14Pct <= 0.0009164561015 OR tf15m_atr14Pct >= 0.003383416573)
+FINAL: ev_test=0.782868 kept_n_test=129 placebo=None
+SEARCH: score=-0.943781 tv_skip=29.61% ev_train=0.245242 ev_val=-0.183299
+SEARCH chunk: valid=8 chunk_ev_std=0.745402 beat_frac=0.500
+
+#45
+RULE: SKIP = (tf15m_atr14Pct >= 0.003383416573)
+FINAL: ev_test=0.782868 kept_n_test=129 placebo=None
+SEARCH: score=-1.395031 tv_skip=10.76% ev_train=0.228154 ev_val=-0.110670
+SEARCH chunk: valid=8 chunk_ev_std=0.391901 beat_frac=0.250
+
+#46
+RULE: SKIP = (tf1h_ema20Over50 <= -0.009626227912)
+FINAL: ev_test=0.777391 kept_n_test=92 placebo=None
+SEARCH: score=-2.153979 tv_skip=0.00% ev_train=0.208195 ev_val=-0.134309
+SEARCH chunk: valid=8 chunk_ev_std=0.381762 beat_frac=0.000
+
+#47
+RULE: SKIP = (tf1h_ema20Over50 <= -0.009626227912 OR tf1h_ema20Over50 >= 0.003807234588)
+FINAL: ev_test=0.777391 kept_n_test=92 placebo=None
+SEARCH: score=-2.265480 tv_skip=12.62% ev_train=-0.020574 ev_val=-0.134309
+SEARCH chunk: valid=8 chunk_ev_std=0.444429 beat_frac=0.000
+
+#48
+RULE: SKIP = (tf15m_rv20 >= 0.001670810706)
+FINAL: ev_test=0.776703 kept_n_test=91 placebo=None
+SEARCH: score=-1.128390 tv_skip=30.68% ev_train=0.273567 ev_val=-0.097289
+SEARCH chunk: valid=8 chunk_ev_std=0.529492 beat_frac=0.375
+
+#49
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003038471103) OR (tf15m_atr14Pct >= 0.003114683896)
+FINAL: ev_test=0.772857 kept_n_test=98 placebo=None
+SEARCH: score=-0.073641 tv_skip=30.81% ev_train=0.306356 ev_val=0.163590
+SEARCH chunk: valid=8 chunk_ev_std=0.332333 beat_frac=0.750
+
+#50
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf1h_bbWidth >= 0.03498540081)
+FINAL: ev_test=0.772222 kept_n_test=72 placebo=None
+SEARCH: score=-0.072718 tv_skip=31.87% ev_train=0.388686 ev_val=0.307680
+SEARCH chunk: valid=8 chunk_ev_std=0.501454 beat_frac=0.750
+

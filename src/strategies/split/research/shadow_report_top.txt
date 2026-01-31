@@ -1,0 +1,153 @@
+SHADOW FORWARD TEST REPORT (TEST period only)
+Chunks: size=96, chunks=2, rows=190
+
+==========================================================================================
+RANK #1
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.0306926129)
+SEARCH score=-0.054145, tv_skip=31.08%
+TEST ev=1.029259, kept_n=54, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.733500	40	61.99	29.34	61.99	29.34	-32.65
+2	0.210638	1.874286	14	19.80	26.24	81.79	55.58	-26.21
+
+==========================================================================================
+RANK #2
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.0306926129)
+SEARCH score=-0.089798, tv_skip=32.67%
+TEST ev=1.002264, kept_n=53, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.689231	39	61.99	26.88	61.99	26.88	-35.11
+2	0.210638	1.874286	14	19.80	26.24	81.79	53.12	-28.67
+
+==========================================================================================
+RANK #3
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+SEARCH score=-0.024354, tv_skip=26.29%
+TEST ev=0.932336, kept_n=107, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.833333	84	61.99	70.00	61.99	70.00	8.01
+2	0.210638	1.293913	23	19.80	29.76	81.79	99.76	17.97
+
+==========================================================================================
+RANK #4
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=-0.071876, tv_skip=31.21%
+TEST ev=0.931402, kept_n=107, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.832143	84	61.99	69.90	61.99	69.90	7.91
+2	0.210638	1.293913	23	19.80	29.76	81.79	99.66	17.87
+
+==========================================================================================
+RANK #5
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.1322947635 OR tf15m_wickRatio >= 8.419461199) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=-0.107714, tv_skip=43.82%
+TEST ev=0.921868, kept_n=91, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.817246	69	61.99	56.39	61.99	56.39	-5.60
+2	0.210638	1.250000	22	19.80	27.50	81.79	83.89	2.10
+
+==========================================================================================
+RANK #6
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.004087772942)
+SEARCH score=-0.078709, tv_skip=27.62%
+TEST ev=0.917925, kept_n=106, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.813735	83	61.99	67.54	61.99	67.54	5.55
+2	0.210638	1.293913	23	19.80	29.76	81.79	97.30	15.51
+
+==========================================================================================
+RANK #7
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct >= 0.003863715503) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=-0.048572, tv_skip=27.09%
+TEST ev=0.910667, kept_n=105, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.818434	83	61.99	67.93	61.99	67.93	5.94
+2	0.210638	1.258636	22	19.80	27.69	81.79	95.62	13.83
+
+==========================================================================================
+RANK #8
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=0.024441, tv_skip=36.79%
+TEST ev=0.910472, kept_n=106, placebo=94.5
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.804217	83	61.99	66.75	61.99	66.75	4.76
+2	0.210638	1.293913	23	19.80	29.76	81.79	96.51	14.72
+
+==========================================================================================
+RANK #9
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_hlRangePct >= 0.003863715503) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=-0.095939, tv_skip=28.42%
+TEST ev=0.895769, kept_n=104, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.798415	82	61.99	65.47	61.99	65.47	3.48
+2	0.210638	1.258636	22	19.80	27.69	81.79	93.16	11.37
+
+==========================================================================================
+RANK #10
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896)
+SEARCH score=-0.008575, tv_skip=37.98%
+TEST ev=0.895714, kept_n=105, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.784024	82	61.99	64.29	61.99	64.29	2.30
+2	0.210638	1.293913	23	19.80	29.76	81.79	94.05	12.26
+
+==========================================================================================
+RANK #11
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.002688801682)
+SEARCH score=-0.102004, tv_skip=32.67%
+TEST ev=0.895227, kept_n=88, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.906620	71	61.99	64.37	61.99	64.37	2.38
+2	0.210638	0.847647	17	19.80	14.41	81.79	78.78	-3.01
+
+==========================================================================================
+RANK #12
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf15m_hlRangePct <= 0.0004191261593 OR tf15m_hlRangePct >= 0.005677570903) OR (tf1h_bbWidth >= 0.03498540081)
+SEARCH score=-0.098954, tv_skip=28.15%
+TEST ev=0.885000, kept_n=72, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.949333	45	61.99	42.72	61.99	42.72	-19.27
+2	0.210638	0.777778	27	19.80	21.00	81.79	63.72	-18.07
+
+==========================================================================================
+RANK #13
+RULE: SKIP = (tf15m_wickRatio <= 0.1322947635) OR (tf15m_atr14Pct >= 0.003114683896) OR (tf15m_hlRangePct >= 0.002688801682)
+SEARCH score=-0.131560, tv_skip=34.00%
+TEST ev=0.877241, kept_n=87, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.884429	70	61.99	61.91	61.99	61.91	-0.08
+2	0.210638	0.847647	17	19.80	14.41	81.79	76.32	-5.47
+
+==========================================================================================
+RANK #14
+RULE: SKIP = (tf15m_hlRangePct <= 0.0005932537496 OR tf15m_hlRangePct >= 0.004087772942) OR (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth >= 0.0306926129)
+SEARCH score=0.025152, tv_skip=39.44%
+TEST ev=0.873265, kept_n=49, placebo=84.5
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.632368	38	61.99	24.03	61.99	24.03	-37.96
+2	0.210638	1.705455	11	19.80	18.76	81.79	42.79	-39.00
+
+==========================================================================================
+RANK #15
+RULE: SKIP = (tf15m_wickRatio <= 0.100551206) OR (tf1h_bbWidth >= 0.0306926129) OR (tf15m_hlRangePct >= 0.004087772942)
+SEARCH score=-0.053253, tv_skip=29.35%
+TEST ev=0.873265, kept_n=49, placebo=None
+
+chunk	baseEV	gateEV	keptN	basePNL	gatePNL	cumBase	cumGate	Δcum
+1	0.645729	0.632368	38	61.99	24.03	61.99	24.03	-37.96
+2	0.210638	1.705455	11	19.80	18.76	81.79	42.79	-39.00
+

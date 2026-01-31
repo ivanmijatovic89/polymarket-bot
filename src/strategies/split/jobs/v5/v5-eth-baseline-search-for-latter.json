@@ -1,0 +1,23 @@
+{
+  "before": "npm run backtest -- --strategy SplitSellRedeem.v5",
+  "after": "--symbol eth --limit 600 --comment 'eth-baseline-search-1'  --batchUid 'eth-baseline-search-1' ",
+  "params": {
+    "splitShares": [10],
+    "sellSize": [10],
+
+    "timeFilterAllowTradingAfterSeconds": [90, 120, 180, 240],
+    "timeFilterDisableTradingAfterSeconds": [480, 540, 600, 660, 720],
+
+    "dwellTrackPrice": ["bid"],
+    "dwellSecondsRequired": [15, 20, 25, 30, 40],
+
+    "dwallRanges": [
+      [0.18, 0.40],
+      [0.20, 0.40],
+      [0.22, 0.45],
+      [0.20, 0.35],
+      [0.16, 0.38],
+      [0.18, 0.45]
+    ]
+  }
+}
