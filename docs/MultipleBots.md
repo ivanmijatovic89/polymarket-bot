@@ -6,19 +6,21 @@ You can run multiple bot instances on different ports. Each bot runs its own emb
 
 ### Terminal 1 - Bot 1 (TemplateDwellGate):
 ```bash
-ENABLE_WEB_UI=true WEB_UI_HOST=0.0.0.0 WEB_UI_PORT=3001 BOT_INSTANCE_ID=TemplateDwellGate \
+BOT_ENV=botA ENABLE_WEB_UI=true WEB_UI_HOST=0.0.0.0 WEB_UI_PORT=3001 BOT_INSTANCE_ID=TemplateDwellGate \
 npm run trade:bot:btc -- \
   --strategy TemplateDwellGate
 ```
 
 ### Terminal 2 - Bot 2 (TemplateTimeWindowGate):
 ```bash
-ENABLE_WEB_UI=true WEB_UI_HOST=0.0.0.0 WEB_UI_PORT=3002 BOT_INSTANCE_ID=TemplateTimeWindowGate \
+BOT_ENV=botB ENABLE_WEB_UI=true WEB_UI_HOST=0.0.0.0 WEB_UI_PORT=3002 BOT_INSTANCE_ID=TemplateTimeWindowGate \
 npm run trade:bot:btc -- \
   --strategy TemplateTimeWindowGate \
   --param timeFilterAllowTradingAfterSeconds=180 \
   --param timeFilterDisableTradingAfterSeconds=600
 ```
+
+**Per-bot env files**: create `.env.botA` and `.env.botB` with wallet/API creds + overrides. When `BOT_ENV=botA` is set, the bot loads `.env.botA` first, then `.env`.
 
 **Note**: `WEB_UI_HOST=0.0.0.0` allows access from other machines on your LAN. For localhost-only access, use `WEB_UI_HOST=127.0.0.1`.
 

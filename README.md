@@ -432,6 +432,60 @@ Trading / strategies:
   - `false`: enable real order placement (requires `PRIVATE_KEY` and API creds)
 - `LOG_TRADES` (default: `false` for trading-bot)
   - `true`: print `[trade] ...` for each fill event (live fills from user WS/polling)
+- `BOT_ENV` (optional)
+  - set in your shell/command (e.g. `BOT_ENV=botA`) to load `.env` then `.env.botA` with override enabled (per-bot overrides win even vs shell env)
+
+### Per-bot env files (.env.botExample)
+
+Create per-bot env files to avoid passing env vars on every run. When `BOT_ENV=botA` is set, the loader reads `.env.botA` first, then `.env`.
+
+**Minimum required for live trading (DRY_RUN=false):**
+
+- `PRIVATE_KEY` (or `POLYMARKET_PRIVATE_KEY`)
+- `POLYMARKET_API_KEY`
+- `POLYMARKET_API_SECRET`
+- `POLYMARKET_API_PASSPHRASE`
+- `WEB_UI_PORT` (if `ENABLE_WEB_UI=true`)
+
+**Recommended per-bot fields:**
+
+- `BOT_INSTANCE_ID` (UI title and human-readable ID)
+- `WEB_UI_PORT` (unique per bot)
+
+**If using relayer / SAFE:**
+
+- `CLOB_FUNDER`
+- `POLYMARKET_BUILDER_API_KEY`
+- `POLYMARKET_BUILDER_API_SECRET`
+- `POLYMARKET_BUILDER_API_PASSPHRASE`
+- `POLYMARKET_TX_MODE_SPLIT` / `POLYMARKET_TX_MODE_MERGE` / `POLYMARKET_TX_MODE_REDEEM`
+- `CLOB_SIGNATURE_TYPE`
+
+Example: `.env.botExample`
+
+```env
+# Bot identity + UI
+BOT_INSTANCE_ID=botExample
+WEB_UI_PORT=3001
+
+# Live trading keys (required when DRY_RUN=false)
+PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+POLYMARKET_API_KEY=your_api_key
+POLYMARKET_API_SECRET=your_api_secret
+POLYMARKET_API_PASSPHRASE=your_api_passphrase
+
+# If using relayer/SAFE (optional)
+# CLOB_FUNDER=0xYourSafeWalletAddress
+# POLYMARKET_BUILDER_API_KEY=your_builder_key
+# POLYMARKET_BUILDER_API_SECRET=your_builder_secret
+# POLYMARKET_BUILDER_API_PASSPHRASE=your_builder_passphrase
+# POLYMARKET_TX_MODE_SPLIT=relayer
+# POLYMARKET_TX_MODE_MERGE=relayer
+# POLYMARKET_TX_MODE_REDEEM=relayer
+# CLOB_SIGNATURE_TYPE=2
+```
+
+Keep shared settings (DB, symbol defaults, logging, etc.) in `.env`.
 
 ### File logs (per-run JSONL)
 
@@ -501,6 +555,26 @@ Live trading keys:
   - `CLOB_CHAIN_ID` (default `137`)
   - `CLOB_SIGNATURE_TYPE` (default `0`)
   - `CLOB_FUNDER` (optional; required for some wallet types)
+
+### Create CLOB API Keys (CLI)
+
+This repo includes a small CLI helper to create/derive CLOB API credentials for a wallet.
+
+```bash
+# Using a private key directly (prints API key/secret/passphrase)
+npm run clob:api-key -- 0xYOUR_PRIVATE_KEY
+
+# Or with an explicit flag
+npm run clob:api-key -- --private-key 0xYOUR_PRIVATE_KEY
+```
+
+Output example:
+
+```
+POLYMARKET_API_KEY=...
+POLYMARKET_API_SECRET=...
+POLYMARKET_API_PASSPHRASE=...
+```
 
 ### Relayer (SAFE) gasless split setup
 

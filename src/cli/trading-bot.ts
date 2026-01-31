@@ -1,3 +1,4 @@
+import '../config/env.js'
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'

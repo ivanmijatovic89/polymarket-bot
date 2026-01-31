@@ -46,10 +46,12 @@
     "relayer:deposit-usdc": "tsx src/cli/relayer.ts deposit-usdc",
     "relayer:redeem-watcher": "tsx src/cli/redeem-watcher.ts",
     "check:balances": "tsx src/cli/check-balances.ts",
+    "clob:api-key": "tsx src/cli/create-clob-api-key.ts",
     "redeem-watcher": "tsx src/cli/redeem-watcher.ts",
     "redeem-watcher:direct": "POLYMARKET_TX_MODE_REDEEM=direct tsx src/cli/redeem-watcher.ts",
     "redeem-watcher:relayer": "POLYMARKET_TX_MODE_REDEEM=relayer tsx src/cli/redeem-watcher.ts",
     "eoa:approve-ctf": "tsx src/cli/relayer.ts eoa-approve-ctf",
+    "eoa:approve": "tsx src/cli/relayer.ts eoa-approve",
     "make:csv": "tsx src/strategies/split/makeCsv.ts"
   },
   "keywords": [],

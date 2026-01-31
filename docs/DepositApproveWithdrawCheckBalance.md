@@ -62,6 +62,19 @@ Executed **gasless** via the relayer SAFE.
 npm run relayer:approve
 ```
 
+## 2b) Approve tokens (EOA → CTF + Exchange)
+
+Approves directly from your EOA (the wallet behind `PRIVATE_KEY`):
+- USDC for the CTF contract (split)
+- USDC for the Exchange contract (buy settlement)
+- ERC1155 approval for the Exchange (sell settlement)
+
+Executed **on-chain** by your EOA (you pay gas).
+
+```bash
+npm run eoa:approve
+```
+
 ## 3) Withdraw USDC (SAFE → EOA)
 
 Withdraws USDC from SAFE to your EOA address.

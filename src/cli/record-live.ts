@@ -1,3 +1,4 @@
+import '../config/env.js'
 import path from 'node:path'
 
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'

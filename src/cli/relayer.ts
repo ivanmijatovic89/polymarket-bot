@@ -1,7 +1,7 @@
 import { Contract, JsonRpcProvider, Wallet, parseUnits } from 'ethers'
 
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
-import { USDC_ADDRESS } from '../polymarket/contractAddresses.js'
+import { USDC_ADDRESS, getContractAddresses } from '../polymarket/contractAddresses.js'
 import {
   approveViaRelayer,
   deploySafeIfNeeded,
@@ -15,6 +15,9 @@ const ERC20_TRANSFER_ABI = [
 
 const ERC20_APPROVE_ABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
+] as const
+const ERC1155_APPROVE_ABI = [
+  'function setApprovalForAll(address operator, bool approved)',
 ] as const
 function readArg(name: string, args: string[]): string | undefined {
   const idx = args.indexOf(name)
@@ -103,10 +106,44 @@ async function approveCtfFromEoa(): Promise<void> {
   const usdc = new Contract(USDC_ADDRESS, ERC20_APPROVE_ABI, wallet) as unknown as {
     approve: (spender: string, amount: bigint) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
   }
-  const ctfAddress = '0x4D97DCd97eC945f40cF65F87097ACe5EA0476045'
+  const { conditionalTokens: ctfAddress } = await getContractAddresses(cfg.clob.host, cfg.clob.chainId)
   const tx = await usdc.approve(ctfAddress, (2n ** 256n) - 1n)
   const receipt = await tx.wait()
   console.log('[relayer][eoa-approve-ctf] txHash=', receipt?.hash ?? tx.hash)
+}
+
+async function approveEoaAll(): Promise<void> {
+  const cfg = loadPolymarketConfigFromEnv()
+  if (!cfg.privateKey) {
+    throw new Error('[relayer] missing PRIVATE_KEY (or POLYMARKET_PRIVATE_KEY)')
+  }
+  const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
+  const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
+  const wallet = new Wallet(cfg.privateKey, provider)
+  const { exchange, conditionalTokens } = await getContractAddresses(cfg.clob.host, cfg.clob.chainId)
+
+  const usdc = new Contract(USDC_ADDRESS, ERC20_APPROVE_ABI, wallet) as unknown as {
+    approve: (spender: string, amount: bigint) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+  }
+  const ctf = new Contract(conditionalTokens, ERC1155_APPROVE_ABI, wallet) as unknown as {
+    setApprovalForAll: (
+      operator: string,
+      approved: boolean,
+    ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+  }
+
+  const max = (2n ** 256n) - 1n
+  const tx1 = await usdc.approve(conditionalTokens, max)
+  const receipt1 = await tx1.wait()
+  console.log('[relayer][eoa-approve] usdc->ctf txHash=', receipt1?.hash ?? tx1.hash)
+
+  const tx2 = await usdc.approve(exchange, max)
+  const receipt2 = await tx2.wait()
+  console.log('[relayer][eoa-approve] usdc->exchange txHash=', receipt2?.hash ?? tx2.hash)
+
+  const tx3 = await ctf.setApprovalForAll(exchange, true)
+  const receipt3 = await tx3.wait()
+  console.log('[relayer][eoa-approve] ctf->exchange txHash=', receipt3?.hash ?? tx3.hash)
 }
 
 async function withdrawUsdcToEoa(args: string[]): Promise<void> {
@@ -155,7 +192,7 @@ async function main(): Promise<void> {
   const cmd = args[0]
   if (!cmd) {
     throw new Error(
-      '[relayer] missing command (deploy-safe|show-safe|approve|withdraw-usdc|deposit-usdc|eoa-approve-ctf)',
+      '[relayer] missing command (deploy-safe|show-safe|approve|withdraw-usdc|deposit-usdc|eoa-approve-ctf|eoa-approve)',
     )
   }
   if (cmd === 'deploy-safe') {
@@ -168,6 +205,10 @@ async function main(): Promise<void> {
   }
   if (cmd === 'eoa-approve-ctf') {
     await approveCtfFromEoa()
+    return
+  }
+  if (cmd === 'eoa-approve') {
+    await approveEoaAll()
     return
   }
   if (cmd === 'approve') {

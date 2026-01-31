@@ -1,7 +1,4 @@
-import { config } from 'dotenv'
-
-// Load environment variables from .env file
-config()
+import '../config/env.js'
 
 export const GAMMA_DEFAULT = 'https://gamma-api.polymarket.com'
 
