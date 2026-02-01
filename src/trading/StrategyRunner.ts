@@ -88,6 +88,7 @@ export class StrategyRunner {
   private lastMarket: MarketOrderBooksSnapshot | undefined
   private lastMarketKey: string | null = null
   private lateStartCheckedMarketKey: string | null = null
+  private lateStartBlockedMarketKey: string | null = null
   private readonly skipLateStartAfterMs: number
   private waitedTechIndicatorsMarketKey: string | null = null
   private cachedPlugins: PluginsSnapshot | undefined
@@ -150,6 +151,7 @@ export class StrategyRunner {
       this.cachedPlugins = undefined
       this.waitedTechIndicatorsMarketKey = null
       this.lateStartCheckedMarketKey = null
+      this.lateStartBlockedMarketKey = null
     }
     if (marketKey) this.lastMarketKey = marketKey
 
@@ -186,17 +188,25 @@ export class StrategyRunner {
           }
         : undefined
 
+    if (this.skipLateStartAfterMs > 0 && marketKey && this.lateStartBlockedMarketKey === marketKey) {
+      return
+    }
+
     if (this.skipLateStartAfterMs > 0 && marketKey && this.lateStartCheckedMarketKey !== marketKey) {
       const nowMs = typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp) ? tick.snapshot.timestamp : null
       const startMs = nowMs !== null ? parseGammaMarketStartMs(baseCtx?.market) : null
       const elapsedMs = nowMs !== null && startMs !== null ? nowMs - startMs : null
       if (elapsedMs !== null && elapsedMs > this.skipLateStartAfterMs) {
+        const marketSlug = typeof baseCtx?.market?.slug === 'string' ? baseCtx.market.slug : 'unknown'
+        const marketTimeElapsedSec = Math.floor(elapsedMs / 1000)
+        const maxMarketTimeElapsedSec = Math.floor(this.skipLateStartAfterMs / 1000)
         console.log('[skip-market-if-bot-started-too-late][⛔] bot started too late; skipping market', {
-          marketKey,
-          marketTimeElapsedMs: elapsedMs,
-          maxMarketTimeElapsedMs: this.skipLateStartAfterMs,
+          marketSlug,
+          marketTimeElapsedSec,
+          maxMarketTimeElapsedSec,
         })
         this.lateStartCheckedMarketKey = marketKey
+        this.lateStartBlockedMarketKey = marketKey
         return
       }
       this.lateStartCheckedMarketKey = marketKey
