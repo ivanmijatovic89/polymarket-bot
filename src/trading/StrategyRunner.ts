@@ -11,6 +11,7 @@ import { computePolymarketTakerFee } from './fees.js'
 import { computePositionMetricsFromMarket } from './positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from './orderbookMetrics.js'
 import { parseGammaMarketStartMs } from '../strategy/strategyToolkit.js'
+import type { BalanceSnapshot } from '../blockchain/balanceTracker.js'
 
 export type StrategyExternalFeedsEnabled = {
   rtdsCryptoPrices?: boolean
@@ -47,6 +48,8 @@ export type StrategyRunnerOptions = {
    * NOTE: This should be episode-scoped (e.g. 15m window market), not computed per tick.
    */
   getMarket?: () => GammaMarketMeta | undefined
+  /** Optional balance snapshot provider (live-only). */
+  getBalance?: () => BalanceSnapshot | undefined
   /** Live-only: warmup readiness snapshot (used by strategies to gate order placement). */
   getWarmup?: () => WarmupSnapshot | undefined
   /**
@@ -79,6 +82,7 @@ export class StrategyRunner {
   private readonly portfolio: Portfolio
   private readonly pluginSet: PluginSet | undefined
   private readonly getMarket: (() => GammaMarketMeta | undefined) | undefined
+  private readonly getBalance: (() => BalanceSnapshot | undefined) | undefined
   private readonly getWarmup: (() => WarmupSnapshot | undefined) | undefined
   private readonly intentExecutionMode: IntentExecutionMode
   private readonly maxEventsPerDrain: number
@@ -105,6 +109,7 @@ export class StrategyRunner {
     this.portfolio = opts.portfolio ?? new Portfolio()
     this.pluginSet = opts.pluginSet
     this.getMarket = opts.getMarket
+    this.getBalance = opts.getBalance
     this.getWarmup = opts.getWarmup
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
@@ -142,6 +147,7 @@ export class StrategyRunner {
   async onMarketTick(tick: MarketTick): Promise<void> {
     this.lastMarket = tick.snapshot
     const market = this.getMarket?.()
+    const balance = this.getBalance?.()
     const warmup = this.getWarmup?.()
 
     // Reset per-episode plugin state on market change (align with strategy reset semantics).
@@ -180,10 +186,11 @@ export class StrategyRunner {
         : undefined
 
     const baseCtx: StrategyContext | undefined =
-      market || metrics || warmup
+      market || metrics || warmup || balance
         ? {
             ...(market ? { market } : {}),
             ...(metrics ? { metrics } : {}),
+            ...(balance ? { balance } : {}),
             ...(warmup ? { warmup } : {}),
           }
         : undefined
@@ -239,11 +246,12 @@ export class StrategyRunner {
     if (plugins) this.cachedPlugins = plugins
 
     const ctx: StrategyContext | undefined =
-      plugins || market || metrics || warmup
+      plugins || market || metrics || warmup || balance
         ? {
             ...(plugins ? { plugins } : {}),
             ...(market ? { market } : {}),
             ...(metrics ? { metrics } : {}),
+            ...(balance ? { balance } : {}),
             ...(warmup ? { warmup } : {}),
           }
         : undefined
@@ -382,6 +390,7 @@ export class StrategyRunner {
     // Note: Plugin snapshots are updated on market ticks; onAccountEvent we reuse the last cached snapshot.
     const portfolio = this.portfolio.snapshot()
     const market = this.getMarket?.()
+    const balance = this.getBalance?.()
     const warmup = this.getWarmup?.()
     const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
     const orderbookMetrics = this.lastMarket
@@ -401,11 +410,12 @@ export class StrategyRunner {
     const plugins = this.cachedPlugins ?? this.pluginSet?.snapshot()
 
     const ctx: StrategyContext | undefined =
-      plugins || market || metrics || warmup
+      plugins || market || metrics || warmup || balance
         ? {
             ...(plugins ? { plugins } : {}),
             ...(market ? { market } : {}),
             ...(metrics ? { metrics } : {}),
+            ...(balance ? { balance } : {}),
             ...(warmup ? { warmup } : {}),
           }
         : undefined

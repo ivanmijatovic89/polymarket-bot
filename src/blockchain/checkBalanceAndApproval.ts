@@ -51,6 +51,29 @@ export type CheckBalanceAndApprovalOptions = {
   addressLabel?: string
 }
 
+export type UsdcBalanceResult = {
+  /**
+   * User's wallet address
+   */
+  address: string
+  /**
+   * USDC balance (formatted as string with decimals)
+   */
+  usdcBalance: string
+  /**
+   * USDC balance in raw units (wei)
+   */
+  usdcBalanceRaw: bigint
+  /**
+   * POL (native) balance (formatted as string with decimals)
+   */
+  polBalance: string
+  /**
+   * POL balance in raw units (wei)
+   */
+  polBalanceRaw: bigint
+}
+
 export type BalanceAndApprovalResult = {
   /**
    * User's wallet address
@@ -64,6 +87,14 @@ export type BalanceAndApprovalResult = {
    * USDC balance in raw units (wei)
    */
   usdcBalanceRaw: bigint
+  /**
+   * POL (native) balance (formatted as string with decimals)
+   */
+  polBalance: string
+  /**
+   * POL balance in raw units (wei)
+   */
+  polBalanceRaw: bigint
   /**
    * Whether Exchange contract is approved for all conditional tokens (ERC1155)
    * This approval covers ALL token IDs in the contract (all markets)
@@ -93,6 +124,37 @@ export type BalanceAndApprovalResult = {
    * Conditional token contract address
    */
   conditionalTokenAddress: string
+}
+
+/**
+ * Checks user's USDC balance only (no approvals).
+ */
+export async function checkUsdcBalance(
+  opts: CheckBalanceAndApprovalOptions,
+): Promise<UsdcBalanceResult> {
+  const chainId = opts.chainId ?? 137
+  const provider = new JsonRpcProvider(opts.rpcUrl, chainId, { staticNetwork: true })
+  if (!opts.addressOverride && !opts.privateKey) {
+    throw new Error('[blockchain] missing privateKey or addressOverride')
+  }
+  const address = opts.addressOverride
+    ? opts.addressOverride
+    : await new Wallet(opts.privateKey as string, provider).getAddress()
+
+  const usdcContract = new Contract(USDC_ADDRESS, ERC20_ABI, provider)
+  const decimals = await usdcContract.decimals!()
+  const usdcBalanceRaw = await usdcContract.balanceOf!(address)
+  const usdcBalance = formatUnits(usdcBalanceRaw, decimals)
+  const polBalanceRaw = await provider.getBalance(address)
+  const polBalance = formatUnits(polBalanceRaw, 18)
+
+  return {
+    address,
+    usdcBalance,
+    usdcBalanceRaw,
+    polBalance,
+    polBalanceRaw,
+  }
 }
 
 /**
@@ -128,6 +190,8 @@ export async function checkBalanceAndApproval(
   // Check USDC balance
   const usdcBalanceRaw = await usdcContract.balanceOf!(address)
   const usdcBalance = formatUnits(usdcBalanceRaw, decimals)
+  const polBalanceRaw = await provider.getBalance(address)
+  const polBalance = formatUnits(polBalanceRaw, 18)
 
   // Check USDC allowance for Exchange contract
   const usdcAllowanceRaw = await usdcContract.allowance!(address, exchangeAddress)
@@ -156,6 +220,8 @@ export async function checkBalanceAndApproval(
     address,
     usdcBalance,
     usdcBalanceRaw,
+    polBalance,
+    polBalanceRaw,
     conditionalTokensApproved,
     usdcAllowance,
     usdcAllowanceRaw,
@@ -178,7 +244,7 @@ const RESET = '\x1b[0m'
  */
 export async function logBalanceAndApproval(
   opts: CheckBalanceAndApprovalOptions,
-): Promise<void> {
+): Promise<BalanceAndApprovalResult> {
   try {
     const result = await checkBalanceAndApproval(opts)
     const label = opts.addressLabel ? ` ${opts.addressLabel}` : ''
@@ -186,6 +252,7 @@ export async function logBalanceAndApproval(
     console.log(`[blockchain]${label} wallet address: ${result.address}`)
     console.log(`[blockchain]${label} exchange contract: ${result.exchangeAddress}`)
     console.log(`[blockchain]${label} conditional token contract: ${result.conditionalTokenAddress}`)
+    console.log(`[blockchain]${label} POL balance: ${result.polBalance} POL`)
     console.log(`[blockchain]${label} USDC balance: ${result.usdcBalance} USDC`)
     console.log(`[blockchain]${label} USDC allowance for Exchange: ${result.usdcAllowance} USDC`)
     console.log(`[blockchain]${label} USDC allowance for CTF: ${result.usdcCtfAllowance} USDC`)
@@ -198,6 +265,12 @@ export async function logBalanceAndApproval(
     if (result.usdcBalanceRaw === 0n) {
       console.error(
         `${RED}[blockchain][⛔️]${label} ERROR: USDC balance is 0. You need USDC to buy shares.${RESET}`,
+      )
+      hasErrors = true
+    }
+    if (result.polBalanceRaw === 0n) {
+      console.error(
+        `${RED}[blockchain][⛔️]${label} ERROR: POL balance is 0. You need POL for gas to trade.${RESET}`,
       )
       hasErrors = true
     }
@@ -224,9 +297,9 @@ export async function logBalanceAndApproval(
         'Missing required approvals or balance. Please approve tokens and ensure sufficient USDC balance.',
       )
     }
+    return result
   } catch (err) {
     console.error('[blockchain][⛔️] Failed to check balance and approval:', err)
     throw err
   }
 }
-

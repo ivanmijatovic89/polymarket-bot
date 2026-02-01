@@ -50,6 +50,18 @@ export type BotUiSnapshot = {
   plugins?: unknown
   portfolio?: unknown
   metrics?: unknown
+  balance?: {
+    updatedAtMs: number
+    reason: string
+    eoa?: {
+      usdcBalance: string
+      polBalance?: string
+    }
+    safe?: {
+      usdcBalance: string
+      polBalance?: string
+    }
+  }
 }
 
 export type WsSnapshotMsg = {
@@ -77,5 +89,3 @@ export type WsCommandAckMsg = {
 
 export type WsClientMsg = WsCommandMsg
 export type WsServerMsg = WsSnapshotMsg | WsCommandAckMsg
-
-

@@ -188,6 +188,7 @@ function buildSnapshot(args: {
     ...(typeof args.state.portfolio !== 'undefined' ? { portfolio: args.state.portfolio } : {}),
     ...(typeof args.state.metrics !== 'undefined' ? { metrics: args.state.metrics } : {}),
     ...(typeof args.state.plugins !== 'undefined' ? { plugins: args.state.plugins } : {}),
+    ...(typeof args.state.balance !== 'undefined' ? { balance: args.state.balance } : {}),
   }
 }
 
@@ -428,5 +429,4 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
 
   return { start, stop }
 }
-
 

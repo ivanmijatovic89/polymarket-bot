@@ -14,6 +14,7 @@ import { createUserWsAccountSource } from '../polymarket/ws/userWsAccountSource.
 import { createRestPollAccountSource } from '../polymarket/restPollAccountSource.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { logBalanceAndApproval } from '../blockchain/checkBalanceAndApproval.js'
+import { createBalanceTracker } from '../blockchain/balanceTracker.js'
 import { throwIfPreviousWindowSlug } from '../polymarket/upDown15mWindowGuard.js'
 import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
@@ -36,7 +37,8 @@ import {
 } from '../utils/logger.js'
 import { createTradingBotWebUiServer, type BotUiCommand, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
-import type { CancelAllIntent, CancelOrderIntent, Intent } from '../strategy/Strategy.js'
+import type { BalanceAndApprovalResult } from '../blockchain/checkBalanceAndApproval.js'
+import type { AccountEvent, CancelAllIntent, CancelOrderIntent, Intent } from '../strategy/Strategy.js'
 import type { WarmupSnapshot } from '../strategy/StrategyContext.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
@@ -124,6 +126,7 @@ async function main(): Promise<void> {
   let wsAttempt = 1
 
   const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
+  const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
   const intentExecutionMode =
@@ -225,6 +228,18 @@ async function main(): Promise<void> {
   logger.info(`[trading-bot][⚙️] intentExecutionMode=${intentExecutionMode}`)
   logger.info(`[trading-bot][⚙️] maxEventsPerDrain=${maxEventsPerDrain}`)
   logger.info(`[trading-bot][⚙️] strategy=${built.strategyId}`)
+
+  const balanceTracker = !dryRun
+    ? createBalanceTracker({
+        rpcUrl,
+        chainId: cfg.clob.chainId,
+        clobHost: cfg.clob.host,
+        ...(cfg.privateKey ? { privateKey: cfg.privateKey } : {}),
+        ...(cfg.clob.funder ? { safeAddress: cfg.clob.funder } : {}),
+        cooldownMs: Math.max(0, Math.trunc(Number(process.env.BALANCE_REFRESH_COOLDOWN_MS ?? '5000') || 0)),
+        log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
+      })
+    : null
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
   const externalFeedsReqPlugin = pluginSet?.list().find((p) => p instanceof ExternalFeedsRequestPlugin) as
@@ -348,7 +363,6 @@ async function main(): Promise<void> {
 
   // Check balance and approval before starting (only if not dry run)
   if (!dryRun) {
-    const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
     const splitMode = (process.env.POLYMARKET_TX_MODE_SPLIT ?? 'direct').toLowerCase()
     const safeFunder = cfg.clob.funder
 
@@ -358,13 +372,15 @@ async function main(): Promise<void> {
 
     let eoaOk = true
     let safeOk = true
+    let eoaResult: BalanceAndApprovalResult | undefined
+    let safeResult: BalanceAndApprovalResult | undefined
 
     if (!cfg.privateKey) {
       eoaOk = false
       logger.error('[trading-bot] missing private key; cannot check EOA balance/approval')
     } else {
       try {
-        await logBalanceAndApproval({
+        eoaResult = await logBalanceAndApproval({
           rpcUrl,
           privateKey: cfg.privateKey,
           chainId: cfg.clob.chainId,
@@ -379,7 +395,7 @@ async function main(): Promise<void> {
 
     if (safeFunder) {
       try {
-        await logBalanceAndApproval({
+        safeResult = await logBalanceAndApproval({
           rpcUrl,
           chainId: cfg.clob.chainId,
           clobHost: cfg.clob.host,
@@ -395,6 +411,14 @@ async function main(): Promise<void> {
     if (splitMode === 'relayer' && (!eoaOk || !safeOk)) {
       logger.error('[trading-bot] Exiting. Fix EOA/SAFE approvals and balances before starting.')
       process.exit(1)
+    }
+
+    if (balanceTracker) {
+      balanceTracker.seedFromApprovalResult({
+        reason: 'startup',
+        eoa: eoaResult,
+        safe: safeResult,
+      })
     }
   }
 
@@ -429,6 +453,7 @@ async function main(): Promise<void> {
     orderManager,
     ...(pluginSet ? { pluginSet } : {}),
     getMarket: () => currentMarket,
+    getBalance: () => balanceTracker?.snapshot(),
     getWarmup: () => currentWarmup,
     intentExecutionMode,
     maxEventsPerDrain,
@@ -572,6 +597,7 @@ async function main(): Promise<void> {
         ...(typeof active === 'boolean' ? { active } : {}),
         ...(typeof closed === 'boolean' ? { closed } : {}),
       })
+      void balanceTracker?.refresh('market_change')
     }
 
     return { assetsIds: r.assetsIds, label: r.label }
@@ -624,6 +650,13 @@ async function main(): Promise<void> {
   let stableConnectionTimeout: NodeJS.Timeout | undefined
   let disconnectTimeout: NodeJS.Timeout | undefined
 
+  const handleAccountEvent = (ev: AccountEvent): void => {
+    if (ev.kind === 'positions_split') {
+      void balanceTracker?.refresh('split_success')
+    }
+    void runner.onAccountEvent(ev)
+  }
+
   userWs?.onAccountEvent((ev) => {
     // If user WS disconnects, enable polling fallback; if connected, disable it.
     if (ev.kind === 'account_stream_status' && poller) {
@@ -675,10 +708,10 @@ async function main(): Promise<void> {
         }
       }
     }
-    void runner.onAccountEvent(ev)
+    handleAccountEvent(ev)
   })
   poller?.onAccountEvent((ev) => {
-    void runner.onAccountEvent(ev)
+    handleAccountEvent(ev)
   })
 
   // Debug: track when currentMarket is missing
@@ -908,6 +941,7 @@ async function main(): Promise<void> {
           ...(portfolio ? { portfolio } : {}),
           ...(metrics ? { metrics } : {}),
           ...(typeof plugins !== 'undefined' ? { plugins } : {}),
+          ...(balanceTracker ? { balance: balanceTracker.snapshot() } : {}),
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

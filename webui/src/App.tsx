@@ -143,6 +143,11 @@ function makeMockPortfolio(snapshot: any): { portfolio: any; metrics: any } {
   const up = snapshot?.status?.upAssetId ?? 'UP_ASSET_ID'
   const down = snapshot?.status?.downAssetId ?? 'DOWN_ASSET_ID'
   const slug = snapshot?.status?.slug ?? 'up-down-15m-mock'
+  const balanceSnap = snapshot?.balance
+  const balanceEoa = balanceSnap?.eoa?.usdcBalance
+  const balanceSafe = balanceSnap?.safe?.usdcBalance
+  const balanceValue = balanceEoa ?? balanceSafe ?? null
+  const balanceLabel = balanceEoa ? 'eoa' : balanceSafe ? 'safe' : 'balance'
 
   const clientA = 'mock_cli_001'
   const clientB = 'mock_cli_002'
@@ -344,6 +349,14 @@ export function App() {
   // "Real" asks used throughout the UI (header price chips, etc).
   const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
   const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
+  const balanceSnap = (displaySnapshot as any)?.balance as
+    | { eoa?: { usdcBalance?: string; polBalance?: string }; safe?: { usdcBalance?: string; polBalance?: string } }
+    | undefined
+  const balanceEoa = balanceSnap?.eoa?.usdcBalance
+  const balanceSafe = balanceSnap?.safe?.usdcBalance
+  const balanceValue = balanceEoa ?? balanceSafe ?? null
+  const balanceLabel = balanceEoa ? 'eoa' : balanceSafe ? 'safe' : 'balance'
+  const polValue = balanceEoa ? balanceSnap?.eoa?.polBalance : balanceSafe ? balanceSnap?.safe?.polBalance : null
   const strategy = displaySnapshot?.strategy
   const pluginIds = (() => {
     const p = (displaySnapshot as any)?.plugins
@@ -401,7 +414,7 @@ export function App() {
                   </span>
                 ) : null}
                 <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
-                <ConnectionBadge status={status} />
+                <ConnectionBadge status={status} attempt={displaySnapshot?.status?.wsAttempt} />
                 <DwellGateStatus dwellGate={dwellGate} />
               </div>
 
@@ -422,13 +435,14 @@ export function App() {
                 {displaySnapshot ? (
                   <>
                     <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                      slug <span className="ml-1 font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
+                      <span className="font-mono">{displaySnapshot.status.slug ?? 'n/a'}</span>
                     </span>
                     <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                      ws attempt <span className="ml-1 font-mono">{displaySnapshot.status.wsAttempt}</span>
-                    </span>
-                    <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                      ws events <span className="ml-1 font-mono">{displaySnapshot.status.wsEventsTotal}</span>
+                      {balanceLabel}{' '}
+                      <span className="ml-1 font-mono">
+                        {balanceValue !== null ? `${Number(balanceValue).toFixed(2)} usdc` : 'n/a'}
+                        {polValue ? ` · ${Number(polValue).toFixed(4)} pol` : ''}
+                      </span>
                     </span>
                   </>
                 ) : (
@@ -494,6 +508,9 @@ export function App() {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
+              ws events <span className="ml-1 font-mono">{displaySnapshot?.status?.wsEventsTotal ?? 'n/a'}</span>
+            </span>
+            <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
               plugins <span className="ml-1 font-mono">{fmtList(pluginIds)}</span>
             </span>
           </div>
@@ -502,5 +519,3 @@ export function App() {
     </div>
   )
 }
-
-
