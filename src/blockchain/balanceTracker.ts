@@ -28,6 +28,10 @@ export type BalanceRefreshOptions = {
   force?: boolean
 }
 
+function sleep(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms))
+}
+
 function toLite(r: UsdcBalanceResult): UsdcBalanceLite {
   return {
     ...r,
@@ -72,8 +76,12 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
     }
 
     inFlight = (async (): Promise<BalanceSnapshot> => {
-      let eoa: BalanceAndApprovalLite | undefined
-      let safe: BalanceAndApprovalLite | undefined
+      if (reason === 'redeem' || reason === 'split_success') {
+        await sleep(3000)
+      }
+      const nowMs = Date.now()
+      let eoa: UsdcBalanceLite | undefined
+      let safe: UsdcBalanceLite | undefined
       let error: string | undefined
 
       if (opts.privateKey) {
@@ -87,7 +95,7 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           error = `eoa_check_failed: ${msg}`
-          opts.log?.('[balance-tracker][⛔️] EOA check failed', { err: msg })
+          opts.log?.('[balance-tracker][⛔️] EOA balance check failed', { err: msg })
         }
       }
 
@@ -102,7 +110,7 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
         } catch (err) {
           const msg = err instanceof Error ? err.message : String(err)
           error = error ? `${error}; safe_check_failed: ${msg}` : `safe_check_failed: ${msg}`
-          opts.log?.('[balance-tracker][⛔️] SAFE check failed', { err: msg })
+          opts.log?.('[balance-tracker][⛔️] SAFE balance check failed', { err: msg })
         }
       }
 
@@ -119,7 +127,7 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
       }
       last = snap
       if (!error) {
-        opts.log?.('[balance-tracker] refreshed', {
+        opts.log?.('[balance-tracker][🔄] Balance refreshed', {
           reason,
           ...(eoa ? { eoa: { address: eoa.address, usdcBalance: eoa.usdcBalance, polBalance: eoa.polBalance } } : {}),
           ...(safe ? { safe: { address: safe.address, usdcBalance: safe.usdcBalance, polBalance: safe.polBalance } } : {}),

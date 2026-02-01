@@ -455,6 +455,11 @@ async function main(): Promise<void> {
     getMarket: () => currentMarket,
     getBalance: () => balanceTracker?.snapshot(),
     getWarmup: () => currentWarmup,
+    onAccountEvent: (ev) => {
+      if (ev.kind === 'positions_split') {
+        void balanceTracker?.refresh('split_success')
+      }
+    },
     intentExecutionMode,
     maxEventsPerDrain,
     ...(enableWebUi
@@ -651,9 +656,6 @@ async function main(): Promise<void> {
   let disconnectTimeout: NodeJS.Timeout | undefined
 
   const handleAccountEvent = (ev: AccountEvent): void => {
-    if (ev.kind === 'positions_split') {
-      void balanceTracker?.refresh('split_success')
-    }
     void runner.onAccountEvent(ev)
   }
 
