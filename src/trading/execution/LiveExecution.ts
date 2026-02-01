@@ -52,12 +52,17 @@ export type LiveExecutionOptions = {
    * For now we keep undefined and rely on defaults; strategy/backtest uses live book prices already.
    */
   orderCreateOptions?: { tickSize?: string; negRisk?: boolean }
+  /**
+   * Optional hook fired after a successful split (live only).
+   */
+  onSplitSuccess?: (info: { conditionId: string; txHash: string; splitShares: number }) => void
 }
 
 export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
   private readonly config: PolymarketConfig
   private readonly warmedTokenIds = new Set<string>()
+  private readonly onSplitSuccess?: (info: { conditionId: string; txHash: string; splitShares: number }) => void
 
   constructor(opts: LiveExecutionOptions = {}) {
     // Keep a local copy of config for non-CLOB operations (e.g. on-chain merge via privateKey).
@@ -70,6 +75,7 @@ export class LiveExecution implements ExecutionAdapter {
       ...(overrides?.chainId ? { clob: { ...baseCfg.clob, chainId: overrides.chainId } } : {}),
     }
     this.config = cfg
+    this.onSplitSuccess = opts.onSplitSuccess
 
     // If no config or overrides provided, createClobClient will auto-load from env vars
     if (opts.config !== undefined || opts.overrides !== undefined) {
@@ -512,6 +518,11 @@ export class LiveExecution implements ExecutionAdapter {
           splitShares: res.splitShares,
           conditionId,
         })
+        try {
+          this.onSplitSuccess?.({ conditionId, txHash: res.txHash, splitShares: res.splitShares })
+        } catch {
+          // ignore
+        }
 
         return {
           events: [

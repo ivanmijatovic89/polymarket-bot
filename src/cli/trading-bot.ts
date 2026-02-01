@@ -435,6 +435,9 @@ async function main(): Promise<void> {
       }
     : new LiveExecution({
         config: cfg,
+        onSplitSuccess: () => {
+          void balanceTracker?.refresh('split_success')
+        },
       })
   const orderManager = new OrderManager({
     execution: exec,
@@ -455,11 +458,6 @@ async function main(): Promise<void> {
     getMarket: () => currentMarket,
     getBalance: () => balanceTracker?.snapshot(),
     getWarmup: () => currentWarmup,
-    onAccountEvent: (ev) => {
-      if (ev.kind === 'positions_split') {
-        void balanceTracker?.refresh('split_success')
-      }
-    },
     intentExecutionMode,
     maxEventsPerDrain,
     ...(enableWebUi

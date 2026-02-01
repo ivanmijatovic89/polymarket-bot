@@ -70,11 +70,6 @@ export type StrategyRunnerOptions = {
    * Keep messages compact; this is called on hot paths.
    */
   intentLog?: (msg: string, extra?: unknown) => void
-  /**
-   * Optional account-event hook (useful for side-effects like balance refresh).
-   * Keep it fast; this is called on hot paths.
-   */
-  onAccountEvent?: (ev: AccountEvent) => void
   log?: (msg: string, extra?: unknown) => void
 }
 
@@ -92,7 +87,6 @@ export class StrategyRunner {
   private readonly intentExecutionMode: IntentExecutionMode
   private readonly maxEventsPerDrain: number
   private readonly intentLog: ((msg: string, extra?: unknown) => void) | undefined
-  private readonly onAccountEvent: ((ev: AccountEvent) => void) | undefined
   private readonly log: ((msg: string, extra?: unknown) => void) | undefined
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
@@ -120,7 +114,6 @@ export class StrategyRunner {
     this.intentExecutionMode = opts.intentExecutionMode ?? 'queued'
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.intentLog = opts.intentLog
-    this.onAccountEvent = opts.onAccountEvent
     this.log = opts.log
     this.skipLateStartAfterMs = Math.max(
       0,
@@ -373,7 +366,6 @@ export class StrategyRunner {
   }
 
   private async processAccountEvent(ev: AccountEvent): Promise<void> {
-    this.onAccountEvent?.(ev)
     if (ev.kind === 'fill') {
       const timeIso = new Date(ev.fill.tsMs).toISOString()
       const notional = round8((ev.fill.price ?? 0) * (ev.fill.size ?? 0))
