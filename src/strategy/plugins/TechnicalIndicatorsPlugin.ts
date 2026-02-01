@@ -283,7 +283,7 @@ export class TechnicalIndicatorsPlugin implements Plugin {
       const fmt = (v: number | null): string => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(6) : 'null')
       const warn = ''
       console.log(
-        `[technicalIndicators] market=${marketLabel} tf15m.wickRatio=${fmt(tf15m.wickRatio)} tf15m.hlRangePct=${fmt(tf15m.hlRangePct)} tf1h.adx14=${fmt(tf1h.adx14)}${warn}`,
+        `[technicalIndicators] market=${marketLabel} tf1h.wickRatio=${fmt(tf1h.wickRatio)} tf15m.wickRatio=${fmt(tf15m.wickRatio)} tf15m.hlRangePct=${fmt(tf15m.hlRangePct)} tf1h.adx14=${fmt(tf1h.adx14)}${warn}`,
       )
     } catch (err) {
       console.error(`[technicalIndicators] failed to compute snapshot for slug=${args.slug}`, err)
