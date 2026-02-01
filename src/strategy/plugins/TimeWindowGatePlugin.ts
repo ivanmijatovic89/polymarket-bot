@@ -1,23 +1,7 @@
 import type { MarketTick } from '../Strategy.js'
 import type { StrategyContext } from '../StrategyContext.js'
 import type { Plugin } from './PluginSet.js'
-
-/**
- * Parse market start time from Gamma raw JSON.
- * Tries eventStartTime first, then startDate.
- */
-function parseGammaMarketStartMs(market?: unknown): number | null {
-  const m = market as Record<string, unknown> | undefined
-  const s =
-    typeof m?.eventStartTime === 'string' && m.eventStartTime.length > 0
-      ? m.eventStartTime
-      : typeof m?.startDate === 'string' && m.startDate.length > 0
-        ? m.startDate
-        : null
-  if (!s) return null
-  const ms = Date.parse(s)
-  return Number.isFinite(ms) ? Math.trunc(ms) : null
-}
+import { parseGammaMarketStartMs } from '../strategyToolkit.js'
 
 type TimeWindowGate = {
   check(args: { nowMs: number; market?: unknown }): boolean
@@ -153,4 +137,3 @@ export class TimeWindowGatePlugin implements Plugin {
     return this.cached
   }
 }
-

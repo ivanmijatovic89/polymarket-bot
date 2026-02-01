@@ -10,6 +10,7 @@ import { round8 } from './utils/rounding.js'
 import { computePolymarketTakerFee } from './fees.js'
 import { computePositionMetricsFromMarket } from './positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from './orderbookMetrics.js'
+import { parseGammaMarketStartMs } from '../strategy/strategyToolkit.js'
 
 export type StrategyExternalFeedsEnabled = {
   rtdsCryptoPrices?: boolean
@@ -86,6 +87,8 @@ export class StrategyRunner {
 
   private lastMarket: MarketOrderBooksSnapshot | undefined
   private lastMarketKey: string | null = null
+  private lateStartCheckedMarketKey: string | null = null
+  private readonly skipLateStartAfterMs: number
   private waitedTechIndicatorsMarketKey: string | null = null
   private cachedPlugins: PluginsSnapshot | undefined
   private readonly accountEventQueue: AccountEvent[] = []
@@ -106,6 +109,10 @@ export class StrategyRunner {
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.intentLog = opts.intentLog
     this.log = opts.log
+    this.skipLateStartAfterMs = Math.max(
+      0,
+      Math.trunc(Number(process.env.SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS ?? '15') || 0) * 1000,
+    )
   }
 
   getPortfolio(): Portfolio {
@@ -142,6 +149,7 @@ export class StrategyRunner {
       this.pluginSet?.reset()
       this.cachedPlugins = undefined
       this.waitedTechIndicatorsMarketKey = null
+      this.lateStartCheckedMarketKey = null
     }
     if (marketKey) this.lastMarketKey = marketKey
 
@@ -177,6 +185,22 @@ export class StrategyRunner {
             ...(warmup ? { warmup } : {}),
           }
         : undefined
+
+    if (this.skipLateStartAfterMs > 0 && marketKey && this.lateStartCheckedMarketKey !== marketKey) {
+      const nowMs = typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp) ? tick.snapshot.timestamp : null
+      const startMs = nowMs !== null ? parseGammaMarketStartMs(baseCtx?.market) : null
+      const elapsedMs = nowMs !== null && startMs !== null ? nowMs - startMs : null
+      if (elapsedMs !== null && elapsedMs > this.skipLateStartAfterMs) {
+        console.log('[skip-market-if-bot-started-too-late][⛔] bot started too late; skipping market', {
+          marketKey,
+          marketTimeElapsedMs: elapsedMs,
+          maxMarketTimeElapsedMs: this.skipLateStartAfterMs,
+        })
+        this.lateStartCheckedMarketKey = marketKey
+        return
+      }
+      this.lateStartCheckedMarketKey = marketKey
+    }
 
     this.pluginSet?.onMarketTick(tick, baseCtx)
 
