@@ -2,6 +2,7 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 
 import { JsonRpcProvider, Wallet } from 'ethers'
+import WebSocket from 'ws'
 
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { fetchAllPositions, type Position } from '../polymarket/dataApi.js'
@@ -53,6 +54,54 @@ async function main(): Promise<void> {
         : '[redeem-watcher] missing PRIVATE_KEY (EOA address)',
     )
   }
+
+  const webUiHost = (process.env.WEB_UI_HOST ?? '').trim()
+  const webUiPort = (process.env.WEB_UI_PORT ?? '').trim()
+  const notifyWsUrl =
+    webUiHost && webUiPort ? `ws://${webUiHost}:${webUiPort}/ws` : ''
+  let notifyWs: WebSocket | null = null
+  let notifyWsReconnectTimer: NodeJS.Timeout | null = null
+
+  const connectNotifyWs = (): void => {
+    if (!notifyWsUrl) return
+    if (notifyWs) return
+
+    const ws = new WebSocket(notifyWsUrl)
+    notifyWs = ws
+
+    ws.on('open', () => {
+      console.log('[redeem-watcher] ws notify connected', { url: notifyWsUrl })
+    })
+    ws.on('error', (err) => {
+      console.warn('[redeem-watcher] ws notify error', { err: err instanceof Error ? err.message : String(err) })
+    })
+    ws.on('close', () => {
+      console.warn('[redeem-watcher] ws notify disconnected')
+      notifyWs = null
+      if (!notifyWsReconnectTimer) {
+        notifyWsReconnectTimer = setTimeout(() => {
+          notifyWsReconnectTimer = null
+          connectNotifyWs()
+        }, 3000)
+      }
+    })
+  }
+
+  const sendBalanceRefresh = (): void => {
+    if (!notifyWs || notifyWs.readyState !== WebSocket.OPEN) return
+    const msg = {
+      type: 'command',
+      id: `redeem:${Date.now()}:${Math.floor(Math.random() * 1e6)}`,
+      command: { kind: 'refresh_balance' },
+    }
+    try {
+      notifyWs.send(JSON.stringify(msg))
+    } catch {
+      // ignore
+    }
+  }
+
+  connectNotifyWs()
 
   const intervalMs = envInt('REDEEM_WATCH_INTERVAL_MS', 30_000)
   const statePath = process.env.REDEEM_STATE_PATH ?? 'data/redeem/redeemed.json'
@@ -189,6 +238,8 @@ async function main(): Promise<void> {
           txHash: res.txHash,
           redeemedValue: pos.currentValue,
         })
+
+        sendBalanceRefresh()
 
         redeemed.add(pos.conditionId)
         state.redeemedConditionIds = Array.from(redeemed)

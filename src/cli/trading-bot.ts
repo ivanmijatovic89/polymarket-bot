@@ -956,7 +956,12 @@ async function main(): Promise<void> {
           portfolio,
         }
 
-        if (cmd.kind === 'cancel_all') {
+    if (cmd.kind === 'refresh_balance') {
+      void balanceTracker?.refresh('redeem', { force: true })
+      return
+    }
+
+    if (cmd.kind === 'cancel_all') {
           const intent: CancelAllIntent = { kind: 'cancel_all', reason: 'webui' }
           const intents: Intent[] = [intent]
           const events = await orderManager.handleIntents(intents, ctx, { mode: 'immediate' })

@@ -55,6 +55,7 @@ type WsSnapshotMsg = {
 export type BotUiCommand =
   | { kind: 'cancel_order'; orderId?: string; clientOrderId?: string }
   | { kind: 'cancel_all' }
+  | { kind: 'refresh_balance' }
 
 type WsClientMsg = {
   type: 'command'
@@ -212,7 +213,7 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
 
     const cmd = msg.command as Partial<BotUiCommand> | undefined
     const kind = nonEmptyStr(cmd?.kind) ?? ''
-    if (kind !== 'cancel_order' && kind !== 'cancel_all') {
+    if (kind !== 'cancel_order' && kind !== 'cancel_all' && kind !== 'refresh_balance') {
       const ack: WsCommandAckMsg = { type: 'command_ack', id, ok: false, error: 'unknown_command' }
       try {
         ws.send(safeJson(ack))
@@ -228,11 +229,13 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     const normalized: BotUiCommand =
       kind === 'cancel_all'
         ? { kind: 'cancel_all' }
-        : {
-            kind: 'cancel_order',
-            ...(orderId ? { orderId } : {}),
-            ...(clientOrderId ? { clientOrderId } : {}),
-          }
+        : kind === 'refresh_balance'
+          ? { kind: 'refresh_balance' }
+          : {
+              kind: 'cancel_order',
+              ...(orderId ? { orderId } : {}),
+              ...(clientOrderId ? { clientOrderId } : {}),
+            }
 
     // Send an ACK immediately so the UI doesn't depend on downstream latency (API calls, rate limits, etc).
     // The actual effects will be reflected via subsequent snapshots.
@@ -429,4 +432,3 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
 
   return { start, stop }
 }
-

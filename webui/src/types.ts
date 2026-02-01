@@ -73,6 +73,7 @@ export type WsSnapshotMsg = {
 export type BotUiCommand =
   | { kind: 'cancel_order'; orderId?: string; clientOrderId?: string }
   | { kind: 'cancel_all' }
+  | { kind: 'refresh_balance' }
 
 export type WsCommandMsg = {
   type: 'command'

@@ -1,7 +1,7 @@
 import type { WsStatus } from '../hooks/useBotWs'
 
-export function ConnectionBadge(props: { status: WsStatus }) {
-  const { status } = props
+export function ConnectionBadge(props: { status: WsStatus; attempt?: number }) {
+  const { status, attempt } = props
   const style =
     status === 'open'
       ? 'bg-emerald-950 text-emerald-200 ring-emerald-900'
@@ -14,8 +14,8 @@ export function ConnectionBadge(props: { status: WsStatus }) {
   return (
     <span className={`chip ring-1 ${style}`}>
       ws: {status}
+      {typeof attempt === 'number' ? <span className="ml-1 font-mono">{attempt}</span> : null}
     </span>
   )
 }
-
 

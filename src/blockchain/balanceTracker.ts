@@ -118,6 +118,13 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
         ...(error ? { error } : {}),
       }
       last = snap
+      if (!error) {
+        opts.log?.('[balance-tracker] refreshed', {
+          reason,
+          ...(eoa ? { eoa: { address: eoa.address, usdcBalance: eoa.usdcBalance, polBalance: eoa.polBalance } } : {}),
+          ...(safe ? { safe: { address: safe.address, usdcBalance: safe.usdcBalance, polBalance: safe.polBalance } } : {}),
+        })
+      }
       return snap
     })()
 
