@@ -28,7 +28,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'SplitSellRedeem.v5.gate-ta-tf1hWickRatio',
   title: 'Split + sell with dwell + time filters v5.gate-ta-tf1hWickRatio',
   description:
-    'ta_tf15m_wickRatio <= 0.30027767043409165',
+    '(ta_tf1h_wickRatio>=0.554642426724 & ta_tf1h_wickRatio<=0.773306324555) | (ta_tf1h_wickRatio>=1.002675716244 & ta_tf1h_wickRatio<=1.340001146329)',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -44,6 +44,9 @@ export function createStrategy(cfg: Config): {
   let sellPlaced = false
   let lastMarketKey: string | null = null
   let warnedMissingMarket = false
+  let wickGateStatus: 'unknown' | 'allow' | 'deny' = 'unknown'
+  let warnedWickPending = false
+  let warnedWickBlocked = false
 
   const timeWindowGatePlugin = new TimeWindowGatePlugin({
     allowAfterMs: cfg.timeFilterAllowTradingAfterSeconds * 1000,
@@ -111,9 +114,13 @@ export function createStrategy(cfg: Config): {
         to: marketKey,
         prevSplitRequested: splitRequested,
         prevSellPlaced: sellPlaced,
+        prevWickGateStatus: wickGateStatus,
       })
       splitRequested = false
       sellPlaced = false
+      wickGateStatus = 'unknown'
+      warnedWickPending = false
+      warnedWickBlocked = false
       // PluginSet is also reset by StrategyRunner on market change, but keep an explicit reset
       // here to preserve the original strategy semantics (and avoid any stale pre-reset state).
       timeWindowGatePlugin.reset()
@@ -125,6 +132,33 @@ export function createStrategy(cfg: Config): {
       // Don't log every tick when sellPlaced, just silently return
       return []
     }
+
+    const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
+    const wickRatio = technicalIndicatorsSnap?.tf1h?.wickRatio ?? null
+    const wickBlocked =
+      wickRatio != null &&
+      ((wickRatio >= 0.554642426724 && wickRatio <= 0.773306324555) ||
+        (wickRatio >= 1.002675716244 && wickRatio <= 1.340001146329))
+
+    if (wickGateStatus === 'deny') {
+      return []
+    }
+    if (wickRatio === null) {
+      if (!warnedWickPending) {
+        console.log(`[${name}][⏳] waiting for technicalIndicators tf1h.wickRatio`)
+        warnedWickPending = true
+      }
+      return []
+    }
+    if (wickBlocked) {
+      if (!warnedWickBlocked) {
+        console.log(`[${name}][⛔] wickRatio blocked; skipping market`, { wickRatio })
+        warnedWickBlocked = true
+      }
+      wickGateStatus = 'deny'
+      return []
+    }
+    wickGateStatus = 'allow'
 
     // Split once
     if (!splitRequested) {
@@ -177,14 +211,6 @@ export function createStrategy(cfg: Config): {
     const assetId = side === 'UP' ? upAssetId : downAssetId
     const bestBid = side === 'UP' ? upBid! : downBid!
     const sellPrice = safeProbabilityPrice(bestBid - 0.01)
-
-    const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
-    const wickRatio = technicalIndicatorsSnap?.tf1h?.wickRatio ?? null
-
-    if(wickRatio === null) return []
-    // (ta_tf1h_wickRatio>=0.554642426724 & ta_tf1h_wickRatio<=0.773306324555) | (ta_tf1h_wickRatio>=1.002675716244 & ta_tf1h_wickRatio<=1.340001146329)
-    if(wickRatio >= 0.554642426724 && wickRatio <= 0.773306324555) return []
-    if(wickRatio >= 1.002675716244 && wickRatio <= 1.340001146329) return []
 
     const intentMeta = {
       ...(technicalIndicatorsSnap ? { technicalIndicators: technicalIndicatorsSnap } : {}),
