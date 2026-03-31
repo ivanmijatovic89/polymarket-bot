@@ -71,6 +71,11 @@ export type StrategyRunnerOptions = {
    */
   intentLog?: (msg: string, extra?: unknown) => void
   log?: (msg: string, extra?: unknown) => void
+  /**
+   * Skip markets where the first tick arrives too late after market start.
+   * Used by live trading only; set to 0 to disable.
+   */
+  skipLateStartAfterMs?: number
 }
 
 export class StrategyRunner {
@@ -115,10 +120,7 @@ export class StrategyRunner {
     this.maxEventsPerDrain = Math.max(1, opts.maxEventsPerDrain ?? 100)
     this.intentLog = opts.intentLog
     this.log = opts.log
-    this.skipLateStartAfterMs = Math.max(
-      0,
-      Math.trunc(Number(process.env.SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS ?? '15') || 0) * 1000,
-    )
+    this.skipLateStartAfterMs = Math.max(0, Math.trunc(opts.skipLateStartAfterMs ?? 0))
   }
 
   getPortfolio(): Portfolio {

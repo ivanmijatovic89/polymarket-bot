@@ -444,6 +444,10 @@ async function main(): Promise<void> {
     dryRun,
     log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
   })
+  const skipLateStartAfterMs = Math.max(
+    0,
+    Math.trunc(Number(process.env.SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS ?? '15') || 0) * 1000,
+  )
   const runner = new StrategyRunner({
     strategyId: built.strategyId,
     strategyParams: built.params,
@@ -454,6 +458,7 @@ async function main(): Promise<void> {
     },
     strategy,
     orderManager,
+    skipLateStartAfterMs,
     ...(pluginSet ? { pluginSet } : {}),
     getMarket: () => currentMarket,
     getBalance: () => balanceTracker?.snapshot(),
