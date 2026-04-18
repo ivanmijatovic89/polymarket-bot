@@ -100,11 +100,51 @@ Open:
 npm run backtest --  --strategy SplitSellRedeem.v1 --param splitShares=100 --param triggerBidBelow=0.07 --param sellPrice=0.08 --param sellSize=10 --symbol btc --limit 600 --random --comment "search grid for dwell start"  --batchUid "123123"
 ```
 
-Parallel backtesting ( old )
+# Backtest from PC
+1. Open Finder > Go > Connect to server
+2. add permission to iterm
+Open System Settings → Privacy & Security → Files and Folders → Select iTerm → Enable Network Volumes
+3. remove --symbol so it can load from network
+
+
+```bash
+npm run backtest -- \
+  --strategy SplitSellRedeem.v5 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --param timeFilterAllowTradingAfterSeconds=240 \
+  --param timeFilterDisableTradingAfterSeconds=600 \
+  --param dwellTrackPrice=bid \
+  --param dwellSecondsRequired=40 \
+  --param dwellRangeFrom=0.20 \
+  --param dwellRangeTo=0.35 \
+  --comment "test-pc-network" \
+  --batchUid test-pc-network \
+  "/Volumes/polymarket-bot/data/events/btc/btc-updown-15m-1770606000.parquet"
+```
+or by directory ( folder )
+```bash
+npm run backtest -- \
+  --strategy SplitSellRedeem.v5 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --param timeFilterAllowTradingAfterSeconds=240 \
+  --param timeFilterDisableTradingAfterSeconds=600 \
+  --param dwellTrackPrice=bid \
+  --param dwellSecondsRequired=40 \
+  --param dwellRangeFrom=0.20 \
+  --param dwellRangeTo=0.35 \
+  --comment "test-pc-network-4175" \
+  --batchUid test-pc-network-4175 \
+  --dir "/Volumes/polymarket-bot/data/events/btc-pc-4175"
+```
+
+# Parallel backtesting ( old )
 
 ```bash
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
+
 
 Backtest wait for TechnicalIndicators Plugin
 

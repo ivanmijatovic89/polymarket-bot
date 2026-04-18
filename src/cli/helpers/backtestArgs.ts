@@ -5,6 +5,7 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
 
 export type BacktestArgs = {
   filePaths: string[]
+  dirs?: string[]
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   slugs?: string[]
@@ -19,6 +20,7 @@ export type BacktestArgs = {
 
 export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
+  const dirs: string[] = []
   const slugs: string[] = []
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
@@ -67,6 +69,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
           throw new Error('[backtest] --slug must be a non-empty string')
         }
         slugs.push(...parts)
+        i += 1
+        break
+      }
+      case '--dir': {
+        const raw = argv[i + 1]
+        if (typeof raw !== 'string' || raw.trim().length === 0) {
+          throw new Error('[backtest] missing value for --dir')
+        }
+        dirs.push(raw.trim())
         i += 1
         break
       }
@@ -143,6 +154,14 @@ export function parseArgs(argv: string[]): BacktestArgs {
           slugs.push(...parts)
           break
         }
+        if (arg.startsWith('--dir=')) {
+          const raw = arg.slice('--dir='.length).trim()
+          if (raw.length === 0) {
+            throw new Error('[backtest] missing value for --dir')
+          }
+          dirs.push(raw)
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -162,8 +181,17 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --slug and --symbol are mutually exclusive')
   }
 
+  if (dirs.length > 0 && symbol) {
+    throw new Error('[backtest] --dir and --symbol are mutually exclusive')
+  }
+
+  if (dirs.length > 0 && slugs.length > 0) {
+    throw new Error('[backtest] --dir and --slug are mutually exclusive')
+  }
+
   return {
     filePaths,
+    ...(dirs.length > 0 ? { dirs } : {}),
     order,
     timeDriven,
     ...(slugs.length > 0 ? { slugs } : {}),

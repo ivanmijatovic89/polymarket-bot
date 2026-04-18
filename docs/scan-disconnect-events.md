@@ -14,6 +14,8 @@ tsx src/parquet/cli/scan-disconnect-events.ts <folder>
 
 # via npm
 npm run -s scan:disconnect-events -- <folder>
+
+npm run -s scan:disconnect-events -- data/events_7_batch_566/btc   --delete-files-where-disconnects-equal-or-greater=3 --delete-files-with-last-event-disconnect
 ```
 
 ## Options

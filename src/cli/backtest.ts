@@ -1,6 +1,5 @@
 import '../config/env.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import * as parquet from '@dsnp/parquetjs'
 import { randomUUID } from 'crypto'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import type { AnyMarketMessage } from '../market/orderbook/index.js'
@@ -14,6 +13,7 @@ import type { Strategy } from '../strategy/Strategy.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
+import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { sleep } from '../utils/sleep.js'
 import { toBigInt } from '../utils/toBigInt.js'
 import { MinHeap } from '../utils/minHeap.js'
@@ -27,6 +27,8 @@ import { Timer } from '../utils/timer.js'
 import { closeDb, getMarketsBySlugs, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
 import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
+import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
+import { openParquetReaderWithEpermFallback } from './helpers/openParquetReader.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -77,8 +79,12 @@ export async function replayOrderBookForMarket(params: {
   const order = params.order ?? 'recorded'
   const timeDriven = params.timeDriven ?? false
 
-  const readers = await Promise.all(filePaths.map((p) => parquet.ParquetReader.openFile(p)))
+  const readers = []
   try {
+    for (const filePath of filePaths) {
+      readers.push(await openParquetReaderWithEpermFallback(filePath))
+    }
+
     const cursors = readers.map((r) => r.getCursor())
 
     const heap = new MinHeap()
@@ -224,7 +230,21 @@ async function main(): Promise<void> {
       process.exit(2)
     }
   } else {
-    filePaths = parsed.filePaths
+    try {
+      const fromDirs = parsed.dirs && parsed.dirs.length > 0
+        ? await resolveParquetFilesFromDirs(parsed.dirs)
+        : []
+      if (parsed.dirs && parsed.dirs.length > 0) {
+        console.log(`[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`)
+      }
+      filePaths = [...parsed.filePaths, ...fromDirs]
+      if (filePaths.length > 0) {
+        filePaths = Array.from(new Set(filePaths)).sort()
+      }
+    } catch (err) {
+      console.error('[backtest] Failed to load parquet files from --dir:', err)
+      process.exit(2)
+    }
   }
 
   if (filePaths.length === 0) {
@@ -232,6 +252,8 @@ async function main(): Promise<void> {
       'Usage:\n' +
         '  Orderbook replay (default):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Or read all parquet files from one or more dirs (non-recursive):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --dir <dir1> [--dir <dir2> ...] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query from database:\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query by slug(s):\n' +
@@ -318,11 +340,19 @@ async function main(): Promise<void> {
     console.log(`[backtest][${marketIdx}/${totalMarkets}] orderbook replay file=${fp}`)
     const marketStartMs = Date.now()
 
-    // Parse slug and fetch market resolution (tokenMap + outcome) in one call
+    // Parse slug and ensure market metadata is available for strategy context.
     const slug = parseSlugFromFilename(fp)
-    const dbMarket =
+    let dbMarket =
       slug && marketBySlug.size > 0 ? (marketBySlug.get(slug) ?? null) : slug ? await getMarketBySlug(slug) : null
-    const marketMeta: GammaMarketMeta | undefined = (() => {
+    const marketResolution = slug ? await getMarketResolution(slug, fp) : null
+    if (slug) {
+      const refreshed = await getMarketBySlug(slug)
+      if (refreshed) {
+        dbMarket = refreshed
+        marketBySlug.set(slug, refreshed)
+      }
+    }
+    let marketMeta: GammaMarketMeta | undefined = (() => {
       if (!slug) return undefined
       if (!dbMarket) return undefined
       const raw = dbMarket.rawJson
@@ -330,16 +360,41 @@ async function main(): Promise<void> {
       const built = buildGammaMarketMeta(raw as Record<string, unknown>, slug)
       return built ?? undefined
     })()
+    if (!marketMeta && slug) {
+      try {
+        const raw = await fetchGammaMarketBySlug({ slug })
+        if (raw && typeof raw === 'object') {
+          const built = buildGammaMarketMeta(raw, slug)
+          if (built) marketMeta = built
+        }
+      } catch {
+        // Best-effort fetch. Backtest continues with tokenMap fallback below.
+      }
+    }
+    if (!marketMeta && slug && marketResolution?.tokenMap['UP'] && marketResolution?.tokenMap['DOWN']) {
+      const upAssetId = marketResolution.tokenMap['UP']
+      const downAssetId = marketResolution.tokenMap['DOWN']
+      marketMeta = {
+        slug,
+        outcomes: ['UP', 'DOWN'],
+        clobTokenIds: [upAssetId, downAssetId],
+        outcomeTokenMap: { up: upAssetId, down: downAssetId },
+        upAssetId,
+        downAssetId,
+      } as GammaMarketMeta
+    }
 
     if (slug && marketMeta) {
       const id = typeof marketMeta.id === 'string' ? marketMeta.id : undefined
       const q = typeof marketMeta.question === 'string' ? marketMeta.question : undefined
       console.log('[backtest] market meta', { slug, ...(id ? { id } : {}), ...(q ? { question: q } : {}) })
     }
+    if (slug && !marketMeta) {
+      console.warn(`[backtest] market meta unavailable for slug: ${slug}`)
+    }
 
     const active = mkRunner({ getMarket: () => marketMeta })
     const runner = active.runner
-    const marketResolution = slug ? await getMarketResolution(slug, fp) : null
 
     // Track market data during replay
     let currentMarketId: string | undefined
