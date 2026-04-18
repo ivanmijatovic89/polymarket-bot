@@ -11,6 +11,7 @@ import * as z from 'zod'
 export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
+  unwindPriceX: z.coerce.number().finite().min(0).max(1).default(0.7),
 
   dwellRangeFrom: z.coerce.number().finite().default(0.20),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
@@ -24,10 +25,10 @@ export const ConfigSchema = z.strictObject({
 export type Config = z.infer<typeof ConfigSchema>
 
 export const definition: StrategyDefinition<Config> = {
-  id: 'SplitSellRedeem.v5',
-  title: 'Split + sell with dwell + time filters v5',
+  id: 'SplitSellRedeem.v5.unwind',
+  title: 'Split + sell with dwell + time filters v5 + unwind',
   description:
-    'Splits collateral into UP+DOWN (full set). Tracks dwell time per side and trades only within an allowed time window.',
+    'Splits collateral into UP+DOWN (full set). Tracks dwell time per side and trades only within an allowed time window. Places unwind order when sell price is above threshold.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -36,11 +37,14 @@ export function createStrategy(cfg: Config): {
   strategy: Strategy
   plugins: Plugin[]
 } {
-  const name = 'SplitSellRedeem.v5'
+  const name = 'SplitSellRedeem.v5.unwind'
 
   // Episode state
   let splitRequested = false
   let sellPlaced = false
+  let unwindPlaced = false
+  let soldAssetId: string | null = null
+  let soldSide: 'UP' | 'DOWN' | null = null
   let lastMarketKey: string | null = null
   let warnedMissingMarket = false
 
@@ -103,9 +107,13 @@ export function createStrategy(cfg: Config): {
         to: marketKey,
         prevSplitRequested: splitRequested,
         prevSellPlaced: sellPlaced,
+        prevUnwindPlaced: unwindPlaced,
       })
       splitRequested = false
       sellPlaced = false
+      unwindPlaced = false
+      soldAssetId = null
+      soldSide = null
       // PluginSet is also reset by StrategyRunner on market change, but keep an explicit reset
       // here to preserve the original strategy semantics (and avoid any stale pre-reset state).
       timeWindowGatePlugin.reset()
@@ -114,6 +122,28 @@ export function createStrategy(cfg: Config): {
     if (marketKey) lastMarketKey = marketKey
 
     if (sellPlaced) {
+      if (!unwindPlaced && soldAssetId) {
+        const bestAsk = tick.snapshot.byAssetId[soldAssetId]?.bestAsk ?? null
+        if (bestAsk !== null && bestAsk >= cfg.unwindPriceX) {
+          const currentQty = portfolio.positionsByAssetId[soldAssetId]?.qty ?? 0
+          const buySize = Math.max(0, cfg.splitShares - currentQty)
+          if (buySize > 0) {
+            unwindPlaced = true
+            return [
+              {
+                kind: 'place_limit',
+                clientOrderId: `${name}:${soldAssetId}:unwind:${Math.floor(nowMs / 1000)}`,
+                assetId: soldAssetId,
+                side: 'BUY',
+                price: safeProbabilityPrice(bestAsk + 0.01),
+                size: buySize,
+                orderType: 'GTC',
+                reason: `unwind_${soldSide ?? 'UNKNOWN'}_price>=${cfg.unwindPriceX}`,
+              },
+            ]
+          }
+        }
+      }
       // Don't log every tick when sellPlaced, just silently return
       return []
     }
@@ -171,6 +201,8 @@ export function createStrategy(cfg: Config): {
     const sellPrice = safeProbabilityPrice(bestBid - 0.01)
 
     sellPlaced = true
+    soldAssetId = assetId
+    soldSide = side
     return [
       {
         kind: 'place_limit',

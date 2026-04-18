@@ -28,7 +28,7 @@ import { definition as splitSellRedeemV5GateOrderbookImbalance } from '../strate
 import { definition as splitSellRedeemV5GateTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf15mWickRatio.js'
 import { definition as splitSellRedeemV5GateTaTf1hWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.js'
 import { definition as splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.js'
-
+import { definition as splitSellRedeemV5Unwind } from '../strategies/split/SplitSellRedeem.v5.unwind.js'
 import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
 import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
@@ -61,6 +61,9 @@ export const strategyRegistry = {
   [splitSellRedeemV5GateTaTf15mWickRatio.id]: splitSellRedeemV5GateTaTf15mWickRatio,
   [splitSellRedeemV5GateTaTf1hWickRatio.id]: splitSellRedeemV5GateTaTf1hWickRatio,
   [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]: splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
+
+  // Unwind
+  [splitSellRedeemV5Unwind.id]: splitSellRedeemV5Unwind,
 
   [scalpV1.id]: scalpV1,
   // templates
