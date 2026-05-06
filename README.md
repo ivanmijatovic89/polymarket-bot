@@ -1,5 +1,7 @@
 # polymarket-bot
 
+**[📖 Documentation](https://ivanmijatovic89.github.io/polymarket-bot/)**
+
 Polymarket **live recorder + tick-by-tick backtesting engine**.
 
 The core constraint of this repo is: **live trading and backtests must run the exact same strategy logic, on the exact same tick stream**. To enable that, we persist the raw WebSocket messages into Parquet and replay them deterministically.
