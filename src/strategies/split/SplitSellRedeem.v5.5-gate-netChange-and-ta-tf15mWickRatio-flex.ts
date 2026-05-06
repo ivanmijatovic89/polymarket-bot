@@ -5,6 +5,8 @@ import type { Plugin } from '../../strategy/plugins/PluginSet.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { TechnicalIndicatorsPlugin } from '../../strategy/plugins/TechnicalIndicatorsPlugin.js'
+import { TimeWindowVolatility, type VolatilitySnapshot } from '../../strategy/plugins/TimeWindowVolatility.js'
 import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
@@ -17,21 +19,21 @@ export const ConfigSchema = z.strictObject({
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
 
+  netChangeMin: z.coerce.number().finite().default(-0.24),
+  netChangeMax: z.coerce.number().finite().default(0.10),
+  wickRatioMin: z.coerce.number().finite().default(0.30027767043409165),
+
   timeFilterAllowTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(240),
   timeFilterDisableTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(600),
-
-  tickPriceOffset: z.coerce.number().default(0.01),
 })
 
 export type Config = z.infer<typeof ConfigSchema>
 
-// Upgrade to v6
-// - compare sell price only by changing tick price by 0.01
 export const definition: StrategyDefinition<Config> = {
-  id: 'SplitSellRedeem.v6',
-  title: 'Split + sell with dwell + time filters v6',
+  id: 'SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex',
+  title: 'Split + sell with dwell + time filters v5.5 gate netChange + TA wickRatio (flex)',
   description:
-    'Splits collateral into UP+DOWN (full set). Tracks dwell time per side and trades only within an allowed time window.',
+    'Sell only when netChange_60s is between [netChangeMin, netChangeMax] and ta_tf15m_wickRatio >= wickRatioMin',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -40,7 +42,7 @@ export function createStrategy(cfg: Config): {
   strategy: Strategy
   plugins: Plugin[]
 } {
-  const name = 'SplitSellRedeem.v6'
+  const name = 'SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex'
 
   // Episode state
   let splitRequested = false
@@ -62,13 +64,26 @@ export function createStrategy(cfg: Config): {
     // log: { everyMs: 5000 },
   })
 
-  const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
-    rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
-    binanceWsSpotPrice: { symbol: 'btcusdt' },
-    polymarketPriceToBeat: { enabled: true },
-  })
+  // const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
+  //   rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
+  //   binanceWsSpotPrice: { symbol: 'btcusdt' },
+  //   polymarketPriceToBeat: { enabled: true },
+  // })
 
-  const plugins: Plugin[] = [timeWindowGatePlugin, dwellGatePlugin, externalFeedsPlugin]
+  const technicalIndicatorsPlugin = new TechnicalIndicatorsPlugin()
+
+  const windows = {
+    '60s': 60_000,
+  } as const
+  const timeWindowVolatilityPlugin = new TimeWindowVolatility({ windows, trackPrice: 'bid' })
+
+  const plugins: Plugin[] = [
+    timeWindowGatePlugin,
+    dwellGatePlugin,
+    // externalFeedsPlugin,
+    technicalIndicatorsPlugin,
+    timeWindowVolatilityPlugin,
+  ]
 
   const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
     const nowMs = tick.snapshot.timestamp
@@ -172,9 +187,31 @@ export function createStrategy(cfg: Config): {
     // Place sell
     const assetId = side === 'UP' ? upAssetId : downAssetId
     const bestBid = side === 'UP' ? upBid! : downBid!
-    const sellPrice = safeProbabilityPrice(bestBid + cfg.tickPriceOffset)
+    const sellPrice = safeProbabilityPrice(bestBid - 0.01)
+
+    const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
+    const wickRatio = technicalIndicatorsSnap?.tf15m?.wickRatio ?? null
+
+    if(wickRatio === null) return []
+    // ta_tf15m_wickRatio <= 0.30027767043409165
+    if (wickRatio < cfg.wickRatioMin) return []
+
+    const volSnap = ctx?.plugins?.['timeWindowVolatility'] as VolatilitySnapshot | undefined
+    // GET ONLY highLowRange AND netChange
+    const volByAsset = volSnap?.byAssetId?.[assetId]
+    const netChange = volByAsset?.['60s']?.netChange ?? null
+
+    if(netChange === null) return []
+    // (netChange_60s <= -0.24) | (netChange_60s >= 0.10) | (netChange_60s == 0.00)
+    if (netChange < cfg.netChangeMin || netChange > cfg.netChangeMax) return []
+
+    const intentMeta = {
+      ...(technicalIndicatorsSnap ? { technicalIndicators: technicalIndicatorsSnap } : {}),
+      netChange,
+    }
 
     sellPlaced = true
+
     return [
       {
         kind: 'place_limit',
@@ -185,6 +222,7 @@ export function createStrategy(cfg: Config): {
         size: cfg.sellSize,
         orderType: 'GTC',
         reason: `${side}_dwell>=${cfg.dwellSecondsRequired}s; bestBid=${bestBid.toFixed(4)}`,
+        ...(intentMeta ? { meta: intentMeta } : {}),
       },
     ]
   }

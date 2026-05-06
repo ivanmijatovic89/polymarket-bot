@@ -11,6 +11,7 @@ import { definition as templateTimeWindowGate } from '../strategies/templates/Te
 import { definition as templateDwellGate } from '../strategies/templates/TemplateDwellGate.js'
 import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
 import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
+import { definition as buyLowPriceV1 } from '../strategies/BuyLowPrice.v1.js'
 import { definition as measureLatencyV1 } from '../strategies/MeasureLatency.v1.js'
 import { definition as splitSellRedeemV1 } from '../strategies/split/SplitSellRedeem.v1.js'
 import { definition as splitSellRedeemV2 } from '../strategies/split/SplitSellRedeem.v2.js'
@@ -29,6 +30,7 @@ import { definition as splitSellRedeemV5GateTaTf15mWickRatio } from '../strategi
 import { definition as splitSellRedeemV5GateTaTf1hWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.js'
 import { definition as splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.js'
 import { definition as splitSellRedeemV5Unwind } from '../strategies/split/SplitSellRedeem.v5.unwind.js'
+import { definition as splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex } from '../strategies/split/SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex.js'
 import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
 import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
@@ -42,6 +44,7 @@ export const strategyRegistry = {
   [winnerLimitV1.id]: winnerLimitV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
+  [buyLowPriceV1.id]: buyLowPriceV1,
   [measureLatencyV1.id]: measureLatencyV1,
   [splitSellRedeemV1.id]: splitSellRedeemV1,
   [splitSellRedeemV2.id]: splitSellRedeemV2,
@@ -62,6 +65,7 @@ export const strategyRegistry = {
   [splitSellRedeemV5GateTaTf1hWickRatio.id]: splitSellRedeemV5GateTaTf1hWickRatio,
   [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]: splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
 
+  [splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex.id]: splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex,
   // Unwind
   [splitSellRedeemV5Unwind.id]: splitSellRedeemV5Unwind,
 

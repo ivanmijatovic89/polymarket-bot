@@ -1,0 +1,126 @@
+# Environment Variables Reference
+
+This file consolidates env variables used across runtime code.
+
+## Core Runtime
+
+- `BOT_ENV` (loads `.env.<BOT_ENV>` with override behavior)
+- `DRY_RUN`
+- `LOG_LEVEL`
+- `LOG_TO_FILE`
+- `LOG_TRADES`
+- `INTENT_EXECUTION_MODE`
+- `MAX_EVENTS_PER_DRAIN`
+- `INITIAL_CAPITAL` (backtest/metrics context)
+
+## Symbol / Market Selection
+
+- `TRADING_SYMBOL`
+- `RECORD_SYMBOL`
+- `SKIP_MARKET_IF_BOT_STARTED_AFTER_SECONDS`
+
+## Polymarket / CLOB / WS
+
+- `POLYMARKET_WS_URL`
+- `POLYMARKET_USER_WS_URL`
+- `GAMMA_API_BASE_URL`
+- `CLOB_API_URL`
+- `CLOB_CHAIN_ID`
+- `CLOB_SIGNATURE_TYPE`
+- `CLOB_FUNDER`
+
+Credentials (CLOB):
+
+- `POLYMARKET_API_KEY`
+- `POLYMARKET_API_SECRET`
+- `POLYMARKET_API_PASSPHRASE`
+
+Alternate credential aliases used in config helpers:
+
+- `CLOB_API_KEY`
+- `CLOB_SECRET`
+- `CLOB_PASSPHRASE`
+- `CLOB_PASS_PHRASE`
+
+Keys:
+
+- `PRIVATE_KEY`
+- `POLYMARKET_PRIVATE_KEY`
+
+## Blockchain / RPC / Approvals
+
+- `POLYGON_RPC_URL`
+- `BALANCE_REFRESH_COOLDOWN_MS`
+
+## Relayer / SAFE
+
+- `POLYMARKET_RELAYER_URL`
+- `POLYMARKET_RELAYER_CHAIN_ID`
+- `POLYMARKET_RELAYER_TX_TYPE`
+- `POLYMARKET_BUILDER_API_KEY`
+- `POLYMARKET_BUILDER_API_SECRET`
+- `POLYMARKET_BUILDER_API_PASSPHRASE`
+- `POLYMARKET_TX_MODE_SPLIT`
+- `POLYMARKET_TX_MODE_MERGE`
+- `POLYMARKET_TX_MODE_REDEEM`
+- `POLYMARKET_EOA_GAS_MULTIPLIER`
+- `SPLIT_MAX_RETRY`
+- `SPLIT_RETRY_DELAY_MS`
+- `MERGE_MAX_RETRY`
+- `MERGE_RETRY_DELAY_MS`
+
+## Recording / Parquet
+
+- `RECORD_BASE_DIR`
+- `RECORD_LIVE_INSERT_DB`
+- `RECORD_TEST_MODE`
+- `RECORD_STATS_INTERVAL_MS`
+- `RECORD_MAX_INFLIGHT_APPENDS`
+- `RECORD_SKIP_IF_OLDER_MS`
+
+## Account Event Semantics
+
+- `USER_WS_FILL_AT_STATUS`
+
+## Backtest Simulation / Indicators
+
+- `BACKTEST_LATENCY_DELAY`
+- `BACKTEST_LATENCY_JITTER`
+- `BACKTEST_TAKER_FEE_BPS`
+- `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS`
+- `BACKTEST_TECH_IND_TIMEOUT_MS`
+- `BACKTEST_TECH_IND_POLL_MS`
+
+## Database
+
+- `DATABASE_HOST`
+- `DATABASE_PORT`
+- `DATABASE_USERNAME`
+- `DATABASE_PASSWORD`
+- `DATABASE_NAME`
+
+## Web UI (bot server)
+
+- `ENABLE_WEB_UI`
+- `WEB_UI_HOST`
+- `WEB_UI_PORT`
+- `WEB_UI_REFRESH_MS`
+- `WEB_UI_ORDERBOOK_LEVELS`
+- `BOT_INSTANCE_ID`
+
+## Web UI (Vite dev proxy)
+
+- `VITE_BOT_UI_HOST`
+- `VITE_BOT_UI_PORT`
+
+## Redeem Watcher
+
+- `REDEEM_STATE_PATH`
+- `REDEEM_WATCH_INTERVAL_MS`
+- `REDEEM_LOOKBACK_HOURS`
+- `REDEEM_MAX_MARKETS_PER_TICK`
+
+## Notes
+
+- Prefer documented defaults in code (`src/polymarket/config.ts`, `src/config/env.ts`, CLI entry files).
+- If running multiple bots, keep shared values in `.env` and bot-specific overrides in `.env.<bot>`.
