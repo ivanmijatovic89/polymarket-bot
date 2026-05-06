@@ -33,6 +33,12 @@ pnpm-debug.log*
 temp/
 .DS_Store
 
+# vitepress cache
+docs-site/.vitepress/cache/
+
+# claude code local settings
+.claude/settings.local.json
+
 # IDE / editor
 .vscode/
 .idea/
