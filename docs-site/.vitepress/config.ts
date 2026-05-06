@@ -4,8 +4,17 @@ export default defineConfig({
   title: 'Polymarket Bot',
   description: 'Live trading bot + deterministic backtesting engine for Polymarket',
   base: '/polymarket-bot/',
+  vite: {
+    // Shared static assets for docs + webui
+    publicDir: '../public',
+  },
 
   themeConfig: {
+    logo: {
+      light: '/img/logos/polymarket-twin-engine-mark.png',
+      dark: '/img/logos/polymarket-twin-engine-mark-dark.png',
+      alt: 'Polymarket Twin Engine',
+    },
     nav: [
       { text: 'Guide', link: '/quickstart' },
       { text: 'CLI Reference', link: '/cli-reference' },

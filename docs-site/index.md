@@ -5,6 +5,10 @@ hero:
   name: Polymarket Bot
   text: Live trading + deterministic backtesting
   tagline: Same strategy code runs in live trading and backtests — on the exact same tick stream.
+  image:
+    light: /img/logos/polymarket-twin-engine.png
+    dark: /img/logos/polymarket-twin-engine-dark.png
+    alt: Polymarket Twin Engine
   actions:
     - theme: brand
       text: Get Started

@@ -33,6 +33,8 @@ const suppressWsErrorsPlugin = (): Plugin => {
 
 export default defineConfig({
   plugins: [react(), tailwindcss(), suppressWsErrorsPlugin()],
+  // Shared static assets for docs + webui
+  publicDir: '../public',
   server: {
     // Allow access from network (0.0.0.0) while still allowing localhost.
     // This enables LAN access for development without breaking local usage.
@@ -93,5 +95,4 @@ export default defineConfig({
     emptyOutDir: true,
   },
 })
-
 

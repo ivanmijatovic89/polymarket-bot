@@ -1,0 +1,39 @@
+:root {
+  --vp-nav-logo-height: 30px;
+}
+
+.VPNavBarTitle .title {
+  font-weight: 700;
+}
+
+.VPHero.has-image .image-bg {
+  display: none;
+}
+
+.VPHero.has-image .image-container {
+  width: min(100%, 540px);
+  height: clamp(140px, 24vw, 230px);
+}
+
+.VPHero.has-image .image-src {
+  max-width: min(100%, 520px) !important;
+  max-height: none !important;
+  width: 100%;
+  height: auto;
+}
+
+@media (min-width: 960px) {
+  :root {
+    --vp-nav-logo-height: 32px;
+  }
+
+  .VPHero.has-image .image-container {
+    width: min(100%, 620px);
+    height: clamp(180px, 24vw, 270px);
+    transform: translate(-12px, -8px);
+  }
+
+  .VPHero.has-image .image-src {
+    max-width: min(100%, 600px) !important;
+  }
+}
