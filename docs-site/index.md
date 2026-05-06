@@ -50,4 +50,4 @@ Core invariant:
 
 - Covers all tracked source areas (`src/**`, `webui/**`) and project runtime flow.
 - Includes complete source inventory for indexing and editorial pipelines.
-- Distinguishes core runtime code from research artifacts and generated outputs.
+- Distinguishes core runtime code from research artifacts and generated outputs..
