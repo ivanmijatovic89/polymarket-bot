@@ -1,81 +1,38 @@
-1. ✅ insert current datasets into database ( markets table )
+# ToDo
 
-2. ✅ record-live need to store market to database
+## Docs sajt (VitePress → GitHub Pages)
 
-3. ✅ backend - resolved treba trebad da proverava u bazi pa ako nema u bazi da zove gama i da upise u bazu
+Sajt je živ na: https://ivanmijatovic89.github.io/polymarket-bot/
+Fajlovi su u: `docs-site/`
 
-( zbog ovoga iznad mi je bitna baza, da ne zove 1000x puta gama ...)
+### 1. Ažurirati sadržaj stranica (prioritet)
 
-------------
+Trenutni sadržaj je iz `docs-by-codex/` i može biti zastario.
+Proći stranicu po stranicu i uskladiti sa stvarnim stanjem koda:
 
-4. skripta koja ce da proveri dal su svi files uploaded
-5. cron - skripta koja ce da prolazi kroz markets i da zove gamma i da ih resolve-uje
+- [ ] `index.md` — homepage, hero sekcija
+- [ ] `quickstart.md` — instalacija, prvi koraci, env setup
+- [ ] `architecture.md` — data flow, tri moda (live/backtest/record)
+- [ ] `strategy-system.md` — kako pisati strategiju, registracija, params
+- [ ] `plugins-feeds.md` — plugins, external feeds
+- [ ] `live-runtime.md` — trading bot, warmup, fill status
+- [ ] `backtest-runtime.md` — replay, latency simulation, maker fills
+- [ ] `recording-parquet.md` — parquet format, rotacija, disconnect markeri
+- [ ] `cli-reference.md` — svi npm run komandi
+- [ ] `env-reference.md` — sve env varijable
+- [ ] `database-stats.md` — MySQL, Drizzle, backtest stats
+- [ ] `webui.md` — web UI, portovi, multi-bot
+- [ ] `ops-runbook.md` — troubleshooting, multi-bot, relayer/SAFE
+- [ ] `source-inventory.md` — mapa source fajlova
+- [ ] Dodati stranicu: `contributing.md` — kako dodati strategiju, kako pokrenuti lokalno
 
------------
+### 2. README.md
 
-WHAT IS NEXT?
+- [ ] Skratiti na ~30 linija
+- [ ] Dodati link na docs sajt
+- [ ] Ukloniti sve detalje koji su sada u docs-u
 
-FOK - api response
-FAK - api response
-GTC - ws
+### 3. Auto-update mehanizam
 
- backtest radi ?
-i da bot  radi ?
-
-FOK
-
-BUY
-SELL
-
-YES = 30
-kada cena padne na 30 kupi 5 shares
-
-i prodaj po 10 sekundi
-
-
-Kupi kome prvom padne cena na 40
-timer
-i onda prodaj na 20 ili 60
-
-
-
-
-
-LIMIT
-
-prati cenu kada dodje na 40 ti postavi order na 35 ako nije kupio za 5 sekundi canel order
-
-
-
-
-
-
-
-
-
-
-[1]
-BUY FAK kome prvom padne cena na 30
-
-[2]
-BUY FAK kome prvom padne cena na 40
-timer
-i onda prodaj na 20 ili 60
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+- [ ] Dodati pravilo u `CLAUDE.md` da Claude uvek ažurira relevantne docs kad menja kod
+- [ ] Opciono: Claude Code Stop hook koji proverava `git diff` i podseća
