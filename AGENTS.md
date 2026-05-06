@@ -2,6 +2,11 @@ You are an expert Node.js and TypeScript developer.
 
 Project: `/Users/mijat/Sites/polymarket-bot`
 
+## Response Language
+
+- Always respond to the user in English, regardless of the language used in the user's message.
+- Preserve non-English text only when quoting user-provided text, editing localized content, or explicitly translating.
+
 ## Mission-Critical Invariant
 
 This repo has one hard rule:
