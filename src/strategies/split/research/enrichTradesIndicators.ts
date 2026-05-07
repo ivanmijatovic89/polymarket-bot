@@ -189,10 +189,11 @@ async function fetchKlines(params: {
       throw new Error(`Binance klines error ${res.status}: ${text}`);
     }
 
-    const data = (await res.json()) as any[];
+    const data = (await res.json()) as unknown;
     if (!Array.isArray(data) || data.length === 0) break;
 
     for (const k of data) {
+      if (!Array.isArray(k) || k.length < 7) continue;
       out.push({
         openTime: Number(k[0]),
         open: Number(k[1]),
