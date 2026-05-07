@@ -48,7 +48,7 @@ function asTerminatedParquetPath(filePathFinal: string): string {
 class SkipWindowError extends RetryLaterError {
   readonly waitMs: number
   constructor(message: string, waitMs: number) {
-    super(message)
+    super(message, waitMs)
     this.name = 'SkipWindowError'
     this.waitMs = waitMs
   }
@@ -613,7 +613,7 @@ async function main(): Promise<void> {
       }
 
       await recorder.closeAll({
-        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
+        ...(insertDb ? { onFileFinalized: insertMarketOnFileFinalized } : {}),
       })
       // Reconnect will re-resolve the current market slug/token ids.
       isRotating = false
@@ -655,7 +655,7 @@ async function main(): Promise<void> {
 
       await recorder.closeAll({
         finalPathTransform: ({ filePathFinal }) => asTerminatedParquetPath(filePathFinal),
-        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
+        ...(insertDb ? { onFileFinalized: insertMarketOnFileFinalized } : {}),
       })
       process.exit(0)
     })().catch((err) => {

@@ -416,8 +416,8 @@ async function main(): Promise<void> {
     if (balanceTracker) {
       balanceTracker.seedFromApprovalResult({
         reason: 'startup',
-        eoa: eoaResult,
-        safe: safeResult,
+        ...(eoaResult ? { eoa: eoaResult } : {}),
+        ...(safeResult ? { safe: safeResult } : {}),
       })
     }
   }
@@ -933,6 +933,13 @@ async function main(): Promise<void> {
             return undefined
           }
         })()
+        const balance = (() => {
+          try {
+            return balanceTracker?.snapshot()
+          } catch {
+            return undefined
+          }
+        })()
         return {
           symbol: String(symbol),
           candleLeftMs: msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS),
@@ -946,7 +953,7 @@ async function main(): Promise<void> {
           ...(portfolio ? { portfolio } : {}),
           ...(metrics ? { metrics } : {}),
           ...(typeof plugins !== 'undefined' ? { plugins } : {}),
-          ...(balanceTracker ? { balance: balanceTracker.snapshot() } : {}),
+          ...(typeof balance !== 'undefined' ? { balance } : {}),
         }
       },
       getLogLinesWindow: () => ringLines!.snapshotWindow(),

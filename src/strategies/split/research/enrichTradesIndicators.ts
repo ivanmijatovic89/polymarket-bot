@@ -96,6 +96,7 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 function extractMarketStartSecFromSlug(slug: string): number | null {
   const parts = slug.split("-");
   const last = parts[parts.length - 1];
+  if (!last) return null;
   const t = Number(last);
   if (!Number.isFinite(t) || !Number.isInteger(t)) return null;
   // sanity: seconds epoch range
@@ -119,6 +120,7 @@ function realizedVolFromCloses(closes: number[], N: number): number | null {
   for (let i = 1; i < slice.length; i++) {
     const a = slice[i - 1];
     const b = slice[i];
+    if (a === undefined || b === undefined) return null;
     if (!(a > 0 && b > 0)) return null;
     rets.push(Math.log(b / a));
   }
@@ -143,7 +145,9 @@ function sliceCandlesAsOf(candles: Candle[], asOfMs: number, neededCount: number
 
   while (lo <= hi) {
     const mid = (lo + hi) >> 1;
-    if (candles[mid].closeTime <= asOfMs) {
+    const midCandle = candles[mid];
+    if (!midCandle) break;
+    if (midCandle.closeTime <= asOfMs) {
       endIdx = mid;
       lo = mid + 1;
     } else {
@@ -203,6 +207,7 @@ async function fetchKlines(params: {
     const lastOpen = out[out.length - 1]?.openTime;
     if (!Number.isFinite(lastOpen)) break;
 
+    if (lastOpen === undefined) break;
     const next = lastOpen + 1; // prevent duplicates
     if (next <= cursor) break;
     cursor = next;
@@ -232,14 +237,28 @@ function computeIndicators1h(candles1h: Candle[]) {
   const bbArr = BollingerBands.calculate({ period: 20, stdDev: 2, values: closes });
 
   const lastClose = closes[closes.length - 1];
+  if (lastClose === undefined) {
+    return {
+      atr14Pct: null,
+      bbWidth: null,
+      adx14: null,
+      ema20: null,
+      ema50: null,
+      ema20Over50: null,
+      rv20: null,
+      rv80: null,
+      rv20Over80: null,
+    };
+  }
 
-  const ema20 = ema20Arr.length ? ema20Arr[ema20Arr.length - 1] : null;
-  const ema50 = ema50Arr.length ? ema50Arr[ema50Arr.length - 1] : null;
+  const ema20 = ema20Arr.length ? (ema20Arr[ema20Arr.length - 1] ?? null) : null;
+  const ema50 = ema50Arr.length ? (ema50Arr[ema50Arr.length - 1] ?? null) : null;
 
   const atr14 = atrArr.length ? atrArr[atrArr.length - 1] : null;
   const atr14Pct = atr14 != null && lastClose > 0 ? atr14 / lastClose : null;
 
-  const adx14 = adxArr.length ? adxArr[adxArr.length - 1].adx : null;
+  const adxLast = adxArr.length ? adxArr[adxArr.length - 1] : undefined;
+  const adx14 = adxLast ? adxLast.adx : null;
 
   const bbLast = bbArr.length ? bbArr[bbArr.length - 1] : null;
   const bbWidth = bbLast && bbLast.middle ? (bbLast.upper - bbLast.lower) / bbLast.middle : null;
@@ -260,12 +279,14 @@ function computeIndicators15m(candles15m: Candle[]) {
 
   const atrArr = ATR.calculate({ period: 14, high: highs, low: lows, close: closes });
   const lastClose = closes[closes.length - 1];
+  const last = candles15m[candles15m.length - 1];
+  if (lastClose === undefined || !last) {
+    return { hlRangePct: null, wickRatio: null, atr14Pct: null, rv20: null };
+  }
   const atr14 = atrArr.length ? atrArr[atrArr.length - 1] : null;
   const atr14Pct = atr14 != null && lastClose > 0 ? atr14 / lastClose : null;
 
   const rv20 = realizedVolFromCloses(closes, 20);
-
-  const last = candles15m[candles15m.length - 1];
 
   const hlRangePct = last.low > 0 ? (last.high - last.low) / last.low : null;
 
@@ -434,6 +455,16 @@ async function run() {
     // Alignment check (now correct for Binance)
     const expected15mClose = T0ms - 1;
     const last15m = c15m[c15m.length - 1];
+    if (!last15m) {
+      return {
+        slug: t.slug,
+        startedAt: t.startedAt ?? null,
+        isWin: Boolean(t.isWin),
+        pnl,
+        features: null,
+        error: "not_enough_15m_history",
+      };
+    }
     if (last15m.closeTime !== expected15mClose) {
       return {
         slug: t.slug,

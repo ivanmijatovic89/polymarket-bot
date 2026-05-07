@@ -75,7 +75,9 @@ export class LiveExecution implements ExecutionAdapter {
       ...(overrides?.chainId ? { clob: { ...baseCfg.clob, chainId: overrides.chainId } } : {}),
     }
     this.config = cfg
-    this.onSplitSuccess = opts.onSplitSuccess
+    if (opts.onSplitSuccess) {
+      this.onSplitSuccess = opts.onSplitSuccess
+    }
 
     // If no config or overrides provided, createClobClient will auto-load from env vars
     if (opts.config !== undefined || opts.overrides !== undefined) {
