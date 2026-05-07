@@ -40,7 +40,13 @@ function parseKlineRow(row: unknown): BinanceCandle | null {
   const volume = Number(row[5])
   const closeTime = Number(row[6])
   if (!Number.isFinite(openTime) || !Number.isFinite(closeTime)) return null
-  if (!Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) return null
+  if (
+    !Number.isFinite(open) ||
+    !Number.isFinite(high) ||
+    !Number.isFinite(low) ||
+    !Number.isFinite(close)
+  )
+    return null
   if (!Number.isFinite(volume)) return null
   return { openTime, open, high, low, close, volume, closeTime }
 }

@@ -136,13 +136,9 @@ export function computeChunkedBatchStats(
   initialCapital: number,
   windows: number[] = [96],
 ): ChunkedBatchStats {
-  const marketsSorted = [...markets].sort(
-    (a, b) => slugTs(a.slug) - slugTs(b.slug),
-  )
+  const marketsSorted = [...markets].sort((a, b) => slugTs(a.slug) - slugTs(b.slug))
 
-  const runs = windows.map((window) =>
-    computeChunkedRun(marketsSorted, initialCapital, window),
-  )
+  const runs = windows.map((window) => computeChunkedRun(marketsSorted, initialCapital, window))
 
   return {
     windows: runs,

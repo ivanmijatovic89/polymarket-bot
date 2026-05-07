@@ -5,7 +5,10 @@ import type { Plugin } from '../../strategy/plugins/PluginSet.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { TimeWindowVolatility, type VolatilitySnapshot } from '../../strategy/plugins/TimeWindowVolatility.js'
+import {
+  TimeWindowVolatility,
+  type VolatilitySnapshot,
+} from '../../strategy/plugins/TimeWindowVolatility.js'
 import { TechnicalIndicatorsPlugin } from '../../strategy/plugins/TechnicalIndicatorsPlugin.js'
 import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
@@ -14,7 +17,7 @@ export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
 
-  dwellRangeFrom: z.coerce.number().finite().default(0.20),
+  dwellRangeFrom: z.coerce.number().finite().default(0.2),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
@@ -28,8 +31,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'SplitSellRedeem.v5.4-research-metrics-and-technical-indicators',
   title: 'Split + sell with dwell + time filters v5.4-research-metrics-and-technical-indicators',
-  description:
-    'Get TA plugin + ',
+  description: 'Get TA plugin + ',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -89,17 +91,23 @@ export function createStrategy(cfg: Config): {
     dwellGatePlugin,
     externalFeedsPlugin,
     timeWindowVolatilityPlugin,
-    technicalIndicatorsPlugin
+    technicalIndicatorsPlugin,
   ]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
       console.log(`[${name}][⚠️] early return: invalid nowMs`, { nowMs })
       return []
     }
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) {
@@ -168,8 +176,12 @@ export function createStrategy(cfg: Config): {
       ]
     }
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
-    const dwellSnap = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
+    const dwellSnap =
+      (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ??
+      undefined
     const dwellUpOk = dwellSnap?.dwellUpOk === true
     const dwellDownOk = dwellSnap?.dwellDownOk === true
 
@@ -187,7 +199,8 @@ export function createStrategy(cfg: Config): {
     let side: 'UP' | 'DOWN' | null = null
     if (upCanSell && !downCanSell) side = 'UP'
     else if (!upCanSell && downCanSell) side = 'DOWN'
-    else if (upCanSell && downCanSell) side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
+    else if (upCanSell && downCanSell)
+      side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
 
     if (!side) return []
 

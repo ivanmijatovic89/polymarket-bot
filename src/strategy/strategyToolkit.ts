@@ -26,7 +26,6 @@ export function parseGammaMarketStartMs(market?: unknown): number | null {
   return Number.isFinite(ms) ? Math.trunc(ms) : null
 }
 
-
 // ─────────────────────────────────────────────────────────────
 // EXISTING HELPERS
 // ─────────────────────────────────────────────────────────────

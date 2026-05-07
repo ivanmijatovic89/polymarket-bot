@@ -11,7 +11,6 @@ import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 
 export const ConfigSchema = z.strictObject({
-
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
@@ -20,14 +19,13 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'template.v1',
   title: 'Template v1',
-  description:
-    'Template strategy: placeholder for new strategies.',
+  description: 'Template strategy: placeholder for new strategies.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
 
 export function createStrategy(_cfg: Config): {
-  strategy: Strategy,
+  strategy: Strategy
   plugins: Plugin[]
 } {
   void _cfg
@@ -48,7 +46,7 @@ export function createStrategy(_cfg: Config): {
       polymarketPriceToBeat: { enabled: true },
     }),
     new DwellGatePlugin({
-      from: 0.10,
+      from: 0.1,
       to: 0.45,
       requiredMs: 60 * 1000,
       trackPrice: 'bid',
@@ -72,7 +70,8 @@ export function createStrategy(_cfg: Config): {
     if (!isWarmed(ctx)) return []
 
     // feeds
-    const feeds = (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
+    const feeds =
+      (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
     const _b = feeds?.rtdsPolymarketCryptoPrices?.binance
     const _c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
     const _bw = feeds?.binanceWsSpotPrice

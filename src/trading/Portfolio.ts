@@ -136,7 +136,8 @@ export class Portfolio {
     }
 
     // Refresh insertion order so pruning drops the oldest.
-    if (this.ordersByClientIdSnapshot.has(clientOrderId)) this.ordersByClientIdSnapshot.delete(clientOrderId)
+    if (this.ordersByClientIdSnapshot.has(clientOrderId))
+      this.ordersByClientIdSnapshot.delete(clientOrderId)
     this.ordersByClientIdSnapshot.set(clientOrderId, next)
     if (this.ordersByClientIdSnapshot.size > this.maxOrderSnapshots) {
       const drop = Math.ceil(this.maxOrderSnapshots * 0.1)
@@ -187,7 +188,8 @@ export class Portfolio {
     o.updatedAtMs = this.nowMs
     o.state = o.remaining > 0 ? 'partially_filled' : 'filled'
 
-    const changed = o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
+    const changed =
+      o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
 
     // Consumed.
     this.pendingFilledByOrderId.delete(orderId)
@@ -289,7 +291,8 @@ export class Portfolio {
 
         // If this orderId belongs to a bot order, merge into the corresponding OrderSnapshot.
         const clientOrderId =
-          this.clientOrderIdByOrderId.get(orderId) ?? this.clientOrderIdByOrderIdSnapshot.get(orderId)
+          this.clientOrderIdByOrderId.get(orderId) ??
+          this.clientOrderIdByOrderIdSnapshot.get(orderId)
         if (clientOrderId) {
           const prevSnap = this.ordersByClientIdSnapshot.get(clientOrderId)
           const bot = this.openOrdersByClientId.get(clientOrderId)
@@ -299,8 +302,8 @@ export class Portfolio {
               ({
                 clientOrderId,
                 ...(bot?.orderId ? { orderId: bot.orderId } : { orderId }),
-                assetId: bot?.assetId ?? (o.assetId ?? ''),
-                side: bot?.side ?? (o.side ?? 'BUY'),
+                assetId: bot?.assetId ?? o.assetId ?? '',
+                side: bot?.side ?? o.side ?? 'BUY',
                 ...(typeof bot?.price === 'number' ? { price: bot.price } : {}),
                 ...(typeof bot?.size === 'number' ? { originalSize: bot.size } : {}),
                 ...(typeof bot?.filled === 'number' ? { sizeMatched: bot.filled } : {}),
@@ -321,7 +324,9 @@ export class Portfolio {
               ...(typeof o.originalSize === 'number' && typeof o.sizeMatched === 'number'
                 ? { remaining: round2(Math.max(0, o.originalSize - o.sizeMatched)) }
                 : {}),
-              ...this.tradeStatusRawField(typeof statusRaw === 'string' ? statusRaw : base.tradeStatusRaw),
+              ...this.tradeStatusRawField(
+                typeof statusRaw === 'string' ? statusRaw : base.tradeStatusRaw,
+              ),
               tradeStatusRank: Math.max(base.tradeStatusRank, rank) as TradeStatusRank,
               updatedAtMs: this.nowMs,
             }
@@ -408,7 +413,9 @@ export class Portfolio {
           remaining: o.remaining,
           lifecycleState: o.state,
           ...(o.meta ? { meta: o.meta } : {}),
-          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw),
+          ...this.tradeStatusRawField(
+            this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw,
+          ),
           tradeStatusRank: this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRank ?? 0,
           updatedAtMs: this.nowMs,
         })
@@ -419,8 +426,7 @@ export class Portfolio {
       }
       case 'order_open': {
         const clientId =
-          ev.clientOrderId ??
-          (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
+          ev.clientOrderId ?? (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
         if (!clientId) return
         const o = this.openOrdersByClientId.get(clientId)
         if (!o) return
@@ -440,7 +446,9 @@ export class Portfolio {
           remaining: o.remaining,
           lifecycleState: o.state,
           ...(o.meta ? { meta: o.meta } : {}),
-          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw),
+          ...this.tradeStatusRawField(
+            this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRaw,
+          ),
           tradeStatusRank: this.ordersByClientIdSnapshot.get(o.clientOrderId)?.tradeStatusRank ?? 0,
           updatedAtMs: this.nowMs,
         })
@@ -469,8 +477,11 @@ export class Portfolio {
           remaining: 0,
           lifecycleState: 'rejected',
           ...(o.meta ? { meta: o.meta } : {}),
-          ...this.tradeStatusRawField(this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRaw),
-          tradeStatusRank: this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRank ?? 0,
+          ...this.tradeStatusRawField(
+            this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRaw,
+          ),
+          tradeStatusRank:
+            this.ordersByClientIdSnapshot.get(ev.clientOrderId)?.tradeStatusRank ?? 0,
           updatedAtMs: this.nowMs,
         })
         this.mergePendingTradeStatusIntoSnapshot(ev.clientOrderId, o.orderId)
@@ -479,8 +490,7 @@ export class Portfolio {
       }
       case 'order_done': {
         const clientId =
-          ev.clientOrderId ??
-          (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
+          ev.clientOrderId ?? (ev.orderId ? this.clientOrderIdByOrderId.get(ev.orderId) : undefined)
         if (!clientId) return
         const o = this.openOrdersByClientId.get(clientId)
         if (!o) return
@@ -538,7 +548,12 @@ export class Portfolio {
           const key = positionKey(assetId)
           const prev = this.positionsByAssetId.get(key)
           if (!prev) {
-            this.positionsByAssetId.set(key, { assetId, qty: round2(size), avgEntryPrice: null, costBasis: 0 })
+            this.positionsByAssetId.set(key, {
+              assetId,
+              qty: round2(size),
+              avgEntryPrice: null,
+              costBasis: 0,
+            })
           } else {
             this.positionsByAssetId.set(key, { ...prev, qty: round2(prev.qty + size) })
           }
@@ -594,7 +609,8 @@ export class Portfolio {
     o.remaining = round2(Math.max(0, o.size - o.filled))
     o.updatedAtMs = this.nowMs
     o.state = o.remaining > 0 ? 'partially_filled' : 'filled'
-    const changed = o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
+    const changed =
+      o.filled !== prevFilled || o.remaining !== prevRemaining || o.state !== prevState
     if (o.state === 'filled') {
       this.openOrdersByClientId.delete(cid)
       this.unindexOrder(o)
@@ -704,7 +720,7 @@ export class Portfolio {
   }
 
   private logPositionsByMarket(): void {
-    return;
+    return
     const shortAsset = (assetId: string) => assetId.slice(-8)
     const fmt4 = (n: number | null | undefined) =>
       typeof n === 'number' && Number.isFinite(n) ? n.toFixed(4) : 'N/A'

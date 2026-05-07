@@ -15,8 +15,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'TemplateTimeWindowGate',
   title: 'Template time window gate',
-  description:
-    'Template time window gate',
+  description: 'Template time window gate',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -30,20 +29,26 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     }),
   ]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     void nowMs
     void portfolio
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
 
-    if( withinWindow ) {
-      console.log(`🟢 inside time window`);
+    if (withinWindow) {
+      console.log(`🟢 inside time window`)
     } else {
-      console.log(`🔴 outside time window`);
+      console.log(`🔴 outside time window`)
     }
 
-    return [];
+    return []
   }
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []

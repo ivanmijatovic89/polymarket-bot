@@ -82,4 +82,3 @@ test('openParquetReaderWithEpermFallback rethrows non-EPERM errors', async () =>
     },
   )
 })
-

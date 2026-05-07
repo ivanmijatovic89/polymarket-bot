@@ -183,7 +183,7 @@ Behavior (backtest-only):
   - This affects: `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll`.
   - Cancels are also delayed, so an order may fill before the cancel “arrives” (more realistic).
 - **Maker fills use a conservative “worst-queue” model**:
-  - BUY resting @ price `P` fills only when `bestAsk < P` (price trades *through* your level)
+  - BUY resting @ price `P` fills only when `bestAsk < P` (price trades _through_ your level)
   - SELL resting @ price `P` fills only when `bestBid > P`
 
 Setup:
@@ -195,11 +195,13 @@ Setup:
 Plugins are **optional, reusable computations/data sources** that are updated once per market tick and exposed to strategies via `ctx.plugins`.
 
 Key properties in this repo:
+
 - **Same in live + backtest**: plugins receive the same `MarketTick` stream (from `MarketEngine` → `StrategyRunner`).
 - **Tick-scoped snapshots**: `StrategyRunner` caches plugin snapshots on market ticks and reuses the cached snapshot on `onAccountEvent` (backtest-friendly and deterministic).
 - **Zero cost when unused**: a strategy only constructs a `PluginSet` if it needs plugins.
 
 How it works (high-level):
+
 - A strategy can return `{ strategy, pluginSet }` from its `definition.create(...)`.
 - `StrategyRunner` updates `pluginSet` once per tick and passes `ctx.plugins` into `onMarketTick` and `onAccountEvent`.
 
@@ -233,6 +235,7 @@ Example strategy: [`readExternalFeedBinanceAndChainlinkBitcoinPrice.v1`](src/str
 ## Warmup: `warmupMarket()` (live-only)
 
 The Polymarket client library (`@polymarket/clob-client`) does extra per-token metadata fetches the **first time** you place an order for a token in a fresh process (or a fresh market window), including:
+
 - tick size
 - fee rate
 - negRisk flag
@@ -240,6 +243,7 @@ The Polymarket client library (`@polymarket/clob-client`) does extra per-token m
 That makes the **first order** noticeably slower than subsequent orders (caches + keep-alive warm up).
 
 To avoid that cold-start cost impacting the first real order, the trading bot performs a **market warmup**:
+
 - **Implementation**: `LiveExecution.warmupMarket()` (`src/trading/execution/LiveExecution.ts`)
 - **When it runs**: on trading-bot startup and whenever the 15m market rotates/changes (`src/cli/trading-bot.ts`)
 - **What it does**: pre-fetches and caches token metadata for the market’s UP+DOWN token IDs so later order placement is faster.
@@ -247,6 +251,7 @@ To avoid that cold-start cost impacting the first real order, the trading bot pe
 ### Strategy gating (optional)
 
 The trading bot also exposes warmup state to strategies via `ctx.warmup`. Strategies that place orders can gate like:
+
 - `if (!isWarmed(ctx)) return []` (helper in `src/strategy/strategyToolkit.ts`)
 
 In backtests, `ctx.warmup` is typically absent, and `isWarmed(ctx)` returns true (no warmup concept in backtests).
@@ -655,7 +660,7 @@ Tip: use a local `.env` (see `.env.example`) and export vars in your shell.
 We deliberately use **two different notions of “done”**:
 
 - **Position updates (fast)**:
-  - We use `USER_WS_FILL_AT_STATUS=MATCHED` to update positions as soon as a fill is *matched* (user WS).
+  - We use `USER_WS_FILL_AT_STATUS=MATCHED` to update positions as soon as a fill is _matched_ (user WS).
 - **Actions that require on-chain state (safe)**:
   - To **sell shares you just bought**, you must wait until the buy is **`MINED`**.
   - To **merge shares**, you must wait until the relevant buys are **`MINED`**.
@@ -805,7 +810,6 @@ npm run db:generate; npm run db:migrate
 npm run db:insert-parquet
 ```
 
-
 ## PnL Report
 
 Generate a PnL report from your Polymarket activity (trades, splits, merges, redeems) using the [Activity API](https://docs.polymarket.com/api-reference/core/get-user-activity):
@@ -831,6 +835,7 @@ npx tsx src/cli/pnl-report.ts --debug
 ```
 
 The report shows:
+
 - **Bought**: USDC spent on BUY trades
 - **Sold**: USDC received from SELL trades
 - **Split**: USDC spent on SPLIT operations
@@ -839,11 +844,13 @@ The report shows:
 - **Net PnL**: Total profit/loss = (Sold + Merge + Redeem) - (Bought + Split)
 
 Market status:
+
 - **open**: Still holding shares
 - **closed**: Position exited via SELL or MERGE
 - **redeemed**: Market resolved and shares redeemed
 
 Wallet selection:
+
 - Uses `CLOB_FUNDER` (SAFE address) if set in `.env`
 - Otherwise uses EOA address derived from `PRIVATE_KEY`
 
@@ -856,8 +863,8 @@ https://docs.polymarket.com/developers/CLOB/geoblock#server-infrastructure
 Primary Servers: eu-west-2
 Closest Non-Georestricted Region: eu-west-1
 
-
 # FIX
+
 // inside createTradingBotWebUiServer({ getState: () => { ... } })
 
 // before
@@ -867,6 +874,7 @@ const market = runner.getLastMarketSnapshot()
 const market = marketEngine.snapshot()
 
 # RECORD FROM WINDOWS
+
 ```
 npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 ```
@@ -874,7 +882,6 @@ npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 # Running Multiple Bots
 
 See [`docs/MultipleBots.md`](docs/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).
-
 
 ## Queue-based Batch Runner / Batch Execution & Grid Search
 

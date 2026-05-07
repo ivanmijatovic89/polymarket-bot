@@ -126,10 +126,17 @@ export function LogsPanel(props: { logLines: string[] }) {
   return (
     <div
       className={
-        isFullscreen ? 'fixed inset-0 z-50 bg-zinc-950/70 p-2 sm:p-3 backdrop-blur' : 'w-full max-w-full min-w-0'
+        isFullscreen
+          ? 'fixed inset-0 z-50 bg-zinc-950/70 p-2 sm:p-3 backdrop-blur'
+          : 'w-full max-w-full min-w-0'
       }
     >
-      <div className={['panel p-3 w-full max-w-full min-w-0', isFullscreen ? 'h-full flex flex-col' : ''].join(' ')}>
+      <div
+        className={[
+          'panel p-3 w-full max-w-full min-w-0',
+          isFullscreen ? 'h-full flex flex-col' : '',
+        ].join(' ')}
+      >
         <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <div className="text-[17px] font-semibold">logs</div>
@@ -145,7 +152,11 @@ export function LogsPanel(props: { logLines: string[] }) {
 
           <div className="flex flex-wrap items-center gap-3">
             <label className="flex items-center gap-2 text-[16px] text-zinc-300">
-              <input type="checkbox" checked={autoScroll} onChange={(e) => setAutoScroll(e.target.checked)} />
+              <input
+                type="checkbox"
+                checked={autoScroll}
+                onChange={(e) => setAutoScroll(e.target.checked)}
+              />
               autoscroll
             </label>
 
@@ -276,5 +287,3 @@ export function LogsPanel(props: { logLines: string[] }) {
     </div>
   )
 }
-
-

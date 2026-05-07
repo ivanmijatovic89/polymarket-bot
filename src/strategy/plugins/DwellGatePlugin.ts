@@ -3,7 +3,10 @@ import type { StrategyContext } from '../StrategyContext.js'
 import type { Plugin } from './PluginSet.js'
 
 type SingleDwellTracker = {
-  update(nowMs: number, price: number | null | undefined): {
+  update(
+    nowMs: number,
+    price: number | null | undefined,
+  ): {
     ok: boolean
     inRange: boolean
     elapsedInRangeMs: number | null
@@ -28,11 +31,14 @@ function createSingleDwellTracker(cfg: {
 
   return {
     update(nowMs, price) {
-      const inRange = typeof price === 'number' && Number.isFinite(price) && price >= lo && price <= hi
+      const inRange =
+        typeof price === 'number' && Number.isFinite(price) && price >= lo && price <= hi
 
       if (!inRange) {
         if (cfg.label && inRangeSinceMs !== null) {
-          console.log(`🕸️ ⏱️ 🔴 ${cfg.label} LEFT range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
+          console.log(
+            `🕸️ ⏱️ 🔴 ${cfg.label} LEFT range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`,
+          )
         }
         inRangeSinceMs = null
         lastLogBucket = -1
@@ -43,7 +49,9 @@ function createSingleDwellTracker(cfg: {
         inRangeSinceMs = nowMs
         lastLogBucket = -1
         if (cfg.label) {
-          console.log(`🕸️ ⏱️ 🟢 ${cfg.label} ENTERED range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`)
+          console.log(
+            `🕸️ ⏱️ 🟢 ${cfg.label} ENTERED range [${lo.toFixed(2)}-${hi.toFixed(2)}] ${price}`,
+          )
         }
       }
 
@@ -96,7 +104,8 @@ function createDwellGate(cfg: {
   log?: boolean | { everyMs?: number }
 }): DwellGate {
   const enableLog = !!cfg.log
-  const logEveryMs = cfg.log === true ? 5000 : typeof cfg.log === 'object' ? (cfg.log.everyMs ?? 5000) : 5000
+  const logEveryMs =
+    cfg.log === true ? 5000 : typeof cfg.log === 'object' ? (cfg.log.everyMs ?? 5000) : 5000
 
   const dwellUp = createSingleDwellTracker({
     from: cfg.from,
@@ -127,8 +136,16 @@ function createDwellGate(cfg: {
       return {
         dwellUpOk,
         dwellDownOk,
-        up: { inRange: up.inRange, elapsedInRangeMs: up.elapsedInRangeMs, remainingMs: up.remainingMs },
-        down: { inRange: down.inRange, elapsedInRangeMs: down.elapsedInRangeMs, remainingMs: down.remainingMs },
+        up: {
+          inRange: up.inRange,
+          elapsedInRangeMs: up.elapsedInRangeMs,
+          remainingMs: up.remainingMs,
+        },
+        down: {
+          inRange: down.inRange,
+          elapsedInRangeMs: down.elapsedInRangeMs,
+          remainingMs: down.remainingMs,
+        },
       }
     },
     reset() {
@@ -251,4 +268,3 @@ export class DwellGatePlugin implements Plugin {
     return this.cached
   }
 }
-

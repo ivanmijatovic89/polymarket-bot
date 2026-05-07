@@ -20,4 +20,3 @@ export class ExternalFeedsPlugin implements Plugin {
     return this.getSnapshot()
   }
 }
-

@@ -32,8 +32,16 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'Current price',
     hoverLabel: 'RTDS PolymarketChainlink',
     symbol: 'vs Price to Beat',
-    diff: feeds?.polymarketPriceToBeat && rtdsChainlink?.value != null ? fmtNum(rtdsChainlink.value - feeds.polymarketPriceToBeat.openPrice, { maximumFractionDigits: 0 }) : 'n/a',
-    value: rtdsChainlink?.value != null ? fmtNum(rtdsChainlink.value, { maximumFractionDigits: 2 }) : 'n/a',
+    diff:
+      feeds?.polymarketPriceToBeat && rtdsChainlink?.value != null
+        ? fmtNum(rtdsChainlink.value - feeds.polymarketPriceToBeat.openPrice, {
+            maximumFractionDigits: 0,
+          })
+        : 'n/a',
+    value:
+      rtdsChainlink?.value != null
+        ? fmtNum(rtdsChainlink.value, { maximumFractionDigits: 2 })
+        : 'n/a',
     accent: 'yellow',
   })
 
@@ -42,8 +50,12 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'RTDS Polymarket Binance',
     hoverLabel: 'RTDS Polymarket Binance',
     symbol: 'vs Current Price',
-    diff: rtdsBinance?.value != null && rtdsChainlink?.value != null ? fmtNum(rtdsBinance.value - rtdsChainlink.value, { maximumFractionDigits: 0 }) : 'n/a',
-    value: rtdsBinance?.value != null ? fmtNum(rtdsBinance.value, { maximumFractionDigits: 2 }) : 'n/a',
+    diff:
+      rtdsBinance?.value != null && rtdsChainlink?.value != null
+        ? fmtNum(rtdsBinance.value - rtdsChainlink.value, { maximumFractionDigits: 0 })
+        : 'n/a',
+    value:
+      rtdsBinance?.value != null ? fmtNum(rtdsBinance.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'orange',
   })
 
@@ -52,7 +64,10 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     label: 'RTDS Binance',
     hoverLabel: 'RTDS Binance',
     symbol: 'VS RTDS Polymarket Binance',
-    diff: binanceWs?.value != null && rtdsBinance?.value != null ? fmtNum(binanceWs.value - rtdsBinance.value, { maximumFractionDigits: 0 }) : 'n/a',
+    diff:
+      binanceWs?.value != null && rtdsBinance?.value != null
+        ? fmtNum(binanceWs.value - rtdsBinance.value, { maximumFractionDigits: 0 })
+        : 'n/a',
     value: binanceWs?.value != null ? fmtNum(binanceWs.value, { maximumFractionDigits: 2 }) : 'n/a',
     accent: 'orange',
   })
@@ -74,7 +89,10 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
         <div key={idx} className="min-w-0 rounded-md bg-zinc-900/40 px-3 py-2 ring-1 ring-zinc-800">
           <div className="flex min-w-0 items-start justify-between gap-2">
             <div className="min-w-0">
-              <div className="text-[12px] sm:text-[14px] text-zinc-400" title={t.hoverLabel ?? t.label}>
+              <div
+                className="text-[12px] sm:text-[14px] text-zinc-400"
+                title={t.hoverLabel ?? t.label}
+              >
                 {t.label}
               </div>
             </div>
@@ -86,7 +104,9 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
           </div>
 
           <div className="mt-1 flex items-end justify-between gap-2">
-            <div className={`min-w-0 font-mono text-[16px] sm:text-[18px] ${accentClass(t.accent)}`}>
+            <div
+              className={`min-w-0 font-mono text-[16px] sm:text-[18px] ${accentClass(t.accent)}`}
+            >
               <span className="block whitespace-nowrap">{t.value ?? 'n/a'}</span>
             </div>
             {t.diff ? (
@@ -109,5 +129,3 @@ export function ExternalFeedsPanel(props: { snapshot: BotUiSnapshot }) {
     </div>
   )
 }
-
-

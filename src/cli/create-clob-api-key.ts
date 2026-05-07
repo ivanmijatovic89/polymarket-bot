@@ -47,7 +47,8 @@ async function main(): Promise<void> {
   const client = new ClobClient(host, chainId, wallet)
   const creds = await client.createOrDeriveApiKey()
 
-  const key = (creds as { key?: string; apiKey?: string }).key ?? (creds as { apiKey?: string }).apiKey
+  const key =
+    (creds as { key?: string; apiKey?: string }).key ?? (creds as { apiKey?: string }).apiKey
   const secret = (creds as { secret?: string }).secret
   const passphrase = (creds as { passphrase?: string }).passphrase
 

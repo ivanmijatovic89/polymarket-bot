@@ -164,23 +164,17 @@
       "compositePrimaryKeys": {
         "markets_id": {
           "name": "markets_id",
-          "columns": [
-            "id"
-          ]
+          "columns": ["id"]
         }
       },
       "uniqueConstraints": {
         "markets_polymarket_id_unique": {
           "name": "markets_polymarket_id_unique",
-          "columns": [
-            "polymarket_id"
-          ]
+          "columns": ["polymarket_id"]
         },
         "markets_slug_unique": {
           "name": "markets_slug_unique",
-          "columns": [
-            "slug"
-          ]
+          "columns": ["slug"]
         }
       },
       "checkConstraint": {}

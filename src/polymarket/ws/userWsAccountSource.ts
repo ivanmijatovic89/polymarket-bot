@@ -104,7 +104,8 @@ function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
 
   if (eventType === 'trade') {
     const status = typeof rec.status === 'string' ? rec.status : 'UNKNOWN'
-    const traderSide = rec.trader_side === 'MAKER' || rec.trader_side === 'TAKER' ? rec.trader_side : undefined
+    const traderSide =
+      rec.trader_side === 'MAKER' || rec.trader_side === 'TAKER' ? rec.trader_side : undefined
 
     // NOTE: For MAKER trades, the top-level `side/size` typically reflect the taker.
     // To summarize "our" perspective, use maker_orders filtered by our owner id.
@@ -123,7 +124,8 @@ function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
         const owner = typeof mor.owner === 'string' ? mor.owner : undefined
         if (owner !== myOwnerId) continue
 
-        const moSide = mor.side === 'BUY' || mor.side === 'SELL' ? (mor.side as 'BUY' | 'SELL') : undefined
+        const moSide =
+          mor.side === 'BUY' || mor.side === 'SELL' ? (mor.side as 'BUY' | 'SELL') : undefined
         if (moSide) side = moSide
 
         const moOutcome = typeof mor.outcome === 'string' ? mor.outcome : undefined
@@ -133,7 +135,9 @@ function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
         if (Number.isFinite(moPriceN)) price = fmtNum(moPriceN, 6)
 
         const moMatchedN =
-          typeof mor.matched_amount === 'string' ? Number(mor.matched_amount) : Number(mor.matched_amount)
+          typeof mor.matched_amount === 'string'
+            ? Number(mor.matched_amount)
+            : Number(mor.matched_amount)
         if (Number.isFinite(moMatchedN)) matchedSum += moMatchedN
       }
 
@@ -145,7 +149,11 @@ function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
 
     const side = rec.side === 'BUY' || rec.side === 'SELL' ? rec.side : '?'
     const outcome =
-      typeof rec.outcome === 'string' ? rec.outcome : typeof rec.asset_id === 'string' ? rec.asset_id : '?'
+      typeof rec.outcome === 'string'
+        ? rec.outcome
+        : typeof rec.asset_id === 'string'
+          ? rec.asset_id
+          : '?'
     const size = fmtNum(rec.size, 4)
     const price = fmtNum(rec.price, 6)
     return `TRADE ${status} > ${side} ${outcome} ${size}@${price}`
@@ -153,10 +161,16 @@ function summarizeUserWsRaw(raw: string, myOwnerId?: string): string | null {
 
   if (eventType === 'order') {
     const type =
-      rec.type === 'PLACEMENT' || rec.type === 'UPDATE' || rec.type === 'CANCELLATION' ? rec.type : 'UPDATE'
+      rec.type === 'PLACEMENT' || rec.type === 'UPDATE' || rec.type === 'CANCELLATION'
+        ? rec.type
+        : 'UPDATE'
     const side = rec.side === 'BUY' || rec.side === 'SELL' ? rec.side : '?'
     const outcome =
-      typeof rec.outcome === 'string' ? rec.outcome : typeof rec.asset_id === 'string' ? rec.asset_id : '?'
+      typeof rec.outcome === 'string'
+        ? rec.outcome
+        : typeof rec.asset_id === 'string'
+          ? rec.asset_id
+          : '?'
     const price = fmtNum(rec.price, 6)
     const orig = fmtNum(rec.original_size, 4)
     const matched = fmtNum(rec.size_matched, 4)
@@ -196,13 +210,15 @@ function parseUserChannelEvent(
 
   if (eventType === 'trade') {
     const statusRaw = typeof rec.status === 'string' ? rec.status : undefined
-    const status = (statusRaw === 'MATCHED' ||
+    const status = (
+      statusRaw === 'MATCHED' ||
       statusRaw === 'MINED' ||
       statusRaw === 'CONFIRMED' ||
       statusRaw === 'RETRYING' ||
       statusRaw === 'FAILED'
-      ? statusRaw
-      : undefined) as UserTradeStatus | undefined
+        ? statusRaw
+        : undefined
+    ) as UserTradeStatus | undefined
 
     const asset_id = typeof rec.asset_id === 'string' ? rec.asset_id : undefined
     const market = typeof rec.market === 'string' ? rec.market : undefined
@@ -213,7 +229,8 @@ function parseUserChannelEvent(
     const id = typeof rec.id === 'string' ? rec.id : undefined
     const takerOrderId = typeof rec.taker_order_id === 'string' ? rec.taker_order_id : undefined
     const traderSideRaw = typeof rec.trader_side === 'string' ? rec.trader_side : undefined
-    const traderSide = traderSideRaw === 'TAKER' || traderSideRaw === 'MAKER' ? traderSideRaw : undefined
+    const traderSide =
+      traderSideRaw === 'TAKER' || traderSideRaw === 'MAKER' ? traderSideRaw : undefined
     const feeRateBps = Number(rec.fee_rate_bps)
 
     // Without a stable trade id, we cannot safely dedupe status updates. Drop it.
@@ -278,7 +295,9 @@ function parseUserChannelEvent(
         if (moOwner !== state.myOwnerId) continue
         const moOrderId = typeof mor.order_id === 'string' ? mor.order_id : undefined
         const moMatched =
-          typeof mor.matched_amount === 'string' ? Number(mor.matched_amount) : Number(mor.matched_amount)
+          typeof mor.matched_amount === 'string'
+            ? Number(mor.matched_amount)
+            : Number(mor.matched_amount)
         const moPrice = typeof mor.price === 'string' ? Number(mor.price) : Number(mor.price)
         const moAssetId = typeof mor.asset_id === 'string' ? mor.asset_id : undefined
         const moSideRaw = mor.side
@@ -332,7 +351,10 @@ function parseUserChannelEvent(
   if (eventType === 'order') {
     // Polymarket docs: order messages with `type`: PLACEMENT | UPDATE | CANCELLATION
     const typeRaw = typeof rec.type === 'string' ? rec.type : undefined
-    const type = typeRaw === 'PLACEMENT' || typeRaw === 'UPDATE' || typeRaw === 'CANCELLATION' ? typeRaw : undefined
+    const type =
+      typeRaw === 'PLACEMENT' || typeRaw === 'UPDATE' || typeRaw === 'CANCELLATION'
+        ? typeRaw
+        : undefined
     const orderId = typeof rec.id === 'string' ? rec.id : undefined
     if (!orderId) return []
 
@@ -491,11 +513,16 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
           hasPassphrase: !!opts.auth.passphrase,
           markets: opts.markets,
         })
-        console.log('[ws-user][⚙️] Full auth message (without secrets):', JSON.stringify({ ...authMsg, auth: { ...authMsg.auth, secret: '***', passphrase: '***' } }))
+        console.log(
+          '[ws-user][⚙️] Full auth message (without secrets):',
+          JSON.stringify({
+            ...authMsg,
+            auth: { ...authMsg.auth, secret: '***', passphrase: '***' },
+          }),
+        )
         conn?.send(JSON.stringify(authMsg))
       },
       onMessageText: (raw) => {
-
         const summary = summarizeUserWsRaw(raw, parseState.myOwnerId)
         if (summary) console.log('[ws-user][⚡️]', summary)
 
@@ -503,9 +530,16 @@ export function createUserWsAccountSource(opts: UserWsAccountSourceOptions): Use
 
         const events = parseUserChannelEvent(raw, parseState)
         if (events.length === 0) {
-          console.log('[ws-user] Message did not parse into any events (might be error/subscription response)')
+          console.log(
+            '[ws-user] Message did not parse into any events (might be error/subscription response)',
+          )
         } else {
-          console.log('[ws-user] Parsed into', events.length, 'event(s):', events.map((e) => e.kind).join(', '))
+          console.log(
+            '[ws-user] Parsed into',
+            events.length,
+            'event(s):',
+            events.map((e) => e.kind).join(', '),
+          )
         }
         for (const ev of events) emit(ev)
       },

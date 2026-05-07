@@ -159,8 +159,8 @@ export function createRestPollAccountSource(
       if (isAuthError) {
         console.error(
           '[rest-poll] Authentication failed when fetching trades. ' +
-          'Check your POLYMARKET_API_KEY, POLYMARKET_API_SECRET, and POLYMARKET_API_PASSPHRASE credentials. ' +
-          'The API key may be invalid or expired. Disabling REST poller to avoid repeated errors.',
+            'Check your POLYMARKET_API_KEY, POLYMARKET_API_SECRET, and POLYMARKET_API_PASSPHRASE credentials. ' +
+            'The API key may be invalid or expired. Disabling REST poller to avoid repeated errors.',
         )
         // Disable poller on auth error to avoid spamming errors
         enabled = false

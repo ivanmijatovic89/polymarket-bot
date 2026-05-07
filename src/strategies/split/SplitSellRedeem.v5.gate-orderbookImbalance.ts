@@ -13,7 +13,7 @@ export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
 
-  dwellRangeFrom: z.coerce.number().finite().default(0.20),
+  dwellRangeFrom: z.coerce.number().finite().default(0.2),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
@@ -29,8 +29,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'SplitSellRedeem.v5.gate-orderbookImbalance',
   title: 'Split + sell with dwell + time filters v5.gate-orderbookImbalance',
-  description:
-    '(ob_8_upBidDepth / (ob_8_upBidDepth + ob_8_downBidDepth)) <= 0.398997042449',
+  description: '(ob_8_upBidDepth / (ob_8_upBidDepth + ob_8_downBidDepth)) <= 0.398997042449',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -79,14 +78,20 @@ export function createStrategy(cfg: Config): {
     // timeWindowVolatilityPlugin
   ]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
       console.log(`[${name}][⚠️] early return: invalid nowMs`, { nowMs })
       return []
     }
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) {
@@ -155,8 +160,12 @@ export function createStrategy(cfg: Config): {
       ]
     }
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
-    const dwellSnap = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
+    const dwellSnap =
+      (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ??
+      undefined
     const dwellUpOk = dwellSnap?.dwellUpOk === true
     const dwellDownOk = dwellSnap?.dwellDownOk === true
 
@@ -174,7 +183,8 @@ export function createStrategy(cfg: Config): {
     let side: 'UP' | 'DOWN' | null = null
     if (upCanSell && !downCanSell) side = 'UP'
     else if (!upCanSell && downCanSell) side = 'DOWN'
-    else if (upCanSell && downCanSell) side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
+    else if (upCanSell && downCanSell)
+      side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
 
     if (!side) return []
 
@@ -186,17 +196,18 @@ export function createStrategy(cfg: Config): {
     // (ob_8_upBidDepth / (ob_8_upBidDepth + ob_8_downBidDepth)) <= 0.398997042449
     const upBidsDepthLvl8 = tick.snapshot.byAssetId[upAssetId]?.bidsDepthByLevel?.[8] ?? 0
     const downBidsDepthLvl8 = tick.snapshot.byAssetId[downAssetId]?.bidsDepthByLevel?.[8] ?? 0
-    if(upBidsDepthLvl8 === 0 && downBidsDepthLvl8 === 0) return []
+    if (upBidsDepthLvl8 === 0 && downBidsDepthLvl8 === 0) return []
     const totalBidDepth = upBidsDepthLvl8 + downBidsDepthLvl8
     const imbalance = upBidsDepthLvl8 / totalBidDepth
 
-    if(imbalance <= 0.398997042449) return []
+    if (imbalance <= 0.398997042449) return []
 
-    const intentMeta = imbalance !== null
-      ? {
-          imbalance,
-        }
-      : undefined
+    const intentMeta =
+      imbalance !== null
+        ? {
+            imbalance,
+          }
+        : undefined
 
     sellPlaced = true
 

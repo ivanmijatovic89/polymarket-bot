@@ -18,4 +18,3 @@ export function ConnectionBadge(props: { status: WsStatus; attempt?: number }) {
     </span>
   )
 }
-

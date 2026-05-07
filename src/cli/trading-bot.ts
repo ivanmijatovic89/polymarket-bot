@@ -35,10 +35,19 @@ import {
   jsonlFileSink,
   patchConsole,
 } from '../utils/logger.js'
-import { createTradingBotWebUiServer, type BotUiCommand, type TradingBotWebUiServer } from './webui/createTradingBotWebUiServer.js'
+import {
+  createTradingBotWebUiServer,
+  type BotUiCommand,
+  type TradingBotWebUiServer,
+} from './webui/createTradingBotWebUiServer.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { BalanceAndApprovalResult } from '../blockchain/checkBalanceAndApproval.js'
-import type { AccountEvent, CancelAllIntent, CancelOrderIntent, Intent } from '../strategy/Strategy.js'
+import type {
+  AccountEvent,
+  CancelAllIntent,
+  CancelOrderIntent,
+  Intent,
+} from '../strategy/Strategy.js'
 import type { WarmupSnapshot } from '../strategy/StrategyContext.js'
 
 installProcessCrashHandlers({ prefix: 'trading-bot' })
@@ -62,7 +71,10 @@ async function main(): Promise<void> {
   const logToFile = (process.env.LOG_TO_FILE ?? 'false').toLowerCase() === 'true'
   const logLevelEnv = (process.env.LOG_LEVEL ?? 'info').toLowerCase()
   const logLevel =
-    logLevelEnv === 'debug' || logLevelEnv === 'info' || logLevelEnv === 'warn' || logLevelEnv === 'error'
+    logLevelEnv === 'debug' ||
+    logLevelEnv === 'info' ||
+    logLevelEnv === 'warn' ||
+    logLevelEnv === 'error'
       ? (logLevelEnv as 'debug' | 'info' | 'warn' | 'error')
       : 'info'
 
@@ -93,7 +105,14 @@ async function main(): Promise<void> {
   // Important: if we patch console.*, we must NOT use consoleSink() (it would double-log into rings).
   const rawConsoleSink =
     () =>
-    (r: { tsMs: number; level: 'debug' | 'info' | 'warn' | 'error'; msg: string; fields?: Record<string, unknown>; data?: unknown; err?: unknown }) => {
+    (r: {
+      tsMs: number
+      level: 'debug' | 'info' | 'warn' | 'error'
+      msg: string
+      fields?: Record<string, unknown>
+      data?: unknown
+      err?: unknown
+    }) => {
       // Match Node's default console output in the terminal.
       // Keep extra structured info as a second arg (so it's inspectable without prefixes).
       const meta: Record<string, unknown> = {}
@@ -236,15 +255,18 @@ async function main(): Promise<void> {
         clobHost: cfg.clob.host,
         ...(cfg.privateKey ? { privateKey: cfg.privateKey } : {}),
         ...(cfg.clob.funder ? { safeAddress: cfg.clob.funder } : {}),
-        cooldownMs: Math.max(0, Math.trunc(Number(process.env.BALANCE_REFRESH_COOLDOWN_MS ?? '5000') || 0)),
+        cooldownMs: Math.max(
+          0,
+          Math.trunc(Number(process.env.BALANCE_REFRESH_COOLDOWN_MS ?? '5000') || 0),
+        ),
         log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
       })
     : null
 
   // Optional external feeds (live-only). Enabled only if strategy opts in.
-  const externalFeedsReqPlugin = pluginSet?.list().find((p) => p instanceof ExternalFeedsRequestPlugin) as
-    | ExternalFeedsRequestPlugin
-    | undefined
+  const externalFeedsReqPlugin = pluginSet
+    ?.list()
+    .find((p) => p instanceof ExternalFeedsRequestPlugin) as ExternalFeedsRequestPlugin | undefined
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
@@ -422,7 +444,6 @@ async function main(): Promise<void> {
     }
   }
 
-
   const exec = dryRun
     ? {
         placeLimit: async () => ({ events: [] }),
@@ -466,9 +487,14 @@ async function main(): Promise<void> {
     intentExecutionMode,
     maxEventsPerDrain,
     ...(enableWebUi
-      ? { intentLog: (msg, extra) => intentLogger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) }
+      ? {
+          intentLog: (msg, extra) =>
+            intentLogger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])),
+        }
       : {}),
-    ...(logTrades ? { log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) } : {}),
+    ...(logTrades
+      ? { log: (msg, extra) => logger.info(msg, ...(extra !== undefined ? [{ data: extra }] : [])) }
+      : {}),
   })
 
   const marketEngine = new MarketEngine({
@@ -568,17 +594,18 @@ async function main(): Promise<void> {
       }
     }
 
-
     if (priceToBeatEnabled) {
       const m = currentMarket as Record<string, unknown> | undefined
       const eventStartTimeIso =
-        (typeof m?.eventStartTime === 'string' && m.eventStartTime.length > 0
+        typeof m?.eventStartTime === 'string' && m.eventStartTime.length > 0
           ? (m.eventStartTime as string)
           : typeof m?.startDate === 'string' && (m.startDate as string).length > 0
             ? (m.startDate as string)
-            : null)
+            : null
       const endDateIso =
-        typeof m?.endDate === 'string' && (m.endDate as string).length > 0 ? (m.endDate as string) : null
+        typeof m?.endDate === 'string' && (m.endDate as string).length > 0
+          ? (m.endDate as string)
+          : null
 
       if (eventStartTimeIso && endDateIso) {
         restartPriceToBeatIfNeeded({
@@ -588,7 +615,9 @@ async function main(): Promise<void> {
           endDateIso,
         })
       } else {
-        console.warn('[feeds][polymarket_price_to_beat][⛔️] enabled but missing eventStartTime/endDate on currentMarket')
+        console.warn(
+          '[feeds][polymarket_price_to_beat][⛔️] enabled but missing eventStartTime/endDate on currentMarket',
+        )
       }
     }
 
@@ -632,7 +661,9 @@ async function main(): Promise<void> {
       ? (emitTradeFillsAtStatusEnv as 'MATCHED' | 'MINED' | 'CONFIRMED')
       : undefined
   if (emitTradeFillsAtStatus) {
-    console.log(`[trading-bot][⚙️] user ws fills emitAt=${emitTradeFillsAtStatus} (USER_WS_FILL_AT_STATUS)`)
+    console.log(
+      `[trading-bot][⚙️] user ws fills emitAt=${emitTradeFillsAtStatus} (USER_WS_FILL_AT_STATUS)`,
+    )
   }
 
   const userWs = haveCreds
@@ -862,18 +893,24 @@ async function main(): Promise<void> {
     const portRaw = process.env.WEB_UI_PORT
     const portParsed = portRaw ? Number(portRaw) : NaN
     if (!Number.isFinite(portParsed) || !Number.isInteger(portParsed) || portParsed <= 0) {
-      throw new Error('[trading-bot] ENABLE_WEB_UI=true requires WEB_UI_PORT to be a valid integer port')
+      throw new Error(
+        '[trading-bot] ENABLE_WEB_UI=true requires WEB_UI_PORT to be a valid integer port',
+      )
     }
     const port = portParsed
     const refreshMsRaw = process.env.WEB_UI_REFRESH_MS
     const refreshMsParsed = refreshMsRaw ? Number(refreshMsRaw) : NaN
     const refreshMs =
-      Number.isFinite(refreshMsParsed) && Number.isInteger(refreshMsParsed) ? Math.max(50, refreshMsParsed) : 250
+      Number.isFinite(refreshMsParsed) && Number.isInteger(refreshMsParsed)
+        ? Math.max(50, refreshMsParsed)
+        : 250
 
     const levelsRaw = process.env.WEB_UI_ORDERBOOK_LEVELS
     const levelsParsed = levelsRaw ? Number(levelsRaw) : NaN
     const orderbookLevels =
-      Number.isFinite(levelsParsed) && Number.isInteger(levelsParsed) ? Math.max(1, levelsParsed) : 8
+      Number.isFinite(levelsParsed) && Number.isInteger(levelsParsed)
+        ? Math.max(1, levelsParsed)
+        : 8
 
     const instanceId = (process.env.BOT_INSTANCE_ID ?? '').trim()
     const title = `polymarket-bot trading-bot${instanceId ? ` (${instanceId})` : ''} [${symbol}]`
@@ -884,7 +921,7 @@ async function main(): Promise<void> {
       port,
       getState: () => {
         const slug = currentSlug
-        const market = runner.getLastMarketSnapshot()// if marketEngine.snapshot()
+        const market = runner.getLastMarketSnapshot() // if marketEngine.snapshot()
         const upAssetId = pickAssetId('up')
         const downAssetId = pickAssetId('down')
         const strategyMeta = (() => {
@@ -904,7 +941,10 @@ async function main(): Promise<void> {
         const positionMetrics = (() => {
           try {
             return portfolio
-              ? computePositionMetricsFromMarket({ portfolio, ...(currentMarket ? { market: currentMarket } : {}) })
+              ? computePositionMetricsFromMarket({
+                  portfolio,
+                  ...(currentMarket ? { market: currentMarket } : {}),
+                })
               : undefined
           } catch {
             return undefined
@@ -913,7 +953,10 @@ async function main(): Promise<void> {
         const orderbookMetrics = (() => {
           try {
             return market
-              ? computeOrderbookMetricsFromMarket({ marketBooks: market, ...(currentMarket ? { market: currentMarket } : {}) })
+              ? computeOrderbookMetricsFromMarket({
+                  marketBooks: market,
+                  ...(currentMarket ? { market: currentMarket } : {}),
+                })
               : undefined
           } catch {
             return undefined
@@ -968,12 +1011,12 @@ async function main(): Promise<void> {
           portfolio,
         }
 
-    if (cmd.kind === 'refresh_balance') {
-      void balanceTracker?.refresh('redeem', { force: true })
-      return
-    }
+        if (cmd.kind === 'refresh_balance') {
+          void balanceTracker?.refresh('redeem', { force: true })
+          return
+        }
 
-    if (cmd.kind === 'cancel_all') {
+        if (cmd.kind === 'cancel_all') {
           const intent: CancelAllIntent = { kind: 'cancel_all', reason: 'webui' }
           const intents: Intent[] = [intent]
           const events = await orderManager.handleIntents(intents, ctx, { mode: 'immediate' })
@@ -983,8 +1026,11 @@ async function main(): Promise<void> {
 
         // cancel_order
         const clientOrderId =
-          typeof cmd.clientOrderId === 'string' && cmd.clientOrderId.length > 0 ? cmd.clientOrderId : undefined
-        let orderId = typeof cmd.orderId === 'string' && cmd.orderId.length > 0 ? cmd.orderId : undefined
+          typeof cmd.clientOrderId === 'string' && cmd.clientOrderId.length > 0
+            ? cmd.clientOrderId
+            : undefined
+        let orderId =
+          typeof cmd.orderId === 'string' && cmd.orderId.length > 0 ? cmd.orderId : undefined
 
         // If UI only provided clientOrderId, attempt to resolve orderId from the Portfolio.
         if (!orderId && clientOrderId) {

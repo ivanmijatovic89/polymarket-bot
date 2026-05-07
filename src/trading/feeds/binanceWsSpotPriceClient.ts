@@ -27,7 +27,11 @@ export type BinanceWsSpotPriceClientOptions = {
    */
   baseUrl?: string
   onPrice: (u: { symbol: string; tsMs: number; value: number }) => void
-  onStatus?: (s: { kind: 'connected' | 'reconnecting' | 'disconnected'; attempt: number; info?: string }) => void
+  onStatus?: (s: {
+    kind: 'connected' | 'reconnecting' | 'disconnected'
+    attempt: number
+    info?: string
+  }) => void
 }
 
 export type BinanceWsSpotPriceClient = {
@@ -150,5 +154,3 @@ export function createBinanceWsSpotPriceClient(
     },
   }
 }
-
-

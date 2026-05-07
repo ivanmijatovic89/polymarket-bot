@@ -5,10 +5,12 @@
 The UI is split into two parts:
 
 1. **Embedded bot server** (`src/cli/webui/createTradingBotWebUiServer.ts`)
+
 - serves static `webui/dist`
 - streams bot snapshots/log deltas over `/ws`
 
 2. **React client** (`webui/src/*`)
+
 - connects via `useBotWs`
 - renders orderbooks, portfolio, logs, plugin panels, status
 

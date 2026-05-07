@@ -58,9 +58,7 @@ export default defineConfig({
       },
     ],
 
-    socialLinks: [
-      { icon: 'github', link: 'https://github.com/ivanmijatovic89/polymarket-bot' },
-    ],
+    socialLinks: [{ icon: 'github', link: 'https://github.com/ivanmijatovic89/polymarket-bot' }],
 
     search: {
       provider: 'local',

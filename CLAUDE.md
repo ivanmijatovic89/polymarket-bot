@@ -66,15 +66,15 @@ npm run webui:dev ; npm run webui:build
 
 ## Architecture
 
-**Core invariant**: live trading and backtesting run the *exact same* strategy logic over the *exact same* tick stream. Parquet captures raw WS events; backtest replays them deterministically via the shared `MarketEngine`.
+**Core invariant**: live trading and backtesting run the _exact same_ strategy logic over the _exact same_ tick stream. Parquet captures raw WS events; backtest replays them deterministically via the shared `MarketEngine`.
 
 ### Three operating modes
 
-| Mode | Entry | Data source |
-|------|-------|-------------|
-| Live trading | `src/cli/trading-bot.ts` | Polymarket market WS + user WS / REST poll |
-| Backtest | `src/cli/backtest.ts` | Parquet files (by path, `--symbol`, `--slug`, or `--dir`) |
-| Recording | `src/cli/record-live.ts` | Polymarket market WS → rotating Parquet |
+| Mode         | Entry                    | Data source                                               |
+| ------------ | ------------------------ | --------------------------------------------------------- |
+| Live trading | `src/cli/trading-bot.ts` | Polymarket market WS + user WS / REST poll                |
+| Backtest     | `src/cli/backtest.ts`    | Parquet files (by path, `--symbol`, `--slug`, or `--dir`) |
+| Recording    | `src/cli/record-live.ts` | Polymarket market WS → rotating Parquet                   |
 
 ### Data flow
 
@@ -102,21 +102,21 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 
 ### Key source directories
 
-| Path | Responsibility |
-|------|----------------|
-| `src/market/` | `MarketEngine`, orderbook engines, market-channel decoder |
-| `src/strategy/` | `Strategy` interface, `StrategyRunner` types, `strategyRegistry`, plugins, toolkit |
-| `src/strategies/` | Concrete strategy implementations (30+; `split/`, `scalp/`, `signals/`, `templates/`) |
-| `src/trading/` | `OrderManager`, `Portfolio`, `StrategyRunner`, `execution/`, `feeds/`, risk/fees/metrics |
-| `src/parquet/` | `io/` (writer + schema), `replay/`, `indexer/`, `cli/` utilities |
-| `src/polymarket/` | CLOB client, market WS, user WS (`ws/`), Gamma, RTDS, relayer, 15m slug resolution |
-| `src/blockchain/` | On-chain helpers: balance/approval checks, balance tracker, ConditionalTokens |
-| `src/db/` | Drizzle schema, helpers, seed-from-parquet script |
-| `src/backtest/stats/` | `marketStats` + `batchStats` + `chunkedBatchStats` (written to DB per run) |
-| `src/cli/` | Entry points + `helpers/` (argv parsing, parquet resolution) + `research/` |
-| `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
-| `webui/` | Separate Vite/React package served by each bot process |
-| `queue/` | Folder-watched GNU-parallel runner (`approve → pending → running → done|failed`) |
+| Path                  | Responsibility                                                                           |
+| --------------------- | ---------------------------------------------------------------------------------------- | -------- |
+| `src/market/`         | `MarketEngine`, orderbook engines, market-channel decoder                                |
+| `src/strategy/`       | `Strategy` interface, `StrategyRunner` types, `strategyRegistry`, plugins, toolkit       |
+| `src/strategies/`     | Concrete strategy implementations (30+; `split/`, `scalp/`, `signals/`, `templates/`)    |
+| `src/trading/`        | `OrderManager`, `Portfolio`, `StrategyRunner`, `execution/`, `feeds/`, risk/fees/metrics |
+| `src/parquet/`        | `io/` (writer + schema), `replay/`, `indexer/`, `cli/` utilities                         |
+| `src/polymarket/`     | CLOB client, market WS, user WS (`ws/`), Gamma, RTDS, relayer, 15m slug resolution       |
+| `src/blockchain/`     | On-chain helpers: balance/approval checks, balance tracker, ConditionalTokens            |
+| `src/db/`             | Drizzle schema, helpers, seed-from-parquet script                                        |
+| `src/backtest/stats/` | `marketStats` + `batchStats` + `chunkedBatchStats` (written to DB per run)               |
+| `src/cli/`            | Entry points + `helpers/` (argv parsing, parquet resolution) + `research/`               |
+| `src/config/env.ts`   | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv                                     |
+| `webui/`              | Separate Vite/React package served by each bot process                                   |
+| `queue/`              | Folder-watched GNU-parallel runner (`approve → pending → running → done                  | failed`) |
 
 ### Strategy system
 
@@ -146,6 +146,7 @@ External feeds are **live-only** (not in backtests) and opt-in via `strategy.req
 Recorded files: `data/events/<symbol>/<slug>.parquet` (override root with `RECORD_BASE_DIR`). One file per 15-minute market window. Filename uses the Gamma slug `<symbol>-updown-15m-<epochStart>`. Writers produce `*.parquet.tmp` and rename to `*.parquet` on close; SIGINT/SIGTERM rename to `*-terminated.parquet`.
 
 Schema (`src/parquet/io/eventSchema.ts`, all GZIP columns):
+
 - `ingest_seq` INT64 — per-market monotonic sequence (assigned locally)
 - `ts_local_ms` INT64 — `Date.now()` at ingest
 - `ts_exchange_ms` INT64 (optional) — parsed from message `timestamp`
@@ -160,6 +161,7 @@ Backtest heap-merges multiple files by `ingest_seq` (deterministic multi-asset r
 - **Relayer / SAFE** — SAFE wallet funds positions, EOA signs. Set `CLOB_FUNDER=<safeAddress>`, `CLOB_SIGNATURE_TYPE=2`, and `POLYMARKET_BUILDER_API_{KEY,SECRET,PASSPHRASE}`. Control per-op mode with `POLYMARKET_TX_MODE_{SPLIT,MERGE,REDEEM}` = `relayer` | `direct`. Trading bot startup aborts if relayer mode is selected but balances/approvals are missing on either wallet.
 
 Backtest latency simulation (intent → exchange-visible):
+
 - `BACKTEST_LATENCY_DELAY` (ms, e.g. `140`) and `BACKTEST_LATENCY_JITTER` (ms symmetric).
 - Delays apply to `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll` — so an order can fill before its cancel "arrives".
 - Maker fills use a conservative "worst-queue" model (BUY @ P fills only when `bestAsk < P`).
@@ -170,21 +172,24 @@ Backtest latency simulation (intent → exchange-visible):
 - **First-order warmup (live only)**: `@polymarket/clob-client` lazily fetches tick-size / fee / negRisk on the first order per token. `LiveExecution.warmupMarket()` is called on trading-bot startup and on each 15m window rotation to pre-cache these. Strategies can gate with `isWarmed(ctx)` from `src/strategy/strategyToolkit.ts`. In backtests `ctx.warmup` is absent and `isWarmed` returns true.
 - **Multi-bot env files**: set `BOT_ENV=botA` and the loader reads `.env.botA` **with override**, then `.env` — per-bot file wins over shell env. Useful for running multiple bots with distinct `WEB_UI_PORT`, `BOT_INSTANCE_ID`, keys, etc.
 - **`src/index.ts` is a placeholder** — do not add runtime logic there.
-- **Maker backtests**: the simulator fills when the book goes *through* the resting level; passive resting fills are not modeled beyond that.
+- **Maker backtests**: the simulator fills when the book goes _through_ the resting level; passive resting fills are not modeled beyond that.
 - **Symbol selection**: live scripts require `TRADING_SYMBOL` (falls back to `RECORD_SYMBOL`); recorder requires `RECORD_SYMBOL`. Both accept `BTC|ETH|SOL|XRP`.
 
 ## Key environment variables
 
 Discovery / WS:
+
 - `TRADING_SYMBOL`, `RECORD_SYMBOL` (BTC|ETH|SOL|XRP)
 - `GAMMA_API_BASE_URL` (default `https://gamma-api.polymarket.com`)
 - `POLYMARKET_WS_URL` (default `wss://ws-subscriptions-clob.polymarket.com/ws/market`)
 
 Auth / wallet:
+
 - `PRIVATE_KEY` (or `POLYMARKET_PRIVATE_KEY`), `POLYMARKET_API_KEY/SECRET/PASSPHRASE`
 - Optional: `CLOB_FUNDER`, `CLOB_SIGNATURE_TYPE`, `CLOB_API_URL`, `CLOB_CHAIN_ID`
 
 Trading-bot behavior:
+
 - `DRY_RUN` (default `true` — safe by default; set `false` for real orders)
 - `LOG_TRADES`, `LOG_TO_FILE`, `LOG_LEVEL`
 - `ENABLE_WEB_UI`, `WEB_UI_HOST` (keep `127.0.0.1` locally), `WEB_UI_PORT`, `WEB_UI_REFRESH_MS`, `WEB_UI_ORDERBOOK_LEVELS`, `BOT_INSTANCE_ID`
@@ -192,6 +197,7 @@ Trading-bot behavior:
 - `BOT_ENV` (loads `.env.$BOT_ENV` with override)
 
 Backtest:
+
 - `BACKTEST_LATENCY_DELAY`, `BACKTEST_LATENCY_JITTER`
 - `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1` (TA plugin warmup)
 

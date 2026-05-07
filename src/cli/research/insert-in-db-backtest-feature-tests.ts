@@ -174,7 +174,10 @@ function parseFilters(filterRaw?: string): FilterGroup[] {
   const parsedGroups: FilterGroup[] = []
 
   for (const groupRaw of groups) {
-    const parts = groupRaw.split('&').map((part) => part.trim()).filter(Boolean)
+    const parts = groupRaw
+      .split('&')
+      .map((part) => part.trim())
+      .filter(Boolean)
     const filters: Filter[] = []
 
     for (const part of parts) {
@@ -205,7 +208,7 @@ function parseFilters(filterRaw?: string): FilterGroup[] {
       }
       if (!matched) {
         throw new Error(
-          `[insert-in-db] Invalid filter: "${part}". If you use > or <, wrap the filter in quotes.`
+          `[insert-in-db] Invalid filter: "${part}". If you use > or <, wrap the filter in quotes.`,
         )
       }
     }
@@ -424,16 +427,19 @@ async function run(): Promise<void> {
       ...(args.filter ? { featureFilter: args.filter } : {}),
     }
 
-    const baseComment = args.filter
-      ? `research | filter=${args.filter}`
-      : 'research | filter=none'
+    const baseComment = args.filter ? `research | filter=${args.filter}` : 'research | filter=none'
 
     const batchUid = randomUUID()
 
-    const insertGroup = async (label: 'ALL' | 'SEARCH' | 'TEST', groupMarkets: MarketStatsLike[]) => {
+    const insertGroup = async (
+      label: 'ALL' | 'SEARCH' | 'TEST',
+      groupMarkets: MarketStatsLike[],
+    ) => {
       const skipped = groupMarkets.filter((m) => matchesFilters(m, filters))
       const kept = groupMarkets.filter((m) => !matchesFilters(m, filters))
-      const keptAll = groupMarkets.map((m) => (matchesFilters(m, filters) ? resetMarketStatsForGate(m) : m))
+      const keptAll = groupMarkets.map((m) =>
+        matchesFilters(m, filters) ? resetMarketStatsForGate(m) : m,
+      )
 
       const baselineBatchStats = computeBatchStats(groupMarkets as MarketStats[], initialCapital)
       const baselineChunkedBatchStats = computeChunkedBatchStats(

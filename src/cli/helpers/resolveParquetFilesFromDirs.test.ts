@@ -37,4 +37,3 @@ test('resolveParquetFilesFromDirs combines multiple dirs', async () => {
 
   assert.deepEqual(files, [a, b])
 })
-

@@ -107,19 +107,17 @@ class RollingTimeWindow {
   private readonly minQ = new Deque<Sample>() // increasing price
   private readonly maxQ = new Deque<Sample>() // decreasing price
 
-  private lastComputed:
-    | {
-        atTsMs: number
-        startPrice: number
-        endPrice: number
-        netChange: number
-        low: number | null
-        high: number | null
-        stddev: number
-        highLowRange: number | null
-        avgAbsChange: number
-      }
-    | null = null
+  private lastComputed: {
+    atTsMs: number
+    startPrice: number
+    endPrice: number
+    netChange: number
+    low: number | null
+    high: number | null
+    stddev: number
+    highLowRange: number | null
+    avgAbsChange: number
+  } | null = null
 
   constructor(windowMs: number) {
     this.windowMs = windowMs
@@ -202,7 +200,9 @@ class RollingTimeWindow {
 
     if (!ready) {
       const staleMs =
-        this.lastComputed && endTsMs >= this.lastComputed.atTsMs ? endTsMs - this.lastComputed.atTsMs : null
+        this.lastComputed && endTsMs >= this.lastComputed.atTsMs
+          ? endTsMs - this.lastComputed.atTsMs
+          : null
       return {
         windowMs: this.windowMs,
         n: this.n,
@@ -348,4 +348,3 @@ export class TimeWindowVolatility implements Plugin {
     return out
   }
 }
-

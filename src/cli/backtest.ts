@@ -24,7 +24,13 @@ import type { MarketStats } from '../backtest/stats/marketStats.js'
 import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
 import type { Fill, PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
-import { closeDb, getMarketsBySlugs, getMarketBySlug, getMarketsBySymbol, type Market } from '../db/index.js'
+import {
+  closeDb,
+  getMarketsBySlugs,
+  getMarketBySlug,
+  getMarketsBySymbol,
+  type Market,
+} from '../db/index.js'
 import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
@@ -54,7 +60,6 @@ type ReplayApplyEvent = {
   market: string
   source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
 }
-
 
 /**
  * Replay parquet WS events and reconstruct order books tick-by-tick.
@@ -194,18 +199,26 @@ async function main(): Promise<void> {
       const uniqueSlugs = Array.from(new Set(parsed.slugs))
       const results = await getMarketsBySlugs(uniqueSlugs)
       const marketMap = new Map(results.map((m) => [m.slug, m] as const))
-      const foundMarkets = uniqueSlugs.map((slug) => marketMap.get(slug)).filter((m): m is Market => m !== undefined)
+      const foundMarkets = uniqueSlugs
+        .map((slug) => marketMap.get(slug))
+        .filter((m): m is Market => m !== undefined)
       for (const m of foundMarkets) marketBySlug.set(m.slug, m)
       const missingSlugs = uniqueSlugs.filter((slug) => !marketMap.has(slug))
       if (missingSlugs.length > 0) {
         console.warn(`[backtest] Missing markets for slugs: ${missingSlugs.join(', ')}`)
       }
-      filePaths = foundMarkets.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
+      filePaths = foundMarkets
+        .map((m) => m.dataset)
+        .filter((d): d is string => d !== null && d.trim() !== '')
       if (filePaths.length === 0) {
-        console.error(`[backtest] No markets found in database for slugs: ${uniqueSlugs.join(', ')}`)
+        console.error(
+          `[backtest] No markets found in database for slugs: ${uniqueSlugs.join(', ')}`,
+        )
         process.exit(2)
       }
-      console.log(`[backtest] Loaded ${filePaths.length} file(s) from database for slugs: ${uniqueSlugs.join(', ')}`)
+      console.log(
+        `[backtest] Loaded ${filePaths.length} file(s) from database for slugs: ${uniqueSlugs.join(', ')}`,
+      )
     } catch (err) {
       console.error('[backtest] Failed to load markets from database:', err)
       process.exit(2)
@@ -216,26 +229,31 @@ async function main(): Promise<void> {
         ...(parsed.limit !== undefined && { limit: parsed.limit }),
         ...(parsed.random ? { random: true } : {}),
         ...(parsed.latest ? { latest: true } : {}),
-        onlyWithDataset: true
+        onlyWithDataset: true,
       })
       for (const m of marketRecords) marketBySlug.set(m.slug, m)
-      filePaths = marketRecords.map((m) => m.dataset).filter((d): d is string => d !== null && d.trim() !== '')
+      filePaths = marketRecords
+        .map((m) => m.dataset)
+        .filter((d): d is string => d !== null && d.trim() !== '')
       if (filePaths.length === 0) {
         console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
         process.exit(2)
       }
-      console.log(`[backtest] Loaded ${filePaths.length} file(s) from database for symbol: ${parsed.symbol}`)
+      console.log(
+        `[backtest] Loaded ${filePaths.length} file(s) from database for symbol: ${parsed.symbol}`,
+      )
     } catch (err) {
       console.error(`[backtest] Failed to load markets from database:`, err)
       process.exit(2)
     }
   } else {
     try {
-      const fromDirs = parsed.dirs && parsed.dirs.length > 0
-        ? await resolveParquetFilesFromDirs(parsed.dirs)
-        : []
+      const fromDirs =
+        parsed.dirs && parsed.dirs.length > 0 ? await resolveParquetFilesFromDirs(parsed.dirs) : []
       if (parsed.dirs && parsed.dirs.length > 0) {
-        console.log(`[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`)
+        console.log(
+          `[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`,
+        )
       }
       filePaths = [...parsed.filePaths, ...fromDirs]
       if (filePaths.length > 0) {
@@ -277,7 +295,9 @@ async function main(): Promise<void> {
   let events = 0
   const byType = new Map<string, number>()
 
-  const mkRunner = (opts?: { getMarket?: () => GammaMarketMeta | undefined }): {
+  const mkRunner = (opts?: {
+    getMarket?: () => GammaMarketMeta | undefined
+  }): {
     strategy: Strategy
     runner: StrategyRunner
   } => {
@@ -293,8 +313,14 @@ async function main(): Promise<void> {
       }
       return undefined
     })()
-    const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
-    const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
+    const latencyMs = Math.max(
+      0,
+      Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0),
+    )
+    const jitterMs = Math.max(
+      0,
+      Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0),
+    )
 
     const exec = new BacktestExecution({
       latencyMs,
@@ -343,7 +369,11 @@ async function main(): Promise<void> {
     // Parse slug and ensure market metadata is available for strategy context.
     const slug = parseSlugFromFilename(fp)
     let dbMarket =
-      slug && marketBySlug.size > 0 ? (marketBySlug.get(slug) ?? null) : slug ? await getMarketBySlug(slug) : null
+      slug && marketBySlug.size > 0
+        ? (marketBySlug.get(slug) ?? null)
+        : slug
+          ? await getMarketBySlug(slug)
+          : null
     const marketResolution = slug ? await getMarketResolution(slug, fp) : null
     if (slug) {
       const refreshed = await getMarketBySlug(slug)
@@ -371,7 +401,12 @@ async function main(): Promise<void> {
         // Best-effort fetch. Backtest continues with tokenMap fallback below.
       }
     }
-    if (!marketMeta && slug && marketResolution?.tokenMap['UP'] && marketResolution?.tokenMap['DOWN']) {
+    if (
+      !marketMeta &&
+      slug &&
+      marketResolution?.tokenMap['UP'] &&
+      marketResolution?.tokenMap['DOWN']
+    ) {
       const upAssetId = marketResolution.tokenMap['UP']
       const downAssetId = marketResolution.tokenMap['DOWN']
       marketMeta = {
@@ -387,7 +422,11 @@ async function main(): Promise<void> {
     if (slug && marketMeta) {
       const id = typeof marketMeta.id === 'string' ? marketMeta.id : undefined
       const q = typeof marketMeta.question === 'string' ? marketMeta.question : undefined
-      console.log('[backtest] market meta', { slug, ...(id ? { id } : {}), ...(q ? { question: q } : {}) })
+      console.log('[backtest] market meta', {
+        slug,
+        ...(id ? { id } : {}),
+        ...(q ? { question: q } : {}),
+      })
     }
     if (slug && !marketMeta) {
       console.warn(`[backtest] market meta unavailable for slug: ${slug}`)
@@ -426,8 +465,9 @@ async function main(): Promise<void> {
           const portfolio = runner.getPortfolio().snapshot()
           for (const fill of portfolio.recentFills) {
             if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
-              const orderMeta =
-                fill.clientOrderId ? portfolio.ordersByClientId[fill.clientOrderId]?.meta : undefined
+              const orderMeta = fill.clientOrderId
+                ? portfolio.ordersByClientId[fill.clientOrderId]?.meta
+                : undefined
               currentMarketTrades.push(orderMeta ? { ...fill, intentMeta: orderMeta } : fill)
               seenFillIds.add(fill.id)
             }

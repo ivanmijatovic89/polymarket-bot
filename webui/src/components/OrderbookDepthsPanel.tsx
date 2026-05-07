@@ -10,14 +10,18 @@ function OneDepthTable(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
   const bids = b?.bidsDepthByLevel ?? []
   const asks = b?.asksDepthByLevel ?? []
   const n =
-    typeof b?.depthLevels === 'number' && Number.isFinite(b.depthLevels) ? Math.max(0, Math.floor(b.depthLevels)) : 0
+    typeof b?.depthLevels === 'number' && Number.isFinite(b.depthLevels)
+      ? Math.max(0, Math.floor(b.depthLevels))
+      : 0
   const rowsN = Math.max(n, bids.length, asks.length)
 
   return (
     <div className="min-w-0">
       <div className="mb-1.5 flex items-center justify-between gap-2">
         <div className="text-[18px] font-semibold">{props.label}</div>
-        <div className="text-[12px] font-mono text-zinc-500">{rowsN > 0 ? `levels ${rowsN}` : 'n/a'}</div>
+        <div className="text-[12px] font-mono text-zinc-500">
+          {rowsN > 0 ? `levels ${rowsN}` : 'n/a'}
+        </div>
       </div>
 
       {rowsN === 0 ? (
@@ -41,7 +45,9 @@ function OneDepthTable(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
               {Array.from({ length: rowsN }).map((_, i) => (
                 <tr key={i} className="border-t border-zinc-800/60">
                   <td className="px-2 py-1.5 whitespace-nowrap">{i + 1}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-emerald-300">{fmtSize(bids[i])}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap text-emerald-300">
+                    {fmtSize(bids[i])}
+                  </td>
                   <td className="px-2 py-1.5 whitespace-nowrap text-red-300">{fmtSize(asks[i])}</td>
                 </tr>
               ))}

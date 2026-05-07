@@ -28,6 +28,7 @@ Defined in [`externalFeeds.ts`](externalFeeds.ts) (this exact object is exposed 
   - “Direct Binance” spot price derived from the Binance Spot WebSocket `aggTrade` stream (last trade price)
 
 Each price point has:
+
 - `symbol`: stream symbol (lowercase)
 - `tsMs`: exchange/event timestamp in ms (source-dependent)
 - `value`: numeric price
@@ -43,6 +44,7 @@ Each price point has:
   - `requiredFeeds.rtdsCryptoPrices.chainlinkSymbols` (e.g. `["btc/usd"]`)
 
 Notes:
+
 - Symbols are treated as explicit allow-lists. If you pass an empty list, that side will produce no updates.
 
 ### Binance Spot WebSocket `aggTrade` (direct Binance)
@@ -52,14 +54,14 @@ Notes:
   - `requiredFeeds.binanceWsSpotPrice.symbol = "btcusdt"`
 
 Notes:
+
 - Uses `aggTrade` and treats `p` as last trade price and `T` as trade timestamp.
 - All Binance stream symbols are lowercase.
 
 ## Example strategy
 
 See [`src/strategies/readExternalFeedsExample.v1.ts`](../../strategies/readExternalFeedsExample.v1.ts) for:
+
 - enabling RTDS + Binance WS feeds
 - reading `ctx.plugins.externalFeeds.*`
 - printing a simple diff (`binanceWsSpotPrice - rtdsBinance`)
-
-

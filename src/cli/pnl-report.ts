@@ -1,11 +1,7 @@
 import '../config/env.js'
 import { Wallet } from 'ethers'
 import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
-import {
-  fetchActivity,
-  fetchPortfolioValue,
-  type Activity,
-} from '../polymarket/dataApi.js'
+import { fetchActivity, fetchPortfolioValue, type Activity } from '../polymarket/dataApi.js'
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CLI Argument Parsing
@@ -82,7 +78,7 @@ async function resolveWalletAddress(): Promise<string> {
   }
 
   throw new Error(
-    '[pnl-report] No wallet address found. Set CLOB_FUNDER or PRIVATE_KEY in environment.'
+    '[pnl-report] No wallet address found. Set CLOB_FUNDER or PRIVATE_KEY in environment.',
   )
 }
 
@@ -104,14 +100,14 @@ type MarketPnl = {
   merges: Activity[]
   redeems: Activity[]
   // Share tracking
-  sharesBought: number     // Total shares bought
-  sharesSold: number       // Total shares sold
+  sharesBought: number // Total shares bought
+  sharesSold: number // Total shares sold
   // Calculated values
-  totalBought: number      // USDC spent on BUY trades
-  totalSold: number        // USDC received from SELL trades
-  splitCost: number        // USDC spent on SPLIT
-  mergeProceeds: number    // USDC received from MERGE
-  redeemProceeds: number   // USDC received from REDEEM
+  totalBought: number // USDC spent on BUY trades
+  totalSold: number // USDC received from SELL trades
+  splitCost: number // USDC spent on SPLIT
+  mergeProceeds: number // USDC received from MERGE
+  redeemProceeds: number // USDC received from REDEEM
   // Net PnL
   netPnl: number
   // Status: open (still holding), closed (sold/merged out), redeemed (market resolved)
@@ -247,12 +243,12 @@ function filterMarkets(markets: MarketPnl[], args: CliArgs): MarketPnl[] {
 
   if (args.symbol) {
     const sym = args.symbol.toLowerCase()
-    filtered = filtered.filter(m => m.slug.toLowerCase().startsWith(`${sym}-`))
+    filtered = filtered.filter((m) => m.slug.toLowerCase().startsWith(`${sym}-`))
   }
 
   if (args.slug) {
     const pattern = args.slug.toLowerCase()
-    filtered = filtered.filter(m => m.slug.toLowerCase().includes(pattern))
+    filtered = filtered.filter((m) => m.slug.toLowerCase().includes(pattern))
   }
 
   // Sort by slug (most recent first)
@@ -284,7 +280,7 @@ type AggregateStats = {
 
 function computeStats(markets: MarketPnl[]): AggregateStats {
   // Only count closed/redeemed markets in totals (exclude open positions)
-  const closedMarkets = markets.filter(m => m.status !== 'open')
+  const closedMarkets = markets.filter((m) => m.status !== 'open')
 
   const totalPnl = closedMarkets.reduce((sum, m) => sum + m.netPnl, 0)
   const totalBought = closedMarkets.reduce((sum, m) => sum + m.totalBought, 0)
@@ -293,14 +289,14 @@ function computeStats(markets: MarketPnl[]): AggregateStats {
   const totalMergeProceeds = closedMarkets.reduce((sum, m) => sum + m.mergeProceeds, 0)
   const totalRedeemProceeds = closedMarkets.reduce((sum, m) => sum + m.redeemProceeds, 0)
 
-  const marketsRedeemed = markets.filter(m => m.status === 'redeemed').length
-  const marketsClosed = markets.filter(m => m.status === 'closed').length
-  const marketsOpen = markets.filter(m => m.status === 'open').length
+  const marketsRedeemed = markets.filter((m) => m.status === 'redeemed').length
+  const marketsClosed = markets.filter((m) => m.status === 'closed').length
+  const marketsOpen = markets.filter((m) => m.status === 'open').length
 
   // Count by result
-  const winCount = markets.filter(m => m.result === 'win').length
-  const lossCount = markets.filter(m => m.result === 'loss').length
-  const skippedCount = markets.filter(m => m.result === 'skipped').length
+  const winCount = markets.filter((m) => m.result === 'win').length
+  const lossCount = markets.filter((m) => m.result === 'loss').length
+  const skippedCount = markets.filter((m) => m.result === 'skipped').length
   const decisive = winCount + lossCount
   const winRate = decisive > 0 ? winCount / decisive : 0
 
@@ -335,7 +331,12 @@ function formatPercent(n: number): string {
   return `${(n * 100).toFixed(1)}%`
 }
 
-function printTable(address: string, portfolioValue: number, markets: MarketPnl[], stats: AggregateStats): void {
+function printTable(
+  address: string,
+  portfolioValue: number,
+  markets: MarketPnl[],
+  stats: AggregateStats,
+): void {
   const RESET = '\x1b[0m'
   const GREEN = '\x1b[32m'
   const RED = '\x1b[31m'
@@ -355,7 +356,8 @@ function printTable(address: string, portfolioValue: number, markets: MarketPnl[
   }
 
   // Header
-  const header = 'Market                                        Bought    Sold     Split    Merge   Redeem   Net PnL    Result   Status'
+  const header =
+    'Market                                        Bought    Sold     Split    Merge   Redeem   Net PnL    Result   Status'
   const separator = '─'.repeat(125)
 
   console.log(header)
@@ -370,7 +372,8 @@ function printTable(address: string, portfolioValue: number, markets: MarketPnl[
     const soldCol = m.totalSold > 0 ? formatUsd(m.totalSold).padStart(8) : '-'.padStart(8)
     const splitCol = m.splitCost > 0 ? formatUsd(m.splitCost).padStart(8) : '-'.padStart(8)
     const mergeCol = m.mergeProceeds > 0 ? formatUsd(m.mergeProceeds).padStart(8) : '-'.padStart(8)
-    const redeemCol = m.redeemProceeds > 0 ? formatUsd(m.redeemProceeds).padStart(8) : '-'.padStart(8)
+    const redeemCol =
+      m.redeemProceeds > 0 ? formatUsd(m.redeemProceeds).padStart(8) : '-'.padStart(8)
 
     // PnL color: green if positive, red if negative, no color if zero
     let pnlCol: string
@@ -411,7 +414,9 @@ function printTable(address: string, portfolioValue: number, markets: MarketPnl[
         statusStr = 'open'
     }
 
-    console.log(`${marketCol}${boughtCol}${soldCol}${splitCol}${mergeCol}${redeemCol}${pnlCol}  ${resultStr}${statusStr}`)
+    console.log(
+      `${marketCol}${boughtCol}${soldCol}${splitCol}${mergeCol}${redeemCol}${pnlCol}  ${resultStr}${statusStr}`,
+    )
   }
 
   console.log(separator)
@@ -432,7 +437,9 @@ function printTable(address: string, portfolioValue: number, markets: MarketPnl[
     totalPnlStr = formatUsd(stats.totalPnl).padStart(10)
   }
 
-  console.log(`${'TOTAL'.padEnd(45)}${totalBoughtStr}${totalSoldStr}${totalSplitStr}${totalMergeStr}${totalRedeemStr}${totalPnlStr}`)
+  console.log(
+    `${'TOTAL'.padEnd(45)}${totalBoughtStr}${totalSoldStr}${totalSplitStr}${totalMergeStr}${totalRedeemStr}${totalPnlStr}`,
+  )
   console.log('')
 
   // Summary line 1: counts
@@ -456,7 +463,12 @@ function printTable(address: string, portfolioValue: number, markets: MarketPnl[
   console.log('')
 }
 
-function printJson(address: string, portfolioValue: number, markets: MarketPnl[], stats: AggregateStats): void {
+function printJson(
+  address: string,
+  portfolioValue: number,
+  markets: MarketPnl[],
+  stats: AggregateStats,
+): void {
   const output = {
     address,
     portfolioValue,
@@ -465,7 +477,7 @@ function printJson(address: string, portfolioValue: number, markets: MarketPnl[]
       totalPnl: Math.round(stats.totalPnl * 100) / 100,
       winRate: Math.round(stats.winRate * 1000) / 1000,
     },
-    markets: markets.map(m => ({
+    markets: markets.map((m) => ({
       slug: m.slug,
       conditionId: m.conditionId,
       outcome: m.outcome,
@@ -493,7 +505,11 @@ function printJson(address: string, portfolioValue: number, markets: MarketPnl[]
 // Fetch all activities with pagination
 // ─────────────────────────────────────────────────────────────────────────────
 
-async function fetchAllActivities(address: string, debug = false, maxActivities = 5000): Promise<Activity[]> {
+async function fetchAllActivities(
+  address: string,
+  debug = false,
+  maxActivities = 5000,
+): Promise<Activity[]> {
   const allActivities: Activity[] = []
   const pageSize = 500
   let offset = 0
@@ -515,7 +531,9 @@ async function fetchAllActivities(address: string, debug = false, maxActivities 
     if (debug) {
       console.log(`[debug] Page ${page}: got ${batch.length} activities`)
       if (batch.length > 0) {
-        console.log(`[debug] Page ${page} first timestamp: ${batch[0]?.timestamp}, slug: ${batch[0]?.slug}`)
+        console.log(
+          `[debug] Page ${page} first timestamp: ${batch[0]?.timestamp}, slug: ${batch[0]?.slug}`,
+        )
       }
     }
 

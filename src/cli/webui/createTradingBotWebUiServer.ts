@@ -179,7 +179,9 @@ function buildSnapshot(args: {
       wsAttempt: args.state.wsAttempt,
       wsEventsTotal: args.state.wsEventsTotal,
       ...(typeof args.state.upAssetId === 'string' ? { upAssetId: args.state.upAssetId } : {}),
-      ...(typeof args.state.downAssetId === 'string' ? { downAssetId: args.state.downAssetId } : {}),
+      ...(typeof args.state.downAssetId === 'string'
+        ? { downAssetId: args.state.downAssetId }
+        : {}),
     },
     books: {
       ...(upBook ? { up: upBook } : {}),
@@ -193,7 +195,9 @@ function buildSnapshot(args: {
   }
 }
 
-export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions): TradingBotWebUiServer {
+export function createTradingBotWebUiServer(
+  opts: TradingBotWebUiServerOptions,
+): TradingBotWebUiServer {
   let running = false
   let timer: NodeJS.Timeout | undefined
   const clients = new Set<ClientState>()
@@ -224,7 +228,9 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
     }
 
     const orderId = nonEmptyStr((cmd as { orderId?: unknown } | undefined)?.orderId)
-    const clientOrderId = nonEmptyStr((cmd as { clientOrderId?: unknown } | undefined)?.clientOrderId)
+    const clientOrderId = nonEmptyStr(
+      (cmd as { clientOrderId?: unknown } | undefined)?.clientOrderId,
+    )
 
     const normalized: BotUiCommand =
       kind === 'cancel_all'
@@ -272,7 +278,12 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
       // Keep this lightweight; validate inside handler.
       if (!opts.onCommand) return
       try {
-        const s = typeof data === 'string' ? data : Buffer.isBuffer(data) ? data.toString('utf8') : String(data)
+        const s =
+          typeof data === 'string'
+            ? data
+            : Buffer.isBuffer(data)
+              ? data.toString('utf8')
+              : String(data)
         const parsed = JSON.parse(s)
         void handleClientCommand(ws, parsed)
       } catch {
@@ -287,7 +298,9 @@ export function createTradingBotWebUiServer(opts: TradingBotWebUiServerOptions):
       const msg: WsSnapshotMsg = {
         type: 'snapshot',
         snapshot: buildSnapshot({ title: opts.title, state, orderbookLevels }),
-        ...(linesWin ? { logsText: { from: linesWin.startSeq, to: linesWin.endSeq, lines: linesWin.items } } : {}),
+        ...(linesWin
+          ? { logsText: { from: linesWin.startSeq, to: linesWin.endSeq, lines: linesWin.items } }
+          : {}),
       }
       ws.send(safeJson(msg))
     } catch {

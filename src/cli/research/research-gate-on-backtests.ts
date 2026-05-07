@@ -76,7 +76,10 @@ Examples:
 function parseFilters(filterRaw?: string): Filter[] {
   if (!filterRaw) return []
 
-  const parts = filterRaw.split('&').map((part) => part.trim()).filter(Boolean)
+  const parts = filterRaw
+    .split('&')
+    .map((part) => part.trim())
+    .filter(Boolean)
   const ops: FilterOp[] = ['>=', '<=', '!=', '==', '>', '<']
   const filters: Filter[] = []
 
@@ -108,7 +111,7 @@ function parseFilters(filterRaw?: string): Filter[] {
     }
     if (!matched) {
       throw new Error(
-        `[research-gate] Invalid filter: "${part}". If you use > or <, wrap the filter in quotes.`
+        `[research-gate] Invalid filter: "${part}". If you use > or <, wrap the filter in quotes.`,
       )
     }
   }
@@ -196,9 +199,7 @@ async function run(): Promise<void> {
   const missing = await ensureFilesExist(folder)
 
   if (missing.length > 0) {
-    console.error(
-      `[research-gate] Missing files in folder ${folder}: ${missing.join(', ')}`
-    )
+    console.error(`[research-gate] Missing files in folder ${folder}: ${missing.join(', ')}`)
     exit(1)
   }
 

@@ -22,7 +22,9 @@ export function getDb(): ReturnType<typeof drizzle> {
     poolConfig.password = config.password
   }
   poolInstance = mysql.createPool(poolConfig)
-  dbInstance = drizzle({ client: poolInstance, schema, mode: 'default' }) as unknown as ReturnType<typeof drizzle>
+  dbInstance = drizzle({ client: poolInstance, schema, mode: 'default' }) as unknown as ReturnType<
+    typeof drizzle
+  >
 
   return dbInstance
 }

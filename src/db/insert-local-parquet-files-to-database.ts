@@ -2,7 +2,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
-import { closeDb, marketExistsBySlug, insertMarket, getAllMarkets, deleteMarketBySlug, type Market } from './index.js'
+import {
+  closeDb,
+  marketExistsBySlug,
+  insertMarket,
+  getAllMarkets,
+  deleteMarketBySlug,
+  type Market,
+} from './index.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
 
 /**
@@ -44,7 +51,9 @@ function getExpectedFilePath(slug: string, symbol: string, rootDir: string): str
 /**
  * Check all markets in database and find those without files on disk.
  */
-async function checkMarketsWithoutFiles(rootDir: string): Promise<Array<{ market: Market; filePath: string }>> {
+async function checkMarketsWithoutFiles(
+  rootDir: string,
+): Promise<Array<{ market: Market; filePath: string }>> {
   const allMarkets = await getAllMarkets()
   const missingFiles: Array<{ market: Market; filePath: string }> = []
 
@@ -88,7 +97,9 @@ async function cleanupMissingFiles(rootDir: string): Promise<void> {
     return
   }
 
-  console.log(`\n[insert-local-parquet] Found ${missingFiles.length} markets in database without files on disk:`)
+  console.log(
+    `\n[insert-local-parquet] Found ${missingFiles.length} markets in database without files on disk:`,
+  )
   console.log('Files in database but not on HDD:')
   for (const { filePath } of missingFiles) {
     console.log(`  - ${filePath}`)
@@ -117,7 +128,6 @@ async function cleanupMissingFiles(rootDir: string): Promise<void> {
     console.log('[insert-local-parquet] Skipping deletion. Continuing with existing records.')
   }
 }
-
 
 /**
  * Process a single parquet file: fetch market data and insert into database.
@@ -192,7 +202,9 @@ async function processSymbolDirectory(
     return { inserted: 0, skipped: 0, errors: 0 }
   }
 
-  const parquetFiles = entries.filter((e) => e.isFile && e.name.endsWith('.parquet')).map((e) => e.name)
+  const parquetFiles = entries
+    .filter((e) => e.isFile && e.name.endsWith('.parquet'))
+    .map((e) => e.name)
 
   if (parquetFiles.length === 0) {
     console.warn(`[insert-local-parquet] No .parquet files found in "${symbolDir}"`)
@@ -250,7 +262,9 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  console.log(`[insert-local-parquet] Found ${symbolDirs.length} symbol directories: ${symbolDirs.join(', ')}`)
+  console.log(
+    `[insert-local-parquet] Found ${symbolDirs.length} symbol directories: ${symbolDirs.join(', ')}`,
+  )
 
   let totalInserted = 0
   let totalSkipped = 0
@@ -275,4 +289,3 @@ async function main(): Promise<void> {
 }
 
 await main()
-

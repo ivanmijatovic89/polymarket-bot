@@ -14,4 +14,3 @@ export async function resolveParquetFilesFromDirs(dirs: string[]): Promise<strin
   }
   return out
 }
-

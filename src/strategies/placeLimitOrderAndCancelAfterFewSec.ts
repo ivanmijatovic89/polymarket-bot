@@ -59,7 +59,8 @@ function pickTriggerAssetId(tick: MarketTick, cfg: Config): string | null {
   for (const assetId of Object.keys(byAssetId)) {
     const ask = byAssetId[assetId]?.bestAsk ?? null
     if (ask === null || !Number.isFinite(ask) || ask > cfg.triggerPrice) continue
-    if (!best || ask < best.ask || (ask === best.ask && assetId < best.assetId)) best = { assetId, ask }
+    if (!best || ask < best.ask || (ask === best.ask && assetId < best.assetId))
+      best = { assetId, ask }
   }
   return best?.assetId ?? null
 }
@@ -68,7 +69,10 @@ function orderLifecycleState(portfolio: PortfolioSnapshot, clientOrderId: string
   return portfolio.ordersByClientId[clientOrderId]?.lifecycleState
 }
 
-function resolveOrderIdForCancel(portfolio: PortfolioSnapshot, clientOrderId: string): string | null {
+function resolveOrderIdForCancel(
+  portfolio: PortfolioSnapshot,
+  clientOrderId: string,
+): string | null {
   const snap = portfolio.ordersByClientId[clientOrderId]
   const open = portfolio.openOrdersByClientId[clientOrderId]
   const orderId = snap?.orderId ?? open?.orderId
@@ -149,6 +153,3 @@ export function createStrategy(cfg: Config): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-
-
-

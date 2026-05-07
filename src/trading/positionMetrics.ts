@@ -67,5 +67,3 @@ export function computePositionMetricsFromMarket(args: {
     ...(m.downAssetId ? { downAssetId: m.downAssetId } : {}),
   })
 }
-
-

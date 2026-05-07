@@ -21,8 +21,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'SplitSellRedeem.v4',
   title: 'Split test',
-  description:
-    'Splits test',
+  description: 'Splits test',
   schema: ConfigSchema,
   create: (cfg) => ({ strategy: createStrategy(cfg) }),
 }
@@ -40,15 +39,20 @@ export function createStrategy(cfg: Config): Strategy {
   let lastLoggedSecond = -1
   const delayMs = 3000 // 3 seconds delay
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp || Date.now()
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) return []
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) return []
-
 
     // Initialize start time on first tick
     if (startTimeMs === null) {
@@ -90,14 +94,14 @@ export function createStrategy(cfg: Config): Strategy {
     const upQty = portfolio.positionsByAssetId[upAssetId]?.qty ?? 0
     const downQty = portfolio.positionsByAssetId[downAssetId]?.qty ?? 0
 
-    if( upQty === 0 && downQty === 0 ) return [];
+    if (upQty === 0 && downQty === 0) return []
 
-    if( upQty > 0 && downQty > 0 && !splitLogged ) {
+    if (upQty > 0 && downQty > 0 && !splitLogged) {
       splitLogged = true
-      console.log(`[split.v4] upQty: ${upQty}, downQty: ${downQty}`);
+      console.log(`[split.v4] upQty: ${upQty}, downQty: ${downQty}`)
     }
 
-    return [];
+    return []
   }
 
   const onAccountEvent: Strategy['onAccountEvent'] = () => []

@@ -20,11 +20,7 @@ function mustGetDb(): ReturnType<typeof getDb> {
  */
 export async function getMarketBySlug(slug: string): Promise<Market | null> {
   const db = mustGetDb()
-  const results = await db
-    .select()
-    .from(markets)
-    .where(eq(markets.slug, slug))
-    .limit(1)
+  const results = await db.select().from(markets).where(eq(markets.slug, slug)).limit(1)
 
   return results[0] ?? null
 }
@@ -36,10 +32,7 @@ export async function getMarketBySlug(slug: string): Promise<Market | null> {
 export async function getMarketsBySlugs(slugs: string[]): Promise<Market[]> {
   if (slugs.length === 0) return []
   const db = mustGetDb()
-  const results = await db
-    .select()
-    .from(markets)
-    .where(inArray(markets.slug, slugs))
+  const results = await db.select().from(markets).where(inArray(markets.slug, slugs))
   return results
 }
 
@@ -84,16 +77,12 @@ export async function getMarketsBySymbol(
     onlyWithDataset?: boolean
     random?: boolean
     latest?: boolean
-  }
+  },
 ): Promise<Market[]> {
   const db = mustGetDb()
   const symbolWhere = eq(markets.symbol, symbol.toLowerCase())
   const where = options?.onlyWithDataset
-    ? and(
-        symbolWhere,
-        sql`${markets.dataset} is not null`,
-        sql`TRIM(${markets.dataset}) <> ''`,
-      )
+    ? and(symbolWhere, sql`${markets.dataset} is not null`, sql`TRIM(${markets.dataset}) <> ''`)
     : symbolWhere
 
   let orderBy
@@ -106,10 +95,7 @@ export async function getMarketsBySymbol(
   let offset: number | undefined
   if (options?.latest && options?.limit !== undefined) {
     // Count total markets matching the where clause
-    const countResult = await db
-      .select({ count: count() })
-      .from(markets)
-      .where(where)
+    const countResult = await db.select({ count: count() }).from(markets).where(where)
 
     const total = countResult[0]?.count ?? 0
     // Calculate offset: skip older markets, get only the latest N
@@ -123,9 +109,7 @@ export async function getMarketsBySymbol(
     .orderBy(orderBy)
     .limit(options?.limit ?? 1000)
 
-  const results = offset !== undefined
-    ? await queryBuilder.offset(offset)
-    : await queryBuilder
+  const results = offset !== undefined ? await queryBuilder.offset(offset) : await queryBuilder
 
   return results
 }
@@ -147,10 +131,18 @@ export async function insertMarket(marketData: MarketDataForTable): Promise<void
  */
 export async function updateMarketBySlug(
   slug: string,
-  updates: Partial<Pick<Market,
-    'resolvedOutcome' | 'outcomePrices' | 'umaResolutionStatus' |
-    'active' | 'closed' | 'volume' | 'rawJson'
-  >>
+  updates: Partial<
+    Pick<
+      Market,
+      | 'resolvedOutcome'
+      | 'outcomePrices'
+      | 'umaResolutionStatus'
+      | 'active'
+      | 'closed'
+      | 'volume'
+      | 'rawJson'
+    >
+  >,
 ): Promise<void> {
   const db = mustGetDb()
   await db
@@ -168,10 +160,7 @@ export async function updateMarketBySlug(
  */
 export async function getAllMarkets(): Promise<Market[]> {
   const db = mustGetDb()
-  const results = await db
-    .select()
-    .from(markets)
-    .orderBy(asc(markets.symbol), asc(markets.slug))
+  const results = await db.select().from(markets).orderBy(asc(markets.symbol), asc(markets.slug))
 
   return results
 }
@@ -181,9 +170,7 @@ export async function getAllMarkets(): Promise<Market[]> {
  */
 export async function deleteMarketBySlug(slug: string): Promise<void> {
   const db = mustGetDb()
-  await db
-    .delete(markets)
-    .where(eq(markets.slug, slug))
+  await db.delete(markets).where(eq(markets.slug, slug))
 }
 
 export async function insertBacktestRun(row: {

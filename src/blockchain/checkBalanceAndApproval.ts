@@ -203,11 +203,7 @@ export async function checkBalanceAndApproval(
   // This approval covers ALL token IDs in the contract (all markets)
   let conditionalTokensApproved = false
   try {
-    const conditionalTokenContract = new Contract(
-      conditionalTokenAddress,
-      ERC1155_ABI,
-      provider,
-    )
+    const conditionalTokenContract = new Contract(conditionalTokenAddress, ERC1155_ABI, provider)
     conditionalTokensApproved = await conditionalTokenContract.isApprovedForAll!(
       address,
       exchangeAddress,
@@ -251,7 +247,9 @@ export async function logBalanceAndApproval(
 
     console.log(`[blockchain]${label} wallet address: ${result.address}`)
     console.log(`[blockchain]${label} exchange contract: ${result.exchangeAddress}`)
-    console.log(`[blockchain]${label} conditional token contract: ${result.conditionalTokenAddress}`)
+    console.log(
+      `[blockchain]${label} conditional token contract: ${result.conditionalTokenAddress}`,
+    )
     console.log(`[blockchain]${label} POL balance: ${result.polBalance} POL`)
     console.log(`[blockchain]${label} USDC balance: ${result.usdcBalance} USDC`)
     console.log(`[blockchain]${label} USDC allowance for Exchange: ${result.usdcAllowance} USDC`)

@@ -50,7 +50,8 @@ export function computeMarketStats(params: {
   finalOutcome: 'UP' | 'DOWN'
   tokenMap: Record<string, string> // { "UP": assetId, "DOWN": assetId }
 }): MarketStats {
-  const { marketId, slug, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
+  const { marketId, slug, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } =
+    params
 
   // Get asset IDs from tokenMap
   const upAssetId = tokenMap['UP']

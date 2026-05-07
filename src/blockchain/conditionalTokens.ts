@@ -68,7 +68,9 @@ export async function mergeBinaryOutcomePositions(params: {
 }): Promise<{ txHash: string; mergedShares: number }> {
   const { rpcUrl, chainId, privateKey, conditionId, shares } = params
   if (!isBytes32Hex(conditionId)) {
-    throw new Error(`[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`)
+    throw new Error(
+      `[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`,
+    )
   }
 
   const amount = toUsdcBaseUnits(shares)
@@ -84,16 +86,13 @@ export async function mergeBinaryOutcomePositions(params: {
   // For binary markets, partition is [1, 2] (index sets).
   const partition = [1n, 2n]
   // ethers Contract typing can be conservative about fragment presence; ABI guarantees this exists.
-  const tx = await (ctf as unknown as {
-    mergePositions: (...args: unknown[]) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
-  }).mergePositions(
-    USDC_ADDRESS,
-    ZeroHash,
-    conditionId,
-    partition,
-    amount,
-    overrides,
-  )
+  const tx = await (
+    ctf as unknown as {
+      mergePositions: (
+        ...args: unknown[]
+      ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+    }
+  ).mergePositions(USDC_ADDRESS, ZeroHash, conditionId, partition, amount, overrides)
   const receipt = await tx.wait()
   const txHash: string = receipt?.hash ?? tx.hash
 
@@ -116,7 +115,9 @@ export async function splitBinaryOutcomePositions(params: {
 }): Promise<{ txHash: string; splitShares: number }> {
   const { rpcUrl, chainId, privateKey, conditionId, shares } = params
   if (!isBytes32Hex(conditionId)) {
-    throw new Error(`[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`)
+    throw new Error(
+      `[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`,
+    )
   }
 
   const amount = toUsdcBaseUnits(shares)
@@ -133,16 +134,13 @@ export async function splitBinaryOutcomePositions(params: {
   // Docs: https://docs.polymarket.com/developers/CTF/split
   const partition = [1n, 2n]
   // ethers Contract typing can be conservative about fragment presence; ABI guarantees this exists.
-  const tx = await (ctf as unknown as {
-    splitPosition: (...args: unknown[]) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
-  }).splitPosition(
-    USDC_ADDRESS,
-    ZeroHash,
-    conditionId,
-    partition,
-    amount,
-    overrides,
-  )
+  const tx = await (
+    ctf as unknown as {
+      splitPosition: (
+        ...args: unknown[]
+      ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+    }
+  ).splitPosition(USDC_ADDRESS, ZeroHash, conditionId, partition, amount, overrides)
   const receipt = await tx.wait()
   const txHash: string = receipt?.hash ?? tx.hash
 
@@ -161,7 +159,9 @@ export async function redeemBinaryOutcomePositions(params: {
 }): Promise<{ txHash: string }> {
   const { rpcUrl, chainId, privateKey, conditionId } = params
   if (!isBytes32Hex(conditionId)) {
-    throw new Error(`[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`)
+    throw new Error(
+      `[ctf] invalid conditionId (expected bytes32 hex), got=${JSON.stringify(conditionId)}`,
+    )
   }
 
   const provider = new JsonRpcProvider(rpcUrl, chainId, { staticNetwork: true })
@@ -171,12 +171,15 @@ export async function redeemBinaryOutcomePositions(params: {
 
   // For binary markets, indexSets is [1, 2] (index sets).
   const indexSets = [1n, 2n]
-  const tx = await (ctf as unknown as {
-    redeemPositions: (...args: unknown[]) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
-  }).redeemPositions(USDC_ADDRESS, ZeroHash, conditionId, indexSets, overrides)
+  const tx = await (
+    ctf as unknown as {
+      redeemPositions: (
+        ...args: unknown[]
+      ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+    }
+  ).redeemPositions(USDC_ADDRESS, ZeroHash, conditionId, indexSets, overrides)
   const receipt = await tx.wait()
   const txHash: string = receipt?.hash ?? tx.hash
 
   return { txHash }
 }
-

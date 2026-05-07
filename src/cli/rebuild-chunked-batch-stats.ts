@@ -54,7 +54,9 @@ function parseArgs(argv: string[]): CliArgs {
       const raw = argv[i + 1]
       const n = raw ? Number(raw) : NaN
       if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
-        throw new Error(`[rebuild-chunked-batch-stats] --batchSize must be a positive integer, got: ${String(raw)}`)
+        throw new Error(
+          `[rebuild-chunked-batch-stats] --batchSize must be a positive integer, got: ${String(raw)}`,
+        )
       }
       batchSize = n
       i += 1
@@ -65,7 +67,9 @@ function parseArgs(argv: string[]): CliArgs {
       const raw = arg.slice('--batchSize='.length)
       const n = raw ? Number(raw) : NaN
       if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
-        throw new Error(`[rebuild-chunked-batch-stats] --batchSize must be a positive integer, got: ${String(raw)}`)
+        throw new Error(
+          `[rebuild-chunked-batch-stats] --batchSize must be a positive integer, got: ${String(raw)}`,
+        )
       }
       batchSize = n
       continue
@@ -106,18 +110,16 @@ function parseJsonValue<T>(value: unknown): T | null {
   return value as T
 }
 
-function getInitialCapital(
-  batchStatsRaw: unknown,
-  rowId: number,
-  counters: Counters,
-): number {
+function getInitialCapital(batchStatsRaw: unknown, rowId: number, counters: Counters): number {
   const parsed = parseJsonValue<Record<string, unknown>>(batchStatsRaw)
   const raw = parsed?.capitalInitial
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (Number.isFinite(n)) return n
 
   counters.warnings += 1
-  console.warn(`[rebuild-chunked-batch-stats] id=${rowId} missing capitalInitial, default=${DEFAULT_INITIAL_CAPITAL}`)
+  console.warn(
+    `[rebuild-chunked-batch-stats] id=${rowId} missing capitalInitial, default=${DEFAULT_INITIAL_CAPITAL}`,
+  )
   return DEFAULT_INITIAL_CAPITAL
 }
 

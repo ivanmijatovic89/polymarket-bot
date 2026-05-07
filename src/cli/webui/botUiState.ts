@@ -63,7 +63,10 @@ export type BotUiSnapshot = {
   balance?: BalanceSnapshot
 }
 
-export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: number): BotUiOrderBook | undefined {
+export function toBotUiOrderBook(
+  book: OrderBookSnapshot | undefined,
+  levels: number,
+): BotUiOrderBook | undefined {
   if (!book) return undefined
   const n = Math.max(1, Math.floor(levels))
   const bids = (book.bids ?? []).slice(0, n).map((x) => ({ price: x.price, size: x.size }))
@@ -78,4 +81,3 @@ export function toBotUiOrderBook(book: OrderBookSnapshot | undefined, levels: nu
     asksDepthByLevel: book.asksDepthByLevel,
   }
 }
-

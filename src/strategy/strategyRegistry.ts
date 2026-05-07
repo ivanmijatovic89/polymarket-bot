@@ -55,7 +55,8 @@ export const strategyRegistry = {
   [splitSellRedeemV51ResearchMetrics.id]: splitSellRedeemV51ResearchMetrics,
   [splitSellRedeemV52NetChange.id]: splitSellRedeemV52NetChange,
   [splitSellRedeemV53TechnicalIndicators.id]: splitSellRedeemV53TechnicalIndicators,
-  [splitSellRedeemV54ResearchMetricsAndTechnicalIndicators.id]: splitSellRedeemV54ResearchMetricsAndTechnicalIndicators,
+  [splitSellRedeemV54ResearchMetricsAndTechnicalIndicators.id]:
+    splitSellRedeemV54ResearchMetricsAndTechnicalIndicators,
 
   // Gate Research
   [splitSellRedeemV5GateNetChange.id]: splitSellRedeemV5GateNetChange,
@@ -63,9 +64,11 @@ export const strategyRegistry = {
   [splitSellRedeemV5GateOrderbookImbalance.id]: splitSellRedeemV5GateOrderbookImbalance,
   [splitSellRedeemV5GateTaTf15mWickRatio.id]: splitSellRedeemV5GateTaTf15mWickRatio,
   [splitSellRedeemV5GateTaTf1hWickRatio.id]: splitSellRedeemV5GateTaTf1hWickRatio,
-  [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]: splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
+  [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]:
+    splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
 
-  [splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex.id]: splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex,
+  [splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex.id]:
+    splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex,
   // Unwind
   [splitSellRedeemV5Unwind.id]: splitSellRedeemV5Unwind,
 

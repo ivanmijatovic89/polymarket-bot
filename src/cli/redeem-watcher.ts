@@ -57,8 +57,7 @@ async function main(): Promise<void> {
 
   const webUiHost = (process.env.WEB_UI_HOST ?? '').trim()
   const webUiPort = (process.env.WEB_UI_PORT ?? '').trim()
-  const notifyWsUrl =
-    webUiHost && webUiPort ? `ws://${webUiHost}:${webUiPort}/ws` : ''
+  const notifyWsUrl = webUiHost && webUiPort ? `ws://${webUiHost}:${webUiPort}/ws` : ''
   let notifyWs: WebSocket | null = null
   let notifyWsReconnectTimer: NodeJS.Timeout | null = null
 
@@ -73,7 +72,9 @@ async function main(): Promise<void> {
       console.log('[redeem-watcher] ws notify connected', { url: notifyWsUrl })
     })
     ws.on('error', (err) => {
-      console.warn('[redeem-watcher] ws notify error', { err: err instanceof Error ? err.message : String(err) })
+      console.warn('[redeem-watcher] ws notify error', {
+        err: err instanceof Error ? err.message : String(err),
+      })
     })
     ws.on('close', () => {
       console.warn('[redeem-watcher] ws notify disconnected')
@@ -163,7 +164,8 @@ async function main(): Promise<void> {
   const printPositionsTable = (title: string, positions: Position[]): void => {
     if (positions.length === 0) return
 
-    const header = '  Slug                              Size    Outcome   Value    Start               Ago'
+    const header =
+      '  Slug                              Size    Outcome   Value    Start               Ago'
     const separator = '  ' + '─'.repeat(82)
     const nowMs = Date.now()
     const ordered = [...positions].sort((a, b) => {
@@ -246,7 +248,11 @@ async function main(): Promise<void> {
         state.redeemedConditionIds = Array.from(redeemed)
         await saveRedeemState(statePath, state)
       } catch (err) {
-        console.warn('[redeem-watcher] error', { slug: pos.slug, conditionId: pos.conditionId, err })
+        console.warn('[redeem-watcher] error', {
+          slug: pos.slug,
+          conditionId: pos.conditionId,
+          err,
+        })
       }
     }
   }

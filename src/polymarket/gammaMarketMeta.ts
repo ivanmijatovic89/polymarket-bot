@@ -68,5 +68,3 @@ export function buildGammaMarketMeta(
     ...(typeof raw.question === 'string' ? { question: raw.question } : {}),
   }
 }
-
-

@@ -11,7 +11,7 @@ export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(100),
   sellSize: z.coerce.number().finite().positive().default(10),
 
-  dwellRangeFrom: z.coerce.number().finite().default(0.20),
+  dwellRangeFrom: z.coerce.number().finite().default(0.2),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(60),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
@@ -53,7 +53,11 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
   const plugins: Plugin[] = [timeWindowGatePlugin, dwellGatePlugin]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) return []
 
@@ -91,8 +95,12 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       ]
     }
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
-    const dwell = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
+    const dwell =
+      (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ??
+      undefined
     const dwellUpOk = dwell?.dwellUpOk === true
     const dwellDownOk = dwell?.dwellDownOk === true
 
@@ -110,7 +118,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
     let side: 'UP' | 'DOWN' | null = null
     if (upCanSell && !downCanSell) side = 'UP'
     else if (!upCanSell && downCanSell) side = 'DOWN'
-    else if (upCanSell && downCanSell) side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
+    else if (upCanSell && downCanSell)
+      side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
 
     if (!side) return []
 

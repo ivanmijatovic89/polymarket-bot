@@ -198,8 +198,7 @@ export class BacktestExecution implements ExecutionAdapter {
   }
 
   private computeExecuteAtMs(nowMs: number): number {
-    const jitter =
-      this.jitterMs > 0 ? Math.trunc((Math.random() * 2 - 1) * this.jitterMs) : 0
+    const jitter = this.jitterMs > 0 ? Math.trunc((Math.random() * 2 - 1) * this.jitterMs) : 0
     return Math.max(nowMs, nowMs + this.latencyMs + jitter)
   }
 
@@ -208,7 +207,8 @@ export class BacktestExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const requested =
+      typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
 
     if (!intent.assetIdA || !intent.assetIdB || intent.assetIdA === intent.assetIdB) {
       return {
@@ -265,7 +265,8 @@ export class BacktestExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const requested =
+      typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     const snap = ctx.portfolio
     const qa = snap?.positionsByAssetId[intent.assetIdA]?.qty ?? 0
     const qb = snap?.positionsByAssetId[intent.assetIdB]?.qty ?? 0
@@ -647,7 +648,9 @@ export class BacktestExecution implements ExecutionAdapter {
       this.pending.length = 0
       this.pending.push(...future)
 
-      due.sort((a, b) => (a.executeAtMs !== b.executeAtMs ? a.executeAtMs - b.executeAtMs : a.seq - b.seq))
+      due.sort((a, b) =>
+        a.executeAtMs !== b.executeAtMs ? a.executeAtMs - b.executeAtMs : a.seq - b.seq,
+      )
 
       for (const p of due) {
         if (p.kind === 'place_limit') {

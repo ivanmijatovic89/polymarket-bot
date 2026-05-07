@@ -95,8 +95,6 @@ export function createPolymarketPriceToBeatClient(
         },
       })
 
-
-
       // Endpoint can return 400s; treat as retryable.
       if (!res.ok) {
         return
@@ -152,5 +150,3 @@ export function createPolymarketPriceToBeatClient(
     },
   }
 }
-
-

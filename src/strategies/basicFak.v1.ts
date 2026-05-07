@@ -12,7 +12,7 @@ import * as z from 'zod'
 export const ConfigSchema = z.strictObject({
   assetId: z.string().min(1).optional(),
   size: z.coerce.number().finite().default(5),
-  targetPrice: z.coerce.number().finite().default(0.30),
+  targetPrice: z.coerce.number().finite().default(0.3),
   /**
    * When to place the take-profit SELL, based on USER ws order updates (`ws_order_update.status`)
    * for the BUY order.
@@ -49,7 +49,7 @@ function pickTwoAssetIds(tick: MarketTick, preferred?: string): [string, string]
   // If preferred asset is specified, still check both assets but prioritize preferred
   if (preferred && tick.snapshot.byAssetId[preferred]) {
     const ids = Object.keys(tick.snapshot.byAssetId).sort()
-    const otherId = ids.find(id => id !== preferred)
+    const otherId = ids.find((id) => id !== preferred)
     if (otherId) return [preferred, otherId]
   }
 
@@ -164,7 +164,7 @@ export function createStrategy(cfg: Config): Strategy {
       if (!pos || !Number.isFinite(pos.qty) || pos.qty <= 0) return []
     }
 
-    const entry = (pos?.avgEntryPrice ?? buyLimitPrice) ?? null
+    const entry = pos?.avgEntryPrice ?? buyLimitPrice ?? null
     if (entry === null || !Number.isFinite(entry)) return []
 
     const tpInc = Number.isFinite(cfg.takeProfitPct) ? cfg.takeProfitPct : 0.01
@@ -193,4 +193,3 @@ export function createStrategy(cfg: Config): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-

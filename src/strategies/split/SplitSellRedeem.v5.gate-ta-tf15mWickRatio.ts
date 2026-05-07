@@ -12,7 +12,7 @@ export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
 
-  dwellRangeFrom: z.coerce.number().finite().default(0.20),
+  dwellRangeFrom: z.coerce.number().finite().default(0.2),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
@@ -26,8 +26,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'SplitSellRedeem.v5.gate-ta-tf15mWickRatio',
   title: 'Split + sell with dwell + time filters v5.gate-ta-tf15mWickRatio',
-  description:
-    'ta_tf15m_wickRatio <= 0.30027767043409165',
+  description: 'ta_tf15m_wickRatio <= 0.30027767043409165',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -73,14 +72,20 @@ export function createStrategy(cfg: Config): {
     technicalIndicatorsPlugin,
   ]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
       console.log(`[${name}][⚠️] early return: invalid nowMs`, { nowMs })
       return []
     }
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) {
@@ -149,8 +154,12 @@ export function createStrategy(cfg: Config): {
       ]
     }
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
-    const dwellSnap = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
+    const dwellSnap =
+      (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ??
+      undefined
     const dwellUpOk = dwellSnap?.dwellUpOk === true
     const dwellDownOk = dwellSnap?.dwellDownOk === true
 
@@ -168,7 +177,8 @@ export function createStrategy(cfg: Config): {
     let side: 'UP' | 'DOWN' | null = null
     if (upCanSell && !downCanSell) side = 'UP'
     else if (!upCanSell && downCanSell) side = 'DOWN'
-    else if (upCanSell && downCanSell) side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
+    else if (upCanSell && downCanSell)
+      side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
 
     if (!side) return []
 
@@ -180,9 +190,9 @@ export function createStrategy(cfg: Config): {
     const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
     const wickRatio = technicalIndicatorsSnap?.tf15m?.wickRatio ?? null
 
-    if(wickRatio === null) return []
+    if (wickRatio === null) return []
     // ta_tf15m_wickRatio <= 0.30027767043409165
-    if(wickRatio <= 0.30027767043409165) return []
+    if (wickRatio <= 0.30027767043409165) return []
 
     const intentMeta = {
       ...(technicalIndicatorsSnap ? { technicalIndicators: technicalIndicatorsSnap } : {}),

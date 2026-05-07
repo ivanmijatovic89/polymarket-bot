@@ -53,19 +53,7 @@ type MarketStatsLike = {
   intentMeta?: IntentMeta[]
 }
 
-const WINDOWS = [
-  '1s',
-  '3s',
-  '5s',
-  '10s',
-  '20s',
-  '30s',
-  '45s',
-  '60s',
-  '120s',
-  '180s',
-  '220s',
-]
+const WINDOWS = ['1s', '3s', '5s', '10s', '20s', '30s', '45s', '60s', '120s', '180s', '220s']
 
 const ORDERBOOK_LEVELS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
 
@@ -247,9 +235,7 @@ async function main() {
     const isWin = pnl > 0
 
     const firstMeta = Array.isArray(market.intentMeta) ? market.intentMeta[0] : undefined
-    const windowsMetrics = Array.isArray(firstMeta?.windowsMetrics)
-      ? firstMeta?.windowsMetrics
-      : []
+    const windowsMetrics = Array.isArray(firstMeta?.windowsMetrics) ? firstMeta?.windowsMetrics : []
     const orderbookLevels = Array.isArray(firstMeta?.orderbookLevels)
       ? firstMeta?.orderbookLevels
       : []
@@ -292,9 +278,7 @@ async function main() {
         typeof ob?.weakBidSide === 'string' ? ob?.weakBidSide : null
       rowObj[`ob_${level}_weakBidRatio`] = toNumber(ob?.weakBidRatio) ?? null
       rowObj[`ob_${level}_isMyOrderOnWeakBidSide`] =
-        typeof ob?.isMyOrderOnWeakBidSide === 'boolean'
-          ? ob?.isMyOrderOnWeakBidSide
-          : null
+        typeof ob?.isMyOrderOnWeakBidSide === 'boolean' ? ob?.isMyOrderOnWeakBidSide : null
     }
 
     rowObj['ta_tf1h_rv20'] = toNumber(technicalIndicators?.tf1h?.rv20) ?? null
@@ -435,10 +419,7 @@ async function main() {
   await fs.writeFile(testCsvPath, testCsvRows.join('\n'))
   await fs.writeFile(testJsonPath, JSON.stringify(testJsonRows, null, 2))
 
-  await fs.writeFile(
-    path.join(orderbookDir, 'ALL_trades_features.csv'),
-    orderbookAllCsv.join('\n'),
-  )
+  await fs.writeFile(path.join(orderbookDir, 'ALL_trades_features.csv'), orderbookAllCsv.join('\n'))
   await fs.writeFile(
     path.join(orderbookDir, 'ALL_trades_features.json'),
     JSON.stringify(orderbookAllJson, null, 2),
@@ -460,10 +441,7 @@ async function main() {
     JSON.stringify(orderbookTestJson, null, 2),
   )
 
-  await fs.writeFile(
-    path.join(netChangeDir, 'ALL_trades_features.csv'),
-    netChangeAllCsv.join('\n'),
-  )
+  await fs.writeFile(path.join(netChangeDir, 'ALL_trades_features.csv'), netChangeAllCsv.join('\n'))
   await fs.writeFile(
     path.join(netChangeDir, 'ALL_trades_features.json'),
     JSON.stringify(netChangeAllJson, null, 2),

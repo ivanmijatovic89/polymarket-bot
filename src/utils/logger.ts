@@ -31,10 +31,22 @@ export type LogRecord = {
 export type LogSink = (r: LogRecord) => void
 
 export type Logger = {
-  debug: (msg: string, args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown }) => void
-  info: (msg: string, args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown }) => void
-  warn: (msg: string, args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown }) => void
-  error: (msg: string, args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown }) => void
+  debug: (
+    msg: string,
+    args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown },
+  ) => void
+  info: (
+    msg: string,
+    args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown },
+  ) => void
+  warn: (
+    msg: string,
+    args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown },
+  ) => void
+  error: (
+    msg: string,
+    args?: { data?: unknown; fields?: Record<string, unknown>; err?: unknown },
+  ) => void
   child: (fields: Record<string, unknown>) => Logger
 }
 
@@ -51,7 +63,9 @@ function toErr(e: unknown): LogRecord['err'] | undefined {
     const any = e as Record<string, unknown>
     return {
       ...(typeof any.name === 'string' && any.name.length > 0 ? { name: any.name } : {}),
-      ...(typeof any.message === 'string' && any.message.length > 0 ? { message: any.message } : {}),
+      ...(typeof any.message === 'string' && any.message.length > 0
+        ? { message: any.message }
+        : {}),
       ...(typeof any.stack === 'string' && any.stack.length > 0 ? { stack: any.stack } : {}),
       ...(typeof any.message !== 'string' ? { message: String(e) } : {}),
     }
@@ -158,8 +172,7 @@ export function formatRecordToBlessedLine(r: LogRecord): string {
     const e = `${r.err.name ? `${r.err.name}:` : ''}${r.err.message ?? 'error'}`
     parts.push(`err=${e}`)
   }
-  const metaStr =
-    parts.length > 0 ? ` {gray-fg}${escapeBlessedTags(parts.join(' '))}{/}` : ''
+  const metaStr = parts.length > 0 ? ` {gray-fg}${escapeBlessedTags(parts.join(' '))}{/}` : ''
 
   return `${time} ${lvl} ${msg}${metaStr}`
 }
@@ -283,7 +296,10 @@ function createSequencedRingBuffer<T>(maxItems: number): {
  * - keeps a fixed-size window in memory
  * - also keeps a monotonic sequence (startSeq/endSeq) so consumers can request deltas reliably
  */
-export function ringBufferSequencedLinesSink(opts: { maxLines: number; format?: (r: LogRecord) => string }): {
+export function ringBufferSequencedLinesSink(opts: {
+  maxLines: number
+  format?: (r: LogRecord) => string
+}): {
   sink: LogSink
   snapshotWindow: () => SequencedWindow<string>
 } {
@@ -344,10 +360,7 @@ function renderTable(tabularData: unknown, properties?: string[]): string {
  * Intended for TUI mode, where stdout/stderr output corrupts the screen.
  * Returns a restore function.
  */
-export function patchConsole(
-  logger: Logger,
-  opts?: { teeToOrigConsole?: boolean },
-): () => void {
+export function patchConsole(logger: Logger, opts?: { teeToOrigConsole?: boolean }): () => void {
   const orig: ConsoleLike = {
     log: console.log.bind(console),
     info: console.info.bind(console),
@@ -393,5 +406,3 @@ export function patchConsole(
     console.table = orig.table
   }
 }
-
-

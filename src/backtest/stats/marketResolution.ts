@@ -56,7 +56,10 @@ function buildTokenMap(outcomes: string[], clobTokenIds: string[]): Record<strin
 /**
  * Normalize resolved outcome to 'UP' | 'DOWN' | null.
  */
-function normalizeResolvedOutcome(resolvedOutcome: string | null, outcomes: string[]): 'UP' | 'DOWN' | null {
+function normalizeResolvedOutcome(
+  resolvedOutcome: string | null,
+  outcomes: string[],
+): 'UP' | 'DOWN' | null {
   if (!resolvedOutcome) return null
 
   const normalized = resolvedOutcome.toUpperCase()

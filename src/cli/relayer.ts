@@ -9,16 +9,12 @@ import {
   withdrawUsdcViaRelayer,
 } from '../polymarket/relayerClient.js'
 
-const ERC20_TRANSFER_ABI = [
-  'function transfer(address to, uint256 amount) returns (bool)',
-] as const
+const ERC20_TRANSFER_ABI = ['function transfer(address to, uint256 amount) returns (bool)'] as const
 
 const ERC20_APPROVE_ABI = [
   'function approve(address spender, uint256 amount) returns (bool)',
 ] as const
-const ERC1155_APPROVE_ABI = [
-  'function setApprovalForAll(address operator, bool approved)',
-] as const
+const ERC1155_APPROVE_ABI = ['function setApprovalForAll(address operator, bool approved)'] as const
 function readArg(name: string, args: string[]): string | undefined {
   const idx = args.indexOf(name)
   if (idx === -1) return undefined
@@ -104,10 +100,16 @@ async function approveCtfFromEoa(): Promise<void> {
   const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
   const wallet = new Wallet(cfg.privateKey, provider)
   const usdc = new Contract(USDC_ADDRESS, ERC20_APPROVE_ABI, wallet) as unknown as {
-    approve: (spender: string, amount: bigint) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+    approve: (
+      spender: string,
+      amount: bigint,
+    ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
   }
-  const { conditionalTokens: ctfAddress } = await getContractAddresses(cfg.clob.host, cfg.clob.chainId)
-  const tx = await usdc.approve(ctfAddress, (2n ** 256n) - 1n)
+  const { conditionalTokens: ctfAddress } = await getContractAddresses(
+    cfg.clob.host,
+    cfg.clob.chainId,
+  )
+  const tx = await usdc.approve(ctfAddress, 2n ** 256n - 1n)
   const receipt = await tx.wait()
   console.log('[relayer][eoa-approve-ctf] txHash=', receipt?.hash ?? tx.hash)
 }
@@ -120,10 +122,16 @@ async function approveEoaAll(): Promise<void> {
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
   const provider = new JsonRpcProvider(rpcUrl, cfg.clob.chainId, { staticNetwork: true })
   const wallet = new Wallet(cfg.privateKey, provider)
-  const { exchange, conditionalTokens } = await getContractAddresses(cfg.clob.host, cfg.clob.chainId)
+  const { exchange, conditionalTokens } = await getContractAddresses(
+    cfg.clob.host,
+    cfg.clob.chainId,
+  )
 
   const usdc = new Contract(USDC_ADDRESS, ERC20_APPROVE_ABI, wallet) as unknown as {
-    approve: (spender: string, amount: bigint) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
+    approve: (
+      spender: string,
+      amount: bigint,
+    ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
   }
   const ctf = new Contract(conditionalTokens, ERC1155_APPROVE_ABI, wallet) as unknown as {
     setApprovalForAll: (
@@ -132,7 +140,7 @@ async function approveEoaAll(): Promise<void> {
     ) => Promise<{ wait: () => Promise<{ hash?: string }>; hash: string }>
   }
 
-  const max = (2n ** 256n) - 1n
+  const max = 2n ** 256n - 1n
   const tx1 = await usdc.approve(conditionalTokens, max)
   const receipt1 = await tx1.wait()
   console.log('[relayer][eoa-approve] usdc->ctf txHash=', receipt1?.hash ?? tx1.hash)

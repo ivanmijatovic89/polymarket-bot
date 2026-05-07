@@ -154,8 +154,7 @@ function readRelayerEnv(): RelayerEnv {
     throw new Error(`[relayer] invalid POLYMARKET_RELAYER_CHAIN_ID=${chainIdRaw}`)
   }
   const txTypeRaw = (process.env.POLYMARKET_RELAYER_TX_TYPE ?? 'SAFE').toUpperCase()
-  const txType =
-    txTypeRaw === 'PROXY' ? RelayerTxType.PROXY : RelayerTxType.SAFE
+  const txType = txTypeRaw === 'PROXY' ? RelayerTxType.PROXY : RelayerTxType.SAFE
 
   return {
     relayerUrl,
@@ -238,7 +237,7 @@ export async function splitViaRelayer(
   const result = await response.wait()
 
   if (!result?.transactionHash) {
-    console.log('🔴🔴🔴[relayer] split failed🔴🔴🔴');
+    console.log('🔴🔴🔴[relayer] split failed🔴🔴🔴')
     throw new Error('[relayer] split failed (no transactionHash)')
   }
 
@@ -247,7 +246,10 @@ export async function splitViaRelayer(
     throw new Error(`[relayer] split failed (STATE_FAILED, txHash: ${result.transactionHash})`)
   }
 
-  if (state !== RelayerTransactionState.STATE_MINED && state !== RelayerTransactionState.STATE_CONFIRMED) {
+  if (
+    state !== RelayerTransactionState.STATE_MINED &&
+    state !== RelayerTransactionState.STATE_CONFIRMED
+  ) {
     throw new Error(`[relayer] split unexpected state: ${state}, txHash: ${result.transactionHash}`)
   }
 
@@ -296,9 +298,7 @@ export async function mergeViaRelayer(
   return { txHash: result.transactionHash, mergedShares: args.shares }
 }
 
-export async function redeemViaRelayer(args: {
-  conditionId: string
-}): Promise<{ txHash: string }> {
+export async function redeemViaRelayer(args: { conditionId: string }): Promise<{ txHash: string }> {
   if (!isBytes32Hex(args.conditionId)) {
     throw new Error('[relayer] invalid conditionId (expected bytes32 hex)')
   }
@@ -333,9 +333,7 @@ export async function redeemViaRelayer(args: {
   return { txHash: result.transactionHash }
 }
 
-export async function approveViaRelayer(
-  args: ApproveViaRelayerArgs,
-): Promise<{ txHash: string }> {
+export async function approveViaRelayer(args: ApproveViaRelayerArgs): Promise<{ txHash: string }> {
   const { exchange } = await getContractAddresses(args.clobHost, args.chainId)
 
   const approveUsdcCtf: Transaction = {

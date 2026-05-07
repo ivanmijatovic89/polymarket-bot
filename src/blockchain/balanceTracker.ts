@@ -1,4 +1,8 @@
-import type { BalanceAndApprovalResult, CheckBalanceAndApprovalOptions, UsdcBalanceResult } from './checkBalanceAndApproval.js'
+import type {
+  BalanceAndApprovalResult,
+  CheckBalanceAndApprovalOptions,
+  UsdcBalanceResult,
+} from './checkBalanceAndApproval.js'
 import { checkUsdcBalance } from './checkBalanceAndApproval.js'
 
 export type UsdcBalanceLite = Omit<UsdcBalanceResult, 'usdcBalanceRaw' | 'polBalanceRaw'> & {
@@ -64,12 +68,18 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
   let inFlight: Promise<BalanceSnapshot> | null = null
   const cooldownMs = Math.max(0, Math.trunc(opts.cooldownMs ?? 5000))
 
-  const refresh = async (reason: string, options?: BalanceRefreshOptions): Promise<BalanceSnapshot | undefined> => {
+  const refresh = async (
+    reason: string,
+    options?: BalanceRefreshOptions,
+  ): Promise<BalanceSnapshot | undefined> => {
     if (inFlight) return inFlight
     const nowMs = Date.now()
     if (!options?.force && last && nowMs - last.updatedAtMs < cooldownMs) return last
 
-    const base: Omit<CheckBalanceAndApprovalOptions, 'privateKey' | 'addressOverride' | 'addressLabel'> = {
+    const base: Omit<
+      CheckBalanceAndApprovalOptions,
+      'privateKey' | 'addressOverride' | 'addressLabel'
+    > = {
       rpcUrl: opts.rpcUrl,
       clobHost: opts.clobHost,
       ...(typeof opts.chainId === 'number' ? { chainId: opts.chainId } : {}),
@@ -129,8 +139,24 @@ export function createBalanceTracker(opts: BalanceTrackerOptions): {
       if (!error) {
         opts.log?.('[balance-tracker][🔄] Balance refreshed', {
           reason,
-          ...(eoa ? { eoa: { address: eoa.address, usdcBalance: eoa.usdcBalance, polBalance: eoa.polBalance } } : {}),
-          ...(safe ? { safe: { address: safe.address, usdcBalance: safe.usdcBalance, polBalance: safe.polBalance } } : {}),
+          ...(eoa
+            ? {
+                eoa: {
+                  address: eoa.address,
+                  usdcBalance: eoa.usdcBalance,
+                  polBalance: eoa.polBalance,
+                },
+              }
+            : {}),
+          ...(safe
+            ? {
+                safe: {
+                  address: safe.address,
+                  usdcBalance: safe.usdcBalance,
+                  polBalance: safe.polBalance,
+                },
+              }
+            : {}),
         })
       }
       return snap
