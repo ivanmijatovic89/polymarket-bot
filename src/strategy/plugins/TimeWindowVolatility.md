@@ -37,4 +37,3 @@ The snapshot shape is:
 
 - `vol.asOfTsMs`: timestamp of the latest tick processed
 - `vol.byAssetId[assetId][windowLabel]`: window stats (stddev, range, etc.)
-
