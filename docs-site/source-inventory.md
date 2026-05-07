@@ -3,7 +3,6 @@
 This page lists all tracked source-oriented files used by the project runtime, tooling, and UI.
 
 ## Root Project Files
-
 - `.env.example`
 - `AGENTS.md`
 - `CLAUDE.md`
@@ -19,7 +18,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 ## Source Tree (src/)
 
 ### src/backtest
-
 - `src/backtest/generate-jobs.ts`
 - `src/backtest/stats/batchStats.ts`
 - `src/backtest/stats/chunkedBatchStats.ts`
@@ -28,13 +26,11 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/backtest/stats/walkForwardRank.ts`
 
 ### src/blockchain
-
 - `src/blockchain/balanceTracker.ts`
 - `src/blockchain/checkBalanceAndApproval.ts`
 - `src/blockchain/conditionalTokens.ts`
 
 ### src/cli
-
 - `src/cli/backtest.ts`
 - `src/cli/check-balances.ts`
 - `src/cli/create-clob-api-key.ts`
@@ -59,11 +55,9 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/cli/webui/createTradingBotWebUiServer.ts`
 
 ### src/config
-
 - `src/config/env.ts`
 
 ### src/db
-
 - `src/db/config.ts`
 - `src/db/helpers.ts`
 - `src/db/index.ts`
@@ -71,7 +65,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/db/schema.ts`
 
 ### src/market
-
 - `src/market/MarketEngine.ts`
 - `src/market/marketChannelDecoder.ts`
 - `src/market/orderbook/MarketOrderBookEngine.ts`
@@ -82,7 +75,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/market/polymarketEventIndex.ts`
 
 ### src/parquet
-
 - `src/parquet/cli/list-backtest-files.ts`
 - `src/parquet/cli/scan-disconnect-events.ts`
 - `src/parquet/cli/verify-parquet.ts`
@@ -91,7 +83,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/parquet/io/eventWriter.ts`
 
 ### src/polymarket
-
 - `src/polymarket/clobClient.ts`
 - `src/polymarket/config.ts`
 - `src/polymarket/contractAddresses.ts`
@@ -110,7 +101,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/polymarket/ws/wsConnection.ts`
 
 ### src/strategies
-
 - `src/strategies/BuyBatchLimitGTC.v1.ts`
 - `src/strategies/BuyBoth.v1.ts`
 - `src/strategies/MeasureLatency.v1.ts`
@@ -186,7 +176,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/strategies/winnerLimit.v1.ts`
 
 ### src/strategy
-
 - `src/strategy/Strategy.ts`
 - `src/strategy/StrategyContext.ts`
 - `src/strategy/plugins/DeribitVolatilityIndexPlugin.ts`
@@ -203,7 +192,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/strategy/strategyToolkit.ts`
 
 ### src/trading
-
 - `src/trading/OrderManager.ts`
 - `src/trading/Portfolio.ts`
 - `src/trading/StrategyRunner.ts`
@@ -223,12 +211,10 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/trading/utils/rounding.ts`
 
 ### src/types
-
 - `src/types/marketEventSource.ts`
 - `src/types/rawEvent.ts`
 
 ### src/utils
-
 - `src/utils/logger.ts`
 - `src/utils/minHeap.ts`
 - `src/utils/runtime.ts`
@@ -239,7 +225,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `src/utils/windowBoundary.ts`
 
 ## Web UI (webui/)
-
 - `webui/README.md`
 - `webui/index.html`
 - `webui/package.json`
@@ -265,7 +250,6 @@ This page lists all tracked source-oriented files used by the project runtime, t
 - `webui/vite.config.ts`
 
 ## Queue + Docs + SQL Migrations
-
 - `docs/ARCHITECTURE.md`
 - `docs/ARCHITECTURE_DIAGRAMS.md`
 - `docs/AddNewBot.md`

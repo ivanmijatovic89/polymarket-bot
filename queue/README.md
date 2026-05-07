@@ -4,7 +4,6 @@ This folder contains a simple, durable, and human-friendly batch execution syste
 built on top of **GNU parallel**.
 
 The goal of this system is to:
-
 - run large grid-search / backtest batches
 - control execution via folders (approve → pending → running → done)
 - allow safe pause / resume
@@ -113,7 +112,6 @@ queue/logs/parallel.log
 ```
 
 Contains one row per command:
-
 - command string
 - runtime
 - exit code

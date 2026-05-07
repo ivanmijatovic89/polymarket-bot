@@ -106,3 +106,5 @@ type WsSnapshotMsg = {
 ```
 
 The UI currently only needs server→client messages (read-only).
+
+

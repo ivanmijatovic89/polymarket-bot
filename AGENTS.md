@@ -78,25 +78,20 @@ Large artifacts exist in this repo. Read intentionally:
 ## Architecture Rules To Preserve
 
 1. Market ticks
-
 - Strategy ticks are driven by `MarketEngine` and only meaningful market events (`book`, `price_change`).
 
 2. Strategy parity
-
 - Strategy code path must remain shared between live and backtest.
 - Avoid adding logic that exists only in one runtime unless explicitly required and documented.
 
 3. Intent lifecycle
-
 - Intents go through `OrderManager` (validation/risk), then execution adapter.
 - Keep event semantics deterministic (`order_submitted`, `order_accepted`, fills, done/rejected).
 
 4. Portfolio correctness
-
 - Preserve idempotency and reconciliation logic (fills/order updates can be out-of-order).
 
 5. Episode/window semantics
-
 - Market rotation and 15m window boundaries are central.
 - Do not break slug/window handling for up/down 15m markets.
 
