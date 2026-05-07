@@ -4,3 +4,4 @@ build
 docs
 CLAUDE.md
 AGENTS.md
+.claude/
