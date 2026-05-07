@@ -26,9 +26,11 @@ function parseCliArgs(argv: string[]): CliArgs {
   for (let i = 0; i < argv.length; i++) {
     const arg = argv[i]
     if (arg === '--symbol' && argv[i + 1]) {
-      args.symbol = argv[++i]?.toLowerCase()
+      const value = argv[++i]
+      if (value) args.symbol = value.toLowerCase()
     } else if (arg === '--slug' && argv[i + 1]) {
-      args.slug = argv[++i]?.toLowerCase()
+      const value = argv[++i]
+      if (value) args.slug = value.toLowerCase()
     } else if (arg === '--limit' && argv[i + 1]) {
       const n = parseInt(argv[++i] ?? '50', 10)
       args.limit = Number.isFinite(n) && n > 0 ? n : 50
@@ -196,7 +198,8 @@ function computeMarketPnl(activities: Activity[]): Map<string, MarketPnl> {
     // Slug format: btc-updown-15m-<epochSeconds>
     // Market ends 15 minutes (900 seconds) after the epoch
     const slugMatch = market.slug.match(/-(\d{10})$/)
-    const marketEpoch = slugMatch ? parseInt(slugMatch[1], 10) * 1000 : 0
+    const epochRaw = slugMatch?.[1]
+    const marketEpoch = epochRaw ? parseInt(epochRaw, 10) * 1000 : 0
     const marketEndTime = marketEpoch + 15 * 60 * 1000 // +15 minutes
     const isMarketStillActive = marketEpoch > 0 && now < marketEndTime
 

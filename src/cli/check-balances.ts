@@ -11,13 +11,14 @@ async function main(): Promise<void> {
   let safeOk = true
 
   try {
-    await logBalanceAndApproval({
+    const eoaOpts = {
       rpcUrl,
-      privateKey: cfg.privateKey,
       chainId: cfg.clob.chainId,
       clobHost: cfg.clob.host,
       addressLabel: 'EOA',
-    })
+      ...(cfg.privateKey ? { privateKey: cfg.privateKey } : {}),
+    }
+    await logBalanceAndApproval(eoaOpts)
   } catch (err) {
     eoaOk = false
     console.error('[check-balances] EOA check failed', err)

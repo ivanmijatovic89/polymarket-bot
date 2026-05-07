@@ -33,11 +33,12 @@ function parseCliArgs(args: string[]): CliArgs {
     if (arg === '--help' || arg === '-h') {
       parsed.help = true
     } else if (arg === '--filter' && args[i + 1]) {
-      parsed.filter = args[++i]
+      const next = args[++i]
+      if (next) parsed.filter = next
     } else if (!parsed.folder) {
-      parsed.folder = arg
+      if (arg) parsed.folder = arg
     } else if (!parsed.filter) {
-      parsed.filter = arg
+      if (arg) parsed.filter = arg
     }
   }
 
@@ -174,7 +175,7 @@ function sumPnl(rows: TradeFeatureRow[]): number {
   let total = 0
   for (const row of rows) {
     const pnl = row.pnl
-    if (Number.isFinite(pnl)) {
+    if (typeof pnl === 'number' && Number.isFinite(pnl)) {
       total += pnl
     }
   }

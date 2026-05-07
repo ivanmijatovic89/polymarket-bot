@@ -123,10 +123,11 @@ async function main(): Promise<void> {
 
   const parseMarketStartFromSlug = (slug: string): number | null => {
     const m = /-(\d{10,13})$/.exec(slug.trim())
-    if (!m) return null
-    const raw = Number(m[1])
+    const epochRaw = m?.[1]
+    if (!epochRaw) return null
+    const raw = Number(epochRaw)
     if (!Number.isFinite(raw) || raw <= 0) return null
-    return m[1].length === 10 ? raw * 1000 : raw
+    return epochRaw.length === 10 ? raw * 1000 : raw
   }
 
   const formatStart = (startMs: number | null): string => {

@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
 import { eq } from 'drizzle-orm'
-import { backtests, closeDb, getDb } from '../db/index.js'
+import { backtests, closeDb, getDb } from '../../db/index.js'
 
 type WindowMetric = {
   window: string

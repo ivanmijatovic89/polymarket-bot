@@ -4,6 +4,7 @@ import { Wallet } from '@ethersproject/wallet'
 function getArgValue(args: string[], names: string[]): string | undefined {
   for (let i = 0; i < args.length; i++) {
     const a = args[i]
+    if (!a) continue
     for (const name of names) {
       if (a === name && i + 1 < args.length) return args[i + 1]
       if (a.startsWith(name + '=')) return a.slice(name.length + 1)

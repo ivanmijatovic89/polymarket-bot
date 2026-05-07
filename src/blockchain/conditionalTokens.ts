@@ -26,13 +26,18 @@ async function buildGasOverrides(
   const bump = (v: bigint | null) => (v ? (v * multScaled) / scale : undefined)
 
   if (fee.maxFeePerGas && fee.maxPriorityFeePerGas) {
+    const maxFeePerGas = bump(fee.maxFeePerGas)
+    const maxPriorityFeePerGas = bump(fee.maxPriorityFeePerGas)
+    if (maxFeePerGas === undefined || maxPriorityFeePerGas === undefined) return {}
     return {
-      maxFeePerGas: bump(fee.maxFeePerGas),
-      maxPriorityFeePerGas: bump(fee.maxPriorityFeePerGas),
+      maxFeePerGas,
+      maxPriorityFeePerGas,
     }
   }
   if (fee.gasPrice) {
-    return { gasPrice: bump(fee.gasPrice) }
+    const gasPrice = bump(fee.gasPrice)
+    if (gasPrice === undefined) return {}
+    return { gasPrice }
   }
   return {}
 }
@@ -174,5 +179,4 @@ export async function redeemBinaryOutcomePositions(params: {
 
   return { txHash }
 }
-
 

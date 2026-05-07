@@ -81,18 +81,19 @@ function parseCliArgs(args: string[]): CliArgs {
     }
     if (arg === '--id' && args[i + 1]) {
       const n = Number(args[i + 1])
-      parsed.id = Number.isFinite(n) ? n : undefined
+      if (Number.isFinite(n)) parsed.id = n
       i += 1
       continue
     }
     if (arg?.startsWith('--id=')) {
       const raw = arg.slice('--id='.length)
       const n = Number(raw)
-      parsed.id = Number.isFinite(n) ? n : undefined
+      if (Number.isFinite(n)) parsed.id = n
       continue
     }
     if (arg === '--filter' && args[i + 1]) {
-      parsed.filter = args[i + 1]
+      const next = args[i + 1]
+      if (next) parsed.filter = next
       i += 1
       continue
     }
@@ -120,7 +121,7 @@ function parseCliArgs(args: string[]): CliArgs {
       }
     }
     if (!parsed.filter) {
-      parsed.filter = arg
+      if (arg) parsed.filter = arg
     }
   }
 
@@ -290,7 +291,7 @@ function matchesFilters(row: MarketStatsLike, groups: FilterGroup[]): boolean {
   const matchesGroup = (filters: Filter[]): boolean => {
     for (const filter of filters) {
       const value = getFeatureValue(row, filter.field)
-      if (!Number.isFinite(value)) return false
+      if (value === null || !Number.isFinite(value)) return false
 
       switch (filter.op) {
         case '>':
@@ -458,7 +459,7 @@ async function run(): Promise<void> {
       await insertBacktestRun({
         batchUid,
         baselineId: String(id),
-        cmd: null,
+        cmd: '',
         comment: `${label} > BASELINE | ${baseComment}`,
         strategy: row.strategy,
         params: mergedParams,
@@ -475,7 +476,7 @@ async function run(): Promise<void> {
       await insertBacktestRun({
         batchUid,
         baselineId: String(id),
-        cmd: null,
+        cmd: '',
         comment: `${label} > KEPT (after gate) | ${baseComment}`,
         strategy: row.strategy,
         params: mergedParams,
@@ -492,7 +493,7 @@ async function run(): Promise<void> {
       await insertBacktestRun({
         batchUid,
         baselineId: String(id),
-        cmd: null,
+        cmd: '',
         comment: `${label} > SKIPPED (bad regime) | ${baseComment}`,
         strategy: row.strategy,
         params: mergedParams,
