@@ -2,3 +2,5 @@ node_modules
 dist
 build
 docs
+CLAUDE.md
+AGENTS.md
