@@ -7,7 +7,6 @@ import { isWarmed } from '../../strategy/strategyToolkit.js'
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import * as z from 'zod'
-import { fmtCents } from '../../../webui/src/utils/format.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 
@@ -83,10 +82,6 @@ export function createStrategy(_cfg: Config): {
     void _bw
     void _ptb
 
-    const upAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestAsk
-    const downAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestAsk
-    const upBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestBid
-    const downBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestBid
     // console.log('upAskBestPrice', upAskBestPrice, 'downAskBestPrice', downAskBestPrice)
     // console.log(fmtCents(upAskBestPrice ?? 0) + ' - ' + fmtCents(downAskBestPrice ?? 0) + ' ..... ' + fmtCents(upBidBestPrice ?? 0) + ' - ' + fmtCents(downBidBestPrice ?? 0))
     // const diff = bw?.value && b?.value ? bw.value - b.value : undefined;
@@ -118,5 +113,3 @@ export function createStrategy(_cfg: Config): {
 
   return { strategy, plugins }
 }
-
-

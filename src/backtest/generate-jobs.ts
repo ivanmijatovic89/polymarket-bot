@@ -167,8 +167,6 @@ if (!gridPath) {
 const absGridPath = path.resolve(process.cwd(), gridPath);
 if (!fs.existsSync(absGridPath)) die(`Grid file not found: ${absGridPath}`);
 
-const dir = path.dirname(absGridPath);
-
 let parsed: GridJSON;
 try {
   parsed = JSON.parse(fs.readFileSync(absGridPath, "utf8"));

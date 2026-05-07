@@ -186,7 +186,6 @@ export function createStrategy(cfg: Config): {
     const volSnap = ctx?.plugins?.['timeWindowVolatility'] as VolatilitySnapshot | undefined
     // GET ONLY highLowRange AND netChange
     const volByAsset = volSnap?.byAssetId?.[assetId]
-    const netChange = volByAsset?.['60s']?.netChange ?? null
     const highLowRange = volByAsset?.['60s']?.highLowRange ?? null
 
     if(highLowRange === null) return []
