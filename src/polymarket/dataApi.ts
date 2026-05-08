@@ -156,7 +156,9 @@ export type FetchClosedPositionsOptions = {
  * Fetch closed/resolved positions for a user.
  * https://docs.polymarket.com/api-reference/core/get-closed-positions-for-a-user
  */
-export async function fetchClosedPositions(query: FetchClosedPositionsOptions): Promise<ClosedPosition[]> {
+export async function fetchClosedPositions(
+  query: FetchClosedPositionsOptions,
+): Promise<ClosedPosition[]> {
   const params = new URLSearchParams({ user: query.user })
   if (query.limit !== undefined) params.set('limit', String(query.limit))
   if (query.offset !== undefined) params.set('offset', String(query.offset))
@@ -168,7 +170,9 @@ export async function fetchClosedPositions(query: FetchClosedPositionsOptions): 
   if (!res.ok) {
     // API may return 404 if no closed positions exist
     if (res.status === 404) return []
-    throw new Error(`[dataApi] fetchClosedPositions failed: HTTP ${res.status} - ${await res.text()}`)
+    throw new Error(
+      `[dataApi] fetchClosedPositions failed: HTTP ${res.status} - ${await res.text()}`,
+    )
   }
   const data: unknown = await res.json()
   if (!Array.isArray(data)) {
@@ -182,7 +186,14 @@ export async function fetchClosedPositions(query: FetchClosedPositionsOptions): 
 // https://docs.polymarket.com/api-reference/core/get-user-activity
 // ─────────────────────────────────────────────────────────────────────────────
 
-export type ActivityType = 'TRADE' | 'SPLIT' | 'MERGE' | 'REDEEM' | 'REWARD' | 'CONVERSION' | 'MAKER_REBATE'
+export type ActivityType =
+  | 'TRADE'
+  | 'SPLIT'
+  | 'MERGE'
+  | 'REDEEM'
+  | 'REWARD'
+  | 'CONVERSION'
+  | 'MAKER_REBATE'
 
 export type Activity = {
   proxyWallet: string

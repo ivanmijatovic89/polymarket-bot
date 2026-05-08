@@ -55,7 +55,8 @@ function loadOptionalCredentialsFromEnv(): PolymarketCredentials | undefined {
   // Prefer POLYMARKET_* (used elsewhere already), but allow CLOB_* fallback for convenience.
   const apiKey = env('POLYMARKET_API_KEY') ?? env('CLOB_API_KEY')
   const secret = env('POLYMARKET_API_SECRET') ?? env('CLOB_SECRET')
-  const passphrase = env('POLYMARKET_API_PASSPHRASE') ?? env('CLOB_PASSPHRASE') ?? env('CLOB_PASS_PHRASE')
+  const passphrase =
+    env('POLYMARKET_API_PASSPHRASE') ?? env('CLOB_PASSPHRASE') ?? env('CLOB_PASS_PHRASE')
 
   if (!apiKey || !secret || !passphrase) {
     return undefined

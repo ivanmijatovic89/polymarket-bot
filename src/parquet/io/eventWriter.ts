@@ -177,14 +177,14 @@ export class RotatingParquetEventRecorder {
       // This allows the callback to do long-running operations (e.g., DB insert, file upload) without blocking rotation
       if (opts?.onFileFinalized) {
         console.log(`[recorder] Calling onFileFinalized callback for fileKey: ${state.fileKey}`)
-        void Promise.resolve(opts.onFileFinalized({ filePath: finalPath, fileKey: state.fileKey })).catch(
-          (err) => {
-            console.error(`[recorder] onFileFinalized callback failed for ${finalPath}:`, err)
-            if (err instanceof Error && err.stack) {
-              console.error(`[recorder] Stack trace:`, err.stack)
-            }
-          },
-        )
+        void Promise.resolve(
+          opts.onFileFinalized({ filePath: finalPath, fileKey: state.fileKey }),
+        ).catch((err) => {
+          console.error(`[recorder] onFileFinalized callback failed for ${finalPath}:`, err)
+          if (err instanceof Error && err.stack) {
+            console.error(`[recorder] Stack trace:`, err.stack)
+          }
+        })
       } else {
         console.log(`[recorder] No onFileFinalized callback provided`)
       }

@@ -7,12 +7,10 @@ import { isWarmed } from '../../strategy/strategyToolkit.js'
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import * as z from 'zod'
-import { fmtCents } from '../../../webui/src/utils/format.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 
 export const ConfigSchema = z.strictObject({
-
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
@@ -21,14 +19,13 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'template.v1',
   title: 'Template v1',
-  description:
-    'Template strategy: placeholder for new strategies.',
+  description: 'Template strategy: placeholder for new strategies.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
 
 export function createStrategy(_cfg: Config): {
-  strategy: Strategy,
+  strategy: Strategy
   plugins: Plugin[]
 } {
   void _cfg
@@ -49,7 +46,7 @@ export function createStrategy(_cfg: Config): {
       polymarketPriceToBeat: { enabled: true },
     }),
     new DwellGatePlugin({
-      from: 0.10,
+      from: 0.1,
       to: 0.45,
       requiredMs: 60 * 1000,
       trackPrice: 'bid',
@@ -73,7 +70,8 @@ export function createStrategy(_cfg: Config): {
     if (!isWarmed(ctx)) return []
 
     // feeds
-    const feeds = (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
+    const feeds =
+      (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
     const _b = feeds?.rtdsPolymarketCryptoPrices?.binance
     const _c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
     const _bw = feeds?.binanceWsSpotPrice
@@ -83,10 +81,6 @@ export function createStrategy(_cfg: Config): {
     void _bw
     void _ptb
 
-    const upAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestAsk
-    const downAskBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestAsk
-    const upBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.upAssetId ?? '']?.bestBid
-    const downBidBestPrice = tick.snapshot.byAssetId[ctx?.market?.downAssetId ?? '']?.bestBid
     // console.log('upAskBestPrice', upAskBestPrice, 'downAskBestPrice', downAskBestPrice)
     // console.log(fmtCents(upAskBestPrice ?? 0) + ' - ' + fmtCents(downAskBestPrice ?? 0) + ' ..... ' + fmtCents(upBidBestPrice ?? 0) + ' - ' + fmtCents(downBidBestPrice ?? 0))
     // const diff = bw?.value && b?.value ? bw.value - b.value : undefined;
@@ -118,5 +112,3 @@ export function createStrategy(_cfg: Config): {
 
   return { strategy, plugins }
 }
-
-

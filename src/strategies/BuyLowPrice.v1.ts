@@ -1,4 +1,10 @@
-import type { AccountEvent, Intent, MarketTick, PortfolioSnapshot, Strategy } from '../strategy/Strategy.js'
+import type {
+  AccountEvent,
+  Intent,
+  MarketTick,
+  PortfolioSnapshot,
+  Strategy,
+} from '../strategy/Strategy.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import * as z from 'zod'
@@ -58,17 +64,30 @@ function orderLifecycleState(portfolio: PortfolioSnapshot, clientOrderId: string
 }
 
 function isFinalLifecycleState(state: unknown): boolean {
-  return state === 'filled' || state === 'canceled' || state === 'rejected' || state === 'expired' || state === 'killed'
+  return (
+    state === 'filled' ||
+    state === 'canceled' ||
+    state === 'rejected' ||
+    state === 'expired' ||
+    state === 'killed'
+  )
 }
 
-function resolveOrderIdForCancel(portfolio: PortfolioSnapshot, clientOrderId: string): string | null {
+function resolveOrderIdForCancel(
+  portfolio: PortfolioSnapshot,
+  clientOrderId: string,
+): string | null {
   const snap = portfolio.ordersByClientId[clientOrderId]
   const open = portfolio.openOrdersByClientId[clientOrderId]
   const orderId = snap?.orderId ?? open?.orderId
   return typeof orderId === 'string' && orderId.length > 0 ? orderId : null
 }
 
-function winningClientOrderIdFromEvent(ev: AccountEvent, upCid: string, downCid: string): string | null {
+function winningClientOrderIdFromEvent(
+  ev: AccountEvent,
+  upCid: string,
+  downCid: string,
+): string | null {
   if (ev.kind === 'fill') {
     const cid = ev.fill.clientOrderId
     if (cid === upCid || cid === downCid) return cid

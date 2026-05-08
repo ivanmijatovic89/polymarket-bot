@@ -35,10 +35,7 @@ export function createStrategy(cfg: Config): {
   let lastLoggedSecond = -1
   const delayMs = 3000 // 3 seconds delay
 
-  const onMarketTick = (
-    tick: MarketTick,
-    portfolio: PortfolioSnapshot,
-  ): Intent[] => {
+  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot): Intent[] => {
     void cfg
     void portfolio
 
@@ -53,7 +50,9 @@ export function createStrategy(cfg: Config): {
     // Initialize start time on first tick
     if (startTimeMs === null) {
       startTimeMs = nowMs
-      console.log('[buyBatchLimitGTC.v1] ⏱️  Starting countdown, will place batch order in 3 seconds...')
+      console.log(
+        '[buyBatchLimitGTC.v1] ⏱️  Starting countdown, will place batch order in 3 seconds...',
+      )
     }
 
     // Check if delay has passed
@@ -65,7 +64,9 @@ export function createStrategy(cfg: Config): {
       const secondsRemaining = Math.ceil(remainingMs / 1000)
       if (secondsRemaining !== lastLoggedSecond) {
         lastLoggedSecond = secondsRemaining
-        console.log(`[buyBatchLimitGTC.v1] ⏱️  Countdown: ${secondsRemaining} second(s) remaining...`)
+        console.log(
+          `[buyBatchLimitGTC.v1] ⏱️  Countdown: ${secondsRemaining} second(s) remaining...`,
+        )
       }
       return []
     }
@@ -129,4 +130,3 @@ export function createStrategy(cfg: Config): {
 
   return { strategy }
 }
-

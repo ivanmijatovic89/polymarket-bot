@@ -37,5 +37,3 @@ export function StatusBar(props: { snapshot: BotUiSnapshot }) {
     </div>
   )
 }
-
-

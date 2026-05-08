@@ -38,7 +38,9 @@ export class MarketEngine {
     this.ob = new MarketOrderBookEngine({
       ...(opts?.expectedAssetIds ? { expectedAssetIds: opts.expectedAssetIds } : {}),
     })
-    this.onTick = opts?.onTick
+    if (opts?.onTick) {
+      this.onTick = opts.onTick
+    }
   }
 
   /**

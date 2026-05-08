@@ -1,4 +1,4 @@
-@import "tailwindcss";
+@import 'tailwindcss';
 
 @layer base {
   :root {
@@ -125,5 +125,3 @@
     padding-left: 20px !important;
   }
 }
-
-

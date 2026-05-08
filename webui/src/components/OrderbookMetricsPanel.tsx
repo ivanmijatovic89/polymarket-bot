@@ -53,7 +53,9 @@ export function OrderbookMetricsPanel(props: { snapshot: BotUiSnapshot }) {
     <div className="panel p-2.5 min-w-0">
       <div className="mb-2 flex items-center justify-between gap-2">
         <div className="text-[18px] font-semibold text-zinc-200">orderbook metrics</div>
-        <div className="text-[12px] font-mono text-zinc-500">{rowsN > 0 ? `levels ${rowsN}` : 'n/a'}</div>
+        <div className="text-[12px] font-mono text-zinc-500">
+          {rowsN > 0 ? `levels ${rowsN}` : 'n/a'}
+        </div>
       </div>
 
       {rowsN === 0 ? (
@@ -81,10 +83,18 @@ export function OrderbookMetricsPanel(props: { snapshot: BotUiSnapshot }) {
               {Array.from({ length: rowsN }).map((_, i) => (
                 <tr key={i} className="border-t border-zinc-800/60">
                   <td className="px-2 py-1.5 whitespace-nowrap">{i + 1}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-emerald-300">{fmtSide(om.weakBidSideByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtRatio(om.weakBidRatioByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap text-red-300">{fmtSide(om.weakAskSideByLevel[i])}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtRatio(om.weakAskRatioByLevel[i])}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap text-emerald-300">
+                    {fmtSide(om.weakBidSideByLevel[i])}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtRatio(om.weakBidRatioByLevel[i])}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap text-red-300">
+                    {fmtSide(om.weakAskSideByLevel[i])}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtRatio(om.weakAskRatioByLevel[i])}
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -94,5 +104,3 @@ export function OrderbookMetricsPanel(props: { snapshot: BotUiSnapshot }) {
     </div>
   )
 }
-
-

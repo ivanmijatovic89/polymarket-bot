@@ -28,8 +28,14 @@ export function createStrategy(cfg: Config): Strategy {
 
   const priceBumpDown = 0.01
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: unknown): Intent[] => {
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: unknown,
+  ): Intent[] => {
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) return []
@@ -68,7 +74,8 @@ export function createStrategy(cfg: Config): Strategy {
     const candidates: Array<{ side: 'UP' | 'DOWN'; assetId: string; bid: number }> = []
     if (upBid !== null && Number.isFinite(upBid) && upBid < trigger) {
       const qty = portfolio.positionsByAssetId[upAssetId]?.qty ?? 0
-      if (Number.isFinite(qty) && qty >= sellSize) candidates.push({ side: 'UP', assetId: upAssetId, bid: upBid })
+      if (Number.isFinite(qty) && qty >= sellSize)
+        candidates.push({ side: 'UP', assetId: upAssetId, bid: upBid })
     }
     if (downBid !== null && Number.isFinite(downBid) && downBid < trigger) {
       const qty = portfolio.positionsByAssetId[downAssetId]?.qty ?? 0
@@ -110,4 +117,3 @@ export function createStrategy(cfg: Config): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-

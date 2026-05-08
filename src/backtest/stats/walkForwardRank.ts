@@ -85,7 +85,9 @@ function feesPerMarketAll(
 }
 
 export function computeWalkForwardForRun(params: {
-  segments: Array<{ batch_stats: { evPerMarketTotal: number; totalFeesPaid: number; marketsTotal: number } }>
+  segments: Array<{
+    batch_stats: { evPerMarketTotal: number; totalFeesPaid: number; marketsTotal: number }
+  }>
 }): WalkForwardWindowMetrics {
   const evs = params.segments.map((s) => s.batch_stats.evPerMarketTotal)
   const segmentCount = evs.length

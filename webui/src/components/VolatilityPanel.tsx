@@ -71,7 +71,9 @@ function Section(props: { label: 'UP' | 'DOWN'; assetId?: string; vol: Volatilit
     <div className="min-w-0">
       <div className="mb-1 flex items-center justify-between gap-2">
         <div className="text-[15px] font-semibold">{label}</div>
-        <div className="text-[12px] font-mono text-zinc-500">{assetId ? assetId.slice(-10) : 'n/a'}</div>
+        <div className="text-[12px] font-mono text-zinc-500">
+          {assetId ? assetId.slice(-10) : 'n/a'}
+        </div>
       </div>
 
       {!assetId ? (
@@ -81,7 +83,11 @@ function Section(props: { label: 'UP' | 'DOWN'; assetId?: string; vol: Volatilit
       ) : (
         <div className="overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/40 ring-1 ring-zinc-800">
           <table className="w-full table-fixed border-separate border-spacing-0 text-[18px]">
-            <colgroup>{cols.map((c) => <col key={c.key} className={c.className} />)}</colgroup>
+            <colgroup>
+              {cols.map((c) => (
+                <col key={c.key} className={c.className} />
+              ))}
+            </colgroup>
             <thead>
               <tr className="text-left text-zinc-400">
                 <th className="sticky top-0 bg-zinc-900/60 px-2 py-1.5">window</th>
@@ -103,15 +109,27 @@ function Section(props: { label: 'UP' | 'DOWN'; assetId?: string; vol: Volatilit
               {rows.map(({ windowLabel, s }) => (
                 <tr key={windowLabel} className="border-t border-zinc-800/60">
                   <td className="px-2 py-1.5 whitespace-nowrap">{windowLabel}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.low, { fixed: true, digits: 2 })}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.high, { fixed: true, digits: 2 })}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.highLowRange, { fixed: true, digits: 2 })}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.low, { fixed: true, digits: 2 })}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.high, { fixed: true, digits: 2 })}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.highLowRange, { fixed: true, digits: 2 })}
+                  </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmt(s.stddev)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmt(s.avgAbsChange)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmt(s.n)}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.startPrice, { fixed: true, digits: 2 })}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.endPrice, { fixed: true, digits: 2 })}</td>
-                  <td className="px-2 py-1.5 whitespace-nowrap">{fmtCents(s.netChange, { fixed: true, digits: 2 })}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.startPrice, { fixed: true, digits: 2 })}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.endPrice, { fixed: true, digits: 2 })}
+                  </td>
+                  <td className="px-2 py-1.5 whitespace-nowrap">
+                    {fmtCents(s.netChange, { fixed: true, digits: 2 })}
+                  </td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmtBool(s.ready)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmt(s.coverageMs)}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap">{fmt(s.staleMs)}</td>
@@ -147,5 +165,3 @@ export function VolatilityPanel(props: { snapshot: BotUiSnapshot }) {
     </div>
   )
 }
-
-

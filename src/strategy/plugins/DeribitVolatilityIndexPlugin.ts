@@ -36,11 +36,7 @@ const DERIBIT_BASE_URL = 'https://www.deribit.com'
 const SLUG_SYMBOL = 'btc'
 const BASE_RESOLUTION_SEC = 60
 const BASE_RESOLUTION_MS = BASE_RESOLUTION_SEC * 1000
-const BASE_RESOLUTION_STR: '60' = '60'
-
-function last<T>(arr: T[]): T | undefined {
-  return arr.length > 0 ? arr[arr.length - 1] : undefined
-}
+const BASE_RESOLUTION_STR = '60' as const
 
 function expectedCloseTimeMs(asOfMs: number, resMs: number): number {
   return Math.floor((asOfMs + 1) / resMs) * resMs - 1
@@ -147,7 +143,10 @@ export class DeribitVolatilityIndexPlugin implements Plugin {
     return this.cached
   }
 
-  private finalizeSnapshot(args: { marketKey: string; snapshot: DeribitVolatilityIndexSnapshot | undefined }): void {
+  private finalizeSnapshot(args: {
+    marketKey: string
+    snapshot: DeribitVolatilityIndexSnapshot | undefined
+  }): void {
     if (this.lastMarketKey !== args.marketKey) return
     this.cached = args.snapshot
     this.lastComputedKey = args.marketKey
@@ -173,7 +172,9 @@ export class DeribitVolatilityIndexPlugin implements Plugin {
     }
 
     const minStart = Math.min(
-      ...RESOLUTIONS_SEC.map((resSec) => expectedCloseTimeMs(asOfMs, resSec * 1000) - resSec * 1000 + 1),
+      ...RESOLUTIONS_SEC.map(
+        (resSec) => expectedCloseTimeMs(asOfMs, resSec * 1000) - resSec * 1000 + 1,
+      ),
     )
 
     try {
@@ -218,12 +219,14 @@ export class DeribitVolatilityIndexPlugin implements Plugin {
 
       const marketLabel = args.slug ?? args.marketId ?? args.marketKey
       const primary = byResolutionSec[300] ?? byResolutionSec[900] ?? byResolutionSec[3600] ?? null
-      const closeStr =
-        primary && Number.isFinite(primary.close) ? primary.close.toFixed(6) : 'null'
+      const closeStr = primary && Number.isFinite(primary.close) ? primary.close.toFixed(6) : 'null'
       const warn = alignmentWarning ? ` alignmentWarning=${alignmentWarning}` : ''
       console.log(`[dvol] market=${marketLabel} close=${closeStr}${warn}`)
     } catch (err) {
-      console.error(`[deribitVolatilityIndex] failed to compute snapshot for slug=${args.slug}`, err)
+      console.error(
+        `[deribitVolatilityIndex] failed to compute snapshot for slug=${args.slug}`,
+        err,
+      )
       this.finalizeSnapshot({ marketKey: args.marketKey, snapshot: undefined })
     }
   }

@@ -6,7 +6,7 @@ import * as z from 'zod'
 export const ConfigSchema = z.strictObject({
   assetId: z.string().min(1).optional(),
   size: z.coerce.number().finite().default(5),
-  triggerPrice: z.coerce.number().finite().default(0.40),
+  triggerPrice: z.coerce.number().finite().default(0.4),
   buyPriceBump: z.coerce.number().finite().default(0.05),
   mergeWhenStatus: z.enum(['MATCHED', 'MINED', 'CONFIRMED']).default('MINED'),
 })
@@ -105,8 +105,10 @@ export function createStrategy(cfg: Config): Strategy {
     if (hasSentMerge) return []
     if (!assetA || !assetB || !buyCidA || !buyCidB) return []
 
-    if (!strategyToolkit.isOrderTradeStatusAtLeast(portfolio, buyCidA, cfg.mergeWhenStatus)) return []
-    if (!strategyToolkit.isOrderTradeStatusAtLeast(portfolio, buyCidB, cfg.mergeWhenStatus)) return []
+    if (!strategyToolkit.isOrderTradeStatusAtLeast(portfolio, buyCidA, cfg.mergeWhenStatus))
+      return []
+    if (!strategyToolkit.isOrderTradeStatusAtLeast(portfolio, buyCidB, cfg.mergeWhenStatus))
+      return []
 
     const qA = portfolio.positionsByAssetId[assetA]?.qty ?? 0
     const qB = portfolio.positionsByAssetId[assetB]?.qty ?? 0
@@ -133,5 +135,3 @@ export function createStrategy(cfg: Config): Strategy {
 
   return { name, onMarketTick, onAccountEvent }
 }
-
-

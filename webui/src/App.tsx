@@ -23,7 +23,10 @@ function clamp(n: number, lo: number, hi: number): number {
   return Math.max(lo, Math.min(hi, n))
 }
 
-function bestAskFromBook(book?: { bestAsk?: number; asks?: Array<{ price: number }> }): number | null {
+function bestAskFromBook(book?: {
+  bestAsk?: number
+  asks?: Array<{ price: number }>
+}): number | null {
   const a = book?.bestAsk
   if (typeof a === 'number' && Number.isFinite(a) && a > 0) return a
 
@@ -36,11 +39,14 @@ function bestAskFromBook(book?: { bestAsk?: number; asks?: Array<{ price: number
   return null
 }
 
-function computeUpDownSplitFromAsks(
-  asks: { up: number | null; down: number | null },
-): { up: number; down: number; winner: 'UP' | 'DOWN' | 'NONE' } {
+function computeUpDownSplitFromAsks(asks: { up: number | null; down: number | null }): {
+  up: number
+  down: number
+  winner: 'UP' | 'DOWN' | 'NONE'
+} {
   const u = typeof asks.up === 'number' && Number.isFinite(asks.up) && asks.up > 0 ? asks.up : 0
-  const d = typeof asks.down === 'number' && Number.isFinite(asks.down) && asks.down > 0 ? asks.down : 0
+  const d =
+    typeof asks.down === 'number' && Number.isFinite(asks.down) && asks.down > 0 ? asks.down : 0
   const sum = u + d
 
   // Edge cases:
@@ -56,12 +62,19 @@ function computeUpDownSplitFromAsks(
   return { up, down, winner }
 }
 
-function adjustAsksForEndOfMarket(upAskRaw: number | null, downAskRaw: number | null): {
+function adjustAsksForEndOfMarket(
+  upAskRaw: number | null,
+  downAskRaw: number | null,
+): {
   up: number | null
   down: number | null
 } {
-  const u = typeof upAskRaw === 'number' && Number.isFinite(upAskRaw) && upAskRaw > 0 ? upAskRaw : null
-  const d = typeof downAskRaw === 'number' && Number.isFinite(downAskRaw) && downAskRaw > 0 ? downAskRaw : null
+  const u =
+    typeof upAskRaw === 'number' && Number.isFinite(upAskRaw) && upAskRaw > 0 ? upAskRaw : null
+  const d =
+    typeof downAskRaw === 'number' && Number.isFinite(downAskRaw) && downAskRaw > 0
+      ? downAskRaw
+      : null
 
   // Only apply the "missing => 100¢" rule when the missing side is inferred to be the winner.
   // Heuristic: if the other side's ask is below ~50¢, the missing side is likely near 100¢.
@@ -78,14 +91,24 @@ function adjustAsksForEndOfMarket(upAskRaw: number | null, downAskRaw: number | 
   return { up: u, down: d }
 }
 
-function computeSplitBar(upAsk: number | null, downAsk: number | null): { up: number; down: number; winner: 'UP' | 'DOWN' | 'NONE' } {
+function computeSplitBar(
+  upAsk: number | null,
+  downAsk: number | null,
+): { up: number; down: number; winner: 'UP' | 'DOWN' | 'NONE' } {
   const adj = adjustAsksForEndOfMarket(upAsk, downAsk)
   return computeUpDownSplitFromAsks({ up: adj.up, down: adj.down })
 }
 
-function TimeBar(props: { candleLeftMs?: number; topPx: number; bottomPx: number; timeWindowGate?: any }) {
+function TimeBar(props: {
+  candleLeftMs?: number
+  topPx: number
+  bottomPx: number
+  timeWindowGate?: any
+}) {
   const leftRaw =
-    typeof props.candleLeftMs === 'number' && Number.isFinite(props.candleLeftMs) ? props.candleLeftMs : NaN
+    typeof props.candleLeftMs === 'number' && Number.isFinite(props.candleLeftMs)
+      ? props.candleLeftMs
+      : NaN
   const left = Number.isFinite(leftRaw) ? clamp(leftRaw, 0, CANDLE_MS_15M) : NaN
   const remainingPct = Number.isFinite(left) ? (left / CANDLE_MS_15M) * 100 : 0
 
@@ -344,19 +367,28 @@ export function App() {
   const { status, snapshot, logLines, sendCommand } = useBotWs()
   const mockPortfolioEnabled = new URLSearchParams(window.location.search).has('mockPortfolio')
   const displaySnapshot =
-    snapshot && mockPortfolioEnabled ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any) : snapshot
+    snapshot && mockPortfolioEnabled
+      ? ({ ...snapshot, ...makeMockPortfolio(snapshot) } as any)
+      : snapshot
 
   // "Real" asks used throughout the UI (header price chips, etc).
   const upAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.up) : null
   const downAsk = displaySnapshot ? bestAskFromBook(displaySnapshot.books.down) : null
   const balanceSnap = (displaySnapshot as any)?.balance as
-    | { eoa?: { usdcBalance?: string; polBalance?: string }; safe?: { usdcBalance?: string; polBalance?: string } }
+    | {
+        eoa?: { usdcBalance?: string; polBalance?: string }
+        safe?: { usdcBalance?: string; polBalance?: string }
+      }
     | undefined
   const balanceEoa = balanceSnap?.eoa?.usdcBalance
   const balanceSafe = balanceSnap?.safe?.usdcBalance
   const balanceValue = balanceEoa ?? balanceSafe ?? null
   const balanceLabel = balanceEoa ? 'eoa' : balanceSafe ? 'safe' : 'balance'
-  const polValue = balanceEoa ? balanceSnap?.eoa?.polBalance : balanceSafe ? balanceSnap?.safe?.polBalance : null
+  const polValue = balanceEoa
+    ? balanceSnap?.eoa?.polBalance
+    : balanceSafe
+      ? balanceSnap?.safe?.polBalance
+      : null
   const strategy = displaySnapshot?.strategy
   const pluginIds = (() => {
     const p = (displaySnapshot as any)?.plugins
@@ -407,10 +439,15 @@ export function App() {
               <div className="flex min-w-0 flex-wrap items-center justify-start gap-2">
                 {displaySnapshot ? (
                   <span className="chip text-[18px] sm:text-[22px] bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-                    <span className="cursor-help" title={`${timeWindowGate?.allowAfterMs && timeWindowGate?.disableAfterMs ? `allow after ${fmtMs(timeWindowGate?.allowAfterMs)} - disable after ${fmtMs(timeWindowGate?.disableAfterMs)}` : ''}`}>
+                    <span
+                      className="cursor-help"
+                      title={`${timeWindowGate?.allowAfterMs && timeWindowGate?.disableAfterMs ? `allow after ${fmtMs(timeWindowGate?.allowAfterMs)} - disable after ${fmtMs(timeWindowGate?.disableAfterMs)}` : ''}`}
+                    >
                       {timeWindowGate?.withinWindow ? '🟢' : '🔴'}
                     </span>
-                    <span className="ml-3 font-mono">{fmtMs(displaySnapshot.status.candleLeftMs)}</span>
+                    <span className="ml-3 font-mono">
+                      {fmtMs(displaySnapshot.status.candleLeftMs)}
+                    </span>
                   </span>
                 ) : null}
                 <div className="text-sm font-semibold text-zinc-100">polymarket-bot</div>
@@ -422,10 +459,14 @@ export function App() {
               <div className="flex min-w-0 flex-wrap items-center justify-center justify-self-center">
                 <div className="flex">
                   <div className="flex ring-1 bg-green-600/80 ring-green-500/30 font-mono text-[18px] sm:text-[22px] text-white px-4 sm:px-10 py-2 sm:py-3 rounded-md rounded-r-none">
-                    <span className="text-white whitespace-nowrap">{fmtCents(upAsk, { fixed: true, digits: 2 })} ¢</span>
+                    <span className="text-white whitespace-nowrap">
+                      {fmtCents(upAsk, { fixed: true, digits: 2 })} ¢
+                    </span>
                   </div>
                   <div className="flex ring-1 bg-red-600/80 ring-red-500/30 font-mono text-[18px] sm:text-[22px] text-white px-4 sm:px-10 py-2 sm:py-3 rounded-md rounded-l-none">
-                    <span className="text-white whitespace-nowrap">{fmtCents(downAsk, { fixed: true, digits: 2 })} ¢</span>
+                    <span className="text-white whitespace-nowrap">
+                      {fmtCents(downAsk, { fixed: true, digits: 2 })} ¢
+                    </span>
                   </div>
                 </div>
               </div>
@@ -454,7 +495,12 @@ export function App() {
         </header>
       </div>
 
-      <TimeBar candleLeftMs={displaySnapshot?.status?.candleLeftMs} topPx={chrome.topPx} bottomPx={chrome.bottomPx} timeWindowGate={timeWindowGate}/>
+      <TimeBar
+        candleLeftMs={displaySnapshot?.status?.candleLeftMs}
+        topPx={chrome.topPx}
+        bottomPx={chrome.bottomPx}
+        timeWindowGate={timeWindowGate}
+      />
 
       <main className="mx-auto  px-2 py-2 pb-16 pm-timebar-safe">
         {!displaySnapshot ? (
@@ -466,19 +512,25 @@ export function App() {
 
             {/* Full-width: portfolio + orders */}
             <div className="space-y-2">
-              <PositionsTablePanel snapshot={displaySnapshot} showOther={showOther} onToggleShowOther={() => setShowOther((v) => !v)} />
-              <OpenOrdersTablePanel snapshot={displaySnapshot} sendCommand={sendCommand} showOther={showOther} />
+              <PositionsTablePanel
+                snapshot={displaySnapshot}
+                showOther={showOther}
+                onToggleShowOther={() => setShowOther((v) => !v)}
+              />
+              <OpenOrdersTablePanel
+                snapshot={displaySnapshot}
+                sendCommand={sendCommand}
+                showOther={showOther}
+              />
               <ExecutedOrdersTablePanel snapshot={displaySnapshot} showOther={showOther} />
               <OrdersByClientIdTablePanel snapshot={displaySnapshot} showOther={showOther} />
             </div>
 
-
             <div className="space-y-2">
-            <LogsPanel logLines={logLines} />
+              <LogsPanel logLines={logLines} />
             </div>
 
             <div className="space-y-2 min-w-0">
-
               <OrderbooksWithDepthsAndMetricsPanel
                 snapshot={displaySnapshot}
                 up={displaySnapshot.books.up}
@@ -495,7 +547,10 @@ export function App() {
         )}
       </main>
 
-      <footer ref={footerRef} className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800  backdrop-blur">
+      <footer
+        ref={footerRef}
+        className="fixed bottom-0 left-0 right-0 z-10 border-t border-zinc-800  backdrop-blur"
+      >
         <div className="mx-auto flex max-w-[1800px] flex-wrap items-center justify-between gap-2 px-2 py-2">
           <div className="flex flex-wrap items-center gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
@@ -508,7 +563,10 @@ export function App() {
 
           <div className="flex flex-wrap items-center justify-end gap-2">
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
-              ws events <span className="ml-1 font-mono">{displaySnapshot?.status?.wsEventsTotal ?? 'n/a'}</span>
+              ws events{' '}
+              <span className="ml-1 font-mono">
+                {displaySnapshot?.status?.wsEventsTotal ?? 'n/a'}
+              </span>
             </span>
             <span className="chip bg-zinc-900/60 text-zinc-200 ring-zinc-800">
               plugins <span className="ml-1 font-mono">{fmtList(pluginIds)}</span>

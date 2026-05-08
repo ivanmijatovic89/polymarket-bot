@@ -7,7 +7,7 @@ import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
   size: z.coerce.number().finite().positive().default(10),
-  buyPrice: z.coerce.number().finite().positive().default(0.20),
+  buyPrice: z.coerce.number().finite().positive().default(0.2),
   sellPrice: z.coerce.number().finite().positive().default(0.22),
 })
 
@@ -16,8 +16,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'scalp.v1',
   title: 'Scalp v1',
-  description:
-    'Scalp strategy: placeholder for new strategies.',
+  description: 'Scalp strategy: placeholder for new strategies.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -54,7 +53,7 @@ function pickTwoAssetIdsFromTick(tick: MarketTick): [string, string] | null {
 }
 
 export function createStrategy(_cfg: Config): {
-  strategy: Strategy,
+  strategy: Strategy
   plugins: Plugin[]
 } {
   const name = 'scalp.v1'

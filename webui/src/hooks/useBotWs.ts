@@ -1,5 +1,12 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import type { BotUiCommand, BotUiSnapshot, WsClientMsg, WsCommandAckMsg, WsServerMsg, WsSnapshotMsg } from '../types'
+import type {
+  BotUiCommand,
+  BotUiSnapshot,
+  WsClientMsg,
+  WsCommandAckMsg,
+  WsServerMsg,
+  WsSnapshotMsg,
+} from '../types'
 
 export type WsStatus = 'connecting' | 'open' | 'closed' | 'error'
 
@@ -36,9 +43,9 @@ export function useBotWs(): {
   const keepLastLines = 5000
   const wsRef = useRef<WebSocket | null>(null)
   const idSeqRef = useRef<number>(0)
-  const pendingRef = useRef<Map<string, { resolve: (v: WsCommandAckMsg) => void; reject: (e: Error) => void; t: number }>>(
-    new Map(),
-  )
+  const pendingRef = useRef<
+    Map<string, { resolve: (v: WsCommandAckMsg) => void; reject: (e: Error) => void; t: number }>
+  >(new Map())
 
   useEffect(() => {
     let stopped = false
@@ -153,5 +160,3 @@ export function useBotWs(): {
     },
   }
 }
-
-

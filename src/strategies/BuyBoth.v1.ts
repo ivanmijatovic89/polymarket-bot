@@ -6,7 +6,6 @@ import { TimeWindowVolatility } from '../strategy/plugins/TimeWindowVolatility.j
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
-
   logEveryMs: z.coerce.number().finite().int().positive().default(1000),
 })
 
@@ -15,14 +14,13 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'buyBoth.v1',
   title: 'BuyBoth v1',
-  description:
-    'Strategy that checks weakBidRatioByLevel at depth 3 and triggers when ratio < 0.3',
+  description: 'Strategy that checks weakBidRatioByLevel at depth 3 and triggers when ratio < 0.3',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
 
 export function createStrategy(_cfg: Config): {
-  strategy: Strategy,
+  strategy: Strategy
   plugins: Plugin[]
 } {
   void _cfg
@@ -87,14 +85,14 @@ export function createStrategy(_cfg: Config): {
           `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio < 0.1, weak side: ${weakSide ?? 'N/A'}`,
         )
       }
-    //   console.log(
-    //     `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio ${depth3RatioIndex2} < 0.1, weak side: ${weakSide ?? 'N/A'}`,
-    //   )
+      //   console.log(
+      //     `[trigger] depth 3 (${depthAtLevel3 !== undefined ? depthAtLevel3 : 'N/A'}) ratio ${depth3RatioIndex2} < 0.1, weak side: ${weakSide ?? 'N/A'}`,
+      //   )
 
-    //   // Check index 3 (depth 3 if starting from 0)
-    //   if (depth3RatioIndex3 !== undefined && depth3RatioIndex3 < 0.2) {
-    //     console.log(['trigger', 'depth 3 ratio < 0.3'])
-    //   }
+      //   // Check index 3 (depth 3 if starting from 0)
+      //   if (depth3RatioIndex3 !== undefined && depth3RatioIndex3 < 0.2) {
+      //     console.log(['trigger', 'depth 3 ratio < 0.3'])
+      //   }
     }
 
     return []
@@ -117,4 +115,3 @@ export function createStrategy(_cfg: Config): {
 
   return { strategy, plugins }
 }
-

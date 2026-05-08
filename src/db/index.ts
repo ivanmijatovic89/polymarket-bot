@@ -3,7 +3,7 @@ import mysql from 'mysql2/promise'
 import { loadDatabaseConfigFromEnv } from './config.js'
 import * as schema from './schema.js'
 
-let dbInstance: ReturnType<typeof drizzle> | null = null
+let dbInstance: ReturnType<typeof drizzle> | undefined
 let poolInstance: ReturnType<typeof mysql.createPool> | null = null
 
 export function getDb(): ReturnType<typeof drizzle> {
@@ -22,7 +22,9 @@ export function getDb(): ReturnType<typeof drizzle> {
     poolConfig.password = config.password
   }
   poolInstance = mysql.createPool(poolConfig)
-  dbInstance = drizzle({ client: poolInstance, schema, mode: 'default' })
+  dbInstance = drizzle({ client: poolInstance, schema, mode: 'default' }) as unknown as ReturnType<
+    typeof drizzle
+  >
 
   return dbInstance
 }
@@ -31,7 +33,7 @@ export async function closeDb() {
   if (poolInstance) {
     await poolInstance.end()
     poolInstance = null
-    dbInstance = null
+    dbInstance = undefined
   }
 }
 

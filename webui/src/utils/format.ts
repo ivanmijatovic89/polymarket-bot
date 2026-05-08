@@ -13,7 +13,10 @@ export function fmtCents(n: number | undefined | null, opts?: FmtCentsOptions): 
   const cents = n * 100
   const fixed = Boolean(opts?.fixed)
   if (!fixed) return `${cents}`
-  const digits = typeof opts?.digits === 'number' && Number.isFinite(opts.digits) ? Math.max(0, Math.floor(opts.digits)) : 2
+  const digits =
+    typeof opts?.digits === 'number' && Number.isFinite(opts.digits)
+      ? Math.max(0, Math.floor(opts.digits))
+      : 2
   return cents.toFixed(digits)
 }
 
@@ -34,7 +37,8 @@ export type FmtPriceOptions = {
  */
 export function fmtPrice(n: number | undefined | null, opts?: FmtPriceOptions): string {
   if (typeof n !== 'number' || !Number.isFinite(n)) return 'n/a'
-  const decimalsRaw = typeof opts?.decimals === 'number' && Number.isFinite(opts.decimals) ? opts.decimals : 2
+  const decimalsRaw =
+    typeof opts?.decimals === 'number' && Number.isFinite(opts.decimals) ? opts.decimals : 2
   const decimals = Math.max(0, Math.floor(decimalsRaw))
   return new Intl.NumberFormat('en-US', {
     minimumFractionDigits: decimals,
@@ -52,5 +56,3 @@ export function clsRedGreen(n: number | undefined | null): string {
   if (n < 0) return 'font-semibold text-red-400'
   return ''
 }
-
-

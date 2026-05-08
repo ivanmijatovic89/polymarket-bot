@@ -27,7 +27,13 @@ function parseCandleRow(row: unknown): DeribitVolatilityCandle | null {
   const low = Number(row[3])
   const close = Number(row[4])
   if (!Number.isFinite(timestamp)) return null
-  if (!Number.isFinite(open) || !Number.isFinite(high) || !Number.isFinite(low) || !Number.isFinite(close)) return null
+  if (
+    !Number.isFinite(open) ||
+    !Number.isFinite(high) ||
+    !Number.isFinite(low) ||
+    !Number.isFinite(close)
+  )
+    return null
   return { timestamp, open, high, low, close }
 }
 

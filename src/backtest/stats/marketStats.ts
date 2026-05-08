@@ -50,7 +50,8 @@ export function computeMarketStats(params: {
   finalOutcome: 'UP' | 'DOWN'
   tokenMap: Record<string, string> // { "UP": assetId, "DOWN": assetId }
 }): MarketStats {
-  const { marketId, slug, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } = params
+  const { marketId, slug, trades, splits, finalPositions, realizedPnl, finalOutcome, tokenMap } =
+    params
 
   // Get asset IDs from tokenMap
   const upAssetId = tokenMap['UP']
@@ -72,7 +73,6 @@ export function computeMarketStats(params: {
   const mergableShares = Math.min(upShares, downShares)
 
   // Track total BUY notional for avg entry; PnL should use remaining cost basis.
-  let totalBuyNotional = 0
   let totalUpBuySize = 0
   let totalUpBuyCost = 0
   let totalDownBuySize = 0
@@ -82,8 +82,6 @@ export function computeMarketStats(params: {
   for (const trade of trades) {
     if (trade.side === 'BUY') {
       const notional = trade.price * trade.size
-      totalBuyNotional += notional
-
       if (trade.assetId === upAssetId) {
         totalUpBuySize += trade.size
         totalUpBuyCost += notional

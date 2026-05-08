@@ -48,4 +48,3 @@ export function buildBacktestCmdInline(argv: string[]): string {
 
   return ['node', ...process.argv.slice(1)].map(quoteInlineArg).join(' ')
 }
-

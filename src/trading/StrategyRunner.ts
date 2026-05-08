@@ -174,7 +174,10 @@ export class StrategyRunner {
     await this.drainAccountEvents()
 
     const portfolio = this.portfolio.snapshot()
-    const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
+    const positionMetrics = computePositionMetricsFromMarket({
+      portfolio,
+      ...(market ? { market } : {}),
+    })
     const orderbookMetrics = computeOrderbookMetricsFromMarket({
       marketBooks: tick.snapshot,
       ...(market ? { market } : {}),
@@ -197,23 +200,38 @@ export class StrategyRunner {
           }
         : undefined
 
-    if (this.skipLateStartAfterMs > 0 && marketKey && this.lateStartBlockedMarketKey === marketKey) {
+    if (
+      this.skipLateStartAfterMs > 0 &&
+      marketKey &&
+      this.lateStartBlockedMarketKey === marketKey
+    ) {
       return
     }
 
-    if (this.skipLateStartAfterMs > 0 && marketKey && this.lateStartCheckedMarketKey !== marketKey) {
-      const nowMs = typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp) ? tick.snapshot.timestamp : null
+    if (
+      this.skipLateStartAfterMs > 0 &&
+      marketKey &&
+      this.lateStartCheckedMarketKey !== marketKey
+    ) {
+      const nowMs =
+        typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp)
+          ? tick.snapshot.timestamp
+          : null
       const startMs = nowMs !== null ? parseGammaMarketStartMs(baseCtx?.market) : null
       const elapsedMs = nowMs !== null && startMs !== null ? nowMs - startMs : null
       if (elapsedMs !== null && elapsedMs > this.skipLateStartAfterMs) {
-        const marketSlug = typeof baseCtx?.market?.slug === 'string' ? baseCtx.market.slug : 'unknown'
+        const marketSlug =
+          typeof baseCtx?.market?.slug === 'string' ? baseCtx.market.slug : 'unknown'
         const marketTimeElapsedSec = Math.floor(elapsedMs / 1000)
         const maxMarketTimeElapsedSec = Math.floor(this.skipLateStartAfterMs / 1000)
-        console.log('[skip-market-if-bot-started-too-late][⛔] bot started too late; skipping market', {
-          marketSlug,
-          marketTimeElapsedSec,
-          maxMarketTimeElapsedSec,
-        })
+        console.log(
+          '[skip-market-if-bot-started-too-late][⛔] bot started too late; skipping market',
+          {
+            marketSlug,
+            marketTimeElapsedSec,
+            maxMarketTimeElapsedSec,
+          },
+        )
         this.lateStartCheckedMarketKey = marketKey
         this.lateStartBlockedMarketKey = marketKey
         return
@@ -224,9 +242,20 @@ export class StrategyRunner {
     this.pluginSet?.onMarketTick(tick, baseCtx)
 
     const waitForTechIndicators = process.env.BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS === '1'
-    if (waitForTechIndicators && this.pluginSet && marketKey && this.waitedTechIndicatorsMarketKey !== marketKey) {
-      const timeoutMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_TECH_IND_TIMEOUT_MS ?? '3000') || 0))
-      const pollMs = Math.max(1, Math.trunc(Number(process.env.BACKTEST_TECH_IND_POLL_MS ?? '10') || 10))
+    if (
+      waitForTechIndicators &&
+      this.pluginSet &&
+      marketKey &&
+      this.waitedTechIndicatorsMarketKey !== marketKey
+    ) {
+      const timeoutMs = Math.max(
+        0,
+        Math.trunc(Number(process.env.BACKTEST_TECH_IND_TIMEOUT_MS ?? '3000') || 0),
+      )
+      const pollMs = Math.max(
+        1,
+        Math.trunc(Number(process.env.BACKTEST_TECH_IND_POLL_MS ?? '10') || 10),
+      )
       const startedAt = Date.now()
 
       let snap = this.pluginSet.refreshSnapshot()
@@ -324,11 +353,15 @@ export class StrategyRunner {
       executionMode: this.intentExecutionMode,
     })
     const nowMs = this.lastMarket?.timestamp || Date.now()
-    const events = await this.orderManager.handleIntents(intents, {
-      nowMs,
-      ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
-    }, { mode: this.intentExecutionMode })
+    const events = await this.orderManager.handleIntents(
+      intents,
+      {
+        nowMs,
+        ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+        portfolio: this.portfolio.snapshot(),
+      },
+      { mode: this.intentExecutionMode },
+    )
     for (const ev of events) this.enqueueAccountEvent(ev)
   }
 
@@ -337,7 +370,12 @@ export class StrategyRunner {
   }
 
   private pushRecentDrainEvent(ev: AccountEvent): void {
-    this.recentDrainEvents.push({ kind: ev.kind, ...(typeof (ev as { tsMs?: unknown }).tsMs === 'number' ? { tsMs: (ev as { tsMs: number }).tsMs } : {}) })
+    this.recentDrainEvents.push({
+      kind: ev.kind,
+      ...(typeof (ev as { tsMs?: unknown }).tsMs === 'number'
+        ? { tsMs: (ev as { tsMs: number }).tsMs }
+        : {}),
+    })
     if (this.recentDrainEvents.length > 10) this.recentDrainEvents.shift()
   }
 
@@ -348,11 +386,14 @@ export class StrategyRunner {
       let processed = 0
       while (this.accountEventQueue.length > 0) {
         if (processed >= this.maxEventsPerDrain) {
-          this.log?.('[runner] maxEventsPerDrain exceeded; halting drain and dropping queued events', {
-            maxEventsPerDrain: this.maxEventsPerDrain,
-            remaining: this.accountEventQueue.length,
-            recent: this.recentDrainEvents.slice(),
-          })
+          this.log?.(
+            '[runner] maxEventsPerDrain exceeded; halting drain and dropping queued events',
+            {
+              maxEventsPerDrain: this.maxEventsPerDrain,
+              remaining: this.accountEventQueue.length,
+              recent: this.recentDrainEvents.slice(),
+            },
+          )
           this.accountEventQueue.length = 0
           return
         }
@@ -394,7 +435,10 @@ export class StrategyRunner {
     const market = this.getMarket?.()
     const balance = this.getBalance?.()
     const warmup = this.getWarmup?.()
-    const positionMetrics = computePositionMetricsFromMarket({ portfolio, ...(market ? { market } : {}) })
+    const positionMetrics = computePositionMetricsFromMarket({
+      portfolio,
+      ...(market ? { market } : {}),
+    })
     const orderbookMetrics = this.lastMarket
       ? computeOrderbookMetricsFromMarket({
           marketBooks: this.lastMarket,
@@ -422,20 +466,19 @@ export class StrategyRunner {
           }
         : undefined
 
-    const nextIntents = await this.strategy.onAccountEvent(
-      ev,
-      portfolio,
-      this.lastMarket,
-      ctx,
-    )
+    const nextIntents = await this.strategy.onAccountEvent(ev, portfolio, this.lastMarket, ctx)
     if (!nextIntents || nextIntents.length === 0) return
 
     const nowMs = this.lastMarket?.timestamp || this.portfolio.snapshot().nowMs || Date.now()
-    const nextEvents = await this.orderManager.handleIntents(nextIntents, {
-      nowMs,
-      ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
-    }, { mode: this.intentExecutionMode })
+    const nextEvents = await this.orderManager.handleIntents(
+      nextIntents,
+      {
+        nowMs,
+        ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+        portfolio: this.portfolio.snapshot(),
+      },
+      { mode: this.intentExecutionMode },
+    )
     for (const e of nextEvents) this.enqueueAccountEvent(e)
   }
 }

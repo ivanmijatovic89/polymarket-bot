@@ -32,7 +32,8 @@ export function createStrategy(cfg: Config): {
 
   const log = (label: string, nowMs: number, ctx?: StrategyContext): void => {
     // remove decimal places and format ( add comma as thousands separator)
-    const feeds = (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
+    const feeds =
+      (ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined) ?? undefined
     const b = feeds?.rtdsPolymarketCryptoPrices?.binance
     const c = feeds?.rtdsPolymarketCryptoPrices?.chainlink
     const bw = feeds?.binanceWsSpotPrice
@@ -108,5 +109,3 @@ export function createStrategy(cfg: Config): {
     ],
   }
 }
-
-

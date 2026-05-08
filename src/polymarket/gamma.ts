@@ -161,7 +161,12 @@ export function mapApiResponseToMarket(
   })()
   const active = typeof raw.active === 'boolean' ? raw.active : false
   const closed = typeof raw.closed === 'boolean' ? raw.closed : false
-  const volume = typeof raw.volume === 'string' ? raw.volume : typeof raw.volume === 'number' ? String(raw.volume) : null
+  const volume =
+    typeof raw.volume === 'string'
+      ? raw.volume
+      : typeof raw.volume === 'number'
+        ? String(raw.volume)
+        : null
 
   return {
     polymarketId,

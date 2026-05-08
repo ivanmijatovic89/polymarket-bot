@@ -93,5 +93,3 @@ export function computeOrderbookMetricsFromMarket(args: {
 
   return computeOrderbookMetrics({ upBook, downBook })
 }
-
-

@@ -8,6 +8,7 @@
     "node": ">=20 <21"
   },
   "scripts": {
+    "prepare": "husky",
     "test": "echo \"Error: no test specified\" && exit 1",
     "record:live": "tsx src/cli/record-live.ts",
     "record:live:btc": "cross-env RECORD_SYMBOL=BTC tsx src/cli/record-live.ts",
@@ -23,10 +24,13 @@
     "list:backtest-files": "tsx src/parquet/cli/list-backtest-files.ts",
     "verify:parquet": "tsx src/parquet/cli/verify-parquet.ts",
     "scan:disconnect-events": "tsx src/parquet/cli/scan-disconnect-events.ts",
-    "lint": "eslint \"src/**/*.{ts,tsx}\"",
-    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
-    "format": "prettier . --write",
-    "format:check": "prettier . --check",
+    "code:typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "code:typecheck:webui": "npm --prefix webui run code:typecheck",
+    "code:typecheck-eslint": "npm run code:typecheck && npm run code:eslint",
+    "code:eslint": "eslint \"src/**/*.{ts,tsx}\"",
+    "code:eslint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
+    "code:prettier:check": "prettier . --check",
+    "code:prettier": "prettier . --write",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -54,6 +58,10 @@
     "eoa:approve": "tsx src/cli/relayer.ts eoa-approve",
     "make:csv": "tsx src/strategies/split/makeCsv.ts"
   },
+  "lint-staged": {
+    "*.{ts,tsx,js,jsx,json,css,html,yml,yaml}": "prettier --write",
+    "src/**/*.{ts,tsx}": "eslint --fix"
+  },
   "keywords": [],
   "author": "",
   "license": "ISC",
@@ -66,6 +74,8 @@
     "drizzle-kit": "^0.31.8",
     "eslint": "^9.39.2",
     "eslint-config-prettier": "^10.1.8",
+    "husky": "^9.1.7",
+    "lint-staged": "^15.5.2",
     "prettier": "^3.7.4",
     "ts-node": "^10.9.2",
     "tsx": "^4.21.0",

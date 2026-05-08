@@ -20,7 +20,11 @@ const suppressWsErrorsPlugin = (): Plugin => {
           // Check if this is a WebSocket proxy error we want to suppress
           if (typeof msg === 'string' && msg.includes('ws proxy')) {
             const error = options?.error as NodeJS.ErrnoException | undefined
-            if (error?.code === 'ECONNREFUSED' || error?.code === 'EPIPE' || error?.code === 'ECONNRESET') {
+            if (
+              error?.code === 'ECONNREFUSED' ||
+              error?.code === 'EPIPE' ||
+              error?.code === 'ECONNRESET'
+            ) {
               return // Silently ignore
             }
           }
@@ -95,4 +99,3 @@ export default defineConfig({
     emptyOutDir: true,
   },
 })
-

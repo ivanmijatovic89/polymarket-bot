@@ -58,11 +58,7 @@ function blockPlace(nowMs: number, intent: PlaceLimitIntent, reason: string): Ac
   return { kind: 'order_rejected', tsMs: nowMs, clientOrderId: intent.clientOrderId, reason }
 }
 
-function blockBatchOrder(
-  nowMs: number,
-  clientOrderId: string,
-  reason: string,
-): AccountEvent {
+function blockBatchOrder(nowMs: number, clientOrderId: string, reason: string): AccountEvent {
   return { kind: 'order_rejected', tsMs: nowMs, clientOrderId, reason }
 }
 

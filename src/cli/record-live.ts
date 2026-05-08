@@ -48,7 +48,7 @@ function asTerminatedParquetPath(filePathFinal: string): string {
 class SkipWindowError extends RetryLaterError {
   readonly waitMs: number
   constructor(message: string, waitMs: number) {
-    super(message)
+    super(message, waitMs)
     this.name = 'SkipWindowError'
     this.waitMs = waitMs
   }
@@ -85,7 +85,9 @@ async function main(): Promise<void> {
   console.log(`[record-live] maxInFlightAppends=${maxInFlightAppends}`)
   console.log(`[record-live] insertDb=${insertDb}`)
   if (TEST_MODE) {
-    console.log(`[record-live] ⚠️  TEST MODE ENABLED: Using ${windowMs / 1000}s window instead of 15 minutes`)
+    console.log(
+      `[record-live] ⚠️  TEST MODE ENABLED: Using ${windowMs / 1000}s window instead of 15 minutes`,
+    )
   }
 
   const recorder = new RotatingParquetEventRecorder({
@@ -201,7 +203,8 @@ async function main(): Promise<void> {
         updateResolvedParts.push(`${slug}:${remainingMin}m${remainingSecRemainder}sec`)
       }
     }
-    const updateResolvedStr = updateResolvedParts.length > 0 ? ` updateResolved=${updateResolvedParts.join('|')}` : ''
+    const updateResolvedStr =
+      updateResolvedParts.length > 0 ? ` updateResolved=${updateResolvedParts.join('|')}` : ''
 
     console.log(
       `[record-live] stats in_flight_appends=${inFlightAppends} total_appends=${totalAppends} append_errors=${appendErrors} candle_left=${candleLeft} disconnects=${disconnects} expected_closes=${expectedCloses} dropped_no_market=${snap.droppedNoMarket} dropped_bad_json=${snap.droppedBadJson} dropped_unknown_type=${snap.droppedUnknownType}${updateResolvedStr}`,
@@ -453,12 +456,16 @@ async function main(): Promise<void> {
     }
   })
 
-
   /**
    * Insert market into database when parquet file is finalized.
    */
-  async function insertMarketOnFileFinalized(args: { filePath: string; fileKey: string }): Promise<void> {
-    console.log(`[record-live] 🔵 onFileFinalized callback STARTED for fileKey: ${args.fileKey}, filePath: ${args.filePath}`)
+  async function insertMarketOnFileFinalized(args: {
+    filePath: string
+    fileKey: string
+  }): Promise<void> {
+    console.log(
+      `[record-live] 🔵 onFileFinalized callback STARTED for fileKey: ${args.fileKey}, filePath: ${args.filePath}`,
+    )
 
     const slug = args.fileKey
     if (!slug) {
@@ -569,7 +576,9 @@ async function main(): Promise<void> {
   function scheduleResolutionUpdate(slug: string, filePath: string): void {
     // Check if already scheduled
     if (scheduledResolutionUpdates.has(slug)) {
-      console.log(`[record-live] ⚠️  Resolution update already scheduled for ${slug}, skipping duplicate`)
+      console.log(
+        `[record-live] ⚠️  Resolution update already scheduled for ${slug}, skipping duplicate`,
+      )
       return
     }
 
@@ -588,7 +597,9 @@ async function main(): Promise<void> {
     // Store timeout ID for potential cleanup (if needed in future)
     const delayMin = Math.floor(delayMs / 60_000)
     const delaySec = Math.floor((delayMs % 60_000) / 1000)
-    console.log(`[record-live] 📅 Scheduled resolution update for ${slug} in ${delayMin}m${delaySec}s (timeoutId: ${timeoutId})`)
+    console.log(
+      `[record-live] 📅 Scheduled resolution update for ${slug} in ${delayMin}m${delaySec}s (timeoutId: ${timeoutId})`,
+    )
   }
 
   const rotateAndReconnect = (): void => {
@@ -613,7 +624,7 @@ async function main(): Promise<void> {
       }
 
       await recorder.closeAll({
-        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
+        ...(insertDb ? { onFileFinalized: insertMarketOnFileFinalized } : {}),
       })
       // Reconnect will re-resolve the current market slug/token ids.
       isRotating = false
@@ -655,7 +666,7 @@ async function main(): Promise<void> {
 
       await recorder.closeAll({
         finalPathTransform: ({ filePathFinal }) => asTerminatedParquetPath(filePathFinal),
-        onFileFinalized: insertDb ? insertMarketOnFileFinalized : undefined,
+        ...(insertDb ? { onFileFinalized: insertMarketOnFileFinalized } : {}),
       })
       process.exit(0)
     })().catch((err) => {

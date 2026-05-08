@@ -333,9 +333,7 @@ async function main(): Promise<void> {
     console.log(
       `  ${colLevel.padStart(widthLevel)} ${colCount.padStart(widthCount)} ${colGe.padStart(widthGe)}`,
     )
-    console.log(
-      `  ${'-'.repeat(widthLevel)} ${'-'.repeat(widthCount)} ${'-'.repeat(widthGe)}`,
-    )
+    console.log(`  ${'-'.repeat(widthLevel)} ${'-'.repeat(widthCount)} ${'-'.repeat(widthGe)}`)
     for (const row of rows) {
       console.log(
         `  ${row.level.padStart(widthLevel)} ${row.count.padStart(widthCount)} ${row.ge.padStart(
@@ -354,36 +352,30 @@ async function main(): Promise<void> {
     if (deleteCount === 0) {
       const deleteReasons: string[] = []
       if (parsed.deleteDisconnectsEqualOrGreater !== null) {
-        deleteReasons.push(
-          `disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`,
-        )
+        deleteReasons.push(`disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`)
       }
       if (parsed.deleteFilesWithLastEventDisconnect) {
         deleteReasons.push('last_event_disconnect=true')
       }
       const reasonText =
         deleteReasons.length === 1
-          ? deleteReasons[0] ?? ''
+          ? (deleteReasons[0] ?? '')
           : deleteReasons.map((r) => `(${r})`).join(' OR ')
-      console.log(
-        `[scan-disconnect-events] no files to delete for criteria: ${reasonText}`,
-      )
+      console.log(`[scan-disconnect-events] no files to delete for criteria: ${reasonText}`)
       return
     }
     const rl = readline.createInterface({ input: process.stdin, output: process.stdout })
     try {
       const deleteReasons: string[] = []
       if (parsed.deleteDisconnectsEqualOrGreater !== null) {
-        deleteReasons.push(
-          `disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`,
-        )
+        deleteReasons.push(`disconnects equal or greater ${parsed.deleteDisconnectsEqualOrGreater}`)
       }
       if (parsed.deleteFilesWithLastEventDisconnect) {
         deleteReasons.push('last_event_disconnect=true')
       }
       const reasonText =
         deleteReasons.length === 1
-          ? deleteReasons[0] ?? ''
+          ? (deleteReasons[0] ?? '')
           : deleteReasons.map((r) => `(${r})`).join(' OR ')
 
       console.log(
@@ -392,9 +384,7 @@ async function main(): Promise<void> {
 
       let choice = ''
       while (choice !== 'show files' && choice !== 'cancel') {
-        choice = (
-          await rl.question('Choose: show files | cancel\n')
-        ).trim().toLowerCase()
+        choice = (await rl.question('Choose: show files | cancel\n')).trim().toLowerCase()
       }
 
       if (choice === 'cancel') return
@@ -422,9 +412,7 @@ async function main(): Promise<void> {
           deleteErrors += 1
         }
       }
-      console.log(
-        `[scan-disconnect-events] delete done: deleted=${deleted} errors=${deleteErrors}`,
-      )
+      console.log(`[scan-disconnect-events] delete done: deleted=${deleted} errors=${deleteErrors}`)
     } finally {
       rl.close()
     }

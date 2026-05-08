@@ -12,14 +12,17 @@ function createTimeWindowGate(cfg: {
   allowAfterMs: number
   disableAfterMs: number
   /** Enable logging with optional interval and change-only mode */
-  log?: boolean | {
-    everyMs?: number
-    /** Only log on state transitions (active <-> inactive) */
-    logChangeOnly?: boolean
-  }
+  log?:
+    | boolean
+    | {
+        everyMs?: number
+        /** Only log on state transitions (active <-> inactive) */
+        logChangeOnly?: boolean
+      }
 }): TimeWindowGate {
   const enableLog = !!cfg.log
-  const logEveryMs = cfg.log === true ? 5000 : typeof cfg.log === 'object' ? (cfg.log.everyMs ?? 5000) : 5000
+  const logEveryMs =
+    cfg.log === true ? 5000 : typeof cfg.log === 'object' ? (cfg.log.everyMs ?? 5000) : 5000
   const logChangeOnly = typeof cfg.log === 'object' ? !!cfg.log.logChangeOnly : false
 
   let lastLogBucket = -1
@@ -48,12 +51,18 @@ function createTimeWindowGate(cfg: {
 
           if (isActive) {
             const endsInSec = disableAfterSec - currentSec
-            console.log(`⏳ 🟢 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ends in ${endsInSec} sec`)
+            console.log(
+              `⏳ 🟢 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ends in ${endsInSec} sec`,
+            )
           } else if (elapsed < cfg.allowAfterMs) {
             const startsInSec = allowAfterSec - currentSec
-            console.log(`⌛️ 🔴 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | starts in ${startsInSec} sec`)
+            console.log(
+              `⌛️ 🔴 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | starts in ${startsInSec} sec`,
+            )
           } else {
-            console.log(`⌛️ 🔴 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ended`)
+            console.log(
+              `⌛️ 🔴 ${currentSec}/${disableAfterSec} | ${allowAfterSec}-${disableAfterSec} | ended`,
+            )
           }
         }
         lastWasActive = isActive
@@ -119,7 +128,10 @@ export class TimeWindowGatePlugin implements Plugin {
   }
 
   onMarketTick(tick: MarketTick, ctx?: StrategyContext): void {
-    const nowMs = typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp) ? tick.snapshot.timestamp : null
+    const nowMs =
+      typeof tick.snapshot.timestamp === 'number' && Number.isFinite(tick.snapshot.timestamp)
+        ? tick.snapshot.timestamp
+        : null
     const startMs = parseGammaMarketStartMs(ctx?.market)
     const elapsedMs = nowMs !== null && startMs !== null ? nowMs - startMs : null
     const withinWindow = nowMs !== null ? this.gate.check({ nowMs, market: ctx?.market }) : false

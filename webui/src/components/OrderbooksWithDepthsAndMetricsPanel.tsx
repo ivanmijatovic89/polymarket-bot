@@ -141,7 +141,8 @@ function MergedCompareTable(props: {
 
   if (rowsTotal === 0) return <div className="text-[14px] text-zinc-400">no data</div>
 
-  const thGroup = 'sticky top-0 z-20 bg-zinc-900/80 px-2 py-1 text-[12px] font-semibold text-zinc-300'
+  const thGroup =
+    'sticky top-0 z-20 bg-zinc-900/80 px-2 py-1 text-[12px] font-semibold text-zinc-300'
   const thBase = 'sticky top-[28px] z-10 bg-zinc-900/60 px-2 py-1.5 text-zinc-400'
   const tdBase = 'px-2 py-1.5 whitespace-nowrap'
 
@@ -206,25 +207,42 @@ function MergedCompareTable(props: {
                     rowSpan={askRows}
                     className="px-1 py-2 text-[12px] font-semibold text-zinc-300 bg-zinc-900/10 border-r border-zinc-800/60 align-middle"
                   >
-                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>ASK - UP &amp; DOWN</div>
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                      ASK - UP &amp; DOWN
+                    </div>
                   </td>
                 ) : null}
                 <td className={`${tdBase} tabular-nums`}>{idx + 1}</td>
-                <td className={`${tdBase} text-right tabular-nums`}>{up ? fmtSize(up.size) : '—'}</td>
-                <td className={`${tdBase} tabular-nums ${pxClass}`}>{up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}</td>
-                <td className={`${tdBase} text-right tabular-nums text-emerald-300`}>{fmtDepth(props.upAsksDepth[idx])}</td>
+                <td className={`${tdBase} text-right tabular-nums`}>
+                  {up ? fmtSize(up.size) : '—'}
+                </td>
+                <td className={`${tdBase} tabular-nums ${pxClass}`}>
+                  {up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}
+                </td>
+                <td className={`${tdBase} text-right tabular-nums text-emerald-300`}>
+                  {fmtDepth(props.upAsksDepth[idx])}
+                </td>
                 <td className={tdBase}>
                   <WeakBadge weak={props.weakAskSideByLevel[idx]} />
                 </td>
-                <td className={`${tdBase} tabular-nums`}>{fmtRatio(props.weakAskRatioByLevel[idx])}</td>
-                <td className={`${tdBase} border-r border-zinc-800/60`}>
-                  <RatioBar weak={props.weakAskSideByLevel[idx]} ratio={props.weakAskRatioByLevel[idx]} />
+                <td className={`${tdBase} tabular-nums`}>
+                  {fmtRatio(props.weakAskRatioByLevel[idx])}
                 </td>
-                <td className={`${tdBase} text-right tabular-nums text-red-300`}>{fmtDepth(props.downAsksDepth[idx])}</td>
+                <td className={`${tdBase} border-r border-zinc-800/60`}>
+                  <RatioBar
+                    weak={props.weakAskSideByLevel[idx]}
+                    ratio={props.weakAskRatioByLevel[idx]}
+                  />
+                </td>
+                <td className={`${tdBase} text-right tabular-nums text-red-300`}>
+                  {fmtDepth(props.downAsksDepth[idx])}
+                </td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>
                   {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
                 </td>
-                <td className={`${tdBase} text-right tabular-nums`}>{down ? fmtSize(down.size) : '—'}</td>
+                <td className={`${tdBase} text-right tabular-nums`}>
+                  {down ? fmtSize(down.size) : '—'}
+                </td>
               </tr>
             )
           })}
@@ -271,25 +289,42 @@ function MergedCompareTable(props: {
                     rowSpan={bidRows}
                     className="px-1 py-2 text-[12px] font-semibold text-zinc-300 bg-zinc-900/10 border-r border-zinc-800/60 align-middle"
                   >
-                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>BID - UP &amp; DOWN</div>
+                    <div style={{ writingMode: 'vertical-rl', transform: 'rotate(180deg)' }}>
+                      BID - UP &amp; DOWN
+                    </div>
                   </td>
                 ) : null}
                 <td className={`${tdBase} tabular-nums`}>{idx + 1}</td>
-                <td className={`${tdBase} text-right tabular-nums`}>{up ? fmtSize(up.size) : '—'}</td>
-                <td className={`${tdBase} tabular-nums ${pxClass}`}>{up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}</td>
-                <td className={`${tdBase} text-right tabular-nums text-emerald-300`}>{fmtDepth(props.upBidsDepth[idx])}</td>
+                <td className={`${tdBase} text-right tabular-nums`}>
+                  {up ? fmtSize(up.size) : '—'}
+                </td>
+                <td className={`${tdBase} tabular-nums ${pxClass}`}>
+                  {up ? fmtCents(up.price, { fixed: true, digits: 2 }) : '—'}
+                </td>
+                <td className={`${tdBase} text-right tabular-nums text-emerald-300`}>
+                  {fmtDepth(props.upBidsDepth[idx])}
+                </td>
                 <td className={tdBase}>
                   <WeakBadge weak={props.weakBidSideByLevel[idx]} />
                 </td>
-                <td className={`${tdBase} tabular-nums`}>{fmtRatio(props.weakBidRatioByLevel[idx])}</td>
-                <td className={`${tdBase} border-r border-zinc-800/60`}>
-                  <RatioBar weak={props.weakBidSideByLevel[idx]} ratio={props.weakBidRatioByLevel[idx]} />
+                <td className={`${tdBase} tabular-nums`}>
+                  {fmtRatio(props.weakBidRatioByLevel[idx])}
                 </td>
-                <td className={`${tdBase} text-right tabular-nums text-red-300`}>{fmtDepth(props.downBidsDepth[idx])}</td>
+                <td className={`${tdBase} border-r border-zinc-800/60`}>
+                  <RatioBar
+                    weak={props.weakBidSideByLevel[idx]}
+                    ratio={props.weakBidRatioByLevel[idx]}
+                  />
+                </td>
+                <td className={`${tdBase} text-right tabular-nums text-red-300`}>
+                  {fmtDepth(props.downBidsDepth[idx])}
+                </td>
                 <td className={`${tdBase} tabular-nums ${pxClass}`}>
                   {down ? fmtCents(down.price, { fixed: true, digits: 2 }) : '—'}
                 </td>
-                <td className={`${tdBase} text-right tabular-nums`}>{down ? fmtSize(down.size) : '—'}</td>
+                <td className={`${tdBase} text-right tabular-nums`}>
+                  {down ? fmtSize(down.size) : '—'}
+                </td>
               </tr>
             )
           })}
@@ -330,7 +365,9 @@ export function OrderbooksWithDepthsAndMetricsPanel(props: {
   return (
     <div className="panel p-2.5 min-w-0">
       <div className="mb-2 flex items-center justify-between gap-2">
-        <div className="text-[18px] font-semibold text-zinc-200">orderbooks + depths + metrics (compare)</div>
+        <div className="text-[18px] font-semibold text-zinc-200">
+          orderbooks + depths + metrics (compare)
+        </div>
         <div className="text-[12px] font-mono text-zinc-500">
           {askLevels > 0 || bidLevels > 0 ? `asks ${askLevels} | bids ${bidLevels}` : 'n/a'}
         </div>
@@ -357,5 +394,3 @@ export function OrderbooksWithDepthsAndMetricsPanel(props: {
     </div>
   )
 }
-
-

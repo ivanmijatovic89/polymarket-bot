@@ -1,16 +1,14 @@
 {
-    "before": "npm run backtest -- --strategy SplitSellRedeem.v6",
-    "after": "--symbol btc --limit 1350 --latest --comment 'tick price offset'  --batchUid '2' --baselineId '1'",
-    "params": {
-      "splitShares": [10],
-      "sellSize": [10],
-      "timeFilterAllowTradingAfterSeconds": [240],
-      "timeFilterDisableTradingAfterSeconds": [600],
-      "dwellTrackPrice": ["bid"],
-      "dwellSecondsRequired": [40],
-      "dwallRanges": [
-        [0.20, 0.35]
-      ],
-      "tickPriceOffset": [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03, 0.04]
-    }
+  "before": "npm run backtest -- --strategy SplitSellRedeem.v6",
+  "after": "--symbol btc --limit 1350 --latest --comment 'tick price offset'  --batchUid '2' --baselineId '1'",
+  "params": {
+    "splitShares": [10],
+    "sellSize": [10],
+    "timeFilterAllowTradingAfterSeconds": [240],
+    "timeFilterDisableTradingAfterSeconds": [600],
+    "dwellTrackPrice": ["bid"],
+    "dwellSecondsRequired": [40],
+    "dwallRanges": [[0.2, 0.35]],
+    "tickPriceOffset": [-0.03, -0.02, -0.01, 0, 0.01, 0.02, 0.03, 0.04]
+  }
 }

@@ -1,0 +1,63 @@
+name: Quality Checks
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+concurrency:
+  group: quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  root-quality:
+    name: Root (Prettier + Typecheck + ESLint)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Prettier check
+        run: npm run code:prettier:check
+
+      - name: Typecheck + ESLint
+        run: npm run code:typecheck-eslint
+
+  webui-quality:
+    name: WebUI (Typecheck + Build)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: webui/package-lock.json
+
+      - name: Install WebUI dependencies
+        run: npm ci
+        working-directory: webui
+
+      - name: WebUI typecheck
+        run: npm run code:typecheck
+        working-directory: webui
+
+      - name: WebUI build
+        run: npm run build
+        working-directory: webui

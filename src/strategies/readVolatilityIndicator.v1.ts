@@ -60,14 +60,19 @@ export function createStrategy(cfg: Config): {
     return Number((v * 100).toFixed(4))
   }
 
-  const onMarketTick = (tick: MarketTick, _portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    _portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     void _portfolio
 
     const nowMs = tick.snapshot.timestamp || Date.now()
     if (nowMs - lastLogAtMs < cfg.logEveryMs) return []
     lastLogAtMs = nowMs
 
-    const vol = (ctx?.plugins?.['timeWindowVolatility'] as VolatilitySnapshot | undefined) ?? undefined
+    const vol =
+      (ctx?.plugins?.['timeWindowVolatility'] as VolatilitySnapshot | undefined) ?? undefined
 
     // Render a readable table in terminal (updates in-place when TTY).
     if (process.stdout.isTTY) {
@@ -126,5 +131,3 @@ export function createStrategy(cfg: Config): {
     plugins,
   }
 }
-
-

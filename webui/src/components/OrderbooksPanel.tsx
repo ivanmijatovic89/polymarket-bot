@@ -17,7 +17,8 @@ function SideTable(props: { rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid' }) 
     // IMPORTANT: `book.asks` is already sorted ASC with best ask first.
     // We must slice FIRST (take best levels) and only then reverse for display (best ask at bottom).
     const baseRaw: Array<BotUiOrderBookLevel | null> = rows.slice(0, LEVEL_ROWS)
-    const base: Array<BotUiOrderBookLevel | null> = side === 'ask' ? baseRaw.slice().reverse() : baseRaw
+    const base: Array<BotUiOrderBookLevel | null> =
+      side === 'ask' ? baseRaw.slice().reverse() : baseRaw
     while (base.length < LEVEL_ROWS) {
       if (side === 'ask') base.unshift(null)
       else base.push(null)
@@ -30,7 +31,11 @@ function SideTable(props: { rows: BotUiOrderBookLevel[]; side: 'ask' | 'bid' }) 
         {padded.map((r, idx) => (
           <div key={idx} className="grid grid-cols-2 gap-2 px-2 py-0.5">
             <div className={side === 'ask' ? 'text-red-300' : 'text-emerald-300'}>
-              {r ? fmtCents(r.price, { fixed: true, digits: 2 }) : <span className="text-zinc-600">—</span>}
+              {r ? (
+                fmtCents(r.price, { fixed: true, digits: 2 })
+              ) : (
+                <span className="text-zinc-600">—</span>
+              )}
             </div>
             <div className="text-right text-zinc-200">
               {r ? fmtSize(r.size) : <span className="text-zinc-600">—</span>}
@@ -77,7 +82,9 @@ function OneBook(props: { label: 'UP' | 'DOWN'; book?: BotUiOrderBook }) {
 
           <div className="rounded-md bg-zinc-900/40 px-2 py-1.5 ring-1 ring-zinc-800">
             <div className="flex items-center justify-between gap-2 text-[18px]">
-              <div className="font-mono text-zinc-200">{fmtCents(spread, { fixed: true, digits: 2 })}</div>
+              <div className="font-mono text-zinc-200">
+                {fmtCents(spread, { fixed: true, digits: 2 })}
+              </div>
               <div className="text-zinc-400">spread</div>
             </div>
           </div>
@@ -105,5 +112,3 @@ export function OrderbooksPanel(props: { up?: BotUiOrderBook; down?: BotUiOrderB
     </div>
   )
 }
-
-

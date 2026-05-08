@@ -41,8 +41,14 @@ export type ExecutionAdapter = {
     ctx: OrderManagerContext,
   ) => Promise<ExecutionCancelResult>
   cancelAll: (intent: CancelAllIntent, ctx: OrderManagerContext) => Promise<ExecutionCancelResult>
-  mergePositions: (intent: MergePositionsIntent, ctx: OrderManagerContext) => Promise<ExecutionMergeResult>
-  splitPositions: (intent: SplitPositionsIntent, ctx: OrderManagerContext) => Promise<{ events: AccountEvent[] }>
+  mergePositions: (
+    intent: MergePositionsIntent,
+    ctx: OrderManagerContext,
+  ) => Promise<ExecutionMergeResult>
+  splitPositions: (
+    intent: SplitPositionsIntent,
+    ctx: OrderManagerContext,
+  ) => Promise<{ events: AccountEvent[] }>
   /**
    * Optional: backtest execution can simulate resting order fills on each market tick.
    * Live execution typically does nothing here (fills come via user WS/polling).
@@ -382,7 +388,8 @@ export class OrderManager {
     }
 
     // Validate all orders first and create order_submitted events
-    const validOrders: Array<{ order: PlaceBatchIntent['orders'][number]; submitted: OpenOrder }> = []
+    const validOrders: Array<{ order: PlaceBatchIntent['orders'][number]; submitted: OpenOrder }> =
+      []
 
     for (const order of intent.orders) {
       // Dedupe by clientOrderId

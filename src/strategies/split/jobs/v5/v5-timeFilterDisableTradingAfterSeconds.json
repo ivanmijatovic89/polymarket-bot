@@ -1,15 +1,13 @@
 {
-    "before": "npm run backtest -- --strategy SplitSellRedeem.v3",
-    "after": "--symbol btc --limit 1050",
-    "params": {
-      "splitShares": [10],
-      "sellSize": [10],
-      "timeFilterAllowTradingAfterSeconds": [240],
-      "timeFilterDisableTradingAfterSeconds": [660, 720, 840, 900],
-      "dwellTrackPrice": ["bid"],
-      "dwellSecondsRequired": [40],
-      "dwallRanges": [
-        [0.20, 0.35]
-      ]
-    }
+  "before": "npm run backtest -- --strategy SplitSellRedeem.v3",
+  "after": "--symbol btc --limit 1050",
+  "params": {
+    "splitShares": [10],
+    "sellSize": [10],
+    "timeFilterAllowTradingAfterSeconds": [240],
+    "timeFilterDisableTradingAfterSeconds": [660, 720, 840, 900],
+    "dwellTrackPrice": ["bid"],
+    "dwellSecondsRequired": [40],
+    "dwallRanges": [[0.2, 0.35]]
+  }
 }

@@ -14,7 +14,11 @@ export type RtdsCryptoPricesClientOptions = {
   chainlinkSymbols: string[]
   onBinanceUpdate: (u: { symbol: string; tsMs: number; value: number }) => void
   onChainlinkUpdate: (u: { symbol: string; tsMs: number; value: number }) => void
-  onStatus?: (s: { kind: 'connected' | 'reconnecting' | 'disconnected'; attempt: number; info?: string }) => void
+  onStatus?: (s: {
+    kind: 'connected' | 'reconnecting' | 'disconnected'
+    attempt: number
+    info?: string
+  }) => void
 }
 
 export type RtdsCryptoPricesClient = {
@@ -39,7 +43,9 @@ function asFiniteNumber(x: unknown): number | null {
   return null
 }
 
-function parseUpdatePayload(p: unknown): { symbol: string; timestamp: number; value: number } | null {
+function parseUpdatePayload(
+  p: unknown,
+): { symbol: string; timestamp: number; value: number } | null {
   if (!p || typeof p !== 'object') return null
   const obj = p as { symbol?: unknown; timestamp?: unknown; value?: unknown }
   if (typeof obj.symbol !== 'string' || obj.symbol.length === 0) return null
@@ -49,7 +55,9 @@ function parseUpdatePayload(p: unknown): { symbol: string; timestamp: number; va
   return { symbol: obj.symbol, timestamp: ts, value: v }
 }
 
-export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions): RtdsCryptoPricesClient {
+export function createRtdsCryptoPricesClient(
+  opts: RtdsCryptoPricesClientOptions,
+): RtdsCryptoPricesClient {
   const url = opts.url ?? 'wss://ws-live-data.polymarket.com'
 
   const allowedBinance = new Set(opts.binanceSymbols.map((s) => s.toLowerCase()))
@@ -194,5 +202,3 @@ export function createRtdsCryptoPricesClient(opts: RtdsCryptoPricesClientOptions
     },
   }
 }
-
-

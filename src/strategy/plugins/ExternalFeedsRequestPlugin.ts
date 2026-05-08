@@ -48,4 +48,3 @@ export class ExternalFeedsRequestPlugin implements Plugin {
     return this.getSnapshot()
   }
 }
-

@@ -4,9 +4,11 @@ import type { StrategyContext } from '../../strategy/StrategyContext.js'
 import type { Plugin } from '../../strategy/plugins/PluginSet.js'
 import { TimeWindowGatePlugin } from '../../strategy/plugins/TimeWindowGatePlugin.js'
 import { DwellGatePlugin } from '../../strategy/plugins/DwellGatePlugin.js'
-import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { TechnicalIndicatorsPlugin } from '../../strategy/plugins/TechnicalIndicatorsPlugin.js'
-import { TimeWindowVolatility, type VolatilitySnapshot } from '../../strategy/plugins/TimeWindowVolatility.js'
+import {
+  TimeWindowVolatility,
+  type VolatilitySnapshot,
+} from '../../strategy/plugins/TimeWindowVolatility.js'
 import { safeProbabilityPrice } from '../../strategy/strategyToolkit.js'
 import * as z from 'zod'
 
@@ -14,13 +16,13 @@ export const ConfigSchema = z.strictObject({
   splitShares: z.coerce.number().finite().positive().default(10),
   sellSize: z.coerce.number().finite().positive().default(10),
 
-  dwellRangeFrom: z.coerce.number().finite().default(0.20),
+  dwellRangeFrom: z.coerce.number().finite().default(0.2),
   dwellRangeTo: z.coerce.number().finite().default(0.35),
   dwellSecondsRequired: z.coerce.number().finite().nonnegative().default(40),
   dwellTrackPrice: z.enum(['bid', 'ask']).default('bid'),
 
   netChangeMin: z.coerce.number().finite().default(-0.24),
-  netChangeMax: z.coerce.number().finite().default(0.10),
+  netChangeMax: z.coerce.number().finite().default(0.1),
   wickRatioMin: z.coerce.number().finite().default(0.30027767043409165),
 
   timeFilterAllowTradingAfterSeconds: z.coerce.number().finite().nonnegative().default(240),
@@ -85,14 +87,20 @@ export function createStrategy(cfg: Config): {
     timeWindowVolatilityPlugin,
   ]
 
-  const onMarketTick = (tick: MarketTick, portfolio: PortfolioSnapshot, ctx?: StrategyContext): Intent[] => {
+  const onMarketTick = (
+    tick: MarketTick,
+    portfolio: PortfolioSnapshot,
+    ctx?: StrategyContext,
+  ): Intent[] => {
     const nowMs = tick.snapshot.timestamp
     if (typeof nowMs !== 'number' || !Number.isFinite(nowMs)) {
       console.log(`[${name}][⚠️] early return: invalid nowMs`, { nowMs })
       return []
     }
 
-    const m = ctx as { market?: { upAssetId?: string | null; downAssetId?: string | null } } | undefined
+    const m = ctx as
+      | { market?: { upAssetId?: string | null; downAssetId?: string | null } }
+      | undefined
     const upAssetId = m?.market?.upAssetId ?? null
     const downAssetId = m?.market?.downAssetId ?? null
     if (!upAssetId || !downAssetId) {
@@ -161,8 +169,12 @@ export function createStrategy(cfg: Config): {
       ]
     }
 
-    const withinWindow = (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow === true
-    const dwellSnap = (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ?? undefined
+    const withinWindow =
+      (ctx?.plugins?.['timeWindowGate'] as { withinWindow?: unknown } | undefined)?.withinWindow ===
+      true
+    const dwellSnap =
+      (ctx?.plugins?.['dwellGate'] as { dwellUpOk?: unknown; dwellDownOk?: unknown } | undefined) ??
+      undefined
     const dwellUpOk = dwellSnap?.dwellUpOk === true
     const dwellDownOk = dwellSnap?.dwellDownOk === true
 
@@ -180,7 +192,8 @@ export function createStrategy(cfg: Config): {
     let side: 'UP' | 'DOWN' | null = null
     if (upCanSell && !downCanSell) side = 'UP'
     else if (!upCanSell && downCanSell) side = 'DOWN'
-    else if (upCanSell && downCanSell) side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
+    else if (upCanSell && downCanSell)
+      side = (upBid as number) <= (downBid as number) ? 'UP' : 'DOWN'
 
     if (!side) return []
 
@@ -192,7 +205,7 @@ export function createStrategy(cfg: Config): {
     const technicalIndicatorsSnap = technicalIndicatorsPlugin.snapshot()
     const wickRatio = technicalIndicatorsSnap?.tf15m?.wickRatio ?? null
 
-    if(wickRatio === null) return []
+    if (wickRatio === null) return []
     // ta_tf15m_wickRatio <= 0.30027767043409165
     if (wickRatio < cfg.wickRatioMin) return []
 
@@ -201,7 +214,7 @@ export function createStrategy(cfg: Config): {
     const volByAsset = volSnap?.byAssetId?.[assetId]
     const netChange = volByAsset?.['60s']?.netChange ?? null
 
-    if(netChange === null) return []
+    if (netChange === null) return []
     // (netChange_60s <= -0.24) | (netChange_60s >= 0.10) | (netChange_60s == 0.00)
     if (netChange < cfg.netChangeMin || netChange > cfg.netChangeMax) return []
 

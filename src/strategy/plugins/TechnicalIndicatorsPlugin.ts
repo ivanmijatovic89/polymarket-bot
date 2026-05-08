@@ -49,7 +49,13 @@ const PERIOD_15M = {
   rv: 20,
 }
 
-const MAX_PERIOD_1H = Math.max(PERIOD_1H.bb, PERIOD_1H.atr, PERIOD_1H.adx, PERIOD_1H.rvFast, PERIOD_1H.rvSlow)
+const MAX_PERIOD_1H = Math.max(
+  PERIOD_1H.bb,
+  PERIOD_1H.atr,
+  PERIOD_1H.adx,
+  PERIOD_1H.rvFast,
+  PERIOD_1H.rvSlow,
+)
 const MAX_PERIOD_15M = Math.max(PERIOD_15M.atr, PERIOD_15M.rv)
 
 const LOOKBACK_MULT = 2
@@ -102,11 +108,10 @@ function computeIndicators1h(candles: BinanceCandle[]) {
   const bbLast = last(bbArr)
 
   const atr14Pct =
-    atr14 != null && lastClose != null && Number.isFinite(lastClose) && lastClose > 0 ? atr14 / lastClose : null
-  const bbWidth =
-    bbLast && bbLast.middle
-      ? (bbLast.upper - bbLast.lower) / bbLast.middle
+    atr14 != null && lastClose != null && Number.isFinite(lastClose) && lastClose > 0
+      ? atr14 / lastClose
       : null
+  const bbWidth = bbLast && bbLast.middle ? (bbLast.upper - bbLast.lower) / bbLast.middle : null
   const lastCandle = last(candles)
   const hlRangePct =
     lastCandle && lastCandle.low > 0 ? (lastCandle.high - lastCandle.low) / lastCandle.low : null
@@ -135,7 +140,9 @@ function computeIndicators15m(candles: BinanceCandle[]) {
   const lastClose = last(closes)
   const atr14 = last(atrArr) ?? null
   const atr14Pct =
-    atr14 != null && lastClose != null && Number.isFinite(lastClose) && lastClose > 0 ? atr14 / lastClose : null
+    atr14 != null && lastClose != null && Number.isFinite(lastClose) && lastClose > 0
+      ? atr14 / lastClose
+      : null
 
   const rv20 = realizedVolFromCloses(closes, PERIOD_15M.rv)
 
@@ -196,7 +203,10 @@ export class TechnicalIndicatorsPlugin implements Plugin {
     return this.cached
   }
 
-  private finalizeSnapshot(args: { marketKey: string; snapshot: TechnicalIndicatorsSnapshot | undefined }): void {
+  private finalizeSnapshot(args: {
+    marketKey: string
+    snapshot: TechnicalIndicatorsSnapshot | undefined
+  }): void {
     if (this.lastMarketKey !== args.marketKey) return
     this.cached = args.snapshot
     this.lastComputedKey = args.marketKey
@@ -223,8 +233,18 @@ export class TechnicalIndicatorsPlugin implements Plugin {
 
     try {
       const [raw1h, raw15m] = await Promise.all([
-        fetchBinanceKlines({ symbol: BINANCE_SYMBOL, interval: '1h', endTimeMs: asOfMs, limit: LIMIT_1H }),
-        fetchBinanceKlines({ symbol: BINANCE_SYMBOL, interval: '15m', endTimeMs: asOfMs, limit: LIMIT_15M }),
+        fetchBinanceKlines({
+          symbol: BINANCE_SYMBOL,
+          interval: '1h',
+          endTimeMs: asOfMs,
+          limit: LIMIT_1H,
+        }),
+        fetchBinanceKlines({
+          symbol: BINANCE_SYMBOL,
+          interval: '15m',
+          endTimeMs: asOfMs,
+          limit: LIMIT_15M,
+        }),
       ])
 
       const candles1hAll = raw1h.filter((c) => c.closeTime <= asOfMs)
@@ -280,7 +300,8 @@ export class TechnicalIndicatorsPlugin implements Plugin {
       this.finalizeSnapshot({ marketKey: args.marketKey, snapshot })
 
       const marketLabel = args.slug ?? args.marketId ?? args.marketKey
-      const fmt = (v: number | null): string => (typeof v === 'number' && Number.isFinite(v) ? v.toFixed(6) : 'null')
+      const fmt = (v: number | null): string =>
+        typeof v === 'number' && Number.isFinite(v) ? v.toFixed(6) : 'null'
       const warn = ''
       console.log(
         `[technicalIndicators] market=${marketLabel} tf1h.wickRatio=${fmt(tf1h.wickRatio)} tf15m.wickRatio=${fmt(tf15m.wickRatio)} tf15m.hlRangePct=${fmt(tf15m.hlRangePct)} tf1h.adx14=${fmt(tf1h.adx14)}${warn}`,

@@ -62,7 +62,11 @@ export class LiveExecution implements ExecutionAdapter {
   private readonly client: ClobClient
   private readonly config: PolymarketConfig
   private readonly warmedTokenIds = new Set<string>()
-  private readonly onSplitSuccess?: (info: { conditionId: string; txHash: string; splitShares: number }) => void
+  private readonly onSplitSuccess?: (info: {
+    conditionId: string
+    txHash: string
+    splitShares: number
+  }) => void
 
   constructor(opts: LiveExecutionOptions = {}) {
     // Keep a local copy of config for non-CLOB operations (e.g. on-chain merge via privateKey).
@@ -75,7 +79,9 @@ export class LiveExecution implements ExecutionAdapter {
       ...(overrides?.chainId ? { clob: { ...baseCfg.clob, chainId: overrides.chainId } } : {}),
     }
     this.config = cfg
-    this.onSplitSuccess = opts.onSplitSuccess
+    if (opts.onSplitSuccess) {
+      this.onSplitSuccess = opts.onSplitSuccess
+    }
 
     // If no config or overrides provided, createClobClient will auto-load from env vars
     if (opts.config !== undefined || opts.overrides !== undefined) {
@@ -195,7 +201,8 @@ export class LiveExecution implements ExecutionAdapter {
 
           // Check for HTTP error
           if (orderResult && typeof orderResult === 'object' && 'error' in orderResult) {
-            const errorMsg = typeof orderResult.error === 'string' ? orderResult.error : 'order_rejected'
+            const errorMsg =
+              typeof orderResult.error === 'string' ? orderResult.error : 'order_rejected'
             events.push({
               kind: 'order_rejected',
               tsMs: nowMs,
@@ -302,12 +309,12 @@ export class LiveExecution implements ExecutionAdapter {
 
       const resp = await this.client.postOrder(signed, toPolyOrderType(intent.orderType))
       // Resp shape varies; docs show {success, orderId, orderHashes, errorMsg}.
-      console.log('[live-execution][⚡️] API response ',  resp )
+      console.log('[live-execution][⚡️] API response ', resp)
 
       // Check for HTTP error first (from errorHandling in http-helpers)
       if (resp && typeof resp === 'object' && 'error' in resp) {
         const errorMsg = typeof resp.error === 'string' ? resp.error : 'order_rejected'
-        console.log('[live-execution][⛔️] errorMsg (HTTP error) ',  errorMsg )
+        console.log('[live-execution][⛔️] errorMsg (HTTP error) ', errorMsg)
         return {
           events: [
             {
@@ -324,7 +331,7 @@ export class LiveExecution implements ExecutionAdapter {
       const ok = (resp as { success?: unknown }).success
       if (ok === false) {
         const msg = (resp as { errorMsg?: unknown }).errorMsg
-        console.log('[live-execution][⛔️] errorMsg (API error) ',  msg )
+        console.log('[live-execution][⛔️] errorMsg (API error) ', msg)
         return {
           events: [
             {
@@ -360,7 +367,7 @@ export class LiveExecution implements ExecutionAdapter {
         ],
       }
     } catch (err) {
-      console.log('[live-execution][⛔️] error 1234',  err )
+      console.log('[live-execution][⛔️] error 1234', err)
       return {
         events: [
           {
@@ -428,7 +435,8 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const requested =
+      typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     const conditionId = ctx.lastMarket?.market
     const privateKey = this.config.privateKey
     const chainId = this.config.clob?.chainId ?? 137
@@ -545,11 +553,14 @@ export class LiveExecution implements ExecutionAdapter {
         }
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err))
-        console.warn(`[live-execution][split] ⚠️ Attempt ${attempt}/${maxRetries} failed:`, lastError.message)
+        console.warn(
+          `[live-execution][split] ⚠️ Attempt ${attempt}/${maxRetries} failed:`,
+          lastError.message,
+        )
 
         if (attempt < maxRetries) {
           console.log(`[live-execution][split] Waiting ${retryDelayMs}ms before retry...`)
-          await new Promise(resolve => setTimeout(resolve, retryDelayMs))
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
         }
       }
     }
@@ -574,7 +585,8 @@ export class LiveExecution implements ExecutionAdapter {
     ctx: OrderManagerContext,
   ): Promise<{ events: AccountEvent[] }> {
     const nowMs = ctx.nowMs
-    const requested = typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
+    const requested =
+      typeof intent.size === 'number' && Number.isFinite(intent.size) ? intent.size : 0
     const conditionId = ctx.lastMarket?.market
     const privateKey = this.config.privateKey
     const chainId = this.config.clob?.chainId ?? 137
@@ -665,11 +677,14 @@ export class LiveExecution implements ExecutionAdapter {
         }
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err))
-        console.warn(`[live-execution][merge] ⚠️ Attempt ${attempt}/${maxRetries} failed:`, lastError.message)
+        console.warn(
+          `[live-execution][merge] ⚠️ Attempt ${attempt}/${maxRetries} failed:`,
+          lastError.message,
+        )
 
         if (attempt < maxRetries) {
           console.log(`[live-execution][merge] Waiting ${retryDelayMs}ms before retry...`)
-          await new Promise(resolve => setTimeout(resolve, retryDelayMs))
+          await new Promise((resolve) => setTimeout(resolve, retryDelayMs))
         }
       }
     }

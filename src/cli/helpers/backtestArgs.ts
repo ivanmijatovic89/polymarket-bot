@@ -64,7 +64,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         if (typeof raw !== 'string') {
           throw new Error('[backtest] missing value for --slug')
         }
-        const parts = raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+        const parts = raw
+          .split(',')
+          .map((s) => s.trim())
+          .filter((s) => s.length > 0)
         if (parts.length === 0) {
           throw new Error('[backtest] --slug must be a non-empty string')
         }
@@ -118,7 +121,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
         batchUid = argv[i + 1]
         i += 1
         break
-      
+
       case '--baselineId':
         if (typeof argv[i + 1] !== 'string') {
           throw new Error('[backtest] missing value for --baselineId')
@@ -147,7 +150,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         }
         if (arg.startsWith('--slug=')) {
           const raw = arg.slice('--slug='.length)
-          const parts = raw.split(',').map((s) => s.trim()).filter((s) => s.length > 0)
+          const parts = raw
+            .split(',')
+            .map((s) => s.trim())
+            .filter((s) => s.length > 0)
           if (parts.length === 0) {
             throw new Error('[backtest] --slug must be a non-empty string')
           }
@@ -170,7 +176,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
   }
 
   if (random && limit === undefined) {
-    throw new Error('[backtest] --random requires --limit N (how many random parquet files to sample)')
+    throw new Error(
+      '[backtest] --random requires --limit N (how many random parquet files to sample)',
+    )
   }
 
   if (latest && limit === undefined) {

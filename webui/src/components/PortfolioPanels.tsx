@@ -17,7 +17,8 @@ const tdNum = `${tdBase} text-right tabular-nums`
 const rowBase = 'border-t border-zinc-800/50 hover:bg-zinc-800/18'
 const rowZebra = 'odd:bg-white/[0.035]'
 // w-full + max-w-max => background hugs the table when narrow, but stays constrained to the panel when content is wider
-const tableWrap = 'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60 w-full max-w-max'
+const tableWrap =
+  'overflow-x-auto overscroll-x-contain rounded-md bg-zinc-900/35 ring-1 ring-zinc-700/60 w-full max-w-max'
 // w-max prevents columns from stretching as the viewport grows; the wrapper provides horizontal scroll when needed.
 const tableBase = 'w-max border-separate border-spacing-0 text-[14px] table-auto'
 
@@ -179,7 +180,10 @@ function asPositionMetrics(snapshot: BotUiSnapshot): PositionMetrics | null {
   return pm as PositionMetrics
 }
 
-function assetTag(snapshot: BotUiSnapshot, assetId: string | undefined | null): 'UP' | 'DOWN' | 'OTHER' {
+function assetTag(
+  snapshot: BotUiSnapshot,
+  assetId: string | undefined | null,
+): 'UP' | 'DOWN' | 'OTHER' {
   const s = snapshot as unknown as { status?: { upAssetId?: string; downAssetId?: string } }
   const up = s.status?.upAssetId
   const down = s.status?.downAssetId
@@ -218,7 +222,10 @@ function fmtTradeStatus(raw: unknown, rank: unknown): string {
   return 'n/a'
 }
 
-function markPriceCents(snapshot: BotUiSnapshot, assetId: string | undefined | null): number | null {
+function markPriceCents(
+  snapshot: BotUiSnapshot,
+  assetId: string | undefined | null,
+): number | null {
   const tag = assetTag(snapshot, assetId)
   const book = tag === 'UP' ? snapshot.books.up : tag === 'DOWN' ? snapshot.books.down : undefined
   const bid = book?.bestBid
@@ -242,7 +249,10 @@ function IdCell(props: { value?: string | null; keep?: number }) {
   const s = typeof v === 'string' && v.length > 0 ? v : null
   const keep = Math.max(6, props.keep ?? 12)
   return (
-    <span className="inline-block max-w-[180px] truncate font-mono text-zinc-200" title={s ?? undefined}>
+    <span
+      className="inline-block max-w-[180px] truncate font-mono text-zinc-200"
+      title={s ?? undefined}
+    >
       {shortId(s, keep)}
     </span>
   )
@@ -263,7 +273,6 @@ export function PositionsTablePanel(props: {
         return tag === 'UP' || tag === 'DOWN'
       })
   const pm = asPositionMetrics(props.snapshot)
-
 
   return (
     <div className="panel">
@@ -309,9 +318,13 @@ export function PositionsTablePanel(props: {
               <div className="flex items-center gap-2">
                 <div className="text-[12px] text-zinc-400">Shares</div>
                 <div className="text-[12px] text-zinc-500">mergeable</div>
-                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">{fmtNum(pm.shares_mergeable)}</div>
+                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">
+                  {fmtNum(pm.shares_mergeable)}
+                </div>
                 <div className="text-[12px] text-zinc-500">imbalance</div>
-                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">{fmtNum(pm.imbalance)}</div>
+                <div className="font-mono text-[12px] text-zinc-200 tabular-nums">
+                  {fmtNum(pm.imbalance)}
+                </div>
               </div>
             </div>
 
@@ -337,18 +350,29 @@ export function PositionsTablePanel(props: {
                       const resolvedAssetId = p?.assetId ?? assetId
                       const mark = markPriceCents(props.snapshot, resolvedAssetId)
                       const avg = typeof p?.avgEntryPrice === 'number' ? p.avgEntryPrice : null
-                      const pnl_if_asset_wins = assetTag(props.snapshot, p?.assetId) === 'UP' ? pm.pnl_if_up_wins : pm.pnl_if_down_wins
+                      const pnl_if_asset_wins =
+                        assetTag(props.snapshot, p?.assetId) === 'UP'
+                          ? pm.pnl_if_up_wins
+                          : pm.pnl_if_down_wins
                       return (
                         <tr key={assetId} className={`${rowBase} ${rowZebra}`}>
                           <td className={`${tdBase} ${colAsset}`}>
                             <AssetBadge snapshot={props.snapshot} assetId={resolvedAssetId} />
                           </td>
-                          <td className={`${tdBase} ${colSide} ${clsRedGreen(pnl_if_asset_wins)}`}>{fmtPrice(pnl_if_asset_wins)}</td>
+                          <td className={`${tdBase} ${colSide} ${clsRedGreen(pnl_if_asset_wins)}`}>
+                            {fmtPrice(pnl_if_asset_wins)}
+                          </td>
                           <td className={`${tdNum} ${colSize}`}>{fmtNum(p?.qty)}</td>
-                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(avg, { fixed: true })}</td>
+                          <td className={`${tdNum} ${colPrice}`}>
+                            {fmtCents(avg, { fixed: true })}
+                          </td>
                           <td className={tdNum}>{fmtCents(p?.costBasis, { fixed: true })}</td>
-                          <td className={`${tdNum} ${colPrice}`}>{fmtCents(mark, { fixed: true })}</td>
-                          <td className={tdBase}>{fmtMaybeStr(portfolio.marketByAssetId[assetId])}</td>
+                          <td className={`${tdNum} ${colPrice}`}>
+                            {fmtCents(mark, { fixed: true })}
+                          </td>
+                          <td className={tdBase}>
+                            {fmtMaybeStr(portfolio.marketByAssetId[assetId])}
+                          </td>
                           {/* realizedPnl removed */}
                         </tr>
                       )
@@ -359,9 +383,13 @@ export function PositionsTablePanel(props: {
                       <td className={`${tdBase} ${colAsset}`}>
                         <MergeBadge />
                       </td>
-                      <td className={`${tdBase} ${colSide} ${clsRedGreen(pm.pnl_merge)}`}>{fmtPrice(pm.pnl_merge)}</td>
+                      <td className={`${tdBase} ${colSide} ${clsRedGreen(pm.pnl_merge)}`}>
+                        {fmtPrice(pm.pnl_merge)}
+                      </td>
                       <td className={`${tdNum} ${colSize}`}>{fmtNum(pm.shares_mergeable)}</td>
-                      <td className={`${tdNum} ${colPrice}`}>{fmtCents(pm.pair_avg, { fixed: true })}</td>
+                      <td className={`${tdNum} ${colPrice}`}>
+                        {fmtCents(pm.pair_avg, { fixed: true })}
+                      </td>
                       <td className={tdNum}>{fmtCents(pm.total_cost, { fixed: true })}</td>
                       <td className={`${tdNum} ${colPrice}`}>-</td>
                       <td className={tdBase}>—</td>
@@ -424,7 +452,9 @@ export function OpenOrdersTablePanel(props: {
 }) {
   const portfolio = asPortfolio(props.snapshot)
   const allBotOrders = portfolio ? Object.entries(portfolio.openOrdersByClientId) : []
-  const allWsOrders = portfolio?.wsOpenOrdersByOrderId ? Object.entries(portfolio.wsOpenOrdersByOrderId) : []
+  const allWsOrders = portfolio?.wsOpenOrdersByOrderId
+    ? Object.entries(portfolio.wsOpenOrdersByOrderId)
+    : []
 
   // Filter out OTHER items unless showOther is true
   const botOrders = props.showOther
@@ -523,7 +553,10 @@ export function OpenOrdersTablePanel(props: {
   const doCancel = async (r: Row): Promise<void> => {
     if (!sendCommand) return
     const orderId = typeof r.orderId === 'string' && r.orderId.length > 0 ? r.orderId : undefined
-    const clientOrderId = typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0 ? r.clientOrderId : undefined
+    const clientOrderId =
+      typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0
+        ? r.clientOrderId
+        : undefined
     if (!orderId && !clientOrderId) return
 
     setPendingByKey((prev) => ({ ...prev, [r.key]: true }))
@@ -565,7 +598,13 @@ export function OpenOrdersTablePanel(props: {
             className="rounded-md px-2.5 py-1 text-[12px] font-semibold uppercase tracking-wide ring-1 ring-red-500/30 bg-red-600/70 text-white hover:cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={doCancelAll}
             disabled={!sendCommand || pendingCancelAll || !canCancelAll}
-            title={!sendCommand ? 'not connected' : !canCancelAll ? 'no cancelable orders' : 'Cancel all open orders'}
+            title={
+              !sendCommand
+                ? 'not connected'
+                : !canCancelAll
+                  ? 'no cancelable orders'
+                  : 'Cancel all open orders'
+            }
           >
             {pendingCancelAll ? 'Canceling…' : 'Cancel all orders'}
           </button>
@@ -611,7 +650,9 @@ export function OpenOrdersTablePanel(props: {
                       <SideText side={r?.side} />
                     </td>
                     <td className={`${tdNum} ${colSize}`}>{fmtNum(r?.size)}</td>
-                    <td className={`${tdNum} ${colPrice}`}>{fmtCents(r?.price, { fixed: true })}</td>
+                    <td className={`${tdNum} ${colPrice}`}>
+                      {fmtCents(r?.price, { fixed: true })}
+                    </td>
                     <td className={tdNum}>{fmtNum(r?.filled)}</td>
                     <td className={tdNum}>{fmtNum(r?.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r?.orderType)}</td>
@@ -632,7 +673,8 @@ export function OpenOrdersTablePanel(props: {
                             ? 'not connected'
                             : !(
                                   (typeof r.orderId === 'string' && r.orderId.length > 0) ||
-                                  (typeof r.clientOrderId === 'string' && r.clientOrderId.length > 0)
+                                  (typeof r.clientOrderId === 'string' &&
+                                    r.clientOrderId.length > 0)
                                 )
                               ? 'missing ids (cannot cancel)'
                               : 'Cancel this order'
@@ -743,7 +785,10 @@ export function ExecutedOrdersTablePanel(props: { snapshot: BotUiSnapshot; showO
   )
 }
 
-export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot; showOther?: boolean }) {
+export function OrdersByClientIdTablePanel(props: {
+  snapshot: BotUiSnapshot
+  showOther?: boolean
+}) {
   const portfolio = asPortfolio(props.snapshot)
   const allOrders = portfolio?.ordersByClientId ? Object.entries(portfolio.ordersByClientId) : []
 
@@ -835,7 +880,9 @@ export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot; sho
                     <td className={tdNum}>{fmtNum(r.sizeMatched)}</td>
                     <td className={tdNum}>{fmtNum(r.remaining)}</td>
                     <td className={tdBase}>{fmtMaybeStr(r.lifecycleState)}</td>
-                    <td className={tdBase}>{fmtTradeStatus(r.tradeStatusRaw, r.tradeStatusRank)}</td>
+                    <td className={tdBase}>
+                      {fmtTradeStatus(r.tradeStatusRaw, r.tradeStatusRank)}
+                    </td>
                     <td className={tdBase}>
                       <IdCell value={r.orderId ?? null} keep={12} />
                     </td>
@@ -853,5 +900,3 @@ export function OrdersByClientIdTablePanel(props: { snapshot: BotUiSnapshot; sho
     </div>
   )
 }
-
-

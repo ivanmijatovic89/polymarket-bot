@@ -240,16 +240,19 @@ export function createStrategy(cfg: Config): {
     const clientOrderId = `${name}:${assetId}:buy:${nowMs}:cycle${currentCycle}`
     clientOrderIdSent = clientOrderId
 
-    console.log(`[${name}] ⚡️ Placing ${cfg.side.toUpperCase()} order NOW! [Cycle ${currentCycle}]`, {
-      assetId,
-      side: cfg.side,
-      price,
-      size,
-      orderType: 'GTC',
-      elapsedMs: elapsedMs.toFixed(0) + 'ms',
-      intentSentAtMs,
-      clientOrderId,
-    })
+    console.log(
+      `[${name}] ⚡️ Placing ${cfg.side.toUpperCase()} order NOW! [Cycle ${currentCycle}]`,
+      {
+        assetId,
+        side: cfg.side,
+        price,
+        size,
+        orderType: 'GTC',
+        elapsedMs: elapsedMs.toFixed(0) + 'ms',
+        intentSentAtMs,
+        clientOrderId,
+      },
+    )
 
     return [
       {
@@ -300,7 +303,9 @@ export function createStrategy(cfg: Config): {
         cancelLatencyMeasured = true
 
         const placementLatencyMs =
-          orderAppearedAtMs !== null && intentSentAtMs !== null ? orderAppearedAtMs - intentSentAtMs : 0
+          orderAppearedAtMs !== null && intentSentAtMs !== null
+            ? orderAppearedAtMs - intentSentAtMs
+            : 0
 
         measurements.push({
           cycle: currentCycle,
@@ -335,4 +340,3 @@ export function createStrategy(cfg: Config): {
 
   return { strategy }
 }
-

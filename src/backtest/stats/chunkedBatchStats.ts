@@ -57,7 +57,9 @@ function chunkWithRemainderToLast<T>(arr: T[], window: number): T[][] {
   // append remainder to last chunk
   if (rem > 0) {
     const tail = arr.slice(fullCount * window)
-    out[out.length - 1] = out[out.length - 1].concat(tail)
+    const lastChunk = out[out.length - 1]
+    if (!lastChunk) throw new Error('internal error: missing last chunk')
+    out[out.length - 1] = lastChunk.concat(tail)
   }
 
   return out
@@ -89,8 +91,11 @@ function computeChunkedRun(
   let runningCapital = initialCapital
 
   const segments = chunks.map((chunk, i) => {
-    const fromTs = slugTs(chunk[0].slug)
-    const toTs = slugTs(chunk[chunk.length - 1].slug)
+    const first = chunk[0]
+    const last = chunk[chunk.length - 1]
+    if (!first || !last) throw new Error('internal error: empty chunk')
+    const fromTs = slugTs(first.slug)
+    const toTs = slugTs(last.slug)
 
     const batch_stats = computeBatchStats(chunk, runningCapital)
     runningCapital = batch_stats.capitalFinal
@@ -131,13 +136,9 @@ export function computeChunkedBatchStats(
   initialCapital: number,
   windows: number[] = [96],
 ): ChunkedBatchStats {
-  const marketsSorted = [...markets].sort(
-    (a, b) => slugTs(a.slug) - slugTs(b.slug),
-  )
+  const marketsSorted = [...markets].sort((a, b) => slugTs(a.slug) - slugTs(b.slug))
 
-  const runs = windows.map((window) =>
-    computeChunkedRun(marketsSorted, initialCapital, window),
-  )
+  const runs = windows.map((window) => computeChunkedRun(marketsSorted, initialCapital, window))
 
   return {
     windows: runs,

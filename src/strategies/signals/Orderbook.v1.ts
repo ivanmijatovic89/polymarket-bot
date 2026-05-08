@@ -22,7 +22,7 @@ export const definition: StrategyDefinition<Config> = {
 }
 
 export function createStrategy(cfg: Config): {
-  strategy: Strategy,
+  strategy: Strategy
   plugins: Plugin[]
 } {
   void cfg
@@ -87,7 +87,6 @@ export function createStrategy(cfg: Config): {
           )
         }
       }
-
     }
 
     return []

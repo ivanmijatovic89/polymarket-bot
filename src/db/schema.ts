@@ -1,4 +1,14 @@
-import { mysqlTable, text, varchar, decimal, timestamp, boolean, json, int, bigint } from 'drizzle-orm/mysql-core'
+import {
+  mysqlTable,
+  text,
+  varchar,
+  decimal,
+  timestamp,
+  boolean,
+  json,
+  int,
+  bigint,
+} from 'drizzle-orm/mysql-core'
 
 // Markets table
 export const markets = mysqlTable('markets', {

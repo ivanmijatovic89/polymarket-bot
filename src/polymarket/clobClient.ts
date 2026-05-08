@@ -41,7 +41,9 @@ export function createClobClient(opts: CreateClobClientOptions = {}): ClobClient
 
   // Validate required fields
   if (!privateKey) {
-    throw new Error('[clob-client] Missing privateKey (PRIVATE_KEY or POLYMARKET_PRIVATE_KEY env var)')
+    throw new Error(
+      '[clob-client] Missing privateKey (PRIVATE_KEY or POLYMARKET_PRIVATE_KEY env var)',
+    )
   }
   if (!creds) {
     throw new Error(
@@ -49,7 +51,9 @@ export function createClobClient(opts: CreateClobClientOptions = {}): ClobClient
     )
   }
   if (!creds.apiKey || !creds.secret || !creds.passphrase) {
-    throw new Error('[clob-client] Invalid credentials: apiKey, secret, and passphrase are required')
+    throw new Error(
+      '[clob-client] Invalid credentials: apiKey, secret, and passphrase are required',
+    )
   }
 
   const wallet = new Wallet(privateKey)
@@ -64,13 +68,5 @@ export function createClobClient(opts: CreateClobClientOptions = {}): ClobClient
 
   // clob-client constructor: (host, chainId, signer, creds, signatureType, funder?)
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return new (ClobClient as any)(
-    host,
-    chainId,
-    wallet,
-    credsForClient,
-    signatureType,
-    funder,
-  )
+  return new (ClobClient as any)(host, chainId, wallet, credsForClient, signatureType, funder)
 }
-

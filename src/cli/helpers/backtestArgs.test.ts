@@ -26,4 +26,3 @@ test('parseArgs rejects --dir with --slug', () => {
     /\[backtest\] --dir and --slug are mutually exclusive/,
   )
 })
-
