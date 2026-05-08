@@ -59,7 +59,7 @@
     "make:csv": "tsx src/strategies/split/makeCsv.ts"
   },
   "lint-staged": {
-    "*.{ts,tsx,js,jsx,json,css,html,yml,yaml}": "prettier --write",
+    "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
     "src/**/*.{ts,tsx}": "eslint --fix"
   },
   "keywords": [],
