@@ -38,17 +38,7 @@ Core invariant:
 
 1. [Quickstart](./quickstart)
 2. [Architecture](./other/architecture)
-3. [Live Runtime](./live-runtime)
-4. [Backtest Runtime](./backtest-runtime)
-5. [Recording + Parquet](./recording-parquet)
-6. [Strategy System](./strategy-system)
-7. [Plugins + External Feeds](./plugins-feeds)
-8. [CLI Reference](./cli-reference)
-9. [Environment Variables Reference](./env-reference)
-10. [Database + Stats Pipeline](./database-stats)
-11. [Web UI](./webui)
-12. [Ops Runbook + Troubleshooting](./ops-runbook)
-13. [Full Source Inventory](./source-inventory)
+3. [Full Source Inventory](./source-inventory)
 
 ## Scope and Coverage
 
