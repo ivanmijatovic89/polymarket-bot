@@ -18,8 +18,7 @@ export default withMermaid(
         alt: 'Polymarket Twin Engine',
       },
       nav: [
-        { text: 'Guide', link: '/quickstart' },
-        { text: 'Source Inventory', link: '/source-inventory' },
+        { text: 'Documentation', link: '/quickstart' },
         { text: 'GitHub', link: 'https://github.com/ivanmijatovic89/polymarket-bot' },
       ],
 
@@ -28,11 +27,65 @@ export default withMermaid(
         { text: 'Quickstart', link: '/quickstart' },
 
         {
-          text: 'Runtime',
+          text: 'Record Live Events',
+          items: [{ text: 'Scan Disconnect Events', link: '/other/scan-disconnect-events' }],
+        },
+        {
+          text: 'Backtest',
           items: [
-            { text: 'Record Live Events', link: '/other/architecture' },
-            { text: 'Backtest', link: '/other/architecture' },
-            { text: 'Live Trading', link: '/other/architecture' },
+            { text: 'Parallel Backtest Runner', link: '/other/ParallelBacktestRunner' },
+            {
+              text: 'Generate Jobs From Grid Strategy Params',
+              link: '/other/GenerateJobsFromGridStrategyParams',
+            },
+          ],
+        },
+        {
+          text: 'Live Trading',
+          items: [],
+        },
+        {
+          text: 'Research',
+          items: [
+            { text: 'Save Intent Metrics', link: '/other/save-intent-metrics' },
+            { text: 'Chunked Batch Stats', link: '/other/chunked-batch-stats' },
+            { text: 'Rebuild Chunked Batch Stats', link: '/other/rebuild-chunked-batch-stats' },
+            { text: 'Research Gate On Backtests', link: '/other/research-gate-on-backtests' },
+            { text: 'Trade Features Export', link: '/other/trade-features-export' },
+          ],
+        },
+        {
+          text: 'Blockchain',
+          items: [
+            {
+              text: 'Deposit Approve Withdraw Check Balance',
+              link: '/other/DepositApproveWithdrawCheckBalance',
+            },
+          ],
+        },
+        {
+          text: 'Plugins',
+          items: [
+            {
+              text: 'Plugin 1 Name',
+              link: '/other/Plugin1Name',
+            },
+            {
+              text: 'Plugin 2 Name',
+              link: '/other/Plugin2Name',
+            },
+            {
+              text: 'Plugin 3 Name',
+              link: '/other/Plugin3Name',
+            },
+            {
+              text: 'Plugin 4 Name',
+              link: '/other/Plugin4Name',
+            },
+            {
+              text: 'Plugin 5 Name',
+              link: '/other/Plugin5Name',
+            },
           ],
         },
         {
@@ -40,30 +93,19 @@ export default withMermaid(
           items: [{ text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' }],
         },
         {
+          text: 'Reference',
+          items: [{ text: 'Reference', link: '/other/Reference' }],
+        },
+        {
           text: 'Other',
           items: [
-            { text: 'ARCHITECTURE', link: '/other/architecture' },
-            { text: 'ARCHITECTURE_DIAGRAMS', link: '/other/ARCHITECTURE_DIAGRAMS' },
-            { text: 'AddNewBot', link: '/other/AddNewBot' },
+            { text: 'Architecture', link: '/other/architecture' },
+            { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
             { text: 'Commands', link: '/other/Commands' },
-            {
-              text: 'DepositApproveWithdrawCheckBalance',
-              link: '/other/DepositApproveWithdrawCheckBalance',
-            },
-            {
-              text: 'GenerateJobsFromGridStrategyParams',
-              link: '/other/GenerateJobsFromGridStrategyParams',
-            },
-            { text: 'MeasureLatency', link: '/other/MeasureLatency' },
-            { text: 'MultipleBots', link: '/other/MultipleBots' },
-            { text: 'ParallelBacktestRunner', link: '/other/ParallelBacktestRunner' },
-            { text: 'Reference', link: '/other/Reference' },
-            { text: 'chunked-batch-stats', link: '/other/chunked-batch-stats' },
-            { text: 'rebuild-chunked-batch-stats', link: '/other/rebuild-chunked-batch-stats' },
-            { text: 'research-gate-on-backtests', link: '/other/research-gate-on-backtests' },
-            { text: 'save-intent-metrics', link: '/other/save-intent-metrics' },
-            { text: 'scan-disconnect-events', link: '/other/scan-disconnect-events' },
-            { text: 'trade-features-export', link: '/other/trade-features-export' },
+            { text: 'Add New Bot', link: '/other/AddNewBot' },
+            { text: 'Multiple Bots', link: '/other/MultipleBots' },
+
+            { text: 'Measure Latency', link: '/other/MeasureLatency' },
           ],
         },
       ],
