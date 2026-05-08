@@ -201,4 +201,3 @@ Current ignore policy intentionally excludes:
 - `.claude/`
 
 This avoids unwanted formatting churn on tooling/internal docs.
-
