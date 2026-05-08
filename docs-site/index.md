@@ -37,7 +37,7 @@ Core invariant:
 ## Documentation Map
 
 1. [Quickstart](./quickstart)
-2. [Architecture](./architecture)
+2. [Architecture](./other/architecture)
 3. [Live Runtime](./live-runtime)
 4. [Backtest Runtime](./backtest-runtime)
 5. [Recording + Parquet](./recording-parquet)
