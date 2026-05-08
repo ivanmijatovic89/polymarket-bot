@@ -56,6 +56,10 @@ export default defineConfig({
           { text: 'Source Inventory', link: '/source-inventory' },
         ],
       },
+      {
+        text: 'Contribution',
+        items: [{ text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' }],
+      },
     ],
 
     socialLinks: [{ icon: 'github', link: 'https://github.com/ivanmijatovic89/polymarket-bot' }],
