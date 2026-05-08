@@ -28,7 +28,10 @@ export default withMermaid(
 
         {
           text: 'Record Live Events',
-          items: [{ text: 'Scan Disconnect Events', link: '/other/scan-disconnect-events' }],
+          items: [
+            { text: 'Scan Disconnect Events', link: '/other/scan-disconnect-events' },
+            { text: 'Seed Database from Parquet', link: '/other/insert-parquet-to-db' },
+          ],
         },
         {
           text: 'Backtest',
