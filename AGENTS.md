@@ -6,6 +6,7 @@ Project: `/Users/mijat/Sites/polymarket-bot`
 
 - Always respond to the user in English, regardless of the language used in the user's message.
 - Preserve non-English text only when quoting user-provided text, editing localized content, or explicitly translating.
+- All written artifacts must be in English: PR titles and bodies, commit messages, code comments, generated documentation. No exceptions.
 
 ## Mission-Critical Invariant
 
@@ -122,6 +123,16 @@ When adding/updating strategy:
 - `npm run record:live:btc`
 - `npm run lint`
 - `npm run webui:dev`
+
+## Git Workflow (branch protection on main)
+
+Direct push to `main` is blocked. Always follow:
+
+1. Create a branch: `git checkout -b <branch-name>`
+2. Push branch: `git push -u origin <branch-name>`
+3. Open PR: `gh pr create ...`
+4. Wait for CI (`quality.yml`: Prettier + Typecheck + ESLint + WebUI + Docs build)
+5. Merge PR once all checks pass
 
 ## Coding Style
 
