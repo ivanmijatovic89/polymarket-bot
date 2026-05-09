@@ -2,6 +2,10 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## Language
+
+All output must be in **English** — this includes PR titles and bodies, commit messages, code comments, and any generated text. Never use any other language in written artifacts, regardless of the language the user writes in.
+
 ## Environment
 
 - Node.js **v20** (pinned via `engines`: `>=20 <21`)
@@ -37,6 +41,14 @@ npm run scan:disconnect-events -- <dir> [--delete-files-where-disconnects-equal-
 # Lint / format (no test runner)
 npm run lint ; npm run lint:fix
 npm run format ; npm run format:check
+
+# Git workflow (branch protection on main)
+# Direct push to main is blocked. Always:
+#   1. Create a branch: git checkout -b <branch-name>
+#   2. Push branch: git push -u origin <branch-name>
+#   3. Open PR: gh pr create ...
+#   4. Wait for CI (quality.yml: Prettier + Typecheck + ESLint + WebUI + Docs build)
+#   5. Merge PR once all checks pass
 
 # Database (Drizzle + MySQL)
 npm run db:generate                    # emit migration SQL into drizzle/
