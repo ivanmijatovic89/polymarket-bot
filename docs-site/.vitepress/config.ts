@@ -6,6 +6,9 @@ export default withMermaid(
     title: 'Polymarket Bot',
     description: 'Live trading bot + deterministic backtesting engine for Polymarket',
     base: '/polymarket-bot/',
+    head: [
+      ['link', { rel: 'icon', href: '/polymarket-bot/img/logos/polymarket-twin-engine-mark.png', type: 'image/png' }],
+    ],
     vite: {
       // Shared static assets for docs + webui
       publicDir: '../public',
