@@ -92,26 +92,31 @@ export default withMermaid(
           text: 'Strategy',
           items: [
             { text: 'Write Your First Strategy', link: '/strategy/tutorial-first-strategy' },
-            { text: 'Strategy Interface', link: '/strategy/strategy-interface' },
-            { text: 'Strategy Context', link: '/strategy/strategy-context' },
-            { text: 'Strategy Definition', link: '/strategy/strategy-definition' },
-            { text: 'Strategy Toolkit', link: '/strategy/strategy-toolkit' },
+            {
+              text: 'Strategy Reference',
+              collapsed: true,
+              items: [
+                { text: 'Strategy Interface', link: '/strategy/strategy-interface' },
+                { text: 'Strategy Context', link: '/strategy/strategy-context' },
+                { text: 'Strategy Definition', link: '/strategy/strategy-definition' },
+                { text: 'Strategy Toolkit', link: '/strategy/strategy-toolkit' },
+              ],
+            },
             { text: 'Template Strategy', link: '/strategy/template-strategy' },
             { text: 'Template: Time Window Gate', link: '/strategy/template-time-window-gate' },
             { text: 'Template: Dwell Gate', link: '/strategy/template-dwell-gate' },
             { text: 'Split-Sell-Redeem Strategy', link: '/strategy/split-sell-redeem' },
-          ],
-        },
-
-        {
-          text: 'Plugins',
-          items: [
-            { text: 'Technical Indicators', link: '/plugins/plugin-technical-indicators' },
-            { text: 'Deribit Volatility Index', link: '/plugins/plugin-deribit-volatility' },
-            { text: 'Time Window Volatility', link: '/plugins/plugin-time-window-volatility' },
-            { text: 'Dwell Gate', link: '/plugins/plugin-dwell-gate' },
-            { text: 'Time Window Gate', link: '/plugins/plugin-time-window-gate' },
-            { text: 'External Feeds', link: '/plugins/plugin-external-feeds' },
+            {
+              text: 'Plugins',
+              items: [
+                { text: 'Technical Indicators', link: '/plugins/plugin-technical-indicators' },
+                { text: 'Deribit Volatility Index', link: '/plugins/plugin-deribit-volatility' },
+                { text: 'Time Window Volatility', link: '/plugins/plugin-time-window-volatility' },
+                { text: 'Dwell Gate', link: '/plugins/plugin-dwell-gate' },
+                { text: 'Time Window Gate', link: '/plugins/plugin-time-window-gate' },
+                { text: 'External Feeds', link: '/plugins/plugin-external-feeds' },
+              ],
+            },
           ],
         },
 
@@ -132,7 +137,10 @@ export default withMermaid(
 
         {
           text: 'Contribution',
-          items: [{ text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' }],
+          items: [
+            { text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' },
+            { text: 'Build the Docs Site', link: '/other/build-docs-site' },
+          ],
         },
 
         {
