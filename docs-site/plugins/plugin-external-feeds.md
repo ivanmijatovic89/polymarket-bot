@@ -116,7 +116,7 @@ type ExternalFeedsSnapshot = {
 ```
 
 ::: tip Deribit Volatility Index feed
-The `deribitVolatilityIndex` feed referenced in `requiredFeeds` is exposed through the dedicated [`DeribitVolatilityIndexPlugin`](/other/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), not through `ctx.plugins.externalFeeds`. It follows its own snapshot type.
+The `deribitVolatilityIndex` feed referenced in `requiredFeeds` is exposed through the dedicated [`DeribitVolatilityIndexPlugin`](/plugins/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), not through `ctx.plugins.externalFeeds`. It follows its own snapshot type.
 :::
 
 ---

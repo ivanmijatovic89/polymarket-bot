@@ -75,7 +75,7 @@ mergeBinaryOutcomePositions(params: {
 **Precondition:** The EOA must hold at least `shares` of both YES and NO tokens, and the CTF contract must have `isApprovedForAll` set to `true` for the Exchange contract. The merge requires the CTF contract to be able to burn the tokens.
 
 ::: warning Wait for MINED status before merging
-Shares acquired from fills must reach `MINED` status in the account feed before merging is safe. Attempting to merge shares that are only at `MATCHED` status can fail because the token transfer may not yet be settled on-chain. See the fill-status semantics section in [CLAUDE.md](/CLAUDE.md) for details.
+Shares acquired from fills must reach `MINED` status in the account feed before merging is safe. Attempting to merge shares that are only at `MATCHED` status can fail because the token transfer may not yet be settled on-chain. See the fill-status semantics section in `CLAUDE.md` (repo root) for details.
 :::
 
 **On-chain call:** `mergePositions(USDC_ADDRESS, ZeroHash, conditionId, [1, 2], amount)`
