@@ -2,6 +2,7 @@ node_modules
 dist
 build
 docs
+docs-site
 CLAUDE.md
 AGENTS.md
 .claude/

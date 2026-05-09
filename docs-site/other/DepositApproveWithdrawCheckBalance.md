@@ -1,0 +1,113 @@
+# Deposit, Approve, Withdraw, Check Balances (SAFE + Relayer)
+
+This guide explains the helper commands for funding your SAFE wallet, approving tokens, withdrawing funds, and checking balances/approvals.
+
+## Prerequisites
+
+Set these in your `.env`:
+
+- `PRIVATE_KEY` (EOA signer)
+- `POLYGON_RPC_URL`
+- CLOB credentials:
+  - `POLYMARKET_API_KEY`
+  - `POLYMARKET_API_SECRET`
+  - `POLYMARKET_API_PASSPHRASE`
+- Builder (Relayer) credentials:
+  - `POLYMARKET_BUILDER_API_KEY`
+  - `POLYMARKET_BUILDER_API_SECRET`
+  - `POLYMARKET_BUILDER_API_PASSPHRASE`
+- Relayer settings:
+  - `POLYMARKET_RELAYER_URL` (default: `https://relayer-v2.polymarket.com/`)
+  - `POLYMARKET_RELAYER_CHAIN_ID=137`
+  - `POLYMARKET_RELAYER_TX_TYPE=SAFE`
+- Split mode:
+  - `POLYMARKET_TX_MODE_SPLIT=relayer`
+- Merge mode:
+  - `POLYMARKET_TX_MODE_MERGE=relayer`
+- Redeem watcher settings (optional):
+  - `REDEEM_WATCH_INTERVAL_MS` (default `30000`)
+  - `REDEEM_LOOKBACK_HOURS` (default `48`)
+  - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
+  - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
+  - `POLYMARKET_TX_MODE_REDEEM` (default `relayer`)
+- SAFE funder:
+  - `CLOB_FUNDER=<safeAddress>`
+  - `CLOB_SIGNATURE_TYPE=2`
+
+If you don't know your SAFE address yet:
+
+```bash
+npm run relayer:show-safe
+```
+
+## 1) Deposit USDC (EOA → SAFE)
+
+Deposits USDC from your EOA (the wallet behind `PRIVATE_KEY`) to the SAFE address.
+This is an on-chain transfer, so **your EOA pays gas**.
+
+```bash
+npm run relayer:deposit-usdc -- --to 0xYourSafeAddressHere --amount 5
+```
+
+## 2) Approve tokens (SAFE → CTF + Exchange)
+
+Approves:
+
+- USDC for the CTF contract (split)
+- USDC for the Exchange contract (buy settlement)
+- ERC1155 approval for the Exchange (sell settlement)
+
+Executed **gasless** via the relayer SAFE.
+
+```bash
+npm run relayer:approve
+```
+
+## 2b) Approve tokens (EOA → CTF + Exchange)
+
+Approves directly from your EOA (the wallet behind `PRIVATE_KEY`):
+
+- USDC for the CTF contract (split)
+- USDC for the Exchange contract (buy settlement)
+- ERC1155 approval for the Exchange (sell settlement)
+
+Executed **on-chain** by your EOA (you pay gas).
+
+```bash
+npm run eoa:approve
+```
+
+## 3) Withdraw USDC (SAFE → EOA)
+
+Withdraws USDC from SAFE to your EOA address.
+Executed **gasless** via the relayer SAFE.
+
+```bash
+npm run relayer:withdraw-usdc -- --to 0xYourEoaAddressHere --amount 5
+```
+
+## 4) Check balances + approvals (EOA + SAFE)
+
+Logs balances and approvals for both wallets.
+
+```bash
+npm run check:balances
+```
+
+If `POLYMARKET_TX_MODE_SPLIT=relayer`, this command exits non‑zero if either wallet is missing approvals or balance.
+
+## 5) Redeem watcher (background)
+
+Continuously scans recent BTC/ETH/SOL/XRP 15m markets for resolution and redeems
+any SAFE-held outcome tokens automatically.
+
+```bash
+npm run redeem-watcher
+```
+
+Force relayer or direct mode:
+
+```bash
+npm run redeem-watcher:relayer
+npm run redeem-watcher:direct
+```
