@@ -26,3 +26,31 @@ test('parseArgs rejects --dir with --slug', () => {
     /\[backtest\] --dir and --slug are mutually exclusive/,
   )
 })
+
+test('parseArgs parses paired-parquet mode with file path', () => {
+  const parsed = parseArgs(['--input-mode', 'paired-parquet', '/tmp/pairs.parquet'])
+  assert.equal(parsed.inputMode, 'paired-parquet')
+  assert.deepEqual(parsed.filePaths, ['/tmp/pairs.parquet'])
+})
+
+test('parseArgs requires at least one file for paired-parquet mode', () => {
+  assert.throws(
+    () => parseArgs(['--input-mode', 'paired-parquet']),
+    /\[backtest\] --input-mode=paired-parquet requires at least one parquet file/,
+  )
+})
+
+test('parseArgs rejects paired-parquet with slug/symbol/dir', () => {
+  assert.throws(
+    () => parseArgs(['--input-mode', 'paired-parquet', '--slug', 'abc', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+  )
+  assert.throws(
+    () => parseArgs(['--input-mode', 'paired-parquet', '--symbol', 'BTC', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+  )
+  assert.throws(
+    () => parseArgs(['--input-mode', 'paired-parquet', '--dir', '/tmp', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+  )
+})

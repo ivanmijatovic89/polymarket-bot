@@ -35,6 +35,7 @@ import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 import { openParquetReaderWithEpermFallback } from './helpers/openParquetReader.js'
+import { replayTelonexPairedParquetForMarket } from '../parquet/replay/replayTelonexPairedParquetForMarket.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -275,12 +276,14 @@ async function main(): Promise<void> {
         '  Or query from database:\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query by slug(s):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]\n' +
+        '  Or paired-parquet replay:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode paired-parquet <file.parquet>',
     )
     process.exit(2)
   }
 
-  console.log(`[backtest] mode=orderbook files=${filePaths.length}`)
+  console.log(`[backtest] mode=${parsed.inputMode} files=${filePaths.length}`)
   console.log(`[backtest] order=${parsed.order}`)
   console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
   if (parsed.latest) console.log(`[backtest] latest=true`)
@@ -443,45 +446,55 @@ async function main(): Promise<void> {
     const seenSplitIds = new Set<string>()
 
     // Always replay - stats are optional
-    await replayOrderBookForMarket({
-      filePaths: [fp],
-      order: parsed.order,
-      timeDriven: parsed.timeDriven,
-      shouldStop: () => shouldStop,
-      onSnapshot: async (snap, raw) => {
-        if (shouldStop) return
-        events += 1
-        byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
+    const onSnapshot = async (snap: MarketOrderBooksSnapshot, raw: ReplayApplyEvent) => {
+      if (shouldStop) return
+      events += 1
+      byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
-        // Track market ID on first snapshot
-        if (!currentMarketId) {
-          currentMarketId = snap.market
-        }
+      // Track market ID on first snapshot
+      if (!currentMarketId) {
+        currentMarketId = snap.market
+      }
 
-        await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+      await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
 
-        // Collect fills from portfolio (avoid duplicates)
-        if (currentMarketId) {
-          const portfolio = runner.getPortfolio().snapshot()
-          for (const fill of portfolio.recentFills) {
-            if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
-              const orderMeta = fill.clientOrderId
-                ? portfolio.ordersByClientId[fill.clientOrderId]?.meta
-                : undefined
-              currentMarketTrades.push(orderMeta ? { ...fill, intentMeta: orderMeta } : fill)
-              seenFillIds.add(fill.id)
-            }
-          }
-          // Collect split events from portfolio (avoid duplicates)
-          for (const s of portfolio.recentSplits ?? []) {
-            if (s.market === currentMarketId && !seenSplitIds.has(s.id)) {
-              currentMarketSplits.push(s)
-              seenSplitIds.add(s.id)
-            }
+      // Collect fills from portfolio (avoid duplicates)
+      if (currentMarketId) {
+        const portfolio = runner.getPortfolio().snapshot()
+        for (const fill of portfolio.recentFills) {
+          if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
+            const orderMeta = fill.clientOrderId
+              ? portfolio.ordersByClientId[fill.clientOrderId]?.meta
+              : undefined
+            currentMarketTrades.push(orderMeta ? { ...fill, intentMeta: orderMeta } : fill)
+            seenFillIds.add(fill.id)
           }
         }
-      },
-    })
+        // Collect split events from portfolio (avoid duplicates)
+        for (const s of portfolio.recentSplits ?? []) {
+          if (s.market === currentMarketId && !seenSplitIds.has(s.id)) {
+            currentMarketSplits.push(s)
+            seenSplitIds.add(s.id)
+          }
+        }
+      }
+    }
+
+    if (parsed.inputMode === 'paired-parquet') {
+      await replayTelonexPairedParquetForMarket({
+        filePath: fp,
+        shouldStop: () => shouldStop,
+        onSnapshot,
+      })
+    } else {
+      await replayOrderBookForMarket({
+        filePaths: [fp],
+        order: parsed.order,
+        timeDriven: parsed.timeDriven,
+        shouldStop: () => shouldStop,
+        onSnapshot,
+      })
+    }
 
     // Compute stats AFTER replay (only if we have all required data)
     if (slug && currentMarketId && marketResolution) {
