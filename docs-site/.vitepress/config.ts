@@ -33,13 +33,44 @@ export default withMermaid(
         { text: 'Key Concepts', link: '/key-concepts' },
 
         {
-          text: 'Record Live Events',
+          text: 'Datasets',
           items: [
-            { text: 'Recording Live Events', link: '/other/recording-live-events' },
-            { text: 'Scan Disconnect Events', link: '/other/scan-disconnect-events' },
-            { text: 'Verify Parquet File', link: '/other/verify-parquet' },
-            { text: 'List Backtest Files', link: '/other/list-backtest-files' },
-            { text: 'Seed Database from Parquet', link: '/other/insert-parquet-to-db' },
+            { text: 'Overview', link: '/datasets/index' },
+            {
+              text: 'Live Recording',
+              collapsed: true,
+              items: [
+                { text: 'Overview', link: '/datasets/recording/overview' },
+                { text: 'Recording Live Events', link: '/datasets/recording/recording-live-events' },
+                { text: 'Scan Disconnect Events', link: '/datasets/recording/scan-disconnect-events' },
+              ],
+            },
+            {
+              text: 'Telonex',
+              collapsed: true,
+              items: [
+                { text: 'Overview', link: '/datasets/telonex/overview' },
+                { text: 'Merge to Backtest Parquet', link: '/datasets/telonex/merge' },
+                { text: 'Run a Backtest', link: '/datasets/telonex/backtest' },
+                { text: 'Diagnostics', link: '/datasets/telonex/diagnostics' },
+              ],
+            },
+            {
+              text: 'PMXT',
+              collapsed: true,
+              items: [
+                { text: 'Overview', link: '/datasets/pmxt/overview' },
+              ],
+            },
+            {
+              text: 'Tools',
+              collapsed: true,
+              items: [
+                { text: 'Verify Parquet File', link: '/datasets/tools/verify-parquet' },
+                { text: 'List Backtest Files', link: '/datasets/recording/list-backtest-files' },
+                { text: 'Seed Database from Parquet', link: '/datasets/recording/insert-parquet-to-db' },
+              ],
+            },
           ],
         },
 
