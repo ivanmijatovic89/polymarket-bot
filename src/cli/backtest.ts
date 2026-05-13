@@ -277,8 +277,8 @@ async function main(): Promise<void> {
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or query by slug(s):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Or paired-parquet replay:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode paired-parquet <file.parquet>',
+        '  Or telonex paired-parquet replay:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-paired-parquet <file.parquet>',
     )
     process.exit(2)
   }
@@ -480,7 +480,7 @@ async function main(): Promise<void> {
       }
     }
 
-    if (parsed.inputMode === 'paired-parquet') {
+    if (parsed.inputMode === 'telonex-paired-parquet') {
       await replayTelonexPairedParquetForMarket({
         filePath: fp,
         shouldStop: () => shouldStop,

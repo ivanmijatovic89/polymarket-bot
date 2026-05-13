@@ -27,30 +27,38 @@ test('parseArgs rejects --dir with --slug', () => {
   )
 })
 
-test('parseArgs parses paired-parquet mode with file path', () => {
-  const parsed = parseArgs(['--input-mode', 'paired-parquet', '/tmp/pairs.parquet'])
-  assert.equal(parsed.inputMode, 'paired-parquet')
+test('parseArgs parses telonex-paired-parquet mode with file path', () => {
+  const parsed = parseArgs(['--input-mode', 'telonex-paired-parquet', '/tmp/pairs.parquet'])
+  assert.equal(parsed.inputMode, 'telonex-paired-parquet')
   assert.deepEqual(parsed.filePaths, ['/tmp/pairs.parquet'])
 })
 
-test('parseArgs requires at least one file for paired-parquet mode', () => {
+test('parseArgs rejects old paired-parquet alias', () => {
   assert.throws(
-    () => parseArgs(['--input-mode', 'paired-parquet']),
-    /\[backtest\] --input-mode=paired-parquet requires at least one parquet file/,
+    () => parseArgs(['--input-mode', 'paired-parquet', '/tmp/pairs.parquet']),
+    /\[backtest\] --input-mode must be one of: recorded, telonex-paired-parquet/,
   )
 })
 
-test('parseArgs rejects paired-parquet with slug/symbol/dir', () => {
+test('parseArgs requires at least one file for telonex-paired-parquet mode', () => {
   assert.throws(
-    () => parseArgs(['--input-mode', 'paired-parquet', '--slug', 'abc', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+    () => parseArgs(['--input-mode', 'telonex-paired-parquet']),
+    /\[backtest\] --input-mode=telonex-paired-parquet requires at least one parquet file/,
+  )
+})
+
+test('parseArgs rejects telonex-paired-parquet with slug/symbol/dir', () => {
+  assert.throws(
+    () => parseArgs(['--input-mode', 'telonex-paired-parquet', '--slug', 'abc', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, or --dir/,
   )
   assert.throws(
-    () => parseArgs(['--input-mode', 'paired-parquet', '--symbol', 'BTC', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+    () =>
+      parseArgs(['--input-mode', 'telonex-paired-parquet', '--symbol', 'BTC', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, or --dir/,
   )
   assert.throws(
-    () => parseArgs(['--input-mode', 'paired-parquet', '--dir', '/tmp', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=paired-parquet cannot be combined with --symbol, --slug, or --dir/,
+    () => parseArgs(['--input-mode', 'telonex-paired-parquet', '--dir', '/tmp', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, or --dir/,
   )
 })
