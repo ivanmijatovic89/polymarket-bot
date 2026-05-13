@@ -278,7 +278,9 @@ async function main(): Promise<void> {
         '  Or query by slug(s):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]\n' +
         '  Or telonex paired-parquet replay:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-paired-parquet <file.parquet>',
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-paired-parquet <file.parquet>\n' +
+        '    Semantics: apply both up/down books, then emit one strategy tick per paired frame.\n' +
+        '    Note: paired frames may include carry-forward of the missing side from the previous snapshot.',
     )
     process.exit(2)
   }

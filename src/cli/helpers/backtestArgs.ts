@@ -6,6 +6,11 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
 export type BacktestArgs = {
   filePaths: string[]
   dirs?: string[]
+  // recorded:
+  //   Replays source WS events and runs strategy on each meaningful event tick.
+  // telonex-paired-parquet:
+  //   Replays paired up/down snapshots and runs strategy once per paired frame.
+  //   Merge step may carry forward the missing side from the last known snapshot.
   inputMode: 'recorded' | 'telonex-paired-parquet'
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
