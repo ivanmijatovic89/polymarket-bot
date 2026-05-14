@@ -12,7 +12,7 @@ Three dataset sources are currently supported:
 | Source | Format | Historical reach | Setup effort | Replay speed |
 | --- | --- | --- | --- | --- |
 | [Live Recording](/datasets/recording/overview) | Raw WS events (Parquet) | From the moment you start recording | Run the recorder yourself | Baseline |
-| [Telonex](/datasets/telonex/overview) | Paired order book snapshots (Parquet) | Pre-collected historical data | Download + one-time merge | ~3× slower |
+| [Telonex](/datasets/telonex/overview) | book/price_change or paired snapshots (Parquet) | Pre-collected historical data | Download + one-time conversion | Same as baseline (live format) or ~3× slower (paired format) |
 | [PMXT](/datasets/pmxt/overview) | _(coming soon)_ | — | — | — |
 
 ## Live Recording
@@ -25,9 +25,12 @@ The tradeoff is that you can only record from the moment you start. There is no 
 
 ## Telonex
 
-Telonex is a market data platform that has been continuously recording Polymarket's WebSocket feed. You download their pre-collected snapshots as daily Parquet files (one per side per day), run a one-time merge to produce a paired Parquet file, and then replay it with `--input-mode telonex-paired-parquet`.
+Telonex is a market data platform that has been continuously recording Polymarket's WebSocket feed. You download their pre-collected snapshots as daily Parquet files (one per side per day) and run a one-time conversion before backtesting.
 
-The paired format is approximately three times faster to replay than live-recorded files because both order book sides are pre-merged into a single row, eliminating runtime timestamp matching and JSON parsing on each tick.
+Two conversion paths are available:
+
+- **Convert Telonex Dataset to Live Format** (`convert-telonex-to-live-parquet.ts`) — produces `book`/`price_change` output. Replay speed matches a live-recorded file. No special `--input-mode` flag needed. Recommended.
+- **Convert Telonex Dataset to Paired Format** (`merge-telonex-to-backtest-parquet.ts`) — produces `orderbook_pair` output. Requires `--input-mode telonex-paired-parquet`. Approximately three times slower to replay. Retained for compatibility.
 
 → [Telonex docs](/datasets/telonex/overview)
 
@@ -41,7 +44,7 @@ Documentation coming soon.
 
 - **You need data from before you started recording** → use Telonex or PMXT.
 - **You need the highest possible event fidelity** → use Live Recording. Telonex captures the same events but may omit redundant snapshots where the top of book did not change.
-- **You are running many backtests over the same market window and replay speed is not a bottleneck** → Telonex or PMXT are fine. If raw replay speed matters, live-recorded files are faster because most events are small deltas rather than full snapshots.
+- **You are running many backtests over the same market window and replay speed matters** → use Convert Telonex Dataset to Live Format. It replays at the same speed as a live-recorded file. Convert Telonex Dataset to Paired Format is ~3× slower.
 - **You want to validate a strategy against your own recorded data** → use Live Recording, then cross-check with Telonex diagnostics to understand coverage differences.
 
 ## From dataset to backtest: the full workflow
@@ -66,7 +69,23 @@ Regardless of source, the path from raw data to a runnable backtest follows the 
 
 → [Scan Disconnect Events](/datasets/recording/scan-disconnect-events) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Seed Database from Parquet](/datasets/recording/insert-parquet-to-db) · [Running Backtests](/other/running-backtests)
 
-### Telonex
+### Telonex: Convert to Live Format (recommended)
+
+```
+1. Download       curl -L "https://api.telonex.io/v1/downloads/polymarket/book_snapshot_full/<date>?slug=...&outcome=Up" -o ...
+2. Convert        npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts <dir>
+3. Verify         npm run verify:parquet -- <converted.parquet>
+4. Backtest       npx tsx src/cli/backtest.ts --strategy <id> <converted.parquet>
+```
+
+- **Download** — fetch one Parquet file per side (Up/Down) per day from the Telonex API.
+- **Convert** — transform the raw UP/DOWN snapshot files into `book`/`price_change` format. One-time step per market window.
+- **Verify** — confirm the converted file is intact before running a backtest.
+- **Backtest** — replay the file using the standard recorded mode (no `--input-mode` flag needed).
+
+→ [Convert Telonex Dataset to Live Format](/datasets/telonex/convert) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Run a Backtest with Telonex Data](/datasets/telonex/backtest)
+
+### Telonex: Convert to Paired Format (legacy)
 
 ```
 1. Download       curl -L "https://api.telonex.io/v1/downloads/polymarket/book_snapshot_full/<date>?slug=...&outcome=Up" -o ...
@@ -75,9 +94,4 @@ Regardless of source, the path from raw data to a runnable backtest follows the 
 4. Backtest       npx tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-paired-parquet <merged.parquet>
 ```
 
-- **Download** — fetch one Parquet file per side (Up/Down) per day from the Telonex API.
-- **Merge** — combine the separate Up and Down files into a single paired Parquet file. This is a one-time step per market window.
-- **Verify** — confirm the merged file is intact before running a backtest.
-- **Backtest** — replay the paired file directly without seeding the database.
-
-→ [Merge to Backtest Parquet](/datasets/telonex/merge) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Run a Backtest with Telonex Data](/datasets/telonex/backtest)
+→ [Convert Telonex Dataset to Paired Format](/datasets/telonex/merge) · [Run a Backtest with Telonex Data](/datasets/telonex/backtest)

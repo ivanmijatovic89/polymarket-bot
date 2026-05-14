@@ -1,9 +1,9 @@
 ---
-title: Merge Telonex Files to Backtest Parquet
-description: How to convert raw Telonex UP/DOWN snapshot files into a single paired Parquet file ready for backtesting.
+title: Convert Telonex Dataset to Paired Format
+description: How to convert raw Telonex UP/DOWN snapshot files into a single paired Parquet file ready for backtesting with --input-mode telonex-paired-parquet.
 ---
 
-# Merge Telonex Files to Backtest Parquet
+# Convert Telonex Dataset to Paired Format
 
 This guide explains how to combine the separate Telonex UP and DOWN snapshot files for a market into a single paired Parquet file. The merge step is a one-time preparation — once the paired file exists, it can be replayed by the backtest engine as many times as needed.
 

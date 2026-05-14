@@ -68,22 +68,34 @@ The key columns in each file are:
 The side is encoded in the filename (`_Up_` or `_Down_`). The merge tool relies on this — do not rename the files.
 :::
 
-## Why the bot converts to paired Parquet
+## Why the bot converts Telonex data before backtesting
 
-The separate UP and DOWN files cannot be fed directly to the backtest engine without a merge step. The reason is tick semantics.
+The separate UP and DOWN files cannot be fed directly to the backtest engine without a conversion step. The reason is tick semantics.
 
 In the raw Telonex files, UP events and DOWN events are interleaved by time but stored separately. Replaying them as-is would fire one strategy tick per side-event: an UP tick, then a DOWN tick, then an UP tick again. This produces **double the number of ticks** compared to the actual number of moments in the market, and more importantly, the strategy would never see both books synchronised — each tick only has fresh data for one side while the other side remains at its previous state.
 
-The merge step solves this by pre-combining the two files into a single **paired Parquet** file where each row holds the UP book and the DOWN book at the same timestamp. When the backtest engine replays this file, it fires **one tick per paired frame**, with both sides current. The strategy always sees a consistent snapshot of the full market.
+Two conversion tools are available. They produce different output formats with different replay speed characteristics:
 
-Aside from correctness, the paired format is approximately **three times faster** to replay than processing the original two Telonex files side by side. The gains come from:
+### Convert Telonex Dataset to Live Format (recommended)
 
-1. **Single file I/O** — one reader instead of two.
-2. **Pre-merged frames** — no runtime timestamp matching; each row is already a complete paired snapshot.
-3. **Typed columns** — orderbook levels are stored as compact `price@size;price@size;...` strings rather than nested JSON blobs, avoiding a per-tick JSON parse.
+```bash
+npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts <input-directory>
+```
 
-::: warning Replay speed vs live-recorded data
-Even after merging, Telonex replay is approximately **three times slower** than replaying an equivalent live-recorded file. The reason is that Telonex always writes a full order book snapshot on every event, while live-recorded files contain mostly lightweight `price_change` deltas. More data per tick means slower replay — this is a property of the data source, not the paired format.
+This tool converts the raw Telonex snapshots into the same `book` / `price_change` format used by the live recorder. It computes delta updates between consecutive snapshots and emits full `book` rows only at the first tick and periodically as checkpoints. The output file can be replayed with the standard backtest engine — no special `--input-mode` flag is needed.
+
+Replay speed is approximately the same as a live-recorded file because the vast majority of rows are lightweight delta events rather than full snapshots.
+
+### Convert Telonex Dataset to Paired Format (legacy)
+
+```bash
+npx tsx src/parquet/cli/telonex/merge-telonex-to-backtest-parquet.ts <input-directory>
+```
+
+This tool pre-combines the UP and DOWN files into a single `orderbook_pair` file where each row holds a full snapshot of both sides. Backtesting this format requires `--input-mode telonex-paired-parquet`. Because every row is a full book replacement, replay is approximately **three times slower** than a live-recorded file.
+
+::: tip
+Use **Convert Telonex Dataset to Live Format** for new work. **Convert Telonex Dataset to Paired Format** is retained for compatibility.
 :::
 
 ## Carry-forward pairing
@@ -101,6 +113,7 @@ A carry-forward frame means one side of the pair is slightly stale. In practice 
 
 ## Next steps
 
-- [Merge Telonex Files to Backtest Parquet](/datasets/telonex/merge) — convert the raw daily files into a single paired Parquet file.
-- [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — pass the paired file to the backtest CLI.
-- [Telonex Diagnostics](/datasets/telonex/diagnostics) — check merge quality and compare Telonex coverage against a live recording.
+- [Convert Telonex Dataset to Live Format](/datasets/telonex/convert) — recommended path: produces `book`/`price_change` output for fast replay.
+- [Convert Telonex Dataset to Paired Format](/datasets/telonex/merge) — legacy path: produces `orderbook_pair` output for use with `--input-mode telonex-paired-parquet`.
+- [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — backtest workflow for both formats.
+- [Telonex Diagnostics](/datasets/telonex/diagnostics) — check conversion quality and compare Telonex coverage against a live recording.

@@ -50,7 +50,8 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/telonex/overview' },
-                { text: 'Merge to Backtest Parquet', link: '/datasets/telonex/merge' },
+                { text: 'Convert Telonex Dataset to Live Format', link: '/datasets/telonex/convert' },
+                { text: 'Convert Telonex Dataset to Paired Format', link: '/datasets/telonex/merge' },
                 { text: 'Run a Backtest', link: '/datasets/telonex/backtest' },
                 { text: 'Diagnostics', link: '/datasets/telonex/diagnostics' },
               ],
