@@ -4,10 +4,12 @@ import {
   varchar,
   decimal,
   timestamp,
+  datetime,
   boolean,
   json,
   int,
   bigint,
+  mysqlEnum,
 } from 'drizzle-orm/mysql-core'
 
 // Markets table
@@ -34,6 +36,27 @@ export const markets = mysqlTable('markets', {
   rawJson: json('raw_json').$type<Record<string, unknown>>(), // Complete API response as JSON
   createdAt: timestamp('created_at').defaultNow().notNull(),
   updatedAt: timestamp('updated_at').defaultNow().notNull(),
+})
+
+// PMXT dataset catalogue
+export const pmxtDatasetCatalogue = mysqlTable('pmxt_dataset_catalogue', {
+  id: int('id').primaryKey().autoincrement(),
+  version: varchar('version', { length: 4 }).notNull(),
+  filename: varchar('filename', { length: 100 }).notNull().unique(),
+  url: varchar('url', { length: 255 }).notNull(),
+  hourTs: datetime('hour_ts').notNull(),
+  symbol: varchar('symbol', { length: 10 }).notNull(),
+  status: mysqlEnum('status', ['pending', 'downloading', 'converting', 'done', 'failed'])
+    .notNull()
+    .default('pending'),
+  outDir: varchar('out_dir', { length: 255 }),
+  slugs: json('slugs').$type<string[]>(),
+  windowsWritten: int('windows_written'),
+  sourceSizeMb: decimal('source_size_mb', { precision: 10, scale: 2 }),
+  error: text('error'),
+  startedAt: timestamp('started_at'),
+  finishedAt: timestamp('finished_at'),
+  createdAt: timestamp('created_at').defaultNow().notNull(),
 })
 
 // Backtests table

@@ -61,6 +61,7 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/pmxt/overview' },
+                { text: 'List Available Files', link: '/datasets/pmxt/list-files' },
               ],
             },
             {
