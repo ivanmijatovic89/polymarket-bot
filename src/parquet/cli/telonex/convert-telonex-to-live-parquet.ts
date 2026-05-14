@@ -451,7 +451,7 @@ function parseArgs(argv: string[]): {
     }
   }
 
-  return { inputDir, outPath, bookInterval }
+  return outPath !== undefined ? { inputDir, outPath, bookInterval } : { inputDir, bookInterval }
 }
 
 async function main(): Promise<void> {
