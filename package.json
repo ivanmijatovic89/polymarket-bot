@@ -56,7 +56,10 @@
     "redeem-watcher:relayer": "cross-env POLYMARKET_TX_MODE_REDEEM=relayer tsx src/cli/redeem-watcher.ts",
     "eoa:approve-ctf": "tsx src/cli/relayer.ts eoa-approve-ctf",
     "eoa:approve": "tsx src/cli/relayer.ts eoa-approve",
-    "make:csv": "tsx src/strategies/split/makeCsv.ts"
+    "make:csv": "tsx src/strategies/split/makeCsv.ts",
+    "pmxt:sync-catalog:v1": "tsx src/pmxt/sync-catalog.ts --version v1",
+    "pmxt:sync-catalog:v2": "tsx src/pmxt/sync-catalog.ts --version v2",
+    "pmxt:download-and-convert:v1": "tsx src/pmxt/download-and-convert-v1.ts --symbol btc"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",

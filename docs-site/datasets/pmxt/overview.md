@@ -71,6 +71,7 @@ Each file covers one UTC hour of orderbook events.
 
 ## Related
 
-- [List Available Files](/datasets/pmxt/list-files) — fetch the full file catalogue for v1 or v2.
+- [Sync Catalogue](/datasets/pmxt/sync-catalog) — populate the database with the full file list for v1 or v2.
+- [Download & Convert v1](/datasets/pmxt/download-and-convert-v1) — run the conversion pipeline to produce native parquet files for backtesting.
 - [Datasets Overview](/datasets/index) — comparison of all supported dataset sources.
 - [Telonex Overview](/datasets/telonex/overview) — another third-party dataset source.

@@ -42,9 +42,21 @@ type WindowMeta = {
   tokenIds: string[]
 }
 
+const BOTH_WARM_TIMEOUT_MS = 15_000
+
+export type WindowQuality = {
+  slug: string
+  secsToFirstEvent: number | null
+  secsToBothWarm: number | null
+}
+
+export type SkippedWindow = WindowQuality & { reason: string }
+
 export type ConvertPmxtFileResult = {
   slugs: string[]
   windowsWritten: number
+  writtenWindows: WindowQuality[]
+  skippedWindows: SkippedWindow[]
 }
 
 // ---------------------------------------------------------------------------
@@ -220,6 +232,8 @@ export async function convertPmxtFile(
   if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true })
 
   const writtenSlugs: string[] = []
+  const writtenWindows: WindowQuality[] = []
+  const skippedWindows: SkippedWindow[] = []
 
   for (const w of windowMetas) {
     const rows = buckets.get(w.conditionId) ?? []
@@ -230,6 +244,40 @@ export async function convertPmxtFile(
       const tsMs = pmxtTsToMs(row.timestamp_created_at)
       return tsMs >= windowStartMs && tsMs < windowEndMs
     })
+
+    // Check warm state: find first book per asset_id and when both tokens are warm
+    const firstRow = windowRows[0]
+    const firstEventMs = firstRow !== undefined ? pmxtTsToMs(firstRow.timestamp_created_at) : null
+    const firstBookByAsset = new Map<string, number>()
+
+    for (const row of windowRows) {
+      if (row.update_type !== 'book_snapshot') continue
+      let parsed: Record<string, unknown>
+      try {
+        parsed = JSON.parse(row.data) as Record<string, unknown>
+      } catch {
+        continue
+      }
+      const assetId = parsed.token_id as string
+      if (!firstBookByAsset.has(assetId)) {
+        firstBookByAsset.set(assetId, pmxtTsToMs(row.timestamp_created_at))
+      }
+    }
+
+    const bothWarmMs = firstBookByAsset.size >= 2 ? Math.max(...firstBookByAsset.values()) : null
+
+    const secsToFirstEvent = firstEventMs !== null ? (firstEventMs - windowStartMs) / 1000 : null
+    const secsToBothWarm = bothWarmMs !== null ? (bothWarmMs - windowStartMs) / 1000 : null
+
+    if (bothWarmMs === null || bothWarmMs - windowStartMs > BOTH_WARM_TIMEOUT_MS) {
+      const reason =
+        bothWarmMs === null
+          ? 'no book for both tokens'
+          : `both warm at +${secsToBothWarm?.toFixed(1)}s (> 15s threshold)`
+      skippedWindows.push({ slug: w.slug, secsToFirstEvent, secsToBothWarm, reason })
+      log(`  [skip] ${w.slug} — ${reason}`)
+      continue
+    }
 
     const outPath = path.join(outDir, `${w.slug}.parquet`)
     const writer = await parquet.ParquetWriter.openFile(rawMarketEventParquetSchema, outPath)
@@ -254,14 +302,15 @@ export async function convertPmxtFile(
     await writer.close()
     log(`  → ${w.slug}.parquet  (${written} rows)`)
     writtenSlugs.push(w.slug)
+    writtenWindows.push({ slug: w.slug, secsToFirstEvent, secsToBothWarm })
   }
 
   // 4. Verify ---------------------------------------------------------------
 
   log('\nVerifying output files...')
 
-  for (const w of windowMetas) {
-    const outPath = path.join(outDir, `${w.slug}.parquet`)
+  for (const slug of writtenSlugs) {
+    const outPath = path.join(outDir, `${slug}.parquet`)
     if (!existsSync(outPath)) throw new Error(`MISSING output: ${outPath}`)
     const reader = await parquet.ParquetReader.openFile(outPath)
     const meta = reader.metadata
@@ -270,10 +319,15 @@ export async function convertPmxtFile(
       0,
     )
     await reader.close()
-    log(`  ✓ ${w.slug}.parquet  (${rowCount} rows)`)
+    log(`  ✓ ${slug}.parquet  (${rowCount} rows)`)
   }
 
-  return { slugs: writtenSlugs, windowsWritten: writtenSlugs.length }
+  return {
+    slugs: writtenSlugs,
+    windowsWritten: writtenSlugs.length,
+    writtenWindows,
+    skippedWindows,
+  }
 }
 
 // ---------------------------------------------------------------------------

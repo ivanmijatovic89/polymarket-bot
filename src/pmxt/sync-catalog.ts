@@ -33,6 +33,12 @@ const HEADERS = {
 
 const DELAY_MS = 600
 
+// Files with incomplete data — T16 is only 5.7 MB, T17 produces 2/4 bad windows
+const SKIP_FILENAMES = new Set([
+  'polymarket_orderbook_2026-02-21T16.parquet',
+  'polymarket_orderbook_2026-02-21T17.parquet',
+])
+
 interface FileEntry {
   url: string
   filename: string
@@ -141,7 +147,7 @@ for (const file of files) {
     .where(eq(pmxtDatasetCatalogue.filename, file.filename))
     .limit(1)
 
-  if (existing.length > 0) {
+  if (SKIP_FILENAMES.has(file.filename) || existing.length > 0) {
     skipped++
     continue
   }
