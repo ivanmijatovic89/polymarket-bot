@@ -63,14 +63,18 @@ The script is safe to re-run at any time. Rows are matched by filename — exist
 
 ## Known skipped files
 
-Two v1 files are automatically excluded from insertion because they contain incomplete data:
+Some v1 files are automatically excluded and will never be processed.
+
+**Excluded at catalogue insertion** (never inserted as pending jobs):
 
 | File | Reason |
 |---|---|
 | `polymarket_orderbook_2026-02-21T16.parquet` | First archive file, only ~5.7 MB, incomplete orderbook snapshots |
 | `polymarket_orderbook_2026-02-21T17.parquet` | 2 of 4 windows have no valid book data due to missing T16 context |
 
-These files will never appear as pending jobs and will not be processed by the pipeline.
+**Excluded at pipeline startup** (marked `done` with 0 windows if found pending):
+
+The 21 files from `2026-04-15T09` through `2026-04-16T05` are 0 MB — the v1 archive ended and PMXT stopped recording. The `download-and-convert-v1` pipeline automatically marks these as done on startup without downloading them.
 
 ## Next step
 

@@ -24,6 +24,31 @@ import path from 'path'
 import { getDb, closeDb, pmxtDatasetCatalogue } from '../db/index.js'
 import { convertPmxtFile, type SkippedWindow } from './convert.js'
 
+// Files with 0 bytes at the end of the v1 archive — skip without downloading.
+const SKIP_FILENAMES = new Set([
+  'polymarket_orderbook_2026-04-15T09.parquet',
+  'polymarket_orderbook_2026-04-15T10.parquet',
+  'polymarket_orderbook_2026-04-15T11.parquet',
+  'polymarket_orderbook_2026-04-15T12.parquet',
+  'polymarket_orderbook_2026-04-15T13.parquet',
+  'polymarket_orderbook_2026-04-15T14.parquet',
+  'polymarket_orderbook_2026-04-15T15.parquet',
+  'polymarket_orderbook_2026-04-15T16.parquet',
+  'polymarket_orderbook_2026-04-15T17.parquet',
+  'polymarket_orderbook_2026-04-15T18.parquet',
+  'polymarket_orderbook_2026-04-15T19.parquet',
+  'polymarket_orderbook_2026-04-15T20.parquet',
+  'polymarket_orderbook_2026-04-15T21.parquet',
+  'polymarket_orderbook_2026-04-15T22.parquet',
+  'polymarket_orderbook_2026-04-15T23.parquet',
+  'polymarket_orderbook_2026-04-16T00.parquet',
+  'polymarket_orderbook_2026-04-16T01.parquet',
+  'polymarket_orderbook_2026-04-16T02.parquet',
+  'polymarket_orderbook_2026-04-16T03.parquet',
+  'polymarket_orderbook_2026-04-16T04.parquet',
+  'polymarket_orderbook_2026-04-16T05.parquet',
+])
+
 // ---------------------------------------------------------------------------
 // Args
 // ---------------------------------------------------------------------------
@@ -130,6 +155,20 @@ const stuck = await db
   )
 if (stuck[0].affectedRows > 0) {
   console.log(`Reset ${stuck[0].affectedRows} stuck job(s) to pending`)
+}
+
+// Mark known-empty files as done so they are never downloaded or retried.
+const skippedEmpty = await db
+  .update(pmxtDatasetCatalogue)
+  .set({ status: 'done', windowsWritten: 0, slugs: [], finishedAt: new Date() })
+  .where(
+    and(
+      inArray(pmxtDatasetCatalogue.filename, [...SKIP_FILENAMES]),
+      inArray(pmxtDatasetCatalogue.status, ['pending', 'failed']),
+    ),
+  )
+if (skippedEmpty[0].affectedRows > 0) {
+  console.log(`Skipped ${skippedEmpty[0].affectedRows} known-empty file(s) (0 MB)`)
 }
 
 if (retryFailed) {
