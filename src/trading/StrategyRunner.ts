@@ -1,5 +1,11 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
-import type { AccountEvent, Intent, MarketTick, Strategy } from '../strategy/Strategy.js'
+import type {
+  AccountEvent,
+  Intent,
+  MarketTick,
+  PortfolioSnapshot,
+  Strategy,
+} from '../strategy/Strategy.js'
 import type { StrategyContext, WarmupSnapshot } from '../strategy/StrategyContext.js'
 import type { PluginsSnapshot, PluginSet } from '../strategy/plugins/PluginSet.js'
 import { Portfolio } from './Portfolio.js'
@@ -288,7 +294,10 @@ export class StrategyRunner {
         : undefined
 
     const intents = await this.strategy.onMarketTick(tick, portfolio, ctx)
-    await this.applyIntents(intents)
+    await this.applyIntents(intents, {
+      portfolioSnapshot: portfolio,
+      nowMs: tick.snapshot.timestamp || Date.now(),
+    })
     await this.drainAccountEvents()
   }
 
@@ -297,7 +306,10 @@ export class StrategyRunner {
     await this.drainAccountEvents()
   }
 
-  private async applyIntents(intents: Intent[]): Promise<void> {
+  private async applyIntents(
+    intents: Intent[],
+    opts?: { portfolioSnapshot?: PortfolioSnapshot; nowMs?: number },
+  ): Promise<void> {
     if (!intents || intents.length === 0) return
     this.intentLog?.('[intent] batch', {
       count: intents.length,
@@ -352,13 +364,14 @@ export class StrategyRunner {
       }),
       executionMode: this.intentExecutionMode,
     })
-    const nowMs = this.lastMarket?.timestamp || Date.now()
+    const portfolioSnapshot = opts?.portfolioSnapshot ?? this.portfolio.snapshot()
+    const nowMs = opts?.nowMs ?? this.lastMarket?.timestamp ?? portfolioSnapshot.nowMs ?? Date.now()
     const events = await this.orderManager.handleIntents(
       intents,
       {
         nowMs,
         ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-        portfolio: this.portfolio.snapshot(),
+        portfolio: portfolioSnapshot,
       },
       { mode: this.intentExecutionMode },
     )
@@ -469,13 +482,13 @@ export class StrategyRunner {
     const nextIntents = await this.strategy.onAccountEvent(ev, portfolio, this.lastMarket, ctx)
     if (!nextIntents || nextIntents.length === 0) return
 
-    const nowMs = this.lastMarket?.timestamp || this.portfolio.snapshot().nowMs || Date.now()
+    const nowMs = this.lastMarket?.timestamp || portfolio.nowMs || Date.now()
     const nextEvents = await this.orderManager.handleIntents(
       nextIntents,
       {
         nowMs,
         ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-        portfolio: this.portfolio.snapshot(),
+        portfolio,
       },
       { mode: this.intentExecutionMode },
     )

@@ -6,6 +6,12 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
 export type BacktestArgs = {
   filePaths: string[]
   dirs?: string[]
+  // recorded:
+  //   Replays source WS events and runs strategy on each meaningful event tick.
+  // telonex-paired-parquet:
+  //   Replays paired up/down snapshots and runs strategy once per paired frame.
+  //   Merge step may carry forward the missing side from the last known snapshot.
+  inputMode: 'recorded' | 'telonex-paired-parquet'
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   slugs?: string[]
@@ -22,6 +28,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
   const dirs: string[] = []
   const slugs: string[] = []
+  let inputMode: 'recorded' | 'telonex-paired-parquet' = 'recorded'
   let order: 'recorded' | 'exchange_time' = 'recorded'
   let timeDriven = false
   let symbol: string | undefined
@@ -48,7 +55,17 @@ export function parseArgs(argv: string[]): BacktestArgs {
         order = parseOrderValue(argv[i + 1])
         i += 1
         break
-
+      case '--input-mode': {
+        const raw = argv[i + 1]
+        if (raw !== 'recorded' && raw !== 'telonex-paired-parquet') {
+          throw new Error(
+            `[backtest] --input-mode must be one of: recorded, telonex-paired-parquet (got: ${String(raw)})`,
+          )
+        }
+        inputMode = raw
+        i += 1
+        break
+      }
       case '--time-driven':
       case '--realtime':
         timeDriven = true
@@ -168,6 +185,16 @@ export function parseArgs(argv: string[]): BacktestArgs {
           dirs.push(raw)
           break
         }
+        if (arg.startsWith('--input-mode=')) {
+          const raw = arg.slice('--input-mode='.length)
+          if (raw !== 'recorded' && raw !== 'telonex-paired-parquet') {
+            throw new Error(
+              `[backtest] --input-mode must be one of: recorded, telonex-paired-parquet (got: ${raw})`,
+            )
+          }
+          inputMode = raw
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -196,10 +223,21 @@ export function parseArgs(argv: string[]): BacktestArgs {
   if (dirs.length > 0 && slugs.length > 0) {
     throw new Error('[backtest] --dir and --slug are mutually exclusive')
   }
+  if (inputMode === 'telonex-paired-parquet' && (symbol || slugs.length > 0 || dirs.length > 0)) {
+    throw new Error(
+      '[backtest] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, or --dir',
+    )
+  }
+  if (inputMode === 'telonex-paired-parquet' && filePaths.length === 0) {
+    throw new Error(
+      '[backtest] --input-mode=telonex-paired-parquet requires at least one parquet file',
+    )
+  }
 
   return {
     filePaths,
     ...(dirs.length > 0 ? { dirs } : {}),
+    inputMode,
     order,
     timeDriven,
     ...(slugs.length > 0 ? { slugs } : {}),
