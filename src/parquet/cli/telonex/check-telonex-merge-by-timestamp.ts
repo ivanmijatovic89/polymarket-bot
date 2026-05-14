@@ -98,7 +98,6 @@ async function readRows(file: InputFile): Promise<ParsedRow[]> {
   const rows: ParsedRow[] = []
 
   try {
-     
     while (true) {
       const row = (await cursor.next()) as Row | null
       if (!row) break

@@ -215,7 +215,6 @@ async function loadTicks(files: InputFile[]): Promise<ParsedTick[]> {
     let dropped = 0
 
     try {
-       
       while (true) {
         const row = (await cursor.next()) as TelonexRow | null
         if (!row) break

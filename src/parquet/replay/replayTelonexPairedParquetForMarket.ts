@@ -77,7 +77,6 @@ export async function replayTelonexPairedParquetForMarket(params: {
   const eng = new MarketEngine()
 
   try {
-     
     while (true) {
       if (params.shouldStop?.()) break
       const row = (await cursor.next()) as PairedRow | null

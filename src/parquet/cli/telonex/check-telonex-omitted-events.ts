@@ -275,7 +275,6 @@ async function loadOriginalEvents(filePath: string): Promise<ParsedOriginalEvent
   const cursor = reader.getCursor()
   const events: ParsedOriginalEvent[] = []
   try {
-     
     while (true) {
       const row = (await cursor.next()) as OriginalRow | null
       if (!row) break
@@ -296,7 +295,6 @@ async function loadTelonexEvents(files: InputFile[]): Promise<ParsedTelonexEvent
     const cursor = reader.getCursor()
     let loaded = 0
     try {
-       
       while (true) {
         const row = (await cursor.next()) as TelonexRow | null
         if (!row) break
