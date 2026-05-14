@@ -107,7 +107,7 @@ function transformRow(row: PmxtRow): { raw_json: string; ts_exchange_ms: bigint 
       event_type: 'book',
       asset_id: parsed.token_id,
       market: parsed.market_id,
-      timestamp: tsMs,
+      timestamp: String(tsMs),
       bids,
       asks,
     })
@@ -118,7 +118,7 @@ function transformRow(row: PmxtRow): { raw_json: string; ts_exchange_ms: bigint 
     const raw_json = JSON.stringify({
       event_type: 'price_change',
       market: parsed.market_id,
-      timestamp: tsMs,
+      timestamp: String(tsMs),
       price_changes: [
         {
           asset_id: parsed.token_id,
