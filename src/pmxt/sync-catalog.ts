@@ -1,24 +1,28 @@
 #!/usr/bin/env tsx
 /**
- * Fetches the complete v1 file catalogue from the PMXT archive and inserts
- * all entries into the pmxt_dataset_catalogue table as pending jobs.
+ * Fetches the PMXT archive file catalogue and inserts new entries into
+ * the pmxt_dataset_catalogue table as pending jobs.
  *
  * Safe to re-run — existing rows (matched by filename) are skipped.
  *
  * Usage:
- *   npx tsx src/pmxt/insert-pmxt-dataset-v1.ts --symbol btc
+ *   npx tsx src/pmxt/sync-catalog.ts --version v1
+ *   npx tsx src/pmxt/sync-catalog.ts --version v2
  */
 
 import { eq } from 'drizzle-orm'
 import { getDb, closeDb, pmxtDatasetCatalogue } from '../db/index.js'
 
 // ---------------------------------------------------------------------------
-// Archive scraping (v1 only)
+// Archive scraping
 // ---------------------------------------------------------------------------
 
 const ARCHIVE_BASE = 'https://archive.pmxt.dev/Polymarket'
-const V1_CDN_HOST = 'r2.pmxt.dev'
-const DELAY_MS = 600
+
+const CDN_HOSTS: Record<string, string> = {
+  v1: 'r2.pmxt.dev',
+  v2: 'r2v2.pmxt.dev',
+}
 
 const HEADERS = {
   'User-Agent':
@@ -26,6 +30,8 @@ const HEADERS = {
   Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
   'Accept-Language': 'en-US,en;q=0.9',
 }
+
+const DELAY_MS = 600
 
 interface FileEntry {
   url: string
@@ -67,9 +73,13 @@ function extractEntries(html: string, re: RegExp): FileEntry[] {
   return entries
 }
 
-async function fetchAllV1Files(): Promise<FileEntry[]> {
-  const baseUrl = `${ARCHIVE_BASE}/v1`
-  const re = buildEntryRe(V1_CDN_HOST)
+async function fetchAllFiles(version: string): Promise<FileEntry[]> {
+  const cdnHost = CDN_HOSTS[version]
+  if (!cdnHost)
+    throw new Error(`Unknown version "${version}". Supported: ${Object.keys(CDN_HOSTS).join(', ')}`)
+
+  const baseUrl = `${ARCHIVE_BASE}/${version}`
+  const re = buildEntryRe(cdnHost)
   const seen = new Map<string, FileEntry>()
 
   const firstHtml = await fetchHtml(baseUrl)
@@ -94,16 +104,30 @@ async function fetchAllV1Files(): Promise<FileEntry[]> {
 // Args
 // ---------------------------------------------------------------------------
 
+const args = process.argv.slice(2)
+const get = (flag: string) => {
+  const i = args.indexOf(flag)
+  return i !== -1 ? args[i + 1] : undefined
+}
+
+const version = get('--version') ?? 'v1'
+
+if (!CDN_HOSTS[version]) {
+  console.error(`Unknown version "${version}". Supported: v1, v2`)
+  process.exit(1)
+}
+
 // ---------------------------------------------------------------------------
 // Main
 // ---------------------------------------------------------------------------
 
-console.log(`Fetching PMXT v1 catalogue...`)
+console.log(`Fetching PMXT ${version} catalogue...`)
 console.log()
 
-const files = await fetchAllV1Files()
+const files = await fetchAllFiles(version)
 
-console.log(`\nFetched ${files.length} files. Inserting into DB...\n`)
+const totalGb = Math.round((files.reduce((s, f) => s + f.sizeMb, 0) / 1024) * 100) / 100
+console.log(`\nFetched ${files.length} files (${totalGb} GB total). Inserting into DB...\n`)
 
 const db = getDb()
 
@@ -123,7 +147,7 @@ for (const file of files) {
   }
 
   await db.insert(pmxtDatasetCatalogue).values({
-    version: 'v1',
+    version,
     filename: file.filename,
     url: file.url,
     hourTs: file.hourTs,
@@ -134,9 +158,7 @@ for (const file of files) {
   inserted++
 
   if (inserted % 50 === 0) {
-    process.stdout.write(
-      `  inserted ${inserted}/${files.length - skipped - (files.length - inserted - skipped)}...\r`,
-    )
+    process.stdout.write(`  inserted ${inserted}...\r`)
   }
 }
 
