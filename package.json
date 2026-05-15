@@ -56,7 +56,13 @@
     "redeem-watcher:relayer": "cross-env POLYMARKET_TX_MODE_REDEEM=relayer tsx src/cli/redeem-watcher.ts",
     "eoa:approve-ctf": "tsx src/cli/relayer.ts eoa-approve-ctf",
     "eoa:approve": "tsx src/cli/relayer.ts eoa-approve",
-    "make:csv": "tsx src/strategies/split/makeCsv.ts"
+    "make:csv": "tsx src/strategies/split/makeCsv.ts",
+    "pmxt:sync-catalog:v1": "tsx src/pmxt/sync-catalog.ts --version v1",
+    "pmxt:sync-catalog:v2": "tsx src/pmxt/sync-catalog.ts --version v2",
+    "pmxt:download-and-convert:v1": "tsx src/pmxt/download-and-convert-v1.ts --symbol btc",
+    "pmxt:download-and-convert:v2": "tsx src/pmxt/download-and-convert-v2.ts --symbol btc",
+    "pmxt:resolve-slugs:v2": "tsx src/pmxt/resolve-slugs-v2.ts --symbol btc",
+    "pmxt:build-master:v2": "tsx src/pmxt/build-master-v2.ts --symbol btc"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
@@ -83,6 +89,7 @@
   },
   "dependencies": {
     "@dsnp/parquetjs": "^1.8.7",
+    "@duckdb/node-api": "^1.5.2-r.1",
     "@ethersproject/wallet": "^5.7.2",
     "@polymarket/builder-relayer-client": "^0.0.8",
     "@polymarket/builder-signing-sdk": "^0.0.8",

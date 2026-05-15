@@ -64,6 +64,20 @@
       "when": 1769539881025,
       "tag": "0008_add_backtest_slugs",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1747526400000,
+      "tag": "0009_pmxt_dataset_catalogue",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1779408000000,
+      "tag": "0010_pmxt_slug_cache",
+      "breakpoints": true
     }
   ]
 }

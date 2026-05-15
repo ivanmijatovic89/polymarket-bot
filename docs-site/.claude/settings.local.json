@@ -1,7 +1,13 @@
 {
   "permissions": {
     "allow": [
-      "Bash(git checkout *)"
+      "Bash(git checkout *)",
+      "mcp__plugin_context7_context7__resolve-library-id",
+      "mcp__plugin_context7_context7__query-docs",
+      "Bash(npm run *)",
+      "Read(//Users/mijat/Sites/polymarket-bot/**)",
+      "Bash(npx tsx *)",
+      "Bash(python3 *)"
     ]
   }
 }
