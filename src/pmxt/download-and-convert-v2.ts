@@ -1,19 +1,15 @@
 #!/usr/bin/env tsx
 /**
- * Processes pending PMXT v1 conversion jobs from the pmxt_dataset_catalogue table.
+ * Processes pending PMXT v2 conversion jobs from the pmxt_dataset_catalogue table.
  *
  * For each pending job it:
- *   1. Downloads the raw PMXT hourly parquet to temp/
+ *   1. Downloads the raw PMXT v2 hourly parquet to temp/
  *   2. Converts it to native parquet files (one per 15m window)
  *   3. Deletes the raw temp file
  *   4. Updates the job status in the DB
  *
- * Runs up to --concurrency N jobs in parallel. Downloads are fully parallel (network I/O);
- * conversions are internally capped at 3 because each makes 4 Gamma API calls + DuckDB —
- * too many at once triggers rate-limiting.
- *
  * Usage:
- *   npx tsx src/pmxt/download-and-convert-v1.ts --symbol btc --out <dir> [--limit N] [--concurrency N] [--retry-failed]
+ *   npx tsx src/pmxt/download-and-convert-v2.ts --symbol btc --out <dir> [--limit N] [--concurrency N] [--retry-failed] [--max-warm-secs 15]
  */
 
 import { eq, and, inArray } from 'drizzle-orm'
@@ -22,32 +18,11 @@ import { pipeline } from 'stream/promises'
 import path from 'path'
 
 import { getDb, closeDb, pmxtDatasetCatalogue } from '../db/index.js'
-import { convertPmxtFile, type SkippedWindow } from './convert.js'
+import { type SkippedWindow } from './convert.js'
+import { convertPmxtFileV2 } from './convertV2.js'
 
-// Files with 0 bytes at the end of the v1 archive — skip without downloading.
-const SKIP_FILENAMES = new Set([
-  'polymarket_orderbook_2026-04-15T09.parquet',
-  'polymarket_orderbook_2026-04-15T10.parquet',
-  'polymarket_orderbook_2026-04-15T11.parquet',
-  'polymarket_orderbook_2026-04-15T12.parquet',
-  'polymarket_orderbook_2026-04-15T13.parquet',
-  'polymarket_orderbook_2026-04-15T14.parquet',
-  'polymarket_orderbook_2026-04-15T15.parquet',
-  'polymarket_orderbook_2026-04-15T16.parquet',
-  'polymarket_orderbook_2026-04-15T17.parquet',
-  'polymarket_orderbook_2026-04-15T18.parquet',
-  'polymarket_orderbook_2026-04-15T19.parquet',
-  'polymarket_orderbook_2026-04-15T20.parquet',
-  'polymarket_orderbook_2026-04-15T21.parquet',
-  'polymarket_orderbook_2026-04-15T22.parquet',
-  'polymarket_orderbook_2026-04-15T23.parquet',
-  'polymarket_orderbook_2026-04-16T00.parquet',
-  'polymarket_orderbook_2026-04-16T01.parquet',
-  'polymarket_orderbook_2026-04-16T02.parquet',
-  'polymarket_orderbook_2026-04-16T03.parquet',
-  'polymarket_orderbook_2026-04-16T04.parquet',
-  'polymarket_orderbook_2026-04-16T05.parquet',
-])
+// No known incomplete files for v2 yet.
+const SKIP_FILENAMES = new Set<string>()
 
 // ---------------------------------------------------------------------------
 // Args
@@ -67,6 +42,7 @@ const outDir = get('--out') ?? `data/events/${symbol}`
 const tempDir = get('--temp') ?? 'temp'
 const concurrency = parseInt(get('--concurrency') ?? '1', 10)
 const convertConcurrency = concurrency
+const bothWarmTimeoutMs = parseInt(get('--max-warm-secs') ?? '15', 10) * 1000
 
 // ---------------------------------------------------------------------------
 // Semaphore — limits concurrent access to a resource
@@ -149,7 +125,7 @@ const stuck = await db
   .set({ status: 'pending', error: null, startedAt: null, finishedAt: null })
   .where(
     and(
-      eq(pmxtDatasetCatalogue.version, 'v1'),
+      eq(pmxtDatasetCatalogue.version, 'v2'),
       eq(pmxtDatasetCatalogue.symbol, symbol),
       inArray(pmxtDatasetCatalogue.status, ['downloading', 'converting']),
     ),
@@ -178,7 +154,7 @@ if (retryFailed) {
     .set({ status: 'pending', error: null, startedAt: null, finishedAt: null })
     .where(
       and(
-        eq(pmxtDatasetCatalogue.version, 'v1'),
+        eq(pmxtDatasetCatalogue.version, 'v2'),
         eq(pmxtDatasetCatalogue.symbol, symbol),
         eq(pmxtDatasetCatalogue.status, 'failed'),
       ),
@@ -195,7 +171,7 @@ const pendingRows = await db
   .from(pmxtDatasetCatalogue)
   .where(
     and(
-      eq(pmxtDatasetCatalogue.version, 'v1'),
+      eq(pmxtDatasetCatalogue.version, 'v2'),
       eq(pmxtDatasetCatalogue.symbol, symbol),
       eq(pmxtDatasetCatalogue.status, 'pending'),
     ),
@@ -307,9 +283,16 @@ async function processJob(job: PendingRow, slotIndex: number): Promise<void> {
       .set({ status: 'converting' })
       .where(eq(pmxtDatasetCatalogue.id, job.id))
 
-    let result: Awaited<ReturnType<typeof convertPmxtFile>>
+    let result: Awaited<ReturnType<typeof convertPmxtFileV2>>
     try {
-      result = await convertPmxtFile(tempPath, symbol, windowMinutes, outDir, () => {})
+      result = await convertPmxtFileV2(
+        tempPath,
+        symbol,
+        windowMinutes,
+        outDir,
+        () => {},
+        bothWarmTimeoutMs,
+      )
     } finally {
       convertSemaphore.release()
     }

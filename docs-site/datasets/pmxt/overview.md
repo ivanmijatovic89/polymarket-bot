@@ -51,6 +51,14 @@ v2 was introduced because **Polymarket changed their WebSocket message format**,
 
 Each file contains 16 columns. The first five are always populated; the remaining columns are event-type-specific.
 
+### Why v2 needs a different pipeline
+
+v1 was processed hour-by-hour: download one file, convert four 15-minute windows, repeat. That works for v1 because the early hours of v1 captured the **initial `book` snapshot** for every market — Polymarket WebSocket broadcasts a fresh book only on subscribe, and v1's ingestion started recording when those subscribes happened.
+
+v2 has been continuously subscribed since April 2026, so the initial book for a given market was broadcast **at the hour the market was listed** — which may be hours or days before its trading window. An hour-isolated conversion typically finds book events for only one of the two outcome tokens (the recently-listed one). The other token's book lives in an older hourly file.
+
+The fix is to first collect every BTC up/down market across the whole v2 range, then stream events for all of them into a single master parquet — preserving each market's initial book regardless of which hour file it sits in. See [Build Master v2](/datasets/pmxt/build-master-v2).
+
 ## Overlap period
 
 Both versions cover the window **`2026-04-13T19` → `2026-04-16T05`** (~58 hours / ~2.4 days). During this period the same Polymarket market events appear in both archives, but encoded in different schemas. If you are working near the boundary, use v2 — it has better coverage and the newer format.
@@ -72,6 +80,7 @@ Each file covers one UTC hour of orderbook events.
 ## Related
 
 - [Sync Catalogue](/datasets/pmxt/sync-catalog) — populate the database with the full file list for v1 or v2.
-- [Download & Convert v1](/datasets/pmxt/download-and-convert-v1) — run the conversion pipeline to produce native parquet files for backtesting.
+- [Download & Convert v1](/datasets/pmxt/download-and-convert-v1) — run the v1 conversion pipeline to produce native parquet files for backtesting.
+- [Build Master v2](/datasets/pmxt/build-master-v2) — assemble a single master parquet of every BTC event from v2.
 - [Datasets Overview](/datasets/index) — comparison of all supported dataset sources.
 - [Telonex Overview](/datasets/telonex/overview) — another third-party dataset source.

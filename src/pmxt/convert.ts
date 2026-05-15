@@ -35,7 +35,7 @@ type PmxtRow = {
   data: string
 }
 
-type WindowMeta = {
+export type WindowMeta = {
   windowStart: Date
   slug: string
   conditionId: string

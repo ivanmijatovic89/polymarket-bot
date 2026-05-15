@@ -46,7 +46,14 @@ export const pmxtDatasetCatalogue = mysqlTable('pmxt_dataset_catalogue', {
   url: varchar('url', { length: 255 }).notNull(),
   hourTs: datetime('hour_ts').notNull(),
   symbol: varchar('symbol', { length: 10 }).notNull(),
-  status: mysqlEnum('status', ['pending', 'downloading', 'converting', 'done', 'failed'])
+  status: mysqlEnum('status', [
+    'pending',
+    'downloading',
+    'converting',
+    'done',
+    'master_done',
+    'failed',
+  ])
     .notNull()
     .default('pending'),
   outDir: varchar('out_dir', { length: 255 }),
@@ -57,6 +64,16 @@ export const pmxtDatasetCatalogue = mysqlTable('pmxt_dataset_catalogue', {
   startedAt: timestamp('started_at'),
   finishedAt: timestamp('finished_at'),
   createdAt: timestamp('created_at').defaultNow().notNull(),
+})
+
+// PMXT slug → conditionId resolution cache (avoids re-hitting Gamma)
+export const pmxtSlugCache = mysqlTable('pmxt_slug_cache', {
+  slug: varchar('slug', { length: 100 }).primaryKey(),
+  symbol: varchar('symbol', { length: 10 }).notNull(),
+  conditionId: varchar('condition_id', { length: 66 }).notNull(),
+  tokenIds: json('token_ids').$type<string[]>().notNull(),
+  windowStart: datetime('window_start').notNull(),
+  resolvedAt: timestamp('resolved_at').defaultNow().notNull(),
 })
 
 // Backtests table

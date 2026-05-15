@@ -63,6 +63,7 @@ export default withMermaid(
                 { text: 'Overview', link: '/datasets/pmxt/overview' },
                 { text: 'Sync Catalogue', link: '/datasets/pmxt/sync-catalog' },
                 { text: 'Download & Convert v1', link: '/datasets/pmxt/download-and-convert-v1' },
+                { text: 'Build Master v2', link: '/datasets/pmxt/build-master-v2' },
               ],
             },
             {

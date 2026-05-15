@@ -59,7 +59,10 @@
     "make:csv": "tsx src/strategies/split/makeCsv.ts",
     "pmxt:sync-catalog:v1": "tsx src/pmxt/sync-catalog.ts --version v1",
     "pmxt:sync-catalog:v2": "tsx src/pmxt/sync-catalog.ts --version v2",
-    "pmxt:download-and-convert:v1": "tsx src/pmxt/download-and-convert-v1.ts --symbol btc"
+    "pmxt:download-and-convert:v1": "tsx src/pmxt/download-and-convert-v1.ts --symbol btc",
+    "pmxt:download-and-convert:v2": "tsx src/pmxt/download-and-convert-v2.ts --symbol btc",
+    "pmxt:resolve-slugs:v2": "tsx src/pmxt/resolve-slugs-v2.ts --symbol btc",
+    "pmxt:build-master:v2": "tsx src/pmxt/build-master-v2.ts --symbol btc"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",

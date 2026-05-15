@@ -1,53 +1,34 @@
 #!/usr/bin/env tsx
 /**
- * Processes pending PMXT v1 conversion jobs from the pmxt_dataset_catalogue table.
+ * Phase 2: build one giant master parquet of every BTC up/down 15m event
+ * present in the PMXT v2 archive.
  *
- * For each pending job it:
- *   1. Downloads the raw PMXT hourly parquet to temp/
- *   2. Converts it to native parquet files (one per 15m window)
- *   3. Deletes the raw temp file
- *   4. Updates the job status in the DB
+ * For each pending v2 hourly file:
+ *   1. Download to temp/
+ *   2. INSERT all rows whose market is in pmxt_slug_cache into a DuckDB
+ *      persistent intermediate (data/pmxt-v2-master/btc-events.duckdb)
+ *   3. Delete the download
+ *   4. Mark the catalogue row as status='master_done'
  *
- * Runs up to --concurrency N jobs in parallel. Downloads are fully parallel (network I/O);
- * conversions are internally capped at 3 because each makes 4 Gamma API calls + DuckDB —
- * too many at once triggers rate-limiting.
+ * After all rows are ingested (or with --finalize on a subsequent run), the
+ * script writes the consolidated `btc-master.parquet`.
+ *
+ * Crash-safe: state lives in DuckDB on disk. Re-running picks up where it
+ * stopped, using pmxt_dataset_catalogue.status to know which hours are done.
  *
  * Usage:
- *   npx tsx src/pmxt/download-and-convert-v1.ts --symbol btc --out <dir> [--limit N] [--concurrency N] [--retry-failed]
+ *   npx tsx src/pmxt/build-master-v2.ts --symbol btc \
+ *     [--limit N] [--concurrency 4] [--retry-failed] \
+ *     [--finalize | --finalize-only]
  */
 
 import { eq, and, inArray } from 'drizzle-orm'
+import { DuckDBInstance } from '@duckdb/node-api'
 import { createWriteStream, existsSync, mkdirSync, unlinkSync } from 'fs'
 import { pipeline } from 'stream/promises'
 import path from 'path'
 
-import { getDb, closeDb, pmxtDatasetCatalogue } from '../db/index.js'
-import { convertPmxtFile, type SkippedWindow } from './convert.js'
-
-// Files with 0 bytes at the end of the v1 archive — skip without downloading.
-const SKIP_FILENAMES = new Set([
-  'polymarket_orderbook_2026-04-15T09.parquet',
-  'polymarket_orderbook_2026-04-15T10.parquet',
-  'polymarket_orderbook_2026-04-15T11.parquet',
-  'polymarket_orderbook_2026-04-15T12.parquet',
-  'polymarket_orderbook_2026-04-15T13.parquet',
-  'polymarket_orderbook_2026-04-15T14.parquet',
-  'polymarket_orderbook_2026-04-15T15.parquet',
-  'polymarket_orderbook_2026-04-15T16.parquet',
-  'polymarket_orderbook_2026-04-15T17.parquet',
-  'polymarket_orderbook_2026-04-15T18.parquet',
-  'polymarket_orderbook_2026-04-15T19.parquet',
-  'polymarket_orderbook_2026-04-15T20.parquet',
-  'polymarket_orderbook_2026-04-15T21.parquet',
-  'polymarket_orderbook_2026-04-15T22.parquet',
-  'polymarket_orderbook_2026-04-15T23.parquet',
-  'polymarket_orderbook_2026-04-16T00.parquet',
-  'polymarket_orderbook_2026-04-16T01.parquet',
-  'polymarket_orderbook_2026-04-16T02.parquet',
-  'polymarket_orderbook_2026-04-16T03.parquet',
-  'polymarket_orderbook_2026-04-16T04.parquet',
-  'polymarket_orderbook_2026-04-16T05.parquet',
-])
+import { getDb, closeDb, pmxtDatasetCatalogue, pmxtSlugCache } from '../db/index.js'
 
 // ---------------------------------------------------------------------------
 // Args
@@ -62,14 +43,20 @@ const get = (flag: string) => {
 const symbol = get('--symbol') ?? 'btc'
 const limit = get('--limit') ? parseInt(get('--limit')!, 10) : undefined
 const retryFailed = args.includes('--retry-failed')
-const windowMinutes = parseInt(get('--window') ?? '15', 10)
-const outDir = get('--out') ?? `data/events/${symbol}`
-const tempDir = get('--temp') ?? 'temp'
 const concurrency = parseInt(get('--concurrency') ?? '1', 10)
-const convertConcurrency = concurrency
+const finalize = args.includes('--finalize')
+const finalizeOnly = args.includes('--finalize-only')
+const tempDir = get('--temp') ?? 'temp'
+
+const outDir = get('--out') ?? 'data/pmxt-v2-master'
+const duckPath = path.join(outDir, `${symbol}-events.duckdb`)
+const masterPath = path.join(outDir, `${symbol}-master.parquet`)
+
+if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true })
+if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true })
 
 // ---------------------------------------------------------------------------
-// Semaphore — limits concurrent access to a resource
+// Semaphore
 // ---------------------------------------------------------------------------
 
 class Semaphore {
@@ -90,17 +77,26 @@ class Semaphore {
 
   release(): void {
     const next = this.waiters.shift()
-    if (next) {
-      next()
-    } else {
-      this.slots++
-    }
+    if (next) next()
+    else this.slots++
   }
 }
 
 // ---------------------------------------------------------------------------
-// Download helper
+// Helpers
 // ---------------------------------------------------------------------------
+
+function fmtDuration(ms: number): string {
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  const m = Math.floor(ms / 60_000)
+  const s = Math.round((ms % 60_000) / 1000)
+  return `${m}m ${s}s`
+}
+
+function fmtEta(doneCount: number, totalCount: number, elapsedMs: number): string {
+  if (doneCount === 0) return '?'
+  return fmtDuration((elapsedMs / doneCount) * (totalCount - doneCount))
+}
 
 async function downloadFile(url: string, destPath: string): Promise<void> {
   const res = await fetch(url, {
@@ -116,40 +112,109 @@ async function downloadFile(url: string, destPath: string): Promise<void> {
 }
 
 // ---------------------------------------------------------------------------
-// Formatting helpers
+// DuckDB setup
 // ---------------------------------------------------------------------------
 
-function fmtDuration(ms: number): string {
-  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
-  const m = Math.floor(ms / 60_000)
-  const s = Math.round((ms % 60_000) / 1000)
-  return `${m}m ${s}s`
+const duckDb = await DuckDBInstance.create(duckPath)
+const duckConn = await duckDb.connect()
+
+await duckConn.run(`CREATE SEQUENCE IF NOT EXISTS ingest_seq_gen`)
+await duckConn.run(`
+  CREATE TABLE IF NOT EXISTS btc_events (
+    ingest_seq BIGINT,
+    timestamp_received TIMESTAMP WITH TIME ZONE,
+    timestamp TIMESTAMP WITH TIME ZONE,
+    market VARCHAR,
+    event_type VARCHAR,
+    asset_id VARCHAR,
+    bids VARCHAR,
+    asks VARCHAR,
+    price DECIMAL(9,4),
+    size DECIMAL(18,6),
+    side VARCHAR,
+    best_bid DECIMAL(9,4),
+    best_ask DECIMAL(9,4),
+    fee_rate_bps USMALLINT,
+    transaction_hash VARCHAR,
+    old_tick_size DECIMAL(9,4),
+    new_tick_size DECIMAL(9,4),
+    PRIMARY KEY (ingest_seq)
+  )
+`)
+await duckConn.run(`CREATE INDEX IF NOT EXISTS idx_market_ts ON btc_events(market, timestamp)`)
+
+// ---------------------------------------------------------------------------
+// Finalize-only path
+// ---------------------------------------------------------------------------
+
+async function writeMasterParquet(): Promise<void> {
+  console.log(`\nFinalizing master parquet → ${masterPath}`)
+  const rowsRes = await duckConn.run(`SELECT COUNT(*) FROM btc_events`)
+  let totalRows = 0n
+  for (let c = 0; c < rowsRes.chunkCount; c++) {
+    for (const row of rowsRes.getChunk(c).getRows()) totalRows = row[0] as bigint
+  }
+  console.log(`  events in intermediate: ${totalRows.toString()}`)
+
+  if (totalRows === 0n) {
+    console.error('  No rows to write — skipping COPY.')
+    return
+  }
+
+  const tmpPath = `${masterPath}.tmp`
+  if (existsSync(tmpPath)) unlinkSync(tmpPath)
+
+  const start = Date.now()
+  await duckConn.run(`
+    COPY (SELECT * FROM btc_events ORDER BY market, timestamp, ingest_seq)
+    TO '${tmpPath}'
+    (FORMAT PARQUET, COMPRESSION GZIP);
+  `)
+  if (existsSync(masterPath)) unlinkSync(masterPath)
+  // rename
+  const fs = await import('fs/promises')
+  await fs.rename(tmpPath, masterPath)
+  console.log(`  master parquet written in ${fmtDuration(Date.now() - start)}`)
 }
 
-function fmtEta(doneCount: number, totalCount: number, elapsedMs: number): string {
-  if (doneCount === 0) return '?'
-  const msPerJob = elapsedMs / doneCount
-  return fmtDuration(msPerJob * (totalCount - doneCount))
-}
-
-function fmtSecs(secs: number | null, prefix = '+'): string {
-  if (secs === null) return '—'
-  return `${secs >= 0 ? prefix : ''}${secs.toFixed(1)}s`
+if (finalizeOnly) {
+  await writeMasterParquet()
+  duckConn.closeSync()
+  await closeDb()
+  process.exit(0)
 }
 
 // ---------------------------------------------------------------------------
-// Main
+// Main pipeline
 // ---------------------------------------------------------------------------
 
 const db = getDb()
 
-// Always reset stuck in-progress jobs from a previous interrupted run
+// Load conditionIds from cache
+const cachedRows = await db
+  .select({ conditionId: pmxtSlugCache.conditionId })
+  .from(pmxtSlugCache)
+  .where(eq(pmxtSlugCache.symbol, symbol))
+
+if (cachedRows.length === 0) {
+  console.error(`No slugs cached for symbol=${symbol}. Run pmxt:resolve-slugs:v2 first.`)
+  duckConn.closeSync()
+  await closeDb()
+  process.exit(1)
+}
+
+const conditionIds = Array.from(new Set(cachedRows.map((r) => r.conditionId)))
+console.log(`Loaded ${conditionIds.length} unique conditionIds from pmxt_slug_cache`)
+
+const conditionList = conditionIds.map((c) => `'${c}'`).join(',')
+
+// Reset stuck in-progress jobs from previous interrupted run
 const stuck = await db
   .update(pmxtDatasetCatalogue)
   .set({ status: 'pending', error: null, startedAt: null, finishedAt: null })
   .where(
     and(
-      eq(pmxtDatasetCatalogue.version, 'v1'),
+      eq(pmxtDatasetCatalogue.version, 'v2'),
       eq(pmxtDatasetCatalogue.symbol, symbol),
       inArray(pmxtDatasetCatalogue.status, ['downloading', 'converting']),
     ),
@@ -158,27 +223,13 @@ if (stuck[0].affectedRows > 0) {
   console.log(`Reset ${stuck[0].affectedRows} stuck job(s) to pending`)
 }
 
-// Mark known-empty files as done so they are never downloaded or retried.
-const skippedEmpty = await db
-  .update(pmxtDatasetCatalogue)
-  .set({ status: 'done', windowsWritten: 0, slugs: [], finishedAt: new Date() })
-  .where(
-    and(
-      inArray(pmxtDatasetCatalogue.filename, [...SKIP_FILENAMES]),
-      inArray(pmxtDatasetCatalogue.status, ['pending', 'failed']),
-    ),
-  )
-if (skippedEmpty[0].affectedRows > 0) {
-  console.log(`Skipped ${skippedEmpty[0].affectedRows} known-empty file(s) (0 MB)`)
-}
-
 if (retryFailed) {
   const reset = await db
     .update(pmxtDatasetCatalogue)
     .set({ status: 'pending', error: null, startedAt: null, finishedAt: null })
     .where(
       and(
-        eq(pmxtDatasetCatalogue.version, 'v1'),
+        eq(pmxtDatasetCatalogue.version, 'v2'),
         eq(pmxtDatasetCatalogue.symbol, symbol),
         eq(pmxtDatasetCatalogue.status, 'failed'),
       ),
@@ -195,7 +246,7 @@ const pendingRows = await db
   .from(pmxtDatasetCatalogue)
   .where(
     and(
-      eq(pmxtDatasetCatalogue.version, 'v1'),
+      eq(pmxtDatasetCatalogue.version, 'v2'),
       eq(pmxtDatasetCatalogue.symbol, symbol),
       eq(pmxtDatasetCatalogue.status, 'pending'),
     ),
@@ -206,26 +257,24 @@ type PendingRow = (typeof pendingRows)[number]
 
 const total = pendingRows.length
 if (total === 0) {
-  console.log('No pending jobs found.')
+  console.log('No pending v2 jobs.')
+  if (finalize) await writeMasterParquet()
+  duckConn.closeSync()
   await closeDb()
   process.exit(0)
 }
 
 console.log(
-  `Starting pipeline: ${total} pending jobs  symbol=${symbol}  concurrency=${concurrency}  out=${outDir}`,
+  `Starting build-master: ${total} pending v2 files  symbol=${symbol}  concurrency=${concurrency}`,
 )
-
-// Cap parallel downloads to avoid bandwidth saturation — more than 3-4 simultaneous
-// downloads share the pipe and each takes proportionally longer, killing throughput.
-const downloadSemaphore = new Semaphore(Math.min(concurrency, 4))
-const convertSemaphore = new Semaphore(convertConcurrency)
 console.log()
 
-if (!existsSync(tempDir)) mkdirSync(tempDir, { recursive: true })
-if (!existsSync(outDir)) mkdirSync(outDir, { recursive: true })
+// Cap parallel downloads (network) — convert/insert is always serial (1)
+const downloadSemaphore = new Semaphore(Math.min(concurrency, 4))
+const insertSemaphore = new Semaphore(1)
 
 // ---------------------------------------------------------------------------
-// Interrupt handling — mark in-progress jobs as failed on Ctrl+C / SIGTERM
+// Interrupt handling
 // ---------------------------------------------------------------------------
 
 const activeJobs = new Map<number, { tempPath: string; filename: string }>()
@@ -248,6 +297,9 @@ async function shutdown(signal: string): Promise<never> {
     console.log(`  ${filename} → pending`)
   }
   try {
+    duckConn.closeSync()
+  } catch {}
+  try {
     await closeDb()
   } catch {}
   process.exit(1)
@@ -263,7 +315,6 @@ process.on('SIGTERM', () => void shutdown('SIGTERM'))
 const startTime = Date.now()
 let done = 0
 let failed = 0
-const allSkipped: { sourceFile: string; window: SkippedWindow }[] = []
 
 async function processJob(job: PendingRow, slotIndex: number): Promise<void> {
   if (shuttingDown) return
@@ -293,25 +344,59 @@ async function processJob(job: PendingRow, slotIndex: number): Promise<void> {
 
     if (shuttingDown) return
 
-    await convertSemaphore.acquire()
+    await insertSemaphore.acquire()
 
     if (shuttingDown) {
-      convertSemaphore.release()
+      insertSemaphore.release()
       return
     }
 
-    console.log(`${jobLabel}  converting...`)
+    console.log(`${jobLabel}  inserting...`)
 
     await db
       .update(pmxtDatasetCatalogue)
       .set({ status: 'converting' })
       .where(eq(pmxtDatasetCatalogue.id, job.id))
 
-    let result: Awaited<ReturnType<typeof convertPmxtFile>>
+    let rowsInserted = 0n
     try {
-      result = await convertPmxtFile(tempPath, symbol, windowMinutes, outDir, () => {})
+      const sqlStr = `
+        INSERT INTO btc_events
+        SELECT
+          nextval('ingest_seq_gen'),
+          timestamp_received,
+          timestamp,
+          CAST(market AS VARCHAR),
+          event_type,
+          asset_id,
+          bids,
+          asks,
+          price,
+          size,
+          side,
+          best_bid,
+          best_ask,
+          fee_rate_bps,
+          transaction_hash,
+          old_tick_size,
+          new_tick_size
+        FROM read_parquet('${tempPath}')
+        WHERE CAST(market AS VARCHAR) IN (${conditionList})
+      `
+      const beforeRes = await duckConn.run(`SELECT COUNT(*) FROM btc_events`)
+      let beforeCount = 0n
+      for (let c = 0; c < beforeRes.chunkCount; c++) {
+        for (const r of beforeRes.getChunk(c).getRows()) beforeCount = r[0] as bigint
+      }
+      await duckConn.run(sqlStr)
+      const afterRes = await duckConn.run(`SELECT COUNT(*) FROM btc_events`)
+      let afterCount = 0n
+      for (let c = 0; c < afterRes.chunkCount; c++) {
+        for (const r of afterRes.getChunk(c).getRows()) afterCount = r[0] as bigint
+      }
+      rowsInserted = afterCount - beforeCount
     } finally {
-      convertSemaphore.release()
+      insertSemaphore.release()
     }
 
     if (existsSync(tempPath)) unlinkSync(tempPath)
@@ -319,37 +404,15 @@ async function processJob(job: PendingRow, slotIndex: number): Promise<void> {
     await db
       .update(pmxtDatasetCatalogue)
       .set({
-        status: 'done',
-        slugs: result.slugs,
-        windowsWritten: result.windowsWritten,
-        outDir,
+        status: 'master_done',
         finishedAt: new Date(),
       })
       .where(eq(pmxtDatasetCatalogue.id, job.id))
 
-    for (const w of result.skippedWindows) {
-      allSkipped.push({ sourceFile: job.filename!, window: w })
-    }
-
     done++
     const elapsed = fmtDuration(Date.now() - jobStart)
     const eta = fmtEta(done, total, Date.now() - startTime)
-    const skippedNote =
-      result.skippedWindows.length > 0 ? `  skipped: ${result.skippedWindows.length}` : ''
-    console.log(
-      `${jobLabel}  done (${result.windowsWritten} windows${skippedNote}, ${elapsed})  ETA: ${eta}`,
-    )
-
-    for (const w of result.writtenWindows) {
-      console.log(
-        `         ✓ ${w.slug}  first_event: ${fmtSecs(w.secsToFirstEvent)}  both_warm: ${fmtSecs(w.secsToBothWarm)}`,
-      )
-    }
-    for (const w of result.skippedWindows) {
-      console.log(
-        `         [skip] ${w.slug}  first_event: ${fmtSecs(w.secsToFirstEvent)}  both_warm: ${fmtSecs(w.secsToBothWarm)}  → ${w.reason}`,
-      )
-    }
+    console.log(`${jobLabel}  done (+${rowsInserted.toString()} rows, ${elapsed})  ETA: ${eta}`)
   } catch (err) {
     if (existsSync(tempPath)) unlinkSync(tempPath)
 
@@ -386,23 +449,19 @@ for (let slot = 0; slot < Math.min(concurrency, queue.length); slot++) {
 await Promise.all(pool)
 
 // ---------------------------------------------------------------------------
-// Summary
+// Summary + optional finalize
 // ---------------------------------------------------------------------------
-
-await closeDb()
 
 const totalElapsed = fmtDuration(Date.now() - startTime)
 console.log()
 console.log(`Pipeline finished in ${totalElapsed}`)
-console.log(`  done:   ${done}`)
-console.log(`  failed: ${failed}`)
-console.log(`  total:  ${total}`)
+console.log(`  done:        ${done}`)
+console.log(`  failed:      ${failed}`)
+console.log(`  total:       ${total}`)
 
-if (allSkipped.length > 0) {
-  console.log(`\nSkipped windows (${allSkipped.length} total):`)
-  for (const { sourceFile, window: w } of allSkipped) {
-    console.log(
-      `  [${sourceFile}]  ${w.slug}  first_event: ${fmtSecs(w.secsToFirstEvent)}  both_warm: ${fmtSecs(w.secsToBothWarm)}  → ${w.reason}`,
-    )
-  }
-}
+if (finalize) await writeMasterParquet()
+else
+  console.log(`\nIntermediate at ${duckPath}. Run with --finalize-only to produce ${masterPath}.`)
+
+duckConn.closeSync()
+await closeDb()
