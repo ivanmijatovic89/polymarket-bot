@@ -477,24 +477,44 @@ async function processMarket(
   return { ok, failed, noFile }
 }
 
+function fmtEta(remainingSec: number): string {
+  if (!isFinite(remainingSec) || remainingSec <= 0) return '?'
+  const h = Math.floor(remainingSec / 3600)
+  const m = Math.floor((remainingSec % 3600) / 60)
+  if (h > 0) return `${h}h${m}m`
+  if (m > 0) return `${m}m`
+  return `${Math.round(remainingSec)}s`
+}
+
+type SharedState = {
+  signal: AbortSignal
+  consumed: { count: number }
+  completed: { count: number }
+  totalQueue: number
+  runStart: number
+}
+
 async function worker(
   workerId: number,
   args: { apiKey: string; bucket: string; channel: string; limit: number | null },
-  state: { signal: AbortSignal; consumed: { count: number } },
+  state: SharedState,
 ): Promise<void> {
   while (!state.signal.aborted) {
     if (args.limit && state.consumed.count >= args.limit) return
     const market = await claimMarket()
-    if (!market) {
-      // Nothing more to claim; exit the worker.
-      return
-    }
+    if (!market) return
     state.consumed.count++
     const t0 = Date.now()
     try {
       const { ok, failed, noFile } = await processMarket(workerId, market, args, state.signal)
+      state.completed.count++
+      const elapsedRun = (Date.now() - state.runStart) / 1000
+      const rate = state.completed.count / Math.max(elapsedRun, 0.001)
+      const remaining = Math.max(state.totalQueue - state.completed.count, 0)
+      const eta = fmtEta(remaining / rate)
       console.log(
-        `[telonex:download] w${workerId} ${market.slug} done ok=${ok} no_file=${noFile} failed=${failed} elapsed=${fmtMs(Date.now() - t0)}`,
+        `[telonex:download] w${workerId} ${market.slug} done ok=${ok} no_file=${noFile} failed=${failed} elapsed=${fmtMs(Date.now() - t0)} ` +
+          `[${state.completed.count}/${state.totalQueue} rate=${rate.toFixed(2)}/s eta=${eta}]`,
       )
     } catch (err) {
       console.error(`[telonex:download] w${workerId} ${market.slug} unexpected:`, err)
@@ -534,10 +554,25 @@ async function main(): Promise<void> {
   process.on('SIGTERM', () => void onSignal('SIGTERM'))
 
   const consumed = { count: 0 }
+  const completed = { count: 0 }
+  const db = getDb()
+  // Count markets that are eligible to be claimed. With --limit, cap at that.
+  const totals = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(telonexMarkets)
+    .where(inArray(telonexMarkets.uploadStatus, ['pending', 'partial']))
+  const queueTotal = Number(totals[0]?.c ?? 0)
+  const totalQueue = args.limit ? Math.min(args.limit, queueTotal) : queueTotal
+  console.log(`[telonex:download] queue size=${totalQueue} (pending+partial, capped by --limit)`)
+
   const t0 = Date.now()
   try {
     const workers = Array.from({ length: args.concurrency }, (_, i) =>
-      worker(i + 1, { ...args, apiKey, bucket }, { signal: ac.signal, consumed }),
+      worker(
+        i + 1,
+        { ...args, apiKey, bucket },
+        { signal: ac.signal, consumed, completed, totalQueue, runStart: t0 },
+      ),
     )
     await Promise.all(workers)
   } finally {
