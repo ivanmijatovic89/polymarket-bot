@@ -219,13 +219,24 @@ async function downloadVerifyUpload(args: {
       last = err as Error
       if (err instanceof HttpError && err.status === 429) {
         r429++
+        const waitMs = err.retryAfterMs ?? 4000
+        console.warn(
+          `[telonex:download] WARN 429 rate-limited ${candidate.date}/${candidate.assetId.slice(0, 8)} ` +
+            `retry ${r429}/${MAX_429_RETRIES} after ${fmtMs(waitMs)}`,
+        )
         if (r429 > MAX_429_RETRIES) break
-        await sleep(err.retryAfterMs ?? 4000, signal)
+        await sleep(waitMs, signal)
         attempt-- // don't count 429 toward the 3-retry budget
         continue
       }
       if (attempt < MAX_IN_PROCESS_RETRIES) {
-        await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 4000, signal)
+        const httpStatus = err instanceof HttpError ? err.status : 'net'
+        const waitMs = RETRY_DELAYS_MS[attempt - 1] ?? 4000
+        console.warn(
+          `[telonex:download] WARN ${httpStatus} ${candidate.date}/${candidate.assetId.slice(0, 8)} ` +
+            `attempt ${attempt}/${MAX_IN_PROCESS_RETRIES} retry in ${fmtMs(waitMs)}: ${(err as Error).message}`,
+        )
+        await sleep(waitMs, signal)
         continue
       }
     }
