@@ -28,6 +28,11 @@ export function getR2Client(): S3Client {
     endpoint,
     credentials: { accessKeyId, secretAccessKey },
     forcePathStyle: true,
+    // AWS SDK v3 ≥3.729 auto-adds a SHA256/CRC32 checksum that conflicts with
+    // Content-MD5 on Cloudflare R2. Disable auto-checksums so Content-MD5
+    // server-side validation works.
+    requestChecksumCalculation: 'WHEN_REQUIRED',
+    responseChecksumValidation: 'WHEN_REQUIRED',
   })
   return cachedClient
 }
@@ -55,9 +60,22 @@ export async function getObjectBuffer(bucket: string, key: string): Promise<Buff
   return streamToBuffer(res.Body as Readable)
 }
 
-export async function putObject(bucket: string, key: string, body: Buffer): Promise<void> {
+export async function putObject(
+  bucket: string,
+  key: string,
+  body: Buffer,
+  opts?: { contentMD5?: string },
+): Promise<{ etag: string | undefined }> {
   const client = getR2Client()
-  await client.send(new PutObjectCommand({ Bucket: bucket, Key: key, Body: body }))
+  const res = await client.send(
+    new PutObjectCommand({
+      Bucket: bucket,
+      Key: key,
+      Body: body,
+      ...(opts?.contentMD5 ? { ContentMD5: opts.contentMD5 } : {}),
+    }),
+  )
+  return { etag: res.ETag?.replace(/^"|"$/g, '') }
 }
 
 export async function headObject(bucket: string, key: string): Promise<{ size: number } | null> {
