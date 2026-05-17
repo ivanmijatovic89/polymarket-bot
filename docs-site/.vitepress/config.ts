@@ -54,6 +54,7 @@ export default withMermaid(
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },
                 { text: 'Verify Conversions', link: '/datasets/telonex/verify' },
+                { text: 'How Verify Works', link: '/datasets/telonex/how-verify-works' },
                 { text: 'Run a Backtest', link: '/datasets/telonex/backtest' },
                 { text: 'Diagnostics', link: '/datasets/telonex/diagnostics' },
               ],

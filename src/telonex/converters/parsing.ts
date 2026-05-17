@@ -197,14 +197,27 @@ export async function streamSortedTickGroupsFromInputs(
   onGroup: (group: ParsedTick[]) => void | Promise<void>,
 ): Promise<StreamStats> {
   const stats: StreamStats = { filesRead: inputs.length, loaded: 0, dropped: 0 }
+  const duckDb = await DuckDBInstance.create(':memory:')
+  const conn = await duckDb.connect()
 
-  const selects = inputs.map((input, fileIdx) => {
-    return `
+  const selects = await Promise.all(
+    inputs.map(async (input, fileIdx) => {
+      const describe = await conn.run(
+        `DESCRIBE SELECT * FROM read_parquet(${sqlString(input.filePath)})`,
+      )
+      const columns = new Set<string>()
+      for (let c = 0; c < describe.chunkCount; c += 1) {
+        for (const row of describe.getChunk(c).getRows()) {
+          if (typeof row[0] === 'string') columns.add(row[0])
+        }
+      }
+      const slugProjection = columns.has('slug') ? 'slug' : 'CAST(NULL AS VARCHAR) AS slug'
+      return `
       SELECT
         timestamp_us,
         local_timestamp_us,
         market_id,
-        slug,
+        ${slugProjection},
         asset_id,
         bids,
         asks,
@@ -213,10 +226,8 @@ export async function streamSortedTickGroupsFromInputs(
         ${fileIdx} AS __file_idx
       FROM read_parquet(${sqlString(input.filePath)})
     `
-  })
-
-  const duckDb = await DuckDBInstance.create(':memory:')
-  const conn = await duckDb.connect()
+    }),
+  )
   const result = await conn.run(`
     ${selects.join('\nUNION ALL\n')}
     ORDER BY timestamp_us, local_timestamp_us, asset_id, __side, __file_idx

@@ -196,7 +196,7 @@ SELECT
   timestamp_us,
   local_timestamp_us,
   market_id,
-  slug,
+  slug, -- or CAST(NULL AS VARCHAR) AS slug when the raw file has no slug column
   asset_id,
   bids,
   asks,
@@ -208,6 +208,8 @@ ORDER BY timestamp_us, local_timestamp_us, asset_id, __side, __file_idx;
 ```
 
 DuckDB is used here because the raw Telonex files contain deeply nested bid and ask lists. The JavaScript `parquetjs` cursor was not reliable for large raw files because it could exhaust the default Node heap while decoding nested pages. DuckDB keeps the heavy Parquet scan outside those JavaScript allocations and returns rows in chunks.
+
+The verifier discovers the market slug from `telonex_markets`, not from the raw Parquet files. If a raw file has a `slug` column, the parser preserves it for downstream converted output. If it does not, the parser projects `NULL AS slug` and still verifies the orderbook state.
 
 Each row is parsed into a `ParsedTick`:
 
@@ -275,6 +277,8 @@ This matches the paired converter's carry-forward behavior. The verifier therefo
 A paired tick can contain one fresh side and one carried side. That is valid for the paired format. The verifier expects the backtest-visible orderbook to match that carried-forward state exactly.
 :::
 
+The carried-forward side carries its bid and ask levels forward, not its original per-asset event timestamp. The paired schema has one `ts_exchange_ms` column for the whole row, and paired replay applies both asset books with that row timestamp. The verifier mirrors this replay-visible behavior: both expected asset books use the current paired row timestamp, while the carried side keeps its previous levels.
+
 ## Delta Verification Semantics
 
 The delta converter emits live-style `raw_market_event` rows:
@@ -291,7 +295,7 @@ The expected delta provider mirrors the converter's behavior:
    - previous ask levels;
    - ticks since the last full `book` checkpoint.
 3. If an asset has no previous state, or `ticksSinceBook >= --book-interval`, the converter emits a full `book` event.
-4. Otherwise, the verifier checks whether the raw tick changes any price level:
+4. Otherwise, the verifier checks whether the raw tick changes any price level using the same numeric size comparison as the converter:
    - changed size at an existing price;
    - new price level;
    - removed price level.
@@ -407,7 +411,7 @@ The converted file emitted a strategy tick that the raw Telonex expected stream 
 ### Replay ended too early
 
 ```text
-[telonex:verify:delta] replay ended before all expected ticks were emitted actual=...
+[telonex:verify:delta] replay ended before all expected ticks were emitted actual=... next_expected_tick=... reason=...
 ```
 
 The raw expected stream predicted more strategy ticks than replay produced. This usually means the converter dropped a meaningful book change or failed to emit a required checkpoint.

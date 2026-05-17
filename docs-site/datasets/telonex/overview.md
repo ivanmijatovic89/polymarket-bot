@@ -106,7 +106,7 @@ Pre-combines the Up and Down books at every exchange timestamp into a single `or
 
 - Output schema: `pairedOrderbookParquetSchema` (typed columns `up_asset_id`, `up_bids`, `up_asks`, `down_asset_id`, `down_bids`, `down_asks`, …).
 - Requires `--input-mode telonex-paired-parquet` at backtest time.
-- Replay is roughly three times slower than a live-recorded file because every row is a full book replacement.
+- Replay is slower per row than a live-recorded delta file because every row is a full book replacement. Measure on the target machine before using paired files for large batch runs.
 
 ### Delta
 
@@ -136,7 +136,7 @@ This makes verification stricter than the legacy diagnostics. Diagnostics explai
 
 ## Carry-forward pairing
 
-Telonex tracks events **per `asset_id`**, not per side of the market. Each row in a raw file references exactly one `asset_id`, and the event stream for `asset_id_0` is recorded independently from the stream for `asset_id_1`. Because the underlying Polymarket WebSocket events arrive per asset (a book update on the Up token is a distinct event from a book update on the Down token), most exchange timestamps appear in only one of the two raw files for a market.
+Telonex tracks events **per `asset_id`**, not per side of the market. Each row in a raw file references exactly one `asset_id`, and the event stream for `asset_id_0` is recorded independently from the stream for `asset_id_1`. Because the underlying Polymarket WebSocket events arrive per asset, a book update on the Up token is a distinct event from a book update on the Down token. Some timestamps appear in both raw files, and some appear in only one.
 
 The **paired** converter has to synthesise a single output row that contains both sides simultaneously. When it reaches a timestamp where only one side has a tick, it carries forward the most recent tick from the missing side. The output row therefore has one fresh side and one previous-tick-old side.
 

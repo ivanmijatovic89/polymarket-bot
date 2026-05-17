@@ -119,11 +119,11 @@ function snapshotFromState(args: {
   }
 }
 
-function bookFromTick(tick: RawTick): AssetBook {
+function bookFromTick(tick: RawTick, timestamp = Number(tick.tsUs / 1000n)): AssetBook {
   return {
     market: tick.marketId,
     assetId: tick.assetId,
-    timestamp: Number(tick.tsUs / 1000n),
+    timestamp,
     bids: tick.bids,
     asks: tick.asks,
   }
@@ -226,18 +226,18 @@ async function downloadRawFiles(args: {
 }
 
 type DeltaAssetState = {
-  bids: Map<number, string>
-  asks: Map<number, string>
+  bids: Map<number, number>
+  asks: Map<number, number>
   ticksSinceBook: number
 }
 
 function hasChanges(tick: RawTick, state: DeltaAssetState): boolean {
-  const checkSide = (levels: Level[], prev: Map<number, string>): boolean => {
+  const checkSide = (levels: Level[], prev: Map<number, number>): boolean => {
     const seen = new Set<number>()
     for (const lvl of levels) {
       const price = Number(lvl.price)
       seen.add(price)
-      if (prev.get(price) !== lvl.size) return true
+      if (prev.get(price) !== Number(lvl.size)) return true
     }
     for (const price of prev.keys()) {
       if (!seen.has(price)) return true
@@ -248,8 +248,8 @@ function hasChanges(tick: RawTick, state: DeltaAssetState): boolean {
 }
 
 function updateDeltaState(state: DeltaAssetState, tick: RawTick): void {
-  state.bids = new Map(tick.bids.map((x) => [Number(x.price), x.size]))
-  state.asks = new Map(tick.asks.map((x) => [Number(x.price), x.size]))
+  state.bids = new Map(tick.bids.map((x) => [Number(x.price), Number(x.size)]))
+  state.asks = new Map(tick.asks.map((x) => [Number(x.price), Number(x.size)]))
 }
 
 type ExpectedSnapshotProvider = {
@@ -310,6 +310,7 @@ function createPairedExpectedProvider(inputs: ConverterInput[]): ExpectedSnapsho
   return createQueuedExpectedProvider(async (push) => {
     await streamSortedTickGroupsFromInputs(inputs, async (group) => {
       const tsUs = group[0]!.tsUs
+      const eventTsMs = Number(tsUs / 1000n)
       const upTicks = group.filter((x) => x.side === 'up').sort(cmpTick)
       const downTicks = group.filter((x) => x.side === 'down').sort(cmpTick)
       const n = Math.max(upTicks.length, downTicks.length)
@@ -320,15 +321,15 @@ function createPairedExpectedProvider(inputs: ConverterInput[]): ExpectedSnapsho
         if (downTicks[k]) lastDown = downTicks[k]!
         if (!upTick || !downTick) continue
 
-        state.set(upTick.assetId, bookFromTick(upTick))
-        state.set(downTick.assetId, bookFromTick(downTick))
+        state.set(upTick.assetId, bookFromTick(upTick, eventTsMs))
+        state.set(downTick.assetId, bookFromTick(downTick, eventTsMs))
         tickNo += 1
         await push(
           snapshotFromState({
             tickNo,
             reason: `paired ts_us=${tsUs.toString()} group_index=${k}`,
             market: upTick.marketId,
-            timestamp: Number(tsUs / 1000n),
+            timestamp: eventTsMs,
             state,
           }),
         )
@@ -511,9 +512,10 @@ async function verifyPaired(args: { inputs: ConverterInput[]; outputPath: string
       compareSnapshot({ converter: 'paired', expected: expectedTick, actual: snapshot })
     },
   })
-  if (await expected.next()) {
+  const leftover = await expected.next()
+  if (leftover) {
     throw new VerificationError(
-      `[telonex:verify:paired] replay ended before all expected ticks were emitted actual=${actualTicks}`,
+      `[telonex:verify:paired] replay ended before all expected ticks were emitted actual=${actualTicks} next_expected_tick=${leftover.tickNo} reason=${leftover.reason}`,
     )
   }
   console.log(
@@ -549,9 +551,10 @@ async function verifyDelta(args: {
       compareSnapshot({ converter: 'delta', expected: expectedTick, actual: snapshot })
     },
   })
-  if (await expected.next()) {
+  const leftover = await expected.next()
+  if (leftover) {
     throw new VerificationError(
-      `[telonex:verify:delta] replay ended before all expected ticks were emitted actual=${actualTicks}`,
+      `[telonex:verify:delta] replay ended before all expected ticks were emitted actual=${actualTicks} next_expected_tick=${leftover.tickNo} reason=${leftover.reason}`,
     )
   }
   console.log(

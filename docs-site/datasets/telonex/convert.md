@@ -187,7 +187,7 @@ WHERE market_id = (SELECT id FROM telonex_markets WHERE slug = 'btc-updown-15m-1
 
 ## Performance reference
 
-Observed on the local development machine:
+These are local development reference numbers only. Use them for order-of-magnitude checks, not as a portable benchmark; CPU, disk, and `--concurrency` materially change throughput.
 
 | Converter | Input | Output rows | Per-market time |
 | --- | --- | --- | --- |
