@@ -1,26 +1,30 @@
 ---
 title: Telonex Diagnostics
-description: Reference for the two CLI tools that check Telonex merge quality and compare Telonex coverage against a live recording.
+description: Two standalone CLI tools for inspecting Telonex data quality — alignment between Up/Down files and coverage against a live recording.
 ---
 
 # Telonex Diagnostics
 
-Two diagnostic tools are available for inspecting Telonex data quality before or after a merge. Use them when you want to understand how well the UP and DOWN files align, or when you want to measure how many events Telonex captured relative to your own live recording.
+Two diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
 
-## check-telonex-merge-by-timestamp
+::: tip
+These tools expect raw Telonex files on the local filesystem. If your raw files are already on R2 (uploaded by [`telonex:download`](/datasets/telonex/download-raw-files)), download them locally first using the AWS CLI or `npm run r2:upload` in reverse via a small ad-hoc script.
+:::
 
-This tool analyses the raw Telonex UP and DOWN files in a directory and reports whether they can be merged cleanly by timestamp. Run it before merging to catch alignment problems early.
+## merge-by-timestamp
+
+This tool analyses the raw Telonex Up and Down files in a directory and reports whether they can be paired cleanly by timestamp. Run it when you want to predict how many carry-forward frames the paired converter will produce.
 
 ### Usage
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-merge-by-timestamp.ts <directory>
+npx tsx src/telonex/check/merge-by-timestamp.ts <directory>
 ```
 
 Example:
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-merge-by-timestamp.ts \
+npx tsx src/telonex/check/merge-by-timestamp.ts \
   data/telonex/btc-updown-15m-1766364300
 ```
 
@@ -69,7 +73,7 @@ If `up_only_timestamps` or `down_only_timestamps` is greater than zero, the merg
 
 ---
 
-## check-telonex-omitted-events
+## omitted-events
 
 This tool compares a live-recorded Parquet file against a set of Telonex files for the same market window. It identifies which events in the live recording are absent from the Telonex data.
 
@@ -78,7 +82,7 @@ Use this tool when you want to understand the coverage gap between what the bot 
 ### Usage
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
+npx tsx src/telonex/check/omitted-events.ts \
   <original.parquet> \
   <telonex-directory> \
   [--examples N]
@@ -93,7 +97,7 @@ npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
 Example:
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
+npx tsx src/telonex/check/omitted-events.ts \
   data/events/btc/btc-updown-15m-1766364300.parquet \
   data/telonex/btc-updown-15m-1766364300 \
   --examples 5

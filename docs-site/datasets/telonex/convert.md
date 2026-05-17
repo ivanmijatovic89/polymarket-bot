@@ -1,172 +1,189 @@
 ---
-title: Convert Telonex Dataset to Live Format
-description: How to convert raw Telonex UP/DOWN snapshot files into a live-format Parquet file (book + price_change events) for fast replay with the standard backtest engine.
+title: Convert
+description: How to run the telonex:convert dispatcher to turn raw R2 files into paired or delta backtest parquets, locally or on R2.
 ---
 
-# Convert Telonex Dataset to Live Format
+# Convert
 
-This converter transforms raw Telonex snapshot files into the same Parquet format produced by the live recorder — a stream of `book` and `price_change` events. The output file can be replayed by the backtest engine directly, with no special `--input-mode` flag required.
+The `telonex:convert` CLI is Stage 3 of the pipeline. It is a dispatcher: it picks markets whose raw files are already on R2 (`upload_status='done'`), downloads them into a per-worker temp directory, runs the chosen converter, and writes the result locally and/or back to R2 — recording every conversion in `telonex_market_conversions`.
 
-This is the recommended path when replay speed matters. Because the output uses delta events instead of full snapshots, it replays at approximately the same speed as a live-recorded file.
+Two converters are available: **paired** and **delta**. See [Overview > Two output formats](/datasets/telonex/overview#two-output-formats-paired-vs-delta) for the conceptual difference.
 
 ## Prerequisites
 
-- One or more `book_snapshot_full_Up_*.parquet` files for the market.
-- One or more `book_snapshot_full_Down_*.parquet` files for the same market.
-- All files for a single market placed in the same directory.
+- `telonex:download` has been run for the markets you want to convert; their `upload_status` is `done`.
+- R2 credentials are set (`R2_ENDPOINT`, `R2_BUCKET`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`).
+- The output target directory `data/events/telonex/` is writable if you use `--output local` or `both`.
 
-## Running the converter
-
-```bash
-npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts <input-directory>
-```
-
-By default, the output file is written into the input directory and named after the market slug found in the source data:
+## Basic usage
 
 ```bash
-npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts \
-  data/telonex/btc-updown-15m-1766364300
+# Default: paired converter, R2 output
+npm run telonex:convert
+
+# Delta converter, write to local disk only (no R2 upload)
+npm run telonex:convert -- --converter delta --output local
+
+# Paired converter, write both locally and to R2
+npm run telonex:convert -- --converter paired --output both
 ```
 
-This produces:
+Sample output:
 
 ```
-data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300.parquet
+[telonex:convert] converter=paired output=local concurrency=4 limit=none bucket=polymarket-telonex
+[telonex:convert] queue size=19223 (capped by --limit)
+[telonex:convert] w1 btc-updown-15m-1760140800 done rows=10681 elapsed=1.5s [1/19223 rate=0.66/s eta=8h05m]
+...
+[telonex:convert] done markets_processed=19223 elapsed=8h12m
 ```
 
-### Custom output path
+## Flags
 
-Use `--out` to write the result to a different location:
+| Flag | Default | Purpose |
+| --- | --- | --- |
+| `--converter <paired\|delta>` | `paired` | Which converter implementation to run. |
+| `--output <local\|r2\|both>` | `r2` | Where to write the converted Parquet. |
+| `--concurrency <N>` | `4` | Number of markets converted in parallel. |
+| `--limit <N>` | unlimited | Stop after this many markets. |
+| `--book-interval <N>` | `500` | Delta converter only: how often to emit a full `book` snapshot row, in tick count. Lower values increase output size and reduce drift; higher values reduce output size. |
+
+## Output locations
+
+### `--output local`
+
+Writes to:
+
+```
+data/events/telonex/<converter>/<symbol>/<timeframe>/<slug>.parquet
+```
+
+Concretely for a paired BTC 15m market:
+
+```
+data/events/telonex/paired/btc/15m/btc-updown-15m-1760140800.parquet
+```
+
+The output stays on disk after the run. `telonex_market_conversions.local_path` is set to the absolute path. `r2_url` is `NULL`.
+
+### `--output r2`
+
+Writes to a per-worker temp file, uploads to R2 with `Content-MD5`, then deletes the temp file. The R2 key is:
+
+```
+telonex/converted/<converter>/<symbol>/<timeframe>/<epoch>/<slug>.parquet
+```
+
+`telonex_market_conversions.r2_url` is set to `r2://<bucket>/<key>`. `local_path` is `NULL`. The R2 response ETag is stored on `etag`.
+
+### `--output both`
+
+Writes to the local path **and** uploads to R2. Both `local_path` and `r2_url` are populated in `telonex_market_conversions`.
+
+## Choosing a converter
+
+::: code-group
+
+```bash [paired (default)]
+npm run telonex:convert -- --converter paired
+```
+
+```bash [delta (recommended for replay speed)]
+npm run telonex:convert -- --converter delta --book-interval 500
+```
+
+:::
+
+The two converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the other.
+
+## How candidates are claimed
+
+The dispatcher selects a market with:
+
+```sql
+SELECT m.*
+FROM telonex_markets m
+LEFT JOIN telonex_market_conversions c
+  ON c.market_id = m.id AND c.converter = ?
+WHERE m.upload_status = 'done'
+  AND (c.id IS NULL OR c.status = 'failed')
+LIMIT 1 FOR UPDATE SKIP LOCKED;
+```
+
+So a market is eligible if it has no row in `telonex_market_conversions` for the chosen converter, or if its existing row is `failed`. `done` rows are skipped on re-runs.
+
+The claim transaction upserts an `in_progress` row before releasing the lock, so concurrent workers never pick the same market.
+
+## Per-market lifecycle
+
+1. **Claim** market, set conversion `status='in_progress'`.
+2. **Read** the market's `telonex_market_files` rows with `status='uploaded'`.
+3. **Download** each raw file from R2 into `tmp/telonex-convert-<pid>-<worker>-<id>/`.
+4. **Resolve sides** — `asset_id == asset_id_0` is Up, `asset_id == asset_id_1` is Down. The converter receives an explicit `{ filePath, side }` list, never inferring from filenames.
+5. **Run the converter function**, which writes the output Parquet to disk.
+6. **Per `--output`**: keep the file locally, upload to R2 with `Content-MD5`, or both.
+7. **Record** the result on `telonex_market_conversions` (`status='done'`, paths, size, etag).
+8. **Clean up** the temp directory.
+
+If any step throws, the conversion row is updated to `status='failed'` with `last_error`, and the worker moves on. Failed rows are re-claimed automatically on the next run.
+
+## Graceful shutdown
+
+Same two-level pattern as the download worker:
+
+1. **First `Ctrl+C`** — abort in-flight HTTP and converter work, revert every `in_progress` row back to `pending`. Exit 0.
+2. **Second `Ctrl+C`** — hard exit (`process.exit(1)`).
+
+## Verifying a converted file
 
 ```bash
-npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts \
-  data/telonex/btc-updown-15m-1766364300 \
-  --out data/backtest-ready/btc-1766364300.parquet
+npm run verify:parquet -- data/events/telonex/paired/btc/15m/btc-updown-15m-1760140800.parquet
 ```
 
-### Book interval
+A healthy **paired** file has `event_type=orderbook_pair` and columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
 
-The converter emits a full `book` snapshot for each asset on the first tick and then at regular intervals, with `price_change` delta rows in between. The default interval is 500 ticks; use `--book-interval` to change it:
+A healthy **delta** file has `event_type` values of `book` and `price_change`, and the `raw_json` column carries the live-format payloads.
 
-```bash
-npx tsx src/parquet/cli/telonex/convert-telonex-to-live-parquet.ts \
-  data/telonex/btc-updown-15m-1766364300 \
-  --book-interval 250
+## Backtesting the output
+
+- **Paired** files require `--input-mode telonex-paired-parquet` — see [Run a Backtest](/datasets/telonex/backtest).
+- **Delta** files are in the live format and run in standard `recorded` mode with no `--input-mode` flag.
+
+## Checking conversion state
+
+```sql
+-- Per-converter completion
+SELECT converter, status, COUNT(*)
+FROM telonex_market_conversions
+GROUP BY converter, status;
+
+-- Latest failures
+SELECT m.slug, c.converter, c.last_error
+FROM telonex_market_conversions c
+JOIN telonex_markets m ON m.id = c.market_id
+WHERE c.status = 'failed'
+ORDER BY c.completed_at DESC
+LIMIT 20;
+
+-- Where is a market's converted file?
+SELECT converter, status, r2_url, local_path, size_bytes
+FROM telonex_market_conversions
+WHERE market_id = (SELECT id FROM telonex_markets WHERE slug = 'btc-updown-15m-1766364300');
 ```
 
-Smaller values produce more `book` rows (less sensitive to a corrupted state mid-replay but slightly larger output file). Larger values produce fewer `book` rows (slightly smaller output, longer recovery window if something goes wrong).
+## Performance reference
 
-## Understanding the output
+Observed on the local development machine:
 
-The converter prints a per-file load line for each input file, then a summary:
-
-```
-[convert-telonex] file=book_snapshot_full_Up_2025-12-21.parquet side=up loaded=46770 dropped=0
-[convert-telonex] file=book_snapshot_full_Down_2025-12-21.parquet side=down loaded=46770 dropped=0
-
-[convert-telonex] input_dir=data/telonex/btc-updown-15m-1766364300
-[convert-telonex] files=2 parsed_ticks=93540 book_interval=500
-[convert-telonex] empty_delta_ticks=8548
-[convert-telonex] rows_written=89453 book=376 price_change=89077
-[convert-telonex] output=data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300.parquet
-```
-
-| Field                | Meaning                                                                                                                    |
-| -------------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `loaded`             | Rows successfully parsed from a file.                                                                                      |
-| `dropped`            | Rows skipped due to missing required fields (market ID, asset ID, or timestamp).                                           |
-| `parsed_ticks`       | Total rows loaded across all input files.                                                                                  |
-| `empty_delta_ticks`  | Ticks where the book did not change relative to the previous snapshot — no delta was emitted for these.                    |
-| `rows_written`       | Total rows in the output file.                                                                                             |
-| `book`               | Number of full `book` rows written (one per asset at the first tick and every `book_interval` ticks thereafter).           |
-| `price_change`       | Number of delta `price_change` rows written.                                                                               |
-
-### Why `empty_delta_ticks` is non-zero
-
-Telonex writes a full snapshot on every WebSocket event, including events where Polymarket sent the same book state twice (e.g. a server-side retransmission). When the converter computes a delta for such a tick and finds no changed levels, it skips the row entirely rather than emitting an empty delta. This is the correct behaviour — the equivalent live-recorded event would also produce no orderbook change.
-
-## Output format
-
-The output file uses `rawMarketEventParquetSchema` — the same schema as a live-recorded file:
-
-| Column           | Type  | Description                                                         |
-| ---------------- | ----- | ------------------------------------------------------------------- |
-| `ingest_seq`     | INT64 | Monotonically increasing row number, starting at 1.                 |
-| `ts_local_ms`    | INT64 | Telonex local ingestion timestamp, in milliseconds.                 |
-| `ts_exchange_ms` | INT64 | Exchange timestamp, in milliseconds.                                |
-| `event_type`     | UTF8  | `book` or `price_change`.                                           |
-| `raw_json`       | UTF8  | JSON payload matching the live WebSocket event format.              |
-
-### `book` row payload
-
-```json
-{
-  "event_type": "book",
-  "asset_id": "<token-id>",
-  "market": "<market-id>",
-  "timestamp": "<exchange-ts-ms>",
-  "hash": "",
-  "bids": [{ "price": "0.55", "size": "100" }, ...],
-  "asks": [{ "price": "0.56", "size": "200" }, ...]
-}
-```
-
-### `price_change` row payload
-
-```json
-{
-  "event_type": "price_change",
-  "market": "<market-id>",
-  "timestamp": "<exchange-ts-ms>",
-  "price_changes": [
-    { "asset_id": "<token-id>", "price": "0.55", "size": "120", "side": "BUY", "hash": "", "best_bid": "", "best_ask": "" },
-    { "asset_id": "<token-id>", "price": "0.97", "size": "0",   "side": "SELL", "hash": "", "best_bid": "", "best_ask": "" }
-  ]
-}
-```
-
-A `size` of `"0"` means the level was removed from the book.
-
-## How conversion works
-
-After loading all ticks from all input files, the converter:
-
-1. **Sorts** all ticks by exchange timestamp.
-2. **Groups** ticks that share the same timestamp, then splits them into UP and DOWN.
-3. **Pairs** UP[k] with DOWN[k] positionally within each timestamp group.
-4. For each pair, processes each tick independently:
-   - If no state exists yet for the asset, or if `book_interval` ticks have elapsed since the last `book` row, a full `book` row is emitted and the state is reset.
-   - Otherwise, the converter computes a delta against the stored state. Any changed or removed levels are collected.
-5. If the combined delta from both sides in the pair is non-empty, a single `price_change` row is emitted containing changes from both assets.
-6. Empty deltas (no changed levels) are silently skipped.
-
-The state tracker uses numeric price keys (`Map<number, LevelEntry>`) rather than raw strings. This avoids spurious changes when Telonex writes `"1.0"` in one snapshot and `"1"` in the next for the same price level.
-
-## Running a backtest with the converted file
-
-The output file is compatible with the default backtest mode — no `--input-mode` flag is needed:
-
-```bash
-npx tsx src/cli/backtest.ts \
-  --strategy <strategy-id> \
-  data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300.parquet
-```
-
-Or with `npm run backtest`:
-
-```bash
-npm run backtest -- \
-  --strategy <strategy-id> \
-  data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300.parquet
-```
-
-## Comparison with the paired format
-
-The [Convert Telonex Dataset to Paired Format](/datasets/telonex/merge) tool produces a different output format (`orderbook_pair` rows) that requires `--input-mode telonex-paired-parquet`. That format applies full book replacements on every row, making it approximately three times slower to replay than either live-recorded files or the live-format output produced by this tool.
-
-| | Live Recording | Convert Telonex Dataset to Live Format (this page) | Convert Telonex Dataset to Paired Format |
+| Converter | Input | Output rows | Per-market time |
 | --- | --- | --- | --- |
-| Output format | `book` + `price_change` | `book` + `price_change` | `orderbook_pair` |
-| Replay speed | Baseline | Same as live-recorded | ~3× slower |
-| `--input-mode` required | No | No | Yes (`telonex-paired-parquet`) |
-| Use when | — | Telonex data, speed matters | Legacy compatibility |
+| paired | 2 raw files (~280 KB each) | ~10,000 paired rows | ~1.5 s |
+| paired | 4 raw files (~700 KB each, 2-day window) | ~22,000 paired rows | ~2.7 s |
+| delta | 2 raw files (~280 KB each) | ~10,600 mixed rows | ~1.2 s |
+
+Throughput scales close to linearly with `--concurrency` since conversion is mostly CPU-bound.
+
+## Next steps
+
+- [Run a Backtest](/datasets/telonex/backtest) — replay the converted files.
+- [Download Raw Files](/datasets/telonex/download-raw-files) — upstream stage if `upload_status` is not yet `done` for your markets.
