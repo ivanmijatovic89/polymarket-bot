@@ -7,8 +7,10 @@ description: Two standalone CLI tools for inspecting Telonex data quality — al
 
 Two diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
 
-::: tip
-These tools expect raw Telonex files on the local filesystem. If your raw files are already on R2 (uploaded by [`telonex:download`](/datasets/telonex/download-raw-files)), download them locally first using the AWS CLI or `npm run r2:upload` in reverse via a small ad-hoc script.
+::: warning Filename convention required
+Both tools detect Up vs Down by looking for the literal substring `_Up_` or `_Down_` in the filename, **and** require the filename to start with `book_snapshot_full_`. Raw files uploaded to R2 by [`telonex:download`](/datasets/telonex/download-raw-files) keep the original Telonex filenames (`<asset_id>_<date>_<channel>.parquet`), which contain neither marker. To use these tools you must download the relevant raw files locally and rename them to a `book_snapshot_full_<Up|Down>_<date>.parquet` convention first.
+
+This is a legacy assumption from when files were curl-downloaded by hand and renamed manually. If you only ever interact with files through `telonex:convert`, these diagnostics are not strictly necessary — the converter resolves sides from `asset_id_0` / `asset_id_1` directly and never relies on filenames.
 :::
 
 ## merge-by-timestamp

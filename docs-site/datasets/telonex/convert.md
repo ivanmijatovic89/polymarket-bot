@@ -119,7 +119,7 @@ The claim transaction upserts an `in_progress` row before releasing the lock, so
 1. **Claim** market, set conversion `status='in_progress'`.
 2. **Read** the market's `telonex_market_files` rows with `status='uploaded'`.
 3. **Download** each raw file from R2 into `tmp/telonex-convert-<pid>-<worker>-<id>/`.
-4. **Resolve sides** — `asset_id == asset_id_0` is Up, `asset_id == asset_id_1` is Down. The converter receives an explicit `{ filePath, side }` list, never inferring from filenames.
+4. **Resolve sides** — the dispatcher matches each raw file's `asset_id` against the market's `asset_id_0` / `asset_id_1` columns and tags it with the corresponding `outcome_0` / `outcome_1` label (normalised to `up` / `down`). The converter receives an explicit `{ filePath, side }` list, never inferring from filenames.
 5. **Run the converter function**, which writes the output Parquet to disk.
 6. **Per `--output`**: keep the file locally, upload to R2 with `Content-MD5`, or both.
 7. **Record** the result on `telonex_market_conversions` (`status='done'`, paths, size, etag).

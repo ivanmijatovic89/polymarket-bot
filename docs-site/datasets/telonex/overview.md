@@ -82,7 +82,7 @@ The raw filename is the original `Content-Disposition` name returned by the Telo
 
 ## Per-market candidate expansion
 
-Each `telonex_markets` row carries a `book_snapshot_full_from` / `book_snapshot_full_to` date range and two outcome asset IDs (`asset_id_0` for Up, `asset_id_1` for Down). At download time, the worker expands the range into candidate `(date, asset_id)` pairs:
+Each `telonex_markets` row carries a `book_snapshot_full_from` / `book_snapshot_full_to` date range and the two outcome asset IDs (`asset_id_0` and `asset_id_1`, paired with the labels `outcome_0` and `outcome_1` — typically `"Up"` and `"Down"` for `*-updown-*` markets). At download time, the worker expands the range into candidate `(date, asset_id)` pairs:
 
 | Range | Candidates per market |
 | --- | --- |
@@ -120,13 +120,15 @@ Use the **delta** converter for new work — it is faster to replay and uses the
 
 ## Carry-forward pairing
 
-Telonex snapshots do not always have perfectly matching timestamps for Up and Down. A book event may arrive for Up without a corresponding Down event at the exact same microsecond. When the **paired** converter encounters a timestamp where only one side has a snapshot, it carries forward the most recent snapshot from the missing side. The output row therefore has one fresh side and one slightly stale side.
+Telonex tracks events **per `asset_id`**, not per side of the market. Each row in a raw file references exactly one `asset_id`, and the event stream for `asset_id_0` is recorded independently from the stream for `asset_id_1`. Because the underlying Polymarket WebSocket events arrive per asset (a book update on the Up token is a distinct event from a book update on the Down token), most exchange timestamps appear in only one of the two raw files for a market.
+
+The **paired** converter has to synthesise a single output row that contains both sides simultaneously. When it reaches a timestamp where only one side has a tick, it carries forward the most recent tick from the missing side. The output row therefore has one fresh side and one previous-tick-old side.
 
 ::: warning
-A carry-forward frame means one side of the pair is from the previous Telonex tick for that side rather than the current exchange timestamp. In practice the gap is small (one consecutive event apart), but strategies sensitive to fine-grained price movement should be aware that not every row is perfectly synchronous.
+A carry-forward frame means one side of the pair is from the previous tick for that side rather than the current exchange timestamp. In practice the gap is small (one consecutive event apart for that asset), but strategies sensitive to fine-grained price movement should be aware that not every row is perfectly synchronous.
 :::
 
-The **delta** converter does not need to pair sides — it just emits each side's update as it arrives — so carry-forward does not apply there.
+The **delta** converter does not need to synthesise paired frames — it just emits each side's update as a separate `price_change` (or `book` checkpoint) when it arrives — so carry-forward does not apply there.
 
 ## Channel coverage semantics
 
@@ -141,7 +143,7 @@ Per the [Telonex Polymarket docs](https://telonex.io/docs/exchanges/polymarket),
 
 The bot uses `book_snapshot_full` (see [Sync Markets](/datasets/telonex/sync-markets) — that's the only channel the sync filter accepts), so the input is meant to be lossless with respect to what Telonex's WebSocket session itself observed.
 
-That said, a Telonex collector run and your own live recorder are two independent WebSocket sessions with independent reconnect windows. Events one session sees, the other might not. Use [`check-telonex-omitted-events`](/datasets/telonex/diagnostics) against a recorded file and a Telonex directory for the same window if you want to quantify the difference between the two sessions for a specific market.
+That said, a Telonex collector run and your own live recorder are two independent WebSocket sessions with independent reconnect windows. Events one session sees, the other might not. Use the [omitted-events diagnostic](/datasets/telonex/diagnostics#omitted-events) against a recorded file and a Telonex directory for the same window if you want to quantify the difference between the two sessions for a specific market.
 
 ## Resources
 
