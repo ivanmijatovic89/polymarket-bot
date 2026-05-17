@@ -78,6 +78,13 @@
       "when": 1779408000000,
       "tag": "0010_pmxt_slug_cache",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1779494400000,
+      "tag": "0011_telonex_pipeline",
+      "breakpoints": true
     }
   ]
 }

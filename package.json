@@ -36,6 +36,11 @@
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
     "db:insert-parquet": "tsx src/db/insert-local-parquet-files-to-database.ts",
+    "telonex:sync": "tsx src/telonex/sync-markets.ts",
+    "telonex:download": "tsx src/telonex/download-raw-files.ts",
+    "telonex:convert": "tsx src/telonex/convert.ts",
+    "telonex:verify": "tsx src/telonex/verify-conversion.ts",
+    "telonex:verify-batch": "tsx src/telonex/verify-conversion-batch.ts",
     "rebuild:chunked-batch-stats": "tsx src/cli/rebuild-chunked-batch-stats.ts --onlyNull",
     "rebuild:chunked-batch-stats:all": "tsx src/cli/rebuild-chunked-batch-stats.ts --force",
     "export:trade-features": "tsx src/cli/research/export-trade-features.ts",
@@ -62,7 +67,8 @@
     "pmxt:download-and-convert:v1": "tsx src/pmxt/download-and-convert-v1.ts --symbol btc",
     "pmxt:download-and-convert:v2": "tsx src/pmxt/download-and-convert-v2.ts --symbol btc",
     "pmxt:resolve-slugs:v2": "tsx src/pmxt/resolve-slugs-v2.ts --symbol btc",
-    "pmxt:build-master:v2": "tsx src/pmxt/build-master-v2.ts --symbol btc"
+    "pmxt:build-master:v2": "tsx src/pmxt/build-master-v2.ts --symbol btc",
+    "r2:upload": "tsx src/r2/upload.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
@@ -88,6 +94,7 @@
     "typescript": "^5.9.3"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1048.0",
     "@dsnp/parquetjs": "^1.8.7",
     "@duckdb/node-api": "^1.5.2-r.1",
     "@ethersproject/wallet": "^5.7.2",

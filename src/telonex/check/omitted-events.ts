@@ -1,7 +1,7 @@
 import path from 'node:path'
 import { promises as fs } from 'node:fs'
 
-import { openParquetReaderWithEpermFallback } from '../../../cli/helpers/openParquetReader.js'
+import { openParquetReaderWithEpermFallback } from '../../cli/helpers/openParquetReader.js'
 
 type Side = 'up' | 'down'
 

@@ -2,8 +2,6 @@ import '../config/env.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
-import type { AnyMarketMessage } from '../market/orderbook/index.js'
-import { MarketEngine } from '../market/MarketEngine.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
 import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
@@ -14,9 +12,6 @@ import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyA
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
-import { sleep } from '../utils/sleep.js'
-import { toBigInt } from '../utils/toBigInt.js'
-import { MinHeap } from '../utils/minHeap.js'
 import { computeMarketStats } from '../backtest/stats/marketStats.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
@@ -34,8 +29,11 @@ import {
 import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
-import { openParquetReaderWithEpermFallback } from './helpers/openParquetReader.js'
 import { replayTelonexPairedParquetForMarket } from '../parquet/replay/replayTelonexPairedParquetForMarket.js'
+import {
+  replayOrderBookForMarket,
+  type ReplayApplyEvent,
+} from '../parquet/replay/replayOrderBookForMarket.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -45,134 +43,6 @@ function formatDurationHuman(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}min ${seconds} sec`
-}
-
-type ReplayRow = {
-  ingest_seq?: unknown
-  ts_local_ms?: unknown
-  ts_exchange_ms?: unknown
-  event_type?: unknown
-  raw_json?: unknown
-}
-
-type ReplayApplyEvent = {
-  msg: AnyMarketMessage
-  rawJson: string
-  market: string
-  source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
-}
-
-/**
- * Replay parquet WS events and reconstruct order books tick-by-tick.
- *
- * The market is auto-detected from the first decoded event.
- * All assets within that market are replayed (e.g. both tokens).
- */
-export async function replayOrderBookForMarket(params: {
-  filePaths: string[]
-  order?: 'recorded' | 'exchange_time'
-  timeDriven?: boolean
-  shouldStop?: () => boolean
-  onSnapshot: (
-    snapshot: MarketOrderBooksSnapshot,
-    rawEvent: ReplayApplyEvent,
-  ) => void | Promise<void>
-}): Promise<void> {
-  const filePaths = params.filePaths
-  if (filePaths.length === 0)
-    throw new Error('[backtest] replayOrderBookForMarket: filePaths is required')
-
-  const order = params.order ?? 'recorded'
-  const timeDriven = params.timeDriven ?? false
-
-  const readers = []
-  try {
-    for (const filePath of filePaths) {
-      readers.push(await openParquetReaderWithEpermFallback(filePath))
-    }
-
-    const cursors = readers.map((r) => r.getCursor())
-
-    const heap = new MinHeap()
-    for (let i = 0; i < cursors.length; i += 1) {
-      const row = (await cursors[i]!.next()) as ReplayRow | null
-      if (!row) continue
-      const tsLocal = toBigInt(row.ts_local_ms, 0n)
-      const tsEx = toBigInt(row.ts_exchange_ms, tsLocal)
-      const keyTs = order === 'exchange_time' ? tsEx : tsLocal
-      const keySeq = toBigInt(row.ingest_seq, 0n)
-      heap.push({ fileIdx: i, row, keySeq, keyTs })
-    }
-
-    let activeMarket: string | undefined
-
-    const eng = new MarketEngine()
-
-    let prevKeyTs: bigint | undefined
-    while (true) {
-      if (params.shouldStop?.()) break
-      const item = heap.pop()
-      if (!item) break
-
-      if (timeDriven) {
-        if (prevKeyTs !== undefined && item.keyTs >= prevKeyTs) {
-          const delta = item.keyTs - prevKeyTs
-          const ms = Number(delta > 10_000n ? 10_000n : delta)
-          await sleep(ms)
-        }
-        prevKeyTs = item.keyTs
-      }
-
-      const row = item.row
-      const rowEventType = typeof row.event_type === 'string' ? row.event_type : undefined
-      const rawJson =
-        typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
-      const ingestSeq = toBigInt(row.ingest_seq, 0n)
-      const filePath = filePaths[item.fileIdx] ?? '(unknown)'
-
-      // Fast-path skip for non-market-channel types without JSON parse.
-      if (
-        rowEventType &&
-        rowEventType !== 'book' &&
-        rowEventType !== 'price_change' &&
-        rowEventType !== 'tick_size_change' &&
-        rowEventType !== 'last_trade_price'
-      ) {
-        // skip
-      } else {
-        const msg = await eng.handleRaw({
-          rawJson,
-          source: { kind: 'parquet', filePath, ingestSeq },
-        })
-        if (msg) {
-          const market = msg.market
-          if (!activeMarket) activeMarket = market
-          if (activeMarket === market) {
-            // Only run strategy ticks on book+price_change (per project rules).
-            if (msg.event_type === 'book' || msg.event_type === 'price_change') {
-              await params.onSnapshot(eng.snapshot(), {
-                msg,
-                rawJson,
-                market: activeMarket,
-                source: { kind: 'parquet', filePath, ingestSeq },
-              })
-            }
-          }
-        }
-      }
-
-      const next = (await cursors[item.fileIdx]!.next()) as ReplayRow | null
-      if (next) {
-        const tsLocal = toBigInt(next.ts_local_ms, 0n)
-        const tsEx = toBigInt(next.ts_exchange_ms, tsLocal)
-        const keyTs = order === 'exchange_time' ? tsEx : tsLocal
-        const keySeq = toBigInt(next.ingest_seq, 0n)
-        heap.push({ fileIdx: item.fileIdx, row: next, keySeq, keyTs })
-      }
-    }
-  } finally {
-    await Promise.all(readers.map((r) => r.close().catch(() => undefined)))
-  }
 }
 
 async function main(): Promise<void> {

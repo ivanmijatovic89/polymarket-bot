@@ -1,56 +1,92 @@
 ---
 title: Run a Backtest with Telonex Data
-description: How to use a Telonex paired Parquet file as input to the backtest engine with --input-mode telonex-paired-parquet.
+description: How to feed a converted Telonex parquet (paired or delta) to the backtest engine.
 ---
 
 # Run a Backtest with Telonex Data
 
-Once you have a paired Parquet file produced by the [merge step](/datasets/telonex/merge), you can pass it to the backtest CLI using the `--input-mode telonex-paired-parquet` flag. The strategy runs through the exact same engine as a live-recorded backtest — the only difference is the data source.
+Once a market has been converted by [`telonex:convert`](/datasets/telonex/convert), its Parquet output can be replayed by the backtest engine. The command differs by converter:
 
-## Basic usage
+- **Delta** output is in the live format — no `--input-mode` flag needed.
+- **Paired** output is in `orderbook_pair` format — requires `--input-mode telonex-paired-parquet`.
+
+The strategy runs through the exact same engine as a live-recorded backtest. The only difference is the data source.
+
+## Backtesting a delta-converted file
+
+The delta converter emits the same `book` / `price_change` event stream as the live recorder. Pass the file path positionally with no special mode flag:
 
 ```bash
-npx tsx src/cli/backtest.ts \
+npm run backtest -- \
+  --strategy <strategy-id> \
+  data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet
+```
+
+The engine processes each row in stored order, exactly as it would for a file you recorded yourself.
+
+## Backtesting a paired-converted file
+
+The paired converter emits one `orderbook_pair` row per exchange timestamp with both sides of the book inline. This requires the dedicated input mode:
+
+```bash
+npm run backtest -- \
   --strategy <strategy-id> \
   --input-mode telonex-paired-parquet \
-  <path-to-paired.parquet>
+  data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
-Example:
+In paired mode, both the Up and Down books are applied to the engine **before** the strategy tick fires, so the strategy always sees both sides synchronised at the same exchange timestamp.
+
+## Backtesting an R2-only converted file
+
+When `--output r2` was used at convert time, the file lives only on R2. The backtest reader supports `r2://` URLs directly:
 
 ```bash
-npx tsx src/cli/backtest.ts \
-  --strategy split-sell-redeem-v3 \
+npm run backtest -- \
+  --strategy <strategy-id> \
   --input-mode telonex-paired-parquet \
-  data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300-merged-backtest.parquet
+  r2://polymarket-telonex/telonex/converted/paired/btc/15m/1766364300/btc-updown-15m-1766364300.parquet
 ```
+
+Read latency from R2 is observed to be roughly 12% slower than from local disk on this codebase. Use `--output both` at convert time if you want a local cache without giving up the durable R2 copy.
 
 ## Passing strategy parameters
 
-Use `--param key=value` to override any strategy parameter, exactly as in a normal backtest:
+Use `--param key=value` to override any strategy parameter, the same as in a normal backtest:
 
-```bash
-npx tsx src/cli/backtest.ts \
+::: code-group
+
+```bash [delta]
+npm run backtest -- \
   --strategy split-sell-redeem-v3 \
-  --param minSpread=0.04 \
-  --param maxPositionUsdc=50 \
-  --input-mode telonex-paired-parquet \
-  data/telonex/btc-updown-15m-1766364300/btc-updown-15m-1766364300-merged-backtest.parquet
+  --param splitShares=10 \
+  --param sellSize=10 \
+  data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet
 ```
+
+```bash [paired]
+npm run backtest -- \
+  --strategy split-sell-redeem-v3 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --input-mode telonex-paired-parquet \
+  data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
+```
+
+:::
 
 ## Replaying multiple files
 
-You can pass more than one paired file in a single run. Files are processed sequentially, one market episode at a time:
+You can pass more than one file in a single run. Files are processed sequentially, one market episode at a time:
 
 ```bash
-npx tsx src/cli/backtest.ts \
+npm run backtest -- \
   --strategy split-sell-redeem-v3 \
-  --input-mode telonex-paired-parquet \
-  data/telonex/btc-updown-15m-1766364300/btc-1766364300-merged.parquet \
-  data/telonex/btc-updown-15m-1766365200/btc-1766365200-merged.parquet
+  data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet \
+  data/events/telonex/delta/btc/15m/btc-updown-15m-1766365200.parquet
 ```
 
-## Constraints for this mode
+## Constraints for `telonex-paired-parquet` mode
 
 `--input-mode telonex-paired-parquet` cannot be combined with the database-query flags. The following combinations are rejected at startup:
 
@@ -67,31 +103,35 @@ npx tsx src/cli/backtest.ts \
 | `--param`     | Yes                                    |
 | `--strategy`  | Yes                                    |
 
-The file paths must always be provided as positional arguments after all flags.
+File paths must always be provided as positional arguments after all flags.
 
-## How replay differs from live-recorded mode
+The **delta** converter's output runs in standard `recorded` mode and has none of these restrictions.
 
-In standard (`recorded`) mode, the engine processes every raw WebSocket event individually. Each `book` or `price_change` event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
+## How replay differs between modes
 
-In `telonex-paired-parquet` mode:
+In standard (`recorded`) mode — used for both live recordings and **delta** Telonex output — the engine processes every raw WebSocket-style event individually. Each `book` or `price_change` event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
 
-- Each row in the paired file is one tick.
-- Both the UP book and the DOWN book are applied to the engine before the tick fires.
-- The strategy always receives a snapshot where both sides are current as of the same exchange timestamp.
-- There is no `--order` or `--time-driven` option — rows are always replayed in their stored sequence.
+In `telonex-paired-parquet` mode — used only for the **paired** converter — each row is one tick and both books are current as of the same exchange timestamp. There is no `--order` or `--time-driven` option; rows always replay in their stored sequence.
 
-This means strategies that look at both sides simultaneously (e.g. spread between UP ask and DOWN ask) see a consistent view on every tick, which is not guaranteed in live-recorded replay where ticks alternate between sides.
+This means strategies that look at both sides simultaneously (e.g. spread between Up ask and Down ask) see a consistent view on every tick in paired mode, which is not guaranteed in standard mode where ticks alternate between sides.
 
 ::: tip Latency simulation still applies
-`BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` work the same way in Telonex mode. Set them if you want to model order submission latency.
+`BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` work the same way in both modes. Set them if you want to model order submission latency.
 :::
 
-## Verifying the paired file before backtesting
+## Verifying a converted file before backtesting
 
-If you are unsure whether the merged file is well-formed, run `verify:parquet` on it first:
+If you are unsure whether a converted file is well-formed:
 
 ```bash
-npm run verify:parquet -- <path-to-paired.parquet>
+npm run verify:parquet -- data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
-A healthy paired file will show `event_type` column values of `orderbook_pair` and columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks` in its schema output.
+For a **paired** file, the schema output should show `event_type=orderbook_pair` and the typed columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
+
+For a **delta** file, `event_type` values should be `book` and `price_change`, and the `raw_json` column should be present.
+
+## Next steps
+
+- [Convert](/datasets/telonex/convert) — upstream stage that produces the file you backtest.
+- [Diagnostics](/datasets/telonex/diagnostics) — inspect coverage and merge alignment if results look unexpected.

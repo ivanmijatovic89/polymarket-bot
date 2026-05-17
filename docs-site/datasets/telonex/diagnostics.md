@@ -1,26 +1,36 @@
 ---
 title: Telonex Diagnostics
-description: Reference for the two CLI tools that check Telonex merge quality and compare Telonex coverage against a live recording.
+description: Standalone CLI tools for inspecting Telonex data quality, plus when to use full converter verification instead.
 ---
 
 # Telonex Diagnostics
 
-Two diagnostic tools are available for inspecting Telonex data quality before or after a merge. Use them when you want to understand how well the UP and DOWN files align, or when you want to measure how many events Telonex captured relative to your own live recording.
+Two legacy diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
 
-## check-telonex-merge-by-timestamp
+::: tip Use verify for converter certification
+If your goal is to prove that `paired` or `delta` conversion reconstructs the correct orderbook in backtest, use [`telonex:verify`](/datasets/telonex/verify). These diagnostics inspect raw data characteristics; they do not replay converted files through `MarketEngine` or compare every orderbook level on every strategy tick.
+:::
 
-This tool analyses the raw Telonex UP and DOWN files in a directory and reports whether they can be merged cleanly by timestamp. Run it before merging to catch alignment problems early.
+::: warning Filename convention required
+Both tools detect Up vs Down by looking for the literal substring `_Up_` or `_Down_` in the filename, **and** require the filename to start with `book_snapshot_full_`. Raw files uploaded to R2 by [`telonex:download`](/datasets/telonex/download-raw-files) keep the original Telonex filenames (`<asset_id>_<date>_<channel>.parquet`), which contain neither marker. To use these tools you must download the relevant raw files locally and rename them to a `book_snapshot_full_<Up|Down>_<date>.parquet` convention first.
+
+This is a legacy assumption from when files were curl-downloaded by hand and renamed manually. If you only ever interact with files through `telonex:convert`, these diagnostics are not strictly necessary — the converter resolves sides from `asset_id_0` / `asset_id_1` directly and never relies on filenames.
+:::
+
+## merge-by-timestamp
+
+This tool analyses the raw Telonex Up and Down files in a directory and reports whether they can be paired cleanly by timestamp. Run it when you want to predict how many carry-forward frames the paired converter will produce.
 
 ### Usage
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-merge-by-timestamp.ts <directory>
+npx tsx src/telonex/check/merge-by-timestamp.ts <directory>
 ```
 
 Example:
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-merge-by-timestamp.ts \
+npx tsx src/telonex/check/merge-by-timestamp.ts \
   data/telonex/btc-updown-15m-1766364300
 ```
 
@@ -69,7 +79,7 @@ If `up_only_timestamps` or `down_only_timestamps` is greater than zero, the merg
 
 ---
 
-## check-telonex-omitted-events
+## omitted-events
 
 This tool compares a live-recorded Parquet file against a set of Telonex files for the same market window. It identifies which events in the live recording are absent from the Telonex data.
 
@@ -78,7 +88,7 @@ Use this tool when you want to understand the coverage gap between what the bot 
 ### Usage
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
+npx tsx src/telonex/check/omitted-events.ts \
   <original.parquet> \
   <telonex-directory> \
   [--examples N]
@@ -93,7 +103,7 @@ npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
 Example:
 
 ```bash
-npx tsx src/parquet/cli/telonex/check-telonex-omitted-events.ts \
+npx tsx src/telonex/check/omitted-events.ts \
   data/events/btc/btc-updown-15m-1766364300.parquet \
   data/telonex/btc-updown-15m-1766364300 \
   --examples 5
@@ -134,6 +144,8 @@ omitted_same_top_and_same_hash=187
 
 ### Interpreting the results
 
-Telonex captures snapshots at intervals rather than on every individual WebSocket event. It is normal for it to omit events where the orderbook did not meaningfully change between two snapshots. A high ratio of `omitted_same_top_as_prev_same_asset` to `omitted_total` indicates that most omissions are no-change events — not meaningful data loss.
+Per the [Telonex Polymarket docs](https://telonex.io/docs/exchanges/polymarket), `book_snapshot_full` is event-driven and records a row on every tick — Telonex's collector does not deliberately drop events. Differences against your live recording therefore reflect what the **two independent WebSocket sessions** observed, not Telonex sampling.
 
-If a large number of omitted events have a different best bid or ask from their predecessor, those omissions represent real price movements that Telonex did not capture. This affects backtest fidelity: strategies that react to fine-grained price movement will behave differently when replayed from Telonex data versus the live recording.
+A high `omitted_same_top_as_prev_same_asset` (or `omitted_same_hash_as_prev_same_asset`) ratio against `omitted_total` means most of the missing events were redundant in content — same best bid/ask or same full-book hash as the previous event for that asset. They likely correspond to bursts where one session happened to receive a few extra repeats.
+
+If a large fraction of omitted events have a different best bid or ask from their predecessor, those omissions represent real price movements one session received and the other did not. The likely causes are independent reconnect windows or transient WebSocket disconnects on one side. This affects backtest fidelity: strategies that react to fine-grained price movement will behave differently when replayed from Telonex data versus the live recording for that specific market.
