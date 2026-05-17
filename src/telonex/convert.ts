@@ -174,7 +174,10 @@ async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | nu
       .where(
         and(
           eq(telonexMarkets.uploadStatus, 'done'),
-          or(isNull(telonexMarketConversions.id), eq(telonexMarketConversions.status, 'failed')),
+          or(
+            isNull(telonexMarketConversions.id),
+            inArray(telonexMarketConversions.status, ['pending', 'failed']),
+          ),
         ),
       )
       .limit(1)
@@ -452,10 +455,18 @@ async function convertOneMarket(args: {
 
 type SharedState = {
   signal: AbortSignal
-  consumed: { count: number }
+  reserved: { count: number }
+  claimed: { count: number }
   completed: { count: number }
   totalQueue: number
   runStart: number
+}
+
+function reserveLimitSlot(limit: number | null, reserved: { count: number }): boolean {
+  if (!limit) return true
+  if (limit && reserved.count >= limit) return false
+  reserved.count += 1
+  return true
 }
 
 async function worker(
@@ -470,10 +481,10 @@ async function worker(
   state: SharedState,
 ): Promise<void> {
   while (!state.signal.aborted) {
-    if (args.limit && state.consumed.count >= args.limit) return
+    if (!reserveLimitSlot(args.limit, state.reserved)) return
     const market = await claimMarket(args.converterName)
     if (!market) return
-    state.consumed.count++
+    state.claimed.count++
     const t0 = Date.now()
     try {
       const { rowsWritten } = await convertOneMarket({
@@ -553,7 +564,8 @@ async function main(): Promise<void> {
   const totalQueue = args.limit ? Math.min(args.limit, queueTotal) : queueTotal
   console.log(`[telonex:convert] queue size=${totalQueue} (capped by --limit)`)
 
-  const consumed = { count: 0 }
+  const reserved = { count: 0 }
+  const claimed = { count: 0 }
   const completed = { count: 0 }
   const t0 = Date.now()
   try {
@@ -567,7 +579,7 @@ async function main(): Promise<void> {
           bucket,
           limit: args.limit,
         },
-        { signal: ac.signal, consumed, completed, totalQueue, runStart: t0 },
+        { signal: ac.signal, reserved, claimed, completed, totalQueue, runStart: t0 },
       ),
     )
     await Promise.all(workers)
@@ -577,7 +589,7 @@ async function main(): Promise<void> {
       console.log(`[telonex:convert] reverted ${reverted} 'in_progress' conversion(s) to 'pending'`)
     }
     console.log(
-      `[telonex:convert] done markets_processed=${consumed.count} elapsed=${fmtMs(Date.now() - t0)}`,
+      `[telonex:convert] done markets_processed=${claimed.count} elapsed=${fmtMs(Date.now() - t0)}`,
     )
   }
 }

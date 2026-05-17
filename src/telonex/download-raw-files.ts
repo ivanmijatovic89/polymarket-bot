@@ -528,10 +528,18 @@ function fmtEta(remainingSec: number): string {
 
 type SharedState = {
   signal: AbortSignal
-  consumed: { count: number }
+  reserved: { count: number }
+  claimed: { count: number }
   completed: { count: number }
   totalQueue: number
   runStart: number
+}
+
+function reserveLimitSlot(limit: number | null, reserved: { count: number }): boolean {
+  if (!limit) return true
+  if (limit && reserved.count >= limit) return false
+  reserved.count += 1
+  return true
 }
 
 async function worker(
@@ -540,7 +548,7 @@ async function worker(
   state: SharedState,
 ): Promise<void> {
   while (!state.signal.aborted) {
-    if (args.limit && state.consumed.count >= args.limit) return
+    if (!reserveLimitSlot(args.limit, state.reserved)) return
     let market: ClaimedMarket | null
     try {
       market = await claimMarket()
@@ -552,7 +560,7 @@ async function worker(
       return
     }
     if (!market) return
-    state.consumed.count++
+    state.claimed.count++
     const t0 = Date.now()
     try {
       const { ok, failed, noFile } = await processMarket(workerId, market, args, state.signal)
@@ -602,7 +610,8 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void onSignal('SIGINT'))
   process.on('SIGTERM', () => void onSignal('SIGTERM'))
 
-  const consumed = { count: 0 }
+  const reserved = { count: 0 }
+  const claimed = { count: 0 }
   const completed = { count: 0 }
   const db = getDb()
   // Count markets that are eligible to be claimed. With --limit, cap at that.
@@ -620,7 +629,7 @@ async function main(): Promise<void> {
       worker(
         i + 1,
         { ...args, apiKey, bucket },
-        { signal: ac.signal, consumed, completed, totalQueue, runStart: t0 },
+        { signal: ac.signal, reserved, claimed, completed, totalQueue, runStart: t0 },
       ),
     )
     await Promise.all(workers)
@@ -630,7 +639,7 @@ async function main(): Promise<void> {
       console.log(`[telonex:download] reverted ${reverted} 'processing' market(s) to 'pending'`)
     }
     console.log(
-      `[telonex:download] done markets_processed=${consumed.count} elapsed=${fmtMs(Date.now() - t0)}`,
+      `[telonex:download] done markets_processed=${claimed.count} elapsed=${fmtMs(Date.now() - t0)}`,
     )
   }
 }
