@@ -47,7 +47,7 @@ Documentation coming soon.
 ## Choosing a source
 
 - **You need data from before you started recording** → use Telonex or PMXT.
-- **You need the highest possible event fidelity** → use Live Recording. Telonex captures the same events but may omit redundant snapshots where the top of book did not change.
+- **You need the highest possible event fidelity for a specific window you were recording** → use Live Recording. Telonex's `book_snapshot_full` is also event-driven (a row per tick), but it is a separate WebSocket session — the two sessions may have had different reconnect windows or transient disconnects, so per-event coverage can diverge for that window.
 - **You are running many backtests over the same market window and replay speed matters** → use the delta converter (`--converter delta`). It replays at the same speed as a live-recorded file. The paired converter is ~3× slower.
 - **You want to validate a strategy against your own recorded data** → use Live Recording, then cross-check with Telonex diagnostics to understand coverage differences.
 

@@ -123,16 +123,25 @@ Use the **delta** converter for new work — it is faster to replay and uses the
 Telonex snapshots do not always have perfectly matching timestamps for Up and Down. A book event may arrive for Up without a corresponding Down event at the exact same microsecond. When the **paired** converter encounters a timestamp where only one side has a snapshot, it carries forward the most recent snapshot from the missing side. The output row therefore has one fresh side and one slightly stale side.
 
 ::: warning
-A carry-forward frame means one side of the pair is up to one Telonex snapshot interval old. In practice the gap is small, but strategies sensitive to fine-grained price movement should be aware that not every row is perfectly synchronous.
+A carry-forward frame means one side of the pair is from the previous Telonex tick for that side rather than the current exchange timestamp. In practice the gap is small (one consecutive event apart), but strategies sensitive to fine-grained price movement should be aware that not every row is perfectly synchronous.
 :::
 
 The **delta** converter does not need to pair sides — it just emits each side's update as it arrives — so carry-forward does not apply there.
 
-## What Telonex omits
+## Channel coverage semantics
 
-Telonex captures snapshots at intervals rather than on every individual WebSocket event. Events where the orderbook did not meaningfully change between two snapshots may be omitted. This is normal coverage behaviour, not data loss in the strict sense.
+Per the [Telonex Polymarket docs](https://telonex.io/docs/exchanges/polymarket), all off-chain channels are **event-driven rather than interval-sampled**. The collector subscribes to Polymarket's WebSocket `market` channel, processes every `book` and `price_change` event, and maintains a local order book. From that local book it derives the various channels:
 
-If you want to measure how much your live recording captured that Telonex did not, run [`check-telonex-omitted-events`](/datasets/telonex/diagnostics) against a recorded file and a Telonex directory for the same window.
+| Channel | When a row is written |
+| --- | --- |
+| `book_snapshot_full` | Every tick — every `book` and `price_change` event Telonex received. |
+| `book_snapshot_25` | Only when something changes within the top 25 levels. |
+| `book_snapshot_5` | Only when something changes within the top 5 levels. |
+| `quotes` | Only when the best bid or ask price or size changes. |
+
+The bot uses `book_snapshot_full` (see [Sync Markets](/datasets/telonex/sync-markets) — that's the only channel the sync filter accepts), so the input is meant to be lossless with respect to what Telonex's WebSocket session itself observed.
+
+That said, a Telonex collector run and your own live recorder are two independent WebSocket sessions with independent reconnect windows. Events one session sees, the other might not. Use [`check-telonex-omitted-events`](/datasets/telonex/diagnostics) against a recorded file and a Telonex directory for the same window if you want to quantify the difference between the two sessions for a specific market.
 
 ## Resources
 

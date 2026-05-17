@@ -138,6 +138,8 @@ omitted_same_top_and_same_hash=187
 
 ### Interpreting the results
 
-Telonex captures snapshots at intervals rather than on every individual WebSocket event. It is normal for it to omit events where the orderbook did not meaningfully change between two snapshots. A high ratio of `omitted_same_top_as_prev_same_asset` to `omitted_total` indicates that most omissions are no-change events — not meaningful data loss.
+Per the [Telonex Polymarket docs](https://telonex.io/docs/exchanges/polymarket), `book_snapshot_full` is event-driven and records a row on every tick — Telonex's collector does not deliberately drop events. Differences against your live recording therefore reflect what the **two independent WebSocket sessions** observed, not Telonex sampling.
 
-If a large number of omitted events have a different best bid or ask from their predecessor, those omissions represent real price movements that Telonex did not capture. This affects backtest fidelity: strategies that react to fine-grained price movement will behave differently when replayed from Telonex data versus the live recording.
+A high `omitted_same_top_as_prev_same_asset` (or `omitted_same_hash_as_prev_same_asset`) ratio against `omitted_total` means most of the missing events were redundant in content — same best bid/ask or same full-book hash as the previous event for that asset. They likely correspond to bursts where one session happened to receive a few extra repeats.
+
+If a large fraction of omitted events have a different best bid or ask from their predecessor, those omissions represent real price movements one session received and the other did not. The likely causes are independent reconnect windows or transient WebSocket disconnects on one side. This affects backtest fidelity: strategies that react to fine-grained price movement will behave differently when replayed from Telonex data versus the live recording for that specific market.
