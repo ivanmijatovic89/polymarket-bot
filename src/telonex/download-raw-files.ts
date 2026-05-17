@@ -261,7 +261,36 @@ type ClaimedMarket = {
   bookSnapshotFullTo: Date
 }
 
+function isDeadlock(err: unknown): boolean {
+  const e = err as { code?: string; errno?: number; cause?: { code?: string; errno?: number } }
+  if (e?.code === 'ER_LOCK_DEADLOCK' || e?.errno === 1213) return true
+  if (e?.cause?.code === 'ER_LOCK_DEADLOCK' || e?.cause?.errno === 1213) return true
+  return false
+}
+
 async function claimMarket(): Promise<ClaimedMarket | null> {
+  const MAX_DEADLOCK_RETRIES = 5
+  for (let attempt = 1; attempt <= MAX_DEADLOCK_RETRIES; attempt++) {
+    try {
+      return await claimMarketOnce()
+    } catch (err) {
+      if (isDeadlock(err) && attempt < MAX_DEADLOCK_RETRIES) {
+        // Backoff with jitter so retrying workers do not collide again.
+        const base = 25 * Math.pow(2, attempt - 1)
+        const wait = base + Math.floor(Math.random() * base)
+        console.warn(
+          `[telonex:download] WARN claim deadlock retry ${attempt}/${MAX_DEADLOCK_RETRIES} after ${wait}ms`,
+        )
+        await new Promise((r) => setTimeout(r, wait))
+        continue
+      }
+      throw err
+    }
+  }
+  return null
+}
+
+async function claimMarketOnce(): Promise<ClaimedMarket | null> {
   const db = getDb()
   return await db.transaction(async (tx) => {
     // Hold the row lock only for the duration of claim+UPDATE, then commit.
@@ -512,7 +541,16 @@ async function worker(
 ): Promise<void> {
   while (!state.signal.aborted) {
     if (args.limit && state.consumed.count >= args.limit) return
-    const market = await claimMarket()
+    let market: ClaimedMarket | null
+    try {
+      market = await claimMarket()
+    } catch (err) {
+      // claimMarket has its own deadlock retry; if it still throws, log and
+      // exit this worker cleanly so other workers can drain instead of the
+      // pool collapsing through Promise.all.
+      console.error(`[telonex:download] w${workerId} claim error, exiting:`, err)
+      return
+    }
     if (!market) return
     state.consumed.count++
     const t0 = Date.now()
