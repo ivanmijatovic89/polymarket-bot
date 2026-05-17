@@ -4,6 +4,7 @@
  */
 import path from 'node:path'
 import * as parquet from '@dsnp/parquetjs'
+import { DuckDBInstance } from '@duckdb/node-api'
 import { openParquetReaderWithEpermFallback } from '../../cli/helpers/openParquetReader.js'
 import type { Side } from './types.js'
 
@@ -50,8 +51,12 @@ export function parseLevelArray(v: unknown): NormalizedLevel[] | null {
   if (v === null || v === undefined) return []
   const arr = (() => {
     if (Array.isArray(v)) return v
+    if (v && typeof v === 'object' && (v as { list?: unknown }).list === null) return []
     if (v && typeof v === 'object' && Array.isArray((v as { list?: unknown }).list)) {
       return (v as { list: unknown[] }).list
+    }
+    if (v && typeof v === 'object' && Array.isArray((v as { items?: unknown }).items)) {
+      return (v as { items: unknown[] }).items
     }
     return null
   })()
@@ -62,7 +67,9 @@ export function parseLevelArray(v: unknown): NormalizedLevel[] | null {
     if (!raw || typeof raw !== 'object') return null
     const lvl = (raw as { element?: TelonexLevel }).element
       ? (raw as { element: TelonexLevel }).element
-      : (raw as TelonexLevel)
+      : (raw as { entries?: TelonexLevel }).entries
+        ? (raw as { entries: TelonexLevel }).entries
+        : (raw as TelonexLevel)
     if (lvl.price === undefined || lvl.size === undefined) return null
     const price = String(lvl.price)
     const size = String(lvl.size)
@@ -96,8 +103,10 @@ export function parseRow(row: TelonexRow, filePath: string, side: Side): ParsedT
   const assetId = typeof row.asset_id === 'string' ? row.asset_id : null
   if (!assetId || assetId.trim() === '') return null
 
-  const bidsRaw = parseLevelArray(row.bids) ?? []
-  const asksRaw = parseLevelArray(row.asks) ?? []
+  const bidsRaw = parseLevelArray(row.bids)
+  if (bidsRaw === null) return null
+  const asksRaw = parseLevelArray(row.asks)
+  if (asksRaw === null) return null
   const norm = normalizeBookSides({ bids: bidsRaw, asks: asksRaw })
 
   return {
@@ -134,6 +143,7 @@ export function encodeLevels(levels: NormalizedLevel[]): string {
 }
 
 export type LoadStats = { loaded: number; dropped: number }
+export type StreamStats = { filesRead: number; loaded: number; dropped: number }
 
 export async function loadTicksFromFile(
   filePath: string,
@@ -160,6 +170,92 @@ export async function loadTicksFromFile(
     await reader.close().catch(() => undefined)
   }
   return { ticks, stats: { loaded, dropped } }
+}
+
+function sqlString(v: string): string {
+  return `'${v.replaceAll("'", "''")}'`
+}
+
+function parseDuckRow(row: unknown[], filePath: string, side: Side): ParsedTick | null {
+  return parseRow(
+    {
+      timestamp_us: row[0],
+      local_timestamp_us: row[1],
+      market_id: row[2],
+      slug: row[3],
+      asset_id: row[4],
+      bids: row[5],
+      asks: row[6],
+    },
+    filePath,
+    side,
+  )
+}
+
+export async function streamSortedTickGroupsFromInputs(
+  inputs: Array<{ filePath: string; side: Side }>,
+  onGroup: (group: ParsedTick[]) => void | Promise<void>,
+): Promise<StreamStats> {
+  const stats: StreamStats = { filesRead: inputs.length, loaded: 0, dropped: 0 }
+
+  const selects = inputs.map((input, fileIdx) => {
+    return `
+      SELECT
+        timestamp_us,
+        local_timestamp_us,
+        market_id,
+        slug,
+        asset_id,
+        bids,
+        asks,
+        ${sqlString(input.filePath)} AS __file_path,
+        ${sqlString(input.side)} AS __side,
+        ${fileIdx} AS __file_idx
+      FROM read_parquet(${sqlString(input.filePath)})
+    `
+  })
+
+  const duckDb = await DuckDBInstance.create(':memory:')
+  const conn = await duckDb.connect()
+  const result = await conn.run(`
+    ${selects.join('\nUNION ALL\n')}
+    ORDER BY timestamp_us, local_timestamp_us, asset_id, __side, __file_idx
+  `)
+
+  let currentTs: bigint | null = null
+  let group: ParsedTick[] = []
+
+  const flush = async (): Promise<void> => {
+    if (group.length === 0) return
+    await onGroup(group)
+    group = []
+  }
+
+  for (let c = 0; c < result.chunkCount; c += 1) {
+    const rows = result.getChunk(c).getRows()
+    for (const row of rows) {
+      const filePath = String(row[7])
+      const side = row[8] === 'up' ? 'up' : row[8] === 'down' ? 'down' : null
+      if (!side) {
+        stats.dropped += 1
+        continue
+      }
+      const tick = parseDuckRow(row, filePath, side)
+      if (!tick) {
+        stats.dropped += 1
+        continue
+      }
+      stats.loaded += 1
+      if (currentTs !== null && tick.tsUs !== currentTs) {
+        await flush()
+      }
+      currentTs = tick.tsUs
+      group.push(tick)
+    }
+  }
+
+  await flush()
+  return stats
 }
 
 /**

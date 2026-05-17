@@ -134,11 +134,25 @@ Same two-level pattern as the download worker:
 1. **First `Ctrl+C`** — abort in-flight HTTP and converter work, revert every `in_progress` row back to `pending`. Exit 0.
 2. **Second `Ctrl+C`** — hard exit (`process.exit(1)`).
 
-## Verifying a converted file
+## Verifying converter correctness
+
+Use `telonex:verify` when you need to prove that converter output reconstructs the same orderbook state as the original raw Telonex snapshots:
+
+```bash
+npm run telonex:verify -- --slug btc-updown-15m-1764259200
+```
+
+The verifier rebuilds paired and delta files in a temporary local directory, replays them through the backtest orderbook path, and compares both assets, bids, asks, and every level on every emitted strategy tick.
+
+See [Verify Telonex Conversions](/datasets/telonex/verify) for the full verification model and mismatch diagnostics.
+
+## Checking Parquet structure
 
 ```bash
 npm run verify:parquet -- data/events/telonex/paired/btc/15m/btc-updown-15m-1760140800.parquet
 ```
+
+`verify:parquet` only checks that a file is structurally readable. It does not prove that the orderbook state reconstructed by backtest is correct.
 
 A healthy **paired** file has `event_type=orderbook_pair` and columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
 
@@ -185,5 +199,6 @@ Throughput scales close to linearly with `--concurrency` since conversion is mos
 
 ## Next steps
 
+- [Verify Telonex Conversions](/datasets/telonex/verify) — certify converter correctness tick by tick.
 - [Run a Backtest](/datasets/telonex/backtest) — replay the converted files.
 - [Download Raw Files](/datasets/telonex/download-raw-files) — upstream stage if `upload_status` is not yet `done` for your markets.

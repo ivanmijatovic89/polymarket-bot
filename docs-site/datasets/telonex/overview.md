@@ -1,6 +1,6 @@
 ---
 title: Telonex Overview
-description: How the bot ingests Telonex historical data through a three-stage pipeline (sync → download → convert) backed by MySQL and Cloudflare R2.
+description: How the bot ingests, converts, verifies, and replays Telonex historical data through a MySQL and Cloudflare R2 backed pipeline.
 ---
 
 # Telonex Overview
@@ -9,15 +9,16 @@ Telonex is a third-party platform that continuously records the Polymarket WebSo
 
 This page explains how the integration is structured. For step-by-step instructions see the linked pages at the bottom.
 
-## The three-stage pipeline
+## The production pipeline and verification gate
 
-Ingesting Telonex data is split into three independent stages. Each stage has a dedicated CLI and writes its state to MySQL, so any stage can be re-run or resumed without touching the others.
+Ingesting Telonex data is split into three production stages plus an explicit verification gate. The production stages have dedicated CLIs and write their state to MySQL, so any stage can be re-run or resumed without touching the others. Verification is intentionally local and temporary: it rebuilds converter output for one slug and proves that backtest replay reconstructs the original raw Telonex orderbook state.
 
 ```mermaid
 flowchart LR
     A[Telonex catalogue<br/>parquet over HTTPS] -- npm run telonex:sync --> B[(telonex_markets)]
     B -- npm run telonex:download --> C[(telonex_market_files)<br/>R2 telonex/raw/...]
     C -- npm run telonex:convert --> D[(telonex_market_conversions)<br/>R2 telonex/converted/...<br/>local data/events/telonex/...]
+    C -- npm run telonex:verify --> E[Temp paired/delta files<br/>tick-by-tick replay comparison]
 ```
 
 | Stage | CLI | Purpose | State table |
@@ -25,8 +26,9 @@ flowchart LR
 | 1. Sync | [`telonex:sync`](/datasets/telonex/sync-markets) | Filter the Telonex markets catalogue (~660 MB Parquet) with DuckDB; upsert matching rows. | `telonex_markets` |
 | 2. Download | [`telonex:download`](/datasets/telonex/download-raw-files) | Per-market worker. Downloads raw `book_snapshot_full` files from Telonex, validates MD5, uploads to Cloudflare R2. | `telonex_market_files` |
 | 3. Convert | [`telonex:convert`](/datasets/telonex/convert) | Dispatcher. Reads raw files from R2, runs the chosen converter (paired or delta), writes the result locally and/or to R2. | `telonex_market_conversions` |
+| Verification gate | [`telonex:verify`](/datasets/telonex/verify) | Rebuilds temp converter output for one slug, replays it through the backtest orderbook path, and compares every strategy tick against raw Telonex state. | No persistent table |
 
-The stages are decoupled by intent: the catalogue refreshes on a different cadence than the raw file pull, and you may want to re-run conversion many times (e.g. tweaking the delta converter's book interval) without re-pulling the source data each time.
+The stages are decoupled by intent: the catalogue refreshes on a different cadence than the raw file pull, and you may want to re-run conversion many times (e.g. tweaking the delta converter's book interval) without re-pulling the source data each time. Verification stays outside persistent pipeline state because it is a correctness check for current code, not a production artifact.
 
 ## The MySQL state model
 
@@ -118,6 +120,20 @@ Converts the raw snapshots into the same format the live recorder produces: a st
 Use the **delta** converter for new work — it is faster to replay and uses the same code path as live-recorded data. The **paired** converter is retained for strategies that depend on the synchronous Up+Down book view it provides on every tick.
 :::
 
+## Verification semantics
+
+The conversion step is not considered trustworthy just because it produced a valid Parquet file. A valid file can still reconstruct the wrong orderbook.
+
+Use [`telonex:verify`](/datasets/telonex/verify) to certify converter behavior for a slug. The verifier:
+
+- discovers raw files and Up/Down mapping from the database;
+- streams raw R2 files to local temp storage;
+- rebuilds paired and/or delta outputs from current converter code;
+- replays those outputs through the same orderbook path used by backtests;
+- compares both assets, bids, asks, all levels, and numeric price/size equality on every emitted strategy tick.
+
+This makes verification stricter than the legacy diagnostics. Diagnostics explain data coverage and raw alignment. Verification proves that a converter output is behaviorally equivalent to the raw Telonex orderbook stream at the strategy boundary.
+
 ## Carry-forward pairing
 
 Telonex tracks events **per `asset_id`**, not per side of the market. Each row in a raw file references exactly one `asset_id`, and the event stream for `asset_id_0` is recorded independently from the stream for `asset_id_1`. Because the underlying Polymarket WebSocket events arrive per asset (a book update on the Up token is a distinct event from a book update on the Down token), most exchange timestamps appear in only one of the two raw files for a market.
@@ -155,5 +171,6 @@ That said, a Telonex collector run and your own live recorder are two independen
 - [Sync Markets](/datasets/telonex/sync-markets) — populate `telonex_markets` from the Telonex catalogue.
 - [Download Raw Files](/datasets/telonex/download-raw-files) — pull `book_snapshot_full` files into R2 and `telonex_market_files`.
 - [Convert](/datasets/telonex/convert) — run the paired or delta converter through the dispatcher.
+- [Verify Conversions](/datasets/telonex/verify) — prove the converted file reconstructs raw Telonex orderbooks tick by tick.
 - [Run a Backtest](/datasets/telonex/backtest) — replay converted files through the backtest engine.
 - [Diagnostics](/datasets/telonex/diagnostics) — inspect coverage and merge alignment.

@@ -9,7 +9,12 @@
  * point.
  */
 import { rawMarketEventParquetSchema } from '../../parquet/io/eventSchema.js'
-import { cmpTick, loadTicksFromFile, openOutputWriter, type ParsedTick } from './parsing.js'
+import {
+  cmpTick,
+  openOutputWriter,
+  streamSortedTickGroupsFromInputs,
+  type ParsedTick,
+} from './parsing.js'
 import type { ConverterFn, ConverterStats } from './types.js'
 
 const DEFAULT_BOOK_INTERVAL = 500
@@ -31,12 +36,8 @@ type PriceChangeEntry = {
   best_ask: string
 }
 
-type OutputRow = {
-  ingest_seq: bigint
-  ts_local_ms: bigint
-  ts_exchange_ms: bigint
-  event_type: string
-  raw_json: string
+function appendItems<T>(dest: T[], src: T[]): void {
+  for (const item of src) dest.push(item)
 }
 
 function buildBookJson(tick: ParsedTick): string {
@@ -124,16 +125,20 @@ function updateAssetState(state: AssetState, tick: ParsedTick): void {
 }
 
 type BuildStats = {
-  rows: OutputRow[]
+  rowsWritten: number
   bookCount: number
   deltaCount: number
   emptyDeltaCount: number
 }
 
-function buildOutputRows(ticks: ParsedTick[], bookInterval: number): BuildStats {
-  const rows: OutputRow[] = []
+async function writeOutputRows(
+  ticks: ParsedTick[],
+  bookInterval: number,
+  writer: Awaited<ReturnType<typeof openOutputWriter>>,
+): Promise<BuildStats> {
   const stateByAsset = new Map<string, AssetState>()
   let seq = 1n
+  let rowsWritten = 0
   let bookCount = 0
   let deltaCount = 0
   let emptyDeltaCount = 0
@@ -163,13 +168,14 @@ function buildOutputRows(ticks: ParsedTick[], bookInterval: number): BuildStats 
         let state = stateByAsset.get(tick.assetId)
 
         if (!state || state.ticksSinceBook >= bookInterval) {
-          rows.push({
+          await writer.appendRow({
             ingest_seq: seq++,
             ts_local_ms: tick.localTsUs / 1000n,
             ts_exchange_ms: tsUs / 1000n,
             event_type: 'book',
             raw_json: buildBookJson(tick),
           })
+          rowsWritten += 1
           bookCount += 1
           if (!state) {
             state = { bids: new Map(), asks: new Map(), ticksSinceBook: 0 }
@@ -182,12 +188,12 @@ function buildOutputRows(ticks: ParsedTick[], bookInterval: number): BuildStats 
           updateAssetState(state, tick)
           state.ticksSinceBook += 1
           if (changes.length === 0) emptyDeltaCount += 1
-          else combinedChanges.push(...changes)
+          else appendItems(combinedChanges, changes)
         }
       }
 
       if (combinedChanges.length > 0) {
-        rows.push({
+        await writer.appendRow({
           ingest_seq: seq++,
           ts_local_ms: maxLocalTsUs / 1000n,
           ts_exchange_ms: tsUs / 1000n,
@@ -199,52 +205,157 @@ function buildOutputRows(ticks: ParsedTick[], bookInterval: number): BuildStats 
             price_changes: combinedChanges,
           }),
         })
+        rowsWritten += 1
         deltaCount += 1
       }
     }
   }
-  return { rows, bookCount, deltaCount, emptyDeltaCount }
+  return { rowsWritten, bookCount, deltaCount, emptyDeltaCount }
+}
+
+async function writeOutputGroups(
+  inputs: Parameters<typeof streamSortedTickGroupsFromInputs>[0],
+  bookInterval: number,
+  writer: Awaited<ReturnType<typeof openOutputWriter>>,
+): Promise<BuildStats & { filesRead: number; ticksParsed: number; ticksDropped: number }> {
+  const stateByAsset = new Map<string, AssetState>()
+  let seq = 1n
+  let rowsWritten = 0
+  let bookCount = 0
+  let deltaCount = 0
+  let emptyDeltaCount = 0
+
+  const streamStats = await streamSortedTickGroupsFromInputs(inputs, async (group) => {
+    group.sort(cmpTick)
+    const tsUs = group[0]!.tsUs
+    const upTicks = group.filter((x) => x.side === 'up')
+    const downTicks = group.filter((x) => x.side === 'down')
+    const n = Math.max(upTicks.length, downTicks.length)
+    const marketId = (upTicks[0] ?? downTicks[0])!.marketId
+
+    for (let k = 0; k < n; k += 1) {
+      const pair = [upTicks[k], downTicks[k]].filter(Boolean) as ParsedTick[]
+      const combinedChanges: PriceChangeEntry[] = []
+      let maxLocalTsUs = 0n
+
+      for (const tick of pair) {
+        if (tick.localTsUs > maxLocalTsUs) maxLocalTsUs = tick.localTsUs
+        let state = stateByAsset.get(tick.assetId)
+
+        if (!state || state.ticksSinceBook >= bookInterval) {
+          await writer.appendRow({
+            ingest_seq: seq++,
+            ts_local_ms: tick.localTsUs / 1000n,
+            ts_exchange_ms: tsUs / 1000n,
+            event_type: 'book',
+            raw_json: buildBookJson(tick),
+          })
+          rowsWritten += 1
+          bookCount += 1
+          if (!state) {
+            state = { bids: new Map(), asks: new Map(), ticksSinceBook: 0 }
+            stateByAsset.set(tick.assetId, state)
+          }
+          updateAssetState(state, tick)
+          state.ticksSinceBook = 1
+        } else {
+          const changes = computeDelta(tick, state)
+          updateAssetState(state, tick)
+          state.ticksSinceBook += 1
+          if (changes.length === 0) emptyDeltaCount += 1
+          else appendItems(combinedChanges, changes)
+        }
+      }
+
+      if (combinedChanges.length > 0) {
+        await writer.appendRow({
+          ingest_seq: seq++,
+          ts_local_ms: maxLocalTsUs / 1000n,
+          ts_exchange_ms: tsUs / 1000n,
+          event_type: 'price_change',
+          raw_json: JSON.stringify({
+            event_type: 'price_change',
+            market: marketId,
+            timestamp: String(tsUs / 1000n),
+            price_changes: combinedChanges,
+          }),
+        })
+        rowsWritten += 1
+        deltaCount += 1
+      }
+    }
+  })
+
+  return {
+    rowsWritten,
+    bookCount,
+    deltaCount,
+    emptyDeltaCount,
+    filesRead: streamStats.filesRead,
+    ticksParsed: streamStats.loaded,
+    ticksDropped: streamStats.dropped,
+  }
 }
 
 export type DeltaConverterOptions = {
   bookInterval?: number
 }
 
+export async function convertDeltaTicks(args: {
+  ticks: ParsedTick[]
+  outputPath: string
+  filesRead: number
+  ticksDropped: number
+  bookInterval?: number
+  alreadySorted?: boolean
+}): Promise<ConverterStats> {
+  const bookInterval = args.bookInterval ?? DEFAULT_BOOK_INTERVAL
+  if (args.ticks.length === 0) {
+    throw new Error('[telonex:convert:delta] no valid rows parsed from inputs')
+  }
+  if (!args.alreadySorted) args.ticks.sort(cmpTick)
+
+  const writer = await openOutputWriter(rawMarketEventParquetSchema, args.outputPath)
+  let stats: BuildStats
+  try {
+    stats = await writeOutputRows(args.ticks, bookInterval, writer)
+  } finally {
+    await writer.close()
+  }
+  if (stats.rowsWritten === 0) {
+    throw new Error('[telonex:convert:delta] no output rows produced')
+  }
+
+  return {
+    rowsWritten: stats.rowsWritten,
+    filesRead: args.filesRead,
+    ticksParsed: args.ticks.length,
+    ticksDropped: args.ticksDropped,
+  }
+}
+
 export function createDeltaConverter(opts: DeltaConverterOptions = {}): ConverterFn {
   const bookInterval = opts.bookInterval ?? DEFAULT_BOOK_INTERVAL
   return async (inputs, outputPath): Promise<ConverterStats> => {
     if (inputs.length === 0) throw new Error('[telonex:convert:delta] no input files')
-    const allTicks: ParsedTick[] = []
-    let ticksDropped = 0
-    for (const input of inputs) {
-      const { ticks, stats } = await loadTicksFromFile(input.filePath, input.side)
-      allTicks.push(...ticks)
-      ticksDropped += stats.dropped
-    }
-    if (allTicks.length === 0) {
-      throw new Error('[telonex:convert:delta] no valid rows parsed from inputs')
-    }
-    allTicks.sort(cmpTick)
-
-    const stats = buildOutputRows(allTicks, bookInterval)
-    if (stats.rows.length === 0) {
-      throw new Error('[telonex:convert:delta] no output rows produced')
-    }
-
     const writer = await openOutputWriter(rawMarketEventParquetSchema, outputPath)
+    let stats: Awaited<ReturnType<typeof writeOutputGroups>>
     try {
-      for (const row of stats.rows) {
-        await writer.appendRow(row)
-      }
+      stats = await writeOutputGroups(inputs, bookInterval, writer)
     } finally {
       await writer.close()
     }
-
+    if (stats.ticksParsed === 0) {
+      throw new Error('[telonex:convert:delta] no valid rows parsed from inputs')
+    }
+    if (stats.rowsWritten === 0) {
+      throw new Error('[telonex:convert:delta] no output rows produced')
+    }
     return {
-      rowsWritten: stats.rows.length,
-      filesRead: inputs.length,
-      ticksParsed: allTicks.length,
-      ticksDropped,
+      rowsWritten: stats.rowsWritten,
+      filesRead: stats.filesRead,
+      ticksParsed: stats.ticksParsed,
+      ticksDropped: stats.ticksDropped,
     }
   }
 }

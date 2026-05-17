@@ -6,7 +6,7 @@
  * converted for the chosen converter, this dispatcher:
  *   - reads the market's telonex_market_files rows (raw uploads)
  *   - downloads each raw parquet from R2 to a per-worker temp directory
- *   - resolves Up/Down side from telonex_markets.asset_id_0 / asset_id_1
+ *   - resolves Up/Down side from telonex_markets.outcome_0/outcome_1
  *   - calls the converter function (paired or delta) with explicit sides
  *   - depending on --output: keeps locally, uploads to R2, or both
  *   - writes a telonex_market_conversions row recording status / paths / etag
@@ -31,7 +31,7 @@ import {
   telonexMarketFiles,
   telonexMarketConversions,
 } from '../db/index.js'
-import { getDefaultBucket, getObjectBuffer, putObject } from '../r2/client.js'
+import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
 import type { ConverterFn, ConverterInput, Side } from './converters/types.js'
@@ -144,6 +144,8 @@ type ClaimedMarket = {
   epoch: string
   assetId0: string
   assetId1: string
+  outcome0: string | null
+  outcome1: string | null
 }
 
 async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | null> {
@@ -156,6 +158,8 @@ async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | nu
         slug: telonexMarkets.slug,
         assetId0: telonexMarkets.assetId0,
         assetId1: telonexMarkets.assetId1,
+        outcome0: telonexMarkets.outcome0,
+        outcome1: telonexMarkets.outcome1,
         convId: telonexMarketConversions.id,
         convStatus: telonexMarketConversions.status,
       })
@@ -222,6 +226,8 @@ async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | nu
       epoch: parts.epoch,
       assetId0: row.assetId0,
       assetId1: row.assetId1,
+      outcome0: row.outcome0,
+      outcome1: row.outcome1,
     }
   })
 }
@@ -306,22 +312,20 @@ async function downloadRawFiles(args: {
   marketSlug: string
   bucket: string
   rawFiles: Array<{ assetId: string; r2Key: string }>
-  assetId0: string
-  assetId1: string
+  sideByAssetId: Map<string, Side>
   tmpDir: string
 }): Promise<ConverterInput[]> {
   await fs.mkdir(args.tmpDir, { recursive: true })
   const inputs: ConverterInput[] = []
   for (const f of args.rawFiles) {
-    if (f.assetId !== args.assetId0 && f.assetId !== args.assetId1) {
+    const side = args.sideByAssetId.get(f.assetId)
+    if (!side) {
       throw new Error(
-        `unknown asset_id ${f.assetId} for slug ${args.marketSlug} (not asset_id_0 or asset_id_1)`,
+        `unknown asset_id ${f.assetId} for slug ${args.marketSlug} (not recognized as Up or Down)`,
       )
     }
-    const side: Side = f.assetId === args.assetId0 ? 'up' : 'down'
     const localTmp = path.join(args.tmpDir, path.basename(f.r2Key))
-    const buf = await getObjectBuffer(args.bucket, f.r2Key)
-    await fs.writeFile(localTmp, buf)
+    await getObjectToFile(args.bucket, f.r2Key, localTmp)
     inputs.push({ filePath: localTmp, side })
   }
   // Stable order: by side then path. Determinism for the merge.
@@ -329,6 +333,27 @@ async function downloadRawFiles(args: {
     a.side !== b.side ? (a.side === 'up' ? -1 : 1) : a.filePath.localeCompare(b.filePath),
   )
   return inputs
+}
+
+function buildSideByAssetId(
+  market: Pick<ClaimedMarket, 'assetId0' | 'assetId1' | 'outcome0' | 'outcome1' | 'slug'>,
+): Map<string, Side> {
+  const out = new Map<string, Side>()
+  const pairs = [
+    { assetId: market.assetId0, outcome: market.outcome0 },
+    { assetId: market.assetId1, outcome: market.outcome1 },
+  ]
+  for (const pair of pairs) {
+    const normalized = pair.outcome?.trim().toLowerCase()
+    if (normalized === 'up') out.set(pair.assetId, 'up')
+    else if (normalized === 'down') out.set(pair.assetId, 'down')
+  }
+  if (!Array.from(out.values()).includes('up') || !Array.from(out.values()).includes('down')) {
+    throw new Error(
+      `cannot resolve Up/Down asset ids for slug ${market.slug}: outcome_0=${market.outcome0 ?? 'null'} outcome_1=${market.outcome1 ?? 'null'}`,
+    )
+  }
+  return out
 }
 
 async function convertOneMarket(args: {
@@ -372,8 +397,7 @@ async function convertOneMarket(args: {
       marketSlug: market.slug,
       bucket,
       rawFiles,
-      assetId0: market.assetId0,
-      assetId1: market.assetId1,
+      sideByAssetId: buildSideByAssetId(market),
       tmpDir,
     })
 

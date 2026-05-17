@@ -6,6 +6,8 @@ import {
   ListObjectsV2Command,
 } from '@aws-sdk/client-s3'
 import { Readable } from 'node:stream'
+import { createWriteStream } from 'node:fs'
+import { pipeline } from 'node:stream/promises'
 
 let cachedClient: S3Client | null = null
 let cachedDefaultBucket: string | null = null
@@ -58,6 +60,19 @@ export async function getObjectBuffer(bucket: string, key: string): Promise<Buff
     throw new Error(`[r2] empty body for r2://${bucket}/${key}`)
   }
   return streamToBuffer(res.Body as Readable)
+}
+
+export async function getObjectToFile(
+  bucket: string,
+  key: string,
+  filePath: string,
+): Promise<void> {
+  const client = getR2Client()
+  const res = await client.send(new GetObjectCommand({ Bucket: bucket, Key: key }))
+  if (!res.Body) {
+    throw new Error(`[r2] empty body for r2://${bucket}/${key}`)
+  }
+  await pipeline(res.Body as Readable, createWriteStream(filePath))
 }
 
 export async function putObject(

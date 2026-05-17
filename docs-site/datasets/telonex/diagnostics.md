@@ -1,11 +1,15 @@
 ---
 title: Telonex Diagnostics
-description: Two standalone CLI tools for inspecting Telonex data quality — alignment between Up/Down files and coverage against a live recording.
+description: Standalone CLI tools for inspecting Telonex data quality, plus when to use full converter verification instead.
 ---
 
 # Telonex Diagnostics
 
-Two diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
+Two legacy diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
+
+::: tip Use verify for converter certification
+If your goal is to prove that `paired` or `delta` conversion reconstructs the correct orderbook in backtest, use [`telonex:verify`](/datasets/telonex/verify). These diagnostics inspect raw data characteristics; they do not replay converted files through `MarketEngine` or compare every orderbook level on every strategy tick.
+:::
 
 ::: warning Filename convention required
 Both tools detect Up vs Down by looking for the literal substring `_Up_` or `_Down_` in the filename, **and** require the filename to start with `book_snapshot_full_`. Raw files uploaded to R2 by [`telonex:download`](/datasets/telonex/download-raw-files) keep the original Telonex filenames (`<asset_id>_<date>_<channel>.parquet`), which contain neither marker. To use these tools you must download the relevant raw files locally and rename them to a `book_snapshot_full_<Up|Down>_<date>.parquet` convention first.
