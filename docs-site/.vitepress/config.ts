@@ -53,8 +53,9 @@ export default withMermaid(
                 { text: 'Sync Markets', link: '/datasets/telonex/sync-markets' },
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },
-                { text: 'Verify Conversions', link: '/datasets/telonex/verify' },
+                { text: 'ADR: Verification & Replay Parity', link: '/adr/telonex-verification-replay-parity' },
                 { text: 'How Verify Works', link: '/datasets/telonex/how-verify-works' },
+                { text: 'Verify Conversions', link: '/datasets/telonex/verify' },
                 { text: 'Run a Backtest', link: '/datasets/telonex/backtest' },
                 { text: 'Diagnostics', link: '/datasets/telonex/diagnostics' },
               ],
@@ -178,6 +179,13 @@ export default withMermaid(
           items: [
             { text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' },
             { text: 'Build the Docs Site', link: '/other/build-docs-site' },
+            {
+              text: 'Ideas & Research',
+              collapsed: false,
+              items: [
+                { text: 'Backtest Speed Test: Top-of-Book-Only Mode', link: '/contribution/ideas-and-research/backtest-speed-test-top-of-book' },
+              ],
+            },
           ],
         },
 
@@ -199,7 +207,6 @@ export default withMermaid(
           items: [
             { text: 'Architecture', link: '/other/architecture' },
             { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
-            { text: 'ADR: Telonex Verification', link: '/adr/telonex-verification-replay-parity' },
             { text: 'Commands', link: '/other/Commands' },
             { text: 'Add New Bot', link: '/other/AddNewBot' },
             { text: 'Multiple Bots', link: '/other/MultipleBots' },
