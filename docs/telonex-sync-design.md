@@ -92,8 +92,8 @@ One row per (market_id, converter). Created by Step 2 worker.
 | `market_id` | BIGINT | FK telonex_markets.id |
 | `converter` | VARCHAR(40) | `paired` / `delta` / (future) |
 | `status` | ENUM(`pending`,`in_progress`,`done`,`failed`) | |
-| `r2_url` | VARCHAR(255) NULL | R2 location of the converted parquet |
-| `local_path` | VARCHAR(255) NULL | populated only when `--output local|both` |
+| `r2_url` | VARCHAR(255) NULL | R2 location of the converted parquet, populated by `--output r2|both` |
+| `local_path` | VARCHAR(255) NULL | local location of the converted parquet, populated by `--output local|both` |
 | `size_bytes` | BIGINT NULL | |
 | `etag` | VARCHAR(64) NULL | |
 | `attempts` | INT DEFAULT 0 | |
@@ -159,7 +159,11 @@ SELECT m.* FROM telonex_markets m
 LEFT JOIN telonex_market_conversions c
   ON c.market_id=m.id AND c.converter=?
 WHERE m.upload_status='done'
-  AND (c.id IS NULL OR c.status='failed')
+  AND (
+    c.id IS NULL
+    OR c.status IN ('pending','failed')
+    OR (c.status='done' AND <requested output destination is missing>)
+  )
 FOR UPDATE SKIP LOCKED LIMIT 1;
 ```
 
@@ -171,8 +175,10 @@ Per market:
    - `r2`: temp path → `PUT r2://...converted/...` → delete temp
    - `local`: write to `data/events/telonex/btc/15m/<slug>.parquet` → keep
    - `both`: write to local final path → PUT to R2 → keep local
-5. `UPDATE telonex_market_conversions SET status='done', r2_url=?, local_path=?, completed_at=NOW(), size_bytes=?, etag=?`
+5. `UPDATE telonex_market_conversions SET status='done', completed_at=NOW(), size_bytes=?, ...requested destination columns...`
 6. On error: `UPDATE ... status='failed', last_error=?`
+
+The conversion row is unique on `(market_id, converter)`, not on output target. Local and R2 are destination fields on the same row. A local-only run fills `local_path` and preserves any existing `r2_url`; an R2-only run fills `r2_url` and preserves any existing `local_path`; `both` fills both.
 
 The dispatcher imports converter functions from `src/telonex/converters/*.ts` and switches by `--converter` flag. The converter modules expose a pure function (no DB, no R2, no CLI scaffolding) — that's the only refactor required when moving the existing scripts.
 

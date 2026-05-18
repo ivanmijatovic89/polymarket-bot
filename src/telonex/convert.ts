@@ -148,10 +148,19 @@ type ClaimedMarket = {
   outcome1: string | null
 }
 
-async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | null> {
+function outputMissingCondition(output: OutputMode) {
+  if (output === 'local') return isNull(telonexMarketConversions.localPath)
+  if (output === 'r2') return isNull(telonexMarketConversions.r2Url)
+  return or(isNull(telonexMarketConversions.localPath), isNull(telonexMarketConversions.r2Url))
+}
+
+async function claimMarket(
+  converter: ConverterName,
+  output: OutputMode,
+): Promise<ClaimedMarket | null> {
   const db = getDb()
   return await db.transaction(async (tx) => {
-    // Pick a 'done' market that has no successful conversion for this converter yet.
+    // Pick a raw-ready market whose requested output target is not complete yet.
     const rows = await tx
       .select({
         id: telonexMarkets.id,
@@ -177,6 +186,7 @@ async function claimMarket(converter: ConverterName): Promise<ClaimedMarket | nu
           or(
             isNull(telonexMarketConversions.id),
             inArray(telonexMarketConversions.status, ['pending', 'failed']),
+            and(eq(telonexMarketConversions.status, 'done'), outputMissingCondition(output)),
           ),
         ),
       )
@@ -256,10 +266,10 @@ async function recordConversionSuccess(args: {
     .update(telonexMarketConversions)
     .set({
       status: 'done',
-      r2Url: args.r2Url,
-      localPath: args.localPath,
+      ...(args.r2Url ? { r2Url: args.r2Url } : {}),
+      ...(args.localPath ? { localPath: args.localPath } : {}),
       sizeBytes: args.sizeBytes,
-      etag: args.etag,
+      ...(args.etag ? { etag: args.etag } : {}),
       completedAt: new Date(),
       lastError: null,
     })
@@ -482,7 +492,7 @@ async function worker(
 ): Promise<void> {
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
-    const market = await claimMarket(args.converterName)
+    const market = await claimMarket(args.converterName, args.output)
     if (!market) return
     state.claimed.count++
     const t0 = Date.now()
@@ -557,6 +567,7 @@ async function main(): Promise<void> {
         or(
           isNull(telonexMarketConversions.id),
           inArray(telonexMarketConversions.status, ['pending', 'failed']),
+          and(eq(telonexMarketConversions.status, 'done'), outputMissingCondition(args.output)),
         ),
       ),
     )
