@@ -24,16 +24,22 @@ npm run telonex:convert
 # Delta converter, write to local disk only (no R2 upload)
 npm run telonex:convert -- --converter delta --output local
 
+# Both converters in one pass — raw files downloaded once per market
+npm run telonex:convert -- --converter delta --converter paired --output local
+
 # Paired converter, write both locally and to R2
 npm run telonex:convert -- --converter paired --output both
 ```
 
+`--converter` can be repeated. When multiple converters are requested, the worker downloads the raw files once per market and runs each converter sequentially, writing a separate row to `telonex_market_conversions` per converter. This halves R2 download cost compared to running two separate processes.
+
 Sample output:
 
 ```
-[telonex:convert] converter=paired output=local concurrency=4 limit=none bucket=polymarket-telonex
+[telonex:convert] converters=delta,paired output=local concurrency=4 limit=none bucket=polymarket-telonex
 [telonex:convert] queue size=19223 (capped by --limit)
-[telonex:convert] w1 btc-updown-15m-1760140800 done rows=10681 elapsed=1.5s [1/19223 rate=0.66/s eta=8h05m]
+[telonex:convert] w1 btc-updown-15m-1760140800 [delta] done rows=10681 elapsed=1.5s [1/19223 rate=0.66/s eta=8h05m]
+[telonex:convert] w1 btc-updown-15m-1760140800 [paired] done rows=10681 elapsed=2.9s [1/19223 rate=0.66/s eta=8h05m]
 ...
 [telonex:convert] done markets_processed=19223 elapsed=8h12m
 ```
@@ -42,7 +48,7 @@ Sample output:
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--converter <paired\|delta>` | `paired` | Which converter implementation to run. |
+| `--converter <paired\|delta>` | `paired` | Converter to run. Repeat to run multiple converters in one pass (e.g. `--converter delta --converter paired`). |
 | `--output <local\|r2\|both>` | `r2` | Where to write the converted Parquet. |
 | `--concurrency <N>` | `4` | Number of markets converted in parallel. |
 | `--limit <N>` | unlimited | Stop after this many markets. |
@@ -92,6 +98,10 @@ npm run telonex:convert -- --converter paired
 npm run telonex:convert -- --converter delta --book-interval 500
 ```
 
+```bash [both in one pass]
+npm run telonex:convert -- --converter delta --converter paired --output local
+```
+
 :::
 
 The two converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the other. Within one converter, local and R2 are tracked on the same row: `--output local` fills `local_path`, `--output r2` fills `r2_url`, and `--output both` fills both.
@@ -103,20 +113,18 @@ The dispatcher selects a market with:
 ```sql
 SELECT m.*
 FROM telonex_markets m
-LEFT JOIN telonex_market_conversions c
-  ON c.market_id = m.id AND c.converter = ?
 WHERE m.upload_status = 'done'
   AND (
-    c.id IS NULL
-    OR c.status IN ('pending', 'failed')
-    OR (c.status = 'done' AND <requested output destination is missing>)
-  )
+    SELECT COUNT(*) FROM telonex_market_conversions c
+    WHERE c.market_id = m.id
+      AND c.converter IN ('delta', 'paired')  -- whichever converters were requested
+      AND c.status = 'done'
+      AND <requested output destination is present>
+  ) < <number of requested converters>
 LIMIT 1 FOR UPDATE SKIP LOCKED;
 ```
 
-So a market is eligible if it has no row in `telonex_market_conversions` for the chosen converter, if its existing row is `pending` or `failed`, or if the requested destination has not been populated yet. For example, if a market was already converted with `--output local`, a later `--output r2` run can claim that same row and fill `r2_url` without clearing `local_path`.
-
-The claim transaction upserts an `in_progress` row before releasing the lock, so concurrent workers never pick the same market.
+A market is eligible as long as at least one of the requested converters is not fully done. The claim transaction then inspects existing rows to determine which converters still need work, and upserts only those to `in_progress` — converters already marked `done` are left untouched. Concurrent workers never pick the same market.
 
 ## Per-market lifecycle
 
