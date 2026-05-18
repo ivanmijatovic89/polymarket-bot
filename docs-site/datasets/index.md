@@ -78,14 +78,14 @@ Regardless of source, the path from raw data to a runnable backtest follows the 
 ```
 1. Sync           npm run telonex:sync
 2. Download       npm run telonex:download
-3. Convert        npm run telonex:convert -- --converter delta --output local
+3. Convert        npm run telonex:convert -- --converter delta --converter paired --output local
 4. Verify         npm run verify:parquet -- data/events/telonex/delta/btc/15m/<slug>.parquet
 5. Backtest       npm run backtest -- --strategy <id> data/events/telonex/delta/btc/15m/<slug>.parquet
 ```
 
 - **Sync** — populate `telonex_markets` by filtering the Telonex catalogue with DuckDB.
 - **Download** — per-market worker pulls `book_snapshot_full` files into R2, recording each in `telonex_market_files`.
-- **Convert** — dispatcher runs the chosen converter; `--converter paired` for the paired format, `--converter delta` for the live format.
+- **Convert** — dispatcher runs the requested converters; `--converter` can be repeated to run both in one pass, downloading raw files once per market.
 - **Verify** — confirm the converted file is intact before running a backtest.
 - **Backtest** — replay the file. Delta files use standard `recorded` mode; paired files use `--input-mode telonex-paired-parquet`.
 

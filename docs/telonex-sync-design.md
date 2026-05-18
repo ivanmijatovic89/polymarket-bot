@@ -149,21 +149,27 @@ elif hard auth/403 error → upload_status='failed' (manual intervention)
 ## Step 2 — Convert (dispatcher)
 
 ```
+# single converter
 npm run telonex:convert -- --converter paired   [--output local|r2|both] [--concurrency 4]
 npm run telonex:convert -- --converter delta    ...
+
+# both converters in one pass — raw files downloaded once per market
+npm run telonex:convert -- --converter delta --converter paired --output local
 ```
 
+`--converter` can be repeated. When multiple converters are specified, the worker downloads the raw files once and runs each converter sequentially, writing a separate `telonex_market_conversions` row per converter.
+
 Worker picks one market via:
-```
+```sql
 SELECT m.* FROM telonex_markets m
-LEFT JOIN telonex_market_conversions c
-  ON c.market_id=m.id AND c.converter=?
-WHERE m.upload_status='done'
+WHERE m.upload_status = 'done'
   AND (
-    c.id IS NULL
-    OR c.status IN ('pending','failed')
-    OR (c.status='done' AND <requested output destination is missing>)
-  )
+    SELECT COUNT(*) FROM telonex_market_conversions c
+    WHERE c.market_id = m.id
+      AND c.converter IN ('delta', 'paired')
+      AND c.status = 'done'
+      AND <requested output destination is present>
+  ) < <number of requested converters>
 FOR UPDATE SKIP LOCKED LIMIT 1;
 ```
 
@@ -180,7 +186,7 @@ Per market:
 
 The conversion row is unique on `(market_id, converter)`, not on output target. Local and R2 are destination fields on the same row. A local-only run fills `local_path` and preserves any existing `r2_url`; an R2-only run fills `r2_url` and preserves any existing `local_path`; `both` fills both.
 
-The dispatcher imports converter functions from `src/telonex/converters/*.ts` and switches by `--converter` flag. The converter modules expose a pure function (no DB, no R2, no CLI scaffolding) — that's the only refactor required when moving the existing scripts.
+The dispatcher imports converter functions from `src/telonex/converters/*.ts` and builds a `Map<ConverterName, ConverterFn>` for all requested converters. The converter modules expose a pure function (no DB, no R2, no CLI scaffolding). `in_progress` is only upserted for converters that actually need work — converters already marked `done` are skipped in the claim transaction.
 
 ## R2 layout
 

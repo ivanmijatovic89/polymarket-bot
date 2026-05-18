@@ -98,7 +98,7 @@ Telonex sometimes returns HTTP 404 for a candidate date — most commonly for ma
 
 ## Two output formats: paired vs delta
 
-The convert stage runs one of two converters, selected with `--converter`.
+The convert stage runs one or both converters. `--converter` can be repeated (`--converter delta --converter paired`) to run both in a single pass, downloading raw files once per market.
 
 ### Paired
 
