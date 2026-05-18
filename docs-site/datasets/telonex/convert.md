@@ -64,7 +64,7 @@ Concretely for a paired BTC 15m market:
 data/events/telonex/paired/btc/15m/btc-updown-15m-1760140800.parquet
 ```
 
-The output stays on disk after the run. `telonex_market_conversions.local_path` is set to the absolute path. `r2_url` is `NULL`.
+The output stays on disk after the run. `telonex_market_conversions.local_path` is set to the absolute path. If this market already has an `r2_url` from an earlier `--output r2` or `--output both` run, that R2 destination is preserved.
 
 ### `--output r2`
 
@@ -74,7 +74,7 @@ Writes to a per-worker temp file, uploads to R2 with `Content-MD5`, then deletes
 telonex/converted/<converter>/<symbol>/<timeframe>/<epoch>/<slug>.parquet
 ```
 
-`telonex_market_conversions.r2_url` is set to `r2://<bucket>/<key>`. `local_path` is `NULL`. The R2 response ETag is stored on `etag`.
+`telonex_market_conversions.r2_url` is set to `r2://<bucket>/<key>`. The R2 response ETag is stored on `etag`. If this market already has a `local_path` from an earlier `--output local` or `--output both` run, that local destination is preserved.
 
 ### `--output both`
 
@@ -94,7 +94,7 @@ npm run telonex:convert -- --converter delta --book-interval 500
 
 :::
 
-The two converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the other.
+The two converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the other. Within one converter, local and R2 are tracked on the same row: `--output local` fills `local_path`, `--output r2` fills `r2_url`, and `--output both` fills both.
 
 ## How candidates are claimed
 
@@ -106,11 +106,15 @@ FROM telonex_markets m
 LEFT JOIN telonex_market_conversions c
   ON c.market_id = m.id AND c.converter = ?
 WHERE m.upload_status = 'done'
-  AND (c.id IS NULL OR c.status = 'failed')
+  AND (
+    c.id IS NULL
+    OR c.status IN ('pending', 'failed')
+    OR (c.status = 'done' AND <requested output destination is missing>)
+  )
 LIMIT 1 FOR UPDATE SKIP LOCKED;
 ```
 
-So a market is eligible if it has no row in `telonex_market_conversions` for the chosen converter, or if its existing row is `failed`. `done` rows are skipped on re-runs.
+So a market is eligible if it has no row in `telonex_market_conversions` for the chosen converter, if its existing row is `pending` or `failed`, or if the requested destination has not been populated yet. For example, if a market was already converted with `--output local`, a later `--output r2` run can claim that same row and fill `r2_url` without clearing `local_path`.
 
 The claim transaction upserts an `in_progress` row before releasing the lock, so concurrent workers never pick the same market.
 
