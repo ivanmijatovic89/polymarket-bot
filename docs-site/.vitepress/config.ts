@@ -85,45 +85,45 @@ export default withMermaid(
         {
           text: 'Backtest',
           items: [
-            { text: 'Running Backtests', link: '/other/running-backtests' },
-            { text: 'Generate Backtest Jobs', link: '/other/generate-backtest-jobs' },
-            { text: 'Parallel Backtest Runner', link: '/other/ParallelBacktestRunner' },
-            { text: 'Market Statistics', link: '/other/market-stats' },
-            { text: 'Batch Statistics', link: '/other/batch-stats' },
-            { text: 'Chunked Batch Statistics', link: '/other/chunked-batch-stats-new' },
-            { text: 'Walk-Forward Ranking', link: '/other/walk-forward-ranking' },
+            { text: 'Running Backtests', link: '/backtest/running-backtests' },
+            { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
+            { text: 'Parallel Backtest Runner', link: '/backtest/parallel-backtest-runner' },
+            { text: 'Market Statistics', link: '/backtest/market-stats' },
+            { text: 'Batch Statistics', link: '/backtest/batch-stats' },
+            { text: 'Chunked Batch Statistics', link: '/backtest/chunked-batch-stats' },
+            { text: 'Walk-Forward Ranking', link: '/backtest/walk-forward-ranking' },
           ],
         },
 
         {
           text: 'Live Trading',
           items: [
-            { text: 'Running the Live Trading Bot', link: '/other/live-trading-bot' },
-            { text: 'Resolve UP/DOWN 15m Assets', link: '/other/resolve-updown-15m-assets' },
+            { text: 'Running the Live Trading Bot', link: '/live-trading/live-trading-bot' },
+            { text: 'Resolve UP/DOWN 15m Assets', link: '/live-trading/resolve-updown-15m-assets' },
           ],
         },
 
         {
           text: 'Research',
           items: [
-            { text: 'PnL Report', link: '/other/pnl-report' },
-            { text: 'Redeem Watcher', link: '/other/redeem-watcher' },
-            { text: 'Export Trade Features', link: '/other/export-trade-features' },
-            { text: 'Research Gate Analysis', link: '/other/research-gate-new' },
-            { text: 'Save Intent Metrics', link: '/other/save-intent-metrics' },
-            { text: 'Rebuild Chunked Batch Stats', link: '/other/rebuild-chunked-batch-stats' },
+            { text: 'PnL Report', link: '/research/pnl-report' },
+            { text: 'Redeem Watcher', link: '/research/redeem-watcher' },
+            { text: 'Export Trade Features', link: '/research/export-trade-features' },
+            { text: 'Research Gate Analysis', link: '/research/research-gate-new' },
+            { text: 'Save Intent Metrics', link: '/research/save-intent-metrics' },
+            { text: 'Rebuild Chunked Batch Stats', link: '/research/rebuild-chunked-batch-stats' },
           ],
         },
 
         {
           text: 'Blockchain',
           items: [
-            { text: 'EOA vs Relayer Mode', link: '/other/eoa-vs-relayer' },
-            { text: 'Check Balances & Approvals', link: '/other/check-balances' },
-            { text: 'Create CLOB API Key', link: '/other/create-clob-api-key' },
-            { text: 'SAFE Relayer CLI', link: '/other/relayer-cli' },
-            { text: 'Conditional Tokens', link: '/other/conditional-tokens' },
-            { text: 'Relayer Client', link: '/other/relayer-client' },
+            { text: 'EOA vs Relayer Mode', link: '/blockchain/eoa-vs-relayer' },
+            { text: 'Check Balances & Approvals', link: '/blockchain/check-balances' },
+            { text: 'Create CLOB API Key', link: '/blockchain/create-clob-api-key' },
+            { text: 'SAFE Relayer CLI', link: '/blockchain/relayer-cli' },
+            { text: 'Conditional Tokens', link: '/blockchain/conditional-tokens' },
+            { text: 'Relayer Client', link: '/blockchain/relayer-client' },
           ],
         },
 
@@ -178,7 +178,7 @@ export default withMermaid(
           text: 'Contribution',
           items: [
             { text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' },
-            { text: 'Build the Docs Site', link: '/other/build-docs-site' },
+            { text: 'Build the Docs Site', link: '/contribution/build-docs-site' },
             {
               text: 'Ideas & Research',
               collapsed: false,
@@ -192,13 +192,13 @@ export default withMermaid(
         {
           text: 'Reference',
           items: [
-            { text: 'Environment Variables', link: '/other/environment-variables' },
-            { text: 'Database Schema', link: '/other/database-schema' },
-            { text: 'Risk Limits', link: '/other/risk-limits' },
-            { text: 'Fee Computation', link: '/other/fee-computation' },
-            { text: 'Orderbook Metrics', link: '/other/orderbook-metrics' },
-            { text: 'Gamma API Client', link: '/other/gamma-api-client' },
-            { text: 'CLOB Client', link: '/other/clob-client' },
+            { text: 'Environment Variables', link: '/reference/environment-variables' },
+            { text: 'Database Schema', link: '/reference/database-schema' },
+            { text: 'Risk Limits', link: '/reference/risk-limits' },
+            { text: 'Fee Computation', link: '/reference/fee-computation' },
+            { text: 'Orderbook Metrics', link: '/reference/orderbook-metrics' },
+            { text: 'Gamma API Client', link: '/reference/gamma-api-client' },
+            { text: 'CLOB Client', link: '/reference/clob-client' },
           ],
         },
 

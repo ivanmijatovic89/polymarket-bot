@@ -160,5 +160,5 @@ If the chunked stats schema changes (version bump), existing database records ca
 npm run rebuild:chunked-batch-stats
 ```
 
-See [rebuild-chunked-batch-stats](./rebuild-chunked-batch-stats.md) for details.
+See [rebuild-chunked-batch-stats](/research/rebuild-chunked-batch-stats) for details.
 :::

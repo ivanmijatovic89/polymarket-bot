@@ -47,4 +47,4 @@ The recorder captures raw WebSocket events to Parquet files. The backtester repl
 | Learn the terminology | [Key Concepts](/key-concepts) |
 | Write your first strategy | [Tutorial: First Strategy](/strategy/tutorial-first-strategy) |
 | See all available strategies | [Strategy Interface](/strategy/strategy-interface) |
-| Configure environment variables | [Environment Variables](/other/environment-variables) |
+| Configure environment variables | [Environment Variables](/reference/environment-variables) |
