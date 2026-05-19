@@ -5,7 +5,7 @@ description: How to use generate-jobs.ts to expand a parameter grid into a flat 
 
 # Generate Backtest Jobs
 
-`src/backtest/generate-jobs.ts` reads a JSON grid specification and writes one shell command per parameter combination into a jobs file in `queue/approve/`. The output is consumed directly by the [Parallel Backtest Runner](./ParallelBacktestRunner.md).
+`src/backtest/generate-jobs.ts` reads a JSON grid specification and writes one shell command per parameter combination into a jobs file in `queue/approve/`. The output is consumed directly by the [Parallel Backtest Runner](./parallel-backtest-runner.md).
 
 ## What It Generates
 
@@ -107,7 +107,7 @@ Once the jobs file is in `queue/approve/`, move it (or leave it) and start the q
 ./queue/run-queue.sh --jobs 8 --save-results
 ```
 
-The queue runner picks up files from `queue/approve/`, moves them to `queue/pending/` while running, and places results in `queue/done/` or `queue/failed/`. See [Parallel Backtest Runner](./ParallelBacktestRunner.md) for full queue documentation.
+The queue runner picks up files from `queue/approve/`, moves them to `queue/pending/` while running, and places results in `queue/done/` or `queue/failed/`. See [Parallel Backtest Runner](./parallel-backtest-runner.md) for full queue documentation.
 
 ::: tip Grid file naming convention
 Name grid files as `<version>-grid.json` (e.g. `v3-grid.json`) so the generator can automatically derive the jobs filename (`v3-jobs.txt`). Store grid files alongside the strategy source under `src/strategies/<family>/`.

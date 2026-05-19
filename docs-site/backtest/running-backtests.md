@@ -177,7 +177,7 @@ Each completed run produces three levels of output:
 2. **Batch stats** — aggregated metrics printed at the end and stored in the database.
 3. **Chunked batch stats** — computed for window sizes `[96, 200, 300]` and stored alongside the batch record.
 
-See [Market Statistics](./market-stats.md), [Batch Statistics](./batch-stats.md), and [Chunked Batch Statistics](./chunked-batch-stats-new.md) for full field definitions.
+See [Market Statistics](./market-stats.md), [Batch Statistics](./batch-stats.md), and [Chunked Batch Statistics](./chunked-batch-stats.md) for full field definitions.
 
 ::: details Progress and ETA output
 After each market completes, the CLI prints:
