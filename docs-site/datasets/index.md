@@ -71,7 +71,7 @@ Regardless of source, the path from raw data to a runnable backtest follows the 
 - **Seed database** — index the files on disk into the `markets` table so the backtest CLI can query them by symbol, slug, or date range.
 - **Backtest** — replay the files through your strategy.
 
-→ [Scan Disconnect Events](/datasets/recording/scan-disconnect-events) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Seed Database from Parquet](/datasets/recording/insert-parquet-to-db) · [Running Backtests](/other/running-backtests)
+→ [Scan Disconnect Events](/datasets/recording/scan-disconnect-events) · [Verify Parquet File](/datasets/tools/verify-parquet) · [Seed Database from Parquet](/datasets/recording/insert-parquet-to-db) · [Running Backtests](/backtest/running-backtests)
 
 ### Telonex (pipeline)
 

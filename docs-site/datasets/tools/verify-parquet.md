@@ -1,15 +1,13 @@
 ---
 title: Verify Parquet File
-description: How to inspect and validate any Parquet file — live-recorded, Telonex paired, or PMXT — to confirm it is readable before backtesting.
+description: How to inspect and validate a recorded Parquet file to confirm it is readable and contains expected data.
 ---
 
 # Verify Parquet File
 
 The `verify:parquet` tool opens a Parquet file, reads its schema and compression metadata, and iterates every row from start to finish. A successful run confirms that the file's footer, row-group pages, and column encodings are all intact — making it safe to use in backtesting.
 
-This tool works on any Parquet file regardless of source: live-recorded files, Telonex paired files, or PMXT files.
-
-Use it whenever you receive an unexpected backtest error, suspect disk corruption, or want to inspect the contents of a file before committing it to a backtest run.
+Use this tool whenever you receive an unexpected backtest error, suspect disk corruption, or want to inspect the contents of a freshly recorded file before committing it to a backtest run.
 
 ## Running the tool
 
@@ -48,7 +46,7 @@ npm run verify:parquet -- data/events/btc/btc-updown-15m-1766523600.parquet --me
 
 ## Understanding the output
 
-A typical successful run for a live-recorded file:
+A typical successful run for a full file looks like this:
 
 ```
 [verify-parquet] file=data/events/btc/btc-updown-15m-1766523600.parquet
@@ -65,13 +63,11 @@ A typical successful run for a live-recorded file:
 [verify-parquet] ok
 ```
 
-For a Telonex paired file the schema will show columns `market`, `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks` instead of `raw_json`.
-
 | Output line        | What it tells you                                                                                 |
 | ------------------ | ------------------------------------------------------------------------------------------------- |
 | `size_bytes`       | Raw file size. Files well below 1 KB are likely empty or corrupt.                                 |
-| `schema`           | Column names and types. Use this to confirm the file matches the expected format.                 |
-| `codecs_by_column` | Compression codec per column. All standard files use `GZIP` for all columns.                     |
+| `schema`           | Column names and types. Should include `ingest_seq`, `ts_local_ms`, `event_type`, and `raw_json`. |
+| `codecs_by_column` | Compression codec per column. Standard recorded files use `GZIP` for all columns.                 |
 | `rows_read`        | Total number of rows successfully deserialised.                                                   |
 | `ok`               | Final confirmation that the file is fully readable.                                               |
 
@@ -109,4 +105,4 @@ Files named `*-terminated.parquet` were closed by a `SIGINT`/`SIGTERM` shutdown 
 
 ## When to skip metadata-only mode
 
-`--metadata-only` exits after printing schema and codec information without reading any row data. Use it when you only need to confirm the file structure is parseable or to quickly check compression settings. It does **not** validate that row-group pages are uncorrupted — only a full read (or `--limit` read) can confirm the row data is intact.
+`--metadata-only` exits after printing schema and codec information without reading any row data. Use it when you only need to confirm the file structure is parseable or to quickly check compression settings across a large number of files. It does **not** validate that row-group pages are uncorrupted — only a full read (or `--limit` read) can confirm the row data is intact.

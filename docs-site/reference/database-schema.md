@@ -73,8 +73,8 @@ One row per completed backtest run. Written by the backtest CLI at the end of ea
 | `baseline_id`         | `VARCHAR(255)` | Yes      | `NULL`         | Identifier of the baseline run used for relative comparison in the web UI and reporting tools.                                                   |
 | `cmd`                 | `TEXT`         | Yes      | `NULL`         | Full CLI command string that produced this run, for reproducibility.                                                                             |
 | `comment`             | `TEXT`         | Yes      | `NULL`         | Free-text annotation.                                                                                                                            |
-| `batch_stats`         | `JSON`         | No       | —              | Aggregate statistics across all markets in the run (win rate, total PnL, Sharpe, etc.). See [Batch Stats](/other/batch-stats).                   |
-| `market_stats`        | `JSON`         | No       | —              | Array of per-market statistics objects. See [Market Stats](/other/market-stats).                                                                 |
+| `batch_stats`         | `JSON`         | No       | —              | Aggregate statistics across all markets in the run (win rate, total PnL, Sharpe, etc.). See [Batch Stats](/backtest/batch-stats).                |
+| `market_stats`        | `JSON`         | No       | —              | Array of per-market statistics objects. See [Market Stats](/backtest/market-stats).                                                              |
 | `chunked_batch_stats` | `JSON`         | Yes      | `NULL`         | Time-windowed batch statistics for performance-over-time analysis. See [Chunked Batch Stats](/other/chunked-batch-stats). `NULL` until computed. |
 | `created_at`          | `TIMESTAMP`    | No       | `NOW()`        | Row creation time.                                                                                                                               |
 
