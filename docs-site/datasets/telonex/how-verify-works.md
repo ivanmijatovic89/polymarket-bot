@@ -30,6 +30,7 @@ Everything below exists to answer that question rigorously.
 
 - For `--converter paired`: call `convertPaired(inputs, tmpDir/paired.parquet)`.
 - For `--converter delta`: call `createDeltaConverter({bookInterval})(inputs, tmpDir/delta.parquet)`.
+- For `--converter delta-typed`: call `createDeltaTypedConverter({bookInterval})(inputs, tmpDir/delta-typed.parquet)`. This uses the same expected-snapshot stream as `delta` — only the on-disk representation differs (typed repeated columns instead of `raw_json`).
 
 If the converter reports `ticksDropped > 0`, verification fails right here with `refusing to certify`. A single dropped raw row is enough to disqualify the run — verify is intentionally strict about this.
 
@@ -66,6 +67,7 @@ Verification deliberately does **not** invent its own replay logic. It calls the
 | --- | --- |
 | `paired` | `replayTelonexPairedParquetForMarket` |
 | `delta` | `replayOrderBookForMarket` (the standard live-format replay) |
+| `delta-typed` | `replayTelonexDeltaParquetForMarket` (typed-column adapter that skips `raw_json`) |
 
 For each strategy snapshot the replay emits, the verifier pulls the next expected snapshot from the queue and compares them immediately.
 
@@ -83,7 +85,7 @@ The first mismatch throws a `VerificationError` containing tick number, the reas
 ## Step 7 — Drain check and cleanup
 
 - After replay finishes, the expected queue must also be empty. If one more expected snapshot is still pending → fail with `replay ended before all expected ticks were emitted`, including the leftover snapshot's tick number and reason.
-- On full success: log `paired OK …` / `delta OK …`, then a final `OK`.
+- On full success: log `paired OK …` / `delta OK …` / `delta-typed OK …`, then a final `OK`.
 - The temp directory is removed unless you passed `--keep-temp`.
 
 ## What an `OK` result guarantees
@@ -93,7 +95,7 @@ Strong guarantees — for the **specific slug**, the **chosen converter**, on th
 1. **Bit-exact orderbook equality.** The backtest engine reconstructs the same prices, sizes, level ordering, and asset set as the raw Telonex `book_snapshot_full` files, on every emitted strategy tick.
 2. **No silent data loss in conversion.** `ticksDropped == 0` is enforced before any comparison runs.
 3. **Tick count matches.** The converter did not emit a single extra strategy tick and did not skip a single change the expected model predicted.
-4. **The replay path is the production replay path.** Verification calls `replayOrderBookForMarket` and `replayTelonexPairedParquetForMarket` — the exact functions backtests use. What verify sees is what backtest will see.
+4. **The replay path is the production replay path.** Verification calls `replayOrderBookForMarket`, `replayTelonexPairedParquetForMarket`, and `replayTelonexDeltaParquetForMarket` — the exact functions backtests use. What verify sees is what backtest will see.
 5. **Carry-forward semantics in paired output behave exactly as the format allows.** Both books share one `ts_exchange_ms`; bid/ask levels on the carried-forward side preserve the previous tick's state exactly.
 6. **Delta change detection is consistent with the converter.** Both sides use numeric equality and the same `bookInterval` checkpoint rule.
 

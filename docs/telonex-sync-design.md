@@ -152,9 +152,10 @@ elif hard auth/403 error → upload_status='failed' (manual intervention)
 # single converter
 npm run telonex:convert -- --converter paired   [--output local|r2|both] [--concurrency 4]
 npm run telonex:convert -- --converter delta    ...
+npm run telonex:convert -- --converter delta-typed ...
 
-# both converters in one pass — raw files downloaded once per market
-npm run telonex:convert -- --converter delta --converter paired --output local
+# multiple converters in one pass — raw files downloaded once per market
+npm run telonex:convert -- --converter delta --converter delta-typed --converter paired --output local
 ```
 
 `--converter` can be repeated. When multiple converters are specified, the worker downloads the raw files once and runs each converter sequentially, writing a separate `telonex_market_conversions` row per converter.
@@ -166,7 +167,7 @@ WHERE m.upload_status = 'done'
   AND (
     SELECT COUNT(*) FROM telonex_market_conversions c
     WHERE c.market_id = m.id
-      AND c.converter IN ('delta', 'paired')
+      AND c.converter IN ('delta', 'delta-typed', 'paired')
       AND c.status = 'done'
       AND <requested output destination is present>
   ) < <number of requested converters>
@@ -179,7 +180,7 @@ Per market:
 3. Call the converter's exported pure function with `inputs: Buffer[]` → returns local temp path (writer needs a file path).
 4. Output handling per `--output`:
    - `r2`: temp path → `PUT r2://...converted/...` → delete temp
-   - `local`: write to `data/events/telonex/btc/15m/<slug>.parquet` → keep
+   - `local`: write to `data/events/telonex/<converter>/<symbol>/<timeframe>/<slug>.parquet` → keep
    - `both`: write to local final path → PUT to R2 → keep local
 5. `UPDATE telonex_market_conversions SET status='done', completed_at=NOW(), size_bytes=?, ...requested destination columns...`
 6. On error: `UPDATE ... status='failed', last_error=?`
@@ -203,8 +204,8 @@ Original Telonex filename (`<asset_id>_<date>_<channel>.parquet`, from `Content-
 ## Local converted layout
 
 ```
-data/events/telonex/<symbol>/<timeframe>/<slug>.parquet
-  e.g. data/events/telonex/btc/15m/btc-updown-15m-1765123200.parquet
+data/events/telonex/<converter>/<symbol>/<timeframe>/<slug>.parquet
+  e.g. data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1765123200.parquet
 ```
 
 (Backtest reader already supports both local paths and `r2://` URLs via `src/cli/helpers/openParquetReader.ts`; no backtest changes required.)

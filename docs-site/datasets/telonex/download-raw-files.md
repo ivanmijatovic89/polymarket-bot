@@ -170,5 +170,5 @@ Observed on a fresh BTC 15m run with default settings:
 
 ## Next steps
 
-- [Convert](/datasets/telonex/convert) — once your markets are `upload_status='done'`, run the paired or delta converter through the dispatcher.
+- [Convert](/datasets/telonex/convert) — once your markets are `upload_status='done'`, run the paired, delta, or delta-typed converter through the dispatcher.
 - [Sync Markets](/datasets/telonex/sync-markets) — the upstream stage that fills `telonex_markets`.

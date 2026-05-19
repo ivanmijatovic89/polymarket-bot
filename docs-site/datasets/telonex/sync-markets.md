@@ -140,4 +140,4 @@ Typical timings (BTC 15m, ~19k matching rows):
 ## Next steps
 
 - [Download Raw Files](/datasets/telonex/download-raw-files) — fetch the per-market `book_snapshot_full` files referenced by `telonex_markets` and stage them on R2.
-- [Convert](/datasets/telonex/convert) — once raw files are on R2, run the paired or delta converter.
+- [Convert](/datasets/telonex/convert) — once raw files are on R2, run the paired, delta, or delta-typed converter.

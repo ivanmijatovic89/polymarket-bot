@@ -54,3 +54,6 @@ docs-site/.vitepress/cache/
 .turbo/
 
 duckdb/test.duckdb
+
+# cpu profiles
+profiles/

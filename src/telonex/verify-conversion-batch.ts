@@ -11,7 +11,7 @@ import { spawn } from 'node:child_process'
 import { eq, sql } from 'drizzle-orm'
 import { closeDb, getDb, telonexMarkets } from '../db/index.js'
 
-type ConverterChoice = 'paired' | 'delta' | 'both'
+type ConverterChoice = 'paired' | 'delta' | 'delta-typed' | 'both'
 
 type Args = {
   limit: number
@@ -43,8 +43,10 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--random') out.random = true
     else if (a === '--converter') {
       const v = argv[++i]
-      if (v !== 'paired' && v !== 'delta' && v !== 'both') {
-        throw new Error(`[telonex:verify-batch] --converter must be paired|delta|both, got ${v}`)
+      if (v !== 'paired' && v !== 'delta' && v !== 'delta-typed' && v !== 'both') {
+        throw new Error(
+          `[telonex:verify-batch] --converter must be paired|delta|delta-typed|both, got ${v}`,
+        )
       }
       out.converter = v
     } else if (a === '--book-interval') {

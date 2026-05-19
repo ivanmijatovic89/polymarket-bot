@@ -1,6 +1,6 @@
 ---
 title: Run a Backtest with Telonex Data
-description: How to feed a converted Telonex parquet (paired or delta) to the backtest engine.
+description: How to feed a converted Telonex parquet (paired, delta, or typed delta) to the backtest engine.
 ---
 
 # Run a Backtest with Telonex Data
@@ -8,6 +8,7 @@ description: How to feed a converted Telonex parquet (paired or delta) to the ba
 Once a market has been converted by [`telonex:convert`](/datasets/telonex/convert), its Parquet output can be replayed by the backtest engine. The command differs by converter:
 
 - **Delta** output is in the live format — no `--input-mode` flag needed.
+- **Delta-typed** output is a compact typed delta format — requires `--input-mode telonex-delta-parquet`.
 - **Paired** output is in `orderbook_pair` format — requires `--input-mode telonex-paired-parquet`.
 
 The strategy runs through the exact same engine as a live-recorded backtest. The only difference is the data source.
@@ -23,6 +24,17 @@ npm run backtest -- \
 ```
 
 The engine processes each row in stored order, exactly as it would for a file you recorded yourself.
+
+## Backtesting a delta-typed converted file
+
+The delta-typed converter keeps the same `book` / `price_change` tick cadence as the delta converter, but stores typed columns instead of a full `raw_json` payload. Use the dedicated typed delta input mode:
+
+```bash
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-delta-parquet \
+  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
+```
 
 ## Backtesting a paired-converted file
 
@@ -44,8 +56,8 @@ When `--output r2` was used at convert time, the file lives only on R2. The back
 ```bash
 npm run backtest -- \
   --strategy <strategy-id> \
-  --input-mode telonex-paired-parquet \
-  r2://polymarket-telonex/telonex/converted/paired/btc/15m/1766364300/btc-updown-15m-1766364300.parquet
+  --input-mode telonex-delta-parquet \
+  r2://polymarket-telonex/telonex/converted/delta-typed/btc/15m/1766364300/btc-updown-15m-1766364300.parquet
 ```
 
 Read latency from R2 is observed to be roughly 12% slower than from local disk on this codebase. Use `--output both` at convert time if you want a local cache without giving up the durable R2 copy.
@@ -73,6 +85,15 @@ npm run backtest -- \
   data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
+```bash [delta-typed]
+npm run backtest -- \
+  --strategy split-sell-redeem-v3 \
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --input-mode telonex-delta-parquet \
+  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
+```
+
 :::
 
 ## Replaying multiple files
@@ -82,34 +103,37 @@ You can pass more than one file in a single run. Files are processed sequentiall
 ```bash
 npm run backtest -- \
   --strategy split-sell-redeem-v3 \
-  data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet \
-  data/events/telonex/delta/btc/15m/btc-updown-15m-1766365200.parquet
+  --input-mode telonex-delta-parquet \
+  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet \
+  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766365200.parquet
 ```
 
-## Constraints for `telonex-paired-parquet` mode
+## Constraints for typed Telonex modes
 
-`--input-mode telonex-paired-parquet` cannot be combined with the database-query flags. The following combinations are rejected at startup:
+`--input-mode telonex-paired-parquet` and `--input-mode telonex-delta-parquet` cannot be combined with the database-query flags. The following combinations are rejected at startup:
 
-| Flag          | Allowed with `telonex-paired-parquet`? |
-| ------------- | -------------------------------------- |
-| `--symbol`    | No                                     |
-| `--slug`      | No                                     |
-| `--dir`       | No                                     |
-| `--limit`     | No                                     |
-| `--random`    | No                                     |
-| `--latest`    | No                                     |
-| `--order`     | No                                     |
-| `--time-driven` | No                                   |
-| `--param`     | Yes                                    |
-| `--strategy`  | Yes                                    |
+| Flag | Allowed with typed Telonex modes? |
+| --- | --- |
+| `--symbol` | No |
+| `--slug` | No |
+| `--dir` | No |
+| `--limit` | No |
+| `--random` | No |
+| `--latest` | No |
+| `--order` | No |
+| `--time-driven` | No |
+| `--param` | Yes |
+| `--strategy` | Yes |
 
 File paths must always be provided as positional arguments after all flags.
 
-The **delta** converter's output runs in standard `recorded` mode and has none of these restrictions.
+The raw-json **delta** converter's output runs in standard `recorded` mode and has none of these restrictions.
 
 ## How replay differs between modes
 
-In standard (`recorded`) mode — used for both live recordings and **delta** Telonex output — the engine processes every raw WebSocket-style event individually. Each `book` or `price_change` event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
+In standard (`recorded`) mode — used for both live recordings and raw-json **delta** Telonex output — the engine processes every raw WebSocket-style event individually. Each `book` or `price_change` event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
+
+In `telonex-delta-parquet` mode — used for **delta-typed** output — the same `book` / `price_change` cadence is replayed from typed columns instead of parsing `raw_json`. It should expose the same strategy tick semantics as raw-json delta output.
 
 In `telonex-paired-parquet` mode — used only for the **paired** converter — each row is one tick and both books are current as of the same exchange timestamp. There is no `--order` or `--time-driven` option; rows always replay in their stored sequence.
 
@@ -130,6 +154,8 @@ npm run verify:parquet -- data/events/telonex/paired/btc/15m/btc-updown-15m-1766
 For a **paired** file, the schema output should show `event_type=orderbook_pair` and the typed columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
 
 For a **delta** file, `event_type` values should be `book` and `price_change`, and the `raw_json` column should be present.
+
+For a **delta-typed** file, `event_type` values should be `book` and `price_change`, `raw_json` should not be present, and flat repeated typed columns should be present for book depth and price changes.
 
 ## Next steps
 
