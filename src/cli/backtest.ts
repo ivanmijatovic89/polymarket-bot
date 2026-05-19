@@ -29,6 +29,7 @@ import {
 import { insertBacktestRun } from '../db/helpers.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
+import { replayTelonexDeltaParquetForMarket } from '../parquet/replay/replayTelonexDeltaParquetForMarket.js'
 import { replayTelonexPairedParquetForMarket } from '../parquet/replay/replayTelonexPairedParquetForMarket.js'
 import {
   replayOrderBookForMarket,
@@ -150,7 +151,10 @@ async function main(): Promise<void> {
         '  Or telonex paired-parquet replay:\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-paired-parquet <file.parquet>\n' +
         '    Semantics: apply both up/down books, then emit one strategy tick per paired frame.\n' +
-        '    Note: paired frames may include carry-forward of the missing side from the previous snapshot.',
+        '    Note: paired frames may include carry-forward of the missing side from the previous snapshot.\n' +
+        '  Or telonex typed delta replay:\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-delta-parquet <file.parquet>\n' +
+        '    Semantics: apply typed book/price_change rows, then emit one strategy tick per row.',
     )
     process.exit(2)
   }
@@ -354,6 +358,12 @@ async function main(): Promise<void> {
 
     if (parsed.inputMode === 'telonex-paired-parquet') {
       await replayTelonexPairedParquetForMarket({
+        filePath: fp,
+        shouldStop: () => shouldStop,
+        onSnapshot,
+      })
+    } else if (parsed.inputMode === 'telonex-delta-parquet') {
+      await replayTelonexDeltaParquetForMarket({
         filePath: fp,
         shouldStop: () => shouldStop,
         onSnapshot,

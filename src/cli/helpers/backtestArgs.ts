@@ -3,6 +3,19 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
   return 'recorded'
 }
 
+const INPUT_MODES = ['recorded', 'telonex-paired-parquet', 'telonex-delta-parquet'] as const
+
+type InputMode = (typeof INPUT_MODES)[number]
+
+function parseInputMode(raw: string | undefined): InputMode {
+  if (raw === 'recorded' || raw === 'telonex-paired-parquet' || raw === 'telonex-delta-parquet') {
+    return raw
+  }
+  throw new Error(
+    `[backtest] --input-mode must be one of: ${INPUT_MODES.join(', ')} (got: ${String(raw)})`,
+  )
+}
+
 export type BacktestArgs = {
   filePaths: string[]
   dirs?: string[]
@@ -11,7 +24,9 @@ export type BacktestArgs = {
   // telonex-paired-parquet:
   //   Replays paired up/down snapshots and runs strategy once per paired frame.
   //   Merge step may carry forward the missing side from the last known snapshot.
-  inputMode: 'recorded' | 'telonex-paired-parquet'
+  // telonex-delta-parquet:
+  //   Replays typed book/price_change rows and runs strategy on each row.
+  inputMode: InputMode
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   slugs?: string[]
@@ -28,8 +43,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
   const filePaths: string[] = []
   const dirs: string[] = []
   const slugs: string[] = []
-  let inputMode: 'recorded' | 'telonex-paired-parquet' = 'recorded'
+  let inputMode: InputMode = 'recorded'
   let order: 'recorded' | 'exchange_time' = 'recorded'
+  let orderExplicit = false
   let timeDriven = false
   let symbol: string | undefined
   let limit: number | undefined
@@ -53,16 +69,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
 
       case '--order':
         order = parseOrderValue(argv[i + 1])
+        orderExplicit = true
         i += 1
         break
       case '--input-mode': {
-        const raw = argv[i + 1]
-        if (raw !== 'recorded' && raw !== 'telonex-paired-parquet') {
-          throw new Error(
-            `[backtest] --input-mode must be one of: recorded, telonex-paired-parquet (got: ${String(raw)})`,
-          )
-        }
-        inputMode = raw
+        inputMode = parseInputMode(argv[i + 1])
         i += 1
         break
       }
@@ -186,13 +197,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
           break
         }
         if (arg.startsWith('--input-mode=')) {
-          const raw = arg.slice('--input-mode='.length)
-          if (raw !== 'recorded' && raw !== 'telonex-paired-parquet') {
-            throw new Error(
-              `[backtest] --input-mode must be one of: recorded, telonex-paired-parquet (got: ${raw})`,
-            )
-          }
-          inputMode = raw
+          inputMode = parseInputMode(arg.slice('--input-mode='.length))
           break
         }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
@@ -223,15 +228,23 @@ export function parseArgs(argv: string[]): BacktestArgs {
   if (dirs.length > 0 && slugs.length > 0) {
     throw new Error('[backtest] --dir and --slug are mutually exclusive')
   }
-  if (inputMode === 'telonex-paired-parquet' && (symbol || slugs.length > 0 || dirs.length > 0)) {
+  if (
+    inputMode !== 'recorded' &&
+    (symbol ||
+      slugs.length > 0 ||
+      dirs.length > 0 ||
+      limit !== undefined ||
+      random ||
+      latest ||
+      orderExplicit ||
+      timeDriven)
+  ) {
     throw new Error(
-      '[backtest] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, or --dir',
+      `[backtest] --input-mode=${inputMode} cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven`,
     )
   }
-  if (inputMode === 'telonex-paired-parquet' && filePaths.length === 0) {
-    throw new Error(
-      '[backtest] --input-mode=telonex-paired-parquet requires at least one parquet file',
-    )
+  if (inputMode !== 'recorded' && filePaths.length === 0) {
+    throw new Error(`[backtest] --input-mode=${inputMode} requires at least one parquet file`)
   }
 
   return {

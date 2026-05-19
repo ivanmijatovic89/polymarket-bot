@@ -5,6 +5,7 @@ This document reflects the current supported setup after cleanup.
 Supported `--input-mode` values:
 - `recorded` (default)
 - `telonex-paired-parquet`
+- `telonex-delta-parquet`
 
 ## Mode 1: `recorded` (default, slug/database dataset)
 
@@ -61,6 +62,42 @@ npm run backtest -- \
 --batchUid telonex-paired-parquet-v1 \
 --input-mode telonex-paired-parquet \
 data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
+```
+
+## Mode 3: `telonex-delta-parquet`
+
+### 3.1 Generate typed delta parquet via the Telonex pipeline
+
+Use this when you want live-style `book` / `price_change` tick cadence without
+storing a full `raw_json` payload per parquet row.
+
+```bash
+# converted file lands at data/events/telonex/delta-typed/btc/15m/<slug>.parquet
+npm run telonex:convert -- --converter delta-typed --output local --limit 1
+```
+
+Output stores one typed parquet row per strategy-visible `book` or
+`price_change` event. The book levels and price changes are stored in flat
+repeated primitive columns, so `asset_id`, `side`, `price`, and `size` are not
+packed into `raw_json` or a delimited string.
+
+### 3.2 Run backtest using `telonex-delta-parquet` mode
+
+```bash
+npm run backtest -- \
+--strategy SplitSellRedeem.v5 \
+--param splitShares=10 \
+--param sellSize=10 \
+--param timeFilterAllowTradingAfterSeconds=240 \
+--param timeFilterDisableTradingAfterSeconds=600 \
+--param dwellTrackPrice=bid \
+--param dwellSecondsRequired=40 \
+--param dwellRangeFrom=0.20 \
+--param dwellRangeTo=0.35 \
+--comment "telonex-delta-parquet" \
+--batchUid telonex-delta-parquet-v1 \
+--input-mode telonex-delta-parquet \
+data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
 Important shell note:

@@ -1,6 +1,6 @@
 ---
 title: Verify Telonex Conversions
-description: How to prove that Telonex paired and delta conversions reconstruct the same orderbook state seen in the original raw Telonex snapshots.
+description: How to prove that Telonex paired, delta, and typed delta conversions reconstruct the same orderbook state seen in the original raw Telonex snapshots.
 ---
 
 # Verify Telonex Conversions
@@ -39,7 +39,7 @@ The comparison is intentionally strict at the orderbook level. A converted file 
 npm run telonex:verify -- --slug btc-updown-15m-1764259200
 ```
 
-By default the verifier runs both converters:
+By default the verifier runs every supported converter:
 
 ```bash
 npm run telonex:verify -- \
@@ -53,7 +53,7 @@ npm run telonex:verify -- \
 | Flag | Default | Description |
 | --- | --- | --- |
 | `--slug <slug>` | Required | Market slug from `telonex_markets`. Only one slug is verified per run. |
-| `--converter <paired\|delta\|both>` | `both` | Which converter output to build and verify. |
+| `--converter <paired\|delta\|delta-typed\|both>` | `both` | Which converter output to build and verify. `both` verifies every supported converter. |
 | `--book-interval <N>` | `500` | Delta converter checkpoint interval. Must match the interval you want to certify. |
 | `--keep-temp` | `false` | Keep the temporary directory and generated Parquet files after the run. Useful for debugging mismatches. |
 
@@ -94,7 +94,7 @@ npm run telonex:verify -- \
 | --- | --- | --- |
 | `--limit <N>` | `20` | Number of `upload_status='done'` markets to verify. |
 | `--random` | `false` | Randomize selected slugs with `ORDER BY RAND()`. Without it, slugs are selected in slug order. |
-| `--converter <paired\|delta\|both>` | `both` | Passed through to each single-slug verifier run. |
+| `--converter <paired\|delta\|delta-typed\|both>` | `both` | Passed through to each single-slug verifier run. |
 | `--book-interval <N>` | `500` | Passed through to each single-slug verifier run. |
 | `--continue-on-error` | `false` | Continue after a failed slug and print all failures at the end. By default, batch verification stops at the first failed slug. |
 
@@ -181,6 +181,7 @@ raw/
   <asset_id>_<date>_book_snapshot_full.parquet
 paired.parquet
 delta.parquet
+delta-typed.parquet
 ```
 
 Raw R2 objects are streamed to disk with `getObjectToFile()`. This avoids loading multi-megabyte nested Parquet files into the JavaScript heap. By default, the directory is removed in `finally`. Pass `--keep-temp` to inspect generated files after a failure.
@@ -308,6 +309,17 @@ This means delta verification does not require one output tick for every raw sna
 It is valid for delta conversion to omit unchanged raw snapshots. Those snapshots do not create strategy ticks, because the backtest engine only sees emitted `book` and `price_change` events.
 :::
 
+## Delta-Typed Verification Semantics
+
+The delta-typed converter uses the same expected snapshot stream as the raw-json delta converter. It emits the same `book` / `price_change` strategy cadence, but stores flat repeated typed primitive columns instead of `raw_json`.
+
+The verifier therefore:
+
+1. Builds expected snapshots with the same delta expected provider.
+2. Runs `delta-typed` into `delta-typed.parquet`.
+3. Replays it through `replayTelonexDeltaParquetForMarket()`, decoding repeated primitive book and change columns directly.
+4. Compares the resulting `MarketEngine` snapshots exactly like raw-json delta.
+
 ## Actual Replay Path
 
 The verifier deliberately uses the same replay primitives as backtest:
@@ -316,6 +328,7 @@ The verifier deliberately uses the same replay primitives as backtest:
 | --- | --- | --- |
 | `paired` | `replayTelonexPairedParquetForMarket()` | Paired files are a special typed schema and need the paired replay adapter. |
 | `delta` | `replayOrderBookForMarket()` | Delta files use the normal live-recorded schema and should follow the standard backtest path. |
+| `delta-typed` | `replayTelonexDeltaParquetForMarket()` | Typed delta files intentionally skip `raw_json` and need the typed replay adapter. |
 
 `replayOrderBookForMarket()` was extracted from the backtest CLI into `src/parquet/replay/replayOrderBookForMarket.ts` so verification can use the same behavior without importing the entire CLI.
 
@@ -358,6 +371,7 @@ Example:
 [telonex:verify] mapping up=1104638377... down=1101589125...
 [telonex:verify] paired OK raw_ticks=345412 dropped=0 output_rows=172706 strategy_ticks=172706
 [telonex:verify] delta OK raw_ticks=345412 dropped=0 output_rows=85540 strategy_ticks=85540 book_interval=500
+[telonex:verify] delta-typed OK raw_ticks=345412 dropped=0 output_rows=85540 strategy_ticks=85540 book_interval=500
 [telonex:verify] OK
 ```
 
@@ -372,7 +386,7 @@ If `dropped` is greater than zero, verification fails and the market is not cert
 
 For paired, `output_rows` and `strategy_ticks` should normally be equal because every paired row emits one strategy tick.
 
-For delta, `output_rows` and `strategy_ticks` should also match for the current replay semantics because every emitted `book` or `price_change` row creates a strategy tick. The count can be much lower than `raw_ticks` because unchanged snapshots are intentionally omitted.
+For delta and delta-typed, `output_rows` and `strategy_ticks` should also match for the current replay semantics because every emitted `book` or `price_change` row creates a strategy tick. The count can be much lower than `raw_ticks` because unchanged snapshots are intentionally omitted.
 
 ## Failure Modes
 
@@ -461,11 +475,13 @@ Use diagnostics to understand data coverage. Use verify to certify converter cor
 | `src/telonex/converters/parsing.ts` | Raw Telonex parsing and sorted tick grouping. |
 | `src/telonex/converters/paired.ts` | Paired converter implementation. |
 | `src/telonex/converters/delta.ts` | Delta converter implementation. |
+| `src/telonex/converters/deltaTyped.ts` | Typed delta converter implementation. |
 | `src/parquet/replay/replayTelonexPairedParquetForMarket.ts` | Backtest replay adapter for paired files. |
 | `src/parquet/replay/replayOrderBookForMarket.ts` | Shared live-format replay path used by backtest and verifier. |
+| `src/parquet/replay/replayTelonexDeltaParquetForMarket.ts` | Backtest replay adapter for typed delta files. |
 
 ## Next Steps
 
-- [Convert](/datasets/telonex/convert) — produce paired or delta files.
+- [Convert](/datasets/telonex/convert) — produce paired, delta, or delta-typed files.
 - [Run a Backtest](/datasets/telonex/backtest) — replay converted files in a strategy run.
 - [Telonex Verification ADR](/adr/telonex-verification-replay-parity) — read the architectural decision behind tick-by-tick replay verification.

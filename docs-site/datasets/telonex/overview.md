@@ -18,14 +18,14 @@ flowchart LR
     A[Telonex catalogue<br/>parquet over HTTPS] -- npm run telonex:sync --> B[(telonex_markets)]
     B -- npm run telonex:download --> C[(telonex_market_files)<br/>R2 telonex/raw/...]
     C -- npm run telonex:convert --> D[(telonex_market_conversions)<br/>R2 telonex/converted/...<br/>local data/events/telonex/...]
-    C -- npm run telonex:verify --> E[Temp paired/delta files<br/>tick-by-tick replay comparison]
+    C -- npm run telonex:verify --> E[Temp paired/delta/delta-typed files<br/>tick-by-tick replay comparison]
 ```
 
 | Stage | CLI | Purpose | State table |
 | --- | --- | --- | --- |
 | 1. Sync | [`telonex:sync`](/datasets/telonex/sync-markets) | Filter the Telonex markets catalogue (~660 MB Parquet) with DuckDB; upsert matching rows. | `telonex_markets` |
 | 2. Download | [`telonex:download`](/datasets/telonex/download-raw-files) | Per-market worker. Downloads raw `book_snapshot_full` files from Telonex, validates MD5, uploads to Cloudflare R2. | `telonex_market_files` |
-| 3. Convert | [`telonex:convert`](/datasets/telonex/convert) | Dispatcher. Reads raw files from R2, runs the chosen converter (paired or delta), writes the result locally and/or to R2. | `telonex_market_conversions` |
+| 3. Convert | [`telonex:convert`](/datasets/telonex/convert) | Dispatcher. Reads raw files from R2, runs the chosen converter (`paired`, `delta`, or `delta-typed`), writes the result locally and/or to R2. | `telonex_market_conversions` |
 | Verification gate | [`telonex:verify`](/datasets/telonex/verify) | Rebuilds temp converter output for one slug, replays it through the backtest orderbook path, and compares every strategy tick against raw Telonex state. | No persistent table |
 
 The stages are decoupled by intent: the catalogue refreshes on a different cadence than the raw file pull, and you may want to re-run conversion many times (e.g. tweaking the delta converter's book interval) without re-pulling the source data each time. Verification stays outside persistent pipeline state because it is a correctness check for current code, not a production artifact.
@@ -54,7 +54,7 @@ One row per uploaded raw file. Created lazily by the download worker when it act
 
 ### `telonex_market_conversions`
 
-One row per (`market_id`, `converter`) pair. A single market can be converted by multiple converters (`paired`, `delta`, future additions) independently — each leaves its own row.
+One row per (`market_id`, `converter`) pair. A single market can be converted by multiple converters (`paired`, `delta`, `delta-typed`, future additions) independently — each leaves its own row.
 
 - `status` — `pending`, `in_progress`, `done`, `failed`.
 - `r2_url`, `local_path` — populated according to the `--output` mode chosen at convert time.
@@ -78,6 +78,7 @@ Concrete examples:
 telonex/raw/btc/15m/1765123200/book_snapshot_full/40031974677622756146...053_2025-10-11_book_snapshot_full.parquet
 telonex/converted/paired/btc/15m/1765123200/btc-updown-15m-1765123200.parquet
 telonex/converted/delta/btc/15m/1765123200/btc-updown-15m-1765123200.parquet
+telonex/converted/delta-typed/btc/15m/1765123200/btc-updown-15m-1765123200.parquet
 ```
 
 The raw filename is the original `Content-Disposition` name returned by the Telonex download endpoint and is never altered by the bot.
@@ -96,9 +97,9 @@ For 15-minute markets the typical case is 2 candidates (one UTC day, two outcome
 
 Telonex sometimes returns HTTP 404 for a candidate date — most commonly for markets prior to 2026-01-19 where Telonex's coverage is known to have gaps. The worker records these as `no_file` rows in `telonex_market_files`, not as failures.
 
-## Two output formats: paired vs delta
+## Three output formats: paired vs delta vs delta-typed
 
-The convert stage runs one or both converters. `--converter` can be repeated (`--converter delta --converter paired`) to run both in a single pass, downloading raw files once per market.
+The convert stage runs one or more converters. `--converter` can be repeated (`--converter delta --converter delta-typed --converter paired`) to run multiple formats in a single pass, downloading raw files once per market.
 
 ### Paired
 
@@ -116,8 +117,16 @@ Converts the raw snapshots into the same format the live recorder produces: a st
 - No special `--input-mode` flag at backtest time — runs in the standard `recorded` mode.
 - Replays at the same speed as a live-recorded file because most rows are lightweight deltas.
 
+### Delta typed
+
+Uses the same `book` / `price_change` tick cadence as the raw-json delta converter, but stores only replay-needed typed level/change columns instead of a full `raw_json` payload per event.
+
+- Output schema: `typedDeltaMarketEventParquetSchema` (one row per strategy-visible event, with flat repeated primitive columns such as `bid_prices`, `bid_sizes`, `change_asset_indexes`, `change_side_codes`, `change_prices`, and `change_sizes`).
+- Requires `--input-mode telonex-delta-parquet` at backtest time.
+- Replays through the typed Telonex delta adapter and should produce the same strategy tick stream as `delta` with smaller files and less JSON parsing.
+
 ::: tip
-Use the **delta** converter for new work — it is faster to replay and uses the same code path as live-recorded data. The **paired** converter is retained for strategies that depend on the synchronous Up+Down book view it provides on every tick.
+Use **delta-typed** for new Telonex backtests when you do not need raw payload preservation. Use **delta** when you specifically want live-recorder file compatibility, and **paired** for strategies that depend on the synchronous Up+Down book view it provides on every tick.
 :::
 
 ## Verification semantics
@@ -144,7 +153,7 @@ The **paired** converter has to synthesise a single output row that contains bot
 A carry-forward frame means one side of the pair is from the previous tick for that side rather than the current exchange timestamp. In practice the gap is small (one consecutive event apart for that asset), but strategies sensitive to fine-grained price movement should be aware that not every row is perfectly synchronous.
 :::
 
-The **delta** converter does not need to synthesise paired frames — it just emits each side's update as a separate `price_change` (or `book` checkpoint) when it arrives — so carry-forward does not apply there.
+The **delta** and **delta-typed** converters do not need to synthesise paired frames — they emit each side's update as a `price_change` (or `book` checkpoint) when it arrives — so carry-forward does not apply there.
 
 ## Channel coverage semantics
 
@@ -170,7 +179,7 @@ That said, a Telonex collector run and your own live recorder are two independen
 
 - [Sync Markets](/datasets/telonex/sync-markets) — populate `telonex_markets` from the Telonex catalogue.
 - [Download Raw Files](/datasets/telonex/download-raw-files) — pull `book_snapshot_full` files into R2 and `telonex_market_files`.
-- [Convert](/datasets/telonex/convert) — run the paired or delta converter through the dispatcher.
+- [Convert](/datasets/telonex/convert) — run the paired, delta, or delta-typed converter through the dispatcher.
 - [Verify Conversions](/datasets/telonex/verify) — prove the converted file reconstructs raw Telonex orderbooks tick by tick.
 - [Run a Backtest](/datasets/telonex/backtest) — replay converted files through the backtest engine.
 - [Diagnostics](/datasets/telonex/diagnostics) — inspect coverage and merge alignment.

@@ -1,13 +1,13 @@
 ---
 title: Convert
-description: How to run the telonex:convert dispatcher to turn raw R2 files into paired or delta backtest parquets, locally or on R2.
+description: How to run the telonex:convert dispatcher to turn raw R2 files into paired, delta, or typed delta backtest parquets, locally or on R2.
 ---
 
 # Convert
 
 The `telonex:convert` CLI is Stage 3 of the pipeline. It is a dispatcher: it picks markets whose raw files are already on R2 (`upload_status='done'`), downloads them into a per-worker temp directory, runs the chosen converter, and writes the result locally and/or back to R2 — recording every conversion in `telonex_market_conversions`.
 
-Two converters are available: **paired** and **delta**. See [Overview > Two output formats](/datasets/telonex/overview#two-output-formats-paired-vs-delta) for the conceptual difference.
+Three converters are available: **paired**, **delta**, and **delta-typed**. See [Overview > Three output formats](/datasets/telonex/overview#three-output-formats-paired-vs-delta-vs-delta-typed) for the conceptual difference.
 
 ## Prerequisites
 
@@ -24,8 +24,11 @@ npm run telonex:convert
 # Delta converter, write to local disk only (no R2 upload)
 npm run telonex:convert -- --converter delta --output local
 
-# Both converters in one pass — raw files downloaded once per market
-npm run telonex:convert -- --converter delta --converter paired --output local
+# Typed delta converter, write compact typed rows to local disk only
+npm run telonex:convert -- --converter delta-typed --output local
+
+# All converters in one pass — raw files downloaded once per market
+npm run telonex:convert -- --converter delta --converter delta-typed --converter paired --output local
 
 # Paired converter, write both locally and to R2
 npm run telonex:convert -- --converter paired --output both
@@ -36,9 +39,10 @@ npm run telonex:convert -- --converter paired --output both
 Sample output:
 
 ```
-[telonex:convert] converters=delta,paired output=local concurrency=4 limit=none bucket=polymarket-telonex
+[telonex:convert] converters=delta,delta-typed,paired output=local concurrency=4 limit=none bucket=polymarket-telonex
 [telonex:convert] queue size=19223 (capped by --limit)
 [telonex:convert] w1 btc-updown-15m-1760140800 [delta] done rows=10681 elapsed=1.5s [1/19223 rate=0.66/s eta=8h05m]
+[telonex:convert] w1 btc-updown-15m-1760140800 [delta-typed] done rows=10681 elapsed=2.1s [1/19223 rate=0.66/s eta=8h05m]
 [telonex:convert] w1 btc-updown-15m-1760140800 [paired] done rows=10681 elapsed=2.9s [1/19223 rate=0.66/s eta=8h05m]
 ...
 [telonex:convert] done markets_processed=19223 elapsed=8h12m
@@ -48,11 +52,12 @@ Sample output:
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--converter <paired\|delta>` | `paired` | Converter to run. Repeat to run multiple converters in one pass (e.g. `--converter delta --converter paired`). |
+| `--converter <paired\|delta\|delta-typed>` | `paired` | Converter to run. Repeat to run multiple converters in one pass (e.g. `--converter delta --converter delta-typed --converter paired`). |
 | `--output <local\|r2\|both>` | `r2` | Where to write the converted Parquet. |
 | `--concurrency <N>` | `4` | Number of markets converted in parallel. |
 | `--limit <N>` | unlimited | Stop after this many markets. |
-| `--book-interval <N>` | `500` | Delta converter only: how often to emit a full `book` snapshot row, in tick count. Lower values increase output size and reduce drift; higher values reduce output size. |
+| `--book-interval <N>` | `500` | Delta converters only: how often to emit a full `book` snapshot row, in tick count. Lower values increase output size and reduce drift; higher values reduce output size. |
+| `--force` | disabled | Re-run requested converters even when the conversion table already marks them as done. Use this after a converter schema or replay format changes. |
 
 ## Output locations
 
@@ -68,6 +73,12 @@ Concretely for a paired BTC 15m market:
 
 ```
 data/events/telonex/paired/btc/15m/btc-updown-15m-1760140800.parquet
+```
+
+For typed delta local output:
+
+```
+data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1760140800.parquet
 ```
 
 The output stays on disk after the run. `telonex_market_conversions.local_path` is set to the absolute path. If this market already has an `r2_url` from an earlier `--output r2` or `--output both` run, that R2 destination is preserved.
@@ -98,13 +109,17 @@ npm run telonex:convert -- --converter paired
 npm run telonex:convert -- --converter delta --book-interval 500
 ```
 
-```bash [both in one pass]
-npm run telonex:convert -- --converter delta --converter paired --output local
+```bash [delta-typed (compact typed replay)]
+npm run telonex:convert -- --converter delta-typed --book-interval 500 --output local
+```
+
+```bash [all in one pass]
+npm run telonex:convert -- --converter delta --converter delta-typed --converter paired --output local
 ```
 
 :::
 
-The two converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the other. Within one converter, local and R2 are tracked on the same row: `--output local` fills `local_path`, `--output r2` fills `r2_url`, and `--output both` fills both.
+The converters can be run independently on the same markets — they write to different paths and different rows in `telonex_market_conversions`. Re-running one converter does not affect data produced by the others. Within one converter, local and R2 are tracked on the same row: `--output local` fills `local_path`, `--output r2` fills `r2_url`, and `--output both` fills both.
 
 ## How candidates are claimed
 
@@ -117,7 +132,7 @@ WHERE m.upload_status = 'done'
   AND (
     SELECT COUNT(*) FROM telonex_market_conversions c
     WHERE c.market_id = m.id
-      AND c.converter IN ('delta', 'paired')  -- whichever converters were requested
+      AND c.converter IN ('delta', 'delta-typed', 'paired')  -- whichever converters were requested
       AND c.status = 'done'
       AND <requested output destination is present>
   ) < <number of requested converters>
@@ -154,7 +169,7 @@ Use `telonex:verify` when you need to prove that converter output reconstructs t
 npm run telonex:verify -- --slug btc-updown-15m-1764259200
 ```
 
-The verifier rebuilds paired and delta files in a temporary local directory, replays them through the backtest orderbook path, and compares both assets, bids, asks, and every level on every emitted strategy tick.
+The verifier rebuilds paired, delta, and delta-typed files in a temporary local directory, replays them through the backtest orderbook path, and compares both assets, bids, asks, and every level on every emitted strategy tick.
 
 See [Verify Telonex Conversions](/datasets/telonex/verify) for the full verification model and mismatch diagnostics.
 
@@ -170,10 +185,13 @@ A healthy **paired** file has `event_type=orderbook_pair` and columns `up_asset_
 
 A healthy **delta** file has `event_type` values of `book` and `price_change`, and the `raw_json` column carries the live-format payloads.
 
+A healthy **delta-typed** file has `event_type` values of `book` and `price_change`, no `raw_json` column, and flat repeated typed columns for book depth and price changes.
+
 ## Backtesting the output
 
 - **Paired** files require `--input-mode telonex-paired-parquet` — see [Run a Backtest](/datasets/telonex/backtest).
 - **Delta** files are in the live format and run in standard `recorded` mode with no `--input-mode` flag.
+- **Delta-typed** files require `--input-mode telonex-delta-parquet`.
 
 ## Checking conversion state
 
@@ -206,6 +224,7 @@ These are local development reference numbers only. Use them for order-of-magnit
 | paired | 2 raw files (~280 KB each) | ~10,000 paired rows | ~1.5 s |
 | paired | 4 raw files (~700 KB each, 2-day window) | ~22,000 paired rows | ~2.7 s |
 | delta | 2 raw files (~280 KB each) | ~10,600 mixed rows | ~1.2 s |
+| delta-typed | 2 raw files (~280 KB each) | ~10,600 mixed rows | ~1.2 s |
 
 Throughput scales close to linearly with `--concurrency` since conversion is mostly CPU-bound.
 

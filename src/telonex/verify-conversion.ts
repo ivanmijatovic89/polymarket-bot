@@ -20,12 +20,15 @@ import { closeDb, getDb, telonexMarketFiles, telonexMarkets } from '../db/index.
 import { getDefaultBucket, getObjectToFile } from '../r2/client.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
+import { createDeltaTypedConverter } from './converters/deltaTyped.js'
 import { cmpTick, streamSortedTickGroupsFromInputs, type ParsedTick } from './converters/parsing.js'
 import type { ConverterInput } from './converters/types.js'
+import { replayTelonexDeltaParquetForMarket } from '../parquet/replay/replayTelonexDeltaParquetForMarket.js'
 import { replayTelonexPairedParquetForMarket } from '../parquet/replay/replayTelonexPairedParquetForMarket.js'
 import { replayOrderBookForMarket } from '../parquet/replay/replayOrderBookForMarket.js'
 
-type ConverterChoice = 'paired' | 'delta' | 'both'
+type ConverterName = 'paired' | 'delta' | 'delta-typed'
+type ConverterChoice = ConverterName | 'both'
 type Side = 'up' | 'down'
 
 type Args = {
@@ -78,8 +81,10 @@ function parseArgs(argv: string[]): Args {
     if (a === '--slug') out.slug = argv[++i] ?? null
     else if (a === '--converter') {
       const v = argv[++i]
-      if (v !== 'paired' && v !== 'delta' && v !== 'both') {
-        throw new Error(`[telonex:verify] --converter must be paired|delta|both, got ${v}`)
+      if (v !== 'paired' && v !== 'delta' && v !== 'delta-typed' && v !== 'both') {
+        throw new Error(
+          `[telonex:verify] --converter must be paired|delta|delta-typed|both, got ${v}`,
+        )
       }
       out.converter = v
     } else if (a === '--book-interval') {
@@ -410,7 +415,7 @@ function createDeltaExpectedProvider(
 }
 
 function compareBook(args: {
-  converter: 'paired' | 'delta'
+  converter: ConverterName
   expectedTick: ExpectedSnapshot
   actual: OrderBookSnapshot | undefined
   expected: AssetBook
@@ -458,7 +463,7 @@ function compareBook(args: {
 }
 
 function compareSnapshot(args: {
-  converter: 'paired' | 'delta'
+  converter: ConverterName
   expected: ExpectedSnapshot
   actual: MarketOrderBooksSnapshot
 }): void {
@@ -562,6 +567,47 @@ async function verifyDelta(args: {
   )
 }
 
+async function verifyDeltaTyped(args: {
+  inputs: ConverterInput[]
+  outputPath: string
+  bookInterval: number
+}): Promise<void> {
+  const stats = await createDeltaTypedConverter({ bookInterval: args.bookInterval })(
+    args.inputs,
+    args.outputPath,
+  )
+  if (stats.ticksDropped > 0) {
+    throw new VerificationError(
+      `[telonex:verify:delta-typed] converter dropped ${stats.ticksDropped} raw row(s); refusing to certify`,
+    )
+  }
+
+  const expected = createDeltaExpectedProvider(args.inputs, args.bookInterval)
+  let actualTicks = 0
+  await replayTelonexDeltaParquetForMarket({
+    filePath: args.outputPath,
+    onSnapshot: async (snapshot) => {
+      actualTicks += 1
+      const expectedTick = await expected.next()
+      if (!expectedTick) {
+        throw new VerificationError(
+          `[telonex:verify:delta-typed] unexpected extra tick=${actualTicks}`,
+        )
+      }
+      compareSnapshot({ converter: 'delta-typed', expected: expectedTick, actual: snapshot })
+    },
+  })
+  const leftover = await expected.next()
+  if (leftover) {
+    throw new VerificationError(
+      `[telonex:verify:delta-typed] replay ended before all expected ticks were emitted actual=${actualTicks} next_expected_tick=${leftover.tickNo} reason=${leftover.reason}`,
+    )
+  }
+  console.log(
+    `[telonex:verify] delta-typed OK raw_ticks=${stats.ticksParsed} dropped=${stats.ticksDropped} output_rows=${stats.rowsWritten} strategy_ticks=${actualTicks} book_interval=${args.bookInterval}`,
+  )
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const slug = args.slug!
@@ -591,6 +637,13 @@ async function main(): Promise<void> {
       await verifyDelta({
         inputs,
         outputPath: path.join(tmpDir, 'delta.parquet'),
+        bookInterval: args.bookInterval,
+      })
+    }
+    if (args.converter === 'delta-typed' || args.converter === 'both') {
+      await verifyDeltaTyped({
+        inputs,
+        outputPath: path.join(tmpDir, 'delta-typed.parquet'),
         bookInterval: args.bookInterval,
       })
     }

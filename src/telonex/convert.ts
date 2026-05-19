@@ -7,12 +7,12 @@
  *   - reads the market's telonex_market_files rows (raw uploads)
  *   - downloads each raw parquet from R2 to a per-worker temp directory once
  *   - resolves Up/Down side from telonex_markets.outcome_0/outcome_1
- *   - calls each requested converter function (paired, delta) with explicit sides
+ *   - calls each requested converter function (paired, delta, delta-typed) with explicit sides
  *   - depending on --output: keeps locally, uploads to R2, or both
  *   - writes a telonex_market_conversions row per converter recording status / paths / etag
  *
  * Usage:
- *   npm run telonex:convert -- [--converter paired] [--converter delta] [--output local|r2|both]
+ *   npm run telonex:convert -- [--converter paired] [--converter delta] [--converter delta-typed] [--output local|r2|both] [--force]
  *                              [--concurrency N] [--limit N] [--book-interval N]
  *
  * --converter can be repeated to run multiple converters per market in a single pass,
@@ -37,9 +37,10 @@ import {
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
+import { createDeltaTypedConverter } from './converters/deltaTyped.js'
 import type { ConverterFn, ConverterInput, Side } from './converters/types.js'
 
-type ConverterName = 'paired' | 'delta'
+type ConverterName = 'paired' | 'delta' | 'delta-typed'
 type OutputMode = 'local' | 'r2' | 'both'
 
 type Args = {
@@ -49,6 +50,7 @@ type Args = {
   limit: number | null
   bookInterval: number | null
   slugFilter: string[] | null
+  force: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -59,13 +61,14 @@ function parseArgs(argv: string[]): Args {
     limit: null,
     bookInterval: null,
     slugFilter: null,
+    force: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--converter') {
       const v = argv[++i]
-      if (v !== 'paired' && v !== 'delta') {
-        throw new Error(`[telonex:convert] --converter must be paired|delta, got ${v}`)
+      if (v !== 'paired' && v !== 'delta' && v !== 'delta-typed') {
+        throw new Error(`[telonex:convert] --converter must be paired|delta|delta-typed, got ${v}`)
       }
       if (!out.converters.includes(v)) out.converters.push(v)
     } else if (a === '--output') {
@@ -77,6 +80,7 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--concurrency') out.concurrency = Math.max(1, Number(argv[++i] ?? '4'))
     else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
     else if (a === '--book-interval') out.bookInterval = Number(argv[++i] ?? '0') || null
+    else if (a === '--force') out.force = true
     else if (a === '--slug')
       out.slugFilter = (argv[++i] ?? '')
         .split(',')
@@ -148,10 +152,17 @@ function buildConverterFns(
   for (const name of names) {
     if (name === 'paired') {
       out.set('paired', convertPaired)
-    } else {
+    } else if (name === 'delta') {
       out.set(
         'delta',
         createDeltaConverter({
+          ...(opts.bookInterval != null ? { bookInterval: opts.bookInterval } : {}),
+        }),
+      )
+    } else {
+      out.set(
+        'delta-typed',
+        createDeltaTypedConverter({
           ...(opts.bookInterval != null ? { bookInterval: opts.bookInterval } : {}),
         }),
       )
@@ -177,7 +188,7 @@ type ClaimedMarket = {
   convertersToProcess: ConverterName[]
 }
 
-// Safe: converter values are validated to 'paired' | 'delta' before reaching here.
+// Safe: converter values are validated to ConverterName before reaching here.
 function converterInSql(converters: ConverterName[]): string {
   return converters.map((c) => `'${c}'`).join(', ')
 }
@@ -186,6 +197,15 @@ function outputDoneConditionSql(output: OutputMode): ReturnType<typeof sql> {
   if (output === 'local') return sql`c.local_path IS NOT NULL`
   if (output === 'r2') return sql`c.r2_url IS NOT NULL`
   return sql`c.local_path IS NOT NULL AND c.r2_url IS NOT NULL`
+}
+
+function needsWorkConditionSql(
+  converters: ConverterName[],
+  output: OutputMode,
+  force: boolean,
+): ReturnType<typeof sql> {
+  if (force) return sql`1 = 1`
+  return sql`(SELECT COUNT(*) FROM telonex_market_conversions c WHERE c.market_id = ${telonexMarkets.id} AND c.converter IN (${sql.raw(converterInSql(converters))}) AND c.status = 'done' AND ${outputDoneConditionSql(output)}) < ${converters.length}`
 }
 
 // Excludes markets where any requested converter is currently being processed by
@@ -197,7 +217,9 @@ function noInProgressConditionSql(converters: ConverterName[]): ReturnType<typeo
 function rowNeedsWork(
   row: { status: string | null; localPath: string | null; r2Url: string | null } | undefined,
   output: OutputMode,
+  force: boolean,
 ): boolean {
+  if (force) return true
   if (!row) return true
   if (row.status === 'pending' || row.status === 'failed') return true
   if (row.status === 'done') {
@@ -212,6 +234,8 @@ async function claimMarket(
   converters: ConverterName[],
   output: OutputMode,
   slugFilter: string[] | null = null,
+  force = false,
+  excludeSlugs: string[] = [],
 ): Promise<ClaimedMarket | null> {
   const db = getDb()
   return await db.transaction(async (tx) => {
@@ -229,10 +253,13 @@ async function claimMarket(
       .where(
         and(
           eq(telonexMarkets.uploadStatus, 'done'),
-          sql`(SELECT COUNT(*) FROM telonex_market_conversions c WHERE c.market_id = ${telonexMarkets.id} AND c.converter IN (${sql.raw(converterInSql(converters))}) AND c.status = 'done' AND ${outputDoneConditionSql(output)}) < ${converters.length}`,
+          needsWorkConditionSql(converters, output, force),
           noInProgressConditionSql(converters),
           slugFilter && slugFilter.length > 0
             ? sql`${telonexMarkets.slug} IN (${sql.raw(slugFilter.map((s) => `'${s}'`).join(','))})`
+            : undefined,
+          excludeSlugs.length > 0
+            ? sql`${telonexMarkets.slug} NOT IN (${sql.raw(excludeSlugs.map((s) => `'${s}'`).join(','))})`
             : undefined,
         ),
       )
@@ -278,7 +305,7 @@ async function claimMarket(
 
     const existingMap = new Map(existingRows.map((r) => [r.converter, r]))
     const convertersToProcess = converters.filter((conv) =>
-      rowNeedsWork(existingMap.get(conv), output),
+      rowNeedsWork(existingMap.get(conv), output, force),
     )
 
     // Claim: upsert only the converters that actually need work.
@@ -555,6 +582,7 @@ type SharedState = {
   reserved: { count: number }
   claimed: { count: number }
   completed: { count: number }
+  forceClaimedSlugs: Set<string>
   totalQueue: number
   runStart: number
 }
@@ -575,14 +603,23 @@ async function worker(
     bucket: string
     limit: number | null
     slugFilter: string[] | null
+    force: boolean
   },
   state: SharedState,
 ): Promise<void> {
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
-    const market = await claimMarket(args.converters, args.output, args.slugFilter)
+    const excludeSlugs = args.force ? Array.from(state.forceClaimedSlugs) : []
+    const market = await claimMarket(
+      args.converters,
+      args.output,
+      args.slugFilter,
+      args.force,
+      excludeSlugs,
+    )
     if (!market) return
     if (market.convertersToProcess.length === 0) continue
+    if (args.force) state.forceClaimedSlugs.add(market.slug)
     state.claimed.count++
     const t0 = Date.now()
     try {
@@ -633,7 +670,7 @@ async function main(): Promise<void> {
   const bucket = getDefaultBucket()
   const converterFns = buildConverterFns(args.converters, { bookInterval: args.bookInterval })
   console.log(
-    `[telonex:convert] converters=${args.converters.join(',')} output=${args.output} concurrency=${args.concurrency} limit=${args.limit ?? 'none'} slugFilter=${args.slugFilter ? `[${args.slugFilter.length} slugs]` : 'none'} bucket=${bucket}`,
+    `[telonex:convert] converters=${args.converters.join(',')} output=${args.output} concurrency=${args.concurrency} limit=${args.limit ?? 'none'} force=${args.force ? 'yes' : 'no'} slugFilter=${args.slugFilter ? `[${args.slugFilter.length} slugs]` : 'none'} bucket=${bucket}`,
   )
 
   const ac = new AbortController()
@@ -658,7 +695,7 @@ async function main(): Promise<void> {
     .where(
       and(
         eq(telonexMarkets.uploadStatus, 'done'),
-        sql`(SELECT COUNT(*) FROM telonex_market_conversions c WHERE c.market_id = ${telonexMarkets.id} AND c.converter IN (${sql.raw(converterInSql(args.converters))}) AND c.status = 'done' AND ${outputDoneConditionSql(args.output)}) < ${args.converters.length}`,
+        needsWorkConditionSql(args.converters, args.output, args.force),
         noInProgressConditionSql(args.converters),
         args.slugFilter && args.slugFilter.length > 0
           ? sql`${telonexMarkets.slug} IN (${sql.raw(args.slugFilter.map((s) => `'${s}'`).join(','))})`
@@ -677,6 +714,7 @@ async function main(): Promise<void> {
   const reserved = { count: 0 }
   const claimed = { count: 0 }
   const completed = { count: 0 }
+  const forceClaimedSlugs = new Set<string>()
   const t0 = Date.now()
   try {
     const workers = Array.from({ length: args.concurrency }, (_, i) =>
@@ -689,8 +727,17 @@ async function main(): Promise<void> {
           bucket,
           limit: args.limit,
           slugFilter: args.slugFilter,
+          force: args.force,
         },
-        { signal: ac.signal, reserved, claimed, completed, totalQueue, runStart: t0 },
+        {
+          signal: ac.signal,
+          reserved,
+          claimed,
+          completed,
+          forceClaimedSlugs,
+          totalQueue,
+          runStart: t0,
+        },
       ),
     )
     await Promise.all(workers)
