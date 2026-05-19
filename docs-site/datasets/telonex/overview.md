@@ -137,7 +137,7 @@ Use [`telonex:verify`](/datasets/telonex/verify) to certify converter behavior f
 
 - discovers raw files and Up/Down mapping from the database;
 - streams raw R2 files to local temp storage;
-- rebuilds paired and/or delta outputs from current converter code;
+- rebuilds paired, delta, and/or delta-typed outputs from current converter code;
 - replays those outputs through the same orderbook path used by backtests;
 - compares both assets, bids, asks, all levels, and numeric price/size equality on every emitted strategy tick.
 

@@ -8,7 +8,7 @@ description: Standalone CLI tools for inspecting Telonex data quality, plus when
 Two legacy diagnostic tools are available for inspecting Telonex data quality. They are standalone CLIs (not part of the pipeline dispatchers) and operate on a local directory of raw Telonex Parquet files. Use them when you want to understand how well the Up and Down files align, or to measure how many events Telonex captured relative to your own live recording.
 
 ::: tip Use verify for converter certification
-If your goal is to prove that `paired` or `delta` conversion reconstructs the correct orderbook in backtest, use [`telonex:verify`](/datasets/telonex/verify). These diagnostics inspect raw data characteristics; they do not replay converted files through `MarketEngine` or compare every orderbook level on every strategy tick.
+If your goal is to prove that `paired`, `delta`, or `delta-typed` conversion reconstructs the correct orderbook in backtest, use [`telonex:verify`](/datasets/telonex/verify). These diagnostics inspect raw data characteristics; they do not replay converted files through `MarketEngine` or compare every orderbook level on every strategy tick.
 :::
 
 ::: warning Filename convention required
