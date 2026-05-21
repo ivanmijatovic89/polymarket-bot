@@ -199,7 +199,32 @@ export async function streamSortedTickGroupsFromInputs(
   const stats: StreamStats = { filesRead: inputs.length, loaded: 0, dropped: 0 }
   const duckDb = await DuckDBInstance.create(':memory:')
   const conn = await duckDb.connect()
+  try {
+    return await streamSortedTickGroupsWithConn(conn, inputs, onGroup, stats)
+  } finally {
+    // Release the in-memory DuckDB instance. Without this, every converted
+    // market leaks an instance + connection + buffered result set, so the
+    // process memory grows unbounded over a long conversion run.
+    closeQuietly(conn)
+    closeQuietly(duckDb)
+  }
+}
 
+function closeQuietly(resource: { closeSync?: () => void; close?: () => void }): void {
+  try {
+    if (typeof resource.closeSync === 'function') resource.closeSync()
+    else if (typeof resource.close === 'function') resource.close()
+  } catch {
+    // Best effort: a failed cleanup must not mask the conversion result.
+  }
+}
+
+async function streamSortedTickGroupsWithConn(
+  conn: Awaited<ReturnType<Awaited<ReturnType<typeof DuckDBInstance.create>>['connect']>>,
+  inputs: Array<{ filePath: string; side: Side }>,
+  onGroup: (group: ParsedTick[]) => void | Promise<void>,
+  stats: StreamStats,
+): Promise<StreamStats> {
   const selects = await Promise.all(
     inputs.map(async (input, fileIdx) => {
       const describe = await conn.run(

@@ -26,7 +26,7 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
-import { and, eq, inArray, sql } from 'drizzle-orm'
+import { and, eq, inArray, or, sql } from 'drizzle-orm'
 import {
   getDb,
   closeDb,
@@ -57,7 +57,7 @@ function parseArgs(argv: string[]): Args {
   const out: Args = {
     converters: [],
     output: 'r2',
-    concurrency: 4,
+    concurrency: 1,
     limit: null,
     bookInterval: null,
     slugFilter: null,
@@ -77,7 +77,7 @@ function parseArgs(argv: string[]): Args {
         throw new Error(`[telonex:convert] --output must be local|r2|both, got ${v}`)
       }
       out.output = v
-    } else if (a === '--concurrency') out.concurrency = Math.max(1, Number(argv[++i] ?? '4'))
+    } else if (a === '--concurrency') out.concurrency = Math.max(1, Number(argv[++i] ?? '1'))
     else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
     else if (a === '--book-interval') out.bookInterval = Number(argv[++i] ?? '0') || null
     else if (a === '--force') out.force = true
@@ -401,17 +401,31 @@ async function recordConversionFailure(args: {
     )
 }
 
-async function revertInProgress(converters: ConverterName[]): Promise<number> {
+// A claim key uniquely identifies one (market, converter) conversion row that
+// THIS process has set to 'in_progress'. Tab-separated because converter names
+// like 'delta-typed' contain a hyphen but never a tab.
+function claimKey(marketId: number, converter: ConverterName): string {
+  return `${marketId}\t${converter}`
+}
+
+// Reverts only the conversion rows this process still has claimed back to
+// 'pending'. Scoped to owned claims so it is safe when multiple convert
+// processes run in parallel — it never touches another process's in-progress
+// rows. Called on every shutdown path so no Ctrl+C can orphan a row.
+async function revertOwnedClaims(ownedClaims: Set<string>): Promise<number> {
+  if (ownedClaims.size === 0) return 0
   const db = getDb()
+  const conds = Array.from(ownedClaims, (key) => {
+    const tab = key.indexOf('\t')
+    return and(
+      eq(telonexMarketConversions.marketId, Number(key.slice(0, tab))),
+      eq(telonexMarketConversions.converter, key.slice(tab + 1)),
+    )
+  })
   const res = await db
     .update(telonexMarketConversions)
     .set({ status: 'pending', startedAt: null })
-    .where(
-      and(
-        inArray(telonexMarketConversions.converter, converters as string[]),
-        eq(telonexMarketConversions.status, 'in_progress'),
-      ),
-    )
+    .where(and(or(...conds), eq(telonexMarketConversions.status, 'in_progress')))
   const affected = Array.isArray(res) ? (res[0] as { affectedRows?: number })?.affectedRows : 0
   return affected ?? 0
 }
@@ -577,14 +591,70 @@ async function convertOneMarket(args: {
 // Worker pool + main
 // ---------------------------------------------------------------------------
 
+type Completion = { tEnd: number; durMs: number; outBytes: number }
+
 type SharedState = {
   signal: AbortSignal
   reserved: { count: number }
   claimed: { count: number }
   completed: { count: number }
+  failed: { count: number }
+  inflight: { count: number }
+  recent: Completion[] // ring buffer, capped
   forceClaimedSlugs: Set<string>
+  // (market, converter) claims this process set to 'in_progress' and has not
+  // yet resolved to done/failed. Used to revert exactly our own work on exit.
+  ownedClaims: Set<string>
   totalQueue: number
   runStart: number
+  concurrency: number
+}
+
+const RECENT_CAP = 500
+
+function pushRecent(state: SharedState, c: Completion): void {
+  state.recent.push(c)
+  if (state.recent.length > RECENT_CAP) state.recent.shift()
+}
+
+function pct(sorted: number[], p: number): number {
+  if (sorted.length === 0) return 0
+  const idx = Math.min(sorted.length - 1, Math.floor((sorted.length - 1) * p))
+  return sorted[idx]!
+}
+
+function buildHeartbeat(state: SharedState): string {
+  const now = Date.now()
+  const elapsedSec = (now - state.runStart) / 1000
+  const rateAll = state.completed.count / Math.max(elapsedSec, 0.001)
+
+  // Rolling 60s window over `recent`.
+  const windowMs = 60_000
+  const since = now - windowMs
+  const recent60 = state.recent.filter((c) => c.tEnd >= since)
+  const rate60 = recent60.length / (windowMs / 1000)
+
+  const durs = state.recent.map((c) => c.durMs).sort((a, b) => a - b)
+  const p50 = pct(durs, 0.5)
+  const p95 = pct(durs, 0.95)
+  const avgMs = durs.length ? durs.reduce((a, b) => a + b, 0) / durs.length : 0
+
+  const bytes60 = recent60.reduce((a, c) => a + c.outBytes, 0)
+  const mbps = bytes60 / 1_048_576 / (windowMs / 1000)
+
+  const remaining = Math.max(state.totalQueue - state.completed.count, 0)
+  const effectiveRate = rate60 > 0 ? rate60 : rateAll
+  const eta = effectiveRate > 0 ? fmtEta(remaining / effectiveRate) : '?'
+  const util = `${state.inflight.count}/${state.concurrency}`
+
+  return (
+    `[telonex:convert:stats] elapsed=${fmtMs(now - state.runStart)} ` +
+    `done=${state.completed.count}/${state.totalQueue} fail=${state.failed.count} ` +
+    `inflight=${util} ` +
+    `rate60s=${rate60.toFixed(2)}/s rateAll=${rateAll.toFixed(2)}/s ` +
+    `dur(p50=${fmtMs(p50)} p95=${fmtMs(p95)} avg=${fmtMs(avgMs)}) ` +
+    `out60s=${mbps.toFixed(2)}MB/s eta=${eta}`
+  )
 }
 
 function reserveLimitSlot(limit: number | null, reserved: { count: number }): boolean {
@@ -621,6 +691,11 @@ async function worker(
     if (market.convertersToProcess.length === 0) continue
     if (args.force) state.forceClaimedSlugs.add(market.slug)
     state.claimed.count++
+    state.inflight.count++
+    // Record our claims so any shutdown path can revert exactly these rows.
+    for (const conv of market.convertersToProcess) {
+      state.ownedClaims.add(claimKey(market.id, conv))
+    }
     const t0 = Date.now()
     try {
       const results = await convertOneMarket({
@@ -633,10 +708,20 @@ async function worker(
       })
 
       state.completed.count++
+      const durMs = Date.now() - t0
+      let totalOutBytes = 0
+      let hadFailure = false
+      for (const result of results.values()) {
+        if (result instanceof Error) hadFailure = true
+        else totalOutBytes += result.sizeBytes
+      }
+      if (hadFailure) state.failed.count++
+      pushRecent(state, { tEnd: Date.now(), durMs, outBytes: totalOutBytes })
+
       const elapsedRun = (Date.now() - state.runStart) / 1000
-      const rate = state.completed.count / Math.max(elapsedRun, 0.001)
+      const rateAll = state.completed.count / Math.max(elapsedRun, 0.001)
       const remaining = Math.max(state.totalQueue - state.completed.count, 0)
-      const eta = fmtEta(remaining / rate)
+      const eta = fmtEta(remaining / rateAll)
 
       for (const [convName, result] of results) {
         if (result instanceof Error) {
@@ -645,13 +730,15 @@ async function worker(
           )
         } else {
           console.log(
-            `[telonex:convert] w${workerId} ${market.slug} [${convName}] rows=${result.rowsWritten} ${fmtMb(result.sizeBytes)} ${fmtMs(Date.now() - t0)} ` +
-              `[${state.completed.count}/${state.totalQueue} rate=${rate.toFixed(2)}/s eta=${eta}]`,
+            `[telonex:convert] w${workerId} ${market.slug} [${convName}] rows=${result.rowsWritten} ${fmtMb(result.sizeBytes)} ${fmtMs(durMs)} ` +
+              `[${state.completed.count}/${state.totalQueue} inflight=${state.inflight.count}/${state.concurrency} rate=${rateAll.toFixed(2)}/s eta=${eta}]`,
           )
         }
       }
     } catch (err) {
       // Catastrophic failure (e.g. download failed before any converter ran).
+      state.failed.count++
+      pushRecent(state, { tEnd: Date.now(), durMs: Date.now() - t0, outBytes: 0 })
       const msg = (err as Error).message ?? String(err)
       console.error(`[telonex:convert] w${workerId} ${market.slug} FAIL: ${msg}`)
       for (const conv of market.convertersToProcess) {
@@ -660,6 +747,13 @@ async function worker(
           converter: conv,
           error: msg,
         }).catch(() => {})
+      }
+    } finally {
+      state.inflight.count--
+      // These claims are now resolved to done/failed in the DB; drop them so
+      // a shutdown revert does not reset already-finished rows to 'pending'.
+      for (const conv of market.convertersToProcess) {
+        state.ownedClaims.delete(claimKey(market.id, conv))
       }
     }
   }
@@ -675,17 +769,6 @@ async function main(): Promise<void> {
 
   const ac = new AbortController()
   let shuttingDown = false
-  const onSignal = (sig: string) => {
-    if (shuttingDown) {
-      console.log(`[telonex:convert] second ${sig}, hard exit`)
-      process.exit(1)
-    }
-    shuttingDown = true
-    console.log(`[telonex:convert] ${sig} received, draining (Ctrl+C again to force)...`)
-    ac.abort()
-  }
-  process.on('SIGINT', () => onSignal('SIGINT'))
-  process.on('SIGTERM', () => onSignal('SIGTERM'))
 
   // Count eligible markets (unique markets, not market×converter pairs).
   const db = getDb()
@@ -714,8 +797,58 @@ async function main(): Promise<void> {
   const reserved = { count: 0 }
   const claimed = { count: 0 }
   const completed = { count: 0 }
+  const failed = { count: 0 }
+  const inflight = { count: 0 }
+  const recent: Completion[] = []
   const forceClaimedSlugs = new Set<string>()
+  const ownedClaims = new Set<string>()
   const t0 = Date.now()
+  const sharedState: SharedState = {
+    signal: ac.signal,
+    reserved,
+    claimed,
+    completed,
+    failed,
+    inflight,
+    recent,
+    forceClaimedSlugs,
+    ownedClaims,
+    totalQueue,
+    runStart: t0,
+    concurrency: args.concurrency,
+  }
+
+  // Signal handling. First Ctrl+C drains: workers finish the market in flight,
+  // then exit and the finally block reverts any still-owned claims. A second
+  // Ctrl+C exits immediately but still reverts this process's own claims first,
+  // so neither path can orphan an 'in_progress' row.
+  const onSignal = async (sig: string): Promise<void> => {
+    if (shuttingDown) {
+      console.log(`[telonex:convert] second ${sig}, reverting own claims and exiting...`)
+      const reverted = await revertOwnedClaims(ownedClaims).catch(() => 0)
+      if (reverted > 0) {
+        console.log(`[telonex:convert] reverted ${reverted} owned claim(s) to 'pending'`)
+      }
+      process.exit(1)
+    }
+    shuttingDown = true
+    console.log(
+      `[telonex:convert] ${sig} received, draining current market then exiting ` +
+        `(may take up to ~1 min; Ctrl+C again to stop now)...`,
+    )
+    ac.abort()
+  }
+  process.on('SIGINT', () => void onSignal('SIGINT'))
+  process.on('SIGTERM', () => void onSignal('SIGTERM'))
+
+  const heartbeatMs = Number(process.env.TELONEX_CONVERT_HEARTBEAT_MS ?? '30000')
+  const heartbeat = setInterval(() => {
+    if (totalQueue === 0) return
+    console.log(buildHeartbeat(sharedState))
+  }, heartbeatMs)
+  // Prevent the heartbeat from keeping the event loop alive on its own.
+  if (typeof heartbeat.unref === 'function') heartbeat.unref()
+
   try {
     const workers = Array.from({ length: args.concurrency }, (_, i) =>
       worker(
@@ -729,24 +862,21 @@ async function main(): Promise<void> {
           slugFilter: args.slugFilter,
           force: args.force,
         },
-        {
-          signal: ac.signal,
-          reserved,
-          claimed,
-          completed,
-          forceClaimedSlugs,
-          totalQueue,
-          runStart: t0,
-        },
+        sharedState,
       ),
     )
     await Promise.all(workers)
   } finally {
-    const reverted = await revertInProgress(args.converters)
+    clearInterval(heartbeat)
+    const reverted = await revertOwnedClaims(ownedClaims)
     if (reverted > 0) {
       console.log(`[telonex:convert] reverted ${reverted} 'in_progress' conversion(s) to 'pending'`)
     }
-    console.log(`[telonex:convert] done markets=${claimed.count} elapsed=${fmtMs(Date.now() - t0)}`)
+    // Final summary line in the same shape as heartbeats for easy comparison.
+    if (claimed.count > 0) console.log(buildHeartbeat(sharedState))
+    console.log(
+      `[telonex:convert] done markets=${claimed.count} ok=${completed.count - failed.count} fail=${failed.count} elapsed=${fmtMs(Date.now() - t0)}`,
+    )
   }
 }
 

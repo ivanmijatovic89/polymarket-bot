@@ -39,7 +39,7 @@ npm run telonex:convert -- --converter paired --output both
 Sample output:
 
 ```
-[telonex:convert] converters=delta,delta-typed,paired output=local concurrency=4 limit=none bucket=polymarket-telonex
+[telonex:convert] converters=delta,delta-typed,paired output=local concurrency=1 limit=none bucket=polymarket-telonex
 [telonex:convert] queue size=19223 (capped by --limit)
 [telonex:convert] w1 btc-updown-15m-1760140800 [delta] done rows=10681 elapsed=1.5s [1/19223 rate=0.66/s eta=8h05m]
 [telonex:convert] w1 btc-updown-15m-1760140800 [delta-typed] done rows=10681 elapsed=2.1s [1/19223 rate=0.66/s eta=8h05m]
@@ -54,7 +54,7 @@ Sample output:
 | --- | --- | --- |
 | `--converter <paired\|delta\|delta-typed>` | `paired` | Converter to run. Repeat to run multiple converters in one pass (e.g. `--converter delta --converter delta-typed --converter paired`). |
 | `--output <local\|r2\|both>` | `r2` | Where to write the converted Parquet. |
-| `--concurrency <N>` | `4` | Number of markets converted in parallel. |
+| `--concurrency <N>` | `1` | Number of markets converted in parallel **within one process**. Conversion is CPU-bound JavaScript on a single thread, so raising this does **not** speed up CPU work — it only overlaps I/O. For real parallelism, run multiple processes instead (see [Running long conversions](#running-long-conversions)). |
 | `--limit <N>` | unlimited | Stop after this many markets. |
 | `--book-interval <N>` | `500` | Delta converters only: how often to emit a full `book` snapshot row, in tick count. Lower values increase output size and reduce drift; higher values reduce output size. |
 | `--force` | disabled | Re-run requested converters even when the conversion table already marks them as done. Use this after a converter schema or replay format changes. |
@@ -154,12 +154,57 @@ A market is eligible as long as at least one of the requested converters is not 
 
 If any step throws, the conversion row is updated to `status='failed'` with `last_error`, and the worker moves on. Failed rows are re-claimed automatically on the next run.
 
+## Running long conversions
+
+A full conversion run is tens of thousands of markets and takes hours, so it is normally run as a long-lived background job. Two things matter for it to behave well.
+
+### Run it as a single process
+
+Conversion is CPU-bound JavaScript on one thread. `--concurrency` only overlaps I/O within a process — it does **not** parallelise the conversion itself. To actually use multiple CPU cores, run **multiple independent processes**. The dispatcher is built for this: market claiming uses `SELECT ... FOR UPDATE SKIP LOCKED` plus an `in_progress` guard, so any number of processes coordinate safely through the database without ever double-claiming a market.
+
+Run each process directly with `node --import tsx` — **not** through `npm run`. Wrapping the script in `npm run`, `npx`, or `caffeinate` stacks several processes (`caffeinate → npm/npx → tsx shim → node`); on `Ctrl+C` the outer layers hard-kill the inner one before the converter can shut down cleanly, which orphans `in_progress` rows. A single `node --import tsx` process receives `Ctrl+C` directly and shuts down gracefully.
+
+::: warning Avoid `| tee`
+Piping the output through `tee` also breaks shutdown visibility: `tee` dies on the first `Ctrl+C`, so the `draining…` message never reaches your screen. Redirect to a file with `>>` and watch it with `tail -f` instead.
+:::
+
+### Recommended tmux setup
+
+Run each process in its own [tmux](https://github.com/tmux/tmux/wiki) pane so the run survives a disconnected terminal. Pick a process count around your CPU core count.
+
+```bash
+# One pane: keep the machine awake for the whole run, then Ctrl+C it when done.
+caffeinate -dimsu
+
+# Each remaining pane: one independent converter process.
+node --import tsx src/telonex/convert.ts \
+  --converter delta-typed --output both --concurrency 1 \
+  >> logs/convert-full.log 2>&1
+
+# A spare pane: watch combined progress.
+tail -f logs/convert-full.log
+```
+
+Every process appends to the same log file and claims its own markets. To stop the whole run, `Ctrl+C` each convert pane (see below).
+
 ## Graceful shutdown
 
-Same two-level pattern as the download worker:
+When run as a single `node --import tsx` process (see above), `Ctrl+C` is delivered straight to the converter:
 
-1. **First `Ctrl+C`** — abort in-flight HTTP and converter work, revert every `in_progress` row back to `pending`. Exit 0.
-2. **Second `Ctrl+C`** — hard exit (`process.exit(1)`).
+1. **First `Ctrl+C`** — drains: the worker finishes the market currently in flight (up to ~1 minute), records it, then exits 0. Wait for the `done markets=…` line — do not press again.
+2. **Second `Ctrl+C`** — exits immediately, but first reverts **this process's own** `in_progress` claims back to `pending` so a later run picks them up.
+
+Either path leaves the database consistent — no run can orphan an `in_progress` row. Cleanup is also scoped per process: a shutting-down process only reverts the claims it owns and never touches markets being converted by other concurrent processes.
+
+If a process is hard-killed (`SIGKILL`, power loss), its claims can be left stuck in `in_progress`. Recover them before the next run with:
+
+```sql
+UPDATE telonex_market_conversions
+SET status = 'pending', started_at = NULL
+WHERE status = 'in_progress';
+```
+
+Run this only when no convert process is active.
 
 ## Verifying converter correctness
 
@@ -226,7 +271,7 @@ These are local development reference numbers only. Use them for order-of-magnit
 | delta | 2 raw files (~280 KB each) | ~10,600 mixed rows | ~1.2 s |
 | delta-typed | 2 raw files (~280 KB each) | ~10,600 mixed rows | ~1.2 s |
 
-Throughput scales close to linearly with `--concurrency` since conversion is mostly CPU-bound.
+Conversion is CPU-bound JavaScript on a single thread, so throughput does **not** scale with `--concurrency` — raising it only interleaves several markets on one core. To go faster, run multiple processes (one per core), as described in [Running long conversions](#running-long-conversions). Throughput then scales close to linearly with the number of processes.
 
 ## Next steps
 
