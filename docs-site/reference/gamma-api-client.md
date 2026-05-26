@@ -129,7 +129,7 @@ type MarketDataForTable = {
 }
 ```
 
-This type is compatible with the Drizzle `markets` table insert type and is accepted by `insertMarket` in `src/db/helpers.ts`.
+This type is compatible with the Drizzle `markets` table insert type and is accepted by `insertMarket` in `src/db/markets.ts`.
 
 ---
 

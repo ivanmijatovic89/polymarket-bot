@@ -82,9 +82,17 @@ One row per completed backtest run. Written by the backtest CLI at the end of ea
 
 ## Query Helpers
 
-All helpers are exported from `src/db/helpers.ts` and re-exported from `src/db/index.ts`.
+Helpers are split into three modules, each exporting its own functions (no wildcard re-export from `src/db/index.ts` to avoid name collisions between the recorded and telonex families):
 
-### Markets
+| Module                      | Purpose                                                                    |
+| --------------------------- | -------------------------------------------------------------------------- |
+| `src/db/markets.ts`         | Helpers for the `markets` table (recorded flow).                           |
+| `src/db/telonexMarkets.ts`  | Helpers for `telonex_markets` ⋈ `telonex_market_conversions` (telonex flow). Exports the same function names as `markets.ts` — alias on import when both are needed. |
+| `src/db/backtests.ts`       | `insertBacktestRun` — shared across both flows.                            |
+
+`src/db/index.ts` continues to export `getDb` / `closeDb` and all Drizzle schema tables.
+
+### Markets (`src/db/markets.ts`)
 
 #### `getMarketBySlug(slug)`
 
@@ -197,7 +205,84 @@ Deletes the market row matching `slug`. No-op if the row does not exist.
 
 ---
 
-### Backtest Runs
+### Telonex Markets (`src/db/telonexMarkets.ts`)
+
+Helpers for the telonex backtest flow. All three functions take an `opts` object specifying which converter and which storage to read from, and return the normalised `Market` type defined in `telonexMarkets.ts` (NOT the same as the `Market` type in `markets.ts`).
+
+```typescript
+type ReadFrom = 'local' | 'r2'
+type Converter = 'delta-typed' | 'paired'
+
+type Market = {
+  marketId: string
+  slug: string
+  symbol: string
+  dataset: string | null // local_path or r2_url, picked by readFrom
+  outcome0: string | null
+  outcome1: string | null
+  assetId0: string | null
+  assetId1: string | null
+  resultId: string | null
+  telonexStatus: string | null
+  question: string | null
+}
+```
+
+All helpers perform an inner join against `telonex_market_conversions` filtered by `converter` + `status='done'`, so only markets that have a successfully converted parquet for the requested converter are returned.
+
+#### `getMarketBySlug(slug, opts)`
+
+```typescript
+getMarketBySlug(
+  slug: string,
+  opts: { converter: Converter; readFrom: ReadFrom },
+): Promise<Market | null>
+```
+
+Returns the single telonex market row matching `slug` that has a `status='done'` conversion for the requested converter, or `null` if not found.
+
+---
+
+#### `getMarketsBySlugs(slugs, opts)`
+
+```typescript
+getMarketsBySlugs(
+  slugs: string[],
+  opts: { converter: Converter; readFrom: ReadFrom },
+): Promise<Market[]>
+```
+
+Returns all matching telonex market rows. Empty input returns `[]`. Order is not guaranteed.
+
+---
+
+#### `getMarketsBySymbol(symbol, opts)`
+
+```typescript
+getMarketsBySymbol(
+  symbol: string,
+  opts: {
+    converter: Converter
+    readFrom: ReadFrom
+    timeframe: string
+    limit?: number
+    random?: boolean
+    latest?: boolean
+  },
+): Promise<Market[]>
+```
+
+Returns telonex markets matching `slug LIKE '<symbol>-updown-<timeframe>-%'` (e.g. `btc-updown-15m-%`). `timeframe` is required so the filter stays future-proof when other intervals (`5m`, `1h`) are added.
+
+| Option     | Behaviour                                                                                          |
+| ---------- | -------------------------------------------------------------------------------------------------- |
+| `limit`    | Cap the result set size. Default: `1000`.                                                          |
+| `random`   | When `true`, rows are returned in `RAND()` order.                                                  |
+| `latest`   | When `true` and `limit` is set, returns the `limit` most recent rows by slug (highest epoch).      |
+
+---
+
+### Backtest Runs (`src/db/backtests.ts`)
 
 #### `insertBacktestRun(row)`
 
@@ -227,7 +312,9 @@ Inserts a completed backtest result row. Called automatically by the backtest CL
 ## TypeScript Types
 
 ```typescript
-import type { Market, MarketInsert } from './src/db/helpers.js'
+import type { Market, MarketInsert } from './src/db/markets.js'
+// For the telonex variant (different shape):
+import type { Market as TelonexMarket } from './src/db/telonexMarkets.js'
 ```
 
 | Type           | Description                                                                                                      |
