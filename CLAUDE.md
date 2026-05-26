@@ -24,10 +24,23 @@ npm run trade:bot:btc                  # BTC/ETH/SOL/XRP shortcuts also exist
 tsx src/cli/trading-bot.ts --strategy <id> [--param key=value ...]
 
 # Backtesting — replays Parquet with same strategy code as live
+# Recorded mode (default; reads `markets` table + WS-recorded parquet)
 npm run backtest -- --strategy <id> --param key=value "data/events/btc/<slug>.parquet"
 npm run backtest -- --strategy <id> --symbol btc --limit 100 --random   # pull from DB
 npm run backtest -- --strategy <id> --slug <slug1>,<slug2>              # specific slugs
 # Useful flags: --latest, --dir <folder>, --order recorded|exchange_time, --time-driven
+
+# Telonex mode (reads `telonex_markets` ⋈ `telonex_market_conversions`; requires --read-from)
+npm run backtest -- --strategy <id> --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --limit 50
+npm run backtest -- --strategy <id> --input-mode telonex-delta --read-from r2 --slug btc-updown-15m-1760140800
+npm run backtest -- --strategy <id> --input-mode telonex-paired --read-from local --slug <slug>
+npm run backtest:telonex:btc:15m -- --strategy <id> --limit 20   # shortcut
+# --input-mode picks both the replayer AND the DB source:
+#   recorded         → `markets` table, WS replay
+#   telonex-delta    → telonex_markets ⋈ delta-typed conversion
+#   telonex-paired   → telonex_markets ⋈ paired conversion
+# --read-from local|r2 is required for telonex modes (local_path vs r2_url from conversions row)
+# --timeframe defaults to 15m; only valid with --symbol
 # Set BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1 when using the TA plugin
 
 # Record live WS → Parquet

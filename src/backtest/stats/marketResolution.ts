@@ -1,5 +1,5 @@
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../../polymarket/gamma.js'
-import { getMarketBySlug, updateMarketBySlug, insertMarket } from '../../db/helpers.js'
+import { getMarketBySlug, updateMarketBySlug, insertMarket } from '../../db/markets.js'
 
 /**
  * Parses slug from parquet filename.

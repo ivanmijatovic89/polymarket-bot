@@ -27,66 +27,113 @@ test('parseArgs rejects --dir with --slug', () => {
   )
 })
 
-test('parseArgs parses telonex-paired-parquet mode with file path', () => {
-  const parsed = parseArgs(['--input-mode', 'telonex-paired-parquet', '/tmp/pairs.parquet'])
-  assert.equal(parsed.inputMode, 'telonex-paired-parquet')
+test('parseArgs parses telonex-paired mode with file path + --read-from', () => {
+  const parsed = parseArgs([
+    '--input-mode',
+    'telonex-paired',
+    '--read-from',
+    'local',
+    '/tmp/pairs.parquet',
+  ])
+  assert.equal(parsed.inputMode, 'telonex-paired')
+  assert.equal(parsed.readFrom, 'local')
   assert.deepEqual(parsed.filePaths, ['/tmp/pairs.parquet'])
 })
 
-test('parseArgs parses telonex-delta-parquet mode with file path', () => {
-  const parsed = parseArgs(['--input-mode', 'telonex-delta-parquet', '/tmp/delta.parquet'])
-  assert.equal(parsed.inputMode, 'telonex-delta-parquet')
-  assert.deepEqual(parsed.filePaths, ['/tmp/delta.parquet'])
+test('parseArgs parses telonex-delta mode with --symbol + --read-from', () => {
+  const parsed = parseArgs([
+    '--input-mode',
+    'telonex-delta',
+    '--read-from',
+    'r2',
+    '--symbol',
+    'btc',
+    '--limit',
+    '5',
+  ])
+  assert.equal(parsed.inputMode, 'telonex-delta')
+  assert.equal(parsed.readFrom, 'r2')
+  assert.equal(parsed.symbol, 'btc')
+  assert.equal(parsed.timeframe, '15m')
 })
 
-test('parseArgs rejects old paired-parquet alias', () => {
+test('parseArgs rejects old telonex-*-parquet alias', () => {
   assert.throws(
-    () => parseArgs(['--input-mode', 'paired-parquet', '/tmp/pairs.parquet']),
-    /\[backtest\] --input-mode must be one of: recorded, telonex-paired-parquet, telonex-delta-parquet/,
-  )
-})
-
-test('parseArgs requires at least one file for telonex-paired-parquet mode', () => {
-  assert.throws(
-    () => parseArgs(['--input-mode', 'telonex-paired-parquet']),
-    /\[backtest\] --input-mode=telonex-paired-parquet requires at least one parquet file/,
-  )
-})
-
-test('parseArgs rejects telonex-paired-parquet with slug/symbol/dir', () => {
-  assert.throws(
-    () => parseArgs(['--input-mode', 'telonex-paired-parquet', '--slug', 'abc', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
-  )
-  assert.throws(
-    () =>
-      parseArgs(['--input-mode', 'telonex-paired-parquet', '--symbol', 'BTC', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
-  )
-  assert.throws(
-    () => parseArgs(['--input-mode', 'telonex-paired-parquet', '--dir', '/tmp', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=telonex-paired-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
+    () => parseArgs(['--input-mode', 'telonex-delta-parquet', '/tmp/p.parquet']),
+    /\[backtest\] --input-mode must be one of: recorded, telonex-delta, telonex-paired/,
   )
 })
 
-test('parseArgs rejects telonex-delta-parquet with query or replay flags', () => {
+test('parseArgs requires --read-from for telonex modes', () => {
   assert.throws(
-    () =>
-      parseArgs([
-        '--input-mode',
-        'telonex-delta-parquet',
-        '--order',
-        'exchange_time',
-        '/tmp/p.parquet',
-      ]),
-    /\[backtest\] --input-mode=telonex-delta-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
+    () => parseArgs(['--input-mode', 'telonex-delta', '--symbol', 'btc']),
+    /\[backtest\] --input-mode=telonex-delta requires --read-from \(local\|r2\)/,
   )
+})
+
+test('parseArgs forbids --read-from for recorded mode', () => {
   assert.throws(
-    () => parseArgs(['--input-mode', 'telonex-delta-parquet', '--time-driven', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=telonex-delta-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
+    () => parseArgs(['--input-mode', 'recorded', '--read-from', 'local', '--symbol', 'btc']),
+    /\[backtest\] --read-from is only valid with --input-mode=telonex-delta\|telonex-paired/,
   )
+})
+
+test('parseArgs rejects --read-from with invalid value', () => {
   assert.throws(
-    () => parseArgs(['--input-mode', 'telonex-delta-parquet', '--limit', '1', '/tmp/p.parquet']),
-    /\[backtest\] --input-mode=telonex-delta-parquet cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven/,
+    () => parseArgs(['--input-mode', 'telonex-delta', '--read-from', 'gcs', '--symbol', 'btc']),
+    /\[backtest\] --read-from must be one of: local, r2/,
+  )
+})
+
+test('parseArgs allows telonex-delta combined with --slug/--symbol/--dir', () => {
+  const a = parseArgs(['--input-mode', 'telonex-delta', '--read-from', 'local', '--slug', 'foo'])
+  assert.deepEqual(a.slugs, ['foo'])
+  const b = parseArgs([
+    '--input-mode',
+    'telonex-delta',
+    '--read-from',
+    'r2',
+    '--symbol',
+    'btc',
+    '--limit',
+    '2',
+    '--random',
+  ])
+  assert.equal(b.symbol, 'btc')
+  assert.equal(b.random, true)
+  const c = parseArgs(['--input-mode', 'telonex-delta', '--read-from', 'local', '--dir', '/tmp/a'])
+  assert.deepEqual(c.dirs, ['/tmp/a'])
+})
+
+test('parseArgs --timeframe defaults to 15m', () => {
+  const parsed = parseArgs([
+    '--input-mode',
+    'telonex-delta',
+    '--read-from',
+    'local',
+    '--symbol',
+    'btc',
+  ])
+  assert.equal(parsed.timeframe, '15m')
+})
+
+test('parseArgs --timeframe overrides default', () => {
+  const parsed = parseArgs([
+    '--input-mode',
+    'telonex-delta',
+    '--read-from',
+    'local',
+    '--symbol',
+    'btc',
+    '--timeframe',
+    '5m',
+  ])
+  assert.equal(parsed.timeframe, '5m')
+})
+
+test('parseArgs --timeframe rejects use without --symbol', () => {
+  assert.throws(
+    () => parseArgs(['--input-mode', 'telonex-delta', '--read-from', 'local', '--timeframe', '5m']),
+    /\[backtest\] --timeframe is only valid together with --symbol/,
   )
 })

@@ -2,14 +2,14 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import readline from 'node:readline/promises'
 import { stdin as input, stdout as output } from 'node:process'
+import { closeDb } from './index.js'
 import {
-  closeDb,
   marketExistsBySlug,
   insertMarket,
   getAllMarkets,
   deleteMarketBySlug,
   type Market,
-} from './index.js'
+} from './markets.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
 
 /**
