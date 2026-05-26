@@ -106,7 +106,7 @@ The convert stage runs one or more converters. `--converter` can be repeated (`-
 Pre-combines the Up and Down books at every exchange timestamp into a single `orderbook_pair` row. Each row contains both sides of the book simultaneously, so a strategy that needs to see Up and Down together (for example, computing the spread between Up ask and Down ask) always gets a consistent snapshot.
 
 - Output schema: `pairedOrderbookParquetSchema` (typed columns `up_asset_id`, `up_bids`, `up_asks`, `down_asset_id`, `down_bids`, `down_asks`, …).
-- Requires `--input-mode telonex-paired-parquet` at backtest time.
+- Requires `--input-mode telonex-paired --read-from local|r2` at backtest time.
 - Replay is slower per row than a live-recorded delta file because every row is a full book replacement. Measure on the target machine before using paired files for large batch runs.
 
 ### Delta
@@ -122,7 +122,7 @@ Converts the raw snapshots into the same format the live recorder produces: a st
 Uses the same `book` / `price_change` tick cadence as the raw-json delta converter, but stores only replay-needed typed level/change columns instead of a full `raw_json` payload per event.
 
 - Output schema: `typedDeltaMarketEventParquetSchema` (one row per strategy-visible event, with flat repeated primitive columns such as `bid_prices`, `bid_sizes`, `change_asset_indexes`, `change_side_codes`, `change_prices`, and `change_sizes`).
-- Requires `--input-mode telonex-delta-parquet` at backtest time.
+- Requires `--input-mode telonex-delta --read-from local|r2` at backtest time.
 - Replays through the typed Telonex delta adapter and should produce the same strategy tick stream as `delta` with smaller files and less JSON parsing.
 
 ::: tip
