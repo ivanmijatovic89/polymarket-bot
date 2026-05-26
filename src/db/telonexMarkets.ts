@@ -17,6 +17,8 @@ export type Market = {
   resultId: string | null
   telonexStatus: string | null
   question: string | null
+  startDateMs: number | null // derived from start_date_us
+  endDateMs: number | null // derived from end_date_us
 }
 
 function mustGetDb(): ReturnType<typeof getDb> {
@@ -49,8 +51,15 @@ type JoinedRow = {
   resultId: string | null
   telonexStatus: string | null
   question: string | null
+  startDateUs: number | null
+  endDateUs: number | null
   localPath: string | null
   r2Url: string | null
+}
+
+function usToMs(us: number | null): number | null {
+  if (us === null || !Number.isFinite(us)) return null
+  return Math.trunc(us / 1000)
 }
 
 function toMarket(row: JoinedRow, readFrom: ReadFrom): Market {
@@ -66,6 +75,8 @@ function toMarket(row: JoinedRow, readFrom: ReadFrom): Market {
     resultId: row.resultId,
     telonexStatus: row.telonexStatus,
     question: row.question,
+    startDateMs: usToMs(row.startDateUs),
+    endDateMs: usToMs(row.endDateUs),
   }
 }
 
@@ -82,6 +93,8 @@ function baseSelect() {
       resultId: telonexMarkets.resultId,
       telonexStatus: telonexMarkets.telonexStatus,
       question: telonexMarkets.question,
+      startDateUs: telonexMarkets.startDateUs,
+      endDateUs: telonexMarkets.endDateUs,
       localPath: telonexMarketConversions.localPath,
       r2Url: telonexMarketConversions.r2Url,
     })

@@ -63,21 +63,49 @@ function converterForInputMode(inputMode: 'telonex-delta' | 'telonex-paired'): C
   return inputMode === 'telonex-delta' ? 'delta-typed' : 'paired'
 }
 
+// Parses `<symbol>-updown-<timeframe>-<epochSeconds>` → window-start ms.
+// `eventStartTime` (window open) is what TimeWindowGate / parseGammaMarketStartMs need.
+function windowStartMsFromSlug(slug: string): number | null {
+  const m = slug.match(/^[a-z]+-updown-[^-]+-(\d+)$/)
+  if (!m) return null
+  const sec = Number(m[1])
+  if (!Number.isFinite(sec)) return null
+  return sec * 1000
+}
+
 function buildMetaFromTokenMap(
   slug: string,
   tokenMap: Record<string, string>,
+  extra?: { startDateMs?: number | null; endDateMs?: number | null; question?: string | null },
 ): GammaMarketMeta | undefined {
   const upAssetId = tokenMap['UP']
   const downAssetId = tokenMap['DOWN']
   if (!upAssetId || !downAssetId) return undefined
-  return {
+  const meta: Record<string, unknown> = {
     slug,
     outcomes: ['UP', 'DOWN'],
     clobTokenIds: [upAssetId, downAssetId],
     outcomeTokenMap: { up: upAssetId, down: downAssetId },
     upAssetId,
     downAssetId,
-  } as GammaMarketMeta
+  }
+  // Gamma's `startDate` is market creation; `eventStartTime` is the 15m window open.
+  // Strategies read window-start via parseGammaMarketStartMs which prefers eventStartTime.
+  // The slug's trailing epoch IS the window start, so derive eventStartTime from it.
+  const windowStartMs = windowStartMsFromSlug(slug)
+  if (windowStartMs !== null) {
+    meta.eventStartTime = new Date(windowStartMs).toISOString()
+  }
+  if (extra?.startDateMs != null) {
+    meta.startDate = new Date(extra.startDateMs).toISOString()
+  }
+  if (extra?.endDateMs != null) {
+    meta.endDate = new Date(extra.endDateMs).toISOString()
+  }
+  if (extra?.question) {
+    meta.question = extra.question
+  }
+  return meta as GammaMarketMeta
 }
 
 async function main(): Promise<void> {
@@ -390,10 +418,11 @@ async function main(): Promise<void> {
       if (row) {
         marketResolution = getTelonexMarketResolution(row)
         if (marketResolution) {
-          marketMeta = buildMetaFromTokenMap(slug!, marketResolution.tokenMap)
-          if (marketMeta && row.question) {
-            ;(marketMeta as Record<string, unknown>).question = row.question
-          }
+          marketMeta = buildMetaFromTokenMap(slug!, marketResolution.tokenMap, {
+            startDateMs: row.startDateMs,
+            endDateMs: row.endDateMs,
+            question: row.question,
+          })
         }
       } else if (slug) {
         console.warn(`[backtest] no telonex_markets row for slug=${slug}, skipping stats`)
