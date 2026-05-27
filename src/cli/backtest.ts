@@ -73,6 +73,21 @@ function windowStartMsFromSlug(slug: string): number | null {
   return sec * 1000
 }
 
+function timeframeMsFromSlug(slug: string): number | null {
+  const m = slug.match(/^[a-z]+-updown-([^-]+)-\d+$/)
+  if (!m) return null
+  const tf = m[1]?.toLowerCase() ?? ''
+  const parsed = tf.match(/^(\d+)([mhd])$/)
+  if (!parsed) return null
+  const n = Number(parsed[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  const unit = parsed[2]
+  if (unit === 'm') return n * 60_000
+  if (unit === 'h') return n * 3_600_000
+  if (unit === 'd') return n * 86_400_000
+  return null
+}
+
 function buildMetaFromTokenMap(
   slug: string,
   tokenMap: Record<string, string>,
@@ -480,6 +495,22 @@ async function main(): Promise<void> {
       console.warn(`[backtest] market meta unavailable for slug: ${slug}`)
     }
 
+    // Quick-fix for telonex conversions that may contain out-of-window rows:
+    // keep replay/orderbook updates intact, but run strategy ticks only within
+    // the slug window (e.g., 5m/15m/etc).
+    const strategyWindow = (() => {
+      if (!isTelonex || !slug) return null
+      const startMs = windowStartMsFromSlug(slug)
+      const durationMs = timeframeMsFromSlug(slug)
+      if (startMs === null || durationMs === null) {
+        console.warn(
+          `[backtest] could not derive strategy window from slug=${slug}; processing all ticks`,
+        )
+        return null
+      }
+      return { startMs, endMs: startMs + durationMs }
+    })()
+
     const active = mkRunner({ getMarket: () => marketMeta })
     const runner = active.runner
 
@@ -496,6 +527,13 @@ async function main(): Promise<void> {
 
       if (!currentMarketId) {
         currentMarketId = snap.market
+      }
+
+      if (strategyWindow) {
+        const ts = snap.timestamp
+        if (!Number.isFinite(ts) || ts < strategyWindow.startMs || ts > strategyWindow.endMs) {
+          return
+        }
       }
 
       await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
