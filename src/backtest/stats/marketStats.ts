@@ -24,6 +24,12 @@ export type MarketStats = {
    */
   splitCost: number
   intentMeta: Array<Record<string, unknown>>
+  /**
+   * Optional classifier for why a zero-trade market row exists.
+   * - `no_in_window_activity`: market row emitted to keep denominator stable,
+   *   but strategy had no in-window trades/positions.
+   */
+  skipReason?: 'no_in_window_activity'
 }
 
 /**

@@ -612,7 +612,24 @@ async function main(): Promise<void> {
       } else if (marketResolution.outcome === null) {
         console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
       } else {
-        console.log(`[backtest] slug=${slug} no positions or trades, skipping stats`)
+        // Keep market denominator stable across modes/runs: emit explicit 0-trade market stats.
+        const zeroStats = computeMarketStats({
+          marketId: currentMarketId,
+          slug,
+          trades: [],
+          splits: currentMarketSplits,
+          finalPositions,
+          realizedPnl,
+          finalOutcome: marketResolution.outcome,
+          tokenMap: marketResolution.tokenMap,
+        })
+        marketStats.push({
+          ...zeroStats,
+          skipReason: 'no_in_window_activity',
+        })
+        console.log(
+          `[backtest] market=${currentMarketId} slug=${slug} outcome=${zeroStats.finalOutcome} pnl=${zeroStats.pnl} trades=0 (no in-window positions/trades)`,
+        )
       }
     } else if (!slug) {
       console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)

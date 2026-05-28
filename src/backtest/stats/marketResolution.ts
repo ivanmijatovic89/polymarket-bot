@@ -3,23 +3,23 @@ import { getMarketBySlug, updateMarketBySlug, insertMarket } from '../../db/mark
 
 /**
  * Parses slug from parquet filename.
- * Expected format: `<symbol>-updown-15m-<epochSeconds>.parquet`
+ * Expected format: `<symbol>-updown-<timeframe>-<epochSeconds>.parquet`
  * Returns null if format doesn't match.
  */
 export function parseSlugFromFilename(filePath: string): string | null {
   const basename = filePath.split('/').pop() ?? filePath
-  const match = basename.match(/^([a-z]+)-updown-15m-(\d+)\.parquet$/)
+  const match = basename.match(/^([a-z]+)-updown-([^-]+)-(\d+)\.parquet$/)
   if (!match) return null
   return match[0]!.replace(/\.parquet$/, '')
 }
 
 /**
  * Extract symbol from slug.
- * Slug format: `<symbol>-updown-15m-<epochSeconds>`
+ * Slug format: `<symbol>-updown-<timeframe>-<epochSeconds>`
  * Returns null if format doesn't match.
  */
 function extractSymbolFromSlug(slug: string): string | null {
-  const match = slug.match(/^([a-z]+)-updown-15m-/)
+  const match = slug.match(/^([a-z]+)-updown-[^-]+-/)
   return match ? match[1]! : null
 }
 

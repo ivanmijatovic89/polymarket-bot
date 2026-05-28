@@ -21,6 +21,10 @@ export type BatchStats = {
   marketsTotal: number
   /** Markets where the strategy placed 0 trades (tradeCount === 0). */
   marketsSkipped: number
+  /** Subset of skipped markets explicitly marked as no in-window activity. */
+  marketsNoInWindowActivity: number
+  /** Markets with 1+ trades but flat pnl (pnl === 0). */
+  marketsFlatWithTrades: number
   /** Markets where the strategy placed >= 1 trade (tradeCount > 0). */
   marketsPlayed: number
   marketsWon: number
@@ -112,6 +116,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
         a.currentSkippedStreak = 0
       } else {
         a.marketsSkipped += 1
+        if (r.tradeCount > 0) a.marketsFlatWithTrades += 1
+        if (r.skipReason === 'no_in_window_activity') a.marketsNoInWindowActivity += 1
         // Skipped streak tracking
         a.currentSkippedStreak += 1
         if (a.currentSkippedStreak > a.streakMaxSkipped) {
@@ -128,6 +134,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       tradesMaker: 0,
       tradesTaker: 0,
       marketsSkipped: 0,
+      marketsNoInWindowActivity: 0,
+      marketsFlatWithTrades: 0,
       marketsPlayed: 0,
       marketsWon: 0,
       marketsLost: 0,
@@ -180,6 +188,8 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
 
     marketsTotal,
     marketsSkipped: acc.marketsSkipped,
+    marketsNoInWindowActivity: acc.marketsNoInWindowActivity,
+    marketsFlatWithTrades: acc.marketsFlatWithTrades,
     marketsPlayed: acc.marketsPlayed,
     marketsWon: acc.marketsWon,
     marketsLost: acc.marketsLost,
