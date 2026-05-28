@@ -16,7 +16,7 @@ import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAss
 import { createRawEventIndexer } from '../parquet/indexer/rawEventIndexer.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { fetchGammaMarketBySlugAndMapApiResponseToMarketTable } from '../polymarket/gamma.js'
-import { marketExistsBySlug, insertMarket, updateMarketBySlug } from '../db/index.js'
+import { marketExistsBySlug, insertMarket, updateMarketBySlug } from '../db/markets.js'
 import {
   RetryLaterError,
   parseUpDown15mSlugEpochMs,

@@ -73,7 +73,7 @@ npm run backtest -- \
   --param dwellRangeTo=0.35 \
   --comment "delta-typed-local-3000" \
   --batchUid delta-typed-local-3000 \
-  --input-mode telonex-delta-parquet \
+  --input-mode telonex-delta --read-from local \
   data/events/telonex/delta-typed/btc/15m/*.parquet
 ```
 
@@ -132,5 +132,5 @@ npm run backtest -- \
   --param dwellRangeTo=0.35 \
   --comment "local-3000" \
   --batchUid local-3000 \
-  --input-mode telonex-paired-parquet src/parquet/samples/btc-updown-15m-1766364300/telonex/paired-parquet/btc-updown-15m-1766364300.parquet
+  --input-mode telonex-paired --read-from local src/parquet/samples/btc-updown-15m-1766364300/telonex/paired-parquet/btc-updown-15m-1766364300.parquet
 ```

@@ -16,17 +16,30 @@ import { computeMarketStats } from '../backtest/stats/marketStats.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
-import { parseSlugFromFilename, getMarketResolution } from '../backtest/stats/marketResolution.js'
+import {
+  parseSlugFromFilename,
+  getMarketResolution,
+  type MarketResolution,
+} from '../backtest/stats/marketResolution.js'
+import { getMarketResolution as getTelonexMarketResolution } from '../backtest/stats/telonexMarketResolution.js'
 import type { Fill, PositionsSplit } from '../strategy/Strategy.js'
 import { Timer } from '../utils/timer.js'
+import { closeDb } from '../db/index.js'
 import {
-  closeDb,
   getMarketsBySlugs,
   getMarketBySlug,
   getMarketsBySymbol,
   type Market,
-} from '../db/index.js'
-import { insertBacktestRun } from '../db/helpers.js'
+} from '../db/markets.js'
+import {
+  getMarketsBySlugs as getTelonexMarketsBySlugs,
+  getMarketBySlug as getTelonexMarketBySlug,
+  getMarketsBySymbol as getTelonexMarketsBySymbol,
+  type Market as TelonexMarket,
+  type Converter,
+  type ReadFrom,
+} from '../db/telonexMarkets.js'
+import { insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 import { replayTelonexDeltaParquetForMarket } from '../parquet/replay/replayTelonexDeltaParquetForMarket.js'
@@ -46,6 +59,70 @@ function formatDurationHuman(ms: number): string {
   return `${minutes}min ${seconds} sec`
 }
 
+function converterForInputMode(inputMode: 'telonex-delta' | 'telonex-paired'): Converter {
+  return inputMode === 'telonex-delta' ? 'delta-typed' : 'paired'
+}
+
+// Parses `<symbol>-updown-<timeframe>-<epochSeconds>` → window-start ms.
+// `eventStartTime` (window open) is what TimeWindowGate / parseGammaMarketStartMs need.
+function windowStartMsFromSlug(slug: string): number | null {
+  const m = slug.match(/^[a-z]+-updown-[^-]+-(\d+)$/)
+  if (!m) return null
+  const sec = Number(m[1])
+  if (!Number.isFinite(sec)) return null
+  return sec * 1000
+}
+
+function timeframeMsFromSlug(slug: string): number | null {
+  const m = slug.match(/^[a-z]+-updown-([^-]+)-\d+$/)
+  if (!m) return null
+  const tf = m[1]?.toLowerCase() ?? ''
+  const parsed = tf.match(/^(\d+)([mhd])$/)
+  if (!parsed) return null
+  const n = Number(parsed[1])
+  if (!Number.isFinite(n) || n <= 0) return null
+  const unit = parsed[2]
+  if (unit === 'm') return n * 60_000
+  if (unit === 'h') return n * 3_600_000
+  if (unit === 'd') return n * 86_400_000
+  return null
+}
+
+function buildMetaFromTokenMap(
+  slug: string,
+  tokenMap: Record<string, string>,
+  extra?: { startDateMs?: number | null; endDateMs?: number | null; question?: string | null },
+): GammaMarketMeta | undefined {
+  const upAssetId = tokenMap['UP']
+  const downAssetId = tokenMap['DOWN']
+  if (!upAssetId || !downAssetId) return undefined
+  const meta: Record<string, unknown> = {
+    slug,
+    outcomes: ['UP', 'DOWN'],
+    clobTokenIds: [upAssetId, downAssetId],
+    outcomeTokenMap: { up: upAssetId, down: downAssetId },
+    upAssetId,
+    downAssetId,
+  }
+  // Gamma's `startDate` is market creation; `eventStartTime` is the 15m window open.
+  // Strategies read window-start via parseGammaMarketStartMs which prefers eventStartTime.
+  // The slug's trailing epoch IS the window start, so derive eventStartTime from it.
+  const windowStartMs = windowStartMsFromSlug(slug)
+  if (windowStartMs !== null) {
+    meta.eventStartTime = new Date(windowStartMs).toISOString()
+  }
+  if (extra?.startDateMs != null) {
+    meta.startDate = new Date(extra.startDateMs).toISOString()
+  }
+  if (extra?.endDateMs != null) {
+    meta.endDate = new Date(extra.endDateMs).toISOString()
+  }
+  if (extra?.question) {
+    meta.question = extra.question
+  }
+  return meta as GammaMarketMeta
+}
+
 async function main(): Promise<void> {
   const timer = new Timer()
   const args = process.argv.slice(2)
@@ -60,108 +137,208 @@ async function main(): Promise<void> {
       process.exit(2)
     }
   })()
-  // Priority logic: if symbol is provided, load from database
-  // Fallback: use file paths if provided
-  let filePaths: string[] = []
-  let marketRecords: Market[] = []
-  const marketBySlug = new Map<string, Market>()
 
-  if (parsed.slugs && parsed.slugs.length > 0) {
-    try {
-      const uniqueSlugs = Array.from(new Set(parsed.slugs))
-      const results = await getMarketsBySlugs(uniqueSlugs)
-      const marketMap = new Map(results.map((m) => [m.slug, m] as const))
-      const foundMarkets = uniqueSlugs
-        .map((slug) => marketMap.get(slug))
-        .filter((m): m is Market => m !== undefined)
-      for (const m of foundMarkets) marketBySlug.set(m.slug, m)
-      const missingSlugs = uniqueSlugs.filter((slug) => !marketMap.has(slug))
-      if (missingSlugs.length > 0) {
-        console.warn(`[backtest] Missing markets for slugs: ${missingSlugs.join(', ')}`)
-      }
-      filePaths = foundMarkets
-        .map((m) => m.dataset)
-        .filter((d): d is string => d !== null && d.trim() !== '')
-      if (filePaths.length === 0) {
-        console.error(
-          `[backtest] No markets found in database for slugs: ${uniqueSlugs.join(', ')}`,
+  const isTelonex = parsed.inputMode !== 'recorded'
+  const converter: Converter | null = isTelonex
+    ? converterForInputMode(parsed.inputMode as 'telonex-delta' | 'telonex-paired')
+    : null
+  const readFrom: ReadFrom | null = isTelonex ? (parsed.readFrom as ReadFrom) : null
+
+  let filePaths: string[] = []
+  const recordedBySlug = new Map<string, Market>()
+  const telonexBySlug = new Map<string, TelonexMarket>()
+
+  if (!isTelonex) {
+    // ---- recorded flow: query `markets` table ----
+    if (parsed.slugs && parsed.slugs.length > 0) {
+      try {
+        const uniqueSlugs = Array.from(new Set(parsed.slugs))
+        const results = await getMarketsBySlugs(uniqueSlugs)
+        const marketMap = new Map(results.map((m) => [m.slug, m] as const))
+        const foundMarkets = uniqueSlugs
+          .map((slug) => marketMap.get(slug))
+          .filter((m): m is Market => m !== undefined)
+        for (const m of foundMarkets) recordedBySlug.set(m.slug, m)
+        const missingSlugs = uniqueSlugs.filter((slug) => !marketMap.has(slug))
+        if (missingSlugs.length > 0) {
+          console.warn(`[backtest] Missing markets for slugs: ${missingSlugs.join(', ')}`)
+        }
+        filePaths = foundMarkets
+          .map((m) => m.dataset)
+          .filter((d): d is string => d !== null && d.trim() !== '')
+        if (filePaths.length === 0) {
+          console.error(
+            `[backtest] No markets found in database for slugs: ${uniqueSlugs.join(', ')}`,
+          )
+          process.exit(2)
+        }
+        console.log(
+          `[backtest] Loaded ${filePaths.length} file(s) from database for slugs: ${uniqueSlugs.join(', ')}`,
         )
+      } catch (err) {
+        console.error('[backtest] Failed to load markets from database:', err)
         process.exit(2)
       }
-      console.log(
-        `[backtest] Loaded ${filePaths.length} file(s) from database for slugs: ${uniqueSlugs.join(', ')}`,
-      )
-    } catch (err) {
-      console.error('[backtest] Failed to load markets from database:', err)
-      process.exit(2)
-    }
-  } else if (parsed.symbol) {
-    try {
-      marketRecords = await getMarketsBySymbol(parsed.symbol, {
-        ...(parsed.limit !== undefined && { limit: parsed.limit }),
-        ...(parsed.random ? { random: true } : {}),
-        ...(parsed.latest ? { latest: true } : {}),
-        onlyWithDataset: true,
-      })
-      for (const m of marketRecords) marketBySlug.set(m.slug, m)
-      filePaths = marketRecords
-        .map((m) => m.dataset)
-        .filter((d): d is string => d !== null && d.trim() !== '')
-      if (filePaths.length === 0) {
-        console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
+    } else if (parsed.symbol) {
+      try {
+        const marketRecords = await getMarketsBySymbol(parsed.symbol, {
+          ...(parsed.limit !== undefined && { limit: parsed.limit }),
+          ...(parsed.random ? { random: true } : {}),
+          ...(parsed.latest ? { latest: true } : {}),
+          onlyWithDataset: true,
+        })
+        for (const m of marketRecords) recordedBySlug.set(m.slug, m)
+        filePaths = marketRecords
+          .map((m) => m.dataset)
+          .filter((d): d is string => d !== null && d.trim() !== '')
+        if (filePaths.length === 0) {
+          console.error(`[backtest] No markets found in database for symbol: ${parsed.symbol}`)
+          process.exit(2)
+        }
+        console.log(
+          `[backtest] Loaded ${filePaths.length} file(s) from database for symbol: ${parsed.symbol}`,
+        )
+      } catch (err) {
+        console.error(`[backtest] Failed to load markets from database:`, err)
         process.exit(2)
       }
-      console.log(
-        `[backtest] Loaded ${filePaths.length} file(s) from database for symbol: ${parsed.symbol}`,
-      )
-    } catch (err) {
-      console.error(`[backtest] Failed to load markets from database:`, err)
-      process.exit(2)
+    } else {
+      try {
+        const fromDirs =
+          parsed.dirs && parsed.dirs.length > 0
+            ? await resolveParquetFilesFromDirs(parsed.dirs)
+            : []
+        if (parsed.dirs && parsed.dirs.length > 0) {
+          console.log(
+            `[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`,
+          )
+        }
+        filePaths = [...parsed.filePaths, ...fromDirs]
+        if (filePaths.length > 0) {
+          filePaths = Array.from(new Set(filePaths)).sort()
+        }
+      } catch (err) {
+        console.error('[backtest] Failed to load parquet files from --dir:', err)
+        process.exit(2)
+      }
     }
   } else {
-    try {
-      const fromDirs =
-        parsed.dirs && parsed.dirs.length > 0 ? await resolveParquetFilesFromDirs(parsed.dirs) : []
-      if (parsed.dirs && parsed.dirs.length > 0) {
+    // ---- telonex flow: query `telonex_markets` ⋈ `telonex_market_conversions` ----
+    const conv = converter!
+    const rf = readFrom!
+    if (parsed.slugs && parsed.slugs.length > 0) {
+      try {
+        const uniqueSlugs = Array.from(new Set(parsed.slugs))
+        const results = await getTelonexMarketsBySlugs(uniqueSlugs, {
+          converter: conv,
+          readFrom: rf,
+        })
+        const marketMap = new Map(results.map((m) => [m.slug, m] as const))
+        const found = uniqueSlugs
+          .map((slug) => marketMap.get(slug))
+          .filter((m): m is TelonexMarket => m !== undefined)
+        for (const m of found) telonexBySlug.set(m.slug, m)
+        const missing = uniqueSlugs.filter((slug) => !marketMap.has(slug))
+        if (missing.length > 0) {
+          console.warn(
+            `[backtest] no ${conv} conversion for slug(s): ${missing.join(', ')}, skipping`,
+          )
+        }
+        filePaths = found
+          .map((m) => m.dataset)
+          .filter((d): d is string => d !== null && d.trim() !== '')
+        if (filePaths.length === 0) {
+          console.error(
+            `[backtest] No telonex markets found for slugs: ${uniqueSlugs.join(', ')} (converter=${conv}, readFrom=${rf})`,
+          )
+          process.exit(2)
+        }
         console.log(
-          `[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`,
+          `[backtest] Loaded ${filePaths.length} file(s) from telonex_markets for slugs: ${uniqueSlugs.join(', ')}`,
         )
+      } catch (err) {
+        console.error('[backtest] Failed to load telonex markets:', err)
+        process.exit(2)
       }
-      filePaths = [...parsed.filePaths, ...fromDirs]
-      if (filePaths.length > 0) {
-        filePaths = Array.from(new Set(filePaths)).sort()
+    } else if (parsed.symbol) {
+      try {
+        const results = await getTelonexMarketsBySymbol(parsed.symbol, {
+          converter: conv,
+          readFrom: rf,
+          timeframe: parsed.timeframe,
+          ...(parsed.limit !== undefined && { limit: parsed.limit }),
+          ...(parsed.random ? { random: true } : {}),
+          ...(parsed.latest ? { latest: true } : {}),
+        })
+        const withDataset = results.filter((m) => m.dataset !== null && m.dataset.trim() !== '')
+        const missingDataset = results.length - withDataset.length
+        if (missingDataset > 0) {
+          console.warn(
+            `[backtest] ${missingDataset} telonex market(s) missing ${rf} dataset path, skipping`,
+          )
+        }
+        for (const m of withDataset) telonexBySlug.set(m.slug, m)
+        filePaths = withDataset.map((m) => m.dataset).filter((d): d is string => d !== null)
+        if (filePaths.length === 0) {
+          console.error(
+            `[backtest] No telonex markets found for symbol=${parsed.symbol} timeframe=${parsed.timeframe} (converter=${conv}, readFrom=${rf})`,
+          )
+          process.exit(2)
+        }
+        console.log(
+          `[backtest] Loaded ${filePaths.length} file(s) from telonex_markets for symbol=${parsed.symbol} timeframe=${parsed.timeframe}`,
+        )
+      } catch (err) {
+        console.error('[backtest] Failed to load telonex markets:', err)
+        process.exit(2)
       }
-    } catch (err) {
-      console.error('[backtest] Failed to load parquet files from --dir:', err)
-      process.exit(2)
+    } else {
+      // dir / explicit file paths — same as recorded
+      try {
+        const fromDirs =
+          parsed.dirs && parsed.dirs.length > 0
+            ? await resolveParquetFilesFromDirs(parsed.dirs)
+            : []
+        if (parsed.dirs && parsed.dirs.length > 0) {
+          console.log(
+            `[backtest] Loaded ${fromDirs.length} parquet file(s) from dirs: ${parsed.dirs.join(', ')}`,
+          )
+        }
+        filePaths = [...parsed.filePaths, ...fromDirs]
+        if (filePaths.length > 0) {
+          filePaths = Array.from(new Set(filePaths)).sort()
+        }
+      } catch (err) {
+        console.error('[backtest] Failed to load parquet files from --dir:', err)
+        process.exit(2)
+      }
     }
   }
 
   if (filePaths.length === 0) {
     console.error(
       'Usage:\n' +
-        '  Orderbook replay (default):\n' +
+        '  Recorded (WS replay, markets table):\n' +
         '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] <file1.parquet> [file2.parquet ...] [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Or read all parquet files from one or more dirs (non-recursive):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --dir <dir1> [--dir <dir2> ...] [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Or query from database:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --symbol <btc|eth|sol|...> [--limit N] [--random] [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Or query by slug(s):\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --slug <slug1[,slug2,...]> [--order recorded|exchange_time] [--time-driven]\n' +
-        '  Or telonex paired-parquet replay:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-paired-parquet <file.parquet>\n' +
-        '    Semantics: apply both up/down books, then emit one strategy tick per paired frame.\n' +
-        '    Note: paired frames may include carry-forward of the missing side from the previous snapshot.\n' +
-        '  Or telonex typed delta replay:\n' +
-        '    tsx src/cli/backtest.ts --strategy <id> [--param key=value ...] --input-mode telonex-delta-parquet <file.parquet>\n' +
-        '    Semantics: apply typed book/price_change rows, then emit one strategy tick per row.',
+        '    tsx src/cli/backtest.ts --strategy <id> --symbol <btc|eth|sol|...> [--limit N] [--random|--latest]\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --slug <slug1[,slug2,...]>\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --dir <dir1> [--dir <dir2> ...]\n' +
+        '  Telonex (telonex_markets table, requires --read-from local|r2):\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-delta --read-from local --symbol btc [--timeframe 15m] [--limit N]\n' +
+        '    tsx src/cli/backtest.ts --strategy <id> --input-mode telonex-paired --read-from r2 --slug <slug>\n',
     )
     process.exit(2)
   }
 
   console.log(`[backtest] mode=${parsed.inputMode} files=${filePaths.length}`)
-  console.log(`[backtest] order=${parsed.order}`)
-  console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  if (isTelonex) {
+    console.log(
+      `[backtest] converter=${converter} readFrom=${readFrom} timeframe=${parsed.timeframe}`,
+    )
+  } else {
+    console.log(`[backtest] order=${parsed.order}`)
+    console.log(`[backtest] timeDriven=${parsed.timeDriven}`)
+  }
   if (parsed.latest) console.log(`[backtest] latest=true`)
 
   let shouldStop = false
@@ -227,12 +404,9 @@ async function main(): Promise<void> {
 
   console.log(`[backtest] strategy=${built.strategyId}`)
 
-  // Stats tracking
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
   const marketStats: MarketStats[] = []
 
-  // IMPORTANT: each parquet file corresponds to a single 15m market episode.
-  // We replay them sequentially (do NOT heap-merge by ingest_seq across files).
   const totalMarkets = filePaths.length
   const backtestStartMs = Date.now()
   let completedMarkets = 0
@@ -242,60 +416,70 @@ async function main(): Promise<void> {
     const fp = filePaths[idx]!
     if (shouldStop) break
     const marketIdx = idx + 1
-    console.log(`[backtest][${marketIdx}/${totalMarkets}] orderbook replay file=${fp}`)
+    console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${fp}`)
     const marketStartMs = Date.now()
 
-    // Parse slug and ensure market metadata is available for strategy context.
     const slug = parseSlugFromFilename(fp)
-    let dbMarket =
-      slug && marketBySlug.size > 0
-        ? (marketBySlug.get(slug) ?? null)
-        : slug
-          ? await getMarketBySlug(slug)
-          : null
-    const marketResolution = slug ? await getMarketResolution(slug, fp) : null
-    if (slug) {
-      const refreshed = await getMarketBySlug(slug)
-      if (refreshed) {
-        dbMarket = refreshed
-        marketBySlug.set(slug, refreshed)
+    let marketResolution: MarketResolution | null = null
+    let marketMeta: GammaMarketMeta | undefined
+
+    if (isTelonex) {
+      // Telonex: row already fetched in the bulk query (or lookup on demand for dir/file paths)
+      let row = slug ? (telonexBySlug.get(slug) ?? null) : null
+      if (!row && slug) {
+        row = await getTelonexMarketBySlug(slug, { converter: converter!, readFrom: readFrom! })
+        if (row) telonexBySlug.set(slug, row)
       }
-    }
-    let marketMeta: GammaMarketMeta | undefined = (() => {
-      if (!slug) return undefined
-      if (!dbMarket) return undefined
-      const raw = dbMarket.rawJson
-      if (!raw || typeof raw !== 'object') return undefined
-      const built = buildGammaMarketMeta(raw as Record<string, unknown>, slug)
-      return built ?? undefined
-    })()
-    if (!marketMeta && slug) {
-      try {
-        const raw = await fetchGammaMarketBySlug({ slug })
-        if (raw && typeof raw === 'object') {
-          const built = buildGammaMarketMeta(raw, slug)
-          if (built) marketMeta = built
+      if (row) {
+        marketResolution = getTelonexMarketResolution(row)
+        if (marketResolution) {
+          marketMeta = buildMetaFromTokenMap(slug!, marketResolution.tokenMap, {
+            startDateMs: row.startDateMs,
+            endDateMs: row.endDateMs,
+            question: row.question,
+          })
         }
-      } catch {
-        // Best-effort fetch. Backtest continues with tokenMap fallback below.
+      } else if (slug) {
+        console.warn(`[backtest] no telonex_markets row for slug=${slug}, skipping stats`)
       }
-    }
-    if (
-      !marketMeta &&
-      slug &&
-      marketResolution?.tokenMap['UP'] &&
-      marketResolution?.tokenMap['DOWN']
-    ) {
-      const upAssetId = marketResolution.tokenMap['UP']
-      const downAssetId = marketResolution.tokenMap['DOWN']
-      marketMeta = {
-        slug,
-        outcomes: ['UP', 'DOWN'],
-        clobTokenIds: [upAssetId, downAssetId],
-        outcomeTokenMap: { up: upAssetId, down: downAssetId },
-        upAssetId,
-        downAssetId,
-      } as GammaMarketMeta
+    } else {
+      // Recorded: keep existing Gamma fallback + DB upsert behavior
+      let dbMarket =
+        slug && recordedBySlug.size > 0
+          ? (recordedBySlug.get(slug) ?? null)
+          : slug
+            ? await getMarketBySlug(slug)
+            : null
+      marketResolution = slug ? await getMarketResolution(slug, fp) : null
+      if (slug) {
+        const refreshed = await getMarketBySlug(slug)
+        if (refreshed) {
+          dbMarket = refreshed
+          recordedBySlug.set(slug, refreshed)
+        }
+      }
+      marketMeta = (() => {
+        if (!slug) return undefined
+        if (!dbMarket) return undefined
+        const raw = dbMarket.rawJson
+        if (!raw || typeof raw !== 'object') return undefined
+        const built = buildGammaMarketMeta(raw as Record<string, unknown>, slug)
+        return built ?? undefined
+      })()
+      if (!marketMeta && slug) {
+        try {
+          const raw = await fetchGammaMarketBySlug({ slug })
+          if (raw && typeof raw === 'object') {
+            const built = buildGammaMarketMeta(raw, slug)
+            if (built) marketMeta = built
+          }
+        } catch {
+          // best-effort; fall through to tokenMap-based meta below
+        }
+      }
+      if (!marketMeta && slug && marketResolution) {
+        marketMeta = buildMetaFromTokenMap(slug, marketResolution.tokenMap)
+      }
     }
 
     if (slug && marketMeta) {
@@ -311,30 +495,49 @@ async function main(): Promise<void> {
       console.warn(`[backtest] market meta unavailable for slug: ${slug}`)
     }
 
+    // Quick-fix for telonex conversions that may contain out-of-window rows:
+    // keep replay/orderbook updates intact, but run strategy ticks only within
+    // the slug window (e.g., 5m/15m/etc).
+    const strategyWindow = (() => {
+      if (!isTelonex || !slug) return null
+      const startMs = windowStartMsFromSlug(slug)
+      const durationMs = timeframeMsFromSlug(slug)
+      if (startMs === null || durationMs === null) {
+        console.warn(
+          `[backtest] could not derive strategy window from slug=${slug}; processing all ticks`,
+        )
+        return null
+      }
+      return { startMs, endMs: startMs + durationMs }
+    })()
+
     const active = mkRunner({ getMarket: () => marketMeta })
     const runner = active.runner
 
-    // Track market data during replay
     let currentMarketId: string | undefined
-    let currentMarketTrades: Fill[] = []
+    const currentMarketTrades: Fill[] = []
     const seenFillIds = new Set<string>()
-    let currentMarketSplits: PositionsSplit[] = []
+    const currentMarketSplits: PositionsSplit[] = []
     const seenSplitIds = new Set<string>()
 
-    // Always replay - stats are optional
     const onSnapshot = async (snap: MarketOrderBooksSnapshot, raw: ReplayApplyEvent) => {
       if (shouldStop) return
       events += 1
       byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
 
-      // Track market ID on first snapshot
       if (!currentMarketId) {
         currentMarketId = snap.market
       }
 
+      if (strategyWindow) {
+        const ts = snap.timestamp
+        if (!Number.isFinite(ts) || ts < strategyWindow.startMs || ts > strategyWindow.endMs) {
+          return
+        }
+      }
+
       await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
 
-      // Collect fills from portfolio (avoid duplicates)
       if (currentMarketId) {
         const portfolio = runner.getPortfolio().snapshot()
         for (const fill of portfolio.recentFills) {
@@ -346,7 +549,6 @@ async function main(): Promise<void> {
             seenFillIds.add(fill.id)
           }
         }
-        // Collect split events from portfolio (avoid duplicates)
         for (const s of portfolio.recentSplits ?? []) {
           if (s.market === currentMarketId && !seenSplitIds.has(s.id)) {
             currentMarketSplits.push(s)
@@ -356,13 +558,13 @@ async function main(): Promise<void> {
       }
     }
 
-    if (parsed.inputMode === 'telonex-paired-parquet') {
+    if (parsed.inputMode === 'telonex-paired') {
       await replayTelonexPairedParquetForMarket({
         filePath: fp,
         shouldStop: () => shouldStop,
         onSnapshot,
       })
-    } else if (parsed.inputMode === 'telonex-delta-parquet') {
+    } else if (parsed.inputMode === 'telonex-delta') {
       await replayTelonexDeltaParquetForMarket({
         filePath: fp,
         shouldStop: () => shouldStop,
@@ -378,13 +580,11 @@ async function main(): Promise<void> {
       })
     }
 
-    // Compute stats AFTER replay (only if we have all required data)
     if (slug && currentMarketId && marketResolution) {
       const portfolio = runner.getPortfolio().snapshot()
       const finalPositions = portfolio.positionsByAssetId
       const realizedPnl = portfolio.realizedPnlTotal ?? 0
 
-      // Check if we have positions for this market
       const upAssetId = marketResolution.tokenMap['UP']
       const downAssetId = marketResolution.tokenMap['DOWN']
       const hasPositions =
@@ -404,7 +604,6 @@ async function main(): Promise<void> {
         })
 
         marketStats.push(stats)
-        // Print in green if pnl >= 0, red if < 0, using ANSI escape codes
         const pnlColor = stats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
         const resetColor = '\x1b[0m'
         console.log(
@@ -413,7 +612,24 @@ async function main(): Promise<void> {
       } else if (marketResolution.outcome === null) {
         console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
       } else {
-        console.log(`[backtest] slug=${slug} no positions or trades, skipping stats`)
+        // Keep market denominator stable across modes/runs: emit explicit 0-trade market stats.
+        const zeroStats = computeMarketStats({
+          marketId: currentMarketId,
+          slug,
+          trades: [],
+          splits: currentMarketSplits,
+          finalPositions,
+          realizedPnl,
+          finalOutcome: marketResolution.outcome,
+          tokenMap: marketResolution.tokenMap,
+        })
+        marketStats.push({
+          ...zeroStats,
+          skipReason: 'no_in_window_activity',
+        })
+        console.log(
+          `[backtest] market=${currentMarketId} slug=${slug} outcome=${zeroStats.finalOutcome} pnl=${zeroStats.pnl} trades=0 (no in-window positions/trades)`,
+        )
       }
     } else if (!slug) {
       console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
@@ -421,7 +637,6 @@ async function main(): Promise<void> {
       console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
     }
 
-    // Progress + ETA (based on average completed market time)
     const marketElapsedMs = Date.now() - marketStartMs
     completedMarkets += 1
     completedMarketsMsTotal += marketElapsedMs
@@ -436,11 +651,9 @@ async function main(): Promise<void> {
     )
   }
 
-  // Compute batch stats
   const batchStats = computeBatchStats(marketStats, initialCapital)
   const chunkedBatchStats = computeChunkedBatchStats(marketStats, initialCapital, [96, 200, 300])
 
-  // Save run results (even if marketStats is empty)
   await insertBacktestRun({
     batchUid,
     baselineId: parsed.baselineId ?? null,
@@ -458,7 +671,6 @@ async function main(): Promise<void> {
     marketStats: marketStats as unknown as unknown[],
   })
 
-  // Print results
   if (marketStats.length > 0) {
     console.log('\n[backtest] ===== MARKET STATS =====')
     for (const stats of marketStats) {
@@ -475,7 +687,6 @@ async function main(): Promise<void> {
     ...timer.summary(),
   })
 
-  // Close database connection pool
   await closeDb()
 }
 

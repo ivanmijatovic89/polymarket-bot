@@ -1,146 +1,184 @@
 ---
 title: Run a Backtest with Telonex Data
-description: How to feed a converted Telonex parquet (paired, delta, or typed delta) to the backtest engine.
+description: How to feed a converted Telonex parquet (paired, delta, or delta-typed) to the backtest engine, including database-driven slug and symbol lookups.
 ---
 
 # Run a Backtest with Telonex Data
 
-Once a market has been converted by [`telonex:convert`](/datasets/telonex/convert), its Parquet output can be replayed by the backtest engine. The command differs by converter:
+Once a market has been converted by [`telonex:convert`](/datasets/telonex/convert), its Parquet output can be replayed by the backtest engine. The same `MarketEngine` and `StrategyRunner` code used for live trading processes the events — only the data source differs.
 
-- **Delta** output is in the live format — no `--input-mode` flag needed.
-- **Delta-typed** output is a compact typed delta format — requires `--input-mode telonex-delta-parquet`.
-- **Paired** output is in `orderbook_pair` format — requires `--input-mode telonex-paired-parquet`.
+## How input modes map to data sources
 
-The strategy runs through the exact same engine as a live-recorded backtest. The only difference is the data source.
+`--input-mode` picks **both** the replayer and the database source. There is no separate "data source" flag.
 
-## Backtesting a delta-converted file
+| Input mode        | Replayer                              | Database source                                                            |
+| ----------------- | ------------------------------------- | -------------------------------------------------------------------------- |
+| `recorded`        | WS-event orderbook replay (default)   | `markets` table                                                            |
+| `telonex-delta`   | typed `book` / `price_change` replay  | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='delta-typed'`) |
+| `telonex-paired`  | `orderbook_pair` per-tick replay      | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)    |
 
-The delta converter emits the same `book` / `price_change` event stream as the live recorder. Pass the file path positionally with no special mode flag:
+Telonex modes always require `--read-from local|r2` (see below). The raw-json **delta** converter's output runs in standard `recorded` mode and does not use the telonex DB join.
+
+## Required flag: `--read-from`
+
+For any telonex input mode, you must specify where to read the converted parquet from:
+
+| `--read-from` | Effect                                                           |
+| ------------- | ---------------------------------------------------------------- |
+| `local`       | Reads `telonex_market_conversions.local_path` (on-disk parquet). |
+| `r2`          | Reads `telonex_market_conversions.r2_url` directly from R2.      |
+
+Passing `--read-from` with `--input-mode recorded` is an error. Omitting `--read-from` on a telonex mode is also an error.
+
+## Backtest a delta-typed file
+
+`telonex-delta` is the typical choice — it preserves the same `book` / `price_change` tick cadence as the live recorder but stores typed columns instead of `raw_json`.
 
 ```bash
 npm run backtest -- \
   --strategy <strategy-id> \
-  data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet
-```
-
-The engine processes each row in stored order, exactly as it would for a file you recorded yourself.
-
-## Backtesting a delta-typed converted file
-
-The delta-typed converter keeps the same `book` / `price_change` tick cadence as the delta converter, but stores typed columns instead of a full `raw_json` payload. Use the dedicated typed delta input mode:
-
-```bash
-npm run backtest -- \
-  --strategy <strategy-id> \
-  --input-mode telonex-delta-parquet \
+  --input-mode telonex-delta --read-from local \
   data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
-## Backtesting a paired-converted file
-
-The paired converter emits one `orderbook_pair` row per exchange timestamp with both sides of the book inline. This requires the dedicated input mode:
+Or by slug — the file path is resolved from `telonex_market_conversions.local_path`:
 
 ```bash
 npm run backtest -- \
   --strategy <strategy-id> \
-  --input-mode telonex-paired-parquet \
-  data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
+  --input-mode telonex-delta --read-from local \
+  --slug btc-updown-15m-1766364300
+```
+
+Or sample by symbol:
+
+```bash
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-delta --read-from local \
+  --symbol btc --timeframe 15m --limit 50 --random
+```
+
+There's a convenience shortcut for the common case:
+
+```bash
+npm run backtest:telonex:btc:15m -- --strategy <strategy-id> --limit 20
+```
+
+`:eth:15m`, `:sol:15m`, and `:xrp:15m` variants exist too.
+
+## Backtest a paired-converted file
+
+The paired converter emits one `orderbook_pair` row per exchange timestamp with both sides of the book inline. Use `--input-mode telonex-paired`:
+
+```bash
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-paired --read-from local \
+  --slug btc-updown-15m-1766364300
 ```
 
 In paired mode, both the Up and Down books are applied to the engine **before** the strategy tick fires, so the strategy always sees both sides synchronised at the same exchange timestamp.
 
-## Backtesting an R2-only converted file
+## Backtest a delta (raw-json) file
 
-When `--output r2` was used at convert time, the file lives only on R2. The backtest reader supports `r2://` URLs directly:
+The raw-json delta converter emits the same `book` / `price_change` event stream as the live recorder, with full `raw_json` payloads. Use `recorded` mode — there is no telonex-specific input mode for raw-json delta:
 
 ```bash
 npm run backtest -- \
   --strategy <strategy-id> \
-  --input-mode telonex-delta-parquet \
-  r2://polymarket-telonex/telonex/converted/delta-typed/btc/15m/1766364300/btc-updown-15m-1766364300.parquet
-```
-
-Read latency from R2 is observed to be roughly 12% slower than from local disk on this codebase. Use `--output both` at convert time if you want a local cache without giving up the durable R2 copy.
-
-## Passing strategy parameters
-
-Use `--param key=value` to override any strategy parameter, the same as in a normal backtest:
-
-::: code-group
-
-```bash [delta]
-npm run backtest -- \
-  --strategy split-sell-redeem-v3 \
-  --param splitShares=10 \
-  --param sellSize=10 \
   data/events/telonex/delta/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
-```bash [paired]
-npm run backtest -- \
-  --strategy split-sell-redeem-v3 \
-  --param splitShares=10 \
-  --param sellSize=10 \
-  --input-mode telonex-paired-parquet \
-  data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
-```
-
-```bash [delta-typed]
-npm run backtest -- \
-  --strategy split-sell-redeem-v3 \
-  --param splitShares=10 \
-  --param sellSize=10 \
-  --input-mode telonex-delta-parquet \
-  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
-```
-
+::: tip
+Raw-json delta files do not currently appear in the `markets` table, so `--symbol` / `--slug` lookups against them do not work. Pass file paths or `--dir` instead.
 :::
 
-## Replaying multiple files
+## Reading from R2 directly
 
-You can pass more than one file in a single run. Files are processed sequentially, one market episode at a time:
+When the converted file lives on R2 (e.g. you ran `telonex:convert --output r2` without `local`), pass `--read-from r2`. The reader streams the file directly from R2; no local download or cache is created.
+
+```bash
+# By slug — DB resolves the r2_url
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-delta --read-from r2 \
+  --slug btc-updown-15m-1766364300
+
+# Or by an explicit r2:// URL
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-delta --read-from r2 \
+  r2://polymarket-telonex/telonex/converted/delta-typed/btc/15m/1766364300/btc-updown-15m-1766364300.parquet
+```
+
+Read latency from R2 is observed to be roughly 12% slower than from local disk on this codebase. Use `--output both` at convert time if you want a local copy without giving up the durable R2 copy.
+
+## Symbol queries and timeframes
+
+When using `--symbol`, the DB filter is `slug LIKE '<symbol>-updown-<timeframe>-%'`. `--timeframe` defaults to `15m`; pass `--timeframe 5m`, `--timeframe 1h`, etc. once data for other intervals exists.
+
+```bash
+npm run backtest -- \
+  --strategy <strategy-id> \
+  --input-mode telonex-delta --read-from local \
+  --symbol btc --timeframe 5m --limit 100 --latest
+```
+
+`--timeframe` is only valid together with `--symbol` — passing it with `--slug` / `--dir` / explicit file paths is rejected at startup (those carry the timeframe in the slug itself).
+
+## Resolution and outcomes
+
+Telonex modes read the resolved outcome directly from `telonex_markets`:
+
+| Column           | Source for                                |
+| ---------------- | ----------------------------------------- |
+| `outcome_0`      | `Up` outcome label (always `Up` today)    |
+| `outcome_1`      | `Down` outcome label (always `Down` today) |
+| `asset_id_0`     | UP token id                               |
+| `asset_id_1`     | DOWN token id                             |
+| `telonex_status` | Must equal `resolved` to count toward stats |
+| `result_id`      | `0` → UP won, `1` → DOWN won              |
+
+There is **no Gamma API fallback** in telonex modes. If a slug isn't in `telonex_markets`, or if its conversion isn't `status='done'`, the file is skipped with a warning and the run continues.
+
+## Database-driven flag combinations
+
+All telonex modes accept the same query flags as recorded mode:
+
+| Flag         | Notes                                                                           |
+| ------------ | ------------------------------------------------------------------------------- |
+| `--symbol`   | Filters by `slug LIKE '<sym>-updown-<timeframe>-%'`.                            |
+| `--slug`     | Comma-separated list, joined to `telonex_market_conversions`.                   |
+| `--dir`      | Scans a directory of parquet files; slug parsed from filename for DB lookup.    |
+| `--limit`    | Required with `--random` or `--latest`.                                         |
+| `--random`   | `ORDER BY RAND()`. Mutually exclusive with `--latest`.                          |
+| `--latest`   | Fetches the `--limit` most recent rows (highest slug epoch).                    |
+| `--timeframe`| Only valid with `--symbol`. Defaults to `15m`.                                  |
+
+`--order` and `--time-driven` are silently ignored for telonex modes (the file format already encodes a deterministic order).
+
+## Passing strategy parameters
+
+Use `--param key=value` to override any strategy parameter. JSON strings work too: `--param assetIds='["a","b"]'`.
 
 ```bash
 npm run backtest -- \
   --strategy split-sell-redeem-v3 \
-  --input-mode telonex-delta-parquet \
-  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet \
-  data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766365200.parquet
+  --param splitShares=10 \
+  --param sellSize=10 \
+  --input-mode telonex-delta --read-from local \
+  --symbol btc --limit 20 --random
 ```
 
-## Constraints for typed Telonex modes
+## Replay differences between modes
 
-`--input-mode telonex-paired-parquet` and `--input-mode telonex-delta-parquet` cannot be combined with the database-query flags. The following combinations are rejected at startup:
+In `recorded` and `telonex-delta` modes, the engine processes every `book` / `price_change` event individually. Each event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
 
-| Flag | Allowed with typed Telonex modes? |
-| --- | --- |
-| `--symbol` | No |
-| `--slug` | No |
-| `--dir` | No |
-| `--limit` | No |
-| `--random` | No |
-| `--latest` | No |
-| `--order` | No |
-| `--time-driven` | No |
-| `--param` | Yes |
-| `--strategy` | Yes |
-
-File paths must always be provided as positional arguments after all flags.
-
-The raw-json **delta** converter's output runs in standard `recorded` mode and has none of these restrictions.
-
-## How replay differs between modes
-
-In standard (`recorded`) mode — used for both live recordings and raw-json **delta** Telonex output — the engine processes every raw WebSocket-style event individually. Each `book` or `price_change` event triggers a separate strategy tick, and only the side mentioned in that event is updated before the tick fires.
-
-In `telonex-delta-parquet` mode — used for **delta-typed** output — the same `book` / `price_change` cadence is replayed from typed columns instead of parsing `raw_json`. It should expose the same strategy tick semantics as raw-json delta output.
-
-In `telonex-paired-parquet` mode — used only for the **paired** converter — each row is one tick and both books are current as of the same exchange timestamp. There is no `--order` or `--time-driven` option; rows always replay in their stored sequence.
-
-This means strategies that look at both sides simultaneously (e.g. spread between Up ask and Down ask) see a consistent view on every tick in paired mode, which is not guaranteed in standard mode where ticks alternate between sides.
+In `telonex-paired` mode, each row is one tick and both books are current as of the same exchange timestamp. Strategies that look at both sides simultaneously (e.g. spread between Up ask and Down ask) see a consistent view on every tick — which is not guaranteed in `recorded` / `telonex-delta` mode where ticks alternate between sides.
 
 ::: tip Latency simulation still applies
-`BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` work the same way in both modes. Set them if you want to model order submission latency.
+`BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` work the same way in all modes.
 :::
 
 ## Verifying a converted file before backtesting
@@ -148,16 +186,15 @@ This means strategies that look at both sides simultaneously (e.g. spread betwee
 If you are unsure whether a converted file is well-formed:
 
 ```bash
-npm run verify:parquet -- data/events/telonex/paired/btc/15m/btc-updown-15m-1766364300.parquet
+npm run verify:parquet -- data/events/telonex/delta-typed/btc/15m/btc-updown-15m-1766364300.parquet
 ```
 
-For a **paired** file, the schema output should show `event_type=orderbook_pair` and the typed columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
-
-For a **delta** file, `event_type` values should be `book` and `price_change`, and the `raw_json` column should be present.
-
-For a **delta-typed** file, `event_type` values should be `book` and `price_change`, `raw_json` should not be present, and flat repeated typed columns should be present for book depth and price changes.
+- **Paired** file: schema should show `event_type=orderbook_pair` and typed columns `up_asset_id`, `down_asset_id`, `up_bids`, `up_asks`, `down_bids`, `down_asks`.
+- **Delta** file: `event_type` values should be `book` and `price_change`, `raw_json` column present.
+- **Delta-typed** file: `event_type` values should be `book` and `price_change`, no `raw_json` column, flat repeated typed columns for book depth and price changes.
 
 ## Next steps
 
 - [Convert](/datasets/telonex/convert) — upstream stage that produces the file you backtest.
 - [Diagnostics](/datasets/telonex/diagnostics) — inspect coverage and merge alignment if results look unexpected.
+- [Running Backtests](/backtest/running-backtests) — generic backtest CLI reference (covers recorded mode and shared flags).

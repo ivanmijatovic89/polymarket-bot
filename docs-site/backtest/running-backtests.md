@@ -5,9 +5,21 @@ description: How to replay recorded Parquet files through strategy logic to eval
 
 # Running Backtests
 
-The backtest CLI replays recorded WebSocket events from Parquet files through the exact same `MarketEngine` and `StrategyRunner` code used for live trading. Each 15-minute market episode is replayed sequentially; the strategy receives identical tick-by-tick snapshots to what it would see in production.
+The backtest CLI replays Parquet files through the exact same `MarketEngine` and `StrategyRunner` code used for live trading. Each 15-minute market episode is replayed sequentially; the strategy receives identical tick-by-tick snapshots to what it would see in production.
 
 After a run, per-market statistics, batch-level aggregates, and chunked batch statistics are written to the database automatically.
+
+## Input modes
+
+`--input-mode` picks both the replayer and the database source:
+
+| Input mode       | Data source                                                                 | Reference                                |
+| ---------------- | --------------------------------------------------------------------------- | ---------------------------------------- |
+| `recorded`       | `markets` table + WS-recorded parquet under `data/events/<symbol>/`         | This page                                |
+| `telonex-delta`  | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='delta-typed'`) | [Telonex backtest](/datasets/telonex/backtest) |
+| `telonex-paired` | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)     | [Telonex backtest](/datasets/telonex/backtest) |
+
+This page focuses on the default `recorded` mode. For telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — the file-selection flags (`--symbol`, `--slug`, `--dir`, `--limit`, `--random`, `--latest`) work identically; telonex modes additionally require `--read-from local|r2`.
 
 ## Prerequisites
 
@@ -82,6 +94,14 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | `--limit <N>`    | Maximum number of markets to fetch (required with `--random` or `--latest`).                    |
 | `--random`       | Draw `--limit` markets at random from the database. Takes precedence over `--latest`.           |
 | `--latest`       | Fetch the `--limit` most recently recorded markets. Takes precedence when `--random` is absent. |
+
+### Input-mode / data-source (telonex)
+
+| Flag                            | Description                                                                                                       |
+| ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| `--input-mode <mode>`           | `recorded` (default), `telonex-delta`, or `telonex-paired`. See [Telonex backtest](/datasets/telonex/backtest).   |
+| `--read-from local\|r2`         | **Required** for telonex modes. Picks `local_path` vs `r2_url` from `telonex_market_conversions`. Rejected with `recorded`. |
+| `--timeframe <value>`           | Symbol-filter timeframe segment (e.g. `15m`, `5m`). Default `15m`. Only valid with `--symbol`.                    |
 
 ### Replay options
 

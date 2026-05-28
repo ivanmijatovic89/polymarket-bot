@@ -1,6 +1,7 @@
 import {
   mysqlTable,
   text,
+  longtext,
   varchar,
   decimal,
   timestamp,
@@ -95,7 +96,7 @@ export const backtests = mysqlTable('backtests', {
 
   batchUid: varchar('batch_uid', { length: 255 }),
   baselineId: varchar('baseline_id', { length: 255 }),
-  cmd: text('cmd'),
+  cmd: longtext('cmd'),
   comment: text('comment'),
 
   batchStats: json('batch_stats').$type<Record<string, unknown>>().notNull(),

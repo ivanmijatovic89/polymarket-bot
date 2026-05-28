@@ -38,4 +38,3 @@ export async function closeDb() {
 }
 
 export * from './schema.js'
-export * from './helpers.js'

@@ -3,16 +3,26 @@ function parseOrderValue(raw: string | undefined): 'recorded' | 'exchange_time' 
   return 'recorded'
 }
 
-const INPUT_MODES = ['recorded', 'telonex-paired-parquet', 'telonex-delta-parquet'] as const
+const INPUT_MODES = ['recorded', 'telonex-delta', 'telonex-paired'] as const
 
 type InputMode = (typeof INPUT_MODES)[number]
 
 function parseInputMode(raw: string | undefined): InputMode {
-  if (raw === 'recorded' || raw === 'telonex-paired-parquet' || raw === 'telonex-delta-parquet') {
+  if (raw === 'recorded' || raw === 'telonex-delta' || raw === 'telonex-paired') {
     return raw
   }
   throw new Error(
     `[backtest] --input-mode must be one of: ${INPUT_MODES.join(', ')} (got: ${String(raw)})`,
+  )
+}
+
+const READ_FROM_VALUES = ['local', 'r2'] as const
+type ReadFrom = (typeof READ_FROM_VALUES)[number]
+
+function parseReadFrom(raw: string | undefined): ReadFrom {
+  if (raw === 'local' || raw === 'r2') return raw
+  throw new Error(
+    `[backtest] --read-from must be one of: ${READ_FROM_VALUES.join(', ')} (got: ${String(raw)})`,
   )
 }
 
@@ -21,16 +31,20 @@ export type BacktestArgs = {
   dirs?: string[]
   // recorded:
   //   Replays source WS events and runs strategy on each meaningful event tick.
-  // telonex-paired-parquet:
+  //   Reads from the `markets` table.
+  // telonex-paired:
   //   Replays paired up/down snapshots and runs strategy once per paired frame.
-  //   Merge step may carry forward the missing side from the last known snapshot.
-  // telonex-delta-parquet:
+  //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='paired').
+  // telonex-delta:
   //   Replays typed book/price_change rows and runs strategy on each row.
+  //   Reads from `telonex_markets` ⋈ `telonex_market_conversions` (converter='delta-typed').
   inputMode: InputMode
   order: 'recorded' | 'exchange_time'
   timeDriven: boolean
   slugs?: string[]
   symbol?: string
+  timeframe: string
+  readFrom?: ReadFrom
   limit?: number
   random?: boolean
   latest?: boolean
@@ -45,9 +59,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
   const slugs: string[] = []
   let inputMode: InputMode = 'recorded'
   let order: 'recorded' | 'exchange_time' = 'recorded'
-  let orderExplicit = false
   let timeDriven = false
   let symbol: string | undefined
+  let timeframe = '15m'
+  let timeframeExplicit = false
+  let readFrom: ReadFrom | undefined
   let limit: number | undefined
   let random = false
   let latest = false
@@ -62,18 +78,31 @@ export function parseArgs(argv: string[]): BacktestArgs {
     switch (arg) {
       case '--mode': {
         // Legacy/compat: ignore `--mode orderbook` if passed.
-        // Raw mode was removed; this flag should not affect behavior.
         i += 1
         break
       }
 
       case '--order':
         order = parseOrderValue(argv[i + 1])
-        orderExplicit = true
         i += 1
         break
       case '--input-mode': {
         inputMode = parseInputMode(argv[i + 1])
+        i += 1
+        break
+      }
+      case '--read-from': {
+        readFrom = parseReadFrom(argv[i + 1])
+        i += 1
+        break
+      }
+      case '--timeframe': {
+        const raw = argv[i + 1]
+        if (typeof raw !== 'string' || raw.trim().length === 0) {
+          throw new Error('[backtest] missing value for --timeframe')
+        }
+        timeframe = raw.trim()
+        timeframeExplicit = true
         i += 1
         break
       }
@@ -126,12 +155,12 @@ export function parseArgs(argv: string[]): BacktestArgs {
 
       case '--random':
         random = true
-        latest = false // random takes precedence over latest
+        latest = false
         break
 
       case '--latest':
         latest = true
-        random = false // latest takes precedence over random
+        random = false
         break
 
       case '--comment':
@@ -200,6 +229,19 @@ export function parseArgs(argv: string[]): BacktestArgs {
           inputMode = parseInputMode(arg.slice('--input-mode='.length))
           break
         }
+        if (arg.startsWith('--read-from=')) {
+          readFrom = parseReadFrom(arg.slice('--read-from='.length))
+          break
+        }
+        if (arg.startsWith('--timeframe=')) {
+          const raw = arg.slice('--timeframe='.length).trim()
+          if (raw.length === 0) {
+            throw new Error('[backtest] missing value for --timeframe')
+          }
+          timeframe = raw
+          timeframeExplicit = true
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -228,23 +270,20 @@ export function parseArgs(argv: string[]): BacktestArgs {
   if (dirs.length > 0 && slugs.length > 0) {
     throw new Error('[backtest] --dir and --slug are mutually exclusive')
   }
-  if (
-    inputMode !== 'recorded' &&
-    (symbol ||
-      slugs.length > 0 ||
-      dirs.length > 0 ||
-      limit !== undefined ||
-      random ||
-      latest ||
-      orderExplicit ||
-      timeDriven)
-  ) {
+
+  const isTelonex = inputMode !== 'recorded'
+
+  if (isTelonex && readFrom === undefined) {
+    throw new Error(`[backtest] --input-mode=${inputMode} requires --read-from (local|r2)`)
+  }
+  if (!isTelonex && readFrom !== undefined) {
     throw new Error(
-      `[backtest] --input-mode=${inputMode} cannot be combined with --symbol, --slug, --dir, --limit, --random, --latest, --order, or --time-driven`,
+      `[backtest] --read-from is only valid with --input-mode=telonex-delta|telonex-paired`,
     )
   }
-  if (inputMode !== 'recorded' && filePaths.length === 0) {
-    throw new Error(`[backtest] --input-mode=${inputMode} requires at least one parquet file`)
+
+  if (timeframeExplicit && !symbol) {
+    throw new Error('[backtest] --timeframe is only valid together with --symbol')
   }
 
   return {
@@ -255,6 +294,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     timeDriven,
     ...(slugs.length > 0 ? { slugs } : {}),
     ...(symbol ? { symbol } : {}),
+    timeframe,
+    ...(readFrom ? { readFrom } : {}),
     ...(limit !== undefined ? { limit } : {}),
     ...(random ? { random } : {}),
     ...(latest ? { latest } : {}),
