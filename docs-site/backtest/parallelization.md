@@ -15,7 +15,7 @@ Three independent long-running things on the machine that runs the producer:
 | ---------- | --------------------------------------- |
 | Redis      | `brew services start redis`             |
 | Worker     | `npm run backtest:worker`               |
-| Dashboard  | `npm run backtest:dashboard` → http://127.0.0.1:3001 |
+| Dashboard  | `npm run dashboard` → http://127.0.0.1:3001 (Next.js) |
 
 The producer itself (`npm run backtest -- ...`) is invoked per-batch and exits
 when the aggregator finishes (or right after enqueue if you pass `--detach`).
@@ -30,7 +30,8 @@ npm install
 
 # in one terminal: long-running worker + dashboard
 npm run backtest:worker      # consumes both queues by default
-npm run backtest:dashboard   # http://127.0.0.1:3001
+npm run dashboard            # http://127.0.0.1:3001 (Next.js)
+npm run bull-board           # http://127.0.0.1:3003/admin/queues
 
 # in another terminal: run a batch as usual
 npm run backtest -- \
@@ -175,21 +176,28 @@ pm2 / systemd `kill_timeout` should be set to at least 30 seconds.
 
 ## Dashboard
 
-`npm run backtest:dashboard` starts a Fastify server on
-`http://127.0.0.1:3001` (override with `DASHBOARD_PORT`) with:
+`npm run dashboard` starts the Next.js dashboard at
+`http://127.0.0.1:3001`. It lives in the `dashboard/` package (separate
+from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 
-| Path                 | What                                                                |
-| -------------------- | ------------------------------------------------------------------- |
-| `/`                  | HTMX overview: queue counts, workers list, active batches, history. |
-| `/admin/queues`      | Bull Board: raw queue + job inspection (markets + aggregate).       |
-| `/api/health`        | Health JSON.                                                        |
-| `/api/workers`       | Live worker stats (processed counts, heartbeat, current job).       |
-| `/api/queues`        | Per-queue waiting/active/completed/failed counts.                   |
-| `/api/batches/active`| Aggregate parent jobs that haven't finalized yet.                   |
-| `/api/batches/history?limit=N` | Recent finalized batches from MySQL.                      |
-| `/api/batches/:uid`  | Full row from `backtests` for one batch.                            |
+| Path                            | What                                                                |
+| ------------------------------- | ------------------------------------------------------------------- |
+| `/`                             | Overview: queue counts, workers list, active batches, history.      |
+| `/batches/<batchUid>`           | Per-batch detail: live progress (active) or stats + per-market grid (completed). |
+| `/api/health`                   | Health JSON.                                                        |
+| `/api/workers`                  | Live worker stats (processed counts, heartbeat, current job).       |
+| `/api/queues`                   | Per-queue waiting/active/completed/failed counts.                   |
+| `/api/batches/active`           | Aggregate parent jobs that haven't finalized yet.                   |
+| `/api/batches/history?limit=N`  | Recent finalized batches from MySQL.                                |
+| `/api/batches/:uid`             | Full row from `backtests` for one batch.                            |
 
-The dashboard is read-only relative to MySQL; you can run it on the same
+For raw queue/job inspection, run Bull Board as a separate process:
+
+```
+npm run bull-board        # http://127.0.0.1:3003/admin/queues
+```
+
+Both procs are read-only relative to MySQL; you can run them on the same
 machine as the producer or anywhere with network access to Redis + MySQL.
 
 ## Invariants & guarantees

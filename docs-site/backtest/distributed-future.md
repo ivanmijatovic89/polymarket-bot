@@ -24,7 +24,7 @@ ecosystem config. Treat this page as a roadmap.
 [Your Mac — producer + aggregator + worker]
 ├── npm run backtest -- ...
 ├── npm run backtest:worker -- --queues=markets,aggregate
-└── npm run backtest:dashboard
+└── npm run dashboard
 
 [Sibling machines — workers only]
 └── npm run backtest:worker -- --queues=markets

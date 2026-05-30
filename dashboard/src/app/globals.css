@@ -1,0 +1,37 @@
+@import 'tailwindcss';
+
+:root {
+  --background: #0b0d10;
+  --foreground: #e8eaed;
+  --muted: #9aa0a6;
+  --card: #16191d;
+  --border: #2a2d31;
+  --link: #8ab4f8;
+  --good: #81c995;
+  --bad: #f28b82;
+  --warn: #fdd663;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-card: var(--card);
+  --color-border: var(--border);
+  --color-link: var(--link);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+  --color-warn: var(--warn);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family:
+    var(--font-geist-sans),
+    -apple-system,
+    system-ui,
+    sans-serif;
+}

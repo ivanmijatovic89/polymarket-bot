@@ -7,7 +7,7 @@ const prettierConfig = require('eslint-config-prettier')
 module.exports = [
   // 1) Global ignore pravila (umesto .eslintignore)
   {
-    ignores: ['node_modules', 'dist', 'build'],
+    ignores: ['node_modules', 'dist', 'build', 'dashboard', 'webui', 'docs-site'],
   },
 
   // 2) TypeScript pravila za sve .ts / .tsx fajlove

@@ -42,7 +42,7 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
 - For the **default** (BullMQ) execution path:
   - Redis running locally (`brew services start redis`)
   - At least one worker daemon up (`npm run backtest:worker`)
-  - Optional dashboard (`npm run backtest:dashboard` → http://127.0.0.1:3001)
+  - Optional dashboard (`npm run dashboard` → http://127.0.0.1:3001) and `npm run bull-board` (→ http://127.0.0.1:3003/admin/queues)
 - Pass `--sequential` if you'd rather skip the worker daemon and run the loop
   in-process (see [Execution modes](#execution-modes) below).
 
@@ -194,7 +194,7 @@ bit-identical verification against the BullMQ path.
 | `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
 | `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
 | `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
-| `DASHBOARD_PORT`                         | `3001`                   | Port for `npm run backtest:dashboard`. Override when running alongside the webui.                                               |
+| `BULL_BOARD_PORT`                        | `3003`                   | Port for `npm run bull-board` (raw queue inspector). The Next.js dashboard port is set in `dashboard/package.json` (defaults to `3001`). |
 
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.

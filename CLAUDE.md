@@ -85,6 +85,11 @@ npm run rebuild:chunked-batch-stats    # re-derive stats for backtests with null
 # Web UI (separate Vite package under webui/)
 npm run webui:dev ; npm run webui:build
 
+# Backtest dashboard (separate Next.js package under dashboard/, reads MySQL + Redis)
+npm run dashboard                       # next dev on :3001
+npm run dashboard:build && npm run dashboard:start   # production
+npm run bull-board                      # Bull Board UI on :3003 (separate proc)
+
 # Parallel backtest queue (folder-watched runner)
 ./queue/run-queue.sh --jobs 8 [--save-results]
 ```
@@ -141,6 +146,7 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/cli/` | Entry points + `helpers/` (argv parsing, parquet resolution) + `research/` |
 | `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
 | `webui/` | Separate Vite/React package served by each bot process |
+| `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the `backtests` table schema locally; uses TanStack Query for polling. |
 | `queue/` | Folder-watched GNU-parallel runner (`approve → pending → running → done|failed`) |
 
 ### Strategy system

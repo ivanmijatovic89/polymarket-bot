@@ -1,0 +1,43 @@
+import type { Metadata } from 'next'
+import { Geist, Geist_Mono } from 'next/font/google'
+import Link from 'next/link'
+import './globals.css'
+import { Providers } from './providers'
+
+const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
+const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
+
+export const metadata: Metadata = {
+  title: 'Backtest Dashboard',
+  description: 'BullMQ workers, queues, and batch results',
+}
+
+export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  return (
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className="min-h-screen">
+        <Providers>
+          <nav className="px-6 py-4 text-sm border-b border-border">
+            <span className="font-semibold mr-2">Backtest Dashboard</span>
+            <span className="text-muted mx-1">·</span>
+            <Link href="/" className="text-link hover:underline mr-4">
+              Overview
+            </Link>
+            <a
+              href="http://127.0.0.1:3003/admin/queues"
+              className="text-link hover:underline mr-4"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Bull Board (raw)
+            </a>
+            <Link href="/api/health" className="text-link hover:underline">
+              Health JSON
+            </Link>
+          </nav>
+          <main className="px-6 py-6">{children}</main>
+        </Providers>
+      </body>
+    </html>
+  )
+}
