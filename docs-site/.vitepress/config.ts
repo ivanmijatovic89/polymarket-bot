@@ -86,6 +86,8 @@ export default withMermaid(
           text: 'Backtest',
           items: [
             { text: 'Running Backtests', link: '/backtest/running-backtests' },
+            { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
+            { text: 'Distributed (future)', link: '/backtest/distributed-future' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'Parallel Backtest Runner', link: '/backtest/parallel-backtest-runner' },
             { text: 'Market Statistics', link: '/backtest/market-stats' },
