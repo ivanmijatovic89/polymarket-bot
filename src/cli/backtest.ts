@@ -1,5 +1,6 @@
 import '../config/env.js'
 import os from 'os'
+import { execSync } from 'node:child_process'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
@@ -16,6 +17,22 @@ import {
 } from '../backtest/stats/marketResolution.js'
 import { getMarketResolution as getTelonexMarketResolution } from '../backtest/stats/telonexMarketResolution.js'
 import { runSingleMarket } from '../backtest/runSingleMarket.js'
+import {
+  AGGREGATE_JOB_OPTS,
+  AGGREGATE_QUEUE,
+  MARKET_JOB_OPTS,
+  MARKET_QUEUE,
+  closeRedisConnection,
+  getFlowProducer,
+  getQueueEvents,
+  getRedisConnection,
+} from '../backtest/queue.js'
+import {
+  aggregateJobId,
+  marketJobId,
+  type AggregateJobData,
+  type MarketJobData,
+} from '../backtest/jobTypes.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb } from '../db/index.js'
 import {
@@ -335,41 +352,35 @@ async function main(): Promise<void> {
   }
   installSignalHandlers({ onSignal: shutdown })
 
-  let events = 0
-  const byType = new Map<string, number>()
-
   console.log(`[backtest] strategy=${built.strategyId}`)
 
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
-  const marketStats: MarketStats[] = []
-
   const totalMarkets = filePaths.length
-  const backtestStartMs = Date.now()
-  let completedMarkets = 0
-  let completedMarketsMsTotal = 0
-
-  const workerHost = os.hostname()
-  const workerName = `sequential-${process.pid}`
-  // PR1 keeps execution metadata local; PR2 replaces these with actual worker
-  // identity + git SHA from BullMQ job payload.
-  const commitSha = ''
 
   const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
   const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
+  // ---- Pre-resolve every market context in the producer so that workers
+  // ---- never need to touch MySQL / Gamma. This preserves the existing DB
+  // ---- lookup + Gamma fallback behavior 1:1 with PR1.
+  type ResolvedContext = {
+    idx: number
+    filePath: string
+    slug: string | null
+    marketMeta: GammaMarketMeta | undefined
+    marketResolution: MarketResolution | null
+    strategyWindow: { startMs: number; endMs: number } | null
+  }
+  const marketContexts: ResolvedContext[] = []
+
   for (let idx = 0; idx < filePaths.length; idx += 1) {
     const fp = filePaths[idx]!
     if (shouldStop) break
-    const marketIdx = idx + 1
-    console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${fp}`)
-    const marketStartMs = Date.now()
-
     const slug = parseSlugFromFilename(fp)
     let marketResolution: MarketResolution | null = null
     let marketMeta: GammaMarketMeta | undefined
 
     if (isTelonex) {
-      // Telonex: row already fetched in the bulk query (or lookup on demand for dir/file paths)
       let row = slug ? (telonexBySlug.get(slug) ?? null) : null
       if (!row && slug) {
         row = await getTelonexMarketBySlug(slug, { converter: converter!, readFrom: readFrom! })
@@ -388,7 +399,6 @@ async function main(): Promise<void> {
         console.warn(`[backtest] no telonex_markets row for slug=${slug}, skipping stats`)
       }
     } else {
-      // Recorded: keep existing Gamma fallback + DB upsert behavior
       let dbMarket =
         slug && recordedBySlug.size > 0
           ? (recordedBySlug.get(slug) ?? null)
@@ -419,7 +429,7 @@ async function main(): Promise<void> {
             if (built) marketMeta = built
           }
         } catch {
-          // best-effort; fall through to tokenMap-based meta below
+          // best-effort
         }
       }
       if (!marketMeta && slug && marketResolution) {
@@ -440,9 +450,6 @@ async function main(): Promise<void> {
       console.warn(`[backtest] market meta unavailable for slug: ${slug}`)
     }
 
-    // Quick-fix for telonex conversions that may contain out-of-window rows:
-    // keep replay/orderbook updates intact, but run strategy ticks only within
-    // the slug window (e.g., 5m/15m/etc).
     const strategyWindow = (() => {
       if (!isTelonex || !slug) return null
       const startMs = windowStartMsFromSlug(slug)
@@ -456,102 +463,332 @@ async function main(): Promise<void> {
       return { startMs, endMs: startMs + durationMs }
     })()
 
-    const result = await runSingleMarket({
-      idx,
-      filePath: fp,
-      slug,
-      marketMeta,
-      marketResolution,
+    marketContexts.push({ idx, filePath: fp, slug, marketMeta, marketResolution, strategyWindow })
+  }
+
+  if (shouldStop) {
+    console.log('[backtest] shutdown requested before dispatch; aborting')
+    await closeDb()
+    return
+  }
+
+  const useBullMQ = !parsed.sequential
+
+  // -----------------------------------------------------------------
+  // SEQUENTIAL path — same in-process loop as PR1; kept as an opt-in
+  // fallback (`--sequential`) for verification and Redis-less smoke runs.
+  // -----------------------------------------------------------------
+  if (!useBullMQ) {
+    const workerHost = os.hostname()
+    const workerName = `sequential-${process.pid}`
+    const commitSha = (() => {
+      try {
+        return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+          .toString()
+          .trim()
+      } catch {
+        return ''
+      }
+    })()
+    const marketStats: MarketStats[] = []
+    let events = 0
+    const byType = new Map<string, number>()
+    const backtestStartMs = Date.now()
+    let completedMarkets = 0
+    let completedMarketsMsTotal = 0
+
+    for (const ctx of marketContexts) {
+      if (shouldStop) break
+      const marketIdx = ctx.idx + 1
+      console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${ctx.filePath}`)
+      const marketStartMs = Date.now()
+
+      const result = await runSingleMarket({
+        idx: ctx.idx,
+        filePath: ctx.filePath,
+        slug: ctx.slug,
+        marketMeta: ctx.marketMeta,
+        marketResolution: ctx.marketResolution,
+        strategyId: built.strategyId,
+        strategyParams: built.params as Record<string, unknown>,
+        inputMode: parsed.inputMode,
+        order: parsed.order,
+        timeDriven: parsed.timeDriven,
+        latency: { delayMs: latencyMs, jitterMs },
+        strategyWindow: ctx.strategyWindow,
+        workerName,
+        workerHost,
+        commitSha,
+        shouldStop: () => shouldStop,
+      })
+
+      events += result.eventsProcessed
+      for (const [t, c] of Object.entries(result.eventsByType)) {
+        byType.set(t, (byType.get(t) ?? 0) + c)
+      }
+
+      if (result.marketStats) {
+        marketStats.push(result.marketStats)
+        if (result.skipReason === 'no_activity') {
+          console.log(
+            `[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=0 (no in-window positions/trades)`,
+          )
+        } else {
+          const pnlColor = result.marketStats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
+          const resetColor = '\x1b[0m'
+          console.log(
+            `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
+          )
+        }
+      } else if (result.skipReason === 'no_slug') {
+        console.warn(
+          `[backtest] Could not parse slug from filename: ${ctx.filePath}, skipping stats`,
+        )
+      } else if (result.skipReason === 'no_resolution') {
+        console.warn(
+          `[backtest] Could not get market resolution for slug: ${ctx.slug}, skipping stats`,
+        )
+      } else if (result.skipReason === 'unresolved_outcome') {
+        console.warn(`[backtest] Market not resolved yet for slug: ${ctx.slug}, skipping stats`)
+      }
+
+      const marketElapsedMs = Date.now() - marketStartMs
+      completedMarkets += 1
+      completedMarketsMsTotal += marketElapsedMs
+      const avgPerMarketMs = completedMarketsMsTotal / Math.max(1, completedMarkets)
+      const remainingMarkets = Math.max(0, totalMarkets - completedMarkets)
+      const etaMs = avgPerMarketMs * remainingMarkets
+      const totalElapsedMs = Date.now() - backtestStartMs
+      console.log(
+        `[backtest][${completedMarkets}/${totalMarkets}] finished in ${formatDurationHuman(marketElapsedMs)} | elapsed ${formatDurationHuman(
+          totalElapsedMs,
+        )} | eta ${formatDurationHuman(etaMs)}`,
+      )
+    }
+
+    // CRITICAL invariant: marketContexts iteration order == input order, so
+    // marketStats already arrives sorted. Aggregation happens here in-process.
+    const batchStats = computeBatchStats(marketStats, initialCapital)
+    const chunkedBatchStats = computeChunkedBatchStats(marketStats, initialCapital, [96, 200, 300])
+
+    await insertBacktestRun({
+      batchUid,
+      baselineId: parsed.baselineId ?? null,
+      cmd,
+      comment: parsed.comment ?? null,
+      strategy: built.strategyId,
+      params: built.params as Record<string, unknown>,
+      symbol: parsed.symbol ?? null,
+      slugs: parsed.slugs ?? null,
+      limit: parsed.limit ?? null,
+      random: parsed.random ?? false,
+      latest: parsed.latest ?? false,
+      batchStats: batchStats as unknown as Record<string, unknown>,
+      chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+      marketStats: marketStats as unknown as unknown[],
+    })
+
+    console.log('\n[backtest] ===== BATCH STATS =====')
+    console.log(JSON.stringify(batchStats, null, 2))
+    console.log('\n[backtest] orderbook summary', {
+      events,
+      byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
+      ...timer.summary(),
+    })
+
+    await closeDb()
+    return
+  }
+
+  // -----------------------------------------------------------------
+  // BULLMQ path — enqueue children + parent aggregate, wait or detach.
+  // -----------------------------------------------------------------
+  const producerCommitSha = (() => {
+    try {
+      return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
+        .toString()
+        .trim()
+    } catch {
+      return ''
+    }
+  })()
+
+  // Sanity-check Redis up front so we fail with a clear message rather than
+  // hanging inside FlowProducer if the daemon isn't running.
+  try {
+    await getRedisConnection().ping()
+  } catch (err) {
+    console.error(
+      `[backtest] Redis ping failed at ${process.env.REDIS_URL ?? 'redis://localhost:6379'}.\n` +
+        `Start Redis (brew services start redis) or pass --sequential to bypass the queue.\n`,
+      err,
+    )
+    await closeDb()
+    process.exit(2)
+  }
+
+  const flow = getFlowProducer()
+  const aggData: AggregateJobData = {
+    batchUid,
+    totalMarkets,
+    initialCapital,
+    insertMeta: {
+      baselineId: parsed.baselineId ?? null,
+      cmd,
+      comment: parsed.comment ?? null,
+      strategy: built.strategyId,
+      params: built.params as Record<string, unknown>,
+      symbol: parsed.symbol ?? null,
+      slugs: parsed.slugs ?? null,
+      limit: parsed.limit ?? null,
+      random: parsed.random ?? false,
+      latest: parsed.latest ?? false,
+    },
+  }
+
+  const children = marketContexts.map((ctx) => {
+    const data: MarketJobData = {
+      batchUid,
+      idx: ctx.idx,
+      filePath: ctx.filePath,
+      slug: ctx.slug,
+      marketMeta: ctx.marketMeta,
+      marketResolution: ctx.marketResolution,
       strategyId: built.strategyId,
       strategyParams: built.params as Record<string, unknown>,
       inputMode: parsed.inputMode,
       order: parsed.order,
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },
-      strategyWindow,
-      workerName,
-      workerHost,
-      commitSha,
-      shouldStop: () => shouldStop,
-    })
-
-    events += result.eventsProcessed
-    for (const [t, c] of Object.entries(result.eventsByType)) {
-      byType.set(t, (byType.get(t) ?? 0) + c)
+      strategyWindow: ctx.strategyWindow,
+      commitSha: producerCommitSha,
     }
-
-    if (result.marketStats) {
-      marketStats.push(result.marketStats)
-      if (result.skipReason === 'no_activity') {
-        console.log(
-          `[backtest] market=${result.marketStats.marketId} slug=${slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=0 (no in-window positions/trades)`,
-        )
-      } else {
-        const pnlColor = result.marketStats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
-        const resetColor = '\x1b[0m'
-        console.log(
-          `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
-        )
-      }
-    } else if (result.skipReason === 'no_slug') {
-      console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
-    } else if (result.skipReason === 'no_resolution') {
-      console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
-    } else if (result.skipReason === 'unresolved_outcome') {
-      console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
+    return {
+      name: 'market',
+      queueName: MARKET_QUEUE,
+      data,
+      opts: { ...MARKET_JOB_OPTS, jobId: marketJobId(batchUid, ctx.idx) },
     }
+  })
 
-    const marketElapsedMs = Date.now() - marketStartMs
-    completedMarkets += 1
-    completedMarketsMsTotal += marketElapsedMs
-    const avgPerMarketMs = completedMarketsMsTotal / Math.max(1, completedMarkets)
-    const remainingMarkets = Math.max(0, totalMarkets - completedMarkets)
-    const etaMs = avgPerMarketMs * remainingMarkets
-    const totalElapsedMs = Date.now() - backtestStartMs
+  console.log(
+    `[backtest] enqueueing flow batchUid=${batchUid} totalMarkets=${totalMarkets} commitSha=${producerCommitSha.slice(0, 8) || 'unknown'}`,
+  )
+
+  const node = await flow.add({
+    name: 'aggregate-batch',
+    queueName: AGGREGATE_QUEUE,
+    data: aggData,
+    children,
+    opts: {
+      ...AGGREGATE_JOB_OPTS,
+      jobId: aggregateJobId(batchUid),
+      // If a child exhausts retries, still run the aggregator with the rest
+      // (the aggregator records the failures into `failed_markets`).
+      // BullMQ option name as of v5: `ignoreDependencyOnFailure`.
+      ignoreDependencyOnFailure: true,
+    },
+  })
+
+  console.log(`[backtest] enqueued: aggregate jobId=${node.job.id ?? aggregateJobId(batchUid)}`)
+
+  if (parsed.detach) {
+    const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
+    console.log(`[backtest] --detach: batchUid=${batchUid}`)
+    console.log(`[backtest] watch progress at http://127.0.0.1:${dashboardPort}/`)
+    await closeRedisConnection()
+    await closeDb()
+    return
+  }
+
+  // Live progress: subscribe to market QueueEvents for completion stream;
+  // wait on the aggregate parent's `waitUntilFinished` for the blocking handle.
+  const marketEvents = getQueueEvents(MARKET_QUEUE)
+  const aggregateEvents = getQueueEvents(AGGREGATE_QUEUE)
+  await marketEvents.waitUntilReady()
+  await aggregateEvents.waitUntilReady()
+
+  const startWaitMs = Date.now()
+  const startedMap = new Map<string, number>()
+  let completed = 0
+  let failed = 0
+
+  const printProgress = (): void => {
+    const total = totalMarkets
+    const elapsedMs = Date.now() - startWaitMs
+    const avgMs = completed > 0 ? elapsedMs / completed : 0
+    const remaining = Math.max(0, total - completed - failed)
+    const etaMs = avgMs * remaining
     console.log(
-      `[backtest][${completedMarkets}/${totalMarkets}] finished in ${formatDurationHuman(marketElapsedMs)} | elapsed ${formatDurationHuman(
-        totalElapsedMs,
-      )} | eta ${formatDurationHuman(etaMs)}`,
+      `[backtest][${completed + failed}/${total}] completed=${completed} failed=${failed} | elapsed ${formatDurationHuman(elapsedMs)} | eta ${formatDurationHuman(etaMs)}`,
     )
   }
 
-  const batchStats = computeBatchStats(marketStats, initialCapital)
-  const chunkedBatchStats = computeChunkedBatchStats(marketStats, initialCapital, [96, 200, 300])
-
-  await insertBacktestRun({
-    batchUid,
-    baselineId: parsed.baselineId ?? null,
-    cmd,
-    comment: parsed.comment ?? null,
-    strategy: built.strategyId,
-    params: built.params as Record<string, unknown>,
-    symbol: parsed.symbol ?? null,
-    slugs: parsed.slugs ?? null,
-    limit: parsed.limit ?? null,
-    random: parsed.random ?? false,
-    latest: parsed.latest ?? false,
-    batchStats: batchStats as unknown as Record<string, unknown>,
-    chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
-    marketStats: marketStats as unknown as unknown[],
-  })
-
-  if (marketStats.length > 0) {
-    console.log('\n[backtest] ===== MARKET STATS =====')
-    for (const stats of marketStats) {
-      console.log(JSON.stringify(stats, null, 2))
+  const onActive = ({ jobId }: { jobId: string }): void => {
+    if (!jobId.endsWith(`-m-`) && jobId.includes(batchUid)) {
+      startedMap.set(jobId, Date.now())
+    }
+  }
+  const onCompleted = ({ jobId }: { jobId: string }): void => {
+    if (!jobId.includes(batchUid)) return
+    completed += 1
+    if (
+      (completed + failed) % Math.max(1, Math.floor(totalMarkets / 20)) === 0 ||
+      completed + failed === totalMarkets
+    ) {
+      printProgress()
+    }
+  }
+  const onFailed = ({ jobId, failedReason }: { jobId: string; failedReason: string }): void => {
+    if (!jobId.includes(batchUid)) return
+    failed += 1
+    console.warn(`[backtest] child failed jobId=${jobId} reason=${failedReason}`)
+    if (
+      (completed + failed) % Math.max(1, Math.floor(totalMarkets / 20)) === 0 ||
+      completed + failed === totalMarkets
+    ) {
+      printProgress()
     }
   }
 
-  console.log('\n[backtest] ===== BATCH STATS =====')
-  console.log(JSON.stringify(batchStats, null, 2))
+  marketEvents.on('active', onActive)
+  marketEvents.on('completed', onCompleted)
+  marketEvents.on('failed', onFailed)
 
-  console.log('\n[backtest] orderbook summary', {
-    events,
-    byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
-    ...timer.summary(),
-  })
+  // Allow Ctrl+C to detach without killing the queue.
+  let detachedByUser = false
+  const detachHandler = (): void => {
+    detachedByUser = true
+    const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
+    console.log(
+      `\n[backtest] SIGINT: detaching from batch ${batchUid}. ` +
+        `Workers continue in background; resume at http://127.0.0.1:${dashboardPort}/`,
+    )
+  }
+  process.once('SIGINT', detachHandler)
 
-  await closeDb()
+  try {
+    const aggResult = await node.job.waitUntilFinished(aggregateEvents)
+    const r = aggResult as { totalSucceeded: number; totalFailed: number; totalSkipped: number }
+    console.log(
+      `[backtest] aggregator done: succeeded=${r.totalSucceeded} failed=${r.totalFailed} skipped=${r.totalSkipped}`,
+    )
+  } catch (err) {
+    if (detachedByUser) {
+      // user opted out; queue continues
+    } else {
+      console.error('[backtest] aggregator failed:', err)
+    }
+  } finally {
+    marketEvents.off('active', onActive)
+    marketEvents.off('completed', onCompleted)
+    marketEvents.off('failed', onFailed)
+    await marketEvents.close()
+    await aggregateEvents.close()
+    await closeRedisConnection()
+    await closeDb()
+    console.log('\n[backtest] timer', timer.summary())
+  }
 }
 
 main().catch(async (err) => {
