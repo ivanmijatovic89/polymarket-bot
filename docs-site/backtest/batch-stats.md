@@ -86,7 +86,14 @@ A higher score indicates a more consistent edge. A score near or below zero sugg
 
 ### Streak Analysis
 
-Streaks are computed sequentially in the order markets appear in the `results` array.
+Streaks are computed sequentially in the order markets appear in the
+`results` array. In the BullMQ execution path (default), workers may finish
+out of order, so the aggregate worker **sorts children results by their
+producer-assigned `idx`** before passing them to `computeBatchStats`. This
+matches the order the producer enqueued them in, which in turn matches the
+filenames / slugs / DB query order. The sequential (`--sequential`) path
+already sees markets in that order natively. As a result, streak fields are
+byte-equal across both modes (verified with `BACKTEST_LATENCY_JITTER=0`).
 
 | Field              | Type     | Description                                                                                           |
 | ------------------ | -------- | ----------------------------------------------------------------------------------------------------- |

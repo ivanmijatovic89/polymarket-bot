@@ -259,20 +259,53 @@ npm run backtest -- --strategy SplitSellRedeem.v1 \
 
 ## Output
 
-Each completed run produces three levels of output:
+Each completed run produces three levels of output and writes a single row
+to the `backtests` table:
 
-1. **Per-market stats** — printed in green (positive P&L) or red (negative P&L) during replay.
-2. **Batch stats** — aggregated metrics printed at the end and stored in the database.
-3. **Chunked batch stats** — computed for window sizes `[96, 200, 300]` and stored alongside the batch record.
+1. **Per-market stats** — one entry per market in the `market_stats` JSON
+   column. In the BullMQ path, terminal output is a compact `[i/N] completed=… failed=…`
+   progress line; in `--sequential` mode each market also prints its
+   per-market summary in green/red.
+2. **Batch stats** — aggregated metrics printed at the end and stored in
+   `batch_stats`.
+3. **Chunked batch stats** — computed for window sizes `[96, 200, 300]`
+   and stored in `chunked_batch_stats`.
 
-See [Market Statistics](./market-stats.md), [Batch Statistics](./batch-stats.md), and [Chunked Batch Statistics](./chunked-batch-stats.md) for full field definitions.
+The row also carries:
+
+- `execution` metadata inside each `market_stats[i]` (which worker ran it,
+  duration, replayed event counts, commit SHA — see
+  [MarketStats execution](./market-stats.md#execution-metadata-optional)).
+- `failed_markets` — JSON array of `{ jobId?, idx, slug, reason }` for any
+  children that exhausted retries (`null` for legacy / pre-BullMQ runs, `[]`
+  for successful parallel runs, non-empty when partial failures happened).
+
+See [Market Statistics](./market-stats.md),
+[Batch Statistics](./batch-stats.md), and
+[Chunked Batch Statistics](./chunked-batch-stats.md) for full field
+definitions.
+
+### Watching progress live
+
+The [dashboard](./parallelization.md#dashboard) at
+`http://127.0.0.1:3001` shows the active batch, per-worker stats, queue
+depth, and historical batches without needing to re-attach to the producer
+terminal. It also surfaces the same `failed_markets` audit so you can
+inspect what went wrong without opening MySQL.
 
 ::: details Progress and ETA output
-After each market completes, the CLI prints:
+**Sequential mode** prints one line per market with the rolling average:
 
 ```
 [backtest][12/200] finished in 0min 3 sec | elapsed 0min 42 sec | eta 12min 18 sec
 ```
 
-This is based on the rolling average time per market and does not account for market-to-market variance.
+**BullMQ mode** prints a compact summary every ~5% of progress:
+
+```
+[backtest][120/200] completed=118 failed=2 | elapsed 0min 42 sec | eta 0min 28 sec
+```
+
+Both estimates are rolling-average based and don't account for
+market-to-market variance.
 :::

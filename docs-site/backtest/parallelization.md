@@ -197,6 +197,11 @@ machine as the producer or anywhere with network access to Redis + MySQL.
 
 ## Verifying bit-identical behavior
 
+`src/cli/verify-backtest-diff.ts` (exposed via `npm run backtest:verify-diff`)
+loads two `backtests` rows by `batchUid` and reports the first structural
+difference in `marketStats` (excluding the `execution` field), `batchStats`,
+and `chunkedBatchStats`.
+
 ```bash
 # baseline (sequential, in-process)
 npm run backtest -- --sequential --batchUid v-seq ...
@@ -207,9 +212,18 @@ npm run backtest -- --batchUid v-par ...
 npm run backtest:verify-diff -- --baseline v-seq --candidate v-par
 ```
 
-The diff helper ignores the `execution` field and reports any structural
-difference in `marketStats`, `batchStats`, or `chunkedBatchStats`. With
-`BACKTEST_LATENCY_JITTER=0` the result must be bit-identical.
+Expected output when behavior matches:
+
+```
+✅ marketStats (excluding execution): bit-identical
+✅ batchStats: bit-identical
+✅ chunkedBatchStats: bit-identical
+candidate marketStats with execution metadata: N/N
+```
+
+With `BACKTEST_LATENCY_JITTER=0` (and no `Math.random()` in strategy code),
+the diff must be bit-identical. Any mismatch points at non-determinism — fix
+it before treating the BullMQ path as equivalent to the sequential one.
 
 ## Operational notes
 
