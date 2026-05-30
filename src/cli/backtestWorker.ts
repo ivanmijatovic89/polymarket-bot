@@ -156,7 +156,10 @@ function spawnMarketChildren(args: { count: number; workerName: string }): {
   const childScript = resolveChildScriptPath()
   // tsx is the loader used by `npm run` scripts; we re-use the same interpreter
   // for children so TypeScript files resolve identically.
-  const tsxBin = path.resolve(process.cwd(), 'node_modules/.bin/tsx')
+  const tsxBin = path.resolve(
+    process.cwd(),
+    process.platform === 'win32' ? 'node_modules/.bin/tsx.cmd' : 'node_modules/.bin/tsx',
+  )
 
   const children: ChildProcess[] = []
   for (let i = 0; i < args.count; i += 1) {
