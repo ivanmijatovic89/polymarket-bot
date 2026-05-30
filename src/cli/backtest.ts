@@ -23,7 +23,9 @@ import {
   MARKET_JOB_OPTS,
   MARKET_QUEUE,
   closeRedisConnection,
+  getAggregateQueue,
   getFlowProducer,
+  getMarketQueue,
   getQueueEvents,
   getRedisConnection,
 } from '../backtest/queue.js'
@@ -625,6 +627,40 @@ async function main(): Promise<void> {
     )
     await closeDb()
     process.exit(2)
+  }
+
+  // Detect a previous flow with the same --batchUid so a "rerun" doesn't
+  // silently reuse the cached aggregate returnValue. BullMQ deduplicates
+  // jobs by jobId; without this check the second run would see the
+  // existing completed parent and resolve immediately with the old result.
+  {
+    const aggregateQueue = getAggregateQueue()
+    const existing = await aggregateQueue.getJob(aggregateJobId(batchUid))
+    if (existing) {
+      const state = await existing.getState().catch(() => 'unknown')
+      if (parsed.forceRerun) {
+        console.warn(
+          `[backtest] --force-rerun: removing existing aggregate job ` +
+            `(batchUid=${batchUid}, state=${state}) and its children`,
+        )
+        const marketQueue = getMarketQueue()
+        const childIds = marketContexts.map((c) => marketJobId(batchUid, c.idx))
+        await Promise.allSettled(childIds.map((id) => marketQueue.remove(id)))
+        await existing.remove().catch(() => {})
+      } else {
+        console.error(
+          `[backtest] batchUid=${batchUid} is already enqueued ` +
+            `(aggregate job state=${state}).\n` +
+            `Either:\n` +
+            `  - pick a different --batchUid (recommended), or\n` +
+            `  - rerun with --force-rerun to wipe the existing Redis flow first.\n` +
+            `Note: existing MySQL rows with this batchUid are NOT removed by --force-rerun.`,
+        )
+        await closeRedisConnection()
+        await closeDb()
+        process.exit(2)
+      }
+    }
   }
 
   const flow = getFlowProducer()

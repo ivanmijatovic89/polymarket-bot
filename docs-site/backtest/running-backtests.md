@@ -139,10 +139,11 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 
 ### Execution mode
 
-| Flag           | Description                                                                                                                                                                                                          |
-| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `--sequential` | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).            |
-| `--detach`     | (BullMQ default only.) Enqueue the flow, print the `batchUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch in the dashboard.               |
+| Flag            | Description                                                                                                                                                                                                                                                                                                                                                                            |
+| --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--sequential`  | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).                                                                                                                                                                              |
+| `--detach`      | (BullMQ default only.) Enqueue the flow, print the `batchUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch in the dashboard.                                                                                                                                                                                 |
+| `--force-rerun` | (BullMQ default only.) If a flow with this `--batchUid` is still sitting in Redis (e.g. you Ctrl+C'd a previous run before its aggregator finished), wipe the stale parent + children before enqueueing a new flow. Without this flag a stale flow makes the producer fail fast. **Does not** remove the matching MySQL row(s) in `backtests` — pick a fresh `--batchUid` if you care. |
 
 ## Execution modes
 

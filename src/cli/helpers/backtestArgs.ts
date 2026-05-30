@@ -63,6 +63,14 @@ export type BacktestArgs = {
    * Only meaningful when not running --sequential.
    */
   detach?: boolean
+  /**
+   * If a flow with this batchUid already exists in Redis (e.g. a previous
+   * run with the same --batchUid finished and left its parent job behind),
+   * remove the old parent + children before enqueueing a new flow. Without
+   * this flag the producer errors out so a "rerun" doesn't silently return
+   * the cached result from the first run.
+   */
+  forceRerun?: boolean
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -84,6 +92,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let baselineId: string | undefined
   let sequential = false
   let detach = false
+  let forceRerun = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -209,6 +218,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         detach = true
         break
 
+      case '--force-rerun':
+        forceRerun = true
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -326,5 +339,6 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(baselineId !== undefined ? { baselineId } : {}),
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
+    ...(forceRerun ? { forceRerun } : {}),
   }
 }

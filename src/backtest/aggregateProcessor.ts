@@ -4,6 +4,7 @@ import { computeChunkedBatchStats } from './stats/chunkedBatchStats.js'
 import type { MarketStats } from './stats/marketStats.js'
 import { insertBacktestRun } from '../db/backtests.js'
 import { getMarketQueue } from './queue.js'
+import { marketJobId } from './jobTypes.js'
 import type {
   AggregateJobData,
   AggregateJobResult,
@@ -94,10 +95,25 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     failedMarkets: failed,
   })
 
-  // Cleanup: remove children jobs from Redis to bound memory. Best-effort.
+  // Cleanup: remove children from Redis so a future rerun with the same
+  // batchUid isn't silently served from cache. We iterate the known idx
+  // range instead of `Object.keys(childrenValues)` because BullMQ stores
+  // those keys in `<prefix>:<queue>:<jobId>` form, which `queue.remove()`
+  // doesn't accept. Best-effort: never fail the aggregator over cleanup.
   const queue = getMarketQueue()
-  const childIds = Object.keys(childrenValues).concat(Object.keys(failedChildren))
-  await Promise.allSettled(childIds.map((id) => queue.remove(id)))
+  const totalKnown = Math.max(
+    data.totalMarkets,
+    Object.keys(childrenValues).length + Object.keys(failedChildren).length,
+  )
+  const childIdsToRemove: string[] = []
+  for (let i = 0; i < totalKnown; i += 1) {
+    childIdsToRemove.push(marketJobId(data.batchUid, i))
+  }
+  await Promise.allSettled(childIdsToRemove.map((id) => queue.remove(id)))
+
+  // The aggregate parent itself is removed via `removeOnComplete: true`
+  // on the aggregate job opts (see queue.ts) — letting BullMQ do it
+  // after the processor returns avoids fighting with the active-job lock.
 
   return {
     batchUid: data.batchUid,
