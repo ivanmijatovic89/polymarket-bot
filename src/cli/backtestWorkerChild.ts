@@ -1,5 +1,4 @@
 import '../config/env.js'
-import os from 'os'
 import { execSync } from 'node:child_process'
 import { Worker } from 'bullmq'
 import { requireEnv } from '../config/env.js'
@@ -10,6 +9,7 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
+import { defaultWorkerName, getWorkerHost } from '../backtest/workerIdentity.js'
 
 /**
  * Single-concurrency market worker meant to be forked N times by
@@ -59,7 +59,7 @@ async function startHeartbeat(workerName: string): Promise<() => Promise<void>> 
       await conn.hset(
         `backtest:worker:${workerName}`,
         'host',
-        os.hostname(),
+        getWorkerHost(),
         'commitSha',
         getCurrentGitSha(),
       )
@@ -82,7 +82,7 @@ async function startHeartbeat(workerName: string): Promise<() => Promise<void>> 
 async function main(): Promise<void> {
   // Convention: the supervisor passes `--worker-name foo --child-id N`.
   const argv = process.argv.slice(2)
-  let workerName = process.env.WORKER_NAME ?? `${os.hostname()}-${process.pid}`
+  let workerName = process.env.WORKER_NAME ?? defaultWorkerName()
   let childId = '0'
   for (let i = 0; i < argv.length; i += 1) {
     if (argv[i] === '--worker-name') workerName = argv[++i]!

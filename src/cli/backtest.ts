@@ -1,5 +1,5 @@
 import '../config/env.js'
-import os from 'os'
+import { getWorkerHost } from '../backtest/workerIdentity.js'
 import { execSync } from 'node:child_process'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
@@ -481,7 +481,7 @@ async function main(): Promise<void> {
   // fallback (`--sequential`) for verification and Redis-less smoke runs.
   // -----------------------------------------------------------------
   if (!useBullMQ) {
-    const workerHost = os.hostname()
+    const workerHost = getWorkerHost()
     const workerName = `sequential-${process.pid}`
     const commitSha = (() => {
       try {

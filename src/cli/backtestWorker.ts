@@ -12,6 +12,7 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { aggregateProcessor } from '../backtest/aggregateProcessor.js'
+import { defaultWorkerName, getWorkerHost } from '../backtest/workerIdentity.js'
 
 type Queues = 'markets' | 'aggregate'
 
@@ -27,7 +28,7 @@ function parseArgs(): Args {
   let queuesStr = 'markets,aggregate'
   let marketConcurrency = Math.max(1, os.cpus().length - 1)
   let aggregateConcurrency = 1
-  let workerName = `${os.hostname()}-${process.pid}`
+  let workerName = defaultWorkerName()
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -117,7 +118,7 @@ async function startHeartbeat(workerName: string): Promise<() => Promise<void>> 
       await conn.hset(
         `backtest:worker:${workerName}`,
         'host',
-        os.hostname(),
+        getWorkerHost(),
         'commitSha',
         getCurrentGitSha(),
       )

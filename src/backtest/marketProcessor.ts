@@ -1,6 +1,6 @@
-import os from 'os'
 import type { Job } from 'bullmq'
 import { runSingleMarket } from './runSingleMarket.js'
+import { getWorkerHost } from './workerIdentity.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
 
 /**
@@ -11,7 +11,7 @@ import type { MarketJobData, MarketJobResult } from './jobTypes.js'
  * the resulting execution metadata for traceability.
  */
 export function makeMarketProcessor(workerName: string) {
-  const workerHost = os.hostname()
+  const workerHost = getWorkerHost()
   return async function marketProcessor(job: Job<MarketJobData>): Promise<MarketJobResult> {
     const data = job.data
     return runSingleMarket({
