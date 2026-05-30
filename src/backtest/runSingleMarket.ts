@@ -53,9 +53,8 @@ export type RunSingleMarketInput = {
    * the parquet may contain out-of-window rows.
    */
   strategyWindow?: { startMs: number; endMs: number } | null
-  /** Provided by the worker process. */
+  /** Display name of the worker process — see `defaultWorkerName()`. */
   workerName: string
-  workerHost: string
   /** Git SHA the worker is running on. Stored in execution metadata. */
   commitSha: string
   /**
@@ -152,7 +151,6 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     const finishedAtMs = Date.now()
     return {
       workerName: input.workerName,
-      workerHost: input.workerHost,
       startedAtMs,
       finishedAtMs,
       durationMs: finishedAtMs - startedAtMs,

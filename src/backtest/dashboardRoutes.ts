@@ -25,7 +25,6 @@ function esc(s: unknown): string {
 
 type WorkerStats = {
   name: string
-  host: string | null
   commitSha: string | null
   heartbeatAgeMs: number | null
   alive: boolean
@@ -88,7 +87,6 @@ async function listWorkers(): Promise<WorkerStats[]> {
 
     results.push({
       name,
-      host: hash.host ?? null,
       commitSha: hash.commitSha ?? null,
       heartbeatAgeMs,
       alive: heartbeatAgeMs !== null && heartbeatAgeMs < 30_000,
@@ -379,12 +377,11 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       .map(
         (w) => `
         <tr>
-          <td>${w.name}</td>
-          <td>${w.host ?? ''}</td>
+          <td><code>${esc(w.name)}</code></td>
           <td class="${w.alive ? 'alive' : 'dead'}">${w.alive ? '● alive' : '○ stale'}</td>
           <td>${w.processedTotal}</td>
           <td>${w.eventsTotal.toLocaleString()}</td>
-          <td>${w.lastMarket ?? ''}</td>
+          <td><code>${esc(w.lastMarket ?? '')}</code></td>
           <td>${w.heartbeatAgeMs !== null ? Math.round(w.heartbeatAgeMs / 1000) + 's' : '—'}</td>
         </tr>`,
       )
@@ -393,7 +390,7 @@ export async function registerDashboardRoutes(app: FastifyInstance): Promise<voi
       <div class="card">
         <table>
           <thead>
-            <tr><th>name</th><th>host</th><th>state</th><th>processed</th><th>events</th><th>last market</th><th>last hb</th></tr>
+            <tr><th>name</th><th>state</th><th>processed</th><th>events</th><th>last market</th><th>last hb</th></tr>
           </thead>
           <tbody>${rows}</tbody>
         </table>

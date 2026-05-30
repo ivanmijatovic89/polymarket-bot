@@ -1,17 +1,16 @@
 import type { Job } from 'bullmq'
 import { runSingleMarket } from './runSingleMarket.js'
-import { getWorkerHost } from './workerIdentity.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
 
 /**
  * BullMQ processor for the market queue.
  *
- * Pulls the worker identity from the env/hostname so the producer never needs
- * to know who will pick up the job. The producer's commitSha is preserved on
- * the resulting execution metadata for traceability.
+ * The producer never needs to know which worker will pick up the job —
+ * the worker identity is bound at processor construction time and the
+ * producer's commitSha is preserved on the execution metadata for
+ * traceability.
  */
 export function makeMarketProcessor(workerName: string) {
-  const workerHost = getWorkerHost()
   return async function marketProcessor(job: Job<MarketJobData>): Promise<MarketJobResult> {
     const data = job.data
     return runSingleMarket({
@@ -28,7 +27,6 @@ export function makeMarketProcessor(workerName: string) {
       latency: data.latency,
       strategyWindow: data.strategyWindow,
       workerName,
-      workerHost,
       commitSha: data.commitSha,
     })
   }

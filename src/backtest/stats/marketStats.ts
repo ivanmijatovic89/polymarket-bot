@@ -7,10 +7,13 @@ export type TradeEvent = Fill
  * Execution metadata captured per-market by `runSingleMarket`.
  * Records which worker processed the market, timing, and replay event counts.
  * Visible in the dashboard per-market view; not used in aggregation math.
+ *
+ * `workerName` is the full identifier — for distributed setups give workers
+ * a meaningful `--worker-name` (e.g. `mac`, `brat-pc`) and the per-child
+ * suffix `#<i>` plus pid uniquely identifies each process.
  */
 export type MarketExecutionMeta = {
   workerName: string
-  workerHost: string
   startedAtMs: number
   finishedAtMs: number
   durationMs: number

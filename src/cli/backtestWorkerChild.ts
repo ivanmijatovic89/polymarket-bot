@@ -9,7 +9,7 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
-import { defaultWorkerName, getWorkerHost } from '../backtest/workerIdentity.js'
+import { defaultWorkerName } from '../backtest/workerIdentity.js'
 
 /**
  * Single-concurrency market worker meant to be forked N times by
@@ -56,13 +56,7 @@ async function startHeartbeat(workerName: string): Promise<() => Promise<void>> 
   const write = async (): Promise<void> => {
     try {
       await conn.set(`backtest:worker:${workerName}:heartbeat`, String(Date.now()), 'EX', 60)
-      await conn.hset(
-        `backtest:worker:${workerName}`,
-        'host',
-        getWorkerHost(),
-        'commitSha',
-        getCurrentGitSha(),
-      )
+      await conn.hset(`backtest:worker:${workerName}`, 'commitSha', getCurrentGitSha())
     } catch {
       /* best-effort */
     }

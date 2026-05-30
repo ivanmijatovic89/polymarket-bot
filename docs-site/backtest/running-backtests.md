@@ -195,7 +195,6 @@ bit-identical verification against the BullMQ path.
 | `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
 | `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
 | `DASHBOARD_PORT`                         | `3001`                   | Port for `npm run backtest:dashboard`. Override when running alongside the webui.                                               |
-| `BACKTEST_WORKER_HOST`                   | `os.hostname()`          | Display name the worker reports to the dashboard and stores in `MarketStats.execution.workerHost`. Override when you don't want to change the system hostname (e.g. set to `mac` instead of `Ivans-MacBook-Pro-2.local`). |
 
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.

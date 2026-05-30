@@ -106,16 +106,15 @@ work it did. Populated by `runSingleMarket` and persisted inside the same
 Legacy rows written before PR1 don't have this field — that's expected and
 fully backward-compatible.
 
-| Field                        | Type                     | Description                                                                                                              |
-| ---------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------ |
-| `execution.workerName`       | `string`                 | The worker daemon's `--worker-name` (default `<hostname>-<pid>`), or `sequential-<pid>` for `--sequential` runs.          |
-| `execution.workerHost`       | `string`                 | `os.hostname()` of the machine that processed the market.                                                                |
-| `execution.startedAtMs`      | `number`                 | Unix ms when the worker pulled the job from the queue (or entered the in-process loop body).                             |
-| `execution.finishedAtMs`     | `number`                 | Unix ms when the worker returned its result.                                                                             |
-| `execution.durationMs`       | `number`                 | `finishedAtMs - startedAtMs`. Wall-clock for the replay + collection.                                                    |
-| `execution.eventsProcessed`  | `number`                 | Total replayed snapshot events for the market (book + price_change).                                                     |
-| `execution.eventsByType`     | `Record<string, number>` | Per-event-type histogram, e.g. `{ book: 60, price_change: 14568 }`.                                                      |
-| `execution.commitSha`        | `string`                 | The git SHA the worker was on when it processed the job. Useful for tying results to a specific code version.            |
+| Field                       | Type                     | Description                                                                                                                                                                                                            |
+| --------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `execution.workerName`      | `string`                 | The full worker identifier — the supervisor's `--worker-name` (default `${os.hostname()}-${pid}`) plus `#<childId>` for the BullMQ child that processed the job, or `sequential-<pid>` for `--sequential` in-process runs. |
+| `execution.startedAtMs`     | `number`                 | Unix ms when the worker pulled the job from the queue (or entered the in-process loop body).                                                                                                                           |
+| `execution.finishedAtMs`    | `number`                 | Unix ms when the worker returned its result.                                                                                                                                                                           |
+| `execution.durationMs`      | `number`                 | `finishedAtMs - startedAtMs`. Wall-clock for the replay + collection.                                                                                                                                                  |
+| `execution.eventsProcessed` | `number`                 | Total replayed snapshot events for the market (book + price_change).                                                                                                                                                   |
+| `execution.eventsByType`    | `Record<string, number>` | Per-event-type histogram, e.g. `{ book: 60, price_change: 14568 }`.                                                                                                                                                    |
+| `execution.commitSha`       | `string`                 | The git SHA the worker was on when it processed the job. Useful for tying results to a specific code version.                                                                                                          |
 
 ## Example
 
@@ -138,8 +137,7 @@ fully backward-compatible.
   "splitCost": 0.0,
   "intentMeta": [{ "label": "entry", "triggerPrice": 0.48 }],
   "execution": {
-    "workerName": "Ivans-MacBook-Pro-2.local-12345",
-    "workerHost": "Ivans-MacBook-Pro-2.local",
+    "workerName": "Ivans-MacBook-Pro-2.local-12345#3",
     "startedAtMs": 1780142882515,
     "finishedAtMs": 1780142883710,
     "durationMs": 1195,

@@ -81,8 +81,7 @@ Every market job now reports its own `execution` metadata, stored in the same
 
 ```ts
 marketStats[i].execution = {
-  workerName: "Ivans-MacBook-Pro-2.local-12345",
-  workerHost: "Ivans-MacBook-Pro-2.local",
+  workerName: "Ivans-MacBook-Pro-2.local-12345#3",
   startedAtMs: 1780142882515,
   finishedAtMs: 1780142883710,
   durationMs: 1195,
