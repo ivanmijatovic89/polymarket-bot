@@ -5,9 +5,22 @@ description: How to replay recorded Parquet files through strategy logic to eval
 
 # Running Backtests
 
-The backtest CLI replays Parquet files through the exact same `MarketEngine` and `StrategyRunner` code used for live trading. Each 15-minute market episode is replayed sequentially; the strategy receives identical tick-by-tick snapshots to what it would see in production.
+The backtest CLI replays Parquet files through the exact same `MarketEngine`
+and `StrategyRunner` code used for live trading. Each 15-minute market episode
+runs in full isolation (fresh `Runner` / `Portfolio` / `OrderManager`) and the
+strategy receives identical tick-by-tick snapshots to what it would see in
+production.
 
-After a run, per-market statistics, batch-level aggregates, and chunked batch statistics are written to the database automatically.
+By default the producer enqueues every market as a child job in a BullMQ
+**FlowProducer** flow and a worker daemon processes them in parallel across
+your CPU cores. The aggregate parent job sorts the results back into the
+original input order before computing batch-level statistics, so any
+streak/chunk math is byte-equal to the sequential baseline. See the
+[Parallelization](./parallelization.md) page for the full architecture, the
+worker/dashboard setup, and the bit-identical verification protocol.
+
+After a run, per-market statistics, batch-level aggregates, and chunked batch
+statistics are written to the database automatically.
 
 ## Input modes
 
@@ -26,6 +39,12 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
 - Node.js v20
 - A populated `markets` table (run `npm run db:insert-parquet` to seed from existing Parquet filenames)
 - At least one Parquet file under `data/events/<symbol>/`
+- For the **default** (BullMQ) execution path:
+  - Redis running locally (`brew services start redis`)
+  - At least one worker daemon up (`npm run backtest:worker`)
+  - Optional dashboard (`npm run backtest:dashboard` → http://127.0.0.1:3001)
+- Pass `--sequential` if you'd rather skip the worker daemon and run the loop
+  in-process (see [Execution modes](#execution-modes) below).
 
 ## File Selection Modes
 
@@ -118,14 +137,63 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | `--batchUid <uuid>` | Override the auto-generated batch UUID. Useful when grouping multiple runs under one identifier. |
 | `--baselineId <id>` | Reference a prior run for comparison purposes.                                                   |
 
+### Execution mode
+
+| Flag           | Description                                                                                                                                                                                                          |
+| -------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `--sequential` | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).            |
+| `--detach`     | (BullMQ default only.) Enqueue the flow, print the `batchUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch in the dashboard.               |
+
+## Execution modes
+
+The same command supports three modes; behavior is identical for math
+purposes (verified bit-identical with `BACKTEST_LATENCY_JITTER=0`) — they
+differ only in how the per-market work is dispatched.
+
+### Default — BullMQ (parallel, durable)
+
+```bash
+npm run backtest -- --strategy MyStrategy.v1 --symbol btc --limit 200
+```
+
+Producer pre-resolves every market, enqueues one aggregate parent + N market
+children, streams progress from the queue, and blocks until the aggregator
+writes the final row to MySQL. Ctrl+C **detaches** from the live view; the
+batch keeps running in the queue and can be re-attached from the dashboard.
+
+Requires the [worker daemon](./parallelization.md#worker-daemon) and Redis
+to be running.
+
+### Fire-and-forget — `--detach`
+
+```bash
+npm run backtest -- --strategy MyStrategy.v1 --symbol btc --limit 3000 --detach
+```
+
+Producer enqueues the flow and exits in a couple of seconds. The aggregator
+worker writes the row to MySQL when the children settle. The dashboard
+(http://127.0.0.1:3001) is the canonical place to watch progress.
+
+### Sequential — `--sequential`
+
+```bash
+npm run backtest -- --strategy MyStrategy.v1 --symbol btc --limit 10 --sequential
+```
+
+Runs the per-market loop in-process. No Redis, no worker daemon, no
+parallelism. Useful for quick smoke tests, baseline runs, or
+bit-identical verification against the BullMQ path.
+
 ## Environment Variables
 
-| Variable                                 | Default | Description                                                                                                                     |
-| ---------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `BACKTEST_LATENCY_DELAY`                 | `0`     | Simulated round-trip latency in milliseconds applied to every order action (place, cancel).                                     |
-| `BACKTEST_LATENCY_JITTER`                | `20`    | Symmetric random jitter in milliseconds added to each latency delay. Only applied when `BACKTEST_LATENCY_DELAY > 0`.            |
-| `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —       | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
-| `INITIAL_CAPITAL`                        | `1000`  | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
+| Variable                                 | Default                  | Description                                                                                                                     |
+| ---------------------------------------- | ------------------------ | ------------------------------------------------------------------------------------------------------------------------------- |
+| `BACKTEST_LATENCY_DELAY`                 | `0`                      | Simulated round-trip latency in milliseconds applied to every order action (place, cancel).                                     |
+| `BACKTEST_LATENCY_JITTER`                | `20`                     | Symmetric random jitter in milliseconds added to each latency delay. Only applied when `BACKTEST_LATENCY_DELAY > 0`.            |
+| `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
+| `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
+| `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
+| `DASHBOARD_PORT`                         | `3001`                   | Port for `npm run backtest:dashboard`. Override when running alongside the webui.                                               |
 
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.

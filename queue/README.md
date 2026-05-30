@@ -72,12 +72,18 @@ chmod +x queue/run-queue.sh
 
 ### Set parallelism
 
-Default is **4** parallel jobs. Change it with:
+Default is **1** parallel job. Each `npm run backtest` now uses its own
+in-batch BullMQ worker pool (see [Backtest Parallelization](../docs-site/backtest/parallelization.md))
+and saturates all available cores by itself — running multiple batches
+side-by-side here would just oversubscribe the CPU.
+
+Override with `--jobs N` if you're queueing `--sequential` batches or
+single-market jobs that don't benefit from BullMQ:
 
 ```bash
-./queue/run-queue.sh --jobs 8
+./queue/run-queue.sh --jobs 4
 # or:
-./queue/run-queue.sh -j 8
+./queue/run-queue.sh -j 4
 ```
 
 ### Enable batch stdout/stderr logs (optional)
