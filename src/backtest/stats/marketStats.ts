@@ -3,6 +3,22 @@ import { computePolymarketTakerFee } from '../../trading/fees.js'
 
 export type TradeEvent = Fill
 
+/**
+ * Execution metadata captured per-market by `runSingleMarket`.
+ * Records which worker processed the market, timing, and replay event counts.
+ * Visible in the dashboard per-market view; not used in aggregation math.
+ */
+export type MarketExecutionMeta = {
+  workerName: string
+  workerHost: string
+  startedAtMs: number
+  finishedAtMs: number
+  durationMs: number
+  eventsProcessed: number
+  eventsByType: Record<string, number>
+  commitSha: string
+}
+
 export type MarketStats = {
   marketId: string
   slug: string
@@ -30,6 +46,12 @@ export type MarketStats = {
    *   but strategy had no in-window trades/positions.
    */
   skipReason?: 'no_in_window_activity'
+  /**
+   * Optional execution metadata. Populated by `runSingleMarket`.
+   * Not present on legacy/historical rows; not used by `computeBatchStats`
+   * or `computeChunkedBatchStats` (those operate purely on outcome/pnl/trades).
+   */
+  execution?: MarketExecutionMeta
 }
 
 /**

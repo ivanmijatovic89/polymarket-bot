@@ -1,18 +1,11 @@
 import '../config/env.js'
+import os from 'os'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
-import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
-import { StrategyRunner } from '../trading/StrategyRunner.js'
-import { OrderManager } from '../trading/OrderManager.js'
-import { BacktestExecution } from '../trading/execution/BacktestExecution.js'
-import { PluginSet } from '../strategy/plugins/PluginSet.js'
-import { getStrategyDefinition } from '../strategy/strategyRegistry.js'
-import type { Strategy } from '../strategy/Strategy.js'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
-import { computeMarketStats } from '../backtest/stats/marketStats.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
@@ -22,7 +15,7 @@ import {
   type MarketResolution,
 } from '../backtest/stats/marketResolution.js'
 import { getMarketResolution as getTelonexMarketResolution } from '../backtest/stats/telonexMarketResolution.js'
-import type { Fill, PositionsSplit } from '../strategy/Strategy.js'
+import { runSingleMarket } from '../backtest/runSingleMarket.js'
 import { Timer } from '../utils/timer.js'
 import { closeDb } from '../db/index.js'
 import {
@@ -42,12 +35,6 @@ import {
 import { insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
-import { replayTelonexDeltaParquetForMarket } from '../parquet/replay/replayTelonexDeltaParquetForMarket.js'
-import { replayTelonexPairedParquetForMarket } from '../parquet/replay/replayTelonexPairedParquetForMarket.js'
-import {
-  replayOrderBookForMarket,
-  type ReplayApplyEvent,
-} from '../parquet/replay/replayOrderBookForMarket.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
 
@@ -351,57 +338,6 @@ async function main(): Promise<void> {
   let events = 0
   const byType = new Map<string, number>()
 
-  const mkRunner = (opts?: {
-    getMarket?: () => GammaMarketMeta | undefined
-  }): {
-    strategy: Strategy
-    runner: StrategyRunner
-  } => {
-    const def = getStrategyDefinition(built.strategyId)
-    const builtStrategy = def.create(built.params as never)
-    const strategy = builtStrategy.strategy
-    const pluginSet = (() => {
-      if (builtStrategy.pluginSet) return builtStrategy.pluginSet
-      if (Array.isArray(builtStrategy.plugins) && builtStrategy.plugins.length > 0) {
-        const s = new PluginSet()
-        for (const p of builtStrategy.plugins) s.register(p)
-        return s
-      }
-      return undefined
-    })()
-    const latencyMs = Math.max(
-      0,
-      Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0),
-    )
-    const jitterMs = Math.max(
-      0,
-      Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0),
-    )
-
-    const exec = new BacktestExecution({
-      latencyMs,
-      jitterMs: latencyMs > 0 ? jitterMs : 0,
-      cancelLatency: true,
-      makerFillMode: 'worst_queue',
-    })
-    const orderManager = new OrderManager({
-      execution: exec,
-      dryRun: false,
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
-    const runner = new StrategyRunner({
-      strategyId: built.strategyId,
-      strategyParams: built.params as Record<string, unknown>,
-      strategy,
-      orderManager,
-      intentExecutionMode: 'immediate',
-      ...(pluginSet ? { pluginSet } : {}),
-      ...(opts?.getMarket ? { getMarket: opts.getMarket } : {}),
-      log: (msg, extra) => console.log(msg, extra ?? ''),
-    })
-    return { strategy, runner }
-  }
-
   console.log(`[backtest] strategy=${built.strategyId}`)
 
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
@@ -411,6 +347,15 @@ async function main(): Promise<void> {
   const backtestStartMs = Date.now()
   let completedMarkets = 0
   let completedMarketsMsTotal = 0
+
+  const workerHost = os.hostname()
+  const workerName = `sequential-${process.pid}`
+  // PR1 keeps execution metadata local; PR2 replaces these with actual worker
+  // identity + git SHA from BullMQ job payload.
+  const commitSha = ''
+
+  const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
+  const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
   for (let idx = 0; idx < filePaths.length; idx += 1) {
     const fp = filePaths[idx]!
@@ -511,130 +456,49 @@ async function main(): Promise<void> {
       return { startMs, endMs: startMs + durationMs }
     })()
 
-    const active = mkRunner({ getMarket: () => marketMeta })
-    const runner = active.runner
+    const result = await runSingleMarket({
+      idx,
+      filePath: fp,
+      slug,
+      marketMeta,
+      marketResolution,
+      strategyId: built.strategyId,
+      strategyParams: built.params as Record<string, unknown>,
+      inputMode: parsed.inputMode,
+      order: parsed.order,
+      timeDriven: parsed.timeDriven,
+      latency: { delayMs: latencyMs, jitterMs },
+      strategyWindow,
+      workerName,
+      workerHost,
+      commitSha,
+      shouldStop: () => shouldStop,
+    })
 
-    let currentMarketId: string | undefined
-    const currentMarketTrades: Fill[] = []
-    const seenFillIds = new Set<string>()
-    const currentMarketSplits: PositionsSplit[] = []
-    const seenSplitIds = new Set<string>()
-
-    const onSnapshot = async (snap: MarketOrderBooksSnapshot, raw: ReplayApplyEvent) => {
-      if (shouldStop) return
-      events += 1
-      byType.set(raw.msg.event_type, (byType.get(raw.msg.event_type) ?? 0) + 1)
-
-      if (!currentMarketId) {
-        currentMarketId = snap.market
-      }
-
-      if (strategyWindow) {
-        const ts = snap.timestamp
-        if (!Number.isFinite(ts) || ts < strategyWindow.startMs || ts > strategyWindow.endMs) {
-          return
-        }
-      }
-
-      await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
-
-      if (currentMarketId) {
-        const portfolio = runner.getPortfolio().snapshot()
-        for (const fill of portfolio.recentFills) {
-          if (fill.market === currentMarketId && !seenFillIds.has(fill.id)) {
-            const orderMeta = fill.clientOrderId
-              ? portfolio.ordersByClientId[fill.clientOrderId]?.meta
-              : undefined
-            currentMarketTrades.push(orderMeta ? { ...fill, intentMeta: orderMeta } : fill)
-            seenFillIds.add(fill.id)
-          }
-        }
-        for (const s of portfolio.recentSplits ?? []) {
-          if (s.market === currentMarketId && !seenSplitIds.has(s.id)) {
-            currentMarketSplits.push(s)
-            seenSplitIds.add(s.id)
-          }
-        }
-      }
+    events += result.eventsProcessed
+    for (const [t, c] of Object.entries(result.eventsByType)) {
+      byType.set(t, (byType.get(t) ?? 0) + c)
     }
 
-    if (parsed.inputMode === 'telonex-paired') {
-      await replayTelonexPairedParquetForMarket({
-        filePath: fp,
-        shouldStop: () => shouldStop,
-        onSnapshot,
-      })
-    } else if (parsed.inputMode === 'telonex-delta') {
-      await replayTelonexDeltaParquetForMarket({
-        filePath: fp,
-        shouldStop: () => shouldStop,
-        onSnapshot,
-      })
-    } else {
-      await replayOrderBookForMarket({
-        filePaths: [fp],
-        order: parsed.order,
-        timeDriven: parsed.timeDriven,
-        shouldStop: () => shouldStop,
-        onSnapshot,
-      })
-    }
-
-    if (slug && currentMarketId && marketResolution) {
-      const portfolio = runner.getPortfolio().snapshot()
-      const finalPositions = portfolio.positionsByAssetId
-      const realizedPnl = portfolio.realizedPnlTotal ?? 0
-
-      const upAssetId = marketResolution.tokenMap['UP']
-      const downAssetId = marketResolution.tokenMap['DOWN']
-      const hasPositions =
-        (upAssetId && finalPositions[upAssetId] && finalPositions[upAssetId]!.qty > 0) ||
-        (downAssetId && finalPositions[downAssetId] && finalPositions[downAssetId]!.qty > 0)
-
-      if ((hasPositions || currentMarketTrades.length > 0) && marketResolution.outcome !== null) {
-        const stats = computeMarketStats({
-          marketId: currentMarketId,
-          slug,
-          trades: currentMarketTrades,
-          splits: currentMarketSplits,
-          finalPositions,
-          realizedPnl,
-          finalOutcome: marketResolution.outcome,
-          tokenMap: marketResolution.tokenMap,
-        })
-
-        marketStats.push(stats)
-        const pnlColor = stats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
+    if (result.marketStats) {
+      marketStats.push(result.marketStats)
+      if (result.skipReason === 'no_activity') {
+        console.log(
+          `[backtest] market=${result.marketStats.marketId} slug=${slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=0 (no in-window positions/trades)`,
+        )
+      } else {
+        const pnlColor = result.marketStats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
         const resetColor = '\x1b[0m'
         console.log(
-          `${pnlColor}[backtest] market=${currentMarketId} slug=${slug} outcome=${stats.finalOutcome} pnl=${stats.pnl} trades=${stats.tradeCount}${resetColor}`,
-        )
-      } else if (marketResolution.outcome === null) {
-        console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
-      } else {
-        // Keep market denominator stable across modes/runs: emit explicit 0-trade market stats.
-        const zeroStats = computeMarketStats({
-          marketId: currentMarketId,
-          slug,
-          trades: [],
-          splits: currentMarketSplits,
-          finalPositions,
-          realizedPnl,
-          finalOutcome: marketResolution.outcome,
-          tokenMap: marketResolution.tokenMap,
-        })
-        marketStats.push({
-          ...zeroStats,
-          skipReason: 'no_in_window_activity',
-        })
-        console.log(
-          `[backtest] market=${currentMarketId} slug=${slug} outcome=${zeroStats.finalOutcome} pnl=${zeroStats.pnl} trades=0 (no in-window positions/trades)`,
+          `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
         )
       }
-    } else if (!slug) {
+    } else if (result.skipReason === 'no_slug') {
       console.warn(`[backtest] Could not parse slug from filename: ${fp}, skipping stats`)
-    } else if (!marketResolution) {
+    } else if (result.skipReason === 'no_resolution') {
       console.warn(`[backtest] Could not get market resolution for slug: ${slug}, skipping stats`)
+    } else if (result.skipReason === 'unresolved_outcome') {
+      console.warn(`[backtest] Market not resolved yet for slug: ${slug}, skipping stats`)
     }
 
     const marketElapsedMs = Date.now() - marketStartMs
