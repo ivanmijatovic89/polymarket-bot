@@ -755,39 +755,55 @@ async function main(): Promise<void> {
   marketEvents.on('completed', onCompleted)
   marketEvents.on('failed', onFailed)
 
-  // Allow Ctrl+C to detach without killing the queue.
+  // Allow Ctrl+C to *actually* detach: race the live wait against a promise
+  // that resolves the first time SIGINT fires, then exit the process so the
+  // user gets their shell back. The batch keeps running because workers
+  // poll Redis independently of this producer.
   let detachedByUser = false
-  const detachHandler = (): void => {
-    detachedByUser = true
-    const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
-    console.log(
-      `\n[backtest] SIGINT: detaching from batch ${batchUid}. ` +
-        `Workers continue in background; resume at http://127.0.0.1:${dashboardPort}/`,
-    )
-  }
-  process.once('SIGINT', detachHandler)
+  const detachPromise = new Promise<'detached'>((resolveDetach) => {
+    const handler = (): void => {
+      detachedByUser = true
+      const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
+      console.log(
+        `\n[backtest] SIGINT: detaching from batch ${batchUid}. ` +
+          `Workers continue in background; resume at http://127.0.0.1:${dashboardPort}/`,
+      )
+      resolveDetach('detached')
+    }
+    process.once('SIGINT', handler)
+    process.once('SIGTERM', handler)
+  })
 
   try {
-    const aggResult = await node.job.waitUntilFinished(aggregateEvents)
-    const r = aggResult as { totalSucceeded: number; totalFailed: number; totalSkipped: number }
-    console.log(
-      `[backtest] aggregator done: succeeded=${r.totalSucceeded} failed=${r.totalFailed} skipped=${r.totalSkipped}`,
-    )
+    const outcome = await Promise.race([
+      node.job.waitUntilFinished(aggregateEvents).then((r) => ({ kind: 'done' as const, r })),
+      detachPromise.then(() => ({ kind: 'detached' as const })),
+    ])
+
+    if (outcome.kind === 'done') {
+      const r = outcome.r as { totalSucceeded: number; totalFailed: number; totalSkipped: number }
+      console.log(
+        `[backtest] aggregator done: succeeded=${r.totalSucceeded} failed=${r.totalFailed} skipped=${r.totalSkipped}`,
+      )
+    }
   } catch (err) {
-    if (detachedByUser) {
-      // user opted out; queue continues
-    } else {
+    if (!detachedByUser) {
       console.error('[backtest] aggregator failed:', err)
     }
   } finally {
     marketEvents.off('active', onActive)
     marketEvents.off('completed', onCompleted)
     marketEvents.off('failed', onFailed)
-    await marketEvents.close()
-    await aggregateEvents.close()
+    // Close listeners eagerly so the event loop can drain.
+    await Promise.allSettled([marketEvents.close(), aggregateEvents.close()])
     await closeRedisConnection()
     await closeDb()
     console.log('\n[backtest] timer', timer.summary())
+    if (detachedByUser) {
+      // Hard-exit so any lingering ioredis reconnect timers or BullMQ
+      // background polls don't keep us alive past the user's Ctrl+C.
+      process.exit(0)
+    }
   }
 }
 

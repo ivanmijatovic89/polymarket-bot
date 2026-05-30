@@ -1,16 +1,16 @@
 import '../config/env.js'
 import os from 'os'
-import { execSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { execSync, fork, type ChildProcess } from 'node:child_process'
 import { Worker } from 'bullmq'
 import { requireEnv } from '../config/env.js'
 import {
   AGGREGATE_QUEUE,
-  MARKET_QUEUE,
   WORKER_OPTS,
   closeRedisConnection,
   getRedisConnection,
 } from '../backtest/queue.js'
-import { makeMarketProcessor } from '../backtest/marketProcessor.js'
 import { aggregateProcessor } from '../backtest/aggregateProcessor.js'
 
 type Queues = 'markets' | 'aggregate'
@@ -108,25 +108,6 @@ async function pingRedis(): Promise<void> {
   }
 }
 
-async function recordWorkerStats(
-  workerName: string,
-  result: { eventsProcessed: number } | null | undefined,
-  slug: string | null,
-): Promise<void> {
-  const conn = getRedisConnection()
-  const events = result?.eventsProcessed ?? 0
-  try {
-    const pipe = conn.pipeline()
-    pipe.hincrby(`backtest:worker:${workerName}`, 'processedTotal', 1)
-    if (events > 0) pipe.hincrby(`backtest:worker:${workerName}`, 'eventsTotal', events)
-    if (slug) pipe.hset(`backtest:worker:${workerName}`, 'lastMarket', slug)
-    pipe.hset(`backtest:worker:${workerName}`, 'lastFinishedAt', String(Date.now()))
-    await pipe.exec()
-  } catch {
-    // best-effort; never fail a job because we couldn't update stats
-  }
-}
-
 async function startHeartbeat(workerName: string): Promise<() => Promise<void>> {
   const conn = getRedisConnection()
   const interval = 5000
@@ -156,15 +137,79 @@ async function startHeartbeat(workerName: string): Promise<() => Promise<void>> 
   }
 }
 
+/**
+ * Resolves the path to `backtestWorkerChild.ts` next to this file.
+ * Works under both tsx (source) and a compiled dist layout.
+ */
+function resolveChildScriptPath(): string {
+  const here = path.dirname(fileURLToPath(import.meta.url))
+  // tsx serves from `src/cli/`; compiled output sits in `dist/cli/` — same dirname relative.
+  return path.join(here, 'backtestWorkerChild.ts')
+}
+
+/**
+ * Fork N single-concurrency market worker children. Each child is its own
+ * Node process with its own event loop, so CPU-bound replay work runs in
+ * parallel across N cores.
+ *
+ * Returns disposers + a shutdown hook the supervisor calls on SIGINT/SIGTERM.
+ */
+function spawnMarketChildren(args: { count: number; workerName: string }): {
+  children: ChildProcess[]
+  shutdown: (signal: NodeJS.Signals) => Promise<void>
+} {
+  const childScript = resolveChildScriptPath()
+  // tsx is the loader used by `npm run` scripts; we re-use the same interpreter
+  // for children so TypeScript files resolve identically.
+  const tsxBin = path.resolve(process.cwd(), 'node_modules/.bin/tsx')
+
+  const children: ChildProcess[] = []
+  for (let i = 0; i < args.count; i += 1) {
+    const child = fork(childScript, ['--worker-name', args.workerName, '--child-id', String(i)], {
+      execPath: tsxBin,
+      env: process.env,
+      stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+    })
+    child.on('exit', (code, signal) => {
+      console.warn(
+        `[worker=${args.workerName}] child#${i} exited code=${code} signal=${signal ?? ''}`,
+      )
+    })
+    children.push(child)
+  }
+
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+    for (const child of children) {
+      try {
+        child.kill(signal)
+      } catch {
+        /* ignore */
+      }
+    }
+    // Wait up to 30s for graceful drain, then SIGKILL stragglers.
+    const deadline = Date.now() + 30_000
+    while (children.some((c) => c.exitCode === null && !c.killed) && Date.now() < deadline) {
+      await new Promise((r) => setTimeout(r, 200))
+    }
+    for (const child of children) {
+      if (child.exitCode === null) {
+        try {
+          child.kill('SIGKILL')
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+  }
+
+  return { children, shutdown }
+}
+
 async function main(): Promise<void> {
   checkNodeVersion()
   const args = parseArgs()
 
-  // REDIS_URL is the only hard requirement; aggregate workers additionally
-  // need DATABASE_* but the existing env loader already handles that via
-  // src/db/index.ts when the aggregate processor first runs.
   requireEnv(['REDIS_URL'])
-
   await pingRedis()
 
   console.log(
@@ -174,41 +219,36 @@ async function main(): Promise<void> {
   )
 
   const stopHeartbeat = await startHeartbeat(args.workerName)
-  const workers: Worker[] = []
+  const inProcessWorkers: Worker[] = []
+  let marketChildren: {
+    children: ChildProcess[]
+    shutdown: (s: NodeJS.Signals) => Promise<void>
+  } | null = null
 
   if (args.queues.has('markets')) {
-    const processor = makeMarketProcessor(args.workerName)
-    const w = new Worker(
-      MARKET_QUEUE,
-      async (job) => {
-        const result = await processor(job)
-        await recordWorkerStats(args.workerName, result, result.slug)
-        return result
-      },
-      {
-        connection: getRedisConnection(),
-        concurrency: args.marketConcurrency,
-        ...WORKER_OPTS,
-      },
+    // Each child is a fully separate Node process running its own
+    // single-concurrency BullMQ Worker. N children -> N cores of real CPU
+    // parallelism (BullMQ `concurrency: N` in a single process only gives
+    // event-loop concurrency, which serializes CPU-bound work).
+    marketChildren = spawnMarketChildren({
+      count: args.marketConcurrency,
+      workerName: args.workerName,
+    })
+    console.log(
+      `[worker=${args.workerName}] spawned ${marketChildren.children.length} market child process(es)`,
     )
-    w.on('failed', (job, err) => {
-      console.warn(
-        `[worker=${args.workerName}] failed jobId=${job?.id ?? '?'} attempt=${job?.attemptsMade ?? '?'} err=${err.message}`,
-      )
-    })
-    w.on('error', (err) => {
-      console.error(`[worker=${args.workerName}] market worker error:`, err.message)
-    })
-    workers.push(w)
   }
 
   if (args.queues.has('aggregate')) {
+    // Aggregate work is I/O-bound (Redis getChildrenValues + one big MySQL
+    // insert) and serial by design (concurrency 1). Running it in-process is
+    // fine and avoids another forked Node.
     const w = new Worker(AGGREGATE_QUEUE, aggregateProcessor, {
       connection: getRedisConnection(),
       concurrency: args.aggregateConcurrency,
       ...WORKER_OPTS,
     })
-    w.on('completed', (job, result) => {
+    w.on('completed', (_job, result) => {
       const r = result as { batchUid?: string; totalSucceeded?: number; totalFailed?: number }
       console.log(
         `[worker=${args.workerName}] aggregate done batchUid=${r?.batchUid ?? '?'}` +
@@ -223,16 +263,19 @@ async function main(): Promise<void> {
     w.on('error', (err) => {
       console.error(`[worker=${args.workerName}] aggregate worker error:`, err.message)
     })
-    workers.push(w)
+    inProcessWorkers.push(w)
   }
 
   let shuttingDown = false
-  const shutdown = async (signal: string): Promise<void> => {
+  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
     console.log(`[worker=${args.workerName}] ${signal} received, draining...`)
     await stopHeartbeat()
-    await Promise.allSettled(workers.map((w) => w.close()))
+    await Promise.allSettled([
+      ...inProcessWorkers.map((w) => w.close()),
+      marketChildren ? marketChildren.shutdown(signal) : Promise.resolve(),
+    ])
     await closeRedisConnection()
     process.exit(0)
   }

@@ -133,29 +133,46 @@ Bypasses BullMQ entirely; runs the loop in-process. Useful when:
 
 ## Worker daemon
 
-`npm run backtest:worker` is a small CLI that wires up one or two BullMQ
-`Worker` instances against the shared Redis connection. Useful flags:
+`npm run backtest:worker` runs a small **supervisor** process. For the
+market queue it forks **N single-concurrency child Node processes** via
+`child_process.fork`. Each child has its own event loop, so N children give
+you real CPU parallelism across N cores. The aggregate queue (concurrency 1,
+I/O-bound) runs in-process on the supervisor.
+
+::: warning Why N processes instead of `concurrency: N` on one Worker
+A BullMQ `Worker` with `concurrency: N` runs N async callbacks on **one**
+Node event loop. JavaScript is single-threaded, so CPU-bound replay work
+serializes — `concurrency: 8` looks like 8 parallel jobs to BullMQ but
+only saturates ~1 core. To get real parallelism in Node, you need
+separate processes (or `worker_threads`). The supervisor does the
+former so a single `npm run backtest:worker -- --market-concurrency 8`
+actually uses 8 cores.
+:::
+
+Useful flags:
 
 ```bash
 npm run backtest:worker -- \
   --queues markets,aggregate \   # default; restrict remote machines to "markets"
-  --market-concurrency 7 \       # default: os.cpus().length - 1
-  --aggregate-concurrency 1 \    # default: 1
+  --market-concurrency 8 \       # default: os.cpus().length - 1 (one child per slot)
+  --aggregate-concurrency 1 \    # default: 1 (in-process on supervisor)
   --worker-name my-mac           # default: <hostname>-<pid>
 ```
 
-Aggregator concurrency should almost always be 1: the aggregator finalizes a
-batch with one big MySQL write. Market concurrency should be as close to your
-core count as your other workload allows (we leave one core free by default).
+The supervisor names children `<worker-name>#<child-id>` (e.g. `my-mac#0`,
+`my-mac#1`, …) so the dashboard surfaces each one as its own row with its
+own `processedTotal`, `eventsTotal`, `lastMarket`, and 60-second heartbeat.
 
-The worker writes per-instance stats to Redis hashes
-(`backtest:worker:<name>`) so the dashboard can show `processedTotal`,
-`eventsTotal`, `lastMarket`, `commitSha`, and a 60-second heartbeat key
-(`backtest:worker:<name>:heartbeat`).
+Graceful shutdown:
 
-Graceful shutdown: `SIGINT` / `SIGTERM` cause `worker.close()` to wait for
-in-flight jobs (up to the BullMQ `lockDuration`, currently 10 minutes) before
-exiting. pm2 / systemd should give it at least 30 seconds of `kill_timeout`.
+1. Supervisor catches `SIGINT` / `SIGTERM`, forwards the signal to every
+   child, waits up to 30 seconds, then SIGKILLs stragglers.
+2. Children release the BullMQ blocking poll, close their Redis
+   connection, and exit within ~5 seconds (`process.exit(0)` backstop).
+3. If the supervisor dies first, children detect IPC disconnect and
+   self-exit so they don't orphan.
+
+pm2 / systemd `kill_timeout` should be set to at least 30 seconds.
 
 ## Dashboard
 
