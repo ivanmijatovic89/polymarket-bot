@@ -22,6 +22,19 @@ type WorkerStats = {
   lastFinishedAt: number | null
 }
 
+/**
+ * Workers whose `:heartbeat` key has been gone this long get their hash
+ * deleted on the next listWorkers() call. The heartbeat key carries an
+ * `EX 60` TTL and is written every 5s while the worker lives, so any gap
+ * longer than this grace window is conclusively a dead worker.
+ *
+ * We don't rely on the hash itself having a TTL because BullMQ-style
+ * counters (processedTotal, eventsTotal) need to survive across short
+ * worker restarts within a single run — the per-restart aggregation is
+ * intentional. Only **already-gone** workers get pruned.
+ */
+const STALE_WORKER_GRACE_MS = 5 * 60 * 1000
+
 async function listWorkers(): Promise<WorkerStats[]> {
   const conn = getRedisConnection()
   // SCAN all backtest:worker:* hashes. Heartbeat is stored as a separate key
@@ -40,11 +53,26 @@ async function listWorkers(): Promise<WorkerStats[]> {
 
   const now = Date.now()
   const results: WorkerStats[] = []
+  const toPrune: string[] = []
   for (const name of names) {
     const hash = await conn.hgetall(`backtest:worker:${name}`)
     const hbStr = await conn.get(`backtest:worker:${name}:heartbeat`)
     const hb = hbStr ? Number(hbStr) : null
     const heartbeatAgeMs = hb !== null && Number.isFinite(hb) ? Math.max(0, now - hb) : null
+
+    // Prune: heartbeat is gone (EX 60 expired or worker crashed before exit)
+    // AND we've been showing the worker as stale long enough that any
+    // restart-window grace has passed.
+    if (heartbeatAgeMs === null) {
+      const lastFinishedAt = hash.lastFinishedAt ? Number(hash.lastFinishedAt) : null
+      const ageSinceLastWork =
+        lastFinishedAt !== null && Number.isFinite(lastFinishedAt) ? now - lastFinishedAt : Infinity
+      if (ageSinceLastWork > STALE_WORKER_GRACE_MS) {
+        toPrune.push(name)
+        continue
+      }
+    }
+
     results.push({
       name,
       host: hash.host ?? null,
@@ -57,6 +85,20 @@ async function listWorkers(): Promise<WorkerStats[]> {
       lastFinishedAt: hash.lastFinishedAt ? Number(hash.lastFinishedAt) : null,
     })
   }
+
+  if (toPrune.length > 0) {
+    const pipe = conn.pipeline()
+    for (const name of toPrune) {
+      pipe.del(`backtest:worker:${name}`)
+      pipe.del(`backtest:worker:${name}:heartbeat`)
+    }
+    try {
+      await pipe.exec()
+    } catch {
+      /* best-effort */
+    }
+  }
+
   results.sort((a, b) => a.name.localeCompare(b.name))
   return results
 }
