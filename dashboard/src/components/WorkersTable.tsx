@@ -1,7 +1,11 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Card } from './Card'
+import { Cpu } from 'lucide-react'
+import { Card } from './ui/card'
+import { Badge } from './ui/badge'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
+import { Skeleton } from './ui/skeleton'
 import type { WorkerStats } from '@/lib/queries/workers'
 
 async function fetchWorkers(): Promise<{ workers: WorkerStats[] }> {
@@ -11,52 +15,78 @@ async function fetchWorkers(): Promise<{ workers: WorkerStats[] }> {
 }
 
 export function WorkersTable() {
-  const { data } = useQuery({
+  const { data, isLoading } = useQuery({
     queryKey: ['workers'],
     queryFn: fetchWorkers,
     refetchInterval: 3000,
   })
-  const workers = data?.workers ?? []
-  if (workers.length === 0) {
+
+  if (isLoading) {
     return (
-      <Card>
-        <div className="text-muted text-sm">
-          No workers have reported in yet. Start one with{' '}
-          <code className="font-mono">npm run backtest:worker</code>.
+      <Card className="p-6">
+        <div className="space-y-3">
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-full" />
+          <Skeleton className="h-4 w-3/4" />
         </div>
       </Card>
     )
   }
+  const workers = data?.workers ?? []
+  if (workers.length === 0) {
+    return (
+      <Card className="px-6 py-12 text-center">
+        <Cpu className="mx-auto h-10 w-10 text-muted-foreground/40" />
+        <h3 className="mt-3 text-sm font-medium">No workers reported in</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Start one with <code className="font-mono text-foreground">npm run backtest:worker</code>
+        </p>
+      </Card>
+    )
+  }
   return (
-    <Card className="p-0 overflow-hidden">
-      <table className="w-full text-sm">
-        <thead>
-          <tr className="text-muted text-left">
-            <th className="font-medium px-3 py-2">name</th>
-            <th className="font-medium px-3 py-2">state</th>
-            <th className="font-medium px-3 py-2">processed</th>
-            <th className="font-medium px-3 py-2">events</th>
-            <th className="font-medium px-3 py-2">last market</th>
-            <th className="font-medium px-3 py-2">last hb</th>
-          </tr>
-        </thead>
-        <tbody>
+    <Card className="overflow-hidden">
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>Name</TableHead>
+            <TableHead>Status</TableHead>
+            <TableHead className="text-right">Processed</TableHead>
+            <TableHead className="text-right">Events</TableHead>
+            <TableHead>Last market</TableHead>
+            <TableHead className="text-right">Heartbeat</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
           {workers.map((w) => (
-            <tr key={w.name} className="border-t border-border">
-              <td className="px-3 py-2 font-mono">{w.name}</td>
-              <td className={`px-3 py-2 ${w.alive ? 'text-good' : 'text-bad'}`}>
-                {w.alive ? '● alive' : '○ stale'}
-              </td>
-              <td className="px-3 py-2 tabular-nums">{w.processedTotal.toLocaleString()}</td>
-              <td className="px-3 py-2 tabular-nums">{w.eventsTotal.toLocaleString()}</td>
-              <td className="px-3 py-2 font-mono text-xs">{w.lastMarket ?? ''}</td>
-              <td className="px-3 py-2 text-muted">
-                {w.heartbeatAgeMs !== null ? `${Math.round(w.heartbeatAgeMs / 1000)}s` : '—'}
-              </td>
-            </tr>
+            <TableRow key={w.name}>
+              <TableCell className="font-mono text-xs">{w.name}</TableCell>
+              <TableCell>
+                {w.alive ? (
+                  <Badge variant="success">
+                    <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                    alive
+                  </Badge>
+                ) : (
+                  <Badge variant="muted">stale</Badge>
+                )}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {w.processedTotal.toLocaleString()}
+              </TableCell>
+              <TableCell className="text-right tabular-nums text-muted-foreground">
+                {w.eventsTotal.toLocaleString()}
+              </TableCell>
+              <TableCell className="font-mono text-xs text-muted-foreground">
+                {w.lastMarket ?? '—'}
+              </TableCell>
+              <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+                {w.heartbeatAgeMs !== null ? `${Math.round(w.heartbeatAgeMs / 1000)}s ago` : '—'}
+              </TableCell>
+            </TableRow>
           ))}
-        </tbody>
-      </table>
+        </TableBody>
+      </Table>
     </Card>
   )
 }

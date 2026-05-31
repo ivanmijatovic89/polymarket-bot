@@ -1,8 +1,25 @@
 'use client'
 
 import { useQuery } from '@tanstack/react-query'
-import { Card, StatCard } from './Card'
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Clock,
+  Cpu,
+  FileText,
+  Hash,
+  TrendingDown,
+  TrendingUp,
+  Trophy,
+} from 'lucide-react'
+import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Badge } from './ui/badge'
+import { Skeleton } from './ui/skeleton'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { ProgressBar } from './ProgressBar'
+import { SectionHeading } from './SectionHeading'
+import { StatCard } from './StatCard'
+import { cn, formatNumber, formatPnl } from '@/lib/utils'
 
 type ActiveResponse = {
   batchUid: string
@@ -37,11 +54,7 @@ type CompletedResponse = {
       }
     }> | null
     chunkedBatchStats: Record<string, unknown> | null
-    failedMarkets: Array<{
-      idx: number | null
-      slug: string | null
-      reason: string
-    }> | null
+    failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
   }
 }
 
@@ -66,99 +79,126 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
 
   if (isLoading) {
     return (
-      <Card>
-        <div className="text-muted text-sm">Loading…</div>
-      </Card>
+      <div className="space-y-4">
+        <Skeleton className="h-24 w-full" />
+        <Skeleton className="h-48 w-full" />
+      </div>
     )
   }
   if (!data || 'error' in data) {
     return (
-      <Card>
-        <div className="text-muted text-sm">
-          No batch found with batchUid <code className="font-mono">{batchUid}</code>. Either it
-          never existed, or it&apos;s still in the queue and the dashboard can&apos;t see the row
-          yet.
-        </div>
+      <Card className="px-6 py-12 text-center">
+        <AlertTriangle className="mx-auto h-10 w-10 text-muted-foreground/40" />
+        <h3 className="mt-3 text-sm font-medium">Batch not found</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          <span className="font-mono">{batchUid}</span> isn&apos;t in the queue or the database.
+        </p>
       </Card>
     )
   }
-
-  if (data.active) return <ActiveDetail data={data} />
-  return <CompletedDetail data={data} />
+  return data.active ? <ActiveDetail data={data} /> : <CompletedDetail data={data} />
 }
 
 function ActiveDetail({ data }: { data: ActiveResponse }) {
   const failedEntries = Object.entries(data.failedChildrenValues ?? {})
   return (
-    <>
+    <div className="space-y-6">
       <Card>
-        <div className="text-muted text-xs uppercase tracking-wider">Status</div>
-        <div className="flex items-center gap-3 mt-2">
-          <span className="inline-block px-2 py-0.5 rounded-full bg-border text-xs">
-            {data.parentState}
-          </span>
-          <span className="font-semibold">{data.strategy}</span>
-        </div>
-        {data.comment && <p className="text-muted text-sm mt-1">{data.comment}</p>}
-        <div className="my-4">
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="warning">
+              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+              {data.parentState}
+            </Badge>
+            <CardTitle className="text-base">{data.strategy}</CardTitle>
+            {data.comment && (
+              <span className="text-xs text-muted-foreground truncate">— {data.comment}</span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
           <ProgressBar
             total={data.totalMarkets}
             completed={data.completedChildren}
             active={data.activeChildren}
             failed={data.failedChildren}
           />
-        </div>
-        <table className="w-full text-sm mt-4">
-          <thead>
-            <tr className="text-muted text-left">
-              <th className="font-medium px-3 py-2">completed</th>
-              <th className="font-medium px-3 py-2">active</th>
-              <th className="font-medium px-3 py-2">waiting</th>
-              <th className="font-medium px-3 py-2">failed</th>
-              <th className="font-medium px-3 py-2">total</th>
-            </tr>
-          </thead>
-          <tbody>
-            <tr className="border-t border-border">
-              <td className="px-3 py-2 tabular-nums">{data.completedChildren}</td>
-              <td className="px-3 py-2 tabular-nums">{data.activeChildren}</td>
-              <td className="px-3 py-2 tabular-nums">{data.waitingChildren}</td>
-              <td className={`px-3 py-2 tabular-nums ${data.failedChildren > 0 ? 'text-bad' : ''}`}>
-                {data.failedChildren}
-              </td>
-              <td className="px-3 py-2 tabular-nums">{data.totalMarkets}</td>
-            </tr>
-          </tbody>
-        </table>
+          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
+            <MetricMini label="Completed" value={data.completedChildren} tone="success" />
+            <MetricMini label="Active" value={data.activeChildren} tone="warning" />
+            <MetricMini label="Waiting" value={data.waitingChildren} tone="muted" />
+            <MetricMini
+              label="Failed"
+              value={data.failedChildren}
+              tone={data.failedChildren > 0 ? 'destructive' : 'muted'}
+            />
+            <MetricMini label="Total" value={data.totalMarkets} />
+          </div>
+        </CardContent>
       </Card>
 
       {failedEntries.length > 0 && (
-        <>
-          <h3 className="text-base font-semibold mt-6 mb-2">
-            Failed children ({data.failedChildren}
-            {data.failedChildren > failedEntries.length ? `, showing ${failedEntries.length}` : ''})
-          </h3>
-          <Card className="p-0 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted text-left">
-                  <th className="font-medium px-3 py-2">jobId</th>
-                  <th className="font-medium px-3 py-2">reason</th>
-                </tr>
-              </thead>
-              <tbody>
+        <section>
+          <SectionHeading
+            title="Failed children"
+            subtitle={`${data.failedChildren} failed${
+              data.failedChildren > failedEntries.length
+                ? `, showing first ${failedEntries.length}`
+                : ''
+            }`}
+            icon={AlertTriangle}
+          />
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Job ID</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {failedEntries.map(([jobId, reason]) => (
-                  <tr key={jobId} className="border-t border-border">
-                    <td className="px-3 py-2 font-mono text-xs">{jobId}</td>
-                    <td className="px-3 py-2 text-bad">{String(reason).slice(0, 200)}</td>
-                  </tr>
+                  <TableRow key={jobId}>
+                    <TableCell className="font-mono text-xs">{jobId}</TableCell>
+                    <TableCell className="text-destructive text-xs">
+                      {String(reason).slice(0, 200)}
+                    </TableCell>
+                  </TableRow>
                 ))}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </Card>
-        </>
+        </section>
       )}
-    </>
+    </div>
+  )
+}
+
+function MetricMini({
+  label,
+  value,
+  tone = 'default',
+}: {
+  label: string
+  value: number
+  tone?: 'default' | 'success' | 'warning' | 'destructive' | 'muted'
+}) {
+  const toneStyles = {
+    default: 'text-foreground',
+    success: 'text-[color:var(--success)]',
+    warning: 'text-[color:var(--warning)]',
+    destructive: 'text-destructive',
+    muted: 'text-muted-foreground',
+  } as const
+  return (
+    <div className="rounded-lg border bg-background px-3 py-2.5">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn('mt-1 text-lg font-semibold tabular-nums', toneStyles[tone])}>
+        {value.toLocaleString()}
+      </div>
+    </div>
   )
 }
 
@@ -166,12 +206,11 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
   const { batch } = data
   const bs = batch.batchStats
   const pnlNum = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
-  const pnl = pnlNum !== null ? pnlNum.toFixed(2) : ''
-  const pnlClass = pnlNum === null ? '' : pnlNum < 0 ? 'text-bad' : 'text-good'
-  const wr = typeof bs.winRatePctStr === 'string' ? `${bs.winRatePctStr}%` : ''
-  const trades = typeof bs.tradesTotal === 'number' ? String(bs.tradesTotal) : ''
-  const totalMarkets = typeof bs.marketsTotal === 'number' ? String(bs.marketsTotal) : ''
-  const played = typeof bs.marketsPlayed === 'number' ? String(bs.marketsPlayed) : ''
+  const pnlTone = pnlNum === null ? 'default' : pnlNum >= 0 ? 'success' : 'destructive'
+  const wr = typeof bs.winRatePctStr === 'string' ? `${bs.winRatePctStr}%` : '—'
+  const trades = typeof bs.tradesTotal === 'number' ? formatNumber(bs.tradesTotal as number) : '—'
+  const totalMarkets = typeof bs.marketsTotal === 'number' ? String(bs.marketsTotal) : '—'
+  const played = typeof bs.marketsPlayed === 'number' ? String(bs.marketsPlayed) : '—'
 
   const marketStats = batch.marketStats ?? []
   const failed = batch.failedMarkets ?? []
@@ -188,125 +227,191 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
         : []
 
   return (
-    <>
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(180px,1fr))] gap-4 mb-6">
-        <StatCard label="Strategy" value={<span className="text-base">{batch.strategy}</span>} />
-        <StatCard label="Comment" value={<span className="text-sm">{batch.comment ?? ''}</span>} />
-        <StatCard label="PnL total" value={<span className={`text-3xl ${pnlClass}`}>{pnl}</span>} />
-        <StatCard label="Win rate" value={wr} />
-        <StatCard label="Markets played" value={`${played} / ${totalMarkets}`} />
-        <StatCard label="Total trades" value={trades} />
-      </div>
-
-      {segments.length > 0 && (
-        <>
-          <h3 className="text-base font-semibold mt-6 mb-2">
-            Chunked segments (window {String(segmentsList?.window ?? '?')})
-          </h3>
-          <Card className="p-0 overflow-hidden mb-6">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted text-left">
-                  <th className="font-medium px-3 py-2">idx range</th>
-                  <th className="font-medium px-3 py-2">pnl</th>
-                  <th className="font-medium px-3 py-2">win rate</th>
-                  <th className="font-medium px-3 py-2">trades</th>
-                </tr>
-              </thead>
-              <tbody>
-                {segments.map((s, i) => {
-                  const sp = typeof s.pnlTotal === 'number' ? (s.pnlTotal as number) : null
-                  const cls = sp === null ? '' : sp < 0 ? 'text-bad' : 'text-good'
-                  return (
-                    <tr key={i} className="border-t border-border">
-                      <td className="px-3 py-2 font-mono">
-                        {String(s.from ?? '')}–{String(s.to ?? '')}
-                      </td>
-                      <td className={`px-3 py-2 tabular-nums ${cls}`}>
-                        {sp !== null ? sp.toFixed(2) : ''}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">
-                        {typeof s.winRatePctStr === 'string' ? `${s.winRatePctStr}%` : ''}
-                      </td>
-                      <td className="px-3 py-2 tabular-nums">{String(s.tradesTotal ?? '')}</td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </Card>
-        </>
-      )}
-
-      <h3 className="text-base font-semibold mt-6 mb-1">Per-market ({marketStats.length})</h3>
-      <p className="text-muted text-[11px] mb-2">
-        Rows where duration &gt; 10s are flagged in red.
-      </p>
-      <Card className="p-0 overflow-auto max-h-[600px]">
-        <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-card">
-            <tr className="text-muted text-left">
-              <th className="font-medium px-3 py-2">idx</th>
-              <th className="font-medium px-3 py-2">slug</th>
-              <th className="font-medium px-3 py-2">outcome</th>
-              <th className="font-medium px-3 py-2">pnl</th>
-              <th className="font-medium px-3 py-2">trades</th>
-              <th className="font-medium px-3 py-2">worker</th>
-              <th className="font-medium px-3 py-2">duration</th>
-              <th className="font-medium px-3 py-2">events</th>
-            </tr>
-          </thead>
-          <tbody>
-            {marketStats.map((m, i) => {
-              const exec = m.execution
-              const slow = exec && exec.durationMs > 10_000
-              const pnlClass = m.pnl > 0 ? 'text-good' : m.pnl < 0 ? 'text-bad' : ''
-              return (
-                <tr key={i} className="border-t border-border">
-                  <td className="px-3 py-2 tabular-nums">{i}</td>
-                  <td className="px-3 py-2 font-mono text-xs">{m.slug ?? ''}</td>
-                  <td className="px-3 py-2">{String(m.finalOutcome ?? '')}</td>
-                  <td className={`px-3 py-2 tabular-nums ${pnlClass}`}>{m.pnl.toFixed(2)}</td>
-                  <td className="px-3 py-2 tabular-nums">{m.tradeCount}</td>
-                  <td className="px-3 py-2 text-xs">{exec?.workerName ?? ''}</td>
-                  <td className={`px-3 py-2 tabular-nums ${slow ? 'text-bad' : ''}`}>
-                    {exec ? `${exec.durationMs} ms` : ''}
-                  </td>
-                  <td className="px-3 py-2 tabular-nums">
-                    {exec ? exec.eventsProcessed.toLocaleString() : ''}
-                  </td>
-                </tr>
-              )
-            })}
-          </tbody>
-        </table>
+    <div className="space-y-8">
+      <Card>
+        <CardHeader>
+          <div className="flex flex-wrap items-center gap-3">
+            <Badge variant="success">
+              <CheckCircle2 className="h-3 w-3" />
+              completed
+            </Badge>
+            <CardTitle className="text-base">{batch.strategy}</CardTitle>
+            {batch.comment && (
+              <span className="text-xs text-muted-foreground truncate">— {batch.comment}</span>
+            )}
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+            <StatCard
+              label="PnL total"
+              value={
+                <span className="inline-flex items-center gap-1">
+                  {pnlNum !== null && pnlNum >= 0 && <TrendingUp className="h-5 w-5" />}
+                  {pnlNum !== null && pnlNum < 0 && <TrendingDown className="h-5 w-5" />}
+                  {formatPnl(pnlNum)}
+                </span>
+              }
+              tone={pnlTone}
+              icon={Trophy}
+            />
+            <StatCard label="Win rate" value={wr} icon={CheckCircle2} tone="success" />
+            <StatCard
+              label="Markets played"
+              value={`${played}`}
+              hint={`of ${totalMarkets}`}
+              icon={Hash}
+            />
+            <StatCard label="Total trades" value={trades} icon={FileText} tone="muted" />
+          </div>
+        </CardContent>
       </Card>
 
-      {failed.length > 0 && (
-        <>
-          <h3 className="text-base font-semibold mt-6 mb-2">Failed markets ({failed.length})</h3>
-          <Card className="p-0 overflow-hidden">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="text-muted text-left">
-                  <th className="font-medium px-3 py-2">idx</th>
-                  <th className="font-medium px-3 py-2">slug</th>
-                  <th className="font-medium px-3 py-2">reason</th>
-                </tr>
-              </thead>
-              <tbody>
-                {failed.slice(0, 100).map((f, i) => (
-                  <tr key={i} className="border-t border-border">
-                    <td className="px-3 py-2 tabular-nums">{f.idx ?? ''}</td>
-                    <td className="px-3 py-2 font-mono text-xs">{f.slug ?? ''}</td>
-                    <td className="px-3 py-2 text-bad">{f.reason.slice(0, 200)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+      {segments.length > 0 && (
+        <section>
+          <SectionHeading
+            title="Chunked segments"
+            subtitle={`window ${String(segmentsList?.window ?? '?')} — split metrics across run idx ranges`}
+          />
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead>Range</TableHead>
+                  <TableHead className="text-right">PnL</TableHead>
+                  <TableHead className="text-right">Win rate</TableHead>
+                  <TableHead className="text-right">Trades</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {segments.map((s, i) => {
+                  const sp = typeof s.pnlTotal === 'number' ? (s.pnlTotal as number) : null
+                  const cls =
+                    sp === null ? '' : sp >= 0 ? 'text-[color:var(--success)]' : 'text-destructive'
+                  return (
+                    <TableRow key={i}>
+                      <TableCell className="font-mono text-xs">
+                        {String(s.from ?? '')}–{String(s.to ?? '')}
+                      </TableCell>
+                      <TableCell className={cn('text-right tabular-nums font-medium', cls)}>
+                        {sp !== null ? formatPnl(sp) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {typeof s.winRatePctStr === 'string' ? `${s.winRatePctStr}%` : '—'}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {String(s.tradesTotal ?? '—')}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
           </Card>
-        </>
+        </section>
       )}
-    </>
+
+      <section>
+        <SectionHeading
+          title="Per-market"
+          subtitle={`${marketStats.length} markets. Rows highlighted red ran > 10s.`}
+          icon={Cpu}
+        />
+        <Card className="overflow-hidden">
+          <div className="max-h-[600px] overflow-auto">
+            <Table>
+              <TableHeader className="sticky top-0 z-10 bg-card">
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Outcome</TableHead>
+                  <TableHead className="text-right">PnL</TableHead>
+                  <TableHead className="text-right">Trades</TableHead>
+                  <TableHead>Worker</TableHead>
+                  <TableHead className="text-right">Duration</TableHead>
+                  <TableHead className="text-right">Events</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {marketStats.map((m, i) => {
+                  const exec = m.execution
+                  const slow = exec && exec.durationMs > 10_000
+                  const pnlClass =
+                    m.pnl > 0 ? 'text-[color:var(--success)]' : m.pnl < 0 ? 'text-destructive' : ''
+                  return (
+                    <TableRow key={i}>
+                      <TableCell className="text-muted-foreground tabular-nums text-xs">
+                        {i}
+                      </TableCell>
+                      <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
+                      <TableCell className="text-xs">{String(m.finalOutcome ?? '—')}</TableCell>
+                      <TableCell className={cn('text-right tabular-nums', pnlClass)}>
+                        {formatPnl(m.pnl)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{m.tradeCount}</TableCell>
+                      <TableCell className="text-xs text-muted-foreground font-mono">
+                        {exec?.workerName ?? '—'}
+                      </TableCell>
+                      <TableCell
+                        className={cn(
+                          'text-right tabular-nums text-xs',
+                          slow ? 'text-destructive font-medium' : 'text-muted-foreground',
+                        )}
+                      >
+                        {exec ? (
+                          <span className="inline-flex items-center justify-end gap-1">
+                            {slow && <Clock className="h-3 w-3" />}
+                            {exec.durationMs} ms
+                          </span>
+                        ) : (
+                          '—'
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                        {exec ? exec.eventsProcessed.toLocaleString() : '—'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </div>
+        </Card>
+      </section>
+
+      {failed.length > 0 && (
+        <section>
+          <SectionHeading
+            title="Failed markets"
+            subtitle={`${failed.length} markets exhausted retries`}
+            icon={AlertTriangle}
+          />
+          <Card className="overflow-hidden">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-12">#</TableHead>
+                  <TableHead>Slug</TableHead>
+                  <TableHead>Reason</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
+                {failed.slice(0, 100).map((f, i) => (
+                  <TableRow key={i}>
+                    <TableCell className="tabular-nums text-xs text-muted-foreground">
+                      {f.idx ?? '—'}
+                    </TableCell>
+                    <TableCell className="font-mono text-xs">{f.slug ?? '—'}</TableCell>
+                    <TableCell className="text-destructive text-xs">
+                      {f.reason.slice(0, 200)}
+                    </TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </Card>
+        </section>
+      )}
+    </div>
   )
 }

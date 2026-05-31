@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
+import { ExternalLink, Activity, LayoutDashboard } from 'lucide-react'
 import './globals.css'
 import { Providers } from './providers'
 import { BullBoardLink } from '@/components/BullBoardLink'
@@ -14,26 +15,54 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
-  // Read once on the server so the client component doesn't need a
-  // separate NEXT_PUBLIC_* variable — same env var the bull-board.ts
-  // process reads.
   const bullBoardPort = Number(process.env.BULL_BOARD_PORT ?? 3052)
   return (
-    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
-      <body className="min-h-screen">
+    <html
+      lang="en"
+      className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-screen bg-background text-foreground">
         <Providers>
-          <nav className="px-6 py-4 text-sm border-b border-border">
-            <span className="font-semibold mr-2">Backtest Dashboard</span>
-            <span className="text-muted mx-1">·</span>
-            <Link href="/" className="text-link hover:underline mr-4">
-              Overview
-            </Link>
-            <BullBoardLink port={bullBoardPort} className="text-link hover:underline mr-4" />
-            <Link href="/api/health" className="text-link hover:underline">
-              Health JSON
-            </Link>
-          </nav>
-          <main className="px-6 py-6">{children}</main>
+          <div className="flex min-h-screen flex-col">
+            <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md">
+              <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-6 px-6">
+                <Link href="/" className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary text-primary-foreground">
+                    <Activity className="h-4 w-4" strokeWidth={2.5} />
+                  </div>
+                  <span className="font-semibold tracking-tight">Backtest</span>
+                  <span className="text-xs text-muted-foreground hidden sm:inline">
+                    / dashboard
+                  </span>
+                </Link>
+                <nav className="flex items-center gap-1 text-sm">
+                  <Link
+                    href="/"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-foreground hover:bg-accent transition-colors"
+                  >
+                    <LayoutDashboard className="h-3.5 w-3.5" />
+                    Overview
+                  </Link>
+                </nav>
+                <div className="ml-auto flex items-center gap-2 text-sm">
+                  <BullBoardLink
+                    port={bullBoardPort}
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  />
+                  <Link
+                    href="/api/health"
+                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                    target="_blank"
+                  >
+                    Health
+                    <ExternalLink className="h-3 w-3" />
+                  </Link>
+                </div>
+              </div>
+            </header>
+            <main className="mx-auto w-full max-w-[1600px] flex-1 px-6 py-8">{children}</main>
+          </div>
         </Providers>
       </body>
     </html>

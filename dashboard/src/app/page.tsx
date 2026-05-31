@@ -1,23 +1,49 @@
+import { Cpu, Inbox, History } from 'lucide-react'
 import { ActiveBatchesTable } from '@/components/ActiveBatchesTable'
 import { QueueCountsView } from '@/components/QueueCounts'
 import { RecentBatchesTable } from '@/components/RecentBatchesTable'
+import { SectionHeading } from '@/components/SectionHeading'
 import { WorkersTable } from '@/components/WorkersTable'
 
 export const dynamic = 'force-dynamic'
 
 export default function OverviewPage() {
   return (
-    <div className="max-w-[1600px]">
-      <QueueCountsView />
+    <div className="space-y-10">
+      <section>
+        <SectionHeading
+          title="Queues"
+          subtitle="Live counts from BullMQ — market and aggregate queues."
+        />
+        <QueueCountsView />
+      </section>
 
-      <h2 className="text-lg font-semibold mb-3">Workers</h2>
-      <WorkersTable />
+      <section>
+        <SectionHeading
+          title="Workers"
+          subtitle="Backtest worker daemons by name, with heartbeat and per-worker counters."
+          icon={Cpu}
+        />
+        <WorkersTable />
+      </section>
 
-      <h2 className="text-lg font-semibold mt-8 mb-3">Active batches</h2>
-      <ActiveBatchesTable />
+      <section>
+        <SectionHeading
+          title="Active batches"
+          subtitle="Aggregate parent jobs that haven't finalized yet."
+          icon={Inbox}
+        />
+        <ActiveBatchesTable />
+      </section>
 
-      <h2 className="text-lg font-semibold mt-8 mb-3">Recent batches</h2>
-      <RecentBatchesTable />
+      <section>
+        <SectionHeading
+          title="Recent batches"
+          subtitle="Last 20 finalized backtests, newest first."
+          icon={History}
+        />
+        <RecentBatchesTable />
+      </section>
     </div>
   )
 }
