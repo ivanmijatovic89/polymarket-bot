@@ -1,11 +1,10 @@
 import { NextResponse } from 'next/server'
-import { AGGREGATE_QUEUE, MARKET_QUEUE } from '@/lib/queue'
+import { runHealthChecks } from '@/lib/queries/health'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  return NextResponse.json({
-    ok: true,
-    queues: { market: MARKET_QUEUE, aggregate: AGGREGATE_QUEUE },
-  })
+  const report = await runHealthChecks()
+  const httpStatus = report.ok ? 200 : 503
+  return NextResponse.json(report, { status: httpStatus })
 }

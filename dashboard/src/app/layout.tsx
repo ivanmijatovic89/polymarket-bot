@@ -1,7 +1,7 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
-import { ExternalLink, Activity, LayoutDashboard } from 'lucide-react'
+import { Activity, HeartPulse, LayoutDashboard } from 'lucide-react'
 import './globals.css'
 import { Providers } from './providers'
 import { BullBoardLink } from '@/components/BullBoardLink'
@@ -44,20 +44,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     <LayoutDashboard className="h-3.5 w-3.5" />
                     Overview
                   </Link>
+                  <Link
+                    href="/health"
+                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+                  >
+                    <HeartPulse className="h-3.5 w-3.5" />
+                    Health
+                  </Link>
                 </nav>
                 <div className="ml-auto flex items-center gap-2 text-sm">
                   <BullBoardLink
                     port={bullBoardPort}
                     className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
                   />
-                  <Link
-                    href="/api/health"
-                    className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                    target="_blank"
-                  >
-                    Health
-                    <ExternalLink className="h-3 w-3" />
-                  </Link>
                 </div>
               </div>
             </header>
