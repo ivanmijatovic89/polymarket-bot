@@ -14,6 +14,10 @@ export const metadata: Metadata = {
 }
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  // Read once on the server so the client component doesn't need a
+  // separate NEXT_PUBLIC_* variable — same env var the bull-board.ts
+  // process reads.
+  const bullBoardPort = Number(process.env.BULL_BOARD_PORT ?? 3003)
   return (
     <html lang="en" className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
       <body className="min-h-screen">
@@ -24,7 +28,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
             <Link href="/" className="text-link hover:underline mr-4">
               Overview
             </Link>
-            <BullBoardLink className="text-link hover:underline mr-4" />
+            <BullBoardLink port={bullBoardPort} className="text-link hover:underline mr-4" />
             <Link href="/api/health" className="text-link hover:underline">
               Health JSON
             </Link>
