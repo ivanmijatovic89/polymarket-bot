@@ -9,11 +9,13 @@ type ActiveResponse = {
   active: true
   parentState: string
   strategy: string
+  comment: string | null
   totalMarkets: number
   waitingChildren: number
   activeChildren: number
   completedChildren: number
   failedChildren: number
+  failedChildrenValues: Record<string, unknown>
 }
 
 type CompletedResponse = {
@@ -86,46 +88,77 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
 }
 
 function ActiveDetail({ data }: { data: ActiveResponse }) {
+  const failedEntries = Object.entries(data.failedChildrenValues ?? {})
   return (
-    <Card>
-      <div className="text-muted text-xs uppercase tracking-wider">Status</div>
-      <div className="flex items-center gap-3 mt-2">
-        <span className="inline-block px-2 py-0.5 rounded-full bg-border text-xs">
-          {data.parentState}
-        </span>
-        <span className="font-semibold">{data.strategy}</span>
-      </div>
-      <div className="my-4">
-        <ProgressBar
-          total={data.totalMarkets}
-          completed={data.completedChildren}
-          active={data.activeChildren}
-          failed={data.failedChildren}
-        />
-      </div>
-      <table className="w-full text-sm mt-4">
-        <thead>
-          <tr className="text-muted text-left">
-            <th className="font-medium px-3 py-2">completed</th>
-            <th className="font-medium px-3 py-2">active</th>
-            <th className="font-medium px-3 py-2">waiting</th>
-            <th className="font-medium px-3 py-2">failed</th>
-            <th className="font-medium px-3 py-2">total</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr className="border-t border-border">
-            <td className="px-3 py-2 tabular-nums">{data.completedChildren}</td>
-            <td className="px-3 py-2 tabular-nums">{data.activeChildren}</td>
-            <td className="px-3 py-2 tabular-nums">{data.waitingChildren}</td>
-            <td className={`px-3 py-2 tabular-nums ${data.failedChildren > 0 ? 'text-bad' : ''}`}>
-              {data.failedChildren}
-            </td>
-            <td className="px-3 py-2 tabular-nums">{data.totalMarkets}</td>
-          </tr>
-        </tbody>
-      </table>
-    </Card>
+    <>
+      <Card>
+        <div className="text-muted text-xs uppercase tracking-wider">Status</div>
+        <div className="flex items-center gap-3 mt-2">
+          <span className="inline-block px-2 py-0.5 rounded-full bg-border text-xs">
+            {data.parentState}
+          </span>
+          <span className="font-semibold">{data.strategy}</span>
+        </div>
+        {data.comment && <p className="text-muted text-sm mt-1">{data.comment}</p>}
+        <div className="my-4">
+          <ProgressBar
+            total={data.totalMarkets}
+            completed={data.completedChildren}
+            active={data.activeChildren}
+            failed={data.failedChildren}
+          />
+        </div>
+        <table className="w-full text-sm mt-4">
+          <thead>
+            <tr className="text-muted text-left">
+              <th className="font-medium px-3 py-2">completed</th>
+              <th className="font-medium px-3 py-2">active</th>
+              <th className="font-medium px-3 py-2">waiting</th>
+              <th className="font-medium px-3 py-2">failed</th>
+              <th className="font-medium px-3 py-2">total</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr className="border-t border-border">
+              <td className="px-3 py-2 tabular-nums">{data.completedChildren}</td>
+              <td className="px-3 py-2 tabular-nums">{data.activeChildren}</td>
+              <td className="px-3 py-2 tabular-nums">{data.waitingChildren}</td>
+              <td className={`px-3 py-2 tabular-nums ${data.failedChildren > 0 ? 'text-bad' : ''}`}>
+                {data.failedChildren}
+              </td>
+              <td className="px-3 py-2 tabular-nums">{data.totalMarkets}</td>
+            </tr>
+          </tbody>
+        </table>
+      </Card>
+
+      {failedEntries.length > 0 && (
+        <>
+          <h3 className="text-base font-semibold mt-6 mb-2">
+            Failed children ({data.failedChildren}
+            {data.failedChildren > failedEntries.length ? `, showing ${failedEntries.length}` : ''})
+          </h3>
+          <Card className="p-0 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-muted text-left">
+                  <th className="font-medium px-3 py-2">jobId</th>
+                  <th className="font-medium px-3 py-2">reason</th>
+                </tr>
+              </thead>
+              <tbody>
+                {failedEntries.map(([jobId, reason]) => (
+                  <tr key={jobId} className="border-t border-border">
+                    <td className="px-3 py-2 font-mono text-xs">{jobId}</td>
+                    <td className="px-3 py-2 text-bad">{String(reason).slice(0, 200)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </Card>
+        </>
+      )}
+    </>
   )
 }
 

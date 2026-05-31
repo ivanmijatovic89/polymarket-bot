@@ -267,10 +267,13 @@ it before treating the BullMQ path as equivalent to the sequential one.
 
 ```env
 REDIS_URL=redis://localhost:6379
-DASHBOARD_PORT=3001
-# DASHBOARD_HOST=127.0.0.1
+# Bull Board (raw queue inspector) — separate proc on its own port.
+BULL_BOARD_PORT=3003
+# BULL_BOARD_HOST=127.0.0.1
 ```
 
-`REDIS_URL` is required for the worker and dashboard daemons. The producer
+`REDIS_URL` is required for the worker and dashboard daemons. The Next.js
+dashboard port is set in `dashboard/package.json` scripts (defaults to 3001).
+The producer
 falls back to `localhost:6379` if it isn't set and pings Redis up front so
 you get a clear error rather than a hang.

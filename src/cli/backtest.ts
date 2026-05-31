@@ -726,9 +726,8 @@ async function main(): Promise<void> {
   console.log(`[backtest] enqueued: aggregate jobId=${node.job.id ?? aggregateJobId(batchUid)}`)
 
   if (parsed.detach) {
-    const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
     console.log(`[backtest] --detach: batchUid=${batchUid}`)
-    console.log(`[backtest] watch progress at http://127.0.0.1:${dashboardPort}/`)
+    console.log(`[backtest] watch progress at http://127.0.0.1:3001/ (npm run dashboard)`)
     await closeRedisConnection()
     await closeDb()
     return
@@ -796,10 +795,9 @@ async function main(): Promise<void> {
   const detachPromise = new Promise<'detached'>((resolveDetach) => {
     const handler = (): void => {
       detachedByUser = true
-      const dashboardPort = process.env.DASHBOARD_PORT ?? '3001'
       console.log(
         `\n[backtest] SIGINT: detaching from batch ${batchUid}. ` +
-          `Workers continue in background; resume at http://127.0.0.1:${dashboardPort}/`,
+          `Workers continue in background; resume at http://127.0.0.1:3001/ (npm run dashboard)`,
       )
       resolveDetach('detached')
     }

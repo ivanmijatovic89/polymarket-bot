@@ -12,11 +12,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ batchUi
       active: true,
       parentState: active.parentState,
       strategy: active.strategy,
+      comment: active.comment,
       totalMarkets: active.totalMarkets,
       waitingChildren: active.waitingChildren,
       activeChildren: active.activeChildren,
       completedChildren: active.completedChildren,
       failedChildren: active.failedChildren,
+      // Cap to keep response small even for runaway failures.
+      failedChildrenValues: Object.fromEntries(
+        Object.entries(active.failedChildrenValues).slice(0, 50),
+      ),
     })
   }
   const detail = await getBatchDetail(batchUid)
