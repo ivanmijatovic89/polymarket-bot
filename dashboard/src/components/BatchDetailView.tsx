@@ -286,22 +286,39 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
               </TableHeader>
               <TableBody>
                 {segments.map((s, i) => {
-                  const sp = typeof s.pnlTotal === 'number' ? (s.pnlTotal as number) : null
+                  // ChunkedBatchStatsRun.segments[] shape (chunkedBatchStats.ts):
+                  //   { i, fromTs, toTs, marketsTotal, batch_stats: BatchStats }
+                  // PnL / win-rate / trades live UNDER batch_stats, not on the
+                  // segment itself.
+                  const bs = (s.batch_stats as Record<string, unknown> | undefined) ?? {}
+                  const sp = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
+                  const wr = typeof bs.winRatePctStr === 'string' ? (bs.winRatePctStr as string) : null
+                  const trades = typeof bs.tradesTotal === 'number' ? (bs.tradesTotal as number) : null
+                  const markets =
+                    typeof s.marketsTotal === 'number' ? (s.marketsTotal as number) : null
+                  // fromTs/toTs are epoch seconds parsed from the slug suffix.
+                  const fromTs = typeof s.fromTs === 'number' ? (s.fromTs as number) : null
+                  const toTs = typeof s.toTs === 'number' ? (s.toTs as number) : null
+                  const fmtTs = (t: number | null): string =>
+                    t === null ? '?' : new Date(t * 1000).toISOString().slice(0, 16).replace('T', ' ')
                   const cls =
                     sp === null ? '' : sp >= 0 ? 'text-[color:var(--success)]' : 'text-destructive'
                   return (
                     <TableRow key={i}>
                       <TableCell className="font-mono text-xs">
-                        {String(s.from ?? '')}–{String(s.to ?? '')}
+                        {fmtTs(fromTs)} → {fmtTs(toTs)}
+                        {markets !== null && (
+                          <span className="text-muted-foreground"> · {markets} markets</span>
+                        )}
                       </TableCell>
                       <TableCell className={cn('text-right tabular-nums font-medium', cls)}>
                         {sp !== null ? formatPnl(sp) : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {typeof s.winRatePctStr === 'string' ? `${s.winRatePctStr}%` : '—'}
+                        {wr !== null ? `${wr}%` : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {String(s.tradesTotal ?? '—')}
+                        {trades !== null ? String(trades) : '—'}
                       </TableCell>
                     </TableRow>
                   )
