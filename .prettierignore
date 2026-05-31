@@ -3,6 +3,7 @@ dist
 build
 docs
 docs-site
+dashboard
 CLAUDE.md
 AGENTS.md
 .claude/

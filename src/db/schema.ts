@@ -102,6 +102,17 @@ export const backtests = mysqlTable('backtests', {
   batchStats: json('batch_stats').$type<Record<string, unknown>>().notNull(),
   marketStats: json('market_stats').$type<unknown[]>().notNull(),
   chunkedBatchStats: json('chunked_batch_stats').$type<Record<string, unknown> | null>(),
+  /**
+   * Per-market failures from BullMQ children that exhausted retries.
+   * `null` for runs prior to the BullMQ migration; empty array for
+   * successful parallel runs; non-empty when some markets failed.
+   */
+  failedMarkets: json('failed_markets').$type<Array<{
+    jobId?: string
+    idx: number | null
+    slug: string | null
+    reason: string
+  }> | null>(),
 
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

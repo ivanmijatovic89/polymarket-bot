@@ -27,3 +27,20 @@ if (botEnv) {
 }
 
 config({ path: envFiles, ...(override ? { override: true } : {}) })
+
+/**
+ * Throws with a clear message if any of the listed env keys is missing or empty.
+ * Use at the top of worker/daemon entry points to fail fast on misconfigured machines.
+ */
+export function requireEnv(keys: string[]): void {
+  const missing = keys.filter((k) => {
+    const v = process.env[k]
+    return v === undefined || v === null || String(v).trim() === ''
+  })
+  if (missing.length > 0) {
+    throw new Error(
+      `[env] missing required environment variable(s): ${missing.join(', ')}.\n` +
+        `Set them in .env or .env.\${BOT_ENV} before starting.`,
+    )
+  }
+}

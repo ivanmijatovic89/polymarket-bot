@@ -5,17 +5,22 @@ description: Reference for all fields produced by computeMarketStats — per-mar
 
 # Market Statistics
 
-`MarketStats` is the per-market output record produced by `computeMarketStats` in `src/backtest/stats/marketStats.ts`. One `MarketStats` object is emitted for each 15-minute market episode where the strategy placed at least one trade and the market has a known resolution outcome.
+`MarketStats` is the per-market output record produced by `computeMarketStats` in `src/backtest/stats/marketStats.ts`. One `MarketStats` object is emitted for each 15-minute market episode that resolved with a known outcome.
 
 ## When Stats Are Computed
 
-After the full Parquet replay of a single file completes, the backtest runner checks:
+After the full Parquet replay of a single file completes, `runSingleMarket` checks:
 
 1. The slug could be parsed from the filename.
 2. The market's `finalOutcome` (`UP` or `DOWN`) is known — markets that have not resolved are skipped with a warning.
-3. The strategy placed at least one trade **or** holds a non-zero position for the market.
+3. Either the strategy placed at least one trade, **or** it holds a non-zero position, **or** neither (a stable-denominator zero-stats row is emitted).
 
-If all conditions are met, `computeMarketStats` is called with the portfolio snapshot and the accumulated fill list.
+When (1) and (2) hold:
+
+- If the strategy traded or holds shares → `computeMarketStats` is called normally.
+- If it did neither → a zero-stats row is emitted with `skipReason: 'no_in_window_activity'` so the market still counts toward batch denominators.
+
+When (2) doesn't hold the market is skipped entirely with a console warning; no row is appended.
 
 ## Resolution Model
 
@@ -84,6 +89,33 @@ The `remainingCostBasis` is the cost basis of positions still held at the end of
 | ------------ | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `intentMeta` | `Array<Record<string, unknown>>` | One entry per unique `clientOrderId`, containing the `meta` object attached to the originating strategy intent. Useful for debugging which strategy branch produced each order. Entries with no `intentMeta` are omitted. |
 
+### Skip Reason (optional)
+
+| Field        | Type                          | Description                                                                                                                                                                            |
+| ------------ | ----------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `skipReason` | `'no_in_window_activity' \| undefined` | Present when the row was emitted as a stable-denominator placeholder: the market resolved cleanly but the strategy made no trades and held no positions inside the slug window. |
+
+### Execution metadata (optional)
+
+`execution` captures which worker processed the market, when, and how much
+work it did. Populated by `runSingleMarket` and persisted inside the same
+`market_stats` JSON column the producer already wrote to. The aggregator
+**does not use this for math**; it exists so the dashboard can answer
+"who ran this, how long did it take, how many events".
+
+Legacy rows written before PR1 don't have this field — that's expected and
+fully backward-compatible.
+
+| Field                       | Type                     | Description                                                                                                                                                                                                            |
+| --------------------------- | ------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `execution.workerName`      | `string`                 | The full worker identifier — the supervisor's `--worker-name` (default `${os.hostname()}-${pid}`) plus `#<childId>` for the BullMQ child that processed the job, or `sequential-<pid>` for `--sequential` in-process runs. |
+| `execution.startedAtMs`     | `number`                 | Unix ms when the worker pulled the job from the queue (or entered the in-process loop body).                                                                                                                           |
+| `execution.finishedAtMs`    | `number`                 | Unix ms when the worker returned its result.                                                                                                                                                                           |
+| `execution.durationMs`      | `number`                 | `finishedAtMs - startedAtMs`. Wall-clock for the replay + collection.                                                                                                                                                  |
+| `execution.eventsProcessed` | `number`                 | Total replayed snapshot events for the market (book + price_change).                                                                                                                                                   |
+| `execution.eventsByType`    | `Record<string, number>` | Per-event-type histogram, e.g. `{ book: 60, price_change: 14568 }`.                                                                                                                                                    |
+| `execution.commitSha`       | `string`                 | The git SHA the worker was on when it processed the job. Useful for tying results to a specific code version.                                                                                                          |
+
 ## Example
 
 ```json
@@ -103,10 +135,24 @@ The `remainingCostBasis` is the cost basis of positions still held at the end of
   "mergableShares": 0.0,
   "cost": 0.0,
   "splitCost": 0.0,
-  "intentMeta": [{ "label": "entry", "triggerPrice": 0.48 }]
+  "intentMeta": [{ "label": "entry", "triggerPrice": 0.48 }],
+  "execution": {
+    "workerName": "Ivans-MacBook-Pro-2.local-12345#3",
+    "startedAtMs": 1780142882515,
+    "finishedAtMs": 1780142883710,
+    "durationMs": 1195,
+    "eventsProcessed": 14628,
+    "eventsByType": { "book": 60, "price_change": 14568 },
+    "commitSha": "4b0be181e18baef2142acb82dec9a46be8d24cfa"
+  }
 }
 ```
 
 ::: tip Skipped markets
-A market is silently skipped (no `MarketStats` entry) when the strategy placed no trades and holds no shares, or when the resolution outcome is not yet available. A console warning is emitted for unresolved markets.
+A market is silently skipped (no `MarketStats` entry) only when the
+resolution outcome is not yet available (a console warning is emitted) or
+when the filename's slug cannot be parsed. Markets where the strategy made
+no trades and held no positions are still emitted with
+`skipReason: 'no_in_window_activity'` so batch denominators stay stable
+across modes and reruns.
 :::

@@ -3,6 +3,19 @@
 This project uses **GNU parallel** to run multiple backtests in parallel with different parameters,
 while showing live progress and logging execution details for later analysis.
 
+::: tip Each backtest already parallelizes internally
+Since PR2, every `npm run backtest` invocation enqueues its markets into a
+shared BullMQ worker pool and uses all available cores on its own — see
+[Backtest Parallelization](./parallelization.md).
+
+The GNU parallel pattern on this page is now mostly useful for queueing
+`--sequential` batches (which intentionally bypass BullMQ) or for very small
+single-market jobs that don't benefit from the worker pool. For typical
+grid searches over many parameter combinations, prefer **submitting jobs to
+the folder-watched queue runner** (`queue/run-queue.sh` in the repo) and let
+the BullMQ pool saturate the machine one batch at a time.
+:::
+
 ## Installation (macOS)
 
 Install GNU `parallel` using Homebrew:
@@ -74,5 +87,8 @@ time parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/stra
 
 ## Notes
 
-- Recommended concurrency is **4–6 jobs**, depending on database and system resources
-- Each backtest should write results using a unique `run_id` to allow clean result analysis later
+- Recommended concurrency is **1 job** when each backtest uses the BullMQ
+  worker pool — anything higher just oversubscribes CPU. Higher values
+  (`-j 4-6`) only make sense when every queued command uses `--sequential`.
+- Each backtest should write results using a unique `--batchUid` (or
+  `run_id`) to allow clean result analysis later.

@@ -51,6 +51,26 @@ export type BacktestArgs = {
   comment?: string
   batchUid?: string
   baselineId?: string
+  /**
+   * Run the batch in-process (single thread), bypassing BullMQ / Redis / workers.
+   * Useful for quick local smoke tests and bit-identical verification.
+   * Default: false (use BullMQ FlowProducer + workers).
+   */
+  sequential?: boolean
+  /**
+   * Enqueue the flow and return immediately, printing the batchUid.
+   * The aggregator worker will finalize the batch and write to MySQL.
+   * Only meaningful when not running --sequential.
+   */
+  detach?: boolean
+  /**
+   * If a flow with this batchUid already exists in Redis (e.g. a previous
+   * run with the same --batchUid finished and left its parent job behind),
+   * remove the old parent + children before enqueueing a new flow. Without
+   * this flag the producer errors out so a "rerun" doesn't silently return
+   * the cached result from the first run.
+   */
+  forceRerun?: boolean
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -70,6 +90,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let comment: string | undefined
   let batchUid: string | undefined
   let baselineId: string | undefined
+  let sequential = false
+  let detach = false
+  let forceRerun = false
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -187,6 +210,18 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--sequential':
+        sequential = true
+        break
+
+      case '--detach':
+        detach = true
+        break
+
+      case '--force-rerun':
+        forceRerun = true
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -302,5 +337,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(comment !== undefined ? { comment } : {}),
     ...(batchUid !== undefined ? { batchUid } : {}),
     ...(baselineId !== undefined ? { baselineId } : {}),
+    ...(sequential ? { sequential } : {}),
+    ...(detach ? { detach } : {}),
+    ...(forceRerun ? { forceRerun } : {}),
   }
 }

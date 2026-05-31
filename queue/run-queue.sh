@@ -8,8 +8,12 @@ cd "$(dirname "$0")/.."
 # -------------------------
 # Defaults
 # -------------------------
+# JOBS=1: each backtest now uses the in-batch BullMQ worker pool (PR2) and
+# consumes all available cores by itself; running multiple batches in
+# parallel here would just oversubscribe CPU. Pass --jobs N to override
+# for small or --sequential batches that don't benefit from BullMQ.
 SAVE_RESULTS=0
-JOBS=4
+JOBS=1
 POLL=2
 
 # -------------------------

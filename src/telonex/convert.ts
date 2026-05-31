@@ -124,14 +124,15 @@ function localOutputPath(args: {
   symbol: string
   timeframe: string
   slug: string
-}): string {
-  return path.resolve(
+}): { relative: string; absolute: string } {
+  const relative = path.join(
     'data/events/telonex',
     args.converter,
     args.symbol,
     args.timeframe,
     `${args.slug}.parquet`,
   )
+  return { relative, absolute: path.resolve(relative) }
 }
 
 function r2OutputKey(args: {
@@ -520,7 +521,7 @@ async function convertOneMarket(args: {
       if (args.signal.aborted) break
 
       const converter = args.converterFns.get(converterName)!
-      const localPath = localOutputPath({
+      const localPaths = localOutputPath({
         converter: converterName,
         symbol: market.symbol,
         timeframe: market.timeframe,
@@ -530,7 +531,7 @@ async function convertOneMarket(args: {
       let outputPath: string
       let keepOutput: boolean
       if (output === 'local' || output === 'both') {
-        outputPath = localPath
+        outputPath = localPaths.absolute
         keepOutput = true
       } else {
         outputPath = path.join(tmpDir, `${market.slug}-${converterName}.parquet`)
@@ -564,7 +565,7 @@ async function convertOneMarket(args: {
           marketId: market.id,
           converter: converterName,
           r2Url,
-          localPath: keepOutput ? localPath : null,
+          localPath: keepOutput ? localPaths.relative : null,
           sizeBytes,
           etag: r2Etag,
         })

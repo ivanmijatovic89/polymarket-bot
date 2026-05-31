@@ -92,6 +92,13 @@
       "when": 1779580800000,
       "tag": "0012_cmd_to_longtext",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1780142275986,
+      "tag": "0013_backtests_failed_markets",
+      "breakpoints": true
     }
   ]
 }

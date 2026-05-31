@@ -24,6 +24,12 @@ export async function insertBacktestRun(row: {
   batchStats: Record<string, unknown>
   marketStats: unknown[]
   chunkedBatchStats?: Record<string, unknown> | null
+  failedMarkets?: Array<{
+    jobId?: string
+    idx: number | null
+    slug: string | null
+    reason: string
+  }> | null
 }): Promise<void> {
   const db = mustGetDb()
   await db.insert(backtests).values({
@@ -41,5 +47,6 @@ export async function insertBacktestRun(row: {
     batchStats: row.batchStats,
     marketStats: row.marketStats,
     ...(row.chunkedBatchStats !== undefined ? { chunkedBatchStats: row.chunkedBatchStats } : {}),
+    ...(row.failedMarkets !== undefined ? { failedMarkets: row.failedMarkets } : {}),
   })
 }
