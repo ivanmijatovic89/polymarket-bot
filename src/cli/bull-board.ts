@@ -14,14 +14,14 @@ import {
 /**
  * Standalone Bull Board UI for inspecting BullMQ queues/jobs.
  *
- * Lives at /admin/queues on its own port (default 3003). The Next.js
- * dashboard at :3001 links here for raw queue inspection. We keep this
+ * Lives at /admin/queues on its own port (default 3052). The Next.js
+ * dashboard at :3051 links here for raw queue inspection. We keep this
  * as a separate proc because Bull Board ships as a Fastify/Express plugin
  * that doesn't fit cleanly inside the Next.js App Router.
  */
 async function main(): Promise<void> {
   requireEnv(['REDIS_URL'])
-  const port = Number(process.env.BULL_BOARD_PORT ?? 3003)
+  const port = Number(process.env.BULL_BOARD_PORT ?? 3052)
   const host = process.env.BULL_BOARD_HOST ?? '127.0.0.1'
 
   try {

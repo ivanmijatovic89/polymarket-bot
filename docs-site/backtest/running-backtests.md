@@ -42,7 +42,7 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
 - For the **default** (BullMQ) execution path:
   - Redis running locally (`brew services start redis`)
   - At least one worker daemon up (`npm run backtest:worker`)
-  - Optional dashboard (`npm run dashboard` → http://127.0.0.1:3001) and `npm run bull-board` (→ http://127.0.0.1:3003/admin/queues)
+  - Optional dashboard (`npm run dashboard` → http://127.0.0.1:3051) and `npm run bull-board` (→ http://127.0.0.1:3052/admin/queues)
 - Pass `--sequential` if you'd rather skip the worker daemon and run the loop
   in-process (see [Execution modes](#execution-modes) below).
 
@@ -173,7 +173,7 @@ npm run backtest -- --strategy MyStrategy.v1 --symbol btc --limit 3000 --detach
 
 Producer enqueues the flow and exits in a couple of seconds. The aggregator
 worker writes the row to MySQL when the children settle. The dashboard
-(http://127.0.0.1:3001) is the canonical place to watch progress.
+(http://127.0.0.1:3051) is the canonical place to watch progress.
 
 ### Sequential — `--sequential`
 
@@ -194,7 +194,8 @@ bit-identical verification against the BullMQ path.
 | `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
 | `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
 | `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
-| `BULL_BOARD_PORT`                        | `3003`                   | Port for `npm run bull-board` (raw queue inspector). The Next.js dashboard port is set in `dashboard/package.json` (defaults to `3001`). |
+| `DASHBOARD_PORT`                         | `3051`                   | Port for `npm run dashboard` (Next.js). 3001 is reserved for the live WebUI.                                                    |
+| `BULL_BOARD_PORT`                        | `3052`                   | Port for `npm run bull-board` (raw queue inspector). Dashboard nav reads this server-side and links to it.                      |
 
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.
@@ -289,7 +290,7 @@ definitions.
 ### Watching progress live
 
 The [dashboard](./parallelization.md#dashboard) at
-`http://127.0.0.1:3001` shows the active batch, per-worker stats, queue
+`http://127.0.0.1:3051` shows the active batch, per-worker stats, queue
 depth, and historical batches without needing to re-attach to the producer
 terminal. It also surfaces the same `failed_markets` audit so you can
 inspect what went wrong without opening MySQL.

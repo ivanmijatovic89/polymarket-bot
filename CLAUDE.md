@@ -86,9 +86,9 @@ npm run rebuild:chunked-batch-stats    # re-derive stats for backtests with null
 npm run webui:dev ; npm run webui:build
 
 # Backtest dashboard (separate Next.js package under dashboard/, reads MySQL + Redis)
-npm run dashboard                       # next dev on :3001
+npm run dashboard                       # next dev on :3051 (3001 is the live WebUI)
 npm run dashboard:build && npm run dashboard:start   # production
-npm run bull-board                      # Bull Board UI on :3003 (separate proc)
+npm run bull-board                      # Bull Board UI on :3052 (separate proc)
 
 # Parallel backtest queue (folder-watched runner)
 ./queue/run-queue.sh --jobs 8 [--save-results]

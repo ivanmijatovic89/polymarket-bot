@@ -727,7 +727,7 @@ async function main(): Promise<void> {
 
   if (parsed.detach) {
     console.log(`[backtest] --detach: batchUid=${batchUid}`)
-    console.log(`[backtest] watch progress at http://127.0.0.1:3001/ (npm run dashboard)`)
+    console.log(`[backtest] watch progress at http://127.0.0.1:3051/ (npm run dashboard)`)
     await closeRedisConnection()
     await closeDb()
     return
@@ -797,7 +797,7 @@ async function main(): Promise<void> {
       detachedByUser = true
       console.log(
         `\n[backtest] SIGINT: detaching from batch ${batchUid}. ` +
-          `Workers continue in background; resume at http://127.0.0.1:3001/ (npm run dashboard)`,
+          `Workers continue in background; resume at http://127.0.0.1:3051/ (npm run dashboard)`,
       )
       resolveDetach('detached')
     }

@@ -16,13 +16,13 @@ config is needed for local dev.
 
 ```bash
 # from repo root
-npm run dashboard            # next dev on :3001
+npm run dashboard            # next dev on :3051 (override: DASHBOARD_PORT=3055 npm run dashboard)
 npm run dashboard:build
-npm run dashboard:start      # next start on :3001
+npm run dashboard:start      # next start on :3051
 npm run dashboard:typecheck
 
 # Bull Board (raw queue inspector) runs as a separate proc:
-npm run bull-board           # http://127.0.0.1:3003/admin/queues
+npm run bull-board           # http://127.0.0.1:3052/admin/queues (override: BULL_BOARD_PORT)
 ```
 
 ## Layout

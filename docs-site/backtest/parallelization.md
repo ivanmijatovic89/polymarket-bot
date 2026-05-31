@@ -15,7 +15,7 @@ Three independent long-running things on the machine that runs the producer:
 | ---------- | --------------------------------------- |
 | Redis      | `brew services start redis`             |
 | Worker     | `npm run backtest:worker`               |
-| Dashboard  | `npm run dashboard` → http://127.0.0.1:3001 (Next.js) |
+| Dashboard  | `npm run dashboard` → http://127.0.0.1:3051 (Next.js) |
 
 The producer itself (`npm run backtest -- ...`) is invoked per-batch and exits
 when the aggregator finishes (or right after enqueue if you pass `--detach`).
@@ -30,8 +30,8 @@ npm install
 
 # in one terminal: long-running worker + dashboard
 npm run backtest:worker      # consumes both queues by default
-npm run dashboard            # http://127.0.0.1:3001 (Next.js)
-npm run bull-board           # http://127.0.0.1:3003/admin/queues
+npm run dashboard            # http://127.0.0.1:3051 (Next.js)
+npm run bull-board           # http://127.0.0.1:3052/admin/queues
 
 # in another terminal: run a batch as usual
 npm run backtest -- \
@@ -107,7 +107,7 @@ npm run backtest -- ...
 Requires Redis + at least one worker daemon. Producer blocks until the
 aggregator finishes; **Ctrl+C detaches** from the live view but the batch
 keeps running in the queue — re-attach by opening
-`http://127.0.0.1:3001/batches/<uid>` in the dashboard.
+`http://127.0.0.1:3051/batches/<uid>` in the dashboard.
 
 ### Detach immediately
 
@@ -177,7 +177,7 @@ pm2 / systemd `kill_timeout` should be set to at least 30 seconds.
 ## Dashboard
 
 `npm run dashboard` starts the Next.js dashboard at
-`http://127.0.0.1:3001`. It lives in the `dashboard/` package (separate
+`http://127.0.0.1:3051`. It lives in the `dashboard/` package (separate
 from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 
 | Path                            | What                                                                |
@@ -194,7 +194,7 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 For raw queue/job inspection, run Bull Board as a separate process:
 
 ```
-npm run bull-board        # http://127.0.0.1:3003/admin/queues
+npm run bull-board        # http://127.0.0.1:3052/admin/queues
 ```
 
 Both procs are read-only relative to MySQL; you can run them on the same
@@ -268,12 +268,12 @@ it before treating the BullMQ path as equivalent to the sequential one.
 ```env
 REDIS_URL=redis://localhost:6379
 # Bull Board (raw queue inspector) — separate proc on its own port.
-BULL_BOARD_PORT=3003
+BULL_BOARD_PORT=3052
 # BULL_BOARD_HOST=127.0.0.1
 ```
 
 `REDIS_URL` is required for the worker and dashboard daemons. The Next.js
-dashboard port is set in `dashboard/package.json` scripts (defaults to 3001).
+dashboard port defaults to 3051 (3001 is reserved for the live WebUI); override via `DASHBOARD_PORT`.
 The producer
 falls back to `localhost:6379` if it isn't set and pings Redis up front so
 you get a clear error rather than a hang.
