@@ -2,9 +2,8 @@ import '../config/env.js'
 import os from 'os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { execSync, fork, type ChildProcess } from 'node:child_process'
+import { fork, type ChildProcess } from 'node:child_process'
 import { Worker } from 'bullmq'
-import { requireEnv } from '../config/env.js'
 import {
   AGGREGATE_QUEUE,
   WORKER_OPTS,
@@ -12,7 +11,7 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { aggregateProcessor } from '../backtest/aggregateProcessor.js'
-import { defaultWorkerName } from '../backtest/workerIdentity.js'
+import { defaultWorkerName, getCurrentGitSha, startHeartbeat } from '../backtest/workerIdentity.js'
 
 type Queues = 'markets' | 'aggregate'
 
@@ -86,16 +85,6 @@ function checkNodeVersion(): void {
   }
 }
 
-function getCurrentGitSha(): string {
-  try {
-    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim()
-  } catch {
-    return 'unknown'
-  }
-}
-
 async function pingRedis(): Promise<void> {
   const conn = getRedisConnection()
   try {
@@ -106,29 +95,6 @@ async function pingRedis(): Promise<void> {
       err,
     )
     process.exit(2)
-  }
-}
-
-async function startHeartbeat(workerName: string): Promise<() => Promise<void>> {
-  const conn = getRedisConnection()
-  const interval = 5000
-  const write = async (): Promise<void> => {
-    try {
-      await conn.set(`backtest:worker:${workerName}:heartbeat`, String(Date.now()), 'EX', 60)
-      await conn.hset(`backtest:worker:${workerName}`, 'commitSha', getCurrentGitSha())
-    } catch {
-      /* best-effort */
-    }
-  }
-  await write()
-  const timer = setInterval(write, interval)
-  return async () => {
-    clearInterval(timer)
-    try {
-      await conn.del(`backtest:worker:${workerName}:heartbeat`)
-    } catch {
-      /* best-effort */
-    }
   }
 }
 
@@ -207,7 +173,10 @@ async function main(): Promise<void> {
   checkNodeVersion()
   const args = parseArgs()
 
-  requireEnv(['REDIS_URL'])
+  // Note: REDIS_URL is OPTIONAL — getRedisConnection() in queue.ts falls back
+  // to redis://localhost:6379 when unset, matching what the producer does.
+  // Use `pingRedis()` (below) as the real gate: if Redis isn't reachable at
+  // either the configured URL or the default, abort with a clear error.
   await pingRedis()
 
   console.log(

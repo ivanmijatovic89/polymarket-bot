@@ -1,5 +1,5 @@
 import '../config/env.js'
-import { execSync } from 'node:child_process'
+import { getCurrentGitSha } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomUUID } from 'crypto'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
@@ -481,15 +481,7 @@ async function main(): Promise<void> {
   // -----------------------------------------------------------------
   if (!useBullMQ) {
     const workerName = `sequential-${process.pid}`
-    const commitSha = (() => {
-      try {
-        return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-          .toString()
-          .trim()
-      } catch {
-        return ''
-      }
-    })()
+    const commitSha = getCurrentGitSha()
     const marketStats: MarketStats[] = []
     let events = 0
     const byType = new Map<string, number>()
@@ -602,15 +594,7 @@ async function main(): Promise<void> {
   // -----------------------------------------------------------------
   // BULLMQ path — enqueue children + parent aggregate, wait or detach.
   // -----------------------------------------------------------------
-  const producerCommitSha = (() => {
-    try {
-      return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-        .toString()
-        .trim()
-    } catch {
-      return ''
-    }
-  })()
+  const producerCommitSha = getCurrentGitSha()
 
   // Sanity-check Redis up front so we fail with a clear message rather than
   // hanging inside FlowProducer if the daemon isn't running.
@@ -641,8 +625,35 @@ async function main(): Promise<void> {
             `(batchUid=${batchUid}, state=${state}) and its children`,
         )
         const marketQueue = getMarketQueue()
-        const childIds = marketContexts.map((c) => marketJobId(batchUid, c.idx))
-        await Promise.allSettled(childIds.map((id) => marketQueue.remove(id)))
+        // Enumerate Redis for ALL `${batchUid}-m-*` children, not just
+        // those matching the current marketContexts. Otherwise, if the
+        // previous run was launched with a different --limit or filter,
+        // orphan children from the old run survive in Redis and get
+        // processed/counted against this batch.
+        const allChildren = await marketQueue.getJobs(
+          [
+            'waiting',
+            'waiting-children',
+            'active',
+            'delayed',
+            'failed',
+            'completed',
+            'paused',
+            'prioritized',
+          ],
+          0,
+          -1,
+        )
+        const orphanIds: string[] = []
+        const prefix = `${batchUid}-m-`
+        for (const j of allChildren) {
+          const id = j?.id
+          if (typeof id === 'string' && id.startsWith(prefix)) orphanIds.push(id)
+        }
+        if (orphanIds.length > 0) {
+          console.warn(`[backtest] --force-rerun: removing ${orphanIds.length} child job(s)`)
+        }
+        await Promise.allSettled(orphanIds.map((id) => marketQueue.remove(id)))
         await existing.remove().catch(() => {})
       } else {
         console.error(
@@ -741,9 +752,19 @@ async function main(): Promise<void> {
   await aggregateEvents.waitUntilReady()
 
   const startWaitMs = Date.now()
-  const startedMap = new Map<string, number>()
+  // Per-jobId terminal state so retries don't double-count.
+  // BullMQ emits `failed` on every failed attempt (MARKET_JOB_OPTS sets
+  // attempts: 3); a job that fails-then-succeeds would otherwise bump
+  // both `failed` and `completed`, pushing the counter past totalMarkets
+  // and skipping the `completed + failed === totalMarkets` summary gate.
+  const terminalState = new Map<string, 'completed' | 'failed'>()
   let completed = 0
   let failed = 0
+
+  // Only count events for child market jobs (`<batchUid>-m-<idx>`), not
+  // the aggregate parent (`<batchUid>-agg`) which can also match
+  // `includes(batchUid)`.
+  const isOurChild = (jobId: string): boolean => jobId.startsWith(`${batchUid}-m-`)
 
   const printProgress = (): void => {
     const total = totalMarkets
@@ -756,25 +777,7 @@ async function main(): Promise<void> {
     )
   }
 
-  const onActive = ({ jobId }: { jobId: string }): void => {
-    if (!jobId.endsWith(`-m-`) && jobId.includes(batchUid)) {
-      startedMap.set(jobId, Date.now())
-    }
-  }
-  const onCompleted = ({ jobId }: { jobId: string }): void => {
-    if (!jobId.includes(batchUid)) return
-    completed += 1
-    if (
-      (completed + failed) % Math.max(1, Math.floor(totalMarkets / 20)) === 0 ||
-      completed + failed === totalMarkets
-    ) {
-      printProgress()
-    }
-  }
-  const onFailed = ({ jobId, failedReason }: { jobId: string; failedReason: string }): void => {
-    if (!jobId.includes(batchUid)) return
-    failed += 1
-    console.warn(`[backtest] child failed jobId=${jobId} reason=${failedReason}`)
+  const maybePrintProgress = (): void => {
     if (
       (completed + failed) % Math.max(1, Math.floor(totalMarkets / 20)) === 0 ||
       completed + failed === totalMarkets
@@ -783,7 +786,31 @@ async function main(): Promise<void> {
     }
   }
 
-  marketEvents.on('active', onActive)
+  const onCompleted = ({ jobId }: { jobId: string }): void => {
+    if (!isOurChild(jobId)) return
+    const prev = terminalState.get(jobId)
+    if (prev === 'completed') return // dedup duplicate event
+    if (prev === 'failed') failed -= 1 // promoted from a retried failure
+    terminalState.set(jobId, 'completed')
+    completed += 1
+    maybePrintProgress()
+  }
+  const onFailed = ({ jobId, failedReason }: { jobId: string; failedReason: string }): void => {
+    if (!isOurChild(jobId)) return
+    // Skip intermediate retry-failures; only count the terminal failure
+    // (the one that has no successor `completed` and no further retry).
+    // We can't tell from QueueEvents alone whether this is terminal, so
+    // we tentatively mark `failed` and let a later `completed` for the
+    // same jobId roll it back. The previous-state dedup handles double
+    // `failed` events at the same attempt index.
+    const prev = terminalState.get(jobId)
+    if (prev === 'failed' || prev === 'completed') return
+    terminalState.set(jobId, 'failed')
+    failed += 1
+    console.warn(`[backtest] child failed jobId=${jobId} reason=${failedReason}`)
+    maybePrintProgress()
+  }
+
   marketEvents.on('completed', onCompleted)
   marketEvents.on('failed', onFailed)
 
@@ -822,7 +849,6 @@ async function main(): Promise<void> {
       console.error('[backtest] aggregator failed:', err)
     }
   } finally {
-    marketEvents.off('active', onActive)
     marketEvents.off('completed', onCompleted)
     marketEvents.off('failed', onFailed)
     // Close listeners eagerly so the event loop can drain.

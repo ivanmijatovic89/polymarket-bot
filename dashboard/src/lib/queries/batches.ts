@@ -15,23 +15,58 @@ export type ActiveBatchSummary = {
 }
 
 /**
- * Counts per-child state for one parent flow by intersecting the market
- * queue's active jobs with the batchUid prefix.
+ * Fetches ALL currently-active market jobs, paginating until exhausted,
+ * and groups counts by batchUid prefix. Used by both `listActiveBatches`
+ * (called once per request, shared across parents) and
+ * `getActiveBatchDetail` (single-parent path).
+ *
+ * Pagination matters: BullMQ's `getJobs(['active'], 0, 200)` silently caps
+ * at 200; with concurrency × #parallel-batches > 200 the per-batch count
+ * would be undercounted and `waitingChildren = unprocessed - active`
+ * inflated. We walk in 200-row pages until a short page is returned.
+ */
+async function countActiveChildrenByBatch(): Promise<Map<string, number>> {
+  const queue = getMarketQueue()
+  const pageSize = 200
+  const counts = new Map<string, number>()
+  let start = 0
+  // Hard ceiling so a runaway queue can't lock the dashboard request — at
+  // ~50k active jobs something is very wrong and we should bail anyway.
+  const maxScanned = 50_000
+  while (start < maxScanned) {
+    const page = await queue.getJobs(['active'], start, start + pageSize - 1)
+    if (page.length === 0) break
+    for (const j of page) {
+      const id = j?.id
+      if (typeof id !== 'string') continue
+      const m = id.match(/^(.+)-m-\d+$/)
+      if (!m) continue
+      const uid = m[1]
+      counts.set(uid, (counts.get(uid) ?? 0) + 1)
+    }
+    if (page.length < pageSize) break
+    start += pageSize
+  }
+  return counts
+}
+
+/**
+ * Counts active children for a single batchUid. Kept as a convenience for
+ * the single-parent detail path; `listActiveBatches` uses the grouped
+ * version directly to avoid N redundant scans.
  */
 export async function countActiveChildrenForBatch(batchUid: string): Promise<number> {
-  const queue = getMarketQueue()
-  const activeJobs = await queue.getJobs(['active'], 0, 200)
-  let n = 0
-  for (const j of activeJobs) {
-    const id = j?.id
-    if (typeof id === 'string' && id.startsWith(`${batchUid}-m-`)) n += 1
-  }
-  return n
+  const all = await countActiveChildrenByBatch()
+  return all.get(batchUid) ?? 0
 }
 
 export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
   const agg = getAggregateQueue()
   const jobs = await agg.getJobs(['waiting-children', 'waiting', 'active', 'delayed'], 0, 100)
+  // Fetch the active-children count ONCE for all batches, then look up
+  // per-parent below. Previously this was called inside the loop, causing
+  // an N×scan-of-200-jobs hot path on every dashboard poll.
+  const activeByBatch = await countActiveChildrenByBatch()
   const out: ActiveBatchSummary[] = []
   for (const job of jobs) {
     if (!job) continue
@@ -50,7 +85,7 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
     const processedTotal = dependencies.processed ?? 0
     const completedChildren = Math.max(0, processedTotal - failedChildren)
     const unprocessedTotal = dependencies.unprocessed ?? 0
-    const activeChildren = await countActiveChildrenForBatch(batchUid)
+    const activeChildren = activeByBatch.get(batchUid) ?? 0
     const waitingChildren = Math.max(0, unprocessedTotal - activeChildren)
 
     out.push({

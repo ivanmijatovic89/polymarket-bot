@@ -1,7 +1,5 @@
 import '../config/env.js'
-import { execSync } from 'node:child_process'
 import { Worker } from 'bullmq'
-import { requireEnv } from '../config/env.js'
 import {
   MARKET_QUEUE,
   WORKER_OPTS,
@@ -9,7 +7,7 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
-import { defaultWorkerName } from '../backtest/workerIdentity.js'
+import { defaultWorkerName, getCurrentGitSha, startHeartbeat } from '../backtest/workerIdentity.js'
 
 /**
  * Single-concurrency market worker meant to be forked N times by
@@ -21,16 +19,6 @@ import { defaultWorkerName } from '../backtest/workerIdentity.js'
  * Inherited env (REDIS_URL, DATABASE_*, R2_*, etc.) comes from the
  * supervisor's process.env via child_process.fork.
  */
-
-function getCurrentGitSha(): string {
-  try {
-    return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
-      .toString()
-      .trim()
-  } catch {
-    return 'unknown'
-  }
-}
 
 async function recordWorkerStats(
   workerName: string,
@@ -51,28 +39,6 @@ async function recordWorkerStats(
   }
 }
 
-async function startHeartbeat(workerName: string): Promise<() => Promise<void>> {
-  const conn = getRedisConnection()
-  const write = async (): Promise<void> => {
-    try {
-      await conn.set(`backtest:worker:${workerName}:heartbeat`, String(Date.now()), 'EX', 60)
-      await conn.hset(`backtest:worker:${workerName}`, 'commitSha', getCurrentGitSha())
-    } catch {
-      /* best-effort */
-    }
-  }
-  await write()
-  const timer = setInterval(write, 5000)
-  return async () => {
-    clearInterval(timer)
-    try {
-      await conn.del(`backtest:worker:${workerName}:heartbeat`)
-    } catch {
-      /* best-effort */
-    }
-  }
-}
-
 async function main(): Promise<void> {
   // Convention: the supervisor passes `--worker-name foo --child-id N`.
   const argv = process.argv.slice(2)
@@ -87,11 +53,15 @@ async function main(): Promise<void> {
   // aggregate row separately under the bare worker-name.
   const fullName = `${workerName}#${childId}`
 
-  requireEnv(['REDIS_URL'])
+  // REDIS_URL is optional; queue.ts falls back to redis://localhost:6379.
+  // The ping below is the real gate.
   try {
     await getRedisConnection().ping()
   } catch (err) {
-    console.error(`[worker-child=${fullName}] redis ping failed:`, err)
+    console.error(
+      `[worker-child=${fullName}] redis ping failed at ${process.env.REDIS_URL ?? 'redis://localhost:6379'}:`,
+      err,
+    )
     process.exit(2)
   }
 

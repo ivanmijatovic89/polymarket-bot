@@ -214,17 +214,18 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
 
   const marketStats = batch.marketStats ?? []
   const failed = batch.failedMarkets ?? []
+  // chunkedBatchStats shape (src/backtest/stats/chunkedBatchStats.ts):
+  //   { windows: [{ window, segments: [...] }, ...], version }
+  // We only render the first window for now.
   const cbs = batch.chunkedBatchStats
-  const segmentsHead = cbs && (cbs as { segments?: unknown }).segments
-  const segmentsList = Array.isArray(segmentsHead)
-    ? (segmentsHead[0] as { window?: unknown; segments?: unknown[] })
+  const windowsHead = cbs && (cbs as { windows?: unknown }).windows
+  const segmentsList = Array.isArray(windowsHead)
+    ? (windowsHead[0] as { window?: unknown; segments?: unknown[] })
     : null
   const segments =
     segmentsList && Array.isArray(segmentsList.segments)
       ? (segmentsList.segments as Array<Record<string, unknown>>)
-      : Array.isArray(segmentsHead)
-        ? (segmentsHead as Array<Record<string, unknown>>)
-        : []
+      : []
 
   return (
     <div className="space-y-8">

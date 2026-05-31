@@ -1,4 +1,11 @@
 import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
+// Repo root, derived from this file's location (src/backtest/runSingleMarket.ts).
+// Used to anchor relative parquet paths (e.g. `data/events/telonex/...` stored
+// by `src/telonex/convert.ts`) so backtests work regardless of CWD — cron jobs,
+// systemd units, and cross-machine workers don't have to `cd` into the repo.
+const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
@@ -234,9 +241,12 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
+  // Relative paths are anchored at REPO_ROOT (not process.cwd()) so workers
+  // launched from any CWD — service managers, cross-machine queue runners,
+  // ad-hoc `cd /tmp && npx tsx …` — find dataset files identically.
   const filePath = path.isAbsolute(input.filePath)
     ? input.filePath
-    : path.resolve(process.cwd(), input.filePath)
+    : path.resolve(REPO_ROOT, input.filePath)
 
   if (input.inputMode === 'telonex-paired') {
     await replayTelonexPairedParquetForMarket({

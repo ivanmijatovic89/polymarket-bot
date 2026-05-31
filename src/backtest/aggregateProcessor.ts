@@ -68,11 +68,17 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   )
 
   const failed: FailedMarketRecord[] = []
-  for (const [jobId, reason] of Object.entries(failedChildren)) {
-    const idx = idxFromChildJobId(jobId)
+  for (const [redisKey, reason] of Object.entries(failedChildren)) {
+    // `getFailedChildrenValues()` returns Redis-key form
+    // (`bull:<queue>:<jobId>`) — same caveat as `getChildrenValues()` noted
+    // below. Normalize to the bare jobId so downstream consumers (dashboard,
+    // re-enqueue tooling) can call `marketQueue.getJob(record.jobId)`.
+    const idx = idxFromChildJobId(redisKey)
+    const bareJobId =
+      idx !== null ? marketJobId(data.batchUid, idx) : (redisKey.split(':').pop() ?? redisKey)
     // failed children don't surface their returnValue, so slug isn't recoverable here.
     const rec: FailedMarketRecord = { idx, slug: null, reason: String(reason) }
-    if (jobId !== undefined) rec.jobId = jobId
+    rec.jobId = bareJobId
     failed.push(rec)
   }
   failed.sort((a, b) => (a.idx ?? Number.MAX_SAFE_INTEGER) - (b.idx ?? Number.MAX_SAFE_INTEGER))
