@@ -1,3 +1,4 @@
+import path from 'node:path'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
@@ -233,21 +234,25 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
+  const filePath = path.isAbsolute(input.filePath)
+    ? input.filePath
+    : path.resolve(process.cwd(), input.filePath)
+
   if (input.inputMode === 'telonex-paired') {
     await replayTelonexPairedParquetForMarket({
-      filePath: input.filePath,
+      filePath,
       ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
       onSnapshot,
     })
   } else if (input.inputMode === 'telonex-delta') {
     await replayTelonexDeltaParquetForMarket({
-      filePath: input.filePath,
+      filePath,
       ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
       onSnapshot,
     })
   } else {
     await replayOrderBookForMarket({
-      filePaths: [input.filePath],
+      filePaths: [filePath],
       order: input.order,
       timeDriven: input.timeDriven,
       ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
