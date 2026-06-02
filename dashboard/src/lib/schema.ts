@@ -111,7 +111,7 @@ export const backtestRunMarkets = mysqlTable(
     cost: decimal('cost', { precision: 14, scale: 4 }).notNull(),
     splitCost: decimal('split_cost', { precision: 14, scale: 4 }).notNull(),
     intentMeta: json('intent_meta').$type<Array<Record<string, unknown>>>().notNull(),
-    workerName: varchar('worker_name', { length: 255 }),
+    machineId: varchar('machine_id', { length: 32 }),
     startedAtMs: bigint('started_at_ms', { mode: 'number' }),
     finishedAtMs: bigint('finished_at_ms', { mode: 'number' }),
     durationMs: int('duration_ms'),

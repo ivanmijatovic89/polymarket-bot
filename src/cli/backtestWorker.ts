@@ -11,7 +11,12 @@ import {
   getRedisConnection,
 } from '../backtest/queue.js'
 import { aggregateProcessor } from '../backtest/aggregateProcessor.js'
-import { defaultWorkerName, getCurrentGitSha, startHeartbeat } from '../backtest/workerIdentity.js'
+import {
+  getCurrentGitSha,
+  getMachineId,
+  getRedisProcessKey,
+  startHeartbeat,
+} from '../backtest/workerIdentity.js'
 
 type Queues = 'markets' | 'aggregate'
 
@@ -19,7 +24,6 @@ type Args = {
   queues: Set<Queues>
   marketConcurrency: number
   aggregateConcurrency: number
-  workerName: string
 }
 
 function parseArgs(): Args {
@@ -27,7 +31,6 @@ function parseArgs(): Args {
   let queuesStr = 'markets,aggregate'
   let marketConcurrency = Math.max(1, os.cpus().length - 1)
   let aggregateConcurrency = 1
-  let workerName = defaultWorkerName()
 
   for (let i = 0; i < argv.length; i += 1) {
     const a = argv[i]
@@ -39,14 +42,12 @@ function parseArgs(): Args {
     if (a === '--queues') queuesStr = next()
     else if (a === '--market-concurrency') marketConcurrency = Number(next())
     else if (a === '--aggregate-concurrency') aggregateConcurrency = Number(next())
-    else if (a === '--worker-name') workerName = next()
     else if (a === '--help' || a === '-h') {
       console.log(
         'Usage: tsx src/cli/backtestWorker.ts [options]\n' +
           '  --queues markets[,aggregate]   Which queues to consume (default: markets,aggregate)\n' +
           '  --market-concurrency N         Parallel market jobs (default: cpus-1)\n' +
-          '  --aggregate-concurrency N      Parallel aggregate jobs (default: 1)\n' +
-          '  --worker-name <name>           Display name (default: <hostname>-<pid>)\n',
+          '  --aggregate-concurrency N      Parallel aggregate jobs (default: 1)\n',
       )
       process.exit(0)
     } else {
@@ -70,7 +71,7 @@ function parseArgs(): Args {
   if (!Number.isFinite(aggregateConcurrency) || aggregateConcurrency < 1) {
     throw new Error(`invalid --aggregate-concurrency: ${aggregateConcurrency}`)
   }
-  return { queues, marketConcurrency, aggregateConcurrency, workerName }
+  return { queues, marketConcurrency, aggregateConcurrency }
 }
 
 function checkNodeVersion(): void {
@@ -112,10 +113,8 @@ function resolveChildScriptPath(): string {
  * Fork N single-concurrency market worker children. Each child is its own
  * Node process with its own event loop, so CPU-bound replay work runs in
  * parallel across N cores.
- *
- * Returns disposers + a shutdown hook the supervisor calls on SIGINT/SIGTERM.
  */
-function spawnMarketChildren(args: { count: number; workerName: string }): {
+function spawnMarketChildren(args: { count: number; machineId: string }): {
   children: ChildProcess[]
   shutdown: (signal: NodeJS.Signals) => Promise<void>
 } {
@@ -128,15 +127,16 @@ function spawnMarketChildren(args: { count: number; workerName: string }): {
   )
 
   const children: ChildProcess[] = []
-  for (let i = 0; i < args.count; i += 1) {
-    const child = fork(childScript, ['--worker-name', args.workerName, '--child-id', String(i)], {
+  // Children are numbered 1..N for human-readable display.
+  for (let i = 1; i <= args.count; i += 1) {
+    const child = fork(childScript, ['--child-id', String(i)], {
       execPath: tsxBin,
       env: process.env,
       stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
     })
     child.on('exit', (code, signal) => {
       console.warn(
-        `[worker=${args.workerName}] child#${i} exited code=${code} signal=${signal ?? ''}`,
+        `[worker=${args.machineId}] child#${i} exited code=${code} signal=${signal ?? ''}`,
       )
     })
     children.push(child)
@@ -172,20 +172,27 @@ function spawnMarketChildren(args: { count: number; workerName: string }): {
 async function main(): Promise<void> {
   checkNodeVersion()
   const args = parseArgs()
+  const machineId = getMachineId()
+  // Two `backtest:worker` processes can run on the same machine — one that
+  // owns the markets queue (with N forked children) and one that owns only
+  // the aggregate queue. Give them distinct Redis keys so they don't
+  // overwrite each other's heartbeat / counters.
+  const supervisorRole: 'supervisor' | 'aggregator' = args.queues.has('markets')
+    ? 'supervisor'
+    : 'aggregator'
+  const supervisorKey = getRedisProcessKey(supervisorRole)
 
   // Note: REDIS_URL is OPTIONAL — getRedisConnection() in queue.ts falls back
   // to redis://localhost:6379 when unset, matching what the producer does.
-  // Use `pingRedis()` (below) as the real gate: if Redis isn't reachable at
-  // either the configured URL or the default, abort with a clear error.
   await pingRedis()
 
   console.log(
-    `[worker] starting workerName=${args.workerName} queues=${[...args.queues].join(',')}` +
+    `[worker] starting machineId=${machineId} queues=${[...args.queues].join(',')}` +
       ` marketConcurrency=${args.marketConcurrency} aggregateConcurrency=${args.aggregateConcurrency}` +
       ` commitSha=${getCurrentGitSha()}`,
   )
 
-  const stopHeartbeat = await startHeartbeat(args.workerName)
+  const stopHeartbeat = await startHeartbeat(supervisorKey)
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]
@@ -193,23 +200,16 @@ async function main(): Promise<void> {
   } | null = null
 
   if (args.queues.has('markets')) {
-    // Each child is a fully separate Node process running its own
-    // single-concurrency BullMQ Worker. N children -> N cores of real CPU
-    // parallelism (BullMQ `concurrency: N` in a single process only gives
-    // event-loop concurrency, which serializes CPU-bound work).
     marketChildren = spawnMarketChildren({
       count: args.marketConcurrency,
-      workerName: args.workerName,
+      machineId,
     })
     console.log(
-      `[worker=${args.workerName}] spawned ${marketChildren.children.length} market child process(es)`,
+      `[worker=${machineId}] spawned ${marketChildren.children.length} market child process(es)`,
     )
   }
 
   if (args.queues.has('aggregate')) {
-    // Aggregate work is I/O-bound (Redis getChildrenValues + one big MySQL
-    // insert) and serial by design (concurrency 1). Running it in-process is
-    // fine and avoids another forked Node.
     const w = new Worker(AGGREGATE_QUEUE, aggregateProcessor, {
       connection: getRedisConnection(),
       concurrency: args.aggregateConcurrency,
@@ -218,17 +218,17 @@ async function main(): Promise<void> {
     w.on('completed', (_job, result) => {
       const r = result as { batchUid?: string; totalSucceeded?: number; totalFailed?: number }
       console.log(
-        `[worker=${args.workerName}] aggregate done batchUid=${r?.batchUid ?? '?'}` +
+        `[worker=${machineId}] aggregate done batchUid=${r?.batchUid ?? '?'}` +
           ` succeeded=${r?.totalSucceeded ?? 0} failed=${r?.totalFailed ?? 0}`,
       )
     })
     w.on('failed', (job, err) => {
       console.warn(
-        `[worker=${args.workerName}] aggregate failed jobId=${job?.id ?? '?'} err=${err.message}`,
+        `[worker=${machineId}] aggregate failed jobId=${job?.id ?? '?'} err=${err.message}`,
       )
     })
     w.on('error', (err) => {
-      console.error(`[worker=${args.workerName}] aggregate worker error:`, err.message)
+      console.error(`[worker=${machineId}] aggregate worker error:`, err.message)
     })
     inProcessWorkers.push(w)
   }
@@ -237,7 +237,7 @@ async function main(): Promise<void> {
   const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
     if (shuttingDown) return
     shuttingDown = true
-    console.log(`[worker=${args.workerName}] ${signal} received, draining...`)
+    console.log(`[worker=${machineId}] ${signal} received, draining...`)
     await stopHeartbeat()
     await Promise.allSettled([
       ...inProcessWorkers.map((w) => w.close()),
@@ -249,7 +249,7 @@ async function main(): Promise<void> {
   process.on('SIGINT', () => void shutdown('SIGINT'))
   process.on('SIGTERM', () => void shutdown('SIGTERM'))
 
-  console.log(`[worker=${args.workerName}] ready`)
+  console.log(`[worker=${machineId}] ready`)
 }
 
 main().catch((err) => {

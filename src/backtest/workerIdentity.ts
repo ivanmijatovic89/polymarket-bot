@@ -1,25 +1,41 @@
 import os from 'os'
 import { execSync } from 'node:child_process'
+import nodeMachineId from 'node-machine-id'
+
+const { machineIdSync } = nodeMachineId
 import { getRedisConnection } from './queue.js'
 
+let cachedMachineId: string | null = null
+
 /**
- * The default value for `--worker-name` when the CLI flag is omitted.
- * `${os.hostname()}-${pid}` is just a fallback — pass `--worker-name <foo>`
- * (or set `WORKER_NAME=foo` for children) to override without touching
- * the OS hostname. Children inherit the supervisor's name and append
- * `#<childId>` for uniqueness.
+ * Immutable per-machine identifier derived from the hardware UUID via
+ * `node-machine-id`. The first 12 hex chars are enough to be globally
+ * unique in practice and fit comfortably in tables/logs.
+ *
+ * This is the ONLY worker identity in the system. There is no CLI flag,
+ * env override, or hostname dependency — two invocations on the same box
+ * always produce the same id, and two different boxes can never collide.
  */
-export function defaultWorkerName(): string {
-  return `${os.hostname()}-${process.pid}`
+export function getMachineId(): string {
+  if (cachedMachineId !== null) return cachedMachineId
+  try {
+    cachedMachineId = machineIdSync().slice(0, 12)
+  } catch {
+    cachedMachineId = 'unk-' + os.hostname().slice(0, 8)
+  }
+  return cachedMachineId
 }
 
 /**
- * Best-effort `git rev-parse HEAD`. Returns `'unknown'` if git isn't
- * available or the workdir isn't a repo. Shared by the producer
- * (`backtest.ts`), supervisor (`backtestWorker.ts`), and worker children
- * (`backtestWorkerChild.ts`) — keep one definition so the dashboard's
- * `worker:*:commitSha` field stays consistent.
+ * Per-process Redis key suffix used by `startHeartbeat` and the worker
+ * stats hash. The dashboard's live Workers panel groups rows by the
+ * `machineId` prefix; the `#<childId>` suffix lets it show one row per
+ * forked child. **Never persisted to MySQL** — only used in Redis keys.
  */
+export function getRedisProcessKey(childId: number | 'supervisor' | 'aggregator' | 'seq'): string {
+  return `${getMachineId()}#${childId}`
+}
+
 export function getCurrentGitSha(): string {
   try {
     return execSync('git rev-parse HEAD', { stdio: ['ignore', 'pipe', 'ignore'] })
@@ -31,20 +47,17 @@ export function getCurrentGitSha(): string {
 }
 
 /**
- * Writes a 60s-TTL heartbeat key + commitSha hash field for `workerName`
+ * Writes a 60s-TTL heartbeat key + commitSha hash field for `processKey`
  * every 5 seconds. The dashboard's `listWorkers` query reads these keys —
  * the schema MUST stay aligned with `dashboard/src/lib/queries/workers.ts`.
- *
- * Returns a disposer that clears the timer and best-effort deletes the
- * heartbeat key on shutdown.
  */
-export async function startHeartbeat(workerName: string): Promise<() => Promise<void>> {
+export async function startHeartbeat(processKey: string): Promise<() => Promise<void>> {
   const conn = getRedisConnection()
   const interval = 5000
   const write = async (): Promise<void> => {
     try {
-      await conn.set(`backtest:worker:${workerName}:heartbeat`, String(Date.now()), 'EX', 60)
-      await conn.hset(`backtest:worker:${workerName}`, 'commitSha', getCurrentGitSha())
+      await conn.set(`backtest:worker:${processKey}:heartbeat`, String(Date.now()), 'EX', 60)
+      await conn.hset(`backtest:worker:${processKey}`, 'commitSha', getCurrentGitSha())
     } catch {
       /* best-effort */
     }
@@ -54,7 +67,7 @@ export async function startHeartbeat(workerName: string): Promise<() => Promise<
   return async () => {
     clearInterval(timer)
     try {
-      await conn.del(`backtest:worker:${workerName}:heartbeat`)
+      await conn.del(`backtest:worker:${processKey}:heartbeat`)
     } catch {
       /* best-effort */
     }

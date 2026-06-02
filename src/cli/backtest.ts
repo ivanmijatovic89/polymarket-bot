@@ -1,5 +1,5 @@
 import '../config/env.js'
-import { getCurrentGitSha } from '../backtest/workerIdentity.js'
+import { getCurrentGitSha, getMachineId } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomBytes, randomUUID } from 'crypto'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
@@ -542,7 +542,7 @@ async function main(): Promise<void> {
   // fallback (`--sequential`) for verification and Redis-less smoke runs.
   // -----------------------------------------------------------------
   if (!useBullMQ) {
-    const workerName = `sequential-${process.pid}`
+    const machineId = getMachineId()
     const commitSha = getCurrentGitSha()
     const marketStats: MarketStats[] = []
     let events = 0
@@ -570,7 +570,7 @@ async function main(): Promise<void> {
         timeDriven: parsed.timeDriven,
         latency: { delayMs: latencyMs, jitterMs },
         strategyWindow: ctx.strategyWindow,
-        workerName,
+        machineId,
         commitSha,
         shouldStop: () => shouldStop,
       })
