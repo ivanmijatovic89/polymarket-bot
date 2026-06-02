@@ -5,15 +5,15 @@ export type TradeEvent = Fill
 
 /**
  * Execution metadata captured per-market by `runSingleMarket`.
- * Records which worker processed the market, timing, and replay event counts.
+ * Records which machine processed the market, timing, and replay event counts.
  * Visible in the dashboard per-market view; not used in aggregation math.
  *
- * `workerName` is the full identifier — for distributed setups give workers
- * a meaningful `--worker-name` (e.g. `mac`, `brat-pc`) and the per-child
- * suffix `#<i>` plus pid uniquely identifies each process.
+ * `machineId` is the stable per-machine id from `getMachineId()` (12-char
+ * hex slice of the hardware UUID via `node-machine-id`). Used as the
+ * grouping key on the leaderboard.
  */
 export type MarketExecutionMeta = {
-  workerName: string
+  machineId: string
   startedAtMs: number
   finishedAtMs: number
   durationMs: number

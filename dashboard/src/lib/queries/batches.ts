@@ -207,10 +207,10 @@ export async function getBatchDetail(batchUid: string) {
       splitCost: toNumber(m.splitCost),
       intentMeta: m.intentMeta,
       ...(m.skipReason ? { skipReason: m.skipReason } : {}),
-      ...(m.workerName && m.durationMs !== null && m.eventsProcessed !== null
+      ...(m.machineId && m.durationMs !== null && m.eventsProcessed !== null
         ? {
             execution: {
-              workerName: m.workerName,
+              machineId: m.machineId,
               durationMs: m.durationMs,
               eventsProcessed: m.eventsProcessed,
             },

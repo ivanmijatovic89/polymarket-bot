@@ -10,7 +10,7 @@ import type { MarketJobData, MarketJobResult } from './jobTypes.js'
  * producer's commitSha is preserved on the execution metadata for
  * traceability.
  */
-export function makeMarketProcessor(workerName: string) {
+export function makeMarketProcessor(machineId: string) {
   return async function marketProcessor(job: Job<MarketJobData>): Promise<MarketJobResult> {
     const data = job.data
     return runSingleMarket({
@@ -26,7 +26,7 @@ export function makeMarketProcessor(workerName: string) {
       timeDriven: data.timeDriven,
       latency: data.latency,
       strategyWindow: data.strategyWindow,
-      workerName,
+      machineId,
       commitSha: data.commitSha,
     })
   }

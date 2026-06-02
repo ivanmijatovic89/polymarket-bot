@@ -4,13 +4,13 @@ import { listWorkers } from '@/lib/queries/workers'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const workers = await listWorkers()
+  const machines = await listWorkers()
   return NextResponse.json({
-    workers,
+    machines,
     totals: {
-      processedTotal: workers.reduce((s, w) => s + w.processedTotal, 0),
-      eventsTotal: workers.reduce((s, w) => s + w.eventsTotal, 0),
-      alive: workers.filter((w) => w.alive).length,
+      processedTotal: machines.reduce((s, m) => s + m.totals.processedTotal, 0),
+      eventsTotal: machines.reduce((s, m) => s + m.totals.eventsTotal, 0),
+      alive: machines.reduce((s, m) => s + m.totals.aliveCount, 0),
     },
   })
 }

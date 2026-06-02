@@ -52,7 +52,7 @@ type CompletedResponse = {
       pnl: number
       tradeCount: number
       execution?: {
-        workerName: string
+        machineId: string
         durationMs: number
         eventsProcessed: number
       }
@@ -348,7 +348,7 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
                   <TableHead>Outcome</TableHead>
                   <TableHead className="text-right">PnL</TableHead>
                   <TableHead className="text-right">Trades</TableHead>
-                  <TableHead>Worker</TableHead>
+                  <TableHead>Machine</TableHead>
                   <TableHead className="text-right">Duration</TableHead>
                   <TableHead className="text-right">Events</TableHead>
                 </TableRow>
@@ -371,7 +371,7 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{m.tradeCount}</TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono">
-                        {exec?.workerName ?? '—'}
+                        {exec?.machineId ?? '—'}
                       </TableCell>
                       <TableCell
                         className={cn(

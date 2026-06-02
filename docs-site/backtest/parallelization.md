@@ -155,13 +155,21 @@ Useful flags:
 npm run backtest:worker -- \
   --queues markets,aggregate \   # default; restrict remote machines to "markets"
   --market-concurrency 8 \       # default: os.cpus().length - 1 (one child per slot)
-  --aggregate-concurrency 1 \    # default: 1 (in-process on supervisor)
-  --worker-name my-mac           # default: <hostname>-<pid>
+  --aggregate-concurrency 1      # default: 1 (in-process on supervisor)
 ```
 
-The supervisor names children `<worker-name>#<child-id>` (e.g. `my-mac#0`,
-`my-mac#1`, …) so the dashboard surfaces each one as its own row with its
-own `processedTotal`, `eventsTotal`, `lastMarket`, and 60-second heartbeat.
+Each machine is identified by an immutable `machineId` — the first 12 hex
+chars of the hardware UUID from
+[`node-machine-id`](https://www.npmjs.com/package/node-machine-id). There is
+no flag or env override: two invocations on the same box always produce the
+same id, and two different machines can never collide. Persisted rows in
+`backtest_run_markets.machine_id` use this id directly.
+
+The supervisor and each child publish a live Redis heartbeat under the key
+`backtest:worker:<machineId>#<childId>` (children) or `<machineId>#sup`
+(supervisor). The dashboard surfaces each row with its own `processedTotal`,
+`eventsTotal`, `lastMarket`, and 60-second heartbeat — the `#childId` suffix
+is **not** persisted to MySQL.
 
 Graceful shutdown:
 

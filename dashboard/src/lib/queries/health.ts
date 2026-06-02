@@ -95,9 +95,10 @@ async function checkQueues(): Promise<HealthCheck> {
 
 async function checkWorkers(): Promise<HealthCheck> {
   try {
-    const { value: workers, ms } = await timed(() => listWorkers())
-    const alive = workers.filter((w) => w.alive).length
-    const total = workers.length
+    const { value: machines, ms } = await timed(() => listWorkers())
+    const procs = machines.flatMap((m) => m.processes)
+    const alive = procs.filter((p) => p.alive).length
+    const total = procs.length
     if (total === 0) {
       return {
         name: 'Workers',

@@ -244,7 +244,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
           cost: toDecimal(m.cost),
           splitCost: toDecimal(m.splitCost),
           intentMeta: m.intentMeta,
-          workerName: m.execution?.workerName ?? null,
+          machineId: m.execution?.machineId ?? null,
           startedAtMs: m.execution?.startedAtMs ?? null,
           finishedAtMs: m.execution?.finishedAtMs ?? null,
           durationMs: m.execution?.durationMs ?? null,
@@ -308,13 +308,13 @@ async function hydrateBacktestRun(
 
   const marketStats: MarketStats[] = marketRows.map((m) => {
     const execution: MarketExecutionMeta | undefined =
-      m.workerName !== null &&
+      m.machineId !== null &&
       m.startedAtMs !== null &&
       m.finishedAtMs !== null &&
       m.durationMs !== null &&
       m.eventsProcessed !== null
         ? {
-            workerName: m.workerName,
+            machineId: m.machineId,
             startedAtMs: m.startedAtMs,
             finishedAtMs: m.finishedAtMs,
             durationMs: m.durationMs,

@@ -191,7 +191,7 @@ export const backtestRunMarkets = mysqlTable(
 
     intentMeta: json('intent_meta').$type<Array<Record<string, unknown>>>().notNull(),
 
-    workerName: varchar('worker_name', { length: 255 }),
+    machineId: varchar('machine_id', { length: 32 }),
     startedAtMs: bigint('started_at_ms', { mode: 'number' }),
     finishedAtMs: bigint('finished_at_ms', { mode: 'number' }),
     durationMs: int('duration_ms'),
@@ -205,6 +205,7 @@ export const backtestRunMarkets = mysqlTable(
     runPnlIdx: index('idx_backtest_run_markets_run_pnl').on(t.runId, t.pnl),
     slugIdx: index('idx_backtest_run_markets_slug').on(t.slug),
     runDurationIdx: index('idx_backtest_run_markets_run_duration').on(t.runId, t.durationMs),
+    machineIdIdx: index('idx_backtest_run_markets_machine_id').on(t.machineId),
   }),
 )
 
