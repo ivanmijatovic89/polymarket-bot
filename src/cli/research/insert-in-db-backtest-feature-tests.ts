@@ -1,8 +1,7 @@
 import '../../config/env.js'
 import { randomUUID } from 'crypto'
-import { eq } from 'drizzle-orm'
-import { backtests, closeDb, getDb } from '../../db/index.js'
-import { insertBacktestRun } from '../../db/backtests.js'
+import { closeDb } from '../../db/index.js'
+import { getBacktestRunById, insertBacktestRun } from '../../db/backtests.js'
 import { computeBatchStats } from '../../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../../backtest/stats/chunkedBatchStats.js'
 import type { MarketStats } from '../../backtest/stats/marketStats.js'
@@ -135,7 +134,7 @@ Usage: npx tsx src/cli/research/insert-in-db-backtest-feature-tests.ts <backtest
 
 Description:
   Loads backtest by ID, filters marketStats by feature filters, computes batchStats
-  + chunkedBatchStats, and inserts a new backtests row with those stats.
+  + chunkedBatchStats, and inserts derived normalized backtest runs.
 
 Filter format:
   field>number
@@ -354,12 +353,10 @@ function parseJsonValue<T>(value: unknown): T | null {
   return value as T
 }
 
-function getInitialCapital(batchStatsRaw: unknown): number {
-  const parsed = parseJsonValue<Record<string, unknown>>(batchStatsRaw)
-  const raw = parsed?.capitalInitial
+function getInitialCapital(raw: unknown): number {
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n)) {
-    throw new Error('[insert-in-db] batchStats.capitalInitial is missing or invalid')
+    throw new Error('[insert-in-db] capitalInitial is missing or invalid')
   }
   return n
 }
@@ -385,33 +382,14 @@ async function run(): Promise<void> {
 
   const id = Math.trunc(args.id)
   const filters = parseFilters(args.filter)
-  const db = getDb()
-
   try {
-    const rows = await db
-      .select({
-        id: backtests.id,
-        strategy: backtests.strategy,
-        params: backtests.params,
-        symbol: backtests.symbol,
-        slugs: backtests.slugs,
-        limit: backtests.limit,
-        random: backtests.random,
-        latest: backtests.latest,
-        batchStats: backtests.batchStats,
-        marketStats: backtests.marketStats,
-      })
-      .from(backtests)
-      .where(eq(backtests.id, id))
-      .limit(1)
-
-    const row = rows[0]
+    const row = await getBacktestRunById(id)
     if (!row) {
       throw new Error(`[insert-in-db] backtest id not found: ${id}`)
     }
 
     const marketStats = coerceMarketStats(row.marketStats)
-    const initialCapital = getInitialCapital(row.batchStats)
+    const initialCapital = getInitialCapital(row.capitalInitial)
 
     const totalMarkets = marketStats.length
     const searchCount = Math.floor(totalMarkets * args.split)
@@ -435,6 +413,7 @@ async function run(): Promise<void> {
       label: 'ALL' | 'SEARCH' | 'TEST',
       groupMarkets: MarketStatsLike[],
     ) => {
+      const childBatchUid = `${batchUid}-${label.toLowerCase()}`
       const skipped = groupMarkets.filter((m) => matchesFilters(m, filters))
       const kept = groupMarkets.filter((m) => !matchesFilters(m, filters))
       const keptAll = groupMarkets.map((m) =>
@@ -463,7 +442,7 @@ async function run(): Promise<void> {
       )
 
       await insertBacktestRun({
-        batchUid,
+        batchUid: `${childBatchUid}-baseline`,
         baselineId: String(id),
         cmd: '',
         comment: `${label} > BASELINE | ${baseComment}`,
@@ -474,13 +453,13 @@ async function run(): Promise<void> {
         limit: row.limit ?? null,
         random: row.random ?? false,
         latest: row.latest ?? false,
-        batchStats: baselineBatchStats as unknown as Record<string, unknown>,
+        batchStats: baselineBatchStats,
         chunkedBatchStats: baselineChunkedBatchStats as unknown as Record<string, unknown>,
         marketStats: groupMarkets as unknown as unknown[],
       })
 
       await insertBacktestRun({
-        batchUid,
+        batchUid: `${childBatchUid}-kept`,
         baselineId: String(id),
         cmd: '',
         comment: `${label} > KEPT (after gate) | ${baseComment}`,
@@ -491,13 +470,13 @@ async function run(): Promise<void> {
         limit: row.limit ?? null,
         random: row.random ?? false,
         latest: row.latest ?? false,
-        batchStats: keptBatchStats as unknown as Record<string, unknown>,
+        batchStats: keptBatchStats,
         chunkedBatchStats: keptChunkedBatchStats as unknown as Record<string, unknown>,
         marketStats: keptAll as unknown as unknown[],
       })
 
       await insertBacktestRun({
-        batchUid,
+        batchUid: `${childBatchUid}-skipped`,
         baselineId: String(id),
         cmd: '',
         comment: `${label} > SKIPPED (bad regime) | ${baseComment}`,
@@ -508,7 +487,7 @@ async function run(): Promise<void> {
         limit: row.limit ?? null,
         random: row.random ?? false,
         latest: row.latest ?? false,
-        batchStats: skippedBatchStats as unknown as Record<string, unknown>,
+        batchStats: skippedBatchStats,
         chunkedBatchStats: skippedChunkedBatchStats as unknown as Record<string, unknown>,
         marketStats: skipped as unknown as unknown[],
       })

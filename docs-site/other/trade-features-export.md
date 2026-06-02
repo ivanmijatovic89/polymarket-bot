@@ -1,8 +1,8 @@
 # Trade Features Export
 
-This CLI exports trade features from a backtest row in the `backtests` table.
-It reads `market_stats`, uses `intentMeta[0]` per market, skips `pnl === 0`,
-and writes both CSV and JSON outputs.
+This CLI exports trade features from a normalized backtest run. It hydrates
+ordered market stats from `backtest_run_markets`, uses `intentMeta[0]` per
+market, skips `pnl === 0`, and writes both CSV and JSON outputs.
 
 ## Usage
 

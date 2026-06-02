@@ -1,7 +1,7 @@
 import '../config/env.js'
 import { getCurrentGitSha } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import { randomUUID } from 'crypto'
+import { randomBytes, randomUUID } from 'crypto'
 import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
@@ -24,7 +24,6 @@ import {
   closeRedisConnection,
   getAggregateQueue,
   getFlowProducer,
-  getMarketQueue,
   getQueueEvents,
   getRedisConnection,
 } from '../backtest/queue.js'
@@ -50,7 +49,7 @@ import {
   type Converter,
   type ReadFrom,
 } from '../db/telonexMarkets.js'
-import { insertBacktestRun } from '../db/backtests.js'
+import { getBacktestRunSummaryByBatchUid, insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
@@ -66,6 +65,69 @@ function formatDurationHuman(ms: number): string {
 
 function converterForInputMode(inputMode: 'telonex-delta' | 'telonex-paired'): Converter {
   return inputMode === 'telonex-delta' ? 'delta-typed' : 'paired'
+}
+
+function randomBatchUidSuffix(): string {
+  return randomBytes(3).toString('hex')
+}
+
+async function resolveAvailableBatchUid(
+  baseBatchUid: string,
+  options: { redisHasAggregateJob?: (candidate: string) => Promise<boolean> } = {},
+): Promise<string> {
+  let firstConflict: string | null = null
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const candidate = attempt === 0 ? baseBatchUid : `${baseBatchUid}-${randomBatchUidSuffix()}`
+    const existingRun = await getBacktestRunSummaryByBatchUid(candidate)
+    if (existingRun) {
+      firstConflict ??= `MySQL run id=${existingRun.id}, marketsPersisted=${existingRun.marketsPersisted}`
+      continue
+    }
+
+    if (options.redisHasAggregateJob && (await options.redisHasAggregateJob(candidate))) {
+      firstConflict ??= 'Redis aggregate job'
+      continue
+    }
+
+    if (candidate !== baseBatchUid) {
+      console.warn(
+        `[backtest] batchUid=${baseBatchUid} already exists (${firstConflict ?? 'conflict'}); ` +
+          `using batchUid=${candidate}`,
+      )
+    }
+    return candidate
+  }
+
+  throw new Error(`[backtest] could not allocate available batchUid for base=${baseBatchUid}`)
+}
+
+function argvWithBatchUid(argv: string[], batchUid: string): string[] {
+  const out: string[] = []
+  let found = false
+
+  for (let i = 0; i < argv.length; i += 1) {
+    const arg = argv[i]
+    if (arg === '--batchUid') {
+      out.push(arg, batchUid)
+      found = true
+      i += 1
+      continue
+    }
+    if (typeof arg === 'string' && arg.startsWith('--batchUid=')) {
+      out.push(`--batchUid=${batchUid}`)
+      found = true
+      continue
+    }
+    if (typeof arg === 'string') out.push(arg)
+  }
+
+  if (!found) out.push('--batchUid', batchUid)
+  return out
+}
+
+function buildBacktestCmdWithBatchUid(argv: string[], batchUid: string): string {
+  return buildBacktestCmdInline(argvWithBatchUid(argv, batchUid), { preferArgv: true })
 }
 
 // Parses `<symbol>-updown-<timeframe>-<epochSeconds>` → window-start ms.
@@ -132,8 +194,8 @@ async function main(): Promise<void> {
   const timer = new Timer()
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
-  const batchUid = parsed.batchUid ?? randomUUID()
-  const cmd = buildBacktestCmdInline(args)
+  let batchUid = await resolveAvailableBatchUid(parsed.batchUid ?? randomUUID())
+  let cmd = buildBacktestCmdWithBatchUid(args, batchUid)
   const built = (() => {
     try {
       return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
@@ -574,7 +636,7 @@ async function main(): Promise<void> {
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
       latest: parsed.latest ?? false,
-      batchStats: batchStats as unknown as Record<string, unknown>,
+      batchStats,
       chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
       marketStats: marketStats as unknown as unknown[],
     })
@@ -610,66 +672,12 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  // Detect a previous flow with the same --batchUid so a "rerun" doesn't
-  // silently reuse the cached aggregate returnValue. BullMQ deduplicates
-  // jobs by jobId; without this check the second run would see the
-  // existing completed parent and resolve immediately with the old result.
-  {
-    const aggregateQueue = getAggregateQueue()
-    const existing = await aggregateQueue.getJob(aggregateJobId(batchUid))
-    if (existing) {
-      const state = await existing.getState().catch(() => 'unknown')
-      if (parsed.forceRerun) {
-        console.warn(
-          `[backtest] --force-rerun: removing existing aggregate job ` +
-            `(batchUid=${batchUid}, state=${state}) and its children`,
-        )
-        const marketQueue = getMarketQueue()
-        // Enumerate Redis for ALL `${batchUid}-m-*` children, not just
-        // those matching the current marketContexts. Otherwise, if the
-        // previous run was launched with a different --limit or filter,
-        // orphan children from the old run survive in Redis and get
-        // processed/counted against this batch.
-        const allChildren = await marketQueue.getJobs(
-          [
-            'waiting',
-            'waiting-children',
-            'active',
-            'delayed',
-            'failed',
-            'completed',
-            'paused',
-            'prioritized',
-          ],
-          0,
-          -1,
-        )
-        const orphanIds: string[] = []
-        const prefix = `${batchUid}-m-`
-        for (const j of allChildren) {
-          const id = j?.id
-          if (typeof id === 'string' && id.startsWith(prefix)) orphanIds.push(id)
-        }
-        if (orphanIds.length > 0) {
-          console.warn(`[backtest] --force-rerun: removing ${orphanIds.length} child job(s)`)
-        }
-        await Promise.allSettled(orphanIds.map((id) => marketQueue.remove(id)))
-        await existing.remove().catch(() => {})
-      } else {
-        console.error(
-          `[backtest] batchUid=${batchUid} is already enqueued ` +
-            `(aggregate job state=${state}).\n` +
-            `Either:\n` +
-            `  - pick a different --batchUid (recommended), or\n` +
-            `  - rerun with --force-rerun to wipe the existing Redis flow first.\n` +
-            `Note: existing MySQL rows with this batchUid are NOT removed by --force-rerun.`,
-        )
-        await closeRedisConnection()
-        await closeDb()
-        process.exit(2)
-      }
-    }
-  }
+  const aggregateQueue = getAggregateQueue()
+  batchUid = await resolveAvailableBatchUid(batchUid, {
+    redisHasAggregateJob: async (candidate) =>
+      (await aggregateQueue.getJob(aggregateJobId(candidate))) !== undefined,
+  })
+  cmd = buildBacktestCmdWithBatchUid(args, batchUid)
 
   const flow = getFlowProducer()
   const aggData: AggregateJobData = {
@@ -728,7 +736,7 @@ async function main(): Promise<void> {
       ...AGGREGATE_JOB_OPTS,
       jobId: aggregateJobId(batchUid),
       // If a child exhausts retries, still run the aggregator with the rest
-      // (the aggregator records the failures into `failed_markets`).
+      // (the aggregator records exhausted children into backtest_run_failures).
       // BullMQ option name as of v5: `ignoreDependencyOnFailure`.
       ignoreDependencyOnFailure: true,
     },

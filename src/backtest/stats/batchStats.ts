@@ -1,6 +1,6 @@
 import type { MarketStats } from './marketStats.js'
 
-export type BatchStats = {
+export type BatchStatsFields = {
   /** Starting capital for the backtest batch (USDC). */
   capitalInitial: number
   /** Ending capital for the backtest batch (USDC). */
@@ -34,9 +34,6 @@ export type BatchStats = {
   winRate: number
   /** winRate * 100 as a number. */
   winRatePct: number
-  /** winRate * 100 formatted to 2 decimals (string). */
-  winRatePctStr: string
-
   tradesTotal: number
   tradesMaker: number
   tradesTaker: number
@@ -56,6 +53,86 @@ export type BatchStats = {
   streakMaxLosePnl: number
   /** Maximum consecutive skipped markets. */
   streakMaxSkipped: number
+}
+
+export type BatchStatsRunColumns = BatchStatsFields
+
+export class BatchStats implements BatchStatsFields {
+  capitalInitial!: number
+  capitalFinal!: number
+  pnlTotal!: number
+  totalFeesPaid!: number
+  qualitySystem!: number | null
+  qualityTrade!: number | null
+  evPerMarketPlayed!: number
+  evPerMarketTotal!: number
+  marketsTotal!: number
+  marketsSkipped!: number
+  marketsNoInWindowActivity!: number
+  marketsFlatWithTrades!: number
+  marketsPlayed!: number
+  marketsWon!: number
+  marketsLost!: number
+  winRate!: number
+  winRatePct!: number
+  tradesTotal!: number
+  tradesMaker!: number
+  tradesTaker!: number
+  pnlAvgWin!: number
+  pnlAvgLose!: number
+  pnlMaxWin!: number
+  pnlMaxLose!: number
+  streakMaxWin!: number
+  streakMaxLose!: number
+  streakMaxWinPnl!: number
+  streakMaxLosePnl!: number
+  streakMaxSkipped!: number
+
+  constructor(fields: BatchStatsFields) {
+    Object.assign(this, fields)
+  }
+
+  static formatWinRatePct(value: number): string {
+    return value.toFixed(2)
+  }
+
+  get winRatePctDisplay(): string {
+    return BatchStats.formatWinRatePct(this.winRatePct)
+  }
+
+  toRunColumns(): BatchStatsRunColumns {
+    return {
+      capitalInitial: this.capitalInitial,
+      capitalFinal: this.capitalFinal,
+      pnlTotal: this.pnlTotal,
+      totalFeesPaid: this.totalFeesPaid,
+      qualitySystem: this.qualitySystem,
+      qualityTrade: this.qualityTrade,
+      evPerMarketPlayed: this.evPerMarketPlayed,
+      evPerMarketTotal: this.evPerMarketTotal,
+      marketsTotal: this.marketsTotal,
+      marketsSkipped: this.marketsSkipped,
+      marketsNoInWindowActivity: this.marketsNoInWindowActivity,
+      marketsFlatWithTrades: this.marketsFlatWithTrades,
+      marketsPlayed: this.marketsPlayed,
+      marketsWon: this.marketsWon,
+      marketsLost: this.marketsLost,
+      winRate: this.winRate,
+      winRatePct: this.winRatePct,
+      tradesTotal: this.tradesTotal,
+      tradesMaker: this.tradesMaker,
+      tradesTaker: this.tradesTaker,
+      pnlAvgWin: this.pnlAvgWin,
+      pnlAvgLose: this.pnlAvgLose,
+      pnlMaxWin: this.pnlMaxWin,
+      pnlMaxLose: this.pnlMaxLose,
+      streakMaxWin: this.streakMaxWin,
+      streakMaxLose: this.streakMaxLose,
+      streakMaxWinPnl: this.streakMaxWinPnl,
+      streakMaxLosePnl: this.streakMaxLosePnl,
+      streakMaxSkipped: this.streakMaxSkipped,
+    }
+  }
 }
 
 const round2 = (n: number): number => Math.round(n * 100) / 100
@@ -175,7 +252,7 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
   const qualitySystem = computeQuality(pnlsMarketsTotal)
   const qualityTrade = computeQuality(pnlsMarketsPlayed)
 
-  return {
+  return new BatchStats({
     capitalInitial: initialCapital,
     capitalFinal: round2(capitalFinal),
 
@@ -196,7 +273,6 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
 
     winRate: round4(winRate),
     winRatePct: round2(winRatePct),
-    winRatePctStr: winRatePct.toFixed(2),
 
     tradesTotal: acc.tradesTotal,
     tradesMaker: acc.tradesMaker,
@@ -212,5 +288,5 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     streakMaxWinPnl: round2(acc.streakMaxWinPnl),
     streakMaxLosePnl: round2(acc.streakMaxLosePnl),
     streakMaxSkipped: acc.streakMaxSkipped,
-  }
+  })
 }

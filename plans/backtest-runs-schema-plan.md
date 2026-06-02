@@ -1,130 +1,113 @@
 # Backtest Runs Schema Plan
 
-## Goal
+## Decision
 
-- Replace monolithic `backtests.market_stats` / `backtests.batch_stats` JSON storage with normalized run + market tables.
-- Preserve deterministic ordering and replay parity.
-- Keep the initial version lean: no chunk tables persisted, chunk stats computed on demand.
+Use a normalized run/market/failure schema. Keep flexible JSON only where the data is genuinely nested or experimental.
 
-## Naming
+The original brainstorm was directionally correct, but retaining both typed columns and a top-level `batch_stats` JSON snapshot created duplicate sources of truth. The safer V1 is normalized:
 
-- `backtest_runs`
-- `backtest_run_markets`
-- `backtest_run_failures`
+- Query/sort/filter fields are first-class columns.
+- Per-market rows are normalized so dashboard/research code no longer loads a giant `market_stats` blob.
+- Strategy params, `intentMeta`, execution event counts, and `chunked_batch_stats` stay JSON at the smallest useful scope.
+- `BatchStats` is a domain object in TypeScript, but its run-level fields are persisted as typed scalar columns on `backtest_runs`.
+- No legacy backtest data migration. The old `backtests` table can be dropped/truncated because the data is disposable.
 
-## Table: `backtest_runs`
+## Tables
 
-| Column                          | Type                                               | Notes                   |
-| ------------------------------- | -------------------------------------------------- | ----------------------- |
-| `id`                            | `bigint PK autoincrement`                          | Internal run ID         |
-| `batch_uid`                     | `varchar(255) unique`                              | External run identifier |
-| `status`                        | `enum('running','completed','failed','partial')`   | Lifecycle               |
-| `strategy`                      | `varchar(255) not null`                            | Strategy ID             |
-| `params`                        | `json not null`                                    | Strategy params         |
-| `symbol`                        | `varchar(10) null`                                 | Input symbol            |
-| `slugs`                         | `json null`                                        | Input slugs array       |
-| `limit`                         | `int null`                                         | CLI flag                |
-| `random`                        | `boolean not null default false`                   | CLI flag                |
-| `latest`                        | `boolean not null default false`                   | CLI flag                |
-| `baseline_id`                   | `varchar(255) null`                                | Compare baseline        |
-| `cmd`                           | `longtext null`                                    | Repro command           |
-| `comment`                       | `text null`                                        | User note               |
-| `capital_initial`               | `double not null`                                  | Batch stat              |
-| `capital_final`                 | `double not null`                                  | Batch stat              |
-| `pnl_total`                     | `double not null`                                  | Batch stat              |
-| `total_fees_paid`               | `double not null`                                  | Batch stat              |
-| `quality_system`                | `double null`                                      | Batch stat              |
-| `quality_trade`                 | `double null`                                      | Batch stat              |
-| `ev_per_market_played`          | `double not null`                                  | Batch stat              |
-| `ev_per_market_total`           | `double not null`                                  | Batch stat              |
-| `markets_total`                 | `int not null`                                     | Batch stat              |
-| `markets_skipped`               | `int not null`                                     | Batch stat              |
-| `markets_no_in_window_activity` | `int not null`                                     | Batch stat              |
-| `markets_flat_with_trades`      | `int not null`                                     | Batch stat              |
-| `markets_played`                | `int not null`                                     | Batch stat              |
-| `markets_won`                   | `int not null`                                     | Batch stat              |
-| `markets_lost`                  | `int not null`                                     | Batch stat              |
-| `win_rate`                      | `double not null`                                  | Batch stat              |
-| `win_rate_pct`                  | `double not null`                                  | Batch stat              |
-| `win_rate_pct_str`              | `varchar(16) not null`                             | Batch stat              |
-| `trades_total`                  | `int not null`                                     | Batch stat              |
-| `trades_maker`                  | `int not null`                                     | Batch stat              |
-| `trades_taker`                  | `int not null`                                     | Batch stat              |
-| `pnl_avg_win`                   | `double not null`                                  | Batch stat              |
-| `pnl_avg_lose`                  | `double not null`                                  | Batch stat              |
-| `pnl_max_win`                   | `double not null`                                  | Batch stat              |
-| `pnl_max_lose`                  | `double not null`                                  | Batch stat              |
-| `streak_max_win`                | `int not null`                                     | Batch stat              |
-| `streak_max_lose`               | `int not null`                                     | Batch stat              |
-| `streak_max_win_pnl`            | `double not null`                                  | Batch stat              |
-| `streak_max_lose_pnl`           | `double not null`                                  | Batch stat              |
-| `streak_max_skipped`            | `int not null`                                     | Batch stat              |
-| `created_at`                    | `timestamp not null default now()`                 | Insert time             |
-| `updated_at`                    | `timestamp not null default now() on update now()` | Last update             |
+### `backtest_runs`
 
-### Indexes (`backtest_runs`)
+One row per terminal backtest run.
 
-- `unique(batch_uid)`
-- `index(created_at)`
-- `index(strategy, created_at)`
-- `index(symbol, created_at)`
+Key columns:
 
-## Table: `backtest_run_markets`
+- `id bigint PK autoincrement`
+- `batch_uid varchar(255) not null unique`
+- `status enum('completed','partial','failed') not null`
+- CLI/repro metadata: `strategy`, `params`, `symbol`, `slugs`, `limit`, `random`, `latest`, `baseline_id`, `cmd`, `comment`
+- cardinality: `input_markets_total`, `markets_persisted`, `failures_count`
+- dashboard/ranking metrics: `pnl_total`, `capital_initial`, `capital_final`, `total_fees_paid`, `quality_system`, `quality_trade`, EV, market counts, win rate, trade counts, P&L distribution, streak metrics
+- nested analysis artifact: `chunked_batch_stats json null`
+- timestamps: `created_at`, `updated_at`
 
-| Column                 | Type                                     | Notes                      |
-| ---------------------- | ---------------------------------------- | -------------------------- |
-| `id`                   | `bigint PK autoincrement`                | Internal row ID            |
-| `run_id`               | `bigint not null FK -> backtest_runs.id` | Parent run                 |
-| `idx`                  | `int not null`                           | Deterministic order in run |
-| `market_id`            | `varchar(255) not null`                  | Market identifier          |
-| `slug`                 | `varchar(255) not null`                  | Market slug                |
-| `final_outcome`        | `enum('UP','DOWN') not null`             | Outcome                    |
-| `skip_reason`          | `enum('no_in_window_activity') null`     | Optional skip reason       |
-| `pnl`                  | `double not null`                        | Per-market PnL             |
-| `trade_count`          | `int not null`                           | Per-market trades          |
-| `trade_as_maker`       | `int not null`                           | Maker trades               |
-| `trade_as_taker`       | `int not null`                           | Taker trades               |
-| `fees_paid`            | `double not null`                        | Fees                       |
-| `avg_entry_price_up`   | `double null`                            | Avg UP entry               |
-| `avg_entry_price_down` | `double null`                            | Avg DOWN entry             |
-| `up_shares`            | `double not null`                        | Position snapshot          |
-| `down_shares`          | `double not null`                        | Position snapshot          |
-| `mergable_shares`      | `double not null`                        | Position snapshot          |
-| `cost`                 | `double not null`                        | Cost basis                 |
-| `split_cost`           | `double not null`                        | Split cost                 |
-| `worker_name`          | `varchar(255) null`                      | Execution metadata         |
-| `started_at_ms`        | `bigint null`                            | Execution metadata         |
-| `finished_at_ms`       | `bigint null`                            | Execution metadata         |
-| `duration_ms`          | `int null`                               | Execution metadata         |
-| `events_processed`     | `int null`                               | Execution metadata         |
-| `events_by_type`       | `json null`                              | Execution metadata         |
-| `commit_sha`           | `varchar(64) null`                       | Execution metadata         |
+Indexes:
 
-### Indexes (`backtest_run_markets`)
+- unique `batch_uid`
+- `created_at`
+- `(strategy, created_at)`
+- `pnl_total`
+- `(symbol, created_at)`
 
-- `unique(run_id, idx)`
-- `index(run_id, slug)`
-- `index(run_id, pnl)`
-- `index(slug)`
+### `backtest_run_markets`
 
-## Table: `backtest_run_failures`
+One row per persisted `MarketStats` result. `idx` preserves deterministic input/run order and is the canonical ordering for streak and chunk semantics.
 
-| Column       | Type                                     | Notes               |
-| ------------ | ---------------------------------------- | ------------------- |
-| `id`         | `bigint PK autoincrement`                | Internal row ID     |
-| `run_id`     | `bigint not null FK -> backtest_runs.id` | Parent run          |
-| `job_id`     | `varchar(255) null`                      | BullMQ child job id |
-| `idx`        | `int null`                               | Market index        |
-| `slug`       | `varchar(255) null`                      | Market slug         |
-| `reason`     | `text not null`                          | Failure reason      |
-| `created_at` | `timestamp not null default now()`       | Insert time         |
+Key columns:
 
-### Indexes (`backtest_run_failures`)
+- `id bigint PK autoincrement`
+- `run_id bigint not null FK -> backtest_runs.id ON DELETE CASCADE`
+- `idx int not null`
+- identity/outcome: `market_id`, `slug`, `final_outcome`, `skip_reason`
+- stable per-market stats: PnL, trade counts, fees, average entry prices, share/cost fields
+- scoped flexible payload: `intent_meta json not null`
+- execution metadata: worker, timing, event counts, commit
 
-- `index(run_id)`
-- `index(run_id, idx)`
+Indexes:
 
-## Deferred (Not in V1)
+- unique `(run_id, idx)`
+- `(run_id, slug)`
+- `(run_id, pnl)`
+- `slug`
+- `(run_id, duration_ms)`
 
-- `backtest_run_market_intent_meta` (explicitly out for now)
-- Persisted chunk tables (`backtest_run_chunk_*`) — compute on demand in dashboard/service
+### `backtest_run_failures`
+
+One row per child market job that exhausted retries.
+
+Key columns:
+
+- `id bigint PK autoincrement`
+- `run_id bigint not null FK -> backtest_runs.id ON DELETE CASCADE`
+- `job_id`, `idx`, `slug`, `reason`, `created_at`
+
+Indexes:
+
+- `(run_id, idx)`
+- `(run_id, slug)`
+
+## Why This Shape
+
+- It removes the main bottleneck: every dashboard/research query no longer needs to read one large `market_stats` JSON value.
+- It preserves replay parity because the insert path still receives the exact shared `MarketStats[]` produced by live/backtest-shared strategy execution. Persistence is post-run only.
+- It keeps deterministic ordering explicit through `backtest_run_markets.idx`.
+- It avoids schema churn for experimental research metadata by keeping `intentMeta` JSON per market.
+- It keeps current dashboard and diff tooling cheap by using typed run summary columns and retaining only the nested `chunked_batch_stats` snapshot.
+
+## Implementation Touch Points
+
+- `src/db/schema.ts`: replace `backtests` with `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`.
+- `src/db/backtests.ts`: insert a run transactionally and hydrate old-compatible run detail objects for consumers.
+- `src/cli/backtest.ts`: call site unchanged; still passes `MarketStats[]` and `BatchStats`.
+- `src/backtest/aggregateProcessor.ts`: call site unchanged; still sorts by `idx` before insert.
+- `src/cli/verify-backtest-diff.ts`: read hydrated runs by `batchUid`.
+- `src/cli/rebuild-chunked-batch-stats.ts`: rebuild from normalized market rows.
+- `src/cli/research/export-trade-features.ts`: read hydrated runs by ID.
+- `src/cli/research/insert-in-db-backtest-feature-tests.ts`: read hydrated source runs, insert derived runs through the same insert helper.
+- `dashboard/src/lib/schema.ts`: mirror the normalized tables.
+- `dashboard/src/lib/queries/batches.ts`: list runs from `backtest_runs`, hydrate detail from market/failure rows.
+- `drizzle/0014_normalize_backtest_runs.sql`: destructive migration that drops old `backtests` and creates the new tables.
+
+## Safety Assessment
+
+This is safe for strategy parity because no strategy, tick stream, execution adapter, order manager, or portfolio behavior changes. The change is persistence-only after per-market results are already computed.
+
+Main risks:
+
+- MySQL migration is destructive for old backtest rows by design.
+- External ad hoc SQL/scripts that still query `backtests.market_stats` will break and need to use the hydrated helper or new tables.
+- `batch_uid` is now unique. Research scripts that intentionally insert several derived rows under the same batch UID must generate distinct child UIDs.
+
+## Deferred
+
+- Dedicated `backtest_run_market_intent_meta` table. Add only if per-intent querying becomes common.
+- Persisted chunk segment tables. Current chunk snapshots are small enough and already exist as run-level JSON.
+- A `running` status row written before queue completion. Active runs currently remain Redis/BullMQ-backed in the dashboard.

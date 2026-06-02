@@ -8,7 +8,7 @@ File: `src/backtest/stats/chunkedBatchStats.ts`
 
 ## Inputs
 
-- `markets`: array of `MarketStats` (parsed from `market_stats` JSON).
+- `markets`: array of `MarketStats` (hydrated from `backtest_run_markets`).
 - `initialCapital`: starting capital for the first segment (USDC).
 - `windows` (optional): array of window sizes. Default is `[96, 200, 300]`.
 

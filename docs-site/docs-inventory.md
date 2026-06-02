@@ -33,8 +33,9 @@ Review this file and edit before bulk writing begins.
 |---|---|---|---|
 | src/cli/backtest.ts | Running Backtests | how-to | Main backtest CLI — file/symbol/slug/dir modes, all flags |
 | src/backtest/generate-jobs.ts | Generate Backtest Jobs | how-to | Generates parameterized job configs for batch execution |
-| src/backtest/stats/marketStats.ts | Market Statistics | reference | Per-market PnL, trade counts, fees computed at resolution |
-| src/backtest/stats/batchStats.ts | Batch Statistics | reference | Aggregated stats: Sharpe, win rate, cumulative returns |
+| src/db/schema.ts | Backtest Result Storage | reference | Normalized backtest result tables: runs, markets, failures |
+| src/backtest/stats/batchStats.ts | Backtest Run Statistics | reference | Scalar run performance columns derived from BatchStats |
+| src/backtest/stats/marketStats.ts | Backtest Run Markets | reference | Per-market result rows stored in backtest_run_markets |
 | src/backtest/stats/chunkedBatchStats.ts | Chunked Batch Statistics | reference | Time-windowed stats for learning curve analysis |
 | src/backtest/stats/walkForwardRank.ts | Walk-Forward Ranking | reference | Ranks strategies using walk-forward analysis |
 

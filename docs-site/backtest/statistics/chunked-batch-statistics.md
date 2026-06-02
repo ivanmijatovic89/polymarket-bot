@@ -56,7 +56,7 @@ The backtest CLI always computes chunked stats for windows `[96, 200, 300]` and 
 | `positivePct`            | `number`                   | Fraction of segments where `evPerMarketTotal >= 0`, in `[0, 1]`.                                       |
 | `maxConsecutiveNegative` | `number`                   | Longest consecutive run of segments with `evPerMarketTotal < 0`.                                       |
 | `stabilityPass`          | `boolean`                  | `true` when `positivePct >= 0.7`. A simple guard against strategies that only win intermittently.      |
-| `walkForward`            | `WalkForwardWindowMetrics` | Walk-forward fold analysis across the segments. See [Walk-Forward Ranking](./walk-forward-ranking.md). |
+| `walkForward`            | `WalkForwardWindowMetrics` | Walk-forward fold analysis across the segments. See [Walk-Forward Ranking](/backtest/statistics/walk-forward-ranking). |
 | `version`                | `number`                   | Schema version for this run record.                                                                    |
 
 ## Segment Record
@@ -69,7 +69,7 @@ Each entry in `segments` covers one contiguous slice of markets.
 | `fromTs`       | `number`     | Epoch timestamp (seconds) of the first market in the segment, parsed from the slug.    |
 | `toTs`         | `number`     | Epoch timestamp (seconds) of the last market in the segment, parsed from the slug.     |
 | `marketsTotal` | `number`     | Number of markets in this segment. Equal to `window` for all segments except the last. |
-| `batch_stats`  | `BatchStats` | Full `BatchStats` for this segment. See [Batch Statistics](./batch-stats.md).          |
+| `batch_stats`  | `BatchStats` | Full segment-level `BatchStats` object. See [Backtest Run Statistics](/backtest/statistics/run-statistics) for the run-level scalar fields. |
 
 ## Interpreting the Results
 

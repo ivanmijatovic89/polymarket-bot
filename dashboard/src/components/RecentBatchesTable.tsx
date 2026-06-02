@@ -46,9 +46,8 @@ export function RecentBatchesTable() {
         </TableHeader>
         <TableBody>
           {batches.map((b, i) => {
-            const bs = b.batchStats as Record<string, unknown>
-            const pnlNum = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
-            const wr = typeof bs.winRatePctStr === 'string' ? `${bs.winRatePctStr}%` : '—'
+            const pnlNum = typeof b.pnlTotal === 'number' ? b.pnlTotal : null
+            const wr = typeof b.winRatePct === 'number' ? `${b.winRatePct.toFixed(2)}%` : '—'
             const uid = b.batchUid ?? ''
             const pnlTone =
               pnlNum === null

@@ -41,7 +41,11 @@ type CompletedResponse = {
   batch: {
     strategy: string
     comment: string | null
-    batchStats: Record<string, unknown>
+    pnlTotal: number
+    winRatePct: number
+    tradesTotal: number
+    marketsTotal: number
+    marketsPlayed: number
     marketStats: Array<{
       slug: string | null
       finalOutcome: string | number | null
@@ -204,13 +208,12 @@ function MetricMini({
 
 function CompletedDetail({ data }: { data: CompletedResponse }) {
   const { batch } = data
-  const bs = batch.batchStats
-  const pnlNum = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
+  const pnlNum = typeof batch.pnlTotal === 'number' ? batch.pnlTotal : null
   const pnlTone = pnlNum === null ? 'default' : pnlNum >= 0 ? 'success' : 'destructive'
-  const wr = typeof bs.winRatePctStr === 'string' ? `${bs.winRatePctStr}%` : '—'
-  const trades = typeof bs.tradesTotal === 'number' ? formatNumber(bs.tradesTotal as number) : '—'
-  const totalMarkets = typeof bs.marketsTotal === 'number' ? String(bs.marketsTotal) : '—'
-  const played = typeof bs.marketsPlayed === 'number' ? String(bs.marketsPlayed) : '—'
+  const wr = typeof batch.winRatePct === 'number' ? `${batch.winRatePct.toFixed(2)}%` : '—'
+  const trades = typeof batch.tradesTotal === 'number' ? formatNumber(batch.tradesTotal) : '—'
+  const totalMarkets = typeof batch.marketsTotal === 'number' ? String(batch.marketsTotal) : '—'
+  const played = typeof batch.marketsPlayed === 'number' ? String(batch.marketsPlayed) : '—'
 
   const marketStats = batch.marketStats ?? []
   const failed = batch.failedMarkets ?? []
@@ -292,7 +295,7 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
                   // segment itself.
                   const bs = (s.batch_stats as Record<string, unknown> | undefined) ?? {}
                   const sp = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
-                  const wr = typeof bs.winRatePctStr === 'string' ? (bs.winRatePctStr as string) : null
+                  const wr = typeof bs.winRatePct === 'number' ? (bs.winRatePct as number) : null
                   const trades = typeof bs.tradesTotal === 'number' ? (bs.tradesTotal as number) : null
                   const markets =
                     typeof s.marketsTotal === 'number' ? (s.marketsTotal as number) : null
@@ -315,7 +318,7 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
                         {sp !== null ? formatPnl(sp) : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
-                        {wr !== null ? `${wr}%` : '—'}
+                        {wr !== null ? `${wr.toFixed(2)}%` : '—'}
                       </TableCell>
                       <TableCell className="text-right tabular-nums text-muted-foreground">
                         {trades !== null ? String(trades) : '—'}

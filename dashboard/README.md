@@ -47,7 +47,7 @@ dashboard/
 │       ├── db.ts                      # singleton drizzle client
 │       ├── redis.ts                   # singleton ioredis (for SCAN/HGETALL)
 │       ├── queue.ts                   # bullmq queue singletons
-│       ├── schema.ts                  # mirror of `backtests` table
+│       ├── schema.ts                  # mirror of backtest result tables
 │       └── queries/                   # workers / queues / batches
 ├── next.config.ts
 └── package.json
@@ -64,5 +64,5 @@ dashboard/
 ## Schema drift
 
 `src/lib/schema.ts` mirrors `polymarket-bot/src/db/schema.ts` for the
-`backtests` table. If the source schema changes, mirror the relevant
-column here. Read-only; the dashboard never writes.
+backtest result tables. If the source schema changes, mirror the relevant
+columns here. Read-only; the dashboard never writes.
