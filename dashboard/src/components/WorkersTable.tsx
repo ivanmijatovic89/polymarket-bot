@@ -1,17 +1,85 @@
 'use client'
 
+import { Fragment } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Cpu } from 'lucide-react'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Skeleton } from './ui/skeleton'
-import type { WorkerStats } from '@/lib/queries/workers'
+import type { MachineGroup, WorkerProcess, WorkerRole } from '@/lib/queries/workers'
 
-async function fetchWorkers(): Promise<{ workers: WorkerStats[] }> {
+async function fetchWorkers(): Promise<{ machines: MachineGroup[] }> {
   const r = await fetch('/api/workers', { cache: 'no-store' })
   if (!r.ok) throw new Error('failed to fetch /api/workers')
   return r.json()
+}
+
+function RoleBadge({ role }: { role: WorkerRole }) {
+  switch (role.kind) {
+    case 'supervisor':
+      return <Badge variant="secondary">supervisor</Badge>
+    case 'aggregator':
+      return <Badge variant="warning">aggregator</Badge>
+    case 'worker':
+      return <Badge variant="outline">worker #{role.childId}</Badge>
+    case 'sequential':
+      return <Badge variant="outline">sequential</Badge>
+    default:
+      return <Badge variant="muted">unknown</Badge>
+  }
+}
+
+function ProcessRow({ p }: { p: WorkerProcess }) {
+  return (
+    <TableRow>
+      <TableCell className="pl-8">
+        <RoleBadge role={p.role} />
+      </TableCell>
+      <TableCell>
+        {p.alive ? (
+          <Badge variant="success">
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+            alive
+          </Badge>
+        ) : (
+          <Badge variant="muted">stale</Badge>
+        )}
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        {p.processedTotal.toLocaleString()}
+      </TableCell>
+      <TableCell className="text-right tabular-nums text-muted-foreground">
+        {p.eventsTotal.toLocaleString()}
+      </TableCell>
+      <TableCell className="font-mono text-xs text-muted-foreground">
+        {p.lastMarket ?? '—'}
+      </TableCell>
+      <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
+        {p.heartbeatAgeMs !== null ? `${Math.round(p.heartbeatAgeMs / 1000)}s ago` : '—'}
+      </TableCell>
+    </TableRow>
+  )
+}
+
+function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
+  return (
+    <TableRow className="bg-muted/40 hover:bg-muted/40">
+      <TableCell colSpan={2} className="font-mono text-xs font-semibold">
+        {machine.machineId}
+        <span className="ml-3 font-sans text-xs font-normal text-muted-foreground">
+          {machine.totals.aliveCount} alive
+        </span>
+      </TableCell>
+      <TableCell className="text-right tabular-nums font-semibold">
+        {machine.totals.processedTotal.toLocaleString()}
+      </TableCell>
+      <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
+        {machine.totals.eventsTotal.toLocaleString()}
+      </TableCell>
+      <TableCell colSpan={2} />
+    </TableRow>
+  )
 }
 
 export function WorkersTable() {
@@ -32,8 +100,8 @@ export function WorkersTable() {
       </Card>
     )
   }
-  const workers = data?.workers ?? []
-  if (workers.length === 0) {
+  const machines = data?.machines ?? []
+  if (machines.length === 0) {
     return (
       <Card className="px-6 py-12 text-center">
         <Cpu className="mx-auto h-10 w-10 text-muted-foreground/40" />
@@ -49,7 +117,7 @@ export function WorkersTable() {
       <Table>
         <TableHeader>
           <TableRow>
-            <TableHead>Name</TableHead>
+            <TableHead>Role</TableHead>
             <TableHead>Status</TableHead>
             <TableHead className="text-right">Processed</TableHead>
             <TableHead className="text-right">Events</TableHead>
@@ -58,32 +126,13 @@ export function WorkersTable() {
           </TableRow>
         </TableHeader>
         <TableBody>
-          {workers.map((w) => (
-            <TableRow key={w.name}>
-              <TableCell className="font-mono text-xs">{w.name}</TableCell>
-              <TableCell>
-                {w.alive ? (
-                  <Badge variant="success">
-                    <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-                    alive
-                  </Badge>
-                ) : (
-                  <Badge variant="muted">stale</Badge>
-                )}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {w.processedTotal.toLocaleString()}
-              </TableCell>
-              <TableCell className="text-right tabular-nums text-muted-foreground">
-                {w.eventsTotal.toLocaleString()}
-              </TableCell>
-              <TableCell className="font-mono text-xs text-muted-foreground">
-                {w.lastMarket ?? '—'}
-              </TableCell>
-              <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
-                {w.heartbeatAgeMs !== null ? `${Math.round(w.heartbeatAgeMs / 1000)}s ago` : '—'}
-              </TableCell>
-            </TableRow>
+          {machines.map((m) => (
+            <Fragment key={m.machineId}>
+              <MachineHeaderRow machine={m} />
+              {m.processes.map((p) => (
+                <ProcessRow key={p.processKey} p={p} />
+              ))}
+            </Fragment>
           ))}
         </TableBody>
       </Table>
