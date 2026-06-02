@@ -1,6 +1,8 @@
 import '../../config/env.js'
 import { randomUUID } from 'crypto'
-import { closeDb } from '../../db/index.js'
+import { eq } from 'drizzle-orm'
+import { closeDb, getDb } from '../../db/index.js'
+import { backtestRuns } from '../../db/schema.js'
 import { getBacktestRunById, insertBacktestRun } from '../../db/backtests.js'
 import { computeBatchStats } from '../../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../../backtest/stats/chunkedBatchStats.js'
@@ -353,7 +355,17 @@ function parseJsonValue<T>(value: unknown): T | null {
   return value as T
 }
 
-function getInitialCapital(raw: unknown): number {
+async function fetchInitialCapital(id: number): Promise<number> {
+  const db = getDb()
+  const [row] = await db
+    .select({ capitalInitial: backtestRuns.capitalInitial })
+    .from(backtestRuns)
+    .where(eq(backtestRuns.id, id))
+    .limit(1)
+  const raw = row?.capitalInitial
+  if (raw === null || raw === undefined) {
+    throw new Error('[insert-in-db] capitalInitial is missing or invalid')
+  }
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (!Number.isFinite(n)) {
     throw new Error('[insert-in-db] capitalInitial is missing or invalid')
@@ -389,7 +401,7 @@ async function run(): Promise<void> {
     }
 
     const marketStats = coerceMarketStats(row.marketStats)
-    const initialCapital = getInitialCapital(row.capitalInitial)
+    const initialCapital = await fetchInitialCapital(id)
 
     const totalMarkets = marketStats.length
     const searchCount = Math.floor(totalMarkets * args.split)

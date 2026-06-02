@@ -308,7 +308,7 @@ async function hydrateBacktestRun(
 
   const marketStats: MarketStats[] = marketRows.map((m) => {
     const execution: MarketExecutionMeta | undefined =
-      m.workerName &&
+      m.workerName !== null &&
       m.startedAtMs !== null &&
       m.finishedAtMs !== null &&
       m.durationMs !== null &&
