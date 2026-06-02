@@ -1,13 +1,12 @@
 import '../config/env.js'
-import { eq } from 'drizzle-orm'
-import { getDb, closeDb } from '../db/index.js'
-import { backtests } from '../db/schema.js'
+import { closeDb } from '../db/index.js'
+import { getBacktestRunByBatchUid } from '../db/backtests.js'
 
 /**
  * Compares two backtest rows by batchUid and reports the first structural diff.
  *
  * Bit-identical means: marketStats (excluding the new optional `execution` field),
- * batchStats, and chunkedBatchStats are deeply equal.
+ * run summary columns, and chunkedBatchStats are deeply equal.
  *
  * Usage:
  *   tsx src/cli/verify-backtest-diff.ts --baseline <uid> --candidate <uid>
@@ -93,13 +92,46 @@ function diffPath(a: AnyVal, b: AnyVal, path: string, diffs: string[]): void {
   diffs.push(`${path}: ${JSON.stringify(a)} vs ${JSON.stringify(b)}`)
 }
 
+const RUN_SUMMARY_KEYS = [
+  'capitalInitial',
+  'capitalFinal',
+  'pnlTotal',
+  'totalFeesPaid',
+  'qualitySystem',
+  'qualityTrade',
+  'evPerMarketPlayed',
+  'evPerMarketTotal',
+  'marketsTotal',
+  'marketsSkipped',
+  'marketsNoInWindowActivity',
+  'marketsFlatWithTrades',
+  'marketsPlayed',
+  'marketsWon',
+  'marketsLost',
+  'winRate',
+  'winRatePct',
+  'tradesTotal',
+  'tradesMaker',
+  'tradesTaker',
+  'pnlAvgWin',
+  'pnlAvgLose',
+  'pnlMaxWin',
+  'pnlMaxLose',
+  'streakMaxWin',
+  'streakMaxLose',
+  'streakMaxWinPnl',
+  'streakMaxLosePnl',
+  'streakMaxSkipped',
+] as const
+
+function pickRunSummary(row: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(RUN_SUMMARY_KEYS.map((key) => [key, row[key]]))
+}
+
 async function main(): Promise<void> {
   const { baseline, candidate } = parseArgs()
-  const db = getDb()
-  if (!db) throw new Error('db not initialized')
-
-  const [base] = await db.select().from(backtests).where(eq(backtests.batchUid, baseline)).limit(1)
-  const [cand] = await db.select().from(backtests).where(eq(backtests.batchUid, candidate)).limit(1)
+  const base = await getBacktestRunByBatchUid(baseline)
+  const cand = await getBacktestRunByBatchUid(candidate)
 
   if (!base) {
     console.error(`baseline batchUid not found: ${baseline}`)
@@ -120,7 +152,7 @@ async function main(): Promise<void> {
       a: stripExecution(base.marketStats),
       b: stripExecution(cand.marketStats),
     },
-    { name: 'batchStats', a: base.batchStats, b: cand.batchStats },
+    { name: 'run summary columns', a: pickRunSummary(base), b: pickRunSummary(cand) },
     { name: 'chunkedBatchStats', a: base.chunkedBatchStats, b: cand.chunkedBatchStats },
   ]
 

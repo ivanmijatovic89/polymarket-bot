@@ -93,8 +93,8 @@ export const MARKET_JOB_OPTS = {
 export const AGGREGATE_JOB_OPTS = {
   attempts: 3,
   backoff: { type: 'exponential' as const, delay: 5000 },
-  // The aggregator persists batchStats / chunkedBatchStats / marketStats /
-  // failed_markets into the `backtests` MySQL row before returning. Once
+  // The aggregator persists run summary columns / chunkedBatchStats / normalized market
+  // rows / failure rows into MySQL before returning. Once
   // that's done there is nothing left in the parent job worth caching, and
   // *keeping it around* causes the next run with the same --batchUid to
   // hit BullMQ's jobId dedup and silently return the cached returnValue.

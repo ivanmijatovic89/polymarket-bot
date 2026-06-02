@@ -1,7 +1,7 @@
 import fs from 'node:fs/promises'
 import path from 'node:path'
-import { eq } from 'drizzle-orm'
-import { backtests, closeDb, getDb } from '../../db/index.js'
+import { closeDb } from '../../db/index.js'
+import { getBacktestRunById } from '../../db/backtests.js'
 
 type WindowMetric = {
   window: string
@@ -202,14 +202,7 @@ async function main() {
     throw new Error('[export-trade-features] --split must be between 0 and 1 (exclusive)')
   }
 
-  const db = getDb()
-  const rows = await db
-    .select({ marketStats: backtests.marketStats })
-    .from(backtests)
-    .where(eq(backtests.id, id))
-    .limit(1)
-
-  const row = rows[0]
+  const row = await getBacktestRunById(id)
   if (!row) {
     throw new Error(`[export-trade-features] backtest id not found: ${id}`)
   }

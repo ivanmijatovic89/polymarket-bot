@@ -8,9 +8,9 @@
  */
 import '../config/env.js'
 import { asc, eq, sql } from 'drizzle-orm'
-import { backtests, closeDb, getDb } from '../db/index.js'
+import { backtestRuns, closeDb, getDb } from '../db/index.js'
+import { getBacktestRunById } from '../db/backtests.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
-import type { MarketStats } from '../backtest/stats/marketStats.js'
 
 type CliArgs = {
   batchSize: number
@@ -98,21 +98,7 @@ function parseArgs(argv: string[]): CliArgs {
   return { batchSize, onlyNull, force, ...(where ? { where } : {}) }
 }
 
-function parseJsonValue<T>(value: unknown): T | null {
-  if (value === null || value === undefined) return null
-  if (typeof value === 'string') {
-    try {
-      return JSON.parse(value) as T
-    } catch {
-      return null
-    }
-  }
-  return value as T
-}
-
-function getInitialCapital(batchStatsRaw: unknown, rowId: number, counters: Counters): number {
-  const parsed = parseJsonValue<Record<string, unknown>>(batchStatsRaw)
-  const raw = parsed?.capitalInitial
+function getInitialCapital(raw: unknown, rowId: number, counters: Counters): number {
   const n = typeof raw === 'number' ? raw : Number(raw)
   if (Number.isFinite(n)) return n
 
@@ -123,21 +109,11 @@ function getInitialCapital(batchStatsRaw: unknown, rowId: number, counters: Coun
   return DEFAULT_INITIAL_CAPITAL
 }
 
-function parseMarkets(marketStatsRaw: unknown): MarketStats[] | null {
-  const parsed = parseJsonValue<unknown[]>(marketStatsRaw)
-  if (!Array.isArray(parsed) || parsed.length === 0) return null
-
-  const ok = parsed.every((m) => typeof (m as { slug?: unknown }).slug === 'string')
-  if (!ok) return null
-
-  return parsed as MarketStats[]
-}
-
 async function updateErrorRow(db: ReturnType<typeof getDb>, id: number, reason: string) {
   await db
-    .update(backtests)
+    .update(backtestRuns)
     .set({ chunkedBatchStats: { error: reason, version: 1 } })
-    .where(eq(backtests.id, id))
+    .where(eq(backtestRuns.id, id))
 }
 
 async function run(): Promise<void> {
@@ -157,20 +133,21 @@ async function run(): Promise<void> {
 
   try {
     while (true) {
-      const whereParts = [sql`${backtests.id} > ${lastId}`]
-      if (args.onlyNull && !args.force) whereParts.push(sql`${backtests.chunkedBatchStats} is null`)
+      const whereParts = [sql`${backtestRuns.id} > ${lastId}`]
+      if (args.onlyNull && !args.force) {
+        whereParts.push(sql`${backtestRuns.chunkedBatchStats} is null`)
+      }
       if (args.where) whereParts.push(sql.raw(`(${args.where})`))
       const whereSql = whereParts.length === 1 ? whereParts[0] : sql.join(whereParts, sql` AND `)
 
       const rows = await db
         .select({
-          id: backtests.id,
-          marketStats: backtests.marketStats,
-          batchStats: backtests.batchStats,
+          id: backtestRuns.id,
+          capitalInitial: backtestRuns.capitalInitial,
         })
-        .from(backtests)
+        .from(backtestRuns)
         .where(whereSql)
-        .orderBy(asc(backtests.id))
+        .orderBy(asc(backtestRuns.id))
         .limit(args.batchSize)
 
       if (rows.length === 0) break
@@ -180,21 +157,21 @@ async function run(): Promise<void> {
       for (const row of rows) {
         counters.processed += 1
 
-        const markets = parseMarkets(row.marketStats)
-        if (!markets) {
+        const detail = await getBacktestRunById(row.id)
+        if (!detail || detail.marketStats.length === 0) {
           counters.errors += 1
-          await updateErrorRow(db, row.id, 'invalid market_stats')
+          await updateErrorRow(db, row.id, 'invalid market rows')
           counters.updated += 1
           continue
         }
 
-        const initialCapital = getInitialCapital(row.batchStats, row.id, counters)
-        const chunked = computeChunkedBatchStats(markets, initialCapital, WINDOWS)
+        const initialCapital = getInitialCapital(row.capitalInitial, row.id, counters)
+        const chunked = computeChunkedBatchStats(detail.marketStats, initialCapital, WINDOWS)
 
         await db
-          .update(backtests)
+          .update(backtestRuns)
           .set({ chunkedBatchStats: chunked })
-          .where(eq(backtests.id, row.id))
+          .where(eq(backtestRuns.id, row.id))
 
         counters.updated += 1
       }

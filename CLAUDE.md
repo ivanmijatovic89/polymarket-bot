@@ -142,11 +142,11 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/polymarket/` | CLOB client, market WS, user WS (`ws/`), Gamma, RTDS, relayer, 15m slug resolution |
 | `src/blockchain/` | On-chain helpers: balance/approval checks, balance tracker, ConditionalTokens |
 | `src/db/` | Drizzle schema, helpers, seed-from-parquet script |
-| `src/backtest/stats/` | `marketStats` + `batchStats` + `chunkedBatchStats` (written to DB per run) |
+| `src/backtest/stats/` | `marketStats` + `BatchStats` domain object + `chunkedBatchStats` |
 | `src/cli/` | Entry points + `helpers/` (argv parsing, parquet resolution) + `research/` |
 | `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
 | `webui/` | Separate Vite/React package served by each bot process |
-| `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the `backtests` table schema locally; uses TanStack Query for polling. |
+| `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the normalized backtest result schema locally; uses TanStack Query for polling. |
 | `queue/` | Folder-watched GNU-parallel runner (`approve → pending → running → done|failed`) |
 
 ### Strategy system

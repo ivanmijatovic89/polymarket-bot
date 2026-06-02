@@ -1,6 +1,6 @@
-import { desc, eq } from 'drizzle-orm'
+import { asc, desc, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { backtests } from '../schema'
+import { backtestRunFailures, backtestRunMarkets, backtestRuns } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
 
 export type ActiveBatchSummary = {
@@ -103,33 +103,127 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
 }
 
 export type HistoricalBatch = {
-  batchUid: string | null
+  batchUid: string
   strategy: string
   comment: string | null
-  batchStats: Record<string, unknown>
+  pnlTotal: number
+  winRatePct: number
+  tradesTotal: number
+  marketsTotal: number
+  marketsPlayed: number
   createdAt: Date
+}
+
+function toNumber(value: unknown): number {
+  const n = typeof value === 'number' ? value : Number(value)
+  return Number.isFinite(n) ? n : 0
+}
+
+function mapRunSummary(run: typeof backtestRuns.$inferSelect) {
+  return {
+    ...run,
+    capitalInitial: toNumber(run.capitalInitial),
+    capitalFinal: toNumber(run.capitalFinal),
+    pnlTotal: toNumber(run.pnlTotal),
+    totalFeesPaid: toNumber(run.totalFeesPaid),
+    qualitySystem: run.qualitySystem === null ? null : toNumber(run.qualitySystem),
+    qualityTrade: run.qualityTrade === null ? null : toNumber(run.qualityTrade),
+    evPerMarketPlayed: toNumber(run.evPerMarketPlayed),
+    evPerMarketTotal: toNumber(run.evPerMarketTotal),
+    winRate: toNumber(run.winRate),
+    winRatePct: toNumber(run.winRatePct),
+    pnlAvgWin: toNumber(run.pnlAvgWin),
+    pnlAvgLose: toNumber(run.pnlAvgLose),
+    pnlMaxWin: toNumber(run.pnlMaxWin),
+    pnlMaxLose: toNumber(run.pnlMaxLose),
+    streakMaxWinPnl: toNumber(run.streakMaxWinPnl),
+    streakMaxLosePnl: toNumber(run.streakMaxLosePnl),
+  }
 }
 
 export async function listHistoricalBatches(limit: number): Promise<HistoricalBatch[]> {
   const db = getDb()
   const rows = await db
     .select({
-      batchUid: backtests.batchUid,
-      strategy: backtests.strategy,
-      comment: backtests.comment,
-      batchStats: backtests.batchStats,
-      createdAt: backtests.createdAt,
+      batchUid: backtestRuns.batchUid,
+      strategy: backtestRuns.strategy,
+      comment: backtestRuns.comment,
+      pnlTotal: backtestRuns.pnlTotal,
+      winRatePct: backtestRuns.winRatePct,
+      tradesTotal: backtestRuns.tradesTotal,
+      marketsTotal: backtestRuns.marketsTotal,
+      marketsPlayed: backtestRuns.marketsPlayed,
+      createdAt: backtestRuns.createdAt,
     })
-    .from(backtests)
-    .orderBy(desc(backtests.createdAt))
+    .from(backtestRuns)
+    .orderBy(desc(backtestRuns.createdAt))
     .limit(limit)
-  return rows
+  return rows.map((row) => ({
+    ...row,
+    pnlTotal: toNumber(row.pnlTotal),
+    winRatePct: toNumber(row.winRatePct),
+  }))
 }
 
 export async function getBatchDetail(batchUid: string) {
   const db = getDb()
-  const [row] = await db.select().from(backtests).where(eq(backtests.batchUid, batchUid)).limit(1)
-  return row ?? null
+  const [run] = await db
+    .select()
+    .from(backtestRuns)
+    .where(eq(backtestRuns.batchUid, batchUid))
+    .limit(1)
+  if (!run) return null
+
+  const [marketRows, failureRows] = await Promise.all([
+    db
+      .select()
+      .from(backtestRunMarkets)
+      .where(eq(backtestRunMarkets.runId, run.id))
+      .orderBy(asc(backtestRunMarkets.idx)),
+    db
+      .select()
+      .from(backtestRunFailures)
+      .where(eq(backtestRunFailures.runId, run.id))
+      .orderBy(asc(backtestRunFailures.idx)),
+  ])
+
+  return {
+    ...mapRunSummary(run),
+    marketStats: marketRows.map((m) => ({
+      marketId: m.marketId,
+      slug: m.slug,
+      finalOutcome: m.finalOutcome,
+      pnl: toNumber(m.pnl),
+      tradeCount: m.tradeCount,
+      tradeAsMaker: m.tradeAsMaker,
+      tradeAsTaker: m.tradeAsTaker,
+      feesPaid: toNumber(m.feesPaid),
+      avgEntryPriceUp: m.avgEntryPriceUp === null ? null : toNumber(m.avgEntryPriceUp),
+      avgEntryPriceDown: m.avgEntryPriceDown === null ? null : toNumber(m.avgEntryPriceDown),
+      upShares: toNumber(m.upShares),
+      downShares: toNumber(m.downShares),
+      mergableShares: toNumber(m.mergableShares),
+      cost: toNumber(m.cost),
+      splitCost: toNumber(m.splitCost),
+      intentMeta: m.intentMeta,
+      ...(m.skipReason ? { skipReason: m.skipReason } : {}),
+      ...(m.workerName && m.durationMs !== null && m.eventsProcessed !== null
+        ? {
+            execution: {
+              workerName: m.workerName,
+              durationMs: m.durationMs,
+              eventsProcessed: m.eventsProcessed,
+            },
+          }
+        : {}),
+    })),
+    failedMarkets: failureRows.map((f) => ({
+      jobId: f.jobId ?? undefined,
+      idx: f.idx,
+      slug: f.slug,
+      reason: f.reason,
+    })),
+  }
 }
 
 /**

@@ -261,30 +261,29 @@ npm run backtest -- --strategy SplitSellRedeem.v1 \
 
 ## Output
 
-Each completed run produces three levels of output and writes a single row
-to the `backtests` table:
+Each completed run produces three levels of output and writes normalized rows
+to the backtest result tables:
 
-1. **Per-market stats** — one entry per market in the `market_stats` JSON
-   column. In the BullMQ path, terminal output is a compact `[i/N] completed=… failed=…`
+1. **Per-market stats** — one row per market in `backtest_run_markets`.
+   In the BullMQ path, terminal output is a compact `[i/N] completed=… failed=…`
    progress line; in `--sequential` mode each market also prints its
    per-market summary in green/red.
-2. **Batch stats** — aggregated metrics printed at the end and stored in
-   `batch_stats`.
+2. **Batch stats** — aggregated metrics printed at the end and stored as
+   typed scalar columns on `backtest_runs`.
 3. **Chunked batch stats** — computed for window sizes `[96, 200, 300]`
    and stored in `chunked_batch_stats`.
 
 The row also carries:
 
-- `execution` metadata inside each `market_stats[i]` (which worker ran it,
+- `execution` metadata on each `backtest_run_markets` row (which worker ran it,
   duration, replayed event counts, commit SHA — see
-  [MarketStats execution](./market-stats.md#execution-metadata-optional)).
-- `failed_markets` — JSON array of `{ jobId?, idx, slug, reason }` for any
-  children that exhausted retries (`null` for legacy / pre-BullMQ runs, `[]`
-  for successful parallel runs, non-empty when partial failures happened).
+  [Backtest Run Markets execution metadata](/backtest/statistics/run-markets#execution-metadata)).
+- `backtest_run_failures` rows for any children that exhausted retries.
 
-See [Market Statistics](./market-stats.md),
-[Batch Statistics](./batch-stats.md), and
-[Chunked Batch Statistics](./chunked-batch-stats.md) for full field
+See [Backtest Result Storage](/backtest/statistics/result-storage),
+[Backtest Run Markets](/backtest/statistics/run-markets),
+[Backtest Run Statistics](/backtest/statistics/run-statistics), and
+[Chunked Batch Statistics](/backtest/statistics/chunked-batch-statistics) for full field
 definitions.
 
 ### Watching progress live
@@ -292,7 +291,7 @@ definitions.
 The [dashboard](./parallelization.md#dashboard) at
 `http://127.0.0.1:3051` shows the active batch, per-worker stats, queue
 depth, and historical batches without needing to re-attach to the producer
-terminal. It also surfaces the same `failed_markets` audit so you can
+terminal. It also surfaces the same `backtest_run_failures` audit so you can
 inspect what went wrong without opening MySQL.
 
 ::: details Progress and ETA output

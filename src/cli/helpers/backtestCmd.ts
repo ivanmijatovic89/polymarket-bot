@@ -7,7 +7,20 @@ function quoteInlineArg(raw: string): string {
   return `"${escaped}"`
 }
 
-export function buildBacktestCmdInline(argv: string[]): string {
+function buildBacktestCmdInlineFromArgv(argv: string[]): string {
+  const lifecycle = process.env.npm_lifecycle_event
+  if (lifecycle) {
+    const out: string[] = ['npm', 'run', lifecycle]
+    if (argv.length > 0) out.push('--', ...argv)
+    return out.map(quoteInlineArg).join(' ')
+  }
+
+  return ['node', ...process.argv.slice(1, 2), ...argv].map(quoteInlineArg).join(' ')
+}
+
+export function buildBacktestCmdInline(argv: string[], options?: { preferArgv?: boolean }): string {
+  if (options?.preferArgv) return buildBacktestCmdInlineFromArgv(argv)
+
   const npmArgvRaw = process.env.npm_config_argv
   if (npmArgvRaw) {
     try {
@@ -39,12 +52,5 @@ export function buildBacktestCmdInline(argv: string[]): string {
     }
   }
 
-  const lifecycle = process.env.npm_lifecycle_event
-  if (lifecycle) {
-    const out: string[] = ['npm', 'run', lifecycle]
-    if (argv.length > 0) out.push('--', ...argv)
-    return out.map(quoteInlineArg).join(' ')
-  }
-
-  return ['node', ...process.argv.slice(1)].map(quoteInlineArg).join(' ')
+  return buildBacktestCmdInlineFromArgv(argv)
 }

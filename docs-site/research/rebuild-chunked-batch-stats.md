@@ -1,6 +1,6 @@
 # Rebuild Chunked Batch Stats (CLI)
 
-CLI to backfill `chunked_batch_stats` for all rows in `backtests`.
+CLI to backfill `chunked_batch_stats` for rows in `backtest_runs`.
 
 File: `src/cli/rebuild-chunked-batch-stats.ts`
 
@@ -24,10 +24,11 @@ tsx src/cli/rebuild-chunked-batch-stats.ts --onlyNull
 
 ## Behavior
 
-- Reads `id`, `market_stats`, `batch_stats`.
-- Parses `market_stats`; if invalid/empty, writes:
+- Reads `id` and `capital_initial` from `backtest_runs`, then hydrates ordered
+  market rows from `backtest_run_markets`.
+- If hydrated market stats are invalid/empty, writes:
   `{ "error": "invalid market_stats", "version": 1 }`.
-- Uses `batch_stats.capitalInitial` as `initialCapital`.
+- Uses `backtest_runs.capital_initial` as `initialCapital`.
   If missing, defaults to `100` and logs a warning.
 - Computes chunked stats with windows `[96, 200, 300]`.
 - Updates rows in ascending `id` order in batches.

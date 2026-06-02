@@ -54,29 +54,30 @@ Stores one row per 15-minute Polymarket market window. Populated either by `npm 
 
 ---
 
-## Table: `backtests`
+## Tables: `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`
 
-One row per completed backtest run. Written by the backtest CLI at the end of each run when a database is configured.
+Backtest results are normalized across three tables. The old monolithic `backtests.market_stats` JSON blob and top-level `backtests.batch_stats` JSON snapshot are intentionally gone.
 
-| Column                | MySQL Type     | Nullable | Default        | Description                                                                                                                                      |
-| --------------------- | -------------- | -------- | -------------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `id`                  | `BIGINT`       | No       | auto-increment | Surrogate primary key.                                                                                                                           |
-| `status`              | `VARCHAR(50)`  | Yes      | `NULL`         | Run completion status string (e.g. `"done"`, `"failed"`).                                                                                        |
-| `strategy`            | `VARCHAR(255)` | No       | —              | Strategy ID string passed via `--strategy`.                                                                                                      |
-| `params`              | `JSON`         | No       | —              | Validated strategy parameter map (key/value pairs) as passed via `--param`.                                                                      |
-| `symbol`              | `VARCHAR(10)`  | Yes      | `NULL`         | Asset symbol filter used for this run (`btc`, `eth`, etc.). `NULL` when slugs were specified directly.                                           |
-| `slugs`               | `JSON`         | Yes      | `NULL`         | Explicit slug list when the run targeted specific markets. `NULL` when a symbol filter was used.                                                 |
-| `limit`               | `INT`          | Yes      | `NULL`         | Maximum number of markets included in the run. `NULL` means unlimited.                                                                           |
-| `random`              | `BOOLEAN`      | No       | `false`        | Whether markets were selected in random order.                                                                                                   |
-| `latest`              | `BOOLEAN`      | No       | `false`        | Whether the `--latest` flag was used (select only the most recent N markets).                                                                    |
-| `batch_uid`           | `VARCHAR(255)` | Yes      | `NULL`         | Unique identifier grouping runs that belong to the same parallel batch job.                                                                      |
-| `baseline_id`         | `VARCHAR(255)` | Yes      | `NULL`         | Identifier of the baseline run used for relative comparison in the web UI and reporting tools.                                                   |
-| `cmd`                 | `TEXT`         | Yes      | `NULL`         | Full CLI command string that produced this run, for reproducibility.                                                                             |
-| `comment`             | `TEXT`         | Yes      | `NULL`         | Free-text annotation.                                                                                                                            |
-| `batch_stats`         | `JSON`         | No       | —              | Aggregate statistics across all markets in the run (win rate, total PnL, Sharpe, etc.). See [Batch Stats](/backtest/batch-stats).                |
-| `market_stats`        | `JSON`         | No       | —              | Array of per-market statistics objects. See [Market Stats](/backtest/market-stats).                                                              |
-| `chunked_batch_stats` | `JSON`         | Yes      | `NULL`         | Time-windowed batch statistics for performance-over-time analysis. See [Chunked Batch Stats](/other/chunked-batch-stats). `NULL` until computed. |
-| `created_at`          | `TIMESTAMP`    | No       | `NOW()`        | Row creation time.                                                                                                                               |
+`backtest_runs` stores one terminal run row with CLI metadata, typed batch summary/ranking columns, and the `chunked_batch_stats` JSON artifact used for nested segment analysis. Run-level `BatchStats` values are columns so dashboard and ranking queries do not parse JSON.
+
+`backtest_run_markets` stores one row per persisted `MarketStats` result. The `(run_id, idx)` pair preserves deterministic run order. Stable fields such as PnL, trade counts, fees, positions, and execution timing are columns; flexible research payloads live in the per-market `intent_meta` JSON column.
+
+`backtest_run_failures` stores market jobs that exhausted retries in the parallel runner.
+
+Important indexes:
+
+| Table                    | Index/Constraint                 | Purpose                                  |
+| ------------------------ | -------------------------------- | ---------------------------------------- |
+| `backtest_runs`          | unique `batch_uid`               | Lookup by run UID and prevent duplicates |
+| `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)`, `pnl_total` | Dashboard and ranking queries            |
+| `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
+| `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)` | Detail, search, and slow-market views    |
+| `backtest_run_failures`  | `(run_id, idx)`, `(run_id, slug)` | Failure detail views                     |
+
+See [Backtest Result Storage](/backtest/statistics/result-storage),
+[Backtest Run Statistics](/backtest/statistics/run-statistics), and
+[Backtest Run Markets](/backtest/statistics/run-markets) for the backtest-specific
+field references.
 
 ---
 
@@ -299,13 +300,23 @@ insertBacktestRun(row: {
   limit: number | null
   random: boolean
   latest: boolean
-  batchStats: Record<string, unknown>
+  batchStats: BatchStats
   marketStats: unknown[]
   chunkedBatchStats?: Record<string, unknown> | null
+  failedMarkets?: Array<{
+    jobId?: string
+    idx: number | null
+    slug: string | null
+    reason: string
+  }> | null
 }): Promise<void>
 ```
 
-Inserts a completed backtest result row. Called automatically by the backtest CLI at the end of each run.
+Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_run_markets`, and `backtest_run_failures`. Called automatically by the backtest CLI and aggregate worker at the end of each run. `batchStats` is the domain object produced by `computeBatchStats`; persistence expands it into typed scalar columns on `backtest_runs`.
+
+#### `getBacktestRunById(id)` / `getBacktestRunByBatchUid(batchUid)`
+
+Hydrates a normalized run for research and diff tooling: run metadata plus typed batch summary columns, ordered `marketStats`, `chunkedBatchStats`, and `failedMarkets`.
 
 ---
 

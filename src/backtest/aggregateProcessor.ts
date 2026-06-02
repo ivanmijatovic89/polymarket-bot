@@ -29,8 +29,8 @@ function idxFromChildJobId(jobId: string | undefined): number | null {
  *
  * Runs after every child market job has either completed or exhausted retries.
  * Pulls each child's return value, sorts by idx, and produces the final
- * batchStats / chunkedBatchStats — preserving the bit-identical invariant
- * that depends on processing order matching the producer's input order.
+ * run summary stats / chunkedBatchStats — preserving the bit-identical
+ * invariant that depends on processing order matching the producer's input order.
  *
  * After the row is persisted, child jobs are removed from Redis to bound memory.
  */
@@ -95,7 +95,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     limit: data.insertMeta.limit,
     random: data.insertMeta.random,
     latest: data.insertMeta.latest,
-    batchStats: batchStats as unknown as Record<string, unknown>,
+    batchStats,
     chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
     marketStats: marketStats as unknown as unknown[],
     failedMarkets: failed,

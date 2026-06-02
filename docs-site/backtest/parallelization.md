@@ -67,18 +67,18 @@ Redis queues   (markets queue + aggregate queue)
    ▼  (after every child settles)
 [aggregate worker]
    │  sorts children by idx (preserves streak / chunk invariants),
-   │  computes batchStats + chunkedBatchStats,
-   │  inserts the single `backtests` row,
+   │  computes run summary stats + chunkedBatchStats,
+   │  inserts normalized backtest result rows,
    │  removes children jobs from Redis to bound memory
    ▼
-MySQL row in `backtests` (unchanged shape, new optional execution metadata
-inside each marketStats entry; new `failed_markets` JSON column).
+MySQL rows in `backtest_runs`, `backtest_run_markets`, and
+`backtest_run_failures`.
 ```
 
 ### Per-market observability
 
-Every market job now reports its own `execution` metadata, stored in the same
-`market_stats` JSON column the producer already used:
+Every market job reports its own `execution` metadata, stored on its
+`backtest_run_markets` row:
 
 ```ts
 marketStats[i].execution = {
@@ -216,15 +216,16 @@ machine as the producer or anywhere with network access to Redis + MySQL.
    fallback happens in the producer, not in workers.
 5. **Bit-identical with sequential** — set `BACKTEST_LATENCY_JITTER=0` and
    `--sequential` and `--market-concurrency=N` produce byte-equal
-   `marketStats` (excluding the new optional `execution` field),
-   `batchStats`, and `chunkedBatchStats`. See `npm run backtest:verify-diff`.
+   `marketStats` (excluding the new optional `execution` field), run summary
+   columns, and `chunkedBatchStats`. See `npm run backtest:verify-diff`.
+   The persisted shape is documented in [Backtest Result Storage](/backtest/statistics/result-storage).
 
 ## Verifying bit-identical behavior
 
 `src/cli/verify-backtest-diff.ts` (exposed via `npm run backtest:verify-diff`)
-loads two `backtests` rows by `batchUid` and reports the first structural
-difference in `marketStats` (excluding the `execution` field), `batchStats`,
-and `chunkedBatchStats`.
+loads two backtest runs by `batchUid` and reports the first structural
+difference in `marketStats` (excluding the `execution` field), run summary
+columns, and `chunkedBatchStats`.
 
 ```bash
 # baseline (sequential, in-process)
@@ -240,7 +241,7 @@ Expected output when behavior matches:
 
 ```
 ✅ marketStats (excluding execution): bit-identical
-✅ batchStats: bit-identical
+✅ run summary columns: bit-identical
 ✅ chunkedBatchStats: bit-identical
 candidate marketStats with execution metadata: N/N
 ```
@@ -256,8 +257,8 @@ it before treating the BullMQ path as equivalent to the sequential one.
   are removed explicitly so memory stays bounded.
 - `attempts: 3` with exponential backoff handles transient parquet/R2/Redis
   hiccups. `ignoreDependencyOnFailure: true` lets the batch finalize with
-  partial results when some children give up; the failures land in the new
-  `failed_markets` JSON column for audit.
+  partial results when some children give up; the failures land in
+  `backtest_run_failures` for audit.
 - `lockDuration: 10 minutes` is the upper bound per market; if a strategy
   has an infinite-loop bug it will be reaped instead of stalling the queue.
 - The producer's git SHA is attached to every job (`commitSha` field) so a

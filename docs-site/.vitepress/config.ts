@@ -90,10 +90,20 @@ export default withMermaid(
             { text: 'Distributed (future)', link: '/backtest/distributed-future' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'Parallel Backtest Runner', link: '/backtest/parallel-backtest-runner' },
-            { text: 'Market Statistics', link: '/backtest/market-stats' },
-            { text: 'Batch Statistics', link: '/backtest/batch-stats' },
-            { text: 'Chunked Batch Statistics', link: '/backtest/chunked-batch-stats' },
-            { text: 'Walk-Forward Ranking', link: '/backtest/walk-forward-ranking' },
+            {
+              text: 'Statistics',
+              collapsed: false,
+              items: [
+                { text: 'Result Storage', link: '/backtest/statistics/result-storage' },
+                { text: 'Run Statistics', link: '/backtest/statistics/run-statistics' },
+                { text: 'Run Markets', link: '/backtest/statistics/run-markets' },
+                {
+                  text: 'Chunked Batch Statistics',
+                  link: '/backtest/statistics/chunked-batch-statistics',
+                },
+                { text: 'Walk-Forward Ranking', link: '/backtest/statistics/walk-forward-ranking' },
+              ],
+            },
           ],
         },
 
