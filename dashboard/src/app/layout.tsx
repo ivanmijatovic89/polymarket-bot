@@ -1,10 +1,11 @@
 import type { Metadata } from 'next'
 import { Geist, Geist_Mono } from 'next/font/google'
 import Link from 'next/link'
-import { Activity, HeartPulse, LayoutDashboard } from 'lucide-react'
+import { Activity } from 'lucide-react'
 import './globals.css'
 import { Providers } from './providers'
 import { BullBoardLink } from '@/components/BullBoardLink'
+import { MainNav } from '@/components/MainNav'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
 const geistMono = Geist_Mono({ variable: '--font-geist-mono', subsets: ['latin'] })
@@ -36,22 +37,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                     / dashboard
                   </span>
                 </Link>
-                <nav className="flex items-center gap-1 text-sm">
-                  <Link
-                    href="/"
-                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-foreground hover:bg-accent transition-colors"
-                  >
-                    <LayoutDashboard className="h-3.5 w-3.5" />
-                    Overview
-                  </Link>
-                  <Link
-                    href="/health"
-                    className="flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-                  >
-                    <HeartPulse className="h-3.5 w-3.5" />
-                    Health
-                  </Link>
-                </nav>
+                <MainNav />
                 <div className="ml-auto flex items-center gap-2 text-sm">
                   <BullBoardLink
                     port={bullBoardPort}
