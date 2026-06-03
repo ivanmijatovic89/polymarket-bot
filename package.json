@@ -4,6 +4,10 @@
   "description": "",
   "main": "index.js",
   "type": "module",
+  "workspaces": [
+    "src/backtest/stats",
+    "dashboard"
+  ],
   "engines": {
     "node": ">=20 <21"
   },

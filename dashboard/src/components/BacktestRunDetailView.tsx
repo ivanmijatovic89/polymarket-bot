@@ -35,6 +35,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { SectionHeading } from './SectionHeading'
 import { StatCard } from './StatCard'
 import { CmdModal } from './CmdModal'
+import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
 
 /** Subset of the response fields the view actually consumes. */
@@ -197,17 +198,6 @@ export function BacktestRunDetailView({ id }: { id: number }) {
     b.tradesMaker + b.tradesTaker > 0
       ? Math.round((b.tradesMaker / (b.tradesMaker + b.tradesTaker)) * 100)
       : null
-
-  // chunkedBatchStats shape: { windows: [{ window, segments: [...] }], version }
-  const cbs = b.chunkedBatchStats
-  const windowsHead = cbs && (cbs as { windows?: unknown }).windows
-  const segmentsList = Array.isArray(windowsHead)
-    ? (windowsHead[0] as { window?: unknown; segments?: unknown[] })
-    : null
-  const segments =
-    segmentsList && Array.isArray(segmentsList.segments)
-      ? (segmentsList.segments as Array<Record<string, unknown>>)
-      : []
 
   const marketStats = b.marketStats ?? []
   const failed = b.failedMarkets ?? []
@@ -416,59 +406,35 @@ export function BacktestRunDetailView({ id }: { id: number }) {
         </Card>
       )}
 
-      {/* Chunked segments — preserved */}
-      {segments.length > 0 && (
-        <section>
-          <SectionHeading
-            title="Chunked segments"
-            subtitle={`window ${String(segmentsList?.window ?? '?')} — split metrics across run idx ranges`}
-          />
-          <Card className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Range</TableHead>
-                  <TableHead className="text-right">PnL</TableHead>
-                  <TableHead className="text-right">Win rate</TableHead>
-                  <TableHead className="text-right">Trades</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {segments.map((s, i) => {
-                  const bs = (s as { batch_stats?: Record<string, unknown> }).batch_stats ?? {}
-                  const sp = (bs as { pnlTotal?: number }).pnlTotal ?? null
-                  const wr = (bs as { winRatePct?: number }).winRatePct ?? null
-                  const tt = (bs as { tradesTotal?: number }).tradesTotal ?? null
-                  const from = (s as { fromTs?: number }).fromTs
-                  const to = (s as { toTs?: number }).toTs
-                  return (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs">
-                        {String(from ?? '?')} – {String(to ?? '?')}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right tabular-nums',
-                          sp !== null && sp > 0 && 'text-[color:var(--success)]',
-                          sp !== null && sp < 0 && 'text-destructive',
-                        )}
-                      >
-                        {sp !== null ? formatPnl(sp) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {wr !== null ? `${wr.toFixed(2)}%` : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {tt !== null ? formatNumber(tt) : '—'}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        </section>
-      )}
+      {/* Chunked segments — live computation, user-controlled window. */}
+      <ChunkedSegmentsLive
+        id={b.id}
+        totals={{
+          strategy: b.strategy,
+          symbol: b.symbol,
+          marketsTotal: b.marketsTotal,
+          marketsPlayed: b.marketsPlayed,
+          marketsSkipped: b.marketsSkipped,
+          pnlTotal: b.pnlTotal,
+          winRatePct: b.winRatePct,
+          evPerMarketPlayed: b.evPerMarketPlayed,
+          evPerMarketTotal: b.evPerMarketTotal,
+          tradesTotal: b.tradesTotal,
+          tradesMaker: b.tradesMaker,
+          tradesTaker: b.tradesTaker,
+          pnlAvgWin: b.pnlAvgWin,
+          pnlAvgLose: b.pnlAvgLose,
+          streakMaxWin: b.streakMaxWin,
+          streakMaxLose: b.streakMaxLose,
+          streakMaxWinPnl: b.streakMaxWinPnl,
+          streakMaxLosePnl: b.streakMaxLosePnl,
+          qualitySystem: b.qualitySystem,
+          qualityTrade: b.qualityTrade,
+          totalFeesPaid: b.totalFeesPaid,
+          capitalInitial: b.capitalInitial,
+          capitalFinal: b.capitalFinal,
+        }}
+      />
 
       {/* Per-market — dense breakdown */}
       <section>
