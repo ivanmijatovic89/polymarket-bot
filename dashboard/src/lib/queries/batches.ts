@@ -103,6 +103,7 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
 }
 
 export type HistoricalBatch = {
+  id: number
   batchUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
@@ -207,6 +208,7 @@ export async function listHistoricalBatches(
   }
   const rows = await db
     .select({
+      id: backtestRuns.id,
       batchUid: backtestRuns.batchUid,
       status: backtestRuns.status,
       strategy: backtestRuns.strategy,
@@ -256,6 +258,18 @@ export async function listHistoricalBatches(
   }))
 }
 
+/**
+ * Hydrate a finalized backtest run from MySQL — id-based, no Redis fallback.
+ * The active-batch path lives at `/batches/[batchUid]` and uses
+ * `getActiveBatchDetail`; this function is for `/backtests/[id]`.
+ */
+export async function getBacktestRunById(id: number) {
+  const db = getDb()
+  const [run] = await db.select().from(backtestRuns).where(eq(backtestRuns.id, id)).limit(1)
+  if (!run) return null
+  return hydrateBacktestRunDetail(run)
+}
+
 export async function getBatchDetail(batchUid: string) {
   const db = getDb()
   const [run] = await db
@@ -264,6 +278,11 @@ export async function getBatchDetail(batchUid: string) {
     .where(eq(backtestRuns.batchUid, batchUid))
     .limit(1)
   if (!run) return null
+  return hydrateBacktestRunDetail(run)
+}
+
+async function hydrateBacktestRunDetail(run: typeof backtestRuns.$inferSelect) {
+  const db = getDb()
 
   const [marketRows, failureRows] = await Promise.all([
     db
