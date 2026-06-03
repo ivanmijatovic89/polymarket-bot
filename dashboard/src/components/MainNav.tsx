@@ -2,11 +2,12 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HeartPulse, LayoutDashboard, Trophy } from 'lucide-react'
+import { HeartPulse, History, LayoutDashboard, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 const ITEMS = [
   { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
+  { href: '/backtests', label: 'Backtests', icon: History, exact: false },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },
   { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
 ] as const

@@ -1,7 +1,8 @@
-import { Cpu, Inbox, History } from 'lucide-react'
+import Link from 'next/link'
+import { ArrowRight, Cpu, History, Inbox } from 'lucide-react'
 import { ActiveBatchesTable } from '@/components/ActiveBatchesTable'
+import { BacktestsTable } from '@/components/BacktestsTable'
 import { QueueCountsView } from '@/components/QueueCounts'
-import { RecentBatchesTable } from '@/components/RecentBatchesTable'
 import { SectionHeading } from '@/components/SectionHeading'
 import { WorkersTable } from '@/components/WorkersTable'
 
@@ -42,7 +43,16 @@ export default function OverviewPage() {
           subtitle="Last 20 finalized backtests, newest first."
           icon={History}
         />
-        <RecentBatchesTable />
+        <BacktestsTable limit={20} />
+        <div className="mt-3 text-right">
+          <Link
+            href="/backtests"
+            className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Browse all backtests
+            <ArrowRight className="h-3 w-3" />
+          </Link>
+        </div>
       </section>
     </div>
   )

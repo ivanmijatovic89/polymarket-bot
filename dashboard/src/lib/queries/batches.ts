@@ -1,4 +1,4 @@
-import { asc, desc, eq } from 'drizzle-orm'
+import { and, asc, desc, eq } from 'drizzle-orm'
 import { getDb } from '../db'
 import { backtestRunFailures, backtestRunMarkets, backtestRuns } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
@@ -104,13 +104,32 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
 
 export type HistoricalBatch = {
   batchUid: string
+  status: 'completed' | 'partial' | 'failed'
   strategy: string
+  symbol: string | null
+  limit: number | null
   comment: string | null
   pnlTotal: number
   winRatePct: number
   tradesTotal: number
+  tradesMaker: number
+  tradesTaker: number
   marketsTotal: number
   marketsPlayed: number
+  marketsSkipped: number
+  failuresCount: number
+  cmd: string | null
+  pnlAvgWin: number
+  pnlAvgLose: number
+  evPerMarketPlayed: number
+  evPerMarketTotal: number
+  streakMaxWin: number
+  streakMaxLose: number
+  streakMaxWinPnl: number
+  streakMaxLosePnl: number
+  qualitySystem: number | null
+  qualityTrade: number | null
+  totalFeesPaid: number
   createdAt: Date
 }
 
@@ -141,27 +160,99 @@ function mapRunSummary(run: typeof backtestRuns.$inferSelect) {
   }
 }
 
-export async function listHistoricalBatches(limit: number): Promise<HistoricalBatch[]> {
+/** Distinct strategy / symbol values across all backtests — used to populate
+ * filter dropdowns on the /backtests page. Cheap because both columns are
+ * varchar(10/255) with relatively few unique values. */
+export async function listBacktestFilterOptions(): Promise<{
+  strategies: string[]
+  symbols: string[]
+}> {
   const db = getDb()
+  const [strategyRows, symbolRows] = await Promise.all([
+    db
+      .selectDistinct({ value: backtestRuns.strategy })
+      .from(backtestRuns)
+      .orderBy(asc(backtestRuns.strategy)),
+    db
+      .selectDistinct({ value: backtestRuns.symbol })
+      .from(backtestRuns)
+      .orderBy(asc(backtestRuns.symbol)),
+  ])
+  return {
+    strategies: strategyRows.map((r) => r.value).filter((s): s is string => !!s),
+    symbols: symbolRows.map((r) => r.value).filter((s): s is string => !!s),
+  }
+}
+
+export type HistoricalBatchFilters = {
+  strategy?: string
+  symbol?: string
+  status?: 'completed' | 'partial' | 'failed'
+}
+
+export async function listHistoricalBatches(
+  limit: number,
+  filters: HistoricalBatchFilters = {},
+): Promise<HistoricalBatch[]> {
+  const db = getDb()
+  const conditions = []
+  if (filters.strategy) {
+    conditions.push(eq(backtestRuns.strategy, filters.strategy))
+  }
+  if (filters.symbol) {
+    conditions.push(eq(backtestRuns.symbol, filters.symbol))
+  }
+  if (filters.status) {
+    conditions.push(eq(backtestRuns.status, filters.status))
+  }
   const rows = await db
     .select({
       batchUid: backtestRuns.batchUid,
+      status: backtestRuns.status,
       strategy: backtestRuns.strategy,
+      symbol: backtestRuns.symbol,
+      limit: backtestRuns.limit,
       comment: backtestRuns.comment,
       pnlTotal: backtestRuns.pnlTotal,
       winRatePct: backtestRuns.winRatePct,
       tradesTotal: backtestRuns.tradesTotal,
+      tradesMaker: backtestRuns.tradesMaker,
+      tradesTaker: backtestRuns.tradesTaker,
       marketsTotal: backtestRuns.marketsTotal,
       marketsPlayed: backtestRuns.marketsPlayed,
+      marketsSkipped: backtestRuns.marketsSkipped,
+      failuresCount: backtestRuns.failuresCount,
+      cmd: backtestRuns.cmd,
+      pnlAvgWin: backtestRuns.pnlAvgWin,
+      pnlAvgLose: backtestRuns.pnlAvgLose,
+      evPerMarketPlayed: backtestRuns.evPerMarketPlayed,
+      evPerMarketTotal: backtestRuns.evPerMarketTotal,
+      streakMaxWin: backtestRuns.streakMaxWin,
+      streakMaxLose: backtestRuns.streakMaxLose,
+      streakMaxWinPnl: backtestRuns.streakMaxWinPnl,
+      streakMaxLosePnl: backtestRuns.streakMaxLosePnl,
+      qualitySystem: backtestRuns.qualitySystem,
+      qualityTrade: backtestRuns.qualityTrade,
+      totalFeesPaid: backtestRuns.totalFeesPaid,
       createdAt: backtestRuns.createdAt,
     })
     .from(backtestRuns)
+    .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(backtestRuns.createdAt))
     .limit(limit)
   return rows.map((row) => ({
     ...row,
     pnlTotal: toNumber(row.pnlTotal),
     winRatePct: toNumber(row.winRatePct),
+    pnlAvgWin: toNumber(row.pnlAvgWin),
+    pnlAvgLose: toNumber(row.pnlAvgLose),
+    evPerMarketPlayed: toNumber(row.evPerMarketPlayed),
+    evPerMarketTotal: toNumber(row.evPerMarketTotal),
+    streakMaxWinPnl: toNumber(row.streakMaxWinPnl),
+    streakMaxLosePnl: toNumber(row.streakMaxLosePnl),
+    qualitySystem: row.qualitySystem === null ? null : toNumber(row.qualitySystem),
+    qualityTrade: row.qualityTrade === null ? null : toNumber(row.qualityTrade),
+    totalFeesPaid: toNumber(row.totalFeesPaid),
   }))
 }
 
