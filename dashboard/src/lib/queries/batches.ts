@@ -104,13 +104,32 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
 
 export type HistoricalBatch = {
   batchUid: string
+  status: 'completed' | 'partial' | 'failed'
   strategy: string
+  symbol: string | null
+  limit: number | null
   comment: string | null
   pnlTotal: number
   winRatePct: number
   tradesTotal: number
+  tradesMaker: number
+  tradesTaker: number
   marketsTotal: number
   marketsPlayed: number
+  marketsSkipped: number
+  failuresCount: number
+  cmd: string | null
+  pnlAvgWin: number
+  pnlAvgLose: number
+  evPerMarketPlayed: number
+  evPerMarketTotal: number
+  streakMaxWin: number
+  streakMaxLose: number
+  streakMaxWinPnl: number
+  streakMaxLosePnl: number
+  qualitySystem: number | null
+  qualityTrade: number | null
+  totalFeesPaid: number
   createdAt: Date
 }
 
@@ -146,13 +165,32 @@ export async function listHistoricalBatches(limit: number): Promise<HistoricalBa
   const rows = await db
     .select({
       batchUid: backtestRuns.batchUid,
+      status: backtestRuns.status,
       strategy: backtestRuns.strategy,
+      symbol: backtestRuns.symbol,
+      limit: backtestRuns.limit,
       comment: backtestRuns.comment,
       pnlTotal: backtestRuns.pnlTotal,
       winRatePct: backtestRuns.winRatePct,
       tradesTotal: backtestRuns.tradesTotal,
+      tradesMaker: backtestRuns.tradesMaker,
+      tradesTaker: backtestRuns.tradesTaker,
       marketsTotal: backtestRuns.marketsTotal,
       marketsPlayed: backtestRuns.marketsPlayed,
+      marketsSkipped: backtestRuns.marketsSkipped,
+      failuresCount: backtestRuns.failuresCount,
+      cmd: backtestRuns.cmd,
+      pnlAvgWin: backtestRuns.pnlAvgWin,
+      pnlAvgLose: backtestRuns.pnlAvgLose,
+      evPerMarketPlayed: backtestRuns.evPerMarketPlayed,
+      evPerMarketTotal: backtestRuns.evPerMarketTotal,
+      streakMaxWin: backtestRuns.streakMaxWin,
+      streakMaxLose: backtestRuns.streakMaxLose,
+      streakMaxWinPnl: backtestRuns.streakMaxWinPnl,
+      streakMaxLosePnl: backtestRuns.streakMaxLosePnl,
+      qualitySystem: backtestRuns.qualitySystem,
+      qualityTrade: backtestRuns.qualityTrade,
+      totalFeesPaid: backtestRuns.totalFeesPaid,
       createdAt: backtestRuns.createdAt,
     })
     .from(backtestRuns)
@@ -162,6 +200,15 @@ export async function listHistoricalBatches(limit: number): Promise<HistoricalBa
     ...row,
     pnlTotal: toNumber(row.pnlTotal),
     winRatePct: toNumber(row.winRatePct),
+    pnlAvgWin: toNumber(row.pnlAvgWin),
+    pnlAvgLose: toNumber(row.pnlAvgLose),
+    evPerMarketPlayed: toNumber(row.evPerMarketPlayed),
+    evPerMarketTotal: toNumber(row.evPerMarketTotal),
+    streakMaxWinPnl: toNumber(row.streakMaxWinPnl),
+    streakMaxLosePnl: toNumber(row.streakMaxLosePnl),
+    qualitySystem: row.qualitySystem === null ? null : toNumber(row.qualitySystem),
+    qualityTrade: row.qualityTrade === null ? null : toNumber(row.qualityTrade),
+    totalFeesPaid: toNumber(row.totalFeesPaid),
   }))
 }
 
