@@ -11,8 +11,27 @@ import { cn, formatPnl, shortTime } from '@/lib/utils'
 import { CmdModal } from './CmdModal'
 import type { HistoricalBatch } from '@/lib/queries/batches'
 
-async function fetchHistory(): Promise<{ batches: HistoricalBatch[] }> {
-  const r = await fetch('/api/batches/history?limit=20', { cache: 'no-store' })
+export type BacktestsTableProps = {
+  limit?: number
+  strategy?: string
+  symbol?: string
+  status?: HistoricalBatch['status']
+  /** Override the empty-state copy. */
+  emptyHint?: string
+}
+
+async function fetchHistory(params: {
+  limit: number
+  strategy?: string
+  symbol?: string
+  status?: string
+}): Promise<{ batches: HistoricalBatch[] }> {
+  const sp = new URLSearchParams()
+  sp.set('limit', String(params.limit))
+  if (params.strategy) sp.set('strategy', params.strategy)
+  if (params.symbol) sp.set('symbol', params.symbol)
+  if (params.status) sp.set('status', params.status)
+  const r = await fetch(`/api/batches/history?${sp.toString()}`, { cache: 'no-store' })
   if (!r.ok) throw new Error('failed to fetch /api/batches/history')
   return r.json()
 }
@@ -45,10 +64,16 @@ function StatusChip({ status }: { status: HistoricalBatch['status'] }) {
   )
 }
 
-export function RecentBatchesTable() {
+export function BacktestsTable({
+  limit = 20,
+  strategy,
+  symbol,
+  status,
+  emptyHint,
+}: BacktestsTableProps = {}) {
   const { data } = useQuery({
-    queryKey: ['batches', 'history'],
-    queryFn: fetchHistory,
+    queryKey: ['batches', 'history', { limit, strategy, symbol, status }],
+    queryFn: () => fetchHistory({ limit, strategy, symbol, status }),
     refetchInterval: 10000,
   })
   const [cmdBatch, setCmdBatch] = useState<HistoricalBatch | null>(null)
@@ -57,8 +82,10 @@ export function RecentBatchesTable() {
     return (
       <Card className="px-6 py-12 text-center">
         <History className="mx-auto h-10 w-10 text-muted-foreground/40" />
-        <h3 className="mt-3 text-sm font-medium">No completed batches yet</h3>
-        <p className="mt-1 text-xs text-muted-foreground">Past runs will appear here.</p>
+        <h3 className="mt-3 text-sm font-medium">No backtests found</h3>
+        <p className="mt-1 text-xs text-muted-foreground">
+          {emptyHint ?? 'Past runs will appear here.'}
+        </p>
       </Card>
     )
   }
