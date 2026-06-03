@@ -77,8 +77,19 @@ type RunDetail = {
   marketStats: Array<{
     slug: string | null
     finalOutcome: string | number | null
+    skipReason?: string | null
     pnl: number
     tradeCount: number
+    tradeAsMaker: number
+    tradeAsTaker: number
+    feesPaid: number
+    cost: number
+    splitCost: number
+    avgEntryPriceUp: number | null
+    avgEntryPriceDown: number | null
+    upShares: number
+    downShares: number
+    mergableShares: number
     execution?: {
       machineId: string
       durationMs: number
@@ -100,6 +111,24 @@ async function fetchRun(id: number): Promise<RunResponse> {
 
 function pair(a: number, b: number): string {
   return `${formatPnl(a)} / ${formatPnl(b)}`
+}
+
+/** Per-market position cell: `<shares> @ <avg>` with optional `· <mrg> mrg` suffix. */
+function renderPosition(
+  shares: number,
+  avgPrice: number | null,
+  mergable: number,
+): React.ReactNode {
+  if (shares <= 0) return '—'
+  const left = avgPrice !== null ? `${shares.toFixed(0)} @ ${avgPrice.toFixed(3)}` : `${shares.toFixed(0)}`
+  return (
+    <span>
+      {left}
+      {mergable > 0 && (
+        <span className="ml-1 text-[11px]">· {mergable.toFixed(0)} mrg</span>
+      )}
+    </span>
+  )
 }
 
 function StatusBadge({ status }: { status: RunDetail['status'] }) {
@@ -441,7 +470,7 @@ export function BacktestRunDetailView({ id }: { id: number }) {
         </section>
       )}
 
-      {/* Per-market — preserved */}
+      {/* Per-market — dense breakdown */}
       <section>
         <SectionHeading
           title="Per-market"
@@ -450,14 +479,18 @@ export function BacktestRunDetailView({ id }: { id: number }) {
         />
         <Card className="overflow-hidden">
           <div className="max-h-[600px] overflow-auto">
-            <Table>
+            <Table className="min-w-[1100px]">
               <TableHeader className="sticky top-0 z-10 bg-card">
                 <TableRow>
                   <TableHead className="w-12">#</TableHead>
                   <TableHead>Slug</TableHead>
                   <TableHead>Outcome</TableHead>
                   <TableHead className="text-right">PnL</TableHead>
+                  <TableHead className="text-right">Fees</TableHead>
+                  <TableHead className="text-right">Cost</TableHead>
                   <TableHead className="text-right">Trades</TableHead>
+                  <TableHead className="text-right">UP pos</TableHead>
+                  <TableHead className="text-right">DOWN pos</TableHead>
                   <TableHead>Machine</TableHead>
                   <TableHead className="text-right">Duration</TableHead>
                   <TableHead className="text-right">Events</TableHead>
@@ -473,17 +506,49 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                       : m.pnl < 0
                         ? 'text-destructive'
                         : ''
+                  const upPos = renderPosition(m.upShares, m.avgEntryPriceUp, m.mergableShares)
+                  const downPos = renderPosition(m.downShares, m.avgEntryPriceDown, 0)
                   return (
                     <TableRow key={i}>
                       <TableCell className="text-muted-foreground tabular-nums text-xs">
                         {i}
                       </TableCell>
                       <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
-                      <TableCell className="text-xs">{String(m.finalOutcome ?? '—')}</TableCell>
+                      <TableCell className="text-xs whitespace-nowrap">
+                        {m.skipReason ? (
+                          <span className="text-muted-foreground italic">
+                            {m.skipReason.replace(/_/g, ' ')}
+                          </span>
+                        ) : (
+                          String(m.finalOutcome ?? '—')
+                        )}
+                      </TableCell>
                       <TableCell className={cn('text-right tabular-nums', pnlClass)}>
                         {formatPnl(m.pnl)}
                       </TableCell>
-                      <TableCell className="text-right tabular-nums">{m.tradeCount}</TableCell>
+                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
+                        {m.feesPaid > 0 ? m.feesPaid.toFixed(2) : '—'}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                        {m.cost > 0 ? m.cost.toFixed(2) : '—'}
+                        {m.splitCost > 0 && (
+                          <span className="ml-1 text-[11px]">· {m.splitCost.toFixed(2)} split</span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
+                        {m.tradeCount}
+                        {m.tradeCount > 0 && (
+                          <span className="ml-1 text-[11px] text-muted-foreground">
+                            · {m.tradeAsMaker}m/{m.tradeAsTaker}t
+                          </span>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                        {upPos}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+                        {downPos}
+                      </TableCell>
                       <TableCell className="text-xs text-muted-foreground font-mono">
                         {exec?.machineId ?? '—'}
                       </TableCell>
