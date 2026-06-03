@@ -144,7 +144,7 @@ export function BacktestsTable({
                       <div className="min-w-0">
                         {uid ? (
                           <Link
-                            href={`/batches/${encodeURIComponent(uid)}`}
+                            href={`/backtests/${b.id}`}
                             className="font-mono text-xs hover:underline"
                           >
                             {uid}
@@ -251,7 +251,7 @@ export function BacktestsTable({
                       </button>
                       {uid && (
                         <Link
-                          href={`/batches/${encodeURIComponent(uid)}`}
+                          href={`/backtests/${b.id}`}
                           className="inline-flex items-center rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
                           aria-label="Open batch detail"
                         >
