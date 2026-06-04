@@ -42,7 +42,6 @@ type CountRow = {
 
 type MarketRow = {
   slug: string
-  startDateUs: number | string | bigint | null
   conversionStatus: string | null
   localPath: string | null
   r2Url: string | null
@@ -53,12 +52,6 @@ const MS_PER_DAY = 24 * 60 * 60 * 1000
 function toInt(value: unknown): number {
   const n = typeof value === 'bigint' ? Number(value) : Number(value)
   return Number.isFinite(n) ? Math.trunc(n) : 0
-}
-
-function usToMs(value: unknown): number | null {
-  const n = toInt(value)
-  if (n <= 0) return null
-  return Math.trunc(n / 1000)
 }
 
 function utcDate(ms: number): Date {
@@ -122,6 +115,14 @@ function expectedForPeriod(key: string, expectedPerDay: number): number {
   if (/^\d{4}-\d{2}-\d{2}$/.test(key)) return expectedPerDay
   if (/^\d{4}-W\d{2}$/.test(key)) return expectedPerDay * 7
   return expectedForMonth(key, expectedPerDay)
+}
+
+function marketStartMsFromSlug(slug: string): number | null {
+  const raw = slug.split('-').pop()
+  if (!raw || !/^\d+$/.test(raw)) return null
+  const seconds = Number(raw)
+  if (!Number.isSafeInteger(seconds) || seconds <= 0) return null
+  return seconds * 1000
 }
 
 function groupCoverage(
@@ -190,7 +191,6 @@ export async function getBacktestDatasetCoverage(
   const [marketRows] = (await db.execute(sql`
     select
       m.slug as slug,
-      m.start_date_us as startDateUs,
       c.status as conversionStatus,
       c.local_path as localPath,
       c.r2_url as r2Url
@@ -199,12 +199,11 @@ export async function getBacktestDatasetCoverage(
       on c.market_id = m.id
       and c.converter = ${params.converter}
     where m.slug like ${slugPrefix}
-      and m.start_date_us is not null
-    order by m.start_date_us asc, m.slug asc
+    order by cast(substring_index(m.slug, '-', -1) as unsigned) asc, m.slug asc
   `)) as unknown as [MarketRow[], unknown]
 
   const markets = marketRows.flatMap((row) => {
-    const startMs = usToMs(row.startDateUs)
+    const startMs = marketStartMsFromSlug(row.slug)
     if (startMs === null) return []
     const done = row.conversionStatus === 'done'
     return [
