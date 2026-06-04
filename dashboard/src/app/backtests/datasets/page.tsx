@@ -130,6 +130,7 @@ function CoverageTable({
           <TableHeader>
             <TableRow>
               <TableHead>Period</TableHead>
+              <TableHead className="text-right">Expected</TableHead>
               <TableHead className="text-right">Telonex Markets</TableHead>
               <TableHead className="text-right">Local Ready</TableHead>
               <TableHead className="text-right">Local %</TableHead>
@@ -143,6 +144,9 @@ function CoverageTable({
             {shown.map((row) => (
               <TableRow key={row.key}>
                 <TableCell className="font-mono text-xs">{row.key}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {fmtInt(row.expected)}
+                </TableCell>
                 <TableCell className="text-right font-mono">
                   {fmtInt(row.telonexMarkets)}
                 </TableCell>

@@ -9,6 +9,7 @@ export type BacktestDatasetParams = {
 
 export type CoveragePeriod = {
   key: string
+  expected: number
   telonexMarkets: number
   localReady: number
   r2Ready: number
@@ -45,7 +46,6 @@ type MarketRow = {
   r2Url: string | null
 }
 
-const EXPECTED_PER_DAY = 96
 const MS_PER_DAY = 24 * 60 * 60 * 1000
 
 function toInt(value: unknown): number {
@@ -96,9 +96,36 @@ function pct(part: number, total: number): number {
   return Math.round((part / total) * 10000) / 100
 }
 
+function expectedPerDayForTimeframe(timeframe: string): number {
+  const match = timeframe.match(/^(\d+)m$/)
+  if (!match) return 0
+  const minutes = Number(match[1])
+  if (!Number.isFinite(minutes) || minutes <= 0) return 0
+  return Math.trunc((24 * 60) / minutes)
+}
+
+function daysInUtcMonth(year: number, monthOneBased: number): number {
+  return new Date(Date.UTC(year, monthOneBased, 0)).getUTCDate()
+}
+
+function expectedForMonth(key: string, expectedPerDay: number): number {
+  const [yearRaw, monthRaw] = key.split('-')
+  const year = Number(yearRaw)
+  const month = Number(monthRaw)
+  if (!Number.isInteger(year) || !Number.isInteger(month)) return 0
+  return daysInUtcMonth(year, month) * expectedPerDay
+}
+
+function expectedForPeriod(key: string, expectedPerDay: number): number {
+  if (/^\d{4}-\d{2}-\d{2}$/.test(key)) return expectedPerDay
+  if (/^\d{4}-W\d{2}$/.test(key)) return expectedPerDay * 7
+  return expectedForMonth(key, expectedPerDay)
+}
+
 function groupCoverage(
   markets: Array<{ startMs: number; localReady: boolean; r2Ready: boolean }>,
   keyFor: (ms: number) => string,
+  expectedPerDay: number,
 ): CoveragePeriod[] {
   const groups = new Map<
     string,
@@ -128,8 +155,10 @@ function groupCoverage(
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => {
+      const expected = expectedForPeriod(key, expectedPerDay)
       return {
         key,
+        expected,
         telonexMarkets: value.telonexMarkets,
         localReady: value.localReady,
         r2Ready: value.r2Ready,
@@ -147,6 +176,7 @@ export async function getBacktestDatasetCoverage(
   const db = getDb()
   const symbol = params.symbol.toLowerCase()
   const slugPrefix = `${symbol}-updown-${params.timeframe}-%`
+  const expectedPerDay = expectedPerDayForTimeframe(params.timeframe)
 
   const [rawCountRows] = (await db.execute(sql`
     select count(*) as count
@@ -194,10 +224,10 @@ export async function getBacktestDatasetCoverage(
       r2Ready,
       firstStartMs: markets[0]?.startMs ?? null,
       lastStartMs: markets[markets.length - 1]?.startMs ?? null,
-      expectedPerDay: EXPECTED_PER_DAY,
+      expectedPerDay,
     },
-    byMonth: groupCoverage(markets, monthKey),
-    byWeek: groupCoverage(markets, isoWeekKey),
-    byDay: groupCoverage(markets, dayKey),
+    byMonth: groupCoverage(markets, monthKey, expectedPerDay),
+    byWeek: groupCoverage(markets, isoWeekKey, expectedPerDay),
+    byDay: groupCoverage(markets, dayKey, expectedPerDay),
   }
 }
