@@ -13,6 +13,7 @@ export type CoveragePeriod = {
   telonexMarkets: number
   localReady: number
   r2Ready: number
+  telonexCoveragePct: number
   localReadyPct: number
   r2ReadyPct: number
   firstStartMs: number
@@ -162,6 +163,7 @@ function groupCoverage(
         telonexMarkets: value.telonexMarkets,
         localReady: value.localReady,
         r2Ready: value.r2Ready,
+        telonexCoveragePct: pct(value.telonexMarkets, expected),
         localReadyPct: pct(value.localReady, value.telonexMarkets),
         r2ReadyPct: pct(value.r2Ready, value.telonexMarkets),
         firstStartMs: value.firstStartMs,

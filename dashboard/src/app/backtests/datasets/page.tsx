@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { ChevronLeft, Database, Table2 } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SectionHeading } from '@/components/SectionHeading'
@@ -53,6 +54,12 @@ function parseParams(searchParams: { [key: string]: string | string[] | undefine
 
 function pct(value: number): string {
   return `${value.toFixed(2)}%`
+}
+
+function pctVariant(value: number): 'success' | 'warning' | 'destructive' {
+  if (value >= 99.99) return 'success'
+  if (value >= 95) return 'warning'
+  return 'destructive'
 }
 
 function DatasetControls({ params }: { params: BacktestDatasetParams }) {
@@ -132,6 +139,7 @@ function CoverageTable({
               <TableHead>Period</TableHead>
               <TableHead className="text-right">Expected</TableHead>
               <TableHead className="text-right">Telonex Markets</TableHead>
+              <TableHead className="text-right">Telonex %</TableHead>
               <TableHead className="text-right">Local Ready</TableHead>
               <TableHead className="text-right">Local %</TableHead>
               <TableHead className="text-right">R2 Ready</TableHead>
@@ -150,13 +158,18 @@ function CoverageTable({
                 <TableCell className="text-right font-mono">
                   {fmtInt(row.telonexMarkets)}
                 </TableCell>
+                <TableCell className="text-right">
+                  <Badge variant={pctVariant(row.telonexCoveragePct)}>
+                    {pct(row.telonexCoveragePct)}
+                  </Badge>
+                </TableCell>
                 <TableCell className="text-right font-mono">{fmtInt(row.localReady)}</TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">
-                  {pct(row.localReadyPct)}
+                <TableCell className="text-right">
+                  <Badge variant={pctVariant(row.localReadyPct)}>{pct(row.localReadyPct)}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono">{fmtInt(row.r2Ready)}</TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">
-                  {pct(row.r2ReadyPct)}
+                <TableCell className="text-right">
+                  <Badge variant={pctVariant(row.r2ReadyPct)}>{pct(row.r2ReadyPct)}</Badge>
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {fmtDate(row.firstStartMs)}
