@@ -1,16 +1,22 @@
 import Link from 'next/link'
 import { ChevronLeft, Database, Table2 } from 'lucide-react'
-import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { SectionHeading } from '@/components/SectionHeading'
 import { StatCard } from '@/components/StatCard'
 import {
   getBacktestDatasetCoverage,
+  type BacktestDatasetParams,
   type CoveragePeriod,
 } from '@/lib/queries/backtestDatasets'
 
 export const dynamic = 'force-dynamic'
+
+const SYMBOLS = ['btc', 'eth', 'sol', 'xrp'] as const
+const TIMEFRAMES = ['15m', '5m'] as const
+const CONVERTERS = ['delta-typed', 'paired'] as const
+
+type PageSearchParams = Promise<{ [key: string]: string | string[] | undefined }>
 
 function fmtInt(n: number): string {
   return new Intl.NumberFormat('en-US').format(n)
@@ -27,10 +33,81 @@ function fmtDate(ms: number | null): string {
   return `${yyyy}-${mm}-${dd}, ${hh}:${min}`
 }
 
-function statusVariant(status: CoveragePeriod['status']): 'success' | 'warning' | 'muted' {
-  if (status === 'complete') return 'success'
-  if (status === 'overfull') return 'muted'
-  return 'warning'
+function firstValue(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value
+}
+
+function parseParams(searchParams: { [key: string]: string | string[] | undefined }): BacktestDatasetParams {
+  const symbol = firstValue(searchParams.symbol)
+  const timeframe = firstValue(searchParams.timeframe)
+  const converter = firstValue(searchParams.converter)
+
+  return {
+    symbol: SYMBOLS.includes(symbol as (typeof SYMBOLS)[number]) ? symbol! : 'btc',
+    timeframe: TIMEFRAMES.includes(timeframe as (typeof TIMEFRAMES)[number]) ? timeframe! : '15m',
+    converter: CONVERTERS.includes(converter as (typeof CONVERTERS)[number])
+      ? (converter as BacktestDatasetParams['converter'])
+      : 'delta-typed',
+  }
+}
+
+function pct(value: number): string {
+  return `${value.toFixed(2)}%`
+}
+
+function DatasetControls({ params }: { params: BacktestDatasetParams }) {
+  return (
+    <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4" method="get">
+      <label className="space-y-1 text-xs text-muted-foreground">
+        <span>Symbol</span>
+        <select
+          name="symbol"
+          defaultValue={params.symbol}
+          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+        >
+          {SYMBOLS.map((symbol) => (
+            <option key={symbol} value={symbol}>
+              {symbol.toUpperCase()}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="space-y-1 text-xs text-muted-foreground">
+        <span>Timeframe</span>
+        <select
+          name="timeframe"
+          defaultValue={params.timeframe}
+          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+        >
+          {TIMEFRAMES.map((timeframe) => (
+            <option key={timeframe} value={timeframe}>
+              {timeframe}
+            </option>
+          ))}
+        </select>
+      </label>
+      <label className="space-y-1 text-xs text-muted-foreground">
+        <span>Conversion</span>
+        <select
+          name="converter"
+          defaultValue={params.converter}
+          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+        >
+          {CONVERTERS.map((converter) => (
+            <option key={converter} value={converter}>
+              {converter}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="submit"
+        className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Apply
+      </button>
+    </form>
+  )
 }
 
 function CoverageTable({
@@ -53,10 +130,11 @@ function CoverageTable({
           <TableHeader>
             <TableRow>
               <TableHead>Period</TableHead>
-              <TableHead className="text-right">Markets</TableHead>
-              <TableHead className="text-right">Expected</TableHead>
-              <TableHead className="text-right">Coverage</TableHead>
-              <TableHead>Status</TableHead>
+              <TableHead className="text-right">Telonex Markets</TableHead>
+              <TableHead className="text-right">Local Ready</TableHead>
+              <TableHead className="text-right">Local %</TableHead>
+              <TableHead className="text-right">R2 Ready</TableHead>
+              <TableHead className="text-right">R2 %</TableHead>
               <TableHead>First</TableHead>
               <TableHead>Last</TableHead>
             </TableRow>
@@ -65,15 +143,16 @@ function CoverageTable({
             {shown.map((row) => (
               <TableRow key={row.key}>
                 <TableCell className="font-mono text-xs">{row.key}</TableCell>
-                <TableCell className="text-right font-mono">{fmtInt(row.markets)}</TableCell>
-                <TableCell className="text-right font-mono text-muted-foreground">
-                  {fmtInt(row.expected)}
-                </TableCell>
                 <TableCell className="text-right font-mono">
-                  {row.completenessPct.toFixed(2)}%
+                  {fmtInt(row.telonexMarkets)}
                 </TableCell>
-                <TableCell>
-                  <Badge variant={statusVariant(row.status)}>{row.status}</Badge>
+                <TableCell className="text-right font-mono">{fmtInt(row.localReady)}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {pct(row.localReadyPct)}
+                </TableCell>
+                <TableCell className="text-right font-mono">{fmtInt(row.r2Ready)}</TableCell>
+                <TableCell className="text-right font-mono text-muted-foreground">
+                  {pct(row.r2ReadyPct)}
                 </TableCell>
                 <TableCell className="font-mono text-xs text-muted-foreground">
                   {fmtDate(row.firstStartMs)}
@@ -90,14 +169,10 @@ function CoverageTable({
   )
 }
 
-export default async function BacktestDatasetsPage() {
-  const coverage = await getBacktestDatasetCoverage({
-    symbol: 'btc',
-    timeframe: '15m',
-    converter: 'delta-typed',
-    readFrom: 'local',
-  })
-  const { summary, params } = coverage
+export default async function BacktestDatasetsPage(props: { searchParams: PageSearchParams }) {
+  const params = parseParams(await props.searchParams)
+  const coverage = await getBacktestDatasetCoverage(params)
+  const { summary } = coverage
 
   return (
     <div className="space-y-8">
@@ -111,22 +186,28 @@ export default async function BacktestDatasetsPage() {
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Backtest Datasets</h1>
         <p className="mt-1 text-xs text-muted-foreground">
-          Eligible Telonex markets for backtest research, grouped by calendar period.
+          Telonex market availability against the selected conversion, grouped by calendar period.
         </p>
       </div>
 
+      <DatasetControls params={params} />
+
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
-          label="Backtest usable"
-          value={fmtInt(summary.usableMarkets)}
+          label="Telonex markets"
+          value={fmtInt(summary.rawMarkets)}
           icon={Database}
-          hint={`${params.symbol.toUpperCase()} ${params.timeframe} / ${params.converter} / ${params.readFrom}`}
+          hint={`${params.symbol.toUpperCase()} ${params.timeframe}`}
         />
-        <StatCard label="Raw Telonex" value={fmtInt(summary.rawMarkets)} hint="Matching slug set" />
         <StatCard
-          label="Converted"
-          value={fmtInt(summary.convertedMarkets)}
-          hint="Conversion status done"
+          label="Local ready"
+          value={fmtInt(summary.localReady)}
+          hint={`${params.converter} done with local path`}
+        />
+        <StatCard
+          label="R2 ready"
+          value={fmtInt(summary.r2Ready)}
+          hint={`${params.converter} done with R2 URL`}
         />
         <StatCard
           label="Range"
@@ -138,7 +219,7 @@ export default async function BacktestDatasetsPage() {
       <section>
         <SectionHeading
           title="Months"
-          subtitle="Main benchmark view. Counts use only markets that currently have a resolved outcome and selected converted dataset path."
+          subtitle="Main benchmark view. Local and R2 readiness only check selected conversion output availability."
           icon={Table2}
         />
         <CoverageTable title="Monthly Coverage" rows={coverage.byMonth} />

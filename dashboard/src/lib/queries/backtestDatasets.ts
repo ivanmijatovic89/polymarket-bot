@@ -5,25 +5,25 @@ export type BacktestDatasetParams = {
   symbol: string
   timeframe: string
   converter: 'delta-typed' | 'paired'
-  readFrom: 'local' | 'r2'
 }
 
 export type CoveragePeriod = {
   key: string
-  markets: number
-  expected: number
-  completenessPct: number
+  telonexMarkets: number
+  localReady: number
+  r2Ready: number
+  localReadyPct: number
+  r2ReadyPct: number
   firstStartMs: number
   lastStartMs: number
-  status: 'complete' | 'partial' | 'overfull'
 }
 
 export type BacktestDatasetCoverage = {
   params: BacktestDatasetParams
   summary: {
     rawMarkets: number
-    convertedMarkets: number
-    usableMarkets: number
+    localReady: number
+    r2Ready: number
     firstStartMs: number | null
     lastStartMs: number | null
     expectedPerDay: number
@@ -40,6 +40,9 @@ type CountRow = {
 type MarketRow = {
   slug: string
   startDateUs: number | string | bigint | null
+  conversionStatus: string | null
+  localPath: string | null
+  r2Url: string | null
 }
 
 const EXPECTED_PER_DAY = 96
@@ -74,10 +77,6 @@ function dayKey(ms: number): string {
   return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}-${pad2(d.getUTCDate())}`
 }
 
-function daysInUtcMonth(year: number, monthOneBased: number): number {
-  return new Date(Date.UTC(year, monthOneBased, 0)).getUTCDate()
-}
-
 function startOfUtcDayMs(ms: number): number {
   const d = utcDate(ms)
   return Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate())
@@ -92,30 +91,36 @@ function isoWeekKey(ms: number): string {
   return `${d.getUTCFullYear()}-W${pad2(week)}`
 }
 
-function statusFor(markets: number, expected: number): CoveragePeriod['status'] {
-  if (markets >= expected) return markets === expected ? 'complete' : 'overfull'
-  return 'partial'
-}
-
-function pct(markets: number, expected: number): number {
-  if (expected <= 0) return 0
-  return Math.round((markets / expected) * 10000) / 100
+function pct(part: number, total: number): number {
+  if (total <= 0) return 0
+  return Math.round((part / total) * 10000) / 100
 }
 
 function groupCoverage(
-  starts: number[],
+  markets: Array<{ startMs: number; localReady: boolean; r2Ready: boolean }>,
   keyFor: (ms: number) => string,
-  expectedFor: (key: string) => number,
 ): CoveragePeriod[] {
-  const groups = new Map<string, { markets: number; firstStartMs: number; lastStartMs: number }>()
-  for (const startMs of starts) {
+  const groups = new Map<
+    string,
+    { telonexMarkets: number; localReady: number; r2Ready: number; firstStartMs: number; lastStartMs: number }
+  >()
+  for (const market of markets) {
+    const startMs = market.startMs
     const key = keyFor(startMs)
     const cur = groups.get(key)
     if (!cur) {
-      groups.set(key, { markets: 1, firstStartMs: startMs, lastStartMs: startMs })
+      groups.set(key, {
+        telonexMarkets: 1,
+        localReady: market.localReady ? 1 : 0,
+        r2Ready: market.r2Ready ? 1 : 0,
+        firstStartMs: startMs,
+        lastStartMs: startMs,
+      })
       continue
     }
-    cur.markets += 1
+    cur.telonexMarkets += 1
+    if (market.localReady) cur.localReady += 1
+    if (market.r2Ready) cur.r2Ready += 1
     cur.firstStartMs = Math.min(cur.firstStartMs, startMs)
     cur.lastStartMs = Math.max(cur.lastStartMs, startMs)
   }
@@ -123,31 +128,17 @@ function groupCoverage(
   return [...groups.entries()]
     .sort(([a], [b]) => a.localeCompare(b))
     .map(([key, value]) => {
-      const expected = expectedFor(key)
       return {
         key,
-        markets: value.markets,
-        expected,
-        completenessPct: pct(value.markets, expected),
+        telonexMarkets: value.telonexMarkets,
+        localReady: value.localReady,
+        r2Ready: value.r2Ready,
+        localReadyPct: pct(value.localReady, value.telonexMarkets),
+        r2ReadyPct: pct(value.r2Ready, value.telonexMarkets),
         firstStartMs: value.firstStartMs,
         lastStartMs: value.lastStartMs,
-        status: statusFor(value.markets, expected),
       }
     })
-}
-
-function expectedForMonth(key: string): number {
-  const [yearRaw, monthRaw] = key.split('-')
-  const year = Number(yearRaw)
-  const month = Number(monthRaw)
-  if (!Number.isInteger(year) || !Number.isInteger(month)) return 0
-  return daysInUtcMonth(year, month) * EXPECTED_PER_DAY
-}
-
-function datasetPathCondition(readFrom: BacktestDatasetParams['readFrom']) {
-  return readFrom === 'local'
-    ? sql`c.local_path is not null and trim(c.local_path) <> ''`
-    : sql`c.r2_url is not null and trim(c.r2_url) <> ''`
 }
 
 export async function getBacktestDatasetCoverage(
@@ -156,7 +147,6 @@ export async function getBacktestDatasetCoverage(
   const db = getDb()
   const symbol = params.symbol.toLowerCase()
   const slugPrefix = `${symbol}-updown-${params.timeframe}-%`
-  const pathCondition = datasetPathCondition(params.readFrom)
 
   const [rawCountRows] = (await db.execute(sql`
     select count(*) as count
@@ -164,47 +154,50 @@ export async function getBacktestDatasetCoverage(
     where slug like ${slugPrefix}
   `)) as unknown as [CountRow[], unknown]
 
-  const [convertedCountRows] = (await db.execute(sql`
-    select count(*) as count
-    from telonex_markets m
-    inner join telonex_market_conversions c on c.market_id = m.id
-    where m.slug like ${slugPrefix}
-      and c.converter = ${params.converter}
-      and c.status = 'done'
-  `)) as unknown as [CountRow[], unknown]
-
   const [marketRows] = (await db.execute(sql`
-    select m.slug as slug, m.start_date_us as startDateUs
+    select
+      m.slug as slug,
+      m.start_date_us as startDateUs,
+      c.status as conversionStatus,
+      c.local_path as localPath,
+      c.r2_url as r2Url
     from telonex_markets m
-    inner join telonex_market_conversions c on c.market_id = m.id
-    where m.slug like ${slugPrefix}
+    left join telonex_market_conversions c
+      on c.market_id = m.id
       and c.converter = ${params.converter}
-      and c.status = 'done'
-      and ${pathCondition}
+    where m.slug like ${slugPrefix}
       and m.start_date_us is not null
-      and m.asset_id_0 is not null
-      and m.asset_id_1 is not null
-      and m.telonex_status = 'resolved'
-      and m.result_id in ('0', '1')
     order by m.start_date_us asc, m.slug asc
   `)) as unknown as [MarketRow[], unknown]
 
-  const starts = marketRows
-    .map((row) => usToMs(row.startDateUs))
-    .filter((ms): ms is number => ms !== null)
+  const markets = marketRows.flatMap((row) => {
+    const startMs = usToMs(row.startDateUs)
+    if (startMs === null) return []
+    const done = row.conversionStatus === 'done'
+    return [
+      {
+        startMs,
+        localReady: done && typeof row.localPath === 'string' && row.localPath.trim() !== '',
+        r2Ready: done && typeof row.r2Url === 'string' && row.r2Url.trim() !== '',
+      },
+    ]
+  })
+
+  const localReady = markets.filter((m) => m.localReady).length
+  const r2Ready = markets.filter((m) => m.r2Ready).length
 
   return {
     params,
     summary: {
       rawMarkets: toInt(rawCountRows[0]?.count),
-      convertedMarkets: toInt(convertedCountRows[0]?.count),
-      usableMarkets: starts.length,
-      firstStartMs: starts[0] ?? null,
-      lastStartMs: starts[starts.length - 1] ?? null,
+      localReady,
+      r2Ready,
+      firstStartMs: markets[0]?.startMs ?? null,
+      lastStartMs: markets[markets.length - 1]?.startMs ?? null,
       expectedPerDay: EXPECTED_PER_DAY,
     },
-    byMonth: groupCoverage(starts, monthKey, expectedForMonth),
-    byWeek: groupCoverage(starts, isoWeekKey, () => 7 * EXPECTED_PER_DAY),
-    byDay: groupCoverage(starts, dayKey, () => EXPECTED_PER_DAY),
+    byMonth: groupCoverage(markets, monthKey),
+    byWeek: groupCoverage(markets, isoWeekKey),
+    byDay: groupCoverage(markets, dayKey),
   }
 }
