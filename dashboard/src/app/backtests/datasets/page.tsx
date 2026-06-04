@@ -34,6 +34,17 @@ function fmtDate(ms: number | null): string {
   return `${yyyy}-${mm}-${dd}, ${hh}:${min}`
 }
 
+function fmtDuration(ms: number): string {
+  if (!Number.isFinite(ms) || ms <= 0) return '0m'
+  const totalMinutes = Math.floor(ms / 60_000)
+  const days = Math.floor(totalMinutes / (24 * 60))
+  const hours = Math.floor((totalMinutes % (24 * 60)) / 60)
+  const minutes = totalMinutes % 60
+  if (days > 0) return `${days}d ${hours}h`
+  if (hours > 0) return `${hours}h ${minutes}m`
+  return `${minutes}m`
+}
+
 function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
@@ -209,7 +220,7 @@ export default async function BacktestDatasetsPage(props: { searchParams: PageSe
 
       <DatasetControls params={params} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
         <StatCard
           label="Telonex markets"
           value={fmtInt(summary.rawMarkets)}
@@ -230,6 +241,12 @@ export default async function BacktestDatasetsPage(props: { searchParams: PageSe
           label="Range"
           value={<span className="text-base">{fmtDate(summary.firstStartMs)}</span>}
           hint={`to ${fmtDate(summary.lastStartMs)}`}
+        />
+        <StatCard
+          label="Market lag"
+          value={fmtInt(summary.lagMarkets)}
+          tone={summary.lagMarkets > 0 ? 'warning' : 'success'}
+          hint={`${fmtDuration(summary.lagMs)} since latest market`}
         />
       </div>
 
