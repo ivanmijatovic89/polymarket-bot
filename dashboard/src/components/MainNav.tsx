@@ -2,18 +2,33 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { HeartPulse, History, LayoutDashboard, Trophy } from 'lucide-react'
+import { Database, HeartPulse, History, LayoutDashboard, Trophy } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
-const ITEMS = [
+type NavItem = {
+  href: string
+  label: string
+  icon: typeof LayoutDashboard
+  exact: boolean
+  group?: 'backtests'
+}
+
+const ITEMS: NavItem[] = [
   { href: '/', label: 'Overview', icon: LayoutDashboard, exact: true },
-  { href: '/backtests', label: 'Backtests', icon: History, exact: false },
+  { href: '/backtests', label: 'Backtests', icon: History, exact: false, group: 'backtests' },
+  { href: '/backtests/datasets', label: 'Datasets', icon: Database, exact: true },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },
   { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
-] as const
+]
 
-function isActive(pathname: string, href: string, exact: boolean): boolean {
+function isActive(
+  pathname: string,
+  href: string,
+  exact: boolean,
+  group?: 'backtests',
+): boolean {
   if (exact) return pathname === href
+  if (group === 'backtests' && pathname.startsWith('/backtests/datasets')) return false
   return pathname === href || pathname.startsWith(`${href}/`)
 }
 
@@ -21,8 +36,8 @@ export function MainNav() {
   const pathname = usePathname() ?? '/'
   return (
     <nav className="flex items-center gap-1 text-sm">
-      {ITEMS.map(({ href, label, icon: Icon, exact }) => {
-        const active = isActive(pathname, href, exact)
+      {ITEMS.map(({ href, label, icon: Icon, exact, group }) => {
+        const active = isActive(pathname, href, exact, group)
         return (
           <Link
             key={href}
