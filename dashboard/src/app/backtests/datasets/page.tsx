@@ -235,6 +235,15 @@ export default async function BacktestDatasetsPage(props: { searchParams: PageSe
 
       <section>
         <SectionHeading
+          title="Total"
+          subtitle="Overall availability for the selected symbol, timeframe, and conversion."
+          icon={Table2}
+        />
+        <CoverageTable title="Total Coverage" rows={[coverage.total]} />
+      </section>
+
+      <section>
+        <SectionHeading
           title="Months"
           subtitle="Main benchmark view. Local and R2 readiness only check selected conversion output availability."
           icon={Table2}

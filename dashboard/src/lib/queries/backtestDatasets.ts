@@ -30,6 +30,7 @@ export type BacktestDatasetCoverage = {
     lastStartMs: number | null
     expectedPerDay: number
   }
+  total: CoveragePeriod
   byMonth: CoveragePeriod[]
   byWeek: CoveragePeriod[]
   byDay: CoveragePeriod[]
@@ -218,15 +219,35 @@ export async function getBacktestDatasetCoverage(
   const localReady = markets.filter((m) => m.localReady).length
   const r2Ready = markets.filter((m) => m.r2Ready).length
 
+  const firstStartMs = markets[0]?.startMs ?? null
+  const lastStartMs = markets[markets.length - 1]?.startMs ?? null
+  const totalExpected =
+    firstStartMs !== null && lastStartMs !== null
+      ? Math.floor((startOfUtcDayMs(lastStartMs) - startOfUtcDayMs(firstStartMs)) / MS_PER_DAY + 1) *
+        expectedPerDay
+      : 0
+
   return {
     params,
     summary: {
       rawMarkets: toInt(rawCountRows[0]?.count),
       localReady,
       r2Ready,
-      firstStartMs: markets[0]?.startMs ?? null,
-      lastStartMs: markets[markets.length - 1]?.startMs ?? null,
+      firstStartMs,
+      lastStartMs,
       expectedPerDay,
+    },
+    total: {
+      key: 'Total',
+      expected: totalExpected,
+      telonexMarkets: markets.length,
+      localReady,
+      r2Ready,
+      telonexCoveragePct: pct(markets.length, totalExpected),
+      localReadyPct: pct(localReady, markets.length),
+      r2ReadyPct: pct(r2Ready, markets.length),
+      firstStartMs: firstStartMs ?? 0,
+      lastStartMs: lastStartMs ?? 0,
     },
     byMonth: groupCoverage(markets, monthKey, expectedPerDay),
     byWeek: groupCoverage(markets, isoWeekKey, expectedPerDay),
