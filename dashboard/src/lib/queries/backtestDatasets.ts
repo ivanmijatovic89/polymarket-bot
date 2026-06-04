@@ -28,6 +28,9 @@ export type BacktestDatasetCoverage = {
     r2Ready: number
     firstStartMs: number | null
     lastStartMs: number | null
+    nowMs: number
+    lagMs: number
+    lagMarkets: number
     expectedPerDay: number
   }
   total: CoveragePeriod
@@ -92,11 +95,17 @@ function pct(part: number, total: number): number {
 }
 
 function expectedPerDayForTimeframe(timeframe: string): number {
+  const timeframeMs = timeframeMsForTimeframe(timeframe)
+  if (timeframeMs <= 0) return 0
+  return Math.trunc(MS_PER_DAY / timeframeMs)
+}
+
+function timeframeMsForTimeframe(timeframe: string): number {
   const match = timeframe.match(/^(\d+)m$/)
   if (!match) return 0
   const minutes = Number(match[1])
   if (!Number.isFinite(minutes) || minutes <= 0) return 0
-  return Math.trunc((24 * 60) / minutes)
+  return minutes * 60_000
 }
 
 function daysInUtcMonth(year: number, monthOneBased: number): number {
@@ -181,6 +190,7 @@ export async function getBacktestDatasetCoverage(
   const symbol = params.symbol.toLowerCase()
   const slugPrefix = `${symbol}-updown-${params.timeframe}-%`
   const expectedPerDay = expectedPerDayForTimeframe(params.timeframe)
+  const timeframeMs = timeframeMsForTimeframe(params.timeframe)
 
   const [rawCountRows] = (await db.execute(sql`
     select count(*) as count
@@ -220,6 +230,9 @@ export async function getBacktestDatasetCoverage(
 
   const firstStartMs = markets[0]?.startMs ?? null
   const lastStartMs = markets[markets.length - 1]?.startMs ?? null
+  const nowMs = Date.now()
+  const lagMs = lastStartMs === null ? 0 : Math.max(0, nowMs - lastStartMs)
+  const lagMarkets = timeframeMs > 0 ? Math.floor(lagMs / timeframeMs) : 0
   const totalExpected =
     firstStartMs !== null && lastStartMs !== null
       ? Math.floor((startOfUtcDayMs(lastStartMs) - startOfUtcDayMs(firstStartMs)) / MS_PER_DAY + 1) *
@@ -234,6 +247,9 @@ export async function getBacktestDatasetCoverage(
       r2Ready,
       firstStartMs,
       lastStartMs,
+      nowMs,
+      lagMs,
+      lagMarkets,
       expectedPerDay,
     },
     total: {
