@@ -84,6 +84,13 @@ type InsertBacktestRunRow = {
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
+  // Optional run-shape metadata. Populated for telonex runs so the dashboard
+  // coverage feature can identify the eligible universe a run targeted
+  // without parsing `cmd`. Null for recorded-mode runs.
+  timeframe: string | null
+  inputMode: string | null
+  converter: string | null
+  readFrom: string | null
   slugs: string[] | null
   limit: number | null
   random: boolean
@@ -177,6 +184,10 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         strategy: row.strategy,
         params: row.params,
         symbol: row.symbol,
+        timeframe: row.timeframe,
+        inputMode: row.inputMode,
+        converter: row.converter,
+        readFrom: row.readFrom,
         slugs: row.slugs,
         limit: row.limit,
         random: row.random,

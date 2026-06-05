@@ -1,6 +1,26 @@
-import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
+// -----------------------------------------------------------------------------
+// SOURCE OF TRUTH for queries against `telonex_markets` /
+// `telonex_market_conversions`. Do NOT write inline SQL against these tables
+// elsewhere. Add a function here instead.
+//
+// Eligibility = `conversion.status = 'done'` AND the requested converter has a
+// non-empty `local_path` (if readFrom='local') or `r2_url` (if readFrom='r2'),
+// AND the market window start is >= TELONEX_DATASET_ELIGIBLE_FROM_MS (per env
+// `TELONEX_DATASET_ELIGIBLE_FROM`, default 2025-12-01).
+//
+// Ordering is always `market_start_ms ASC` (chronological) unless `random` is
+// set. `market_start_ms` is derived from the slug suffix at sync time and is
+// indexed via `(symbol, timeframe, market_start_ms)` and
+// `(timeframe, market_start_ms)`. NEVER order/filter by `start_date_us` — it
+// represents something other than the trading window (verified: 100% of rows
+// differ from the slug epoch).
+// -----------------------------------------------------------------------------
+
+import { and, asc, count, eq, gte, inArray, lte, notInArray, sql } from 'drizzle-orm'
+import type { SQL } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { telonexMarkets, telonexMarketConversions } from './schema.js'
+import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 
 export type ReadFrom = 'local' | 'r2'
 export type Converter = 'delta-typed' | 'paired'
@@ -9,6 +29,8 @@ export type Market = {
   marketId: string
   slug: string
   symbol: string
+  timeframe: string
+  marketStartMs: number
   dataset: string | null // local_path or r2_url, picked by caller via readFrom
   outcome0: string | null
   outcome1: string | null
@@ -17,33 +39,44 @@ export type Market = {
   resultId: string | null
   telonexStatus: string | null
   question: string | null
-  startDateMs: number | null // derived from start_date_us
-  endDateMs: number | null // derived from end_date_us
+  /** @deprecated `start_date_us` is NOT the market window start. Use `marketStartMs`. */
+  startDateMs: number | null
+  /** End of the 15m/5m trading window. Matches `marketStartMs + timeframeMs`. */
+  endDateMs: number | null
 }
 
-function mustGetDb(): ReturnType<typeof getDb> {
-  const db = getDb()
-  if (!db) {
-    throw new Error('[db] getDb() returned null (unexpected)')
-  }
-  return db
-}
-
-function extractSymbolFromSlug(slug: string): string {
-  const dash = slug.indexOf('-')
-  return dash > 0 ? slug.slice(0, dash) : slug
-}
-
-function pickDataset(
-  readFrom: ReadFrom,
-  row: { localPath: string | null; r2Url: string | null },
-): string | null {
-  return readFrom === 'local' ? row.localPath : row.r2Url
+/**
+ * Filters for eligibility queries. All optional fields default sensibly; see
+ * field comments. Pass through unchanged from CLI flags / API params.
+ */
+export type EligibleMarketsQuery = {
+  symbol?: string
+  /** e.g. '15m', '5m'. When omitted, all timeframes are returned. */
+  timeframe?: string
+  converter: Converter
+  readFrom: ReadFrom
+  /** Inclusive lower bound. Defaults to TELONEX_DATASET_ELIGIBLE_FROM_MS. */
+  fromMs?: number
+  /** Inclusive upper bound. No default. */
+  toMs?: number
+  /** Restrict to this exact set of slugs (after eligibility filter). */
+  slugs?: string[]
+  /** Skip these slugs (useful for research / --all). */
+  excludeSlugs?: string[]
+  /** Cap the result count. Defaults to 1000 to match legacy behaviour. */
+  limit?: number
+  /** With `limit`, returns the LAST `limit` rows (newest by market_start_ms). */
+  latest?: boolean
+  /** Order by RAND() instead of market_start_ms ASC. Mutually exclusive with `latest`. */
+  random?: boolean
 }
 
 type JoinedRow = {
   marketId: number
   slug: string
+  symbol: string
+  timeframe: string
+  marketStartMs: number
   outcome0: string | null
   outcome1: string | null
   assetId0: string | null
@@ -57,6 +90,21 @@ type JoinedRow = {
   r2Url: string | null
 }
 
+function mustGetDb(): ReturnType<typeof getDb> {
+  const db = getDb()
+  if (!db) {
+    throw new Error('[db] getDb() returned null (unexpected)')
+  }
+  return db
+}
+
+function pickDataset(
+  readFrom: ReadFrom,
+  row: { localPath: string | null; r2Url: string | null },
+): string | null {
+  return readFrom === 'local' ? row.localPath : row.r2Url
+}
+
 function usToMs(us: number | null): number | null {
   if (us === null || !Number.isFinite(us)) return null
   return Math.trunc(us / 1000)
@@ -66,7 +114,9 @@ function toMarket(row: JoinedRow, readFrom: ReadFrom): Market {
   return {
     marketId: String(row.marketId),
     slug: row.slug,
-    symbol: extractSymbolFromSlug(row.slug),
+    symbol: row.symbol,
+    timeframe: row.timeframe,
+    marketStartMs: row.marketStartMs,
     dataset: pickDataset(readFrom, row),
     outcome0: row.outcome0,
     outcome1: row.outcome1,
@@ -86,6 +136,9 @@ function baseSelect() {
     .select({
       marketId: telonexMarkets.id,
       slug: telonexMarkets.slug,
+      symbol: telonexMarkets.symbol,
+      timeframe: telonexMarkets.timeframe,
+      marketStartMs: telonexMarkets.marketStartMs,
       outcome0: telonexMarkets.outcome0,
       outcome1: telonexMarkets.outcome1,
       assetId0: telonexMarkets.assetId0,
@@ -102,59 +155,51 @@ function baseSelect() {
     .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
 }
 
-export async function getMarketBySlug(
-  slug: string,
-  opts: { converter: Converter; readFrom: ReadFrom },
-): Promise<Market | null> {
-  const results = await baseSelect()
-    .where(
-      and(
-        eq(telonexMarkets.slug, slug),
-        eq(telonexMarketConversions.converter, opts.converter),
-        eq(telonexMarketConversions.status, 'done'),
-      ),
-    )
-    .limit(1)
-  const row = results[0] as JoinedRow | undefined
-  return row ? toMarket(row, opts.readFrom) : null
-}
+/**
+ * Build the WHERE clause shared by all eligibility queries. Kept private so
+ * the eligibility definition has exactly one implementation.
+ */
+function buildEligibleWhere(opts: EligibleMarketsQuery): SQL {
+  const fromMs = opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS
+  const datasetNonEmpty =
+    opts.readFrom === 'local'
+      ? sql`${telonexMarketConversions.localPath} IS NOT NULL AND ${telonexMarketConversions.localPath} <> ''`
+      : sql`${telonexMarketConversions.r2Url} IS NOT NULL AND ${telonexMarketConversions.r2Url} <> ''`
 
-export async function getMarketsBySlugs(
-  slugs: string[],
-  opts: { converter: Converter; readFrom: ReadFrom },
-): Promise<Market[]> {
-  if (slugs.length === 0) return []
-  const results = (await baseSelect().where(
-    and(
-      inArray(telonexMarkets.slug, slugs),
-      eq(telonexMarketConversions.converter, opts.converter),
-      eq(telonexMarketConversions.status, 'done'),
-    ),
-  )) as JoinedRow[]
-  return results.map((r) => toMarket(r, opts.readFrom))
-}
-
-export async function getMarketsBySymbol(
-  symbol: string,
-  opts: {
-    converter: Converter
-    readFrom: ReadFrom
-    timeframe: string
-    limit?: number
-    random?: boolean
-    latest?: boolean
-  },
-): Promise<Market[]> {
-  const lowerSymbol = symbol.toLowerCase()
-  const slugPrefix = `${lowerSymbol}-updown-${opts.timeframe}-%`
-
-  const where = and(
-    sql`${telonexMarkets.slug} LIKE ${slugPrefix}`,
+  const conditions: SQL[] = [
     eq(telonexMarketConversions.converter, opts.converter),
     eq(telonexMarketConversions.status, 'done'),
-  )
+    datasetNonEmpty,
+    gte(telonexMarkets.marketStartMs, fromMs),
+  ]
+  if (opts.symbol !== undefined) {
+    conditions.push(eq(telonexMarkets.symbol, opts.symbol.toLowerCase()))
+  }
+  if (opts.timeframe !== undefined) {
+    conditions.push(eq(telonexMarkets.timeframe, opts.timeframe))
+  }
+  if (opts.toMs !== undefined) {
+    conditions.push(lte(telonexMarkets.marketStartMs, opts.toMs))
+  }
+  if (opts.slugs !== undefined && opts.slugs.length > 0) {
+    conditions.push(inArray(telonexMarkets.slug, opts.slugs))
+  }
+  if (opts.excludeSlugs !== undefined && opts.excludeSlugs.length > 0) {
+    conditions.push(notInArray(telonexMarkets.slug, opts.excludeSlugs))
+  }
+  return and(...conditions)!
+}
 
-  const orderBy = opts.random ? sql`RAND()` : asc(telonexMarkets.slug)
+/**
+ * Fetch eligible telonex markets, ordered `market_start_ms ASC` (or RAND() if
+ * `random=true`). See EligibleMarketsQuery for the filter shape.
+ */
+export async function listEligibleTelonexMarkets(opts: EligibleMarketsQuery): Promise<Market[]> {
+  if (opts.random && opts.latest) {
+    throw new Error('[telonexMarkets] random and latest are mutually exclusive')
+  }
+  const where = buildEligibleWhere(opts)
+  const orderBy = opts.random ? sql`RAND()` : asc(telonexMarkets.marketStartMs)
 
   let offset: number | undefined
   if (opts.latest && opts.limit !== undefined) {
@@ -178,4 +223,94 @@ export async function getMarketsBySymbol(
   ) as JoinedRow[]
 
   return results.map((r) => toMarket(r, opts.readFrom))
+}
+
+/**
+ * Lightweight variant — returns only slugs in `market_start_ms ASC` order.
+ * Coverage feature uses this to avoid hydrating full Market rows.
+ */
+export async function listEligibleTelonexSlugs(opts: EligibleMarketsQuery): Promise<string[]> {
+  if (opts.random && opts.latest) {
+    throw new Error('[telonexMarkets] random and latest are mutually exclusive')
+  }
+  const db = mustGetDb()
+  const where = buildEligibleWhere(opts)
+  const orderBy = opts.random ? sql`RAND()` : asc(telonexMarkets.marketStartMs)
+
+  let offset: number | undefined
+  if (opts.latest && opts.limit !== undefined) {
+    const countResult = await db
+      .select({ count: count() })
+      .from(telonexMarkets)
+      .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
+      .where(where)
+    const total = countResult[0]?.count ?? 0
+    offset = Math.max(0, total - opts.limit)
+  }
+
+  const baseQ = db
+    .select({ slug: telonexMarkets.slug })
+    .from(telonexMarkets)
+    .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
+    .where(where)
+    .orderBy(orderBy)
+  const limited = opts.limit !== undefined ? baseQ.limit(opts.limit) : baseQ
+
+  const rows = (offset !== undefined ? await limited.offset(offset) : await limited) as Array<{
+    slug: string
+  }>
+  return rows.map((r) => r.slug)
+}
+
+/**
+ * Count eligible telonex markets matching the filter. `limit`/`latest`/`random`
+ * are ignored (they only affect what you get, not how many exist).
+ */
+export async function countEligibleTelonexMarkets(opts: EligibleMarketsQuery): Promise<number> {
+  const db = mustGetDb()
+  const where = buildEligibleWhere(opts)
+  const result = await db
+    .select({ count: count() })
+    .from(telonexMarkets)
+    .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
+    .where(where)
+  return result[0]?.count ?? 0
+}
+
+/**
+ * Single-market lookup by slug, with eligibility constraints. Returns null
+ * if not found OR not eligible under the requested converter/readFrom.
+ */
+export async function getMarketBySlug(
+  slug: string,
+  opts: { converter: Converter; readFrom: ReadFrom },
+): Promise<Market | null> {
+  const results = await listEligibleTelonexMarkets({
+    converter: opts.converter,
+    readFrom: opts.readFrom,
+    slugs: [slug],
+    // Skip the default eligibility-from floor: callers who hold a slug already
+    // know they want this specific market regardless of date.
+    fromMs: 0,
+    limit: 1,
+  })
+  return results[0] ?? null
+}
+
+/**
+ * Multi-market lookup by slugs. Skips the default eligibility-from floor
+ * because callers passing explicit slugs already know what they want.
+ */
+export async function getMarketsBySlugs(
+  slugs: string[],
+  opts: { converter: Converter; readFrom: ReadFrom },
+): Promise<Market[]> {
+  if (slugs.length === 0) return []
+  return listEligibleTelonexMarkets({
+    converter: opts.converter,
+    readFrom: opts.readFrom,
+    slugs,
+    fromMs: 0,
+    limit: slugs.length,
+  })
 }

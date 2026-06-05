@@ -45,6 +45,7 @@ type CountRow = {
 
 type MarketRow = {
   slug: string
+  marketStartMs: number | string | bigint
   conversionStatus: string | null
   localPath: string | null
   r2Url: string | null
@@ -126,13 +127,9 @@ function expectedForPeriod(key: string, expectedPerDay: number): number {
   return expectedForMonth(key, expectedPerDay)
 }
 
-function marketStartMsFromSlug(slug: string): number | null {
-  const raw = slug.split('-').pop()
-  if (!raw || !/^\d+$/.test(raw)) return null
-  const seconds = Number(raw)
-  if (!Number.isSafeInteger(seconds) || seconds <= 0) return null
-  return seconds * 1000
-}
+// NOTE: market start is read directly from `telonex_markets.market_start_ms`
+// (indexed, slug-derived at sync time). The previous version parsed the slug
+// suffix here; that helper has been removed to keep one source of truth.
 
 function groupCoverage(
   markets: Array<{ startMs: number; localReady: boolean; r2Ready: boolean }>,
@@ -188,19 +185,19 @@ export async function getBacktestDatasetCoverage(
 ): Promise<BacktestDatasetCoverage> {
   const db = getDb()
   const symbol = params.symbol.toLowerCase()
-  const slugPrefix = `${symbol}-updown-${params.timeframe}-%`
   const expectedPerDay = expectedPerDayForTimeframe(params.timeframe)
   const timeframeMs = timeframeMsForTimeframe(params.timeframe)
 
   const [rawCountRows] = (await db.execute(sql`
     select count(*) as count
     from telonex_markets
-    where slug like ${slugPrefix}
+    where symbol = ${symbol} and timeframe = ${params.timeframe}
   `)) as unknown as [CountRow[], unknown]
 
   const [marketRows] = (await db.execute(sql`
     select
       m.slug as slug,
+      m.market_start_ms as marketStartMs,
       c.status as conversionStatus,
       c.local_path as localPath,
       c.r2_url as r2Url
@@ -208,13 +205,13 @@ export async function getBacktestDatasetCoverage(
     left join telonex_market_conversions c
       on c.market_id = m.id
       and c.converter = ${params.converter}
-    where m.slug like ${slugPrefix}
-    order by cast(substring_index(m.slug, '-', -1) as unsigned) asc, m.slug asc
+    where m.symbol = ${symbol} and m.timeframe = ${params.timeframe}
+    order by m.market_start_ms asc
   `)) as unknown as [MarketRow[], unknown]
 
   const markets = marketRows.flatMap((row) => {
-    const startMs = marketStartMsFromSlug(row.slug)
-    if (startMs === null) return []
+    const startMs = Number(row.marketStartMs)
+    if (!Number.isFinite(startMs) || startMs <= 0) return []
     const done = row.conversionStatus === 'done'
     return [
       {

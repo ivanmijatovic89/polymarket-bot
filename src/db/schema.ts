@@ -98,6 +98,10 @@ export const backtestRuns = mysqlTable(
     params: json('params').$type<Record<string, unknown>>().notNull(),
 
     symbol: varchar('symbol', { length: 10 }),
+    timeframe: varchar('timeframe', { length: 16 }),
+    inputMode: varchar('input_mode', { length: 32 }),
+    converter: varchar('converter', { length: 32 }),
+    readFrom: varchar('read_from', { length: 16 }),
     slugs: json('slugs').$type<string[] | null>(),
     limit: int('limit'),
     random: boolean('random').default(false).notNull(),
@@ -233,55 +237,82 @@ export const backtestRunFailures = mysqlTable(
 // ---------------------------------------------------------------------------
 
 // Telonex catalog row + local pipeline state (Step 1 upload).
-export const telonexMarkets = mysqlTable('telonex_markets', {
-  id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+//
+// Ground truth for market window time is the slug suffix. `market_start_ms`,
+// `symbol`, and `timeframe` are derived from the slug at sync time and kept
+// as indexed columns so queries don't have to parse the slug. Telonex's own
+// `start_date_us` / `end_date_us` columns are kept for backward compatibility
+// but represent something other than the trading window — verified
+// empirically that `start_date_us` differs from the slug epoch in 100% of
+// rows (avg ~22h earlier, likely creation/announcement time), while
+// `end_date_us` matches the slug epoch + timeframe deterministically. Always
+// use `market_start_ms` and `timeframe` for ordering/filtering by market
+// time; never use `start_date_us` for that purpose.
+export const telonexMarkets = mysqlTable(
+  'telonex_markets',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
 
-  // Telonex catalog (full schema mirror)
-  exchange: varchar('exchange', { length: 20 }).notNull(),
-  marketId: varchar('market_id', { length: 66 }).notNull(),
-  slug: varchar('slug', { length: 100 }).notNull().unique(),
-  eventId: varchar('event_id', { length: 100 }),
-  eventSlug: varchar('event_slug', { length: 100 }),
-  eventTitle: varchar('event_title', { length: 255 }),
-  question: text('question'),
-  description: text('description'),
-  category: varchar('category', { length: 100 }),
-  tags: json('tags').$type<string[]>(),
-  outcome0: varchar('outcome_0', { length: 20 }),
-  outcome1: varchar('outcome_1', { length: 20 }),
-  assetId0: varchar('asset_id_0', { length: 80 }),
-  assetId1: varchar('asset_id_1', { length: 80 }),
-  telonexStatus: varchar('telonex_status', { length: 20 }),
-  resultId: varchar('result_id', { length: 10 }),
-  settledAtUs: bigint('settled_at_us', { mode: 'number' }),
-  preparedAtUs: bigint('prepared_at_us', { mode: 'number' }),
-  startDateUs: bigint('start_date_us', { mode: 'number' }),
-  endDateUs: bigint('end_date_us', { mode: 'number' }),
-  createdAtUs: bigint('created_at_us', { mode: 'number' }),
-  resolutionSource: varchar('resolution_source', { length: 255 }),
-  rulesUrl: varchar('rules_url', { length: 255 }),
-  tradesFrom: date('trades_from'),
-  tradesTo: date('trades_to'),
-  quotesFrom: date('quotes_from'),
-  quotesTo: date('quotes_to'),
-  bookSnapshot5From: date('book_snapshot_5_from'),
-  bookSnapshot5To: date('book_snapshot_5_to'),
-  bookSnapshot25From: date('book_snapshot_25_from'),
-  bookSnapshot25To: date('book_snapshot_25_to'),
-  bookSnapshotFullFrom: date('book_snapshot_full_from'),
-  bookSnapshotFullTo: date('book_snapshot_full_to'),
-  onchainFillsFrom: date('onchain_fills_from'),
-  onchainFillsTo: date('onchain_fills_to'),
+    // Telonex catalog (full schema mirror)
+    exchange: varchar('exchange', { length: 20 }).notNull(),
+    marketId: varchar('market_id', { length: 66 }).notNull(),
+    slug: varchar('slug', { length: 100 }).notNull().unique(),
 
-  // Local pipeline state (Step 1)
-  uploadStatus: mysqlEnum('upload_status', ['pending', 'processing', 'done', 'partial', 'failed'])
-    .notNull()
-    .default('pending'),
-  filesUploaded: int('files_uploaded').notNull().default(0),
-  lastError: text('last_error'),
-  syncedAt: timestamp('synced_at').defaultNow().notNull(),
-  processedAt: timestamp('processed_at'),
-})
+    // Derived from slug at sync time (ground truth, indexed)
+    symbol: varchar('symbol', { length: 10 }).notNull(),
+    timeframe: varchar('timeframe', { length: 16 }).notNull(),
+    marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
+    eventId: varchar('event_id', { length: 100 }),
+    eventSlug: varchar('event_slug', { length: 100 }),
+    eventTitle: varchar('event_title', { length: 255 }),
+    question: text('question'),
+    description: text('description'),
+    category: varchar('category', { length: 100 }),
+    tags: json('tags').$type<string[]>(),
+    outcome0: varchar('outcome_0', { length: 20 }),
+    outcome1: varchar('outcome_1', { length: 20 }),
+    assetId0: varchar('asset_id_0', { length: 80 }),
+    assetId1: varchar('asset_id_1', { length: 80 }),
+    telonexStatus: varchar('telonex_status', { length: 20 }),
+    resultId: varchar('result_id', { length: 10 }),
+    settledAtUs: bigint('settled_at_us', { mode: 'number' }),
+    preparedAtUs: bigint('prepared_at_us', { mode: 'number' }),
+    startDateUs: bigint('start_date_us', { mode: 'number' }),
+    endDateUs: bigint('end_date_us', { mode: 'number' }),
+    createdAtUs: bigint('created_at_us', { mode: 'number' }),
+    resolutionSource: varchar('resolution_source', { length: 255 }),
+    rulesUrl: varchar('rules_url', { length: 255 }),
+    tradesFrom: date('trades_from'),
+    tradesTo: date('trades_to'),
+    quotesFrom: date('quotes_from'),
+    quotesTo: date('quotes_to'),
+    bookSnapshot5From: date('book_snapshot_5_from'),
+    bookSnapshot5To: date('book_snapshot_5_to'),
+    bookSnapshot25From: date('book_snapshot_25_from'),
+    bookSnapshot25To: date('book_snapshot_25_to'),
+    bookSnapshotFullFrom: date('book_snapshot_full_from'),
+    bookSnapshotFullTo: date('book_snapshot_full_to'),
+    onchainFillsFrom: date('onchain_fills_from'),
+    onchainFillsTo: date('onchain_fills_to'),
+
+    // Local pipeline state (Step 1)
+    uploadStatus: mysqlEnum('upload_status', ['pending', 'processing', 'done', 'partial', 'failed'])
+      .notNull()
+      .default('pending'),
+    filesUploaded: int('files_uploaded').notNull().default(0),
+    lastError: text('last_error'),
+    syncedAt: timestamp('synced_at').defaultNow().notNull(),
+    processedAt: timestamp('processed_at'),
+  },
+  (t) => ({
+    symbolTfStartIdx: index('idx_telonex_markets_symbol_tf_start').on(
+      t.symbol,
+      t.timeframe,
+      t.marketStartMs,
+    ),
+    tfStartIdx: index('idx_telonex_markets_tf_start').on(t.timeframe, t.marketStartMs),
+  }),
+)
 
 // Raw files uploaded to R2 (Step 1 output, one row per source parquet).
 // Created lazily by the download-raw-files worker, not by sync.
