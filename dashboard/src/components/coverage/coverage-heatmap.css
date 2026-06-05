@@ -1,0 +1,93 @@
+/* -----------------------------------------------------------------------------
+ * Heatmap polish — keep the SVG compact (GitHub-contributions scale) instead of
+ * letting react-calendar-heatmap stretch cells to fill the card width.
+ * Refined palette: muted greens for covered, soft red for empty-gap, distinct
+ * partial shade so 1-cell precision is still readable.
+ * --------------------------------------------------------------------------- */
+
+.coverage-heatmap {
+  /* Cap the SVG width so cells render small + dense. The library renders one
+   * <rect> per day with cells sized = width / weeks. 24 weeks * ~14px/cell + gutter
+   * ≈ 360px width. The container is left-aligned so wide cards don't stretch it. */
+  max-width: 760px;
+}
+
+.coverage-heatmap .react-calendar-heatmap {
+  font-family: inherit;
+}
+
+.coverage-heatmap .react-calendar-heatmap text {
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  fill: var(--muted-foreground);
+  opacity: 0.7;
+}
+
+.coverage-heatmap .react-calendar-heatmap .react-calendar-heatmap-weekday-label {
+  font-size: 6.5px;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect {
+  rx: 2;
+  ry: 2;
+  cursor: pointer;
+  transition: opacity 120ms ease;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect:hover {
+  opacity: 1 !important;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-empty {
+  fill: var(--muted);
+  opacity: 0.28;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-full {
+  fill: #16a34a;
+  opacity: 0.9;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-partial {
+  /* Amber instead of "lighter green" — green/yellow/red reads as a traffic
+   * light (done / in-progress / missing) and partial pops cleanly between
+   * full and empty-gap. */
+  fill: #eab308;
+  opacity: 0.85;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-gap {
+  fill: #ef4444;
+  opacity: 0.55;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.selected {
+  stroke: var(--foreground);
+  stroke-width: 1.2px;
+  paint-order: stroke;
+  opacity: 1 !important;
+}
+
+/* Swatches in the legend — use the same exact colors as the SVG cells. */
+.coverage-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.coverage-swatch.color-full {
+  background: #16a34a;
+  opacity: 0.9;
+}
+
+.coverage-swatch.color-partial {
+  background: #eab308;
+  opacity: 0.85;
+}
+
+.coverage-swatch.color-gap {
+  background: #ef4444;
+  opacity: 0.55;
+}

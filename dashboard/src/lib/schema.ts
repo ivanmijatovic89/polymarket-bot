@@ -31,6 +31,10 @@ export const backtestRuns = mysqlTable(
     params: json('params').$type<Record<string, unknown>>().notNull(),
 
     symbol: varchar('symbol', { length: 10 }),
+    timeframe: varchar('timeframe', { length: 16 }),
+    inputMode: varchar('input_mode', { length: 32 }),
+    converter: varchar('converter', { length: 32 }),
+    readFrom: varchar('read_from', { length: 16 }),
     slugs: json('slugs').$type<string[] | null>(),
     limit: int('limit'),
     random: boolean('random').default(false).notNull(),
@@ -123,6 +127,27 @@ export const backtestRunMarkets = mysqlTable(
     runIdxUnique: unique('uniq_backtest_run_markets_run_idx').on(t.runId, t.idx),
   }),
 )
+
+// Minimal mirror of the bot's telonex catalog tables — coverage queries
+// read these directly. Source of truth: src/db/schema.ts (telonexMarkets,
+// telonexMarketConversions). Keep eligibility filter logic mirroring
+// src/db/telonexMarkets.ts:buildEligibleWhere.
+export const telonexMarkets = mysqlTable('telonex_markets', {
+  id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+  slug: varchar('slug', { length: 100 }).notNull(),
+  symbol: varchar('symbol', { length: 10 }).notNull(),
+  timeframe: varchar('timeframe', { length: 16 }).notNull(),
+  marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
+})
+
+export const telonexMarketConversions = mysqlTable('telonex_market_conversions', {
+  id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+  marketId: bigint('market_id', { mode: 'number' }).notNull(),
+  converter: varchar('converter', { length: 32 }).notNull(),
+  status: varchar('status', { length: 32 }).notNull(),
+  localPath: varchar('local_path', { length: 500 }),
+  r2Url: varchar('r2_url', { length: 500 }),
+})
 
 export const backtestRunFailures = mysqlTable('backtest_run_failures', {
   id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
