@@ -7,6 +7,7 @@
   "exports": {
     ".": "./batchStats.ts",
     "./batchStats": "./batchStats.ts",
-    "./marketStats": "./marketStats.ts"
+    "./marketStats": "./marketStats.ts",
+    "./coverage": "./coverage.ts"
   }
 }

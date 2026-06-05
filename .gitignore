@@ -11,7 +11,10 @@ do-not-commit/
 dist/
 build/
 out/
-coverage/
+# Root-anchored so it only catches test-coverage reports at the repo root,
+# not application directories named "coverage" (e.g. the telonex coverage
+# feature lives in dashboard/src/components/coverage and src/backtest/stats).
+/coverage/
 *.tsbuildinfo
 
 # env / secrets

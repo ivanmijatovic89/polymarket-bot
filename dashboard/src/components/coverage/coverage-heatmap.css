@@ -1,0 +1,58 @@
+.coverage-heatmap .react-calendar-heatmap text {
+  font-size: 8px;
+  fill: var(--muted-foreground);
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-empty {
+  fill: var(--muted);
+  opacity: 0.4;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-full {
+  fill: var(--success);
+  opacity: 0.9;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-partial {
+  fill: var(--success);
+  opacity: 0.45;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.color-gap {
+  fill: var(--destructive);
+  opacity: 0.75;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect.selected {
+  stroke: var(--foreground);
+  stroke-width: 1.5px;
+  paint-order: stroke;
+}
+
+.coverage-heatmap .react-calendar-heatmap rect {
+  rx: 1.5;
+  ry: 1.5;
+  cursor: pointer;
+}
+
+.coverage-swatch {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 2px;
+}
+
+.coverage-swatch.color-full {
+  background: var(--success);
+  opacity: 0.9;
+}
+
+.coverage-swatch.color-partial {
+  background: var(--success);
+  opacity: 0.45;
+}
+
+.coverage-swatch.color-gap {
+  background: var(--destructive);
+  opacity: 0.75;
+}
