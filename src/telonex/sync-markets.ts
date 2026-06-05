@@ -105,6 +105,11 @@ type CatalogRow = {
   exchange: string
   marketId: string
   slug: string
+  // Derived from slug at sync time so eligibility queries don't parse the
+  // suffix at runtime. Slug shape: `<symbol>-updown-<timeframe>-<epochSec>`.
+  symbol: string
+  timeframe: string
+  marketStartMs: number
   eventId: string | null
   eventSlug: string | null
   eventTitle: string | null
@@ -178,11 +183,37 @@ const COLUMNS = [
   'onchain_fills_to',
 ] as const
 
+// Slug shape `<symbol>-updown-<timeframe>-<epochSec>` is guaranteed by the
+// Telonex catalog filter (slugPattern). Anything else is a Telonex schema
+// regression and we want to fail loudly rather than silently insert garbage.
+function deriveFromSlug(slug: string): {
+  symbol: string
+  timeframe: string
+  marketStartMs: number
+} {
+  const parts = slug.split('-')
+  if (parts.length < 4 || parts[1] !== 'updown') {
+    throw new Error(`[telonex:sync] unexpected slug shape (no '-updown-' segment): ${slug}`)
+  }
+  const symbol = parts[0]!
+  const timeframe = parts[2]!
+  const epochSec = Number(parts[parts.length - 1])
+  if (!Number.isSafeInteger(epochSec) || epochSec <= 0) {
+    throw new Error(`[telonex:sync] slug suffix is not a positive epoch: ${slug}`)
+  }
+  return { symbol, timeframe, marketStartMs: epochSec * 1000 }
+}
+
 function rowToCatalog(row: readonly unknown[]): CatalogRow {
+  const slug = String(row[2])
+  const derived = deriveFromSlug(slug)
   return {
     exchange: String(row[0]),
     marketId: String(row[1]),
-    slug: String(row[2]),
+    slug,
+    symbol: derived.symbol,
+    timeframe: derived.timeframe,
+    marketStartMs: derived.marketStartMs,
     eventId: emptyToNull(row[3]),
     eventSlug: emptyToNull(row[4]),
     eventTitle: emptyToNull(row[5]),

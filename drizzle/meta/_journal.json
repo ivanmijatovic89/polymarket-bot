@@ -113,6 +113,13 @@
       "when": 1780358400000,
       "tag": "0015_machine_id",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "5",
+      "when": 1781136000000,
+      "tag": "0016_telonex_coverage_centralize",
+      "breakpoints": true
     }
   ]
 }

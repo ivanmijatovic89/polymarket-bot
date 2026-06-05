@@ -203,6 +203,9 @@ Backtest latency simulation (intent → exchange-visible):
 - **`src/index.ts` is a placeholder** — do not add runtime logic there.
 - **Maker backtests**: the simulator fills when the book goes *through* the resting level; passive resting fills are not modeled beyond that.
 - **Symbol selection**: live scripts require `TRADING_SYMBOL` (falls back to `RECORD_SYMBOL`); recorder requires `RECORD_SYMBOL`. Both accept `BTC|ETH|SOL|XRP`.
+- **Telonex eligibility — single source of truth**: all queries against `telonex_markets` / `telonex_market_conversions` must go through `src/db/telonexMarkets.ts` (`listEligibleTelonexMarkets`, `listEligibleTelonexSlugs`, `countEligibleTelonexMarkets`). Do NOT write inline SQL against these tables elsewhere — add a function to that module instead. The dashboard (`dashboard/src/lib/queries/`) imports from there.
+- **Telonex market time**: use `telonex_markets.market_start_ms` (indexed bigint, derived from slug at sync time). `start_date_us` is NOT the market window start — verified empirically that 100% of 19,223 rows differ from the slug epoch (avg ~22h earlier; likely creation/announcement time). Never order/filter markets by `start_date_us`. `end_date_us` IS the market end and matches `market_start_ms + timeframe_ms` deterministically.
+- **Telonex eligibility floor**: env `TELONEX_DATASET_ELIGIBLE_FROM` (ISO 8601 UTC, default `2025-12-01T00:00:00Z`). Loaded via `src/config/telonex.ts` as `TELONEX_DATASET_ELIGIBLE_FROM_MS`. Markets with `market_start_ms` below this are excluded from the eligible universe. Move the env var to ignore older markets without dropping rows.
 
 ## Key environment variables
 
@@ -225,6 +228,10 @@ Trading-bot behavior:
 Backtest:
 - `BACKTEST_LATENCY_DELAY`, `BACKTEST_LATENCY_JITTER`
 - `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1` (TA plugin warmup)
+
+Telonex:
+- `TELONEX_API_KEY` (required for `telonex:sync`)
+- `TELONEX_DATASET_ELIGIBLE_FROM` (ISO 8601 UTC; default `2025-12-01T00:00:00Z`; lower bound for eligible markets)
 
 Database: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `DATABASE_NAME`.
 

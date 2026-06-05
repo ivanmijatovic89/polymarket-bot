@@ -46,6 +46,10 @@ export type AggregateJobData = {
     strategy: string
     params: Record<string, unknown>
     symbol: string | null
+    timeframe: string | null
+    inputMode: string | null
+    converter: string | null
+    readFrom: string | null
     slugs: string[] | null
     limit: number | null
     random: boolean

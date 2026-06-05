@@ -461,6 +461,12 @@ async function run(): Promise<void> {
         strategy: row.strategy,
         params: mergedParams,
         symbol: row.symbol ?? null,
+        // Synthetic research children inherit the parent run's universe but
+        // coverage isn't meaningful for them — leave coverage metadata null.
+        timeframe: null,
+        inputMode: null,
+        converter: null,
+        readFrom: null,
         slugs: row.slugs ?? null,
         limit: row.limit ?? null,
         random: row.random ?? false,
@@ -478,6 +484,12 @@ async function run(): Promise<void> {
         strategy: row.strategy,
         params: mergedParams,
         symbol: row.symbol ?? null,
+        // Synthetic research children inherit the parent run's universe but
+        // coverage isn't meaningful for them — leave coverage metadata null.
+        timeframe: null,
+        inputMode: null,
+        converter: null,
+        readFrom: null,
         slugs: row.slugs ?? null,
         limit: row.limit ?? null,
         random: row.random ?? false,
@@ -495,6 +507,12 @@ async function run(): Promise<void> {
         strategy: row.strategy,
         params: mergedParams,
         symbol: row.symbol ?? null,
+        // Synthetic research children inherit the parent run's universe but
+        // coverage isn't meaningful for them — leave coverage metadata null.
+        timeframe: null,
+        inputMode: null,
+        converter: null,
+        readFrom: null,
         slugs: row.slugs ?? null,
         limit: row.limit ?? null,
         random: row.random ?? false,

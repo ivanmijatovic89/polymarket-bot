@@ -44,7 +44,7 @@ import {
 import {
   getMarketsBySlugs as getTelonexMarketsBySlugs,
   getMarketBySlug as getTelonexMarketBySlug,
-  getMarketsBySymbol as getTelonexMarketsBySymbol,
+  listEligibleTelonexMarkets,
   type Market as TelonexMarket,
   type Converter,
   type ReadFrom,
@@ -329,10 +329,11 @@ async function main(): Promise<void> {
       }
     } else if (parsed.symbol) {
       try {
-        const results = await getTelonexMarketsBySymbol(parsed.symbol, {
+        const results = await listEligibleTelonexMarkets({
+          symbol: parsed.symbol,
+          timeframe: parsed.timeframe,
           converter: conv,
           readFrom: rf,
-          timeframe: parsed.timeframe,
           ...(parsed.limit !== undefined && { limit: parsed.limit }),
           ...(parsed.random ? { random: true } : {}),
           ...(parsed.latest ? { latest: true } : {}),
@@ -632,6 +633,10 @@ async function main(): Promise<void> {
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
       symbol: parsed.symbol ?? null,
+      timeframe: parsed.timeframe ?? null,
+      inputMode: parsed.inputMode ?? null,
+      converter: converter ?? null,
+      readFrom: readFrom ?? null,
       slugs: parsed.slugs ?? null,
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
@@ -691,6 +696,10 @@ async function main(): Promise<void> {
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
       symbol: parsed.symbol ?? null,
+      timeframe: parsed.timeframe ?? null,
+      inputMode: parsed.inputMode ?? null,
+      converter: converter ?? null,
+      readFrom: readFrom ?? null,
       slugs: parsed.slugs ?? null,
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
