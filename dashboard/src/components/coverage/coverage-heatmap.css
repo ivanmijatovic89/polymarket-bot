@@ -50,8 +50,11 @@
 }
 
 .coverage-heatmap .react-calendar-heatmap rect.color-partial {
-  fill: #4ade80;
-  opacity: 0.55;
+  /* Amber instead of "lighter green" — green/yellow/red reads as a traffic
+   * light (done / in-progress / missing) and partial pops cleanly between
+   * full and empty-gap. */
+  fill: #eab308;
+  opacity: 0.85;
 }
 
 .coverage-heatmap .react-calendar-heatmap rect.color-gap {
@@ -80,8 +83,8 @@
 }
 
 .coverage-swatch.color-partial {
-  background: #4ade80;
-  opacity: 0.55;
+  background: #eab308;
+  opacity: 0.85;
 }
 
 .coverage-swatch.color-gap {
