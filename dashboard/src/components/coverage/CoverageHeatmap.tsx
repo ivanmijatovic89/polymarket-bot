@@ -33,7 +33,8 @@ function classForValue(v: Value | null | undefined): string {
 
 function titleForValue(v: Value | null | undefined): string {
   if (!v) return 'no eligible markets'
-  return `${v.date} · ${v.covered}/${v.eligible} covered`
+  const pct = v.eligible > 0 ? Math.round((v.covered / v.eligible) * 100) : 0
+  return `${v.date} · ${v.covered}/${v.eligible} covered (${pct}%)`
 }
 
 export function CoverageHeatmap({
