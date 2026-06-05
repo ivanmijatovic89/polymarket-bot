@@ -54,6 +54,9 @@ Mirrors the full Telonex catalog row plus local pipeline state.
 |---|---|---|
 | `id` | BIGINT PK auto_increment | |
 | `slug` | VARCHAR(100) UNIQUE | Telonex slug |
+| `symbol` | VARCHAR(10) NOT NULL | Derived from slug at sync time (`btc`, `eth`, …). Indexed. |
+| `timeframe` | VARCHAR(16) NOT NULL | Derived from slug at sync time (`15m`, `5m`). Indexed. |
+| `market_start_ms` | BIGINT NOT NULL | Slug epoch × 1000. Ground truth for market window start; indexed via `(symbol, timeframe, market_start_ms)` and `(timeframe, market_start_ms)`. Always use this — **never order/filter by `start_date_us`** (verified empirically that 100% of rows differ from the slug epoch, avg ~22h earlier; `start_date_us` represents creation/announcement, not trading-window open). |
 | _(all Telonex catalog columns)_ | matching types | `*_us` → BIGINT, `*_from/_to` → DATE (empty string → NULL), `tags` → JSON, `description` → TEXT |
 | `upload_status` | ENUM(`pending`,`processing`,`done`,`partial`,`failed`) DEFAULT `pending` | Step 1 outcome |
 | `files_uploaded` | INT DEFAULT 0 | Count of `uploaded` children |
@@ -270,6 +273,17 @@ process.on('SIGTERM', () => handler('SIGTERM'))
 2. `sync-markets.ts` — verified by inserting 19,223 rows. (~2 h)
 3. `download-raw-files.ts` — test with `LIMIT 5` first, then full run. (~4–6 h code + ~3.5 h full run for 19k markets)
 4. `convert.ts` + move + refactor existing converters into exported functions. (~3–4 h)
+
+## Backtest coverage view (PR #30 / #31)
+
+The dashboard `/backtests/[id]` page renders a Telonex Coverage section for any backtest run with `input_mode != 'recorded'`. It compares the slugs the run actually executed (`backtest_run_markets.slug`) against the **eligible universe** for that run's `(symbol, timeframe, converter, read_from)` tuple, gated by the `TELONEX_DATASET_ELIGIBLE_FROM` env floor (ISO 8601 UTC, default `2025-12-01T00:00:00Z`).
+
+- **Eligibility filter (source of truth)** lives in `src/db/telonexMarkets.ts:buildEligibleWhere`. The dashboard query at `dashboard/src/lib/queries/backtestCoverage.ts` mirrors the same logic against its local schema mirror — keep them in sync if you change the eligibility definition.
+- **Pure compute** lives in `src/backtest/stats/coverage.ts` (workspace package `@polymarket-bot/stats/coverage`). Takes `{eligible, coveredSlugs}` and returns `{summary, buckets, missingSlugs}`. No DB access; trivially unit-testable.
+- **UI**: `dashboard/src/components/coverage/` — `CoverageSummary` (chips), `CoverageHeatmap` (`react-calendar-heatmap`, daily buckets, 3 states), `MissingMarketsPanel` (filterable paginated table). Heatmap clicks filter the panel by day.
+- **API route**: `dashboard/src/app/api/backtests/[id]/coverage` returns `{available: false}` for recorded-mode / legacy runs so the UI hides the section.
+
+The summary exposes `forwardGapCount` / `backwardGapCount` / `middleGapCount` to support upcoming CLI flags (`--forward`, `--backward`, `--all`); these are computed against the newest/oldest covered `market_start_ms`.
 
 ## Future (intentionally NOT in v1)
 

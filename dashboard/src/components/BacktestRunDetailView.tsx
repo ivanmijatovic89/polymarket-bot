@@ -36,6 +36,7 @@ import { SectionHeading } from './SectionHeading'
 import { StatCard } from './StatCard'
 import { CmdModal } from './CmdModal'
 import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
+import { CoverageSection } from './coverage/CoverageSection'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
 
 /** Subset of the response fields the view actually consumes. */
@@ -405,6 +406,9 @@ export function BacktestRunDetailView({ id }: { id: number }) {
           </div>
         </Card>
       )}
+
+      {/* Telonex coverage — eligible vs covered. Renders only for telonex-mode runs. */}
+      <CoverageSection id={b.id} />
 
       {/* Chunked segments — live computation, user-controlled window. */}
       <ChunkedSegmentsLive
