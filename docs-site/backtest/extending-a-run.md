@@ -76,25 +76,61 @@ Eligibility floor                            Newest synced market
                                                new markets)
 ```
 
-When you run **`--extend 103 --limit 500`** (default, backward), the
-500 markets taken are the ones **immediately before** the covered block
-starts:
+### Backward (default): grow into older history
+
+Running **`--extend 103 --limit 500`** picks up the 500 markets
+immediately before the covered block starts. The covered block expands
+to the left:
 
 ```
-            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
-                       └──┬──┘
-                       500 immediately
-                       before covered
+Before:     ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
+                             ⌃ parent covers     ⌃
+                               only this slice
+
+Step 1:     ░░░░░░░░░░░ █████████████████████████ ░░░░░░░░░░░░░░
+                        ⌃                       ⌃
+                        └── +500 (just added)
+                          ── parent covered ───┘
 ```
 
-When you run **`--extend 103 --latest --limit 500`**, the 500 markets
-taken are the ones **immediately after** the covered block ends:
+Now run **`--extend 103 --limit 1000`** again. It picks the next 1000
+markets immediately before the (now-larger) covered block:
 
 ```
-            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
-                                                 └──┬──┘
-                                                 500 immediately
-                                                 after covered
+Step 2:     ░ ██████████████████████████████████ ░░░░░░░░░░░░░░
+              ⌃                                ⌃
+              └── +1000 (just added)
+                ── parent covered (1500 more) ─┘
+```
+
+Each `--limit N` consumes more of the older-uncovered region until
+nothing's left on that side.
+
+### Forward (`--latest`): grow into newer history
+
+If new markets have been synced after the parent ran, the same idea
+works in the other direction. **`--extend 103 --latest --limit 500`**
+picks up the 500 markets immediately after the covered block ends:
+
+```
+Before:     ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
+                             ⌃                 ⌃
+                             └── parent covered
+
+Step 1:     ░░░░░░░░░░░░░░░░ ██████████████████████████ ░░░░░░░
+                                                  ⌃    ⌃
+                                                  └── +500 (just added)
+                          ── parent covered ─────────┘
+```
+
+Running **`--extend 103 --latest --limit 1000`** again picks the next
+1000 markets immediately after the new edge:
+
+```
+Step 2:     ░░░░░░░░░░░░░░░░ ████████████████████████████████ ░
+                                                       ⌃    ⌃
+                                                       └── +1000
+                          ── parent covered (1500 more) ───┘
 ```
 
 If you don't pass `--limit`, the chunk size is "all uncovered in the
