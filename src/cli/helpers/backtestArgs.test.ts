@@ -137,3 +137,102 @@ test('parseArgs --timeframe rejects use without --symbol', () => {
     /\[backtest\] --timeframe is only valid together with --symbol/,
   )
 })
+
+test('parseArgs --extend parses positive integer', () => {
+  const a = parseArgs(['--extend', '103'])
+  assert.equal(a.extend, 103)
+  const b = parseArgs(['--extend=42'])
+  assert.equal(b.extend, 42)
+})
+
+test('parseArgs --extend rejects non-positive / non-integer values', () => {
+  assert.throws(() => parseArgs(['--extend', '0']), /--extend must be a positive integer/)
+  assert.throws(() => parseArgs(['--extend', '-5']), /--extend must be a positive integer/)
+  assert.throws(() => parseArgs(['--extend', 'abc']), /--extend must be a positive integer/)
+  assert.throws(() => parseArgs(['--extend', '1.5']), /--extend must be a positive integer/)
+})
+
+test('parseArgs --from-ms and --to-ms parse and round-trip', () => {
+  const a = parseArgs(['--extend', '5', '--from-ms', '1700000000000'])
+  assert.equal(a.fromMs, 1700000000000)
+  assert.equal(a.toMs, undefined)
+  const b = parseArgs(['--extend', '5', '--to-ms=1800000000000', '--from-ms=1700000000000'])
+  assert.equal(b.fromMs, 1700000000000)
+  assert.equal(b.toMs, 1800000000000)
+})
+
+test('parseArgs --from-ms / --to-ms reject negative / non-integer', () => {
+  assert.throws(() => parseArgs(['--from-ms', '-1']), /--from-ms must be a non-negative integer/)
+  assert.throws(() => parseArgs(['--to-ms', 'abc']), /--to-ms must be a non-negative integer/)
+})
+
+test('parseArgs rejects --from-ms > --to-ms', () => {
+  assert.throws(
+    () => parseArgs(['--from-ms', '2000', '--to-ms', '1000']),
+    /--from-ms .* must be less than or equal to --to-ms/,
+  )
+})
+
+test('parseArgs --extend rejects --symbol / --timeframe / --input-mode / --read-from', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--symbol', 'btc']),
+    /--extend 5 cannot be combined with: --symbol/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--input-mode', 'telonex-delta', '--read-from', 'local']),
+    /--extend 5 cannot be combined with: --input-mode, --read-from/,
+  )
+})
+
+test('parseArgs --extend rejects --slug / --dir / file paths', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--slug', 'foo']),
+    /--extend 5 cannot be combined with: --slug/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--dir', '/tmp/a']),
+    /--extend 5 cannot be combined with: --dir/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', 'file.parquet']),
+    /--extend 5 cannot be combined with: <positional file path>/,
+  )
+})
+
+test('parseArgs --extend rejects --strategy / --param / --batchUid / --baselineId', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--strategy', 'X']),
+    /--extend 5 cannot be combined with: --strategy/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--param', 'foo=bar']),
+    /--extend 5 cannot be combined with: --param/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--batchUid', 'x']),
+    /--extend 5 cannot be combined with: --batchUid/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--baselineId', 'x']),
+    /--extend 5 cannot be combined with: --baselineId/,
+  )
+})
+
+test('parseArgs --extend allows --limit / --latest / --random / --comment / --from-ms / --to-ms', () => {
+  const parsed = parseArgs([
+    '--extend',
+    '5',
+    '--limit',
+    '500',
+    '--latest',
+    '--comment',
+    'extend test',
+    '--from-ms',
+    '1700000000000',
+  ])
+  assert.equal(parsed.extend, 5)
+  assert.equal(parsed.limit, 500)
+  assert.equal(parsed.latest, true)
+  assert.equal(parsed.comment, 'extend test')
+  assert.equal(parsed.fromMs, 1700000000000)
+})

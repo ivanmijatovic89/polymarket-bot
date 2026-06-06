@@ -55,6 +55,15 @@ export type AggregateJobData = {
     random: boolean
     latest: boolean
   }
+  /**
+   * Set when this aggregate is the completion of an extension batch. Drives
+   * the UPDATE-vs-INSERT branch in `aggregateProcessor`: when present, results
+   * are merged into the parent run instead of inserting a new row. Absent for
+   * fresh runs.
+   */
+  extension?: {
+    parentRunId: number
+  }
 }
 
 export type AggregateJobResult = {

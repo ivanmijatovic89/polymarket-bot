@@ -194,6 +194,19 @@ async function main(): Promise<void> {
   const timer = new Timer()
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
+
+  // Phase 1: --extend is parsed and validated against forbidden flag
+  // combinations, but the execution flow (load parent, exclude covered,
+  // enqueue extension batch, branch in aggregateProcessor) lands in
+  // Phase 2. Bail explicitly so misuse is obvious before any DB / queue
+  // side effects occur.
+  if (parsed.extend !== undefined) {
+    console.error(
+      `[backtest] --extend ${parsed.extend} is parsed but the extension flow is not yet implemented (Phase 1 of feat/backtest-extend).`,
+    )
+    process.exit(2)
+  }
+
   let batchUid = await resolveAvailableBatchUid(parsed.batchUid ?? randomUUID())
   let cmd = buildBacktestCmdWithBatchUid(args, batchUid)
   const built = (() => {
