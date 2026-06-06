@@ -15,5 +15,6 @@
 -- 2026-06-06), so the constraint can be added without cleanup.
 
 DROP INDEX `idx_backtest_run_markets_run_slug` ON `backtest_run_markets`;
+--> statement-breakpoint
 ALTER TABLE `backtest_run_markets`
   ADD CONSTRAINT `uq_backtest_run_markets_run_slug` UNIQUE (`run_id`, `slug`);
