@@ -1,4 +1,4 @@
-import { and, asc, eq, sql } from 'drizzle-orm'
+import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats, slugTs } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
@@ -18,6 +18,11 @@ export type BacktestFailureRecord = {
   idx: number | null
   slug: string | null
   reason: string
+}
+
+export type IndexedMarketStats = {
+  idx: number
+  stats: MarketStats
 }
 
 export type BacktestRunRecord = {
@@ -108,25 +113,46 @@ function toDecimal(value: number): string {
   return String(value)
 }
 
-function coerceMarketStats(raw: unknown[]): MarketStats[] {
-  return raw.map((m, idx): MarketStats => {
-    if (!m || typeof m !== 'object') {
-      throw new Error(`[db/backtests] invalid marketStats row at index ${idx}`)
+function coerceMarketStatsRow(m: unknown, idx: number): MarketStats {
+  if (!m || typeof m !== 'object') {
+    throw new Error(`[db/backtests] invalid marketStats row at index ${idx}`)
+  }
+  const r = m as Partial<MarketStats>
+  const ok =
+    typeof r.marketId === 'string' &&
+    typeof r.slug === 'string' &&
+    (r.finalOutcome === 'UP' || r.finalOutcome === 'DOWN') &&
+    typeof r.pnl === 'number'
+  if (!ok) throw new Error(`[db/backtests] invalid marketStats row at index ${idx}`)
+  return r as MarketStats
+}
+
+function isIndexedMarketStatsRow(m: unknown): m is IndexedMarketStats {
+  if (!m || typeof m !== 'object') return false
+  const r = m as Partial<IndexedMarketStats>
+  return typeof r.idx === 'number' && Number.isInteger(r.idx) && r.idx >= 0 && 'stats' in r
+}
+
+export function coerceIndexedMarketStats(raw: unknown[]): IndexedMarketStats[] {
+  return raw.map((m, idx): IndexedMarketStats => {
+    if (isIndexedMarketStatsRow(m)) {
+      return { idx: m.idx, stats: coerceMarketStatsRow(m.stats, idx) }
     }
-    const r = m as Partial<MarketStats>
-    const ok =
-      typeof r.marketId === 'string' &&
-      typeof r.slug === 'string' &&
-      (r.finalOutcome === 'UP' || r.finalOutcome === 'DOWN') &&
-      typeof r.pnl === 'number'
-    if (!ok) throw new Error(`[db/backtests] invalid marketStats row at index ${idx}`)
-    return r as MarketStats
+    return { idx, stats: coerceMarketStatsRow(m, idx) }
   })
 }
 
 function runStatus(marketCount: number, failedCount: number): 'completed' | 'partial' | 'failed' {
   if (failedCount === 0) return 'completed'
   return marketCount > 0 ? 'partial' : 'failed'
+}
+
+export function computeExtendedFailureCount(
+  parentFailuresCount: number,
+  newFailuresCount: number,
+  resolvedFailureCount: number,
+): number {
+  return Math.max(0, parentFailuresCount + newFailuresCount - resolvedFailureCount)
 }
 
 export async function getBacktestRunSummaryByBatchUid(
@@ -169,7 +195,8 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
   }
 
   const batchStats = row.batchStats.toRunColumns()
-  const marketStats = coerceMarketStats(row.marketStats)
+  const indexedMarketStats = coerceIndexedMarketStats(row.marketStats)
+  const marketStats = indexedMarketStats.map((entry) => entry.stats)
   const failedMarkets = row.failedMarkets ?? []
   const status = runStatus(marketStats.length, failedMarkets.length)
 
@@ -233,36 +260,40 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
     const runId = inserted[0]?.id
     if (typeof runId !== 'number') throw new Error('[db/backtests] insert did not return run id')
 
-    for (let start = 0; start < marketStats.length; start += MARKET_INSERT_BATCH_SIZE) {
-      const chunk = marketStats.slice(start, start + MARKET_INSERT_BATCH_SIZE)
+    for (let start = 0; start < indexedMarketStats.length; start += MARKET_INSERT_BATCH_SIZE) {
+      const chunk = indexedMarketStats.slice(start, start + MARKET_INSERT_BATCH_SIZE)
       await tx.insert(backtestRunMarkets).values(
-        chunk.map((m, offset) => ({
+        chunk.map((entry) => ({
           runId,
-          idx: start + offset,
-          marketId: m.marketId,
-          slug: m.slug,
-          finalOutcome: m.finalOutcome,
-          skipReason: m.skipReason ?? null,
-          pnl: toDecimal(m.pnl),
-          tradeCount: m.tradeCount,
-          tradeAsMaker: m.tradeAsMaker,
-          tradeAsTaker: m.tradeAsTaker,
-          feesPaid: toDecimal(m.feesPaid),
-          avgEntryPriceUp: m.avgEntryPriceUp === null ? null : toDecimal(m.avgEntryPriceUp),
-          avgEntryPriceDown: m.avgEntryPriceDown === null ? null : toDecimal(m.avgEntryPriceDown),
-          upShares: toDecimal(m.upShares),
-          downShares: toDecimal(m.downShares),
-          mergableShares: toDecimal(m.mergableShares),
-          cost: toDecimal(m.cost),
-          splitCost: toDecimal(m.splitCost),
-          intentMeta: m.intentMeta,
-          machineId: m.execution?.machineId ?? null,
-          startedAtMs: m.execution?.startedAtMs ?? null,
-          finishedAtMs: m.execution?.finishedAtMs ?? null,
-          durationMs: m.execution?.durationMs ?? null,
-          eventsProcessed: m.execution?.eventsProcessed ?? null,
-          eventsByType: m.execution?.eventsByType ?? null,
-          commitSha: m.execution?.commitSha ?? null,
+          idx: entry.idx,
+          marketId: entry.stats.marketId,
+          slug: entry.stats.slug,
+          finalOutcome: entry.stats.finalOutcome,
+          skipReason: entry.stats.skipReason ?? null,
+          pnl: toDecimal(entry.stats.pnl),
+          tradeCount: entry.stats.tradeCount,
+          tradeAsMaker: entry.stats.tradeAsMaker,
+          tradeAsTaker: entry.stats.tradeAsTaker,
+          feesPaid: toDecimal(entry.stats.feesPaid),
+          avgEntryPriceUp:
+            entry.stats.avgEntryPriceUp === null ? null : toDecimal(entry.stats.avgEntryPriceUp),
+          avgEntryPriceDown:
+            entry.stats.avgEntryPriceDown === null
+              ? null
+              : toDecimal(entry.stats.avgEntryPriceDown),
+          upShares: toDecimal(entry.stats.upShares),
+          downShares: toDecimal(entry.stats.downShares),
+          mergableShares: toDecimal(entry.stats.mergableShares),
+          cost: toDecimal(entry.stats.cost),
+          splitCost: toDecimal(entry.stats.splitCost),
+          intentMeta: entry.stats.intentMeta,
+          machineId: entry.stats.execution?.machineId ?? null,
+          startedAtMs: entry.stats.execution?.startedAtMs ?? null,
+          finishedAtMs: entry.stats.execution?.finishedAtMs ?? null,
+          durationMs: entry.stats.execution?.durationMs ?? null,
+          eventsProcessed: entry.stats.execution?.eventsProcessed ?? null,
+          eventsByType: entry.stats.execution?.eventsByType ?? null,
+          commitSha: entry.stats.execution?.commitSha ?? null,
         })),
       )
     }
@@ -591,6 +622,21 @@ export async function markRunForExtendingBatch(runId: number, newBatchUid: strin
   }
 }
 
+export async function restoreRunAfterFailedExtend(
+  runId: number,
+  previousBatchUid: string,
+): Promise<boolean> {
+  const db = mustGetDb()
+  const result = await db
+    .update(backtestRuns)
+    .set({ batchUid: previousBatchUid, extendingAt: null })
+    .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NOT NULL`))
+  const affected = Array.isArray(result)
+    ? (result[0] as { affectedRows?: number })?.affectedRows
+    : 0
+  return Boolean(affected && affected > 0)
+}
+
 /**
  * Merge an extension batch's results into the parent run. Inserts the new
  * per-market rows (continuing `idx` from `max(idx)+1`), inserts new failures,
@@ -609,7 +655,8 @@ export async function applyExtensionToRun(opts: {
   chunkedWindows?: number[]
 }): Promise<void> {
   const db = mustGetDb()
-  const newMarketStats = coerceMarketStats(opts.marketStats)
+  const indexedNewMarketStats = coerceIndexedMarketStats(opts.marketStats)
+  const newMarketStats = indexedNewMarketStats.map((entry) => entry.stats)
   const newFailures = opts.failedMarkets ?? []
   const chunkedWindows = opts.chunkedWindows ?? [96, 200, 300]
 
@@ -709,38 +756,65 @@ export async function applyExtensionToRun(opts: {
 
     // Insert new market rows with idx continuing from existing max.
     const nextIdx = existingRows.length > 0 ? existingRows[existingRows.length - 1]!.idx + 1 : 0
-    for (let start = 0; start < newMarketStats.length; start += MARKET_INSERT_BATCH_SIZE) {
-      const chunk = newMarketStats.slice(start, start + MARKET_INSERT_BATCH_SIZE)
+    for (let start = 0; start < indexedNewMarketStats.length; start += MARKET_INSERT_BATCH_SIZE) {
+      const chunk = indexedNewMarketStats.slice(start, start + MARKET_INSERT_BATCH_SIZE)
       await tx.insert(backtestRunMarkets).values(
-        chunk.map((m, offset) => ({
+        chunk.map((entry) => ({
           runId: opts.parentRunId,
-          idx: nextIdx + start + offset,
-          marketId: m.marketId,
-          slug: m.slug,
-          finalOutcome: m.finalOutcome,
-          skipReason: m.skipReason ?? null,
-          pnl: toDecimal(m.pnl),
-          tradeCount: m.tradeCount,
-          tradeAsMaker: m.tradeAsMaker,
-          tradeAsTaker: m.tradeAsTaker,
-          feesPaid: toDecimal(m.feesPaid),
-          avgEntryPriceUp: m.avgEntryPriceUp === null ? null : toDecimal(m.avgEntryPriceUp),
-          avgEntryPriceDown: m.avgEntryPriceDown === null ? null : toDecimal(m.avgEntryPriceDown),
-          upShares: toDecimal(m.upShares),
-          downShares: toDecimal(m.downShares),
-          mergableShares: toDecimal(m.mergableShares),
-          cost: toDecimal(m.cost),
-          splitCost: toDecimal(m.splitCost),
-          intentMeta: m.intentMeta,
-          machineId: m.execution?.machineId ?? null,
-          startedAtMs: m.execution?.startedAtMs ?? null,
-          finishedAtMs: m.execution?.finishedAtMs ?? null,
-          durationMs: m.execution?.durationMs ?? null,
-          eventsProcessed: m.execution?.eventsProcessed ?? null,
-          eventsByType: m.execution?.eventsByType ?? null,
-          commitSha: m.execution?.commitSha ?? null,
+          idx: nextIdx + entry.idx,
+          marketId: entry.stats.marketId,
+          slug: entry.stats.slug,
+          finalOutcome: entry.stats.finalOutcome,
+          skipReason: entry.stats.skipReason ?? null,
+          pnl: toDecimal(entry.stats.pnl),
+          tradeCount: entry.stats.tradeCount,
+          tradeAsMaker: entry.stats.tradeAsMaker,
+          tradeAsTaker: entry.stats.tradeAsTaker,
+          feesPaid: toDecimal(entry.stats.feesPaid),
+          avgEntryPriceUp:
+            entry.stats.avgEntryPriceUp === null ? null : toDecimal(entry.stats.avgEntryPriceUp),
+          avgEntryPriceDown:
+            entry.stats.avgEntryPriceDown === null
+              ? null
+              : toDecimal(entry.stats.avgEntryPriceDown),
+          upShares: toDecimal(entry.stats.upShares),
+          downShares: toDecimal(entry.stats.downShares),
+          mergableShares: toDecimal(entry.stats.mergableShares),
+          cost: toDecimal(entry.stats.cost),
+          splitCost: toDecimal(entry.stats.splitCost),
+          intentMeta: entry.stats.intentMeta,
+          machineId: entry.stats.execution?.machineId ?? null,
+          startedAtMs: entry.stats.execution?.startedAtMs ?? null,
+          finishedAtMs: entry.stats.execution?.finishedAtMs ?? null,
+          durationMs: entry.stats.execution?.durationMs ?? null,
+          eventsProcessed: entry.stats.execution?.eventsProcessed ?? null,
+          eventsByType: entry.stats.execution?.eventsByType ?? null,
+          commitSha: entry.stats.execution?.commitSha ?? null,
         })),
       )
+    }
+
+    let resolvedFailureCount = 0
+    const successfulSlugs = Array.from(new Set(newMarketStats.map((m) => m.slug)))
+    if (successfulSlugs.length > 0) {
+      const resolvedRows = await tx
+        .select({ id: backtestRunFailures.id })
+        .from(backtestRunFailures)
+        .where(
+          and(
+            eq(backtestRunFailures.runId, opts.parentRunId),
+            inArray(backtestRunFailures.slug, successfulSlugs),
+          ),
+        )
+      resolvedFailureCount = resolvedRows.length
+      if (resolvedRows.length > 0) {
+        await tx.delete(backtestRunFailures).where(
+          inArray(
+            backtestRunFailures.id,
+            resolvedRows.map((row) => row.id),
+          ),
+        )
+      }
     }
 
     // Insert new failures. Offset the local child idx (0..N-1 within the
@@ -774,7 +848,11 @@ export async function applyExtensionToRun(opts: {
     const capitalInitial = parseDecimal(parent.capitalInitial)
     const batchStats = computeBatchStats(allMarkets, capitalInitial)
     const chunkedBatchStats = computeChunkedBatchStats(allMarkets, capitalInitial, chunkedWindows)
-    const totalFailures = parent.failuresCount + newFailures.length
+    const totalFailures = computeExtendedFailureCount(
+      parent.failuresCount,
+      newFailures.length,
+      resolvedFailureCount,
+    )
     const status = runStatus(allMarkets.length, totalFailures)
 
     await tx

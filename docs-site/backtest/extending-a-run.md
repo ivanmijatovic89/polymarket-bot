@@ -195,7 +195,7 @@ The parent run defines the **strategy** and the **eligible universe**:
 | Source            | What it contributes                                                                                          |
 | ----------------- | ------------------------------------------------------------------------------------------------------------ |
 | Parent run        | `strategy`, `params`, `symbol`, `timeframe`, `input_mode`, `converter`, `read_from`                          |
-| `--extend` invocation | `--limit`, `--latest`, `--random`, `--from-ms`, `--to-ms`, `--comment`                                   |
+| `--extend` invocation | `--limit`, `--latest`, `--random`, `--from-ms`, `--to-ms`                                                |
 
 Trying to combine `--extend` with any of the inherited flags fails loudly:
 
@@ -214,6 +214,12 @@ metadata) also fails with a clear message. For legacy runs, run
 parent was run with `--latest`, that doesn't transfer. Default order is
 **oldest-first**; pass `--latest` for newest-first, or `--from-ms` to bias
 the selection to a specific window.
+
+`--comment` is rejected with `--extend`; the parent run's original comment
+is preserved.
+
+Failed slugs can be retried by a subsequent `--extend`; when the slug
+succeeds, its old failure row is removed from the parent run.
 
 ## How `--limit` interacts with `--from-ms` / `--to-ms`
 

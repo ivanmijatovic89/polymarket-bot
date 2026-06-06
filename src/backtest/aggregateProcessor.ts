@@ -2,7 +2,12 @@ import type { Job } from 'bullmq'
 import { computeBatchStats } from './stats/batchStats.js'
 import { computeChunkedBatchStats } from './stats/chunkedBatchStats.js'
 import type { MarketStats } from './stats/marketStats.js'
-import { applyExtensionToRun, clearExtensionLock, insertBacktestRun } from '../db/backtests.js'
+import {
+  applyExtensionToRun,
+  clearExtensionLock,
+  insertBacktestRun,
+  type IndexedMarketStats,
+} from '../db/backtests.js'
 import { getMarketQueue } from './queue.js'
 import { marketJobId } from './jobTypes.js'
 import type {
@@ -51,10 +56,12 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   ordered.sort((a, b) => a.idx - b.idx)
 
   const marketStats: MarketStats[] = []
+  const indexedMarketStats: IndexedMarketStats[] = []
   let totalSkipped = 0
   for (const result of ordered) {
     if (result.marketStats) {
       marketStats.push(result.marketStats)
+      indexedMarketStats.push({ idx: result.idx, stats: result.marketStats })
     } else {
       totalSkipped += 1
     }
@@ -84,7 +91,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     try {
       await applyExtensionToRun({
         parentRunId: data.extension.parentRunId,
-        marketStats: marketStats as unknown as unknown[],
+        marketStats: indexedMarketStats as unknown as unknown[],
         failedMarkets: failed,
       })
     } catch (err) {
@@ -118,7 +125,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
       latest: data.insertMeta.latest,
       batchStats,
       chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
-      marketStats: marketStats as unknown as unknown[],
+      marketStats: indexedMarketStats as unknown as unknown[],
       failedMarkets: failed,
     })
   }

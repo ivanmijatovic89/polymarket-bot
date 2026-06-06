@@ -10,9 +10,10 @@ import {
 import { planExtension } from '../backtest/extendPlanner.js'
 import {
   applyExtensionToRun,
-  clearExtensionLock,
   ExtensionLockHeldError,
   markRunForExtendingBatch,
+  restoreRunAfterFailedExtend,
+  type IndexedMarketStats,
 } from '../db/backtests.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
@@ -217,8 +218,8 @@ async function main(): Promise<void> {
   // --input-mode, --read-from, --slug, --dir, --batchUid, --baselineId,
   // and positional file paths are forbidden alongside --extend (rejected
   // by parseArgs). --limit, --latest, --random, --from-ms, --to-ms,
-  // --comment are user-supplied selection / metadata flags that apply
-  // FRESHLY for this extension — they're NOT inherited from the parent.
+  // are per-extension selection flags. --comment is rejected with --extend;
+  // the parent run's original comment is preserved.
   // -----------------------------------------------------------------
   const isExtend = parsed.extend !== undefined
   let extensionPlan: Awaited<ReturnType<typeof planExtension>> | null = null
@@ -692,20 +693,24 @@ async function main(): Promise<void> {
     const machineId = getMachineId()
     const commitSha = getCurrentGitSha()
     const marketStats: MarketStats[] = []
+    const indexedMarketStats: IndexedMarketStats[] = []
     const failed: FailedMarketRecord[] = []
     let events = 0
     const byType = new Map<string, number>()
     const backtestStartMs = Date.now()
     let completedMarkets = 0
     let completedMarketsMsTotal = 0
+    let extensionLockAcquired = false
 
     // Acquire the extension lock BEFORE the per-market loop so a concurrent
     // --extend on the same run fails fast instead of after hours of replay.
-    // The BullMQ path already does this before flow.add. On any subsequent
-    // failure in this branch, we clear the lock so a retry isn't blocked.
+    // The BullMQ path already does this before flow.add. On failure after
+    // this point, restore the parent's previous batchUid and clear the lock
+    // so a retry isn't blocked or hidden behind a stale -extN batchUid.
     if (isExtend) {
       try {
         await markRunForExtendingBatch(planOk!.parent.id, batchUid)
+        extensionLockAcquired = true
       } catch (err) {
         if (err instanceof ExtensionLockHeldError) {
           console.error(`[backtest] ${err.message}`)
@@ -716,84 +721,94 @@ async function main(): Promise<void> {
       }
     }
 
-    for (const ctx of marketContexts) {
-      if (shouldStop) break
-      const marketIdx = ctx.idx + 1
-      console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${ctx.filePath}`)
-      const marketStartMs = Date.now()
+    try {
+      for (const ctx of marketContexts) {
+        if (shouldStop) break
+        const marketIdx = ctx.idx + 1
+        console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${ctx.filePath}`)
+        const marketStartMs = Date.now()
 
-      let result: Awaited<ReturnType<typeof runSingleMarket>>
-      try {
-        result = await runSingleMarket({
-          idx: ctx.idx,
-          filePath: ctx.filePath,
-          slug: ctx.slug,
-          marketMeta: ctx.marketMeta,
-          marketResolution: ctx.marketResolution,
-          strategyId: built.strategyId,
-          strategyParams: built.params as Record<string, unknown>,
-          inputMode: effectiveInputMode,
-          order: parsed.order,
-          timeDriven: parsed.timeDriven,
-          latency: { delayMs: latencyMs, jitterMs },
-          strategyWindow: ctx.strategyWindow,
-          machineId,
-          commitSha,
-          shouldStop: () => shouldStop,
-        })
-      } catch (err) {
-        // Mirror BullMQ's exhausted-children semantics: record the failure so
-        // applyExtensionToRun / insertBacktestRun can persist it as an audit
-        // row instead of silently dropping the market.
-        const reason = err instanceof Error ? err.message : String(err)
-        console.error(`[backtest] market idx=${ctx.idx} slug=${ctx.slug ?? '?'} threw: ${reason}`)
-        failed.push({ idx: ctx.idx, slug: ctx.slug ?? null, reason })
-        completedMarkets += 1
-        continue
-      }
-
-      events += result.eventsProcessed
-      for (const [t, c] of Object.entries(result.eventsByType)) {
-        byType.set(t, (byType.get(t) ?? 0) + c)
-      }
-
-      if (result.marketStats) {
-        marketStats.push(result.marketStats)
-        if (result.skipReason === 'no_activity') {
-          console.log(
-            `[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=0 (no in-window positions/trades)`,
-          )
-        } else {
-          const pnlColor = result.marketStats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
-          const resetColor = '\x1b[0m'
-          console.log(
-            `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
-          )
+        let result: Awaited<ReturnType<typeof runSingleMarket>>
+        try {
+          result = await runSingleMarket({
+            idx: ctx.idx,
+            filePath: ctx.filePath,
+            slug: ctx.slug,
+            marketMeta: ctx.marketMeta,
+            marketResolution: ctx.marketResolution,
+            strategyId: built.strategyId,
+            strategyParams: built.params as Record<string, unknown>,
+            inputMode: effectiveInputMode,
+            order: parsed.order,
+            timeDriven: parsed.timeDriven,
+            latency: { delayMs: latencyMs, jitterMs },
+            strategyWindow: ctx.strategyWindow,
+            machineId,
+            commitSha,
+            shouldStop: () => shouldStop,
+          })
+        } catch (err) {
+          // Mirror BullMQ's exhausted-children semantics: record the failure so
+          // applyExtensionToRun / insertBacktestRun can persist it as an audit
+          // row instead of silently dropping the market.
+          const reason = err instanceof Error ? err.message : String(err)
+          console.error(`[backtest] market idx=${ctx.idx} slug=${ctx.slug ?? '?'} threw: ${reason}`)
+          failed.push({ idx: ctx.idx, slug: ctx.slug ?? null, reason })
+          completedMarkets += 1
+          continue
         }
-      } else if (result.skipReason === 'no_slug') {
-        console.warn(
-          `[backtest] Could not parse slug from filename: ${ctx.filePath}, skipping stats`,
-        )
-      } else if (result.skipReason === 'no_resolution') {
-        console.warn(
-          `[backtest] Could not get market resolution for slug: ${ctx.slug}, skipping stats`,
-        )
-      } else if (result.skipReason === 'unresolved_outcome') {
-        console.warn(`[backtest] Market not resolved yet for slug: ${ctx.slug}, skipping stats`)
-      }
 
-      const marketElapsedMs = Date.now() - marketStartMs
-      completedMarkets += 1
-      completedMarketsMsTotal += marketElapsedMs
-      const avgPerMarketMs = completedMarketsMsTotal / Math.max(1, completedMarkets)
-      const remainingMarkets = Math.max(0, totalMarkets - completedMarkets)
-      const etaMs = avgPerMarketMs * remainingMarkets
-      const totalElapsedMs = Date.now() - backtestStartMs
-      console.log(
-        `[backtest][${completedMarkets}/${totalMarkets}] finished in ${formatDurationHuman(marketElapsedMs)} | elapsed ${formatDurationHuman(
-          totalElapsedMs,
-        )} | eta ${formatDurationHuman(etaMs)}`,
-      )
+        events += result.eventsProcessed
+        for (const [t, c] of Object.entries(result.eventsByType)) {
+          byType.set(t, (byType.get(t) ?? 0) + c)
+        }
+
+        if (result.marketStats) {
+          marketStats.push(result.marketStats)
+          indexedMarketStats.push({ idx: result.idx, stats: result.marketStats })
+          if (result.skipReason === 'no_activity') {
+            console.log(
+              `[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=0 (no in-window positions/trades)`,
+            )
+          } else {
+            const pnlColor = result.marketStats.pnl >= 0 ? '\x1b[32m' : '\x1b[31m'
+            const resetColor = '\x1b[0m'
+            console.log(
+              `${pnlColor}[backtest] market=${result.marketStats.marketId} slug=${ctx.slug} outcome=${result.marketStats.finalOutcome} pnl=${result.marketStats.pnl} trades=${result.marketStats.tradeCount}${resetColor}`,
+            )
+          }
+        } else if (result.skipReason === 'no_slug') {
+          console.warn(
+            `[backtest] Could not parse slug from filename: ${ctx.filePath}, skipping stats`,
+          )
+        } else if (result.skipReason === 'no_resolution') {
+          console.warn(
+            `[backtest] Could not get market resolution for slug: ${ctx.slug}, skipping stats`,
+          )
+        } else if (result.skipReason === 'unresolved_outcome') {
+          console.warn(`[backtest] Market not resolved yet for slug: ${ctx.slug}, skipping stats`)
+        }
+
+        const marketElapsedMs = Date.now() - marketStartMs
+        completedMarkets += 1
+        completedMarketsMsTotal += marketElapsedMs
+        const avgPerMarketMs = completedMarketsMsTotal / Math.max(1, completedMarkets)
+        const remainingMarkets = Math.max(0, totalMarkets - completedMarkets)
+        const etaMs = avgPerMarketMs * remainingMarkets
+        const totalElapsedMs = Date.now() - backtestStartMs
+        console.log(
+          `[backtest][${completedMarkets}/${totalMarkets}] finished in ${formatDurationHuman(marketElapsedMs)} | elapsed ${formatDurationHuman(
+            totalElapsedMs,
+          )} | eta ${formatDurationHuman(etaMs)}`,
+        )
+      }
+    } catch (err) {
+      if (isExtend && extensionLockAcquired) {
+        await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(
+          () => {},
+        )
+      }
+      throw err
     }
 
     if (isExtend) {
@@ -803,13 +818,14 @@ async function main(): Promise<void> {
       try {
         await applyExtensionToRun({
           parentRunId: planOk!.parent.id,
-          marketStats: marketStats as unknown as unknown[],
+          marketStats: indexedMarketStats as unknown as unknown[],
           failedMarkets: failed,
         })
+        extensionLockAcquired = false
       } catch (err) {
-        // applyExtensionToRun's transaction rolled back; release the lock so
-        // a retry isn't blocked by a now-meaningless flag.
-        await clearExtensionLock(planOk!.parent.id).catch(() => {})
+        await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(
+          () => {},
+        )
         throw err
       }
       console.log(
@@ -843,7 +859,8 @@ async function main(): Promise<void> {
         latest: parsed.latest ?? false,
         batchStats,
         chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
-        marketStats: marketStats as unknown as unknown[],
+        marketStats: indexedMarketStats as unknown as unknown[],
+        failedMarkets: failed,
       })
 
       console.log('\n[backtest] ===== BATCH STATS =====')
@@ -892,7 +909,7 @@ async function main(): Promise<void> {
   cmd = buildBacktestCmdWithBatchUid(args, batchUid)
 
   if (isExtend) {
-    // Eagerly UPDATE backtest_runs.batch_uid AND .cmd before the BullMQ flow
+    // Eagerly UPDATE backtest_runs.batch_uid before the BullMQ flow
     // enqueues. Dashboard lookups by batchUid then find the parent run
     // immediately during processing — not just on completion. This also
     // atomically takes the concurrent-extend lock; a second --extend on the
@@ -987,12 +1004,11 @@ async function main(): Promise<void> {
     })
   } catch (err) {
     // BullMQ / Redis enqueue failed AFTER markRunForExtendingBatch took the
-    // lock. If we leave `extending_at` set, future --extend calls on this run
-    // are blocked until manual SQL recovery. Release the lock so a retry is
-    // possible. Do NOT release on success — the aggregateProcessor clears it
-    // in the same transaction as the merge UPDATE.
+    // lock and changed batch_uid. Restore both so a retry is visible at the
+    // original parent batchUid. Do NOT release on success — the
+    // aggregateProcessor clears it in the same transaction as the merge UPDATE.
     if (isExtend) {
-      await clearExtensionLock(planOk!.parent.id).catch(() => {})
+      await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(() => {})
     }
     throw err
   }
