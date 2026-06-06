@@ -384,7 +384,15 @@ export function parseArgs(argv: string[]): BacktestArgs {
     const conflicting: string[] = []
     if (symbol) conflicting.push('--symbol')
     if (timeframeExplicit) conflicting.push('--timeframe')
-    if (inputMode !== 'recorded') conflicting.push('--input-mode')
+    // Check flag presence in argv, not the parsed value: the default
+    // inputMode is 'recorded', so a user who explicitly passes
+    // `--input-mode recorded` against a telonex parent would silently slip
+    // through a value-based check and then get overridden to the parent's
+    // mode at planExtension time with no warning.
+    const inputModeFlagPresent = argv.some(
+      (t) => t === '--input-mode' || (typeof t === 'string' && t.startsWith('--input-mode=')),
+    )
+    if (inputModeFlagPresent) conflicting.push('--input-mode')
     if (readFrom !== undefined) conflicting.push('--read-from')
     if (slugs.length > 0) conflicting.push('--slug')
     if (dirs.length > 0) conflicting.push('--dir')

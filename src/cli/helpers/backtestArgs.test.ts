@@ -182,6 +182,17 @@ test('parseArgs --extend rejects --symbol / --timeframe / --input-mode / --read-
     () => parseArgs(['--extend', '5', '--input-mode', 'telonex-delta', '--read-from', 'local']),
     /--extend 5 cannot be combined with: --input-mode, --read-from/,
   )
+  // Explicit --input-mode=recorded must also be rejected: it matches the
+  // default parsed value, but the user passing it intends to override —
+  // which the extend path silently ignores in favor of the parent's mode.
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--input-mode', 'recorded']),
+    /--extend 5 cannot be combined with: --input-mode/,
+  )
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--input-mode=recorded']),
+    /--extend 5 cannot be combined with: --input-mode/,
+  )
 })
 
 test('parseArgs --extend rejects --slug / --dir / file paths', () => {

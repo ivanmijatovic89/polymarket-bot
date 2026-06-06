@@ -42,6 +42,7 @@ import {
   aggregateJobId,
   marketJobId,
   type AggregateJobData,
+  type FailedMarketRecord,
   type MarketJobData,
 } from '../backtest/jobTypes.js'
 import { Timer } from '../utils/timer.js'
@@ -691,11 +692,29 @@ async function main(): Promise<void> {
     const machineId = getMachineId()
     const commitSha = getCurrentGitSha()
     const marketStats: MarketStats[] = []
+    const failed: FailedMarketRecord[] = []
     let events = 0
     const byType = new Map<string, number>()
     const backtestStartMs = Date.now()
     let completedMarkets = 0
     let completedMarketsMsTotal = 0
+
+    // Acquire the extension lock BEFORE the per-market loop so a concurrent
+    // --extend on the same run fails fast instead of after hours of replay.
+    // The BullMQ path already does this before flow.add. On any subsequent
+    // failure in this branch, we clear the lock so a retry isn't blocked.
+    if (isExtend) {
+      try {
+        await markRunForExtendingBatch(planOk!.parent.id, batchUid)
+      } catch (err) {
+        if (err instanceof ExtensionLockHeldError) {
+          console.error(`[backtest] ${err.message}`)
+          await closeDb()
+          process.exit(2)
+        }
+        throw err
+      }
+    }
 
     for (const ctx of marketContexts) {
       if (shouldStop) break
@@ -703,23 +722,35 @@ async function main(): Promise<void> {
       console.log(`[backtest][${marketIdx}/${totalMarkets}] replay file=${ctx.filePath}`)
       const marketStartMs = Date.now()
 
-      const result = await runSingleMarket({
-        idx: ctx.idx,
-        filePath: ctx.filePath,
-        slug: ctx.slug,
-        marketMeta: ctx.marketMeta,
-        marketResolution: ctx.marketResolution,
-        strategyId: built.strategyId,
-        strategyParams: built.params as Record<string, unknown>,
-        inputMode: effectiveInputMode,
-        order: parsed.order,
-        timeDriven: parsed.timeDriven,
-        latency: { delayMs: latencyMs, jitterMs },
-        strategyWindow: ctx.strategyWindow,
-        machineId,
-        commitSha,
-        shouldStop: () => shouldStop,
-      })
+      let result: Awaited<ReturnType<typeof runSingleMarket>>
+      try {
+        result = await runSingleMarket({
+          idx: ctx.idx,
+          filePath: ctx.filePath,
+          slug: ctx.slug,
+          marketMeta: ctx.marketMeta,
+          marketResolution: ctx.marketResolution,
+          strategyId: built.strategyId,
+          strategyParams: built.params as Record<string, unknown>,
+          inputMode: effectiveInputMode,
+          order: parsed.order,
+          timeDriven: parsed.timeDriven,
+          latency: { delayMs: latencyMs, jitterMs },
+          strategyWindow: ctx.strategyWindow,
+          machineId,
+          commitSha,
+          shouldStop: () => shouldStop,
+        })
+      } catch (err) {
+        // Mirror BullMQ's exhausted-children semantics: record the failure so
+        // applyExtensionToRun / insertBacktestRun can persist it as an audit
+        // row instead of silently dropping the market.
+        const reason = err instanceof Error ? err.message : String(err)
+        console.error(`[backtest] market idx=${ctx.idx} slug=${ctx.slug ?? '?'} threw: ${reason}`)
+        failed.push({ idx: ctx.idx, slug: ctx.slug ?? null, reason })
+        completedMarkets += 1
+        continue
+      }
 
       events += result.eventsProcessed
       for (const [t, c] of Object.entries(result.eventsByType)) {
@@ -767,23 +798,13 @@ async function main(): Promise<void> {
 
     if (isExtend) {
       // Extension UPDATE flow: persist the new markets into the parent run
-      // and recompute stats over the UNION (existing + new). batchUid is
-      // already updated on the parent via markRunForExtendingBatch.
-      try {
-        await markRunForExtendingBatch(planOk!.parent.id, batchUid)
-      } catch (err) {
-        if (err instanceof ExtensionLockHeldError) {
-          console.error(`[backtest] ${err.message}`)
-          await closeDb()
-          process.exit(2)
-        }
-        throw err
-      }
+      // and recompute stats over the UNION (existing + new). batchUid + lock
+      // were already taken before the per-market loop above.
       try {
         await applyExtensionToRun({
           parentRunId: planOk!.parent.id,
           marketStats: marketStats as unknown as unknown[],
-          failedMarkets: null,
+          failedMarkets: failed,
         })
       } catch (err) {
         // applyExtensionToRun's transaction rolled back; release the lock so
@@ -792,7 +813,7 @@ async function main(): Promise<void> {
         throw err
       }
       console.log(
-        `\n[backtest] ===== EXTENSION APPLIED to run #${planOk!.parent.id}: +${marketStats.length} markets =====`,
+        `\n[backtest] ===== EXTENSION APPLIED to run #${planOk!.parent.id}: +${marketStats.length} markets, ${failed.length} failed =====`,
       )
     } else {
       // CRITICAL invariant: marketContexts iteration order == input order, so
@@ -950,6 +971,13 @@ async function main(): Promise<void> {
       children,
       opts: {
         ...AGGREGATE_JOB_OPTS,
+        // Extend aggregate writes to MySQL inside a transaction but BullMQ
+        // can't make ACK-completed atomic with the commit. A retry after a
+        // committed merge would re-run applyExtensionToRun and double-insert
+        // markets (no UNIQUE(run_id, slug)), silently corrupting batch stats.
+        // Force single-attempt for extends; user re-runs --extend manually
+        // per the documented recovery flow if the job fails.
+        ...(isExtend ? { attempts: 1 } : {}),
         jobId: aggregateJobId(batchUid),
         // If a child exhausts retries, still run the aggregator with the rest
         // (the aggregator records exhausted children into backtest_run_failures).

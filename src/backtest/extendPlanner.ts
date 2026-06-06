@@ -32,6 +32,7 @@
  */
 
 import {
+  countEligibleTelonexMarkets,
   listEligibleTelonexMarkets,
   type Converter,
   type Market as TelonexMarket,
@@ -156,12 +157,18 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
       ? { latest: true as const }
       : {} // forward / explicit-range → ASC (default)
 
+  // listEligibleTelonexMarkets defaults `limit` to 1000 when omitted, so
+  // an unlimited extend would silently truncate. Pass an explicit large
+  // ceiling when --limit was not provided — this contract is documented at
+  // the top of planExtension: "Without --limit, all matching uncovered
+  // markets are included."
+  const effectiveLimit = opts.limit ?? Number.MAX_SAFE_INTEGER
   const candidates = await listEligibleTelonexMarkets({
     ...baseQueryOpts,
     ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
     ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
     ...(excludeSlugs !== undefined && { excludeSlugs }),
-    ...(opts.limit !== undefined && { limit: opts.limit }),
+    limit: effectiveLimit,
     ...pickFromEnd,
   })
 
@@ -178,26 +185,21 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
     withDataset.sort((a, b) => a.marketStartMs - b.marketStartMs)
   }
 
-  // Denominators for the pre-flight log.
-  const eligibleTotal = (
-    await listEligibleTelonexMarkets({
-      ...baseQueryOpts,
-      limit: Number.MAX_SAFE_INTEGER,
-    })
-  ).length
-
-  const availableCount =
+  // Denominators for the pre-flight log. Use the COUNT(*) helper per the
+  // CLAUDE.md single-source-of-truth contract for telonex eligibility, and
+  // avoid hydrating the full Market rows just to call .length on them.
+  // Both counts are independent — run in parallel.
+  const [eligibleTotal, availableCount] = await Promise.all([
+    countEligibleTelonexMarkets(baseQueryOpts),
     opts.limit !== undefined
-      ? (
-          await listEligibleTelonexMarkets({
-            ...baseQueryOpts,
-            ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
-            ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
-            ...(excludeSlugs !== undefined && { excludeSlugs }),
-            limit: Number.MAX_SAFE_INTEGER,
-          })
-        ).length
-      : withDataset.length
+      ? countEligibleTelonexMarkets({
+          ...baseQueryOpts,
+          ...(effectiveFromMs !== undefined && { fromMs: effectiveFromMs }),
+          ...(effectiveToMs !== undefined && { toMs: effectiveToMs }),
+          ...(excludeSlugs !== undefined && { excludeSlugs }),
+        })
+      : Promise.resolve(withDataset.length),
+  ])
 
   return {
     kind: 'ok',

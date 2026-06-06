@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
-import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
+import { computeChunkedBatchStats, slugTs } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
 import { getDb } from './index.js'
 import { backtestRunFailures, backtestRunMarkets, backtestRuns, telonexMarkets } from './schema.js'
@@ -638,6 +638,36 @@ export async function applyExtensionToRun(opts: {
       .where(eq(backtestRunMarkets.runId, opts.parentRunId))
       .orderBy(asc(backtestRunMarkets.idx))
 
+    // Idempotency guard. BullMQ's stalled-job recovery is independent of
+    // `attempts` and can re-deliver an aggregate that already committed its
+    // merge. If every incoming slug is already present, this is a replay —
+    // no-op and clear the lock. Partial overlap means planExtension raced
+    // with a concurrent extender despite the extending_at lock (e.g. manual
+    // clear) and inserting would corrupt stats; bail loudly. UNIQUE(run_id,
+    // slug) is the schema backstop if this check is ever bypassed.
+    if (newMarketStats.length > 0) {
+      const existingSlugs = new Set(existingRows.map((r) => r.slug))
+      const incomingSlugs = newMarketStats.map((m) => m.slug)
+      const overlapping = incomingSlugs.filter((s) => existingSlugs.has(s))
+      if (overlapping.length === incomingSlugs.length) {
+        console.warn(
+          `[db/backtests] applyExtensionToRun: all ${incomingSlugs.length} incoming slugs already present for run #${opts.parentRunId}; treating as idempotent retry (no-op).`,
+        )
+        await tx
+          .update(backtestRuns)
+          .set({ extendingAt: null })
+          .where(eq(backtestRuns.id, opts.parentRunId))
+        return
+      }
+      if (overlapping.length > 0) {
+        const sample = overlapping.slice(0, 5).join(', ')
+        throw new Error(
+          `[db/backtests] applyExtensionToRun: partial slug overlap for run #${opts.parentRunId} (${overlapping.length}/${incomingSlugs.length} already present, e.g. ${sample}). ` +
+            `This indicates planExtension raced with another extender. Refusing to insert to avoid stats corruption.`,
+        )
+      }
+    }
+
     const existingStats: MarketStats[] = existingRows.map((m) => {
       const execution: MarketExecutionMeta | undefined =
         m.machineId !== null &&
@@ -732,11 +762,15 @@ export async function applyExtensionToRun(opts: {
       )
     }
 
-    // Recompute stats over the UNION. `computeChunkedBatchStats` sorts by
-    // slugTs internally, so the order of `existingStats ++ newMarketStats`
-    // doesn't matter — chronological windows are correct regardless of
-    // append order.
-    const allMarkets = [...existingStats, ...newMarketStats]
+    // Recompute stats over the UNION. `computeBatchStats` is order-sensitive
+    // (streak fields reduce in array order), so we MUST present markets in
+    // chronological order — otherwise a backward extension (newMarketStats
+    // older than existing) would yield different streaks than an equivalent
+    // fresh full run over the same set. `computeChunkedBatchStats` re-sorts
+    // by slugTs internally; sorting here harmonizes both.
+    const allMarkets = [...existingStats, ...newMarketStats].sort(
+      (a, b) => slugTs(a.slug) - slugTs(b.slug),
+    )
     const capitalInitial = parseDecimal(parent.capitalInitial)
     const batchStats = computeBatchStats(allMarkets, capitalInitial)
     const chunkedBatchStats = computeChunkedBatchStats(allMarkets, capitalInitial, chunkedWindows)
