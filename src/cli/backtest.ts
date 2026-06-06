@@ -8,7 +8,12 @@ import {
   printCliArgsError,
 } from './helpers/strategyArgs.js'
 import { planExtension } from '../backtest/extendPlanner.js'
-import { markRunForExtendingBatch, applyExtensionToRun } from '../db/backtests.js'
+import {
+  applyExtensionToRun,
+  clearExtensionLock,
+  ExtensionLockHeldError,
+  markRunForExtendingBatch,
+} from '../db/backtests.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
@@ -242,6 +247,16 @@ async function main(): Promise<void> {
       console.error(
         `[backtest] --extend ${parsed.extend}: run is missing coverage metadata columns ` +
           `(${extensionPlan.missing.join(', ')}). Run scripts/backfill-backtest-coverage-meta.ts first.`,
+      )
+      await closeDb()
+      process.exit(2)
+    }
+    if (extensionPlan.kind === 'extend-in-progress') {
+      console.error(
+        `[backtest] --extend ${parsed.extend}: another extension is already in progress ` +
+          `(extending_at = ${extensionPlan.since.toISOString()}). ` +
+          `Wait for it to finish, or — if the previous extender crashed — release the lock with:\n` +
+          `  UPDATE backtest_runs SET extending_at = NULL WHERE id = ${parsed.extend};`,
       )
       await closeDb()
       process.exit(2)
@@ -749,12 +764,28 @@ async function main(): Promise<void> {
       // Extension UPDATE flow: persist the new markets into the parent run
       // and recompute stats over the UNION (existing + new). batchUid is
       // already updated on the parent via markRunForExtendingBatch.
-      await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
-      await applyExtensionToRun({
-        parentRunId: planOk!.parent.id,
-        marketStats: marketStats as unknown as unknown[],
-        failedMarkets: null,
-      })
+      try {
+        await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+      } catch (err) {
+        if (err instanceof ExtensionLockHeldError) {
+          console.error(`[backtest] ${err.message}`)
+          await closeDb()
+          process.exit(2)
+        }
+        throw err
+      }
+      try {
+        await applyExtensionToRun({
+          parentRunId: planOk!.parent.id,
+          marketStats: marketStats as unknown as unknown[],
+          failedMarkets: null,
+        })
+      } catch (err) {
+        // applyExtensionToRun's transaction rolled back; release the lock so
+        // a retry isn't blocked by a now-meaningless flag.
+        await clearExtensionLock(planOk!.parent.id).catch(() => {})
+        throw err
+      }
       console.log(
         `\n[backtest] ===== EXTENSION APPLIED to run #${planOk!.parent.id}: +${marketStats.length} markets =====`,
       )
@@ -837,8 +868,19 @@ async function main(): Promise<void> {
   if (isExtend) {
     // Eagerly UPDATE backtest_runs.batch_uid AND .cmd before the BullMQ flow
     // enqueues. Dashboard lookups by batchUid then find the parent run
-    // immediately during processing — not just on completion.
-    await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+    // immediately during processing — not just on completion. This also
+    // atomically takes the concurrent-extend lock; a second --extend on the
+    // same run hitting this same call will get ExtensionLockHeldError.
+    try {
+      await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+    } catch (err) {
+      if (err instanceof ExtensionLockHeldError) {
+        console.error(`[backtest] ${err.message}`)
+        await closeDb()
+        process.exit(2)
+      }
+      throw err
+    }
   }
 
   const flow = getFlowProducer()

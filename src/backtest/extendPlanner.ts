@@ -54,6 +54,7 @@ export type ExtensionPlanResult =
   | { kind: 'parent-not-found' }
   | { kind: 'parent-not-telonex'; inputMode: string | null }
   | { kind: 'parent-missing-metadata'; missing: string[] }
+  | { kind: 'extend-in-progress'; since: Date }
   | { kind: 'nothing-to-extend' }
 
 export async function planExtension(opts: ExtensionPlanOptions): Promise<ExtensionPlanResult> {
@@ -67,6 +68,9 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
   }
 
   const parent = lookup.run
+  if (parent.extendingAt !== null) {
+    return { kind: 'extend-in-progress', since: parent.extendingAt }
+  }
   const coveredSet = await getCoveredSlugsForRun(parent.id)
   const excludeSlugs = coveredSet.size > 0 ? Array.from(coveredSet) : undefined
 

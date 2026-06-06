@@ -1,4 +1,4 @@
-import { asc, eq } from 'drizzle-orm'
+import { and, asc, eq, sql } from 'drizzle-orm'
 import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
@@ -451,6 +451,7 @@ export type ExtensibleRun = {
   readFrom: string
   capitalInitial: number
   comment: string | null
+  extendingAt: Date | null
 }
 
 /**
@@ -482,6 +483,7 @@ export async function getRunForExtension(
       readFrom: backtestRuns.readFrom,
       capitalInitial: backtestRuns.capitalInitial,
       comment: backtestRuns.comment,
+      extendingAt: backtestRuns.extendingAt,
     })
     .from(backtestRuns)
     .where(eq(backtestRuns.id, runId))
@@ -512,29 +514,56 @@ export async function getRunForExtension(
       readFrom: row.readFrom!,
       capitalInitial: parseDecimal(row.capitalInitial),
       comment: row.comment,
+      extendingAt: row.extendingAt,
     },
   }
 }
 
 /**
  * Update the run's `batch_uid` and `cmd` eagerly when an extension flow is
- * enqueued. Updating before BullMQ enqueue means the dashboard's
- * `/batches/<batchUid>` lookup immediately finds the parent run by the new
- * batchUid, instead of 404-ing during processing.
+ * enqueued AND atomically take the concurrent-extend lock by setting
+ * `extending_at = NOW()`. Updating before BullMQ enqueue means the
+ * dashboard's `/batches/<batchUid>` lookup immediately finds the parent run
+ * by the new batchUid, instead of 404-ing during processing.
+ *
+ * The lock + UPDATE is one statement guarded by `WHERE extending_at IS NULL`
+ * so two CLI invocations racing each other cannot both succeed: the second
+ * one's UPDATE matches zero rows and we throw.
  *
  * Note: this OVERWRITES the original cmd. Per the design discussion, the
  * extension cmd takes over — we don't keep an audit trail in this iteration.
+ *
+ * Throws ExtensionLockHeldError if the lock is already held. Caller may
+ * surface the error to the user with a recovery hint pointing at the
+ * `UPDATE backtest_runs SET extending_at = NULL WHERE id = ...` escape hatch
+ * for the rare case of a crashed extender.
  */
+export class ExtensionLockHeldError extends Error {
+  constructor(public readonly runId: number) {
+    super(
+      `[db/backtests] extension already in progress for run #${runId}. If the previous extender crashed, clear with: UPDATE backtest_runs SET extending_at = NULL WHERE id = ${runId};`,
+    )
+    this.name = 'ExtensionLockHeldError'
+  }
+}
+
 export async function markRunForExtendingBatch(
   runId: number,
   newBatchUid: string,
   newCmd: string,
 ): Promise<void> {
   const db = mustGetDb()
-  await db
+  const result = await db
     .update(backtestRuns)
-    .set({ batchUid: newBatchUid, cmd: newCmd })
-    .where(eq(backtestRuns.id, runId))
+    .set({ batchUid: newBatchUid, cmd: newCmd, extendingAt: sql`CURRENT_TIMESTAMP` })
+    .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NULL`))
+  // mysql2 returns { affectedRows } on the first element of the tuple.
+  const affected = Array.isArray(result)
+    ? (result[0] as { affectedRows?: number })?.affectedRows
+    : 0
+  if (!affected || affected === 0) {
+    throw new ExtensionLockHeldError(runId)
+  }
 }
 
 /**
@@ -719,7 +748,29 @@ export async function applyExtensionToRun(opts: {
         streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
         streakMaxSkipped: batchStats.streakMaxSkipped,
         chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+        // Release the concurrent-extend lock in the same transaction as the
+        // merge UPDATE — so the row is never visible as "no lock held" while
+        // the new markets aren't yet visible.
+        extendingAt: null,
       })
       .where(eq(backtestRuns.id, opts.parentRunId))
   })
+}
+
+/**
+ * Manually clear a stuck extension lock. Use when the extender process
+ * crashed (terminal closed, kill -9, etc.) and `extending_at` stayed set.
+ * Returns true if the lock was actually released, false if it was already
+ * NULL.
+ */
+export async function clearExtensionLock(runId: number): Promise<boolean> {
+  const db = mustGetDb()
+  const result = await db
+    .update(backtestRuns)
+    .set({ extendingAt: null })
+    .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NOT NULL`))
+  const affected = Array.isArray(result)
+    ? (result[0] as { affectedRows?: number })?.affectedRows
+    : 0
+  return Boolean(affected && affected > 0)
 }

@@ -1,59 +1,77 @@
 # Extending a Backtest Run
 
-Sometimes you want to take a backtest that already produced solid results
-and run **the same strategy + params** over more markets — without losing
-the original result or having to re-run everything from scratch. The
-`--extend <runId>` flag does exactly this.
+`--extend <runId>` takes an existing telonex backtest run and adds more
+markets to it — re-using the same strategy and parameters. The parent
+row in `backtest_runs` grows: new per-market results get appended, and
+`batch_stats` + `chunked_batch_stats` get recomputed over the union of
+existing + new markets, all in one DB transaction.
 
-::: tip One backtest_runs row, growing
-An extension does **not** create a new row in `backtest_runs`. It appends
-new per-market results into the parent row and **recomputes** that row's
-`batch_stats` and `chunked_batch_stats` over the union of existing + new
-markets. The parent's id never changes. The `batch_uid` is updated to
-reflect the latest extend (`-ext1`, `-ext2`, …).
+::: tip Same row, more markets
+`--extend` does **not** create a new `backtest_runs` row. The parent
+row's `id` stays the same; its `batch_uid` is overwritten with a
+`-extN` suffix on each extend; everything else (stats, capital_final,
+chunked_batch_stats, per-market rows) updates in place.
 :::
 
-## When to use it
+## The mechanics
 
-The canonical research workflow looks like this:
+You start with an existing run. Suppose it's run **#103**, originally
+launched as:
 
 ```bash
-# 1. Iterate on params with small fast batches
 npm run backtest -- --strategy X --param ... \
   --input-mode telonex-delta --read-from local \
-  --symbol btc --timeframe 15m --latest --limit 500
-# → creates run #100
+  --symbol btc --timeframe 15m --latest --limit 6000
+```
 
-# 2. Once the params look good, scale up with fresh runs
-npm run backtest -- --strategy X --param ... \
-  --input-mode telonex-delta --read-from local \
-  --symbol btc --timeframe 15m --latest --limit 1000
-# → creates run #101
+That run covers 6000 telonex markets. There are, say, 18,000 eligible
+markets in total — so 12,000 are uncovered.
 
-# 3. After validating at 1000, 3000, 6000 etc, you have run #103 covering
-#    the "elite 6000". Now run the full universe on top of it:
+To run the same strategy + params on **all 12,000 uncovered** markets:
+
+```bash
 npm run backtest -- --extend 103
-# → run #103 grows from 6000 to ~all eligible markets,
-#   its batch_stats / chunked_batch_stats recompute over the union.
 ```
 
-You can also extend in chunks:
+After this completes, run **#103 still exists with the same id**, but
+its `marketsTotal` is now ~18,000 and its stats reflect the union.
+Strategy, params, symbol, timeframe, converter, read-from — all
+inherited from the parent. You don't (and can't) pass them again.
+
+## Adding fewer markets at a time
+
+You don't have to extend to "all". Pass `--limit` to cap the chunk:
 
 ```bash
-# Run #103 currently has 6000 markets. Add 2000 more oldest-missing:
-npm run backtest -- --extend 103 --limit 2000
+# Next 500 oldest-uncovered markets
+npm run backtest -- --extend 103 --limit 500
 
-# Add only markets in a specific time window:
-npm run backtest -- --extend 103 \
-  --from-ms 1764547200000 --to-ms 1767139200000
-
-# Add 500 oldest-missing within a window:
-npm run backtest -- --extend 103 \
-  --from-ms 1764547200000 --limit 500
+# Newest 500 uncovered (useful after Telonex syncs new markets)
+npm run backtest -- --extend 103 --latest --limit 500
 ```
 
-When Telonex syncs new markets weeks later, run the same command again —
-it picks up whatever's newly eligible.
+## Restricting the time window
+
+`--from-ms` / `--to-ms` filter candidates to a specific
+`market_start_ms` range (milliseconds since epoch, matching the
+`telonex_markets.market_start_ms` column):
+
+```bash
+# All uncovered markets between 2026-01-01 and 2026-02-01 UTC
+npm run backtest -- --extend 103 \
+  --from-ms 1767225600000 --to-ms 1769904000000
+
+# 500 oldest uncovered markets that start on or after 2026-01-01 UTC
+npm run backtest -- --extend 103 \
+  --from-ms 1767225600000 --limit 500
+```
+
+## Catching up on newly synced markets
+
+When the Telonex sync brings in new eligible markets weeks after the
+parent run was launched, just re-run `--extend 103` — the planner
+re-computes the uncovered set against the *current* eligibility
+universe and picks up whatever's new.
 
 ## What's inherited from the parent, what isn't
 
@@ -117,15 +135,23 @@ If nothing matches the filter, the CLI exits cleanly with
 
 ## Concurrency
 
-Concurrent extensions of the same run are **not supported**. There's no
-explicit lock — the DB transaction uses `SELECT ... FOR UPDATE` on the
-parent row to serialise the actual merge step, but if two extensions are
-planned simultaneously they may pick overlapping candidate sets and the
-second one will fail with a duplicate-idx error. Just don't run
-`--extend <N>` twice in parallel against the same run.
+Two `--extend <same id>` invocations at once would race the candidate-set
+planning (both reading the same "covered" set, both picking overlapping
+slugs). To prevent corruption, `backtest_runs.extending_at` is set to
+`NOW()` atomically when an extension flow enqueues, and cleared in the
+same transaction as the merge UPDATE. A second concurrent extend on the
+same run gets a clear error:
 
-Extensions of **different** runs are fine — they share no state at the
-parent-row level.
+```
+[backtest] --extend 103: another extension is already in progress
+(extending_at = 2026-06-06T16:28:44.000Z). Wait for it to finish, or —
+if the previous extender crashed — release the lock with:
+  UPDATE backtest_runs SET extending_at = NULL WHERE id = 103;
+```
+
+If a process crashes mid-extend (kill -9, terminal closed, etc.) the
+lock won't release on its own. Run the printed UPDATE manually.
+Extensions of **different** runs are fine — they share no lock state.
 
 ## Verification: extension equals fresh
 

@@ -2,7 +2,7 @@ import type { Job } from 'bullmq'
 import { computeBatchStats } from './stats/batchStats.js'
 import { computeChunkedBatchStats } from './stats/chunkedBatchStats.js'
 import type { MarketStats } from './stats/marketStats.js'
-import { applyExtensionToRun, insertBacktestRun } from '../db/backtests.js'
+import { applyExtensionToRun, clearExtensionLock, insertBacktestRun } from '../db/backtests.js'
 import { getMarketQueue } from './queue.js'
 import { marketJobId } from './jobTypes.js'
 import type {
@@ -81,11 +81,18 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     // happens inside applyExtensionToRun over the union of existing + new.
     // `data.insertMeta` is still populated for backward compatibility with
     // listeners that look at job.data, but it's IGNORED by this branch.
-    await applyExtensionToRun({
-      parentRunId: data.extension.parentRunId,
-      marketStats: marketStats as unknown as unknown[],
-      failedMarkets: failed,
-    })
+    try {
+      await applyExtensionToRun({
+        parentRunId: data.extension.parentRunId,
+        marketStats: marketStats as unknown as unknown[],
+        failedMarkets: failed,
+      })
+    } catch (err) {
+      // Transaction rolled back; extending_at would stay set forever
+      // otherwise, blocking future extends until manually cleared.
+      await clearExtensionLock(data.extension.parentRunId).catch(() => {})
+      throw err
+    }
   } else {
     const batchStats = computeBatchStats(marketStats, data.initialCapital)
     const chunkedBatchStats = computeChunkedBatchStats(

@@ -150,6 +150,16 @@ export const backtestRuns = mysqlTable(
 
     chunkedBatchStats: json('chunked_batch_stats').$type<Record<string, unknown> | null>(),
 
+    // Set when a `--extend <runId>` invocation has enqueued an extension
+    // batch but the aggregateProcessor hasn't merged it yet. Cleared in the
+    // same DB transaction as the merge UPDATE. While set, a second concurrent
+    // `--extend` on this run is rejected with a clear error. NULL during
+    // normal life, NULL after extend completes or fails.
+    //
+    // If a process crashes mid-extend, this stays set. Manual recovery:
+    //   UPDATE backtest_runs SET extending_at = NULL WHERE id = <runId>;
+    extendingAt: timestamp('extending_at'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
