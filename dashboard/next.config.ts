@@ -7,7 +7,24 @@ import { resolve } from 'path'
 // because Next loads it after this.
 loadDotenv({ path: resolve(__dirname, '..', '.env') })
 
+function normalizeAllowedDevOrigin(value: string): string | undefined {
+  const raw = value.trim()
+  if (!raw) return undefined
+
+  try {
+    return new URL(raw.includes('://') ? raw : `http://${raw}`).hostname
+  } catch {
+    return raw
+  }
+}
+
+const allowedDevOrigins =
+  process.env.DASHBOARD_ALLOWED_DEV_ORIGINS?.split(',')
+    .map(normalizeAllowedDevOrigin)
+    .filter((origin): origin is string => Boolean(origin)) ?? []
+
 const nextConfig: NextConfig = {
+  ...(allowedDevOrigins.length > 0 ? { allowedDevOrigins } : {}),
   // Server-only packages — keep ioredis/mysql2/bullmq out of the client bundle.
   serverExternalPackages: ['ioredis', 'mysql2', 'bullmq', 'drizzle-orm'],
   // With npm workspaces, the symlink for @polymarket-bot/stats is hoisted to
