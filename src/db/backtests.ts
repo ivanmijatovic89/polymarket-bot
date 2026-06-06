@@ -546,18 +546,21 @@ export async function getRunForExtension(
 }
 
 /**
- * Update the run's `batch_uid` and `cmd` eagerly when an extension flow is
- * enqueued AND atomically take the concurrent-extend lock by setting
- * `extending_at = NOW()`. Updating before BullMQ enqueue means the
- * dashboard's `/batches/<batchUid>` lookup immediately finds the parent run
- * by the new batchUid, instead of 404-ing during processing.
+ * Update the run's `batch_uid` eagerly when an extension flow is enqueued
+ * AND atomically take the concurrent-extend lock by setting
+ * `extending_at = NOW()`. Updating batch_uid before BullMQ enqueue means
+ * the dashboard's `/batches/<batchUid>` lookup immediately finds the
+ * parent run by the new batchUid, instead of 404-ing during processing.
  *
  * The lock + UPDATE is one statement guarded by `WHERE extending_at IS NULL`
  * so two CLI invocations racing each other cannot both succeed: the second
  * one's UPDATE matches zero rows and we throw.
  *
- * Note: this OVERWRITES the original cmd. Per the design discussion, the
- * extension cmd takes over — we don't keep an audit trail in this iteration.
+ * Note: this does NOT touch `cmd`. The original launch command stays as the
+ * permanent record of how the run was created; per-extend invocations are
+ * intentionally not recorded in this iteration. If you need an audit trail
+ * later, the recovery is a `cmd_history` JSON column or a separate audit
+ * table — both can be added without touching this function's contract.
  *
  * Throws ExtensionLockHeldError if the lock is already held. Caller may
  * surface the error to the user with a recovery hint pointing at the
@@ -573,15 +576,11 @@ export class ExtensionLockHeldError extends Error {
   }
 }
 
-export async function markRunForExtendingBatch(
-  runId: number,
-  newBatchUid: string,
-  newCmd: string,
-): Promise<void> {
+export async function markRunForExtendingBatch(runId: number, newBatchUid: string): Promise<void> {
   const db = mustGetDb()
   const result = await db
     .update(backtestRuns)
-    .set({ batchUid: newBatchUid, cmd: newCmd, extendingAt: sql`CURRENT_TIMESTAMP` })
+    .set({ batchUid: newBatchUid, extendingAt: sql`CURRENT_TIMESTAMP` })
     .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NULL`))
   // mysql2 returns { affectedRows } on the first element of the tuple.
   const affected = Array.isArray(result)

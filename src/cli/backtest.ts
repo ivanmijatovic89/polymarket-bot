@@ -770,7 +770,7 @@ async function main(): Promise<void> {
       // and recompute stats over the UNION (existing + new). batchUid is
       // already updated on the parent via markRunForExtendingBatch.
       try {
-        await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+        await markRunForExtendingBatch(planOk!.parent.id, batchUid)
       } catch (err) {
         if (err instanceof ExtensionLockHeldError) {
           console.error(`[backtest] ${err.message}`)
@@ -877,7 +877,7 @@ async function main(): Promise<void> {
     // atomically takes the concurrent-extend lock; a second --extend on the
     // same run hitting this same call will get ExtensionLockHeldError.
     try {
-      await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+      await markRunForExtendingBatch(planOk!.parent.id, batchUid)
     } catch (err) {
       if (err instanceof ExtensionLockHeldError) {
         console.error(`[backtest] ${err.message}`)

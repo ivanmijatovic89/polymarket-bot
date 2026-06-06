@@ -391,6 +391,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (filePaths.length > 0) conflicting.push('<positional file path>')
     if (batchUid !== undefined) conflicting.push('--batchUid')
     if (baselineId !== undefined) conflicting.push('--baselineId')
+    // --comment is a launch-time label for the original run. An extension
+    // doesn't get its own comment because we intentionally don't write
+    // per-extend audit metadata (cmd, comment) to backtest_runs — the
+    // original launch's comment stays.
+    if (comment !== undefined) conflicting.push('--comment')
     // --strategy / --param aren't surfaced in BacktestArgs but appear in
     // argv; check raw tokens.
     for (const token of argv) {

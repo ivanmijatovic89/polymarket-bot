@@ -218,21 +218,25 @@ test('parseArgs --extend rejects --strategy / --param / --batchUid / --baselineI
   )
 })
 
-test('parseArgs --extend allows --limit / --latest / --random / --comment / --from-ms / --to-ms', () => {
+test('parseArgs --extend allows --limit / --latest / --random / --from-ms / --to-ms', () => {
   const parsed = parseArgs([
     '--extend',
     '5',
     '--limit',
     '500',
     '--latest',
-    '--comment',
-    'extend test',
     '--from-ms',
     '1700000000000',
   ])
   assert.equal(parsed.extend, 5)
   assert.equal(parsed.limit, 500)
   assert.equal(parsed.latest, true)
-  assert.equal(parsed.comment, 'extend test')
   assert.equal(parsed.fromMs, 1700000000000)
+})
+
+test('parseArgs --extend rejects --comment (launch-time only)', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--comment', 'foo']),
+    /--extend 5 cannot be combined with: --comment/,
+  )
 })
