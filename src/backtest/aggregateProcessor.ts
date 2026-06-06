@@ -2,7 +2,7 @@ import type { Job } from 'bullmq'
 import { computeBatchStats } from './stats/batchStats.js'
 import { computeChunkedBatchStats } from './stats/chunkedBatchStats.js'
 import type { MarketStats } from './stats/marketStats.js'
-import { insertBacktestRun } from '../db/backtests.js'
+import { applyExtensionToRun, insertBacktestRun } from '../db/backtests.js'
 import { getMarketQueue } from './queue.js'
 import { marketJobId } from './jobTypes.js'
 import type {
@@ -60,13 +60,6 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     }
   }
 
-  const batchStats = computeBatchStats(marketStats, data.initialCapital)
-  const chunkedBatchStats = computeChunkedBatchStats(
-    marketStats,
-    data.initialCapital,
-    [96, 200, 300],
-  )
-
   const failed: FailedMarketRecord[] = []
   for (const [redisKey, reason] of Object.entries(failedChildren)) {
     // `getFailedChildrenValues()` returns Redis-key form
@@ -83,27 +76,45 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   }
   failed.sort((a, b) => (a.idx ?? Number.MAX_SAFE_INTEGER) - (b.idx ?? Number.MAX_SAFE_INTEGER))
 
-  await insertBacktestRun({
-    batchUid: data.batchUid,
-    baselineId: data.insertMeta.baselineId,
-    cmd: data.insertMeta.cmd,
-    comment: data.insertMeta.comment,
-    strategy: data.insertMeta.strategy,
-    params: data.insertMeta.params,
-    symbol: data.insertMeta.symbol,
-    timeframe: data.insertMeta.timeframe,
-    inputMode: data.insertMeta.inputMode,
-    converter: data.insertMeta.converter,
-    readFrom: data.insertMeta.readFrom,
-    slugs: data.insertMeta.slugs,
-    limit: data.insertMeta.limit,
-    random: data.insertMeta.random,
-    latest: data.insertMeta.latest,
-    batchStats,
-    chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
-    marketStats: marketStats as unknown as unknown[],
-    failedMarkets: failed,
-  })
+  if (data.extension) {
+    // Extension flow: UPDATE the parent run with the new markets. Recompute
+    // happens inside applyExtensionToRun over the union of existing + new.
+    // `data.insertMeta` is still populated for backward compatibility with
+    // listeners that look at job.data, but it's IGNORED by this branch.
+    await applyExtensionToRun({
+      parentRunId: data.extension.parentRunId,
+      marketStats: marketStats as unknown as unknown[],
+      failedMarkets: failed,
+    })
+  } else {
+    const batchStats = computeBatchStats(marketStats, data.initialCapital)
+    const chunkedBatchStats = computeChunkedBatchStats(
+      marketStats,
+      data.initialCapital,
+      [96, 200, 300],
+    )
+    await insertBacktestRun({
+      batchUid: data.batchUid,
+      baselineId: data.insertMeta.baselineId,
+      cmd: data.insertMeta.cmd,
+      comment: data.insertMeta.comment,
+      strategy: data.insertMeta.strategy,
+      params: data.insertMeta.params,
+      symbol: data.insertMeta.symbol,
+      timeframe: data.insertMeta.timeframe,
+      inputMode: data.insertMeta.inputMode,
+      converter: data.insertMeta.converter,
+      readFrom: data.insertMeta.readFrom,
+      slugs: data.insertMeta.slugs,
+      limit: data.insertMeta.limit,
+      random: data.insertMeta.random,
+      latest: data.insertMeta.latest,
+      batchStats,
+      chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+      marketStats: marketStats as unknown as unknown[],
+      failedMarkets: failed,
+    })
+  }
 
   // Cleanup: remove children from Redis so a future rerun with the same
   // batchUid isn't silently served from cache. We iterate the known idx

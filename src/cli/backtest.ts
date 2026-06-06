@@ -2,7 +2,13 @@ import '../config/env.js'
 import { getCurrentGitSha, getMachineId } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomBytes, randomUUID } from 'crypto'
-import { buildStrategyFromCliArgs, printCliArgsError } from './helpers/strategyArgs.js'
+import {
+  buildStrategyFromCliArgs,
+  buildStrategyFromConfig,
+  printCliArgsError,
+} from './helpers/strategyArgs.js'
+import { planExtension } from '../backtest/extendPlanner.js'
+import { markRunForExtendingBatch, applyExtensionToRun } from '../db/backtests.js'
 import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
@@ -195,40 +201,145 @@ async function main(): Promise<void> {
   const args = process.argv.slice(2)
   const parsed = parseArgs(args)
 
-  // Phase 1: --extend is parsed and validated against forbidden flag
-  // combinations, but the execution flow (load parent, exclude covered,
-  // enqueue extension batch, branch in aggregateProcessor) lands in
-  // Phase 2. Bail explicitly so misuse is obvious before any DB / queue
-  // side effects occur.
-  if (parsed.extend !== undefined) {
-    console.error(
-      `[backtest] --extend ${parsed.extend} is parsed but the extension flow is not yet implemented (Phase 1 of feat/backtest-extend).`,
-    )
-    process.exit(2)
-  }
+  // -----------------------------------------------------------------
+  // Extension flow — short-circuit the normal selection / strategy
+  // resolution. parent run drives strategy + params + universe; the rest
+  // of the CLI flow (BullMQ enqueue or sequential loop) continues with
+  // the planned slug set.
+  //
+  // Inheritance contract: --strategy, --param, --symbol, --timeframe,
+  // --input-mode, --read-from, --slug, --dir, --batchUid, --baselineId,
+  // and positional file paths are forbidden alongside --extend (rejected
+  // by parseArgs). --limit, --latest, --random, --from-ms, --to-ms,
+  // --comment are user-supplied selection / metadata flags that apply
+  // FRESHLY for this extension — they're NOT inherited from the parent.
+  // -----------------------------------------------------------------
+  const isExtend = parsed.extend !== undefined
+  let extensionPlan: Awaited<ReturnType<typeof planExtension>> | null = null
 
-  let batchUid = await resolveAvailableBatchUid(parsed.batchUid ?? randomUUID())
-  let cmd = buildBacktestCmdWithBatchUid(args, batchUid)
-  const built = (() => {
-    try {
-      return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
-    } catch (err) {
-      printCliArgsError({ script: 'backtest', err })
+  if (isExtend) {
+    extensionPlan = await planExtension({
+      parentRunId: parsed.extend!,
+      ...(parsed.fromMs !== undefined && { fromMs: parsed.fromMs }),
+      ...(parsed.toMs !== undefined && { toMs: parsed.toMs }),
+      ...(parsed.limit !== undefined && { limit: parsed.limit }),
+      ...(parsed.latest ? { latest: true } : {}),
+      ...(parsed.random ? { random: true } : {}),
+    })
+    if (extensionPlan.kind === 'parent-not-found') {
+      console.error(`[backtest] --extend ${parsed.extend}: run not found`)
+      await closeDb()
       process.exit(2)
     }
-  })()
+    if (extensionPlan.kind === 'parent-not-telonex') {
+      console.error(
+        `[backtest] --extend ${parsed.extend}: run is not a telonex run (input_mode=${extensionPlan.inputMode ?? 'null'}); cannot extend`,
+      )
+      await closeDb()
+      process.exit(2)
+    }
+    if (extensionPlan.kind === 'parent-missing-metadata') {
+      console.error(
+        `[backtest] --extend ${parsed.extend}: run is missing coverage metadata columns ` +
+          `(${extensionPlan.missing.join(', ')}). Run scripts/backfill-backtest-coverage-meta.ts first.`,
+      )
+      await closeDb()
+      process.exit(2)
+    }
+    if (extensionPlan.kind === 'nothing-to-extend') {
+      console.log(
+        `[backtest] --extend ${parsed.extend}: nothing to extend (no missing markets match the filter).`,
+      )
+      await closeDb()
+      process.exit(0)
+    }
+    // extensionPlan.kind === 'ok' from here
 
-  const isTelonex = parsed.inputMode !== 'recorded'
+    const plan = extensionPlan.plan
+    const pct =
+      plan.eligibleInRangeCount > 0
+        ? Math.round((plan.parentCoveredCount / plan.eligibleInRangeCount) * 1000) / 10
+        : 0
+    console.log(
+      `[backtest] Extending run #${plan.parent.id} (${plan.parent.strategy} / ${plan.parent.symbol} / ${plan.parent.timeframe} / ${plan.parent.converter} / ${plan.parent.readFrom})`,
+    )
+    console.log(
+      `[backtest] Parent covered: ${plan.parentCoveredCount} / ${plan.eligibleInRangeCount} eligible-in-range (${pct}%)`,
+    )
+    const limitTag = parsed.limit !== undefined ? ` (limited from ${plan.availableCount})` : ''
+    console.log(
+      `[backtest] Extending by ${plan.candidates.length} markets${limitTag}, ` +
+        `order=${parsed.random ? 'random' : parsed.latest ? 'newest-first' : 'oldest-first'}`,
+    )
+    const firstMs = plan.candidates[0]?.marketStartMs
+    const lastMs = plan.candidates[plan.candidates.length - 1]?.marketStartMs
+    if (firstMs !== undefined && lastMs !== undefined) {
+      console.log(
+        `[backtest] First market: ${new Date(firstMs).toISOString()}, last: ${new Date(lastMs).toISOString()}`,
+      )
+    }
+    console.log(`[backtest] New batchUid: ${plan.newBatchUid}`)
+  }
+
+  const planOk = extensionPlan && extensionPlan.kind === 'ok' ? extensionPlan.plan : null
+
+  let batchUid = isExtend
+    ? // Extension batchUid is deterministic from parent's current batchUid;
+      // planExtension already generated it, no need to resolve a free slot.
+      planOk!.newBatchUid
+    : await resolveAvailableBatchUid(parsed.batchUid ?? randomUUID())
+  let cmd = buildBacktestCmdWithBatchUid(args, batchUid)
+  const built = isExtend
+    ? (() => {
+        try {
+          return buildStrategyFromConfig({
+            strategyId: planOk!.parent.strategy,
+            rawParams: planOk!.parent.params,
+          })
+        } catch (err) {
+          printCliArgsError({ script: 'backtest', err })
+          process.exit(2)
+        }
+      })()
+    : (() => {
+        try {
+          return buildStrategyFromCliArgs({ argv: args, script: 'backtest' })
+        } catch (err) {
+          printCliArgsError({ script: 'backtest', err })
+          process.exit(2)
+        }
+      })()
+
+  // Override the effective input shape for extend so downstream code (logging,
+  // per-market loop, marketContexts builder) sees what the parent run is.
+  const effectiveInputMode = isExtend
+    ? (planOk!.parent.inputMode as 'telonex-delta' | 'telonex-paired')
+    : parsed.inputMode
+  const isTelonex = effectiveInputMode !== 'recorded'
   const converter: Converter | null = isTelonex
-    ? converterForInputMode(parsed.inputMode as 'telonex-delta' | 'telonex-paired')
+    ? isExtend
+      ? (planOk!.parent.converter as Converter)
+      : converterForInputMode(parsed.inputMode as 'telonex-delta' | 'telonex-paired')
     : null
-  const readFrom: ReadFrom | null = isTelonex ? (parsed.readFrom as ReadFrom) : null
+  const readFrom: ReadFrom | null = isTelonex
+    ? isExtend
+      ? (planOk!.parent.readFrom as ReadFrom)
+      : (parsed.readFrom as ReadFrom)
+    : null
 
   let filePaths: string[] = []
   const recordedBySlug = new Map<string, Market>()
   const telonexBySlug = new Map<string, TelonexMarket>()
 
-  if (!isTelonex) {
+  if (isExtend) {
+    // Skip the normal selection logic entirely — candidates already come
+    // from the extension planner.
+    for (const m of planOk!.candidates) {
+      if (m.dataset === null || m.dataset.trim() === '') continue
+      filePaths.push(m.dataset)
+      telonexBySlug.set(m.slug, m)
+    }
+  } else if (!isTelonex) {
     // ---- recorded flow: query `markets` table ----
     if (parsed.slugs && parsed.slugs.length > 0) {
       try {
@@ -411,10 +522,11 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  console.log(`[backtest] mode=${parsed.inputMode} files=${filePaths.length}`)
+  const effectiveTimeframe = isExtend ? planOk!.parent.timeframe : parsed.timeframe
+  console.log(`[backtest] mode=${effectiveInputMode} files=${filePaths.length}`)
   if (isTelonex) {
     console.log(
-      `[backtest] converter=${converter} readFrom=${readFrom} timeframe=${parsed.timeframe}`,
+      `[backtest] converter=${converter} readFrom=${readFrom} timeframe=${effectiveTimeframe}`,
     )
   } else {
     console.log(`[backtest] order=${parsed.order}`)
@@ -579,7 +691,7 @@ async function main(): Promise<void> {
         marketResolution: ctx.marketResolution,
         strategyId: built.strategyId,
         strategyParams: built.params as Record<string, unknown>,
-        inputMode: parsed.inputMode,
+        inputMode: effectiveInputMode,
         order: parsed.order,
         timeDriven: parsed.timeDriven,
         latency: { delayMs: latencyMs, jitterMs },
@@ -633,34 +745,54 @@ async function main(): Promise<void> {
       )
     }
 
-    // CRITICAL invariant: marketContexts iteration order == input order, so
-    // marketStats already arrives sorted. Aggregation happens here in-process.
-    const batchStats = computeBatchStats(marketStats, initialCapital)
-    const chunkedBatchStats = computeChunkedBatchStats(marketStats, initialCapital, [96, 200, 300])
+    if (isExtend) {
+      // Extension UPDATE flow: persist the new markets into the parent run
+      // and recompute stats over the UNION (existing + new). batchUid is
+      // already updated on the parent via markRunForExtendingBatch.
+      await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+      await applyExtensionToRun({
+        parentRunId: planOk!.parent.id,
+        marketStats: marketStats as unknown as unknown[],
+        failedMarkets: null,
+      })
+      console.log(
+        `\n[backtest] ===== EXTENSION APPLIED to run #${planOk!.parent.id}: +${marketStats.length} markets =====`,
+      )
+    } else {
+      // CRITICAL invariant: marketContexts iteration order == input order, so
+      // marketStats already arrives sorted. Aggregation happens here in-process.
+      const batchStats = computeBatchStats(marketStats, initialCapital)
+      const chunkedBatchStats = computeChunkedBatchStats(
+        marketStats,
+        initialCapital,
+        [96, 200, 300],
+      )
 
-    await insertBacktestRun({
-      batchUid,
-      baselineId: parsed.baselineId ?? null,
-      cmd,
-      comment: parsed.comment ?? null,
-      strategy: built.strategyId,
-      params: built.params as Record<string, unknown>,
-      symbol: parsed.symbol ?? null,
-      timeframe: parsed.timeframe ?? null,
-      inputMode: parsed.inputMode ?? null,
-      converter: converter ?? null,
-      readFrom: readFrom ?? null,
-      slugs: parsed.slugs ?? null,
-      limit: parsed.limit ?? null,
-      random: parsed.random ?? false,
-      latest: parsed.latest ?? false,
-      batchStats,
-      chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
-      marketStats: marketStats as unknown as unknown[],
-    })
+      await insertBacktestRun({
+        batchUid,
+        baselineId: parsed.baselineId ?? null,
+        cmd,
+        comment: parsed.comment ?? null,
+        strategy: built.strategyId,
+        params: built.params as Record<string, unknown>,
+        symbol: parsed.symbol ?? null,
+        timeframe: parsed.timeframe ?? null,
+        inputMode: parsed.inputMode ?? null,
+        converter: converter ?? null,
+        readFrom: readFrom ?? null,
+        slugs: parsed.slugs ?? null,
+        limit: parsed.limit ?? null,
+        random: parsed.random ?? false,
+        latest: parsed.latest ?? false,
+        batchStats,
+        chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+        marketStats: marketStats as unknown as unknown[],
+      })
 
-    console.log('\n[backtest] ===== BATCH STATS =====')
-    console.log(JSON.stringify(batchStats, null, 2))
+      console.log('\n[backtest] ===== BATCH STATS =====')
+      console.log(JSON.stringify(batchStats, null, 2))
+    }
+
     console.log('\n[backtest] orderbook summary', {
       events,
       byType: Object.fromEntries([...byType.entries()].sort((a, b) => a[0].localeCompare(b[0]))),
@@ -691,11 +823,23 @@ async function main(): Promise<void> {
   }
 
   const aggregateQueue = getAggregateQueue()
-  batchUid = await resolveAvailableBatchUid(batchUid, {
-    redisHasAggregateJob: async (candidate) =>
-      (await aggregateQueue.getJob(aggregateJobId(candidate))) !== undefined,
-  })
+  if (!isExtend) {
+    // Skip resolveAvailableBatchUid for extends — newBatchUid is deterministic
+    // and we want a hard failure if it somehow collides (would indicate a bug
+    // in generateExtensionBatchUid or simultaneous extends of same run).
+    batchUid = await resolveAvailableBatchUid(batchUid, {
+      redisHasAggregateJob: async (candidate) =>
+        (await aggregateQueue.getJob(aggregateJobId(candidate))) !== undefined,
+    })
+  }
   cmd = buildBacktestCmdWithBatchUid(args, batchUid)
+
+  if (isExtend) {
+    // Eagerly UPDATE backtest_runs.batch_uid AND .cmd before the BullMQ flow
+    // enqueues. Dashboard lookups by batchUid then find the parent run
+    // immediately during processing — not just on completion.
+    await markRunForExtendingBatch(planOk!.parent.id, batchUid, cmd)
+  }
 
   const flow = getFlowProducer()
   const aggData: AggregateJobData = {
@@ -708,9 +852,9 @@ async function main(): Promise<void> {
       comment: parsed.comment ?? null,
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
-      symbol: parsed.symbol ?? null,
-      timeframe: parsed.timeframe ?? null,
-      inputMode: parsed.inputMode ?? null,
+      symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),
+      timeframe: isExtend ? planOk!.parent.timeframe : (parsed.timeframe ?? null),
+      inputMode: effectiveInputMode ?? null,
       converter: converter ?? null,
       readFrom: readFrom ?? null,
       slugs: parsed.slugs ?? null,
@@ -718,6 +862,7 @@ async function main(): Promise<void> {
       random: parsed.random ?? false,
       latest: parsed.latest ?? false,
     },
+    ...(isExtend ? { extension: { parentRunId: planOk!.parent.id } } : {}),
   }
 
   const children = marketContexts.map((ctx) => {
@@ -730,7 +875,7 @@ async function main(): Promise<void> {
       marketResolution: ctx.marketResolution,
       strategyId: built.strategyId,
       strategyParams: built.params as Record<string, unknown>,
-      inputMode: parsed.inputMode,
+      inputMode: effectiveInputMode,
       order: parsed.order,
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },

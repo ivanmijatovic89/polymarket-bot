@@ -1,5 +1,6 @@
 import { asc, eq } from 'drizzle-orm'
-import type { BatchStats } from '../backtest/stats/batchStats.js'
+import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
+import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
 import { getDb } from './index.js'
 import { backtestRunFailures, backtestRunMarkets, backtestRuns } from './schema.js'
@@ -410,4 +411,315 @@ async function hydrateBacktestRun(
     })),
     createdAt: run.createdAt,
   }
+}
+
+// ---------------------------------------------------------------------------
+// Extension helpers (PR: feat/backtest-extend)
+//
+// These centralise reads/writes that the extension flow needs so neither the
+// CLI planner nor the aggregateProcessor reaches into `backtest_run_markets`
+// or recomputes stats inline. Single source of truth.
+// ---------------------------------------------------------------------------
+
+/**
+ * Return the set of slugs already covered by `runId`. Used by the extension
+ * planner to compute the missing universe (eligible \ covered) and by
+ * `applyExtensionToRun` to determine the next free `idx`.
+ *
+ * Index: `idx_backtest_run_markets_run_slug` makes this a covering-index
+ * lookup — sub-millisecond even at 200k+ rows per run.
+ */
+export async function getCoveredSlugsForRun(runId: number): Promise<Set<string>> {
+  const db = mustGetDb()
+  const rows = await db
+    .select({ slug: backtestRunMarkets.slug })
+    .from(backtestRunMarkets)
+    .where(eq(backtestRunMarkets.runId, runId))
+  return new Set(rows.map((r) => r.slug))
+}
+
+/** Subset of `backtest_runs` columns needed to plan an extension. */
+export type ExtensibleRun = {
+  id: number
+  batchUid: string
+  strategy: string
+  params: Record<string, unknown>
+  symbol: string
+  timeframe: string
+  inputMode: string
+  converter: string
+  readFrom: string
+  capitalInitial: number
+  comment: string | null
+}
+
+/**
+ * Loads the minimum columns the extension planner needs from
+ * `backtest_runs`. Returns null if the run isn't found or is missing the
+ * coverage metadata (e.g. a legacy `recorded` run, or a pre-PR#30 row that
+ * wasn't backfilled). Errors are intentionally specific so the CLI can
+ * surface clear guidance.
+ */
+export async function getRunForExtension(
+  runId: number,
+): Promise<
+  | { kind: 'ok'; run: ExtensibleRun }
+  | { kind: 'not-found' }
+  | { kind: 'not-telonex'; inputMode: string | null }
+  | { kind: 'missing-metadata'; missing: string[] }
+> {
+  const db = mustGetDb()
+  const [row] = await db
+    .select({
+      id: backtestRuns.id,
+      batchUid: backtestRuns.batchUid,
+      strategy: backtestRuns.strategy,
+      params: backtestRuns.params,
+      symbol: backtestRuns.symbol,
+      timeframe: backtestRuns.timeframe,
+      inputMode: backtestRuns.inputMode,
+      converter: backtestRuns.converter,
+      readFrom: backtestRuns.readFrom,
+      capitalInitial: backtestRuns.capitalInitial,
+      comment: backtestRuns.comment,
+    })
+    .from(backtestRuns)
+    .where(eq(backtestRuns.id, runId))
+    .limit(1)
+
+  if (!row) return { kind: 'not-found' }
+  if (row.inputMode === null || row.inputMode === 'recorded') {
+    return { kind: 'not-telonex', inputMode: row.inputMode }
+  }
+  const missing: string[] = []
+  if (!row.symbol) missing.push('symbol')
+  if (!row.timeframe) missing.push('timeframe')
+  if (!row.converter) missing.push('converter')
+  if (!row.readFrom) missing.push('read_from')
+  if (missing.length > 0) return { kind: 'missing-metadata', missing }
+
+  return {
+    kind: 'ok',
+    run: {
+      id: row.id,
+      batchUid: row.batchUid,
+      strategy: row.strategy,
+      params: parseJsonValue<Record<string, unknown>>(row.params),
+      symbol: row.symbol!,
+      timeframe: row.timeframe!,
+      inputMode: row.inputMode,
+      converter: row.converter!,
+      readFrom: row.readFrom!,
+      capitalInitial: parseDecimal(row.capitalInitial),
+      comment: row.comment,
+    },
+  }
+}
+
+/**
+ * Update the run's `batch_uid` and `cmd` eagerly when an extension flow is
+ * enqueued. Updating before BullMQ enqueue means the dashboard's
+ * `/batches/<batchUid>` lookup immediately finds the parent run by the new
+ * batchUid, instead of 404-ing during processing.
+ *
+ * Note: this OVERWRITES the original cmd. Per the design discussion, the
+ * extension cmd takes over — we don't keep an audit trail in this iteration.
+ */
+export async function markRunForExtendingBatch(
+  runId: number,
+  newBatchUid: string,
+  newCmd: string,
+): Promise<void> {
+  const db = mustGetDb()
+  await db
+    .update(backtestRuns)
+    .set({ batchUid: newBatchUid, cmd: newCmd })
+    .where(eq(backtestRuns.id, runId))
+}
+
+/**
+ * Merge an extension batch's results into the parent run. Inserts the new
+ * per-market rows (continuing `idx` from `max(idx)+1`), inserts new failures,
+ * recomputes `batch_stats` and `chunked_batch_stats` over the UNION of
+ * existing + new markets, and UPDATEs `backtest_runs` with the new derived
+ * columns. All of this happens in a single DB transaction so the run's row
+ * never represents a half-applied extension.
+ *
+ * `cmd` and `batch_uid` are NOT touched here — they were already updated by
+ * `markRunForExtendingBatch` at enqueue time.
+ */
+export async function applyExtensionToRun(opts: {
+  parentRunId: number
+  marketStats: unknown[]
+  failedMarkets?: BacktestFailureRecord[] | null
+  chunkedWindows?: number[]
+}): Promise<void> {
+  const db = mustGetDb()
+  const newMarketStats = coerceMarketStats(opts.marketStats)
+  const newFailures = opts.failedMarkets ?? []
+  const chunkedWindows = opts.chunkedWindows ?? [96, 200, 300]
+
+  await db.transaction(async (tx) => {
+    // Load parent + existing markets. SELECT FOR UPDATE locks the parent row
+    // for the duration of the transaction so two concurrent extensions can't
+    // race the UPDATE-stats step. MySQL escalates to row lock automatically
+    // for primary key lookups.
+    const [parent] = await tx
+      .select({
+        id: backtestRuns.id,
+        capitalInitial: backtestRuns.capitalInitial,
+        failuresCount: backtestRuns.failuresCount,
+      })
+      .from(backtestRuns)
+      .where(eq(backtestRuns.id, opts.parentRunId))
+      .for('update')
+      .limit(1)
+    if (!parent) {
+      throw new Error(`[db/backtests] applyExtensionToRun: run #${opts.parentRunId} not found`)
+    }
+
+    const existingRows = await tx
+      .select()
+      .from(backtestRunMarkets)
+      .where(eq(backtestRunMarkets.runId, opts.parentRunId))
+      .orderBy(asc(backtestRunMarkets.idx))
+
+    const existingStats: MarketStats[] = existingRows.map((m) => {
+      const execution: MarketExecutionMeta | undefined =
+        m.machineId !== null &&
+        m.startedAtMs !== null &&
+        m.finishedAtMs !== null &&
+        m.durationMs !== null &&
+        m.eventsProcessed !== null
+          ? {
+              machineId: m.machineId,
+              startedAtMs: m.startedAtMs,
+              finishedAtMs: m.finishedAtMs,
+              durationMs: m.durationMs,
+              eventsProcessed: m.eventsProcessed,
+              eventsByType: parseJsonValue<Record<string, number>>(m.eventsByType ?? {}),
+              commitSha: m.commitSha ?? '',
+            }
+          : undefined
+      return {
+        marketId: m.marketId,
+        slug: m.slug,
+        finalOutcome: m.finalOutcome,
+        pnl: parseDecimal(m.pnl),
+        tradeCount: m.tradeCount,
+        tradeAsMaker: m.tradeAsMaker,
+        tradeAsTaker: m.tradeAsTaker,
+        feesPaid: parseDecimal(m.feesPaid),
+        avgEntryPriceUp: m.avgEntryPriceUp === null ? null : parseDecimal(m.avgEntryPriceUp),
+        avgEntryPriceDown: m.avgEntryPriceDown === null ? null : parseDecimal(m.avgEntryPriceDown),
+        upShares: parseDecimal(m.upShares),
+        downShares: parseDecimal(m.downShares),
+        mergableShares: parseDecimal(m.mergableShares),
+        cost: parseDecimal(m.cost),
+        splitCost: parseDecimal(m.splitCost),
+        intentMeta: parseJsonValue<Array<Record<string, unknown>>>(m.intentMeta),
+        ...(m.skipReason ? { skipReason: m.skipReason } : {}),
+        ...(execution ? { execution } : {}),
+      }
+    })
+
+    // Insert new market rows with idx continuing from existing max.
+    const nextIdx = existingRows.length > 0 ? existingRows[existingRows.length - 1]!.idx + 1 : 0
+    for (let start = 0; start < newMarketStats.length; start += MARKET_INSERT_BATCH_SIZE) {
+      const chunk = newMarketStats.slice(start, start + MARKET_INSERT_BATCH_SIZE)
+      await tx.insert(backtestRunMarkets).values(
+        chunk.map((m, offset) => ({
+          runId: opts.parentRunId,
+          idx: nextIdx + start + offset,
+          marketId: m.marketId,
+          slug: m.slug,
+          finalOutcome: m.finalOutcome,
+          skipReason: m.skipReason ?? null,
+          pnl: toDecimal(m.pnl),
+          tradeCount: m.tradeCount,
+          tradeAsMaker: m.tradeAsMaker,
+          tradeAsTaker: m.tradeAsTaker,
+          feesPaid: toDecimal(m.feesPaid),
+          avgEntryPriceUp: m.avgEntryPriceUp === null ? null : toDecimal(m.avgEntryPriceUp),
+          avgEntryPriceDown: m.avgEntryPriceDown === null ? null : toDecimal(m.avgEntryPriceDown),
+          upShares: toDecimal(m.upShares),
+          downShares: toDecimal(m.downShares),
+          mergableShares: toDecimal(m.mergableShares),
+          cost: toDecimal(m.cost),
+          splitCost: toDecimal(m.splitCost),
+          intentMeta: m.intentMeta,
+          machineId: m.execution?.machineId ?? null,
+          startedAtMs: m.execution?.startedAtMs ?? null,
+          finishedAtMs: m.execution?.finishedAtMs ?? null,
+          durationMs: m.execution?.durationMs ?? null,
+          eventsProcessed: m.execution?.eventsProcessed ?? null,
+          eventsByType: m.execution?.eventsByType ?? null,
+          commitSha: m.execution?.commitSha ?? null,
+        })),
+      )
+    }
+
+    // Insert new failures.
+    if (newFailures.length > 0) {
+      await tx.insert(backtestRunFailures).values(
+        newFailures.map((f) => ({
+          runId: opts.parentRunId,
+          jobId: f.jobId ?? null,
+          idx: f.idx,
+          slug: f.slug,
+          reason: f.reason,
+        })),
+      )
+    }
+
+    // Recompute stats over the UNION. `computeChunkedBatchStats` sorts by
+    // slugTs internally, so the order of `existingStats ++ newMarketStats`
+    // doesn't matter — chronological windows are correct regardless of
+    // append order.
+    const allMarkets = [...existingStats, ...newMarketStats]
+    const capitalInitial = parseDecimal(parent.capitalInitial)
+    const batchStats = computeBatchStats(allMarkets, capitalInitial)
+    const chunkedBatchStats = computeChunkedBatchStats(allMarkets, capitalInitial, chunkedWindows)
+    const totalFailures = parent.failuresCount + newFailures.length
+    const status = runStatus(allMarkets.length, totalFailures)
+
+    await tx
+      .update(backtestRuns)
+      .set({
+        status,
+        marketsPersisted: allMarkets.length,
+        failuresCount: totalFailures,
+        capitalFinal: toDecimal(batchStats.capitalFinal),
+        pnlTotal: toDecimal(batchStats.pnlTotal),
+        totalFeesPaid: toDecimal(batchStats.totalFeesPaid),
+        qualitySystem:
+          batchStats.qualitySystem === null ? null : toDecimal(batchStats.qualitySystem),
+        qualityTrade: batchStats.qualityTrade === null ? null : toDecimal(batchStats.qualityTrade),
+        evPerMarketPlayed: toDecimal(batchStats.evPerMarketPlayed),
+        evPerMarketTotal: toDecimal(batchStats.evPerMarketTotal),
+        marketsTotal: batchStats.marketsTotal,
+        marketsSkipped: batchStats.marketsSkipped,
+        marketsNoInWindowActivity: batchStats.marketsNoInWindowActivity,
+        marketsFlatWithTrades: batchStats.marketsFlatWithTrades,
+        marketsPlayed: batchStats.marketsPlayed,
+        marketsWon: batchStats.marketsWon,
+        marketsLost: batchStats.marketsLost,
+        winRate: toDecimal(batchStats.winRate),
+        winRatePct: toDecimal(batchStats.winRatePct),
+        tradesTotal: batchStats.tradesTotal,
+        tradesMaker: batchStats.tradesMaker,
+        tradesTaker: batchStats.tradesTaker,
+        pnlAvgWin: toDecimal(batchStats.pnlAvgWin),
+        pnlAvgLose: toDecimal(batchStats.pnlAvgLose),
+        pnlMaxWin: toDecimal(batchStats.pnlMaxWin),
+        pnlMaxLose: toDecimal(batchStats.pnlMaxLose),
+        streakMaxWin: batchStats.streakMaxWin,
+        streakMaxLose: batchStats.streakMaxLose,
+        streakMaxWinPnl: toDecimal(batchStats.streakMaxWinPnl),
+        streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
+        streakMaxSkipped: batchStats.streakMaxSkipped,
+        chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+      })
+      .where(eq(backtestRuns.id, opts.parentRunId))
+  })
 }
