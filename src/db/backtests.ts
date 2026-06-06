@@ -714,13 +714,19 @@ export async function applyExtensionToRun(opts: {
       )
     }
 
-    // Insert new failures.
+    // Insert new failures. Offset the local child idx (0..N-1 within the
+    // extension batch) by `nextIdx` so the failure row's `idx` matches the
+    // GLOBAL position within the parent run — same offset used for
+    // successful market rows above. Without this, an extension child failing
+    // at local idx=3 would write idx=3, colliding with the parent's
+    // original idx=3 failure (if any) and pointing the dashboard at the
+    // wrong run position.
     if (newFailures.length > 0) {
       await tx.insert(backtestRunFailures).values(
         newFailures.map((f) => ({
           runId: opts.parentRunId,
           jobId: f.jobId ?? null,
-          idx: f.idx,
+          idx: f.idx === null ? null : nextIdx + f.idx,
           slug: f.slug,
           reason: f.reason,
         })),

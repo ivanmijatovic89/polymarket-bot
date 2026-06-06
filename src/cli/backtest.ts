@@ -476,6 +476,11 @@ async function main(): Promise<void> {
           ...(parsed.limit !== undefined && { limit: parsed.limit }),
           ...(parsed.random ? { random: true } : {}),
           ...(parsed.latest ? { latest: true } : {}),
+          // --from-ms / --to-ms apply to fresh telonex selection the same
+          // way they apply to the extension planner. Previously these were
+          // parsed but silently ignored on the fresh path.
+          ...(parsed.fromMs !== undefined && { fromMs: parsed.fromMs }),
+          ...(parsed.toMs !== undefined && { toMs: parsed.toMs }),
         })
         const withDataset = results.filter((m) => m.dataset !== null && m.dataset.trim() !== '')
         const missingDataset = results.length - withDataset.length
@@ -936,20 +941,33 @@ async function main(): Promise<void> {
     `[backtest] enqueueing flow batchUid=${batchUid} totalMarkets=${totalMarkets} commitSha=${producerCommitSha.slice(0, 8) || 'unknown'}`,
   )
 
-  const node = await flow.add({
-    name: 'aggregate-batch',
-    queueName: AGGREGATE_QUEUE,
-    data: aggData,
-    children,
-    opts: {
-      ...AGGREGATE_JOB_OPTS,
-      jobId: aggregateJobId(batchUid),
-      // If a child exhausts retries, still run the aggregator with the rest
-      // (the aggregator records exhausted children into backtest_run_failures).
-      // BullMQ option name as of v5: `ignoreDependencyOnFailure`.
-      ignoreDependencyOnFailure: true,
-    },
-  })
+  let node: Awaited<ReturnType<typeof flow.add>>
+  try {
+    node = await flow.add({
+      name: 'aggregate-batch',
+      queueName: AGGREGATE_QUEUE,
+      data: aggData,
+      children,
+      opts: {
+        ...AGGREGATE_JOB_OPTS,
+        jobId: aggregateJobId(batchUid),
+        // If a child exhausts retries, still run the aggregator with the rest
+        // (the aggregator records exhausted children into backtest_run_failures).
+        // BullMQ option name as of v5: `ignoreDependencyOnFailure`.
+        ignoreDependencyOnFailure: true,
+      },
+    })
+  } catch (err) {
+    // BullMQ / Redis enqueue failed AFTER markRunForExtendingBatch took the
+    // lock. If we leave `extending_at` set, future --extend calls on this run
+    // are blocked until manual SQL recovery. Release the lock so a retry is
+    // possible. Do NOT release on success — the aggregateProcessor clears it
+    // in the same transaction as the merge UPDATE.
+    if (isExtend) {
+      await clearExtensionLock(planOk!.parent.id).catch(() => {})
+    }
+    throw err
+  }
 
   console.log(`[backtest] enqueued: aggregate jobId=${node.job.id ?? aggregateJobId(batchUid)}`)
 
