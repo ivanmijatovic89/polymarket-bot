@@ -1,6 +1,6 @@
 import { and, asc, eq, sql } from 'drizzle-orm'
 import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
-import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
+import { computeChunkedBatchStats, slugTs } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
 import { getDb } from './index.js'
 import { backtestRunFailures, backtestRunMarkets, backtestRuns, telonexMarkets } from './schema.js'
@@ -732,11 +732,15 @@ export async function applyExtensionToRun(opts: {
       )
     }
 
-    // Recompute stats over the UNION. `computeChunkedBatchStats` sorts by
-    // slugTs internally, so the order of `existingStats ++ newMarketStats`
-    // doesn't matter — chronological windows are correct regardless of
-    // append order.
-    const allMarkets = [...existingStats, ...newMarketStats]
+    // Recompute stats over the UNION. `computeBatchStats` is order-sensitive
+    // (streak fields reduce in array order), so we MUST present markets in
+    // chronological order — otherwise a backward extension (newMarketStats
+    // older than existing) would yield different streaks than an equivalent
+    // fresh full run over the same set. `computeChunkedBatchStats` re-sorts
+    // by slugTs internally; sorting here harmonizes both.
+    const allMarkets = [...existingStats, ...newMarketStats].sort(
+      (a, b) => slugTs(a.slug) - slugTs(b.slug),
+    )
     const capitalInitial = parseDecimal(parent.capitalInitial)
     const batchStats = computeBatchStats(allMarkets, capitalInitial)
     const chunkedBatchStats = computeChunkedBatchStats(allMarkets, capitalInitial, chunkedWindows)

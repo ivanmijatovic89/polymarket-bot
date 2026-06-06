@@ -31,7 +31,12 @@ export type ChunkedBatchStats = {
 
 const VERSION = 4
 
-function slugTs(slug: string): number {
+/**
+ * Extracts the epoch suffix from a Polymarket 15m slug
+ * (`<symbol>-updown-15m-<epochStart>`). Used to chronologically sort markets
+ * for streak-sensitive stats computation (computeBatchStats is order-aware).
+ */
+export function slugTs(slug: string): number {
   return Number(slug.split('-').pop())
 }
 
