@@ -34,6 +34,7 @@ export type BacktestRunRecord = {
   symbol: string | null
   slugs: string[] | null
   limit: number | null
+  inputMarketsTotal?: number | null
   random: boolean
   latest: boolean
   baselineId: string | null
@@ -99,6 +100,7 @@ type InsertBacktestRunRow = {
   readFrom: string | null
   slugs: string[] | null
   limit: number | null
+  inputMarketsTotal?: number | null
   random: boolean
   latest: boolean
   batchStats: BatchStats
@@ -220,7 +222,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         limit: row.limit,
         random: row.random,
         latest: row.latest,
-        inputMarketsTotal: row.limit ?? row.slugs?.length ?? null,
+        inputMarketsTotal: row.inputMarketsTotal ?? row.limit ?? row.slugs?.length ?? null,
         marketsPersisted: marketStats.length,
         failuresCount: failedMarkets.length,
         capitalInitial: toDecimal(batchStats.capitalInitial),
@@ -398,6 +400,7 @@ async function hydrateBacktestRun(
     symbol: run.symbol,
     slugs: parseJsonValue<string[] | null>(run.slugs),
     limit: run.limit,
+    inputMarketsTotal: run.inputMarketsTotal,
     random: run.random,
     latest: run.latest,
     baselineId: run.baselineId,

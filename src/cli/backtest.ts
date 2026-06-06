@@ -41,6 +41,7 @@ import {
 } from '../backtest/queue.js'
 import {
   aggregateJobId,
+  AGGREGATE_JOB_PROTOCOL_VERSION,
   marketJobId,
   type AggregateJobData,
   type FailedMarketRecord,
@@ -74,6 +75,19 @@ function formatDurationHuman(ms: number): string {
   const minutes = Math.floor(totalSeconds / 60)
   const seconds = totalSeconds % 60
   return `${minutes}min ${seconds} sec`
+}
+
+function nullMarketStatsReason(skipReason: string | undefined): string {
+  if (skipReason === 'unresolved_outcome') {
+    return 'unresolved_outcome: market has no final outcome/result_id, so PnL cannot be computed'
+  }
+  if (skipReason === 'no_resolution') {
+    return 'no_resolution: market token map or resolution data was unavailable'
+  }
+  if (skipReason === 'no_slug') {
+    return 'no_slug: could not parse market slug from input file path'
+  }
+  return `no_market_stats: ${skipReason ?? 'unknown_reason'}`
 }
 
 function converterForInputMode(inputMode: 'telonex-delta' | 'telonex-paired'): Converter {
@@ -778,15 +792,36 @@ async function main(): Promise<void> {
             )
           }
         } else if (result.skipReason === 'no_slug') {
+          failed.push({
+            idx: result.idx,
+            slug: result.slug,
+            reason: nullMarketStatsReason(result.skipReason),
+          })
           console.warn(
             `[backtest] Could not parse slug from filename: ${ctx.filePath}, skipping stats`,
           )
         } else if (result.skipReason === 'no_resolution') {
+          failed.push({
+            idx: result.idx,
+            slug: result.slug,
+            reason: nullMarketStatsReason(result.skipReason),
+          })
           console.warn(
             `[backtest] Could not get market resolution for slug: ${ctx.slug}, skipping stats`,
           )
         } else if (result.skipReason === 'unresolved_outcome') {
+          failed.push({
+            idx: result.idx,
+            slug: result.slug,
+            reason: nullMarketStatsReason(result.skipReason),
+          })
           console.warn(`[backtest] Market not resolved yet for slug: ${ctx.slug}, skipping stats`)
+        } else if (!result.marketStats) {
+          failed.push({
+            idx: result.idx,
+            slug: result.slug,
+            reason: nullMarketStatsReason(result.skipReason),
+          })
         }
 
         const marketElapsedMs = Date.now() - marketStartMs
@@ -855,6 +890,7 @@ async function main(): Promise<void> {
         readFrom: readFrom ?? null,
         slugs: parsed.slugs ?? null,
         limit: parsed.limit ?? null,
+        inputMarketsTotal: totalMarkets,
         random: parsed.random ?? false,
         latest: parsed.latest ?? false,
         batchStats,
@@ -929,7 +965,9 @@ async function main(): Promise<void> {
   const flow = getFlowProducer()
   const aggData: AggregateJobData = {
     batchUid,
+    protocolVersion: AGGREGATE_JOB_PROTOCOL_VERSION,
     totalMarkets,
+    expectedMarkets: marketContexts.map((ctx) => ({ idx: ctx.idx, slug: ctx.slug })),
     initialCapital,
     insertMeta: {
       baselineId: parsed.baselineId ?? null,

@@ -32,12 +32,16 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 2
+
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
  */
 export type AggregateJobData = {
   batchUid: string
+  protocolVersion: number
   totalMarkets: number
+  expectedMarkets: Array<{ idx: number; slug: string | null }>
   initialCapital: number
   insertMeta: {
     baselineId: string | null

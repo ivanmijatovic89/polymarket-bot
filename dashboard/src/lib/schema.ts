@@ -130,14 +130,15 @@ export const backtestRunMarkets = mysqlTable(
 
 // Minimal mirror of the bot's telonex catalog tables — coverage queries
 // read these directly. Source of truth: src/db/schema.ts (telonexMarkets,
-// telonexMarketConversions). Keep eligibility filter logic mirroring
-// src/db/telonexMarkets.ts:buildEligibleWhere.
+// telonexMarketConversions). Keep only the columns needed by dashboard queries.
 export const telonexMarkets = mysqlTable('telonex_markets', {
   id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
   slug: varchar('slug', { length: 100 }).notNull(),
   symbol: varchar('symbol', { length: 10 }).notNull(),
   timeframe: varchar('timeframe', { length: 16 }).notNull(),
   marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
+  resultId: varchar('result_id', { length: 10 }),
+  telonexStatus: varchar('telonex_status', { length: 20 }),
 })
 
 export const telonexMarketConversions = mysqlTable('telonex_market_conversions', {

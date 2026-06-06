@@ -16,6 +16,7 @@ export type BacktestSummary = {
   strategy?: string
   symbol?: string | null
   limit?: number | null
+  inputMarketsTotal?: number | null
   marketsTotal: number
   marketsPlayed: number
   marketsSkipped: number
@@ -103,6 +104,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
     const Trend = pnlNum >= 0 ? TrendingUp : TrendingDown
     const qS = b.qualitySystem
     const qT = b.qualityTrade
+    const selectedMarketsTotal = b.inputMarketsTotal ?? b.marketsTotal
     const quality =
       qS === null && qT === null
         ? '—'
@@ -132,9 +134,17 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {b.marketsPlayed}
-          <span className="text-muted-foreground">/{b.marketsTotal}</span>
+          <span className="text-muted-foreground">/{selectedMarketsTotal}</span>
           {b.marketsSkipped > 0 && (
             <span className="ml-1 text-[11px] text-muted-foreground">· {b.marketsSkipped} skip</span>
+          )}
+          {selectedMarketsTotal > b.marketsTotal && (
+            <span className="ml-1 text-[11px] text-destructive">
+              ·{' '}
+              {b.failuresCount && b.failuresCount > 0
+                ? `${b.failuresCount} failed`
+                : `${selectedMarketsTotal - b.marketsTotal} not persisted`}
+            </span>
           )}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">

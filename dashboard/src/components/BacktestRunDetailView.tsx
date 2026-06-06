@@ -60,6 +60,7 @@ type RunDetail = {
   pnlMaxLose: number
   evPerMarketPlayed: number
   evPerMarketTotal: number
+  inputMarketsTotal: number | null
   marketsTotal: number
   marketsPlayed: number
   marketsSkipped: number
@@ -202,6 +203,8 @@ export function BacktestRunDetailView({ id }: { id: number }) {
 
   const marketStats = b.marketStats ?? []
   const failed = b.failedMarkets ?? []
+  const selectedMarketsTotal = b.inputMarketsTotal ?? b.marketsTotal
+  const missingAuditCount = Math.max(0, selectedMarketsTotal - marketStats.length - failed.length)
   const hasQuality = b.qualitySystem !== null || b.qualityTrade !== null
 
   return (
@@ -340,7 +343,7 @@ export function BacktestRunDetailView({ id }: { id: number }) {
           <StatCard
             label="Markets played"
             value={String(b.marketsPlayed)}
-            hint={`of ${b.marketsTotal}`}
+            hint={`of ${selectedMarketsTotal}`}
             icon={Hash}
           />
           <StatCard
@@ -397,12 +400,19 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       )}
 
       {/* Failures inline warning */}
-      {b.failuresCount > 0 && (
+      {(b.failuresCount > 0 || missingAuditCount > 0) && (
         <Card className="border-destructive/30 bg-destructive/5 px-4 py-3">
           <div className="flex items-center gap-2 text-xs text-destructive">
             <AlertTriangle className="h-4 w-4" />
-            <span className="font-medium">{b.failuresCount} failed markets</span>
-            <span className="text-muted-foreground">— see Failed markets section below.</span>
+            <span className="font-medium">
+              {b.failuresCount > 0
+                ? `${b.failuresCount} failed markets`
+                : `${missingAuditCount} markets missing audit rows`}
+            </span>
+            <span className="text-muted-foreground">
+              — selected {selectedMarketsTotal}, persisted {marketStats.length}
+              {b.failuresCount > 0 ? '; see Failed markets section below.' : '.'}
+            </span>
           </div>
         </Card>
       )}
@@ -554,7 +564,7 @@ export function BacktestRunDetailView({ id }: { id: number }) {
         <section>
           <SectionHeading
             title="Failed markets"
-            subtitle={`${failed.length} markets exhausted retries`}
+            subtitle={`${failed.length} markets did not produce persisted market stats`}
             icon={AlertTriangle}
           />
           <Card className="overflow-hidden">
