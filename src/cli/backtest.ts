@@ -263,7 +263,7 @@ async function main(): Promise<void> {
     }
     if (extensionPlan.kind === 'nothing-to-extend') {
       console.log(
-        `[backtest] --extend ${parsed.extend}: nothing to extend (no missing markets match the filter).`,
+        `[backtest] --extend ${parsed.extend}: nothing to extend (direction=${extensionPlan.direction}). ${extensionPlan.hint}`,
       )
       await closeDb()
       process.exit(0)
@@ -272,20 +272,20 @@ async function main(): Promise<void> {
 
     const plan = extensionPlan.plan
     const pct =
-      plan.eligibleInRangeCount > 0
-        ? Math.round((plan.parentCoveredCount / plan.eligibleInRangeCount) * 1000) / 10
+      plan.eligibleTotal > 0
+        ? Math.round((plan.parentCoveredCount / plan.eligibleTotal) * 1000) / 10
         : 0
     console.log(
       `[backtest] Extending run #${plan.parent.id} (${plan.parent.strategy} / ${plan.parent.symbol} / ${plan.parent.timeframe} / ${plan.parent.converter} / ${plan.parent.readFrom})`,
     )
     console.log(
-      `[backtest] Parent covered: ${plan.parentCoveredCount} / ${plan.eligibleInRangeCount} eligible-in-range (${pct}%)`,
+      `[backtest] Parent covered: ${plan.parentCoveredCount} / ${plan.eligibleTotal} eligible (${pct}%)`,
     )
     const limitTag = parsed.limit !== undefined ? ` (limited from ${plan.availableCount})` : ''
     console.log(
-      `[backtest] Extending by ${plan.candidates.length} markets${limitTag}, ` +
-        `order=${parsed.random ? 'random' : parsed.latest ? 'newest-first' : 'oldest-first'}`,
+      `[backtest] Direction: ${plan.direction}${plan.direction === 'backward' ? ' (just before covered)' : plan.direction === 'forward' ? ' (just after covered)' : ''}`,
     )
+    console.log(`[backtest] Extending by ${plan.candidates.length} markets${limitTag}`)
     const firstMs = plan.candidates[0]?.marketStartMs
     const lastMs = plan.candidates[plan.candidates.length - 1]?.marketStartMs
     if (firstMs !== undefined && lastMs !== undefined) {

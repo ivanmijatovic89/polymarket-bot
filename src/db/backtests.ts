@@ -3,7 +3,7 @@ import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats
 import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
 import { getDb } from './index.js'
-import { backtestRunFailures, backtestRunMarkets, backtestRuns } from './schema.js'
+import { backtestRunFailures, backtestRunMarkets, backtestRuns, telonexMarkets } from './schema.js'
 
 function mustGetDb(): ReturnType<typeof getDb> {
   const db = getDb()
@@ -436,6 +436,32 @@ export async function getCoveredSlugsForRun(runId: number): Promise<Set<string>>
     .from(backtestRunMarkets)
     .where(eq(backtestRunMarkets.runId, runId))
   return new Set(rows.map((r) => r.slug))
+}
+
+/**
+ * Returns `{ minMs, maxMs }` for the parent run's covered slug set, joined
+ * against `telonex_markets.market_start_ms`. Used by the extension planner
+ * to anchor the auto-direction filter ("just before covered" /
+ * "just after covered"). Returns nulls if covered is empty.
+ *
+ * One join, indexed both sides (`run_id` on `backtest_run_markets`,
+ * `slug` on `telonex_markets`).
+ */
+export async function getCoveredRangeForRun(
+  runId: number,
+): Promise<{ minMs: number | null; maxMs: number | null }> {
+  const db = mustGetDb()
+  const rows = await db
+    .select({
+      minMs: sql<number | null>`MIN(${telonexMarkets.marketStartMs})`,
+      maxMs: sql<number | null>`MAX(${telonexMarkets.marketStartMs})`,
+    })
+    .from(backtestRunMarkets)
+    .innerJoin(telonexMarkets, eq(telonexMarkets.slug, backtestRunMarkets.slug))
+    .where(eq(backtestRunMarkets.runId, runId))
+  const row = rows[0]
+  if (!row || row.minMs === null) return { minMs: null, maxMs: null }
+  return { minMs: Number(row.minMs), maxMs: Number(row.maxMs) }
 }
 
 /** Subset of `backtest_runs` columns needed to plan an extension. */

@@ -41,68 +41,93 @@ inherited from the parent. You don't (and can't) pass them again.
 ## Adding fewer markets at a time
 
 You don't have to extend to "all". Pass `--limit` to cap the chunk. The
-direction is set by whether you also pass `--latest`:
+**direction** of the extension — whether it grows the run backward in
+time (older markets) or forward (newer ones) — is set by whether you
+pass `--latest`:
 
-- **default (no `--latest`)** → take the **oldest** uncovered markets first
-- **`--latest`** → take the **newest** uncovered markets first
+- **default (no `--latest`)** → extend **backward** from covered. Takes
+  the markets immediately **before** the parent's oldest covered
+  market.
+- **`--latest`** → extend **forward** from covered. Takes the markets
+  immediately **after** the parent's newest covered market.
+
+Both modes pick the markets **closest to the covered block's edge**, not
+"newest globally" — so an extension grows the contiguous covered region
+in one direction at a time.
 
 To picture this, imagine every eligible market for `(symbol, timeframe,
 converter, readFrom)` placed on a timeline by `market_start_ms`. Some
-of those slots are already filled by the parent run, the rest are still
-open. `--limit` always takes from one end of that **open** set:
+slots are filled by the parent run, the rest are open:
 
 ```
-Eligibility floor               Newest synced market
+Eligibility floor                            Newest synced market
 (TELONEX_DATASET_ELIGIBLE_FROM)
-            │                                              │
-            ▼                                              ▼
-            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
-            ⌃                                              ⌃
-            │                  parent run #103             │
-            │                  (latest 6000)               │
-            │                                              │
-            └─ uncovered ──┬──── covered ────┬── uncovered ─┘
+            │                                                  │
+            ▼                                                  ▼
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
+            ⌃                                                  ⌃
+            │                  parent run #103                 │
+            │                  (latest 6000)                   │
+            │                                                  │
+            └─ uncovered ──┬──── covered ────┬── uncovered ────┘
               (older end)                     (newer end —
                                                appears after
                                                Telonex syncs
                                                new markets)
 ```
 
-When you run **`--extend 103 --limit 500`** (default, oldest-first), the
-500 markets taken are the leftmost (oldest) of the uncovered set:
+When you run **`--extend 103 --limit 500`** (default, backward), the
+500 markets taken are the ones **immediately before** the covered block
+starts:
 
 ```
-            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
-            └─────┬────┘
-               500 oldest
-               of uncovered
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
+                       └──┬──┘
+                       500 immediately
+                       before covered
 ```
 
 When you run **`--extend 103 --latest --limit 500`**, the 500 markets
-taken are the rightmost (newest) of the uncovered set:
+taken are the ones **immediately after** the covered block ends:
 
 ```
-            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
-                                                 └────┬────┘
-                                                 500 newest
-                                                 of uncovered
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░░░░
+                                                 └──┬──┘
+                                                 500 immediately
+                                                 after covered
 ```
 
-If you don't pass `--limit`, the chunk size is "all uncovered" — every
-market in the open slots gets queued. `--latest` has no effect in that
-case (you're taking everything regardless of direction).
+If you don't pass `--limit`, the chunk size is "all uncovered in the
+chosen direction" — every open slot in that direction gets queued.
 
-In the **typical case** — parent launched with `--latest --limit 6000`
-and no further Telonex syncs since — uncovered exists only on the older
-side, so:
+::: tip Typical research workflow
+You usually launch the parent with `--latest --limit N` (`latest 500`,
+then a fresh `latest 1000`, then `latest 3000`, then `latest 6000`).
+Each is a separate `backtest_runs` row covering the newest N markets.
 
-- `--limit 500` picks the 500 **oldest of the uncovered tail**
-- `--latest --limit 500` picks the 500 **most recent of the uncovered tail**
-  (the 500 markets just before where covered starts)
+When you're satisfied at `latest 6000` and want that same run to
+cover *all* history, `--extend <runId>` grows it **backward** in chunks:
 
-Once Telonex syncs more markets after the parent ran, uncovered also
-appears on the newer side — and `--latest --limit 500` switches to picking
-from that newer band.
+```bash
+npm run backtest -- --extend 103 --limit 500    # adds previous 500
+npm run backtest -- --extend 103 --limit 1000   # adds 1000 more
+npm run backtest -- --extend 103                # all remaining backward
+```
+
+If Telonex syncs new markets later, `--extend 103 --latest` grows the
+same run **forward** to catch them.
+:::
+
+### When backward / forward has nothing to take
+
+- The parent's covered block starts at the eligibility floor (no markets
+  exist before it): **default backward errors**, telling you to use
+  `--latest` instead.
+- The parent's covered block ends at the newest available market (no
+  Telonex syncs since): **`--latest` errors**, telling you the default
+  goes backward.
+
+The error messages call out which flag to use, so you don't have to guess.
 
 ## Restricting the time window
 
