@@ -40,15 +40,69 @@ inherited from the parent. You don't (and can't) pass them again.
 
 ## Adding fewer markets at a time
 
-You don't have to extend to "all". Pass `--limit` to cap the chunk:
+You don't have to extend to "all". Pass `--limit` to cap the chunk. The
+direction is set by whether you also pass `--latest`:
 
-```bash
-# Next 500 oldest-uncovered markets
-npm run backtest -- --extend 103 --limit 500
+- **default (no `--latest`)** → take the **oldest** uncovered markets first
+- **`--latest`** → take the **newest** uncovered markets first
 
-# Newest 500 uncovered (useful after Telonex syncs new markets)
-npm run backtest -- --extend 103 --latest --limit 500
+To picture this, imagine every eligible market for `(symbol, timeframe,
+converter, readFrom)` placed on a timeline by `market_start_ms`. Some
+of those slots are already filled by the parent run, the rest are still
+open. `--limit` always takes from one end of that **open** set:
+
 ```
+Eligibility floor               Newest synced market
+(TELONEX_DATASET_ELIGIBLE_FROM)
+            │                                              │
+            ▼                                              ▼
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
+            ⌃                                              ⌃
+            │                  parent run #103             │
+            │                  (latest 6000)               │
+            │                                              │
+            └─ uncovered ──┬──── covered ────┬── uncovered ─┘
+              (older end)                     (newer end —
+                                               appears after
+                                               Telonex syncs
+                                               new markets)
+```
+
+When you run **`--extend 103 --limit 500`** (default, oldest-first), the
+500 markets taken are the leftmost (oldest) of the uncovered set:
+
+```
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
+            └─────┬────┘
+               500 oldest
+               of uncovered
+```
+
+When you run **`--extend 103 --latest --limit 500`**, the 500 markets
+taken are the rightmost (newest) of the uncovered set:
+
+```
+            ░░░░░░░░░░░░░░░░ ███████████████████ ░░░░░░░░░░░
+                                                 └────┬────┘
+                                                 500 newest
+                                                 of uncovered
+```
+
+If you don't pass `--limit`, the chunk size is "all uncovered" — every
+market in the open slots gets queued. `--latest` has no effect in that
+case (you're taking everything regardless of direction).
+
+In the **typical case** — parent launched with `--latest --limit 6000`
+and no further Telonex syncs since — uncovered exists only on the older
+side, so:
+
+- `--limit 500` picks the 500 **oldest of the uncovered tail**
+- `--latest --limit 500` picks the 500 **most recent of the uncovered tail**
+  (the 500 markets just before where covered starts)
+
+Once Telonex syncs more markets after the parent ran, uncovered also
+appears on the newer side — and `--latest --limit 500` switches to picking
+from that newer band.
 
 ## Restricting the time window
 
