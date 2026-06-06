@@ -638,6 +638,36 @@ export async function applyExtensionToRun(opts: {
       .where(eq(backtestRunMarkets.runId, opts.parentRunId))
       .orderBy(asc(backtestRunMarkets.idx))
 
+    // Idempotency guard. BullMQ's stalled-job recovery is independent of
+    // `attempts` and can re-deliver an aggregate that already committed its
+    // merge. If every incoming slug is already present, this is a replay —
+    // no-op and clear the lock. Partial overlap means planExtension raced
+    // with a concurrent extender despite the extending_at lock (e.g. manual
+    // clear) and inserting would corrupt stats; bail loudly. UNIQUE(run_id,
+    // slug) is the schema backstop if this check is ever bypassed.
+    if (newMarketStats.length > 0) {
+      const existingSlugs = new Set(existingRows.map((r) => r.slug))
+      const incomingSlugs = newMarketStats.map((m) => m.slug)
+      const overlapping = incomingSlugs.filter((s) => existingSlugs.has(s))
+      if (overlapping.length === incomingSlugs.length) {
+        console.warn(
+          `[db/backtests] applyExtensionToRun: all ${incomingSlugs.length} incoming slugs already present for run #${opts.parentRunId}; treating as idempotent retry (no-op).`,
+        )
+        await tx
+          .update(backtestRuns)
+          .set({ extendingAt: null })
+          .where(eq(backtestRuns.id, opts.parentRunId))
+        return
+      }
+      if (overlapping.length > 0) {
+        const sample = overlapping.slice(0, 5).join(', ')
+        throw new Error(
+          `[db/backtests] applyExtensionToRun: partial slug overlap for run #${opts.parentRunId} (${overlapping.length}/${incomingSlugs.length} already present, e.g. ${sample}). ` +
+            `This indicates planExtension raced with another extender. Refusing to insert to avoid stats corruption.`,
+        )
+      }
+    }
+
     const existingStats: MarketStats[] = existingRows.map((m) => {
       const execution: MarketExecutionMeta | undefined =
         m.machineId !== null &&
