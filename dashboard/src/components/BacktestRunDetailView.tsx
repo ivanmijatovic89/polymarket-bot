@@ -5,35 +5,20 @@ import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
 import {
   AlertTriangle,
-  ArrowDownRight,
-  ArrowUpRight,
-  Award,
   CheckCircle2,
   Clock,
   Coins,
   Cpu,
-  Flame,
-  Gauge,
   GitBranch,
-  Hash,
-  Layers,
-  PieChart,
-  ShieldAlert,
-  Sigma,
-  Skull,
-  Target,
   Terminal,
   TrendingDown,
   TrendingUp,
-  Trophy,
-  Waves,
 } from 'lucide-react'
-import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
+import { Card, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { SectionHeading } from './SectionHeading'
-import { StatCard } from './StatCard'
 import { CmdModal } from './CmdModal'
 import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
 import { CoverageSection } from './coverage/CoverageSection'
@@ -46,6 +31,10 @@ type RunDetail = {
   status: 'completed' | 'partial' | 'failed'
   strategy: string
   symbol: string | null
+  timeframe: string | null
+  inputMode: string | null
+  params: Record<string, unknown>
+  createdAt: string | Date
   comment: string | null
   baselineId: string | null
   cmd: string | null
@@ -114,6 +103,89 @@ async function fetchRun(id: number): Promise<RunResponse> {
 
 function pair(a: number, b: number): string {
   return `${formatPnl(a)} / ${formatPnl(b)}`
+}
+
+/** Dense single-line metric: label above, value below. Used in compact grids. */
+function Metric({
+  label,
+  value,
+  tone = 'default',
+  hint,
+}: {
+  label: string
+  value: React.ReactNode
+  tone?: 'default' | 'success' | 'destructive' | 'muted'
+  hint?: React.ReactNode
+}) {
+  const toneClass =
+    tone === 'success'
+      ? 'text-[color:var(--success)]'
+      : tone === 'destructive'
+        ? 'text-destructive'
+        : tone === 'muted'
+          ? 'text-muted-foreground'
+          : 'text-foreground'
+  return (
+    <div className="px-3 py-2.5">
+      <div className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        {label}
+      </div>
+      <div className={cn('mt-0.5 text-base font-semibold tabular-nums leading-tight', toneClass)}>
+        {value}
+      </div>
+      {hint !== undefined && hint !== null && hint !== '' && (
+        <div className="mt-0.5 text-[10px] text-muted-foreground tabular-nums">{hint}</div>
+      )}
+    </div>
+  )
+}
+
+function formatDateTime(d: string | Date): string {
+  const date = typeof d === 'string' ? new Date(d) : d
+  return date.toLocaleString(undefined, {
+    month: 'short',
+    day: 'numeric',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function formatParamValue(v: unknown): string {
+  if (v === null || v === undefined) return 'null'
+  if (typeof v === 'string') return v
+  if (typeof v === 'number' || typeof v === 'boolean') return String(v)
+  return JSON.stringify(v)
+}
+
+function ParamsChips({ params }: { params: Record<string, unknown> }) {
+  const entries = Object.entries(params)
+  if (entries.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-x-1.5 gap-y-1">
+      <span className="inline-flex items-center gap-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+        Params
+        <span className="rounded bg-muted px-1 py-px font-mono text-[10px] normal-case tracking-normal text-muted-foreground/80">
+          {entries.length}
+        </span>
+      </span>
+      {entries.map(([k, v]) => (
+        <span
+          key={k}
+          className="inline-flex items-center gap-1 rounded-md border border-border/60 bg-muted/30 px-2 py-0.5 font-mono text-[11px]"
+        >
+          <span className="text-muted-foreground">{k}</span>
+          <span className="text-muted-foreground/40">=</span>
+          <span
+            className="max-w-[240px] truncate font-medium text-foreground"
+            title={formatParamValue(v)}
+          >
+            {formatParamValue(v)}
+          </span>
+        </span>
+      ))}
+    </div>
+  )
 }
 
 /** Per-market position cell: `<shares> @ <avg>` with optional `· <mrg> mrg` suffix. */
@@ -196,6 +268,13 @@ export function BacktestRunDetailView({ id }: { id: number }) {
       : null
   const roiTone = roiPct === null ? 'default' : roiPct >= 0 ? 'success' : 'destructive'
 
+  const evTone =
+    b.evPerMarketTotal === 0
+      ? 'default'
+      : b.evPerMarketTotal > 0
+        ? 'success'
+        : 'destructive'
+
   const makerPct =
     b.tradesMaker + b.tradesTaker > 0
       ? Math.round((b.tradesMaker / (b.tradesMaker + b.tradesTaker)) * 100)
@@ -216,21 +295,32 @@ export function BacktestRunDetailView({ id }: { id: number }) {
         batchUid={b.batchUid}
       />
 
-      {/* Header */}
+      {/* Header — identity, meta, params u 3 jasne zone. */}
       <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-3">
-            <StatusBadge status={b.status} />
-            <CardTitle className="text-base">{b.strategy}</CardTitle>
-            {b.symbol && (
-              <Badge variant="outline" className="uppercase">
-                {b.symbol}
-              </Badge>
-            )}
-            {b.comment && (
-              <span className="text-xs text-muted-foreground">— {b.comment}</span>
-            )}
-            <div className="ml-auto flex items-center gap-2">
+        <CardHeader className="gap-3">
+          {/* Zona 1: identity (title + badges) + actions */}
+          <div className="flex flex-wrap items-start gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <StatusBadge status={b.status} />
+              <CardTitle className="text-base">{b.strategy}</CardTitle>
+              {b.symbol && (
+                <Badge variant="outline" className="uppercase">
+                  {b.symbol}
+                </Badge>
+              )}
+              {b.timeframe && <Badge variant="outline">{b.timeframe}</Badge>}
+              {b.inputMode && (
+                <Badge variant="outline" className="text-muted-foreground">
+                  {b.inputMode}
+                </Badge>
+              )}
+              {b.comment && (
+                <span className="inline-flex items-center rounded-md border border-border/50 bg-muted/30 px-2 py-0.5 text-xs italic text-muted-foreground">
+                  {b.comment}
+                </span>
+              )}
+            </div>
+            <div className="ml-auto flex items-center gap-1.5">
               {b.baselineId && (
                 <Link
                   href={`/backtests/${b.baselineId}`}
@@ -244,160 +334,225 @@ export function BacktestRunDetailView({ id }: { id: number }) {
               <button
                 type="button"
                 onClick={() => setCmdOpen(true)}
-                className="inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs text-muted-foreground hover:bg-accent hover:text-foreground transition-colors"
+                title="Show launch command"
+                aria-label="Show launch command"
+                className="inline-flex h-7 w-7 items-center justify-center rounded-md border text-muted-foreground hover:bg-accent hover:text-foreground transition-colors focus:outline-none focus-visible:ring-1 focus-visible:ring-ring"
               >
-                <Terminal className="h-3 w-3" />
-                command
+                <Terminal className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
-          <div className="mt-1 text-[11px] text-muted-foreground font-mono">
-            id #{b.id} · {b.batchUid}
+
+          {/* Zona 2: meta — id / batchUid / created */}
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 font-mono text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <span className="text-muted-foreground/60">id</span>
+              <span className="text-foreground/80">#{b.id}</span>
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span
+              className="max-w-[260px] truncate text-foreground/80"
+              title={b.batchUid}
+            >
+              {b.batchUid}
+            </span>
+            <span className="text-muted-foreground/40">·</span>
+            <span className="inline-flex items-center gap-1">
+              <Clock className="h-3 w-3" />
+              {formatDateTime(b.createdAt)}
+            </span>
           </div>
+
+          {/* Zona 3: params — vizuelno odvojen blok sa top borderom */}
+          {Object.keys(b.params).length > 0 && (
+            <div className="border-t pt-3">
+              <ParamsChips params={b.params} />
+            </div>
+          )}
         </CardHeader>
       </Card>
 
-      {/* Profitability */}
-      <section>
-        <SectionHeading title="Profitability" icon={Trophy} />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 lg:grid-cols-5">
-          <StatCard
-            label="PnL total"
-            value={
-              <span className="inline-flex items-center gap-1">
+      {/* KPI strip — hero (EV/PnL/ROI) prominent + 3 grupisane podsekcije.
+          EV / market je primarna metrika jer su markets diskretne epizode i
+          EV direktno govori "da li strategy zarađuje po prilici". */}
+      <section className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(420px,1.1fr)_2fr]">
+        {/* HERO card — EV (primary), PnL (total $), ROI (%) */}
+        <Card
+          className={cn(
+            'overflow-hidden',
+            evTone === 'success'
+              ? 'bg-[color:var(--success)]/[0.04]'
+              : evTone === 'destructive'
+                ? 'bg-destructive/[0.04]'
+                : '',
+          )}
+        >
+          <div className="grid grid-cols-3 divide-x">
+            {/* EV — total je primarno; per-mkt je sekundarni context */}
+            <div className="px-4 py-4">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                EV total
+              </div>
+              <div
+                className={cn(
+                  'mt-1 text-3xl font-bold tabular-nums leading-none',
+                  evTone === 'success'
+                    ? 'text-[color:var(--success)]'
+                    : evTone === 'destructive'
+                      ? 'text-destructive'
+                      : '',
+                )}
+              >
+                {formatPnl(b.evPerMarketTotal)}
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                {formatPnl(b.evPerMarketPlayed)} per market
+              </div>
+            </div>
+
+            {/* PnL total */}
+            <div className="px-4 py-4">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                PnL total
+              </div>
+              <div
+                className={cn(
+                  'mt-1 inline-flex items-center gap-1.5 text-2xl font-bold tabular-nums leading-none',
+                  pnlTone === 'success'
+                    ? 'text-[color:var(--success)]'
+                    : pnlTone === 'destructive'
+                      ? 'text-destructive'
+                      : '',
+                )}
+              >
+                <PnlIcon className="h-4 w-4" />
                 {formatPnl(b.pnlTotal)}
-              </span>
-            }
-            tone={pnlTone}
-            icon={PnlIcon}
-          />
-          <StatCard
-            label="ROI"
-            value={roiPct === null ? '—' : `${roiPct.toFixed(2)}%`}
-            tone={roiTone}
-            icon={Gauge}
-            hint={
-              roiPct !== null
-                ? `${formatNumber(b.capitalInitial)} → ${formatNumber(b.capitalFinal)}`
-                : undefined
-            }
-          />
-          <StatCard
-            label="Win rate"
-            value={`${b.winRatePct.toFixed(2)}%`}
-            tone="success"
-            icon={CheckCircle2}
-            hint={`${b.marketsWon}W / ${b.marketsLost}L`}
-          />
-          <StatCard
-            label="Avg W / L"
-            value={pair(b.pnlAvgWin, b.pnlAvgLose)}
-            icon={PieChart}
-          />
-          <StatCard
-            label="EV / market"
-            value={formatPnl(b.evPerMarketPlayed)}
-            icon={Target}
-            hint={`total ${formatPnl(b.evPerMarketTotal)}`}
-          />
-        </div>
-      </section>
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                fees {b.totalFeesPaid.toFixed(2)}
+              </div>
+            </div>
 
-      {/* Risk */}
-      <section>
-        <SectionHeading title="Risk" icon={ShieldAlert} />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Max win streak"
-            value={`${b.streakMaxWin}W`}
-            tone="success"
-            icon={Flame}
-            hint={formatPnl(b.streakMaxWinPnl)}
-          />
-          <StatCard
-            label="Max lose streak"
-            value={`${b.streakMaxLose}L`}
-            tone="destructive"
-            icon={Skull}
-            hint={formatPnl(b.streakMaxLosePnl)}
-          />
-          <StatCard
-            label="Best market"
-            value={formatPnl(b.pnlMaxWin)}
-            tone="success"
-            icon={ArrowUpRight}
-          />
-          <StatCard
-            label="Worst market"
-            value={formatPnl(b.pnlMaxLose)}
-            tone="destructive"
-            icon={ArrowDownRight}
-          />
-        </div>
-      </section>
-
-      {/* Volume */}
-      <section>
-        <SectionHeading title="Volume" icon={Layers} />
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-2 lg:grid-cols-5">
-          <StatCard
-            label="Markets played"
-            value={String(b.marketsPlayed)}
-            hint={`of ${selectedMarketsTotal}`}
-            icon={Hash}
-          />
-          <StatCard
-            label="Markets skipped"
-            value={String(b.marketsSkipped)}
-            tone="muted"
-            icon={Waves}
-            hint={
-              b.streakMaxSkipped > 0 ? `longest streak ${b.streakMaxSkipped}` : undefined
-            }
-          />
-          <StatCard
-            label="Trades"
-            value={formatNumber(b.tradesTotal)}
-            icon={Sigma}
-          />
-          <StatCard
-            label="Maker / Taker"
-            value={
-              makerPct === null
-                ? '—'
-                : `${makerPct}% / ${100 - makerPct}%`
-            }
-            tone="muted"
-            icon={PieChart}
-            hint={`${formatNumber(b.tradesMaker)} / ${formatNumber(b.tradesTaker)}`}
-          />
-          <StatCard
-            label="Fees paid"
-            value={b.totalFeesPaid.toFixed(2)}
-            tone="muted"
-            icon={Coins}
-          />
-        </div>
-      </section>
-
-      {/* Quality (only if at least one is non-null) */}
-      {hasQuality && (
-        <section>
-          <SectionHeading title="Quality" icon={Award} />
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-2">
-            <StatCard
-              label="System quality"
-              value={b.qualitySystem === null ? '—' : b.qualitySystem.toFixed(3)}
-              icon={Award}
-            />
-            <StatCard
-              label="Trade quality"
-              value={b.qualityTrade === null ? '—' : b.qualityTrade.toFixed(3)}
-              icon={Award}
-            />
+            {/* ROI */}
+            <div className="px-4 py-4">
+              <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                ROI
+              </div>
+              <div
+                className={cn(
+                  'mt-1 text-2xl font-bold tabular-nums leading-none',
+                  roiTone === 'success'
+                    ? 'text-[color:var(--success)]'
+                    : roiTone === 'destructive'
+                      ? 'text-destructive'
+                      : '',
+                )}
+              >
+                {roiPct === null ? '—' : `${roiPct.toFixed(2)}%`}
+              </div>
+              <div className="mt-2 text-[11px] text-muted-foreground tabular-nums">
+                {roiPct !== null
+                  ? `${formatNumber(b.capitalInitial)} → ${formatNumber(b.capitalFinal)}`
+                  : '—'}
+              </div>
+            </div>
           </div>
-        </section>
-      )}
+        </Card>
+
+        {/* Grouped secondary metrics — Profit / Risk / Volume */}
+        <Card className="overflow-hidden">
+          <div className="grid grid-cols-1 divide-y sm:grid-cols-3 sm:divide-y-0 sm:divide-x">
+            {/* PROFIT — EV je sad u Hero, ovde ostaju distribuciona svojstva */}
+            <div>
+              <div className="border-b bg-muted/30 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Profit dist.
+              </div>
+              <div className="grid grid-cols-2 divide-x">
+                <Metric
+                  label="Win rate"
+                  value={`${b.winRatePct.toFixed(2)}%`}
+                  tone="success"
+                  hint={`${b.marketsWon}W / ${b.marketsLost}L`}
+                />
+                <Metric label="Avg W / L" value={pair(b.pnlAvgWin, b.pnlAvgLose)} />
+              </div>
+            </div>
+
+            {/* RISK — 3 cells za simetriju sa Profit/Volume.
+                "Streaks" objedinjuje W/L u jedan red sa toned brojevima. */}
+            <div>
+              <div className="border-b bg-muted/30 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Risk
+              </div>
+              <div className="grid grid-cols-3 divide-x">
+                <Metric
+                  label="Streaks"
+                  value={
+                    <span className="inline-flex items-baseline gap-1">
+                      <span className="text-[color:var(--success)]">{b.streakMaxWin}W</span>
+                      <span className="text-muted-foreground/60">/</span>
+                      <span className="text-destructive">{b.streakMaxLose}L</span>
+                    </span>
+                  }
+                  hint={`${formatPnl(b.streakMaxWinPnl)} / ${formatPnl(b.streakMaxLosePnl)}`}
+                />
+                <Metric label="Best mkt" value={formatPnl(b.pnlMaxWin)} tone="success" />
+                <Metric label="Worst mkt" value={formatPnl(b.pnlMaxLose)} tone="destructive" />
+              </div>
+            </div>
+
+            {/* VOLUME */}
+            <div>
+              <div className="border-b bg-muted/30 px-3 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Volume
+              </div>
+              <div className="grid grid-cols-3 divide-x">
+                <Metric
+                  label="Played"
+                  value={formatNumber(b.marketsPlayed)}
+                  hint={`of ${selectedMarketsTotal}`}
+                />
+                <Metric
+                  label="Skipped"
+                  value={formatNumber(b.marketsSkipped)}
+                  tone="muted"
+                  hint={
+                    b.streakMaxSkipped > 0 ? `streak ${b.streakMaxSkipped}` : undefined
+                  }
+                />
+                <Metric
+                  label="Trades"
+                  value={formatNumber(b.tradesTotal)}
+                  hint={
+                    makerPct === null ? undefined : `${makerPct}%m / ${100 - makerPct}%t`
+                  }
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Quality — thin inline footer row */}
+          {hasQuality && (
+            <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-t bg-muted/20 px-4 py-2 text-xs">
+              <span className="text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Quality
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-muted-foreground">system</span>
+                <span className="font-semibold tabular-nums">
+                  {b.qualitySystem === null ? '—' : b.qualitySystem.toFixed(3)}
+                </span>
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="text-muted-foreground">trade</span>
+                <span className="font-semibold tabular-nums">
+                  {b.qualityTrade === null ? '—' : b.qualityTrade.toFixed(3)}
+                </span>
+              </span>
+            </div>
+          )}
+        </Card>
+      </section>
 
       {/* Failures inline warning */}
       {(b.failuresCount > 0 || missingAuditCount > 0) && (
