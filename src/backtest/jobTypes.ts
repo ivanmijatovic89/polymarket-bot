@@ -32,12 +32,16 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 2
+
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
  */
 export type AggregateJobData = {
   batchUid: string
+  protocolVersion: number
   totalMarkets: number
+  expectedMarkets: Array<{ idx: number; slug: string | null }>
   initialCapital: number
   insertMeta: {
     baselineId: string | null
@@ -54,6 +58,15 @@ export type AggregateJobData = {
     limit: number | null
     random: boolean
     latest: boolean
+  }
+  /**
+   * Set when this aggregate is the completion of an extension batch. Drives
+   * the UPDATE-vs-INSERT branch in `aggregateProcessor`: when present, results
+   * are merged into the parent run instead of inserting a new row. Absent for
+   * fresh runs.
+   */
+  extension?: {
+    parentRunId: number
   }
 }
 

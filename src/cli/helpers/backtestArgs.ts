@@ -63,6 +63,43 @@ export type BacktestArgs = {
    * Only meaningful when not running --sequential.
    */
   detach?: boolean
+  /**
+   * Extension target — when set, this invocation extends an existing telonex
+   * run rather than creating a new one. Strategy / params / symbol /
+   * timeframe / input-mode / read-from are inherited from the parent run;
+   * the rest of the selection flags (--limit, --latest, --random, --from-ms,
+   * --to-ms) apply to the *missing* slug set rather than the full eligible
+   * universe.
+   */
+  extend?: number
+  /**
+   * Optional inclusive lower bound on `market_start_ms`. Works with or
+   * without --extend.
+   */
+  fromMs?: number
+  /**
+   * Optional inclusive upper bound on `market_start_ms`. Works with or
+   * without --extend.
+   */
+  toMs?: number
+}
+
+function parsePositiveInt(raw: string | undefined, flag: string): number {
+  const n = raw !== undefined ? Number(raw) : NaN
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) {
+    throw new Error(`[backtest] ${flag} must be a positive integer, got: ${String(raw)}`)
+  }
+  return n
+}
+
+function parseNonNegativeBigIntMs(raw: string | undefined, flag: string): number {
+  const n = raw !== undefined ? Number(raw) : NaN
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    throw new Error(
+      `[backtest] ${flag} must be a non-negative integer (epoch ms), got: ${String(raw)}`,
+    )
+  }
+  return n
 }
 
 export function parseArgs(argv: string[]): BacktestArgs {
@@ -84,6 +121,9 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let baselineId: string | undefined
   let sequential = false
   let detach = false
+  let extend: number | undefined
+  let fromMs: number | undefined
+  let toMs: number | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -209,6 +249,21 @@ export function parseArgs(argv: string[]): BacktestArgs {
         detach = true
         break
 
+      case '--extend':
+        extend = parsePositiveInt(argv[i + 1], '--extend')
+        i += 1
+        break
+
+      case '--from-ms':
+        fromMs = parseNonNegativeBigIntMs(argv[i + 1], '--from-ms')
+        i += 1
+        break
+
+      case '--to-ms':
+        toMs = parseNonNegativeBigIntMs(argv[i + 1], '--to-ms')
+        i += 1
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -264,6 +319,18 @@ export function parseArgs(argv: string[]): BacktestArgs {
           timeframeExplicit = true
           break
         }
+        if (arg.startsWith('--extend=')) {
+          extend = parsePositiveInt(arg.slice('--extend='.length), '--extend')
+          break
+        }
+        if (arg.startsWith('--from-ms=')) {
+          fromMs = parseNonNegativeBigIntMs(arg.slice('--from-ms='.length), '--from-ms')
+          break
+        }
+        if (arg.startsWith('--to-ms=')) {
+          toMs = parseNonNegativeBigIntMs(arg.slice('--to-ms='.length), '--to-ms')
+          break
+        }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
           break
         }
@@ -308,6 +375,64 @@ export function parseArgs(argv: string[]): BacktestArgs {
     throw new Error('[backtest] --timeframe is only valid together with --symbol')
   }
 
+  if (extend !== undefined) {
+    // Strategy / params / symbol / timeframe / input-mode / read-from are
+    // inherited from the parent run. Any user-supplied value would either
+    // contradict the inheritance or rebuild the eligibility universe in a
+    // way that breaks extension semantics. Fail loudly so the user knows
+    // exactly which flag to drop.
+    const conflicting: string[] = []
+    if (symbol) conflicting.push('--symbol')
+    if (timeframeExplicit) conflicting.push('--timeframe')
+    // Check flag presence in argv, not the parsed value: the default
+    // inputMode is 'recorded', so a user who explicitly passes
+    // `--input-mode recorded` against a telonex parent would silently slip
+    // through a value-based check and then get overridden to the parent's
+    // mode at planExtension time with no warning.
+    const inputModeFlagPresent = argv.some(
+      (t) => t === '--input-mode' || (typeof t === 'string' && t.startsWith('--input-mode=')),
+    )
+    if (inputModeFlagPresent) conflicting.push('--input-mode')
+    if (readFrom !== undefined) conflicting.push('--read-from')
+    if (slugs.length > 0) conflicting.push('--slug')
+    if (dirs.length > 0) conflicting.push('--dir')
+    if (filePaths.length > 0) conflicting.push('<positional file path>')
+    if (batchUid !== undefined) conflicting.push('--batchUid')
+    if (baselineId !== undefined) conflicting.push('--baselineId')
+    // --comment is a launch-time label for the original run. An extension
+    // doesn't get its own comment because we intentionally don't write
+    // per-extend audit metadata (cmd, comment) to backtest_runs — the
+    // original launch's comment stays.
+    if (comment !== undefined) conflicting.push('--comment')
+    // --strategy / --param aren't surfaced in BacktestArgs but appear in
+    // argv; check raw tokens.
+    for (const token of argv) {
+      if (token === '--strategy' || token?.startsWith('--strategy=')) {
+        conflicting.push('--strategy')
+        break
+      }
+    }
+    for (const token of argv) {
+      if (token === '--param' || token?.startsWith('--param=')) {
+        conflicting.push('--param')
+        break
+      }
+    }
+    if (conflicting.length > 0) {
+      const unique = [...new Set(conflicting)]
+      throw new Error(
+        `[backtest] --extend ${extend} cannot be combined with: ${unique.join(', ')}. ` +
+          `These are inherited from the parent run.`,
+      )
+    }
+  }
+
+  if (fromMs !== undefined && toMs !== undefined && fromMs > toMs) {
+    throw new Error(
+      `[backtest] --from-ms (${fromMs}) must be less than or equal to --to-ms (${toMs})`,
+    )
+  }
+
   return {
     filePaths,
     ...(dirs.length > 0 ? { dirs } : {}),
@@ -326,5 +451,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(baselineId !== undefined ? { baselineId } : {}),
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
+    ...(extend !== undefined ? { extend } : {}),
+    ...(fromMs !== undefined ? { fromMs } : {}),
+    ...(toMs !== undefined ? { toMs } : {}),
   }
 }

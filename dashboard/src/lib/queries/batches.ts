@@ -109,6 +109,7 @@ export type HistoricalBatch = {
   strategy: string
   symbol: string | null
   limit: number | null
+  inputMarketsTotal: number | null
   comment: string | null
   pnlTotal: number
   winRatePct: number
@@ -214,6 +215,7 @@ export async function listHistoricalBatches(
       strategy: backtestRuns.strategy,
       symbol: backtestRuns.symbol,
       limit: backtestRuns.limit,
+      inputMarketsTotal: backtestRuns.inputMarketsTotal,
       comment: backtestRuns.comment,
       pnlTotal: backtestRuns.pnlTotal,
       winRatePct: backtestRuns.winRatePct,

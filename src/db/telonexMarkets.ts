@@ -6,7 +6,8 @@
 // Eligibility = `conversion.status = 'done'` AND the requested converter has a
 // non-empty `local_path` (if readFrom='local') or `r2_url` (if readFrom='r2'),
 // AND the market window start is >= TELONEX_DATASET_ELIGIBLE_FROM_MS (per env
-// `TELONEX_DATASET_ELIGIBLE_FROM`, default 2025-12-01).
+// `TELONEX_DATASET_ELIGIBLE_FROM`, default 2025-12-01), AND the market is
+// resolved with a final result_id.
 //
 // Ordering is always `market_start_ms ASC` (chronological) unless `random` is
 // set. `market_start_ms` is derived from the slug suffix at sync time and is
@@ -16,10 +17,11 @@
 // differ from the slug epoch).
 // -----------------------------------------------------------------------------
 
-import { and, asc, count, eq, gte, inArray, lte, notInArray, sql } from 'drizzle-orm'
+import { and, asc, count, eq, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { telonexMarkets, telonexMarketConversions } from './schema.js'
+import { buildTelonexEligibilityConditions } from './telonexEligibility.js'
 import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 
 export type ReadFrom = 'local' | 'r2'
@@ -63,6 +65,8 @@ export type EligibleMarketsQuery = {
   slugs?: string[]
   /** Skip these slugs (useful for research / --all). */
   excludeSlugs?: string[]
+  /** Defaults to true. Explicit slug lookups may opt out for diagnostics. */
+  resolvedOnly?: boolean
   /** Cap the result count. Defaults to 1000 to match legacy behaviour. */
   limit?: number
   /** With `limit`, returns the LAST `limit` rows (newest by market_start_ms). */
@@ -160,34 +164,27 @@ function baseSelect() {
  * the eligibility definition has exactly one implementation.
  */
 function buildEligibleWhere(opts: EligibleMarketsQuery): SQL {
-  const fromMs = opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS
-  const datasetNonEmpty =
-    opts.readFrom === 'local'
-      ? sql`${telonexMarketConversions.localPath} IS NOT NULL AND ${telonexMarketConversions.localPath} <> ''`
-      : sql`${telonexMarketConversions.r2Url} IS NOT NULL AND ${telonexMarketConversions.r2Url} <> ''`
-
-  const conditions: SQL[] = [
-    eq(telonexMarketConversions.converter, opts.converter),
-    eq(telonexMarketConversions.status, 'done'),
-    datasetNonEmpty,
-    gte(telonexMarkets.marketStartMs, fromMs),
-  ]
-  if (opts.symbol !== undefined) {
-    conditions.push(eq(telonexMarkets.symbol, opts.symbol.toLowerCase()))
-  }
-  if (opts.timeframe !== undefined) {
-    conditions.push(eq(telonexMarkets.timeframe, opts.timeframe))
-  }
-  if (opts.toMs !== undefined) {
-    conditions.push(lte(telonexMarkets.marketStartMs, opts.toMs))
-  }
-  if (opts.slugs !== undefined && opts.slugs.length > 0) {
-    conditions.push(inArray(telonexMarkets.slug, opts.slugs))
-  }
-  if (opts.excludeSlugs !== undefined && opts.excludeSlugs.length > 0) {
-    conditions.push(notInArray(telonexMarkets.slug, opts.excludeSlugs))
-  }
-  return and(...conditions)!
+  return and(
+    ...buildTelonexEligibilityConditions(
+      {
+        markets: {
+          slug: telonexMarkets.slug,
+          symbol: telonexMarkets.symbol,
+          timeframe: telonexMarkets.timeframe,
+          marketStartMs: telonexMarkets.marketStartMs,
+          telonexStatus: telonexMarkets.telonexStatus,
+          resultId: telonexMarkets.resultId,
+        },
+        conversions: {
+          converter: telonexMarketConversions.converter,
+          status: telonexMarketConversions.status,
+          localPath: telonexMarketConversions.localPath,
+          r2Url: telonexMarketConversions.r2Url,
+        },
+      },
+      { ...opts, fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS },
+    ),
+  )!
 }
 
 /**
@@ -292,6 +289,7 @@ export async function getMarketBySlug(
     // Skip the default eligibility-from floor: callers who hold a slug already
     // know they want this specific market regardless of date.
     fromMs: 0,
+    resolvedOnly: false,
     limit: 1,
   })
   return results[0] ?? null
@@ -311,6 +309,7 @@ export async function getMarketsBySlugs(
     readFrom: opts.readFrom,
     slugs,
     fromMs: 0,
+    resolvedOnly: false,
     limit: slugs.length,
   })
 }

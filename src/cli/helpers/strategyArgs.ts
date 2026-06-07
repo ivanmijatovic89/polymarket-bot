@@ -59,8 +59,20 @@ export function buildStrategyFromCliArgs(args: {
   script: string
 }): BuildStrategyFromCliArgsResult {
   const { strategyId, rawParams } = parseStrategyArgs(args.argv)
-  const def = getStrategyDefinition(strategyId)
-  const parsed = def.schema.safeParse(rawParams)
+  return buildStrategyFromConfig({ strategyId, rawParams })
+}
+
+/**
+ * Builds a strategy from already-resolved (strategyId, rawParams) without
+ * touching argv. Used by extension flows that inherit strategy/params from a
+ * parent run rather than parsing them from CLI arguments.
+ */
+export function buildStrategyFromConfig(args: {
+  strategyId: string
+  rawParams: Record<string, unknown>
+}): BuildStrategyFromCliArgsResult {
+  const def = getStrategyDefinition(args.strategyId)
+  const parsed = def.schema.safeParse(args.rawParams)
   if (!parsed.success) {
     const flat = z.flattenError(parsed.error)
     const parts: string[] = []
@@ -72,11 +84,11 @@ export function buildStrategyFromCliArgs(args: {
     }
     const msg =
       parts.length > 0 ? parts.join('\n') : parsed.error.issues.map((i) => i.message).join('\n')
-    throw new CliArgsError(`invalid params for --strategy ${strategyId}:\n${msg}`)
+    throw new CliArgsError(`invalid params for --strategy ${args.strategyId}:\n${msg}`)
   }
   const params = parsed.data as Record<string, unknown>
   const built = def.create(parsed.data as never)
-  return { strategyId, params, ...built }
+  return { strategyId: args.strategyId, params, ...built }
 }
 
 export function printCliArgsError(args: { script: string; err: unknown }): void {

@@ -1,13 +1,7 @@
 // Dashboard-side coverage query.
-//
-// IMPORTANT: the eligibility filter (status='done', non-empty path,
-// market_start_ms >= floor) MIRRORS `src/db/telonexMarkets.ts:buildEligibleWhere`.
-// If you change one, change the other — this duplication is the cost of the
-// dashboard owning its own DB connection (per project convention; see
-// dashboard/AGENTS.md). The floor env name is intentionally identical:
-// `TELONEX_DATASET_ELIGIBLE_FROM`.
 
-import { and, asc, eq, gte, sql } from 'drizzle-orm'
+import { and, asc, eq } from 'drizzle-orm'
+import { buildTelonexEligibilityConditions } from '@bot/db/telonexEligibility'
 import { getDb } from '../db'
 import {
   backtestRunMarkets,
@@ -82,12 +76,6 @@ export async function getBacktestCoverage(
   const readFrom = run.readFrom as 'local' | 'r2'
   const eligibleFromMs = parseEligibleFromMs()
 
-  // Eligibility filter — mirror of src/db/telonexMarkets.ts:buildEligibleWhere.
-  const datasetNonEmpty =
-    readFrom === 'local'
-      ? sql`${telonexMarketConversions.localPath} IS NOT NULL AND ${telonexMarketConversions.localPath} <> ''`
-      : sql`${telonexMarketConversions.r2Url} IS NOT NULL AND ${telonexMarketConversions.r2Url} <> ''`
-
   const eligibleRows = (await db
     .select({
       slug: telonexMarkets.slug,
@@ -97,12 +85,31 @@ export async function getBacktestCoverage(
     .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))
     .where(
       and(
-        eq(telonexMarketConversions.converter, converter),
-        eq(telonexMarketConversions.status, 'done'),
-        datasetNonEmpty,
-        eq(telonexMarkets.symbol, run.symbol),
-        eq(telonexMarkets.timeframe, run.timeframe),
-        gte(telonexMarkets.marketStartMs, eligibleFromMs),
+        ...buildTelonexEligibilityConditions(
+          {
+            markets: {
+              slug: telonexMarkets.slug,
+              symbol: telonexMarkets.symbol,
+              timeframe: telonexMarkets.timeframe,
+              marketStartMs: telonexMarkets.marketStartMs,
+              telonexStatus: telonexMarkets.telonexStatus,
+              resultId: telonexMarkets.resultId,
+            },
+            conversions: {
+              converter: telonexMarketConversions.converter,
+              status: telonexMarketConversions.status,
+              localPath: telonexMarketConversions.localPath,
+              r2Url: telonexMarketConversions.r2Url,
+            },
+          },
+          {
+            converter,
+            readFrom,
+            symbol: run.symbol,
+            timeframe: run.timeframe,
+            fromMs: eligibleFromMs,
+          },
+        ),
       ),
     )
     .orderBy(asc(telonexMarkets.marketStartMs))) as Array<{

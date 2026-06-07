@@ -150,6 +150,16 @@ export const backtestRuns = mysqlTable(
 
     chunkedBatchStats: json('chunked_batch_stats').$type<Record<string, unknown> | null>(),
 
+    // Set when a `--extend <runId>` invocation has enqueued an extension
+    // batch but the aggregateProcessor hasn't merged it yet. Cleared in the
+    // same DB transaction as the merge UPDATE. While set, a second concurrent
+    // `--extend` on this run is rejected with a clear error. NULL during
+    // normal life, NULL after extend completes or fails.
+    //
+    // If a process crashes mid-extend, this stays set. Manual recovery:
+    //   UPDATE backtest_runs SET extending_at = NULL WHERE id = <runId>;
+    extendingAt: timestamp('extending_at'),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
@@ -205,7 +215,13 @@ export const backtestRunMarkets = mysqlTable(
   },
   (t) => ({
     runIdxUnique: unique('uniq_backtest_run_markets_run_idx').on(t.runId, t.idx),
-    runSlugIdx: index('idx_backtest_run_markets_run_slug').on(t.runId, t.slug),
+    // UNIQUE rather than plain index: schema-level guarantee that no slug is
+    // inserted twice for the same run. Backstop against any code path (most
+    // notably stalled-aggregate-job recovery for --extend) that could
+    // re-apply the same set of markets. applyExtensionToRun ALSO checks for
+    // overlap inside the transaction and no-ops if all incoming slugs already
+    // exist; this constraint is the last line of defense.
+    runSlugUnique: unique('uniq_backtest_run_markets_run_slug').on(t.runId, t.slug),
     runPnlIdx: index('idx_backtest_run_markets_run_pnl').on(t.runId, t.pnl),
     slugIdx: index('idx_backtest_run_markets_slug').on(t.slug),
     runDurationIdx: index('idx_backtest_run_markets_run_duration').on(t.runId, t.durationMs),

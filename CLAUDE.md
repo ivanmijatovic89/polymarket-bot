@@ -43,6 +43,17 @@ npm run backtest:telonex:btc:15m -- --strategy <id> --limit 20   # shortcut
 # --timeframe defaults to 15m; only valid with --symbol
 # Set BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1 when using the TA plugin
 
+# Extend an existing telonex run with more markets (single backtest_runs row grows;
+# strategy/params/symbol/timeframe/converter/readFrom inherited from parent)
+npm run backtest -- --extend <runId>                          # all missing, oldest-first
+npm run backtest -- --extend <runId> --limit 500              # 500 oldest missing
+npm run backtest -- --extend <runId> --from-ms X --to-ms Y    # missing in window
+npm run backtest -- --extend <runId> --latest --limit 200     # 200 newest missing
+# Extension recomputes batch_stats + chunked_batch_stats over UNION of existing + new
+# markets in one DB transaction. batch_uid is appended with -extN. Forbidden with
+# --extend: --strategy, --param, --symbol, --timeframe, --input-mode, --read-from,
+# --slug, --dir, --batchUid, --baselineId, positional file paths.
+
 # Record live WS → Parquet
 npm run record:live:btc                # or :eth :sol :xrp
 
@@ -206,6 +217,7 @@ Backtest latency simulation (intent → exchange-visible):
 - **Telonex eligibility — single source of truth**: all queries against `telonex_markets` / `telonex_market_conversions` must go through `src/db/telonexMarkets.ts` (`listEligibleTelonexMarkets`, `listEligibleTelonexSlugs`, `countEligibleTelonexMarkets`). Do NOT write inline SQL against these tables elsewhere — add a function to that module instead. The dashboard (`dashboard/src/lib/queries/`) imports from there.
 - **Telonex market time**: use `telonex_markets.market_start_ms` (indexed bigint, derived from slug at sync time). `start_date_us` is NOT the market window start — verified empirically that 100% of 19,223 rows differ from the slug epoch (avg ~22h earlier; likely creation/announcement time). Never order/filter markets by `start_date_us`. `end_date_us` IS the market end and matches `market_start_ms + timeframe_ms` deterministically.
 - **Telonex eligibility floor**: env `TELONEX_DATASET_ELIGIBLE_FROM` (ISO 8601 UTC, default `2025-12-01T00:00:00Z`). Loaded via `src/config/telonex.ts` as `TELONEX_DATASET_ELIGIBLE_FROM_MS`. Markets with `market_start_ms` below this are excluded from the eligible universe. Move the env var to ignore older markets without dropping rows.
+- **Backtest extension (`--extend <runId>`)**: appends new markets to an existing `backtest_runs` row and recomputes `batch_stats` + `chunked_batch_stats` over the union. **No new tables**. The parent's `batch_uid` is overwritten with a `-extN` suffix on each extend; old `batch_uid` values are not retained. `cmd` on the parent row is **NOT** modified — the original launch command stays as the permanent record of how the run was created. `--comment` is therefore rejected with `--extend` (the original launch's comment stays). Concurrent extends on the same run are blocked by the `extending_at` column (set atomically at enqueue, cleared in the merge transaction); a second invocation gets a clear error with a recovery hint. If a process crashes mid-extend, clear manually: `UPDATE backtest_runs SET extending_at = NULL WHERE id = <runId>`. Failed slugs can be retried by a subsequent `--extend`; the failure row is removed on success. Strategy/params/symbol/timeframe/converter/readFrom always inherit from the parent; pass them and you get a clear error.
 
 ## Key environment variables
 

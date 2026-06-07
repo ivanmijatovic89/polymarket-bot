@@ -120,6 +120,20 @@
       "when": 1781136000000,
       "tag": "0016_telonex_coverage_centralize",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "5",
+      "when": 1781308800000,
+      "tag": "0017_backtest_runs_extending_at",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "5",
+      "when": 1781481600000,
+      "tag": "0018_backtest_run_markets_unique_slug",
+      "breakpoints": true
     }
   ]
 }

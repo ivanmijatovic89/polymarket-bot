@@ -16,13 +16,20 @@ config is needed for local dev.
 
 ```bash
 # from repo root
-npm run dashboard            # next dev on :3051 (override: DASHBOARD_PORT=3055 npm run dashboard)
+npm run dashboard            # next dev on 0.0.0.0:3051 (override: DASHBOARD_PORT=3055 npm run dashboard)
 npm run dashboard:build
 npm run dashboard:start      # next start on :3051
 npm run dashboard:typecheck
 
 # Bull Board (raw queue inspector) runs as a separate proc:
 npm run bull-board           # http://127.0.0.1:3052/admin/queues (override: BULL_BOARD_PORT)
+```
+
+For remote dev access over Tailscale/LAN, allow the browser origin that will
+open the dashboard:
+
+```bash
+DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80 npm run dashboard
 ```
 
 ## Layout
