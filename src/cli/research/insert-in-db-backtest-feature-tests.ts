@@ -5,7 +5,7 @@ import { closeDb, getDb } from '../../db/index.js'
 import { backtestRuns } from '../../db/schema.js'
 import { getBacktestRunById, insertBacktestRun } from '../../db/backtests.js'
 import { computeBatchStats } from '../../backtest/stats/batchStats.js'
-import { computeChunkedBatchStats } from '../../backtest/stats/chunkedBatchStats.js'
+import { computeBacktestSegments, slugTs } from '../../backtest/stats/backtestSegments.js'
 import type { MarketStats } from '../../backtest/stats/marketStats.js'
 
 type CliArgs = {
@@ -136,7 +136,7 @@ Usage: npx tsx src/cli/research/insert-in-db-backtest-feature-tests.ts <backtest
 
 Description:
   Loads backtest by ID, filters marketStats by feature filters, computes batchStats
-  + chunkedBatchStats, and inserts derived normalized backtest runs.
+  + per-segment stats, and inserts derived normalized backtest runs.
 
 Filter format:
   field>number
@@ -432,25 +432,25 @@ async function run(): Promise<void> {
         matchesFilters(m, filters) ? resetMarketStatsForGate(m) : m,
       )
 
+      const withStartMs = <T extends { slug: string }>(arr: T[]) =>
+        arr.map((m) => ({ ...m, marketStartMs: slugTs(m.slug) }))
+
       const baselineBatchStats = computeBatchStats(groupMarkets as MarketStats[], initialCapital)
-      const baselineChunkedBatchStats = computeChunkedBatchStats(
-        groupMarkets as MarketStats[],
+      const baselineSegments = computeBacktestSegments(
+        withStartMs(groupMarkets as MarketStats[]),
         initialCapital,
-        [96, 200, 300],
       )
 
       const keptBatchStats = computeBatchStats(keptAll as MarketStats[], initialCapital)
-      const keptChunkedBatchStats = computeChunkedBatchStats(
-        keptAll as MarketStats[],
+      const keptSegments = computeBacktestSegments(
+        withStartMs(keptAll as MarketStats[]),
         initialCapital,
-        [96, 200, 300],
       )
 
       const skippedBatchStats = computeBatchStats(skipped as MarketStats[], initialCapital)
-      const skippedChunkedBatchStats = computeChunkedBatchStats(
-        skipped as MarketStats[],
+      const skippedSegments = computeBacktestSegments(
+        withStartMs(skipped as MarketStats[]),
         initialCapital,
-        [96, 200, 300],
       )
 
       await insertBacktestRun({
@@ -472,7 +472,7 @@ async function run(): Promise<void> {
         random: row.random ?? false,
         latest: row.latest ?? false,
         batchStats: baselineBatchStats,
-        chunkedBatchStats: baselineChunkedBatchStats as unknown as Record<string, unknown>,
+        segments: baselineSegments,
         marketStats: groupMarkets as unknown as unknown[],
       })
 
@@ -495,7 +495,7 @@ async function run(): Promise<void> {
         random: row.random ?? false,
         latest: row.latest ?? false,
         batchStats: keptBatchStats,
-        chunkedBatchStats: keptChunkedBatchStats as unknown as Record<string, unknown>,
+        segments: keptSegments,
         marketStats: keptAll as unknown as unknown[],
       })
 
@@ -518,7 +518,7 @@ async function run(): Promise<void> {
         random: row.random ?? false,
         latest: row.latest ?? false,
         batchStats: skippedBatchStats,
-        chunkedBatchStats: skippedChunkedBatchStats as unknown as Record<string, unknown>,
+        segments: skippedSegments,
         marketStats: skipped as unknown as unknown[],
       })
 

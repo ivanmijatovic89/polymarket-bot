@@ -19,7 +19,7 @@ import { parseArgs } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
-import { computeChunkedBatchStats } from '../backtest/stats/chunkedBatchStats.js'
+import { computeBacktestSegments, slugTs } from '../backtest/stats/backtestSegments.js'
 import type { MarketStats } from '../backtest/stats/marketStats.js'
 import {
   parseSlugFromFilename,
@@ -870,11 +870,8 @@ async function main(): Promise<void> {
       // CRITICAL invariant: marketContexts iteration order == input order, so
       // marketStats already arrives sorted. Aggregation happens here in-process.
       const batchStats = computeBatchStats(marketStats, initialCapital)
-      const chunkedBatchStats = computeChunkedBatchStats(
-        marketStats,
-        initialCapital,
-        [96, 200, 300],
-      )
+      const marketsWithStartMs = marketStats.map((m) => ({ ...m, marketStartMs: slugTs(m.slug) }))
+      const segments = computeBacktestSegments(marketsWithStartMs, initialCapital)
 
       await insertBacktestRun({
         batchUid,
@@ -894,7 +891,7 @@ async function main(): Promise<void> {
         random: parsed.random ?? false,
         latest: parsed.latest ?? false,
         batchStats,
-        chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+        segments,
         marketStats: indexedMarketStats as unknown as unknown[],
         failedMarkets: failed,
       })

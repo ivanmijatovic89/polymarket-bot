@@ -88,7 +88,6 @@ type RunDetail = {
       eventsProcessed: number
     }
   }> | null
-  chunkedBatchStats: Record<string, unknown> | null
   failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
 }
 

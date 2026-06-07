@@ -93,7 +93,7 @@ export const MARKET_JOB_OPTS = {
 export const AGGREGATE_JOB_OPTS = {
   attempts: 3,
   backoff: { type: 'exponential' as const, delay: 5000 },
-  // The aggregator persists run summary columns / chunkedBatchStats / normalized market
+  // The aggregator persists run summary columns / per-segment stats / normalized market
   // rows / failure rows into MySQL before returning. Once
   // that's done there is nothing left in the parent job worth caching, and
   // *keeping it around* causes the next run with the same --batchUid to

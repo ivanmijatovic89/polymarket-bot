@@ -5,8 +5,8 @@ import { getBacktestRunByBatchUid } from '../db/backtests.js'
 /**
  * Compares two backtest rows by batchUid and reports the first structural diff.
  *
- * Bit-identical means: marketStats (excluding the new optional `execution` field),
- * run summary columns, and chunkedBatchStats are deeply equal.
+ * Bit-identical means: marketStats (excluding the new optional `execution` field)
+ * and run summary columns are deeply equal.
  *
  * Usage:
  *   tsx src/cli/verify-backtest-diff.ts --baseline <uid> --candidate <uid>
@@ -153,7 +153,6 @@ async function main(): Promise<void> {
       b: stripExecution(cand.marketStats),
     },
     { name: 'run summary columns', a: pickRunSummary(base), b: pickRunSummary(cand) },
-    { name: 'chunkedBatchStats', a: base.chunkedBatchStats, b: cand.chunkedBatchStats },
   ]
 
   let allClean = true
