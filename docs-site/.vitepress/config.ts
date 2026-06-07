@@ -173,6 +173,14 @@ export default withMermaid(
         },
 
         {
+          text: 'Strategy Research',
+          items: [
+            { text: 'Overview', link: '/strategy-research/index' },
+            { text: 'Champion / Challenger Versioning', link: '/strategy-research/champion-challenger-versioning' },
+          ],
+        },
+
+        {
           text: 'Engine',
           items: [
             { text: 'Market Engine', link: '/engine/market-engine' },
