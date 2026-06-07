@@ -1,3 +1,8 @@
+---
+title: A Practical Guide to Polymarket
+description: Practical background on Polymarket, binary markets, order books, fees, and BTC short-window markets.
+---
+
 # A Practical Guide to Polymarket and BTC 5-Minute Markets
 
 ## What is Polymarket

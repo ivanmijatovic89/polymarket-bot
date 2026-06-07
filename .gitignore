@@ -37,7 +37,7 @@ temp/
 .DS_Store
 
 # vitepress cache
-docs-site/.vitepress/cache/
+docs/.vitepress/cache/
 
 # claude code local settings
 .claude/settings.local.json

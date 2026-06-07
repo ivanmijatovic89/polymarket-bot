@@ -33,6 +33,11 @@ export default withMermaid(
         { text: 'Key Concepts', link: '/key-concepts' },
 
         {
+          text: 'Polymarket',
+          items: [{ text: 'Practical Guide', link: '/polymarket/' }],
+        },
+
+        {
           text: 'Datasets',
           items: [
             { text: 'Overview', link: '/datasets/index' },
@@ -50,6 +55,7 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Overview', link: '/datasets/telonex/overview' },
+                { text: 'Sync Design', link: '/datasets/telonex/sync-design' },
                 { text: 'Sync Markets', link: '/datasets/telonex/sync-markets' },
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },

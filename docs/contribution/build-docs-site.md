@@ -5,7 +5,7 @@ description: How to run, build, and extend the VitePress documentation site loca
 
 # Build the Documentation Site
 
-This guide explains how to develop, build, and preview the Polymarket Bot documentation site — a [VitePress](https://vitepress.dev/) project located in the `docs-site/` directory.
+This guide explains how to develop, build, and preview the Polymarket Bot documentation site — a [VitePress](https://vitepress.dev/) project located in the `docs/` directory.
 
 ## Prerequisites
 
@@ -14,15 +14,15 @@ This guide explains how to develop, build, and preview the Polymarket Bot docume
 
 ## Install Dependencies
 
-Navigate to the `docs-site/` directory and install packages:
+Navigate to the `docs/` directory and install packages:
 
 ```bash
-cd docs-site
+cd docs
 npm install
 ```
 
 ::: tip
-Dependencies are separate from the root project. Always run `npm install` inside `docs-site/` before running any docs commands.
+Dependencies are separate from the root project. Always run `npm install` inside `docs/` before running any docs commands.
 :::
 
 ## Start the Development Server
@@ -39,7 +39,7 @@ VitePress starts a local server with hot-reload. Open `http://localhost:5173/pol
 npm run build
 ```
 
-This compiles all Markdown pages into static HTML and assets under `docs-site/.vitepress/dist/`. The same command runs in CI (`quality.yml`) — a passing build is required before any PR can merge.
+This compiles all Markdown pages into static HTML and assets under `docs/.vitepress/dist/`. The same command runs in CI (`quality.yml`) — a passing build is required before any PR can merge.
 
 ::: warning
 The build fails on broken internal links. Fix all `[text](/path)` links before pushing.
@@ -58,7 +58,7 @@ Serves the contents of `.vitepress/dist/` locally so you can verify the producti
 1. Create a Markdown file inside the appropriate subdirectory:
 
    ```
-   docs-site/other/my-new-page.md
+   docs/other/my-new-page.md
    ```
 
 2. Start the file with frontmatter:
@@ -103,7 +103,7 @@ graph TD
 ## Project Structure
 
 ```
-docs-site/
+docs/
 ├── .vitepress/
 │   └── config.ts          # Site configuration and sidebar
 ├── other/                 # Most documentation pages live here
@@ -118,4 +118,4 @@ docs-site/
 
 ## CI Check
 
-The `quality.yml` workflow runs `npm run build` inside `docs-site/` on every PR. A build failure blocks the merge. Run the build locally before opening a PR to catch broken links or invalid Markdown early.
+The `quality.yml` workflow runs `npm run build` inside `docs/` on every PR. A build failure blocks the merge. Run the build locally before opening a PR to catch broken links or invalid Markdown early.

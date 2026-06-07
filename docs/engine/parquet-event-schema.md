@@ -63,7 +63,7 @@ The value of `Date.now()` at the moment the raw WebSocket message was received b
 
 The exchange-side timestamp parsed from the `timestamp` field of the Polymarket WebSocket message, converted to Unix milliseconds. Not all message types include a `timestamp` field; when absent, this column is `null`.
 
-`ts_exchange_ms` reflects when the event was generated on the Polymarket exchange side, not when it was received locally. The difference `ts_local_ms - ts_exchange_ms` is an approximation of network + processing latency and is used in latency measurement tooling (see `docs/MeasureLatency.md`).
+`ts_exchange_ms` reflects when the event was generated on the Polymarket exchange side, not when it was received locally. The difference `ts_local_ms - ts_exchange_ms` is an approximation of network + processing latency and is used in latency measurement tooling (see `/other/MeasureLatency`).
 
 ### `event_type`
 

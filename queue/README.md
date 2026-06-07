@@ -73,7 +73,7 @@ chmod +x queue/run-queue.sh
 ### Set parallelism
 
 Default is **1** parallel job. Each `npm run backtest` now uses its own
-in-batch BullMQ worker pool (see [Backtest Parallelization](../docs-site/backtest/parallelization.md))
+in-batch BullMQ worker pool (see [Backtest Parallelization](../docs/backtest/parallelization.md))
 and saturates all available cores by itself — running multiple batches
 side-by-side here would just oversubscribe the CPU.
 

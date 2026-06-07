@@ -1,3 +1,8 @@
+---
+title: Telonex Sync Design
+description: Authoritative design for the Telonex dataset ingestion pipeline.
+---
+
 # Telonex Sync Design (v1)
 
 Authoritative design for the Telonex dataset ingestion pipeline.
@@ -228,7 +233,7 @@ src/telonex/
     omitted-events.ts      # moved from check-telonex-omitted-events.ts
 ```
 
-`src/parquet/cli/telonex/` directory is removed in the same migration. Only `docs/telonex-parquet.md` references it currently — that doc is updated to point to the new locations.
+`src/parquet/cli/telonex/` directory is removed in the same migration. Only `docs/datasets/telonex/overview.md` references it currently — that doc is updated to point to the new locations.
 
 `package.json` scripts:
 ```

@@ -18,7 +18,7 @@
  * --converter can be repeated to run multiple converters per market in a single pass,
  * downloading raw files only once. Defaults to paired if omitted.
  *
- * See docs/telonex-sync-design.md.
+ * See docs/datasets/telonex/sync-design.md.
  */
 
 import '../config/env.js'

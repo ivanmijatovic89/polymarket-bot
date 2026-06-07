@@ -3,7 +3,7 @@
 ## Docs sajt (VitePress → GitHub Pages)
 
 Sajt je živ na: https://ivanmijatovic89.github.io/polymarket-bot/
-Fajlovi su u: `docs-site/`
+Fajlovi su u: `docs/`
 
 ### 1. Ažurirati sadržaj stranica (prioritet)
 

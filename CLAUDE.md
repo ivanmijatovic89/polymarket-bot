@@ -255,6 +255,6 @@ Redeem watcher: `REDEEM_WATCH_INTERVAL_MS`, `REDEEM_LOOKBACK_HOURS`, `REDEEM_MAX
 
 ## Additional docs
 
-`docs/` contains: `ARCHITECTURE.md` + `ARCHITECTURE_DIAGRAMS.md`, `MultipleBots.md`, `MeasureLatency.md`, `ParallelBacktestRunner.md`, `GenerateJobsFromGridStrategyParams.md`, `chunked-batch-stats.md`, `rebuild-chunked-batch-stats.md`, `research-gate-on-backtests.md`, `save-intent-metrics.md`, `scan-disconnect-events.md`, `trade-features-export.md`, `DepositApproveWithdrawCheckBalance.md`, `AddNewBot.md`, `Commands.md`. The `queue/` and `webui/` directories have their own READMEs.
+`docs/` contains the canonical VitePress documentation site. The `queue/` and `webui/` directories have their own READMEs.
 
-**Telonex pipeline:** `docs/telonex-sync-design.md` is the authoritative design for the Telonex dataset ingestion pipeline (`sync-markets` → `download-raw-files` → `convert`). Read it before working on anything under `src/telonex/`. Existing Telonex usage doc: `docs/telonex-parquet.md`.
+**Telonex pipeline:** `docs/datasets/telonex/sync-design.md` is the authoritative design for the Telonex dataset ingestion pipeline (`sync-markets` → `download-raw-files` → `convert`). Read it before working on anything under `src/telonex/`. Existing Telonex usage doc: `docs/datasets/telonex/overview.md`.

@@ -75,15 +75,15 @@ jobs:
         with:
           node-version: '20'
           cache: npm
-          cache-dependency-path: docs-site/package-lock.json
+          cache-dependency-path: docs/package-lock.json
 
       - name: Install docs dependencies
         run: npm install
-        working-directory: docs-site
+        working-directory: docs
 
       - name: Build docs
         run: npm run build
-        working-directory: docs-site
+        working-directory: docs
 
   dashboard-quality:
     name: Dashboard (Typecheck + Build)

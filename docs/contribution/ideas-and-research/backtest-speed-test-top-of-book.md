@@ -106,4 +106,3 @@ Any implementation must produce bit-for-bit identical trade results compared to 
 - `src/market/MarketOrderBookEngine.ts` — processes each WS message and calls into `OrderBookEngine`
 - `src/market/orderbook/OrderBookEngine.ts` — full order book reconstruction logic
 - `src/trading/StrategyRunner.ts` — owns the tick loop and passes context to strategies
-- `docs/BacktestSpeedTest.md` — earlier hardware and dataset speed comparison notes

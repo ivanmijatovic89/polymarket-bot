@@ -18,7 +18,7 @@
  *
  * Defaults: concurrency=4, channel=book_snapshot_full
  *
- * See docs/telonex-sync-design.md for the full pipeline design.
+ * See docs/datasets/telonex/sync-design.md for the full pipeline design.
  */
 
 import '../config/env.js'

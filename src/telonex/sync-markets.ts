@@ -9,7 +9,7 @@
  * per query and hits the Telonex rate limit immediately, so reading the
  * catalogue remotely is not viable.
  *
- * See docs/telonex-sync-design.md for the full pipeline design.
+ * See docs/datasets/telonex/sync-design.md for the full pipeline design.
  *
  * Usage:
  *   npm run telonex:sync -- [--slug-pattern '<like-pattern>'] [--limit N] [--dry-run]

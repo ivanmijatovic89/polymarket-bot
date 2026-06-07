@@ -108,8 +108,8 @@ When a candidate is promoted:
 
 ## LLM Reading Order
 
-1. `docs-site/strategy-research/index.md`
-2. `docs-site/strategy-research/champion-challenger-versioning.md`
+1. `docs/strategy-research/index.md`
+2. `docs/strategy-research/champion-challenger-versioning.md`
 3. `src/strategies/<family>/FAMILY.md`
 4. `src/strategies/<family>/RULES.md`
 5. the relevant `VERSION.md` or `CANDIDATE.md`
