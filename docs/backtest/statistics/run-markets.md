@@ -20,8 +20,10 @@ typed columns and keeps only strategy-specific debug metadata in
 Each row belongs to exactly one `backtest_runs` row through `run_id`.
 
 `idx` is the canonical per-run order. It preserves the producer's input order
-and is used when hydrating results, verifying sequential/parallel parity,
-computing streaks, and rebuilding chunked statistics.
+and is used when hydrating results, verifying sequential/parallel parity, and
+computing streaks. `market_start_ms` (denormalized from the slug at insert
+time) is the chronological key that drives the per-segment stats — see
+[Backtest Segments](/backtest/statistics/backtest-segments).
 
 Important indexes:
 

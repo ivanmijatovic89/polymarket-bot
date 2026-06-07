@@ -107,9 +107,10 @@ calling `computeBatchStats`; the sequential path already sees the same order.
 
 - `computeBatchStats(markets, initialCapital)` returns a `BatchStats` instance.
 - `insertBacktestRun` accepts that instance and calls `toRunColumns()`.
-- `chunked_batch_stats.segments[].batch_stats` stores segment-level
-  `BatchStats` objects because chunk segments are nested JSON, not run-level
-  scalar columns.
+- `computeBacktestSegments` calls `computeBatchStats` once per segment (last-N
+  tail, daily/weekly/monthly bucket, and the `all` row). Each produced
+  `BatchStatsFields` object is flattened into one row of `backtest_run_segments`
+  — see [Backtest Segments](/backtest/statistics/backtest-segments).
 
 For the persisted run schema, use the `backtest_runs` columns above as the
 source of truth.

@@ -20,6 +20,7 @@ snapshots are not part of the current result schema.
 erDiagram
   backtest_runs ||--o{ backtest_run_markets : contains
   backtest_runs ||--o{ backtest_run_failures : records
+  backtest_runs ||--o{ backtest_run_segments : summarizes
 
   backtest_runs {
     bigint id PK
@@ -30,7 +31,6 @@ erDiagram
     decimal pnl_total
     int markets_persisted
     int failures_count
-    json chunked_batch_stats
   }
 
   backtest_run_markets {
@@ -38,6 +38,7 @@ erDiagram
     bigint run_id FK
     int idx
     varchar slug
+    bigint market_start_ms
     decimal pnl
     json intent_meta
   }
@@ -48,6 +49,16 @@ erDiagram
     int idx
     varchar slug
     text reason
+  }
+
+  backtest_run_segments {
+    bigint id PK
+    bigint run_id FK
+    enum segment_kind
+    varchar segment_key
+    bigint segment_ord
+    decimal pnl_total
+    decimal win_rate_pct
   }
 ```
 
@@ -102,15 +113,9 @@ Performance columns such as `pnl_total`, `win_rate_pct`, `pnl_avg_win`, and
 `streak_max_win` are documented in
 [Backtest Run Statistics](/backtest/statistics/run-statistics).
 
-### Nested Analysis Artifact
+### Per-Segment Stats
 
-| Column                | Type   | Description                                                                 |
-| --------------------- | ------ | --------------------------------------------------------------------------- |
-| `chunked_batch_stats` | `JSON` | Window/segment analysis used for learning-curve and walk-forward ranking.   |
-
-`chunked_batch_stats` remains JSON because it stores nested windows and
-segments. Each segment has its own `batch_stats` object; that is intentionally
-not flattened into run-level columns.
+Segment-level stats (last-N tails, daily / weekly / monthly buckets, and an `all` row) live in the normalized `backtest_run_segments` table — see [Backtest Segments](/backtest/statistics/backtest-segments). The previous `chunked_batch_stats` JSON column was removed in favor of that table.
 
 ## `backtest_run_markets`
 
@@ -142,8 +147,9 @@ the shape expected by research and diff tooling:
 
 - run metadata and scalar statistics from `backtest_runs`,
 - ordered `marketStats` from `backtest_run_markets`,
-- `failedMarkets` from `backtest_run_failures`,
-- `chunkedBatchStats` from `backtest_runs.chunked_batch_stats`.
+- `failedMarkets` from `backtest_run_failures`.
+
+Per-segment stats are read via `listSegmentsForRun(runId)` from `backtest_run_segments`.
 
 Hydration is a compatibility boundary for tools. The database schema remains
 the source of truth.

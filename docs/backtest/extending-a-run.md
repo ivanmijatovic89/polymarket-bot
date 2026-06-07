@@ -2,15 +2,15 @@
 
 `--extend <runId>` takes an existing telonex backtest run and adds more
 markets to it — re-using the same strategy and parameters. The parent
-row in `backtest_runs` grows: new per-market results get appended, and
-`batch_stats` + `chunked_batch_stats` get recomputed over the union of
-existing + new markets, all in one DB transaction.
+row in `backtest_runs` grows: new per-market results get appended, run-level
+`batch_stats` columns are recomputed over the union, and `backtest_run_segments`
+rows for the run are deleted and rewritten — all in one DB transaction.
 
 ::: tip Same row, more markets
 `--extend` does **not** create a new `backtest_runs` row. The parent
 row's `id` stays the same; its `batch_uid` is overwritten with a
-`-extN` suffix on each extend; everything else (stats, capital_final,
-chunked_batch_stats, per-market rows) updates in place.
+`-extN` suffix on each extend; everything else (stats, `capital_final`,
+per-segment rows, per-market rows) updates in place.
 :::
 
 ## The mechanics
@@ -278,14 +278,15 @@ Extensions of **different** runs are fine — they share no lock state.
 
 Phase 2 of the feature was implemented against an equality invariant:
 running a fresh `--limit 20` and a `--limit 10` followed by `--extend N
---limit 10` produce **bit-identical** stats columns. The chunked stats
-JSON also matches exactly. If you ever see a mismatch, that's a bug —
-file an issue with the two `backtest_runs` row dumps attached.
+--limit 10` produce **bit-identical** stats columns. The full set of
+`backtest_run_segments` rows for the run matches exactly too. If you ever
+see a mismatch, that's a bug — file an issue with the two `backtest_runs`
+row dumps (and segments dumps) attached.
 
 ## See also
 
 - [Running Backtests](/backtest/running-backtests) — basics, flags, env
 - [Run Statistics](/backtest/statistics/run-statistics) — what each
   column on `backtest_runs` means
-- [Chunked Batch Statistics](/backtest/statistics/chunked-batch-statistics) —
-  how the recomputed segment stats work
+- [Backtest Segments](/backtest/statistics/backtest-segments) —
+  how the per-segment stats table is computed and queried

@@ -105,10 +105,9 @@ export default withMermaid(
                 { text: 'Run Statistics', link: '/backtest/statistics/run-statistics' },
                 { text: 'Run Markets', link: '/backtest/statistics/run-markets' },
                 {
-                  text: 'Chunked Batch Statistics',
-                  link: '/backtest/statistics/chunked-batch-statistics',
+                  text: 'Backtest Segments',
+                  link: '/backtest/statistics/backtest-segments',
                 },
-                { text: 'Walk-Forward Ranking', link: '/backtest/statistics/walk-forward-ranking' },
               ],
             },
           ],
@@ -130,7 +129,7 @@ export default withMermaid(
             { text: 'Export Trade Features', link: '/research/export-trade-features' },
             { text: 'Research Gate Analysis', link: '/research/research-gate-new' },
             { text: 'Save Intent Metrics', link: '/research/save-intent-metrics' },
-            { text: 'Rebuild Chunked Batch Stats', link: '/research/rebuild-chunked-batch-stats' },
+            { text: 'Rebuild Backtest Segments', link: '/research/rebuild-backtest-segments' },
           ],
         },
 

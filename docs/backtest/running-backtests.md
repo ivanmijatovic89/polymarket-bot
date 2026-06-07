@@ -19,8 +19,8 @@ streak/chunk math is byte-equal to the sequential baseline. See the
 [Parallelization](./parallelization.md) page for the full architecture, the
 worker/dashboard setup, and the bit-identical verification protocol.
 
-After a run, per-market statistics, batch-level aggregates, and chunked batch
-statistics are written to the database automatically.
+After a run, per-market statistics, batch-level aggregates, and per-segment
+stats (`backtest_run_segments`) are written to the database automatically.
 
 ## Input modes
 
@@ -270,8 +270,9 @@ to the backtest result tables:
    per-market summary in green/red.
 2. **Batch stats** — aggregated metrics printed at the end and stored as
    typed scalar columns on `backtest_runs`.
-3. **Chunked batch stats** — computed for window sizes `[96, 200, 300]`
-   and stored in `chunked_batch_stats`.
+3. **Per-segment stats** — `all`, `last_n` tails (default `[500, 1000, 3000,
+   6000]`), and `daily` / `weekly` / `monthly` calendar buckets, stored as one
+   row each in `backtest_run_segments`.
 
 The row also carries:
 
@@ -283,7 +284,7 @@ The row also carries:
 See [Backtest Result Storage](/backtest/statistics/result-storage),
 [Backtest Run Markets](/backtest/statistics/run-markets),
 [Backtest Run Statistics](/backtest/statistics/run-statistics), and
-[Chunked Batch Statistics](/backtest/statistics/chunked-batch-statistics) for full field
+[Backtest Segments](/backtest/statistics/backtest-segments) for full field
 definitions.
 
 ### Watching progress live

@@ -36,8 +36,7 @@ Review this file and edit before bulk writing begins.
 | src/db/schema.ts | Backtest Result Storage | reference | Normalized backtest result tables: runs, markets, failures |
 | src/backtest/stats/batchStats.ts | Backtest Run Statistics | reference | Scalar run performance columns derived from BatchStats |
 | src/backtest/stats/marketStats.ts | Backtest Run Markets | reference | Per-market result rows stored in backtest_run_markets |
-| src/backtest/stats/chunkedBatchStats.ts | Chunked Batch Statistics | reference | Time-windowed stats for learning curve analysis |
-| src/backtest/stats/walkForwardRank.ts | Walk-Forward Ranking | reference | Ranks strategies using walk-forward analysis |
+| src/backtest/stats/backtestSegments.ts | Backtest Segments | reference | Per-segment stats (all / last_n / daily / weekly / monthly) stored in backtest_run_segments |
 
 ---
 

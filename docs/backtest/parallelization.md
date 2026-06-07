@@ -66,13 +66,13 @@ Redis queues   (markets queue + aggregate queue)
    │
    ▼  (after every child settles)
 [aggregate worker]
-   │  sorts children by idx (preserves streak / chunk invariants),
-   │  computes run summary stats + chunkedBatchStats,
+   │  sorts children by idx (preserves streak / segment invariants),
+   │  computes run summary stats + per-segment stats,
    │  inserts normalized backtest result rows,
    │  removes children jobs from Redis to bound memory
    ▼
-MySQL rows in `backtest_runs`, `backtest_run_markets`, and
-`backtest_run_failures`.
+MySQL rows in `backtest_runs`, `backtest_run_markets`,
+`backtest_run_failures`, and `backtest_run_segments`.
 ```
 
 ### Per-market observability
@@ -214,8 +214,9 @@ machine as the producer or anywhere with network access to Redis + MySQL.
    fresh `Runner` / `Portfolio` / `OrderManager`. No state crosses markets.
 2. **Sort by idx before every aggregation** — the aggregator sorts children
    results by their producer-assigned `idx` before passing to
-   `computeBatchStats` / `computeChunkedBatchStats`. This keeps streak and
-   chunk logic bit-identical regardless of which worker finishes when.
+   `computeBatchStats`. Segment computation then sorts by
+   `marketStartMs` ascending so streak and per-segment logic stays
+   bit-identical regardless of which worker finishes when.
 3. **Workers don't touch MySQL** — the producer pre-resolves every market and
    passes the resolved meta/resolution in the job payload. The aggregate
    worker is the only worker that needs DB credentials; restrict it to
@@ -224,16 +225,16 @@ machine as the producer or anywhere with network access to Redis + MySQL.
    fallback happens in the producer, not in workers.
 5. **Bit-identical with sequential** — set `BACKTEST_LATENCY_JITTER=0` and
    `--sequential` and `--market-concurrency=N` produce byte-equal
-   `marketStats` (excluding the new optional `execution` field), run summary
-   columns, and `chunkedBatchStats`. See `npm run backtest:verify-diff`.
-   The persisted shape is documented in [Backtest Result Storage](/backtest/statistics/result-storage).
+   `marketStats` (excluding the new optional `execution` field) and run
+   summary columns. See `npm run backtest:verify-diff`. The persisted shape
+   is documented in [Backtest Result Storage](/backtest/statistics/result-storage).
 
 ## Verifying bit-identical behavior
 
 `src/cli/verify-backtest-diff.ts` (exposed via `npm run backtest:verify-diff`)
 loads two backtest runs by `batchUid` and reports the first structural
-difference in `marketStats` (excluding the `execution` field), run summary
-columns, and `chunkedBatchStats`.
+difference in `marketStats` (excluding the `execution` field) and run summary
+columns.
 
 ```bash
 # baseline (sequential, in-process)
@@ -250,7 +251,6 @@ Expected output when behavior matches:
 ```
 ✅ marketStats (excluding execution): bit-identical
 ✅ run summary columns: bit-identical
-✅ chunkedBatchStats: bit-identical
 candidate marketStats with execution metadata: N/N
 ```
 
