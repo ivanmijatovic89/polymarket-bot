@@ -57,7 +57,6 @@ type CompletedResponse = {
         eventsProcessed: number
       }
     }> | null
-    chunkedBatchStats: Record<string, unknown> | null
     failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
   }
 }
@@ -217,18 +216,6 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
 
   const marketStats = batch.marketStats ?? []
   const failed = batch.failedMarkets ?? []
-  // chunkedBatchStats shape (src/backtest/stats/chunkedBatchStats.ts):
-  //   { windows: [{ window, segments: [...] }, ...], version }
-  // We only render the first window for now.
-  const cbs = batch.chunkedBatchStats
-  const windowsHead = cbs && (cbs as { windows?: unknown }).windows
-  const segmentsList = Array.isArray(windowsHead)
-    ? (windowsHead[0] as { window?: unknown; segments?: unknown[] })
-    : null
-  const segments =
-    segmentsList && Array.isArray(segmentsList.segments)
-      ? (segmentsList.segments as Array<Record<string, unknown>>)
-      : []
 
   return (
     <div className="space-y-8">
@@ -270,67 +257,6 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
           </div>
         </CardContent>
       </Card>
-
-      {segments.length > 0 && (
-        <section>
-          <SectionHeading
-            title="Chunked segments"
-            subtitle={`window ${String(segmentsList?.window ?? '?')} — split metrics across run idx ranges`}
-          />
-          <Card className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Range</TableHead>
-                  <TableHead className="text-right">PnL</TableHead>
-                  <TableHead className="text-right">Win rate</TableHead>
-                  <TableHead className="text-right">Trades</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {segments.map((s, i) => {
-                  // ChunkedBatchStatsRun.segments[] shape (chunkedBatchStats.ts):
-                  //   { i, fromTs, toTs, marketsTotal, batch_stats: BatchStats }
-                  // PnL / win-rate / trades live UNDER batch_stats, not on the
-                  // segment itself.
-                  const bs = (s.batch_stats as Record<string, unknown> | undefined) ?? {}
-                  const sp = typeof bs.pnlTotal === 'number' ? (bs.pnlTotal as number) : null
-                  const wr = typeof bs.winRatePct === 'number' ? (bs.winRatePct as number) : null
-                  const trades = typeof bs.tradesTotal === 'number' ? (bs.tradesTotal as number) : null
-                  const markets =
-                    typeof s.marketsTotal === 'number' ? (s.marketsTotal as number) : null
-                  // fromTs/toTs are epoch seconds parsed from the slug suffix.
-                  const fromTs = typeof s.fromTs === 'number' ? (s.fromTs as number) : null
-                  const toTs = typeof s.toTs === 'number' ? (s.toTs as number) : null
-                  const fmtTs = (t: number | null): string =>
-                    t === null ? '?' : new Date(t * 1000).toISOString().slice(0, 16).replace('T', ' ')
-                  const cls =
-                    sp === null ? '' : sp >= 0 ? 'text-[color:var(--success)]' : 'text-destructive'
-                  return (
-                    <TableRow key={i}>
-                      <TableCell className="font-mono text-xs">
-                        {fmtTs(fromTs)} → {fmtTs(toTs)}
-                        {markets !== null && (
-                          <span className="text-muted-foreground"> · {markets} markets</span>
-                        )}
-                      </TableCell>
-                      <TableCell className={cn('text-right tabular-nums font-medium', cls)}>
-                        {sp !== null ? formatPnl(sp) : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {wr !== null ? `${wr.toFixed(2)}%` : '—'}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {trades !== null ? String(trades) : '—'}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </Card>
-        </section>
-      )}
 
       <section>
         <SectionHeading

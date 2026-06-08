@@ -1,9 +1,19 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
 import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
-import { computeChunkedBatchStats, slugTs } from '../backtest/stats/chunkedBatchStats.js'
+import {
+  computeBacktestSegments,
+  slugTs,
+  type SegmentRow,
+} from '../backtest/stats/backtestSegments.js'
 import type { MarketExecutionMeta, MarketStats } from '../backtest/stats/marketStats.js'
 import { getDb } from './index.js'
-import { backtestRunFailures, backtestRunMarkets, backtestRuns, telonexMarkets } from './schema.js'
+import {
+  backtestRunFailures,
+  backtestRunMarkets,
+  backtestRunSegments,
+  backtestRuns,
+  telonexMarkets,
+} from './schema.js'
 
 function mustGetDb(): ReturnType<typeof getDb> {
   const db = getDb()
@@ -70,7 +80,6 @@ export type BacktestRunRecord = {
   streakMaxLosePnl: number
   streakMaxSkipped: number
   marketStats: MarketStats[]
-  chunkedBatchStats: Record<string, unknown> | null
   failedMarkets: BacktestFailureRecord[]
   createdAt: Date
 }
@@ -105,14 +114,55 @@ type InsertBacktestRunRow = {
   latest: boolean
   batchStats: BatchStats
   marketStats: unknown[]
-  chunkedBatchStats?: Record<string, unknown> | null
+  segments: SegmentRow[]
   failedMarkets?: BacktestFailureRecord[] | null
 }
 
 const MARKET_INSERT_BATCH_SIZE = 250
+const SEGMENT_INSERT_BATCH_SIZE = 500
 
 function toDecimal(value: number): string {
   return String(value)
+}
+
+function segmentRowToInsert(runId: number, s: SegmentRow) {
+  return {
+    runId,
+    segmentKind: s.segmentKind,
+    segmentKey: s.segmentKey,
+    segmentOrd: s.segmentOrd,
+    fromMs: s.fromMs,
+    toMs: s.toMs,
+    capitalInitial: toDecimal(s.stats.capitalInitial),
+    capitalFinal: toDecimal(s.stats.capitalFinal),
+    pnlTotal: toDecimal(s.stats.pnlTotal),
+    totalFeesPaid: toDecimal(s.stats.totalFeesPaid),
+    qualitySystem: s.stats.qualitySystem === null ? null : toDecimal(s.stats.qualitySystem),
+    qualityTrade: s.stats.qualityTrade === null ? null : toDecimal(s.stats.qualityTrade),
+    evPerMarketPlayed: toDecimal(s.stats.evPerMarketPlayed),
+    evPerMarketTotal: toDecimal(s.stats.evPerMarketTotal),
+    marketsTotal: s.stats.marketsTotal,
+    marketsSkipped: s.stats.marketsSkipped,
+    marketsNoInWindowActivity: s.stats.marketsNoInWindowActivity,
+    marketsFlatWithTrades: s.stats.marketsFlatWithTrades,
+    marketsPlayed: s.stats.marketsPlayed,
+    marketsWon: s.stats.marketsWon,
+    marketsLost: s.stats.marketsLost,
+    winRate: toDecimal(s.stats.winRate),
+    winRatePct: toDecimal(s.stats.winRatePct),
+    tradesTotal: s.stats.tradesTotal,
+    tradesMaker: s.stats.tradesMaker,
+    tradesTaker: s.stats.tradesTaker,
+    pnlAvgWin: toDecimal(s.stats.pnlAvgWin),
+    pnlAvgLose: toDecimal(s.stats.pnlAvgLose),
+    pnlMaxWin: toDecimal(s.stats.pnlMaxWin),
+    pnlMaxLose: toDecimal(s.stats.pnlMaxLose),
+    streakMaxWin: s.stats.streakMaxWin,
+    streakMaxLose: s.stats.streakMaxLose,
+    streakMaxWinPnl: toDecimal(s.stats.streakMaxWinPnl),
+    streakMaxLosePnl: toDecimal(s.stats.streakMaxLosePnl),
+    streakMaxSkipped: s.stats.streakMaxSkipped,
+  }
 }
 
 function coerceMarketStatsRow(m: unknown, idx: number): MarketStats {
@@ -255,7 +305,6 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         streakMaxWinPnl: toDecimal(batchStats.streakMaxWinPnl),
         streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
         streakMaxSkipped: batchStats.streakMaxSkipped,
-        chunkedBatchStats: row.chunkedBatchStats ?? null,
       })
       .$returningId()
 
@@ -270,6 +319,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
           idx: entry.idx,
           marketId: entry.stats.marketId,
           slug: entry.stats.slug,
+          marketStartMs: slugTs(entry.stats.slug),
           finalOutcome: entry.stats.finalOutcome,
           skipReason: entry.stats.skipReason ?? null,
           pnl: toDecimal(entry.stats.pnl),
@@ -298,6 +348,13 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
           commitSha: entry.stats.execution?.commitSha ?? null,
         })),
       )
+    }
+
+    for (let start = 0; start < row.segments.length; start += SEGMENT_INSERT_BATCH_SIZE) {
+      const chunk = row.segments.slice(start, start + SEGMENT_INSERT_BATCH_SIZE)
+      if (chunk.length > 0) {
+        await tx.insert(backtestRunSegments).values(chunk.map((s) => segmentRowToInsert(runId, s)))
+      }
     }
 
     if (failedMarkets.length > 0) {
@@ -436,7 +493,6 @@ async function hydrateBacktestRun(
     streakMaxLosePnl: parseDecimal(run.streakMaxLosePnl),
     streakMaxSkipped: run.streakMaxSkipped,
     marketStats,
-    chunkedBatchStats: parseJsonValue<Record<string, unknown> | null>(run.chunkedBatchStats),
     failedMarkets: failureRows.map((f) => ({
       ...(f.jobId ? { jobId: f.jobId } : {}),
       idx: f.idx,
@@ -643,10 +699,10 @@ export async function restoreRunAfterFailedExtend(
 /**
  * Merge an extension batch's results into the parent run. Inserts the new
  * per-market rows (continuing `idx` from `max(idx)+1`), inserts new failures,
- * recomputes `batch_stats` and `chunked_batch_stats` over the UNION of
- * existing + new markets, and UPDATEs `backtest_runs` with the new derived
- * columns. All of this happens in a single DB transaction so the run's row
- * never represents a half-applied extension.
+ * recomputes `batch_stats` over the UNION of existing + new markets, replaces
+ * all `backtest_run_segments` rows for the run, and UPDATEs `backtest_runs`
+ * with the new derived columns. All of this happens in a single DB
+ * transaction so the run's row never represents a half-applied extension.
  *
  * `cmd` and `batch_uid` are NOT touched here — they were already updated by
  * `markRunForExtendingBatch` at enqueue time.
@@ -655,13 +711,11 @@ export async function applyExtensionToRun(opts: {
   parentRunId: number
   marketStats: unknown[]
   failedMarkets?: BacktestFailureRecord[] | null
-  chunkedWindows?: number[]
 }): Promise<void> {
   const db = mustGetDb()
   const indexedNewMarketStats = coerceIndexedMarketStats(opts.marketStats)
   const newMarketStats = indexedNewMarketStats.map((entry) => entry.stats)
   const newFailures = opts.failedMarkets ?? []
-  const chunkedWindows = opts.chunkedWindows ?? [96, 200, 300]
 
   await db.transaction(async (tx) => {
     // Load parent + existing markets. SELECT FOR UPDATE locks the parent row
@@ -767,6 +821,7 @@ export async function applyExtensionToRun(opts: {
           idx: nextIdx + entry.idx,
           marketId: entry.stats.marketId,
           slug: entry.stats.slug,
+          marketStartMs: slugTs(entry.stats.slug),
           finalOutcome: entry.stats.finalOutcome,
           skipReason: entry.stats.skipReason ?? null,
           pnl: toDecimal(entry.stats.pnl),
@@ -843,26 +898,40 @@ export async function applyExtensionToRun(opts: {
     // (streak fields reduce in array order), so we MUST present markets in
     // chronological order — otherwise a backward extension (newMarketStats
     // older than existing) would yield different streaks than an equivalent
-    // fresh full run over the same set. `computeChunkedBatchStats` re-sorts
-    // by slugTs internally; sorting here harmonizes both.
-    const allMarkets = [...existingStats, ...newMarketStats].sort(
-      (a, b) => slugTs(a.slug) - slugTs(b.slug),
-    )
+    // fresh full run over the same set.
+    const allMarketsWithStartMs = [...existingStats, ...newMarketStats].map((m) => ({
+      ...m,
+      marketStartMs: slugTs(m.slug),
+    }))
+    allMarketsWithStartMs.sort((a, b) => a.marketStartMs - b.marketStartMs)
     const capitalInitial = parseDecimal(parent.capitalInitial)
-    const batchStats = computeBatchStats(allMarkets, capitalInitial)
-    const chunkedBatchStats = computeChunkedBatchStats(allMarkets, capitalInitial, chunkedWindows)
+    const batchStats = computeBatchStats(allMarketsWithStartMs, capitalInitial)
+    const segments = computeBacktestSegments(allMarketsWithStartMs, capitalInitial)
     const totalFailures = computeExtendedFailureCount(
       parent.failuresCount,
       newFailures.length,
       resolvedFailureCount,
     )
-    const status = runStatus(allMarkets.length, totalFailures)
+    const status = runStatus(allMarketsWithStartMs.length, totalFailures)
+
+    // Replace all segments for this run with the freshly-computed set.
+    // Inside the same transaction so the run row never observes a partial
+    // segments view alongside the new stats columns.
+    await tx.delete(backtestRunSegments).where(eq(backtestRunSegments.runId, opts.parentRunId))
+    for (let start = 0; start < segments.length; start += SEGMENT_INSERT_BATCH_SIZE) {
+      const chunk = segments.slice(start, start + SEGMENT_INSERT_BATCH_SIZE)
+      if (chunk.length > 0) {
+        await tx
+          .insert(backtestRunSegments)
+          .values(chunk.map((s) => segmentRowToInsert(opts.parentRunId, s)))
+      }
+    }
 
     await tx
       .update(backtestRuns)
       .set({
         status,
-        marketsPersisted: allMarkets.length,
+        marketsPersisted: allMarketsWithStartMs.length,
         failuresCount: totalFailures,
         capitalFinal: toDecimal(batchStats.capitalFinal),
         pnlTotal: toDecimal(batchStats.pnlTotal),
@@ -893,7 +962,6 @@ export async function applyExtensionToRun(opts: {
         streakMaxWinPnl: toDecimal(batchStats.streakMaxWinPnl),
         streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
         streakMaxSkipped: batchStats.streakMaxSkipped,
-        chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
         // Release the concurrent-extend lock in the same transaction as the
         // merge UPDATE — so the row is never visible as "no lock held" while
         // the new markets aren't yet visible.
@@ -909,6 +977,21 @@ export async function applyExtensionToRun(opts: {
  * Returns true if the lock was actually released, false if it was already
  * NULL.
  */
+export type BacktestRunSegmentRow = typeof backtestRunSegments.$inferSelect
+
+/**
+ * List all segment rows for a run, ordered by kind then ord (so callers can
+ * group on `segmentKind` and get the natural display order within each kind).
+ */
+export async function listSegmentsForRun(runId: number): Promise<BacktestRunSegmentRow[]> {
+  const db = mustGetDb()
+  return db
+    .select()
+    .from(backtestRunSegments)
+    .where(eq(backtestRunSegments.runId, runId))
+    .orderBy(asc(backtestRunSegments.segmentKind), asc(backtestRunSegments.segmentOrd))
+}
+
 export async function clearExtensionLock(runId: number): Promise<boolean> {
   const db = mustGetDb()
   const result = await db

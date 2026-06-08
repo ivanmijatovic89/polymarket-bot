@@ -200,15 +200,15 @@ Between building the grader and trusting it:
 
 - **`package.json`**: add scripts `telonex:scan-quality` and
   `telonex:grade-quality`.
-- **(a) Move the design doc into docs-site**: relocate
-  `docs/telonex-sync-design.md` → `docs-site/datasets/telonex/` and update its
-  internal links / any references to it elsewhere afterwards.
-- **(b) Update existing telonex docs-site pages**: refresh
-  `docs-site/datasets/telonex/` pages (`overview.md`, `diagnostics.md`, etc.)
+- **(a) Update the design doc**: keep
+  `docs/datasets/telonex/sync-design.md` current and update its internal links
+  / any references to it elsewhere afterwards.
+- **(b) Update existing telonex docs pages**: refresh
+  `docs/datasets/telonex/` pages (`overview.md`, `diagnostics.md`, etc.)
   to mention the new quality scanner where relevant, and add the new pages to
-  the VitePress sidebar in `docs-site/.vitepress`.
+  the VitePress sidebar in `docs/.vitepress`.
 - **(c) New feature doc**: create one new file under
-  `docs-site/datasets/telonex/` (e.g. `data-quality.md`) explaining this whole
+  `docs/datasets/telonex/` (e.g. `data-quality.md`) explaining this whole
   feature — the table, the scanner, the grader, the calibration workflow, and
   how to read a `verdict` / `verdict_reason`.
 - CI (`quality.yml`) must pass: Prettier + Typecheck + ESLint + WebUI + Docs
@@ -225,17 +225,17 @@ Between building the grader and trusting it:
 
 ## 6. File summary
 
-| Path                                             | Action                                  |
-| ------------------------------------------------ | --------------------------------------- |
-| `src/db/schema.ts`                               | add `telonexMarketQuality` table        |
-| `drizzle/`                                       | generated migration SQL                 |
-| `src/telonex/data-quality/scan-quality.ts`       | new — scanner worker                    |
-| `src/telonex/data-quality/grade-quality.ts`      | new — grader                            |
-| `src/telonex/data-quality/quality-thresholds.ts` | new — threshold constants               |
-| `package.json`                                   | add 2 scripts                           |
-| `docs/telonex-sync-design.md`                    | move into `docs-site/datasets/telonex/` |
-| `docs-site/datasets/telonex/data-quality.md`     | new — feature doc                       |
-| `docs-site/datasets/telonex/*`                   | update existing pages + sidebar         |
+| Path                                             | Action                           |
+| ------------------------------------------------ | -------------------------------- |
+| `src/db/schema.ts`                               | add `telonexMarketQuality` table |
+| `drizzle/`                                       | generated migration SQL          |
+| `src/telonex/data-quality/scan-quality.ts`       | new — scanner worker             |
+| `src/telonex/data-quality/grade-quality.ts`      | new — grader                     |
+| `src/telonex/data-quality/quality-thresholds.ts` | new — threshold constants        |
+| `package.json`                                   | add 2 scripts                    |
+| `docs/datasets/telonex/sync-design.md`           | update existing design doc       |
+| `docs/datasets/telonex/data-quality.md`          | new — feature doc                |
+| `docs/datasets/telonex/*`                        | update existing pages + sidebar  |
 
 ## Open items — still to finalize
 

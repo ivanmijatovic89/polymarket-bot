@@ -500,7 +500,7 @@ Default `JOBS=1`. Comments updated.
 
 Note change.
 
-### NEW `docs-site/backtest/parallelization.md`
+### NEW `docs/backtest/parallelization.md`
 
 VitePress page (matching project's existing docs structure). Covers:
 
@@ -511,7 +511,7 @@ VitePress page (matching project's existing docs structure). Covers:
 - Running backtest (no flag changes — defaults to parallel).
 - Where to find live progress (dashboard URL).
 
-### NEW `docs-site/backtest/distributed-future.md`
+### NEW `docs/backtest/distributed-future.md`
 
 Forward-looking doc (no code yet). Covers:
 
@@ -522,13 +522,13 @@ Forward-looking doc (no code yet). Covers:
 - Trust model.
 - R2 result store option for 100k+ batches.
 
-### MODIFY `docs-site/.vitepress/config.ts` (or equivalent)
+### MODIFY `docs/.vitepress/config.ts` (or equivalent)
 
 Add new pages to sidebar / nav.
 
 ### NO changes to root `README.md`
 
-User does not use root README. All docs go to `docs-site/`.
+User does not use root README. All docs go to `docs/`.
 
 ---
 
@@ -652,7 +652,7 @@ For r2-mode workers:
 - LRU eviction beyond configurable size (default 10GB).
 - Worker daemon runs cleanup once per hour.
 
-### MODIFY `docs-site/backtest/parallelization.md`
+### MODIFY `docs/backtest/parallelization.md`
 
 Add sections:
 
@@ -768,7 +768,7 @@ Not 20 min (volume), not 2-3 weeks (that was human-dev estimate).
 - No `backtest:status` or `backtest:resume` CLI — all via dashboard at fixed URL.
 - Dashboard runs as **separate always-on daemon**, not auto-started by `backtest` command.
 - Per-market `execution` metadata persisted in existing `marketStats` JSON (no schema migration now).
-- Documentation: **`docs-site/` (VitePress)**. Root README untouched.
+- Documentation: **`docs/` (VitePress)**. Root README untouched.
 - Verification: bit-identical with `BACKTEST_LATENCY_JITTER=0`.
 - Cost target: €0/mes Phase 1; ~€7/mes Hetzner CX33 Phase 2.
 

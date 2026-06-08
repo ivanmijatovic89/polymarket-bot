@@ -82,11 +82,10 @@ export const pmxtSlugCache = mysqlTable('pmxt_slug_cache', {
 
 // Backtest result storage.
 //
-// V1 intentionally uses a hybrid shape:
-// - run-level and per-market fields used for filtering/sorting are columns,
-// - flexible strategy/research payloads stay as JSON at their natural scope,
-// - `chunked_batch_stats` remains a JSON artifact because it stores nested
-//   walk-forward windows/segments, each with its own segment stats.
+// Run-level and per-market fields used for filtering/sorting are columns;
+// flexible strategy/research payloads stay as JSON at their natural scope.
+// Per-segment stats (last_n / daily / weekly / monthly buckets) live in their
+// own normalized table `backtest_run_segments` — see below.
 export const backtestRuns = mysqlTable(
   'backtest_runs',
   {
@@ -148,8 +147,6 @@ export const backtestRuns = mysqlTable(
     streakMaxLosePnl: decimal('streak_max_lose_pnl', { precision: 14, scale: 4 }).notNull(),
     streakMaxSkipped: int('streak_max_skipped').notNull(),
 
-    chunkedBatchStats: json('chunked_batch_stats').$type<Record<string, unknown> | null>(),
-
     // Set when a `--extend <runId>` invocation has enqueued an extension
     // batch but the aggregateProcessor hasn't merged it yet. Cleared in the
     // same DB transaction as the merge UPDATE. While set, a second concurrent
@@ -186,6 +183,11 @@ export const backtestRunMarkets = mysqlTable(
 
     marketId: varchar('market_id', { length: 255 }).notNull(),
     slug: varchar('slug', { length: 255 }).notNull(),
+    // Denormalized at insert time so segmenting (last_n / daily / weekly /
+    // monthly buckets in `backtest_run_segments`) can sort/group without
+    // re-parsing slugs or joining `telonex_markets`. For recorded mode this
+    // is `slugTs(slug)`; for Telonex mode it's `telonex_markets.market_start_ms`.
+    marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
     finalOutcome: mysqlEnum('final_outcome', ['UP', 'DOWN']).notNull(),
     skipReason: mysqlEnum('skip_reason', ['no_in_window_activity']),
 
@@ -226,6 +228,96 @@ export const backtestRunMarkets = mysqlTable(
     slugIdx: index('idx_backtest_run_markets_slug').on(t.slug),
     runDurationIdx: index('idx_backtest_run_markets_run_duration').on(t.runId, t.durationMs),
     machineIdIdx: index('idx_backtest_run_markets_machine_id').on(t.machineId),
+    runMarketStartMsIdx: index('idx_backtest_run_markets_run_market_start_ms').on(
+      t.runId,
+      t.marketStartMs,
+    ),
+  }),
+)
+
+// Per-segment stats for each backtest run. Replaces the previous
+// `backtest_runs.chunked_batch_stats` JSON column. One row per
+// (run, segment_kind, segment_key). Segment kinds:
+//
+//   all     — single row over the whole run (mirrors the run-level columns
+//             on backtest_runs by construction; kept here so the dashboard
+//             reads one shape).
+//   last_n  — most recent N markets (sorted by market_start_ms desc). Emitted
+//             only when total markets >= N. segment_key = '500' / '1000' / etc.
+//             segment_ord = N (sort key across last_n rows).
+//   daily   — calendar-day buckets (UTC). segment_key = 'YYYY-MM-DD'.
+//   weekly  — ISO-week buckets. segment_key = 'YYYY-Www'.
+//   monthly — calendar-month buckets (UTC). segment_key = 'YYYY-MM'.
+//
+// For date kinds, segment_ord = start_ms of the bucket — gives one ORDER BY
+// that works across all kinds.
+export const backtestRunSegments = mysqlTable(
+  'backtest_run_segments',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    runId: bigint('run_id', { mode: 'number' })
+      .notNull()
+      .references(() => backtestRuns.id, { onDelete: 'cascade' }),
+    segmentKind: mysqlEnum('segment_kind', [
+      'all',
+      'last_n',
+      'daily',
+      'weekly',
+      'monthly',
+    ]).notNull(),
+    segmentKey: varchar('segment_key', { length: 32 }).notNull(),
+    segmentOrd: bigint('segment_ord', { mode: 'number' }).notNull(),
+
+    fromMs: bigint('from_ms', { mode: 'number' }).notNull(),
+    toMs: bigint('to_ms', { mode: 'number' }).notNull(),
+
+    capitalInitial: decimal('capital_initial', { precision: 14, scale: 4 }).notNull(),
+    capitalFinal: decimal('capital_final', { precision: 14, scale: 4 }).notNull(),
+    pnlTotal: decimal('pnl_total', { precision: 14, scale: 4 }).notNull(),
+    totalFeesPaid: decimal('total_fees_paid', { precision: 14, scale: 4 }).notNull(),
+    qualitySystem: decimal('quality_system', { precision: 14, scale: 6 }),
+    qualityTrade: decimal('quality_trade', { precision: 14, scale: 6 }),
+    evPerMarketPlayed: decimal('ev_per_market_played', { precision: 14, scale: 4 }).notNull(),
+    evPerMarketTotal: decimal('ev_per_market_total', { precision: 14, scale: 4 }).notNull(),
+
+    marketsTotal: int('markets_total').notNull(),
+    marketsSkipped: int('markets_skipped').notNull(),
+    marketsNoInWindowActivity: int('markets_no_in_window_activity').notNull(),
+    marketsFlatWithTrades: int('markets_flat_with_trades').notNull(),
+    marketsPlayed: int('markets_played').notNull(),
+    marketsWon: int('markets_won').notNull(),
+    marketsLost: int('markets_lost').notNull(),
+
+    winRate: decimal('win_rate', { precision: 10, scale: 6 }).notNull(),
+    winRatePct: decimal('win_rate_pct', { precision: 10, scale: 4 }).notNull(),
+    tradesTotal: int('trades_total').notNull(),
+    tradesMaker: int('trades_maker').notNull(),
+    tradesTaker: int('trades_taker').notNull(),
+
+    pnlAvgWin: decimal('pnl_avg_win', { precision: 14, scale: 4 }).notNull(),
+    pnlAvgLose: decimal('pnl_avg_lose', { precision: 14, scale: 4 }).notNull(),
+    pnlMaxWin: decimal('pnl_max_win', { precision: 14, scale: 4 }).notNull(),
+    pnlMaxLose: decimal('pnl_max_lose', { precision: 14, scale: 4 }).notNull(),
+    streakMaxWin: int('streak_max_win').notNull(),
+    streakMaxLose: int('streak_max_lose').notNull(),
+    streakMaxWinPnl: decimal('streak_max_win_pnl', { precision: 14, scale: 4 }).notNull(),
+    streakMaxLosePnl: decimal('streak_max_lose_pnl', { precision: 14, scale: 4 }).notNull(),
+    streakMaxSkipped: int('streak_max_skipped').notNull(),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    runKindKeyUnique: unique('uniq_backtest_run_segments_run_kind_key').on(
+      t.runId,
+      t.segmentKind,
+      t.segmentKey,
+    ),
+    kindKeyIdx: index('idx_backtest_run_segments_kind_key').on(t.segmentKind, t.segmentKey),
+    runKindOrdIdx: index('idx_backtest_run_segments_run_kind_ord').on(
+      t.runId,
+      t.segmentKind,
+      t.segmentOrd,
+    ),
   }),
 )
 
@@ -249,7 +341,7 @@ export const backtestRunFailures = mysqlTable(
 )
 
 // ---------------------------------------------------------------------------
-// Telonex sync pipeline — see docs/telonex-sync-design.md
+// Telonex sync pipeline — see docs/datasets/telonex/sync-design.md
 // ---------------------------------------------------------------------------
 
 // Telonex catalog row + local pipeline state (Step 1 upload).

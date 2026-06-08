@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Layers } from 'lucide-react'
 import { Card } from './ui/card'
@@ -36,96 +36,87 @@ export type ChunkedRunTotals = {
   symbol: string | null
 }
 
-const PRESETS = [96, 200, 300, 500, 1000, 2880]
+type SegmentKind = ChunkSegmentRow['segmentKind']
 
-async function fetchChunks(
+const KIND_TABS: Array<{ kind: SegmentKind; label: string; subtitle: string }> = [
+  {
+    kind: 'last_n',
+    label: 'Last N',
+    subtitle: 'Most recent N markets (sorted by market_start_ms desc).',
+  },
+  { kind: 'monthly', label: 'Monthly', subtitle: 'One row per calendar month (UTC).' },
+  { kind: 'weekly', label: 'Weekly', subtitle: 'One row per ISO 8601 week.' },
+  { kind: 'daily', label: 'Daily', subtitle: 'One row per UTC calendar day.' },
+  { kind: 'all', label: 'All', subtitle: 'The full run as one segment (sanity check).' },
+]
+
+async function fetchSegments(
   id: number,
-  windowSize: number,
-): Promise<{ window: number; segments: ChunkSegmentRow[] }> {
-  const r = await fetch(`/api/backtests/${id}/chunks?window=${windowSize}`, {
+  kind: SegmentKind,
+): Promise<{ segments: ChunkSegmentRow[] }> {
+  const r = await fetch(`/api/backtests/${id}/chunks?kind=${kind}`, {
     cache: 'no-store',
   })
-  if (!r.ok) throw new Error(`failed to fetch chunks: ${r.status}`)
+  if (!r.ok) throw new Error(`failed to fetch segments: ${r.status}`)
   return r.json()
 }
 
+function formatSegmentLabel(row: ChunkSegmentRow): string {
+  if (row.segmentKind === 'last_n') return `last ${row.segmentKey}`
+  return row.segmentKey
+}
+
+function formatSegmentRange(row: ChunkSegmentRow): string {
+  const from = new Date(row.fromMs).toISOString().slice(0, 16).replace('T', ' ')
+  const to = new Date(row.toMs).toISOString().slice(0, 16).replace('T', ' ')
+  return `${from} → ${to}`
+}
+
 /**
- * Live-computed chunked segments for a backtest run. Window size (markets
- * per chunk) is user-controlled — no DB read of stored chunkedBatchStats.
- * Each chunk renders as a row matching the persisted backtest summary.
+ * Reads pre-computed segments from `backtest_run_segments` and renders one
+ * row per segment. User picks the kind (last_n / daily / weekly / monthly /
+ * all). No on-the-fly chunking.
  */
 export function ChunkedSegmentsLive({ id, totals }: { id: number; totals: ChunkedRunTotals }) {
-  const [windowSize, setWindowSize] = useState(96)
-  const [inputValue, setInputValue] = useState('96')
+  const [kind, setKind] = useState<SegmentKind>('last_n')
 
   const { data, isLoading, isFetching } = useQuery({
-    queryKey: ['backtests', id, 'chunks', windowSize],
-    queryFn: () => fetchChunks(id, windowSize),
+    queryKey: ['backtests', id, 'chunks', kind],
+    queryFn: () => fetchSegments(id, kind),
   })
 
-  const apply = (next: number) => {
-    const clamped = Math.max(1, Math.min(10_000, Math.floor(next)))
-    setWindowSize(clamped)
-    setInputValue(String(clamped))
-  }
-
-  const onInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    setInputValue(e.target.value)
-  }
-  const onInputCommit = () => {
-    const n = Number(inputValue)
-    if (Number.isFinite(n) && n >= 1) apply(n)
-    else setInputValue(String(windowSize))
-  }
-
   const segments = data?.segments ?? []
+  const subtitle = useMemo(
+    () => KIND_TABS.find((t) => t.kind === kind)?.subtitle ?? '',
+    [kind],
+  )
 
   return (
     <section>
       <SectionHeading
-        title="Chunked segments (live)"
-        subtitle="Splits this run's markets into equal-size chunks and recomputes the full backtest summary per chunk. Trailing remainder rolls into the last chunk."
+        title="Segments"
+        subtitle={subtitle}
         icon={Layers}
       />
 
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <label className="text-xs text-muted-foreground" htmlFor="chunk-window">
-          Window (markets per chunk):
-        </label>
-        <input
-          id="chunk-window"
-          type="number"
-          min={1}
-          max={10000}
-          value={inputValue}
-          onChange={onInputChange}
-          onBlur={onInputCommit}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') {
-              ;(e.target as HTMLInputElement).blur()
-            }
-          }}
-          className="h-8 w-24 rounded-md border bg-background px-2 text-xs tabular-nums focus:outline-none focus:ring-1 focus:ring-ring"
-        />
-        <div className="ml-2 flex items-center gap-1 text-xs">
-          {PRESETS.map((n) => (
-            <button
-              key={n}
-              type="button"
-              onClick={() => apply(n)}
-              className={cn(
-                'rounded-md px-2 py-1 transition-colors',
-                windowSize === n
-                  ? 'bg-accent text-foreground'
-                  : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
-              )}
-            >
-              {n}
-            </button>
-          ))}
-        </div>
+      <div className="mb-3 flex flex-wrap items-center gap-1 text-xs">
+        {KIND_TABS.map((t) => (
+          <button
+            key={t.kind}
+            type="button"
+            onClick={() => setKind(t.kind)}
+            className={cn(
+              'rounded-md px-2 py-1 transition-colors',
+              kind === t.kind
+                ? 'bg-accent text-foreground'
+                : 'text-muted-foreground hover:text-foreground hover:bg-accent/50',
+            )}
+          >
+            {t.label}
+          </button>
+        ))}
         {isFetching && (
-          <span className="ml-auto text-[11px] text-muted-foreground">recomputing…</span>
+          <span className="ml-auto text-[11px] text-muted-foreground">loading…</span>
         )}
       </div>
 
@@ -140,14 +131,18 @@ export function ChunkedSegmentsLive({ id, totals }: { id: number; totals: Chunke
       ) : (
         <BacktestSummaryTable
           rows={segments}
-          leadingHeader="Chunk"
+          leadingHeader="Segment"
           emptyTitle="No segments"
-          emptyHint="This run has no markets to chunk."
+          emptyHint={
+            kind === 'last_n'
+              ? 'Run has fewer markets than the smallest last-N bucket (500).'
+              : 'No segments stored for this kind.'
+          }
           renderLeading={(row) => (
             <div className="min-w-0">
-              <div className="font-mono text-xs">chunk #{row.chunkIndex + 1}</div>
+              <div className="font-mono text-xs">{formatSegmentLabel(row)}</div>
               <div className="mt-0.5 text-[11px] text-muted-foreground">
-                markets {row.fromMarketIdx + 1}–{row.toMarketIdx + 1}
+                {formatSegmentRange(row)}
               </div>
             </div>
           )}
@@ -163,18 +158,17 @@ export function ChunkedSegmentsLive({ id, totals }: { id: number; totals: Chunke
             },
           ]}
           footerRow={
-            segments.length > 0
+            kind !== 'all' && segments.length > 0
               ? {
                   row: {
-                    chunkIndex: -1,
-                    fromMarketIdx: 0,
-                    toMarketIdx: totals.marketsTotal - 1,
-                    fromSlugTs: 0,
-                    toSlugTs: 0,
+                    segmentKind: 'all',
+                    segmentKey: 'all',
+                    segmentOrd: 0,
+                    fromMs: 0,
+                    toMs: 0,
                     status: 'completed' as const,
                     strategy: totals.strategy,
                     symbol: totals.symbol,
-                    limit: totals.marketsTotal,
                     marketsTotal: totals.marketsTotal,
                     marketsPlayed: totals.marketsPlayed,
                     marketsSkipped: totals.marketsSkipped,
@@ -202,7 +196,7 @@ export function ChunkedSegmentsLive({ id, totals }: { id: number; totals: Chunke
                     <div className="min-w-0">
                       <div className="font-mono text-xs">TOTAL</div>
                       <div className="mt-0.5 text-[11px] text-muted-foreground">
-                        run aggregate ({segments.length} chunks)
+                        run aggregate ({segments.length} segments)
                       </div>
                     </div>
                   ),

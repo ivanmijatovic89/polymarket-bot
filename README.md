@@ -168,7 +168,7 @@ Internally we validate/coerce params with **Zod**.
 
 `measureLatency.v1` is a test strategy that measures **end-to-end live execution latency** (place + cancel) on your current environment (local machine or server/droplet). The measured latency can then be added to `.env` so backtests can simulate the same latency and better match live behavior.
 
-Docs: [`docs/MeasureLatency.md`](docs/MeasureLatency.md)
+Docs: [`docs/other/MeasureLatency.md`](docs/other/MeasureLatency.md)
 
 ## Backtest latency simulation (intent → exchange-visible)
 
@@ -391,7 +391,7 @@ This repo supports running many backtests concurrently by putting one command pe
 parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
 
-See: [`docs/ParallelBacktestRunner.md`](docs/ParallelBacktestRunner.md)
+See: [`docs/backtest/parallel-backtest-runner.md`](docs/backtest/parallel-backtest-runner.md)
 
 ## Order book module
 
@@ -881,7 +881,7 @@ npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 
 # Running Multiple Bots
 
-See [`docs/MultipleBots.md`](docs/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).
+See [`docs/other/MultipleBots.md`](docs/other/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).
 
 ## Queue-based Batch Runner / Batch Execution & Grid Search
 

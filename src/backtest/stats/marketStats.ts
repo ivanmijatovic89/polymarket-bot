@@ -52,7 +52,7 @@ export type MarketStats = {
   /**
    * Optional execution metadata. Populated by `runSingleMarket`.
    * Not present on legacy/historical rows; not used by `computeBatchStats`
-   * or `computeChunkedBatchStats` (those operate purely on outcome/pnl/trades).
+   * or `computeBacktestSegments` (those operate purely on outcome/pnl/trades).
    */
   execution?: MarketExecutionMeta
 }

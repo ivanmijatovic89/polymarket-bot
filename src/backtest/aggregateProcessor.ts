@@ -1,6 +1,6 @@
 import type { Job } from 'bullmq'
 import { computeBatchStats } from './stats/batchStats.js'
-import { computeChunkedBatchStats } from './stats/chunkedBatchStats.js'
+import { computeBacktestSegments, slugTs } from './stats/backtestSegments.js'
 import type { MarketStats } from './stats/marketStats.js'
 import {
   applyExtensionToRun,
@@ -51,7 +51,7 @@ function nullMarketStatsReason(result: MarketJobResult): string {
  *
  * Runs after every child market job has either completed or exhausted retries.
  * Pulls each child's return value, sorts by idx, and produces the final
- * run summary stats / chunkedBatchStats — preserving the bit-identical
+ * run summary stats and per-segment stats — preserving the bit-identical
  * invariant that depends on processing order matching the producer's input order.
  *
  * After the row is persisted, child jobs are removed from Redis to bound memory.
@@ -158,11 +158,8 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     }
   } else {
     const batchStats = computeBatchStats(marketStats, data.initialCapital)
-    const chunkedBatchStats = computeChunkedBatchStats(
-      marketStats,
-      data.initialCapital,
-      [96, 200, 300],
-    )
+    const marketsWithStartMs = marketStats.map((m) => ({ ...m, marketStartMs: slugTs(m.slug) }))
+    const segments = computeBacktestSegments(marketsWithStartMs, data.initialCapital)
     await insertBacktestRun({
       batchUid: data.batchUid,
       baselineId: data.insertMeta.baselineId,
@@ -181,7 +178,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
       random: data.insertMeta.random,
       latest: data.insertMeta.latest,
       batchStats,
-      chunkedBatchStats: chunkedBatchStats as unknown as Record<string, unknown>,
+      segments,
       marketStats: indexedMarketStats as unknown as unknown[],
       failedMarkets: failed,
     })
