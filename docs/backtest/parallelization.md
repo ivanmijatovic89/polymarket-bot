@@ -5,7 +5,7 @@ same code path that later scales to multiple machines. The producer (the
 `npm run backtest` command) enqueues every market as a child job in a BullMQ
 **FlowProducer** flow; one or more worker daemons consume the queue; when all
 children settle, the **aggregate parent job** sorts results back into input
-order and writes a single `backtests` row.
+order and writes a single `backtest_runs` row.
 
 ## What you need running
 
@@ -139,6 +139,14 @@ market queue it forks **N single-concurrency child Node processes** via
 you real CPU parallelism across N cores. The aggregate queue (concurrency 1,
 I/O-bound) runs in-process on the supervisor.
 
+::: tip Run via the self-updating wrapper
+For long-lived workers (local or remote), launch through
+`./scripts/run-worker.sh` instead of `npm run backtest:worker` — same flags.
+The wrapper relaunches the supervisor on new code so a worker never runs a
+stale strategy registry. See
+[worker self-update](/backtest/worker-self-update).
+:::
+
 ::: warning Why N processes instead of `concurrency: N` on one Worker
 A BullMQ `Worker` with `concurrency: N` runs N async callbacks on **one**
 Node event loop. JavaScript is single-threaded, so CPU-bound replay work
@@ -166,8 +174,9 @@ same id, and two different machines can never collide. Persisted rows in
 `backtest_run_markets.machine_id` use this id directly.
 
 The supervisor and each child publish a live Redis heartbeat under the key
-`backtest:worker:<machineId>#<childId>` (children) or `<machineId>#sup`
-(supervisor). The dashboard surfaces each row with its own `processedTotal`,
+`backtest:worker:<machineId>#<childId>` (children) or `<machineId>#supervisor`
+(the markets supervisor) / `<machineId>#aggregator` (an aggregate-only process).
+The dashboard surfaces each row with its own `processedTotal`,
 `eventsTotal`, `lastMarket`, and 60-second heartbeat — the `#childId` suffix
 is **not** persisted to MySQL.
 
@@ -197,7 +206,7 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 | `/api/queues`                   | Per-queue waiting/active/completed/failed counts.                   |
 | `/api/batches/active`           | Aggregate parent jobs that haven't finalized yet.                   |
 | `/api/batches/history?limit=N`  | Recent finalized batches from MySQL.                                |
-| `/api/batches/:uid`             | Full row from `backtests` for one batch.                            |
+| `/api/batches/:uid`             | Full row from `backtest_runs` for one batch.                        |
 
 For raw queue/job inspection, run Bull Board as a separate process:
 
@@ -269,8 +278,12 @@ it before treating the BullMQ path as equivalent to the sequential one.
   `backtest_run_failures` for audit.
 - `lockDuration: 10 minutes` is the upper bound per market; if a strategy
   has an infinite-loop bug it will be reaped instead of stalling the queue.
-- The producer's git SHA is attached to every job (`commitSha` field) so a
-  later PR can self-update workers whose checkout drifted.
+- The producer's git SHA is attached to every job (`commitSha` field). A market
+  worker runs any job whose commit its loaded code already contains, and
+  **self-updates** (pull + relaunch) when a job needs a newer commit — see
+  [worker self-update](/backtest/worker-self-update).
+  Worker heartbeats publish the loaded commit and whether it matches
+  `origin/main`.
 
 ## Environment
 

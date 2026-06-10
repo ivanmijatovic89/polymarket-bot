@@ -3,7 +3,7 @@ import os from 'os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fork, type ChildProcess } from 'node:child_process'
-import { Worker } from 'bullmq'
+import { DelayedError, Worker } from 'bullmq'
 import {
   AGGREGATE_QUEUE,
   WORKER_OPTS,
@@ -17,6 +17,18 @@ import {
   getRedisProcessKey,
   startHeartbeat,
 } from '../backtest/workerIdentity.js'
+import {
+  WORKER_LAUNCH_SHA,
+  STALE_JOB_RELEASE_DELAY_MS,
+  canRunJobCommit,
+} from '../backtest/commitGate.js'
+
+/**
+ * Exit code that tells the run-worker.sh wrapper to `git pull` and relaunch.
+ * Any other exit code stops the wrapper loop. Chosen to not collide with
+ * Node's conventional codes (0, 1) or our pre-flight failures (2).
+ */
+const SELF_UPDATE_EXIT_CODE = 75
 
 type Queues = 'markets' | 'aggregate'
 
@@ -114,7 +126,11 @@ function resolveChildScriptPath(): string {
  * Node process with its own event loop, so CPU-bound replay work runs in
  * parallel across N cores.
  */
-function spawnMarketChildren(args: { count: number; machineId: string }): {
+function spawnMarketChildren(args: {
+  count: number
+  machineId: string
+  onUpdateRequested: () => void
+}): {
   children: ChildProcess[]
   shutdown: (signal: NodeJS.Signals) => Promise<void>
 } {
@@ -138,6 +154,15 @@ function spawnMarketChildren(args: { count: number; machineId: string }): {
       console.warn(
         `[worker=${args.machineId}] child#${i} exited code=${code} signal=${signal ?? ''}`,
       )
+    })
+    child.on('message', (msg: unknown) => {
+      if (
+        msg &&
+        typeof msg === 'object' &&
+        (msg as { type?: string }).type === 'update-requested'
+      ) {
+        args.onUpdateRequested()
+      }
     })
     children.push(child)
   }
@@ -182,6 +207,13 @@ async function main(): Promise<void> {
     : 'aggregator'
   const supervisorKey = getRedisProcessKey(supervisorRole)
 
+  // The commit this supervisor (and therefore its forked children) loaded its
+  // code at. Stamp it into the env so children compare jobs against the code
+  // they actually loaded, not a live `git rev-parse` that drifts when files
+  // change on disk under a running worker.
+  const launchSha = getCurrentGitSha()
+  process.env.WORKER_LAUNCH_SHA = launchSha
+
   // Note: REDIS_URL is OPTIONAL — getRedisConnection() in queue.ts falls back
   // to redis://localhost:6379 when unset, matching what the producer does.
   await pingRedis()
@@ -189,20 +221,47 @@ async function main(): Promise<void> {
   console.log(
     `[worker] starting machineId=${machineId} queues=${[...args.queues].join(',')}` +
       ` marketConcurrency=${args.marketConcurrency} aggregateConcurrency=${args.aggregateConcurrency}` +
-      ` commitSha=${getCurrentGitSha()}`,
+      ` commitSha=${launchSha}`,
   )
 
-  const stopHeartbeat = await startHeartbeat(supervisorKey)
+  const stopHeartbeat = await startHeartbeat(supervisorKey, launchSha)
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]
     shutdown: (s: NodeJS.Signals) => Promise<void>
   } | null = null
 
+  // Shared drain used by both graceful shutdown (exit 0) and self-update
+  // (exit SELF_UPDATE_EXIT_CODE — the run-worker.sh wrapper pulls + relaunches).
+  let stopping = false
+  const drainAndExit = async (signal: NodeJS.Signals, exitCode: number): Promise<void> => {
+    if (stopping) return
+    stopping = true
+    await stopHeartbeat()
+    await Promise.allSettled([
+      ...inProcessWorkers.map((w) => w.close()),
+      marketChildren ? marketChildren.shutdown(signal) : Promise.resolve(),
+    ])
+    await closeRedisConnection()
+    process.exit(exitCode)
+  }
+
+  // A child reported a job built on newer code than we loaded. Drain and exit
+  // with the wrapper's update code so it pulls the new commit and relaunches.
+  const requestSelfUpdate = (): void => {
+    if (stopping) return
+    console.log(
+      `[worker=${machineId}] stale code detected — draining and exiting ` +
+        `${SELF_UPDATE_EXIT_CODE} for self-update`,
+    )
+    void drainAndExit('SIGTERM', SELF_UPDATE_EXIT_CODE)
+  }
+
   if (args.queues.has('markets')) {
     marketChildren = spawnMarketChildren({
       count: args.marketConcurrency,
       machineId,
+      onUpdateRequested: requestSelfUpdate,
     })
     console.log(
       `[worker=${machineId}] spawned ${marketChildren.children.length} market child process(es)`,
@@ -210,11 +269,30 @@ async function main(): Promise<void> {
   }
 
   if (args.queues.has('aggregate')) {
-    const w = new Worker(AGGREGATE_QUEUE, aggregateProcessor, {
-      connection: getRedisConnection(),
-      concurrency: args.aggregateConcurrency,
-      ...WORKER_OPTS,
-    })
+    const w = new Worker(
+      AGGREGATE_QUEUE,
+      async (job, token) => {
+        // Same commit gate as market jobs: if the aggregate job was built on
+        // newer code than we loaded, release it (no attempt consumed) and ask
+        // the supervisor to self-update, rather than aggregating with stale
+        // stats/engine code.
+        if (!canRunJobCommit(job.data.commitSha)) {
+          await job.moveToDelayed(Date.now() + STALE_JOB_RELEASE_DELAY_MS, token)
+          console.log(
+            `[worker=${machineId}] deferring aggregate job ${job.id} and requesting update: ` +
+              `loaded ${WORKER_LAUNCH_SHA.slice(0, 8)}, job needs ${(job.data.commitSha ?? '').slice(0, 8)}`,
+          )
+          requestSelfUpdate()
+          throw new DelayedError()
+        }
+        return aggregateProcessor(job)
+      },
+      {
+        connection: getRedisConnection(),
+        concurrency: args.aggregateConcurrency,
+        ...WORKER_OPTS,
+      },
+    )
     w.on('completed', (_job, result) => {
       const r = result as { batchUid?: string; totalSucceeded?: number; totalFailed?: number }
       console.log(
@@ -233,21 +311,12 @@ async function main(): Promise<void> {
     inProcessWorkers.push(w)
   }
 
-  let shuttingDown = false
-  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
-    if (shuttingDown) return
-    shuttingDown = true
+  const shutdown = (signal: NodeJS.Signals): void => {
     console.log(`[worker=${machineId}] ${signal} received, draining...`)
-    await stopHeartbeat()
-    await Promise.allSettled([
-      ...inProcessWorkers.map((w) => w.close()),
-      marketChildren ? marketChildren.shutdown(signal) : Promise.resolve(),
-    ])
-    await closeRedisConnection()
-    process.exit(0)
+    void drainAndExit(signal, 0)
   }
-  process.on('SIGINT', () => void shutdown('SIGINT'))
-  process.on('SIGTERM', () => void shutdown('SIGTERM'))
+  process.on('SIGINT', () => shutdown('SIGINT'))
+  process.on('SIGTERM', () => shutdown('SIGTERM'))
 
   console.log(`[worker=${machineId}] ready`)
 }

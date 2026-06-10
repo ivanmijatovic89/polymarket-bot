@@ -11,5 +11,5 @@ windows:
       panes:
         - DASHBOARD: DASHBOARD_ALLOWED_DEV_ORIGINS=100.100.49.80 npm run dashboard
         - DOCUMENTATION: cd docs && npm run dev
-        - BACKTEST WORKER: npm run backtest:worker -- --queues markets --market-concurrency 5
-        - BACKTEST WORKER AGGREGATOR: npm run backtest:worker -- --queues aggregate
+        - BACKTEST WORKER: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+        - BACKTEST WORKER AGGREGATOR: ./scripts/run-worker.sh --queues aggregate

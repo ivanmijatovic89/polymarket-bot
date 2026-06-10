@@ -13,6 +13,13 @@ row's `id` stays the same; its `batch_uid` is overwritten with a
 per-segment rows, per-market rows) updates in place.
 :::
 
+::: warning Commit before extending
+`--extend` runs through the BullMQ path, so it is subject to the same
+clean-tree guard as a normal run: workers gate on the producer's commit SHA,
+and a dirty working tree is blocked. Commit (and push, for remote workers)
+first, or set `BACKTEST_ALLOW_DIRTY=1` to override.
+:::
+
 ## The mechanics
 
 You start with an existing run. Suppose it's run **#103**, originally

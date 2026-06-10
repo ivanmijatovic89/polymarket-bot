@@ -41,7 +41,14 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
 - At least one Parquet file under `data/events/<symbol>/`
 - For the **default** (BullMQ) execution path:
   - Redis running locally (`brew services start redis`)
-  - At least one worker daemon up (`npm run backtest:worker`)
+  - At least one worker daemon up — launch via `./scripts/run-worker.sh` so it
+    self-updates to your code (see
+    [worker self-update](/backtest/worker-self-update))
+  - **A clean (committed) working tree.** Workers gate on the producer's commit
+    SHA, so uncommitted strategy code can't reach them; the producer therefore
+    blocks on a dirty tree. Commit (and push, if you run remote workers) first,
+    or set `BACKTEST_ALLOW_DIRTY=1` to override (only safe for a local
+    `--sequential` run).
   - Optional dashboard (`npm run dashboard` → http://127.0.0.1:3051) and `npm run bull-board` (→ http://127.0.0.1:3052/admin/queues)
 - Pass `--sequential` if you'd rather skip the worker daemon and run the loop
   in-process (see [Execution modes](#execution-modes) below).
@@ -134,7 +141,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | Flag                | Description                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `--comment <text>`  | Free-text annotation stored with the run record in the database.                                 |
-| `--batchUid <uuid>` | Override the auto-generated batch UUID. Useful when grouping multiple runs under one identifier. |
+| `--batchUid <uuid>` | Override the auto-generated batch UUID. If the given `batchUid` already exists (a finished run in MySQL or an aggregate job still in Redis), the producer automatically appends a random suffix and continues — it does not fail or overwrite the existing run. |
 | `--baselineId <id>` | Reference a prior run for comparison purposes.                                                   |
 
 ### Execution mode
@@ -143,7 +150,6 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--sequential`  | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).                                                                                                                                                                              |
 | `--detach`      | (BullMQ default only.) Enqueue the flow, print the `batchUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch in the dashboard.                                                                                                                                                                                 |
-| `--force-rerun` | (BullMQ default only.) If a flow with this `--batchUid` is still sitting in Redis (e.g. you Ctrl+C'd a previous run before its aggregator finished), wipe the stale parent + children before enqueueing a new flow. Without this flag a stale flow makes the producer fail fast. **Does not** remove the matching MySQL row(s) in `backtests` — pick a fresh `--batchUid` if you care. |
 
 ## Execution modes
 
@@ -193,6 +199,7 @@ bit-identical verification against the BullMQ path.
 | `BACKTEST_LATENCY_JITTER`                | `20`                     | Symmetric random jitter in milliseconds added to each latency delay. Only applied when `BACKTEST_LATENCY_DELAY > 0`.            |
 | `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
 | `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
+| `BACKTEST_ALLOW_DIRTY`                    | —                        | Set to `1` to let the BullMQ producer enqueue with uncommitted changes in the working tree. Off by default (a dirty tree is blocked) because workers gate on the commit SHA. Only safe for a local `--sequential` run. |
 | `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
 | `DASHBOARD_PORT`                         | `3051`                   | Port for `npm run dashboard` (Next.js). 3001 is reserved for the live WebUI.                                                    |
 | `BULL_BOARD_PORT`                        | `3052`                   | Port for `npm run bull-board` (raw queue inspector). Dashboard nav reads this server-side and links to it.                      |

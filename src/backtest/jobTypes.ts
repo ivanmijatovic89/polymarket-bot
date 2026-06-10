@@ -40,6 +40,8 @@ export const AGGREGATE_JOB_PROTOCOL_VERSION = 2
 export type AggregateJobData = {
   batchUid: string
   protocolVersion: number
+  /** Producer's git SHA at enqueue time. The aggregate worker self-updates if it loaded older code. */
+  commitSha: string
   totalMarkets: number
   expectedMarkets: Array<{ idx: number; slug: string | null }>
   initialCapital: number

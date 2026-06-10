@@ -70,14 +70,20 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  console.log(`[worker-child=${processKey}] ready commitSha=${getCurrentGitSha()}`)
+  // The commit this child LOADED its code at — inherited from the supervisor
+  // via WORKER_LAUNCH_SHA. Report this (not live HEAD) so the dashboard shows
+  // the code actually running, even after the repo advances on disk.
+  const loadedSha = process.env.WORKER_LAUNCH_SHA?.trim() || getCurrentGitSha()
+  console.log(`[worker-child=${processKey}] ready commitSha=${loadedSha}`)
 
-  const stopHeartbeat = await startHeartbeat(processKey)
+  const stopHeartbeat = await startHeartbeat(processKey, loadedSha)
   const processor = makeMarketProcessor(machineId)
   const w = new Worker(
     MARKET_QUEUE,
-    async (job) => {
-      const result = await processor(job)
+    async (job, token) => {
+      // processor may throw DelayedError (job released for a self-update) —
+      // let it propagate so BullMQ keeps the job delayed instead of failing it.
+      const result = await processor(job, token)
       await recordWorkerStats(processKey, result, result.slug)
       return result
     },
