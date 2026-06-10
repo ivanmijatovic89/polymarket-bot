@@ -94,7 +94,8 @@ export default withMermaid(
             { text: 'Running Backtests', link: '/backtest/running-backtests' },
             { text: 'Extending a Run', link: '/backtest/extending-a-run' },
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
-            { text: 'Distributed (future)', link: '/backtest/distributed-future' },
+            { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
+            { text: 'Distributed Workers', link: '/backtest/distributed-future' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'Parallel Backtest Runner', link: '/backtest/parallel-backtest-runner' },
             {
