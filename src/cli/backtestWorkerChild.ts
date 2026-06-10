@@ -70,9 +70,13 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  console.log(`[worker-child=${processKey}] ready commitSha=${getCurrentGitSha()}`)
+  // The commit this child LOADED its code at — inherited from the supervisor
+  // via WORKER_LAUNCH_SHA. Report this (not live HEAD) so the dashboard shows
+  // the code actually running, even after the repo advances on disk.
+  const loadedSha = process.env.WORKER_LAUNCH_SHA?.trim() || getCurrentGitSha()
+  console.log(`[worker-child=${processKey}] ready commitSha=${loadedSha}`)
 
-  const stopHeartbeat = await startHeartbeat(processKey)
+  const stopHeartbeat = await startHeartbeat(processKey, loadedSha)
   const processor = makeMarketProcessor(machineId)
   const w = new Worker(
     MARKET_QUEUE,

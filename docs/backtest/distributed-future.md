@@ -109,19 +109,28 @@ launch SHA is what reflects the in-memory strategy registry, so this is correct
 even on the producer's own machine where files on disk change under the running
 worker after a commit.
 
-The decision (`classifyJobCommit` in `src/backtest/workerIdentity.ts`):
+The decision is a single question: **does this worker already have the code the
+job was built on?** Because strategies are only ever ADDED (never removed), a
+worker whose loaded commit is at-or-after the job's commit has every strategy
+the job needs — so it can run jobs from older batches still in the queue, not
+just its own. The check is `isAncestorOrEqual(jobCommitSha, WORKER_LAUNCH_SHA)`
+(a local `git merge-base`, cached per commit — no network):
 
-- **same commit** → run the job normally.
-- **worker behind its upstream** → the job's code is reachable by pulling, so
-  the worker:
+- **job commit is at-or-before the loaded commit** → run normally. This covers
+  the common case (same commit) and any older batch sitting in the queue.
+- **job commit is newer than the loaded commit** (not in the worker's history)
+  → the worker:
   1. releases the job with `job.moveToDelayed(...)` — **no attempt consumed**,
      and the job stays out of the "active" set so it never counts as stalled
      (respecting `maxStalledCount: 1`);
   2. signals its supervisor over IPC (`{ type: 'update-requested' }`);
   3. the supervisor drains all children and exits with code **75**.
-- **worker already at its upstream tip** but the job wants a different commit
-  (unpushed / diverged producer) → fail fast with a clear message. This is the
-  loop guard: pulling can't help, so don't restart-loop.
+
+This handles many concurrent batches at different commits: a worker on the
+latest `main` runs everything in the queue and only updates when a job needs a
+commit it hasn't loaded yet. The loop guard against an unreachable commit
+(unpushed / dirty / wrong branch) lives in `run-worker.sh` (see below), so the
+worker stays alive and simply asks to update.
 
 ### The relauncher
 

@@ -219,7 +219,7 @@ async function main(): Promise<void> {
       ` commitSha=${launchSha}`,
   )
 
-  const stopHeartbeat = await startHeartbeat(supervisorKey)
+  const stopHeartbeat = await startHeartbeat(supervisorKey, launchSha)
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]

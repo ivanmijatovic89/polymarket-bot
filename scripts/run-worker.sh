@@ -36,6 +36,12 @@ forward_signal() {
 trap forward_signal INT TERM
 
 while true; do
+  # Capture the commit the worker is ABOUT to load. The loop guard below
+  # compares against this, not against pre-pull HEAD, so a commit made locally
+  # (not yet pushed) still triggers a clean restart: the pull is a no-op but the
+  # relaunch picks up the newer local HEAD.
+  launch_sha="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
+
   # Run the worker directly under tsx so its exit code reaches us verbatim
   # (npm would rewrite it).
   "$TSX" src/cli/backtestWorker.ts "$@" &
@@ -50,16 +56,26 @@ while true; do
   fi
 
   echo "[run-worker] update requested — syncing code…"
-  before="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
   git fetch --quiet || echo "[run-worker] git fetch failed (offline?) — continuing"
   if ! git pull --ff-only --quiet; then
-    echo "[run-worker] git pull --ff-only skipped (diverged/dirty) — relaunching on current code"
+    echo "[run-worker] git pull --ff-only failed (diverged/dirty/wrong branch)" >&2
   fi
   after="$(git rev-parse HEAD 2>/dev/null || echo unknown)"
 
-  # Reinstall deps only when the lockfile actually changed across the pull.
-  if [ "$before" != "$after" ] && \
-     ! git diff --quiet "$before" "$after" -- package-lock.json 2>/dev/null; then
+  # CRITICAL loop guard: a restart only helps if it loads a DIFFERENT commit
+  # than the worker just ran. If HEAD still equals what we launched with, we
+  # cannot reach the commit the job needs (dirty tree, diverged/wrong branch,
+  # offline, or an unpushed producer commit on another machine). Relaunching
+  # would just exit 75 again — an infinite loop. Stop with a clear error.
+  if [ "$after" = "$launch_sha" ]; then
+    echo "[run-worker] ERROR: update requested but HEAD is unchanged (still ${after:0:8})." >&2
+    echo "[run-worker] The worker cannot reach the commit its jobs need. Push the commit," >&2
+    echo "[run-worker] clean the tree, or switch to the tracked branch, then restart." >&2
+    exit 1
+  fi
+
+  # Reinstall deps only when the lockfile actually changed across the update.
+  if ! git diff --quiet "$launch_sha" "$after" -- package-lock.json 2>/dev/null; then
     echo "[run-worker] package-lock.json changed — running npm install"
     npm install
   fi
