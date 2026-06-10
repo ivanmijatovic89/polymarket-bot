@@ -74,6 +74,11 @@ When a worker decides it is behind:
 2. It tells its supervisor it needs to update.
 3. The supervisor drains its children and exits with code **`75`**.
 
+The **aggregate** worker uses the exact same gate: before finalizing a batch it
+checks the aggregate job's commit, and self-updates the same way if it loaded
+older stats/engine code. So both market and aggregate workers stay current
+automatically.
+
 Code `75` is a signal to the launcher script, `scripts/run-worker.sh`, which
 wraps the worker:
 
@@ -154,7 +159,6 @@ safe with `--sequential`, which does not use workers at all.
 | --- | --- | --- |
 | `commit unreachable` error, worker exits | The job needs a commit this machine can't reach (unpushed, dirty tree, or wrong branch). | Push the commit, clean the tree, or switch the checkout to the tracked branch, then restart. |
 | Worker keeps running old strategies | You committed but a worker hasn't been sent a job needing the new code yet. | Expected — the worker updates lazily, on the first job that needs newer code. |
-| Aggregate-only worker never updates | Self-update is wired into **market** workers only. | Restart the `--queues aggregate` process manually after engine changes. It rarely needs new code when you only add strategies. |
 
 ## What the dashboard shows
 

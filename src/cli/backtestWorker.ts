@@ -3,7 +3,7 @@ import os from 'os'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { fork, type ChildProcess } from 'node:child_process'
-import { Worker } from 'bullmq'
+import { DelayedError, Worker } from 'bullmq'
 import {
   AGGREGATE_QUEUE,
   WORKER_OPTS,
@@ -17,6 +17,11 @@ import {
   getRedisProcessKey,
   startHeartbeat,
 } from '../backtest/workerIdentity.js'
+import {
+  WORKER_LAUNCH_SHA,
+  STALE_JOB_RELEASE_DELAY_MS,
+  canRunJobCommit,
+} from '../backtest/commitGate.js'
 
 /**
  * Exit code that tells the run-worker.sh wrapper to `git pull` and relaunch.
@@ -264,11 +269,30 @@ async function main(): Promise<void> {
   }
 
   if (args.queues.has('aggregate')) {
-    const w = new Worker(AGGREGATE_QUEUE, aggregateProcessor, {
-      connection: getRedisConnection(),
-      concurrency: args.aggregateConcurrency,
-      ...WORKER_OPTS,
-    })
+    const w = new Worker(
+      AGGREGATE_QUEUE,
+      async (job, token) => {
+        // Same commit gate as market jobs: if the aggregate job was built on
+        // newer code than we loaded, release it (no attempt consumed) and ask
+        // the supervisor to self-update, rather than aggregating with stale
+        // stats/engine code.
+        if (!canRunJobCommit(job.data.commitSha)) {
+          await job.moveToDelayed(Date.now() + STALE_JOB_RELEASE_DELAY_MS, token)
+          console.log(
+            `[worker=${machineId}] deferring aggregate job ${job.id} and requesting update: ` +
+              `loaded ${WORKER_LAUNCH_SHA.slice(0, 8)}, job needs ${(job.data.commitSha ?? '').slice(0, 8)}`,
+          )
+          requestSelfUpdate()
+          throw new DelayedError()
+        }
+        return aggregateProcessor(job)
+      },
+      {
+        connection: getRedisConnection(),
+        concurrency: args.aggregateConcurrency,
+        ...WORKER_OPTS,
+      },
+    )
     w.on('completed', (_job, result) => {
       const r = result as { batchUid?: string; totalSucceeded?: number; totalFailed?: number }
       console.log(

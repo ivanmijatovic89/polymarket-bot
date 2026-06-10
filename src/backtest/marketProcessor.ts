@@ -1,42 +1,7 @@
 import { DelayedError, type Job } from 'bullmq'
 import { runSingleMarket } from './runSingleMarket.js'
 import type { MarketJobData, MarketJobResult } from './jobTypes.js'
-import { getCurrentGitSha, isAncestorOrEqual } from './workerIdentity.js'
-
-/**
- * The commit this worker LOADED its code at. Captured once at module load
- * (the supervisor stamps it into the child env via WORKER_LAUNCH_SHA) so it
- * keeps reflecting the in-memory strategy registry even after the files on
- * disk change underneath a long-running worker.
- */
-const WORKER_LAUNCH_SHA = process.env.WORKER_LAUNCH_SHA?.trim() || getCurrentGitSha()
-
-/** How long a deferred job waits before becoming eligible again (ms). */
-const STALE_JOB_RELEASE_DELAY_MS = 15_000
-
-/**
- * Commits already proven to be at-or-before our loaded code (runnable). One
- * `git merge-base` per distinct commit; every job in a batch shares a commit,
- * so this is effectively one check per batch.
- */
-const runnableCommits = new Set<string>()
-
-/**
- * Can this worker run a job built on `jobCommitSha` with the code it loaded?
- * Yes when the job's commit is the same as, or an ancestor of, our loaded
- * commit (we already have that code, or newer). No when the job needs code
- * newer than we loaded — that's the signal to self-update.
- */
-function canRunJobCommit(jobCommitSha: string): boolean {
-  if (!jobCommitSha || jobCommitSha === WORKER_LAUNCH_SHA) return true
-  if (WORKER_LAUNCH_SHA === 'unknown') return true // no git → can't verify, best effort
-  if (runnableCommits.has(jobCommitSha)) return true
-  if (isAncestorOrEqual(jobCommitSha, WORKER_LAUNCH_SHA)) {
-    runnableCommits.add(jobCommitSha)
-    return true
-  }
-  return false
-}
+import { WORKER_LAUNCH_SHA, STALE_JOB_RELEASE_DELAY_MS, canRunJobCommit } from './commitGate.js'
 
 /**
  * BullMQ processor for the market queue.

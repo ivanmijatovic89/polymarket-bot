@@ -983,6 +983,7 @@ async function main(): Promise<void> {
   const aggData: AggregateJobData = {
     batchUid,
     protocolVersion: AGGREGATE_JOB_PROTOCOL_VERSION,
+    commitSha: producerCommitSha,
     totalMarkets,
     expectedMarkets: marketContexts.map((ctx) => ({ idx: ctx.idx, slug: ctx.slug })),
     initialCapital,
