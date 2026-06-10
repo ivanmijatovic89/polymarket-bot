@@ -130,6 +130,7 @@ and enqueue any BullMQ backtest from the new `main`; the first stale job should
 defer itself and trigger the wrapper relaunch.
 The worker log should show the stale job being deferred before the wrapper pulls
 and starts the process again.
+After relaunch, the worker's startup line should print the new commit SHA.
 
 ## The one rule: commit and push first
 
