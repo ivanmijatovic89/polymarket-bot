@@ -128,6 +128,8 @@ commit.
 To smoke-test the path after a merge, leave a worker running on the old commit
 and enqueue any BullMQ backtest from the new `main`; the first stale job should
 defer itself and trigger the wrapper relaunch.
+The worker log should show the stale job being deferred before the wrapper pulls
+and starts the process again.
 
 ## The one rule: commit and push first
 
