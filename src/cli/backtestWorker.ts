@@ -19,16 +19,10 @@ import {
 } from '../backtest/workerIdentity.js'
 import {
   WORKER_LAUNCH_SHA,
+  SELF_UPDATE_EXIT_CODE,
   STALE_JOB_RELEASE_DELAY_MS,
   canRunJobCommit,
 } from '../backtest/commitGate.js'
-
-/**
- * Exit code that tells the run-worker.sh wrapper to `git pull` and relaunch.
- * Any other exit code stops the wrapper loop. Chosen to not collide with
- * Node's conventional codes (0, 1) or our pre-flight failures (2).
- */
-const SELF_UPDATE_EXIT_CODE = 75
 
 type Queues = 'markets' | 'aggregate'
 
@@ -154,6 +148,7 @@ function spawnMarketChildren(args: {
       console.warn(
         `[worker=${args.machineId}] child#${i} exited code=${code} signal=${signal ?? ''}`,
       )
+      if (code === SELF_UPDATE_EXIT_CODE) args.onUpdateRequested()
     })
     child.on('message', (msg: unknown) => {
       if (

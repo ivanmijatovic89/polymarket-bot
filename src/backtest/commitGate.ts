@@ -12,6 +12,13 @@ import { getCurrentGitSha, isAncestorOrEqual } from './workerIdentity.js'
  */
 export const WORKER_LAUNCH_SHA = process.env.WORKER_LAUNCH_SHA?.trim() || getCurrentGitSha()
 
+/**
+ * Exit code that tells the run-worker.sh wrapper to `git pull` and relaunch.
+ * Any other exit code stops the wrapper loop. Chosen to not collide with
+ * Node's conventional codes (0, 1) or our pre-flight failures (2).
+ */
+export const SELF_UPDATE_EXIT_CODE = 75
+
 /** How long a deferred job waits before becoming eligible again (ms). */
 export const STALE_JOB_RELEASE_DELAY_MS = 15_000
 
