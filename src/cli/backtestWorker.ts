@@ -26,6 +26,10 @@ import {
 
 type Queues = 'markets' | 'aggregate'
 
+type MarketChildrenShutdownOptions = {
+  forceAfterMs?: number | null
+}
+
 type Args = {
   queues: Set<Queues>
   marketConcurrency: number
@@ -126,7 +130,7 @@ function spawnMarketChildren(args: {
   onUpdateRequested: () => void
 }): {
   children: ChildProcess[]
-  shutdown: (signal: NodeJS.Signals) => Promise<void>
+  shutdown: (signal: NodeJS.Signals, opts?: MarketChildrenShutdownOptions) => Promise<void>
 } {
   const childScript = resolveChildScriptPath()
   // tsx is the loader used by `npm run` scripts; we re-use the same interpreter
@@ -162,7 +166,11 @@ function spawnMarketChildren(args: {
     children.push(child)
   }
 
-  const shutdown = async (signal: NodeJS.Signals): Promise<void> => {
+  const shutdown = async (
+    signal: NodeJS.Signals,
+    opts: MarketChildrenShutdownOptions = {},
+  ): Promise<void> => {
+    const forceAfterMs = opts.forceAfterMs === undefined ? 30_000 : opts.forceAfterMs
     for (const child of children) {
       try {
         child.kill(signal)
@@ -170,11 +178,11 @@ function spawnMarketChildren(args: {
         /* ignore */
       }
     }
-    // Wait up to 30s for graceful drain, then SIGKILL stragglers.
-    const deadline = Date.now() + 30_000
+    const deadline = forceAfterMs === null ? Number.POSITIVE_INFINITY : Date.now() + forceAfterMs
     while (children.some((c) => c.exitCode === null && !c.killed) && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 200))
     }
+    if (forceAfterMs === null) return
     for (const child of children) {
       if (child.exitCode === null) {
         try {
@@ -223,19 +231,27 @@ async function main(): Promise<void> {
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]
-    shutdown: (s: NodeJS.Signals) => Promise<void>
+    shutdown: (s: NodeJS.Signals, opts?: MarketChildrenShutdownOptions) => Promise<void>
   } | null = null
 
   // Shared drain used by both graceful shutdown (exit 0) and self-update
   // (exit SELF_UPDATE_EXIT_CODE — the run-worker.sh wrapper pulls + relaunches).
   let stopping = false
-  const drainAndExit = async (signal: NodeJS.Signals, exitCode: number): Promise<void> => {
+  const drainAndExit = async (
+    signal: NodeJS.Signals,
+    exitCode: number,
+    opts: { forceMarketChildrenAfterMs?: number | null } = {},
+  ): Promise<void> => {
     if (stopping) return
     stopping = true
     await stopHeartbeat()
+    const marketShutdownOpts: MarketChildrenShutdownOptions = {}
+    if ('forceMarketChildrenAfterMs' in opts) {
+      marketShutdownOpts.forceAfterMs = opts.forceMarketChildrenAfterMs
+    }
     await Promise.allSettled([
       ...inProcessWorkers.map((w) => w.close()),
-      marketChildren ? marketChildren.shutdown(signal) : Promise.resolve(),
+      marketChildren ? marketChildren.shutdown(signal, marketShutdownOpts) : Promise.resolve(),
     ])
     await closeRedisConnection()
     process.exit(exitCode)
@@ -249,7 +265,7 @@ async function main(): Promise<void> {
       `[worker=${machineId}] stale code detected — draining and exiting ` +
         `${SELF_UPDATE_EXIT_CODE} for self-update`,
     )
-    void drainAndExit('SIGTERM', SELF_UPDATE_EXIT_CODE)
+    void drainAndExit('SIGTERM', SELF_UPDATE_EXIT_CODE, { forceMarketChildrenAfterMs: null })
   }
 
   if (args.queues.has('markets')) {

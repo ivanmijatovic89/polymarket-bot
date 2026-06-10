@@ -124,10 +124,6 @@ async function main(): Promise<void> {
     if (shuttingDown) return
     shuttingDown = true
     console.log(`[worker-child=${processKey}] ${signal} draining...`)
-    // Hard backstop: if BullMQ's blocking poll doesn't release in 5s,
-    // exit anyway so the supervisor doesn't SIGKILL us at the 30s mark.
-    const hardExit = setTimeout(() => process.exit(0), 5_000)
-    hardExit.unref()
     try {
       await stopHeartbeat()
     } catch {
