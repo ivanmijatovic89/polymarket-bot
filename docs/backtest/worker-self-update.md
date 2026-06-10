@@ -125,6 +125,10 @@ present locally, so it simply relaunches onto your latest commit. The "commit
 unreachable" stop only happens on a machine that cannot fetch the required
 commit.
 
+To smoke-test the path after a merge, leave a worker running on the old commit
+and enqueue any BullMQ backtest from the new `main`; the first stale job should
+defer itself and trigger the wrapper relaunch.
+
 ## The one rule: commit and push first
 
 The whole mechanism keys off the producer's commit SHA, so **uncommitted code is
