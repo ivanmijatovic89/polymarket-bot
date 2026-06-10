@@ -1,11 +1,12 @@
 import '../config/env.js'
-import { Worker } from 'bullmq'
+import { DelayedError, Worker } from 'bullmq'
 import {
   MARKET_QUEUE,
   WORKER_OPTS,
   closeRedisConnection,
   getRedisConnection,
 } from '../backtest/queue.js'
+import { SELF_UPDATE_EXIT_CODE } from '../backtest/commitGate.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
 import {
   getCurrentGitSha,
@@ -41,6 +42,42 @@ async function recordWorkerStats(
     await pipe.exec()
   } catch {
     /* best-effort */
+  }
+}
+
+function isDelayedJobSignal(err: unknown): boolean {
+  return err instanceof DelayedError || (err instanceof Error && err.name === 'DelayedError')
+}
+
+function requestSupervisorSelfUpdate(processKey: string): void {
+  const msg = { type: 'update-requested' }
+  const exitAfterNotify = (): void => {
+    setTimeout(() => process.exit(SELF_UPDATE_EXIT_CODE), 250).unref()
+  }
+
+  if (typeof process.send !== 'function' || !process.connected) {
+    console.warn(
+      `[worker-child=${processKey}] IPC unavailable after stale-code detection; exiting ${SELF_UPDATE_EXIT_CODE}`,
+    )
+    exitAfterNotify()
+    return
+  }
+
+  try {
+    process.send(msg, undefined, undefined, (err: Error | null) => {
+      if (err) {
+        console.warn(
+          `[worker-child=${processKey}] IPC update notification failed (${err.message}); exiting ${SELF_UPDATE_EXIT_CODE}`,
+        )
+      }
+      exitAfterNotify()
+    })
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err)
+    console.warn(
+      `[worker-child=${processKey}] IPC update notification threw (${message}); exiting ${SELF_UPDATE_EXIT_CODE}`,
+    )
+    exitAfterNotify()
   }
 }
 
@@ -83,9 +120,14 @@ async function main(): Promise<void> {
     async (job, token) => {
       // processor may throw DelayedError (job released for a self-update) —
       // let it propagate so BullMQ keeps the job delayed instead of failing it.
-      const result = await processor(job, token)
-      await recordWorkerStats(processKey, result, result.slug)
-      return result
+      try {
+        const result = await processor(job, token)
+        await recordWorkerStats(processKey, result, result.slug)
+        return result
+      } catch (err) {
+        if (isDelayedJobSignal(err)) requestSupervisorSelfUpdate(processKey)
+        throw err
+      }
     },
     {
       connection: getRedisConnection(),

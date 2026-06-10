@@ -29,7 +29,6 @@ export function makeMarketProcessor(machineId: string) {
         `[worker] deferring job ${job.id} and requesting update: ` +
           `loaded ${WORKER_LAUNCH_SHA.slice(0, 8)}, job needs ${data.commitSha.slice(0, 8)}`,
       )
-      process.send?.({ type: 'update-requested', jobCommitSha: data.commitSha })
       throw new DelayedError()
     }
 
