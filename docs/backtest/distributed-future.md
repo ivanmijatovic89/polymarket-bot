@@ -7,11 +7,11 @@ machine, a small cloud server — without changing any application code. Only
 `.env` values change.
 
 ::: warning Status
-This page is forward-looking. The current PR2 code already supports remote
-workers (the `--queues=markets` flag exists, jobs are self-contained, no
-worker needs MySQL access). What's deferred to a later PR is the
-self-update mechanism (workers pulling new commits on push) and the pm2
-ecosystem config. Treat this page as a roadmap.
+Mostly implemented. Remote workers are supported (the `--queues=markets` flag
+exists, jobs are self-contained, no worker needs MySQL access), and the
+**worker self-update loop is now live** (see "Worker self-update" below) — run
+workers via `scripts/run-worker.sh`. The Redis/Tailscale hosting and sibling
+onboarding sections remain an operational roadmap.
 :::
 
 ## Architecture sketch
@@ -95,29 +95,76 @@ already, and workers download on demand. For `--read-from local` you'd have
 to sync the `data/events/` directory to every worker, which is impractical —
 prefer R2 for distributed runs.
 
-## What's still missing for "press the button and let brat help"
+## Worker self-update (implemented)
 
-PR4 will add the safety net:
+Workers now self-update instead of failing on stale code. The mechanism is a
+per-job commit gate plus a thin relauncher — **no pm2, no extra daemon**.
 
-- **commitSha matching** — every job already carries the producer's git SHA;
-  the worker compares it with its own checkout before processing and
-  self-updates if they differ (`git pull && npm install && pm2 restart`).
-- **pm2 ecosystem config** — `ecosystem.config.cjs` so siblings can
-  `pm2 start ecosystem.config.cjs && pm2 startup && pm2 save` once.
-- **Polling fallback** — workers poll `origin/main` every 5 minutes so they
-  pick up commits even when no batch is running.
-- **Git lock** — guards against concurrent self-updates on the same box.
+### How it works
+
+Each market job carries the producer's `commitSha`. Before replaying a market,
+the worker compares that against the SHA it **loaded its code at** — captured
+once at process start as `WORKER_LAUNCH_SHA`, not a live `git rev-parse`. The
+launch SHA is what reflects the in-memory strategy registry, so this is correct
+even on the producer's own machine where files on disk change under the running
+worker after a commit.
+
+The decision (`classifyJobCommit` in `src/backtest/workerIdentity.ts`):
+
+- **same commit** → run the job normally.
+- **worker behind its upstream** → the job's code is reachable by pulling, so
+  the worker:
+  1. releases the job with `job.moveToDelayed(...)` — **no attempt consumed**,
+     and the job stays out of the "active" set so it never counts as stalled
+     (respecting `maxStalledCount: 1`);
+  2. signals its supervisor over IPC (`{ type: 'update-requested' }`);
+  3. the supervisor drains all children and exits with code **75**.
+- **worker already at its upstream tip** but the job wants a different commit
+  (unpushed / diverged producer) → fail fast with a clear message. This is the
+  loop guard: pulling can't help, so don't restart-loop.
+
+### The relauncher
+
+`scripts/run-worker.sh` wraps the worker:
+
+```bash
+./scripts/run-worker.sh --queues markets --market-concurrency 5
+```
+
+It runs the worker, and on exit code **75** it does `git fetch && git pull
+--ff-only` (plus `npm install` only if `package-lock.json` changed) and
+relaunches. Any other exit code stops the loop and is propagated, so tmux /
+systemd see the real status. `--ff-only` means a dirty or diverged checkout is
+never clobbered — it just logs and relaunches on current code.
+
+This replaces the bare `npm run backtest:worker` in `.tmuxinator.yml`.
+
+### Producer guard
+
+`npm run backtest` (BullMQ path) **blocks on an uncommitted working tree**
+(override with `BACKTEST_ALLOW_DIRTY=1`). Uncommitted strategy code is invisible
+to the commit gate — the SHA still points at the old commit — so a dirty tree
+would silently run stale code on every worker. Committing first is mandatory for
+distributed runs.
+
+### Still optional / future
+
+- **Polling fallback** — workers only check on a job arrival; an idle box won't
+  update until the next job. For this workflow that's fine (the job is what
+  forces the check). Add a periodic `git fetch` compare if you ever want idle
+  boxes to pre-warm.
 - **Parquet LRU/TTL cache** — bounds disk usage on sibling machines that
   download from R2.
 
-Conventions documented alongside PR4:
+### Conventions
 
 - DB schema migrations run **manually** on the producer (your Mac) before
   pushing strategy code that needs them. Workers never run `db:migrate`.
 - Engine changes (`runSingleMarket` semantics, plugin behavior) should not
-  ship during an active batch — finish the run first.
-- Siblings keep a clean checkout; experimental code lives in a separate
-  clone so the worker's `git reset --hard origin/main` is safe.
+  ship during an active batch — finish the run first (otherwise workers
+  mid-batch see a moving target).
+- Siblings keep a clean checkout so `git pull --ff-only` always fast-forwards;
+  experimental code lives in a separate clone.
 
 ## Scaling beyond ~30k-market batches
 

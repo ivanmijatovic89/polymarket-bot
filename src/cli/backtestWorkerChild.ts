@@ -76,8 +76,10 @@ async function main(): Promise<void> {
   const processor = makeMarketProcessor(machineId)
   const w = new Worker(
     MARKET_QUEUE,
-    async (job) => {
-      const result = await processor(job)
+    async (job, token) => {
+      // processor may throw DelayedError (job released for a self-update) —
+      // let it propagate so BullMQ keeps the job delayed instead of failing it.
+      const result = await processor(job, token)
       await recordWorkerStats(processKey, result, result.slug)
       return result
     },

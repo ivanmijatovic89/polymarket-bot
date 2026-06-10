@@ -1,5 +1,5 @@
 import '../config/env.js'
-import { getCurrentGitSha, getMachineId } from '../backtest/workerIdentity.js'
+import { getCurrentGitSha, getMachineId, isWorkingTreeDirty } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
 import { randomBytes, randomUUID } from 'crypto'
 import {
@@ -914,6 +914,26 @@ async function main(): Promise<void> {
   // BULLMQ path — enqueue children + parent aggregate, wait or detach.
   // -----------------------------------------------------------------
   const producerCommitSha = getCurrentGitSha()
+
+  // Workers gate on this commit SHA: they refuse to run a job whose code they
+  // haven't loaded and self-update to it. Uncommitted strategy changes are
+  // invisible to that mechanism (the SHA still points at the old commit), so a
+  // dirty tree would silently run stale code on every worker. Block it.
+  if (
+    producerCommitSha !== 'unknown' &&
+    isWorkingTreeDirty() &&
+    process.env.BACKTEST_ALLOW_DIRTY !== '1'
+  ) {
+    console.error(
+      '[backtest] Working tree has uncommitted changes.\n' +
+        '  Distributed workers gate on the commit SHA, so uncommitted strategy code will\n' +
+        '  NOT reach them — they would run a stale strategy registry.\n' +
+        '  Commit (and push) your changes first, or set BACKTEST_ALLOW_DIRTY=1 to override\n' +
+        '  (only safe for a local --sequential run on this machine).',
+    )
+    await closeDb()
+    process.exit(2)
+  }
 
   // Sanity-check Redis up front so we fail with a clear message rather than
   // hanging inside FlowProducer if the daemon isn't running.
