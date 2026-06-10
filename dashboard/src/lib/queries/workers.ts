@@ -13,6 +13,8 @@ export type WorkerProcess = {
   /** Parsed role inferred from the suffix after `#`. */
   role: WorkerRole
   commitSha: string | null
+  mainCommitSha: string | null
+  mainCommitMatch: boolean
   heartbeatAgeMs: number | null
   alive: boolean
   processedTotal: number
@@ -103,6 +105,8 @@ export async function listWorkers(): Promise<MachineGroup[]> {
         processKey: name,
         role: { kind: 'unknown', raw: name },
         commitSha: hash.commitSha ?? null,
+        mainCommitSha: hash.mainCommitSha ?? null,
+        mainCommitMatch: hash.mainCommitMatch === '1',
         heartbeatAgeMs,
         alive: heartbeatAgeMs !== null && heartbeatAgeMs < 30_000,
         processedTotal: Number(hash.processedTotal ?? 0) || 0,
@@ -117,6 +121,8 @@ export async function listWorkers(): Promise<MachineGroup[]> {
       processKey: name,
       role: parseRole(name.substring(hashIdx + 1)),
       commitSha: hash.commitSha ?? null,
+      mainCommitSha: hash.mainCommitSha ?? null,
+      mainCommitMatch: hash.mainCommitMatch === '1',
       heartbeatAgeMs,
       alive: heartbeatAgeMs !== null && heartbeatAgeMs < 30_000,
       processedTotal: Number(hash.processedTotal ?? 0) || 0,

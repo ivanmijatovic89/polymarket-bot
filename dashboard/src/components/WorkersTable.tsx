@@ -31,6 +31,7 @@ function RoleBadge({ role }: { role: WorkerRole }) {
 }
 
 function ProcessRow({ p }: { p: WorkerProcess }) {
+  const shaLabel = p.commitSha ? p.commitSha.slice(0, 8) : 'unknown'
   return (
     <TableRow>
       <TableCell className="pl-8">
@@ -55,6 +56,11 @@ function ProcessRow({ p }: { p: WorkerProcess }) {
       <TableCell className="font-mono text-xs text-muted-foreground">
         {p.lastMarket ?? '—'}
       </TableCell>
+      <TableCell className="text-right">
+        <Badge variant={p.mainCommitMatch ? 'success' : 'warning'} className="font-mono">
+          {shaLabel}
+        </Badge>
+      </TableCell>
       <TableCell className="text-right text-xs text-muted-foreground tabular-nums">
         {p.heartbeatAgeMs !== null ? `${Math.round(p.heartbeatAgeMs / 1000)}s ago` : '—'}
       </TableCell>
@@ -77,7 +83,7 @@ function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
       <TableCell className="text-right tabular-nums font-semibold text-muted-foreground">
         {machine.totals.eventsTotal.toLocaleString()}
       </TableCell>
-      <TableCell colSpan={2} />
+      <TableCell colSpan={3} />
     </TableRow>
   )
 }
@@ -122,6 +128,7 @@ export function WorkersTable() {
             <TableHead className="text-right">Processed</TableHead>
             <TableHead className="text-right">Events</TableHead>
             <TableHead>Last market</TableHead>
+            <TableHead className="text-right">Commit</TableHead>
             <TableHead className="text-right">Heartbeat</TableHead>
           </TableRow>
         </TableHeader>

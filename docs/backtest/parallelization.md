@@ -139,6 +139,14 @@ market queue it forks **N single-concurrency child Node processes** via
 you real CPU parallelism across N cores. The aggregate queue (concurrency 1,
 I/O-bound) runs in-process on the supervisor.
 
+::: tip Run via the self-updating wrapper
+For long-lived workers (local or remote), launch through
+`./scripts/run-worker.sh` instead of `npm run backtest:worker` — same flags.
+The wrapper relaunches the supervisor on new code so a worker never runs a
+stale strategy registry. See
+[worker self-update](./distributed-future#worker-self-update-implemented).
+:::
+
 ::: warning Why N processes instead of `concurrency: N` on one Worker
 A BullMQ `Worker` with `concurrency: N` runs N async callbacks on **one**
 Node event loop. JavaScript is single-threaded, so CPU-bound replay work
@@ -269,8 +277,12 @@ it before treating the BullMQ path as equivalent to the sequential one.
   `backtest_run_failures` for audit.
 - `lockDuration: 10 minutes` is the upper bound per market; if a strategy
   has an infinite-loop bug it will be reaped instead of stalling the queue.
-- The producer's git SHA is attached to every job (`commitSha` field) so a
-  later PR can self-update workers whose checkout drifted.
+- The producer's git SHA is attached to every job (`commitSha` field). A market
+  worker runs any job whose commit its loaded code already contains, and
+  **self-updates** (pull + relaunch) when a job needs a newer commit — see
+  [worker self-update](./distributed-future#worker-self-update-implemented).
+  Worker heartbeats publish the loaded commit and whether it matches
+  `origin/main`.
 
 ## Environment
 
