@@ -1,14 +1,23 @@
 import Link from 'next/link'
-import { ChevronLeft, Database, Table2 } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Database, Table2 } from 'lucide-react'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { SectionHeading } from '@/components/SectionHeading'
 import { StatCard } from '@/components/StatCard'
 import {
   getBacktestDatasetCoverage,
+  getDatasetOverview,
   type BacktestDatasetParams,
   type CoveragePeriod,
+  type DatasetOverviewRow,
 } from '@/lib/queries/backtestDatasets'
 
 export const dynamic = 'force-dynamic'
@@ -49,7 +58,9 @@ function firstValue(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value
 }
 
-function parseParams(searchParams: { [key: string]: string | string[] | undefined }): BacktestDatasetParams {
+function parseParams(searchParams: {
+  [key: string]: string | string[] | undefined
+}): BacktestDatasetParams {
   const symbol = firstValue(searchParams.symbol)
   const timeframe = firstValue(searchParams.timeframe)
   const converter = firstValue(searchParams.converter)
@@ -61,6 +72,15 @@ function parseParams(searchParams: { [key: string]: string | string[] | undefine
       ? (converter as BacktestDatasetParams['converter'])
       : 'delta-typed',
   }
+}
+
+function parseConverter(searchParams: {
+  [key: string]: string | string[] | undefined
+}): BacktestDatasetParams['converter'] {
+  const converter = firstValue(searchParams.converter)
+  return CONVERTERS.includes(converter as (typeof CONVERTERS)[number])
+    ? (converter as BacktestDatasetParams['converter'])
+    : 'delta-typed'
 }
 
 function pct(value: number): string {
@@ -166,9 +186,7 @@ function CoverageTable({
                 <TableCell className="text-right font-mono text-muted-foreground">
                   {fmtInt(row.expected)}
                 </TableCell>
-                <TableCell className="text-right font-mono">
-                  {fmtInt(row.telonexMarkets)}
-                </TableCell>
+                <TableCell className="text-right font-mono">{fmtInt(row.telonexMarkets)}</TableCell>
                 <TableCell className="text-right">
                   <Badge variant={pctVariant(row.telonexCoveragePct)}>
                     {pct(row.telonexCoveragePct)}
@@ -197,10 +215,125 @@ function CoverageTable({
   )
 }
 
-export default async function BacktestDatasetsPage(props: { searchParams: PageSearchParams }) {
-  const params = parseParams(await props.searchParams)
-  const coverage = await getBacktestDatasetCoverage(params)
-  const { summary } = coverage
+function OverviewControls({ converter }: { converter: BacktestDatasetParams['converter'] }) {
+  return (
+    <form className="flex flex-wrap items-end gap-3 rounded-xl border bg-card p-4" method="get">
+      <label className="space-y-1 text-xs text-muted-foreground">
+        <span>Conversion</span>
+        <select
+          name="converter"
+          defaultValue={converter}
+          className="h-9 rounded-md border bg-background px-3 text-sm text-foreground"
+        >
+          {CONVERTERS.map((c) => (
+            <option key={c} value={c}>
+              {c}
+            </option>
+          ))}
+        </select>
+      </label>
+      <button
+        type="submit"
+        className="h-9 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+      >
+        Apply
+      </button>
+    </form>
+  )
+}
+
+function OverviewTable({
+  rows,
+  converter,
+}: {
+  rows: DatasetOverviewRow[]
+  converter: BacktestDatasetParams['converter']
+}) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle>Markets by Symbol &amp; Timeframe</CardTitle>
+      </CardHeader>
+      <CardContent className="pt-2">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Symbol</TableHead>
+              <TableHead>Timeframe</TableHead>
+              <TableHead className="text-right">Telonex Markets</TableHead>
+              <TableHead className="text-right">Telonex %</TableHead>
+              <TableHead className="text-right">Local %</TableHead>
+              <TableHead className="text-right">R2 %</TableHead>
+              <TableHead>First</TableHead>
+              <TableHead>Last</TableHead>
+              <TableHead className="text-right">Lag</TableHead>
+              <TableHead className="w-8" />
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {rows.map((row) => {
+              const href = `/backtests/datasets?symbol=${row.symbol}&timeframe=${row.timeframe}&converter=${converter}`
+              return (
+                <TableRow
+                  key={`${row.symbol}-${row.timeframe}`}
+                  className="group hover:bg-muted/40"
+                >
+                  <TableCell className="font-medium uppercase">
+                    <Link href={href} className="block">
+                      {row.symbol}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs">
+                    <Link href={href} className="block">
+                      {row.timeframe}
+                    </Link>
+                  </TableCell>
+                  <TableCell className="text-right font-mono">
+                    {fmtInt(row.telonexMarkets)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={pctVariant(row.telonexCoveragePct)}>
+                      {pct(row.telonexCoveragePct)}
+                    </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={pctVariant(row.localReadyPct)}>{pct(row.localReadyPct)}</Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={pctVariant(row.r2ReadyPct)}>{pct(row.r2ReadyPct)}</Badge>
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {fmtDate(row.firstStartMs)}
+                  </TableCell>
+                  <TableCell className="font-mono text-xs text-muted-foreground">
+                    {fmtDate(row.lastStartMs)}
+                  </TableCell>
+                  <TableCell className="text-right font-mono text-xs">
+                    <span className={row.lagMarkets > 0 ? 'text-yellow-500' : 'text-emerald-500'}>
+                      {fmtDuration(row.lagMs)}
+                    </span>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Link
+                      href={href}
+                      className="inline-flex text-muted-foreground hover:text-foreground"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </CardContent>
+    </Card>
+  )
+}
+
+async function DatasetOverview({ converter }: { converter: BacktestDatasetParams['converter'] }) {
+  const overview = await getDatasetOverview(converter)
+  const { totals } = overview
 
   return (
     <div className="space-y-8">
@@ -211,6 +344,60 @@ export default async function BacktestDatasetsPage(props: { searchParams: PageSe
         >
           <ChevronLeft className="h-3 w-3" />
           Backtests
+        </Link>
+        <h1 className="mt-2 text-xl font-semibold tracking-tight">Backtest Datasets</h1>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Telonex market availability across all symbols and timeframes for the selected conversion.
+          Click a row to drill into calendar-period coverage.
+        </p>
+      </div>
+
+      <OverviewControls converter={converter} />
+
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+        <StatCard
+          label="Telonex markets"
+          value={fmtInt(totals.telonexMarkets)}
+          icon={Database}
+          hint="All symbols & timeframes"
+        />
+        <StatCard
+          label="Local ready"
+          value={fmtInt(totals.localReady)}
+          hint={`${converter} done with local path`}
+        />
+        <StatCard
+          label="R2 ready"
+          value={fmtInt(totals.r2Ready)}
+          hint={`${converter} done with R2 URL`}
+        />
+      </div>
+
+      <section>
+        <SectionHeading
+          title="Overview"
+          subtitle="One row per symbol/timeframe combination. Local and R2 readiness only check selected conversion output availability."
+          icon={Table2}
+        />
+        <OverviewTable rows={overview.rows} converter={converter} />
+      </section>
+    </div>
+  )
+}
+
+async function DatasetDetail({ params }: { params: BacktestDatasetParams }) {
+  const coverage = await getBacktestDatasetCoverage(params)
+  const { summary } = coverage
+
+  return (
+    <div className="space-y-8">
+      <div>
+        <Link
+          href="/backtests/datasets"
+          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground transition-colors"
+        >
+          <ChevronLeft className="h-3 w-3" />
+          Datasets overview
         </Link>
         <h1 className="mt-2 text-xl font-semibold tracking-tight">Backtest Datasets</h1>
         <p className="mt-1 text-xs text-muted-foreground">
@@ -287,4 +474,13 @@ export default async function BacktestDatasetsPage(props: { searchParams: PageSe
       </section>
     </div>
   )
+}
+
+export default async function BacktestDatasetsPage(props: { searchParams: PageSearchParams }) {
+  const searchParams = await props.searchParams
+  // No `symbol` param → multi-combo overview. With `symbol` → single-combo detail.
+  if (firstValue(searchParams.symbol) === undefined) {
+    return <DatasetOverview converter={parseConverter(searchParams)} />
+  }
+  return <DatasetDetail params={parseParams(searchParams)} />
 }
