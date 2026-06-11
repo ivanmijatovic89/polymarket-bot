@@ -136,6 +136,7 @@ Repository admins may use a direct push only for a deliberate bypass smoke check
 small low-risk changes. CI still runs on `push` to `main`, so failures should be
 fixed forward immediately.
 Keep these smoke-check commits docs-only or otherwise trivially reversible.
+Use the normal PR path again as soon as the bypass behavior is confirmed.
 
 ## Typical Daily Developer Flow
 
