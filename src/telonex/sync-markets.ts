@@ -288,11 +288,19 @@ async function queryCatalog(catalogPath: string, args: Args): Promise<CatalogRow
     .map((p) => `slug LIKE '${p.replace(/'/g, "''")}'`)
     .join(' OR ')
 
+  // Only insert finalized markets: resolved with a final result_id. This keeps
+  // INSERT IGNORE correct forever — an active market is never inserted (and thus
+  // never downloaded/converted) until Telonex publishes its resolution, so its
+  // mutable fields (status/result_id/settled_at_us) can't go stale in our DB.
+  // 'resolved' implies a non-empty result_id (verified empirically), but we
+  // assert both to match the downstream eligibility predicate exactly.
   const sql = `
     SELECT ${cols}
     FROM read_parquet('${catalogPath.replace(/'/g, "''")}')
     WHERE (${slugPredicate})
       AND book_snapshot_full_from <> ''
+      AND status = 'resolved'
+      AND result_id <> ''
     ORDER BY slug
     ${limitClause}
   `

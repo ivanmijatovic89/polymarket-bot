@@ -49,7 +49,7 @@ When multiple patterns are passed, the breakdown lists one row per `<symbol>-<ti
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--slug-pattern <like>` | `btc-updown-15m-%` | SQL LIKE pattern(s) for `slug`. Accepts a **comma-separated list** — the patterns are OR'd into one DuckDB query so the catalogue is downloaded only once. The data-availability filter `book_snapshot_full_from <> ''` is always applied. |
+| `--slug-pattern <like>` | `btc-updown-15m-%` | SQL LIKE pattern(s) for `slug`. Accepts a **comma-separated list** — the patterns are OR'd into one DuckDB query so the catalogue is downloaded only once. Two filters are always applied: data-availability (`book_snapshot_full_from <> ''`) and **finalized-only** (`status = 'resolved' AND result_id <> ''`). |
 | `--limit <N>` | unlimited | Cap the number of rows returned by the DuckDB query. Useful for smoke tests. |
 | `--dry-run` | off | Run the download and query, log a sample row, but skip the database writes. |
 
@@ -117,8 +117,12 @@ It downloads the catalogue, runs the query with `LIMIT 3`, prints one matched ro
 [telonex:sync] done attempted=19223 inserted=0 skipped=19223
 ```
 
+### Why finalized-only matters
+
+The sync only inserts **resolved** markets (`status = 'resolved' AND result_id <> ''`). This is what makes `INSERT IGNORE` safe long-term: a market's mutable fields (`status`, `result_id`, `settled_at_us`) only change at the active→resolved transition. By never inserting a market while it is still `active`, we guarantee that any row in `telonex_markets` is already final and can never go stale — there is nothing left to refresh. An active market simply isn't picked up until a later sync sees it resolved, at which point it is inserted once, correctly.
+
 ::: warning
-`INSERT IGNORE` only inserts new rows. If a market's metadata has changed on Telonex's side since you last synced, that change will not be reflected. If you need to refresh a row's catalogue fields, delete it from `telonex_markets` and re-run sync.
+`INSERT IGNORE` still does not update existing rows. Because we only ever insert finalized markets this is a non-issue in practice, but if Telonex were to retroactively correct a **resolved** market's catalogue fields, that change would not be reflected. In that rare case, fix the row in place with an `UPDATE` (do **not** delete + reinsert — `telonex_market_conversions` references `telonex_markets.id`, so a new auto-increment id would orphan any converted output).
 :::
 
 ## What is written to the database

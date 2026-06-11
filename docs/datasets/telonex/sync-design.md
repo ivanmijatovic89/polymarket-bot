@@ -39,7 +39,11 @@ The Telonex `markets` parquet is filtered with:
 ```sql
 WHERE slug LIKE 'btc-updown-15m-%'
   AND book_snapshot_full_from <> ''
+  AND status = 'resolved'
+  AND result_id <> ''
 ```
+
+The `status = 'resolved' AND result_id <> ''` predicate (finalized-only) is what keeps `INSERT IGNORE` correct over time: active markets are never inserted, so their mutable fields can't go stale in the DB. See [Sync Markets → Idempotency](/datasets/telonex/sync-markets#idempotency).
 
 Verified counts at v1 cut: 20,809 markets total for `btc-updown-15m`, of which **19,223 have `book_snapshot_full` data**.
 
