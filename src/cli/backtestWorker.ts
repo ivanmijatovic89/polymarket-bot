@@ -119,6 +119,13 @@ function resolveChildScriptPath(): string {
   return path.join(here, 'backtestWorkerChild.ts')
 }
 
+function isChildRunning(child: ChildProcess): boolean {
+  // `child.killed` only means a signal was sent, not that the process exited.
+  // Wait on the actual exit state so graceful BullMQ Worker.close() can finish
+  // the active job and release its lock before the supervisor self-updates.
+  return child.exitCode === null && child.signalCode === null
+}
+
 /**
  * Fork N single-concurrency market worker children. Each child is its own
  * Node process with its own event loop, so CPU-bound replay work runs in
@@ -179,12 +186,12 @@ function spawnMarketChildren(args: {
       }
     }
     const deadline = forceAfterMs === null ? Number.POSITIVE_INFINITY : Date.now() + forceAfterMs
-    while (children.some((c) => c.exitCode === null && !c.killed) && Date.now() < deadline) {
+    while (children.some(isChildRunning) && Date.now() < deadline) {
       await new Promise((r) => setTimeout(r, 200))
     }
     if (forceAfterMs === null) return
     for (const child of children) {
-      if (child.exitCode === null) {
+      if (isChildRunning(child)) {
         try {
           child.kill('SIGKILL')
         } catch {
