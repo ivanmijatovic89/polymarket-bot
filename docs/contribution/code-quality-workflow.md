@@ -130,6 +130,12 @@ Branch protection/ruleset for `main` should require:
 4. (Recommended) at least `1` required approval.
 5. Block force pushes on protected branch.
 
+### Bypass Smoke Check
+
+Repository admins may use a direct push only for a deliberate bypass smoke check or
+small low-risk changes. CI still runs on `push` to `main`, so failures should be
+fixed forward immediately.
+
 ## Typical Daily Developer Flow
 
 1. Create/update feature branch.
