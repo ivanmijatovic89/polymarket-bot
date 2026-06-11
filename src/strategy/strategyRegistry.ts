@@ -5,6 +5,13 @@ import { definition as placeLimitOrderAndCancelAfterFewSecV1 } from '../strategi
 import { definition as readVolatilityIndicatorV1 } from '../strategies/readVolatilityIndicator.v1.js'
 import { definition as readExternalFeedsExampleV1 } from '../strategies/readExternalFeedsExample.v1.js'
 import { definition as orderbookV1 } from '../strategies/signals/Orderbook.v1.js'
+import { definition as overreactionSnapV1 } from '../strategies/signals/OverreactionSnap.v1.js'
+import { definition as spikeMomentumV1 } from '../strategies/signals/SpikeMomentum.v1.js'
+import { definition as spikeMomentumV2 } from '../strategies/signals/SpikeMomentum.v2.js'
+import { definition as orderbookImbalanceV1 } from '../strategies/signals/OrderbookImbalance.v1.js'
+import { definition as orderbookImbalanceV2 } from '../strategies/signals/OrderbookImbalance.v2.js'
+import { definition as convergenceFavoriteV1 } from '../strategies/signals/ConvergenceFavorite.v1.js'
+import { definition as convergenceUnderdogV1 } from '../strategies/signals/ConvergenceUnderdog.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
 import { definition as templateTimeWindowGate } from '../strategies/templates/TemplateTimeWindowGate.js'
@@ -41,6 +48,13 @@ export const strategyRegistry = {
   [readExternalFeedsExampleV1.id]: readExternalFeedsExampleV1,
   [readVolatilityIndicatorV1.id]: readVolatilityIndicatorV1,
   [orderbookV1.id]: orderbookV1,
+  [overreactionSnapV1.id]: overreactionSnapV1,
+  [spikeMomentumV1.id]: spikeMomentumV1,
+  [spikeMomentumV2.id]: spikeMomentumV2,
+  [orderbookImbalanceV1.id]: orderbookImbalanceV1,
+  [orderbookImbalanceV2.id]: orderbookImbalanceV2,
+  [convergenceFavoriteV1.id]: convergenceFavoriteV1,
+  [convergenceUnderdogV1.id]: convergenceUnderdogV1,
   [winnerLimitV1.id]: winnerLimitV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
