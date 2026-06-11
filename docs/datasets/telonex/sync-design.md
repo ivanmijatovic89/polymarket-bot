@@ -43,6 +43,8 @@ WHERE slug LIKE 'btc-updown-15m-%'
 
 Verified counts at v1 cut: 20,809 markets total for `btc-updown-15m`, of which **19,223 have `book_snapshot_full` data**.
 
+The `--slug-pattern` CLI flag now accepts a comma-separated list of LIKE patterns (OR'd into one query) so multiple symbols/timeframes can be synced from a single catalogue download — see [Sync Markets](/datasets/telonex/sync-markets#selecting-which-markets-to-sync). The `book_snapshot_full_from <> ''` data-availability filter is always applied regardless of the patterns.
+
 `event_slug` is NOT a useful group key — for these markets `event_slug == slug` (each 15m market is its own event).
 
 Telonex data prior to **2026-01-19** may contain gaps (per Telonex docs). Gaps are detected at download time via 404.

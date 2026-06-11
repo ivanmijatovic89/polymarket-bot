@@ -35,15 +35,21 @@ Expected output:
 [telonex:sync] matched 19223 markets (query=1.7s)
 [telonex:sync] inserted batch 500/19223 (new=500)
 ...
+[telonex:sync] breakdown by symbol/timeframe:
+[telonex:sync]   group     matched  inserted  skipped
+[telonex:sync]   btc-15m     19223     19223        0
+[telonex:sync]   TOTAL       19223     19223        0
 [telonex:sync] done attempted=19223 inserted=19223 skipped=0
 [telonex:sync] timing: download=21.3s query=1.7s insert=3.1s total=26.1s
 ```
+
+When multiple patterns are passed, the breakdown lists one row per `<symbol>-<timeframe>` group so you can see, for each (e.g. `btc-15m`, `btc-5m`, `eth-15m`, …), how many markets matched, how many were newly inserted, and how many were skipped as duplicates. `--dry-run` prints the same grouping with just the `matched` column.
 
 ## Flags
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--slug-pattern <like>` | `btc-updown-15m-%` | SQL LIKE pattern for `slug`. The data-availability filter `book_snapshot_full_from <> ''` is always applied. |
+| `--slug-pattern <like>` | `btc-updown-15m-%` | SQL LIKE pattern(s) for `slug`. Accepts a **comma-separated list** — the patterns are OR'd into one DuckDB query so the catalogue is downloaded only once. The data-availability filter `book_snapshot_full_from <> ''` is always applied. |
 | `--limit <N>` | unlimited | Cap the number of rows returned by the DuckDB query. Useful for smoke tests. |
 | `--dry-run` | off | Run the download and query, log a sample row, but skip the database writes. |
 
@@ -73,6 +79,24 @@ npm run telonex:sync -- --slug-pattern 'btc-updown-%'
 
 ::: tip
 The catalogue contains ~20,800 BTC 15m markets at the time of writing. ~1,600 of them have empty `book_snapshot_full_from` (no historical data available) and are skipped by the always-applied filter.
+:::
+
+### Syncing many symbols and timeframes at once
+
+`--slug-pattern` accepts a comma-separated list of patterns. They are OR'd into a single DuckDB query, so the ~660 MB catalogue is downloaded **once** regardless of how many patterns you pass — far cheaper than invoking the script per symbol/timeframe.
+
+```bash
+npm run telonex:sync -- --slug-pattern 'btc-updown-15m-%,eth-updown-15m-%,sol-updown-15m-%,xrp-updown-15m-%,btc-updown-5m-%,eth-updown-5m-%,sol-updown-5m-%,xrp-updown-5m-%'
+```
+
+The same eight-pattern sweep (BTC/ETH/SOL/XRP × 15m/5m) is wired up as a shortcut:
+
+```bash
+npm run telonex:sync:crypto:5m-15min
+```
+
+::: warning
+With multiple patterns, `--limit` caps the **combined** result set after `ORDER BY slug`, not per pattern. It is intended for smoke tests; leave it off for a full sync.
 :::
 
 ## Smoke testing with `--dry-run`
