@@ -15,27 +15,36 @@ The `telonex:download` CLI is Stage 2 of the pipeline. It iterates over markets 
 
 ## Basic usage
 
+`--slug-pattern` is **required** — it selects which markets to download (same comma-separated LIKE patterns as `telonex:sync`). Markets are drained in pattern order (all of the first pattern, then the second, …) and chronologically within each pattern.
+
 ```bash
-npm run telonex:download
+npm run telonex:download -- --slug-pattern 'btc-updown-15m-%'
 ```
 
-With no flags, the script claims pending markets in parallel (default concurrency 4) and processes each one to completion. Output looks like this:
+Output looks like this:
 
 ```
-[telonex:download] concurrency=4 channel=book_snapshot_full limit=none bucket=polymarket-telonex
-[telonex:download] queue size=19223 (pending+partial, capped by --limit)
-[telonex:download] w1 btc-updown-15m-1760140800 2025-10-11/40031974 -> OK 283572B
-[telonex:download] w1 btc-updown-15m-1760140800 2025-10-11/10846279 -> OK 283598B
-[telonex:download] w1 btc-updown-15m-1760140800 done ok=2 no_file=0 failed=0 elapsed=2.2s [1/19223 rate=0.45/s eta=11h45m]
+[telonex:download] slug-patterns=btc-updown-15m-% concurrency=1 channel=book_snapshot_full limit=none bucket=polymarket-telonex
+[telonex:download] queue size=2719 (pending+partial matching slug-patterns, capped by --limit)
+[telonex:download] w1 btc-updown-15m-1778715900 2026-04-13/40031974 -> OK 283572B
+[telonex:download] w1 btc-updown-15m-1778715900 2026-04-13/10846279 -> OK 283598B
+[telonex:download] w1 btc-updown-15m-1778715900 done ok=2 no_file=0 failed=0 elapsed=2.2s [1/2719 rate=0.45/s eta=1h40m]
 ...
-[telonex:download] done markets_processed=19223 elapsed=2h47m
+[telonex:download] done markets_processed=2719 elapsed=25m
+```
+
+To download all eight crypto combos in order, pass the same pattern list as the sync shortcut:
+
+```bash
+npm run telonex:download -- --slug-pattern 'btc-updown-15m-%,eth-updown-15m-%,sol-updown-15m-%,xrp-updown-15m-%,btc-updown-5m-%,eth-updown-5m-%,sol-updown-5m-%,xrp-updown-5m-%'
 ```
 
 ## Flags
 
 | Flag | Default | Purpose |
 | --- | --- | --- |
-| `--concurrency <N>` | `4` | Number of markets processed in parallel. |
+| `--slug-pattern <like>` | **required** | Comma-separated SQL LIKE pattern(s) for `slug`. Only matching markets are processed; they are drained in pattern order, then chronologically within each pattern. |
+| `--concurrency <N>` | `1` | Number of markets processed in parallel. |
 | `--channel <name>` | `book_snapshot_full` | Telonex channel name appended to the download URL and the R2 key prefix. |
 | `--limit <N>` | unlimited | Stop after this many markets have been processed. Useful for smoke tests. |
 
@@ -90,9 +99,9 @@ Each 429 and each transient retry prints a `WARN` line so you can see backoff be
 
 ## Concurrency and worker pool
 
-Each worker runs `(claim market) → (process all its candidates sequentially) → (finalise) → (claim next)`. The default of 4 workers processes ~1.8 markets per second for BTC 15m and has been observed to stay clean of 429 from Telonex.
+Each worker runs `(claim market) → (process all its candidates sequentially) → (finalise) → (claim next)`. The default is a single worker (`--concurrency 1`), which is the safest with respect to Telonex's rate limiter.
 
-You can push concurrency higher (`--concurrency 8`) if you are not seeing rate-limit warnings, or drop it (`--concurrency 2`) if you are.
+You can push concurrency higher (`--concurrency 8`) if you are not seeing rate-limit warnings, or keep it at 1 if you are. Concurrency does not change the drain order across patterns meaningfully — workers still claim in pattern order — but with many workers a later pattern's first markets may begin before the previous pattern's last few finish.
 
 ## MD5 verification
 
@@ -133,7 +142,7 @@ Two `SIGINT` (`Ctrl+C`) levels:
 1. **First `Ctrl+C`** — the process prints `draining`, aborts in-flight HTTP, finalises any market that already has all its candidates attempted, and reverts every market that is still mid-flight from `processing` back to `pending`. Then exits with code 0.
 2. **Second `Ctrl+C`** — hard exit (`process.exit(1)`).
 
-Resuming after a clean shutdown is exactly the same as resuming after any other interruption: re-run `npm run telonex:download` and the same workers pick up the reverted markets first.
+Resuming after a clean shutdown is exactly the same as resuming after any other interruption: re-run `npm run telonex:download -- --slug-pattern '<same patterns>'` and the same workers pick up the reverted markets first.
 
 ## Checking results
 
