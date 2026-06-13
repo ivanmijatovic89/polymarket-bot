@@ -164,6 +164,18 @@ function runChild(): void {
 // Parent process: query, pre-flight, fork children, dispatch.
 // -----------------------------------------------------------------------------
 
+/** Parse a required integer flag value; throw a clear error on missing/invalid input. */
+function requireIntArg(flag: string, raw: string | undefined, min: number): number {
+  if (raw === undefined) {
+    throw new Error(`[telonex:dl-converted] ${flag} requires a value`)
+  }
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n < min) {
+    throw new Error(`[telonex:dl-converted] ${flag} must be an integer >= ${min}, got: ${raw}`)
+  }
+  return n
+}
+
 function parseArgs(argv: string[]): Args {
   const out: Args = {
     converter: 'delta-typed',
@@ -195,10 +207,9 @@ function parseArgs(argv: string[]): Args {
     } else if (a === '--latest') {
       out.latest = true
     } else if (a === '--limit') {
-      const n = Number(argv[++i] ?? '0')
-      if (n > 0) out.limit = n
+      out.limit = requireIntArg('--limit', argv[++i], 1)
     } else if (a === '--concurrency') {
-      out.concurrency = Math.max(1, Number(argv[++i] ?? '1'))
+      out.concurrency = requireIntArg('--concurrency', argv[++i], 1)
     } else if (a === '--force') {
       out.force = true
     } else if (a === '--dry-run') {
@@ -439,11 +450,14 @@ async function runParent(args: Args): Promise<void> {
 if (isChildMode(process.argv)) {
   runChild()
 } else {
-  runParent(parseArgs(process.argv.slice(2)))
-    .then(() => closeDb())
-    .catch(async (err: unknown) => {
+  void (async () => {
+    try {
+      await runParent(parseArgs(process.argv.slice(2)))
+    } catch (err: unknown) {
       console.error(err instanceof Error ? err.message : err)
+      process.exitCode = 1
+    } finally {
       await closeDb().catch(() => {})
-      process.exit(1)
-    })
+    }
+  })()
 }
