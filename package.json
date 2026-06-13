@@ -56,6 +56,7 @@
     "telonex:download": "tsx src/telonex/download-raw-files.ts",
     "telonex:download:fanout": "./scripts/telonex-download-fanout.sh",
     "telonex:convert": "tsx src/telonex/convert.ts",
+    "telonex:download-converted-r2-to-local": "tsx src/telonex/download-converted-r2-to-local.ts",
     "telonex:convert:fanout": "./scripts/telonex-convert-fanout.sh",
     "telonex:verify": "tsx src/telonex/verify-conversion.ts",
     "telonex:verify-batch": "tsx src/telonex/verify-conversion-batch.ts",

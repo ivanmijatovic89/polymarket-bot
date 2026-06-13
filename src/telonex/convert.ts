@@ -45,6 +45,7 @@ import {
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
+import { localOutputPath } from './localOutputPath.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
 import { createDeltaTypedConverter } from './converters/deltaTyped.js'
@@ -138,22 +139,6 @@ function parseSlug(slug: string): { symbol: string; timeframe: string; epoch: st
   const m = slug.match(/^([a-z0-9]+)-updown-([a-z0-9]+)-(\d+)$/)
   if (!m) return null
   return { symbol: m[1]!, timeframe: m[2]!, epoch: m[3]! }
-}
-
-function localOutputPath(args: {
-  converter: string
-  symbol: string
-  timeframe: string
-  slug: string
-}): { relative: string; absolute: string } {
-  const relative = path.join(
-    'data/events/telonex',
-    args.converter,
-    args.symbol,
-    args.timeframe,
-    `${args.slug}.parquet`,
-  )
-  return { relative, absolute: path.resolve(relative) }
 }
 
 function r2OutputKey(args: {

@@ -43,6 +43,18 @@ npm run backtest:telonex:btc:15m -- --strategy <id> --limit 20   # shortcut
 # --timeframe defaults to 15m; only valid with --symbol
 # Set BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1 when using the TA plugin
 
+# Pre-fetch converted parquet from R2 to its canonical local path, so backtests
+# can then run with --read-from local (no per-tick R2 fetch). Uses the SAME
+# eligibility as backtest (listEligibleTelonexMarkets, readFrom=r2). Read-only on
+# the DB; writes only under data/events/telonex/ (atomic tmp→rename, skip-if-exists).
+npm run telonex:download-converted-r2-to-local -- --converter delta-typed --symbol btc --timeframe 15m
+npm run telonex:download-converted-r2-to-local -- --converter delta-typed --slug <slug1>,<slug2>
+# --concurrency N forks N worker processes (parent coordinates, pull-based, no
+# overlap, re-queues on child crash). Prints a pre-flight: r2 eligible / on local
+# / to download. Flags: --symbol, --timeframe, --slug, --limit, --latest (needs
+# --limit), --force (re-download), --dry-run (preflight only). See
+# docs/datasets/telonex/download-converted-r2-to-local.md.
+
 # Extend an existing telonex run with more markets (single backtest_runs row grows;
 # strategy/params/symbol/timeframe/converter/readFrom inherited from parent)
 npm run backtest -- --extend <runId>                          # all missing, oldest-first

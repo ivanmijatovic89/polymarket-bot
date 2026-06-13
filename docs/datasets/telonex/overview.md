@@ -181,5 +181,6 @@ That said, a Telonex collector run and your own live recorder are two independen
 - [Download Raw Files](/datasets/telonex/download-raw-files) — pull `book_snapshot_full` files into R2 and `telonex_market_files`.
 - [Convert](/datasets/telonex/convert) — run the paired, delta, or delta-typed converter through the dispatcher.
 - [Verify Conversions](/datasets/telonex/verify) — prove the converted file reconstructs raw Telonex orderbooks tick by tick.
+- [Download Converted Files](/datasets/telonex/download-converted-r2-to-local) — pre-fetch converted parquet from R2 to local disk so backtests can run with `--read-from local`.
 - [Run a Backtest](/datasets/telonex/backtest) — replay converted files through the backtest engine.
 - [Diagnostics](/datasets/telonex/diagnostics) — inspect coverage and merge alignment.
