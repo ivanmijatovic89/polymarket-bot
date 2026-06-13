@@ -106,6 +106,12 @@ function fmtDuration(totalSec: number): string {
   return `${sec}s`
 }
 
+/** Sub-second-precision elapsed formatter for step timings. */
+function fmtElapsed(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
 async function fileExists(p: string): Promise<boolean> {
   try {
     await fs.stat(p)
@@ -444,10 +450,16 @@ async function runParent(args: Args): Promise<void> {
     `[telonex:dl-converted] querying eligible markets from DB ` +
       `(market start >= ${eligibleFrom}, per TELONEX_DATASET_ELIGIBLE_FROM)…`,
   )
+  const tQuery = Date.now()
   const candidates = await buildCandidates(args)
+  console.log(
+    `[telonex:dl-converted] queried ${candidates.length} eligible market(s) in ${fmtElapsed(Date.now() - tQuery)}`,
+  )
 
   console.log(`[telonex:dl-converted] scanning ${candidates.length} local file(s)…`)
+  const tScan = Date.now()
   const { missing, onLocal } = await partitionMissing(candidates, args.force)
+  console.log(`[telonex:dl-converted] scanned local files in ${fmtElapsed(Date.now() - tScan)}`)
 
   console.log(
     `[telonex:dl-converted] r2 eligible: ${candidates.length}   ` +
