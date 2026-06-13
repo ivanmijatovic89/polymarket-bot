@@ -27,16 +27,16 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb, closeDb, telonexMarkets, telonexMarketFiles } from '../db/index.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { getDefaultBucket, putObject } from '../r2/client.js'
+import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
 
 const TELONEX_DOWNLOAD_BASE = 'https://api.telonex.io/v1/downloads/polymarket'
 const MAX_IN_PROCESS_RETRIES = 3
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 const MAX_429_RETRIES = 10
-// A null claim can be transient under heavy fan-out: every currently-claimable
-// row may be momentarily lock-skipped by a peer. Re-check a few times with
-// backoff before concluding the queue is genuinely drained, so a worker does
-// not quit permanently while ~thousands of markets are still pending.
-const MAX_EMPTY_CLAIMS = 6
+// A null claim is usually transient under heavy fan-out (many machines/panes
+// over one DB): the claimable rows were momentarily won by peers. On an empty
+// claim we back off this long, then re-check a real count before deciding the
+// queue is actually drained (see worker()).
 const EMPTY_CLAIM_BACKOFF_MS = 750
 
 type Args = {
@@ -312,11 +312,52 @@ async function claimMarket(selection: SlugSelection): Promise<ClaimedMarket | nu
   return null
 }
 
-async function claimMarketOnce(selection: SlugSelection): Promise<ClaimedMarket | null> {
+// Count rows that are still claimable for our slug-patterns (pending or partial).
+// Used to decide, on an empty claim, whether the queue is genuinely drained vs.
+// merely contended. Orphaned 'processing' rows are intentionally excluded — they
+// are a separate recovery concern, not claimable work for this worker.
+async function countClaimable(selection: SlugSelection): Promise<number> {
   const db = getDb()
-  return await db.transaction(async (tx) => {
-    // Hold the row lock only for the duration of claim+UPDATE, then commit.
-    const candidates = await tx
+  const rows = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(telonexMarkets)
+    .where(and(inArray(telonexMarkets.uploadStatus, ['pending', 'partial']), selection.where))
+  return Number(rows[0]?.c ?? 0)
+}
+
+// Number of candidate rows fetched per claim attempt. Sized above the typical
+// concurrent-worker count so that, even when many machines/panes draw from the
+// same head of the queue, each worker finds an unclaimed candidate in its batch.
+const CLAIM_CANDIDATES = 100
+
+type CandidateRow = {
+  id: number
+  slug: string
+  assetId0: string | null
+  assetId1: string | null
+  bsfFrom: Date | null
+  bsfTo: Date | null
+}
+
+// NON-LOCKING read of a batch of claimable candidates. Deliberately NOT
+// `FOR UPDATE`: a locking scan locks EVERY pending row it reads for the lifetime
+// of the claim, so under fan-out one worker momentarily locks the entire queue
+// and every peer's claim comes back empty. A plain read holds no row locks.
+//
+// We read one status at a time (pending first, then the rare 'partial'). A
+// single-value `upload_status` equality lets the engine walk the
+// `(upload_status, market_start_ms)` index in order and stop at LIMIT — no
+// filesort. An `IN ('pending','partial')` predicate cannot early-terminate on an
+// ordered LIMIT, so it would fall back to a full scan + filesort.
+async function readClaimCandidates(selection: SlugSelection): Promise<CandidateRow[]> {
+  const db = getDb()
+  const orderCols = selection.order
+    ? [selection.order, telonexMarkets.marketStartMs]
+    : [telonexMarkets.marketStartMs]
+  const candidates: CandidateRow[] = []
+  for (const status of ['pending', 'partial'] as const) {
+    if (candidates.length >= CLAIM_CANDIDATES) break
+    const rows = await db
       .select({
         id: telonexMarkets.id,
         slug: telonexMarkets.slug,
@@ -326,34 +367,54 @@ async function claimMarketOnce(selection: SlugSelection): Promise<ClaimedMarket 
         bsfTo: telonexMarkets.bookSnapshotFullTo,
       })
       .from(telonexMarkets)
-      .where(and(inArray(telonexMarkets.uploadStatus, ['pending', 'partial']), selection.where))
+      .where(and(eq(telonexMarkets.uploadStatus, status), selection.where))
       // Pattern order first (combo by combo), then chronological within a combo.
-      .orderBy(selection.order, telonexMarkets.marketStartMs)
-      .limit(1)
-      .for('update', { skipLocked: true })
-    const row = candidates[0]
-    if (!row) return null
-    if (!row.assetId0 || !row.assetId1 || !row.bsfFrom || !row.bsfTo) {
-      // Should never happen given our sync filter; mark failed and skip.
-      await tx
-        .update(telonexMarkets)
-        .set({ uploadStatus: 'failed', lastError: 'missing asset_ids or book_snapshot_full range' })
-        .where(eq(telonexMarkets.id, row.id))
-      return null
-    }
-    await tx
+      .orderBy(...orderCols)
+      .limit(CLAIM_CANDIDATES - candidates.length)
+    candidates.push(...rows)
+  }
+  return candidates
+}
+
+// Atomic single-row claim: flip one candidate pending/partial -> processing via
+// a PK-keyed conditional UPDATE. The status guard makes exactly one worker win
+// (affectedRows === 1); losers get 0. Locks one row by primary key — no scan, no
+// lock storm, no deadlocks.
+async function tryClaimRow(row: CandidateRow): Promise<ClaimedMarket | null> {
+  const db = getDb()
+  if (!row.assetId0 || !row.assetId1 || !row.bsfFrom || !row.bsfTo) {
+    // Should never happen given our sync filter; mark failed and skip.
+    await db
       .update(telonexMarkets)
-      .set({ uploadStatus: 'processing' })
+      .set({ uploadStatus: 'failed', lastError: 'missing asset_ids or book_snapshot_full range' })
       .where(eq(telonexMarkets.id, row.id))
-    return {
-      id: row.id,
-      slug: row.slug,
-      assetId0: row.assetId0,
-      assetId1: row.assetId1,
-      bookSnapshotFullFrom: row.bsfFrom,
-      bookSnapshotFullTo: row.bsfTo,
-    }
-  })
+    return null
+  }
+  const res = await db
+    .update(telonexMarkets)
+    .set({ uploadStatus: 'processing' })
+    .where(
+      and(
+        eq(telonexMarkets.id, row.id),
+        inArray(telonexMarkets.uploadStatus, ['pending', 'partial']),
+      ),
+    )
+  const affected = Array.isArray(res)
+    ? ((res[0] as { affectedRows?: number })?.affectedRows ?? 0)
+    : 0
+  if (affected !== 1) return null
+  return {
+    id: row.id,
+    slug: row.slug,
+    assetId0: row.assetId0,
+    assetId1: row.assetId1,
+    bookSnapshotFullFrom: row.bsfFrom,
+    bookSnapshotFullTo: row.bsfTo,
+  }
+}
+
+async function claimMarketOnce(selection: SlugSelection): Promise<ClaimedMarket | null> {
+  return claimFromCandidates(await readClaimCandidates(selection), tryClaimRow)
 }
 
 async function getExistingFiles(
@@ -579,34 +640,32 @@ async function worker(
   state: SharedState,
   selection: SlugSelection,
 ): Promise<void> {
-  let emptyClaims = 0
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
     let market: ClaimedMarket | null
     try {
-      market = await claimMarket(selection)
+      // Shared drain logic: claim one, and on a miss confirm with a real count
+      // before giving up — so "done" never fires while work remains. Returns
+      // null ONLY when the queue is genuinely empty (or aborted).
+      market = await claimNextOrConfirmEmpty({
+        claim: () => claimMarket(selection),
+        countRemaining: () => countClaimable(selection),
+        backoffMs: EMPTY_CLAIM_BACKOFF_MS,
+        signal: state.signal,
+      })
     } catch (err) {
       // claimMarket has its own deadlock retry; if it still throws, log and
       // exit this worker cleanly so other workers can drain instead of the
       // pool collapsing through Promise.all.
+      if (args.limit) state.reserved.count--
       console.error(`[telonex:download] w${workerId} claim error, exiting:`, err)
       return
     }
     if (!market) {
-      // Nothing claimed: undo the limit reservation so a transient miss does
-      // not eat into --limit, then retry a bounded number of times before
-      // concluding the queue is truly drained (see MAX_EMPTY_CLAIMS).
+      // Queue genuinely drained (confirmed by count) or shutting down.
       if (args.limit) state.reserved.count--
-      emptyClaims++
-      if (emptyClaims >= MAX_EMPTY_CLAIMS || state.signal.aborted) return
-      try {
-        await sleep(EMPTY_CLAIM_BACKOFF_MS, state.signal)
-      } catch {
-        return // aborted during backoff
-      }
-      continue
+      return
     }
-    emptyClaims = 0
     state.claimed.count++
     state.inFlight.add(market.id)
     const t0 = Date.now()

@@ -27,8 +27,13 @@ import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 export type ReadFrom = 'local' | 'r2'
 export type Converter = 'delta-typed' | 'paired'
 
-/** A slug-pattern WHERE clause plus a pattern-order ORDER BY expression. */
-export type SlugSelection = { where: SQL; order: SQL }
+/**
+ * A slug-pattern WHERE clause plus an optional pattern-order ORDER BY expression.
+ * `order` is null for a single pattern (there is no cross-pattern rank to apply),
+ * which lets the claim queries order by `market_start_ms` alone — an index can
+ * satisfy that, avoiding the full-scan + filesort that a CASE expression forces.
+ */
+export type SlugSelection = { where: SQL; order: SQL | null }
 
 /**
  * Build a `--slug-pattern` selection against `telonex_markets.slug`:
@@ -44,6 +49,12 @@ export type SlugSelection = { where: SQL; order: SQL }
 export function buildSlugSelection(patterns: string[]): SlugSelection {
   const likes = patterns.map((p) => sql`${telonexMarkets.slug} LIKE ${p}`)
   const where = sql`(${sql.join(likes, sql` OR `)})`
+  if (patterns.length <= 1) {
+    // Single pattern: every matched row shares the same pattern rank, so there is
+    // nothing to order across patterns. Returning null lets the claim order by
+    // market_start_ms alone (index-friendly, no filesort).
+    return { where, order: null }
+  }
   const cases = patterns.map((p, i) => sql`WHEN ${telonexMarkets.slug} LIKE ${p} THEN ${i}`)
   const order = sql`CASE ${sql.join(cases, sql` `)} ELSE ${patterns.length} END`
   return { where, order }

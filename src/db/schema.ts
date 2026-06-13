@@ -419,6 +419,13 @@ export const telonexMarkets = mysqlTable(
       t.marketStartMs,
     ),
     tfStartIdx: index('idx_telonex_markets_tf_start').on(t.timeframe, t.marketStartMs),
+    // Supports the download claim's candidate read: walk claimable rows
+    // (upload_status) in market_start_ms order without a filesort. The previous
+    // single-column upload_status index could not satisfy the ORDER BY.
+    uploadStatusStartIdx: index('idx_telonex_markets_upload_status_start').on(
+      t.uploadStatus,
+      t.marketStartMs,
+    ),
   }),
 )
 
