@@ -51,8 +51,8 @@ npm run telonex:download-converted-r2-to-local -- --converter delta-typed --symb
 npm run telonex:download-converted-r2-to-local -- --converter delta-typed --slug <slug1>,<slug2>
 # --concurrency N forks N worker processes (parent coordinates, pull-based, no
 # overlap, re-queues on child crash). Prints a pre-flight: r2 eligible / on local
-# / to download. Flags: --limit, --latest (needs --limit), --from-ms/--to-ms,
-# --force (re-download), --dry-run (preflight only). See
+# / to download. Flags: --symbol, --timeframe, --slug, --limit, --latest (needs
+# --limit), --force (re-download), --dry-run (preflight only). See
 # docs/datasets/telonex/download-converted-r2-to-local.md.
 
 # Extend an existing telonex run with more markets (single backtest_runs row grows;

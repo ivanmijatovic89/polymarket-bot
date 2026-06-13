@@ -83,7 +83,6 @@ The path is built by the shared `localOutputPath` helper (`src/telonex/localOutp
 | `--symbol btc\|eth\|sol\|xrp` | Restrict to one symbol (default: all). |
 | `--timeframe 15m\|5m` | Restrict to one timeframe (only valid with `--symbol`). |
 | `--slug a,b,c` | Restrict to an explicit comma-separated slug list. |
-| `--from-ms` / `--to-ms` | Restrict to a `market_start_ms` window. |
 | `--limit N` | Cap the number of markets (default: the whole eligible set). |
 | `--latest` | With `--limit`, take the newest N (by `market_start_ms`). |
 | `--concurrency N` | Number of worker processes (default `1`). |

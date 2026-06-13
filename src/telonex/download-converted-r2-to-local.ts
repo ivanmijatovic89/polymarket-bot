@@ -2,7 +2,7 @@
 /**
  * Download converted Telonex parquet from R2 down to its canonical local path.
  *
- * For a given converter (+ optional symbol/timeframe/slug/window filters) this
+ * For a given converter (+ optional symbol/timeframe/slug filters) this
  * queries the SAME eligibility definition the backtest uses
  * (`listEligibleTelonexMarkets` in src/db/telonexMarkets.ts — the single source
  * of truth) with `readFrom: 'r2'`, then streams each market's converted parquet
@@ -70,8 +70,6 @@ type Args = {
   symbol?: string
   timeframe?: string
   slugs?: string[]
-  fromMs?: number
-  toMs?: number
   latest: boolean
   limit?: number
   concurrency: number
@@ -194,10 +192,6 @@ function parseArgs(argv: string[]): Args {
         .split(',')
         .map((s) => s.trim())
         .filter((s) => s !== '')
-    } else if (a === '--from-ms') {
-      out.fromMs = Number(argv[++i])
-    } else if (a === '--to-ms') {
-      out.toMs = Number(argv[++i])
     } else if (a === '--latest') {
       out.latest = true
     } else if (a === '--limit') {
@@ -238,8 +232,6 @@ async function buildCandidates(args: Args): Promise<Job[]> {
     ...(args.symbol !== undefined ? { symbol: args.symbol } : {}),
     ...(args.timeframe !== undefined ? { timeframe: args.timeframe } : {}),
     ...(args.slugs !== undefined ? { slugs: args.slugs } : {}),
-    ...(args.fromMs !== undefined ? { fromMs: args.fromMs } : {}),
-    ...(args.toMs !== undefined ? { toMs: args.toMs } : {}),
   }
   const markets = await listEligibleTelonexMarkets(query)
   return markets.flatMap((m) => {
@@ -304,6 +296,33 @@ async function dispatch(jobs: Job[], concurrency: number): Promise<{ failed: num
 
   await new Promise<void>((resolve) => {
     const children: ChildProcess[] = []
+    // A child can leave the pool via either 'exit' (spawned then exited) or
+    // 'error' (failed to spawn at all — common on Windows if the tsx launcher
+    // path is wrong). Run the teardown exactly once per child.
+    const settled = new Set<number>()
+
+    const settle = (childId: number, label: string): void => {
+      if (settled.has(childId)) return
+      settled.add(childId)
+      live--
+      const job = inFlight.get(childId)
+      if (job) {
+        inFlight.delete(childId)
+        queue.push(job)
+        console.warn(
+          `[telonex:dl-converted] WARN child#${childId} ${label} mid-job ${job.slug}; re-queued`,
+        )
+      }
+      if (live === 0) {
+        if (queue.length > 0) {
+          console.error(
+            `[telonex:dl-converted] ERROR all workers gone with ${queue.length} job(s) left`,
+          )
+          failed += queue.length
+        }
+        resolve()
+      }
+    }
 
     const progress = (): void => {
       if (done % 100 === 0 || done === total) {
@@ -345,26 +364,15 @@ async function dispatch(jobs: Job[], concurrency: number): Promise<{ failed: num
           assign(child, i)
         }
       })
+      child.on('error', (err) => {
+        console.error(
+          `[telonex:dl-converted] ERROR child#${i} failed to run: ` +
+            `${err instanceof Error ? err.message : String(err)}`,
+        )
+        settle(i, 'errored')
+      })
       child.on('exit', (code, signal) => {
-        live--
-        const job = inFlight.get(i)
-        if (job) {
-          inFlight.delete(i)
-          queue.push(job)
-          console.warn(
-            `[telonex:dl-converted] WARN child#${i} died ` +
-              `(code=${code} signal=${signal ?? ''}) mid-job ${job.slug}; re-queued`,
-          )
-        }
-        if (live === 0) {
-          if (queue.length > 0) {
-            console.error(
-              `[telonex:dl-converted] ERROR all workers exited with ${queue.length} job(s) left`,
-            )
-            failed += queue.length
-          }
-          resolve()
-        }
+        settle(i, `exited (code=${code} signal=${signal ?? ''})`)
       })
       children.push(child)
     }
