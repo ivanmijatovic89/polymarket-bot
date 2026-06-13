@@ -45,6 +45,7 @@ import {
   type EligibleMarketsQuery,
 } from '../db/telonexMarkets.js'
 import { closeDb } from '../db/index.js'
+import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 import { getObjectToFile } from '../r2/client.js'
 import { parseR2Url } from '../r2/parseR2Url.js'
 import { localOutputPath } from './localOutputPath.js'
@@ -438,7 +439,14 @@ async function runParent(args: Args): Promise<void> {
     .join(' ')
   console.log(`[telonex:dl-converted] ${scope}`)
 
+  const eligibleFrom = new Date(TELONEX_DATASET_ELIGIBLE_FROM_MS).toISOString().slice(0, 10)
+  console.log(
+    `[telonex:dl-converted] querying eligible markets from DB ` +
+      `(market start >= ${eligibleFrom}, per TELONEX_DATASET_ELIGIBLE_FROM)…`,
+  )
   const candidates = await buildCandidates(args)
+
+  console.log(`[telonex:dl-converted] scanning ${candidates.length} local file(s)…`)
   const { missing, onLocal } = await partitionMissing(candidates, args.force)
 
   console.log(
