@@ -94,6 +94,17 @@ function fmtBytes(n: number): string {
   return `${(mb / 1024).toFixed(2)}GB`
 }
 
+function fmtDuration(totalSec: number): string {
+  if (!Number.isFinite(totalSec) || totalSec < 0) return '—'
+  const s = Math.round(totalSec)
+  const h = Math.floor(s / 3600)
+  const m = Math.floor((s % 3600) / 60)
+  const sec = s % 60
+  if (h > 0) return `${h}h${String(m).padStart(2, '0')}m`
+  if (m > 0) return `${m}m${String(sec).padStart(2, '0')}s`
+  return `${sec}s`
+}
+
 async function fileExists(p: string): Promise<boolean> {
   try {
     await fs.stat(p)
@@ -337,9 +348,14 @@ async function dispatch(jobs: Job[], concurrency: number): Promise<{ failed: num
 
     const progress = (): void => {
       if (done % 100 === 0 || done === total) {
+        const elapsedS = (Date.now() - t0) / 1000
+        const rate = elapsedS > 0 ? done / elapsedS : 0
+        const pct = total > 0 ? Math.floor((done / total) * 100) : 0
+        const eta = rate > 0 ? fmtDuration((total - done) / rate) : '—'
         console.log(
-          `[telonex:dl-converted] progress ${done}/${total} ` +
-            `downloaded=${downloaded} failed=${failed} ${fmtBytes(bytes)}`,
+          `[telonex:dl-converted] progress ${done}/${total} (${pct}%) ` +
+            `downloaded=${downloaded} failed=${failed} ${fmtBytes(bytes)} ` +
+            `${rate.toFixed(1)} mkt/s ETA ${eta}`,
         )
       }
     }
