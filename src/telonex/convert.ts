@@ -34,7 +34,7 @@ import path from 'node:path'
 import os from 'node:os'
 import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
-import { and, eq, inArray, or, sql } from 'drizzle-orm'
+import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
 import {
   getDb,
   closeDb,
@@ -44,6 +44,7 @@ import {
 } from '../db/index.js'
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
+import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
 import { createDeltaTypedConverter } from './converters/deltaTyped.js'
@@ -251,6 +252,57 @@ function rowNeedsWork(
   return false
 }
 
+// Number of candidate rows fetched per claim attempt (non-locking read), then
+// raced for via per-row PK-locked claims. Sized above the typical concurrent
+// worker count so each worker finds an unclaimed candidate in its batch even
+// under heavy multi-machine fan-out.
+const CLAIM_CANDIDATES = 100
+
+// Build the WHERE that selects markets still needing conversion for the given
+// converters/output/filters. Shared by the claim's candidate read and the
+// "is the queue really empty?" count so both agree on what counts as work.
+function convertibleWhere(
+  converters: ConverterName[],
+  output: OutputMode,
+  slugFilter: string[] | null,
+  excludeSlugs: string[],
+  slugSelection: SlugSelection | null,
+  force: boolean,
+): SQL | undefined {
+  return and(
+    eq(telonexMarkets.uploadStatus, 'done'),
+    needsWorkConditionSql(converters, output, force),
+    noInProgressConditionSql(converters),
+    slugFilter && slugFilter.length > 0
+      ? sql`${telonexMarkets.slug} IN (${sql.raw(slugFilter.map((s) => `'${s}'`).join(','))})`
+      : undefined,
+    slugSelection ? slugSelection.where : undefined,
+    excludeSlugs.length > 0
+      ? sql`${telonexMarkets.slug} NOT IN (${sql.raw(excludeSlugs.map((s) => `'${s}'`).join(','))})`
+      : undefined,
+  )
+}
+
+// Count markets still convertible for our filters. Used on an empty claim to
+// decide whether the queue is genuinely drained vs. merely contended. Markets
+// currently in_progress by a peer are excluded (noInProgressConditionSql) — they
+// are not work for this worker.
+async function countConvertible(
+  converters: ConverterName[],
+  output: OutputMode,
+  slugFilter: string[] | null,
+  excludeSlugs: string[],
+  slugSelection: SlugSelection | null,
+  force: boolean,
+): Promise<number> {
+  const db = getDb()
+  const rows = await db
+    .select({ c: sql<number>`count(*)` })
+    .from(telonexMarkets)
+    .where(convertibleWhere(converters, output, slugFilter, excludeSlugs, slugSelection, force))
+  return Number(rows[0]?.c ?? 0)
+}
+
 // MySQL kills one transaction in a deadlock cycle with ER_LOCK_DEADLOCK (1213).
 // The claim transaction takes row locks on telonex_markets (SELECT ... FOR
 // UPDATE) AND writes telonex_market_conversions (unique key on
@@ -301,18 +353,47 @@ async function claimMarket(
   return null
 }
 
-async function claimMarketOnce(
+// NON-LOCKING read of candidate market ids that still need conversion work.
+// Deliberately NOT `FOR UPDATE`: a locking scan here locks EVERY matching row
+// for the claim's lifetime, so under fan-out one worker locks the whole queue
+// and peers get empty claims and quit early. A plain read holds no locks.
+async function readConvertCandidates(
   converters: ConverterName[],
   output: OutputMode,
-  slugFilter: string[] | null = null,
-  force = false,
-  excludeSlugs: string[] = [],
-  slugSelection: SlugSelection | null = null,
+  slugFilter: string[] | null,
+  excludeSlugs: string[],
+  slugSelection: SlugSelection | null,
+  force: boolean,
+): Promise<number[]> {
+  const db = getDb()
+  // With --slug-pattern, drain in pattern order then chronologically — same
+  // ordering semantics as telonex:download.
+  const orderCols = slugSelection?.order
+    ? [slugSelection.order, telonexMarkets.marketStartMs]
+    : [telonexMarkets.marketStartMs]
+  const rows = await db
+    .select({ id: telonexMarkets.id })
+    .from(telonexMarkets)
+    .where(convertibleWhere(converters, output, slugFilter, excludeSlugs, slugSelection, force))
+    .orderBy(...orderCols)
+    .limit(CLAIM_CANDIDATES)
+  return rows.map((r) => r.id)
+}
+
+// Atomic single-market claim inside a tiny transaction that locks ONLY that row
+// by primary key (`WHERE id = ?`), re-checking it still needs work and is not
+// already in progress. `SKIP LOCKED` lets a concurrent worker skip a row another
+// holds — a per-market mutex without scanning. Returns the claim or null if the
+// candidate was taken/changed since the candidate read.
+async function tryClaimConvertMarket(
+  candidateId: number,
+  converters: ConverterName[],
+  output: OutputMode,
+  force: boolean,
 ): Promise<ClaimedMarket | null> {
   const db = getDb()
-  return await db.transaction(async (tx) => {
-    // Find a market where at least one requested converter is not fully done.
-    const selected = tx
+  return db.transaction(async (tx) => {
+    const rows = await tx
       .select({
         id: telonexMarkets.id,
         slug: telonexMarkets.slug,
@@ -324,27 +405,16 @@ async function claimMarketOnce(
       .from(telonexMarkets)
       .where(
         and(
+          eq(telonexMarkets.id, candidateId),
           eq(telonexMarkets.uploadStatus, 'done'),
           needsWorkConditionSql(converters, output, force),
           noInProgressConditionSql(converters),
-          slugFilter && slugFilter.length > 0
-            ? sql`${telonexMarkets.slug} IN (${sql.raw(slugFilter.map((s) => `'${s}'`).join(','))})`
-            : undefined,
-          slugSelection ? slugSelection.where : undefined,
-          excludeSlugs.length > 0
-            ? sql`${telonexMarkets.slug} NOT IN (${sql.raw(excludeSlugs.map((s) => `'${s}'`).join(','))})`
-            : undefined,
         ),
       )
-    // With --slug-pattern, drain in pattern order then chronologically — same
-    // ordering semantics as telonex:download.
-    const ordered = slugSelection
-      ? selected.orderBy(slugSelection.order, telonexMarkets.marketStartMs)
-      : selected
-    const rows = await ordered.limit(1).for('update', { skipLocked: true })
+      .for('update', { skipLocked: true })
 
     const row = rows[0]
-    if (!row) return null
+    if (!row) return null // taken/changed since the candidate read
 
     const parts = parseSlug(row.slug)
     if (!parts || !row.assetId0 || !row.assetId1) {
@@ -384,6 +454,7 @@ async function claimMarketOnce(
     const convertersToProcess = converters.filter((conv) =>
       rowNeedsWork(existingMap.get(conv), output, force),
     )
+    if (convertersToProcess.length === 0) return null // nothing left
 
     // Claim: upsert only the converters that actually need work.
     for (const conv of convertersToProcess) {
@@ -419,6 +490,27 @@ async function claimMarketOnce(
       convertersToProcess,
     }
   })
+}
+
+async function claimMarketOnce(
+  converters: ConverterName[],
+  output: OutputMode,
+  slugFilter: string[] | null = null,
+  force = false,
+  excludeSlugs: string[] = [],
+  slugSelection: SlugSelection | null = null,
+): Promise<ClaimedMarket | null> {
+  const candidates = await readConvertCandidates(
+    converters,
+    output,
+    slugFilter,
+    excludeSlugs,
+    slugSelection,
+    force,
+  )
+  return claimFromCandidates(candidates, (id) =>
+    tryClaimConvertMarket(id, converters, output, force),
+  )
 }
 
 async function getRawFiles(slug: string): Promise<Array<{ assetId: string; r2Key: string }>> {
@@ -741,28 +833,9 @@ function reserveLimitSlot(limit: number | null, reserved: { count: number }): bo
   return true
 }
 
-// A null claim can be transient under heavy fan-out: every currently-claimable
-// market may be momentarily lock-skipped or in_progress by a peer. Re-check a
-// few times with backoff before concluding the queue is truly drained, so a
-// worker does not quit permanently while markets are still pending.
-const MAX_EMPTY_CLAIMS = 6
+// Backoff between empty-claim retries (the confirm-empty loop lives in the
+// shared claimNextOrConfirmEmpty helper).
 const EMPTY_CLAIM_BACKOFF_MS = 750
-
-// Sleep that wakes early (resolves, never rejects) when the abort signal fires.
-function sleepMs(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve) => {
-    if (signal.aborted) return resolve()
-    const onAbort = (): void => {
-      clearTimeout(t)
-      resolve()
-    }
-    const t = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
-}
 
 async function worker(
   workerId: number,
@@ -778,20 +851,36 @@ async function worker(
   },
   state: SharedState,
 ): Promise<void> {
-  let emptyClaims = 0
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
     const excludeSlugs = args.force ? Array.from(state.forceClaimedSlugs) : []
     let market: ClaimedMarket | null
     try {
-      market = await claimMarket(
-        args.converters,
-        args.output,
-        args.slugFilter,
-        args.force,
-        excludeSlugs,
-        args.slugSelection,
-      )
+      // Shared drain logic: claim one, and on a miss confirm with a real count
+      // before giving up — so "done" never fires while work remains. Returns
+      // null ONLY when the queue is genuinely empty (or aborted).
+      market = await claimNextOrConfirmEmpty({
+        claim: () =>
+          claimMarket(
+            args.converters,
+            args.output,
+            args.slugFilter,
+            args.force,
+            excludeSlugs,
+            args.slugSelection,
+          ),
+        countRemaining: () =>
+          countConvertible(
+            args.converters,
+            args.output,
+            args.slugFilter,
+            excludeSlugs,
+            args.slugSelection,
+            args.force,
+          ),
+        backoffMs: EMPTY_CLAIM_BACKOFF_MS,
+        signal: state.signal,
+      })
     } catch (err) {
       // claimMarket already retries deadlocks; if it still throws, log and exit
       // this one worker cleanly so peers keep draining instead of the whole
@@ -801,16 +890,10 @@ async function worker(
       return
     }
     if (!market) {
-      // Nothing claimed: undo the limit reservation so a transient miss does
-      // not eat into --limit, then retry a bounded number of times before
-      // concluding the queue is truly drained (see MAX_EMPTY_CLAIMS).
+      // Queue genuinely drained (confirmed by count) or shutting down.
       if (args.limit) state.reserved.count--
-      emptyClaims++
-      if (emptyClaims >= MAX_EMPTY_CLAIMS || state.signal.aborted) return
-      await sleepMs(EMPTY_CLAIM_BACKOFF_MS, state.signal)
-      continue
+      return
     }
-    emptyClaims = 0
     if (market.convertersToProcess.length === 0) continue
     if (args.force) state.forceClaimedSlugs.add(market.slug)
     state.claimed.count++

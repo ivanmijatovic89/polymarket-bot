@@ -141,6 +141,13 @@
       "when": 1781568000000,
       "tag": "0019_backtest_run_segments",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "5",
+      "when": 1781654400000,
+      "tag": "0020_telonex_markets_upload_status_start_idx",
+      "breakpoints": true
     }
   ]
 }
