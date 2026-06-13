@@ -171,6 +171,8 @@ function CoverageTable({
               <TableHead className="text-right">Expected</TableHead>
               <TableHead className="text-right">Telonex Markets</TableHead>
               <TableHead className="text-right">Telonex %</TableHead>
+              <TableHead className="text-right">Downloaded</TableHead>
+              <TableHead className="text-right">Downloaded %</TableHead>
               <TableHead className="text-right">Local Ready</TableHead>
               <TableHead className="text-right">Local %</TableHead>
               <TableHead className="text-right">R2 Ready</TableHead>
@@ -191,6 +193,10 @@ function CoverageTable({
                   <Badge variant={pctVariant(row.telonexCoveragePct)}>
                     {pct(row.telonexCoveragePct)}
                   </Badge>
+                </TableCell>
+                <TableCell className="text-right font-mono">{fmtInt(row.downloaded)}</TableCell>
+                <TableCell className="text-right">
+                  <Badge variant={pctVariant(row.downloadedPct)}>{pct(row.downloadedPct)}</Badge>
                 </TableCell>
                 <TableCell className="text-right font-mono">{fmtInt(row.localReady)}</TableCell>
                 <TableCell className="text-right">
@@ -262,6 +268,7 @@ function OverviewTable({
               <TableHead>Timeframe</TableHead>
               <TableHead className="text-right">Telonex Markets</TableHead>
               <TableHead className="text-right">Telonex %</TableHead>
+              <TableHead className="text-right">Downloaded %</TableHead>
               <TableHead className="text-right">Local %</TableHead>
               <TableHead className="text-right">R2 %</TableHead>
               <TableHead>First</TableHead>
@@ -295,6 +302,9 @@ function OverviewTable({
                     <Badge variant={pctVariant(row.telonexCoveragePct)}>
                       {pct(row.telonexCoveragePct)}
                     </Badge>
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Badge variant={pctVariant(row.downloadedPct)}>{pct(row.downloadedPct)}</Badge>
                   </TableCell>
                   <TableCell className="text-right">
                     <Badge variant={pctVariant(row.localReadyPct)}>{pct(row.localReadyPct)}</Badge>
@@ -354,12 +364,17 @@ async function DatasetOverview({ converter }: { converter: BacktestDatasetParams
 
       <OverviewControls converter={converter} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Telonex markets"
           value={fmtInt(totals.telonexMarkets)}
           icon={Database}
           hint="All symbols & timeframes"
+        />
+        <StatCard
+          label="Downloaded"
+          value={fmtInt(totals.downloaded)}
+          hint="Raw files uploaded to R2"
         />
         <StatCard
           label="Local ready"
@@ -407,12 +422,17 @@ async function DatasetDetail({ params }: { params: BacktestDatasetParams }) {
 
       <DatasetControls params={params} />
 
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-6">
         <StatCard
           label="Telonex markets"
           value={fmtInt(summary.rawMarkets)}
           icon={Database}
           hint={`${params.symbol.toUpperCase()} ${params.timeframe}`}
+        />
+        <StatCard
+          label="Downloaded"
+          value={fmtInt(summary.downloaded)}
+          hint="Raw files uploaded to R2"
         />
         <StatCard
           label="Local ready"

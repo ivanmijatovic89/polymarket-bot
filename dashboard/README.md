@@ -25,6 +25,14 @@ npm run dashboard:typecheck
 npm run bull-board           # http://127.0.0.1:3052/admin/queues (override: BULL_BOARD_PORT)
 ```
 
+If `npm run dashboard` does not start on Windows because the port argument is
+not parsed correctly, run the Next.js dev server directly:
+
+```bash
+cd dashboard
+npx next dev --hostname 0.0.0.0 --port 3051
+```
+
 For remote dev access over Tailscale/LAN, allow the browser origin that will
 open the dashboard:
 
