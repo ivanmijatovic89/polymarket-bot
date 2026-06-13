@@ -11,9 +11,11 @@ export type CoveragePeriod = {
   key: string
   expected: number
   telonexMarkets: number
+  downloaded: number
   localReady: number
   r2Ready: number
   telonexCoveragePct: number
+  downloadedPct: number
   localReadyPct: number
   r2ReadyPct: number
   firstStartMs: number
@@ -24,6 +26,7 @@ export type BacktestDatasetCoverage = {
   params: BacktestDatasetParams
   summary: {
     rawMarkets: number
+    downloaded: number
     localReady: number
     r2Ready: number
     firstStartMs: number | null
@@ -46,6 +49,7 @@ type CountRow = {
 type MarketRow = {
   slug: string
   marketStartMs: number | string | bigint
+  uploadStatus: string | null
   conversionStatus: string | null
   localPath: string | null
   r2Url: string | null
@@ -132,7 +136,7 @@ function expectedForPeriod(key: string, expectedPerDay: number): number {
 // suffix here; that helper has been removed to keep one source of truth.
 
 function groupCoverage(
-  markets: Array<{ startMs: number; localReady: boolean; r2Ready: boolean }>,
+  markets: Array<{ startMs: number; downloaded: boolean; localReady: boolean; r2Ready: boolean }>,
   keyFor: (ms: number) => string,
   expectedPerDay: number,
 ): CoveragePeriod[] {
@@ -140,6 +144,7 @@ function groupCoverage(
     string,
     {
       telonexMarkets: number
+      downloaded: number
       localReady: number
       r2Ready: number
       firstStartMs: number
@@ -153,6 +158,7 @@ function groupCoverage(
     if (!cur) {
       groups.set(key, {
         telonexMarkets: 1,
+        downloaded: market.downloaded ? 1 : 0,
         localReady: market.localReady ? 1 : 0,
         r2Ready: market.r2Ready ? 1 : 0,
         firstStartMs: startMs,
@@ -161,6 +167,7 @@ function groupCoverage(
       continue
     }
     cur.telonexMarkets += 1
+    if (market.downloaded) cur.downloaded += 1
     if (market.localReady) cur.localReady += 1
     if (market.r2Ready) cur.r2Ready += 1
     cur.firstStartMs = Math.min(cur.firstStartMs, startMs)
@@ -175,9 +182,11 @@ function groupCoverage(
         key,
         expected,
         telonexMarkets: value.telonexMarkets,
+        downloaded: value.downloaded,
         localReady: value.localReady,
         r2Ready: value.r2Ready,
         telonexCoveragePct: pct(value.telonexMarkets, expected),
+        downloadedPct: pct(value.downloaded, value.telonexMarkets),
         localReadyPct: pct(value.localReady, value.telonexMarkets),
         r2ReadyPct: pct(value.r2Ready, value.telonexMarkets),
         firstStartMs: value.firstStartMs,
@@ -190,9 +199,11 @@ export type DatasetOverviewRow = {
   symbol: string
   timeframe: string
   telonexMarkets: number
+  downloaded: number
   localReady: number
   r2Ready: number
   telonexCoveragePct: number
+  downloadedPct: number
   localReadyPct: number
   r2ReadyPct: number
   firstStartMs: number | null
@@ -207,6 +218,7 @@ export type DatasetOverview = {
   rows: DatasetOverviewRow[]
   totals: {
     telonexMarkets: number
+    downloaded: number
     localReady: number
     r2Ready: number
   }
@@ -216,6 +228,7 @@ type OverviewAggRow = {
   symbol: string
   timeframe: string
   telonexMarkets: number | string | bigint
+  downloaded: number | string | bigint
   localReady: number | string | bigint
   r2Ready: number | string | bigint
   firstStartMs: number | string | bigint | null
@@ -234,6 +247,7 @@ export async function getDatasetOverview(
       m.symbol as symbol,
       m.timeframe as timeframe,
       count(*) as telonexMarkets,
+      sum(case when m.upload_status = 'done' then 1 else 0 end) as downloaded,
       sum(
         case
           when c.status = 'done' and c.local_path is not null and c.local_path <> ''
@@ -263,6 +277,7 @@ export async function getDatasetOverview(
     const timeframeMs = timeframeMsForTimeframe(timeframe)
     const expectedPerDay = expectedPerDayForTimeframe(timeframe)
     const telonexMarkets = toInt(row.telonexMarkets)
+    const downloaded = toInt(row.downloaded)
     const localReady = toInt(row.localReady)
     const r2Ready = toInt(row.r2Ready)
     const firstStartMs = row.firstStartMs === null ? null : Number(row.firstStartMs)
@@ -279,9 +294,11 @@ export async function getDatasetOverview(
       symbol: String(row.symbol),
       timeframe,
       telonexMarkets,
+      downloaded,
       localReady,
       r2Ready,
       telonexCoveragePct: pct(telonexMarkets, totalExpected),
+      downloadedPct: pct(downloaded, telonexMarkets),
       localReadyPct: pct(localReady, telonexMarkets),
       r2ReadyPct: pct(r2Ready, telonexMarkets),
       firstStartMs,
@@ -297,6 +314,7 @@ export async function getDatasetOverview(
     rows,
     totals: {
       telonexMarkets: rows.reduce((sum, r) => sum + r.telonexMarkets, 0),
+      downloaded: rows.reduce((sum, r) => sum + r.downloaded, 0),
       localReady: rows.reduce((sum, r) => sum + r.localReady, 0),
       r2Ready: rows.reduce((sum, r) => sum + r.r2Ready, 0),
     },
@@ -321,6 +339,7 @@ export async function getBacktestDatasetCoverage(
     select
       m.slug as slug,
       m.market_start_ms as marketStartMs,
+      m.upload_status as uploadStatus,
       c.status as conversionStatus,
       c.local_path as localPath,
       c.r2_url as r2Url
@@ -339,12 +358,14 @@ export async function getBacktestDatasetCoverage(
     return [
       {
         startMs,
+        downloaded: row.uploadStatus === 'done',
         localReady: done && typeof row.localPath === 'string' && row.localPath.trim() !== '',
         r2Ready: done && typeof row.r2Url === 'string' && row.r2Url.trim() !== '',
       },
     ]
   })
 
+  const downloaded = markets.filter((m) => m.downloaded).length
   const localReady = markets.filter((m) => m.localReady).length
   const r2Ready = markets.filter((m) => m.r2Ready).length
 
@@ -364,6 +385,7 @@ export async function getBacktestDatasetCoverage(
     params,
     summary: {
       rawMarkets: toInt(rawCountRows[0]?.count),
+      downloaded,
       localReady,
       r2Ready,
       firstStartMs,
@@ -377,9 +399,11 @@ export async function getBacktestDatasetCoverage(
       key: 'Total',
       expected: totalExpected,
       telonexMarkets: markets.length,
+      downloaded,
       localReady,
       r2Ready,
       telonexCoveragePct: pct(markets.length, totalExpected),
+      downloadedPct: pct(downloaded, markets.length),
       localReadyPct: pct(localReady, markets.length),
       r2ReadyPct: pct(r2Ready, markets.length),
       firstStartMs: firstStartMs ?? 0,
