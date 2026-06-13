@@ -23,14 +23,21 @@
 
 import '../config/env.js'
 import crypto from 'node:crypto'
-import { and, eq, inArray, sql, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb, closeDb, telonexMarkets, telonexMarketFiles } from '../db/index.js'
+import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { getDefaultBucket, putObject } from '../r2/client.js'
 
 const TELONEX_DOWNLOAD_BASE = 'https://api.telonex.io/v1/downloads/polymarket'
 const MAX_IN_PROCESS_RETRIES = 3
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 const MAX_429_RETRIES = 10
+// A null claim can be transient under heavy fan-out: every currently-claimable
+// row may be momentarily lock-skipped by a peer. Re-check a few times with
+// backoff before concluding the queue is genuinely drained, so a worker does
+// not quit permanently while ~thousands of markets are still pending.
+const MAX_EMPTY_CLAIMS = 6
+const EMPTY_CLAIM_BACKOFF_MS = 750
 
 type Args = {
   concurrency: number
@@ -305,19 +312,6 @@ async function claimMarket(selection: SlugSelection): Promise<ClaimedMarket | nu
   return null
 }
 
-type SlugSelection = { where: SQL; order: SQL }
-
-// Build the slug-pattern WHERE (OR of LIKEs) and an ORDER BY expression that
-// drains markets in pattern order: all of pattern[0] first, then pattern[1], …
-// Within a pattern, markets are ordered chronologically by market_start_ms.
-function buildSlugSelection(patterns: string[]): SlugSelection {
-  const likes = patterns.map((p) => sql`${telonexMarkets.slug} LIKE ${p}`)
-  const where = sql`(${sql.join(likes, sql` OR `)})`
-  const cases = patterns.map((p, i) => sql`WHEN ${telonexMarkets.slug} LIKE ${p} THEN ${i}`)
-  const order = sql`CASE ${sql.join(cases, sql` `)} ELSE ${patterns.length} END`
-  return { where, order }
-}
-
 async function claimMarketOnce(selection: SlugSelection): Promise<ClaimedMarket | null> {
   const db = getDb()
   return await db.transaction(async (tx) => {
@@ -472,12 +466,17 @@ async function finalizeMarket(
     .where(eq(telonexMarkets.id, marketId))
 }
 
-async function revertProcessingMarkets(selection: SlugSelection): Promise<number> {
+// Revert ONLY the markets this process claimed and did not finalize. Reverting
+// by slug-pattern would clobber the in-flight markets of other concurrent
+// processes (e.g. fan-out panes) sharing the same pattern, forcing needless
+// re-downloads. We track our own claimed ids and revert just those.
+async function revertOwnedProcessing(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0
   const db = getDb()
   const res = await db
     .update(telonexMarkets)
     .set({ uploadStatus: 'pending' })
-    .where(and(eq(telonexMarkets.uploadStatus, 'processing'), selection.where))
+    .where(and(eq(telonexMarkets.uploadStatus, 'processing'), inArray(telonexMarkets.id, ids)))
   const affected = Array.isArray(res) ? (res[0] as { affectedRows?: number })?.affectedRows : 0
   return affected ?? 0
 }
@@ -491,11 +490,11 @@ async function processMarket(
   market: ClaimedMarket,
   args: { apiKey: string; bucket: string; channel: string },
   signal: AbortSignal,
-): Promise<{ ok: number; failed: number; noFile: number }> {
+): Promise<{ ok: number; failed: number; noFile: number; finalized: boolean }> {
   const parts = parseSlug(market.slug)
   if (!parts) {
     await finalizeMarket(market.id, 0, 1)
-    return { ok: 0, failed: 1, noFile: 0 }
+    return { ok: 0, failed: 1, noFile: 0, finalized: true }
   }
   const candidates = expandCandidates(market.bookSnapshotFullFrom, market.bookSnapshotFullTo, [
     market.assetId0,
@@ -509,7 +508,9 @@ async function processMarket(
   for (const cand of candidates) {
     if (signal.aborted) {
       console.log(`[telonex:download] w${workerId} aborted mid-market ${market.slug}`)
-      return { ok, failed, noFile }
+      // Not finalized: leave it in 'processing' so the caller reverts it to
+      // 'pending' on shutdown and it gets re-claimed cleanly later.
+      return { ok, failed, noFile, finalized: false }
     }
     const key = `${cand.date}|${cand.assetId}`
     const ex = existing.get(key)
@@ -541,7 +542,7 @@ async function processMarket(
     )
   }
   await finalizeMarket(market.id, ok, failed)
-  return { ok, failed, noFile }
+  return { ok, failed, noFile, finalized: true }
 }
 
 function fmtEta(remainingSec: number): string {
@@ -560,6 +561,9 @@ type SharedState = {
   completed: { count: number }
   totalQueue: number
   runStart: number
+  // Markets this process has claimed but not yet finalized. On shutdown we
+  // revert exactly these (and only these) back to 'pending'.
+  inFlight: Set<number>
 }
 
 function reserveLimitSlot(limit: number | null, reserved: { count: number }): boolean {
@@ -575,6 +579,7 @@ async function worker(
   state: SharedState,
   selection: SlugSelection,
 ): Promise<void> {
+  let emptyClaims = 0
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
     let market: ClaimedMarket | null
@@ -587,11 +592,35 @@ async function worker(
       console.error(`[telonex:download] w${workerId} claim error, exiting:`, err)
       return
     }
-    if (!market) return
+    if (!market) {
+      // Nothing claimed: undo the limit reservation so a transient miss does
+      // not eat into --limit, then retry a bounded number of times before
+      // concluding the queue is truly drained (see MAX_EMPTY_CLAIMS).
+      if (args.limit) state.reserved.count--
+      emptyClaims++
+      if (emptyClaims >= MAX_EMPTY_CLAIMS || state.signal.aborted) return
+      try {
+        await sleep(EMPTY_CLAIM_BACKOFF_MS, state.signal)
+      } catch {
+        return // aborted during backoff
+      }
+      continue
+    }
+    emptyClaims = 0
     state.claimed.count++
+    state.inFlight.add(market.id)
     const t0 = Date.now()
     try {
-      const { ok, failed, noFile } = await processMarket(workerId, market, args, state.signal)
+      const { ok, failed, noFile, finalized } = await processMarket(
+        workerId,
+        market,
+        args,
+        state.signal,
+      )
+      // Drop from the in-flight set only once the market reached a terminal
+      // status (done/partial). If aborted mid-market it stays 'processing' and
+      // remains in the set so the finally block reverts it.
+      if (finalized) state.inFlight.delete(market.id)
       state.completed.count++
       const elapsedRun = (Date.now() - state.runStart) / 1000
       const rate = state.completed.count / Math.max(elapsedRun, 0.001)
@@ -608,6 +637,8 @@ async function worker(
         .update(telonexMarkets)
         .set({ uploadStatus: 'partial', lastError: (err as Error).message })
         .where(eq(telonexMarkets.id, market.id))
+      // Reached a terminal status here, so it is no longer ours to revert.
+      state.inFlight.delete(market.id)
     }
   }
 }
@@ -642,6 +673,9 @@ async function main(): Promise<void> {
   const reserved = { count: 0 }
   const claimed = { count: 0 }
   const completed = { count: 0 }
+  // Shared across every worker in this process; the same Set reference is passed
+  // into each worker's state so shutdown reverts only our own claims.
+  const inFlight = new Set<number>()
   const db = getDb()
   // Count markets that are eligible to be claimed. With --limit, cap at that.
   const totals = await db
@@ -660,13 +694,13 @@ async function main(): Promise<void> {
       worker(
         i + 1,
         { ...args, apiKey, bucket },
-        { signal: ac.signal, reserved, claimed, completed, totalQueue, runStart: t0 },
+        { signal: ac.signal, reserved, claimed, completed, totalQueue, runStart: t0, inFlight },
         selection,
       ),
     )
     await Promise.all(workers)
   } finally {
-    const reverted = await revertProcessingMarkets(selection)
+    const reverted = await revertOwnedProcessing([...inFlight])
     if (reverted > 0) {
       console.log(`[telonex:download] reverted ${reverted} 'processing' market(s) to 'pending'`)
     }

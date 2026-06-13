@@ -14,9 +14,17 @@
  * Usage:
  *   npm run telonex:convert -- [--converter paired] [--converter delta] [--converter delta-typed] [--output local|r2|both] [--force]
  *                              [--concurrency N] [--limit N] [--book-interval N]
+ *                              [--slug s1,s2,...] [--slug-pattern 'p1,p2,...']
  *
  * --converter can be repeated to run multiple converters per market in a single pass,
  * downloading raw files only once. Defaults to paired if omitted.
+ *
+ * Market selection (status-driven): all markets with upload_status='done' that still
+ * need a requested converter. Optionally narrow with:
+ *   --slug          exact slug list (precise, for a handful of markets)
+ *   --slug-pattern  MySQL LIKE patterns, comma-separated (e.g. 'btc-updown-15m-%').
+ *                   OPTIONAL here (unlike telonex:download where it is required);
+ *                   drains in pattern order, chronological within each pattern.
  *
  * See docs/datasets/telonex/sync-design.md.
  */
@@ -35,6 +43,7 @@ import {
   telonexMarketConversions,
 } from '../db/index.js'
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
+import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'
 import { createDeltaTypedConverter } from './converters/deltaTyped.js'
@@ -50,6 +59,7 @@ type Args = {
   limit: number | null
   bookInterval: number | null
   slugFilter: string[] | null
+  slugPatterns: string[] | null
   force: boolean
 }
 
@@ -61,6 +71,7 @@ function parseArgs(argv: string[]): Args {
     limit: null,
     bookInterval: null,
     slugFilter: null,
+    slugPatterns: null,
     force: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -86,7 +97,16 @@ function parseArgs(argv: string[]): Args {
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean)
-    else throw new Error(`[telonex:convert] unknown arg: ${a}`)
+    else if (a === '--slug-pattern') {
+      // Optional narrowing filter (unlike telonex:download, where it is
+      // required). Comma-separated MySQL LIKE patterns; without it, convert
+      // processes every 'done' market that still needs the requested converter.
+      const patterns = (argv[++i] ?? '')
+        .split(',')
+        .map((s) => s.trim())
+        .filter(Boolean)
+      out.slugPatterns = patterns.length > 0 ? patterns : null
+    } else throw new Error(`[telonex:convert] unknown arg: ${a}`)
   }
   if (out.converters.length === 0) out.converters = ['paired']
   return out
@@ -231,17 +251,68 @@ function rowNeedsWork(
   return false
 }
 
+// MySQL kills one transaction in a deadlock cycle with ER_LOCK_DEADLOCK (1213).
+// The claim transaction takes row locks on telonex_markets (SELECT ... FOR
+// UPDATE) AND writes telonex_market_conversions (unique key on
+// market_id+converter), so concurrent claimers can cycle. This is a normal,
+// retryable condition — not queue exhaustion.
+function isDeadlock(err: unknown): boolean {
+  const e = err as { code?: string; errno?: number; cause?: { code?: string; errno?: number } }
+  if (e?.code === 'ER_LOCK_DEADLOCK' || e?.errno === 1213) return true
+  if (e?.cause?.code === 'ER_LOCK_DEADLOCK' || e?.cause?.errno === 1213) return true
+  return false
+}
+
+// Retry wrapper: a deadlocked claim is retried with exponential backoff + jitter
+// so colliding workers don't immediately re-collide. Non-deadlock errors and the
+// final deadlock propagate to the caller.
 async function claimMarket(
   converters: ConverterName[],
   output: OutputMode,
   slugFilter: string[] | null = null,
   force = false,
   excludeSlugs: string[] = [],
+  slugSelection: SlugSelection | null = null,
+): Promise<ClaimedMarket | null> {
+  const MAX_DEADLOCK_RETRIES = 5
+  for (let attempt = 1; attempt <= MAX_DEADLOCK_RETRIES; attempt++) {
+    try {
+      return await claimMarketOnce(
+        converters,
+        output,
+        slugFilter,
+        force,
+        excludeSlugs,
+        slugSelection,
+      )
+    } catch (err) {
+      if (isDeadlock(err) && attempt < MAX_DEADLOCK_RETRIES) {
+        const base = 25 * Math.pow(2, attempt - 1)
+        const wait = base + Math.floor(Math.random() * base)
+        console.warn(
+          `[telonex:convert] WARN claim deadlock retry ${attempt}/${MAX_DEADLOCK_RETRIES} after ${wait}ms`,
+        )
+        await new Promise((r) => setTimeout(r, wait))
+        continue
+      }
+      throw err
+    }
+  }
+  return null
+}
+
+async function claimMarketOnce(
+  converters: ConverterName[],
+  output: OutputMode,
+  slugFilter: string[] | null = null,
+  force = false,
+  excludeSlugs: string[] = [],
+  slugSelection: SlugSelection | null = null,
 ): Promise<ClaimedMarket | null> {
   const db = getDb()
   return await db.transaction(async (tx) => {
     // Find a market where at least one requested converter is not fully done.
-    const rows = await tx
+    const selected = tx
       .select({
         id: telonexMarkets.id,
         slug: telonexMarkets.slug,
@@ -259,13 +330,18 @@ async function claimMarket(
           slugFilter && slugFilter.length > 0
             ? sql`${telonexMarkets.slug} IN (${sql.raw(slugFilter.map((s) => `'${s}'`).join(','))})`
             : undefined,
+          slugSelection ? slugSelection.where : undefined,
           excludeSlugs.length > 0
             ? sql`${telonexMarkets.slug} NOT IN (${sql.raw(excludeSlugs.map((s) => `'${s}'`).join(','))})`
             : undefined,
         ),
       )
-      .limit(1)
-      .for('update', { skipLocked: true })
+    // With --slug-pattern, drain in pattern order then chronologically — same
+    // ordering semantics as telonex:download.
+    const ordered = slugSelection
+      ? selected.orderBy(slugSelection.order, telonexMarkets.marketStartMs)
+      : selected
+    const rows = await ordered.limit(1).for('update', { skipLocked: true })
 
     const row = rows[0]
     if (!row) return null
@@ -665,6 +741,29 @@ function reserveLimitSlot(limit: number | null, reserved: { count: number }): bo
   return true
 }
 
+// A null claim can be transient under heavy fan-out: every currently-claimable
+// market may be momentarily lock-skipped or in_progress by a peer. Re-check a
+// few times with backoff before concluding the queue is truly drained, so a
+// worker does not quit permanently while markets are still pending.
+const MAX_EMPTY_CLAIMS = 6
+const EMPTY_CLAIM_BACKOFF_MS = 750
+
+// Sleep that wakes early (resolves, never rejects) when the abort signal fires.
+function sleepMs(ms: number, signal: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal.aborted) return resolve()
+    const onAbort = (): void => {
+      clearTimeout(t)
+      resolve()
+    }
+    const t = setTimeout(() => {
+      signal.removeEventListener('abort', onAbort)
+      resolve()
+    }, ms)
+    signal.addEventListener('abort', onAbort, { once: true })
+  })
+}
+
 async function worker(
   workerId: number,
   args: {
@@ -674,21 +773,44 @@ async function worker(
     bucket: string
     limit: number | null
     slugFilter: string[] | null
+    slugSelection: SlugSelection | null
     force: boolean
   },
   state: SharedState,
 ): Promise<void> {
+  let emptyClaims = 0
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
     const excludeSlugs = args.force ? Array.from(state.forceClaimedSlugs) : []
-    const market = await claimMarket(
-      args.converters,
-      args.output,
-      args.slugFilter,
-      args.force,
-      excludeSlugs,
-    )
-    if (!market) return
+    let market: ClaimedMarket | null
+    try {
+      market = await claimMarket(
+        args.converters,
+        args.output,
+        args.slugFilter,
+        args.force,
+        excludeSlugs,
+        args.slugSelection,
+      )
+    } catch (err) {
+      // claimMarket already retries deadlocks; if it still throws, log and exit
+      // this one worker cleanly so peers keep draining instead of the whole
+      // process crashing (exit 1) through Promise.all.
+      if (args.limit) state.reserved.count--
+      console.error(`[telonex:convert] w${workerId} claim error, exiting:`, err)
+      return
+    }
+    if (!market) {
+      // Nothing claimed: undo the limit reservation so a transient miss does
+      // not eat into --limit, then retry a bounded number of times before
+      // concluding the queue is truly drained (see MAX_EMPTY_CLAIMS).
+      if (args.limit) state.reserved.count--
+      emptyClaims++
+      if (emptyClaims >= MAX_EMPTY_CLAIMS || state.signal.aborted) return
+      await sleepMs(EMPTY_CLAIM_BACKOFF_MS, state.signal)
+      continue
+    }
+    emptyClaims = 0
     if (market.convertersToProcess.length === 0) continue
     if (args.force) state.forceClaimedSlugs.add(market.slug)
     state.claimed.count++
@@ -764,8 +886,11 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const bucket = getDefaultBucket()
   const converterFns = buildConverterFns(args.converters, { bookInterval: args.bookInterval })
+  const slugSelection: SlugSelection | null = args.slugPatterns
+    ? buildSlugSelection(args.slugPatterns)
+    : null
   console.log(
-    `[telonex:convert] converters=${args.converters.join(',')} output=${args.output} concurrency=${args.concurrency} limit=${args.limit ?? 'none'} force=${args.force ? 'yes' : 'no'} slugFilter=${args.slugFilter ? `[${args.slugFilter.length} slugs]` : 'none'} bucket=${bucket}`,
+    `[telonex:convert] converters=${args.converters.join(',')} output=${args.output} concurrency=${args.concurrency} limit=${args.limit ?? 'none'} force=${args.force ? 'yes' : 'no'} slugFilter=${args.slugFilter ? `[${args.slugFilter.length} slugs]` : 'none'} slugPattern=${args.slugPatterns ? args.slugPatterns.join(',') : 'none'} bucket=${bucket}`,
   )
 
   const ac = new AbortController()
@@ -784,6 +909,7 @@ async function main(): Promise<void> {
         args.slugFilter && args.slugFilter.length > 0
           ? sql`${telonexMarkets.slug} IN (${sql.raw(args.slugFilter.map((s) => `'${s}'`).join(','))})`
           : undefined,
+        slugSelection ? slugSelection.where : undefined,
       ),
     )
   const queueTotal = Number(totals[0]?.c ?? 0)
@@ -861,6 +987,7 @@ async function main(): Promise<void> {
           bucket,
           limit: args.limit,
           slugFilter: args.slugFilter,
+          slugSelection,
           force: args.force,
         },
         sharedState,
