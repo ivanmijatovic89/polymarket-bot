@@ -59,6 +59,10 @@ export default withMermaid(
                 { text: 'Sync Markets', link: '/datasets/telonex/sync-markets' },
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },
+                {
+                  text: 'Download Converted Files',
+                  link: '/datasets/telonex/download-converted-r2-to-local',
+                },
                 { text: 'ADR: Verification & Replay Parity', link: '/adr/telonex-verification-replay-parity' },
                 { text: 'How Verify Works', link: '/datasets/telonex/how-verify-works' },
                 { text: 'Verify Conversions', link: '/datasets/telonex/verify' },

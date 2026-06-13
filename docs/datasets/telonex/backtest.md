@@ -30,6 +30,10 @@ For any telonex input mode, you must specify where to read the converted parquet
 
 Passing `--read-from` with `--input-mode recorded` is an error. Omitting `--read-from` on a telonex mode is also an error.
 
+::: tip Prefer `local` for repeated runs
+`--read-from r2` re-streams each parquet from R2 every run. To backtest the same universe repeatedly, pre-fetch the converted files once with [`telonex:download-converted-r2-to-local`](/datasets/telonex/download-converted-r2-to-local), then use `--read-from local`.
+:::
+
 ## Backtest a delta-typed file
 
 `telonex-delta` is the typical choice — it preserves the same `book` / `price_change` tick cadence as the live recorder but stores typed columns instead of `raw_json`.

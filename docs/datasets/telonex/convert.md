@@ -284,5 +284,6 @@ Conversion is CPU-bound JavaScript on a single thread, so throughput does **not*
 ## Next steps
 
 - [Verify Telonex Conversions](/datasets/telonex/verify) — certify converter correctness tick by tick.
+- [Download Converted Files](/datasets/telonex/download-converted-r2-to-local) — pull the converted parquet from R2 to local disk for `--read-from local` backtests.
 - [Run a Backtest](/datasets/telonex/backtest) — replay the converted files.
 - [Download Raw Files](/datasets/telonex/download-raw-files) — upstream stage if `upload_status` is not yet `done` for your markets.
