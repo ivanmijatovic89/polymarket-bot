@@ -27,6 +27,28 @@ import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 export type ReadFrom = 'local' | 'r2'
 export type Converter = 'delta-typed' | 'paired'
 
+/** A slug-pattern WHERE clause plus a pattern-order ORDER BY expression. */
+export type SlugSelection = { where: SQL; order: SQL }
+
+/**
+ * Build a `--slug-pattern` selection against `telonex_markets.slug`:
+ *   - `where`: an OR of `slug LIKE <pattern>` (parameterized).
+ *   - `order`: a CASE that drains markets in pattern order — all of pattern[0]
+ *     first, then pattern[1], … (combine with `marketStartMs ASC` for
+ *     chronological order within each pattern).
+ *
+ * Shared by `telonex:download` and `telonex:convert` so both interpret
+ * `--slug-pattern` identically. Patterns are MySQL LIKE patterns, e.g.
+ * `btc-updown-15m-%`.
+ */
+export function buildSlugSelection(patterns: string[]): SlugSelection {
+  const likes = patterns.map((p) => sql`${telonexMarkets.slug} LIKE ${p}`)
+  const where = sql`(${sql.join(likes, sql` OR `)})`
+  const cases = patterns.map((p, i) => sql`WHEN ${telonexMarkets.slug} LIKE ${p} THEN ${i}`)
+  const order = sql`CASE ${sql.join(cases, sql` `)} ELSE ${patterns.length} END`
+  return { where, order }
+}
+
 export type Market = {
   marketId: string
   slug: string

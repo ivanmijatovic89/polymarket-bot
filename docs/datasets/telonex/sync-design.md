@@ -39,9 +39,15 @@ The Telonex `markets` parquet is filtered with:
 ```sql
 WHERE slug LIKE 'btc-updown-15m-%'
   AND book_snapshot_full_from <> ''
+  AND status = 'resolved'
+  AND result_id <> ''
 ```
 
+The `status = 'resolved' AND result_id <> ''` predicate (finalized-only) is what keeps `INSERT IGNORE` correct over time: active markets are never inserted, so their mutable fields can't go stale in the DB. See [Sync Markets → Idempotency](/datasets/telonex/sync-markets#idempotency).
+
 Verified counts at v1 cut: 20,809 markets total for `btc-updown-15m`, of which **19,223 have `book_snapshot_full` data**.
+
+The `--slug-pattern` CLI flag now accepts a comma-separated list of LIKE patterns (OR'd into one query) so multiple symbols/timeframes can be synced from a single catalogue download — see [Sync Markets](/datasets/telonex/sync-markets#selecting-which-markets-to-sync). The `book_snapshot_full_from <> ''` data-availability filter is always applied regardless of the patterns.
 
 `event_slug` is NOT a useful group key — for these markets `event_slug == slug` (each 15m market is its own event).
 

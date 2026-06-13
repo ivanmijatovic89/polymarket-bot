@@ -27,21 +27,33 @@ import { getDb, closeDb, telonexMarkets } from '../db/index.js'
 const CATALOG_URL = 'https://api.telonex.io/v1/datasets/polymarket/markets'
 
 type Args = {
-  slugPattern: string
+  slugPatterns: string[]
   limit: number | null
   dryRun: boolean
 }
 
 function parseArgs(argv: string[]): Args {
+  let slugPatterns = ['btc-updown-15m-%']
   const out: Args = {
-    slugPattern: 'btc-updown-15m-%',
+    slugPatterns,
     limit: null,
     dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
-    if (a === '--slug-pattern') out.slugPattern = argv[++i] ?? out.slugPattern
-    else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
+    if (a === '--slug-pattern') {
+      // Accept a comma-separated list so the ~660 MB catalogue is downloaded
+      // once and all patterns are filtered in a single DuckDB query.
+      const raw = argv[++i] ?? ''
+      slugPatterns = raw
+        .split(',')
+        .map((p) => p.trim())
+        .filter((p) => p !== '')
+      if (slugPatterns.length === 0) {
+        throw new Error('[telonex:sync] --slug-pattern requires at least one pattern')
+      }
+      out.slugPatterns = slugPatterns
+    } else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
     else if (a === '--dry-run') out.dryRun = true
     else throw new Error(`[telonex:sync] unknown arg: ${a}`)
   }
@@ -272,11 +284,23 @@ async function queryCatalog(catalogPath: string, args: Args): Promise<CatalogRow
 
   const limitClause = args.limit ? `LIMIT ${args.limit}` : ''
 
+  const slugPredicate = args.slugPatterns
+    .map((p) => `slug LIKE '${p.replace(/'/g, "''")}'`)
+    .join(' OR ')
+
+  // Only insert finalized markets: resolved with a final result_id. This keeps
+  // INSERT IGNORE correct forever — an active market is never inserted (and thus
+  // never downloaded/converted) until Telonex publishes its resolution, so its
+  // mutable fields (status/result_id/settled_at_us) can't go stale in our DB.
+  // 'resolved' implies a non-empty result_id (verified empirically), but we
+  // assert both to match the downstream eligibility predicate exactly.
   const sql = `
     SELECT ${cols}
     FROM read_parquet('${catalogPath.replace(/'/g, "''")}')
-    WHERE slug LIKE '${args.slugPattern.replace(/'/g, "''")}'
+    WHERE (${slugPredicate})
       AND book_snapshot_full_from <> ''
+      AND status = 'resolved'
+      AND result_id <> ''
     ORDER BY slug
     ${limitClause}
   `
@@ -296,7 +320,10 @@ async function queryCatalog(catalogPath: string, args: Args): Promise<CatalogRow
   return rows
 }
 
-async function batchInsert(rows: CatalogRow[]): Promise<{ attempted: number; inserted: number }> {
+async function batchInsert(
+  rows: CatalogRow[],
+  label: string,
+): Promise<{ attempted: number; inserted: number }> {
   if (rows.length === 0) return { attempted: 0, inserted: 0 }
   const db = getDb()
   const BATCH = 500
@@ -309,7 +336,9 @@ async function batchInsert(rows: CatalogRow[]): Promise<{ attempted: number; ins
     const affected = Array.isArray(res) ? (res[0] as { affectedRows?: number })?.affectedRows : 0
     inserted += affected ?? 0
     const progress = Math.min(i + slice.length, rows.length)
-    console.log(`[telonex:sync] inserted batch ${progress}/${rows.length} (new=${inserted})`)
+    console.log(
+      `[telonex:sync] [${label}] inserted batch ${progress}/${rows.length} (new=${inserted})`,
+    )
   }
   return { attempted: rows.length, inserted }
 }
@@ -322,12 +351,37 @@ function fmtMs(ms: number): string {
   return `${m}m ${(s - m * 60).toFixed(1)}s`
 }
 
+// Group rows by `<symbol>-<timeframe>` (both derived from the slug at parse
+// time), preserving a stable sorted key order for the breakdown table.
+function groupBySymbolTimeframe(rows: CatalogRow[]): Map<string, CatalogRow[]> {
+  const groups = new Map<string, CatalogRow[]>()
+  for (const row of rows) {
+    const key = `${row.symbol}-${row.timeframe}`
+    const bucket = groups.get(key)
+    if (bucket) bucket.push(row)
+    else groups.set(key, [row])
+  }
+  return new Map([...groups.entries()].sort(([a], [b]) => a.localeCompare(b)))
+}
+
+// Minimal fixed-width table printer. `rows[0]` is the header; numeric columns
+// are right-aligned (index >= 1), the label column left-aligned.
+function printTable(rows: string[][]): void {
+  const widths = rows[0]!.map((_, col) => Math.max(...rows.map((r) => r[col]!.length)))
+  for (const r of rows) {
+    const line = r
+      .map((cell, col) => (col === 0 ? cell.padEnd(widths[col]!) : cell.padStart(widths[col]!)))
+      .join('  ')
+    console.log(`[telonex:sync]   ${line}`)
+  }
+}
+
 async function main(): Promise<void> {
   const t0 = Date.now()
   const args = parseArgs(process.argv.slice(2))
   const apiKey = readApiKey()
   console.log(
-    `[telonex:sync] slug-pattern=${args.slugPattern} limit=${args.limit ?? 'none'} dry-run=${args.dryRun}`,
+    `[telonex:sync] slug-patterns=${args.slugPatterns.join(',')} limit=${args.limit ?? 'none'} dry-run=${args.dryRun}`,
   )
 
   const tmpPath = path.join(os.tmpdir(), `telonex-catalog-${process.pid}-${Date.now()}.parquet`)
@@ -346,11 +400,18 @@ async function main(): Promise<void> {
     const tQ = Date.now() - tQ0
     console.log(`[telonex:sync] matched ${rows.length} markets (query=${fmtMs(tQ)})`)
 
+    const groups = groupBySymbolTimeframe(rows)
+
     if (args.dryRun) {
       console.log(`[telonex:sync] dry-run: skipping DB writes`)
-      if (rows.length > 0) {
-        const sample = rows[0]!
-        console.log(`[telonex:sync] sample row:`, JSON.stringify(sample, null, 2))
+      if (groups.size > 0) {
+        console.log(`[telonex:sync] matched by symbol/timeframe:`)
+        printTable([
+          ['group', 'matched'],
+          ...[...groups.entries()].map(([key, rs]) => [key, String(rs.length)]),
+          ['TOTAL', String(rows.length)],
+        ])
+        console.log(`[telonex:sync] sample row:`, JSON.stringify(rows[0]!, null, 2))
       }
       console.log(
         `[telonex:sync] timing: download=${fmtMs(tDl)} query=${fmtMs(tQ)} total=${fmtMs(Date.now() - t0)}`,
@@ -359,9 +420,25 @@ async function main(): Promise<void> {
     }
 
     const tI0 = Date.now()
-    const { attempted, inserted } = await batchInsert(rows)
+    let attempted = 0
+    let inserted = 0
+    const breakdown: string[][] = [['group', 'matched', 'inserted', 'skipped']]
+    for (const [key, groupRows] of groups) {
+      const res = await batchInsert(groupRows, key)
+      attempted += res.attempted
+      inserted += res.inserted
+      breakdown.push([
+        key,
+        String(res.attempted),
+        String(res.inserted),
+        String(res.attempted - res.inserted),
+      ])
+    }
     const tI = Date.now() - tI0
     const skipped = attempted - inserted
+    breakdown.push(['TOTAL', String(attempted), String(inserted), String(skipped)])
+    console.log(`[telonex:sync] breakdown by symbol/timeframe:`)
+    printTable(breakdown)
     console.log(
       `[telonex:sync] done attempted=${attempted} inserted=${inserted} skipped=${skipped}`,
     )

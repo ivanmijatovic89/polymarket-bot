@@ -32,6 +32,12 @@ npm run telonex:convert -- --converter delta --converter delta-typed --converter
 
 # Paired converter, write both locally and to R2
 npm run telonex:convert -- --converter paired --output both
+
+# Restrict to one market family with a slug pattern (optional filter)
+npm run telonex:convert -- --converter delta-typed --slug-pattern 'btc-updown-15m-%'
+
+# Multiple families at once
+npm run telonex:convert -- --converter delta-typed --slug-pattern 'btc-updown-5m-%,eth-updown-5m-%'
 ```
 
 `--converter` can be repeated. When multiple converters are requested, the worker downloads the raw files once per market and runs each converter sequentially, writing a separate row to `telonex_market_conversions` per converter. This halves R2 download cost compared to running two separate processes.
@@ -57,6 +63,8 @@ Sample output:
 | `--concurrency <N>` | `1` | Number of markets converted in parallel **within one process**. Conversion is CPU-bound JavaScript on a single thread, so raising this does **not** speed up CPU work — it only overlaps I/O. For real parallelism, run multiple processes instead (see [Running long conversions](#running-long-conversions)). |
 | `--limit <N>` | unlimited | Stop after this many markets. |
 | `--book-interval <N>` | `500` | Delta converters only: how often to emit a full `book` snapshot row, in tick count. Lower values increase output size and reduce drift; higher values reduce output size. |
+| `--slug <s1,s2,...>` | none | Restrict to this exact set of slugs (comma-separated). For a handful of markets / precise debugging. |
+| `--slug-pattern <p1,p2,...>` | none | Restrict to markets whose slug matches these MySQL `LIKE` patterns (comma-separated, e.g. `btc-updown-15m-%`). **Optional** here — unlike [`telonex:download`](./sync-design) where it is required. Without it, convert processes every eligible `done` market. Drains in pattern order, chronological within each pattern. |
 | `--force` | disabled | Re-run requested converters even when the conversion table already marks them as done. Use this after a converter schema or replay format changes. |
 
 ## Output locations

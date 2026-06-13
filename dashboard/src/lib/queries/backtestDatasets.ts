@@ -138,7 +138,13 @@ function groupCoverage(
 ): CoveragePeriod[] {
   const groups = new Map<
     string,
-    { telonexMarkets: number; localReady: number; r2Ready: number; firstStartMs: number; lastStartMs: number }
+    {
+      telonexMarkets: number
+      localReady: number
+      r2Ready: number
+      firstStartMs: number
+      lastStartMs: number
+    }
   >()
   for (const market of markets) {
     const startMs = market.startMs
@@ -178,6 +184,123 @@ function groupCoverage(
         lastStartMs: value.lastStartMs,
       }
     })
+}
+
+export type DatasetOverviewRow = {
+  symbol: string
+  timeframe: string
+  telonexMarkets: number
+  localReady: number
+  r2Ready: number
+  telonexCoveragePct: number
+  localReadyPct: number
+  r2ReadyPct: number
+  firstStartMs: number | null
+  lastStartMs: number | null
+  lagMs: number
+  lagMarkets: number
+}
+
+export type DatasetOverview = {
+  converter: BacktestDatasetParams['converter']
+  nowMs: number
+  rows: DatasetOverviewRow[]
+  totals: {
+    telonexMarkets: number
+    localReady: number
+    r2Ready: number
+  }
+}
+
+type OverviewAggRow = {
+  symbol: string
+  timeframe: string
+  telonexMarkets: number | string | bigint
+  localReady: number | string | bigint
+  r2Ready: number | string | bigint
+  firstStartMs: number | string | bigint | null
+  lastStartMs: number | string | bigint | null
+}
+
+// Lightweight aggregate for the multi-combo landing view: one row per
+// (symbol, timeframe) instead of fetching every market like the detail query.
+export async function getDatasetOverview(
+  converter: BacktestDatasetParams['converter'],
+): Promise<DatasetOverview> {
+  const db = getDb()
+
+  const [aggRows] = (await db.execute(sql`
+    select
+      m.symbol as symbol,
+      m.timeframe as timeframe,
+      count(*) as telonexMarkets,
+      sum(
+        case
+          when c.status = 'done' and c.local_path is not null and c.local_path <> ''
+          then 1 else 0
+        end
+      ) as localReady,
+      sum(
+        case
+          when c.status = 'done' and c.r2_url is not null and c.r2_url <> ''
+          then 1 else 0
+        end
+      ) as r2Ready,
+      min(m.market_start_ms) as firstStartMs,
+      max(m.market_start_ms) as lastStartMs
+    from telonex_markets m
+    left join telonex_market_conversions c
+      on c.market_id = m.id
+      and c.converter = ${converter}
+    group by m.symbol, m.timeframe
+    order by m.symbol asc, m.timeframe asc
+  `)) as unknown as [OverviewAggRow[], unknown]
+
+  const nowMs = Date.now()
+
+  const rows: DatasetOverviewRow[] = aggRows.map((row) => {
+    const timeframe = String(row.timeframe)
+    const timeframeMs = timeframeMsForTimeframe(timeframe)
+    const expectedPerDay = expectedPerDayForTimeframe(timeframe)
+    const telonexMarkets = toInt(row.telonexMarkets)
+    const localReady = toInt(row.localReady)
+    const r2Ready = toInt(row.r2Ready)
+    const firstStartMs = row.firstStartMs === null ? null : Number(row.firstStartMs)
+    const lastStartMs = row.lastStartMs === null ? null : Number(row.lastStartMs)
+    const totalExpected =
+      firstStartMs !== null && lastStartMs !== null
+        ? Math.floor(
+            (startOfUtcDayMs(lastStartMs) - startOfUtcDayMs(firstStartMs)) / MS_PER_DAY + 1,
+          ) * expectedPerDay
+        : 0
+    const lagMs = lastStartMs === null ? 0 : Math.max(0, nowMs - lastStartMs)
+    const lagMarkets = timeframeMs > 0 ? Math.floor(lagMs / timeframeMs) : 0
+    return {
+      symbol: String(row.symbol),
+      timeframe,
+      telonexMarkets,
+      localReady,
+      r2Ready,
+      telonexCoveragePct: pct(telonexMarkets, totalExpected),
+      localReadyPct: pct(localReady, telonexMarkets),
+      r2ReadyPct: pct(r2Ready, telonexMarkets),
+      firstStartMs,
+      lastStartMs,
+      lagMs,
+      lagMarkets,
+    }
+  })
+
+  return {
+    converter,
+    nowMs,
+    rows,
+    totals: {
+      telonexMarkets: rows.reduce((sum, r) => sum + r.telonexMarkets, 0),
+      localReady: rows.reduce((sum, r) => sum + r.localReady, 0),
+      r2Ready: rows.reduce((sum, r) => sum + r.r2Ready, 0),
+    },
+  }
 }
 
 export async function getBacktestDatasetCoverage(
@@ -232,8 +355,9 @@ export async function getBacktestDatasetCoverage(
   const lagMarkets = timeframeMs > 0 ? Math.floor(lagMs / timeframeMs) : 0
   const totalExpected =
     firstStartMs !== null && lastStartMs !== null
-      ? Math.floor((startOfUtcDayMs(lastStartMs) - startOfUtcDayMs(firstStartMs)) / MS_PER_DAY + 1) *
-        expectedPerDay
+      ? Math.floor(
+          (startOfUtcDayMs(lastStartMs) - startOfUtcDayMs(firstStartMs)) / MS_PER_DAY + 1,
+        ) * expectedPerDay
       : 0
 
   return {
