@@ -1027,7 +1027,17 @@ async function main(): Promise<void> {
       name: 'market',
       queueName: MARKET_QUEUE,
       data,
-      opts: { ...MARKET_JOB_OPTS, jobId: marketJobId(batchUid, ctx.idx) },
+      // `ignoreDependencyOnFailure` is a PER-CHILD option: when this child
+      // exhausts its retries, BullMQ moves it to the parent's failed-dependency
+      // set so the parent can still finalize (the aggregator records exhausted
+      // children into backtest_run_failures). Set on the parent it is a no-op —
+      // a single failed market would otherwise hang the whole batch forever in
+      // `waiting-children`.
+      opts: {
+        ...MARKET_JOB_OPTS,
+        jobId: marketJobId(batchUid, ctx.idx),
+        ignoreDependencyOnFailure: true,
+      },
     }
   })
 
@@ -1052,10 +1062,8 @@ async function main(): Promise<void> {
         // per the documented recovery flow if the job fails.
         ...(isExtend ? { attempts: 1 } : {}),
         jobId: aggregateJobId(batchUid),
-        // If a child exhausts retries, still run the aggregator with the rest
-        // (the aggregator records exhausted children into backtest_run_failures).
-        // BullMQ option name as of v5: `ignoreDependencyOnFailure`.
-        ignoreDependencyOnFailure: true,
+        // NOTE: `ignoreDependencyOnFailure` belongs on each CHILD (see the
+        // children build above), not here — on the parent it has no effect.
       },
     })
   } catch (err) {
