@@ -100,7 +100,7 @@ export const backtestRuns = mysqlTable(
     timeframe: varchar('timeframe', { length: 16 }),
     inputMode: varchar('input_mode', { length: 32 }),
     converter: varchar('converter', { length: 32 }),
-    readFrom: varchar('read_from', { length: 16 }),
+    readFrom: varchar('read_from', { length: 40 }),
     slugs: json('slugs').$type<string[] | null>(),
     limit: int('limit'),
     random: boolean('random').default(false).notNull(),

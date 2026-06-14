@@ -40,7 +40,7 @@ export type RunSingleMarketInput = {
   /** Path to the parquet file (local or fetched). */
   filePath: string
   /**
-   * `--read-from local-or-r2` only: r2:// URL to download to `filePath` if that
+   * `--read-from local-or-download-from-r2-to-local` only: r2:// URL to download to `filePath` if that
    * local file is missing. Absent for `local` / `r2` modes.
    */
   r2Fallback?: string
@@ -270,7 +270,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       ? input.filePath
       : path.resolve(REPO_ROOT, input.filePath)
 
-  // `--read-from local-or-r2`: read the canonical local file if present, else
+  // `--read-from local-or-download-from-r2-to-local`: read the canonical local file if present, else
   // download it from R2 to that path once and read locally thereafter. The
   // producer set `filePath` to the local path and `r2Fallback` to the r2:// URL.
   if (input.r2Fallback && !(await fileExists(filePath))) {

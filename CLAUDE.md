@@ -39,10 +39,10 @@ npm run backtest:telonex:btc:15m -- --strategy <id> --limit 20   # shortcut
 #   recorded         → `markets` table, WS replay
 #   telonex-delta    → telonex_markets ⋈ delta-typed conversion
 #   telonex-paired   → telonex_markets ⋈ paired conversion
-# --read-from local|r2|local-or-r2 is required for telonex modes:
+# --read-from local|r2|local-or-download-from-r2-to-local is required for telonex modes:
 #   local        → telonex_market_conversions.local_path (must already be on disk)
 #   r2           → streams r2_url from R2 every run (no local copy)
-#   local-or-r2  → read local if present, else download r2_url to the canonical
+#   local-or-download-from-r2-to-local  → read local if present, else download r2_url to the canonical
 #                  local path once (download-if-missing, per-worker), then read local
 # --timeframe defaults to 15m; only valid with --symbol
 # Set BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1 when using the TA plugin

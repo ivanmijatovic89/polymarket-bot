@@ -597,7 +597,7 @@ async function main(): Promise<void> {
     marketResolution: MarketResolution | null
     strategyWindow: { startMs: number; endMs: number } | null
     /**
-     * `--read-from local-or-r2` only: the R2 URL to download from if `filePath`
+     * `--read-from local-or-download-from-r2-to-local` only: the R2 URL to download from if `filePath`
      * (the canonical local path) is not present on the worker's disk.
      */
     r2Fallback?: string
@@ -610,7 +610,7 @@ async function main(): Promise<void> {
     const slug = parseSlugFromFilename(fp)
     let marketResolution: MarketResolution | null = null
     let marketMeta: GammaMarketMeta | undefined
-    // For `--read-from local-or-r2` the worker reads the canonical local file
+    // For `--read-from local-or-download-from-r2-to-local` the worker reads the canonical local file
     // and downloads it from R2 only if missing. `fp` here is the r2:// dataset
     // (the new mode resolves like `r2`), so point the job at the local path and
     // carry the r2 URL as the fallback source.
@@ -624,7 +624,7 @@ async function main(): Promise<void> {
         if (row) telonexBySlug.set(slug, row)
       }
       if (row) {
-        if (readFrom === 'local-or-r2' && slug && row.dataset) {
+        if (readFrom === 'local-or-download-from-r2-to-local' && slug && row.dataset) {
           resolvedFilePath = localOutputPath({
             converter: converter!,
             symbol: row.symbol,

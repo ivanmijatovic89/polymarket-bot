@@ -16,7 +16,7 @@ function sleep(ms: number): Promise<void> {
  *
  * SINGLE SOURCE OF TRUTH for the R2→local fetch, shared by
  * `telonex:download-converted-r2-to-local` (bulk pre-fetch) and the backtest
- * `--read-from local-or-r2` mode (lazy per-market fetch). The `.tmp` suffix is
+ * `--read-from local-or-download-from-r2-to-local` mode (lazy per-market fetch). The `.tmp` suffix is
  * keyed by pid so concurrent fetchers never collide, and the rename is atomic so
  * an interrupted run never leaves a half-written parquet.
  *
