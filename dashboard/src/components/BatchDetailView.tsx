@@ -20,7 +20,9 @@ import { ProgressBar } from './ProgressBar'
 import { SectionHeading } from './SectionHeading'
 import { StatCard } from './StatCard'
 import { MachineName } from './MachineName'
+import { ExecutionSummary } from './ExecutionSummary'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
+import type { ExecutionSummary as ExecutionSummaryData } from '@/lib/queries/batches'
 
 type ActiveResponse = {
   batchUid: string
@@ -58,6 +60,7 @@ type CompletedResponse = {
         eventsProcessed: number
       }
     }> | null
+    executionSummary: ExecutionSummaryData | null
     failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
   }
 }
@@ -258,6 +261,8 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
           </div>
         </CardContent>
       </Card>
+
+      <ExecutionSummary summary={batch.executionSummary} />
 
       <section>
         <SectionHeading
