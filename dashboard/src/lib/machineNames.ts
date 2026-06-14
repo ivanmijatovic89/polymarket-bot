@@ -1,25 +1,35 @@
+import machines from '@/data/machines.json'
+
 /**
- * Human-readable aliases for hardware machine ids.
+ * Per-machine metadata, keyed by `machineId` (first 12 hex chars of the
+ * hardware UUID — see `src/backtest/workerIdentity.ts`). Edit
+ * `src/data/machines.json` to add a box or fill in details; nothing here is
+ * persisted to the DB. Display code uses `machineLabel` for the friendly
+ * name and falls back to the raw id for unregistered machines.
  *
- * `machineId` is the first 12 hex chars of the hardware UUID (see
- * `src/backtest/workerIdentity.ts`). It is stable per box but unreadable, so
- * the dashboard maps it to a friendly label at display time only. Nothing is
- * persisted — add a box here when it first shows up. Unknown ids fall back to
- * the raw id via `machineLabel`.
+ * Fields:
+ * - `name`     — human-readable alias shown in the UI.
+ * - `hardware` — `system_profiler` lines (free-form), reference only. Join
+ *                with `\n` to render as a block.
  */
-const MACHINE_NAMES: Record<string, string> = {
-  '8e367b2f7eb8': 'Laranist-macbook-m5',
-  '8955f8d87c59': 'NotHumbleAtAll-macbook-m1',
-  '5a69e8aa2068': 'Laranist-macbook-m1',
-  a279f9dd3843: 'NotHumbleAtAll-PC',
+export type MachineInfo = {
+  name: string
+  hardware: string[]
+}
+
+const MACHINES = machines as Record<string, MachineInfo>
+
+/** Full metadata for a machine id, or `undefined` when unregistered. */
+export function getMachine(machineId: string): MachineInfo | undefined {
+  return MACHINES[machineId]
 }
 
 /** Friendly name for a machine id, or the raw id when unknown. */
 export function machineLabel(machineId: string): string {
-  return MACHINE_NAMES[machineId] ?? machineId
+  return MACHINES[machineId]?.name ?? machineId
 }
 
 /** True when a friendly name is registered for this id. */
 export function hasMachineName(machineId: string): boolean {
-  return machineId in MACHINE_NAMES
+  return machineId in MACHINES
 }
