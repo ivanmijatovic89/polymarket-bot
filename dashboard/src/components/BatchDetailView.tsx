@@ -19,6 +19,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '.
 import { ProgressBar } from './ProgressBar'
 import { SectionHeading } from './SectionHeading'
 import { StatCard } from './StatCard'
+import { MachineName } from './MachineName'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
 
 type ActiveResponse = {
@@ -296,8 +297,8 @@ function CompletedDetail({ data }: { data: CompletedResponse }) {
                         {formatPnl(m.pnl)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{m.tradeCount}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {exec?.machineId ?? '—'}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {exec ? <MachineName machineId={exec.machineId} /> : '—'}
                       </TableCell>
                       <TableCell
                         className={cn(

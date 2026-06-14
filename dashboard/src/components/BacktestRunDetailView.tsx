@@ -22,6 +22,7 @@ import { SectionHeading } from './SectionHeading'
 import { CmdModal } from './CmdModal'
 import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
 import { CoverageSection } from './coverage/CoverageSection'
+import { MachineName } from './MachineName'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
 
 /** Subset of the response fields the view actually consumes. */
@@ -683,8 +684,8 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                       <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
                         {downPos}
                       </TableCell>
-                      <TableCell className="text-xs text-muted-foreground font-mono">
-                        {exec?.machineId ?? '—'}
+                      <TableCell className="text-xs text-muted-foreground">
+                        {exec ? <MachineName machineId={exec.machineId} /> : '—'}
                       </TableCell>
                       <TableCell
                         className={cn(

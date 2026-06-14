@@ -3,6 +3,7 @@ import { Card } from './ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Badge } from './ui/badge'
 import { shortTime } from '@/lib/utils'
+import { MachineName } from './MachineName'
 import type { LeaderboardRow } from '@/lib/queries/leaderboard'
 
 export type LeaderboardTableProps = {
@@ -59,7 +60,9 @@ export function LeaderboardTable({ rows, emptyHint }: LeaderboardTableProps) {
           {rows.map((r, i) => (
             <TableRow key={r.machineId}>
               <TableCell className="text-xs text-muted-foreground tabular-nums">{i + 1}</TableCell>
-              <TableCell className="font-mono text-xs">{r.machineId}</TableCell>
+              <TableCell className="text-xs">
+                <MachineName machineId={r.machineId} />
+              </TableCell>
               <TableCell className="text-right tabular-nums">
                 {r.marketsDone.toLocaleString()}
               </TableCell>
