@@ -32,7 +32,7 @@ stats (`backtest_run_segments`) are written to the database automatically.
 | `telonex-delta`  | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='delta-typed'`) | [Telonex backtest](/datasets/telonex/backtest) |
 | `telonex-paired` | `telonex_markets` ⋈ `telonex_market_conversions` (`converter='paired'`)     | [Telonex backtest](/datasets/telonex/backtest) |
 
-This page focuses on the default `recorded` mode. For telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — the file-selection flags (`--symbol`, `--slug`, `--dir`, `--limit`, `--random`, `--latest`) work identically; telonex modes additionally require `--read-from local|r2`.
+This page focuses on the default `recorded` mode. For telonex modes, see [Run a Backtest with Telonex Data](/datasets/telonex/backtest) — the file-selection flags (`--symbol`, `--slug`, `--dir`, `--limit`, `--random`, `--latest`) work identically; telonex modes additionally require `--read-from local|r2|local-or-download-from-r2-to-local`.
 
 ## Prerequisites
 
@@ -126,7 +126,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | Flag                            | Description                                                                                                       |
 | ------------------------------- | ----------------------------------------------------------------------------------------------------------------- |
 | `--input-mode <mode>`           | `recorded` (default), `telonex-delta`, or `telonex-paired`. See [Telonex backtest](/datasets/telonex/backtest).   |
-| `--read-from local\|r2`         | **Required** for telonex modes. Picks `local_path` vs `r2_url` from `telonex_market_conversions`. Rejected with `recorded`. |
+| `--read-from <mode>`            | **Required** for telonex modes. `local` (read `local_path`), `r2` (stream `r2_url`), or `local-or-download-from-r2-to-local` (read local if present, else download `r2_url` to the canonical local path then read local). Rejected with `recorded`. |
 | `--timeframe <value>`           | Symbol-filter timeframe segment (e.g. `15m`, `5m`). Default `15m`. Only valid with `--symbol`.                    |
 
 ### Replay options
