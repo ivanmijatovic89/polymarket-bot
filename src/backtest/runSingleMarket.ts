@@ -265,8 +265,15 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // `--read-from local-or-download-from-r2-to-local`: read the canonical local file if present, else
   // download it from R2 to that path once and read locally thereafter. The
   // producer set `filePath` to the local path and `r2Fallback` to the r2:// URL.
-  if (input.r2Fallback && !(await fileExists(filePath))) {
-    await downloadR2ToLocal(input.r2Fallback, filePath)
+  // The `[read-from]` log makes the local-vs-R2 decision auditable per market.
+  if (input.r2Fallback) {
+    if (await fileExists(filePath)) {
+      console.log(`[read-from] LOCAL hit slug=${input.slug} ${filePath}`)
+    } else {
+      console.log(`[read-from] R2 download slug=${input.slug} <- ${input.r2Fallback}`)
+      const { bytes } = await downloadR2ToLocal(input.r2Fallback, filePath)
+      console.log(`[read-from] R2 done slug=${input.slug} bytes=${bytes} -> ${filePath}`)
+    }
   }
 
   if (input.inputMode === 'telonex-paired') {
