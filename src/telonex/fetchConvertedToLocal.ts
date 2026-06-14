@@ -10,6 +10,16 @@ function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms))
 }
 
+/** True if `p` exists (any stat success). Shared so callers don't each re-roll it. */
+export async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.stat(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 /**
  * Download a converted parquet from R2 to an absolute local path, atomically
  * (`<path>.<pid>.tmp` → rename) with bounded retries; creates parent dirs.
@@ -44,7 +54,12 @@ export async function downloadR2ToLocal(
     } catch (err) {
       lastErr = err
       await fs.rm(tmp, { force: true }).catch(() => {})
-      if (attempt < MAX_RETRIES) await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 4000)
+      if (attempt < MAX_RETRIES) {
+        console.warn(
+          `[r2-fetch] retry ${attempt}/${MAX_RETRIES} ${key}: ${err instanceof Error ? err.message : String(err)}`,
+        )
+        await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 4000)
+      }
     }
   }
   throw lastErr instanceof Error ? lastErr : new Error(String(lastErr))

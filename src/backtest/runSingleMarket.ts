@@ -6,9 +6,8 @@ import { fileURLToPath } from 'node:url'
 // by `src/telonex/convert.ts`) so backtests work regardless of CWD — cron jobs,
 // systemd units, and cross-machine workers don't have to `cd` into the repo.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
-import { promises as fs } from 'node:fs'
 import { isR2Url } from '../r2/parseR2Url.js'
-import { downloadR2ToLocal } from '../telonex/fetchConvertedToLocal.js'
+import { downloadR2ToLocal, fileExists } from '../telonex/fetchConvertedToLocal.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
@@ -152,21 +151,14 @@ function buildRunnerForMarket(args: {
 /**
  * Runs a single market replay end-to-end and returns the per-market stats + execution metadata.
  *
- * Pure-ish function: does no DB lookups, no HTTP calls, no MySQL writes.
- * All inputs must be pre-resolved by the caller (producer in distributed mode).
+ * No DB lookups, no MySQL writes — all inputs are pre-resolved by the caller
+ * (producer in distributed mode). The one network touch is for
+ * `--read-from local-or-download-from-r2-to-local`: if the local file is
+ * missing it is downloaded from R2 once before replay; otherwise no HTTP.
  *
  * Determinism: with `latency.jitterMs === 0` and no `Math.random()` in strategy code,
  * the output is deterministic for a given input — same call twice yields identical `marketStats`.
  */
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
-  }
-}
-
 export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunSingleMarketOutput> {
   const startedAtMs = Date.now()
   const eventsByType: Record<string, number> = {}

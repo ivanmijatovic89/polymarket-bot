@@ -35,7 +35,6 @@
  */
 
 import '../config/env.js'
-import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { fork, type ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
@@ -46,7 +45,7 @@ import {
 } from '../db/telonexMarkets.js'
 import { closeDb } from '../db/index.js'
 import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
-import { downloadR2ToLocal } from './fetchConvertedToLocal.js'
+import { downloadR2ToLocal, fileExists } from './fetchConvertedToLocal.js'
 import { localOutputPath } from './localOutputPath.js'
 
 // Eligibility query caps at 1000 when no limit is passed; we want the whole set.
@@ -103,15 +102,6 @@ function fmtDuration(totalSec: number): string {
 function fmtElapsed(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
   return `${(ms / 1000).toFixed(1)}s`
-}
-
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
-  }
 }
 
 // -----------------------------------------------------------------------------
