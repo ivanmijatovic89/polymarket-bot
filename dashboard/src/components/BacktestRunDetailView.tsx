@@ -23,7 +23,9 @@ import { CmdModal } from './CmdModal'
 import { ChunkedSegmentsLive } from './ChunkedSegmentsLive'
 import { CoverageSection } from './coverage/CoverageSection'
 import { MachineName } from './MachineName'
+import { ExecutionSummary } from './ExecutionSummary'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
+import type { ExecutionSummary as ExecutionSummaryData } from '@/lib/queries/batches'
 
 /** Subset of the response fields the view actually consumes. */
 type RunDetail = {
@@ -89,6 +91,7 @@ type RunDetail = {
       eventsProcessed: number
     }
   }> | null
+  executionSummary: ExecutionSummaryData | null
   failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
 }
 
@@ -604,6 +607,8 @@ export function BacktestRunDetailView({ id }: { id: number }) {
           capitalFinal: b.capitalFinal,
         }}
       />
+
+      <ExecutionSummary summary={b.executionSummary} />
 
       {/* Per-market — dense breakdown */}
       <section>
