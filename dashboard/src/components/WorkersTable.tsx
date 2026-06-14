@@ -7,6 +7,7 @@ import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { Skeleton } from './ui/skeleton'
+import { MachineName } from './MachineName'
 import type { MachineGroup, WorkerProcess, WorkerRole } from '@/lib/queries/workers'
 
 async function fetchWorkers(): Promise<{ machines: MachineGroup[] }> {
@@ -71,10 +72,12 @@ function ProcessRow({ p }: { p: WorkerProcess }) {
 function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
   return (
     <TableRow className="bg-muted/40 hover:bg-muted/40">
-      <TableCell colSpan={2} className="font-mono text-xs font-semibold">
-        {machine.machineId}
-        <span className="ml-3 font-sans text-xs font-normal text-muted-foreground">
-          {machine.totals.aliveCount} alive
+      <TableCell colSpan={2} className="text-xs font-semibold">
+        <span className="inline-flex items-baseline">
+          <MachineName machineId={machine.machineId} />
+          <span className="ml-3 font-sans text-xs font-normal text-muted-foreground">
+            {machine.totals.aliveCount} alive
+          </span>
         </span>
       </TableCell>
       <TableCell className="text-right tabular-nums font-semibold">
