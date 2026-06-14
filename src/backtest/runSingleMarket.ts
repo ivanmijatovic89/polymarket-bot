@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url'
 // by `src/telonex/convert.ts`) so backtests work regardless of CWD — cron jobs,
 // systemd units, and cross-machine workers don't have to `cd` into the repo.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+import { isR2Url } from '../r2/parseR2Url.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
@@ -244,9 +245,14 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // Relative paths are anchored at REPO_ROOT (not process.cwd()) so workers
   // launched from any CWD — service managers, cross-machine queue runners,
   // ad-hoc `cd /tmp && npx tsx …` — find dataset files identically.
-  const filePath = path.isAbsolute(input.filePath)
+  // r2:// URLs must pass through untouched: path.resolve() would mangle
+  // `r2://bucket/key` into `<repo>/r2:/bucket/key`, defeating the isR2Url check
+  // in openParquetReaderWithEpermFallback (that broke `--read-from r2`).
+  const filePath = isR2Url(input.filePath)
     ? input.filePath
-    : path.resolve(REPO_ROOT, input.filePath)
+    : path.isAbsolute(input.filePath)
+      ? input.filePath
+      : path.resolve(REPO_ROOT, input.filePath)
 
   if (input.inputMode === 'telonex-paired') {
     await replayTelonexPairedParquetForMarket({
