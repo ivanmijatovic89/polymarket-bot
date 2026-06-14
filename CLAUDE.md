@@ -117,8 +117,6 @@ npm run dashboard                       # next dev on :3051 (3001 is the live We
 npm run dashboard:build && npm run dashboard:start   # production
 npm run bull-board                      # Bull Board UI on :3052 (separate proc)
 
-# Parallel backtest queue (folder-watched runner)
-./queue/run-queue.sh --jobs 8 [--save-results]
 ```
 
 ## Architecture
@@ -174,7 +172,6 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
 | `webui/` | Separate Vite/React package served by each bot process |
 | `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the normalized backtest result schema locally; uses TanStack Query for polling. |
-| `queue/` | Folder-watched GNU-parallel runner (`approve → pending → running → done|failed`) |
 
 ### Strategy system
 
@@ -271,6 +268,6 @@ Redeem watcher: `REDEEM_WATCH_INTERVAL_MS`, `REDEEM_LOOKBACK_HOURS`, `REDEEM_MAX
 
 ## Additional docs
 
-`docs/` contains the canonical VitePress documentation site. The `queue/` and `webui/` directories have their own READMEs.
+`docs/` contains the canonical VitePress documentation site. The `webui/` directory has its own README.
 
 **Telonex pipeline:** `docs/datasets/telonex/sync-design.md` is the authoritative design for the Telonex dataset ingestion pipeline (`sync-markets` → `download-raw-files` → `convert`). Read it before working on anything under `src/telonex/`. Existing Telonex usage doc: `docs/datasets/telonex/overview.md`.

@@ -24,8 +24,8 @@ features:
     details: Strategies are TypeScript closures that return typed Intents. Validate parameters with Zod, access volatility indicators and external feeds through plugins, and test every edge case in backtest before going live.
   - title: Multi-symbol Support
     details: BTC, ETH, SOL, and XRP — 15-minute UP/DOWN markets on the Polymarket CLOB. Record, backtest, and trade any symbol with the same tooling.
-  - title: Parallel Backtest Queue
-    details: A folder-watched GNU parallel runner lets you sweep strategy parameters across hundreds of recordings simultaneously. Results land in the database for analysis.
+  - title: BullMQ Backtest Workers
+    details: Backtest batches are submitted to Redis-backed BullMQ workers, with a dashboard for active batches, queue depth, and run history.
 ---
 
 ## What this project is

@@ -1,9 +1,3 @@
-# Run backtest on parallel queue
-
-```bash
-./queue/run-queue.sh
-```
-
 # buyBothSidesAndMerge
 
 ```bash
@@ -145,12 +139,6 @@ npm run backtest -- \
   --comment "test-pc-network-4175" \
   --batchUid test-pc-network-4175 \
   --dir "/Volumes/polymarket-bot/data/events/btc-pc-4175"
-```
-
-# Parallel backtesting ( old )
-
-```bash
-parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
 ```
 
 Backtest wait for TechnicalIndicators Plugin

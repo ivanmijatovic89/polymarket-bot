@@ -59,8 +59,6 @@ Do not rely on memory for third-party API behavior when Context7 can confirm it.
   - Drizzle schema/helpers
 - `webui/`
   - Vite/React monitoring UI served by bot process
-- `queue/`
-  - batch queue runner (`approve -> pending -> running -> done/failed`)
 
 ## Data + File Handling Rules
 

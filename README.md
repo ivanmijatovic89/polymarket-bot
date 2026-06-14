@@ -383,16 +383,6 @@ Backtest output:
 - prints `[trade] ...` for every simulated fill (AccountEvent `fill`)
 - prints a final `[backtest] portfolio ...` summary (fills, positions, open orders, realized PnL)
 
-### Run many backtests in parallel (GNU `parallel`)
-
-This repo supports running many backtests concurrently by putting one command per line in a jobs file (example: `src/strategies/split/backtest-jobs.txt`) and executing them with GNU `parallel`:
-
-```bash
-parallel -j 6 --bar --eta --joblog logs/parallel.log > /dev/null < src/strategies/split/backtest-jobs.txt
-```
-
-See: [`docs/backtest/parallel-backtest-runner.md`](docs/backtest/parallel-backtest-runner.md)
-
 ## Order book module
 
 Order book reconstruction is implemented for Polymarket CLOB market-channel events:
@@ -882,40 +872,3 @@ npx cross-env RECORD_SYMBOL=ETH npx tsx src/cli/record-live.ts
 # Running Multiple Bots
 
 See [`docs/other/MultipleBots.md`](docs/other/MultipleBots.md) for instructions on running multiple bot instances and accessing them from different machines (Mac and Windows).
-
-## Queue-based Batch Runner / Batch Execution & Grid Search
-
-This project uses a **folder-based batch execution system** built on top of GNU parallel.
-
-All batch execution logic lives in:
-
-```
-queue/
-```
-
-### Key Concepts
-
-- `approve/` – generated batch files (review only)
-- `pending/` – approved batches waiting to run
-- `running/` – currently executing batch
-- `done/` – successfully completed batches
-- `failed/` – failed batches
-- `logs/parallel.log` – per-command execution metadata
-- `logs/results/` – optional batch stdout/stderr (disabled by default)
-
-A long-running runner script (`queue/run-queue.sh`) watches the `pending/` folder and
-executes batches automatically.
-
-Configure parallelism (default: 4):
-
-```bash
-./queue/run-queue.sh --jobs 8
-```
-
-Batch stdout/stderr logging can be enabled explicitly:
-
-```bash
-./queue/run-queue.sh --save-results
-```
-
-Docs: [`queue/README.md`](queue/README.md) for full details.

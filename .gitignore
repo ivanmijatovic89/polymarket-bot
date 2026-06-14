@@ -6,7 +6,7 @@ data/
 !dashboard/src/data/
 !dashboard/src/data/**
 
-queue/.runner.lock/
+generated/backtest-jobs/
 
 do-not-commit/
 
