@@ -242,9 +242,9 @@ A healthy **delta-typed** file has `event_type` values of `book` and `price_chan
 
 ## Backtesting the output
 
-- **Paired** files require `--input-mode telonex-paired --read-from local|r2` — see [Run a Backtest](/datasets/telonex/backtest).
+- **Paired** files require `--input-mode telonex-paired --read-from local|r2|local-or-download-from-r2-to-local` — see [Run a Backtest](/datasets/telonex/backtest).
 - **Delta** files are in the live format and run in standard `recorded` mode with no `--input-mode` flag.
-- **Delta-typed** files require `--input-mode telonex-delta --read-from local|r2`.
+- **Delta-typed** files require `--input-mode telonex-delta --read-from local|r2|local-or-download-from-r2-to-local`.
 
 ## Checking conversion state
 
