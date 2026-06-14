@@ -1,0 +1,39 @@
+{
+  "8e367b2f7eb8": {
+    "name": "Laranist-macbook-m5",
+    "hardware": [
+      "Model Name: MacBook Pro",
+      "Model Identifier: Mac17,9",
+      "Model Number: Z1ML003WVTH/A",
+      "Chip: Apple M5 Pro",
+      "Total Number of Cores: 18 (6 Super and 12 Performance)",
+      "Memory: 64 GB"
+    ]
+  },
+  "8955f8d87c59": {
+    "name": "NotHumbleAtAll-macbook-m1",
+    "hardware": [
+      "Model Name: MacBook Pro",
+      "Model Identifier: MacBookPro18,1",
+      "Model Number: MK183ZP/A",
+      "Chip: Apple M1 Pro",
+      "Total Number of Cores: 10 (8 performance and 2 efficiency)",
+      "Memory: 16 GB"
+    ]
+  },
+  "5a69e8aa2068": {
+    "name": "Laranist-macbook-m1",
+    "hardware": [
+      "Model Name: MacBook Pro",
+      "Model Identifier: MacBookPro18,3",
+      "Model Number: Z15G000CJRU/A",
+      "Chip: Apple M1 Pro",
+      "Total Number of Cores: 8 (6 Performance and 2 Efficiency)",
+      "Memory: 16 GB"
+    ]
+  },
+  "a279f9dd3843": {
+    "name": "NotHumbleAtAll-PC",
+    "hardware": []
+  }
+}

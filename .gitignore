@@ -2,6 +2,9 @@
 node_modules/
 .npm-cache/
 data/
+# but keep the dashboard's checked-in machine metadata
+!dashboard/src/data/
+!dashboard/src/data/**
 
 queue/.runner.lock/
 
