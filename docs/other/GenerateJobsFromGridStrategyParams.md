@@ -12,10 +12,10 @@ Instead of manually running backtests with different parameters, we define:
 
 - a **grid JSON file** (`*-grid.json`)
 - a **job generator script**
-- which produces a **jobs file** (`*-jobs.txt`)
+- which produces a **jobs file** under `generated/backtest-jobs/`
 - where **each line is a full executable CLI command**
 
-These jobs can then be executed using tools like **GNU parallel**.
+These jobs are plain shell commands. Review the generated file, then run selected commands manually or feed them into your current orchestration workflow.
 
 ---
 
@@ -35,7 +35,9 @@ Example strategy folder:
 
 ```
 src/strategies/split/jobs/
-├── v3-grid.json
+└── v3-grid.json
+
+generated/backtest-jobs/
 ├── v3-jobs.txt
 ├── v3-jobs-2.txt
 └── v3-jobs-3.txt
@@ -104,14 +106,6 @@ Ensuring at least **60 seconds of valid trading window**.
 
 ```bash
 npm run generate:grid:jobs -- ./src/strategies/split/jobs/v3-grid.json
-```
-
----
-
-## Running Jobs in Parallel
-
-```bash
-parallel -j 8 < src/strategies/split/jobs/v3-jobs.txt
 ```
 
 ---

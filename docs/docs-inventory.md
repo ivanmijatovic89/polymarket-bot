@@ -32,7 +32,7 @@ Review this file and edit before bulk writing begins.
 | File | Doc Title | Type | Notes |
 |---|---|---|---|
 | src/cli/backtest.ts | Running Backtests | how-to | Main backtest CLI — file/symbol/slug/dir modes, all flags |
-| src/backtest/generate-jobs.ts | Generate Backtest Jobs | how-to | Generates parameterized job configs for batch execution |
+| src/backtest/generate-jobs.ts | Generate Backtest Jobs | how-to | Generates parameterized command lists for backtest sweeps |
 | src/db/schema.ts | Backtest Result Storage | reference | Normalized backtest result tables: runs, markets, failures |
 | src/backtest/stats/batchStats.ts | Backtest Run Statistics | reference | Scalar run performance columns derived from BatchStats |
 | src/backtest/stats/marketStats.ts | Backtest Run Markets | reference | Per-market result rows stored in backtest_run_markets |
@@ -123,16 +123,6 @@ Review this file and edit before bulk writing begins.
 | src/trading/execution/LiveExecution.ts | Live Execution | reference | How orders are submitted to CLOB API; warmup, fills, account state |
 | src/parquet/io/eventWriter.ts | Parquet Event Writer | reference | Rotating writer: temp→final transitions, SIGINT handling |
 | src/parquet/io/eventSchema.ts | Parquet Event Schema | reference | Parquet columns, types, GZIP encoding |
-
----
-
-## Parallel Backtest Queue
-
-| File | Doc Title | Type | Notes |
-|---|---|---|---|
-| queue/run-queue.sh | Parallel Backtest Queue | how-to | Folder-watched GNU parallel runner: approve→pending→running→done |
-
----
 
 ## Reference
 

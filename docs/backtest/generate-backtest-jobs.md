@@ -1,11 +1,11 @@
 ---
 title: Generate Backtest Jobs
-description: How to use generate-jobs.ts to expand a parameter grid into a flat list of backtest commands ready for the parallel queue runner.
+description: How to use generate-jobs.ts to expand a parameter grid into a flat list of backtest commands.
 ---
 
 # Generate Backtest Jobs
 
-`src/backtest/generate-jobs.ts` reads a JSON grid specification and writes one shell command per parameter combination into a jobs file in `queue/approve/`. The output is consumed directly by the [Parallel Backtest Runner](./parallel-backtest-runner.md).
+`src/backtest/generate-jobs.ts` reads a JSON grid specification and writes one shell command per parameter combination into a jobs file under `generated/backtest-jobs/`.
 
 ## What It Generates
 
@@ -70,20 +70,20 @@ npx tsx src/backtest/generate-jobs.ts <path-to-grid.json>
 
 ### Output file location
 
-The output file is placed in `queue/approve/` and named by replacing `-grid.json` with `-jobs.txt` in the source filename. If a file with that name already exists, a numeric suffix is appended (`-2`, `-3`, ...).
+The output file is placed in `generated/backtest-jobs/` and named by replacing `-grid.json` with `-jobs.txt` in the source filename. If a file with that name already exists, a numeric suffix is appended (`-2`, `-3`, ...).
 
 ```
-src/strategies/split/v1-grid.json  →  queue/approve/v1-jobs.txt
+src/strategies/split/v1-grid.json  →  generated/backtest-jobs/v1-jobs.txt
 ```
 
-The `queue/approve/` directory is created automatically if it does not exist.
+The `generated/backtest-jobs/` directory is created automatically if it does not exist.
 
 ### Console output
 
 ```
-Wrote 27 jobs to /path/to/queue/approve/v1-jobs.txt
+Wrote 27 jobs to /path/to/generated/backtest-jobs/v1-jobs.txt
 Grid file: /path/to/src/strategies/split/v1-grid.json
-Jobs written to: /path/to/queue/approve/v1-jobs.txt
+Jobs written to: /path/to/generated/backtest-jobs/v1-jobs.txt
 Total jobs: 27
 ```
 
@@ -99,15 +99,9 @@ npm run backtest -- --strategy SplitSellRedeem.v1 --symbol btc --limit 500 --par
 
 Parameter values are quoted only when they contain characters outside `[a-zA-Z0-9._=:/+-]`.
 
-## Using the Output with the Parallel Queue
+## Using the Output
 
-Once the jobs file is in `queue/approve/`, move it (or leave it) and start the queue runner:
-
-```bash
-./queue/run-queue.sh --jobs 8 --save-results
-```
-
-The queue runner picks up files from `queue/approve/`, moves them to `queue/pending/` while running, and places results in `queue/done/` or `queue/failed/`. See [Parallel Backtest Runner](./parallel-backtest-runner.md) for full queue documentation.
+The generated file is intentionally plain text: one complete command per line. Review the file, then run selected commands manually or feed them into whatever orchestration workflow you are using.
 
 ::: tip Grid file naming convention
 Name grid files as `<version>-grid.json` (e.g. `v3-grid.json`) so the generator can automatically derive the jobs filename (`v3-jobs.txt`). Store grid files alongside the strategy source under `src/strategies/<family>/`.
@@ -143,4 +137,4 @@ Combinations where `timeFilterAllowTradingAfterSeconds + 60 > timeFilterDisableT
 npx tsx src/backtest/generate-jobs.ts src/strategies/split/v2-grid.json
 ```
 
-**Result:** `2 × 2 × 2 × 2 = 16` jobs written to `queue/approve/v2-jobs.txt`.
+**Result:** `2 × 2 × 2 × 2 = 16` jobs written to `generated/backtest-jobs/v2-jobs.txt`.

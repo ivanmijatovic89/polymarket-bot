@@ -101,7 +101,6 @@ export default withMermaid(
             { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
             { text: 'Distributed Workers', link: '/backtest/distributed-future' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
-            { text: 'Parallel Backtest Runner', link: '/backtest/parallel-backtest-runner' },
             {
               text: 'Statistics',
               collapsed: false,

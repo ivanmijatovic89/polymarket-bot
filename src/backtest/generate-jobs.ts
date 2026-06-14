@@ -183,7 +183,7 @@ if (!parsed || typeof parsed !== 'object') die(`Invalid JSON structure in ${absG
 const jobs = buildJobs(parsed)
 
 const baseName = inferBaseNameFromGridFile(absGridPath)
-const outDir = path.resolve(process.cwd(), 'queue', 'approve')
+const outDir = path.resolve(process.cwd(), 'generated', 'backtest-jobs')
 fs.mkdirSync(outDir, { recursive: true })
 const outPath = nextAvailableFilename(outDir, baseName)
 
