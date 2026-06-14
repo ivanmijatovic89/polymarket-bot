@@ -6,7 +6,9 @@ import { fileURLToPath } from 'node:url'
 // by `src/telonex/convert.ts`) so backtests work regardless of CWD — cron jobs,
 // systemd units, and cross-machine workers don't have to `cd` into the repo.
 const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..')
+import { promises as fs } from 'node:fs'
 import { isR2Url } from '../r2/parseR2Url.js'
+import { downloadR2ToLocal } from '../telonex/fetchConvertedToLocal.js'
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
 import { StrategyRunner } from '../trading/StrategyRunner.js'
 import { OrderManager } from '../trading/OrderManager.js'
@@ -37,6 +39,11 @@ export type RunSingleMarketInput = {
   idx: number
   /** Path to the parquet file (local or fetched). */
   filePath: string
+  /**
+   * `--read-from local-or-r2` only: r2:// URL to download to `filePath` if that
+   * local file is missing. Absent for `local` / `r2` modes.
+   */
+  r2Fallback?: string
   /** Market slug. May be null if filename doesn't parse — in that case stats are skipped. */
   slug: string | null
   /** Resolved Gamma metadata for the market. May be undefined if unavailable. */
@@ -151,6 +158,15 @@ function buildRunnerForMarket(args: {
  * Determinism: with `latency.jitterMs === 0` and no `Math.random()` in strategy code,
  * the output is deterministic for a given input — same call twice yields identical `marketStats`.
  */
+async function fileExists(p: string): Promise<boolean> {
+  try {
+    await fs.stat(p)
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunSingleMarketOutput> {
   const startedAtMs = Date.now()
   const eventsByType: Record<string, number> = {}
@@ -253,6 +269,13 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     : path.isAbsolute(input.filePath)
       ? input.filePath
       : path.resolve(REPO_ROOT, input.filePath)
+
+  // `--read-from local-or-r2`: read the canonical local file if present, else
+  // download it from R2 to that path once and read locally thereafter. The
+  // producer set `filePath` to the local path and `r2Fallback` to the r2:// URL.
+  if (input.r2Fallback && !(await fileExists(filePath))) {
+    await downloadR2ToLocal(input.r2Fallback, filePath)
+  }
 
   if (input.inputMode === 'telonex-paired') {
     await replayTelonexPairedParquetForMarket({

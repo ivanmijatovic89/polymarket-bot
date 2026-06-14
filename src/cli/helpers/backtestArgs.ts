@@ -16,11 +16,15 @@ function parseInputMode(raw: string | undefined): InputMode {
   )
 }
 
-const READ_FROM_VALUES = ['local', 'r2'] as const
+// `local-or-r2`: read the converted parquet from its canonical local path if
+// present, otherwise download it from R2 to that path (download-if-missing) and
+// read locally. For the DB eligibility query it behaves like `r2` (gates on
+// r2_url); the per-market local fetch happens in the worker.
+const READ_FROM_VALUES = ['local', 'r2', 'local-or-r2'] as const
 type ReadFrom = (typeof READ_FROM_VALUES)[number]
 
 function parseReadFrom(raw: string | undefined): ReadFrom {
-  if (raw === 'local' || raw === 'r2') return raw
+  if (raw === 'local' || raw === 'r2' || raw === 'local-or-r2') return raw
   throw new Error(
     `[backtest] --read-from must be one of: ${READ_FROM_VALUES.join(', ')} (got: ${String(raw)})`,
   )

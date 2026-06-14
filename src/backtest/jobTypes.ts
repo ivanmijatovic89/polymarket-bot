@@ -16,6 +16,8 @@ export type MarketJobData = {
   batchUid: string
   idx: number
   filePath: string
+  /** `--read-from local-or-r2`: r2:// URL to fetch to `filePath` if it's missing. */
+  r2Fallback?: string
   slug: string | null
   marketMeta: GammaMarketMeta | undefined
   marketResolution: MarketResolution | null

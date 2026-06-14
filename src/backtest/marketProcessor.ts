@@ -35,6 +35,7 @@ export function makeMarketProcessor(machineId: string) {
     return runSingleMarket({
       idx: data.idx,
       filePath: data.filePath,
+      ...(data.r2Fallback ? { r2Fallback: data.r2Fallback } : {}),
       slug: data.slug,
       marketMeta: data.marketMeta,
       marketResolution: data.marketResolution,

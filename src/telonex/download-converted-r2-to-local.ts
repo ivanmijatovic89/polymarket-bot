@@ -46,18 +46,15 @@ import {
 } from '../db/telonexMarkets.js'
 import { closeDb } from '../db/index.js'
 import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
-import { getObjectToFile } from '../r2/client.js'
-import { parseR2Url } from '../r2/parseR2Url.js'
+import { downloadR2ToLocal } from './fetchConvertedToLocal.js'
 import { localOutputPath } from './localOutputPath.js'
 
-const MAX_RETRIES = 3
-const RETRY_DELAYS_MS = [1000, 2000, 4000]
 // Eligibility query caps at 1000 when no limit is passed; we want the whole set.
 const NO_LIMIT = 100_000_000
 // Bounded parallelism for the pre-flight local-existence scan.
 const STAT_CONCURRENCY = 64
 
-type Job = { bucket: string; key: string; absolute: string; slug: string }
+type Job = { r2Url: string; absolute: string; slug: string }
 type Outcome = 'downloaded' | 'failed'
 
 // IPC message shapes between parent and child.
@@ -81,10 +78,6 @@ type Args = {
 // -----------------------------------------------------------------------------
 // Shared helpers
 // -----------------------------------------------------------------------------
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
-}
 
 function fmtBytes(n: number): string {
   if (n < 1024) return `${n}B`
@@ -130,33 +123,15 @@ function isChildMode(argv: string[]): boolean {
 }
 
 async function downloadJob(job: Job): Promise<{ outcome: Outcome; bytes: number }> {
-  await fs.mkdir(path.dirname(job.absolute), { recursive: true })
-  const tmp = `${job.absolute}.${process.pid}.tmp`
-  for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
-    try {
-      await getObjectToFile(job.bucket, job.key, tmp)
-      await fs.rename(tmp, job.absolute)
-      let bytes = 0
-      try {
-        bytes = (await fs.stat(job.absolute)).size
-      } catch {
-        // size is best-effort for the summary
-      }
-      return { outcome: 'downloaded', bytes }
-    } catch (err) {
-      await fs.rm(tmp, { force: true }).catch(() => {})
-      const msg = err instanceof Error ? err.message : String(err)
-      if (attempt >= MAX_RETRIES) {
-        console.error(`[telonex:dl-converted] FAIL ${job.slug}: ${msg}`)
-        return { outcome: 'failed', bytes: 0 }
-      }
-      console.warn(
-        `[telonex:dl-converted] WARN retry ${attempt}/${MAX_RETRIES} ${job.slug}: ${msg}`,
-      )
-      await sleep(RETRY_DELAYS_MS[attempt - 1] ?? 4000)
-    }
+  try {
+    const { bytes } = await downloadR2ToLocal(job.r2Url, job.absolute)
+    return { outcome: 'downloaded', bytes }
+  } catch (err) {
+    console.error(
+      `[telonex:dl-converted] FAIL ${job.slug}: ${err instanceof Error ? err.message : String(err)}`,
+    )
+    return { outcome: 'failed', bytes: 0 }
   }
-  return { outcome: 'failed', bytes: 0 }
 }
 
 function runChild(): void {
@@ -268,14 +243,13 @@ async function buildCandidates(args: Args): Promise<Job[]> {
       console.warn(`[telonex:dl-converted] WARN no r2_url for ${m.slug}, skipping`)
       return []
     }
-    const { bucket, key } = parseR2Url(m.dataset)
     const { absolute } = localOutputPath({
       converter: args.converter,
       symbol: m.symbol,
       timeframe: m.timeframe,
       slug: m.slug,
     })
-    return [{ bucket, key, absolute, slug: m.slug }]
+    return [{ r2Url: m.dataset, absolute, slug: m.slug }]
   })
 }
 

@@ -23,15 +23,16 @@ Telonex modes always require `--read-from local|r2` (see below). The raw-json **
 
 For any telonex input mode, you must specify where to read the converted parquet from:
 
-| `--read-from` | Effect                                                           |
-| ------------- | ---------------------------------------------------------------- |
-| `local`       | Reads `telonex_market_conversions.local_path` (on-disk parquet). |
-| `r2`          | Reads `telonex_market_conversions.r2_url` directly from R2.      |
+| `--read-from`  | Effect                                                                                                                                                            |
+| -------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `local`        | Reads `telonex_market_conversions.local_path` (on-disk parquet). Markets without a local file are excluded by eligibility.                                       |
+| `r2`           | Streams `telonex_market_conversions.r2_url` from R2 every run (no local copy kept).                                                                              |
+| `local-or-r2`  | Reads the canonical local file if present; otherwise downloads it from R2 to that path once (download-if-missing), then reads locally. Best of both — see below. |
 
 Passing `--read-from` with `--input-mode recorded` is an error. Omitting `--read-from` on a telonex mode is also an error.
 
-::: tip Prefer `local` for repeated runs
-`--read-from r2` re-streams each parquet from R2 every run. To backtest the same universe repeatedly, pre-fetch the converted files once with [`telonex:download-converted-r2-to-local`](/datasets/telonex/download-converted-r2-to-local), then use `--read-from local`.
+::: tip `local-or-r2` is usually what you want
+`r2` re-streams every run; `local` requires the files to already be on this machine. `local-or-r2` lazily fetches each market's converted parquet from R2 to its canonical local path (`data/events/telonex/<converter>/<symbol>/<timeframe>/<slug>.parquet`) the first time, then every later run reads it locally. The fetch is per-worker, so it works even when workers run on a different machine. To pre-warm everything up front instead, run [`telonex:download-converted-r2-to-local`](/datasets/telonex/download-converted-r2-to-local) and then use `--read-from local`.
 :::
 
 ## Backtest a delta-typed file
