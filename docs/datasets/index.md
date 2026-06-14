@@ -34,8 +34,8 @@ Telonex is a market data platform that has continuously recorded Polymarket's We
 Two converters are available:
 
 - **Delta** — produces live-format `book`/`price_change` output. Replays at the same speed as a live-recorded file. No special `--input-mode` flag needed. Recommended for new work.
-- **Paired** — produces `orderbook_pair` output. Requires `--input-mode telonex-paired --read-from local|r2`. Approximately three times slower to replay, but every row carries both sides synchronously.
-- **Delta-typed** — produces typed `book`/`price_change` output (no `raw_json`). Requires `--input-mode telonex-delta --read-from local|r2`. Recommended for new work alongside the delta-typed DB join in the backtest CLI.
+- **Paired** — produces `orderbook_pair` output. Requires `--input-mode telonex-paired --read-from local|r2|local-or-download-from-r2-to-local`. Approximately three times slower to replay, but every row carries both sides synchronously.
+- **Delta-typed** — produces typed `book`/`price_change` output (no `raw_json`). Requires `--input-mode telonex-delta --read-from local|r2|local-or-download-from-r2-to-local`. Recommended for new work alongside the delta-typed DB join in the backtest CLI.
 
 → [Telonex docs](/datasets/telonex/overview)
 
@@ -88,6 +88,6 @@ Regardless of source, the path from raw data to a runnable backtest follows the 
 - **Download** — per-market worker pulls `book_snapshot_full` files into R2, recording each in `telonex_market_files`.
 - **Convert** — dispatcher runs the requested converters; `--converter` can be repeated to run both in one pass, downloading raw files once per market.
 - **Verify** — confirm the converted file is intact before running a backtest.
-- **Backtest** — replay the file. Delta files use standard `recorded` mode; delta-typed files use `--input-mode telonex-delta --read-from local|r2`; paired files use `--input-mode telonex-paired --read-from local|r2`.
+- **Backtest** — replay the file. Delta files use standard `recorded` mode; delta-typed files use `--input-mode telonex-delta --read-from local|r2|local-or-download-from-r2-to-local`; paired files use `--input-mode telonex-paired --read-from local|r2|local-or-download-from-r2-to-local`.
 
 → [Sync Markets](/datasets/telonex/sync-markets) · [Download Raw Files](/datasets/telonex/download-raw-files) · [Convert](/datasets/telonex/convert) · [Run a Backtest](/datasets/telonex/backtest) · [Verify Parquet File](/datasets/tools/verify-parquet)

@@ -63,6 +63,7 @@ import {
   type Converter,
   type ReadFrom,
 } from '../db/telonexMarkets.js'
+import { localOutputPath } from '../telonex/localOutputPath.js'
 import { getBacktestRunSummaryByBatchUid, insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
@@ -595,6 +596,11 @@ async function main(): Promise<void> {
     marketMeta: GammaMarketMeta | undefined
     marketResolution: MarketResolution | null
     strategyWindow: { startMs: number; endMs: number } | null
+    /**
+     * `--read-from local-or-download-from-r2-to-local` only: the R2 URL to download from if `filePath`
+     * (the canonical local path) is not present on the worker's disk.
+     */
+    r2Fallback?: string
   }
   const marketContexts: ResolvedContext[] = []
 
@@ -604,6 +610,12 @@ async function main(): Promise<void> {
     const slug = parseSlugFromFilename(fp)
     let marketResolution: MarketResolution | null = null
     let marketMeta: GammaMarketMeta | undefined
+    // For `--read-from local-or-download-from-r2-to-local` the worker reads the canonical local file
+    // and downloads it from R2 only if missing. `fp` here is the r2:// dataset
+    // (the new mode resolves like `r2`), so point the job at the local path and
+    // carry the r2 URL as the fallback source.
+    let resolvedFilePath = fp
+    let r2Fallback: string | undefined
 
     if (isTelonex) {
       let row = slug ? (telonexBySlug.get(slug) ?? null) : null
@@ -612,6 +624,15 @@ async function main(): Promise<void> {
         if (row) telonexBySlug.set(slug, row)
       }
       if (row) {
+        if (readFrom === 'local-or-download-from-r2-to-local' && slug && row.dataset) {
+          resolvedFilePath = localOutputPath({
+            converter: converter!,
+            symbol: row.symbol,
+            timeframe: row.timeframe,
+            slug,
+          }).relative
+          r2Fallback = row.dataset
+        }
         marketResolution = getTelonexMarketResolution(row)
         if (marketResolution) {
           marketMeta = buildMetaFromTokenMap(slug!, marketResolution.tokenMap, {
@@ -688,7 +709,15 @@ async function main(): Promise<void> {
       return { startMs, endMs: startMs + durationMs }
     })()
 
-    marketContexts.push({ idx, filePath: fp, slug, marketMeta, marketResolution, strategyWindow })
+    marketContexts.push({
+      idx,
+      filePath: resolvedFilePath,
+      slug,
+      marketMeta,
+      marketResolution,
+      strategyWindow,
+      ...(r2Fallback ? { r2Fallback } : {}),
+    })
   }
 
   if (shouldStop) {
@@ -760,6 +789,7 @@ async function main(): Promise<void> {
             machineId,
             commitSha,
             shouldStop: () => shouldStop,
+            ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
           })
         } catch (err) {
           // Mirror BullMQ's exhausted-children semantics: record the failure so
@@ -1022,6 +1052,7 @@ async function main(): Promise<void> {
       latency: { delayMs: latencyMs, jitterMs },
       strategyWindow: ctx.strategyWindow,
       commitSha: producerCommitSha,
+      ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
     }
     return {
       name: 'market',

@@ -97,9 +97,13 @@ experimental work in a separate clone. See
 ### 4. Parquet access
 
 Workers need the parquet files to replay markets. In `--read-from r2` mode the
-producer embeds the R2 URL in each job, and workers download on demand — the
-right choice for distributed runs. `--read-from local` would require syncing
+producer embeds the R2 URL in each job, and workers stream it on demand — a
+valid choice for distributed runs. `--read-from local` would require syncing
 `data/events/` to every machine, which is impractical across boxes.
+`--read-from local-or-download-from-r2-to-local` is the middle ground: each
+worker reads its canonical local file if present, else downloads it from R2 to
+that path once and reuses it on subsequent runs — so it works across boxes
+(per-worker, no central sync) while avoiding re-streaming every run.
 
 ## Keeping code in sync
 

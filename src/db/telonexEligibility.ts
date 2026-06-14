@@ -1,6 +1,8 @@
 import { eq, gte, inArray, lte, notInArray, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
 
-export type TelonexEligibilityReadFrom = 'local' | 'r2'
+// `local-or-download-from-r2-to-local` is treated like `r2` here (the `datasetNonEmpty` check below
+// routes any non-`local` value to the r2_url gate).
+export type TelonexEligibilityReadFrom = 'local' | 'r2' | 'local-or-download-from-r2-to-local'
 
 export type TelonexEligibilityColumns = {
   markets: {

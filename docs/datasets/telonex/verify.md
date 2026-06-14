@@ -257,7 +257,7 @@ This design is deliberate. Some markets contain hundreds of thousands of raw row
 
 ## Paired Verification Semantics
 
-The paired converter emits `orderbook_pair` rows. Each row contains both Up and Down books in typed columns. Backtests consume it with `--input-mode telonex-paired --read-from local|r2`, which applies both books to `MarketEngine` and emits one strategy tick after the pair is applied.
+The paired converter emits `orderbook_pair` rows. Each row contains both Up and Down books in typed columns. Backtests consume it with `--input-mode telonex-paired --read-from local|r2|local-or-download-from-r2-to-local`, which applies both books to `MarketEngine` and emits one strategy tick after the pair is applied.
 
 The expected paired provider mirrors that behavior exactly:
 

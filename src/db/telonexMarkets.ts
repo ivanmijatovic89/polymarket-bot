@@ -24,7 +24,11 @@ import { telonexMarkets, telonexMarketConversions } from './schema.js'
 import { buildTelonexEligibilityConditions } from './telonexEligibility.js'
 import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 
-export type ReadFrom = 'local' | 'r2'
+// `local-or-download-from-r2-to-local` resolves like `r2` for the DB query (gates on r2_url, returns
+// r2_url as the dataset) — `pickDataset` / eligibility route any non-`local`
+// value through the r2 branch. The backtest worker then reads the canonical
+// local file if present, else downloads the r2_url to it first.
+export type ReadFrom = 'local' | 'r2' | 'local-or-download-from-r2-to-local'
 export type Converter = 'delta-typed' | 'paired'
 
 /**
