@@ -11,10 +11,19 @@ import machines from '@/data/machines.json'
  * - `name`     — human-readable alias shown in the UI.
  * - `hardware` — `system_profiler` lines (free-form), reference only. Join
  *                with `\n` to render as a block.
+ * - `cores`, `geekbench6Multi`, `geekbench6Source`, `priceUsd`,
+ *   `parallelThroughput` — optional benchmark/cost metadata consumed by the
+ *   Workers Calculator page. `parallelThroughput` is a cores × single-core
+ *   estimate (P/E-weighted for Apple chips); see WorkersCalculatorView.
  */
 export type MachineInfo = {
   name: string
   hardware: string[]
+  cores?: number | null
+  geekbench6Multi?: number | null
+  geekbench6Source?: 'verified' | 'estimated' | 'unknown'
+  priceUsd?: number
+  parallelThroughput?: number
 }
 
 const MACHINES = machines as Record<string, MachineInfo>

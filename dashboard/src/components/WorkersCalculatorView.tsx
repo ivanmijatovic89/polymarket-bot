@@ -1,0 +1,268 @@
+'use client'
+
+import { useMemo, useState } from 'react'
+import { getMachine } from '@/lib/machineNames'
+import { Card } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
+
+// One single-threaded worker per core, so parallel throughput is
+// cores × single-core Geekbench 6 (NOT GB6 multi, which saturates ~16 cores).
+type Plan = { name: string; cores: number; single: number; hourly: number; capMonthly: number }
+
+// Hetzner CCX dedicated-vCPU plans. single-core verified (~1,877, homogeneous
+// EPYC); hourly + monthly cap from Hetzner pricing.
+const HETZNER_PLANS: Plan[] = [
+  { name: 'CCX13', cores: 2, single: 1807, hourly: 0.0297, capMonthly: 13.5 },
+  { name: 'CCX23', cores: 4, single: 1846, hourly: 0.0583, capMonthly: 26.4 },
+  { name: 'CCX33', cores: 8, single: 1871, hourly: 0.1155, capMonthly: 52.4 },
+  { name: 'CCX43', cores: 16, single: 1877, hourly: 0.2317, capMonthly: 104.2 },
+  { name: 'CCX53', cores: 32, single: 1876, hourly: 0.4702, capMonthly: 207.9 },
+  { name: 'CCX63', cores: 48, single: 1859, hourly: 0.6941, capMonthly: 311.6 },
+]
+
+// DigitalOcean CPU-Optimized (Standard Intel) dedicated-vCPU plans. Pricing
+// and single-core verified (~957, Xeon Platinum 8168). monthly cap = the plan's
+// monthly price (672h). DO vCPUs are hyperthreads, so per-worker speed is about
+// half a Hetzner dedicated core (1,877). Premium Intel (Xeon 8358) benches ~1,447
+// single but costs more — Standard is DO's best-case for value, used here.
+const DO_PLANS: Plan[] = [
+  { name: 'CPU-Opt 2', cores: 2, single: 957, hourly: 0.0625, capMonthly: 42 },
+  { name: 'CPU-Opt 4', cores: 4, single: 957, hourly: 0.125, capMonthly: 84 },
+  { name: 'CPU-Opt 8', cores: 8, single: 957, hourly: 0.25, capMonthly: 168 },
+  { name: 'CPU-Opt 16', cores: 16, single: 957, hourly: 0.5, capMonthly: 336 },
+  { name: 'CPU-Opt 32', cores: 32, single: 957, hourly: 1.0, capMonthly: 672 },
+]
+
+// Devices pulled from machines.json (cores, parallelThroughput, priceUsd).
+// `short` is a compact label for table columns; `name` is the registered alias.
+const DEVICE_REFS = [
+  { id: '8955f8d87c59', short: 'M1 Pro' },
+  { id: '8e367b2f7eb8', short: 'M5 Pro' },
+  { id: 'mac-mini-m4', short: 'Mac mini M4' },
+]
+
+type Device = { id: string; short: string; name: string; cores: number; thru: number; price: number }
+
+function loadDevices(): Device[] {
+  return DEVICE_REFS.map((r) => {
+    const m = getMachine(r.id)
+    return {
+      id: r.id,
+      short: r.short,
+      name: m?.name ?? r.id,
+      cores: m?.cores ?? 0,
+      thru: m?.parallelThroughput ?? 0,
+      price: m?.priceUsd ?? 0,
+    }
+  })
+}
+
+const usd = (v: number) => `$${v.toLocaleString('en-US', { maximumFractionDigits: v < 100 ? 2 : 0 })}`
+
+function PlansTable({
+  title,
+  subtitle,
+  plans,
+  servers,
+  hours,
+  devices,
+}: {
+  title: string
+  subtitle: string
+  plans: Plan[]
+  servers: number
+  hours: number
+  devices: Device[]
+}) {
+  return (
+    <div>
+      <h2 className="text-base font-semibold tracking-tight">{title}</h2>
+      <p className="mt-0.5 mb-3 text-xs text-muted-foreground">{subtitle}</p>
+      <Card className="overflow-hidden">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead>Plan</TableHead>
+              <TableHead className="text-right">Workers</TableHead>
+              <TableHead className="text-right">$/hr</TableHead>
+              <TableHead className="text-right">$/mo</TableHead>
+              {devices.map((d) => (
+                <TableHead key={d.id} className="text-right">
+                  ≈ {d.short}
+                </TableHead>
+              ))}
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {plans.map((p) => {
+              const workers = p.cores * servers
+              const thru = p.cores * p.single * servers
+              const costHr = p.hourly * servers
+              const costMo = Math.min(p.hourly * hours * 30, p.capMonthly) * servers
+              return (
+                <TableRow key={p.name}>
+                  <TableCell className="font-medium">{p.name}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {workers.toLocaleString('en-US')}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{usd(costHr)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {`$${Math.round(costMo).toLocaleString('en-US')}`}
+                  </TableCell>
+                  {devices.map((d) => (
+                    <TableCell key={d.id} className="text-right tabular-nums text-muted-foreground">
+                      {d.thru ? `${(thru / d.thru).toFixed(1)}×` : '—'}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </Card>
+    </div>
+  )
+}
+
+export function WorkersCalculatorView() {
+  const devices = useMemo(loadDevices, [])
+  const [servers, setServers] = useState(10)
+  const [hours, setHours] = useState(5)
+  const [prices, setPrices] = useState<Record<string, number>>(() =>
+    Object.fromEntries(devices.map((d) => [d.id, d.price])),
+  )
+
+  const bestValueId = useMemo(() => {
+    let bestId = devices[0]?.id
+    let best = -Infinity
+    for (const d of devices) {
+      const v = d.thru / (prices[d.id] || 1)
+      if (v > best) {
+        best = v
+        bestId = d.id
+      }
+    }
+    return bestId
+  }, [devices, prices])
+
+  return (
+    <div className="space-y-8">
+      <div className="grid gap-4 sm:grid-cols-2 max-w-2xl">
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            Servers (per plan):{' '}
+            <span className="font-medium text-foreground tabular-nums">{servers}</span>
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={30}
+            step={1}
+            value={servers}
+            onChange={(e) => setServers(Number(e.target.value))}
+            className="w-full accent-foreground"
+          />
+        </label>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-xs text-muted-foreground">
+            Hours / day: <span className="font-medium text-foreground tabular-nums">{hours}</span>
+          </span>
+          <input
+            type="range"
+            min={1}
+            max={24}
+            step={1}
+            value={hours}
+            onChange={(e) => setHours(Number(e.target.value))}
+            className="w-full accent-foreground"
+          />
+        </label>
+      </div>
+
+      <PlansTable
+        title="Hetzner — dedicated vCPU (CCX)"
+        subtitle="Full dedicated EPYC cores. single-core verified (~1,877)."
+        plans={HETZNER_PLANS}
+        servers={servers}
+        hours={hours}
+        devices={devices}
+      />
+
+      <PlansTable
+        title="DigitalOcean — CPU-Optimized"
+        subtitle="Standard, dedicated vCPUs (hyperthreads). ~2–3× Hetzner's price; single-core verified (~957)."
+        plans={DO_PLANS}
+        servers={servers}
+        hours={hours}
+        devices={devices}
+      />
+
+      <div>
+        <h2 className="text-base font-semibold tracking-tight">Which device is the best value</h2>
+        <p className="mt-0.5 mb-3 text-xs text-muted-foreground">
+          Parallel throughput per dollar. Edit prices to re-rank.
+        </p>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+          {devices.map((d) => {
+            const price = prices[d.id] || 1
+            const perDollar = d.thru / price
+            const isBest = d.id === bestValueId
+            return (
+              <Card key={d.id} className={cn('p-4', isBest && 'border-[color:var(--success)]')}>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">{d.name}</span>
+                  {isBest && (
+                    <span className="rounded-md bg-[color:var(--success)]/15 px-2 py-0.5 text-[11px] font-medium text-[color:var(--success)]">
+                      best value
+                    </span>
+                  )}
+                </div>
+                <dl className="mt-3 space-y-1.5 text-sm">
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Max workers</dt>
+                    <dd className="tabular-nums">{d.cores}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Parallel throughput</dt>
+                    <dd className="tabular-nums">{d.thru.toLocaleString('en-US')}</dd>
+                  </div>
+                  <div className="flex items-center justify-between gap-2">
+                    <dt className="text-muted-foreground">Price</dt>
+                    <dd className="flex items-center gap-1">
+                      <span className="text-muted-foreground">$</span>
+                      <input
+                        type="number"
+                        min={1}
+                        step={50}
+                        value={prices[d.id] ?? 0}
+                        onChange={(e) =>
+                          setPrices((prev) => ({ ...prev, [d.id]: Number(e.target.value) }))
+                        }
+                        className="w-24 rounded-md border bg-transparent px-2 py-1 text-right text-sm tabular-nums"
+                      />
+                    </dd>
+                  </div>
+                </dl>
+                <div className="mt-3 border-t pt-3">
+                  <div className="text-xs text-muted-foreground">Throughput / $</div>
+                  <div className="text-2xl font-semibold tabular-nums">{perDollar.toFixed(1)}</div>
+                </div>
+              </Card>
+            )
+          })}
+        </div>
+      </div>
+
+      <p className="text-xs text-muted-foreground max-w-3xl">
+        Metric is parallel throughput (cores × single-core Geekbench 6) — correct for independent
+        per-market jobs, unlike GB6 multi which saturates around 16 cores. Hetzner single-core is
+        verified (~1,877 per dedicated EPYC core); DigitalOcean single-core is verified (~957, Xeon
+        Platinum 8168 — its vCPUs are hyperthreads, ~half a Hetzner core); Apple device throughput is
+        a P/E-weighted estimate stored in{' '}
+        <code className="font-mono">machines.json</code> — all calibrated by a real burst. Monthly
+        cost is hourly × hours/day × 30, capped at each plan&apos;s monthly maximum. Prices in USD.
+      </p>
+    </div>
+  )
+}
