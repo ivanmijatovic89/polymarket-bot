@@ -100,6 +100,7 @@ export default withMermaid(
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
             { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
             { text: 'Distributed Workers', link: '/backtest/distributed-future' },
+            { text: 'Cloud Workers & Costs', link: '/backtest/cloud-workers-and-costs' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             {
               text: 'Statistics',
