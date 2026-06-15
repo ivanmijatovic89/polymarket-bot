@@ -44,6 +44,8 @@ const DEVICE_REFS = [
 
 type Device = { id: string; short: string; name: string; cores: number; thru: number; price: number }
 
+type TimeMode = 'perDay' | 'total'
+
 function loadDevices(): Device[] {
   return DEVICE_REFS.map((r) => {
     const m = getMachine(r.id)
@@ -65,16 +67,21 @@ function PlansTable({
   subtitle,
   plans,
   servers,
-  hours,
+  mode,
+  hoursPerDay,
+  totalHours,
   devices,
 }: {
   title: string
   subtitle: string
   plans: Plan[]
   servers: number
-  hours: number
+  mode: TimeMode
+  hoursPerDay: number
+  totalHours: number
   devices: Device[]
 }) {
+  const costLabel = mode === 'perDay' ? '$/mo' : '$ total'
   return (
     <div>
       <h2 className="text-base font-semibold tracking-tight">{title}</h2>
@@ -86,7 +93,7 @@ function PlansTable({
               <TableHead>Plan</TableHead>
               <TableHead className="text-right">Workers</TableHead>
               <TableHead className="text-right">$/hr</TableHead>
-              <TableHead className="text-right">$/mo</TableHead>
+              <TableHead className="text-right">{costLabel}</TableHead>
               {devices.map((d) => (
                 <TableHead key={d.id} className="text-right">
                   ≈ {d.short}
@@ -99,7 +106,10 @@ function PlansTable({
               const workers = p.cores * servers
               const thru = p.cores * p.single * servers
               const costHr = p.hourly * servers
-              const costMo = Math.min(p.hourly * hours * 30, p.capMonthly) * servers
+              const cost =
+                mode === 'perDay'
+                  ? Math.min(p.hourly * hoursPerDay * 30, p.capMonthly) * servers
+                  : p.hourly * totalHours * servers
               return (
                 <TableRow key={p.name}>
                   <TableCell className="font-medium">{p.name}</TableCell>
@@ -108,7 +118,7 @@ function PlansTable({
                   </TableCell>
                   <TableCell className="text-right tabular-nums">{usd(costHr)}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {`$${Math.round(costMo).toLocaleString('en-US')}`}
+                    {`$${Math.round(cost).toLocaleString('en-US')}`}
                   </TableCell>
                   {devices.map((d) => (
                     <TableCell key={d.id} className="text-right tabular-nums text-muted-foreground">
@@ -128,7 +138,9 @@ function PlansTable({
 export function WorkersCalculatorView() {
   const devices = useMemo(loadDevices, [])
   const [servers, setServers] = useState(10)
-  const [hours, setHours] = useState(5)
+  const [mode, setMode] = useState<TimeMode>('perDay')
+  const [hoursPerDay, setHoursPerDay] = useState(5)
+  const [totalHours, setTotalHours] = useState(150)
   const [prices, setPrices] = useState<Record<string, number>>(() =>
     Object.fromEntries(devices.map((d) => [d.id, d.price])),
   )
@@ -164,20 +176,67 @@ export function WorkersCalculatorView() {
             className="w-full accent-foreground"
           />
         </label>
-        <label className="flex flex-col gap-1.5">
-          <span className="text-xs text-muted-foreground">
-            Hours / day: <span className="font-medium text-foreground tabular-nums">{hours}</span>
-          </span>
-          <input
-            type="range"
-            min={1}
-            max={24}
-            step={1}
-            value={hours}
-            onChange={(e) => setHours(Number(e.target.value))}
-            className="w-full accent-foreground"
-          />
-        </label>
+
+        <div className="flex flex-col gap-1.5">
+          <div className="flex items-center justify-between">
+            <span className="text-xs text-muted-foreground">Time</span>
+            <div className="flex rounded-md border p-0.5 text-xs">
+              <button
+                type="button"
+                onClick={() => setMode('perDay')}
+                className={cn(
+                  'rounded-sm px-2 py-0.5 transition-colors',
+                  mode === 'perDay'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Per day
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode('total')}
+                className={cn(
+                  'rounded-sm px-2 py-0.5 transition-colors',
+                  mode === 'total'
+                    ? 'bg-accent text-foreground'
+                    : 'text-muted-foreground hover:text-foreground',
+                )}
+              >
+                Total hours
+              </button>
+            </div>
+          </div>
+          {mode === 'perDay' ? (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">
+                Hours / day:{' '}
+                <span className="font-medium text-foreground tabular-nums">{hoursPerDay}</span>
+              </span>
+              <input
+                type="range"
+                min={1}
+                max={24}
+                step={1}
+                value={hoursPerDay}
+                onChange={(e) => setHoursPerDay(Number(e.target.value))}
+                className="w-full accent-foreground"
+              />
+            </label>
+          ) : (
+            <label className="flex flex-col gap-1.5">
+              <span className="text-xs text-muted-foreground">Total hours</span>
+              <input
+                type="number"
+                min={1}
+                step={1}
+                value={totalHours}
+                onChange={(e) => setTotalHours(Math.max(1, Number(e.target.value)))}
+                className="w-full rounded-md border bg-transparent px-2 py-1.5 text-sm tabular-nums"
+              />
+            </label>
+          )}
+        </div>
       </div>
 
       <PlansTable
@@ -185,7 +244,9 @@ export function WorkersCalculatorView() {
         subtitle="Full dedicated EPYC cores. single-core verified (~1,877)."
         plans={HETZNER_PLANS}
         servers={servers}
-        hours={hours}
+        mode={mode}
+        hoursPerDay={hoursPerDay}
+        totalHours={totalHours}
         devices={devices}
       />
 
@@ -194,7 +255,9 @@ export function WorkersCalculatorView() {
         subtitle="Standard, dedicated vCPUs (hyperthreads). ~2–3× Hetzner's price; single-core verified (~957)."
         plans={DO_PLANS}
         servers={servers}
-        hours={hours}
+        mode={mode}
+        hoursPerDay={hoursPerDay}
+        totalHours={totalHours}
         devices={devices}
       />
 
@@ -259,9 +322,10 @@ export function WorkersCalculatorView() {
         per-market jobs, unlike GB6 multi which saturates around 16 cores. Hetzner single-core is
         verified (~1,877 per dedicated EPYC core); DigitalOcean single-core is verified (~957, Xeon
         Platinum 8168 — its vCPUs are hyperthreads, ~half a Hetzner core); Apple device throughput is
-        a P/E-weighted estimate stored in{' '}
-        <code className="font-mono">machines.json</code> — all calibrated by a real burst. Monthly
-        cost is hourly × hours/day × 30, capped at each plan&apos;s monthly maximum. Prices in USD.
+        a P/E-weighted estimate stored in <code className="font-mono">machines.json</code> — all
+        calibrated by a real burst. Cost: in <strong>Per day</strong> mode it is hourly × hours/day ×
+        30, capped at each plan&apos;s monthly maximum; in <strong>Total hours</strong> mode it is
+        hourly × total hours (no monthly cap applied). Prices in USD.
       </p>
     </div>
   )
