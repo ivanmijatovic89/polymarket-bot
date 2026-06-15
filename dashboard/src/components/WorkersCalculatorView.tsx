@@ -11,14 +11,14 @@ import { cn } from '@/lib/utils'
 type Plan = { name: string; cores: number; single: number; hourly: number; capMonthly: number }
 
 // Hetzner CCX dedicated-vCPU plans. single-core verified (~1,877, homogeneous
-// EPYC); hourly + monthly cap from Hetzner pricing.
+// EPYC); hourly + monthly cap are real Hetzner console prices in EUR (ex-VAT).
 const HETZNER_PLANS: Plan[] = [
-  { name: 'CCX13', cores: 2, single: 1807, hourly: 0.0297, capMonthly: 13.5 },
-  { name: 'CCX23', cores: 4, single: 1846, hourly: 0.0583, capMonthly: 26.4 },
-  { name: 'CCX33', cores: 8, single: 1871, hourly: 0.1155, capMonthly: 52.4 },
-  { name: 'CCX43', cores: 16, single: 1877, hourly: 0.2317, capMonthly: 104.2 },
-  { name: 'CCX53', cores: 32, single: 1876, hourly: 0.4702, capMonthly: 207.9 },
-  { name: 'CCX63', cores: 48, single: 1859, hourly: 0.6941, capMonthly: 311.6 },
+  { name: 'CCX13', cores: 2, single: 1807, hourly: 0.069, capMonthly: 42.99 },
+  { name: 'CCX23', cores: 4, single: 1846, hourly: 0.138, capMonthly: 85.99 },
+  { name: 'CCX33', cores: 8, single: 1871, hourly: 0.222, capMonthly: 138.49 },
+  { name: 'CCX43', cores: 16, single: 1877, hourly: 0.442, capMonthly: 275.99 },
+  { name: 'CCX53', cores: 32, single: 1876, hourly: 0.855, capMonthly: 533.49 },
+  { name: 'CCX63', cores: 48, single: 1859, hourly: 1.368, capMonthly: 853.49 },
 ]
 
 // DigitalOcean CPU-Optimized (Standard Intel) dedicated-vCPU plans. Pricing
@@ -60,7 +60,8 @@ function loadDevices(): Device[] {
   })
 }
 
-const usd = (v: number) => `$${v.toLocaleString('en-US', { maximumFractionDigits: v < 100 ? 2 : 0 })}`
+const fmt = (v: number, sym: string) =>
+  `${sym}${v.toLocaleString('en-US', { maximumFractionDigits: v < 100 ? 2 : 0 })}`
 
 function PlansTable({
   title,
@@ -71,6 +72,7 @@ function PlansTable({
   hoursPerDay,
   totalHours,
   devices,
+  currency,
 }: {
   title: string
   subtitle: string
@@ -80,8 +82,9 @@ function PlansTable({
   hoursPerDay: number
   totalHours: number
   devices: Device[]
+  currency: string
 }) {
-  const costLabel = mode === 'perDay' ? '$/mo' : '$ total'
+  const costLabel = mode === 'perDay' ? `${currency}/mo` : `${currency} total`
   return (
     <div>
       <h2 className="text-base font-semibold tracking-tight">{title}</h2>
@@ -92,7 +95,7 @@ function PlansTable({
             <TableRow>
               <TableHead>Plan</TableHead>
               <TableHead className="text-right">Workers</TableHead>
-              <TableHead className="text-right">$/hr</TableHead>
+              <TableHead className="text-right">{currency}/hr</TableHead>
               <TableHead className="text-right">{costLabel}</TableHead>
               {devices.map((d) => (
                 <TableHead key={d.id} className="text-right">
@@ -116,9 +119,9 @@ function PlansTable({
                   <TableCell className="text-right tabular-nums">
                     {workers.toLocaleString('en-US')}
                   </TableCell>
-                  <TableCell className="text-right tabular-nums">{usd(costHr)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{fmt(costHr, currency)}</TableCell>
                   <TableCell className="text-right tabular-nums">
-                    {`$${Math.round(cost).toLocaleString('en-US')}`}
+                    {`${currency}${Math.round(cost).toLocaleString('en-US')}`}
                   </TableCell>
                   {devices.map((d) => (
                     <TableCell key={d.id} className="text-right tabular-nums text-muted-foreground">
@@ -241,24 +244,26 @@ export function WorkersCalculatorView() {
 
       <PlansTable
         title="Hetzner — dedicated vCPU (CCX)"
-        subtitle="Full dedicated EPYC cores. single-core verified (~1,877)."
+        subtitle="Full dedicated EPYC cores. single-core verified (~1,877). Prices in EUR (Hetzner console, ex-VAT)."
         plans={HETZNER_PLANS}
         servers={servers}
         mode={mode}
         hoursPerDay={hoursPerDay}
         totalHours={totalHours}
         devices={devices}
+        currency="€"
       />
 
       <PlansTable
         title="DigitalOcean — CPU-Optimized"
-        subtitle="Standard, dedicated vCPUs (hyperthreads). ~2–3× Hetzner's price; single-core verified (~957)."
+        subtitle="Standard, dedicated vCPUs (hyperthreads). Similar price to Hetzner but ~half the per-core speed (single-core verified ~957). Prices in USD."
         plans={DO_PLANS}
         servers={servers}
         mode={mode}
         hoursPerDay={hoursPerDay}
         totalHours={totalHours}
         devices={devices}
+        currency="$"
       />
 
       <div>
@@ -325,7 +330,8 @@ export function WorkersCalculatorView() {
         a P/E-weighted estimate stored in <code className="font-mono">machines.json</code> — all
         calibrated by a real burst. Cost: in <strong>Per day</strong> mode it is hourly × hours/day ×
         30, capped at each plan&apos;s monthly maximum; in <strong>Total hours</strong> mode it is
-        hourly × total hours (no monthly cap applied). Prices in USD.
+        hourly × total hours (no monthly cap applied). Hetzner prices are in EUR (console, ex-VAT);
+        DigitalOcean and device prices in USD.
       </p>
     </div>
   )
