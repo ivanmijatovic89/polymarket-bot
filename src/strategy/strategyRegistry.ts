@@ -12,6 +12,7 @@ import { definition as orderbookImbalanceV1 } from '../strategies/signals/Orderb
 import { definition as orderbookImbalanceV2 } from '../strategies/signals/OrderbookImbalance.v2.js'
 import { definition as convergenceFavoriteV1 } from '../strategies/signals/ConvergenceFavorite.v1.js'
 import { definition as convergenceUnderdogV1 } from '../strategies/signals/ConvergenceUnderdog.v1.js'
+import { definition as convergenceVolRecorderV1 } from '../strategies/signals/ConvergenceVolRecorder.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
 import { definition as templateTimeWindowGate } from '../strategies/templates/TemplateTimeWindowGate.js'
@@ -55,6 +56,7 @@ export const strategyRegistry = {
   [orderbookImbalanceV2.id]: orderbookImbalanceV2,
   [convergenceFavoriteV1.id]: convergenceFavoriteV1,
   [convergenceUnderdogV1.id]: convergenceUnderdogV1,
+  [convergenceVolRecorderV1.id]: convergenceVolRecorderV1,
   [winnerLimitV1.id]: winnerLimitV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
