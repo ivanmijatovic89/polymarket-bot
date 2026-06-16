@@ -12,6 +12,7 @@ import { definition as orderbookImbalanceV1 } from '../strategies/signals/Orderb
 import { definition as orderbookImbalanceV2 } from '../strategies/signals/OrderbookImbalance.v2.js'
 import { definition as convergenceFavoriteV1 } from '../strategies/signals/ConvergenceFavorite.v1.js'
 import { definition as convergenceUnderdogV1 } from '../strategies/signals/ConvergenceUnderdog.v1.js'
+import { definition as convergenceUnderdogV2 } from '../strategies/signals/ConvergenceUnderdog.v2.js'
 import { definition as convergenceVolRecorderV1 } from '../strategies/signals/ConvergenceVolRecorder.v1.js'
 import { definition as convergenceUnderdogRecorderV1 } from '../strategies/signals/ConvergenceUnderdogRecorder.v1.js'
 import { definition as convergenceUnderdogMakerV1 } from '../strategies/signals/ConvergenceUnderdogMaker.v1.js'
@@ -63,6 +64,7 @@ export const strategyRegistry = {
   [orderbookImbalanceV2.id]: orderbookImbalanceV2,
   [convergenceFavoriteV1.id]: convergenceFavoriteV1,
   [convergenceUnderdogV1.id]: convergenceUnderdogV1,
+  [convergenceUnderdogV2.id]: convergenceUnderdogV2,
   [convergenceVolRecorderV1.id]: convergenceVolRecorderV1,
   [convergenceUnderdogRecorderV1.id]: convergenceUnderdogRecorderV1,
   [convergenceUnderdogMakerV1.id]: convergenceUnderdogMakerV1,
