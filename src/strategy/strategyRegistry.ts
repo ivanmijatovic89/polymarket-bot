@@ -18,6 +18,7 @@ import { definition as convergenceUnderdogMakerV1 } from '../strategies/signals/
 import { definition as buyBothDiscountV1 } from '../strategies/signals/BuyBothDiscount.v1.js'
 import { definition as edgeScanV1 } from '../strategies/signals/EdgeScan.v1.js'
 import { definition as spreadFadeScanV1 } from '../strategies/signals/SpreadFadeScan.v1.js'
+import { definition as buyDownFavoriteV1 } from '../strategies/signals/BuyDownFavorite.v1.js'
 import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
 import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
 import { definition as templateTimeWindowGate } from '../strategies/templates/TemplateTimeWindowGate.js'
@@ -67,6 +68,7 @@ export const strategyRegistry = {
   [buyBothDiscountV1.id]: buyBothDiscountV1,
   [edgeScanV1.id]: edgeScanV1,
   [spreadFadeScanV1.id]: spreadFadeScanV1,
+  [buyDownFavoriteV1.id]: buyDownFavoriteV1,
   [winnerLimitV1.id]: winnerLimitV1,
   [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
   [buyBothV1.id]: buyBothV1,
