@@ -7,12 +7,48 @@ favorite late and holding to resolution is +EV. This is a **fatter, structurally
 edge from the (shelved) micro-timing families: the payoff is the full convergence to $1, not a
 few cents of spread, so it has a chance to clear fees.
 
-**Status:** 🟢 **PROMISING — passed Signal + Validation (2026-06-10). Best candidate of the session.**
-`ConvergenceFavorite.v1` (buy favorite) → 🔴 KILLED (favorites overpriced). Its mirror
-`ConvergenceUnderdog.v1` (buy the cheap side, hold to resolution) → **validated**: real, persistent
-favorite-longshot bias. In-sample EV +$1.45/mkt deflated to **OOS +$0.46/mkt (904 trades, 2 months)** —
-still solidly positive (vs orderbook-imbalance which deflated to break-even). Full 6000: net +$634,
-EV +$0.60. NOT yet proven: live fill realism on the thin underdog side (the #1 risk), capacity, latency, holdout/paper.
+**Status:** 🟠 **NON-STATIONARY edge — static versions shelved; adaptive is the open question (2026-06-14).**
+Late-window prices ARE miscalibrated (real, persistent phenomenon) but the **direction flips across
+regimes**, so no _static_ buy-one-side strategy is robust.
+
+- `ConvergenceFavorite.v1` (buy favorite): in-sample (Mar–May) favorites OVERpriced → lost. **Forward
+  (May 13–Jun 14): favorites UNDERpriced → would WIN** (net ≈ +$760 across bands, see forward curve below).
+- `ConvergenceUnderdog.v1` (buy underdog): exact opposite — won in-sample (+$1.45/mkt), **failed forward**
+  (EV −$0.27, net −$145, win 38.7%).
+
+The forward favorite-calibration check (extends of `convfav-band-01..05` onto the 3,016 new markets,
+high-data, low-variance) shows the sign **reversed** vs in-sample:
+
+| band      | fwd played | fwd win% | ~price | win%−price (fwd) | (in-sample was) |
+| --------- | ---------- | -------- | ------ | ---------------- | --------------- |
+| 0.55–0.65 | 261        | 61.7     | 0.60   | **+2.1**         | −4.8            |
+| 0.65–0.75 | 450        | 72.4     | 0.69   | **+3.4**         | −4.6            |
+| 0.75–0.85 | 715        | 80.4     | 0.79   | **+1.5**         | −4.3            |
+| 0.85–0.95 | 1211       | 89.7     | 0.89   | **+0.6**         | −2.0            |
+| 0.95–0.99 | 1677       | 96.9     | 0.97   | 0.0              | −0.4            |
+
+**Lessons:**
+
+1. **Backward-adjacent OOS (same regime) is NOT validation.** Only fresh FORWARD data caught the flip.
+   The underdog's +1.45 → +0.46 → −0.27 was a regime decaying, not a durable edge.
+2. **The mispricing is real but non-stationary (sign-flips).** A fixed side will always eventually get killed.
+3. ~~The only potentially-tradeable version is adaptive~~ → **ADAPTIVE ALSO RULED OUT (2026-06-16).**
+
+## Regime-persistence check → convergence family CLOSED
+
+Ran a wide-favorite calibration over the **full history** (18,635 btc markets, Dec–Jun, `convfav-fullhist-calib`)
+and bucketed the residual (win% − price) **weekly**. Result: the sign **flips almost every week**, runs of one
+sign last only 1–2 weeks, and magnitudes (~−1.5 to +2) are mostly **within the ±1.3pp sampling noise** of
+~600 trades/week. Only the first ~6 weeks (Dec) showed a sustained block.
+
+**Conclusion: there is NO persistent regime.** Favorites are ~fairly priced overall; the week-to-week wobble is
+largely noise. An adaptive regime-detector would be chasing noise (sign flips faster than detectable). The earlier
+"edges" (underdog +$1.45, forward favorite flip) were **small calibration noise amplified by narrow price bands /
+specific windows** — pattern-in-noise, not a structural edge.
+
+**Family status: 🔴 CLOSED.** Late-window calibration on btc 15m is approximately fair with weekly noise; nothing
+stable to trade (static OR adaptive). Don't reopen without a genuinely different mechanism. **Meta-lesson: a cheap
+full-history persistence check kills an adaptive idea before you build it — run it before committing to walk-forward.**
 
 ## Candidate 001 — `ConvergenceFavorite.v1` → KILLED
 

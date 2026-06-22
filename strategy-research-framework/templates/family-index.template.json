@@ -1,0 +1,8 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "strategy-family-index",
+  "family": "<family>",
+  "versions": [],
+  "candidates": [],
+  "blockedIdeas": []
+}
