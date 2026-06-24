@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 1,
+  "artifactType": "strategy-family-index",
+  "family": "liquidity-wall",
+  "status": "proposed",
+  "coreIdea": "Trade around a single dominant resting order (a wall) — single-level size concentration, not aggregate imbalance",
+  "champion": null,
+  "tags": ["orderbook", "liquidity", "concentration", "entry-signal"],
+  "experiments": [
+    {
+      "id": "liquidity-wall.001-baseline-sweep",
+      "order": 1,
+      "kind": "param-search",
+      "requiresCode": true,
+      "code": "Strategy.ts",
+      "idea": "Baseline knob sweep — does any region of the concentration driver beat baseline net of fees, and does follow or fade carry the sign?",
+      "sweep": {
+        "mode": ["follow", "fade"],
+        "wallRatio": [0.45, 0.6, 0.75],
+        "depthLevels": [3, 5, 10],
+        "minWallShares": [50, 200, 500],
+        "dwellSec": [0, 5, 20],
+        "takeProfit": [0.08, 0.15]
+      },
+      "params": null,
+      "status": "proposed",
+      "decision": "pending",
+      "result": null,
+      "selectedParams": null
+    }
+  ]
+}

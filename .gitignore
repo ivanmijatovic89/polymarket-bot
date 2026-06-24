@@ -63,3 +63,6 @@ duckdb/test.duckdb
 
 # cpu profiles
 profiles/
+
+# strategy-research worker run logs (stream-json)
+*.jsonl
