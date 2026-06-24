@@ -19,7 +19,6 @@
       "id": "liquidity-wall.001-baseline-sweep",
       "order": 1,
       "kind": "param-search",
-      "requiresCode": true,
       "code": "Strategy.ts",
       "idea": "Baseline knob sweep — does any region of the concentration driver beat baseline net of fees, and does follow or fade carry the sign?",
       "sweep": {

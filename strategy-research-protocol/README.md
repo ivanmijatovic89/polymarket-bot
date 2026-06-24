@@ -19,7 +19,7 @@ The research families themselves live in `src/strategies/research/<family>/`
 | `modules/`       | One file per worker — the worker's instructions (e.g. `ProposeFamily.md`).                        |
 | `schemas/`       | Zod schemas for `FAMILY.json`, `INDEX.json`, and `FAMILY.md` (validation + types).                |
 | `examples/`      | A filled-in example family, so you can see the shapes.                                            |
-| `scripts/`       | Tools: `buildIndex.ts` (regenerate the index) and `run-worker.sh` (run a worker headless).        |
+| `scripts/`       | One script per step: `propose-family.sh` (Claude), `buildIndex.ts` (regenerate the index).        |
 
 ## The artifacts (per family, under `src/strategies/research/<family>/`)
 
@@ -33,15 +33,16 @@ edit it by hand.
 
 ## Tools
 
-**Run a worker** (e.g. propose a new family):
+One script per step that Claude does. **Propose a new family:**
 
 ```bash
-./strategy-research-protocol/scripts/run-worker.sh
+./strategy-research-protocol/scripts/propose-family.sh
 # or with a seed idea:
-./strategy-research-protocol/scripts/run-worker.sh "Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run with seed: '<idea>'."
+./strategy-research-protocol/scripts/propose-family.sh "fade large resting walls"
 ```
 
 Shows the reasoning live, saves a log, and prints token/cost at the end.
+(More step-scripts — `judge`, etc. — get added as those steps are built.)
 
 **Rebuild the index** — run this after any worker writes or changes a `FAMILY.json`:
 
@@ -60,3 +61,5 @@ PROPOSE a family  →  RUN its experiment (backtest)  →  JUDGE the result  →
 ```
 
 See `DECISIONS.md` for the full design and `modules/` for each worker's exact job.
+
+An AI loop that, on its own, proposes a trading-strategy family, backtests it, judges it ruthlessly (real edge or not), records the lesson, and moves to the next experiment or kills the family — getting smarter over time from its own accumulated lessons. You kick it off; eventually it runs many cycles with little babysitting.

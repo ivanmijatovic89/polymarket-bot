@@ -40,12 +40,12 @@ entry that supersedes the old one (don't silently edit history).
   new code. There is no cold code-handoff from FAMILY.md.
 - Experiment carries two separate axes: `status` (pipeline position) and
   `decision` (verdict). They never overlap.
-- `kind` (param-search | variation) and `requiresCode` record what an experiment
-  is. They are independent: a new family's experiment #1 is `param-search` +
-  `requiresCode: true` (its base Strategy.ts is written by propose-family before
-  the knobs can be swept). A later param-search reusing existing code is
-  `requiresCode: false`. `requiresCode` is now just info (which propose-step
-  writes code), not a dispatch to a separate implement worker.
+- `kind` (param-search | variation) records what an experiment is.
+- **`requiresCode` was removed** (superseded). It existed to route to a separate
+  "implement" step (`true` → write code first). Once code-writing was folded into
+  the propose steps, the code always exists by the time an experiment runs, so
+  nothing read the flag — it was vestigial. Whoever creates an experiment either
+  writes a new `.ts` or points `code` at an existing one; no flag needed.
 
 ## Experiments to try (was "hypothesis menu")
 

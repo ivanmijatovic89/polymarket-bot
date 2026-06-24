@@ -83,8 +83,7 @@ not dedup.)
      and `duplicateKeys`: a few normalized synonyms of this family's idea (so
      future proposals can dedup against it). With **exactly one** experiment
      seeded:
-     - `id: <family>.001-baseline-sweep`, `order: 1`
-     - `kind: "param-search"`, `requiresCode: true`
+     - `id: <family>.001-baseline-sweep`, `order: 1`, `kind: "param-search"`
      - `code`: the base strategy filename (e.g. `Strategy.ts`)
      - `sweep`: the baseline knob grid · `params: null` · `status: "proposed"` ·
        `decision: "pending"` · `result: null` · `selectedParams: null`

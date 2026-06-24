@@ -1,19 +1,25 @@
 #!/usr/bin/env bash
-# Run a research worker headless: readable reasoning live + raw log + cost summary.
+# Propose one new strategy family (Claude, headless): readable reasoning live +
+# raw log + cost summary.
 #
 # Usage:
-#   ./strategy-research-protocol/scripts/run-worker.sh
-#       → default: propose-family, autonomous (no seed)
-#   ./strategy-research-protocol/scripts/run-worker.sh "Execute propose-family per ... Run with seed: '<idea>'."
-#       → custom instruction
+#   ./strategy-research-protocol/scripts/propose-family.sh
+#       → autonomous (Claude invents a new family)
+#   ./strategy-research-protocol/scripts/propose-family.sh "fade large resting walls"
+#       → seeded (develops the family around your idea)
 #
 # Env:
-#   LOG=somefile.jsonl   override the raw log path (default: worker-run.jsonl)
+#   LOG=somefile.jsonl       override the raw log path (default: propose-family.jsonl)
 #   PERM=bypassPermissions   override permission mode (default: acceptEdits)
 set -uo pipefail
 
-INSTRUCTION="${1:-Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run autonomous (no seed).}"
-LOG="${LOG:-worker-run.jsonl}"
+MODULE="strategy-research-protocol/modules/ProposeFamily.md"
+if [ -n "${1:-}" ]; then
+  INSTRUCTION="Execute propose-family per ${MODULE}. Run with seed: '${1}'."
+else
+  INSTRUCTION="Execute propose-family per ${MODULE}. Run autonomous (no seed)."
+fi
+LOG="${LOG:-propose-family.jsonl}"
 PERM="${PERM:-acceptEdits}"
 
 # stdout = clean stream-json → tee raw to LOG, then pretty-print via jq.

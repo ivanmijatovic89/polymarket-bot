@@ -15,8 +15,6 @@ export const Experiment = z.object({
   /** run order; 1 is reserved for the baseline param sweep */
   order: z.number().int().positive(),
   kind: ExperimentKind,
-  /** false → straight to backtest; true → Implementer writes code first */
-  requiresCode: z.boolean(),
   /** which .ts this experiment runs against, e.g. "Strategy.ts" */
   code: z.string().min(1),
   /** one-line label (full rationale lives in FAMILY.md) */
