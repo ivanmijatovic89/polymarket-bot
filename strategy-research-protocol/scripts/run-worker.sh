@@ -2,9 +2,9 @@
 # Run a research worker headless: readable reasoning live + raw log + cost summary.
 #
 # Usage:
-#   ./strategy-research-protocol/run-worker.sh
+#   ./strategy-research-protocol/scripts/run-worker.sh
 #       → default: propose-family, autonomous (no seed)
-#   ./strategy-research-protocol/run-worker.sh "Execute propose-family per ... Run with seed: '<idea>'."
+#   ./strategy-research-protocol/scripts/run-worker.sh "Execute propose-family per ... Run with seed: '<idea>'."
 #       → custom instruction
 #
 # Env:

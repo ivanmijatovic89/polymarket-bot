@@ -10,7 +10,7 @@
  */
 import { existsSync, readdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { FamilyIndex, GlobalIndex, type GlobalIndexFamily } from './schemas/index.js'
+import { FamilyIndex, GlobalIndex, type GlobalIndexFamily } from '../schemas/index.js'
 
 const RESEARCH_DIR = join(process.cwd(), 'src', 'strategies', 'research')
 const INDEX_PATH = join(RESEARCH_DIR, 'INDEX.json')
