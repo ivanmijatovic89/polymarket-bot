@@ -98,28 +98,17 @@ function createStrategy(cfg: Config): Strategy {
 }
 ```
 
-## Step 2 — Register the strategy
+## Step 2 — Nothing to register
 
-Open `src/strategy/strategyRegistry.ts` and add two lines:
+There's no registry to edit. As long as your file lives under `src/strategies/` and does `export const definition`, it is auto-discovered at startup. Just save the file.
 
-```typescript [src/strategy/strategyRegistry.ts] {2,8}
-// add import near the top with the other strategy imports
-import { definition as buyDipV1 } from '../strategies/BuyDip.v1.js'
-
-// add to the registry object
-export const strategyRegistry = {
-  // ... existing entries ...
-  [buyDipV1.id]: buyDipV1,
-}
-```
-
-## Step 3 — Verify registration
+## Step 3 — Verify discovery
 
 ```bash
 npm run backtest -- --strategy buyDip.v1 --help
 ```
 
-If the strategy is registered correctly, the command prints its schema. If it prints an error, check the import path and that `definition.id` matches what you registered.
+If the strategy is discovered correctly, the command prints its schema. If it prints an error, check the file is under `src/strategies/`, that it does `export const definition`, and that `definition.id` matches the `--strategy` value.
 
 ## Step 4 — Run in backtest
 

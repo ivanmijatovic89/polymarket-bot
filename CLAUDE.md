@@ -175,7 +175,7 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 
 ### Strategy system
 
-Strategies live in `src/strategies/` and must be registered in `src/strategy/strategyRegistry.ts`. Each exports a `definition` with:
+Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Each `definition` has:
 
 - `id` (string) — selected via `--strategy <id>`
 - `schema` (Zod) — validates `--param key=value` pairs; unknown keys / invalid values error out

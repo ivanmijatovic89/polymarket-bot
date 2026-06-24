@@ -107,7 +107,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 
 | Flag                | Description                                                                                           |
 | ------------------- | ----------------------------------------------------------------------------------------------------- |
-| `--strategy <id>`   | **Required.** Strategy identifier as registered in `strategyRegistry`.                                |
+| `--strategy <id>`   | **Required.** Strategy identifier (the `definition.id` auto-discovered into `strategyRegistry`).       |
 | `--param key=value` | Override a strategy parameter. Repeatable. JSON strings are accepted: `--param assetIds='["a","b"]'`. |
 
 ### File / market selection
