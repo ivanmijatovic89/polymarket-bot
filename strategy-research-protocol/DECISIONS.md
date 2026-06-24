@@ -79,6 +79,20 @@ entry that supersedes the old one (don't silently edit history).
 - **propose-family input file: `INDEX.json` only** (the map). The agent
   self-directs: it opens any family's `FAMILY.md` (via `path`) to read lessons
   when it judges them relevant. No pre-loaded batch.
+- **Dedup scope is `src/strategies/research/` only — NOT the legacy library.**
+  INDEX.json is the complete universe for dedup. The worker must not scan/read
+  strategies elsewhere in `src/strategies/` for dedup. Reason: the first run read
+  nearly the entire legacy library to dedup, burning huge context; the fresh
+  research system's memory is the research INDEX, not the archived strategies.
+  Old strategies stay on disk, registered and runnable — **no delete, no move** —
+  just out of dedup scope.
+- **Code reference uses judgment (not a whitelist):** when _writing_ a strategy
+  `.ts`, good starting points are the interfaces (`strategyDefinition.ts`,
+  `Strategy.ts`, `strategyToolkit.ts`) + `templates/Template.v1.ts`, and glancing
+  at an example strategy or two is fine. The constraint is only the wasteful
+  extreme — don't read the whole library — and it's about code shape, never
+  dedup. (Resolves both "fresh worker has no example" and "first run scanned 30
+  strategies".)
 - **propose-family output: the new family folder only** (`FAMILY.md` +
   `FAMILY.json`). It does NOT touch `INDEX.json`. The orchestrator runs
   `build-index` afterward to regenerate the rollup — so the worker can never

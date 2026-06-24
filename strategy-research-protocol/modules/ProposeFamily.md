@@ -24,14 +24,27 @@ with the `Write` tool — it creates the folder for you; do **not** call `mkdir`
 ## Inputs
 
 - `CONTEXT.md` — the game (venue, instrument, data, costs). Read first.
-- `INDEX.json` — the map of every family already tried. Your entry point.
+- `INDEX.json` — the map of every research family already tried. Your entry
+  point, and the **complete** universe of what exists for dedup.
 - `CONSTRAINTS.md` — hard rules a family must not violate.
 - `NAMING.md` — how to name a family and its experiments.
 - `schemas/` — the shapes you must emit (FAMILY.md, FAMILY.json).
 - **Optional seed** — a one-line idea from the user. If absent, run autonomous.
 
-You may open any family's `FAMILY.md` and `Strategy.ts` (via its `path`) to read
-lessons and code — do this whenever a family looks related to your idea.
+**Scope — dedup against research families only.** For _dedup_, INDEX.json is the
+complete universe: it lists the research families, and you may open a listed
+family's `FAMILY.md` and `Strategy.ts` (via its `path`) when one looks related.
+Do **NOT** scan or dedup against the legacy strategy library elsewhere in
+`src/strategies/` (split/, scalp/, signals/, root files) — it is out of scope
+and reading it all wastes a large amount of context. If INDEX.json is empty,
+there is nothing to dedup against — just propose.
+
+**Code reference (use judgment).** When you write the strategy `.ts` (step 6),
+good starting points for the API and idioms: `src/strategy/strategyDefinition.ts`,
+`Strategy.ts`, `strategyToolkit.ts`, and `src/strategies/templates/Template.v1.ts`.
+Reading an existing strategy or two for idioms is fine — you don't need to read
+the whole library; a couple of examples is plenty. (This is for _code shape_,
+not dedup.)
 
 ## Steps
 
@@ -47,10 +60,12 @@ lessons and code — do this whenever a family looks related to your idea.
 3. **Constraint check.** If the idea violates anything in CONSTRAINTS.md, discard
    it. (Seed mode: stop and report which constraint it hits.)
 
-4. **Dedup by reading code, not string-matching.** Use duplicateKeys / tags /
-   coreIdea only to **shortlist** the few families worth inspecting. Then open
-   those families' FAMILY.md + Strategy.ts and judge whether the **decision
-   driver / logic is genuinely the same.**
+4. **Dedup by reading code, not string-matching — within `research/` only.**
+   Use duplicateKeys / tags / coreIdea **from INDEX.json** to **shortlist** the
+   few research families worth inspecting. Then open those families' FAMILY.md +
+   Strategy.ts (under `src/strategies/research/`) and judge whether the
+   **decision driver / logic is genuinely the same.** Never dedup against the
+   legacy strategy library outside `research/`.
    - Similar-but-different is allowed. Only same-actual-logic is a duplicate.
    - On a real duplicate:
      - Seed mode → stop and report the duplicate. Write nothing.
@@ -77,6 +92,8 @@ lessons and code — do this whenever a family looks related to your idea.
 
 6. **Write the baseline strategy code** (this worker owns it — you are at peak
    context for the idea, so you write the code, not a later handoff):
+   - To learn the API/idioms, see "Code reference" above (the interfaces +
+     `templates/Template.v1.ts`, plus an example or two if helpful).
    - Implement the base strategy `.ts` under the family folder, exposing the
      knobs the baseline sweep ranges over (its Zod param schema).
    - It must `export const definition` (a `StrategyDefinition`). **No registry
@@ -87,6 +104,9 @@ lessons and code — do this whenever a family looks related to your idea.
 
 ## Forbidden
 
+- Deduping against the legacy library — dedup is against INDEX.json (research
+  families) only. (Glancing at a strategy or two for _code idioms_ is fine;
+  scanning the whole library to check for duplicates is not.)
 - Running backtests or evaluating anything.
 - Editing INDEX.json or any other family's files/code.
 - Seeding more than one experiment.
