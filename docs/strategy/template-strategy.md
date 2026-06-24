@@ -20,7 +20,7 @@ src/strategies/templates/Template.v1.ts
 A strategy file has four sections:
 
 1. **Config schema** — Zod shape that validates `--param` flags.
-2. **`definition` export** — The `StrategyDefinition` object registered in the registry.
+2. **`definition` export** — The `StrategyDefinition` object that gets auto-discovered.
 3. **`createStrategy` factory** — Constructs plugins, closes over mutable state, and returns `{ strategy, plugins }`.
 4. **Hook functions** — `onMarketTick` and `onAccountEvent`.
 
@@ -56,7 +56,7 @@ export const definition: StrategyDefinition<Config> = {
 }
 ```
 
-The `definition` export is what `strategyRegistry.ts` imports and registers. The `id` must be globally unique. `title` and `description` appear in `listStrategies()` output.
+The `definition` export is what `strategyRegistry.ts` auto-discovers (it imports every file under `src/strategies/` that exports a `definition`). The `id` must be globally unique. `title` and `description` appear in `listStrategies()` output.
 
 ---
 
@@ -145,7 +145,8 @@ To create a new strategy from this template:
 3. Update `ConfigSchema` to reflect the parameters your strategy needs.
 4. Remove plugins you do not need from the `plugins` array.
 5. Implement logic in `onMarketTick` and `onAccountEvent`.
-6. Import the `definition` in `src/strategy/strategyRegistry.ts` and add it to `strategyRegistry`.
+
+That's it — keep the file under `src/strategies/` and it's auto-discovered (it already does `export const definition`). No registry to edit.
 
 ::: tip Naming convention
 Give your file and strategy ID a version suffix from the start (e.g. `MyStrategy.v1`). When the logic changes significantly, create `MyStrategy.v2.ts` with a new ID rather than editing `v1`. This preserves backtest reproducibility for runs that reference the older version.

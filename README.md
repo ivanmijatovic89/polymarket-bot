@@ -60,7 +60,7 @@ the same tick stream semantics. Any live/backtest divergence is a bug.
 - Read [`AGENTS.md`](AGENTS.md) before making code changes.
 - Prefer the linked docs over README when planning or editing.
 - Preserve deterministic replay and live/backtest parity.
-- Keep strategy params validated with Zod and registered in
-  `src/strategy/strategyRegistry.ts`.
+- Keep strategy params validated with Zod; strategies are auto-discovered from
+  `src/strategies/` (export `const definition`) — no registry to edit.
 - Generated backtest job lists belong under `generated/backtest-jobs/`; that
   folder is ignored by git.

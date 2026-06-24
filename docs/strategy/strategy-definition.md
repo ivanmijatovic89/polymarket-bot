@@ -1,11 +1,11 @@
 ---
-title: Strategy Definition and Registration
-description: Reference for the StrategyDefinition shape, Zod parameter validation, and how to register a strategy in the registry.
+title: Strategy Definition and Discovery
+description: Reference for the StrategyDefinition shape, Zod parameter validation, and how strategies are auto-discovered.
 ---
 
-# Strategy Definition and Registration
+# Strategy Definition and Discovery
 
-Every strategy must be wrapped in a `StrategyDefinition` and registered in `strategyRegistry.ts`. The definition is the contract between the CLI argument parser and the strategy factory: it declares the strategy's ID, validates parameters, and constructs the strategy instance.
+Every strategy must be wrapped in a `StrategyDefinition` and exported as `definition`. Files under `src/strategies/` are then **auto-discovered** — there is no registry to edit. The definition is the contract between the CLI argument parser and the strategy factory: it declares the strategy's ID, validates parameters, and constructs the strategy instance.
 
 ## `StrategyDefinition<TParams>`
 
@@ -91,22 +91,20 @@ tsx src/cli/backtest.ts --strategy SplitSellRedeem.v1 --param sellsSize=5
 
 ---
 
-## Registering a Strategy
+## Discovery (no registration step)
 
-Open `src/strategy/strategyRegistry.ts`. Add an import and an entry to the `strategyRegistry` object:
+There is **no registry to edit**. Drop a `.ts` file anywhere under `src/strategies/` (any depth) that does `export const definition` — it is registered automatically at startup:
 
 ```typescript
-// 1. Import the definition from your strategy file.
-import { definition as mySrategyV1 } from '../strategies/myStrategy.v1.js'
-
-// 2. Add it to the registry object.
-export const strategyRegistry = {
-  // ... existing entries ...
-  [myStrategyV1.id]: myStrategyV1,
-} as const satisfies Record<string, StrategyDefinition<unknown>>
+// src/strategies/myStrategy.v1.ts
+export const definition: StrategyDefinition<Config> = {
+  id: 'myStrategy.v1',
+  schema: ConfigSchema,
+  create: (params) => ({ strategy: new MyStrategy(params) }),
+}
 ```
 
-The registry is keyed by the strategy's `id` string. The `as const satisfies` pattern provides compile-time exhaustiveness checking via the derived `StrategyId` union type.
+`src/strategy/strategyRegistry.ts` walks `src/strategies/**`, source-checks each file for `export const definition`, and imports the matches (so side-effecting helper scripts are skipped). Removing a strategy = deleting its file. A file that exports a `definition` which isn't a valid `StrategyDefinition` (missing `id`, `schema`, or `create`) fails loudly at startup, and duplicate `id`s throw.
 
 ---
 
@@ -116,7 +114,7 @@ When `--strategy <id>` is passed, the CLI calls `getStrategyDefinition(id)`:
 
 ```typescript
 export function getStrategyDefinition(id: string): StrategyDefinition<unknown> {
-  const def = (strategyRegistry as Record<string, StrategyDefinition<unknown>>)[id]
+  const def = strategyRegistry[id]
   if (!def) throw new Error(`[strategy] unknown strategy id=${JSON.stringify(id)}`)
   return def
 }

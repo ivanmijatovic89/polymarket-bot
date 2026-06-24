@@ -55,7 +55,7 @@ Pass `--strategy` followed by the strategy's registered ID:
 tsx src/cli/trading-bot.ts --strategy my-strategy
 ```
 
-Strategy IDs are defined in `src/strategy/strategyRegistry.ts`. An invalid or missing ID causes the process to exit with code 2 and print usage information.
+Strategy IDs come from each strategy's `definition.id`, auto-discovered from `src/strategies/` into `strategyRegistry`. An invalid or missing ID causes the process to exit with code 2 and print usage information.
 
 ### Passing parameters
 
