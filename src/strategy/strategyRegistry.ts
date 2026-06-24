@@ -1,88 +1,94 @@
+import { readFileSync, readdirSync } from 'node:fs'
+import { dirname, extname, join } from 'node:path'
+import { fileURLToPath, pathToFileURL } from 'node:url'
 import type { StrategyDefinition } from './strategyDefinition.js'
-import { definition as basicFakV1 } from '../strategies/basicFak.v1.js'
-import { definition as buyBothSidesAndMergeV1 } from '../strategies/buyBothSidesAndMerge.v1.js'
-import { definition as placeLimitOrderAndCancelAfterFewSecV1 } from '../strategies/placeLimitOrderAndCancelAfterFewSec.js'
-import { definition as readVolatilityIndicatorV1 } from '../strategies/readVolatilityIndicator.v1.js'
-import { definition as readExternalFeedsExampleV1 } from '../strategies/readExternalFeedsExample.v1.js'
-import { definition as orderbookV1 } from '../strategies/signals/Orderbook.v1.js'
-import { definition as winnerLimitV1 } from '../strategies/winnerLimit.v1.js'
-import { definition as templateV1 } from '../strategies/templates/Template.v1.js'
-import { definition as templateTimeWindowGate } from '../strategies/templates/TemplateTimeWindowGate.js'
-import { definition as templateDwellGate } from '../strategies/templates/TemplateDwellGate.js'
-import { definition as buyBatchLimitGTCV1 } from '../strategies/BuyBatchLimitGTC.v1.js'
-import { definition as buyBothV1 } from '../strategies/BuyBoth.v1.js'
-import { definition as buyLowPriceV1 } from '../strategies/BuyLowPrice.v1.js'
-import { definition as measureLatencyV1 } from '../strategies/MeasureLatency.v1.js'
-import { definition as splitSellRedeemV1 } from '../strategies/split/SplitSellRedeem.v1.js'
-import { definition as splitSellRedeemV2 } from '../strategies/split/SplitSellRedeem.v2.js'
-import { definition as splitSellRedeemV3 } from '../strategies/split/SplitSellRedeem.v3.js'
-import { definition as splitSellRedeemV4 } from '../strategies/split/SplitSellRedeem.v4.js'
-import { definition as splitSellRedeemV5 } from '../strategies/split/SplitSellRedeem.v5.js'
-import { definition as splitSellRedeemV51ResearchMetrics } from '../strategies/split/SplitSellRedeem.v5.1-research-metrics.js'
-import { definition as splitSellRedeemV52NetChange } from '../strategies/split/SplitSellRedeem.v5.2-netChange.js'
-import { definition as splitSellRedeemV53TechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.3-technical-indicators.js'
-import { definition as splitSellRedeemV54ResearchMetricsAndTechnicalIndicators } from '../strategies/split/SplitSellRedeem.v5.4-research-metrics-and-technical-indicators.js'
-// Gate Research
-import { definition as splitSellRedeemV5GateNetChange } from '../strategies/split/SplitSellRedeem.v5.gate-netChange.js'
-import { definition as splitSellRedeemV5GateHighLowRange } from '../strategies/split/SplitSellRedeem.v5.gate-highLowRange.js'
-import { definition as splitSellRedeemV5GateOrderbookImbalance } from '../strategies/split/SplitSellRedeem.v5.gate-orderbookImbalance.js'
-import { definition as splitSellRedeemV5GateTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf15mWickRatio.js'
-import { definition as splitSellRedeemV5GateTaTf1hWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-ta-tf1hWickRatio.js'
-import { definition as splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio } from '../strategies/split/SplitSellRedeem.v5.gate-netChange-and-ta-tf15mWickRatio.js'
-import { definition as splitSellRedeemV5Unwind } from '../strategies/split/SplitSellRedeem.v5.unwind.js'
-import { definition as splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex } from '../strategies/split/SplitSellRedeem.v5.5-gate-netChange-and-ta-tf15mWickRatio-flex.js'
-import { definition as splitSellRedeemV6 } from '../strategies/split/SplitSellRedeem.v6.js'
-import { definition as scalpV1 } from '../strategies/scalp/Scalp.v1.js'
 
-export const strategyRegistry = {
-  [basicFakV1.id]: basicFakV1,
-  [buyBothSidesAndMergeV1.id]: buyBothSidesAndMergeV1,
-  [placeLimitOrderAndCancelAfterFewSecV1.id]: placeLimitOrderAndCancelAfterFewSecV1,
-  [readExternalFeedsExampleV1.id]: readExternalFeedsExampleV1,
-  [readVolatilityIndicatorV1.id]: readVolatilityIndicatorV1,
-  [orderbookV1.id]: orderbookV1,
-  [winnerLimitV1.id]: winnerLimitV1,
-  [buyBatchLimitGTCV1.id]: buyBatchLimitGTCV1,
-  [buyBothV1.id]: buyBothV1,
-  [buyLowPriceV1.id]: buyLowPriceV1,
-  [measureLatencyV1.id]: measureLatencyV1,
-  [splitSellRedeemV1.id]: splitSellRedeemV1,
-  [splitSellRedeemV2.id]: splitSellRedeemV2,
-  [splitSellRedeemV3.id]: splitSellRedeemV3,
-  [splitSellRedeemV4.id]: splitSellRedeemV4,
-  [splitSellRedeemV5.id]: splitSellRedeemV5,
-  [splitSellRedeemV6.id]: splitSellRedeemV6,
-  [splitSellRedeemV51ResearchMetrics.id]: splitSellRedeemV51ResearchMetrics,
-  [splitSellRedeemV52NetChange.id]: splitSellRedeemV52NetChange,
-  [splitSellRedeemV53TechnicalIndicators.id]: splitSellRedeemV53TechnicalIndicators,
-  [splitSellRedeemV54ResearchMetricsAndTechnicalIndicators.id]:
-    splitSellRedeemV54ResearchMetricsAndTechnicalIndicators,
+/**
+ * The registry is built by auto-discovery: every file under src/strategies/**
+ * (at any depth) that exports a `definition` is registered automatically. There
+ * is no hand-maintained list — add a strategy by adding a file, remove one by
+ * deleting its file.
+ */
 
-  // Gate Research
-  [splitSellRedeemV5GateNetChange.id]: splitSellRedeemV5GateNetChange,
-  [splitSellRedeemV5GateHighLowRange.id]: splitSellRedeemV5GateHighLowRange,
-  [splitSellRedeemV5GateOrderbookImbalance.id]: splitSellRedeemV5GateOrderbookImbalance,
-  [splitSellRedeemV5GateTaTf15mWickRatio.id]: splitSellRedeemV5GateTaTf15mWickRatio,
-  [splitSellRedeemV5GateTaTf1hWickRatio.id]: splitSellRedeemV5GateTaTf1hWickRatio,
-  [splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio.id]:
-    splitSellRedeemV5GateNetChangeAndTaTf15mWickRatio,
+const selfPath = fileURLToPath(import.meta.url)
+const STRATEGIES_DIR = join(dirname(selfPath), '..', 'strategies')
 
-  [splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex.id]:
-    splitSellRedeemV55GateNetChangeAndTaTf15mWickRatioFlex,
-  // Unwind
-  [splitSellRedeemV5Unwind.id]: splitSellRedeemV5Unwind,
+// Load files with the SAME extension as this module: `.ts` under tsx (source),
+// `.js` when running compiled. Avoids importing both copies of a file.
+const EXT = extname(selfPath)
 
-  [scalpV1.id]: scalpV1,
-  // templates
-  [templateV1.id]: templateV1,
-  [templateTimeWindowGate.id]: templateTimeWindowGate,
-  [templateDwellGate.id]: templateDwellGate,
-} as const satisfies Record<string, StrategyDefinition<unknown>>
+/**
+ * A strategy file is recognised by this exact export, e.g.
+ *   `export const definition: StrategyDefinition<Config> = { ... }`
+ * We check the SOURCE for this before importing, so helper/CLI scripts (which
+ * may have side effects or call process.exit on import) are never loaded.
+ */
+const DEFINITION_EXPORT = /^export\s+const\s+definition\b/m
 
-export type StrategyId = keyof typeof strategyRegistry
+/** Recursively collect strategy source files under src/strategies/ (any depth). */
+function walk(dir: string): string[] {
+  const out: string[] = []
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    const full = join(dir, entry.name)
+    if (entry.isDirectory()) {
+      out.push(...walk(full))
+    } else if (entry.isFile() && extname(entry.name) === EXT && !entry.name.endsWith(`.d${EXT}`)) {
+      out.push(full)
+    }
+  }
+  return out
+}
+
+function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
+  return (
+    typeof x === 'object' &&
+    x !== null &&
+    typeof (x as { id?: unknown }).id === 'string' &&
+    typeof (x as { create?: unknown }).create === 'function' &&
+    'schema' in (x as object)
+  )
+}
+
+async function discoverStrategies(): Promise<Record<string, StrategyDefinition<unknown>>> {
+  const files = walk(STRATEGIES_DIR).sort()
+  const registry: Record<string, StrategyDefinition<unknown>> = {}
+
+  for (const file of files) {
+    // Cheap source check first — never import a file that isn't a strategy.
+    if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
+
+    let mod: Record<string, unknown>
+    try {
+      mod = (await import(pathToFileURL(file).href)) as Record<string, unknown>
+    } catch (err) {
+      throw new Error(`[strategy] failed to import ${file}: ${(err as Error).message}`)
+    }
+
+    const def = mod.definition
+    if (!isStrategyDefinition(def)) continue
+
+    if (registry[def.id]) {
+      throw new Error(`[strategy] duplicate strategy id ${JSON.stringify(def.id)} (in ${file})`)
+    }
+    registry[def.id] = def
+  }
+
+  return registry
+}
+
+/**
+ * Top-level await keeps the consumer API synchronous: any module that imports
+ * this one receives a fully-populated registry, with no startup wiring needed.
+ */
+export const strategyRegistry: Record<
+  string,
+  StrategyDefinition<unknown>
+> = await discoverStrategies()
+
+export type StrategyId = string
 
 export function getStrategyDefinition(id: string): StrategyDefinition<unknown> {
-  const def = (strategyRegistry as Record<string, StrategyDefinition<unknown>>)[id]
+  const def = strategyRegistry[id]
   if (!def) throw new Error(`[strategy] unknown strategy id=${JSON.stringify(id)}`)
   return def
 }
