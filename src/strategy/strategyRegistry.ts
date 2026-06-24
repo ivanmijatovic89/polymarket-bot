@@ -1,7 +1,15 @@
 import { readFileSync, readdirSync } from 'node:fs'
+import { createRequire } from 'node:module'
 import { dirname, extname, join } from 'node:path'
-import { fileURLToPath, pathToFileURL } from 'node:url'
+import { fileURLToPath } from 'node:url'
 import type { StrategyDefinition } from './strategyDefinition.js'
+
+// Synchronous module loader. Using `require` (not dynamic `import`) lets the
+// registry be built synchronously at module load, with NO top-level await —
+// which keeps the module compatible with CJS-transformed contexts such as
+// `tsx -e` and ad hoc inspection scripts. The project runs on tsx, which
+// transpiles .ts for require; compiled runs require the emitted .js.
+const requireStrategy = createRequire(import.meta.url)
 
 /**
  * The registry is built by auto-discovery: every file under src/strategies/**
@@ -49,19 +57,19 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
   )
 }
 
-async function discoverStrategies(): Promise<Record<string, StrategyDefinition<unknown>>> {
+function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
   const files = walk(STRATEGIES_DIR).sort()
   const registry: Record<string, StrategyDefinition<unknown>> = {}
 
   for (const file of files) {
-    // Cheap source check first — never import a file that isn't a strategy.
+    // Cheap source check first — never load a file that isn't a strategy.
     if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
 
     let mod: Record<string, unknown>
     try {
-      mod = (await import(pathToFileURL(file).href)) as Record<string, unknown>
+      mod = requireStrategy(file) as Record<string, unknown>
     } catch (err) {
-      throw new Error(`[strategy] failed to import ${file}: ${(err as Error).message}`)
+      throw new Error(`[strategy] failed to load ${file}: ${(err as Error).message}`)
     }
 
     const def = mod.definition
@@ -77,13 +85,11 @@ async function discoverStrategies(): Promise<Record<string, StrategyDefinition<u
 }
 
 /**
- * Top-level await keeps the consumer API synchronous: any module that imports
- * this one receives a fully-populated registry, with no startup wiring needed.
+ * Built synchronously at module load (no top-level await), so the
+ * getStrategyDefinition / listStrategies API stays synchronous and the module
+ * works in CJS-transformed contexts (e.g. `tsx -e`).
  */
-export const strategyRegistry: Record<
-  string,
-  StrategyDefinition<unknown>
-> = await discoverStrategies()
+export const strategyRegistry: Record<string, StrategyDefinition<unknown>> = discoverStrategies()
 
 export type StrategyId = string
 
