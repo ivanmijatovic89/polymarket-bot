@@ -41,6 +41,10 @@ export const FamilyIndex = z.object({
   family: Slug,
   status: FamilyStatus,
   coreIdea: z.string().min(1),
+  /** normalized synonyms of this family's idea — dedup hints for future proposals */
+  duplicateKeys: z.array(z.string()).default([]),
+  /** when killed/blocked: the condition under which to revisit; else null */
+  retryOnlyIf: z.string().nullable().default(null),
   /** winning experiment id, or null */
   champion: z.string().nullable(),
   tags: z.array(z.string()),

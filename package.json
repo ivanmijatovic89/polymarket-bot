@@ -24,6 +24,7 @@
     "trade:bot:eth": "cross-env TRADING_SYMBOL=ETH tsx src/cli/trading-bot.ts",
     "trade:bot:sol": "cross-env TRADING_SYMBOL=SOL tsx src/cli/trading-bot.ts",
     "trade:bot:xrp": "cross-env TRADING_SYMBOL=XRP tsx src/cli/trading-bot.ts",
+    "research:build-index": "tsx strategy-research-protocol/buildIndex.ts",
     "backtest": "tsx src/cli/backtest.ts",
     "backtest:worker": "tsx src/cli/backtestWorker.ts",
     "backtest:verify-diff": "tsx src/cli/verify-backtest-diff.ts",

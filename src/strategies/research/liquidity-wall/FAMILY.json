@@ -4,6 +4,14 @@
   "family": "liquidity-wall",
   "status": "proposed",
   "coreIdea": "Trade around a single dominant resting order (a wall) — single-level size concentration, not aggregate imbalance",
+  "duplicateKeys": [
+    "liquidity-wall",
+    "resting-wall",
+    "size-concentration",
+    "dominant-level",
+    "wall-defense"
+  ],
+  "retryOnlyIf": null,
   "champion": null,
   "tags": ["orderbook", "liquidity", "concentration", "entry-signal"],
   "experiments": [

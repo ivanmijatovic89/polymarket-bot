@@ -79,8 +79,10 @@ not dedup.)
      `proposed`, champion `null`, tags) + the required H2 sections. The
      **Experiments to try** section is a ranked plain-prose list of ≥3
      mechanism-backed ideas (no padding). The baseline knob sweep is always #1.
-   - `FAMILY.json` — `status: proposed`, `champion: null`, with **exactly one**
-     experiment seeded:
+   - `FAMILY.json` — `status: proposed`, `champion: null`, `retryOnlyIf: null`,
+     and `duplicateKeys`: a few normalized synonyms of this family's idea (so
+     future proposals can dedup against it). With **exactly one** experiment
+     seeded:
      - `id: <family>.001-baseline-sweep`, `order: 1`
      - `kind: "param-search"`, `requiresCode: true`
      - `code`: the base strategy filename (e.g. `Strategy.ts`)
