@@ -7,8 +7,10 @@ import type { StrategyDefinition } from './strategyDefinition.js'
 // Synchronous module loader. Using `require` (not dynamic `import`) lets the
 // registry be built synchronously at module load, with NO top-level await —
 // which keeps the module compatible with CJS-transformed contexts such as
-// `tsx -e` and ad hoc inspection scripts. The project runs on tsx, which
-// transpiles .ts for require; compiled runs require the emitted .js.
+// `tsx -e` and ad hoc inspection scripts. This assumes a tsx runtime (which
+// transpiles .ts and handles require interop); a plain compiled-to-.js run on
+// Node <22 would need dynamic import instead, since require() of an ES module
+// is unsupported there.
 const requireStrategy = createRequire(import.meta.url)
 
 /**
@@ -72,8 +74,17 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
       throw new Error(`[strategy] failed to load ${file}: ${(err as Error).message}`)
     }
 
+    // The file declared `export const definition` (matched above), so it is
+    // meant to be a strategy. If its definition is malformed, fail loud rather
+    // than silently dropping it — otherwise it surfaces much later as a
+    // confusing "unknown strategy id" at run time.
     const def = mod.definition
-    if (!isStrategyDefinition(def)) continue
+    if (!isStrategyDefinition(def)) {
+      throw new Error(
+        `[strategy] ${file} looks like a strategy (exports \`definition\`) but it is not a valid ` +
+          `StrategyDefinition — it needs a string \`id\`, a \`schema\`, and a \`create()\` function.`,
+      )
+    }
 
     if (registry[def.id]) {
       throw new Error(`[strategy] duplicate strategy id ${JSON.stringify(def.id)} (in ${file})`)
