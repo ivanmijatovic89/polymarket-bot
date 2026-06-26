@@ -98,10 +98,17 @@ export default withMermaid(
             { text: 'Running Backtests', link: '/backtest/running-backtests' },
             { text: 'Extending a Run', link: '/backtest/extending-a-run' },
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
-            { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
-            { text: 'Distributed Workers', link: '/backtest/distributed-future' },
-            { text: 'Cloud Workers & Costs', link: '/backtest/cloud-workers-and-costs' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
+            {
+              text: 'Distributed Workers',
+              collapsed: false,
+              items: [
+                { text: 'Distributed Workers', link: '/backtest/distributed-future' },
+                { text: 'Install a Backtest Worker', link: '/backtest/worker-install-instructions' },
+                { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
+                { text: 'Cloud Workers & Costs', link: '/backtest/cloud-workers-and-costs' },
+              ],
+            },
             {
               text: 'Statistics',
               collapsed: false,
