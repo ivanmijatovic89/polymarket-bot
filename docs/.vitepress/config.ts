@@ -47,6 +47,10 @@ export default withMermaid(
               items: [
                 { text: 'Overview', link: '/datasets/recording/overview' },
                 { text: 'Recording Live Events', link: '/datasets/recording/recording-live-events' },
+                { text: 'Parquet Event Writer', link: '/engine/parquet-event-writer' },
+                { text: 'Parquet Event Schema', link: '/engine/parquet-event-schema' },
+                { text: 'List Backtest Files', link: '/datasets/recording/list-backtest-files' },
+                { text: 'Seed Database from Parquet', link: '/datasets/recording/insert-parquet-to-db' },
                 { text: 'Scan Disconnect Events', link: '/datasets/recording/scan-disconnect-events' },
               ],
             },
@@ -85,8 +89,6 @@ export default withMermaid(
               collapsed: true,
               items: [
                 { text: 'Verify Parquet File', link: '/datasets/tools/verify-parquet' },
-                { text: 'List Backtest Files', link: '/datasets/recording/list-backtest-files' },
-                { text: 'Seed Database from Parquet', link: '/datasets/recording/insert-parquet-to-db' },
               ],
             },
           ],
@@ -207,8 +209,6 @@ export default withMermaid(
             { text: 'Portfolio', link: '/engine/portfolio' },
             { text: 'Backtest Execution', link: '/engine/backtest-execution' },
             { text: 'Live Execution', link: '/engine/live-execution' },
-            { text: 'Parquet Event Writer', link: '/engine/parquet-event-writer' },
-            { text: 'Parquet Event Schema', link: '/engine/parquet-event-schema' },
           ],
         },
 
