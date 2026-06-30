@@ -340,6 +340,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
           splitCost: toDecimal(entry.stats.splitCost),
           intentMeta: entry.stats.intentMeta,
           machineId: entry.stats.execution?.machineId ?? null,
+          workerChildId: entry.stats.execution?.workerChildId ?? null,
           startedAtMs: entry.stats.execution?.startedAtMs ?? null,
           finishedAtMs: entry.stats.execution?.finishedAtMs ?? null,
           durationMs: entry.stats.execution?.durationMs ?? null,
@@ -417,6 +418,7 @@ async function hydrateBacktestRun(
       m.eventsProcessed !== null
         ? {
             machineId: m.machineId,
+            workerChildId: m.workerChildId,
             startedAtMs: m.startedAtMs,
             finishedAtMs: m.finishedAtMs,
             durationMs: m.durationMs,
@@ -781,6 +783,7 @@ export async function applyExtensionToRun(opts: {
         m.eventsProcessed !== null
           ? {
               machineId: m.machineId,
+              workerChildId: m.workerChildId,
               startedAtMs: m.startedAtMs,
               finishedAtMs: m.finishedAtMs,
               durationMs: m.durationMs,
@@ -842,6 +845,7 @@ export async function applyExtensionToRun(opts: {
           splitCost: toDecimal(entry.stats.splitCost),
           intentMeta: entry.stats.intentMeta,
           machineId: entry.stats.execution?.machineId ?? null,
+          workerChildId: entry.stats.execution?.workerChildId ?? null,
           startedAtMs: entry.stats.execution?.startedAtMs ?? null,
           finishedAtMs: entry.stats.execution?.finishedAtMs ?? null,
           durationMs: entry.stats.execution?.durationMs ?? null,

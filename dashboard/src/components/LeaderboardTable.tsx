@@ -12,16 +12,16 @@ export type LeaderboardTableProps = {
   emptyHint?: string
 }
 
-function formatCpuTime(seconds: number): string {
+function formatWorkerTime(seconds: number): string {
   if (seconds < 60) return `${seconds.toFixed(1)}s`
   if (seconds < 3600) return `${(seconds / 60).toFixed(1)}m`
   return `${(seconds / 3600).toFixed(2)}h`
 }
 
-function formatRate(eventsPerSec: number | null): string {
-  if (eventsPerSec === null) return '—'
-  if (eventsPerSec >= 1000) return `${(eventsPerSec / 1000).toFixed(1)}k/s`
-  return `${eventsPerSec.toFixed(0)}/s`
+function formatRate(ratePerSec: number | null): string {
+  if (ratePerSec === null) return '—'
+  if (ratePerSec >= 1000) return `${(ratePerSec / 1000).toFixed(1)}k/s`
+  return `${ratePerSec.toFixed(0)}/s`
 }
 
 /**
@@ -50,8 +50,8 @@ export function LeaderboardTable({ rows, emptyHint }: LeaderboardTableProps) {
             <TableHead>Machine</TableHead>
             <TableHead className="text-right">Markets</TableHead>
             <TableHead className="text-right">Events</TableHead>
-            <TableHead className="text-right">CPU time</TableHead>
-            <TableHead className="text-right">Throughput</TableHead>
+            <TableHead className="text-right">Worker time</TableHead>
+            <TableHead className="text-right">Worker rate</TableHead>
             <TableHead className="text-right">Commits</TableHead>
             <TableHead className="text-right">Last active</TableHead>
           </TableRow>
@@ -70,10 +70,10 @@ export function LeaderboardTable({ rows, emptyHint }: LeaderboardTableProps) {
                 {r.eventsTotal.toLocaleString()}
               </TableCell>
               <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                {formatCpuTime(r.cpuSeconds)}
+                {formatWorkerTime(r.workerSeconds)}
               </TableCell>
               <TableCell className="text-right tabular-nums text-xs">
-                {formatRate(r.eventsPerSec)}
+                {formatRate(r.eventsPerWorkerSec)}
               </TableCell>
               <TableCell className="text-right">
                 {r.commitVersions > 1 ? (

@@ -14,6 +14,7 @@ export type TradeEvent = Fill
  */
 export type MarketExecutionMeta = {
   machineId: string
+  workerChildId?: number | null
   startedAtMs: number
   finishedAtMs: number
   durationMs: number

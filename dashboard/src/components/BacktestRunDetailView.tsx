@@ -87,6 +87,7 @@ type RunDetail = {
     mergableShares: number
     execution?: {
       machineId: string
+      workerChildId?: number | null
       durationMs: number
       eventsProcessed: number
     }
