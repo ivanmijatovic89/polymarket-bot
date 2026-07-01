@@ -8,9 +8,9 @@ export type LeaderboardRow = {
   machineId: string
   marketsDone: number
   eventsTotal: number
-  cpuSeconds: number
-  /** `eventsTotal / cpuSeconds`. Null when cpuSeconds is 0 (avoids div-by-zero). */
-  eventsPerSec: number | null
+  workerSeconds: number
+  /** `eventsTotal / workerSeconds`. Null when workerSeconds is 0 (avoids div-by-zero). */
+  eventsPerWorkerSec: number | null
   lastActiveMs: number | null
   commitVersions: number
 }
@@ -50,7 +50,7 @@ export async function listLeaderboard(range: LeaderboardRange): Promise<Leaderbo
       eventsTotal: sum(backtestRunMarkets.eventsProcessed),
       // Cast to UNSIGNED so MySQL doesn't promote `int` durationMs to a
       // signed bigint we'd then have to coerce on the JS side.
-      cpuMs: sum(backtestRunMarkets.durationMs),
+      workerMs: sum(backtestRunMarkets.durationMs),
       lastActiveMs: max(backtestRunMarkets.finishedAtMs),
       commitVersions: countDistinct(backtestRunMarkets.commitSha),
     })
@@ -63,14 +63,14 @@ export async function listLeaderboard(range: LeaderboardRange): Promise<Leaderbo
     .filter((r): r is typeof r & { machineId: string } => r.machineId !== null)
     .map((r) => {
       const eventsTotal = Number(r.eventsTotal ?? 0)
-      const cpuMs = Number(r.cpuMs ?? 0)
-      const cpuSeconds = cpuMs / 1000
+      const workerMs = Number(r.workerMs ?? 0)
+      const workerSeconds = workerMs / 1000
       return {
         machineId: r.machineId,
         marketsDone: Number(r.marketsDone ?? 0),
         eventsTotal,
-        cpuSeconds,
-        eventsPerSec: cpuSeconds > 0 ? eventsTotal / cpuSeconds : null,
+        workerSeconds,
+        eventsPerWorkerSec: workerSeconds > 0 ? eventsTotal / workerSeconds : null,
         lastActiveMs: r.lastActiveMs !== null ? Number(r.lastActiveMs) : null,
         commitVersions: Number(r.commitVersions ?? 0),
       }

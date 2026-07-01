@@ -70,6 +70,8 @@ export type RunSingleMarketInput = {
   strategyWindow?: { startMs: number; endMs: number } | null
   /** Stable per-machine id from `getMachineId()`. Persisted with the row. */
   machineId: string
+  /** Forked market worker child id on that machine. Null for sequential/legacy paths. */
+  workerChildId?: number | null
   /** Git SHA the worker is running on. Stored in execution metadata. */
   commitSha: string
   /**
@@ -168,6 +170,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     const finishedAtMs = Date.now()
     return {
       machineId: input.machineId,
+      workerChildId: input.workerChildId ?? null,
       startedAtMs,
       finishedAtMs,
       durationMs: finishedAtMs - startedAtMs,

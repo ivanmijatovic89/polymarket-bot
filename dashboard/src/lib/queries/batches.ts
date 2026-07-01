@@ -286,24 +286,27 @@ export async function getBatchDetail(batchUid: string) {
 /** Per-machine slice of a run's execution work. */
 export type MachineExecution = {
   machineId: string
+  workers: number | null
   markets: number
-  cpuTimeMs: number
+  /** Summed per-market elapsed time, used only for per-machine rate diagnostics. */
+  workerTimeMs: number
   eventsProcessed: number
-  /** Share of total CPU time (Σ durationMs), 0–100. */
+  /** Share of total processed events, 0–100. */
   sharePct: number
 }
 
 /**
  * Aggregate timing for a run, derived in-memory from the already-loaded
  * market rows (no extra DB work). `wallClockMs` is the real elapsed span
- * across machines (max finished − min started); `cpuTimeMs` is the summed
- * per-market processing time. `spansExtension` flags runs whose markets were
+ * across machines (max finished − min started); `workerTimeMs` is retained as
+ * summed per-market elapsed processing time for rate diagnostics. `spansExtension`
+ * flags runs whose markets were
  * processed in disjoint time windows (e.g. via `--extend`), where wall-clock
  * includes the idle gap between windows and overstates real run time.
  */
 export type ExecutionSummary = {
   wallClockMs: number
-  cpuTimeMs: number
+  workerTimeMs: number
   marketsWithTiming: number
   eventsTotal: number
   perMachine: MachineExecution[]
@@ -320,7 +323,7 @@ function buildExecutionSummary(rows: MarketRow[]): ExecutionSummary | null {
 
   let minStarted = Infinity
   let maxFinished = -Infinity
-  let cpuTimeMs = 0
+  let workerTimeMs = 0
   let eventsTotal = 0
   const byMachine = new Map<string, MachineExecution>()
 
@@ -332,35 +335,48 @@ function buildExecutionSummary(rows: MarketRow[]): ExecutionSummary | null {
 
     if (started < minStarted) minStarted = started
     if (finished > maxFinished) maxFinished = finished
-    cpuTimeMs += duration
+    workerTimeMs += duration
     eventsTotal += events
 
     const m = byMachine.get(r.machineId as string) ?? {
       machineId: r.machineId as string,
+      workers: null,
       markets: 0,
-      cpuTimeMs: 0,
+      workerTimeMs: 0,
       eventsProcessed: 0,
       sharePct: 0,
     }
     m.markets += 1
-    m.cpuTimeMs += duration
+    m.workerTimeMs += duration
     m.eventsProcessed += events
     byMachine.set(m.machineId, m)
   }
 
+  const workersByMachine = new Map<string, Set<number>>()
+  for (const r of timed) {
+    if (r.machineId === null || r.workerChildId === null) continue
+    const set = workersByMachine.get(r.machineId) ?? new Set<number>()
+    set.add(r.workerChildId)
+    workersByMachine.set(r.machineId, set)
+  }
+
   const perMachine = [...byMachine.values()]
-    .map((m) => ({ ...m, sharePct: cpuTimeMs > 0 ? (m.cpuTimeMs / cpuTimeMs) * 100 : 0 }))
-    .sort((a, b) => b.cpuTimeMs - a.cpuTimeMs)
+    .map((m) => ({
+      ...m,
+      workers: workersByMachine.get(m.machineId)?.size ?? null,
+      sharePct: eventsTotal > 0 ? (m.eventsProcessed / eventsTotal) * 100 : 0,
+    }))
+    .sort((a, b) => b.eventsProcessed - a.eventsProcessed)
 
   const wallClockMs = maxFinished - minStarted
   // Wall-clock should never be shorter than the single longest market; if the
   // summed busy time of all machines is far below wall-clock there were idle
   // gaps (disjoint processing windows, e.g. an --extend run).
-  const spansExtension = wallClockMs > cpuTimeMs
+  const spansExtension = wallClockMs > workerTimeMs
 
   return {
     wallClockMs,
-    cpuTimeMs,
+    workerTimeMs,
     marketsWithTiming: timed.length,
     eventsTotal,
     perMachine,
@@ -409,6 +425,7 @@ async function hydrateBacktestRunDetail(run: typeof backtestRuns.$inferSelect) {
         ? {
             execution: {
               machineId: m.machineId,
+              workerChildId: m.workerChildId,
               durationMs: m.durationMs,
               eventsProcessed: m.eventsProcessed,
             },

@@ -208,6 +208,7 @@ export const backtestRunMarkets = mysqlTable(
     intentMeta: json('intent_meta').$type<Array<Record<string, unknown>>>().notNull(),
 
     machineId: varchar('machine_id', { length: 32 }),
+    workerChildId: int('worker_child_id'),
     startedAtMs: bigint('started_at_ms', { mode: 'number' }),
     finishedAtMs: bigint('finished_at_ms', { mode: 'number' }),
     durationMs: int('duration_ms'),

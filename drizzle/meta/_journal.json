@@ -155,6 +155,13 @@
       "when": 1781740800000,
       "tag": "0021_backtest_runs_read_from_widen",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "5",
+      "when": 1781827200000,
+      "tag": "0022_backtest_run_markets_worker_child_id",
+      "breakpoints": true
     }
   ]
 }

@@ -89,7 +89,7 @@ async function main(): Promise<void> {
   console.log(`[worker-child=${processKey}] ready commitSha=${loadedSha}`)
 
   const stopHeartbeat = await startHeartbeat(processKey, loadedSha)
-  const processor = makeMarketProcessor(machineId)
+  const processor = makeMarketProcessor({ machineId, workerChildId: childId })
   const w = new Worker(
     MARKET_QUEUE,
     async (job, token) => {
