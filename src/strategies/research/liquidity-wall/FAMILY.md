@@ -29,7 +29,7 @@ distance to touch) is an experiment knob.
 
 ## Experiments to try
 
-1. **Baseline knob sweep** — does _any_ param region beat baseline net of fees?
+1. **Baseline knob sweep** — does _any_ param region reach `evPerMarketTotal` > 0?
    Go/no-go gate, and it discovers the sign via the `mode` (follow/fade) knob.
    Sweeps `wallRatio`, `depthLevels`, `minWallShares`, `dwellSec`, `mode`,
    `takeProfit`. (Always first.)
@@ -38,7 +38,7 @@ distance to touch) is an experiment knob.
    dominates and the book is proven efficient to within cost. On thin SOL / XRP
    (and to a lesser extent ETH) a wall genuinely dominates its side and is not
    instantly arbed, so the concentration signal is both more frequent and more
-   informative. Run the frozen config per-symbol and compare GROSS.
+   informative. Run the frozen config per-symbol and compare `evPerMarketTotal`.
 3. **Spoof-aware persistence** — a real defended wall survives; a spoof wall is
    _pulled the instant price approaches it_. Extend the `dwellSec` persistence
    into a shrink-aware filter: require the wall to survive N ticks **and** not
@@ -86,8 +86,8 @@ exit re-tuning.
 
 ### 001 — baseline sweep
 
-Hypothesis: does any param region of the concentration driver beat baseline net
-of fees, and does `follow` or `fade` carry the sign?
+Hypothesis: does any param region of the concentration driver reach
+`evPerMarketTotal` > 0, and does `follow` or `fade` carry the sign?
 Result: (pending — FAMILY.json experiment `liquidity-wall.001-baseline-sweep`)
 
 ## Duplicate notes

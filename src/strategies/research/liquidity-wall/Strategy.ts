@@ -38,9 +38,9 @@ import * as z from 'zod'
  *  - Exit: take-profit / stop / maxHold / late-window bailout. Open only when
  *    secondsLeft >= `minSecondsLeft`.
  *
- * v1 uses TAKER entry + taker exit so we read GROSS (pre-fee) cleanly, and so the
- * backtest's adversely-selected passive-fill model does not bite (cf. the
- * book-imbalance v2 maker-TP lesson). LIVE CAVEAT: buy-then-sell needs MINED
+ * v1 uses TAKER entry + taker exit so fees land explicitly in `evPerMarketTotal`
+ * (the metric we judge on), and so the backtest's adversely-selected passive-fill
+ * model does not bite (cf. the book-imbalance v2 maker-TP lesson). LIVE CAVEAT: buy-then-sell needs MINED
  * before selling (see CLAUDE.md); the backtest books on fill.
  */
 
