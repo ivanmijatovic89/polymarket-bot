@@ -1,5 +1,5 @@
 /**
- * build-index — regenerate src/strategies/research/INDEX.json from every
+ * buildStrategyIndex — regenerate src/strategies/research/INDEX.json from every
  * FAMILY.json under src/strategies/research/.
  *
  * INDEX.json is a generated rollup, never hand-edited. Run after adding or
@@ -48,7 +48,7 @@ function rollupRow(folder: string): GlobalIndexFamily | null {
   }
 }
 
-function buildIndex(): GlobalIndex {
+function buildStrategyIndex(): GlobalIndex {
   const families = familyFolders()
     .map(rollupRow)
     .filter((r): r is GlobalIndexFamily => r !== null)
@@ -66,7 +66,7 @@ function buildIndex(): GlobalIndex {
   })
 }
 
-const index = buildIndex()
+const index = buildStrategyIndex()
 const json = JSON.stringify(index, null, 2) + '\n'
 
 const checkMode = process.argv.includes('--check')

@@ -101,7 +101,7 @@ not dedup.)
      edit needed** — strategies are auto-discovered from `src/strategies/**`.
    - Make sure it typechecks. Do not run a backtest.
 
-7. **Do not touch INDEX.json.** The orchestrator runs `build-index` afterward.
+7. **Do not touch INDEX.json.** The orchestrator runs `buildStrategyIndex` afterward.
 
 ## Forbidden
 

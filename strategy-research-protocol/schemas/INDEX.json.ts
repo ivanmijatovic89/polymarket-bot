@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { FamilyStatus, ResultRef, Slug } from './enums.js'
+import { FamilyStatus, ResultRef, Slug } from './statuses.js'
 
 /** One rollup row in the global index. Generated from each FAMILY.json. */
 export const GlobalIndexFamily = z.object({

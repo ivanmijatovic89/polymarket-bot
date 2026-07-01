@@ -6,7 +6,7 @@ import {
   FamilyStatus,
   ResultRef,
   Slug,
-} from './enums.js'
+} from './statuses.js'
 
 /** One experiment = one hypothesis from the family's menu. */
 export const Experiment = z.object({

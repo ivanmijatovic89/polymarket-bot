@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { parse as parseYaml } from 'yaml'
-import { FamilyStatus, Slug } from './enums.js'
+import { FamilyStatus, Slug } from './statuses.js'
 
 /**
  * FAMILY.md frontmatter — the human/AI-readable reasoning file.
