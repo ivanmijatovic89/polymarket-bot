@@ -137,6 +137,31 @@ on several MacBooks or other worker machines at once. Agents should treat worker
 execution as the normal path for meaningful runs, not as a separate research
 concept.
 
+## Workers Run Committed Code Only
+
+Every backtest job carries the commit SHA of the code that submitted it.
+Workers gate on that SHA: a worker that is behind pulls and relaunches itself
+automatically. Uncommitted code never reaches a worker — the CLI refuses to
+enqueue a backtest when the working tree is dirty.
+
+The daily loop is therefore:
+
+```text
+write strategy -> commit -> push -> run backtest
+```
+
+- On a single machine, committing is enough.
+- With workers on other machines, the commit must also be pushed — a remote
+  worker can only fetch commits that exist on the shared remote.
+- Extending an existing run enqueues jobs on the current commit while the
+  parent's markets ran on an older one. Merging those results into one run is
+  valid only because frozen strategy files never change (see the freeze rule
+  in
+  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md)).
+
+Full mechanism:
+[`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md).
+
 ## Backtest Speed And Sizing
 
 Backtest speed depends on market count, active worker slots, replay data access,

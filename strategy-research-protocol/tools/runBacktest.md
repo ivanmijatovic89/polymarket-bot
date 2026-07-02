@@ -22,6 +22,12 @@ Create a new backtest run for one strategy or experiment.
 - Market selection: latest, random, explicit time range, or limit.
 - Optional execution mode: sequential, queued, or detached.
 
+## Precondition
+
+Commit (and push, when workers run on other machines) before submitting —
+workers run committed code only. See
+[`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
+
 ## Protocol Defaults
 
 Use these defaults unless the experiment explicitly says otherwise:

@@ -181,9 +181,12 @@ Before using a tool or worker, read its dedicated instruction file.
 - Tool list: [`strategy-research-protocol/tools/index.md`](./tools/index.md)
 - Index generation:
   [`strategy-research-protocol/tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
-- Naming rules: [`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md)
-- Versioning rules:
-  [`strategy-research-protocol/rules/VERSIONING.md`](./rules/VERSIONING.md)
+- Family naming rules:
+  [`strategy-research-protocol/rules/FAMILY-NAMING.md`](./rules/FAMILY-NAMING.md)
+- Experiment naming, code files, champion pointer:
+  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md)
+- Batch UID naming:
+  [`strategy-research-protocol/rules/BATCH-UID.md`](./rules/BATCH-UID.md)
 
 Agents must preserve the live/backtest invariant and should not invent missing
 protocol behavior. If a required module is missing, add that module explicitly
@@ -199,8 +202,6 @@ These are the next pieces to define:
   experiment proposal.
 - `strategy-research-protocol/modules/EvaluateExperiment.md` - objective
   evaluator contract.
-- [`strategy-research-protocol/rules/VERSIONING.md`](./rules/VERSIONING.md) -
-  exact strategy file naming and promotion rules.
 - `npm run research:check` - full protocol validation.
 - Stronger schema invariants across
   `src/strategies/research/<family>/FAMILY.md`,

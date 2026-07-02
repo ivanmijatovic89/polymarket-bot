@@ -35,8 +35,10 @@ the folder for you; do **not** call `mkdir`.
   `FAMILY.md`, `FAMILY.json`, and generated index memory.
 - [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) — hard rules
   a family must not violate.
-- [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md) — how to
-  name a family and its experiments.
+- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md)
+  and
+  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
+  — how to name a family, its experiments, and code files.
 - `strategy-research-protocol/schemas/` — the shapes you must emit
   (`src/strategies/research/<family>/FAMILY.md`,
   `src/strategies/research/<family>/FAMILY.json`).
@@ -67,7 +69,9 @@ not dedup.)
    [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json),
    [`strategy-research-protocol/MEMORY.md`](../MEMORY.md),
    [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), and
-   [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
+   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
+   and
+   [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md).
 
 2. **Form an idea.**
    - Seed mode: develop the family around the user's seed.

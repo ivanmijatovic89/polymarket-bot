@@ -23,6 +23,16 @@ Add market coverage to an existing Telonex backtest run.
 - Optional market selection: `--limit`, `--latest`, `--random`, `--from-ms`,
   `--to-ms`.
 
+## Precondition
+
+An extension runs on your current commit, while the parent's markets ran on an
+older one. Merging them into one run is valid only because frozen strategy
+files never change — see the freeze rule in
+[`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
+and
+[`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
+The working tree must be clean (the CLI refuses a dirty tree).
+
 ## Protocol Defaults
 
 Use `extendBacktest` when the strategy, params, symbol, timeframe, input mode,
