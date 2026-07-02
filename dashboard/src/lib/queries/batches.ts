@@ -1,6 +1,11 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
 import { getDb } from '../db'
-import { backtestRunFailures, backtestRunMarkets, backtestRuns } from '../schema'
+import {
+  backtestRunFailures,
+  backtestRunMarkets,
+  backtestRunSegments,
+  backtestRuns,
+} from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
 
 export type ActiveBatchSummary = {
@@ -140,25 +145,87 @@ function toNumber(value: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
-function mapRunSummary(run: typeof backtestRuns.$inferSelect) {
+type AllSegmentRow = typeof backtestRunSegments.$inferSelect
+
+function emptySegmentStats(capitalInitial: unknown) {
+  const initial = toNumber(capitalInitial)
+  return {
+    capitalInitial: initial,
+    capitalFinal: initial,
+    pnlTotal: 0,
+    totalFeesPaid: 0,
+    qualitySystem: null,
+    qualityTrade: null,
+    evPerMarketPlayed: 0,
+    evPerMarketTotal: 0,
+    marketsTotal: 0,
+    marketsSkipped: 0,
+    marketsNoInWindowActivity: 0,
+    marketsFlatWithTrades: 0,
+    marketsPlayed: 0,
+    marketsWon: 0,
+    marketsLost: 0,
+    winRate: 0,
+    winRatePct: 0,
+    tradesTotal: 0,
+    tradesMaker: 0,
+    tradesTaker: 0,
+    pnlAvgWin: 0,
+    pnlAvgLose: 0,
+    pnlMaxWin: 0,
+    pnlMaxLose: 0,
+    streakMaxWin: 0,
+    streakMaxLose: 0,
+    streakMaxWinPnl: 0,
+    streakMaxLosePnl: 0,
+    streakMaxSkipped: 0,
+  }
+}
+
+function mapSegmentStats(segment: AllSegmentRow) {
+  return {
+    capitalInitial: toNumber(segment.capitalInitial),
+    capitalFinal: toNumber(segment.capitalFinal),
+    pnlTotal: toNumber(segment.pnlTotal),
+    totalFeesPaid: toNumber(segment.totalFeesPaid),
+    qualitySystem: segment.qualitySystem === null ? null : toNumber(segment.qualitySystem),
+    qualityTrade: segment.qualityTrade === null ? null : toNumber(segment.qualityTrade),
+    evPerMarketPlayed: toNumber(segment.evPerMarketPlayed),
+    evPerMarketTotal: toNumber(segment.evPerMarketTotal),
+    marketsTotal: segment.marketsTotal,
+    marketsSkipped: segment.marketsSkipped,
+    marketsNoInWindowActivity: segment.marketsNoInWindowActivity,
+    marketsFlatWithTrades: segment.marketsFlatWithTrades,
+    marketsPlayed: segment.marketsPlayed,
+    marketsWon: segment.marketsWon,
+    marketsLost: segment.marketsLost,
+    winRate: toNumber(segment.winRate),
+    winRatePct: toNumber(segment.winRatePct),
+    tradesTotal: segment.tradesTotal,
+    tradesMaker: segment.tradesMaker,
+    tradesTaker: segment.tradesTaker,
+    pnlAvgWin: toNumber(segment.pnlAvgWin),
+    pnlAvgLose: toNumber(segment.pnlAvgLose),
+    pnlMaxWin: toNumber(segment.pnlMaxWin),
+    pnlMaxLose: toNumber(segment.pnlMaxLose),
+    streakMaxWin: segment.streakMaxWin,
+    streakMaxLose: segment.streakMaxLose,
+    streakMaxWinPnl: toNumber(segment.streakMaxWinPnl),
+    streakMaxLosePnl: toNumber(segment.streakMaxLosePnl),
+    streakMaxSkipped: segment.streakMaxSkipped,
+  }
+}
+
+function mapRunSummary(
+  run: typeof backtestRuns.$inferSelect,
+  allSegment: AllSegmentRow | null,
+) {
+  if (!allSegment && run.marketsPersisted > 0) {
+    throw new Error(`[dashboard/batches] missing all segment for run #${run.id}`)
+  }
   return {
     ...run,
-    capitalInitial: toNumber(run.capitalInitial),
-    capitalFinal: toNumber(run.capitalFinal),
-    pnlTotal: toNumber(run.pnlTotal),
-    totalFeesPaid: toNumber(run.totalFeesPaid),
-    qualitySystem: run.qualitySystem === null ? null : toNumber(run.qualitySystem),
-    qualityTrade: run.qualityTrade === null ? null : toNumber(run.qualityTrade),
-    evPerMarketPlayed: toNumber(run.evPerMarketPlayed),
-    evPerMarketTotal: toNumber(run.evPerMarketTotal),
-    winRate: toNumber(run.winRate),
-    winRatePct: toNumber(run.winRatePct),
-    pnlAvgWin: toNumber(run.pnlAvgWin),
-    pnlAvgLose: toNumber(run.pnlAvgLose),
-    pnlMaxWin: toNumber(run.pnlMaxWin),
-    pnlMaxLose: toNumber(run.pnlMaxLose),
-    streakMaxWinPnl: toNumber(run.streakMaxWinPnl),
-    streakMaxLosePnl: toNumber(run.streakMaxLosePnl),
+    ...(allSegment ? mapSegmentStats(allSegment) : emptySegmentStats(run.capitalInitial)),
   }
 }
 
@@ -208,56 +275,54 @@ export async function listHistoricalBatches(
     conditions.push(eq(backtestRuns.status, filters.status))
   }
   const rows = await db
-    .select({
-      id: backtestRuns.id,
-      batchUid: backtestRuns.batchUid,
-      status: backtestRuns.status,
-      strategy: backtestRuns.strategy,
-      symbol: backtestRuns.symbol,
-      limit: backtestRuns.limit,
-      inputMarketsTotal: backtestRuns.inputMarketsTotal,
-      comment: backtestRuns.comment,
-      pnlTotal: backtestRuns.pnlTotal,
-      winRatePct: backtestRuns.winRatePct,
-      tradesTotal: backtestRuns.tradesTotal,
-      tradesMaker: backtestRuns.tradesMaker,
-      tradesTaker: backtestRuns.tradesTaker,
-      marketsTotal: backtestRuns.marketsTotal,
-      marketsPlayed: backtestRuns.marketsPlayed,
-      marketsSkipped: backtestRuns.marketsSkipped,
-      failuresCount: backtestRuns.failuresCount,
-      cmd: backtestRuns.cmd,
-      pnlAvgWin: backtestRuns.pnlAvgWin,
-      pnlAvgLose: backtestRuns.pnlAvgLose,
-      evPerMarketPlayed: backtestRuns.evPerMarketPlayed,
-      evPerMarketTotal: backtestRuns.evPerMarketTotal,
-      streakMaxWin: backtestRuns.streakMaxWin,
-      streakMaxLose: backtestRuns.streakMaxLose,
-      streakMaxWinPnl: backtestRuns.streakMaxWinPnl,
-      streakMaxLosePnl: backtestRuns.streakMaxLosePnl,
-      qualitySystem: backtestRuns.qualitySystem,
-      qualityTrade: backtestRuns.qualityTrade,
-      totalFeesPaid: backtestRuns.totalFeesPaid,
-      createdAt: backtestRuns.createdAt,
-    })
+    .select({ run: backtestRuns, allSegment: backtestRunSegments })
     .from(backtestRuns)
+    .leftJoin(
+      backtestRunSegments,
+      and(
+        eq(backtestRunSegments.runId, backtestRuns.id),
+        eq(backtestRunSegments.segmentKind, 'all'),
+        eq(backtestRunSegments.segmentKey, 'all'),
+      ),
+    )
     .where(conditions.length > 0 ? and(...conditions) : undefined)
     .orderBy(desc(backtestRuns.createdAt))
     .limit(limit)
-  return rows.map((row) => ({
-    ...row,
-    pnlTotal: toNumber(row.pnlTotal),
-    winRatePct: toNumber(row.winRatePct),
-    pnlAvgWin: toNumber(row.pnlAvgWin),
-    pnlAvgLose: toNumber(row.pnlAvgLose),
-    evPerMarketPlayed: toNumber(row.evPerMarketPlayed),
-    evPerMarketTotal: toNumber(row.evPerMarketTotal),
-    streakMaxWinPnl: toNumber(row.streakMaxWinPnl),
-    streakMaxLosePnl: toNumber(row.streakMaxLosePnl),
-    qualitySystem: row.qualitySystem === null ? null : toNumber(row.qualitySystem),
-    qualityTrade: row.qualityTrade === null ? null : toNumber(row.qualityTrade),
-    totalFeesPaid: toNumber(row.totalFeesPaid),
-  }))
+  return rows.map(({ run, allSegment }) => {
+    const summary = mapRunSummary(run, allSegment)
+    return {
+      id: summary.id,
+      batchUid: summary.batchUid,
+      status: summary.status,
+      strategy: summary.strategy,
+      symbol: summary.symbol,
+      limit: summary.limit,
+      inputMarketsTotal: summary.inputMarketsTotal,
+      comment: summary.comment,
+      pnlTotal: summary.pnlTotal,
+      winRatePct: summary.winRatePct,
+      tradesTotal: summary.tradesTotal,
+      tradesMaker: summary.tradesMaker,
+      tradesTaker: summary.tradesTaker,
+      marketsTotal: summary.marketsTotal,
+      marketsPlayed: summary.marketsPlayed,
+      marketsSkipped: summary.marketsSkipped,
+      failuresCount: summary.failuresCount,
+      cmd: summary.cmd,
+      pnlAvgWin: summary.pnlAvgWin,
+      pnlAvgLose: summary.pnlAvgLose,
+      evPerMarketPlayed: summary.evPerMarketPlayed,
+      evPerMarketTotal: summary.evPerMarketTotal,
+      streakMaxWin: summary.streakMaxWin,
+      streakMaxLose: summary.streakMaxLose,
+      streakMaxWinPnl: summary.streakMaxWinPnl,
+      streakMaxLosePnl: summary.streakMaxLosePnl,
+      qualitySystem: summary.qualitySystem,
+      qualityTrade: summary.qualityTrade,
+      totalFeesPaid: summary.totalFeesPaid,
+      createdAt: summary.createdAt,
+    }
+  })
 }
 
 /**
@@ -267,20 +332,40 @@ export async function listHistoricalBatches(
  */
 export async function getBacktestRunById(id: number) {
   const db = getDb()
-  const [run] = await db.select().from(backtestRuns).where(eq(backtestRuns.id, id)).limit(1)
-  if (!run) return null
-  return hydrateBacktestRunDetail(run)
+  const [row] = await db
+    .select({ run: backtestRuns, allSegment: backtestRunSegments })
+    .from(backtestRuns)
+    .leftJoin(
+      backtestRunSegments,
+      and(
+        eq(backtestRunSegments.runId, backtestRuns.id),
+        eq(backtestRunSegments.segmentKind, 'all'),
+        eq(backtestRunSegments.segmentKey, 'all'),
+      ),
+    )
+    .where(eq(backtestRuns.id, id))
+    .limit(1)
+  if (!row) return null
+  return hydrateBacktestRunDetail(row.run, row.allSegment)
 }
 
 export async function getBatchDetail(batchUid: string) {
   const db = getDb()
-  const [run] = await db
-    .select()
+  const [row] = await db
+    .select({ run: backtestRuns, allSegment: backtestRunSegments })
     .from(backtestRuns)
+    .leftJoin(
+      backtestRunSegments,
+      and(
+        eq(backtestRunSegments.runId, backtestRuns.id),
+        eq(backtestRunSegments.segmentKind, 'all'),
+        eq(backtestRunSegments.segmentKey, 'all'),
+      ),
+    )
     .where(eq(backtestRuns.batchUid, batchUid))
     .limit(1)
-  if (!run) return null
-  return hydrateBacktestRunDetail(run)
+  if (!row) return null
+  return hydrateBacktestRunDetail(row.run, row.allSegment)
 }
 
 /** Per-machine slice of a run's execution work. */
@@ -384,7 +469,10 @@ function buildExecutionSummary(rows: MarketRow[]): ExecutionSummary | null {
   }
 }
 
-async function hydrateBacktestRunDetail(run: typeof backtestRuns.$inferSelect) {
+async function hydrateBacktestRunDetail(
+  run: typeof backtestRuns.$inferSelect,
+  allSegment: AllSegmentRow | null,
+) {
   const db = getDb()
 
   const [marketRows, failureRows] = await Promise.all([
@@ -401,7 +489,7 @@ async function hydrateBacktestRunDetail(run: typeof backtestRuns.$inferSelect) {
   ])
 
   return {
-    ...mapRunSummary(run),
+    ...mapRunSummary(run, allSegment),
     executionSummary: buildExecutionSummary(marketRows),
     marketStats: marketRows.map((m) => ({
       marketId: m.marketId,

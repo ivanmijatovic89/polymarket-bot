@@ -275,8 +275,8 @@ to the backtest result tables:
    In the BullMQ path, terminal output is a compact `[i/N] completed=… failed=…`
    progress line; in `--sequential` mode each market also prints its
    per-market summary in green/red.
-2. **Batch stats** — aggregated metrics printed at the end and stored as
-   typed scalar columns on `backtest_runs`.
+2. **Batch stats** — aggregated metrics printed at the end and stored in the
+   `backtest_run_segments` `all` row.
 3. **Per-segment stats** — `all`, `last_n` tails (default `[500, 1000, 3000,
    6000]`), and `daily` / `weekly` / `monthly` calendar buckets, stored as one
    row each in `backtest_run_segments`.

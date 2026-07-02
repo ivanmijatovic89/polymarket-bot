@@ -7,7 +7,7 @@ import { cn, formatPnl } from '@/lib/utils'
 
 /**
  * Subset of fields that describe a "backtest-like aggregate" — used by both
- * the persisted backtest_runs rows and the live-computed chunked segments.
+ * finalized backtest summaries and live-computed chunked segments.
  * Identity (id / batchUid / chunk index) is NOT in this shape — callers
  * supply that via `renderLeading`.
  */

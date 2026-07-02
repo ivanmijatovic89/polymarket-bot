@@ -13,7 +13,7 @@ The computation lives in `src/backtest/stats/backtestSegments.ts` (`computeBackt
 
 | Kind      | Meaning                                                                                 | Rows produced per run                   |
 | --------- | --------------------------------------------------------------------------------------- | --------------------------------------- |
-| `all`     | The whole run as a single segment. Mirrors the run-level columns on `backtest_runs`.    | Always 1 (when the run has markets).    |
+| `all`     | The whole run as a single segment. This is the source of truth for run-level stats.    | Always 1 (when the run has markets).    |
 | `last_n`  | The most recent **N** markets (sorted by `market_start_ms` descending, then sliced).    | One row per N where `markets.length ≥ N`. |
 | `daily`   | UTC calendar-day buckets.                                                               | One row per non-empty day.              |
 | `weekly`  | ISO 8601 week buckets (Monday-start).                                                   | One row per non-empty ISO week.         |
@@ -50,9 +50,9 @@ Empty buckets produce no row.
 
 This means `ORDER BY segment_kind, segment_ord` returns segments in the natural display order within each kind.
 
-## The `all` row vs run-level columns
+## The `all` Row
 
-`backtest_runs` still carries the run-level stat columns (so the run-list page can read them without a JOIN). The `all` segment row equals those columns by construction — it's deliberate, trivial duplication. The segments table is the source of truth for everything chunk-shaped; the `all` row exists so callers can query a uniform shape (`WHERE segment_kind = 'all'` to get the totals) instead of branching on "is this a chunk or a total?".
+`backtest_runs` stores run metadata, lifecycle state, audit counts, and `capital_initial`. Computed performance stats live in `backtest_run_segments`. The `all` segment is the persisted full-run summary (`WHERE segment_kind = 'all' AND segment_key = 'all'`), and the other segment kinds use the same typed stats shape for last-N and calendar-window views.
 
 ## Schema
 
@@ -65,7 +65,7 @@ CREATE TABLE backtest_run_segments (
   segment_ord     BIGINT NOT NULL,
   from_ms         BIGINT NOT NULL,
   to_ms           BIGINT NOT NULL,
-  -- Full BatchStatsFields shape (same columns as backtest_runs run-level stats):
+  -- Full BatchStatsFields shape:
   capital_initial, capital_final, pnl_total, total_fees_paid,
   quality_system NULL, quality_trade NULL,
   ev_per_market_played, ev_per_market_total,
@@ -90,7 +90,7 @@ Three write paths, all using `computeBacktestSegments` + bulk insert into `backt
 
 1. **Sequential CLI** (`src/cli/backtest.ts`) — computes segments after the per-market loop, inserts inside `insertBacktestRun`.
 2. **BullMQ aggregate** (`src/backtest/aggregateProcessor.ts`) — same shape; runs after all children have completed/failed.
-3. **`--extend <runId>`** (`src/db/backtests.ts:applyExtensionToRun`) — `DELETE FROM backtest_run_segments WHERE run_id = ?` + bulk insert, inside the same transaction that merges the new markets and updates the run-level stats. Atomic with the `extending_at` lock release.
+3. **`--extend <runId>`** (`src/db/backtests.ts:applyExtensionToRun`) — `DELETE FROM backtest_run_segments WHERE run_id = ?` + bulk insert, inside the same transaction that merges the new markets and updates run lifecycle fields. Atomic with the `extending_at` lock release.
 
 All three sort markets by `market_start_ms` ascending before computing stats so streak fields (which depend on input order) are chronological.
 

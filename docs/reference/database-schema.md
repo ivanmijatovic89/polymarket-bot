@@ -58,7 +58,7 @@ Stores one row per 15-minute Polymarket market window. Populated either by `npm 
 
 Backtest results are normalized across four tables. The old monolithic `backtests.market_stats` JSON blob and top-level `backtests.batch_stats` JSON snapshot are intentionally gone, as is the previous `backtest_runs.chunked_batch_stats` JSON column.
 
-`backtest_runs` stores one terminal run row with CLI metadata and typed batch summary/ranking columns. Run-level `BatchStats` values are columns so dashboard and ranking queries do not parse JSON.
+`backtest_runs` stores one terminal run row with CLI metadata, lifecycle state, audit counts, and `capital_initial` as run configuration. Run-level `BatchStats` values are stored in `backtest_run_segments` as the `segment_kind = 'all'` / `segment_key = 'all'` row.
 
 `backtest_run_markets` stores one row per persisted `MarketStats` result. The `(run_id, idx)` pair preserves deterministic run order. Stable fields such as PnL, trade counts, fees, positions, and execution timing are columns; flexible research payloads live in the per-market `intent_meta` JSON column. `market_start_ms` is denormalized from the slug at insert time and feeds the per-segment stats builder.
 
@@ -71,7 +71,7 @@ Important indexes:
 | Table                    | Index/Constraint                 | Purpose                                  |
 | ------------------------ | -------------------------------- | ---------------------------------------- |
 | `backtest_runs`          | unique `batch_uid`               | Lookup by run UID and prevent duplicates |
-| `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)`, `pnl_total` | Dashboard and ranking queries            |
+| `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)` | Dashboard history and filter queries     |
 | `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
 | `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)` | Detail, search, slow-market and chronological views |
 | `backtest_run_failures`  | `(run_id, idx)`, `(run_id, slug)` | Failure detail views                     |
@@ -315,11 +315,11 @@ insertBacktestRun(row: {
 }): Promise<void>
 ```
 
-Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`, and `backtest_run_segments`. Called automatically by the backtest CLI and aggregate worker at the end of each run. `batchStats` is the domain object produced by `computeBatchStats`; persistence expands it into typed scalar columns on `backtest_runs`. `segments` is produced by `computeBacktestSegments` and one row is inserted into `backtest_run_segments` for each (segment_kind, segment_key) pair.
+Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`, and `backtest_run_segments`. Called automatically by the backtest CLI and aggregate worker at the end of each run. `batchStats` supplies run configuration such as `capital_initial`; `segments` is produced by `computeBacktestSegments` and one row is inserted into `backtest_run_segments` for each `(segment_kind, segment_key)` pair. The `all` segment is the persisted run-level summary.
 
 #### `getBacktestRunById(id)` / `getBacktestRunByBatchUid(batchUid)`
 
-Hydrates a normalized run for research and diff tooling: run metadata plus typed batch summary columns, ordered `marketStats`, and `failedMarkets`. Per-segment stats are loaded separately via `listSegmentsForRun(runId)`.
+Hydrates a normalized run for research and diff tooling: run metadata from `backtest_runs`, run-level stats from the `all` segment, ordered `marketStats`, and `failedMarkets`. Other per-segment stats are loaded separately via `listSegmentsForRun(runId)`.
 
 ---
 

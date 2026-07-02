@@ -162,6 +162,13 @@
       "when": 1781827200000,
       "tag": "0022_backtest_run_markets_worker_child_id",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "5",
+      "when": 1781913600000,
+      "tag": "0023_backtest_run_stats_segments_source",
+      "breakpoints": true
     }
   ]
 }

@@ -1,27 +1,32 @@
 ---
 title: Backtest Run Statistics
-description: Reference for the scalar performance columns stored on backtest_runs.
+description: Reference for scalar performance columns stored on the all segment.
 ---
 
 # Backtest Run Statistics
 
-Backtest run statistics are the scalar performance columns stored on
-`backtest_runs`. They describe the full run across all persisted market
-episodes and are used by ranking, dashboard history, and run comparison tools.
+Backtest run statistics are the scalar performance columns stored on the
+`backtest_run_segments` row where `segment_kind = 'all'` and
+`segment_key = 'all'`. They describe the full run across all persisted market
+episodes and are used by dashboard history and run comparison tools.
 
 The TypeScript computation object is still called `BatchStats` because it is
 produced once per completed batch by `computeBatchStats` in
 `src/backtest/stats/batchStats.ts`. It is not stored as a `batch_stats` JSON
-column. Persistence expands that domain object into typed columns on
-`backtest_runs`.
+column. Persistence expands that domain object into typed columns on the
+`all` segment.
 
 ## Storage Scope
 
-These columns live on `backtest_runs`, one row per terminal backtest run.
+These columns live on the `all` row in `backtest_run_segments`, one row per
+terminal backtest run that has market results.
 
 They do not include run identity or audit metadata such as `batch_uid`,
-`status`, `markets_persisted`, or `failures_count`. Those fields are documented
-in [Backtest Result Storage](/backtest/statistics/result-storage).
+`status`, `markets_persisted`, or `failures_count`. Those fields remain on
+`backtest_runs` and are documented in
+[Backtest Result Storage](/backtest/statistics/result-storage). `capital_initial`
+also remains on `backtest_runs` as run configuration and is copied into segment
+rows for stat completeness.
 
 ## Capital
 
@@ -34,7 +39,7 @@ in [Backtest Result Storage](/backtest/statistics/result-storage).
 
 | Column                 | Type            | Source field          | Description                                                                                 |
 | ---------------------- | --------------- | --------------------- | ------------------------------------------------------------------------------------------- |
-| `pnl_total`            | `DECIMAL(14,4)` | `pnlTotal`            | Sum of market P&L across the run, in USDC. Indexed for ranking queries.                      |
+| `pnl_total`            | `DECIMAL(14,4)` | `pnlTotal`            | Sum of market P&L across the run, in USDC.                                                    |
 | `total_fees_paid`      | `DECIMAL(14,4)` | `totalFeesPaid`       | Sum of taker fees across all market rows, in USDC.                                           |
 | `ev_per_market_played` | `DECIMAL(14,4)` | `evPerMarketPlayed`   | `pnl_total / markets_played`; zero when no markets were played.                             |
 | `ev_per_market_total`  | `DECIMAL(14,4)` | `evPerMarketTotal`    | `pnl_total / markets_total`, including skipped episodes in the denominator.                  |
@@ -106,11 +111,10 @@ calling `computeBatchStats`; the sequential path already sees the same order.
 `BatchStats` is still useful inside the codebase:
 
 - `computeBatchStats(markets, initialCapital)` returns a `BatchStats` instance.
-- `insertBacktestRun` accepts that instance and calls `toRunColumns()`.
+- `insertBacktestRun` accepts that instance and keeps `capital_initial` on the run row.
 - `computeBacktestSegments` calls `computeBatchStats` once per segment (last-N
   tail, daily/weekly/monthly bucket, and the `all` row). Each produced
   `BatchStatsFields` object is flattened into one row of `backtest_run_segments`
   — see [Backtest Segments](/backtest/statistics/backtest-segments).
 
-For the persisted run schema, use the `backtest_runs` columns above as the
-source of truth.
+For persisted run-level stats, use the `all` segment as the source of truth.
