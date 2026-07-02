@@ -27,6 +27,9 @@ polymarket-bot/
 engine, strategy runtime, backtest system, dashboard, and detailed operational
 docs live in the parent repo.
 
+Common terms are defined in
+[`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md).
+
 ## Scope
 
 This protocol currently targets only Polymarket 15 minute Bitcoin up/down binary
@@ -73,6 +76,8 @@ execution, portfolio handling, order management, and strategy execution.
   authoritative market, data, input, and cost assumptions.
 - [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) - short
   curated ban list that new families must not violate.
+- [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) - short definitions
+  for project and protocol terms.
 - [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md) -
   summary of the underlying engine.
 
