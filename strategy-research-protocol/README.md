@@ -11,6 +11,22 @@ family artifacts, schemas, naming rules, and index generation. The autonomous
 research loop, evaluator contract, and full validation command are still being
 defined.
 
+## Repository Context
+
+This folder lives inside the parent `polymarket-bot` repository:
+
+```text
+polymarket-bot/
+  docs/                         # engine and operational documentation
+  src/                          # PolymarketTwinEngine source code
+  dashboard/                    # backtest/dashboard UI
+  strategy-research-protocol/   # this protocol
+```
+
+`strategy-research-protocol/` defines the research protocol only. The executable
+engine, strategy runtime, backtest system, dashboard, and detailed operational
+docs live in the parent repo.
+
 ## Scope
 
 This protocol currently targets only Polymarket 15 minute Bitcoin up/down binary
