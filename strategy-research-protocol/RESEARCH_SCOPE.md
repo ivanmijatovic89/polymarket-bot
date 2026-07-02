@@ -1,0 +1,230 @@
+# Research Scope
+
+This file defines the research scope for Strategy Research Protocol. Agents must
+read it before proposing a new family, proposing an experiment, evaluating
+results, or changing research memory.
+
+The goal is not to describe all of Polymarket. The goal is to define the narrow
+research scope that this protocol is allowed to optimize.
+
+## Market scope
+
+Current scope is only:
+
+```text
+Polymarket BTC 15 minute up/down binary markets
+```
+
+Do not propose research for other symbols, timeframes, venues, or cross-exchange
+signals unless this file and the protocol rules are explicitly updated.
+
+The target market is binary:
+
+- `UP` wins if BTC closes above the window reference price.
+- `DOWN` wins if BTC closes below the window reference price.
+- Each market is one fixed 15 minute episode.
+- Each episode has its own slug, condition, and token IDs.
+
+The expected slug shape is:
+
+```text
+btc-updown-15m-<epochStart>
+```
+
+## Primary objective
+
+Discover strategy families that produce positive expected value on BTC 15 minute
+up/down markets after realistic execution costs.
+
+The protocol should optimize for durable, replayable edge, not one-off lucky
+backtests. A strategy is only useful if its behavior can be reproduced in live
+trading from the same tick semantics used in backtests.
+
+## Core invariant
+
+Live trading and backtests must run the same strategy logic on the same tick
+stream semantics. Any live/backtest divergence is a bug.
+
+This means:
+
+- Strategy decisions must be driven by data available in both live and backtest.
+- Backtest replay must preserve the same meaningful tick semantics used live.
+- Strategy code paths should be shared between live and backtest.
+- Runtime-specific behavior must be explicit, documented, and safe when absent.
+
+## Data source
+
+The default research dataset is Telonex converted to delta-typed parquet.
+
+Expected shape:
+
+- One parquet file per market.
+- One market equals one 15 minute BTC up/down episode.
+- Files are selected by `symbol=btc` and `timeframe=15m`.
+- Backtests should use the same market event semantics as live strategy ticks.
+
+Default backtest command family:
+
+```bash
+npm run backtest:telonex:btc:15m -- --strategy <strategy-id>
+```
+
+or the equivalent explicit command:
+
+```bash
+npm run backtest -- --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --strategy <strategy-id>
+```
+
+## Allowed strategy inputs
+
+Allowed by default:
+
+- Market ticks emitted by `MarketEngine`.
+- Meaningful market events: `book` and `price_change`.
+- Order book state present in the replayed Polymarket stream.
+- Market metadata required to identify the current BTC 15 minute window.
+- Account/order/fill events that pass through the shared trading infrastructure.
+
+Allowed only if explicitly recorded and replayable:
+
+- Any derived feature computed from recorded market data.
+- Any plugin snapshot whose source data is available with the same semantics in
+  live and backtest.
+
+## Forbidden strategy inputs
+
+Do not use:
+
+- Live-only signals.
+- Unrecorded WebSocket fields.
+- Other symbols such as ETH, SOL, or XRP.
+- Other timeframes such as 5m or 1h.
+- Cross-exchange or cross-venue arbitrage.
+- External feeds that cannot be absent safely in backtests.
+- Non-deterministic strategy behavior that changes between replay runs.
+
+If an idea depends on one of these, it is out of scope for the current protocol.
+
+## Execution cost assumptions
+
+Backtest evaluation must account for realistic execution costs.
+
+Costs and frictions include:
+
+- Spread paid when crossing the book.
+- Slippage from available depth.
+- Taker fees where applicable.
+- Maker adverse selection and non-fill risk.
+- Minimum order sizes.
+- Partial fills.
+- Fee-adjusted share balances after buys.
+- Redeem lifecycle for winning shares.
+
+Maker orders may avoid taker fees, but they are not free edge. They carry fill
+risk, queue risk, cancellation timing risk, and adverse-selection risk.
+
+Taker orders provide immediate execution, but must overcome spread, slippage,
+and fees.
+
+## Research unit
+
+The main research unit is a strategy family.
+
+A family is defined by its primary decision driver. Parameter changes and small
+filters are experiments inside a family. A genuinely different decision driver
+is a new family.
+
+Each family lives at:
+
+```text
+src/strategies/research/<family>/
+  FAMILY.md
+  FAMILY.json
+  Strategy.ts
+```
+
+`FAMILY.md` carries human and agent reasoning. `FAMILY.json` carries structured
+state. Strategy code must be executable and replayable.
+
+## Baseline experiment
+
+Every new family starts with one baseline parameter sweep:
+
+```text
+<family>.001-baseline-sweep
+```
+
+The baseline sweep asks a simple question:
+
+```text
+Does this decision driver have any parameter region that can beat costs on BTC
+15 minute up/down markets?
+```
+
+Do not seed a long experiment queue in `FAMILY.json`. Additional ideas belong in
+the `FAMILY.md` experiment menu until results justify adding the next
+experiment.
+
+## Evaluation posture
+
+The evaluator contract is still being defined. Until it exists, treat all
+evaluation as provisional.
+
+A promising result should not be promoted solely because one backtest run is
+positive. It should be checked for:
+
+- Net EV after costs.
+- Number of markets tested.
+- Number of trades/fills.
+- Sensitivity to parameter choice.
+- Concentration in a small number of outlier markets.
+- Behavior near market open and close.
+- Whether the result could survive live execution constraints.
+
+The protocol target is durable positive EV, not curve-fit parameter cells.
+
+## Research memory
+
+Research memory lives in:
+
+- `FAMILY.md` for reasoning, lessons, weaknesses, and duplicate notes.
+- `FAMILY.json` for structured experiment status, decisions, result references,
+  selected params, champion, and retry conditions.
+- `src/strategies/research/INDEX.json` for generated global rollup.
+
+Agents must update memory after meaningful research steps. Do not rely on hidden
+conversation history as the only record.
+
+## Stop conditions
+
+A family can be killed when:
+
+- The baseline sweep fails clearly after enough markets.
+- Follow-up experiments fail to produce a plausible improvement path.
+- The decision driver is shown to be duplicate or dominated by another family.
+- The edge depends on forbidden inputs.
+- The result cannot plausibly survive live/backtest parity requirements.
+
+A killed family should set `retryOnlyIf` with a concrete condition that would
+justify revisiting it.
+
+## Current protocol status
+
+Implemented:
+
+- Family artifact shape.
+- New family proposal module.
+- Naming rules.
+- Schema definitions.
+- Global index generation.
+
+Not fully defined yet:
+
+- Objective evaluator thresholds.
+- Research-family loop worker.
+- Next-experiment proposal worker.
+- Strategy versioning rules.
+- Full protocol validation command.
+
+Do not pretend missing protocol pieces exist. Add them explicitly before
+depending on them.

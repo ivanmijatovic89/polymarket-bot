@@ -23,7 +23,7 @@ with the `Write` tool — it creates the folder for you; do **not** call `mkdir`
 
 ## Inputs
 
-- `CONTEXT.md` — the game (venue, instrument, data, costs). Read first.
+- `RESEARCH_SCOPE.md` — the game (venue, instrument, data, costs). Read first.
 - `INDEX.json` — the map of every research family already tried. Your entry
   point, and the **complete** universe of what exists for dedup.
 - `CONSTRAINTS.md` — hard rules a family must not violate.
@@ -48,7 +48,7 @@ not dedup.)
 
 ## Steps
 
-1. **Read** CONTEXT.md, INDEX.json, CONSTRAINTS.md, NAMING.md.
+1. **Read** RESEARCH_SCOPE.md, INDEX.json, CONSTRAINTS.md, NAMING.md.
 
 2. **Form an idea.**
    - Seed mode: develop the family around the user's seed.
