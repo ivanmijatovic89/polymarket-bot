@@ -1,5 +1,5 @@
 import { and, asc, eq, inArray, sql } from 'drizzle-orm'
-import { computeBatchStats, type BatchStats } from '../backtest/stats/batchStats.js'
+import type { BatchStats, BatchStatsFields } from '../backtest/stats/batchStats.js'
 import {
   computeBacktestSegments,
   slugTs,
@@ -235,6 +235,103 @@ function parseDecimal(value: unknown): number {
   return Number.isFinite(n) ? n : 0
 }
 
+function emptyRunStats(capitalInitial: number): BatchStatsFields {
+  return {
+    capitalInitial,
+    capitalFinal: capitalInitial,
+    pnlTotal: 0,
+    totalFeesPaid: 0,
+    qualitySystem: null,
+    qualityTrade: null,
+    evPerMarketPlayed: 0,
+    evPerMarketTotal: 0,
+    marketsTotal: 0,
+    marketsSkipped: 0,
+    marketsNoInWindowActivity: 0,
+    marketsFlatWithTrades: 0,
+    marketsPlayed: 0,
+    marketsWon: 0,
+    marketsLost: 0,
+    winRate: 0,
+    winRatePct: 0,
+    tradesTotal: 0,
+    tradesMaker: 0,
+    tradesTaker: 0,
+    pnlAvgWin: 0,
+    pnlAvgLose: 0,
+    pnlMaxWin: 0,
+    pnlMaxLose: 0,
+    streakMaxWin: 0,
+    streakMaxLose: 0,
+    streakMaxWinPnl: 0,
+    streakMaxLosePnl: 0,
+    streakMaxSkipped: 0,
+  }
+}
+
+function segmentStatsToRunFields(
+  segment: typeof backtestRunSegments.$inferSelect,
+): BatchStatsFields {
+  return {
+    capitalInitial: parseDecimal(segment.capitalInitial),
+    capitalFinal: parseDecimal(segment.capitalFinal),
+    pnlTotal: parseDecimal(segment.pnlTotal),
+    totalFeesPaid: parseDecimal(segment.totalFeesPaid),
+    qualitySystem: segment.qualitySystem === null ? null : parseDecimal(segment.qualitySystem),
+    qualityTrade: segment.qualityTrade === null ? null : parseDecimal(segment.qualityTrade),
+    evPerMarketPlayed: parseDecimal(segment.evPerMarketPlayed),
+    evPerMarketTotal: parseDecimal(segment.evPerMarketTotal),
+    marketsTotal: segment.marketsTotal,
+    marketsSkipped: segment.marketsSkipped,
+    marketsNoInWindowActivity: segment.marketsNoInWindowActivity,
+    marketsFlatWithTrades: segment.marketsFlatWithTrades,
+    marketsPlayed: segment.marketsPlayed,
+    marketsWon: segment.marketsWon,
+    marketsLost: segment.marketsLost,
+    winRate: parseDecimal(segment.winRate),
+    winRatePct: parseDecimal(segment.winRatePct),
+    tradesTotal: segment.tradesTotal,
+    tradesMaker: segment.tradesMaker,
+    tradesTaker: segment.tradesTaker,
+    pnlAvgWin: parseDecimal(segment.pnlAvgWin),
+    pnlAvgLose: parseDecimal(segment.pnlAvgLose),
+    pnlMaxWin: parseDecimal(segment.pnlMaxWin),
+    pnlMaxLose: parseDecimal(segment.pnlMaxLose),
+    streakMaxWin: segment.streakMaxWin,
+    streakMaxLose: segment.streakMaxLose,
+    streakMaxWinPnl: parseDecimal(segment.streakMaxWinPnl),
+    streakMaxLosePnl: parseDecimal(segment.streakMaxLosePnl),
+    streakMaxSkipped: segment.streakMaxSkipped,
+  }
+}
+
+async function getAllSegmentForRun(
+  runId: number,
+): Promise<typeof backtestRunSegments.$inferSelect | null> {
+  const db = mustGetDb()
+  const [segment] = await db
+    .select()
+    .from(backtestRunSegments)
+    .where(
+      and(
+        eq(backtestRunSegments.runId, runId),
+        eq(backtestRunSegments.segmentKind, 'all'),
+        eq(backtestRunSegments.segmentKey, 'all'),
+      ),
+    )
+    .limit(1)
+  return segment ?? null
+}
+
+function runStatsFromAllSegment(
+  run: typeof backtestRuns.$inferSelect,
+  allSegment: typeof backtestRunSegments.$inferSelect | null,
+): BatchStatsFields {
+  if (allSegment) return segmentStatsToRunFields(allSegment)
+  if (run.marketsPersisted === 0) return emptyRunStats(parseDecimal(run.capitalInitial))
+  throw new Error(`[db/backtests] missing all segment for run #${run.id}`)
+}
+
 export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void> {
   const db = mustGetDb()
   const existing = await getBacktestRunSummaryByBatchUid(row.batchUid)
@@ -276,35 +373,6 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         marketsPersisted: marketStats.length,
         failuresCount: failedMarkets.length,
         capitalInitial: toDecimal(batchStats.capitalInitial),
-        capitalFinal: toDecimal(batchStats.capitalFinal),
-        pnlTotal: toDecimal(batchStats.pnlTotal),
-        totalFeesPaid: toDecimal(batchStats.totalFeesPaid),
-        qualitySystem:
-          batchStats.qualitySystem === null ? null : toDecimal(batchStats.qualitySystem),
-        qualityTrade: batchStats.qualityTrade === null ? null : toDecimal(batchStats.qualityTrade),
-        evPerMarketPlayed: toDecimal(batchStats.evPerMarketPlayed),
-        evPerMarketTotal: toDecimal(batchStats.evPerMarketTotal),
-        marketsTotal: batchStats.marketsTotal,
-        marketsSkipped: batchStats.marketsSkipped,
-        marketsNoInWindowActivity: batchStats.marketsNoInWindowActivity,
-        marketsFlatWithTrades: batchStats.marketsFlatWithTrades,
-        marketsPlayed: batchStats.marketsPlayed,
-        marketsWon: batchStats.marketsWon,
-        marketsLost: batchStats.marketsLost,
-        winRate: toDecimal(batchStats.winRate),
-        winRatePct: toDecimal(batchStats.winRatePct),
-        tradesTotal: batchStats.tradesTotal,
-        tradesMaker: batchStats.tradesMaker,
-        tradesTaker: batchStats.tradesTaker,
-        pnlAvgWin: toDecimal(batchStats.pnlAvgWin),
-        pnlAvgLose: toDecimal(batchStats.pnlAvgLose),
-        pnlMaxWin: toDecimal(batchStats.pnlMaxWin),
-        pnlMaxLose: toDecimal(batchStats.pnlMaxLose),
-        streakMaxWin: batchStats.streakMaxWin,
-        streakMaxLose: batchStats.streakMaxLose,
-        streakMaxWinPnl: toDecimal(batchStats.streakMaxWinPnl),
-        streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
-        streakMaxSkipped: batchStats.streakMaxSkipped,
       })
       .$returningId()
 
@@ -396,7 +464,7 @@ async function hydrateBacktestRun(
   run: typeof backtestRuns.$inferSelect,
 ): Promise<BacktestRunRecord> {
   const db = mustGetDb()
-  const [marketRows, failureRows] = await Promise.all([
+  const [marketRows, failureRows, allSegment] = await Promise.all([
     db
       .select()
       .from(backtestRunMarkets)
@@ -407,7 +475,9 @@ async function hydrateBacktestRun(
       .from(backtestRunFailures)
       .where(eq(backtestRunFailures.runId, run.id))
       .orderBy(asc(backtestRunFailures.idx)),
+    getAllSegmentForRun(run.id),
   ])
+  const stats = runStatsFromAllSegment(run, allSegment)
 
   const marketStats: MarketStats[] = marketRows.map((m) => {
     const execution: MarketExecutionMeta | undefined =
@@ -465,35 +535,7 @@ async function hydrateBacktestRun(
     baselineId: run.baselineId,
     cmd: run.cmd,
     comment: run.comment,
-    capitalInitial: parseDecimal(run.capitalInitial),
-    capitalFinal: parseDecimal(run.capitalFinal),
-    pnlTotal: parseDecimal(run.pnlTotal),
-    totalFeesPaid: parseDecimal(run.totalFeesPaid),
-    qualitySystem: run.qualitySystem === null ? null : parseDecimal(run.qualitySystem),
-    qualityTrade: run.qualityTrade === null ? null : parseDecimal(run.qualityTrade),
-    evPerMarketPlayed: parseDecimal(run.evPerMarketPlayed),
-    evPerMarketTotal: parseDecimal(run.evPerMarketTotal),
-    marketsTotal: run.marketsTotal,
-    marketsSkipped: run.marketsSkipped,
-    marketsNoInWindowActivity: run.marketsNoInWindowActivity,
-    marketsFlatWithTrades: run.marketsFlatWithTrades,
-    marketsPlayed: run.marketsPlayed,
-    marketsWon: run.marketsWon,
-    marketsLost: run.marketsLost,
-    winRate: parseDecimal(run.winRate),
-    winRatePct: parseDecimal(run.winRatePct),
-    tradesTotal: run.tradesTotal,
-    tradesMaker: run.tradesMaker,
-    tradesTaker: run.tradesTaker,
-    pnlAvgWin: parseDecimal(run.pnlAvgWin),
-    pnlAvgLose: parseDecimal(run.pnlAvgLose),
-    pnlMaxWin: parseDecimal(run.pnlMaxWin),
-    pnlMaxLose: parseDecimal(run.pnlMaxLose),
-    streakMaxWin: run.streakMaxWin,
-    streakMaxLose: run.streakMaxLose,
-    streakMaxWinPnl: parseDecimal(run.streakMaxWinPnl),
-    streakMaxLosePnl: parseDecimal(run.streakMaxLosePnl),
-    streakMaxSkipped: run.streakMaxSkipped,
+    ...stats,
     marketStats,
     failedMarkets: failureRows.map((f) => ({
       ...(f.jobId ? { jobId: f.jobId } : {}),
@@ -701,10 +743,10 @@ export async function restoreRunAfterFailedExtend(
 /**
  * Merge an extension batch's results into the parent run. Inserts the new
  * per-market rows (continuing `idx` from `max(idx)+1`), inserts new failures,
- * recomputes `batch_stats` over the UNION of existing + new markets, replaces
- * all `backtest_run_segments` rows for the run, and UPDATEs `backtest_runs`
- * with the new derived columns. All of this happens in a single DB
- * transaction so the run's row never represents a half-applied extension.
+ * recomputes segment stats over the UNION of existing + new markets, replaces
+ * all `backtest_run_segments` rows for the run, and updates only lifecycle
+ * columns on `backtest_runs`. All of this happens in a single DB transaction
+ * so the run metadata never represents a half-applied extension.
  *
  * `cmd` and `batch_uid` are NOT touched here — they were already updated by
  * `markRunForExtendingBatch` at enqueue time.
@@ -898,7 +940,7 @@ export async function applyExtensionToRun(opts: {
       )
     }
 
-    // Recompute stats over the UNION. `computeBatchStats` is order-sensitive
+    // Recompute segments over the UNION. Segment stats are order-sensitive
     // (streak fields reduce in array order), so we MUST present markets in
     // chronological order — otherwise a backward extension (newMarketStats
     // older than existing) would yield different streaks than an equivalent
@@ -909,7 +951,6 @@ export async function applyExtensionToRun(opts: {
     }))
     allMarketsWithStartMs.sort((a, b) => a.marketStartMs - b.marketStartMs)
     const capitalInitial = parseDecimal(parent.capitalInitial)
-    const batchStats = computeBatchStats(allMarketsWithStartMs, capitalInitial)
     const segments = computeBacktestSegments(allMarketsWithStartMs, capitalInitial)
     const totalFailures = computeExtendedFailureCount(
       parent.failuresCount,
@@ -919,8 +960,8 @@ export async function applyExtensionToRun(opts: {
     const status = runStatus(allMarketsWithStartMs.length, totalFailures)
 
     // Replace all segments for this run with the freshly-computed set.
-    // Inside the same transaction so the run row never observes a partial
-    // segments view alongside the new stats columns.
+    // Inside the same transaction so callers never observe the new metadata
+    // alongside a partial segment view.
     await tx.delete(backtestRunSegments).where(eq(backtestRunSegments.runId, opts.parentRunId))
     for (let start = 0; start < segments.length; start += SEGMENT_INSERT_BATCH_SIZE) {
       const chunk = segments.slice(start, start + SEGMENT_INSERT_BATCH_SIZE)
@@ -937,38 +978,9 @@ export async function applyExtensionToRun(opts: {
         status,
         marketsPersisted: allMarketsWithStartMs.length,
         failuresCount: totalFailures,
-        capitalFinal: toDecimal(batchStats.capitalFinal),
-        pnlTotal: toDecimal(batchStats.pnlTotal),
-        totalFeesPaid: toDecimal(batchStats.totalFeesPaid),
-        qualitySystem:
-          batchStats.qualitySystem === null ? null : toDecimal(batchStats.qualitySystem),
-        qualityTrade: batchStats.qualityTrade === null ? null : toDecimal(batchStats.qualityTrade),
-        evPerMarketPlayed: toDecimal(batchStats.evPerMarketPlayed),
-        evPerMarketTotal: toDecimal(batchStats.evPerMarketTotal),
-        marketsTotal: batchStats.marketsTotal,
-        marketsSkipped: batchStats.marketsSkipped,
-        marketsNoInWindowActivity: batchStats.marketsNoInWindowActivity,
-        marketsFlatWithTrades: batchStats.marketsFlatWithTrades,
-        marketsPlayed: batchStats.marketsPlayed,
-        marketsWon: batchStats.marketsWon,
-        marketsLost: batchStats.marketsLost,
-        winRate: toDecimal(batchStats.winRate),
-        winRatePct: toDecimal(batchStats.winRatePct),
-        tradesTotal: batchStats.tradesTotal,
-        tradesMaker: batchStats.tradesMaker,
-        tradesTaker: batchStats.tradesTaker,
-        pnlAvgWin: toDecimal(batchStats.pnlAvgWin),
-        pnlAvgLose: toDecimal(batchStats.pnlAvgLose),
-        pnlMaxWin: toDecimal(batchStats.pnlMaxWin),
-        pnlMaxLose: toDecimal(batchStats.pnlMaxLose),
-        streakMaxWin: batchStats.streakMaxWin,
-        streakMaxLose: batchStats.streakMaxLose,
-        streakMaxWinPnl: toDecimal(batchStats.streakMaxWinPnl),
-        streakMaxLosePnl: toDecimal(batchStats.streakMaxLosePnl),
-        streakMaxSkipped: batchStats.streakMaxSkipped,
         // Release the concurrent-extend lock in the same transaction as the
-        // merge UPDATE — so the row is never visible as "no lock held" while
-        // the new markets aren't yet visible.
+        // merge UPDATE so the row is never visible as "no lock held" while
+        // the new markets and segments aren't yet visible.
         extendingAt: null,
       })
       .where(eq(backtestRuns.id, opts.parentRunId))

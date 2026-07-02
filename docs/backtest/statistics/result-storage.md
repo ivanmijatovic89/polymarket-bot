@@ -5,11 +5,12 @@ description: Overview of the normalized backtest result tables.
 
 # Backtest Result Storage
 
-Backtest results are stored in three normalized tables:
+Backtest results are stored in four normalized tables:
 
 - `backtest_runs` — one terminal run row.
 - `backtest_run_markets` — one row per market result inside that run.
 - `backtest_run_failures` — one row per market job that exhausted retries.
+- `backtest_run_segments` — computed run-level and per-segment statistics.
 
 The old monolithic `backtests.market_stats` and `backtests.batch_stats` JSON
 snapshots are not part of the current result schema.
@@ -28,7 +29,7 @@ erDiagram
     enum status
     varchar strategy
     json params
-    decimal pnl_total
+    decimal capital_initial
     int markets_persisted
     int failures_count
   }
@@ -107,15 +108,14 @@ failed run.
 `markets_persisted` is a storage/audit count. `markets_total` is the statistic
 denominator produced by `computeBatchStats`.
 
-### Run Statistics
-
-Performance columns such as `pnl_total`, `win_rate_pct`, `pnl_avg_win`, and
-`streak_max_win` are documented in
-[Backtest Run Statistics](/backtest/statistics/run-statistics).
-
 ### Per-Segment Stats
 
-Segment-level stats (last-N tails, daily / weekly / monthly buckets, and an `all` row) live in the normalized `backtest_run_segments` table — see [Backtest Segments](/backtest/statistics/backtest-segments). The previous `chunked_batch_stats` JSON column was removed in favor of that table.
+Computed stats live in `backtest_run_segments`. The full-run totals are the
+`segment_kind = 'all'` / `segment_key = 'all'` row; last-N tails and calendar
+buckets use the same typed stat columns. See
+[Backtest Segments](/backtest/statistics/backtest-segments) and
+[Backtest Run Statistics](/backtest/statistics/run-statistics). The previous
+`chunked_batch_stats` JSON column was removed in favor of this table.
 
 ## `backtest_run_markets`
 
@@ -145,7 +145,7 @@ audit trail of missing markets.
 `getBacktestRunById` and `getBacktestRunByBatchUid` hydrate normalized rows into
 the shape expected by research and diff tooling:
 
-- run metadata and scalar statistics from `backtest_runs`,
+- run metadata from `backtest_runs` and scalar statistics from the `all` segment,
 - ordered `marketStats` from `backtest_run_markets`,
 - `failedMarkets` from `backtest_run_failures`.
 

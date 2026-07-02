@@ -82,10 +82,9 @@ export const pmxtSlugCache = mysqlTable('pmxt_slug_cache', {
 
 // Backtest result storage.
 //
-// Run-level and per-market fields used for filtering/sorting are columns;
-// flexible strategy/research payloads stay as JSON at their natural scope.
-// Per-segment stats (last_n / daily / weekly / monthly buckets) live in their
-// own normalized table `backtest_run_segments` — see below.
+// `backtest_runs` stores run identity, CLI metadata, lifecycle, and audit
+// fields. Computed performance stats live in `backtest_run_segments`; the
+// full-run totals are the `all` segment.
 export const backtestRuns = mysqlTable(
   'backtest_runs',
   {
@@ -115,37 +114,6 @@ export const backtestRuns = mysqlTable(
     failuresCount: int('failures_count').notNull().default(0),
 
     capitalInitial: decimal('capital_initial', { precision: 14, scale: 4 }).notNull(),
-    capitalFinal: decimal('capital_final', { precision: 14, scale: 4 }).notNull(),
-    pnlTotal: decimal('pnl_total', { precision: 14, scale: 4 }).notNull(),
-    totalFeesPaid: decimal('total_fees_paid', { precision: 14, scale: 4 }).notNull(),
-    qualitySystem: decimal('quality_system', { precision: 14, scale: 6 }),
-    qualityTrade: decimal('quality_trade', { precision: 14, scale: 6 }),
-    evPerMarketPlayed: decimal('ev_per_market_played', { precision: 14, scale: 4 }).notNull(),
-    evPerMarketTotal: decimal('ev_per_market_total', { precision: 14, scale: 4 }).notNull(),
-
-    marketsTotal: int('markets_total').notNull(),
-    marketsSkipped: int('markets_skipped').notNull(),
-    marketsNoInWindowActivity: int('markets_no_in_window_activity').notNull(),
-    marketsFlatWithTrades: int('markets_flat_with_trades').notNull(),
-    marketsPlayed: int('markets_played').notNull(),
-    marketsWon: int('markets_won').notNull(),
-    marketsLost: int('markets_lost').notNull(),
-
-    winRate: decimal('win_rate', { precision: 10, scale: 6 }).notNull(),
-    winRatePct: decimal('win_rate_pct', { precision: 10, scale: 4 }).notNull(),
-    tradesTotal: int('trades_total').notNull(),
-    tradesMaker: int('trades_maker').notNull(),
-    tradesTaker: int('trades_taker').notNull(),
-
-    pnlAvgWin: decimal('pnl_avg_win', { precision: 14, scale: 4 }).notNull(),
-    pnlAvgLose: decimal('pnl_avg_lose', { precision: 14, scale: 4 }).notNull(),
-    pnlMaxWin: decimal('pnl_max_win', { precision: 14, scale: 4 }).notNull(),
-    pnlMaxLose: decimal('pnl_max_lose', { precision: 14, scale: 4 }).notNull(),
-    streakMaxWin: int('streak_max_win').notNull(),
-    streakMaxLose: int('streak_max_lose').notNull(),
-    streakMaxWinPnl: decimal('streak_max_win_pnl', { precision: 14, scale: 4 }).notNull(),
-    streakMaxLosePnl: decimal('streak_max_lose_pnl', { precision: 14, scale: 4 }).notNull(),
-    streakMaxSkipped: int('streak_max_skipped').notNull(),
 
     // Set when a `--extend <runId>` invocation has enqueued an extension
     // batch but the aggregateProcessor hasn't merged it yet. Cleared in the
@@ -167,7 +135,6 @@ export const backtestRuns = mysqlTable(
       t.strategy,
       t.createdAt,
     ),
-    pnlTotalIdx: index('idx_backtest_runs_pnl_total').on(t.pnlTotal),
     symbolCreatedAtIdx: index('idx_backtest_runs_symbol_created_at').on(t.symbol, t.createdAt),
   }),
 )
@@ -240,9 +207,8 @@ export const backtestRunMarkets = mysqlTable(
 // `backtest_runs.chunked_batch_stats` JSON column. One row per
 // (run, segment_kind, segment_key). Segment kinds:
 //
-//   all     — single row over the whole run (mirrors the run-level columns
-//             on backtest_runs by construction; kept here so the dashboard
-//             reads one shape).
+//   all     — single row over the whole run. This is the source of truth for
+//             run-level performance stats.
 //   last_n  — most recent N markets (sorted by market_start_ms desc). Emitted
 //             only when total markets >= N. segment_key = '500' / '1000' / etc.
 //             segment_ord = N (sort key across last_n rows).

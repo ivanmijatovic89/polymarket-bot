@@ -5,7 +5,7 @@ same code path that later scales to multiple machines. The producer (the
 `npm run backtest` command) enqueues every market as a child job in a BullMQ
 **FlowProducer** flow; one or more worker daemons consume the queue; when all
 children settle, the **aggregate parent job** sorts results back into input
-order and writes a single `backtest_runs` row.
+order and writes normalized result rows to MySQL.
 
 ## What you need running
 
@@ -67,7 +67,7 @@ Redis queues   (markets queue + aggregate queue)
    ▼  (after every child settles)
 [aggregate worker]
    │  sorts children by idx (preserves streak / segment invariants),
-   │  computes run summary stats + per-segment stats,
+   │  computes run summary stats as the `all` segment + per-segment stats,
    │  inserts normalized backtest result rows,
    │  removes children jobs from Redis to bound memory
    ▼
@@ -206,7 +206,7 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 | `/api/queues`                   | Per-queue waiting/active/completed/failed counts.                   |
 | `/api/batches/active`           | Aggregate parent jobs that haven't finalized yet.                   |
 | `/api/batches/history?limit=N`  | Recent finalized batches from MySQL.                                |
-| `/api/batches/:uid`             | Full row from `backtest_runs` for one batch.                        |
+| `/api/batches/:uid`             | Finalized batch metadata plus stats from the `all` segment.         |
 
 For raw queue/job inspection, run Bull Board as a separate process:
 

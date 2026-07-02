@@ -62,5 +62,5 @@ Final summary line with the same counters plus `warnings` (e.g. missing `capital
 ## Notes
 
 - `capital_initial` falls back to `100` if missing on the run row, with a warning.
-- The script does not touch the run-level stat columns on `backtest_runs` — those are owned by the original insert / `--extend` paths.
+- The script rebuilds the segment rows that own computed stats. It does not touch `backtest_runs` metadata.
 - For one-off recomputation of a single run, just pass `--force --where "id = 1234"`.
