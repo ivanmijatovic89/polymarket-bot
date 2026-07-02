@@ -63,17 +63,7 @@ Expected shape:
 - Files are selected by `symbol=btc` and `timeframe=15m`.
 - Backtests should use the same market event semantics as live strategy ticks.
 
-Default backtest command family:
-
-```bash
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id>
-```
-
-or the equivalent explicit command:
-
-```bash
-npm run backtest -- --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --strategy <strategy-id>
-```
+Backtest execution details belong in the relevant tool document.
 
 ## Allowed strategy inputs
 

@@ -1,50 +1,46 @@
 # Tool: buildStrategyIndex
 
-Purpose:
-Regenerate `src/strategies/research/INDEX.json` from all research strategy
-family manifests.
+## Purpose
 
-When to use:
+Regenerate `src/strategies/research/INDEX.json` from family metadata.
 
-- After adding a new `src/strategies/research/<family>/FAMILY.json`.
-- After changing any existing `FAMILY.json`.
-- After removing or renaming a research strategy family.
-- Before finishing any task that changes research strategy family metadata.
+## Use When
 
-Do not use:
+- A research family `FAMILY.json` was added, changed, removed, or renamed.
 
-- Do not manually edit `src/strategies/research/INDEX.json`.
-- Do not run this for strategy code-only changes unless family metadata changed.
+## Do Not Use When
 
-Command:
+- Only strategy code changed.
+- You are trying to fix `INDEX.json` manually.
+
+## Inputs
+
+- `src/strategies/research/*/FAMILY.json`
+
+## Implementation
+
+Current implementation: CLI
 
 ```bash
 npm run research:build-index
 ```
 
-Underlying script:
+Check only:
 
 ```bash
-tsx strategy-research-protocol/scripts/buildStrategyIndex.ts
+npm run research:build-index -- --check
 ```
 
-Inputs:
-
-- `src/strategies/research/*/FAMILY.json`
-
-Output:
+## Output
 
 - `src/strategies/research/INDEX.json`
 
-Checks performed:
+## After Success
 
-- Validates every `FAMILY.json` against protocol schemas.
-- Rejects duplicate family slugs.
-- Writes a deterministic global strategy index.
+- Include the regenerated `INDEX.json` in the change.
 
-Expected AI behavior:
+## If It Fails
 
-- Run this tool after editing research family metadata.
-- Include the regenerated `INDEX.json` in the final change.
-- If the command fails, fix the invalid family metadata instead of editing
-  `INDEX.json` manually.
+- Fix the source `FAMILY.json`.
+- Rerun this tool.
+- Never hand-edit `INDEX.json`.

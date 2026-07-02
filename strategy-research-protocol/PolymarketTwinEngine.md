@@ -3,29 +3,38 @@
 PolymarketTwinEngine is the trading and replay engine underneath Strategy
 Research Protocol.
 
-The research protocol uses this engine to run strategy ideas against Polymarket
-BTC 15 minute up/down markets. The engine owns market data, replay, execution
-simulation, live trading plumbing, and backtest result production. The protocol
-owns research state: strategy families, experiments, evaluation decisions, and
-research memory.
+## Mental Model
 
-This document is a contract for agents. It explains what the protocol can rely
-on from the engine and which engine actions should be wrapped as protocol tools.
+PolymarketTwinEngine is the executable system that can run the same strategy
+logic in two modes:
+
+- live mode, against real Polymarket market, account, and order events
+- backtest mode, against recorded or converted market events
+
+The engine owns market data, replay, execution simulation, live trading
+plumbing, and backtest result production.
+
+Strategy Research Protocol does not replace the engine. It organizes research
+around the engine: strategy families, experiments, results, decisions, and
+memory.
+
+This file defines only the engine contract that research agents can rely on.
+Detailed implementation docs live in the parent repo docs.
 
 ## Scope
 
-Current research scope is only:
+Current protocol scope is:
 
 ```text
 Polymarket BTC 15 minute up/down binary markets
 ```
 
-One market is one fixed 15 minute episode. There are normally 96 such BTC
+One market is one fixed 15 minute episode. There are normally 96 BTC 15 minute
 episodes per day.
 
-The engine may support other symbols, timeframes, or data sources, but Strategy
-Research Protocol should not use them unless `RESEARCH_SCOPE.md` is explicitly
-updated.
+The engine may support more than this, but Strategy Research Protocol should not
+use other symbols, timeframes, venues, or cross-exchange signals unless
+`RESEARCH_SCOPE.md` is explicitly updated.
 
 ## Engine Responsibilities
 
@@ -39,35 +48,24 @@ PolymarketTwinEngine is responsible for:
 - Running strategy code in live and backtest modes.
 - Simulating or handling order lifecycle events.
 - Tracking fills, positions, balances, and redeem behavior.
-- Producing backtest run results that the research protocol can reference.
-- Running backtest jobs locally or through distributed workers.
+- Producing persisted backtest results.
+- Running backtest jobs locally or through workers.
 
-The engine is not responsible for:
+The engine is not responsible for proposing families, evaluating strategy
+quality, preserving research memory, or promoting/killing families.
 
-- Proposing strategy families.
-- Deciding whether a strategy is good.
-- Preserving research memory.
-- Updating `FAMILY.md`, `FAMILY.json`, or `INDEX.json`.
-- Promoting or killing strategy families.
+## Parity Contract
 
-Those decisions belong to Strategy Research Protocol.
-
-## Core Parity Contract
-
-The most important engine contract is live/backtest parity:
-
-```text
 Live trading and backtests must run the same strategy logic on the same tick
 stream semantics.
-```
 
 For research, this means:
 
-- A strategy result is only meaningful if the same strategy code can run live.
-- A backtest must not depend on fields or timing that live trading cannot see.
-- Live trading must not depend on unrecorded fields that replay cannot reproduce.
-- Market rotation and 15 minute window handling must mean the same thing in live
-  and backtest.
+- Backtests must not depend on fields or timing unavailable live.
+- Live strategies must not depend on unrecorded behavior that replay cannot
+  reproduce.
+- Market rotation and 15 minute window handling must mean the same thing live
+  and in replay.
 - Order, fill, position, and portfolio events must remain deterministic enough
   for replay analysis.
 
@@ -83,12 +81,8 @@ and emits strategy-friendly ticks only for meaningful market events:
 - `book`
 - `price_change`
 
-This tick cadence is central. Research modules and tools should assume that
-strategy decisions are driven by these meaningful ticks plus shared account,
-order, fill, and market metadata events.
-
-Do not introduce research ideas that require live-only WebSocket fields or
-unrecorded transport behavior.
+Research ideas that require live-only WebSocket fields or unrecorded transport
+behavior are out of scope.
 
 ## Dataset And Replay
 
@@ -102,272 +96,126 @@ Expected dataset shape:
 - one market equals one 15 minute BTC up/down episode
 - replay emits the same meaningful event semantics used by strategy ticks
 
-The protocol should treat dataset selection as part of an experiment's
-definition. A backtest result without enough dataset context is not a complete
-research result.
-
-Minimum dataset context to preserve in research memory:
-
-- input mode
-- read source
-- symbol
-- timeframe
-- market selection method
-- market count
-- date/time range when available
-- run id or batch uid
-- command/tool used to produce the result
+Backtest results should preserve enough dataset context to be reproducible:
+input mode, read source, symbol, timeframe, market selection, market count, and
+run id or batch uid.
 
 ## Backtest Concepts
 
-The engine supports several backtest concepts that the protocol should name
-consistently.
+The protocol should use these engine terms consistently:
 
-### Backtest Run
+- Backtest run - one submitted execution of a strategy over a selected market
+  set.
+- Market result - one strategy outcome for one 15 minute market.
+- Segment - a grouped result slice, usually by params, market subset, or time
+  window.
+- Batch uid - identifier used for queued or detached backtest tracking.
 
-A backtest run is one submitted execution of a strategy over a selected market
-set.
+Aggregate results are not enough. Evaluation should also inspect market count,
+failed/skipped markets, outlier concentration, costs, fills, and segment
+stability.
 
-A run should answer:
+## Distributed Backtesting
 
-- Which strategy code was tested?
-- Which params or sweep were tested?
-- Which dataset and market selection were used?
-- Was it run sequentially, queued, or detached?
-- What run id or batch uid identifies the result?
+Backtesting is not only a local CLI loop. The engine can distribute one backtest
+batch across multiple worker machines.
 
-### Backtest Market Result
+Expected protocol mental model:
 
-A market result is the strategy outcome for one 15 minute market episode.
+- The producer submits one batch.
+- Redis/BullMQ holds market jobs.
+- Worker machines consume independent market jobs.
+- One aggregate worker finalizes the batch into persisted result tables.
+- Sibling machines can run `markets` only; they do not need database credentials
+  or Polymarket trading keys.
+- Long-running workers should use the self-updating launcher so they run the
+  commit required by each job.
 
-Market-level results matter because a positive aggregate can hide concentration
-in a few outlier markets. Evaluators should inspect market count, skipped
-markets, failed markets, outliers, and open/close behavior before trusting a
-result.
+This matters for research because large sweeps and coverage extensions may run
+on several MacBooks or other worker machines at once. Agents should treat worker
+execution as the normal path for meaningful runs, not as a separate research
+concept.
 
-### Backtest Segment
+## Backtest Speed And Sizing
 
-A segment is a grouped result slice, usually by params, market subset, time
-window, or another analysis dimension.
+Backtest speed depends on market count, active worker slots, replay data access,
+and strategy cost per tick.
 
-Segments are useful for parameter sweeps and robustness checks. A segment should
-not be promoted just because it is the best cell in a noisy grid. The evaluator
-must check sample size, concentration, stability, and execution plausibility.
+Use these as rough planning anchors, not promises:
 
-## Run Backtest
+- Measured replay profile: average market replay is about 1.5 seconds.
+- Most BTC 15m markets are in the 1-2 second replay band.
+- Rough wall time estimate:
 
-Running a backtest creates a new result from a strategy and a market selection.
-
-For this protocol, the default run should target BTC 15m Telonex delta-typed
-data.
-
-The current command family is:
-
-```bash
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id>
+```text
+markets * 1.5s / active worker slots
 ```
 
-Equivalent explicit command:
+Examples:
 
-```bash
-npm run backtest -- --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --strategy <strategy-id>
-```
+- 500 markets on 10 active worker slots: about 75 seconds.
+- 6,000 markets on 20 active worker slots: about 7.5 minutes.
+- 18,000 markets on 30 active worker slots: about 15 minutes.
 
-Important flags used by the engine include:
+Always verify actual speed from persisted execution metadata and the dashboard.
+Per-market rows store worker identity, duration, event counts, and commit SHA
+when timing metadata is available.
 
-- `--strategy <id>` - strategy to run.
-- `--param <key=value>` - strategy parameter override.
-- `--limit <n>` - limit selected markets.
-- `--latest` - select latest eligible markets.
-- `--random` - select random eligible markets.
-- `--from-ms <epoch-ms>` / `--to-ms <epoch-ms>` - restrict market start range.
-- `--sequential` - run locally in process, useful for smoke tests.
-- `--detach` - enqueue work and return a batch identifier.
+## Existing Engine Documentation
 
-The research protocol should not spread these commands across worker modules.
-Instead, define a protocol tool named `runBacktest` that owns the command shape,
-required metadata, and expected output capture.
+Use these docs when more detail is needed:
 
-## Extend Backtest
+- Market and tick engine:
+  [`docs/engine/market-engine.md`](../docs/engine/market-engine.md)
+- Order book engine:
+  [`docs/engine/orderbook-engine.md`](../docs/engine/orderbook-engine.md)
+- Strategy runner:
+  [`docs/engine/strategy-runner.md`](../docs/engine/strategy-runner.md)
+- Live execution:
+  [`docs/engine/live-execution.md`](../docs/engine/live-execution.md)
+- Backtest execution:
+  [`docs/engine/backtest-execution.md`](../docs/engine/backtest-execution.md)
+- Distributed workers:
+  [`docs/backtest/distributed-future.md`](../docs/backtest/distributed-future.md)
+- Backtest parallelization:
+  [`docs/backtest/parallelization.md`](../docs/backtest/parallelization.md)
+- Worker self-update:
+  [`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md)
+- Worker install:
+  [`docs/backtest/worker-install-instructions.md`](../docs/backtest/worker-install-instructions.md)
+- Order manager:
+  [`docs/engine/order-manager.md`](../docs/engine/order-manager.md)
+- Portfolio:
+  [`docs/engine/portfolio.md`](../docs/engine/portfolio.md)
+- Backtest result storage:
+  [`docs/backtest/statistics/result-storage.md`](../docs/backtest/statistics/result-storage.md)
+- Telonex datasets:
+  [`docs/datasets/telonex/overview.md`](../docs/datasets/telonex/overview.md)
+- Polymarket background:
+  [`docs/polymarket/index.md`](../docs/polymarket/index.md)
 
-Extending a backtest means taking an existing run and adding more eligible
-markets while inheriting the parent run's strategy, params, symbol, timeframe,
-input mode, and read source.
+## Engine Tools
 
-The engine supports this through `--extend <run-id>`.
+Use tool docs for executable details:
 
-Example command shape:
+- [`tools/runBacktest.md`](./tools/runBacktest.md) - create a new backtest run.
+- [`tools/extendBacktest.md`](./tools/extendBacktest.md) - add coverage to an
+  existing Telonex run.
+- [`tools/getBacktestResults.md`](./tools/getBacktestResults.md) - retrieve
+  persisted result summaries.
+- [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md) - regenerate
+  research family index memory.
 
-```bash
-npm run backtest -- --extend <run-id> --limit <n>
-```
+Worker modules should call these tools by name instead of repeating command or
+API syntax.
 
-or:
+## Research Memory Contract
 
-```bash
-npm run backtest -- --extend <run-id> --from-ms <epoch-ms> --to-ms <epoch-ms>
-```
+Engine results must be referenced from research artifacts:
 
-Extension semantics are intentionally strict. When `--extend` is used, strategy,
-params, symbol, timeframe, input mode, read source, explicit slug selection, and
-file paths are inherited from the parent run and must not be supplied again.
-
-The research protocol should expose this as a separate protocol tool named
-`extendBacktest`. That keeps the agent decision clear:
-
-- use `runBacktest` to create a new run
-- use `extendBacktest` to increase coverage for an existing run
-
-## Get Backtest Results
-
-The protocol needs a reliable way to retrieve run, market, and segment results
-after a backtest finishes.
-
-This should be a protocol tool named `getBacktestResults`.
-
-The tool should accept one of:
-
-- run id
-- batch uid
-- experiment id, if the protocol later maps experiments to runs
-
-The tool should return a compact result summary suitable for an evaluator:
-
-- run id and batch uid
-- strategy id and code reference
-- params or sweep cell
-- dataset identity
-- market count
-- skipped/failed count
-- net pnl / EV metrics after costs
-- trade count and fill count
-- worst and best markets
-- outlier concentration
-- market-level result link or reference
-- segment summaries
-
-Agents should not evaluate from terminal output alone when a structured result
-store is available. Evaluation should reference persisted result identifiers in
-`FAMILY.json`.
-
-## Distributed Workers
-
-The engine can run queued backtests through workers.
-
-Useful commands:
-
-```bash
-npm run backtest:worker
-```
-
-Self-updating worker launcher:
-
-```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
-```
-
-Worker behavior matters for research because long parameter sweeps and larger
-coverage runs may not finish in a single local process.
-
-Protocol assumptions for workers:
-
-- Workers execute the same strategy code and replay semantics as local
-  backtests.
-- Workers must not change strategy behavior.
-- A worker should not silently run stale strategy code for a submitted job.
-- Result ids or batch uids must be preserved so experiments can reference them.
-
-The protocol should treat workers as an execution backend for `runBacktest` and
-`extendBacktest`, not as a separate research concept.
-
-## Tool Design For Agents
-
-Raw CLI commands are implementation details. Agents should primarily use
-protocol tools because tools can define inputs, outputs, invariants, and memory
-updates.
-
-Recommended tool contracts:
-
-- `runBacktest` - create a new backtest run for one experiment.
-- `extendBacktest` - add market coverage to an existing run.
-- `getBacktestResults` - retrieve structured result summaries for evaluation.
-- `buildStrategyIndex` - regenerate global research memory after family
-  metadata changes.
-
-Each tool should have a file in `strategy-research-protocol/tools/` that
-documents:
-
-- purpose
-- when to use it
-- when not to use it
-- command or API used underneath
-- required inputs
-- expected outputs
-- files or database rows it reads
-- files or database rows it writes
-- result identifiers agents must preserve
-- expected AI behavior after success or failure
-
-Worker modules should call tools by name. They should not duplicate raw command
-syntax.
-
-## How Research Artifacts Should Reference Engine Results
-
-`FAMILY.json` should store structured references to engine results, not copied
-terminal output.
-
-For each experiment result, preserve enough information for a future agent to
-retrieve and verify the result:
-
-- result status
-- run id or batch uid
-- strategy code filename
-- selected params or sweep cell
-- dataset selection
-- market count
-- summary metrics
-- path, URL, or database reference for detailed results
-
-`FAMILY.md` should summarize the lesson learned in human-readable form:
-
-- what was tested
-- what happened
-- why it matters
-- what weakness or follow-up was discovered
+- `FAMILY.json` stores structured result references such as run id or batch uid.
+- `FAMILY.md` stores the human-readable lesson from the result.
+- `INDEX.json` is regenerated from family metadata; do not hand-edit it.
 
 The same research conclusion should be recoverable from files without reading
 chat history.
-
-## Agent Navigation
-
-When an agent needs to work with the engine from this protocol folder, use this
-order:
-
-1. Read `README.md` to understand the protocol.
-2. Read `RESEARCH_SCOPE.md` to confirm market/data/cost assumptions.
-3. Read this file to understand engine capabilities and result concepts.
-4. Read the relevant module in `modules/`.
-5. Read the relevant tool contract in `tools/`.
-6. Run the tool command only after the tool contract is clear.
-7. Update `FAMILY.md`, `FAMILY.json`, and `INDEX.json` when research state
-   changes.
-
-Do not skip directly from a research idea to a raw backtest command unless the
-tool contract does not exist yet and the user explicitly wants an exploratory
-manual run.
-
-## Open Protocol Work
-
-The engine capabilities exist before the protocol wrappers are complete.
-
-To make this easy for future agents, define these next:
-
-- `tools/runBacktest.md`
-- `tools/extendBacktest.md`
-- `tools/getBacktestResults.md`
-- `modules/EvaluateExperiment.md`
-- `modules/ResearchFamily.md`
-
-After those exist, research workers can say "run baseline experiment", "extend
-coverage", and "evaluate result" without inventing command syntax or result
-handling.

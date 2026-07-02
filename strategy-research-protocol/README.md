@@ -123,6 +123,10 @@ Currently defined:
 
 - `buildStrategyIndex` - regenerates
   `src/strategies/research/INDEX.json` from family manifests.
+- `runBacktest` - creates a new backtest run for a strategy experiment.
+- `extendBacktest` - adds market coverage to an existing Telonex run.
+- `getBacktestResults` - retrieves persisted result summaries for evaluation
+  and memory updates.
 
 ## Proposer script
 

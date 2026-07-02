@@ -12,3 +12,6 @@ Before adding a new tool file, read
 ## Available tools
 
 - `buildStrategyIndex`: `strategy-research-protocol/tools/buildStrategyIndex.md`
+- `runBacktest`: `strategy-research-protocol/tools/runBacktest.md`
+- `extendBacktest`: `strategy-research-protocol/tools/extendBacktest.md`
+- `getBacktestResults`: `strategy-research-protocol/tools/getBacktestResults.md`
