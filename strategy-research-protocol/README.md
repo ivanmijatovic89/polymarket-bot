@@ -13,19 +13,20 @@ defined.
 
 ## Repository Context
 
-This folder lives inside the parent `polymarket-bot` repository:
+This folder lives inside the `polymarket-bot` repository. In this protocol,
+`polymarket-bot/` is the current codebase that implements PolymarketTwinEngine:
 
 ```text
-polymarket-bot/
+polymarket-bot/                 # PolymarketTwinEngine codebase
   docs/                         # engine and operational documentation
-  src/                          # PolymarketTwinEngine source code
+  src/                          # TypeScript source code
   dashboard/                    # backtest/dashboard UI
   strategy-research-protocol/   # this protocol
 ```
 
 `strategy-research-protocol/` defines the research protocol only. The executable
 engine, strategy runtime, backtest system, dashboard, and detailed operational
-docs live in the parent repo.
+docs live in `polymarket-bot/`.
 
 Common terms are defined in
 [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md).
