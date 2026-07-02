@@ -138,6 +138,9 @@ src/strategies/research/<family>/Strategy.ts
 `src/strategies/research/<family>/FAMILY.json` carries structured state.
 Strategy code must be executable and replayable.
 
+Research memory rules are defined in
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
+
 ## Baseline experiment
 
 Every new family starts with one baseline parameter sweep:
@@ -178,17 +181,8 @@ The protocol target is durable positive EV, not curve-fit parameter cells.
 
 ## Research memory
 
-Research memory must live in files, not chat history:
-
-- `src/strategies/research/<family>/FAMILY.md` for reasoning, lessons,
-  weaknesses, and duplicate notes.
-- `src/strategies/research/<family>/FAMILY.json` for structured experiment
-  status, decisions, result references, selected params, champion, and retry
-  conditions.
-- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-  for generated global rollup.
-
-Agents must update memory after meaningful research steps. Do not rely on hidden
+Research memory must follow
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md). Do not rely on hidden
 conversation history as the only record.
 
 ## Stop conditions

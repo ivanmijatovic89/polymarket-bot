@@ -31,6 +31,8 @@ the folder for you; do **not** call `mkdir`.
 - [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
   — the map of every research family already tried. Your entry point, and the
   **complete** universe of what exists for dedup.
+- [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — how to write
+  `FAMILY.md`, `FAMILY.json`, and generated index memory.
 - [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) — hard rules
   a family must not violate.
 - [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md) — how to
@@ -63,6 +65,7 @@ not dedup.)
 1. **Read**
    [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md),
    [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json),
+   [`strategy-research-protocol/MEMORY.md`](../MEMORY.md),
    [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), and
    [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
 
@@ -95,6 +98,8 @@ not dedup.)
        or a new direction." Write nothing.
 
 5. **Write the family folder** at `src/strategies/research/<family>/`.
+   Follow [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) for what
+   belongs in each memory artifact.
    - `src/strategies/research/<family>/FAMILY.md` — frontmatter
      (`artifactType: strategy-family`, family, status `proposed`, champion
      `null`, tags) + the required H2 sections. The **Experiments to try**

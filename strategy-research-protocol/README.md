@@ -77,6 +77,8 @@ execution, portfolio handling, order management, and strategy execution.
   authoritative market, data, input, and cost assumptions.
 - [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) - short
   curated ban list that new families must not violate.
+- [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) - authoritative research
+  memory rules.
 - [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) - short definitions
   for project and protocol terms.
 - [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md) -
@@ -131,18 +133,9 @@ kept explicit.
 
 ## Research memory
 
-The protocol should preserve research memory in files, not in chat history.
-
-- `src/strategies/research/<family>/FAMILY.md` stores reasoning: hypotheses,
-  lessons, weaknesses, experiment log, and duplicate notes.
-- `src/strategies/research/<family>/FAMILY.json` stores structured state:
-  status, experiment queue, result references, decisions, selected params,
-  champion, and retry conditions.
-- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-  is the generated global memory used for discovery and deduplication.
-
-Agents must update memory after meaningful research steps so the next agent can
-continue from the files alone.
+Research memory rules are defined in
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md). Agents must update memory
+after meaningful research steps so the next agent can continue from files alone.
 
 Statuses and decision enums are defined in
 [`strategy-research-protocol/schemas/statuses.ts`](./schemas/statuses.ts). The

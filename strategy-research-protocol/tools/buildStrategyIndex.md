@@ -6,6 +6,9 @@ Regenerate
 [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
 from family metadata.
 
+`INDEX.json` is a generated research memory artifact defined in
+[`strategy-research-protocol/MEMORY.md`](../MEMORY.md).
+
 ## Use When
 
 - A research family `src/strategies/research/<family>/FAMILY.json` was added,

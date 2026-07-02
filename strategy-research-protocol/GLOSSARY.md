@@ -42,6 +42,7 @@ The file-based record that lets another agent continue without chat history.
 Research memory lives mainly in `src/strategies/research/<family>/FAMILY.md`,
 `src/strategies/research/<family>/FAMILY.json`, and
 [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json).
+Rules are defined in [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## FAMILY.md
 

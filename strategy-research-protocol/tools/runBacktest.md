@@ -104,6 +104,9 @@ research protocol should use the backtest operation.
 
 ## After Success
 
+Update research memory according to
+[`strategy-research-protocol/MEMORY.md`](../MEMORY.md).
+
 - Preserve the `run id` or `batchUid`.
 - Write the result reference to the relevant experiment in
   `src/strategies/research/<family>/FAMILY.json`.

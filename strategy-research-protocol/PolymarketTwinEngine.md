@@ -213,14 +213,9 @@ API syntax.
 
 ## Research Memory Contract
 
-Engine results must be referenced from research artifacts:
+Engine results must be referenced from research memory with enough information
+to retrieve the persisted numeric truth later, such as run id or batch uid.
 
-- `src/strategies/research/<family>/FAMILY.json` stores structured result
-  references such as run id or batch uid.
-- `src/strategies/research/<family>/FAMILY.md` stores the human-readable lesson
-  from the result.
-- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-  is regenerated from family metadata; do not hand-edit it.
-
-The same research conclusion should be recoverable from files without reading
-chat history.
+Research memory rules are defined in
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md). The same research
+conclusion should be recoverable from files without reading chat history.

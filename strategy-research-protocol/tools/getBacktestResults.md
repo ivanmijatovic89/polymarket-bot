@@ -65,6 +65,9 @@ the research protocol retrieves persisted results for evaluation and memory.
 
 ## After Success
 
+Update research memory according to
+[`strategy-research-protocol/MEMORY.md`](../MEMORY.md).
+
 - Write the result reference to
   `src/strategies/research/<family>/FAMILY.json`.
 - Summarize the lesson in
