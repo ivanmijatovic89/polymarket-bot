@@ -40,6 +40,7 @@ Current implementation: CLI | script | API | database | mixed
 ## Source Of Truth
 
 - Link to detailed repo docs, source files, or API docs when they exist.
+- Use repo-relative display paths with portable relative Markdown links.
 
 ## Output
 
@@ -59,6 +60,8 @@ Current implementation: CLI | script | API | database | mixed
 - One tool file describes one operation.
 - Put raw commands only under `Implementation`.
 - Do not copy full CLI/API manuals into tool files; link to the source of truth.
+- Use repo-relative display paths for file references, for example
+  [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md).
 - Keep workflow logic in `modules/`, not tool files.
 - State required memory updates explicitly.
 - If implementation changes, update `Implementation`; keep the tool name stable

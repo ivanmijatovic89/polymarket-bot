@@ -91,7 +91,8 @@ the research protocol should use the extend operation.
 
 - Preserve the updated `run id` and latest `batchUid`.
 - Update the relevant experiment result reference if coverage changed.
-- Summarize the extension in `FAMILY.md`.
+- Summarize the extension in
+  `src/strategies/research/<family>/FAMILY.md`.
 
 ## If It Fails
 

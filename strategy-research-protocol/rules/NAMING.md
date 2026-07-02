@@ -50,5 +50,6 @@ book-pressure ≈ orderbook-imbalance ≈ bid-ask-skew
 
 A near-duplicate becomes valid only if it adds a new **independent** driver
 (e.g. `late-entry` alone = dup; `late-entry + spread-stability` = new).
-This is what `duplicateKeys` in INDEX.json are for — list the normalized
-synonyms so future proposals catch the overlap.
+This is what `duplicateKeys` in
+[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
+are for — list the normalized synonyms so future proposals catch the overlap.

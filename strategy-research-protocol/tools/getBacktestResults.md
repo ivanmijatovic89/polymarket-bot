@@ -65,8 +65,10 @@ the research protocol retrieves persisted results for evaluation and memory.
 
 ## After Success
 
-- Write the result reference to `FAMILY.json`.
-- Summarize the lesson in `FAMILY.md`.
+- Write the result reference to
+  `src/strategies/research/<family>/FAMILY.json`.
+- Summarize the lesson in
+  `src/strategies/research/<family>/FAMILY.md`.
 - Preserve enough context for a future agent to retrieve the result again.
 - If runtime or worker performance matters, summarize actual wall time,
   per-market timing, and slow-market outliers from the persisted result.

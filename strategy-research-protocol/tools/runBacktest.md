@@ -105,8 +105,10 @@ research protocol should use the backtest operation.
 ## After Success
 
 - Preserve the `run id` or `batchUid`.
-- Write the result reference to the relevant experiment in `FAMILY.json`.
-- Summarize what was run in `FAMILY.md`.
+- Write the result reference to the relevant experiment in
+  `src/strategies/research/<family>/FAMILY.json`.
+- Summarize what was run in
+  `src/strategies/research/<family>/FAMILY.md`.
 
 ## If It Fails
 

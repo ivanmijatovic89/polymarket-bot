@@ -2,16 +2,21 @@
 
 ## Purpose
 
-Regenerate `src/strategies/research/INDEX.json` from family metadata.
+Regenerate
+[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
+from family metadata.
 
 ## Use When
 
-- A research family `FAMILY.json` was added, changed, removed, or renamed.
+- A research family `src/strategies/research/<family>/FAMILY.json` was added,
+  changed, removed, or renamed.
 
 ## Do Not Use When
 
 - Only strategy code changed.
-- You are trying to fix `INDEX.json` manually.
+- You are trying to fix
+  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
+  manually.
 
 ## Inputs
 
@@ -33,14 +38,17 @@ npm run research:build-index -- --check
 
 ## Output
 
-- `src/strategies/research/INDEX.json`
+- [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
 
 ## After Success
 
-- Include the regenerated `INDEX.json` in the change.
+- Include the regenerated
+  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
+  in the change.
 
 ## If It Fails
 
-- Fix the source `FAMILY.json`.
+- Fix the source `src/strategies/research/<family>/FAMILY.json`.
 - Rerun this tool.
-- Never hand-edit `INDEX.json`.
+- Never hand-edit
+  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).

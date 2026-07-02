@@ -1,9 +1,10 @@
 # Strategy Research Protocol
 
 Strategy Research Protocol is the research layer on top of
-[PolymarketTwinEngine](./PolymarketTwinEngine.md). Its purpose is to help agents
-and humans propose, implement, backtest, evaluate, and preserve memory for
-strategy families targeting Polymarket 15 minute Bitcoin up/down markets.
+[`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md).
+Its purpose is to help agents and humans propose, implement, backtest,
+evaluate, and preserve memory for strategy families targeting Polymarket 15
+minute Bitcoin up/down markets.
 
 The protocol is being built incrementally. Today it defines family proposal,
 family artifacts, schemas, naming rules, and index generation. The autonomous
@@ -14,10 +15,10 @@ defined.
 
 This protocol currently targets only Polymarket 15 minute Bitcoin up/down binary
 markets. The full research assumptions are defined in
-[RESEARCH_SCOPE.md](./RESEARCH_SCOPE.md).
+[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md).
 
 For background on Polymarket and prediction markets, see
-[docs/polymarket](../docs/polymarket/index.md).
+[`docs/polymarket/index.md`](../docs/polymarket/index.md).
 
 ## Core invariant
 
@@ -37,31 +38,35 @@ The protocol manages research state, not trading infrastructure itself.
 - Backtest result references.
 - Evaluator decisions.
 - Research memory and duplicate detection.
-- Generated global `INDEX.json` rollups.
+- Generated global
+  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+  rollups.
 
 PolymarketTwinEngine remains responsible for market decoding, replay, live
 execution, portfolio handling, order management, and strategy execution.
 
 ## Repository layout
 
-- `modules/` - agent worker instructions.
-- `schemas/` - Zod schemas for protocol artifacts.
-- `rules/` - naming, versioning, and other protocol rules.
-- `tools/` - tool contracts agents should read before running commands.
-- `scripts/` - executable helper scripts.
-- `examples/` - reference examples for protocol artifacts.
-- `RESEARCH_SCOPE.md` - authoritative market, data, input, and cost assumptions.
-- `CONSTRAINTS.md` - short curated ban list that new families must not violate.
-- `PolymarketTwinEngine.md` - summary of the underlying engine.
+- `strategy-research-protocol/modules/` - agent worker instructions.
+- `strategy-research-protocol/schemas/` - Zod schemas for protocol artifacts.
+- `strategy-research-protocol/rules/` - naming, versioning, and other protocol rules.
+- `strategy-research-protocol/tools/` - tool contracts agents should read before running commands.
+- `strategy-research-protocol/scripts/` - executable helper scripts.
+- `strategy-research-protocol/examples/` - reference examples for protocol artifacts.
+- [`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) -
+  authoritative market, data, input, and cost assumptions.
+- [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) - short
+  curated ban list that new families must not violate.
+- [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md) -
+  summary of the underlying engine.
 
 Research families do not live inside this protocol folder. They live in the
 main source tree:
 
 ```text
-src/strategies/research/<family>/
-  FAMILY.md
-  FAMILY.json
-  Strategy.ts
+src/strategies/research/<family>/FAMILY.md
+src/strategies/research/<family>/FAMILY.json
+src/strategies/research/<family>/Strategy.ts
 ```
 
 The global research index is generated at:
@@ -72,12 +77,17 @@ src/strategies/research/INDEX.json
 
 ## Research artifacts
 
-- `FAMILY.md` - human/agent reasoning and memory for one family.
-- `FAMILY.json` - structured family state and experiment queue.
-- `Strategy.ts` - executable baseline strategy code for the family.
-- `INDEX.json` - generated global rollup for discovery and deduplication.
+- `src/strategies/research/<family>/FAMILY.md` - human/agent reasoning and
+  memory for one family.
+- `src/strategies/research/<family>/FAMILY.json` - structured family state and
+  experiment queue.
+- `src/strategies/research/<family>/Strategy.ts` - executable baseline strategy
+  code for the family.
+- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json) -
+  generated global rollup for discovery and deduplication.
 
-Do not edit `src/strategies/research/INDEX.json` manually. Use the
+Do not edit [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+manually. Use the
 `buildStrategyIndex` tool.
 
 ## Research lifecycle
@@ -90,7 +100,7 @@ propose family
 -> evaluate result
 -> extend, iterate, kill, or promote
 -> update research memory
--> rebuild INDEX.json
+-> rebuild src/strategies/research/INDEX.json
 ```
 
 The current implemented part is the first step: proposing a family and
@@ -101,28 +111,32 @@ kept explicit.
 
 The protocol should preserve research memory in files, not in chat history.
 
-- `FAMILY.md` stores reasoning: hypotheses, lessons, weaknesses, experiment log,
-  and duplicate notes.
-- `FAMILY.json` stores structured state: status, experiment queue, result
-  references, decisions, selected params, champion, and retry conditions.
-- `src/strategies/research/INDEX.json` is the generated global memory used for
-  discovery and deduplication.
+- `src/strategies/research/<family>/FAMILY.md` stores reasoning: hypotheses,
+  lessons, weaknesses, experiment log, and duplicate notes.
+- `src/strategies/research/<family>/FAMILY.json` stores structured state:
+  status, experiment queue, result references, decisions, selected params,
+  champion, and retry conditions.
+- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+  is the generated global memory used for discovery and deduplication.
 
 Agents must update memory after meaningful research steps so the next agent can
 continue from the files alone.
 
-Statuses and decision enums are defined in [`schemas/statuses.ts`](./schemas/statuses.ts).
-The evaluator thresholds are not defined yet.
+Statuses and decision enums are defined in
+[`strategy-research-protocol/schemas/statuses.ts`](./schemas/statuses.ts). The
+evaluator thresholds are not defined yet.
 
 ## Tools
 
-Protocol tools are documented in [`tools/index.md`](./tools/index.md). Read the
-tool document before running the command behind a tool.
+Protocol tools are documented in
+[`strategy-research-protocol/tools/index.md`](./tools/index.md). Read the tool
+document before running the command behind a tool.
 
 Currently defined:
 
 - `buildStrategyIndex` - regenerates
-  `src/strategies/research/INDEX.json` from family manifests.
+  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+  from family manifests.
 - `runBacktest` - creates a new backtest run for a strategy experiment.
 - `extendBacktest` - adds market coverage to an existing Telonex run.
 - `getBacktestResults` - retrieves persisted result summaries for evaluation
@@ -146,12 +160,15 @@ Propose one new family from a seed idea:
 
 Before using a tool or worker, read its dedicated instruction file.
 
-- Module list: [`modules/index.md`](./modules/index.md)
-- New family proposal: [`modules/ProposeFamily.md`](./modules/ProposeFamily.md)
-- Tool list: [`tools/index.md`](./tools/index.md)
-- Index generation: [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
-- Naming rules: [`rules/NAMING.md`](./rules/NAMING.md)
-- Versioning rules: [`rules/VERSIONING.md`](./rules/VERSIONING.md)
+- Module list: [`strategy-research-protocol/modules/index.md`](./modules/index.md)
+- New family proposal:
+  [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
+- Tool list: [`strategy-research-protocol/tools/index.md`](./tools/index.md)
+- Index generation:
+  [`strategy-research-protocol/tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
+- Naming rules: [`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md)
+- Versioning rules:
+  [`strategy-research-protocol/rules/VERSIONING.md`](./rules/VERSIONING.md)
 
 Agents must preserve the live/backtest invariant and should not invent missing
 protocol behavior. If a required module is missing, add that module explicitly
@@ -161,13 +178,19 @@ before depending on it.
 
 These are the next pieces to define:
 
-- `modules/ResearchFamily.md` - the main one-iteration research worker.
-- `modules/ProposeNextExperiment.md` - result-aware experiment proposal.
-- `modules/EvaluateExperiment.md` - objective evaluator contract.
-- `rules/VERSIONING.md` - exact strategy file naming and promotion rules.
+- `strategy-research-protocol/modules/ResearchFamily.md` - the main
+  one-iteration research worker.
+- `strategy-research-protocol/modules/ProposeNextExperiment.md` - result-aware
+  experiment proposal.
+- `strategy-research-protocol/modules/EvaluateExperiment.md` - objective
+  evaluator contract.
+- [`strategy-research-protocol/rules/VERSIONING.md`](./rules/VERSIONING.md) -
+  exact strategy file naming and promotion rules.
 - `npm run research:check` - full protocol validation.
-- Stronger schema invariants across `FAMILY.md`, `FAMILY.json`, strategy files,
-  and `INDEX.json`.
+- Stronger schema invariants across
+  `src/strategies/research/<family>/FAMILY.md`,
+  `src/strategies/research/<family>/FAMILY.json`, strategy files, and
+  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json).
 
 Build the protocol one step at a time. Each new piece should be small,
 validated, and usable by an agent without relying on implicit knowledge.

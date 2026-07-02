@@ -34,7 +34,8 @@ episodes per day.
 
 The engine may support more than this, but Strategy Research Protocol should not
 use other symbols, timeframes, venues, or cross-exchange signals unless
-`RESEARCH_SCOPE.md` is explicitly updated.
+[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) is
+explicitly updated.
 
 ## Engine Responsibilities
 
@@ -198,13 +199,14 @@ Use these docs when more detail is needed:
 
 Use tool docs for executable details:
 
-- [`tools/runBacktest.md`](./tools/runBacktest.md) - create a new backtest run.
-- [`tools/extendBacktest.md`](./tools/extendBacktest.md) - add coverage to an
-  existing Telonex run.
-- [`tools/getBacktestResults.md`](./tools/getBacktestResults.md) - retrieve
-  persisted result summaries.
-- [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md) - regenerate
-  research family index memory.
+- [`strategy-research-protocol/tools/runBacktest.md`](./tools/runBacktest.md) -
+  create a new backtest run.
+- [`strategy-research-protocol/tools/extendBacktest.md`](./tools/extendBacktest.md) -
+  add coverage to an existing Telonex run.
+- [`strategy-research-protocol/tools/getBacktestResults.md`](./tools/getBacktestResults.md) -
+  retrieve persisted result summaries.
+- [`strategy-research-protocol/tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md) -
+  regenerate research family index memory.
 
 Worker modules should call these tools by name instead of repeating command or
 API syntax.
@@ -213,9 +215,12 @@ API syntax.
 
 Engine results must be referenced from research artifacts:
 
-- `FAMILY.json` stores structured result references such as run id or batch uid.
-- `FAMILY.md` stores the human-readable lesson from the result.
-- `INDEX.json` is regenerated from family metadata; do not hand-edit it.
+- `src/strategies/research/<family>/FAMILY.json` stores structured result
+  references such as run id or batch uid.
+- `src/strategies/research/<family>/FAMILY.md` stores the human-readable lesson
+  from the result.
+- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+  is regenerated from family metadata; do not hand-edit it.
 
 The same research conclusion should be recoverable from files without reading
 chat history.

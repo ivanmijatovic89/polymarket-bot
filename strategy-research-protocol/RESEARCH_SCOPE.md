@@ -1,8 +1,9 @@
 # Research Scope
 
-This file defines the research scope for Strategy Research Protocol. Agents must
-read it before proposing a new family, proposing an experiment, evaluating
-results, or changing research memory.
+[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) defines
+the research scope for Strategy Research Protocol. Agents must read it before
+proposing a new family, proposing an experiment, evaluating results, or changing
+research memory.
 
 The goal is not to describe all of Polymarket. The goal is to define the narrow
 research scope that this protocol is allowed to optimize.
@@ -63,7 +64,8 @@ Expected shape:
 - Files are selected by `symbol=btc` and `timeframe=15m`.
 - Backtests should use the same market event semantics as live strategy ticks.
 
-Backtest execution details belong in the relevant tool document.
+Backtest execution details belong in the relevant
+`strategy-research-protocol/tools/` tool document.
 
 ## Allowed strategy inputs
 
@@ -127,14 +129,14 @@ is a new family.
 Each family lives at:
 
 ```text
-src/strategies/research/<family>/
-  FAMILY.md
-  FAMILY.json
-  Strategy.ts
+src/strategies/research/<family>/FAMILY.md
+src/strategies/research/<family>/FAMILY.json
+src/strategies/research/<family>/Strategy.ts
 ```
 
-`FAMILY.md` carries human and agent reasoning. `FAMILY.json` carries structured
-state. Strategy code must be executable and replayable.
+`src/strategies/research/<family>/FAMILY.md` carries human and agent reasoning.
+`src/strategies/research/<family>/FAMILY.json` carries structured state.
+Strategy code must be executable and replayable.
 
 ## Baseline experiment
 
@@ -151,9 +153,10 @@ Does this decision driver have any parameter region that can beat costs on BTC
 15 minute up/down markets?
 ```
 
-Do not seed a long experiment queue in `FAMILY.json`. Additional ideas belong in
-the `FAMILY.md` experiment menu until results justify adding the next
-experiment.
+Do not seed a long experiment queue in
+`src/strategies/research/<family>/FAMILY.json`. Additional ideas belong in the
+`src/strategies/research/<family>/FAMILY.md` experiment menu until results
+justify adding the next experiment.
 
 ## Evaluation posture
 
@@ -177,10 +180,13 @@ The protocol target is durable positive EV, not curve-fit parameter cells.
 
 Research memory must live in files, not chat history:
 
-- `FAMILY.md` for reasoning, lessons, weaknesses, and duplicate notes.
-- `FAMILY.json` for structured experiment status, decisions, result references,
-  selected params, champion, and retry conditions.
-- `src/strategies/research/INDEX.json` for generated global rollup.
+- `src/strategies/research/<family>/FAMILY.md` for reasoning, lessons,
+  weaknesses, and duplicate notes.
+- `src/strategies/research/<family>/FAMILY.json` for structured experiment
+  status, decisions, result references, selected params, champion, and retry
+  conditions.
+- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
+  for generated global rollup.
 
 Agents must update memory after meaningful research steps. Do not rely on hidden
 conversation history as the only record.
