@@ -185,7 +185,7 @@ The protocol target is durable positive EV, not curve-fit parameter cells.
 
 ## Research memory
 
-Research memory lives in:
+Research memory must live in files, not chat history:
 
 - `FAMILY.md` for reasoning, lessons, weaknesses, and duplicate notes.
 - `FAMILY.json` for structured experiment status, decisions, result references,
@@ -207,24 +207,3 @@ A family can be killed when:
 
 A killed family should set `retryOnlyIf` with a concrete condition that would
 justify revisiting it.
-
-## Current protocol status
-
-Implemented:
-
-- Family artifact shape.
-- New family proposal module.
-- Naming rules.
-- Schema definitions.
-- Global index generation.
-
-Not fully defined yet:
-
-- Objective evaluator thresholds.
-- Research-family loop worker.
-- Next-experiment proposal worker.
-- Strategy versioning rules.
-- Full protocol validation command.
-
-Do not pretend missing protocol pieces exist. Add them explicitly before
-depending on them.

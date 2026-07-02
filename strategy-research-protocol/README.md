@@ -10,17 +10,11 @@ family artifacts, schemas, naming rules, and index generation. The autonomous
 research loop, evaluator contract, and full validation command are still being
 defined.
 
-## Market scope
+## Scope
 
 This protocol currently targets only Polymarket 15 minute Bitcoin up/down binary
 markets. The full research assumptions are defined in
 [RESEARCH_SCOPE.md](./RESEARCH_SCOPE.md).
-
-A binary market has two outcomes. In this scope, the outcomes are whether
-Bitcoin closes up or down over a fixed 15 minute window.
-
-Do not expand research to other symbols, timeframes, venues, or cross-exchange
-signals unless the protocol is explicitly updated.
 
 For background on Polymarket and prediction markets, see
 [docs/polymarket](../docs/polymarket/index.md).
@@ -78,37 +72,13 @@ src/strategies/research/INDEX.json
 
 ## Research artifacts
 
-### `FAMILY.md`
+- `FAMILY.md` - human/agent reasoning and memory for one family.
+- `FAMILY.json` - structured family state and experiment queue.
+- `Strategy.ts` - executable baseline strategy code for the family.
+- `INDEX.json` - generated global rollup for discovery and deduplication.
 
-The human and agent-readable research record for one family. It explains the
-core idea, decision driver, experiment menu, known weaknesses, experiment log,
-and duplicate notes.
-
-`FAMILY.md` is where reasoning and memory live.
-
-### `FAMILY.json`
-
-The structured source of truth for one family. It stores family status, tags,
-duplicate keys, champion reference, retry condition, and the experiment queue.
-
-Agents should update `FAMILY.json` when experiment status, decisions, selected
-params, or result references change.
-
-### `Strategy.ts`
-
-The executable baseline strategy for the family. It must export a valid
-`StrategyDefinition` and expose a strict Zod parameter schema.
-
-Versioning rules for follow-up strategy files are still being finalized in
-[`rules/VERSIONING.md`](./rules/VERSIONING.md).
-
-### `INDEX.json`
-
-The generated global rollup of all research families. It is used for discovery,
-deduplication, and routing.
-
-Do not edit `src/strategies/research/INDEX.json` manually. Regenerate it with
-`npm run research:build-index`.
+Do not edit `src/strategies/research/INDEX.json` manually. Use the
+`buildStrategyIndex` tool.
 
 ## Research lifecycle
 
@@ -141,71 +111,18 @@ The protocol should preserve research memory in files, not in chat history.
 Agents must update memory after meaningful research steps so the next agent can
 continue from the files alone.
 
-## Family statuses
-
-- `proposed` - idea and baseline artifacts exist, but no experiment has been
-  run yet.
-- `experimental` - experiments are running or have run, but there is no champion
-  yet.
-- `active` - a champion exists and the family is considered useful.
-- `killed` - the family was tried and abandoned. Revisit only if `retryOnlyIf`
-  applies.
-- `blocked` - research is parked on an external blocker.
-
-## Experiment statuses
-
-- `proposed` - queued, not run.
-- `implemented` - code exists for a variation, but no backtest job is running.
-- `running` - backtest job has been submitted.
-- `done` - backtest finished and `result` points to the numeric truth.
-
-## Evaluator decisions
-
-- `pending` - not evaluated.
-- `pass` - result beat the required bar.
-- `fail` - result did not beat the required bar.
-- `iterate` - result is inconclusive but suggests another experiment.
-- `promote` - make this experiment the family champion.
-- `kill` - stop this experiment or family direction.
-
-The exact evaluator thresholds are not defined yet. They should be captured in
-a dedicated evaluator module before autonomous research is allowed to run for
-many iterations.
+Statuses and decision enums are defined in [`schemas/statuses.ts`](./schemas/statuses.ts).
+The evaluator thresholds are not defined yet.
 
 ## Tools
 
-Protocol tools are documented in [`tools/index.md`](./tools/index.md). Agents
-should read the tool document before running the command behind a tool.
-
-Vocabulary:
-
-- Tool - protocol-approved operation.
-- Command - shell invocation used by a tool.
-- Script - implementation file behind a command.
+Protocol tools are documented in [`tools/index.md`](./tools/index.md). Read the
+tool document before running the command behind a tool.
 
 Currently defined:
 
 - `buildStrategyIndex` - regenerates
   `src/strategies/research/INDEX.json` from family manifests.
-
-Common command used by this tool:
-
-```bash
-npm run research:build-index
-```
-
-Planned tool:
-
-- `researchCheck` - validate schemas, markdown/frontmatter consistency,
-  strategy file references, index freshness, and protocol invariants.
-
-Planned command:
-
-```bash
-npm run research:check
-```
-
-`research:check` is not implemented yet.
 
 ## Proposer script
 
@@ -225,6 +142,7 @@ Propose one new family from a seed idea:
 
 Before using a tool or worker, read its dedicated instruction file.
 
+- Module list: [`modules/index.md`](./modules/index.md)
 - New family proposal: [`modules/ProposeFamily.md`](./modules/ProposeFamily.md)
 - Tool list: [`tools/index.md`](./tools/index.md)
 - Index generation: [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
@@ -239,7 +157,6 @@ before depending on it.
 
 These are the next pieces to define:
 
-- `RESEARCH_SCOPE.md` - market, data, fee, benchmark, and replay assumptions.
 - `modules/ResearchFamily.md` - the main one-iteration research worker.
 - `modules/ProposeNextExperiment.md` - result-aware experiment proposal.
 - `modules/EvaluateExperiment.md` - objective evaluator contract.
