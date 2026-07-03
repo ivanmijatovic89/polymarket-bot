@@ -97,6 +97,16 @@ export function BacktestsTable({
       <BacktestSummaryTable
         rows={batches}
         emptyHint={emptyHint ?? 'Past runs will appear here.'}
+        prefixColumns={[
+          {
+            header: '#ID',
+            render: (b) => (
+              <Link href={`/backtests/${b.id}`} className="font-mono text-xs hover:underline">
+                #{b.id}
+              </Link>
+            ),
+          },
+        ]}
         extraColumns={[
           {
             header: 'Created',

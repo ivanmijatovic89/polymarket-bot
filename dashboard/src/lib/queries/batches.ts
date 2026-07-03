@@ -1,4 +1,5 @@
 import { and, asc, desc, eq } from 'drizzle-orm'
+import type { Job } from 'bullmq'
 import { getDb } from '../db'
 import {
   backtestRunFailures,
@@ -7,6 +8,24 @@ import {
   backtestRuns,
 } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
+
+const ACTIVE_AGGREGATE_STATES = ['waiting-children', 'waiting', 'active', 'delayed'] as const
+
+async function listActiveAggregateJobs(): Promise<Job[]> {
+  const agg = getAggregateQueue()
+  const pageSize = 200
+  const maxScanned = 50_000
+  const out: Job[] = []
+  let start = 0
+  while (start < maxScanned) {
+    const page = await agg.getJobs([...ACTIVE_AGGREGATE_STATES], start, start + pageSize - 1)
+    if (page.length === 0) break
+    out.push(...page)
+    if (page.length < pageSize) break
+    start += pageSize
+  }
+  return out
+}
 
 export type ActiveBatchSummary = {
   batchUid: string
@@ -68,8 +87,7 @@ export async function countActiveChildrenForSubmission(submissionUid: string): P
 }
 
 export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
-  const agg = getAggregateQueue()
-  const jobs = await agg.getJobs(['waiting-children', 'waiting', 'active', 'delayed'], 0, 100)
+  const jobs = await listActiveAggregateJobs()
   // Fetch the active-children count ONCE for all batches, then look up
   // per-parent below. Previously this was called inside the loop, causing
   // an N×scan-of-200-jobs hot path on every dashboard poll.
@@ -596,8 +614,7 @@ export async function getActiveBatchDetail(
 export async function listActiveBatchDetailsForLabel(
   batchUid: string,
 ): Promise<ActiveBatchDetail[]> {
-  const agg = getAggregateQueue()
-  const jobs = await agg.getJobs(['waiting-children', 'waiting', 'active', 'delayed'], 0, 100)
+  const jobs = await listActiveAggregateJobs()
   const out: ActiveBatchDetail[] = []
   for (const job of jobs) {
     if (!job) continue
