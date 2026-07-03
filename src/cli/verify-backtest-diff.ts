@@ -3,7 +3,8 @@ import { closeDb } from '../db/index.js'
 import { getBacktestRunByBatchUid, getBacktestRunById } from '../db/backtests.js'
 
 /**
- * Compares two backtest rows by batchUid and reports the first structural diff.
+ * Compares two backtest rows by run id, or by batch label when the label
+ * matches exactly one row, and reports the first structural diff.
  *
  * Bit-identical means: marketStats (excluding the new optional `execution` field)
  * and run summary columns are deeply equal.
