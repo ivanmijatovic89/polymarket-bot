@@ -278,14 +278,19 @@ async function main(): Promise<void> {
 
   const planOk = extensionPlan && extensionPlan.kind === 'ok' ? extensionPlan.plan : null
 
-  // Internal per-submission identity: keys the BullMQ flow job ids. Always
-  // fresh, never user-chosen — so job ids can't collide with BullMQ's jobId
-  // dedup cache even when the batch label is reused across runs.
-  const submissionUid = randomUUID()
   // Human-facing group label. Non-unique by design: reuse it to group
   // related runs (e.g. every cell of one param sweep). Extensions keep the
-  // parent's label. Defaults to the submissionUid when not provided.
-  const batchUid = isExtend ? planOk!.parent.batchUid : (parsed.batchUid ?? submissionUid)
+  // parent's label. Null here means "no label chosen" — the label then
+  // defaults to the submissionUid below.
+  const chosenLabel = isExtend ? planOk!.parent.batchUid : (parsed.batchUid ?? null)
+  // Internal per-submission identity: keys the BullMQ flow job ids. Always
+  // suffixed with a fresh UUID, never user-chosen — so job ids can't collide
+  // with BullMQ's jobId dedup cache even when the batch label is reused
+  // across runs. Prefixed with the label (when one exists) purely for
+  // readability in Redis / Bull Board / logs; the label part is capped so
+  // the whole uid always fits varchar(255).
+  const submissionUid = chosenLabel ? `${chosenLabel.slice(0, 180)}--${randomUUID()}` : randomUUID()
+  const batchUid = chosenLabel ?? submissionUid
   const cmd = buildBacktestCmdWithBatchUid(args, batchUid)
   const built = isExtend
     ? (() => {

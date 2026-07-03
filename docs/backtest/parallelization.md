@@ -115,7 +115,8 @@ keeps running in the queue — re-attach by opening
 npm run backtest -- ... --detach
 ```
 
-Producer enqueues the flow, prints the `batchUid`, and exits. The aggregator
+Producer enqueues the flow, prints the `batchUid` label and internal
+`submissionUid`, and exits. The aggregator
 worker will finalize the batch into MySQL as soon as the children settle. No
 need to keep a producer process alive for long batches.
 
@@ -241,7 +242,9 @@ machine as the producer or anywhere with network access to Redis + MySQL.
 ## Verifying bit-identical behavior
 
 `src/cli/verify-backtest-diff.ts` (exposed via `npm run backtest:verify-diff`)
-loads two backtest runs by run id or unique `batchUid` and reports the first structural
+loads two backtest runs by run id, or by `batchUid` when the label matches
+exactly one run (a label shared by several runs errors with a hint to use run
+ids), and reports the first structural
 difference in `marketStats` (excluding the `execution` field) and run summary
 columns.
 

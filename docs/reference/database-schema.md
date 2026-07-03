@@ -293,6 +293,7 @@ Returns telonex markets matching `slug LIKE '<symbol>-updown-<timeframe>-%'` (e.
 ```typescript
 insertBacktestRun(row: {
   batchUid: string
+  submissionUid: string
   baselineId: string | null
   cmd: string
   comment: string | null
@@ -320,6 +321,8 @@ Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_
 #### `getBacktestRunById(id)` / `getBacktestRunByBatchUid(batchUid)`
 
 Hydrates a normalized run for research and diff tooling: run metadata from `backtest_runs`, run-level stats from the `all` segment, ordered `marketStats`, and `failedMarkets`. Other per-segment stats are loaded separately via `listSegmentsForRun(runId)`.
+
+`batch_uid` is a non-unique group label — `getBacktestRunByBatchUid` throws when the label matches more than one run (use the run id instead). To enumerate a label's runs use `listBacktestRunSummariesByBatchUid(batchUid)`; unique identity lookups use `getBacktestRunSummaryBySubmissionUid(submissionUid)`.
 
 ---
 
