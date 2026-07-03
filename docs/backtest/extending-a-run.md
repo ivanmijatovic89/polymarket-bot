@@ -8,9 +8,9 @@ the union — all in one DB transaction.
 
 ::: tip Same row, more markets
 `--extend` does **not** create a new `backtest_runs` row. The parent
-row's `id` stays the same; its `batch_uid` is overwritten with a
-`-extN` suffix on each extend; per-market rows and per-segment stats update in
-place.
+row's `id`, `batch_uid` label, and `submission_uid` all stay the same;
+per-market rows and per-segment stats update in place. (The extension's
+BullMQ flow gets its own internal submission uid, visible only in Redis.)
 :::
 
 ::: warning Commit before extending
@@ -255,7 +255,6 @@ a summary:
 [backtest] Parent covered: 6,000 / 18,000 eligible-in-range (33%)
 [backtest] Extending by 500 markets (limited from 12,000), order=oldest-first
 [backtest] First market: 2026-01-04T00:45:00.000Z, last: 2026-01-09T12:30:00.000Z
-[backtest] New batchUid: <parent>-ext3
 ```
 
 If nothing matches the filter, the CLI exits cleanly with

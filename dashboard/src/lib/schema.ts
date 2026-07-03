@@ -25,6 +25,7 @@ export const backtestRuns = mysqlTable(
   {
     id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
     batchUid: varchar('batch_uid', { length: 255 }).notNull(),
+    submissionUid: varchar('submission_uid', { length: 255 }).notNull(),
     status: mysqlEnum('status', ['completed', 'partial', 'failed']).notNull(),
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
@@ -54,7 +55,8 @@ export const backtestRuns = mysqlTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (t) => ({
-    batchUidUnique: unique('uniq_backtest_runs_batch_uid').on(t.batchUid),
+    batchUidIdx: index('idx_backtest_runs_batch_uid').on(t.batchUid),
+    submissionUidUnique: unique('uniq_backtest_runs_submission_uid').on(t.submissionUid),
     createdAtIdx: index('idx_backtest_runs_created_at').on(t.createdAt),
   }),
 )

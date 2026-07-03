@@ -44,6 +44,6 @@ export function getAggregateQueue(): Queue {
   return q
 }
 
-export function aggregateJobId(batchUid: string): string {
-  return `${batchUid}-agg`
+export function aggregateJobId(submissionUid: string): string {
+  return `${submissionUid}-agg`
 }

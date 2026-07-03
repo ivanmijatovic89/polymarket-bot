@@ -51,7 +51,7 @@ export function ActiveBatchesTable() {
         </TableHeader>
         <TableBody>
           {batches.map((b) => (
-            <TableRow key={b.batchUid}>
+            <TableRow key={b.submissionUid}>
               <TableCell>
                 <Link
                   href={`/batches/${encodeURIComponent(b.batchUid)}`}

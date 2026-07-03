@@ -1,7 +1,7 @@
 -- Concurrency guard for `--extend <runId>`.
 --
--- Set in the same statement that updates batch_uid / cmd at the start of an
--- extension flow; cleared in the same DB transaction as the merge UPDATE.
+-- Set when an extension flow is enqueued; cleared in the same DB transaction
+-- as the merge UPDATE. The parent batch_uid label is not changed by extends.
 -- While non-NULL, a second concurrent `--extend` on the same run is rejected
 -- with a clear error message.
 --

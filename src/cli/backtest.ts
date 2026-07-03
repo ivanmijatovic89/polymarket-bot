@@ -1,7 +1,7 @@
 import '../config/env.js'
 import { getCurrentGitSha, getMachineId, isWorkingTreeDirty } from '../backtest/workerIdentity.js'
 import { installProcessCrashHandlers, installSignalHandlers } from '../utils/runtime.js'
-import { randomBytes, randomUUID } from 'crypto'
+import { randomUUID } from 'crypto'
 import {
   buildStrategyFromCliArgs,
   buildStrategyFromConfig,
@@ -10,9 +10,9 @@ import {
 import { planExtension } from '../backtest/extendPlanner.js'
 import {
   applyExtensionToRun,
+  clearExtensionLock,
   ExtensionLockHeldError,
-  markRunForExtendingBatch,
-  restoreRunAfterFailedExtend,
+  lockRunForExtension,
   type IndexedMarketStats,
 } from '../db/backtests.js'
 import { parseArgs } from './helpers/backtestArgs.js'
@@ -34,7 +34,6 @@ import {
   MARKET_JOB_OPTS,
   MARKET_QUEUE,
   closeRedisConnection,
-  getAggregateQueue,
   getFlowProducer,
   getQueueEvents,
   getRedisConnection,
@@ -64,7 +63,7 @@ import {
   type ReadFrom,
 } from '../db/telonexMarkets.js'
 import { localOutputPath } from '../telonex/localOutputPath.js'
-import { getBacktestRunSummaryByBatchUid, insertBacktestRun } from '../db/backtests.js'
+import { insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
@@ -93,41 +92,6 @@ function nullMarketStatsReason(skipReason: string | undefined): string {
 
 function converterForInputMode(inputMode: 'telonex-delta' | 'telonex-paired'): Converter {
   return inputMode === 'telonex-delta' ? 'delta-typed' : 'paired'
-}
-
-function randomBatchUidSuffix(): string {
-  return randomBytes(3).toString('hex')
-}
-
-async function resolveAvailableBatchUid(
-  baseBatchUid: string,
-  options: { redisHasAggregateJob?: (candidate: string) => Promise<boolean> } = {},
-): Promise<string> {
-  let firstConflict: string | null = null
-
-  for (let attempt = 0; attempt < 20; attempt += 1) {
-    const candidate = attempt === 0 ? baseBatchUid : `${baseBatchUid}-${randomBatchUidSuffix()}`
-    const existingRun = await getBacktestRunSummaryByBatchUid(candidate)
-    if (existingRun) {
-      firstConflict ??= `MySQL run id=${existingRun.id}, marketsPersisted=${existingRun.marketsPersisted}`
-      continue
-    }
-
-    if (options.redisHasAggregateJob && (await options.redisHasAggregateJob(candidate))) {
-      firstConflict ??= 'Redis aggregate job'
-      continue
-    }
-
-    if (candidate !== baseBatchUid) {
-      console.warn(
-        `[backtest] batchUid=${baseBatchUid} already exists (${firstConflict ?? 'conflict'}); ` +
-          `using batchUid=${candidate}`,
-      )
-    }
-    return candidate
-  }
-
-  throw new Error(`[backtest] could not allocate available batchUid for base=${baseBatchUid}`)
 }
 
 function argvWithBatchUid(argv: string[], batchUid: string): string[] {
@@ -310,17 +274,24 @@ async function main(): Promise<void> {
         `[backtest] First market: ${new Date(firstMs).toISOString()}, last: ${new Date(lastMs).toISOString()}`,
       )
     }
-    console.log(`[backtest] New batchUid: ${plan.newBatchUid}`)
   }
 
   const planOk = extensionPlan && extensionPlan.kind === 'ok' ? extensionPlan.plan : null
 
-  let batchUid = isExtend
-    ? // Extension batchUid is deterministic from parent's current batchUid;
-      // planExtension already generated it, no need to resolve a free slot.
-      planOk!.newBatchUid
-    : await resolveAvailableBatchUid(parsed.batchUid ?? randomUUID())
-  let cmd = buildBacktestCmdWithBatchUid(args, batchUid)
+  // Human-facing group label. Non-unique by design: reuse it to group
+  // related runs (e.g. every cell of one param sweep). Extensions keep the
+  // parent's label. Null here means "no label chosen" — the label then
+  // defaults to the submissionUid below.
+  const chosenLabel = isExtend ? planOk!.parent.batchUid : (parsed.batchUid ?? null)
+  // Internal per-submission identity: keys the BullMQ flow job ids. Always
+  // suffixed with a fresh UUID, never user-chosen — so job ids can't collide
+  // with BullMQ's jobId dedup cache even when the batch label is reused
+  // across runs. Prefixed with the label (when one exists) purely for
+  // readability in Redis / Bull Board / logs; the label part is capped so
+  // the whole uid always fits varchar(255).
+  const submissionUid = chosenLabel ? `${chosenLabel.slice(0, 180)}--${randomUUID()}` : randomUUID()
+  const batchUid = chosenLabel ?? submissionUid
+  const cmd = buildBacktestCmdWithBatchUid(args, batchUid)
   const built = isExtend
     ? (() => {
         try {
@@ -748,11 +719,10 @@ async function main(): Promise<void> {
     // Acquire the extension lock BEFORE the per-market loop so a concurrent
     // --extend on the same run fails fast instead of after hours of replay.
     // The BullMQ path already does this before flow.add. On failure after
-    // this point, restore the parent's previous batchUid and clear the lock
-    // so a retry isn't blocked or hidden behind a stale -extN batchUid.
+    // this point, clear the lock so a retry isn't blocked.
     if (isExtend) {
       try {
-        await markRunForExtendingBatch(planOk!.parent.id, batchUid)
+        await lockRunForExtension(planOk!.parent.id)
         extensionLockAcquired = true
       } catch (err) {
         if (err instanceof ExtensionLockHeldError) {
@@ -869,17 +839,15 @@ async function main(): Promise<void> {
       }
     } catch (err) {
       if (isExtend && extensionLockAcquired) {
-        await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(
-          () => {},
-        )
+        await clearExtensionLock(planOk!.parent.id).catch(() => {})
       }
       throw err
     }
 
     if (isExtend) {
       // Extension UPDATE flow: persist the new markets into the parent run
-      // and recompute stats over the UNION (existing + new). batchUid + lock
-      // were already taken before the per-market loop above.
+      // and recompute stats over the UNION (existing + new). The lock was
+      // already taken before the per-market loop above.
       try {
         await applyExtensionToRun({
           parentRunId: planOk!.parent.id,
@@ -888,9 +856,7 @@ async function main(): Promise<void> {
         })
         extensionLockAcquired = false
       } catch (err) {
-        await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(
-          () => {},
-        )
+        await clearExtensionLock(planOk!.parent.id).catch(() => {})
         throw err
       }
       console.log(
@@ -905,6 +871,7 @@ async function main(): Promise<void> {
 
       await insertBacktestRun({
         batchUid,
+        submissionUid,
         baselineId: parsed.baselineId ?? null,
         cmd,
         comment: parsed.comment ?? null,
@@ -979,26 +946,13 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const aggregateQueue = getAggregateQueue()
-  if (!isExtend) {
-    // Skip resolveAvailableBatchUid for extends — newBatchUid is deterministic
-    // and we want a hard failure if it somehow collides (would indicate a bug
-    // in generateExtensionBatchUid or simultaneous extends of same run).
-    batchUid = await resolveAvailableBatchUid(batchUid, {
-      redisHasAggregateJob: async (candidate) =>
-        (await aggregateQueue.getJob(aggregateJobId(candidate))) !== undefined,
-    })
-  }
-  cmd = buildBacktestCmdWithBatchUid(args, batchUid)
-
   if (isExtend) {
-    // Eagerly UPDATE backtest_runs.batch_uid before the BullMQ flow
-    // enqueues. Dashboard lookups by batchUid then find the parent run
-    // immediately during processing — not just on completion. This also
-    // atomically takes the concurrent-extend lock; a second --extend on the
-    // same run hitting this same call will get ExtensionLockHeldError.
+    // Atomically take the concurrent-extend lock before enqueueing; a second
+    // --extend on the same run hitting this same call will get
+    // ExtensionLockHeldError. batch_uid is NOT touched — the parent keeps
+    // its label, and the flow is identified by the fresh submissionUid.
     try {
-      await markRunForExtendingBatch(planOk!.parent.id, batchUid)
+      await lockRunForExtension(planOk!.parent.id)
     } catch (err) {
       if (err instanceof ExtensionLockHeldError) {
         console.error(`[backtest] ${err.message}`)
@@ -1011,6 +965,7 @@ async function main(): Promise<void> {
 
   const flow = getFlowProducer()
   const aggData: AggregateJobData = {
+    submissionUid,
     batchUid,
     protocolVersion: AGGREGATE_JOB_PROTOCOL_VERSION,
     commitSha: producerCommitSha,
@@ -1038,6 +993,7 @@ async function main(): Promise<void> {
 
   const children = marketContexts.map((ctx) => {
     const data: MarketJobData = {
+      submissionUid,
       batchUid,
       idx: ctx.idx,
       filePath: ctx.filePath,
@@ -1066,14 +1022,14 @@ async function main(): Promise<void> {
       // `waiting-children`.
       opts: {
         ...MARKET_JOB_OPTS,
-        jobId: marketJobId(batchUid, ctx.idx),
+        jobId: marketJobId(submissionUid, ctx.idx),
         ignoreDependencyOnFailure: true,
       },
     }
   })
 
   console.log(
-    `[backtest] enqueueing flow batchUid=${batchUid} totalMarkets=${totalMarkets} commitSha=${producerCommitSha.slice(0, 8) || 'unknown'}`,
+    `[backtest] enqueueing flow batchUid=${batchUid} submissionUid=${submissionUid} totalMarkets=${totalMarkets} commitSha=${producerCommitSha.slice(0, 8) || 'unknown'}`,
   )
 
   let node: Awaited<ReturnType<typeof flow.add>>
@@ -1092,26 +1048,27 @@ async function main(): Promise<void> {
         // Force single-attempt for extends; user re-runs --extend manually
         // per the documented recovery flow if the job fails.
         ...(isExtend ? { attempts: 1 } : {}),
-        jobId: aggregateJobId(batchUid),
+        jobId: aggregateJobId(submissionUid),
         // NOTE: `ignoreDependencyOnFailure` belongs on each CHILD (see the
         // children build above), not here — on the parent it has no effect.
       },
     })
   } catch (err) {
-    // BullMQ / Redis enqueue failed AFTER markRunForExtendingBatch took the
-    // lock and changed batch_uid. Restore both so a retry is visible at the
-    // original parent batchUid. Do NOT release on success — the
+    // BullMQ / Redis enqueue failed AFTER lockRunForExtension took the lock.
+    // Clear it so a retry isn't blocked. Do NOT release on success — the
     // aggregateProcessor clears it in the same transaction as the merge UPDATE.
     if (isExtend) {
-      await restoreRunAfterFailedExtend(planOk!.parent.id, planOk!.parent.batchUid).catch(() => {})
+      await clearExtensionLock(planOk!.parent.id).catch(() => {})
     }
     throw err
   }
 
-  console.log(`[backtest] enqueued: aggregate jobId=${node.job.id ?? aggregateJobId(batchUid)}`)
+  console.log(
+    `[backtest] enqueued: aggregate jobId=${node.job.id ?? aggregateJobId(submissionUid)}`,
+  )
 
   if (parsed.detach) {
-    console.log(`[backtest] --detach: batchUid=${batchUid}`)
+    console.log(`[backtest] --detach: batchUid=${batchUid} submissionUid=${submissionUid}`)
     console.log(`[backtest] watch progress at http://127.0.0.1:3051/ (npm run dashboard)`)
     await closeRedisConnection()
     await closeDb()
@@ -1135,10 +1092,9 @@ async function main(): Promise<void> {
   let completed = 0
   let failed = 0
 
-  // Only count events for child market jobs (`<batchUid>-m-<idx>`), not
-  // the aggregate parent (`<batchUid>-agg`) which can also match
-  // `includes(batchUid)`.
-  const isOurChild = (jobId: string): boolean => jobId.startsWith(`${batchUid}-m-`)
+  // Only count events for child market jobs (`<submissionUid>-m-<idx>`), not
+  // the aggregate parent (`<submissionUid>-agg`).
+  const isOurChild = (jobId: string): boolean => jobId.startsWith(`${submissionUid}-m-`)
 
   const printProgress = (): void => {
     const total = totalMarkets

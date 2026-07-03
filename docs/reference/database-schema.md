@@ -70,7 +70,7 @@ Important indexes:
 
 | Table                    | Index/Constraint                 | Purpose                                  |
 | ------------------------ | -------------------------------- | ---------------------------------------- |
-| `backtest_runs`          | unique `batch_uid`               | Lookup by run UID and prevent duplicates |
+| `backtest_runs`          | index `batch_uid`, unique `submission_uid` | Group lookup by label; unique per-submission identity |
 | `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)` | Dashboard history and filter queries     |
 | `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
 | `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)` | Detail, search, slow-market and chronological views |
@@ -293,6 +293,7 @@ Returns telonex markets matching `slug LIKE '<symbol>-updown-<timeframe>-%'` (e.
 ```typescript
 insertBacktestRun(row: {
   batchUid: string
+  submissionUid: string
   baselineId: string | null
   cmd: string
   comment: string | null
@@ -320,6 +321,8 @@ Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_
 #### `getBacktestRunById(id)` / `getBacktestRunByBatchUid(batchUid)`
 
 Hydrates a normalized run for research and diff tooling: run metadata from `backtest_runs`, run-level stats from the `all` segment, ordered `marketStats`, and `failedMarkets`. Other per-segment stats are loaded separately via `listSegmentsForRun(runId)`.
+
+`batch_uid` is a non-unique group label — `getBacktestRunByBatchUid` throws when the label matches more than one run (use the run id instead). To enumerate a label's runs use `listBacktestRunSummariesByBatchUid(batchUid)`; unique identity lookups use `getBacktestRunSummaryBySubmissionUid(submissionUid)`.
 
 ---
 

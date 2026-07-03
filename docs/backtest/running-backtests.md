@@ -141,7 +141,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | Flag                | Description                                                                                      |
 | ------------------- | ------------------------------------------------------------------------------------------------ |
 | `--comment <text>`  | Free-text annotation stored with the run record in the database.                                 |
-| `--batchUid <uuid>` | Override the auto-generated batch UUID. If the given `batchUid` already exists (a finished run in MySQL or an aggregate job still in Redis), the producer automatically appends a random suffix and continues — it does not fail or overwrite the existing run. |
+| `--batchUid <label>` | Group label for the run. **Non-unique by design** — give several runs the same label to group them (e.g. every cell of one param sweep), then view them together at `/batches/<label>` in the dashboard. Defaults to the run's internal submission UUID. |
 | `--baselineId <id>` | Reference a prior run for comparison purposes.                                                   |
 
 ### Execution mode
@@ -149,7 +149,7 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | Flag            | Description                                                                                                                                                                                                                                                                                                                                                                            |
 | --------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `--sequential`  | Bypass BullMQ and run the loop in-process. No Redis or worker daemon required. Use for quick smoke tests, bit-identical verification, or machines without Redis. See [Execution modes](#execution-modes).                                                                                                                                                                              |
-| `--detach`      | (BullMQ default only.) Enqueue the flow, print the `batchUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch in the dashboard.                                                                                                                                                                                 |
+| `--detach`      | (BullMQ default only.) Enqueue the flow, print the `batchUid` label + internal `submissionUid`, and exit immediately. The aggregator worker finalizes the batch into MySQL on its own. Re-attach by opening the batch label in the dashboard.                                                                                                                                                                                 |
 
 ## Execution modes
 

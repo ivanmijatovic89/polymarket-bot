@@ -25,7 +25,8 @@ erDiagram
 
   backtest_runs {
     bigint id PK
-    varchar batch_uid UK
+    varchar batch_uid
+    varchar submission_uid UK
     enum status
     varchar strategy
     json params
@@ -73,7 +74,8 @@ failed run.
 | Column      | Type                                  | Description                                      |
 | ----------- | ------------------------------------- | ------------------------------------------------ |
 | `id`        | `BIGINT`                              | Surrogate primary key.                           |
-| `batch_uid` | `VARCHAR(255)`                        | Unique run identifier used by CLI and dashboard. |
+| `batch_uid` | `VARCHAR(255)`                        | Non-unique group label (indexed) — reuse it to group related runs, e.g. every cell of one param sweep. Defaults to `submission_uid`. |
+| `submission_uid` | `VARCHAR(255)`                   | Unique internal per-submission id. `<label>--<uuid>` when the run was submitted with `--batchUid` (label capped at 180 chars), bare UUID otherwise. Keys the BullMQ flow job ids. |
 | `status`    | `ENUM('completed','partial','failed')` | Terminal status derived from market/failure counts. |
 
 ### Reproducibility

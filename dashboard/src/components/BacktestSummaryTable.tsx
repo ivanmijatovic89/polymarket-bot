@@ -41,6 +41,12 @@ export type BacktestSummary = {
 
 export type BacktestSummaryTableProps<T extends BacktestSummary> = {
   rows: T[]
+  /** Optional columns rendered before the leading identity column. */
+  prefixColumns?: {
+    header: ReactNode
+    render: (row: T, index: number) => ReactNode
+    align?: 'left' | 'right'
+  }[]
   /** First-column renderer — identity / label / link. */
   renderLeading: (row: T, index: number) => ReactNode
   /** Optional last-column renderer — actions (CMD button, arrow, etc.).
@@ -83,6 +89,7 @@ function compactInt(n: number): string {
  */
 export function BacktestSummaryTable<T extends BacktestSummary>({
   rows,
+  prefixColumns,
   renderLeading,
   renderActions,
   leadingHeader = 'Batch',
@@ -114,6 +121,11 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
       : ''
     return (
       <TableRow key={isFooter ? 'footer' : i} className={rowCls}>
+        {prefixColumns?.map((c, j) => (
+          <TableCell key={j} className={c.align === 'right' ? 'text-right' : undefined}>
+            {isFooter ? null : c.render(b, i)}
+          </TableCell>
+        ))}
         <TableCell>{isFooter ? footerLeading : renderLeading(b, i)}</TableCell>
         <TableCell className="text-sm">{b.strategy ?? '—'}</TableCell>
         <TableCell>
@@ -216,6 +228,11 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <Table>
           <TableHeader>
             <TableRow>
+              {prefixColumns?.map((c, i) => (
+                <TableHead key={i} className={c.align === 'right' ? 'text-right' : undefined}>
+                  {c.header}
+                </TableHead>
+              ))}
               <TableHead className="min-w-[180px]">{leadingHeader}</TableHead>
               <TableHead>Strategy</TableHead>
               <TableHead>Symbol</TableHead>
