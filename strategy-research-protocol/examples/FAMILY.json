@@ -2,38 +2,29 @@
   "schemaVersion": 1,
   "artifactType": "strategy-family-index",
   "family": "book-imbalance",
-  "status": "experimental",
+  "status": "proposed",
   "coreIdea": "Use persistent orderbook imbalance as the primary entry driver",
+  "duplicateKeys": ["book-pressure", "bid-ask-skew", "depth-imbalance"],
+  "retryOnlyIf": null,
   "champion": null,
   "tags": ["orderbook", "imbalance", "entry-signal"],
   "experiments": [
     {
-      "id": "book-imbalance.001-baseline-sweep",
+      "id": "000-baseline",
       "order": 1,
       "kind": "param-search",
-      "code": "Strategy.ts",
-      "idea": "Baseline knob sweep — does any param region beat baseline at all?",
+      "code": "000-baseline.ts",
+      "idea": "Baseline knob sweep over the initial imbalance entry rule.",
+      "basedOn": null,
       "sweep": {
         "enterThreshold": [0.3, 0.4, 0.5, 0.6],
-        "dwellSec": [0, 10, 20, 30],
-        "takeProfit": [0.05, 0.1, 0.15]
+        "dwellTicks": [0, 3, 6, 12],
+        "takeProfitTicks": [1, 2, 3]
       },
-      "params": null,
-      "status": "done",
-      "decision": "pending",
-      "result": { "type": "batch", "ref": "obimb-sweep-01" },
-      "selectedParams": { "enterThreshold": 0.5, "dwellSec": 20, "takeProfit": 0.1 }
-    },
-    {
-      "id": "book-imbalance.002-persistence-filter",
-      "order": 2,
-      "kind": "variation",
-      "code": "Strategy.v2.ts",
-      "idea": "Persistence filter — imbalance must hold N ticks before entry",
-      "sweep": null,
       "params": null,
       "status": "proposed",
       "decision": "pending",
+      "decidedAt": null,
       "result": null,
       "selectedParams": null
     }

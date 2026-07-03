@@ -17,9 +17,11 @@ bad:   orderbook  plugins  research-lab  experiment-1  BookImbalance  book_imbal
 `orderbook` is where the data comes from, not why the strategy acts. Data
 sources, mechanisms, and themes belong in `tags`:
 
-```yaml
-family: book-imbalance # the driver
-tags: [orderbook, imbalance, entry-signal] # source / theme
+```json
+{
+  "family": "book-imbalance",
+  "tags": ["orderbook", "imbalance", "entry-signal"]
+}
 ```
 
 ## New family or new experiment?

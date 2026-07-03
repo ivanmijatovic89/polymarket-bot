@@ -90,7 +90,8 @@ main source tree:
 ```text
 src/strategies/research/<family>/FAMILY.md
 src/strategies/research/<family>/FAMILY.json
-src/strategies/research/<family>/Strategy.ts
+src/strategies/research/<family>/000-baseline.ts
+src/strategies/research/<family>/<experiment-id>.ts
 ```
 
 The global research index is generated at:
@@ -105,8 +106,10 @@ src/strategies/research/INDEX.json
   memory for one family.
 - `src/strategies/research/<family>/FAMILY.json` - structured family state and
   experiment queue.
-- `src/strategies/research/<family>/Strategy.ts` - executable baseline strategy
-  code for the family.
+- `src/strategies/research/<family>/000-baseline.ts` - executable baseline
+  strategy code for the family.
+- `src/strategies/research/<family>/<experiment-id>.ts` - executable strategy
+  code introduced by later code-changing experiments.
 - [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json) -
   generated global rollup for discovery and deduplication.
 

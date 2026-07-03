@@ -1,13 +1,6 @@
 ---
 artifactType: strategy-family
 family: liquidity-wall
-status: proposed
-champion: null
-tags:
-  - orderbook
-  - liquidity
-  - concentration
-  - entry-signal
 ---
 
 # liquidity-wall
@@ -84,11 +77,11 @@ exit re-tuning.
 
 ## Experiment log
 
-### 001 — baseline sweep
+### 000-baseline
 
 Hypothesis: does any param region of the concentration driver reach
 `evPerMarketTotal` > 0, and does `follow` or `fade` carry the sign?
-Result: (pending — FAMILY.json experiment `liquidity-wall.001-baseline-sweep`)
+Result: pending. Future run batch UID: `liquidity-wall--000-baseline`.
 
 ## Duplicate notes
 

@@ -17,7 +17,12 @@
       "path": "liquidity-wall/FAMILY.md",
       "champion": null,
       "championResult": null,
-      "tags": ["orderbook", "liquidity", "concentration", "entry-signal"]
+      "tags": [
+        "orderbook",
+        "liquidity",
+        "concentration",
+        "entry-signal"
+      ]
     }
   ]
 }

@@ -131,7 +131,8 @@ Each family lives at:
 ```text
 src/strategies/research/<family>/FAMILY.md
 src/strategies/research/<family>/FAMILY.json
-src/strategies/research/<family>/Strategy.ts
+src/strategies/research/<family>/000-baseline.ts
+src/strategies/research/<family>/<experiment-id>.ts
 ```
 
 `src/strategies/research/<family>/FAMILY.md` carries human and agent reasoning.
@@ -146,7 +147,7 @@ Research memory rules are defined in
 Every new family starts with one baseline parameter sweep:
 
 ```text
-<family>.001-baseline-sweep
+000-baseline
 ```
 
 The baseline sweep asks a simple question:

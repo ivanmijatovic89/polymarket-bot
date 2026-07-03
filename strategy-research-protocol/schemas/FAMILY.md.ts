@@ -1,6 +1,6 @@
 import { z } from 'zod'
 import { parse as parseYaml } from 'yaml'
-import { FamilyStatus, Slug } from './statuses.js'
+import { Slug } from './statuses.js'
 
 /**
  * FAMILY.md frontmatter — the human/AI-readable reasoning file.
@@ -8,10 +8,7 @@ import { FamilyStatus, Slug } from './statuses.js'
 export const FamilyDocFrontmatter = z.object({
   artifactType: z.literal('strategy-family'),
   family: Slug,
-  status: FamilyStatus,
-  champion: z.string().nullable(),
-  tags: z.array(z.string()),
-})
+}).strict()
 export type FamilyDocFrontmatter = z.infer<typeof FamilyDocFrontmatter>
 
 /** Required H2 sections in the FAMILY.md body, in canonical order. */

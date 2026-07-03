@@ -12,7 +12,7 @@ import type { OrderBookSnapshot, OrderLevel } from '../../../market/orderbook/ty
 import * as z from 'zod'
 
 /**
- * LiquidityWall.v1 — "trade around a single dominant resting order (a wall)".
+ * liquidity-wall.000-baseline — "trade around a single dominant resting order (a wall)".
  *
  * Family: liquidity-wall (see strategy-research-protocol/liquidity-wall/FAMILY.md).
  *
@@ -75,8 +75,8 @@ export const ConfigSchema = z.strictObject({
 export type Config = z.infer<typeof ConfigSchema>
 
 export const definition: StrategyDefinition<Config> = {
-  id: 'LiquidityWall.v1',
-  title: 'Liquidity Wall v1',
+  id: 'liquidity-wall.000-baseline',
+  title: 'Liquidity Wall 000 Baseline',
   description:
     'Trades around a single dominant resting order (a wall) on the UP token — ' +
     'concentration, not aggregate imbalance. Taker entry + exit; order-book only; ' +
@@ -189,7 +189,7 @@ function secondsLeftOf(nowMs: number, ctx?: StrategyContext): number | null {
 }
 
 export function createStrategy(cfg: Config): Strategy {
-  const name = 'LiquidityWall.v1'
+  const name = 'liquidity-wall.000-baseline'
   let state: StrategyState = null
 
   const onMarketTick = (

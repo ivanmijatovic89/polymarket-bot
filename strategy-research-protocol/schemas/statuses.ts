@@ -46,3 +46,7 @@ export type ResultRef = z.infer<typeof ResultRef>
 
 /** Lowercase-kebab slug, e.g. "book-imbalance". */
 export const Slug = z.string().regex(/^[a-z0-9]+(-[a-z0-9]+)*$/)
+
+/** Local experiment id, e.g. "000-baseline" or "002-persistence-filter". */
+export const ExperimentId = z.string().regex(/^[0-9]{3}-[a-z0-9]+(-[a-z0-9]+)*$/)
+export type ExperimentId = z.infer<typeof ExperimentId>

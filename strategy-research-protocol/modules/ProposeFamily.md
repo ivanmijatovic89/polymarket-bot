@@ -1,170 +1,211 @@
 # Worker: propose-family
 
-Propose **one** new strategy family and make its first experiment ready to run.
-This worker writes files and the baseline strategy code, then stops. It does not
-run backtests, evaluate, or touch
+Propose **one** new strategy family and make its baseline experiment ready to
+run. This worker writes the family memory files and `000-baseline.ts`, then
+stops. It does not run backtests, evaluate results, promote champions, or edit
 [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).
 
-## Where a family lives (one folder, no exceptions)
+## Output
 
-Everything for a family — `src/strategies/research/<family>/FAMILY.md`,
-`src/strategies/research/<family>/FAMILY.json`, and the strategy `.ts` — lives
-together in **one** folder:
+Create exactly one folder:
 
+```text
+src/strategies/research/<family>/
+  FAMILY.md
+  FAMILY.json
+  000-baseline.ts
 ```
-src/strategies/research/<family>/FAMILY.md
-src/strategies/research/<family>/FAMILY.json
-src/strategies/research/<family>/Strategy.ts
-```
 
-This path is mandatory: the `.ts` must be under `src/` to be imported by the
-registry, and the artifacts co-locate with it. Do **not** put
-`src/strategies/research/<family>/FAMILY.md` /
-`src/strategies/research/<family>/FAMILY.json` anywhere else (not under
-`strategy-research-protocol/`). Create files with the `Write` tool — it creates
-the folder for you; do **not** call `mkdir`.
+Do not write family artifacts under `strategy-research-protocol/`. Strategy code
+must live under `src/` so auto-discovery can import it.
 
 ## Inputs
 
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) — the
-  game (venue, instrument, data, costs). Read first.
-- [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-  — the map of every research family already tried. Your entry point, and the
-  **complete** universe of what exists for dedup.
-- [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — how to write
-  `FAMILY.md`, `FAMILY.json`, and generated index memory.
-- [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) — hard rules
-  a family must not violate.
-- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md)
-  and
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
-  — how to name a family, its experiments, and code files.
-- `strategy-research-protocol/schemas/` — the shapes you must emit
-  (`src/strategies/research/<family>/FAMILY.md`,
-  `src/strategies/research/<family>/FAMILY.json`).
-- **Optional seed** — a one-line idea from the user. If absent, run autonomous.
+Read these before writing:
 
-**Scope — dedup against research families only.** For _dedup_,
-[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-is the complete universe: it lists the research families, and you may open a
-listed family's `src/strategies/research/<family>/FAMILY.md` and
-`src/strategies/research/<family>/Strategy.ts` (via its `path`) when one looks
-related. Do **NOT** scan or dedup against the legacy strategy library elsewhere
-in `src/strategies/` (split/, scalp/, signals/, root files) — it is out of scope
-and reading it all wastes a large amount of context. If
-[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-is empty, there is nothing to dedup against — just propose.
+- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) -
+  research scope and market assumptions.
+- [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md) -
+  tick, replay, order, cost, latency, and dataset semantics.
+- [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json) -
+  generated map of existing research families for deduplication.
+- [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) - family memory rules.
+- [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) - hard ban
+  list.
+- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md) -
+  family slug and duplicate rules.
+- [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) -
+  baseline id, code file, registry id, champion pointer, and freeze rule.
+- [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md) -
+  future backtest batch label convention.
+- `strategy-research-protocol/schemas/` - exact shapes for `FAMILY.md` and
+  `FAMILY.json`.
 
-**Code reference (use judgment).** When you write the strategy `.ts` (step 6),
-good starting points for the API and idioms: `src/strategy/strategyDefinition.ts`,
-`Strategy.ts`, `strategyToolkit.ts`, and `src/strategies/templates/Template.v1.ts`.
-Reading an existing strategy or two for idioms is fine — you don't need to read
-the whole library; a couple of examples is plenty. (This is for _code shape_,
-not dedup.)
+Optional input: a one-line seed idea from the user. Without a seed, propose
+autonomously from research memory.
+
+## Dedup Scope
+
+Deduplication is against research families only.
+
+Use
+[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
+as the complete universe of existing research families. You may open a listed
+family's `FAMILY.md`, `FAMILY.json`, and strategy files when the index suggests
+possible overlap.
+
+Do not scan the legacy strategy library outside `src/strategies/research/` for
+deduplication. Reading a small number of non-research strategies only for API
+idioms is allowed when writing code.
 
 ## Steps
 
-1. **Read**
-   [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md),
-   [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json),
-   [`strategy-research-protocol/MEMORY.md`](../MEMORY.md),
-   [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), and
-   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
-   and
-   [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md).
+1. **Read required context.** Do not propose from memory alone.
 
-2. **Form an idea.**
-   - Seed mode: develop the family around the user's seed.
-   - Autonomous mode: reason over the research memory — read INDEX, drill into
-     the `src/strategies/research/<family>/FAMILY.md` lessons of families that
-     look relevant, and find an unexplored gap or an implication of what already
-     failed. Ideas come from this reasoning + market-microstructure knowledge.
-     **Do not search the web.**
+2. **Form one idea.**
+   - Seed mode: develop the user's seed unless it violates constraints or is a
+     duplicate.
+   - Autonomous mode: use `INDEX.json`, family memory, constraints, and market
+     microstructure reasoning. Do not search the web.
 
-3. **Constraint check.** If the idea violates anything in
+3. **Constraint check.** If the idea violates
    [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), discard it.
-   (Seed mode: stop and report which constraint it hits.)
+   In seed mode, stop and report the violated constraint.
 
-4. **Dedup by reading code, not string-matching — within `research/` only.**
-   Use duplicateKeys / tags / coreIdea **from
-   [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)**
-   to **shortlist** the few research families worth inspecting. Then open those
-   families' `src/strategies/research/<family>/FAMILY.md` +
-   `src/strategies/research/<family>/Strategy.ts` and judge whether the
-   **decision driver / logic is genuinely the same.** Never dedup against the
-   legacy strategy library outside `src/strategies/research/`.
-   - Similar-but-different is allowed. Only same-actual-logic is a duplicate.
-   - On a real duplicate:
-     - Seed mode → stop and report the duplicate. Write nothing.
-     - Autonomous mode → try a different idea (go to step 2). Remember the ideas
-       you already rejected this run. After ~3–5 distinct attempts all land on
-       existing families, stop and report: "space looks saturated — give a seed
-       or a new direction." Write nothing.
+4. **Dedup by driver, not by words.**
+   - Shortlist with `duplicateKeys`, `tags`, and `coreIdea` from `INDEX.json`.
+   - Open likely matches and compare the primary decision driver.
+   - Same driver means same family, even if params, filters, exits, or wording
+     differ.
+   - Similar but independently driven ideas are allowed.
 
-5. **Write the family folder** at `src/strategies/research/<family>/`.
-   Follow [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) for what
-   belongs in each memory artifact.
-   - `src/strategies/research/<family>/FAMILY.md` — frontmatter
-     (`artifactType: strategy-family`, family, status `proposed`, champion
-     `null`, tags) + the required H2 sections. The **Experiments to try**
-     section is a ranked plain-prose list of ≥3 mechanism-backed ideas (no
-     padding). The baseline knob sweep is always #1.
-   - `src/strategies/research/<family>/FAMILY.json` — `status: proposed`,
-     `champion: null`, `retryOnlyIf: null`, and `duplicateKeys`: a few
-     normalized synonyms of this family's idea (so future proposals can dedup
-     against it). With **exactly one** experiment seeded:
-     - `id: <family>.001-baseline-sweep`, `order: 1`, `kind: "param-search"`
-     - `code`: the base strategy filename (e.g. `Strategy.ts`)
-     - `sweep`: the baseline knob grid · `params: null` · `status: "proposed"` ·
-       `decision: "pending"` · `result: null` · `selectedParams: null`
-   - Do **not** seed the other ideas as experiments — they stay as prose in the
-     "Experiments to try" list. They become experiments later, result-aware, via
-     propose-next-experiment.
+   On a true duplicate:
 
-6. **Write the baseline strategy code** (this worker owns it — you are at peak
-   context for the idea, so you write the code, not a later handoff):
-   - To learn the API/idioms, see "Code reference" above (the interfaces +
-     `templates/Template.v1.ts`, plus an example or two if helpful).
-   - Implement the base strategy `.ts` under the family folder, exposing the
-     knobs the baseline sweep ranges over (its Zod param schema).
-   - It must `export const definition` (a `StrategyDefinition`). **No registry
-     edit needed** — strategies are auto-discovered from `src/strategies/**`.
-   - Make sure it typechecks. Do not run a backtest.
+   - seed mode: stop and report the duplicate; write nothing.
+   - autonomous mode: try another idea. After 3-5 real attempts that all
+     duplicate existing families, stop and report that the space looks
+     saturated.
 
-7. **Do not touch
-   [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).**
-   The orchestrator runs `buildStrategyIndex` afterward.
+5. **Choose the family slug.** Follow
+   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md):
+   lowercase kebab-case, short, and named after the primary decision driver.
+
+6. **Write `FAMILY.md`.** It must have YAML frontmatter:
+
+   ```yaml
+   ---
+   artifactType: strategy-family
+   family: <family>
+   ---
+   ```
+
+   Do not put status, champion, or tags in `FAMILY.md` frontmatter. Those fields
+   are structured state and belong only in `FAMILY.json`.
+
+   Then include exactly these required H2 sections in this order:
+
+   ```text
+   ## Core idea
+   ## Primary decision driver
+   ## Experiments to try
+   ## Allowed experiment directions
+   ## Forbidden directions
+   ## Known weaknesses
+   ## Experiment log
+   ## Duplicate notes
+   ```
+
+   `Experiments to try` is a ranked plain-English list of at least three
+   mechanism-backed ideas. The first item is always the baseline knob sweep.
+   These are not queued experiments yet; only `000-baseline` is queued in
+   `FAMILY.json`.
+
+7. **Write `FAMILY.json`.** Seed exactly one experiment:
+
+   ```json
+   {
+     "schemaVersion": 1,
+     "artifactType": "strategy-family-index",
+     "family": "<family>",
+     "status": "proposed",
+     "coreIdea": "<one-sentence core idea>",
+     "duplicateKeys": ["<normalized-synonym>"],
+     "retryOnlyIf": null,
+     "champion": null,
+     "tags": ["<tag>"],
+     "experiments": [
+       {
+         "id": "000-baseline",
+         "order": 1,
+         "kind": "param-search",
+         "code": "000-baseline.ts",
+         "idea": "Baseline knob sweep over the initial decision rule.",
+         "basedOn": null,
+         "sweep": {
+           "<paramName>": ["<values>"]
+         },
+         "params": null,
+         "status": "proposed",
+         "decision": "pending",
+         "decidedAt": null,
+         "result": null,
+         "selectedParams": null
+       }
+     ]
+   }
+   ```
+
+   Use local experiment ids. Do not prefix the experiment id with the family in
+   `FAMILY.json`. Global references use the family plus local id only when the
+   consuming rule asks for it, such as batch UID
+   `<family>--<experiment-id>`.
+
+8. **Write `000-baseline.ts`.**
+   - Learn the local API from `src/strategy/strategyDefinition.ts`,
+     `src/strategy/Strategy.ts`, `src/strategy/strategyToolkit.ts`, and
+     `src/strategies/templates/Template.v1.ts`.
+   - Export `definition` as a `StrategyDefinition`.
+   - Use `definition.id = "<family>.000-baseline"`.
+   - Define a strict Zod params schema whose knobs match the baseline sweep.
+   - Keep all behavior deterministic and safe when optional plugin data is
+     missing.
+   - Use deterministic `clientOrderId` patterns.
+   - Do not edit a registry file; research strategies are auto-discovered.
+
+9. **Typecheck enough to catch API errors.** Do not run a backtest.
+
+10. **Leave `INDEX.json` alone.** The orchestrator runs
+    `buildStrategyIndex` afterward.
 
 ## Forbidden
 
-- Deduping against the legacy library — dedup is against
-  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-  (research families) only. (Glancing at a strategy or two for _code idioms_ is
-  fine; scanning the whole library to check for duplicates is not.)
-- Running backtests or evaluating anything.
-- Editing [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-  or any other family's files/code.
-- Seeding more than one experiment.
-- Marking the family `active` (only the user promotes a family).
+- Running backtests or evaluating results.
+- Editing
+  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).
+- Editing another family's files.
+- Deduping against the legacy non-research strategy library.
+- Seeding more than one experiment in `FAMILY.json`.
+- Creating `Strategy.ts`, versioned files, or `v1`/`v2` ids.
+- Marking the family `active`; only the user does that.
+- Using live-only fields, unrecorded transport behavior, or external feed data
+  as a required backtest input.
 
-## Final self-check (before you declare done)
+## Final Self-Check
 
-Confirm ALL of these exist in `src/strategies/research/<family>/` and are
-consistent — if any is missing, you are NOT done:
+Before declaring done, verify:
 
-- `src/strategies/research/<family>/FAMILY.md` exists and has all 8 required H2
-  sections.
-- `src/strategies/research/<family>/FAMILY.json` exists, validates, and seeds
-  exactly one experiment.
-- `src/strategies/research/<family>/Strategy.ts` exists, `export`s a valid
-  `definition`, and typechecks
-  (it is auto-discovered — no registry entry to check).
+- `src/strategies/research/<family>/FAMILY.md` exists and validates.
+- `src/strategies/research/<family>/FAMILY.json` exists and validates.
+- `FAMILY.json` contains exactly one experiment, `000-baseline`.
+- `champion` is `null`.
+- `000-baseline.ts` exists and exports `definition`.
+- `definition.id` is `<family>.000-baseline`.
+- The baseline sweep keys match the strategy params schema.
+- No backtest was run.
+- `INDEX.json` was not edited.
 
-The research record (`src/strategies/research/<family>/FAMILY.md` +
-`src/strategies/research/<family>/FAMILY.json`) is the primary deliverable —
-never finish with code written but the artifacts missing or elsewhere.
+## Stop Condition
 
-## Stop condition
-
-Stop after the self-check passes for one family, OR after reporting a duplicate /
-constraint violation / saturated-space with nothing written.
+Stop after one valid family is ready for a future baseline backtest, or after
+reporting a duplicate, constraint violation, or saturated idea space with
+nothing written.

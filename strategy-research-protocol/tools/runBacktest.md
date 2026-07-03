@@ -40,6 +40,14 @@ Use these defaults unless the experiment explicitly says otherwise:
 - use an explicit `--batchUid` when the run belongs to a named experiment
 - preserve the resulting `run id` and `batchUid`
 
+Batch UID format is defined in
+[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+For a research experiment, the default label is:
+
+```text
+<family>--<experiment-id>
+```
+
 Read source depends on where workers run:
 
 - Single local machine with prewarmed data: `--read-from local`
@@ -55,6 +63,48 @@ Selection profile:
   creating unrelated runs with different params.
 - Robustness or bias check: use `--random --limit <n>` only when the experiment
   explicitly needs random sampling.
+
+## Sweep Grids
+
+A sweep grid expands to one backtest run per parameter combination. The grid is
+the Cartesian product of each listed parameter array:
+
+```text
+params:
+  minSpreadTicks: [1, 2]
+  orderSize: [5, 10, 20]
+```
+
+This produces six runs:
+
+```text
+minSpreadTicks=1 orderSize=5
+minSpreadTicks=1 orderSize=10
+minSpreadTicks=1 orderSize=20
+minSpreadTicks=2 orderSize=5
+minSpreadTicks=2 orderSize=10
+minSpreadTicks=2 orderSize=20
+```
+
+Submit every cell with the same experiment `--batchUid`. The batch answers
+"how did this experiment do"; each run inside the batch answers "how did this
+parameter cell do." Do not invent per-cell batch labels.
+
+For non-sweep experiments, submit exactly one run under the experiment
+`--batchUid`.
+
+When a sweep must be re-run because of a bug, bad data, or broken submission,
+do not reuse the old label for a different effective experiment. Follow the
+re-run suffix rule in
+[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md), for
+example:
+
+```text
+book-imbalance--002-persistence-filter--r2
+```
+
+The experiment result reference in `FAMILY.json` should point to the batch UID
+that counts for evaluation.
 
 ## Implementation
 
@@ -84,6 +134,22 @@ Common protocol-level flags:
 --sequential
 --detach
 --batchUid <id>
+```
+
+Sweep cells are submitted as separate commands that share `--batchUid`:
+
+```bash
+npm run backtest:telonex:btc:15m -- --strategy <strategy-id> \
+  --latest --limit 500 \
+  --batchUid <family>--<experiment-id> \
+  --param minSpreadTicks=1 \
+  --param orderSize=5
+
+npm run backtest:telonex:btc:15m -- --strategy <strategy-id> \
+  --latest --limit 500 \
+  --batchUid <family>--<experiment-id> \
+  --param minSpreadTicks=1 \
+  --param orderSize=10
 ```
 
 For meaningful runs, prefer the normal BullMQ worker path. Use `--sequential`

@@ -16,11 +16,12 @@
   "tags": ["orderbook", "liquidity", "concentration", "entry-signal"],
   "experiments": [
     {
-      "id": "liquidity-wall.001-baseline-sweep",
+      "id": "000-baseline",
       "order": 1,
       "kind": "param-search",
-      "code": "Strategy.ts",
+      "code": "000-baseline.ts",
       "idea": "Baseline knob sweep — does any region of the concentration driver beat baseline net of fees, and does follow or fade carry the sign?",
+      "basedOn": null,
       "sweep": {
         "mode": ["follow", "fade"],
         "wallRatio": [0.45, 0.6, 0.75],
@@ -32,6 +33,7 @@
       "params": null,
       "status": "proposed",
       "decision": "pending",
+      "decidedAt": null,
       "result": null,
       "selectedParams": null
     }

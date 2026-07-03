@@ -1,5 +1,5 @@
 import { z } from 'zod'
-import { FamilyStatus, ResultRef, Slug } from './statuses.js'
+import { ExperimentId, FamilyStatus, ResultRef, Slug } from './statuses.js'
 
 /** One rollup row in the global index. Generated from each FAMILY.json. */
 export const GlobalIndexFamily = z.object({
@@ -12,7 +12,7 @@ export const GlobalIndexFamily = z.object({
   retryOnlyIf: z.string().nullable(),
   /** → FAMILY.md, or null if the idea never became a folder */
   path: z.string().nullable(),
-  champion: z.string().nullable(),
+  champion: ExperimentId.nullable(),
   championResult: ResultRef.nullable(),
   tags: z.array(z.string()),
 })

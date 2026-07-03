@@ -30,46 +30,47 @@ named by its experiment id; the champion is a pointer in `FAMILY.json`.
       [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md),
       one-line Precondition pointers in both tool docs (workers self-update;
       the old restart-workers rule is obsolete).
-- [ ] [`strategy-research-protocol/tools/runBacktest.md`](./tools/runBacktest.md):
+- [x] [`strategy-research-protocol/tools/runBacktest.md`](./tools/runBacktest.md):
       define how a sweep grid becomes runs (link BATCH-UID.md).
-- [ ] [`strategy-research-protocol/tools/extendBacktest.md`](./tools/extendBacktest.md):
+- [x] [`strategy-research-protocol/tools/extendBacktest.md`](./tools/extendBacktest.md):
       align with the same conventions; clarify when extending is preferred over
       a new run.
 
 ## 3. Make PolymarketTwinEngine.md concrete
 
-- [ ] Rework
+- [x] Rework
       [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md)
       with concrete numbers and details (tick semantics, costs/fees, order
       types, latency model, dataset shape) instead of abstract prose.
 
 ## 4. Rewrite ProposeFamily from scratch
 
-- [ ] [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
+- [x] [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
       is an old file — rewrite it from scratch against the updated rules,
       schemas, and tool docs from steps 1–3.
 
 ## 5. Settle FAMILY.md / FAMILY.json format
 
-- [ ] Revisit the FAMILY.md format (frontmatter fields, required sections) and
+- [x] Revisit the FAMILY.md format (frontmatter fields, required sections) and
       FAMILY.json schema — adjust/simplify where needed.
-- [ ] Resolve the dual-source-of-truth overlap (status/champion/tags exist in
+- [x] Resolve the dual-source-of-truth overlap (status/champion/tags exist in
       both files today).
-- [ ] Adopt the new experiment model in the schemas: local
+- [x] Adopt the new experiment model in the schemas: local
       `NNN-short-hypothesis` experiment ids, `champion` as an experiment id
       string (code/params resolved via the experiment record), `decidedAt`
       timestamp on experiments (champion history is derived: decision =
       `promote` ordered by `decidedAt`; latest must equal `champion`),
       `basedOn` lineage field, and the `000-baseline` convention (replaces
-      `001-baseline-sweep`); revisit whether `kind: param-search|variation`
-      is still needed.
-- [ ] Update `strategy-research-protocol/schemas/` and
+      `001-baseline-sweep`); keep `kind: param-search|variation` for now
+      because tools still need to distinguish sweep-only experiments from
+      code-changing experiments.
+- [x] Update `strategy-research-protocol/schemas/` and
       `strategy-research-protocol/examples/` to match (current examples
       contradict the rules: two seeded experiments, champion mismatch, stray
       `---` after frontmatter).
-- [ ] Migrate or delete the existing `src/strategies/research/liquidity-wall/`
-      family — it still uses the old convention (`Strategy.ts`,
-      `LiquidityWall.v1`).
+- [x] Migrate the existing `src/strategies/research/liquidity-wall/` family
+      from the old convention (`Strategy.ts`, `LiquidityWall.v1`) to
+      `000-baseline.ts` / `liquidity-wall.000-baseline`.
 
 ## 6. Continue the loop
 

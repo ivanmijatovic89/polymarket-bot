@@ -4,7 +4,7 @@
   "families": [
     {
       "family": "book-imbalance",
-      "status": "experimental",
+      "status": "proposed",
       "coreIdea": "Use persistent orderbook imbalance as the primary entry driver",
       "duplicateKeys": ["book-pressure", "bid-ask-skew", "depth-imbalance"],
       "retryOnlyIf": null,

@@ -10,12 +10,15 @@ Add market coverage to an existing Telonex backtest run.
 - A result needs more coverage before evaluation.
 - You want to extend an existing run backward, forward, or across an explicit
   time range.
+- A sweep cell already exists and only its market coverage should increase.
 
 ## Do Not Use When
 
 - You need a new strategy, params, symbol, timeframe, input mode, or read source.
 - The parent run is not Telonex-backed.
 - You only need to inspect current results. Use `getBacktestResults`.
+- You are testing another sweep cell or new selected params. Use `runBacktest`
+  with the experiment batch UID instead.
 
 ## Inputs
 
@@ -41,6 +44,8 @@ and read source should stay the same, but the market coverage should grow.
 Important defaults:
 
 - The parent run remains the same `run id`.
+- The parent run keeps the same `batchUid`; `--batchUid` is inherited and must
+  not be passed again.
 - Strategy and params are inherited from the parent run.
 - BTC/15m/Telonex settings are inherited from the parent run.
 - Result statistics are recomputed over the union of old and new markets.
@@ -57,6 +62,31 @@ Direction:
 Use the normal BullMQ worker path for meaningful extensions. Extensions can be
 large and are expected to run across available workers.
 
+## Relationship To Experiment Batches
+
+Batch UID format is defined in
+[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+An extension does not create a new experiment, a new sweep cell, or a new
+protocol batch label. It enlarges one existing run under the parent's batch UID.
+
+Use extension when the current research question is:
+
+```text
+does this same strategy + same params still hold over more markets?
+```
+
+Use a new `runBacktest` submission when the question changes:
+
+- different strategy code
+- different params or another sweep cell
+- different symbol, timeframe, input mode, converter, or read source
+- intentionally separate sampling design, such as a fresh random sample that
+  should not merge into the parent run
+
+For a sweep, each parameter cell is its own run inside the experiment batch.
+Extend the promising cell's run id to add coverage to that exact cell. Do not
+extend one cell and treat the result as coverage for other cells.
+
 ## Implementation
 
 Current implementation: CLI
@@ -72,7 +102,7 @@ npm run backtest -- --extend <run-id> --from-ms <epoch-ms> --to-ms <epoch-ms>
 ```
 
 With `--extend`, the parent run provides strategy, params, symbol, timeframe,
-input mode, and read source. Do not pass them again.
+input mode, read source, and batch UID. Do not pass them again.
 
 Important protocol rule: `--extend` updates the same parent backtest run. It
 does not create a new run id.
@@ -95,7 +125,8 @@ the research protocol should use the extend operation.
 ## Output
 
 - Updated parent run coverage under the same `run id`.
-- New extension `batchUid` while work is queued/running.
+- Same parent `batchUid` for research lookup.
+- Internal extension submission id while work is queued/running.
 
 ## After Success
 

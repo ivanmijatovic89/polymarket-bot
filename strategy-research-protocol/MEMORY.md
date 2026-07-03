@@ -26,8 +26,9 @@ src/strategies/research/<family>/FAMILY.json
 src/strategies/research/INDEX.json
 ```
 
-Strategy source files such as `Strategy.ts` are executable artifacts, not memory
-files, but experiments must reference the strategy file they run.
+Strategy source files such as `000-baseline.ts` and `<experiment-id>.ts` are
+executable artifacts, not memory files, but experiments must reference the
+strategy file they run.
 
 ## FAMILY.md
 
@@ -46,6 +47,18 @@ Use it for:
 
 `FAMILY.md` should explain why the family exists and what has been learned. It
 should be readable without inspecting raw backtest output.
+
+Its YAML frontmatter is intentionally minimal:
+
+```yaml
+---
+artifactType: strategy-family
+family: <family>
+---
+```
+
+Do not duplicate structured state such as `status`, `champion`, or `tags` in
+`FAMILY.md`. Those fields live in `FAMILY.json`.
 
 ## FAMILY.json
 
@@ -68,6 +81,9 @@ Use it for:
 `FAMILY.json` is the machine-readable source for tools and index generation. Do
 not put unqueued future ideas here; keep those in `FAMILY.md` until they become
 real experiments.
+
+`FAMILY.json` is authoritative for `status`, `champion`, `tags`,
+`duplicateKeys`, `retryOnlyIf`, and the experiment queue.
 
 ## INDEX.json
 
