@@ -2,25 +2,34 @@
 
 ## Purpose
 
-Create a new backtest run for one strategy or experiment.
+Create new backtest runs for one strategy experiment: the smoke test, the
+cells of a coordinate-search pass, or a single fixed-params run.
 
 ## Use When
 
-- An experiment is ready to run for the first time.
-- You need a fresh result with explicit strategy params or sweep params.
-- You need a quick local smoke test before a larger queued run.
+- An experiment is `queued` and ready for its smoke test or first pass.
+- A judged pass needs the next pass submitted.
+- The Evaluator requested a refinement grid.
 
 ## Do Not Use When
 
-- You are adding coverage to an existing run. Use `extendBacktest`.
-- You only need to inspect an existing result. Use `getBacktestResults`.
+- You are adding coverage to an existing run (stage climb) — use
+  [`strategy-research-protocol/tools/extendBacktest.md`](./extendBacktest.md).
+- You only need to check completion — use
+  [`strategy-research-protocol/tools/checkBatch.md`](./checkBatch.md).
+- You only need to inspect results — use
+  [`strategy-research-protocol/tools/getBacktestResults.md`](./getBacktestResults.md).
 
 ## Inputs
 
-- Strategy id.
-- Optional strategy params.
-- Market selection: latest, random, explicit time range, or limit.
-- Optional execution mode: sequential, queued, or detached.
+- Strategy id (`<family>.<experiment-id>`).
+- Strategy params (`--param key=value`, one per param).
+- `--batchUid` per [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+- `--baselineId <runId>` — the experiment's comparison anchor (champion's
+  best run, or the 000-baseline best run). Required on every evidence run
+  once the family has any judged run; the very first 000-baseline pass has
+  no anchor yet and omits it.
+- Market selection profile (see below).
 
 ## Precondition
 
@@ -30,163 +39,92 @@ workers run committed code only. See
 
 ## Protocol Defaults
 
-Use these defaults unless the experiment explicitly says otherwise:
-
-- `symbol=btc`
-- `timeframe=15m`
-- `input-mode=telonex-delta`
-- `converter=delta-typed`
+- `symbol=btc`, `timeframe=15m`, `input-mode=telonex-delta`,
+  `converter=delta-typed`
 - one market equals one BTC 15 minute up/down episode
-- use an explicit `--batchUid` when the run belongs to a named experiment
-- preserve the resulting `run id` and `batchUid`
+- read source: `--read-from local` on a single prewarmed machine,
+  `--read-from local-or-download-from-r2-to-local` for distributed workers,
+  `--read-from r2` for disposable workers
 
-Batch UID format is defined in
-[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
-For a research experiment, the default label is:
+## Selection profiles
 
-```text
-<family>--<experiment-id>
+Stage sizes come from
+[`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md):
+
+- **Smoke** (stage 0): `--latest --limit 10 --sequential`, batchUid suffix
+  `--smoke`. Never evidence; never freezes code.
+- **Screen** (stage 1): `--latest --limit 1000` — coordinate passes run here.
+- **Confirm / full-history** (stages 2-3): do NOT create new runs; extend the
+  winning run with `extendBacktest`.
+
+## Coordinate-search passes
+
+One pass sweeps ONE param; every other param stays at the declared defaults /
+previous winners. Each value is one submission; all submissions of a pass
+share the pass batchUid:
+
+```bash
+npm run backtest:telonex:btc:15m -- --strategy book-imbalance.000-baseline \
+  --latest --limit 1000 \
+  --batchUid book-imbalance--000-baseline--p1-enterThreshold \
+  --baselineId <runId> \
+  --param enterThreshold=0.3 --param dwellTicks=3 --param takeProfitTicks=2
+
+# ... one command per value of enterThreshold (0.4, 0.5, 0.6), same batchUid
 ```
 
-Read source depends on where workers run:
+For a single-run experiment (`kind: variation` with fixed `params`), submit
+exactly one run under the bare `<family>--<experiment-id>` batchUid.
 
-- Single local machine with prewarmed data: `--read-from local`
-- Distributed workers across several machines:
-  `--read-from local-or-download-from-r2-to-local`
-- Cloud or disposable workers with no local cache: `--read-from r2`
-
-Selection profile:
-
-- Smoke test: `--latest --limit 10 --sequential`
-- First meaningful experiment run: `--latest --limit 500`
-- Larger confidence run: increase coverage with `extendBacktest` instead of
-  creating unrelated runs with different params.
-- Robustness or bias check: use `--random --limit <n>` only when the experiment
-  explicitly needs random sampling.
-
-## Sweep Grids
-
-A sweep grid expands to one backtest run per parameter combination. The grid is
-the Cartesian product of each listed parameter array:
-
-```text
-params:
-  minSpreadTicks: [1, 2]
-  orderSize: [5, 10, 20]
-```
-
-This produces six runs:
-
-```text
-minSpreadTicks=1 orderSize=5
-minSpreadTicks=1 orderSize=10
-minSpreadTicks=1 orderSize=20
-minSpreadTicks=2 orderSize=5
-minSpreadTicks=2 orderSize=10
-minSpreadTicks=2 orderSize=20
-```
-
-Submit every cell with the same experiment `--batchUid`. The batch answers
-"how did this experiment do"; each run inside the batch answers "how did this
-parameter cell do." Do not invent per-cell batch labels.
-
-For non-sweep experiments, submit exactly one run under the experiment
-`--batchUid`.
-
-When a sweep must be re-run because of a bug, bad data, or broken submission,
-do not reuse the old label for a different effective experiment. Follow the
-re-run suffix rule in
-[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md), for
-example:
-
-```text
-book-imbalance--002-persistence-filter--r2
-```
-
-The experiment result reference in `FAMILY.json` should point to the batch UID
-that counts for evaluation.
+Re-runs after a bug get the next `--rN` suffix — never reuse a batchUid for
+different effective params.
 
 ## Implementation
 
 Current implementation: CLI
 
-Default BTC 15m Telonex command:
-
 ```bash
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id>
+npm run backtest:telonex:btc:15m -- --strategy <strategy-id> [flags]
+# equivalent explicit form:
+npm run backtest -- --input-mode telonex-delta --read-from local \
+  --symbol btc --timeframe 15m --strategy <strategy-id> [flags]
 ```
 
-Equivalent explicit command:
+Common flags: `--param k=v`, `--limit n`, `--latest`, `--random`,
+`--from-ms`, `--to-ms`, `--sequential`, `--detach`, `--batchUid`,
+`--baselineId`.
 
-```bash
-npm run backtest -- --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --strategy <strategy-id>
-```
-
-Common protocol-level flags:
-
-```bash
---param <key=value>
---limit <n>
---latest
---random
---from-ms <epoch-ms>
---to-ms <epoch-ms>
---sequential
---detach
---batchUid <id>
-```
-
-Sweep cells are submitted as separate commands that share `--batchUid`:
-
-```bash
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id> \
-  --latest --limit 500 \
-  --batchUid <family>--<experiment-id> \
-  --param minSpreadTicks=1 \
-  --param orderSize=5
-
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id> \
-  --latest --limit 500 \
-  --batchUid <family>--<experiment-id> \
-  --param minSpreadTicks=1 \
-  --param orderSize=10
-```
-
-For meaningful runs, prefer the normal BullMQ worker path. Use `--sequential`
+For evidence runs prefer the normal BullMQ worker path. Use `--sequential`
 only for smoke tests, local debugging, or parity checks.
 
 ## Source Of Truth
 
-Detailed CLI behavior belongs to the parent repo docs:
-
 - [`docs/backtest/running-backtests.md`](../../docs/backtest/running-backtests.md)
 - [`docs/datasets/telonex/backtest.md`](../../docs/datasets/telonex/backtest.md)
 - [`docs/backtest/parallelization.md`](../../docs/backtest/parallelization.md)
-- [`docs/backtest/distributed-future.md`](../../docs/backtest/distributed-future.md)
 - [`docs/backtest/worker-self-update.md`](../../docs/backtest/worker-self-update.md)
-
-Do not copy the full CLI manual into this tool file. This file defines how the
-research protocol should use the backtest operation.
 
 ## Output
 
-- New backtest run.
-- `run id` after persistence.
-- `batchUid` for queued/detached tracking.
+- Submitted runs, one per command.
+- `submissionUid` per submission and the shared `batchUid` — both must be
+  captured at submit time.
 
 ## After Success
 
-Update research memory according to
-[`strategy-research-protocol/MEMORY.md`](../MEMORY.md).
+Update FAMILY.json immediately (see
+[`strategy-research-protocol/MEMORY.md`](../MEMORY.md)):
 
-- Preserve the `run id` or `batchUid`.
-- Write the result reference to the relevant experiment in
-  `src/strategies/research/<family>/FAMILY.json`.
-- Summarize what was run in
-  `src/strategies/research/<family>/FAMILY.md`.
+- record `batchUid` + `submissionUids` on the pass (or on the experiment for
+  single runs), plus `baselineId`, `coverage`, `submittedAt`
+- set experiment status `running` (first evidence submission also flips the
+  family to `researching`)
+
+Smoke runs update nothing — they are not memory.
 
 ## If It Fails
 
-- Fix invalid strategy id, params, dataset selection, or environment issue.
-- Do not mark the experiment `done`.
-- Record only meaningful failures that affect research memory.
+- Fix invalid strategy id, params, dataset selection, or environment issue
+  and resubmit; a broken evidence submission is superseded under a `--rN`
+  batchUid.
+- If the experiment cannot run at all, set it `aborted` with `abortReason`.

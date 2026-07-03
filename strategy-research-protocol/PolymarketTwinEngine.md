@@ -279,11 +279,11 @@ Concrete behavior agents must preserve:
 
 Polymarket trade status rank:
 
-| Status      | Rank | Meaning                                         |
-| ----------- | ---- | ----------------------------------------------- |
-| `MATCHED`   | 1    | CLOB matched, not necessarily on-chain          |
-| `MINED`     | 2    | transaction included on Polygon                 |
-| `CONFIRMED` | 3    | block finalized                                 |
+| Status      | Rank | Meaning                                |
+| ----------- | ---- | -------------------------------------- |
+| `MATCHED`   | 1    | CLOB matched, not necessarily on-chain |
+| `MINED`     | 2    | transaction included on Polygon        |
+| `CONFIRMED` | 3    | block finalized                        |
 
 Live strategies must not sell or merge shares that require on-chain settlement
 until the relevant order has reached `MINED`. Backtests do not simulate that

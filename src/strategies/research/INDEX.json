@@ -1,28 +1,5 @@
 {
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "artifactType": "strategy-global-index",
-  "families": [
-    {
-      "family": "liquidity-wall",
-      "status": "proposed",
-      "coreIdea": "Trade around a single dominant resting order (a wall) — single-level size concentration, not aggregate imbalance",
-      "duplicateKeys": [
-        "liquidity-wall",
-        "resting-wall",
-        "size-concentration",
-        "dominant-level",
-        "wall-defense"
-      ],
-      "retryOnlyIf": null,
-      "path": "liquidity-wall/FAMILY.md",
-      "champion": null,
-      "championResult": null,
-      "tags": [
-        "orderbook",
-        "liquidity",
-        "concentration",
-        "entry-signal"
-      ]
-    }
-  ]
+  "families": []
 }

@@ -17,5 +17,7 @@ Before adding a new tool file, read
   [`strategy-research-protocol/tools/runBacktest.md`](./runBacktest.md)
 - `extendBacktest`:
   [`strategy-research-protocol/tools/extendBacktest.md`](./extendBacktest.md)
+- `checkBatch`:
+  [`strategy-research-protocol/tools/checkBatch.md`](./checkBatch.md)
 - `getBacktestResults`:
   [`strategy-research-protocol/tools/getBacktestResults.md`](./getBacktestResults.md)

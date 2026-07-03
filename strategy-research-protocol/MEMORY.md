@@ -1,169 +1,173 @@
 # Research Memory
 
 Research memory is the file-based record that lets the next human or agent
-continue without reading chat history.
+continue without reading chat history. This file is authoritative for what
+each memory file stores, who writes every field, and when.
 
-## Authority
+## The model
 
-This file is authoritative for research memory rules in Strategy Research
-Protocol:
-
-- which files store memory
-- what belongs in each memory file
-- when memory must be updated
-- how to record results, lessons, duplicates, champions, and retry conditions
-
-It is not authoritative for research scope, engine behavior, naming, versioning,
-or evaluation thresholds. Those rules live in their dedicated protocol files.
-
-## Memory Files
-
-Research memory lives in three files:
-
-```text
-src/strategies/research/<family>/FAMILY.md
-src/strategies/research/<family>/FAMILY.json
-src/strategies/research/INDEX.json
-```
-
-Strategy source files such as `000-baseline.ts` and `<experiment-id>.ts` are
-executable artifacts, not memory files, but experiments must reference the
-strategy file they run.
-
-## FAMILY.md
-
-`src/strategies/research/<family>/FAMILY.md` is the human-readable memory for
-one strategy family.
-
-Use it for:
-
-- the family hypothesis and core idea
-- the primary decision driver
-- experiment ideas that are not yet queued
-- experiment log entries
-- plain-English lessons from results
-- known weaknesses and failure modes
-- duplicate notes and near-duplicate reasoning
-
-`FAMILY.md` should explain why the family exists and what has been learned. It
-should be readable without inspecting raw backtest output.
-
-Its YAML frontmatter is intentionally minimal:
-
-```yaml
----
-artifactType: strategy-family
-family: <family>
----
-```
-
-Do not duplicate structured state such as `status`, `champion`, or `tags` in
-`FAMILY.md`. Those fields live in `FAMILY.json`.
-
-## FAMILY.json
-
-`src/strategies/research/<family>/FAMILY.json` is the structured state for one
-strategy family.
-
-Use it for:
-
-- family status
-- duplicate keys
-- retry condition
-- champion experiment id
-- exact experiment queue
-- experiment status
-- evaluator decision
-- result references
-- selected params
-- strategy code file per experiment
-
-`FAMILY.json` is the machine-readable source for tools and index generation. Do
-not put unqueued future ideas here; keep those in `FAMILY.md` until they become
-real experiments.
-
-`FAMILY.json` is authoritative for `status`, `champion`, `tags`,
-`duplicateKeys`, `retryOnlyIf`, and the experiment queue.
-
-## INDEX.json
-
-[`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json) is
-the generated global memory used for discovery and deduplication.
-
-Do not hand-edit it. Rebuild it with the `buildStrategyIndex` tool after adding,
-renaming, removing, or changing family metadata.
-
-## Update Triggers
-
-Update research memory after any meaningful research step:
-
-- a new family is proposed
-- a backtest is submitted
-- a backtest result becomes available
-- result coverage is extended
-- an experiment is evaluated
-- selected params are chosen
-- an experiment is added, killed, or superseded
-- a family is promoted, killed, or blocked
-- a duplicate or near-duplicate is discovered
-- a retry condition changes
-
-The next agent must be able to continue from files alone.
-
-## Result References
-
-Backtest results must be recorded with enough information to retrieve the
-numeric truth later.
-
-At minimum, `FAMILY.json` should store the run id or batch uid in the relevant
-experiment result reference. `FAMILY.md` should summarize what was run, what was
-learned, and where to retrieve the persisted result.
-
-Do not rely on terminal output or chat messages as the only record of a result.
-
-## Duplicate Memory
-
-Duplicate memory has two forms:
-
-- `duplicateKeys` in `FAMILY.json` stores normalized machine-readable synonyms.
-- `Duplicate notes` in `FAMILY.md` explains the human reasoning.
-
-When a family is killed or blocked as duplicate, record the family it overlaps
-with and the condition, if any, that would make revisiting it worthwhile.
-
-## Retry Conditions
-
-Killed or blocked families should set `retryOnlyIf` to a concrete condition.
-
-Good retry conditions are specific:
+- **Files store knowledge; the database owns operational state.** What was
+  tried, with what params, what resulted, what it means — files. Whether a
+  batch is still computing — database, queried via
+  [`strategy-research-protocol/tools/checkBatch.md`](./tools/checkBatch.md),
+  never stored in files.
+- **FAMILY.json = exact facts** (state + numbers), written by agents flipping
+  the state they own and by the Evaluator recording judgment.
+- **FAMILY.md = reasoning** (prose), written once at proposal time plus an
+  append-only Research log written only by the Researcher.
+- **The family folder is the memory unit.** Agents always read both files;
+  each is small. The experiment id is the join key: `"id": "001-..."` in
+  FAMILY.json ↔ `### 001-...` in the FAMILY.md Research log.
 
 ```text
-Replay includes top-of-book queue position with live-equivalent semantics.
+src/strategies/research/<family>/FAMILY.md      reasoning + Research log
+src/strategies/research/<family>/FAMILY.json    state + numbers
+src/strategies/research/<family>/*.ts           strategy code (frozen after results)
+src/strategies/research/INDEX.json              generated rollup — never hand-edit
 ```
 
-Bad retry conditions are vague:
+Exact shapes are enforced by `strategy-research-protocol/schemas/` and
+validated by `npm run research:check`.
 
-```text
-Maybe try later.
-```
+## Writer matrix
 
-## Consistency Rules
+| surface                                          | who writes                       | what                                                                                                      |
+| ------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| FAMILY.md proposal sections                      | ProposeFamily, once              | Thesis, Signal definition, Edge economics, Experiment roadmap, Duplicate notes                            |
+| FAMILY.md Research log                           | Researcher only                  | one dated `### <experiment-id>` entry per evaluated experiment, ending with `Lesson:`                     |
+| FAMILY.json experiment specs + lifecycle it owns | Researcher                       | new experiment records, `queued`/`running`/`aborted`, `retryOnlyIf`, `verdictSummary` on kill             |
+| FAMILY.json judgment fields                      | Evaluator                        | pass `best`/`note`, `outcome`, `evaluated`, `champion`, family `validated`, `verdictSummary` on validated |
+| FAMILY.json creation                             | ProposeFamily                    | the initial file with one queued `000-baseline`                                                           |
+| INDEX.json                                       | `buildStrategyIndex` script only | generated rollup                                                                                          |
+| family `live` status                             | user only                        | —                                                                                                         |
 
-- Research conclusions must not live only in chat history.
-- `FAMILY.md` and `FAMILY.json` must not contradict each other.
-- Do not hand-edit `INDEX.json`.
-- Do not seed speculative future ideas into `FAMILY.json`.
-- Result references must be retrievable later.
-- Duplicate notes should match `duplicateKeys`.
-- A champion must be an experiment recorded in the family.
-- A killed or blocked family needs a concrete `retryOnlyIf`.
+The Evaluator never writes FAMILY.md. The Researcher never writes `best`,
+`outcome`, or any verdict.
 
-## Final Memory Check
+## FAMILY.json — family-level fields
 
-Before finishing a research step, verify:
+| field            | meaning                                                                  | written by                                                                                     | when                    |
+| ---------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------- | ----------------------- |
+| `schemaVersion`  | literal `2`                                                              | ProposeFamily                                                                                  | creation                |
+| `artifactType`   | literal `strategy-family-index`                                          | ProposeFamily                                                                                  | creation                |
+| `family`         | kebab slug, equals folder name                                           | ProposeFamily                                                                                  | creation                |
+| `status`         | `proposed` / `researching` / `validated` / `killed` / `live`             | see status owners in [`strategy-research-protocol/schemas/statuses.ts`](./schemas/statuses.ts) | at each transition      |
+| `coreIdea`       | one-sentence idea                                                        | ProposeFamily                                                                                  | creation                |
+| `duplicateKeys`  | normalized synonyms for dedup                                            | ProposeFamily; Researcher may extend                                                           | creation / on discovery |
+| `retryOnlyIf`    | concrete revisit condition, e.g. "replay gains queue-position semantics" | Researcher                                                                                     | at kill                 |
+| `champion`       | experiment id of current champion, or null                               | Evaluator                                                                                      | at promotion            |
+| `verdictSummary` | one sentence for the INDEX rollup                                        | Researcher (kill) / Evaluator (validated)                                                      | at kill / validated     |
+| `tags`           | discovery tags                                                           | ProposeFamily                                                                                  | creation                |
+| `experiments[]`  | experiment records, see below                                            | —                                                                                              | —                       |
 
-- `FAMILY.md` records the human-readable lesson or decision.
-- `FAMILY.json` records the structured state change.
-- `INDEX.json` was rebuilt or checked if family metadata changed.
-- Result references are enough to retrieve persisted results.
-- The next agent can continue without chat history.
+## FAMILY.json — experiment-level fields
+
+| field             | meaning                                                         | written by                                                 | when                                              |
+| ----------------- | --------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
+| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher                                                 | spec time                                         |
+| `kind`            | `param-search` \| `variation`                                   | Researcher                                                 | spec time                                         |
+| `code`            | strategy file this experiment runs                              | Researcher                                                 | spec time                                         |
+| `basedOn`         | experiment this branches from (null for baseline)               | Researcher                                                 | spec time                                         |
+| `hypothesis`      | one sentence: the idea being tested                             | Researcher                                                 | spec time, BEFORE running                         |
+| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher                                                 | spec time, BEFORE running                         |
+| `params`          | fixed params (single run; XOR with `search`)                    | Researcher                                                 | spec time                                         |
+| `search`          | coordinate-search spec `{mode, defaults, passes[]}`             | Researcher                                                 | spec time; passes appended as the search proceeds |
+| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher                                                 | at submit                                         |
+| `submissionUids`  | run handles for single-run experiments                          | Researcher                                                 | at submit                                         |
+| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher                                                 | at submit                                         |
+| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher                                                 | at submit / extend                                |
+| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher (all but `evaluated`) / Evaluator (`evaluated`) | at each transition                                |
+| `submittedAt`     | ISO timestamp                                                   | Researcher                                                 | at first submit                                   |
+| `decidedAt`       | ISO timestamp                                                   | Evaluator                                                  | at verdict                                        |
+| `abortReason`     | why an aborted experiment died                                  | Researcher                                                 | at abort                                          |
+| `outcome`         | judgment block, see below                                       | Evaluator                                                  | at verdict                                        |
+
+## FAMILY.json — pass fields (`search.passes[]`)
+
+Pass state is derived — no status enum: empty `submissionUids` = not
+submitted; `submissionUids` set + `best` null = awaiting judgment; `best`
+set = judged.
+
+| field            | meaning                                               | written by | when             |
+| ---------------- | ----------------------------------------------------- | ---------- | ---------------- |
+| `param`          | the one param this pass sweeps                        | Researcher | pass spec        |
+| `values`         | values tested, e.g. `[0.3, 0.4, 0.5]`                 | Researcher | pass spec        |
+| `batchUid`       | `<family>--<exp>--pN-<param>`                         | Researcher | at submit        |
+| `submissionUids` | exact run handles (same in Redis and `backtest_runs`) | Researcher | at submit        |
+| `best`           | winning value — judgment, not blind argmax            | Evaluator  | at pass judgment |
+| `note`           | one line, e.g. "flat — param doesn't matter"          | Evaluator  | at pass judgment |
+
+## FAMILY.json — outcome fields
+
+| field          | meaning                                                                                        | written by | when       |
+| -------------- | ---------------------------------------------------------------------------------------------- | ---------- | ---------- |
+| `verdict`      | `success` / `fail` / `inconclusive` vs the quoted successCriteria                              | Evaluator  | at verdict |
+| `bestParams`   | full winning param set (defaults + pass winners)                                               | Evaluator  | at verdict |
+| `metrics`      | `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`, `trainNetEv`, `testNetEv`           | Evaluator  | at verdict |
+| `reason`       | one factual sentence with numbers, no narrative                                                | Evaluator  | at verdict |
+| `stageReached` | highest [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) gate passed (0 = none) | Evaluator  | at verdict |
+| `gatesVersion` | STAGE-GATES.md version used for judgment                                                       | Evaluator  | at verdict |
+
+Metric vocabulary: verdicts are judged on `netEvPerMarket` (= evPerMarketTotal,
+net of fees). Gross is diagnostic only.
+
+## FAMILY.md — sections
+
+| section            | contains                                                                                                                                                                             | written by      | when                         |
+| ------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------- | ---------------------------- |
+| Thesis             | who is on the other side, why the mispricing exists, why it survives arbitrage                                                                                                       | ProposeFamily   | once, at proposal            |
+| Signal definition  | precise formulas over recorded fields only                                                                                                                                           | ProposeFamily   | once, at proposal            |
+| Edge economics     | expected gross edge vs fee/cost floor — the pre-run kill test                                                                                                                        | ProposeFamily   | once, at proposal            |
+| Experiment roadmap | ranked, unqueued, mechanism-distinct ideas (at least 5)                                                                                                                              | ProposeFamily   | once; Researcher may extend  |
+| Duplicate notes    | near-duplicate reasoning, matches `duplicateKeys`                                                                                                                                    | ProposeFamily   | once, at proposal            |
+| Research log       | append-only, one dated `### <experiment-id>` entry per evaluated experiment: what ran, key numbers quoted from FAMILY.json, interpretation, decision, mandatory final `Lesson:` line | Researcher only | after consuming each verdict |
+
+Prose and numbers do not compete: numbers live in FAMILY.json; the Research
+log quotes them and explains what they mean. Never state a number only in
+prose.
+
+## Log-before-acting
+
+A Researcher may not queue a new experiment and may not kill the family while
+any evaluated experiment lacks its Research-log entry. Write the lesson
+first, then act. `npm run research:check` enforces this (the single most
+recently evaluated experiment may transiently lack an entry while nothing
+else is in flight).
+
+## Update triggers
+
+Update memory at every one of these moments — the next agent must be able to
+continue from files alone:
+
+- a family is proposed → both files created, `000-baseline` queued
+- an experiment is specced → record with hypothesis + successCriteria, `queued`
+- a submission happens → `running`, batchUid + submissionUids + coverage + baselineId recorded
+- coverage is extended (stage climb) → `coverage` updated
+- a pass is judged → `best` + `note`
+- an experiment is judged → `outcome`, `evaluated`, possibly `champion`
+- the verdict is consumed → Research-log entry with `Lesson:`
+- a family is killed → `killed` + `retryOnlyIf` + `verdictSummary` + closing log entry
+- a family is validated → `validated` + `verdictSummary`
+- family metadata changed → rebuild INDEX.json (`npm run research:build-index`)
+
+## Consistency rules
+
+- Research conclusions must never live only in chat history.
+- FAMILY.md and FAMILY.json must not contradict each other; on conflict the
+  JSON facts win and the log entry is corrected.
+- Do not hand-edit INDEX.json.
+- Do not put unqueued future ideas in FAMILY.json — the roadmap lives in
+  FAMILY.md until an idea becomes a real experiment.
+- Every result must be retrievable later: batchUids + submissionUids in the
+  JSON are the pointers into `backtest_runs`.
+- A killed family needs a concrete `retryOnlyIf`, never "maybe try later".
+
+## Final memory check
+
+Before finishing any research step, verify:
+
+- FAMILY.json records the structured state change.
+- FAMILY.md Research log records the lesson (if a verdict was consumed).
+- `npm run research:check` passes.
+- INDEX.json was rebuilt if family metadata changed.
+- The next agent can continue from files alone.

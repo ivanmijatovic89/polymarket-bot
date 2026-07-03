@@ -27,14 +27,80 @@ primary decision driver is a different family.
 
 ## Experiment
 
-One proposed test inside a strategy family. An experiment should define what is
-being tested, which strategy code and params are used, and which backtest result
-references prove what happened.
+One pre-declared test inside a strategy family: a `hypothesis` and
+`successCriteria` written before running, the strategy code and params (or
+coordinate search) used, run references (batchUids + submissionUids), and the
+Evaluator's `outcome`. Lifecycle: `queued` → `running` → `evaluated` (or
+`aborted`).
 
-## Baseline Sweep
+## Coordinate Search
 
-The first experiment for a new family. It tests whether the family has any
-parameter region that can plausibly beat execution costs.
+The default parameter-search mode: one pass sweeps ONE param while the others
+stay at declared defaults / previous winners, then the next param. Fewer runs
+and less multiple-testing noise than a full Cartesian grid.
+
+## Pass
+
+One step of a coordinate search: the sweep of a single param. Each pass has
+its own batchUid (`--pN-<param>`) and submissionUids; the Evaluator writes its
+`best` value. Pass state is derived from fields — there is no pass status
+enum.
+
+## Baseline
+
+`000-baseline` — the reserved first experiment of every family: a coordinate
+search over the baseline code, testing whether any parameter region can
+plausibly beat execution costs at stage-1 coverage.
+
+## Verdict
+
+The Evaluator's judgment on an evaluated experiment against its pre-declared
+`successCriteria`: `success`, `fail`, or `inconclusive`. Lives inside
+`outcome`, never a status.
+
+## Stage / Gate
+
+From [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md): a stage
+is a coverage level of increasing data investment (1000 → 3000 → 9000+
+markets); a gate is the pre-declared pass/fail criterion between stages. Gate
+decisions are go / recycle / kill.
+
+## Smoke Run
+
+A tiny pre-submission sanity run (`--sequential --limit 10`, batchUid suffix
+`--smoke`). Catches crashes and param bugs. Never evidence, never freezes
+code, never judged.
+
+## Submission UID
+
+The auto-generated unique handle of one backtest submission, identical in
+Redis and `backtest_runs.submission_uid`. Recorded in FAMILY.json at submit
+time; completion checks key on it (`checkBatch`).
+
+## Baseline ID
+
+`--baselineId <runId>` — the comparison-anchor run recorded on every evidence
+submission (the champion's best run, or 000-baseline's best), so dashboard
+and Evaluator comparisons have an explicit anchor.
+
+## Researcher
+
+The LLM worker that drives one family: specs and codes experiments, submits
+runs and stage extensions, writes Research-log entries and lessons, decides
+continue-or-kill. Never reads raw results. Contract:
+[`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
+
+## Evaluator
+
+The LLM worker that is the sole reader of raw backtest results: judges passes
+and experiments, writes outcomes and verdicts, moves the champion pointer,
+sets families `validated`. Never writes FAMILY.md. Contract:
+[`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md).
+
+## Champion
+
+The family's current best experiment, stored as a pointer (`champion`) in
+FAMILY.json. Must reference an evaluated experiment with verdict `success`.
 
 ## Research Memory
 
@@ -46,15 +112,17 @@ Rules are defined in [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## FAMILY.md
 
-`src/strategies/research/<family>/FAMILY.md` is the human-readable memory for
-one strategy family: hypothesis, decision driver, experiment menu, lessons,
-weaknesses, and duplicate notes.
+`src/strategies/research/<family>/FAMILY.md` is the reasoning memory for one
+family: the write-once proposal sections (Thesis, Signal definition, Edge
+economics, Experiment roadmap, Duplicate notes) plus the append-only Research
+log written only by the Researcher.
 
 ## FAMILY.json
 
-`src/strategies/research/<family>/FAMILY.json` is the structured state for one
-strategy family: status, experiment queue, result references, decisions,
-selected params, champion, retry conditions, and duplicate keys.
+`src/strategies/research/<family>/FAMILY.json` is the exact facts for one
+family: statuses, experiment records with pre-declared contracts, batchUids +
+submissionUids, coverage, outcomes, champion, retry conditions, and duplicate
+keys.
 
 ## INDEX.json
 

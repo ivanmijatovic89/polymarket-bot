@@ -2,7 +2,7 @@
 
 Propose **one** new strategy family and make its baseline experiment ready to
 run. This worker writes the family memory files and `000-baseline.ts`, then
-stops. It does not run backtests, evaluate results, promote champions, or edit
+stops. It does not run backtests, judge results, promote champions, or edit
 [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).
 
 ## Output
@@ -16,196 +16,194 @@ src/strategies/research/<family>/
   000-baseline.ts
 ```
 
-Do not write family artifacts under `strategy-research-protocol/`. Strategy code
-must live under `src/` so auto-discovery can import it.
+Do not write family artifacts under `strategy-research-protocol/`. Strategy
+code must live under `src/` so auto-discovery can import it.
 
 ## Inputs
 
 Read these before writing:
 
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) -
+- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) —
   research scope and market assumptions.
-- [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md) -
+- [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md) —
   tick, replay, order, cost, latency, and dataset semantics.
-- [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json) -
-  generated map of existing research families for deduplication.
-- [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) - family memory rules.
-- [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) - hard ban
+- [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json) —
+  generated map of existing research families for deduplication (including
+  `verdictSummary` and `retryOnlyIf` of killed families — lessons to not
+  repeat).
+- [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — memory rules and
+  field tables.
+- [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) — hard ban
   list.
-- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md) -
-  family slug and duplicate rules.
-- [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) -
-  baseline id, code file, registry id, champion pointer, and freeze rule.
-- [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md) -
-  future backtest batch label convention.
-- `strategy-research-protocol/schemas/` - exact shapes for `FAMILY.md` and
-  `FAMILY.json`.
+- [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — the
+  gates the baseline will face; stage-1 coverage sizes the sweep.
+- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
+  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
+  [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+- `strategy-research-protocol/schemas/` — exact shapes for both files.
 
 Optional input: a one-line seed idea from the user. Without a seed, propose
 autonomously from research memory.
 
 ## Dedup Scope
 
-Deduplication is against research families only.
-
-Use
-[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json)
-as the complete universe of existing research families. You may open a listed
-family's `FAMILY.md`, `FAMILY.json`, and strategy files when the index suggests
-possible overlap.
-
-Do not scan the legacy strategy library outside `src/strategies/research/` for
-deduplication. Reading a small number of non-research strategies only for API
-idioms is allowed when writing code.
+Deduplication is against research families only, via
+[`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).
+Open a listed family's files when the index suggests overlap. Do not scan the
+legacy strategy library outside `src/strategies/research/` for deduplication;
+reading a few non-research strategies only for API idioms is allowed.
 
 ## Steps
 
 1. **Read required context.** Do not propose from memory alone.
 
-2. **Form one idea.**
-   - Seed mode: develop the user's seed unless it violates constraints or is a
-     duplicate.
-   - Autonomous mode: use `INDEX.json`, family memory, constraints, and market
-     microstructure reasoning. Do not search the web.
+2. **Form one idea.** Seed mode: develop the user's seed unless it violates
+   constraints or duplicates. Autonomous mode: use INDEX.json (especially
+   killed families' lessons), constraints, and market microstructure
+   reasoning. Do not search the web.
 
 3. **Constraint check.** If the idea violates
-   [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), discard it.
-   In seed mode, stop and report the violated constraint.
+   [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), discard
+   it. In seed mode, stop and report the violated constraint.
 
-4. **Dedup by driver, not by words.**
-   - Shortlist with `duplicateKeys`, `tags`, and `coreIdea` from `INDEX.json`.
-   - Open likely matches and compare the primary decision driver.
-   - Same driver means same family, even if params, filters, exits, or wording
-     differ.
-   - Similar but independently driven ideas are allowed.
+4. **Edge economics gate.** Before writing anything, do the pre-run kill
+   test: estimate the plausible gross edge magnitude and compare it against
+   the fee/cost floor from
+   [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md).
+   If the mechanism cannot pay costs even at its optimistic best, the family
+   must not be proposed. This math becomes the Edge economics section.
 
-   On a true duplicate:
+5. **Dedup by driver, not by words.** Shortlist with `duplicateKeys`, `tags`,
+   `coreIdea`. Same primary decision driver = same family, even if params,
+   filters, exits, or wording differ. On a true duplicate: seed mode — stop
+   and report, write nothing; autonomous mode — try another idea, and after
+   3-5 attempts that all duplicate, report saturation.
 
-   - seed mode: stop and report the duplicate; write nothing.
-   - autonomous mode: try another idea. After 3-5 real attempts that all
-     duplicate existing families, stop and report that the space looks
-     saturated.
+6. **Choose the family slug** per
+   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md).
 
-5. **Choose the family slug.** Follow
-   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md):
-   lowercase kebab-case, short, and named after the primary decision driver.
-
-6. **Write `FAMILY.md`.** It must have YAML frontmatter:
-
-   ```yaml
-   ---
-   artifactType: strategy-family
-   family: <family>
-   ---
-   ```
-
-   Do not put status, champion, or tags in `FAMILY.md` frontmatter. Those fields
-   are structured state and belong only in `FAMILY.json`.
-
-   Then include exactly these required H2 sections in this order:
+7. **Write `FAMILY.md`** with the minimal frontmatter and exactly these H2
+   sections in order (shapes in `schemas/FAMILY.md.ts`):
 
    ```text
-   ## Core idea
-   ## Primary decision driver
-   ## Experiments to try
-   ## Allowed experiment directions
-   ## Forbidden directions
-   ## Known weaknesses
-   ## Experiment log
+   ## Thesis
+   ## Signal definition
+   ## Edge economics
+   ## Experiment roadmap
    ## Duplicate notes
+   ## Research log
    ```
 
-   `Experiments to try` is a ranked plain-English list of at least three
-   mechanism-backed ideas. The first item is always the baseline knob sweep.
-   These are not queued experiments yet; only `000-baseline` is queued in
-   `FAMILY.json`.
+   - **Thesis** — who is on the other side of this trade, why the mispricing
+     exists, why it has not been arbitraged away.
+   - **Signal definition** — precise formulas over recorded fields only.
+   - **Edge economics** — the step-4 math: expected gross edge vs the cost
+     floor, with numbers.
+   - **Experiment roadmap** — at least **5 mechanism-distinct** ranked ideas
+     beyond the baseline (the empirical-kill rule requires exhausting them).
+     These are NOT queued experiments; they stay prose until the Researcher
+     specs them.
+   - **Duplicate notes** — near-duplicate reasoning matching `duplicateKeys`.
+   - **Research log** — leave empty except the heading; only the Researcher
+     appends entries.
 
-7. **Write `FAMILY.json`.** Seed exactly one experiment:
+8. **Write `FAMILY.json`** (schema v2) with exactly one queued experiment:
 
    ```json
    {
-     "schemaVersion": 1,
+     "schemaVersion": 2,
      "artifactType": "strategy-family-index",
      "family": "<family>",
      "status": "proposed",
-     "coreIdea": "<one-sentence core idea>",
+     "coreIdea": "<one sentence>",
      "duplicateKeys": ["<normalized-synonym>"],
      "retryOnlyIf": null,
      "champion": null,
+     "verdictSummary": null,
      "tags": ["<tag>"],
      "experiments": [
        {
          "id": "000-baseline",
-         "order": 1,
          "kind": "param-search",
          "code": "000-baseline.ts",
-         "idea": "Baseline knob sweep over the initial decision rule.",
          "basedOn": null,
-         "sweep": {
-           "<paramName>": ["<values>"]
-         },
+         "hypothesis": "<one sentence: what the baseline mechanism should show>",
+         "successCriteria": "Best cell netEvPerMarket > 0 on the test split at stage-1 coverage (STAGE-GATES.md gate 1).",
          "params": null,
-         "status": "proposed",
-         "decision": "pending",
+         "search": {
+           "mode": "coordinate",
+           "defaults": { "<param>": "<value>" },
+           "passes": [
+             {
+               "param": "<highest-impact-param>",
+               "values": ["<v1>", "<v2>", "<v3>"],
+               "batchUid": "<family>--000-baseline--p1-<param>",
+               "submissionUids": [],
+               "best": null,
+               "note": null
+             }
+           ]
+         },
+         "batchUid": null,
+         "submissionUids": [],
+         "baselineId": null,
+         "coverage": null,
+         "status": "queued",
+         "submittedAt": null,
          "decidedAt": null,
-         "result": null,
-         "selectedParams": null
+         "abortReason": null,
+         "outcome": null
        }
      ]
    }
    ```
 
-   Use local experiment ids. Do not prefix the experiment id with the family in
-   `FAMILY.json`. Global references use the family plus local id only when the
-   consuming rule asks for it, such as batch UID
-   `<family>--<experiment-id>`.
+   - Declare `defaults` for every knob and justify them in FAMILY.md (Signal
+     definition or Edge economics) — pass 1 sweeps against these defaults, so
+     bad defaults poison the whole search.
+   - Pre-declare one pass per param, ordered by expected impact, with pass
+     batchUids per [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+     Empty `submissionUids` = not submitted.
 
-8. **Write `000-baseline.ts`.**
-   - Learn the local API from `src/strategy/strategyDefinition.ts`,
-     `src/strategy/Strategy.ts`, `src/strategy/strategyToolkit.ts`, and
-     `src/strategies/templates/Template.v1.ts`.
-   - Export `definition` as a `StrategyDefinition`.
-   - Use `definition.id = "<family>.000-baseline"`.
-   - Define a strict Zod params schema whose knobs match the baseline sweep.
-   - Keep all behavior deterministic and safe when optional plugin data is
-     missing.
-   - Use deterministic `clientOrderId` patterns.
-   - Do not edit a registry file; research strategies are auto-discovered.
+9. **Write `000-baseline.ts`.** Learn the local API from
+   `src/strategy/strategyDefinition.ts`, `src/strategy/Strategy.ts`,
+   `src/strategy/strategyToolkit.ts`, and
+   `src/strategies/templates/Template.v1.ts`. Export `definition` with
+   `definition.id = "<family>.000-baseline"` and a strict Zod params schema
+   whose knobs match `search.defaults`. Deterministic behavior only; safe
+   when optional plugin data is missing; deterministic `clientOrderId`
+   patterns; no registry edits (auto-discovery).
 
-9. **Typecheck enough to catch API errors.** Do not run a backtest.
+10. **Typecheck enough to catch API errors. Do not run a backtest.**
 
-10. **Leave `INDEX.json` alone.** The orchestrator runs
-    `buildStrategyIndex` afterward.
+11. **Leave INDEX.json alone.** The orchestrator runs `buildStrategyIndex`
+    afterward.
 
 ## Forbidden
 
-- Running backtests or evaluating results.
-- Editing
-  [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json).
-- Editing another family's files.
-- Deduping against the legacy non-research strategy library.
-- Seeding more than one experiment in `FAMILY.json`.
-- Creating `Strategy.ts`, versioned files, or `v1`/`v2` ids.
-- Marking the family `active`; only the user does that.
-- Using live-only fields, unrecorded transport behavior, or external feed data
-  as a required backtest input.
+- Running backtests or judging results.
+- Editing INDEX.json or another family's files.
+- Seeding more than one experiment, or putting roadmap ideas in FAMILY.json.
+- Writing anything into the Research log.
+- Creating versioned files or `v1`/`v2` ids.
+- Marking the family anything but `proposed`.
+- Using live-only fields, unrecorded transport behavior, or external feed
+  data as a required backtest input.
 
 ## Final Self-Check
 
-Before declaring done, verify:
-
-- `src/strategies/research/<family>/FAMILY.md` exists and validates.
-- `src/strategies/research/<family>/FAMILY.json` exists and validates.
-- `FAMILY.json` contains exactly one experiment, `000-baseline`.
-- `champion` is `null`.
-- `000-baseline.ts` exists and exports `definition`.
-- `definition.id` is `<family>.000-baseline`.
-- The baseline sweep keys match the strategy params schema.
-- No backtest was run.
-- `INDEX.json` was not edited.
+- Both files validate (`npm run research:check` passes for this family).
+- FAMILY.json has exactly one experiment, `000-baseline`, status `queued`,
+  with `hypothesis` + `successCriteria` + full coordinate `search`.
+- The Edge economics section contains actual numbers, not vibes.
+- The roadmap has at least 5 mechanism-distinct ideas.
+- `000-baseline.ts` exports `definition` with the mechanical id; sweep knobs
+  match the params schema.
+- `champion` is null; Research log is empty; no backtest was run; INDEX.json
+  untouched.
 
 ## Stop Condition
 
-Stop after one valid family is ready for a future baseline backtest, or after
-reporting a duplicate, constraint violation, or saturated idea space with
-nothing written.
+Stop after one valid family is ready for its smoke test, or after reporting a
+duplicate, constraint violation, failed edge-economics gate, or saturated
+idea space with nothing written.

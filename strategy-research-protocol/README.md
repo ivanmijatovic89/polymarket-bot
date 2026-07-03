@@ -2,14 +2,9 @@
 
 Strategy Research Protocol is the research layer on top of
 [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md).
-Its purpose is to help agents and humans propose, implement, backtest,
-evaluate, and preserve memory for strategy families targeting Polymarket 15
-minute Bitcoin up/down markets.
-
-The protocol is being built incrementally. Today it defines family proposal,
-family artifacts, schemas, naming rules, and index generation. The autonomous
-research loop, evaluator contract, and full validation command are still being
-defined.
+Its purpose is to let agents and humans propose, implement, backtest, judge,
+and remember strategy families for Polymarket 15 minute Bitcoin up/down
+markets — such that any fresh agent can continue from files alone.
 
 ## Repository Context
 
@@ -24,192 +19,211 @@ polymarket-bot/                 # PolymarketTwinEngine codebase
   strategy-research-protocol/   # this protocol
 ```
 
-`strategy-research-protocol/` defines the research protocol only. The executable
-engine, strategy runtime, backtest system, dashboard, and detailed operational
-docs live in `polymarket-bot/`.
+`strategy-research-protocol/` defines the research protocol only. The
+executable engine, strategy runtime, backtest system, dashboard, and detailed
+operational docs live in `polymarket-bot/`.
 
 Common terms are defined in
 [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md).
 
 ## Scope
 
-This protocol currently targets only Polymarket 15 minute Bitcoin up/down binary
-markets. The full research assumptions are defined in
+This protocol currently targets only Polymarket 15 minute Bitcoin up/down
+binary markets. The full research assumptions are defined in
 [`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md).
 
-For background on Polymarket and prediction markets, see
-[`docs/polymarket/index.md`](../docs/polymarket/index.md).
+## Core invariants
 
-## Core invariant
+1. **Live/backtest parity.** Live trading and backtests must run the same
+   strategy logic on the same tick stream semantics. Any divergence is a bug,
+   and this rule outranks experiment velocity.
+2. **Files store knowledge; the database owns operational state.** What was
+   tried and learned lives in family files. Whether a batch is still
+   computing lives in the database and is queried on demand
+   ([`strategy-research-protocol/tools/checkBatch.md`](./tools/checkBatch.md))
+   — never mirrored into files.
+3. **LLM judgment only at boundaries** (propose / judge / kill). Everything
+   mechanical is a deterministic script.
+4. **Pre-declared contracts.** Every experiment declares its `hypothesis` and
+   `successCriteria` before running; the Evaluator quotes the criteria in its
+   verdict. Deciding what counts as success after seeing results is how noise
+   becomes "edge".
 
-Live trading and backtests must run the same strategy logic on the same tick
-stream semantics. Any live/backtest divergence is a bug.
+## Architecture
 
-This rule is more important than experiment velocity. A profitable backtest is
-not useful if the live runtime cannot reproduce the same inputs, order lifecycle,
-or strategy decisions.
+Three LLM roles around one memory unit (the family folder), with the backtest
+infrastructure below:
 
-## What this protocol manages
+```mermaid
+flowchart LR
+  PF[ProposeFamily<br/>creates the family, once]
+  R[Researcher<br/>drives the loop, writes MD]
+  E[Evaluator<br/>judges results, writes JSON]
+  subgraph folder [family folder — memory unit]
+    MD[FAMILY.md<br/>thinking + lessons]
+    JSON[FAMILY.json<br/>state + numbers]
+    TS[strategy .ts files<br/>frozen after results]
+  end
+  W[Backtest workers<br/>run committed code]
+  DB[(backtest_runs DB<br/>numeric truth)]
 
-The protocol manages research state, not trading infrastructure itself.
-
-- Strategy family proposals.
-- Experiment queues inside each family.
-- Backtest result references.
-- Evaluator decisions.
-- Research memory and duplicate detection.
-- Generated global
-  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-  rollups.
-
-PolymarketTwinEngine remains responsible for market decoding, replay, live
-execution, portfolio handling, order management, and strategy execution.
-
-## Repository layout
-
-- `strategy-research-protocol/modules/` - agent worker instructions.
-- `strategy-research-protocol/schemas/` - Zod schemas for protocol artifacts.
-- `strategy-research-protocol/rules/` - naming, versioning, and other protocol rules.
-- `strategy-research-protocol/tools/` - tool contracts agents should read before running commands.
-- `strategy-research-protocol/scripts/` - executable helper scripts.
-- `strategy-research-protocol/examples/` - reference examples for protocol artifacts.
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) -
-  authoritative market, data, input, and cost assumptions.
-- [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) - short
-  curated ban list that new families must not violate.
-- [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) - authoritative research
-  memory rules.
-- [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) - short definitions
-  for project and protocol terms.
-- [`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md) -
-  summary of the underlying engine.
-
-Research families do not live inside this protocol folder. They live in the
-main source tree:
-
-```text
-src/strategies/research/<family>/FAMILY.md
-src/strategies/research/<family>/FAMILY.json
-src/strategies/research/<family>/000-baseline.ts
-src/strategies/research/<family>/<experiment-id>.ts
+  PF --> folder
+  R <--> folder
+  R -- submits runs --> W
+  W --> DB
+  DB -- reads results --> E
+  E -- writes outcome --> JSON
 ```
 
-The global research index is generated at:
+- **ProposeFamily** creates one family: proposal sections in FAMILY.md,
+  FAMILY.json with one queued `000-baseline`, and `000-baseline.ts`.
+- **The Researcher** works one family per session in stateless iterations:
+  read both files → the state implies the next action → do it → write files
+  → exit. It specs and codes experiments, submits runs and stage extensions,
+  writes every Research-log entry and `Lesson:`, and decides continue-or-kill
+  per [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
+- **The Evaluator** is the only reader of raw backtest results. It judges
+  passes and experiments, writes outcomes and verdicts into FAMILY.json,
+  moves the champion pointer, and sets families `validated`. It never writes
+  FAMILY.md.
+- **The user** alone flips a family to `live`.
 
-```text
-src/strategies/research/INDEX.json
+## Statuses
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "experiment" as exp {
+    direction LR
+    queued --> running : Researcher submits
+    running --> evaluated : Evaluator judges
+    queued --> aborted : Researcher
+    running --> aborted : Researcher
+  }
 ```
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "family" as fam {
+    direction LR
+    proposed --> researching : Researcher, first submit
+    researching --> validated : Evaluator, final gate passed
+    researching --> killed : Researcher, stopping rules
+    validated --> live : user only
+  }
+```
+
+- The verdict (`success` / `fail` / `inconclusive`) is not a status — it
+  lives inside `outcome` once an experiment is `evaluated`.
+- There is deliberately no "backtested" status: run completion is operational
+  state, queried via `checkBatch`.
+- `validated` is not terminal for research — challengers keep coming; the
+  champion pointer moves only if a challenger passes the gates itself.
+- `killed` requires a concrete `retryOnlyIf`.
+- At most one experiment per family is `queued`/`running` at any time;
+  parallelism comes from many families.
 
 ## Research artifacts
 
-- `src/strategies/research/<family>/FAMILY.md` - human/agent reasoning and
-  memory for one family.
-- `src/strategies/research/<family>/FAMILY.json` - structured family state and
-  experiment queue.
-- `src/strategies/research/<family>/000-baseline.ts` - executable baseline
-  strategy code for the family.
-- `src/strategies/research/<family>/<experiment-id>.ts` - executable strategy
-  code introduced by later code-changing experiments.
-- [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json) -
-  generated global rollup for discovery and deduplication.
-
-Do not edit [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-manually. Use the
-`buildStrategyIndex` tool.
-
-## Research lifecycle
-
-The intended loop is:
-
 ```text
-propose family
--> run baseline experiment
--> evaluate result
--> extend, iterate, kill, or promote
--> update research memory
--> rebuild src/strategies/research/INDEX.json
+src/strategies/research/<family>/FAMILY.md      reasoning + Research log
+src/strategies/research/<family>/FAMILY.json    state + numbers
+src/strategies/research/<family>/000-baseline.ts
+src/strategies/research/<family>/<experiment-id>.ts
+src/strategies/research/INDEX.json              generated rollup — never hand-edit
 ```
 
-The current implemented part is the first step: proposing a family and
-generating the index. The remaining loop pieces should be added one by one and
-kept explicit.
+What belongs in each file, every field's writer, and the update triggers are
+defined in [`strategy-research-protocol/MEMORY.md`](./MEMORY.md). Shapes are
+enforced by `strategy-research-protocol/schemas/` and checked by
+`npm run research:check`.
 
-## Research memory
+## The research loop
 
-Research memory rules are defined in
-[`strategy-research-protocol/MEMORY.md`](./MEMORY.md). Agents must update memory
-after meaningful research steps so the next agent can continue from files alone.
+One experiment, end to end:
 
-Statuses and decision enums are defined in
-[`strategy-research-protocol/schemas/statuses.ts`](./schemas/statuses.ts). The
-evaluator thresholds are not defined yet.
+1. Researcher session starts: reads both family files; the statuses imply
+   exactly one next action.
+2. Spec: experiment record with `hypothesis` + `successCriteria` (+ new `.ts`
+   for variations), status `queued`. Commit (and push for remote workers) —
+   workers run committed code.
+3. Smoke test (`--sequential --limit 10`, batchUid `--smoke` — never
+   evidence), then submit coordinate-search pass 1 with `--baselineId`;
+   record batchUid + submissionUids; status `running`.
+4. Any later session runs `checkBatch`; when complete, the Evaluator judges
+   the pass (`best` + `note`), and the Researcher submits the next pass with
+   winners fixed.
+5. After the last pass the Evaluator writes the full `outcome` (verdict
+   quoting the successCriteria, metrics, `stageReached`), possibly after
+   requesting a refinement grid or a stage extension
+   (`extendBacktest`) per
+   [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
+6. The Researcher consumes the verdict: writes the Research-log entry with
+   its `Lesson:` (log-before-acting), then queues the next experiment, or
+   climbs to the next stage, or kills the family with `retryOnlyIf`.
+7. `npm run research:build-index` when family metadata changed;
+   `npm run research:check` must pass.
+
+## Stage gates
+
+The decision policy — when a strategy advances to more data (1000 → 3000 →
+9000 markets), when a family keeps experimenting, and when it may be killed
+(structural vs empirical kill, `minExperiments`) — lives in
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md). Both the
+Researcher and the Evaluator cite it; neither invents criteria.
+
+## Repository layout
+
+- [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — go/kill
+  decision policy (versioned).
+- [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) — memory rules and
+  field tables.
+- [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) — hard ban
+  list for new families.
+- [`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) —
+  market, data, input, and cost assumptions.
+- [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) — term
+  definitions.
+- `strategy-research-protocol/modules/` — agent worker contracts
+  ([`index`](./modules/index.md)).
+- `strategy-research-protocol/schemas/` — Zod schemas for all artifacts.
+- `strategy-research-protocol/rules/` — naming rules (family, experiment,
+  batch UID).
+- `strategy-research-protocol/tools/` — tool contracts
+  ([`index`](./tools/index.md)).
+- `strategy-research-protocol/scripts/` — executable helpers.
+- `strategy-research-protocol/examples/` — reference examples.
+- [`strategy-research-protocol/TASKS.md`](./TASKS.md) — the v2
+  implementation plan this protocol was built from.
 
 ## Tools
 
-Protocol tools are documented in
-[`strategy-research-protocol/tools/index.md`](./tools/index.md). Read the tool
-document before running the command behind a tool.
+- `runBacktest` — [`tools/runBacktest.md`](./tools/runBacktest.md)
+- `extendBacktest` — [`tools/extendBacktest.md`](./tools/extendBacktest.md)
+- `checkBatch` — [`tools/checkBatch.md`](./tools/checkBatch.md)
+- `getBacktestResults` — [`tools/getBacktestResults.md`](./tools/getBacktestResults.md)
+- `buildStrategyIndex` — [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
 
-Currently defined:
+Scripts: `npm run research:check`, `npm run research:check-batch`,
+`npm run research:build-index`.
 
-- `buildStrategyIndex` - regenerates
-  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
-  from family manifests.
-- `runBacktest` - creates a new backtest run for a strategy experiment.
-- `extendBacktest` - adds market coverage to an existing Telonex run.
-- `getBacktestResults` - retrieves persisted result summaries for evaluation
-  and memory updates.
+## Modules
 
-## Proposer script
+- [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
+  — propose exactly one new family.
+- [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md)
+  — one research iteration for one family.
+- [`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md)
+  — judge passes and experiments.
 
-Propose one new family with no seed:
+Propose one new family (optionally seeded):
 
 ```bash
 ./strategy-research-protocol/scripts/propose-family.sh
-```
-
-Propose one new family from a seed idea:
-
-```bash
 ./strategy-research-protocol/scripts/propose-family.sh "fade large resting walls"
 ```
 
-## Agent workflow
-
-Before using a tool or worker, read its dedicated instruction file.
-
-- Module list: [`strategy-research-protocol/modules/index.md`](./modules/index.md)
-- New family proposal:
-  [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
-- Tool list: [`strategy-research-protocol/tools/index.md`](./tools/index.md)
-- Index generation:
-  [`strategy-research-protocol/tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
-- Family naming rules:
-  [`strategy-research-protocol/rules/FAMILY-NAMING.md`](./rules/FAMILY-NAMING.md)
-- Experiment naming, code files, champion pointer:
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md)
-- Batch UID naming:
-  [`strategy-research-protocol/rules/BATCH-UID.md`](./rules/BATCH-UID.md)
-
-Agents must preserve the live/backtest invariant and should not invent missing
-protocol behavior. If a required module is missing, add that module explicitly
-before depending on it.
-
-## Current gaps
-
-These are the next pieces to define:
-
-- `strategy-research-protocol/modules/ResearchFamily.md` - the main
-  one-iteration research worker.
-- `strategy-research-protocol/modules/ProposeNextExperiment.md` - result-aware
-  experiment proposal.
-- `strategy-research-protocol/modules/EvaluateExperiment.md` - objective
-  evaluator contract.
-- `npm run research:check` - full protocol validation.
-- Stronger schema invariants across
-  `src/strategies/research/<family>/FAMILY.md`,
-  `src/strategies/research/<family>/FAMILY.json`, strategy files, and
-  [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json).
-
-Build the protocol one step at a time. Each new piece should be small,
-validated, and usable by an agent without relying on implicit knowledge.
+Agents must preserve the invariants above and must not invent missing
+protocol behavior. If a required rule is missing, add it to the protocol
+explicitly before depending on it.

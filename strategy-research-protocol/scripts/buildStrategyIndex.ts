@@ -41,9 +41,11 @@ function rollupRow(folder: string): GlobalIndexFamily | null {
     coreIdea: fam.coreIdea,
     duplicateKeys: fam.duplicateKeys,
     retryOnlyIf: fam.retryOnlyIf,
+    verdictSummary: fam.verdictSummary,
     path: `${fam.family}/FAMILY.md`,
     champion: fam.champion,
-    championResult: championExp?.result ?? null,
+    championMetrics: championExp?.outcome?.metrics ?? null,
+    championStageReached: championExp?.outcome?.stageReached ?? null,
     tags: fam.tags,
   }
 }
@@ -60,7 +62,7 @@ function buildStrategyIndex(): GlobalIndex {
   }
 
   return GlobalIndex.parse({
-    schemaVersion: 1,
+    schemaVersion: 2,
     artifactType: 'strategy-global-index',
     families,
   })
