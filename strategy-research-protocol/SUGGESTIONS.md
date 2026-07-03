@@ -6,10 +6,11 @@ findings before they are implemented.
 
 ## Resolved log
 
-**v2.1 (2026-07-04):** cost model now lives in STAGE-GATES.md
-(`takerFeeBps` + the fee formula from `src/trading/fees.ts`; cost per market
-is computed per strategy, no universal constant); gates simplified to net
-profitability per stage (no
+**v2.1 (2026-07-04):** costs are measured, never modeled — no cost formula
+or constant anywhere; all real fees/EV come from `backtest_run_segments`
+(`evPerMarketTotal` net, `totalFeesPaid`), and Edge economics is a mechanism
+argument citing measured comparables; gates simplified to net profitability
+per stage (no
 train/test split in v1); gate decisions recorded in the experiment `gateLog`;
 role handoffs + launch scripts defined in RUNNING.md
 (`researcher.sh`/`evaluator.sh`); RESEARCH_SCOPE.md defers to STAGE-GATES.md

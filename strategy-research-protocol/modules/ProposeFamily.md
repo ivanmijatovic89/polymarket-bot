@@ -68,14 +68,15 @@ reading a few non-research strategies only for API idioms is allowed.
    [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), discard
    it. In seed mode, stop and report the violated constraint.
 
-4. **Edge economics gate.** Before writing anything, do the pre-run kill
-   test using the cost model in
-   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md): compute
-   THIS family's expected cost per market (expected fills/market × fee at
-   its typical price and size, plus spread cost) and compare it against the
-   plausible gross edge magnitude. If the mechanism cannot pay its own costs
-   even at its optimistic best, the family must not be proposed. This math —
-   with the actual numbers — becomes the Edge economics section.
+4. **Edge economics gate.** Costs are measured, never modeled
+   ([`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md)). The
+   gate is a mechanism argument: why should THIS edge be structurally fat —
+   who is on the other side, and what do the measured numbers of comparable
+   past strategies say (killed families' outcomes in INDEX.json, LESSONS.md,
+   segments of prior runs)? If comparable strategies were measured
+   fee-bound and this idea brings nothing structurally different, the
+   family must not be proposed. This argument — with the cited measured
+   numbers — becomes the Edge economics section.
 
 5. **Dedup by driver, not by words.** Shortlist with `duplicateKeys`, `tags`,
    `coreIdea`. Same primary decision driver = same family, even if params,

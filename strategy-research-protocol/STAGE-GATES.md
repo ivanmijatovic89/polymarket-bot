@@ -24,11 +24,6 @@ a stage bumps `version` in the frontmatter; experiment outcomes record the
 ```yaml
 gatesVersion: 1
 minExperiments: 20
-# Taker fee rate used by the backtest simulator — mirrors
-# DEFAULT_BACKTEST_TAKER_FEE_BPS in src/trading/fees.ts (env override:
-# BACKTEST_TAKER_FEE_BPS). If the venue or simulator rate changes, update
-# both and bump gatesVersion.
-takerFeeBps: 156
 stages:
   - stage: 1
     name: screen
@@ -41,39 +36,31 @@ stages:
     markets: 9000
 ```
 
-## Cost model
+## Costs are measured, never modeled
 
-There is deliberately NO universal "cost per market" constant — cost per
-market is a property of a strategy (its fills per market, order size, and
-entry prices), not of the market. What is constant is the venue fee model,
-identical to what backtests simulate ([`src/trading/fees.ts`](../src/trading/fees.ts)):
+There is NO cost formula and NO cost constant in this protocol. Every real
+number comes from `backtest_run_segments` (the `all` segment):
 
-```text
-fee per taker fill = (takerFeeBps / 10000) × min(price, 1 − price) × shares
-```
+- `evPerMarketTotal` — net EV per market, fees already included. The ONLY
+  verdict metric.
+- `totalFeesPaid` — measured fee drag; per market: `totalFeesPaid / markets`.
+- Measured gross EV per market = `evPerMarketTotal + totalFeesPaid / markets`.
 
-Worked example at `takerFeeBps: 156`: a $10-notional taker trade at price
-0.50 buys 20 shares → fee ≈ 1.56% × 0.5 × 20 = $0.156 per fill, ≈ $0.31 per
-round trip — plus the spread crossed on entry/exit. The same trade at price
-0.90 costs ≈ $0.035 per fill (min(p, 1−p) shrinks the fee near the edges).
+"Is this signal fee-bound?" (gross positive, net negative) is read directly
+from these measured numbers — the smoke run and the stage-1 screen exist
+precisely so that finding out is cheap.
 
-The cost model is used in exactly two places:
+Consequences:
 
-- **Edge economics gate** (ProposeFamily): every proposal must compute ITS
-  OWN expected cost per market — expected fills/market × fee at its typical
-  price and size, plus spread cost — and show the plausible gross edge
-  beats it. A family that cannot is not proposed.
-- **Structural kill** (stopping rules below): the ceiling argument compares
-  the mechanism's theoretical best gross edge against the same
-  strategy-specific computation.
-
-`netEvPerMarket` from backtests already includes real simulated costs; the
-cost model is for pre-run and ceiling reasoning, never for adjusting
-results. Once ANY run exists, measured numbers win: all real fees and EV
-live in `backtest_run_segments` (the `all` segment — `evPerMarketTotal`,
-`totalFeesPaid`, ...). When a comparable strategy has already run, cite its
-measured costs instead of the formula — the formula is only for ideas with
-nothing comparable on record.
+- **Edge economics** (ProposeFamily) is a mechanism argument, not
+  arithmetic: why should THIS edge be structurally fat, who is on the other
+  side, and what do the measured numbers of comparable past strategies
+  (segments of prior runs, killed families' outcomes, LESSONS.md) say about
+  ideas of this shape. No invented cost estimates.
+- **Structural kill** (stopping rules below): the ceiling argument uses the
+  family's OWN measured numbers — e.g. "best cell measured gross
+  +$X/mkt with measured fee drag $Y/mkt > X; even zero-noise entries cannot
+  pay the costs this strategy actually incurs".
 
 ## The stages
 
@@ -148,10 +135,11 @@ A family may only be killed under one of these two rules. Config:
 
 ### Structural kill — allowed at any experiment count
 
-Requires a numeric ceiling argument in the closing Research-log entry: e.g.
-"at zero-noise entries the max gross edge is $X/mkt; this strategy's cost
-per market (cost model above) is $Y > X". If the mechanism cannot pay costs
-at its theoretical best, more experiments cannot fix it.
+Requires a numeric ceiling argument in the closing Research-log entry, built
+from the family's own measured numbers: e.g. "at zero-noise entries the max
+measured gross edge is $X/mkt; the measured fee drag is $Y/mkt > X". If the
+mechanism cannot pay the costs it actually incurs even at its theoretical
+best, more experiments cannot fix it.
 
 ### Empirical kill — results keep failing, no ceiling proven
 

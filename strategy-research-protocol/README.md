@@ -176,7 +176,7 @@ Researcher and the Evaluator cite it; neither invents criteria.
 ## Repository layout
 
 - [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — go/kill
-  decision policy (versioned), including the authoritative cost model.
+  decision policy (versioned), including the measured-cost rules.
 - [`strategy-research-protocol/LESSONS.md`](./LESSONS.md) — append-only
   cross-family lessons; required reading for ProposeFamily and the
   Researcher.

@@ -32,15 +32,15 @@ resolution. All inputs are recorded orderbook fields — no live-only data.
 
 ## Edge economics
 
-Cost per market from the STAGE-GATES.md cost model: at $10 notional and
-entry prices near 0.50, a taker fill costs 1.56% × 0.5 × 20 shares ≈ $0.156,
-so a round trip ≈ $0.31 plus ~1 tick of spread; at the expected ~1.1 round
-trips per traded market that is ≈ $0.34/mkt. To clear stage-1, directional
-accuracy on imbalance-triggered entries must exceed ~53.5% at 2-tick
-take-profit — plausible for a persistence-filtered depth signal if the
-stale-maker story is real at all. Prior orderbook-imbalance research (killed,
-pre-protocol) found gross +$0.06/mkt unconditioned; this family must beat
-that via dwell filtering or die at gate 1.
+Why this edge should be structurally fat: the stale-maker story implies the
+mispricing scales with depth-shift size, and dwell filtering removes the
+single-delta noise entries that diluted prior attempts. Measured comparables:
+the killed pre-protocol orderbook-imbalance family measured gross +$0.06/mkt
+unconditioned with a measured fee drag near $0.33/mkt — clearly fee-bound.
+This family is only worth proposing because dwell persistence is expected to
+concentrate entries into materially fatter setups; if the stage-1 screen
+measures gross in the same +$0.06/mkt neighborhood, the mechanism brings
+nothing structurally new and dies at gate 1.
 
 ## Experiment roadmap
 
@@ -75,6 +75,7 @@ Decision: recycle per STAGE-GATES.md — queue `001-spread-gate` (roadmap #1),
 which attacks the cost side directly instead of entry quality.
 
 Lesson: dwell persistence improves gross materially (+$0.23 vs +$0.06
-legacy) but entry-quality work alone cannot cross the ~$0.34 fee floor here;
-remaining experiments must cut effective costs (spread capture, maker-side
-entries) or find conditioning that concentrates the gross edge.
+legacy) but entry-quality work alone cannot cross this strategy's measured
+fee drag (~$0.34/mkt); remaining experiments must cut effective costs
+(spread capture, maker-side entries) or find conditioning that concentrates
+the gross edge.

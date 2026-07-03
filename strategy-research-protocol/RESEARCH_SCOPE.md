@@ -118,10 +118,12 @@ risk, queue risk, cancellation timing risk, and adverse-selection risk.
 Taker orders provide immediate execution, but must overcome spread, slippage,
 and fees.
 
-The authoritative cost model (fee formula + `takerFeeBps`) lives in
-[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — cite it, do
-not restate it. Cost per market is always computed per strategy from its own
-trade profile; there is no universal per-market cost constant.
+Costs are measured, never modeled: real fees and EV live in
+`backtest_run_segments` (`evPerMarketTotal` is net of fees, `totalFeesPaid`
+is the measured drag). See the cost rules in
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md). There is no
+cost formula and no universal per-market cost constant anywhere in this
+protocol.
 
 ## Research unit
 
