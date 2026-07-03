@@ -69,7 +69,11 @@ The cost model is used in exactly two places:
 
 `netEvPerMarket` from backtests already includes real simulated costs; the
 cost model is for pre-run and ceiling reasoning, never for adjusting
-results.
+results. Once ANY run exists, measured numbers win: all real fees and EV
+live in `backtest_run_segments` (the `all` segment — `evPerMarketTotal`,
+`totalFeesPaid`, ...). When a comparable strategy has already run, cite its
+measured costs instead of the formula — the formula is only for ideas with
+nothing comparable on record.
 
 ## The stages
 
