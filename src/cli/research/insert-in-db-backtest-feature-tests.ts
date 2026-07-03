@@ -455,6 +455,7 @@ async function run(): Promise<void> {
 
       await insertBacktestRun({
         batchUid: `${childBatchUid}-baseline`,
+        submissionUid: randomUUID(),
         baselineId: String(id),
         cmd: '',
         comment: `${label} > BASELINE | ${baseComment}`,
@@ -478,6 +479,7 @@ async function run(): Promise<void> {
 
       await insertBacktestRun({
         batchUid: `${childBatchUid}-kept`,
+        submissionUid: randomUUID(),
         baselineId: String(id),
         cmd: '',
         comment: `${label} > KEPT (after gate) | ${baseComment}`,
@@ -501,6 +503,7 @@ async function run(): Promise<void> {
 
       await insertBacktestRun({
         batchUid: `${childBatchUid}-skipped`,
+        submissionUid: randomUUID(),
         baselineId: String(id),
         cmd: '',
         comment: `${label} > SKIPPED (bad regime) | ${baseComment}`,

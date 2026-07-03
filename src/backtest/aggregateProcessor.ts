@@ -60,14 +60,14 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   const data = job.data
   if (data.protocolVersion !== AGGREGATE_JOB_PROTOCOL_VERSION) {
     throw new Error(
-      `[aggregateProcessor] protocol mismatch for batchUid=${data.batchUid}: ` +
+      `[aggregateProcessor] protocol mismatch for batchUid=${data.batchUid} submissionUid=${data.submissionUid}: ` +
         `job=${String(data.protocolVersion)} worker=${AGGREGATE_JOB_PROTOCOL_VERSION}. ` +
         `Restart all backtest workers and re-enqueue the batch.`,
     )
   }
   if (!Array.isArray(data.expectedMarkets) || data.expectedMarkets.length !== data.totalMarkets) {
     throw new Error(
-      `[aggregateProcessor] invalid expectedMarkets for batchUid=${data.batchUid}: ` +
+      `[aggregateProcessor] invalid expectedMarkets for batchUid=${data.batchUid} submissionUid=${data.submissionUid}: ` +
         `expected ${data.totalMarkets}, got ${Array.isArray(data.expectedMarkets) ? data.expectedMarkets.length : 'missing'}. ` +
         `Restart all backtest workers and re-enqueue the batch.`,
     )
@@ -102,7 +102,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     } else {
       totalSkipped += 1
       failed.push({
-        jobId: marketJobId(data.batchUid, result.idx),
+        jobId: marketJobId(data.submissionUid, result.idx),
         idx: result.idx,
         slug: result.slug,
         reason: nullMarketStatsReason(result),
@@ -117,7 +117,8 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     // re-enqueue tooling) can call `marketQueue.getJob(record.jobId)`.
     const idx = idxFromChildJobId(redisKey)
     if (idx !== null) failedIdxs.add(idx)
-    const bareJobId = idx !== null ? marketJobId(data.batchUid, idx) : redisKeyToJobId(redisKey)
+    const bareJobId =
+      idx !== null ? marketJobId(data.submissionUid, idx) : redisKeyToJobId(redisKey)
     const rec: FailedMarketRecord = {
       idx,
       slug: idx !== null ? (expectedByIdx.get(idx)?.slug ?? null) : null,
@@ -130,7 +131,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   for (const expected of expectedMarkets) {
     if (completedIdxs.has(expected.idx) || failedIdxs.has(expected.idx)) continue
     failed.push({
-      jobId: marketJobId(data.batchUid, expected.idx),
+      jobId: marketJobId(data.submissionUid, expected.idx),
       idx: expected.idx,
       slug: expected.slug,
       reason:
@@ -162,6 +163,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     const segments = computeBacktestSegments(marketsWithStartMs, data.initialCapital)
     await insertBacktestRun({
       batchUid: data.batchUid,
+      submissionUid: data.submissionUid,
       baselineId: data.insertMeta.baselineId,
       cmd: data.insertMeta.cmd,
       comment: data.insertMeta.comment,
@@ -184,8 +186,9 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
     })
   }
 
-  // Cleanup: remove children from Redis so a future rerun with the same
-  // batchUid isn't silently served from cache. We iterate the known idx
+  // Cleanup: remove children from Redis to bound memory (job ids are keyed
+  // by submissionUid, which is fresh per submission, so cache collisions
+  // cannot happen — this is purely memory hygiene). We iterate the known idx
   // range instead of `Object.keys(childrenValues)` because BullMQ stores
   // those keys in `<prefix>:<queue>:<jobId>` form, which `queue.remove()`
   // doesn't accept. Best-effort: never fail the aggregator over cleanup.
@@ -196,7 +199,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   )
   const childIdsToRemove: string[] = []
   for (let i = 0; i < totalKnown; i += 1) {
-    childIdsToRemove.push(marketJobId(data.batchUid, i))
+    childIdsToRemove.push(marketJobId(data.submissionUid, i))
   }
   await Promise.allSettled(childIdsToRemove.map((id) => queue.remove(id)))
 
@@ -205,6 +208,7 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
   // after the processor returns avoids fighting with the active-job lock.
 
   return {
+    submissionUid: data.submissionUid,
     batchUid: data.batchUid,
     totalSucceeded: marketStats.length,
     totalFailed: failed.length,

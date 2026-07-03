@@ -1,4 +1,4 @@
-import { and, asc, eq, inArray, sql } from 'drizzle-orm'
+import { and, asc, desc, eq, inArray, sql } from 'drizzle-orm'
 import type { BatchStats, BatchStatsFields } from '../backtest/stats/batchStats.js'
 import {
   computeBacktestSegments,
@@ -38,6 +38,7 @@ export type IndexedMarketStats = {
 export type BacktestRunRecord = {
   id: number
   batchUid: string
+  submissionUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
   params: Record<string, unknown>
@@ -87,6 +88,7 @@ export type BacktestRunRecord = {
 export type BacktestRunSummary = {
   id: number
   batchUid: string
+  submissionUid: string
   marketsPersisted: number
   failuresCount: number
   createdAt: Date
@@ -94,6 +96,7 @@ export type BacktestRunSummary = {
 
 type InsertBacktestRunRow = {
   batchUid: string
+  submissionUid: string
   baselineId: string | null
   cmd: string
   comment: string | null
@@ -207,20 +210,43 @@ export function computeExtendedFailureCount(
   return Math.max(0, parentFailuresCount + newFailuresCount - resolvedFailureCount)
 }
 
-export async function getBacktestRunSummaryByBatchUid(
+/**
+ * All runs sharing a batch label, newest first. `batch_uid` is a non-unique
+ * group label — e.g. every cell of one param sweep shares it.
+ */
+export async function listBacktestRunSummariesByBatchUid(
   batchUid: string,
-): Promise<BacktestRunSummary | null> {
+): Promise<BacktestRunSummary[]> {
   const db = mustGetDb()
-  const [run] = await db
+  return db
     .select({
       id: backtestRuns.id,
       batchUid: backtestRuns.batchUid,
+      submissionUid: backtestRuns.submissionUid,
       marketsPersisted: backtestRuns.marketsPersisted,
       failuresCount: backtestRuns.failuresCount,
       createdAt: backtestRuns.createdAt,
     })
     .from(backtestRuns)
     .where(eq(backtestRuns.batchUid, batchUid))
+    .orderBy(desc(backtestRuns.createdAt))
+}
+
+export async function getBacktestRunSummaryBySubmissionUid(
+  submissionUid: string,
+): Promise<BacktestRunSummary | null> {
+  const db = mustGetDb()
+  const [run] = await db
+    .select({
+      id: backtestRuns.id,
+      batchUid: backtestRuns.batchUid,
+      submissionUid: backtestRuns.submissionUid,
+      marketsPersisted: backtestRuns.marketsPersisted,
+      failuresCount: backtestRuns.failuresCount,
+      createdAt: backtestRuns.createdAt,
+    })
+    .from(backtestRuns)
+    .where(eq(backtestRuns.submissionUid, submissionUid))
     .limit(1)
   return run ?? null
 }
@@ -334,12 +360,16 @@ function runStatsFromAllSegment(
 
 export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void> {
   const db = mustGetDb()
-  const existing = await getBacktestRunSummaryByBatchUid(row.batchUid)
+  // batch_uid is a non-unique group label — duplicates are expected (e.g. a
+  // param sweep). Identity is submission_uid, which is auto-generated per
+  // submission; a duplicate means the same flow aggregated twice.
+  const existing = await getBacktestRunSummaryBySubmissionUid(row.submissionUid)
   if (existing) {
     throw new Error(
-      `[db/backtests] batchUid already exists in MySQL: ${row.batchUid} ` +
-        `(id=${existing.id}, marketsPersisted=${existing.marketsPersisted}, ` +
-        `failuresCount=${existing.failuresCount}). Pick a new --batchUid.`,
+      `[db/backtests] submissionUid already exists in MySQL: ${row.submissionUid} ` +
+        `(id=${existing.id}, batchUid=${existing.batchUid}, ` +
+        `marketsPersisted=${existing.marketsPersisted}). ` +
+        `This flow's results were already persisted.`,
     )
   }
 
@@ -354,6 +384,7 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
       .insert(backtestRuns)
       .values({
         batchUid: row.batchUid,
+        submissionUid: row.submissionUid,
         status,
         baselineId: row.baselineId,
         cmd: row.cmd,
@@ -447,17 +478,29 @@ export async function getBacktestRunById(id: number): Promise<BacktestRunRecord 
   return hydrateBacktestRun(run)
 }
 
+/**
+ * Load a run by its batch label. `batch_uid` is non-unique; this helper is
+ * for callers that expect the label to identify exactly one run (e.g.
+ * verify-backtest-diff) — it throws when the label is ambiguous so nobody
+ * silently compares the wrong row. Use run ids for multi-run labels.
+ */
 export async function getBacktestRunByBatchUid(
   batchUid: string,
 ): Promise<BacktestRunRecord | null> {
   const db = mustGetDb()
-  const [run] = await db
+  const runs = await db
     .select()
     .from(backtestRuns)
     .where(eq(backtestRuns.batchUid, batchUid))
-    .limit(1)
-  if (!run) return null
-  return hydrateBacktestRun(run)
+    .limit(2)
+  if (runs.length === 0) return null
+  if (runs.length > 1) {
+    throw new Error(
+      `[db/backtests] batchUid "${batchUid}" matches more than one run — ` +
+        `it is a group label. Reference the specific run by id instead.`,
+    )
+  }
+  return hydrateBacktestRun(runs[0]!)
 }
 
 async function hydrateBacktestRun(
@@ -523,6 +566,7 @@ async function hydrateBacktestRun(
   return {
     id: run.id,
     batchUid: run.batchUid,
+    submissionUid: run.submissionUid,
     status: run.status,
     strategy: run.strategy,
     params: parseJsonValue<Record<string, unknown>>(run.params),
@@ -680,21 +724,17 @@ export async function getRunForExtension(
 }
 
 /**
- * Update the run's `batch_uid` eagerly when an extension flow is enqueued
- * AND atomically take the concurrent-extend lock by setting
- * `extending_at = NOW()`. Updating batch_uid before BullMQ enqueue means
- * the dashboard's `/batches/<batchUid>` lookup immediately finds the
- * parent run by the new batchUid, instead of 404-ing during processing.
+ * Atomically take the concurrent-extend lock by setting
+ * `extending_at = NOW()`.
  *
- * The lock + UPDATE is one statement guarded by `WHERE extending_at IS NULL`
- * so two CLI invocations racing each other cannot both succeed: the second
- * one's UPDATE matches zero rows and we throw.
+ * The UPDATE is guarded by `WHERE extending_at IS NULL` so two CLI
+ * invocations racing each other cannot both succeed: the second one's
+ * UPDATE matches zero rows and we throw.
  *
- * Note: this does NOT touch `cmd`. The original launch command stays as the
- * permanent record of how the run was created; per-extend invocations are
- * intentionally not recorded in this iteration. If you need an audit trail
- * later, the recovery is a `cmd_history` JSON column or a separate audit
- * table — both can be added without touching this function's contract.
+ * Note: this does NOT touch `cmd` or `batch_uid`. The original launch
+ * command and label stay as the permanent record of how the run was
+ * created; the extension flow is identified by its own submissionUid in
+ * Redis only.
  *
  * Throws ExtensionLockHeldError if the lock is already held. Caller may
  * surface the error to the user with a recovery hint pointing at the
@@ -710,11 +750,11 @@ export class ExtensionLockHeldError extends Error {
   }
 }
 
-export async function markRunForExtendingBatch(runId: number, newBatchUid: string): Promise<void> {
+export async function lockRunForExtension(runId: number): Promise<void> {
   const db = mustGetDb()
   const result = await db
     .update(backtestRuns)
-    .set({ batchUid: newBatchUid, extendingAt: sql`CURRENT_TIMESTAMP` })
+    .set({ extendingAt: sql`CURRENT_TIMESTAMP` })
     .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NULL`))
   // mysql2 returns { affectedRows } on the first element of the tuple.
   const affected = Array.isArray(result)
@@ -725,21 +765,6 @@ export async function markRunForExtendingBatch(runId: number, newBatchUid: strin
   }
 }
 
-export async function restoreRunAfterFailedExtend(
-  runId: number,
-  previousBatchUid: string,
-): Promise<boolean> {
-  const db = mustGetDb()
-  const result = await db
-    .update(backtestRuns)
-    .set({ batchUid: previousBatchUid, extendingAt: null })
-    .where(and(eq(backtestRuns.id, runId), sql`${backtestRuns.extendingAt} IS NOT NULL`))
-  const affected = Array.isArray(result)
-    ? (result[0] as { affectedRows?: number })?.affectedRows
-    : 0
-  return Boolean(affected && affected > 0)
-}
-
 /**
  * Merge an extension batch's results into the parent run. Inserts the new
  * per-market rows (continuing `idx` from `max(idx)+1`), inserts new failures,
@@ -748,8 +773,8 @@ export async function restoreRunAfterFailedExtend(
  * columns on `backtest_runs`. All of this happens in a single DB transaction
  * so the run metadata never represents a half-applied extension.
  *
- * `cmd` and `batch_uid` are NOT touched here — they were already updated by
- * `markRunForExtendingBatch` at enqueue time.
+ * `cmd`, `batch_uid`, and `submission_uid` are NOT touched here — the parent
+ * run keeps its original identity and label across extensions.
  */
 export async function applyExtensionToRun(opts: {
   parentRunId: number

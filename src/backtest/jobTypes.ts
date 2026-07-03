@@ -13,6 +13,9 @@ import type {
  * to runSingleMarket along with their own worker identity.
  */
 export type MarketJobData = {
+  /** Internal per-submission identity (auto-UUID). Keys the flow's job ids. */
+  submissionUid: string
+  /** Human-facing group label persisted on the run row (display only here). */
   batchUid: string
   idx: number
   filePath: string
@@ -34,12 +37,15 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
-export const AGGREGATE_JOB_PROTOCOL_VERSION = 2
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 3
 
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
  */
 export type AggregateJobData = {
+  /** Internal per-submission identity (auto-UUID). Keys the flow's job ids. */
+  submissionUid: string
+  /** Human-facing group label persisted on the run row. */
   batchUid: string
   protocolVersion: number
   /** Producer's git SHA at enqueue time. The aggregate worker self-updates if it loaded older code. */
@@ -75,6 +81,7 @@ export type AggregateJobData = {
 }
 
 export type AggregateJobResult = {
+  submissionUid: string
   batchUid: string
   totalSucceeded: number
   totalFailed: number
@@ -91,17 +98,19 @@ export type FailedMarketRecord = {
 
 /**
  * Helper to build the jobId for a market job. Used both at enqueue time
- * and when computing failed-children diagnostics.
+ * and when computing failed-children diagnostics. Keyed by submissionUid —
+ * always fresh per submission, so job ids never collide with BullMQ's
+ * jobId dedup cache even when the batch label is reused.
  */
-export function marketJobId(batchUid: string, idx: number): string {
-  return `${batchUid}-m-${idx}`
+export function marketJobId(submissionUid: string, idx: number): string {
+  return `${submissionUid}-m-${idx}`
 }
 
 /**
  * Helper to build the jobId for the aggregate parent job.
  */
-export function aggregateJobId(batchUid: string): string {
-  return `${batchUid}-agg`
+export function aggregateJobId(submissionUid: string): string {
+  return `${submissionUid}-agg`
 }
 
 /** Re-export so downstream files can import via jobTypes. */

@@ -1,72 +1,58 @@
 'use client'
 
+import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import {
-  AlertTriangle,
-  CheckCircle2,
-  Clock,
-  Cpu,
-  FileText,
-  Hash,
-  TrendingDown,
-  TrendingUp,
-  Trophy,
-} from 'lucide-react'
+import { AlertTriangle, CheckCircle2, Hash, Layers } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { ProgressBar } from './ProgressBar'
 import { SectionHeading } from './SectionHeading'
-import { StatCard } from './StatCard'
-import { MachineName } from './MachineName'
-import { ExecutionSummary } from './ExecutionSummary'
 import { cn, formatNumber, formatPnl } from '@/lib/utils'
-import type { ExecutionSummary as ExecutionSummaryData } from '@/lib/queries/batches'
 
-type ActiveResponse = {
+type ActiveSubmission = {
   batchUid: string
-  active: true
+  submissionUid: string
   parentState: string
   strategy: string
-  comment: string | null
   totalMarkets: number
   waitingChildren: number
   activeChildren: number
   completedChildren: number
   failedChildren: number
   failedChildrenValues: Record<string, unknown>
+  comment: string | null
 }
 
-type CompletedResponse = {
+type BatchRun = {
+  id: number
   batchUid: string
-  active: false
-  batch: {
-    strategy: string
-    comment: string | null
-    pnlTotal: number
-    winRatePct: number
-    tradesTotal: number
-    marketsTotal: number
-    marketsPlayed: number
-    marketStats: Array<{
-      slug: string | null
-      finalOutcome: string | number | null
-      pnl: number
-      tradeCount: number
-      execution?: {
-        machineId: string
-        workerChildId?: number | null
-        durationMs: number
-        eventsProcessed: number
-      }
-    }> | null
-    executionSummary: ExecutionSummaryData | null
-    failedMarkets: Array<{ idx: number | null; slug: string | null; reason: string }> | null
-  }
+  submissionUid: string
+  status: 'completed' | 'partial' | 'failed'
+  strategy: string
+  params: Record<string, unknown> | null
+  symbol: string | null
+  comment: string | null
+  marketsTotal: number
+  marketsPlayed: number
+  marketsSkipped: number
+  failuresCount: number
+  tradesTotal: number
+  winRatePct: number
+  evPerMarketTotal: number
+  pnlTotal: number
+  totalFeesPaid: number
+  createdAt: string
 }
 
-type BatchResponse = ActiveResponse | CompletedResponse | { error: string }
+type BatchResponse =
+  | {
+      batchUid: string
+      runs: BatchRun[]
+      active: ActiveSubmission[]
+    }
+  | { error: string }
 
 async function fetchBatch(uid: string): Promise<BatchResponse> {
   const r = await fetch(`/api/batches/${encodeURIComponent(uid)}`, { cache: 'no-store' })
@@ -75,13 +61,25 @@ async function fetchBatch(uid: string): Promise<BatchResponse> {
   return r.json()
 }
 
+function compactParams(params: Record<string, unknown> | null): string {
+  if (!params || Object.keys(params).length === 0) return '—'
+  return Object.entries(params)
+    .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+    .join(' ')
+}
+
+/**
+ * Batch group view. A batch label groups N runs (e.g. every cell of one
+ * param sweep) plus any submissions still in the queue. Per-run detail
+ * lives at /backtests/[id].
+ */
 export function BatchDetailView({ batchUid }: { batchUid: string }) {
   const { data, isLoading } = useQuery({
     queryKey: ['batches', batchUid],
     queryFn: () => fetchBatch(batchUid),
     refetchInterval: (q) => {
       const d = q.state.data as BatchResponse | undefined
-      return d && 'active' in d && d.active ? 3000 : false
+      return d && !('error' in d) && d.active.length > 0 ? 3000 : false
     },
   })
 
@@ -104,59 +102,181 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
       </Card>
     )
   }
-  return data.active ? <ActiveDetail data={data} /> : <CompletedDetail data={data} />
-}
 
-function ActiveDetail({ data }: { data: ActiveResponse }) {
-  const failedEntries = Object.entries(data.failedChildrenValues ?? {})
+  const strategies = [...new Set(data.runs.map((r) => r.strategy))]
+
   return (
     <div className="space-y-6">
       <Card>
         <CardHeader>
           <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="warning">
-              <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
-              {data.parentState}
+            <Layers className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-base font-mono">{data.batchUid}</CardTitle>
+            <Badge variant="secondary">
+              {data.runs.length} run{data.runs.length === 1 ? '' : 's'}
             </Badge>
-            <CardTitle className="text-base">{data.strategy}</CardTitle>
-            {data.comment && (
-              <span className="text-xs text-muted-foreground truncate">— {data.comment}</span>
+            {data.active.length > 0 && (
+              <Badge variant="warning">
+                <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+                {data.active.length} in flight
+              </Badge>
+            )}
+            {strategies.length > 0 && (
+              <span className="text-xs text-muted-foreground">{strategies.join(', ')}</span>
             )}
           </div>
         </CardHeader>
-        <CardContent>
-          <ProgressBar
-            total={data.totalMarkets}
-            completed={data.completedChildren}
-            active={data.activeChildren}
-            failed={data.failedChildren}
-          />
-          <div className="mt-5 grid grid-cols-2 gap-3 sm:grid-cols-5">
-            <MetricMini label="Completed" value={data.completedChildren} tone="success" />
-            <MetricMini label="Active" value={data.activeChildren} tone="warning" />
-            <MetricMini label="Waiting" value={data.waitingChildren} tone="muted" />
-            <MetricMini
-              label="Failed"
-              value={data.failedChildren}
-              tone={data.failedChildren > 0 ? 'destructive' : 'muted'}
-            />
-            <MetricMini label="Total" value={data.totalMarkets} />
-          </div>
-        </CardContent>
       </Card>
 
-      {failedEntries.length > 0 && (
+      {data.active.map((a) => (
+        <ActiveSubmissionCard key={a.submissionUid} data={a} />
+      ))}
+
+      {data.runs.length > 0 && (
         <section>
           <SectionHeading
-            title="Failed children"
-            subtitle={`${data.failedChildren} failed${
-              data.failedChildren > failedEntries.length
-                ? `, showing first ${failedEntries.length}`
-                : ''
-            }`}
-            icon={AlertTriangle}
+            title="Runs"
+            subtitle="One row per run in this batch — open a run for per-market detail."
+            icon={Hash}
           />
           <Card className="overflow-hidden">
+            <div className="max-h-[600px] overflow-auto">
+              <Table>
+                <TableHeader className="sticky top-0 z-10 bg-card">
+                  <TableRow>
+                    <TableHead>Run</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Params</TableHead>
+                    <TableHead className="text-right">Markets</TableHead>
+                    <TableHead className="text-right">Trades</TableHead>
+                    <TableHead className="text-right">Win %</TableHead>
+                    <TableHead className="text-right">EV/mkt</TableHead>
+                    <TableHead className="text-right">PnL</TableHead>
+                    <TableHead className="text-right">Created</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {data.runs.map((run) => {
+                    const evClass =
+                      run.evPerMarketTotal > 0
+                        ? 'text-[color:var(--success)]'
+                        : run.evPerMarketTotal < 0
+                          ? 'text-destructive'
+                          : ''
+                    const pnlClass =
+                      run.pnlTotal > 0
+                        ? 'text-[color:var(--success)]'
+                        : run.pnlTotal < 0
+                          ? 'text-destructive'
+                          : ''
+                    return (
+                      <TableRow key={run.id}>
+                        <TableCell>
+                          <Link
+                            href={`/backtests/${run.id}`}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            #{run.id}
+                          </Link>
+                          {run.comment && (
+                            <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
+                              {run.comment}
+                            </div>
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={
+                              run.status === 'completed'
+                                ? 'success'
+                                : run.status === 'partial'
+                                  ? 'warning'
+                                  : 'destructive'
+                            }
+                          >
+                            {run.status === 'completed' && <CheckCircle2 className="h-3 w-3" />}
+                            {run.status}
+                          </Badge>
+                        </TableCell>
+                        <TableCell
+                          className="font-mono text-[11px] text-muted-foreground max-w-[280px] truncate"
+                          title={compactParams(run.params)}
+                        >
+                          {compactParams(run.params)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {run.marketsPlayed}/{run.marketsTotal}
+                          {run.failuresCount > 0 && (
+                            <span className="text-destructive"> (+{run.failuresCount} failed)</span>
+                          )}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {formatNumber(run.tradesTotal)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums text-xs">
+                          {run.winRatePct.toFixed(1)}%
+                        </TableCell>
+                        <TableCell className={cn('text-right tabular-nums text-xs', evClass)}>
+                          {formatPnl(run.evPerMarketTotal)}
+                        </TableCell>
+                        <TableCell className={cn('text-right tabular-nums text-xs', pnlClass)}>
+                          {formatPnl(run.pnlTotal)}
+                        </TableCell>
+                        <TableCell className="text-right text-[11px] text-muted-foreground whitespace-nowrap">
+                          {new Date(run.createdAt).toLocaleString()}
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </div>
+          </Card>
+        </section>
+      )}
+    </div>
+  )
+}
+
+function ActiveSubmissionCard({ data }: { data: ActiveSubmission }) {
+  const failedEntries = Object.entries(data.failedChildrenValues ?? {})
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex flex-wrap items-center gap-3">
+          <Badge variant="warning">
+            <span className="h-1.5 w-1.5 rounded-full bg-current animate-pulse" />
+            {data.parentState}
+          </Badge>
+          <CardTitle className="text-base">{data.strategy}</CardTitle>
+          <span className="font-mono text-[11px] text-muted-foreground">
+            {data.submissionUid}
+          </span>
+          {data.comment && (
+            <span className="text-xs text-muted-foreground truncate">— {data.comment}</span>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent>
+        <ProgressBar
+          total={data.totalMarkets}
+          completed={data.completedChildren}
+          active={data.activeChildren}
+          failed={data.failedChildren}
+        />
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-5">
+          <MetricMini label="Completed" value={data.completedChildren} tone="success" />
+          <MetricMini label="Active" value={data.activeChildren} tone="warning" />
+          <MetricMini label="Waiting" value={data.waitingChildren} tone="muted" />
+          <MetricMini
+            label="Failed"
+            value={data.failedChildren}
+            tone={data.failedChildren > 0 ? 'destructive' : 'muted'}
+          />
+          <MetricMini label="Total" value={data.totalMarkets} />
+        </div>
+        {failedEntries.length > 0 && (
+          <div className="mt-4">
             <Table>
               <TableHeader>
                 <TableRow>
@@ -175,10 +295,10 @@ function ActiveDetail({ data }: { data: ActiveResponse }) {
                 ))}
               </TableBody>
             </Table>
-          </Card>
-        </section>
-      )}
-    </div>
+          </div>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -206,166 +326,6 @@ function MetricMini({
       <div className={cn('mt-1 text-lg font-semibold tabular-nums', toneStyles[tone])}>
         {value.toLocaleString()}
       </div>
-    </div>
-  )
-}
-
-function CompletedDetail({ data }: { data: CompletedResponse }) {
-  const { batch } = data
-  const pnlNum = typeof batch.pnlTotal === 'number' ? batch.pnlTotal : null
-  const pnlTone = pnlNum === null ? 'default' : pnlNum >= 0 ? 'success' : 'destructive'
-  const wr = typeof batch.winRatePct === 'number' ? `${batch.winRatePct.toFixed(2)}%` : '—'
-  const trades = typeof batch.tradesTotal === 'number' ? formatNumber(batch.tradesTotal) : '—'
-  const totalMarkets = typeof batch.marketsTotal === 'number' ? String(batch.marketsTotal) : '—'
-  const played = typeof batch.marketsPlayed === 'number' ? String(batch.marketsPlayed) : '—'
-
-  const marketStats = batch.marketStats ?? []
-  const failed = batch.failedMarkets ?? []
-
-  return (
-    <div className="space-y-8">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-wrap items-center gap-3">
-            <Badge variant="success">
-              <CheckCircle2 className="h-3 w-3" />
-              completed
-            </Badge>
-            <CardTitle className="text-base">{batch.strategy}</CardTitle>
-            {batch.comment && (
-              <span className="text-xs text-muted-foreground truncate">— {batch.comment}</span>
-            )}
-          </div>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-            <StatCard
-              label="PnL total"
-              value={
-                <span className="inline-flex items-center gap-1">
-                  {pnlNum !== null && pnlNum >= 0 && <TrendingUp className="h-5 w-5" />}
-                  {pnlNum !== null && pnlNum < 0 && <TrendingDown className="h-5 w-5" />}
-                  {formatPnl(pnlNum)}
-                </span>
-              }
-              tone={pnlTone}
-              icon={Trophy}
-            />
-            <StatCard label="Win rate" value={wr} icon={CheckCircle2} tone="success" />
-            <StatCard
-              label="Markets played"
-              value={`${played}`}
-              hint={`of ${totalMarkets}`}
-              icon={Hash}
-            />
-            <StatCard label="Total trades" value={trades} icon={FileText} tone="muted" />
-          </div>
-        </CardContent>
-      </Card>
-
-      <ExecutionSummary summary={batch.executionSummary} />
-
-      <section>
-        <SectionHeading
-          title="Per-market"
-          subtitle={`${marketStats.length} markets. Rows highlighted red ran > 10s.`}
-          icon={Cpu}
-        />
-        <Card className="overflow-hidden">
-          <div className="max-h-[600px] overflow-auto">
-            <Table>
-              <TableHeader className="sticky top-0 z-10 bg-card">
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Outcome</TableHead>
-                  <TableHead className="text-right">PnL</TableHead>
-                  <TableHead className="text-right">Trades</TableHead>
-                  <TableHead>Machine</TableHead>
-                  <TableHead className="text-right">Duration</TableHead>
-                  <TableHead className="text-right">Events</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {marketStats.map((m, i) => {
-                  const exec = m.execution
-                  const slow = exec && exec.durationMs > 10_000
-                  const pnlClass =
-                    m.pnl > 0 ? 'text-[color:var(--success)]' : m.pnl < 0 ? 'text-destructive' : ''
-                  return (
-                    <TableRow key={i}>
-                      <TableCell className="text-muted-foreground tabular-nums text-xs">
-                        {i}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">{m.slug ?? '—'}</TableCell>
-                      <TableCell className="text-xs">{String(m.finalOutcome ?? '—')}</TableCell>
-                      <TableCell className={cn('text-right tabular-nums', pnlClass)}>
-                        {formatPnl(m.pnl)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{m.tradeCount}</TableCell>
-                      <TableCell className="text-xs text-muted-foreground">
-                        {exec ? <MachineName machineId={exec.machineId} /> : '—'}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          'text-right tabular-nums text-xs',
-                          slow ? 'text-destructive font-medium' : 'text-muted-foreground',
-                        )}
-                      >
-                        {exec ? (
-                          <span className="inline-flex items-center justify-end gap-1">
-                            {slow && <Clock className="h-3 w-3" />}
-                            {exec.durationMs} ms
-                          </span>
-                        ) : (
-                          '—'
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
-                        {exec ? exec.eventsProcessed.toLocaleString() : '—'}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
-          </div>
-        </Card>
-      </section>
-
-      {failed.length > 0 && (
-        <section>
-          <SectionHeading
-            title="Failed markets"
-            subtitle={`${failed.length} markets exhausted retries`}
-            icon={AlertTriangle}
-          />
-          <Card className="overflow-hidden">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead className="w-12">#</TableHead>
-                  <TableHead>Slug</TableHead>
-                  <TableHead>Reason</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {failed.slice(0, 100).map((f, i) => (
-                  <TableRow key={i}>
-                    <TableCell className="tabular-nums text-xs text-muted-foreground">
-                      {f.idx ?? '—'}
-                    </TableCell>
-                    <TableCell className="font-mono text-xs">{f.slug ?? '—'}</TableCell>
-                    <TableCell className="text-destructive text-xs">
-                      {f.reason.slice(0, 200)}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </Card>
-        </section>
-      )}
     </div>
   )
 }

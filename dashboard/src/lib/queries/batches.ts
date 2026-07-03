@@ -10,6 +10,7 @@ import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
 
 export type ActiveBatchSummary = {
   batchUid: string
+  submissionUid: string
   strategy: string
   totalMarkets: number
   waitingChildren: number
@@ -21,7 +22,8 @@ export type ActiveBatchSummary = {
 
 /**
  * Fetches ALL currently-active market jobs, paginating until exhausted,
- * and groups counts by batchUid prefix. Used by both `listActiveBatches`
+ * and groups counts by submissionUid prefix (job ids are
+ * `<submissionUid>-m-<idx>`). Used by both `listActiveBatches`
  * (called once per request, shared across parents) and
  * `getActiveBatchDetail` (single-parent path).
  *
@@ -30,7 +32,7 @@ export type ActiveBatchSummary = {
  * would be undercounted and `waitingChildren = unprocessed - active`
  * inflated. We walk in 200-row pages until a short page is returned.
  */
-async function countActiveChildrenByBatch(): Promise<Map<string, number>> {
+async function countActiveChildrenBySubmission(): Promise<Map<string, number>> {
   const queue = getMarketQueue()
   const pageSize = 200
   const counts = new Map<string, number>()
@@ -56,13 +58,13 @@ async function countActiveChildrenByBatch(): Promise<Map<string, number>> {
 }
 
 /**
- * Counts active children for a single batchUid. Kept as a convenience for
+ * Counts active children for a single submission. Kept as a convenience for
  * the single-parent detail path; `listActiveBatches` uses the grouped
  * version directly to avoid N redundant scans.
  */
-export async function countActiveChildrenForBatch(batchUid: string): Promise<number> {
-  const all = await countActiveChildrenByBatch()
-  return all.get(batchUid) ?? 0
+export async function countActiveChildrenForSubmission(submissionUid: string): Promise<number> {
+  const all = await countActiveChildrenBySubmission()
+  return all.get(submissionUid) ?? 0
 }
 
 export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
@@ -71,16 +73,18 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
   // Fetch the active-children count ONCE for all batches, then look up
   // per-parent below. Previously this was called inside the loop, causing
   // an N×scan-of-200-jobs hot path on every dashboard poll.
-  const activeByBatch = await countActiveChildrenByBatch()
+  const activeBySubmission = await countActiveChildrenBySubmission()
   const out: ActiveBatchSummary[] = []
   for (const job of jobs) {
     if (!job) continue
     const data = job.data as {
+      submissionUid?: string
       batchUid?: string
       totalMarkets?: number
       insertMeta?: { strategy?: string }
     }
-    const batchUid = data.batchUid ?? job.id ?? 'unknown'
+    const submissionUid = data.submissionUid ?? job.id?.replace(/-agg$/, '') ?? 'unknown'
+    const batchUid = data.batchUid ?? submissionUid
     const totalMarkets = data.totalMarkets ?? 0
     const dependencies = await job.getDependenciesCount({ processed: true, unprocessed: true })
     const state = await job.getState()
@@ -90,11 +94,12 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
     const processedTotal = dependencies.processed ?? 0
     const completedChildren = Math.max(0, processedTotal - failedChildren)
     const unprocessedTotal = dependencies.unprocessed ?? 0
-    const activeChildren = activeByBatch.get(batchUid) ?? 0
+    const activeChildren = activeBySubmission.get(submissionUid) ?? 0
     const waitingChildren = Math.max(0, unprocessedTotal - activeChildren)
 
     out.push({
       batchUid,
+      submissionUid,
       strategy: data.insertMeta?.strategy ?? 'unknown',
       totalMarkets,
       waitingChildren,
@@ -349,9 +354,15 @@ export async function getBacktestRunById(id: number) {
   return hydrateBacktestRunDetail(row.run, row.allSegment)
 }
 
-export async function getBatchDetail(batchUid: string) {
+/**
+ * All finalized runs sharing a batch label, oldest first (submission order).
+ * `batch_uid` is a non-unique group label — e.g. every cell of one param
+ * sweep shares it. Summaries only; per-market detail lives at
+ * `/backtests/[id]`.
+ */
+export async function listBatchRuns(batchUid: string) {
   const db = getDb()
-  const [row] = await db
+  const rows = await db
     .select({ run: backtestRuns, allSegment: backtestRunSegments })
     .from(backtestRuns)
     .leftJoin(
@@ -363,9 +374,8 @@ export async function getBatchDetail(batchUid: string) {
       ),
     )
     .where(eq(backtestRuns.batchUid, batchUid))
-    .limit(1)
-  if (!row) return null
-  return hydrateBacktestRunDetail(row.run, row.allSegment)
+    .orderBy(asc(backtestRuns.createdAt))
+  return rows.map(({ run, allSegment }) => mapRunSummary(run, allSegment))
 }
 
 /** Per-machine slice of a run's execution work. */
@@ -535,6 +545,7 @@ async function hydrateBacktestRunDetail(
  */
 export type ActiveBatchDetail = {
   batchUid: string
+  submissionUid: string
   parentState: string
   strategy: string
   totalMarkets: number
@@ -546,21 +557,25 @@ export type ActiveBatchDetail = {
   comment: string | null
 }
 
-export async function getActiveBatchDetail(batchUid: string): Promise<ActiveBatchDetail | null> {
-  const parent = await getAggregateQueue().getJob(aggregateJobId(batchUid))
+export async function getActiveBatchDetail(
+  submissionUid: string,
+): Promise<ActiveBatchDetail | null> {
+  const parent = await getAggregateQueue().getJob(aggregateJobId(submissionUid))
   if (!parent) return null
   const state = await parent.getState()
   const dependencies = await parent.getDependenciesCount({ processed: true, unprocessed: true })
   const failedChildrenValues = await parent.getFailedChildrenValues()
   const failedChildren = Object.keys(failedChildrenValues).length
   const completedChildren = Math.max(0, (dependencies.processed ?? 0) - failedChildren)
-  const activeChildren = await countActiveChildrenForBatch(batchUid)
+  const activeChildren = await countActiveChildrenForSubmission(submissionUid)
   const data = parent.data as {
+    batchUid?: string
     totalMarkets?: number
     insertMeta?: { strategy?: string; comment?: string | null }
   }
   return {
-    batchUid,
+    batchUid: data.batchUid ?? submissionUid,
+    submissionUid,
     parentState: state,
     strategy: data.insertMeta?.strategy ?? 'unknown',
     totalMarkets: data.totalMarkets ?? 0,
@@ -571,4 +586,27 @@ export async function getActiveBatchDetail(batchUid: string): Promise<ActiveBatc
     failedChildrenValues,
     comment: data.insertMeta?.comment ?? null,
   }
+}
+
+/**
+ * All in-flight submissions carrying a batch label. A label can have several
+ * live submissions at once (e.g. a sweep enqueued cell-by-cell), so this
+ * scans the aggregate queue and filters by `job.data.batchUid`.
+ */
+export async function listActiveBatchDetailsForLabel(
+  batchUid: string,
+): Promise<ActiveBatchDetail[]> {
+  const agg = getAggregateQueue()
+  const jobs = await agg.getJobs(['waiting-children', 'waiting', 'active', 'delayed'], 0, 100)
+  const out: ActiveBatchDetail[] = []
+  for (const job of jobs) {
+    if (!job) continue
+    const data = job.data as { submissionUid?: string; batchUid?: string }
+    if ((data.batchUid ?? data.submissionUid) !== batchUid) continue
+    const submissionUid = data.submissionUid ?? job.id?.replace(/-agg$/, '')
+    if (!submissionUid) continue
+    const detail = await getActiveBatchDetail(submissionUid)
+    if (detail) out.push(detail)
+  }
+  return out
 }

@@ -89,7 +89,13 @@ export const backtestRuns = mysqlTable(
   'backtest_runs',
   {
     id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    // Human-chosen label grouping related runs (e.g. every cell of one param
+    // sweep). NOT unique — many runs may share it. Defaults to submissionUid
+    // when the CLI is run without --batchUid.
     batchUid: varchar('batch_uid', { length: 255 }).notNull(),
+    // Internal per-submission identity (auto-UUID). Unique. Keys the BullMQ
+    // flow (job ids) that produced/extended this run. Never user-chosen.
+    submissionUid: varchar('submission_uid', { length: 255 }).notNull(),
     status: mysqlEnum('status', ['completed', 'partial', 'failed']).notNull(),
 
     strategy: varchar('strategy', { length: 255 }).notNull(),
@@ -129,7 +135,8 @@ export const backtestRuns = mysqlTable(
     updatedAt: timestamp('updated_at').defaultNow().notNull(),
   },
   (t) => ({
-    batchUidUnique: unique('uniq_backtest_runs_batch_uid').on(t.batchUid),
+    batchUidIdx: index('idx_backtest_runs_batch_uid').on(t.batchUid),
+    submissionUidUnique: unique('uniq_backtest_runs_submission_uid').on(t.submissionUid),
     createdAtIdx: index('idx_backtest_runs_created_at').on(t.createdAt),
     strategyCreatedAtIdx: index('idx_backtest_runs_strategy_created_at').on(
       t.strategy,

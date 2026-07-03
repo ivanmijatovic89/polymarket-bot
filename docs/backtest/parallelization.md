@@ -200,7 +200,7 @@ from the bot's `src/`) and reads MySQL + Redis directly. Routes:
 | Path                            | What                                                                |
 | ------------------------------- | ------------------------------------------------------------------- |
 | `/`                             | Overview: queue counts, workers list, active batches, history.      |
-| `/batches/<batchUid>`           | Per-batch detail: live progress (active) or stats + per-market grid (completed). |
+| `/batches/<batchUid>`           | Batch group view: all runs sharing the label + live progress of in-flight submissions. Per-run detail lives at `/backtests/<id>`. |
 | `/api/health`                   | Health JSON.                                                        |
 | `/api/workers`                  | Live worker stats (processed counts, heartbeat, current job).       |
 | `/api/queues`                   | Per-queue waiting/active/completed/failed counts.                   |
@@ -241,7 +241,7 @@ machine as the producer or anywhere with network access to Redis + MySQL.
 ## Verifying bit-identical behavior
 
 `src/cli/verify-backtest-diff.ts` (exposed via `npm run backtest:verify-diff`)
-loads two backtest runs by `batchUid` and reports the first structural
+loads two backtest runs by run id or unique `batchUid` and reports the first structural
 difference in `marketStats` (excluding the `execution` field) and run summary
 columns.
 

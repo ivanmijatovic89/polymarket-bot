@@ -3,7 +3,7 @@
  *
  * Pure planning — does not enqueue BullMQ or update the DB. The CLI calls
  * `planExtension` to get back the resolved parent run, the candidate slug
- * list, and the new batchUid; then it eagerly UPDATEs `backtest_runs` and
+ * list; then it takes the extension lock and
  * enqueues the flow. Kept separate so the (future) dashboard "Extend" button
  * can reuse the same planning logic via an API route.
  *
@@ -44,7 +44,6 @@ import {
   getRunForExtension,
   type ExtensibleRun,
 } from '../db/backtests.js'
-import { generateExtensionBatchUid } from './extendBatchUid.js'
 
 export type ExtensionPlanOptions = {
   parentRunId: number
@@ -77,8 +76,6 @@ export type ExtensionPlan = {
   availableCount: number
   /** Which direction the planner chose. */
   direction: ExtensionDirection
-  /** New batchUid for the BullMQ flow. */
-  newBatchUid: string
 }
 
 export type ExtensionPlanResult =
@@ -210,7 +207,6 @@ export async function planExtension(opts: ExtensionPlanOptions): Promise<Extensi
       eligibleTotal,
       availableCount,
       direction,
-      newBatchUid: generateExtensionBatchUid(parent.batchUid),
     },
   }
 }

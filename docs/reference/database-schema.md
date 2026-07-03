@@ -70,7 +70,7 @@ Important indexes:
 
 | Table                    | Index/Constraint                 | Purpose                                  |
 | ------------------------ | -------------------------------- | ---------------------------------------- |
-| `backtest_runs`          | unique `batch_uid`               | Lookup by run UID and prevent duplicates |
+| `backtest_runs`          | index `batch_uid`, unique `submission_uid` | Group lookup by label; unique per-submission identity |
 | `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)` | Dashboard history and filter queries     |
 | `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
 | `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)` | Detail, search, slow-market and chronological views |

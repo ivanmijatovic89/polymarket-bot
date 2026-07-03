@@ -1,6 +1,6 @@
 import '../config/env.js'
 import { closeDb } from '../db/index.js'
-import { getBacktestRunByBatchUid } from '../db/backtests.js'
+import { getBacktestRunByBatchUid, getBacktestRunById } from '../db/backtests.js'
 
 /**
  * Compares two backtest rows by batchUid and reports the first structural diff.
@@ -128,17 +128,27 @@ function pickRunSummary(row: Record<string, unknown>): Record<string, unknown> {
   return Object.fromEntries(RUN_SUMMARY_KEYS.map((key) => [key, row[key]]))
 }
 
+/**
+ * Resolve a run by numeric id or by batch label. Labels are non-unique
+ * group names now — getBacktestRunByBatchUid throws when a label matches
+ * more than one run, telling the user to pass the run id instead.
+ */
+async function resolveRun(ref: string) {
+  if (/^\d+$/.test(ref)) return getBacktestRunById(Number(ref))
+  return getBacktestRunByBatchUid(ref)
+}
+
 async function main(): Promise<void> {
   const { baseline, candidate } = parseArgs()
-  const base = await getBacktestRunByBatchUid(baseline)
-  const cand = await getBacktestRunByBatchUid(candidate)
+  const base = await resolveRun(baseline)
+  const cand = await resolveRun(candidate)
 
   if (!base) {
-    console.error(`baseline batchUid not found: ${baseline}`)
+    console.error(`baseline run not found: ${baseline} (pass a run id or a batch label)`)
     process.exit(2)
   }
   if (!cand) {
-    console.error(`candidate batchUid not found: ${candidate}`)
+    console.error(`candidate run not found: ${candidate} (pass a run id or a batch label)`)
     process.exit(2)
   }
 
