@@ -2,14 +2,15 @@
 
 import Link from 'next/link'
 import { useQuery } from '@tanstack/react-query'
-import { AlertTriangle, CheckCircle2, Hash, Layers } from 'lucide-react'
+import { AlertTriangle, ArrowRight, Hash, Layers } from 'lucide-react'
 import { Card, CardContent, CardHeader, CardTitle } from './ui/card'
 import { Badge } from './ui/badge'
 import { Skeleton } from './ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { ProgressBar } from './ProgressBar'
 import { SectionHeading } from './SectionHeading'
-import { cn, formatNumber, formatPnl } from '@/lib/utils'
+import { BacktestSummaryTable } from './BacktestSummaryTable'
+import { cn, shortTime } from '@/lib/utils'
 
 type ActiveSubmission = {
   batchUid: string
@@ -31,18 +32,30 @@ type BatchRun = {
   submissionUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
-  params: Record<string, unknown> | null
   symbol: string | null
+  limit: number | null
+  inputMarketsTotal: number | null
   comment: string | null
   marketsTotal: number
   marketsPlayed: number
   marketsSkipped: number
   failuresCount: number
-  tradesTotal: number
-  winRatePct: number
-  evPerMarketTotal: number
   pnlTotal: number
+  winRatePct: number
+  pnlAvgWin: number
+  pnlAvgLose: number
+  evPerMarketPlayed: number
+  evPerMarketTotal: number
+  streakMaxWin: number
+  streakMaxLose: number
+  streakMaxWinPnl: number
+  streakMaxLosePnl: number
+  qualitySystem: number | null
+  qualityTrade: number | null
   totalFeesPaid: number
+  tradesTotal: number
+  tradesMaker: number
+  tradesTaker: number
   createdAt: string
 }
 
@@ -59,13 +72,6 @@ async function fetchBatch(uid: string): Promise<BatchResponse> {
   if (r.status === 404) return { error: 'batch not found' }
   if (!r.ok) throw new Error(`failed to fetch /api/batches/${uid}`)
   return r.json()
-}
-
-function compactParams(params: Record<string, unknown> | null): string {
-  if (!params || Object.keys(params).length === 0) return '—'
-  return Object.entries(params)
-    .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-    .join(' ')
 }
 
 /**
@@ -136,105 +142,88 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
         <section>
           <SectionHeading
             title="Runs"
-            subtitle="One row per run in this batch — open a run for per-market detail."
+            subtitle="Finalized database runs with this batch label."
             icon={Hash}
           />
-          <Card className="overflow-hidden">
-            <div className="max-h-[600px] overflow-auto">
-              <Table>
-                <TableHeader className="sticky top-0 z-10 bg-card">
-                  <TableRow>
-                    <TableHead>Run</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>Params</TableHead>
-                    <TableHead className="text-right">Markets</TableHead>
-                    <TableHead className="text-right">Trades</TableHead>
-                    <TableHead className="text-right">Win %</TableHead>
-                    <TableHead className="text-right">EV/mkt</TableHead>
-                    <TableHead className="text-right">PnL</TableHead>
-                    <TableHead className="text-right">Created</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {data.runs.map((run) => {
-                    const evClass =
-                      run.evPerMarketTotal > 0
-                        ? 'text-[color:var(--success)]'
-                        : run.evPerMarketTotal < 0
-                          ? 'text-destructive'
-                          : ''
-                    const pnlClass =
-                      run.pnlTotal > 0
-                        ? 'text-[color:var(--success)]'
-                        : run.pnlTotal < 0
-                          ? 'text-destructive'
-                          : ''
-                    return (
-                      <TableRow key={run.id}>
-                        <TableCell>
-                          <Link
-                            href={`/backtests/${run.id}`}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            #{run.id}
-                          </Link>
-                          {run.comment && (
-                            <div className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                              {run.comment}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              run.status === 'completed'
-                                ? 'success'
-                                : run.status === 'partial'
-                                  ? 'warning'
-                                  : 'destructive'
-                            }
-                          >
-                            {run.status === 'completed' && <CheckCircle2 className="h-3 w-3" />}
-                            {run.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell
-                          className="font-mono text-[11px] text-muted-foreground max-w-[280px] truncate"
-                          title={compactParams(run.params)}
-                        >
-                          {compactParams(run.params)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">
-                          {run.marketsPlayed}/{run.marketsTotal}
-                          {run.failuresCount > 0 && (
-                            <span className="text-destructive"> (+{run.failuresCount} failed)</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">
-                          {formatNumber(run.tradesTotal)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-xs">
-                          {run.winRatePct.toFixed(1)}%
-                        </TableCell>
-                        <TableCell className={cn('text-right tabular-nums text-xs', evClass)}>
-                          {formatPnl(run.evPerMarketTotal)}
-                        </TableCell>
-                        <TableCell className={cn('text-right tabular-nums text-xs', pnlClass)}>
-                          {formatPnl(run.pnlTotal)}
-                        </TableCell>
-                        <TableCell className="text-right text-[11px] text-muted-foreground whitespace-nowrap">
-                          {new Date(run.createdAt).toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          </Card>
+          <BacktestSummaryTable
+            rows={data.runs}
+            prefixColumns={[
+              {
+                header: '#ID',
+                render: (run) => (
+                  <Link
+                    href={`/backtests/${run.id}`}
+                    className="font-mono text-xs hover:underline"
+                  >
+                    #{run.id}
+                  </Link>
+                ),
+              },
+            ]}
+            extraColumns={[
+              {
+                header: 'Created',
+                align: 'right',
+                render: (run) => (
+                  <span className="text-xs text-muted-foreground">{shortTime(run.createdAt)}</span>
+                ),
+              },
+            ]}
+            renderLeading={(run) => (
+              <div className="flex items-start">
+                <div className="min-w-0">
+                  <Link
+                    href={`/batches/${encodeURIComponent(run.batchUid)}`}
+                    className="font-mono text-xs hover:underline"
+                  >
+                    {run.batchUid}
+                  </Link>
+                  {run.comment && (
+                    <div
+                      className="mt-0.5 truncate text-[11px] text-muted-foreground"
+                      title={run.comment}
+                    >
+                      {run.comment}
+                    </div>
+                  )}
+                  {run.failuresCount > 0 && (
+                    <div className="text-[11px] text-destructive">
+                      {run.failuresCount} failed
+                    </div>
+                  )}
+                </div>
+                <StatusChip status={run.status} />
+              </div>
+            )}
+            renderActions={(run) => (
+              <Link
+                href={`/backtests/${run.id}`}
+                className="inline-flex items-center rounded-md p-1 text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                aria-label="Open backtest detail"
+              >
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+          />
         </section>
       )}
     </div>
+  )
+}
+
+function StatusChip({ status }: { status: BatchRun['status'] }) {
+  if (status === 'completed') return null
+  if (status === 'partial') {
+    return (
+      <Badge variant="warning" className="ml-2 align-middle">
+        partial
+      </Badge>
+    )
+  }
+  return (
+    <Badge variant="destructive" className="ml-2 align-middle">
+      failed
+    </Badge>
   )
 }
 

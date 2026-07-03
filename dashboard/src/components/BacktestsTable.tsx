@@ -121,7 +121,7 @@ export function BacktestsTable({
             <div className="min-w-0">
               {b.batchUid ? (
                 <Link
-                  href={`/backtests/${b.id}`}
+                  href={`/batches/${encodeURIComponent(b.batchUid)}`}
                   className="font-mono text-xs hover:underline"
                 >
                   {b.batchUid}
