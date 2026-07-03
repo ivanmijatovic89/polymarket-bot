@@ -35,6 +35,23 @@ export const Pass = z.object({
 })
 export type Pass = z.infer<typeof Pass>
 
+/**
+ * Evaluator-requested refinement mini-grid around the found optimum
+ * (batchUid suffix `--refine`). Unlike a pass it may vary several params at
+ * once, in a small grid. Null unless the Evaluator requested one.
+ */
+export const Refine = z.object({
+  /** values per param, e.g. { enterThreshold: [0.45, 0.5, 0.55] } */
+  params: z.record(z.string(), z.array(ParamValue).min(1)),
+  /** grouping label: `<family>--<exp>--refine` */
+  batchUid: z.string().min(1),
+  submissionUids: z.array(z.string().min(1)).default([]),
+  /** winning cell — Evaluator; null until judged */
+  best: z.record(z.string(), ParamValue).nullable().default(null),
+  note: z.string().nullable().default(null),
+})
+export type Refine = z.infer<typeof Refine>
+
 /** Coordinate-search spec for a `param-search` experiment. */
 export const Search = z.object({
   mode: z.literal('coordinate'),
@@ -42,6 +59,8 @@ export const Search = z.object({
   defaults: z.record(z.string(), ParamValue),
   /** ordered by expected impact; Researcher appends passes as it goes */
   passes: z.array(Pass),
+  /** optional Evaluator-requested refinement grid */
+  refine: Refine.nullable().default(null),
 })
 export type Search = z.infer<typeof Search>
 
@@ -69,6 +88,22 @@ export const OutcomeMetrics = z.object({
   testNetEv: z.number().nullable().default(null),
 })
 export type OutcomeMetrics = z.infer<typeof OutcomeMetrics>
+
+/**
+ * One gate decision, appended by the Evaluator at the moment it is made
+ * (STAGE-GATES.md "Gate decisions"). The climb state of a running experiment
+ * is read from this log, never guessed from coverage. Kills are family-level
+ * actions and do not appear here.
+ */
+export const GateDecision = z.object({
+  /** the STAGE-GATES.md stage whose gate was judged */
+  stage: z.number().int().positive(),
+  decision: z.enum(['go', 'recycle']),
+  at: z.string().datetime(),
+  /** short factual note, e.g. "netEv +0.04 at 1000 mkts" */
+  note: z.string().nullable().default(null),
+})
+export type GateDecision = z.infer<typeof GateDecision>
 
 /** Written by the Evaluator, in full, when the experiment becomes `evaluated`. */
 export const Outcome = z.object({
@@ -118,6 +153,8 @@ export const Experiment = z.object({
   /** null until first submission */
   coverage: Coverage.nullable().default(null),
   status: ExperimentStatus,
+  /** gate decisions in climb order, appended by the Evaluator */
+  gateLog: z.array(GateDecision).default([]),
   submittedAt: z.string().datetime().nullable().default(null),
   decidedAt: z.string().datetime().nullable().default(null),
   /** required when status is `aborted` */
@@ -207,9 +244,24 @@ export const FamilyIndex = z
         at(`single-run ${exp.status} requires batchUid and submissionUids`)
       if (exp.status === 'aborted' && exp.abortReason === null) at('aborted requires abortReason')
 
+      let prevStage = 0
+      for (const gate of exp.gateLog) {
+        if (gate.stage !== prevStage + 1 && gate.decision === 'go')
+          at(`gateLog stage ${gate.stage} skips a stage (previous go: ${prevStage})`)
+        if (gate.decision === 'go') prevStage = gate.stage
+      }
+
       if (exp.outcome !== null) {
         if (exp.outcome.verdict === 'success' && exp.outcome.stageReached < 1)
           at('verdict success requires stageReached >= 1')
+        const maxGo = exp.gateLog.reduce(
+          (m, g) => (g.decision === 'go' ? Math.max(m, g.stage) : m),
+          0,
+        )
+        if (exp.outcome.stageReached !== maxGo)
+          at(
+            `outcome.stageReached ${exp.outcome.stageReached} != highest gateLog go stage ${maxGo}`,
+          )
       }
     }
 

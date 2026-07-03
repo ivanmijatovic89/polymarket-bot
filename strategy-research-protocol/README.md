@@ -176,7 +176,12 @@ Researcher and the Evaluator cite it; neither invents criteria.
 ## Repository layout
 
 - [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — go/kill
-  decision policy (versioned).
+  decision policy (versioned), including the authoritative cost model.
+- [`strategy-research-protocol/LESSONS.md`](./LESSONS.md) — append-only
+  cross-family lessons; required reading for ProposeFamily and the
+  Researcher.
+- [`strategy-research-protocol/RUNNING.md`](./RUNNING.md) — how sessions are
+  launched and handed off (scripts, cadence, branch policy).
 - [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) — memory rules and
   field tables.
 - [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) — hard ban
@@ -217,11 +222,12 @@ Scripts: `npm run research:check`, `npm run research:check-batch`,
 - [`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md)
   — judge passes and experiments.
 
-Propose one new family (optionally seeded):
+Launch scripts (see [`strategy-research-protocol/RUNNING.md`](./RUNNING.md)):
 
 ```bash
-./strategy-research-protocol/scripts/propose-family.sh
-./strategy-research-protocol/scripts/propose-family.sh "fade large resting walls"
+./strategy-research-protocol/scripts/propose-family.sh ["seed idea"]
+./strategy-research-protocol/scripts/researcher.sh <family>
+./strategy-research-protocol/scripts/evaluator.sh <family> <experiment-id>
 ```
 
 Agents must preserve the invariants above and must not invent missing

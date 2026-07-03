@@ -24,22 +24,29 @@ src/strategies/research/<family>/FAMILY.md      reasoning + Research log
 src/strategies/research/<family>/FAMILY.json    state + numbers
 src/strategies/research/<family>/*.ts           strategy code (frozen after results)
 src/strategies/research/INDEX.json              generated rollup — never hand-edit
+strategy-research-protocol/LESSONS.md           cross-family lessons — append-only
 ```
+
+[`strategy-research-protocol/LESSONS.md`](./LESSONS.md) is the fourth memory
+surface: lessons that generalize beyond one family get promoted there by the
+Researcher (mandatory check at kill/validated) and are required reading for
+ProposeFamily and the Researcher.
 
 Exact shapes are enforced by `strategy-research-protocol/schemas/` and
 validated by `npm run research:check`.
 
 ## Writer matrix
 
-| surface                                          | who writes                       | what                                                                                                      |
-| ------------------------------------------------ | -------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| FAMILY.md proposal sections                      | ProposeFamily, once              | Thesis, Signal definition, Edge economics, Experiment roadmap, Duplicate notes                            |
-| FAMILY.md Research log                           | Researcher only                  | one dated `### <experiment-id>` entry per evaluated experiment, ending with `Lesson:`                     |
-| FAMILY.json experiment specs + lifecycle it owns | Researcher                       | new experiment records, `queued`/`running`/`aborted`, `retryOnlyIf`, `verdictSummary` on kill             |
-| FAMILY.json judgment fields                      | Evaluator                        | pass `best`/`note`, `outcome`, `evaluated`, `champion`, family `validated`, `verdictSummary` on validated |
-| FAMILY.json creation                             | ProposeFamily                    | the initial file with one queued `000-baseline`                                                           |
-| INDEX.json                                       | `buildStrategyIndex` script only | generated rollup                                                                                          |
-| family `live` status                             | user only                        | —                                                                                                         |
+| surface                                          | who writes                        | what                                                                                                      |
+| ------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
+| FAMILY.md proposal sections                      | ProposeFamily, once               | Thesis, Signal definition, Edge economics, Experiment roadmap, Duplicate notes                            |
+| FAMILY.md Research log                           | Researcher only                   | one dated `### <experiment-id>` entry per evaluated experiment, ending with `Lesson:`                     |
+| FAMILY.json experiment specs + lifecycle it owns | Researcher                        | new experiment records, `queued`/`running`/`aborted`, `retryOnlyIf`, `verdictSummary` on kill             |
+| FAMILY.json judgment fields                      | Evaluator                         | pass `best`/`note`, `outcome`, `evaluated`, `champion`, family `validated`, `verdictSummary` on validated |
+| FAMILY.json creation                             | ProposeFamily                     | the initial file with one queued `000-baseline`                                                           |
+| INDEX.json                                       | `buildStrategyIndex` script only  | generated rollup                                                                                          |
+| LESSONS.md                                       | Researcher (or user), append-only | cross-family lessons; ban-worthy ones also add a CONSTRAINTS.md line                                      |
+| family `live` status                             | user only                         | —                                                                                                         |
 
 The Evaluator never writes FAMILY.md. The Researcher never writes `best`,
 `outcome`, or any verdict.
@@ -62,25 +69,26 @@ The Evaluator never writes FAMILY.md. The Researcher never writes `best`,
 
 ## FAMILY.json — experiment-level fields
 
-| field             | meaning                                                         | written by                                                 | when                                              |
-| ----------------- | --------------------------------------------------------------- | ---------------------------------------------------------- | ------------------------------------------------- |
-| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher                                                 | spec time                                         |
-| `kind`            | `param-search` \| `variation`                                   | Researcher                                                 | spec time                                         |
-| `code`            | strategy file this experiment runs                              | Researcher                                                 | spec time                                         |
-| `basedOn`         | experiment this branches from (null for baseline)               | Researcher                                                 | spec time                                         |
-| `hypothesis`      | one sentence: the idea being tested                             | Researcher                                                 | spec time, BEFORE running                         |
-| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher                                                 | spec time, BEFORE running                         |
-| `params`          | fixed params (single run; XOR with `search`)                    | Researcher                                                 | spec time                                         |
-| `search`          | coordinate-search spec `{mode, defaults, passes[]}`             | Researcher                                                 | spec time; passes appended as the search proceeds |
-| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher                                                 | at submit                                         |
-| `submissionUids`  | run handles for single-run experiments                          | Researcher                                                 | at submit                                         |
-| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher                                                 | at submit                                         |
-| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher                                                 | at submit / extend                                |
-| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher (all but `evaluated`) / Evaluator (`evaluated`) | at each transition                                |
-| `submittedAt`     | ISO timestamp                                                   | Researcher                                                 | at first submit                                   |
-| `decidedAt`       | ISO timestamp                                                   | Evaluator                                                  | at verdict                                        |
-| `abortReason`     | why an aborted experiment died                                  | Researcher                                                 | at abort                                          |
-| `outcome`         | judgment block, see below                                       | Evaluator                                                  | at verdict                                        |
+| field             | meaning                                                         | written by                                                        | when                                              |
+| ----------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------- |
+| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher                                                        | spec time                                         |
+| `kind`            | `param-search` \| `variation`                                   | Researcher                                                        | spec time                                         |
+| `code`            | strategy file this experiment runs                              | Researcher                                                        | spec time                                         |
+| `basedOn`         | experiment this branches from (null for baseline)               | Researcher                                                        | spec time                                         |
+| `hypothesis`      | one sentence: the idea being tested                             | Researcher                                                        | spec time, BEFORE running                         |
+| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher                                                        | spec time, BEFORE running                         |
+| `params`          | fixed params (single run; XOR with `search`)                    | Researcher                                                        | spec time                                         |
+| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`     | Researcher (`refine` grid: Evaluator request, Researcher submits) | spec time; passes appended as the search proceeds |
+| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher                                                        | at submit                                         |
+| `submissionUids`  | run handles for single-run experiments                          | Researcher                                                        | at submit                                         |
+| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher                                                        | at submit                                         |
+| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher                                                        | at submit / extend                                |
+| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher (all but `evaluated`) / Evaluator (`evaluated`)        | at each transition                                |
+| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`     | Evaluator                                                         | at each gate decision                             |
+| `submittedAt`     | ISO timestamp                                                   | Researcher                                                        | at first submit                                   |
+| `decidedAt`       | ISO timestamp                                                   | Evaluator                                                         | at verdict                                        |
+| `abortReason`     | why an aborted experiment died                                  | Researcher                                                        | at abort                                          |
+| `outcome`         | judgment block, see below                                       | Evaluator                                                         | at verdict                                        |
 
 ## FAMILY.json — pass fields (`search.passes[]`)
 
@@ -96,6 +104,10 @@ set = judged.
 | `submissionUids` | exact run handles (same in Redis and `backtest_runs`) | Researcher | at submit        |
 | `best`           | winning value — judgment, not blind argmax            | Evaluator  | at pass judgment |
 | `note`           | one line, e.g. "flat — param doesn't matter"          | Evaluator  | at pass judgment |
+
+`search.refine` (optional, Evaluator-requested mini-grid, batchUid
+`<family>--<exp>--refine`) mirrors this shape with `params` as a
+values-per-param map and `best` as the winning cell.
 
 ## FAMILY.json — outcome fields
 
@@ -144,10 +156,14 @@ continue from files alone:
 - a submission happens → `running`, batchUid + submissionUids + coverage + baselineId recorded
 - coverage is extended (stage climb) → `coverage` updated
 - a pass is judged → `best` + `note`
+- a gate is judged → `gateLog` entry (`go`/`recycle`)
 - an experiment is judged → `outcome`, `evaluated`, possibly `champion`
-- the verdict is consumed → Research-log entry with `Lesson:`
-- a family is killed → `killed` + `retryOnlyIf` + `verdictSummary` + closing log entry
-- a family is validated → `validated` + `verdictSummary`
+- the verdict is consumed → Research-log entry with `Lesson:`; if the lesson
+  generalizes → LESSONS.md entry (and a CONSTRAINTS.md line when ban-worthy)
+- a family is killed → `killed` + `retryOnlyIf` + `verdictSummary` + closing
+  log entry + mandatory LESSONS.md check
+- a family is validated → `validated` + `verdictSummary` + mandatory
+  LESSONS.md check
 - family metadata changed → rebuild INDEX.json (`npm run research:build-index`)
 
 ## Consistency rules

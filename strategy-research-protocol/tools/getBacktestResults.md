@@ -50,8 +50,8 @@ why completion is checked with `checkBatch` first.
   execution summary and per-market timing when available.
 - For pass judgment, reduce the batch to a per-cell table sorted by
   `netEvPerMarket` (net of fees — the only verdict metric; gross is
-  diagnostic), with train/test split and trade counts per cell. Judgment
-  guidance lives in
+  diagnostic), with markets and trade counts per cell. Judgment guidance
+  lives in
   [`strategy-research-protocol/modules/Evaluator.md`](../modules/Evaluator.md).
 
 ## After Success

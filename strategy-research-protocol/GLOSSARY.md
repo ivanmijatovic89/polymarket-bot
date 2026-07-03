@@ -63,7 +63,15 @@ The Evaluator's judgment on an evaluated experiment against its pre-declared
 From [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md): a stage
 is a coverage level of increasing data investment (1000 → 3000 → 9000+
 markets); a gate is the pre-declared pass/fail criterion between stages. Gate
-decisions are go / recycle / kill.
+decisions are go / recycle / kill; go and recycle are appended to the
+experiment's `gateLog` by the Evaluator at the moment of the decision.
+
+## Cross-Family Lessons
+
+[`strategy-research-protocol/LESSONS.md`](./LESSONS.md) — append-only
+protocol-level memory of lessons that generalize beyond one family. Written
+by the Researcher (mandatory check at kill/validated); required reading for
+ProposeFamily and the Researcher.
 
 ## Smoke Run
 

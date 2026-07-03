@@ -24,6 +24,11 @@ a stage bumps `version` in the frontmatter; experiment outcomes record the
 ```yaml
 gatesVersion: 1
 minExperiments: 20
+# Taker fee rate used by the backtest simulator — mirrors
+# DEFAULT_BACKTEST_TAKER_FEE_BPS in src/trading/fees.ts (env override:
+# BACKTEST_TAKER_FEE_BPS). If the venue or simulator rate changes, update
+# both and bump gatesVersion.
+takerFeeBps: 156
 stages:
   - stage: 1
     name: screen
@@ -36,19 +41,55 @@ stages:
     markets: 9000
 ```
 
+## Cost model
+
+There is deliberately NO universal "cost per market" constant — cost per
+market is a property of a strategy (its fills per market, order size, and
+entry prices), not of the market. What is constant is the venue fee model,
+identical to what backtests simulate ([`src/trading/fees.ts`](../src/trading/fees.ts)):
+
+```text
+fee per taker fill = (takerFeeBps / 10000) × min(price, 1 − price) × shares
+```
+
+Worked example at `takerFeeBps: 156`: a $10-notional taker trade at price
+0.50 buys 20 shares → fee ≈ 1.56% × 0.5 × 20 = $0.156 per fill, ≈ $0.31 per
+round trip — plus the spread crossed on entry/exit. The same trade at price
+0.90 costs ≈ $0.035 per fill (min(p, 1−p) shrinks the fee near the edges).
+
+The cost model is used in exactly two places:
+
+- **Edge economics gate** (ProposeFamily): every proposal must compute ITS
+  OWN expected cost per market — expected fills/market × fee at its typical
+  price and size, plus spread cost — and show the plausible gross edge
+  beats it. A family that cannot is not proposed.
+- **Structural kill** (stopping rules below): the ceiling argument compares
+  the mechanism's theoretical best gross edge against the same
+  strategy-specific computation.
+
+`netEvPerMarket` from backtests already includes real simulated costs; the
+cost model is for pre-run and ceiling reasoning, never for adjusting
+results.
+
 ## The stages
 
 Applied per champion-candidate experiment. Each stage costs roughly 3x the
 previous one; only survivors advance, so most compute is spent on strategies
 that already showed something.
 
-| stage          | coverage     | gate to advance                                                          | mechanism                                 |
-| -------------- | ------------ | ------------------------------------------------------------------------ | ----------------------------------------- |
-| 0 smoke        | ~10 markets  | runs without errors; NEVER evidence                                      | `--sequential`, batchUid `--smoke` suffix |
-| 1 screen       | latest 1000  | best cell `netEvPerMarket > 0` on the test split                         | coordinate search runs here               |
-| 2 confirm      | 3000 total   | still positive; train/test consistent                                    | `extendBacktest --latest --limit 2000`    |
-| 3 full-history | ~9000+ total | positive overall AND stable across monthly chunks (no sign-flip regimes) | `extendBacktest`                          |
-| live           | —            | user judgment; dry-run first                                             | out of protocol scope                     |
+| stage          | coverage     | gate to advance                       | mechanism                                 |
+| -------------- | ------------ | ------------------------------------- | ----------------------------------------- |
+| 0 smoke        | ~10 markets  | runs without errors; NEVER evidence   | `--sequential`, batchUid `--smoke` suffix |
+| 1 screen       | latest 1000  | best cell `netEvPerMarket > 0`        | coordinate search runs here               |
+| 2 confirm      | 3000 total   | `netEvPerMarket > 0` at 3000 markets  | `extendBacktest --latest --limit 2000`    |
+| 3 full-history | ~9000+ total | `netEvPerMarket > 0` at full coverage | `extendBacktest`                          |
+| live           | —            | user judgment; dry-run first          | out of protocol scope                     |
+
+Gates are deliberately simple in v1: net profitability at the stage's
+coverage, nothing else. There is no train/test split yet. The Evaluator still
+REPORTS distribution concerns as advisories — instability across monthly
+chunks, concentration in a few outlier markets, thin trade counts — but
+advisories inform the Researcher's next move; they do not block a gate.
 
 Rules of the climb:
 
@@ -61,6 +102,10 @@ Rules of the climb:
 - The climb happens inside ONE experiment record: `extendBacktest` grows the
   same run, `coverage` is updated, and `outcome.stageReached` records the
   highest gate passed.
+- **Every gate decision is recorded in the experiment's `gateLog`** in
+  FAMILY.json (`{stage, decision, at, note}`, written by the Evaluator at
+  the moment of the decision). A fresh session reads the climb state from
+  the gateLog — never guesses it from coverage.
 - Passing the stage-3 gate makes the family `validated` (set by the
   Evaluator).
 - There is no forward-holdout stage in v1 — the user observes the live
@@ -69,14 +114,16 @@ Rules of the climb:
 
 ## Gate decisions
 
-At every gate the Evaluator issues exactly one decision:
+At every gate the Evaluator issues exactly one decision and appends it to the
+experiment's `gateLog`:
 
 - **go** — gate passed; the Researcher extends to the next stage.
 - **recycle** — gate failed, but the family is not killable (see stopping
   rules); the experiment gets its verdict and the Researcher proposes the
   next experiment from the roadmap.
 - **kill** — only per the stopping rules below, and the kill itself is the
-  Researcher's family-level decision, recorded with `retryOnlyIf`.
+  Researcher's family-level decision, recorded with `retryOnlyIf` (it is a
+  family action, not a gateLog entry).
 
 There is no "hold" decision: an experiment is never parked half-judged.
 
@@ -98,9 +145,9 @@ A family may only be killed under one of these two rules. Config:
 ### Structural kill — allowed at any experiment count
 
 Requires a numeric ceiling argument in the closing Research-log entry: e.g.
-"at zero-noise entries the max gross edge is $X/mkt; the fee floor is
-$Y > X". If the mechanism cannot pay costs at its theoretical best, more
-experiments cannot fix it.
+"at zero-noise entries the max gross edge is $X/mkt; this strategy's cost
+per market (cost model above) is $Y > X". If the mechanism cannot pay costs
+at its theoretical best, more experiments cannot fix it.
 
 ### Empirical kill — results keep failing, no ceiling proven
 

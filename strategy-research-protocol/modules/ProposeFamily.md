@@ -35,6 +35,8 @@ Read these before writing:
   field tables.
 - [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md) — hard ban
   list.
+- [`strategy-research-protocol/LESSONS.md`](../LESSONS.md) — cross-family
+  lessons; a proposal that ignores a recorded lesson is a defective proposal.
 - [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — the
   gates the baseline will face; stage-1 coverage sizes the sweep.
 - [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
@@ -67,11 +69,13 @@ reading a few non-research strategies only for API idioms is allowed.
    it. In seed mode, stop and report the violated constraint.
 
 4. **Edge economics gate.** Before writing anything, do the pre-run kill
-   test: estimate the plausible gross edge magnitude and compare it against
-   the fee/cost floor from
-   [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md).
-   If the mechanism cannot pay costs even at its optimistic best, the family
-   must not be proposed. This math becomes the Edge economics section.
+   test using the cost model in
+   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md): compute
+   THIS family's expected cost per market (expected fills/market × fee at
+   its typical price and size, plus spread cost) and compare it against the
+   plausible gross edge magnitude. If the mechanism cannot pay its own costs
+   even at its optimistic best, the family must not be proposed. This math —
+   with the actual numbers — becomes the Edge economics section.
 
 5. **Dedup by driver, not by words.** Shortlist with `duplicateKeys`, `tags`,
    `coreIdea`. Same primary decision driver = same family, even if params,
@@ -128,7 +132,7 @@ reading a few non-research strategies only for API idioms is allowed.
          "code": "000-baseline.ts",
          "basedOn": null,
          "hypothesis": "<one sentence: what the baseline mechanism should show>",
-         "successCriteria": "Best cell netEvPerMarket > 0 on the test split at stage-1 coverage (STAGE-GATES.md gate 1).",
+         "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
          "params": null,
          "search": {
            "mode": "coordinate",
@@ -149,6 +153,7 @@ reading a few non-research strategies only for API idioms is allowed.
          "baselineId": null,
          "coverage": null,
          "status": "queued",
+         "gateLog": [],
          "submittedAt": null,
          "decidedAt": null,
          "abortReason": null,

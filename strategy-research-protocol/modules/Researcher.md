@@ -47,6 +47,8 @@ INCOMPLETE, report it and exit; a later session continues.
 ## Inputs
 
 - `src/strategies/research/<family>/FAMILY.md` + `FAMILY.json` — the memory.
+- [`strategy-research-protocol/LESSONS.md`](../LESSONS.md) — cross-family
+  lessons; required reading before speccing any experiment.
 - [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — gates,
   flows, stopping rules. Cite it; never invent criteria.
 - [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — field tables and
@@ -80,6 +82,13 @@ action is writing that entry. No new experiment, no kill, no extension first.
 The entry: what ran, the key numbers quoted from FAMILY.json, the
 interpretation, the decision taken, and the `Lesson:` line — written for the
 next agent, rich enough to steer future proposals.
+
+After writing the entry, run the promotion check: does this lesson
+generalize beyond the family? If yes, append it to
+[`strategy-research-protocol/LESSONS.md`](../LESSONS.md); if it is a
+permanent ban on future proposals, also add one line to
+[`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md). The check
+is mandatory (not the promotion) at every kill and every validation.
 
 ## Speccing an experiment
 

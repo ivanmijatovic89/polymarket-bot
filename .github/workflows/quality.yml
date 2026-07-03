@@ -35,6 +35,12 @@ jobs:
       - name: Typecheck + ESLint
         run: npm run code:typecheck-eslint
 
+      - name: Research protocol check
+        run: npm run research:check
+
+      - name: Research index freshness
+        run: npm run research:build-index -- --check
+
   webui-quality:
     name: WebUI (Typecheck + Build)
     runs-on: ubuntu-latest

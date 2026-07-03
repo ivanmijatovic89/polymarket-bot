@@ -60,17 +60,31 @@ After the final pass (or the single run), write the full `outcome`:
   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
 - Status → `evaluated`, `decidedAt` set.
 
-Before the final verdict the Evaluator may request (via its report back to
-the orchestrating session): a small refinement grid around the optimum
-(batchUid `--refine`), or a stage extension of the winning run when the gate
-needs more coverage. The experiment stays `running` until judged.
+Before the final verdict the Evaluator may request more evidence — the
+experiment stays `running` until judged:
+
+- **Refinement grid**: write the requested grid into `search.refine`
+  (`params` values-per-param, batchUid `<family>--<exp>--refine`); the
+  Researcher submits it, the Evaluator judges `refine.best`.
+- **Stage extension**: record the `go` decision in the `gateLog`; the
+  Researcher extends the winning run.
 
 ## Gate decisions
 
-- **go** — gate passed. Record it; the Researcher extends to the next stage.
+Every gate decision is APPENDED to the experiment's `gateLog`
+(`{stage, decision, at, note}`) at the moment it is made — the climb state
+must be readable from files alone:
+
+- **go** — gate passed (`netEvPerMarket > 0` at the stage's coverage); the
+  Researcher extends to the next stage.
 - **recycle** — gate failed; verdict recorded; the Researcher proposes next.
 - Passing the FINAL stage gate: move `champion` to this experiment, set the
   family `validated`, write `verdictSummary` (one sentence for the INDEX).
+
+Gates are net-profitability only (v1, no train/test split). Distribution
+concerns — instability across monthly chunks, concentration in a few outlier
+markets, thin trade counts — go into the gate `note` and `outcome.reason` as
+ADVISORIES: they inform the Researcher's next move but do not block a gate.
 
 Champion movement: the pointer moves only to an `evaluated` experiment with
 verdict `success` that beats the current champion on the judged criteria. A
@@ -78,8 +92,9 @@ dethroned champion's record is never edited.
 
 ## What the Evaluator writes
 
-FAMILY.json only: pass `best`/`note`, `outcome`, status `evaluated`,
-`decidedAt`, `champion`, family `validated`, `verdictSummary` (on validated).
+FAMILY.json only: pass `best`/`note`, `gateLog` entries, `search.refine`
+(request + `best`/`note`), `outcome`, status `evaluated`, `decidedAt`,
+`champion`, family `validated`, `verdictSummary` (on validated).
 
 Never: FAMILY.md (the Research-log entry is the Researcher's, written when it
 consumes this verdict), experiment specs, `queued`/`running`/`aborted`,
@@ -94,8 +109,7 @@ kills, `live`.
   patterns spotted in passing belong in the report to the Researcher as
   observations, never as verdicts.
 - Judging smoke runs (`--smoke`) or incomplete batches.
-- Declaring `success` on gross numbers, thin samples, or the train split
-  alone.
+- Declaring `success` on gross numbers or on thin samples.
 
 ## Final Self-Check
 

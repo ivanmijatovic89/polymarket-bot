@@ -92,6 +92,10 @@ function checkFamily(folder: string, gates: GatesConfig): string[] {
       if (!pass.batchUid.startsWith(prefix))
         errs.push(`${exp.id}: pass batchUid "${pass.batchUid}" must start with "${prefix}"`)
     }
+    if (exp.search?.refine && !exp.search.refine.batchUid.startsWith(prefix))
+      errs.push(
+        `${exp.id}: refine batchUid "${exp.search.refine.batchUid}" must start with "${prefix}"`,
+      )
 
     if (exp.outcome) {
       if (exp.outcome.gatesVersion > gates.gatesVersion)

@@ -118,6 +118,11 @@ risk, queue risk, cancellation timing risk, and adverse-selection risk.
 Taker orders provide immediate execution, but must overcome spread, slippage,
 and fees.
 
+The authoritative cost model (fee formula + `takerFeeBps`) lives in
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — cite it, do
+not restate it. Cost per market is always computed per strategy from its own
+trade profile; there is no universal per-market cost constant.
+
 ## Research unit
 
 The main research unit is a strategy family.
@@ -159,42 +164,32 @@ Does this decision driver have any parameter region that can beat costs on BTC
 
 Do not seed a long experiment queue in
 `src/strategies/research/<family>/FAMILY.json`. Additional ideas belong in the
-`src/strategies/research/<family>/FAMILY.md` experiment menu until results
-justify adding the next experiment.
+`src/strategies/research/<family>/FAMILY.md` Experiment roadmap until results
+justify speccing the next experiment.
 
 ## Evaluation posture
 
-The evaluator contract is still being defined. Until it exists, treat all
-evaluation as provisional.
-
-A promising result should not be promoted solely because one backtest run is
-positive. It should be checked for:
-
-- Net EV after costs.
-- Number of markets tested.
-- Number of trades/fills.
-- Sensitivity to parameter choice.
-- Concentration in a small number of outlier markets.
-- Behavior near market open and close.
-- Whether the result could survive live execution constraints.
-
-The protocol target is durable positive EV, not curve-fit parameter cells.
+Evaluation is defined by
+[`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md)
+(who judges and how) and
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (the gates).
+This file adds only the posture: the protocol target is durable positive EV,
+not curve-fit parameter cells. Beyond the gate itself, the Evaluator reports
+as advisories: sensitivity to parameter choice, concentration in a few
+outlier markets, thin trade counts, behavior near market open/close, and
+anything that could not survive live execution constraints.
 
 ## Research memory
 
 Research memory must follow
 [`strategy-research-protocol/MEMORY.md`](./MEMORY.md). Do not rely on hidden
-conversation history as the only record.
+conversation history as the only record. Lessons that generalize beyond one
+family are promoted to
+[`strategy-research-protocol/LESSONS.md`](./LESSONS.md).
 
 ## Stop conditions
 
-A family can be killed when:
-
-- The baseline sweep fails clearly after enough markets.
-- Follow-up experiments fail to produce a plausible improvement path.
-- The decision driver is shown to be duplicate or dominated by another family.
-- The edge depends on forbidden inputs.
-- The result cannot plausibly survive live/backtest parity requirements.
-
-A killed family should set `retryOnlyIf` with a concrete condition that would
-justify revisiting it.
+When a family may be killed is defined ONLY by the stopping rules in
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (structural
+kill vs empirical kill). This file adds no additional kill conditions. Every
+kill sets a concrete `retryOnlyIf`.

@@ -32,13 +32,15 @@ resolution. All inputs are recorded orderbook fields — no live-only data.
 
 ## Edge economics
 
-Taker round trip costs ~$0.34/mkt at protocol-default sizing (fee floor per
-RESEARCH_SCOPE.md). For the mechanism to clear stage-1, directional accuracy
-on imbalance-triggered entries must exceed ~53.5% at 2-tick take-profit —
-plausible for a persistence-filtered depth signal if the stale-maker story is
-real at all. Prior orderbook-imbalance research (killed family) found gross
-+$0.06/mkt unconditioned; this family must beat that via dwell filtering or
-die at gate 1.
+Cost per market from the STAGE-GATES.md cost model: at $10 notional and
+entry prices near 0.50, a taker fill costs 1.56% × 0.5 × 20 shares ≈ $0.156,
+so a round trip ≈ $0.31 plus ~1 tick of spread; at the expected ~1.1 round
+trips per traded market that is ≈ $0.34/mkt. To clear stage-1, directional
+accuracy on imbalance-triggered entries must exceed ~53.5% at 2-tick
+take-profit — plausible for a persistence-filtered depth signal if the
+stale-maker story is real at all. Prior orderbook-imbalance research (killed,
+pre-protocol) found gross +$0.06/mkt unconditioned; this family must beat
+that via dwell filtering or die at gate 1.
 
 ## Experiment roadmap
 
@@ -62,12 +64,12 @@ this family's bar to clear.
 
 Coordinate search (3 passes, 11 cells, latest 1000 markets, batchUids
 `book-imbalance--000-baseline--p1..p3`). Evaluator verdict: **fail** against
-"Best cell netEvPerMarket > 0 on the test split at stage-1 coverage" — best
-cell `enterThreshold=0.5, dwellTicks=6, takeProfitTicks=2` reached gross
-+$0.23/mkt but net −$0.11 (train −$0.09 / test −$0.14, 1840 trades). The
-signal is real but thin: dwell filtering doubled gross vs the unfiltered
-legacy result, and fees still eat it. `takeProfitTicks` is flat — stop
-sweeping it.
+"Best cell netEvPerMarket > 0 at stage-1 coverage" — best cell
+`enterThreshold=0.5, dwellTicks=6, takeProfitTicks=2` reached gross
++$0.23/mkt but net −$0.11 over 1000 markets (1840 trades); gate 1 decision:
+recycle. The signal is real but thin: dwell filtering doubled gross vs the
+unfiltered legacy result, and fees still eat it. `takeProfitTicks` is flat —
+stop sweeping it.
 
 Decision: recycle per STAGE-GATES.md — queue `001-spread-gate` (roadmap #1),
 which attacks the cost side directly instead of entry quality.

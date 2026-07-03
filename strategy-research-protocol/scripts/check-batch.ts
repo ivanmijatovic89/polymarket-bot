@@ -47,9 +47,13 @@ function groupsFromArgs(): Group[] {
   }
 
   if (exp.search) {
-    return exp.search.passes
+    const groups = exp.search.passes
       .filter((p) => p.submissionUids.length > 0)
       .map((p) => ({ label: p.batchUid, submissionUids: p.submissionUids }))
+    const refine = exp.search.refine
+    if (refine && refine.submissionUids.length > 0)
+      groups.push({ label: refine.batchUid, submissionUids: refine.submissionUids })
+    return groups
   }
   if (exp.submissionUids.length > 0)
     return [{ label: exp.batchUid ?? experimentId, submissionUids: exp.submissionUids }]
