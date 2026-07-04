@@ -178,3 +178,60 @@ land correctly:
   harvesting, both-sides maker, complement-set market making.
 
 ## Research log
+
+### 000-baseline — 2026-07-04
+
+**What ran:** 4-pass coordinate search, 15 runs of 1000 latest markets each
+(runs 127–141), sweeping `offset` → `quoteStopSec` → `repriceDelta` →
+`sizeUsd` from defaults `{sizeUsd 10, offset 0.02, repriceDelta 0.02,
+quoteStopSec 120}`. Duplicate cells across passes reproduced exactly three
+times (130=132, 134=135, 138=139) — the pipeline is deterministic and the
+pass chaining is sound.
+
+**Key numbers (from FAMILY.json outcome + pass notes):** every one of the 15
+cells is net- AND gross-negative. Best cell `offset 0.05, quoteStopSec 420,
+repriceDelta 0.01, sizeUsd 5` (run 141): net −$0.05/mkt, gross −$0.048/mkt,
+495 trades / 1000 mkts. Fees measured $0.7–7.6 per 1000 mkts across all
+cells — the zero-taker-fee thesis of the family HELD; fees are irrelevant to
+the loss. Pass shapes: offset monotone better wider (0.01 −0.58 → 0.05
+−0.28); quoteStopSec monotone better stopping earlier (60 −0.34 → 420
+−0.15); repriceDelta REVERSED — faster mid-tracking is better (0.01 −0.10 vs
+never-reprice −0.53, where never-reprice showed 65.8% win rate but avgWin
+1.44 vs avgLoss −4.46: stale asks sell pennies into every trend); sizeUsd is
+a pure scale knob, flat −$0.010 per dollar of size. Every judged `best` sat
+at a grid EDGE pointing the same direction — quote less, track faster —
+i.e. EV approaches the $0 no-quote limit FROM BELOW with no positive
+interior. Weekly chunks negative in every cell (structural, not regime; W23
+was near break-even −0.01 at the best cells, W24 carried the loss).
+
+**Interpretation:** under the `worst_queue` fill model (a resting SELL fills
+only when `bestBid` rises through it — exclusively the adversely-selected
+flow, none of the benign ask-lifting), static symmetric mid-anchored quoting
+collects a fixed premium (`offset`) per fill but pays the post-fill drift of
+a market that continues (pre-protocol spike work already measured 15m BTC
+moves CONTINUE, not revert). The premium never covers the drift at any knob
+setting; every knob only modulates exposure to the same negative trade. The
+dominant loss channel is now measured precisely: quotes that are stale
+relative to a moved mid (pass 3's never-reprice cell is the smoking gun).
+These numbers are the conservative bound — real books also lift asks
+benignly — but the protocol judges on the measured model, and under it the
+static quoter is dead.
+
+**Decision:** gate-1 verdict `fail` consumed, gateLog decision `recycle`
+(STAGE-GATES.md Flow A: a negative baseline never implies kill on its own;
+roadmap has 6 untried mechanism-distinct ideas, minExperiments 20 far away).
+Family stays `researching`. Next experiment: spec `001` from the roadmap
+targeting the measured failure mode at the moment it occurs — the top
+candidates are pair-completion repricing (roadmap #1: the instant one leg
+fills, the survivor's quote is maximally stale against a moved mid — reprice
+it to the NEW mid to bank the pair) and inventory stop (roadmap #2: stop
+quoting at the first fill, capping trend exposure). Pass 3's
+faster-tracking-wins result points at #1 first.
+
+**Lesson:** Symmetric fixed-offset maker quoting on BTC 15m is
+adverse-selection-bound, not fee-bound: all 15 cells were gross-negative with
+negligible fees, and every knob's optimum was the grid edge toward
+quoting-less/tracking-faster — EV → $0 from below, no positive interior, so
+no amount of static-knob tuning can flip the sign. Any surviving variant in
+this family must change what happens AT the fill (complete the pair
+immediately, or stop quoting), not how passively the quotes rest.
