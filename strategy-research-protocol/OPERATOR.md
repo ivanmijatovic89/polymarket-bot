@@ -11,8 +11,11 @@ cookbook: what you type, in what order, and which decisions are yours.
 2. Redis + backtest workers running on this machine (branch policy is
    `main`-local, so workers must run where research commits live):
    `./scripts/run-worker.sh` with your usual queues (market + aggregate).
-3. Telonex data prewarmed locally:
+3. (Optional, speeds up first runs) prewarm Telonex data locally:
    `npm run telonex:download-converted-r2-to-local -- --converter delta-typed --symbol btc --timeframe 15m`
+   — not required: protocol backtests always run with
+   `--read-from local-or-download-from-r2-to-local`, which downloads any
+   missing market once, automatically.
 4. Dashboard for eyeballing results: `npm run dashboard` → `:3051`.
 5. Sanity check: `npm run research:check` must be green and the tree clean.
 

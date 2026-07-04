@@ -42,9 +42,11 @@ workers run committed code only. See
 - `symbol=btc`, `timeframe=15m`, `input-mode=telonex-delta`,
   `converter=delta-typed`
 - one market equals one BTC 15 minute up/down episode
-- read source: `--read-from local` on a single prewarmed machine,
-  `--read-from local-or-download-from-r2-to-local` for distributed workers,
-  `--read-from r2` for disposable workers
+- read source: **ALWAYS** `--read-from local-or-download-from-r2-to-local`
+  (reads local when present, downloads once when missing — works on every
+  machine, prewarmed or not). Never use plain `local` or `r2` for protocol
+  runs. The `npm run backtest:research:btc:15m` shortcut has this baked in;
+  do NOT use `backtest:telonex:btc:15m`, which hardcodes `local`.
 
 ## Selection profiles
 
@@ -64,7 +66,7 @@ previous winners. Each value is one submission; all submissions of a pass
 share the pass batchUid:
 
 ```bash
-npm run backtest:telonex:btc:15m -- --strategy book-imbalance.000-baseline \
+npm run backtest:research:btc:15m -- --strategy book-imbalance.000-baseline \
   --latest --limit 1000 \
   --batchUid book-imbalance--000-baseline--p1-enterThreshold \
   --baselineId <runId> \
@@ -84,9 +86,10 @@ different effective params.
 Current implementation: CLI
 
 ```bash
-npm run backtest:telonex:btc:15m -- --strategy <strategy-id> [flags]
+npm run backtest:research:btc:15m -- --strategy <strategy-id> [flags]
 # equivalent explicit form:
-npm run backtest -- --input-mode telonex-delta --read-from local \
+npm run backtest -- --input-mode telonex-delta \
+  --read-from local-or-download-from-r2-to-local \
   --symbol btc --timeframe 15m --strategy <strategy-id> [flags]
 ```
 

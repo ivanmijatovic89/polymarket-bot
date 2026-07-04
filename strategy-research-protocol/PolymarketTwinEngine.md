@@ -98,7 +98,10 @@ Default research replay uses Telonex converted parquet:
 --timeframe 15m
 ```
 
-Default read source depends on the worker environment:
+Read source: the research protocol ALWAYS uses
+`--read-from local-or-download-from-r2-to-local` (see
+[`strategy-research-protocol/tools/runBacktest.md`](./tools/runBacktest.md)).
+The engine's full menu, for reference:
 
 - `--read-from local` when all workers already have local parquet files.
 - `--read-from local-or-download-from-r2-to-local` when workers may need to
