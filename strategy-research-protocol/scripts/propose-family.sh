@@ -12,6 +12,7 @@
 #   LOG=somefile.jsonl       override the raw log path (default: propose-family.jsonl)
 #   PERM=bypassPermissions   override permission mode (default: acceptEdits)
 set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 MODULE="strategy-research-protocol/modules/ProposeFamily.md"
 if [ -n "${1:-}" ]; then
