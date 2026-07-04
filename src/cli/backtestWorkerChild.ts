@@ -9,6 +9,7 @@ import {
 import { SELF_UPDATE_EXIT_CODE } from '../backtest/commitGate.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
 import {
+  getCurrentGitBranch,
   getCurrentGitSha,
   getMachineId,
   getRedisProcessKey,
@@ -86,9 +87,10 @@ async function main(): Promise<void> {
   // via WORKER_LAUNCH_SHA. Report this (not live HEAD) so the dashboard shows
   // the code actually running, even after the repo advances on disk.
   const loadedSha = process.env.WORKER_LAUNCH_SHA?.trim() || getCurrentGitSha()
-  console.log(`[worker-child=${processKey}] ready commitSha=${loadedSha}`)
+  const loadedBranch = process.env.WORKER_LAUNCH_BRANCH?.trim() || getCurrentGitBranch()
+  console.log(`[worker-child=${processKey}] ready branch=${loadedBranch} commitSha=${loadedSha}`)
 
-  const stopHeartbeat = await startHeartbeat(processKey, loadedSha)
+  const stopHeartbeat = await startHeartbeat(processKey, loadedSha, loadedBranch)
   const processor = makeMarketProcessor({ machineId, workerChildId: childId })
   const w = new Worker(
     MARKET_QUEUE,

@@ -37,6 +37,8 @@ Review this file and edit before bulk writing begins.
 | src/backtest/stats/batchStats.ts | Backtest Run Statistics | reference | Scalar run performance columns derived from BatchStats |
 | src/backtest/stats/marketStats.ts | Backtest Run Markets | reference | Per-market result rows stored in backtest_run_markets |
 | src/backtest/stats/backtestSegments.ts | Backtest Segments | reference | Per-segment stats (all / last_n / daily / weekly / monthly) stored in backtest_run_segments |
+| ops/ansible/update-workers.yml | Worker Fleet Ansible | how-to | Proactive fast-forward + tmux restart workflow for distributed workers |
+| ops/ansible/start-workers.yml | Start Worker Fleet | how-to | Starts missing managed tmux sessions after the wrapper runs the update phase |
 
 ---
 

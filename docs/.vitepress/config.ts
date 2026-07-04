@@ -108,6 +108,8 @@ export default withMermaid(
                 { text: 'Distributed Workers', link: '/backtest/distributed-future' },
                 { text: 'Install a Backtest Worker', link: '/backtest/worker-install-instructions' },
                 { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
+                { text: 'Worker Fleet Ansible', link: '/backtest/worker-fleet-ansible' },
+                { text: 'Start Worker Fleet', link: '/backtest/start-worker-fleet' },
                 { text: 'Cloud Workers & Costs', link: '/backtest/cloud-workers-and-costs' },
               ],
             },

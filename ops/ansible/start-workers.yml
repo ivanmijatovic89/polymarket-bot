@@ -1,0 +1,157 @@
+---
+- name: Start managed backtest workers
+  hosts: backtest_workers
+  gather_facts: false
+  vars:
+    backtest_worker_session_default: polymarket-backtest-worker
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_shell_default: /bin/zsh
+
+  tasks:
+    - name: Resolve worker start settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        worker_tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
+        worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
+        worker_log_file: '{{ (backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers")) ~ "/" ~ (backtest_worker_session | default(backtest_worker_session_default)) ~ ".log" }}'
+
+    - name: Check repository exists
+      ansible.builtin.stat:
+        path: '{{ worker_repo_dir }}/.git'
+      register: repo_git_dir
+
+    - name: Fail when repository is missing
+      ansible.builtin.fail:
+        msg: 'Repository not found at {{ worker_repo_dir }}. Provision the worker first.'
+      when: not repo_git_dir.stat.exists
+
+    - name: Check run-worker wrapper exists
+      ansible.builtin.stat:
+        path: '{{ worker_repo_dir }}/scripts/run-worker.sh'
+      register: run_worker_script
+
+    - name: Fail when run-worker wrapper is missing
+      ansible.builtin.fail:
+        msg: 'scripts/run-worker.sh not found in {{ worker_repo_dir }}.'
+      when: not run_worker_script.stat.exists
+
+    - name: Locate tmux
+      ansible.builtin.shell:
+        cmd: |
+          if [ -n "{{ worker_tmux_bin_override }}" ]; then
+            test -x "{{ worker_tmux_bin_override }}" && printf '%s\n' "{{ worker_tmux_bin_override }}"
+            exit $?
+          fi
+          if command -v tmux >/dev/null 2>&1; then
+            command -v tmux
+            exit 0
+          fi
+          if [ -x /opt/homebrew/bin/tmux ]; then
+            printf '%s\n' /opt/homebrew/bin/tmux
+            exit 0
+          fi
+          if [ -x /usr/local/bin/tmux ]; then
+            printf '%s\n' /usr/local/bin/tmux
+            exit 0
+          fi
+          exit 127
+      register: tmux_path
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fail when tmux is missing
+      ansible.builtin.fail:
+        msg: 'tmux is required to start managed workers on {{ inventory_hostname }}. Install it on the worker, for example: brew install tmux'
+      when: tmux_path.rc != 0
+
+    - name: Resolve tmux binary
+      ansible.builtin.set_fact:
+        worker_tmux_bin: '{{ tmux_path.stdout | trim }}'
+
+    - name: Check managed tmux worker session
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: tmux_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Decide whether worker start is needed
+      ansible.builtin.set_fact:
+        worker_session_running: '{{ tmux_session.rc == 0 }}'
+        worker_start_needed: '{{ tmux_session.rc != 0 }}'
+
+    - name: Ensure worker log directory exists
+      ansible.builtin.file:
+        path: '{{ worker_log_dir }}'
+        state: directory
+        mode: '0755'
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Start managed tmux worker session
+      ansible.builtin.shell:
+        cmd: >-
+          {{ worker_tmux_bin | quote }} new-session -d
+          -s {{ worker_session | quote }}
+          -c {{ worker_repo_dir | quote }}
+          {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_file ~ " 2>&1") | quote) | quote }}
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Wait for managed worker session to stay alive
+      ansible.builtin.pause:
+        seconds: 2
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Verify managed worker session is still running
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: worker_session_after_start
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Read worker log after failed start
+      ansible.builtin.command:
+        cmd: 'tail -n 80 {{ worker_log_file }}'
+      register: worker_start_log_tail
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+        - worker_session_after_start.rc != 0
+
+    - name: Fail when managed worker session exited after start
+      ansible.builtin.fail:
+        msg:
+          - 'Managed worker session exited immediately on {{ inventory_hostname }}.'
+          - 'log={{ worker_log_file }}'
+          - '{{ worker_start_log_tail.stdout }}'
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+        - worker_session_after_start.rc != 0
+
+    - name: Report worker start result
+      ansible.builtin.debug:
+        msg:
+          - 'repo={{ worker_repo_dir }}'
+          - 'session={{ worker_session }}'
+          - 'tmux={{ worker_tmux_bin }}'
+          - 'shell={{ worker_shell }}'
+          - 'log={{ worker_log_file }}'
+          - 'command={{ worker_command }}'
+          - 'worker_session_running={{ worker_session_running }}'
+          - 'worker_start_needed={{ worker_start_needed }}'

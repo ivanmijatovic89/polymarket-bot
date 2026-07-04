@@ -1,0 +1,281 @@
+---
+- name: Proactively update backtest workers
+  hosts: backtest_workers
+  gather_facts: false
+  vars:
+    backtest_branch_default: main
+    backtest_remote_default: origin
+    backtest_worker_session_default: polymarket-backtest-worker
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_shell_default: /bin/zsh
+
+  tasks:
+    - name: Resolve worker update settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_branch: '{{ backtest_branch | default(backtest_branch_default) }}'
+        worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        worker_tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
+        worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
+        worker_log_file: '{{ (backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers")) ~ "/" ~ (backtest_worker_session | default(backtest_worker_session_default)) ~ ".log" }}'
+
+    - name: Check repository exists
+      ansible.builtin.stat:
+        path: '{{ worker_repo_dir }}/.git'
+      register: repo_git_dir
+
+    - name: Fail when repository is missing
+      ansible.builtin.fail:
+        msg: 'Repository not found at {{ worker_repo_dir }}. Provision the worker first.'
+      when: not repo_git_dir.stat.exists
+
+    - name: Check tracked working tree status
+      ansible.builtin.command:
+        cmd: git status --porcelain --untracked-files=no
+        chdir: '{{ worker_repo_dir }}'
+      register: git_status
+      changed_when: false
+      check_mode: false
+
+    - name: Fail when tracked working tree is dirty
+      ansible.builtin.fail:
+        msg: 'Tracked working tree is dirty on {{ inventory_hostname }}; clean it before updating workers.'
+      when: git_status.stdout | trim | length > 0
+
+    - name: Read current HEAD
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: '{{ worker_repo_dir }}'
+      register: head_before
+      changed_when: false
+      check_mode: false
+
+    - name: Read current branch
+      ansible.builtin.command:
+        cmd: git rev-parse --abbrev-ref HEAD
+        chdir: '{{ worker_repo_dir }}'
+      register: branch_before
+      changed_when: false
+      check_mode: false
+
+    - name: Read current package lock blob
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD:package-lock.json
+        chdir: '{{ worker_repo_dir }}'
+      register: package_lock_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fetch remote branch
+      ansible.builtin.command:
+        cmd: 'git fetch --prune {{ worker_remote }}'
+        chdir: '{{ worker_repo_dir }}'
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read target remote HEAD
+      ansible.builtin.command:
+        cmd: 'git rev-parse {{ worker_remote }}/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
+      register: remote_head
+      changed_when: false
+      check_mode: false
+
+    - name: Locate tmux
+      ansible.builtin.shell:
+        cmd: |
+          if [ -n "{{ worker_tmux_bin_override }}" ]; then
+            test -x "{{ worker_tmux_bin_override }}" && printf '%s\n' "{{ worker_tmux_bin_override }}"
+            exit $?
+          fi
+          if command -v tmux >/dev/null 2>&1; then
+            command -v tmux
+            exit 0
+          fi
+          if [ -x /opt/homebrew/bin/tmux ]; then
+            printf '%s\n' /opt/homebrew/bin/tmux
+            exit 0
+          fi
+          if [ -x /usr/local/bin/tmux ]; then
+            printf '%s\n' /usr/local/bin/tmux
+            exit 0
+          fi
+          exit 127
+      register: tmux_path
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Resolve tmux availability
+      ansible.builtin.set_fact:
+        worker_tmux_bin: '{{ tmux_path.stdout | trim }}'
+        worker_tmux_available: '{{ tmux_path.rc == 0 }}'
+
+    - name: Check managed tmux worker session
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: tmux_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+      when: worker_tmux_available
+
+    - name: Decide whether checkout update or worker restart is needed
+      ansible.builtin.set_fact:
+        checkout_update_needed: >-
+          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch }}
+        worker_session_running: '{{ worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}'
+        worker_restart_needed: >-
+          {{ (head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch) and worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}
+
+    - name: Verify update can fast-forward
+      ansible.builtin.command:
+        cmd: >-
+          git merge-base --is-ancestor
+          {{ (branch_before.stdout == worker_branch) | ternary('HEAD', worker_branch) }}
+          {{ worker_remote }}/{{ worker_branch }}
+        chdir: '{{ worker_repo_dir }}'
+      register: fast_forward_check
+      changed_when: false
+      failed_when: fast_forward_check.rc not in [0, 1]
+      check_mode: false
+
+    - name: Fail when target branch cannot fast-forward
+      ansible.builtin.fail:
+        msg: 'Local {{ worker_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ worker_remote }}/{{ worker_branch }}.'
+      when: fast_forward_check.rc == 1
+
+    - name: Stop managed tmux worker session before mutating checkout
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} kill-session -t {{ worker_session }}'
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+        - worker_session_running
+
+    - name: Check out target branch
+      ansible.builtin.command:
+        cmd: 'git checkout {{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
+      register: git_checkout
+      changed_when: "'Switched to branch' in git_checkout.stderr or 'branch is set up' in git_checkout.stderr"
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+
+    - name: Fast-forward to remote branch
+      ansible.builtin.command:
+        cmd: 'git merge --ff-only {{ worker_remote }}/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
+      register: git_merge
+      changed_when: "'Updating ' in git_merge.stdout"
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+
+    - name: Read updated HEAD
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: '{{ worker_repo_dir }}'
+      register: head_after
+      changed_when: false
+      check_mode: false
+
+    - name: Resolve effective target HEAD
+      ansible.builtin.set_fact:
+        effective_head_after: '{{ remote_head.stdout if checkout_update_needed else head_after.stdout }}'
+
+    - name: Read updated package lock blob
+      ansible.builtin.command:
+        cmd: 'git rev-parse {{ effective_head_after }}:package-lock.json'
+        chdir: '{{ worker_repo_dir }}'
+      register: package_lock_after
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install dependencies when package lock changed
+      ansible.builtin.shell:
+        cmd: '{{ worker_shell | quote }} -lic {{ "npm ci" | quote }}'
+        chdir: '{{ worker_repo_dir }}'
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+        - package_lock_before.stdout != package_lock_after.stdout
+
+    - name: Ensure worker log directory exists before restart
+      ansible.builtin.file:
+        path: '{{ worker_log_dir }}'
+        state: directory
+        mode: '0755'
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Restart managed tmux worker session after checkout update
+      ansible.builtin.shell:
+        cmd: >-
+          {{ worker_tmux_bin | quote }} new-session -d
+          -s {{ worker_session | quote }}
+          -c {{ worker_repo_dir | quote }}
+          {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_file ~ " 2>&1") | quote) | quote }}
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Wait for restarted worker session to stay alive
+      ansible.builtin.pause:
+        seconds: 2
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Verify restarted worker session is still running
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: worker_session_after_restart
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Read worker log after failed restart
+      ansible.builtin.command:
+        cmd: 'tail -n 80 {{ worker_log_file }}'
+      register: worker_restart_log_tail
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+        - worker_session_after_restart.rc != 0
+
+    - name: Fail when managed worker session exited after restart
+      ansible.builtin.fail:
+        msg:
+          - 'Managed worker session exited immediately after restart on {{ inventory_hostname }}.'
+          - 'log={{ worker_log_file }}'
+          - '{{ worker_restart_log_tail.stdout }}'
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+        - worker_session_after_restart.rc != 0
+
+    - name: Report worker update result
+      ansible.builtin.debug:
+        msg:
+          - 'repo={{ worker_repo_dir }}'
+          - 'branch={{ worker_branch }}'
+          - 'before={{ head_before.stdout[:8] }}'
+          - 'after={{ effective_head_after[:8] }}'
+          - 'tmux_available={{ worker_tmux_available }}'
+          - 'shell={{ worker_shell }}'
+          - 'log={{ worker_log_file }}'
+          - 'worker_session_running={{ worker_session_running }}'
+          - 'checkout_update_needed={{ checkout_update_needed }}'
+          - 'restart_needed={{ worker_restart_needed }}'

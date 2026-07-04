@@ -40,6 +40,19 @@ export function getCurrentGitSha(): string {
   return getGitRefSha('HEAD')
 }
 
+export function getCurrentGitBranch(): string {
+  try {
+    const out = execFileSync('git', ['rev-parse', '--abbrev-ref', 'HEAD'], {
+      stdio: ['ignore', 'pipe', 'ignore'],
+    })
+      .toString()
+      .trim()
+    return out === 'HEAD' ? 'detached' : out || 'unknown'
+  } catch {
+    return 'unknown'
+  }
+}
+
 export function getGitRefSha(ref: string): string {
   try {
     return execFileSync('git', ['rev-parse', '--verify', `${ref}^{commit}`], {
@@ -112,6 +125,7 @@ export function isAncestorOrEqual(maybeAncestor: string, descendant: string): bo
 export async function startHeartbeat(
   processKey: string,
   loadedSha?: string,
+  loadedBranch?: string,
 ): Promise<() => Promise<void>> {
   const conn = getRedisConnection()
   const interval = 5000
@@ -119,11 +133,14 @@ export async function startHeartbeat(
     try {
       await conn.set(`backtest:worker:${processKey}:heartbeat`, String(Date.now()), 'EX', 60)
       const commitSha = loadedSha?.trim() || getCurrentGitSha()
+      const branchName = loadedBranch?.trim() || getCurrentGitBranch()
       const mainCommitSha = getMainGitSha()
       await conn.hset(
         `backtest:worker:${processKey}`,
         'commitSha',
         commitSha,
+        'branchName',
+        branchName,
         'mainCommitSha',
         mainCommitSha,
         'mainCommitMatch',
