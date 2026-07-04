@@ -16,6 +16,7 @@
         worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
         worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
         worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
 
     - name: Check repository exists
       ansible.builtin.stat:
@@ -80,21 +81,52 @@
       changed_when: false
       check_mode: false
 
+    - name: Locate tmux
+      ansible.builtin.shell:
+        cmd: |
+          if [ -n "{{ worker_tmux_bin_override }}" ]; then
+            test -x "{{ worker_tmux_bin_override }}" && printf '%s\n' "{{ worker_tmux_bin_override }}"
+            exit $?
+          fi
+          if command -v tmux >/dev/null 2>&1; then
+            command -v tmux
+            exit 0
+          fi
+          if [ -x /opt/homebrew/bin/tmux ]; then
+            printf '%s\n' /opt/homebrew/bin/tmux
+            exit 0
+          fi
+          if [ -x /usr/local/bin/tmux ]; then
+            printf '%s\n' /usr/local/bin/tmux
+            exit 0
+          fi
+          exit 127
+      register: tmux_path
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Resolve tmux availability
+      ansible.builtin.set_fact:
+        worker_tmux_bin: '{{ tmux_path.stdout | trim }}'
+        worker_tmux_available: '{{ tmux_path.rc == 0 }}'
+
     - name: Check managed tmux worker session
       ansible.builtin.command:
-        cmd: 'tmux has-session -t {{ worker_session }}'
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
       register: tmux_session
       changed_when: false
       failed_when: false
       check_mode: false
+      when: worker_tmux_available
 
     - name: Decide whether checkout update or worker restart is needed
       ansible.builtin.set_fact:
         checkout_update_needed: >-
           {{ head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch }}
-        worker_session_running: '{{ tmux_session.rc == 0 }}'
+        worker_session_running: '{{ worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}'
         worker_restart_needed: >-
-          {{ (head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch) and tmux_session.rc == 0 }}
+          {{ (head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch) and worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}
 
     - name: Verify update can fast-forward
       ansible.builtin.command:
@@ -115,11 +147,11 @@
 
     - name: Stop managed tmux worker session before mutating checkout
       ansible.builtin.command:
-        cmd: 'tmux kill-session -t {{ worker_session }}'
+        cmd: '{{ worker_tmux_bin }} kill-session -t {{ worker_session }}'
       when:
         - not ansible_check_mode
         - checkout_update_needed
-        - tmux_session.rc == 0
+        - worker_session_running
 
     - name: Check out target branch
       ansible.builtin.command:
@@ -174,7 +206,7 @@
     - name: Restart managed tmux worker session after checkout update
       ansible.builtin.shell:
         cmd: >-
-          tmux new-session -d
+          {{ worker_tmux_bin | quote }} new-session -d
           -s {{ worker_session | quote }}
           -c {{ worker_repo_dir | quote }}
           {{ ("exec " ~ worker_command) | quote }}
@@ -189,6 +221,7 @@
           - 'branch={{ worker_branch }}'
           - 'before={{ head_before.stdout[:8] }}'
           - 'after={{ effective_head_after[:8] }}'
+          - 'tmux_available={{ worker_tmux_available }}'
           - 'worker_session_running={{ worker_session_running }}'
           - 'checkout_update_needed={{ checkout_update_needed }}'
           - 'restart_needed={{ worker_restart_needed }}'

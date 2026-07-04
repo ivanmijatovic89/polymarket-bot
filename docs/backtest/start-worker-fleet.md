@@ -84,6 +84,14 @@ The default command inside that session is:
 ./scripts/run-worker.sh --queues markets --market-concurrency 5
 ```
 
+The playbook looks for tmux in `PATH`, `/opt/homebrew/bin/tmux`, and
+`/usr/local/bin/tmux`. If a worker uses a different tmux path, override it in
+`ops/ansible/inventory.ini`:
+
+```ini
+worker-1 ansible_host=worker-1-ansible backtest_repo_dir=/Users/worker-1/Sites/polymarket-bot backtest_tmux_bin=/custom/bin/tmux
+```
+
 Override it per host in `ops/ansible/inventory.ini`:
 
 ```ini
@@ -128,3 +136,18 @@ Use the two commands like this:
 `update-worker-fleet.sh` updates code and restarts only sessions that were
 already running and needed a checkout update. `start-worker-fleet.sh` runs that
 same update phase first, then starts missing sessions.
+
+## Missing tmux
+
+If the start phase reports that tmux is missing, install it on that worker:
+
+```bash
+ssh worker-1-ansible 'brew install tmux'
+ssh milan-ansible 'brew install tmux'
+```
+
+Then rerun:
+
+```bash
+./scripts/start-worker-fleet.sh
+```
