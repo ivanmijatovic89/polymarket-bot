@@ -53,7 +53,12 @@
             "param": "quoteStopSec",
             "values": [60, 120, 240, 420],
             "batchUid": "spread-capture--000-baseline--p2-quoteStopSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--000-baseline--p2-quoteStopSec--ffb2f837-50ea-4302-942c-1d30d45fca9b",
+              "spread-capture--000-baseline--p2-quoteStopSec--fbb1a4e2-e577-4e6c-8661-342ee89e7ec9",
+              "spread-capture--000-baseline--p2-quoteStopSec--b5fe387f-3051-4421-a47c-c60811d36e42",
+              "spread-capture--000-baseline--p2-quoteStopSec--6adecdbb-d48c-4bde-a882-05e325081068"
+            ],
             "best": null,
             "note": null
           },
@@ -78,7 +83,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
+      "baselineId": "130",
       "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
       "status": "running",
       "gateLog": [],
