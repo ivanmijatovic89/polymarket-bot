@@ -3,27 +3,35 @@
   hosts: backtest_workers
   gather_facts: true
   vars:
-    backtest_repo_dir: '{{ ansible_env.HOME }}/Sites/polymarket-bot'
-    backtest_branch: main
-    backtest_remote: origin
-    backtest_worker_session: polymarket-backtest-worker
-    backtest_worker_command: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_repo_dir_default: "{{ ansible_facts['env']['HOME'] }}/Sites/polymarket-bot"
+    backtest_branch_default: main
+    backtest_remote_default: origin
+    backtest_worker_session_default: polymarket-backtest-worker
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
 
   tasks:
+    - name: Resolve worker update settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | default(backtest_repo_dir_default) }}'
+        worker_branch: '{{ backtest_branch | default(backtest_branch_default) }}'
+        worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+
     - name: Check repository exists
       ansible.builtin.stat:
-        path: '{{ backtest_repo_dir }}/.git'
+        path: '{{ worker_repo_dir }}/.git'
       register: repo_git_dir
 
     - name: Fail when repository is missing
       ansible.builtin.fail:
-        msg: 'Repository not found at {{ backtest_repo_dir }}. Provision the worker first.'
+        msg: 'Repository not found at {{ worker_repo_dir }}. Provision the worker first.'
       when: not repo_git_dir.stat.exists
 
     - name: Check tracked working tree status
       ansible.builtin.command:
         cmd: git status --porcelain --untracked-files=no
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: git_status
       changed_when: false
       check_mode: false
@@ -36,7 +44,7 @@
     - name: Read current HEAD
       ansible.builtin.command:
         cmd: git rev-parse HEAD
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: head_before
       changed_when: false
       check_mode: false
@@ -44,7 +52,7 @@
     - name: Read current branch
       ansible.builtin.command:
         cmd: git rev-parse --abbrev-ref HEAD
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: branch_before
       changed_when: false
       check_mode: false
@@ -52,7 +60,7 @@
     - name: Read current package lock blob
       ansible.builtin.command:
         cmd: git rev-parse HEAD:package-lock.json
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: package_lock_before
       changed_when: false
       failed_when: false
@@ -60,22 +68,22 @@
 
     - name: Fetch remote branch
       ansible.builtin.command:
-        cmd: 'git fetch --prune {{ backtest_remote }}'
-        chdir: '{{ backtest_repo_dir }}'
+        cmd: 'git fetch --prune {{ worker_remote }}'
+        chdir: '{{ worker_repo_dir }}'
       changed_when: false
       when: not ansible_check_mode
 
     - name: Read target remote HEAD
       ansible.builtin.command:
-        cmd: 'git rev-parse {{ backtest_remote }}/{{ backtest_branch }}'
-        chdir: '{{ backtest_repo_dir }}'
+        cmd: 'git rev-parse {{ worker_remote }}/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
       register: remote_head
       changed_when: false
       check_mode: false
 
     - name: Check managed tmux worker session
       ansible.builtin.command:
-        cmd: 'tmux has-session -t {{ backtest_worker_session }}'
+        cmd: 'tmux has-session -t {{ worker_session }}'
       register: tmux_session
       changed_when: false
       failed_when: false
@@ -84,17 +92,17 @@
     - name: Decide whether checkout update or worker restart is needed
       ansible.builtin.set_fact:
         checkout_update_needed: >-
-          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != backtest_branch }}
+          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch }}
         worker_restart_needed: >-
-          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != backtest_branch or tmux_session.rc != 0 }}
+          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch or tmux_session.rc != 0 }}
 
     - name: Verify update can fast-forward
       ansible.builtin.command:
         cmd: >-
           git merge-base --is-ancestor
-          {{ (branch_before.stdout == backtest_branch) | ternary('HEAD', backtest_branch) }}
-          {{ backtest_remote }}/{{ backtest_branch }}
-        chdir: '{{ backtest_repo_dir }}'
+          {{ (branch_before.stdout == worker_branch) | ternary('HEAD', worker_branch) }}
+          {{ worker_remote }}/{{ worker_branch }}
+        chdir: '{{ worker_repo_dir }}'
       register: fast_forward_check
       changed_when: false
       failed_when: fast_forward_check.rc not in [0, 1]
@@ -102,12 +110,12 @@
 
     - name: Fail when target branch cannot fast-forward
       ansible.builtin.fail:
-        msg: 'Local {{ backtest_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ backtest_remote }}/{{ backtest_branch }}.'
+        msg: 'Local {{ worker_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ worker_remote }}/{{ worker_branch }}.'
       when: fast_forward_check.rc == 1
 
     - name: Stop managed tmux worker session before mutating checkout
       ansible.builtin.command:
-        cmd: 'tmux kill-session -t {{ backtest_worker_session }}'
+        cmd: 'tmux kill-session -t {{ worker_session }}'
       when:
         - not ansible_check_mode
         - checkout_update_needed
@@ -115,8 +123,8 @@
 
     - name: Check out target branch
       ansible.builtin.command:
-        cmd: 'git checkout {{ backtest_branch }}'
-        chdir: '{{ backtest_repo_dir }}'
+        cmd: 'git checkout {{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
       register: git_checkout
       changed_when: "'Switched to branch' in git_checkout.stderr or 'branch is set up' in git_checkout.stderr"
       when:
@@ -125,8 +133,8 @@
 
     - name: Fast-forward to remote branch
       ansible.builtin.command:
-        cmd: 'git merge --ff-only {{ backtest_remote }}/{{ backtest_branch }}'
-        chdir: '{{ backtest_repo_dir }}'
+        cmd: 'git merge --ff-only {{ worker_remote }}/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
       register: git_merge
       changed_when: "'Updating ' in git_merge.stdout"
       when:
@@ -136,7 +144,7 @@
     - name: Read updated HEAD
       ansible.builtin.command:
         cmd: git rev-parse HEAD
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: head_after
       changed_when: false
       check_mode: false
@@ -148,7 +156,7 @@
     - name: Read updated package lock blob
       ansible.builtin.command:
         cmd: 'git rev-parse {{ effective_head_after }}:package-lock.json'
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       register: package_lock_after
       changed_when: false
       failed_when: false
@@ -157,7 +165,7 @@
     - name: Install dependencies when package lock changed
       ansible.builtin.command:
         cmd: npm ci
-        chdir: '{{ backtest_repo_dir }}'
+        chdir: '{{ worker_repo_dir }}'
       when:
         - not ansible_check_mode
         - checkout_update_needed
@@ -167,9 +175,9 @@
       ansible.builtin.shell:
         cmd: >-
           tmux new-session -d
-          -s {{ backtest_worker_session | quote }}
-          -c {{ backtest_repo_dir | quote }}
-          {{ ("exec " ~ backtest_worker_command) | quote }}
+          -s {{ worker_session | quote }}
+          -c {{ worker_repo_dir | quote }}
+          {{ ("exec " ~ worker_command) | quote }}
       when:
         - not ansible_check_mode
         - worker_restart_needed
@@ -177,8 +185,8 @@
     - name: Report worker update result
       ansible.builtin.debug:
         msg:
-          - 'repo={{ backtest_repo_dir }}'
-          - 'branch={{ backtest_branch }}'
+          - 'repo={{ worker_repo_dir }}'
+          - 'branch={{ worker_branch }}'
           - 'before={{ head_before.stdout[:8] }}'
           - 'after={{ effective_head_after[:8] }}'
           - 'checkout_update_needed={{ checkout_update_needed }}'
