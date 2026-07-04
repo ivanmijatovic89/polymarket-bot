@@ -196,6 +196,7 @@ export default withMermaid(
           items: [
             { text: 'Overview', link: '/strategy-research/index' },
             { text: 'Champion / Challenger Versioning', link: '/strategy-research/champion-challenger-versioning' },
+            { text: 'Protocol Token Count', link: '/strategy-research/protocol-token-count' },
           ],
         },
 

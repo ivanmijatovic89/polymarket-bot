@@ -14,8 +14,7 @@ npm run research:protocol-size
 
 The script scans `strategy-research-protocol/**/*.md`,
 `strategy-research-protocol/**/*.json`, and the research-memory files defined
-by [`strategy-research-protocol/MEMORY.md`](../../strategy-research-protocol/MEMORY.md).
-It then prints:
+by `strategy-research-protocol/MEMORY.md`. It then prints:
 
 1. a numbered Markdown-file table,
 2. a numbered JSON-file table,
