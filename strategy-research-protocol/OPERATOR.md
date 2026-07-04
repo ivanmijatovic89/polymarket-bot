@@ -74,6 +74,46 @@ Several families in parallel: run the same loop per family. One family = one
 session at a time (the scripts enforce this with a lock; a second session
 refuses to start).
 
+## 2b. Interactive mode — watch and steer (recommended at the start)
+
+The scripts are headless: you see a live feed but cannot intervene. For the
+shakedown phase, run the SAME roles interactively instead — open a normal
+session (`claude`, from either folder) and paste the exact instruction the
+script would have sent:
+
+```text
+Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run autonomous (no seed).
+Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run with seed: '<your idea>'.
+Execute one researcher iteration per strategy-research-protocol/modules/Researcher.md. Family: '<family>'.
+Execute the evaluator per strategy-research-protocol/modules/Evaluator.md. Family: '<family>', experiment: '<experiment-id>'.
+```
+
+Behavior is identical — the module contracts and the files are the truth —
+but now you can:
+
+- **approve each step**: in default permission mode every file edit and bash
+  command waits for your yes/no, which IS the step-by-step experience;
+- **ask before it acts**: append "Before each action, tell me what you are
+  about to do and why, and wait for my confirmation." to the instruction;
+- **interrupt and steer** (Esc), ask "why did you choose those pass
+  values?", request changes before it submits;
+- **chain steps in one session**: after an iteration finishes, just say
+  "continue" — statuses in FAMILY.json tell it what is next. Handing the
+  next step to a fresh scripted session works equally well; the files carry
+  everything.
+
+Two cautions:
+
+- Interactive sessions do NOT take the per-family lock (only the scripts
+  do). YOU are the lock: never run an interactive role and a script on the
+  same family at the same time.
+- The role rules still bind you: don't ask the Researcher to peek at raw
+  results or the Evaluator to write FAMILY.md — if you want an exception,
+  change the module, not the session.
+
+Once the loop feels trustworthy, switch to the scripts — they are the same
+thing without the hand-holding.
+
 ## 3. Checking status anytime
 
 - Family state: open `src/strategies/research/<family>/FAMILY.json`
