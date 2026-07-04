@@ -7,6 +7,7 @@
     backtest_remote_default: origin
     backtest_worker_session_default: polymarket-backtest-worker
     backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_shell_default: /bin/zsh
 
   tasks:
     - name: Resolve worker update settings
@@ -16,7 +17,10 @@
         worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
         worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
         worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
         worker_tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
+        worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
+        worker_log_file: '{{ (backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers")) ~ "/" ~ (backtest_worker_session | default(backtest_worker_session_default)) ~ ".log" }}'
 
     - name: Check repository exists
       ansible.builtin.stat:
@@ -195,13 +199,22 @@
       check_mode: false
 
     - name: Install dependencies when package lock changed
-      ansible.builtin.command:
-        cmd: npm ci
+      ansible.builtin.shell:
+        cmd: '{{ worker_shell | quote }} -lic {{ "npm ci" | quote }}'
         chdir: '{{ worker_repo_dir }}'
       when:
         - not ansible_check_mode
         - checkout_update_needed
         - package_lock_before.stdout != package_lock_after.stdout
+
+    - name: Ensure worker log directory exists before restart
+      ansible.builtin.file:
+        path: '{{ worker_log_dir }}'
+        state: directory
+        mode: '0755'
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
 
     - name: Restart managed tmux worker session after checkout update
       ansible.builtin.shell:
@@ -209,7 +222,7 @@
           {{ worker_tmux_bin | quote }} new-session -d
           -s {{ worker_session | quote }}
           -c {{ worker_repo_dir | quote }}
-          {{ ("exec " ~ worker_command) | quote }}
+          {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_file ~ " 2>&1") | quote) | quote }}
       when:
         - not ansible_check_mode
         - worker_restart_needed
@@ -222,6 +235,8 @@
           - 'before={{ head_before.stdout[:8] }}'
           - 'after={{ effective_head_after[:8] }}'
           - 'tmux_available={{ worker_tmux_available }}'
+          - 'shell={{ worker_shell }}'
+          - 'log={{ worker_log_file }}'
           - 'worker_session_running={{ worker_session_running }}'
           - 'checkout_update_needed={{ checkout_update_needed }}'
           - 'restart_needed={{ worker_restart_needed }}'

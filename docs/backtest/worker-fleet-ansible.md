@@ -102,6 +102,8 @@ The inventory variables are:
 | `backtest_branch` | No | `main` |
 | `backtest_remote` | No | `origin` |
 | `backtest_tmux_bin` | No | auto-detect from `PATH`, `/opt/homebrew/bin/tmux`, or `/usr/local/bin/tmux` |
+| `backtest_worker_shell` | No | `/bin/zsh` |
+| `backtest_worker_log_dir` | No | `<backtest_repo_dir>/logs/workers` |
 | `backtest_worker_session` | No | `polymarket-backtest-worker` |
 | `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets --market-concurrency 5` |
 
@@ -197,6 +199,7 @@ ANSIBLE_INVENTORY=/path/to/inventory.ini ./scripts/update-worker-fleet.sh
 | `Tracked working tree is dirty` | Local edits exist on the worker checkout. | Commit/stash/remove them, or use a separate experimental checkout. |
 | `cannot fast-forward` | The worker branch diverged from `origin/main`. | Inspect the branch manually; do not let automation guess. |
 | `tmux is required to start managed workers` | tmux is missing on that worker, or it is installed outside the detected paths. | Run `brew install tmux`, or set `backtest_tmux_bin` in inventory. |
+| `env: node: No such file or directory` in worker log | The configured worker shell does not load Node/NVM setup. | Fix the worker shell startup files, or set `backtest_worker_shell` to the shell you use manually. |
 | Worker still shows old commit | The managed session was not the process shown on the dashboard. | Stop old manual workers and let the managed tmux session be the only worker process. |
 
 ## Warnings

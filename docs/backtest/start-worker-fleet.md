@@ -92,6 +92,15 @@ The playbook looks for tmux in `PATH`, `/opt/homebrew/bin/tmux`, and
 worker-1 ansible_host=worker-1-ansible backtest_repo_dir=/Users/worker-1/Sites/polymarket-bot backtest_tmux_bin=/custom/bin/tmux
 ```
 
+The worker command runs through `/bin/zsh -lic` inside tmux. This intentionally
+matches the environment you get when you SSH into the worker and start the
+worker manually, so NVM/Homebrew setup from your shell startup files is
+available. If a worker uses a different shell, set `backtest_worker_shell`:
+
+```ini
+worker-1 ansible_host=worker-1-ansible backtest_repo_dir=/Users/worker-1/Sites/polymarket-bot backtest_worker_shell=/bin/bash
+```
+
 Override it per host in `ops/ansible/inventory.ini`:
 
 ```ini
@@ -107,6 +116,13 @@ Check tmux sessions:
 ```bash
 ssh worker-1-ansible 'tmux ls'
 ssh milan-ansible 'tmux ls'
+```
+
+Check worker logs:
+
+```bash
+ssh worker-1-ansible 'tail -n 100 ~/Sites/polymarket-bot/logs/workers/polymarket-backtest-worker.log'
+ssh milan-ansible 'tail -n 100 ~/Projects/polymarket-bot/logs/workers/polymarket-backtest-worker.log'
 ```
 
 Attach to logs:
@@ -151,3 +167,16 @@ Then rerun:
 ```bash
 ./scripts/start-worker-fleet.sh
 ```
+
+## Worker exits immediately
+
+If tmux starts and immediately disappears, inspect the worker log first:
+
+```bash
+ssh worker-1-ansible 'tail -n 100 ~/Sites/polymarket-bot/logs/workers/polymarket-backtest-worker.log'
+```
+
+An error like `env: node: No such file or directory` means the worker shell did
+not initialize the same environment you use manually. Make sure the shell set in
+`backtest_worker_shell` loads your NVM/Homebrew setup, or move that setup into a
+startup file loaded by that shell.

@@ -5,6 +5,7 @@
   vars:
     backtest_worker_session_default: polymarket-backtest-worker
     backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_shell_default: /bin/zsh
 
   tasks:
     - name: Resolve worker start settings
@@ -12,7 +13,10 @@
         worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
         worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
         worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
         worker_tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
+        worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
+        worker_log_file: '{{ (backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers")) ~ "/" ~ (backtest_worker_session | default(backtest_worker_session_default)) ~ ".log" }}'
 
     - name: Check repository exists
       ansible.builtin.stat:
@@ -81,13 +85,22 @@
         worker_session_running: '{{ tmux_session.rc == 0 }}'
         worker_start_needed: '{{ tmux_session.rc != 0 }}'
 
+    - name: Ensure worker log directory exists
+      ansible.builtin.file:
+        path: '{{ worker_log_dir }}'
+        state: directory
+        mode: '0755'
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
     - name: Start managed tmux worker session
       ansible.builtin.shell:
         cmd: >-
           {{ worker_tmux_bin | quote }} new-session -d
           -s {{ worker_session | quote }}
           -c {{ worker_repo_dir | quote }}
-          {{ ("exec " ~ worker_command) | quote }}
+          {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_file ~ " 2>&1") | quote) | quote }}
       when:
         - not ansible_check_mode
         - worker_start_needed
@@ -98,6 +111,8 @@
           - 'repo={{ worker_repo_dir }}'
           - 'session={{ worker_session }}'
           - 'tmux={{ worker_tmux_bin }}'
+          - 'shell={{ worker_shell }}'
+          - 'log={{ worker_log_file }}'
           - 'command={{ worker_command }}'
           - 'worker_session_running={{ worker_session_running }}'
           - 'worker_start_needed={{ worker_start_needed }}'
