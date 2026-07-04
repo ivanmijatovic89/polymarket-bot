@@ -65,6 +65,7 @@ infinite relaunch loops when a needed commit is unreachable.
 | --- | --- |
 | `ops/ansible/update-workers.yml` | The playbook that updates and restarts worker machines. |
 | `ops/ansible/inventory.example.ini` | Example inventory. Copy it to `inventory.ini` and edit hosts. |
+| `ops/ansible/ansible.cfg` | Local Ansible defaults used by the wrapper. |
 | `scripts/update-worker-fleet.sh` | Local wrapper that runs the playbook against `ops/ansible/inventory.ini`. |
 
 `ops/ansible/inventory.ini` is intentionally ignored by Git because it can
@@ -150,6 +151,12 @@ Normal update:
 ./scripts/update-worker-fleet.sh
 ```
 
+The wrapper prints total elapsed time and the Ansible exit code at the end:
+
+```text
+[update-worker-fleet] elapsed=00:00:18 exit=0
+```
+
 Pass Ansible flags through the wrapper:
 
 ```bash
@@ -173,6 +180,17 @@ ANSIBLE_INVENTORY=/path/to/inventory.ini ./scripts/update-worker-fleet.sh
 | `cannot fast-forward` | The worker branch diverged from `origin/main`. | Inspect the branch manually; do not let automation guess. |
 | `tmux: command not found` | tmux is missing on that worker. | Install tmux or move to a launchd-based worker manager later. |
 | Worker still shows old commit | The managed session was not the process shown on the dashboard. | Stop old manual workers and let the managed tmux session be the only worker process. |
+
+## Warnings
+
+The wrapper uses `ops/ansible/ansible.cfg`, which sets
+`interpreter_python = auto_silent`. This suppresses Ansible's noisy Python
+interpreter discovery warning on macOS workers. It does not pin a specific
+Python path; if a worker later has a broken Python install, Ansible will still
+fail when it cannot run modules.
+
+Deprecation warnings are also disabled for this fleet command so normal update
+output stays focused on host state.
 
 ## Dashboard
 
