@@ -43,12 +43,15 @@ flowchart TD
     C --> F[Worker N]
 
     D --> G["git fetch origin"]
-    G --> H["git checkout main"]
-    H --> I["git merge --ff-only origin/main"]
-    I --> J{"HEAD changed<br/>or tmux session missing?"}
-    J -- Yes --> K["restart managed tmux session"]
-    J -- No --> L["leave worker running"]
-    K --> M["scripts/run-worker.sh"]
+    G --> H{"checkout update needed<br/>or tmux session missing?"}
+    H -- No --> I["leave worker running"]
+    H -- "Update needed" --> J["verify fast-forward"]
+    J --> K["stop managed tmux session"]
+    K --> L["git checkout main"]
+    L --> M["git merge --ff-only origin/main"]
+    M --> N["npm ci if package-lock changed"]
+    N --> O["start scripts/run-worker.sh"]
+    H -- "Session missing only" --> O
 ```
 
 `scripts/run-worker.sh` is still the process that runs the worker. Ansible does
@@ -126,12 +129,15 @@ For each host, the playbook:
 2. Fails if tracked files are dirty.
 3. Reads the current `HEAD`.
 4. Fetches `origin`.
-5. Checks out `main`.
-6. Verifies the checkout can fast-forward to `origin/main`.
-7. Runs `git merge --ff-only origin/main`.
-8. Runs `npm ci` only if `package-lock.json` changed.
-9. Checks whether the managed tmux session exists.
-10. Restarts the session only if `HEAD` changed or the session is missing.
+5. Checks whether the managed tmux session exists.
+6. Decides whether the checkout must change or the session is missing.
+7. Verifies the target branch can fast-forward to `origin/main`.
+8. Stops the managed tmux session before any working-tree mutation when a
+   checkout update is needed.
+9. Checks out `main` and runs `git merge --ff-only origin/main`.
+10. Runs `npm ci` only if `package-lock.json` changed.
+11. Starts the managed tmux session when code changed, branch changed, or the
+    session was missing.
 
 This is deliberately conservative. A dirty or diverged checkout is an operator
 problem, not something the playbook should repair automatically.

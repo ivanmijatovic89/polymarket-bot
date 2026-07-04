@@ -41,6 +41,14 @@
       changed_when: false
       check_mode: false
 
+    - name: Read current branch
+      ansible.builtin.command:
+        cmd: git rev-parse --abbrev-ref HEAD
+        chdir: '{{ backtest_repo_dir }}'
+      register: branch_before
+      changed_when: false
+      check_mode: false
+
     - name: Read current package lock blob
       ansible.builtin.command:
         cmd: git rev-parse HEAD:package-lock.json
@@ -65,17 +73,27 @@
       changed_when: false
       check_mode: false
 
-    - name: Check out target branch
+    - name: Check managed tmux worker session
       ansible.builtin.command:
-        cmd: 'git checkout {{ backtest_branch }}'
-        chdir: '{{ backtest_repo_dir }}'
-      register: git_checkout
-      changed_when: "'Switched to branch' in git_checkout.stderr or 'branch is set up' in git_checkout.stderr"
-      when: not ansible_check_mode
+        cmd: 'tmux has-session -t {{ backtest_worker_session }}'
+      register: tmux_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Decide whether checkout update or worker restart is needed
+      ansible.builtin.set_fact:
+        checkout_update_needed: >-
+          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != backtest_branch }}
+        worker_restart_needed: >-
+          {{ head_before.stdout != remote_head.stdout or branch_before.stdout != backtest_branch or tmux_session.rc != 0 }}
 
     - name: Verify update can fast-forward
       ansible.builtin.command:
-        cmd: 'git merge-base --is-ancestor HEAD {{ backtest_remote }}/{{ backtest_branch }}'
+        cmd: >-
+          git merge-base --is-ancestor
+          {{ (branch_before.stdout == backtest_branch) | ternary('HEAD', backtest_branch) }}
+          {{ backtest_remote }}/{{ backtest_branch }}
         chdir: '{{ backtest_repo_dir }}'
       register: fast_forward_check
       changed_when: false
@@ -87,13 +105,33 @@
         msg: 'Local {{ backtest_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ backtest_remote }}/{{ backtest_branch }}.'
       when: fast_forward_check.rc == 1
 
+    - name: Stop managed tmux worker session before mutating checkout
+      ansible.builtin.command:
+        cmd: 'tmux kill-session -t {{ backtest_worker_session }}'
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+        - tmux_session.rc == 0
+
+    - name: Check out target branch
+      ansible.builtin.command:
+        cmd: 'git checkout {{ backtest_branch }}'
+        chdir: '{{ backtest_repo_dir }}'
+      register: git_checkout
+      changed_when: "'Switched to branch' in git_checkout.stderr or 'branch is set up' in git_checkout.stderr"
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
+
     - name: Fast-forward to remote branch
       ansible.builtin.command:
         cmd: 'git merge --ff-only {{ backtest_remote }}/{{ backtest_branch }}'
         chdir: '{{ backtest_repo_dir }}'
       register: git_merge
       changed_when: "'Updating ' in git_merge.stdout"
-      when: not ansible_check_mode
+      when:
+        - not ansible_check_mode
+        - checkout_update_needed
 
     - name: Read updated HEAD
       ansible.builtin.command:
@@ -105,7 +143,7 @@
 
     - name: Resolve effective target HEAD
       ansible.builtin.set_fact:
-        effective_head_after: '{{ remote_head.stdout if ansible_check_mode else head_after.stdout }}'
+        effective_head_after: '{{ remote_head.stdout if checkout_update_needed else head_after.stdout }}'
 
     - name: Read updated package lock blob
       ansible.builtin.command:
@@ -122,28 +160,8 @@
         chdir: '{{ backtest_repo_dir }}'
       when:
         - not ansible_check_mode
-        - head_before.stdout != effective_head_after
+        - checkout_update_needed
         - package_lock_before.stdout != package_lock_after.stdout
-
-    - name: Check managed tmux worker session
-      ansible.builtin.command:
-        cmd: 'tmux has-session -t {{ backtest_worker_session }}'
-      register: tmux_session
-      changed_when: false
-      failed_when: false
-      check_mode: false
-
-    - name: Decide whether worker restart is needed
-      ansible.builtin.set_fact:
-        worker_restart_needed: '{{ head_before.stdout != effective_head_after or tmux_session.rc != 0 }}'
-
-    - name: Stop managed tmux worker session
-      ansible.builtin.command:
-        cmd: 'tmux kill-session -t {{ backtest_worker_session }}'
-      when:
-        - not ansible_check_mode
-        - worker_restart_needed
-        - tmux_session.rc == 0
 
     - name: Start managed tmux worker session
       ansible.builtin.shell:
@@ -163,4 +181,5 @@
           - 'branch={{ backtest_branch }}'
           - 'before={{ head_before.stdout[:8] }}'
           - 'after={{ effective_head_after[:8] }}'
+          - 'checkout_update_needed={{ checkout_update_needed }}'
           - 'restart_needed={{ worker_restart_needed }}'
