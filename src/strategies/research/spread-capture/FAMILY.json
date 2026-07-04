@@ -72,8 +72,8 @@
               "spread-capture--000-baseline--p3-repriceDelta--55319110-5034-4c50-a2dc-5e604bbcfd55",
               "spread-capture--000-baseline--p3-repriceDelta--30a63c0a-b362-499f-80c7-b23122505839"
             ],
-            "best": null,
-            "note": null
+            "best": 0.01,
+            "note": "All cells net-negative; direction REVERSES vs passes 1-2 — more repricing helps: 0.01 -0.10, 0.02 -0.15, 0.04 -0.26, 1 (never) -0.53 netEv/mkt (runs 135-138, 1000 mkts each, 502-1485 trades). Never-reprice is decisively worst: win rate 65.8% but avgWin 1.44 vs avgLoss -4.46 — stale asks sell cheap into every trend (pennies-vs-steamroller). Tracking the mid at 0.01 cuts adverse selection to -0.10, the family's best cell so far, but gross is still negative in every cell and both weekly chunks negative everywhere (W23 at 0.01 is -0.01, near break-even, W24 -0.16). Best is again a grid EDGE (0.01 = tightest sweep value; sub-0.01 thresholds are possible since mids move sub-cent). Consistency check: run 135 (repriceDelta=0.02) exactly reproduces run 134 (-0.15). Advisory: pass 3 answered its mechanistic question — the last distinct cell (never-reprice) did NOT flip the sign, it confirmed stale quotes are the dominant loss channel. Picture after 3 passes: every knob's best is quote-less/track-faster and EV approaches $0 from below; only pass 4 (sizeUsd linearity check, cannot flip sign) remains before the gate-1 verdict."
           },
           {
             "param": "sizeUsd",
