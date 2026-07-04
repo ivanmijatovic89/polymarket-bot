@@ -142,7 +142,7 @@ thing without the hand-holding.
 
 - `/protocol-audit` (Claude command, from the repo root) — writes an
   actionable report to `protocol-audit/`; fix findings by telling a session
-  "fix A1, A3 from protocol-audit/<report>.md".
+  "fix A1, A3 from protocol-audit/report.md".
 - Skim [`LESSONS.md`](./LESSONS.md) now and then — it is the compounding
   asset; if it is not growing, Researchers are skipping the promotion check.
 - Commit and push to `main` after research steps; sync remote workers before
@@ -150,12 +150,27 @@ thing without the hand-holding.
 
 ## 6. Troubleshooting
 
-| symptom                                                        | cause / fix                                                                                                                          |
-| -------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| script says "another session is already working on `<family>`" | a live session holds the lock; if it is actually dead: `rm ${TMPDIR:-/tmp}/research-locks/<family>.lock`                             |
-| `research:check` fails                                         | read its per-family error lines — most often a missing Research-log entry or an inconsistent status; have a session fix exactly that |
-| submission refused: dirty tree                                 | commit first — workers run committed code                                                                                            |
-| remote worker shows old commit                                 | push `main`, then run `./scripts/update-worker-fleet.sh` before submitting                                                           |
-| worker exits with code 75                                      | normal: worker self-update, it relaunches on the new commit                                                                          |
-| `--extend` blocked: "extension in progress"                    | crashed extend; clear with `UPDATE backtest_runs SET extending_at = NULL WHERE id = <runId>;`                                        |
-| `check-batch` cannot connect                                   | you are on a machine without `.env` DB credentials                                                                                   |
+- **Script says "another session is already working on a family"** — a live
+  session holds the lock. If it is actually dead, remove the lock with
+  `rm ${TMPDIR:-/tmp}/research-locks/FAMILY.lock`, replacing `FAMILY`.
+
+- **`research:check` fails** — read its per-family error lines. Most often
+  this is a missing Research-log entry or inconsistent status. Have a session
+  fix exactly that.
+
+- **Submission refused: dirty tree** — commit first; workers run committed
+  code.
+
+- **Remote worker shows old commit** — push `main`, then run
+  `./scripts/update-worker-fleet.sh` before submitting.
+
+- **Worker exits with code 75** — normal: worker self-updated and relaunches on
+  the new commit.
+
+- **`--extend` blocked: "extension in progress"** — crashed extend. Clear it
+  in MySQL with
+  `UPDATE backtest_runs SET extending_at = NULL WHERE id = RUN_ID;`, replacing
+  `RUN_ID`.
+
+- **`check-batch` cannot connect** — you are on a machine without `.env` DB
+  credentials.

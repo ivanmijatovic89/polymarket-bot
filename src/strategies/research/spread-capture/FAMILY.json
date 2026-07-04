@@ -46,8 +46,8 @@
               "spread-capture--000-baseline--p1-offset--22683b35-fab5-4ed9-947c-30323c84f6f1",
               "spread-capture--000-baseline--p1-offset--c0ff99e5-6a56-43cb-88e7-d231457fe54b"
             ],
-            "best": null,
-            "note": null
+            "best": 0.05,
+            "note": "All cells net-negative, monotone improving with offset: 0.01 -0.58, 0.02 -0.50, 0.03 -0.45, 0.05 -0.28 netEv/mkt (runs 127-130, 1000 mkts each, 1015-1857 trades — volume healthy). Best is the grid EDGE, not a plateau. Gross is negative in every cell (fees only ~$0.003-0.004/mkt — fee-free thesis holds; the loss is pure adverse selection on maker fills). Loss shrinks toward the $0 no-quote limit (split+redeem is EV-neutral), so EV approaches zero FROM BELOW as quoting gets less aggressive — no positive interior in this grid. Weekly chunks uniformly negative at 0.01-0.03 (structural, not regime); 0.05 mixed but net negative. Advisory for later passes: a probe above offset 0.05 may confirm the asymptote-to-zero shape; note worst_queue fills only the adversely-selected flow, so these numbers are the conservative bound."
           },
           {
             "param": "quoteStopSec",
