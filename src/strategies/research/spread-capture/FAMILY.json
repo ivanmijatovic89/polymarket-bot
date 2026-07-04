@@ -1,0 +1,86 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-family-index",
+  "family": "spread-capture",
+  "status": "proposed",
+  "coreIdea": "Split collateral into UP+DOWN full sets and symmetrically rest maker asks above mid on both legs, collecting the spread takers pay while the $1 redemption hedges unsold inventory.",
+  "duplicateKeys": [
+    "market-making",
+    "liquidity-provision",
+    "two-sided-quote",
+    "split-and-quote",
+    "split-sell-redeem",
+    "spread-harvest",
+    "both-sides-maker",
+    "complement-set-market-making"
+  ],
+  "retryOnlyIf": null,
+  "champion": null,
+  "verdictSummary": null,
+  "tags": ["maker", "spread", "market-making", "split-merge", "orderbook", "fee-free"],
+  "experiments": [
+    {
+      "id": "000-baseline",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": null,
+      "hypothesis": "Symmetric maker asks quoted a fixed offset above mid on both legs of a split full set collect more spread than trending-window adverse selection costs, at zero taker fees.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "sizeUsd": 10,
+          "offset": 0.02,
+          "repriceDelta": 0.02,
+          "quoteStopSec": 120
+        },
+        "passes": [
+          {
+            "param": "offset",
+            "values": [0.01, 0.02, 0.03, 0.05],
+            "batchUid": "spread-capture--000-baseline--p1-offset",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "quoteStopSec",
+            "values": [60, 120, 240, 420],
+            "batchUid": "spread-capture--000-baseline--p2-quoteStopSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "repriceDelta",
+            "values": [0.01, 0.02, 0.04, 1],
+            "batchUid": "spread-capture--000-baseline--p3-repriceDelta",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "sizeUsd",
+            "values": [5, 10, 20],
+            "batchUid": "spread-capture--000-baseline--p4-sizeUsd",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
+    }
+  ]
+}
