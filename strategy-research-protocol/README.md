@@ -180,6 +180,8 @@ Researcher and the Evaluator cite it; neither invents criteria.
 - [`strategy-research-protocol/LESSONS.md`](./LESSONS.md) — append-only
   cross-family lessons; required reading for ProposeFamily and the
   Researcher.
+- [`strategy-research-protocol/OPERATOR.md`](./OPERATOR.md) — the human
+  operator's step-by-step cookbook.
 - [`strategy-research-protocol/RUNNING.md`](./RUNNING.md) — how sessions are
   launched and handed off (scripts, cadence, branch policy).
 - [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) — memory rules and
