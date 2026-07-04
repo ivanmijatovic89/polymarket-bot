@@ -14,9 +14,10 @@ package.json, and the launch scripts `cd` to the git root themselves.
 
 1. `.env` with database credentials — `evaluator.sh` and
    `npm run research:check-batch` query MySQL.
-2. Redis + backtest workers running on this machine (branch policy is
-   `main`-local, so workers must run where research commits live):
-   `./scripts/run-worker.sh` with your usual queues (market + aggregate).
+2. Redis + backtest workers running. Remote workers track `origin/main`; after
+   pushing research commits to `main`, run `./scripts/update-worker-fleet.sh`
+   before submitting jobs. Local-only workers can still be started manually with
+   `./scripts/run-worker.sh` using your usual queues (market + aggregate).
 3. (Optional, speeds up first runs) prewarm Telonex data locally:
    `npm run telonex:download-converted-r2-to-local -- --converter delta-typed --symbol btc --timeframe 15m`
    — not required: protocol backtests always run with
@@ -144,8 +145,8 @@ thing without the hand-holding.
   "fix A1, A3 from protocol-audit/<report>.md".
 - Skim [`LESSONS.md`](./LESSONS.md) now and then — it is the compounding
   asset; if it is not growing, Researchers are skipping the promotion check.
-- Commit and push after research steps; CI runs `research:check` + INDEX
-  freshness on every PR.
+- Commit and push to `main` after research steps; sync remote workers before
+  submitting backtests.
 
 ## 6. Troubleshooting
 
@@ -154,6 +155,7 @@ thing without the hand-holding.
 | script says "another session is already working on `<family>`" | a live session holds the lock; if it is actually dead: `rm ${TMPDIR:-/tmp}/research-locks/<family>.lock`                             |
 | `research:check` fails                                         | read its per-family error lines — most often a missing Research-log entry or an inconsistent status; have a session fix exactly that |
 | submission refused: dirty tree                                 | commit first — workers run committed code                                                                                            |
+| remote worker shows old commit                                 | push `main`, then run `./scripts/update-worker-fleet.sh` before submitting                                                           |
 | worker exits with code 75                                      | normal: worker self-update, it relaunches on the new commit                                                                          |
 | `--extend` blocked: "extension in progress"                    | crashed extend; clear with `UPDATE backtest_runs SET extending_at = NULL WHERE id = <runId>;`                                        |
 | `check-batch` cannot connect                                   | you are on a machine without `.env` DB credentials                                                                                   |

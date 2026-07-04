@@ -60,11 +60,11 @@ commit — change the setting here and nowhere else.
 researchBranch: main
 ```
 
-Current policy: research sessions commit on `main` locally. Note that direct
-PUSH to `main` is blocked by branch protection, so workers on the SAME
-machine see research commits immediately, while remote workers (which pull)
-only see code after a PR merge — run backtest workers on the machine where
-research commits live for now.
+Current policy: research sessions commit directly on `main` and push `main`
+before submitting remote-worker backtests. Remote workers track `origin/main`;
+after pushing, run
+[`syncWorkerFleet`](./tools/syncWorkerFleet.md) so worker checkouts fast-forward
+before jobs are enqueued.
 
 If this ever becomes a bottleneck, the known alternative is a long-lived
 `research` branch that workers track, merged to `main` at family checkpoints
@@ -74,7 +74,9 @@ the workers at the branch.
 ## Preconditions checklist (any session)
 
 - `npm run research:check` passes before starting work.
-- Tree clean before any submission; push when workers are remote.
+- Tree clean before any submission.
+- Push to `main`, then run `./scripts/update-worker-fleet.sh` before remote
+  workers consume the run.
 - Database credentials in `.env` on the machine running `evaluator.sh` and
   `research:check-batch` (they query MySQL; see
   [`tools/checkBatch.md`](./tools/checkBatch.md)).

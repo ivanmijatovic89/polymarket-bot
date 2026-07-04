@@ -331,11 +331,13 @@ to enqueue a backtest when the working tree is dirty.
 Daily loop:
 
 ```text
-write strategy -> commit -> push -> run backtest
+write strategy -> commit -> push main -> sync worker fleet -> run backtest
 ```
 
 - On a single machine, committing is enough.
-- With workers on other machines, the commit must also be pushed.
+- With workers on other machines, the commit must be pushed to `main`, then
+  remote worker checkouts must be synced with
+  [`strategy-research-protocol/tools/syncWorkerFleet.md`](./tools/syncWorkerFleet.md).
 - Extending an existing run enqueues jobs on the current commit while the
   parent's markets may have run on an older commit. Merging those results into
   one run is valid only because experiment strategy files are frozen after they

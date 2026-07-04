@@ -34,7 +34,10 @@ files never change — see the freeze rule in
 [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
 and
 [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
-The working tree must be clean (the CLI refuses a dirty tree).
+The working tree must be clean (the CLI refuses a dirty tree). Commit and push
+to `main` before extending; if remote workers may consume the extension, use
+[`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)
+after pushing and before this tool.
 
 ## Protocol Defaults
 

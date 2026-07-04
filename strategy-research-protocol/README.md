@@ -146,8 +146,8 @@ One experiment, end to end:
 1. Researcher session starts: reads both family files; the statuses imply
    exactly one next action.
 2. Spec: experiment record with `hypothesis` + `successCriteria` (+ new `.ts`
-   for variations), status `queued`. Commit (and push for remote workers) —
-   workers run committed code.
+   for variations), status `queued`. Commit, push to `main`, and sync remote
+   workers before submission — workers run committed code.
 3. Smoke test (`--sequential --limit 10`, batchUid `--smoke` — never
    evidence), then submit coordinate-search pass 1 with `--baselineId`;
    record batchUid + submissionUids; status `running`.
@@ -211,6 +211,7 @@ Researcher and the Evaluator cite it; neither invents criteria.
 - `checkBatch` — [`tools/checkBatch.md`](./tools/checkBatch.md)
 - `getBacktestResults` — [`tools/getBacktestResults.md`](./tools/getBacktestResults.md)
 - `buildStrategyIndex` — [`tools/buildStrategyIndex.md`](./tools/buildStrategyIndex.md)
+- `syncWorkerFleet` — [`tools/syncWorkerFleet.md`](./tools/syncWorkerFleet.md)
 
 Scripts: `npm run research:check`, `npm run research:check-batch`,
 `npm run research:build-index`.

@@ -21,3 +21,5 @@ Before adding a new tool file, read
   [`strategy-research-protocol/tools/checkBatch.md`](./checkBatch.md)
 - `getBacktestResults`:
   [`strategy-research-protocol/tools/getBacktestResults.md`](./getBacktestResults.md)
+- `syncWorkerFleet`:
+  [`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)

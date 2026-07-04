@@ -33,8 +33,9 @@ cells of a coordinate-search pass, or a single fixed-params run.
 
 ## Precondition
 
-Commit (and push, when workers run on other machines) before submitting —
-workers run committed code only. See
+Commit and push to `main` before submitting. If remote workers may consume the
+run, use [`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)
+after pushing and before this tool. Workers run committed code only. See
 [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
 
 ## Protocol Defaults

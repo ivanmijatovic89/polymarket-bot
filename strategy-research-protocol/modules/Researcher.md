@@ -57,7 +57,8 @@ INCOMPLETE, report it and exit; a later session continues.
   [`BATCH-UID.md`](../rules/BATCH-UID.md).
 - Tools: [`runBacktest`](../tools/runBacktest.md),
   [`extendBacktest`](../tools/extendBacktest.md),
-  [`checkBatch`](../tools/checkBatch.md).
+  [`checkBatch`](../tools/checkBatch.md),
+  [`syncWorkerFleet`](../tools/syncWorkerFleet.md).
 
 ## What the Researcher writes
 
@@ -105,13 +106,16 @@ is mandatory (not the promotion) at every kill and every validation.
 
 ## Submitting
 
-1. Commit — and push when workers run on other machines. Workers run
-   committed code; the producer refuses a dirty tree.
-2. Smoke test first (`--smoke`, never evidence).
-3. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
+1. Commit and push to `main`. Workers run committed code; the producer refuses
+   a dirty tree.
+2. When remote workers may consume the run, use
+   [`syncWorkerFleet`](../tools/syncWorkerFleet.md) after pushing and before
+   submission.
+3. Smoke test first (`--smoke`, never evidence).
+4. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
    `submissionUids`, `coverage`, `submittedAt` in FAMILY.json immediately;
    status `running`.
-4. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
+5. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
    winning run — coverage grows, batchUid stays.
 
 ## Killing a family
