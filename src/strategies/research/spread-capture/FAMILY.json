@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactType": "strategy-family-index",
   "family": "spread-capture",
-  "status": "proposed",
+  "status": "researching",
   "coreIdea": "Split collateral into UP+DOWN full sets and symmetrically rest maker asks above mid on both legs, collecting the spread takers pay while the $1 redemption hedges unsold inventory.",
   "duplicateKeys": [
     "market-making",
@@ -40,7 +40,12 @@
             "param": "offset",
             "values": [0.01, 0.02, 0.03, 0.05],
             "batchUid": "spread-capture--000-baseline--p1-offset",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--000-baseline--p1-offset--0b2bed62-5d10-4201-a8fc-3e8d2137efe5",
+              "spread-capture--000-baseline--p1-offset--3e75afcc-94e2-491c-8cac-ec36eabd9979",
+              "spread-capture--000-baseline--p1-offset--22683b35-fab5-4ed9-947c-30323c84f6f1",
+              "spread-capture--000-baseline--p1-offset--c0ff99e5-6a56-43cb-88e7-d231457fe54b"
+            ],
             "best": null,
             "note": null
           },
@@ -74,10 +79,10 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-04T05:45:02.000Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null

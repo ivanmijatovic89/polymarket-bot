@@ -1,5 +1,28 @@
 {
   "schemaVersion": 2,
   "artifactType": "strategy-global-index",
-  "families": []
+  "families": [
+    {
+      "family": "spread-capture",
+      "status": "researching",
+      "coreIdea": "Split collateral into UP+DOWN full sets and symmetrically rest maker asks above mid on both legs, collecting the spread takers pay while the $1 redemption hedges unsold inventory.",
+      "duplicateKeys": [
+        "market-making",
+        "liquidity-provision",
+        "two-sided-quote",
+        "split-and-quote",
+        "split-sell-redeem",
+        "spread-harvest",
+        "both-sides-maker",
+        "complement-set-market-making"
+      ],
+      "retryOnlyIf": null,
+      "verdictSummary": null,
+      "path": "spread-capture/FAMILY.md",
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": ["maker", "spread", "market-making", "split-merge", "orderbook", "fee-free"]
+    }
+  ]
 }
