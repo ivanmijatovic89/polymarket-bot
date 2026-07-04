@@ -66,7 +66,12 @@
             "param": "repriceDelta",
             "values": [0.01, 0.02, 0.04, 1],
             "batchUid": "spread-capture--000-baseline--p3-repriceDelta",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--000-baseline--p3-repriceDelta--2b220e1d-72b6-433a-a2ed-5ac06aea564f",
+              "spread-capture--000-baseline--p3-repriceDelta--28ebdaef-37d2-4086-b1f0-198e984bb0ec",
+              "spread-capture--000-baseline--p3-repriceDelta--55319110-5034-4c50-a2dc-5e604bbcfd55",
+              "spread-capture--000-baseline--p3-repriceDelta--30a63c0a-b362-499f-80c7-b23122505839"
+            ],
             "best": null,
             "note": null
           },
@@ -83,7 +88,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": "130",
+      "baselineId": "134",
       "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
       "status": "running",
       "gateLog": [],
