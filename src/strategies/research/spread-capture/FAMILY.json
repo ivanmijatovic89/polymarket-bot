@@ -149,7 +149,12 @@
             "param": "completionOffset",
             "values": [0, 0.01, 0.02, 0.05],
             "batchUid": "spread-capture--001-pair-completion--p1-completionOffset",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--001-pair-completion--p1-completionOffset--aa946eb7-dec1-48e6-81ed-2234faab9a1e",
+              "spread-capture--001-pair-completion--p1-completionOffset--6f21cd7b-b6c5-4f47-8304-fd8ce3cf3e34",
+              "spread-capture--001-pair-completion--p1-completionOffset--1b581dca-c077-4995-9b63-54520764cf52",
+              "spread-capture--001-pair-completion--p1-completionOffset--e17b30d4-2e22-4ba6-b3e0-741a9db6a7dd"
+            ],
             "best": null,
             "note": null
           }
@@ -158,11 +163,11 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "141",
+      "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-04T19:14:00.000Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
