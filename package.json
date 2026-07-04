@@ -90,7 +90,8 @@
     "pmxt:download-and-convert:v2": "tsx src/pmxt/download-and-convert-v2.ts --symbol btc",
     "pmxt:resolve-slugs:v2": "tsx src/pmxt/resolve-slugs-v2.ts --symbol btc",
     "pmxt:build-master:v2": "tsx src/pmxt/build-master-v2.ts --symbol btc",
-    "r2:upload": "tsx src/r2/upload.ts"
+    "r2:upload": "tsx src/r2/upload.ts",
+    "research:protocol-size": "tsx strategy-research-protocol/scripts/countProtocolTokens.ts"
   },
   "lint-staged": {
     "*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}": "prettier --write",
@@ -134,6 +135,7 @@
     "node-machine-id": "^1.1.12",
     "pino": "^10.1.0",
     "technicalindicators": "^3.1.0",
+    "tiktoken": "^1.0.22",
     "viem": "^2.33.3",
     "ws": "^8.18.3",
     "zod": "^4.2.1"
