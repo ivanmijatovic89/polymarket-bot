@@ -59,8 +59,8 @@
               "spread-capture--000-baseline--p2-quoteStopSec--b5fe387f-3051-4421-a47c-c60811d36e42",
               "spread-capture--000-baseline--p2-quoteStopSec--6adecdbb-d48c-4bde-a882-05e325081068"
             ],
-            "best": null,
-            "note": null
+            "best": 420,
+            "note": "All cells net-negative, monotone improving with quoteStopSec: 60 -0.34, 120 -0.28, 240 -0.23, 420 -0.15 netEv/mkt (runs 131-134, 1000 mkts each, 655-1075 trades — volume healthy). Best is again the grid EDGE (420s of a 900s window = quote only the first 8 min), not a plateau. Gross negative in every cell (fees $2.3-4.7/1000mkts — loss is adverse selection, not fees). Both weekly chunks negative in every cell (structural, not regime). Same asymptote-to-zero-from-below shape as pass 1: EV shrinks toward the $0 no-quote limit as quoting time shrinks; no positive interior. Consistency check: run 132 (quoteStopSec=120) exactly reproduces pass-1 run 130 (-0.28). Advisory: both knobs swept so far reduce loss only by quoting LESS — early-window quoting is as adversely selected as late; win rate 43-45% with avgWin < avgLoss in every cell. Pass 3's repriceDelta=1 (never reprice) is the last mechanistically distinct cell that could behave differently; sizeUsd (pass 4) is a linearity check and cannot flip sign."
           },
           {
             "param": "repriceDelta",
