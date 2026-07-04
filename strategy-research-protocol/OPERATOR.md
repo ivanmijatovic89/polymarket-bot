@@ -4,10 +4,11 @@ This file is for YOU, not for agents. Agents read `modules/`; the session
 mechanics live in [`RUNNING.md`](./RUNNING.md). This is the step-by-step
 cookbook: what you type, in what order, and which decisions are yours.
 
-Run everything from the repo root (`polymarket-bot/`) — that is where the
-Claude session gets the root CLAUDE.md context, the `/protocol-audit`
-command, and the npm scripts. The launch scripts self-correct (`cd` to the
-git root), so starting them from a subfolder also works.
+Work from whichever folder you prefer — both are fully supported.
+`cd strategy-research-protocol && claude` is the designed workflow: the root
+CLAUDE.md still loads (Claude walks up the tree), the `/protocol-audit`
+command is discovered from the repo root, `npm run` finds the root
+package.json, and the launch scripts `cd` to the git root themselves.
 
 ## 0. One-time setup (per machine)
 
