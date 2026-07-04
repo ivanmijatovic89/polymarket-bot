@@ -25,6 +25,11 @@ export class Portfolio {
   private readonly positionsByAssetId = new Map<string, Position>()
   private readonly openOrdersByClientId = new Map<string, OpenOrder>()
   private readonly ordersByClientIdSnapshot = new Map<string, OrderSnapshot>()
+  private ordersByClientIdRecordCache: Record<string, OrderSnapshot> = Object.freeze({}) as Record<
+    string,
+    OrderSnapshot
+  >
+  private ordersByClientIdRecordDirty = true
   // Many exchange events reference exchange `orderId` but not our `clientOrderId`.
   // Keep an index so we can reconcile order lifecycle + fills by orderId.
   private readonly clientOrderIdByOrderId = new Map<string, string>()
@@ -87,7 +92,7 @@ export class Portfolio {
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
       openOrdersByClientId: Object.fromEntries([...this.openOrdersByClientId.entries()]),
       wsOpenOrdersByOrderId: Object.fromEntries([...this.wsOpenOrdersByOrderId.entries()]),
-      ordersByClientId: Object.fromEntries([...this.ordersByClientIdSnapshot.entries()]),
+      ordersByClientId: this.getOrdersByClientIdRecord(),
       recentFills: [...this.recentFills],
       ...(this.recentSplits.length > 0 ? { recentSplits: [...this.recentSplits] } : {}),
       marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),
@@ -115,6 +120,16 @@ export class Portfolio {
 
   private tradeStatusRawField(raw: unknown): { tradeStatusRaw?: string } {
     return typeof raw === 'string' ? { tradeStatusRaw: raw } : {}
+  }
+
+  private getOrdersByClientIdRecord(): Record<string, OrderSnapshot> {
+    if (this.ordersByClientIdRecordDirty) {
+      this.ordersByClientIdRecordCache = Object.freeze(
+        Object.fromEntries(this.ordersByClientIdSnapshot.entries()),
+      ) as Record<string, OrderSnapshot>
+      this.ordersByClientIdRecordDirty = false
+    }
+    return this.ordersByClientIdRecordCache
   }
 
   private upsertOrderSnapshot(clientOrderId: string, next: OrderSnapshot): void {
@@ -148,6 +163,7 @@ export class Portfolio {
         if (i >= drop) break
       }
     }
+    this.ordersByClientIdRecordDirty = true
   }
 
   private mergePendingTradeStatusIntoSnapshot(clientOrderId: string, orderId?: string): void {
