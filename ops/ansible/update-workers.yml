@@ -1,0 +1,166 @@
+---
+- name: Proactively update backtest workers
+  hosts: backtest_workers
+  gather_facts: true
+  vars:
+    backtest_repo_dir: '{{ ansible_env.HOME }}/Sites/polymarket-bot'
+    backtest_branch: main
+    backtest_remote: origin
+    backtest_worker_session: polymarket-backtest-worker
+    backtest_worker_command: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+
+  tasks:
+    - name: Check repository exists
+      ansible.builtin.stat:
+        path: '{{ backtest_repo_dir }}/.git'
+      register: repo_git_dir
+
+    - name: Fail when repository is missing
+      ansible.builtin.fail:
+        msg: 'Repository not found at {{ backtest_repo_dir }}. Provision the worker first.'
+      when: not repo_git_dir.stat.exists
+
+    - name: Check tracked working tree status
+      ansible.builtin.command:
+        cmd: git status --porcelain --untracked-files=no
+        chdir: '{{ backtest_repo_dir }}'
+      register: git_status
+      changed_when: false
+      check_mode: false
+
+    - name: Fail when tracked working tree is dirty
+      ansible.builtin.fail:
+        msg: 'Tracked working tree is dirty on {{ inventory_hostname }}; clean it before updating workers.'
+      when: git_status.stdout | trim | length > 0
+
+    - name: Read current HEAD
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: '{{ backtest_repo_dir }}'
+      register: head_before
+      changed_when: false
+      check_mode: false
+
+    - name: Read current package lock blob
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD:package-lock.json
+        chdir: '{{ backtest_repo_dir }}'
+      register: package_lock_before
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Fetch remote branch
+      ansible.builtin.command:
+        cmd: 'git fetch --prune {{ backtest_remote }}'
+        chdir: '{{ backtest_repo_dir }}'
+      changed_when: false
+      when: not ansible_check_mode
+
+    - name: Read target remote HEAD
+      ansible.builtin.command:
+        cmd: 'git rev-parse {{ backtest_remote }}/{{ backtest_branch }}'
+        chdir: '{{ backtest_repo_dir }}'
+      register: remote_head
+      changed_when: false
+      check_mode: false
+
+    - name: Check out target branch
+      ansible.builtin.command:
+        cmd: 'git checkout {{ backtest_branch }}'
+        chdir: '{{ backtest_repo_dir }}'
+      register: git_checkout
+      changed_when: "'Switched to branch' in git_checkout.stderr or 'branch is set up' in git_checkout.stderr"
+      when: not ansible_check_mode
+
+    - name: Verify update can fast-forward
+      ansible.builtin.command:
+        cmd: 'git merge-base --is-ancestor HEAD {{ backtest_remote }}/{{ backtest_branch }}'
+        chdir: '{{ backtest_repo_dir }}'
+      register: fast_forward_check
+      changed_when: false
+      failed_when: fast_forward_check.rc not in [0, 1]
+      check_mode: false
+
+    - name: Fail when target branch cannot fast-forward
+      ansible.builtin.fail:
+        msg: 'Local {{ backtest_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ backtest_remote }}/{{ backtest_branch }}.'
+      when: fast_forward_check.rc == 1
+
+    - name: Fast-forward to remote branch
+      ansible.builtin.command:
+        cmd: 'git merge --ff-only {{ backtest_remote }}/{{ backtest_branch }}'
+        chdir: '{{ backtest_repo_dir }}'
+      register: git_merge
+      changed_when: "'Updating ' in git_merge.stdout"
+      when: not ansible_check_mode
+
+    - name: Read updated HEAD
+      ansible.builtin.command:
+        cmd: git rev-parse HEAD
+        chdir: '{{ backtest_repo_dir }}'
+      register: head_after
+      changed_when: false
+      check_mode: false
+
+    - name: Resolve effective target HEAD
+      ansible.builtin.set_fact:
+        effective_head_after: '{{ remote_head.stdout if ansible_check_mode else head_after.stdout }}'
+
+    - name: Read updated package lock blob
+      ansible.builtin.command:
+        cmd: 'git rev-parse {{ effective_head_after }}:package-lock.json'
+        chdir: '{{ backtest_repo_dir }}'
+      register: package_lock_after
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Install dependencies when package lock changed
+      ansible.builtin.command:
+        cmd: npm ci
+        chdir: '{{ backtest_repo_dir }}'
+      when:
+        - not ansible_check_mode
+        - head_before.stdout != effective_head_after
+        - package_lock_before.stdout != package_lock_after.stdout
+
+    - name: Check managed tmux worker session
+      ansible.builtin.command:
+        cmd: 'tmux has-session -t {{ backtest_worker_session }}'
+      register: tmux_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Decide whether worker restart is needed
+      ansible.builtin.set_fact:
+        worker_restart_needed: '{{ head_before.stdout != effective_head_after or tmux_session.rc != 0 }}'
+
+    - name: Stop managed tmux worker session
+      ansible.builtin.command:
+        cmd: 'tmux kill-session -t {{ backtest_worker_session }}'
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+        - tmux_session.rc == 0
+
+    - name: Start managed tmux worker session
+      ansible.builtin.shell:
+        cmd: >-
+          tmux new-session -d
+          -s {{ backtest_worker_session | quote }}
+          -c {{ backtest_repo_dir | quote }}
+          {{ ("exec " ~ backtest_worker_command) | quote }}
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Report worker update result
+      ansible.builtin.debug:
+        msg:
+          - 'repo={{ backtest_repo_dir }}'
+          - 'branch={{ backtest_branch }}'
+          - 'before={{ head_before.stdout[:8] }}'
+          - 'after={{ effective_head_after[:8] }}'
+          - 'restart_needed={{ worker_restart_needed }}'

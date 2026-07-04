@@ -12,6 +12,7 @@ import {
 } from '../backtest/queue.js'
 import { aggregateProcessor } from '../backtest/aggregateProcessor.js'
 import {
+  getCurrentGitBranch,
   getCurrentGitSha,
   getMachineId,
   getRedisProcessKey,
@@ -222,7 +223,9 @@ async function main(): Promise<void> {
   // they actually loaded, not a live `git rev-parse` that drifts when files
   // change on disk under a running worker.
   const launchSha = getCurrentGitSha()
+  const launchBranch = getCurrentGitBranch()
   process.env.WORKER_LAUNCH_SHA = launchSha
+  process.env.WORKER_LAUNCH_BRANCH = launchBranch
 
   // Note: REDIS_URL is OPTIONAL — getRedisConnection() in queue.ts falls back
   // to redis://localhost:6379 when unset, matching what the producer does.
@@ -231,10 +234,10 @@ async function main(): Promise<void> {
   console.log(
     `[worker] starting machineId=${machineId} queues=${[...args.queues].join(',')}` +
       ` marketConcurrency=${args.marketConcurrency} aggregateConcurrency=${args.aggregateConcurrency}` +
-      ` commitSha=${launchSha}`,
+      ` branch=${launchBranch} commitSha=${launchSha}`,
   )
 
-  const stopHeartbeat = await startHeartbeat(supervisorKey, launchSha)
+  const stopHeartbeat = await startHeartbeat(supervisorKey, launchSha, launchBranch)
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]

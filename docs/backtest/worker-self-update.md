@@ -15,6 +15,11 @@ Worker self-update removes that manual step. Each worker keeps itself on the
 code its jobs need: it runs what it can, and when a job requires newer code it
 **pulls and relaunches by itself**. No process manager, no cron, no `pm2`.
 
+Remote fleets can also be updated proactively with Ansible before jobs arrive.
+That is documented separately in
+[Worker Fleet Ansible](/backtest/worker-fleet-ansible); the commit gate on this
+page remains the correctness layer.
+
 ## The idea in one line
 
 > Run any job whose code I already have. If a job needs newer code, update and
@@ -132,6 +137,9 @@ The worker log should show the stale job being deferred before the wrapper pulls
 and starts the process again.
 After relaunch, the worker's startup line should print the new commit SHA.
 
+For proactive updates before the first job reaches a stale worker, use
+[Worker Fleet Ansible](/backtest/worker-fleet-ansible).
+
 ## The one rule: commit and push first
 
 The whole mechanism keys off the producer's commit SHA, so **uncommitted code is
@@ -169,10 +177,11 @@ safe with `--sequential`, which does not use workers at all.
 
 ## What the dashboard shows
 
-Each worker publishes its **loaded** commit (not a live `HEAD`) plus whether
-that commit matches `origin/main`. The dashboard's Workers table shows a colored
-"Commit" badge per process — green when the worker is on the latest `main`,
-amber when it is behind. See [Parallelization](/backtest/parallelization#dashboard).
+Each worker publishes its **loaded** branch and commit (not a live `HEAD`) plus
+whether that commit matches `origin/main`. The dashboard's Workers table shows a
+"Branch" badge and a colored "Commit" badge per process — green when the worker
+is on the latest `main`, amber when it is behind. See
+[Parallelization](/backtest/parallelization#dashboard).
 
 ## Reference
 
@@ -180,8 +189,10 @@ amber when it is behind. See [Parallelization](/backtest/parallelization#dashboa
 | --- | --- | --- |
 | Self-update exit code | `75` | `src/cli/backtestWorker.ts` |
 | Launcher / relauncher | `scripts/run-worker.sh` | repo root |
+| Proactive fleet update | `scripts/update-worker-fleet.sh` | see [Worker Fleet Ansible](/backtest/worker-fleet-ansible) |
 | Commit gate | `canRunJobCommit` → `isAncestorOrEqual` | `src/backtest/marketProcessor.ts`, `src/backtest/workerIdentity.ts` |
 | Loaded-commit env | `WORKER_LAUNCH_SHA` | stamped by the supervisor onto children |
+| Loaded-branch env | `WORKER_LAUNCH_BRANCH` | stamped by the supervisor onto children |
 | Producer dirty guard override | `BACKTEST_ALLOW_DIRTY=1` | `src/cli/backtest.ts` |
 
 ## See also

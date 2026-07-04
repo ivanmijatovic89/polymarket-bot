@@ -272,3 +272,25 @@ Run aggregate workers only on machines that have database credentials:
 ```bash
 ./scripts/run-worker.sh --queues markets,aggregate
 ```
+
+## 11. Update Workers Proactively
+
+Worker self-update is still the correctness fallback, but sibling workers can
+also be updated before they receive a new-code job. The full workflow is in
+[Worker Fleet Ansible](/backtest/worker-fleet-ansible).
+
+Copy the example inventory and edit it for your worker hosts:
+
+```bash
+cp ops/ansible/inventory.example.ini ops/ansible/inventory.ini
+```
+
+Then run:
+
+```bash
+./scripts/update-worker-fleet.sh
+```
+
+The playbook manages a tmux session named `polymarket-backtest-worker` by
+default. If a worker is currently running manually in another terminal or tmux
+pane, stop that process once before switching to the managed session.
