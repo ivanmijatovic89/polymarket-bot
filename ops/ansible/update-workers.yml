@@ -227,6 +227,45 @@
         - not ansible_check_mode
         - worker_restart_needed
 
+    - name: Wait for restarted worker session to stay alive
+      ansible.builtin.pause:
+        seconds: 2
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Verify restarted worker session is still running
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: worker_session_after_restart
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+
+    - name: Read worker log after failed restart
+      ansible.builtin.command:
+        cmd: 'tail -n 80 {{ worker_log_file }}'
+      register: worker_restart_log_tail
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+        - worker_session_after_restart.rc != 0
+
+    - name: Fail when managed worker session exited after restart
+      ansible.builtin.fail:
+        msg:
+          - 'Managed worker session exited immediately after restart on {{ inventory_hostname }}.'
+          - 'log={{ worker_log_file }}'
+          - '{{ worker_restart_log_tail.stdout }}'
+      when:
+        - not ansible_check_mode
+        - worker_restart_needed
+        - worker_session_after_restart.rc != 0
+
     - name: Report worker update result
       ansible.builtin.debug:
         msg:

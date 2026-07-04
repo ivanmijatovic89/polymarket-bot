@@ -105,6 +105,45 @@
         - not ansible_check_mode
         - worker_start_needed
 
+    - name: Wait for managed worker session to stay alive
+      ansible.builtin.pause:
+        seconds: 2
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Verify managed worker session is still running
+      ansible.builtin.command:
+        cmd: '{{ worker_tmux_bin }} has-session -t {{ worker_session }}'
+      register: worker_session_after_start
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Read worker log after failed start
+      ansible.builtin.command:
+        cmd: 'tail -n 80 {{ worker_log_file }}'
+      register: worker_start_log_tail
+      changed_when: false
+      failed_when: false
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+        - worker_session_after_start.rc != 0
+
+    - name: Fail when managed worker session exited after start
+      ansible.builtin.fail:
+        msg:
+          - 'Managed worker session exited immediately on {{ inventory_hostname }}.'
+          - 'log={{ worker_log_file }}'
+          - '{{ worker_start_log_tail.stdout }}'
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+        - worker_session_after_start.rc != 0
+
     - name: Report worker start result
       ansible.builtin.debug:
         msg:
