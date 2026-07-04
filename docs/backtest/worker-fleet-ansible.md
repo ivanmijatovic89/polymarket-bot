@@ -1,6 +1,6 @@
 ---
 title: Worker Fleet Ansible
-description: Proactively update backtest worker machines with Ansible, while preserving the worker self-update safety gate.
+description: Proactively update backtest worker machine checkouts with Ansible, while preserving the worker self-update safety gate.
 ---
 
 # Worker Fleet Ansible
@@ -10,10 +10,10 @@ job whose producer commit is newer than the code it loaded. That is the
 correctness layer. It prevents a stale worker from running a strategy registry
 that cannot contain the job's strategy code.
 
-Ansible is the operational layer on top. It lets you update workers before they
-receive a job, so the fleet is already on fresh `origin/main` when you launch a
-backtest. The commit gate still remains active, so proactive updates improve
-operator workflow without weakening determinism.
+Ansible is the operational layer on top. It lets you update worker checkouts
+before they receive a job, so the fleet is already on fresh `origin/main` when
+you launch a backtest. The commit gate still remains active, so proactive
+updates improve operator workflow without weakening determinism.
 
 ## What This Solves
 
@@ -30,7 +30,8 @@ With Ansible, you can run one command after merging or pushing:
 ```
 
 That command connects to every worker in the inventory, fast-forwards the repo,
-installs dependencies only if needed, and restarts the managed worker process.
+installs dependencies only if needed, and restarts the managed worker process
+only when that process was already running and the checkout changed.
 
 ## Architecture
 
@@ -43,15 +44,19 @@ flowchart TD
     C --> F[Worker N]
 
     D --> G["git fetch origin"]
-    G --> H{"checkout update needed<br/>or tmux session missing?"}
+    G --> H{"checkout update needed?"}
     H -- No --> I["leave worker running"]
     H -- "Update needed" --> J["verify fast-forward"]
-    J --> K["stop managed tmux session"]
-    K --> L["git checkout main"]
-    L --> M["git merge --ff-only origin/main"]
-    M --> N["npm ci if package-lock changed"]
-    N --> O["start scripts/run-worker.sh"]
-    H -- "Session missing only" --> O
+    J --> K{"managed tmux<br/>session running?"}
+    K -- Yes --> L["stop managed tmux session"]
+    K -- No --> M["leave worker stopped"]
+    L --> N["git checkout main"]
+    M --> N
+    N --> O["git merge --ff-only origin/main"]
+    O --> P["npm ci if package-lock changed"]
+    P --> Q{"session was running?"}
+    Q -- Yes --> R["start scripts/run-worker.sh"]
+    Q -- No --> S["do not start worker"]
 ```
 
 `scripts/run-worker.sh` is still the process that runs the worker. Ansible does
@@ -63,10 +68,12 @@ infinite relaunch loops when a needed commit is unreachable.
 
 | File | Purpose |
 | --- | --- |
-| `ops/ansible/update-workers.yml` | The playbook that updates and restarts worker machines. |
+| `ops/ansible/update-workers.yml` | The playbook that updates worker checkouts and restarts already-running managed sessions when needed. |
+| `ops/ansible/start-workers.yml` | The playbook that starts missing managed worker sessions. |
 | `ops/ansible/inventory.example.ini` | Example inventory. Copy it to `inventory.ini` and edit hosts. |
 | `ops/ansible/ansible.cfg` | Local Ansible defaults used by the wrapper. |
 | `scripts/update-worker-fleet.sh` | Local wrapper that runs the playbook against `ops/ansible/inventory.ini`. |
+| `scripts/start-worker-fleet.sh` | Local wrapper that starts missing managed worker sessions. |
 
 `ops/ansible/inventory.ini` is intentionally ignored by Git because it can
 contain private hostnames, users, IPs, or per-machine command overrides.
@@ -83,19 +90,19 @@ Example:
 
 ```ini
 [backtest_workers]
-worker-1 ansible_host=worker-1
-worker-2 ansible_host=100.64.0.25 backtest_worker_command="./scripts/run-worker.sh --queues markets --market-concurrency 8"
+worker-1 ansible_host=worker-1-ansible backtest_repo_dir=/Users/worker-1/Sites/polymarket-bot
+worker-2 ansible_host=100.64.0.25 backtest_repo_dir=/Users/worker-2/Sites/polymarket-bot backtest_worker_command="./scripts/run-worker.sh --queues markets --market-concurrency 8"
 ```
 
-The default variables are:
+The inventory variables are:
 
-| Variable | Default |
+| Variable | Required | Default |
 | --- | --- |
-| `backtest_repo_dir` | `~/Sites/polymarket-bot` |
-| `backtest_branch` | `main` |
-| `backtest_remote` | `origin` |
-| `backtest_worker_session` | `polymarket-backtest-worker` |
-| `backtest_worker_command` | `./scripts/run-worker.sh --queues markets --market-concurrency 5` |
+| `backtest_repo_dir` | Yes | none |
+| `backtest_branch` | No | `main` |
+| `backtest_remote` | No | `origin` |
+| `backtest_worker_session` | No | `polymarket-backtest-worker` |
+| `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets --market-concurrency 5` |
 
 Override `backtest_worker_command` per host when different machines should use
 different concurrency or queue ownership.
@@ -108,7 +115,11 @@ The current version uses a named tmux session instead of `launchd`:
 polymarket-backtest-worker
 ```
 
-The playbook starts it like this:
+The update playbook only starts this session again when it was already running
+and a checkout update required stopping it. Starting missing sessions is handled
+by [Start Worker Fleet](/backtest/start-worker-fleet).
+
+The managed session command is:
 
 ```bash
 tmux new-session -d \
@@ -118,9 +129,7 @@ tmux new-session -d \
 ```
 
 If a worker is currently running manually in another terminal or tmux pane, stop
-that process once before switching to the managed session. After that, the
-playbook owns the session and restarts it only when code changed or when the
-session is missing.
+that process once before switching to the managed session.
 
 ## Update Flow
 
@@ -131,14 +140,14 @@ For each host, the playbook:
 3. Reads the current `HEAD`.
 4. Fetches `origin`.
 5. Checks whether the managed tmux session exists.
-6. Decides whether the checkout must change or the session is missing.
+6. Decides whether the checkout must change.
 7. Verifies the target branch can fast-forward to `origin/main`.
 8. Stops the managed tmux session before any working-tree mutation when a
    checkout update is needed.
 9. Checks out `main` and runs `git merge --ff-only origin/main`.
 10. Runs `npm ci` only if `package-lock.json` changed.
-11. Starts the managed tmux session when code changed, branch changed, or the
-    session was missing.
+11. Starts the managed tmux session again only if it was running before the
+    update.
 
 This is deliberately conservative. A dirty or diverged checkout is an operator
 problem, not something the playbook should repair automatically.
@@ -155,6 +164,14 @@ The wrapper prints total elapsed time and the Ansible exit code at the end:
 
 ```text
 [update-worker-fleet] elapsed=00:00:18 exit=0
+```
+
+This command does not start missing workers. To start workers that are not
+running, use the composed start command. It runs the update phase first, then
+starts only missing managed tmux sessions:
+
+```bash
+./scripts/start-worker-fleet.sh
 ```
 
 Pass Ansible flags through the wrapper:
@@ -192,14 +209,18 @@ fail when it cannot run modules.
 Deprecation warnings are also disabled for this fleet command so normal update
 output stays focused on host state.
 
+The same config enables SSH pipelining. Pipelining reduces Ansible's per-task
+SSH overhead by streaming module execution through the existing SSH connection
+instead of doing as much temporary file setup on the remote host.
+
 ## Dashboard
 
 Workers publish the branch and commit they loaded at startup. The dashboard
 shows both:
 
-- **Branch** — the loaded branch name, usually `main`; detached checkouts show
+- **Branch** - the loaded branch name, usually `main`; detached checkouts show
   `detached`.
-- **Commit** — the loaded commit SHA; green means it matches `origin/main`,
+- **Commit** - the loaded commit SHA; green means it matches `origin/main`,
   amber means it is behind or unknown.
 
 These are loaded values, not live `git rev-parse` values. If Ansible advances

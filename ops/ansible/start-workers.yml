@@ -1,0 +1,67 @@
+---
+- name: Start managed backtest workers
+  hosts: backtest_workers
+  gather_facts: false
+  vars:
+    backtest_worker_session_default: polymarket-backtest-worker
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+
+  tasks:
+    - name: Resolve worker start settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+
+    - name: Check repository exists
+      ansible.builtin.stat:
+        path: '{{ worker_repo_dir }}/.git'
+      register: repo_git_dir
+
+    - name: Fail when repository is missing
+      ansible.builtin.fail:
+        msg: 'Repository not found at {{ worker_repo_dir }}. Provision the worker first.'
+      when: not repo_git_dir.stat.exists
+
+    - name: Check run-worker wrapper exists
+      ansible.builtin.stat:
+        path: '{{ worker_repo_dir }}/scripts/run-worker.sh'
+      register: run_worker_script
+
+    - name: Fail when run-worker wrapper is missing
+      ansible.builtin.fail:
+        msg: 'scripts/run-worker.sh not found in {{ worker_repo_dir }}.'
+      when: not run_worker_script.stat.exists
+
+    - name: Check managed tmux worker session
+      ansible.builtin.command:
+        cmd: 'tmux has-session -t {{ worker_session }}'
+      register: tmux_session
+      changed_when: false
+      failed_when: false
+      check_mode: false
+
+    - name: Decide whether worker start is needed
+      ansible.builtin.set_fact:
+        worker_session_running: '{{ tmux_session.rc == 0 }}'
+        worker_start_needed: '{{ tmux_session.rc != 0 }}'
+
+    - name: Start managed tmux worker session
+      ansible.builtin.shell:
+        cmd: >-
+          tmux new-session -d
+          -s {{ worker_session | quote }}
+          -c {{ worker_repo_dir | quote }}
+          {{ ("exec " ~ worker_command) | quote }}
+      when:
+        - not ansible_check_mode
+        - worker_start_needed
+
+    - name: Report worker start result
+      ansible.builtin.debug:
+        msg:
+          - 'repo={{ worker_repo_dir }}'
+          - 'session={{ worker_session }}'
+          - 'command={{ worker_command }}'
+          - 'worker_session_running={{ worker_session_running }}'
+          - 'worker_start_needed={{ worker_start_needed }}'

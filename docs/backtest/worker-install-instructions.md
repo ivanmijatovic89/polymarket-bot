@@ -289,6 +289,7 @@ Then run:
 
 ```bash
 ./scripts/update-worker-fleet.sh
+./scripts/start-worker-fleet.sh
 ```
 
 The playbook manages a tmux session named `polymarket-backtest-worker` by
