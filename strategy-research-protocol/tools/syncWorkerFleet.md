@@ -10,8 +10,8 @@ before submitting research backtests.
 - After the Researcher commits and pushes research code to `main`.
 - Before submitting smoke or evidence runs that may be consumed by remote
   workers.
-- Before extending a run when the extension should execute on the current
-  pushed code.
+- Before extending a run when remote workers may be behind the current pushed
+  commit and you want to avoid lazy self-update delays.
 
 ## Do Not Use When
 
