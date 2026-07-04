@@ -35,9 +35,10 @@ files never change — see the freeze rule in
 and
 [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
 The working tree must be clean (the CLI refuses a dirty tree). Commit and push
-to `main` before extending; if remote workers may consume the extension, use
+to `main` before extending. If remote workers may be behind the current
+producer commit, use
 [`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)
-after pushing and before this tool.
+after pushing and before this tool to avoid lazy self-update delays.
 
 ## Protocol Defaults
 
