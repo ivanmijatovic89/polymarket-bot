@@ -84,8 +84,8 @@
               "spread-capture--000-baseline--p4-sizeUsd--e8869abe-1afb-4212-ab92-1040a0261b7d",
               "spread-capture--000-baseline--p4-sizeUsd--31e71065-9390-41a4-9857-0b3fe8237aee"
             ],
-            "best": null,
-            "note": null
+            "best": 5,
+            "note": "Linearity confirmed — per-dollar EV is flat and negative: 5 -0.05, 10 -0.10, 20 -0.18 netEv/mkt ≈ -$0.010 per $ of size (runs 141/139/140, 1000 mkts each, 495-515 trades, identical 401 played and ~46.4% win rate — size changes only the stake, not the behavior). Argmax 5 is just smallest-stake-loses-least; the param is a pure scale knob — flat per-dollar, don't spend more passes on it. Gross negative in all cells; both weekly chunks negative in all cells (W23 -0.01 everywhere, near break-even; W24 carries the loss). Consistency check: run 139 (sizeUsd=10) exactly reproduces run 138 (-0.10)."
           }
         ],
         "refine": null
@@ -94,12 +94,38 @@
       "submissionUids": [],
       "baselineId": "138",
       "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
-      "status": "running",
-      "gateLog": [],
+      "status": "evaluated",
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "recycle",
+          "at": "2026-07-04T19:01:56Z",
+          "note": "Gate 1 failed: best cell netEv -0.05/mkt (run 141) < 0 at 1000-market coverage. Advisories: gross negative in every cell of all 4 passes (fees $0.7-7.6/1000mkts — loss is adverse selection, never fees); both weekly chunks negative in every cell (structural, not regime); all four knobs' best values sit at grid edges pointing toward quote-less/track-faster, EV approaching the $0 no-quote limit from below with no positive interior."
+        }
+      ],
       "submittedAt": "2026-07-04T05:45:02.000Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-04T19:01:56Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "fail",
+        "bestParams": {
+          "sizeUsd": 5,
+          "offset": 0.05,
+          "repriceDelta": 0.01,
+          "quoteStopSec": 420
+        },
+        "metrics": {
+          "netEvPerMarket": -0.05,
+          "grossEvPerMarket": -0.0478,
+          "markets": 1000,
+          "trades": 495,
+          "trainNetEv": null,
+          "testNetEv": null
+        },
+        "reason": "Best cell (offset 0.05, quoteStopSec 420, repriceDelta 0.01, sizeUsd 5; run 141) nets -0.05/mkt over 1000 markets (495 trades, gross -0.048, fees $2.16 total) — successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' not met; all 15 cells across 4 coordinate passes are net- and gross-negative.",
+        "stageReached": 0,
+        "gatesVersion": 1
+      }
     }
   ]
 }
