@@ -32,17 +32,17 @@ INCOMPLETE, report it and exit; a later session continues.
 
 ## Resume guide — observed state → next action
 
-| observed state                                | next action                                                                                         |
-| --------------------------------------------- | --------------------------------------------------------------------------------------------------- |
-| experiment `queued`, no smoke done            | smoke test, then submit pass 1 (or the single run)                                                  |
-| experiment `running`                          | `checkBatch`; INCOMPLETE → exit; COMPLETE → invoke the Evaluator                                    |
-| pass judged (`best` set), more params remain  | submit the next pass with winners fixed                                                             |
-| all passes judged, no `outcome` yet           | invoke the Evaluator for the experiment verdict                                                     |
-| experiment `evaluated`, no Research-log entry | write the log entry with `Lesson:` — before anything else                                           |
-| verdict consumed, gate passed (`go`)          | extend to the next stage per [`STAGE-GATES.md`](../STAGE-GATES.md), then hand back to the Evaluator |
-| verdict consumed, gate failed (`recycle`)     | spec the next experiment from the roadmap, or kill per stopping rules                               |
-| roadmap exhausted + stopping rules met        | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                                  |
-| nothing actionable                            | exit and say so                                                                                     |
+| observed state                                | next action                                                                                                                                                         |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| experiment `queued`, no smoke done            | smoke test, then submit pass 1 (or the single run)                                                                                                                  |
+| experiment `running`                          | `checkBatch`; INCOMPLETE → exit; COMPLETE → report "ready for evaluation of `<id>`" and EXIT (never run evaluator.sh yourself — your session holds the family lock) |
+| pass judged (`best` set), more params remain  | submit the next pass with winners fixed                                                                                                                             |
+| all passes judged, no `outcome` yet           | report "ready for experiment verdict of `<id>`" and EXIT — the operator runs the Evaluator                                                                          |
+| experiment `evaluated`, no Research-log entry | write the log entry with `Lesson:` — before anything else                                                                                                           |
+| verdict consumed, gate passed (`go`)          | extend to the next stage per [`STAGE-GATES.md`](../STAGE-GATES.md), then hand back to the Evaluator                                                                 |
+| verdict consumed, gate failed (`recycle`)     | spec the next experiment from the roadmap, or kill per stopping rules                                                                                               |
+| roadmap exhausted + stopping rules met        | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                                                                                                  |
+| nothing actionable                            | exit and say so                                                                                                                                                     |
 
 ## Inputs
 

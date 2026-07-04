@@ -39,6 +39,16 @@ One family = alternate two scripts until the family is validated or killed:
 ./strategy-research-protocol/scripts/researcher.sh <family>
 ```
 
+Permissions note: the scripts default to `acceptEdits`, and in headless mode
+non-allowlisted Bash commands are DENIED, not prompted — but the Researcher
+and Evaluator need Bash (`git`, `npm run backtest`, `checkBatch`, `curl`).
+Until you allowlist those in `.claude/settings.local.json`, run with:
+
+```bash
+PERM=bypassPermissions ./strategy-research-protocol/scripts/researcher.sh <family>
+PERM=bypassPermissions ./strategy-research-protocol/scripts/evaluator.sh <family> <id>
+```
+
 The Researcher does ONE step and exits, telling you what happened. Your
 reaction table:
 
