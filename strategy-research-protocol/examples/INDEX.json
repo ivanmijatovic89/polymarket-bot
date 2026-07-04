@@ -1,0 +1,32 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-global-index",
+  "families": [
+    {
+      "family": "book-imbalance",
+      "status": "researching",
+      "coreIdea": "Buy the side whose aggregate top-of-book bid depth persistently dominates the opposing side.",
+      "duplicateKeys": ["book-pressure", "bid-ask-skew", "depth-imbalance"],
+      "retryOnlyIf": null,
+      "verdictSummary": null,
+      "path": "book-imbalance/FAMILY.md",
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": ["orderbook", "imbalance", "entry-signal"]
+    },
+    {
+      "family": "pure-late-entry",
+      "status": "killed",
+      "coreIdea": "Enter only late in the market window",
+      "duplicateKeys": ["late-entry", "wait-longer", "enter-near-end"],
+      "retryOnlyIf": "Combined with an independent confirmation signal",
+      "verdictSummary": "Late-window calibration is fair to within costs; timing alone carries no edge.",
+      "path": null,
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": ["timing"]
+    }
+  ]
+}

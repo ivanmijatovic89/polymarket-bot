@@ -3,7 +3,7 @@ title: A Practical Guide to Polymarket
 description: Practical background on Polymarket, binary markets, order books, fees, and BTC short-window markets.
 ---
 
-# A Practical Guide to Polymarket and BTC 5-Minute Markets
+# A Practical Guide to Polymarket and BTC 15-Minute Markets
 
 ## What is Polymarket
 
@@ -13,7 +13,7 @@ The price of a share on Polymarket reflects the market-implied probability of th
 
 ## Binary Markets
 
-Most Polymarket markets are binary, meaning there are exactly two possible outcomes. Think of it as a coin with two sides: Yes/No, or in the case of price markets, UP/DOWN. The key property of a binary market is that the prices of the two sides are complementary -- they always sum to $1.00. If UP shares are trading at $0.55, then DOWN shares must be trading at $0.45.
+Most Polymarket markets are binary, meaning there are exactly two possible outcomes. Think of it as a coin with two sides: Yes/No, or in the case of price markets, UP/DOWN. The key property of a binary market is that the two outcomes are economically complementary: one UP share plus one DOWN share forms a complete set that can be redeemed for $1.00. In liquid markets, tradable prices tend to stay near that relationship, but displayed bid and ask prices can deviate because of spread, fees, and liquidity.
 
 ```
               Binary Market
@@ -25,7 +25,7 @@ Most Polymarket markets are binary, meaning there are exactly two possible outco
     │  finishes    │  finishes    │
     │  ABOVE ref   │  BELOW ref   │
     └──────────────┴──────────────┘
-          UP + DOWN = $1.00
+          UP + DOWN complete set = $1.00
 ```
 
 When the market resolves, only one side wins. The winning side pays out $1.00 per share, and the losing side pays out $0.00. There is no partial payout, no middle ground. You are either right or you are wrong, and the market settles accordingly.
@@ -99,7 +99,7 @@ Where `C` is the number of shares traded, `p` is the share price, and `feeRate` 
 
   Category                              Fee Rate
   ─────────────────────────────────────────────
-  Crypto                                0.072
+  Crypto                                0.07
   Finance / Politics / Tech / Mentions  0.04
   Economics / Culture / Weather / Other 0.05
   Sports                                0.03
@@ -111,14 +111,14 @@ How fees are collected depends on the order side. On buy orders, the fee is dedu
 ```
   Example: FOK buy 6 shares of UP @ $0.64 (crypto market)
 
-  fee      = 6 × 0.072 × 0.64 × 0.36 = $0.0995
-  fee in shares = $0.0995 / $0.64     = 0.1555 shares
-  net shares    = 6.00 - 0.1555       = 5.8445 shares
+  fee      = 6 × 0.07 × 0.64 × 0.36 = $0.0968
+  fee in shares = $0.0968 / $0.64   = 0.1512 shares
+  net shares    = 6.00 - 0.1512     = 5.8488 shares
 
-  You paid $3.84 but received 5.8445 shares, not 6.
+  You paid $3.84 but received 5.8488 shares, not 6.
 ```
 
-This distinction matters for automated trading. If you buy 6 shares with a FOK order and immediately try to sell 6 shares, the sell will fail because you only hold 5.8445 shares after fees.
+This distinction matters for automated trading. If you buy 6 shares with a FOK order and immediately try to sell 6 shares, the sell will fail because you only hold 5.8488 shares after fees.
 
 For the full fee schedule and current rates, see the [Polymarket fee documentation](https://docs.polymarket.com/trading/fees#fee-structure).
 
@@ -205,16 +205,16 @@ The spread is the difference between the best bid and the best ask. In a healthy
 
 Why does the spread matter? Because it represents the cost of immediacy. If you want to buy shares right now, you have to pay the ask price. If you want to sell shares right now, you have to accept the bid price. The wider the spread, the more you lose just by entering and exiting a position. If the spread is $0.05 and you buy at the ask and immediately sell at the bid, you have lost $0.05 per share without the market moving at all. Tight spreads mean you can get in and out cheaply. Wide spreads mean you need the market to move significantly in your favor just to break even.
 
-## BTC 5-Minute Markets
+## BTC 15-Minute Markets
 
-Now that you understand how Polymarket works in general, let's talk about the specific market type that this engine trades: BTC 5-Minute Markets.
+Now that you understand how Polymarket works in general, let's talk about the specific market type that this engine trades: BTC 15-minute markets.
 
-Every five minutes, a new market opens on Polymarket asking a simple question: will the price of Bitcoin be above or below a reference price at the end of the five-minute window? This reference price is called the "price to beat," and it is set to the BTC price at the moment the market opens. You can buy UP shares if you think BTC will be above the price to beat, or DOWN shares if you think it will be below.
+Every 15 minutes, a new market opens on Polymarket asking a simple question: will the price of Bitcoin be above or below a reference price at the end of the 15-minute window? This reference price is called the "price to beat," and it is set to the BTC price at the moment the market opens. You can buy UP shares if you think BTC will be above the price to beat, or DOWN shares if you think it will be below.
 
 ```
-  Timeline of a single 5-minute market:
+  Timeline of a single 15-minute market:
 
-  t=0s                                              t=300s
+  t=0s                                              t=900s
   │                                                    │
   │  Market opens                     Market closes    │
   │  Price to beat = $68,450          BTC = $68,480    │
@@ -226,11 +226,11 @@ Every five minutes, a new market opens on Polymarket asking a simple question: w
                                               Gap: +$30 (UP wins)
 ```
 
-These markets are fast-paced by design. You have a five-minute window to analyze, place orders, and manage your position before the market resolves. There is no overnight holding, no waiting for earnings reports. The feedback loop is immediate: you place a trade, and within minutes you know if you were right.
+These markets are fast-paced by design. You have a 15-minute window to analyze, place orders, and manage your position before the market resolves. There is no overnight holding, no waiting for earnings reports. The feedback loop is immediate: you place a trade, and within minutes you know if you were right.
 
 ## Price to Beat and Gap
 
-When a BTC 5-minute market opens, the price to beat is locked in. Suppose BTC is at $68,450 when the market opens -- that becomes the reference price. From that point on, the only question is whether BTC will be above or below $68,450 when the five-minute window closes.
+When a BTC 15-minute market opens, the price to beat is locked in. Suppose BTC is at $68,450 when the market opens -- that becomes the reference price. From that point on, the only question is whether BTC will be above or below $68,450 when the 15-minute window closes.
 
 The "gap" is the difference between the current BTC price and the price to beat at any given moment during the window. If BTC has moved up to $68,480, the gap is +$30, which favors UP. If BTC has dropped to $68,420, the gap is -$30, which favors DOWN.
 
@@ -250,13 +250,13 @@ The size of the gap directly influences the share prices in the market. A small 
 
 ## Settlement and Resolution
 
-At the end of the five-minute window, the market resolves based on the final BTC price. If BTC is above the price to beat, UP shares pay out $1.00 each and DOWN shares pay out $0.00. If BTC is below the price to beat, the reverse happens: DOWN shares pay $1.00 and UP shares pay $0.00.
+At the end of the 15-minute window, the market resolves based on the final BTC price. If BTC is above the price to beat, UP shares pay out $1.00 each and DOWN shares pay out $0.00. If BTC is below the price to beat, the reverse happens: DOWN shares pay $1.00 and UP shares pay $0.00.
 
-Any shares you hold at the moment of resolution are automatically settled. There is no action required on your part -- the payout happens whether you are watching or not. This is why position management before resolution is critical. If you are holding the wrong side when the clock runs out, there is no exit.
+At resolution, the winning side becomes redeemable for $1.00 per share and the losing side becomes worthless. This is why position management before resolution is critical. If you are holding the wrong side when the clock runs out, there is no exit.
 
 To put it concretely: if you bought 100 shares of UP at $0.45 and BTC finishes above the price to beat, you receive $100.00 for a net profit of $55.00. If BTC finishes below, you receive nothing and your $45.00 is gone.
 
-Resolution does not automatically pay you out. Winners must explicitly redeem their shares — either through the Polymarket UI or programmatically — to convert them back to USDC. Until redeemed, winning shares remain locked in the CTF contract and contribute to the market's open interest.
+Resolution does not automatically convert winning shares back to USDC. Winners must explicitly redeem their shares -- either through the Polymarket UI or programmatically -- to receive USDC. Until redeemed, winning shares remain locked in the CTF contract and contribute to the market's open interest.
 
 ---
 
@@ -345,7 +345,7 @@ This hybrid approach gives you the speed of a centralized exchange (sub-second m
 
 ### Oracle Resolution
 
-When a market's time window ends, someone needs to determine the outcome. For BTC 5-minute markets, Polymarket uses Chainlink price feeds as the oracle source. Chainlink aggregates BTC price data from multiple exchanges and delivers it on-chain, providing a tamper-resistant reference price that the contract uses to resolve the market automatically. This is well-suited for price-based markets where the outcome is a verifiable number rather than a subjective judgment.
+When a market's time window ends, someone needs to determine the outcome. For BTC 15-minute markets, resolution is based on an external BTC reference price or oracle source. This is well-suited for price-based markets where the outcome is a verifiable number rather than a subjective judgment.
 
 For other market types (e.g. event-based predictions), Polymarket historically used UMA's Optimistic Oracle, which operates under the assumption that most submitted data is correct and only escalates to a dispute resolution vote if challenged. The choice of oracle depends on the market type -- automated price feeds for objective numerical outcomes, optimistic oracles for markets that require human judgment.
 

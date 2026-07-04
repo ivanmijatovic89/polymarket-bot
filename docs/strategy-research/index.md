@@ -48,3 +48,4 @@ Concrete strategy history belongs near strategy code, for example under `src/str
 ## Documents
 
 - [Champion/Challenger Strategy Versioning](./champion-challenger-versioning.md)
+- [Protocol Token Count](./protocol-token-count.md)

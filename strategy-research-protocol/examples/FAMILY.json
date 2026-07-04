@@ -1,0 +1,138 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-family-index",
+  "family": "book-imbalance",
+  "status": "researching",
+  "coreIdea": "Buy the side whose aggregate top-of-book bid depth persistently dominates the opposing side.",
+  "duplicateKeys": ["book-pressure", "bid-ask-skew", "depth-imbalance"],
+  "retryOnlyIf": null,
+  "champion": null,
+  "verdictSummary": null,
+  "tags": ["orderbook", "imbalance", "entry-signal"],
+  "experiments": [
+    {
+      "id": "000-baseline",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": null,
+      "hypothesis": "Persistent top-3-level bid imbalance predicts short-horizon direction well enough to clear taker fees.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": { "enterThreshold": 0.4, "dwellTicks": 3, "takeProfitTicks": 2 },
+        "passes": [
+          {
+            "param": "enterThreshold",
+            "values": [0.3, 0.4, 0.5, 0.6],
+            "batchUid": "book-imbalance--000-baseline--p1-enterThreshold",
+            "submissionUids": [
+              "a1b2c3d4-0000-0000-0000-000000000001",
+              "a1b2c3d4-0000-0000-0000-000000000002",
+              "a1b2c3d4-0000-0000-0000-000000000003",
+              "a1b2c3d4-0000-0000-0000-000000000004"
+            ],
+            "best": 0.5,
+            "note": "monotonic up to 0.5, falls at 0.6; plateau 0.4-0.5"
+          },
+          {
+            "param": "dwellTicks",
+            "values": [0, 3, 6, 12],
+            "batchUid": "book-imbalance--000-baseline--p2-dwellTicks",
+            "submissionUids": [
+              "a1b2c3d4-0000-0000-0000-000000000005",
+              "a1b2c3d4-0000-0000-0000-000000000006",
+              "a1b2c3d4-0000-0000-0000-000000000007",
+              "a1b2c3d4-0000-0000-0000-000000000008"
+            ],
+            "best": 6,
+            "note": "0 is clearly worse (single-delta noise); 6 and 12 tie, take 6"
+          },
+          {
+            "param": "takeProfitTicks",
+            "values": [1, 2, 3],
+            "batchUid": "book-imbalance--000-baseline--p3-takeProfitTicks",
+            "submissionUids": [
+              "a1b2c3d4-0000-0000-0000-000000000009",
+              "a1b2c3d4-0000-0000-0000-000000000010",
+              "a1b2c3d4-0000-0000-0000-000000000011"
+            ],
+            "best": 2,
+            "note": "flat — param barely matters within tested range"
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": null },
+      "status": "evaluated",
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "recycle",
+          "at": "2026-07-02T16:40:00.000Z",
+          "note": "every cell net-negative at 1000 markets"
+        }
+      ],
+      "submittedAt": "2026-07-01T09:12:00.000Z",
+      "decidedAt": "2026-07-02T16:40:00.000Z",
+      "abortReason": null,
+      "outcome": {
+        "verdict": "fail",
+        "bestParams": { "enterThreshold": 0.5, "dwellTicks": 6, "takeProfitTicks": 2 },
+        "metrics": {
+          "netEvPerMarket": -0.11,
+          "grossEvPerMarket": 0.23,
+          "markets": 1000,
+          "trades": 1840,
+          "trainNetEv": null,
+          "testNetEv": null
+        },
+        "reason": "Best cell gross +$0.23/mkt but net -$0.11/mkt over 1000 markets; every cell net-negative.",
+        "stageReached": 0,
+        "gatesVersion": 1
+      }
+    },
+    {
+      "id": "001-spread-gate",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": "000-baseline",
+      "hypothesis": "Trading only when the entry-side spread is wide enough to cover fees turns the gross edge net-positive.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage, and > 000-baseline best cell (-0.11).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "enterThreshold": 0.5,
+          "dwellTicks": 6,
+          "takeProfitTicks": 2,
+          "minSpreadTicks": 2
+        },
+        "passes": [
+          {
+            "param": "minSpreadTicks",
+            "values": [1, 2, 3, 4],
+            "batchUid": "book-imbalance--001-spread-gate--p1-minSpreadTicks",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "412",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
+    }
+  ]
+}
