@@ -79,7 +79,11 @@
             "param": "sizeUsd",
             "values": [5, 10, 20],
             "batchUid": "spread-capture--000-baseline--p4-sizeUsd",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--000-baseline--p4-sizeUsd--22133cae-5bc0-4523-9af4-3f28fbfe29ea",
+              "spread-capture--000-baseline--p4-sizeUsd--e8869abe-1afb-4212-ab92-1040a0261b7d",
+              "spread-capture--000-baseline--p4-sizeUsd--31e71065-9390-41a4-9857-0b3fe8237aee"
+            ],
             "best": null,
             "note": null
           }
@@ -88,7 +92,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": "134",
+      "baselineId": "138",
       "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
       "status": "running",
       "gateLog": [],
