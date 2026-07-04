@@ -9,6 +9,7 @@
 #   LOG=somefile.jsonl       override the raw log path (default: researcher-<family>.jsonl)
 #   PERM=bypassPermissions   override permission mode (default: acceptEdits)
 set -uo pipefail
+cd "$(git rev-parse --show-toplevel)" || exit 1
 
 if [ -z "${1:-}" ]; then
   echo "usage: researcher.sh <family>" >&2
