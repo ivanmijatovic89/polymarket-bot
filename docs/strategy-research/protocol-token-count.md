@@ -1,6 +1,6 @@
 ---
 title: Protocol Token Count
-description: Count Markdown words, characters, and tokenizer tokens for the Strategy Research Protocol.
+description: Count words, characters, tokenizer tokens, and estimated input cost for the Strategy Research Protocol.
 ---
 
 # Protocol Token Count
@@ -12,16 +12,17 @@ read the Strategy Research Protocol files.
 npm run research:protocol-size
 ```
 
-The script scans `strategy-research-protocol/**/*.md`,
-`strategy-research-protocol/**/*.json`, and the research-memory files defined
-by `strategy-research-protocol/MEMORY.md`. It then prints:
+The script scans every non-hidden file under `strategy-research-protocol/` and
+the research-memory files defined by `strategy-research-protocol/MEMORY.md`. It
+then prints:
 
 1. a numbered Markdown-file table,
 2. a numbered JSON-file table,
-3. a numbered research-memory-file table,
-4. a deduplicated combined total across all sections.
+3. a numbered other-protocol-file table,
+4. a numbered research-memory-file table,
+5. a deduplicated combined total across all sections.
 
-Each table includes per-file words, characters, and tokens.
+Each table includes per-file words, characters, tokens, and estimated input cost.
 
 By default, hidden files and hidden directories are excluded. This means files
 under `strategy-research-protocol/.notes/` are not counted unless explicitly
@@ -49,6 +50,22 @@ If `tiktoken` does not know a model name, the script exits with an error. In
 that case, use the closest published encoding for the model family, or update
 `tiktoken` if the package has added the model mapping.
 
+## Cost Estimate
+
+The script estimates input cost from token count. It does not estimate output
+cost, because the script only counts files that would be sent as prompt/input
+context.
+
+By default, the cost column uses OpenAI `gpt-5.5` Standard short-context input
+pricing from the [OpenAI API pricing page](https://developers.openai.com/api/docs/pricing):
+`$5.00 / 1M input tokens`.
+
+Override the input price when using another model or pricing mode:
+
+```bash
+npm run research:protocol-size -- --input-price-per-1m 10
+```
+
 ## Provider Limits
 
 The token count is exact for the tokenizer/encoding being used. It is not a
@@ -61,16 +78,18 @@ API.
 
 ## Included Files
 
-The default file list is every non-hidden Markdown and JSON file under
-`strategy-research-protocol/`, including nested folders such as:
+The default file list is every non-hidden file under `strategy-research-protocol/`,
+including nested folders such as:
 
 - `strategy-research-protocol/modules/`
 - `strategy-research-protocol/rules/`
 - `strategy-research-protocol/tools/`
 - `strategy-research-protocol/examples/`
+- `strategy-research-protocol/schemas/`
+- `strategy-research-protocol/scripts/`
 
 Use `--include-hidden` when prompt scratchpads, private notes, or other hidden
-Markdown or JSON files should be included in the estimate.
+files should be included in the estimate.
 
 The Research Memory Files section follows the memory surfaces described in
 `strategy-research-protocol/MEMORY.md`:

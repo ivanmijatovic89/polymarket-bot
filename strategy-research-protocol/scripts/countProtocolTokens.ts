@@ -13,6 +13,7 @@ type ProtocolFileStats = {
   words: number
   characters: number
   tokens: number
+  costUsd: number
 }
 
 type ProtocolTotals = {
@@ -20,20 +21,28 @@ type ProtocolTotals = {
   words: number
   characters: number
   tokens: number
+  costUsd: number
 }
 
 type Args = {
   encoding: string
   includeHidden: boolean
+  inputPricePer1MTokens: number
   model?: string
 }
 
 const DEFAULT_ENCODING = 'o200k_base'
+const DEFAULT_INPUT_PRICE_PER_1M_TOKENS = 5
+const DEFAULT_PRICING_LABEL = 'gpt-5.5 standard short-context input'
 const PROTOCOL_ROOT = dirname(dirname(fileURLToPath(import.meta.url)))
 const REPO_ROOT = dirname(PROTOCOL_ROOT)
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { encoding: DEFAULT_ENCODING, includeHidden: false }
+  const args: Args = {
+    encoding: DEFAULT_ENCODING,
+    includeHidden: false,
+    inputPricePer1MTokens: DEFAULT_INPUT_PRICE_PER_1M_TOKENS,
+  }
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -46,6 +55,14 @@ function parseArgs(argv: string[]): Args {
     } else if (arg === '--model') {
       if (!next) throw new Error('--model requires a value')
       args.model = next
+      i += 1
+    } else if (arg === '--input-price-per-1m') {
+      if (!next) throw new Error('--input-price-per-1m requires a value')
+      const price = Number(next)
+      if (!Number.isFinite(price) || price < 0) {
+        throw new Error('--input-price-per-1m must be a non-negative number')
+      }
+      args.inputPricePer1MTokens = price
       i += 1
     } else if (arg === '--include-hidden') {
       args.includeHidden = true
@@ -63,23 +80,24 @@ function parseArgs(argv: string[]): Args {
 function printHelp(): void {
   console.log(`Usage: tsx strategy-research-protocol/scripts/countProtocolTokens.ts [options]
 
-Counts Markdown and JSON files under strategy-research-protocol.
+Counts non-hidden files under strategy-research-protocol and research memory files.
 
 Options:
-  --encoding <name>  tiktoken encoding to use. Default: ${DEFAULT_ENCODING}
-  --model <name>     use tiktoken's model mapping instead of --encoding
-  --include-hidden   include hidden files and directories, such as .notes
-  -h, --help         show this help
+  --encoding <name>          tiktoken encoding to use. Default: ${DEFAULT_ENCODING}
+  --model <name>             use tiktoken's model mapping instead of --encoding
+  --input-price-per-1m <usd> input-token price per 1M tokens. Default: ${DEFAULT_INPUT_PRICE_PER_1M_TOKENS}
+  --include-hidden           include hidden files and directories, such as .notes
+  -h, --help                 show this help
 `)
 }
 
-function protocolFiles(dir: string, args: Args, extension: string): string[] {
+function protocolFiles(dir: string, args: Args): string[] {
   return readdirSync(dir, { withFileTypes: true })
     .flatMap((entry) => {
       if (!args.includeHidden && entry.name.startsWith('.')) return []
       const path = join(dir, entry.name)
-      if (entry.isDirectory()) return protocolFiles(path, args, extension)
-      if (entry.isFile() && entry.name.endsWith(extension)) return [path]
+      if (entry.isDirectory()) return protocolFiles(path, args)
+      if (entry.isFile()) return [path]
       return []
     })
     .sort((a, b) => a.localeCompare(b))
@@ -145,15 +163,17 @@ async function createEncoder(args: Args): Promise<Encoder> {
   }
 }
 
-function collectStats(files: string[], encoder: Encoder): ProtocolFileStats[] {
+function collectStats(files: string[], encoder: Encoder, args: Args): ProtocolFileStats[] {
   return files.map((path) => {
     const text = readFileSync(path, 'utf8')
+    const tokens = encoder.encode(text).length
     return {
       absolutePath: path,
       file: relative(REPO_ROOT, path),
       words: countWords(text),
       characters: countCharacters(text),
-      tokens: encoder.encode(text).length,
+      tokens,
+      costUsd: (tokens / 1_000_000) * args.inputPricePer1MTokens,
     }
   })
 }
@@ -162,14 +182,19 @@ function formatNumber(value: number): string {
   return value.toLocaleString('en-US')
 }
 
+function formatUsd(value: number): string {
+  return `$${value.toFixed(6)}`
+}
+
 function totalStats(rows: ProtocolFileStats[]): ProtocolTotals {
   const totals = rows.reduce(
     (sum, row) => ({
       words: sum.words + row.words,
       characters: sum.characters + row.characters,
       tokens: sum.tokens + row.tokens,
+      costUsd: sum.costUsd + row.costUsd,
     }),
-    { words: 0, characters: 0, tokens: 0 },
+    { words: 0, characters: 0, tokens: 0, costUsd: 0 },
   )
 
   return {
@@ -189,6 +214,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
       words: totals.words,
       characters: totals.characters,
       tokens: totals.tokens,
+      costUsd: totals.costUsd,
     },
   ]
 
@@ -206,6 +232,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
       'Characters'.length,
     ),
     tokens: Math.max(...tableRows.map((row) => formatNumber(row.tokens).length), 'Tokens'.length),
+    costUsd: Math.max(...tableRows.map((row) => formatUsd(row.costUsd).length), 'Cost'.length),
   }
 
   console.log(title)
@@ -215,6 +242,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
     'Words'.padStart(widths.words),
     'Characters'.padStart(widths.characters),
     'Tokens'.padStart(widths.tokens),
+    'Cost'.padStart(widths.costUsd),
   ].join('  ')
   const separator = [
     '-'.repeat(widths.number),
@@ -222,6 +250,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
     '-'.repeat(widths.words),
     '-'.repeat(widths.characters),
     '-'.repeat(widths.tokens),
+    '-'.repeat(widths.costUsd),
   ].join('  ')
 
   console.log(header)
@@ -235,6 +264,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
         formatNumber(row.words).padStart(widths.words),
         formatNumber(row.characters).padStart(widths.characters),
         formatNumber(row.tokens).padStart(widths.tokens),
+        formatUsd(row.costUsd).padStart(widths.costUsd),
       ].join('  '),
     )
   }
@@ -247,6 +277,7 @@ function printTable(title: string, rows: ProtocolFileStats[]): ProtocolTotals {
       formatNumber(totals.words).padStart(widths.words),
       formatNumber(totals.characters).padStart(widths.characters),
       formatNumber(totals.tokens).padStart(widths.tokens),
+      formatUsd(totals.costUsd).padStart(widths.costUsd),
     ].join('  '),
   )
   console.log(`\nTotal files: ${formatNumber(totals.files)}\n`)
@@ -262,6 +293,15 @@ function printCombinedTotal(rows: ProtocolFileStats[]): void {
   console.log(`Words: ${formatNumber(total.words)}`)
   console.log(`Characters: ${formatNumber(total.characters)}`)
   console.log(`Tokens: ${formatNumber(total.tokens)}`)
+  console.log(`Cost: ${formatUsd(total.costUsd)}`)
+}
+
+function filesWithExtension(files: string[], extension: string): string[] {
+  return files.filter((file) => file.endsWith(extension))
+}
+
+function filesWithoutExtensions(files: string[], extensions: string[]): string[] {
+  return files.filter((file) => !extensions.some((extension) => file.endsWith(extension)))
 }
 
 async function main(): Promise<void> {
@@ -270,22 +310,29 @@ async function main(): Promise<void> {
   if (!rootStats.isDirectory())
     throw new Error(`Protocol root is not a directory: ${PROTOCOL_ROOT}`)
 
-  const markdownFiles = protocolFiles(PROTOCOL_ROOT, args, '.md')
-  const jsonFiles = protocolFiles(PROTOCOL_ROOT, args, '.json')
+  const allProtocolFiles = protocolFiles(PROTOCOL_ROOT, args)
+  const markdownFiles = filesWithExtension(allProtocolFiles, '.md')
+  const jsonFiles = filesWithExtension(allProtocolFiles, '.json')
+  const otherProtocolFiles = filesWithoutExtensions(allProtocolFiles, ['.md', '.json'])
   const memoryFiles = researchMemoryFiles(args)
   const encoder = await createEncoder(args)
   try {
     console.log(
       args.model ? `Tokenizer: model ${args.model}` : `Tokenizer: encoding ${args.encoding}`,
     )
+    console.log(
+      `Input price: $${args.inputPricePer1MTokens.toFixed(2)} / 1M tokens (${DEFAULT_PRICING_LABEL} default)`,
+    )
     console.log(`Protocol root: ${PROTOCOL_ROOT}\n`)
-    const markdownStats = collectStats(markdownFiles, encoder)
-    const jsonStats = collectStats(jsonFiles, encoder)
-    const memoryStats = collectStats(memoryFiles, encoder)
+    const markdownStats = collectStats(markdownFiles, encoder, args)
+    const jsonStats = collectStats(jsonFiles, encoder, args)
+    const otherProtocolStats = collectStats(otherProtocolFiles, encoder, args)
+    const memoryStats = collectStats(memoryFiles, encoder, args)
     printTable('Markdown Files', markdownStats)
     printTable('JSON Files', jsonStats)
+    printTable('Other Protocol Files', otherProtocolStats)
     printTable('Research Memory Files', memoryStats)
-    printCombinedTotal([...markdownStats, ...jsonStats, ...memoryStats])
+    printCombinedTotal([...markdownStats, ...jsonStats, ...otherProtocolStats, ...memoryStats])
   } finally {
     encoder.free?.()
   }
