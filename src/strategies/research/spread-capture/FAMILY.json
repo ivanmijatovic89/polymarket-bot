@@ -126,6 +126,46 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "001-pair-completion",
+      "kind": "param-search",
+      "code": "001-pair-completion.ts",
+      "basedOn": "000-baseline",
+      "hypothesis": "The baseline's measured loss channel is the surviving leg going stale after the first fill (pass 3: never-reprice -0.53 vs fastest-tracking -0.10). Requoting the survivor at the NEW mid plus a reduced completion offset the moment one leg sells completes the pair and banks offset+completionOffset before the trend runs away, cutting adverse selection below zero where static tracking (best cell -0.05/mkt, run 141) could not.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "sizeUsd": 5,
+          "offset": 0.05,
+          "completionOffset": 0.01,
+          "repriceDelta": 0.01,
+          "quoteStopSec": 420
+        },
+        "passes": [
+          {
+            "param": "completionOffset",
+            "values": [0, 0.01, 0.02, 0.05],
+            "batchUid": "spread-capture--001-pair-completion--p1-completionOffset",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
