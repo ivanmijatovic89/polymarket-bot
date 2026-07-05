@@ -327,14 +327,22 @@ success criteria, but noted that canceling stale weakening bids reduced
 participation and did not improve on the prior `004-delayed-threshold` screen
 cell at about `0.40` net EV per market.
 
-Interpretation: pre-fill cancellation is directionally plausible as toxicity
-control, but the first simple rule looks too blunt. It cuts fills from the
-same delayed-threshold entry set without increasing screen EV. The required
-next action is still the normal stage-2 confirm extension of run `207`, since
-the family has repeatedly shown positive 1000-market screens that fail on
-3000-market coverage.
+The stage-2 confirm extension failed, though it was the best confirm result in
+the family so far. Run `207` over 3000 markets fell to `-0.18` net EV per
+market, with 1869 markets played, 1869 trades, 1860 maker fills, 9 taker
+fills, and `67.09%` win rate. This improved on the prior delayed-threshold
+confirm result (`-0.24`) by reducing participation, but it still did not pass
+the net-profit confirm gate.
 
-Lesson: Canceling weakened resting favorite bids is a real lifecycle change,
-but the initial `0.03` adverse-move threshold does not yet dominate the simpler
-delayed-threshold entry; confirm coverage decides whether the lower
-participation improves robustness.
+Interpretation: pre-fill cancellation is directionally useful as toxicity
+control, but the first simple rule is too blunt to produce a robust edge. It
+removes some older-history adverse fills, yet the remaining filled favorite
+inventory still has negative EV when held to resolution. The next experiment
+should keep the delayed strong-favorite entry but make the cancellation rule
+more selective or add a second pre-fill confirmation, rather than adding an
+after-fill exit.
+
+Lesson: Canceling weakened resting favorite bids is the first lifecycle change
+that improved 3000-market confirm loss, but the `0.03` adverse-move threshold
+still fails; toxicity control needs a sharper pre-fill condition before this
+family can validate.
