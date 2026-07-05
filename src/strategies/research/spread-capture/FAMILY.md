@@ -285,3 +285,50 @@ move, selling the surviving leg faster monotonically adds loss (−0.05 →
 worse exit than holding to the $1-redemption hedge, and no completion
 premium small enough to fill covers the realized gap. In this family, edge
 must be sought in NOT trading after the first fill, never in trading more.
+
+### 002-inventory-stop — 2026-07-05
+
+**What ran:** one pass, 4 runs of 1000 latest markets (runs 166/163/164/165
+for reArmBand 0/0.05/0.15/0.5), sweeping `reArmBand` on the new
+`002-inventory-stop.ts` (a surplus-inventory leg is only quoted while
+`|mid − 0.5| <= reArmBand`; 0 = pure stop, 0.5 = always quote), all other
+params at the baseline winners. The 0.5 control reproduced baseline run 141
+exactly; the 0 cell cut trades 495→409, confirming the mechanism acts.
+
+**Key numbers (from FAMILY.json pass note + outcome):** near-FLAT response —
+0 −0.05, 0.05 −0.04, 0.15 −0.06, 0.5 −0.05 net EV/mkt, spread within ±0.01 ≈
+week-to-week noise. Best cell −0.04 (reArmBand 0.05, run 163) posts the
+family's first positive weekly chunk (W23 +0.03) but W24 −0.10 wipes it.
+Gross negative in every cell. Gate 1 failed (`recycle`), verdict `fail`,
+`stageReached 0`; the inventory stop improves the baseline by at most
+$0.01/mkt.
+
+**Interpretation:** the hypothesis was refuted in an informative way:
+survivor fills are close to EV-NEUTRAL in aggregate (removing them entirely
+moves net ≤$0.01), so 001's extra loss came specifically from selling the
+survivor CHEAPER than the flow would pay, not from survivor trading per se.
+Three experiments now triangulate the loss precisely: post-first-fill policy
+spans hold −0.05 (000), sell-faster −0.10..−0.13 (001), stop −0.04..−0.06
+(002) — the aftermath is a ±$0.01 sideshow. The family's entire loss sits in
+the FIRST fill: resting an ask at `mid + offset` gets crossed exactly when a
+trend is under way, and that adverse selection exceeds the collected
+premium. Post-fill inventory policy is exhausted as a lever.
+
+**Decision:** recycle consumed. The next experiment must change the ENTRY —
+where/when the first ask rests — not the aftermath. From the roadmap the
+mechanism-distinct untested entry-side idea is **spread-anchored quoting**
+(#5): rest at `bestAsk − 0.01` (join/improve the touch) instead of
+`mid + offset`, so the collected premium scales with the liquidity premium
+actually being paid; a fixed mid-offset sits inside a wide spread (gives
+premium away) or outside a tight one (collects nothing extra when crossed).
+Next iteration specs `003-spread-anchored`. Early-window-only quoting (#4)
+is NOT a separate experiment: `quoteStopSec` already measures it (best 420 =
+quote only the first 8 min, still negative — the window is a scale knob,
+not a sign-flipper). Bid-side mirror (#6) remains after the entry-side test.
+
+**Lesson:** Post-first-fill inventory policy on a hedged full set is worth
+at most ±$0.01/mkt on BTC 15m — hold (−0.05), sell-faster (−0.10..−0.13),
+and stop (−0.04..−0.06) bracket it, with stop ≈ hold. When a family's
+variants all converge within noise of the same negative number, the loss
+lives in the shared component (here: the first fill's adverse selection),
+and further experiments must attack THAT component or the family is done.
