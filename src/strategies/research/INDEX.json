@@ -15,16 +15,9 @@
       "retryOnlyIf": null,
       "verdictSummary": null,
       "path": "maker-favorite/FAMILY.md",
-      "champion": "000-baseline",
-      "championMetrics": {
-        "netEvPerMarket": 0.39,
-        "grossEvPerMarket": 0.39109,
-        "markets": 1000,
-        "trades": 460,
-        "trainNetEv": null,
-        "testNetEv": null
-      },
-      "championStageReached": 1,
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
       "tags": [
         "maker",
         "directional",
