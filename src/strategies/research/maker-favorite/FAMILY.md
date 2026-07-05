@@ -537,3 +537,19 @@ cell (run 222, `minFavBidRatio=0.45`) backward by 2000 contiguous older markets
 to reach stage-2 confirm coverage (3000 total latest markets, 0 failures).
 `batchUid` unchanged (`maker-favorite--011-book-imbalance--p1-minFavBidRatio`);
 run 222 grew in place. Ready for the Evaluator's stage-2 gate judgment.
+
+Stage-2 evaluation (2026-07-05): Evaluator recycled the experiment. The extended
+run 222 fell from `+0.18` at the 1000-market screen to `-0.07` net EV per market
+over 3000 markets, with 1234 markets played, 1234 trades, 1232 maker fills,
+2 taker fills, and $0.27 fees. The depth gate did bind and reduced participation
+versus `006`, but it did not solve the core regime problem: the newest-window
+positive result again failed when the immediately older 2000 markets were added.
+This confirms the stage-1 warning that the `0.45` imbalance gate was not the
+driver of the edge; it only selected a smaller version of the same unstable
+delayed favorite maker lifecycle.
+
+Lesson: A binding book-quality filter that does not improve monotonically at
+screen should not be trusted until confirm; in this family, even a materially
+different fill set (`410` screen trades versus `006`'s `627`) still collapsed at
+3000 markets, so the delayed favorite maker lifecycle remains recent-slice
+positive but confirm-negative.
