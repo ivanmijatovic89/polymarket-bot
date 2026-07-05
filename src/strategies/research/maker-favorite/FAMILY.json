@@ -735,6 +735,52 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "009-cancel-threshold",
+      "kind": "param-search",
+      "code": "006-cancel-weakening.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "The cancelDelta 0.03 lifecycle produced the best confirm result so far but still admitted weak favorites; pairing that cancellation rule with a stricter favorite threshold may improve selection without relying on looser cancellation that overfit the screen.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "cancelDelta": 0.03
+        },
+        "passes": [
+          {
+            "param": "favThreshold",
+            "values": [0.55, 0.6, 0.65],
+            "batchUid": "maker-favorite--009-cancel-threshold--p1-favThreshold",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
