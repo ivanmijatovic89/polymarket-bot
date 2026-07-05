@@ -1257,18 +1257,28 @@
             "param": "stopLoss",
             "values": [0.02, 0.04, 0.06, 0.08],
             "batchUid": "maker-favorite--015-stop-loss-exit--p1-stopLoss",
-            "submissionUids": []
+            "submissionUids": [
+              "maker-favorite--015-stop-loss-exit--p1-stopLoss--d7e038c8-8e75-452e-8dee-ff87437e5beb",
+              "maker-favorite--015-stop-loss-exit--p1-stopLoss--8e770de5-04b0-4995-88ed-23431ee8da8e",
+              "maker-favorite--015-stop-loss-exit--p1-stopLoss--8a21ec14-986c-43ce-aed6-52aa9e7e22d9",
+              "maker-favorite--015-stop-loss-exit--p1-stopLoss--dd603410-9b4a-472c-9c7b-fe33454a736d"
+            ]
           }
         ],
         "refine": null
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T21:32:52Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
