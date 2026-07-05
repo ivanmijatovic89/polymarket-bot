@@ -1,0 +1,73 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-family-index",
+  "family": "maker-favorite",
+  "status": "proposed",
+  "coreIdea": "Buy the currently favored BTC 15m side with one resting maker bid below mid and hold any fill to resolution.",
+  "duplicateKeys": [
+    "favorite-maker-entry",
+    "directional-maker-bid",
+    "resting-favorite-bid",
+    "maker-discount-directional"
+  ],
+  "retryOnlyIf": null,
+  "champion": null,
+  "verdictSummary": null,
+  "tags": ["maker", "directional", "favorite", "simple"],
+  "experiments": [
+    {
+      "id": "000-baseline",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": null,
+      "hypothesis": "A simple resting maker bid on the higher-mid leg can acquire a fair-valued favorite cheaply enough to overcome adverse selection.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 20
+        },
+        "passes": [
+          {
+            "param": "discount",
+            "values": [0.01, 0.02, 0.04, 0.06],
+            "batchUid": "maker-favorite--000-baseline--p1-discount",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "favThreshold",
+            "values": [0.52, 0.55, 0.6, 0.65],
+            "batchUid": "maker-favorite--000-baseline--p2-fav-threshold",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "size",
+            "values": [10, 20, 40],
+            "batchUid": "maker-favorite--000-baseline--p3-size",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
+    }
+  ]
+}

@@ -3,6 +3,29 @@
   "artifactType": "strategy-global-index",
   "families": [
     {
+      "family": "maker-favorite",
+      "status": "proposed",
+      "coreIdea": "Buy the currently favored BTC 15m side with one resting maker bid below mid and hold any fill to resolution.",
+      "duplicateKeys": [
+        "favorite-maker-entry",
+        "directional-maker-bid",
+        "resting-favorite-bid",
+        "maker-discount-directional"
+      ],
+      "retryOnlyIf": null,
+      "verdictSummary": null,
+      "path": "maker-favorite/FAMILY.md",
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": [
+        "maker",
+        "directional",
+        "favorite",
+        "simple"
+      ]
+    },
+    {
       "family": "spread-capture",
       "status": "researching",
       "coreIdea": "Split collateral into UP+DOWN full sets and symmetrically rest maker asks above mid on both legs, collecting the spread takers pay while the $1 redemption hedges unsold inventory.",
