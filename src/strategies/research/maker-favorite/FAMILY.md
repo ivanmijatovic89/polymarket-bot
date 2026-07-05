@@ -143,6 +143,10 @@ Ranked, mechanism-distinct ideas beyond the baseline (prose until specced):
    payoff asymmetry, so test the simplest instability filter: only enter when
    the favorite side did not flip and its recent mid-price range stayed small.
    Tested in `014-volatility-guard`.
+10. **Stop-loss exit after fill.** If the family is losing to payoff asymmetry,
+    test capping filled-inventory losses directly: after a maker buy fills, use
+    a FOK sell when the side weakens past a stop threshold. Tested in
+    `015-stop-loss-exit`.
 
 ## Duplicate notes
 

@@ -1233,6 +1233,45 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "015-stop-loss-exit",
+      "kind": "param-search",
+      "code": "015-stop-loss-exit.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "The family may fail because held favorite inventory has loss tails that overwhelm many small wins; exiting filled inventory with a FOK sell when the side weakens by a stop-loss threshold can cap loss severity enough to make the maker entry positive.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "stopLoss": 0.04
+        },
+        "passes": [
+          {
+            "param": "stopLoss",
+            "values": [0.02, 0.04, 0.06, 0.08],
+            "batchUid": "maker-favorite--015-stop-loss-exit--p1-stopLoss",
+            "submissionUids": []
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
