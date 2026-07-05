@@ -61,7 +61,11 @@
             "param": "size",
             "values": [10, 20, 40],
             "batchUid": "maker-favorite--000-baseline--p3-size",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--000-baseline--p3-size--ba070063-56e3-4f3d-a027-292f8cec55d4",
+              "maker-favorite--000-baseline--p3-size--5ebb0636-f589-455f-bd1c-dfef93833c79",
+              "maker-favorite--000-baseline--p3-size--8d6ead65-ec8c-496e-983f-8079ffe47f3d"
+            ],
             "best": null,
             "note": null
           }
@@ -70,7 +74,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
+      "baselineId": "174",
       "coverage": {
         "selection": "latest",
         "markets": 1000,
