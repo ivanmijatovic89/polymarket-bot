@@ -48,7 +48,12 @@
             "param": "favThreshold",
             "values": [0.52, 0.55, 0.6, 0.65],
             "batchUid": "maker-favorite--000-baseline--p2-fav-threshold",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--000-baseline--p2-fav-threshold--3a2baa7f-e5ba-40d9-9101-73cb6a91e918",
+              "maker-favorite--000-baseline--p2-fav-threshold--1d4ad82f-4ca7-460f-bcc2-e9c4e1c2179d",
+              "maker-favorite--000-baseline--p2-fav-threshold--0477ebb1-d410-4bf5-81df-65442337af91",
+              "maker-favorite--000-baseline--p2-fav-threshold--22cbad6a-b521-4b6a-af9c-42387c035059"
+            ],
             "best": null,
             "note": null
           },
