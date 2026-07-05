@@ -231,7 +231,12 @@
             "param": "reArmBand",
             "values": [0, 0.05, 0.15, 0.5],
             "batchUid": "spread-capture--002-inventory-stop--p1-reArmBand",
-            "submissionUids": [],
+            "submissionUids": [
+              "spread-capture--002-inventory-stop--p1-reArmBand--08f58869-04fe-4ade-8c2e-d802023370cf",
+              "spread-capture--002-inventory-stop--p1-reArmBand--cdeca817-192f-43c5-9f3c-2d175c86fb0e",
+              "spread-capture--002-inventory-stop--p1-reArmBand--260c03ba-1340-4869-b966-cf6a0091c929",
+              "spread-capture--002-inventory-stop--p1-reArmBand--4e81ec9e-f881-4645-abde-17317d8a8fac"
+            ],
             "best": null,
             "note": null
           }
@@ -240,11 +245,11 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "141",
+      "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": 1781394300000 },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T01:33:00.000Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
