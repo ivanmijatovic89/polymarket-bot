@@ -393,8 +393,8 @@
               "maker-favorite--004-delayed-threshold--p1-favThreshold--719ca8e4-438a-4359-ba85-1b382c3128e9",
               "maker-favorite--004-delayed-threshold--p1-favThreshold--a4771bd0-246a-47e3-b758-fbf88ee884ea"
             ],
-            "best": null,
-            "note": null
+            "best": 0.55,
+            "note": "Best 0.55 at +0.36 net EV/market over 1000 markets, 685 played, 687 trades; neighboring 0.52/0.60/0.65 cells stayed positive, so choose the local peak with adequate trade count."
           },
           {
             "param": "discount",
