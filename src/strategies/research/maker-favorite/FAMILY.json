@@ -759,7 +759,11 @@
             "param": "favThreshold",
             "values": [0.55, 0.6, 0.65],
             "batchUid": "maker-favorite--009-cancel-threshold--p1-favThreshold",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--009-cancel-threshold--p1-favThreshold--ac6fe391-22cc-426e-b8b6-474f7f7ee483",
+              "maker-favorite--009-cancel-threshold--p1-favThreshold--da8f23db-7384-4286-b6a1-627f3af9e4d2",
+              "maker-favorite--009-cancel-threshold--p1-favThreshold--7ed80621-9074-47d7-9507-510d3bf9b2a6"
+            ],
             "best": null,
             "note": null
           }
@@ -775,9 +779,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T10:59:32Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
