@@ -213,6 +213,52 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "002-underdog-mirror",
+      "kind": "param-search",
+      "code": "002-underdog-mirror.ts",
+      "basedOn": "000-baseline",
+      "hypothesis": "If the favorite-maker screen was only a generic below-mid maker-fill artifact, mirroring the same one-shot resting bid onto the lower-mid leg should also show positive EV; if underdog fills are worse, the family should focus on favorite-specific flow rather than generic maker discount.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "maxUnderdogMid": 0.45,
+          "discount": 0.01,
+          "size": 40
+        },
+        "passes": [
+          {
+            "param": "maxUnderdogMid",
+            "values": [0.35, 0.4, 0.45, 0.48],
+            "batchUid": "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "discount",
+            "values": [0.01, 0.02, 0.04],
+            "batchUid": "maker-favorite--002-underdog-mirror--p2-discount",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "177",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
