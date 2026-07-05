@@ -11,7 +11,7 @@
     "maker-discount-directional"
   ],
   "retryOnlyIf": null,
-  "champion": "001-entry-window",
+  "champion": null,
   "verdictSummary": null,
   "tags": ["maker", "directional", "favorite", "simple"],
   "experiments": [
@@ -181,13 +181,19 @@
           "decision": "go",
           "at": "2026-07-05T03:37:00Z",
           "note": "Gate 1 passed: best tied stopSec cell netEv 0.39/mkt (run 185) > 0 at 1000-market coverage, with 451 markets played and 460 trades. Advisory: all stopSec values tied exactly, so this experiment has not yet demonstrated that elapsed-time gating changes the baseline behavior."
+        },
+        {
+          "stage": 2,
+          "decision": "recycle",
+          "at": "2026-07-05T03:48:42Z",
+          "note": "Gate 2 failed: extended run 185 fell to netEv -0.39/mkt at 3000-market coverage, with 1459 markets played and 1483 trades. Advisory: the selected stop boundary tied the baseline at screen and also reproduced the baseline confirm failure, so elapsed-time stop gating did not fix the regime instability."
         }
       ],
       "submittedAt": "2026-07-05T03:31:04Z",
-      "decidedAt": "2026-07-05T03:37:00Z",
+      "decidedAt": "2026-07-05T03:48:42Z",
       "abortReason": null,
       "outcome": {
-        "verdict": "success",
+        "verdict": "fail",
         "bestParams": {
           "favThreshold": 0.52,
           "discount": 0.01,
@@ -196,14 +202,14 @@
           "stopSec": 300
         },
         "metrics": {
-          "netEvPerMarket": 0.39,
-          "grossEvPerMarket": 0.39109,
-          "markets": 1000,
-          "trades": 460,
+          "netEvPerMarket": -0.39,
+          "grossEvPerMarket": -0.38904333333333335,
+          "markets": 3000,
+          "trades": 1483,
           "trainNetEv": null,
           "testNetEv": null
         },
-        "reason": "Best tied cell (startSec 0, stopSec 300; run 185) met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with 0.39/mkt over 1000 markets. Because every stopSec value tied exactly, the next required step is a stage-2 confirm extension rather than treating the timing gate as a proven mechanism.",
+        "reason": "Best tied cell (startSec 0, stopSec 300; run 185) met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' at screen, but failed confirm with -0.39/mkt over 3000 markets (1483 trades, gross -0.389, fees $2.87 total). Because every stopSec value tied exactly at screen and the confirm result reproduced the baseline failure, elapsed-time stop gating does not repair the family.",
         "stageReached": 1,
         "gatesVersion": 1
       }
