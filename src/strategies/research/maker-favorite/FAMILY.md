@@ -202,3 +202,29 @@ side or fill mechanism rather than adding another stop-time wrapper.
 Lesson: A stop-only window around a one-shot first-eligible maker bid is not a
 real mechanism change; if the order usually enters before the stop boundary,
 it will reproduce the baseline screen and confirm behavior.
+
+### 002-underdog-mirror
+
+This experiment ran the roadmap sign check: keep the one-shot resting maker
+bid and hold-to-resolution lifecycle, but buy the lower-mid leg instead of
+the favorite. The first pass swept the underdog cutoff. The `0.35` cutoff had
+zero trades, so Evaluator excluded it as non-evidence. Among cells that
+actually traded, `maxUnderdogMid=0.40` was least bad at `-0.06` net EV per
+market over 1000 markets with only 14 trades and a `28.57%` win rate; wider
+cutoffs increased participation but got much worse, down to `-1.59` net EV
+per market at `0.48`.
+
+The discount pass fixed `maxUnderdogMid=0.40` and swept `0.01`, `0.02`, and
+`0.04`. A wider discount helped slightly, but the best cell was still
+negative: `discount=0.04`, run `194`, reached only `-0.04` net EV per market
+over 1000 markets, with 14 all-maker trades and the same `28.57%` win rate.
+Gate 1 recycled the experiment. Interpretation: the below-mid maker discount
+is not a generic artifact that makes any side work. Underdog fills are sparse
+at strict cutoffs and badly selected at broader cutoffs. That makes the
+failed favorite result more specific: mild favorite selection can screen
+positive in the newest window, but neither a stop wrapper nor an underdog
+mirror produces a robust edge.
+
+Lesson: The maker-discount lever is side-sensitive; underdog passive buys are
+not a viable mirror control here, and broadening the underdog cutoff mainly
+adds toxic fill volume.
