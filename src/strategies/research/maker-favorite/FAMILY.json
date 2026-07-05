@@ -11,7 +11,7 @@
     "maker-discount-directional"
   ],
   "retryOnlyIf": null,
-  "champion": "006-cancel-weakening",
+  "champion": null,
   "verdictSummary": null,
   "tags": ["maker", "directional", "favorite", "simple"],
   "experiments": [
@@ -554,13 +554,19 @@
           "decision": "go",
           "at": "2026-07-05T10:13:33Z",
           "note": "Gate 1 passed: run 207 netEv 0.22/mkt at 1000-market coverage, with 627 markets played and 627 trades. Advisory: canceling stale weakening bids reduced participation versus the uncanceled delayed-threshold screen and is still below that screen's +0.40/mkt, so confirm is required."
+        },
+        {
+          "stage": 2,
+          "decision": "recycle",
+          "at": "2026-07-05T10:33:21Z",
+          "note": "Gate 2 failed: extended run 207 fell to netEv -0.18/mkt at 3000-market coverage, with 1869 markets played and 1869 trades. Advisory: cancellation reduced participation versus the delayed-threshold confirm run but did not remove enough adverse selection to make the lifecycle robust."
         }
       ],
       "submittedAt": "2026-07-05T05:22:11Z",
-      "decidedAt": "2026-07-05T10:13:33Z",
+      "decidedAt": "2026-07-05T10:33:21Z",
       "abortReason": null,
       "outcome": {
-        "verdict": "success",
+        "verdict": "fail",
         "bestParams": {
           "favThreshold": 0.55,
           "discount": 0.02,
@@ -570,14 +576,14 @@
           "cancelDelta": 0.03
         },
         "metrics": {
-          "netEvPerMarket": 0.22,
-          "grossEvPerMarket": 0.2208,
-          "markets": 1000,
-          "trades": 627,
+          "netEvPerMarket": -0.18,
+          "grossEvPerMarket": -0.17955333333333331,
+          "markets": 3000,
+          "trades": 1869,
           "trainNetEv": null,
           "testNetEv": null
         },
-        "reason": "Single run met successCriteria 'Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with +0.22 net EV/market over 1000 markets and 627 trades.",
+        "reason": "Single run met successCriteria 'Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' at screen, but failed confirm with -0.18 net EV/market over 3000 markets and 1869 trades.",
         "stageReached": 1,
         "gatesVersion": 1
       }
