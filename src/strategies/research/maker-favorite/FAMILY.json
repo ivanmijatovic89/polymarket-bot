@@ -925,8 +925,8 @@
               "maker-favorite--011-book-imbalance--p1-minFavBidRatio--bcc6c5fe-9fc5-4683-890c-4158829c726c",
               "maker-favorite--011-book-imbalance--p1-minFavBidRatio--e9367f47-cb21-4140-a704-9889d67d6d1c"
             ],
-            "best": null,
-            "note": null
+            "best": 0.45,
+            "note": "All four cells net-POSITIVE: minFavBidRatio 0.45 -> netEvPerMarket +0.18 (410 trades, all maker, 0 taker, 0 flat-with-trades), 0.5 -> +0.05 (348), 0.55 -> +0.03 (290), 0.6 -> +0.09 (229). Best is the LOOSEST gate (0.45), and the response is non-monotonic (0.18,0.05,0.03,0.09), so the depth filter is NOT what earns the EV -- the edge is strongest where the gate barely binds. Fills are clean maker (no accidental taker fills, unlike 000). Advisory: attribute the win to the 006-inherited config, not to minFavBidRatio; the gate looks near-inert-to-harmful as tightened."
           }
         ],
         "refine": null
@@ -940,12 +940,42 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "running",
-      "gateLog": [],
+      "status": "evaluated",
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "go",
+          "at": "2026-07-05T12:07:49Z",
+          "note": "Stage-1 screen PASSED: best cell (minFavBidRatio=0.45) netEvPerMarket=+0.18 over 1000 latest markets, 410 clean maker trades. Advisory: non-monotonic gate response, best at loosest setting -> the depth filter is not the driver; Researcher should extend to stage-2 confirm and consider whether the gate earns its keep vs the inherited 006 config."
+        }
+      ],
       "submittedAt": "2026-07-05T11:59:24Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-05T12:07:49Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "success",
+        "bestParams": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "cancelDelta": 0.03,
+          "minFavBidRatio": 0.45,
+          "imbLevels": 3
+        },
+        "metrics": {
+          "netEvPerMarket": 0.18,
+          "grossEvPerMarket": 0.18,
+          "markets": 1000,
+          "trades": 410,
+          "trainNetEv": null,
+          "testNetEv": null
+        },
+        "reason": "Best cell minFavBidRatio=0.45 gave netEvPerMarket +0.18 over 1000 latest markets on 410 all-maker trades (fees 0); other cells +0.05/+0.03/+0.09, response non-monotonic and best at the loosest gate.",
+        "stageReached": 1,
+        "gatesVersion": 1
+      }
     }
   ]
 }
