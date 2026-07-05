@@ -255,3 +255,33 @@ Lesson: Waiting 180 seconds before placing the mild-favorite maker bid is a
 real fill-set change, but it still has the family-level screen/confirm
 failure; future experiments need a stronger selection rule or a lifecycle
 change, not just a different fixed entry time.
+
+### 004-delayed-threshold
+
+This experiment kept the delayed-entry lifecycle from `003-delayed-favorite`
+but required a stronger favorite after the 180 second wait. The first pass
+swept `favThreshold` with `discount=0.01`, `size=40`, `startSec=180`, and
+`stopSec=840`. Evaluator selected `favThreshold=0.55`: it was the strongest
+screen cell at `0.36` net EV per market over 1000 markets, with 685 markets
+played and 687 trades, while the neighboring `0.52`, `0.60`, and `0.65`
+cells all remained positive.
+
+The discount pass fixed `favThreshold=0.55` and swept `0.01`, `0.02`, and
+`0.04`. The top response was flat-positive: `discount=0.02` and `0.04` both
+rounded to `0.40` net EV per market. Evaluator chose `discount=0.02` because
+it kept more coverage, 662 trades versus 616, while `discount=0.01` was lower
+at `0.36`. Gate 1 passed under `STAGE-GATES.md` version 1, and the best
+params are `favThreshold=0.55`, `discount=0.02`, `size=40`, `startSec=180`,
+and `stopSec=840`.
+
+Interpretation: a modestly stronger favorite threshold repairs the delayed
+screen without starving participation. This is the cleanest screen so far
+because it improves on the prior delayed variant while keeping a broad enough
+fill set. It is still only a screen: every prior favorite-family candidate
+that passed 1000 markets failed the 3000-market confirm gate, so the next
+required action is a stage-2 extension of run `201`.
+
+Lesson: Delayed favorite entry improves when paired with a modestly stronger
+favorite threshold, but this family should not treat any 1000-market favorite
+screen as durable until the exact winning run passes the contiguous
+3000-market confirm gate.
