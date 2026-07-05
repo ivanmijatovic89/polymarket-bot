@@ -596,3 +596,37 @@ Lesson: A one-shot maker take-profit exit can worsen a directional maker entry
 by adding churn while leaving tail losses intact; high win rate with many small
 realized sells is not evidence of positive EV when unresolved residual losses
 dominate the market-level PnL.
+
+### 013-momentum-confirm
+
+This experiment tested a true tick-stream direction signal instead of another
+static book or threshold filter. It armed on the delayed favorite, waited
+`confirmSec=60`, and placed the maker bid only if the same favorite had
+strengthened by at least `minMomentum`. The pass swept `minMomentum` through
+`0`, `0.01`, `0.02`, and `0.04`, keeping the delayed favorite defaults
+(`favThreshold=0.55`, `discount=0.02`, `size=40`, `startSec=180`,
+`stopSec=840`).
+
+The screen barely passed. The best cell was `minMomentum=0.02` at `+0.02` net
+EV per market over 1000 markets, with 290 markets played, 290 trades, all maker,
+no taker fills, no fees, and `76.21%` win rate. The response was peaked but
+fragile: `0.01` was exactly `0.00` over 324 trades, `0` was `-0.16` over 346
+trades, and the stricter `0.04` fell to `-0.24` over 240 trades. Evaluator
+advanced it because v1 gates advance on positive net EV, but flagged the margin
+as extremely thin.
+
+Interpretation: unlike the inert spread filter, this signal genuinely changes
+the fill set and the direction makes intuitive sense: requiring some recent
+favorite strengthening removed weaker fills. But the edge is too small to trust
+without confirm, especially given this family's repeated pattern of screen
+positive and confirm negative. The useful thing about `013` is that it is a real
+new signal source; the concerning thing is that the best result is only two
+cents per 100 markets.
+
+Decision: honor the gate `go` and extend run 232 (`minMomentum=0.02`) to
+stage-2 confirm. If it fails, this confirms that even real recent-momentum
+conditioning is not enough to stabilize the favorite-maker lifecycle.
+
+Lesson: A real signal-source change can still be too weak to matter; when the
+best stage-1 cell is barely positive and neighboring cells are flat or negative,
+the only defensible next step is confirm, not parameter celebration.
