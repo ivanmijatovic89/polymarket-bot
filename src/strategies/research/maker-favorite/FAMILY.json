@@ -1094,8 +1094,8 @@
               "maker-favorite--013-momentum-confirm--p1-minMomentum--977fd180-3ca6-4339-afee-8c226da71433",
               "maker-favorite--013-momentum-confirm--p1-minMomentum--a6a892bf-0a49-4910-99b0-4ce7b9563524"
             ],
-            "best": null,
-            "note": null
+            "best": 0.02,
+            "note": "Best cell barely passed: minMomentum 0.02 reached netEvPerMarket +0.02 over 1000 markets, 290 markets played, 290 trades, all maker, 0 fees, and 76.21% win rate. The response is peaked but fragile: 0.01 was exactly 0.00 with 324 trades, 0 was -0.16 with 346 trades, and stricter 0.04 fell to -0.24 with 240 trades. Momentum confirmation genuinely changes the fill set, but the edge is tiny and should be treated as high-risk for confirm."
           }
         ],
         "refine": null
@@ -1109,12 +1109,41 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "running",
-      "gateLog": [],
+      "status": "evaluated",
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "go",
+          "at": "2026-07-05T20:43:45Z",
+          "note": "Gate 1 passed: best cell minMomentum=0.02 reached netEvPerMarket +0.02 over 1000 latest markets, with 290 clean maker trades and no fees. Advisory: the margin is extremely thin and neighboring cells are flat/negative, so confirm risk is high, but v1 gates advance on net profitability."
+        }
+      ],
       "submittedAt": "2026-07-05T20:35:27Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-05T20:43:45Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "success",
+        "bestParams": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "confirmSec": 60,
+          "minMomentum": 0.02
+        },
+        "metrics": {
+          "netEvPerMarket": 0.02,
+          "grossEvPerMarket": 0.02,
+          "markets": 1000,
+          "trades": 290,
+          "trainNetEv": null,
+          "testNetEv": null
+        },
+        "reason": "Best cell (minMomentum=0.02; run 232) met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with +0.02 net EV/market over 1000 markets (290 all-maker trades, 0 taker, fees $0).",
+        "stageReached": 1,
+        "gatesVersion": 1
+      }
     }
   ]
 }
