@@ -154,7 +154,11 @@
             "param": "stopSec",
             "values": [300, 600, 840],
             "batchUid": "maker-favorite--001-entry-window--p2-stopSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--001-entry-window--p2-stopSec--f3038479-9ce4-4107-9b97-7f67029572fe",
+              "maker-favorite--001-entry-window--p2-stopSec--fe247df4-c886-41f7-b926-d68d00ef13fe",
+              "maker-favorite--001-entry-window--p2-stopSec--25f4bb34-f1c2-4c75-bd0c-5a39aff6e551"
+            ],
             "best": null,
             "note": null
           }
@@ -172,7 +176,7 @@
       },
       "status": "running",
       "gateLog": [],
-      "submittedAt": "2026-07-05T03:22:17Z",
+      "submittedAt": "2026-07-05T03:31:04Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
