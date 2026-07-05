@@ -1007,7 +1007,12 @@
             "param": "takeProfit",
             "values": [0.02, 0.04, 0.06, 0.08],
             "batchUid": "maker-favorite--012-cancel-take-profit--p1-takeProfit",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--012-cancel-take-profit--p1-takeProfit--44114ca1-fe39-492b-86c7-a533a6043d9e",
+              "maker-favorite--012-cancel-take-profit--p1-takeProfit--0f699eed-e16e-40f9-957b-857f1a845b15",
+              "maker-favorite--012-cancel-take-profit--p1-takeProfit--7c06644f-b30b-415a-84a2-d36970c18f0e",
+              "maker-favorite--012-cancel-take-profit--p1-takeProfit--d2b00437-34dd-4bd7-83db-ea737c72ba1f"
+            ],
             "best": null,
             "note": null
           }
@@ -1023,9 +1028,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T20:20:25Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
