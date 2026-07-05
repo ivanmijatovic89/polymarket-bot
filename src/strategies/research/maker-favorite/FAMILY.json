@@ -536,13 +536,20 @@
         "cancelDelta": 0.03
       },
       "search": null,
-      "batchUid": null,
-      "submissionUids": [],
+      "batchUid": "maker-favorite--006-cancel-weakening",
+      "submissionUids": [
+        "maker-favorite--006-cancel-weakening--9071fccb-85e4-4494-b5b0-c0001f0b5c64"
+      ],
       "baselineId": "201",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T05:22:11Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
