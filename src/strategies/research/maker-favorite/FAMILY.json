@@ -1274,7 +1274,7 @@
       "baselineId": "207",
       "coverage": {
         "selection": "latest",
-        "markets": 1000,
+        "markets": 3000,
         "fromMs": null,
         "toMs": null
       },
