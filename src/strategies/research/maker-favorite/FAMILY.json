@@ -315,12 +315,19 @@
       },
       "search": null,
       "batchUid": "maker-favorite--003-delayed-favorite",
-      "submissionUids": [],
+      "submissionUids": [
+        "maker-favorite--003-delayed-favorite--4757693d-50c4-41cc-8d60-39e16e49dc1f"
+      ],
       "baselineId": "177",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T04:17:44Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
