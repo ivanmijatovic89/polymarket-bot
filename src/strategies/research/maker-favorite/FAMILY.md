@@ -125,6 +125,7 @@ Ranked, mechanism-distinct ideas beyond the baseline (prose until specced):
    test resting a maker _ask_ a few cents above our fill to scratch out the
    spread on winners quickly, reducing resolution-time regime risk (capacity /
    variance) while keeping the maker-only, fee-free posture.
+   Tested with the cancel-weakening entry in `012-cancel-take-profit`.
 7. **Favorite book depth imbalance (quality gate).** The touch-spread filter
    (`010`) was inert because favorite touch books are always tight; a real
    quality gate must key on _depth_, not touch. Rest the bid only when the
