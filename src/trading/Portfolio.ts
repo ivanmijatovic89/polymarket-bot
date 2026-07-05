@@ -20,6 +20,19 @@ function positionKey(assetId: string): string {
   return assetId
 }
 
+/**
+ * INVARIANT: `apply(ev)` is the ONLY method that mutates snapshot-exposed state
+ * (positionsByAssetId, openOrdersByClientId, wsOpenOrdersByOrderId,
+ * ordersByClientIdSnapshot, recentFills, recentSplits, marketByAssetId, nowMs,
+ * realizedPnlTotal). Every private mutator (upsertOrderSnapshot, applyFillTo*,
+ * pushFill, …) is reachable only from apply().
+ *
+ * `snapshot()` relies on this: it caches a frozen snapshot and invalidates it in
+ * apply() (see `cachedSnapshot`). If you add a new code path that mutates any of
+ * the above WITHOUT going through apply(), you MUST null `cachedSnapshot` there
+ * too, or snapshot() will serve stale data. Prefer routing the mutation through
+ * apply() so the single invalidation point keeps holding.
+ */
 export class Portfolio {
   private nowMs = Date.now()
   private readonly positionsByAssetId = new Map<string, Position>()
@@ -234,6 +247,7 @@ export class Portfolio {
   apply(ev: AccountEvent): void {
     // Any inbound event can change portfolio state (and always advances nowMs
     // below), so drop the cached snapshot; the next snapshot() rebuilds it once.
+    // This is the single invalidation point — see the class-level INVARIANT.
     this.cachedSnapshot = null
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
