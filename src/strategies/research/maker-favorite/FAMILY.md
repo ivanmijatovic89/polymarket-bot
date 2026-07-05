@@ -140,3 +140,32 @@ discount rather than on spread capture. Different primary decision driver
 family.
 
 ## Research log
+
+### 000-baseline
+
+The baseline tested the simplest version of the family: choose the higher-mid
+BTC 15m leg, place one resting maker bid below mid, and hold any fill to
+resolution. Stage-1 coordinate search first showed that the discount pass was
+negative at the default threshold, with `discount=0.01` least bad at
+`-0.07` net EV per market and wider discounts deteriorating monotonically.
+The favorite-strength pass changed the result: lowering the gate to
+`favThreshold=0.52` produced the first positive cell at `0.20` net EV per
+market over 1000 markets, while higher thresholds reduced participation and
+EV. The size pass then scaled nearly linearly; the winner was
+`favThreshold=0.52`, `discount=0.01`, `size=40`, run `177`, with `0.39` net
+EV per market over 1000 markets, 451 markets played, and 460 trades. Gate 1
+therefore passed under `STAGE-GATES.md` version 1, and this experiment is the
+current champion pending confirm-stage extension.
+
+Interpretation: the family is not just a maker-fee avoidance test anymore;
+the edge appears specifically in mild favorites, not strong favorites, and
+the 1 cent maker discount gives enough fill volume without pushing the fill
+set into obviously toxic reversals. The linear size response is encouraging
+for stage 1, but it is not proof of capacity: the grid only tested small
+retail sizes, and the Evaluator flagged 10 accidental taker fills in the best
+cell plus possible queue/liquidity realism limits. The next action is a
+stage-2 extension of run `177` to 3000 total markets, not a new variant.
+
+Lesson: A very simple passive favorite bid can pass the 1000-market screen
+when the favorite gate is mild (`0.52`) and the discount is tight (`0.01`);
+do not over-filter to strong favorites before measuring fill volume.
