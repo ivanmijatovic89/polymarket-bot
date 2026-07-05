@@ -387,13 +387,20 @@ positive at `0.25` and `0.18` net EV per market, but they were much thinner
 at 263 and 103 trades. Gate 1 passed and `008-cancel-delta` became the current
 champion candidate pending confirm.
 
-Interpretation: this is a useful response curve. Cancellation is not simply
-"more is better"; overly tight cancellation removes too much participation,
-while a looser `0.04` threshold preserves a broad fill set and still avoids
-some stale bids. The screen is still below the old delayed-threshold peak
-(`0.40`), but it improves the cancellation screen from `0.22` to `0.35` and
-keeps enough volume to justify the normal stage-2 extension.
+The confirm extension failed. Run `212` over 3000 markets fell to `-0.25` net
+EV per market, with 2009 markets played, 2009 trades, 2000 maker fills, 9
+taker fills, and `66.40%` win rate. This was worse than the original
+`cancelDelta=0.03` confirm result (`-0.18`) despite the stronger 1000-market
+screen.
 
-Lesson: Pre-fill cancellation has a positive but participation-sensitive
-threshold response; `cancelDelta=0.04` is the best screen so far for the
-toxicity-control branch and must be confirmed at 3000 markets.
+Interpretation: this is a useful response curve, but only at screen coverage.
+Cancellation is not simply "more is better"; overly tight cancellation removes
+too much participation, while looser cancellation preserves screen fills that
+do not survive older-history confirm. The family now has several variants
+that screen positive and fail confirm, with the best confirm still the
+`006-cancel-weakening` `cancelDelta=0.03` run at `-0.18`.
+
+Lesson: Pre-fill cancellation has a participation-sensitive screen response,
+but loosening to `cancelDelta=0.04` overfits the latest 1000 markets and fails
+confirm; further attempts need a different information source or a stronger
+selection rule than a single adverse-move threshold.
