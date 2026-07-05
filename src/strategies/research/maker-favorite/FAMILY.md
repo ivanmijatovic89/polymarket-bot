@@ -228,3 +228,24 @@ mirror produces a robust edge.
 Lesson: The maker-discount lever is side-sensitive; underdog passive buys are
 not a viable mirror control here, and broadening the underdog cutoff mainly
 adds toxic fill volume.
+
+### 003-delayed-favorite
+
+This experiment froze the only delayed-entry cell from `001-entry-window` that
+looked interesting: wait 180 seconds into the BTC 15m episode, then apply the
+same mild favorite gate (`favThreshold=0.52`), 1 cent maker discount, and size 40. As a single fixed variation, run `196` passed the stage-1 screen at
+`0.29` net EV per market over 1000 markets, with 762 markets played, 764
+trades, 747 maker fills, 17 taker fills, and `67.72%` win rate. Evaluator
+advanced it to gate 2 and marked it the current champion candidate.
+
+Interpretation: delaying the entry is a real mechanism change when it moves
+the first eligible order away from the noisy open. It trades far more often
+than the immediate baseline's best screen cell and has a higher win rate, but
+the result is not yet robust because the earlier immediate favorite variants
+also screened positive and then failed at 3000 markets. The required next
+action is the normal stage-2 extension of run `196`.
+
+Lesson: The simplest surviving favorite-maker variant is not "enter
+immediately"; it is "wait for the episode to form, then rest the mild-favorite
+bid," but it still needs confirm because this family has already shown severe
+screen/confirm instability.
