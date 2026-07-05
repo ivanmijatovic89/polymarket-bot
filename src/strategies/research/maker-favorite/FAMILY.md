@@ -630,3 +630,22 @@ conditioning is not enough to stabilize the favorite-maker lifecycle.
 Lesson: A real signal-source change can still be too weak to matter; when the
 best stage-1 cell is barely positive and neighboring cells are flat or negative,
 the only defensible next step is confirm, not parameter celebration.
+
+Stage-2 evaluation (2026-07-05): Evaluator recycled the experiment. The extended
+run 232 fell from `+0.02` at the 1000-market screen to `-0.10` net EV per market
+over 3000 markets, with 896 markets played, 897 trades, 892 maker fills, 5 taker
+fills, $0.75 fees, and `74.78%` win rate. Momentum confirmation clearly selected
+a higher-win-rate fill set than the simpler delayed favorite variants, but the
+confirm window was still negative because occasional losses outweighed the many
+small wins.
+
+Interpretation: `013` is stronger evidence than the inert/static filters because
+it changed the signal source and produced a high win rate, but it still did not
+stabilize EV. The family pattern is now very consistent: simple favorite-maker
+variants can be recent-slice positive, and filters can make them look cleaner,
+but the broader contiguous history remains negative once stage-2 coverage is
+added.
+
+Lesson: Higher win rate is not enough for this family; the decisive failure mode
+is payoff asymmetry. A favorite-maker filter must reduce loss severity or avoid
+the losing regimes entirely, not merely select more winning fills.
