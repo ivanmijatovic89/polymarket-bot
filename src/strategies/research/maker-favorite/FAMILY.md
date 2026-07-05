@@ -370,3 +370,30 @@ Lesson: A fixed 30-second same-side stability confirmation is too selective
 and negatively selected; future toxicity controls should adapt to price
 movement magnitude or episode timing instead of imposing a single short
 confirmation delay before every entry.
+
+### 008-cancel-delta
+
+This experiment reused `006-cancel-weakening` and swept only the adverse-move
+cancel threshold. The idea was that `cancelDelta=0.03` improved 3000-market
+loss versus the uncanceled delayed-threshold entry, but might be too blunt.
+The pass tested `cancelDelta` values `0.01`, `0.02`, and `0.04` while keeping
+`favThreshold=0.55`, `discount=0.02`, `size=40`, `startSec=180`, and
+`stopSec=840`.
+
+All three screen cells were positive. Evaluator selected `cancelDelta=0.04`
+because it reached `0.35` net EV per market over 1000 markets, with 656
+markets played and 656 trades. The tighter `0.02` and `0.01` cells were also
+positive at `0.25` and `0.18` net EV per market, but they were much thinner
+at 263 and 103 trades. Gate 1 passed and `008-cancel-delta` became the current
+champion candidate pending confirm.
+
+Interpretation: this is a useful response curve. Cancellation is not simply
+"more is better"; overly tight cancellation removes too much participation,
+while a looser `0.04` threshold preserves a broad fill set and still avoids
+some stale bids. The screen is still below the old delayed-threshold peak
+(`0.40`), but it improves the cancellation screen from `0.22` to `0.35` and
+keeps enough volume to justify the normal stage-2 extension.
+
+Lesson: Pre-fill cancellation has a positive but participation-sensitive
+threshold response; `cancelDelta=0.04` is the best screen so far for the
+toxicity-control branch and must be confirmed at 3000 markets.
