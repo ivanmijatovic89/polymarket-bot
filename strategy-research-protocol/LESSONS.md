@@ -23,5 +23,18 @@ Rules:
 
 ## Lessons
 
-No entries yet — the first ones will come from the first evaluated
-experiments.
+### verify-a-new-filter-actually-binds — 2026-07-05
+
+A new selection filter only carries information if its threshold actually
+removes markets on the data; a threshold that never binds produces a screen
+byte-identical to the unfiltered variant and silently re-runs a known result.
+In `maker-favorite` `010-tight-spread`, adding `maxFavSpread` and sweeping it
+(0.04/0.06/0.08) tied all three cells exactly at +0.22 net EV/mkt, 627 trades,
+68.26% win — the tightest 0.04 bar removed zero markets because favorite touch
+books in that mid-window are always tighter than 4 cents. The "passing" gate-1 cell
+was thus a duplicate of an earlier screen (`006-cancel-weakening`) already
+known to fail confirm at 3000 markets (-0.18), so no stage-2 extension was
+warranted. Before trusting a filter's screen, confirm markets-played /
+trade-count dropped versus the unfiltered baseline; if participation is
+unchanged, the filter is inert regardless of its EV.
+From: maker-favorite.

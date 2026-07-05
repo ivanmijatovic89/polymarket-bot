@@ -429,3 +429,43 @@ repeat known evidence rather than adding new information.
 Lesson: For the cancel-weakening lifecycle, stricter favorite thresholds do
 not improve the edge; the family needs a genuinely different signal or should
 pause rather than recycling the same delayed favorite maker entry.
+
+### 010-tight-spread
+
+This experiment tried to use recorded order-book quality as the selection rule
+the family has been missing. It kept the best-confirming cancel-weakening entry
+(`favThreshold=0.55`, `discount=0.02`, `size=40`, `startSec=180`,
+`stopSec=840`, `cancelDelta=0.03`) and added `maxFavSpread`: only rest the bid
+if the favorite leg's bid/ask spread at entry is at most that width, the idea
+being that wide-book markets are lower quality and produce the toxic confirm
+fills. The one pass swept `maxFavSpread` through `0.04`, `0.06`, and `0.08`.
+
+The filter turned out to be completely inert. All three cells (runs
+`217`/`219`/`218`) tie byte-for-byte at `0.22` net EV per market over 1000
+markets, 627 markets played, 627 trades, `68.26%` win rate. Even the tightest
+`0.04` bar removed zero markets relative to the `006-cancel-weakening` screen
+(also 627 trades, `+0.22`), which means favorite books in this delayed
+mid-window are essentially always tighter than 4 cents, so the threshold never
+binds. Evaluator passed gate 1 on the tightest tied value but flagged the
+result as an exact duplicate of the `006` screen and advised against spending a
+stage-2 extension, because that identical parameter set already failed confirm
+at 3000 markets (`-0.18`).
+
+Interpretation: this was not a real mechanism change. A filter whose threshold
+never binds cannot alter the fill set, so it reproduces a known screen and a
+known confirm failure — no new information. Favorite books near the touch are
+too tight for a static spread bar to discriminate quality here; a book-quality
+filter would have to key on depth or imbalance, not raw touch spread, to
+actually remove markets. Given that `009-cancel-threshold` (champion) and now
+`010` both reduce to the already-failed `006` parameter set, the delayed
+cancel-weakening favorite-maker entry has been exhausted with the levers tried
+(threshold, discount, cancel delta, entry timing, touch spread). Decision: do
+not extend `010`; the next step is either a genuinely different information
+source (order-book depth/imbalance quality, or a lifecycle that is not
+hold-to-resolution) or, if the roadmap has no mechanism-distinct idea left,
+the family's stopping rules should be assessed next iteration.
+
+Lesson: Before trusting a "passing" screen from a new filter, confirm the
+filter actually removed markets — a threshold that never binds (here
+`maxFavSpread` on always-tight favorite touch books) yields a screen
+byte-identical to the unfiltered variant and silently re-runs a known result.
