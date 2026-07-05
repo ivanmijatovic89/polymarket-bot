@@ -919,7 +919,11 @@
             "param": "minFavBidRatio",
             "values": [0.45, 0.5, 0.55, 0.6],
             "batchUid": "maker-favorite--011-book-imbalance--p1-minFavBidRatio",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--011-book-imbalance--p1-minFavBidRatio--05668ade-4aee-4cdf-9365-48edd94ed042",
+              "maker-favorite--011-book-imbalance--p1-minFavBidRatio--0737e96c-1b7e-42d6-b5f7-6886f1767560",
+              "maker-favorite--011-book-imbalance--p1-minFavBidRatio--bcc6c5fe-9fc5-4683-890c-4158829c726c"
+            ],
             "best": null,
             "note": null
           }
@@ -935,9 +939,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T11:59:24Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
