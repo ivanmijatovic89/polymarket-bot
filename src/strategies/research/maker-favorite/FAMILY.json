@@ -1176,18 +1176,28 @@
             "param": "maxRange",
             "values": [0.02, 0.04, 0.06, 0.08],
             "batchUid": "maker-favorite--014-volatility-guard--p1-maxRange",
-            "submissionUids": []
+            "submissionUids": [
+              "maker-favorite--014-volatility-guard--p1-maxRange--029897dd-511f-4e18-b2f5-541c0aba7ef0",
+              "maker-favorite--014-volatility-guard--p1-maxRange--29dafcf5-0255-49da-b050-c7f87ba30c8f",
+              "maker-favorite--014-volatility-guard--p1-maxRange--857c281d-2439-4982-8174-2e13db314456",
+              "maker-favorite--014-volatility-guard--p1-maxRange--e9e3b3d0-1204-4077-aa78-034450310dc5"
+            ]
           }
         ],
         "refine": null
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T21:07:07Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
