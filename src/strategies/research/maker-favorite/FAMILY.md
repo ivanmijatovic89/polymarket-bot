@@ -404,3 +404,28 @@ Lesson: Pre-fill cancellation has a participation-sensitive screen response,
 but loosening to `cancelDelta=0.04` overfits the latest 1000 markets and fails
 confirm; further attempts need a different information source or a stronger
 selection rule than a single adverse-move threshold.
+
+### 009-cancel-threshold
+
+This experiment kept the best-confirming cancellation branch,
+`cancelDelta=0.03`, and swept the favorite threshold through `0.55`, `0.60`,
+and `0.65`. The intent was to see whether stricter side selection could fix
+the repeated screen/confirm failure without changing the lifecycle again.
+
+The screen was positive but did not support the stricter-threshold hypothesis.
+Evaluator selected the `0.55` control at `0.22` net EV per market over 1000
+markets, with 627 markets played and 627 trades. The stricter `0.60` and
+`0.65` cells remained positive at `0.17` and `0.12` net EV per market, but
+both reduced participation and EV. The selected best is the same parameter
+set as `006-cancel-weakening`, whose 3000-market confirm is already known to
+fail at `-0.18` net EV per market.
+
+Interpretation: tightening the favorite threshold is not the missing
+selection rule for this lifecycle. It improves win rate but gives up too much
+participation and does not improve the screen. Since the best cell duplicates
+an already-confirmed failed experiment, extending this record would only
+repeat known evidence rather than adding new information.
+
+Lesson: For the cancel-weakening lifecycle, stricter favorite thresholds do
+not improve the edge; the family needs a genuinely different signal or should
+pause rather than recycling the same delayed favorite maker entry.
