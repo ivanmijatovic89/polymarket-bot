@@ -141,7 +141,12 @@
             "param": "startSec",
             "values": [0, 60, 180, 300],
             "batchUid": "maker-favorite--001-entry-window--p1-startSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--001-entry-window--p1-startSec--44e6d99a-526d-45e1-960b-1cbf3ac02dfa",
+              "maker-favorite--001-entry-window--p1-startSec--5faa58be-03fd-4bed-8e7d-69126977b158",
+              "maker-favorite--001-entry-window--p1-startSec--68a2f566-34e3-4f7c-9a11-72cbb9a786a9",
+              "maker-favorite--001-entry-window--p1-startSec--990e6726-587d-4daf-a8e4-ceef43853e84"
+            ],
             "best": null,
             "note": null
           },
@@ -159,10 +164,15 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": "177",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T03:22:17Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
