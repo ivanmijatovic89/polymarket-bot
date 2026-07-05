@@ -252,8 +252,8 @@
               "maker-favorite--002-underdog-mirror--p2-discount--812ec6c7-506f-4bf0-a79d-0b9affffabb7",
               "maker-favorite--002-underdog-mirror--p2-discount--5bdd01df-f277-4461-a829-aa4629890c47"
             ],
-            "best": null,
-            "note": null
+            "best": 0.04,
+            "note": "Best discount cell was still negative: discount 0.04 reached netEvPerMarket -0.04 over 1000 markets with 14 trades, all maker, and 28.57% win rate. Wider discount improved the tiny 0.40-cutoff sample from -0.06 at 0.01, but not enough to pass stage 1."
           }
         ],
         "refine": null
@@ -267,12 +267,37 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "running",
-      "gateLog": [],
+      "status": "evaluated",
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "recycle",
+          "at": "2026-07-05T04:14:07Z",
+          "note": "Gate 1 failed: best trading cell netEv -0.04/mkt (run 194) <= 0 at 1000-market coverage, with only 14 trades. Advisory: underdog entries are directionally bad across active cutoffs; the zero-EV 0.35 cutoff had no trades and is not evidence."
+        }
+      ],
       "submittedAt": "2026-07-05T04:04:00Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-05T04:14:07Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "fail",
+        "bestParams": {
+          "maxUnderdogMid": 0.4,
+          "discount": 0.04,
+          "size": 40
+        },
+        "metrics": {
+          "netEvPerMarket": -0.04,
+          "grossEvPerMarket": -0.04,
+          "markets": 1000,
+          "trades": 14,
+          "trainNetEv": null,
+          "testNetEv": null
+        },
+        "reason": "Best trading cell (maxUnderdogMid 0.40, discount 0.04; run 194) failed successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with -0.04/mkt over 1000 markets and only 14 trades; broader underdog cutoffs were materially worse.",
+        "stageReached": 0,
+        "gatesVersion": 1
+      }
     }
   ]
 }
