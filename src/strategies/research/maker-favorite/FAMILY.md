@@ -478,3 +478,56 @@ Lesson: Before trusting a "passing" screen from a new filter, confirm the
 filter actually removed markets — a threshold that never binds (here
 `maxFavSpread` on always-tight favorite touch books) yields a screen
 byte-identical to the unfiltered variant and silently re-runs a known result.
+
+### 011-book-imbalance
+
+This experiment tried the roadmap's depth-based quality gate -- the first filter
+built to actually bind after `010-tight-spread` proved touch spread inert. It
+kept the best-confirming cancel-weakening entry (`favThreshold=0.55`,
+`discount=0.02`, `size=40`, `startSec=180`, `stopSec=840`, `cancelDelta=0.03`)
+and added `minFavBidRatio`: rest the bid only when the favorite book is
+bid-supported -- `bidDepth/(bidDepth+askDepth)` over the top `imbLevels=3`
+cumulative levels at or above the threshold -- rejecting ask-heavy
+(being-sold-into) favorite books. The motivation was the cross-family
+convergence finding that ask-heavy favorite books are ~2.5 cents overpriced
+(informed selling), so filtering them should strip the toxic fills that make
+held favorite inventory lose at confirm. The single pass swept `minFavBidRatio`
+through `0.45`, `0.5`, `0.55`, `0.6`.
+
+All four cells were net-positive and, unlike `010`, the filter genuinely bound --
+trade counts dropped as the gate tightened (410 -> 348 -> 290 -> 229). But the EV
+response undercut the hypothesis. It was non-monotonic and best at the
+**loosest** gate: `minFavBidRatio=0.45` gave `0.18` net EV per market over 1000
+markets on 410 all-maker trades (zero taker, zero fees), while `0.5`/`0.55`/`0.6`
+gave `0.05`/`0.03`/`0.09`. Evaluator passed gate 1 on the `0.45` cell (decision
+`go`) but flagged that because the strongest EV sits where the gate barely binds
+and tightening it does not help monotonically, the depth filter is not what earns
+the edge — the `+0.18` is inherited from the `006` config, and the gate looks
+near-inert-to-harmful as tightened.
+
+Interpretation: this is a real, binding filter (the fill set genuinely differs
+from `006`'s 627 trades), so it is not the inert `010` case -- but the direction
+of the depth gate is wrong-signed for our thesis. If ask-heavy favorites were the
+toxic fills, tightening `minFavBidRatio` (keeping only bid-supported books) should
+have raised EV monotonically; instead the best cell keeps the most markets and
+tightening only sheds EV. The convergence-family "ask-heavy favorite overpriced"
+effect either does not transfer to this delayed-maker fill set or is swamped by
+whatever the `006` entry is already capturing. Because the fill set is materially
+different from `006` (410 vs 627 trades), the stage-1 `go` still warrants the
+stage-2 confirm spend to see whether removing those ~217 markets happened to drop
+the toxic older-history fills — but the non-monotonic screen is weak prior
+evidence that it will.
+
+Decision: honor the gate `go` and extend run for `minFavBidRatio=0.45` to
+stage-2 confirm (3000 markets) next iteration; do not spend further passes
+tightening the gate, since the screen response already shows tightening does not
+help. If confirm fails like every prior favorite-maker variant, the depth-gate
+idea is spent and the roadmap has no mechanism-distinct lever left, which would
+move the family to a stopping-rules assessment.
+
+Lesson: A binding filter is necessary but not sufficient -- even when a new gate
+genuinely removes markets (here depth imbalance cut trades 410->229 as tightened),
+a non-monotonic screen whose EV peaks at the loosest, barely-binding setting is
+evidence the gate is NOT the driver; the EV is inherited from the base config, and
+tightening the gate only sheds participation. Attribute the edge to the inherited
+config and expect the confirm to track the base variant, not the filter.

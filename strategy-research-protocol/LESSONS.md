@@ -38,3 +38,23 @@ warranted. Before trusting a filter's screen, confirm markets-played /
 trade-count dropped versus the unfiltered baseline; if participation is
 unchanged, the filter is inert regardless of its EV.
 From: maker-favorite.
+
+### a-binding-filter-that-peaks-at-its-loosest-setting-is-not-the-driver — 2026-07-05
+
+A new gate genuinely removing markets is necessary but not sufficient evidence
+that the gate earns the edge. Read the shape of the screen response across the
+sweep: if EV is non-monotonic and peaks at the loosest, barely-binding setting,
+the edge is inherited from the base config and tightening the gate only sheds
+participation -- the gate is not the driver. In `maker-favorite`
+`011-book-imbalance`, a favorite-book depth-imbalance gate (`minFavBidRatio`
+over the top 3 cumulative levels, motivated by the cross-family finding that
+ask-heavy favorite books are ~2.5 cents overpriced) DID bind -- trades fell
+410->348->290->229 as the gate tightened -- yet net EV/mkt ran 0.18/0.05/0.03/0.09,
+best at the loosest 0.45 gate and non-monotonic. A well-motivated,
+correctly-binding filter that is wrong-signed or off-target looks exactly like
+this. Distinguish "filter did nothing" (inert, ties the unfiltered screen; see
+`verify-a-new-filter-actually-binds`) from "filter did something but not the
+intended thing" (binds, but EV peaks where it barely binds) -- the second still
+means attribute the EV to the base config and expect confirm to track the base
+variant.
+From: maker-favorite.
