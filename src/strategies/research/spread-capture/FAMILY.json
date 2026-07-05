@@ -208,6 +208,46 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "002-inventory-stop",
+      "kind": "param-search",
+      "code": "002-inventory-stop.ts",
+      "basedOn": "000-baseline",
+      "hypothesis": "000/001 jointly measured that survivor fills are negative contributors (keep quoting the survivor: -0.05; sell it faster: -0.10 to -0.13). Cancelling the surviving leg's ask the moment the first leg fills and holding it to the $1-redemption hedge removes those fills entirely, so it should strictly improve on -0.05/mkt (run 141); re-arming only when the survivor's mid returns near 0.5 additionally collects premium in reverted (uncertain) books without selling into the trend.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "sizeUsd": 5,
+          "offset": 0.05,
+          "reArmBand": 0,
+          "repriceDelta": 0.01,
+          "quoteStopSec": 420
+        },
+        "passes": [
+          {
+            "param": "reArmBand",
+            "values": [0, 0.05, 0.15, 0.5],
+            "batchUid": "spread-capture--002-inventory-stop--p1-reArmBand",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
