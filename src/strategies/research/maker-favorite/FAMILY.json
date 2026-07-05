@@ -1088,7 +1088,12 @@
             "param": "minMomentum",
             "values": [0, 0.01, 0.02, 0.04],
             "batchUid": "maker-favorite--013-momentum-confirm--p1-minMomentum",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--013-momentum-confirm--p1-minMomentum--b299ace5-e400-4a0f-90f4-6a7473220344",
+              "maker-favorite--013-momentum-confirm--p1-minMomentum--224acc97-443c-4a30-863d-ccf790ec2445",
+              "maker-favorite--013-momentum-confirm--p1-minMomentum--977fd180-3ca6-4339-afee-8c226da71433",
+              "maker-favorite--013-momentum-confirm--p1-minMomentum--a6a892bf-0a49-4910-99b0-4ce7b9563524"
+            ],
             "best": null,
             "note": null
           }
@@ -1104,9 +1109,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T20:35:27Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
