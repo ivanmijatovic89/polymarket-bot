@@ -309,28 +309,28 @@ export type PortfolioSnapshot = {
    * This avoids losing realized PnL when closed positions are removed from `positionsByAssetId`.
    */
   realizedPnlTotal?: number
-  positionsByAssetId: Record<string, Position>
-  openOrdersByClientId: Record<string, OpenOrder>
+  positionsByAssetId: Readonly<Record<string, Position>>
+  openOrdersByClientId: Readonly<Record<string, OpenOrder>>
   /**
    * Open orders observed via USER ws channel, keyed by exchange orderId.
    * Optional for backwards compatibility.
    */
-  wsOpenOrdersByOrderId?: Record<string, WsOpenOrder>
-  ordersByClientId: Record<string, OrderSnapshot>
-  recentFills: Fill[]
+  wsOpenOrdersByOrderId?: Readonly<Record<string, WsOpenOrder>>
+  ordersByClientId: Readonly<Record<string, OrderSnapshot>>
+  recentFills: readonly Fill[]
   /**
    * Recent position split events (CTF splitPosition) for backtest stats/accounting.
    *
    * These are NOT trades and should not be counted as fills/tradeCount.
    */
-  recentSplits?: PositionsSplit[]
+  recentSplits?: readonly PositionsSplit[]
   /**
    * Best-effort mapping from assetId -> market (condition id).
    * Populated from fills and any order placement that includes a market.
    *
    * Useful for grouping positions across YES/NO pairs to compute merge PnL.
    */
-  marketByAssetId: Record<string, string>
+  marketByAssetId: Readonly<Record<string, string>>
 }
 
 export type AccountEvent =
