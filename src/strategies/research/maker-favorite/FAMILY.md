@@ -245,7 +245,13 @@ the result is not yet robust because the earlier immediate favorite variants
 also screened positive and then failed at 3000 markets. The required next
 action is the normal stage-2 extension of run `196`.
 
-Lesson: The simplest surviving favorite-maker variant is not "enter
-immediately"; it is "wait for the episode to form, then rest the mild-favorite
-bid," but it still needs confirm because this family has already shown severe
-screen/confirm instability.
+The stage-2 extension then failed in the same pattern as the earlier favorite
+variants. Run `196` over 3000 markets fell to `-0.37` net EV per market, with
+2391 markets played, 2400 trades, 2356 maker fills, 44 taker fills, and
+`65.54%` win rate. Delaying entry improved the 1000-market screen, but it did
+not make the edge stable across the immediately older 2000 markets.
+
+Lesson: Waiting 180 seconds before placing the mild-favorite maker bid is a
+real fill-set change, but it still has the family-level screen/confirm
+failure; future experiments need a stronger selection rule or a lifecycle
+change, not just a different fixed entry time.
