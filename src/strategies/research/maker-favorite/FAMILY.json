@@ -247,7 +247,11 @@
             "param": "discount",
             "values": [0.01, 0.02, 0.04],
             "batchUid": "maker-favorite--002-underdog-mirror--p2-discount",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--002-underdog-mirror--p2-discount--969ef6ed-59dd-43a5-8fe3-6f948e246138",
+              "maker-favorite--002-underdog-mirror--p2-discount--812ec6c7-506f-4bf0-a79d-0b9affffabb7",
+              "maker-favorite--002-underdog-mirror--p2-discount--5bdd01df-f277-4461-a829-aa4629890c47"
+            ],
             "best": null,
             "note": null
           }
@@ -265,7 +269,7 @@
       },
       "status": "running",
       "gateLog": [],
-      "submittedAt": "2026-07-05T03:53:09Z",
+      "submittedAt": "2026-07-05T04:04:00Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
