@@ -893,6 +893,54 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "011-book-imbalance",
+      "kind": "param-search",
+      "code": "011-book-imbalance.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "Every prior favorite-maker variant screens positive on the newest 1000 markets but fails confirm, and the touch-spread quality filter (010) was inert because favorite touch books are always tight. A depth-based quality gate should actually bind: rest the bid only when the favorite book is bid-supported (bidDepth/(bidDepth+askDepth) over the top few levels >= minFavBidRatio), rejecting ask-heavy favorite books. Cross-family convergence research measured ask-heavy favorite books as ~2.5c overpriced (informed selling), so filtering them out should remove the toxic fills that make the held favorite inventory lose at confirm.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "cancelDelta": 0.03,
+          "minFavBidRatio": 0.5,
+          "imbLevels": 3
+        },
+        "passes": [
+          {
+            "param": "minFavBidRatio",
+            "values": [0.45, 0.5, 0.55, 0.6],
+            "batchUid": "maker-favorite--011-book-imbalance--p1-minFavBidRatio",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
