@@ -605,8 +605,10 @@
         "maxWeakening": 0.01
       },
       "search": null,
-      "batchUid": null,
-      "submissionUids": [],
+      "batchUid": "maker-favorite--007-confirm-stable",
+      "submissionUids": [
+        "maker-favorite--007-confirm-stable--dd214206-6e28-4015-af0a-e65d91f06f12"
+      ],
       "baselineId": "207",
       "coverage": {
         "selection": "latest",
@@ -614,9 +616,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T10:39:14Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
