@@ -346,3 +346,27 @@ Lesson: Canceling weakened resting favorite bids is the first lifecycle change
 that improved 3000-market confirm loss, but the `0.03` adverse-move threshold
 still fails; toxicity control needs a sharper pre-fill condition before this
 family can validate.
+
+### 007-confirm-stable
+
+This experiment tested the simplest sharper pre-fill condition after
+`006-cancel-weakening`: do not rest the maker bid immediately after the
+delayed strong-favorite signal. Instead, arm the candidate, wait `confirmSec=30`
+seconds, and place the bid only if the same side remains the favorite, stays
+above `favThreshold=0.55`, and has not weakened by more than
+`maxWeakening=0.01`. The bid still used `discount=0.02`, `size=40`,
+`startSec=180`, and `stopSec=840`, and filled inventory was held to
+resolution.
+
+The screen failed. Run `209` over 1000 markets produced `-0.20` net EV per
+market, with 389 markets played, 389 trades, 386 maker fills, 3 taker fills,
+and `70.69%` win rate. Evaluator recycled gate 1. Interpretation: the short
+confirmation window cut participation far below `006-cancel-weakening` but
+selected a worse fill set, so the stable-after-30-seconds rule is not the
+right toxicity filter. The higher win rate did not compensate for loss
+magnitude among the remaining fills.
+
+Lesson: A fixed 30-second same-side stability confirmation is too selective
+and negatively selected; future toxicity controls should adapt to price
+movement magnitude or episode timing instead of imposing a single short
+confirmation delay before every entry.
