@@ -234,7 +234,12 @@
             "param": "maxUnderdogMid",
             "values": [0.35, 0.4, 0.45, 0.48],
             "batchUid": "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--e1cbcbe9-e149-4c3b-bb12-69936a186e6d",
+              "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--b09ae1e3-a9eb-4fee-973f-61725cb93869",
+              "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--26ad2437-62f2-4a41-ace9-a031751968f0",
+              "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--005032ba-eb2f-4f9d-9f65-ce57239fb0f5"
+            ],
             "best": null,
             "note": null
           },
@@ -252,10 +257,15 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": "177",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T03:53:09Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
