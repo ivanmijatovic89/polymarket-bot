@@ -240,8 +240,8 @@
               "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--26ad2437-62f2-4a41-ace9-a031751968f0",
               "maker-favorite--002-underdog-mirror--p1-maxUnderdogMid--005032ba-eb2f-4f9d-9f65-ce57239fb0f5"
             ],
-            "best": null,
-            "note": null
+            "best": 0.4,
+            "note": "The non-loss cell maxUnderdogMid 0.35 had zero trades and is not evidence. Among trading cells, 0.40 is least bad at netEvPerMarket -0.06 over 1000 markets with 14 trades and 28.57% win rate; wider underdog cutoffs increased participation but worsened sharply to -1.59/mkt at 0.48."
           },
           {
             "param": "discount",
