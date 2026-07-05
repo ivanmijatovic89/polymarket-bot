@@ -519,6 +519,33 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "006-cancel-weakening",
+      "kind": "variation",
+      "code": "006-cancel-weakening.ts",
+      "basedOn": "004-delayed-threshold",
+      "hypothesis": "The delayed stronger-favorite entry fails confirm because stale bids are filled after the favorite weakens; canceling the resting bid when the chosen side drops by a few cents before fill may remove toxic fills while preserving favorable maker entries.",
+      "successCriteria": "Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": {
+        "favThreshold": 0.55,
+        "discount": 0.02,
+        "size": 40,
+        "startSec": 180,
+        "stopSec": 840,
+        "cancelDelta": 0.03
+      },
+      "search": null,
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "201",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
