@@ -135,6 +135,10 @@ Ranked, mechanism-distinct ideas beyond the baseline (prose until specced):
    finding that ask-heavy favorite books are ~2.5 cents overpriced (informed selling); this is
    the first filter that can actually bind and remove the toxic confirm fills.
    Tested in `011-book-imbalance`.
+8. **Favorite recent momentum confirmation.** The prior filters selected static
+   state; this tests a real tick-stream direction signal. Arm on a delayed
+   favorite, wait a short confirmation window, and bid only if the same favorite
+   strengthened by at least a threshold. Tested in `013-momentum-confirm`.
 
 ## Duplicate notes
 

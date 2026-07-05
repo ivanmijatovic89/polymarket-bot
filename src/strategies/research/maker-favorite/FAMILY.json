@@ -1063,6 +1063,53 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "013-momentum-confirm",
+      "kind": "param-search",
+      "code": "013-momentum-confirm.ts",
+      "basedOn": "007-confirm-stable",
+      "hypothesis": "The delayed favorite maker entry may only work when the favorite is strengthening before entry; requiring the same favorite to gain recent mid-price momentum over a confirmation window can select informed continuation rather than stale bids that fill on reversals.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "confirmSec": 60,
+          "minMomentum": 0.02
+        },
+        "passes": [
+          {
+            "param": "minMomentum",
+            "values": [0, 0.01, 0.02, 0.04],
+            "batchUid": "maker-favorite--013-momentum-confirm--p1-minMomentum",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
