@@ -11,7 +11,7 @@
     "maker-discount-directional"
   ],
   "retryOnlyIf": null,
-  "champion": "008-cancel-delta",
+  "champion": null,
   "verdictSummary": null,
   "tags": ["maker", "directional", "favorite", "simple"],
   "experiments": [
@@ -702,13 +702,19 @@
           "decision": "go",
           "at": "2026-07-05T10:51:51Z",
           "note": "Gate 1 passed: best cancelDelta cell 0.04 reached netEv 0.35/mkt at 1000-market coverage, with 656 markets played and 656 trades. Advisory: the whole sweep was positive, but looser cancellation won by preserving more participation."
+        },
+        {
+          "stage": 2,
+          "decision": "recycle",
+          "at": "2026-07-05T10:56:52Z",
+          "note": "Gate 2 failed: extended run 212 fell to netEv -0.25/mkt at 3000-market coverage, with 2009 markets played and 2009 trades. Advisory: looser cancellation improved the screen but did not preserve the confirm improvement seen at cancelDelta 0.03."
         }
       ],
       "submittedAt": "2026-07-05T10:43:39Z",
-      "decidedAt": "2026-07-05T10:51:51Z",
+      "decidedAt": "2026-07-05T10:56:52Z",
       "abortReason": null,
       "outcome": {
-        "verdict": "success",
+        "verdict": "fail",
         "bestParams": {
           "favThreshold": 0.55,
           "discount": 0.02,
@@ -718,14 +724,14 @@
           "cancelDelta": 0.04
         },
         "metrics": {
-          "netEvPerMarket": 0.35,
-          "grossEvPerMarket": 0.3508,
-          "markets": 1000,
-          "trades": 656,
+          "netEvPerMarket": -0.25,
+          "grossEvPerMarket": -0.24955333333333332,
+          "markets": 3000,
+          "trades": 2009,
           "trainNetEv": null,
           "testNetEv": null
         },
-        "reason": "Best cell met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with +0.35 net EV/market over 1000 markets and 656 trades.",
+        "reason": "Best cell met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' at screen, but failed confirm with -0.25 net EV/market over 3000 markets and 2009 trades.",
         "stageReached": 1,
         "gatesVersion": 1
       }
