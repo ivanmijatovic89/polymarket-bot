@@ -288,3 +288,25 @@ Lesson: Delayed favorite entry improves when paired with a modestly stronger
 favorite threshold, but the one-shot hold-to-resolution favorite-maker
 lifecycle still fails confirm; the next experiment needs a lifecycle or
 toxicity-control change rather than another simple threshold/window sweep.
+
+### 005-take-profit
+
+This experiment changed the lifecycle after the best delayed-threshold entry:
+place the same delayed stronger-favorite maker bid, then rest one maker SELL
+at entry plus `takeProfit=0.04` for any filled position instead of simply
+holding everything to resolution. The fixed params were `favThreshold=0.55`,
+`discount=0.02`, `size=40`, `startSec=180`, `stopSec=840`, and
+`takeProfit=0.04`.
+
+The screen failed decisively. Run `205` over 1000 markets produced `-1.18`
+net EV per market, with 662 markets played, 1244 trades, 1239 maker fills, 5
+taker fills, and `87.92%` win rate. Evaluator recycled gate 1. Interpretation:
+the extra maker exit doubled trade count and created many small realized
+wins, but the remaining loss tail was much worse than holding the same entry
+set. A naive fixed take-profit does not solve the confirm instability; it
+monetizes favorable moves too early while leaving bad inventory exposed.
+
+Lesson: A one-shot fixed take-profit SELL is a harmful lifecycle change for
+this family; future lifecycle experiments need explicit toxicity avoidance
+before entry or cancellation of stale bids, not just early profit-taking after
+the fill.
