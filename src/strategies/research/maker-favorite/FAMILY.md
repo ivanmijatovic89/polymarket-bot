@@ -531,3 +531,9 @@ a non-monotonic screen whose EV peaks at the loosest, barely-binding setting is
 evidence the gate is NOT the driver; the EV is inherited from the base config, and
 tightening the gate only sheds participation. Attribute the edge to the inherited
 config and expect the confirm to track the base variant, not the filter.
+
+Stage-2 extension (2026-07-05): honored the gate `go` and extended the winning
+cell (run 222, `minFavBidRatio=0.45`) backward by 2000 contiguous older markets
+to reach stage-2 confirm coverage (3000 total latest markets, 0 failures).
+`batchUid` unchanged (`maker-favorite--011-book-imbalance--p1-minFavBidRatio`);
+run 222 grew in place. Ready for the Evaluator's stage-2 gate judgment.
