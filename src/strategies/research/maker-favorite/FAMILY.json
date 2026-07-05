@@ -298,6 +298,32 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "003-delayed-favorite",
+      "kind": "variation",
+      "code": "003-delayed-favorite.ts",
+      "basedOn": "001-entry-window",
+      "hypothesis": "The immediate favorite maker entry failed confirm, but the delayed 180-second entry screen cell in 001 stayed positive; freezing that delayed entry as its own candidate tests whether avoiding early episode fills is enough to keep the simple favorite-maker idea alive.",
+      "successCriteria": "Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": {
+        "favThreshold": 0.52,
+        "discount": 0.01,
+        "size": 40,
+        "startSec": 180,
+        "stopSec": 840
+      },
+      "search": null,
+      "batchUid": "maker-favorite--003-delayed-favorite",
+      "submissionUids": [],
+      "baselineId": "177",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
