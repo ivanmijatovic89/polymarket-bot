@@ -400,7 +400,11 @@
             "param": "discount",
             "values": [0.01, 0.02, 0.04],
             "batchUid": "maker-favorite--004-delayed-threshold--p2-discount",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--004-delayed-threshold--p2-discount--18be2a99-a4a1-46d3-9354-0b2c93fd47ac",
+              "maker-favorite--004-delayed-threshold--p2-discount--3e3d9331-adf6-4f78-9681-e7337da52bb2",
+              "maker-favorite--004-delayed-threshold--p2-discount--b26aa25f-bc04-454a-8b64-5b9cf33badf9"
+            ],
             "best": null,
             "note": null
           }
