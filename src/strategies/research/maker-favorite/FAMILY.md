@@ -554,3 +554,41 @@ screen should not be trusted until confirm; in this family, even a materially
 different fill set (`410` screen trades versus `006`'s `627`) still collapsed at
 3000 markets, so the delayed favorite maker lifecycle remains recent-slice
 positive but confirm-negative.
+
+### 012-cancel-take-profit
+
+This experiment tested the final roadmap lifecycle idea: keep the best
+pre-fill cancel-weakening entry (`favThreshold=0.55`, `discount=0.02`,
+`size=40`, `startSec=180`, `stopSec=840`, `cancelDelta=0.03`), but after any
+fill rest one maker sell above entry instead of passively holding every share to
+resolution. The pass swept `takeProfit` through `0.02`, `0.04`, `0.06`, and
+`0.08`. The intended mechanism was simple: if the recent-screen edge is only a
+short-lived maker spread opportunity, flattening winners quickly should reduce
+the older-history regime losses that keep breaking confirms.
+
+The result was not close. All cells failed stage 1. The least bad cell was
+`takeProfit=0.06` at `-1.08` net EV per market over 1000 markets, with 627
+markets played, 1162 trades, 1157 maker fills, 5 taker fills, and `85.65%` win
+rate. The other cells were similarly bad: `0.02` reached `-1.15`, `0.08`
+reached `-1.16`, and `0.04` reached `-1.20`. Compared with the hold/cancel
+variants, the take-profit lifecycle roughly doubled trade count and converted a
+high count of small realized wins into occasional large residual losses.
+
+Interpretation: fill-then-flatten did not reduce resolution risk; it made the
+payoff shape worse. The strategy still enters the same toxic favorite fills, then
+adds churn and leaves unsold residual exposure when the one take-profit sell
+does not fully solve the position before resolution. This closes the simplest
+non-hold lifecycle repair for maker-favorite. Combined with `011`, both the
+depth-quality route and the lifecycle route failed to repair the repeated
+screen-positive/confirm-negative pattern.
+
+Decision: recycle. Do not extend `012`. The next Researcher action should assess
+whether any genuinely distinct roadmap idea remains; if not, the family is not
+empirically killable yet under `minExperiments=20`, but any continuation must be
+a substantially new signal source rather than another threshold tweak on the
+delayed favorite maker bid.
+
+Lesson: A one-shot maker take-profit exit can worsen a directional maker entry
+by adding churn while leaving tail losses intact; high win rate with many small
+realized sells is not evidence of positive EV when unresolved residual losses
+dominate the market-level PnL.

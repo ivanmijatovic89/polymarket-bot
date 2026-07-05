@@ -39,6 +39,21 @@ trade-count dropped versus the unfiltered baseline; if participation is
 unchanged, the filter is inert regardless of its EV.
 From: maker-favorite.
 
+### one-shot-take-profit-can-add-churn-without-removing-tail-loss — 2026-07-05
+
+A maker take-profit exit does not automatically reduce directional inventory
+risk; if it only realizes many small wins while leaving occasional unresolved
+positions to settle badly, it can worsen market-level EV despite a high win
+rate. In `maker-favorite` `012-cancel-take-profit`, adding a one-shot maker sell
+above entry to the best cancel-weakening favorite entry failed every stage-1
+cell: takeProfit 0.06 was least bad at -1.08 net EV/mkt over 1000 markets, 627
+markets played, 1162 trades, 1157 maker fills, 5 taker fills, and 85.65% win
+rate; 0.02/0.08/0.04 were -1.15/-1.16/-1.20. The lifecycle roughly doubled
+trade count versus hold/cancel variants and converted frequent small realized
+wins into occasional large residual losses. Treat high win rate on flattening
+sells as a payoff-shape warning, not as edge, unless market-level net EV improves.
+From: maker-favorite.
+
 ### a-binding-filter-that-peaks-at-its-loosest-setting-is-not-the-driver — 2026-07-05
 
 A new gate genuinely removing markets is necessary but not sufficient evidence
