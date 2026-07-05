@@ -675,7 +675,11 @@
             "param": "cancelDelta",
             "values": [0.01, 0.02, 0.04],
             "batchUid": "maker-favorite--008-cancel-delta--p1-cancelDelta",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--008-cancel-delta--p1-cancelDelta--93381ceb-3511-4fb4-86d7-72dfc66ac0f6",
+              "maker-favorite--008-cancel-delta--p1-cancelDelta--4add494f-06ea-4ad9-ab28-509ea9ec0c12",
+              "maker-favorite--008-cancel-delta--p1-cancelDelta--8d9d2d27-76d2-44cd-a74b-8d712c2f0df9"
+            ],
             "best": null,
             "note": null
           }
@@ -691,9 +695,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T10:43:39Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
