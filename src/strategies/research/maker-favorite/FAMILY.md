@@ -689,3 +689,35 @@ severity directly rather than reducing trade count.
 Lesson: A volatility/quietness gate that produces zero or near-zero fills is not
 a viable EV repair; once loosened enough to trade, it must still prove positive
 on the trading cells, not on a no-trade zero.
+
+### 015-stop-loss-exit
+
+This experiment targeted the payoff-asymmetry failure directly. It kept the
+delayed favorite maker entry (`favThreshold=0.55`, `discount=0.02`, `size=40`,
+`startSec=180`, `stopSec=840`) but, after a fill, placed a FOK sell at the
+current bid if the held side weakened by a `stopLoss` threshold. The pass swept
+`stopLoss` through `0.02`, `0.04`, `0.06`, and `0.08`.
+
+The screen passed. The best cell was sharply peaked at `stopLoss=0.04`, run
+`242`, with `+0.14` net EV per market over 1000 markets, 662 markets played,
+965 trades, 657 maker entries, 308 taker stop exits, $70.43 fees, and `40.48%`
+win rate. The neighboring cells were negative: the tighter `0.02` stop over-exited
+to `-0.32`, `0.06` was `-0.38`, and `0.08` was `-0.17`. Evaluator advanced the
+experiment to gate 2 and promoted it as the current champion candidate.
+
+Interpretation: unlike the pre-entry quietness filters, this directly attacks
+loss severity and produced a positive stage-1 cell despite heavy measured fee
+drag from taker exits. The result is not robust yet: it is peaked, fee-heavy,
+and still includes many taker exits, so it could easily be another recent-window
+effect. But it is the first genuinely mechanism-aligned repair after the
+confirmed payoff-asymmetry lesson.
+
+Decision: honor the gate `go` and extend run 242 (`stopLoss=0.04`) to stage-2
+confirm coverage. If it fails, stop-loss exits are likely another screen-only
+repair; if it survives, this becomes the first confirmed positive version of the
+family.
+
+Lesson: Directly reducing loss severity is more promising than starving entry
+filters for this family; a stop-loss can pass the screen even with taker fees,
+but a sharply peaked, fee-heavy cell must confirm before it changes the family
+verdict.
