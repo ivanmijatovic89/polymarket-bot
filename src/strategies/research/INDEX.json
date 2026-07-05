@@ -22,7 +22,14 @@
       "champion": null,
       "championMetrics": null,
       "championStageReached": null,
-      "tags": ["maker", "spread", "market-making", "split-merge", "orderbook", "fee-free"]
+      "tags": [
+        "maker",
+        "spread",
+        "market-making",
+        "split-merge",
+        "orderbook",
+        "fee-free"
+      ]
     }
   ]
 }
