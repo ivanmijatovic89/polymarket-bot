@@ -459,6 +459,33 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "005-take-profit",
+      "kind": "variation",
+      "code": "005-take-profit.ts",
+      "basedOn": "004-delayed-threshold",
+      "hypothesis": "The stronger delayed favorite entry screens positive but fails confirm when held to resolution; placing one maker take-profit sell after fills may capture favorable continuation while reducing resolution-time reversal exposure.",
+      "successCriteria": "Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": {
+        "favThreshold": 0.55,
+        "discount": 0.02,
+        "size": 40,
+        "startSec": 180,
+        "stopSec": 840,
+        "takeProfit": 0.04
+      },
+      "search": null,
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "201",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
