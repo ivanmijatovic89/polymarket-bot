@@ -235,3 +235,53 @@ quoting-less/tracking-faster — EV → $0 from below, no positive interior, so
 no amount of static-knob tuning can flip the sign. Any surviving variant in
 this family must change what happens AT the fill (complete the pair
 immediately, or stop quoting), not how passively the quotes rest.
+
+### 001-pair-completion — 2026-07-05
+
+**What ran:** one pass, 4 runs of 1000 latest markets (runs 143–146),
+sweeping `completionOffset` ∈ {0, 0.01, 0.02, 0.05} on the new
+`001-pair-completion.ts` (surplus-inventory leg requotes at
+`mid + completionOffset` instead of `mid + offset`), all other params at the
+baseline winners (`sizeUsd 5, offset 0.05, repriceDelta 0.01, quoteStopSec
+420`). The `0.05` cell is the built-in control (completionOffset = offset =
+mechanism off) and reproduced baseline run 141 EXACTLY (net −0.05, gross
+−0.0478, fees 2.16, 495 trades, 46.38% win) — the code branch is faithful
+and the comparison clean.
+
+**Key numbers (from FAMILY.json pass note + outcome):** all cells
+net-negative, monotone WORSE as completion gets more aggressive: co=0
+−0.13, 0.01 −0.12, 0.02 −0.10, 0.05 (off) −0.05 net EV/mkt. The win-rate
+gradient is the tell: 1.25% at co=0 (avgWin 0.07), 19% at 0.01, 38% at 0.02,
+46% at mechanism-off. Gate 1 failed (`recycle`); best cell is the degenerate
+baseline, so the experiment added zero EV and the verdict is `fail` with
+`stageReached 0`.
+
+**Interpretation:** the hypothesis was refuted in DIRECTION, not magnitude.
+Completing the pair sells the surviving leg at its already-fallen mid — it
+REALIZES the adverse move at the worst moment, while the baseline's
+hold-to-redemption keeps the survivor as an open reversion bet that
+partially recovers (15m mids oscillate enough that redemption beats selling
+the dip). The banked premium (`offset + completionOffset` per completed set)
+never covers the realized gap. Combined with 000-baseline this measures BOTH
+post-first-fill treatments of the survivor: keep quoting it (baseline,
+−0.05) and sell it faster (001, −0.10 to −0.13) — selling pressure on the
+survivor is monotonically harmful.
+
+**Decision:** recycle consumed. Next experiment: spec
+`002-inventory-stop` (roadmap #2) — the one untested direction the data does
+not already condemn: REDUCE post-fill exposure by cancelling the surviving
+leg's ask the moment the first leg fills and holding to redemption. 000/001
+jointly imply survivor fills are negative contributors, so removing them
+should strictly improve on −0.05/mkt; whether it crosses zero is exactly
+what the screen measures. Roadmap consequences from this result: deprioritize
+any idea that INCREASES survivor selling pressure; #3 static ladder is
+already condemned by 000's never-reprice cell (−0.53, statically resting
+asks are the worst measured configuration) — do not spend an experiment on
+it without new evidence.
+
+**Lesson:** On BTC 15m, after one leg of a hedged full set sells into a
+move, selling the surviving leg faster monotonically adds loss (−0.05 →
+−0.13 as completion aggressiveness rises): the survivor's fallen mid is a
+worse exit than holding to the $1-redemption hedge, and no completion
+premium small enough to fill covers the realized gap. In this family, edge
+must be sought in NOT trading after the first fill, never in trading more.
