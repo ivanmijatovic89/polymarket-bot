@@ -364,6 +364,54 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "004-delayed-threshold",
+      "kind": "param-search",
+      "code": "003-delayed-favorite.ts",
+      "basedOn": "003-delayed-favorite",
+      "hypothesis": "Delayed entry changed the fill set but still failed confirm; requiring a stronger favorite after the 180-second delay may filter out the older-history weak favorites that made the 3000-market result negative.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.52,
+          "discount": 0.01,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840
+        },
+        "passes": [
+          {
+            "param": "favThreshold",
+            "values": [0.52, 0.55, 0.6, 0.65],
+            "batchUid": "maker-favorite--004-delayed-threshold--p1-favThreshold",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "discount",
+            "values": [0.01, 0.02, 0.04],
+            "batchUid": "maker-favorite--004-delayed-threshold--p2-discount",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "196",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
