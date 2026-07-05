@@ -4,7 +4,7 @@
   "families": [
     {
       "family": "maker-favorite",
-      "status": "proposed",
+      "status": "researching",
       "coreIdea": "Buy the currently favored BTC 15m side with one resting maker bid below mid and hold any fill to resolution.",
       "duplicateKeys": [
         "favorite-maker-entry",

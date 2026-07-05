@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactType": "strategy-family-index",
   "family": "maker-favorite",
-  "status": "proposed",
+  "status": "researching",
   "coreIdea": "Buy the currently favored BTC 15m side with one resting maker bid below mid and hold any fill to resolution.",
   "duplicateKeys": [
     "favorite-maker-entry",
@@ -35,7 +35,12 @@
             "param": "discount",
             "values": [0.01, 0.02, 0.04, 0.06],
             "batchUid": "maker-favorite--000-baseline--p1-discount",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--000-baseline--p1-discount--6083e673-d582-439e-9748-f1e6a2d3e79c",
+              "maker-favorite--000-baseline--p1-discount--c1b500fe-3a24-4e9b-9fb7-ade1fdddd64c",
+              "maker-favorite--000-baseline--p1-discount--70a0a875-6aa0-435c-943a-f1da805da767",
+              "maker-favorite--000-baseline--p1-discount--9275503a-7bb5-428d-92f0-7bf630eb50e8"
+            ],
             "best": null,
             "note": null
           },
@@ -61,10 +66,15 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T02:46:50Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
