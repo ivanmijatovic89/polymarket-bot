@@ -387,7 +387,12 @@
             "param": "favThreshold",
             "values": [0.52, 0.55, 0.6, 0.65],
             "batchUid": "maker-favorite--004-delayed-threshold--p1-favThreshold",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--004-delayed-threshold--p1-favThreshold--c16622e2-edce-46a6-b9a4-9a1f7b58c859",
+              "maker-favorite--004-delayed-threshold--p1-favThreshold--b7d71a23-e2f5-4422-810c-829ed4e2d0b7",
+              "maker-favorite--004-delayed-threshold--p1-favThreshold--719ca8e4-438a-4359-ba85-1b382c3128e9",
+              "maker-favorite--004-delayed-threshold--p1-favThreshold--a4771bd0-246a-47e3-b758-fbf88ee884ea"
+            ],
             "best": null,
             "note": null
           },
@@ -405,10 +410,15 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": "196",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T04:35:15Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
