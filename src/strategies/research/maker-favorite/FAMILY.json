@@ -147,8 +147,8 @@
               "maker-favorite--001-entry-window--p1-startSec--68a2f566-34e3-4f7c-9a11-72cbb9a786a9",
               "maker-favorite--001-entry-window--p1-startSec--990e6726-587d-4daf-a8e4-ceef43853e84"
             ],
-            "best": null,
-            "note": null
+            "best": 0,
+            "note": "Best cell is startSec 0: netEvPerMarket 0.39 over 1000 markets, 451 markets played, 460 trades, gross 0.391, and 56.54% win rate. Delaying to 180 seconds stayed positive but weaker at 0.29/mkt; 60 seconds and 300 seconds were negative, so the next pass keeps immediate entry and tests only the stop boundary."
           },
           {
             "param": "stopSec",
