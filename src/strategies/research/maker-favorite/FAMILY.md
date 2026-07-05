@@ -653,3 +653,35 @@ added.
 Lesson: Higher win rate is not enough for this family; the decisive failure mode
 is payoff asymmetry. A favorite-maker filter must reduce loss severity or avoid
 the losing regimes entirely, not merely select more winning fills.
+
+### 014-volatility-guard
+
+This experiment tested the simplest instability filter suggested by the `013`
+failure: keep the delayed favorite maker entry, but only enter when the favorite
+side did not flip and its recent mid-price range stayed small over a
+`lookbackSec=120` window. The pass swept `maxRange` through `0.02`, `0.04`,
+`0.06`, and `0.08`, with the same `favThreshold=0.55`, `discount=0.02`,
+`size=40`, `startSec=180`, and `stopSec=840`.
+
+The result failed stage 1. The strictest `maxRange=0.02` cell produced zero
+trades, so Evaluator treated its zero EV as non-evidence. The best trading
+cells, `maxRange=0.04` and `0.06`, tied at `-0.02` net EV per market over 1000
+markets, each with only one losing maker trade. The loosest `0.08` cell reached
+7 trades but worsened to `-0.05` net EV per market, with 6 maker fills, 1 taker
+fill, and `42.86%` win rate. Gate 1 recycled the experiment.
+
+Interpretation: the volatility guard mostly starved the strategy rather than
+finding a profitable stable regime. That is still useful information: if a
+filter has to become so strict that it produces no trades, it cannot repair the
+family at realistic coverage; if loosened enough to trade, the fill set remains
+negative. This closes the simplest "avoid unstable markets" repair for the
+payoff-asymmetry problem observed in `013`.
+
+Decision: recycle. Do not extend `014`. Any next experiment must use a different
+mechanism than stricter pre-entry quietness; the family is not killable yet under
+the empirical stopping rule, but the remaining candidates need to target loss
+severity directly rather than reducing trade count.
+
+Lesson: A volatility/quietness gate that produces zero or near-zero fills is not
+a viable EV repair; once loosened enough to trade, it must still prove positive
+on the trading cells, not on a no-trade zero.
