@@ -118,6 +118,54 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "001-entry-window",
+      "kind": "param-search",
+      "code": "001-entry-window.ts",
+      "basedOn": "000-baseline",
+      "hypothesis": "The baseline's newest-window edge failed confirm because always entering on the first eligible tick mixes good and bad parts of the 15m episode; restricting the same mild-favorite maker bid to a stable elapsed-time window can preserve fill volume while avoiding the toxic early/late fills that made run 177 negative at 3000 markets.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.52,
+          "discount": 0.01,
+          "size": 40,
+          "startSec": 0,
+          "stopSec": 840
+        },
+        "passes": [
+          {
+            "param": "startSec",
+            "values": [0, 60, 180, 300],
+            "batchUid": "maker-favorite--001-entry-window--p1-startSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "stopSec",
+            "values": [300, 600, 840],
+            "batchUid": "maker-favorite--001-entry-window--p2-stopSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "177",
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }

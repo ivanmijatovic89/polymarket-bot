@@ -154,8 +154,7 @@ market over 1000 markets, while higher thresholds reduced participation and
 EV. The size pass then scaled nearly linearly; the winner was
 `favThreshold=0.52`, `discount=0.01`, `size=40`, run `177`, with `0.39` net
 EV per market over 1000 markets, 451 markets played, and 460 trades. Gate 1
-therefore passed under `STAGE-GATES.md` version 1, and this experiment is the
-current champion pending confirm-stage extension.
+therefore passed under `STAGE-GATES.md` version 1.
 
 Interpretation: the family is not just a maker-fee avoidance test anymore;
 the edge appears specifically in mild favorites, not strong favorites, and
@@ -163,9 +162,19 @@ the 1 cent maker discount gives enough fill volume without pushing the fill
 set into obviously toxic reversals. The linear size response is encouraging
 for stage 1, but it is not proof of capacity: the grid only tested small
 retail sizes, and the Evaluator flagged 10 accidental taker fills in the best
-cell plus possible queue/liquidity realism limits. The next action is a
-stage-2 extension of run `177` to 3000 total markets, not a new variant.
+cell plus possible queue/liquidity realism limits. The stage-2 extension then
+reversed the result: the same run over 3000 markets fell to `-0.39` net EV per
+market, with 1459 markets played, 1483 trades, and win rate down to `52.36%`.
+Gate 2 recycled the experiment; the newest 1000-market edge did not survive
+the immediately older 2000 markets.
 
-Lesson: A very simple passive favorite bid can pass the 1000-market screen
-when the favorite gate is mild (`0.52`) and the discount is tight (`0.01`);
-do not over-filter to strong favorites before measuring fill volume.
+The next experiment is `001-entry-window`: keep the same mild favorite gate,
+1 cent discount, and size 40, but only place the one resting bid inside an
+elapsed-time window. This is the simplest mechanism-distinct follow-up because
+it asks whether the screen/confirm split was caused by unstable entry timing
+rather than the favorite-maker premise itself.
+
+Lesson: A very simple passive favorite bid can pass the 1000-market screen,
+but the edge is not stable across immediate older history; treat mild-favorite
+maker entry as regime-sensitive until an entry-window or no-chase filter
+passes confirm.
