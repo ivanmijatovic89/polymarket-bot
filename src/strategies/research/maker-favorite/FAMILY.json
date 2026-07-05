@@ -11,7 +11,7 @@
     "maker-discount-directional"
   ],
   "retryOnlyIf": null,
-  "champion": "004-delayed-threshold",
+  "champion": null,
   "verdictSummary": null,
   "tags": ["maker", "directional", "favorite", "simple"],
   "experiments": [
@@ -427,13 +427,19 @@
           "decision": "go",
           "at": "2026-07-05T04:57:06Z",
           "note": "Gate 1 passed: best delayed-threshold cell netEv 0.40/mkt (run 201, favThreshold 0.55, discount 0.02) > 0 at 1000-market coverage, with 662 trades. Advisory: the nearby 0.04 discount cell tied on rounded net EV with fewer trades, so confirm is required before trusting the screen."
+        },
+        {
+          "stage": 2,
+          "decision": "recycle",
+          "at": "2026-07-05T05:02:04Z",
+          "note": "Gate 2 failed: extended run 201 fell to netEv -0.24/mkt at 3000-market coverage, with 2051 markets played and 2051 trades. Advisory: the stricter delayed threshold improved the screen but still did not make favorite-maker entry stable across the immediately older 2000 markets."
         }
       ],
       "submittedAt": "2026-07-05T04:35:15Z",
-      "decidedAt": "2026-07-05T04:57:06Z",
+      "decidedAt": "2026-07-05T05:02:04Z",
       "abortReason": null,
       "outcome": {
-        "verdict": "success",
+        "verdict": "fail",
         "bestParams": {
           "favThreshold": 0.55,
           "discount": 0.02,
@@ -442,14 +448,14 @@
           "stopSec": 840
         },
         "metrics": {
-          "netEvPerMarket": 0.4,
-          "grossEvPerMarket": 0.4008,
-          "markets": 1000,
-          "trades": 662,
+          "netEvPerMarket": -0.24,
+          "grossEvPerMarket": -0.2395533333333333,
+          "markets": 3000,
+          "trades": 2051,
           "trainNetEv": null,
           "testNetEv": null
         },
-        "reason": "Best cell met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' with +0.40 net EV/market over 1000 markets and 662 trades.",
+        "reason": "Best cell met successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)' at screen, but failed confirm with -0.24 net EV/market over 3000 markets and 2051 trades.",
         "stageReached": 1,
         "gatesVersion": 1
       }
