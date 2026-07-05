@@ -476,13 +476,18 @@
         "takeProfit": 0.04
       },
       "search": null,
-      "batchUid": null,
-      "submissionUids": [],
+      "batchUid": "maker-favorite--005-take-profit",
+      "submissionUids": ["maker-favorite--005-take-profit--8f1db878-8a3e-4fee-b856-a1166d6f47f4"],
       "baselineId": "201",
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T05:06:37Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
