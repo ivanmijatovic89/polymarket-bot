@@ -813,6 +813,53 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "010-tight-spread",
+      "kind": "param-search",
+      "code": "010-tight-spread.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "The delayed cancel-weakening entry may fail confirm because it places bids in wide or low-quality favorite books; requiring a tight favorite bid/ask spread at entry may filter toxic markets using recorded orderbook quality rather than another timing or threshold tweak.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "cancelDelta": 0.03,
+          "maxFavSpread": 0.06
+        },
+        "passes": [
+          {
+            "param": "maxFavSpread",
+            "values": [0.04, 0.06, 0.08],
+            "batchUid": "maker-favorite--010-tight-spread--p1-maxFavSpread",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
