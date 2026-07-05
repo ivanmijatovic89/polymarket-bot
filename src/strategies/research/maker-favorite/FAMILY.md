@@ -178,3 +178,27 @@ Lesson: A very simple passive favorite bid can pass the 1000-market screen,
 but the edge is not stable across immediate older history; treat mild-favorite
 maker entry as regime-sensitive until an entry-window or no-chase filter
 passes confirm.
+
+### 001-entry-window
+
+This experiment kept the same mild favorite maker bid from `000-baseline` and
+added elapsed-time gates around the one-shot entry. The start pass showed that
+immediate entry remained the best screen cell: `startSec=0` repeated the
+baseline's `0.39` net EV per market over 1000 markets, `startSec=180` stayed
+positive but weaker at `0.29`, and `startSec=60`/`300` were negative. The
+stop pass then tied exactly across `stopSec=300`, `600`, and `840`, each at
+`0.39` net EV per market with 451 markets played and 460 trades. Evaluator
+selected the simplest tied value, `stopSec=300`, and gate 1 passed.
+
+The stage-2 extension was decisive: run `185` over 3000 markets fell to
+`-0.39` net EV per market with 1459 markets played and 1483 trades, matching
+the baseline confirm failure. Interpretation: the stop boundary did not
+change the fill set on recent coverage, and immediate-entry timing is just
+the same unstable mild-favorite maker bet with a different wrapper. Delaying
+entry can change the fill set, but the best delayed screen cell was weaker
+than the already-failed immediate entry, so the next test should change the
+side or fill mechanism rather than adding another stop-time wrapper.
+
+Lesson: A stop-only window around a one-shot first-eligible maker bid is not a
+real mechanism change; if the order usually enters before the stop boundary,
+it will reproduce the baseline screen and confirm behavior.
