@@ -54,8 +54,8 @@
               "maker-favorite--000-baseline--p2-fav-threshold--0477ebb1-d410-4bf5-81df-65442337af91",
               "maker-favorite--000-baseline--p2-fav-threshold--22cbad6a-b521-4b6a-af9c-42387c035059"
             ],
-            "best": null,
-            "note": null
+            "best": 0.52,
+            "note": "Best cell turned positive: favThreshold 0.52 with discount 0.01 and size 20 reached netEvPerMarket 0.20 over 1000 markets, 451 markets played, 459 trades, and 56.54% win rate. Higher thresholds reduced participation and EV, with 0.65 producing no trades."
           },
           {
             "param": "size",
