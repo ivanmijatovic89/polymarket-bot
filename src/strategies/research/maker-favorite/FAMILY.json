@@ -41,8 +41,8 @@
               "maker-favorite--000-baseline--p1-discount--70a0a875-6aa0-435c-943a-f1da805da767",
               "maker-favorite--000-baseline--p1-discount--9275503a-7bb5-428d-92f0-7bf630eb50e8"
             ],
-            "best": null,
-            "note": null
+            "best": 0.01,
+            "note": "Best but still negative: netEvPerMarket -0.07 over 1000 markets, 203 trades; wider discounts worsened monotonically to -0.13, and the 0.01 cell had 4 accidental taker fills."
           },
           {
             "param": "favThreshold",
