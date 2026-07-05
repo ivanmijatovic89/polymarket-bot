@@ -310,3 +310,31 @@ Lesson: A one-shot fixed take-profit SELL is a harmful lifecycle change for
 this family; future lifecycle experiments need explicit toxicity avoidance
 before entry or cancellation of stale bids, not just early profit-taking after
 the fill.
+
+### 006-cancel-weakening
+
+This experiment changed the pending-order lifecycle before fill: keep the
+delayed stronger-favorite maker bid from `004-delayed-threshold`, but cancel
+the active buy if the selected side's mid weakens by `cancelDelta=0.03` from
+the entry snapshot. Filled inventory is still held to resolution, so the only
+new mechanism is avoiding stale resting bids after adverse movement.
+
+The stage-1 screen passed but was weaker than the uncanceled delayed-threshold
+screen. Run `207` over 1000 markets produced `0.22` net EV per market, with
+627 markets played, 627 trades, 622 maker fills, 5 taker fills, and a
+`68.26%` win rate. Evaluator advanced it to gate 2 because it met the stage-1
+success criteria, but noted that canceling stale weakening bids reduced
+participation and did not improve on the prior `004-delayed-threshold` screen
+cell at about `0.40` net EV per market.
+
+Interpretation: pre-fill cancellation is directionally plausible as toxicity
+control, but the first simple rule looks too blunt. It cuts fills from the
+same delayed-threshold entry set without increasing screen EV. The required
+next action is still the normal stage-2 confirm extension of run `207`, since
+the family has repeatedly shown positive 1000-market screens that fail on
+3000-market coverage.
+
+Lesson: Canceling weakened resting favorite bids is a real lifecycle change,
+but the initial `0.03` adverse-move threshold does not yet dominate the simpler
+delayed-threshold entry; confirm coverage decides whether the lower
+participation improves robustness.
