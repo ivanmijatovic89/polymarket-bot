@@ -139,6 +139,10 @@ Ranked, mechanism-distinct ideas beyond the baseline (prose until specced):
    state; this tests a real tick-stream direction signal. Arm on a delayed
    favorite, wait a short confirmation window, and bid only if the same favorite
    strengthened by at least a threshold. Tested in `013-momentum-confirm`.
+9. **Recent volatility guard.** The high-win-rate `013` confirm still failed on
+   payoff asymmetry, so test the simplest instability filter: only enter when
+   the favorite side did not flip and its recent mid-price range stayed small.
+   Tested in `014-volatility-guard`.
 
 ## Duplicate notes
 
