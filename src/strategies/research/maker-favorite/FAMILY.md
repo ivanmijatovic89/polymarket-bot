@@ -721,3 +721,21 @@ Lesson: Directly reducing loss severity is more promising than starving entry
 filters for this family; a stop-loss can pass the screen even with taker fees,
 but a sharply peaked, fee-heavy cell must confirm before it changes the family
 verdict.
+
+Stage-2 evaluation (2026-07-05): Evaluator recycled the experiment. The extended
+run 242 fell from `+0.14` at the 1000-market screen to `-0.31` net EV per market
+over 3000 markets, with 2051 markets played, 2951 trades, 2042 maker fills,
+909 taker exits, $195.71 fees, and `41.39%` win rate. The stage-1 stop-loss
+repair did not survive contiguous older history; the broader window turned the
+fee-heavy exit mechanism into another negative-EV variant.
+
+Interpretation: this was the most mechanism-aligned repair so far because it
+directly capped loss severity, but it still followed the family pattern:
+positive recent screen, negative confirm. The stop-loss did reduce average loss
+size versus held-to-resolution variants, but it paid for that with large taker
+exit volume and still could not make the older regimes positive.
+
+Lesson: Even a direct loss-severity repair can be screen-positive and
+confirm-negative in this family; taker stop exits are not enough if the entry
+regime itself remains unstable, and fee-heavy exits need broader-history proof
+before being treated as edge.
