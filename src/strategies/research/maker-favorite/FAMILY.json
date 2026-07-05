@@ -838,7 +838,11 @@
             "param": "maxFavSpread",
             "values": [0.04, 0.06, 0.08],
             "batchUid": "maker-favorite--010-tight-spread--p1-maxFavSpread",
-            "submissionUids": [],
+            "submissionUids": [
+              "maker-favorite--010-tight-spread--p1-maxFavSpread--7cc4132c-d230-4b5c-a082-a0cfc4bc6311",
+              "maker-favorite--010-tight-spread--p1-maxFavSpread--ca778797-0ee1-483d-815b-db55ca5e5c85",
+              "maker-favorite--010-tight-spread--p1-maxFavSpread--f230ddd2-e046-4b79-8b94-878f4aa6d3a9"
+            ],
             "best": null,
             "note": null
           }
@@ -854,9 +858,9 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "queued",
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-05T11:30:05Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
