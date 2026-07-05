@@ -651,6 +651,52 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "008-cancel-delta",
+      "kind": "param-search",
+      "code": "006-cancel-weakening.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "Canceling weakened favorite bids improved 3000-market loss at cancelDelta 0.03; sweeping the adverse-move threshold may find a less blunt toxicity filter that preserves enough good fills while removing stale weak-favorite orders.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "favThreshold": 0.55,
+          "discount": 0.02,
+          "size": 40,
+          "startSec": 180,
+          "stopSec": 840,
+          "cancelDelta": 0.03
+        },
+        "passes": [
+          {
+            "param": "cancelDelta",
+            "values": [0.01, 0.02, 0.04],
+            "batchUid": "maker-favorite--008-cancel-delta--p1-cancelDelta",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
