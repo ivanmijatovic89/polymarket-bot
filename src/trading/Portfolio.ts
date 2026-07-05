@@ -76,12 +76,21 @@ export class Portfolio {
   private readonly marketByAssetId = new Map<string, string>()
   private realizedPnlTotal = 0
 
+  // Cached, frozen snapshot reused across calls until the next state change.
+  // StrategyRunner calls snapshot() on every market tick (172k+ ticks/market in
+  // backtests), but portfolio state only changes inside apply() (account events,
+  // orders of magnitude rarer than ticks). Rebuilding every map on every tick
+  // dominated backtest runtime (see #77); caching the whole snapshot makes the
+  // per-tick cost O(1) between account events. Invalidated in apply().
+  private cachedSnapshot: PortfolioSnapshot | null = null
+
   constructor(opts?: { maxRecentFills?: number }) {
     this.maxRecentFills = Math.max(0, opts?.maxRecentFills ?? 500)
   }
 
   snapshot(): PortfolioSnapshot {
-    return {
+    if (this.cachedSnapshot) return this.cachedSnapshot
+    const snap: PortfolioSnapshot = {
       nowMs: this.nowMs,
       realizedPnlTotal: this.realizedPnlTotal,
       positionsByAssetId: Object.fromEntries([...this.positionsByAssetId.entries()]),
@@ -92,6 +101,8 @@ export class Portfolio {
       ...(this.recentSplits.length > 0 ? { recentSplits: [...this.recentSplits] } : {}),
       marketByAssetId: Object.fromEntries([...this.marketByAssetId.entries()]),
     }
+    this.cachedSnapshot = Object.freeze(snap)
+    return this.cachedSnapshot
   }
 
   getOpenOrderByClientId(clientOrderId: string): OpenOrder | undefined {
@@ -221,6 +232,9 @@ export class Portfolio {
   }
 
   apply(ev: AccountEvent): void {
+    // Any inbound event can change portfolio state (and always advances nowMs
+    // below), so drop the cached snapshot; the next snapshot() rebuilds it once.
+    this.cachedSnapshot = null
     // Advance portfolio clock deterministically off inbound events.
     if (ev.kind === 'fill') this.nowMs = Math.max(this.nowMs, ev.fill.tsMs)
     else if (ev.kind === 'positions_split') this.nowMs = Math.max(this.nowMs, ev.split.tsMs)
