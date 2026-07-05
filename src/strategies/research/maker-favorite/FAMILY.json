@@ -587,6 +587,39 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "007-confirm-stable",
+      "kind": "variation",
+      "code": "007-confirm-stable.ts",
+      "basedOn": "006-cancel-weakening",
+      "hypothesis": "The cancel-weakening rule improved confirm loss but still rested orders during early adverse movement; waiting for a short same-side stability confirmation before placing the maker bid may avoid weak favorites before they can fill.",
+      "successCriteria": "Single run netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": {
+        "favThreshold": 0.55,
+        "discount": 0.02,
+        "size": 40,
+        "startSec": 180,
+        "stopSec": 840,
+        "confirmSec": 30,
+        "maxWeakening": 0.01
+      },
+      "search": null,
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": "207",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
