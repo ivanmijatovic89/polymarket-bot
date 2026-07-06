@@ -176,6 +176,20 @@
       "when": 1783382400000,
       "tag": "0024_backtest_runs_submission_uid",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "5",
+      "when": 1783900800000,
+      "tag": "0025_backtest_run_segments_durations",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "5",
+      "when": 1783901000000,
+      "tag": "0026_backtest_run_segments_wall_clock",
+      "breakpoints": true
     }
   ]
 }

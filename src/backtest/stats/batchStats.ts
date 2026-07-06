@@ -53,6 +53,19 @@ export type BatchStatsFields = {
   streakMaxLosePnl: number
   /** Maximum consecutive skipped markets. */
   streakMaxSkipped: number
+
+  /** Sum of per-market backtest compute time (ms) over markets that recorded
+   * execution metadata. Total CPU time, not wall-clock (markets run in
+   * parallel across workers). */
+  durationTotalMs: number
+  /** durationTotalMs / (markets that recorded a duration). Mean compute time
+   * per market (ms). 0 when no market in the bucket recorded execution meta. */
+  durationAvgMs: number
+  /** Real elapsed span of the run: max(finishedAtMs) − min(startedAtMs) over
+   * markets with execution meta. For the `all` segment this equals the run's
+   * true wall-clock. Includes idle gaps for `--extend` runs (markets processed
+   * in disjoint windows), so it can exceed durationTotalMs. */
+  durationWallClockMs: number
 }
 
 export type BatchStatsRunColumns = BatchStatsFields
@@ -87,6 +100,9 @@ export class BatchStats implements BatchStatsFields {
   streakMaxWinPnl!: number
   streakMaxLosePnl!: number
   streakMaxSkipped!: number
+  durationTotalMs!: number
+  durationAvgMs!: number
+  durationWallClockMs!: number
 
   constructor(fields: BatchStatsFields) {
     Object.assign(this, fields)
@@ -131,6 +147,9 @@ export class BatchStats implements BatchStatsFields {
       streakMaxWinPnl: this.streakMaxWinPnl,
       streakMaxLosePnl: this.streakMaxLosePnl,
       streakMaxSkipped: this.streakMaxSkipped,
+      durationTotalMs: this.durationTotalMs,
+      durationAvgMs: this.durationAvgMs,
+      durationWallClockMs: this.durationWallClockMs,
     }
   }
 }
@@ -158,6 +177,17 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       a.tradesTotal += r.tradeCount
       a.tradesMaker += r.tradeAsMaker
       a.tradesTaker += r.tradeAsTaker
+
+      if (r.execution?.durationMs != null) {
+        a.durationTotalMs += r.execution.durationMs
+        a.durationSampleCount += 1
+        if (r.execution.startedAtMs < a.durationMinStartedMs) {
+          a.durationMinStartedMs = r.execution.startedAtMs
+        }
+        if (r.execution.finishedAtMs > a.durationMaxFinishedMs) {
+          a.durationMaxFinishedMs = r.execution.finishedAtMs
+        }
+      }
 
       if (r.pnl > 0) {
         a.marketsPlayed += 1
@@ -231,6 +261,10 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       streakMaxLosePnl: 0,
       currentSkippedStreak: 0,
       streakMaxSkipped: 0,
+      durationTotalMs: 0,
+      durationSampleCount: 0,
+      durationMinStartedMs: Infinity,
+      durationMaxFinishedMs: -Infinity,
     },
   )
 
@@ -246,6 +280,13 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
 
   const pnlAvgWin = acc.marketsWon > 0 ? acc.pnlWinSum / acc.marketsWon : 0
   const pnlAvgLose = acc.marketsLost > 0 ? acc.pnlLoseSum / acc.marketsLost : 0
+
+  const durationAvgMs =
+    acc.durationSampleCount > 0 ? acc.durationTotalMs / acc.durationSampleCount : 0
+  const durationWallClockMs =
+    acc.durationSampleCount > 0 && Number.isFinite(acc.durationMinStartedMs)
+      ? acc.durationMaxFinishedMs - acc.durationMinStartedMs
+      : 0
 
   const pnlsMarketsTotal = results.map((r) => r.pnl)
   const pnlsMarketsPlayed = results.filter((r) => r.pnl > 0 || r.pnl < 0).map((r) => r.pnl)
@@ -288,5 +329,9 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
     streakMaxWinPnl: round2(acc.streakMaxWinPnl),
     streakMaxLosePnl: round2(acc.streakMaxLosePnl),
     streakMaxSkipped: acc.streakMaxSkipped,
+
+    durationTotalMs: acc.durationTotalMs,
+    durationAvgMs: round2(durationAvgMs),
+    durationWallClockMs: Math.round(durationWallClockMs),
   })
 }

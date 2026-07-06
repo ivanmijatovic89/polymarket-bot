@@ -278,6 +278,18 @@ export const backtestRunSegments = mysqlTable(
     streakMaxLosePnl: decimal('streak_max_lose_pnl', { precision: 14, scale: 4 }).notNull(),
     streakMaxSkipped: int('streak_max_skipped').notNull(),
 
+    // Backtest compute cost for the markets in this segment. Nullable: rows
+    // written before these columns existed were backfilled once (migrations
+    // 0025/0026); new runs + `--extend` populate them via computeBatchStats.
+    // `durationTotalMs` = sum of per-market compute time (total CPU, not
+    // wall-clock — markets run in parallel); `durationAvgMs` = mean over
+    // markets that recorded a duration.
+    durationTotalMs: bigint('duration_total_ms', { mode: 'number' }),
+    durationAvgMs: decimal('duration_avg_ms', { precision: 14, scale: 2 }),
+    // Real elapsed span (max finished − min started). For the `all` segment
+    // this is the run's true wall-clock; includes idle gaps on `--extend` runs.
+    durationWallClockMs: bigint('duration_wall_clock_ms', { mode: 'number' }),
+
     createdAt: timestamp('created_at').defaultNow().notNull(),
   },
   (t) => ({

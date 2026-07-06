@@ -165,6 +165,9 @@ async function writeSegments(
           streakMaxWinPnl: String(s.stats.streakMaxWinPnl),
           streakMaxLosePnl: String(s.stats.streakMaxLosePnl),
           streakMaxSkipped: s.stats.streakMaxSkipped,
+          durationTotalMs: s.stats.durationTotalMs,
+          durationAvgMs: String(s.stats.durationAvgMs),
+          durationWallClockMs: s.stats.durationWallClockMs,
         })),
       )
     }

@@ -160,6 +160,9 @@ export type HistoricalBatch = {
   qualitySystem: number | null
   qualityTrade: number | null
   totalFeesPaid: number
+  durationTotalMs: number | null
+  durationAvgMs: number | null
+  durationWallClockMs: number | null
   createdAt: Date
 }
 
@@ -202,6 +205,9 @@ function emptySegmentStats(capitalInitial: unknown) {
     streakMaxWinPnl: 0,
     streakMaxLosePnl: 0,
     streakMaxSkipped: 0,
+    durationTotalMs: null,
+    durationAvgMs: null,
+    durationWallClockMs: null,
   }
 }
 
@@ -236,13 +242,13 @@ function mapSegmentStats(segment: AllSegmentRow) {
     streakMaxWinPnl: toNumber(segment.streakMaxWinPnl),
     streakMaxLosePnl: toNumber(segment.streakMaxLosePnl),
     streakMaxSkipped: segment.streakMaxSkipped,
+    durationTotalMs: segment.durationTotalMs ?? null,
+    durationAvgMs: segment.durationAvgMs === null ? null : toNumber(segment.durationAvgMs),
+    durationWallClockMs: segment.durationWallClockMs ?? null,
   }
 }
 
-function mapRunSummary(
-  run: typeof backtestRuns.$inferSelect,
-  allSegment: AllSegmentRow | null,
-) {
+function mapRunSummary(run: typeof backtestRuns.$inferSelect, allSegment: AllSegmentRow | null) {
   if (!allSegment && run.marketsPersisted > 0) {
     throw new Error(`[dashboard/batches] missing all segment for run #${run.id}`)
   }
@@ -343,6 +349,9 @@ export async function listHistoricalBatches(
       qualitySystem: summary.qualitySystem,
       qualityTrade: summary.qualityTrade,
       totalFeesPaid: summary.totalFeesPaid,
+      durationTotalMs: summary.durationTotalMs,
+      durationAvgMs: summary.durationAvgMs,
+      durationWallClockMs: summary.durationWallClockMs,
       createdAt: summary.createdAt,
     }
   })

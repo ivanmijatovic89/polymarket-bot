@@ -286,7 +286,12 @@ export function BacktestRunDetailView({ id }: { id: number }) {
 
   const marketStats = b.marketStats ?? []
   const failed = b.failedMarkets ?? []
-  const selectedMarketsTotal = b.inputMarketsTotal ?? b.marketsTotal
+  // `inputMarketsTotal` is the original `--limit` and is NOT updated by
+  // `--extend`, so on extended runs it's stale (smaller than the real total).
+  // The true total = `marketsTotal` (played + skipped). Use the larger of the
+  // two: correct for extended runs, and still exposes genuinely-missing
+  // markets (input > persisted) in the audit block below.
+  const selectedMarketsTotal = Math.max(b.inputMarketsTotal ?? 0, b.marketsTotal)
   const missingAuditCount = Math.max(0, selectedMarketsTotal - marketStats.length - failed.length)
   const hasQuality = b.qualitySystem !== null || b.qualityTrade !== null
 
