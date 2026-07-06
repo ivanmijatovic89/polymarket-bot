@@ -135,6 +135,7 @@ export type HistoricalBatch = {
   batchUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
+  params: Record<string, unknown> | null
   symbol: string | null
   limit: number | null
   inputMarketsTotal: number | null
@@ -324,6 +325,7 @@ export async function listHistoricalBatches(
       batchUid: summary.batchUid,
       status: summary.status,
       strategy: summary.strategy,
+      params: summary.params,
       symbol: summary.symbol,
       limit: summary.limit,
       inputMarketsTotal: summary.inputMarketsTotal,

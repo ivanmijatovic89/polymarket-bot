@@ -32,6 +32,7 @@ type BatchRun = {
   submissionUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
+  params: Record<string, unknown> | null
   symbol: string | null
   limit: number | null
   inputMarketsTotal: number | null
