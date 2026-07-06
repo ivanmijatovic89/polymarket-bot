@@ -170,5 +170,9 @@ export const backtestRunSegments = mysqlTable('backtest_run_segments', {
   streakMaxWinPnl: decimal('streak_max_win_pnl', { precision: 14, scale: 4 }).notNull(),
   streakMaxLosePnl: decimal('streak_max_lose_pnl', { precision: 14, scale: 4 }).notNull(),
   streakMaxSkipped: int('streak_max_skipped').notNull(),
+  // Backtest compute cost for this segment's markets (nullable until backfilled).
+  durationTotalMs: bigint('duration_total_ms', { mode: 'number' }),
+  durationAvgMs: decimal('duration_avg_ms', { precision: 14, scale: 2 }),
+  durationWallClockMs: bigint('duration_wall_clock_ms', { mode: 'number' }),
   createdAt: timestamp('created_at').defaultNow().notNull(),
 })

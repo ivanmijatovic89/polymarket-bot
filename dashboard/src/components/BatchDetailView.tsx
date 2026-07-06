@@ -32,6 +32,7 @@ type BatchRun = {
   submissionUid: string
   status: 'completed' | 'partial' | 'failed'
   strategy: string
+  params: Record<string, unknown> | null
   symbol: string | null
   limit: number | null
   inputMarketsTotal: number | null
@@ -53,6 +54,9 @@ type BatchRun = {
   qualitySystem: number | null
   qualityTrade: number | null
   totalFeesPaid: number
+  durationTotalMs: number | null
+  durationAvgMs: number | null
+  durationWallClockMs: number | null
   tradesTotal: number
   tradesMaker: number
   tradesTaker: number
@@ -151,10 +155,7 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
               {
                 header: '#ID',
                 render: (run) => (
-                  <Link
-                    href={`/backtests/${run.id}`}
-                    className="font-mono text-xs hover:underline"
-                  >
+                  <Link href={`/backtests/${run.id}`} className="font-mono text-xs hover:underline">
                     #{run.id}
                   </Link>
                 ),
@@ -187,9 +188,7 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
                     </div>
                   )}
                   {run.failuresCount > 0 && (
-                    <div className="text-[11px] text-destructive">
-                      {run.failuresCount} failed
-                    </div>
+                    <div className="text-[11px] text-destructive">{run.failuresCount} failed</div>
                   )}
                 </div>
                 <StatusChip status={run.status} />
@@ -238,9 +237,7 @@ function ActiveSubmissionCard({ data }: { data: ActiveSubmission }) {
             {data.parentState}
           </Badge>
           <CardTitle className="text-base">{data.strategy}</CardTitle>
-          <span className="font-mono text-[11px] text-muted-foreground">
-            {data.submissionUid}
-          </span>
+          <span className="font-mono text-[11px] text-muted-foreground">{data.submissionUid}</span>
           {data.comment && (
             <span className="text-xs text-muted-foreground truncate">— {data.comment}</span>
           )}

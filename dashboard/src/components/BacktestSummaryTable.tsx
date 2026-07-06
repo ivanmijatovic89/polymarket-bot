@@ -14,6 +14,8 @@ import { cn, formatPnl } from '@/lib/utils'
 export type BacktestSummary = {
   status?: 'completed' | 'partial' | 'failed'
   strategy?: string
+  /** Strategy params — surfaced as a hover tooltip on the Strategy cell. */
+  params?: Record<string, unknown> | null
   symbol?: string | null
   limit?: number | null
   inputMarketsTotal?: number | null
@@ -37,6 +39,12 @@ export type BacktestSummary = {
   tradesTotal: number
   tradesMaker: number
   tradesTaker: number
+  /** Sum of per-market backtest compute time (ms). Null until backfilled. */
+  durationTotalMs?: number | null
+  /** Mean per-market compute time (ms). Null until backfilled. */
+  durationAvgMs?: number | null
+  /** Real elapsed wall-clock of the run (ms). Null until backfilled. */
+  durationWallClockMs?: number | null
 }
 
 export type BacktestSummaryTableProps<T extends BacktestSummary> = {
@@ -83,6 +91,26 @@ function compactInt(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}m`
 }
 
+/** Flatten strategy params into a `key=value` string for a hover tooltip.
+ * Returns undefined when there are no params (so no tooltip is shown). */
+function formatParams(params: Record<string, unknown> | null | undefined): string | undefined {
+  if (!params) return undefined
+  const entries = Object.entries(params)
+  if (entries.length === 0) return undefined
+  return entries
+    .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
+    .join('\n')
+}
+
+/** Human-readable duration from milliseconds. */
+function formatDurationMs(ms: number): string {
+  if (ms < 1000) return `${Math.round(ms)}ms`
+  if (ms < 60_000) return `${(ms / 1000).toFixed(1)}s`
+  const m = Math.floor(ms / 60_000)
+  const s = Math.round((ms % 60_000) / 1000)
+  return `${m}m ${s}s`
+}
+
 /**
  * Pure presentational table. No data fetching, no client-only hooks.
  * Feed it rows + identity/actions renderers; reuse anywhere.
@@ -111,7 +139,14 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
     const Trend = pnlNum >= 0 ? TrendingUp : TrendingDown
     const qS = b.qualitySystem
     const qT = b.qualityTrade
-    const selectedMarketsTotal = b.inputMarketsTotal ?? b.marketsTotal
+    // `inputMarketsTotal` is the original `--limit` and is NOT updated by
+    // `--extend`, so on extended runs it's stale (smaller than the real total).
+    // The true total = played + skipped = `marketsTotal`. Use the larger of the
+    // two so the denominator is correct for extended runs while still exposing
+    // genuinely-missing markets (input > persisted) via `notPersisted` below.
+    const selectedMarketsTotal = Math.max(b.inputMarketsTotal ?? 0, b.marketsTotal)
+    const notPersisted = (b.inputMarketsTotal ?? 0) > b.marketsTotal
+    const paramsTitle = formatParams(b.params)
     const quality =
       qS === null && qT === null
         ? '—'
@@ -127,35 +162,36 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
           </TableCell>
         ))}
         <TableCell>{isFooter ? footerLeading : renderLeading(b, i)}</TableCell>
-        <TableCell className="text-sm">{b.strategy ?? '—'}</TableCell>
-        <TableCell>
-          {b.symbol ? (
-            <Badge variant="outline" className="uppercase">
-              {b.symbol}
-            </Badge>
+        <TableCell className="text-sm">
+          {paramsTitle ? (
+            <span
+              className="cursor-help decoration-dotted underline-offset-4 hover:underline"
+              title={paramsTitle}
+            >
+              {b.strategy ?? '—'}
+            </span>
           ) : (
-            <span className="text-xs text-muted-foreground">—</span>
-          )}
-        </TableCell>
-        <TableCell className="text-right tabular-nums text-xs">
-          {b.limit !== null && b.limit !== undefined ? (
-            b.limit
-          ) : (
-            <span className="text-muted-foreground">—</span>
+            (b.strategy ?? '—')
           )}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
-          {b.marketsPlayed}
-          <span className="text-muted-foreground">/{selectedMarketsTotal}</span>
-          {b.marketsSkipped > 0 && (
-            <span className="ml-1 text-[11px] text-muted-foreground">· {b.marketsSkipped} skip</span>
+          {selectedMarketsTotal}
+          {b.marketsPlayed !== selectedMarketsTotal && (
+            <span className="ml-1 text-[11px] text-muted-foreground">
+              · {b.marketsPlayed} played
+            </span>
           )}
-          {selectedMarketsTotal > b.marketsTotal && (
+          {b.marketsSkipped > 0 && (
+            <span className="ml-1 text-[11px] text-muted-foreground">
+              · {b.marketsSkipped} skip
+            </span>
+          )}
+          {notPersisted && (
             <span className="ml-1 text-[11px] text-destructive">
               ·{' '}
               {b.failuresCount && b.failuresCount > 0
                 ? `${b.failuresCount} failed`
-                : `${selectedMarketsTotal - b.marketsTotal} not persisted`}
+                : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} not persisted`}
             </span>
           )}
         </TableCell>
@@ -199,6 +235,46 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
           {b.totalFeesPaid.toFixed(2)}
         </TableCell>
+        <TableCell>
+          {b.symbol ? (
+            <Badge variant="outline" className="uppercase">
+              {b.symbol}
+            </Badge>
+          ) : (
+            <span className="text-xs text-muted-foreground">—</span>
+          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+          {(() => {
+            // Headline = wall-clock (real elapsed), matching the run detail
+            // page's Execution card. Fall back to total CPU time if wall-clock
+            // wasn't recorded. Subtitle = mean CPU time per market.
+            const wall = b.durationWallClockMs
+            const total = b.durationTotalMs
+            const headline = wall ?? total
+            if (headline == null) return <span className="text-muted-foreground/50">—</span>
+            // Wall-clock far above summed CPU time ⇒ idle gaps (e.g. --extend).
+            const spansGaps = wall != null && total != null && wall > total
+            return (
+              <>
+                {formatDurationMs(headline)}
+                {spansGaps && (
+                  <span
+                    className="ml-0.5 text-[color:var(--warning)]"
+                    title="wall-clock includes idle gaps (extended run)"
+                  >
+                    *
+                  </span>
+                )}
+                {b.durationAvgMs != null && (
+                  <span className="ml-1 text-[11px] text-muted-foreground/70">
+                    · {formatDurationMs(b.durationAvgMs)}/mkt
+                  </span>
+                )}
+              </>
+            )
+          })()}
+        </TableCell>
         {extraColumns?.map((c, j) => (
           <TableCell key={j} className={c.align === 'right' ? 'text-right' : undefined}>
             {c.render(b, i)}
@@ -206,7 +282,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         ))}
         {renderActions && (
           <TableCell className="whitespace-nowrap">
-            {isFooter ? footerActions ?? null : renderActions(b, i)}
+            {isFooter ? (footerActions ?? null) : renderActions(b, i)}
           </TableCell>
         )}
       </TableRow>
@@ -235,8 +311,6 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               ))}
               <TableHead className="min-w-[180px]">{leadingHeader}</TableHead>
               <TableHead>Strategy</TableHead>
-              <TableHead>Symbol</TableHead>
-              <TableHead className="text-right">Limit</TableHead>
               <TableHead className="text-right">Markets</TableHead>
               <TableHead className="text-right">EV/mkt</TableHead>
               <TableHead className="text-right">Trades</TableHead>
@@ -246,6 +320,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <TableHead className="text-right">Streak</TableHead>
               <TableHead className="text-right">Quality</TableHead>
               <TableHead className="text-right">Fees</TableHead>
+              <TableHead>Symbol</TableHead>
+              <TableHead className="text-right">Duration</TableHead>
               {extraColumns?.map((c, i) => (
                 <TableHead key={i} className={c.align === 'right' ? 'text-right' : undefined}>
                   {c.header}
@@ -257,7 +333,13 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
           <TableBody>
             {rows.map((b, i) => renderDataRow(b, i, false))}
             {footerRow &&
-              renderDataRow(footerRow.row, -1, true, footerRow.renderLeading, footerRow.renderActions)}
+              renderDataRow(
+                footerRow.row,
+                -1,
+                true,
+                footerRow.renderLeading,
+                footerRow.renderActions,
+              )}
           </TableBody>
         </Table>
       </div>

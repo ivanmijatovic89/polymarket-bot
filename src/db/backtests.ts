@@ -165,6 +165,9 @@ function segmentRowToInsert(runId: number, s: SegmentRow) {
     streakMaxWinPnl: toDecimal(s.stats.streakMaxWinPnl),
     streakMaxLosePnl: toDecimal(s.stats.streakMaxLosePnl),
     streakMaxSkipped: s.stats.streakMaxSkipped,
+    durationTotalMs: s.stats.durationTotalMs,
+    durationAvgMs: toDecimal(s.stats.durationAvgMs),
+    durationWallClockMs: s.stats.durationWallClockMs,
   }
 }
 
@@ -292,6 +295,9 @@ function emptyRunStats(capitalInitial: number): BatchStatsFields {
     streakMaxWinPnl: 0,
     streakMaxLosePnl: 0,
     streakMaxSkipped: 0,
+    durationTotalMs: 0,
+    durationAvgMs: 0,
+    durationWallClockMs: 0,
   }
 }
 
@@ -328,6 +334,9 @@ function segmentStatsToRunFields(
     streakMaxWinPnl: parseDecimal(segment.streakMaxWinPnl),
     streakMaxLosePnl: parseDecimal(segment.streakMaxLosePnl),
     streakMaxSkipped: segment.streakMaxSkipped,
+    durationTotalMs: segment.durationTotalMs ?? 0,
+    durationAvgMs: segment.durationAvgMs === null ? 0 : parseDecimal(segment.durationAvgMs),
+    durationWallClockMs: segment.durationWallClockMs ?? 0,
   }
 }
 

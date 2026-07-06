@@ -24,9 +24,11 @@ function formatDuration(ms: number): string {
 export function ExecutionSummary({ summary }: { summary: ExecutionSummaryData | null }) {
   if (!summary || summary.marketsWithTiming === 0) return null
 
-  const { wallClockMs, marketsWithTiming, eventsTotal, perMachine, spansExtension } = summary
+  const { wallClockMs, workerTimeMs, marketsWithTiming, eventsTotal, perMachine, spansExtension } =
+    summary
   const wallClockSeconds = wallClockMs / 1000
   const wallClockEventsPerSec = wallClockSeconds > 0 ? eventsTotal / wallClockSeconds : null
+  const avgPerMarketMs = marketsWithTiming > 0 ? workerTimeMs / marketsWithTiming : null
 
   return (
     <section>
@@ -36,13 +38,24 @@ export function ExecutionSummary({ summary }: { summary: ExecutionSummaryData | 
         icon={Cpu}
       />
 
-      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mb-4 grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard
           label="Wall-clock"
           value={formatDuration(wallClockMs)}
           icon={Clock}
-          hint={spansExtension ? 'includes idle gaps (extended run)' : undefined}
+          hint={spansExtension ? 'includes idle gaps (extended run)' : 'real elapsed'}
           tone={spansExtension ? 'warning' : 'default'}
+        />
+        <StatCard
+          label="Total compute"
+          value={formatDuration(workerTimeMs)}
+          icon={Cpu}
+          hint="summed CPU across workers"
+        />
+        <StatCard
+          label="Avg / market"
+          value={avgPerMarketMs !== null ? formatDuration(avgPerMarketMs) : '—'}
+          hint="mean CPU per market"
         />
         <StatCard
           label="Throughput"
@@ -80,9 +93,7 @@ export function ExecutionSummary({ summary }: { summary: ExecutionSummaryData | 
                 <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                   {m.workers ?? '—'}
                 </TableCell>
-                <TableCell className="text-right tabular-nums">
-                  {formatNumber(m.markets)}
-                </TableCell>
+                <TableCell className="text-right tabular-nums">{formatNumber(m.markets)}</TableCell>
                 <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
                   {formatNumber(m.eventsProcessed)}
                 </TableCell>
