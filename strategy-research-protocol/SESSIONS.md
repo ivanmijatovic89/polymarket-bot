@@ -70,8 +70,13 @@ pointing the workers at the branch. Change it here and nowhere else.
 - `npm run research:check` passes before starting work.
 - Tree clean before any submission; commit and push, then sync the worker
   fleet ([`tools/syncWorkerFleet.md`](./tools/syncWorkerFleet.md)).
-- Database credentials in `.env` (completion checks and result reads query
-  MySQL; see [`tools/checkBatch.md`](./tools/checkBatch.md)).
+- Database credentials in `.env` (completion checks query MySQL; see
+  [`tools/checkBatch.md`](./tools/checkBatch.md)).
+- Dashboard running on `:3051` — REQUIRED for judging
+  ([`tools/getBacktestResults.md`](./tools/getBacktestResults.md) reads
+  results through its API). The operator starts it (`npm run dashboard`);
+  a session must NEVER start or restart it — if it is down, report and
+  stop.
 
 ## Writing a new launch script
 

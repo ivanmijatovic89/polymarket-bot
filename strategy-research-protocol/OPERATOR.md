@@ -24,7 +24,9 @@ package.json, and the launch scripts `cd` to the git root themselves.
    — not required: protocol backtests always run with
    `--read-from local-or-download-from-r2-to-local`, which downloads any
    missing market once, automatically.
-4. Dashboard for eyeballing results: `npm run dashboard` → `:3051`.
+4. Dashboard: `npm run dashboard` → `:3051` — REQUIRED before launching
+   researcher sessions (they read results through its API and stop if it is
+   down; they never start it themselves).
 5. Sanity check: `npm run research:check` must be green and the tree clean.
 
 ## 1. Start a new family

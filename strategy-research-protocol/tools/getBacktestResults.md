@@ -64,7 +64,8 @@ the Judging results section of
 
 - Not found by run id: check the batch by `batchUid` — it may still be
   queue-active; re-run `checkBatch`.
-- Dashboard not running: use the underlying database query path or start the
-  dashboard.
+- Dashboard not running: report it and STOP — never start the dashboard
+  yourself and never improvise database queries; the operator starts it
+  (SESSIONS.md preconditions), then the session is relaunched.
 - Never judge from incomplete terminal output when a persisted result should
   exist.
