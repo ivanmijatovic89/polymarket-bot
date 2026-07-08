@@ -21,6 +21,7 @@
 #                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
+ROOT="$(pwd)"
 
 if [ -z "${1:-}" ]; then
   echo "usage: researcher.sh <family>" >&2
@@ -34,27 +35,21 @@ if [ ! -d "$FAMILY_DIR" ]; then
 fi
 MODULE="strategy-research-protocol/modules/Researcher.md"
 mkdir -p "${FAMILY_DIR}/logs"
-LOG="${LOG:-${FAMILY_DIR}/logs/researcher.jsonl}"
+LOG="${LOG:-${ROOT}/${FAMILY_DIR}/logs/researcher.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
-# Session isolation: research sessions read ONLY the protocol docs. Exclude
-# the repo root CLAUDE.md (its general git workflow contradicts the protocol
-# branch policy in AGENTS.md) and user-level memory; disable auto-memory.
-ROOT="$(pwd)"
-SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
-cat >"$SETTINGS" <<JSON
-{
-  "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
-  "autoMemoryEnabled": false,
-  "permissions": { "deny": ["Read(src/strategies/research/**/logs/**)"] }
-}
-JSON
+# Session isolation: the session is launched from strategy-research-protocol/
+# so it inherits that folder's COMMITTED .claude/settings.json (root CLAUDE.md
+# + user memory excluded, auto-memory off, log reads denied). Settings load
+# ONLY from the starting directory — verified; see SESSIONS.md.
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
 INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Work continuously and autonomously: never ask questions; write the family \
 files after every step; poll checkBatch (sleeping between checks) while \
-backtests run; stop per the module's Session contract."
+backtests run; stop per the module's Session contract. Your working \
+directory is strategy-research-protocol/; the repo root is its parent, and \
+repo paths in the docs (src/..., docs/...) are relative to that root."
 
 # One family = one session at a time (see SESSIONS.md).
 # Lock lives outside the repo so it never dirties the tree; a dead PID means
@@ -70,17 +65,21 @@ if [ -f "$LOCK" ]; then
   fi
 fi
 echo $$ >"$LOCK"
-trap 'rm -f "$LOCK" "$SETTINGS"' EXIT
+trap 'rm -f "$LOCK"' EXIT
 
 if [ -n "${INTERACTIVE:-}" ]; then
   INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Same contract as autonomous mode, but I may steer between steps: narrate \
-each step, and pause when I interrupt."
-  claude --settings "$SETTINGS" --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
+each step, and pause when I interrupt. Your working directory is \
+strategy-research-protocol/; the repo root is its parent, and repo paths \
+in the docs (src/..., docs/...) are relative to that root."
+  cd strategy-research-protocol || exit 1
+  claude --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
   exit $?
 fi
 
-claude -p --settings "$SETTINGS" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+cd strategy-research-protocol || exit 1
+claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
   | tee -a "$LOG" \
   | jq -Rj '
