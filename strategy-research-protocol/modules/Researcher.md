@@ -70,7 +70,7 @@ Rows are in priority order; the first matching row wins.
 | experiment `queued`, no smoke done             | smoke test, then submit pass 1 (or the single run)                                      |
 | smoke fails                                    | fix the draft code (not frozen yet) and retry; `aborted` + `abortReason` if unfixable   |
 | experiment `running`, work in flight           | `checkBatch`; INCOMPLETE → report and exit; COMPLETE → judge what finished (see below)  |
-| runs `partial`/`failed`                        | re-submit the broken cells under `--rN` ([BATCH-UID.md](../rules/BATCH-UID.md))         |
+| runs `partial`/`failed`                        | re-submit the broken cells under `--rN` ([NAMING.md](../rules/NAMING.md))               |
 | pass judged (`best` set), params remain        | submit the next pass with winners fixed                                                 |
 | all passes judged, gate not yet judged         | judge the gate at current coverage (optionally submit `search.refine` first)            |
 | gateLog `go` recorded, extension not submitted | extend the winning run ([extendBacktest](../tools/extendBacktest.md))                   |
@@ -96,8 +96,8 @@ at the new coverage.
   flows, stopping rules.
 - [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — field tables and
   writer rules.
-- Rules: [`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
-  [`BATCH-UID.md`](../rules/BATCH-UID.md).
+- Rules: [`NAMING.md`](../rules/NAMING.md) — ids, batchUids, champion
+  pointer, freeze rule.
 - Tools: [`runBacktest`](../tools/runBacktest.md),
   [`extendBacktest`](../tools/extendBacktest.md),
   [`checkBatch`](../tools/checkBatch.md),
@@ -144,7 +144,7 @@ advisory rule (distribution concerns inform, they never block) per
 - Status → `evaluated`, `decidedAt` set.
 
 On verdict `success` that beats the current champion, move the `champion`
-pointer ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)); on
+pointer ([`NAMING.md`](../rules/NAMING.md)); on
 passing the final gate, also set the family `validated` + `verdictSummary`.
 
 Patterns spotted in the raw results ("this cell looks interesting") may
@@ -228,7 +228,7 @@ entry. Then rebuild INDEX.json.
 - Judging smoke runs (`--smoke`) or incomplete batches; declaring `success`
   on gross numbers or on thin samples.
 - Editing frozen strategy files
-  ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) freeze rule),
+  ([`NAMING.md`](../rules/NAMING.md) freeze rule),
   past log entries, or past gateLog entries.
 - Running more than one active experiment, or touching other families.
 - Writing numbers only in prose — every number in the log entry is quoted

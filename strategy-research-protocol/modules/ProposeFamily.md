@@ -25,7 +25,7 @@ Read these before writing:
 
 - [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) —
   research scope and market assumptions.
-- [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md) —
+- [`strategy-research-protocol/ENGINE.md`](../ENGINE.md) —
   tick, replay, order, cost, latency, and dataset semantics.
 - [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json) —
   generated map of existing research families for deduplication (including
@@ -39,9 +39,8 @@ Read these before writing:
   lessons; a proposal that ignores a recorded lesson is a defective proposal.
 - [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — the
   gates the baseline will face; stage-1 coverage sizes the sweep.
-- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
-  [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+- [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md) —
+  family slug, experiment ids, batchUids.
 - `strategy-research-protocol/schemas/` — exact shapes for both files.
 
 Optional input: a one-line seed idea from the user. Without a seed, propose
@@ -84,7 +83,7 @@ reading a few non-research strategies only for API idioms is allowed.
    3-5 attempts that all duplicate, report saturation.
 
 6. **Choose the family slug** per
-   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md).
+   [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
 
 7. **Write `FAMILY.md`** with the minimal frontmatter and exactly these H2
    sections in order (shapes in `schemas/FAMILY.md.ts`):
@@ -162,7 +161,7 @@ reading a few non-research strategies only for API idioms is allowed.
      definition or Edge economics) — pass 1 sweeps against these defaults, so
      bad defaults poison the whole search.
    - Pre-declare one pass per param, ordered by expected impact, with pass
-     batchUids per [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+     batchUids per [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
      Empty `submissionUids` = not submitted.
 
 9. **Write `000-baseline.ts`.** Learn the local API from

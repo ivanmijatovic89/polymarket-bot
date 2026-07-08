@@ -31,9 +31,9 @@ Add market coverage to an existing Telonex backtest run.
 An extension runs on your current commit, while the parent's markets ran on an
 older one. Merging them into one run is valid only because frozen strategy
 files never change — see the freeze rule in
-[`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
+[`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md)
 and
-[`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
+[`strategy-research-protocol/ENGINE.md`](../ENGINE.md#workers-run-committed-code-only).
 Submit preconditions (clean tree, committed and pushed, worker fleet synced)
 per [`strategy-research-protocol/RUNNING.md`](../RUNNING.md).
 
@@ -66,7 +66,7 @@ large and are expected to run across available workers.
 ## Relationship To Experiment Batches
 
 Batch UID format is defined in
-[`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+[`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
 An extension does not create a new experiment, a new sweep cell, or a new
 protocol batch label. It enlarges one existing run under the parent's batch UID.
 

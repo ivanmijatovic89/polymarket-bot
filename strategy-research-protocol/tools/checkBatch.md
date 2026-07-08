@@ -59,5 +59,5 @@ worker persists that run, so "row exists" = "run finished".
 
 - Runs reported `partial`/`failed`: inspect with `getBacktestResults`; a
   broken submission may need a re-run under a `--rN` batchUid
-  ([`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md)).
+  ([`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md)).
 - Database unreachable: fix env/config; this tool must stay read-only.

@@ -24,7 +24,7 @@ export const Pass = z.object({
   param: z.string().min(1),
   /** values tested in this pass */
   values: z.array(ParamValue).min(1),
-  /** grouping label: `<family>--<exp>--pN-<param>` (rules/BATCH-UID.md) */
+  /** grouping label: `<family>--<exp>--pN-<param>` (rules/NAMING.md) */
   batchUid: z.string().min(1),
   /** exact run handles, identical in Redis and backtest_runs.submission_uid */
   submissionUids: z.array(z.string().min(1)).default([]),

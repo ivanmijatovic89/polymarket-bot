@@ -1,7 +1,7 @@
 # Running the research loop
 
 How the roles are actually launched and handed off. Module contracts define
-WHAT each role does ([`modules/index.md`](./modules/index.md)); this file
+WHAT each role does (role map in [`AGENTS.md`](./AGENTS.md)); this file
 defines HOW sessions run.
 
 ## Session model

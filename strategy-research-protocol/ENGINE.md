@@ -342,7 +342,7 @@ write strategy -> commit -> push main -> sync worker fleet -> run backtest
   parent's markets may have run on an older commit. Merging those results into
   one run is valid only because experiment strategy files are frozen after they
   have results. See
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md).
+  [`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md).
 
 Full mechanism:
 [`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md).

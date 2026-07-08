@@ -6,10 +6,12 @@ This folder defines Strategy Research Protocol for the parent
 ## Role Map
 
 Two LLM worker roles, each with a dedicated contract in
-[`strategy-research-protocol/modules/index.md`](./modules/index.md):
+`strategy-research-protocol/modules/`. Before executing a workflow, read the
+module file — worker instructions live there and nowhere else:
 
 - **ProposeFamily** — creates one family (proposal doc, FAMILY.json,
-  baseline code), then stops.
+  baseline code), then stops
+  ([`modules/ProposeFamily.md`](./modules/ProposeFamily.md)).
 - **Researcher** — drives one family per session: specs, runs, judges, and
   logs experiments ([`modules/Researcher.md`](./modules/Researcher.md)).
 

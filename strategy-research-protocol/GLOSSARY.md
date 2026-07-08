@@ -95,7 +95,7 @@ experiments, and decides continue-or-kill. Contract:
 
 The family's current best experiment, stored as a pointer (`champion`) in
 FAMILY.json. Pointer rules:
-[`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md).
+[`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md).
 
 ## Research Memory
 
@@ -143,7 +143,7 @@ persisted result rows and should be referenced by run id or batch uid.
 ## Batch UID
 
 The human-chosen grouping label of a backtest submission. Format and rules:
-[`strategy-research-protocol/rules/BATCH-UID.md`](./rules/BATCH-UID.md).
+[`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md).
 
 ## Market Result
 

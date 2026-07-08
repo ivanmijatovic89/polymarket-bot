@@ -1,7 +1,7 @@
 # Strategy Research Protocol
 
 Strategy Research Protocol is the research layer on top of
-[`strategy-research-protocol/PolymarketTwinEngine.md`](./PolymarketTwinEngine.md).
+[`strategy-research-protocol/ENGINE.md`](./ENGINE.md).
 Its purpose is to let agents and humans propose, implement, backtest, judge,
 and remember strategy families for Polymarket 15 minute Bitcoin up/down
 markets — such that any fresh agent can continue from files alone.
@@ -109,8 +109,8 @@ rules — lives in
   operator's step-by-step cookbook.
 - [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) — term
   definitions.
-- `strategy-research-protocol/modules/` — agent worker contracts
-  ([`index`](./modules/index.md)).
+- `strategy-research-protocol/modules/` — agent worker contracts (see the
+  role map in [`AGENTS.md`](./AGENTS.md)).
 - `strategy-research-protocol/rules/` — naming rules (family, experiment,
   batch UID).
 - `strategy-research-protocol/tools/` — tool contracts
