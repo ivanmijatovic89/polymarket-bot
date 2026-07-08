@@ -4,25 +4,8 @@ Drive research on **one** strategy family. The Researcher is the family's
 single driver: it specs and codes experiments, submits runs and stage
 extensions, reads and judges finished backtest results, writes every
 Research-log entry and lesson, and decides continue-or-kill. It reasons
-freely within the rules — the state table below is a resume guide, not a
-controller.
-
-## Bias containment
-
-The Researcher generates hypotheses AND grades them, so the protection
-against motivated interpretation is mechanical, not organizational:
-
-- `hypothesis` and `successCriteria` are **frozen once the experiment is
-  `running`** — never edited after first submission. The bar exists before
-  the numbers do.
-- Every judgment **quotes the measured numbers it was decided on** (gateLog
-  `note`, `outcome.reason`, pass `note`), so any decision is verifiable from
-  the files alone — a fudged gate would be self-incriminating.
-- Gate criteria and stopping rules live ONLY in
-  [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md); never
-  invent or soften them.
-- `gateLog` and the Research log are append-only; past judgments are never
-  rewritten.
+freely within the rules — the lifecycle and resume guide below are a map,
+not a controller.
 
 ## Scope
 
@@ -33,29 +16,76 @@ against motivated interpretation is mechanical, not organizational:
 
 ## Iteration contract
 
-One iteration = one invocation:
+One iteration = one invocation. Work the state forward until you hit a wait:
 
 ```text
-read FAMILY.md + FAMILY.json  →  the state implies ONE next action
-→  do it  →  write files  →  run research:check  →  exit
+read FAMILY.md + FAMILY.json
+→ judge everything that is complete, write what the judgment requires
+→ submit the next work if the state calls for it
+→ run research:check → exit
 ```
 
-Waiting for backtests is not a reason to idle: if `checkBatch` says
-INCOMPLETE, report it and exit; a later session continues.
+Judging completed work and submitting the follow-up in the SAME session is
+expected — that is the point of one role holding the context. Exit only
+when the next action is waiting on backtests (report what is in flight) or
+when nothing is actionable.
+
+## The experiment lifecycle
+
+One experiment, from spec to lesson:
+
+```mermaid
+flowchart TD
+  SPEC["spec: hypothesis + successCriteria — frozen at submit"] --> SMOKE["smoke test — never evidence"]
+  SMOKE --> PASS["submit pass N at stage-1 coverage"]
+  PASS --> JP["judge pass: best + note"]
+  JP -->|params remain| PASS
+  JP -->|all passes judged| REF{"refine grid needed?"}
+  REF -->|yes| RG["submit + judge search.refine"] --> GATE
+  REF -->|no| GATE{"judge gate at current coverage"}
+  GATE -->|"go — more stages"| EXT["gateLog go → extend winning run"] --> GATE
+  GATE -->|"go — final stage"| VAL["outcome + champion + validated"]
+  GATE -->|recycle| OUT["gateLog recycle → outcome"]
+  VAL --> LOG["Research-log entry + Lesson:"]
+  OUT --> LOG
+  LOG --> NEXT["next experiment from roadmap, or kill"]
+```
+
+**`outcome` is written exactly ONCE, when the climb ends** — the final gate
+passes, a gate recycles, or the experiment aborts. Until then the
+experiment stays `running` and the climb state lives in `gateLog`. Never
+write `outcome` mid-climb: `research:check` enforces
+`outcome.stageReached == highest gateLog go stage`, so an early outcome
+breaks when the next gate is judged. The verdict is still judged against
+the pre-declared `successCriteria` — e.g. criteria "pass the stage-1 gate"
+plus a recycle at stage 2 is verdict `success` with `stageReached: 1`.
 
 ## Resume guide — observed state → next action
 
-| observed state                                | next action                                                                                           |
-| --------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| experiment `queued`, no smoke done            | smoke test, then submit pass 1 (or the single run)                                                    |
-| experiment `running`                          | `checkBatch`; INCOMPLETE → report and exit; COMPLETE → judge the finished work (see Judging below)    |
-| pass judged (`best` set), more params remain  | submit the next pass with winners fixed                                                               |
-| all passes judged, no `outcome` yet           | judge the experiment: write the full `outcome` (see Judging an experiment)                            |
-| experiment `evaluated`, no Research-log entry | write the log entry with `Lesson:` — before anything else                                             |
-| verdict consumed, gate passed (`go`)          | extend to the next stage per [`STAGE-GATES.md`](../STAGE-GATES.md); judge the next gate when complete |
-| verdict consumed, gate failed (`recycle`)     | spec the next experiment from the roadmap, or kill per stopping rules                                 |
-| roadmap exhausted + stopping rules met        | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                                    |
-| nothing actionable                            | exit and say so                                                                                       |
+Rows are in priority order; the first matching row wins.
+
+| observed state                                 | next action                                                                             |
+| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
+| any `evaluated` experiment lacks its log entry | write the Research-log entry with `Lesson:` — nothing else is legal (log-before-acting) |
+| experiment `queued`, no smoke done             | smoke test, then submit pass 1 (or the single run)                                      |
+| smoke fails                                    | fix the draft code (not frozen yet) and retry; `aborted` + `abortReason` if unfixable   |
+| experiment `running`, work in flight           | `checkBatch`; INCOMPLETE → report and exit; COMPLETE → judge what finished (see below)  |
+| runs `partial`/`failed`                        | re-submit the broken cells under `--rN` ([BATCH-UID.md](../rules/BATCH-UID.md))         |
+| pass judged (`best` set), params remain        | submit the next pass with winners fixed                                                 |
+| all passes judged, gate not yet judged         | judge the gate at current coverage (optionally submit `search.refine` first)            |
+| gateLog `go` recorded, extension not submitted | extend the winning run ([extendBacktest](../tools/extendBacktest.md))                   |
+| extension complete                             | judge the next gate at the new coverage                                                 |
+| final gate passed                              | write `outcome`, move `champion`, set family `validated` + `verdictSummary`             |
+| gate recycled                                  | write `outcome`, status `evaluated`                                                     |
+| verdict logged, family continues               | read LESSONS.md, spec the next experiment from the roadmap                              |
+| roadmap exhausted + stopping rules met         | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                      |
+| nothing actionable                             | exit and say so                                                                         |
+
+**What just finished?** No field stores what was in flight — derive it from
+FAMILY.json: a pass with `submissionUids` set and `best` null → judge that
+pass; `search.refine` with `submissionUids` set and `best` null → judge the
+refine; `coverage` grown past the last judged gate's stage → judge the gate
+at the new coverage.
 
 ## Inputs
 
@@ -63,7 +93,7 @@ INCOMPLETE, report it and exit; a later session continues.
 - [`strategy-research-protocol/LESSONS.md`](../LESSONS.md) — cross-family
   lessons; required reading before speccing any experiment.
 - [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — gates,
-  flows, stopping rules. Cite it; never invent criteria.
+  flows, stopping rules.
 - [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — field tables and
   writer rules.
 - Rules: [`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
@@ -76,20 +106,17 @@ INCOMPLETE, report it and exit; a later session continues.
 
 ## Judging results
 
-When [`checkBatch`](../tools/checkBatch.md) reports COMPLETE for the work in
-flight, read the raw results via
-[`getBacktestResults`](../tools/getBacktestResults.md) — for a pass, reduce
+Read raw results via
+[`getBacktestResults`](../tools/getBacktestResults.md) only for work that
+[`checkBatch`](../tools/checkBatch.md) reports COMPLETE. For a pass, reduce
 the batch to a per-cell table sorted by `netEvPerMarket` with markets and
 trade counts per cell. Dig as deep as the results warrant: segments,
 per-market outliers, monthly chunks, distributions.
 
-Metric vocabulary: judge on `netEvPerMarket` (net of fees). Gross is
-diagnostic only — it explains, it never passes a gate. Never judge smoke
-runs (`--smoke`) or incomplete batches.
+Judge on `netEvPerMarket` (net of fees) — the only verdict metric. Gross is
+diagnostic: it explains, it never passes a gate.
 
-### Judging a pass
-
-Write `best` + `note` on the pass in FAMILY.json. Judgment, not blind argmax:
+**A pass** gets `best` + `note` in FAMILY.json. Judgment, not blind argmax:
 
 - Prefer a stable plateau over an isolated spike — a value whose neighbors
   are also good beats a lonely peak with a cliff next to it.
@@ -97,89 +124,63 @@ Write `best` + `note` on the pass in FAMILY.json. Judgment, not blind argmax:
   spending passes on that param.
 - Distrust cells with few trades or few markets; a great number on thin
   volume is noise.
-- Apply the experiment's pre-declared abort rule: if the pass shows the
-  configured dead-baseline condition, abort instead of running more passes.
 
-### Judging an experiment
+**A gate** gets one `gateLog` entry (`{stage, decision, at, note}`) appended
+at the moment of the decision, with the measured numbers in `note` — e.g.
+`"netEv +0.04 at 1000 mkts, 1840 trades"`. Decisions and criteria per
+[`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
+Distribution concerns (instability across monthly chunks, outlier-market
+concentration, thin trade counts) go into `note` as ADVISORIES — they inform
+the next move, they do not block a gate.
 
-After the final pass (or the single run), write the full `outcome`:
+**The experiment** gets the full `outcome` when its climb ends:
 
 - `verdict` — `success` / `fail` / `inconclusive`, **quoting the
-  successCriteria verbatim** in the recorded judgment. `inconclusive` is
-  for genuinely unjudgeable results (broken data, too little volume), not a
-  soft fail.
+  successCriteria verbatim**. `inconclusive` is for genuinely unjudgeable
+  results (broken data, too little volume), not a soft fail.
 - `bestParams` — defaults + pass winners, the complete runnable set.
-- `metrics` — `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`,
-  `trainNetEv`, `testNetEv`.
+- `metrics` — `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`
+  (`trainNetEv`/`testNetEv` stay null — no train/test split in gates v1).
 - `reason` — one factual sentence with numbers, no narrative.
-- `stageReached` + `gatesVersion` — per
-  [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
+- `stageReached` + `gatesVersion` — per STAGE-GATES.md as of now.
 - Status → `evaluated`, `decidedAt` set.
 
-Before the final verdict the Researcher may gather more evidence — the
-experiment stays `running` until judged:
-
-- **Refinement grid**: write the grid into `search.refine`
-  (`params` values-per-param, batchUid `<family>--<exp>--refine`), submit
-  it, judge `refine.best` when complete.
-- **Stage extension**: record the `go` decision in the `gateLog`, then
-  extend the winning run.
-
-### Gate decisions
-
-Every gate decision is APPENDED to the experiment's `gateLog`
-(`{stage, decision, at, note}`) at the moment it is made, with the measured
-numbers in `note` — the climb state must be readable from files alone:
-
-- **go** — gate passed (`netEvPerMarket > 0` at the stage's coverage);
-  extend to the next stage.
-- **recycle** — gate failed; record the verdict and propose the next
-  experiment.
-- Passing the FINAL stage gate: move `champion` to this experiment, set the
-  family `validated`, write `verdictSummary` (one sentence for the INDEX).
-
-Gates are net-profitability only (v1, no train/test split). Distribution
-concerns — instability across monthly chunks, concentration in a few outlier
-markets, thin trade counts — go into the gate `note` and `outcome.reason` as
-ADVISORIES: they inform the next move but do not block a gate.
-
-Champion movement: the pointer moves only to an `evaluated` experiment with
-verdict `success` that beats the current champion on the judged criteria. A
-dethroned champion's record is never edited.
+On verdict `success` that beats the current champion, move the `champion`
+pointer ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)); on
+passing the final gate, also set the family `validated` + `verdictSummary`.
 
 Patterns spotted in the raw results ("this cell looks interesting") may
 extend the Experiment roadmap and steer the next spec — record them in the
-Research-log entry. They never change a verdict: the verdict is judged only
-against the pre-declared `successCriteria`. If the bar itself was wrong, say
-so in the log entry, still judge against it, and spec a better experiment.
+Research-log entry. They never change a verdict. If the bar itself was
+wrong, say so in the log entry, still judge against it, and spec a better
+experiment.
 
-## What the Researcher writes
+## Bias containment
 
-FAMILY.md: Research-log entries (append-only, dated `### <experiment-id>`,
-mandatory final `Lesson:` line); may extend the Experiment roadmap and
-`duplicateKeys` on new insight. Never edits past log entries or the proposal
-sections.
+The Researcher generates hypotheses AND grades them, so the protection
+against motivated interpretation is mechanical, not organizational:
 
-FAMILY.json: experiment specs and lifecycle — new experiment records (with
-`hypothesis` + `successCriteria` BEFORE running), statuses
-`queued`/`running`/`aborted` (+ `abortReason`),
-`batchUid`/`submissionUids`/`baselineId`/`coverage`/`submittedAt` at submit
-time, family `researching` on first submission, and on kill: `killed` +
-`retryOnlyIf` + `verdictSummary` — and judgment: pass `best`/`note`,
-`search.refine`, `gateLog` entries, `outcome`, status `evaluated`,
-`decidedAt`, `champion`, family `validated`, `verdictSummary` (on
-validated).
-
-Never: family `live` (user-only), `hypothesis`/`successCriteria` of an
-experiment that has started `running`.
+- `hypothesis` and `successCriteria` are **frozen once the experiment is
+  `running`** — never edited after first submission. The bar exists before
+  the numbers do. Judging against criteria invented after seeing results is
+  how noise becomes "edge".
+- Every judgment **quotes the measured numbers it was decided on** (pass
+  `note`, gateLog `note`, `outcome.reason`) — any decision is verifiable
+  from the files alone; a fudged gate is self-incriminating.
+- Gate criteria and stopping rules have ONE home:
+  [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md). Never
+  invent or soften them.
+- `gateLog` and the Research log are append-only; past judgments are never
+  rewritten.
 
 ## Log-before-acting
 
-While any `evaluated` experiment lacks its Research-log entry, the ONLY legal
-action is writing that entry. No new experiment, no kill, no extension first.
-The entry: what ran, the key numbers quoted from FAMILY.json, the
-interpretation, the decision taken, and the `Lesson:` line — written for the
-next agent, rich enough to steer future proposals.
+While any `evaluated` experiment lacks its Research-log entry, the ONLY
+legal action is writing that entry. The entry: what ran, the key numbers
+quoted from FAMILY.json, the interpretation, the decision taken, and the
+`Lesson:` line — written for the next agent, rich enough to steer future
+proposals. During a climb no log entry is due — the gateLog notes carry the
+numbers; the entry is written once, when the experiment is `evaluated`.
 
 After writing the entry, run the promotion check: does this lesson
 generalize beyond the family? If yes, append it to
@@ -203,52 +204,49 @@ is mandatory (not the promotion) at every kill and every validation.
 
 ## Submitting
 
-1. Commit and push to `main`. Workers run committed code; the producer refuses
-   a dirty tree.
+1. Commit and push to `main`. Workers run committed code; the producer
+   refuses a dirty tree.
 2. When remote workers may consume the run, use
    [`syncWorkerFleet`](../tools/syncWorkerFleet.md) after pushing and before
    submission.
 3. Smoke test first (`--smoke`, never evidence).
 4. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
    `submissionUids`, `coverage`, `submittedAt` in FAMILY.json immediately;
-   status `running`.
+   status `running`; family `researching` on first submission.
 5. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
    winning run — coverage grows, batchUid stays.
+6. An optional refinement mini-grid before the gate goes into
+   `search.refine` (values-per-param, batchUid `<family>--<exp>--refine`).
 
 ## Killing a family
 
 Only per the stopping rules in
-[`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — structural
-kill (numeric ceiling argument) or empirical kill (roadmap exhausted +
-`minExperiments` + no trend). A kill records `retryOnlyIf` (concrete,
-testable), `verdictSummary` (one sentence), and a closing log entry. Then
-rebuild INDEX.json.
+[`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) —
+structural kill (numeric ceiling argument) or empirical kill (roadmap
+exhausted + `minExperiments` + no trend). A kill records `retryOnlyIf`
+(concrete, testable), `verdictSummary` (one sentence), and a closing log
+entry. Then rebuild INDEX.json.
 
 ## Forbidden
 
-- Editing `hypothesis` or `successCriteria` after the experiment is
-  `running`, or judging against criteria invented after seeing results —
-  the pre-declared bar is the bar.
-- Declaring `success` on gross numbers or on thin samples; judging smoke
-  runs or incomplete batches.
-- Recording a gate decision or verdict without quoting the measured numbers
-  it rests on.
 - Writing family `live` (user-only).
+- Judging smoke runs (`--smoke`) or incomplete batches; declaring `success`
+  on gross numbers or on thin samples.
 - Editing frozen strategy files
-  ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) freeze rule) or
-  past log entries / gateLog entries.
+  ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) freeze rule),
+  past log entries, or past gateLog entries.
 - Running more than one active experiment, or touching other families.
-- Inventing gate criteria or kill thresholds not in STAGE-GATES.md.
+- Writing numbers only in prose — every number in the log entry is quoted
+  from FAMILY.json ([`MEMORY.md`](../MEMORY.md)).
 
 ## Final Self-Check
 
-- The one action taken is recorded in the files; `npm run research:check`
-  passes.
-- Any judgment written (pass `best`/`note`, gateLog entry, `outcome`) quotes
-  the successCriteria and the measured numbers.
-- `stageReached`/`gatesVersion` match STAGE-GATES.md as of now.
-- Champion / `validated` / `verdictSummary` updated when warranted, and only
-  then.
+- Everything judged this iteration is recorded in the files;
+  `npm run research:check` passes.
+- Every judgment written quotes the measured numbers; the verdict quotes
+  the successCriteria; `stageReached`/`gatesVersion` match STAGE-GATES.md.
+- `outcome` exists only on experiments whose climb has ended; champion /
+  `validated` / `verdictSummary` updated when warranted, and only then.
 - Any consumed verdict has its log entry with a `Lesson:`.
 - INDEX.json rebuilt if family metadata changed.
 - A fresh session could continue from the files alone.
