@@ -34,11 +34,8 @@ files never change — see the freeze rule in
 [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)
 and
 [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
-The working tree must be clean (the CLI refuses a dirty tree). Commit and push
-to `main` before extending. If remote workers may be behind the current
-producer commit, use
-[`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)
-after pushing and before this tool to avoid lazy self-update delays.
+Submit preconditions (clean tree, committed and pushed, worker fleet synced)
+per [`strategy-research-protocol/RUNNING.md`](../RUNNING.md).
 
 ## Protocol Defaults
 
@@ -135,12 +132,9 @@ the research protocol should use the extend operation.
 ## After Success
 
 Update research memory according to
-[`strategy-research-protocol/MEMORY.md`](../MEMORY.md).
-
-- Preserve the updated `run id` and latest `batchUid`.
-- Update the relevant experiment result reference if coverage changed.
-- Summarize the extension in
-  `src/strategies/research/<family>/FAMILY.md`.
+[`strategy-research-protocol/MEMORY.md`](../MEMORY.md): the experiment's
+`coverage` grows in FAMILY.json (run id and batchUid stay the same). No
+Research-log entry is due during a climb — the gateLog carries the numbers.
 
 ## If It Fails
 

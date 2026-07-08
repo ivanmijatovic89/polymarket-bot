@@ -367,15 +367,9 @@ Minimum result context to preserve:
 - failed/skipped markets
 - commit SHA when available
 
-Evaluation should also inspect:
-
-- outlier concentration
-- segment stability
-- per-market EV distribution
-- fills and order lifecycle
-- fee impact
-- latency assumptions
-- failed or skipped market reasons
+How to judge results — metrics, advisories, depth — lives in the Judging
+results section of
+[`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
 
 ## Existing Engine Documentation
 
