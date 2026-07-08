@@ -12,8 +12,9 @@ data, when a family keeps experimenting, and when a family may be killed. Where
 these rules differ from the textbook model, these rules win.
 
 The Researcher executes the climb (submits runs and extensions, applies the
-stopping rules). The Evaluator judges every gate (writes stage results and
-verdicts). Both cite this file; neither invents criteria.
+stopping rules) and judges every gate against this file (writes gate
+decisions and verdicts, quoting the measured numbers). It cites this file;
+it never invents criteria.
 
 All tunable numbers live in the config block below. Changing a number or adding
 a stage bumps `version` in the frontmatter; experiment outcomes record the
@@ -77,10 +78,10 @@ that already showed something.
 | live           | —            | user judgment; dry-run first          | out of protocol scope                     |
 
 Gates are deliberately simple in v1: net profitability at the stage's
-coverage, nothing else. There is no train/test split yet. The Evaluator still
-REPORTS distribution concerns as advisories — instability across monthly
-chunks, concentration in a few outlier markets, thin trade counts — but
-advisories inform the Researcher's next move; they do not block a gate.
+coverage, nothing else. There is no train/test split yet. The Researcher
+still REPORTS distribution concerns as advisories — instability across
+monthly chunks, concentration in a few outlier markets, thin trade counts —
+but advisories inform the next move; they do not block a gate.
 
 Rules of the climb:
 
@@ -94,27 +95,28 @@ Rules of the climb:
   same run, `coverage` is updated, and `outcome.stageReached` records the
   highest gate passed.
 - **Every gate decision is recorded in the experiment's `gateLog`** in
-  FAMILY.json (`{stage, decision, at, note}`, written by the Evaluator at
-  the moment of the decision). A fresh session reads the climb state from
-  the gateLog — never guesses it from coverage.
+  FAMILY.json (`{stage, decision, at, note}`, written by the Researcher at
+  the moment of the decision, with the measured numbers in `note`). A fresh
+  session reads the climb state from the gateLog — never guesses it from
+  coverage.
 - Passing the stage-3 gate makes the family `validated` (set by the
-  Evaluator).
+  Researcher).
 - There is no forward-holdout stage in v1 — the user observes the live
   dry-run instead. A stage 4 (fresh markets postdating all decisions) may be
   added later by bumping this file's version.
 
 ## Gate decisions
 
-At every gate the Evaluator issues exactly one decision and appends it to the
-experiment's `gateLog`:
+At every gate the Researcher issues exactly one decision and appends it to
+the experiment's `gateLog`:
 
-- **go** — gate passed; the Researcher extends to the next stage.
+- **go** — gate passed; extend to the next stage.
 - **recycle** — gate failed, but the family is not killable (see stopping
-  rules); the experiment gets its verdict and the Researcher proposes the
-  next experiment from the roadmap.
-- **kill** — only per the stopping rules below, and the kill itself is the
-  Researcher's family-level decision, recorded with `retryOnlyIf` (it is a
-  family action, not a gateLog entry).
+  rules); the experiment gets its verdict and the next experiment comes
+  from the roadmap.
+- **kill** — only per the stopping rules below; the kill is a family-level
+  decision, recorded with `retryOnlyIf` (it is a family action, not a
+  gateLog entry).
 
 There is no "hold" decision: an experiment is never parked half-judged.
 

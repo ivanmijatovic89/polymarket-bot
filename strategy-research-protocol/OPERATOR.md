@@ -12,8 +12,9 @@ package.json, and the launch scripts `cd` to the git root themselves.
 
 ## 0. One-time setup (per machine)
 
-1. `.env` with database credentials — `evaluator.sh` and
-   `npm run research:check-batch` query MySQL.
+1. `.env` with database credentials — `researcher.sh` and
+   `npm run research:check-batch` query MySQL (completion checks and result
+   reads).
 2. Redis + backtest workers running. Remote workers track `origin/main`; after
    pushing research commits to `main`, run `./scripts/update-worker-fleet.sh`
    before submitting jobs. Local-only workers can still be started manually with
@@ -43,7 +44,7 @@ Then YOU review before anything runs — you are the taste filter:
 
 ## 2. Drive the loop — you are the metronome
 
-One family = alternate two scripts until the family is validated or killed:
+One family = re-run one script until the family is validated or killed:
 
 ```bash
 ./strategy-research-protocol/scripts/researcher.sh <family>
@@ -51,25 +52,24 @@ One family = alternate two scripts until the family is validated or killed:
 
 Permissions note: the scripts default to `acceptEdits`, and in headless mode
 non-allowlisted Bash commands are DENIED, not prompted — but the Researcher
-and Evaluator need Bash (`git`, `npm run backtest`, `checkBatch`, `curl`).
-Until you allowlist those in `.claude/settings.local.json`, run with:
+needs Bash (`git`, `npm run backtest`, `checkBatch`, `curl`). Until you
+allowlist those in `.claude/settings.local.json`, run with:
 
 ```bash
 PERM=bypassPermissions ./strategy-research-protocol/scripts/researcher.sh <family>
-PERM=bypassPermissions ./strategy-research-protocol/scripts/evaluator.sh <family> <id>
 ```
 
 The Researcher does ONE step and exits, telling you what happened. Your
 reaction table:
 
-| Researcher says                              | you do                                                                                       |
-| -------------------------------------------- | -------------------------------------------------------------------------------------------- |
-| "submitted smoke / pass N — running"         | wait a bit, then run `researcher.sh` again                                                   |
-| "waiting on backtests"                       | check later; or peek with `npm run research:check-batch -- --family <f> --experiment <id>`   |
-| "complete — ready for evaluation of `<id>`"  | `./strategy-research-protocol/scripts/evaluator.sh <family> <id>` then `researcher.sh` again |
-| "log entry written, next experiment specced" | `researcher.sh` again (it will submit next)                                                  |
-| "family killed (retryOnlyIf: ...)"           | read the closing log entry; move on to other families                                        |
-| "nothing actionable"                         | family is parked; nothing to do                                                              |
+| Researcher says                              | you do                                                                                     |
+| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
+| "submitted smoke / pass N — running"         | wait a bit, then run `researcher.sh` again                                                 |
+| "waiting on backtests"                       | check later; or peek with `npm run research:check-batch -- --family <f> --experiment <id>` |
+| "judged pass N / verdict written for `<id>`" | `researcher.sh` again (log entry, next pass, or next step)                                 |
+| "log entry written, next experiment specced" | `researcher.sh` again (it will submit next)                                                |
+| "family killed (retryOnlyIf: ...)"           | read the closing log entry; move on to other families                                      |
+| "nothing actionable"                         | family is parked; nothing to do                                                            |
 
 Several families in parallel: run the same loop per family. One family = one
 session at a time (the scripts enforce this with a lock; a second session
@@ -86,7 +86,6 @@ script would have sent:
 Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run autonomous (no seed).
 Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run with seed: '<your idea>'.
 Execute one researcher iteration per strategy-research-protocol/modules/Researcher.md. Family: '<family>'.
-Execute the evaluator per strategy-research-protocol/modules/Evaluator.md. Family: '<family>', experiment: '<experiment-id>'.
 ```
 
 Behavior is identical — the module contracts and the files are the truth —
@@ -108,9 +107,9 @@ Two cautions:
 - Interactive sessions do NOT take the per-family lock (only the scripts
   do). YOU are the lock: never run an interactive role and a script on the
   same family at the same time.
-- The role rules still bind you: don't ask the Researcher to peek at raw
-  results or the Evaluator to write FAMILY.md — if you want an exception,
-  change the module, not the session.
+- The role rules still bind you: don't ask the Researcher to judge
+  incomplete work, soften a pre-declared `successCriteria`, or edit a frozen
+  hypothesis — if you want an exception, change the module, not the session.
 
 Once the loop feels trustworthy, switch to the scripts — they are the same
 thing without the hand-holding.

@@ -45,20 +45,19 @@ binary markets. The full research assumptions are defined in
 3. **LLM judgment only at boundaries** (propose / judge / kill). Everything
    mechanical is a deterministic script.
 4. **Pre-declared contracts.** Every experiment declares its `hypothesis` and
-   `successCriteria` before running; the Evaluator quotes the criteria in its
-   verdict. Deciding what counts as success after seeing results is how noise
-   becomes "edge".
+   `successCriteria` before running; both freeze once the experiment is
+   `running`, and the verdict quotes the criteria verbatim. Deciding what
+   counts as success after seeing results is how noise becomes "edge".
 
 ## Architecture
 
-Three LLM roles around one memory unit (the family folder), with the backtest
+Two LLM roles around one memory unit (the family folder), with the backtest
 infrastructure below:
 
 ```mermaid
 flowchart LR
   PF[ProposeFamily<br/>creates the family, once]
-  R[Researcher<br/>drives the loop, writes MD]
-  E[Evaluator<br/>judges results, writes JSON]
+  R[Researcher<br/>drives the loop, judges results]
   subgraph folder [family folder — memory unit]
     MD[FAMILY.md<br/>thinking + lessons]
     JSON[FAMILY.json<br/>state + numbers]
@@ -71,8 +70,7 @@ flowchart LR
   R <--> folder
   R -- submits runs --> W
   W --> DB
-  DB -- reads results --> E
-  E -- writes outcome --> JSON
+  DB -- reads results --> R
 ```
 
 - **ProposeFamily** creates one family: proposal sections in FAMILY.md,
@@ -80,12 +78,14 @@ flowchart LR
 - **The Researcher** works one family per session in stateless iterations:
   read both files → the state implies the next action → do it → write files
   → exit. It specs and codes experiments, submits runs and stage extensions,
-  writes every Research-log entry and `Lesson:`, and decides continue-or-kill
-  per [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
-- **The Evaluator** is the only reader of raw backtest results. It judges
-  passes and experiments, writes outcomes and verdicts into FAMILY.json,
-  moves the champion pointer, and sets families `validated`. It never writes
-  FAMILY.md.
+  reads and judges finished results (passes, gates, verdicts, champion,
+  `validated`), writes every Research-log entry and `Lesson:`, and decides
+  continue-or-kill per
+  [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md). Judgment
+  is bias-contained mechanically — frozen pre-declared criteria, measured
+  numbers quoted in every decision, append-only records (see the Bias
+  containment section of
+  [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md)).
 - **The user** alone flips a family to `live`.
 
 ## Statuses
@@ -96,7 +96,7 @@ stateDiagram-v2
   state "experiment" as exp {
     direction LR
     queued --> running : Researcher submits
-    running --> evaluated : Evaluator judges
+    running --> evaluated : Researcher judges
     queued --> aborted : Researcher
     running --> aborted : Researcher
   }
@@ -108,7 +108,7 @@ stateDiagram-v2
   state "family" as fam {
     direction LR
     proposed --> researching : Researcher, first submit
-    researching --> validated : Evaluator, final gate passed
+    researching --> validated : Researcher, final gate passed
     researching --> killed : Researcher, stopping rules
     validated --> live : user only
   }
@@ -151,17 +151,16 @@ One experiment, end to end:
 3. Smoke test (`--sequential --limit 10`, batchUid `--smoke` — never
    evidence), then submit coordinate-search pass 1 with `--baselineId`;
    record batchUid + submissionUids; status `running`.
-4. Any later session runs `checkBatch`; when complete, the Evaluator judges
-   the pass (`best` + `note`), and the Researcher submits the next pass with
-   winners fixed.
-5. After the last pass the Evaluator writes the full `outcome` (verdict
+4. Any later session runs `checkBatch`; when complete, the Researcher reads
+   the results, judges the pass (`best` + `note`), and submits the next pass
+   with winners fixed.
+5. After the last pass the Researcher writes the full `outcome` (verdict
    quoting the successCriteria, metrics, `stageReached`), possibly after
-   requesting a refinement grid or a stage extension
-   (`extendBacktest`) per
+   running a refinement grid or a stage extension (`extendBacktest`) per
    [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
-6. The Researcher consumes the verdict: writes the Research-log entry with
-   its `Lesson:` (log-before-acting), then queues the next experiment, or
-   climbs to the next stage, or kills the family with `retryOnlyIf`.
+6. Then it consumes the verdict: writes the Research-log entry with its
+   `Lesson:` (log-before-acting), then queues the next experiment, or climbs
+   to the next stage, or kills the family with `retryOnlyIf`.
 7. `npm run research:build-index` when family metadata changed;
    `npm run research:check` must pass.
 
@@ -170,8 +169,8 @@ One experiment, end to end:
 The decision policy — when a strategy advances to more data (1000 → 3000 →
 9000 markets), when a family keeps experimenting, and when it may be killed
 (structural vs empirical kill, `minExperiments`) — lives in
-[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md). Both the
-Researcher and the Evaluator cite it; neither invents criteria.
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md). The
+Researcher cites it; it never invents criteria.
 
 ## Repository layout
 
@@ -221,16 +220,14 @@ Scripts: `npm run research:check`, `npm run research:check-batch`,
 - [`strategy-research-protocol/modules/ProposeFamily.md`](./modules/ProposeFamily.md)
   — propose exactly one new family.
 - [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md)
-  — one research iteration for one family.
-- [`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md)
-  — judge passes and experiments.
+  — one research iteration for one family, including judging finished
+  results.
 
 Launch scripts (see [`strategy-research-protocol/RUNNING.md`](./RUNNING.md)):
 
 ```bash
 ./strategy-research-protocol/scripts/propose-family.sh ["seed idea"]
 ./strategy-research-protocol/scripts/researcher.sh <family>
-./strategy-research-protocol/scripts/evaluator.sh <family> <experiment-id>
 ```
 
 Agents must preserve the invariants above and must not invent missing

@@ -5,7 +5,7 @@ import { z } from 'zod'
  *
  *   proposed    — set by ProposeFamily when the folder is created
  *   researching — set by the Researcher on the first submission
- *   validated   — set by the Evaluator when a champion passes the final
+ *   validated   — set by the Researcher when a champion passes the final
  *                 stage gate (research CONTINUES: challengers keep coming)
  *   killed      — set by the Researcher per STAGE-GATES.md stopping rules;
  *                 requires a concrete `retryOnlyIf`
@@ -25,17 +25,17 @@ export type FamilyStatus = z.infer<typeof FamilyStatus>
  *
  *   queued    — Researcher: spec AND code complete, ready to submit
  *   running   — Researcher: submitted; batchUid + submissionUids recorded
- *   evaluated — Evaluator: outcome fully written
+ *   evaluated — Researcher: outcome fully written at judgment time
  *   aborted   — Researcher: permanently failed / superseded, with reason
  */
 export const ExperimentStatus = z.enum(['queued', 'running', 'evaluated', 'aborted'])
 export type ExperimentStatus = z.infer<typeof ExperimentStatus>
 
 /**
- * Verdict on an evaluated experiment, set by the Evaluator inside `outcome`.
- * Answers exactly one question: did the experiment meet its pre-declared
- * `successCriteria`? Promotion is NOT a verdict — the Evaluator moves the
- * family `champion` pointer as a consequence of `success`.
+ * Verdict on an evaluated experiment, set inside `outcome` at judgment
+ * time. Answers exactly one question: did the experiment meet its
+ * pre-declared `successCriteria`? Promotion is NOT a verdict — the family
+ * `champion` pointer moves as a consequence of `success`.
  */
 export const Verdict = z.enum(['success', 'fail', 'inconclusive'])
 export type Verdict = z.infer<typeof Verdict>

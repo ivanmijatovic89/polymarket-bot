@@ -11,13 +11,12 @@ script. Sessions are stateless by design: all context comes from the family
 files plus the protocol docs, so any session can be re-run after a crash or
 a pause with no loss (see the Researcher's resume guide).
 
-| script                                          | role                               | contract                                                 |
-| ----------------------------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| `scripts/propose-family.sh ["seed idea"]`       | ProposeFamily                      | [`modules/ProposeFamily.md`](./modules/ProposeFamily.md) |
-| `scripts/researcher.sh <family>`                | Researcher — ONE iteration         | [`modules/Researcher.md`](./modules/Researcher.md)       |
-| `scripts/evaluator.sh <family> <experiment-id>` | Evaluator — judge what is complete | [`modules/Evaluator.md`](./modules/Evaluator.md)         |
+| script                                    | role                       | contract                                                 |
+| ----------------------------------------- | -------------------------- | -------------------------------------------------------- |
+| `scripts/propose-family.sh ["seed idea"]` | ProposeFamily              | [`modules/ProposeFamily.md`](./modules/ProposeFamily.md) |
+| `scripts/researcher.sh <family>`          | Researcher — ONE iteration | [`modules/Researcher.md`](./modules/Researcher.md)       |
 
-All three stream readable output, keep a raw `.jsonl` log, and print a cost
+Both stream readable output, keep a raw `.jsonl` log, and print a cost
 summary (same plumbing as `propose-family.sh`).
 
 ## Handoffs
@@ -26,30 +25,28 @@ Handoffs happen through files and exit messages — never through shared
 session context:
 
 1. `researcher.sh <family>` runs one iteration and EXITS, reporting what it
-   did and what comes next (e.g. "running — check back later", or "complete
-   — ready for evaluation of 000-baseline").
-2. When an experiment's work is complete (`npm run research:check-batch`),
-   run `evaluator.sh <family> <experiment-id>`. The Evaluator writes its
-   judgment into FAMILY.json and exits.
-3. Run `researcher.sh <family>` again — it reads the judgment and takes the
-   next action (log entry, next pass, extension, next experiment, kill).
+   did and what comes next (e.g. "submitted pass 1 — running, check back
+   later", or "pass 2 judged, pass 3 submitted").
+2. Run `researcher.sh <family>` again — it reads the files and takes the
+   next action (check completion, judge finished work, log entry, next
+   pass, extension, next experiment, kill).
 
-The user (or a future orchestrator) is the metronome: it just alternates the
-two scripts per family and can run many families in parallel.
+The user (or a future orchestrator) is the metronome: it just re-runs the
+script per family and can run many families in parallel.
 
-**One family = one session at a time — enforced.** `researcher.sh` and
-`evaluator.sh` take a per-family lock (`$TMPDIR/research-locks/<family>.lock`
-with the session PID; outside the repo so it never dirties the tree). A
-second session on a locked family refuses to start; a lock whose PID is dead
-(crashed session) is ignored and taken over.
+**One family = one session at a time — enforced.** `researcher.sh` takes a
+per-family lock (`$TMPDIR/research-locks/<family>.lock` with the session
+PID; outside the repo so it never dirties the tree). A second session on a
+locked family refuses to start; a lock whose PID is dead (crashed session)
+is ignored and taken over.
 
 ## Cadence
 
 Nothing polls. Run `researcher.sh` when you want progress; it exits
 immediately with "waiting on backtests" if there is nothing to do. A simple
-loop (or cron) alternating researcher/evaluator per family is the intended
-v2 orchestration; the autonomous multi-family orchestrator remains
-deliberately out of scope (TASKS.md section 4).
+loop (or cron) re-running the researcher per family is the intended v2
+orchestration; the autonomous multi-family orchestrator remains deliberately
+out of scope (TASKS.md section 4).
 
 ## Branch policy
 
@@ -77,6 +74,6 @@ the workers at the branch.
 - Tree clean before any submission.
 - Push to `main`, then run `./scripts/update-worker-fleet.sh` before remote
   workers consume the run.
-- Database credentials in `.env` on the machine running `evaluator.sh` and
-  `research:check-batch` (they query MySQL; see
-  [`tools/checkBatch.md`](./tools/checkBatch.md)).
+- Database credentials in `.env` on the machine running `researcher.sh` and
+  `research:check-batch` (completion checks and result reads query MySQL;
+  see [`tools/checkBatch.md`](./tools/checkBatch.md)).

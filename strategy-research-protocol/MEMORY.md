@@ -12,7 +12,7 @@ each memory file stores, who writes every field, and when.
   [`strategy-research-protocol/tools/checkBatch.md`](./tools/checkBatch.md),
   never stored in files.
 - **FAMILY.json = exact facts** (state + numbers), written by agents flipping
-  the state they own and by the Evaluator recording judgment.
+  the state they own and by the Researcher recording judgment.
 - **FAMILY.md = reasoning** (prose), written once at proposal time plus an
   append-only Research log written only by the Researcher.
 - **The family folder is the memory unit.** Agents always read both files;
@@ -37,19 +37,24 @@ validated by `npm run research:check`.
 
 ## Writer matrix
 
-| surface                                          | who writes                        | what                                                                                                      |
-| ------------------------------------------------ | --------------------------------- | --------------------------------------------------------------------------------------------------------- |
-| FAMILY.md proposal sections                      | ProposeFamily, once               | Thesis, Signal definition, Edge economics, Experiment roadmap, Duplicate notes                            |
-| FAMILY.md Research log                           | Researcher only                   | one dated `### <experiment-id>` entry per evaluated experiment, ending with `Lesson:`                     |
-| FAMILY.json experiment specs + lifecycle it owns | Researcher                        | new experiment records, `queued`/`running`/`aborted`, `retryOnlyIf`, `verdictSummary` on kill             |
-| FAMILY.json judgment fields                      | Evaluator                         | pass `best`/`note`, `outcome`, `evaluated`, `champion`, family `validated`, `verdictSummary` on validated |
-| FAMILY.json creation                             | ProposeFamily                     | the initial file with one queued `000-baseline`                                                           |
-| INDEX.json                                       | `buildStrategyIndex` script only  | generated rollup                                                                                          |
-| LESSONS.md                                       | Researcher (or user), append-only | cross-family lessons; ban-worthy ones also add a CONSTRAINTS.md line                                      |
-| family `live` status                             | user only                         | —                                                                                                         |
+| surface                                  | who writes                        | what                                                                                                                 |
+| ---------------------------------------- | --------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| FAMILY.md proposal sections              | ProposeFamily, once               | Thesis, Signal definition, Edge economics, Experiment roadmap, Duplicate notes                                       |
+| FAMILY.md Research log                   | Researcher only                   | one dated `### <experiment-id>` entry per evaluated experiment, ending with `Lesson:`                                |
+| FAMILY.json experiment specs + lifecycle | Researcher                        | new experiment records, `queued`/`running`/`aborted`, `retryOnlyIf`, `verdictSummary` on kill                        |
+| FAMILY.json judgment fields              | Researcher, at judgment time      | pass `best`/`note`, `gateLog`, `outcome`, `evaluated`, `champion`, family `validated`, `verdictSummary` on validated |
+| FAMILY.json creation                     | ProposeFamily                     | the initial file with one queued `000-baseline`                                                                      |
+| INDEX.json                               | `buildStrategyIndex` script only  | generated rollup                                                                                                     |
+| LESSONS.md                               | Researcher (or user), append-only | cross-family lessons; ban-worthy ones also add a CONSTRAINTS.md line                                                 |
+| family `live` status                     | user only                         | —                                                                                                                    |
 
-The Evaluator never writes FAMILY.md. The Researcher never writes `best`,
-`outcome`, or any verdict.
+Judgment fields are written only against the experiment's pre-declared bar:
+`hypothesis` and `successCriteria` are **frozen once the experiment is
+`running`** — never edited afterwards — and every judgment (pass `note`,
+gateLog `note`, `outcome.reason`) must quote the measured numbers it rests
+on, so any decision is verifiable from the files alone. See the Bias
+containment section of
+[`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
 
 ## FAMILY.json — family-level fields
 
@@ -62,33 +67,33 @@ The Evaluator never writes FAMILY.md. The Researcher never writes `best`,
 | `coreIdea`       | one-sentence idea                                                        | ProposeFamily                                                                                  | creation                |
 | `duplicateKeys`  | normalized synonyms for dedup                                            | ProposeFamily; Researcher may extend                                                           | creation / on discovery |
 | `retryOnlyIf`    | concrete revisit condition, e.g. "replay gains queue-position semantics" | Researcher                                                                                     | at kill                 |
-| `champion`       | experiment id of current champion, or null                               | Evaluator                                                                                      | at promotion            |
-| `verdictSummary` | one sentence for the INDEX rollup                                        | Researcher (kill) / Evaluator (validated)                                                      | at kill / validated     |
+| `champion`       | experiment id of current champion, or null                               | Researcher                                                                                     | at promotion            |
+| `verdictSummary` | one sentence for the INDEX rollup                                        | Researcher                                                                                     | at kill / validated     |
 | `tags`           | discovery tags                                                           | ProposeFamily                                                                                  | creation                |
 | `experiments[]`  | experiment records, see below                                            | —                                                                                              | —                       |
 
 ## FAMILY.json — experiment-level fields
 
-| field             | meaning                                                         | written by                                                        | when                                              |
-| ----------------- | --------------------------------------------------------------- | ----------------------------------------------------------------- | ------------------------------------------------- |
-| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher                                                        | spec time                                         |
-| `kind`            | `param-search` \| `variation`                                   | Researcher                                                        | spec time                                         |
-| `code`            | strategy file this experiment runs                              | Researcher                                                        | spec time                                         |
-| `basedOn`         | experiment this branches from (null for baseline)               | Researcher                                                        | spec time                                         |
-| `hypothesis`      | one sentence: the idea being tested                             | Researcher                                                        | spec time, BEFORE running                         |
-| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher                                                        | spec time, BEFORE running                         |
-| `params`          | fixed params (single run; XOR with `search`)                    | Researcher                                                        | spec time                                         |
-| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`     | Researcher (`refine` grid: Evaluator request, Researcher submits) | spec time; passes appended as the search proceeds |
-| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher                                                        | at submit                                         |
-| `submissionUids`  | run handles for single-run experiments                          | Researcher                                                        | at submit                                         |
-| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher                                                        | at submit                                         |
-| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher                                                        | at submit / extend                                |
-| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher (all but `evaluated`) / Evaluator (`evaluated`)        | at each transition                                |
-| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`     | Evaluator                                                         | at each gate decision                             |
-| `submittedAt`     | ISO timestamp                                                   | Researcher                                                        | at first submit                                   |
-| `decidedAt`       | ISO timestamp                                                   | Evaluator                                                         | at verdict                                        |
-| `abortReason`     | why an aborted experiment died                                  | Researcher                                                        | at abort                                          |
-| `outcome`         | judgment block, see below                                       | Evaluator                                                         | at verdict                                        |
+| field             | meaning                                                         | written by | when                                              |
+| ----------------- | --------------------------------------------------------------- | ---------- | ------------------------------------------------- |
+| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher | spec time                                         |
+| `kind`            | `param-search` \| `variation`                                   | Researcher | spec time                                         |
+| `code`            | strategy file this experiment runs                              | Researcher | spec time                                         |
+| `basedOn`         | experiment this branches from (null for baseline)               | Researcher | spec time                                         |
+| `hypothesis`      | one sentence: the idea being tested                             | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `params`          | fixed params (single run; XOR with `search`)                    | Researcher | spec time                                         |
+| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`     | Researcher | spec time; passes appended as the search proceeds |
+| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher | at submit                                         |
+| `submissionUids`  | run handles for single-run experiments                          | Researcher | at submit                                         |
+| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher | at submit                                         |
+| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher | at submit / extend                                |
+| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher | at each transition                                |
+| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`     | Researcher | at each gate decision                             |
+| `submittedAt`     | ISO timestamp                                                   | Researcher | at first submit                                   |
+| `decidedAt`       | ISO timestamp                                                   | Researcher | at verdict                                        |
+| `abortReason`     | why an aborted experiment died                                  | Researcher | at abort                                          |
+| `outcome`         | judgment block, see below                                       | Researcher | at verdict                                        |
 
 ## FAMILY.json — pass fields (`search.passes[]`)
 
@@ -102,23 +107,23 @@ set = judged.
 | `values`         | values tested, e.g. `[0.3, 0.4, 0.5]`                 | Researcher | pass spec        |
 | `batchUid`       | `<family>--<exp>--pN-<param>`                         | Researcher | at submit        |
 | `submissionUids` | exact run handles (same in Redis and `backtest_runs`) | Researcher | at submit        |
-| `best`           | winning value — judgment, not blind argmax            | Evaluator  | at pass judgment |
-| `note`           | one line, e.g. "flat — param doesn't matter"          | Evaluator  | at pass judgment |
+| `best`           | winning value — judgment, not blind argmax            | Researcher | at pass judgment |
+| `note`           | one line, e.g. "flat — param doesn't matter"          | Researcher | at pass judgment |
 
-`search.refine` (optional, Evaluator-requested mini-grid, batchUid
-`<family>--<exp>--refine`) mirrors this shape with `params` as a
+`search.refine` (optional refinement mini-grid before the final verdict,
+batchUid `<family>--<exp>--refine`) mirrors this shape with `params` as a
 values-per-param map and `best` as the winning cell.
 
 ## FAMILY.json — outcome fields
 
 | field          | meaning                                                                                        | written by | when       |
 | -------------- | ---------------------------------------------------------------------------------------------- | ---------- | ---------- |
-| `verdict`      | `success` / `fail` / `inconclusive` vs the quoted successCriteria                              | Evaluator  | at verdict |
-| `bestParams`   | full winning param set (defaults + pass winners)                                               | Evaluator  | at verdict |
-| `metrics`      | `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`, `trainNetEv`, `testNetEv`           | Evaluator  | at verdict |
-| `reason`       | one factual sentence with numbers, no narrative                                                | Evaluator  | at verdict |
-| `stageReached` | highest [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) gate passed (0 = none) | Evaluator  | at verdict |
-| `gatesVersion` | STAGE-GATES.md version used for judgment                                                       | Evaluator  | at verdict |
+| `verdict`      | `success` / `fail` / `inconclusive` vs the quoted successCriteria                              | Researcher | at verdict |
+| `bestParams`   | full winning param set (defaults + pass winners)                                               | Researcher | at verdict |
+| `metrics`      | `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`, `trainNetEv`, `testNetEv`           | Researcher | at verdict |
+| `reason`       | one factual sentence with numbers, no narrative                                                | Researcher | at verdict |
+| `stageReached` | highest [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) gate passed (0 = none) | Researcher | at verdict |
+| `gatesVersion` | STAGE-GATES.md version used for judgment                                                       | Researcher | at verdict |
 
 Metric vocabulary: verdicts are judged on `netEvPerMarket` (= evPerMarketTotal,
 net of fees). Gross is diagnostic only.

@@ -28,17 +28,17 @@ export const Pass = z.object({
   batchUid: z.string().min(1),
   /** exact run handles, identical in Redis and backtest_runs.submission_uid */
   submissionUids: z.array(z.string().min(1)).default([]),
-  /** winning value — Evaluator judgment, not blind argmax; null until judged */
+  /** winning value — judgment, not blind argmax; null until judged */
   best: ParamValue.nullable().default(null),
-  /** Evaluator's one-line pass note, e.g. "flat — param doesn't matter" */
+  /** one-line pass note, e.g. "flat — param doesn't matter" */
   note: z.string().nullable().default(null),
 })
 export type Pass = z.infer<typeof Pass>
 
 /**
- * Evaluator-requested refinement mini-grid around the found optimum
- * (batchUid suffix `--refine`). Unlike a pass it may vary several params at
- * once, in a small grid. Null unless the Evaluator requested one.
+ * Optional refinement mini-grid around the found optimum, run before the
+ * final verdict (batchUid suffix `--refine`). Unlike a pass it may vary
+ * several params at once, in a small grid. Null unless one was needed.
  */
 export const Refine = z.object({
   /** values per param, e.g. { enterThreshold: [0.45, 0.5, 0.55] } */
@@ -46,7 +46,7 @@ export const Refine = z.object({
   /** grouping label: `<family>--<exp>--refine` */
   batchUid: z.string().min(1),
   submissionUids: z.array(z.string().min(1)).default([]),
-  /** winning cell — Evaluator; null until judged */
+  /** winning cell — null until judged */
   best: z.record(z.string(), ParamValue).nullable().default(null),
   note: z.string().nullable().default(null),
 })
@@ -59,7 +59,7 @@ export const Search = z.object({
   defaults: z.record(z.string(), ParamValue),
   /** ordered by expected impact; Researcher appends passes as it goes */
   passes: z.array(Pass),
-  /** optional Evaluator-requested refinement grid */
+  /** optional refinement grid before the final verdict */
   refine: Refine.nullable().default(null),
 })
 export type Search = z.infer<typeof Search>
@@ -90,10 +90,11 @@ export const OutcomeMetrics = z.object({
 export type OutcomeMetrics = z.infer<typeof OutcomeMetrics>
 
 /**
- * One gate decision, appended by the Evaluator at the moment it is made
- * (STAGE-GATES.md "Gate decisions"). The climb state of a running experiment
- * is read from this log, never guessed from coverage. Kills are family-level
- * actions and do not appear here.
+ * One gate decision, appended by the Researcher at the moment it is made
+ * (STAGE-GATES.md "Gate decisions"), with the measured numbers in `note`.
+ * The climb state of a running experiment is read from this log, never
+ * guessed from coverage. Kills are family-level actions and do not appear
+ * here.
  */
 export const GateDecision = z.object({
   /** the STAGE-GATES.md stage whose gate was judged */
@@ -105,7 +106,7 @@ export const GateDecision = z.object({
 })
 export type GateDecision = z.infer<typeof GateDecision>
 
-/** Written by the Evaluator, in full, when the experiment becomes `evaluated`. */
+/** Written in full, at judgment time, when the experiment becomes `evaluated`. */
 export const Outcome = z.object({
   /** did it meet its pre-declared successCriteria */
   verdict: Verdict,
@@ -123,7 +124,8 @@ export type Outcome = z.infer<typeof Outcome>
 
 /**
  * One experiment = one pre-declared hypothesis with a pre-declared bar.
- * The Researcher writes everything except `outcome` (Evaluator).
+ * `hypothesis` and `successCriteria` are frozen once the experiment is
+ * `running` (MEMORY.md).
  */
 export const Experiment = z.object({
   /** local id, e.g. "000-baseline" or "002-persistence-filter" */
@@ -133,9 +135,9 @@ export const Experiment = z.object({
   code: z.string().regex(/\.ts$/, 'code must reference a .ts file'),
   /** experiment this branches from; null only for the baseline */
   basedOn: ExperimentId.nullable().default(null),
-  /** one-sentence idea being tested — written BEFORE running */
+  /** one-sentence idea being tested — written BEFORE running, frozen once running */
   hypothesis: z.string().min(1),
-  /** plain-sentence bar — written BEFORE running; the Evaluator quotes it */
+  /** plain-sentence bar — written BEFORE running, frozen once running; the verdict quotes it */
   successCriteria: z.string().min(1),
   /** fixed params for a single run (exactly one of params/search is set) */
   params: z.record(z.string(), ParamValue).nullable().default(null),
@@ -153,7 +155,7 @@ export const Experiment = z.object({
   /** null until first submission */
   coverage: Coverage.nullable().default(null),
   status: ExperimentStatus,
-  /** gate decisions in climb order, appended by the Evaluator */
+  /** gate decisions in climb order, appended at each gate judgment */
   gateLog: z.array(GateDecision).default([]),
   submittedAt: z.string().datetime().nullable().default(null),
   decidedAt: z.string().datetime().nullable().default(null),

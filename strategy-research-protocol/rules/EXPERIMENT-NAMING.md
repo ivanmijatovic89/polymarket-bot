@@ -73,7 +73,7 @@ that experiment's `code`, champion params = that experiment's
 `outcome.bestParams`. Do not duplicate them into the pointer; duplicated data
 drifts.
 
-- Promotion = the Evaluator moves the pointer as a consequence of an
+- Promotion = the Researcher moves the pointer as a consequence of an
   `outcome.verdict` of `success` that beats the current champion. Nothing on
   disk is copied, renamed, or edited.
 - The pointer may only reference an `evaluated` experiment with verdict
@@ -86,7 +86,7 @@ drifts.
 - New code experiments are expected to branch from the current champion's
   file.
 - Setting a family `live` is a separate, **user-only** action. The champion
-  pointer never changes family status by itself; the Evaluator sets
+  pointer never changes family status by itself; the Researcher sets
   `validated` only when a champion passes the final stage gate
   ([`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md)).
 

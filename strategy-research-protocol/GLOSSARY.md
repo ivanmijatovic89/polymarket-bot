@@ -28,10 +28,10 @@ primary decision driver is a different family.
 ## Experiment
 
 One pre-declared test inside a strategy family: a `hypothesis` and
-`successCriteria` written before running, the strategy code and params (or
-coordinate search) used, run references (batchUids + submissionUids), and the
-Evaluator's `outcome`. Lifecycle: `queued` → `running` → `evaluated` (or
-`aborted`).
+`successCriteria` written before running (frozen once `running`), the
+strategy code and params (or coordinate search) used, run references
+(batchUids + submissionUids), and the judged `outcome`. Lifecycle: `queued`
+→ `running` → `evaluated` (or `aborted`).
 
 ## Coordinate Search
 
@@ -42,9 +42,9 @@ and less multiple-testing noise than a full Cartesian grid.
 ## Pass
 
 One step of a coordinate search: the sweep of a single param. Each pass has
-its own batchUid (`--pN-<param>`) and submissionUids; the Evaluator writes its
-`best` value. Pass state is derived from fields — there is no pass status
-enum.
+its own batchUid (`--pN-<param>`) and submissionUids; the Researcher judges
+and writes its `best` value. Pass state is derived from fields — there is no
+pass status enum.
 
 ## Baseline
 
@@ -54,9 +54,9 @@ plausibly beat execution costs at stage-1 coverage.
 
 ## Verdict
 
-The Evaluator's judgment on an evaluated experiment against its pre-declared
-`successCriteria`: `success`, `fail`, or `inconclusive`. Lives inside
-`outcome`, never a status.
+The Researcher's judgment on an evaluated experiment against its
+pre-declared `successCriteria`: `success`, `fail`, or `inconclusive`. Lives
+inside `outcome`, never a status.
 
 ## Stage / Gate
 
@@ -64,7 +64,8 @@ From [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md): a stage
 is a coverage level of increasing data investment (1000 → 3000 → 9000+
 markets); a gate is the pre-declared pass/fail criterion between stages. Gate
 decisions are go / recycle / kill; go and recycle are appended to the
-experiment's `gateLog` by the Evaluator at the moment of the decision.
+experiment's `gateLog` by the Researcher at the moment of the decision, with
+the measured numbers in the note.
 
 ## Cross-Family Lessons
 
@@ -89,21 +90,16 @@ time; completion checks key on it (`checkBatch`).
 
 `--baselineId <runId>` — the comparison-anchor run recorded on every evidence
 submission (the champion's best run, or 000-baseline's best), so dashboard
-and Evaluator comparisons have an explicit anchor.
+and judgment comparisons have an explicit anchor.
 
 ## Researcher
 
 The LLM worker that drives one family: specs and codes experiments, submits
-runs and stage extensions, writes Research-log entries and lessons, decides
-continue-or-kill. Never reads raw results. Contract:
+runs and stage extensions, reads and judges finished results (passes, gates,
+verdicts, champion, `validated`), writes Research-log entries and lessons,
+decides continue-or-kill. Judgment is bias-contained mechanically: frozen
+pre-declared criteria, measured numbers quoted in every decision. Contract:
 [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
-
-## Evaluator
-
-The LLM worker that is the sole reader of raw backtest results: judges passes
-and experiments, writes outcomes and verdicts, moves the champion pointer,
-sets families `validated`. Never writes FAMILY.md. Contract:
-[`strategy-research-protocol/modules/Evaluator.md`](./modules/Evaluator.md).
 
 ## Champion
 

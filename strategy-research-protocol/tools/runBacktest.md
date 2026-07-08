@@ -9,7 +9,7 @@ cells of a coordinate-search pass, or a single fixed-params run.
 
 - An experiment is `queued` and ready for its smoke test or first pass.
 - A judged pass needs the next pass submitted.
-- The Evaluator requested a refinement grid.
+- A refinement grid is needed before the final verdict.
 
 ## Do Not Use When
 
