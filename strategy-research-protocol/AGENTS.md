@@ -36,11 +36,7 @@ one before depending on it.
 | research scope and assumptions                         | [`SCOPE.md`](./SCOPE.md)               |
 | term definitions (one sentence + link, never rules)    | [`GLOSSARY.md`](./GLOSSARY.md)                           |
 | core invariants + map of everything                    | [`README.md`](./README.md)                               |
-| human operator cookbook                                | [`OPERATOR.md`](./OPERATOR.md)                           | Decision policy (stages, gates, stopping
-rules) lives in
-[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md); memory and
-field-writer rules in
-[`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
+| human operator cookbook                                | [`OPERATOR.md`](./OPERATOR.md)                           |
 
 ## Documentation Path Rule
 
