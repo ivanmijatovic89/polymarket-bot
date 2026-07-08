@@ -48,13 +48,46 @@ validated by `npm run research:check`.
 | LESSONS.md                               | Researcher (or user), append-only | cross-family lessons; ban-worthy ones also add a CONSTRAINTS.md line                                                 |
 | family `live` status                     | user only                         | —                                                                                                                    |
 
-Judgment fields are written only against the experiment's pre-declared bar:
-`hypothesis` and `successCriteria` are **frozen once the experiment is
-`running`** — never edited afterwards — and every judgment (pass `note`,
-gateLog `note`, `outcome.reason`) must quote the measured numbers it rests
-on, so any decision is verifiable from the files alone. See the Bias
+Judgment fields are written only against the experiment's pre-declared,
+frozen bar, quoting the measured numbers — the rules live in the Bias
 containment section of
 [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
+
+## Statuses
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "experiment" as exp {
+    direction LR
+    queued --> running : Researcher submits
+    running --> evaluated : Researcher judges
+    queued --> aborted : Researcher
+    running --> aborted : Researcher
+  }
+```
+
+```mermaid
+stateDiagram-v2
+  direction LR
+  state "family" as fam {
+    direction LR
+    proposed --> researching : Researcher, first submit
+    researching --> validated : Researcher, final gate passed
+    researching --> killed : Researcher, stopping rules
+    validated --> live : user only
+  }
+```
+
+- The verdict (`success` / `fail` / `inconclusive`) is not a status — it
+  lives inside `outcome` once an experiment is `evaluated`.
+- There is deliberately no "backtested" status: run completion is
+  operational state, queried via `checkBatch`.
+- `validated` is not terminal for research — challengers keep coming;
+  `killed` requires a concrete `retryOnlyIf`.
+
+Owner comments per status live in
+[`strategy-research-protocol/schemas/statuses.ts`](./schemas/statuses.ts).
 
 ## FAMILY.json — family-level fields
 
@@ -74,26 +107,26 @@ containment section of
 
 ## FAMILY.json — experiment-level fields
 
-| field             | meaning                                                         | written by | when                                              |
-| ----------------- | --------------------------------------------------------------- | ---------- | ------------------------------------------------- |
-| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher | spec time                                         |
-| `kind`            | `param-search` \| `variation`                                   | Researcher | spec time                                         |
-| `code`            | strategy file this experiment runs                              | Researcher | spec time                                         |
-| `basedOn`         | experiment this branches from (null for baseline)               | Researcher | spec time                                         |
-| `hypothesis`      | one sentence: the idea being tested                             | Researcher | spec time, BEFORE running; frozen once `running`  |
-| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher | spec time, BEFORE running; frozen once `running`  |
-| `params`          | fixed params (single run; XOR with `search`)                    | Researcher | spec time                                         |
-| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`     | Researcher | spec time; passes appended as the search proceeds |
-| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher | at submit                                         |
-| `submissionUids`  | run handles for single-run experiments                          | Researcher | at submit                                         |
-| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher | at submit                                         |
-| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher | at submit / extend                                |
-| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher | at each transition                                |
-| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`     | Researcher | at each gate decision                             |
-| `submittedAt`     | ISO timestamp                                                   | Researcher | at first submit                                   |
-| `decidedAt`       | ISO timestamp                                                   | Researcher | at verdict                                        |
-| `abortReason`     | why an aborted experiment died                                  | Researcher | at abort                                          |
-| `outcome`         | judgment block, see below                                       | Researcher | at verdict                                        |
+| field             | meaning                                                                                                                   | written by | when                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------- |
+| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                                                                          | Researcher | spec time                                         |
+| `kind`            | `param-search` \| `variation`                                                                                             | Researcher | spec time                                         |
+| `code`            | strategy file this experiment runs                                                                                        | Researcher | spec time                                         |
+| `basedOn`         | experiment this branches from (null for baseline)                                                                         | Researcher | spec time                                         |
+| `hypothesis`      | one sentence: the idea being tested                                                                                       | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `successCriteria` | the experiment bar ON TOP of the gate, never weaker (STAGE-GATES.md "The two bars"); default "pass the next stage's gate" | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `params`          | fixed params (single run; XOR with `search`)                                                                              | Researcher | spec time                                         |
+| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`                                                               | Researcher | spec time; passes appended as the search proceeds |
+| `batchUid`        | grouping label for single-run experiments (null in search mode)                                                           | Researcher | at submit                                         |
+| `submissionUids`  | run handles for single-run experiments                                                                                    | Researcher | at submit                                         |
+| `baselineId`      | comparison-anchor run id, passed as `--baselineId`                                                                        | Researcher | at submit                                         |
+| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions                                                               | Researcher | at submit / extend                                |
+| `status`          | `queued` / `running` / `evaluated` / `aborted`                                                                            | Researcher | at each transition                                |
+| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`                                                               | Researcher | at each gate decision                             |
+| `submittedAt`     | ISO timestamp                                                                                                             | Researcher | at first submit                                   |
+| `decidedAt`       | ISO timestamp                                                                                                             | Researcher | at verdict                                        |
+| `abortReason`     | why an aborted experiment died                                                                                            | Researcher | at abort                                          |
+| `outcome`         | judgment block, see below                                                                                                 | Researcher | at verdict                                        |
 
 ## FAMILY.json — pass fields (`search.passes[]`)
 
@@ -125,8 +158,8 @@ values-per-param map and `best` as the winning cell.
 | `stageReached` | highest [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) gate passed (0 = none) | Researcher | at verdict |
 | `gatesVersion` | STAGE-GATES.md version used for judgment                                                       | Researcher | at verdict |
 
-Metric vocabulary: verdicts are judged on `netEvPerMarket` (= evPerMarketTotal,
-net of fees). Gross is diagnostic only.
+Metric vocabulary (`netEvPerMarket` is the only verdict metric) per
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
 
 ## FAMILY.md — sections
 

@@ -4,6 +4,11 @@
 propose anything that violates it. Curate this over time: when a proposal isn't
 what you want, add a line here.
 
-- No live-only signals or unrecorded WS fields (breaks the live/backtest replay
-  invariant — any divergence is a bug).
-- No cross-exchange / cross-venue arbitrage.
+Everything in the Forbidden strategy inputs section of
+[`strategy-research-protocol/SCOPE.md`](./SCOPE.md) is
+banned (live-only signals, other symbols/timeframes, cross-venue arbitrage,
+non-deterministic behavior, ...).
+
+Additional bans:
+
+- (none yet)

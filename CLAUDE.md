@@ -89,6 +89,9 @@ npm run format ; npm run format:check
 #   3. Open PR: gh pr create ...
 #   4. Wait for CI (quality.yml: Prettier + Typecheck + ESLint + WebUI + Docs build)
 #   5. Merge PR once all checks pass
+# EXCEPTION: strategy-research sessions (working on src/strategies/research/
+# families) commit and push directly to main, per the branch policy in
+# strategy-research-protocol/AGENTS.md — remote backtest workers track origin/main.
 
 # Database (Drizzle + MySQL)
 npm run db:generate                    # emit migration SQL into drizzle/

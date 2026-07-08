@@ -23,9 +23,9 @@ code must live under `src/` so auto-discovery can import it.
 
 Read these before writing:
 
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) —
+- [`strategy-research-protocol/SCOPE.md`](../SCOPE.md) —
   research scope and market assumptions.
-- [`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md) —
+- [`strategy-research-protocol/ENGINE.md`](../ENGINE.md) —
   tick, replay, order, cost, latency, and dataset semantics.
 - [`src/strategies/research/INDEX.json`](../../src/strategies/research/INDEX.json) —
   generated map of existing research families for deduplication (including
@@ -39,9 +39,8 @@ Read these before writing:
   lessons; a proposal that ignores a recorded lesson is a defective proposal.
 - [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md) — the
   gates the baseline will face; stage-1 coverage sizes the sweep.
-- [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md),
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
-  [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+- [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md) —
+  family slug, experiment ids, batchUids.
 - `strategy-research-protocol/schemas/` — exact shapes for both files.
 
 Optional input: a one-line seed idea from the user. Without a seed, propose
@@ -68,15 +67,14 @@ reading a few non-research strategies only for API idioms is allowed.
    [`strategy-research-protocol/CONSTRAINTS.md`](../CONSTRAINTS.md), discard
    it. In seed mode, stop and report the violated constraint.
 
-4. **Edge economics gate.** Costs are measured, never modeled
-   ([`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md)). The
-   gate is a mechanism argument: why should THIS edge be structurally fat —
-   who is on the other side, and what do the measured numbers of comparable
-   past strategies say (killed families' outcomes in INDEX.json, LESSONS.md,
-   segments of prior runs)? If comparable strategies were measured
-   fee-bound and this idea brings nothing structurally different, the
-   family must not be proposed. This argument — with the cited measured
-   numbers — becomes the Edge economics section.
+4. **Edge economics gate.** Per the measured-cost rules in
+   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md): a
+   mechanism argument citing measured comparables (killed families'
+   outcomes in INDEX.json, LESSONS.md, segments of prior runs). If
+   comparable strategies were measured fee-bound and this idea brings
+   nothing structurally different, the family must not be proposed. This
+   argument — with the cited measured numbers — becomes the Edge economics
+   section.
 
 5. **Dedup by driver, not by words.** Shortlist with `duplicateKeys`, `tags`,
    `coreIdea`. Same primary decision driver = same family, even if params,
@@ -85,7 +83,7 @@ reading a few non-research strategies only for API idioms is allowed.
    3-5 attempts that all duplicate, report saturation.
 
 6. **Choose the family slug** per
-   [`strategy-research-protocol/rules/FAMILY-NAMING.md`](../rules/FAMILY-NAMING.md).
+   [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
 
 7. **Write `FAMILY.md`** with the minimal frontmatter and exactly these H2
    sections in order (shapes in `schemas/FAMILY.md.ts`):
@@ -99,18 +97,13 @@ reading a few non-research strategies only for API idioms is allowed.
    ## Research log
    ```
 
-   - **Thesis** — who is on the other side of this trade, why the mispricing
-     exists, why it has not been arbitraged away.
-   - **Signal definition** — precise formulas over recorded fields only.
-   - **Edge economics** — the step-4 math: expected gross edge vs the cost
-     floor, with numbers.
-   - **Experiment roadmap** — at least **5 mechanism-distinct** ranked ideas
-     beyond the baseline (the empirical-kill rule requires exhausting them).
-     These are NOT queued experiments; they stay prose until the Researcher
-     specs them.
-   - **Duplicate notes** — near-duplicate reasoning matching `duplicateKeys`.
-   - **Research log** — leave empty except the heading; only the Researcher
-     appends entries.
+   What each section contains is defined in the FAMILY.md sections table of
+   [`strategy-research-protocol/MEMORY.md`](../MEMORY.md). Proposal
+   specifics: Edge economics is the step-4 argument with the cited measured
+   numbers; the roadmap needs at least **5 mechanism-distinct** ranked ideas
+   beyond the baseline (the empirical-kill rule requires exhausting them) —
+   prose only, never queued experiments; the Research log stays empty except
+   the heading.
 
 8. **Write `FAMILY.json`** (schema v2) with exactly one queued experiment:
 
@@ -168,7 +161,7 @@ reading a few non-research strategies only for API idioms is allowed.
      definition or Edge economics) — pass 1 sweeps against these defaults, so
      bad defaults poison the whole search.
    - Pre-declare one pass per param, ordered by expected impact, with pass
-     batchUids per [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+     batchUids per [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
      Empty `submissionUids` = not submitted.
 
 9. **Write `000-baseline.ts`.** Learn the local API from

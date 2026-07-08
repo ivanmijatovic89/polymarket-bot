@@ -1,9 +1,8 @@
 # Research Scope
 
-[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) defines
-the research scope for Strategy Research Protocol. Agents must read it before
-proposing a new family, proposing an experiment, evaluating results, or changing
-research memory.
+This file defines the research scope for Strategy Research Protocol. Agents
+must read it before proposing a new family, proposing an experiment,
+evaluating results, or changing research memory.
 
 The goal is not to describe all of Polymarket. The goal is to define the narrow
 research scope that this protocol is allowed to optimize.
@@ -44,28 +43,18 @@ trading from the same tick semantics used in backtests.
 ## Core invariant
 
 Live trading and backtests must run the same strategy logic on the same tick
-stream semantics. Any live/backtest divergence is a bug.
-
-This means:
-
-- Strategy decisions must be driven by data available in both live and backtest.
-- Backtest replay must preserve the same meaningful tick semantics used live.
-- Strategy code paths should be shared between live and backtest.
-- Runtime-specific behavior must be explicit, documented, and safe when absent.
+stream semantics. Any live/backtest divergence is a bug. What parity means
+concretely — shared code paths, replayable inputs, optional plugin data —
+is the engine contract in
+[`strategy-research-protocol/ENGINE.md`](./ENGINE.md).
 
 ## Data source
 
-The default research dataset is Telonex converted to delta-typed parquet.
-
-Expected shape:
-
-- One parquet file per market.
-- One market equals one 15 minute BTC up/down episode.
-- Files are selected by `symbol=btc` and `timeframe=15m`.
-- Backtests should use the same market event semantics as live strategy ticks.
-
-Backtest execution details belong in the relevant
-`strategy-research-protocol/tools/` tool document.
+The default research dataset is Telonex converted to delta-typed parquet —
+one file per market, one market per 15 minute episode, selected by
+`symbol=btc` and `timeframe=15m`. Dataset and replay semantics live in
+[`strategy-research-protocol/ENGINE.md`](./ENGINE.md); execution details in
+the relevant `strategy-research-protocol/tools/` document.
 
 ## Allowed strategy inputs
 
@@ -174,12 +163,9 @@ justify speccing the next experiment.
 Evaluation is defined by the Judging results section of
 [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md)
 (how to judge) and
-[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (the gates).
-This file adds only the posture: the protocol target is durable positive EV,
-not curve-fit parameter cells. Beyond the gate itself, the Researcher reports
-as advisories: sensitivity to parameter choice, concentration in a few
-outlier markets, thin trade counts, behavior near market open/close, and
-anything that could not survive live execution constraints.
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (the gates
+and the advisory rule). This file adds only the posture: the protocol
+target is durable positive EV, not curve-fit parameter cells.
 
 ## Research memory
 

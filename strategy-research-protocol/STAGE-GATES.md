@@ -79,9 +79,11 @@ that already showed something.
 
 Gates are deliberately simple in v1: net profitability at the stage's
 coverage, nothing else. There is no train/test split yet. The Researcher
-still REPORTS distribution concerns as advisories — instability across
-monthly chunks, concentration in a few outlier markets, thin trade counts —
-but advisories inform the next move; they do not block a gate.
+still REPORTS concerns as advisories — instability across monthly chunks,
+concentration in a few outlier markets, thin trade counts, sensitivity to
+parameter choice, behavior near market open/close, anything that could not
+survive live execution constraints — but advisories inform the next move;
+they do not block a gate.
 
 Rules of the climb:
 
@@ -104,6 +106,20 @@ Rules of the climb:
 - There is no forward-holdout stage in v1 — the user observes the live
   dry-run instead. A stage 4 (fresh markets postdating all decisions) may be
   added later by bumping this file's version.
+
+## The two bars: gate vs successCriteria
+
+An experiment is judged against two stacked bars — do not confuse them:
+
+- **The gate (this file)** is the PROTOCOL's bar: it alone decides
+  advancement, `validated`, and champion eligibility. It lives here,
+  outside the family files, versioned — a session working on a family
+  cannot soften the bar that mints validation.
+- **`successCriteria` (the experiment record)** is the EXPERIMENT's own bar
+  on top: default "pass the next stage's gate", optionally stricter (e.g.
+  "...AND beat the baseline's best cell"). It may never be weaker than the
+  gate. It decides the verdict wording and champion comparisons between
+  gate-passing experiments — never validation itself.
 
 ## Gate decisions
 

@@ -37,7 +37,7 @@ Current implementation: script
 
 - [`docs/backtest/worker-fleet-ansible.md`](../../docs/backtest/worker-fleet-ansible.md)
 - [`docs/backtest/worker-self-update.md`](../../docs/backtest/worker-self-update.md)
-- [`strategy-research-protocol/RUNNING.md`](../RUNNING.md)
+- [`strategy-research-protocol/SESSIONS.md`](../SESSIONS.md) (Preconditions)
 
 ## Output
 

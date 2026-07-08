@@ -24,7 +24,7 @@ cells of a coordinate-search pass, or a single fixed-params run.
 
 - Strategy id (`<family>.<experiment-id>`).
 - Strategy params (`--param key=value`, one per param).
-- `--batchUid` per [`strategy-research-protocol/rules/BATCH-UID.md`](../rules/BATCH-UID.md).
+- `--batchUid` per [`strategy-research-protocol/rules/NAMING.md`](../rules/NAMING.md).
 - `--baselineId <runId>` — the experiment's comparison anchor (champion's
   best run, or the 000-baseline best run). Required on every evidence run
   once the family has any judged run; the very first 000-baseline pass has
@@ -33,10 +33,10 @@ cells of a coordinate-search pass, or a single fixed-params run.
 
 ## Precondition
 
-Commit and push to `main` before submitting. If remote workers may consume the
-run, use [`strategy-research-protocol/tools/syncWorkerFleet.md`](./syncWorkerFleet.md)
-after pushing and before this tool. Workers run committed code only. See
-[`strategy-research-protocol/PolymarketTwinEngine.md`](../PolymarketTwinEngine.md#workers-run-committed-code-only).
+Submit preconditions (clean tree, committed and pushed, worker fleet
+synced) per [`strategy-research-protocol/SESSIONS.md`](../SESSIONS.md) (Preconditions);
+workers run committed code only
+([`strategy-research-protocol/ENGINE.md`](../ENGINE.md#workers-run-committed-code-only)).
 
 ## Protocol Defaults
 

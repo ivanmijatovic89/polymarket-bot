@@ -28,7 +28,7 @@ episodes per day.
 
 The engine supports more modes than this, but research agents should not use
 other symbols, timeframes, venues, or cross-exchange signals unless
-[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) is
+[`strategy-research-protocol/SCOPE.md`](./SCOPE.md) is
 updated first.
 
 ## Live/Backtest Parity
@@ -342,7 +342,7 @@ write strategy -> commit -> push main -> sync worker fleet -> run backtest
   parent's markets may have run on an older commit. Merging those results into
   one run is valid only because experiment strategy files are frozen after they
   have results. See
-  [`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md).
+  [`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md).
 
 Full mechanism:
 [`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md).
@@ -367,15 +367,9 @@ Minimum result context to preserve:
 - failed/skipped markets
 - commit SHA when available
 
-Evaluation should also inspect:
-
-- outlier concentration
-- segment stability
-- per-market EV distribution
-- fills and order lifecycle
-- fee impact
-- latency assumptions
-- failed or skipped market reasons
+How to judge results — metrics, advisories, depth — lives in the Judging
+results section of
+[`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
 
 ## Existing Engine Documentation
 

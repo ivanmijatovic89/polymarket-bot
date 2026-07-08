@@ -23,9 +23,23 @@ fi
 LOG="${LOG:-propose-family.jsonl}"
 PERM="${PERM:-acceptEdits}"
 
+# Session isolation: protocol sessions read ONLY the protocol docs — exclude
+# the repo root CLAUDE.md and user-level memory; disable auto-memory (same
+# rationale as researcher.sh; see SESSIONS.md).
+ROOT="$(pwd)"
+SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
+cat >"$SETTINGS" <<JSON
+{
+  "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
+  "autoMemoryEnabled": false
+}
+JSON
+export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+trap 'rm -f "$SETTINGS"' EXIT
+
 # stdout = clean stream-json → tee raw to LOG, then pretty-print via jq.
 # stderr → appended to LOG (kept, but not fed to jq so it can't break parsing).
-claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+claude -p --settings "$SETTINGS" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
   | tee -a "$LOG" \
   | jq -Rj '

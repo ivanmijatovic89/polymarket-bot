@@ -14,21 +14,32 @@ not a controller.
 - Session memory is a cache; FAMILY.json + FAMILY.md are the truth. Any new
   session must be able to resume from the files alone.
 
-## Iteration contract
+## Session contract
 
-One iteration = one invocation. Work the state forward until you hit a wait:
+One session drives the family **continuously and autonomously** — it never
+asks the user questions; it decides per the rules and records the decision:
 
 ```text
-read FAMILY.md + FAMILY.json
-→ judge everything that is complete, write what the judgment requires
-→ submit the next work if the state calls for it
-→ run research:check → exit
+resume from FAMILY.md + FAMILY.json
+→ loop: do the next step → write files → run research:check
+→ waiting on backtests? poll checkBatch, sleeping 2–5 min between checks
+→ stop only when the family is validated or killed, or nothing is actionable
+  (hard runaway brake: stop after 200 experiments judged in one session —
+   relaunching continues from files)
 ```
 
-Judging completed work and submitting the follow-up in the SAME session is
-expected — that is the point of one role holding the context. Exit only
-when the next action is waiting on backtests (report what is in flight) or
-when nothing is actionable.
+**Write the files after EVERY step** — the session may be killed at any
+moment, and the next one must resume from files alone. Session memory is a
+cache, never the record. Narrate each step briefly as you go: the operator
+is watching the stream to follow what is happening.
+
+Parallel sessions run on other families: `research:check` failures in OTHER
+families are not yours — if your family is clean, note the failure and
+continue; never touch another family's files. On a rejected `git push`,
+`git pull --rebase` and push again.
+
+In an interactive session (launch modes in [`SESSIONS.md`](../SESSIONS.md))
+the same contract applies, except the user may steer between steps.
 
 ## The experiment lifecycle
 
@@ -64,22 +75,22 @@ plus a recycle at stage 2 is verdict `success` with `stageReached: 1`.
 
 Rows are in priority order; the first matching row wins.
 
-| observed state                                 | next action                                                                             |
-| ---------------------------------------------- | --------------------------------------------------------------------------------------- |
-| any `evaluated` experiment lacks its log entry | write the Research-log entry with `Lesson:` — nothing else is legal (log-before-acting) |
-| experiment `queued`, no smoke done             | smoke test, then submit pass 1 (or the single run)                                      |
-| smoke fails                                    | fix the draft code (not frozen yet) and retry; `aborted` + `abortReason` if unfixable   |
-| experiment `running`, work in flight           | `checkBatch`; INCOMPLETE → report and exit; COMPLETE → judge what finished (see below)  |
-| runs `partial`/`failed`                        | re-submit the broken cells under `--rN` ([BATCH-UID.md](../rules/BATCH-UID.md))         |
-| pass judged (`best` set), params remain        | submit the next pass with winners fixed                                                 |
-| all passes judged, gate not yet judged         | judge the gate at current coverage (optionally submit `search.refine` first)            |
-| gateLog `go` recorded, extension not submitted | extend the winning run ([extendBacktest](../tools/extendBacktest.md))                   |
-| extension complete                             | judge the next gate at the new coverage                                                 |
-| final gate passed                              | write `outcome`, move `champion`, set family `validated` + `verdictSummary`             |
-| gate recycled                                  | write `outcome`, status `evaluated`                                                     |
-| verdict logged, family continues               | read LESSONS.md, spec the next experiment from the roadmap                              |
-| roadmap exhausted + stopping rules met         | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                      |
-| nothing actionable                             | exit and say so                                                                         |
+| observed state                                 | next action                                                                                                |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
+| any `evaluated` experiment lacks its log entry | write the Research-log entry with `Lesson:` — nothing else is legal (log-before-acting)                    |
+| experiment `queued`, no smoke done             | smoke test, then submit pass 1 (or the single run)                                                         |
+| smoke fails                                    | fix the draft code (not frozen yet) and retry; `aborted` + `abortReason` if unfixable                      |
+| experiment `running`, work in flight           | `checkBatch`; INCOMPLETE → poll (sleep 2–5 min between checks); COMPLETE → judge what finished (see below) |
+| runs `partial`/`failed`                        | re-submit the broken cells under `--rN` ([NAMING.md](../rules/NAMING.md))                                  |
+| pass judged (`best` set), params remain        | submit the next pass with winners fixed                                                                    |
+| all passes judged, gate not yet judged         | judge the gate at current coverage (optionally submit `search.refine` first)                               |
+| gateLog `go` recorded, extension not submitted | extend the winning run ([extendBacktest](../tools/extendBacktest.md))                                      |
+| extension complete                             | judge the next gate at the new coverage                                                                    |
+| final gate passed                              | write `outcome`, move `champion`, set family `validated` + `verdictSummary`                                |
+| gate recycled                                  | write `outcome`, status `evaluated`                                                                        |
+| verdict logged, family continues               | read LESSONS.md, spec the next experiment from the roadmap                                                 |
+| roadmap exhausted + stopping rules met         | kill: `killed`, `retryOnlyIf`, `verdictSummary`, closing log entry                                         |
+| family validated / killed / nothing actionable | stop and summarize the session                                                                             |
 
 **What just finished?** No field stores what was in flight — derive it from
 FAMILY.json: a pass with `submissionUids` set and `best` null → judge that
@@ -96,8 +107,8 @@ at the new coverage.
   flows, stopping rules.
 - [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) — field tables and
   writer rules.
-- Rules: [`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md),
-  [`BATCH-UID.md`](../rules/BATCH-UID.md).
+- Rules: [`NAMING.md`](../rules/NAMING.md) — ids, batchUids, champion
+  pointer, freeze rule.
 - Tools: [`runBacktest`](../tools/runBacktest.md),
   [`extendBacktest`](../tools/extendBacktest.md),
   [`checkBatch`](../tools/checkBatch.md),
@@ -127,11 +138,9 @@ diagnostic: it explains, it never passes a gate.
 
 **A gate** gets one `gateLog` entry (`{stage, decision, at, note}`) appended
 at the moment of the decision, with the measured numbers in `note` — e.g.
-`"netEv +0.04 at 1000 mkts, 1840 trades"`. Decisions and criteria per
+`"netEv +0.04 at 1000 mkts, 1840 trades"`. Decisions, criteria, and the
+advisory rule (distribution concerns inform, they never block) per
 [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
-Distribution concerns (instability across monthly chunks, outlier-market
-concentration, thin trade counts) go into `note` as ADVISORIES — they inform
-the next move, they do not block a gate.
 
 **The experiment** gets the full `outcome` when its climb ends:
 
@@ -146,7 +155,7 @@ the next move, they do not block a gate.
 - Status → `evaluated`, `decidedAt` set.
 
 On verdict `success` that beats the current champion, move the `champion`
-pointer ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md)); on
+pointer ([`NAMING.md`](../rules/NAMING.md)); on
 passing the final gate, also set the family `validated` + `verdictSummary`.
 
 Patterns spotted in the raw results ("this cell looks interesting") may
@@ -169,7 +178,8 @@ against motivated interpretation is mechanical, not organizational:
   from the files alone; a fudged gate is self-incriminating.
 - Gate criteria and stopping rules have ONE home:
   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md). Never
-  invent or soften them.
+  invent or soften them. The gate is the protocol's bar; `successCriteria`
+  is the experiment's stricter bar on top (see "The two bars" there).
 - `gateLog` and the Research log are append-only; past judgments are never
   rewritten.
 
@@ -204,18 +214,16 @@ is mandatory (not the promotion) at every kill and every validation.
 
 ## Submitting
 
-1. Commit and push to `main`. Workers run committed code; the producer
-   refuses a dirty tree.
-2. When remote workers may consume the run, use
-   [`syncWorkerFleet`](../tools/syncWorkerFleet.md) after pushing and before
-   submission.
-3. Smoke test first (`--smoke`, never evidence).
-4. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
+1. Preconditions per [`SESSIONS.md`](../SESSIONS.md) (Preconditions):
+   clean tree, committed and pushed to the research branch, worker fleet
+   synced.
+2. Smoke test first (`--smoke`, never evidence).
+3. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
    `submissionUids`, `coverage`, `submittedAt` in FAMILY.json immediately;
    status `running`; family `researching` on first submission.
-5. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
+4. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
    winning run — coverage grows, batchUid stays.
-6. An optional refinement mini-grid before the gate goes into
+5. An optional refinement mini-grid before the gate goes into
    `search.refine` (values-per-param, batchUid `<family>--<exp>--refine`).
 
 ## Killing a family
@@ -233,7 +241,7 @@ entry. Then rebuild INDEX.json.
 - Judging smoke runs (`--smoke`) or incomplete batches; declaring `success`
   on gross numbers or on thin samples.
 - Editing frozen strategy files
-  ([`EXPERIMENT-NAMING.md`](../rules/EXPERIMENT-NAMING.md) freeze rule),
+  ([`NAMING.md`](../rules/NAMING.md) freeze rule),
   past log entries, or past gateLog entries.
 - Running more than one active experiment, or touching other families.
 - Writing numbers only in prose — every number in the log entry is quoted

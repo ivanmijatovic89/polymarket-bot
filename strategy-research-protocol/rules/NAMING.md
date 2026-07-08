@@ -1,11 +1,53 @@
-# Experiment Naming and Code Files
+# Naming and Identity
 
-One rule set covers experiment ids, strategy code files, registry ids, the
-champion pointer, and the freeze rule. There are **no version numbers**
-anywhere in this system — see "No versions" at the end.
+One rule set covers every name and identifier in the research system, in the
+order they build on each other: family slug → experiment id → code file →
+registry id → batchUid — plus the champion pointer and the code freeze rule.
+There are **no version numbers** anywhere in this system — see "No versions"
+at the end.
 
-Family naming is defined in
-[`strategy-research-protocol/rules/FAMILY-NAMING.md`](./FAMILY-NAMING.md).
+## Family slug
+
+A family is named after its **primary decision driver** — the core reason its
+strategies enter, skip, or exit. One family = one driver.
+
+Lowercase kebab-case, short, driver-first:
+
+```text
+good:  book-imbalance  spread-compression  liquidity-wall  late-market-snipe
+bad:   orderbook  plugins  research-lab  experiment-1  BookImbalance  book_imbalance
+```
+
+**Name the decision, not the data source.** `orderbook` is where the data
+comes from, not why the strategy acts. Data sources, mechanisms, and themes
+belong in `tags`:
+
+```json
+{
+  "family": "book-imbalance",
+  "tags": ["orderbook", "imbalance", "entry-signal"]
+}
+```
+
+**New family or new experiment?** Ask: what is the primary decision driver?
+
+- Same driver as an existing family (new params, filters, gates, exits) → an
+  **experiment** inside that family.
+- A genuinely different driver → a **new family**.
+
+**Duplicates.** Renaming an idea does not make it new — same driver = same
+family:
+
+```text
+late-entry ≈ wait-longer ≈ enter-near-end
+book-pressure ≈ orderbook-imbalance ≈ bid-ask-skew
+```
+
+A near-duplicate is valid only if it adds a new **independent** driver
+(`late-entry` alone = duplicate; `late-entry + spread-stability` = new).
+When creating a family, write its normalized synonyms into `duplicateKeys` in
+`src/strategies/research/<family>/FAMILY.json` so future proposals can catch
+the overlap through the generated index.
 
 ## Experiment id
 
@@ -58,6 +100,47 @@ liquidity-wall/002-persistence-filter.ts → 'liquidity-wall.002-persistence-fil
 
 No creativity allowed: file path in, registry id out. Ids are globally unique
 because family slugs are.
+
+## Batch UID
+
+A batchUid is the human-chosen grouping label a backtest submission gets
+(`--batchUid <id>`). It is how results are grouped later — in the dashboard,
+in the database, and from `src/strategies/research/<family>/FAMILY.json`.
+
+Exact per-run tracking uses `submissionUids` (auto-generated, identical in
+Redis and `backtest_runs.submission_uid`), recorded in FAMILY.json at submit
+time. The batchUid groups; the submissionUids identify.
+
+Format:
+
+```text
+<family>--<experiment-id>[--<suffix>]
+```
+
+The name builds itself from the family slug and experiment id above. No
+creativity allowed. One experiment normally produces SEVERAL batchUids
+(smoke, one per coordinate pass, refinements, re-runs) — that is expected.
+
+| suffix         | meaning                                           | example                                           |
+| -------------- | ------------------------------------------------- | ------------------------------------------------- |
+| `--smoke`      | smoke test; never evidence, never freezes code    | `book-imbalance--000-baseline--smoke`             |
+| `--pN-<param>` | coordinate-search pass N sweeping `<param>`       | `book-imbalance--000-baseline--p1-enterThreshold` |
+| `--refine`     | refinement mini-grid before the final verdict     | `book-imbalance--000-baseline--refine`            |
+| `--rN`         | re-run after a bug / bad data / broken submission | `book-imbalance--002-persistence-filter--r2`      |
+
+A single-run experiment (`kind: variation` with fixed `params`) uses the bare
+`<family>--<experiment-id>` label.
+
+Rules:
+
+- All cells of one pass share that pass's batchUid — the batch answers "how
+  did this pass do", each run inside answers "how did this value do".
+- Never reuse a batchUid for a different effective experiment or different
+  params. A re-run gets the next `--rN`.
+- FAMILY.json records which batchUids count; superseded batchUids stay in the
+  database as history.
+- Stage extensions (`extendBacktest`) grow existing runs and do NOT change
+  the batchUid.
 
 ## Champion pointer
 
