@@ -15,7 +15,8 @@
 #
 # Env:
 #   INTERACTIVE=1            steerable session instead of headless
-#   LOG=somefile.jsonl       override the raw log path (default: researcher-<family>.jsonl)
+#   LOG=somefile.jsonl       override the raw log path
+#                            (default: src/strategies/research/<family>/researcher.jsonl — gitignored)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
 #                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
@@ -26,8 +27,13 @@ if [ -z "${1:-}" ]; then
   exit 1
 fi
 FAMILY="$1"
+FAMILY_DIR="src/strategies/research/${FAMILY}"
+if [ ! -d "$FAMILY_DIR" ]; then
+  echo "unknown family: '${FAMILY}' (no ${FAMILY_DIR})" >&2
+  exit 1
+fi
 MODULE="strategy-research-protocol/modules/Researcher.md"
-LOG="${LOG:-researcher-${FAMILY}.jsonl}"
+LOG="${LOG:-${FAMILY_DIR}/researcher.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
 # Session isolation: research sessions read ONLY the protocol docs. Exclude

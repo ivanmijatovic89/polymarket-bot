@@ -88,8 +88,9 @@ Any script that starts a protocol session must:
    off, as above) and export `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
 3. Take the per-family lock when the role works on a family; clean up lock
    and settings file on exit (`trap`).
-4. Stream readable output, keep the raw `.jsonl` log, and print the cost
-   summary (copy the plumbing from `scripts/researcher.sh`).
+4. Stream readable output, keep the raw `.jsonl` log inside the family
+   folder (gitignored), and print the cost summary (copy the plumbing from
+   `scripts/researcher.sh`).
 5. Default to autonomous permissions (`bypassPermissions` for headless —
    headless DENIES non-allowlisted commands instead of asking, which would
    break autonomy) with a `PERM` override.
