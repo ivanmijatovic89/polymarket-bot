@@ -5,6 +5,9 @@ description: 'Audit the Strategy Research Protocol as an AI architect: find flaw
 
 # Protocol Audit — AI Architect Review
 
+> Paths in this command are repo-root-relative. Protocol sessions start in
+> `strategy-research-protocol/` — the repo root is its parent directory.
+
 You are a senior AI architect auditing the Strategy Research Protocol
 (`strategy-research-protocol/`) — the file-based research system that lets
 LLM agents propose, backtest, judge, and remember trading-strategy families.

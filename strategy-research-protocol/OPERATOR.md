@@ -125,7 +125,8 @@ session.
 
 ## 5. Periodic maintenance
 
-- `/protocol-audit` (Claude command, from the repo root) — writes an
+- `/protocol-audit` (Claude command; lives in this folder's `.claude/commands/`,
+  available in sessions started here) — writes an
   actionable report to `protocol-audit/`; fix findings by telling a session
   "fix A1, A3 from protocol-audit/report.md".
 - Skim [`LESSONS.md`](./LESSONS.md) now and then — it is the compounding

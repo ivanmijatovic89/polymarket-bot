@@ -5,6 +5,9 @@ description: 'One iteration of protocol improvement: pick the highest-impact ite
 
 # Protocol Improve — one iteration
 
+> Paths in this command are repo-root-relative. Protocol sessions start in
+> `strategy-research-protocol/` — the repo root is its parent directory.
+
 You are a senior AI architect improving the Strategy Research Protocol
 (`strategy-research-protocol/`) — the file-based system that lets LLM agents
 propose, backtest, judge, and remember trading-strategy families. Unlike
