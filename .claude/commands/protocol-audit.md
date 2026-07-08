@@ -18,7 +18,7 @@ If arguments were given, focus the audit there: $ARGUMENTS
 Read ALL of these — no skimming, no judging from memory:
 
 - `strategy-research-protocol/*.md` (README, STAGE-GATES, MEMORY, LESSONS,
-  RUNNING, RESEARCH_SCOPE, CONSTRAINTS, GLOSSARY, AGENTS, TASKS)
+  RUNNING, RESEARCH_SCOPE, CONSTRAINTS, GLOSSARY, AGENTS)
 - `strategy-research-protocol/modules/*.md`
 - `strategy-research-protocol/rules/*.md`
 - `strategy-research-protocol/tools/*.md`

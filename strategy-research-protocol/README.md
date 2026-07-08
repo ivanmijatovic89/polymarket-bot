@@ -200,8 +200,6 @@ Researcher cites it; it never invents criteria.
   ([`index`](./tools/index.md)).
 - `strategy-research-protocol/scripts/` — executable helpers.
 - `strategy-research-protocol/examples/` — reference examples.
-- [`strategy-research-protocol/TASKS.md`](./TASKS.md) — the v2
-  implementation plan this protocol was built from.
 
 ## Tools
 
