@@ -107,26 +107,26 @@ Owner comments per status live in
 
 ## FAMILY.json — experiment-level fields
 
-| field             | meaning                                                         | written by | when                                              |
-| ----------------- | --------------------------------------------------------------- | ---------- | ------------------------------------------------- |
-| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                | Researcher | spec time                                         |
-| `kind`            | `param-search` \| `variation`                                   | Researcher | spec time                                         |
-| `code`            | strategy file this experiment runs                              | Researcher | spec time                                         |
-| `basedOn`         | experiment this branches from (null for baseline)               | Researcher | spec time                                         |
-| `hypothesis`      | one sentence: the idea being tested                             | Researcher | spec time, BEFORE running; frozen once `running`  |
-| `successCriteria` | plain-sentence bar; default "pass the next stage's gate"        | Researcher | spec time, BEFORE running; frozen once `running`  |
-| `params`          | fixed params (single run; XOR with `search`)                    | Researcher | spec time                                         |
-| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`     | Researcher | spec time; passes appended as the search proceeds |
-| `batchUid`        | grouping label for single-run experiments (null in search mode) | Researcher | at submit                                         |
-| `submissionUids`  | run handles for single-run experiments                          | Researcher | at submit                                         |
-| `baselineId`      | comparison-anchor run id, passed as `--baselineId`              | Researcher | at submit                                         |
-| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions     | Researcher | at submit / extend                                |
-| `status`          | `queued` / `running` / `evaluated` / `aborted`                  | Researcher | at each transition                                |
-| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`     | Researcher | at each gate decision                             |
-| `submittedAt`     | ISO timestamp                                                   | Researcher | at first submit                                   |
-| `decidedAt`       | ISO timestamp                                                   | Researcher | at verdict                                        |
-| `abortReason`     | why an aborted experiment died                                  | Researcher | at abort                                          |
-| `outcome`         | judgment block, see below                                       | Researcher | at verdict                                        |
+| field             | meaning                                                                                                                   | written by | when                                              |
+| ----------------- | ------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------------------------------------- |
+| `id`              | `NNN-kebab-hypothesis`, sequential, never reused                                                                          | Researcher | spec time                                         |
+| `kind`            | `param-search` \| `variation`                                                                                             | Researcher | spec time                                         |
+| `code`            | strategy file this experiment runs                                                                                        | Researcher | spec time                                         |
+| `basedOn`         | experiment this branches from (null for baseline)                                                                         | Researcher | spec time                                         |
+| `hypothesis`      | one sentence: the idea being tested                                                                                       | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `successCriteria` | the experiment bar ON TOP of the gate, never weaker (STAGE-GATES.md "The two bars"); default "pass the next stage's gate" | Researcher | spec time, BEFORE running; frozen once `running`  |
+| `params`          | fixed params (single run; XOR with `search`)                                                                              | Researcher | spec time                                         |
+| `search`          | coordinate-search spec `{mode, defaults, passes[], refine}`                                                               | Researcher | spec time; passes appended as the search proceeds |
+| `batchUid`        | grouping label for single-run experiments (null in search mode)                                                           | Researcher | at submit                                         |
+| `submissionUids`  | run handles for single-run experiments                                                                                    | Researcher | at submit                                         |
+| `baselineId`      | comparison-anchor run id, passed as `--baselineId`                                                                        | Researcher | at submit                                         |
+| `coverage`        | `{selection, markets, fromMs, toMs}`, grows with extensions                                                               | Researcher | at submit / extend                                |
+| `status`          | `queued` / `running` / `evaluated` / `aborted`                                                                            | Researcher | at each transition                                |
+| `gateLog`         | gate decisions in climb order `{stage, decision, at, note}`                                                               | Researcher | at each gate decision                             |
+| `submittedAt`     | ISO timestamp                                                                                                             | Researcher | at first submit                                   |
+| `decidedAt`       | ISO timestamp                                                                                                             | Researcher | at verdict                                        |
+| `abortReason`     | why an aborted experiment died                                                                                            | Researcher | at abort                                          |
+| `outcome`         | judgment block, see below                                                                                                 | Researcher | at verdict                                        |
 
 ## FAMILY.json — pass fields (`search.passes[]`)
 
