@@ -107,6 +107,20 @@ Rules of the climb:
   dry-run instead. A stage 4 (fresh markets postdating all decisions) may be
   added later by bumping this file's version.
 
+## The two bars: gate vs successCriteria
+
+An experiment is judged against two stacked bars — do not confuse them:
+
+- **The gate (this file)** is the PROTOCOL's bar: it alone decides
+  advancement, `validated`, and champion eligibility. It lives here,
+  outside the family files, versioned — a session working on a family
+  cannot soften the bar that mints validation.
+- **`successCriteria` (the experiment record)** is the EXPERIMENT's own bar
+  on top: default "pass the next stage's gate", optionally stricter (e.g.
+  "...AND beat the baseline's best cell"). It may never be weaker than the
+  gate. It decides the verdict wording and champion comparisons between
+  gate-passing experiments — never validation itself.
+
 ## Gate decisions
 
 At every gate the Researcher issues exactly one decision and appends it to

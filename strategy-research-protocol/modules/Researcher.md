@@ -178,7 +178,8 @@ against motivated interpretation is mechanical, not organizational:
   from the files alone; a fudged gate is self-incriminating.
 - Gate criteria and stopping rules have ONE home:
   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md). Never
-  invent or soften them.
+  invent or soften them. The gate is the protocol's bar; `successCriteria`
+  is the experiment's stricter bar on top (see "The two bars" there).
 - `gateLog` and the Research log are append-only; past judgments are never
   rewritten.
 
