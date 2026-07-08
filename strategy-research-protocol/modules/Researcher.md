@@ -148,8 +148,7 @@ advisory rule (distribution concerns inform, they never block) per
   successCriteria verbatim**. `inconclusive` is for genuinely unjudgeable
   results (broken data, too little volume), not a soft fail.
 - `bestParams` — defaults + pass winners, the complete runnable set.
-- `metrics` — `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`
-  (`trainNetEv`/`testNetEv` stay null — no train/test split in gates v1).
+- `metrics` — `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`.
 - `reason` — one factual sentence with numbers, no narrative.
 - `stageReached` + `gatesVersion` — per STAGE-GATES.md as of now.
 - Status → `evaluated`, `decidedAt` set.

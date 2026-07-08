@@ -20,9 +20,7 @@
         "netEvPerMarket": 0.22,
         "grossEvPerMarket": 0.2208,
         "markets": 1000,
-        "trades": 627,
-        "trainNetEv": null,
-        "testNetEv": null
+        "trades": 627
       },
       "championStageReached": 1,
       "tags": [

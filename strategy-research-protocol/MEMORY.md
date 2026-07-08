@@ -153,7 +153,7 @@ values-per-param map and `best` as the winning cell.
 | -------------- | ---------------------------------------------------------------------------------------------- | ---------- | ---------- |
 | `verdict`      | `success` / `fail` / `inconclusive` vs the quoted successCriteria                              | Researcher | at verdict |
 | `bestParams`   | full winning param set (defaults + pass winners)                                               | Researcher | at verdict |
-| `metrics`      | `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`, `trainNetEv`, `testNetEv`           | Researcher | at verdict |
+| `metrics`      | `netEvPerMarket`, `grossEvPerMarket`, `markets`, `trades`                                      | Researcher | at verdict |
 | `reason`       | one factual sentence with numbers, no narrative                                                | Researcher | at verdict |
 | `stageReached` | highest [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) gate passed (0 = none) | Researcher | at verdict |
 | `gatesVersion` | STAGE-GATES.md version used for judgment                                                       | Researcher | at verdict |
