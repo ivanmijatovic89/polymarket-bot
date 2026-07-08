@@ -14,7 +14,8 @@ memory. It does not execute live trading or replay itself.
 
 The executable engine in the parent `polymarket-bot` repository. It owns market
 data, live execution, replay, order management, portfolio handling, and
-persisted backtest results.
+persisted backtest results. Contract:
+[`strategy-research-protocol/ENGINE.md`](./ENGINE.md).
 
 ## BTC 15m Up/Down Market
 
