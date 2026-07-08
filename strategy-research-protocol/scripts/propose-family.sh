@@ -18,32 +18,25 @@ cd "$(git rev-parse --show-toplevel)" || exit 1
 
 MODULE="strategy-research-protocol/modules/ProposeFamily.md"
 if [ -n "${1:-}" ]; then
-  INSTRUCTION="Execute propose-family per ${MODULE}. Run with seed: '${1}'."
+  INSTRUCTION="Execute propose-family per ${MODULE}. Run with seed: '${1}'. Your working directory is strategy-research-protocol/; the repo root is its parent, and repo paths in the docs (src/..., docs/...) are relative to that root."
 else
-  INSTRUCTION="Execute propose-family per ${MODULE}. Run autonomous (no seed)."
+  INSTRUCTION="Execute propose-family per ${MODULE}. Run autonomous (no seed). Your working directory is strategy-research-protocol/; the repo root is its parent, and repo paths in the docs (src/..., docs/...) are relative to that root."
 fi
 mkdir -p src/strategies/research/logs
-LOG="${LOG:-src/strategies/research/logs/propose-family.jsonl}"
+LOG="${LOG:-$(pwd)/src/strategies/research/logs/propose-family.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
-# Session isolation: protocol sessions read ONLY the protocol docs — exclude
-# the repo root CLAUDE.md and user-level memory; disable auto-memory (same
-# rationale as researcher.sh; see SESSIONS.md).
+# Session isolation: the session is launched from strategy-research-protocol/
+# so it inherits that folder's COMMITTED .claude/settings.json (root CLAUDE.md
+# + user memory excluded, auto-memory off, log reads denied). Settings load
+# ONLY from the starting directory — verified; see SESSIONS.md.
 ROOT="$(pwd)"
-SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
-cat >"$SETTINGS" <<JSON
-{
-  "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
-  "autoMemoryEnabled": false,
-  "permissions": { "deny": ["Read(src/strategies/research/**/logs/**)"] }
-}
-JSON
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
-trap 'rm -f "$SETTINGS"' EXIT
 
 # stdout = clean stream-json → tee raw to LOG, then pretty-print via jq.
 # stderr → appended to LOG (kept, but not fed to jq so it can't break parsing).
-claude -p --settings "$SETTINGS" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+cd strategy-research-protocol || exit 1
+claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
   | tee -a "$LOG" \
   | jq -Rj '

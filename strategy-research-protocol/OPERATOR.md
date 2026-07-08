@@ -7,14 +7,15 @@ cookbook: what you type, in what order, and which decisions are yours.
 **Always start protocol sessions from this folder**
 (`cd strategy-research-protocol && claude`), never from the repo root.
 Claude Code loads `.claude/settings*.json` ONLY from the starting directory
-(no upward walk, unlike CLAUDE.md) — starting here applies THIS folder's
-`.claude/settings.local.json` (your protocol-scoped permissions and
-settings) and ignores the repo root's. Everything else still works from
-here: the root CLAUDE.md walks up into your manual sessions, `npm run`
-finds the root package.json, `/protocol-audit` is discovered, and the
-launch scripts `cd` to the git root themselves (worker sessions get their
-isolation from the generated `--settings` file — see
-[`SESSIONS.md`](./SESSIONS.md)).
+(no upward walk, unlike CLAUDE.md) — starting here applies this folder's
+COMMITTED `.claude/settings.json` (session isolation: root CLAUDE.md and
+user memory excluded, auto-memory off, log reads denied — see
+[`SESSIONS.md`](./SESSIONS.md)) plus your personal
+`.claude/settings.local.json` (permissions). This applies to YOUR manual
+sessions too: they are isolated like worker sessions. When you need full
+repo context (repo-wide work, root CLAUDE.md commands), start that session
+from the repo root instead. `npm run` finds the root package.json from
+here, and `/protocol-audit` is discovered.
 
 ## 0. One-time setup (per machine)
 

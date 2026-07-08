@@ -24,26 +24,35 @@ contract ([`modules/Researcher.md`](./modules/Researcher.md)):
 ## Session isolation
 
 Protocol sessions read ONLY the protocol docs — this folder is a session's
-ENTIRE instruction set. The folder's own `CLAUDE.md` (a one-line
-`@AGENTS.md` import) is what Claude Code auto-loads for any session working
-in this folder, giving it the role map and ownership table without being
-told. The launch scripts enforce the rest by generating a per-run
-`--settings` file with:
+ENTIRE instruction set. The mechanism: **every protocol session starts with
+this folder as its working directory** (the operator by the OPERATOR.md
+rule; the launch scripts `cd` here right before launching Claude), and
+Claude Code loads `.claude/settings*.json` ONLY from the starting directory
+(no upward walk — verified empirically; `--settings` on the CLI does NOT
+apply `claudeMdExcludes`, so a flag-passed file cannot do this job). The
+committed [`.claude/settings.json`](./.claude/settings.json) therefore
+governs every protocol session:
 
-- `claudeMdExcludes`: the repo root `CLAUDE.md` and the user-level
-  `~/.claude/CLAUDE.md` are NOT loaded. The repo-wide git workflow
-  (branch + PR) does not apply here — the branch policy below does. If a
-  session ever needs a fact that lives only in the root CLAUDE.md, the fix
-  is to add that fact to its proper home in this folder, never to remove
-  the exclusion.
-- `autoMemoryEnabled: false` (+ `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`):
-  sessions keep NO private memory between runs. The family files,
-  LESSONS.md, and CONSTRAINTS.md are the only memory — a conclusion that
-  lives anywhere else breaks resumability and auditability
+- `claudeMdExcludes` (globs, machine-independent): the repo root
+  `CLAUDE.md` and the user-level `~/.claude/CLAUDE.md` are NOT loaded. The
+  repo-wide git workflow (branch + PR) does not apply here — the branch
+  policy below does. If a session ever needs a fact that lives only in the
+  root CLAUDE.md, the fix is to add that fact to its proper home in this
+  folder, never to remove the exclusion. The folder's own `CLAUDE.md` (a
+  one-line `@AGENTS.md` import) still auto-loads, giving every session the
+  role map and ownership table without being told.
+- `autoMemoryEnabled: false` (+ `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1` in the
+  scripts): sessions keep NO private memory between runs. The family
+  files, LESSONS.md, and CONSTRAINTS.md are the only memory — a conclusion
+  that lives anywhere else breaks resumability and auditability
   ([`MEMORY.md`](./MEMORY.md)).
-- `permissions.deny Read` on `src/strategies/research/**/logs/**`: raw
-  session logs are NOT research memory — a session never reads its
-  predecessors' transcripts; the family files are the only handoff.
+- `permissions.deny Read` on `**/logs/*.jsonl`: raw session logs are NOT
+  research memory — a session never reads its predecessors' transcripts;
+  the family files are the only handoff.
+
+Because worker sessions run with this folder as cwd, their instruction
+reminds them: the repo root is the parent directory, and repo paths in the
+docs (`src/...`, `docs/...`) are relative to that root.
 
 ## Disposability and the lock
 
@@ -85,10 +94,15 @@ pointing the workers at the branch. Change it here and nowhere else.
 
 Any script that starts a protocol session must:
 
-1. `cd` to the git root and point its instruction at ONE module contract
-   (`Execute ... per strategy-research-protocol/modules/<Role>.md`).
-2. Generate the isolation `--settings` file (claudeMdExcludes + auto-memory
-   off, as above) and export `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
+1. Do its own file work with repo-root-anchored paths, and point its
+   instruction at ONE module contract
+   (`Execute ... per strategy-research-protocol/modules/<Role>.md`),
+   including the cwd reminder (working dir = this folder; repo root = its
+   parent).
+2. `cd` into `strategy-research-protocol/` right before launching Claude
+   (so the committed `.claude/settings.json` isolation applies — a
+   `--settings` flag does NOT apply claudeMdExcludes) and export
+   `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
 3. Take the per-family lock when the role works on a family; clean up lock
    and settings file on exit (`trap`).
 4. Stream readable output, keep the raw `.jsonl` log under the family's

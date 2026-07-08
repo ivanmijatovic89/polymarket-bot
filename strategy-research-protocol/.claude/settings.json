@@ -1,0 +1,7 @@
+{
+  "claudeMdExcludes": ["**/polymarket-bot/CLAUDE.md", "**/.claude/CLAUDE.md"],
+  "autoMemoryEnabled": false,
+  "permissions": {
+    "deny": ["Read(**/logs/*.jsonl)"]
+  }
+}
