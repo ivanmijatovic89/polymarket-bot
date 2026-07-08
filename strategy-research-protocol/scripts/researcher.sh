@@ -16,7 +16,7 @@
 # Env:
 #   INTERACTIVE=1            steerable session instead of headless
 #   LOG=somefile.jsonl       override the raw log path
-#                            (default: src/strategies/research/<family>/researcher.jsonl — gitignored)
+#                            (default: src/strategies/research/<family>/logs/researcher.jsonl — gitignored)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
 #                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
@@ -33,7 +33,8 @@ if [ ! -d "$FAMILY_DIR" ]; then
   exit 1
 fi
 MODULE="strategy-research-protocol/modules/Researcher.md"
-LOG="${LOG:-${FAMILY_DIR}/researcher.jsonl}"
+mkdir -p "${FAMILY_DIR}/logs"
+LOG="${LOG:-${FAMILY_DIR}/logs/researcher.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
 # Session isolation: research sessions read ONLY the protocol docs. Exclude
@@ -44,7 +45,8 @@ SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
 cat >"$SETTINGS" <<JSON
 {
   "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
-  "autoMemoryEnabled": false
+  "autoMemoryEnabled": false,
+  "permissions": { "deny": ["Read(src/strategies/research/**/logs/**)"] }
 }
 JSON
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1

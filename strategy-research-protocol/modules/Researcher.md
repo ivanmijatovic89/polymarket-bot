@@ -237,6 +237,9 @@ entry. Then rebuild INDEX.json.
 ## Forbidden
 
 - Writing family `live` (user-only).
+- Reading raw session logs (`src/strategies/research/**/logs/`) — past
+  transcripts are not research memory; the family files are the only
+  handoff.
 - Judging smoke runs (`--smoke`) or incomplete batches; declaring `success`
   on gross numbers or on thin samples.
 - Editing frozen strategy files
