@@ -13,8 +13,8 @@ contract ([`modules/Researcher.md`](./modules/Researcher.md)):
 - **Autonomous (default):** `scripts/researcher.sh <family>` — a headless
   Claude session that works the family continuously and streams everything
   it does. The operator watches; the session never asks questions. It waits
-  for backtests by polling `checkBatch` and stops only when the family is
-  validated, killed, or nothing is actionable.
+  for backtests by polling `checkBatch` and stops when the Session contract
+  says so (validated, killed, nothing actionable, or its runaway brake).
 - **Interactive:** `INTERACTIVE=1 scripts/researcher.sh <family>` — the
   same contract in a normal Claude session the operator can steer and
   interrupt.
