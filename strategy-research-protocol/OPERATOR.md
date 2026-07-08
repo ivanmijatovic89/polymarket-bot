@@ -125,6 +125,8 @@ session.
   asset; if it is not growing, Researchers are skipping the promotion check.
 - Commit and push to `main` after research steps; sync remote workers before
   submitting backtests.
+- Session logs (`*-<family>.jsonl` in the repo root) are gitignored scratch —
+  delete them whenever you are done with them.
 
 ## 6. Troubleshooting
 

@@ -149,6 +149,9 @@ Important defaults:
 - Account-event cascade safety cap: 100 events per drain.
 - Plugin snapshots are cached per market tick and reused for cascaded
   `onAccountEvent` calls inside that tick.
+- Backtests that use the TechnicalIndicators plugin must run with
+  `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1`, or indicator values are not
+  warmed before strategy ticks — results would be silently degenerate.
 - Backtests omit live-only `ctx.warmup`; strategy helpers treat warmup as true
   in backtest mode.
 

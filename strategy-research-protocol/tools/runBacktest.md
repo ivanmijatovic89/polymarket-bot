@@ -30,6 +30,9 @@ cells of a coordinate-search pass, or a single fixed-params run.
   once the family has any judged run; the very first 000-baseline pass has
   no anchor yet and omits it.
 - Market selection profile (see below).
+- `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS=1` env when the strategy uses the
+  TechnicalIndicators plugin
+  ([`strategy-research-protocol/ENGINE.md`](../ENGINE.md)).
 
 ## Precondition
 

@@ -173,7 +173,8 @@ reading a few non-research strategies only for API idioms is allowed.
    when optional plugin data is missing; deterministic `clientOrderId`
    patterns; no registry edits (auto-discovery).
 
-10. **Typecheck enough to catch API errors. Do not run a backtest.**
+10. **Typecheck enough to catch API errors** — `npx tsc --noEmit` from the
+    repo root; fix type errors in your new `.ts`. Do not run a backtest.
 
 11. **Leave INDEX.json alone.** The orchestrator runs `buildStrategyIndex`
     afterward.
