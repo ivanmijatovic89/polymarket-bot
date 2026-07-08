@@ -90,7 +90,8 @@ rules — lives in
 
 ## Repository layout
 
-- [`strategy-research-protocol/AGENTS.md`](./AGENTS.md) — role map + the One
+- [`strategy-research-protocol/AGENTS.md`](./AGENTS.md) — role map, how
+  sessions run (scripts, locks, branch policy, preconditions), and the One
   Home Per Concept ownership table.
 - [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — go/kill
   decision policy (versioned), including the measured-cost rules.
@@ -102,9 +103,6 @@ rules — lives in
   list for new families.
 - [`strategy-research-protocol/SCOPE.md`](./SCOPE.md) —
   market, data, input, and cost assumptions.
-- [`strategy-research-protocol/RUNNING.md`](./RUNNING.md) — session
-  mechanics: launch scripts, locks, cadence, branch policy, submit
-  preconditions.
 - [`strategy-research-protocol/OPERATOR.md`](./OPERATOR.md) — the human
   operator's step-by-step cookbook.
 - [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md) — term
@@ -135,11 +133,13 @@ exact layout is defined in
 Scripts: `npm run research:check`, `npm run research:check-batch`,
 `npm run research:build-index`.
 
-Launch scripts (see [`strategy-research-protocol/RUNNING.md`](./RUNNING.md)):
+Launch scripts (see How Sessions Run in
+[`strategy-research-protocol/AGENTS.md`](./AGENTS.md)):
 
 ```bash
 ./strategy-research-protocol/scripts/propose-family.sh ["seed idea"]
-./strategy-research-protocol/scripts/researcher.sh <family>
+./strategy-research-protocol/scripts/researcher.sh <family>            # autonomous
+INTERACTIVE=1 ./strategy-research-protocol/scripts/researcher.sh <family>
 ```
 
 Agents must preserve the invariants above and must not invent missing

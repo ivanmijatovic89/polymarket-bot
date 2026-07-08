@@ -34,7 +34,7 @@ cells of a coordinate-search pass, or a single fixed-params run.
 ## Precondition
 
 Submit preconditions (clean tree, committed and pushed, worker fleet
-synced) per [`strategy-research-protocol/RUNNING.md`](../RUNNING.md);
+synced) per [`strategy-research-protocol/AGENTS.md`](../AGENTS.md) (Session preconditions);
 workers run committed code only
 ([`strategy-research-protocol/ENGINE.md`](../ENGINE.md#workers-run-committed-code-only)).
 

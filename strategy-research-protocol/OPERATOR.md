@@ -1,7 +1,7 @@
 # Operator guide — how to run the protocol (for the human)
 
 This file is for YOU, not for agents. Agents read `modules/`; the session
-mechanics live in [`RUNNING.md`](./RUNNING.md). This is the step-by-step
+mechanics live in [`AGENTS.md`](./AGENTS.md). This is the step-by-step
 cookbook: what you type, in what order, and which decisions are yours.
 
 Work from whichever folder you prefer — both are fully supported.
@@ -42,77 +42,54 @@ Then YOU review before anything runs — you are the taste filter:
 - `npm run research:build-index` (INDEX.json picks up the new family).
 - Commit. (The Researcher will refuse to submit on a dirty tree anyway.)
 
-## 2. Drive the loop — you are the metronome
+## 2. Drive the loop — launch and watch
 
-One family = re-run one script until the family is validated or killed:
+One family = one command. The session works the family continuously and
+autonomously — it streams every step live, never asks you anything, waits
+for backtests on its own, and stops when the family is validated, killed,
+or nothing is actionable:
 
 ```bash
 ./strategy-research-protocol/scripts/researcher.sh <family>
 ```
 
-Permissions note: the scripts default to `acceptEdits`, and in headless mode
-non-allowlisted Bash commands are DENIED, not prompted — but the Researcher
-needs Bash (`git`, `npm run backtest`, `checkBatch`, `curl`). Until you
-allowlist those in `.claude/settings.local.json`, run with:
+You just watch the feed. Your reaction table:
 
-```bash
-PERM=bypassPermissions ./strategy-research-protocol/scripts/researcher.sh <family>
-```
+| you see                                  | it means                                                                        |
+| ---------------------------------------- | ------------------------------------------------------------------------------- |
+| steps streaming by                       | working — no action needed                                                      |
+| "polling checkBatch..."                  | backtests running; it will continue by itself                                   |
+| session stopped: "validated" / "killed"  | read the closing log entry; decide live dry-run (validated) or move on (killed) |
+| session stopped: "nothing actionable"    | family is parked; nothing to do                                                 |
+| session crashed / you killed it (Ctrl-C) | nothing is lost — files carry the state; run the same command again to resume   |
 
-The Researcher does ONE step and exits, telling you what happened. Your
-reaction table:
+Permissions note: the script defaults to `PERM=bypassPermissions` — in
+headless mode non-allowlisted commands are DENIED (not prompted), which
+would break autonomy. If you prefer tighter permissions, allowlist the
+needed Bash commands in `.claude/settings.local.json` and run with
+`PERM=acceptEdits`.
 
-| Researcher says                              | you do                                                                                     |
-| -------------------------------------------- | ------------------------------------------------------------------------------------------ |
-| "submitted smoke / pass N — running"         | wait a bit, then run `researcher.sh` again                                                 |
-| "waiting on backtests"                       | check later; or peek with `npm run research:check-batch -- --family <f> --experiment <id>` |
-| "judged pass N / verdict written for `<id>`" | `researcher.sh` again (log entry, next pass, or next step)                                 |
-| "log entry written, next experiment specced" | `researcher.sh` again (it will submit next)                                                |
-| "family killed (retryOnlyIf: ...)"           | read the closing log entry; move on to other families                                      |
-| "nothing actionable"                         | family is parked; nothing to do                                                            |
-
-Several families in parallel: run the same loop per family. One family = one
-session at a time (the scripts enforce this with a lock; a second session
+Several families in parallel: one terminal per family. One family = one
+session at a time (the script enforces this with a lock; a second session
 refuses to start).
 
-## 2b. Interactive mode — watch and steer (recommended at the start)
+## 2b. Interactive mode — steer it yourself
 
-The scripts are headless: you see a live feed but cannot intervene. For the
-shakedown phase, run the SAME roles interactively instead — open a normal
-session (`claude`, from either folder) and paste the exact instruction the
-script would have sent:
+When you want to guide the work instead of watching it:
 
-```text
-Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run autonomous (no seed).
-Execute propose-family per strategy-research-protocol/modules/ProposeFamily.md. Run with seed: '<your idea>'.
-Execute one researcher iteration per strategy-research-protocol/modules/Researcher.md. Family: '<family>'.
+```bash
+INTERACTIVE=1 ./strategy-research-protocol/scripts/researcher.sh <family>
 ```
 
-Behavior is identical — the module contracts and the files are the truth —
-but now you can:
+Same contract, but in a normal Claude session: it narrates each step, you
+can interrupt (Esc), ask "why did you choose those pass values?", request
+changes before it submits, or say "continue". The per-family lock is taken
+in both modes.
 
-- **approve each step**: in default permission mode every file edit and bash
-  command waits for your yes/no, which IS the step-by-step experience;
-- **ask before it acts**: append "Before each action, tell me what you are
-  about to do and why, and wait for my confirmation." to the instruction;
-- **interrupt and steer** (Esc), ask "why did you choose those pass
-  values?", request changes before it submits;
-- **chain steps in one session**: after an iteration finishes, just say
-  "continue" — statuses in FAMILY.json tell it what is next. Handing the
-  next step to a fresh scripted session works equally well; the files carry
-  everything.
-
-Two cautions:
-
-- Interactive sessions do NOT take the per-family lock (only the scripts
-  do). YOU are the lock: never run an interactive role and a script on the
-  same family at the same time.
-- The role rules still bind you: don't ask the Researcher to judge
-  incomplete work, soften a pre-declared `successCriteria`, or edit a frozen
-  hypothesis — if you want an exception, change the module, not the session.
-
-Once the loop feels trustworthy, switch to the scripts — they are the same
-thing without the hand-holding.
+One caution: the role rules still bind you — don't ask the Researcher to
+judge incomplete work, soften a pre-declared `successCriteria`, or edit a
+frozen hypothesis. If you want an exception, change the module, not the
+session.
 
 ## 3. Checking status anytime
 

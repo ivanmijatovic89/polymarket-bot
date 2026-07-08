@@ -1,13 +1,24 @@
 #!/usr/bin/env bash
-# Run ONE Researcher iteration for one family (Claude, headless): readable
-# reasoning live + raw log + cost summary.
+# Run the Researcher on one family (Claude session).
+#
+# Default: AUTONOMOUS — headless session that works the family continuously,
+# streams readable reasoning live, never asks questions, and stops when the
+# family is validated, killed, or nothing is actionable. Raw log + cost
+# summary kept.
+#
+# Interactive: INTERACTIVE=1 opens the same contract in a normal Claude
+# session you can steer and interrupt.
 #
 # Usage:
 #   ./strategy-research-protocol/scripts/researcher.sh <family>
+#   INTERACTIVE=1 ./strategy-research-protocol/scripts/researcher.sh <family>
 #
 # Env:
+#   INTERACTIVE=1            steerable session instead of headless
 #   LOG=somefile.jsonl       override the raw log path (default: researcher-<family>.jsonl)
-#   PERM=bypassPermissions   override permission mode (default: acceptEdits)
+#   PERM=acceptEdits         override permission mode (default: bypassPermissions —
+#                            headless denies non-allowlisted commands instead of asking,
+#                            which would break autonomy)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
@@ -17,13 +28,18 @@ if [ -z "${1:-}" ]; then
 fi
 FAMILY="$1"
 MODULE="strategy-research-protocol/modules/Researcher.md"
-INSTRUCTION="Execute one researcher iteration per ${MODULE}. Family: '${FAMILY}'."
 LOG="${LOG:-researcher-${FAMILY}.jsonl}"
-PERM="${PERM:-acceptEdits}"
+PERM="${PERM:-bypassPermissions}"
 
-# One family = one session at a time (see RUNNING.md). Lock lives outside the
-# repo so it never dirties the tree; a dead PID means a crashed session and
-# the lock is taken over.
+INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
+Work continuously and autonomously: never ask questions; write the family \
+files after every step; poll checkBatch (sleeping between checks) while \
+backtests run; stop only when the family is validated, killed, or nothing \
+is actionable."
+
+# One family = one session at a time (see AGENTS.md, How Sessions Run).
+# Lock lives outside the repo so it never dirties the tree; a dead PID means
+# a crashed session and the lock is taken over.
 LOCKDIR="${TMPDIR:-/tmp}/research-locks"
 mkdir -p "$LOCKDIR"
 LOCK="$LOCKDIR/${FAMILY}.lock"
@@ -36,6 +52,14 @@ if [ -f "$LOCK" ]; then
 fi
 echo $$ >"$LOCK"
 trap 'rm -f "$LOCK"' EXIT
+
+if [ -n "${INTERACTIVE:-}" ]; then
+  INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
+Same contract as autonomous mode, but I may steer between steps: narrate \
+each step, and pause when I interrupt."
+  claude --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
+  exit $?
+fi
 
 claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
