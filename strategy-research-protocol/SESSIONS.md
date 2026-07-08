@@ -24,8 +24,11 @@ contract ([`modules/Researcher.md`](./modules/Researcher.md)):
 ## Session isolation
 
 Protocol sessions read ONLY the protocol docs — this folder is a session's
-ENTIRE instruction set. The launch scripts enforce it by generating a
-per-run `--settings` file with:
+ENTIRE instruction set. The folder's own `CLAUDE.md` (a one-line
+`@AGENTS.md` import) is what Claude Code auto-loads for any session working
+in this folder, giving it the role map and ownership table without being
+told. The launch scripts enforce the rest by generating a per-run
+`--settings` file with:
 
 - `claudeMdExcludes`: the repo root `CLAUDE.md` and the user-level
   `~/.claude/CLAUDE.md` are NOT loaded. The repo-wide git workflow
