@@ -18,10 +18,8 @@ module file. Do not duplicate worker instructions in
 
 ## Role boundaries
 
-Only the user sets `live`. Judgment is bias-contained mechanically, not by a
-separate role: `hypothesis` + `successCriteria` freeze once an experiment is
-`running`, and every recorded judgment quotes the measured numbers it rests
-on (see the Bias containment section of
-[`strategy-research-protocol/modules/Researcher.md`](./Researcher.md)).
-Field-level writer rules live in
+Only the user sets `live`. Judgment rules live in the Bias containment
+section of
+[`strategy-research-protocol/modules/Researcher.md`](./Researcher.md);
+field-level writer rules in
 [`strategy-research-protocol/MEMORY.md`](../MEMORY.md).

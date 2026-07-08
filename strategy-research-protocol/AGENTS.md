@@ -10,13 +10,31 @@ Two LLM worker roles, each with a dedicated contract in
 
 - **ProposeFamily** — creates one family (proposal doc, FAMILY.json,
   baseline code), then stops.
-- **Researcher** — drives one family per session: specs and runs
-  experiments, reads and judges the results, writes all FAMILY.md prose and
-  all FAMILY.json state. Judgment is bias-contained mechanically:
-  `hypothesis` + `successCriteria` freeze at submission, and every recorded
-  judgment quotes the measured numbers it rests on.
+- **Researcher** — drives one family per session: specs, runs, judges, and
+  logs experiments ([`modules/Researcher.md`](./modules/Researcher.md)).
 
-The user alone sets a family `live`. Decision policy (stages, gates, stopping
+The user alone sets a family `live`.
+
+## One Home Per Concept
+
+Every rule, definition, number, and flow has exactly ONE authoritative
+home file. Every other mention is at most one sentence plus a link to the
+home — never a second definition. When editing the protocol: if you are
+about to restate a rule, link it instead; if a rule has no home, give it
+one before depending on it.
+
+| concept                                                | home                                                     |
+| ------------------------------------------------------ | -------------------------------------------------------- |
+| what a role does + its rules (incl. bias containment)  | `modules/<Role>.md`                                      |
+| gates, stages, stopping rules, metric vocabulary       | [`STAGE-GATES.md`](./STAGE-GATES.md)                     |
+| files, fields, writers, statuses, update triggers      | [`MEMORY.md`](./MEMORY.md) + `schemas/`                  |
+| naming, batchUids, champion pointer, code freeze       | `rules/`                                                 |
+| session mechanics: scripts, locks, branch, submit preconditions | [`RUNNING.md`](./RUNNING.md)                     |
+| tool usage                                             | `tools/`                                                 |
+| research scope and assumptions                         | [`RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md)               |
+| term definitions (one sentence + link, never rules)    | [`GLOSSARY.md`](./GLOSSARY.md)                           |
+| core invariants + map of everything                    | [`README.md`](./README.md)                               |
+| human operator cookbook                                | [`OPERATOR.md`](./OPERATOR.md)                           | Decision policy (stages, gates, stopping
 rules) lives in
 [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md); memory and
 field-writer rules in

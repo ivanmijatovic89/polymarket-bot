@@ -79,9 +79,11 @@ that already showed something.
 
 Gates are deliberately simple in v1: net profitability at the stage's
 coverage, nothing else. There is no train/test split yet. The Researcher
-still REPORTS distribution concerns as advisories — instability across
-monthly chunks, concentration in a few outlier markets, thin trade counts —
-but advisories inform the next move; they do not block a gate.
+still REPORTS concerns as advisories — instability across monthly chunks,
+concentration in a few outlier markets, thin trade counts, sensitivity to
+parameter choice, behavior near market open/close, anything that could not
+survive live execution constraints — but advisories inform the next move;
+they do not block a gate.
 
 Rules of the climb:
 

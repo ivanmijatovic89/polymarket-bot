@@ -1,6 +1,8 @@
 # Glossary
 
-This file defines common terms used by Strategy Research Protocol.
+This file defines common terms used by Strategy Research Protocol —
+one-or-two-sentence definitions with a link to each term's home. Rules live
+in the home files, never here (AGENTS.md, One Home Per Concept).
 
 ## Strategy Research Protocol
 
@@ -28,10 +30,9 @@ primary decision driver is a different family.
 ## Experiment
 
 One pre-declared test inside a strategy family: a `hypothesis` and
-`successCriteria` written before running (frozen once `running`), the
-strategy code and params (or coordinate search) used, run references
-(batchUids + submissionUids), and the judged `outcome`. Lifecycle: `queued`
-→ `running` → `evaluated` (or `aborted`).
+`successCriteria` written before running, the strategy code and params (or
+coordinate search) used, run references, and the judged `outcome`. Fields
+and lifecycle: [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## Coordinate Search
 
@@ -41,10 +42,9 @@ and less multiple-testing noise than a full Cartesian grid.
 
 ## Pass
 
-One step of a coordinate search: the sweep of a single param. Each pass has
-its own batchUid (`--pN-<param>`) and submissionUids; the Researcher judges
-and writes its `best` value. Pass state is derived from fields — there is no
-pass status enum.
+One step of a coordinate search: the sweep of a single param, with its own
+batchUid and submissionUids. Fields:
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## Baseline
 
@@ -54,79 +54,65 @@ plausibly beat execution costs at stage-1 coverage.
 
 ## Verdict
 
-The Researcher's judgment on an evaluated experiment against its
-pre-declared `successCriteria`: `success`, `fail`, or `inconclusive`. Lives
-inside `outcome`, never a status.
+The judgment on an evaluated experiment against its pre-declared
+`successCriteria`: `success`, `fail`, or `inconclusive`. Lives inside
+`outcome`, never a status.
 
 ## Stage / Gate
 
-From [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md): a stage
-is a coverage level of increasing data investment (1000 → 3000 → 9000+
-markets); a gate is the pre-declared pass/fail criterion between stages. Gate
-decisions are go / recycle / kill; go and recycle are appended to the
-experiment's `gateLog` by the Researcher at the moment of the decision, with
-the measured numbers in the note.
+A stage is a coverage level of increasing data investment; a gate is the
+pre-declared pass/fail criterion between stages. Home:
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
 
 ## Cross-Family Lessons
 
 [`strategy-research-protocol/LESSONS.md`](./LESSONS.md) — append-only
-protocol-level memory of lessons that generalize beyond one family. Written
-by the Researcher (mandatory check at kill/validated); required reading for
-ProposeFamily and the Researcher.
+protocol-level memory of lessons that generalize beyond one family.
 
 ## Smoke Run
 
-A tiny pre-submission sanity run (`--sequential --limit 10`, batchUid suffix
-`--smoke`). Catches crashes and param bugs. Never evidence, never freezes
-code, never judged.
+A tiny pre-submission sanity run (batchUid suffix `--smoke`). Catches crashes
+and param bugs. Never evidence, never freezes code, never judged.
 
 ## Submission UID
 
 The auto-generated unique handle of one backtest submission, identical in
 Redis and `backtest_runs.submission_uid`. Recorded in FAMILY.json at submit
-time; completion checks key on it (`checkBatch`).
+time.
 
 ## Baseline ID
 
 `--baselineId <runId>` — the comparison-anchor run recorded on every evidence
-submission (the champion's best run, or 000-baseline's best), so dashboard
-and judgment comparisons have an explicit anchor.
+submission, so dashboard and judgment comparisons have an explicit anchor.
 
 ## Researcher
 
-The LLM worker that drives one family: specs and codes experiments, submits
-runs and stage extensions, reads and judges finished results (passes, gates,
-verdicts, champion, `validated`), writes Research-log entries and lessons,
-decides continue-or-kill. Judgment is bias-contained mechanically: frozen
-pre-declared criteria, measured numbers quoted in every decision. Contract:
+The LLM worker that drives one family: specs, runs, judges, and logs
+experiments, and decides continue-or-kill. Contract:
 [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md).
 
 ## Champion
 
 The family's current best experiment, stored as a pointer (`champion`) in
-FAMILY.json. Must reference an evaluated experiment with verdict `success`.
+FAMILY.json. Pointer rules:
+[`strategy-research-protocol/rules/EXPERIMENT-NAMING.md`](./rules/EXPERIMENT-NAMING.md).
 
 ## Research Memory
 
 The file-based record that lets another agent continue without chat history.
-Research memory lives mainly in `src/strategies/research/<family>/FAMILY.md`,
-`src/strategies/research/<family>/FAMILY.json`, and
-[`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json).
-Rules are defined in [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
+Home: [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## FAMILY.md
 
-`src/strategies/research/<family>/FAMILY.md` is the reasoning memory for one
-family: the write-once proposal sections (Thesis, Signal definition, Edge
-economics, Experiment roadmap, Duplicate notes) plus the append-only Research
-log written only by the Researcher.
+`src/strategies/research/<family>/FAMILY.md` — the reasoning memory for one
+family: write-once proposal sections plus the append-only Research log.
+Sections: [`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## FAMILY.json
 
-`src/strategies/research/<family>/FAMILY.json` is the exact facts for one
-family: statuses, experiment records with pre-declared contracts, batchUids +
-submissionUids, coverage, outcomes, champion, retry conditions, and duplicate
-keys.
+`src/strategies/research/<family>/FAMILY.json` — the exact facts for one
+family: statuses, experiment records, run references, outcomes. Fields:
+[`strategy-research-protocol/MEMORY.md`](./MEMORY.md).
 
 ## INDEX.json
 
@@ -156,8 +142,8 @@ persisted result rows and should be referenced by run id or batch uid.
 
 ## Batch UID
 
-An identifier used to track queued or detached backtest execution, especially
-while workers are still running.
+The human-chosen grouping label of a backtest submission. Format and rules:
+[`strategy-research-protocol/rules/BATCH-UID.md`](./rules/BATCH-UID.md).
 
 ## Market Result
 

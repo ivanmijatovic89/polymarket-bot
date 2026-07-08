@@ -127,11 +127,9 @@ diagnostic: it explains, it never passes a gate.
 
 **A gate** gets one `gateLog` entry (`{stage, decision, at, note}`) appended
 at the moment of the decision, with the measured numbers in `note` — e.g.
-`"netEv +0.04 at 1000 mkts, 1840 trades"`. Decisions and criteria per
+`"netEv +0.04 at 1000 mkts, 1840 trades"`. Decisions, criteria, and the
+advisory rule (distribution concerns inform, they never block) per
 [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
-Distribution concerns (instability across monthly chunks, outlier-market
-concentration, thin trade counts) go into `note` as ADVISORIES — they inform
-the next move, they do not block a gate.
 
 **The experiment** gets the full `outcome` when its climb ends:
 
@@ -204,18 +202,15 @@ is mandatory (not the promotion) at every kill and every validation.
 
 ## Submitting
 
-1. Commit and push to `main`. Workers run committed code; the producer
-   refuses a dirty tree.
-2. When remote workers may consume the run, use
-   [`syncWorkerFleet`](../tools/syncWorkerFleet.md) after pushing and before
-   submission.
-3. Smoke test first (`--smoke`, never evidence).
-4. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
+1. Preconditions per [`RUNNING.md`](../RUNNING.md): clean tree, committed
+   and pushed to the research branch, worker fleet synced.
+2. Smoke test first (`--smoke`, never evidence).
+3. Submit per [`runBacktest`](../tools/runBacktest.md); record `batchUid`,
    `submissionUids`, `coverage`, `submittedAt` in FAMILY.json immediately;
    status `running`; family `researching` on first submission.
-5. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
+4. Stage climbs use [`extendBacktest`](../tools/extendBacktest.md) on the
    winning run — coverage grows, batchUid stays.
-6. An optional refinement mini-grid before the gate goes into
+5. An optional refinement mini-grid before the gate goes into
    `search.refine` (values-per-param, batchUid `<family>--<exp>--refine`).
 
 ## Killing a family

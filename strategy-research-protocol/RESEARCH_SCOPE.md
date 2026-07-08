@@ -174,12 +174,9 @@ justify speccing the next experiment.
 Evaluation is defined by the Judging results section of
 [`strategy-research-protocol/modules/Researcher.md`](./modules/Researcher.md)
 (how to judge) and
-[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (the gates).
-This file adds only the posture: the protocol target is durable positive EV,
-not curve-fit parameter cells. Beyond the gate itself, the Researcher reports
-as advisories: sensitivity to parameter choice, concentration in a few
-outlier markets, thin trade counts, behavior near market open/close, and
-anything that could not survive live execution constraints.
+[`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) (the gates
+and the advisory rule). This file adds only the posture: the protocol
+target is durable positive EV, not curve-fit parameter cells.
 
 ## Research memory
 
