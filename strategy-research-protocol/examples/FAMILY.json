@@ -20,7 +20,11 @@
       "params": null,
       "search": {
         "mode": "coordinate",
-        "defaults": { "enterThreshold": 0.4, "dwellTicks": 3, "takeProfitTicks": 2 },
+        "defaults": {
+          "enterThreshold": 0.4,
+          "dwellTicks": 3,
+          "takeProfitTicks": 2
+        },
         "passes": [
           {
             "param": "enterThreshold",
@@ -66,7 +70,12 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": null,
-      "coverage": { "selection": "latest", "markets": 1000, "fromMs": null, "toMs": null },
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
       "status": "evaluated",
       "gateLog": [
         {
@@ -81,14 +90,16 @@
       "abortReason": null,
       "outcome": {
         "verdict": "fail",
-        "bestParams": { "enterThreshold": 0.5, "dwellTicks": 6, "takeProfitTicks": 2 },
+        "bestParams": {
+          "enterThreshold": 0.5,
+          "dwellTicks": 6,
+          "takeProfitTicks": 2
+        },
         "metrics": {
           "netEvPerMarket": -0.11,
           "grossEvPerMarket": 0.23,
           "markets": 1000,
-          "trades": 1840,
-          "trainNetEv": null,
-          "testNetEv": null
+          "trades": 1840
         },
         "reason": "Best cell gross +$0.23/mkt but net -$0.11/mkt over 1000 markets; every cell net-negative.",
         "stageReached": 0,

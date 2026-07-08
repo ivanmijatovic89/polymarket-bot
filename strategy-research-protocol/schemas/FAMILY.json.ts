@@ -84,8 +84,6 @@ export const OutcomeMetrics = z.object({
   grossEvPerMarket: z.number().nullable().default(null),
   markets: z.number().int().nonnegative(),
   trades: z.number().int().nonnegative().nullable().default(null),
-  trainNetEv: z.number().nullable().default(null),
-  testNetEv: z.number().nullable().default(null),
 })
 export type OutcomeMetrics = z.infer<typeof OutcomeMetrics>
 
