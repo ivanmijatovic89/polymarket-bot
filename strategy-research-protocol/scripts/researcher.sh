@@ -31,6 +31,19 @@ MODULE="strategy-research-protocol/modules/Researcher.md"
 LOG="${LOG:-researcher-${FAMILY}.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
+# Session isolation: research sessions read ONLY the protocol docs. Exclude
+# the repo root CLAUDE.md (its general git workflow contradicts the protocol
+# branch policy in AGENTS.md) and user-level memory; disable auto-memory.
+ROOT="$(pwd)"
+SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
+cat >"$SETTINGS" <<JSON
+{
+  "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
+  "autoMemoryEnabled": false
+}
+JSON
+export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+
 INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Work continuously and autonomously: never ask questions; write the family \
 files after every step; poll checkBatch (sleeping between checks) while \
@@ -51,17 +64,17 @@ if [ -f "$LOCK" ]; then
   fi
 fi
 echo $$ >"$LOCK"
-trap 'rm -f "$LOCK"' EXIT
+trap 'rm -f "$LOCK" "$SETTINGS"' EXIT
 
 if [ -n "${INTERACTIVE:-}" ]; then
   INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Same contract as autonomous mode, but I may steer between steps: narrate \
 each step, and pause when I interrupt."
-  claude --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
+  claude --settings "$SETTINGS" --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
   exit $?
 fi
 
-claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+claude -p --settings "$SETTINGS" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
   | tee -a "$LOG" \
   | jq -Rj '

@@ -33,6 +33,12 @@ contract ([`modules/Researcher.md`](./modules/Researcher.md)):
 
 `scripts/propose-family.sh ["seed"]` creates one family and exits.
 
+**Sessions are isolated.** The launch scripts exclude the repo root
+CLAUDE.md and user-level memory (`claudeMdExcludes` + auto-memory off in a
+generated `--settings` file): the protocol docs in this folder are a
+session's ENTIRE instruction set. In particular, the repo-wide git workflow
+(branch + PR) does not apply here — the branch policy below does.
+
 Sessions are disposable: **every step is written to the family files
 immediately**, so a killed or crashed session loses nothing — the next one
 resumes from files alone. A per-family lock
