@@ -140,9 +140,27 @@ thing without the hand-holding.
 
 ## 5. Periodic maintenance
 
-- `/protocol-audit` (Claude command, from the repo root) — writes an
-  actionable report to `protocol-audit/`; fix findings by telling a session
-  "fix A1, A3 from protocol-audit/report.md".
+Three Claude commands maintain the protocol itself (discovered from the repo
+root, runnable from either folder):
+
+- `/protocol-audit` — health check, report only: writes an actionable report
+  to `protocol-audit/`; fix findings by telling a session "fix A1, A3 from
+  protocol-audit/report.md", or leave them — the improve loop folds
+  still-valid findings into its backlog.
+- `/loop /protocol-improve` — autonomous improvement loop. The first
+  iteration builds a ranked backlog in `protocol-improvement/LOG.md`; each
+  later iteration applies ONE item, verifies, and commits to the
+  `protocol-improve` branch (never `main`). The loop stops itself when it
+  prints `PROTOCOL-IMPROVE: DONE`; you review the branch and open the PR
+  when satisfied. Steer an iteration with arguments:
+  `/protocol-improve <focus>`.
+- `/protocol-update <the change you want>` — one-shot, for a specific change
+  YOU want made: an architect persona challenges duplication, places the
+  rule in its single authoritative home, verifies, and opens a PR on a
+  `protocol-update/<slug>` branch.
+
+Other upkeep:
+
 - Skim [`LESSONS.md`](./LESSONS.md) now and then — it is the compounding
   asset; if it is not growing, Researchers are skipping the promotion check.
 - Commit and push to `main` after research steps; sync remote workers before
