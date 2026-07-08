@@ -46,7 +46,7 @@ Nothing polls. Run `researcher.sh` when you want progress; it exits
 immediately with "waiting on backtests" if there is nothing to do. A simple
 loop (or cron) re-running the researcher per family is the intended v2
 orchestration; the autonomous multi-family orchestrator remains deliberately
-out of scope (TASKS.md section 4).
+out of scope.
 
 ## Branch policy
 
