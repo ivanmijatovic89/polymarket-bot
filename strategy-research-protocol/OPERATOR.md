@@ -4,11 +4,17 @@ This file is for YOU, not for agents. Agents read `modules/`; the session
 mechanics live in [`SESSIONS.md`](./SESSIONS.md). This is the step-by-step
 cookbook: what you type, in what order, and which decisions are yours.
 
-Work from whichever folder you prefer — both are fully supported.
-`cd strategy-research-protocol && claude` is the designed workflow: the root
-CLAUDE.md still loads (Claude walks up the tree), the `/protocol-audit`
-command is discovered from the repo root, `npm run` finds the root
-package.json, and the launch scripts `cd` to the git root themselves.
+**Always start protocol sessions from this folder**
+(`cd strategy-research-protocol && claude`), never from the repo root.
+Claude Code loads `.claude/settings*.json` ONLY from the starting directory
+(no upward walk, unlike CLAUDE.md) — starting here applies THIS folder's
+`.claude/settings.local.json` (your protocol-scoped permissions and
+settings) and ignores the repo root's. Everything else still works from
+here: the root CLAUDE.md walks up into your manual sessions, `npm run`
+finds the root package.json, `/protocol-audit` is discovered, and the
+launch scripts `cd` to the git root themselves (worker sessions get their
+isolation from the generated `--settings` file — see
+[`SESSIONS.md`](./SESSIONS.md)).
 
 ## 0. One-time setup (per machine)
 
