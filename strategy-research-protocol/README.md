@@ -154,13 +154,16 @@ One experiment, end to end:
 4. Any later session runs `checkBatch`; when complete, the Researcher reads
    the results, judges the pass (`best` + `note`), and submits the next pass
    with winners fixed.
-5. After the last pass the Researcher writes the full `outcome` (verdict
-   quoting the successCriteria, metrics, `stageReached`), possibly after
-   running a refinement grid or a stage extension (`extendBacktest`) per
-   [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md).
+5. After the last pass (and an optional refinement grid) the Researcher
+   judges the gate per
+   [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md): on `go`
+   it extends the run to the next stage (`extendBacktest`) and judges the
+   next gate when complete; when the climb ends (final gate passed, or a
+   gate recycled) it writes the full `outcome` once (verdict quoting the
+   successCriteria, metrics, `stageReached`).
 6. Then it consumes the verdict: writes the Research-log entry with its
-   `Lesson:` (log-before-acting), then queues the next experiment, or climbs
-   to the next stage, or kills the family with `retryOnlyIf`.
+   `Lesson:` (log-before-acting), then queues the next experiment or kills
+   the family with `retryOnlyIf`.
 7. `npm run research:build-index` when family metadata changed;
    `npm run research:check` must pass.
 
