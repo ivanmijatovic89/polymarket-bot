@@ -10,7 +10,7 @@
 #
 # Env:
 #   LOG=somefile.jsonl       override the raw log path
-#                            (default: src/strategies/research/propose-family.jsonl — gitignored)
+#                            (default: src/strategies/research/logs/propose-family.jsonl — gitignored)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
 #                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
@@ -22,7 +22,8 @@ if [ -n "${1:-}" ]; then
 else
   INSTRUCTION="Execute propose-family per ${MODULE}. Run autonomous (no seed)."
 fi
-LOG="${LOG:-src/strategies/research/propose-family.jsonl}"
+mkdir -p src/strategies/research/logs
+LOG="${LOG:-src/strategies/research/logs/propose-family.jsonl}"
 PERM="${PERM:-bypassPermissions}"
 
 # Session isolation: protocol sessions read ONLY the protocol docs — exclude
@@ -33,7 +34,8 @@ SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
 cat >"$SETTINGS" <<JSON
 {
   "claudeMdExcludes": ["${ROOT}/CLAUDE.md", "${HOME}/.claude/CLAUDE.md"],
-  "autoMemoryEnabled": false
+  "autoMemoryEnabled": false,
+  "permissions": { "deny": ["Read(src/strategies/research/**/logs/**)"] }
 }
 JSON
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1

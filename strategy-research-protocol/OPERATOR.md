@@ -125,10 +125,9 @@ session.
   asset; if it is not growing, Researchers are skipping the promotion check.
 - Commit and push to `main` after research steps; sync remote workers before
   submitting backtests.
-- Session logs live next to their family
-  (`src/strategies/research/<family>/researcher.jsonl`; proposals:
-  `src/strategies/research/propose-family.jsonl`) — gitignored scratch,
-  delete them whenever you are done with them.
+- Session logs live in `src/strategies/research/<family>/logs/`
+  (proposals: `src/strategies/research/logs/`) — gitignored scratch that
+  sessions are forbidden to read; delete them whenever you are done.
 
 ## 6. Troubleshooting
 
