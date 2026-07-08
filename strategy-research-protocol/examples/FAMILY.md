@@ -63,7 +63,7 @@ this family's bar to clear.
 ### 000-baseline — 2026-07-02
 
 Coordinate search (3 passes, 11 cells, latest 1000 markets, batchUids
-`book-imbalance--000-baseline--p1..p3`). Evaluator verdict: **fail** against
+`book-imbalance--000-baseline--p1..p3`). Verdict: **fail** against
 "Best cell netEvPerMarket > 0 at stage-1 coverage" — best cell
 `enterThreshold=0.5, dwellTicks=6, takeProfitTicks=2` reached gross
 +$0.23/mkt but net −$0.11 over 1000 markets (1840 trades); gate 1 decision:

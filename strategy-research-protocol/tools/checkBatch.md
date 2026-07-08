@@ -9,8 +9,8 @@ stored in family files.
 
 ## Use When
 
-- An experiment is `running` and you need to know whether the Evaluator can
-  take over.
+- An experiment is `running` and you need to know whether the finished work
+  can be judged.
 - A Researcher session starts and the family has a `running` experiment.
 
 ## Do Not Use When
@@ -50,8 +50,8 @@ worker persists that run, so "row exists" = "run finished".
 
 ## After Success
 
-- On `COMPLETE`: hand off to the Evaluator
-  ([`strategy-research-protocol/modules/Evaluator.md`](../modules/Evaluator.md)).
+- On `COMPLETE`: judge the finished work per the Judging results section of
+  [`strategy-research-protocol/modules/Researcher.md`](../modules/Researcher.md).
   Do not update family files just for completion — it is not memory.
 - On `INCOMPLETE`: nothing to update; check again later.
 

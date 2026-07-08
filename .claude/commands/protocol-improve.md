@@ -130,9 +130,9 @@ Ignore `.notes/` and `.obsidian/` (private scratch — never edit, never treat
 as protocol). Then run the **fresh-agent walkthrough** (see Operating style:
 fresh-context subagent, not self-critique): execute one full cycle —
 ProposeFamily creates a family → Researcher specs, smoke-tests, submits →
-Evaluator judges passes and the experiment → Researcher consumes the
-verdict, logs the lesson, climbs or kills — using ONLY the files each role's
-contract tells it to read. Every point where the agent must guess, re-read a
+judges passes and the experiment → consumes the verdict, logs the lesson,
+climbs or kills — using ONLY the files each role's contract tells it to
+read. Every point where the agent must guess, re-read a
 file it wasn't pointed to, or resolve a contradiction is a backlog item. Record the baseline `npm run research:protocol-size` total. Write the
 ranked backlog to LOG.md, commit and push it as the first commit, and end
 the iteration there — applying starts next iteration.

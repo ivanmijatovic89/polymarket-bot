@@ -5,15 +5,16 @@ This folder defines Strategy Research Protocol for the parent
 
 ## Role Map
 
-Three LLM worker roles, each with a dedicated contract in
+Two LLM worker roles, each with a dedicated contract in
 [`strategy-research-protocol/modules/index.md`](./modules/index.md):
 
 - **ProposeFamily** — creates one family (proposal doc, FAMILY.json,
   baseline code), then stops.
-- **Researcher** — drives one family per session; writes all FAMILY.md prose
-  and the JSON state it owns; never reads raw backtest results.
-- **Evaluator** — sole reader of raw results; writes all judgment fields in
-  FAMILY.json; never writes FAMILY.md.
+- **Researcher** — drives one family per session: specs and runs
+  experiments, reads and judges the results, writes all FAMILY.md prose and
+  all FAMILY.json state. Judgment is bias-contained mechanically:
+  `hypothesis` + `successCriteria` freeze at submission, and every recorded
+  judgment quotes the measured numbers it rests on.
 
 The user alone sets a family `live`. Decision policy (stages, gates, stopping
 rules) lives in

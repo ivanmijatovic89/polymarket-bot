@@ -26,7 +26,7 @@ No creativity allowed. One experiment normally produces SEVERAL batchUids
 | -------------- | ------------------------------------------------- | ------------------------------------------------- |
 | `--smoke`      | smoke test; never evidence, never freezes code    | `book-imbalance--000-baseline--smoke`             |
 | `--pN-<param>` | coordinate-search pass N sweeping `<param>`       | `book-imbalance--000-baseline--p1-enterThreshold` |
-| `--refine`     | Evaluator-requested refinement mini-grid          | `book-imbalance--000-baseline--refine`            |
+| `--refine`     | refinement mini-grid before the final verdict     | `book-imbalance--000-baseline--refine`            |
 | `--rN`         | re-run after a bug / bad data / broken submission | `book-imbalance--002-persistence-filter--r2`      |
 
 A single-run experiment (`kind: variation` with fixed `params`) uses the bare

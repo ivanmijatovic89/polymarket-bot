@@ -36,7 +36,7 @@ exact file and section, the finding does not go in the report.
 ## What to evaluate
 
 1. **Biggest flaws** — anything that would break, block, or mislead an agent
-   actually running the loop (ProposeFamily → Researcher → Evaluator):
+   actually running the loop (ProposeFamily → Researcher):
    contradictions between documents, rules that cannot be followed as
    written, undefined behavior an agent would have to invent.
 2. **Confusing parts** — anything an LLM (or human) could plausibly misread:

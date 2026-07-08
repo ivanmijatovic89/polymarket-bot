@@ -3,8 +3,10 @@
 ## Purpose
 
 Retrieve persisted backtest result summaries for judgment. In the research
-loop, raw results are read by the **Evaluator only** — the Researcher
-consumes the Evaluator's judgment from FAMILY.json, never the raw numbers.
+loop, the Researcher reads results only for COMPLETE work (per
+[`checkBatch`](./checkBatch.md)) and judges them against the experiment's
+pre-declared `successCriteria` — never against criteria invented after
+seeing the numbers.
 
 ## Use When
 
@@ -17,7 +19,6 @@ consumes the Evaluator's judgment from FAMILY.json, never the raw numbers.
 - The runs are not finished — check with
   [`strategy-research-protocol/tools/checkBatch.md`](./checkBatch.md) first.
 - You need to create or extend a run.
-- You are the Researcher deciding what to do next — read FAMILY.json instead.
 
 ## Inputs
 
@@ -50,13 +51,14 @@ why completion is checked with `checkBatch` first.
   execution summary and per-market timing when available.
 - For pass judgment, reduce the batch to a per-cell table sorted by
   `netEvPerMarket` (net of fees — the only verdict metric; gross is
-  diagnostic), with markets and trade counts per cell. Judgment guidance
-  lives in
-  [`strategy-research-protocol/modules/Evaluator.md`](../modules/Evaluator.md).
+  diagnostic), with markets and trade counts per cell. Dig deeper where the
+  results warrant it (segments, per-market outliers, monthly chunks).
+  Judgment guidance lives in the Judging results section of
+  [`strategy-research-protocol/modules/Researcher.md`](../modules/Researcher.md).
 
 ## After Success
 
-The Evaluator records judgment in FAMILY.json per
+The Researcher records judgment in FAMILY.json per
 [`strategy-research-protocol/MEMORY.md`](../MEMORY.md):
 
 - pass judgment → `best` + `note` on the pass
@@ -64,8 +66,8 @@ The Evaluator records judgment in FAMILY.json per
   metrics, `stageReached`, `gatesVersion`), status `evaluated`, and champion /
   `validated` updates when warranted
 
-The Evaluator never writes FAMILY.md — the Research-log entry is written by
-the Researcher when it consumes the verdict.
+Every recorded judgment quotes the measured numbers it rests on. The
+Research-log entry in FAMILY.md is written when the verdict is consumed.
 
 ## If It Fails
 

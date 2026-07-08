@@ -6,6 +6,16 @@ findings before they are implemented.
 
 ## Resolved log
 
+**v2.2 (2026-07-08):** the Evaluator role was merged into the Researcher
+(issue #83). One role now specs, runs, reads, and judges; `evaluator.sh` and
+`modules/Evaluator.md` were removed. Bias containment moved from role
+separation to mechanics: `hypothesis` + `successCriteria` freeze once an
+experiment is `running`, every judgment (pass `note`, gateLog `note`,
+`outcome.reason`) must quote the measured numbers it rests on, gateLog and
+Research log stay append-only, and gates/stopping rules remain defined only
+in STAGE-GATES.md. Historical FAMILY.md logs keep their "Evaluator" wording
+(append-only records are never rewritten).
+
 **v2.1 (2026-07-04):** costs are measured, never modeled — no cost formula
 or constant anywhere; all real fees/EV come from `backtest_run_segments`
 (`evPerMarketTotal` net, `totalFeesPaid`), and Edge economics is a mechanism
