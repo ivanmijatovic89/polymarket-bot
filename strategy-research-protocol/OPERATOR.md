@@ -48,8 +48,8 @@ Then YOU review before anything runs — you are the taste filter:
 
 One family = one command. The session works the family continuously and
 autonomously — it streams every step live, never asks you anything, waits
-for backtests on its own, and stops when the family is validated, killed,
-or nothing is actionable:
+for backtests on its own, and stops when its session contract says so
+(validated, killed, nothing actionable, dashboard down, runaway brake):
 
 ```bash
 ./strategy-research-protocol/scripts/researcher.sh <family>
@@ -63,13 +63,13 @@ You just watch the feed. Your reaction table:
 | "polling checkBatch..."                  | backtests running; it will continue by itself                                   |
 | session stopped: "validated" / "killed"  | read the closing log entry; decide live dry-run (validated) or move on (killed) |
 | session stopped: "nothing actionable"    | family is parked; nothing to do                                                 |
+| session stopped: "dashboard down"        | run `npm run dashboard`, then relaunch the same command (it never starts it)    |
 | session crashed / you killed it (Ctrl-C) | nothing is lost — files carry the state; run the same command again to resume   |
 
-Permissions note: the script defaults to `PERM=bypassPermissions` — in
-headless mode non-allowlisted commands are DENIED (not prompted), which
-would break autonomy. If you prefer tighter permissions, allowlist the
-needed Bash commands in `.claude/settings.local.json` and run with
-`PERM=acceptEdits`.
+Permissions note: the scripts default to `PERM=bypassPermissions`
+(rationale: the launcher checklist in [`SESSIONS.md`](./SESSIONS.md)). For
+tighter permissions, allowlist the needed Bash commands in
+`.claude/settings.local.json` and run with `PERM=acceptEdits`.
 
 Several families in parallel: one terminal per family. One family = one
 session at a time (the script enforces this with a lock; a second session

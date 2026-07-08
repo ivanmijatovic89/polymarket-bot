@@ -69,13 +69,13 @@ Applied per champion-candidate experiment. Each stage costs roughly 3x the
 previous one; only survivors advance, so most compute is spent on strategies
 that already showed something.
 
-| stage          | coverage     | gate to advance                       | mechanism                                 |
-| -------------- | ------------ | ------------------------------------- | ----------------------------------------- |
-| 0 smoke        | ~10 markets  | runs without errors; NEVER evidence   | `--sequential`, batchUid `--smoke` suffix |
-| 1 screen       | latest 1000  | best cell `netEvPerMarket > 0`        | coordinate search runs here               |
-| 2 confirm      | 3000 total   | `netEvPerMarket > 0` at 3000 markets  | `extendBacktest --latest --limit 2000`    |
-| 3 full-history | ~9000+ total | `netEvPerMarket > 0` at full coverage | `extendBacktest`                          |
-| live           | —            | user judgment; dry-run first          | out of protocol scope                     |
+| stage          | coverage     | gate to advance                       | mechanism                                                          |
+| -------------- | ------------ | ------------------------------------- | ------------------------------------------------------------------ |
+| 0 smoke        | ~10 markets  | runs without errors; NEVER evidence   | smoke profile per [`tools/runBacktest.md`](./tools/runBacktest.md) |
+| 1 screen       | latest 1000  | best cell `netEvPerMarket > 0`        | coordinate search runs here                                        |
+| 2 confirm      | 3000 total   | `netEvPerMarket > 0` at 3000 markets  | extend per [`tools/extendBacktest.md`](./tools/extendBacktest.md)  |
+| 3 full-history | ~9000+ total | `netEvPerMarket > 0` at full coverage | extend per [`tools/extendBacktest.md`](./tools/extendBacktest.md)  |
+| live           | —            | user judgment; dry-run first          | out of protocol scope                                              |
 
 Gates are deliberately simple in v1: net profitability at the stage's
 coverage, nothing else. There is no train/test split yet. The Researcher
@@ -90,9 +90,11 @@ Rules of the climb:
 - Stage 1 uses the LATEST markets — the most relevant data. If experiments
   cannot find profitable EV there, older data will not save the idea and no
   further stages are spent on it.
-- Extensions grow coverage backward contiguously (newest missing markets
-  first), so stage 2 = the same 1000 already tested + the 2000 immediately
-  older. The recent window is always included.
+- Each stage adds the markets immediately OLDER than the already-covered
+  window, so coverage stays one contiguous block ending at the newest data:
+  stage 2 = the same 1000 already tested + the 2000 immediately older. How
+  to submit that extension lives in
+  [`tools/extendBacktest.md`](./tools/extendBacktest.md).
 - The climb happens inside ONE experiment record: `extendBacktest` grows the
   same run, `coverage` is updated, and `outcome.stageReached` records the
   highest gate passed.

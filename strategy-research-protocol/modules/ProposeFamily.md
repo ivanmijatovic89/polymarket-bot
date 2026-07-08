@@ -192,6 +192,9 @@ reading a few non-research strategies only for API idioms is allowed.
 ## Final Self-Check
 
 - Both files validate (`npm run research:check` passes for this family).
+  Check failures in OTHER families are not yours — if your new family
+  validates, note the failure and finish; never touch another family's
+  files.
 - FAMILY.json has exactly one experiment, `000-baseline`, status `queued`,
   with `hypothesis` + `successCriteria` + full coordinate `search`.
 - The Edge economics section contains actual numbers, not vibes.

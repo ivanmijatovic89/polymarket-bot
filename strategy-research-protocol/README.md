@@ -117,7 +117,7 @@ rules — lives in
   ([`index`](./tools/index.md)).
 - `strategy-research-protocol/schemas/` — Zod schemas for all artifacts.
 - `strategy-research-protocol/scripts/` — executable helpers.
-- `strategy-research-protocol/examples/` — reference examples.
+- `strategy-research-protocol/examples/` — reference examples (schema-validated by `research:check`).
 
 Research artifacts live under `src/strategies/research/<family>/` — the
 exact layout is defined in

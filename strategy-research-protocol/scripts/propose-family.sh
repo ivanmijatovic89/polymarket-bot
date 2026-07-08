@@ -11,8 +11,7 @@
 # Env:
 #   LOG=somefile.jsonl       override the raw log path (default: propose-family.jsonl)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
-#                            headless denies non-allowlisted commands instead of asking,
-#                            and the module needs Bash for typecheck + research:check)
+#                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
