@@ -33,7 +33,7 @@ one before depending on it.
 | naming, batchUids, champion pointer, code freeze       | `rules/`                                                 |
 | session mechanics: scripts, locks, branch, submit preconditions | [`RUNNING.md`](./RUNNING.md)                     |
 | tool usage                                             | `tools/`                                                 |
-| research scope and assumptions                         | [`RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md)               |
+| research scope and assumptions                         | [`SCOPE.md`](./SCOPE.md)               |
 | term definitions (one sentence + link, never rules)    | [`GLOSSARY.md`](./GLOSSARY.md)                           |
 | core invariants + map of everything                    | [`README.md`](./README.md)                               |
 | human operator cookbook                                | [`OPERATOR.md`](./OPERATOR.md)                           | Decision policy (stages, gates, stopping
@@ -50,7 +50,7 @@ display path with a portable relative Markdown link.
 Use this style:
 
 ```md
-[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md)
+[`strategy-research-protocol/SCOPE.md`](./SCOPE.md)
 [`strategy-research-protocol/tools/runBacktest.md`](./tools/runBacktest.md)
 [`docs/backtest/parallelization.md`](../docs/backtest/parallelization.md)
 [`src/strategies/research/INDEX.json`](../src/strategies/research/INDEX.json)
@@ -59,7 +59,7 @@ Use this style:
 Do not use local absolute paths such as:
 
 ```md
-/Users/mijat/Sites/polymarket-bot/strategy-research-protocol/RESEARCH_SCOPE.md
+/Users/mijat/Sites/polymarket-bot/strategy-research-protocol/SCOPE.md
 ```
 
 The goal is that humans and agents can see the exact repository location while

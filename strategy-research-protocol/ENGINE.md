@@ -28,7 +28,7 @@ episodes per day.
 
 The engine supports more modes than this, but research agents should not use
 other symbols, timeframes, venues, or cross-exchange signals unless
-[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) is
+[`strategy-research-protocol/SCOPE.md`](./SCOPE.md) is
 updated first.
 
 ## Live/Backtest Parity

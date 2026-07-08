@@ -29,7 +29,7 @@ operational docs live in `polymarket-bot/`.
 
 The protocol currently targets only Polymarket 15 minute Bitcoin up/down
 binary markets — full assumptions in
-[`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md); terms
+[`strategy-research-protocol/SCOPE.md`](./SCOPE.md); terms
 in [`strategy-research-protocol/GLOSSARY.md`](./GLOSSARY.md).
 
 ## Core invariants
@@ -100,7 +100,7 @@ rules — lives in
   cross-family lessons.
 - [`strategy-research-protocol/CONSTRAINTS.md`](./CONSTRAINTS.md) — hard ban
   list for new families.
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](./RESEARCH_SCOPE.md) —
+- [`strategy-research-protocol/SCOPE.md`](./SCOPE.md) —
   market, data, input, and cost assumptions.
 - [`strategy-research-protocol/RUNNING.md`](./RUNNING.md) — session
   mechanics: launch scripts, locks, cadence, branch policy, submit

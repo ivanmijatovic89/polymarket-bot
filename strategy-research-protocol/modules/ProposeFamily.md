@@ -23,7 +23,7 @@ code must live under `src/` so auto-discovery can import it.
 
 Read these before writing:
 
-- [`strategy-research-protocol/RESEARCH_SCOPE.md`](../RESEARCH_SCOPE.md) —
+- [`strategy-research-protocol/SCOPE.md`](../SCOPE.md) —
   research scope and market assumptions.
 - [`strategy-research-protocol/ENGINE.md`](../ENGINE.md) —
   tick, replay, order, cost, latency, and dataset semantics.
