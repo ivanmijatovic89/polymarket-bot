@@ -103,8 +103,8 @@ Any script that starts a protocol session must:
    (so the committed `.claude/settings.json` isolation applies — a
    `--settings` flag does NOT apply claudeMdExcludes) and export
    `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`.
-3. Take the per-family lock when the role works on a family; clean up lock
-   and settings file on exit (`trap`).
+3. Take the per-family lock when the role works on a family; clean it up
+   on exit (`trap`).
 4. Stream readable output, keep the raw `.jsonl` log under the family's
    `logs/` folder (gitignored; Read-denied to sessions), and print the cost
    summary (copy the plumbing from `scripts/researcher.sh`).
