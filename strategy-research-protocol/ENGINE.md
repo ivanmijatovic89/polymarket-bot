@@ -12,24 +12,11 @@ Implementation detail lives in the parent repo docs linked at the end.
 
 ## Research Scope
 
-Strategy Research Protocol currently targets:
-
-```text
-venue: Polymarket
-instrument: BTC 15 minute up/down binary markets
-symbol: btc
-timeframe: 15m
-default replay input: telonex-delta
-default converter: delta-typed
-```
-
-One BTC 15m market is one fixed 15 minute episode. There are normally 96
-episodes per day.
-
-The engine supports more modes than this, but research agents should not use
-other symbols, timeframes, venues, or cross-exchange signals unless
-[`strategy-research-protocol/SCOPE.md`](./SCOPE.md) is
-updated first.
+The research scope — venue, instrument, symbol, timeframe, allowed inputs —
+is defined in [`strategy-research-protocol/SCOPE.md`](./SCOPE.md). The
+engine supports more modes than the scope allows; do not use them for
+research unless SCOPE.md is updated first. One BTC 15m market is one fixed
+15 minute episode; there are normally 96 episodes per day.
 
 ## Live/Backtest Parity
 

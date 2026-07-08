@@ -47,8 +47,7 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Work continuously and autonomously: never ask questions; write the family \
 files after every step; poll checkBatch (sleeping between checks) while \
-backtests run; stop only when the family is validated, killed, or nothing \
-is actionable."
+backtests run; stop per the module's Session contract."
 
 # One family = one session at a time (see SESSIONS.md).
 # Lock lives outside the repo so it never dirties the tree; a dead PID means

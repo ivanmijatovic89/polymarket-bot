@@ -10,7 +10,9 @@
 #
 # Env:
 #   LOG=somefile.jsonl       override the raw log path (default: propose-family.jsonl)
-#   PERM=bypassPermissions   override permission mode (default: acceptEdits)
+#   PERM=acceptEdits         override permission mode (default: bypassPermissions —
+#                            headless denies non-allowlisted commands instead of asking,
+#                            and the module needs Bash for typecheck + research:check)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
@@ -21,7 +23,7 @@ else
   INSTRUCTION="Execute propose-family per ${MODULE}. Run autonomous (no seed)."
 fi
 LOG="${LOG:-propose-family.jsonl}"
-PERM="${PERM:-acceptEdits}"
+PERM="${PERM:-bypassPermissions}"
 
 # Session isolation: protocol sessions read ONLY the protocol docs — exclude
 # the repo root CLAUDE.md and user-level memory; disable auto-memory (same

@@ -11,8 +11,8 @@ each memory file stores, who writes every field, and when.
   batch is still computing — database, queried via
   [`strategy-research-protocol/tools/checkBatch.md`](./tools/checkBatch.md),
   never stored in files.
-- **FAMILY.json = exact facts** (state + numbers), written by agents flipping
-  the state they own and by the Researcher recording judgment.
+- **FAMILY.json = exact facts** (state + numbers), created by ProposeFamily
+  and thereafter written by the Researcher.
 - **FAMILY.md = reasoning** (prose), written once at proposal time plus an
   append-only Research log written only by the Researcher.
 - **The family folder is the memory unit.** Agents always read both files;
