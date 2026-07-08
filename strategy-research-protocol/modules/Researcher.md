@@ -24,6 +24,8 @@ resume from FAMILY.md + FAMILY.json
 → loop: do the next step → write files → run research:check
 → waiting on backtests? poll checkBatch, sleeping 2–5 min between checks
 → stop only when the family is validated or killed, or nothing is actionable
+  (hard runaway brake: stop after 500 experiments judged in one session —
+   relaunching continues from files)
 ```
 
 **Write the files after EVERY step** — the session may be killed at any
