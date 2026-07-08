@@ -33,6 +33,11 @@ moment, and the next one must resume from files alone. Session memory is a
 cache, never the record. Narrate each step briefly as you go: the operator
 is watching the stream to follow what is happening.
 
+Parallel sessions run on other families: `research:check` failures in OTHER
+families are not yours — if your family is clean, note the failure and
+continue; never touch another family's files. On a rejected `git push`,
+`git pull --rebase` and push again.
+
 In an interactive session (launch modes in [`SESSIONS.md`](../SESSIONS.md))
 the same contract applies, except the user may steer between steps.
 
