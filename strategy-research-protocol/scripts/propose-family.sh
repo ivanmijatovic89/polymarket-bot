@@ -25,7 +25,7 @@ PERM="${PERM:-acceptEdits}"
 
 # Session isolation: protocol sessions read ONLY the protocol docs — exclude
 # the repo root CLAUDE.md and user-level memory; disable auto-memory (same
-# rationale as researcher.sh; see AGENTS.md, How Sessions Run).
+# rationale as researcher.sh; see SESSIONS.md).
 ROOT="$(pwd)"
 SETTINGS="$(mktemp "${TMPDIR:-/tmp}/research-settings.XXXXXX.json")"
 cat >"$SETTINGS" <<JSON

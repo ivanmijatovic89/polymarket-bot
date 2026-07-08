@@ -35,7 +35,7 @@ files never change — see the freeze rule in
 and
 [`strategy-research-protocol/ENGINE.md`](../ENGINE.md#workers-run-committed-code-only).
 Submit preconditions (clean tree, committed and pushed, worker fleet synced)
-per [`strategy-research-protocol/AGENTS.md`](../AGENTS.md) (Session preconditions).
+per [`strategy-research-protocol/SESSIONS.md`](../SESSIONS.md) (Preconditions).
 
 ## Protocol Defaults
 

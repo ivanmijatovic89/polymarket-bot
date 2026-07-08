@@ -90,9 +90,11 @@ rules — lives in
 
 ## Repository layout
 
-- [`strategy-research-protocol/AGENTS.md`](./AGENTS.md) — role map, how
-  sessions run (scripts, locks, branch policy, preconditions), and the One
-  Home Per Concept ownership table.
+- [`strategy-research-protocol/AGENTS.md`](./AGENTS.md) — role map + the
+  One Home Per Concept ownership table.
+- [`strategy-research-protocol/SESSIONS.md`](./SESSIONS.md) — how sessions
+  are launched and run: modes, isolation, locks, branch policy,
+  preconditions, new-script checklist.
 - [`strategy-research-protocol/STAGE-GATES.md`](./STAGE-GATES.md) — go/kill
   decision policy (versioned), including the measured-cost rules.
 - [`strategy-research-protocol/MEMORY.md`](./MEMORY.md) — memory rules,
@@ -133,8 +135,8 @@ exact layout is defined in
 Scripts: `npm run research:check`, `npm run research:check-batch`,
 `npm run research:build-index`.
 
-Launch scripts (see How Sessions Run in
-[`strategy-research-protocol/AGENTS.md`](./AGENTS.md)):
+Launch scripts (see
+[`strategy-research-protocol/SESSIONS.md`](./SESSIONS.md)):
 
 ```bash
 ./strategy-research-protocol/scripts/propose-family.sh ["seed idea"]

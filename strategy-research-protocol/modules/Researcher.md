@@ -31,8 +31,8 @@ moment, and the next one must resume from files alone. Session memory is a
 cache, never the record. Narrate each step briefly as you go: the operator
 is watching the stream to follow what is happening.
 
-In an interactive session (launch modes in [`AGENTS.md`](../AGENTS.md)) the
-same contract applies, except the user may steer between steps.
+In an interactive session (launch modes in [`SESSIONS.md`](../SESSIONS.md))
+the same contract applies, except the user may steer between steps.
 
 ## The experiment lifecycle
 
@@ -206,7 +206,7 @@ is mandatory (not the promotion) at every kill and every validation.
 
 ## Submitting
 
-1. Preconditions per [`AGENTS.md`](../AGENTS.md) (Session preconditions):
+1. Preconditions per [`SESSIONS.md`](../SESSIONS.md) (Preconditions):
    clean tree, committed and pushed to the research branch, worker fleet
    synced.
 2. Smoke test first (`--smoke`, never evidence).

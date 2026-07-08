@@ -50,7 +50,7 @@ files after every step; poll checkBatch (sleeping between checks) while \
 backtests run; stop only when the family is validated, killed, or nothing \
 is actionable."
 
-# One family = one session at a time (see AGENTS.md, How Sessions Run).
+# One family = one session at a time (see SESSIONS.md).
 # Lock lives outside the repo so it never dirties the tree; a dead PID means
 # a crashed session and the lock is taken over.
 LOCKDIR="${TMPDIR:-/tmp}/research-locks"

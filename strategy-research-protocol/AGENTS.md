@@ -17,54 +17,9 @@ module file — worker instructions live there and nowhere else:
 
 The user alone sets a family `live`.
 
-## How Sessions Run
-
-One session = one family. The Researcher launches in two modes, same
-contract ([`modules/Researcher.md`](./modules/Researcher.md)):
-
-- **Autonomous (default):** `scripts/researcher.sh <family>` — a headless
-  Claude session that works the family continuously and streams everything
-  it does. The operator watches; the session never asks questions. It waits
-  for backtests by polling `checkBatch` and stops only when the family is
-  validated, killed, or nothing is actionable.
-- **Interactive:** `INTERACTIVE=1 scripts/researcher.sh <family>` — the
-  same contract in a normal Claude session the operator can steer and
-  interrupt.
-
-`scripts/propose-family.sh ["seed"]` creates one family and exits.
-
-**Sessions are isolated.** The launch scripts exclude the repo root
-CLAUDE.md and user-level memory (`claudeMdExcludes` + auto-memory off in a
-generated `--settings` file): the protocol docs in this folder are a
-session's ENTIRE instruction set. In particular, the repo-wide git workflow
-(branch + PR) does not apply here — the branch policy below does.
-
-Sessions are disposable: **every step is written to the family files
-immediately**, so a killed or crashed session loses nothing — the next one
-resumes from files alone. A per-family lock
-(`$TMPDIR/research-locks/<family>.lock`, PID inside; outside the repo so it
-never dirties the tree) prevents two sessions on one family; a lock whose
-PID is dead is taken over.
-
-### Branch policy
-
-```text
-researchBranch: main
-```
-
-Research sessions commit directly on `main` and push before submitting
-remote-worker backtests — remote workers track `origin/main`. If this ever
-becomes a bottleneck, the alternative is a long-lived `research` branch
-merged at family checkpoints; switching means editing the setting above and
-pointing the workers at the branch. Change it here and nowhere else.
-
-### Session preconditions
-
-- `npm run research:check` passes before starting work.
-- Tree clean before any submission; commit and push, then sync the worker
-  fleet ([`tools/syncWorkerFleet.md`](./tools/syncWorkerFleet.md)).
-- Database credentials in `.env` (completion checks and result reads query
-  MySQL; see [`tools/checkBatch.md`](./tools/checkBatch.md)).
+How sessions are launched and run — modes, isolation, locking, branch
+policy, preconditions, and the checklist for new launch scripts — lives in
+[`strategy-research-protocol/SESSIONS.md`](./SESSIONS.md).
 
 ## One Home Per Concept
 
@@ -80,7 +35,7 @@ one before depending on it.
 | gates, stages, stopping rules, metric vocabulary       | [`STAGE-GATES.md`](./STAGE-GATES.md)                     |
 | files, fields, writers, statuses, update triggers      | [`MEMORY.md`](./MEMORY.md) + `schemas/`                  |
 | naming, batchUids, champion pointer, code freeze       | `rules/`                                                 |
-| session mechanics: scripts, locks, branch, submit preconditions | this file (How Sessions Run)                     |
+| session mechanics: launch modes, isolation, locks, branch, submit preconditions | [`SESSIONS.md`](./SESSIONS.md)          |
 | tool usage                                             | `tools/`                                                 |
 | research scope and assumptions                         | [`SCOPE.md`](./SCOPE.md)               |
 | term definitions (one sentence + link, never rules)    | [`GLOSSARY.md`](./GLOSSARY.md)                           |

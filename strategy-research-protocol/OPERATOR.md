@@ -1,7 +1,7 @@
 # Operator guide — how to run the protocol (for the human)
 
 This file is for YOU, not for agents. Agents read `modules/`; the session
-mechanics live in [`AGENTS.md`](./AGENTS.md). This is the step-by-step
+mechanics live in [`SESSIONS.md`](./SESSIONS.md). This is the step-by-step
 cookbook: what you type, in what order, and which decisions are yours.
 
 Work from whichever folder you prefer — both are fully supported.
