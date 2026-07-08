@@ -55,8 +55,13 @@ Important defaults:
 
 Direction:
 
-- Default extension grows backward into older missing markets.
-- `--latest` grows forward into newer missing markets.
+- Default (no `--latest`) consumes missing markets OLDEST-first — from the
+  far end of history.
+- `--latest --limit <n>` consumes the NEWEST missing markets first —
+  contiguous with a latest-window coverage. **Stage climbs always use
+  this** (e.g. `--latest --limit 2000` for stage 2): it keeps coverage one
+  contiguous block ending at the newest data, per the climb rules in
+  [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
 - Without `--limit`, the tool attempts to consume all missing markets in the
   selected direction or range.
 

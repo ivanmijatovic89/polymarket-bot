@@ -149,6 +149,43 @@ function checkFamily(folder: string, gates: GatesConfig): string[] {
   return errs
 }
 
+/**
+ * The reference examples must stay schema-valid too — they teach the
+ * format, so a schema change that forgets them would ship a wrong example.
+ * Standalone validation only (no folder-name or cross-family invariants).
+ */
+function checkExamples(): string[] {
+  const errs: string[] = []
+  const dir = join(process.cwd(), 'strategy-research-protocol', 'examples')
+  if (!existsSync(dir)) return errs
+
+  const jsonPath = join(dir, 'FAMILY.json')
+  if (existsSync(jsonPath)) {
+    try {
+      const parsed = FamilyIndex.safeParse(JSON.parse(readFileSync(jsonPath, 'utf8')))
+      if (!parsed.success)
+        errs.push(
+          ...parsed.error.issues.map(
+            (i) => `examples/FAMILY.json ${i.path.join('.')}: ${i.message}`,
+          ),
+        )
+    } catch (e) {
+      errs.push(`examples/FAMILY.json unreadable: ${(e as Error).message}`)
+    }
+  }
+
+  const mdPath = join(dir, 'FAMILY.md')
+  if (existsSync(mdPath)) {
+    try {
+      parseFamilyDoc(readFileSync(mdPath, 'utf8'))
+    } catch (e) {
+      errs.push(`examples/FAMILY.md invalid: ${(e as Error).message}`)
+    }
+  }
+
+  return errs
+}
+
 const gates = loadGatesConfig()
 const folders = familyFolders()
 let failed = 0
@@ -160,6 +197,17 @@ for (const folder of folders) {
   } else {
     failed++
     console.error(`FAIL  ${folder}`)
+    for (const e of errs) console.error(`      - ${e}`)
+  }
+}
+
+{
+  const errs = checkExamples()
+  if (errs.length === 0) {
+    console.log('ok    examples')
+  } else {
+    failed++
+    console.error('FAIL  examples')
     for (const e of errs) console.error(`      - ${e}`)
   }
 }

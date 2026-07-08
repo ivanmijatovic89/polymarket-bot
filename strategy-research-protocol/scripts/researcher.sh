@@ -17,8 +17,7 @@
 #   INTERACTIVE=1            steerable session instead of headless
 #   LOG=somefile.jsonl       override the raw log path (default: researcher-<family>.jsonl)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
-#                            headless denies non-allowlisted commands instead of asking,
-#                            which would break autonomy)
+#                            rationale in SESSIONS.md, launcher checklist)
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 
