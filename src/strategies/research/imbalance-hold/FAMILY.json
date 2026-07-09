@@ -282,7 +282,12 @@
             "param": "minFlow",
             "values": [0.15, 0.3, 0.45, 0.6],
             "batchUid": "imbalance-hold--002-flow-trigger--p1-minFlow",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--002-flow-trigger--p1-minFlow--614ec2d1-2767-4542-9eea-dfc7c039b94e",
+              "imbalance-hold--002-flow-trigger--p1-minFlow--19fc5326-bb93-4787-8fb9-5176085306c9",
+              "imbalance-hold--002-flow-trigger--p1-minFlow--aea0d9f5-007c-4ce4-a9ec-1b82c2c3c591",
+              "imbalance-hold--002-flow-trigger--p1-minFlow--ec0fa30c-67ba-4b1c-8f24-f539afc7f551"
+            ],
             "best": null,
             "note": null
           }
@@ -291,11 +296,16 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "265",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-09T02:26:20Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
