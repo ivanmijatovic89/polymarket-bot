@@ -82,3 +82,9 @@ only, committed code only, holdout rules unchanged); protocol changes require
 motivating evidence (evolution governor). First assignment: drive the top
 IDEAS.md idea end-to-end through the system. The "no evidence backtests
 tonight" note above is obsolete.
+
+## Operator update — Phase A added (2026-07-09)
+
+Charter v2 now defines Phase A (bounded hardening & simplification: fresh-
+context adversarial reviews + paper walkthrough, max 3 sessions, complexity
+must not grow) BEFORE Phase B (perpetual research loop). Start with Phase A.

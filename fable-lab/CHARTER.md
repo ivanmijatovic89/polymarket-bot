@@ -157,12 +157,41 @@ Discipline for the long run:
   instead. While an evidence run computes in the background, that is not a
   stopping point: there is always analysis, speccing, or a lesson to write.
 
-## First assignment under this charter
+## Phase A — hardening before first use (bounded, do this first)
+
+Before the first experiment, one deliberate pass over the system you built —
+with a SIMPLIFICATION mandate, not an extension mandate. The system was
+designed in one session; review it as if you were about to bet money on it,
+because you are:
+
+1. **Adversarial review by fresh-context subagents** — each major artifact
+   (epistemology, lifecycle, session contracts, tools) attacked by a
+   verifier that did not build it. Mandate: find what is overcomplicated,
+   inconsistent, or unnecessary. Removing beats adding; a rule that cannot
+   name the failure it prevents is a candidate for deletion.
+2. **Paper walkthrough** — drive one experiment from `IDEAS.md` through the
+   ENTIRE system on paper (no replays): spec it, validate it, write the
+   hypothetical judgment path. Every friction, gap, or ambiguity you hit is
+   a real finding — fix those. This is the cheapest possible first contact
+   with reality.
+3. **Apply the fixes, keep the system SMALLER or equal in complexity** than
+   you found it. Record every change in DECISIONS.md with its motivating
+   finding (the governor applies in Phase A too — findings from the review
+   and walkthrough ARE evidence).
+
+Phase A is BOUNDED: it ends when the paper walkthrough passes cleanly, and
+in any case after at most 3 sessions — whichever comes first. Then record
+"Phase A closed" in STATE.md and move to Phase B. Re-entering Phase A later
+requires experiment evidence, like any other protocol change.
+
+## Phase B — the research loop (perpetual)
 
 Take the strongest idea in `IDEAS.md` (your ranking) and drive it through
 your own system end-to-end: spec → validate → evidence runs → judgment →
 lesson. Treat every friction you hit as evolution input — that is the
-protocol's first contact with reality, and its first real test.
+protocol's first contact with reality, and its first real test. Then the
+next idea, and the next — the loop from the top of this charter, without
+end.
 
 ## Your protocol will be driven by Claude Fable sessions
 
