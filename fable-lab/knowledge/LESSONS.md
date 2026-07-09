@@ -86,3 +86,12 @@ forbids importing the old system's research conclusions._
   fees; (b) this LOWERS the prior for IDEAS #6 (first-minute overreaction)
   but does not kill it — different clock regime, and the Judge noted the
   prediction was not contradicted, so no overreaction fuel either.
+
+- **E11 — Persistent top-of-book depth imbalance does NOT predict the
+  window outcome (`flow-momentum` dead at this signal).** EXP-004 probe
+  (run 311, N=500, 85 entered): direction with ≥0.6 UP-book imbalance
+  sustained ≥5s won 28.2% vs mean entry ask 31.9% — gross EV/share −0.037
+  BEFORE fees; the signal is marginally anti-predictive (resting depth is
+  not flow; whoever needs size posts where it will be eaten). Transfer:
+  book-shape signals must beat the ask, not chance — the ask already
+  contains the book's information.

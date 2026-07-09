@@ -62,4 +62,73 @@
   sample — the smoke's 0/10 was small-sample luck, primary cell kept as
   registered (probe of 500 → ~130 expected entries, ample killing power).
 
+- 2026-07-09 — run 311, batchUid `EXP-004-probe`, N=500, latency pinned
+  DELAY=0/JITTER=0 (D8). Decisive readout, verbatim:
+
+  ```
+  === results: run 311  batch EXP-004-probe ===
+  strategy fable-exp-004  params {"levels":10,"maxAsk":0.85,"minAsk":0.15,"minImb":0.6,"shares":100,"persistSec":5,"maxElapsedSec":840,"minElapsedSec":60}
+  status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+  N=500  played=85  skipped=415  failures=0
+  pnlTotal=-109.17  EV/market=-0.2183  CI95=[-1.316, 0.8793]
+  std=12.5226  q=-0.0174  t=-0.3899
+  winRate(played)=0.2824 (24/61)
+  fees=19.27  fee/grossWins=0.0228  maker/taker=0/85 (makerShare=0)
+  days=141  positiveDayFrac=0.1135  best=2026-04-18:112.19  worst=2026-02-15:-97.57
+  ```
+
+  Prediction check (`tools/entry-check.ts --exp EXP-004 --run 311`): entered
+  85 (17% — substantial, design-failure clause does not apply), mean entry
+  ask 0.3193, win rate 0.2824, margin −0.0369, gross EV/share −0.03694 —
+  PREDICTION CONTRADICTED.
+
+
 ## Verdicts (append-only)
+
+- 2026-07-09 — stage probe, fresh-context Judge (JUDGE.md), verbatim:
+
+  - stage: probe
+  - decision: kill
+  - read: N=500 q=-0.0174 t=-0.3899 EV/market=-0.2183 CI95=[-1.316, 0.8793]
+  - prediction check: CONTRADICTED. The spec's falsifiable prediction
+    requires realized win rate > mean entry ask (gross EV/share > 0
+    pre-fee). Measured: win rate 0.2824 vs mean entry ask 0.3193 → win rate
+    − mean ask = -0.0369, gross EV/share = -0.03694 (pre-fee). The spec
+    states explicitly that win rate <= mean ask contradicts the mechanism
+    "regardless of net PnL". The secondary design-failure clause does not
+    apply: 85/500 = 17% entered is substantial against the pre-registered
+    ~27% calibration.
+  - battery: n/a at probe (spec runs the robustness battery at Stage 2 only)
+  - simulator-bias classification: clean — taker-only FOK entries
+    (maker/taker = 0/85, makerShare=0), size clamped to visible depth at
+    bestAsk, full 156 bps taker fees paid in the highest-fee price zone; no
+    maker-fill or settlement optimism is contributing to the (negative)
+    result. The one optimistic dependency the spec flags (recorded-book
+    trust manufacturing signal) could only inflate the edge, and the edge
+    is negative anyway.
+  - lineage-adjusted bar: lineage_cells=1, so no Bonferroni adjustment; the
+    decisive bar remains one-sided p ≤ 0.023 (t ≥ 2). Not met and not
+    relevant: t = -0.39, and the probe-stage kill clause (prediction
+    contradicted) fires independently of any t bar.
+  - required next step: append this verdict to EXP-004's Verdicts section
+    and park the depth-imbalance-drift mechanism; no main-stage extension,
+    no neighborhood grid; resurrection requires a new registration with a
+    new falsifiable insight.
+  - reasoning: The spec's probe kill rule has two disjunctive triggers —
+    "q̂ ≤ 0 with t ≤ −1, or prediction contradicted" — and the second fires
+    cleanly. The mechanism's entire causal claim is that persistent
+    top-of-book depth imbalance predicts the window outcome better than the
+    entry ask already does; on 85 entries the pressured direction won
+    28.24% against a mean entry ask of 31.93%, i.e. the signal-conditioned
+    trade wins slightly *less* often than an uninformed buy at the same
+    prices would break even, with negative gross EV before a single basis
+    point of fees. This is not a fee-leak or execution-leak story that
+    "iterate" is designed for — the pre-fee edge itself is absent, so no
+    implementation change within this mechanism can recover it. The point
+    estimates (q = -0.0174, t = -0.39, EV/market = -0.2183, positive-day
+    fraction 0.11) are all on the wrong side of zero, the CI straddles zero
+    only in the way pure noise would, and the simulator setup is
+    pessimistic-side (taker-only, depth-clamped), so nothing about the sim
+    flatters the null. Where evidence is ambiguous the tie goes against
+    advancement; here it is not even ambiguous — the registered
+    falsification condition was met exactly as written. Kill.

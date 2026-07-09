@@ -31,7 +31,7 @@ Ordered; top entries get registered first.
 | 2 | UP+DOWN dutch-book scan | `sum-mispricing` | dead (EXP-002) |
 | 3 | post-jump stale ladder | `stale-quote` | dead (EXP-003) |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
-| 5 | depth-imbalance drift | `flow-momentum` | registered (EXP-004) |
+| 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | registered (EXP-005) |
 
 ## Entries
@@ -88,7 +88,7 @@ Ordered; top entries get registered first.
   `simulator-favored` unless taker-exit dominates. Expect this to need live
   paper regardless — register only when class 1-3 are exhausted.
 
-### 5. Depth-imbalance drift — `flow-momentum` — registered (EXP-004)
+### 5. Depth-imbalance drift — `flow-momentum` — dead (EXP-004)
 - **Who loses:** quoters who ignore one-sided pressure buildup; the book
   tips before the price moves.
 - **Prediction:** cumulative depth imbalance (bid vs ask, top 10 levels,
