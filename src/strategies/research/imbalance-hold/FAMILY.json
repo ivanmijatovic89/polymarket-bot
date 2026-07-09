@@ -256,6 +256,49 @@
         "stageReached": 0,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "002-flow-trigger",
+      "kind": "param-search",
+      "code": "002-flow-trigger.ts",
+      "basedOn": "000-baseline",
+      "proposedBy": "claude-code/claude-fable-5",
+      "hypothesis": "A rapid change in the depth-imbalance differential within flowWindowSec (depth being added to one leg's bids / pulled from its asks) marks informed action before it is fully priced; buying the leg the book is turning toward captures direction that the static level (measured gross -0.10/mkt at 3000) and the persistent level (measured EV-neutral longshot selection) do not.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1) AND the flow trigger binds: best cell markets played strictly below the champion's 878/1000 at the same coverage.",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "imbLevels": 1,
+          "flowWindowSec": 30,
+          "minFlow": 0.3,
+          "size": 20,
+          "startSec": 60,
+          "maxEntryPrice": 0.8,
+          "slippageTol": 0.02
+        },
+        "passes": [
+          {
+            "param": "minFlow",
+            "values": [0.15, 0.3, 0.45, 0.6],
+            "batchUid": "imbalance-hold--002-flow-trigger--p1-minFlow",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
