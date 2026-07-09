@@ -70,3 +70,6 @@ src/strategies/research/**/logs/
 
 
 .obsidian/
+
+# claude account tokens for llm-usage
+/src/llm-usage/accounts.json

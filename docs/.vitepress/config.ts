@@ -257,6 +257,7 @@ export default withMermaid(
             { text: 'Add New Bot', link: '/other/AddNewBot' },
             { text: 'Multiple Bots', link: '/other/MultipleBots' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
+            { text: 'LLM Usage', link: '/other/llm-usage' },
           ],
         },
       ],
