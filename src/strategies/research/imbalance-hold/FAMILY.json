@@ -82,7 +82,12 @@
             "param": "startSec",
             "values": [0, 60, 180, 420],
             "batchUid": "imbalance-hold--000-baseline--p4-startSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--000-baseline--p4-startSec--1f9777e1-850c-4140-b53b-9a033555075c",
+              "imbalance-hold--000-baseline--p4-startSec--17c2f4a7-777e-4a75-ae6e-396bb27c21f6",
+              "imbalance-hold--000-baseline--p4-startSec--86edbdfd-9554-477d-8167-0cd97a688a87",
+              "imbalance-hold--000-baseline--p4-startSec--4f20606b-4971-4b63-80b4-5598ff3e65a6"
+            ],
             "best": null,
             "note": null
           },
