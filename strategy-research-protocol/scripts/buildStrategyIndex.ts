@@ -39,6 +39,7 @@ function rollupRow(folder: string): GlobalIndexFamily | null {
     family: fam.family,
     status: fam.status,
     coreIdea: fam.coreIdea,
+    proposedBy: fam.proposedBy,
     duplicateKeys: fam.duplicateKeys,
     retryOnlyIf: fam.retryOnlyIf,
     verdictSummary: fam.verdictSummary,

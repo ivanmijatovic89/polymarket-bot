@@ -133,6 +133,8 @@ export const Experiment = z.object({
   code: z.string().regex(/\.ts$/, 'code must reference a .ts file'),
   /** experiment this branches from; null only for the baseline */
   basedOn: ExperimentId.nullable().default(null),
+  /** who specced the experiment, same `<harness>/<model-id>` format as family proposedBy; null only on records predating attribution */
+  proposedBy: z.string().min(1).nullable().default(null),
   /** one-sentence idea being tested — written BEFORE running, frozen once running */
   hypothesis: z.string().min(1),
   /** plain-sentence bar — written BEFORE running, frozen once running; the verdict quotes it */
@@ -175,6 +177,8 @@ export const FamilyIndex = z
     family: Slug,
     status: FamilyStatus,
     coreIdea: z.string().min(1),
+    /** who proposed the family, `<harness>/<model-id>` (MEMORY.md family-level table); null only on records predating attribution */
+    proposedBy: z.string().min(1).nullable().default(null),
     /** normalized synonyms — dedup hints for future proposals */
     duplicateKeys: z.array(z.string()).default([]),
     /** when killed: the concrete condition under which to revisit */
