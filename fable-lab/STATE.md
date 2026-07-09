@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U20._
+_Last updated: session 3, unit U22._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -100,6 +100,14 @@ _Last updated: session 3, unit U20._
   IDEAS #6 → dead; INDEX regenerated. 5 of 6 starter ideas resolved:
   EXP-001 advanced, EXP-002/003/004/005 killed, #4 spread-capture parked.
 
+- U21: IDEAS #7 expiry-tail maker capture added (evidence-motivated, parked
+  until EXP-001 confirms).
+- U22: grid run 315 (cell e600-a095) CRASHED at final persist — quality
+  column DECIMAL overflow rolled back all 2000 markets (D12, E13). Wrapper
+  now clamps qualitySystem/qualityTrade at the drizzle driver boundary
+  (verified: debug run 316 persisted). Cell relaunched on guarded committed
+  code. Main/lat predate the guard — accepted risk (D12 note).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
@@ -108,9 +116,11 @@ _Last updated: session 3, unit U20._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-001 grid cells 1-2 of 8 running (e600-a085, e600-a090; 2000 random
-  each per D11; logs `logs/EXP-001-grid-*.log`); remaining 6 cells launch
-  as slots free (keep total concurrent ≤ 6, load was 9.5/10 cores).
+- EXP-001 grid (2000 random each per D11): DONE runs 313 (e600-a085,
+  EV=+0.98 t=1.84) and 314 (e600-a090, EV=-0.83 t=-1.53 — note the sign
+  flip vs probe primary; smoothness judged at main verdict). RUNNING:
+  e720-a085, e720-a095, e840-a085, e600-a095 (retry, guarded). TO LAUNCH:
+  e840-a090, e840-a095 (as slots free).
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. EXP-005 probe next in queue. When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
