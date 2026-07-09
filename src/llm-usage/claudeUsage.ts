@@ -19,7 +19,7 @@ import { createHash } from 'node:crypto'
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { AccountUsage, RateLimitWindow } from './types.js'
+import type { AccountUsage, RateLimitWindow } from './types'
 
 const USAGE_URL = 'https://api.anthropic.com/api/oauth/usage'
 const TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token'

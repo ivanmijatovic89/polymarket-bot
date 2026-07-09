@@ -6,7 +6,7 @@
  * Providers: claudeUsage.ts, codexUsage.ts (accounts config: src/llm-usage/accounts.json).
  */
 
-import { getUsage } from './usage.js'
+import { getUsage } from './usage'
 
 function fmtReset(iso: string): string {
   const resets = new Date(iso)

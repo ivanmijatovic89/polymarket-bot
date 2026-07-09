@@ -13,7 +13,7 @@
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
-import type { AccountUsage, RateLimitWindow } from './types.js'
+import type { AccountUsage, RateLimitWindow } from './types'
 
 const USAGE_URL = 'https://chatgpt.com/backend-api/wham/usage'
 const TOKEN_URL = 'https://auth.openai.com/oauth/token'

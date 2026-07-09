@@ -6,6 +6,7 @@
   "type": "module",
   "workspaces": [
     "src/backtest/stats",
+    "src/llm-usage",
     "dashboard"
   ],
   "engines": {

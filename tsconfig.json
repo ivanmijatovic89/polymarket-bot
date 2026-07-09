@@ -41,5 +41,9 @@
     "moduleDetection": "force",
     "skipLibCheck": true
   },
-  "include": ["src/**/*.ts", "src/**/*.tsx"]
+  "include": ["src/**/*.ts", "src/**/*.tsx"],
+  // llm-usage is a workspace package consumed by the dashboard (Turbopack),
+  // so it uses bundler-style extensionless imports — typechecked by its own
+  // tsconfig and by the dashboard, not by this nodenext config.
+  "exclude": ["src/llm-usage"]
 }

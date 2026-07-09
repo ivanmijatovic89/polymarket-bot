@@ -13,6 +13,9 @@ window is used, for every configured account, in one run. It supports
 npm run llm-usage   # from the repo root
 ```
 
+The same data is available as a dashboard page: **More → LLM Usage**
+(auto-refreshes every 60 s while open).
+
 ```
 ── Minjon ────────────────────────────
   5h window               2% used   resets 05:50 (in 4h 45m)
@@ -128,11 +131,13 @@ Then add `"My label": "codex:~/.codex-<name>"` to `accounts.json`.
 
 | File | Role |
 | --- | --- |
-| `src/llm-usage/usage.ts` | Entry point — loads `accounts.json`, dispatches to providers. Import `getUsage()` from here (e.g. a future dashboard widget). |
+| `src/llm-usage/usage.ts` | Entry point — loads `accounts.json`, dispatches to providers. Exported as the `@polymarket-bot/llm-usage` workspace package. |
 | `src/llm-usage/claudeUsage.ts` | Anthropic provider — Keychain/config-dir token lookup, refresh, usage endpoint. |
 | `src/llm-usage/codexUsage.ts` | OpenAI provider — Codex CLI login, refresh, usage endpoint. |
 | `src/llm-usage/types.ts` | Shared `AccountUsage` / `RateLimitWindow` shapes. |
 | `src/llm-usage/cli.ts` | Terminal formatting only. |
+| `dashboard/src/app/api/llm-usage/route.ts` | Dashboard API route — calls `getUsage()` server-side; tokens never reach the browser. |
+| `dashboard/src/app/llm-usage/page.tsx` + `dashboard/src/components/LlmUsageView.tsx` | The dashboard page (More → LLM Usage). |
 
 ## Troubleshooting
 
@@ -147,11 +152,17 @@ Then add `"My label": "codex:~/.codex-<name>"` to `accounts.json`.
 ## Uninstall
 
 ::: danger Complete removal
-The tool touches four places; delete all of them:
+Delete all of these:
 
 1. the `src/llm-usage/` folder,
-2. the `llm-usage` script in the root `package.json`,
-3. the `/src/llm-usage/accounts.json` line in the root `.gitignore`,
-4. any `~/.claude-<name>` / `~/.codex-<name>` login folders created for it
+2. in the root `package.json`: the `llm-usage` script and the
+   `src/llm-usage` workspaces entry,
+3. the `/src/llm-usage/accounts.json` line in the root `.gitignore` and the
+   `src/llm-usage` exclude in the root `tsconfig.json`,
+4. in the dashboard: `src/app/llm-usage/`, `src/app/api/llm-usage/`,
+   `src/components/LlmUsageView.tsx`, the nav entry in
+   `src/components/MainNav.tsx`, the `@polymarket-bot/llm-usage` dependency,
+   and its `transpilePackages` entry in `next.config.ts`,
+5. any `~/.claude-<name>` / `~/.codex-<name>` login folders created for it
    (these live in your home directory, outside the repo).
 :::

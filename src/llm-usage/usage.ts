@@ -17,11 +17,11 @@
 import { existsSync, readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
-import { claudeAccountUsage } from './claudeUsage.js'
-import { codexAccountUsage } from './codexUsage.js'
-import type { AccountUsage } from './types.js'
+import { claudeAccountUsage } from './claudeUsage'
+import { codexAccountUsage } from './codexUsage'
+import type { AccountUsage } from './types'
 
-export type { AccountUsage, RateLimitWindow } from './types.js'
+export type { AccountUsage, RateLimitWindow } from './types'
 
 export function defaultAccountsPath(): string {
   return path.resolve(path.dirname(fileURLToPath(import.meta.url)), 'accounts.json')
