@@ -72,3 +72,13 @@ Scientist session's job.
   up/down only, telonex-delta replay defaults, no evidence backtests tonight.
 - Branch: `fable-protocol`. Write only inside `fable-lab/`. Commit + push
   after every unit.
+
+## Operator update — charter v2 (2026-07-09)
+
+The build-phase charter is superseded: CHARTER.md is now v2 (perpetual).
+Key changes: mission is perpetual (never create DONE — it is the operator's
+kill-switch now); local sequential evidence backtests are ALLOWED (background
+only, committed code only, holdout rules unchanged); protocol changes require
+motivating evidence (evolution governor). First assignment: drive the top
+IDEAS.md idea end-to-end through the system. The "no evidence backtests
+tonight" note above is obsolete.
