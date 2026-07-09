@@ -288,6 +288,14 @@
               "imbalance-hold--002-flow-trigger--p1-minFlow--aea0d9f5-007c-4ce4-a9ec-1b82c2c3c591",
               "imbalance-hold--002-flow-trigger--p1-minFlow--ec0fa30c-67ba-4b1c-8f24-f539afc7f551"
             ],
+            "best": 0.3,
+            "note": "Flat-negative and does NOT bind: 0.15 → -0.38 (run 288, 878/1000 played, 48.18% win), 0.3 → -0.43 (run 285, 882/1000), 0.45 → -0.46 (run 286, 876/1000), 0.6 → -0.47 (run 287, 874/1000, 47.71% win). Participation ≈ baseline's 878 at every threshold — the level-1 differential swings past 0.6 within 30s in virtually every market, so the touch-level derivative is flicker, not flow; entering on it wins 48% (worse than the level signal). best=0.3 (default) is moot; appending an imbLevels pass — the derivative is only a measurement at an aperture stable enough that a swing means real order flow."
+          },
+          {
+            "param": "imbLevels",
+            "values": [3, 5, 10],
+            "batchUid": "imbalance-hold--002-flow-trigger--p2-imbLevels",
+            "submissionUids": [],
             "best": null,
             "note": null
           }
