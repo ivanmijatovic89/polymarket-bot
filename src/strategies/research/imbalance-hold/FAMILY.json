@@ -75,8 +75,8 @@
               "imbalance-hold--000-baseline--p3-maxEntryPrice--2aa097a2-a206-458e-bba9-8a817b72b1bc",
               "imbalance-hold--000-baseline--p3-maxEntryPrice--74abe95b-2020-4513-9866-70085c6fa7d9"
             ],
-            "best": null,
-            "note": null
+            "best": 0.8,
+            "note": "Plateau at 0.7-0.9: 0.7 → +0.58 (run 261, last500 +0.40), 0.8 → +0.51 (run 262, last500 +0.46), 0.9 → +0.54 (run 263, last500 +0.47); 0.6 collapses to +0.21 (run 264, last500 -0.13, 46.01% win). Participation identical (878/1000 everywhere) — the cap shifts entry timing, not selection. 0.8 picked as plateau center with most balanced halves; 0.7/0.9 within noise."
           },
           {
             "param": "startSec",
