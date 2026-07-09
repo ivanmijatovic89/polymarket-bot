@@ -54,6 +54,48 @@ wins into occasional large residual losses. Treat high win rate on flattening
 sells as a payoff-shape warning, not as edge, unless market-level net EV improves.
 From: maker-favorite.
 
+### an-isolated-entry-timing-spike-is-a-regime-artifact-not-a-signal — 2026-07-09
+
+A stage-1 screen can be carried entirely by WHEN the strategy enters rather
+than by its stated signal, and the tell is visible before spending a stage-2
+extension: sweep the entry-time knob and read the response shape. In
+`imbalance-hold` `000-baseline`, the signal threshold barely bound
+(879→858/1000 markets played across the whole `minImbalance` 0.1→0.4 sweep),
+so the strategy degenerated to "at T seconds, taker-buy the bid-supported
+leg" — and the `startSec` response was an isolated spike, not a plateau:
+0 → -0.63, 30 → +0.52, 45 → -0.11, 60 → +0.51 (the screen's best cell,
+55.24% win on 878 markets), 90 → +0.17, 120 → -0.13, 180 → -0.17,
+420 → -0.65. The stage-2 extension of the +0.51 cell to 3000 markets
+collapsed to -0.22 net and -0.10 GROSS, with every pre-June week negative
+(W20-W23: -0.41/-0.65/-0.10/-0.29) and the whole stage-1 edge confined to
+one week (W24 +0.33). Two transferable checks: (a) a barely-binding signal
+threshold (participation flat across its sweep) means the experiment is no
+longer testing its stated driver — whatever EV appears belongs to timing and
+regime; (b) an entry-time response that oscillates between adjacent values
+under refinement (+0.52 / -0.11 / +0.51 fifteen seconds apart) is
+sampling-window noise, and extend-to-confirm will erase it. Treat
+time-stability of the entry trigger as a mandatory screen check alongside
+parameter-plateau stability.
+From: imbalance-hold.
+
+### the-newest-market-files-can-be-recorder-dead-tail — 2026-07-09
+
+The ~39 newest markets in the BTC 15m telonex dataset (everything after
+`btc-updown-15m-1781394300`, June 13-14 2026) contain only pre-window book
+snapshots — recording stopped before their episode windows — so no strategy
+ever receives an in-window tick there: they replay as
+`no_in_window_activity`, add 0 to PnL and +39 to every latest-N denominator
+(pure EV dilution, identical for all families, never a sign flip). Two
+practical consequences: (a) a smoke test using `--latest --limit 10` lands
+ENTIRELY on dead markets and reports 0 trades, which looks exactly like
+broken strategy code — smoke on a window known to have activity (e.g.
+`--to-ms 1781394300000`) before debugging the strategy; (b) eligibility
+checks (`telonexEligibility.ts`) gate on conversion status and resolution,
+not on in-window event presence, so dead-tail markets are "eligible" and
+will silently ride along in any latest-N selection until newer data is
+recorded.
+From: imbalance-hold.
+
 ### a-binding-filter-that-peaks-at-its-loosest-setting-is-not-the-driver — 2026-07-05
 
 A new gate genuinely removing markets is necessary but not sufficient evidence

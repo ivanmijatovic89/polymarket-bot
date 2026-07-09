@@ -19,9 +19,14 @@
       "retryOnlyIf": null,
       "verdictSummary": null,
       "path": "imbalance-hold/FAMILY.md",
-      "champion": null,
-      "championMetrics": null,
-      "championStageReached": null,
+      "champion": "000-baseline",
+      "championMetrics": {
+        "netEvPerMarket": -0.22,
+        "grossEvPerMarket": -0.1,
+        "markets": 3000,
+        "trades": 3307
+      },
+      "championStageReached": 1,
       "tags": [
         "orderbook",
         "imbalance",

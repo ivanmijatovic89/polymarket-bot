@@ -209,3 +209,59 @@ liquidity-imbalance-follow, imbalance-taker-hold.
   is exactly what this family changes.
 
 ## Research log
+
+### 000-baseline — 2026-07-09
+
+**What ran.** Full coordinate search (6 passes, 22 cells) plus a `startSec`
+refine grid at latest-1000 coverage, then a stage-2 extension of the winning
+run 265 to 3000 markets. Winners per pass (all numbers quoted from
+FAMILY.json): `minImbalance 0.1` (+0.48, run 256 — threshold barely binds:
+879→858 played across 0.1→0.4), `imbLevels 1` (+0.51, run 260 — plateau at
+1-3, collapse at 5/10: +0.05/-0.07; the signal lives at the touch),
+`maxEntryPrice 0.8` (plateau 0.7-0.9: +0.58/+0.51/+0.54; 0.6 collapses to
++0.21 at 46.01% win), `startSec 60` (+0.51 — ISOLATED SPIKE: 0 → -0.63,
+180 → -0.17, 420 → -0.65 at 31.58% win), `size 20` (flat per-share
+~2.55¢/share up to 40 — exposure knob), `slippageTol 0.02` (flat ±0.05).
+The refine grid around the spike measured oscillation, not a pocket:
+30 → +0.52, 45 → -0.11, 60 → +0.51, 90 → +0.17, 120 → -0.13.
+
+**Gate 1 (go).** Best cell +0.51 net/mkt at 1000 (run 265; 878/1000 played,
+1023 taker trades, 55.24% win, fees $110.3, gross ≈ +0.62) — criterion met;
+advisories recorded: oscillating timing response, 11-day single window,
+barely-binding threshold (entry ≈ "first tick after 60s on the
+bid-supported leg").
+
+**Gate 2 (recycle).** Extension to 3000 markets: -0.22 net/mkt, gross
+≈ -0.10/mkt (2861/3000 played, 3307 trades, 51% win, fees $358.0). Weekly:
+W20 -0.41, W21 -0.65, W22 -0.10, W23 -0.29, W24 +0.33 — every pre-June week
+negative; the entire stage-1 edge was one strong week (W24, 54.09% win).
+
+**Interpretation.** With the threshold barely binding, this baseline
+degenerates to a fixed-time taker buy of the currently bid-supported leg.
+The instantaneous top-of-book differential read at one moment carries no
+persistent directional information: the stage-1 result was a
+regime/week effect, not signal, and the oscillating startSec response was
+the tell before the extension confirmed it. Critically, gross EV at 3000 is
+negative — the family thesis ("the measured gross edge was there, fees ate
+it; halve the fees") does NOT hold for this simple differential: at these
+params there is no gross edge to protect. The 420s cell's 31.58% win rate
+is an independent observation: late-window bid-support anti-predicts the
+winner under a 0.8 price cap (adverse selection — the supported leg still
+priced ≤ 0.8 late is the one the market is fading), which kills roadmap #5
+as stated and suggests a reverse-signal variant instead.
+
+**Decision.** Verdict `success` (successCriteria quoted verbatim in the
+outcome was met at stage 1), `stageReached: 1`, champion pointer set to
+000-baseline (first gate-passing experiment; anchor for challengers).
+Family continues — next experiment from the roadmap is the persistence
+filter (#1): require the differential to hold continuously for K seconds,
+directly attacking the measured failure mode (instantaneous read = noise).
+It must bind (participation must drop vs this baseline) per LESSONS.md.
+
+Lesson: A screen whose best cell sits on an isolated entry-timing spike —
+neighbors negative, response oscillating under refinement — is measuring a
+week/regime artifact, not a signal; extend-to-confirm will erase it.
+Time-stability of the entry trigger is as mandatory a screen check as
+parameter-plateau stability, and a barely-binding signal threshold
+(participation flat across the sweep) is the earliest warning that the
+"signal" has degenerated into a timing bet.
