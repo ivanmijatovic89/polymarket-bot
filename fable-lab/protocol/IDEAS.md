@@ -32,7 +32,7 @@ Ordered; top entries get registered first.
 | 3 | post-jump stale ladder | `stale-quote` | dead (EXP-003) |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | registered (EXP-004) |
-| 6 | first-minute overreaction | `time-structure` | open |
+| 6 | first-minute overreaction | `time-structure` | registered (EXP-005) |
 
 ## Entries
 
@@ -99,7 +99,7 @@ Ordered; top entries get registered first.
   the decisive test is still a strategy run. Probe = simple threshold-entry
   taker.
 
-### 6. First-minute overreaction — `time-structure` — open
+### 6. First-minute overreaction — `time-structure` — registered (EXP-005)
 - **Who loses:** traders who anchor the opening quotes before the book has
   found the window's true baseline; recording starts at the first book
   snapshot, so "open" here = first recorded state (CAPABILITIES §2 late-start
