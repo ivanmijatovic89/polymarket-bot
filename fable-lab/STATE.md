@@ -11,11 +11,21 @@ _Last updated: session 1, unit U1 (synthesis done, verification pending)._
   `runSingleMarket.ts:145` uses `intentExecutionMode: 'immediate'`
   (old ENGINE.md "queued" claim outdated).
 
+- U2: adversarial fresh-context verification of CAPABILITIES.md — all
+  load-bearing claims CONFIRMED; 3 citation errors fixed; 5 nuances folded
+  in (batch ≤15 live-only; maker fills emit no status events; mid-episode
+  merge is a PnL leak; maxLossStop allows exits; BACKTEST_ALLOW_DIRTY escape
+  hatch + commit-SHA framing for fleet).
+- U3 (partial): DECISIONS D1-D6; protocol/EPISTEMOLOGY.md; LIFECYCLE.md;
+  README.md (map); IDEAS.md (6 mechanism classes, 6 seeded ideas);
+  templates/EXPERIMENT.md; knowledge/LESSONS.md (engine lessons E1-E5).
+
 ## In progress
-- U2: fresh-context verification of CAPABILITIES.md against source.
+- U3/U4 wrap-up: registry skeleton (INDEX.md), memory/resume checks.
 
 ## Next
-- U3: protocol design core (epistemology, experiment lifecycle).
+- U5: tools (universe, results, preregister/validate, submit, index-registry).
+- U6: sessions/SCIENTIST.md + JUDGE.md. U7: RUNBOOK.md. U8: final review.
 
 ## Notes for a fresh session
 - Read `CHARTER.md` first; it is binding. Operator-fixed scope: BTC 15m

@@ -31,7 +31,7 @@ BTC 15m up/down markets, `--input-mode telonex-delta --converter delta-typed
 - **In telonex-delta replay the ONLY event types are `book` and
   `price_change`** — no `last_trade_price`, no `tick_size_change`
   (`src/parquet/io/eventSchema.ts:53-70`,
-  `src/parquet/replay/replayTelonexDeltaParquetForMarket.ts:91-147`). Last
+  `src/parquet/replay/replayTelonexDeltaParquetForMarket.ts:97-145`). Last
   trade is never in the tick snapshot even in recorded mode
   (`OrderBookEngine.ts:26, 50-70, 138-158`).
 - `price_change` size is the new aggregate at a level; `<= 0` deletes
@@ -39,7 +39,7 @@ BTC 15m up/down markets, `--input-mode telonex-delta --converter delta-typed
 - No book integrity enforcement at runtime: hashes stored/blanked but unused;
   validation mode off by default (`docs/engine/orderbook-engine.md:39`,
   `MarketOrderBookEngine.ts:29`, delta-typed blanks hashes:
-  `replayTelonexDeltaParquetForMarket.ts:109, 131-134`).
+  `replayTelonexDeltaParquetForMarket.ts:108, 132-134`).
 
 ### Feature inputs available to a BTC-15m backtest strategy
 1. Both books, full depth, per tick (above).
@@ -91,11 +91,15 @@ BTC 15m up/down markets, `--input-mode telonex-delta --converter delta-typed
   `onAccountEvent(ev, portfolio, lastMarket?, ctx?)`, both → `Intent[]`
   (`src/strategy/Strategy.ts:418-465`). No episode lifecycle hooks; detect
   market change by comparing `tick.snapshot.market`.
-- Intents (6): `place_limit`, `place_batch` (≤15 orders), `cancel_order`,
+- Intents (6): `place_limit`, `place_batch`, `cancel_order`,
   `cancel_all`, `split_positions`, `merge_positions`
   (`Strategy.ts:113-119`). Order types `FOK | GTC | GTD`; GTD `expireAtMs`
   ≥ now + 60s (`src/trading/OrderManager.ts:496-501`). No modify/replace, no
   IOC/FAK, no redeem intent.
+- **Batch size ≤15 is live-only, NOT engine-enforced**: the limit exists only
+  as a comment (`Strategy.ts:93`); OrderManager checks only for empty batches
+  and risk limits validate per order. A 30-order batch passes in backtest and
+  fails live — strategies must self-enforce ≤15 (live/backtest asymmetry).
 - Registration: `export const definition = { id, schema (Zod), create }`;
   auto-discovered under `src/strategies/**`
   (`src/strategy/strategyRegistry.ts:23-50, 68`); duplicate id throws
@@ -136,7 +140,7 @@ BTC 15m up/down markets, `--input-mode telonex-delta --converter delta-typed
 - No market impact: own orders never consume or appear in the replayed book.
   No self-trade modeling. No partial maker fills. No queue position.
 - Latency: `BACKTEST_LATENCY_DELAY` (default 0) + `BACKTEST_LATENCY_JITTER`
-  (default 20 but inert when delay=0, `runSingleMarket.ts:132`);
+  (default 20 but inert when delay=0, `runSingleMarket.ts:131`);
   `executeAtMs = max(now, now + delay ± jitter)`; jitter uses
   `Math.random()` — the ONLY engine nondeterminism
   (`BacktestExecution.ts:200-203`). Applies to place/cancel, NOT split/merge.
@@ -152,12 +156,24 @@ BTC 15m up/down markets, `--input-mode telonex-delta --converter delta-typed
   (`src/backtest/stats/marketStats.ts:105, 141-169`). No redeem lifecycle,
   timing, or cost. Unresolved markets are skipped entirely (`marketStats:
   null` + skip reason, `runSingleMarket.ts:305-326`).
-- Trade status: simulator emits MATCHED then jumps to CONFIRMED on full fill;
-  **MINED is never emitted** (`BacktestExecution.ts:333, 384, 472, 525`).
-  Gates must use `>= MINED` (rank ≥2), never `=== MINED`.
+- Trade status: **MINED is never emitted** (`BacktestExecution.ts:333, 384,
+  472, 525`); the MATCHED→CONFIRMED progression exists only on the
+  *placement* path (immediate taker/FOK fills). **Resting maker fills emit
+  only `fill` + `order_done` — no `ws_order_update` status at all**
+  (`BacktestExecution.ts:689-700`). Strategies must gate on `fill` events,
+  not on order status; status gates silently miss maker fills in backtest.
 - Risk limits are hardcoded and ACTIVE in backtest: maxOpenOrders 20,
   maxOrderSize 2000, maxAbsPosition 2000, maxLossStop 500
   (`src/trading/riskLimits.ts:24-29`) — silent `order_rejected` if exceeded.
+  `maxLossStop` blocks only NEW placements; cancels, splits, merges, and
+  exits still pass (`riskLimits.ts:84-86, 158-176`).
+- **Mid-episode `merge_positions` is a PnL leak in backtest accounting**:
+  merge reduces both legs with no realized credit
+  (`src/trading/Portfolio.ts:366-394`), and settlement values
+  `mergableShares` from FINAL positions only (`marketStats.ts:105`). The $1
+  per merged pair is credited nowhere — holding pairs to episode end is
+  strictly better in measured PnL. Strategies should not emit
+  `merge_positions` in backtests expecting merge proceeds.
 - Account-event cascade cap 100/drain; overflow is DROPPED with a warning
   (`StrategyRunner.ts:401-411`).
 - Determinism: with delay=0 (default) a run is deterministic; same input →
@@ -228,12 +244,13 @@ mechanics (e.g. large maker fills in thin books) is suspect by construction.
 - Submission: default = BullMQ fleet (producer enqueues per-market jobs;
   aggregate worker persists). `--sequential` = in-process (smoke/debug only).
   Param sweeps via `src/backtest/generate-jobs.ts` (Cartesian grid).
-- **Workers run committed `origin/main` code only**; dirty tree blocks
-  enqueue; per-market rows record `commit_sha`
-  (`docs/backtest/extending-a-run.md:16-21`,
-  `docs/backtest/parallelization.md:144-148`). ⇒ Research strategies must be
-  committed and pushed to main before fleet runs; the `fable-protocol`
-  branch cannot drive the fleet.
+- **Workers run committed code only**: jobs gate on the *producer's commit
+  SHA*; a dirty tree blocks enqueue (escape hatch `BACKTEST_ALLOW_DIRTY=1` —
+  never use it for evidence runs); per-market rows record `commit_sha`
+  (`docs/backtest/extending-a-run.md:16-21`). The fleet's checkouts track
+  `origin/main` (fleet-sync tooling, `tools/syncWorkerFleet.md`), so in
+  practice research strategies must be committed and pushed to main before
+  fleet runs; the `fable-protocol` branch cannot drive the fleet.
 - Speed anchor (from ENGINE.md, not re-verified tonight):
   ~1.5s/market/worker-slot.
 

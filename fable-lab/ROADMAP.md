@@ -6,7 +6,7 @@ Ordered work units. Check off as completed. See STATE.md for live status.
 - [x] **U1 — Engine study (Phase 0, mandatory)**: deep read of engine docs + source;
       write `engine/CAPABILITIES.md` with file citations for every claim,
       including what the engine does NOT support.
-- [ ] **U2 — Engine study verification**: fresh-context subagent audits
+- [x] **U2 — Engine study verification**: fresh-context subagent audits
       CAPABILITIES.md claims against source; fix discrepancies.
 - [ ] **U3 — Protocol design core**: epistemology + experiment lifecycle.
       How ideas are generated/deduplicated/prioritized; pre-registration of
