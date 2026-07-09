@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Mechanical write-scope guard for the fable night shift.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" != "fable-protocol" ]; then
+  echo "[guard] commits allowed only on fable-protocol (on: $branch)" >&2
+  exit 1
+fi
+bad="$(git diff --cached --name-only | grep -vE '^fable-lab/' || true)"
+if [ -n "$bad" ]; then
+  echo "[guard] BLOCKED — staged files outside fable-lab/:" >&2
+  echo "$bad" >&2
+  echo "[guard] unstage them; the night shift may write only inside fable-lab/." >&2
+  exit 1
+fi
+exit 0
