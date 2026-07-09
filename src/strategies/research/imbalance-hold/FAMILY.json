@@ -334,6 +334,12 @@
           "decision": "go",
           "at": "2026-07-09T05:21:20Z",
           "note": "Best cell netEv +0.49/mkt at 1000 mkts (run 290: imbLevels=10, flowWindowSec=30, minFlow=0.3, size=20, startSec=60, maxEntryPrice=0.8, slippageTol=0.02; 857/1000 played, 1056 taker trades, 52.98% win, fees $107.8, gross ≈ +0.60/mkt) — gate 1 criterion netEvPerMarket > 0 met; binding condition of successCriteria met literally (857 < 878). Advisory (non-blocking, severe): the cell is an isolated peak in BOTH search dimensions — all 5 measured neighbors negative (imbLevels 3/5: -0.28/-0.36; window 10/60/120: -0.12/-0.23/-0.03) — matching the promoted isolated-spike lesson; expectation is confirm failure. Extending run 290 to 3000."
+        },
+        {
+          "stage": 2,
+          "decision": "go",
+          "at": "2026-07-09T05:30:49Z",
+          "note": "netEv +0.27/mkt at 3000 mkts (run 290 extended: 2788/3000 played, 3353 trades, 51.04% win, fees $348.8, gross ≈ +0.39/mkt) — gate 2 criterion netEvPerMarket > 0 met. Distribution healthy, unlike 000's confirm: 4/5 weeks positive (W20 +0.56, W21 -0.27, W22 +0.36, W23 +0.31, W24 +0.55), both months positive (May +0.15, June +0.42). The stage-1 isolated-peak advisory is partially discharged by 3x data; caveat remains that the cell's parameter neighbors were only measured at 1000. Extending run 290 to ~9000 (stage 3, full history)."
         }
       ],
       "submittedAt": "2026-07-09T02:26:20Z",
