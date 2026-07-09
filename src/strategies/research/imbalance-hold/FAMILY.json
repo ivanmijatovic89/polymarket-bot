@@ -116,7 +116,18 @@
             "note": "Flat — param doesn't matter: 0.01 → +0.46 (run 274, 856/1000 played), 0.02 → +0.51 (run 272, 878/1000), 0.04 → +0.47 (run 273, 890/1000). Tolerance trades a few FOK kills for a few worse fills; EV within noise. Kept 0.02."
           }
         ],
-        "refine": null
+        "refine": {
+          "params": { "startSec": [30, 45, 90, 120] },
+          "batchUid": "imbalance-hold--000-baseline--refine",
+          "submissionUids": [
+            "imbalance-hold--000-baseline--refine--1724d657-9400-467f-ac95-b8325b456f57",
+            "imbalance-hold--000-baseline--refine--ddfa0341-b288-4dcb-aa2f-3ea0eeed82e2",
+            "imbalance-hold--000-baseline--refine--0936bbf6-56cb-4c4a-ae9a-8939cff98aed",
+            "imbalance-hold--000-baseline--refine--327ca971-961a-4dcc-a5a7-e51df8b71a92"
+          ],
+          "best": null,
+          "note": null
+        }
       },
       "batchUid": null,
       "submissionUids": [],
