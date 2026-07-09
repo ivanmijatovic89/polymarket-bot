@@ -125,8 +125,8 @@
             "imbalance-hold--000-baseline--refine--0936bbf6-56cb-4c4a-ae9a-8939cff98aed",
             "imbalance-hold--000-baseline--refine--327ca971-961a-4dcc-a5a7-e51df8b71a92"
           ],
-          "best": null,
-          "note": null
+          "best": { "startSec": 60 },
+          "note": "Oscillating, not a pocket: 30 → +0.52 (run 278, 55.25% win), 45 → -0.11 (run 275, 51.03%), 60 → +0.51 (run 265, 55.24%), 90 → +0.17 (run 276, 52.05%), 120 → -0.13 (run 277, 49.1%). Adjacent swings each ~1.8σ — consistent with a noisy hill over 30-90s (neighborhood mean ≈ +0.27), not a stable +0.5 plateau. Kept startSec=60 (30 is +0.01 within noise; all judged passes used 60). Advisory: best-cell +0.51 likely overstates out-of-sample edge."
         }
       },
       "batchUid": null,
@@ -139,7 +139,14 @@
         "toMs": null
       },
       "status": "running",
-      "gateLog": [],
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "go",
+          "at": "2026-07-09T02:01:08Z",
+          "note": "Best cell netEv +0.51/mkt at 1000 mkts (run 265: imbLevels=1, minImbalance=0.1, size=20, startSec=60, maxEntryPrice=0.8, slippageTol=0.02; 878/1000 played, 1023 taker trades, 55.24% win, fees $110.3, gross ≈ +0.62/mkt) — gate 1 criterion netEvPerMarket > 0 met. Advisories (non-blocking): startSec response oscillates (45s → -0.11 while 30/60 → +0.5); coverage is a single 11-day June 2026 window; minImbalance barely binds so the entry is effectively 'first tick after 60s'. Extending run 265 to 3000 markets."
+        }
+      ],
       "submittedAt": "2026-07-09T00:48:19Z",
       "decidedAt": null,
       "abortReason": null,
