@@ -33,6 +33,7 @@ Ordered; top entries get registered first.
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | dead (EXP-005) |
+| 7 | expiry-tail maker capture | `spread-capture` | parked (until EXP-001 confirms) |
 
 ## Entries
 
@@ -107,3 +108,25 @@ Ordered; top entries get registered first.
 - **Prediction:** fading large deviations of implied probability from 0.5 in
   the first minute reverts more often than it continues, net of fees.
 - **Cheapest kill:** probe with a fade-entry, fixed-exit taker.
+
+### 7. Expiry-tail maker capture — `spread-capture` — parked (until EXP-001 confirms)
+- **Motivating evidence:** E12's synthesis — the only measured inefficiency
+  is the expiry-tail certainty discount (EXP-001 probe: win rate 0.9697 vs
+  mean ask 0.9343). EXP-001 pays the spread to reach the friction sellers;
+  a maker posted at the bid collects the discount PLUS the spread, and
+  serves the same structural counterparty (redeem-friction sellers who
+  cross the spread to exit).
+- **Who loses:** the same near-certain-side holders as EXP-001, selling out
+  in the final minutes to avoid redeem friction; they hit resting bids.
+- **Prediction:** a GTC bid posted at/inside the best bid on the ≥0.9 side
+  in the final minutes fills in a substantial fraction of markets, and
+  filled markets win more often than the fill price implies — by MORE than
+  EXP-001's taker margin (the spread is added to the discount).
+- **Cheapest kill:** probe with a passive-bid strategy; the worst-queue
+  maker model (fills only when the book trades THROUGH the level) is the
+  pessimistic fill assumption, so a positive result is meaningful, but
+  full-size-fill optimism means size must stay small. Classification will
+  be `simulator-favored` on the fill-rate axis regardless — needs live
+  paper before belief. Hence parked until EXP-001 (same counterparty,
+  taker version) confirms on holdout; if EXP-001 dies at main/holdout,
+  this dies with it unexamined.
