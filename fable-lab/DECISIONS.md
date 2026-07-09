@@ -240,3 +240,23 @@ from the full-window main run; lat runs stay full-window because they are
 paired with main by construction. Rejected alternative: oldest-first
 `--limit` truncation (time-biased subset — December-only markets would
 confound smoothness with regime).
+
+## D12 — Wrapper clamps quality columns at the drizzle driver boundary
+
+**Motivating observation:** grid run 315 (EXP-001 cell entryAfterSec=600,
+minAsk=0.95) crashed at final persist: a daily segment with near-identical
+played pnls produced qualitySystem ≈ avg/std > 1e8, overflowing
+DECIMAL(14,6) (`Out of range value for column 'quality_system' at row 60`).
+The persist is ONE transaction — all 2000 markets were rolled back (~50 min
+of replay lost). `computeQuality` guards only std === 0 exactly.
+
+**Decision:** `tools/run-backtest.ts` overrides `mapToDriverValue` on
+`backtestRunSegments.qualitySystem/qualityTrade`, clamping |q| to 1e6 and
+mapping non-finite values to NULL. |q|=1e6 and |q|=1e9 carry identical
+decision information ("degenerate, near-zero variance"); no protocol
+statistic distinguishes them. Rejected alternatives: patching the engine
+(off-limits — write only inside fable-lab/), ALTERing the shared DB schema
+(diverges from drizzle migrations, affects the other research system).
+Residual risk: the already-running main/lat runs predate the guard; their
+~95 played markets/day make a degenerate day unlikely (probe's 136 days
+were all fine), accepted rather than burning 2h of completed replay.

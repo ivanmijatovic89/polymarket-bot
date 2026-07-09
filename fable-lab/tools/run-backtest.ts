@@ -76,6 +76,33 @@ for (const file of files) {
 }
 console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
 
+// Quality-column overflow guard (DECISIONS D12, LESSONS E13): a daily
+// segment whose played markets have near-identical pnl produces
+// q = avg/std ~ 1e9+, which overflows DECIMAL(14,6) and rolls back the
+// ENTIRE final persist transaction (run 315 lost 2000 markets this way).
+// computeQuality only guards std === 0 exactly. The engine is off-limits,
+// but drizzle column objects are mutable — clamp at the driver boundary.
+// A |q| of 1e6 carries the same decision information as 1e9 (both mean
+// "degenerate, near-zero variance"); no protocol statistic distinguishes
+// them.
+{
+  const { backtestRunSegments } = await import('../../src/db/schema.js')
+  const Q_LIMIT = 1_000_000
+  const clampColumn = (col: unknown) => {
+    const c = col as { mapToDriverValue: (v: unknown) => unknown }
+    const orig = c.mapToDriverValue.bind(c)
+    c.mapToDriverValue = (v: unknown) => {
+      if (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) > Q_LIMIT) {
+        return orig(Math.sign(v) * Q_LIMIT)
+      }
+      if (typeof v === 'number' && !Number.isFinite(v)) return orig(null)
+      return orig(v)
+    }
+  }
+  clampColumn(backtestRunSegments.qualitySystem)
+  clampColumn(backtestRunSegments.qualityTrade)
+}
+
 // Hand off to the standard CLI with our wrapper path removed from argv, so
 // parseBacktestArgs sees exactly what `npm run backtest --` would.
 process.argv = [process.argv[0], join(HERE, '..', '..', 'src', 'cli', 'backtest.ts'), ...process.argv.slice(2)]

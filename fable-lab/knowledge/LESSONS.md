@@ -107,3 +107,13 @@ forbids importing the old system's research conclusions._
   the expiry-tail certainty discount (EXP-001, structural redeem-friction
   sellers). Idea generation should target structural counterparties
   (forced/friction flows), not price-pattern signals.
+
+- **E13 — The final persist is one transaction; a single out-of-range
+  segment value voids the whole run.** Run 315 lost 2000 replayed markets
+  to a DECIMAL(14,6) overflow in one daily segment's quality_system
+  (near-identical pnls → q=avg/std ~1e9). High-certainty cells (minAsk ≥
+  0.95, wins clustered at +3..+5) are the natural trigger. Guard: wrapper
+  clamps quality columns at the driver boundary (D12). General rule: any
+  run whose pnl distribution can degenerate (tight ask bands, tiny samples
+  per day) risks engine-side persistence artifacts — check the persist
+  SUCCEEDED (row in runs.ts) before treating a "finished" log as a result.
