@@ -1,0 +1,105 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-family-index",
+  "family": "imbalance-hold",
+  "status": "proposed",
+  "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",
+  "proposedBy": "claude-code/claude-fable-5",
+  "duplicateKeys": [
+    "book-imbalance",
+    "orderbook-imbalance",
+    "depth-imbalance",
+    "bid-ask-depth-skew",
+    "book-pressure",
+    "liquidity-imbalance-follow",
+    "imbalance-taker-hold"
+  ],
+  "retryOnlyIf": null,
+  "champion": null,
+  "verdictSummary": null,
+  "tags": ["orderbook", "imbalance", "taker", "directional", "hold-to-redemption", "single-fee"],
+  "experiments": [
+    {
+      "id": "000-baseline",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": null,
+      "proposedBy": "claude-code/claude-fable-5",
+      "hypothesis": "Buying the leg with the higher top-of-book bid-depth ratio (differential >= minImbalance) and holding to fee-free redemption captures the measured book-imbalance gross taker edge (+$0.056/mkt, net ~$0 at round-trip fees) at roughly half the fee drag, netting positive.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "imbLevels": 3,
+          "minImbalance": 0.2,
+          "size": 20,
+          "startSec": 60,
+          "maxEntryPrice": 0.8,
+          "slippageTol": 0.02
+        },
+        "passes": [
+          {
+            "param": "minImbalance",
+            "values": [0.1, 0.2, 0.3, 0.4],
+            "batchUid": "imbalance-hold--000-baseline--p1-minImbalance",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "imbLevels",
+            "values": [1, 3, 5, 10],
+            "batchUid": "imbalance-hold--000-baseline--p2-imbLevels",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "maxEntryPrice",
+            "values": [0.6, 0.7, 0.8, 0.9],
+            "batchUid": "imbalance-hold--000-baseline--p3-maxEntryPrice",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "startSec",
+            "values": [0, 60, 180, 420],
+            "batchUid": "imbalance-hold--000-baseline--p4-startSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "size",
+            "values": [10, 20, 40],
+            "batchUid": "imbalance-hold--000-baseline--p5-size",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "slippageTol",
+            "values": [0.01, 0.02, 0.04],
+            "batchUid": "imbalance-hold--000-baseline--p6-slippageTol",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
+    }
+  ]
+}
