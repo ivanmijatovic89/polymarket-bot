@@ -112,8 +112,8 @@
               "imbalance-hold--000-baseline--p6-slippageTol--03a589d9-3b15-452f-9c21-a68e9bad1324",
               "imbalance-hold--000-baseline--p6-slippageTol--fcc403e8-1caf-4ca3-96d4-58db670cf664"
             ],
-            "best": null,
-            "note": null
+            "best": 0.02,
+            "note": "Flat — param doesn't matter: 0.01 → +0.46 (run 274, 856/1000 played), 0.02 → +0.51 (run 272, 878/1000), 0.04 → +0.47 (run 273, 890/1000). Tolerance trades a few FOK kills for a few worse fills; EV within noise. Kept 0.02."
           }
         ],
         "refine": null
