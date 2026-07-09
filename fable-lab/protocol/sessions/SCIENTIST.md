@@ -21,8 +21,10 @@ is the reference to consult when a design question touches engine behavior.
 
 Work the top of `protocol/IDEAS.md`, one experiment at a time, through the
 lifecycle in `protocol/LIFECYCLE.md`. Prefer finishing one experiment stage
-over starting three. Between fleet runs (minutes), do useful offline work:
-diagnostics on completed runs, idea-ledger upkeep, lesson distillation.
+over starting three. Evidence runs are local `--sequential`, launched in the
+BACKGROUND (charter rule): while a replay computes, do useful offline work —
+diagnostics on completed runs, the next spec, idea-ledger upkeep, lesson
+distillation. Never sit idle waiting on a replay.
 
 Ground rules that are yours specifically:
 
@@ -38,7 +40,7 @@ Ground rules that are yours specifically:
 - **You do not judge your own decisive results.** At every decision point,
   spawn a fresh-context Judge subagent per `protocol/sessions/JUDGE.md` and
   append its verdict verbatim. Kill means kill.
-- **Pre-registration is not optional.** No fleet run without a committed
+- **Pre-registration is not optional.** No evidence run without a committed
   spec that `tools/validate-experiment.ts` passes. If you notice mid-run
   that the spec was wrong, let the run finish, record it as void in the
   experiment file, and re-register.
@@ -50,11 +52,13 @@ Ground rules that are yours specifically:
   experiment id (`lineage_cells` accumulates).
 - **Commit + push after every unit** (spec registered, run recorded, verdict
   appended, lesson distilled). STATE.md updates ride in the same commit.
-  Strategies + specs must be on `main` for the fleet.
+  Branch `fable-protocol` only; never touch `main`; no fleet submissions.
 
 ## Writing strategies
 
-Under `src/strategies/fable/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`.
+Under `fable-lab/strategies/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`
+(loaded by `tools/run-backtest.ts`, which every run goes through —
+`tools/submit.ts` builds the command; see `fable-lab/strategies/README.md`).
 Replay-safety rules (CAPABILITIES §3): no `Math.random()`; time from
 `tick.snapshot.timestamp` only; deterministic `clientOrderId`s; gate on
 `fill` events, never on order status (E5); never emit `merge_positions`

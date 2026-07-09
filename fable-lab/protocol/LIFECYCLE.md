@@ -37,9 +37,11 @@ Registering experiment `EXP-NNN-<slug>`:
    registration time), decision rules (copied numbers from EPISTEMOLOGY at
    time of registration), `lineage_cells` (multiplicity count inherited from
    parent experiments), simulator-bias exposure statement.
-3. Write the strategy under `src/strategies/fable/<mechanism>/EXP-NNN.ts`
-   (auto-discovered by the registry; id = `fable-exp-NNN`). The strategy
-   must obey replay-safety rules (CAPABILITIES §3).
+3. Write the strategy under `fable-lab/strategies/<mechanism>/EXP-NNN.ts`
+   (id = `fable-exp-NNN`; injected into the registry by
+   `tools/run-backtest.ts` — NOT auto-discovered, so every run goes through
+   that wrapper; DECISIONS D7). The strategy must obey replay-safety rules
+   (CAPABILITIES §3).
 4. Commit spec + strategy together, push. **The spec commit must predate the
    first non-smoke run** — `tools/validate-experiment.ts` checks the commit
    timestamp against `backtest_runs.created_at`.
@@ -62,13 +64,17 @@ DB row traceable to its spec with no extra bookkeeping.
 Fixed flags (operator scope, CHARTER): `--input-mode telonex-delta
 --read-from local-or-download-from-r2-to-local --symbol btc
 --timeframe 15m` (the delta-typed converter is derived from the input mode;
-there is no `--converter` CLI flag). `tools/submit.ts` builds the full
-command from the spec file so params cannot drift from what was registered.
+there is no `--converter` CLI flag). Additionally `--sequential`, always,
+via `tools/run-backtest.ts` (DECISIONS D7: charter forbids fleet
+submissions, and fable strategies exist only in this process's registry).
+`tools/submit.ts` builds the full command from the spec file so params
+cannot drift from what was registered.
 
-Stage mechanics:
-- **Smoke**: `--sequential --limit 10` locally. Never labeled with an EXP
+Stage mechanics (all local `--sequential`; every non-smoke run is launched
+in the BACKGROUND and the session keeps working while it replays):
+- **Smoke**: `--limit 10` locally. Never labeled with an EXP
   batchUid stage other than `-smoke`; results never quoted.
-- **Probe**: fleet run, `--random --limit 500` bounded to the exploration
+- **Probe**: `--random --limit 500` bounded to the exploration
   window (`--to-ms <holdout boundary>`).
 - **Main**: `--extend <probe runId>` growing to the full exploration window
   (extension recomputes segments over the union — CAPABILITIES §6; batchUid
@@ -81,9 +87,11 @@ Stage mechanics:
   advance verdict is appended. `submit.ts --stage holdout --execute`
   mechanically refuses to run unless `validate-experiment.ts` passes.
 
-Fleet preconditions (CAPABILITIES §7): strategy + spec committed and pushed
-to `main`, clean tree, worker fleet synced. Sequential mode only for smokes
-and parity checks.
+Run preconditions: strategy + spec committed and pushed on `fable-protocol`,
+clean tree (evidence runs on committed code only — never
+`BACKTEST_ALLOW_DIRTY`). No fleet submissions ever: workers run
+`origin/main` and never see fable-lab strategies (CHARTER §Hard
+constraints 3, DECISIONS D7).
 
 ## 4. Reading results
 

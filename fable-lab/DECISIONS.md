@@ -133,3 +133,42 @@ field in the spec template so the judge cannot skip it.
 **Rejected.** Applying a numeric "haircut" to maker PnL — any constant would
 be an invented cost, which the charter forbids; classification + escalation
 to live validation is honest about what backtests can and cannot prove.
+
+## D7 — Strategies live in fable-lab/strategies/, injected via run-backtest.ts; all runs local --sequential
+
+**Motivating evidence (evolution governor).** Charter v2 made evidence
+backtests allowed but "local `--sequential` only" and reaffirmed "write ONLY
+inside `fable-lab/`" + "no worker-fleet submissions ever". The protocol as
+designed in U3-U8 assumed fleet runs and strategies under
+`src/strategies/fable/` — mutually impossible under those constraints:
+the pre-commit hook (`fable-lab/.hooks/pre-commit`) blocks commits outside
+`fable-lab/`, evidence runs require committed code, and the engine registry
+auto-discovers only `src/strategies/**` (`strategyRegistry.ts:24`,
+`Dirent.isDirectory()` does not follow symlinks). Concrete friction, verified
+this session.
+
+**Options.** (a) Copy committed fable-lab strategy files into an untracked
+`src/strategies/fable/` at run time; (b) a wrapper entry point that mutates
+the exported `strategyRegistry` object in-process (valid because the
+`--sequential` path replays entirely in-process, `backtest.ts:706`,
+`runSingleMarket.ts:116` resolves via the same module instance), then
+imports the standard CLI; (c) ask the operator to relax the hook.
+
+**Decision.** (b) — `fable-lab/tools/run-backtest.ts`. Zero writes outside
+`fable-lab/`, tree stays clean (correct `commit_sha` on every per-market
+row), reproducible from any checkout of the branch. The wrapper hard-refuses
+non-`--sequential` invocations (queue workers would re-resolve strategies in
+processes that never ran the wrapper). `tools/submit.ts` appends
+`--sequential` to every stage and routes through the wrapper. Validated:
+2-market smoke with injected `fable-fixture-noop` replayed 100,850 events
+(batchUid EXP-000-wrapper-smoke, 2026-07-09).
+
+**Rejected.** (a) — writes outside fable-lab/ (against the charter's write
+scope) and leaves the tree dirty with untracked files during evidence runs.
+(c) — not mine to decide; the hook is the operator's mechanism.
+
+**Consequence for stage sizing.** No fleet parallelism: replay throughput is
+~1.1s/market (no-op strategy, local data) on this machine, so a 500-market
+probe is ~10-30 min in the background and the full exploration window
+(~14k markets) is hours — acceptable, sized per EPISTEMOLOGY §2/§3;
+re-measure with a real strategy and record here if materially different.

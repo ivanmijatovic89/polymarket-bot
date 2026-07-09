@@ -64,8 +64,10 @@ running 1,000 anyway is theater.
 
 ## 3. The stages and what each decides
 
-Compute is cheap relative to holdout data (the fleet does ~1.5s/market/slot;
-the *most recent* markets are finite and burn on first read). Stages exist
+Compute is cheap relative to holdout data (local sequential replay measured
+~1.1s/market for a no-op strategy on already-local data — EXP-000-wrapper
+smoke, 2 markets / 2.2s; first-touch R2 downloads add to that; the *most
+recent* markets are finite and burn on first read). Stages exist
 to spend compute before belief and belief before holdout.
 
 **Stage S (smoke)** — ≤10 markets, `--sequential`, on the developer's

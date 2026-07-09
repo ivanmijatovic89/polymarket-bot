@@ -1,8 +1,8 @@
 # RUNBOOK — morning operator guide
 
 How to start driving research with the Fable protocol, step by step.
-Assumes: repo cloned, `.env` with DB/Redis credentials, worker fleet as for
-the old system. Nothing here trades live.
+Assumes: repo cloned, `.env` with DB/Redis credentials. No worker fleet is
+used (all runs are local `--sequential`). Nothing here trades live.
 
 ## 0. Five-minute orientation (once)
 
@@ -11,15 +11,16 @@ Read in this order — ~15 pages total:
 2. `fable-lab/protocol/EPISTEMOLOGY.md` — what a verdict means.
 3. `fable-lab/DECISIONS.md` — why it is built this way.
 
-## 1. Decide where strategies live (one-time decision, yours)
+## 1. Where strategies live and how runs execute
 
-The protocol writes strategies under `src/strategies/fable/<mechanism>/`.
-The fleet runs `origin/main`, so specs + strategies must reach main before
-fleet runs (CAPABILITIES §7). Either extend the existing direct-to-main
-exception (as `strategy-research-protocol` sessions have) to
-`src/strategies/fable/` and `fable-lab/protocol/registry/`, or merge
-`fable-protocol` → main first and keep committing there. The protocol does
-not care which; sessions need to know they may push to main.
+Strategies live in `fable-lab/strategies/<mechanism>/EXP-NNN.ts` (the
+pre-commit hook restricts commits to `fable-lab/`). They are injected into
+the engine's registry by `fable-lab/tools/run-backtest.ts`, which every run
+goes through; consequently ALL runs are local `--sequential` — there are no
+fleet submissions from this protocol (charter rule; workers run
+`origin/main` and would never see these strategies). See DECISIONS D7 and
+`fable-lab/strategies/README.md`. Sessions launch evidence runs in the
+background and keep working.
 
 ## 2. Sanity-check the plumbing (5 minutes)
 
@@ -44,9 +45,9 @@ with a prompt of roughly:
 > blocked on operator input.
 
 That contract makes the session: boot from the memory files, take the top
-idea in `protocol/IDEAS.md` (six are seeded, ranked), register `EXP-001`,
-write the strategy, smoke it, run the probe on the fleet, and judge it with
-a fresh-context subagent. The session prompts are goal-shaped on purpose —
+idea in `protocol/IDEAS.md` (six are seeded, ranked), register the next
+experiment, write the strategy, smoke it, run the probe locally in the
+background, and judge it with a fresh-context subagent. The session prompts are goal-shaped on purpose —
 don't add step-by-step instructions on top
 (`docs/reference/prompting-claude-fable-5.md`).
 

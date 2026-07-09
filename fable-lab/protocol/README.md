@@ -42,7 +42,8 @@ Scope is operator-fixed in `fable-lab/CHARTER.md` and non-negotiable.
 
 Pick the top open idea in `IDEAS.md` → register `EXP-NNN` (spec + strategy
 committed before any decisive run) → smoke locally → probe 500 random
-exploration markets on the fleet → Judge decides kill/iterate/advance →
+exploration markets (local sequential, in the background) → Judge decides
+kill/iterate/advance →
 extend to the full exploration window + robustness battery → Judge decides →
 one-shot holdout run → Judge confirms or refutes → distill the lesson,
 update the ledger, next idea. Every decisive number is read through

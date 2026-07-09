@@ -66,7 +66,11 @@ function main() {
 
   const env: Record<string, string> = {}
   const params = spec.primaryParams.flatMap((p) => ['--param', p])
-  const args: string[] = ['run', 'backtest', '--']
+  // All fable runs go through the registry-injection wrapper and are
+  // sequential (DECISIONS D7): strategies live in fable-lab/strategies/,
+  // invisible to queue workers; the charter forbids fleet submissions.
+  const wrapper = join(HERE, 'run-backtest.ts')
+  const args: string[] = ['tsx', wrapper]
 
   if (stage === 'main') {
     const parent = argValue('--parent-run')
@@ -75,7 +79,7 @@ function main() {
     args.push('--extend', parent, '--to-ms', String(spec.holdoutBoundaryMs))
   } else if (stage === 'smoke') {
     args.push('--strategy', spec.strategyId, ...params, ...SCOPE_FLAGS)
-    args.push('--sequential', '--limit', argValue('--limit') ?? '10', '--batchUid', `${spec.expId}-smoke`)
+    args.push('--limit', argValue('--limit') ?? '10', '--batchUid', `${spec.expId}-smoke`)
   } else if (stage === 'probe') {
     args.push('--strategy', spec.strategyId, ...params, ...SCOPE_FLAGS)
     args.push(
@@ -123,10 +127,12 @@ function main() {
     )
   }
 
+  args.push('--sequential')
+
   const envPrefix = Object.entries(env)
     .map(([k, v]) => `${k}=${v}`)
     .join(' ')
-  const printable = [envPrefix, ['npm', ...args].map((a) => (/\s/.test(a) ? `'${a}'` : a)).join(' ')]
+  const printable = [envPrefix, ['npx', ...args].map((a) => (/\s/.test(a) ? `'${a}'` : a)).join(' ')]
     .filter(Boolean)
     .join(' ')
   console.log(printable)
@@ -143,7 +149,7 @@ function main() {
         return
       }
     }
-    const res = spawnSync('npm', args, { stdio: 'inherit', env: { ...process.env, ...env } })
+    const res = spawnSync('npx', args, { stdio: 'inherit', env: { ...process.env, ...env } })
     process.exitCode = res.status ?? 1
   }
 }
