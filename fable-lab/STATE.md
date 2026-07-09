@@ -78,10 +78,18 @@ _Last updated: session 3, unit U12._
   always included since --cell REPLACES primary params), staggered ≤5
   concurrent; then `battery.ts --exp EXP-001` → main-stage Judge.
 
+- U14 (session 3): EXP-004 (depth-imbalance drift, `flow-momentum`)
+  registered: spec + strategy `strategies/flow-momentum/EXP-004.ts`
+  (id `fable-exp-004`), validator passes, smoke green (0/10 entered —
+  verified small-sample luck via EXP-000-debug diagnostics: 8/30 at the
+  primary cell). Probe queued behind the running probes.
+
 ## Next
-- EXP-002/EXP-003 probe verdicts; EXP-001 grid + battery + main Judge;
-  per verdicts iterate/kill/advance per EPISTEMOLOGY §3; next ideas in
-  IDEAS.md queue.
+- EXP-002/EXP-003 probe verdicts; EXP-004 probe launch (detached, after a
+  probe slot frees); EXP-001 grid + battery + main Judge; per verdicts
+  iterate/kill/advance per EPISTEMOLOGY §3; remaining open ideas: #4
+  quiet-regime quoting (parked until classes 1-3 exhausted), #6
+  first-minute overreaction.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
