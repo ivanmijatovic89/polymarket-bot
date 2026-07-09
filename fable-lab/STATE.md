@@ -116,11 +116,14 @@ _Last updated: session 3, unit U22._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-001 grid (2000 random each per D11): DONE runs 313 (e600-a085,
-  EV=+0.98 t=1.84) and 314 (e600-a090, EV=-0.83 t=-1.53 — note the sign
-  flip vs probe primary; smoothness judged at main verdict). RUNNING:
-  e720-a085, e720-a095, e840-a085, e600-a095 (retry, guarded). TO LAUNCH:
-  e840-a090, e840-a095 (as slots free).
+- EXP-001 grid (2000 random each per D11). DONE: 313 e600-a085 EV=+0.98
+  t=+1.84; 314 e600-a090 EV=-0.83 t=-1.53; 317 e720-a085 EV=-0.32 t=-0.69.
+  Signs are MIXED across neighbors — smoothness looks shaky; main run is
+  the decisive primary read. CRASHED unguarded on the E13 overflow and
+  relaunched guarded: e600-a095 (retry ~840/2000), e720-a095 (retry just
+  launched). RUNNING guarded: e840-a085 (~1000/2000), e840-a090, e840-a095.
+  ALL grid logs `logs/EXP-001-grid-*.log`; retries share the original
+  batchUid.
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. EXP-005 probe next in queue. When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
