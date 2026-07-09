@@ -29,7 +29,7 @@ Ordered; top entries get registered first.
 |---|---|---|---|
 | 1 | expiry certainty discount | `tail-overpricing` | registered (EXP-001) |
 | 2 | UP+DOWN dutch-book scan | `sum-mispricing` | registered (EXP-002) |
-| 3 | post-jump stale ladder | `stale-quote` | open |
+| 3 | post-jump stale ladder | `stale-quote` | registered (EXP-003) |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | open |
 | 6 | first-minute overreaction | `time-structure` | open |
@@ -64,7 +64,7 @@ Ordered; top entries get registered first.
 - **Simulator exposure:** taker-only, size capped by quoted depth ⇒
   pessimistic side. Watch cascade cap (100 events/drain) with batch orders.
 
-### 3. Post-jump stale ladder — `stale-quote` — open
+### 3. Post-jump stale ladder — `stale-quote` — registered (EXP-003)
 - **Who loses:** makers whose deep resting levels don't reprice within the
   first seconds after a large implied-probability jump.
 - **Prediction:** after a mid jump of ≥ X in ≤ Y seconds, levels beyond the
