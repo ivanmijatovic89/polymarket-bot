@@ -10,6 +10,8 @@ export const GlobalIndexFamily = z.object({
   family: Slug,
   status: FamilyStatus,
   coreIdea: z.string().min(1),
+  /** who proposed the family (FAMILY.json proposedBy), or null on pre-attribution families */
+  proposedBy: z.string().nullable(),
   /** dedup memory — Proposer checks these before proposing a new family */
   duplicateKeys: z.array(z.string()),
   /** set when killed: the condition under which to revisit; else null */

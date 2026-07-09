@@ -202,6 +202,8 @@ is mandatory (not the promotion) at every kill and every validation.
 
 - Next sequential `NNN-<short-hypothesis>` id; `basedOn` the experiment it
   branches from (usually the champion).
+- `proposedBy` = your own identity — format and rules in the
+  [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) field tables.
 - `hypothesis` and `successCriteria` are contracts written BEFORE any run;
   default criteria: "pass the next stage's gate".
 - `kind: param-search` → coordinate `search` with justified `defaults` and

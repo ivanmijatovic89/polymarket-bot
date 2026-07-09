@@ -6,6 +6,7 @@
       "family": "maker-favorite",
       "status": "researching",
       "coreIdea": "Buy the currently favored BTC 15m side with one resting maker bid below mid and hold any fill to resolution.",
+      "proposedBy": null,
       "duplicateKeys": [
         "favorite-maker-entry",
         "directional-maker-bid",
@@ -31,9 +32,39 @@
       ]
     },
     {
+      "family": "momentum-hold",
+      "status": "proposed",
+      "coreIdea": "Follow intra-episode price momentum by taking the strengthening BTC 15m leg with one FOK buy and holding to resolution, paying a single taker fee since redemption is fee-free.",
+      "proposedBy": null,
+      "duplicateKeys": [
+        "momentum-following",
+        "trend-follow",
+        "move-continuation",
+        "breakout-take",
+        "spike-follow",
+        "directional-taker-hold",
+        "take-and-hold-to-redemption"
+      ],
+      "retryOnlyIf": null,
+      "verdictSummary": null,
+      "path": "momentum-hold/FAMILY.md",
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": [
+        "momentum",
+        "taker",
+        "directional",
+        "hold-to-redemption",
+        "single-fee",
+        "orderbook"
+      ]
+    },
+    {
       "family": "spread-capture",
       "status": "researching",
       "coreIdea": "Split collateral into UP+DOWN full sets and symmetrically rest maker asks above mid on both legs, collecting the spread takers pay while the $1 redemption hedges unsold inventory.",
+      "proposedBy": null,
       "duplicateKeys": [
         "market-making",
         "liquidity-provision",

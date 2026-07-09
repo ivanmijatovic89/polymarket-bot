@@ -114,6 +114,7 @@ reading a few non-research strategies only for API idioms is allowed.
      "family": "<family>",
      "status": "proposed",
      "coreIdea": "<one sentence>",
+     "proposedBy": "<harness>/<model-id>",
      "duplicateKeys": ["<normalized-synonym>"],
      "retryOnlyIf": null,
      "champion": null,
@@ -125,6 +126,7 @@ reading a few non-research strategies only for API idioms is allowed.
          "kind": "param-search",
          "code": "000-baseline.ts",
          "basedOn": null,
+         "proposedBy": "<harness>/<model-id>",
          "hypothesis": "<one sentence: what the baseline mechanism should show>",
          "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
          "params": null,
@@ -157,6 +159,8 @@ reading a few non-research strategies only for API idioms is allowed.
    }
    ```
 
+   - Set both `proposedBy` fields to your own identity — format and rules in
+     the [`strategy-research-protocol/MEMORY.md`](../MEMORY.md) field tables.
    - Declare `defaults` for every knob and justify them in FAMILY.md (Signal
      definition or Edge economics) — pass 1 sweeps against these defaults, so
      bad defaults poison the whole search.
