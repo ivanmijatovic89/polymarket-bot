@@ -54,6 +54,28 @@ wins into occasional large residual losses. Treat high win rate on flattening
 sells as a payoff-shape warning, not as edge, unless market-level net EV improves.
 From: maker-favorite.
 
+### persistent-book-pressure-selects-longshots-not-informed-flow — 2026-07-09
+
+Requiring a book-shape signal to hold continuously before acting does not
+purify it — it inverts the selection: pressure that persists is pressure
+nobody arbitrages, and on BTC 15m up/down books that is the structural
+geometry of a cheap losing leg, not an informed footprint. In
+`imbalance-hold` `001-persistence-filter`, requiring the top-level
+bid-depth differential (|imb| >= 0.1) to hold 5/15/30/60 seconds bound hard
+(878 → 493 → 163 → 35 of 1000 markets played) and killed the edge in a
+diagnostic way: net EV/mkt -0.07/-0.09/-0.02/+0.00 while win rate collapsed
+to ≈ the entry price (49.66% → 21.7% → 10.43% → 11.43%) and average loss
+shrank toward -$1 (avgLose -8.60 → -2.75 → -1.22 → -1.05, i.e. ~5-14¢
+entries) — the surviving trades were fairly-priced longshots, EV ≈ 0 before
+fees. Two transferable reads: (a) when a binding filter's survivors show
+win% tracking entry price with shrinking losses, the filter selects a PRICE
+REGIME, not signal quality — check the payoff shape before crediting any
+binding filter; (b) for microstructure signals, persistence duration is an
+arbitrage-speed probe: competitive legs reprice in seconds, so requiring
+long persistence deterministically routes entries into the uncompetitive
+(longshot) corner of the book.
+From: imbalance-hold.
+
 ### an-isolated-entry-timing-spike-is-a-regime-artifact-not-a-signal — 2026-07-09
 
 A stage-1 screen can be carried entirely by WHEN the strategy enters rather

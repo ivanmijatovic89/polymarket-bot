@@ -265,3 +265,46 @@ Time-stability of the entry trigger is as mandatory a screen check as
 parameter-plateau stability, and a barely-binding signal threshold
 (participation flat across the sweep) is the earliest warning that the
 "signal" has degenerated into a timing bet.
+
+### 001-persistence-filter — 2026-07-09
+
+**What ran.** Pass 1 only: `persistSec` [5, 15, 30, 60] at latest-1000,
+champion params otherwise (imbLevels 1, minImbalance 0.1, size 20,
+startSec 60, maxEntryPrice 0.8, slippageTol 0.02), baselineId run 265.
+Numbers quoted from FAMILY.json: 5 → -0.07 net/mkt (run 283, 878/1000
+played, 49.66% win), 15 → -0.09 (run 280, 493/1000, 21.7% win, avgLose
+-2.75), 30 → -0.02 (run 281, 163/1000, 10.43% win, avgLose -1.22),
+60 → +0.00 (run 282, 35/1000 played, 39 trades, pnl +2.54, fees $1.13,
+11.43% win, avgLose -1.05).
+
+**Interpretation.** The filter binds exactly as required (878 → 493 → 163 →
+35 played), so the screen is a genuine measurement of sustained pressure —
+and sustained pressure is the wrong thing. The payoff shape identifies what
+survives the filter: win rate collapses toward the entry price (10-22%) and
+the average loss shrinks toward the -$1 of a ~5-14¢ entry — persistent
+one-sided bid-support is the structural book geometry of a cheap losing
+leg (asks thin out as a leg collapses), not a footprint of informed flow.
+Those longshots are priced fairly: EV ≈ 0 before fees, slightly negative
+after. Competitive legs never hold a one-sided book for 15+ seconds —
+arbitrageurs reprice them — so the persistence dimension deterministically
+selects the uninformative regime. Planned p2 (startSec) and p3
+(minImbalance) were not submitted: both tune parameters of a mechanism the
+pass-1 payoff shape measured dead; timing and threshold cannot fix longshot
+selection.
+
+**Decision.** Verdict `fail` (successCriteria quoted in the outcome: gate-1
+pass AND binding — binding held, positivity did not), `stageReached: 0`,
+champion unchanged (000-baseline). Family continues: the two levels of the
+differential signal (instantaneous → regime artifact, persistent →
+longshot selector) are now both measured dead, which sharpens the remaining
+roadmap — the untested mechanisms are the derivative (flow trigger #2),
+the complement-agreement veto (#3), and distance-weighted depth (#6).
+Next experiment: 002-flow-trigger, the most mechanism-distinct remaining
+idea ("book is turning" vs "book is lopsided").
+
+Lesson: When a filter binds, read the payoff shape of what survives before
+crediting it: a win rate that tracks the entry price with shrinking average
+losses means the filter is selecting a price regime (longshots), not signal
+quality. For book-shape signals specifically: pressure that PERSISTS is
+pressure nobody arbitrages — on a competitive leg the book reprices in
+seconds, so long-persistence selection is adverse by construction.
