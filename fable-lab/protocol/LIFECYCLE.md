@@ -51,15 +51,19 @@ edit.
 
 ## 3. Running
 
-Naming: every run's `--batchUid` is `EXP-NNN-<stage>` (`EXP-014-probe`,
-`EXP-014-main`, `EXP-014-holdout`, `EXP-014-lat150`, ...). The launch
-command (recorded permanently in `backtest_runs.cmd`) plus this label makes
-every DB row traceable to its spec with no extra bookkeeping.
+Naming: every NEW run's `--batchUid` is `EXP-NNN-<stage>` (`EXP-014-smoke`,
+`EXP-014-probe`, `EXP-014-holdout`, `EXP-014-lat150`, `EXP-014-grid-<cell>`).
+**The main stage creates no new label**: it extends the probe run in place,
+and extension keeps the parent's `batch_uid` (CAPABILITIES §6) — the grown
+run stays `EXP-NNN-probe` and is addressed by run id. The launch command
+(recorded permanently in `backtest_runs.cmd`) plus these labels makes every
+DB row traceable to its spec with no extra bookkeeping.
 
 Fixed flags (operator scope, CHARTER): `--input-mode telonex-delta
---converter delta-typed --read-from local-or-download-from-r2-to-local
---symbol btc --timeframe 15m`. `tools/submit.ts` builds the full command
-from the spec file so params cannot drift from what was registered.
+--read-from local-or-download-from-r2-to-local --symbol btc
+--timeframe 15m` (the delta-typed converter is derived from the input mode;
+there is no `--converter` CLI flag). `tools/submit.ts` builds the full
+command from the spec file so params cannot drift from what was registered.
 
 Stage mechanics:
 - **Smoke**: `--sequential --limit 10` locally. Never labeled with an EXP
@@ -67,12 +71,15 @@ Stage mechanics:
 - **Probe**: fleet run, `--random --limit 500` bounded to the exploration
   window (`--to-ms <holdout boundary>`).
 - **Main**: `--extend <probe runId>` growing to the full exploration window
-  (`--from-ms/--to-ms` over the window; extension recomputes segments over
-  the union — CAPABILITIES §6). Robustness runs (latency curve, parameter
-  neighborhood) are separate runs labeled `EXP-NNN-lat150`,
-  `EXP-NNN-grid-<cell>`.
-- **Holdout**: a NEW run (not an extension) covering exactly the holdout
-  window, submitted only after the Judge's advance verdict is appended.
+  (extension recomputes segments over the union — CAPABILITIES §6; batchUid
+  stays `EXP-NNN-probe`). Robustness runs (latency curve via
+  `submit.ts --stage lat --delay <ms>`, neighborhood via
+  `--stage grid --cell "..."`) are separate runs labeled `EXP-NNN-lat<ms>`,
+  `EXP-NNN-grid-<cell>`; the Judge reads them through `tools/battery.ts`.
+- **Holdout**: a NEW run (not an extension) covering exactly the frozen
+  holdout window `[boundary, regLast]`, submitted only after the Judge's
+  advance verdict is appended. `submit.ts --stage holdout --execute`
+  mechanically refuses to run unless `validate-experiment.ts` passes.
 
 Fleet preconditions (CAPABILITIES §7): strategy + spec committed and pushed
 to `main`, clean tree, worker fleet synced. Sequential mode only for smokes

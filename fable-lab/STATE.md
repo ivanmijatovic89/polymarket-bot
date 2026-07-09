@@ -39,11 +39,33 @@ _Last updated: session 1, unit U1 (synthesis done, verification pending)._
   subagent prompt), applying docs/reference/prompting-claude-fable-5.md.
 - U7: RUNBOOK.md (morning operator guide).
 
-## In progress
-- U8: final self-review (fresh-context verifier against CHARTER), then DONE.
+- U8: final fresh-context charter review completed. Verdict: no charter
+  violations, grounding confirmed on all spot-checks, tools bind to real
+  columns. All findings applied this session:
+  - M1: main stage keeps the probe batchUid (extension semantics) — fixed
+    in LIFECYCLE §3, RUNBOOK §4.
+  - M2: holdout window now frozen on BOTH bounds (template, spec parser,
+    submit.ts `--to-ms`, universe.ts note); verified on fixture.
+  - S1: robustness battery tooling built — submit.ts stages `lat`
+    (env-prefixed latency point) + `grid` (neighborhood cell), new
+    `battery.ts` comparison table; validated against run 295.
+  - S2: `submit.ts --stage holdout --execute` mechanically refuses unless
+    validate-experiment.ts passes.
+  - S3: sample-vs-population std note added to EPISTEMOLOGY §1.
+  - S4: `--converter` removed from LIFECYCLE fixed-flags (derived from
+    input mode; no such CLI flag).
+  - N1: placeholder detection broadened to any `<...>` in the spec section
+    (template now fails with 6 errors; fixture passes).
+  - N2: LESSONS reordered E1-E5.
+  - Self-found: holdout `--limit` truncation (eligibility default 1000)
+    fixed earlier in U8.
 
-## Next
-- (after U8 fixes) create fable-lab/DONE.
+## Charter status: FULFILLED — fable-lab/DONE created.
+
+A fresh session operating this system starts at `protocol/sessions/SCIENTIST.md`
+(the operator starts at `RUNBOOK.md`). Tonight's constraints (no evidence
+backtests) mean no experiments are registered yet; EXP-001 is the first
+Scientist session's job.
 
 ## Notes for a fresh session
 - Read `CHARTER.md` first; it is binding. Operator-fixed scope: BTC 15m

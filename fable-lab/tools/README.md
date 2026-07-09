@@ -8,7 +8,8 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration |
 | `results.ts` | THE canonical decisive readout for a run (`--run <id>` / `--batch <uid>`): N, q, t, EV ± CI, composition, day stability |
 | `validate-experiment.ts` | spec completeness + spec-before-results + params-match-spec + holdout discipline checks |
-| `submit.ts` | build (print) the exact stage command from a frozen spec; `--execute` to run |
+| `submit.ts` | build (print) the exact stage command from a frozen spec (`smoke|probe|main|lat|grid|holdout`); `--execute` to run; holdout execution refuses unless the validator passes |
+| `battery.ts` | robustness-battery comparison table across runs (`--exp EXP-014` / `--runs` / `--batches`) for the Judge |
 | `index-registry.ts` | regenerate `protocol/registry/INDEX.md` |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |

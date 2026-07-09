@@ -30,6 +30,11 @@ Belief statistic: **t = q · √N** — the t-statistic of "mean per-market PnL
 is positive". With N in the thousands, one-sided p ≈ Φ(−t):
 t=2 → p≈0.023, t=3 → p≈0.0013.
 
+(Implementation note: the engine's persisted `qualitySystem` divides by the
+population std, while `tools/results.ts` — the decisive readout — uses the
+sample std (n−1), the proper t-estimator. The gap is √(N/(N−1)), <0.1% at
+N=500; decisions use the results.ts number.)
+
 ## 2. What effect size is worth resolving
 
 q is scale-invariant in stake (doubling stake doubles mean and std). The

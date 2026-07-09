@@ -1,0 +1,8 @@
+Charter fulfilled 2026-07-09 (session 1).
+
+Engine study: engine/CAPABILITIES.md (verified by fresh-context audit).
+System: protocol/ (epistemology, lifecycle, ideas, templates, sessions).
+Tools: tools/ (7 scripts, all validated against live DB + one allowed
+sequential smoke, run 295 / EXP-000-smoke — plumbing only, no EV).
+Runbook: RUNBOOK.md. Final self-review: done, all findings applied
+(see STATE.md U8).

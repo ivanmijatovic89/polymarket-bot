@@ -55,8 +55,10 @@ don't add step-by-step instructions on top
 - **Specs and verdicts**: `fable-lab/protocol/registry/experiments/EXP-*.md`
   (the whole scientific record, append-only), summarized in
   `registry/INDEX.md`.
-- **Runs**: dashboard as usual (`npm run dashboard`, port 3051) — every run
-  is labeled `EXP-NNN-<stage>`; or `npx tsx fable-lab/tools/runs.ts`.
+- **Runs**: dashboard as usual (`npm run dashboard`, port 3051) — new runs
+  are labeled `EXP-NNN-<stage>` (smoke/probe/holdout/lat*/grid-*); the main
+  stage grows the probe run in place, so it keeps the `EXP-NNN-probe` label
+  and is addressed by run id. Or `npx tsx fable-lab/tools/runs.ts --exp EXP-NNN`.
 - **Decisive numbers**: in the experiment files, pasted verbatim from
   `tools/results.ts`. If a number in a verdict is not in a results.ts
   block, that is a protocol violation — call it out.

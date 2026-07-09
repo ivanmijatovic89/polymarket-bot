@@ -16,7 +16,8 @@
   be classified simulator-favored.
 - **Windows (computed by tools/universe.ts at registration):**
   - Exploration: `market_start_ms` < 1767225600000 (2026-01-01T00:00:00Z)
-  - Holdout: `market_start_ms` >= 1767225600000, one-shot
+  - Holdout: `market_start_ms` >= 1767225600000 and <= 1781429400000, one-shot
+    (upper bound = last eligible market at registration)
 - **Sample rules:** probe = `--random --limit 500 --to-ms 1767225600000`;
   main = extend to full exploration window; holdout = full holdout window.
 - **Decision rules (copied from EPISTEMOLOGY at registration):**

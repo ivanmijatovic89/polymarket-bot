@@ -57,8 +57,9 @@ async function main() {
     holdoutBoundaryMs: boundary.marketStartMs,
     holdoutBoundaryIso: iso(boundary.marketStartMs),
     note:
-      'Register experiments with: exploration = market_start_ms < holdoutBoundaryMs, ' +
-      'holdout = market_start_ms >= holdoutBoundaryMs (one-shot).',
+      'Register experiments with: exploration = market_start_ms < holdoutBoundaryMs; ' +
+      'holdout = holdoutBoundaryMs <= market_start_ms <= lastMarket.startMs (one-shot, ' +
+      'BOTH bounds frozen in the spec — markets accruing later belong to no window).',
   }
 
   if (asJson) {

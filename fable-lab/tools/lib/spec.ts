@@ -23,6 +23,7 @@ export type ParsedSpec = {
   strategyId: string | null
   primaryParams: string[] // ['k=v', ...] from the primary cell field
   holdoutBoundaryMs: number | null
+  holdoutEndMs: number | null // frozen upper bound of the holdout window
   simulatorBias: string | null
   unresolvedPlaceholders: string[]
 }
@@ -43,7 +44,12 @@ export function parseSpecFile(filePath: string): ParsedSpec {
   const primaryField = (field(md, 'Primary parameter cell') ?? '').replace(/`/g, ' ')
   const primaryParams = [...primaryField.matchAll(/--param\s+(\S+=\S+)/g)].map((m) => m[1])
   const holdoutMatch = md.match(/Holdout:\s*`market_start_ms`\s*>=\s*(\d+)/)
-  const placeholders = [...new Set([...md.matchAll(/<[A-Z][A-Z_ ]*>|EXP-NNN|\bNNN\b/g)].map((m) => m[0]))]
+  const holdoutEndMatch = md.match(/Holdout:\s*`market_start_ms`\s*>=\s*\d+\s*and\s*<=\s*(\d+)/)
+  // any <...> token in the spec section is an unfilled placeholder
+  const specSection = md.split(/^## Runs/m)[0]
+  const placeholders = [
+    ...new Set([...specSection.matchAll(/<[^>\n]{1,60}>|EXP-NNN|\bNNN\b/g)].map((m) => m[0])),
+  ]
 
   return {
     filePath,
@@ -58,6 +64,7 @@ export function parseSpecFile(filePath: string): ParsedSpec {
     strategyId,
     primaryParams,
     holdoutBoundaryMs: holdoutMatch ? Number(holdoutMatch[1]) : null,
+    holdoutEndMs: holdoutEndMatch ? Number(holdoutEndMatch[1]) : null,
     simulatorBias: field(md, 'Simulator-bias exposure \\(CAPABILITIES §4\\)'),
     unresolvedPlaceholders: placeholders,
   }

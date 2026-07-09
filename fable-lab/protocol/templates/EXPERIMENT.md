@@ -23,7 +23,9 @@
   optimistic-side dependencies up front.>
 - **Windows (computed by tools/universe.ts at registration):**
   - Exploration: `market_start_ms` < <BOUNDARY_MS> (<ISO>)
-  - Holdout: `market_start_ms` >= <BOUNDARY_MS>, one-shot
+  - Holdout: `market_start_ms` >= <BOUNDARY_MS> and <= <REG_LAST_MS>, one-shot
+    (upper bound = last eligible market at registration; markets accruing
+    later belong to no window)
 - **Sample rules:** probe = `--random --limit 500 --to-ms <BOUNDARY_MS>`;
   main = extend to full exploration window; holdout = full holdout window.
 - **Decision rules (copied from EPISTEMOLOGY at registration):**

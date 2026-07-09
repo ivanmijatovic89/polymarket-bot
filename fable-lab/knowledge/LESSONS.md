@@ -20,6 +20,9 @@ forbids importing the old system's research conclusions._
   on touch-through, no market impact (CAPABILITIES §4). Taker-only
   strategies sit on the pessimistic side of the sim's biases and therefore
   produce the most trustworthy backtest evidence.
+- **E3 — Fee shape favors extreme prices.** Taker fee = bps·min(p,1−p)·size,
+  so trading near p=0.5 pays ~4-9× more fee per share than near p=0.95
+  (CAPABILITIES §4). Mechanisms at extreme prices clear a lower cost bar.
 - **E4 — Never emit `merge_positions` in a backtest strategy.** Merging
   mid-episode erases both legs without booking the $1/pair credit; only
   pairs still held at episode end are valued (CAPABILITIES §4). Buy-both /
@@ -27,6 +30,3 @@ forbids importing the old system's research conclusions._
 - **E5 — Gate on `fill` events, not order status.** Resting maker fills
   emit no `ws_order_update` in the simulator, and MINED never appears;
   status-gated logic silently misses maker fills (CAPABILITIES §4).
-- **E3 — Fee shape favors extreme prices.** Taker fee = bps·min(p,1−p)·size,
-  so trading near p=0.5 pays ~4-9× more fee per share than near p=0.95
-  (CAPABILITIES §4). Mechanisms at extreme prices clear a lower cost bar.

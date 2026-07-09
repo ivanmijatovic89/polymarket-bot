@@ -21,5 +21,5 @@ Ordered work units. Check off as completed. See STATE.md for live status.
       `docs/reference/prompting-claude-fable-5.md`; write the prompts/skills the
       operating Fable sessions will use.
 - [x] **U7 — Morning runbook**: step-by-step operator guide (`RUNBOOK.md`).
-- [ ] **U8 — Final self-review**: fresh-context verifier checks the whole lab
+- [x] **U8 — Final self-review**: fresh-context verifier checks the whole lab
       against CHARTER.md; fix findings; create `DONE`.
