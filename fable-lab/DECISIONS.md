@@ -217,7 +217,9 @@ SIGTERM (LESSONS E8) — the launcher was a child of the session's process
 group.
 
 **Decision:** every evidence run (probe/main/lat/grid/holdout) is launched
-via `setsid nohup <cmd> < /dev/null > fable-lab/logs/<name>.log 2>&1 &` so it
-survives session death; the session then polls the log/DB. Smokes may stay
-foreground (they are ~30s and never evidence). This changes how commands
-from `tools/submit.ts` are invoked, not what they contain.
+in its own session so it survives session death; the launching session then
+polls the log/DB. macOS ships no `setsid` binary, so the launcher is
+`node fable-lab/tools/detach.mjs <log> <cmd...>` (Node `detached: true`
+performs setsid(2)); env pins are set on the launcher process and inherited.
+Smokes may stay foreground (they are ~30s and never evidence). This changes
+how commands from `tools/submit.ts` are invoked, not what they contain.

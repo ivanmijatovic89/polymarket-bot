@@ -62,18 +62,26 @@ _Last updated: session 3, unit U12._
   (truncated-unbiased samples are judged), D10 (evidence runs launch
   detached via `setsid nohup`).
 
-## In progress
-- U13: EXP-001 stage MAIN — extend run 301 to full exploration window
-  (`submit.ts EXP-001 --stage main --parent-run 301`), launched DETACHED
-  (D10), log `logs/EXP-001-main.log`. ~13k markets ≈ multiple hours. On
-  completion: results.ts + entry-check.ts → then battery (lat curve
-  {0,150,300}, robustness grid) per spec before the main Judge.
-- EXP-002 probe: launch detached after main is confirmed running (CPU
-  contention affects wall time only, not results — event-time replay).
+## In progress (5 detached runs, all via tools/detach.mjs per D10)
+- U13: EXP-001 stage MAIN — run 301 extending to full exploration window
+  (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
+  place, batchUid stays EXP-001-probe).
+- EXP-001 latency curve: full-window runs at delay 150 and 300 (batchUids
+  EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
+  13,977 markets each — paired with main's window by construction; the
+  delay-0 point of the curve IS the main run).
+- EXP-002 probe (500 random, log `logs/EXP-002-probe.log`).
+- EXP-003 probe (500 random, log `logs/EXP-003-probe.log`).
+- When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
+  units. When main+lat finish: launch the 8 grid cells (spec neighborhood,
+  full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
+  always included since --cell REPLACES primary params), staggered ≤5
+  concurrent; then `battery.ts --exp EXP-001` → main-stage Judge.
 
 ## Next
-- EXP-002 probe verdict; EXP-003 probe; per verdicts iterate/kill/advance
-  per EPISTEMOLOGY §3; next ideas in IDEAS.md queue.
+- EXP-002/EXP-003 probe verdicts; EXP-001 grid + battery + main Judge;
+  per verdicts iterate/kill/advance per EPISTEMOLOGY §3; next ideas in
+  IDEAS.md queue.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
