@@ -73,3 +73,16 @@ forbids importing the old system's research conclusions._
   books in recordings are crossed-book replay artifacts (E6). Do not
   re-register this class without a genuinely different angle (depth beyond
   top-of-book, changed fee regime).
+
+- **E10 — Fast jumps are priced fairly at the post-jump ask; mid-range
+  taker fees make "trade the jump" strictly negative.** EXP-003 probe (run
+  309, N=500, 368 entered): win rate of the jump direction bought at the
+  post-jump ask equals the ask to 4 decimals (0.5679 vs 0.5679, gross
+  EV/share +0.00005) — the book reprices within the entry latency of a
+  taker; there is neither momentum (stale ladder) nor reversal
+  (overreaction) edge at this trigger. 156 bps mid-range taker fees turn
+  the zero-gross trade into −1.47/market net. Transfer: (a) any mechanism
+  whose gross edge is < ~1.5c/share at mid-range prices cannot clear taker
+  fees; (b) this LOWERS the prior for IDEAS #6 (first-minute overreaction)
+  but does not kill it — different clock regime, and the Judge noted the
+  prediction was not contradicted, so no overreaction fuel either.

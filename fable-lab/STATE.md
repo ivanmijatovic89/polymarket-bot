@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U16._
+_Last updated: session 3, unit U17._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -72,6 +72,12 @@ _Last updated: session 3, unit U16._
   regenerated (status auto-derives "kill"). EXP-004 probe launched detached
   in the freed slot (log `logs/EXP-004-probe.log`).
 
+- U17: EXP-003 probe JUDGED — **kill** (run 309, N=500, 368 entered,
+  q=−0.0475 t=−1.06 → kill bar met; win rate 0.5679 = mean ask 0.5679:
+  jumps priced exactly fairly). LESSONS E10 (fees need ≥ ~1.5c/share gross
+  at mid-range; lowers prior for IDEAS #6 without funding overreaction
+  either). IDEAS #3 → dead; INDEX regenerated.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
@@ -80,7 +86,6 @@ _Last updated: session 3, unit U16._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-003 probe (500 random, log `logs/EXP-003-probe.log`).
 - EXP-004 probe (500 random, log `logs/EXP-004-probe.log`).
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. When main+lat finish: launch the 8 grid cells (spec neighborhood,
