@@ -300,6 +300,14 @@
               "imbalance-hold--002-flow-trigger--p2-imbLevels--da74410e-1a69-4639-bfd8-28d65decad74",
               "imbalance-hold--002-flow-trigger--p2-imbLevels--2961f591-f93a-4686-beaa-5861faed8332"
             ],
+            "best": 10,
+            "note": "Isolated positive cell at the grid edge: 3 → -0.28 (run 291, 871/1000, 48.56% win), 5 → -0.36 (run 289, 869/1000, 47.64%), 10 → +0.49 (run 290, 857/1000, 52.98% win, both halves and both weeks positive: last500 +0.38, W23 +0.39, W24 +0.55). Neighbors negative and schema caps imbLevels at 10 — same isolated-spike shape that failed 000's confirm. Trigger still barely binds (857 vs champion's 878). Appending flowWindowSec pass + imbLevels 7/8/9 refine to map the spike's neighborhood before any gate decision."
+          },
+          {
+            "param": "flowWindowSec",
+            "values": [10, 60, 120],
+            "batchUid": "imbalance-hold--002-flow-trigger--p3-flowWindowSec",
+            "submissionUids": [],
             "best": null,
             "note": null
           }
