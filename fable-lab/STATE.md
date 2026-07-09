@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U12._
+_Last updated: session 3, unit U16._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -62,7 +62,17 @@ _Last updated: session 3, unit U12._
   (truncated-unbiased samples are judged), D10 (evidence runs launch
   detached via `setsid nohup`).
 
-## In progress (5 detached runs, all via tools/detach.mjs per D10)
+- U15: submit.ts grid stage passes --random; D11 — grid cells run
+  `--random --limit 2000` (sign-smoothness needs no full window).
+
+- U16: EXP-002 probe JUDGED — **kill** (run 308, N=500, ZERO entries: the
+  guarded fee-cleared dutch-book condition never fired). LESSONS E9: the
+  UP/DOWN pair is internally consistent at top-of-book beyond fees;
+  `sum-mispricing` dead as a taker edge. IDEAS #2 → dead (EXP-002); INDEX
+  regenerated (status auto-derives "kill"). EXP-004 probe launched detached
+  in the freed slot (log `logs/EXP-004-probe.log`).
+
+## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
   place, batchUid stays EXP-001-probe).
@@ -70,8 +80,8 @@ _Last updated: session 3, unit U12._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-002 probe (500 random, log `logs/EXP-002-probe.log`).
 - EXP-003 probe (500 random, log `logs/EXP-003-probe.log`).
+- EXP-004 probe (500 random, log `logs/EXP-004-probe.log`).
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100

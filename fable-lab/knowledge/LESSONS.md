@@ -63,3 +63,13 @@ forbids importing the old system's research conclusions._
   group (DECISIONS D10); (b) before declaring a killed run VOID, check the
   DB — partial persistence is the norm, not the exception, and an
   exogenously truncated random sample is still a random sample (D9).
+
+- **E9 — The UP/DOWN pair is internally consistent at top-of-book beyond
+  fees (mechanism `sum-mispricing` is dead as a taker edge).** EXP-002
+  probe (run 308): across 500 random exploration-window markets, uncrossed
+  bestAsk(UP)+bestAsk(DOWN) < 1 − 156bps·min(p,1−p)·2 − 0.002 fired ZERO
+  times (95% upper bound ≈ 0.6% of markets, at ~0.002/share when it would
+  fire — economically nil). Complement quoting is tight; apparent dutch
+  books in recordings are crossed-book replay artifacts (E6). Do not
+  re-register this class without a genuinely different angle (depth beyond
+  top-of-book, changed fee regime).

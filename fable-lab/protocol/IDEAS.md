@@ -28,7 +28,7 @@ Ordered; top entries get registered first.
 | # | idea | class | status |
 |---|---|---|---|
 | 1 | expiry certainty discount | `tail-overpricing` | registered (EXP-001) |
-| 2 | UP+DOWN dutch-book scan | `sum-mispricing` | registered (EXP-002) |
+| 2 | UP+DOWN dutch-book scan | `sum-mispricing` | dead (EXP-002) |
 | 3 | post-jump stale ladder | `stale-quote` | registered (EXP-003) |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | registered (EXP-004) |
@@ -50,7 +50,7 @@ Ordered; top entries get registered first.
   a reversal) is the true test. Simulator exposure: taker-only ⇒ pessimistic
   side of sim bias — a clean property.
 
-### 2. UP+DOWN dutch-book scan — `sum-mispricing` — registered (EXP-002)
+### 2. UP+DOWN dutch-book scan — `sum-mispricing` — dead (EXP-002)
 - **Who loses:** whichever side of the pair is quoted lazily; makers who
   don't rebalance the complement when one book moves.
 - **Prediction:** moments exist where bestAsk(UP)+bestAsk(DOWN) < 1 − fees
