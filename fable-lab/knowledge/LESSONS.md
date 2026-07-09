@@ -30,3 +30,24 @@ forbids importing the old system's research conclusions._
 - **E5 — Gate on `fill` events, not order status.** Resting maker fills
   emit no `ws_order_update` in the simulator, and MINED never appears;
   status-gated logic silently misses maker fills (CAPABILITIES §4).
+- **E6 — Recorded books can be self-crossed; top-of-book "arbs" are often
+  artifacts.** In telonex-delta replay a single asset's book can show
+  bestBid > bestAsk (observed: UP bid 0.40 vs UP ask 0.37,
+  btc-updown-15m-1764461700, EXP-000-debug replay 2026-07-09) — impossible
+  on a live CLOB, an artifact of delta streams with no trade-removal events
+  (WS gaps leave stale levels; CAPABILITIES §2, §5). Consequences: (a)
+  apparent UP+DOWN dutch books at top-of-book are frequently just one
+  self-crossed mirrored book; (b) any strategy keying on "too good" quotes
+  must guard against self-crossed books or it harvests phantom fills the
+  simulator happily grants; (c) composition diagnostics should check entry
+  quotes against the same-book opposite side. Grounding: EXP-002 smoke
+  (EXP-002-smoke, pnl −84.88 across 10 markets via one-legged fills into
+  crossed states) + the debug replay above.
+- **E7 — Ambient `.env` changes run semantics; pin the execution model per
+  run.** The repo's `.env` sets `BACKTEST_LATENCY_DELAY=140`, silently
+  applied to every backtest (found when FOK batch legs executed 140ms after
+  submission in the EXP-002 smoke — one-legged "riskless" pairs).
+  `tools/submit.ts` now pins `BACKTEST_LATENCY_DELAY`/`JITTER` explicitly
+  for every stage (DECISIONS D8). Any future env-sensitive knob (e.g.
+  `BACKTEST_TAKER_FEE_BPS`) must be pinned the same way before it becomes
+  evidence-relevant.

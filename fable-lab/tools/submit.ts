@@ -129,6 +129,14 @@ function main() {
 
   args.push('--sequential')
 
+  // Pin the execution-model env for EVERY stage (DECISIONS D8): the repo's
+  // ambient .env sets BACKTEST_LATENCY_DELAY=140, which silently changed run
+  // semantics (found via EXP-002 smoke: FOK pair legs executing 140ms after
+  // submission, one-legged fills). The lat stage sets its own values above;
+  // ??= keeps them.
+  env.BACKTEST_LATENCY_DELAY ??= '0'
+  env.BACKTEST_LATENCY_JITTER ??= '0'
+
   const envPrefix = Object.entries(env)
     .map(([k, v]) => `${k}=${v}`)
     .join(' ')

@@ -66,7 +66,10 @@ Fixed flags (operator scope, CHARTER): `--input-mode telonex-delta
 --timeframe 15m` (the delta-typed converter is derived from the input mode;
 there is no `--converter` CLI flag). Additionally `--sequential`, always,
 via `tools/run-backtest.ts` (DECISIONS D7: charter forbids fleet
-submissions, and fable strategies exist only in this process's registry).
+submissions, and fable strategies exist only in this process's registry),
+and `BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0` pinned explicitly
+on every stage except `lat`, which sets its own delay (DECISIONS D8 — the
+ambient `.env` sets 140ms and would silently change run semantics).
 `tools/submit.ts` builds the full command from the spec file so params
 cannot drift from what was registered.
 

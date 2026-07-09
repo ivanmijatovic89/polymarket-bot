@@ -52,4 +52,10 @@
 
 ## Runs (append-only)
 
+- 2026-07-09 — VOID (no DB row): first probe launch executed under ambient
+  `.env` `BACKTEST_LATENCY_DELAY=140` (discovered mid-run via EXP-002 smoke
+  diagnostics; DECISIONS D8, LESSONS E7). Killed at ~365/500 before the
+  sequential run persisted anything. No results were read. Relaunched with
+  pinned `BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0`.
+
 ## Verdicts (append-only)

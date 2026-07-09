@@ -33,13 +33,31 @@ _Last updated: session 2 (first research session under charter v2), unit U9._
   flag) — only 2 of 4 --param pairs reached the command; now uses true
   end-of-input; re-validated positive+negative fixtures.
 
+- U11a (while probe ran): EXP-002 (UP+DOWN dutch-book scan, `sum-mispricing`)
+  registered: spec + strategy `strategies/sum-mispricing/EXP-002.ts`
+  (id `fable-exp-002`), validator passes. Its smoke exposed two findings:
+  - LESSONS E6: recorded books can be SELF-CROSSED (UP bid 0.40 > UP ask
+    0.37, btc-updown-15m-1764461700) — apparent dutch books are replay
+    artifacts; EXP-002 now guards against crossed books (pre-registration,
+    before any decisive run). Guarded smoke: 0 entries in 10 markets.
+  - LESSONS E7 / DECISIONS D8: ambient `.env` sets BACKTEST_LATENCY_DELAY=140
+    — silently applied to all runs. submit.ts now pins DELAY=0/JITTER=0 on
+    every stage (lat stage keeps its own). First EXP-001 probe launch was
+    VOID (killed ~365/500, nothing persisted, noted in the experiment file);
+    relaunched pinned.
+  - `strategies/_fixtures/debug-book.ts` added (diagnostic fixture, places a
+    debug pair on first crossed-gap tick; batchUid EXP-000-debug only).
+
 ## In progress
-- U11: EXP-001 probe (500 random exploration markets, local sequential,
-  background), then Judge verdict per LIFECYCLE §5; spec EXP-002 while the
-  probe replays.
+- U11: EXP-001 probe RUNNING in background (relaunched pinned,
+  `logs/EXP-001-probe.log`, 500 markets, ~15 min). On completion:
+  `tools/results.ts` readout → append verbatim → Judge subagent
+  (`protocol/sessions/JUDGE.md`) → verdict → act on it.
 
 ## Next
-- After the probe verdict: iterate/kill/advance per EPISTEMOLOGY §3.
+- EXP-002 probe (after EXP-001 verdict unit committed).
+- Then per verdicts: iterate/kill/advance per EPISTEMOLOGY §3; next ideas
+  in IDEAS.md queue (post-jump stale ladder is #3).
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →

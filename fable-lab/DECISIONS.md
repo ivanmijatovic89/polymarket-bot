@@ -172,3 +172,26 @@ scope) and leaves the tree dirty with untracked files during evidence runs.
 probe is ~10-30 min in the background and the full exploration window
 (~14k markets) is hours — acceptable, sized per EPISTEMOLOGY §2/§3;
 re-measure with a real strategy and record here if materially different.
+
+## D8 — submit.ts pins the execution-model env for every stage
+
+**Motivating evidence (evolution governor).** EXP-002 smoke (2026-07-09)
+produced one-legged FOK "pairs" losing money on a riskless-by-construction
+trade. Debug replay showed order submission at t and execution at t+145ms:
+the repo's ambient `.env` sets `BACKTEST_LATENCY_DELAY=140`, silently
+applied to all runs — including the first EXP-001 probe, launched assuming
+the engine default of 0ms (CAPABILITIES §4).
+
+**Decision.** `tools/submit.ts` sets `BACKTEST_LATENCY_DELAY=0` and
+`BACKTEST_LATENCY_JITTER=0` explicitly for every stage (the `lat` stage sets
+its own delay; `??=` preserves it). The anchor for decisive stages stays
+0ms — the engine default the epistemology was derived under; latency
+realism enters through the mandatory {0,150,300} sensitivity curve
+(EPISTEMOLOGY §5), not through an ambient constant. The first EXP-001 probe
+(launched 140ms, killed at ~365/500 before any row was persisted) is void;
+relaunched pinned.
+
+**Rejected.** Adopting 140ms as the decisive-stage anchor — it is exactly
+the kind of invented constant the charter forbids (nobody measured 140ms
+for OUR execution path); the sensitivity curve carries that information
+honestly. Also rejected: editing `.env` (outside fable-lab write scope).

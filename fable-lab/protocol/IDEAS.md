@@ -27,8 +27,8 @@ Ordered; top entries get registered first.
 
 | # | idea | class | status |
 |---|---|---|---|
-| 1 | expiry certainty discount | `tail-overpricing` | open |
-| 2 | UP+DOWN dutch-book scan | `sum-mispricing` | open |
+| 1 | expiry certainty discount | `tail-overpricing` | registered (EXP-001) |
+| 2 | UP+DOWN dutch-book scan | `sum-mispricing` | registered (EXP-002) |
 | 3 | post-jump stale ladder | `stale-quote` | open |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | open |
@@ -36,7 +36,7 @@ Ordered; top entries get registered first.
 
 ## Entries
 
-### 1. Expiry certainty discount — `tail-overpricing` — open
+### 1. Expiry certainty discount — `tail-overpricing` — registered (EXP-001)
 - **Who loses:** holders of the winning side who sell out at 0.95-0.99 in
   the final minutes to avoid redeem friction (gas, capital lockup, workflow),
   and late hedgers who must cross the spread. Their urgency is structural.
@@ -50,7 +50,7 @@ Ordered; top entries get registered first.
   a reversal) is the true test. Simulator exposure: taker-only ⇒ pessimistic
   side of sim bias — a clean property.
 
-### 2. UP+DOWN dutch-book scan — `sum-mispricing` — open
+### 2. UP+DOWN dutch-book scan — `sum-mispricing` — registered (EXP-002)
 - **Who loses:** whichever side of the pair is quoted lazily; makers who
   don't rebalance the complement when one book moves.
 - **Prediction:** moments exist where bestAsk(UP)+bestAsk(DOWN) < 1 − fees
