@@ -29,8 +29,14 @@ export type ParsedSpec = {
 }
 
 function field(md: string, label: string): string | null {
-  // matches "- **Label:** value" possibly wrapping to following indented lines
-  const re = new RegExp(`^- \\*\\*${label}:?\\*\\*:?\\s*([\\s\\S]*?)(?=\\n- \\*\\*|\\n##|$)`, 'm')
+  // matches "- **Label:** value" possibly wrapping to following indented lines.
+  // NOTE: `(?![\s\S])` = true end-of-input; a bare `$` under the `m` flag
+  // matches every line end and silently truncated wrapped fields (found via
+  // EXP-001 smoke: only 2 of 4 --param pairs reached the command).
+  const re = new RegExp(
+    `^- \\*\\*${label}:?\\*\\*:?\\s*([\\s\\S]*?)(?=\\n- \\*\\*|\\n##|(?![\\s\\S]))`,
+    'm',
+  )
   const m = md.match(re)
   return m ? m[1].trim().replace(/\s+/g, ' ') : null
 }

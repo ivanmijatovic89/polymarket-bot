@@ -14,7 +14,7 @@
   the reason their behavior is systematic, stated so a result can contradict it.>
 - **Falsifiable prediction:** <a statement about recorded data/diagnostics
   that is TRUE if the mechanism is real, checkable from the probe run.>
-- **Strategy:** `src/strategies/fable/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`
+- **Strategy:** `fable-lab/strategies/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`
 - **Primary parameter cell:** <exact --param list. ONE cell.>
 - **Robustness neighborhood:** <the ±1-step grid to run at Stage 2, judged
   on smoothness only>

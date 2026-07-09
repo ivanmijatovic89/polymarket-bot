@@ -24,14 +24,22 @@ _Last updated: session 2 (first research session under charter v2), unit U9._
     markets (2025-11-30 → 2026-06-14), holdout boundary 1777237200000
     (2026-04-26T21:00Z).
 
-## In progress
-- U10: register EXP-001 (expiry certainty discount, `tail-overpricing`, top
-  of IDEAS.md) — spec + strategy + smoke.
+- U10: EXP-001 (expiry certainty discount, `tail-overpricing`) registered:
+  spec `protocol/registry/experiments/EXP-001-expiry-certainty-discount.md`
+  + strategy `strategies/tail-overpricing/EXP-001.ts` (id `fable-exp-001`).
+  Validator passes. Smoke ran green (EXP-001-smoke, 10 markets, 9 entered —
+  plumbing only, never evidence). Bug found via smoke and fixed:
+  `tools/lib/spec.ts` field() regex truncated wrapped fields (`$` under `m`
+  flag) — only 2 of 4 --param pairs reached the command; now uses true
+  end-of-input; re-validated positive+negative fixtures.
 
-## Next
+## In progress
 - U11: EXP-001 probe (500 random exploration markets, local sequential,
   background), then Judge verdict per LIFECYCLE §5; spec EXP-002 while the
   probe replays.
+
+## Next
+- After the probe verdict: iterate/kill/advance per EPISTEMOLOGY §3.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
