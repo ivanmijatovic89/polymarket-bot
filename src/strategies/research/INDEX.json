@@ -4,7 +4,7 @@
   "families": [
     {
       "family": "imbalance-hold",
-      "status": "researching",
+      "status": "validated",
       "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",
       "proposedBy": "claude-code/claude-fable-5",
       "duplicateKeys": [
@@ -17,16 +17,16 @@
         "imbalance-taker-hold"
       ],
       "retryOnlyIf": null,
-      "verdictSummary": null,
+      "verdictSummary": "Validated at gates v1: deep-book (10-level) imbalance-flow taker entry held to redemption nets +0.03/mkt over 9000 markets (gross +0.146, fees measured), with a monotonic calendar trend (monthly Mar -0.23 → Jun +0.42) — a recent-regime edge whose live dry-run must confirm current-month behavior.",
       "path": "imbalance-hold/FAMILY.md",
-      "champion": "000-baseline",
+      "champion": "002-flow-trigger",
       "championMetrics": {
-        "netEvPerMarket": -0.22,
-        "grossEvPerMarket": -0.1,
-        "markets": 3000,
-        "trades": 3307
+        "netEvPerMarket": 0.03,
+        "grossEvPerMarket": 0.146,
+        "markets": 9000,
+        "trades": 10197
       },
-      "championStageReached": 1,
+      "championStageReached": 3,
       "tags": [
         "orderbook",
         "imbalance",

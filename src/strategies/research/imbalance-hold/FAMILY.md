@@ -308,3 +308,56 @@ losses means the filter is selecting a price regime (longshots), not signal
 quality. For book-shape signals specifically: pressure that PERSISTS is
 pressure nobody arbitrages — on a competitive leg the book reprices in
 seconds, so long-persistence selection is adverse by construction.
+
+### 002-flow-trigger — 2026-07-09
+
+**What ran.** Three passes at latest-1000, then the full stage climb on the
+winning cell. Pass 1 `minFlow` [0.15-0.6] at imbLevels=1: flat-negative
+(-0.38 to -0.47, ~48% win) and non-binding (874-882/1000 played ≈ baseline's 878) — the touch-level differential swings past 0.6 within 30s in virtually
+every market; the level-1 derivative is flicker. Pass 2 `imbLevels` [3, 5,
+10] at minFlow=0.3: 3 → -0.28 (run 291), 5 → -0.36 (run 289), 10 → +0.49
+(run 290; 857/1000 played, 52.98% win, both weeks positive). Pass 3
+`flowWindowSec` [10, 60, 120] at imbLevels=10: -0.12 / -0.23 / -0.03 — the
+winning cell (10 levels, 30s window) is a lone peak in BOTH search
+dimensions, all 5 measured neighbors negative.
+
+**The climb.** Gate 1 go at +0.49/1000 with a severe isolated-spike
+advisory. Gate 2 GO at +0.27/3000 — and unlike 000's confirm, the
+distribution was healthy: 4/5 weeks positive (W20 +0.56, W21 -0.27, W22
++0.36, W23 +0.31, W24 +0.55), both months positive (May +0.15, Jun +0.42).
+Gate 3 go at +0.03/9000 (8565 played, 10197 trades, 48.97% win, fees
+$1080.8, gross +0.146/mkt): monthly Mar -0.23, Apr -0.18, May +0.21,
+Jun +0.42 — a monotonic calendar trend, positive over the entire recent
+2-month block (≈4250 markets), negative over the oldest two months.
+Family validated; champion moved 000-baseline → 002-flow-trigger.
+
+**Interpretation.** What survived every stage is a specific, coherent
+measurement: the CHANGE, over 30 seconds, of the bid-support ratio
+aggregated over the DEEP book (10 cumulative levels) — slow-moving enough
+that a 0.3 swing means real order flow, unlike the level-1 flicker. The
+level of the same quantity is dead (000), its persistence is adverse (001),
+and its touch-level derivative is noise (002 pass 1) — direction lives only
+in deep-book flow. Two honest caveats carried into validation: (a) the
+winning cell's parameter neighbors were only measured at 1000 markets, so
+parameter isolation remains undischarged even though the cell itself
+survived 9x data; (b) the edge is regime-shaped — full-history +0.03 is the
+average of a negative old regime and a +0.2-0.4 recent one, so the live
+dry-run (user-owned) is effectively the test of whether the recent regime
+persists. Win rate is below 50% throughout (48.97% at 9000): the profit is
+payoff-spread (avgWin 9.27 vs avgLose 9.07 at 3000), not hit rate — expect
+losing streaks.
+
+**Decision.** Verdict `success` (successCriteria quoted in the outcome:
+stage-1 positivity + binding — both met), `stageReached: 3`,
+`gatesVersion: 1`, champion → 002-flow-trigger, family `validated` with
+`verdictSummary`. Research can continue with challengers (complement veto,
+entry-price band, distance-weighted depth remain unqueued in the roadmap);
+this session stops here per the Session contract (validated).
+
+Lesson: Parameter-isolation and time-instability are different spike
+diagnostics and must be read separately: 000's spike was time-unstable
+(one good week) and died at 3x data; 002's spike was parameter-isolated but
+time-stable (4/5 weeks, then 2/2 recent months) and survived 9x data. A
+lone peak in parameter space warns; a lone peak in calendar time kills.
+And a barely-positive full-history number can be the average of two
+regimes — read the monthly shape before calling a validated edge uniform.

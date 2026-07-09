@@ -54,6 +54,30 @@ wins into occasional large residual losses. Treat high win rate on flattening
 sells as a payoff-shape warning, not as edge, unless market-level net EV improves.
 From: maker-favorite.
 
+### parameter-isolation-warns-time-instability-kills — 2026-07-09
+
+Nuances (does not overturn)
+`an-isolated-entry-timing-spike-is-a-regime-artifact-not-a-signal`: that
+entry's spike was isolated in TIME (one good week carried the screen) and
+died at 3x data, but parameter-isolation alone predicts confirm failure
+much less reliably — the two diagnostics must be read separately. In
+`imbalance-hold` `002-flow-trigger`, the winning cell (imbLevels=10,
+flowWindowSec=30: +0.49 net/mkt at 1000) was a lone peak in BOTH parameter
+dimensions (all 5 measured neighbors negative: imbLevels 3/5 →
+-0.28/-0.36, window 10/60/120 → -0.12/-0.23/-0.03) yet was time-stable
+inside the screen window (both halves, both weeks positive) — and it
+survived the whole climb: +0.27 at 3000 (4/5 weeks positive), +0.03 at 9000. Meanwhile the full-history number itself illustrated the second
+read: +0.03 was the average of a negative old regime and a positive recent
+one (monthly Mar -0.23, Apr -0.18, May +0.21, Jun +0.42). Practical rules:
+(a) a parameter-space lone peak that is time-stable within the screen
+deserves its extension — record the advisory, spend the confirm; (b) a
+time-unstable screen (edge concentrated in one week) predicts erasure
+regardless of parameter shape; (c) before calling a validated full-history
+edge uniform, read its monthly shape — a barely-positive total can be a
+regime trend, and the live dry-run is then a bet on the CURRENT regime
+persisting, not on the historical average.
+From: imbalance-hold.
+
 ### persistent-book-pressure-selects-longshots-not-informed-flow — 2026-07-09
 
 Requiring a book-shape signal to hold continuously before acting does not

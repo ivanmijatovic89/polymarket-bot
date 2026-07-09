@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactType": "strategy-family-index",
   "family": "imbalance-hold",
-  "status": "researching",
+  "status": "validated",
   "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",
   "proposedBy": "claude-code/claude-fable-5",
   "duplicateKeys": [
@@ -15,8 +15,8 @@
     "imbalance-taker-hold"
   ],
   "retryOnlyIf": null,
-  "champion": "000-baseline",
-  "verdictSummary": null,
+  "champion": "002-flow-trigger",
+  "verdictSummary": "Validated at gates v1: deep-book (10-level) imbalance-flow taker entry held to redemption nets +0.03/mkt over 9000 markets (gross +0.146, fees measured), with a monotonic calendar trend (monthly Mar -0.23 → Jun +0.42) — a recent-regime edge whose live dry-run must confirm current-month behavior.",
   "tags": ["orderbook", "imbalance", "taker", "directional", "hold-to-redemption", "single-fee"],
   "experiments": [
     {
@@ -327,7 +327,7 @@
         "fromMs": null,
         "toMs": null
       },
-      "status": "running",
+      "status": "evaluated",
       "gateLog": [
         {
           "stage": 1,
@@ -340,12 +340,38 @@
           "decision": "go",
           "at": "2026-07-09T05:30:49Z",
           "note": "netEv +0.27/mkt at 3000 mkts (run 290 extended: 2788/3000 played, 3353 trades, 51.04% win, fees $348.8, gross ≈ +0.39/mkt) — gate 2 criterion netEvPerMarket > 0 met. Distribution healthy, unlike 000's confirm: 4/5 weeks positive (W20 +0.56, W21 -0.27, W22 +0.36, W23 +0.31, W24 +0.55), both months positive (May +0.15, June +0.42). The stage-1 isolated-peak advisory is partially discharged by 3x data; caveat remains that the cell's parameter neighbors were only measured at 1000. Extending run 290 to ~9000 (stage 3, full history)."
+        },
+        {
+          "stage": 3,
+          "decision": "go",
+          "at": "2026-07-09T05:51:05Z",
+          "note": "netEv +0.03/mkt at 9000 mkts (run 290 extended: 8565/9000 played, 10197 trades, 48.97% win, pnl +234.7, fees $1080.8, gross ≈ +0.146/mkt) — gate 3 criterion netEvPerMarket > 0 met; final gate passed, family validated. Advisories (non-blocking, for the live dry-run): margin is razor-thin over full history and the EV has a monotonic calendar trend (monthly Mar -0.23, Apr -0.18, May +0.21, Jun +0.42) — a recent-regime edge, not a uniform one; overall win% 48.97 means profits come from the payoff spread, not hit rate."
         }
       ],
       "submittedAt": "2026-07-09T02:26:20Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-09T05:51:05Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "success",
+        "bestParams": {
+          "imbLevels": 10,
+          "flowWindowSec": 30,
+          "minFlow": 0.3,
+          "size": 20,
+          "startSec": 60,
+          "maxEntryPrice": 0.8,
+          "slippageTol": 0.02
+        },
+        "metrics": {
+          "netEvPerMarket": 0.03,
+          "grossEvPerMarket": 0.146,
+          "markets": 9000,
+          "trades": 10197
+        },
+        "reason": "successCriteria 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1) AND the flow trigger binds: best cell markets played strictly below the champion's 878/1000 at the same coverage' met (+0.49 at 1000, 857 < 878 played); climb passed all gates: +0.27 at 3000, +0.03 at 9000 (monthly Mar -0.23, Apr -0.18, May +0.21, Jun +0.42).",
+        "stageReached": 3,
+        "gatesVersion": 1
+      }
     }
   ]
 }
