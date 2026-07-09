@@ -60,7 +60,13 @@ function main() {
         '--batchUid', `${spec.expId}-probe`,
       )
     } else if (stage === 'holdout') {
-      args.push('--from-ms', String(spec.holdoutBoundaryMs), '--batchUid', `${spec.expId}-holdout`)
+      // explicit large --limit: the eligibility query defaults to 1000 rows,
+      // which would silently truncate the holdout window
+      args.push(
+        '--from-ms', String(spec.holdoutBoundaryMs),
+        '--limit', argValue('--limit') ?? '1000000',
+        '--batchUid', `${spec.expId}-holdout`,
+      )
     }
   }
 
