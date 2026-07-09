@@ -69,7 +69,12 @@
             "param": "maxEntryPrice",
             "values": [0.6, 0.7, 0.8, 0.9],
             "batchUid": "imbalance-hold--000-baseline--p3-maxEntryPrice",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--000-baseline--p3-maxEntryPrice--54dd34ef-0ff4-4c45-bdef-325d53e19dd0",
+              "imbalance-hold--000-baseline--p3-maxEntryPrice--6721704b-85ba-49f3-b5a3-6f70745eb3e2",
+              "imbalance-hold--000-baseline--p3-maxEntryPrice--2aa097a2-a206-458e-bba9-8a817b72b1bc",
+              "imbalance-hold--000-baseline--p3-maxEntryPrice--74abe95b-2020-4513-9866-70085c6fa7d9"
+            ],
             "best": null,
             "note": null
           },
