@@ -7,6 +7,8 @@ export default withMermaid(
     description: 'Live trading bot + deterministic backtesting engine for Polymarket',
     base: '/polymarket-bot/',
     cleanUrls: true,
+    // Anthropic doc pages copied verbatim keep their original /docs/en/... links
+    ignoreDeadLinks: [/^\/docs\/en\//],
     head: [
       ['link', { rel: 'icon', href: '/polymarket-bot/img/logos/polymarket-twin-engine-mark.png', type: 'image/png' }],
     ],
@@ -241,6 +243,8 @@ export default withMermaid(
             { text: 'Orderbook Metrics', link: '/reference/orderbook-metrics' },
             { text: 'Gamma API Client', link: '/reference/gamma-api-client' },
             { text: 'CLOB Client', link: '/reference/clob-client' },
+            { text: 'Prompting Claude Fable 5', link: '/reference/prompting-claude-fable-5' },
+            { text: 'Prompting Claude Opus 4.8', link: '/reference/prompting-claude-opus-4-8' },
           ],
         },
 
