@@ -307,7 +307,11 @@
             "param": "flowWindowSec",
             "values": [10, 60, 120],
             "batchUid": "imbalance-hold--002-flow-trigger--p3-flowWindowSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--002-flow-trigger--p3-flowWindowSec--f837730c-999c-4d10-8124-09e273acdf7f",
+              "imbalance-hold--002-flow-trigger--p3-flowWindowSec--d92a8858-2897-4f4c-b849-86c5fdc13907",
+              "imbalance-hold--002-flow-trigger--p3-flowWindowSec--1282f5b0-1d59-4958-be3e-bdd5260d2124"
+            ],
             "best": null,
             "note": null
           }
