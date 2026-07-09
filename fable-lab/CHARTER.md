@@ -12,6 +12,41 @@ You are explicitly NOT bound by its architecture, its stage/gate design, its
 memory model, its role split, or its conclusions. Tomorrow the two systems
 compete on the same engine; tonight you build yours.
 
+## Operator-fixed research scope (NOT yours to change)
+
+Design freedom covers HOW research is done. WHAT is researched is the
+operator's decision, fixed here — your system must encode these as its own
+non-negotiable scope:
+
+- **Market scope:** Polymarket **BTC 15 minute up/down binary markets** only
+  (slug shape `btc-updown-15m-<epochStart>`; one market = one fixed 15m
+  episode; UP wins above the window reference price, DOWN below). No other
+  symbols (no ETH, SOL, XRP...), no other timeframes (no 5m, 1h...), no other
+  venues, no cross-exchange or cross-venue signals — even where the engine or
+  dataset would technically allow them.
+- **Replay defaults (always):** `symbol=btc`, `timeframe=15m`,
+  `--input-mode telonex-delta`, `--converter delta-typed`,
+  `--read-from local-or-download-from-r2-to-local`. Only resolved Telonex
+  markets count toward statistics.
+- **Allowed strategy inputs:** market ticks emitted by `MarketEngine`
+  (`book` / `price_change`), replayed order-book state, market metadata
+  identifying the current window, account/order/fill events from the shared
+  trading infrastructure, and derived features computed from recorded data —
+  nothing else. **Forbidden:** live-only signals, unrecorded WebSocket
+  fields, external feeds that cannot be safely absent in backtests, and
+  non-deterministic strategy behavior across replay runs.
+- **Live/backtest parity is an invariant:** strategies must be reproducible
+  live from the same tick semantics used in replay. A design element that
+  makes a profitable backtest impossible to reproduce live is a bug, not an
+  edge.
+- **The objective:** durable, replayable positive expected value AFTER
+  realistic execution costs (spread, slippage, fees, fill risk, adverse
+  selection, redeem lifecycle) — measured from real run results, never from
+  invented cost constants. Curve-fit parameter cells are not the target.
+
+These mirror the operator's scope policy; everything else in the old
+system's files remains non-binding design.
+
 ## Ground truth: the engine (Phase 0 — mandatory, before any design)
 
 Everything you design MUST be supported by the engine as it exists today. Your
