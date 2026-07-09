@@ -51,3 +51,15 @@ forbids importing the old system's research conclusions._
   for every stage (DECISIONS D8). Any future env-sensitive knob (e.g.
   `BACKTEST_TAKER_FEE_BPS`) must be pinned the same way before it becomes
   evidence-relevant.
+
+- **E8 — Background evidence runs die with the session; launch them
+  detached.** Two EXP-001 probe launches were killed by session-level
+  SIGTERM (the harness terminates the session's process group when a
+  session ends): the first persisted nothing (voided, E7), the second
+  persisted 379/500 markets because per-market rows are written
+  incrementally and the run row was finalized `completed` on SIGTERM.
+  Consequences: (a) any run that must outlive the session is launched with
+  `setsid nohup ... < /dev/null > log 2>&1 &` so it escapes the process
+  group (DECISIONS D10); (b) before declaring a killed run VOID, check the
+  DB — partial persistence is the norm, not the exception, and an
+  exogenously truncated random sample is still a random sample (D9).

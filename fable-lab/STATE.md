@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 2 (first research session under charter v2), unit U9._
+_Last updated: session 3, unit U12._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -48,16 +48,32 @@ _Last updated: session 2 (first research session under charter v2), unit U9._
   - `strategies/_fixtures/debug-book.ts` added (diagnostic fixture, places a
     debug pair on first crossed-gap tick; batchUid EXP-000-debug only).
 
+- U11b-d (session 2, verified in git): entry-check.ts prediction tool;
+  EXP-003 (post-jump stale ladder) registered with green smoke.
+
+- U12 (session 3): EXP-001 probe JUDGED — **advance**. The relaunched probe
+  was killed by session SIGTERM at 379/500 but persisted cleanly (run 301,
+  batchUid EXP-001-probe, N=379, 0 failures). Judged at N=379 per D9
+  (exogenous truncation ≠ bias). Readout: EV/market=1.94 CI95=[0.71,3.17],
+  t=3.08, win rate 0.9697 vs mean entry ask 0.9343 → prediction HELD,
+  bias classification clean (taker-only, fees charged). Fresh-context Judge
+  verdict appended verbatim to the experiment file. New: LESSONS E8
+  (session death kills child runs; check DB before voiding), DECISIONS D9
+  (truncated-unbiased samples are judged), D10 (evidence runs launch
+  detached via `setsid nohup`).
+
 ## In progress
-- U11: EXP-001 probe RUNNING in background (relaunched pinned,
-  `logs/EXP-001-probe.log`, 500 markets, ~15 min). On completion:
-  `tools/results.ts` readout → append verbatim → Judge subagent
-  (`protocol/sessions/JUDGE.md`) → verdict → act on it.
+- U13: EXP-001 stage MAIN — extend run 301 to full exploration window
+  (`submit.ts EXP-001 --stage main --parent-run 301`), launched DETACHED
+  (D10), log `logs/EXP-001-main.log`. ~13k markets ≈ multiple hours. On
+  completion: results.ts + entry-check.ts → then battery (lat curve
+  {0,150,300}, robustness grid) per spec before the main Judge.
+- EXP-002 probe: launch detached after main is confirmed running (CPU
+  contention affects wall time only, not results — event-time replay).
 
 ## Next
-- EXP-002 probe (after EXP-001 verdict unit committed).
-- Then per verdicts: iterate/kill/advance per EPISTEMOLOGY §3; next ideas
-  in IDEAS.md queue (post-jump stale ladder is #3).
+- EXP-002 probe verdict; EXP-003 probe; per verdicts iterate/kill/advance
+  per EPISTEMOLOGY §3; next ideas in IDEAS.md queue.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →

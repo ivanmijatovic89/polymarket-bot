@@ -195,3 +195,29 @@ relaunched pinned.
 the kind of invented constant the charter forbids (nobody measured 140ms
 for OUR execution path); the sensitivity curve carries that information
 honestly. Also rejected: editing `.env` (outside fable-lab write scope).
+
+## D9 — Exogenously truncated random samples are judged, not voided
+
+**Motivating observation:** EXP-001 probe run 301 was killed at 379/500 by a
+session-end SIGTERM; all 379 markets persisted cleanly (0 failures).
+
+**Decision:** when a `--random` evidence run is truncated by a cause that is
+independent of market content (session death, machine restart), the persisted
+prefix is a valid random sample of its size and is judged under the stage's
+rules at that N. The truncation and its cause are recorded in the Runs entry.
+Rejected alternative: void-and-relaunch (wastes replay-hours and, for
+`--extend`-based repair, would replace random sampling with oldest-first
+selection — a worse sample, not a better one). Truncation that correlates
+with content (e.g. crash on a specific market) still voids the run.
+
+## D10 — Evidence runs launch detached from the session
+
+**Motivating observation:** two probe launches killed by session-level
+SIGTERM (LESSONS E8) — the launcher was a child of the session's process
+group.
+
+**Decision:** every evidence run (probe/main/lat/grid/holdout) is launched
+via `setsid nohup <cmd> < /dev/null > fable-lab/logs/<name>.log 2>&1 &` so it
+survives session death; the session then polls the log/DB. Smokes may stay
+foreground (they are ~30s and never evidence). This changes how commands
+from `tools/submit.ts` are invoked, not what they contain.

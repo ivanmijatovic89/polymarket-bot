@@ -59,3 +59,84 @@
   pinned `BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0`.
 
 ## Verdicts (append-only)
+
+- 2026-07-09 — run 301, batchUid `EXP-001-probe`, N=379 (of the registered
+  500: the launcher process received a session-level SIGTERM at ~379/500;
+  truncation is exogenous and content-blind — a random sample truncated at a
+  random position is a random sample of size 379; judged as-is per DECISIONS
+  D9). Latency pinned DELAY=0/JITTER=0 (D8). Decisive readout, verbatim:
+
+  ```
+  === results: run 301  batch EXP-001-probe ===
+  strategy fable-exp-001  params {"maxAsk":0.99,"minAsk":0.9,"shares":100,"entryAfterSec":720}
+  status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+  N=379  played=231  skipped=148  failures=0
+  pnlTotal=735.24  EV/market=1.9399  CI95=[0.7054, 3.1745]
+  std=12.2624  q=0.1582  t=3.0799
+  winRate(played)=0.9697 (224/7)
+  fees=22.24  fee/grossWins=0.0173  maker/taker=0/267 (makerShare=0)
+  days=136  positiveDayFrac=0.7794  best=2026-01-20:47.78  worst=2026-02-24:-169.89
+  worst5: btc-updown-15m-1771960500:-90  btc-updown-15m-1769004900:-90  btc-updown-15m-1771954200:-89.72  btc-updown-15m-1770012900:-88.62  btc-updown-15m-1776734100:-88.62
+  best5:  btc-updown-15m-1771796700:10.83  btc-updown-15m-1774835100:10.81  btc-updown-15m-1773681300:10.81  btc-updown-15m-1769231700:10.78  btc-updown-15m-1772978400:10.53
+  ```
+
+  Prediction check (`tools/entry-check.ts --exp EXP-001 --run 301`), verbatim:
+
+  ```
+  entered markets: 231
+  mean entry ask:  0.9343
+  win rate:        0.9697  (224/231)
+  win rate − mean ask: 0.0354
+  gross EV/share (pre-fee): 0.03540
+  PREDICTION HOLDS: win rate > mean entry ask AND gross EV > 0
+
+  ask bucket -> win rate (n):
+    0.90-0.92: 0.955 (112)
+    0.92-0.94: 0.964 (28)
+    0.94-0.96: 1.000 (15)
+    0.96-0.98: 1.000 (16)
+    0.98-1.00: 0.983 (60)
+  ```
+
+- 2026-07-09 — stage probe, fresh-context Judge (JUDGE.md), verbatim:
+
+  - stage: probe
+  - decision: advance
+  - read: N=379 q=0.1582 t=3.0799 EV/market=1.9399 CI95=[0.7054, 3.1745]
+  - prediction check: HELD — realized win rate 0.9697 (224/231) > mean entry
+    ask 0.9343 (margin +0.0354), gross EV/share pre-fee 0.03540 > 0;
+    secondary diagnostic also satisfied: entry fired in 231/379 = 61% of
+    markets, a substantial fraction, so the probe had killing power.
+  - battery: n/a at probe (spec runs the robustness battery, latency curve,
+    and smoothness neighborhood at Stage 2 main).
+  - simulator-bias classification: clean — makerShare=0 (0/267 maker/taker),
+    all fills are taker FOK at visible depth with the 156 bps taker fee
+    charged (fees=22.24, fee/grossWins=0.0173), which per CAPABILITIES §4 /
+    D6 sits on the pessimistic side of the simulator; the one intrinsic
+    optimistic dependency (zero-cost, instant settlement credit) is
+    pre-declared in the spec and deferred to live paper validation at
+    confirmation, not a probe-stage disqualifier.
+  - lineage-adjusted bar: lineage_cells=1 → no Bonferroni inflation; the
+    decisive bar stays p ≤ 0.023 (t ≥ 2) for Stage 2/3. The probe itself
+    only requires q̂ > 0 with no kill trigger; observed t=3.08 would clear
+    even the Stage-2 bar, though a probe cannot confirm.
+  - required next step: Stage 2 main — `--extend` run 301 to the full
+    exploration window (market_start_ms < 1777237200000) with pinned latency
+    env, then run the robustness battery (±1-step neighborhood, latency
+    curve {0,150,300}, time stability, composition).
+  - reasoning: Neither kill condition fires: q̂=0.1582 is positive with
+    t=3.08 (nowhere near t ≤ −1), and the spec's falsifiable prediction
+    holds mechanically — buyers of the ≥0.90-ask side late in the window won
+    96.97% of entered markets against a mean entry ask of 0.9343, positive
+    gross EV before fees, with every ask bucket at or above ~0.955. The
+    iterate branch does not apply because there is no diagnosable PnL leak:
+    fees are 1.7% of gross wins, fills are symmetric taker entries, and the
+    entered fraction (61%) is healthy. The N=379-vs-500 truncation is
+    exogenous and content-blind, so it degrades power slightly without
+    biasing the sample, and no number required by the probe rules is missing
+    from the readout. The one caution is exactly what §3 warns about — a
+    probe cannot confirm, the tail-heavy loss profile (worst5 near −90 per
+    market vs best5 near +10.8) means the estimate leans on the win-rate
+    margin holding up over thousands of markets, and skipped-as-zero is
+    already baked into q — so the correct spend is more data at Stage 2, not
+    belief now. Evidence is unambiguous on the probe's own rules: advance.
