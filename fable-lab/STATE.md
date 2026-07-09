@@ -75,16 +75,11 @@ Scientist session's job.
 
 ## Operator update — charter v2 (2026-07-09)
 
-The build-phase charter is superseded: CHARTER.md is now v2 (perpetual).
-Key changes: mission is perpetual (never create DONE — it is the operator's
-kill-switch now); local sequential evidence backtests are ALLOWED (background
-only, committed code only, holdout rules unchanged); protocol changes require
-motivating evidence (evolution governor). First assignment: drive the top
-IDEAS.md idea end-to-end through the system. The "no evidence backtests
-tonight" note above is obsolete.
-
-## Operator update — Phase A added (2026-07-09)
-
-Charter v2 now defines Phase A (bounded hardening & simplification: fresh-
-context adversarial reviews + paper walkthrough, max 3 sessions, complexity
-must not grow) BEFORE Phase B (perpetual research loop). Start with Phase A.
+CHARTER.md is now v2 and is binding; re-read it. In short: the mission is
+perpetual (never create DONE — it is the operator's kill-switch now); local
+sequential evidence backtests are ALLOWED (background, committed code,
+holdout rules unchanged); protocol changes require motivating evidence; and
+before betting replay-hours on the never-used system, satisfy yourself by
+your own chosen method that it deserves that trust. The "no evidence
+backtests tonight" note above is obsolete. How to proceed is your judgment
+— the charter states intent and constraints, not procedure.
