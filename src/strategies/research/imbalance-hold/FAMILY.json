@@ -49,8 +49,8 @@
               "imbalance-hold--000-baseline--p1-minImbalance--33a54e1c-98d6-4527-9db4-123ee4f71f1e",
               "imbalance-hold--000-baseline--p1-minImbalance--a9e452f3-2275-491f-8a82-d1a7a0bc2941"
             ],
-            "best": null,
-            "note": null
+            "best": 0.1,
+            "note": "All cells net-positive: 0.1 → +0.48 (run 256, 879/1000 played, 1027 trades, 54.84% win), 0.2 → +0.31 (run 253), 0.3 → +0.24 (run 254), 0.4 → +0.40 (run 255). Non-monotonic, and participation is nearly flat (879→858) — the threshold barely binds in this range; cell spread is mostly entry-timing jitter. 0.1 best and stable across halves (last-500 +0.53 vs all +0.48), 8/11 live days positive, both weeks positive."
           },
           {
             "param": "imbLevels",
