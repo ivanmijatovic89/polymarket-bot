@@ -88,8 +88,8 @@
               "imbalance-hold--000-baseline--p4-startSec--86edbdfd-9554-477d-8167-0cd97a688a87",
               "imbalance-hold--000-baseline--p4-startSec--4f20606b-4971-4b63-80b4-5598ff3e65a6"
             ],
-            "best": null,
-            "note": null
+            "best": 60,
+            "note": "ISOLATED SPIKE, not a plateau: 0 → -0.63 (run 268, 48.11% win), 60 → +0.51 (run 265, 55.24% win), 180 → -0.17 (run 266, 46.17% win), 420 → -0.65 (run 267, 31.58% win). The whole edge lives at the 60s entry; both neighbors are negative. Win-rate gap 60s-vs-180s (55.24 vs 46.17 on ~875 mkts) is ~5σ — real in this window, but fragile-timing advisory for the gate. 420s at 31.58% win: late-window imbalance ANTI-predicts under taker-buy — roadmap #5 (late-window) is measured hostile as stated; a reverse-signal variant is the testable version."
           },
           {
             "param": "size",
