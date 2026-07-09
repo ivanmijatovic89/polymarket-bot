@@ -107,7 +107,11 @@
             "param": "slippageTol",
             "values": [0.01, 0.02, 0.04],
             "batchUid": "imbalance-hold--000-baseline--p6-slippageTol",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--000-baseline--p6-slippageTol--d15e5a90-3b2a-47b3-a82e-9d5bd11d2673",
+              "imbalance-hold--000-baseline--p6-slippageTol--03a589d9-3b15-452f-9c21-a68e9bad1324",
+              "imbalance-hold--000-baseline--p6-slippageTol--fcc403e8-1caf-4ca3-96d4-58db670cf664"
+            ],
             "best": null,
             "note": null
           }
