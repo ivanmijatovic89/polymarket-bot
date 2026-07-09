@@ -295,7 +295,11 @@
             "param": "imbLevels",
             "values": [3, 5, 10],
             "batchUid": "imbalance-hold--002-flow-trigger--p2-imbLevels",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--002-flow-trigger--p2-imbLevels--df8cb761-7dd4-4bf4-a2ad-2ceaa4c6c39d",
+              "imbalance-hold--002-flow-trigger--p2-imbLevels--da74410e-1a69-4639-bfd8-28d65decad74",
+              "imbalance-hold--002-flow-trigger--p2-imbLevels--2961f591-f93a-4686-beaa-5861faed8332"
+            ],
             "best": null,
             "note": null
           }
