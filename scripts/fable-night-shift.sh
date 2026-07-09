@@ -8,12 +8,25 @@
 # worktree so the main checkout stays free for other sessions, and resumes
 # from its own state files if killed — relaunching continues the work.
 #
-# Usage:
+# Usage (run from the MAIN checkout, not the worktree):
 #   ./scripts/fable-night-shift.sh            # start / resume the night shift
 #   MAX_RUNS=50 ./scripts/fable-night-shift.sh
 #
+# Overnight launch (recommended): tmux keeps it alive if the terminal closes,
+# caffeinate keeps the Mac awake — tmux alone does NOT prevent system sleep:
+#   tmux new -s fable
+#   caffeinate -is ./scripts/fable-night-shift.sh
+#   # detach: Ctrl+B then D    reattach: tmux attach -t fable
+#
+# The account/model used is whatever this terminal's `claude` CLI is set to;
+# permission mode is passed by this script (bypassPermissions).
+#
 # Stop it: create fable-lab/DONE in the worktree (the session does this itself
 # when the charter is fulfilled), or Ctrl+C the loop.
+#
+# Morning review:
+#   cd ../polymarket-bot-fable && git log --oneline main..fable-protocol
+#   # read fable-lab/STATE.md first, then the runbook it wrote.
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 ROOT="$(pwd)"
