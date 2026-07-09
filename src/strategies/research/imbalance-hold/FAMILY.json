@@ -100,8 +100,8 @@
               "imbalance-hold--000-baseline--p5-size--4fea0808-3cba-4247-b090-830a983f41e2",
               "imbalance-hold--000-baseline--p5-size--df621b9f-8cfe-468f-a519-aae5aa2e1560"
             ],
-            "best": null,
-            "note": null
+            "best": 20,
+            "note": "Flat per-share — exposure knob, not edge: 10 → +0.24 (run 271, 2.4¢/share), 20 → +0.51 (run 269, 2.55¢/share), 40 → +1.03 (run 270, 2.57¢/share, 55.34% win, slight FOK-kill uptick: 871 vs 878 played). No capacity wall up to 40 shares. Kept 20 (default) — argmaxing exposure is leverage, not signal; stop spending passes here."
           },
           {
             "param": "slippageTol",
