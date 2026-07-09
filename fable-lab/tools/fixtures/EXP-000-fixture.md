@@ -10,8 +10,8 @@
   cross wide spreads; this sentence exists so the parser has content.
 - **Falsifiable prediction:** Fixture prediction: parser extracts this field.
 - **Strategy:** `src/strategies/templates/Template.v1.ts`, id `template.v1`
-- **Primary parameter cell:** `--param buyPrice=0.4 --param sellPrice=0.6`
-- **Robustness neighborhood:** buyPrice ±0.05, sellPrice ±0.05
+- **Primary parameter cell:** `--param logEveryMs=5000`
+- **Robustness neighborhood:** logEveryMs ∈ {1000, 5000, 10000}
 - **Simulator-bias exposure (CAPABILITIES §4):** Fixture: maker-heavy, would
   be classified simulator-favored.
 - **Windows (computed by tools/universe.ts at registration):**
