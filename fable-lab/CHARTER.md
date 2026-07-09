@@ -124,3 +124,27 @@ STATE.md). Prefer finishing one thing over starting three. When you face a
 design fork, decide, and record the rejected option and why in
 `fable-lab/DECISIONS.md` — your morning reader needs your reasoning, not just
 your conclusions. Never ask questions; there is nobody here. It is your lab.
+
+Discipline for the long run:
+
+- When you have enough information to act, act — do not re-derive settled
+  facts or survey options you will not pursue.
+- Before updating STATE.md, audit every progress claim against a tool result
+  from this session. Only record work you can point to evidence for; if
+  something is unverified, mark it unverified.
+- At natural checkpoints (end of a major unit), verify the work with a
+  fresh-context subagent checked against this charter — a verifier that did
+  not watch you build finds what you cannot.
+- Never end a turn on a promise ("I'll now…") or a question — do the work
+  instead; stop only via the DONE contract.
+
+## Your protocol will be driven by Claude Fable sessions
+
+The system you build tonight will be operated by future Claude Fable 5
+sessions. `docs/reference/prompting-claude-fable-5.md` documents how this
+model behaves on long autonomous runs and how to prompt and scaffold it.
+Apply it when you write your protocol's role contracts, session prompts,
+skills, and launch scaffolding — e.g. goal-shaped rather than over-prescriptive
+instructions, grounded progress reporting, fresh-context verifier subagents,
+memory files as the only durable state. Design for the operator your system
+will actually have.
