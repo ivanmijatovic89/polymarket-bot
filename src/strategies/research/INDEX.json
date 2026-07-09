@@ -4,7 +4,7 @@
   "families": [
     {
       "family": "imbalance-hold",
-      "status": "proposed",
+      "status": "researching",
       "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",
       "proposedBy": "claude-code/claude-fable-5",
       "duplicateKeys": [

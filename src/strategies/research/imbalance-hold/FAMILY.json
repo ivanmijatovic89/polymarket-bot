@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactType": "strategy-family-index",
   "family": "imbalance-hold",
-  "status": "proposed",
+  "status": "researching",
   "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",
   "proposedBy": "claude-code/claude-fable-5",
   "duplicateKeys": [
@@ -43,7 +43,12 @@
             "param": "minImbalance",
             "values": [0.1, 0.2, 0.3, 0.4],
             "batchUid": "imbalance-hold--000-baseline--p1-minImbalance",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--000-baseline--p1-minImbalance--53304455-f303-4d4d-8a4a-a17a9d91c1b8",
+              "imbalance-hold--000-baseline--p1-minImbalance--b07f3fdf-bdd1-4bc2-9318-434d8ceb4767",
+              "imbalance-hold--000-baseline--p1-minImbalance--33a54e1c-98d6-4527-9db4-123ee4f71f1e",
+              "imbalance-hold--000-baseline--p1-minImbalance--a9e452f3-2275-491f-8a82-d1a7a0bc2941"
+            ],
             "best": null,
             "note": null
           },
@@ -93,10 +98,15 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-09T00:48:19Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
