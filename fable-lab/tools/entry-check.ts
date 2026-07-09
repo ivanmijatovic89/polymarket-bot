@@ -1,15 +1,17 @@
 /**
- * exp001-check.ts — mechanical check of EXP-001's falsifiable prediction.
+ * entry-check.ts — mechanical check of the shared "entry beats its price"
+ * prediction clause used by directional-entry experiments (EXP-001, EXP-003,
+ * and any future strategy whose intent_meta carries {exp, side, entryAsk}).
  *
- * Prediction (spec): among entered markets, realized win rate > mean entry
- * ask, and gross EV per entered market > 0 before fees. Entry data comes
- * from intent_meta (side, entryAsk); outcome from final_outcome.
+ * Prediction shape: among entered markets, realized win rate > mean entry
+ * ask, and gross EV per entered share > 0 before fees. Entry data comes
+ * from intent_meta; outcome from final_outcome.
  *
  * Read-only diagnostic. Decisive q/t/EV numbers still come from
  * tools/results.ts — this tool answers only the prediction clause.
  *
- * Usage: npx tsx fable-lab/tools/exp001-check.ts --run <id>
- *        npx tsx fable-lab/tools/exp001-check.ts --batch EXP-001-probe
+ * Usage: npx tsx fable-lab/tools/entry-check.ts --exp EXP-001 --run <id>
+ *        npx tsx fable-lab/tools/entry-check.ts --exp EXP-001 --batch EXP-001-probe
  */
 import { sql } from 'drizzle-orm'
 import { getDb, closeDb } from '../../src/db/index.js'
@@ -31,7 +33,10 @@ type EntryRow = {
 async function main() {
   const runId = argValue('--run')
   const batch = argValue('--batch')
-  if (!runId && !batch) throw new Error('usage: exp001-check.ts --run <id> | --batch <uid>')
+  const exp = argValue('--exp')
+  if ((!runId && !batch) || !exp || !/^EXP-\d+$/.test(exp)) {
+    throw new Error('usage: entry-check.ts --exp EXP-NNN (--run <id> | --batch <uid>)')
+  }
 
   const db = getDb()
   const where = runId
@@ -46,7 +51,7 @@ async function main() {
   for (const r of rows[0]) {
     const metas = Array.isArray(r.intent_meta) ? r.intent_meta : []
     for (const meta of metas) {
-      if (meta?.exp !== 'EXP-001') continue
+      if (meta?.exp !== exp) continue
       entries.push({
         slug: r.slug,
         outcome: r.final_outcome,
@@ -94,11 +99,15 @@ async function main() {
     console.log(`  ${b}-${(Number(b) + 0.02).toFixed(2)}: ${(v.w / v.n).toFixed(3)} (${v.n})`)
   }
 
-  // Crossed-book sanity (LESSONS E6): entries at suspiciously low asks for a
-  // "near-certain" mechanism would show up as low buckets here.
-  const low = entries.filter((e) => e.entryAsk < 0.85)
-  if (low.length > 0) {
-    console.log(`\nWARN ${low.length} entries below ask 0.85 — inspect for crossed-book artifacts (E6)`)
+  // Crossed-book sanity (LESSONS E6): entries below the experiment's expected
+  // ask floor suggest phantom quotes. Pass the spec's floor explicitly.
+  const floorArg = argValue('--warn-below')
+  if (floorArg) {
+    const floor = Number(floorArg)
+    const low = entries.filter((e) => e.entryAsk < floor)
+    if (low.length > 0) {
+      console.log(`\nWARN ${low.length} entries below ask ${floor} — inspect for crossed-book artifacts (E6)`)
+    }
   }
 }
 
