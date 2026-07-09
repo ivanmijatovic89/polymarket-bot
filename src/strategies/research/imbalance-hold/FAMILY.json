@@ -202,7 +202,12 @@
             "param": "persistSec",
             "values": [5, 15, 30, 60],
             "batchUid": "imbalance-hold--001-persistence-filter--p1-persistSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--001-persistence-filter--p1-persistSec--234fada5-bdf3-47eb-bfe9-2f323679b6b4",
+              "imbalance-hold--001-persistence-filter--p1-persistSec--4f2793ab-316c-469a-947c-9cda1c73a56e",
+              "imbalance-hold--001-persistence-filter--p1-persistSec--6d38fb62-0b8a-4ff4-a102-8263a35ca6e2",
+              "imbalance-hold--001-persistence-filter--p1-persistSec--e232561b-e3e0-47bb-a9d8-780e3df8b41d"
+            ],
             "best": null,
             "note": null
           },
@@ -227,11 +232,16 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "265",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000,
+        "fromMs": null,
+        "toMs": null
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-09T02:12:25Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
