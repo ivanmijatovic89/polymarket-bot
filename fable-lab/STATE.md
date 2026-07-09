@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U19._
+_Last updated: session 3, unit U20._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -91,6 +91,15 @@ _Last updated: session 3, unit U19._
   regenerated. EXP-005 probe launched detached in the freed slot
   (log `logs/EXP-005-probe.log`).
 
+- U20: EXP-005 probe JUDGED — **kill** (run 312, N=500, 156 entered,
+  prediction CONTRADICTED: win rate 0.3462 < mean ask 0.3583). LESSONS E12:
+  with E10/E11 the picture is consistent — directional pricing is efficient
+  at taker horizons across the episode clock; the one measured inefficiency
+  is the expiry-tail certainty discount (EXP-001). Idea generation should
+  target structural counterparties (friction flows), not price patterns.
+  IDEAS #6 → dead; INDEX regenerated. 5 of 6 starter ideas resolved:
+  EXP-001 advanced, EXP-002/003/004/005 killed, #4 spread-capture parked.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
@@ -99,7 +108,6 @@ _Last updated: session 3, unit U19._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-005 probe (500 random, log `logs/EXP-005-probe.log`).
 - EXP-001 grid cells 1-2 of 8 running (e600-a085, e600-a090; 2000 random
   each per D11; logs `logs/EXP-001-grid-*.log`); remaining 6 cells launch
   as slots free (keep total concurrent ≤ 6, load was 9.5/10 cores).

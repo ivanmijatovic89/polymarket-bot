@@ -95,3 +95,15 @@ forbids importing the old system's research conclusions._
   not flow; whoever needs size posts where it will be eaten). Transfer:
   book-shape signals must beat the ask, not chance — the ask already
   contains the book's information.
+
+- **E12 — First-minute deviations from 0.5 are fairly-to-informatively
+  priced; fading them has no gross edge (`time-structure` open-regime
+  fade dead).** EXP-005 probe (run 312, N=500, 156 entered): cheap side of
+  a ≥0.15 first-minute deviation won 34.6% vs mean ask 35.8% — gross
+  EV/share −0.012 pre-fee. Together with E10 (mid-episode jumps fairly
+  priced) and E11 (book shape carries no extra information), the picture
+  is consistent: this market's directional pricing is efficient at taker
+  horizons across the episode clock. The one measured inefficiency remains
+  the expiry-tail certainty discount (EXP-001, structural redeem-friction
+  sellers). Idea generation should target structural counterparties
+  (forced/friction flows), not price-pattern signals.

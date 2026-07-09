@@ -60,4 +60,67 @@
 - 2026-07-09 — smoke (EXP-005-smoke, 10 markets): green plumbing, 4/10
   entered — healthy entry rate at the primary cell; never evidence.
 
+- 2026-07-09 — run 312, batchUid `EXP-005-probe`, N=500, latency pinned
+  DELAY=0/JITTER=0 (D8). Decisive readout, verbatim:
+
+  ```
+  === results: run 312  batch EXP-005-probe ===
+  strategy fable-exp-005  params {"maxAsk":0.5,"minAsk":0.05,"minDev":0.15,"shares":100,"maxElapsedSec":60,"maxFirstTickSec":30}
+  status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+  N=500  played=156  skipped=344  failures=0
+  pnlTotal=20.05  EV/market=0.0401  CI95=[-1.8033, 1.8835]
+  std=21.0303  q=0.0019  t=0.0426
+  winRate(played)=0.3462 (54/102)
+  fees=60.6  fee/grossWins=0.0245  maker/taker=0/156 (makerShare=0)
+  days=140  positiveDayFrac=0.3143  best=2026-04-09:121.42  worst=2025-12-27:-108
+  ```
+
+  Prediction check (`tools/entry-check.ts --exp EXP-005 --batch
+  EXP-005-probe`): entered 156 (31%, substantial), mean entry ask 0.3583,
+  win rate 0.3462, margin −0.0121, gross EV/share −0.01212 — PREDICTION
+  CONTRADICTED.
+
+
 ## Verdicts (append-only)
+
+- 2026-07-09 — stage probe, fresh-context Judge (JUDGE.md), verbatim:
+
+  - stage: probe
+  - decision: kill
+  - read: N=500 q=0.0019 t=0.0426 EV/market=0.0401 CI95=[-1.8033, 1.8835]
+  - prediction check: CONTRADICTED. The spec requires the faded side's win
+    rate to exceed the mean entry ask (win rate > mean(entryAsk), gross
+    EV/share > 0 pre-fee). Measured: win rate 0.3462 vs mean entry ask
+    0.3583 (difference −0.0121), gross EV/share −0.01212 pre-fee. The
+    secondary design-failure clause does not apply: 156/500 = 31% entered,
+    substantial.
+  - battery: n/a at probe (spec runs the robustness battery at Stage 2 only)
+  - simulator-bias classification: clean — taker-only FOK entries
+    (maker/taker = 0/156, makerShare=0) clamped to visible depth with the
+    full 156 bps taker fee applied is the pessimistic side of the
+    simulator; none of the optimistic dependencies (maker fills in thin
+    books) contribute to the result.
+  - lineage-adjusted bar: lineage_cells=1, so the bar is unadjusted (t ≥ 2,
+    p ≤ 0.023). Not met and not relevant to the kill: t = 0.0426 is
+    indistinguishable from zero, and the probe kill rule triggers on the
+    prediction clause regardless.
+  - required next step: append this verdict to EXP-005; close the lineage
+    (no iterate — the mechanism itself, not the implementation, failed) and
+    distill the mechanism-level lesson (first-minute deviations ≥0.15 are
+    fairly-to-informatively priced) into LESSONS.md citing EXP-005.
+  - reasoning: The spec's probe kill rule is disjunctive — "q̂ ≤ 0 with
+    t ≤ −1, or prediction contradicted" — and the second clause fires
+    cleanly: the mechanism's entire claim was that early large deviations
+    are overreactions, operationalized as win rate > mean entry ask on the
+    faded side, and the mechanical check shows the cheap side wins slightly
+    *less* often than its ask implies (0.3462 vs 0.3583, gross EV/share
+    −0.012 pre-fee, before the 156 bps taker fee makes it strictly worse).
+    The marginally positive net EV/market (0.0401, t=0.04, CI spanning
+    ±1.8) is pure noise and cannot rescue a contradicted mechanism; iterate
+    is reserved for "prediction holds but implementation leaks PnL", which
+    is explicitly not the case here. This is also the outcome the spec
+    itself anticipated ("kill is the expected outcome" given LESSONS E10):
+    early deviations look informative or fairly priced, consistent with
+    EXP-003's finding that fast moves are priced fairly. With the
+    tie-breaking rule that ambiguity goes against advancement, and no
+    ambiguity even present, the verdict is kill.
