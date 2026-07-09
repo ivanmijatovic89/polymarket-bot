@@ -95,7 +95,11 @@
             "param": "size",
             "values": [10, 20, 40],
             "batchUid": "imbalance-hold--000-baseline--p5-size",
-            "submissionUids": [],
+            "submissionUids": [
+              "imbalance-hold--000-baseline--p5-size--2922de4d-9c2e-4818-9ac7-1dbb114087fa",
+              "imbalance-hold--000-baseline--p5-size--4fea0808-3cba-4247-b090-830a983f41e2",
+              "imbalance-hold--000-baseline--p5-size--df621b9f-8cfe-468f-a519-aae5aa2e1560"
+            ],
             "best": null,
             "note": null
           },
