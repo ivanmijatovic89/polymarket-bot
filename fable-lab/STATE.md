@@ -1,15 +1,21 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 1, unit U0._
+_Last updated: session 1, unit U1 (synthesis done, verification pending)._
 
 ## Done
-- (nothing yet)
+- U0: scaffolding (ROADMAP.md, STATE.md, DECISIONS.md) — committed, pushed.
+- U1 (synthesis): four fresh-context subagent audits of the engine
+  (backtest execution, market data/ticks, strategy subsystem, data/results
+  pipeline) → raw notes in `engine/notes/*`; synthesized
+  `engine/CAPABILITIES.md`. Main-session spot-check: confirmed
+  `runSingleMarket.ts:145` uses `intentExecutionMode: 'immediate'`
+  (old ENGINE.md "queued" claim outdated).
 
 ## In progress
-- U0: scaffolding (this commit).
+- U2: fresh-context verification of CAPABILITIES.md against source.
 
 ## Next
-- U1: engine study → `engine/CAPABILITIES.md`.
+- U3: protocol design core (epistemology, experiment lifecycle).
 
 ## Notes for a fresh session
 - Read `CHARTER.md` first; it is binding. Operator-fixed scope: BTC 15m
