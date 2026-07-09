@@ -105,6 +105,10 @@ function main() {
     const cellParams = cellPairs.flatMap((p) => ['--param', p])
     const cellSlug = cellPairs.join('-').replace(/[^A-Za-z0-9._-]/g, '-')
     args.push('--strategy', spec.strategyId, ...cellParams, ...SCOPE_FLAGS)
+    // --random pass-through (DECISIONS D11): grid cells are judged on
+    // sign-smoothness only, so an unbiased random subsample of the window
+    // buys the same verdict for a fraction of the replay-hours.
+    if (process.argv.includes('--random')) args.push('--random')
     args.push(
       '--to-ms', String(spec.holdoutBoundaryMs),
       '--limit', argValue('--limit') ?? '1000000',

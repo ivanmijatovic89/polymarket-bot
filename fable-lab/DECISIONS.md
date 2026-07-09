@@ -223,3 +223,20 @@ polls the log/DB. macOS ships no `setsid` binary, so the launcher is
 performs setsid(2)); env pins are set on the launcher process and inherited.
 Smokes may stay foreground (they are ~30s and never evidence). This changes
 how commands from `tools/submit.ts` are invoked, not what they contain.
+
+## D11 — Grid cells run on random subsamples, not the full window
+
+**Motivating observation:** EXP-001's neighborhood is 8 non-primary cells;
+at the measured full-window cost (~13.6k markets ≈ 2h+ each under
+contention) the grid alone would cost >24 replay-hours, while the battery
+judges grids on SIGN-SMOOTHNESS only (EPISTEMOLOGY §5.1). At probe-measured
+q≈0.16, a 2,000-market random sample resolves the sign at |t|≈7; even
+q≈0.05 gives |t|≈2.2 — ample for a shape judgment.
+
+**Decision:** `submit.ts --stage grid` now passes `--random` through; grid
+cells run `--random --limit 2000` by default (larger only if a cell's sign
+is ambiguous, i.e. |t| < 1). The PRIMARY cell's decisive numbers still come
+from the full-window main run; lat runs stay full-window because they are
+paired with main by construction. Rejected alternative: oldest-first
+`--limit` truncation (time-biased subset — December-only markets would
+confound smoothness with regime).
