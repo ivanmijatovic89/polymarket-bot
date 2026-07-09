@@ -21,8 +21,14 @@
 # The account/model used is whatever this terminal's `claude` CLI is set to;
 # permission mode is passed by this script (bypassPermissions).
 #
-# Stop it: create fable-lab/DONE in the worktree (the session does this itself
-# when the charter is fulfilled), or Ctrl+C the loop.
+# The mission is PERPETUAL (charter v2): sessions never declare themselves
+# done. Stop it yourself: `touch ../polymarket-bot-fable/fable-lab/DONE`
+# (operator kill-switch, checked before each relaunch) or Ctrl+C the loop.
+#
+# Rate-limit resilience: a run that ends in under MIN_RUN_SECS is treated as
+# a failed launch (out of tokens, API error) — the loop backs off FAIL_SLEEP
+# seconds instead of hammering, so it survives token-exhaustion windows and
+# resumes when the reset comes.
 #
 # Morning review:
 #   cd ../polymarket-bot-fable && git log --oneline main..fable-protocol
@@ -36,6 +42,8 @@ WT="${ROOT}/../polymarket-bot-fable"
 LAB="fable-lab"
 MAX_RUNS="${MAX_RUNS:-30}"
 SLEEP_BETWEEN="${SLEEP_BETWEEN:-20}"
+MIN_RUN_SECS="${MIN_RUN_SECS:-120}"
+FAIL_SLEEP="${FAIL_SLEEP:-900}"
 PERM="${PERM:-bypassPermissions}"
 
 # ---------------------------------------------------------------- setup ----
@@ -190,9 +198,11 @@ export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
 
 INSTRUCTION="Read fable-lab/CHARTER.md and execute it. You are in an isolated \
 git worktree on branch fable-protocol; the repo root is your working \
-directory. If fable-lab/STATE.md exists, resume from it instead of starting \
-over. Work continuously and autonomously; never ask questions; commit and \
-push after every unit of work; stop only when fable-lab/DONE is warranted."
+directory. Resume from fable-lab/STATE.md. Work continuously and \
+autonomously; never ask questions; commit and push after every unit of \
+work. The mission is perpetual — never create fable-lab/DONE; when your \
+session naturally ends, the loop relaunches a successor that continues \
+from your files."
 
 run=0
 while [ "$run" -lt "$MAX_RUNS" ]; do
@@ -203,6 +213,7 @@ while [ "$run" -lt "$MAX_RUNS" ]; do
   run=$((run + 1))
   LOG="${WT}/${LAB}/logs/night-$(date +%Y%m%d-%H%M%S).jsonl"
   echo "[night-shift] run ${run}/${MAX_RUNS} — log: ${LOG}"
+  RUN_STARTED=$(date +%s)
 
   (
     cd "$WT" || exit 1
@@ -237,9 +248,16 @@ while [ "$run" -lt "$MAX_RUNS" ]; do
     duration_s:    (.duration_ms/1000)
   }' 2>/dev/null || echo "(no result line — session may have been killed)"
 
-  [ -f "${WT}/${LAB}/DONE" ] && { echo "[night-shift] DONE — stopping."; break; }
-  echo "[night-shift] relaunching in ${SLEEP_BETWEEN}s (Ctrl+C to stop)"
-  sleep "$SLEEP_BETWEEN"
+  [ -f "${WT}/${LAB}/DONE" ] && { echo "[night-shift] DONE (operator kill-switch) — stopping."; break; }
+
+  RUN_SECS=$(( $(date +%s) - RUN_STARTED ))
+  if [ "$RUN_SECS" -lt "$MIN_RUN_SECS" ]; then
+    echo "[night-shift] run lasted only ${RUN_SECS}s — likely rate limit / launch failure; backing off ${FAIL_SLEEP}s"
+    sleep "$FAIL_SLEEP"
+  else
+    echo "[night-shift] relaunching in ${SLEEP_BETWEEN}s (Ctrl+C to stop)"
+    sleep "$SLEEP_BETWEEN"
+  fi
 done
 
 echo "[night-shift] finished after ${run} run(s). Review: cd ${WT} && git log --oneline main..${BRANCH}"
