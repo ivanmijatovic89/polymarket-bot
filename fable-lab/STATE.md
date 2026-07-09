@@ -20,12 +20,30 @@ _Last updated: session 1, unit U1 (synthesis done, verification pending)._
   README.md (map); IDEAS.md (6 mechanism classes, 6 seeded ideas);
   templates/EXPERIMENT.md; knowledge/LESSONS.md (engine lessons E1-E5).
 
+- U4: memory model complete — registry (INDEX.md generated), knowledge/
+  LESSONS.md, boot sequence in sessions/SCIENTIST.md, resume path in
+  RUNBOOK.md §6.
+- U5: tools built AND validated this session:
+  - `universe.ts` ran against live DB: 18,635 eligible BTC 15m markets
+    (2025-11-30 → 2026-06-14), 25% holdout boundary 2026-04-26T21:00Z.
+  - `runs.ts` + `results.ts` ran against run 294 (existing) and run 295.
+  - `validate-experiment.ts`: fixture passes (incl. --run 295 cross-checks:
+    params match, spec-commit-before-run, holdout count); unfilled template
+    fails with 5 errors (negative test).
+  - `submit.ts`: printed correct commands for all 4 stages; `--execute`
+    ran the ONE allowed ≤10-market sequential smoke (run 295, batch
+    EXP-000-smoke, template.v1, 509k events replayed, no trades — plumbing
+    proof only, no EV conclusions).
+  - `index-registry.ts` regenerated INDEX.md.
+- U6: sessions/SCIENTIST.md (role contract) + sessions/JUDGE.md (verdict
+  subagent prompt), applying docs/reference/prompting-claude-fable-5.md.
+- U7: RUNBOOK.md (morning operator guide).
+
 ## In progress
-- U3/U4 wrap-up: registry skeleton (INDEX.md), memory/resume checks.
+- U8: final self-review (fresh-context verifier against CHARTER), then DONE.
 
 ## Next
-- U5: tools (universe, results, preregister/validate, submit, index-registry).
-- U6: sessions/SCIENTIST.md + JUDGE.md. U7: RUNBOOK.md. U8: final review.
+- (after U8 fixes) create fable-lab/DONE.
 
 ## Notes for a fresh session
 - Read `CHARTER.md` first; it is binding. Operator-fixed scope: BTC 15m
