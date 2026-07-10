@@ -125,7 +125,79 @@
   on the committed rewrite — the EXP-006-probe batchUid has runs 334 (void)
   and the relaunch; decisive readouts address the relaunch BY RUN ID.
 
+- 2026-07-10 — probe (run 336, the relaunch; decisive per the run-ID note
+  above), verbatim from tools/results.ts:
+
+```
+=== results: run 336  batch EXP-006-probe ===
+strategy fable-exp-006  params {"offset":0.01,"shares":10,"maxPrice":0.95,"minPrice":0.05,"maxInventory":50,"requoteDelta":0.01,"minElapsedSec":60,"quietRangeMax":0.08,"quietWindowSec":60,"stopBeforeEndSec":120}
+status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+N=500  played=117  skipped=383  failures=0
+pnlTotal=-92.3  EV/market=-0.1846  CI95=[-0.4228, 0.0536]
+std=2.7171  q=-0.0679  t=-1.5192
+winRate(played)=0.453 (53/62)
+fees=0  fee/grossWins=0  maker/taker=186/0 (makerShare=1)
+days=144  positiveDayFrac=0.2361  best=2026-01-22:20.5  worst=2026-04-15:-15.4
+worst5: btc-updown-15m-1769667300:-17.2  btc-updown-15m-1769599800:-16.2  btc-updown-15m-1776284100:-15.4  btc-updown-15m-1767013200:-14.1  btc-updown-15m-1769789700:-9.3
+best5:  btc-updown-15m-1769104800:20.5  btc-updown-15m-1769780700:16.2  btc-updown-15m-1776672900:8.7  btc-updown-15m-1766455200:8.3  btc-updown-15m-1766279700:7
+```
+
 ## Verdicts (append-only)
+
+- 2026-07-10 — probe verdict (fresh-context Judge, verbatim):
+
+  - stage: probe (Stage 1)
+  - decision: kill
+  - read: N=500 q=-0.0679 t=-1.5192 EV/market=-0.1846 CI95=[-0.4228, 0.0536]
+  - prediction check: CONTRADICTED. The spec's prediction is that played
+    markets have gross EV/market > 0 (gross = net, zero maker fee). Played
+    markets: 117, pnlTotal = -92.3 → EV(played) ≈ -0.79 per played market,
+    decisively negative. The design-failure clause does not rescue it: 62
+    markets produced decisive PnL (winRate denominator 53/62) out of 500 =
+    ~12.4%, well above the ~3% "structurally fill-less" threshold, so the
+    simulator CAN see the mechanism and what it sees is adverse selection
+    exceeding the discount plus pair capture.
+  - battery: n/a at probe stage (battery is a Stage-2 requirement).
+    Composition read for the bias classification only: maker/taker = 186/0,
+    fees = 0, skip = 383/500, positiveDayFrac = 0.2361 over 144 days; losses
+    are not concentrated in a single cliff (worst5 spread across Dec–Apr),
+    so this is a broad negative, not one bad week.
+  - simulator-bias classification: simulator-favored — by construction per
+    the spec's own registration (worst-queue maker fills always grant full
+    remaining size regardless of traded volume) and confirmed by
+    composition: makerShare = 1, 186/0 maker/taker. Per D6/D14 this
+    experiment could never classify clean. Note the direction of the bias
+    sharpens the kill: the size axis is optimistic for the strategy, and it
+    still lost.
+  - lineage-adjusted bar: lineage_cells = 1, so the bars are unadjusted —
+    kill at q̂ ≤ 0 with t ≤ −1. Met: q = -0.0679 ≤ 0 and t = -1.5192 ≤ -1.
+  - required next step: append this verdict to EXP-006's Verdicts section
+    and close the backtestable (punch-through) version of the mechanism per
+    D14; record the fill composition (62/500 markets decisive, 186 maker
+    fills, EV(played) ≈ -0.79) as the transferable number — at-touch
+    liquidity provision live remains unmeasured by construction and would
+    require a new experiment with a different measurement instrument, not
+    an iteration of this one.
+  - reasoning: Both independent kill triggers fire on the same readout. The
+    spec's kill rule (q̂ ≤ 0 with t ≤ −1) is met with margin (t = -1.52),
+    and the falsifiable prediction — positive gross EV on played markets in
+    quiet regimes — is contradicted at EV(played) ≈ -0.79, an order of
+    magnitude worse per played market than the all-markets figure because
+    skipped-as-zero dilutes it. The one escape hatch the spec
+    pre-registered, the design-failure clause, requires fill starvation
+    below ~3% of markets; at ~12.4% decisive markets and 186 maker fills
+    the instrument observed the mechanism adequately, and the observation
+    is that worst-queue punch-throughs in quiet regimes are informative
+    rather than mean-reverting noise — exactly the contradiction branch the
+    hypothesis itself named. The skewed-payoff rule (D13) is not triggered
+    (win rate 0.453 is well inside [0.1, 0.9]), so no minority-count caveat
+    softens the read. That the loss occurs under a simulator biased in the
+    strategy's favor on the size axis removes any temptation to iterate:
+    the tie-goes-against-advancement rule is not even needed here, because
+    there is no tie. Kill is model-conditional per D14 — it closes the
+    punch-through-backtestable version only; live at-touch provision was
+    never measurable in this design and stays an open, separately
+    registrable question.
 
 <!-- one block per Judge verdict, pasted verbatim. Fields: stage, decision,
      t/q/N/EV read, battery summary, simulator-bias classification,

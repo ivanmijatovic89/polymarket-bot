@@ -153,3 +153,28 @@ forbids importing the old system's research conclusions._
   fills from single-tick gap statistics, not volatility; and O(n²) per-tick
   window scans are a real cost at this tick density (5s/market vs 1.4s —
   use monotonic-deque windows).
+
+- **E16 — Quiet-regime punch-throughs are informative, not noise: passive
+  quoting δ below fair loses to adverse selection even at zero maker fee
+  and with the size axis simulated in the strategy's favor.** EXP-006
+  probe (run 336, N=500, primary cell offset=0.01/quietRangeMax=0.08):
+  117/500 markets played, 62 decisive, 186 maker fills (makerShare=1);
+  EV/market −0.18 (t=−1.52, kill bar met), EV per PLAYED market ≈ −0.79;
+  win rate on decisive markets 0.453; positiveDayFrac 0.236 over 144 days
+  (broad negative, no single cliff). The hypothesis's own contradiction
+  branch fired: a single-tick gap through a resting bid in a "quiet"
+  window is a move that continues, not one that reverts — the 1c discount
+  plus pair-completion capture is smaller than what the filler knows.
+  Transfer: (a) under worst-queue, EVERY fill is by construction the most
+  informed counterparty; any maker mechanism whose edge story is "noise
+  reverts" must expect the simulator to select exactly the non-noise
+  fills, so the backtestable version of such mechanisms tests "is a
+  through-move informative?" — and in this universe it is; (b) with all
+  fills maximally adverse and still only −0.79/played-market, the
+  UNMEASURED at-touch economics live could differ in sign, but that is
+  not knowable from this instrument (model-conditional kill, D14); (c)
+  combined with E9-E14: taker side fairly priced net of fees, and the
+  one maker design the simulator can see loses — remaining maker ideas
+  must either change the fill trigger (e.g. quote INTO loud moves where
+  reversion is the claim being paid for) or accept that only live paper
+  can measure them.

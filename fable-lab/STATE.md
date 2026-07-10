@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 4, unit U27._
+_Last updated: session 5, unit U28._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -152,27 +152,31 @@ _Last updated: session 4, unit U27._
   read, so lineage_cells stays 1): (0.02,0.04)→0/30, (0.01,0.04)→1/30,
   (0.01,0.08)→6/30 markets filled.
 
+- U28 (session 5): EXP-006 probe JUDGED — **kill** (run 336, N=500,
+  117 played / 62 decisive, EV/market −0.18, t=−1.52 → kill bar met;
+  prediction CONTRADICTED: EV per played market ≈ −0.79; design-failure
+  clause NOT triggered at ~12.4% decisive markets; classification
+  simulator-favored by construction, which sharpens the kill — size axis
+  favored the strategy and it still lost). Kill is model-conditional per
+  D14: closes the punch-through-backtestable version only. LESSONS E16
+  (worst-queue selects maximally informed fills; "noise reverts" maker
+  stories are tested as "is a through-move informative?" — it is).
+  IDEAS #4 → dead; INDEX regenerated. All 7 ideas now resolved
+  (6 killed by experiment, #7 dead by park clause).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- EXP-006 probe (RELAUNCH): detached 2026-07-10 (pid 50610,
-  log `fable-lab/logs/EXP-006-probe.log`, batchUid EXP-006-probe,
-  `--random --limit 500 --to-ms 1777237200000`, latency pinned 0/0,
-  ~1.4s/market after the O(1) rewrite, ETA ~12 min from launch).
-  NOTE: run 334 under the same batchUid is VOID (killed at 70/500 for the
-  perf rewrite, stats never read; identity of rewrite verified 30/30 vs
-  run 332 — see experiment file). Address the live probe BY RUN ID
-  (first EXP-006-probe run with id > 334). When complete: `tools/results.ts`
-  verbatim readout → fresh-context Judge (JUDGE.md) → verdict appended.
-  Remember the design-failure clause (<~3% of markets filled ⇒ iterate/park,
-  not evidence) and D13 minority-count language if win rate is extreme.
+- (none)
 
 ## Next
-- Judge EXP-006 probe when the detached run finishes (check
-  `tools/runs.ts` / the log; partial-persist rules D9 apply if killed).
-- Idea generation, maker-side (D14 direction): candidate worth writing up
-  if EXP-006 resolves either way — loud-regime liquidity provision (passive
-  bid into jumps catching overshoot), distinct prediction from EXP-006's
-  quiet-regime claim; check D5 dedupe before registering. IDEAS #7 stays
-  dead per its own park clause (tied to EXP-001).
+- Idea generation, maker-side (D14 direction): loud-regime liquidity
+  provision (passive bid into jumps catching overshoot) — distinct from
+  EXP-006's quiet claim, and E16(a) frames it as the one maker shape where
+  worst-queue's informed-fill selection is the claim being PAID for
+  (reversion after overshoot). Check D5 dedupe vs EXP-003 (taker post-jump
+  — killed as fairly priced at the ASK; a passive bid below the post-jump
+  price is a different entry price and fill condition). Register as
+  EXP-007 if it survives dedupe; mind E15 fill-feasibility budgeting
+  (single-tick gap statistics) before freezing the cell.
 - Holdout remains locked and unused (no experiment reached it).
 
 ## Notes for a fresh session
