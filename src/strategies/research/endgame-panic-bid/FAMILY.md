@@ -303,3 +303,47 @@ benign panic (settles with you, ~93% of fills) and genuine flips (full
 exactly the breakeven, so any positive EV in this family must come from
 filtering the flip tail out of the fill stream, not from price placement
 (passes 1–4 already optimized placement and the best cell still recycled).
+
+### 001-cancel-on-adverse-move — 2026-07-10 (aborted pre-submission)
+
+Specced roadmap idea 1 (cancel the resting bid when the favorite's book
+deteriorates from its placement snapshot), then killed it with smoke
+diagnostics before spending any evidence runs. Tick-level replay of both
+known informed fills shows the mechanism cannot express its hypothesis:
+
+- `btc-updown-15m-1778775300`: placed t=897.01 (favBid 0.95, ask 0.96);
+  the first tick showing ANY deterioration (bid 0.95→0.94 at t=897.25) is
+  the fill tick itself — the engine processes resting-order fills before
+  the strategy can react to the same tick, and latency in live trading
+  only widens that gap.
+- `btc-updown-15m-1780179300`: the favorite's bid ROSE 0.97→0.98→0.99 and
+  the ask side VANISHED (bid-only book, maximally-certain-looking) before
+  the instant flip at t=898.45. The informed dump is the first observable
+  book event of the flip; there is no pre-fill warning on any trigger
+  source (bid drop, ask drop, one-sidedness — all post-date the fill).
+
+A hair-trigger cancel (cancelDrop=0.001) also failed to prevent the benign
+fill in win episode `btc-updown-15m-1780663500` (cancel fired t=897.39,
+fill landed within 0.38s of placement) — so a binding cancel sheds benign
+wins too. Since the latest-1000 stage-1 window contains zero baseline
+losses, a cancel variant's best possible stage-1 outcome is an inert-knob
+tie duplicating run 391 (see LESSONS
+`verify-a-new-filter-actually-binds`). Aborted; superseded by
+002-path-stability, which conditions BEFORE placement and cannot lose the
+fill race. Pre-entry reconnaissance for that spec (t=860–897 paths):
+loss ep 1778775300's favorite was freshly minted within the final ~30s
+(UP was 0.83–0.86 at t=860–863, DOWN 0.95 by entry — a favorite-flip
+check skips it); loss ep 1780179300's favorite was a stable strengthening
+0.91→0.97 (only a tight range check might catch it); win ep 1780663500
+was a 0.53 coin flip at t=860 that resolved without ever flipping sides
+(a tight range check would wrongly skip this donor win; a flip check
+keeps it).
+
+Lesson: Post-placement order lifecycle management is structurally blind in
+this cell: under `worst_queue` (and worse live), the informed fill arrives
+at or before the first tick that could trigger a reaction, so toxicity
+control must happen in ENTRY SELECTION (pre-placement conditioning on the
+episode's path), never in cancel logic — and the pre-entry paths of the
+known losses say "skip freshly-flipped favorites" is the supported filter
+direction, while "skip contested endgames" would have skipped a benign
+donor win and kept a loss.

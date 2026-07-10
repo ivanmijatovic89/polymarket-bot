@@ -177,6 +177,56 @@
       "submissionUids": [],
       "baselineId": null,
       "coverage": null,
+      "status": "aborted",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": "2026-07-10T18:20:00Z",
+      "abortReason": "Smoke diagnostics (never evidence) on both known informed fills (btc-updown-15m-1778775300, btc-updown-15m-1780179300) show the fill precedes any observable favorite-book deterioration: ep1's first bid-drop tick (0.95->0.94 at t=897.25) IS the fill tick (engine awards same-tick fills before strategy reaction; ask sat at 0.96 until then), ep2's favorite bid ROSE 0.97->0.99 and its ask side vanished before the instant flip at t=898.45. No post-placement cancel trigger can fire pre-fill, and at stage-1 coverage (zero baseline losses in latest 1000) a binding cancel can only shed wins - best case is an inert tie duplicating run 391. Hypothesis unexpressible under the worst_queue fill model; superseded by 002-path-stability (pre-entry conditioning has no fill race).",
+      "outcome": null
+    },
+    {
+      "id": "002-path-stability",
+      "kind": "param-search",
+      "code": "002-path-stability.ts",
+      "basedOn": "000-baseline",
+      "proposedBy": "claude-code/claude-fable-5",
+      "hypothesis": "Skipping episodes whose favorite leg flipped within the last stabilityWindowSec seconds before entry (and optionally whose favorite bid ranged more than maxFavBidRange in that window) removes freshly-minted-favorite informed fills - the pattern of baseline loss btc-updown-15m-1778775300 - while keeping benign panic fills, raising P(win|fill) above the 95.5% breakeven that consumed the baseline margin at 3000 markets.",
+      "successCriteria": "Pass the stage-1 gate: best cell netEvPerMarket > 0 at 1000 latest markets (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "entryTimeSec": 897,
+          "bidPrice": 0.955,
+          "certaintyThreshold": 0.95,
+          "size": 40,
+          "stabilityWindowSec": 30,
+          "maxFavBidRange": 1
+        },
+        "passes": [
+          {
+            "param": "stabilityWindowSec",
+            "values": [10, 30, 60, 120],
+            "batchUid": "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "maxFavBidRange",
+            "values": [0.02, 0.05, 0.1],
+            "batchUid": "endgame-panic-bid--002-path-stability--p2-maxFavBidRange",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
       "status": "queued",
       "gateLog": [],
       "submittedAt": null,
