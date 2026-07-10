@@ -107,6 +107,13 @@
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->
 
+- 2026-07-10 — fill-feasibility diagnostics (EXP-000-debug runs 337-340,
+  30 random exploration markets per cell, fill counts only via
+  `tools/fills.ts`, PnL never read): see the feasibility block in the spec.
+- 2026-07-10 — smoke (EXP-007-smoke, run 341, 10 markets): green plumbing
+  (509k events replayed, 0 failures, 6 maker fills / 0 taker); never
+  evidence.
+
 ## Verdicts (append-only)
 
 <!-- one block per Judge verdict, pasted verbatim. Fields: stage, decision,
