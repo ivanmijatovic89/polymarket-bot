@@ -5,6 +5,13 @@
  * fixture's book statistics.
  *
  *   npx tsx fable-lab/tools/venue-drift.ts <log-file> [<log-file> ...]
+ *
+ * Pooled mode (U46, audit finding 3 — makes re-baselining mechanical):
+ *   npx tsx fable-lab/tools/venue-drift.ts --pooled 2025-12:2026-04 <log-file> [...]
+ * prints ONE row pooled over ALL per-market values in the inclusive month
+ * range (median for spread/depth/rate, mean for crossedFrac) — the exact
+ * convention behind the published baseline reference values (479.4 etc.,
+ * verified to reproduce them on logs/venue-drift-baseline.log).
  */
 import { readFileSync } from 'node:fs'
 
@@ -30,9 +37,22 @@ const median = (xs: number[]): number | null => {
   return s.length % 2 ? s[m] : (s[m - 1] + s[m]) / 2
 }
 
-const files = process.argv.slice(2)
+const argv = process.argv.slice(2)
+let pooledRange: [string, string] | null = null
+const pooledIdx = argv.indexOf('--pooled')
+if (pooledIdx !== -1) {
+  const spec = argv[pooledIdx + 1] ?? ''
+  const m = spec.match(/^(\d{4}-\d{2}):(\d{4}-\d{2})$/)
+  if (!m) {
+    console.error('--pooled requires an inclusive month range like 2025-12:2026-04')
+    process.exit(1)
+  }
+  pooledRange = [m[1], m[2]]
+  argv.splice(pooledIdx, 2)
+}
+const files = argv
 if (!files.length) {
-  console.error('usage: venue-drift.ts <log-file> [...]')
+  console.error('usage: venue-drift.ts [--pooled YYYY-MM:YYYY-MM] <log-file> [...]')
   process.exit(1)
 }
 
@@ -73,6 +93,27 @@ for (const r of rows) {
 
 const fmt = (v: number | null, digits: number): string => (v == null ? 'n/a' : v.toFixed(digits))
 console.log(`parsed ${rows.length} unique markets from ${files.length} file(s)`)
+
+if (pooledRange) {
+  const [from, to] = pooledRange
+  const pool = rows.filter((r) => {
+    const d = new Date(r.epochSec * 1000)
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    return key >= from && key <= to
+  })
+  const pick = (sel: (r: Row) => number | null): number[] =>
+    pool.map(sel).filter((v): v is number => v != null)
+  const crossed = pick((r) => r.crossedFrac)
+  const crossedMean = crossed.length ? crossed.reduce((a, b) => a + b, 0) / crossed.length : null
+  console.log(`pooled ${from}..${to}: markets=${pool.length}`)
+  console.log(
+    `pooled  ${String(pool.length).padStart(7)}  ${fmt(median(pick((r) => r.spreadMed)), 4).padStart(9)}  ` +
+      `${fmt(median(pick((r) => r.depthMed)), 1).padStart(8)}  ${fmt(median(pick((r) => r.rate)), 2).padStart(7)}  ` +
+      `${fmt(crossedMean, 4)}`,
+  )
+  process.exit(0)
+}
+
 console.log('month    markets  spreadMed  depthMed  rateMed  crossedFracMean')
 for (const key of [...byMonth.keys()].sort()) {
   const ms = byMonth.get(key)!

@@ -221,7 +221,9 @@ registered only if one of these holds:
   (D17) holds the measured monthly baseline and the pre-specified numeric
   bar for "visible microstructure shift". A citation under this clause
   must point at a VENUE-DRIFT row that fires the bar — eyeballing is not
-  a citation.
+  a citation — AND the fire must be confirmed by the D27 independent
+  redraw (U46: a single draw's audited false-fire exposure is ~5-10%
+  per evaluated month; one fired row alone is not evidence).
 
 **Reserve-confirmability envelope (measured, U45 audit —
 `knowledge/AUDIT-2026-07-10-IDEAS-10-POWER.md`):** any new discovery

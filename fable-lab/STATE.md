@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 43, unit U45 (IDEAS #10 power audit +
-reserve-confirmability envelope)._
+_Last updated: session 43, unit U46 (VENUE-DRIFT instrument audit,
+D27 fire-confirmation rule, pooled-mode tool)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -518,6 +518,30 @@ reserve-confirmability envelope)._
   power arithmetic stopped it; CAL-003's mid-involved shapes resolve
   only |d| ≈ 8-10c at their n ≈ 250/cell — power-futile.)
 
+- U46 (session 43): VENUE-DRIFT instrument AUDITED by a fresh-context
+  verifier (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-VENUE-DRIFT.md`) — it is the sole
+  instrument behind EDGE-SPACE §4's regime-change clause and was never
+  audited. Three MAJORs, all acted on: (1)+(2) quantified false-fire
+  exposure (crossedFrac trigger only ~14% above baseline month 2025-12's
+  own value; depth band ~1.5-1.9σ of baseline monthly dispersion,
+  ≈10%/month false-fire on depth alone) → DECISIONS D27: any fire needs
+  an independent confirmation redraw on the same month (both draws must
+  fire on the same metric; crossedFrac fires also need a ≤2-market
+  concentration check), adopted BEFORE any refresh was ever evaluated —
+  bands themselves unchanged per D17 pre-specification; (3) pooled
+  reference not reproducible with the tool → convention settled
+  EMPIRICALLY from the surviving baseline log (pooled = statistic over
+  all 142 per-market values; all four published values reproduce
+  exactly) and `tools/venue-drift.ts` gained a verified `--pooled
+  YYYY-MM:YYYY-MM` mode (tsc clean). Also corrected from the log: the
+  documented "end-of-chunk flush" artifact NEVER fired — the real loss
+  mode is zero-event parquets (12 markets: Dec 2, Jan 6, Jun 4, each
+  ~0s replay); plus MINOR wording/procedure fixes (UP-crossed sampling
+  scope, depth consequence mapping, upward-only crossedFrac, unseeded
+  RAND() disclosure, log-capture step, re-baselining step). EDGE-SPACE
+  §4 regime clause now requires the D27-confirmed fire.
+
 ## In progress
 - (nothing in flight)
 
@@ -539,7 +563,8 @@ reserve-confirmability envelope)._
   change the gated state from outside):
   1. `tools/universe.ts` — if the last eligible market is ≥ ~1 month past
      2026-06-14 (operator ran the Telonex sync), run the VENUE-DRIFT
-     refresh procedure on the new month(s); a fired band reopens §4.
+     refresh procedure on the new month(s); a fired band reopens §4
+     only after the D27 confirmation redraw (U46).
   2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model

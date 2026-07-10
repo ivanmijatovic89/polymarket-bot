@@ -781,3 +781,46 @@ rejected alternative (b) was not derivable from published numbers — see
 CALIBRATION-3.md amendment #2 (single-mid cells ≈ 180-380 under
 independence; the exclusion rests on the resolvable-|d| bar). The
 candidate bar is 3.26, not 3.25 (amendment #1)._
+
+## D27 — venue-drift fires require an independent confirmation redraw (2026-07-10, U46)
+
+Motivating evidence (governor-compliant): the fresh-context VENUE-DRIFT
+audit (`knowledge/AUDIT-2026-07-10-VENUE-DRIFT.md`) quantified the
+instrument's false-fire exposure against its own baseline dispersion:
+the crossedFrac trigger (≥ 0.0024) sits only ~14% above a value the
+baseline itself produced (2025-12 mean 0.0021 = 1.75× the pooled
+reference), and the depth band edge sits at ~1.5-1.9σ of the observed
+monthly-median log-dispersion (~10% false-fire per evaluated month for
+depth alone; three OR'd triggers compound this). A false fire reopens
+E9-E17 questions on noise. The D17 bands were pre-specified before data
+and are NOT retuned here (that discipline holds); the mitigation is a
+confirmation requirement, adopted now — BEFORE any refresh has ever been
+evaluated against the bands, so it is pre-data for every future
+evaluation.
+
+Decision (binding, appended to the VENUE-DRIFT refresh procedure):
+
+1. A fired month is NOT citable from one draw. Before citing under
+   EDGE-SPACE §4, re-run the fixture on the SAME month with a fresh
+   `--random --limit 30` draw (RAND() is unseeded, so this is a
+   genuinely independent redraw — measured in the audit) and
+   re-aggregate. The fire is citable only if BOTH draws fire on the
+   SAME metric. Under stationarity this squares the per-metric
+   false-fire probability (~10% → ~1%) while a real ≥2× regime shift
+   still fires both draws with high probability.
+2. crossedFrac fires additionally require a concentration check before
+   citation: if the fired mean is dominated by ≤ 2 markets (crossedFrac
+   is a mean at n≈30; the E6 crossed-book artifact is market-local),
+   the finding is an E6 recording-quality investigation first, not
+   regime evidence.
+3. Known power limit, recorded: the bands cannot detect real changes
+   smaller than ~2× by construction. A quiet refresh is "no ≥2× shift",
+   not "no shift".
+
+Rejected alternatives: (a) widening/retuning the bands post-data —
+exactly the post-hoc tuning D17's pre-specification exists to prevent;
+(b) replacing crossedFrac's mean with a median — same objection (the
+median of a rare-event fraction is ~0 at n=30, which would kill the
+metric entirely); (c) requiring the redraw only for "marginal" fires —
+defining marginal post-hoc invites judgment creep; a uniform redraw is
+cheap (~1 min of replay per month) and simpler.
