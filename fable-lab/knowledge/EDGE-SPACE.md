@@ -29,6 +29,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | — | expiry-tail maker capture | IDEAS #7 | dead unexamined (park clause, EXP-001 kill) | — |
 | taker (plane scan) | fixed-time top-of-book, both sides, 126-cell offset × price grid | CAL-001 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.565) | E20 |
 | taker (conditional scan) | single-segment move sign/size × entry side, 60-cell grid | CAL-002 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.72) | E21 |
+| taker (path scan) | two-segment path shape × entry side, 40-cell grid | CAL-003 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.47; persistence hypothesis dead) | E22 |
 
 Summary of the map:
 
@@ -46,6 +47,18 @@ Summary of the map:
   stated power (mid-range resolves only |d| ≳ 3.8c; 750s/850s cells
   conditional on a book event at coverage 0.87/0.60), fixed-time
   top-of-book state carries no taker-exploitable signal.
+- **Taker conditional/path layers: closed through two-segment sign
+  paths (E21/E22, 2026-07-10).** CAL-002 (single-segment move sign/size,
+  60 cells) and CAL-003 (two-segment path shape, 40 cells) both
+  null-confirmed on the same discovery window. The only significant
+  deviations are buyer-ADVERSE continuation structure: post-down-move UP
+  asks stale-high ≈ 1.5-2.4c gross (E21), and ≈ 4.4c gross when the
+  down-move reverses a prior big up-move (E22) — but the tradable
+  mirrors net ≤ +0.75c (z ≤ +1.75) and +2.38c (z = +2.40) respectively:
+  real gross, inside costs or below the corrected bar net. Late-window
+  cells condition on both/all offsets live (coverage 0.766 / 0.464); the
+  sub-power window (~1.5-3c conditional effects, incl. the E22 reversal
+  mirror) remains formally open.
 - **Maker punch-through side: adversely selected at both regime extremes.**
   Under worst-queue, a fill IS a move through the level; that move is
   informative whether the tape is quiet (E16: −0.79/played market) or loud
@@ -169,10 +182,21 @@ registered only if one of these holds:
   inter-offset move yields no cell clearing the candidate bar on either
   side (the one significant conditional deviation is buyer-ADVERSE —
   late big down-moves continue ≈ 2c gross, worth less than spread + fee
-  to take; pair coverage 0.766 at 600-750). A conditional-structure
-  argument must therefore go beyond single-segment move sign/size
-  (e.g. multi-segment paths, flow/derived features, or sub-power windows
-  per the clause above).
+  to take; pair coverage 0.766 at 600-750). E22 (CAL-003) closes the
+  next layer: TWO-segment sign paths (persistence and reversal shapes,
+  triples 30-850s) also yield no cell clearing the candidate bar on
+  either side (triple coverage 0.766 / 0.464 at the late triples).
+  Persistence adds nothing; the reversal shape (up-then-dn) is the
+  strongest gross staleness in the conditional scans (−4.39c against the
+  UP buyer) but its tradable mirror nets +2.38c at z = +2.40 — inside
+  the open sub-power window, NOT citable (reserve unspent,
+  hypothesis-generating only). A conditional-structure argument must
+  therefore go beyond one- AND two-segment sign paths at these horizons
+  (e.g. finer path features, flow/derived features, or sub-power windows
+  per the clause above — the up-dn mirror at ≈ +2.4c net is the
+  concrete open point, but citing it requires a NEW instrument or
+  reserve-window evidence under full pre-registration, not the
+  discovery table).
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration

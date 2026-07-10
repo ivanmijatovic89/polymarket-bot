@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 41, unit U43bh (D25)._
+_Last updated: session 42, unit U44 (CAL-003)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -443,16 +443,40 @@ _Last updated: session 41, unit U43bh (D25)._
   (silently over-tightened bars, dropped binding caveats) that the
   pre-propagation Judge cannot catch by construction.
 
+- U44 (session 42): wake-up checks ran (universe unchanged at 18,635
+  eligible / last 2026-06-14; no trades ingestion — both gates closed).
+  CAL-003 registered, audited, read, and JUDGED — **null-confirmed by
+  fresh-context Judge** (`knowledge/CALIBRATION-3.md`, D26). Two-segment
+  path scan on the existing CAL-001 discovery log (zero new replay
+  compute, third log reuse with BINDING reserve confirmation): k=40
+  (5 triples × 4 big-move shapes × 2 sides), bar z≥3.26 after the
+  pre-read audit raised it from 3.25 (anti-conservative;
+  `knowledge/AUDIT-2026-07-10-CAL-003-REG.md`, 5 findings all applied
+  pre-read). One-shot: ZERO candidates (max +2.40); one fully-powered
+  NEG-FLAG UP (450-600-750, up-dn) z=−3.47 n=981 — a big down-move
+  REVERSING a prior big up-move leaves the UP ask ≈4.4c stale gross
+  (≈1.8× E21's unconditional figure), but the tradable mirror nets
+  +2.38c at z=+2.40, below the bar (needs ≈4.1c gross, observed +3.01c)
+  — NOT citable, reserve unspent. A-priori dn-dn persistence hypothesis
+  NOT supported (+0.39c/+0.59c, z≤+0.85): persistence does not
+  concentrate continuation. Triple coverage 0.766/0.464 at late triples
+  (binding conditioning). NEW mechanical gate-reproduction check matched
+  CAL-002's published gate values 8/8. LESSONS E22; EDGE-SPACE map row +
+  conditional-layers summary bullet + §4 taker bar updated.
+
 ## In progress
 - (nothing in flight)
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
-  by E20 and E21): taker needs a ≥1.5c gross argument that escapes
-  E9-E14, the CAL-001 fixed-time plane scan AND the CAL-002
-  single-segment conditional scan (e.g. multi-segment paths, flow/derived
-  features, or sub-power windows while clearing ~1.5c via another
-  instrument, per EDGE-SPACE §4); maker in-model needs a cell/gate that escapes
+  by E20, E21, and E22): taker needs a ≥1.5c gross argument that escapes
+  E9-E14, the CAL-001 fixed-time plane scan, the CAL-002 single-segment
+  conditional scan AND the CAL-003 two-segment path scan (e.g. finer
+  path/flow/derived features, or sub-power windows while clearing ~1.5c
+  via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
+  mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a
+  NEW instrument or reserve-window evidence under full
+  pre-registration); maker in-model needs a cell/gate that escapes
   E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
   change. Legitimate non-registration work:
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated

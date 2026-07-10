@@ -348,3 +348,44 @@ forbids importing the old system's research conclusions._
   (needed because discovery reused a log with published marginals) cost
   nothing: no candidate, no reserve spend — pre-committing confirmation
   data remains free insurance.
+
+- **E22 — CAL-003: two-segment path shape adds no taker-exploitable
+  signal within stated power; persistence does NOT concentrate the E21
+  continuation, reversal shapes concentrate it gross but the tradable
+  mirror stays under the bar (2026-07-10, null-confirmed by fresh-context
+  Judge).** The pre-registered two-segment path study
+  (`knowledge/CALIBRATION-3.md`, D26; zero new replay compute — third
+  read of the CAL-001 discovery log, with pre-read audit, a BINDING
+  reserve-confirmation rule, and a new gate that mechanically reproduced
+  CAL-002's published gate values 8/8) evaluated k = 40 frozen cells
+  (5 consecutive-offset triples × 4 big-move shapes {dn-dn, dn-up,
+  up-dn, up-up} × both entry sides; mid-involved shapes excluded as
+  disclosed) once: zero CANDIDATE cells (bar z ≥ 3.26; max positive
+  z = +2.40), one NEG-FLAG — UP (450-600-750, up-dn), z = −3.47,
+  n = 981, fully powered (cells condition on valid books at all three
+  offsets; triple coverage 0.766 at 450-600-750, 0.464 at 600-750-850 —
+  no claim for excluded quiet markets). Findings: (a) the a-priori
+  persistence hypothesis is dead on this data — buy-DOWN dn-dn at the
+  late triples nets +0.39c/+0.59c (z ≤ +0.85), and conditional dn-dn
+  gross d is at or below E21's unconditional dn2 figure: two consecutive
+  big down-moves misprice NO MORE than one; (b) the reversal shape
+  concentrates staleness gross — after up-then-dn, buying UP loses 4.39c
+  gross (≈ 1.8× E21's unconditional −2.43c), the strongest gross
+  staleness in the conditional scans (CAL-002/003 family) — but the
+  tradable mirror (buy DOWN, SAME book samples, not independent
+  evidence) nets +2.38c at z = +2.40, below the corrected bar (this
+  cell's bar ≈ 4.1c gross; observed +3.01c): NOT citable, reserve
+  correctly unspent, hypothesis-generating only; (c) power scoping (in
+  place, binding): loaded cells resolve ≈ 2.3-4.8c gross, so nulls do
+  not exclude path edges in the ~1.5-3c band, and the up-dn mirror at
+  +2.4c net sits concretely inside that open sub-power window;
+  (d) transfer: momentum/trend-following ideas built on one- OR
+  two-segment sign paths at these horizons (~1.7-2.5 min segments,
+  offsets 30-850s) are now measured within stated power — any future
+  taker registration citing path structure must go beyond two-segment
+  sign shape (e.g. finer paths, flow/derived features) or bring another
+  instrument that clears ~1.5c in the sub-power window; (e) the
+  gate-reproduction pattern (hard-coding the predecessor tool's
+  published gate values as an abort condition) caught nothing this time
+  but costs nothing and mechanically pins cross-tool derivation
+  equivalence — keep it for any future same-log study.
