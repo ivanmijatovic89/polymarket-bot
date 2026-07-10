@@ -81,8 +81,8 @@
               "endgame-panic-bid--000-baseline--p3-certaintyThreshold--82f7dd22-4959-439a-8d32-80874894f7fd",
               "endgame-panic-bid--000-baseline--p3-certaintyThreshold--47691447-4d7a-4fd6-820e-8edb23b23ac5"
             ],
-            "best": null,
-            "note": null
+            "best": 0.95,
+            "note": "0.93 and 0.95 tie exactly (net +0.01/mkt, pnl +7.20, 8 played, 8W-0L, avgWin 0.90; 0.95 reproduces run 383) - the threshold does not bind between them, every filling episode already had favBid >= 0.95 at trigger. 0.97 binds hard (4 played, pnl +3.60, net 0.00) and buys no purity: all fills win at every threshold, so it only halves collection. Best 0.95 = keep the measured-band conditioning at zero participation cost; flat below, costly above. Runs 386/387/388."
           },
           {
             "param": "size",
