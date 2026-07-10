@@ -3,6 +3,38 @@
   "artifactType": "strategy-global-index",
   "families": [
     {
+      "family": "endgame-panic-bid",
+      "status": "researching",
+      "coreIdea": "In the final seconds of each BTC 15m episode, rest one maker bid on the near-certain winning token at a fixed sub-fair price to collect measured panic-dump flow from holders of ~99% winners, holding any fill to settlement.",
+      "proposedBy": "claude-code/claude-fable-5",
+      "duplicateKeys": [
+        "endgame-maker-bid",
+        "endgame-favorite-bid",
+        "late-certainty-bid",
+        "last-second-favorite-bid",
+        "expiry-dump-catch",
+        "panic-dump-collection",
+        "settlement-bid-sink",
+        "certainty-maker-bid"
+      ],
+      "retryOnlyIf": null,
+      "verdictSummary": null,
+      "path": "endgame-panic-bid/FAMILY.md",
+      "champion": null,
+      "championMetrics": null,
+      "championStageReached": null,
+      "tags": [
+        "endgame",
+        "maker",
+        "certainty",
+        "favorite",
+        "directional",
+        "orderbook",
+        "hold-to-redemption",
+        "capacity-bounded"
+      ]
+    },
+    {
       "family": "imbalance-hold",
       "status": "validated",
       "coreIdea": "Take the BTC 15m leg whose order book shows stronger bid-depth support (top-N cumulative depth ratio differential between the legs) with one FOK taker buy and hold to fee-free redemption, re-testing the measured book-imbalance gross edge under a single taker fee.",

@@ -2,7 +2,7 @@
   "schemaVersion": 2,
   "artifactType": "strategy-family-index",
   "family": "endgame-panic-bid",
-  "status": "proposed",
+  "status": "researching",
   "coreIdea": "In the final seconds of each BTC 15m episode, rest one maker bid on the near-certain winning token at a fixed sub-fair price to collect measured panic-dump flow from holders of ~99% winners, holding any fill to settlement.",
   "proposedBy": "claude-code/claude-fable-5",
   "duplicateKeys": [
@@ -51,7 +51,12 @@
             "param": "entryTimeSec",
             "values": [885, 890, 895, 897],
             "batchUid": "endgame-panic-bid--000-baseline--p1-entryTimeSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--000-baseline--p1-entryTimeSec--5aa52652-ca9b-4b3d-942c-0471f6809af5",
+              "endgame-panic-bid--000-baseline--p1-entryTimeSec--dbefeab0-b0a2-4c43-a4e2-9742de0957fe",
+              "endgame-panic-bid--000-baseline--p1-entryTimeSec--77207abf-23f9-4d44-a532-938ca4119f09",
+              "endgame-panic-bid--000-baseline--p1-entryTimeSec--ab03059c-e97f-43c3-a2d2-713bdb3f5b38"
+            ],
             "best": null,
             "note": null
           },
@@ -85,10 +90,13 @@
       "batchUid": null,
       "submissionUids": [],
       "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-10T13:13:26Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
