@@ -57,8 +57,8 @@
               "endgame-panic-bid--000-baseline--p1-entryTimeSec--77207abf-23f9-4d44-a532-938ca4119f09",
               "endgame-panic-bid--000-baseline--p1-entryTimeSec--ab03059c-e97f-43c3-a2d2-713bdb3f5b38"
             ],
-            "best": null,
-            "note": null
+            "best": 897,
+            "note": "Monotone purity gain with later entry: 885 net -0.03/mkt (21 played, 19W-2L, 90.48% win), 890 net -0.03 (14 played, 12W-2L, 85.71%) - both below the 96.5% fill breakeven, both caught the same two informed-flip episodes (btc-updown-15m-1780785900, -1780893900) at -19.30 each; 895 and 897 tie at net +0.01 (8 played, 8W-0L, 100% win, all maker, zero fees) and neither filled either flip episode. 897 chosen: deepest measured checkpoint, 895 identical (stable late plateau). Advisories: thin fills (8/1000 markets) - capacity-bounded as proposed; one taker leak at 885/890 (mkt 1781227800: ask moved onto price between trigger and flush). Runs 380/369/381/382."
           },
           {
             "param": "bidPrice",
