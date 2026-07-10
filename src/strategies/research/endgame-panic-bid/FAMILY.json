@@ -64,7 +64,11 @@
             "param": "bidPrice",
             "values": [0.955, 0.965, 0.975],
             "batchUid": "endgame-panic-bid--000-baseline--p2-bidPrice",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--000-baseline--p2-bidPrice--d7ee99ef-e58c-4b07-a8f1-d7b870c21277",
+              "endgame-panic-bid--000-baseline--p2-bidPrice--384caa10-d82c-4018-ac9f-a2b8170d88bc",
+              "endgame-panic-bid--000-baseline--p2-bidPrice--46b5715d-1f7d-48dc-bc27-9af389c40930"
+            ],
             "best": null,
             "note": null
           },
@@ -89,7 +93,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
+      "baselineId": 382,
       "coverage": {
         "selection": "latest",
         "markets": 1000
