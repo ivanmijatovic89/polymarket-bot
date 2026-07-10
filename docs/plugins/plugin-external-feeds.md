@@ -1,6 +1,6 @@
 ---
 title: External Feeds Plugin
-description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugin — live price and volatility data from RTDS, Binance WebSocket, Polymarket, and Deribit, exposed to strategies via ctx.plugins.externalFeeds.
+description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugin — live price data from RTDS, Binance WebSocket, and Polymarket, exposed to strategies via ctx.plugins.externalFeeds.
 ---
 
 # External Feeds Plugin
@@ -9,7 +9,7 @@ description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugi
 **Classes:** `ExternalFeedsPlugin`, `ExternalFeedsRequestPlugin`  
 **Source:** `src/strategy/plugins/ExternalFeedsPlugin.ts`, `src/strategy/plugins/ExternalFeedsRequestPlugin.ts`, `src/trading/feeds/externalFeeds.ts`
 
-The External Feeds Plugin makes live market data from external sources available to strategies via `ctx.plugins.externalFeeds`. It aggregates price and volatility data from four independent feed clients into a single `ExternalFeedsSnapshot` object, refreshed out-of-band and snapshotted once per tick.
+The External Feeds Plugin makes live market data from external sources available to strategies via `ctx.plugins.externalFeeds`. It aggregates price data from three independent feed clients into a single `ExternalFeedsSnapshot` object, refreshed out-of-band and snapshotted once per tick.
 
 ::: danger Live trading only
 External feeds are only active during live trading. In backtests, `ctx.plugins.externalFeeds` is absent (`undefined`). Strategies must guard against this; see [Backtest Safety](#backtest-safety) below.
@@ -40,7 +40,6 @@ export const definition = {
         polymarketPriceToBeat: {
           enabled: true,
         },
-        deribitVolatilityIndex: true,
       },
       onMarketTick(ctx, snapshot) {
         /* ... */
@@ -116,7 +115,7 @@ type ExternalFeedsSnapshot = {
 ```
 
 ::: tip Deribit Volatility Index feed
-The `deribitVolatilityIndex` feed referenced in `requiredFeeds` is exposed through the dedicated [`DeribitVolatilityIndexPlugin`](/plugins/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), not through `ctx.plugins.externalFeeds`. It follows its own snapshot type.
+Deribit implied-volatility data is not part of `requiredFeeds` or `ctx.plugins.externalFeeds`. It is provided by the dedicated [`DeribitVolatilityIndexPlugin`](/plugins/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), which follows its own snapshot type.
 :::
 
 ---

@@ -26,8 +26,6 @@ Set these in your `.env`:
   - `POLYMARKET_TX_MODE_MERGE=relayer`
 - Redeem watcher settings (optional):
   - `REDEEM_WATCH_INTERVAL_MS` (default `30000`)
-  - `REDEEM_LOOKBACK_HOURS` (default `48`)
-  - `REDEEM_MAX_MARKETS_PER_TICK` (default `20`)
   - `REDEEM_STATE_PATH` (default `data/redeem/redeemed.json`)
   - `POLYMARKET_TX_MODE_REDEEM` (default `relayer`)
 - SAFE funder:

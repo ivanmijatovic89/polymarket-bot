@@ -105,10 +105,10 @@ There's no registry to edit. As long as your file lives under `src/strategies/` 
 ## Step 3 — Verify discovery
 
 ```bash
-npm run backtest -- --strategy buyDip.v1 --help
+npm run backtest -- --strategy buyDip.v1 --symbol btc --limit 1 --latest
 ```
 
-If the strategy is discovered correctly, the command prints its schema. If it prints an error, check the file is under `src/strategies/`, that it does `export const definition`, and that `definition.id` matches the `--strategy` value.
+If the strategy is not discovered, the command exits immediately with `[strategy] unknown strategy id="buyDip.v1"`. In that case, check the file is under `src/strategies/`, that it does `export const definition`, and that `definition.id` matches the `--strategy` value.
 
 ## Step 4 — Run in backtest
 
@@ -132,14 +132,14 @@ Change `--param triggerAsk=0.20` to test a different threshold without modifying
 
 Look for these fields in the batch summary:
 
-| Field         | What it tells you                                    |
-| ------------- | ---------------------------------------------------- |
-| `winRate`     | Fraction of markets where the strategy made a profit |
-| `totalPnl`    | Net PnL across all replayed markets in USDC          |
-| `totalTrades` | How often the trigger fired                          |
-| `sharpe`      | Risk-adjusted return (higher is better)              |
+| Field           | What it tells you                                              |
+| --------------- | -------------------------------------------------------------- |
+| `winRate`       | Fraction of decisive markets where the strategy made a profit  |
+| `pnlTotal`      | Net PnL across all replayed markets in USDC                    |
+| `tradesTotal`   | How often the trigger fired                                    |
+| `qualitySystem` | Risk-adjusted return: avg/std of per-market PnL (higher is better) |
 
-A low `totalTrades` with a tight threshold means the trigger rarely fires — try raising `triggerAsk`. A high trade count with negative PnL means the dip wasn't predictive at that threshold.
+A low `tradesTotal` with a tight threshold means the trigger rarely fires — try raising `triggerAsk`. A high trade count with negative PnL means the dip wasn't predictive at that threshold.
 
 ## What to explore next
 

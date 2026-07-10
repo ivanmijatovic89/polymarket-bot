@@ -211,16 +211,18 @@ Deletes the market row matching `slug`. No-op if the row does not exist.
 
 ### Telonex Markets (`src/db/telonexMarkets.ts`)
 
-Helpers for the telonex backtest flow. All three functions take an `opts` object specifying which converter and which storage to read from, and return the normalised `Market` type defined in `telonexMarkets.ts` (NOT the same as the `Market` type in `markets.ts`).
+Helpers for the telonex backtest flow. All query functions take an `opts` object specifying which converter and which storage to read from, and return the normalised `Market` type defined in `telonexMarkets.ts` (NOT the same as the `Market` type in `markets.ts`).
 
 ```typescript
-type ReadFrom = 'local' | 'r2'
+type ReadFrom = 'local' | 'r2' | 'local-or-download-from-r2-to-local'
 type Converter = 'delta-typed' | 'paired'
 
 type Market = {
   marketId: string
   slug: string
   symbol: string
+  timeframe: string
+  marketStartMs: number
   dataset: string | null // local_path or r2_url, picked by readFrom
   outcome0: string | null
   outcome1: string | null
@@ -229,6 +231,8 @@ type Market = {
   resultId: string | null
   telonexStatus: string | null
   question: string | null
+  startDateMs: number | null // deprecated — NOT the window start; use marketStartMs
+  endDateMs: number | null
 }
 ```
 
@@ -260,29 +264,21 @@ Returns all matching telonex market rows. Empty input returns `[]`. Order is not
 
 ---
 
-#### `getMarketsBySymbol(symbol, opts)`
+#### `listEligibleTelonexMarkets(opts)`
 
 ```typescript
-getMarketsBySymbol(
-  symbol: string,
-  opts: {
-    converter: Converter
-    readFrom: ReadFrom
-    timeframe: string
-    limit?: number
-    random?: boolean
-    latest?: boolean
-  },
+listEligibleTelonexMarkets(
+  opts: EligibleMarketsQuery, // converter, readFrom, symbol/timeframe or slugs, limit?, random?, latest?, fromMs?, resolvedOnly?
 ): Promise<Market[]>
 ```
 
-Returns telonex markets matching `slug LIKE '<symbol>-updown-<timeframe>-%'` (e.g. `btc-updown-15m-%`). `timeframe` is required so the filter stays future-proof when other intervals (`5m`, `1h`) are added.
+Returns eligible telonex markets for the filter, ordered `market_start_ms ASC` (or `RAND()` when `random=true`). `random` and `latest` are mutually exclusive. Companion helpers: `listEligibleTelonexSlugs(opts)` (slugs only) and `countEligibleTelonexMarkets(opts)`.
 
 | Option     | Behaviour                                                                                          |
 | ---------- | -------------------------------------------------------------------------------------------------- |
 | `limit`    | Cap the result set size. Default: `1000`.                                                          |
 | `random`   | When `true`, rows are returned in `RAND()` order.                                                  |
-| `latest`   | When `true` and `limit` is set, returns the `limit` most recent rows by slug (highest epoch).      |
+| `latest`   | When `true` and `limit` is set, returns the `limit` most recent rows by `market_start_ms`.         |
 
 ---
 
@@ -300,8 +296,13 @@ insertBacktestRun(row: {
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
+  timeframe: string | null
+  inputMode: string | null
+  converter: string | null
+  readFrom: string | null
   slugs: string[] | null
   limit: number | null
+  inputMarketsTotal?: number | null
   random: boolean
   latest: boolean
   batchStats: BatchStats

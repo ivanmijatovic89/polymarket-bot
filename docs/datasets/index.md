@@ -13,7 +13,7 @@ Three dataset sources are currently supported:
 | --- | --- | --- | --- | --- |
 | [Live Recording](/datasets/recording/overview) | Raw WS events (Parquet) | From the moment you start recording | Run the recorder yourself | Baseline |
 | [Telonex](/datasets/telonex/overview) | Delta (book/price_change) or paired snapshots (Parquet) | Pre-collected historical data | Pipeline-managed: sync + download + convert | Same as baseline (delta) or ~3× slower (paired) |
-| [PMXT](/datasets/pmxt/overview) | _(coming soon)_ | — | — | — |
+| [PMXT](/datasets/pmxt/overview) | Hourly orderbook archive (Parquet), converted to native format | Pre-collected historical data (v1: Feb–Apr 2026, v2: Apr 2026 onward) | Pipeline-managed: sync catalogue + download & convert (v1) or build master (v2) | Same as baseline (converted to native format) |
 
 ## Live Recording
 
@@ -41,7 +41,7 @@ Two converters are available:
 
 ## PMXT
 
-Documentation coming soon.
+[PMXT](https://archive.pmxt.dev) publishes free hourly Parquet snapshots of Polymarket orderbook data in two archive versions (v1 and v2). The bot ingests it by syncing the archive catalogue into `pmxt_dataset_catalogue`, then either converting v1 hourly files to native parquet windows (`pmxt:download-and-convert:v1`) or assembling a v2 master parquet (`pmxt:resolve-slugs:v2` + `pmxt:build-master:v2`).
 
 → [PMXT docs](/datasets/pmxt/overview)
 

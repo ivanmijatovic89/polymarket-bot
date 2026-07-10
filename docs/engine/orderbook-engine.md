@@ -90,7 +90,7 @@ Each `OrderBookEngine.snapshot()` call returns:
 | `spread`           | `number \| null` | `bestAsk - bestBid`                                   |
 | `bids`             | `OrderLevel[]`   | All bid levels, DESC by price                         |
 | `asks`             | `OrderLevel[]`   | All ask levels, ASC by price                          |
-| `depthLevels`      | `number`         | Number of levels used for depth arrays (hardcoded 10) |
+| `depthLevels`      | `number`         | Number of levels used for depth arrays (default 10, via `WEB_UI_ORDERBOOK_LEVELS`) |
 | `bidsDepthByLevel` | `number[]`       | Cumulative size at each of the top N bid levels       |
 | `asksDepthByLevel` | `number[]`       | Cumulative size at each of the top N ask levels       |
 
