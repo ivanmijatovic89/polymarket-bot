@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 6, unit U34._
+_Last updated: session 7, unit U34 (completed)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -228,29 +228,33 @@ _Last updated: session 6, unit U34._
   eight). §3 now states the gated status; §5 gained the "instrumentation
   unlocks" control point pointing at EDGE-SPACE §3.
 
-- U34 (in progress): DECISIONS D17 — venue-drift monitor, so EDGE-SPACE
-  §4's "venue regime change" reopening rule can actually fire. New:
+- U34: DECISIONS D17 — venue-drift monitor, so EDGE-SPACE §4's "venue
+  regime change" reopening rule can actually fire. New:
   `strategies/_fixtures/diag-venue.ts` (no orders, outcome-free
   per-market book stats: rate, crossedFrac, median UP spread/top-depth
   from 10s samples) + `tools/venue-drift.ts` (per-UTC-month aggregation).
-  Both smoke-verified. Reopening bar pre-specified in D17 (month median
-  spread/depth outside [0.5x, 2x] of the 2025-12→2026-04 baseline, or
-  crossed fraction doubling). Venue stats carry no strategy outcomes, so
-  holdout-window months are included by design (argued in D17).
+  Baseline sweep COMPLETE (7 monthly chunks × 30 random markets, 198
+  unique parsed): table recorded in `knowledge/VENUE-DRIFT.md` with the
+  pooled 2025-12→2026-04 reference values (spread 0.0100 → band
+  [0.005, 0.02]; depth 479.4 → band [239.7, 958.8]; crossedFrac 0.0012 →
+  fires ≥ 0.0024) and the refresh procedure. First evaluation: 2026-05
+  and 2026-06 are inside all bands — NO drift; E9-E17 conclusions
+  in-regime through 2026-06-14. EDGE-SPACE §4 now points at VENUE-DRIFT
+  as the required citation instrument for the microstructure-shift
+  clause. (Raw log is gitignored; the per-month table is the durable
+  record.)
 
 ## In progress (detached runs via tools/detach.mjs per D10)
-- Venue-drift BASELINE sweep: detached 2026-07-10 pid 70722, log
-  `fable-lab/logs/venue-drift-baseline.log` — 7 monthly chunks x 30
-  random markets (2025-11-30 → 2026-06-14), fable-diag-venue, batchUid
-  EXP-000-debug. When done: `npx tsx fable-lab/tools/venue-drift.ts
-  fable-lab/logs/venue-drift-baseline.log` → record table in
-  `knowledge/VENUE-DRIFT.md` (baseline + refresh procedure + D17 bar).
+- None.
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar: register a new experiment
   ONLY if an idea clears it. Otherwise legitimate work is: verification
   depth on settled conclusions, keeping EDGE-SPACE §3 current, and
   friction-motivated protocol maintenance (evolution governor applies).
+- Venue-drift refresh is only worthwhile once the eligible universe has
+  grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
+  do not re-run it before then.
 - The D15 conclusion is now audited (U32). Remaining known caveat from
   the audit worth keeping in mind: the maker-side generalization rests
   on two probe cells (N=500 each); EDGE-SPACE §1-§2 wording already

@@ -115,7 +115,11 @@ registered only if one of these holds:
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence
   that can reopen a measured question — cite the observed change in the
-  idea entry.
+  idea entry. This clause now has an instrument: `knowledge/VENUE-DRIFT.md`
+  (D17) holds the measured monthly baseline and the pre-specified numeric
+  bar for "visible microstructure shift". A citation under this clause
+  must point at a VENUE-DRIFT row that fires the bar — eyeballing is not
+  a citation.
 
 Absent all three: the correct work is verification depth (auditing settled
 conclusions), instrumentation advocacy (keeping §3 current), and protocol
