@@ -414,7 +414,12 @@ _Last updated: session 9, unit U40._
   ~83 min); latency 0/0, UP/DOWN exact balance (9,097 each), 0 error
   lines, epoch range [1764460800, 1765908000] inside the discovery
   window, 8,516 files loaded, 33 GiB free disk. Monitor re-armed on
-  pid exit.
+  pid exit. NEW outcome-free check (dedupe/over-sampling): zero
+  duplicate (slug,asset,off) tuples across all 19,082 sample lines;
+  distinct offsets exactly the 7 frozen values (30/150/300/450/600/
+  750/850); per-market line count capped at 14 = 7 offsets × 2 assets
+  (fewer lines = book absent at early offsets, expected) — calib.ts
+  cell counts cannot be double-counted by the instrument.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
