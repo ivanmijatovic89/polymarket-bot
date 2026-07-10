@@ -15,6 +15,22 @@
     "priceUsd": 1300,
     "parallelThroughput": 21235
   },
+  "527674ef4858": {
+    "name": "NotHumbleAtAll-mac-mini-m4",
+    "hardware": [
+      "Model Name: Mac mini",
+      "Model Identifier: Mac16,10",
+      "Model Number: MU9D3AB/A",
+      "Chip: Apple M4",
+      "Total Number of Cores: 10 (4 performance and 6 efficiency)",
+      "Memory: 16 GB"
+    ],
+    "geekbench6Multi": 14724,
+    "geekbench6Source": "verified",
+    "cores": 10,
+    "priceUsd": 800,
+    "parallelThroughput": 26516
+  },
   "8e367b2f7eb8": {
     "name": "Laranist-macbook-m5",
     "hardware": [
@@ -51,20 +67,5 @@
     "geekbench6Multi": null,
     "geekbench6Source": "unknown",
     "cores": null
-  },
-  "mac-mini-m4": {
-    "name": "mac-mini-m4",
-    "hardware": [
-      "Model Name: Mac mini",
-      "Model Identifier: Mac16,10",
-      "Chip: Apple M4",
-      "Total Number of Cores: 10 (4 performance and 6 efficiency)",
-      "Memory: 16 GB"
-    ],
-    "geekbench6Multi": 14724,
-    "geekbench6Source": "verified",
-    "cores": 10,
-    "priceUsd": 800,
-    "parallelThroughput": 26516
   }
 }
