@@ -263,8 +263,24 @@ _Last updated: session 7, unit U35._
   slugs, both zero-trade so no outcome exposure; the comparison pair used
   pinned exploration-only slugs. Pin slugs or --to-ms for future smokes.)
 
+- U36 (registration + launch): IDEAS #9 (at-touch maker bracket) added;
+  EXP-008 (touch bound on the frozen EXP-006 quiet cell, strategy
+  fable-exp-006 reused unchanged) and EXP-009 (touch bound on the frozen
+  EXP-007 loud cell, fable-exp-007 reused) registered — validator green,
+  INDEX regenerated, specs committed BEFORE any run (30dc724). D18 outcome
+  set is {kill, escalate, park}; kills would be CONCLUSIVE in-model (bound
+  dominance), escalation writes an operator memo; no advance path exists.
+  Smokes green (runs 355/356, 10 exploration markets each, 8/10 filled,
+  0 failures, hook line present; fill counts only, no PnL read).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- None.
+- EXP-008 + EXP-009 probes (touch mode), chained sequentially: detached
+  2026-07-10 pid 21693, log `fable-lab/logs/touch-probes.log`. Each:
+  `--random --limit 500 --to-ms 1777237200000 --fill-mode=touch_or_better`,
+  batchUids EXP-008-probe-touch / EXP-009-probe-touch, latency pinned 0/0.
+  When done: verify the D18 hook lines appear for BOTH runs in the log,
+  read results via tools/results.ts, fresh-context Judge per spec decision
+  rules, append verbatim to the experiment files, INDEX regen.
 
 ## Next
 - U36: register the touch-bracket experiment — re-run the FROZEN EXP-006
