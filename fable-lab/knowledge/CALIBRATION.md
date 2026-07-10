@@ -244,6 +244,26 @@ in the DB is VOID — instrument defect, not result-based).
     non-independent, not only exact reflections (the UP→DOWN cell map
     is spread-shifted, not a bijection).
 
+14. **(session 19, mid-run, outcome-free) Prepared erratum text for the
+    amendment #13 obligation — content is fully outcome-independent, so
+    it is frozen now; the verdict session appends it to Results verbatim
+    (adjusting only the final pair-count if the complete log differs):**
+
+    > ERRATUM (per amendments #12/#13): two frozen texts carry the
+    > falsified independent-spread premise and are corrected in wording
+    > only. (1) Amendment #10's rationale "the DOWN ask has its own
+    > spread and is not 1 − UP bid" and (2) the `diag-calib.ts` header
+    > describing the DOWN book as independently sampled are FALSE:
+    > amendment #12 (re-verified on the grown log at 18,634/18,635
+    > exact pairs, single known deviant epoch 1764846000 off=850)
+    > established the recorded books are exact mirrors — one order set
+    > viewed from both sides. No analysis constant, gate, or threshold
+    > is affected: the DOWN grid remains non-redundant (buying DOWN at
+    > `1 − bid_UP` is economically selling UP at the bid, a trade no UP
+    > cell measures); k = 126 and z ≥ 3.565 stand (conservative under
+    > dependence); any overlapping-sample cross-side cell pair is
+    > treated as non-independent per amendment #13.
+
 ## Results
 
 _(append-only below this line; nothing here until the discovery run

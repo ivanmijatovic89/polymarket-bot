@@ -495,7 +495,10 @@ _Last updated: session 9, unit U40._
   stable vs the 1,662-market measurement (96.6/75.4/43.0); the
   verdict-wording fractions must still be recomputed from the FINAL
   log. Monitor re-armed on pid exit (60-min Monitor; re-arm if it
-  times out before the run ends).
+  times out before the run ends). CALIBRATION.md amendment #14
+  (pre-read, outcome-free): the amendment #13 post-read erratum text
+  is pre-drafted and frozen — the verdict session appends it to
+  Results verbatim (only the final pair-count may be adjusted).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
