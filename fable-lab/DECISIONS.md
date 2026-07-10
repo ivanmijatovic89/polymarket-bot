@@ -374,3 +374,31 @@ next misread might not be).
 `winRate(played)=X (wins/losses=W/L)`. Verified against run 336. Erratum
 appended to EXP-006 (verdicts stay append-only); LESSONS E16 corrected
 with an inline note.
+
+## D17 — Venue-drift monitor: make EDGE-SPACE §4's reopening rule fireable
+
+**Motivating evidence (evolution governor).** D15's third reopening
+condition ("a visible microstructure shift in recorded books is evidence
+that can reopen a measured question") could never fire: nothing in the lab
+measures venue statistics over time. A decision rule with no instrument is
+dead text — concrete gap found while reconciling RUNBOOK (U33).
+
+**Decision.** Minimal monitor, outcome-free by construction:
+`strategies/_fixtures/diag-venue.ts` (no orders, logs one line of
+PRE-SPECIFIED per-market stats: tick rate, crossed-tick fraction, median
+top-of-book UP spread and depth from 10s samples) + `tools/venue-drift.ts`
+(aggregates log lines into a per-calendar-month table of medians). Baseline
+= 30 random markets per month over the full eligible range, batchUid
+EXP-000-debug, recorded in `knowledge/VENUE-DRIFT.md`; future sessions
+re-run recent months and compare. Venue stats contain no strategy outcomes
+(no PnL, no win rates), so holdout-window markets MAY be sampled — the
+holdout lock protects outcome data, and drift detection is worthless if it
+cannot see the most recent regime. Reopening bar (pre-specified here, not
+after seeing data): a month whose median spread or median top depth falls
+outside [0.5×, 2×] of the exploration-era (2025-12 → 2026-04) median, or
+whose crossed-tick fraction doubles, is a citable venue change under
+EDGE-SPACE §4.
+
+**Rejected.** Building a full per-tick feature warehouse (complexity
+without a consumer); running drift on every session (the venue changes on
+weeks, not hours — re-run when new months of data accrue).
