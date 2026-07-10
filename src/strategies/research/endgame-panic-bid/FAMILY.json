@@ -104,7 +104,7 @@
       "baselineId": "383",
       "coverage": {
         "selection": "latest",
-        "markets": 1000
+        "markets": 3000
       },
       "status": "running",
       "gateLog": [
