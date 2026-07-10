@@ -158,6 +158,13 @@ export async function claudeAccountUsage(name: string, source: string): Promise<
         "token lacks the user:profile scope (setup-token tokens can't read usage) — use a config-dir login instead",
     }
   }
+  if (res.status === 429) {
+    return {
+      account: name,
+      windows: [],
+      error: 'rate-limited by provider — retries automatically',
+    }
+  }
   if (!res.ok) {
     return { account: name, windows: [], error: `request failed: HTTP ${res.status}` }
   }

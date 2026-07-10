@@ -123,8 +123,9 @@ export async function codexAccountUsage(name: string, source: string): Promise<A
       toWindow(body.rate_limit?.primary_window),
       toWindow(body.rate_limit?.secondary_window),
     ].filter((w): w is RateLimitWindow => w !== null)
-    const label = body.plan_type ? `${name} (${body.plan_type})` : name
-    return { account: label, windows }
+    return body.plan_type
+      ? { account: name, windows, plan: body.plan_type }
+      : { account: name, windows }
   } catch (err) {
     return { account: name, windows: [], error: String(err instanceof Error ? err.message : err) }
   }

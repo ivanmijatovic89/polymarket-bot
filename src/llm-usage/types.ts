@@ -9,5 +9,6 @@ export interface RateLimitWindow {
 export interface AccountUsage {
   account: string
   windows: RateLimitWindow[]
+  plan?: string
   error?: string
 }
