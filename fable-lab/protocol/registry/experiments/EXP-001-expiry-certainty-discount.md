@@ -82,6 +82,37 @@
   fail-leaning; the decisive primary read is the pending full-window main
   extension of run 301.
 
+- 2026-07-10 — MAIN: run 301 extended to the full exploration window
+  (`--extend 301 --to-ms 1777237200000`, latency pinned 0/0). Decisive
+  readout, verbatim:
+
+  ```
+  === results: run 301  batch EXP-001-probe ===
+  strategy fable-exp-001  params {"maxAsk":0.99,"minAsk":0.9,"shares":100,"entryAfterSec":720}
+  status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+  N=13977  played=11121  skipped=2856  failures=0
+  pnlTotal=-2713.44  EV/market=-0.1941  CI95=[-0.5245, 0.1362]
+  std=19.9277  q=-0.0097  t=-1.1517
+  winRate(played)=0.9315 (10359/761)
+  fees=1001.2  fee/grossWins=0.0178  maker/taker=0/11157 (makerShare=0)
+  days=148  positiveDayFrac=0.4662  best=2026-02-16:457.39  worst=2026-02-13:-965.48
+  ```
+
+  Prediction check (`entry-check.ts --exp EXP-001 --run 301`): entered
+  11121, mean entry ask 0.9323, win rate 0.9316, margin −0.0007, gross
+  EV/share −0.00070 — PREDICTION CONTRADICTED. Buckets: 0.90-0.92 →
+  0.900 (n=5877); 0.92-0.94 → 0.937 (1092); 0.94-0.96 → 0.929 (438);
+  0.96-0.98 → 0.965 (1022); 0.98-1.00 → 0.985 (2692) — every bucket on
+  the diagonal.
+
+- 2026-07-10 — latency curve, full window (N=13977 each), verbatim rows:
+
+  ```
+  main/lat0: EV=-0.1941  q=-0.0097  t=-1.1517  (played 11121)
+  326  EXP-001-lat150  EV=-0.1572  q=-0.0086  t=-1.0214  (played 8794)
+  327  EXP-001-lat300  EV=-0.1359  q=-0.0077  t=-0.9064  (played 8275)
+  ```
+
 
 ## Verdicts (append-only)
 
@@ -165,3 +196,63 @@
     margin holding up over thousands of markets, and skipped-as-zero is
     already baked into q — so the correct spend is more data at Stage 2, not
     belief now. Evidence is unambiguous on the probe's own rules: advance.
+
+- 2026-07-10 — stage main, fresh-context Judge (JUDGE.md), verbatim:
+
+  - stage: main
+  - decision: kill
+  - read: N=13977 q=-0.0097 t=-1.1517 EV/market=-0.1941 CI95=[-0.5245, 0.1362]
+  - prediction check: CONTRADICTED — realized win rate 0.9316 (10360/11121)
+    vs mean entry ask 0.9323, margin −0.0007; gross EV/share pre-fee
+    −0.00070 ≤ 0. The tool itself prints "PREDICTION CONTRADICTED". The
+    bucket that should carry the mechanism, 0.90–0.92 (n=5877, the bulk of
+    entries), pays exactly its price: win rate 0.900 at asks 0.90–0.92 —
+    the certainty discount does not exist where most of the volume is.
+  - battery: smoothness — FAIL (6 of 8 neighbors negative; the minAsk=0.95
+    column, where redeem-friction should be strongest, is uniformly
+    negative at t −1.5..−1.8; the only positive cells, e600-a085 t=+1.837
+    and e840-a085 t=+0.731, are non-adjacent islands below the primary's
+    minAsk — sign flips erratically, which per EPISTEMOLOGY §5.1 is noise
+    regardless of t). Latency curve — pass in the narrow sense (no cliff
+    between 0 and 150ms: EV −0.1941 → −0.1572 → −0.1359; it improves with
+    latency only because latency suppresses entries into a negative-EV
+    trade). Day stability — FAIL (positiveDayFrac 0.4662 over 148 days:
+    losing more days than winning; worst day −965.48 vs best +457.39).
+    Composition — pass (maker/taker 0/11157, makerShare=0, fee/grossWins
+    0.0178, failures=0; loss is not a fee or fill artifact).
+  - simulator-bias classification: clean — 100% taker FOK fills at visible
+    depth with the 156 bps taker fee charged; per the spec's own exposure
+    statement this sits on the pessimistic side of the simulator, so the
+    negative read cannot be blamed on simulator generosity. The one
+    optimistic dependency (free instant settlement) would only make live
+    results worse than this.
+  - lineage-adjusted bar: lineage_cells=1 → no Bonferroni inflation; the
+    bar stays t ≥ 2 (p ≤ 0.023). Observed t=−1.1517 — not met; it is on the
+    wrong side of zero and additionally satisfies the kill trigger (q̂ ≤ 0
+    with t ≤ −1).
+  - required next step: append this kill to the spec's Verdicts and distill
+    the mechanism-level lesson (late ≥0.90 asks are efficiently priced net
+    of fees) into LESSONS.md; any interest in the a085 corner requires a
+    new registration carrying the lineage's 9 inspected cells as
+    `lineage_cells`.
+  - reasoning: The main stage triple-fails: t=−1.15 is nowhere near the +2
+    advance bar; the kill condition fires outright (q̂=−0.0097 ≤ 0 with
+    t=−1.15 ≤ −1, active evidence of negative edge); and the mechanism's
+    own falsifiable prediction is mechanically contradicted at 29× the
+    probe's entered sample — win rate 0.9316 against mean ask 0.9323 means
+    the market prices the near-certain side almost exactly at its realized
+    probability, leaving the 156 bps taker fee as pure loss (fees=1001.20
+    against pnlTotal=−2713.44, with the rest being the win-rate shortfall
+    in the dominant 0.90–0.92 bucket). The probe's earlier +1.94 EV,
+    t=3.08 read on N=379 should be concluded to be sampling noise
+    concentrated in a lucky slice — its 0.94–0.98 buckets showed impossible
+    1.000 win rates on n=15–16, and the full window regresses every bucket
+    toward its ask; this is precisely the failure mode §3 warns a probe
+    cannot rule out, and the two-stage design caught it exactly as
+    intended. The iterate branch does not apply: there is no diagnosable
+    implementation leak (fees are 1.8% of gross wins, entries are symmetric
+    taker FOKs, failures=0) — the mechanism itself is absent, and the
+    neighborhood grid confirms it is absent most strongly where the
+    hypothesis predicts it should be strongest (minAsk=0.95). Nothing here
+    is ambiguous, but were it ambiguous, the tie would go against
+    advancement anyway. Kill.

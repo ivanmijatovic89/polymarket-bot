@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U24._
+_Last updated: session 3, unit U25._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -120,17 +120,19 @@ _Last updated: session 3, unit U24._
   uniformly negative — where the mechanism should be strongest. Smoothness
   fail-leaning; awaiting main for the decisive primary read.
 
+- U25: EXP-001 main JUDGED — **kill** (run 301 extended to N=13,977:
+  EV=−0.19, t=−1.15, win rate 0.9316 = mean ask 0.9323, prediction
+  CONTRADICTED; battery: smoothness FAIL, day stability FAIL, latency flat
+  negative, composition clean). The probe's +1.94/t=3.08 was sampling
+  noise — only 7 losses in 231 entries; with +3c/−90c payoffs the
+  information is in the loss count. LESSONS E14 (incl. protocol transfer
+  rule: for win rates >0.9, probe precision = minority-event count ≥ ~30,
+  not t). IDEAS #1 → dead; #7 maker-capture dies with it per its own park
+  clause. ALL SIX starter mechanisms now resolved: every taker mechanism
+  tested is priced fairly net of 156 bps fees. INDEX regenerated.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- U13: EXP-001 stage MAIN — run 301 extending to full exploration window
-  (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
-  place, batchUid stays EXP-001-probe).
-- EXP-001 latency curve: full-window runs at delay 150 and 300 (batchUids
-  EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
-  13,977 markets each — paired with main's window by construction; the
-  delay-0 point of the curve IS the main run).
-- EXP-001 grid: DONE (see U24).
-- When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
-  units. EXP-005 probe next in queue. When main+lat finish: launch the 8 grid cells (spec neighborhood,
+- (none — no runs in flight) When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
   always included since --cell REPLACES primary params), staggered ≤5
   concurrent; then `battery.ts --exp EXP-001` → main-stage Judge.
@@ -142,11 +144,16 @@ _Last updated: session 3, unit U24._
   primary cell). Probe queued behind the running probes.
 
 ## Next
-- EXP-002/EXP-003 probe verdicts; EXP-004 probe launch (detached, after a
-  probe slot frees); EXP-001 grid + battery + main Judge; per verdicts
-  iterate/kill/advance per EPISTEMOLOGY §3; remaining open ideas: #4
-  quiet-regime quoting (parked until classes 1-3 exhausted), #6
-  first-minute overreaction.
+- U26 (next session): synthesis + direction decision. All starter taker
+  mechanisms are dead (E9-E14): the venue shows no taker edge net of fees
+  in this universe. Options to weigh per charter (durable +EV after real
+  costs): (a) maker-side experiments (IDEAS #4 quiet-regime quoting is the
+  only live queue entry) accepting `simulator-favored` classification and
+  designing the live-paper requirement in from the start; (b) new idea
+  generation targeting structural counterparties with maker execution;
+  (c) apply the E14 probe-precision rule to EPISTEMOLOGY (protocol change
+  WITH motivating evidence — cite E14). Holdout remains locked and unused
+  (no experiment reached it) — it stays locked for future experiments.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →

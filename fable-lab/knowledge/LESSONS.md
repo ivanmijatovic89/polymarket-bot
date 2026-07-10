@@ -117,3 +117,22 @@ forbids importing the old system's research conclusions._
   run whose pnl distribution can degenerate (tight ask bands, tiny samples
   per day) risks engine-side persistence artifacts — check the persist
   SUCCEEDED (row in runs.ts) before treating a "finished" log as a result.
+
+- **E14 — The expiry tail is ALSO efficiently priced; EXP-001's probe
+  "advance" was sampling noise, and the probe design has a measurable
+  blind spot for skewed payoffs.** Main run (301 extended, N=13,977,
+  11,121 entered): win rate 0.9316 vs mean entry ask 0.9323 — every ask
+  bucket sits on the diagonal; EV/market −0.19, t=−1.15; the 156 bps taker
+  fee is pure loss. The probe (N=379 prefix, same run) had shown +1.94,
+  t=+3.08. Diagnosis: with a +3c-win/−90c-loss payoff, the estimator's
+  information lives in the LOSS COUNT — the probe saw only 7 losses, so
+  its t was built on ~7 effective observations, not 231. Transfer rule for
+  the protocol: for strategies with win-rate > ~0.9 or < ~0.1, judge probe
+  precision by the count of minority-outcome events (want ≥ ~30), not by
+  t alone. Together with E9-E12: every taker mechanism tested (tails,
+  jumps, book shape, open, dutch books) is priced fairly; net of 156 bps
+  fees the venue offers NO taker edge in this universe. Remaining
+  unexplored territory is the maker side (posting liquidity, capturing
+  spread + adverse-selection premium), which the simulator models
+  conservatively (worst-queue) but optimistically on size — live-paper
+  validation is mandatory there by construction.

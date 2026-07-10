@@ -27,17 +27,17 @@ Ordered; top entries get registered first.
 
 | # | idea | class | status |
 |---|---|---|---|
-| 1 | expiry certainty discount | `tail-overpricing` | registered (EXP-001) |
+| 1 | expiry certainty discount | `tail-overpricing` | dead (EXP-001) |
 | 2 | UP+DOWN dutch-book scan | `sum-mispricing` | dead (EXP-002) |
 | 3 | post-jump stale ladder | `stale-quote` | dead (EXP-003) |
 | 4 | quiet-regime two-sided quoting | `spread-capture` | open |
 | 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | dead (EXP-005) |
-| 7 | expiry-tail maker capture | `spread-capture` | parked (until EXP-001 confirms) |
+| 7 | expiry-tail maker capture | `spread-capture` | dead (EXP-001 killed at main; per its own park clause it dies unexamined) |
 
 ## Entries
 
-### 1. Expiry certainty discount — `tail-overpricing` — registered (EXP-001)
+### 1. Expiry certainty discount — `tail-overpricing` — dead (EXP-001)
 - **Who loses:** holders of the winning side who sell out at 0.95-0.99 in
   the final minutes to avoid redeem friction (gas, capital lockup, workflow),
   and late hedgers who must cross the spread. Their urgency is structural.
@@ -109,7 +109,7 @@ Ordered; top entries get registered first.
   the first minute reverts more often than it continues, net of fees.
 - **Cheapest kill:** probe with a fade-entry, fixed-exit taker.
 
-### 7. Expiry-tail maker capture — `spread-capture` — parked (until EXP-001 confirms)
+### 7. Expiry-tail maker capture — `spread-capture` — dead (EXP-001 killed at main; per its own park clause)
 - **Motivating evidence:** E12's synthesis — the only measured inefficiency
   is the expiry-tail certainty discount (EXP-001 probe: win rate 0.9697 vs
   mean ask 0.9343). EXP-001 pays the spread to reach the friction sellers;
