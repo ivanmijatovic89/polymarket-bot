@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 41, unit U43bf (CAL-002 VERDICT)._
+_Last updated: session 41, unit U43bg (E21 propagation audit)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -411,7 +411,8 @@ _Last updated: session 41, unit U43bf (CAL-002 VERDICT)._
   6 findings fixed pre-read, incl. MAJOR: reserve-read semantics frozen
   (--expect-totals mode + discovery-path refusal; no post-table tool edit
   ever needed). One-shot read: ZERO candidates (max positive z=+1.75);
-  ONE fully-powered NEG-FLAG UP (600-750, dn2) z=−3.72 n=2,708 — after a
+  ONE fully-powered NEG-FLAG UP (600-750, dn2) z=−3.72 n=2,708 (pair
+  coverage 0.766; 750-850 pair 0.464) — after a
   ≥2c down-move late in the window the UP ask is stale-high ≈2-2.4c gross
   (continuation, coherent across pairs from 300s on: −2.23/−3.00/−3.72/
   −2.90), but the tradable mirror (buy DOWN, same samples) nets ≤+0.75c
@@ -421,6 +422,21 @@ _Last updated: session 41, unit U43bf (CAL-002 VERDICT)._
   LESSONS E21; EDGE-SPACE map row + §4 taker bar updated (conditional
   arguments must now go beyond single-segment move sign/size).
 
+- U43bg (session 41): E21 knowledge propagation AUDITED by a
+  fresh-context verifier (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-E21-PROPAGATION.md`). All 7 findings acted
+  on: (1) MAJOR — the binding coverage-conditioning caveat was dropped
+  from all three derived artifacts; E21/EDGE-SPACE/STATE now carry the
+  pair fractions (0.766 / 0.464) in-place; (2) MAJOR — the STATE "Next"
+  bullet over-tightened with "i.e." again (the exact E20-audit defect
+  class); now "e.g. multi-segment paths, flow/derived features, or
+  sub-power windows"; (3-7) MINOR — "e.g." added to the EDGE-SPACE §4
+  parenthetical, "no net-positive cell" corrected to "no cell clearing
+  the candidate bar", "(2-4 min)" fixed to ~1.7-2.5 min, in-place power
+  scoping added to E21 transfer (a), the EXP-006 link hedged to an
+  explicit hypothesis, and the maker-side closure wording scoped to
+  E16-E19 with the touch-escape path preserved.
+
 ## In progress
 - (nothing in flight)
 
@@ -428,9 +444,9 @@ _Last updated: session 41, unit U43bf (CAL-002 VERDICT)._
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
   by E20 and E21): taker needs a ≥1.5c gross argument that escapes
   E9-E14, the CAL-001 fixed-time plane scan AND the CAL-002
-  single-segment conditional scan (i.e. multi-segment/flow structure, or
-  sub-power windows while clearing ~1.5c via another instrument, per
-  EDGE-SPACE §4); maker in-model needs a cell/gate that escapes
+  single-segment conditional scan (e.g. multi-segment paths, flow/derived
+  features, or sub-power windows while clearing ~1.5c via another
+  instrument, per EDGE-SPACE §4); maker in-model needs a cell/gate that escapes
   E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
   change. Legitimate non-registration work:
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated

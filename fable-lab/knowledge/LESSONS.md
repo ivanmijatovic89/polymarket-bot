@@ -319,7 +319,9 @@ forbids importing the old system's research conclusions._
   for any candidate) evaluated k = 60 frozen cells (6 adjacent offset
   pairs × 5 tick-derived move buckets × both entry sides) once: zero
   CANDIDATE cells (max positive z = +1.75), one NEG-FLAG — UP (600-750,
-  dn2), z = −3.72, n = 2,708, fully powered. The structure behind the
+  dn2), z = −3.72, n = 2,708, fully powered (cells condition on valid
+  books at both pair offsets; pair coverage 0.766 at 600-750, 0.464 at
+  750-850 — no claim is made for excluded quiet markets). The structure behind the
   flag is coherent across pairs from 300s on (UP dn2 z: −2.23, −3.00,
   −3.72, −2.90): after the UP mid falls ≥ 2c in a segment, the post-move
   UP ask is stale-high ≈ 2-2.4c gross — big late moves continue more than
@@ -328,13 +330,19 @@ forbids importing the old system's research conclusions._
   at its ask — the SAME book samples, not independent evidence) nets at
   most +0.75c (z ≤ +1.75): the counterparty misprices by less than the
   cost of taking the trade. Transfer: (a) momentum/continuation ideas at
-  segment horizons (2-4 min) are now measured — gross continuation is
-  real and ~2c, net continuation is inside costs; a registration claiming
-  this mechanism must argue a cheaper expression than taking the ask,
-  which in-model does not exist (maker side closed by E16-E19); (b) the
+  segment horizons (~1.7-2.5 min segments) are now measured within
+  stated power (dn2/up2 cells resolve ~2-2.7c; thin buckets only
+  ~6-10c) — gross continuation is real and ~2c, net continuation is
+  inside costs; a registration claiming this mechanism must argue a
+  cheaper expression than taking the ask, for which no measured in-model
+  expression survives (E16-E19; a new touch cell needs an E19-escape
+  argument per EDGE-SPACE §4); (b) the
   move distribution is strongly bimodal (|move| ≥ 2c in ~90% of
   segment-samples) — "quiet vs loud segment" is nearly degenerate as a
-  gate, which retroactively explains EXP-006's fill-less quiet cells;
+  gate, which PLAUSIBLY explains EXP-006's near-fill-less quiet cells
+  (a hypothesis, not established: CAL-002 measures endpoint moves
+  100-150s apart, not EXP-006's intra-window regime gate, and an
+  endpoint-flat segment can still move intra-segment);
   (c) thin-bucket nulls (dn1/flat/up1, n ≈ 130-330, resolve only
   ~6-10c) are power statements; (d) the reserve-confirmation design
   (needed because discovery reused a log with published marginals) cost

@@ -166,12 +166,13 @@ registered only if one of these holds:
   cells resolve only |d| ≳ 3.8c) while still clearing the ~1.5c floor
   with recorded-data evidence from another instrument. E21 (CAL-002)
   closes the simplest conditional layer: sign/size of the preceding
-  inter-offset move carries no net-positive cell on either side (the one
-  significant conditional deviation is buyer-ADVERSE — late big
-  down-moves continue ≈ 2c gross, worth less than spread + fee to take).
-  A conditional-structure argument must therefore go beyond
-  single-segment move sign/size (multi-segment paths, flow/derived
-  features, or sub-power windows per the clause above).
+  inter-offset move yields no cell clearing the candidate bar on either
+  side (the one significant conditional deviation is buyer-ADVERSE —
+  late big down-moves continue ≈ 2c gross, worth less than spread + fee
+  to take; pair coverage 0.766 at 600-750). A conditional-structure
+  argument must therefore go beyond single-segment move sign/size
+  (e.g. multi-segment paths, flow/derived features, or sub-power windows
+  per the clause above).
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration
