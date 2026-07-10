@@ -365,21 +365,24 @@ _Last updated: session 9, unit U40._
   verifier (sound-with-findings; verbatim in
   `knowledge/AUDIT-2026-07-10-CAL-001-REG.md`); all 9 findings acted on
   BEFORE any read (CALIBRATION.md Amendments block, D21 amendment). The
-  first discovery launch (batchUid CAL-001-discovery, pid 44945) was
-  KILLED ~500 markets in, log discarded UNANALYZED — its fixture lacked
-  capture timestamps (audit finding 1, BLOCKER); its partial DB run row
-  is VOID (instrument defect, not result-based). Relaunch on amended
-  committed code (7da8cd6): batchUid CAL-001-discovery-v2, detached pid
-  65334, log `fable-lab/logs/CAL-001-discovery-v2.log` — verified at
-  launch: 8,516 files loaded, latency pinned 0/0, ts= present in sample
-  lines. Expected ~2h (~0.8s/market measured on the v1 launch).
-  WHEN COMPLETE (successor: check the pid / log tail): run ONCE
-  `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v2.log`,
+  first two discovery launches were KILLED UNANALYZED while restart was
+  cheap: v1 (pid 44945, no capture timestamps — audit finding 1 BLOCKER),
+  v2 (pid 65334, UP-book only — amendment #10 extended the instrument to
+  both books, halving total compute vs a later DOWN study). Both partial
+  DB run rows (CAL-001-discovery, CAL-001-discovery-v2) are VOID —
+  instrument defects, never result-based. LIVE RUN: batchUid
+  CAL-001-discovery-v3, detached pid 73037, log
+  `fable-lab/logs/CAL-001-discovery-v3.log`, code ab2acc9 — verified at
+  launch: 8,516 files, latency pinned 0/0, asset=UP|DOWN + ts= present.
+  Expected ~2h (~0.8s/market measured on v1).
+  WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
+  `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
-  then judge per the frozen decision rule (candidates → EXP-010
-  registration with lineage_cells=63, probe on the reserved window;
-  null → LESSONS entry closing the BUY-UP TAKER HALF-PLANE within stated
-  power — half-plane wording is binding, audit finding 3).
+  then judge per the frozen rule (k=126, z≥3.565, minority≥30,
+  sub-window consistency; candidates → EXP-010 registration with
+  lineage_cells=126, probe on the reserved window 2026-03-01→boundary−1;
+  null → LESSONS entry closing BOTH taker half-planes within the stated
+  power — power caveats in CALIBRATION.md §Power are binding wording).
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs
