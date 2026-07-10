@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U22._
+_Last updated: session 3, unit U23._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -108,6 +108,12 @@ _Last updated: session 3, unit U22._
   (verified: debug run 316 persisted). Cell relaunched on guarded committed
   code. Main/lat predate the guard — accepted risk (D12 note).
 
+- U23: first clamp NEVER FIRED — segment values reach drizzle as STRINGS
+  (`toDecimal = String(value)`, backtests.ts:127); runs 318/320 (both 0.95
+  cells) lost 2000 markets each to the same overflow. Clamp now handles
+  string/number/Infinity (unit-tested against the patched column). Both
+  0.95 cells relaunched on committed fixed code (logs `*-retry2.log`).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
@@ -116,14 +122,13 @@ _Last updated: session 3, unit U22._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-001 grid (2000 random each per D11). DONE: 313 e600-a085 EV=+0.98
-  t=+1.84; 314 e600-a090 EV=-0.83 t=-1.53; 317 e720-a085 EV=-0.32 t=-0.69.
-  Signs are MIXED across neighbors — smoothness looks shaky; main run is
-  the decisive primary read. CRASHED unguarded on the E13 overflow and
-  relaunched guarded: e600-a095 (retry ~840/2000), e720-a095 (retry just
-  launched). RUNNING guarded: e840-a085 (~1000/2000), e840-a090, e840-a095.
-  ALL grid logs `logs/EXP-001-grid-*.log`; retries share the original
-  batchUid.
+- EXP-001 grid (2000 random each per D11), 6 of 8 persisted:
+  313 e600-a085 +0.98/t+1.84; 314 e600-a090 -0.83/t-1.53; 317 e720-a085
+  -0.32/t-0.69; 319 e840-a085 +0.21/t+0.73; 321 e840-a095 -0.46/t-1.53;
+  322 e840-a090 -0.14/t-0.44. Neighborhood is zero-to-negative with mixed
+  signs — smoothness looks FAIL-leaning; decisive read is the main run.
+  0.95-column cells e600-a095/e720-a095 running as *-retry2 on the fixed
+  clamp (U23).
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. EXP-005 probe next in queue. When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
