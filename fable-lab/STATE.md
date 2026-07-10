@@ -361,21 +361,23 @@ _Last updated: session 9, unit U40._
   discovery run.
 
 ## In progress
-- U43: CAL-001 DISCOVERY RUN LAUNCHED (detached pid 44945, log
-  `fable-lab/logs/CAL-001-discovery.log`, batchUid CAL-001-discovery,
-  8,516 files loaded — matches registration; latency pinned 0/0 confirmed
-  in log line 2; committed code a7d8d81). Expected ~3.3h (~1.4s/market).
-  Smoke was green first: 5 pinned earliest-discovery slugs, 32 sample
-  lines, calib.ts parsed 32/32, joined 5/5 outcomes, then correctly
-  ABORTED at the join-direction gate (n<30) — plumbing verified, no
-  statistic read (disclosed per CALIBRATION.md).
-  WHEN COMPLETE (successor: check `ps -p 44945` / log tail says
-  "Batch complete" or similar): run ONCE
-  `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery.log`,
+- U43c: CAL-001 registration AUDITED pre-results by a fresh-context
+  verifier (sound-with-findings; verbatim in
+  `knowledge/AUDIT-2026-07-10-CAL-001-REG.md`); all 9 findings acted on
+  BEFORE any read (CALIBRATION.md Amendments block, D21 amendment). The
+  first discovery launch (batchUid CAL-001-discovery, pid 44945) was
+  KILLED ~500 markets in, log discarded UNANALYZED — its fixture lacked
+  capture timestamps (audit finding 1, BLOCKER); its partial DB run row
+  is VOID (instrument defect, not result-based). Relaunch on amended
+  committed code: batchUid CAL-001-discovery-v2, log
+  `fable-lab/logs/CAL-001-discovery-v2.log` (pid recorded below).
+  WHEN COMPLETE (successor: check the pid / log tail): run ONCE
+  `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v2.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
   then judge per the frozen decision rule (candidates → EXP-010
   registration with lineage_cells=63, probe on the reserved window;
-  null → LESSONS entry closing the taker plane within stated power).
+  null → LESSONS entry closing the BUY-UP TAKER HALF-PLANE within stated
+  power — half-plane wording is binding, audit finding 3).
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs

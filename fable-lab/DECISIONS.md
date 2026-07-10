@@ -580,3 +580,24 @@ across an unpre-registered grid; the whole design exists to make the one
 outcome read mechanically honest. (c) Running discovery on ALL exploration
 markets — maximizes power but leaves no fresh non-holdout data to probe a
 candidate on; the March–April reserve is the price of a usable discovery.
+
+**Amendment (2026-07-10, U43c — pre-results, audit-motivated).** A
+fresh-context verifier audited the CAL-001 registration while the first
+discovery launch was minutes old (report verbatim:
+`knowledge/AUDIT-2026-07-10-CAL-001-REG.md`; verdict sound-with-findings).
+All findings were acted on BEFORE any outcome read: (1) BLOCKER — the
+fixture now logs capture time `ts=` and the analysis applies a frozen
+drift filter (sample valid only if ts < next offset), closing an
+unmeasurable time-axis leak where one post-gap tick stamped all 7 offsets;
+the first launch was KILLED and its log discarded unanalyzed; relaunch is
+batchUid `CAL-001-discovery-v2` (the `CAL-001-discovery` partial DB row is
+VOID — instrument defect, not result-based). (2) E14 positive-control gate
+frozen numerically (abort iff |z| ≥ 3.377). (3) "plane-wide" wording
+corrected everywhere to "buy-UP taker HALF-plane" (DOWN-ask half-plane is
+unmeasured by this instrument). (4) Fee frozen to the engine's
+share-denominated form: winRate·0.0156·min(a,1−a)/a. (5) One-shot read
+disclosed as honor-system + git audit (E19 precedent), and the earlier
+"mechanically honest" phrasing here is corrected by this amendment.
+(6) Sub-window consistency guard (d > 0 in →Dec / Jan / Feb) required for
+CANDIDATE status. (7) NEG-FLAGs with minority < 30 annotated
+underpowered-E14. (8) Per-offset coverage printed. (9) Cosmetic fixes.

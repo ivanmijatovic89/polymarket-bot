@@ -8,8 +8,13 @@
  * market whose recording ends before the last offset. Offsets are frozen in
  * CALIBRATION.md; the schema default is the registered set.
  *
- * Log shape (parsed by tools/calib.ts), one line per captured sample:
- *   [diag-calib] slug=<slug> epoch=<sec> off=<sec> bid=<px> ask=<px>
+ * Log shape (parsed by tools/calib.ts), one line per captured sample. `ts`
+ * is the actual capture time (elapsed episode seconds) — logged so that
+ * late captures (recording gaps, late starts) are measurable and filterable
+ * post-hoc instead of silently mislabeling the time axis (CAL-001 audit
+ * finding 1: without ts, one late tick could stamp every offset with
+ * expiry-regime prices and the leak would be invisible):
+ *   [diag-calib] slug=<slug> epoch=<sec> off=<sec> ts=<elapsedSec> bid=<px> ask=<px>
  */
 import * as z from 'zod'
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../../src/strategy/Strategy.js'
@@ -73,7 +78,7 @@ export const definition: StrategyDefinition<Config> = {
         captured[i] = true
         console.log(
           `[diag-calib] slug=${slug} epoch=${epochSec} off=${offsets[i]} ` +
-            `bid=${bid.toFixed(4)} ask=${ask.toFixed(4)}`,
+            `ts=${elapsedSec.toFixed(1)} bid=${bid.toFixed(4)} ask=${ask.toFixed(4)}`,
         )
       }
       return []

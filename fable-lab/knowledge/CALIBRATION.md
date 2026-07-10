@@ -115,6 +115,50 @@ DISCOVER economically-relevant cells near the tails — exactly the
 unmeasured low-fee region. A null result at mid-range is a power
 statement, not proof of efficiency beyond what E9–E14 already measured.
 
+## Amendments (pre-results, 2026-07-10 — audit-motivated, frozen before any read)
+
+A fresh-context adversarial audit (verbatim report:
+`knowledge/AUDIT-2026-07-10-CAL-001-REG.md`) reviewed this registration
+while the first discovery launch was minutes old. Its findings were acted
+on BEFORE any outcome was read; the first launch was KILLED (~500 markets
+replayed, log discarded unanalyzed) because finding 1 made its log
+unusable, and the run was relaunched on amended committed code with
+batchUid `CAL-001-discovery-v2` (the `CAL-001-discovery` partial run row
+in the DB is VOID — instrument defect, not result-based).
+
+1. **(BLOCKER, finding 1) Capture time is now logged and filtered.** The
+   fixture logs `ts=<elapsed seconds>` per sample. Frozen drift filter:
+   a sample for offset o is valid only if `ts < next offset` (900s for
+   850) — each column's samples must come from its own time segment;
+   without this, one post-gap tick could stamp all 7 offsets with
+   expiry-regime prices and the leak would be invisible. Discard counts
+   are printed.
+2. **(finding 2) The E14 positive control has a frozen numeric bar:**
+   analysis ABORTS iff |z| ≥ 3.377 on cell (850s, [0.90,0.98)). No
+   analyst discretion after seeing the table.
+3. **(finding 3) Scope wording corrected:** a null result closes the
+   **buy-UP taker half-plane** within stated power. The DOWN book has its
+   own ask and spread and is NOT measured here; NEG-FLAG cells motivate a
+   separately pre-registered DOWN-ask study, nothing more. Any LESSONS
+   entry must use the half-plane wording.
+4. **(finding 4) Fee formula frozen to the engine's share-denominated BUY
+   fee:** `fee = winRate · 0.0156 · min(meanAsk, 1−meanAsk) / meanAsk`
+   (src/trading/fees.ts:47 — fees are taken in shares; expected cost per
+   intended share scales with the win rate).
+5. **(finding 5) One-shot disclosure:** the single-read rule is
+   honor-system + git audit trail (as E19's erratum precedent), not
+   mechanical. Stated plainly here so nobody mistakes it.
+6. **(finding 6) Serial-correlation guard, frozen:** a CANDIDATE cell must
+   also show d > 0 in each of three fixed sub-windows (→2025-12-31,
+   2026-01, 2026-02, UTC by slug epoch); otherwise it is demoted to
+   "subwindow-inconsistent" and cannot be cited under EDGE-SPACE §4.
+7. **(finding 7) NEG-FLAG cells with minority < 30 are annotated
+   `underpowered-E14`** and carry no motivating weight.
+8. **(finding 8) Per-offset market coverage is printed** (dropout is a
+   selection effect and must be visible in the readout).
+9. **(finding 9) Cosmetic: last bucket label prints `]`; the
+   resolvedOnly comment corrected.**
+
 ## Results
 
 _(append-only below this line; nothing here until the discovery run
