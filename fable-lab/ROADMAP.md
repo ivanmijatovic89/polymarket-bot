@@ -22,4 +22,13 @@ Ordered work units. Check off as completed. See STATE.md for live status.
       operating Fable sessions will use.
 - [x] **U7 — Morning runbook**: step-by-step operator guide (`RUNBOOK.md`).
 - [x] **U8 — Final self-review**: fresh-context verifier checks the whole lab
-      against CHARTER.md; fix findings; create `DONE`.
+      against CHARTER.md; fix findings. (Historical note: originally ended with
+      "create `DONE`" under charter v1; charter v2 made the mission perpetual —
+      `DONE` is the OPERATOR's kill-switch and must never be created by us.)
+
+## Perpetual phase (charter v2)
+
+The build phase above is complete. From U9 on, work units are the research
+loop itself (register → smoke → probe → judge → lesson → next), tracked live
+in STATE.md "Done" / "In progress" / "Next" — not enumerated here in advance,
+because the next unit depends on the last verdict.
