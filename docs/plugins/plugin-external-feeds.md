@@ -41,11 +41,13 @@ export const definition = {
           enabled: true,
         },
       },
-      onMarketTick(ctx, snapshot) {
+      onMarketTick(tick, portfolio, ctx?) {
         /* ... */
+        return []
       },
-      onAccountEvent(ctx, event) {
+      onAccountEvent(event, portfolio, lastMarket?, ctx?) {
         /* ... */
+        return []
       },
     }
     return { strategy }
@@ -179,8 +181,8 @@ Type: `object | undefined`.
 ```typescript
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const feeds = ctx.plugins.externalFeeds?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const feeds = ctx?.plugins?.['externalFeeds'] as
     ExternalFeedsSnapshot | undefined
 
   if (!feeds) return []  // absent in backtests or if feed not started
@@ -219,13 +221,15 @@ onMarketTick(ctx, snapshot): Intent[] {
 In backtests, `ctx.plugins.externalFeeds` is `undefined` because no feed clients are started. Strategies must handle this defensively:
 
 ```typescript
-onMarketTick(ctx, snapshot): Intent[] {
-  const feeds = ctx.plugins.externalFeeds?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const feeds = ctx?.plugins?.['externalFeeds'] as
     ExternalFeedsSnapshot | undefined
 
   // Proceed with or without feeds — do not hard-require them
   const spot = feeds?.binanceWsSpotPrice
-  const price = spot?.value ?? snapshot.byAssetId[ctx.market.upAssetId]?.mid
+  const upAssetId = ctx?.market?.upAssetId
+  const price =
+    spot?.value ?? (upAssetId ? tick.snapshot.byAssetId[upAssetId]?.mid : undefined)
 
   if (price == null) return []
   // ...
@@ -269,4 +273,4 @@ The `ExternalFeedsStore` (defined in `src/trading/feeds/externalFeeds.ts`) is th
 | `clearPolymarketPriceToBeat()`   | Clear the price-to-beat (e.g. on window rotation). |
 | `reset()`                        | Clear all feed data.                               |
 
-Strategies do not interact with the store directly; they access data only through `ctx.plugins.externalFeeds.snapshot()`.
+Strategies do not interact with the store directly; they access data only through `ctx.plugins.externalFeeds` (the per-tick snapshot already resolved by the plugin runtime).

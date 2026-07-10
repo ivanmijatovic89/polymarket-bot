@@ -145,8 +145,8 @@ type TechnicalIndicatorsSnapshot = {
 ```typescript
 import type { TechnicalIndicatorsSnapshot } from '../plugins/TechnicalIndicatorsPlugin.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const ti = ctx.plugins.technicalIndicators?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const ti = ctx?.plugins?.['technicalIndicators'] as
     TechnicalIndicatorsSnapshot | undefined
 
   if (!ti) return []  // not yet computed

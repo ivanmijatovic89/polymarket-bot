@@ -130,14 +130,14 @@ These thresholds prevent misleading statistics at startup or after data gaps.
 ```typescript
 import type { VolatilitySnapshot } from '../plugins/TimeWindowVolatility.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const vol = ctx.plugins.timeWindowVolatility?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const vol = ctx?.plugins?.['timeWindowVolatility'] as
     VolatilitySnapshot | undefined
 
   if (!vol) return []
 
-  const upAssetId   = ctx.market.upAssetId
-  const downAssetId = ctx.market.downAssetId
+  const upAssetId   = ctx?.market?.upAssetId
+  const downAssetId = ctx?.market?.downAssetId
 
   const upVol   = vol.byAssetId[upAssetId]?.['30s']
   const downVol = vol.byAssetId[downAssetId]?.['30s']
