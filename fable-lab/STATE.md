@@ -361,8 +361,21 @@ _Last updated: session 9, unit U40._
   discovery run.
 
 ## In progress
-- U43: CAL-001 discovery run not yet launched (smoke next, then detached
-  launch on committed code).
+- U43: CAL-001 DISCOVERY RUN LAUNCHED (detached pid 44945, log
+  `fable-lab/logs/CAL-001-discovery.log`, batchUid CAL-001-discovery,
+  8,516 files loaded — matches registration; latency pinned 0/0 confirmed
+  in log line 2; committed code a7d8d81). Expected ~3.3h (~1.4s/market).
+  Smoke was green first: 5 pinned earliest-discovery slugs, 32 sample
+  lines, calib.ts parsed 32/32, joined 5/5 outcomes, then correctly
+  ABORTED at the join-direction gate (n<30) — plumbing verified, no
+  statistic read (disclosed per CALIBRATION.md).
+  WHEN COMPLETE (successor: check `ps -p 44945` / log tail says
+  "Batch complete" or similar): run ONCE
+  `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery.log`,
+  append the FULL output verbatim to knowledge/CALIBRATION.md Results,
+  then judge per the frozen decision rule (candidates → EXP-010
+  registration with lineage_cells=63, probe on the reserved window;
+  null → LESSONS entry closing the taker plane within stated power).
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs
