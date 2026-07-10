@@ -4,6 +4,7 @@ import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { cn, formatPnl } from '@/lib/utils'
+import { ParamsTooltip } from './ParamsTooltip'
 
 /**
  * Subset of fields that describe a "backtest-like aggregate" — used by both
@@ -91,17 +92,6 @@ function compactInt(n: number): string {
   return `${(n / 1_000_000).toFixed(2)}m`
 }
 
-/** Flatten strategy params into a `key=value` string for a hover tooltip.
- * Returns undefined when there are no params (so no tooltip is shown). */
-function formatParams(params: Record<string, unknown> | null | undefined): string | undefined {
-  if (!params) return undefined
-  const entries = Object.entries(params)
-  if (entries.length === 0) return undefined
-  return entries
-    .map(([k, v]) => `${k}=${typeof v === 'object' ? JSON.stringify(v) : String(v)}`)
-    .join('\n')
-}
-
 /** Human-readable duration from milliseconds. */
 function formatDurationMs(ms: number): string {
   if (ms < 1000) return `${Math.round(ms)}ms`
@@ -146,7 +136,6 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
     // genuinely-missing markets (input > persisted) via `notPersisted` below.
     const selectedMarketsTotal = Math.max(b.inputMarketsTotal ?? 0, b.marketsTotal)
     const notPersisted = (b.inputMarketsTotal ?? 0) > b.marketsTotal
-    const paramsTitle = formatParams(b.params)
     const quality =
       qS === null && qT === null
         ? '—'
@@ -163,16 +152,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         ))}
         <TableCell>{isFooter ? footerLeading : renderLeading(b, i)}</TableCell>
         <TableCell className="text-sm">
-          {paramsTitle ? (
-            <span
-              className="cursor-help decoration-dotted underline-offset-4 hover:underline"
-              title={paramsTitle}
-            >
-              {b.strategy ?? '—'}
-            </span>
-          ) : (
-            (b.strategy ?? '—')
-          )}
+          <ParamsTooltip strategy={b.strategy ?? '—'} params={b.params} />
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {selectedMarketsTotal}
