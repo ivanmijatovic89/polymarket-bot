@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 5, unit U28._
+_Last updated: session 5, unit U29._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -164,19 +164,38 @@ _Last updated: session 5, unit U28._
   IDEAS #4 → dead; INDEX regenerated. All 7 ideas now resolved
   (6 killed by experiment, #7 dead by park clause).
 
+- U29: EXP-007 (loud-regime countertrend liquidity provision,
+  `spread-capture`, IDEAS #8) registered: D5 dedupe argued in the idea
+  entry (vs EXP-003/005 taker-at-ask and EXP-006 quiet two-sided); spec
+  `protocol/registry/experiments/EXP-007-loud-regime-countertrend.md` +
+  strategy `strategies/spread-capture/EXP-007.ts` (id `fable-exp-007`,
+  one-sided GTC bid at fair−δ on the falling side while |trailing 10s
+  UP-mid move| ≥ jumpSize, hold to settlement), tsc clean, validator green.
+  E15 fill-feasibility measured BEFORE cell freeze (runs 337-340,
+  EXP-000-debug, counts only via new `tools/fills.ts` — PnL never
+  selected): (0.01,0.10)→12/30 markets 26 fills, (0.02,0.10)→6/30,
+  (0.03,0.10)→3/30, (0.02,0.05)→7/30; primary = (0.01, 0.10). Smoke green
+  (run 341, 10 markets, 6 maker fills, 0 failures, plumbing only). INDEX
+  regenerated. NEW TOOL: `tools/fills.ts` (fill-counts-only reader; makes
+  the outcome-mining-safe read the easy one).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- (none)
+- EXP-007 probe: detached 2026-07-10 (log `fable-lab/logs/EXP-007-probe.log`,
+  batchUid EXP-007-probe, `--random --limit 500 --to-ms 1777237200000`,
+  latency pinned 0/0, ~1.4s/market, ETA ~12 min from launch). When
+  complete: `tools/results.ts` verbatim readout → fresh-context Judge
+  (JUDGE.md) → verdict appended. Design-failure clause (<~3% of markets
+  filled ⇒ iterate/park) is unlikely to bind (feasibility ~40%); D13
+  minority-count language if win rate is extreme.
 
 ## Next
-- Idea generation, maker-side (D14 direction): loud-regime liquidity
-  provision (passive bid into jumps catching overshoot) — distinct from
-  EXP-006's quiet claim, and E16(a) frames it as the one maker shape where
-  worst-queue's informed-fill selection is the claim being PAID for
-  (reversion after overshoot). Check D5 dedupe vs EXP-003 (taker post-jump
-  — killed as fairly priced at the ASK; a passive bid below the post-jump
-  price is a different entry price and fill condition). Register as
-  EXP-007 if it survives dedupe; mind E15 fill-feasibility budgeting
-  (single-tick gap statistics) before freezing the cell.
+- Judge EXP-007 probe when the detached run finishes (`tools/runs.ts
+  --batch EXP-007-probe`; partial-persist rules D9 apply if killed).
+- If EXP-007 kills: the maker side as seen by worst-queue is then measured
+  in both regimes (quiet E16, loud EXP-007) — idea generation must either
+  find a different fill trigger or conclude (LESSON) that the simulator's
+  observable edge space is exhausted and write up what live-paper
+  instrumentation would be needed (operator decision; out of scope to run).
 - Holdout remains locked and unused (no experiment reached it).
 
 ## Notes for a fresh session
