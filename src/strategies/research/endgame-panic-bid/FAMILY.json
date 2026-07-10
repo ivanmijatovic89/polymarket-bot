@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "artifactType": "strategy-family-index",
+  "family": "endgame-panic-bid",
+  "status": "proposed",
+  "coreIdea": "In the final seconds of each BTC 15m episode, rest one maker bid on the near-certain winning token at a fixed sub-fair price to collect measured panic-dump flow from holders of ~99% winners, holding any fill to settlement.",
+  "proposedBy": "claude-code/claude-fable-5",
+  "duplicateKeys": [
+    "endgame-maker-bid",
+    "endgame-favorite-bid",
+    "late-certainty-bid",
+    "last-second-favorite-bid",
+    "expiry-dump-catch",
+    "panic-dump-collection",
+    "settlement-bid-sink",
+    "certainty-maker-bid"
+  ],
+  "retryOnlyIf": null,
+  "champion": null,
+  "verdictSummary": null,
+  "tags": [
+    "endgame",
+    "maker",
+    "certainty",
+    "favorite",
+    "directional",
+    "orderbook",
+    "hold-to-redemption",
+    "capacity-bounded"
+  ],
+  "experiments": [
+    {
+      "id": "000-baseline",
+      "kind": "param-search",
+      "code": "000-baseline.ts",
+      "basedOn": null,
+      "proposedBy": "claude-code/claude-fable-5",
+      "hypothesis": "A one-shot maker bid at ~0.965 on the near-certain favorite in the final seconds collects panic-dump fills whose realized win rate stays above the bid price, so the measured +2.3/+2.5c standing margin survives the engine's adverse-selection fill model.",
+      "successCriteria": "Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "entryTimeSec": 897,
+          "bidPrice": 0.965,
+          "certaintyThreshold": 0.95,
+          "size": 20
+        },
+        "passes": [
+          {
+            "param": "entryTimeSec",
+            "values": [885, 890, 895, 897],
+            "batchUid": "endgame-panic-bid--000-baseline--p1-entryTimeSec",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "bidPrice",
+            "values": [0.955, 0.965, 0.975],
+            "batchUid": "endgame-panic-bid--000-baseline--p2-bidPrice",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "certaintyThreshold",
+            "values": [0.93, 0.95, 0.97],
+            "batchUid": "endgame-panic-bid--000-baseline--p3-certaintyThreshold",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          },
+          {
+            "param": "size",
+            "values": [10, 20, 40],
+            "batchUid": "endgame-panic-bid--000-baseline--p4-size",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
+    }
+  ]
+}
