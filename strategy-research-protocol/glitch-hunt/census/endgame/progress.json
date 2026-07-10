@@ -1,0 +1,1215 @@
+{
+  "completedBatches": {
+    "batch-0000": {
+      "files": 100,
+      "checked": 654,
+      "mismatch": 84,
+      "staleExplained": 24,
+      "at": "2026-07-10T03:31:08.476Z"
+    },
+    "batch-0001": {
+      "files": 100,
+      "checked": 638,
+      "mismatch": 44,
+      "staleExplained": 16,
+      "at": "2026-07-10T03:31:09.435Z"
+    },
+    "batch-0002": {
+      "files": 100,
+      "checked": 532,
+      "mismatch": 64,
+      "staleExplained": 28,
+      "at": "2026-07-10T03:31:10.290Z"
+    },
+    "batch-0003": {
+      "files": 100,
+      "checked": 846,
+      "mismatch": 90,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:31:11.412Z"
+    },
+    "batch-0004": {
+      "files": 100,
+      "checked": 800,
+      "mismatch": 74,
+      "staleExplained": 34,
+      "at": "2026-07-10T03:31:12.533Z"
+    },
+    "batch-0005": {
+      "files": 100,
+      "checked": 820,
+      "mismatch": 118,
+      "staleExplained": 76,
+      "at": "2026-07-10T03:31:13.708Z"
+    },
+    "batch-0006": {
+      "files": 100,
+      "checked": 846,
+      "mismatch": 122,
+      "staleExplained": 86,
+      "at": "2026-07-10T03:31:14.925Z"
+    },
+    "batch-0007": {
+      "files": 100,
+      "checked": 692,
+      "mismatch": 38,
+      "staleExplained": 18,
+      "at": "2026-07-10T03:31:15.995Z"
+    },
+    "batch-0008": {
+      "files": 100,
+      "checked": 1334,
+      "mismatch": 174,
+      "staleExplained": 126,
+      "at": "2026-07-10T03:31:17.635Z"
+    },
+    "batch-0009": {
+      "files": 100,
+      "checked": 1354,
+      "mismatch": 174,
+      "staleExplained": 130,
+      "at": "2026-07-10T03:31:19.377Z"
+    },
+    "batch-0010": {
+      "files": 100,
+      "checked": 2560,
+      "mismatch": 300,
+      "staleExplained": 246,
+      "at": "2026-07-10T03:31:22.237Z"
+    },
+    "batch-0011": {
+      "files": 100,
+      "checked": 1782,
+      "mismatch": 114,
+      "staleExplained": 70,
+      "at": "2026-07-10T03:31:24.353Z"
+    },
+    "batch-0012": {
+      "files": 100,
+      "checked": 1902,
+      "mismatch": 136,
+      "staleExplained": 84,
+      "at": "2026-07-10T03:31:26.626Z"
+    },
+    "batch-0013": {
+      "files": 100,
+      "checked": 2282,
+      "mismatch": 216,
+      "staleExplained": 160,
+      "at": "2026-07-10T03:31:29.269Z"
+    },
+    "batch-0014": {
+      "files": 100,
+      "checked": 2486,
+      "mismatch": 240,
+      "staleExplained": 174,
+      "at": "2026-07-10T03:31:32.125Z"
+    },
+    "batch-0015": {
+      "files": 100,
+      "checked": 2200,
+      "mismatch": 190,
+      "staleExplained": 138,
+      "at": "2026-07-10T03:31:34.741Z"
+    },
+    "batch-0016": {
+      "files": 100,
+      "checked": 2814,
+      "mismatch": 312,
+      "staleExplained": 240,
+      "at": "2026-07-10T03:31:38.024Z"
+    },
+    "batch-0017": {
+      "files": 100,
+      "checked": 1916,
+      "mismatch": 214,
+      "staleExplained": 178,
+      "at": "2026-07-10T03:31:40.338Z"
+    },
+    "batch-0018": {
+      "files": 100,
+      "checked": 1984,
+      "mismatch": 206,
+      "staleExplained": 152,
+      "at": "2026-07-10T03:31:42.681Z"
+    },
+    "batch-0019": {
+      "files": 100,
+      "checked": 2686,
+      "mismatch": 274,
+      "staleExplained": 220,
+      "at": "2026-07-10T03:31:45.814Z"
+    },
+    "batch-0020": {
+      "files": 100,
+      "checked": 2268,
+      "mismatch": 188,
+      "staleExplained": 142,
+      "at": "2026-07-10T03:31:48.457Z"
+    },
+    "batch-0021": {
+      "files": 100,
+      "checked": 2090,
+      "mismatch": 162,
+      "staleExplained": 112,
+      "at": "2026-07-10T03:31:50.880Z"
+    },
+    "batch-0022": {
+      "files": 100,
+      "checked": 2872,
+      "mismatch": 202,
+      "staleExplained": 130,
+      "at": "2026-07-10T03:31:54.170Z"
+    },
+    "batch-0023": {
+      "files": 100,
+      "checked": 3076,
+      "mismatch": 194,
+      "staleExplained": 136,
+      "at": "2026-07-10T03:31:57.577Z"
+    },
+    "batch-0024": {
+      "files": 100,
+      "checked": 2418,
+      "mismatch": 126,
+      "staleExplained": 86,
+      "at": "2026-07-10T03:32:00.434Z"
+    },
+    "batch-0025": {
+      "files": 100,
+      "checked": 2282,
+      "mismatch": 92,
+      "staleExplained": 54,
+      "at": "2026-07-10T03:32:03.270Z"
+    },
+    "batch-0026": {
+      "files": 100,
+      "checked": 2248,
+      "mismatch": 104,
+      "staleExplained": 70,
+      "at": "2026-07-10T03:32:06.050Z"
+    },
+    "batch-0027": {
+      "files": 100,
+      "checked": 2686,
+      "mismatch": 84,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:32:08.328Z"
+    },
+    "batch-0028": {
+      "files": 100,
+      "checked": 3550,
+      "mismatch": 92,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:32:10.641Z"
+    },
+    "batch-0029": {
+      "files": 100,
+      "checked": 3022,
+      "mismatch": 82,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:32:12.614Z"
+    },
+    "batch-0030": {
+      "files": 100,
+      "checked": 3518,
+      "mismatch": 58,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:32:14.797Z"
+    },
+    "batch-0031": {
+      "files": 100,
+      "checked": 3844,
+      "mismatch": 78,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:32:17.191Z"
+    },
+    "batch-0032": {
+      "files": 100,
+      "checked": 3072,
+      "mismatch": 80,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:32:19.965Z"
+    },
+    "batch-0033": {
+      "files": 100,
+      "checked": 2470,
+      "mismatch": 108,
+      "staleExplained": 72,
+      "at": "2026-07-10T03:32:22.804Z"
+    },
+    "batch-0034": {
+      "files": 100,
+      "checked": 1898,
+      "mismatch": 96,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:32:25.037Z"
+    },
+    "batch-0035": {
+      "files": 100,
+      "checked": 1278,
+      "mismatch": 68,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:32:26.593Z"
+    },
+    "batch-0036": {
+      "files": 100,
+      "checked": 1570,
+      "mismatch": 90,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:32:28.536Z"
+    },
+    "batch-0037": {
+      "files": 100,
+      "checked": 2420,
+      "mismatch": 131,
+      "staleExplained": 67,
+      "at": "2026-07-10T03:32:31.340Z"
+    },
+    "batch-0038": {
+      "files": 100,
+      "checked": 2530,
+      "mismatch": 116,
+      "staleExplained": 74,
+      "at": "2026-07-10T03:32:34.223Z"
+    },
+    "batch-0039": {
+      "files": 100,
+      "checked": 1766,
+      "mismatch": 75,
+      "staleExplained": 43,
+      "at": "2026-07-10T03:32:36.346Z"
+    },
+    "batch-0040": {
+      "files": 100,
+      "checked": 1628,
+      "mismatch": 88,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:32:38.371Z"
+    },
+    "batch-0041": {
+      "files": 100,
+      "checked": 1252,
+      "mismatch": 84,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:32:39.908Z"
+    },
+    "batch-0042": {
+      "files": 100,
+      "checked": 2010,
+      "mismatch": 92,
+      "staleExplained": 48,
+      "at": "2026-07-10T03:32:42.327Z"
+    },
+    "batch-0043": {
+      "files": 100,
+      "checked": 2698,
+      "mismatch": 108,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:32:45.434Z"
+    },
+    "batch-0044": {
+      "files": 100,
+      "checked": 2286,
+      "mismatch": 96,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:32:48.234Z"
+    },
+    "batch-0045": {
+      "files": 100,
+      "checked": 1328,
+      "mismatch": 60,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:32:50.145Z"
+    },
+    "batch-0046": {
+      "files": 100,
+      "checked": 1890,
+      "mismatch": 82,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:32:52.497Z"
+    },
+    "batch-0047": {
+      "files": 100,
+      "checked": 1856,
+      "mismatch": 88,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:32:54.743Z"
+    },
+    "batch-0048": {
+      "files": 100,
+      "checked": 1774,
+      "mismatch": 60,
+      "staleExplained": 36,
+      "at": "2026-07-10T03:32:57.014Z"
+    },
+    "batch-0049": {
+      "files": 100,
+      "checked": 2772,
+      "mismatch": 124,
+      "staleExplained": 68,
+      "at": "2026-07-10T03:33:00.258Z"
+    },
+    "batch-0050": {
+      "files": 100,
+      "checked": 2003,
+      "mismatch": 92,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:33:02.734Z"
+    },
+    "batch-0051": {
+      "files": 100,
+      "checked": 2024,
+      "mismatch": 80,
+      "staleExplained": 58,
+      "at": "2026-07-10T03:33:05.137Z"
+    },
+    "batch-0052": {
+      "files": 100,
+      "checked": 2218,
+      "mismatch": 88,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:33:07.811Z"
+    },
+    "batch-0053": {
+      "files": 100,
+      "checked": 1786,
+      "mismatch": 80,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:33:09.949Z"
+    },
+    "batch-0054": {
+      "files": 100,
+      "checked": 1428,
+      "mismatch": 64,
+      "staleExplained": 26,
+      "at": "2026-07-10T03:33:11.874Z"
+    },
+    "batch-0055": {
+      "files": 100,
+      "checked": 2123,
+      "mismatch": 78,
+      "staleExplained": 44,
+      "at": "2026-07-10T03:33:14.501Z"
+    },
+    "batch-0056": {
+      "files": 100,
+      "checked": 1632,
+      "mismatch": 56,
+      "staleExplained": 24,
+      "at": "2026-07-10T03:33:16.646Z"
+    },
+    "batch-0057": {
+      "files": 100,
+      "checked": 2278,
+      "mismatch": 106,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:33:19.292Z"
+    },
+    "batch-0058": {
+      "files": 100,
+      "checked": 1838,
+      "mismatch": 62,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:33:21.704Z"
+    },
+    "batch-0059": {
+      "files": 100,
+      "checked": 1694,
+      "mismatch": 122,
+      "staleExplained": 82,
+      "at": "2026-07-10T03:33:23.857Z"
+    },
+    "batch-0060": {
+      "files": 100,
+      "checked": 2122,
+      "mismatch": 74,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:33:26.523Z"
+    },
+    "batch-0061": {
+      "files": 100,
+      "checked": 3332,
+      "mismatch": 130,
+      "staleExplained": 84,
+      "at": "2026-07-10T03:33:30.378Z"
+    },
+    "batch-0062": {
+      "files": 100,
+      "checked": 2262,
+      "mismatch": 69,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:33:33.399Z"
+    },
+    "batch-0063": {
+      "files": 100,
+      "checked": 2450,
+      "mismatch": 54,
+      "staleExplained": 32,
+      "at": "2026-07-10T03:33:36.466Z"
+    },
+    "batch-0064": {
+      "files": 100,
+      "checked": 3026,
+      "mismatch": 72,
+      "staleExplained": 30,
+      "at": "2026-07-10T03:33:40.106Z"
+    },
+    "batch-0065": {
+      "files": 100,
+      "checked": 2498,
+      "mismatch": 63,
+      "staleExplained": 44,
+      "at": "2026-07-10T03:33:42.922Z"
+    },
+    "batch-0066": {
+      "files": 100,
+      "checked": 1959,
+      "mismatch": 41,
+      "staleExplained": 30,
+      "at": "2026-07-10T03:33:45.394Z"
+    },
+    "batch-0067": {
+      "files": 100,
+      "checked": 2452,
+      "mismatch": 60,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:33:48.568Z"
+    },
+    "batch-0068": {
+      "files": 100,
+      "checked": 2962,
+      "mismatch": 84,
+      "staleExplained": 54,
+      "at": "2026-07-10T03:33:52.363Z"
+    },
+    "batch-0069": {
+      "files": 100,
+      "checked": 865,
+      "mismatch": 11,
+      "staleExplained": 4,
+      "at": "2026-07-10T03:33:53.748Z"
+    },
+    "batch-0070": {
+      "files": 100,
+      "checked": 2896,
+      "mismatch": 108,
+      "staleExplained": 68,
+      "at": "2026-07-10T03:33:57.111Z"
+    },
+    "batch-0071": {
+      "files": 100,
+      "checked": 1989,
+      "mismatch": 85,
+      "staleExplained": 47,
+      "at": "2026-07-10T03:33:59.679Z"
+    },
+    "batch-0072": {
+      "files": 100,
+      "checked": 3544,
+      "mismatch": 100,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:34:03.876Z"
+    },
+    "batch-0073": {
+      "files": 100,
+      "checked": 4518,
+      "mismatch": 130,
+      "staleExplained": 66,
+      "at": "2026-07-10T03:34:09.237Z"
+    },
+    "batch-0074": {
+      "files": 100,
+      "checked": 4034,
+      "mismatch": 120,
+      "staleExplained": 70,
+      "at": "2026-07-10T03:34:13.945Z"
+    },
+    "batch-0075": {
+      "files": 100,
+      "checked": 4200,
+      "mismatch": 162,
+      "staleExplained": 100,
+      "at": "2026-07-10T03:34:18.605Z"
+    },
+    "batch-0076": {
+      "files": 100,
+      "checked": 3922,
+      "mismatch": 126,
+      "staleExplained": 78,
+      "at": "2026-07-10T03:34:23.213Z"
+    },
+    "batch-0077": {
+      "files": 100,
+      "checked": 3172,
+      "mismatch": 104,
+      "staleExplained": 60,
+      "at": "2026-07-10T03:34:26.967Z"
+    },
+    "batch-0078": {
+      "files": 100,
+      "checked": 4064,
+      "mismatch": 104,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:34:31.724Z"
+    },
+    "batch-0079": {
+      "files": 100,
+      "checked": 3418,
+      "mismatch": 82,
+      "staleExplained": 48,
+      "at": "2026-07-10T03:34:35.792Z"
+    },
+    "batch-0080": {
+      "files": 100,
+      "checked": 3672,
+      "mismatch": 100,
+      "staleExplained": 44,
+      "at": "2026-07-10T03:34:40.388Z"
+    },
+    "batch-0081": {
+      "files": 100,
+      "checked": 4030,
+      "mismatch": 70,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:34:45.306Z"
+    },
+    "batch-0082": {
+      "files": 100,
+      "checked": 4246,
+      "mismatch": 86,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:34:50.612Z"
+    },
+    "batch-0083": {
+      "files": 100,
+      "checked": 4372,
+      "mismatch": 74,
+      "staleExplained": 36,
+      "at": "2026-07-10T03:34:56.306Z"
+    },
+    "batch-0084": {
+      "files": 100,
+      "checked": 6222,
+      "mismatch": 126,
+      "staleExplained": 76,
+      "at": "2026-07-10T03:35:04.360Z"
+    },
+    "batch-0085": {
+      "files": 100,
+      "checked": 4974,
+      "mismatch": 96,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:35:10.770Z"
+    },
+    "batch-0086": {
+      "files": 100,
+      "checked": 6288,
+      "mismatch": 108,
+      "staleExplained": 58,
+      "at": "2026-07-10T03:35:18.350Z"
+    },
+    "batch-0087": {
+      "files": 100,
+      "checked": 5328,
+      "mismatch": 98,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:35:25.102Z"
+    },
+    "batch-0088": {
+      "files": 100,
+      "checked": 6534,
+      "mismatch": 128,
+      "staleExplained": 78,
+      "at": "2026-07-10T03:35:32.866Z"
+    },
+    "batch-0089": {
+      "files": 100,
+      "checked": 5680,
+      "mismatch": 138,
+      "staleExplained": 66,
+      "at": "2026-07-10T03:35:39.946Z"
+    },
+    "batch-0090": {
+      "files": 100,
+      "checked": 5248,
+      "mismatch": 102,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:35:46.615Z"
+    },
+    "batch-0091": {
+      "files": 100,
+      "checked": 5792,
+      "mismatch": 140,
+      "staleExplained": 82,
+      "at": "2026-07-10T03:35:53.219Z"
+    },
+    "batch-0092": {
+      "files": 100,
+      "checked": 5236,
+      "mismatch": 176,
+      "staleExplained": 94,
+      "at": "2026-07-10T03:35:59.450Z"
+    },
+    "batch-0093": {
+      "files": 100,
+      "checked": 4720,
+      "mismatch": 132,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:36:05.166Z"
+    },
+    "batch-0094": {
+      "files": 100,
+      "checked": 5480,
+      "mismatch": 162,
+      "staleExplained": 92,
+      "at": "2026-07-10T03:36:11.746Z"
+    },
+    "batch-0095": {
+      "files": 100,
+      "checked": 4460,
+      "mismatch": 144,
+      "staleExplained": 68,
+      "at": "2026-07-10T03:36:17.031Z"
+    },
+    "batch-0096": {
+      "files": 100,
+      "checked": 4372,
+      "mismatch": 92,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:36:22.856Z"
+    },
+    "batch-0097": {
+      "files": 100,
+      "checked": 4332,
+      "mismatch": 110,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:36:28.437Z"
+    },
+    "batch-0098": {
+      "files": 100,
+      "checked": 3372,
+      "mismatch": 172,
+      "staleExplained": 115,
+      "at": "2026-07-10T03:36:32.780Z"
+    },
+    "batch-0099": {
+      "files": 100,
+      "checked": 2854,
+      "mismatch": 200,
+      "staleExplained": 124,
+      "at": "2026-07-10T03:36:36.629Z"
+    },
+    "batch-0100": {
+      "files": 100,
+      "checked": 2426,
+      "mismatch": 144,
+      "staleExplained": 92,
+      "at": "2026-07-10T03:36:40.030Z"
+    },
+    "batch-0101": {
+      "files": 100,
+      "checked": 1676,
+      "mismatch": 114,
+      "staleExplained": 72,
+      "at": "2026-07-10T03:36:42.414Z"
+    },
+    "batch-0102": {
+      "files": 100,
+      "checked": 1714,
+      "mismatch": 94,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:36:44.960Z"
+    },
+    "batch-0103": {
+      "files": 100,
+      "checked": 2652,
+      "mismatch": 162,
+      "staleExplained": 104,
+      "at": "2026-07-10T03:36:48.679Z"
+    },
+    "batch-0104": {
+      "files": 100,
+      "checked": 2206,
+      "mismatch": 106,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:36:51.991Z"
+    },
+    "batch-0105": {
+      "files": 100,
+      "checked": 2738,
+      "mismatch": 68,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:36:55.945Z"
+    },
+    "batch-0106": {
+      "files": 100,
+      "checked": 3938,
+      "mismatch": 132,
+      "staleExplained": 74,
+      "at": "2026-07-10T03:37:01.336Z"
+    },
+    "batch-0107": {
+      "files": 100,
+      "checked": 4158,
+      "mismatch": 100,
+      "staleExplained": 58,
+      "at": "2026-07-10T03:37:06.897Z"
+    },
+    "batch-0108": {
+      "files": 100,
+      "checked": 4532,
+      "mismatch": 118,
+      "staleExplained": 52,
+      "at": "2026-07-10T03:37:13.012Z"
+    },
+    "batch-0109": {
+      "files": 100,
+      "checked": 5706,
+      "mismatch": 166,
+      "staleExplained": 78,
+      "at": "2026-07-10T03:37:20.551Z"
+    },
+    "batch-0110": {
+      "files": 100,
+      "checked": 5106,
+      "mismatch": 88,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:37:27.453Z"
+    },
+    "batch-0111": {
+      "files": 100,
+      "checked": 5192,
+      "mismatch": 132,
+      "staleExplained": 82,
+      "at": "2026-07-10T03:37:34.368Z"
+    },
+    "batch-0112": {
+      "files": 100,
+      "checked": 5478,
+      "mismatch": 110,
+      "staleExplained": 70,
+      "at": "2026-07-10T03:37:41.485Z"
+    },
+    "batch-0113": {
+      "files": 100,
+      "checked": 4774,
+      "mismatch": 128,
+      "staleExplained": 80,
+      "at": "2026-07-10T03:37:47.469Z"
+    },
+    "batch-0114": {
+      "files": 100,
+      "checked": 4814,
+      "mismatch": 112,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:37:53.928Z"
+    },
+    "batch-0115": {
+      "files": 100,
+      "checked": 5876,
+      "mismatch": 136,
+      "staleExplained": 80,
+      "at": "2026-07-10T03:38:01.752Z"
+    },
+    "batch-0116": {
+      "files": 100,
+      "checked": 6468,
+      "mismatch": 154,
+      "staleExplained": 88,
+      "at": "2026-07-10T03:38:09.713Z"
+    },
+    "batch-0117": {
+      "files": 100,
+      "checked": 6116,
+      "mismatch": 132,
+      "staleExplained": 80,
+      "at": "2026-07-10T03:38:17.128Z"
+    },
+    "batch-0118": {
+      "files": 100,
+      "checked": 4984,
+      "mismatch": 146,
+      "staleExplained": 92,
+      "at": "2026-07-10T03:38:23.656Z"
+    },
+    "batch-0119": {
+      "files": 100,
+      "checked": 4840,
+      "mismatch": 120,
+      "staleExplained": 70,
+      "at": "2026-07-10T03:38:29.640Z"
+    },
+    "batch-0120": {
+      "files": 100,
+      "checked": 4454,
+      "mismatch": 104,
+      "staleExplained": 62,
+      "at": "2026-07-10T03:38:35.287Z"
+    },
+    "batch-0121": {
+      "files": 100,
+      "checked": 4070,
+      "mismatch": 130,
+      "staleExplained": 68,
+      "at": "2026-07-10T03:38:40.609Z"
+    },
+    "batch-0122": {
+      "files": 100,
+      "checked": 3672,
+      "mismatch": 78,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:38:45.441Z"
+    },
+    "batch-0123": {
+      "files": 100,
+      "checked": 5204,
+      "mismatch": 106,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:38:52.148Z"
+    },
+    "batch-0124": {
+      "files": 100,
+      "checked": 4052,
+      "mismatch": 80,
+      "staleExplained": 34,
+      "at": "2026-07-10T03:38:57.471Z"
+    },
+    "batch-0125": {
+      "files": 100,
+      "checked": 4182,
+      "mismatch": 132,
+      "staleExplained": 90,
+      "at": "2026-07-10T03:39:02.875Z"
+    },
+    "batch-0126": {
+      "files": 100,
+      "checked": 3516,
+      "mismatch": 106,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:39:07.431Z"
+    },
+    "batch-0127": {
+      "files": 100,
+      "checked": 5638,
+      "mismatch": 124,
+      "staleExplained": 66,
+      "at": "2026-07-10T03:39:14.621Z"
+    },
+    "batch-0128": {
+      "files": 100,
+      "checked": 3964,
+      "mismatch": 90,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:39:19.995Z"
+    },
+    "batch-0129": {
+      "files": 100,
+      "checked": 4058,
+      "mismatch": 88,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:39:25.144Z"
+    },
+    "batch-0130": {
+      "files": 100,
+      "checked": 4004,
+      "mismatch": 104,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:39:30.292Z"
+    },
+    "batch-0131": {
+      "files": 100,
+      "checked": 3696,
+      "mismatch": 110,
+      "staleExplained": 60,
+      "at": "2026-07-10T03:39:35.046Z"
+    },
+    "batch-0132": {
+      "files": 100,
+      "checked": 2376,
+      "mismatch": 106,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:39:38.417Z"
+    },
+    "batch-0133": {
+      "files": 100,
+      "checked": 3902,
+      "mismatch": 144,
+      "staleExplained": 76,
+      "at": "2026-07-10T03:39:43.516Z"
+    },
+    "batch-0134": {
+      "files": 100,
+      "checked": 3820,
+      "mismatch": 90,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:39:48.524Z"
+    },
+    "batch-0135": {
+      "files": 100,
+      "checked": 3546,
+      "mismatch": 80,
+      "staleExplained": 34,
+      "at": "2026-07-10T03:39:53.242Z"
+    },
+    "batch-0136": {
+      "files": 100,
+      "checked": 3972,
+      "mismatch": 68,
+      "staleExplained": 34,
+      "at": "2026-07-10T03:39:58.328Z"
+    },
+    "batch-0137": {
+      "files": 100,
+      "checked": 2606,
+      "mismatch": 106,
+      "staleExplained": 54,
+      "at": "2026-07-10T03:40:01.678Z"
+    },
+    "batch-0138": {
+      "files": 100,
+      "checked": 2048,
+      "mismatch": 110,
+      "staleExplained": 60,
+      "at": "2026-07-10T03:40:04.290Z"
+    },
+    "batch-0139": {
+      "files": 100,
+      "checked": 2808,
+      "mismatch": 106,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:40:08.019Z"
+    },
+    "batch-0140": {
+      "files": 100,
+      "checked": 2908,
+      "mismatch": 66,
+      "staleExplained": 36,
+      "at": "2026-07-10T03:40:12.074Z"
+    },
+    "batch-0141": {
+      "files": 100,
+      "checked": 3106,
+      "mismatch": 46,
+      "staleExplained": 18,
+      "at": "2026-07-10T03:40:16.201Z"
+    },
+    "batch-0142": {
+      "files": 100,
+      "checked": 4070,
+      "mismatch": 114,
+      "staleExplained": 60,
+      "at": "2026-07-10T03:40:21.260Z"
+    },
+    "batch-0143": {
+      "files": 100,
+      "checked": 3018,
+      "mismatch": 74,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:40:24.996Z"
+    },
+    "batch-0144": {
+      "files": 100,
+      "checked": 2220,
+      "mismatch": 78,
+      "staleExplained": 20,
+      "at": "2026-07-10T03:40:27.849Z"
+    },
+    "batch-0145": {
+      "files": 100,
+      "checked": 2542,
+      "mismatch": 92,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:40:31.094Z"
+    },
+    "batch-0146": {
+      "files": 100,
+      "checked": 4062,
+      "mismatch": 92,
+      "staleExplained": 54,
+      "at": "2026-07-10T03:40:35.897Z"
+    },
+    "batch-0147": {
+      "files": 100,
+      "checked": 2958,
+      "mismatch": 46,
+      "staleExplained": 18,
+      "at": "2026-07-10T03:40:39.780Z"
+    },
+    "batch-0148": {
+      "files": 100,
+      "checked": 3072,
+      "mismatch": 48,
+      "staleExplained": 18,
+      "at": "2026-07-10T03:40:43.591Z"
+    },
+    "batch-0149": {
+      "files": 100,
+      "checked": 3006,
+      "mismatch": 72,
+      "staleExplained": 28,
+      "at": "2026-07-10T03:40:47.322Z"
+    },
+    "batch-0150": {
+      "files": 100,
+      "checked": 2320,
+      "mismatch": 56,
+      "staleExplained": 34,
+      "at": "2026-07-10T03:40:50.260Z"
+    },
+    "batch-0151": {
+      "files": 100,
+      "checked": 3482,
+      "mismatch": 90,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:40:54.317Z"
+    },
+    "batch-0152": {
+      "files": 100,
+      "checked": 3144,
+      "mismatch": 44,
+      "staleExplained": 18,
+      "at": "2026-07-10T03:40:58.076Z"
+    },
+    "batch-0153": {
+      "files": 100,
+      "checked": 5073,
+      "mismatch": 109,
+      "staleExplained": 56,
+      "at": "2026-07-10T03:41:04.123Z"
+    },
+    "batch-0154": {
+      "files": 100,
+      "checked": 3236,
+      "mismatch": 94,
+      "staleExplained": 48,
+      "at": "2026-07-10T03:41:08.322Z"
+    },
+    "batch-0155": {
+      "files": 100,
+      "checked": 3891,
+      "mismatch": 100,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:41:12.875Z"
+    },
+    "batch-0156": {
+      "files": 100,
+      "checked": 2071,
+      "mismatch": 118,
+      "staleExplained": 64,
+      "at": "2026-07-10T03:41:15.664Z"
+    },
+    "batch-0157": {
+      "files": 100,
+      "checked": 2373,
+      "mismatch": 108,
+      "staleExplained": 80,
+      "at": "2026-07-10T03:41:18.845Z"
+    },
+    "batch-0158": {
+      "files": 100,
+      "checked": 3344,
+      "mismatch": 88,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:41:23.006Z"
+    },
+    "batch-0159": {
+      "files": 100,
+      "checked": 2454,
+      "mismatch": 92,
+      "staleExplained": 46,
+      "at": "2026-07-10T03:41:26.188Z"
+    },
+    "batch-0160": {
+      "files": 100,
+      "checked": 3140,
+      "mismatch": 82,
+      "staleExplained": 36,
+      "at": "2026-07-10T03:41:30.127Z"
+    },
+    "batch-0161": {
+      "files": 100,
+      "checked": 2620,
+      "mismatch": 98,
+      "staleExplained": 38,
+      "at": "2026-07-10T03:41:33.350Z"
+    },
+    "batch-0162": {
+      "files": 100,
+      "checked": 1556,
+      "mismatch": 122,
+      "staleExplained": 50,
+      "at": "2026-07-10T03:41:35.386Z"
+    },
+    "batch-0163": {
+      "files": 100,
+      "checked": 1626,
+      "mismatch": 98,
+      "staleExplained": 42,
+      "at": "2026-07-10T03:41:37.582Z"
+    },
+    "batch-0164": {
+      "files": 100,
+      "checked": 2520,
+      "mismatch": 74,
+      "staleExplained": 40,
+      "at": "2026-07-10T03:41:40.911Z"
+    },
+    "batch-0165": {
+      "files": 100,
+      "checked": 2354,
+      "mismatch": 58,
+      "staleExplained": 30,
+      "at": "2026-07-10T03:41:44.200Z"
+    },
+    "batch-0166": {
+      "files": 100,
+      "checked": 2722,
+      "mismatch": 72,
+      "staleExplained": 32,
+      "at": "2026-07-10T03:41:48.030Z"
+    },
+    "batch-0167": {
+      "files": 100,
+      "checked": 2304,
+      "mismatch": 56,
+      "staleExplained": 20,
+      "at": "2026-07-10T03:41:51.034Z"
+    },
+    "batch-0168": {
+      "files": 100,
+      "checked": 1972,
+      "mismatch": 104,
+      "staleExplained": 44,
+      "at": "2026-07-10T03:41:53.748Z"
+    },
+    "batch-0169": {
+      "files": 100,
+      "checked": 2778,
+      "mismatch": 66,
+      "staleExplained": 36,
+      "at": "2026-07-10T03:41:57.289Z"
+    },
+    "batch-0170": {
+      "files": 100,
+      "checked": 2274,
+      "mismatch": 60,
+      "staleExplained": 20,
+      "at": "2026-07-10T03:42:00.219Z"
+    },
+    "batch-0171": {
+      "files": 26,
+      "checked": 736,
+      "mismatch": 16,
+      "staleExplained": 6,
+      "at": "2026-07-10T03:42:01.112Z"
+    }
+  },
+  "selfCheck": {
+    "checked": 527355,
+    "mismatch": 18410,
+    "staleExplained": 10762
+  },
+  "fastStart": 17111,
+  "fullReplay": 15
+}

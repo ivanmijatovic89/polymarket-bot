@@ -1,0 +1,2 @@
+slug,month,t_sec,up_state,down_state,ext_age_ms,e_up_bid,c_up_bid,e_up_ask,c_up_ask,e_dn_bid,c_dn_bid,e_dn_ask,c_dn_ask,e_t3b,c_t3b,e_t3a,c_t3a,e_age,c_age
+btc-updown-15m-1776988800,2026-04,690,two_sided,two_sided,4190,0.8,0.79,0.81,0.8,0.19,0.2,0.2,0.21,650.23,437.49,667.23,689.7,4190,20652
