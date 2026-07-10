@@ -65,8 +65,8 @@ on depth alone):**
 
 ## Baseline (measured 2026-07-10, log `logs/venue-drift-baseline.log`)
 
-198 unique markets parsed (7 monthly chunks × 30 random, minus the known
-end-of-chunk flush artifact). Sweep shape (per chunk; `--from-ms/--to-ms`
+198 unique markets parsed (7 monthly chunks × 30 random, minus 12
+zero-event-parquet markets — see Known artifact above; corrected U46b). Sweep shape (per chunk; `--from-ms/--to-ms`
 at UTC month bounds over 2025-11-30 → 2026-06-14):
 
 ```bash

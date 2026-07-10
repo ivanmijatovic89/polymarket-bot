@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 43, unit U46 (VENUE-DRIFT instrument audit,
-D27 fire-confirmation rule, pooled-mode tool)._
+_Last updated: session 43, unit U46b (U45/U46 propagation check
+verified; one MINOR fixed)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -541,6 +541,16 @@ D27 fire-confirmation rule, pooled-mode tool)._
   scope, depth consequence mapping, upward-only crossedFrac, unseeded
   RAND() disclosure, log-capture step, re-baselining step). EDGE-SPACE
   §4 regime clause now requires the D27-confirmed fire.
+
+- U46b (session 43): U45+U46 application fidelity VERIFIED by a
+  fresh-context propagation checker (sound-with-findings; report
+  verbatim in `knowledge/AUDIT-2026-07-10-U45-U46-PROPAGATION.md`).
+  Every restated figure recomputes under the stated conventions; the
+  --pooled spot-check reproduced independently; no silent bar
+  tightening, no dropped binding caveat. ONE MINOR fixed in the same
+  unit: VENUE-DRIFT.md's baseline block still attributed the 12 missing
+  markets to the disproven end-of-chunk flush artifact — now reworded
+  to the corrected zero-event-parquet mechanism.
 
 ## In progress
 - (nothing in flight)

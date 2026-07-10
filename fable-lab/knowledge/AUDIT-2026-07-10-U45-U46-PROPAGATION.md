@@ -1,0 +1,43 @@
+# AUDIT — U45/U46 application-fidelity propagation check (fresh-context, 2026-07-10, U46b)
+
+_Verifier: fresh-context subagent per the charter's checkpoint rule and
+D25's evidence base (the apply-the-findings step is the lab's measured
+weak point). Targets: how faithfully the U45 (IDEAS #10 power) and U46
+(VENUE-DRIFT) audit reports were applied across IDEAS.md §10,
+EDGE-SPACE.md §4, VENUE-DRIFT.md, DECISIONS D27, and STATE.md — plus an
+independent re-run of the --pooled spot-check. Report preserved
+verbatim below. The single MINOR finding was fixed in the same unit
+(VENUE-DRIFT.md baseline-block sentence rewritten to the corrected
+zero-event-parquet mechanism)._
+
+---
+
+VERDICT: **sound-with-findings** — all restated figures recompute correctly under the audits' stated conventions, both empirical spot-checks reproduce exactly, no registration bar was silently tightened beyond license, and no binding caveat was dropped. One MINOR internal inconsistency survived propagation in VENUE-DRIFT.md.
+
+## Findings
+
+**1. MINOR (stale mechanism claim, contradicts the same file's own U46 correction) — `fable-lab/knowledge/VENUE-DRIFT.md:68-69`.** The baseline block still opens with: "198 unique markets parsed (7 monthly chunks × 30 random, minus the known **end-of-chunk flush artifact**)." The U46 settlement (audit follow-up item 2, and VENUE-DRIFT.md's own corrected artifact paragraph at lines 23-29, and STATE.md:537-539) established that the end-of-chunk flush loss mode NEVER fired and the real cause of the 12 missing markets is zero-event parquets. This one sentence was not updated, so the file simultaneously asserts the corrected mechanism and the disproven one. No decision rule or number is affected (198 = 7×30 − 12 is correct; the 12-market breakdown Dec 2 / Jan 6 / Jun 4 is consistent everywhere else it appears). Fix: reword line 69 to "minus 12 zero-event-parquet markets (see Known artifact above)".
+
+That is the only finding. Evidence for everything that passed:
+
+## Verification detail
+
+**1. IDEAS.md §10 (lines 193-240) — all figures recompute under the audit's Table/scan-se convention (per-sample variance 0.1536 = 983·0.0125², incidence 983/8,133 = 0.12087, emitting fraction 8,133/8,516 = 0.9550, z_crit = 1.9954 at α = 0.023, +0.8416 for 80%).**
+- n ≈ 630: 5,460·0.955·0.12087 = 630.2 ✓ (this is exactly the audit's finding-2 correction of the original 660).
+- se ≈ 1.56c: √(0.1536/630) = 0.01561 ✓ (matches finding 3's "1.56c at n = 630").
+- ~32% power at α = 0.023: Φ(2.38/1.561 − 1.9954) = Φ(−0.471) = 31.9% ✓ (finding 2's stated 31.9 at n = 630); ~45% at α = 0.05: Φ(1.524 − 1.645) = 45.2% ✓.
+- 80% power: se needed = 2.38/2.8370 = 0.839c → n = 0.1536/0.00839² = 2,183 ≈ "2,180" ✓; markets = 2,183/(0.955·0.12087) = 18,913 ≈ "19,000" ✓; 18,913/5,460 = 3.46 ≈ "~3.5× reserve" ✓ (correctly incorporates the 95.5% factor the audit's raw 18.1k lacked).
+- Unlock: 15,000·0.955·0.12087 = 1,732 ≈ "1,730" ✓; se = √(0.1536/1,732) = 0.942c ≈ "0.94c" ✓; power at +2c = Φ(2/0.942 − 1.9954) = Φ(0.128) = 55.1% ≈ "~55%" ✓ — still ≥50% even with the 95.5% haircut the audit's own 57.1% unlock figure did not apply, so "15k stands" survives the correction.
+- Original U44c figures preserved verbatim in the parenthetical (n ≈ 660, se ≈ 1.9c, 23%/35%, 28,000, Bernoulli, no emitting factor) — exactly the figures the audit's finding 1 reproduced; "conservative on power, overstated on the 80%-power requirement" and "PARK licensed under both conventions" both match findings 1 and 3 ✓.
+
+**2. EDGE-SPACE.md §4 envelope (lines 228-244) — matches audit finding 5's scoping exactly.** "Mid-priced (per-sample variance ≳ 0.15), incidence ≲ ~15-20%, ≥ ~2.4-3.4c net" is a faithful rounding of the audit's Table-convention 3.35c (10% incidence) and 2.37c (20%); "CAL-002/003 cells sit at 8-19% incidence, mid-priced" matches the audit's "observed incidences 8–19%, mid-priced". Open side "high-incidence (≳ 50%) or extreme-price cells confirm down to ~1.5-1.9c" faithfully spans the audit's 1.50c (Table, 50% incidence), 1.68c (extreme-price example), 1.85c (Bernoulli, 50%) — the 1.9 top end widens conservatively, no overclaim. "This is NOT a categorical closure" explicitly honors the audit's prohibition of the unconditional version. "≥ ~2·se" ≈ 1.9954·se ✓.
+
+**3. EDGE-SPACE regime clause + VENUE-DRIFT.md + D27.** All false-fire numbers match the source: "~14% above a value the baseline itself produced" (0.0024/0.0021 = 1.143, audit finding 1) ✓; "~1.5-1.9σ" (audit's 1.47/1.89) and "~10%/month for depth alone" (finding 2) ✓; EDGE-SPACE's "~5-10% per evaluated month" matches the audit bottom line verbatim ✓. Bands UNCHANGED: 0.0050/0.0200, 239.7/958.8, 0.0024 all present and identical ✓. The D27 rule (redraw on same month, both draws fire on same metric, crossedFrac ≤2-market concentration check, "quiet = no ≥2× shift" power statement) implements the audit's recommended mitigation; applying the redraw to ALL fires rather than only edge-marginal ones is a *disclosed* strengthening with recorded rationale (D27 rejected-alternative (c)), not a silent tightening. Pooling-convention text is identical in VENUE-DRIFT.md:101-110 and the audit follow-up (statistic over all 142 per-market values; median-of-monthly-medians would give 499.6 — matches finding 3's recomputation). Corrected-artifact paragraph consistent everywhere except finding 1 above. (Non-finding: the follow-up's exact pooled crossedFrac 0.001186 vs finding 1's 0.001208 weighted-monthly-means recomputation differ only by 4-dp rounding of the monthly means; both → 0.0012.)
+
+**4. STATE.md U45 (494-519) and U46 (521-543).** Every figure traces: U45's 32%/33%, 630/1.56c, 19k/3.5×, 15k/55%, 0.154, 95.5%, 2.4-3.4c/1.5-1.9c envelope all trace to the IDEAS audit as recomputed above; the parenthetical "CAL-003's mid-involved shapes resolve only |d| ≈ 8-10c at their n ≈ 250/cell" traces to the published CAL-003-REG audit figures (≈8-9c at n ≈ 300, single-mid cells n ≈ 180-380; scaling √(300/250) gives 8.8-9.9c — consistent). U46's three MAJORs, ~14%, ~1.5-1.9σ, ~10%/month, 142/pooled values, 12 markets (Dec 2/Jan 6/Jun 4, ~0s), and the MINOR-fix list all match the audit + follow-up. The stale U44c entry (STATE:485-491) correctly retains its original figures as a dated historical record with an explicit "(Figures amended in U45 — see below; the park stands.)" pointer — proper practice, not a defect.
+
+**5. Empirical spot-check — REPRODUCED.** `npx tsx fable-lab/tools/venue-drift.ts --pooled 2025-12:2026-04 fable-lab/logs/venue-drift-baseline.log` prints `pooled 142 0.0100 479.4 130.32 0.0012` — matching the audit follow-up claim, VENUE-DRIFT.md:109, and all four published baseline reference values. The per-month run (no `--pooled`) reproduces VENUE-DRIFT.md's table row-for-row (198 parsed; 28/24/30/30/30/30/26 markets; all spreadMed/depthMed/rateMed/crossedFracMean values identical, including 2025-12's 0.0021 and 2026-01's 760.2).
+
+**6. Cross-cutting bar-tightening check — no silent tightening.** (a) IDEAS #10's "holds ONLY under that convention, which is the one the pre-registered test must therefore use" is licensed by audit finding 1 ("if the eventual pre-registered test uses the scan's own z (Table se, which is also the statistically correct null), the 15k unlock is fine") and its bottom-line option A ("restate all figures under the Table convention... 15k stands") — the entry took option A and made the convention binding, which is exactly what makes the retained 15k threshold coherent. (b) EDGE-SPACE's new "AND the fire must be confirmed by the D27 independent redraw" is licensed by the VENUE-DRIFT audit's bottom line ("the cheapest sound mitigation would be a D-entry adding a confirmation redraw requirement"); the uniform-scope strengthening is disclosed in D27 and was adopted pre-data for every future evaluation. Note the direction: this raises the bar for *reopening* settled questions (harder to fire), which is the risk direction the audit identified; nothing lowered any evidence bar. No binding caveat from either report was dropped — winner's curse, "one independent outcome per market", venue-drift-quiet condition, the NOT-citable status of +2.38c, the ≥2× power limit, and upward-only crossedFrac all survive in the derived artifacts.
+
+Files verified: `fable-lab/knowledge/AUDIT-2026-07-10-IDEAS-10-POWER.md`, `fable-lab/knowledge/AUDIT-2026-07-10-VENUE-DRIFT.md`, `fable-lab/protocol/IDEAS.md` (193-240), `fable-lab/knowledge/EDGE-SPACE.md` (216-244), `fable-lab/knowledge/VENUE-DRIFT.md`, `fable-lab/DECISIONS.md` (785-826), `fable-lab/STATE.md` (485-574).
