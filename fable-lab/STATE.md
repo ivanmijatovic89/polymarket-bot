@@ -464,6 +464,21 @@ _Last updated: session 42, unit U44 (CAL-003)._
   CAL-002's published gate values 8/8. LESSONS E22; EDGE-SPACE map row +
   conditional-layers summary bullet + §4 taker bar updated.
 
+- U44b (session 42): E22 knowledge propagation AUDITED per D25
+  (fresh-context, sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-E22-PROPAGATION.md`). All 6 findings
+  applied: (1) MAJOR — the "(this scan)" scoping was dropped from the
+  EDGE-SPACE §4 bar, silently foreclosing mid-involved two-segment
+  shapes CAL-003 never scanned (the exact E20/E21 defect class, caught
+  a THIRD time); the bar now reads "big-move sign paths … (this scan —
+  mid-involved shapes excluded and formally open)"; (2) §1 header
+  scoped to "big-move sign paths" + E22 gains the openness sentence;
+  (3) §1 bullet's E21 range re-scoped "from 300s on"; (4) the E21
+  LESSONS entry's "2-2.4c" corrected in-place to "1.5-2.4c (2-2.4c at
+  the late pairs)" per CAL-003 amendment #3; (5) E22 headline scoped to
+  the up-then-dn shape (dn-up shows nothing); (6) cross-side
+  non-independence qualifier added where §1 quotes both mirrors.
+
 ## In progress
 - (nothing in flight)
 

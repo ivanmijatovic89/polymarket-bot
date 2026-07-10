@@ -324,8 +324,10 @@ forbids importing the old system's research conclusions._
   750-850 — no claim is made for excluded quiet markets). The structure behind the
   flag is coherent across pairs from 300s on (UP dn2 z: −2.23, −3.00,
   −3.72, −2.90): after the UP mid falls ≥ 2c in a segment, the post-move
-  UP ask is stale-high ≈ 2-2.4c gross — big late moves continue more than
-  the book reprices, the conditional refinement of E16/E17's
+  UP ask is stale-high ≈ 1.5-2.4c gross (2-2.4c at the late pairs;
+  published d 1.51/1.92/2.43/2.25c — corrected in-place per CAL-003
+  amendment #3 / E22 propagation audit) — big late moves continue more
+  than the book reprices, the conditional refinement of E16/E17's
   "through-moves are informative". But the tradable expression (buy DOWN
   at its ask — the SAME book samples, not independent evidence) nets at
   most +0.75c (z ≤ +1.75): the counterparty misprices by less than the
@@ -351,16 +353,16 @@ forbids importing the old system's research conclusions._
 
 - **E22 — CAL-003: two-segment path shape adds no taker-exploitable
   signal within stated power; persistence does NOT concentrate the E21
-  continuation, reversal shapes concentrate it gross but the tradable
-  mirror stays under the bar (2026-07-10, null-confirmed by fresh-context
-  Judge).** The pre-registered two-segment path study
+  continuation, the up-then-dn reversal shape concentrates it gross but
+  the tradable mirror stays under the bar (2026-07-10, null-confirmed by
+  fresh-context Judge).** The pre-registered two-segment path study
   (`knowledge/CALIBRATION-3.md`, D26; zero new replay compute — third
   read of the CAL-001 discovery log, with pre-read audit, a BINDING
   reserve-confirmation rule, and a new gate that mechanically reproduced
   CAL-002's published gate values 8/8) evaluated k = 40 frozen cells
   (5 consecutive-offset triples × 4 big-move shapes {dn-dn, dn-up,
   up-dn, up-up} × both entry sides; mid-involved shapes excluded as
-  disclosed) once: zero CANDIDATE cells (bar z ≥ 3.26; max positive
+  disclosed — that region remains formally open) once: zero CANDIDATE cells (bar z ≥ 3.26; max positive
   z = +2.40), one NEG-FLAG — UP (450-600-750, up-dn), z = −3.47,
   n = 981, fully powered (cells condition on valid books at all three
   offsets; triple coverage 0.766 at 450-600-750, 0.464 at 600-750-850 —
