@@ -251,6 +251,25 @@ forbids importing the old system's research conclusions._
   |PnL| ≤ 100 ⇒ EV shift ≤ 0.007 on a −0.19 readout); erratum on the
   EXP-001 file. The DB-level sweep also confirmed the 8 grid cells never
   drew the boundary market (previously just luck, now verified)._
+  _Second amendment (U52): transfer rule (a) had been recorded here but
+  `tools/submit.ts` — the stage-command builder — was never patched; all
+  four exploration-bounded stages (probe/main/lat/grid) still emitted the
+  inclusive `--to-ms <boundary>`, so any FUTURE probe would have re-leaked
+  the boundary market into its pool. Fixed to `boundary − 1`; verified by
+  printing all five stage commands against the frozen EXP-001 spec
+  (probe/main/lat/grid → 1777237199999; holdout keeps its CORRECT
+  inclusive `--from-ms 1777237200000 --to-ms <holdoutEndMs>`, since
+  holdout = boundary ≤ start ≤ end per universe.ts; --from-ms verified
+  inclusive/gte at telonexEligibility.ts by the U52 checker, so holdout
+  keeps the boundary market as it must). The U52 fresh-context checker
+  then found the SAME stale rule in two more carriers — the experiment
+  template's pre-registered sample rule and LIFECYCLE §probe (both fixed
+  to boundary − 1) — and that smoke was unbounded (safe only by the ASC
+  default ordering; run 351's --random smoke is the leak precedent);
+  smoke now also emits boundary − 1 when the spec has a boundary. A
+  lesson without a mechanical carrier decays: rules that constrain
+  future commands must be patched into EVERY carrier that produces or
+  pre-registers those commands, in the same unit._
 
 - **E19 — the at-touch maker bracket is closed: the optimistic fill bound
   loses MORE than worst-queue, in both regimes.** EXP-008 (run 357) and

@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 47, unit U50 (D32: global holdout-lock audit,
-mechanical)._
+_Last updated: session 47, unit U52 (E18 finally patched into
+submit.ts; holdout refusal branch exercised)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -693,6 +693,43 @@ mechanical)._
   flagged not skipped, scope qualifier added (sweep covers persisted
   backtest tables only). Standing procedure: re-run the tool after any
   future evidence run; exit 2 ⇒ classify new rows against the artifact.
+
+- U51 (session 47): tools/README.md index completed — 9 existing tools
+  were unlisted (runs, fills, entry-check, venue-drift, trades-coverage,
+  run-backtest, detach, calib-coverage.sh, calib-integrity.sh; friction:
+  this session recovered the fills.ts outcome-safety precedent from
+  STATE history because the index was incomplete). Descriptions quoted
+  from each tool's own header read in-session; behavioral claims
+  grep-verified; wake-up-gate roles annotated.
+
+- U52 (session 47): E18's transfer rule (a) was recorded in LESSONS but
+  NEVER patched into `tools/submit.ts` — all four exploration-bounded
+  stages (probe/main/lat/grid) still emitted the inclusive
+  `--to-ms <boundary>`, so any future probe would have re-leaked the
+  boundary market into its pool — and any future MAIN extension would
+  have included it deterministically, U50's exact finding (U50's sweep
+  is what surfaced the builder gap). Fixed to boundary − 1; verified by
+  printing the stage commands against the frozen EXP-001 spec
+  (exploration stages → 1777237199999; holdout stage unchanged and
+  correct: inclusive --from-ms 1777237200000 --to-ms holdoutEndMs,
+  --from-ms verified gte/inclusive at the engine). D31 fresh-context
+  check: sound-with-findings; all 4 applied — the stale inclusive rule
+  lived in TWO more carriers (protocol/templates/EXPERIMENT.md sample
+  rule, LIFECYCLE.md §probe; both now boundary − 1), smoke was unbounded
+  (safe only by ASC-default ordering — run 351's leak class; smoke now
+  bounded to boundary − 1 when the spec has a boundary, verified
+  printed), and the main-stage severity understatement fixed in this
+  entry. Also exercised the
+  NEVER-executed holdout refusal branch (D28 class) with a
+  deliberately-failing scratch spec in gitignored logs/: validator FAIL
+  → "REFUSED … holdout not submitted", exit 1, nothing launched — first
+  execution of the last mechanical guard on the one-shot resource.
+  Accepted residue: the validator's holdout-discipline COUNT branch (at
+  most one <EXP>-holdout run) still has never executed against a
+  positive case — it requires a real holdout run row; verify it before
+  any first real holdout submission. E18 second amendment records the
+  meta-lesson: a rule constraining future commands must be patched into
+  the tool that builds the commands, in the same unit.
 
 ## In progress
 - (nothing in flight)

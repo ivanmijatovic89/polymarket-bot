@@ -76,15 +76,24 @@ function main() {
     const parent = argValue('--parent-run')
     if (!parent) throw new Error('--stage main requires --parent-run <probe runId>')
     // extension keeps the parent's batchUid (EXP-NNN-probe); address by run id
-    args.push('--extend', parent, '--to-ms', String(spec.holdoutBoundaryMs))
+    // E18: --to-ms is INCLUSIVE; exploration is strictly < boundary, so all
+    // exploration-bounded stages use boundary − 1 (U52 — the E18 transfer
+    // rule was recorded in LESSONS but this builder was never patched).
+    args.push('--extend', parent, '--to-ms', String(spec.holdoutBoundaryMs - 1))
   } else if (stage === 'smoke') {
     args.push('--strategy', spec.strategyId, ...params, ...SCOPE_FLAGS)
+    // Bound smoke to exploration too (U52 verifier finding 3): unbounded
+    // smokes were only exploration-side by accident of the ASC default
+    // ordering, and run 351's --random smoke leaked 2 post-boundary slugs.
+    if (spec.holdoutBoundaryMs != null) {
+      args.push('--to-ms', String(spec.holdoutBoundaryMs - 1))
+    }
     args.push('--limit', argValue('--limit') ?? '10', '--batchUid', `${spec.expId}-smoke`)
   } else if (stage === 'probe') {
     args.push('--strategy', spec.strategyId, ...params, ...SCOPE_FLAGS)
     args.push(
       '--random', '--limit', argValue('--limit') ?? '500',
-      '--to-ms', String(spec.holdoutBoundaryMs),
+      '--to-ms', String(spec.holdoutBoundaryMs - 1), // E18: exploration < boundary
       '--batchUid', `${spec.expId}-probe`,
     )
   } else if (stage === 'lat') {
@@ -94,7 +103,7 @@ function main() {
     env.BACKTEST_LATENCY_JITTER = '0'
     args.push('--strategy', spec.strategyId, ...params, ...SCOPE_FLAGS)
     args.push(
-      '--to-ms', String(spec.holdoutBoundaryMs),
+      '--to-ms', String(spec.holdoutBoundaryMs - 1), // E18: exploration < boundary
       '--limit', argValue('--limit') ?? '1000000',
       '--batchUid', `${spec.expId}-lat${delay}`,
     )
@@ -110,7 +119,7 @@ function main() {
     // buys the same verdict for a fraction of the replay-hours.
     if (process.argv.includes('--random')) args.push('--random')
     args.push(
-      '--to-ms', String(spec.holdoutBoundaryMs),
+      '--to-ms', String(spec.holdoutBoundaryMs - 1), // E18: exploration < boundary
       '--limit', argValue('--limit') ?? '1000000',
       '--batchUid', `${spec.expId}-grid-${cellSlug}`,
     )
@@ -124,6 +133,7 @@ function main() {
     // explicit large --limit: the eligibility query defaults to 1000 rows,
     // which would silently truncate the holdout window
     args.push(
+      // inclusive bounds are CORRECT here: holdout = boundary <= start <= end
       '--from-ms', String(spec.holdoutBoundaryMs),
       '--to-ms', String(spec.holdoutEndMs),
       '--limit', argValue('--limit') ?? '1000000',

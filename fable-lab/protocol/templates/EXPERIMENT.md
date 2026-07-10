@@ -26,7 +26,7 @@
   - Holdout: `market_start_ms` >= <BOUNDARY_MS> and <= <REG_LAST_MS>, one-shot
     (upper bound = last eligible market at registration; markets accruing
     later belong to no window)
-- **Sample rules:** probe = `--random --limit 500 --to-ms <BOUNDARY_MS>`;
+- **Sample rules:** probe = `--random --limit 500 --to-ms <BOUNDARY_MS − 1>` (E18: `--to-ms` is inclusive; exploration is strictly < boundary);
   main = extend to full exploration window; holdout = full holdout window.
 - **Decision rules (copied from EPISTEMOLOGY at registration):**
   - probe kill: q̂ ≤ 0 with t ≤ −1, or prediction contradicted

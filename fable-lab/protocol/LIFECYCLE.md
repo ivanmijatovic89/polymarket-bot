@@ -78,7 +78,7 @@ in the BACKGROUND and the session keeps working while it replays):
 - **Smoke**: `--limit 10` locally. Never labeled with an EXP
   batchUid stage other than `-smoke`; results never quoted.
 - **Probe**: `--random --limit 500` bounded to the exploration
-  window (`--to-ms <holdout boundary>`).
+  window (`--to-ms <holdout boundary − 1>` — E18: the engine flag is inclusive).
 - **Main**: `--extend <probe runId>` growing to the full exploration window
   (extension recomputes segments over the union — CAPABILITIES §6; batchUid
   stays `EXP-NNN-probe`). Robustness runs (latency curve via
