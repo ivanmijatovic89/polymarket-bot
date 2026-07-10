@@ -507,3 +507,12 @@ bars; samples clean; no overclaims in the knowledge chain.
 **Rejected.** Re-deriving the D18-unlock audit's preamble ("mechanically
 checkable") retroactively — preserved audit reports are verbatim records
 and stay unedited; the erratum lives with the affected experiment and here.
+
+**Amendment (2026-07-10, U41).** Fourth action from the same audit's
+"unverifiable claims" list: `tools/run-backtest.ts` now prints
+`[fable] latency env: BACKTEST_LATENCY_DELAY=… BACKTEST_LATENCY_JITTER=…`
+at startup (after loading src/config/env.js, so the line shows what the
+engine actually sees). Verified: pinned invocation prints 0/0; ambient
+invocation prints the .env's DELAY=140 (the E7 trap, now visible). The D8
+"latency pinned" property is mechanically checkable from the run log for
+every future run; runs 357/358 remain honor-system on this point.

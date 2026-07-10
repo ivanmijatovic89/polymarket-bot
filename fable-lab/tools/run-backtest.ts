@@ -19,6 +19,7 @@ import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import '../../src/config/env.js'
 import { strategyRegistry } from '../../src/strategy/strategyRegistry.js'
 import type { StrategyDefinition } from '../../src/strategy/strategyDefinition.js'
 
@@ -157,6 +158,17 @@ for (const file of files) {
   loaded++
 }
 console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
+
+// Durable latency record (E19-chain audit, "unverifiable claims": the D8
+// "latency pinned 0/0" assertion had no artifact to check against — env vars
+// are not persisted in the run's cmd column). The run log is the durable
+// artifact for timing/latency claims; print the effective values there.
+// env.js is imported above so this shows what the engine will actually see
+// (dotenv without BOT_ENV does not override values submit.ts pins in the
+// child environment).
+console.log(
+  `[fable] latency env: BACKTEST_LATENCY_DELAY=${process.env.BACKTEST_LATENCY_DELAY ?? '(unset)'} BACKTEST_LATENCY_JITTER=${process.env.BACKTEST_LATENCY_JITTER ?? '(unset)'}`,
+)
 
 // Quality-column overflow guard (DECISIONS D12, LESSONS E13): a daily
 // segment whose played markets have near-identical pnl produces
