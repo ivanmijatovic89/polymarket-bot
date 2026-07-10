@@ -505,7 +505,15 @@ _Last updated: session 9, unit U40._
   window, 33 GiB free disk. Mirror re-measurement on the grown log:
   20,201/20,202 paired (market,offset) samples exactly DOWN = 1 − UP;
   the SAME single deviant (1764846000, off=850) — amendment #12 holds
-  at ~41% of the run. Monitor re-armed on pid exit.
+  at ~41% of the run. Monitor re-armed on pid exit. NEW pre-read
+  confirmation (outcome-free, DB counts only via
+  listEligibleTelonexMarkets): total eligible 18,635; discovery window
+  (< 2026-03-01) = 8,516 markets — exactly the v3 run's loaded file
+  count; probe reserve [2026-03-01, boundary) = 5,460 — the
+  CALIBRATION.md registration claim reproduces exactly, so EXP-010 (if
+  discovery yields candidates) has its probe pool intact as frozen.
+  (Note: listEligibleTelonexMarkets defaults to limit=1000 — pass an
+  explicit large limit when counting the full universe.)
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
