@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 46, unit U49b (U49 RUNBOOK reconciliation
-verified by a fresh-context checker; all four findings applied)._
+_Last updated: session 46, unit U49c (D31: restatement audits
+generalized beyond verdict sessions)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -656,6 +656,14 @@ verified by a fresh-context checker; all four findings applied)._
   the specific mechanism-linked question". Verifier confirmed all other
   counts, figures, and direction-of-claim fidelity clean, and that no
   bar/threshold/rule changed in any source artifact.
+
+- U49c (session 46): DECISIONS D31 — the D25 propagation-audit rule is
+  generalized: ANY unit restating a bar, threshold, unlock condition, or
+  measured figure into a derived artifact gets a fresh-context check
+  before it closes (verbatim quotes exempt). Evidence: four consecutive
+  restating units carried the defect class (E20/E21/E22 propagations +
+  U49, a non-verdict unit D25 did not cover, caught only by discretion).
+  SCIENTIST.md rule extended in place.
 
 ## In progress
 - (nothing in flight)

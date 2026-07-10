@@ -1020,3 +1020,29 @@ D27-confirmed band fire reopens measured questions" strengthened the
 source — a confirmed fire is evidence that CAN reopen the specific
 mechanism-linked question (VENUE-DRIFT consequence mapping). RUNBOOK
 corrected on all four; this amendment corrects the D30 text above.
+
+## D31 — restatement audits generalized beyond verdict sessions (2026-07-10, U49c)
+
+Motivating evidence: the over-tightened-restatement defect class has now
+appeared in FOUR consecutive units that restated bars/thresholds/figures
+into derived artifacts — the E20, E21, and E22 propagation audits each
+found MAJOR instances (D25's original evidence), and U49b found a MAJOR
+instance in U49's RUNBOOK reconciliation ("~15,000 NEW markets ~5 months"
+vs the source's reserve-inclusive ~9,500 new ≈ 3.3 months). U49 was NOT a
+verdict session, so D25's mandate did not cover it; it was audited only by
+session discretion. Four-for-four says the defect is a property of the
+RESTATING act (writing from memory instead of quoting the source), not of
+verdict propagation specifically.
+
+Decision: SCIENTIST.md's D25 rule is extended — any unit that restates a
+bar, threshold, unlock condition, or measured figure into a derived
+artifact (RUNBOOK, EDGE-SPACE summaries, IDEAS shorthands, operator
+memos) must be verified by a fresh-context checker before the unit
+closes, findings applied in the same unit. Pure additions that QUOTE the
+source verbatim (committed log extracts, verbatim verdict appends) are
+not restatements and stay exempt.
+
+Rejected alternative: a mechanical diff-based linter for figures — the
+defect is semantic (scope words like "new"/"fresh", dropped conditions),
+not numeric transcription; three of the four MAJORs had the right numbers
+with the wrong scoping.

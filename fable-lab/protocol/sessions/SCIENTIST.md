@@ -51,6 +51,17 @@ Ground rules that are yours specifically:
   each found MAJOR defects of the same class — bars silently tightened
   beyond what the null licensed, and binding conditioning caveats dropped
   (`knowledge/AUDIT-2026-07-10-E20-PROPAGATION.md`, `-E21-`).
+  **Extended (D31, U49c):** the same rule applies to ANY unit that
+  restates a bar, threshold, unlock condition, or measured figure into a
+  derived artifact (RUNBOOK, EDGE-SPACE summaries, IDEAS shorthands,
+  operator memos) — not just verdict propagation. Verify with a
+  fresh-context checker before the unit closes. Evidence: four
+  consecutive restating units carried the defect (E20/E21/E22
+  propagations, and U49 — a non-verdict RUNBOOK reconciliation whose
+  MAJOR over-tightening was caught only by a discretionary check;
+  the harm direction varies, foreclosed escapes or inflated operator
+  costs, but the mechanism is identical: restating from memory instead
+  of quoting the source).
 - **Pre-registration is not optional.** No evidence run without a committed
   spec that `tools/validate-experiment.ts` passes. If you notice mid-run
   that the spec was wrong, let the run finish, record it as void in the
