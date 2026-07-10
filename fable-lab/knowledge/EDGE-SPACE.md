@@ -27,14 +27,23 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | maker (touch bound) | at-touch quiet quoting (frozen EXP-006 cell) | EXP-008 | kill (decisive under the engine's most favorable fill assumption) | E19 |
 | maker (touch bound) | at-touch loud countertrend (frozen EXP-007 cell) | EXP-009 | kill (decisive under the engine's most favorable fill assumption) | E19 |
 | — | expiry-tail maker capture | IDEAS #7 | dead unexamined (park clause, EXP-001 kill) | — |
+| taker (plane scan) | fixed-time top-of-book, both sides, 126-cell offset × price grid | CAL-001 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.565) | E20 |
 
 Summary of the map:
 
-- **Taker side: fairly priced everywhere tested.** Five independent probes
-  measured gross edge ≈ 0 at the achieved entry prices (win rate ≈ mean
-  entry ask to 3-4 decimal places in three of them). The 156 bps taker fee
-  therefore makes every tested taker strategy strictly negative. The fee
-  floor is ~1.5c/share gross at mid-range prices (E10).
+- **Taker side: fairly priced everywhere tested — now as a systematic
+  plane, not just five points (E20, 2026-07-10).** Five independent
+  probes measured gross edge ≈ 0 at the achieved entry prices (win rate
+  ≈ mean entry ask to 3-4 decimal places in three of them). The 156 bps
+  taker fee therefore makes every tested taker strategy strictly
+  negative. The fee floor is ~1.5c/share gross at mid-range prices
+  (E10). CAL-001 then scanned the full fixed-time plane (7 offsets × 9
+  price buckets × both sides, 8,516 discovery markets): zero cells clear
+  the candidate bar in either direction; the extreme-price tails — where
+  power beat the fee floor by 15× — are clean on both sides. Within
+  stated power (mid-range resolves only |d| ≳ 3.8c; 750s/850s cells
+  conditional on a book event at coverage 0.87/0.60), fixed-time
+  top-of-book state carries no taker-exploitable signal.
 - **Maker punch-through side: adversely selected at both regime extremes.**
   Under worst-queue, a fill IS a move through the level; that move is
   informative whether the tape is quiet (E16: −0.79/played market) or loud
@@ -147,7 +156,11 @@ registered only if one of these holds:
   edge ≥ ~1.5c/share at its entry prices (the E10 fee floor) AND is not a
   re-skin (D5) of the six measured classes. Five direct measurements of
   ≈ 0 make this a high bar — the argument must name who pays and why they
-  were invisible to EXP-001..005.
+  were invisible to EXP-001..005. E20 raises it further: CAL-001 scanned
+  the full fixed-time top-of-book plane (126 cells, both sides) and found
+  nothing, so the argument must ALSO explain why the edge is invisible to
+  a fixed-time state scan — i.e. it must live in conditional/path
+  structure within the window, not in price level × time alone.
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration

@@ -274,3 +274,36 @@ forbids importing the old system's research conclusions._
   design mattered: the known E6 crossed-book market DID land in EXP-009's
   best5, and the pre-registered "sign of pnlTotal" criterion resolved it
   mechanically instead of by judgment call.
+
+- **E20 — CAL-001: both taker half-planes are on-diagonal across the full
+  offset × price grid, within stated power (2026-07-10, discovery window
+  2025-11-30 → 2026-02-28, 8,516 markets, verdict null-confirmed by
+  fresh-context Judge).** The pre-registered calibration-plane study
+  (`knowledge/CALIBRATION.md`, frozen method + 14 pre-read amendments)
+  sampled UP and DOWN top-of-book at 7 frozen offsets
+  (30/150/300/450/600/750/850s) over 8,516 markets and evaluated the
+  frozen 126-cell grid ONCE: zero CANDIDATE cells, zero NEG-FLAG cells
+  at the Bonferroni bar z ≥ 3.565. Both validation gates passed
+  (join-direction tail winRates 0.9854/0.9778; E14 positive controls
+  z = −1.02/−0.59). Most extreme cells anywhere: z = −3.26 and −3.02,
+  both NEGATIVE (buying costs money) — the plane's deviations point the
+  fee-drag way, never the edge way. Where power was best (extreme-price
+  tails, candidate bar ≈ 1.3c vs fee ~0.08c), both sides are clean at
+  600/750/850s. Scope limits (binding): 750s/850s cells are conditional
+  on a book event at-or-after the offset (coverage 0.8746/0.5993 of the
+  8,133 sampled markets); mid-range cells resolve only |d| ≳ 3.8c (power
+  statement, not efficiency proof — but E9–E14 already measured mid-range
+  with targeted strategies); the two books are exact mirrors (52,386 of
+  52,388 pairs; amendment #12), so buy-DOWN cells are the sell-UP-at-bid
+  economics, not independent evidence. Transfer: (a) the E9–E14
+  conclusion ("taker fairly priced everywhere tested") is upgraded from
+  five point measurements to a systematic plane scan — a future taker
+  registration must argue why its edge is invisible to BOTH the five
+  strategies AND the 126-cell grid; (b) fixed-time top-of-book state
+  alone carries no taker-exploitable signal on this venue; anything left
+  must live in CONDITIONAL structure (path/flow features within the
+  window) or outside the taker channel — and E16–E19 close the maker
+  channel in-model; (c) the discovery/probe split design cost nothing:
+  the probe reserve (5,460 markets) was never spent because no candidate
+  emerged — reserving confirmation data before looking remains free
+  insurance against multiplicity.
