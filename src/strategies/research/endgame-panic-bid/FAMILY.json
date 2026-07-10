@@ -93,7 +93,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": 382,
+      "baselineId": "382",
       "coverage": {
         "selection": "latest",
         "markets": 1000
