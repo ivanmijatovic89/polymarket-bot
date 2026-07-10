@@ -384,6 +384,11 @@ _Last updated: session 9, unit U40._
   CALIBRATION.md spec (all constants, gates, fee formula, drift filter,
   sub-window rule match; no defects) — done BEFORE any outcome read, so
   the one-shot invocation carries no tool-bug risk we could have caught.
+  Session 13 check (~8.5 min in): 726/8516, ETA ~92 min; latency line 0/0
+  present, UP/DOWN in exact balance (4,497 each), 759 distinct slugs, zero
+  error/failure lines in the log. Confirmed calib.ts was mechanically
+  smoke-executed at registration (CALIBRATION.md §Disclosure) — no
+  untested-tool risk on the one-shot. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
