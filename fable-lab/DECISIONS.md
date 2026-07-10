@@ -848,8 +848,11 @@ Decision:
    (`logs/CAL-001-discovery-v3.log`) is byte-identical before and after
    the change (`diff` clean), and reproduces the published CAL-001 read
    exactly (gates 0.9854/0.9778 n=687/721, E14 controls z=−1.02/−0.59,
-   zero candidates / zero neg-flags) — a months-later reproduction check
-   of the E20 readout in its own right.
+   zero candidates / zero neg-flags) — a same-day (~4h later, same
+   environment and DB state) reproduction of the E20 readout: a
+   consistency check, not a temporally independent one. _(Wording
+   corrected in U47b; the U47 text claimed "months-later", which was
+   false — see the amendment below.)_
 2. `tools/calib-selftest.ts` (committed generator, synthetic log + outcome
    map under gitignored logs/): 22/22 assertions against hand-computed
    expected output — designed CANDIDATE (n=200, z=+5.96, sub-window
@@ -872,3 +875,21 @@ not the tool's branch logic; a false null produces self-consistent output;
 copy proves nothing about the file that produced the published read; the
 in-place guarded flag with a byte-identical real-log diff is strictly
 stronger and matches the calib2/calib3 precedent.
+
+**Amendment (U47b, same day):** the U47 unit was itself audited by a
+fresh-context verifier (report verbatim in
+`knowledge/AUDIT-2026-07-10-CALIB-SELFTEST.md`; sound-with-findings).
+Applied: (MAJOR) the "months-later reproduction" claim was false — the
+CAL-001 discovery verdict landed ~3h50m before U47, same day, same DB
+state; all three claim records now say same-day consistency check.
+(MINOR) the two selftest summary assertions are now anchored whole lines
+(a double-listing bug — a cell pushed to BOTH candidates and negFlags —
+previously passed on a prefix match); added the empty-sub-window
+demotion block (W3 n=0 → `d=na` rendering, the `n > 0` clause) and the
+join-direction gate's n<30 arm → 24/24 assertions. The `net > 0`
+candidate clause and ≥Mar-2026 epoch dropout remain fixture-uncovered by
+explicit, recorded acceptance (needs a ~48k-market fixture /
+irrelevant to the frozen window) — the selftest header states this
+residue, and CALIBRATION.md's note no longer says "every decision
+branch". The --outcomes guard's substring-bypass (finding 4) is accepted
+as consistent with calib.ts's stated honor-system enforcement model.

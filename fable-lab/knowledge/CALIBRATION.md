@@ -547,9 +547,15 @@ all-null), so a bug there would have been observationally identical to
 this null. Closed in U47 per DECISIONS D28: the tool gained the guarded
 `--outcomes` synthetic path (calib2/calib3 precedent), proven inert by a
 byte-identical `diff` of its output on `logs/CAL-001-discovery-v3.log`
-before vs after the change — a re-run that also independently reproduced
-every published gate and extreme value above, months after the original
-read. `tools/calib-selftest.ts` now exercises every decision branch
-against hand-computed expected output (22/22 PASS, including both gate
-ABORT paths and the refusal guard). The null's standing is strengthened,
-not altered; no number above was produced by the modified code path.
+before vs after the change — a re-run that also reproduced every
+published gate and extreme value above (same-day, same DB state: a
+consistency check, not a temporally independent reproduction; wording
+corrected in U47b per `AUDIT-2026-07-10-CALIB-SELFTEST.md`).
+`tools/calib-selftest.ts` exercises the tool's flag and abort branches
+against hand-computed expected output (24/24 PASS after the U47b
+extension: candidate, both demotion paths incl. empty-sub-window d=na,
+both NEG-FLAG kinds, both join-gate arms, E14 abort, refusal guard;
+known fixture-uncovered residue — the `net > 0` clause and ≥Mar-2026
+epoch dropout — is recorded in the selftest header and accepted in the
+D28 amendment). The null's standing is strengthened, not altered; no
+number above was produced by the modified code path.

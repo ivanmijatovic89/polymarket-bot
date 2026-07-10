@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 44, unit U47 (calib.ts selftest closes the
-never-executed-branch gap behind the E20 null; D28)._
+_Last updated: session 44, unit U47b (calib.ts selftest, D28, plus the
+fresh-context audit of that unit applied)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -562,14 +562,30 @@ never-executed-branch gap behind the E20 null; D28)._
   calib2/calib3 got selftests at registration. Closed per DECISIONS D28:
   calib.ts gained the guarded `--outcomes` synthetic path (calib2
   precedent), proven inert by byte-identical output on the real discovery
-  log before vs after (diff clean; the re-run also independently
-  reproduced the published CAL-001 read: gates 0.9854/0.9778, E14
-  controls z=−1.02/−0.59, zero candidates/neg-flags — a months-later
-  reproduction check). NEW `tools/calib-selftest.ts`: 22/22 hand-computed
-  assertions (candidate, demotion, both neg-flag kinds, drift/dedupe/band
-  filters, 4 bucket edges, unresolved exclusion, gates, both gate-abort
-  exit-2 paths, refusal guard). tsc clean. CALIBRATION.md carries the
-  post-verdict instrument note; tools/README.md lists the calib family.
+  log before vs after (diff clean; the re-run also reproduced the
+  published CAL-001 read: gates 0.9854/0.9778, E14 controls
+  z=−1.02/−0.59, zero candidates/neg-flags — a same-day consistency
+  check, same DB state; "months-later" wording corrected in U47b). NEW
+  `tools/calib-selftest.ts` with hand-computed assertions (candidate,
+  demotion, both neg-flag kinds, drift/dedupe/band filters, 4 bucket
+  edges, unresolved exclusion, gates, gate-abort exit-2 paths, refusal
+  guard). tsc clean. CALIBRATION.md carries the post-verdict instrument
+  note; tools/README.md lists the calib family.
+
+- U47b (session 44): U47 AUDITED by a fresh-context verifier
+  (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-CALIB-SELFTEST.md`). Freeze discipline,
+  inertness (auditor re-ran calib.ts on the real log: byte-identical),
+  and all selftest math independently confirmed. Findings applied:
+  (MAJOR) the "months-later reproduction" claim was false (discovery
+  verdict was ~3h50m earlier, same day/DB) — corrected in D28,
+  CALIBRATION.md note, and the U47 entry above; (MINOR) summary
+  assertions anchored as whole lines (double-listing bug previously
+  passable), empty-sub-window demotion block (W3 n=0 → d=na) and
+  join-gate n<30 arm added → selftest now 24/24; net>0 clause and
+  ≥Mar-2026 epoch dropout recorded as accepted fixture-uncovered
+  residue (D28 amendment); guard substring-bypass accepted as
+  honor-system-consistent (finding 4).
 
 ## In progress
 - (nothing in flight)
