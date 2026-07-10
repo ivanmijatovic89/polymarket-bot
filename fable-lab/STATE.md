@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 9, unit U39._
+_Last updated: session 9, unit U40._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -317,6 +317,20 @@ _Last updated: session 9, unit U39._
   [−0.45,−0.848]; audit 4.1 validated empirically), IDEAS #9 → dead,
   EDGE-SPACE §1 table + §2 + §3.1 (RESOLVED) + §4 dedupe rule updated.
   All 9 ideas resolved; no operator escalation warranted.
+
+- U40: E19 chain AUDITED by a fresh-context auditor (report verbatim in
+  `knowledge/AUDIT-2026-07-10-E19-CHAIN.md`; DECISIONS D19). Verdict:
+  sound-with-errata — every number reproduces from the DB and independent
+  recomputation; both kills fire on their own bars; samples clean
+  (boundary market provably absent DB-level in all four touch-lineage
+  runs). Errata acted on: EXP-008 erratum appended (the U37 amendments'
+  "mechanically checkable pre-results" claim fails for EXP-008 by 1m56s —
+  honor-system window; kill unaffected), runs.ts timestamp suffix fixed
+  (db-local was printed as Z/UTC — root cause of the missed check; timing
+  audits must use the run log's UTC stamps), E19 fill-density wording
+  corrected (played 1.97×, raw fills 4.3×). Universe re-checked: unchanged
+  (18,635 eligible, last market 2026-06-14) — venue-drift refresh still
+  gated on ~a month of new data.
 
 ## In progress
 - Nothing running. No detached processes.

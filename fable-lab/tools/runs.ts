@@ -35,7 +35,7 @@ async function main() {
     .limit(Number(argValue('--limit') ?? '20'))
   for (const r of rows) {
     console.log(
-      `${String(r.id).padStart(6)}  ${String(r.batchUid).padEnd(40)} ${String(r.strategy).padEnd(28)} ${String(r.status).padEnd(10)} markets=${r.markets} fail=${r.failures} ${r.createdAt?.toISOString?.() ?? r.createdAt}`,
+      `${String(r.id).padStart(6)}  ${String(r.batchUid).padEnd(40)} ${String(r.strategy).padEnd(28)} ${String(r.status).padEnd(10)} markets=${r.markets} fail=${r.failures} ${r.createdAt?.toISOString?.().replace('Z', ' (db-local clock, NOT UTC)') ?? r.createdAt}`,
     )
   }
   if (rows.length === 0) console.log('(no runs matched)')

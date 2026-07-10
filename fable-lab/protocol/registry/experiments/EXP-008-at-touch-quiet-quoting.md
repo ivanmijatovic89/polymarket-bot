@@ -185,3 +185,21 @@ best5:  btc-updown-15m-1769157000:33.8  btc-updown-15m-1769250600:29.3  btc-updo
 - boundary/tripwire disclosures: (E18/audit 4.2) boundary market btc-updown-15m-1777237200 was NOT drawn (0 occurrences in the run log). (audit 2.3) Phantom-fill tripwire did NOT fire: top-5 |PnL| markets inspected via [trade] lines showed fills at plausible mid-range prices (0.10–0.78), 3–6 trades per market, two-sided quiet-quoting pattern, no fill explainable only by a crossed book state — park-with-diagnosis branch not invoked. D18 hook confirmed in the run log (makerFillMode=touch_or_better; 484 instances forced).
 - required next step: none for this lineage — no extension (the ambiguous branch does not apply: the prediction is decided), no escalation memo (escalation required t ≥ 2 with EV(played) > 0), holdout stays locked per D18. Record the measured bracket for the EXP-006 cell as closed at both ends — worst_queue EV/market = −0.18 (run 336) and touch_or_better EV/market = −0.433 (run 357) — in LESSONS/EDGE-SPACE as the operator sees fit; at-touch quiet quoting on this cell warrants no §3.2/§3.3 spend.
 - reasoning: The pre-registered kill rule fires twice over: the falsifiable prediction (EV(played) > 0 under the optimistic bound) is contradicted at EV(played) = −0.552, and the statistical kill bar (q̂ ≤ 0 with t ≤ −1) is met at q = −0.063, t = −1.41. Per audit amendment 4.1, this kill is stated as decisive evidence against the at-touch version under the most favorable fill assumption the engine can express — not as conclusive over all intermediate fill models — but its practical force is strong: with guaranteed queue priority, full-size fills on every touch, and zero maker fee, quiet-window two-sided quoting on this cell still loses ~0.43/market (~0.55 per played market), meaning adverse selection alone exceeds the passive discount before any realistic queue friction is added; notably the optimistic bound loses MORE than the parent's worst-queue read (−0.433 vs −0.18), consistent with the amendment's point that denser toxic fills can hurt at strategy level. All pre-registered integrity checks pass (fill-mode hook confirmed, boundary market not drawn, phantom-fill tripwire clean, payoff not skewed), so nothing rescues the run into park; the correct outcome under the spec's own rules is kill.
+
+## Erratum (2026-07-10, post-verdict — from the fresh-context E19-chain audit, `knowledge/AUDIT-2026-07-10-E19-CHAIN.md` finding 1)
+
+The audit-amendments header above says the amendments were "appended while
+the probe was still running; no probe statistic had been read", and the D18
+audit called this "mechanically checkable" via commit-vs-log timing. For
+THIS experiment that mechanical check FAILS: run 357 completed and persisted
+at 05:55:40Z (log UTC stamp), while the amendment commit 1aec35a is
+05:57:36Z — 1m56s later. The no-peek property for EXP-008 therefore rests
+on the honor system over that ~2-minute window, not on commit timing (it
+holds mechanically for EXP-009, which was still running). Verified
+mitigations: the decision bars were frozen at registration (30dc724,
+before probe start) and the amendments changed no bar; every amendment
+moved against the researcher; there is no evidence of any results.ts
+invocation in the window; the kill fires on the pre-launch bars alone, so
+the verdict does not depend on the amendments. Root cause of the missed
+check: `tools/runs.ts` printed DB local time with a `Z` suffix (fixed in
+U40 — it now labels the clock as db-local, not UTC).

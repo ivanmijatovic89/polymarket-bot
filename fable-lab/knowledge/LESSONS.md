@@ -241,8 +241,10 @@ forbids importing the old system's research conclusions._
   the real queue model's location inside the bracket is economically moot.
   Interpretation: at-touch flow that does NOT move through the level is
   still adversely selected on this venue at these cells — touch mode
-  roughly doubled fill density (EXP-009: 348 vs 177 played; 1482 vs 342
-  fills) at essentially the same negative EV per played market, so more
+  doubled played-market density and quadrupled raw fills (EXP-009: 348 vs
+  177 played, 1.97×; 1482 vs 342 fills, 4.3×; wording corrected per the
+  E19-chain audit finding 2) at essentially the same negative EV per
+  played market, so more
   of the hypothesized "benign" flow just meant more toxic fills.
   Transfer: (a) the E17c caveat (at-touch economics structurally
   unmeasurable) is now RESOLVED NEGATIVELY in-model — the engine has no

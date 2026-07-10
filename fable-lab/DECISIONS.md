@@ -476,3 +476,34 @@ found by the D18 audit (knowledge/AUDIT-2026-07-10-D18-UNLOCK.md, finding
 3.2) and refusing cross-mode extensions in the wrapper path (finding 3.3).
 Missing `--fill-mode` value is a hard error; `--batchUid=X` form accepted
 (finding 3.4).
+
+## D19 — E19-chain audit accepted (sound-with-errata); timestamp hygiene fixed (2026-07-10, U40)
+
+**Motivating evidence:** the charter's natural-checkpoint rule after U39
+closed the at-touch bracket (the last open in-model channel). A
+fresh-context auditor re-verified the whole EXP-008/009 chain against the
+DB, the run log, and independent recomputation — report preserved verbatim
+in `knowledge/AUDIT-2026-07-10-E19-CHAIN.md`. Verdict: sound-with-errata —
+every number reproduces exactly; both kills fire on their own pre-registered
+bars; samples clean; no overclaims in the knowledge chain.
+
+**Decided.**
+- Erratum appended to EXP-008 (finding 1, MATERIAL): the U37 amendments'
+  "pre-results, mechanically checkable" claim is FALSE for EXP-008 — the
+  amendment commit (05:57:36Z) landed 1m56s AFTER run 357 completed
+  (05:55:40Z, log UTC). No-peek over that window is honor-system; the kill
+  does not depend on it (bars frozen pre-launch; amendments moved against
+  the researcher). It holds mechanically for EXP-009.
+- `tools/runs.ts` fixed (finding 3, the root cause of the missed check): DB
+  `createdAt` was printed with a `Z` suffix while actually being db-local
+  (+02:00) wall-clock; now labeled `(db-local clock, NOT UTC)`. Timing
+  audits must use the run log's UTC stamps, never runs.ts.
+- E19 wording corrected inline (finding 2, MINOR): "doubled played-market
+  density (1.97×) and quadrupled raw fills (4.3×)".
+- Finding 4 (NOTE — hook forces 484/485 of ~500 instances; no-tick markets
+  stay worst_queue, provably zero-trade) recorded here as interpretive
+  context for "N instances forced" lines; no artifact change needed.
+
+**Rejected.** Re-deriving the D18-unlock audit's preamble ("mechanically
+checkable") retroactively — preserved audit reports are verbatim records
+and stay unedited; the erratum lives with the affected experiment and here.
