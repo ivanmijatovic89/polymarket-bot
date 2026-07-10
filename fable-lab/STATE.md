@@ -379,7 +379,11 @@ _Last updated: session 9, unit U40._
   UP and DOWN sampled, 206 distinct slugs processed (~0.7s/market → ETA
   ~1.7h); background monitor armed on pid exit. Session 12 check (~4.5 min
   in): 342/8516, ~0.78s/market, ETA ~106 min; UP/DOWN sample lines in
-  exact balance (2,407 each); monitor re-armed.
+  exact balance (2,407 each); monitor re-armed. Session 12 pre-read code
+  check: tools/calib.ts verified line-by-line against the frozen
+  CALIBRATION.md spec (all constants, gates, fee formula, drift filter,
+  sub-window rule match; no defects) — done BEFORE any outcome read, so
+  the one-shot invocation carries no tool-bug risk we could have caught.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
