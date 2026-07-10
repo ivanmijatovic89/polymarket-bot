@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 9, unit U40._
+_Last updated: session 22, unit U43ac._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -527,6 +527,25 @@ _Last updated: session 9, unit U40._
   [backtest][N/8516] index sequence is contiguous (0 gaps) — no market
   is replayed twice at the file level, so per-market sample caps hold
   by construction. Monitor re-armed on pid exit.
+  Session 22 check (~52 min in): 3,905/8,516 (~0.80s/market, ETA
+  ~62 min); latency 0/0, UP/DOWN exact balance (22,539 each), 0 error
+  lines, epoch range [1764460800, 1768108500] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. Mirror re-measurement
+  on the grown log: 22,753/22,754 paired (market,offset) samples
+  exactly DOWN = 1 − UP; the SAME single deviant (1764846000, off=850)
+  — amendment #12 holds at ~46% of the run. (Method note: the mirror
+  comparison MUST round 1−UP to 4 decimals before comparing — naive
+  float equality reports ~half the pairs as false deviants.) Per-offset
+  UP coverage at 3,708 complete markets: 30s→100, 150s→99.9,
+  300s→99.5, 450s→99.2, 600s→96.7, 750s→78.1, 850s→47.1 — stable vs
+  the 1,662- and 3,157-market measurements, drifting slightly UP at
+  late offsets as later months enter. Monitor re-armed on pid exit.
+  FROZEN coverage-recompute command for the verdict session (amendment
+  #11 wording fractions, run on the FINAL log): awk over
+  `[diag-calib]` lines, denominator = distinct slugs with any UP line
+  (excluding none — run complete), coverage(off) = fraction of those
+  slugs with a UP line at that offset, offsets 30/150/300/450/600/750/
+  850 (exact script in git history of this entry, session 22).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
