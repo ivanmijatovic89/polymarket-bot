@@ -153,13 +153,17 @@ _Last updated: session 4, unit U27._
   (0.01,0.08)→6/30 markets filled.
 
 ## In progress (detached runs via tools/detach.mjs per D10)
-- EXP-006 probe: launched detached 2026-07-10 (pid 36060,
+- EXP-006 probe (RELAUNCH): detached 2026-07-10 (pid 50610,
   log `fable-lab/logs/EXP-006-probe.log`, batchUid EXP-006-probe,
-  `--random --limit 500 --to-ms 1777237200000`, latency pinned 0/0).
-  When complete: `tools/results.ts` verbatim readout → fresh-context Judge
-  (JUDGE.md) → verdict appended. Remember the design-failure clause
-  (<~3% of markets filled ⇒ iterate/park, not evidence) and D13
-  minority-count language if win rate is extreme.
+  `--random --limit 500 --to-ms 1777237200000`, latency pinned 0/0,
+  ~1.4s/market after the O(1) rewrite, ETA ~12 min from launch).
+  NOTE: run 334 under the same batchUid is VOID (killed at 70/500 for the
+  perf rewrite, stats never read; identity of rewrite verified 30/30 vs
+  run 332 — see experiment file). Address the live probe BY RUN ID
+  (first EXP-006-probe run with id > 334). When complete: `tools/results.ts`
+  verbatim readout → fresh-context Judge (JUDGE.md) → verdict appended.
+  Remember the design-failure clause (<~3% of markets filled ⇒ iterate/park,
+  not evidence) and D13 minority-count language if win rate is extreme.
 
 ## Next
 - Judge EXP-006 probe when the detached run finishes (check
