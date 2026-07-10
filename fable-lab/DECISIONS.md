@@ -281,3 +281,42 @@ covers it. Rejected alternative: raising the probe N for such strategies
 (cost scales 4×+ for the same information; the two-stage design already
 buys the data at main — the fix is honest LANGUAGE at probe, not more
 probe compute).
+
+## D14 — Research direction after the taker sweep: maker-side experiments, with the simulator-favored escalation designed in
+
+**Motivating evidence (evolution governor).** LESSONS E9–E14: all six starter
+mechanisms are resolved, and every taker mechanism tested (expiry tails,
+dutch books, post-jump ladders, depth imbalance, first-minute fades) is
+priced fairly — gross edge ≈ 0 at the achieved entry prices, so the 156 bps
+taker fee makes every taker strategy strictly negative. The one cost the
+model does NOT charge is the maker fee (zero, CAPABILITIES §4), and the
+maker side is the only unexplored territory in the mechanism-class table.
+
+**Options.** (a) Generate more taker ideas (new signals, same execution);
+(b) pivot to maker-side experiments, starting with the one open queue entry
+(IDEAS #4, quiet-regime two-sided quoting), accepting `simulator-favored`
+classification and pre-committing to the live-paper escalation; (c) park
+research (declare the venue efficient and stop).
+
+**Decision.** (b). Rationale: (a) fights E10/E11/E12's direct measurement —
+any new taker signal must produce ≥ ~1.5c/share gross at mid-range where
+five independent probes measured ≈ 0; the prior is now very low. (c) is
+premature: the charter's objective is durable +EV after real costs, and the
+maker side has different economics (zero model fee, spread income) and has
+never been measured here. The known cost of (b) is epistemic, not economic:
+the worst-queue fill model (fills only on strict touch-through, full
+remaining size — CAPABILITIES §4) is pessimistic on WHEN we fill (every
+simulated fill is maximally adversely selected) and optimistic on HOW MUCH
+fills (full size regardless of traded volume). Mitigations designed in for
+every maker experiment: tiny order size (minimizes full-size-fill
+optimism); mandatory `simulator-favored` classification with live-paper as
+the named next step (D6 escalation — no backtest-only confirmation); and
+the explicit caveat that a maker-side KILL is model-conditional
+(worst-queue cannot see at-touch fills that happen live) — a kill closes
+the backtestable version of the mechanism, not the live mechanism. That
+asymmetry is acceptable because the alternative is not testing the maker
+side at all.
+
+**Rejected.** (a) — measured prior against it; re-registering taker ideas
+without a genuinely different cost structure is theater. (c) — not
+supported: only one execution style has been measured.

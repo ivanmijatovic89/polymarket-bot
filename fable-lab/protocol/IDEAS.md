@@ -30,7 +30,7 @@ Ordered; top entries get registered first.
 | 1 | expiry certainty discount | `tail-overpricing` | dead (EXP-001) |
 | 2 | UP+DOWN dutch-book scan | `sum-mispricing` | dead (EXP-002) |
 | 3 | post-jump stale ladder | `stale-quote` | dead (EXP-003) |
-| 4 | quiet-regime two-sided quoting | `spread-capture` | open |
+| 4 | quiet-regime two-sided quoting | `spread-capture` | registered (EXP-006) |
 | 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | dead (EXP-005) |
 | 7 | expiry-tail maker capture | `spread-capture` | dead (EXP-001 killed at main; per its own park clause it dies unexamined) |
@@ -77,7 +77,7 @@ Ordered; top entries get registered first.
   no-market-impact assumption matters if size > level size; cap size at
   quoted level size in the strategy itself.
 
-### 4. Quiet-regime two-sided quoting — `spread-capture` — open
+### 4. Quiet-regime two-sided quoting — `spread-capture` — registered (EXP-006)
 - **Who loses:** impatient takers crossing a wide spread in low-volatility
   mid-episode stretches.
 - **Prediction:** in windows where realized mid volatility is low
