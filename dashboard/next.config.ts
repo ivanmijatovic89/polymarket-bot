@@ -37,7 +37,7 @@ const nextConfig: NextConfig = {
   // source (no build step) — Next must transpile it like our own src/.
   // Without this, Turbopack treats it as an opaque dep and can't resolve
   // its internal `.js`-suffixed TS imports.
-  transpilePackages: ['@polymarket-bot/stats'],
+  transpilePackages: ['@polymarket-bot/stats', '@polymarket-bot/llm-usage'],
 }
 
 export default nextConfig
