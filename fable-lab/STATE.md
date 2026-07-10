@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 22, unit U43ac._
+_Last updated: session 23, unit U43ad._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -546,6 +546,19 @@ _Last updated: session 22, unit U43ac._
   (excluding none — run complete), coverage(off) = fraction of those
   slugs with a UP line at that offset, offsets 30/150/300/450/600/750/
   850 (exact script in git history of this entry, session 22).
+  Session 23 check (~55 min in): 4,084/8,516 (~0.81s/market, ETA
+  ~60 min); latency 0/0, UP/DOWN exact balance (23,511 each), 0 error
+  lines, epoch range [1764460800, 1768317300] inside the discovery
+  window, 34 GiB free disk. Mirror re-measurement on the grown log:
+  23,545/23,546 paired (market,offset) samples exactly DOWN = 1 − UP;
+  the SAME single deviant (1764846000, off=850) — amendment #12 holds
+  at ~48% of the run. NEW outcome-free check (asset-pairing
+  completeness): every (slug,offset) key has BOTH assets or neither —
+  23,623 UP keys = 23,623 DOWN keys, 23,623 paired, 0 one-sided; the
+  instrument never samples a single-sided book, so cross-side cells
+  share exactly the same sample base (amendment #12's dependence
+  premise holds at the instrument level, not just in values). Monitor
+  re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
