@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 38, unit U43ax._
+_Last updated: session 39, unit U43ay._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -777,6 +777,19 @@ _Last updated: session 38, unit U43ax._
   34 GiB free disk. Tool provenance re-verified: tree clean on
   calib.ts / calib-coverage.sh / calib-integrity.sh / diag-calib.ts /
   run-backtest.ts. Watch armed on pid 73037 exit (in-session
+  background watch; ETA inside this session's window — the verdict may
+  land THIS session).
+  Session 39 check (~155 min in): 7,586/8,516 (ETA ~18 min at
+  ~1.2s/market); full D23 integrity battery via
+  `tools/calib-integrity.sh` GREEN in one shot — latency 0/0, 0 error
+  lines, gaps=0 dupfiles=0, 92,658 sample lines 0 malformed, UP/DOWN
+  exact balance (46,329 each), epoch max 1771486200 < frozen bound with
+  0 mismatches, fields clean, dedupe clean, mirror 46,329 paired / the
+  SAME single known deviant (1764846000/850) — 0 one-sided keys, ts
+  monotonicity 0 violations. Coverage via frozen calib-coverage.sh at
+  7,215 slugs: 600s→0.9738, 750s→0.8676, 850s→0.5999 — late-offset
+  drift continues; final-log fractions bind for amendment #11 wording.
+  34 GiB free disk. Watch armed on pid 73037 exit (in-session
   background watch; ETA inside this session's window — the verdict may
   land THIS session).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
