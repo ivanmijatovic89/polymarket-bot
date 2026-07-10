@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 41, unit U43bg (E21 propagation audit)._
+_Last updated: session 41, unit U43bh (D25)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -436,6 +436,12 @@ _Last updated: session 41, unit U43bg (E21 propagation audit)._
   scoping added to E21 transfer (a), the EXP-006 link hedged to an
   explicit hypothesis, and the maker-side closure wording scoped to
   E16-E19 with the touch-escape path preserved.
+
+- U43bh (session 41): DECISIONS D25 — propagation audits are now a
+  mandatory verdict-session step (SCIENTIST.md rule added). Evidence: the
+  E20 and E21 propagation audits both found MAJOR same-class defects
+  (silently over-tightened bars, dropped binding caveats) that the
+  pre-propagation Judge cannot catch by construction.
 
 ## In progress
 - (nothing in flight)
