@@ -479,6 +479,16 @@ _Last updated: session 42, unit U44 (CAL-003)._
   the up-then-dn shape (dn-up shows nothing); (6) cross-side
   non-independence qualifier added where §1 quotes both mirrors.
 
+- U44c (session 42): IDEAS #10 registered as PARKED — the E22 reversal
+  mirror with its power arithmetic recorded (reserve yields n ≈ 660,
+  ~23% power at α=0.023 at the winner's-curse-biased +2.38c; 80% power
+  needs ≈ 28,000 markets ≈ 5× the reserve; no instrument fixes it —
+  one independent outcome per market per cell) and a MECHANICAL unlock
+  condition (≥ ~15,000 markets in a pre-registrable fresh window +
+  venue-drift bands quiet + full pre-registration citing the entry).
+  This prevents a successor from burning ~100 min of replay on a
+  coin-flip test or spending the reserve's pristine status.
+
 ## In progress
 - (nothing in flight)
 

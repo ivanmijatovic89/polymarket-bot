@@ -189,3 +189,38 @@ Ordered; top entries get registered first.
   cells, DIFFERENT measurement instrument (fill model), which is the axis
   EDGE-SPACE §4 opened. The parents' kills are worst-queue-conditional
   (D14); this measures the other end of the bracket those kills left open.
+
+### 10. Up-then-dn reversal mirror (buy DOWN after a big up-segment reverses into a big down-segment, late window) — `time-structure` — PARKED (underpowered on all available fresh data; unlock condition below)
+- **Motivating evidence:** E22 / CAL-003 (2026-07-10). The NEG-FLAG UP
+  (450-600-750, up-dn) cleared the Bonferroni bar (z = −3.47, n = 981):
+  the reversal shape leaves the UP ask ≈ 4.4c stale gross — the strongest
+  gross staleness in the conditional scans. Its tradable mirror (buy DOWN,
+  same book samples) showed net +2.38c at z = +2.40 — the largest net in
+  the table but BELOW the corrected bar, therefore NOT citable
+  (hypothesis-generating only, reserve correctly unspent).
+- **Why parked (power arithmetic, recorded so a successor does not burn
+  compute):** cell incidence ≈ 12.1% of sampled markets (coverage
+  included). The full 5,460-market reserve yields n ≈ 660 cell entries,
+  se ≈ 1.9c → a pre-registered one-cell test at α = 0.023 has ~23% power
+  at the observed +2.38c (35% at α = 0.05) — and the observed effect is
+  the MAX of 40 cells, so winner's curse biases it upward; true power is
+  lower. 80% power needs ≈ 3,360 entries ≈ 28,000 markets — ~5× the
+  reserve. No instrument fixes this: one market contributes at most one
+  independent outcome to the cell, so denser sampling adds correlation,
+  not power. A ~100-minute reserve replay would buy a coin-flip-at-best
+  test and burn the reserve's pristine status for future CAL candidates.
+- **Unlock condition (mechanical):** eligible universe grown by enough
+  post-2026-06-14 markets that (new-window markets + reserve) ≥ ~15,000
+  in a pre-registrable fresh window (≥ ~50% power at α = 0.023 if the
+  true net is ≥ +2c), AND the venue-drift bands have not fired (else
+  re-derive from the new regime). Then: full pre-registration (frozen
+  cell, prediction net > 0, kill bar, N), per EDGE-SPACE §4's
+  "reserve-window evidence under full pre-registration" clause.
+- **Who pays (if real):** whoever leaves the DOWN ask stale after the
+  reversal — the same stale-quoter E21/E22 measured on the UP side; the
+  open question is only whether the staleness exceeds spread + fee on
+  the tradable side, which the discovery data cannot resolve at this n.
+- **D5 dedupe:** not a re-skin — CAL-003 measured this exact cell but
+  below decision power on the tradable side; EXP-003/005 tested different
+  taker triggers (post-jump, first-minute). Any registration MUST cite
+  this entry and the unlock condition, not the discovery table alone.
