@@ -91,11 +91,18 @@ console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
   const clampColumn = (col: unknown) => {
     const c = col as { mapToDriverValue: (v: unknown) => unknown }
     const orig = c.mapToDriverValue.bind(c)
+    // Values arrive as STRINGS: backtests.ts toDecimal() is String(value)
+    // (learned from run 320 — the first, number-only clamp never fired).
     c.mapToDriverValue = (v: unknown) => {
-      if (typeof v === 'number' && Number.isFinite(v) && Math.abs(v) > Q_LIMIT) {
-        return orig(Math.sign(v) * Q_LIMIT)
+      if (typeof v === 'number' || typeof v === 'string') {
+        const n = Number(v)
+        if (Number.isNaN(n)) return orig(v)
+        if (!Number.isFinite(n)) return orig(null)
+        if (Math.abs(n) > Q_LIMIT) {
+          const clamped = Math.sign(n) * Q_LIMIT
+          return orig(typeof v === 'string' ? String(clamped) : clamped)
+        }
       }
-      if (typeof v === 'number' && !Number.isFinite(v)) return orig(null)
       return orig(v)
     }
   }
