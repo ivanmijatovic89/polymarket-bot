@@ -181,6 +181,25 @@ in the DB is VOID — instrument defect, not result-based).
     pin, first sample line). A null now closes BOTH taker half-planes
     within stated power.
 
+11. **(session 16, mid-run, outcome-free; measured from log slug/asset/
+    off/ts fields ONLY — no outcome or price read) Late-offset attrition
+    is large and its interpretation is frozen now.** At 1,662 fully
+    replayed markets, per-offset UP-book coverage: 30s→100%, 150s→99.9%,
+    300s→99.7%, 450s→99.5%, 600s→96.6%, 750s→75.4%, **850s→43.0%**.
+    Capture delay when present is prompt (95% < 1s at 850s), so this is
+    not sampling lag: a missing offset means the market emitted NO
+    uncrossed book event between that offset and 900s (quiet/pinned book
+    or stream end). Frozen interpretation: every cell estimates its
+    quantity CONDITIONAL on a book event at-or-after the offset. This
+    conditioning coincides with in-engine tradability (a tick-driven
+    strategy in replay can only act on the same events), so candidate
+    cells remain valid for strategy registration — but any verdict or
+    LESSONS wording citing 750s/850s cells must state the coverage
+    fraction and must NOT claim venue-level pricing efficiency/
+    inefficiency for the excluded quiet markets. The E14 positive-control
+    and join-direction gates are unaffected (they condition the same
+    way). No analysis constant, gate, or threshold changes.
+
 ## Results
 
 _(append-only below this line; nothing here until the discovery run

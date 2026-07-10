@@ -418,8 +418,17 @@ _Last updated: session 9, unit U40._
   duplicate (slug,asset,off) tuples across all 19,082 sample lines;
   distinct offsets exactly the 7 frozen values (30/150/300/450/600/
   750/850); per-market line count capped at 14 = 7 offsets × 2 assets
-  (fewer lines = book absent at early offsets, expected) — calib.ts
-  cell counts cannot be double-counted by the instrument.
+  — calib.ts cell counts cannot be double-counted by the instrument.
+  CORRECTION (same session): the U43o guess "fewer lines = book absent
+  at early offsets" was FALSIFIED by direct measurement — truncation is
+  at LATE offsets (per-offset UP coverage at 1,662 complete markets:
+  600s→96.6%, 750s→75.4%, 850s→43.0%; capture prompt when present).
+  Missing = no uncrossed book event between offset and 900s.
+  CALIBRATION.md amendment #11 (pre-read, outcome-free) freezes the
+  interpretation: cells are conditional on a book event at-or-after the
+  offset, which coincides with in-engine tradability; 750s/850s verdict
+  wording must carry coverage fractions and cannot claim venue-level
+  (in)efficiency for excluded quiet markets. No gate/threshold changed.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
