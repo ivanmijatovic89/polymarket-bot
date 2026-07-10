@@ -460,6 +460,22 @@ _Last updated: session 9, unit U40._
   samples and must NOT be presented as independent confirmations;
   k=126 / z≥3.565 unchanged (conservative under dependence). Monitor
   re-armed on pid exit.
+  U43t (session 18, while run in flight): amendments #11/#12 + E9
+  addendum AUDITED by a fresh-context verifier (verdict:
+  sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-CAL-001-AMENDMENTS.md`). Verifier
+  independently recomputed the mirror check on the grown log:
+  16,352/16,353 exact, SAME single deviant — #12 confirmed; #12's
+  economics (buy-DOWN = sell-UP-at-bid) and Bonferroni-under-dependence
+  reasoning confirmed correct; no frozen constant/gate changed by
+  #11/#12. All 4 findings acted on pre-read: (1) MAJOR — E9 addendum
+  rescoped to dataset-level top-of-book measurement, depth-beyond-
+  top-of-book re-registration angle restored; (2) amendment #13 freezes
+  the mid-run price-field measurement rule (relabeling-invariant
+  aggregates only); (3) post-read erratum obligation recorded in #13
+  (stale independent-spread premise in frozen decision rule +
+  diag-calib.ts header — flag, don't edit mid-run); (4) verdict must
+  treat any overlapping-sample cross-side cell pair as non-independent.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
@@ -468,6 +484,9 @@ _Last updated: session 9, unit U40._
   lineage_cells=126, probe on the reserved window 2026-03-01→boundary−1;
   null → LESSONS entry closing BOTH taker half-planes within the stated
   power — power caveats in CALIBRATION.md §Power are binding wording).
+  The Results erratum MUST flag the stale independent-spread premise
+  per amendment #13; verdict wording obligations from amendments #11,
+  #12, #13 all bind.
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs

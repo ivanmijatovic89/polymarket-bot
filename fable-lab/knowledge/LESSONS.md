@@ -73,14 +73,19 @@ forbids importing the old system's research conclusions._
   books in recordings are crossed-book replay artifacts (E6). Do not
   re-register this class without a genuinely different angle (depth beyond
   top-of-book, changed fee regime).
-  _Structural strengthening (U43r, CAL-001 mid-run, outcome-free):_ across
-  13,422 paired (market, offset) top-of-book samples over 2,238 markets
-  (batchUid CAL-001-discovery-v3), 13,421 satisfy `bid_DOWN = 1 − ask_UP`
-  and `ask_DOWN = 1 − bid_UP` EXACTLY — the two books are one order set
-  viewed from both sides, so pair consistency holds by venue construction,
-  not merely "beyond fees at sampled entries". Any pair-arbitrage or
-  dutch-book re-skin is dead by structure; the only deviations possible
-  are transient recording artifacts (E6) at ~1/13,000 sample frequency.
+  _Structural strengthening (U43r, CAL-001 mid-run, outcome-free; rescoped
+  U43t per AUDIT-2026-07-10-CAL-001-AMENDMENTS finding 1):_ in the
+  delta-typed recorded dataset, at TOP-OF-BOOK, the two books mirror
+  exactly: 16,352/16,353 paired (market, offset) samples over 2,646
+  markets satisfy `bid_DOWN = 1 − ask_UP` and `ask_DOWN = 1 − bid_UP`
+  (batchUid CAL-001-discovery-v3; verifier recompute). Consistent with
+  the venue maintaining one order set viewed from both sides (a prior,
+  not measured from here — the local converter carries both sides
+  independently, deltaTyped.ts:199-204, but the upstream feed is
+  unverified). Top-of-book pair-arbitrage re-skins are dead in this
+  dataset at ~1/16,000 deviation frequency; the original depth-beyond-
+  top-of-book angle remains unmeasured and stays the reserved
+  re-registration path.
 
 - **E10 — Fast jumps are priced fairly at the post-jump ask; mid-range
   taker fees make "trade the jump" strictly negative.** EXP-003 probe (run

@@ -225,6 +225,25 @@ in the DB is VOID — instrument defect, not result-based).
     is conservative under dependence). No analysis constant, gate, or
     threshold changes.
 
+13. **(session 18, post-verifier; process rule for future mid-run checks,
+    motivated by AUDIT-2026-07-10-CAL-001-AMENDMENTS finding 2).** Any
+    mid-run measurement that touches PRICE fields of an in-flight
+    instrument log must print only relabeling-invariant aggregates
+    (quantities unchanged under UP↔DOWN swap, e.g. cross-sums, match
+    counts); per-sample directional price values must not be inspected
+    before the one-shot read. Timing/coverage-only measurements (as in
+    amendment #11) are unrestricted. The #12 measurement itself was
+    audited leak-free (its reported statistics are all
+    relabeling-invariant; exposure bounded at ≤1 market of 8,516).
+    Post-read erratum obligation (finding 3): the falsified
+    independent-spread premise also appears in the frozen decision rule
+    ("the DOWN side has its own book and spread") and in the
+    diag-calib.ts header — both stay untouched mid-run and must be
+    flagged in the Results erratum. Verdict-wording obligation
+    (finding 4): treat ANY overlapping-sample cross-side cell pair as
+    non-independent, not only exact reflections (the UP→DOWN cell map
+    is spread-shifted, not a bijection).
+
 ## Results
 
 _(append-only below this line; nothing here until the discovery run
