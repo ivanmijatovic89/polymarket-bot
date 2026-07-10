@@ -450,9 +450,9 @@ _Last updated: session 9, unit U40._
   line (0 mismatches); (b) book-mirror consistency — 13,421/13,422
   paired (market,offset) samples have DOWN book EXACTLY 1 − UP book
   (bid_DOWN=1−ask_UP, ask_DOWN=1−bid_UP); the single deviant
-  (1764846000, off=850, sums 0.95/0.96) is explained by the instrument
-  sampling each asset at its own first book event at-or-after the
-  offset. This FALSIFIES amendment #10's premise that the DOWN ask
+  (1764846000, off=850, sums 0.95/0.96) prints ts=850.0 for both
+  assets — sub-0.1s book-read gap or a dislocated recorded moment
+  (E6 precedent); immaterial at 1/13,422. This FALSIFIES amendment #10's premise that the DOWN ask
   "has its own spread" — CALIBRATION.md amendment #12 (pre-read,
   outcome-free) freezes the interpretation: the DOWN grid stays
   non-redundant (buy DOWN at 1−bid_UP = sell UP at the bid — a trade

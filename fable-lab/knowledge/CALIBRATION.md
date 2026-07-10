@@ -205,9 +205,12 @@ in the DB is VOID — instrument defect, not result-based).
     interpretation frozen now.** Across 13,422 paired (market, offset)
     samples with both assets present, 13,421 satisfy
     `bid_DOWN = 1 − ask_UP` and `ask_DOWN = 1 − bid_UP` exactly; the
-    single deviant (epoch 1764846000, off=850, cross-sums 0.95/0.96) is
-    explained by the instrument sampling each asset at its own first
-    book event at-or-after the offset. This FALSIFIES amendment #10's
+    single deviant (epoch 1764846000, off=850, cross-sums 0.95/0.96)
+    prints ts=850.0 for BOTH assets, so at log precision it is NOT
+    explained by sampling lag — it is either a sub-0.1s gap between
+    the two per-asset book reads or a genuinely dislocated recorded
+    moment (E6 precedent shows recording artifacts exist); at 1 in
+    13,422 it is immaterial either way. This FALSIFIES amendment #10's
     stated premise ("the DOWN ask has its own spread and is not
     1 − UP bid") — the recorded books are one order set viewed from
     both sides, spreads identical by construction. Frozen consequences:
