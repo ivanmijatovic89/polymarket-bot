@@ -76,7 +76,11 @@
             "param": "certaintyThreshold",
             "values": [0.93, 0.95, 0.97],
             "batchUid": "endgame-panic-bid--000-baseline--p3-certaintyThreshold",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--000-baseline--p3-certaintyThreshold--fdc3d764-583e-44db-8133-e2da42714fc0",
+              "endgame-panic-bid--000-baseline--p3-certaintyThreshold--82f7dd22-4959-439a-8d32-80874894f7fd",
+              "endgame-panic-bid--000-baseline--p3-certaintyThreshold--47691447-4d7a-4fd6-820e-8edb23b23ac5"
+            ],
             "best": null,
             "note": null
           },
@@ -93,7 +97,7 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": "382",
+      "baselineId": "383",
       "coverage": {
         "selection": "latest",
         "markets": 1000
