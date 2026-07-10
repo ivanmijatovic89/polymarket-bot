@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 6, unit U33._
+_Last updated: session 6, unit U34._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -228,8 +228,23 @@ _Last updated: session 6, unit U33._
   eight). §3 now states the gated status; §5 gained the "instrumentation
   unlocks" control point pointing at EDGE-SPACE §3.
 
+- U34 (in progress): DECISIONS D17 — venue-drift monitor, so EDGE-SPACE
+  §4's "venue regime change" reopening rule can actually fire. New:
+  `strategies/_fixtures/diag-venue.ts` (no orders, outcome-free
+  per-market book stats: rate, crossedFrac, median UP spread/top-depth
+  from 10s samples) + `tools/venue-drift.ts` (per-UTC-month aggregation).
+  Both smoke-verified. Reopening bar pre-specified in D17 (month median
+  spread/depth outside [0.5x, 2x] of the 2025-12→2026-04 baseline, or
+  crossed fraction doubling). Venue stats carry no strategy outcomes, so
+  holdout-window months are included by design (argued in D17).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- (none)
+- Venue-drift BASELINE sweep: detached 2026-07-10 pid 70722, log
+  `fable-lab/logs/venue-drift-baseline.log` — 7 monthly chunks x 30
+  random markets (2025-11-30 → 2026-06-14), fable-diag-venue, batchUid
+  EXP-000-debug. When done: `npx tsx fable-lab/tools/venue-drift.ts
+  fable-lab/logs/venue-drift-baseline.log` → record table in
+  `knowledge/VENUE-DRIFT.md` (baseline + refresh procedure + D17 bar).
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar: register a new experiment
