@@ -69,8 +69,8 @@
               "endgame-panic-bid--000-baseline--p2-bidPrice--384caa10-d82c-4018-ac9f-a2b8170d88bc",
               "endgame-panic-bid--000-baseline--p2-bidPrice--46b5715d-1f7d-48dc-bc27-9af389c40930"
             ],
-            "best": null,
-            "note": null
+            "best": 0.955,
+            "note": "Deeper is better on identical fills: 0.955 net +0.01/mkt (pnl +7.20, 8 played, 8W-0L, avgWin 0.90), 0.965 net +0.01 (pnl +5.60, same 8 episodes, avgWin 0.70; exact reproduction of run 382 = determinism check), 0.975 net 0.00 (pnl +3.00, only 6 played - maker-only guard binds more when ask sits <=0.975 at t=897, and per-fill margin halves to 0.50). Under worst_queue a fill means the ask crashed through the level, so 0.955 collects strictly more margin per fill with no extra losses in this window. All cells 100% win, zero fees, zero taker. Advisory: still thin (6-8 fills/1000). Runs 383/384/385."
           },
           {
             "param": "certaintyThreshold",
