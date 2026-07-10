@@ -6,7 +6,7 @@ import {
   closeRedisConnection,
   getRedisConnection,
 } from '../backtest/queue.js'
-import { SELF_UPDATE_EXIT_CODE } from '../backtest/commitGate.js'
+import { SELF_UPDATE_EXIT_CODE, haltWorkerForSelfUpdate } from '../backtest/commitGate.js'
 import { makeMarketProcessor } from '../backtest/marketProcessor.js'
 import {
   getCurrentGitBranch,
@@ -50,9 +50,17 @@ function isDelayedJobSignal(err: unknown): boolean {
   return err instanceof DelayedError || (err instanceof Error && err.name === 'DelayedError')
 }
 
-function requestSupervisorSelfUpdate(processKey: string): void {
+let selfUpdateArmed = false
+function requestSupervisorSelfUpdate(w: Worker, processKey: string): void {
+  if (selfUpdateArmed) return
+  selfUpdateArmed = true
+  // CRITICAL: stop fetching NEW jobs before we exit. Otherwise the worker grabs
+  // the next runnable job and abandons it (orphaned "active") when we exit
+  // below. See haltWorkerForSelfUpdate() for the full rationale.
+  haltWorkerForSelfUpdate(w)
   console.warn(
-    `[worker-child=${processKey}] stale-code job deferred; exiting ${SELF_UPDATE_EXIT_CODE} for supervisor update`,
+    `[worker-child=${processKey}] stale-code job deferred; worker paused, exiting ` +
+      `${SELF_UPDATE_EXIT_CODE} for supervisor update`,
   )
   setTimeout(() => process.exit(SELF_UPDATE_EXIT_CODE), 250).unref()
 }
@@ -102,7 +110,7 @@ async function main(): Promise<void> {
         await recordWorkerStats(processKey, result, result.slug)
         return result
       } catch (err) {
-        if (isDelayedJobSignal(err)) requestSupervisorSelfUpdate(processKey)
+        if (isDelayedJobSignal(err)) requestSupervisorSelfUpdate(w, processKey)
         throw err
       }
     },
