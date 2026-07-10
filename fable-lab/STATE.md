@@ -483,6 +483,12 @@ _Last updated: session 9, unit U40._
   re-measurement on the grown log: 18,634/18,635 paired (market,offset)
   samples exactly DOWN = 1 − UP; the SAME single deviant
   (1764846000, off=850) — amendment #12 holds at ~40% of the run.
+  NEW pre-read join-coverage confirmations (outcome-free): (a)
+  eligibility requires a final result_id by construction
+  (src/db/telonexMarkets.ts header), so all 8,516 discovery markets
+  join; (b) DB DISTINCT check: result_id ∈ {'0','1'} exactly — the
+  calib.ts branches (resultId '0'→UP won, '1'→DOWN won) cover the
+  full value set; no third state can silently drop markets.
   Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
