@@ -48,9 +48,25 @@
   (punch-through) version of the mechanism only; at-touch liquidity
   provision live remains unmeasured by construction.
 - **Strategy:** `fable-lab/strategies/spread-capture/EXP-006.ts`, id `fable-exp-006`
-- **Primary parameter cell:** `--param offset=0.02 --param quietWindowSec=60 --param quietRangeMax=0.02 --param requoteDelta=0.01 --param minElapsedSec=60 --param stopBeforeEndSec=120 --param shares=10 --param maxInventory=50 --param minPrice=0.05 --param maxPrice=0.95`
-- **Robustness neighborhood:** offset ∈ {0.01, 0.02, 0.03} × quietRangeMax ∈
-  {0.01, 0.02, 0.04}; other params fixed; judged on sign-smoothness only.
+- **Primary parameter cell:** `--param offset=0.01 --param quietWindowSec=60 --param quietRangeMax=0.08 --param requoteDelta=0.01 --param minElapsedSec=60 --param stopBeforeEndSec=120 --param shares=10 --param maxInventory=50 --param minPrice=0.05 --param maxPrice=0.95`
+- **Robustness neighborhood:** offset ∈ {0.01, 0.02} × quietRangeMax ∈
+  {0.04, 0.08, 0.12}, minus the primary; other params fixed; judged on
+  sign-smoothness only.
+- **Registration amendment (2026-07-10, PRE-FREEZE — no non-smoke run
+  exists):** the originally registered cell (offset=0.02,
+  quietRangeMax=0.02) was structurally fill-less: the diag-quiet fixture
+  (EXP-000-debug) measured quiet-at-0.02 in only 0–3% of in-window ticks,
+  clustered at pinned near-decided mids (mean quiet-tick mid 0.97 / 0.02)
+  where the price bounds block quoting — and because the strategy requotes
+  on ≥1c drift, a worst-queue fill needs a SINGLE-TICK gap through the bid,
+  which at ~50 events/sec never reaches 2c in a ≤2c-range regime. Fill
+  feasibility was then measured with the real engine on 30 random
+  exploration markets per cell (batchUid EXP-000-debug), reading ONLY
+  maker-fill counts, never PnL: (offset 0.02, qr 0.02) → 0 markets filled
+  of 10 (smoke); (0.02, 0.04) → 0/30; (0.01, 0.04) → 1/30; (0.01, 0.08) →
+  6/30 markets, 7 maker fills. The primary cell is amended to the feasible
+  (0.01, 0.08). Because no PnL was read, this is fill-rate design, not
+  outcome mining; lineage_cells stays 1.
 - **Simulator-bias exposure (CAPABILITIES §4):** Maker-fill dominated BY
   CONSTRUCTION, so per DECISIONS D6/D14 this experiment is
   **`simulator-favored` on the size axis from the start**: worst-queue fills
@@ -91,6 +107,13 @@
 ## Runs (append-only)
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->
+
+- 2026-07-10 — smoke (EXP-006-smoke, run 328, 10 markets): green plumbing
+  (509k events replayed, 0 failures), 0 fills — led to the pre-freeze
+  amendment above; never evidence.
+- 2026-07-10 — fill-feasibility diagnostics (EXP-000-debug, 30 random
+  exploration markets per cell, fill counts only, PnL never read): see the
+  amendment block in the spec.
 
 ## Verdicts (append-only)
 
