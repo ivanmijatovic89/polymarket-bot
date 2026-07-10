@@ -205,3 +205,42 @@ test(
     )
   },
 )
+
+/**
+ * Regression guard for the review finding. In production the supervisor pauses a
+ * worker and then closes it moments later (requestSelfUpdate -> drainAndExit ->
+ * w.close()), which rejects the pending pause() with "Connection is closed".
+ * These worker processes install NO unhandledRejection handler, so a bare
+ * `void w.pause()` would crash the process with exit code 1 instead of the
+ * self-update code 75, defeating the self-update.
+ *
+ * We test the helper's CONTRACT deterministically (no BullMQ/Redis timing): a
+ * pause() that rejects must not escape as an unhandled rejection. With a bare
+ * `void w.pause()` this test captures the leak; with `.catch()` it stays clean.
+ */
+test('haltWorkerForSelfUpdate swallows a rejecting pause() (no unhandled rejection)', async () => {
+  const captured: unknown[] = []
+  const onUnhandled = (reason: unknown): void => {
+    captured.push(reason)
+  }
+  process.on('unhandledRejection', onUnhandled)
+  try {
+    const rejectingWorker: Pick<Worker, 'pause'> = {
+      pause: async () => {
+        throw new Error('Connection is closed')
+      },
+    }
+    haltWorkerForSelfUpdate(rejectingWorker)
+    await sleep(50) // let a would-be unhandled rejection surface on a later tick
+  } finally {
+    process.off('unhandledRejection', onUnhandled)
+  }
+
+  assert.deepEqual(
+    captured,
+    [],
+    `haltWorkerForSelfUpdate leaked an unhandled rejection: ${captured
+      .map((r) => (r instanceof Error ? r.message : String(r)))
+      .join('; ')}`,
+  )
+})

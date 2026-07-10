@@ -64,7 +64,15 @@ export function canRunJobCommit(jobCommitSha: string): boolean {
  * whereas `close()` awaits the current job and would deadlock. It is
  * fire-and-forget on purpose — awaiting it from the active job's own catch block
  * can wait on that very job.
+ *
+ * The rejection MUST be swallowed: pause() awaits `whenCurrentJobsFinished()` on
+ * the blocking connection, and callers commonly close/exit the worker moments
+ * later (e.g. drainAndExit -> w.close()), which rejects that pending promise
+ * with "Connection is closed". These processes install no unhandledRejection
+ * handler, so a bare `void w.pause()` would let that rejection crash the process
+ * with exit code 1 instead of the self-update code 75 — defeating the very
+ * self-update this helper exists to enable.
  */
 export function haltWorkerForSelfUpdate(w: Pick<Worker, 'pause'>): void {
-  void w.pause()
+  void w.pause().catch(() => {})
 }
