@@ -686,3 +686,34 @@ Rejected alternative: leaving §1 as prose in the checklist — rejected on the
 direct U43ae precedent (prose drifted from what ran) and because the verdict
 session's error budget is better spent on the one-shot read and wording
 obligations than on rewriting awk.
+
+## D24 — CAL-002: conditional-plane study on the existing discovery log (2026-07-10, U43bc)
+
+Motivating evidence (governor-compliant): E20 closed the fixed-time taker
+plane and explicitly named conditional/path structure as the remaining
+in-scope taker space; CAL-001's flat marginals cannot exclude offsetting
+conditional deviations (law of total expectation); and the raw material
+for the simplest conditional feature (6 inter-offset moves per market)
+already sits in the integrity-verified discovery log — discovery costs
+ZERO replay-hours.
+
+Decision: register CAL-002 (`knowledge/CALIBRATION-2.md`, frozen before
+any conditional read): k = 60 cells (6 adjacent offset pairs × 5
+tick-size-derived move buckets × both entry sides), CAL-001's exact
+statistic/fee/z conventions, bar z ≥ 3.37 (0.023/60), minority ≥ 30,
+sub-window consistency. Because the same log's marginals are published
+(the designer has seen them; no conditional statistic was computed before
+the freeze), discovery candidates are HYPOTHESIS-GENERATING ONLY and must
+replicate on the untouched 5,460-market probe reserve (new instrument
+run + one-shot read at the same bar) before any EDGE-SPACE §4 citation —
+that reserve confirmation is the study's core anti-mining protection, on
+top of the a-priori grid and Bonferroni.
+
+Rejected alternatives: (a) a fresh discovery replay with a richer path
+instrument (continuous features, flow counts) — costs ~3h before knowing
+whether the cheap scan finds anything; the existing log's 6-move feature
+is the right first probe of the space; (b) skipping straight to an EXP
+registration on a hand-picked conditional story — that is exactly the
+E10/E12 pattern (two point kills); a systematic scan first is why CAL-001
+existed; (c) treating discovery hits as citable without reserve
+confirmation — unsound after the marginals were published.
