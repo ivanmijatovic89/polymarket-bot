@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 8, unit U38._
+_Last updated: session 9, unit U39._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -303,27 +303,31 @@ _Last updated: session 8, unit U38._
   regenerated (EXP-008 → kill). Bracket for the EXP-006 cell closed at both
   ends: [worst_queue −0.18, touch −0.433], both negative.
 
-## In progress (detached runs via tools/detach.mjs per D10)
-- EXP-009 probe (touch mode, second in the U36 chain): still running under
-  pid 21693, log `fable-lab/logs/touch-probes.log` (D18 hook line confirmed
-  at its start, line 27244). When done: same judging procedure as U38
-  (results.ts --batch EXP-009-probe-touch, boundary + tripwire checks,
-  fresh-context Judge, append verbatim, INDEX regen). After both verdicts:
-  LESSONS entry (E19) for the at-touch bracket, IDEAS #9 resolution,
-  EDGE-SPACE §3 update recording the measured brackets.
+- U39 (session 9): EXP-009 probe JUDGED — **kill** (run 358, N=500, 348
+  played, 1482 maker fills, EV/market −0.848, CI95=[−1.628,−0.068],
+  t=−2.13, EV(played) −1.218, win rate 0.408 → both kill branches fire).
+  Pre-verdict checks pass: D18 hook lines (log line 27244 + end summary
+  485 instances), boundary market NOT drawn (E18), phantom-fill tripwire
+  clean — the known E6 crossed-book market (1764461700) WAS in best5 at
+  +29.1, but it is a winner, so phantom fills cannot account for the sign
+  of pnlTotal (park branch cannot bind). Fresh-context Judge verdict
+  appended verbatim; INDEX regenerated (all 9 experiments → kill).
+  Knowledge chain closed: LESSONS E19 (at-touch bracket closed; optimistic
+  bound loses MORE in both regimes — quiet [−0.18,−0.433], loud
+  [−0.45,−0.848]; audit 4.1 validated empirically), IDEAS #9 → dead,
+  EDGE-SPACE §1 table + §2 + §3.1 (RESOLVED) + §4 dedupe rule updated.
+  All 9 ideas resolved; no operator escalation warranted.
+
+## In progress
+- Nothing running. No detached processes.
 
 ## Next
-- U36: register the touch-bracket experiment — re-run the FROZEN EXP-006
-  and EXP-007 primary cells under --fill-mode touch_or_better (new
-  experiment file(s); cells inherited frozen from the killed specs, so no
-  new tuning freedom; pre-register prediction + kill/escalate bar per
-  D18; batchUid EXP-NNN-probe-touch). Probes N=500 exploration-only,
-  detached per D10. Outcome is binary by construction: at-touch maker
-  economics dead in-model conclusively, or a measured bracket handed to
-  the operator (§3.2/§3.3 escalation).
-- After U36 resolves: research returns to the EDGE-SPACE §4 bar.
-  Legitimate non-registration work: verification depth, keeping
-  EDGE-SPACE §3 current, friction-motivated protocol maintenance.
+- Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs
+  a ≥1.5c gross argument that escapes E9-E14; maker in-model needs a cell/
+  gate that escapes E16/E17 (worst-queue) AND E19 (touch); or a cited
+  VENUE-DRIFT regime change. Legitimate non-registration work:
+  verification depth, keeping EDGE-SPACE §3 current, friction-motivated
+  protocol maintenance.
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
   do not re-run it before then.

@@ -226,3 +226,36 @@ forbids importing the old system's research conclusions._
   must check whether the boundary slug was drawn and disclose it; (c) when
   a window boundary is defined by a strict inequality, the tool flag that
   implements it must be checked for inclusivity — do not assume.
+
+- **E19 — the at-touch maker bracket is closed: the optimistic fill bound
+  loses MORE than worst-queue, in both regimes.** EXP-008 (run 357) and
+  EXP-009 (run 358) re-ran the FROZEN EXP-006/EXP-007 primary cells under
+  the engine's `touch_or_better` fill model (D18 instrument: always first
+  in queue, full remaining size the instant the touch reaches the level,
+  zero maker fee) at N=500 each. Quiet two-sided cell: EV/market −0.433
+  (t=−1.41, EV(played) −0.552) vs parent worst-queue −0.18. Loud
+  countertrend cell: EV/market −0.848 (t=−2.13, CI95 excludes 0,
+  EV(played) −1.218) vs parent worst-queue −0.45. Both predictions
+  CONTRADICTED, both pre-registered kill bars met. The measured brackets:
+  quiet [−0.18, −0.433], loud [−0.45, −0.848] — negative at BOTH ends, so
+  the real queue model's location inside the bracket is economically moot.
+  Interpretation: at-touch flow that does NOT move through the level is
+  still adversely selected on this venue at these cells — touch mode
+  roughly doubled fill density (EXP-009: 348 vs 177 played; 1482 vs 342
+  fills) at essentially the same negative EV per played market, so more
+  of the hypothesized "benign" flow just meant more toxic fills.
+  Transfer: (a) the E17c caveat (at-touch economics structurally
+  unmeasurable) is now RESOLVED NEGATIVELY in-model — the engine has no
+  remaining fill model to try; maker registrations in this scope now
+  require a cited venue regime change (VENUE-DRIFT bands) or an
+  instrument the engine does not have (trade prints, live paper at
+  touch), per EDGE-SPACE §4; (b) audit 4.1 was validated empirically:
+  an "optimistic" fill bound is NOT a strategy-level upper bound —
+  inventory caps plus full-size toxic fills made touch strictly worse
+  than worst-queue in both cells; treat fill-model bounds as instrument
+  ends, never as dominance proofs; (c) the pre-verdict integrity ritual
+  (hook line, E18 boundary check, phantom-fill tripwire on top-5 |PnL|
+  markets) cost minutes and caught nothing this time — but the tripwire
+  design mattered: the known E6 crossed-book market DID land in EXP-009's
+  best5, and the pre-registered "sign of pnlTotal" criterion resolved it
+  mechanically instead of by judgment call.

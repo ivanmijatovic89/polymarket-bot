@@ -162,7 +162,7 @@ Ordered; top entries get registered first.
   only) BEFORE freezing the cell. `simulator-favored` on the size axis by
   construction (D14 escalation applies).
 
-### 9. At-touch maker bracket (touch_or_better re-run of the frozen EXP-006/007 cells) — `spread-capture` — in progress (EXP-008, EXP-009)
+### 9. At-touch maker bracket (touch_or_better re-run of the frozen EXP-006/007 cells) — `spread-capture` — dead (EXP-008 + EXP-009 probe kills, 2026-07-10: both cells lose MORE under the optimistic bound than under worst_queue — quiet [−0.18, −0.433], loud [−0.45, −0.848]; both brackets closed negative at both ends, no operator escalation warranted; per audit 4.1 the kill is decisive under the engine's most favorable fill assumption, not formally conclusive over intermediate models — economically moot since both ends are negative)
 - **Motivating evidence:** EDGE-SPACE §2 names the one channel the E9-E17
   map cannot see: at-touch liquidity provision (fills by flow that does
   NOT move the level). U35/D18 unlocked the engine's own `touch_or_better`

@@ -24,6 +24,8 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | taker | first-minute overreaction | EXP-005 | kill (prediction contradicted) | E12 |
 | maker | quiet-regime two-sided quoting | EXP-006 | kill (model-conditional, D14) | E16 |
 | maker | loud-regime countertrend bids | EXP-007 | kill (model-conditional, D14) | E17 |
+| maker (touch bound) | at-touch quiet quoting (frozen EXP-006 cell) | EXP-008 | kill (decisive under the engine's most favorable fill assumption) | E19 |
+| maker (touch bound) | at-touch loud countertrend (frozen EXP-007 cell) | EXP-009 | kill (decisive under the engine's most favorable fill assumption) | E19 |
 | — | expiry-tail maker capture | IDEAS #7 | dead unexamined (park clause, EXP-001 kill) | — |
 
 Summary of the map:
@@ -39,6 +41,14 @@ Summary of the map:
   (E17: −1.27/played market), at zero maker fee, with fill size simulated
   in the strategy's favor. No regime gate between those extremes has any
   evidence of flipping the sign.
+- **Maker at-touch bound: worse, not better (E19, 2026-07-10).** The
+  U35/D18 `touch_or_better` instrument re-ran both frozen cells at the
+  optimistic end of the fill bracket. Measured brackets, EV/market:
+  quiet [worst_queue −0.18, touch −0.433] (runs 336/357), loud
+  [worst_queue −0.45, touch −0.848] (runs 342/358). Negative at BOTH
+  ends in both regimes — touch mode roughly doubles fill density at the
+  same negative EV per played market. The real queue model's location
+  inside the brackets is economically moot.
 - **Settlement: arithmetic, not an edge.** Merge/split/redeem are modeled
   costless and priceless; no channel there.
 
@@ -56,11 +66,18 @@ The two model conditionals doing the work:
    schedule. Taker kills are robust to this only because measured gross
    edges were ≈ 0, not merely below fee.
 
-NOT proved: that at-touch liquidity provision (join the queue at the touch,
-get filled by flow that does NOT move the level) loses. That channel —
-where real maker PnL lives on most venues — is invisible to this
-instrument. Nothing recorded in the dataset (book + price_change only; no
-trade prints; no queue data) can decide it.
+The at-touch question, previously listed here as NOT proved, is now
+measured at both ends of the fill-model bracket (E19, EXP-008/009): even
+under the engine's MOST FAVORABLE assumption (always first in queue,
+full-size fills at touch, zero maker fee), both frozen cells lose more
+than under worst-queue. Formally this remains "decisive under the most
+favorable fill assumption the engine can express" (audit 4.1 — touch is
+not a strict strategy-level upper bound because of inventory-cap path
+dependence), but with both bracket ends negative in both regimes, no
+intermediate queue model has a defined prize. What remains genuinely
+unmeasured in-model: fill triggers on cells OUTSIDE the two tested
+(different offsets/gates), and anything requiring trade prints or queue
+data the dataset lacks.
 
 ## 3. Instrumentation that would extend the measurable space
 
@@ -84,6 +101,12 @@ and 4). Ordered by cost:
    live measurement (§3.3) has a defined prize. BINDING (D18): touch
    results support only kill or operator-escalation decisions — never an
    advance toward holdout, never a live-EV claim.
+   **RESOLVED (E19, 2026-07-10): EXP-008/009 measured both frozen cells
+   under this instrument; both killed with the prediction contradicted
+   (quiet −0.433, loud −0.848 EV/market — worse than their worst-queue
+   parents). The ≤ 0 branch fired: no live measurement of THESE cells is
+   worth funding. §3.2/§3.3 remain relevant only for mechanisms outside
+   the tested cells or after a cited venue regime change (§4).**
 2. **Trade-print recording (medium; recorder/dataset change).** A
    queue-realistic fill model (fill when printed volume at your price
    exceeds the queue ahead of you) is the standard midpoint between the
@@ -118,7 +141,11 @@ registered only if one of these holds:
   and the D18 interpretive rules apply (outcomes are kill or
   operator-escalation only; the holdout stays locked regardless).
   Worst-queue punch-through variants, whatever their gate, re-test
-  E16/E17 and stay auto-dead at dedupe.
+  E16/E17 and stay auto-dead at dedupe. Touch-mode re-runs of the two
+  measured cells (EXP-006/007 primaries) re-test E19 and are likewise
+  auto-dead at dedupe; a NEW touch registration must argue why its cell
+  or gate escapes the E19 mechanism (denser at-touch fills were MORE
+  toxic, not less, in both regimes).
 - **New data regimes:** the universe accrues ~96 markets/day. A
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence

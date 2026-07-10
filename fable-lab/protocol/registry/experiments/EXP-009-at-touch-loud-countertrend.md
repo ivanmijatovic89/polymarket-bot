@@ -124,8 +124,57 @@ move). Identical in substance to EXP-008's amendment block:
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->
 
+- 2026-07-10 — probe (touch), `tools/results.ts --batch EXP-009-probe-touch`, verbatim:
+
+```
+=== results: run 358  batch EXP-009-probe-touch ===
+strategy fable-exp-007  params {"offset":0.01,"shares":10,"jumpSize":0.1,"maxPrice":0.95,"minPrice":0.05,"maxInventory":50,"requoteDelta":0.01,"jumpWindowSec":10,"minElapsedSec":60,"stopBeforeEndSec":120}
+status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+N=500  played=348  skipped=152  failures=0
+pnlTotal=-424  EV/market=-0.848  CI95=[-1.6277, -0.0683]
+std=8.895  q=-0.0953  t=-2.1317
+winRate(played)=0.408 (wins/losses=142/205)
+fees=0  fee/grossWins=0  maker/taker=1482/0 (makerShare=1)
+days=144  positiveDayFrac=0.3819  best=2026-01-09:49.9  worst=2026-02-28:-45.5
+worst5: btc-updown-15m-1765223100:-34.7  btc-updown-15m-1769438700:-31.7  btc-updown-15m-1766788200:-26.5  btc-updown-15m-1771194600:-25.8  btc-updown-15m-1774904400:-25.4
+best5:  btc-updown-15m-1772860500:34.4  btc-updown-15m-1767966300:33.5  btc-updown-15m-1764461700:29.1  btc-updown-15m-1764993600:27.2  btc-updown-15m-1775598300:26.4
+```
+
+- Pre-verdict checks (pre-registered in the audit amendments, performed
+  before judging, 2026-07-10):
+  - D18 hook line confirmed in the run log (`logs/touch-probes.log` line
+    27244: `makerFillMode=touch_or_better`; end-of-run summary:
+    `485 BacktestExecution instance(s) forced to touch_or_better`).
+  - (audit 4.2 / E18) Boundary market btc-updown-15m-1777237200: NOT drawn
+    (0 occurrences in the run log).
+  - (audit 2.3) Phantom-fill tripwire: top-5 |PnL| markets inspected via
+    the run log's [trade] lines. All fills one-sided falling-side BUYs at
+    plausible cascade prices (0.25–0.71), 5 trades per market, MAKER
+    liquidity, feePaid=0 — the designed pattern, not explainable only by
+    a crossed book. The known E6 self-crossed market
+    btc-updown-15m-1764461700 IS in best5 (+29.1); its fills (DOWN
+    0.37–0.51) have a normal cascade explanation, and it is a WINNER —
+    even if entirely phantom, excluding it moves pnlTotal from −424 to
+    −453, so crossed-tick phantom fills cannot account for the sign of
+    pnlTotal; park-with-diagnosis branch cannot bind. Tripwire does NOT
+    fire; diag fixture not required.
+  - (audit 4.3) EV(played) = pnlTotal/played = −424/348 = −1.218.
+
 ## Verdicts (append-only)
 
 <!-- one block per Judge verdict, pasted verbatim. Fields: stage, decision,
      t/q/N/EV read, battery summary, simulator-bias classification,
      required next step, one-paragraph reasoning. -->
+
+- 2026-07-10 — probe verdict (fresh-context Judge, verbatim):
+
+- stage: probe (N=500, run 358, batchUid EXP-009-probe-touch, --fill-mode=touch_or_better, latency 0/0)
+- decision: kill
+- read: EV/market = −0.848 (CI95 [−1.6277, −0.0683]), q̂ = −0.0953, t = −2.1317, played = 348/500, winRate(played) = 0.408, maker share = 1, fees = 0
+- prediction check: CONTRADICTED — EV(played) = pnlTotal/played = −424/348 = −1.218 ≤ 0 at N=500; the falsifiable prediction required gross EV/market > 0 on played markets under touch_or_better; no design-failure clause available by pre-registration
+- battery: kill branch bindingly satisfied twice over — q̂ ≤ 0 with t ≤ −1 (t = −2.13) AND prediction contradicted; escalate branch (t ≥ 2 with EV(played) > 0) not remotely met; ambiguous branch not entered; D13 skewed-payoff rule not triggered (win rate 0.408 lies inside [0.1, 0.9]); days = 144, positiveDayFrac = 0.382 corroborates a broadly negative cell rather than a few outlier days
+- simulator-bias classification: simulator-favored BY DESIGN (D18 optimistic bound: always-first-in-queue, full-size at-touch fills, zero maker fee); a loss under this instrument is the strong-direction result — per amendment 4.1, this is decisive evidence against the at-touch version under the most favorable fill assumption the engine can express, NOT conclusive over all intermediate fill models (inventory-cap path dependence, full-size toxic fills)
+- lineage-adjusted bar: lineage_cells = 1 (cell inherited frozen from EXP-007's fill-feasibility-chosen primary, never selected on any touch-mode or PnL outcome), so the base probe bar applies unadjusted; the result clears the kill threshold with margin regardless
+- boundary/tripwire disclosures: (4.2/E18) boundary market btc-updown-15m-1777237200 NOT drawn — zero contribution to the sample; (2.3) phantom-fill tripwire clean — top-5 |PnL| markets show one-sided falling-side maker BUYs at plausible cascade prices, and the known E6 self-crossed market (1764461700) is a +29.1 winner whose exclusion moves pnlTotal from −424 to −453, so crossed-tick phantom fills cannot account for the sign of pnlTotal and the park-with-diagnosis branch cannot bind; D18 hook confirmed active at start and end of run (485 instances forced)
+- required next step: record the closed bracket for IDEAS #9 on the loud cell — [worst_queue EV/market = −0.45 (EXP-007 run 342), touch_or_better EV/market = −0.848 (run 358)] — both ends negative, so the true fill model's location within the bracket is moot; mark IDEAS #9 dead on both registered cells (with sibling EXP-008 touch kill at −0.433 on the quiet cell); no extension, no escalation memo, no live claim
+- reasoning: The experiment asked whether the parent's worst-queue kill was an artifact of a pessimistic fill model, and the answer is unambiguous: under the most optimistic fill assumption the engine can express — always first in queue, full remaining size at touch, zero maker fee — the at-touch bracket end is not merely non-positive but worse than the parent's pessimistic end (−0.848 vs −0.45 per market; EV(played) −1.218 vs ≈−1.27, nearly identical per played market with roughly double the fill density, 348 vs 177 played). This is the signature of a toxic-flow mechanism rather than a queue-position problem: touch mode fills more of exactly the cascades the hypothesis wanted, and those fills lose at the same per-market rate, so overshoot is not systematically reverting by settlement at fair − 0.01 on the falling side. Both pre-registered kill conditions fire independently (t = −2.13 ≤ −1 with q̂ < 0; EV(played) ≤ 0), the win rate keeps D13 out of play, the boundary market was not drawn, the phantom-fill tripwire was inspected and demonstrably cannot flip the sign, and the corrected 4.1 wording is honored — the kill is decisive against the at-touch version under the engine's most favorable assumption, while intermediate fill models remain formally unexplored but economically irrelevant given both bracket ends are negative and the sibling quiet-cell touch probe (EXP-008, −0.433) killed the same way. KILL, consistent with D18's outcome set.
