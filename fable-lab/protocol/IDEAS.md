@@ -161,3 +161,31 @@ Ordered; top entries get registered first.
   statistics (fill-feasibility diagnostic under EXP-000-debug, fill counts
   only) BEFORE freezing the cell. `simulator-favored` on the size axis by
   construction (D14 escalation applies).
+
+### 9. At-touch maker bracket (touch_or_better re-run of the frozen EXP-006/007 cells) — `spread-capture` — in progress (EXP-008, EXP-009)
+- **Motivating evidence:** EDGE-SPACE §2 names the one channel the E9-E17
+  map cannot see: at-touch liquidity provision (fills by flow that does
+  NOT move the level). U35/D18 unlocked the engine's own `touch_or_better`
+  fill model in-lab (`--fill-mode`), giving the OPTIMISTIC bound on that
+  channel. EDGE-SPACE §4 (as amended in U35) explicitly opens this
+  registration class.
+- **Who loses:** same counterparties as EXP-006/EXP-007 (impatient takers
+  crossing in quiet windows; momentum takers/stop-outs in loud moves) —
+  but measured under the assumption most favorable to the maker: always
+  first in queue, filled full-size the instant the touch reaches the level,
+  zero maker fee.
+- **Prediction:** under the optimistic bound, played markets have gross
+  EV/market > 0 in at least one of the two frozen regime cells (quiet
+  two-sided EXP-006 cell; loud countertrend EXP-007 cell).
+- **Cheapest kill:** probes on the EXACT frozen primary cells of the killed
+  parents (zero new tuning freedom). Binary by construction (D18): both
+  ≤ 0 ⇒ at-touch maker economics dead in-model CONCLUSIVELY (the bound
+  dominates every intermediate queue model — if the best case loses, all
+  cases lose) and no live measurement is worth funding; any cell > 0 ⇒
+  operator-escalation memo with the measured bracket [worst_queue EV,
+  touch EV] (§3.2/§3.3). NEVER an advance: touch results cannot reach
+  holdout or live-EV claims (D18 binding rules).
+- **D5 dedupe:** not a re-skin of EXP-006/007 — identical strategies and
+  cells, DIFFERENT measurement instrument (fill model), which is the axis
+  EDGE-SPACE §4 opened. The parents' kills are worst-queue-conditional
+  (D14); this measures the other end of the bracket those kills left open.
