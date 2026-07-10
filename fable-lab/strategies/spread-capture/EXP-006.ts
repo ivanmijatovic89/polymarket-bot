@@ -56,8 +56,55 @@ export type Config = z.infer<typeof ConfigSchema>
 
 type Side = 'UP' | 'DOWN'
 type Quote = { clientOrderId: string; price: number; basisFair: number }
+type MidSample = { ts: number; mid: number }
 
 const EPISODE_MS = 900_000
+
+/**
+ * Sliding time-window min/max of the UP mid, O(1) amortized per tick
+ * (monotonic deques). Semantics identical to scanning the retained buffer:
+ * the window covers (now − windowMs, now] PLUS one carried-in sample at or
+ * before the cutoff (the book is piecewise-constant between ticks, so that
+ * sample is the value at window start and also proves coverage).
+ */
+class MidRangeWindow {
+  private buf: MidSample[] = []
+  private head = 0
+  private maxDq: MidSample[] = []
+  private minDq: MidSample[] = []
+
+  reset(): void {
+    this.buf = []
+    this.head = 0
+    this.maxDq = []
+    this.minDq = []
+  }
+
+  /** Push the current sample, prune, and return coverage + range. */
+  push(ts: number, mid: number, windowMs: number): { covered: boolean; range: number } {
+    const s: MidSample = { ts, mid }
+    this.buf.push(s)
+    while (this.maxDq.length && this.maxDq[this.maxDq.length - 1].mid <= mid) this.maxDq.pop()
+    this.maxDq.push(s)
+    while (this.minDq.length && this.minDq[this.minDq.length - 1].mid >= mid) this.minDq.pop()
+    this.minDq.push(s)
+
+    const cutoff = ts - windowMs
+    // Keep one sample at/before the cutoff (carried-in window-start value).
+    while (this.buf.length - this.head >= 2 && this.buf[this.head + 1].ts <= cutoff) {
+      const removed = this.buf[this.head++]
+      if (this.maxDq[0] === removed) this.maxDq.shift()
+      if (this.minDq[0] === removed) this.minDq.shift()
+    }
+    if (this.head > 8192) {
+      this.buf = this.buf.slice(this.head)
+      this.head = 0
+    }
+    const covered = this.buf[this.head].ts <= cutoff
+    const range = covered ? this.maxDq[0].mid - this.minDq[0].mid : Number.POSITIVE_INFINITY
+    return { covered, range }
+  }
+}
 
 export const definition: StrategyDefinition<Config> = {
   id: 'fable-exp-006',
@@ -69,7 +116,7 @@ export const definition: StrategyDefinition<Config> = {
     let stateSlug: string | null = null
     let seq = 0
     const quotes: Record<Side, Quote | null> = { UP: null, DOWN: null }
-    let midBuf: Array<{ ts: number; mid: number }> = []
+    const midWindow = new MidRangeWindow()
 
     const clearQuoteById = (clientOrderId: string | undefined): void => {
       if (!clientOrderId) return
@@ -94,7 +141,7 @@ export const definition: StrategyDefinition<Config> = {
         seq = 0
         quotes.UP = null
         quotes.DOWN = null
-        midBuf = []
+        midWindow.reset()
       }
 
       const epochMatch = slug.match(/-(\d+)$/)
@@ -119,23 +166,9 @@ export const definition: StrategyDefinition<Config> = {
         return intents
       }
 
-      // Trailing quiet window on the UP mid. Keep one sample at/before the
-      // cutoff: the book is piecewise-constant between ticks, so that sample
-      // is the window-start value and also proves the window is covered.
-      midBuf.push({ ts, mid: upMid })
-      const cutoff = ts - cfg.quietWindowSec * 1000
-      while (midBuf.length >= 2 && midBuf[1].ts <= cutoff) midBuf.shift()
-      const covered = midBuf[0].ts <= cutoff
-      let range = Number.POSITIVE_INFINITY
-      if (covered) {
-        let mn = Number.POSITIVE_INFINITY
-        let mx = Number.NEGATIVE_INFINITY
-        for (const s of midBuf) {
-          if (s.mid < mn) mn = s.mid
-          if (s.mid > mx) mx = s.mid
-        }
-        range = mx - mn
-      }
+      // Trailing quiet window on the UP mid (O(1) amortized, see
+      // MidRangeWindow — semantics identical to scanning the buffer).
+      const { covered, range } = midWindow.push(ts, upMid, cfg.quietWindowSec * 1000)
       const quiet = covered && range <= cfg.quietRangeMax
 
       const inWindow =

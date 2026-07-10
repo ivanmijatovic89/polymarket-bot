@@ -114,6 +114,16 @@
 - 2026-07-10 — fill-feasibility diagnostics (EXP-000-debug, 30 random
   exploration markets per cell, fill counts only, PnL never read): see the
   amendment block in the spec.
+- 2026-07-10 — run 334 (batchUid EXP-006-probe) VOID: first probe launch
+  killed by the Scientist at 70/500 markets to replace the strategy's
+  O(n²) rolling-range scan (~5s/market, would make main-stage ~19h+) with
+  an O(1) monotonic-deque window. No statistics of run 334 were ever read.
+  Semantic identity of the rewrite verified mechanically: the (0.01, 0.08)
+  cell rerun on run 332's exact 30 slugs (run 335, EXP-000-debug) matched
+  332 per-market on pnl / maker / taker / cost / up_shares / down_shares /
+  skip_reason 30/30 each; throughput 1.56s/market (was ~5). Probe relaunched
+  on the committed rewrite — the EXP-006-probe batchUid has runs 334 (void)
+  and the relaunch; decisive readouts address the relaunch BY RUN ID.
 
 ## Verdicts (append-only)
 
