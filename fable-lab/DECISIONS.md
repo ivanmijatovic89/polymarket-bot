@@ -717,3 +717,27 @@ registration on a hand-picked conditional story — that is exactly the
 E10/E12 pattern (two point kills); a systematic scan first is why CAL-001
 existed; (c) treating discovery hits as citable without reserve
 confirmation — unsound after the marginals were published.
+
+## D25 — propagation audits are a mandatory verdict-session step (2026-07-10, U43bh)
+
+Motivating evidence (governor-compliant): two independent fresh-context
+propagation audits in session 41 — E20 (AUDIT-2026-07-10-E20-PROPAGATION)
+and E21 (AUDIT-2026-07-10-E21-PROPAGATION) — each found MAJOR defects in
+the just-written derived artifacts, and of the SAME class both times:
+(a) the registration bar silently over-tightened relative to what the
+null licensed ("i.e." making an example list exhaustive, foreclosing the
+power-based escape the frozen method preserves), and (b) binding
+conditioning caveats (coverage fractions, in-place power scoping) dropped
+between the source verdict and the quotable LESSONS/EDGE-SPACE wording.
+The Judge cannot catch these: it runs before the derived artifacts exist.
+
+Decision: SCIENTIST.md gains the rule "you do not audit your own knowledge
+propagation" — after propagating any verdict into LESSONS / EDGE-SPACE /
+STATE, spawn a fresh-context propagation auditor (source vs derived:
+number tracing, dropped binding caveats, over-tightened bars) and apply
+its findings in the same unit. The arc is closed only after that audit.
+
+Rejected alternative: relying on the next wake-up session to catch drift —
+the drifted wording IS what the next session boots from (SCIENTIST boot
+sequence reads EDGE-SPACE and LESSONS, not the verdict source), so drift
+compounds precisely where it does the most damage.

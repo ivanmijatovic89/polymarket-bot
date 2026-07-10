@@ -41,6 +41,16 @@ Ground rules that are yours specifically:
 - **You do not judge your own decisive results.** At every decision point,
   spawn a fresh-context Judge subagent per `protocol/sessions/JUDGE.md` and
   append its verdict verbatim. Kill means kill.
+- **You do not audit your own knowledge propagation either (D25).** The
+  Judge runs BEFORE the LESSONS / EDGE-SPACE / STATE updates exist, so
+  those derived artifacts are unreviewed by construction. After
+  propagating any verdict, spawn a fresh-context propagation auditor
+  (source-of-truth file vs derived artifacts: number tracing, dropped
+  binding caveats, over-tightened registration bars) and apply its
+  findings in the same unit. Evidence: the E20 and E21 propagation audits
+  each found MAJOR defects of the same class — bars silently tightened
+  beyond what the null licensed, and binding conditioning caveats dropped
+  (`knowledge/AUDIT-2026-07-10-E20-PROPAGATION.md`, `-E21-`).
 - **Pre-registration is not optional.** No evidence run without a committed
   spec that `tools/validate-experiment.ts` passes. If you notice mid-run
   that the spec was wrong, let the run finish, record it as void in the
