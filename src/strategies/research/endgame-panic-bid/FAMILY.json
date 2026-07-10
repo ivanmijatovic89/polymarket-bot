@@ -221,7 +221,11 @@
             "param": "maxFavBidRange",
             "values": [0.02, 0.05, 0.1],
             "batchUid": "endgame-panic-bid--002-path-stability--p2-maxFavBidRange",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--002-path-stability--p2-maxFavBidRange--2e0bb44e-3e7d-4fac-aa21-c87c5076c69a",
+              "endgame-panic-bid--002-path-stability--p2-maxFavBidRange--4b37f421-a7c9-4e49-a92b-1c630d925960",
+              "endgame-panic-bid--002-path-stability--p2-maxFavBidRange--020bfcf9-b1c7-44fb-be71-17de31c755ea"
+            ],
             "best": null,
             "note": null
           }
