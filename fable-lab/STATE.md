@@ -393,7 +393,15 @@ _Last updated: session 9, unit U40._
   latency 0/0, UP/DOWN exact balance (5,784 each), 0 error lines. NEW
   outcome-free check: all 12,036 diag-calib lines match the exact
   well-formed pattern (slug/epoch/asset/off/ts/bid/ask) — no malformed
-  lines to trip calib.ts parsing. Monitor re-armed on pid exit.
+  lines to trip calib.ts parsing. Two more outcome-free confirmations:
+  (a) no CAL-001-discovery-v3 run row exists in the DB mid-run — the
+  engine persists the row at completion/termination (v1/v2 killed rows
+  show partial counts as "completed"), so absence is expected, not a
+  defect; (b) calib.ts resolves outcomes by slug via
+  telonex_markets.result_id only (never via run rows), so the void
+  v1/v2 rows cannot contaminate the one-shot, and its join-direction
+  abort gate (cell 850s/[0.98,0.995] must show winRate>0.9) guards a
+  flipped join. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
