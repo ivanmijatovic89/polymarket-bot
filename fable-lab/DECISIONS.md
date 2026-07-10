@@ -543,3 +543,40 @@ plan the lab can execute.
 fable-lab/ conceptually (new raw files, new converter code under src/),
 spends operator API credits without authorization, and the charter's
 replay defaults fix the converter to delta-typed.
+
+## D21 — CAL-001: pre-registered calibration-plane study (2026-07-10, U43)
+
+**Motivating evidence:** the gated state's sanctioned work list (EDGE-SPACE
+§4: verification depth, §3 currency, friction-motivated maintenance) plus
+three concrete observations: (1) E12/E14's "efficient across the episode
+clock" is a generalization from five conditional probes — the unconditional
+(price × time) plane has never been measured; auditing that generalization
+IS verification depth. (2) EDGE-SPACE §4's taker bar demands recorded-data
+evidence of ≥1.5c gross, but the lab has no instrument that could produce
+such evidence — the bar is currently unsatisfiable by construction. (3) The
+fee floor is price-dependent (E3: 156bps·min(p,1−p)): at ask 0.95/0.05 the
+taker fee is ~0.08c/share, so the economic bar at the tails is ~20× lower
+than E10's mid-range 1.5c — and EXP-001/E14 measured the high tail at
+EXPIRY only; tails at early/mid window are unmeasured, low-fee territory.
+
+**Decided.** Register `knowledge/CALIBRATION.md` (CAL-001): outcome-free
+fixture (`diag-calib.ts`) samples UP top-of-book at 7 frozen episode-clock
+offsets over ALL 8,516 discovery-window markets (< 2026-03-01); analysis
+tool (`tools/calib.ts`) joins result_id once and evaluates a frozen 63-cell
+grid under a Bonferroni candidate rule (net>0, z ≥ 3.377 = p ≤ 0.023/63,
+minority ≥ 30 per D13). 2026-03-01 → holdout-boundary−1 (5,460 markets) is
+reserved as the fresh probe window for any candidate; lineage_cells = 63
+travels with any resulting registration (EPISTEMOLOGY §5). Instrument
+validation gates (join-direction check, E14 positive control) are frozen
+in the doc. Either outcome is durable knowledge: a candidate cell is the
+first legitimate §4 taker citation; a null closes the taker question
+plane-wide within stated power.
+
+**Rejected.** (a) Building the queue-realistic trades instrument in-lab —
+E19 left it prize-less for the tested cells, and D20 already classified
+the work operator-side (API credits, src/ converter). (b) Unstructured
+calibration mining (query outcomes ad hoc) — guaranteed false positives
+across an unpre-registered grid; the whole design exists to make the one
+outcome read mechanically honest. (c) Running discovery on ALL exploration
+markets — maximizes power but leaves no fresh non-holdout data to probe a
+candidate on; the March–April reserve is the price of a usable discovery.

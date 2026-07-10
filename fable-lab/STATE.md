@@ -349,8 +349,20 @@ _Last updated: session 9, unit U40._
   with one measurement, no live activity. Work is operator-side (src/
   changes); the lab's contribution is the measured advocacy.
 
+- U43 (session 10, IN PROGRESS): wake-up checks ran — universe unchanged
+  (18,635 eligible, last 2026-06-14; no venue-drift refresh due), no
+  trades-channel ingestion (gate 2 closed). CAL-001 registered (DECISIONS
+  D21, `knowledge/CALIBRATION.md`): pre-registered calibration-plane study
+  — outcome-free fixture `_fixtures/diag-calib.ts` samples UP top-of-book
+  at 7 frozen offsets; `tools/calib.ts` joins result_id ONCE and evaluates
+  a frozen 63-cell grid (Bonferroni z≥3.377, minority≥30). Discovery =
+  8,516 markets < 2026-03-01; probe reserve = 5,460 markets 2026-03-01 →
+  boundary−1; holdout untouched. Method frozen in this commit BEFORE the
+  discovery run.
+
 ## In progress
-- Nothing running. No detached processes.
+- U43: CAL-001 discovery run not yet launched (smoke next, then detached
+  launch on committed code).
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39): taker needs
