@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 24, unit U43ag._
+_Last updated: session 24, unit U43ah._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -585,6 +585,18 @@ _Last updated: session 24, unit U43ag._
   COMPLETE block; adds no new rule; CALIBRATION.md governs on
   conflict). The verdict session should EXECUTE THE CHECKLIST top to
   bottom instead of reassembling obligations from four documents.
+  U43ah: checklist fidelity-AUDITED by a fresh-context verifier
+  (SOUND-WITH-FINDINGS; verbatim in
+  `knowledge/AUDIT-2026-07-10-CAL-001-CHECKLIST.md`). All numeric
+  constants verified faithful (incl. E14 control correctly kept at
+  3.377, not bumped to the k=126 bar). All 4 findings acted on in the
+  checklist pre-read: (1) MATERIAL — amendment #14's verbatim erratum
+  does NOT discharge #13's requirement to also flag the frozen
+  decision rule's "the DOWN side has its own book and spread"; the
+  checklist now carries that flag explicitly; (2) join-direction gate
+  citation corrected (base decision rule, #10 adds the DOWN half);
+  (3) epoch check reworded upper-bound-only (no frozen lower bound);
+  (4) deviant-disclosure line labeled non-binding addition.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,

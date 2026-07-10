@@ -9,6 +9,11 @@ gate, or threshold. On any conflict, CALIBRATION.md governs._
 Run: batchUid `CAL-001-discovery-v3`, pid 73037, code ab2acc9,
 log `fable-lab/logs/CAL-001-discovery-v3.log`.
 
+_Fidelity-audited by a fresh-context verifier (U43ah, in-flight,
+outcome-free): SOUND-WITH-FINDINGS — all numeric constants match the
+frozen sources; 4 findings all acted on in this file (report verbatim
+in `knowledge/AUDIT-2026-07-10-CAL-001-CHECKLIST.md`)._
+
 ## 0. Confirm completion (before anything else)
 
 - [ ] pid 73037 gone; log tail shows the engine's end-of-run summary.
@@ -26,7 +31,9 @@ Same checks sessions 11–24 ran mid-flight, now on the final log:
 - [ ] Zero error/failure/exception lines.
 - [ ] UP/DOWN sample counts exactly equal; asset-pairing completeness
       (0 one-sided (slug,offset) keys — session 23 method).
-- [ ] Epoch range within [1764460800, <1772323200] (discovery window).
+- [ ] Epoch range: max epoch < 1772323200 (the frozen discovery upper
+      bound; the window has NO frozen lower bound — 1764460800 is
+      merely the observed minimum in mid-run checks, not a gate).
 - [ ] Dedupe: 0 duplicate (slug,asset,off) tuples; offsets exactly
       {30,150,300,450,600,750,850}; ≤14 lines/market.
 - [ ] Replay-file uniqueness: 0 duplicate parquet paths, contiguous
@@ -56,9 +63,10 @@ Same checks sessions 11–24 ran mid-flight, now on the final log:
 
 ## 4. Validation gates (read these BEFORE any other cell)
 
-- [ ] Join-direction: UP cell (850s, [0.98,0.995]) winRate > 0.9; DOWN
-      side analogously via result_id=1 (amendment #10). Fail → ABORT
-      analysis, suspect the join, do not read further.
+- [ ] Join-direction: UP cell (850s, [0.98,0.995]) winRate > 0.9
+      (frozen base decision rule, gate (a)); DOWN side analogously via
+      result_id=1 (added by amendment #10). Fail → ABORT analysis,
+      suspect the join, do not read further.
 - [ ] E14 positive control: ABORT iff |z| ≥ 3.377 on (850s, [0.90,0.98))
       — applies to BOTH sides (amendments #2, #10).
 - [ ] Drift-filter discard counts and per-offset coverage are printed in
@@ -79,6 +87,12 @@ Same checks sessions 11–24 ran mid-flight, now on the final log:
 
 - [ ] Append the amendment #14 erratum text VERBATIM to Results,
       adjusting only the final pair-count (that of §1's mirror check).
+- [ ] ADDITIONALLY flag the frozen decision rule's phrase "the DOWN
+      side has its own book and spread" (CALIBRATION.md, NEG-FLAG
+      bullet) as stale per amendment #13 — #14's verbatim text names
+      only amendment #10's rationale and the diag-calib.ts header, but
+      #13 requires flagging the decision-rule location too (verifier
+      finding 1, U43ah).
 - [ ] 750s/850s cells: state the §2 coverage fraction; wording is
       "conditional on a book event at-or-after the offset"; NO
       venue-level efficiency claim for excluded quiet markets
@@ -90,8 +104,10 @@ Same checks sessions 11–24 ran mid-flight, now on the final log:
       stated power" (amendment #3 half-plane wording + #10 both-sides);
       §Power caveats are binding: mid-range null is a power statement,
       not proof of efficiency.
-- [ ] Disclose the single mirror deviant if any 850s cell it belongs to
-      is discussed.
+- [ ] (Non-binding, conservative addition — NOT in the frozen sources,
+      which call the deviant "immaterial either way": disclose the
+      single mirror deviant if any 850s cell it belongs to is
+      discussed. Skipping this is not a process violation.)
 
 ## 7. Consequences
 
