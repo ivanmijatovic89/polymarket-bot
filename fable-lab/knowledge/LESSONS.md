@@ -73,6 +73,14 @@ forbids importing the old system's research conclusions._
   books in recordings are crossed-book replay artifacts (E6). Do not
   re-register this class without a genuinely different angle (depth beyond
   top-of-book, changed fee regime).
+  _Structural strengthening (U43r, CAL-001 mid-run, outcome-free):_ across
+  13,422 paired (market, offset) top-of-book samples over 2,238 markets
+  (batchUid CAL-001-discovery-v3), 13,421 satisfy `bid_DOWN = 1 − ask_UP`
+  and `ask_DOWN = 1 − bid_UP` EXACTLY — the two books are one order set
+  viewed from both sides, so pair consistency holds by venue construction,
+  not merely "beyond fees at sampled entries". Any pair-arbitrage or
+  dutch-book re-skin is dead by structure; the only deviations possible
+  are transient recording artifacts (E6) at ~1/13,000 sample frequency.
 
 - **E10 — Fast jumps are priced fairly at the post-jump ask; mid-range
   taker fees make "trade the jump" strictly negative.** EXP-003 probe (run
