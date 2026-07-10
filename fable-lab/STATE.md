@@ -402,6 +402,14 @@ _Last updated: session 9, unit U40._
   v1/v2 rows cannot contaminate the one-shot, and its join-direction
   abort gate (cell 850s/[0.98,0.995] must show winRate>0.9) guards a
   flipped join. Monitor re-armed on pid exit.
+  Session 15 check (~15.5 min in): 1,361/8,516 (~0.68s/market, ETA
+  ~81 min); latency 0/0, UP/DOWN exact balance (8,097 each), 0 error
+  lines, all `[diag-calib]`-prefixed sample lines well-formed (the one
+  grep miss was the `[backtest] strategy=fable-diag-calib` header). NEW
+  outcome-free checks: (a) epoch range in log = [1764460800, 1765782900],
+  strictly below the discovery boundary 1772323200 — the --to-ms window
+  holds empirically; (b) 34 GiB free disk — no mid-run exhaustion risk.
+  Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
