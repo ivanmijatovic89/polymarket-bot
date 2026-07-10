@@ -34,6 +34,7 @@ Ordered; top entries get registered first.
 | 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | dead (EXP-005) |
 | 7 | expiry-tail maker capture | `spread-capture` | dead (EXP-001 killed at main; per its own park clause it dies unexamined) |
+| 8 | loud-regime countertrend liquidity provision | `spread-capture` | registered (EXP-007) |
 
 ## Entries
 
@@ -130,3 +131,33 @@ Ordered; top entries get registered first.
   paper before belief. Hence parked until EXP-001 (same counterparty,
   taker version) confirms on holdout; if EXP-001 dies at main/holdout,
   this dies with it unexamined.
+
+### 8. Loud-regime countertrend liquidity provision — `spread-capture` — registered (EXP-007)
+- **Motivating evidence:** E16's transfer point (a): under worst-queue,
+  every fill is the most informed counterparty, so the only maker shape the
+  simulator can test HONESTLY is one where being filled by a continuing
+  move is the claim itself — quote INTO loud moves and get paid for
+  catching overshoot. D14 (maker direction) plus the death of the quiet
+  variant (EXP-006) make this the designated next candidate.
+- **Who loses:** momentum takers and stop-outs selling into a fast move —
+  they pay for immediacy at cascade prices; whoever rests a bid below the
+  falling book is their counterparty.
+- **Prediction:** conditional on a trailing-window signed UP-mid move of
+  ≥ jumpSize, a GTC bid on the FALLING side at fair − δ that gets punched
+  through wins more often than its fill price implies (overshoot reverts by
+  settlement). Zero maker fee → gross = net.
+- **D5 dedupe:** NOT a duplicate of EXP-003 (taker, bought the JUMP
+  direction at the post-jump ask — fairly priced there) nor EXP-005
+  (taker fade at the ask, first minute only — lost ~1.2c gross to the
+  ask); the prediction target here is win rate vs a PASSIVE punch-through
+  fill price, which sits (halfSpread + δ + fee saving) below those measured
+  entries. Distinct from EXP-006: loud gate, one-sided, countertrend.
+- **Honest prior:** low-moderate. E10/E12 measured continuation-not-
+  reversion AT THE ASK (deficits ~0 and ~1.2c); this wins only if the
+  passive discount exceeds the conditional continuation beyond the fill.
+  E16 showed through-moves are informative in QUIET; loud overshoot is the
+  remaining untested branch.
+- **Cheapest kill:** probe; per E15, budget fills from single-tick gap
+  statistics (fill-feasibility diagnostic under EXP-000-debug, fill counts
+  only) BEFORE freezing the cell. `simulator-favored` on the size axis by
+  construction (D14 escalation applies).
