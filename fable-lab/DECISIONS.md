@@ -1001,3 +1001,22 @@ instrumentation bullet rewritten to the current EDGE-SPACE §3 state
 (touch RESOLVED, trades ingestion the top option, live paper unchanged).
 No bars, thresholds, or interpretive rules changed anywhere — this is
 documentation reconciliation only (U33 precedent).
+
+**Amendment (U49b, same day):** the U49 edit was itself verified by a
+fresh-context checker (per the D25 pattern; report summarized in STATE
+U49b) — sound-with-findings, all four applied: (MAJOR) the RUNBOOK
+restated the IDEAS #10 unlock as "~15,000 NEW/fresh markets (~5 months)",
+over-tightening the source — the entry's threshold is ~15,000 markets in
+a pre-registrable fresh window WITH the pristine 5,460-market reserve
+counting, i.e. ~9,500 new markets ≈ 3.3 months at ~96/day (the exact
+over-tightened-restatement class the E20/E21/E22 propagation audits
+caught); (MINOR) the "→ IDEAS #10 unlock" shorthand above and in STATE
+drops the entry's two non-power conditions — the unlock also requires
+venue-drift-quiet bands and full pre-registration; (MINOR) "convention,
+held since U43" misattributes provenance — the never-run-the-pipeline
+convention is recorded in D20's Rejected block (U42) and the U42b
+wake-up-gate framing, U43 merely first executed the checks; (MINOR) "a
+D27-confirmed band fire reopens measured questions" strengthened the
+source — a confirmed fire is evidence that CAN reopen the specific
+mechanism-linked question (VENUE-DRIFT consequence mapping). RUNBOOK
+corrected on all four; this amendment corrects the D30 text above.

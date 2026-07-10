@@ -55,7 +55,8 @@ purpose — don't add step-by-step instructions on top
 three calibration-plane scans (CAL-001/002/003) are resolved — all kills
 or confirmed nulls (`registry/INDEX.md`, `knowledge/EDGE-SPACE.md` §1).
 All ten ideas are dead or parked (IDEAS #10 is parked with a mechanical
-unlock condition needing ~15,000 fresh markets). New registrations are
+unlock condition needing ~15,000 markets in a pre-registrable fresh
+window, reserve included). New registrations are
 gated by the EDGE-SPACE §4 bar (D15, tightened by E20/E21/E22). Expect
 sessions to run the wake-up checks (STATE.md "Next"), then do
 verification depth and maintenance — until an idea clears the bar or one
@@ -93,15 +94,18 @@ The protocol runs without you except at these points:
 - **Growing the dataset (Telonex sync)**: the eligible universe is frozen
   at 18,635 markets (last: 2026-06-14) until you run the operator-side
   Telonex pipeline (`sync-markets` → `download-raw-files` → `convert`).
-  The lab never runs it — it mutates shared DB tables and pulls paid
-  R2/API data. What new data buys, mechanically: **~1 month** of new
-  markets → the VENUE-DRIFT refresh runs on the new month(s), and a
-  D27-confirmed band fire reopens measured questions under EDGE-SPACE §4;
-  **~15,000 new markets** (~5 months at ~96/day) → IDEAS #10's parked
-  reversal-mirror test (the one open positive lead, ≈ +2.4c net at
-  z = +2.40) becomes adequately powered per its pre-registered unlock
-  condition. Until a sync happens, sessions will keep reporting "both
-  wake-up gates closed".
+  The lab never runs it (convention since U42/D20: it spends operator
+  API credits and writes shared DB state). What new data buys,
+  mechanically: **~1 month** of new markets → the VENUE-DRIFT refresh
+  runs on the new month(s), and a D27-confirmed band fire can reopen the
+  specific mechanism-linked question (VENUE-DRIFT consequence mapping)
+  under EDGE-SPACE §4; **~15,000 markets in a fresh window** — the
+  pristine 5,460-market reserve counts, so ~9,500 NEW markets
+  (~3.3 months at ~96/day) → IDEAS #10's parked reversal-mirror test
+  (the one open positive lead, ≈ +2.4c net at z = +2.40) becomes
+  adequately powered; its unlock further requires venue-drift-quiet
+  bands and full pre-registration per the IDEAS entry. Until a sync
+  happens, sessions will keep reporting "both wake-up gates closed".
 - **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the
   `touch_or_better` fill mode turned out to be reachable in-lab (U35/D18,
   no src change needed) and its bracket is already measured and CLOSED

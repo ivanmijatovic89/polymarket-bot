@@ -1,8 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 46, unit U49 (D30: RUNBOOK reconciled to the
-post-E19/E22 gated state; operator unblocking actions are now explicit
-control points)._
+_Last updated: session 46, unit U49b (U49 RUNBOOK reconciliation
+verified by a fresh-context checker; all four findings applied)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -639,9 +638,24 @@ control points)._
   research — were absent from the control-points section. RUNBOOK §3/§5
   reconciled: new "Growing the dataset (Telonex sync)" control point
   (payoffs: ~1 month → venue-drift refresh + D27-gated reopening;
-  ~15,000 markets → IDEAS #10 unlock), instrumentation bullet rewritten
-  to the current EDGE-SPACE §3 state. No bars or interpretive rules
-  changed — documentation reconciliation only (U33 precedent).
+  ~15,000-market fresh window → IDEAS #10 adequately powered — unlock
+  further needs drift-quiet bands + full pre-registration),
+  instrumentation bullet rewritten to the current EDGE-SPACE §3 state.
+  No bars or interpretive rules changed — documentation reconciliation
+  only (U33 precedent).
+
+- U49b (session 46): U49 VERIFIED by a fresh-context checker
+  (sound-with-findings; the restating-work defect class D25 warns about
+  appeared again). All four findings applied to RUNBOOK + D30 amendment:
+  (MAJOR) "~15,000 NEW markets (~5 months)" over-tightened the IDEAS #10
+  threshold — the window total counts the pristine 5,460-market reserve,
+  so ~9,500 new markets ≈ 3.3 months at ~96/day; (MINOR) the "→ unlock"
+  shorthand now names the drift-quiet + full-pre-registration
+  conditions; (MINOR) pipeline-convention provenance corrected to
+  U42/D20 (not U43); (MINOR) D27 consequence re-scoped to "can reopen
+  the specific mechanism-linked question". Verifier confirmed all other
+  counts, figures, and direction-of-claim fidelity clean, and that no
+  bar/threshold/rule changed in any source artifact.
 
 ## In progress
 - (nothing in flight)
