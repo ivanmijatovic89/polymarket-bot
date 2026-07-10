@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U25._
+_Last updated: session 3, unit U26._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -131,6 +131,9 @@ _Last updated: session 3, unit U25._
   clause. ALL SIX starter mechanisms now resolved: every taker mechanism
   tested is priced fairly net of 156 bps fees. INDEX regenerated.
 
+- U26: EPISTEMOLOGY §3 gained the skewed-payoff probe-precision rule
+  (minority-outcome count; DECISIONS D13, motivated by E14).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - (none — no runs in flight) When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
@@ -144,15 +147,14 @@ _Last updated: session 3, unit U25._
   primary cell). Probe queued behind the running probes.
 
 ## Next
-- U26 (next session): synthesis + direction decision. All starter taker
+- Synthesis + direction decision (U27+). All starter taker
   mechanisms are dead (E9-E14): the venue shows no taker edge net of fees
   in this universe. Options to weigh per charter (durable +EV after real
   costs): (a) maker-side experiments (IDEAS #4 quiet-regime quoting is the
   only live queue entry) accepting `simulator-favored` classification and
   designing the live-paper requirement in from the start; (b) new idea
   generation targeting structural counterparties with maker execution;
-  (c) apply the E14 probe-precision rule to EPISTEMOLOGY (protocol change
-  WITH motivating evidence — cite E14). Holdout remains locked and unused
+  (c) [DONE in U26]. Holdout remains locked and unused
   (no experiment reached it) — it stays locked for future experiments.
 
 ## Notes for a fresh session
