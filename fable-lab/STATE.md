@@ -514,6 +514,15 @@ _Last updated: session 9, unit U40._
   discovery yields candidates) has its probe pool intact as frozen.
   (Note: listEligibleTelonexMarkets defaults to limit=1000 — pass an
   explicit large limit when counting the full universe.)
+  Session 21 check (~49 min in): 3,662/8,516 (~0.80s/market, ETA
+  ~64 min); latency 0/0, UP/DOWN exact balance (21,224 each), 0 error
+  lines, epoch range [1764460800, 1767888900] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. Mirror re-measurement
+  on the grown log: 21,287/21,288 paired (market,offset) samples
+  exactly DOWN = 1 − UP; the SAME single deviant (1764846000, off=850)
+  — amendment #12 holds at ~43% of the run. Dedupe re-check on the
+  grown log: 0 duplicate (slug,asset,off) tuples; offsets exactly the
+  7 frozen values. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
