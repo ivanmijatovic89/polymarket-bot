@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 6, unit U30._
+_Last updated: session 6, unit U31._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -194,17 +194,33 @@ _Last updated: session 6, unit U30._
   plain `- decision: kill` lines, NOT blockquoted — the INDEX parser
   ignores `> `-prefixed lines).
 
+- U31: the U29 fork resolved as branch (b) — DECISIONS D15: in-model edge
+  space is exhausted (CAPABILITIES §4: only taker-cross and worst-queue
+  punch-through triggers exist; both measured, E9-E17). New knowledge
+  artifact `knowledge/EDGE-SPACE.md`: the measured map (all 8 ideas),
+  what is structurally unmeasurable (at-touch maker economics), the three
+  operator-side instrumentation options (expose `touch_or_better` for an
+  optimistic in-model bracket; record trade prints for a queue-realistic
+  fill model; live paper at touch), and the BINDING registration bar for
+  future ideas (taker: ≥1.5c gross argued from data + not a D5 re-skin;
+  maker in-model: closed until instrumentation lands; or a cited venue
+  regime change). SCIENTIST.md boot sequence now includes EDGE-SPACE.md
+  (protocol change motivated by D15).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - (none)
 
 ## Next
-- Per STATE U29's fork and E17: idea generation must either (a) name a
-  backtestable fill trigger that is NOT "the book moves through my
-  level" (else it re-tests E16/E17), or (b) conclude the observable edge
-  space is exhausted and write the live-paper instrumentation memo
-  (what an operator would need to measure at-touch maker economics —
-  a knowledge artifact, NOT a live run; out of scope to execute).
-- Holdout remains locked and unused (no experiment reached it).
+- Research is gated on the EDGE-SPACE §4 bar: register a new experiment
+  ONLY if an idea clears it. Otherwise legitimate work is: verification
+  depth on settled conclusions, keeping EDGE-SPACE §3 current, and
+  friction-motivated protocol maintenance (evolution governor applies).
+- Candidate verification-depth unit: fresh-context audit of the E9-E17
+  lesson chain against the raw run records (do the numbers in LESSONS
+  match the DB?), since the whole D15 conclusion rests on them.
+- Holdout remains locked and unused (no experiment reached it; it stays
+  locked under D15 — holdout data buys nothing without a surviving
+  mechanism).
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →

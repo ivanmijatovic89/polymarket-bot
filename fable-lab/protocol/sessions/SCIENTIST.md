@@ -10,6 +10,7 @@ say little more than "read this and continue".
    not yours to change.
 2. `fable-lab/protocol/README.md` — the map and invariants.
 3. `fable-lab/protocol/registry/INDEX.md` + `fable-lab/knowledge/LESSONS.md`
+   + `fable-lab/knowledge/EDGE-SPACE.md` (the registration bar, D15)
    — where the research stands.
 4. `fable-lab/STATE.md` — what the last session was doing.
 5. The specific experiment files you will touch.

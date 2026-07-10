@@ -320,3 +320,42 @@ side at all.
 **Rejected.** (a) — measured prior against it; re-registering taker ideas
 without a genuinely different cost structure is theater. (c) — not
 supported: only one execution style has been measured.
+
+## D15 — After EXP-007: the in-model edge space is exhausted; conclusions memo + binding registration bar instead of another experiment
+
+**Motivating evidence (evolution governor).** LESSONS E17 (EXP-007 probe,
+run 342): loud-regime punch-throughs are informative, like quiet ones
+(E16). Combined with E9–E14, every PnL channel the simulator can express
+has now been measured: (1) taker cross — fairly priced net of 156 bps
+across tails, jumps, book shape, open, and dutch books; (2) maker
+punch-through — adversely selected in BOTH regime extremes, at zero maker
+fee, with size simulated in the strategy's favor; (3) settlement — pure
+arithmetic, no edge channel. CAPABILITIES §4 confirms no fourth fill
+trigger exists in-model (`touch_or_better` is coded but hardcoded
+unreachable, `runSingleMarket.ts:133`).
+
+**Options.** (a) Register another maker variant with a different regime /
+conditioning gate; (b) generate new taker conditionings; (c) conclude
+in-model exhaustion: write the edge-space memo (what is measured, what is
+structurally unmeasurable, what instrumentation would unlock it — an
+operator decision), and set a binding bar that any future registration
+must clear.
+
+**Decision.** (c), recorded in `knowledge/EDGE-SPACE.md`. Rationale: (a)
+is forbidden work — any punch-through maker idea re-tests the E16/E17
+measurement regardless of its gate, because under worst-queue the fill
+event itself (a through-move) is the object being priced, and it has now
+been priced at both extremes of the regime axis; no evidence motivates a
+third point. (b) fights five direct measurements of ≈ 0 gross taker edge
+plus the E10 fee floor (~1.5c/share needed at mid-range); without a
+mechanism that plausibly clears that floor, registration is theater. (c)
+is not "stopping": the mission is perpetual — the memo turns the negative
+results into the lab's most transferable asset, and the bar keeps future
+idea generation honest instead of circling. New markets accrue daily; a
+future idea that clears the bar registers a new experiment on fresh data.
+
+**Rejected.** (a) and (b) as above — no motivating evidence either would
+flip a measured sign. Also rejected: touching `src/` to expose
+`touch_or_better` (charter hard constraint 1: write only inside
+fable-lab/) — recorded in the memo as operator-side instrumentation
+instead.
