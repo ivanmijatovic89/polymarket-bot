@@ -142,6 +142,47 @@
         "stageReached": 1,
         "gatesVersion": 1
       }
+    },
+    {
+      "id": "001-cancel-on-adverse-move",
+      "kind": "param-search",
+      "code": "001-cancel-on-adverse-move.ts",
+      "basedOn": "000-baseline",
+      "proposedBy": "claude-code/claude-fable-5",
+      "hypothesis": "Cancelling the resting bid once the favorite's best bid drops >= cancelDrop from its placement level (or the bid side vanishes) removes informed flip fills - which are preceded by observable favorite-book deterioration - faster than it removes benign panic fills, lifting P(win|fill) above the 95.5% breakeven that consumed the baseline's margin at 3000 markets.",
+      "successCriteria": "Pass the stage-1 gate (best cell netEvPerMarket > 0 at 1000 markets, STAGE-GATES.md gate 1) AND best cell netEvPerMarket >= +0.01/mkt (the champion 000-baseline's stage-1 best, run 391 pre-extension).",
+      "params": null,
+      "search": {
+        "mode": "coordinate",
+        "defaults": {
+          "entryTimeSec": 897,
+          "bidPrice": 0.955,
+          "certaintyThreshold": 0.95,
+          "size": 40,
+          "cancelDrop": 0.02
+        },
+        "passes": [
+          {
+            "param": "cancelDrop",
+            "values": [0.005, 0.01, 0.02, 0.04],
+            "batchUid": "endgame-panic-bid--001-cancel-on-adverse-move--p1-cancelDrop",
+            "submissionUids": [],
+            "best": null,
+            "note": null
+          }
+        ],
+        "refine": null
+      },
+      "batchUid": null,
+      "submissionUids": [],
+      "baselineId": null,
+      "coverage": null,
+      "status": "queued",
+      "gateLog": [],
+      "submittedAt": null,
+      "decidedAt": null,
+      "abortReason": null,
+      "outcome": null
     }
   ]
 }
