@@ -239,6 +239,17 @@ forbids importing the old system's research conclusions._
   must check whether the boundary slug was drawn and disclose it; (c) when
   a window boundary is defined by a strict inequality, the tool flag that
   implements it must be checked for inclusivity — do not assume.
+  _Amendment (U50, global holdout-lock audit,
+  `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`): the scope above was
+  incomplete — the SAME inclusive flag on the EXP-001 lineage was
+  DETERMINISTIC, not a pool chance: run 301's main extension replays the
+  full window, so N=13,977 = 13,976 exploration markets + the boundary
+  market, which entered with 1 taker fill (the lab's only outcome-bearing
+  holdout contamination); runs 326/327 (latency battery) replayed it with
+  zero fills. Verdict-immaterial by an outcome-free bound (shares=100 ⇒
+  |PnL| ≤ 100 ⇒ EV shift ≤ 0.007 on a −0.19 readout); erratum on the
+  EXP-001 file. The DB-level sweep also confirmed the 8 grid cells never
+  drew the boundary market (previously just luck, now verified)._
 
 - **E19 — the at-touch maker bracket is closed: the optimistic fill bound
   loses MORE than worst-queue, in both regimes.** EXP-008 (run 357) and

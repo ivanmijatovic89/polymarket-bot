@@ -256,3 +256,28 @@
     hypothesis predicts it should be strongest (minAsk=0.95). Nothing here
     is ambiguous, but were it ambiguous, the tie would go against
     advancement anyway. Kill.
+
+## Erratum (2026-07-10, U50 — appended post-verdict; verdicts above are unmodified)
+
+The global holdout-lock audit (`knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`,
+tool `tools/holdout-lock-audit.ts`) found that every full-window run in this
+lineage deterministically included the boundary market
+`btc-updown-15m-1777237200` (the FIRST holdout market), because the sample
+rule's `--to-ms 1777237200000` is an inclusive bound (LESSONS E18 — this
+erratum extends E18's scope from the EXP-006..009 random pools to this
+lineage, where inclusion was certain, not a ~3.5% draw chance):
+
+- run 301 (main, N=13,977 = 13,976 exploration + this market): the boundary
+  market ENTERED with 1 taker fill — its outcome is inside the published
+  main readout (EV=−0.19, t=−1.15, win rate 0.9316).
+- runs 326/327 (lat150/lat300): replayed it with zero fills (zero-PnL
+  contribution to the battery aggregates).
+- probe snapshot (N=379): indeterminate — run 301 was extended in place
+  (known-unverifiable per the U32 audit); moot, as the probe's advance was
+  superseded by the main kill.
+
+Materiality, bounded WITHOUT reading the market's outcome (reading its PnL
+would itself be a holdout-outcome read): shares=100 at ask ≤ 0.99 bounds
+|PnL| ≤ 100, so removing it shifts EV/market by ≤ 100/13,977 ≈ 0.007
+(CI half-width ≈ 0.33) and win rate by ≤ 1/13,977. No branch of the decision
+rule changes under either sign of its outcome. **The kill stands.**

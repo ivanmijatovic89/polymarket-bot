@@ -1046,3 +1046,37 @@ Rejected alternative: a mechanical diff-based linter for figures — the
 defect is semantic (scope words like "new"/"fresh", dropped conditions),
 not numeric transcription; three of the four MAJORs had the right numbers
 with the wrong scoping.
+
+## D32 — the holdout lock is verified mechanically, not asserted (2026-07-10, U50)
+
+Motivating evidence: STATE.md has claimed "Holdout remains locked and
+unused" every session, but the claim was never checked globally — only
+per-run and by hand (U40's DB check of the four touch-lineage runs; E18's
+pool-leak discovery; the U35 hygiene note). The lab HAS touched
+post-boundary data three separate ways (E18 boundary market, U35 smoke
+slugs, diag-venue by design), each caught by a different ad-hoc mechanism.
+A first global sweep (this unit) immediately found a disclosure gap the
+per-run checks missed: the boundary market sits INSIDE the published
+EXP-001 main readout with a taker fill (deterministic inclusion via
+inclusive `--to-ms` on full-window runs — E18 had scoped the leak to
+random pools only), plus a mislabeled "exploration-era" venue-drift
+baseline containing 2 post-boundary book-only markets.
+
+Decision: `tools/holdout-lock-audit.ts` (read-only, no outcome columns
+ever selected; flagged rows report fill COUNTS only, per the E15/fills.ts
+discipline) sweeps every `strategy LIKE 'fable-%'` run for post-boundary
+replayed/failed markets, slug-epoch mismatches, and NULL starts. Standing
+procedure: re-run it after any future evidence run; exit 2 means new rows
+must be classified against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`
+(the baseline: 67 rows, all classified, none verdict-threatening).
+Findings fixed in the same unit: E18 amendment (scope extended to the
+EXP-001 lineage), EXP-001 erratum (outcome-free materiality bound: |PnL|
+≤ 100 ⇒ EV shift ≤ 0.007 on −0.19 — kill stands), VENUE-DRIFT.md label
+note.
+
+Rejected alternative: adding a post-boundary refusal guard to
+run-backtest.ts — it would break the two LEGITIMATE post-boundary uses
+(diag-venue drift refreshes by design; one-shot holdout runs when a
+mechanism ever survives to final confirmation). Detection-plus-
+classification fits both; prevention is already handled at the sample-rule
+level by E18's boundary−1 rule.

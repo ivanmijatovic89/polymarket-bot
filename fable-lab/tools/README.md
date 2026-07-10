@@ -13,6 +13,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `index-registry.ts` | regenerate `protocol/registry/INDEX.md` |
 | `calib.ts` / `calib2.ts` / `calib3.ts` | frozen one-shot readers for CAL-001/-002/-003 (`knowledge/CALIBRATION*.md`); constants are pre-registered — never edit post-read |
 | `calib-selftest.ts` / `calib2-selftest.ts` / `calib3-selftest.ts` | hand-computed synthetic-fixture selftests for the calib readers (D28) |
+| `holdout-lock-audit.ts` | global DB sweep: every post-boundary market ever replayed/failed by a fable-lab run, no outcome columns (U50; re-run after any evidence run; exit 2 = rows to classify against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`) |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |
 

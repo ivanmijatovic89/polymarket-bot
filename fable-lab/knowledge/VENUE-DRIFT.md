@@ -98,6 +98,12 @@ reference values for the D17 bar):**
 - crossed-tick fraction mean: **0.0012** → fires at ≥ 0.0024
 - (tick-rate median, informational only, not part of the bar: 130.32/s)
 
+_Label note (U50, `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md` finding 2):
+"exploration-era" is approximate — the 2026-04 monthly chunk (run 348)
+includes 2 post-boundary markets (2026-04-28, 2026-04-29; the holdout
+boundary is 2026-04-26T21:00Z). Book-stats only, zero fills, outcome-free;
+the bands are unaffected and stay as pre-specified (D17)._
+
 **Pooling convention (recorded U46, settled empirically from the
 baseline log — audit finding 3):** the pooled reference is the statistic
 over ALL per-market values in the window (median for spread/depth/rate,
