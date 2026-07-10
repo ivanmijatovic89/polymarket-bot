@@ -377,7 +377,9 @@ _Last updated: session 9, unit U40._
   Expected ~2h (~0.8s/market measured on v1). Session 11 mid-run integrity
   check (~3 min in): latency line 0/0 present, 8,516 files loaded, both
   UP and DOWN sampled, 206 distinct slugs processed (~0.7s/market → ETA
-  ~1.7h); background monitor armed on pid exit.
+  ~1.7h); background monitor armed on pid exit. Session 12 check (~4.5 min
+  in): 342/8516, ~0.78s/market, ETA ~106 min; UP/DOWN sample lines in
+  exact balance (2,407 each); monitor re-armed.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
