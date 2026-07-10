@@ -51,13 +51,15 @@ with a fresh-context subagent. The session prompts are goal-shaped on
 purpose — don't add step-by-step instructions on top
 (`docs/reference/prompting-claude-fable-5.md`).
 
-**Status as of U31 (2026-07-10):** all eight seeded ideas are resolved
-(seven killed by experiment, one dead by park clause) and new
-registrations are gated by the bar in `knowledge/EDGE-SPACE.md` §4
-(DECISIONS D15, audited U32). Sessions will not register punch-through
-maker re-skins or sub-fee-floor taker ideas; expect them to do
-verification depth and maintenance instead unless an idea clears the bar
-or you unlock instrumentation (next section).
+**Status as of U49 (2026-07-10):** nine experiments (EXP-001..009) and
+three calibration-plane scans (CAL-001/002/003) are resolved — all kills
+or confirmed nulls (`registry/INDEX.md`, `knowledge/EDGE-SPACE.md` §1).
+All ten ideas are dead or parked (IDEAS #10 is parked with a mechanical
+unlock condition needing ~15,000 fresh markets). New registrations are
+gated by the EDGE-SPACE §4 bar (D15, tightened by E20/E21/E22). Expect
+sessions to run the wake-up checks (STATE.md "Next"), then do
+verification depth and maintenance — until an idea clears the bar or one
+of your unblocking actions (next section) lands.
 
 ## 4. What you will see, and where
 
@@ -88,12 +90,31 @@ The protocol runs without you except at these points:
 - **Holdout burns**: if a session reports a burned holdout (validator
   counts >1 holdout run), treat it as an incident — the affected lineage's
   confirmation is void.
-- **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the three
-  ways to extend what the lab can measure — expose the engine's
-  `touch_or_better` fill mode (one src-side change, outside the lab's
-  write scope), record live trade prints into the dataset, or authorize
-  tiny live-paper quotes at the touch. All three are yours; the lab has
-  pre-committed what it would run the day each lands.
+- **Growing the dataset (Telonex sync)**: the eligible universe is frozen
+  at 18,635 markets (last: 2026-06-14) until you run the operator-side
+  Telonex pipeline (`sync-markets` → `download-raw-files` → `convert`).
+  The lab never runs it — it mutates shared DB tables and pulls paid
+  R2/API data. What new data buys, mechanically: **~1 month** of new
+  markets → the VENUE-DRIFT refresh runs on the new month(s), and a
+  D27-confirmed band fire reopens measured questions under EDGE-SPACE §4;
+  **~15,000 new markets** (~5 months at ~96/day) → IDEAS #10's parked
+  reversal-mirror test (the one open positive lead, ≈ +2.4c net at
+  z = +2.40) becomes adequately powered per its pre-registered unlock
+  condition. Until a sync happens, sessions will keep reporting "both
+  wake-up gates closed".
+- **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the
+  `touch_or_better` fill mode turned out to be reachable in-lab (U35/D18,
+  no src change needed) and its bracket is already measured and CLOSED
+  (E19: both frozen cells lose more at touch than at worst-queue) —
+  nothing left for you there. The remaining high-value option is
+  **trade-print ingestion** (§3.2): extend the sync/download to the
+  Telonex `trades` channel and add a trades-aware converter (operator-side
+  `src/` work). Coverage is already measured at 95.9% of the eligible
+  universe (U42) — pure historical backfill, no live activity. That one
+  change replaces both fill-model bracket ends with a single
+  queue-realistic measurement and reopens maker registrations under full
+  pre-registration. Live paper at the touch (§3.3) remains the direct
+  alternative and needs your authorization.
 
 ## 6. If a session died mid-work
 

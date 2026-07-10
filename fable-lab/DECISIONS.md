@@ -964,3 +964,40 @@ committed artifacts; no future computation takes the log as input. The
 distinguishing test, for future sessions: commit a log extract when a
 FUTURE computation needs it as input; residue-classify when it only
 evidences an already-adjudicated, verbatim-recorded fact.
+
+## D30 — RUNBOOK reconciled to the post-E19/E22 gated state; operator unblocking actions become explicit control points (2026-07-10, U49)
+
+Motivating friction (concrete, each point checkable against committed
+records): the RUNBOOK is the operator's interface, and three of its claims
+no longer matched the audited state —
+
+1. §3's status block was frozen "as of U31" (eight ideas, seven kills),
+   while the record now holds nine experiments (EXP-001..009) plus three
+   calibration scans (CAL-001/002/003), all resolved, and ten ideas dead
+   or parked (STATE U38-U44c).
+2. §5 told the operator that exposing `touch_or_better` required "one
+   src-side change, outside the lab's write scope" — falsified by U35/D18
+   (unlocked in-lab with zero `src/` writes) and moot since E19 (the
+   bracket is measured and closed: touch loses MORE in both regimes). It
+   also framed trade prints as "record live trade prints into the
+   dataset" — corrected by U42/D20: the Telonex `trades` channel makes
+   them historically backfillable (95.9% coverage measured), no live
+   recording needed. An operator following §5 as written would have
+   funded a src change that buys nothing and considered a live-recording
+   effort that is unnecessary.
+3. The two successor wake-up gates (universe growth via the Telonex sync;
+   trades-channel ingestion) are the ONLY external actions that can
+   reopen gated research (STATE "Next", EDGE-SPACE §4), yet the RUNBOOK's
+   control-points section never named them. The sync in particular was
+   nowhere stated as an operator action with its measured payoffs (~1
+   month → venue-drift refresh + D27-gated reopening; ~15,000 markets →
+   IDEAS #10 unlock).
+
+Decision: RUNBOOK §3 status block updated to U49; §5 gains a "Growing the
+dataset (Telonex sync)" control point (with the convention, held since
+U43, that the lab never runs the operator pipeline — it mutates shared DB
+tables and pulls paid data — now stated where the operator reads); §5's
+instrumentation bullet rewritten to the current EDGE-SPACE §3 state
+(touch RESOLVED, trades ingestion the top option, live paper unchanged).
+No bars, thresholds, or interpretive rules changed anywhere — this is
+documentation reconciliation only (U33 precedent).

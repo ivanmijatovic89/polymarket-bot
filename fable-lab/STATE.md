@@ -1,7 +1,8 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 45, unit U48b (D29: venue-drift baseline per-market
-lines committed durably; gitignored-log dependency sweep complete)._
+_Last updated: session 46, unit U49 (D30: RUNBOOK reconciled to the
+post-E19/E22 gated state; operator unblocking actions are now explicit
+control points)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -623,6 +624,24 @@ lines committed durably; gitignored-log dependency sweep complete)._
   future sessions: commit an extract when a future computation needs the
   data as INPUT; residue-classify when the log only evidences an
   already-adjudicated, verbatim-recorded fact.
+
+- U49 (session 46): wake-up checks ran — universe unchanged (18,635
+  eligible, first 2025-11-30, last 2026-06-14, holdout boundary
+  1777237200000 re-verified), trades coverage unchanged (17,878/18,635;
+  only delta/delta-typed converters on disk) — both gates closed.
+  Friction unit (DECISIONS D30): RUNBOOK — the operator's interface —
+  was stale in three checkable ways: §3 status frozen at U31 (8 ideas vs
+  the current 9 experiments + 3 CAL scans, 10 ideas resolved), §5 still
+  told the operator touch_or_better needs a src-side change (falsified
+  U35/D18, moot since E19) and framed trade prints as live recording
+  (corrected U42/D20: historically backfillable, 95.9% coverage), and
+  the two wake-up gates — the only external actions that reopen gated
+  research — were absent from the control-points section. RUNBOOK §3/§5
+  reconciled: new "Growing the dataset (Telonex sync)" control point
+  (payoffs: ~1 month → venue-drift refresh + D27-gated reopening;
+  ~15,000 markets → IDEAS #10 unlock), instrumentation bullet rewritten
+  to the current EDGE-SPACE §3 state. No bars or interpretive rules
+  changed — documentation reconciliation only (U33 precedent).
 
 ## In progress
 - (nothing in flight)
