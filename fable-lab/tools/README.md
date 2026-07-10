@@ -5,7 +5,15 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 
 | tool | purpose |
 |---|---|
-| `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration |
+| `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration (wake-up gate 1) |
+| `run-backtest.ts` | THE lab backtest entry point (D7): registry-injection wrapper, refuses non-sequential runs, pins/prints latency env, `--fill-mode` guard (D18) — every evidence run goes through it |
+| `runs.ts` | list recent backtest runs (id, batchUid, strategy, size, status) — find run ids |
+| `fills.ts` | maker/taker fill COUNTS for runs, PnL never selected (E15 outcome-mining-safe design read) |
+| `entry-check.ts` | mechanical check of the shared "entry beats its price" prediction clause (intent_meta {exp, side, entryAsk}) |
+| `venue-drift.ts` | per-UTC-month + `--pooled` aggregation of `[diag-venue]` log lines (D17 drift instrument; outcome-free) |
+| `trades-coverage.ts` | Telonex catalog trades/quotes/onchain_fills channel coverage over the eligible universe (D20; wake-up gate 2) |
+| `holdout-lock-audit.ts` | global DB sweep: every post-boundary market ever replayed/failed by a lab run, no outcome columns (D32; re-run after any evidence run; exit 2 = classify new rows against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`) |
+| `detach.mjs` | launch a command in its own session so it survives session death (D10) — how evidence runs go to background |
 | `results.ts` | THE canonical decisive readout for a run (`--run <id>` / `--batch <uid>`): N, q, t, EV ± CI, composition, day stability |
 | `validate-experiment.ts` | spec completeness + spec-before-results + params-match-spec + holdout discipline checks |
 | `submit.ts` | build (print) the exact stage command from a frozen spec (`smoke|probe|main|lat|grid|holdout`); `--execute` to run; holdout execution refuses unless the validator passes |
@@ -13,7 +21,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `index-registry.ts` | regenerate `protocol/registry/INDEX.md` |
 | `calib.ts` / `calib2.ts` / `calib3.ts` | frozen one-shot readers for CAL-001/-002/-003 (`knowledge/CALIBRATION*.md`); constants are pre-registered — never edit post-read |
 | `calib-selftest.ts` / `calib2-selftest.ts` / `calib3-selftest.ts` | hand-computed synthetic-fixture selftests for the calib readers (D28) |
-| `holdout-lock-audit.ts` | global DB sweep: every post-boundary market ever replayed/failed by a fable-lab run, no outcome columns (U50; re-run after any evidence run; exit 2 = rows to classify against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`) |
+| `calib-coverage.sh` / `calib-integrity.sh` | CAL-001 outcome-free log checks: per-offset coverage recompute; integrity battery (dup/malformed/mirror/ts checks) |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |
 
