@@ -61,19 +61,24 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
 // also be unmistakable by label, so the batchUid must say so.
 let fillMode: 'worst_queue' | 'touch_or_better' = 'worst_queue'
 {
+  let flagPresent = false
   let v: string | undefined
   const i = process.argv.indexOf('--fill-mode')
   if (i !== -1) {
+    flagPresent = true
     v = process.argv[i + 1]
     process.argv.splice(i, 2)
   } else {
     const j = process.argv.findIndex((a) => a.startsWith('--fill-mode='))
     if (j !== -1) {
+      flagPresent = true
       v = process.argv[j].slice('--fill-mode='.length)
       process.argv.splice(j, 1)
     }
   }
-  if (v !== undefined) {
+  if (flagPresent) {
+    // Missing/invalid value is a hard error, never a silent worst_queue run
+    // (audit AUDIT-2026-07-10-D18-UNLOCK finding 3.4).
     if (v !== 'worst_queue' && v !== 'touch_or_better') {
       console.error(`[fable] --fill-mode must be worst_queue or touch_or_better (got ${JSON.stringify(v)})`)
       process.exit(1)
@@ -82,13 +87,46 @@ let fillMode: 'worst_queue' | 'touch_or_better' = 'worst_queue'
     process.argv.push(`--fill-mode=${v}`)
   }
   if (fillMode === 'touch_or_better') {
-    const b = process.argv.indexOf('--batchUid')
-    const batchUid = b !== -1 ? (process.argv[b + 1] ?? '') : ''
-    if (!batchUid.includes('touch')) {
-      console.error(
-        '[fable] --fill-mode touch_or_better requires a --batchUid containing "touch" (D18 label guard: optimistic-bound runs must be unmistakable in the DB).',
-      )
-      process.exit(1)
+    const readArgValue = (flag: string): string | undefined => {
+      const k = process.argv.indexOf(flag)
+      if (k !== -1) return process.argv[k + 1]
+      const eq = process.argv.find((a) => a.startsWith(`${flag}=`))
+      return eq?.slice(flag.length + 1)
+    }
+    const extendId = readArgValue('--extend')
+    if (extendId !== undefined) {
+      // The engine forbids --batchUid with --extend, so the D18 label guard
+      // checks the PARENT run instead (audit finding 3.2 — the original
+      // guard made touch-mode extension unexecutable): the parent must
+      // itself be a wrapper-launched touch run, by label AND by recorded
+      // cmd. This also refuses extending a worst_queue run in touch mode
+      // (audit 3.3, wrapper side).
+      const { getDb, closeDb, backtestRuns } = await import('../../src/db/index.js')
+      const { eq: eqOp } = await import('drizzle-orm')
+      const db = getDb()
+      const [parent] = await db
+        .select({ batchUid: backtestRuns.batchUid, cmd: backtestRuns.cmd })
+        .from(backtestRuns)
+        .where(eqOp(backtestRuns.id, Number(extendId)))
+      await closeDb()
+      if (!parent) {
+        console.error(`[fable] --extend ${extendId}: run not found`)
+        process.exit(1)
+      }
+      if (!(parent.batchUid ?? '').includes('touch') || !(parent.cmd ?? '').includes('--fill-mode=touch_or_better')) {
+        console.error(
+          `[fable] --fill-mode touch_or_better with --extend ${extendId}: parent run is not a touch run (batchUid=${JSON.stringify(parent.batchUid)}); extending it in touch mode would mix fill models.`,
+        )
+        process.exit(1)
+      }
+    } else {
+      const batchUid = readArgValue('--batchUid') ?? ''
+      if (!batchUid.includes('touch')) {
+        console.error(
+          '[fable] --fill-mode touch_or_better requires a --batchUid containing "touch" (D18 label guard: optimistic-bound runs must be unmistakable in the DB).',
+        )
+        process.exit(1)
+      }
     }
   }
 }

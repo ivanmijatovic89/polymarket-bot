@@ -208,3 +208,21 @@ forbids importing the old system's research conclusions._
   lives on most venues. Any further backtest in this scope must name a
   fill trigger that is NOT "the book moves through my level," or it is
   re-testing E16/E17.
+
+- **E18 — inclusive `--to-ms` leaks exactly the boundary market into
+  "exploration" sampling pools.** Found by the D18 fresh-context audit
+  (knowledge/AUDIT-2026-07-10-D18-UNLOCK.md, finding 4.2). The engine's
+  `--to-ms` filter is an INCLUSIVE upper bound (`lte`,
+  src/db/telonexEligibility.ts), while the protocol defines exploration as
+  `market_start_ms < holdoutBoundaryMs` — and the boundary equals the FIRST
+  holdout market's start (universe.ts derives it from an actual market).
+  So every probe launched with `--to-ms 1777237200000` (EXP-006, EXP-007,
+  EXP-008, EXP-009) had the single market btc-updown-15m-1777237200 in its
+  500-draw random pool (~3.5% chance of being drawn per probe).
+  Statistically negligible and identical across all affected experiments,
+  but a mechanical contradiction of "holdout untouched". Transfer: (a) all
+  FUTURE sample rules must use `--to-ms <holdoutBoundaryMs − 1>` (for the
+  current universe: 1777237199999); (b) judging any of the affected runs
+  must check whether the boundary slug was drawn and disclose it; (c) when
+  a window boundary is defined by a strict inequality, the tool flag that
+  implements it must be checked for inclusivity — do not assume.

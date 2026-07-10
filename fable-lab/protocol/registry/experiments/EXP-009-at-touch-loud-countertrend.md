@@ -96,6 +96,30 @@
   regimes are latency-sensitive — stale quotes in cascades get picked
   off; expect the touch bound to degrade fastest here).
 
+### Audit amendments (2026-07-10, PRE-RESULTS — appended while the probes
+were still running, motivated by the fresh-context audit
+`knowledge/AUDIT-2026-07-10-D18-UNLOCK.md`; no probe statistic had been
+read; decision BARS are unchanged, only claim strength and disclosures
+move). Identical in substance to EXP-008's amendment block:
+
+- **(audit 4.1)** a probe KILL is "decisive evidence against the at-touch
+  version under the most favorable fill assumption the engine can
+  express", NOT "conclusive over all intermediate fill models" — touch is
+  not a strict strategy-level upper bound (inventory-cap path dependence;
+  full-size toxic fills). Judge must use the corrected wording.
+- **(audit 4.2 / LESSONS E18)** inclusive `--to-ms` puts the single
+  boundary market btc-updown-15m-1777237200 in the sampling pool; the
+  verdict must state whether it was drawn and disclose its contribution.
+- **(audit 2.3)** phantom-fill tripwire: if any top-5 |PnL| market's fills
+  are explainable only by a crossed book (E6), run the diag fixture on
+  those slugs before the verdict; if crossed-tick phantom fills account
+  for the sign of pnlTotal → park-with-diagnosis, not kill/escalate.
+- **(audit 4.3)** EV(played) := pnlTotal / played, derived from the
+  verbatim results block.
+- **(audit 3.2)** touch-mode `--extend` now validated against the PARENT
+  run (batchUid + recorded cmd) by the wrapper, making the extension rule
+  executable as written.
+
 ## Runs (append-only)
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->

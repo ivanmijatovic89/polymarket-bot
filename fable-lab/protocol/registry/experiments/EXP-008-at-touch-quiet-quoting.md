@@ -99,6 +99,39 @@
   measurement, not deployability). If the escalation branch fires, delay
   ∈ {0, 150, 300} under touch mode becomes part of the operator memo.
 
+### Audit amendments (2026-07-10, PRE-RESULTS — appended while the probe was
+still running, motivated by the fresh-context audit
+`knowledge/AUDIT-2026-07-10-D18-UNLOCK.md`; no probe statistic had been read;
+decision BARS are unchanged, only claim strength and disclosures move):
+
+- **(audit 4.1) Kill-strength wording corrected:** touch_or_better dominates
+  worst_queue per-order but is NOT a strict upper bound on every realistic
+  queue model at strategy level (inventory caps bind on different fill sets
+  under requoting; full-size toxic fills can lose more than partial
+  realistic fills). A probe KILL is therefore "decisive evidence against
+  the at-touch version under the most favorable fill assumption the engine
+  can express", NOT "conclusive over all intermediate fill models". The
+  Judge must use the corrected wording.
+- **(audit 4.2 / LESSONS E18) Boundary-market disclosure:** `--to-ms` is
+  inclusive, so the sampling pool contains the single boundary market
+  btc-updown-15m-1777237200 (the first holdout market). The verdict must
+  state whether that slug was drawn; if drawn, its contribution is
+  disclosed (1 of 500 — negligible, and identical exposure existed in the
+  killed parents' probes).
+- **(audit 2.3) Phantom-fill tripwire, pre-specified:** if any of the
+  probe's top-5 |PnL| markets shows fills explainable only by a crossed
+  book state (E6), the diag fixture is run on those slugs BEFORE the
+  verdict; if crossed-tick phantom fills account for the sign of pnlTotal,
+  the run is contaminated → outcome is park-with-diagnosis, not kill or
+  escalate.
+- **(audit 4.3) EV(played) defined:** EV(played) := pnlTotal / played,
+  derived from the verbatim results block (results.ts does not emit it).
+- **(audit 3.2) Extension mechanics repaired:** the wrapper's touch guard
+  now validates the PARENT run (batchUid contains `touch` AND recorded cmd
+  contains `--fill-mode=touch_or_better`) when `--extend` is used, since
+  the engine forbids `--batchUid` with `--extend`. The extension rule above
+  is executable as written with this semantics.
+
 ## Runs (append-only)
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->

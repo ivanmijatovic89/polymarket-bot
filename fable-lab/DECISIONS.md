@@ -463,3 +463,16 @@ accessors depending on tsconfig target; the onMarketTick hook is
 insensitive to field semantics. (c) Making touch mode a submit.ts stage —
 it is a bracket instrument, not a lifecycle stage; keeping it out of
 submit.ts keeps the default pipeline conservative.
+
+**Amendment (2026-07-10, U35b/U37).** Two corrections to the mechanics
+above, both verified: (1) the flag is no longer stripped — it is normalized
+to `--fill-mode=X` and LEFT in argv, which the engine parser ignores but
+records in the run's permanent `cmd` column (run 354 verified), so the DB
+row itself carries the fill mode; (2) the label guard is extend-aware: with
+`--extend` (where the engine forbids `--batchUid`) the wrapper validates the
+PARENT run instead — its batch_uid must contain `touch` AND its recorded cmd
+must contain `--fill-mode=touch_or_better` — fixing the extension deadlock
+found by the D18 audit (knowledge/AUDIT-2026-07-10-D18-UNLOCK.md, finding
+3.2) and refusing cross-mode extensions in the wrapper path (finding 3.3).
+Missing `--fill-mode` value is a hard error; `--batchUid=X` form accepted
+(finding 3.4).
