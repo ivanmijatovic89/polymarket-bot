@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 7, unit U34 (completed)._
+_Last updated: session 7, unit U35._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -244,14 +244,40 @@ _Last updated: session 7, unit U34 (completed)._
   clause. (Raw log is gitignored; the per-month table is the durable
   record.)
 
+- U35: EDGE-SPACE §3.1 UNLOCKED IN-LAB — DECISIONS D18. The "operator-side"
+  classification of the touch_or_better instrument was wrong: the D7
+  wrapper already mutates in-process engine state, and `makerFillMode` is
+  a writable runtime property. `tools/run-backtest.ts` gained `--fill-mode
+  worst_queue|touch_or_better` (default worst_queue; flag stripped before
+  the engine parser; prototype hook on `BacktestExecution.onMarketTick`;
+  MECHANICAL GUARD: touch mode refuses to start unless --batchUid contains
+  "touch"). tsc clean. Verified: guard rejects unlabeled/bogus invocations;
+  same 8 fixed exploration markets, EXP-006 primary cell (offset=0.01,
+  quietRangeMax=0.08) → run 352 worst_queue: 2/8 markets, 5 maker fills;
+  run 353 touch: 8/8 markets, 19 maker fills (counts read via fills.ts,
+  no PnL). D18 interpretive rules are binding: touch results support KILL
+  or OPERATOR-ESCALATION only — never advance, never live-EV, holdout
+  stays locked. EDGE-SPACE §3.1 and §4 updated; maker in-model
+  registrations are now OPEN under the touch bracket + D18 rules.
+  (Hygiene note: the first smoke used --random and sampled 2 post-boundary
+  slugs, both zero-trade so no outcome exposure; the comparison pair used
+  pinned exploration-only slugs. Pin slugs or --to-ms for future smokes.)
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - None.
 
 ## Next
-- Research is gated on the EDGE-SPACE §4 bar: register a new experiment
-  ONLY if an idea clears it. Otherwise legitimate work is: verification
-  depth on settled conclusions, keeping EDGE-SPACE §3 current, and
-  friction-motivated protocol maintenance (evolution governor applies).
+- U36: register the touch-bracket experiment — re-run the FROZEN EXP-006
+  and EXP-007 primary cells under --fill-mode touch_or_better (new
+  experiment file(s); cells inherited frozen from the killed specs, so no
+  new tuning freedom; pre-register prediction + kill/escalate bar per
+  D18; batchUid EXP-NNN-probe-touch). Probes N=500 exploration-only,
+  detached per D10. Outcome is binary by construction: at-touch maker
+  economics dead in-model conclusively, or a measured bracket handed to
+  the operator (§3.2/§3.3 escalation).
+- After U36 resolves: research returns to the EDGE-SPACE §4 bar.
+  Legitimate non-registration work: verification depth, keeping
+  EDGE-SPACE §3 current, friction-motivated protocol maintenance.
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
   do not re-run it before then.

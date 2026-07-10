@@ -402,3 +402,64 @@ EDGE-SPACE §4.
 **Rejected.** Building a full per-tick feature warehouse (complexity
 without a consumer); running drift on every session (the venue changes on
 weeks, not hours — re-run when new months of data accrue).
+
+## D18 — Unlock EDGE-SPACE §3.1 in-lab: `--fill-mode touch_or_better` via wrapper injection
+
+**Motivating evidence (evolution governor).** D15/EDGE-SPACE §3.1
+identified the highest-value cheapest instrumentation — exposing the
+engine's existing `touch_or_better` maker fill model
+(`src/trading/execution/BacktestExecution.ts:62,90`, hardcoded unreachable
+by `runSingleMarket.ts:133` passing `'worst_queue'`) — and classified it
+operator-side ("one src-side line"). Re-examined in U35: the classification
+was wrong. The D7 wrapper already mutates in-process engine state before
+handing off to the CLI (strategy registry injection; D12 drizzle column
+clamp). `makerFillMode` is a plain writable runtime property (TS `readonly`
+is compile-time only), and the whole `--sequential` replay runs in the
+wrapper's process. A prototype hook on `BacktestExecution.onMarketTick` that
+forces the mode needs zero `src/` writes. The research program is gated on
+exactly this instrument (EDGE-SPACE §4 closed maker in-model registrations
+"until instrumentation §3.1 or §3.2 lands") — leaving it locked on a
+misclassification is forbidden idleness, not prudence.
+
+**Decision.** `tools/run-backtest.ts` gains `--fill-mode
+worst_queue|touch_or_better` (default `worst_queue`, stripped from argv
+before the engine parser sees it). When `touch_or_better`:
+
+1. The wrapper wraps `BacktestExecution.prototype.onMarketTick` to set
+   `this.makerFillMode = 'touch_or_better'` on first touch of each
+   instance (logged once per process, instance count tracked).
+2. MECHANICAL LABEL GUARD: the run's `--batchUid` MUST contain the
+   substring `touch` or the wrapper refuses to start. Optimistic-bound
+   runs must be unmistakable in the DB forever; a mislabeled bound run
+   is worse than no run.
+3. `tools/submit.ts` is NOT changed: standard lifecycle stages stay
+   worst_queue. Touch runs are launched directly via the wrapper by an
+   experiment spec that says so.
+
+**Interpretive rules (pre-specified, binding, part of this decision).**
+`touch_or_better` is the OPTIMISTIC bound — always first in queue, full
+remaining size fills the instant the touch reaches the level, zero maker
+fee. Real at-touch economics lie somewhere in [worst_queue,
+touch_or_better]. Therefore:
+
+- A touch-mode result can support a KILL ("even the optimistic bound is
+  ≤ 0 ⇒ at-touch maker economics dead in-model, conclusively — no live
+  measurement worth funding") or an ESCALATION ("optimistic bound > 0 ⇒
+  the truth lies in a bracket with a defined prize; hand EDGE-SPACE §3.2/
+  §3.3 to the operator with measured numbers").
+- A touch-mode result can NEVER support an advance toward holdout or any
+  live-EV claim: the bound is unreproducible live BY CONSTRUCTION (charter
+  parity invariant). The holdout stays locked regardless of touch results.
+- Touch-mode experiments still carry full pre-registration: frozen cells,
+  prediction, kill bar, N — the bound changes the fill model, not the
+  epistemology.
+
+**Rejected.** (a) Waiting for the operator to expose the flag src-side —
+the lab can produce identical evidence today, and the charter forbids
+idling on work the system can do ("when in doubt between improving the
+system and using the system: use it"). (b) A prototype getter/setter on
+`makerFillMode` — class-field define semantics can shadow prototype
+accessors depending on tsconfig target; the onMarketTick hook is
+insensitive to field semantics. (c) Making touch mode a submit.ts stage —
+it is a bracket instrument, not a lifecycle stage; keeping it out of
+submit.ts keeps the default pipeline conservative.

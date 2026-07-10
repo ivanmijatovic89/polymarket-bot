@@ -49,6 +49,36 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
   )
 }
 
+// --fill-mode worst_queue|touch_or_better (DECISIONS D18). Parsed and
+// STRIPPED here — the engine CLI does not know this flag. touch_or_better
+// switches the maker fill simulation to the engine's own optimistic
+// at-touch model (BacktestExecution.ts, hardcoded unreachable from the
+// CLI) via a prototype hook installed below. Optimistic-bound runs must be
+// unmistakable in the DB forever, so the batchUid must say so.
+let fillMode: 'worst_queue' | 'touch_or_better' = 'worst_queue'
+{
+  const i = process.argv.indexOf('--fill-mode')
+  if (i !== -1) {
+    const v = process.argv[i + 1]
+    if (v !== 'worst_queue' && v !== 'touch_or_better') {
+      console.error(`[fable] --fill-mode must be worst_queue or touch_or_better (got ${JSON.stringify(v)})`)
+      process.exit(1)
+    }
+    fillMode = v
+    process.argv.splice(i, 2)
+  }
+  if (fillMode === 'touch_or_better') {
+    const b = process.argv.indexOf('--batchUid')
+    const batchUid = b !== -1 ? (process.argv[b + 1] ?? '') : ''
+    if (!batchUid.includes('touch')) {
+      console.error(
+        '[fable] --fill-mode touch_or_better requires a --batchUid containing "touch" (D18 label guard: optimistic-bound runs must be unmistakable in the DB).',
+      )
+      process.exit(1)
+    }
+  }
+}
+
 // Sequential-only guard: in the BullMQ path the strategy would be resolved in
 // worker processes where this wrapper never ran — the run would fail late or,
 // worse, resolve a different strategy. Fail fast instead.
@@ -108,6 +138,32 @@ console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
   }
   clampColumn(backtestRunSegments.qualitySystem)
   clampColumn(backtestRunSegments.qualityTrade)
+}
+
+// D18: touch_or_better fill-mode hook. runSingleMarket.ts constructs every
+// BacktestExecution with a hardcoded makerFillMode: 'worst_queue'; the field
+// is a plain writable runtime property (TS readonly is compile-time only).
+// Hook the per-tick method rather than the constructor/field so the patch is
+// insensitive to class-field define-vs-set semantics.
+if (fillMode === 'touch_or_better') {
+  const { BacktestExecution } = await import('../../src/trading/execution/BacktestExecution.js')
+  const proto = BacktestExecution.prototype as unknown as {
+    makerFillMode: string
+    onMarketTick: (...a: unknown[]) => unknown
+  }
+  const orig = proto.onMarketTick
+  let patched = 0
+  proto.onMarketTick = function (this: { makerFillMode: string }, ...a: unknown[]) {
+    if (this.makerFillMode !== 'touch_or_better') {
+      this.makerFillMode = 'touch_or_better'
+      patched++
+      if (patched === 1) console.log('[fable] D18 fill-mode hook active: makerFillMode=touch_or_better (OPTIMISTIC BOUND — kill/escalate evidence only, never advance)')
+    }
+    return orig.apply(this, a)
+  }
+  process.on('exit', () => {
+    console.log(`[fable] D18 fill-mode hook: ${patched} BacktestExecution instance(s) forced to touch_or_better`)
+  })
 }
 
 // Hand off to the standard CLI with our wrapper path removed from argv, so

@@ -68,17 +68,22 @@ All three are operator decisions. They require writing outside `fable-lab/`
 or live activity, both forbidden to this lab (charter hard constraints 1
 and 4). Ordered by cost:
 
-1. **In-model optimistic bracket (cheapest; one src-side line).** The
-   engine already contains an at-touch fill model: `touch_or_better`
-   (`BacktestExecution.ts:50-114`), hardcoded unreachable
-   (`runSingleMarket.ts:133`). Exposing it (CLI flag or env) lets the
-   frozen EXP-006/EXP-007 cells re-run under the OPTIMISTIC bound
-   (always first in queue). Decision value is real in both directions:
-   if even touch_or_better is ≤ 0, at-touch maker economics is dead
-   in-model conclusively and no live measurement is worth funding; if
-   > 0, the truth lies in [worst_queue, touch_or_better] and live
-   measurement has a defined prize. This lab can run those re-runs the
-   day the flag exists.
+1. **In-model optimistic bracket — UNLOCKED IN-LAB (U35, DECISIONS D18).**
+   The engine already contains an at-touch fill model: `touch_or_better`
+   (`BacktestExecution.ts:62,90`), hardcoded unreachable
+   (`runSingleMarket.ts:133`). Originally classified operator-side; U35
+   found the D7 wrapper can force it in-process (prototype hook on
+   `onMarketTick`) with zero `src/` writes. Now available as
+   `tools/run-backtest.ts --fill-mode touch_or_better` (batchUid must
+   contain `touch`; mechanically enforced). Verified on 8 fixed markets,
+   EXP-006 primary cell: worst_queue 2/8 filled (5 maker fills) vs touch
+   8/8 (19 maker fills) — runs 352/353. Decision value is real in both
+   directions: if even touch_or_better is ≤ 0, at-touch maker economics
+   is dead in-model conclusively and no live measurement is worth
+   funding; if > 0, the truth lies in [worst_queue, touch_or_better] and
+   live measurement (§3.3) has a defined prize. BINDING (D18): touch
+   results support only kill or operator-escalation decisions — never an
+   advance toward holdout, never a live-EV claim.
 2. **Trade-print recording (medium; recorder/dataset change).** A
    queue-realistic fill model (fill when printed volume at your price
    exceeds the queue ahead of you) is the standard midpoint between the
@@ -107,10 +112,13 @@ registered only if one of these holds:
   ≈ 0 make this a high bar — the argument must name who pays and why they
   were invisible to EXP-001..005.
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
-  through my level." No such trigger exists in the current engine — so
-  in-model maker registrations are closed until instrumentation §3.1 or
-  §3.2 lands. Any punch-through variant, whatever its gate, re-tests
-  E16/E17 and is auto-dead at dedupe.
+  through my level" under worst_queue. §3.1 has landed (D18, U35): the
+  touch_or_better OPTIMISTIC bound is registrable — full pre-registration
+  (frozen cells, prediction, kill bar, N), batchUid containing `touch`,
+  and the D18 interpretive rules apply (outcomes are kill or
+  operator-escalation only; the holdout stays locked regardless).
+  Worst-queue punch-through variants, whatever their gate, re-test
+  E16/E17 and stay auto-dead at dedupe.
 - **New data regimes:** the universe accrues ~96 markets/day. A
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence
