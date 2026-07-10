@@ -200,6 +200,28 @@ in the DB is VOID — instrument defect, not result-based).
     and join-direction gates are unaffected (they condition the same
     way). No analysis constant, gate, or threshold changes.
 
+12. **(session 18, mid-run, outcome-free; measured from log bid/ask
+    fields ONLY — no outcome read) The two books are exact mirrors;
+    interpretation frozen now.** Across 13,422 paired (market, offset)
+    samples with both assets present, 13,421 satisfy
+    `bid_DOWN = 1 − ask_UP` and `ask_DOWN = 1 − bid_UP` exactly; the
+    single deviant (epoch 1764846000, off=850, cross-sums 0.95/0.96) is
+    explained by the instrument sampling each asset at its own first
+    book event at-or-after the offset. This FALSIFIES amendment #10's
+    stated premise ("the DOWN ask has its own spread and is not
+    1 − UP bid") — the recorded books are one order set viewed from
+    both sides, spreads identical by construction. Frozen consequences:
+    (a) the DOWN grid remains NON-redundant — buying DOWN at
+    `ask_DOWN = 1 − bid_UP` is economically selling UP at the bid, a
+    trade no UP cell measures — so the both-sides design stands and
+    still closes both taker half-planes on a null; (b) cross-side cell
+    hits share the same underlying book samples with complementary
+    outcomes and are NOT independent confirmations — verdict wording
+    must not present an UP hit and its DOWN reflection as two pieces of
+    evidence; (c) k = 126 and z ≥ 3.565 are unchanged (the correction
+    is conservative under dependence). No analysis constant, gate, or
+    threshold changes.
+
 ## Results
 
 _(append-only below this line; nothing here until the discovery run

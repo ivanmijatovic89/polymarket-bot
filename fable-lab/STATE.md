@@ -442,6 +442,24 @@ _Last updated: session 9, unit U40._
   edges frozen at [0.02 … 0.995] with an explicit -1/drop counter
   (calib.ts:58-65,97) — asks >0.995 or <0.02 are excluded by frozen
   design, not silently mis-binned. Monitor re-armed on pid exit.
+  Session 18 check (~28 min in): 2,238/8,516 (~0.75s/market, ETA
+  ~78 min); latency 0/0, UP/DOWN exact balance (13,224 each), 0 error
+  lines, epoch range [1764460800, 1766549700] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. NEW outcome-free
+  checks (26,844 parsed lines): (a) slug epoch = epoch field on every
+  line (0 mismatches); (b) book-mirror consistency — 13,421/13,422
+  paired (market,offset) samples have DOWN book EXACTLY 1 − UP book
+  (bid_DOWN=1−ask_UP, ask_DOWN=1−bid_UP); the single deviant
+  (1764846000, off=850, sums 0.95/0.96) is explained by the instrument
+  sampling each asset at its own first book event at-or-after the
+  offset. This FALSIFIES amendment #10's premise that the DOWN ask
+  "has its own spread" — CALIBRATION.md amendment #12 (pre-read,
+  outcome-free) freezes the interpretation: the DOWN grid stays
+  non-redundant (buy DOWN at 1−bid_UP = sell UP at the bid — a trade
+  no UP cell measures), but cross-side cell hits share the same book
+  samples and must NOT be presented as independent confirmations;
+  k=126 / z≥3.565 unchanged (conservative under dependence). Monitor
+  re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
