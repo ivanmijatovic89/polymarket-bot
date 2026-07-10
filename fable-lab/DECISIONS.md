@@ -948,3 +948,19 @@ would need its own parser or a conversion step, while the native line
 format is parseable by the existing verified tool with zero code changes;
 (c) un-gitignoring `fable-lab/logs/` — run logs are multi-MB per evidence
 run and would bloat every future commit.
+
+**Amendment (U48b, same day):** the D29 lens was completed with a
+mechanical sweep of all committed knowledge (`knowledge/*.md`, experiment
+registry, DECISIONS.md) for references to gitignored `logs/` paths.
+Exactly three distinct files are cited: `venue-drift-baseline.log` (fixed
+by this decision — future computations NEED its per-market values as
+input), `CAL-001-discovery-v3.log` (residue, recorded above), and
+`logs/touch-probes.log` (EXP-008/009 probes). The touch-probes log is
+classified residue on the same grounds: its log-only facts (D18 hook
+lines, run UTC stamps behind the U40 timing erratum, boundary-slug
+absence, tripwire [trade] blocks) were verified by two independent audits
+(AUDIT-…-D18-UNLOCK, AUDIT-…-E19-CHAIN) and are recorded verbatim in
+committed artifacts; no future computation takes the log as input. The
+distinguishing test, for future sessions: commit a log extract when a
+FUTURE computation needs it as input; residue-classify when it only
+evidences an already-adjudicated, verbatim-recorded fact.

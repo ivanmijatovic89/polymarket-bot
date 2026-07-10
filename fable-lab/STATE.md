@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 45, unit U48 (D29: venue-drift baseline per-market
-lines committed durably; CAL-001 log residue recorded)._
+_Last updated: session 45, unit U48b (D29: venue-drift baseline per-market
+lines committed durably; gitignored-log dependency sweep complete)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -611,6 +611,18 @@ lines committed durably; CAL-001 log residue recorded)._
   committed file. Accepted residue recorded in D29: the ~17 MB CAL-001
   discovery log stays gitignored (closed nulls, committed verdicts;
   nothing open depends on re-reading it).
+
+- U48b (session 45): D29 lens COMPLETED by a mechanical sweep of all
+  committed knowledge for gitignored `logs/` references — exactly three
+  files cited anywhere: venue-drift baseline (fixed, U48), CAL-001
+  discovery log (residue, D29), and `logs/touch-probes.log` (EXP-008/009)
+  now classified residue in a D29 amendment: its log-only facts (hook
+  lines, UTC stamps behind the U40 erratum, tripwire blocks) were
+  verified by two audits and recorded verbatim; no future computation
+  takes it as input. The amendment states the distinguishing test for
+  future sessions: commit an extract when a future computation needs the
+  data as INPUT; residue-classify when the log only evidences an
+  already-adjudicated, verbatim-recorded fact.
 
 ## In progress
 - (nothing in flight)
