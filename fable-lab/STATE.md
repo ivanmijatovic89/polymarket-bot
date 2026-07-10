@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 32, unit U43ar._
+_Last updated: session 33, unit U43as._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -703,6 +703,17 @@ _Last updated: session 32, unit U43ar._
   re-verified: tree clean, calib.ts still @ ab2acc9, zero diff vs
   launch commit on calib.ts/run-backtest.ts/diag-calib.ts. Watch
   armed on pid 73037 exit (60-min window covers the ~31-min ETA).
+  Session 33 check (~139 min in): 7,026/8,516 (ETA ~30-40 min); full D23
+  integrity battery via `tools/calib-integrity.sh` GREEN in one shot —
+  latency 0/0, 0 error lines, gaps=0 dupfiles=0, 85,080 sample lines
+  0 malformed, UP/DOWN exact balance (42,540 each), epoch max
+  1770982200 < frozen bound with 0 mismatches, fields clean, dedupe
+  clean, mirror 42,540 paired / the SAME single known deviant
+  (1764846000/850) — 0 one-sided keys, ts monotonicity 0 violations.
+  Coverage via frozen calib-coverage.sh at 6,650 slugs: 600s→0.9714,
+  750s→0.8574, 850s→0.5845 — late-offset drift continues; final-log
+  fractions bind for amendment #11 wording. 34 GiB free disk. Watch
+  armed on pid 73037 exit (60-min window covers the ETA).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
