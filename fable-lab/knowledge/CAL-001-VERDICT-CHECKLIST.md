@@ -27,6 +27,12 @@ in `knowledge/AUDIT-2026-07-10-CAL-001-CHECKLIST.md`)._
 
 Same checks sessions 11–24 ran mid-flight, now on the final log:
 
+_Addendum (U43am, post-audit, pre-read): this section is discharged by
+running `bash fable-lab/tools/calib-integrity.sh <log>` ONCE on the final
+log (D23; script validated positive+negative). The itemized checks below
+remain the normative list; the script is the execution vehicle. Expected:
+all clean except MIRROR deviants=1 (the known 1764846000/850)._
+
 - [ ] Latency line present: `DELAY=0 JITTER=0` (D8/U41).
 - [ ] Zero error/failure/exception lines.
 - [ ] UP/DOWN sample counts exactly equal; asset-pairing completeness

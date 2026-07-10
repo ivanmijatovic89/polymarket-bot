@@ -640,6 +640,12 @@ _Last updated: session 27, unit U43ak._
   commit ab2acc9 (git diff empty); calib.ts unchanged since its frozen
   commit ab2acc9, calib-coverage.sh since 639ad8c. The one-shot verdict
   invocation will run exactly the frozen, audited code.
+  U43am (session 27, outcome-free): DECISIONS D23 — checklist §1
+  materialized as `tools/calib-integrity.sh` (all 12 integrity checks in
+  one command; validated positive on the in-flight log at 5,210 markets —
+  values match the hand-run checks, gaps=0, the one known mirror deviant —
+  and negative on a corrupted copy). Checklist §1 carries a pre-read
+  addendum pointing at the script; the itemized list stays normative.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
