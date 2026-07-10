@@ -410,6 +410,11 @@ _Last updated: session 9, unit U40._
   strictly below the discovery boundary 1772323200 — the --to-ms window
   holds empirically; (b) 34 GiB free disk — no mid-run exhaustion risk.
   Monitor re-armed on pid exit.
+  Session 16 check (~18.2 min in): 1,530/8,516 (~0.71s/market, ETA
+  ~83 min); latency 0/0, UP/DOWN exact balance (9,097 each), 0 error
+  lines, epoch range [1764460800, 1765908000] inside the discovery
+  window, 8,516 files loaded, 33 GiB free disk. Monitor re-armed on
+  pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
