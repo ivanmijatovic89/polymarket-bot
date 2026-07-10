@@ -389,6 +389,11 @@ _Last updated: session 9, unit U40._
   error/failure lines in the log. Confirmed calib.ts was mechanically
   smoke-executed at registration (CALIBRATION.md §Disclosure) — no
   untested-tool risk on the one-shot. Monitor re-armed on pid exit.
+  Session 14 check (~11.6 min in): 972/8516, ~0.72s/market, ETA ~90 min;
+  latency 0/0, UP/DOWN exact balance (5,784 each), 0 error lines. NEW
+  outcome-free check: all 12,036 diag-calib lines match the exact
+  well-formed pattern (slug/epoch/asset/off/ts/bid/ask) — no malformed
+  lines to trip calib.ts parsing. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
