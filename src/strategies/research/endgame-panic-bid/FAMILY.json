@@ -214,8 +214,8 @@
               "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--bf23e262-09e6-4f48-9f31-a459eeab5edd",
               "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--21011672-89a4-4f5f-9cb6-b27787c0ea22"
             ],
-            "best": null,
-            "note": null
+            "best": 30,
+            "note": "All cells net +0.01/mkt, zero losses (stage-1 window has none - only the filter's cost is measurable here): W=10 keeps 7/8 champion fills (+12.60), W=30 keeps 5 (+9.00), W=60/120 keep 4 (+7.20), all wins, all maker, zero fees. Best=30 by loss-dodging evidence, not pnl argmax: sequential smoke shows W=10 KEEPS the known flip-loss btc-updown-15m-1778775300 (-38.20; the flip completed >10s before entry) while W=30 skips it; W=60/120 also skip it but shed 4/8 wins with no additional known benefit. Advisory: stage-1 cannot show the filter's benefit (no losses to dodge); stage 2 discriminates. Runs 411/412/413/414."
           },
           {
             "param": "maxFavBidRange",
