@@ -738,6 +738,19 @@ _Last updated: session 35, unit U43au._
   34 GiB free disk. Watch armed on pid 73037 exit (in-session
   background watch; ETA inside this session's window — the verdict may
   land THIS session).
+  Session 36 check (~148 min in): 7,311/8,516 (ETA ~24 min at
+  ~1.2s/market); full D23 integrity battery via
+  `tools/calib-integrity.sh` GREEN in one shot — latency 0/0, 0 error
+  lines, gaps=0 dupfiles=0, 88,990 sample lines 0 malformed, UP/DOWN
+  exact balance (44,495 each), epoch max 1771238700 < frozen bound with
+  0 mismatches, fields clean, dedupe clean, mirror 44,495 paired / the
+  SAME single known deviant (1764846000/850) — 0 one-sided keys, ts
+  monotonicity 0 violations. Coverage via frozen calib-coverage.sh at
+  6,937 slugs: 600s→0.9728, 750s→0.8633, 850s→0.5954 — late-offset
+  drift continues; final-log fractions bind for amendment #11 wording.
+  33 GiB free disk. Watch armed on pid 73037 exit (in-session
+  background watch; ETA inside this session's window — the verdict may
+  land THIS session).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
