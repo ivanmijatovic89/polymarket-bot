@@ -58,6 +58,31 @@
   sequential run persisted anything. No results were read. Relaunched with
   pinned `BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0`.
 
+- 2026-07-10 — robustness neighborhood COMPLETE (8 cells, each N=2000
+  `--random` within the exploration window per DECISIONS D11; latency
+  pinned 0/0). Two 0.95-column cells were lost twice to the E13/D12
+  quality-column overflow (runs 315, 318, 320 voided — nothing persisted)
+  and re-ran on the fixed clamp (U23). `battery.ts --exp EXP-001` grid
+  rows, verbatim (EV/mkt, q, t at N=2000):
+
+  ```
+  313  e600-a085  EV=+0.9757  q=+0.0411  t=+1.837
+  314  e600-a090  EV=-0.8343  q=-0.0342  t=-1.530
+  325  e600-a095  EV=-0.8279  q=-0.0404  t=-1.808
+  317  e720-a085  EV=-0.3239  q=-0.0155  t=-0.6916
+  324  e720-a095  EV=-0.7457  q=-0.0413  t=-1.845
+  319  e840-a085  EV=+0.2141  q=+0.0164  t=+0.7312
+  322  e840-a090  EV=-0.1360  q=-0.0099  t=-0.4419
+  321  e840-a095  EV=-0.4575  q=-0.0343  t=-1.5331
+  ```
+
+  Shape note (Scientist, pre-verdict): 6 of 8 neighbors negative; the
+  minAsk=0.95 column — where the redeem-friction mechanism should be
+  STRONGEST — is uniformly negative (t −1.5..−1.8). Smoothness is
+  fail-leaning; the decisive primary read is the pending full-window main
+  extension of run 301.
+
+
 ## Verdicts (append-only)
 
 - 2026-07-09 — run 301, batchUid `EXP-001-probe`, N=379 (of the registered

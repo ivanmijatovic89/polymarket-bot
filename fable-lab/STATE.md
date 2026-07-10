@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U23._
+_Last updated: session 3, unit U24._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -114,6 +114,12 @@ _Last updated: session 3, unit U23._
   string/number/Infinity (unit-tested against the patched column). Both
   0.95 cells relaunched on committed fixed code (logs `*-retry2.log`).
 
+- U24: EXP-001 grid COMPLETE (8/8 cells persisted; retry2 runs 324/325
+  confirm the U23 clamp works). Grid appended verbatim to the experiment
+  file. Shape: 6/8 neighbors negative; the whole minAsk=0.95 column is
+  uniformly negative — where the mechanism should be strongest. Smoothness
+  fail-leaning; awaiting main for the decisive primary read.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - U13: EXP-001 stage MAIN — run 301 extending to full exploration window
   (13,598 markets, ~2h; log `logs/EXP-001-main.log`, grows run 301 in
@@ -122,13 +128,7 @@ _Last updated: session 3, unit U23._
   EXP-001-lat150 / EXP-001-lat300, logs `logs/EXP-001-lat{150,300}.log`,
   13,977 markets each — paired with main's window by construction; the
   delay-0 point of the curve IS the main run).
-- EXP-001 grid (2000 random each per D11), 6 of 8 persisted:
-  313 e600-a085 +0.98/t+1.84; 314 e600-a090 -0.83/t-1.53; 317 e720-a085
-  -0.32/t-0.69; 319 e840-a085 +0.21/t+0.73; 321 e840-a095 -0.46/t-1.53;
-  322 e840-a090 -0.14/t-0.44. Neighborhood is zero-to-negative with mixed
-  signs — smoothness looks FAIL-leaning; decisive read is the main run.
-  0.95-column cells e600-a095/e720-a095 running as *-retry2 on the fixed
-  clamp (U23).
+- EXP-001 grid: DONE (see U24).
 - When probes finish: results.ts readout → Judge each (JUDGE.md) → verdict
   units. EXP-005 probe next in queue. When main+lat finish: launch the 8 grid cells (spec neighborhood,
   full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
