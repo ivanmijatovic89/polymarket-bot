@@ -522,7 +522,11 @@ _Last updated: session 9, unit U40._
   exactly DOWN = 1 − UP; the SAME single deviant (1764846000, off=850)
   — amendment #12 holds at ~43% of the run. Dedupe re-check on the
   grown log: 0 duplicate (slug,asset,off) tuples; offsets exactly the
-  7 frozen values. Monitor re-armed on pid exit.
+  7 frozen values. NEW outcome-free check: replay-file uniqueness —
+  0 duplicate parquet files across 3,763 replay lines, and the
+  [backtest][N/8516] index sequence is contiguous (0 gaps) — no market
+  is replayed twice at the file level, so per-market sample caps hold
+  by construction. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
