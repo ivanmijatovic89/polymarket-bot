@@ -369,8 +369,10 @@ _Last updated: session 9, unit U40._
   KILLED ~500 markets in, log discarded UNANALYZED — its fixture lacked
   capture timestamps (audit finding 1, BLOCKER); its partial DB run row
   is VOID (instrument defect, not result-based). Relaunch on amended
-  committed code: batchUid CAL-001-discovery-v2, log
-  `fable-lab/logs/CAL-001-discovery-v2.log` (pid recorded below).
+  committed code (7da8cd6): batchUid CAL-001-discovery-v2, detached pid
+  65334, log `fable-lab/logs/CAL-001-discovery-v2.log` — verified at
+  launch: 8,516 files loaded, latency pinned 0/0, ts= present in sample
+  lines. Expected ~2h (~0.8s/market measured on the v1 launch).
   WHEN COMPLETE (successor: check the pid / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v2.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
