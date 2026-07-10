@@ -40,7 +40,8 @@ Summary of the map:
   (E10). CAL-001 then scanned the full fixed-time plane (7 offsets × 9
   price buckets × both sides, 8,516 discovery markets): zero cells clear
   the candidate bar in either direction; the extreme-price tails — where
-  power beat the fee floor by 15× — are clean on both sides. Within
+  the candidate bar (≈ 1.3c) is ~16× the local fee (~0.08c) — are clean
+  on both sides at 600/750/850s. Within
   stated power (mid-range resolves only |d| ≳ 3.8c; 750s/850s cells
   conditional on a book event at coverage 0.87/0.60), fixed-time
   top-of-book state carries no taker-exploitable signal.
@@ -159,8 +160,10 @@ registered only if one of these holds:
   were invisible to EXP-001..005. E20 raises it further: CAL-001 scanned
   the full fixed-time top-of-book plane (126 cells, both sides) and found
   nothing, so the argument must ALSO explain why the edge is invisible to
-  a fixed-time state scan — i.e. it must live in conditional/path
-  structure within the window, not in price level × time alone.
+  a fixed-time state scan — e.g. it lives in conditional/path structure
+  within the window, or it sits below CAL-001's stated power (mid-range
+  cells resolve only |d| ≳ 3.8c) while still clearing the ~1.5c floor
+  with recorded-data evidence from another instrument.
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration

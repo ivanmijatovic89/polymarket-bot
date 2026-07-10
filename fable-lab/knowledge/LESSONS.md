@@ -299,11 +299,13 @@ forbids importing the old system's research conclusions._
   conclusion ("taker fairly priced everywhere tested") is upgraded from
   five point measurements to a systematic plane scan — a future taker
   registration must argue why its edge is invisible to BOTH the five
-  strategies AND the 126-cell grid; (b) fixed-time top-of-book state
-  alone carries no taker-exploitable signal on this venue; anything left
-  must live in CONDITIONAL structure (path/flow features within the
-  window) or outside the taker channel — and E16–E19 close the maker
-  channel in-model; (c) the discovery/probe split design cost nothing:
+  strategies AND the 126-cell grid; (b) within CAL-001's stated power
+  and coverage conditioning, fixed-time top-of-book state alone carries
+  no taker-exploitable signal on this venue; anything left must live in
+  CONDITIONAL structure (path/flow features within the window), below
+  CAL-001's power (mid-range resolves only |d| ≳ 3.8c) but above the
+  ~1.5c fee floor, or outside the taker channel — and E16–E19 close the
+  maker channel in-model; (c) the discovery/probe split design cost nothing:
   the probe reserve (5,460 markets) was never spent because no candidate
   emerged — reserving confirmation data before looking remains free
   insurance against multiplicity.

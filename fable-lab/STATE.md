@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 41, unit U43ba (CAL-001 VERDICT)._
+_Last updated: session 41, unit U43bb (E20 propagation audit)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -379,8 +379,24 @@ _Last updated: session 41, unit U43ba (CAL-001 VERDICT)._
   knowledge/CALIBRATION.md Results. Consequences: no EXP-010; probe
   reserve (5,460 markets) unspent; LESSONS E20 (both taker half-planes
   on-diagonal across the fixed-time plane within stated power; future
-  taker registrations must argue conditional/path structure);
+  taker registrations must escape the plane scan per EDGE-SPACE §4);
   EDGE-SPACE §1 map row + taker summary + §4 taker bar updated.
+
+- U43bb (session 41): E20 knowledge propagation AUDITED by a
+  fresh-context verifier (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-10-E20-PROPAGATION.md`). Every number in
+  E20/EDGE-SPACE/STATE traces to CALIBRATION.md Results. All 5 findings
+  acted on: (1) MAJOR — the tightened taker bar over-claimed ("i.e.
+  conditional/path only"), silently foreclosing the power-based escape
+  the frozen method preserves (a fixed-time mid-range edge in
+  ~1.5c–3.8c is NOT excluded by the null); EDGE-SPACE §4 + STATE.md +
+  E20(b) now carry the power-scoped wording; (2) EDGE-SPACE "15×" fixed
+  to "candidate bar ≈1.3c is ~16× the local fee" with the 600/750/850s
+  restriction restored (early-window tail cells are unmeasured, not
+  clean); (3) E20 transfer (b) got its in-place power qualifier;
+  (4) offsets restriction (same edit); (5) judge-verdict "4,372"
+  transcription typo flagged by adjacent italic note in CALIBRATION.md
+  (verbatim text untouched).
 
 ## In progress
 - (nothing in flight)
@@ -388,8 +404,10 @@ _Last updated: session 41, unit U43ba (CAL-001 VERDICT)._
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
   by E20): taker needs a ≥1.5c gross argument that escapes E9-E14 AND the
-  CAL-001 fixed-time plane scan (i.e. lives in conditional/path structure
-  within the window); maker in-model needs a cell/gate that escapes
+  CAL-001 fixed-time plane scan (e.g. conditional/path structure within
+  the window, or below CAL-001 power — mid-range resolves only
+  |d| ≳ 3.8c — while clearing ~1.5c via another instrument, per
+  EDGE-SPACE §4); maker in-model needs a cell/gate that escapes
   E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
   change. Legitimate non-registration work:
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated

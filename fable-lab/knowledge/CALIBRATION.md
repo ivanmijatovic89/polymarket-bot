@@ -532,3 +532,9 @@ confirmations.
   - No sign of post-hoc tuning: all constants (offsets, buckets, k=126, 3.565, fee formula, gates) trace to pre-results amendments; the one printed table is the whole grid, empty cells included; no subset reads appear in Results. PASS (with honor-system caveat below).
   - Sub-window consistency correctly untriggered: it is conditional on clearing the z bar, which no cell did.
 - reservations: (1) The single-read rule is honor-system per amendment #5; I can verify the printed output's internal consistency and the git trail, not that calib.ts ran exactly once. (2) The appended erratum retains the frozen phrase "single known deviant" while the final log has two; the #14 license permitted only a pair-count adjustment and the second deviant is fully disclosed in an adjacent note, so this is a handled wording tension, not a violation. (3) 850s cells condition on ~60% coverage; the Results wording handles this correctly, but any future citation of those cells must carry the same conditioning. None of these affects the verdict.
+
+_Transcription-typo note (E20-propagation audit, finding 5 — the judge
+text above stays verbatim): the checks bullet's identity
+"104,776 − 200 − 4,372" should read 4,172, per the verbatim calib.ts
+output line ("4172 ask outside [0.02,0.995]") and the judge's own basis
+paragraph; 104,776 − 200 − 4,172 = 100,404 ✓._
