@@ -614,3 +614,20 @@ CALIBRATION.md amendment #10 has the full wording. Compute accounting:
 two dead partial launches (~500 + ~700 markets) — both instrument-defect
 restarts while restart was cheap, neither result-based; total waste
 ~25 min vs a ~2h saving over a sequential DOWN study.
+
+**Amendment 3 (2026-07-10, U43p — mid-run, outcome-free).** Motivating
+evidence: a session-16 integrity check measured per-offset coverage from
+the live v3 log's timing fields only (slug/asset/off/ts — no outcome or
+price read): at 1,662 complete markets, 850s coverage is 43.0% and 750s
+is 75.4% (600s 96.6%, ≤450s ≥99.5%); capture is prompt when present
+(95% < 1s at 850s), so a missing offset means NO uncrossed book event
+between offset and 900s. CALIBRATION.md amendment #11 freezes the
+interpretation BEFORE the one-shot read: every cell is conditional on a
+book event at-or-after its offset — this coincides with in-engine
+tradability, so candidate cells stay registrable, but 750s/850s verdict
+wording must carry coverage fractions and cannot claim venue-level
+(in)efficiency for the excluded quiet markets. No gate, constant, or
+threshold changed. Also corrected in the same unit: the U43o STATE note
+guessed truncation was at EARLY offsets; direct measurement falsified
+that guess (truncation is late-offset), recorded as a correction rather
+than silently rewritten.
