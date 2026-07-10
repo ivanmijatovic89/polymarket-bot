@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 25, unit U43ai._
+_Last updated: session 26, unit U43aj._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -608,6 +608,15 @@ _Last updated: session 25, unit U43ai._
   log (55,594 lines): 0 duplicate (slug,asset,off) tuples, ts∈[off,900]
   everywhere, offsets exactly the 7 frozen values, per-market line cap
   14 holds. Monitor re-armed on pid exit.
+  Session 26 check (~71.5 min in): 4,919/8,516 (~0.87s/market, ETA
+  ~52 min); latency 0/0, UP/DOWN exact balance (28,353 each), 0 error
+  lines, epoch range [1764460800, 1769082300] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. Mirror re-measurement
+  on the grown log (4-decimal rounding): 28,414/28,415 paired
+  (market,offset) samples exactly DOWN = 1 − UP; the SAME single
+  deviant (1764846000, off=850) — amendment #12 holds at ~58% of the
+  run. Dedupe (0 duplicate tuples) and asset-pairing completeness
+  (0 one-sided keys) re-confirmed. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
