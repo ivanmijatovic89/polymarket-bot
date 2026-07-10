@@ -16,7 +16,7 @@
     "certainty-maker-bid"
   ],
   "retryOnlyIf": null,
-  "champion": null,
+  "champion": "000-baseline",
   "verdictSummary": null,
   "tags": [
     "endgame",
@@ -106,19 +106,42 @@
         "selection": "latest",
         "markets": 3000
       },
-      "status": "running",
+      "status": "evaluated",
       "gateLog": [
         {
           "stage": 1,
           "decision": "go",
           "at": "2026-07-10T16:27:32Z",
           "note": "Best cell (run 391: entryTimeSec=897, bidPrice=0.955, certaintyThreshold=0.95, size=40) net +0.01/mkt at 1000 markets, pnl +14.40, 8 trades, 8W-0L (100% win vs 95.5% fill breakeven), all maker, zero fees. Advisories: EV rides on 8 fills in 1000 markets (thin, capacity-bounded by design); losses appear only at earlier entries (885/890: win% 90.5/85.7, below breakeven) so the surviving edge is timing-pure; 100% win on n=8 cannot yet distinguish P(win|fill)=0.955 from >0.99 - the stage-2 extension is the discriminating test."
+        },
+        {
+          "stage": 2,
+          "decision": "recycle",
+          "at": "2026-07-10T17:03:30Z",
+          "note": "Run 391 extended to 3000 markets: net -0.01/mkt, pnl -29.88, 27 played, 25W-2L (92.59% win vs 95.5% breakeven), fees 0.08, 25 maker + 2 taker fills. Both losses are informed last-second flips (bought DOWN at 0.955, settled UP: btc-updown-15m-1778775300, btc-updown-15m-1780179300), -38.20 each; the 2 taker-leak fills both won at better prices (0.92/0.95). 2 losses vs ~1.2 expected at exact breakeven on n=27 - the standing +4.5c margin is consumed by adverse selection to approximately the bid price. Gate netEvPerMarket > 0 at 3000 markets fails: recycle."
         }
       ],
       "submittedAt": "2026-07-10T13:13:26Z",
-      "decidedAt": null,
+      "decidedAt": "2026-07-10T17:03:30Z",
       "abortReason": null,
-      "outcome": null
+      "outcome": {
+        "verdict": "success",
+        "bestParams": {
+          "entryTimeSec": 897,
+          "bidPrice": 0.955,
+          "certaintyThreshold": 0.95,
+          "size": 40
+        },
+        "metrics": {
+          "netEvPerMarket": -0.01,
+          "grossEvPerMarket": -0.01,
+          "markets": 3000,
+          "trades": 27
+        },
+        "reason": "Best cell net +0.01/mkt at 1000 markets (8W-0L) met the pre-declared bar 'Best cell netEvPerMarket > 0 at stage-1 coverage (STAGE-GATES.md gate 1)'; the stage-2 extension to 3000 markets recycled at net -0.01/mkt (27 trades, 25W-2L, 92.59% win vs 95.5% fill breakeven).",
+        "stageReached": 1,
+        "gatesVersion": 1
+      }
     }
   ]
 }

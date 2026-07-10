@@ -247,3 +247,59 @@ when results justify it):
   this family can never degenerate into K-002.
 
 ## Research log
+
+### 000-baseline — 2026-07-10
+
+Coordinate search (4 passes, 13 runs, latest 1000 markets) then a stage
+climb on the best cell. Pass winners: `entryTimeSec=897` (885/890 net
+−0.03/mkt with fill win rates 90.48%/85.71% — below the 96.5% breakeven at
+a 0.965 bid — while 895/897 tied at +0.01, 8W‑0L; the two losing episodes
+filled at 885/890 and at neither late trigger), `bidPrice=0.955` (identical
+8 fills as 0.965 but avgWin 0.90 vs 0.70 — under `worst_queue` a fill means
+the ask crashed through the level, so deeper collects strictly more),
+`certaintyThreshold=0.95` (0.93 ties exactly — inert below 0.95; 0.97
+halves participation, 8→4 played, with zero purity gain), `size=40` (pnl
+exactly linear 3.60/7.20/14.40 across 10/20/40 — the engine does not
+consume depth, so linearity beyond the sweep is engine artifact, not
+capacity evidence).
+
+Stage‑1 gate PASSED on run 391 (897/0.955/0.95/40): net +0.01/mkt at 1000
+markets, +14.40 pnl, 8 trades, 8W‑0L, all maker, zero fees → verdict
+`success` against the frozen bar "Best cell netEvPerMarket > 0 at stage‑1
+coverage (STAGE-GATES.md gate 1)"; champion set to 000-baseline (first
+gate‑passing experiment; anchor for challengers).
+
+Stage‑2 gate RECYCLED at 3000 markets: net −0.01/mkt, −29.88 pnl, 27
+played, 25W‑2L = 92.59% fill win rate vs the 95.5% breakeven at a 0.955
+bid. The family's deciding question — P(win | bid filled) vs bid price —
+now has a first quantitative answer: both losses are genuine last‑second
+flips (bought DOWN at 0.955, settled UP — btc-updown-15m-1778775300,
+btc-updown-15m-1780179300; −38.20 each), i.e. the pick‑off tail is real
+and, at n=27, prices the fills to approximately the bid (2 losses observed
+vs ~1.2 expected at exact breakeven; the stage‑1 window was simply the
+lucky zero‑loss third of the data). The measured +4.5c standing margin is
+therefore roughly the fair price of bearing the flip tail under the
+engine's most adverse fill model — not free money, but also not measurably
+toxic beyond fair: the point estimate of the donation surviving adverse
+selection is ≈ 0, not < 0.
+
+Interpretation and decision: the baseline one‑shot hold‑to‑settlement shape
+converts a +2 to +4.5c standing margin into ≈ 0 net because ~7% of fills
+are informed flips that cost the full stake. The obvious attack is removing
+informed fills, not finding more margin: roadmap idea 1
+(cancel‑on‑adverse‑move) targets exactly the observed loss mechanism — a
+last‑second flip is observable pre‑fill book state, and the losing fills
+arrive while the favorite's book is already deteriorating. Next experiment:
+001-cancel-on-adverse-move. Advisories carried forward: fills are ~0.9% of
+markets (27/3000), so every stage answer rides on tens of fills — expect
+noisy gates; the maker‑only guard leaked 2 taker fills (both won at better
+prices, so the leak is benign in sample but should be watched).
+
+Lesson: Under `worst_queue`, a resting bid on a ~0.99 favorite fills only
+when the ask side collapses through it, and those collapses split into
+benign panic (settles with you, ~93% of fills) and genuine flips (full
+−0.955 stake loss) at a ratio that consumes the entire 4.5c standing margin
+— the census's unmeasurable P(win|filled) term turned out to be almost
+exactly the breakeven, so any positive EV in this family must come from
+filtering the flip tail out of the fill stream, not from price placement
+(passes 1–4 already optimized placement and the best cell still recycled).

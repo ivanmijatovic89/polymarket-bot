@@ -20,9 +20,14 @@
       "retryOnlyIf": null,
       "verdictSummary": null,
       "path": "endgame-panic-bid/FAMILY.md",
-      "champion": null,
-      "championMetrics": null,
-      "championStageReached": null,
+      "champion": "000-baseline",
+      "championMetrics": {
+        "netEvPerMarket": -0.01,
+        "grossEvPerMarket": -0.01,
+        "markets": 3000,
+        "trades": 27
+      },
+      "championStageReached": 1,
       "tags": [
         "endgame",
         "maker",
