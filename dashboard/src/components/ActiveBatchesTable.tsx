@@ -7,6 +7,7 @@ import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { ProgressBar } from './ProgressBar'
+import { deriveBatchPhase } from '@/lib/batchPhase'
 import type { ActiveBatchSummary } from '@/lib/queries/batches'
 
 async function fetchActive(): Promise<{ batches: ActiveBatchSummary[] }> {
@@ -88,9 +89,14 @@ export function ActiveBatchesTable() {
                 )}
               </TableCell>
               <TableCell>
-                <Badge variant="secondary" className="font-mono text-[10px] uppercase">
-                  {b.parentState ?? '?'}
-                </Badge>
+                {(() => {
+                  const phase = deriveBatchPhase(b)
+                  return (
+                    <Badge variant={phase.variant} className="text-[11px]" title={phase.title}>
+                      {phase.label}
+                    </Badge>
+                  )
+                })()}
               </TableCell>
               <TableCell>
                 <Link

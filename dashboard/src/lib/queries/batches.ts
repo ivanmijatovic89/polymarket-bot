@@ -37,6 +37,7 @@ export type ActiveBatchSummary = {
   completedChildren: number
   failedChildren: number
   parentState: string | undefined
+  attemptsMade: number
 }
 
 /**
@@ -125,6 +126,7 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
       completedChildren,
       failedChildren,
       parentState: state,
+      attemptsMade: job.attemptsMade ?? 0,
     })
   }
   return out
