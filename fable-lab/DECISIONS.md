@@ -775,3 +775,9 @@ first. (b) 3×3 shape grid including mid segments — known-thin cells
 power framing per CAL-002's published distribution. (c) pooling cells
 across triples for power — adjacent triples share offsets AND market
 outcomes; a pooled z would be computed as if independent and be wrong.
+
+_D26 amendment (pre-read, U44): the "n ≈ 15-60" mid-cell figure in
+rejected alternative (b) was not derivable from published numbers — see
+CALIBRATION-3.md amendment #2 (single-mid cells ≈ 180-380 under
+independence; the exclusion rests on the resolvable-|d| bar). The
+candidate bar is 3.26, not 3.25 (amendment #1)._

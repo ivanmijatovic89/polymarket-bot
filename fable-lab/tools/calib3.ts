@@ -14,9 +14,9 @@
  * dn (≤ −0.02) / up (≥ +0.02) / mid (otherwise); entries with a mid
  * segment are counted and EXCLUDED (CALIBRATION-3.md instrument section).
  * Entry is buy-UP / buy-DOWN at that side's ask(t2) within [0.02,0.995].
- * k = 5 triples × 4 shapes × 2 sides = 40 cells, candidate bar z ≥ 3.25
- * (one-sided p = 0.023/40), minority ≥ 30, sub-window consistency — all
- * frozen in CALIBRATION-3.md.
+ * k = 5 triples × 4 shapes × 2 sides = 40 cells, candidate bar z ≥ 3.26
+ * (one-sided tail ≤ 0.023/40), minority ≥ 30, sub-window consistency —
+ * all frozen in CALIBRATION-3.md (+ pre-read amendments).
  *
  * Gate-reproduction (CALIBRATION-3.md gate 2): the join-direction and
  * E14-analog pools are derived EXACTLY as calib2.ts derived them (pair
@@ -64,7 +64,9 @@ const shapeName = (s: [Seg, Seg]) => `${s[0]}-${s[1]}`
 const SIDES = ['UP', 'DOWN'] as const
 type Side = (typeof SIDES)[number]
 const K = TRIPLES.length * SHAPES.length * SIDES.length // 40
-const Z_BAR = 3.25 // one-sided p = 0.023/40 = 5.75e-4; tail(3.25) ≈ 5.77e-4
+// Amendment #1 (pre-read audit): 3.26, not 3.25 — tail(3.26) ≈ 5.57e-4 ≤
+// 0.023/40 = 5.75e-4 (tail(3.25) ≈ 5.77e-4 would be anti-conservative).
+const Z_BAR = 3.26
 const MINORITY_MIN = 30 // D13
 const FEE_RATE = 0.0156
 const ASK_LO = 0.02

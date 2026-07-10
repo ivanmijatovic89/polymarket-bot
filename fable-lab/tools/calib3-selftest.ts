@@ -143,7 +143,7 @@ const out = execFileSync('npx', ['tsx', 'fable-lab/tools/calib3.ts', LOG, '--out
 })
 console.log(out)
 
-const EXPECT: Array<[string, string | RegExp]> = [
+const EXPECT: Array<[string, string | RegExp | ((o: string) => boolean)]> = [
   ['parser gate skipped', 'gate parser-consistency: SKIPPED (synthetic fixture)'],
   ['drift count', '(2 drift-discarded lines)'],
   ['band count', '2 dropped: entry ask outside [0.02,0.995]'],
@@ -160,7 +160,9 @@ const EXPECT: Array<[string, string | RegExp]> = [
   ['outcome join', 'outcome joined for 202/202 scan markets (0 missing/unresolved — excluded)'],
   ['UP join gate', /gates UP: join-direction OK \(pooled 750-850 tail winRate=0\.9750, n=40\); E14-analog control OK \(empty\)/],
   ['DOWN join gate', /gates DOWN: join-direction OK \(pooled 750-850 tail winRate=0\.9750, n=40\); E14-analog control OK \(empty\)/],
-  ['gate-reproduction not claimed on synthetic', /^(?!.*gate-reproduction OK)[\s\S]*$/],
+  // Amendment #4 (pre-read audit): a negated-lookahead regex without /s was
+  // vacuous on multi-line output; use a function assertion instead.
+  ['gate-reproduction not claimed on synthetic', (o: string) => !o.includes('gate-reproduction OK')],
   // Candidate row: n=200 (dedupe worked), meanAsk .5700, winRate .7500, z +5.14, minority 50.
   [
     'candidate row',
@@ -177,7 +179,7 @@ const EXPECT: Array<[string, string | RegExp]> = [
 ]
 let fails = 0
 for (const [name, pat] of EXPECT) {
-  const ok = typeof pat === 'string' ? out.includes(pat) : pat.test(out)
+  const ok = typeof pat === 'string' ? out.includes(pat) : typeof pat === 'function' ? pat(out) : pat.test(out)
   console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}`)
   if (!ok) fails++
 }
