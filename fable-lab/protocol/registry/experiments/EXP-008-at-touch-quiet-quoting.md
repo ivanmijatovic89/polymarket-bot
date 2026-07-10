@@ -136,8 +136,52 @@ decision BARS are unchanged, only claim strength and disclosures move):
 
 <!-- one block per run, pasted verbatim from tools/results.ts -->
 
+- 2026-07-10 — probe (touch), `tools/results.ts --batch EXP-008-probe-touch`, verbatim:
+
+```
+=== results: run 357  batch EXP-008-probe-touch ===
+strategy fable-exp-006  params {"offset":0.01,"shares":10,"maxPrice":0.95,"minPrice":0.05,"maxInventory":50,"requoteDelta":0.01,"minElapsedSec":60,"quietRangeMax":0.08,"quietWindowSec":60,"stopBeforeEndSec":120}
+status completed  mode telonex-delta/delta-typed/local-or-download-from-r2-to-local
+N=500  played=392  skipped=108  failures=0
+pnlTotal=-216.5  EV/market=-0.433  CI95=[-1.034, 0.168]
+std=6.8565  q=-0.0632  t=-1.4121
+winRate(played)=0.4209 (wins/losses=165/223)
+fees=0  fee/grossWins=0  maker/taker=1324/0 (makerShare=1)
+days=141  positiveDayFrac=0.4255  best=2025-12-24:34.1  worst=2025-12-29:-44.8
+worst5: btc-updown-15m-1769042700:-29.4  btc-updown-15m-1767037500:-25.1  btc-updown-15m-1771227000:-21  btc-updown-15m-1766847600:-20.3  btc-updown-15m-1767744000:-19
+best5:  btc-updown-15m-1769157000:33.8  btc-updown-15m-1769250600:29.3  btc-updown-15m-1765191600:26.8  btc-updown-15m-1766389500:25  btc-updown-15m-1766219400:23.5
+```
+
+- Pre-verdict checks (pre-registered in the audit amendments, performed
+  before judging, 2026-07-10):
+  - D18 hook line confirmed in the run log (`logs/touch-probes.log` line
+    2009: `makerFillMode=touch_or_better`; end-of-run summary line 25235:
+    `484 BacktestExecution instance(s) forced to touch_or_better`).
+  - (audit 4.2 / E18) Boundary market btc-updown-15m-1777237200: NOT drawn
+    (0 occurrences in the EXP-008 section of the run log).
+  - (audit 2.3) Phantom-fill tripwire: top-5 |PnL| markets inspected via
+    the run log's [trade] lines. All fills at plausible mid-range prices
+    (0.10–0.78), 3–6 trades per market, two-sided quiet quoting pattern;
+    winners = low-priced side that settled in; losers = high-priced side
+    that settled out. No fill explainable only by a crossed book state →
+    tripwire does NOT fire; diag fixture not required.
+  - (audit 4.3) EV(played) = pnlTotal/played = −216.5/392 = −0.552.
+
 ## Verdicts (append-only)
 
 <!-- one block per Judge verdict, pasted verbatim. Fields: stage, decision,
      t/q/N/EV read, battery summary, simulator-bias classification,
      required next step, one-paragraph reasoning. -->
+
+- 2026-07-10 — probe verdict (fresh-context Judge, verbatim):
+
+- stage: probe (touch bound)
+- decision: kill
+- read: N=500 (played=392, skipped=108, failures=0) q=-0.0632 t=-1.4121 EV/market=-0.433 CI95=[-1.034, 0.168]; EV(played) = pnlTotal/played = -216.5/392 = -0.552
+- prediction check: CONTRADICTED. The pre-registered prediction was EV(played) > 0 under touch_or_better; measured EV(played) = -0.552 ≤ 0 at N=500. Independently, the probe KILL bar (q̂ ≤ 0 with t ≤ −1) is also met: q=-0.0632 ≤ 0, t=-1.4121 ≤ −1. Both kill branches fire.
+- battery: none required at probe (spec registers no robustness neighborhood for this bound experiment). Composition diagnostics consistent with the mechanism as designed: maker/taker = 1324/0 (makerShare=1), fees=0 (gross = net as pre-specified), winRate(played)=0.4209 with 165 wins / 223 losses — D13 skewed-payoff rule NOT triggered (win rate inside [0.1, 0.9]; both outcome counts far above 30, so t is not built on a thin minority tail). Time composition: 141 days, positiveDayFrac=0.4255, best/worst days ±~40 — loss is broad-based, not a single-cliff artifact.
+- simulator-bias classification: simulator-favored BY DESIGN (touch_or_better: always first in queue, full remaining size, zero maker fee) — that is the instrument, and the result is negative despite it. Per D18, this outcome set is {kill, escalate, park} only; no advance or live-EV claim is possible from this run regardless of sign.
+- lineage-adjusted bar: lineage_cells = 1 (cell inherited frozen from EXP-006's registered primary; no touch-mode outcome was ever observed before this experiment), so no Bonferroni inflation applies — the plain probe bars govern, and the kill bar is met with margin on both branches.
+- boundary/tripwire disclosures: (E18/audit 4.2) boundary market btc-updown-15m-1777237200 was NOT drawn (0 occurrences in the run log). (audit 2.3) Phantom-fill tripwire did NOT fire: top-5 |PnL| markets inspected via [trade] lines showed fills at plausible mid-range prices (0.10–0.78), 3–6 trades per market, two-sided quiet-quoting pattern, no fill explainable only by a crossed book state — park-with-diagnosis branch not invoked. D18 hook confirmed in the run log (makerFillMode=touch_or_better; 484 instances forced).
+- required next step: none for this lineage — no extension (the ambiguous branch does not apply: the prediction is decided), no escalation memo (escalation required t ≥ 2 with EV(played) > 0), holdout stays locked per D18. Record the measured bracket for the EXP-006 cell as closed at both ends — worst_queue EV/market = −0.18 (run 336) and touch_or_better EV/market = −0.433 (run 357) — in LESSONS/EDGE-SPACE as the operator sees fit; at-touch quiet quoting on this cell warrants no §3.2/§3.3 spend.
+- reasoning: The pre-registered kill rule fires twice over: the falsifiable prediction (EV(played) > 0 under the optimistic bound) is contradicted at EV(played) = −0.552, and the statistical kill bar (q̂ ≤ 0 with t ≤ −1) is met at q = −0.063, t = −1.41. Per audit amendment 4.1, this kill is stated as decisive evidence against the at-touch version under the most favorable fill assumption the engine can express — not as conclusive over all intermediate fill models — but its practical force is strong: with guaranteed queue priority, full-size fills on every touch, and zero maker fee, quiet-window two-sided quoting on this cell still loses ~0.43/market (~0.55 per played market), meaning adverse selection alone exceeds the passive discount before any realistic queue friction is added; notably the optimistic bound loses MORE than the parent's worst-queue read (−0.433 vs −0.18), consistent with the amendment's point that denser toxic fills can hurt at strategy level. All pre-registered integrity checks pass (fill-mode hook confirmed, boundary market not drawn, phantom-fill tripwire clean, payoff not skewed), so nothing rescues the run into park; the correct outcome under the spec's own rules is kill.

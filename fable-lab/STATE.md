@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 7, unit U35._
+_Last updated: session 8, unit U38._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -290,14 +290,27 @@ _Last updated: session 7, unit U35._
   Also: phantom-fill tripwire pre-specified, EV(played) defined, D18
   amendment note appended, --fill-mode missing value now hard error.
 
+- U38 (session 8): EXP-008 probe JUDGED — **kill** (run 357, N=500, 392
+  played, 1324 maker fills, EV/market −0.433, q=−0.0632 t=−1.41,
+  EV(played) −0.552, win rate 0.4209 → both kill branches fire: prediction
+  CONTRADICTED and q≤0 with t≤−1). Per audit amendment 4.1 wording: decisive
+  against at-touch quiet provision under the most favorable fill assumption
+  the engine can express. Notably the optimistic bound loses MORE than the
+  worst-queue parent (−0.433 vs −0.18, run 336) — denser toxic fills hurt.
+  Pre-verdict checks all pass: D18 hook lines in log, boundary market NOT
+  drawn (E18), phantom-fill tripwire clean (top-5 |PnL| fills at plausible
+  0.10–0.78 prices). Fresh-context Judge verdict appended verbatim; INDEX
+  regenerated (EXP-008 → kill). Bracket for the EXP-006 cell closed at both
+  ends: [worst_queue −0.18, touch −0.433], both negative.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- EXP-008 + EXP-009 probes (touch mode), chained sequentially: detached
-  2026-07-10 pid 21693, log `fable-lab/logs/touch-probes.log`. Each:
-  `--random --limit 500 --to-ms 1777237200000 --fill-mode=touch_or_better`,
-  batchUids EXP-008-probe-touch / EXP-009-probe-touch, latency pinned 0/0.
-  When done: verify the D18 hook lines appear for BOTH runs in the log,
-  read results via tools/results.ts, fresh-context Judge per spec decision
-  rules, append verbatim to the experiment files, INDEX regen.
+- EXP-009 probe (touch mode, second in the U36 chain): still running under
+  pid 21693, log `fable-lab/logs/touch-probes.log` (D18 hook line confirmed
+  at its start, line 27244). When done: same judging procedure as U38
+  (results.ts --batch EXP-009-probe-touch, boundary + tripwire checks,
+  fresh-context Judge, append verbatim, INDEX regen). After both verdicts:
+  LESSONS entry (E19) for the at-touch bracket, IDEAS #9 resolution,
+  EDGE-SPACE §3 update recording the measured brackets.
 
 ## Next
 - U36: register the touch-bracket experiment — re-run the FROZEN EXP-006
