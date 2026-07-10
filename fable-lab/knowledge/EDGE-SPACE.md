@@ -223,6 +223,24 @@ registered only if one of these holds:
   must point at a VENUE-DRIFT row that fires the bar — eyeballing is not
   a citation.
 
+**Reserve-confirmability envelope (measured, U45 audit —
+`knowledge/AUDIT-2026-07-10-IDEAS-10-POWER.md`):** any new discovery
+scan on the CAL-001 log (it would be the FOURTH reuse) can only produce
+a citable result via reserve confirmation, and the 5,460-market reserve
+resolves (≥ 50% power at α = 0.023, scan-se convention) only effects
+≥ ~2·se of the projected reserve cell. For MID-PRICED cells (per-sample
+variance ≳ 0.15) at incidence ≲ ~15-20% — the band where ALL currently
+open conditional structure lives (CAL-002/003 cells sit at 8-19%
+incidence, mid-priced) — that is ≥ ~2.4-3.4c net, above everything those
+scans measured (1.5-2.4c): such a candidate cannot be confirmed until
+the universe grows (IDEAS #10 arithmetic generalizes). This is NOT a
+categorical closure: high-incidence (≳ 50%) or extreme-price
+(low-variance) cells confirm down to ~1.5-1.9c — a new scan whose
+plausible candidates live THERE has a live confirmation path today; one
+whose candidates live in the mid-priced low-incidence band does not, and
+registering it before the universe grows is compute spent on an
+uncitable answer.
+
 Absent all three: the correct work is verification depth (auditing settled
 conclusions), instrumentation advocacy (keeping §3 current), and protocol
 maintenance driven by friction — not new runs. Data is cheaper than a false

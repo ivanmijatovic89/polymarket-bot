@@ -198,24 +198,38 @@ Ordered; top entries get registered first.
   same book samples) showed net +2.38c at z = +2.40 — the largest net in
   the table but BELOW the corrected bar, therefore NOT citable
   (hypothesis-generating only, reserve correctly unspent).
-- **Why parked (power arithmetic, recorded so a successor does not burn
-  compute):** cell incidence ≈ 12.1% of sampled markets (coverage
-  included). The full 5,460-market reserve yields n ≈ 660 cell entries,
-  se ≈ 1.9c → a pre-registered one-cell test at α = 0.023 has ~23% power
-  at the observed +2.38c (35% at α = 0.05) — and the observed effect is
-  the MAX of 40 cells, so winner's curse biases it upward; true power is
-  lower. 80% power needs ≈ 3,360 entries ≈ 28,000 markets — ~5× the
-  reserve. No instrument fixes this: one market contributes at most one
-  independent outcome to the cell, so denser sampling adds correlation,
-  not power. A ~100-minute reserve replay would buy a coin-flip-at-best
-  test and burn the reserve's pristine status for future CAL candidates.
-- **Unlock condition (mechanical):** eligible universe grown by enough
-  post-2026-06-14 markets that (new-window markets + reserve) ≥ ~15,000
-  in a pre-registrable fresh window (≥ ~50% power at α = 0.023 if the
-  true net is ≥ +2c), AND the venue-drift bands have not fired (else
-  re-derive from the new regime). Then: full pre-registration (frozen
-  cell, prediction net > 0, kill bar, N), per EDGE-SPACE §4's
-  "reserve-window evidence under full pre-registration" clause.
+- **Why parked (power arithmetic; AMENDED U45 after a fresh-context
+  audit, `knowledge/AUDIT-2026-07-10-IDEAS-10-POWER.md` — the original
+  U44c figures mixed two variance conventions; all figures below use the
+  scan's own se convention (Σaᵢ(1−aᵢ)/n², per-sample variance ≈ 0.154 at
+  this cell — the se the actual test statistic uses), and the reserve
+  yield now includes CAL-001's 95.5% emitting fraction):** cell
+  incidence ≈ 12.1% of sampled markets (983/8,133, coverage included);
+  sampled fraction of eligible ≈ 0.955. The full 5,460-market reserve
+  yields n ≈ 630 cell entries, se ≈ 1.56c → a pre-registered one-cell
+  test at α = 0.023 has ~32% power at the observed +2.38c (~45% at
+  α = 0.05) — and the observed effect is the MAX of 40 cells, so
+  winner's curse biases it upward; true power is lower. 80% power needs
+  ≈ 2,180 entries ≈ 19,000 markets — ~3.5× the reserve. No instrument
+  fixes this: one market contributes at most one independent outcome to
+  the cell, so denser sampling adds correlation, not power. A
+  ~100-minute reserve replay would buy a coin-flip-at-best test and burn
+  the reserve's pristine status for future CAL candidates. _(Original
+  U44c figures for the record: n ≈ 660, se ≈ 1.9c, ~23%/35% power,
+  ≈ 28,000 markets — Bernoulli-at-meanAsk variance, no emitting factor;
+  conservative on power, overstated on the 80%-power requirement. The
+  PARK is licensed under both conventions.)_
+- **Unlock condition (mechanical; convention confirmed by the U45
+  audit):** eligible universe grown by enough post-2026-06-14 markets
+  that (new-window markets + reserve) ≥ ~15,000 in a pre-registrable
+  fresh window (≥ ~50% power at α = 0.023 if the true net is ≥ +2c:
+  n ≈ 1,730 entries → se ≈ 0.94c → power ≈ 55% under the scan-se
+  convention — this threshold holds ONLY under that convention, which is
+  the one the pre-registered test must therefore use), AND the
+  venue-drift bands have not fired (else re-derive from the new regime).
+  Then: full pre-registration (frozen cell, prediction net > 0, kill
+  bar, N), per EDGE-SPACE §4's "reserve-window evidence under full
+  pre-registration" clause.
 - **Who pays (if real):** whoever leaves the DOWN ask stale after the
   reversal — the same stale-quoter E21/E22 measured on the UP side; the
   open question is only whether the staleness exceeds spread + fee on

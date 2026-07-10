@@ -1,6 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 42, unit U44 (CAL-003)._
+_Last updated: session 43, unit U45 (IDEAS #10 power audit +
+reserve-confirmability envelope)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -488,6 +489,34 @@ _Last updated: session 42, unit U44 (CAL-003)._
   venue-drift bands quiet + full pre-registration citing the entry).
   This prevents a successor from burning ~100 min of replay on a
   coin-flip test or spending the reserve's pristine status.
+  _(Figures amended in U45 — see below; the park stands.)_
+
+- U45 (session 43): wake-up checks ran — universe unchanged (18,635
+  eligible, first 2025-11-30, last 2026-06-14; boundary 1777237200000
+  re-verified), trades coverage unchanged (17,878/18,635; only delta /
+  delta-typed converters on disk — both gates closed). IDEAS #10 power
+  arithmetic AUDITED by a fresh-context verifier (sound-with-findings;
+  report verbatim in `knowledge/AUDIT-2026-07-10-IDEAS-10-POWER.md`).
+  MAJOR finding: the U44c entry mixed two variance conventions — its
+  23%/28k figures used Bernoulli-at-meanAsk while the 15k unlock
+  threshold holds ONLY under the scan's own se convention (per-sample
+  variance ≈ 0.154, the statistically correct null). PARK licensed
+  under both conventions (power ≤ ~33% at the winner's-curse-inflated
+  +2.38c); entry restated consistently under the scan-se convention
+  with the 95.5% emitting fraction: reserve yield n ≈ 630, se ≈ 1.56c,
+  ~32% power at α=0.023, 80% power ≈ 19,000 markets (~3.5× reserve, not
+  28k/5×); 15,000-market unlock CONFIRMED (~55% power at true +2c) and
+  now names its binding convention. Also from the audit: the session's
+  proposed "nothing in 1.5-2.4c is reserve-confirmable" generalization
+  was FALSE unconditionally (high-incidence ≳50% or extreme-price cells
+  confirm down to ~1.5-1.9c); the correctly SCOPED envelope (mid-priced,
+  incidence ≲15-20% → ≥~2.4-3.4c needed) is now in EDGE-SPACE §4 with
+  the open side stated — it covers all currently open conditional
+  structure, so no fourth discovery-log scan targeting that band can
+  produce a citable result until the universe grows. (Motivating
+  friction: this session nearly designed such a CAL-004 before the
+  power arithmetic stopped it; CAL-003's mid-involved shapes resolve
+  only |d| ≈ 8-10c at their n ≈ 250/cell — power-futile.)
 
 ## In progress
 - (nothing in flight)
