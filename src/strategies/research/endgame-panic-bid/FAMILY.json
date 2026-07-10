@@ -93,8 +93,8 @@
               "endgame-panic-bid--000-baseline--p4-size--045c76e7-4461-47c6-b876-11fa05f8dbce",
               "endgame-panic-bid--000-baseline--p4-size--e00a7b91-c1d1-40bb-a113-aa80c02145a9"
             ],
-            "best": null,
-            "note": null
+            "best": 40,
+            "note": "Perfectly linear: same 8 episodes fill at every size, pnl scales exactly 2x per doubling (size 10 pnl +3.60/avgWin 0.45, 20 +7.20/0.90, 40 +14.40/1.80; net 0.00/+0.01/+0.01 per mkt), all 8W-0L, zero fees. 40 chosen: strictly more EV, still well inside measured $600-700/window top-3 bid depth. Caveat: the engine does not consume book depth, so linearity beyond the sweep is unverified - capacity remains bounded by the measured census depth, not by this sweep. Runs 389/390/391."
           }
         ],
         "refine": null
@@ -107,7 +107,14 @@
         "markets": 1000
       },
       "status": "running",
-      "gateLog": [],
+      "gateLog": [
+        {
+          "stage": 1,
+          "decision": "go",
+          "at": "2026-07-10T16:27:32Z",
+          "note": "Best cell (run 391: entryTimeSec=897, bidPrice=0.955, certaintyThreshold=0.95, size=40) net +0.01/mkt at 1000 markets, pnl +14.40, 8 trades, 8W-0L (100% win vs 95.5% fill breakeven), all maker, zero fees. Advisories: EV rides on 8 fills in 1000 markets (thin, capacity-bounded by design); losses appear only at earlier entries (885/890: win% 90.5/85.7, below breakeven) so the surviving edge is timing-pure; 100% win on n=8 cannot yet distinguish P(win|fill)=0.955 from >0.99 - the stage-2 extension is the discriminating test."
+        }
+      ],
       "submittedAt": "2026-07-10T13:13:26Z",
       "decidedAt": null,
       "abortReason": null,
