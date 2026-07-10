@@ -109,6 +109,16 @@ npx tsx fable-lab/tools/venue-drift.ts --pooled 2025-12:2026-04 <log>
 # on logs/venue-drift-baseline.log prints: pooled 142 0.0100 479.4 130.32 0.0012
 ```
 
+**Durable per-market record (D29):** the raw sweep log lives under the
+gitignored `fable-lab/logs/`; the 198 per-market `[diag-venue]` lines are
+committed at `knowledge/venue-drift-baseline-lines.log` in the exact format
+`venue-drift.ts` parses. Verified 2026-07-10: both the monthly table and the
+`--pooled 2025-12:2026-04` reference reproduce byte-identically from the
+committed file alone (tool output diffed against the original log). Any
+future re-baselining, D27 confirmation comparison, or convention question
+can use the committed file — the monthly table above is NOT sufficient to
+recompute the pooled reference (that was U46 audit finding 3's near-miss).
+
 **First evaluation (2026-05, 2026-06 vs the bar): NO DRIFT.** Both months
 have spread 0.0100 (inside band), depth 372.4 / 382.6 (inside band), and
 crossed fraction 0.0006 / 0.0004 (below the 0.0024 trigger — recording

@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 44, unit U47c (calib.ts selftest D28; U47 audit
-applied; anchoring fix transferred to calib2/calib3 selftests)._
+_Last updated: session 45, unit U48 (D29: venue-drift baseline per-market
+lines committed durably; CAL-001 log residue recorded)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -594,6 +594,23 @@ applied; anchoring fix transferred to calib2/calib3 selftests)._
   double-listing blind spot there. Both selftests re-run green
   (calib2 16 PASS + guards, calib3 green, no FAILs), tsc clean.
   Recorded as a U47c note in the D28 amendment.
+
+- U48 (session 45): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14, boundary re-verified), trades coverage
+  unchanged (17,878/18,635; only delta/delta-typed converters on disk) —
+  both gates closed. Durability unit (DECISIONS D29): the venue-drift
+  baseline's 198 per-market `[diag-venue]` lines existed ONLY in the
+  gitignored `logs/venue-drift-baseline.log` — VENUE-DRIFT.md's monthly
+  table cannot recompute the pooled band references (the exact U46
+  audit-finding-3 near-miss; the audit succeeded only because the log
+  survived). Lines now committed at
+  `knowledge/venue-drift-baseline-lines.log` in the native parseable
+  format; verified byte-identical tool output (monthly + --pooled) vs
+  the original log, reproducing the published pooled reference
+  (142 / 0.0100 / 479.4 / 130.32 / 0.0012). VENUE-DRIFT.md points at the
+  committed file. Accepted residue recorded in D29: the ~17 MB CAL-001
+  discovery log stays gitignored (closed nulls, committed verdicts;
+  nothing open depends on re-reading it).
 
 ## In progress
 - (nothing in flight)

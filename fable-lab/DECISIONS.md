@@ -898,3 +898,53 @@ inherited FROM `calib2-selftest.ts`/`calib3-selftest.ts` — the U47
 selftest copied their assertion style — so the anchoring fix was
 transferred to both siblings' candidate/neg-flag/reserve-mode summary
 assertions; both selftests re-run green, tsc clean.)
+
+## D29 — venue-drift baseline per-market lines committed to knowledge/ (2026-07-10, U48)
+
+Motivating evidence (charter governor): the U46 audit could only settle the
+pooled-baseline convention — the source of all four published band
+reference values — because the raw sweep log under the gitignored
+`fable-lab/logs/` happened to survive on this machine. VENUE-DRIFT.md's
+monthly table, the artifact U34 designated "the durable record", is NOT
+sufficient to recompute the pooled reference (median of monthly medians
+gives depth 499.6, not 479.4 — exactly the ambiguity U46 audit finding 3
+hit). VENUE-DRIFT is the sole instrument behind EDGE-SPACE §4's
+regime-change clause; losing this machine's logs/ directory would have made
+its bands unre-derivable and any future re-baselining or D27 confirmation
+comparison convention-ambiguous again.
+
+Decision:
+
+1. The 198 per-market `[diag-venue]` lines (7 header comment lines + data)
+   are committed at `knowledge/venue-drift-baseline-lines.log`, in the
+   exact line format `tools/venue-drift.ts` parses (the parser scans for
+   the `[diag-venue] ` token, so the header comments are inert).
+2. Verified mechanically: the tool's monthly-table output and its
+   `--pooled 2025-12:2026-04` output on the committed file are
+   byte-identical (`diff` clean) to its output on the original
+   `logs/venue-drift-baseline.log`, and both reproduce the published
+   values (pooled `142 0.0100 479.4 130.32 0.0012`; monthly table matches
+   VENUE-DRIFT.md row for row).
+3. VENUE-DRIFT.md's pooling-convention block now points at the committed
+   file as the durable per-market record.
+
+Accepted residue, recorded: the CAL-001 discovery log
+(`logs/CAL-001-discovery-v3.log`, ~17 MB, 104,776 sample lines) is the
+analogous gitignored artifact behind the CAL-001/002/003 nulls. It is NOT
+committed — too large for a source repo, and nothing open depends on
+re-reading it: all three scans are closed nulls whose published tables,
+integrity-battery stats, and Judge verdicts are committed verbatim, the
+reserve was never spent, and the only parked follow-up (IDEAS #10) requires
+a FRESH pre-registered window by its own unlock condition, not the old log.
+If that log is lost, the nulls remain evidenced by their committed records;
+only bit-level re-execution of the reads would be impossible. A future
+session that finds an open question depending on that log should treat this
+residue as motivating evidence to re-derive, not silently re-run discovery.
+
+Rejected alternatives: (a) committing the full baseline log (176 KB with
+non-diagnostic replay noise; the diagnostic lines are the complete
+information the aggregator consumes); (b) a CSV re-encoding — a new format
+would need its own parser or a conversion step, while the native line
+format is parseable by the existing verified tool with zero code changes;
+(c) un-gitignoring `fable-lab/logs/` — run logs are multi-MB per evidence
+run and would bloat every future commit.
