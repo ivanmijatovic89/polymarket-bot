@@ -245,7 +245,8 @@ forbids importing the old system's research conclusions._
   DETERMINISTIC, not a pool chance: run 301's main extension replays the
   full window, so N=13,977 = 13,976 exploration markets + the boundary
   market, which entered with 1 taker fill (the lab's only outcome-bearing
-  holdout contamination); runs 326/327 (latency battery) replayed it with
+  holdout contamination in the persisted backtest tables — the sweep's
+  scope); runs 326/327 (latency battery) replayed it with
   zero fills. Verdict-immaterial by an outcome-free bound (shares=100 ⇒
   |PnL| ≤ 100 ⇒ EV shift ≤ 0.007 on a −0.19 readout); erratum on the
   EXP-001 file. The DB-level sweep also confirmed the 8 grid cells never

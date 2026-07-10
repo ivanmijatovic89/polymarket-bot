@@ -1064,8 +1064,14 @@ baseline containing 2 post-boundary book-only markets.
 
 Decision: `tools/holdout-lock-audit.ts` (read-only, no outcome columns
 ever selected; flagged rows report fill COUNTS only, per the E15/fills.ts
-discipline) sweeps every `strategy LIKE 'fable-%'` run for post-boundary
-replayed/failed markets, slug-epoch mismatches, and NULL starts. Standing
+discipline) sweeps every lab run (strategy `fable-%` OR batchUid
+`EXP-%`/`CAL-%` — the second arm added by the U50 verifier's finding 1:
+run 295, the RUNBOOK's EXP-000-smoke plumbing fixture, runs `template.v1`)
+for post-boundary replayed/failed markets, slug-epoch mismatches, NULL
+starts, and unparseable failure slugs. Scope: the persisted backtest
+tables — "the lock is verified" means no unclassified post-boundary row in
+what backtests persisted; ad-hoc session DB reads are outside any
+mechanical sweep. Standing
 procedure: re-run it after any future evidence run; exit 2 means new rows
 must be classified against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`
 (the baseline: 67 rows, all classified, none verdict-threatening).

@@ -6,9 +6,13 @@
  * (U40 verified the four touch-lineage runs; E18 and the U35 hygiene note
  * prove post-boundary draws HAVE happened and were caught by hand). This
  * tool closes that gap mechanically: it sweeps EVERY fable-lab run in the
- * DB (strategy id `fable-%` — all lab strategies and fixtures share the
- * prefix) and reports any replayed or failed market at/past the frozen
- * holdout boundary.
+ * DB and reports any replayed or failed market at/past the frozen holdout
+ * boundary. Lab runs are matched by strategy id `fable-%` OR batchUid
+ * `EXP-%`/`CAL-%` (the U50 verifier found run 295, the RUNBOOK's
+ * EXP-000-smoke plumbing fixture, uses the engine's `template.v1`
+ * strategy — the strategy prefix alone is NOT complete). Scope: the
+ * persisted backtest tables only (backtest_runs / _markets / _failures);
+ * ad-hoc DB reads by past sessions are outside any mechanical sweep.
  *
  * Outcome-mining safety (E15 discipline): NO outcome column is ever
  * selected. For flagged rows it prints slug, market_start_ms, and
@@ -23,7 +27,7 @@
  * Exit code: 0 = no post-boundary rows anywhere; 2 = at least one found
  * (classification against disclosures is the session's job, not the tool's).
  */
-import { like, sql } from 'drizzle-orm'
+import { like, or, sql } from 'drizzle-orm'
 import { getDb, closeDb } from '../../src/db/index.js'
 import { backtestRunMarkets, backtestRunFailures, backtestRuns } from '../../src/db/schema.js'
 
@@ -54,11 +58,19 @@ const runs = await db
     status: backtestRuns.status,
   })
   .from(backtestRuns)
-  .where(like(backtestRuns.strategy, 'fable-%'))
+  .where(
+    or(
+      like(backtestRuns.strategy, 'fable-%'),
+      like(backtestRuns.batchUid, 'EXP-%'),
+      like(backtestRuns.batchUid, 'CAL-%'),
+    ),
+  )
   .orderBy(backtestRuns.id)
 
 console.log(`holdout-lock-audit  boundaryMs=${boundaryMs} (${new Date(boundaryMs).toISOString()})`)
-console.log(`fable-lab runs found (strategy LIKE 'fable-%'): ${runs.length}\n`)
+console.log(
+  `fable-lab runs found (strategy 'fable-%' OR batchUid 'EXP-%'/'CAL-%'): ${runs.length}\n`,
+)
 
 let flagged = 0
 let mismatches = 0
@@ -106,9 +118,11 @@ for (const run of runs) {
     .select({ slug: backtestRunFailures.slug, reason: backtestRunFailures.reason })
     .from(backtestRunFailures)
     .where(sql`${backtestRunFailures.runId} = ${run.id}`)
+  // Unparseable/NULL failure slugs are flagged, not skipped — a failure row
+  // whose window cannot be determined must be classified by hand.
   const postFails = failRows.filter((r) => {
     const e = slugEpochMs(r.slug)
-    return e !== null && e >= boundaryMs
+    return e === null || e >= boundaryMs
   })
 
   const clean =

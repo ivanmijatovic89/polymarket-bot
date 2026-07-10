@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 46, unit U49c (D31: restatement audits
-generalized beyond verdict sessions)._
+_Last updated: session 47, unit U50 (D32: global holdout-lock audit,
+mechanical)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -664,6 +664,35 @@ generalized beyond verdict sessions)._
   restating units carried the defect class (E20/E21/E22 propagations +
   U49, a non-verdict unit D25 did not cover, caught only by discretion).
   SCIENTIST.md rule extended in place.
+
+- U50 (session 47): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14, boundary re-verified), trades coverage
+  unchanged (17,878/18,635; only delta/delta-typed converters on disk) —
+  both gates closed. Verification-depth unit (DECISIONS D32): the
+  standing STATE claim "Holdout remains locked and unused" had never
+  been checked globally — new `tools/holdout-lock-audit.ts` (read-only,
+  no outcome columns; flagged rows print fill counts only) swept all 65
+  lab runs (ids 295–364) for post-boundary rows. Result: 67 rows, all
+  classified in `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md` — 3 =
+  boundary market btc-updown-15m-1777237200 DETERMINISTICALLY included
+  in the EXP-001 full-window lineage (E18's leak class, but certain, not
+  a pool chance; in run 301 main it ENTERED with 1 taker fill — the only
+  outcome-bearing holdout contamination in the persisted backtest
+  tables; verdict-immaterial by an outcome-free bound: shares=100 ⇒
+  |PnL| ≤ 100 ⇒ EV shift ≤ 0.007 on the −0.19 kill readout — E18
+  amendment + EXP-001 erratum appended); 2 = run 351 zero-trade smoke
+  slugs (already disclosed, U35 hygiene note); 2 = post-boundary April
+  markets inside the venue-drift pooled baseline (book-only; VENUE-DRIFT
+  label note); 60 = by-design 2026-05/06 drift-evaluation months
+  (outcome-free fixture). The 8 grid cells provably never drew the
+  boundary market (was luck, now verified). Fresh-context verification
+  per D31: sound-with-findings (byte-identical reproduction, all
+  restated figures trace); all 4 findings applied — run-295
+  discriminator gap fixed (batchUid arm added to the tool; run 295 is
+  CLEAN), gap-count scope corrected, unparseable failure slugs now
+  flagged not skipped, scope qualifier added (sweep covers persisted
+  backtest tables only). Standing procedure: re-run the tool after any
+  future evidence run; exit 2 ⇒ classify new rows against the artifact.
 
 ## In progress
 - (nothing in flight)

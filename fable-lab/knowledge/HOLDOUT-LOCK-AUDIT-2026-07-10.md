@@ -9,9 +9,11 @@ replayed or failed market at/past the frozen boundary 1777237200000
 (2026-04-26T21:00Z).
 
 **Instrument.** `tools/holdout-lock-audit.ts` (new, this unit): selects all
-`backtest_runs` with `strategy LIKE 'fable-%'` (all lab strategies and
-fixtures share the prefix — 64 runs found, ids 296–364, matching the
-registry lineage), and per run reports (a) `backtest_run_markets` rows with
+`backtest_runs` matching `strategy LIKE 'fable-%'` OR `batch_uid LIKE
+'EXP-%'/'CAL-%'` (65 runs, ids 295–364 — the batchUid arm was added after
+the fresh-context verifier found run 295, the RUNBOOK's EXP-000-smoke
+plumbing fixture, runs the engine's `template.v1` strategy; it is CLEAN,
+0 post-boundary rows), and per run reports (a) `backtest_run_markets` rows with
 `market_start_ms >= boundary`, (b) failure rows whose slug epoch is
 post-boundary, (c) slug-epoch vs `market_start_ms` mismatches and NULL
 starts (belt-and-braces against a wrong stored start hiding a leak). NO
@@ -19,17 +21,30 @@ outcome column is selected anywhere (E15 discipline); flagged rows print
 maker/taker FILL COUNTS only, which assess exposure (zero-trade ⇒ the
 market cannot have contributed to any aggregate statistic).
 
-**Discriminator soundness (checked this unit):** every `backtest_runs` row
-with id ≥ 296 (the lab's first run) is either `fable-%` (64 rows — the
-audited set) or the old system's `endgame-panic-bid.*` (6 rows, ids
-365–382, correctly excluded). The five id gaps (304, 315, 318, 320, 323)
-have NO rows at all — the known rolled-back / void persists (the E7 void
-probe launch; the E13/U22–U23 grid persist crashes), which by construction
-exposed no results.
+**Scope.** The sweep covers the persisted backtest tables
+(`backtest_runs` / `backtest_run_markets` / `backtest_run_failures`) —
+i.e. every replayed episode and every result a verdict could have read.
+Ad-hoc DB reads by past sessions (e.g. catalog queries) are outside any
+mechanical sweep; claims below are scoped to the swept tables.
+
+**Discriminator soundness (checked this unit + verifier finding 1):**
+every `backtest_runs` row with id ≥ 295 (the lab's first run — 295 is the
+EXP-000-smoke plumbing fixture on `template.v1`) is either in the audited
+set (65 rows) or the old system's `endgame-panic-bid.*` (6 rows, at ids
+365, 369, 379–382, correctly excluded). Within the lab id range 295–364
+the five id gaps (304, 315, 318, 320, 323) have NO rows at all — the known
+rolled-back / void persists (the E7 void probe launch; the E13/U22–U23
+grid persist crashes), which by construction exposed no results. (Gaps in
+the old-system range 365–382 are not lab-relevant.)
 
 **Result: 67 post-boundary rows, 0 slug/start mismatches, 0 NULL starts.
 Every row is classified; two documentation gaps found and fixed (below);
-no finding threatens any published verdict.**
+no finding threatens any published verdict (claim scoped to the swept
+tables, per Scope above). Verified by a fresh-context checker (D31):
+sound-with-findings — reproduction byte-identical, all restated figures
+trace; its four findings (run-295 discriminator gap, gap-count scope,
+unparseable-failure-slug skip, scope qualifier) are applied in this file
+and the tool.**
 
 ## Classification of all 67 rows
 
@@ -40,7 +55,7 @@ no finding threatens any published verdict.**
 | 2 | 348 (diag-venue, 2026-04 chunk) | Apr 28 + Apr 29 markets inside the pooled BASELINE; book-stats only, no orders | **NEW (minor)** — VENUE-DRIFT.md label note (this unit) |
 | 60 | 349/350 (diag-venue, 2026-05 / 2026-06 chunks) | drift-evaluation months are entirely post-boundary BY DESIGN; diag-venue places no orders and reads no PnL | by design (D17); VENUE-DRIFT.md already states the instrument never touches the holdout lock |
 
-All other 59 runs — every probe, every grid cell (313–325), every CAL run
+All other 58 lab runs (57 of the original 64, plus run 295) — every probe, every grid cell (313–325), every CAL run
 (359–364), every touch-lineage run — are CLEAN. Notably the 8 EXP-001 grid
 cells (`--random --limit 2000` from the inclusive pool, pre-E18) each had a
 ~14% chance of drawing the boundary market and empirically drew it zero
@@ -89,12 +104,13 @@ disclosures). With E18's boundary−1 sample rule in force since U37, the
 expected steady state is: this file's 67 rows, plus 30 new by-design
 diag-venue rows per future drift-refresh month, and nothing else.
 
-## Verbatim tool output (2026-07-10)
+## Verbatim tool output (2026-07-10, post-verifier tool fix — 65 runs)
 
 ```
 holdout-lock-audit  boundaryMs=1777237200000 (2026-04-26T21:00:00.000Z)
-fable-lab runs found (strategy LIKE 'fable-%'): 64
+fable-lab runs found (strategy 'fable-%' OR batchUid 'EXP-%'/'CAL-%'): 65
 
+run    295  EXP-000-smoke                              template.v1              completed  n=10  CLEAN
 run    296  EXP-000-wrapper-smoke                      fable-fixture-noop       completed  n=2  CLEAN
 run    297  EXP-001-smoke                              fable-exp-001            completed  n=10  CLEAN
 run    298  EXP-002-smoke                              fable-exp-002            completed  n=10  CLEAN
@@ -227,5 +243,5 @@ run    362  CAL-001-discovery-v2                       fable-diag-calib         
 run    363  CAL-001-smoke-v3                           fable-diag-calib         completed  n=3  CLEAN
 run    364  CAL-001-discovery-v3                       fable-diag-calib         completed  n=8516  CLEAN
 
-TOTAL: 67 post-boundary row(s), 0 slug/start mismatch(es) across 64 runs
+TOTAL: 67 post-boundary row(s), 0 slug/start mismatch(es) across 65 runs
 ```
