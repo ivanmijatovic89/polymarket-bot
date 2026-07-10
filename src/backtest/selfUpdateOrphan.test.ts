@@ -2,8 +2,15 @@ import '../config/env.js'
 import test from 'node:test'
 import assert from 'node:assert/strict'
 import { Queue, Worker, DelayedError, type Job } from 'bullmq'
-import type { RedisOptions } from 'ioredis'
+import * as IORedisModule from 'ioredis'
+import type { Redis, RedisOptions } from 'ioredis'
 import { haltWorkerForSelfUpdate } from './commitGate.js'
+
+// ioredis ships its default export under .default for ESM consumers under tsx
+// (same indirection as src/backtest/queue.ts).
+const RedisCtor: new (options: RedisOptions) => Redis =
+  (IORedisModule as unknown as { default: new (o: RedisOptions) => Redis }).default ??
+  (IORedisModule as unknown as new (o: RedisOptions) => Redis)
 
 /**
  * Reproduction + fix verification for the self-update ORPHAN bug.
@@ -59,7 +66,10 @@ async function settledWithin(p: Promise<unknown>, ms: number): Promise<boolean> 
  * Returns whether the runnable job Y was grabbed (its processor started).
  */
 async function runScenario(onSelfUpdate: (w: Worker) => void): Promise<boolean> {
-  const connection = redisTestConnection()
+  // Own the ioredis instance so we can quit() it — passing a plain options
+  // object makes BullMQ create connections that linger (auto-reconnect) after
+  // close(), keeping the process alive and hanging `node --test`.
+  const connection = new RedisCtor(redisTestConnection())
   const queueName = `selfupdate-orphan-test-${process.pid}-${Date.now()}-${Math.random()
     .toString(36)
     .slice(2)}`
@@ -110,6 +120,7 @@ async function runScenario(onSelfUpdate: (w: Worker) => void): Promise<boolean> 
   await worker.close()
   await queue.obliterate({ force: true })
   await queue.close()
+  await connection.quit() // close the instance we own so the process can exit
 
   return grabbed
 }
