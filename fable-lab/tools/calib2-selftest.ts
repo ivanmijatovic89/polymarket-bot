@@ -139,8 +139,14 @@ const EXPECT: Array<[string, string | RegExp]> = [
   ['DOWN join gate', /gates DOWN: join-direction OK \(pooled 750-850 tail winRate=0\.9750, n=40\); E14-analog control OK \(empty\)/],
   // Candidate row: n=200 (dedupe worked), meanAsk .5400, winRate .7500, z +5.96, minority 50.
   ['candidate row', /30-150\s+up2\s+200\s+0\.5400\s+0\.7500 \+0\.2100 0\.0100 \+0\.2000 0\.0352 \+\s+5\.96\s+50\s+CANDIDATE/],
-  ['candidate list', /CANDIDATE cells: UP \(30-150, up2\) \[W1\(→Dec\):n=70,d=0\.2171 W2\(Jan\):n=70,d=0\.2029 W3\(Feb\):n=60,d=0\.2100\]/],
-  ['neg-flag', /DOWN \(30-150, up2\) NEG-FLAG/],
+  // Anchored ^…$ (U47c, per AUDIT-2026-07-10-CALIB-SELFTEST.md finding 2):
+  // a double-listing bug (a cell pushed to BOTH candidates and negFlags)
+  // must fail these, not hide past a prefix/substring match.
+  [
+    'candidate list (exact whole line)',
+    /^CANDIDATE cells: UP \(30-150, up2\) \[W1\(→Dec\):n=70,d=0\.2171 W2\(Jan\):n=70,d=0\.2029 W3\(Feb\):n=60,d=0\.2100\]$/m,
+  ],
+  ['neg-flag summary (exact whole line)', /^NEG-FLAG \/ demoted cells: DOWN \(30-150, up2\) NEG-FLAG$/m],
 ]
 let fails = 0
 for (const [name, pat] of EXPECT) {
@@ -169,7 +175,7 @@ const reserveOut = execFileSync(
   ['tsx', 'fable-lab/tools/calib2.ts', LOG, '--outcomes', OUTCOMES, '--expect-totals', '1,1'],
   { encoding: 'utf8' },
 )
-const reserveOk = /CANDIDATE cells: UP \(30-150, up2\) \[reserve\]/.test(reserveOut)
+const reserveOk = /^CANDIDATE cells: UP \(30-150, up2\) \[reserve\]$/m.test(reserveOut)
 console.log(`${reserveOk ? 'PASS' : 'FAIL'}  reserve-mode candidate (sub-windows disabled)`)
 if (!reserveOk) fails++
 

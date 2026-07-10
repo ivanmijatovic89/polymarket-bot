@@ -168,11 +168,14 @@ const EXPECT: Array<[string, string | RegExp | ((o: string) => boolean)]> = [
     'candidate row',
     /30-150-300\s+up-up\s+200\s+0\.5700\s+0\.7500 \+0\.1800 0\.0088 \+0\.1712 0\.0350 \+\s+5\.14\s+50\s+CANDIDATE/,
   ],
+  // Anchored ^…$ (U47c, per AUDIT-2026-07-10-CALIB-SELFTEST.md finding 2):
+  // a double-listing bug (a cell pushed to BOTH candidates and negFlags)
+  // must fail these, not hide past a prefix/substring match.
   [
-    'candidate list + sub-windows',
-    /CANDIDATE cells: UP \(30-150-300, up-up\) \[W1\(→Dec\):n=70,d=0\.1871 W2\(Jan\):n=70,d=0\.1729 W3\(Feb\):n=60,d=0\.1800\]/,
+    'candidate list + sub-windows (exact whole line)',
+    /^CANDIDATE cells: UP \(30-150-300, up-up\) \[W1\(→Dec\):n=70,d=0\.1871 W2\(Jan\):n=70,d=0\.1729 W3\(Feb\):n=60,d=0\.1800\]$/m,
   ],
-  ['neg-flag (mirror cell)', /DOWN \(30-150-300, up-up\) NEG-FLAG/],
+  ['neg-flag summary (exact whole line)', /^NEG-FLAG \/ demoted cells: DOWN \(30-150-300, up-up\) NEG-FLAG$/m],
   ['edge s2 = +0.02 → up-up', /150-300-450\s+up-up\s+1\s+0\.5600/],
   ['edge s2 = −0.02 → dn-dn', /150-300-450\s+dn-dn\s+1\s+0\.5200/],
   ['drift-first key stays dead (triple never forms)', /300-450-600\s+dn-dn\s+empty/],
@@ -203,7 +206,7 @@ const reserveOut = execFileSync(
   ['tsx', 'fable-lab/tools/calib3.ts', LOG, '--outcomes', OUTCOMES, '--expect-totals', '1,1'],
   { encoding: 'utf8' },
 )
-const reserveOk = /CANDIDATE cells: UP \(30-150-300, up-up\) \[reserve\]/.test(reserveOut)
+const reserveOk = /^CANDIDATE cells: UP \(30-150-300, up-up\) \[reserve\]$/m.test(reserveOut)
 console.log(`${reserveOk ? 'PASS' : 'FAIL'}  reserve-mode candidate (sub-windows disabled)`)
 if (!reserveOk) fails++
 

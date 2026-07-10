@@ -893,3 +893,8 @@ irrelevant to the frozen window) — the selftest header states this
 residue, and CALIBRATION.md's note no longer says "every decision
 branch". The --outcomes guard's substring-bypass (finding 4) is accepted
 as consistent with calib.ts's stated honor-system enforcement model.
+(U47c, same evidence: finding 2's unanchored-summary weakness was
+inherited FROM `calib2-selftest.ts`/`calib3-selftest.ts` — the U47
+selftest copied their assertion style — so the anchoring fix was
+transferred to both siblings' candidate/neg-flag/reserve-mode summary
+assertions; both selftests re-run green, tsc clean.)

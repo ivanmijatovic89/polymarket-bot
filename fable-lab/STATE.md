@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 44, unit U47b (calib.ts selftest, D28, plus the
-fresh-context audit of that unit applied)._
+_Last updated: session 44, unit U47c (calib.ts selftest D28; U47 audit
+applied; anchoring fix transferred to calib2/calib3 selftests)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -586,6 +586,14 @@ fresh-context audit of that unit applied)._
   ≥Mar-2026 epoch dropout recorded as accepted fixture-uncovered
   residue (D28 amendment); guard substring-bypass accepted as
   honor-system-consistent (finding 4).
+
+- U47c (session 44): audit finding 2 TRANSFERRED to the sibling
+  selftests it was inherited from — `calib2-selftest.ts` and
+  `calib3-selftest.ts` candidate/neg-flag/reserve-mode summary
+  assertions are now anchored whole lines (^…$/m), closing the same
+  double-listing blind spot there. Both selftests re-run green
+  (calib2 16 PASS + guards, calib3 green, no FAILs), tsc clean.
+  Recorded as a U47c note in the D28 amendment.
 
 ## In progress
 - (nothing in flight)
