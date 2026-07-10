@@ -273,6 +273,23 @@ _Last updated: session 7, unit U35._
   Smokes green (runs 355/356, 10 exploration markets each, 8/10 filled,
   0 failures, hook line present; fill counts only, no PnL read).
 
+- U37: D18 unlock AUDITED by a fresh-context verifier (report verbatim in
+  `knowledge/AUDIT-2026-07-10-D18-UNLOCK.md`). Hook/semantics/labeling/
+  charter compliance HOLD. Three findings acted on PRE-RESULTS (commit
+  1aec35a, while probes ran; no probe statistic read): (1) BLOCKER — the
+  pre-registered touch --extend path was unexecutable (engine forbids
+  --batchUid with --extend); wrapper now validates the PARENT run's
+  batchUid+cmd instead, refusal paths tested. (2) "bound dominance ⇒
+  conclusive kill" was an overclaim (inventory-cap path dependence;
+  full-size toxic fills); both specs carry a pre-results amendment
+  weakening kill wording to "decisive under the most favorable fill
+  assumption the engine can express" — bars unchanged. (3) LESSONS E18:
+  inclusive --to-ms leaks exactly the boundary market
+  (btc-updown-15m-1777237200) into every probe pool since EXP-006;
+  verdicts must disclose if drawn; future sample rules use boundary−1.
+  Also: phantom-fill tripwire pre-specified, EV(played) defined, D18
+  amendment note appended, --fill-mode missing value now hard error.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - EXP-008 + EXP-009 probes (touch mode), chained sequentially: detached
   2026-07-10 pid 21693, log `fable-lab/logs/touch-probes.log`. Each:
