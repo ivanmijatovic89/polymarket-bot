@@ -499,6 +499,13 @@ _Last updated: session 9, unit U40._
   (pre-read, outcome-free): the amendment #13 post-read erratum text
   is pre-drafted and frozen — the verdict session appends it to
   Results verbatim (only the final pair-count may be adjusted).
+  Session 20 check (~45 min in): 3,473/8,516 (~0.78s/market, ETA
+  ~65 min); latency 0/0, UP/DOWN exact balance (20,112 each), 0 error
+  lines, epoch range [1764460800, 1767699000] inside the discovery
+  window, 33 GiB free disk. Mirror re-measurement on the grown log:
+  20,201/20,202 paired (market,offset) samples exactly DOWN = 1 − UP;
+  the SAME single deviant (1764846000, off=850) — amendment #12 holds
+  at ~41% of the run. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
