@@ -90,6 +90,18 @@ A probe cannot *confirm* anything: at N=500 only q ≥ 0.089 is resolvable,
 which per §2's table is a large edge. The probe's job is killing and
 diagnostics, not belief.
 
+**Skewed-payoff precision rule (added 2026-07-10, motivated by LESSONS
+E14 / DECISIONS D13):** when a strategy's per-market payoff is strongly
+asymmetric (win rate above ~0.9 or below ~0.1 — e.g. small wins vs
+near-total losses), the probe's t is built almost entirely on the
+minority-outcome events, not on N. EXP-001's probe read t=+3.08 on 231
+entries but only 7 losses; the full window (761 losses) reversed the sign.
+Rule: the probe verdict block must state the minority-outcome count; if it
+is < 30, an "advance" is provisional by construction and the Judge must say
+so — the advance is a decision to buy data, not a belief, and no language
+implying measured edge ("strong probe", "edge confirmed at probe scale")
+may enter the experiment file or STATE.
+
 **Stage 2 (main)** — the full exploration window (every eligible market
 older than the holdout boundary; thousands). Extends the probe run
 (`--extend`, same run row, segments recomputed over the union). Decides:

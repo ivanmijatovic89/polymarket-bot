@@ -260,3 +260,24 @@ statistic distinguishes them. Rejected alternatives: patching the engine
 Residual risk: the already-running main/lat runs predate the guard; their
 ~95 played markets/day make a degenerate day unlikely (probe's 136 days
 were all fine), accepted rather than burning 2h of completed replay.
+
+## D13 — Probe precision for skewed payoffs is judged on minority-outcome count
+
+**Motivating observation:** EXP-001 probe (N=379, 231 entered) read
+EV=+1.94 with t=+3.08 and was judged "advance"; the main extension
+(N=13,977, 11,121 entered) reversed it to EV=−0.19, t=−1.15 with the
+prediction mechanically contradicted. Root cause: with a +3c-win /
+−90c-loss payoff the t statistic's information content is the number of
+LOSSES — the probe had 7. t treated 231 entries as 231 observations; the
+effective sample was ~7.
+
+**Decision:** EPISTEMOLOGY §3 now requires the probe verdict to state the
+minority-outcome count for skewed-payoff strategies (win rate outside
+[0.1, 0.9]); below 30 minority events an "advance" is explicitly
+provisional and no measured-edge language is permitted. The JUDGE prompt
+template gains no new field — the count is derivable from the
+entry-check/results output already pasted, and the Judge's "read" line
+covers it. Rejected alternative: raising the probe N for such strategies
+(cost scales 4×+ for the same information; the two-stage design already
+buys the data at main — the fix is honest LANGUAGE at probe, not more
+probe compute).
