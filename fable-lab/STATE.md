@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 26, unit U43aj._
+_Last updated: session 27, unit U43ak._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -621,6 +621,19 @@ _Last updated: session 26, unit U43aj._
   600s→0.9587, 750s→0.7970, 850s→0.5177 — late-offset coverage keeps
   drifting up as later months enter (850s trend 0.430→0.443→0.471→
   0.476→0.518); amendment #11 wording will use the FINAL-log fractions.
+  Session 27 check (~75 min in): 5,040/8,516 (~0.89s/market, ETA
+  ~52 min); latency 0/0, UP/DOWN exact balance (29,176 each), 0 error
+  lines, epoch range [1764460800, 1769192100] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. Mirror re-measurement
+  on the grown log (4-decimal rounding): 29,220 paired (market,offset)
+  samples, 1 deviant — the SAME single deviant (1764846000, off=850)
+  — amendment #12 holds at ~59% of the run. Dedupe (0 duplicate
+  tuples) and asset-pairing completeness (0 one-sided keys)
+  re-confirmed. Coverage via the frozen calib-coverage.sh at 4,673
+  slugs: 600s→0.9593, 750s→0.8003, 850s→0.5200 — late-offset upward
+  drift continues (850s trend 0.430→…→0.518→0.520); final-log
+  fractions bind for amendment #11 wording. Monitor re-armed on pid
+  exit (60-min window; re-arm if it fires as timeout).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
