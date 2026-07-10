@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 24, unit U43af._
+_Last updated: session 24, unit U43ag._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -578,6 +578,13 @@ _Last updated: session 24, unit U43af._
   increasing offsets (7,906 series, 0 violations) — no log
   interleaving or sampling-order corruption. Monitor re-armed on
   pid exit.
+  U43ag (session 24, while run in flight): DECISIONS D22 — verdict-
+  session obligations consolidated into
+  `knowledge/CAL-001-VERDICT-CHECKLIST.md` (pure aggregation of the
+  frozen method, amendments #1-#14, audit findings, and the WHEN
+  COMPLETE block; adds no new rule; CALIBRATION.md governs on
+  conflict). The verdict session should EXECUTE THE CHECKLIST top to
+  bottom instead of reassembling obligations from four documents.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,

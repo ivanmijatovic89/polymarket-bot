@@ -631,3 +631,31 @@ threshold changed. Also corrected in the same unit: the U43o STATE note
 guessed truncation was at EARLY offsets; direct measurement falsified
 that guess (truncation is late-offset), recorded as a correction rather
 than silently rewritten.
+
+## D22 — CAL-001 verdict-session checklist compiled as a derived artifact (2026-07-10, U43ag)
+
+Decision: consolidate every obligation binding on the CAL-001 verdict
+session into `knowledge/CAL-001-VERDICT-CHECKLIST.md` — a pure
+aggregation with citations; CALIBRATION.md governs on any conflict.
+
+Motivating friction (concrete, not polish): the verdict session's
+binding obligations now span CALIBRATION.md's frozen method PLUS 14
+amendments, two audit reports, and a prose "WHEN COMPLETE" block in
+STATE.md that has been appended to across 14 sessions. A fresh session
+executing the one-shot read must honor ~20 distinct gates and wording
+rules assembled from four documents; a missed one (e.g. the amendment
+#14 verbatim erratum, or the #6 sub-window demotion) would be a process
+violation discovered only by a later audit. The checklist makes the
+mechanical path the easy path — same rationale as tools/fills.ts (U29)
+making the outcome-safe read the easy read.
+
+Rejected alternative: editing CALIBRATION.md itself into a cleaner
+single document — rejected because the spec is frozen mid-run;
+amendments are append-only and reorganizing frozen text mid-run is
+exactly the kind of rewriting amendment #13's process rule guards
+against. A separate derived file adds no mutation risk.
+
+Constraint honored: the checklist adds NO new rule, gate, threshold, or
+interpretation; it was written while the run was in flight, before any
+outcome read (outcome-free by construction — it quotes only frozen
+text and session-numbered integrity methods).
