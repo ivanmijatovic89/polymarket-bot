@@ -516,3 +516,30 @@ engine actually sees). Verified: pinned invocation prints 0/0; ambient
 invocation prints the .env's DELAY=140 (the E7 trap, now visible). The D8
 "latency pinned" property is mechanically checkable from the run log for
 every future run; runs 357/358 remain honor-system on this point.
+
+## D20 — EDGE-SPACE §3.2 corrected: the queue-realistic fill model is historically backfillable (2026-07-10, U42)
+
+**Motivating evidence:** while keeping EDGE-SPACE §3 current (the D15/§4
+mandate for gated periods), a source check falsified §3.2's claim that
+trade prints "cannot be backfilled — this only pays forward". Three cited
+facts: (1) Telonex exposes a `trades` channel (also `quotes`,
+`onchain_fills`) that the v1 sync deliberately does not pull
+(docs/datasets/telonex/sync-design.md, "Additional channels … gated by a
+CLI flag, no schema change required"); (2) the already-synced catalog rows
+carry per-market `trades_from`/`trades_to` (src/db/schema.ts:379); (3) new
+read-only `tools/trades-coverage.ts` measured coverage on the eligible
+universe: 17,878/18,635 markets (95.9%) have trades data spanning
+2025-11-29 → 2026-06-14 (quotes 18,635 = 100%, onchain_fills 17,073 =
+91.6%).
+
+**Decided.** §3.2 rewritten with the measurement and citations; it is now
+the highest-value instrumentation option (queue-realistic historical
+measurement would replace both bracket ends, no live activity needed).
+The work itself remains operator-side (extends `src/telonex/`, outside the
+lab's write scope) — this is instrumentation advocacy with numbers, not a
+plan the lab can execute.
+
+**Rejected.** Running the trades sync from the lab: it writes outside
+fable-lab/ conceptually (new raw files, new converter code under src/),
+spends operator API credits without authorization, and the charter's
+replay defaults fix the converter to delta-typed.

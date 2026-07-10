@@ -107,15 +107,29 @@ and 4). Ordered by cost:
    parents). The ≤ 0 branch fired: no live measurement of THESE cells is
    worth funding. §3.2/§3.3 remain relevant only for mechanisms outside
    the tested cells or after a cited venue regime change (§4).**
-2. **Trade-print recording (medium; recorder/dataset change).** A
-   queue-realistic fill model (fill when printed volume at your price
-   exceeds the queue ahead of you) is the standard midpoint between the
-   two bounds, but it needs executed-trade events, which the current
-   dataset lacks (`byType: book, price_change` — verified on every run).
-   If Polymarket's market WS emits trade prints (e.g. `last_trade_price`),
-   the live recorder already persists raw messages and would capture them;
-   the Telonex conversion would need a new event type. Historical data
-   cannot be backfilled — this only pays forward.
+2. **Trade-print ingestion (medium; sync/converter extension — and
+   HISTORICALLY BACKFILLABLE, measured U42).** A queue-realistic fill
+   model (fill when printed volume at your price exceeds the queue ahead
+   of you) is the standard midpoint between the two bounds, but it needs
+   executed-trade events, which the current replay stream lacks
+   (`byType: book, price_change` — verified on every run). The earlier
+   claim here that "historical data cannot be backfilled" was WRONG:
+   Telonex offers a `trades` channel upstream (plus `quotes` and
+   `onchain_fills`; docs/datasets/telonex/sync-design.md — "additional
+   channels, gated by a CLI flag, no schema change required"), the synced
+   catalog already records per-market availability
+   (src/db/schema.ts:379 trades_from/trades_to), and
+   `tools/trades-coverage.ts` (U42) measured coverage on the lab's
+   eligible universe: 17,878 / 18,635 markets (95.9%) have trades data,
+   spanning 2025-11-29 → 2026-06-14 (quotes 100%, onchain_fills 91.6%).
+   The engine's live decoder already parses `last_trade_price` with
+   price+size (src/market/marketChannelDecoder.ts:37,
+   OrderBookEngine.ts:149) — the missing pieces are operator-side:
+   extend download-raw-files to the trades channel and teach a converter
+   to emit trade events the replayer forwards. This is the highest-value
+   instrumentation on the list: it would replace both bracket ends with
+   one queue-realistic measurement on HISTORICAL data, no live activity
+   needed.
 3. **Live paper at the touch (most direct; needs authorization).** Rest
    tiny GTC quotes at touch on a funded account and measure: fill rate per
    quoted hour, realized fill-to-settlement PnL, adverse-selection decay

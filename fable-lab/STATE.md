@@ -332,6 +332,23 @@ _Last updated: session 9, unit U40._
   (18,635 eligible, last market 2026-06-14) — venue-drift refresh still
   gated on ~a month of new data.
 
+- U41: run-backtest.ts prints the effective latency env at startup (D19
+  amendment; motivated by the audit's unverifiable-claims list). Verified:
+  pinned invocation logs 0/0, ambient logs the .env DELAY=140 (the E7
+  trap, now visible in every run log). D8 pinning is log-verifiable for
+  all future runs; 357/358 stay honor-system on this point.
+
+- U42: EDGE-SPACE §3.2 falsified-and-corrected (DECISIONS D20) — trade
+  prints ARE historically backfillable: Telonex has a `trades` channel
+  (sync-design.md, v1 pulls book_snapshot_full only), the synced catalog
+  carries per-market trades_from/trades_to, and new read-only
+  `tools/trades-coverage.ts` measured 17,878/18,635 eligible markets
+  (95.9%) with trades coverage over the whole universe window (quotes
+  100%, onchain_fills 91.6%). §3.2 is now the top instrumentation option:
+  a queue-realistic historical fill model would replace both bracket ends
+  with one measurement, no live activity. Work is operator-side (src/
+  changes); the lab's contribution is the measured advocacy.
+
 ## In progress
 - Nothing running. No detached processes.
 
