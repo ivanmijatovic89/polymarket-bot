@@ -476,6 +476,14 @@ _Last updated: session 9, unit U40._
   (stale independent-spread premise in frozen decision rule +
   diag-calib.ts header — flag, don't edit mid-run); (4) verdict must
   treat any overlapping-sample cross-side cell pair as non-independent.
+  Session 19 check (~40 min in): 3,175/8,516 (~0.76s/market, ETA
+  ~67 min); latency 0/0, UP/DOWN exact balance (18,458 each), 0 error
+  lines, epoch range [1764460800, 1767405600] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. Outcome-free mirror
+  re-measurement on the grown log: 18,634/18,635 paired (market,offset)
+  samples exactly DOWN = 1 − UP; the SAME single deviant
+  (1764846000, off=850) — amendment #12 holds at ~40% of the run.
+  Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
