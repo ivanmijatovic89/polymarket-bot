@@ -23,7 +23,7 @@
  *   fee=0.75*0.0156*0.46/0.54=0.009967, net=0.200,
  *   se=sqrt(200*0.54*0.46)/200=0.035242, z=0.21/0.035242=5.958→"+5.96".
  */
-import { writeFileSync, copyFileSync } from 'node:fs'
+import { writeFileSync, copyFileSync, unlinkSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 
 const LOG = 'fable-lab/logs/calib2-synthetic.log'
@@ -77,6 +77,36 @@ for (let i = 0; i < 40; i++) {
   outcomes[slug] = i < 39 ? '1' : '0' // DOWN tail winRate 39/40 = 0.975
 }
 
+// --- Bucket-edge markets (audit finding 2): moves landing EXACTLY on the
+// four frozen edges, on pair (150,300) so the candidate cell stays clean.
+// Bucket assignment at an exact edge is FP-determined (CALIBRATION-2.md
+// amendment #4); these bid/ask choices were verified to produce FP moves
+// on the intended side of each edge (+0.02→up2, +0.005→up1, −0.005→dn1,
+// −0.02→dn2). Each has a unique entry ask so its row is identifiable.
+const edges: Array<[string, number, number, number, number, string]> = [
+  // [slug, bid300, ask300, expected meanAsk printed, move, bucket]
+  ['synth-e001', 0.51, 0.53, 0.53, +0.02, 'up2'],
+  ['synth-e002', 0.5, 0.51, 0.51, +0.005, 'up1'],
+  ['synth-e003', 0.49, 0.5, 0.5, -0.005, 'dn1'],
+  ['synth-e004', 0.47, 0.49, 0.49, -0.02, 'dn2'],
+]
+for (let i = 0; i < edges.length; i++) {
+  const [slug, bid3, ask3] = edges[i]
+  const epoch = 1765200000 + i * 900
+  lines.push(line(slug, epoch, 'UP', 150, 150, 0.49, 0.51)) // mid 0.50
+  lines.push(line(slug, epoch, 'UP', 300, 300, bid3, ask3))
+  outcomes[slug] = '0'
+}
+
+// --- Drift-ordering case (audit finding 2, calib.ts convention): the FIRST
+// occurrence of (slug,side,off) is drift-invalid; a LATER valid line for the
+// same key must stay discarded (dedupe keys before drift-filtering), so the
+// (450,600) pair never forms.
+lines.push(line('synth-d001', 1765300000, 'UP', 450, 600.5, 0.5, 0.52)) // ts ≥ 600 → drift
+lines.push(line('synth-d001', 1765300000, 'UP', 450, 450, 0.5, 0.52)) // valid but deduped
+lines.push(line('synth-d001', 1765300000, 'UP', 600, 600, 0.5, 0.52))
+outcomes['synth-d001'] = '0'
+
 // --- Planted defects the pipeline must handle. ---
 // 1 drift line: ts=460 ≥ NEXT_BOUND[300]=450 → drift-discarded.
 lines.push(line('synth-c001', 1765000000, 'UP', 300, 460, 0.5, 0.52))
@@ -98,7 +128,12 @@ console.log(out)
 
 const EXPECT: Array<[string, string | RegExp]> = [
   ['parser gate skipped', 'gate parser-consistency: SKIPPED (synthetic fixture)'],
-  ['drift count', '(1 drift-discarded lines)'],
+  ['drift count', '(2 drift-discarded lines)'],
+  ['edge move +0.02 → up2', /150-300\s+up2\s+1\s+0\.5300/],
+  ['edge move +0.005 → up1', /150-300\s+up1\s+1\s+0\.5100/],
+  ['edge move −0.005 → dn1', /150-300\s+dn1\s+1\s+0\.5000/],
+  ['edge move −0.02 → dn2', /150-300\s+dn2\s+1\s+0\.4900/],
+  ['drift-first key stays dead (pair never forms)', /450-600\s+flat\s+empty/],
   ['band count', '(2 dropped: entry ask outside [0.02,0.995])'],
   ['UP join gate', /gates UP: join-direction OK \(pooled 750-850 tail winRate=0\.9750, n=40\); E14-analog control OK \(empty\)/],
   ['DOWN join gate', /gates DOWN: join-direction OK \(pooled 750-850 tail winRate=0\.9750, n=40\); E14-analog control OK \(empty\)/],
@@ -125,6 +160,32 @@ try {
 }
 console.log(`${guardOk ? 'PASS' : 'FAIL'}  outcomes-guard refusal`)
 if (!guardOk) fails++
+unlinkSync(GUARD)
+
+// Reserve-mode test (amendment #1): sub-window flag disabled, candidates
+// flagged CANDIDATE(reserve) even though discovery sub-windows would apply.
+const reserveOut = execFileSync(
+  'npx',
+  ['tsx', 'fable-lab/tools/calib2.ts', LOG, '--outcomes', OUTCOMES, '--expect-totals', '1,1'],
+  { encoding: 'utf8' },
+)
+const reserveOk = /CANDIDATE cells: UP \(30-150, up2\) \[reserve\]/.test(reserveOut)
+console.log(`${reserveOk ? 'PASS' : 'FAIL'}  reserve-mode candidate (sub-windows disabled)`)
+if (!reserveOk) fails++
+
+// Reserve-mode discovery-path refusal.
+let discoveryGuardOk = false
+try {
+  execFileSync(
+    'npx',
+    ['tsx', 'fable-lab/tools/calib2.ts', 'fable-lab/logs/CAL-001-discovery-fake.log', '--expect-totals', '1,1'],
+    { encoding: 'utf8' },
+  )
+} catch (err: any) {
+  discoveryGuardOk = String(err.stderr).includes('cannot be used on the discovery log')
+}
+console.log(`${discoveryGuardOk ? 'PASS' : 'FAIL'}  expect-totals discovery-path refusal`)
+if (!discoveryGuardOk) fails++
 
 if (fails > 0) {
   console.error(`SELFTEST FAILED: ${fails} assertion(s)`)

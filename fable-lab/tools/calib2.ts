@@ -4,6 +4,16 @@
  * Usage:
  *   npx tsx fable-lab/tools/calib2.ts <diag-calib log file>
  *   npx tsx fable-lab/tools/calib2.ts <...synthetic... log> --outcomes <json>
+ *   npx tsx fable-lab/tools/calib2.ts <reserve log> --expect-totals <lines>,<perSide>
+ *
+ * --expect-totals is the RESERVE-read mode (CALIBRATION-2.md amendment #1,
+ * frozen pre-read): the parser-consistency gate checks against the reserve
+ * run's own outcome-free D23 battery totals instead of the discovery
+ * constants, and candidate flagging drops the sub-window-consistency
+ * requirement (the frozen reserve bar is net>0, z>=Z_BAR, minority>=30 on
+ * pre-named cells only — the discovery sub-windows all predate the
+ * reserve). Refused on paths containing "CAL-001-discovery" so it can
+ * never relax the discovery read.
  *
  * Parses the SAME [diag-calib] line grammar as calib.ts, applies the same
  * validity pipeline (first-occurrence dedupe, drift filter ts < next
@@ -89,14 +99,31 @@ async function main(): Promise<void> {
     }
     argv.splice(outIdx, 2)
   }
+  const etIdx = argv.indexOf('--expect-totals')
+  let expectTotals: { lines: number; perSide: number } | undefined
+  if (etIdx !== -1) {
+    const v = argv[etIdx + 1]
+    const m = /^(\d+),(\d+)$/.exec(v ?? '')
+    if (!m) {
+      console.error('--expect-totals requires <lines>,<perSide>')
+      process.exit(1)
+    }
+    expectTotals = { lines: Number(m[1]), perSide: Number(m[2]) }
+    argv.splice(etIdx, 2)
+  }
   const path = argv[0]
   if (!path) {
-    console.error('usage: npx tsx fable-lab/tools/calib2.ts <diag-calib log file> [--outcomes <json>]')
+    console.error('usage: npx tsx fable-lab/tools/calib2.ts <log> [--outcomes <json>] [--expect-totals <lines>,<perSide>]')
     process.exit(1)
   }
   const synthetic = outcomesPath !== undefined
   if (synthetic && !path.includes('synthetic')) {
     console.error('REFUSED: --outcomes is only for synthetic fixtures (log path must contain "synthetic")')
+    process.exit(1)
+  }
+  const reserveMode = expectTotals !== undefined
+  if (reserveMode && path.includes('CAL-001-discovery')) {
+    console.error('REFUSED: --expect-totals is the reserve-read mode; it cannot be used on the discovery log')
     process.exit(1)
   }
 
@@ -128,19 +155,25 @@ async function main(): Promise<void> {
     valid.get(slug)!.get(side as Side)!.set(off, { ts, bid: Number(bidStr), ask: Number(askStr) })
   }
 
-  // Gate 1 — parser consistency vs CAL-001's published totals (real log only).
+  // Gate 1 — parser consistency: vs CAL-001's published totals on the
+  // discovery log, or vs the reserve run's own D23 battery totals
+  // (--expect-totals, amendment #1).
+  const expLines = expectTotals?.lines ?? EXPECT_TOTAL_LINES
+  const expSide = expectTotals?.perSide ?? EXPECT_PER_SIDE
   if (synthetic) {
     console.log('gate parser-consistency: SKIPPED (synthetic fixture)')
-  } else if (rawLines !== EXPECT_TOTAL_LINES || rawPerSide.UP !== EXPECT_PER_SIDE || rawPerSide.DOWN !== EXPECT_PER_SIDE) {
+  } else if (rawLines !== expLines || rawPerSide.UP !== expSide || rawPerSide.DOWN !== expSide) {
     console.error(
-      `ABORT — parser-consistency gate failed: lines=${rawLines} (expect ${EXPECT_TOTAL_LINES}), ` +
-        `UP=${rawPerSide.UP} DOWN=${rawPerSide.DOWN} (expect ${EXPECT_PER_SIDE} each). ` +
+      `ABORT — parser-consistency gate failed: lines=${rawLines} (expect ${expLines}), ` +
+        `UP=${rawPerSide.UP} DOWN=${rawPerSide.DOWN} (expect ${expSide} each). ` +
         `Fix the tool against the synthetic fixture, never against the real log.`,
     )
     process.exit(2)
   } else {
     console.log(
-      `gate parser-consistency: OK (lines=${rawLines}, UP=${rawPerSide.UP}, DOWN=${rawPerSide.DOWN})`,
+      `gate parser-consistency: OK (lines=${rawLines}, UP=${rawPerSide.UP}, DOWN=${rawPerSide.DOWN}` +
+        (reserveMode ? ', reserve-read mode: sub-window flag disabled' : '') +
+        `)`,
     )
   }
   console.log(`parsed ${valid.size} markets with any valid sample (${skippedDrift} drift-discarded lines)`)
@@ -264,6 +297,16 @@ async function main(): Promise<void> {
       process.exit(2)
     }
     const ctl = statOf(pooled.filter((x) => x.ask >= 0.9 && x.ask < 0.98))
+    // Amendment #3: on a REAL log an empty control is itself a derivation-bug
+    // signal (CAL-001 measured n≈520/516 in this territory) — abort. The
+    // synthetic fixture is exempt.
+    if (!ctl && !synthetic) {
+      console.error(
+        `ABORT — E14-analog control gate failed (${side}): pooled (750,850) ask∈[0.90,0.98) is EMPTY ` +
+          `on a real log (CAL-001 measured n≈520 here). Derivation suspect; do not read the table.`,
+      )
+      process.exit(2)
+    }
     if (ctl && Math.abs(ctl.z) >= Z_BAR) {
       console.error(
         `ABORT — E14-analog control gate failed (${side}): pooled (750,850) ask∈[0.90,0.98) ` +
@@ -310,15 +353,22 @@ async function main(): Promise<void> {
         }
         let flag = ''
         if (s.net > 0 && s.z >= Z_BAR && s.minority >= MINORITY_MIN) {
-          const sw = subwindowD(side, pi, bi)
-          const consistent = sw.every(([, n, d]) => n > 0 && d > 0)
-          const swStr = sw.map(([l, n, d]) => `${l}:n=${n},d=${Number.isNaN(d) ? 'na' : d.toFixed(4)}`).join(' ')
-          if (consistent) {
-            flag = 'CANDIDATE'
-            candidates.push(`${side} (${pairLabel}, ${label}) [${swStr}]`)
+          if (reserveMode) {
+            // Amendment #1: the reserve bar has no sub-window requirement
+            // (the discovery sub-windows all predate the reserve window).
+            flag = 'CANDIDATE(reserve)'
+            candidates.push(`${side} (${pairLabel}, ${label}) [reserve]`)
           } else {
-            flag = 'CANDIDATE-demoted(subwindow-inconsistent)'
-            negFlags.push(`demoted ${side} (${pairLabel}, ${label}) [${swStr}]`)
+            const sw = subwindowD(side, pi, bi)
+            const consistent = sw.every(([, n, d]) => n > 0 && d > 0)
+            const swStr = sw.map(([l, n, d]) => `${l}:n=${n},d=${Number.isNaN(d) ? 'na' : d.toFixed(4)}`).join(' ')
+            if (consistent) {
+              flag = 'CANDIDATE'
+              candidates.push(`${side} (${pairLabel}, ${label}) [${swStr}]`)
+            } else {
+              flag = 'CANDIDATE-demoted(subwindow-inconsistent)'
+              negFlags.push(`demoted ${side} (${pairLabel}, ${label}) [${swStr}]`)
+            }
           }
         } else if (s.z <= -Z_BAR) {
           flag = s.minority >= MINORITY_MIN ? 'NEG-FLAG' : 'NEG-FLAG(underpowered-E14)'

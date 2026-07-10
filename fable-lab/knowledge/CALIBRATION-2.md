@@ -171,6 +171,50 @@ is where E10's ≥1.5c fee floor lives.
   reserve confirmation (if reached) is a standard detached local
   `--sequential` instrument run under D8 latency pinning.
 
+## Amendments (pre-read, 2026-07-10 — audit-motivated, frozen before any read)
+
+A fresh-context adversarial audit reviewed this registration and the tool
+before the one-shot (verdict sound-with-findings; report verbatim in
+`knowledge/AUDIT-2026-07-10-CAL-002-REG.md`). All findings acted on with
+NO result read:
+
+1. **(MAJOR, finding 1) Reserve-read semantics frozen now.** The committed
+   tool could not execute the binding reserve confirmation: its
+   parser-consistency gate was hard-wired to the discovery totals, and the
+   discovery sub-windows (→Dec/Jan/Feb) all predate the reserve window, so
+   every reserve candidate would print as demoted. Frozen fix, pre-read:
+   `calib2.ts --expect-totals <lines>,<perSide>` is the reserve mode — the
+   gate checks the reserve run's OWN outcome-free D23 battery totals, and
+   candidate flagging drops the sub-window requirement (the reserve bar
+   was always `net > 0 ∧ z ≥ 3.37 ∧ minority ≥ 30` on pre-named cells).
+   Mechanical guard: `--expect-totals` is refused on paths containing
+   `CAL-001-discovery`, so reserve mode can never relax the discovery
+   read. No tool edit will ever be needed after a table is seen.
+2. **(finding 3) Mirror-deviant caveat:** "no DOWN-derived move — it would
+   be −move by construction" holds up to the TWO known mirror deviants
+   (CAL-001 Results: epochs 1764846000/850 and 1771651800/300); at ≤2
+   markets in 52,388 pairs this is immaterial, but any verdict wording
+   citing pairs (150,300)/(300,450) inherits the off=300 deviant's
+   1-market exposure.
+3. **(finding 4) Empty-control semantics frozen:** on a REAL log (discovery
+   or reserve) an EMPTY E14-analog control gate ABORTS — CAL-001 measured
+   n≈520/516 in that territory, so emptiness signals a derivation bug.
+   The synthetic fixture is exempt.
+4. **(finding 5) FP edge assignment acknowledged:** moves are float
+   differences of 4-dp mids; a mathematically-exact-edge move can land on
+   either side of its bucket edge by FP. Deterministic, direction-agnostic,
+   and the same exposure class CAL-001 accepted for ask buckets. The
+   selftest's edge fixtures document the actual FP behavior at all four
+   edges.
+5. **(findings 2, 6) Selftest extended:** exact-edge moves at all four
+   bucket edges (asserted into their intended buckets),
+   drift-invalid-first/valid-duplicate-second ordering (pair must never
+   form — calib.ts convention), reserve-mode candidate flagging, and both
+   refusal guards. Remaining unexercised paths (subwindow-demotion,
+   underpowered annotation, unresolved-outcome exclusion, parser-gate
+   PASS/FAIL branches) are accepted as structurally identical to
+   calib.ts's audited logic.
+
 ## Results
 
 _(append-only below this line; nothing here until calib2.ts runs ONCE on
