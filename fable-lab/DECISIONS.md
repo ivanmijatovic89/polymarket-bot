@@ -741,3 +741,37 @@ Rejected alternative: relying on the next wake-up session to catch drift —
 the drifted wording IS what the next session boots from (SCIENTIST boot
 sequence reads EDGE-SPACE and LESSONS, not the verdict source), so drift
 compounds precisely where it does the most damage.
+
+## D26 — CAL-003: two-segment path scan on the CAL-001 discovery log (2026-07-10, U44)
+
+Motivating evidence (governor-compliant): E21 (CAL-002, null-confirmed)
+measured a coherent gross continuation after single big down-segments —
+UP dn2 d negative at every pair from 300s on (z −2.23/−3.00/−3.72/−2.90),
+≈ 2-2.4c gross — whose tradable mirror nets ≤ +0.75c: real structure,
+inside costs. EDGE-SPACE §4's post-E21 taker bar explicitly names
+multi-segment paths as the next in-scope conditional layer, and the
+CAL-001 discovery log already contains everything needed to measure the
+two-segment version at ZERO new replay compute. The falsifiable stake: if
+path persistence concentrates the continuation ~1.5-2×, the tradable side
+crosses the cost floor; if not, the conditional taker space narrows again
+with numbers attached.
+
+Decision: register CAL-003 (`knowledge/CALIBRATION-3.md`, frozen pre-read)
+— k = 40 cells (5 consecutive-offset triples × 4 big-move path shapes
+{dn-dn, dn-up, up-dn, up-up} × both entry sides), same statistic and
+formulas as CAL-001/002, Bonferroni bar z ≥ 3.25 (0.023/40), minority ≥ 30,
+sub-window consistency, BINDING reserve confirmation for any candidate
+(third reuse of the log; designer has seen both published table sets —
+disclosed). Mid-involved shapes are excluded from the scan as known-thin
+from PUBLISHED distribution numbers (bimodal, dn2/up2 ≈ 90% of entries);
+the exclusion is disclosed and the region stays formally open. New
+mechanical gate: calib3.ts must reproduce CAL-002's published gate values
+EXACTLY on the discovery log (derivation-drift tripwire between tools).
+
+Rejected alternatives: (a) flow/derived-feature conditioning — requires a
+new fixture + full discovery replay (~3h); do the zero-compute layer
+first. (b) 3×3 shape grid including mid segments — known-thin cells
+(n ≈ 15-60) resolve nothing at any bar and would only pay Bonferroni tax;
+power framing per CAL-002's published distribution. (c) pooling cells
+across triples for power — adjacent triples share offsets AND market
+outcomes; a pooled z would be computed as if independent and be wrong.
