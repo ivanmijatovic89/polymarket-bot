@@ -208,7 +208,12 @@
             "param": "stabilityWindowSec",
             "values": [10, 30, 60, 120],
             "batchUid": "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--8f3d6da8-f55b-42cd-9b27-804a91298aa8",
+              "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--509979a0-276b-45c7-a317-bf6b93a6966b",
+              "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--bf23e262-09e6-4f48-9f31-a459eeab5edd",
+              "endgame-panic-bid--002-path-stability--p1-stabilityWindowSec--21011672-89a4-4f5f-9cb6-b27787c0ea22"
+            ],
             "best": null,
             "note": null
           },
@@ -225,11 +230,14 @@
       },
       "batchUid": null,
       "submissionUids": [],
-      "baselineId": null,
-      "coverage": null,
-      "status": "queued",
+      "baselineId": "391",
+      "coverage": {
+        "selection": "latest",
+        "markets": 1000
+      },
+      "status": "running",
       "gateLog": [],
-      "submittedAt": null,
+      "submittedAt": "2026-07-10T18:47:00Z",
       "decidedAt": null,
       "abortReason": null,
       "outcome": null
