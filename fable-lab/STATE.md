@@ -545,7 +545,13 @@ _Last updated: session 23, unit U43ad._
   `[diag-calib]` lines, denominator = distinct slugs with any UP line
   (excluding none — run complete), coverage(off) = fraction of those
   slugs with a UP line at that offset, offsets 30/150/300/450/600/750/
-  850 (exact script in git history of this entry, session 22).
+  850. CORRECTION (session 23): session 22 claimed the exact script was
+  in git history, but only the prose spec was committed; the script is
+  now materialized and tested as `fable-lab/tools/calib-coverage.sh`
+  (outcome-free — reads slug/asset/off only; verified on the in-flight
+  log at 3,858 slugs: 600s→0.9637, 750s→0.7815, 850s→0.4762, matching
+  the session-22 trend). The verdict session runs THAT script on the
+  final log.
   Session 23 check (~55 min in): 4,084/8,516 (~0.81s/market, ETA
   ~60 min); latency 0/0, UP/DOWN exact balance (23,511 each), 0 error
   lines, epoch range [1764460800, 1768317300] inside the discovery
