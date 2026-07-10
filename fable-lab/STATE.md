@@ -617,6 +617,10 @@ _Last updated: session 26, unit U43aj._
   deviant (1764846000, off=850) — amendment #12 holds at ~58% of the
   run. Dedupe (0 duplicate tuples) and asset-pairing completeness
   (0 one-sided keys) re-confirmed. Monitor re-armed on pid exit.
+  Coverage via the frozen calib-coverage.sh at 4,595 slugs:
+  600s→0.9587, 750s→0.7970, 850s→0.5177 — late-offset coverage keeps
+  drifting up as later months enter (850s trend 0.430→0.443→0.471→
+  0.476→0.518); amendment #11 wording will use the FINAL-log fractions.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
