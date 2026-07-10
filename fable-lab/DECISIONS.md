@@ -824,3 +824,51 @@ median of a rare-event fraction is ~0 at n=30, which would kill the
 metric entirely); (c) requiring the redraw only for "marginal" fires —
 defining marginal post-hoc invites judgment creep; a uniform redraw is
 cheap (~1 min of replay per month) and simpler.
+
+## D28 — calib.ts gets a hand-computed selftest; its detection branches had never executed (2026-07-10, U47)
+
+Motivating evidence (governor-compliant): CAL-001's discovery read
+produced ZERO candidate and ZERO neg-flag cells (CALIBRATION.md Results),
+which means the CANDIDATE / sub-window-demotion / NEG-FLAG branches of
+`tools/calib.ts` — the instrument behind the E20 null that tightened the
+EDGE-SPACE §4 taker bar — had never executed on ANY input. A bug in those
+branches (inverted flag condition, always-failing sub-window filter,
+broken minority rule) would be observationally identical to the published
+null. The analogous later tools got exactly this protection at
+registration (`calib2-selftest.ts` 17/17, `calib3-selftest.ts` + CAL-003's
+8/8 gate reproduction); calib.ts predates that practice — an asymmetric
+verification gap on the MOST load-bearing of the three nulls.
+
+Decision:
+
+1. `tools/calib.ts` gained the same guarded `--outcomes <json>` synthetic
+   injection path calib2/calib3 have (REFUSED unless the log path contains
+   "synthetic"; the real path is untouched). Proven inert mechanically:
+   the tool's output on the real discovery log
+   (`logs/CAL-001-discovery-v3.log`) is byte-identical before and after
+   the change (`diff` clean), and reproduces the published CAL-001 read
+   exactly (gates 0.9854/0.9778 n=687/721, E14 controls z=−1.02/−0.59,
+   zero candidates / zero neg-flags) — a months-later reproduction check
+   of the E20 readout in its own right.
+2. `tools/calib-selftest.ts` (committed generator, synthetic log + outcome
+   map under gitignored logs/): 22/22 assertions against hand-computed
+   expected output — designed CANDIDATE (n=200, z=+5.96, sub-window
+   consistent), designed demotion (identical cell stats, W3 d=−0.04),
+   designed NEG-FLAG (z=−8.23), designed underpowered NEG-FLAG (z=−3.87,
+   minority=4), drift filter count, dedupe-before-drift key ordering,
+   band-filter count, four exact bucket-edge assignments (0.02 / 0.10 /
+   0.98 / 0.995 hi-inclusive), unresolved-outcome exclusion, both
+   join-direction gates, both gate-ABORT paths (exit 2, no table printed),
+   and the --outcomes refusal guard.
+3. Interpretive consequence: the E20 null now rests on a tool whose
+   decision branches are mechanically verified, closing the "silent
+   false-null" failure mode for CAL-001 the same way CAL-002/CAL-003 were
+   protected from day one. No number in CALIBRATION.md changes.
+
+Rejected alternatives: (a) leaving calib.ts untested because the null was
+Judge-confirmed — the Judge verified the published output's consistency,
+not the tool's branch logic; a false null produces self-consistent output;
+(b) testing via a copy of calib.ts with mocked DB imports — a divergent
+copy proves nothing about the file that produced the published read; the
+in-place guarded flag with a byte-identical real-log diff is strictly
+stronger and matches the calib2/calib3 precedent.

@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 43, unit U46b (U45/U46 propagation check
-verified; one MINOR fixed)._
+_Last updated: session 44, unit U47 (calib.ts selftest closes the
+never-executed-branch gap behind the E20 null; D28)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -551,6 +551,25 @@ verified; one MINOR fixed)._
   unit: VENUE-DRIFT.md's baseline block still attributed the 12 missing
   markets to the disproven end-of-chunk flush artifact — now reworded
   to the corrected zero-event-parquet mechanism.
+
+- U47 (session 44): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14), no trades ingestion (only delta/delta-typed
+  converters on disk) — both gates closed. Verification-depth unit:
+  `tools/calib.ts` — the CAL-001 instrument behind the E20 null that
+  tightened the EDGE-SPACE §4 bar — had NEVER executed its CANDIDATE /
+  demotion / NEG-FLAG branches (the real read was all-null; a branch bug
+  would be observationally identical to the published null), while
+  calib2/calib3 got selftests at registration. Closed per DECISIONS D28:
+  calib.ts gained the guarded `--outcomes` synthetic path (calib2
+  precedent), proven inert by byte-identical output on the real discovery
+  log before vs after (diff clean; the re-run also independently
+  reproduced the published CAL-001 read: gates 0.9854/0.9778, E14
+  controls z=−1.02/−0.59, zero candidates/neg-flags — a months-later
+  reproduction check). NEW `tools/calib-selftest.ts`: 22/22 hand-computed
+  assertions (candidate, demotion, both neg-flag kinds, drift/dedupe/band
+  filters, 4 bucket edges, unresolved exclusion, gates, both gate-abort
+  exit-2 paths, refusal guard). tsc clean. CALIBRATION.md carries the
+  post-verdict instrument note; tools/README.md lists the calib family.
 
 ## In progress
 - (nothing in flight)

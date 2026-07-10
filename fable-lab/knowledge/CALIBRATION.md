@@ -538,3 +538,18 @@ text above stays verbatim): the checks bullet's identity
 "104,776 − 200 − 4,372" should read 4,172, per the verbatim calib.ts
 output line ("4172 ask outside [0.02,0.995]") and the judge's own basis
 paragraph; 104,776 − 200 − 4,172 = 100,404 ✓._
+
+### Post-verdict instrument note — D28 selftest (2026-07-10, U47; nothing above changes)
+
+`tools/calib.ts` as of the discovery read had never executed its
+CANDIDATE / demotion / NEG-FLAG branches on any input (the real read was
+all-null), so a bug there would have been observationally identical to
+this null. Closed in U47 per DECISIONS D28: the tool gained the guarded
+`--outcomes` synthetic path (calib2/calib3 precedent), proven inert by a
+byte-identical `diff` of its output on `logs/CAL-001-discovery-v3.log`
+before vs after the change — a re-run that also independently reproduced
+every published gate and extreme value above, months after the original
+read. `tools/calib-selftest.ts` now exercises every decision branch
+against hand-computed expected output (22/22 PASS, including both gate
+ABORT paths and the refusal guard). The null's standing is strengthened,
+not altered; no number above was produced by the modified code path.

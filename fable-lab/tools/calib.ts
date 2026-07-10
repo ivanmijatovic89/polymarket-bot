@@ -4,6 +4,15 @@
  * amendment #10: both books sampled, k = 126 cells).
  *
  * Usage: npx tsx fable-lab/tools/calib.ts <diag-calib log file>
+ *        npx tsx fable-lab/tools/calib.ts <...synthetic... log> --outcomes <json>
+ *
+ * --outcomes <json> ({slug: '0'|'1'}) exists ONLY for the committed
+ * selftest (calib-selftest.ts): it replaces the DB result_id join with a
+ * fixture map so the frozen detection logic can be exercised on synthetic
+ * input with hand-computed expected output. REFUSED unless the log path
+ * contains "synthetic" — it can never touch a real discovery/reserve read.
+ * (Added post-discovery per D28; the real-log path is byte-identical before
+ * and after this change — see knowledge/CALIBRATION.md D28 note.)
  *
  * Parses [diag-calib] lines (asset=UP|DOWN), joins telonex_markets.result_id
  * (0=UP wins, 1=DOWN wins) via src/db/telonexMarkets.ts, and prints BOTH
@@ -67,9 +76,25 @@ function bucketIndex(ask: number): number {
 type Obs = { slug: string; epochMs: number; side: Side; off: number; ask: number }
 
 async function main(): Promise<void> {
-  const path = process.argv[2]
+  const argv = process.argv.slice(2)
+  const outIdx = argv.indexOf('--outcomes')
+  let outcomesPath: string | undefined
+  if (outIdx !== -1) {
+    outcomesPath = argv[outIdx + 1]
+    if (!outcomesPath) {
+      console.error('--outcomes requires a value')
+      process.exit(1)
+    }
+    argv.splice(outIdx, 2)
+  }
+  const path = argv[0]
   if (!path) {
-    console.error('usage: npx tsx fable-lab/tools/calib.ts <diag-calib log file>')
+    console.error('usage: npx tsx fable-lab/tools/calib.ts <diag-calib log file> [--outcomes <json>]')
+    process.exit(1)
+  }
+  const synthetic = outcomesPath !== undefined
+  if (synthetic && !path.includes('synthetic')) {
+    console.error('REFUSED: --outcomes is only for synthetic fixtures (log path must contain "synthetic")')
     process.exit(1)
   }
 
@@ -125,14 +150,22 @@ async function main(): Promise<void> {
   // Join outcomes in chunks. getMarketsBySlugs uses resolvedOnly=false;
   // unresolved markets are excluded here by accepting only resultId '0'/'1'.
   const upWon = new Map<string, boolean>()
-  for (let i = 0; i < slugs.length; i += 500) {
-    const rows = await getMarketsBySlugs(slugs.slice(i, i + 500), {
-      converter: 'delta-typed',
-      readFrom: 'local-or-download-from-r2-to-local',
-    })
-    for (const r of rows) {
-      if (r.resultId === '0') upWon.set(r.slug, true)
-      else if (r.resultId === '1') upWon.set(r.slug, false)
+  if (synthetic) {
+    const json = JSON.parse(readFileSync(outcomesPath!, 'utf8')) as Record<string, string>
+    for (const [slug, r] of Object.entries(json)) {
+      if (r === '0') upWon.set(slug, true)
+      else if (r === '1') upWon.set(slug, false)
+    }
+  } else {
+    for (let i = 0; i < slugs.length; i += 500) {
+      const rows = await getMarketsBySlugs(slugs.slice(i, i + 500), {
+        converter: 'delta-typed',
+        readFrom: 'local-or-download-from-r2-to-local',
+      })
+      for (const r of rows) {
+        if (r.resultId === '0') upWon.set(r.slug, true)
+        else if (r.resultId === '1') upWon.set(r.slug, false)
+      }
     }
   }
   const unresolved = slugs.filter((s) => !upWon.has(s))
