@@ -163,7 +163,13 @@ const computeQuality = (pnls: number[]): number | null => {
   const variance = pnls.reduce((sum, v) => sum + (v - avg) ** 2, 0) / pnls.length
   const std = Math.sqrt(variance)
   if (!Number.isFinite(std) || std === 0) return null
-  return round4(avg / std)
+  const quality = avg / std
+  // Near-identical pnls leave std as a floating-point residue (~1e-8),
+  // blowing the ratio past the DECIMAL(14,6) column range and failing the
+  // segment insert. A ratio that large is degenerate — treat it as null,
+  // same as the exact std === 0 case.
+  if (!Number.isFinite(quality) || Math.abs(quality) > 99_999_999) return null
+  return round4(quality)
 }
 
 /**
