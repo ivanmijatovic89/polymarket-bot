@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 6, unit U32._
+_Last updated: session 6, unit U33._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -222,6 +222,11 @@ _Last updated: session 6, unit U32._
   unverifiables (by construction, all disclosed): EXP-001 probe snapshot
   (run 301 was extended in place), E13 overflow narrative (run 315
   rolled back), E15 fixture-derived tick stats.
+
+- U33: RUNBOOK reconciled to the D15 state (friction: §3 instructed
+  "take the top idea, six are seeded" — impossible since U30 resolved all
+  eight). §3 now states the gated status; §5 gained the "instrumentation
+  unlocks" control point pointing at EDGE-SPACE §3.
 
 ## In progress (detached runs via tools/detach.mjs per D10)
 - (none)

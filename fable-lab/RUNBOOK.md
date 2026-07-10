@@ -45,11 +45,19 @@ with a prompt of roughly:
 > blocked on operator input.
 
 That contract makes the session: boot from the memory files, take the top
-idea in `protocol/IDEAS.md` (six are seeded, ranked), register the next
-experiment, write the strategy, smoke it, run the probe locally in the
-background, and judge it with a fresh-context subagent. The session prompts are goal-shaped on purpose —
-don't add step-by-step instructions on top
+open idea in `protocol/IDEAS.md`, register the next experiment, write the
+strategy, smoke it, run the probe locally in the background, and judge it
+with a fresh-context subagent. The session prompts are goal-shaped on
+purpose — don't add step-by-step instructions on top
 (`docs/reference/prompting-claude-fable-5.md`).
+
+**Status as of U31 (2026-07-10):** all eight seeded ideas are resolved
+(seven killed by experiment, one dead by park clause) and new
+registrations are gated by the bar in `knowledge/EDGE-SPACE.md` §4
+(DECISIONS D15, audited U32). Sessions will not register punch-through
+maker re-skins or sub-fee-floor taker ideas; expect them to do
+verification depth and maintenance instead unless an idea clears the bar
+or you unlock instrumentation (next section).
 
 ## 4. What you will see, and where
 
@@ -80,6 +88,12 @@ The protocol runs without you except at these points:
 - **Holdout burns**: if a session reports a burned holdout (validator
   counts >1 holdout run), treat it as an incident — the affected lineage's
   confirmation is void.
+- **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the three
+  ways to extend what the lab can measure — expose the engine's
+  `touch_or_better` fill mode (one src-side change, outside the lab's
+  write scope), record live trade prints into the dataset, or authorize
+  tiny live-paper quotes at the touch. All three are yours; the lab has
+  pre-committed what it would run the day each lands.
 
 ## 6. If a session died mid-work
 
