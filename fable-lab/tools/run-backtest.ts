@@ -49,23 +49,37 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
   )
 }
 
-// --fill-mode worst_queue|touch_or_better (DECISIONS D18). Parsed and
-// STRIPPED here — the engine CLI does not know this flag. touch_or_better
+// --fill-mode worst_queue|touch_or_better (DECISIONS D18). touch_or_better
 // switches the maker fill simulation to the engine's own optimistic
 // at-touch model (BacktestExecution.ts, hardcoded unreachable from the
-// CLI) via a prototype hook installed below. Optimistic-bound runs must be
-// unmistakable in the DB forever, so the batchUid must say so.
+// CLI) via a prototype hook installed below. The flag is normalized to the
+// single-token `--fill-mode=X` form and LEFT in argv: the engine parser
+// silently ignores unknown `--x=y` tokens (backtestArgs.ts default case)
+// but records them in the run's permanent `cmd` column — so the DB record
+// of a touch run shows the fill mode. (The two-token form would leak the
+// value into filePaths, so it is rewritten.) Optimistic-bound runs must
+// also be unmistakable by label, so the batchUid must say so.
 let fillMode: 'worst_queue' | 'touch_or_better' = 'worst_queue'
 {
+  let v: string | undefined
   const i = process.argv.indexOf('--fill-mode')
   if (i !== -1) {
-    const v = process.argv[i + 1]
+    v = process.argv[i + 1]
+    process.argv.splice(i, 2)
+  } else {
+    const j = process.argv.findIndex((a) => a.startsWith('--fill-mode='))
+    if (j !== -1) {
+      v = process.argv[j].slice('--fill-mode='.length)
+      process.argv.splice(j, 1)
+    }
+  }
+  if (v !== undefined) {
     if (v !== 'worst_queue' && v !== 'touch_or_better') {
       console.error(`[fable] --fill-mode must be worst_queue or touch_or_better (got ${JSON.stringify(v)})`)
       process.exit(1)
     }
     fillMode = v
-    process.argv.splice(i, 2)
+    process.argv.push(`--fill-mode=${v}`)
   }
   if (fillMode === 'touch_or_better') {
     const b = process.argv.indexOf('--batchUid')
