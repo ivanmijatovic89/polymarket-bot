@@ -53,17 +53,25 @@ Important defaults:
 - Use chunked extensions such as `--limit 500`, `--limit 1000`, or a bounded
   `--from-ms` / `--to-ms` range when you want controlled coverage growth.
 
-Direction:
+Direction (semantics live in `src/backtest/extendPlanner.ts`):
 
-- Default (no `--latest`) consumes missing markets OLDEST-first — from the
-  far end of history.
-- `--latest --limit <n>` consumes the NEWEST missing markets first —
-  contiguous with a latest-window coverage. **Stage climbs always use
-  this** (e.g. `--latest --limit 2000` for stage 2): it keeps coverage one
-  contiguous block ending at the newest data, per the climb rules in
+- Default (no `--latest`) extends BACKWARD — the uncovered markets
+  immediately BEFORE the parent's oldest covered market, contiguous with
+  the covered block. **Stage climbs always use this default** (e.g.
+  `npm run backtest -- --extend <run-id> --limit 2000` for stage 2): a
+  stage-1 run's coverage already ends at the newest data, so growing
+  backward keeps coverage one contiguous block ending at the newest
+  market, per the climb rules in
   [`strategy-research-protocol/STAGE-GATES.md`](../STAGE-GATES.md).
-- Without `--limit`, the tool attempts to consume all missing markets in the
-  selected direction or range.
+- `--latest` extends FORWARD — the uncovered markets immediately AFTER
+  the parent's newest covered market. Only useful when new markets have
+  been synced since the parent ran. On a run whose coverage already ends
+  at the newest data it errors with "nothing to extend
+  (direction=forward)" — drop `--latest`.
+- Both directions error with an explanatory hint when nothing is
+  uncovered on their side; the messages name the fix.
+- Without `--limit`, the tool consumes ALL missing markets in the
+  selected direction or range — pass `--limit` for controlled growth.
 
 Use the normal BullMQ worker path for meaningful extensions. Extensions can be
 large and are expected to run across available workers.
