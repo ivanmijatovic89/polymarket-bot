@@ -659,3 +659,30 @@ Constraint honored: the checklist adds NO new rule, gate, threshold, or
 interpretation; it was written while the run was in flight, before any
 outcome read (outcome-free by construction — it quotes only frozen
 text and session-numbered integrity methods).
+
+## D23 — checklist-§1 integrity battery materialized as a tested script (2026-07-10, U43am)
+
+Motivating friction (governor-compliant): sessions 11–27 each re-hand-wrote
+the same ~8 awk one-liners for the mid-run integrity battery, and U43ae
+already demonstrated the failure mode of prose specs ("exact script in git
+history" was false — only prose was committed). The verdict session should
+not reassemble a multi-check battery from prose under one-shot pressure.
+
+Decision: `tools/calib-integrity.sh` materializes checklist §1 (latency pin,
+error lines, progress contiguity + duplicate replay files, malformed lines,
+UP/DOWN balance, slug-epoch match, frozen-offset set, ts bounds, crossed
+books, dedupe tuples + 14-line cap, mirror with 4-decimal rounding +
+one-sided keys, ts monotonicity) — outcome-free by construction (reads only
+instrument fields and engine progress lines; no PnL, no DB). Validated
+positive (in-flight log at 5,210 markets: all values match the hand-run
+session-27 checks, gaps=0, deviants=1 = the known 1764846000/850) and
+negative (corrupted copy flags epoch mismatch, bad offset, ts bound, crossed
+book, one-sided keys, duplicate tuple). Adds NO new gate or threshold; it is
+an execution vehicle for already-frozen checks. The checklist's §1 can be
+discharged by running this script on the final log; CALIBRATION.md governs
+on any conflict.
+
+Rejected alternative: leaving §1 as prose in the checklist — rejected on the
+direct U43ae precedent (prose drifted from what ran) and because the verdict
+session's error budget is better spent on the one-shot read and wording
+obligations than on rewriting awk.
