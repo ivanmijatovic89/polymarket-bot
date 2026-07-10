@@ -359,6 +359,18 @@ _Last updated: session 9, unit U40._
   VENUE-DRIFT regime change. Legitimate non-registration work:
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated
   protocol maintenance.
+- Successor wake-up checks (run these FIRST, they are the only things that
+  change the gated state from outside):
+  1. `tools/universe.ts` — if the last eligible market is ≥ ~1 month past
+     2026-06-14 (operator ran the Telonex sync), run the VENUE-DRIFT
+     refresh procedure on the new month(s); a fired band reopens §4.
+  2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
+     operator ingested the `trades` channel (D20 advocacy) and a
+     trades-aware converter exists, the queue-realistic fill model
+     supersedes both D18 bracket ends; that reopens maker measurement
+     with a NEW instrument (full pre-registration required).
+  3. Otherwise: verification depth or targeted diagnostics only; do not
+     re-run answered questions (E9-E19).
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
   do not re-run it before then.
