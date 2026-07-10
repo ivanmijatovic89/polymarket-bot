@@ -178,3 +178,30 @@ forbids importing the old system's research conclusions._
   must either change the fill trigger (e.g. quote INTO loud moves where
   reversion is the claim being paid for) or accept that only live paper
   can measure them.
+
+- **E17 — Loud-regime punch-throughs are informative too: countertrend
+  passive bids into ≥10c moves lose −1.27 per played market. With both
+  regimes measured, the worst-queue-observable edge space in this
+  universe is EXHAUSTED and uniformly negative.** EXP-007 probe (run 342,
+  N=500, offset=0.01/jumpSize=0.10): 177/500 played, 342 maker fills
+  (makerShare=1, zero taker), EV/market −0.45 (CI95 excludes 0, t=−2.03),
+  EV/played ≈ −1.27, win rate 0.4011 — a bid 1c below post-move fair that
+  gets punched through during a loud cascade is on the wrong side of the
+  move's continuation, same as quiet (E16), and worse per fill. The
+  "overshoot reverts" story fails at the only point the simulator can
+  observe it: the cascade that reaches a resting bid keeps going.
+  Transfer: (a) E16's finding is regime-independent — under worst-queue,
+  a through-move is informative whether the tape is quiet or loud;
+  "reversion pays the maker" has now been falsified at both extremes of
+  the regime axis, so no remaining regime gate rescues punch-through
+  maker designs; (b) the full observable map is now: taker side fairly
+  priced net of 156 bps fees everywhere tested (tails E14, jumps E10,
+  book shape E11, open E12, dutch books E9), maker punch-through side
+  adversely selected in both regimes (E16, E17) at zero maker fee and
+  with size simulated in the strategy's favor — every mechanism class in
+  the starter set has a measured negative or fairly-priced verdict; (c)
+  what remains structurally unmeasurable by this instrument: at-touch
+  maker fills (queue position economics), which is where real maker PnL
+  lives on most venues. Any further backtest in this scope must name a
+  fill trigger that is NOT "the book moves through my level," or it is
+  re-testing E16/E17.

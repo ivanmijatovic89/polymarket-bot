@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 5, unit U29._
+_Last updated: session 6, unit U30._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -179,23 +179,31 @@ _Last updated: session 5, unit U29._
   regenerated. NEW TOOL: `tools/fills.ts` (fill-counts-only reader; makes
   the outcome-mining-safe read the easy one).
 
+- U30 (session 6): EXP-007 probe JUDGED — **kill** (run 342, N=500,
+  177 played, 342 maker fills, EV/market −0.45, CI95=[−0.884,−0.0156],
+  t=−2.03 → kill bar met with margin; prediction CONTRADICTED: EV/played
+  ≈ −1.27, win rate 0.4011; design-failure clause did not bind at 35.4%
+  of markets filled; simulator-favored by construction, which sharpens
+  the kill). Model-conditional per D14 — closes the punch-through-
+  backtestable version only. Fresh-context Judge verdict appended
+  verbatim. LESSONS E17: loud punch-throughs are informative like quiet
+  ones (E16); the worst-queue-observable edge space is now EXHAUSTED —
+  taker fairly priced everywhere tested (E9-E14), maker punch-through
+  adversely selected in both regimes (E16-E17). IDEAS #8 → dead; all 8
+  ideas resolved. INDEX regenerated (note: verdicts must be appended as
+  plain `- decision: kill` lines, NOT blockquoted — the INDEX parser
+  ignores `> `-prefixed lines).
+
 ## In progress (detached runs via tools/detach.mjs per D10)
-- EXP-007 probe: detached 2026-07-10 (log `fable-lab/logs/EXP-007-probe.log`,
-  batchUid EXP-007-probe, `--random --limit 500 --to-ms 1777237200000`,
-  latency pinned 0/0, ~1.4s/market, ETA ~12 min from launch). When
-  complete: `tools/results.ts` verbatim readout → fresh-context Judge
-  (JUDGE.md) → verdict appended. Design-failure clause (<~3% of markets
-  filled ⇒ iterate/park) is unlikely to bind (feasibility ~40%); D13
-  minority-count language if win rate is extreme.
+- (none)
 
 ## Next
-- Judge EXP-007 probe when the detached run finishes (`tools/runs.ts
-  --batch EXP-007-probe`; partial-persist rules D9 apply if killed).
-- If EXP-007 kills: the maker side as seen by worst-queue is then measured
-  in both regimes (quiet E16, loud EXP-007) — idea generation must either
-  find a different fill trigger or conclude (LESSON) that the simulator's
-  observable edge space is exhausted and write up what live-paper
-  instrumentation would be needed (operator decision; out of scope to run).
+- Per STATE U29's fork and E17: idea generation must either (a) name a
+  backtestable fill trigger that is NOT "the book moves through my
+  level" (else it re-tests E16/E17), or (b) conclude the observable edge
+  space is exhausted and write the live-paper instrumentation memo
+  (what an operator would need to measure at-touch maker economics —
+  a knowledge artifact, NOT a live run; out of scope to execute).
 - Holdout remains locked and unused (no experiment reached it).
 
 ## Notes for a fresh session

@@ -34,7 +34,7 @@ Ordered; top entries get registered first.
 | 5 | depth-imbalance drift | `flow-momentum` | dead (EXP-004) |
 | 6 | first-minute overreaction | `time-structure` | dead (EXP-005) |
 | 7 | expiry-tail maker capture | `spread-capture` | dead (EXP-001 killed at main; per its own park clause it dies unexamined) |
-| 8 | loud-regime countertrend liquidity provision | `spread-capture` | registered (EXP-007) |
+| 8 | loud-regime countertrend liquidity provision | `spread-capture` | dead (EXP-007, model-conditional per D14) |
 
 ## Entries
 
@@ -132,7 +132,7 @@ Ordered; top entries get registered first.
   taker version) confirms on holdout; if EXP-001 dies at main/holdout,
   this dies with it unexamined.
 
-### 8. Loud-regime countertrend liquidity provision — `spread-capture` — registered (EXP-007)
+### 8. Loud-regime countertrend liquidity provision — `spread-capture` — dead (EXP-007, model-conditional per D14)
 - **Motivating evidence:** E16's transfer point (a): under worst-queue,
   every fill is the most informed counterparty, so the only maker shape the
   simulator can test HONESTLY is one where being filled by a continuing
