@@ -429,6 +429,19 @@ _Last updated: session 9, unit U40._
   offset, which coincides with in-engine tradability; 750s/850s verdict
   wording must carry coverage fractions and cannot claim venue-level
   (in)efficiency for excluded quiet markets. No gate/threshold changed.
+  Session 17 check (~24.8 min in): 2,005/8,516 (~0.74s/market, ETA
+  ~80 min); latency 0/0, UP/DOWN exact balance (11,966 each), 0 error
+  lines, epoch range [1764460800, 1766358000] inside the discovery
+  window, 8,516 files loaded, 34 GiB free disk. NEW outcome-free check
+  (price-field sanity, all 24,246 sample lines): 0 crossed (bid≤ask
+  everywhere), ts∈[off,900] everywhere; 110 lines carry fine-tick
+  prices outside [0.01,0.99] (Polymarket 0.001-tick regime beyond
+  0.96/0.04, concentrated at late offsets near certainty — expected,
+  not a defect). Verified calib.ts handles them correctly per the
+  frozen spec: raw Number() parsing (no 2-decimal rounding), band
+  edges frozen at [0.02 … 0.995] with an explicit -1/drop counter
+  (calib.ts:58-65,97) — asks >0.995 or <0.02 are excluded by frozen
+  design, not silently mis-binned. Monitor re-armed on pid exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
