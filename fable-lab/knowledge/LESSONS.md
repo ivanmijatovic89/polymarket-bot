@@ -158,9 +158,12 @@ forbids importing the old system's research conclusions._
   quoting δ below fair loses to adverse selection even at zero maker fee
   and with the size axis simulated in the strategy's favor.** EXP-006
   probe (run 336, N=500, primary cell offset=0.01/quietRangeMax=0.08):
-  117/500 markets played, 62 decisive, 186 maker fills (makerShare=1);
+  117/500 markets played, 115 decisive (53 wins / 62 losses; corrected
+  U32 — the original "62 decisive" misread results.ts's wins/losses
+  notation, see EXP-006 erratum), 186 maker fills (makerShare=1);
   EV/market −0.18 (t=−1.52, kill bar met), EV per PLAYED market ≈ −0.79;
-  win rate on decisive markets 0.453; positiveDayFrac 0.236 over 144 days
+  win rate on played markets 0.453 (0.461 on decisive);
+  positiveDayFrac 0.236 over 144 days
   (broad negative, no single cliff). The hypothesis's own contradiction
   branch fired: a single-tick gap through a resting bid in a "quiet"
   window is a move that continues, not one that reverts — the 1c discount

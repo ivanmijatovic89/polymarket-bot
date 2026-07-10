@@ -359,3 +359,18 @@ flip a measured sign. Also rejected: touching `src/` to expose
 `touch_or_better` (charter hard constraint 1: write only inside
 fable-lab/) — recorded in the memo as operator-side instrumentation
 instead.
+
+## D16 — results.ts labels the win/loss split explicitly
+
+**Motivating evidence (evolution governor).** The U32 fresh-context audit
+(knowledge/AUDIT-2026-07-10-E9-E17.md, discrepancy b.1) found the only
+factual error in the E9-E17 chain: the EXP-006 probe verdict read
+`winRate(played)=0.453 (53/62)` as "62 decisive markets" when the
+parenthetical is wins/losses — a notation ambiguity in our own tool caused
+a wrong number in a permanent verdict (conservative in that case, but the
+next misread might not be).
+
+**Decision.** `tools/results.ts` now prints
+`winRate(played)=X (wins/losses=W/L)`. Verified against run 336. Erratum
+appended to EXP-006 (verdicts stay append-only); LESSONS E16 corrected
+with an inline note.

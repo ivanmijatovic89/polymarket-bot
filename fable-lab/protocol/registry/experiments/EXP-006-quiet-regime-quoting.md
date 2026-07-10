@@ -202,3 +202,15 @@ best5:  btc-updown-15m-1769104800:20.5  btc-updown-15m-1769780700:16.2  btc-updo
 <!-- one block per Judge verdict, pasted verbatim. Fields: stage, decision,
      t/q/N/EV read, battery summary, simulator-bias classification,
      required next step, one-paragraph reasoning. -->
+
+- 2026-07-10 — ERRATUM (session 6, U32 audit — verdicts are append-only, so
+  this corrects the record without editing the block above): the probe
+  verdict read `winRate(played)=0.453 (53/62)` as "62 decisive markets".
+  The parenthetical is WINS/LOSSES (results.ts `wonLost`), so run 336 has
+  53 wins + 62 losses = **115 decisive markets** (plus 2 played markets at
+  exactly 0 PnL), i.e. 115/500 = 23% decisive, and the win rate over
+  decisive markets is 53/115 = **0.461** (0.453 is the rate over all 117
+  played). The error is conservative with respect to the decision — 23% is
+  even further above the ~3% design-failure floor, and q/t/EV are
+  unaffected — so the KILL stands unchanged. `tools/results.ts` output is
+  now labeled `wins/losses=` to prevent the misread (DECISIONS D16).

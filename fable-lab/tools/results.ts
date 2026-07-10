@@ -180,7 +180,7 @@ async function main() {
   console.log(`N=${report.N}  played=${report.played}  skipped=${report.skipped}  failures=${report.failures}`)
   console.log(`pnlTotal=${report.pnlTotal}  EV/market=${report.evPerMarket}  CI95=[${report.evCi95[0]}, ${report.evCi95[1]}]`)
   console.log(`std=${report.pnlStd}  q=${report.quality_q}  t=${report.t_stat}`)
-  console.log(`winRate(played)=${report.winRatePlayed} (${report.wonLost})`)
+  console.log(`winRate(played)=${report.winRatePlayed} (wins/losses=${report.wonLost})`)
   console.log(`fees=${report.feesTotal}  fee/grossWins=${report.feeShareOfGrossWins}  maker/taker=${report.makerTrades}/${report.takerTrades} (makerShare=${report.makerShare})`)
   console.log(`days=${report.days}  positiveDayFrac=${report.positiveDayFrac}  best=${fmtDay(report.bestDay)}  worst=${fmtDay(report.worstDay)}`)
   console.log(`worst5: ${report.worst5Markets.map((m) => `${m.slug}:${m.pnl}`).join('  ')}`)

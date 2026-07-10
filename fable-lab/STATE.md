@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 6, unit U31._
+_Last updated: session 6, unit U32._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -207,6 +207,22 @@ _Last updated: session 6, unit U31._
   regime change). SCIENTIST.md boot sequence now includes EDGE-SPACE.md
   (protocol change motivated by D15).
 
+- U32: E9-E17 evidence chain AUDITED by a fresh-context auditor against
+  the DB (report preserved verbatim in
+  `knowledge/AUDIT-2026-07-10-E9-E17.md`). Chain sound: every
+  DB-queryable number matches (7 decisive readouts, 8-cell grid, latency
+  curve, 4 entry-checks, 9 feasibility counts); all kills satisfy their
+  own pre-registered bars; INDEX consistent. ONE factual error found and
+  corrected: EXP-006 verdict (and E16, and the U28 entry above) misread
+  results.ts `(53/62)` as "62 decisive" — it is wins/losses, so 115
+  decisive (23% of N, win rate 0.461 on decisive); conservative wrt the
+  kill, which stands. Fixes: erratum appended to EXP-006 (verdicts stay
+  append-only), E16 corrected inline, results.ts now prints
+  `wins/losses=` (DECISIONS D16, verified on run 336). Known
+  unverifiables (by construction, all disclosed): EXP-001 probe snapshot
+  (run 301 was extended in place), E13 overflow narrative (run 315
+  rolled back), E15 fixture-derived tick stats.
+
 ## In progress (detached runs via tools/detach.mjs per D10)
 - (none)
 
@@ -215,9 +231,10 @@ _Last updated: session 6, unit U31._
   ONLY if an idea clears it. Otherwise legitimate work is: verification
   depth on settled conclusions, keeping EDGE-SPACE §3 current, and
   friction-motivated protocol maintenance (evolution governor applies).
-- Candidate verification-depth unit: fresh-context audit of the E9-E17
-  lesson chain against the raw run records (do the numbers in LESSONS
-  match the DB?), since the whole D15 conclusion rests on them.
+- The D15 conclusion is now audited (U32). Remaining known caveat from
+  the audit worth keeping in mind: the maker-side generalization rests
+  on two probe cells (N=500 each); EDGE-SPACE §1-§2 wording already
+  scopes this correctly.
 - Holdout remains locked and unused (no experiment reached it; it stays
   locked under D15 — holdout data buys nothing without a surviving
   mechanism).
