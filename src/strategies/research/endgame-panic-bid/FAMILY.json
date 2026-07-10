@@ -88,7 +88,11 @@
             "param": "size",
             "values": [10, 20, 40],
             "batchUid": "endgame-panic-bid--000-baseline--p4-size",
-            "submissionUids": [],
+            "submissionUids": [
+              "endgame-panic-bid--000-baseline--p4-size--561e40e1-c80b-49e9-b5a3-d1cb97ebdc6a",
+              "endgame-panic-bid--000-baseline--p4-size--045c76e7-4461-47c6-b876-11fa05f8dbce",
+              "endgame-panic-bid--000-baseline--p4-size--e00a7b91-c1d1-40bb-a113-aa80c02145a9"
+            ],
             "best": null,
             "note": null
           }
