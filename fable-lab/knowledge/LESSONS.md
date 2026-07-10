@@ -136,3 +136,20 @@ forbids importing the old system's research conclusions._
   spread + adverse-selection premium), which the simulator models
   conservatively (worst-queue) but optimistically on size — live-paper
   validation is mandatory there by construction.
+
+- **E15 — Worst-queue maker fills need SINGLE-TICK gaps through the level;
+  quiet regimes at tight thresholds barely exist and pin at the tails.**
+  From EXP-006's smoke (run 328) + diag-quiet + fill-feasibility
+  diagnostics (EXP-000-debug runs 331-333, 335): (a) a strategy that
+  requotes on ≥1c drift is only fillable by a single-tick move bigger than
+  its offset — at ~50 events/sec tick density multi-tick drifts get chased,
+  so fill frequency is governed by instantaneous gap frequency, not by
+  volatility; (b) trailing-60s UP-mid range ≤ 0.02 occurs in only 0-3% of
+  in-window ticks and clusters at pinned near-decided mids (mean quiet-tick
+  mid ≈ 0.97/0.02), so "quiet + mid-range price" gates compound to almost
+  nothing; (c) measured market fill rates for a δ-below-fair two-sided
+  quoter: (δ=0.02, range≤0.04) 0/30 markets, (0.01, 0.04) 1/30,
+  (0.01, 0.08) 6/30 markets. Transfer: maker experiment design must budget
+  fills from single-tick gap statistics, not volatility; and O(n²) per-tick
+  window scans are a real cost at this tick density (5s/market vs 1.4s —
+  use monotonic-deque windows).
