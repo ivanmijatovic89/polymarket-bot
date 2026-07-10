@@ -634,6 +634,12 @@ _Last updated: session 27, unit U43ak._
   drift continues (850s trend 0.430→…→0.518→0.520); final-log
   fractions bind for amendment #11 wording. Monitor re-armed on pid
   exit (60-min window; re-arm if it fires as timeout).
+  U43al (session 27, outcome-free): verdict-tool provenance verified —
+  working tree clean on calib.ts / calib-coverage.sh / diag-calib.ts /
+  run-backtest.ts; the in-flight run's code is byte-identical to launch
+  commit ab2acc9 (git diff empty); calib.ts unchanged since its frozen
+  commit ab2acc9, calib-coverage.sh since 639ad8c. The one-shot verdict
+  invocation will run exactly the frozen, audited code.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
