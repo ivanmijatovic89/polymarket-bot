@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 3, unit U26._
+_Last updated: session 4, unit U27._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -134,28 +134,42 @@ _Last updated: session 3, unit U26._
 - U26: EPISTEMOLOGY §3 gained the skewed-payoff probe-precision rule
   (minority-outcome count; DECISIONS D13, motivated by E14).
 
-## In progress (detached runs via tools/detach.mjs per D10)
-- (none — no runs in flight) When main+lat finish: launch the 8 grid cells (spec neighborhood,
-  full --cell param sets: entryAfterSec×minAsk grid, maxAsk=0.99 shares=100
-  always included since --cell REPLACES primary params), staggered ≤5
-  concurrent; then `battery.ts --exp EXP-001` → main-stage Judge.
+- U27 (session 4): direction decision — DECISIONS D14: pivot to MAKER-side
+  experiments (taker side exhausted per E9-E14; model maker fee is zero;
+  `simulator-favored` escalation + tiny-size mitigation + model-conditional-
+  kill caveat designed in). EXP-006 (quiet-regime two-sided quoting,
+  `spread-capture`, IDEAS #4) registered: spec
+  `protocol/registry/experiments/EXP-006-quiet-regime-quoting.md` + strategy
+  `strategies/spread-capture/EXP-006.ts` (id `fable-exp-006`, GTC bids δ
+  below fair on both sides in quiet windows, hold to settlement), validator
+  green, tsc clean. Smoke (run 328) green plumbing but 0 fills → diag-quiet
+  fixture (`strategies/_fixtures/diag-quiet.ts`) showed the registered cell
+  was structurally fill-less (quiet-at-0.02 ticks are 0-3% and pinned at
+  extreme mids; requoting makes fills need single-tick gaps > offset).
+  PRE-FREEZE cell amendment (recorded in spec): primary now offset=0.01,
+  quietRangeMax=0.08, chosen from engine fill-feasibility runs
+  (EXP-000-debug, 30 random markets/cell, FILL COUNTS ONLY — PnL never
+  read, so lineage_cells stays 1): (0.02,0.04)→0/30, (0.01,0.04)→1/30,
+  (0.01,0.08)→6/30 markets filled.
 
-- U14 (session 3): EXP-004 (depth-imbalance drift, `flow-momentum`)
-  registered: spec + strategy `strategies/flow-momentum/EXP-004.ts`
-  (id `fable-exp-004`), validator passes, smoke green (0/10 entered —
-  verified small-sample luck via EXP-000-debug diagnostics: 8/30 at the
-  primary cell). Probe queued behind the running probes.
+## In progress (detached runs via tools/detach.mjs per D10)
+- EXP-006 probe: launched detached 2026-07-10 (pid 36060,
+  log `fable-lab/logs/EXP-006-probe.log`, batchUid EXP-006-probe,
+  `--random --limit 500 --to-ms 1777237200000`, latency pinned 0/0).
+  When complete: `tools/results.ts` verbatim readout → fresh-context Judge
+  (JUDGE.md) → verdict appended. Remember the design-failure clause
+  (<~3% of markets filled ⇒ iterate/park, not evidence) and D13
+  minority-count language if win rate is extreme.
 
 ## Next
-- Synthesis + direction decision (U27+). All starter taker
-  mechanisms are dead (E9-E14): the venue shows no taker edge net of fees
-  in this universe. Options to weigh per charter (durable +EV after real
-  costs): (a) maker-side experiments (IDEAS #4 quiet-regime quoting is the
-  only live queue entry) accepting `simulator-favored` classification and
-  designing the live-paper requirement in from the start; (b) new idea
-  generation targeting structural counterparties with maker execution;
-  (c) [DONE in U26]. Holdout remains locked and unused
-  (no experiment reached it) — it stays locked for future experiments.
+- Judge EXP-006 probe when the detached run finishes (check
+  `tools/runs.ts` / the log; partial-persist rules D9 apply if killed).
+- Idea generation, maker-side (D14 direction): candidate worth writing up
+  if EXP-006 resolves either way — loud-regime liquidity provision (passive
+  bid into jumps catching overshoot), distinct prediction from EXP-006's
+  quiet-regime claim; check D5 dedupe before registering. IDEAS #7 stays
+  dead per its own park clause (tied to EXP-001).
+- Holdout remains locked and unused (no experiment reached it).
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
