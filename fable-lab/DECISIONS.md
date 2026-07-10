@@ -601,3 +601,16 @@ disclosed as honor-system + git audit (E19 precedent), and the earlier
 (6) Sub-window consistency guard (d > 0 in →Dec / Jan / Feb) required for
 CANDIDATE status. (7) NEG-FLAGs with minority < 30 annotated
 underpowered-E14. (8) Per-offset coverage printed. (9) Cosmetic fixes.
+
+**Amendment 2 (2026-07-10, U43e — pre-results, both-sides extension).**
+Audit finding 3 exposed the buy-UP half-plane limit; measuring the DOWN
+half-plane later would cost a second full ~2h replay, while logging both
+books in one run is free. The v2 launch was ~10 min old, so it was killed
+UNANALYZED and relaunched as `CAL-001-discovery-v3` on an extended
+instrument: fixture samples both books (asset=UP|DOWN lines), analysis
+evaluates both 63-cell grids in one shot. Frozen consequences: k=126,
+z-bar 3.565 (p=0.023/126), lineage_cells=126, per-side validation gates.
+CALIBRATION.md amendment #10 has the full wording. Compute accounting:
+two dead partial launches (~500 + ~700 markets) — both instrument-defect
+restarts while restart was cheap, neither result-based; total waste
+~25 min vs a ~2h saving over a sequential DOWN study.

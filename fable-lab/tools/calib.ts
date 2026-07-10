@@ -1,13 +1,16 @@
 /**
  * calib.ts — CAL-001 one-shot analysis (knowledge/CALIBRATION.md, D21,
- * amended pre-results per knowledge/AUDIT-2026-07-10-CAL-001-REG.md).
+ * amended pre-results per knowledge/AUDIT-2026-07-10-CAL-001-REG.md and
+ * amendment #10: both books sampled, k = 126 cells).
  *
  * Usage: npx tsx fable-lab/tools/calib.ts <diag-calib log file>
  *
- * Parses [diag-calib] lines, joins telonex_markets.result_id (0=UP) via
- * src/db/telonexMarkets.ts, and prints the ENTIRE frozen 63-cell table in
- * one invocation — then applies the frozen candidate / negative-flag rules.
- * Instrument validation gates run FIRST and abort the analysis on failure.
+ * Parses [diag-calib] lines (asset=UP|DOWN), joins telonex_markets.result_id
+ * (0=UP wins, 1=DOWN wins) via src/db/telonexMarkets.ts, and prints BOTH
+ * frozen 63-cell tables (buy-UP-at-UP-ask and buy-DOWN-at-DOWN-ask) in one
+ * invocation — then applies the frozen candidate / negative-flag rules at
+ * the k=126 Bonferroni bar. Instrument validation gates run FIRST, per
+ * side, and abort the analysis on failure.
  *
  * Everything decision-relevant here is frozen in CALIBRATION.md; changing a
  * bucket, threshold, or gate after the discovery run is a protocol breach.
@@ -31,8 +34,10 @@ const ASK_BUCKETS: Array<[number, number]> = [
   [0.9, 0.98],
   [0.98, 0.995],
 ]
-const K = OFFSETS.length * ASK_BUCKETS.length // 63
-const Z_BAR = 3.377 // one-sided p = 0.023/63
+const SIDES = ['UP', 'DOWN'] as const
+type Side = (typeof SIDES)[number]
+const K = OFFSETS.length * ASK_BUCKETS.length * SIDES.length // 126
+const Z_BAR = 3.565 // one-sided p = 0.023/126 (tail(3.565) ≈ 1.82e-4)
 const MINORITY_MIN = 30 // D13
 const FEE_RATE = 0.0156
 // Drift filter (audit finding 1): a sample for offset o is valid only if its
@@ -48,7 +53,7 @@ const SUBWINDOWS: Array<[string, number, number]> = [
 ]
 
 const LINE_RE =
-  /^\[diag-calib\] slug=(\S+) epoch=(\d+) off=(\d+) ts=([\d.]+) bid=([\d.]+) ask=([\d.]+)\s*$/
+  /^\[diag-calib\] slug=(\S+) epoch=(\d+) asset=(UP|DOWN) off=(\d+) ts=([\d.]+) bid=([\d.]+) ask=([\d.]+)\s*$/
 
 function bucketIndex(ask: number): number {
   for (let i = 0; i < ASK_BUCKETS.length; i++) {
@@ -59,7 +64,7 @@ function bucketIndex(ask: number): number {
   return -1
 }
 
-type Obs = { slug: string; epochMs: number; off: number; ask: number }
+type Obs = { slug: string; epochMs: number; side: Side; off: number; ask: number }
 
 async function main(): Promise<void> {
   const path = process.argv[2]
@@ -68,7 +73,7 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
-  const seen = new Set<string>() // dedupe (slug, off): keep first occurrence
+  const seen = new Set<string>() // dedupe (slug, asset, off): keep first occurrence
   const obs: Obs[] = []
   let skippedRange = 0
   let skippedDrift = 0
@@ -76,13 +81,13 @@ async function main(): Promise<void> {
   for (const line of readFileSync(path, 'utf8').split('\n')) {
     const m = LINE_RE.exec(line)
     if (!m) continue
-    const [, slug, epochStr, offStr, tsStr, , askStr] = m
+    const [, slug, epochStr, side, offStr, tsStr, , askStr] = m
     const off = Number(offStr)
     const ts = Number(tsStr)
     const ask = Number(askStr)
     if (!(OFFSETS as readonly number[]).includes(off)) continue
     slugsAll.add(slug)
-    const key = `${slug}|${off}`
+    const key = `${slug}|${side}|${off}`
     if (seen.has(key)) continue
     seen.add(key)
     if (ts >= NEXT_BOUND[off]) {
@@ -93,7 +98,7 @@ async function main(): Promise<void> {
       skippedRange++
       continue
     }
-    obs.push({ slug, epochMs: Number(epochStr) * 1000, off, ask })
+    obs.push({ slug, epochMs: Number(epochStr) * 1000, side: side as Side, off, ask })
   }
 
   const slugs = [...new Set(obs.map((o) => o.slug))]
@@ -103,16 +108,19 @@ async function main(): Promise<void> {
       `${slugsAll.size} markets emitted any line)`,
   )
   // Per-offset coverage (audit finding 8): non-random dropout is a
-  // selection effect; make it visible.
-  const covered = new Map<number, Set<string>>()
-  for (const o of obs) {
-    if (!covered.has(o.off)) covered.set(o.off, new Set())
-    covered.get(o.off)!.add(o.slug)
+  // selection effect; make it visible (per side).
+  for (const side of SIDES) {
+    const covered = new Map<number, Set<string>>()
+    for (const o of obs) {
+      if (o.side !== side) continue
+      if (!covered.has(o.off)) covered.set(o.off, new Set())
+      covered.get(o.off)!.add(o.slug)
+    }
+    console.log(
+      `per-offset market coverage ${side}: ` +
+        OFFSETS.map((o) => `o${o}=${covered.get(o)?.size ?? 0}`).join(' '),
+    )
   }
-  console.log(
-    'per-offset market coverage: ' +
-      OFFSETS.map((o) => `o${o}=${covered.get(o)?.size ?? 0}`).join(' '),
-  )
 
   // Join outcomes in chunks. getMarketsBySlugs uses resolvedOnly=false;
   // unresolved markets are excluded here by accepting only resultId '0'/'1'.
@@ -131,17 +139,22 @@ async function main(): Promise<void> {
   console.log(
     `outcome joined for ${upWon.size}/${slugs.length} markets (${unresolved.length} missing/unresolved — excluded)`,
   )
+  const won = (slug: string, side: Side): boolean | undefined => {
+    const u = upWon.get(slug)
+    if (u === undefined) return undefined
+    return side === 'UP' ? u : !u
+  }
 
   type Cell = { n: number; sumAsk: number; wins: number; sumVar: number; obs: Obs[] }
-  const cells: Cell[][] = OFFSETS.map(() =>
-    ASK_BUCKETS.map(() => ({ n: 0, sumAsk: 0, wins: 0, sumVar: 0, obs: [] })),
-  )
+  const mkGrid = (): Cell[][] =>
+    OFFSETS.map(() => ASK_BUCKETS.map(() => ({ n: 0, sumAsk: 0, wins: 0, sumVar: 0, obs: [] })))
+  const grids: Record<Side, Cell[][]> = { UP: mkGrid(), DOWN: mkGrid() }
   for (const o of obs) {
-    const w = upWon.get(o.slug)
+    const w = won(o.slug, o.side)
     if (w === undefined) continue
     const oi = (OFFSETS as readonly number[]).indexOf(o.off)
     const bi = bucketIndex(o.ask)
-    const c = cells[oi][bi]
+    const c = grids[o.side][oi][bi]
     c.n++
     c.sumAsk += o.ask
     c.wins += w ? 1 : 0
@@ -149,8 +162,8 @@ async function main(): Promise<void> {
     c.obs.push(o)
   }
 
-  const stat = (oi: number, bi: number) => {
-    const c = cells[oi][bi]
+  const stat = (side: Side, oi: number, bi: number) => {
+    const c = grids[side][oi][bi]
     if (c.n === 0) return null
     const meanAsk = c.sumAsk / c.n
     const winRate = c.wins / c.n
@@ -166,92 +179,97 @@ async function main(): Promise<void> {
     return { n: c.n, meanAsk, winRate, d, fee, net, se, z, minority }
   }
 
-  const subwindowD = (oi: number, bi: number): Array<[string, number, number]> => {
-    // returns [label, n, d] per sub-window
-    return SUBWINDOWS.map(([label, lo, hi]) => {
-      const xs = cells[oi][bi].obs.filter((o) => o.epochMs >= lo && o.epochMs < hi)
+  const subwindowD = (side: Side, oi: number, bi: number): Array<[string, number, number]> =>
+    SUBWINDOWS.map(([label, lo, hi]) => {
+      const xs = grids[side][oi][bi].obs.filter((o) => o.epochMs >= lo && o.epochMs < hi)
       if (xs.length === 0) return [label, 0, NaN] as [string, number, number]
       let wins = 0
       let sumAsk = 0
       for (const o of xs) {
-        wins += upWon.get(o.slug) ? 1 : 0
+        wins += won(o.slug, side) ? 1 : 0
         sumAsk += o.ask
       }
       return [label, xs.length, wins / xs.length - sumAsk / xs.length] as [string, number, number]
     })
-  }
 
-  // Instrument validation gates (CALIBRATION.md — run before anything else).
+  // Instrument validation gates (CALIBRATION.md — run before anything else,
+  // per side).
   const oi850 = (OFFSETS as readonly number[]).indexOf(850)
-  const gateJoin = stat(oi850, ASK_BUCKETS.length - 1) // (850, [0.98,0.995])
-  if (!gateJoin || gateJoin.n < 30 || gateJoin.winRate <= 0.9) {
-    console.error(
-      `ABORT — join-direction gate failed: cell (850s, [0.98,0.995]) = ` +
-        (gateJoin ? `n=${gateJoin.n} winRate=${gateJoin.winRate.toFixed(4)}` : 'empty') +
-        ` (need n≥30 and winRate>0.9). Suspect result_id join or fixture bug.`,
+  for (const side of SIDES) {
+    const gateJoin = stat(side, oi850, ASK_BUCKETS.length - 1) // (850, [0.98,0.995])
+    if (!gateJoin || gateJoin.n < 30 || gateJoin.winRate <= 0.9) {
+      console.error(
+        `ABORT — join-direction gate failed (${side}): cell (850s, [0.98,0.995]) = ` +
+          (gateJoin ? `n=${gateJoin.n} winRate=${gateJoin.winRate.toFixed(4)}` : 'empty') +
+          ` (need n≥30 and winRate>0.9). Suspect result_id join or fixture bug.`,
+      )
+      process.exit(2)
+    }
+    // E14 positive control, frozen numeric bar (audit finding 2): abort iff
+    // |z| ≥ Z_BAR on (850s, [0.90,0.98)) — E14 measured this territory as
+    // on-diagonal at N=13,977; a bar-clearing deviation here means the
+    // instrument is broken, and that judgment is made by this frozen rule,
+    // not by the analyst after seeing the table.
+    const gateCtl = stat(side, oi850, ASK_BUCKETS.length - 2)
+    if (gateCtl && Math.abs(gateCtl.z) >= Z_BAR) {
+      console.error(
+        `ABORT — E14 positive-control gate failed (${side}): cell (850s, [0.90,0.98)) ` +
+          `d=${gateCtl.d.toFixed(4)} z=${gateCtl.z.toFixed(2)} n=${gateCtl.n} ` +
+          `contradicts E14's on-diagonal measurement. Instrument suspect; do not read the table.`,
+      )
+      process.exit(2)
+    }
+    console.log(
+      `gates ${side}: join-direction OK (850s tail winRate=${gateJoin.winRate.toFixed(4)}, n=${gateJoin.n}); ` +
+        `E14 positive control OK ` +
+        (gateCtl ? `(net=${gateCtl.net.toFixed(4)} z=${gateCtl.z.toFixed(2)} n=${gateCtl.n})` : '(empty)'),
     )
-    process.exit(2)
   }
-  // E14 positive control, frozen numeric bar (audit finding 2): abort iff
-  // |z| ≥ Z_BAR on (850s, [0.90,0.98)) — E14 measured this territory as
-  // on-diagonal at N=13,977; a bar-clearing deviation here means the
-  // instrument is broken, and that judgment is made by this frozen rule,
-  // not by the analyst after seeing the table.
-  const gateCtl = stat(oi850, ASK_BUCKETS.length - 2)
-  if (gateCtl && Math.abs(gateCtl.z) >= Z_BAR) {
-    console.error(
-      `ABORT — E14 positive-control gate failed: cell (850s, [0.90,0.98)) ` +
-        `d=${gateCtl.d.toFixed(4)} z=${gateCtl.z.toFixed(2)} n=${gateCtl.n} ` +
-        `contradicts E14's on-diagonal measurement. Instrument suspect; do not read the table.`,
-    )
-    process.exit(2)
-  }
-  console.log(
-    `gates: join-direction OK (850s tail winRate=${gateJoin.winRate.toFixed(4)}, n=${gateJoin.n}); ` +
-      `E14 positive control OK ` +
-      (gateCtl ? `(net=${gateCtl.net.toFixed(4)} z=${gateCtl.z.toFixed(2)} n=${gateCtl.n})` : '(empty)'),
-  )
 
-  console.log(
-    `\nCAL-001 cell table (k=${K}, candidate bar z>=${Z_BAR}, minority>=${MINORITY_MIN}, ` +
-      `fee=winRate*${FEE_RATE}*min(a,1-a)/a, sub-window consistency required)`,
-  )
-  console.log('off  askBucket      n     meanAsk winRate      d     fee     net      se      z  minor  flag')
   const candidates: string[] = []
   const negFlags: string[] = []
-  for (let oi = 0; oi < OFFSETS.length; oi++) {
-    for (let bi = 0; bi < ASK_BUCKETS.length; bi++) {
-      const s = stat(oi, bi)
-      const [lo, hi] = ASK_BUCKETS[bi]
-      const last = bi === ASK_BUCKETS.length - 1
-      const label = `[${lo.toFixed(2)},${hi.toFixed(3)}${last ? ']' : ')'}`
-      if (!s) {
-        console.log(`${String(OFFSETS[oi]).padStart(3)}  ${label.padEnd(13)} empty`)
-        continue
-      }
-      let flag = ''
-      if (s.net > 0 && s.z >= Z_BAR && s.minority >= MINORITY_MIN) {
-        const sw = subwindowD(oi, bi)
-        const consistent = sw.every(([, n, d]) => n > 0 && d > 0)
-        const swStr = sw.map(([l, n, d]) => `${l}:n=${n},d=${Number.isNaN(d) ? 'na' : d.toFixed(4)}`).join(' ')
-        if (consistent) {
-          flag = 'CANDIDATE'
-          candidates.push(`(${OFFSETS[oi]}s, ${label}) [${swStr}]`)
-        } else {
-          flag = 'CANDIDATE-demoted(subwindow-inconsistent)'
-          negFlags.push(`demoted (${OFFSETS[oi]}s, ${label}) [${swStr}]`)
+  for (const side of SIDES) {
+    console.log(
+      `\nCAL-001 ${side}-side cell table (k=${K} total, candidate bar z>=${Z_BAR}, minority>=${MINORITY_MIN}, ` +
+        `fee=winRate*${FEE_RATE}*min(a,1-a)/a, sub-window consistency required)`,
+    )
+    console.log('off  askBucket      n     meanAsk winRate      d     fee     net      se      z  minor  flag')
+    for (let oi = 0; oi < OFFSETS.length; oi++) {
+      for (let bi = 0; bi < ASK_BUCKETS.length; bi++) {
+        const s = stat(side, oi, bi)
+        const [lo, hi] = ASK_BUCKETS[bi]
+        const last = bi === ASK_BUCKETS.length - 1
+        const label = `[${lo.toFixed(2)},${hi.toFixed(3)}${last ? ']' : ')'}`
+        if (!s) {
+          console.log(`${String(OFFSETS[oi]).padStart(3)}  ${label.padEnd(13)} empty`)
+          continue
         }
-      } else if (s.z <= -Z_BAR) {
-        flag = s.minority >= MINORITY_MIN ? 'NEG-FLAG' : 'NEG-FLAG(underpowered-E14)'
-        negFlags.push(`(${OFFSETS[oi]}s, ${label}) ${flag}`)
+        let flag = ''
+        if (s.net > 0 && s.z >= Z_BAR && s.minority >= MINORITY_MIN) {
+          const sw = subwindowD(side, oi, bi)
+          const consistent = sw.every(([, n, d]) => n > 0 && d > 0)
+          const swStr = sw
+            .map(([l, n, d]) => `${l}:n=${n},d=${Number.isNaN(d) ? 'na' : d.toFixed(4)}`)
+            .join(' ')
+          if (consistent) {
+            flag = 'CANDIDATE'
+            candidates.push(`${side} (${OFFSETS[oi]}s, ${label}) [${swStr}]`)
+          } else {
+            flag = 'CANDIDATE-demoted(subwindow-inconsistent)'
+            negFlags.push(`demoted ${side} (${OFFSETS[oi]}s, ${label}) [${swStr}]`)
+          }
+        } else if (s.z <= -Z_BAR) {
+          flag = s.minority >= MINORITY_MIN ? 'NEG-FLAG' : 'NEG-FLAG(underpowered-E14)'
+          negFlags.push(`${side} (${OFFSETS[oi]}s, ${label}) ${flag}`)
+        }
+        console.log(
+          `${String(OFFSETS[oi]).padStart(3)}  ${label.padEnd(13)}` +
+            `${String(s.n).padStart(6)}  ${s.meanAsk.toFixed(4)}  ${s.winRate.toFixed(4)} ` +
+            `${s.d >= 0 ? '+' : ''}${s.d.toFixed(4)} ${s.fee.toFixed(4)} ` +
+            `${s.net >= 0 ? '+' : ''}${s.net.toFixed(4)} ${s.se.toFixed(4)} ` +
+            `${s.z >= 0 ? '+' : ''}${s.z.toFixed(2).padStart(6)} ${String(s.minority).padStart(6)}  ${flag}`,
+        )
       }
-      console.log(
-        `${String(OFFSETS[oi]).padStart(3)}  ${label.padEnd(13)}` +
-          `${String(s.n).padStart(6)}  ${s.meanAsk.toFixed(4)}  ${s.winRate.toFixed(4)} ` +
-          `${s.d >= 0 ? '+' : ''}${s.d.toFixed(4)} ${s.fee.toFixed(4)} ` +
-          `${s.net >= 0 ? '+' : ''}${s.net.toFixed(4)} ${s.se.toFixed(4)} ` +
-          `${s.z >= 0 ? '+' : ''}${s.z.toFixed(2).padStart(6)} ${String(s.minority).padStart(6)}  ${flag}`,
-      )
     }
   }
   console.log(`\nCANDIDATE cells: ${candidates.length ? candidates.join(', ') : 'none'}`)

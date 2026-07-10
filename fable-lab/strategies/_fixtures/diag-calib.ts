@@ -1,20 +1,20 @@
 /**
- * Diagnostic fixture for CAL-001 (knowledge/CALIBRATION.md, DECISIONS D21).
- * Outcome-free: places no orders, reads no PnL, logs no outcome. It logs one
- * line per (market, offset) the moment the first uncrossed UP top-of-book
- * at-or-after that episode-clock offset is observed. Immediate emission (no
- * end-of-market flush) because the engine gives strategies no episode-end
- * hook and a fresh instance per market — buffering would silently drop every
- * market whose recording ends before the last offset. Offsets are frozen in
+ * Diagnostic fixture for CAL-001 (knowledge/CALIBRATION.md, DECISIONS D21,
+ * pre-results amendments incl. #10 both-sides extension). Outcome-free:
+ * places no orders, reads no PnL, logs no outcome. It logs one line per
+ * (market, asset, offset) the moment the first uncrossed top-of-book
+ * at-or-after that episode-clock offset is observed on that asset's book
+ * (UP and DOWN books sampled independently — the DOWN ask is NOT 1−UP bid;
+ * it has its own spread). Immediate emission (no end-of-market flush)
+ * because the engine gives strategies no episode-end hook and a fresh
+ * instance per market — buffering would silently drop every market whose
+ * recording ends before the last offset. `ts` is the actual capture time
+ * (elapsed episode seconds) — logged so late captures are measurable and
+ * filterable post-hoc (audit finding 1). Offsets are frozen in
  * CALIBRATION.md; the schema default is the registered set.
  *
- * Log shape (parsed by tools/calib.ts), one line per captured sample. `ts`
- * is the actual capture time (elapsed episode seconds) — logged so that
- * late captures (recording gaps, late starts) are measurable and filterable
- * post-hoc instead of silently mislabeling the time axis (CAL-001 audit
- * finding 1: without ts, one late tick could stamp every offset with
- * expiry-regime prices and the leak would be invisible):
- *   [diag-calib] slug=<slug> epoch=<sec> off=<sec> ts=<elapsedSec> bid=<px> ask=<px>
+ * Log shape (parsed by tools/calib.ts), one line per captured sample:
+ *   [diag-calib] slug=<slug> epoch=<sec> asset=<UP|DOWN> off=<sec> ts=<elapsedSec> bid=<px> ask=<px>
  */
 import * as z from 'zod'
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../../src/strategy/Strategy.js'
@@ -36,7 +36,7 @@ export type Config = z.infer<typeof ConfigSchema>
 export const definition: StrategyDefinition<Config> = {
   id: 'fable-diag-calib',
   title: 'diag CAL-001 calibration samples',
-  description: 'Logs first uncrossed UP top-of-book at fixed episode offsets; places no orders.',
+  description: 'Logs first uncrossed UP/DOWN top-of-book at fixed episode offsets; places no orders.',
   schema: ConfigSchema,
   create: (cfg) => {
     const offsets = cfg.offsetsSec
@@ -44,7 +44,8 @@ export const definition: StrategyDefinition<Config> = {
     // batch replay, but guard on slug anyway so a shared instance stays safe.
     let slugSeen = ''
     let epochSec = 0
-    let captured: boolean[] = []
+    let capturedUp: boolean[] = []
+    let capturedDown: boolean[] = []
 
     const onMarketTick = (
       tick: MarketTick,
@@ -54,13 +55,15 @@ export const definition: StrategyDefinition<Config> = {
       const meta = ctx?.market
       const slug = meta?.slug
       const upAssetId = meta?.upAssetId
-      if (!slug || !upAssetId) return []
+      const downAssetId = meta?.downAssetId
+      if (!slug || !upAssetId || !downAssetId) return []
 
       if (slug !== slugSeen) {
         slugSeen = slug
         const epochMatch = slug.match(/-(\d+)$/)
         epochSec = epochMatch ? Number(epochMatch[1]) : 0
-        captured = offsets.map(() => false)
+        capturedUp = offsets.map(() => false)
+        capturedDown = offsets.map(() => false)
       }
       if (epochSec === 0) return []
 
@@ -68,19 +71,22 @@ export const definition: StrategyDefinition<Config> = {
       const elapsedSec = (ts - epochSec * 1000) / 1000
       if (elapsedSec >= 900) return [] // past the window: remaining offsets stay uncaptured
 
-      const up = tick.snapshot.byAssetId[upAssetId]
-      const bid = up?.bestBid
-      const ask = up?.bestAsk
-      if (bid == null || ask == null || bid >= ask) return [] // E6 crossed/incomplete guard
-
-      for (let i = 0; i < offsets.length; i++) {
-        if (captured[i] || elapsedSec < offsets[i]) continue
-        captured[i] = true
-        console.log(
-          `[diag-calib] slug=${slug} epoch=${epochSec} off=${offsets[i]} ` +
-            `ts=${elapsedSec.toFixed(1)} bid=${bid.toFixed(4)} ask=${ask.toFixed(4)}`,
-        )
+      const sample = (assetId: string, label: 'UP' | 'DOWN', captured: boolean[]): void => {
+        const book = tick.snapshot.byAssetId[assetId]
+        const bid = book?.bestBid
+        const ask = book?.bestAsk
+        if (bid == null || ask == null || bid >= ask) return // E6 crossed/incomplete guard
+        for (let i = 0; i < offsets.length; i++) {
+          if (captured[i] || elapsedSec < offsets[i]) continue
+          captured[i] = true
+          console.log(
+            `[diag-calib] slug=${slug} epoch=${epochSec} asset=${label} off=${offsets[i]} ` +
+              `ts=${elapsedSec.toFixed(1)} bid=${bid.toFixed(4)} ask=${ask.toFixed(4)}`,
+          )
+        }
       }
+      sample(upAssetId, 'UP', capturedUp)
+      sample(downAssetId, 'DOWN', capturedDown)
       return []
     }
 

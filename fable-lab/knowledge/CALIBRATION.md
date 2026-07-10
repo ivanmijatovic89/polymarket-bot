@@ -158,6 +158,28 @@ in the DB is VOID — instrument defect, not result-based).
    selection effect and must be visible in the readout).
 9. **(finding 9) Cosmetic: last bucket label prints `]`; the
    resolvedOnly comment corrected.**
+10. **(both-sides extension, motivated by finding 3; frozen before any
+    read, run relaunched a second time as `CAL-001-discovery-v3`).**
+    Finding 3 exposed that the instrument covered only the buy-UP
+    half-plane and a later DOWN study would cost a second full 2h replay.
+    The v2 launch was ~10 minutes old — killing it and logging BOTH books
+    in one run costs minutes and halves total compute, so the instrument
+    was extended pre-results: the fixture samples the UP and DOWN books
+    independently (per-line `asset=UP|DOWN`; the DOWN ask has its own
+    spread and is not 1 − UP bid), and the analysis evaluates BOTH frozen
+    63-cell grids in one shot. Consequences, all frozen now: **k = 126**;
+    the candidate/NEG-FLAG bar becomes **z ≥ 3.565** (one-sided
+    p = 0.023/126); `lineage_cells = 126` travels with any resulting
+    registration; validation gates run per side (join-direction: DOWN
+    tail winRate uses result_id=1; the E14 control applies to both sides
+    — EXP-001 bought whichever side was expensive, so on-diagonal at
+    expiry is established for both). A NEG-FLAG on one side is now
+    directly cross-checkable against the other side's table instead of
+    motivating a separate study. The v2 partial run row + log were
+    discarded UNANALYZED (instrument coverage change, not result-based);
+    v2's only read output was launch-health lines (file count, latency
+    pin, first sample line). A null now closes BOTH taker half-planes
+    within stated power.
 
 ## Results
 
