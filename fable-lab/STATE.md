@@ -659,6 +659,17 @@ _Last updated: session 27, unit U43ak._
   850s→0.5622 — late-offset upward drift continues (850s
   0.430→…→0.520→0.562); final-log fractions bind for amendment #11
   wording. 34 GiB free disk. Monitor armed on pid exit.
+  Session 29 check (~115 min in): 6,336/8,516 (ETA ~40 min); full D23
+  integrity battery via `tools/calib-integrity.sh` GREEN in one shot —
+  latency 0/0, 0 error lines, gaps=0 dupfiles=0, 75,740 sample lines
+  0 malformed, UP/DOWN exact balance (37,870 each), epoch max
+  1770360300 < frozen bound with 0 mismatches, fields clean, dedupe
+  clean, mirror 37,870 paired / the SAME single known deviant
+  (1764846000/850) — amendment #12 holds at ~74% — 0 one-sided keys,
+  ts monotonicity 0 violations. Coverage via frozen calib-coverage.sh
+  at 5,960 slugs: 600s→0.9683, 750s→0.8414, 850s→0.5634 — late-offset
+  drift continues; final-log fractions bind. 33 GiB free disk.
+  Background watch armed on pid 73037 exit.
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
