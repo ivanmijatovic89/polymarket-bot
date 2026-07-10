@@ -35,12 +35,15 @@ Example strategy folder:
 
 ```
 src/strategies/split/jobs/
-└── v3-grid.json
+├── v5/
+│   └── v5-dwell-ranges.json
+└── v6/
+    └── v6-tick-price-offset.json
 
 generated/backtest-jobs/
-├── v3-jobs.txt
-├── v3-jobs-2.txt
-└── v3-jobs-3.txt
+├── v5-dwell-ranges-jobs.txt
+├── v5-dwell-ranges-jobs-2.txt
+└── v5-dwell-ranges-jobs-3.txt
 ```
 
 ---

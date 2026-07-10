@@ -5,7 +5,7 @@ those metrics in backtest results.
 
 The example strategy lives in:
 
-- src/strategies/templates/ResearchIntentMetrics.ts
+- src/strategies/templates/TemplateResearchIntentMetrics.ts
 
 ## Overview
 

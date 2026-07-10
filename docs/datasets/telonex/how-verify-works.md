@@ -7,7 +7,7 @@ description: A plain-English, step-by-step walkthrough of what telonex:verify ac
 
 The [Verify Conversions](/datasets/telonex/verify) page describes the command's flags, prerequisites, and output. This page explains, in plain English, **what the script actually does step by step** and **what an `OK` result really guarantees**. Read it once if you are asked to trust verification for production decisions.
 
-The whole script lives in [`src/telonex/verify-conversion.ts`](https://github.com/) — about 600 lines. Below is what those lines do, in order.
+The whole script lives in `src/telonex/verify-conversion.ts` — about 650 lines. Below is what those lines do, in order.
 
 ## The one question the script answers
 

@@ -43,7 +43,7 @@ graph TB
 
     subgraph "Portfolio Layer"
         Portfolio[ Portfolio<br/>State Management ]
-        PortfolioMetrics[ portfolioMetrics<br/>PnL Calculation ]
+        PortfolioMetrics[ positionMetrics<br/>PnL Calculation ]
     end
 
     subgraph "Data Storage"
@@ -67,10 +67,9 @@ graph TB
     RecordLive --> GammaAPI
 
     %% Data Sources to Market Processing
-    LiveWS --> MarketHandler
-    ParquetReplay --> MarketHandler
-    MarketHandler --> Decoder
-    Decoder --> MarketEngine
+    LiveWS --> MarketEngine
+    ParquetReplay --> MarketEngine
+    MarketEngine --> Decoder
     MarketEngine --> OrderBookEngine
     OrderBookEngine --> SingleBook
 
@@ -252,7 +251,7 @@ flowchart TD
 **7. Portfolio Layer**
 
 - **Portfolio**: Maintains positions, open orders, fills, and realized PnL
-- **Portfolio Metrics**: Calculates merge opportunities and PnL metrics
+- **Position Metrics** (`positionMetrics`): Calculates merge opportunities and PnL metrics
 
 **8. Data Storage**
 

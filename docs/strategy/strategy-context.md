@@ -56,13 +56,27 @@ const feeds = ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefin
 Available under `ctx.plugins?.['externalFeeds']` when the strategy declares `requiredFeeds`.
 
 ```typescript
+type RtdsPricePoint = {
+  symbol: string
+  tsMs: number
+  value: number
+  receivedAtMs: number
+}
+
 type ExternalFeedsSnapshot = {
   rtdsPolymarketCryptoPrices?: {
-    binance?: { symbol: string; value: number; tsMs: number }
-    chainlink?: { symbol: string; value: number; tsMs: number }
+    binance?: RtdsPricePoint
+    chainlink?: RtdsPricePoint
   }
-  binanceWsSpotPrice?: { symbol: string; value: number; tsMs: number }
-  polymarketPriceToBeat?: { openPrice: number | null }
+  binanceWsSpotPrice?: RtdsPricePoint
+  polymarketPriceToBeat?: {
+    symbol: string
+    eventStartTimeIso: string
+    endDateIso: string
+    openPrice: number
+    apiTimestampMs?: number
+    receivedAtMs: number
+  }
 }
 ```
 

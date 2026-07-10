@@ -81,8 +81,8 @@ The bot subscribes to the current window's tokens at startup and rotates automat
 
 Strategies receive two hooks:
 
-- `onMarketTick(ctx, snapshot)` — fires on every `book` or `price_change` event
-- `onAccountEvent(ctx, event)` — fires on fills, cancels, and order status changes
+- `onMarketTick(tick, portfolio, ctx?)` — fires on every `book` or `price_change` event; the orderbook snapshot is at `tick.snapshot`
+- `onAccountEvent(event, portfolio, lastMarket?, ctx?)` — fires on fills, cancels, and order status changes
 
 Both hooks return an array of **Intents** — typed instructions like `place_limit`, `cancel_order`, or `split_positions`. The `OrderManager` validates and executes them, enforcing risk limits, deduplication, and dry-run gating.
 

@@ -23,7 +23,7 @@ npm --prefix webui install
 Copy the example environment file and fill in your credentials:
 
 ```bash
-cp env.example .env
+cp .env.example .env
 ```
 
 Minimum required variables to get started:
@@ -73,10 +73,10 @@ npm run db:insert-parquet
 ## Step 3 — Run a backtest
 
 ```bash
-npm run backtest -- --strategy winnerLimit.v1 --symbol btc --limit 5 --latest
+npm run backtest -- --strategy basicFak.v1 --symbol btc --limit 5 --latest
 ```
 
-This replays the 5 most recent BTC recordings with the `winnerLimit.v1` strategy and prints per-market and aggregate statistics.
+This replays the 5 most recent BTC recordings with the `basicFak.v1` strategy and prints per-market and aggregate statistics.
 
 ::: tip
 `DRY_RUN` has no effect in backtests — execution is always simulated. Safe to run at any time.
@@ -87,13 +87,13 @@ This replays the 5 most recent BTC recordings with the `winnerLimit.v1` strategy
 By default, `DRY_RUN=true`. The bot connects to live markets, runs strategy logic, and logs what it _would_ do — but places no real orders.
 
 ```bash
-TRADING_SYMBOL=BTC npm run trade:bot:btc -- --strategy winnerLimit.v1
+TRADING_SYMBOL=BTC npm run trade:bot:btc -- --strategy basicFak.v1
 ```
 
 To place real orders, set `DRY_RUN=false`:
 
 ```bash
-TRADING_SYMBOL=BTC DRY_RUN=false npm run trade:bot:btc -- --strategy winnerLimit.v1
+TRADING_SYMBOL=BTC DRY_RUN=false npm run trade:bot:btc -- --strategy basicFak.v1
 ```
 
 ::: danger
@@ -104,7 +104,7 @@ Real orders move real money. Verify your strategy in backtest and dry-run first.
 
 Before going live, confirm:
 
-- [ ] `npm run lint` passes
+- [ ] `npm run code:eslint` passes
 - [ ] `npm run record:live:btc` writes valid `.parquet` files
 - [ ] `npm run backtest` runs at least one file end-to-end without errors
 - [ ] `npm run trade:bot:btc` starts, connects to market WebSocket, and logs ticks in dry-run mode

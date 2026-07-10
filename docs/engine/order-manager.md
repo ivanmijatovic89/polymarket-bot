@@ -81,7 +81,7 @@ if (intent.expireAtMs < nowMs + this.minGtdOffsetMs)
 
 ## The Dry-Run Gate
 
-When `dryRun: true` (the default), no order is submitted to the exchange. Instead, the manager synthesizes the accept/open lifecycle events that the exchange would normally emit:
+When `dryRun: true`, no order is submitted to the exchange. Instead, the manager synthesizes the accept/open lifecycle events that the exchange would normally emit:
 
 ```typescript
 // place_limit dry-run path
@@ -96,7 +96,7 @@ For `merge_positions`, dry-run synthesizes a `positions_merged` event so that st
 For `cancel_order` in dry-run, the client order ID is removed from `activeClientOrders` and an `order_done` event is emitted with reason `canceled`.
 
 ::: danger
-`DRY_RUN=false` must be explicitly set to submit real orders. The default is `true` — the bot will not place real orders without this environment variable.
+The `OrderManager` default is `dryRun: false`, and `trading-bot.ts` parses `DRY_RUN` with a default of `false` — set `DRY_RUN` to any value other than `false` to enable the dry-run gate. Without it, the bot will place real orders.
 :::
 
 ## Risk Limits
