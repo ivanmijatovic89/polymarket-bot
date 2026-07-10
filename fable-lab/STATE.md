@@ -489,7 +489,13 @@ _Last updated: session 9, unit U40._
   join; (b) DB DISTINCT check: result_id ∈ {'0','1'} exactly — the
   calib.ts branches (resultId '0'→UP won, '1'→DOWN won) cover the
   full value set; no third state can silently drop markets.
-  Monitor re-armed on pid exit.
+  Per-offset UP coverage re-measured at 3,157 complete markets
+  (~1.9× the amendment #11 sample): 30s→100%, 150s→99.9%,
+  300s→99.6%, 450s→99.3%, 600s→96.6%, 750s→77.3%, 850s→44.3% —
+  stable vs the 1,662-market measurement (96.6/75.4/43.0); the
+  verdict-wording fractions must still be recomputed from the FINAL
+  log. Monitor re-armed on pid exit (60-min Monitor; re-arm if it
+  times out before the run ends).
   WHEN COMPLETE (successor: check pid 73037 gone / log tail): run ONCE
   `npx tsx fable-lab/tools/calib.ts fable-lab/logs/CAL-001-discovery-v3.log`,
   append the FULL output verbatim to knowledge/CALIBRATION.md Results,
