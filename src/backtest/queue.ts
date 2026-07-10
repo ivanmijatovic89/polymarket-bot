@@ -105,14 +105,16 @@ export const AGGREGATE_JOB_OPTS = {
 
 /**
  * Worker options applied to both market and aggregate workers.
- *  - lockDuration: 10 min upper bound per job. Prevents stuck infinite-loop bugs
- *    from blocking the queue indefinitely.
+ *  - lockDuration: 3 min upper bound per job. Also the worst-case time a job
+ *    orphaned by a HARD-killed worker (crash/reboot) stays "active" before the
+ *    stalled-checker reclaims it, so we keep it as low as is safely above the
+ *    longest single job (market replays are seconds).
  *  - stalledInterval: 30s — frequency of stalled-job detection.
  *  - maxStalledCount: 1 — a job that goes stalled twice is moved to failed
  *    so it doesn't loop forever.
  */
 export const WORKER_OPTS = {
-  lockDuration: 10 * 60 * 1000,
+  lockDuration: 3 * 60 * 1000,
   stalledInterval: 30_000,
   maxStalledCount: 1,
 }
