@@ -28,6 +28,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | maker (touch bound) | at-touch loud countertrend (frozen EXP-007 cell) | EXP-009 | kill (decisive under the engine's most favorable fill assumption) | E19 |
 | — | expiry-tail maker capture | IDEAS #7 | dead unexamined (park clause, EXP-001 kill) | — |
 | taker (plane scan) | fixed-time top-of-book, both sides, 126-cell offset × price grid | CAL-001 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.565) | E20 |
+| taker (conditional scan) | single-segment move sign/size × entry side, 60-cell grid | CAL-002 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.72) | E21 |
 
 Summary of the map:
 
@@ -163,7 +164,14 @@ registered only if one of these holds:
   a fixed-time state scan — e.g. it lives in conditional/path structure
   within the window, or it sits below CAL-001's stated power (mid-range
   cells resolve only |d| ≳ 3.8c) while still clearing the ~1.5c floor
-  with recorded-data evidence from another instrument.
+  with recorded-data evidence from another instrument. E21 (CAL-002)
+  closes the simplest conditional layer: sign/size of the preceding
+  inter-offset move carries no net-positive cell on either side (the one
+  significant conditional deviation is buyer-ADVERSE — late big
+  down-moves continue ≈ 2c gross, worth less than spread + fee to take).
+  A conditional-structure argument must therefore go beyond
+  single-segment move sign/size (multi-segment paths, flow/derived
+  features, or sub-power windows per the clause above).
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration

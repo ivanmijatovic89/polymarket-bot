@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 41, unit U43bb (E20 propagation audit)._
+_Last updated: session 41, unit U43bf (CAL-002 VERDICT)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -398,15 +398,38 @@ _Last updated: session 41, unit U43bb (E20 propagation audit)._
   transcription typo flagged by adjacent italic note in CALIBRATION.md
   (verbatim text untouched).
 
+- U43bc-bf (session 41): CAL-002 registered, audited, read, and JUDGED —
+  **NULL for candidates, null-confirmed by fresh-context Judge.** The
+  conditional-plane study (D24, `knowledge/CALIBRATION-2.md`): k=60 cells
+  (6 adjacent offset pairs × 5 tick-derived move buckets × both sides) on
+  the EXISTING CAL-001 discovery log (zero new replay compute), frozen
+  pre-read with a BINDING reserve-confirmation rule for any candidate
+  (designer had seen the CAL-001 marginals — disclosed). Tool
+  `tools/calib2.ts` + synthetic selftest (17/17 assertions, hand-computed
+  candidate/neg-flag/gates/filters); pre-read audit
+  (`knowledge/AUDIT-2026-07-10-CAL-002-REG.md`, sound-with-findings) — all
+  6 findings fixed pre-read, incl. MAJOR: reserve-read semantics frozen
+  (--expect-totals mode + discovery-path refusal; no post-table tool edit
+  ever needed). One-shot read: ZERO candidates (max positive z=+1.75);
+  ONE fully-powered NEG-FLAG UP (600-750, dn2) z=−3.72 n=2,708 — after a
+  ≥2c down-move late in the window the UP ask is stale-high ≈2-2.4c gross
+  (continuation, coherent across pairs from 300s on: −2.23/−3.00/−3.72/
+  −2.90), but the tradable mirror (buy DOWN, same samples) nets ≤+0.75c
+  (z≤+1.75): continuation is real gross and inside spread+fee net. Gates
+  all passed; reserve NOT spent; sub-windows never reached. Judge verdict
+  verbatim in CALIBRATION-2.md (+ erratum accepting 2 minor reservations).
+  LESSONS E21; EDGE-SPACE map row + §4 taker bar updated (conditional
+  arguments must now go beyond single-segment move sign/size).
+
 ## In progress
 - (nothing in flight)
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
-  by E20): taker needs a ≥1.5c gross argument that escapes E9-E14 AND the
-  CAL-001 fixed-time plane scan (e.g. conditional/path structure within
-  the window, or below CAL-001 power — mid-range resolves only
-  |d| ≳ 3.8c — while clearing ~1.5c via another instrument, per
+  by E20 and E21): taker needs a ≥1.5c gross argument that escapes
+  E9-E14, the CAL-001 fixed-time plane scan AND the CAL-002
+  single-segment conditional scan (i.e. multi-segment/flow structure, or
+  sub-power windows while clearing ~1.5c via another instrument, per
   EDGE-SPACE §4); maker in-model needs a cell/gate that escapes
   E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
   change. Legitimate non-registration work:

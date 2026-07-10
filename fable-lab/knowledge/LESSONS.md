@@ -309,3 +309,34 @@ forbids importing the old system's research conclusions._
   the probe reserve (5,460 markets) was never spent because no candidate
   emerged — reserving confirmation data before looking remains free
   insurance against multiplicity.
+
+- **E21 — CAL-002: single-segment move sign/size adds no taker-exploitable
+  conditional signal; late big down-moves CONTINUE, and the continuation
+  is worth less than spread + fee (2026-07-10, null-confirmed by
+  fresh-context Judge).** The pre-registered conditional-plane study
+  (`knowledge/CALIBRATION-2.md`, D24; zero new replay compute — derived
+  from the CAL-001 discovery log with a BINDING reserve-confirmation rule
+  for any candidate) evaluated k = 60 frozen cells (6 adjacent offset
+  pairs × 5 tick-derived move buckets × both entry sides) once: zero
+  CANDIDATE cells (max positive z = +1.75), one NEG-FLAG — UP (600-750,
+  dn2), z = −3.72, n = 2,708, fully powered. The structure behind the
+  flag is coherent across pairs from 300s on (UP dn2 z: −2.23, −3.00,
+  −3.72, −2.90): after the UP mid falls ≥ 2c in a segment, the post-move
+  UP ask is stale-high ≈ 2-2.4c gross — big late moves continue more than
+  the book reprices, the conditional refinement of E16/E17's
+  "through-moves are informative". But the tradable expression (buy DOWN
+  at its ask — the SAME book samples, not independent evidence) nets at
+  most +0.75c (z ≤ +1.75): the counterparty misprices by less than the
+  cost of taking the trade. Transfer: (a) momentum/continuation ideas at
+  segment horizons (2-4 min) are now measured — gross continuation is
+  real and ~2c, net continuation is inside costs; a registration claiming
+  this mechanism must argue a cheaper expression than taking the ask,
+  which in-model does not exist (maker side closed by E16-E19); (b) the
+  move distribution is strongly bimodal (|move| ≥ 2c in ~90% of
+  segment-samples) — "quiet vs loud segment" is nearly degenerate as a
+  gate, which retroactively explains EXP-006's fill-less quiet cells;
+  (c) thin-bucket nulls (dn1/flat/up1, n ≈ 130-330, resolve only
+  ~6-10c) are power statements; (d) the reserve-confirmation design
+  (needed because discovery reused a log with published marginals) cost
+  nothing: no candidate, no reserve spend — pre-committing confirmation
+  data remains free insurance.
