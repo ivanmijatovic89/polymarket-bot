@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 49, unit U58 (fleet unblocked: operator patch
-landed; reconciliation executed — evidence runs are fleet --detach now)._
+_Last updated: session 49, unit U58c (fleet unblocked + verified both
+ways: gates exercised end-to-end, runs 421-423 clean)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -856,6 +856,25 @@ landed; reconciliation executed — evidence runs are fleet --detach now)._
   classified rows; runs 421/422 CLEAN). Docs reconciled: FLEET-GAP STATUS section, D33
   amendment, RUNBOOK §1/§5, tools index, this file's gate 3. The
   malformed-lab-strategy coupling caveat STANDS (RUNBOOK §5).
+
+- U58c (session 49): U58 D31-verified by a fresh-context checker
+  (sound-with-findings; 2 MAJOR + 2 MINOR, all applied). MAJOR 1: the
+  fleet --execute dirty gate could NEVER pass in this worktree — `data`
+  and `node_modules` are untracked SYMLINKS that .gitignore's
+  directory-only patterns miss, so the allow-arm had never run; submit.ts
+  now exempts exactly those two known environment-symlink porcelain
+  lines, and BOTH arms are now exercised end-to-end: a real untracked
+  file still REFUSES, and a clean+pushed tree submitted run 423
+  (EXP-999-probe, 5 markets, gitignored scratch spec, killed strategy —
+  plumbing only, never evidence) through submit.ts --execute, completed
+  5/5 with 0 failures; post-run holdout sweep: no new rows (67
+  pre-existing classified rows across 68 runs). MAJOR 2: capacity.ts
+  restated the worker-alive threshold as <5 min — the dashboard's actual
+  bar is <30 s (workers.ts:113,130; 5 min is the heartbeat-less prune
+  grace); header + banner corrected. MINOR: "parity checks" restored to
+  the local-`--sequential` scope in three docs (charter wording,
+  silently narrowed); sweep-"clean" claims reworded to the exit-2
+  convention in four docs.
 
 ## In progress
 - (nothing in flight)
