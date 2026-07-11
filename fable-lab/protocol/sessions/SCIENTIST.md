@@ -18,6 +18,12 @@ say little more than "read this and continue".
    the STATE.md bullets stay authoritative for what to do).
 6. The specific experiment files you will touch.
 
+If the gated state holds and you are choosing a verification-depth target,
+start from `knowledge/AUDIT-COVERAGE.md` (D44) — the per-artifact index of
+verification events and the ranked residue list — instead of re-deriving
+coverage from the STATE archive. Units that add a verification event update
+its row in the same commit.
+
 Do not re-read the whole engine study each session; `engine/CAPABILITIES.md`
 is the reference to consult when a design question touches engine behavior.
 

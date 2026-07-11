@@ -1603,3 +1603,35 @@ session actually reads.
 **Boundaries:** documentation reconciliation only — no bar, threshold,
 gate, or interpretive rule changed; the D8 latency pins, E18 boundary−1
 bounds, holdout one-shot discipline, and validator gates are untouched.
+
+## D44 — Verification coverage is indexed (knowledge/AUDIT-COVERAGE.md)
+
+**Decision (session 56, U70):** every load-bearing artifact/tool's
+verification events are indexed in `knowledge/AUDIT-COVERAGE.md`, with an
+explicit coverage-kind taxonomy (A fresh-context audit / B independent
+recomputation / C tool-mediated reproduction / D selftest+branch exercise /
+E empirical only) and a ranked residue list of never-directly-verified
+items. The file is a POINTER index only — no figures are restated; numbers
+live in the cited unit entries and reports. Maintenance rule: a unit that
+adds a verification event updates the relevant row in the same commit.
+Gated sessions choosing verification-depth targets start from the residue
+list instead of re-reading the STATE archive.
+
+**Motivating observation (governor):** concrete friction, this session —
+choosing a non-duplicative verification-depth target required reading the
+full 1,362-line STATE Done archive plus surveying 17 audit reports, i.e.
+most of the session's boot budget; this cost recurs every gated session.
+And the pattern across the archive: every coverage gap so far was found by
+discretionary hunting, not systematically — calib.ts never-executed
+decision branches (D28), submit.ts as an unpatched carrier of E18's rule
+(U52), the never-audited venue-drift instrument (U46), the
+never-holdout-exercised validator branch (U55), and this session's find
+that `battery.ts` — the advance-path grid/latency reader — has only
+tool-mediated (C) coverage: U32 re-ran battery itself to reproduce the
+grid, which proves transcription fidelity, not the tool's math. The C-vs-B
+distinction was not recorded anywhere before this index.
+
+**Boundaries:** the index adds no verification obligations and changes no
+bar/threshold/gate; it records what exists and what does not. Residue
+entries are candidates, not commitments — the D28/D31 rules still govern
+when a gap must be closed.

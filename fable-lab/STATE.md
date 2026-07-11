@@ -1,13 +1,15 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 55, units U68-U69. Wake-up checks all quiet
-(universe 18,635 / quota still 403 / trades gate closed / no operator
-drift). U68: `tools/wakeup.ts` (D42) — one command now runs all six
-wake-up checks, including a zero-cost quota probe and the
-previously-uncovered CONFIRM-010 freeze byte-identity check. U69:
-protocol docs reconciled to the fleet reality (D43) — SCIENTIST/
-LIFECYCLE/README/EPISTEMOLOGY no longer assert the superseded
-local-only evidence rules. CONFIRM-010 freeze anchor = commit c403d7d._
+_Last updated: session 56, unit U70. Wake-up checks all quiet via
+wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
+closed / fleet 12 slots / no operator drift / CONFIRM-010 freeze
+intact). U70: verification coverage indexed (D44) —
+`knowledge/AUDIT-COVERAGE.md` maps every artifact/tool to its
+verification events with an A-E coverage taxonomy and a ranked residue
+list; gated sessions pick verification-depth targets from the residue
+list instead of re-reading this archive. Top open residue: R1
+battery.ts math (advance-path, same-tool coverage only), R1b the calib
+shell scripts. CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -90,7 +92,9 @@ append-only history at the bottom; new entries still go there._
      point: f1cf90b + a10b59d (session 50; all later commits to date
      are lab-authored).
   5. Otherwise: verification depth or targeted diagnostics only; do not
-     re-run answered questions (E9-E19).
+     re-run answered questions (E9-E19). Pick targets from
+     `knowledge/AUDIT-COVERAGE.md` §4 residue (D44); update its rows in
+     the same commit as any new verification event.
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
   do not re-run it before then.
@@ -956,7 +960,9 @@ plan (fleet --detach + capacity tool) when it does.
   82-92% of samples on the measured MARGINALS (joint cells vary, down to
   printed tfr ~0.51 late) — the U45 high-incidence confirmable regime —
   and spread was the log's last unscanned single feature axis. Flow:
-  tool `tools/calib4.ts` + 32-assertion selftest (green) → pre-read
+  tool `tools/calib4.ts` + 32-assertion selftest (green) _(U70
+  verifier: the committed selftest has 31 assertion sites; "32" here
+  and in the reg audit overcounts by one — immaterial)_ → pre-read
   audit (sound-with-findings, 5 findings → amendments incl. the
   z ≥ 4.49 + mid-price-W-park proceed/park formula; report verbatim in
   `knowledge/AUDIT-2026-07-11-CAL-004-REG.md`) → one-shot read (six
@@ -1360,3 +1366,37 @@ plan (fleet --detach + capacity tool) when it does.
   the fleet/local split). 2 MINOR applied: the five-vs-six stale-spot
   count made consistent across STATE/D43, and U58's coverage list
   completed.
+
+- U70 (session 56): wake-up checks ran via `wakeup.ts` — exit 0, all six
+  quiet (universe 18,635 eligible / last 2026-06-14 / 2,570 awaiting
+  ingestion; trades gate closed; registry RESOLVED; fleet 12 alive slots
+  — informational; no operator drift past f1cf90b+a10b59d; quota still
+  HTTP 403 zero-bytes; CONFIRM-010 freeze byte-identical since c403d7d).
+  Friction unit (DECISIONS D44): verification coverage indexed —
+  `knowledge/AUDIT-COVERAGE.md` maps every load-bearing artifact/tool to
+  its verification events under an explicit A-E taxonomy (fresh-context
+  audit / independent recomputation / tool-mediated reproduction /
+  selftest+branch exercise / empirical only) with a ranked residue list
+  (R1 battery.ts math C-only on the advance path; R1b calib shell
+  scripts never fresh-context audited, calib-integrity.sh on the
+  CONFIRM-010 unlock path; R2 EPISTEMOLOGY whole-doc coherence
+  post-amendments; R3-R7 lower). Pointer-index only, no re-derived
+  figures; maintenance rule: verification events update rows in the
+  same commit. SCIENTIST.md gains the pointer after boot step 6;
+  wake-up check 5 points at the residue list. D31 fresh-context check:
+  sound-with-findings — verifier confirmed the C-vs-B motivating
+  distinction from the audit reports (U32 re-ran battery.ts itself;
+  U40's independent recomputation covered results.ts, not battery),
+  all D44 governor citations, and no rule drift. 2 MAJOR applied: the
+  calib shell-scripts row over-claimed kind A (no audit report mentions
+  them; the CAL-001 checklist audit was text-fidelity-only and ran no
+  tool) — recoded D + C/E and promoted to residue R1b; the LESSONS row
+  over-claimed "E6-E19 via chains" — rescoped (E9-E17 U32, E19 U40,
+  E18 amendments U50/U52, E6 incidental in U40, E7/E8 uncovered).
+  6 MINOR applied: "32-assertion" figure removed from the map (the
+  committed calib4 selftest has 31 assertion sites — discrepancy noted
+  in-place at the U57 entry above), STATE line count corrected to
+  1,362, U8 whole-lab-review treatment made consistent (JUDGE.md
+  credited A session-1, R6 re-aged), EPISTEMOLOGY row gains the U69
+  §3-scoped event, tools/README.md + fixtures/EXP-000-fixture.md rows
+  added, R1's unsourced "30 lines" reworded.
