@@ -139,6 +139,18 @@ You decide the architecture. A complete system answers at least:
 
 - Keep `fable-lab/STATE.md` current: what is done, what is in progress, what
   is next — updated as part of every commit, not at the end.
+- Keep `fable-lab/JOURNAL.md` — the operator's live window into your work.
+  Append a line (or a few) AS YOU GO: when you start something, submit
+  something, learn something, hit a problem, or change direction. The
+  operator follows it with `tail -f`, so write the moment things happen,
+  not in end-of-unit batches. Style: timestamped, plain everyday language,
+  self-contained lines a tired human skims without effort — what you did /
+  found / will try next and why in a clause. No jargon, no internal
+  codenames without a word of context, and never transcripts of your
+  reasoning — actions, observations, decisions. Example tone:
+  `23:41 EXP-012 results are in: lost money on 500 markets (-0.4/mkt).
+  The spread filter didn't help. Killing the idea; trying the late-entry
+  variant next.`
 - Keep `fable-lab/ROADMAP.md`: the ordered plan of work units, checked off.
 - A fresh session with no memory of you must be able to read CHARTER.md +
   STATE.md + ROADMAP.md and continue within minutes. Assume it will happen.

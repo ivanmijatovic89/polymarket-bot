@@ -795,3 +795,10 @@ before sizing batches instead of assuming; throughput ≈ markets × 1.75s /
 active slots; (c) main was merged into this branch (wall-clock stats fix +
 dashboard improvements). Re-read charter constraint 3 before your first
 submission this session.
+
+## Operator update — journal added (2026-07-11)
+
+New standing requirement (charter, resumability section): append plain-
+language progress lines to `fable-lab/JOURNAL.md` AS YOU WORK — the
+operator follows it live with tail -f. Seeded at repo; start every session
+by noting in it that you resumed and what you are picking up.
