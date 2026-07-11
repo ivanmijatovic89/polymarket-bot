@@ -114,3 +114,42 @@ before outcomes are seen. SCR-006 / SCR-007 aggregates were still
 in-flight (Redis waiting-children) at the time of this note.
 
 ## Verdicts (append-only after runs complete)
+
+_Read 2026-07-11 session 62 via `tools/results.ts` (q̂/t over ALL N —
+the D49-amendment-1 convention). Runs: SCR-005 = 462 (canonical per the
+pre-verdict note; 463 VOID, never read), SCR-006 = 464, SCR-007 = 465.
+All three cmds verified spec-conformant (random, --to-ms 1772323199999,
+frozen strategy ids, N per spec); one run per batchUid after the 462/463
+resolution; 0 failures in all three._
+
+| screen | run | N | played | EV/mkt | q̂ | t | winRate(played) | wins/losses | maker/taker | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|
+| SCR-005 deep bid | 462 | 500 | 22 | −0.20 | −0.0218 | −0.49 | 0.3636 | 8/14 | 27/0 | **kill** |
+| SCR-006 range favorite | 464 | 2000 | 774 | +0.2215 | +0.0165 | +0.74 | 0.8915 | 690/84 | 0/774 | **kill** (default) |
+| SCR-007 fill lock | 465 | 500 | 398 | −6.8046 | −0.1418 | −3.17 | 0.4196 | 167/227 | 1488/363 | **kill** |
+
+- **SCR-005 — kill.** Branches fired: q̂ ≤ 0 AND prediction contradicted
+  (EV per played = −100/22 ≈ −4.55, winRate 0.36). Only 22/500 markets
+  ever filled a 10c-deep bid; when they did, the sweep was informative,
+  not overshoot. Model-conditional per D14 (worst-queue): closes the
+  punch-through-backtestable version of the 5-15c distance regime.
+- **SCR-006 — kill (default outcome).** No explicit kill branch fires
+  (q̂ > 0; prediction held: EV per played = +443.07/774 ≈ +0.57 net of
+  fees; E14 minority count 84 ≥ 30 — adequately powered), but SURVIVE
+  requires t ≥ +1.5 and t = +0.74. Per the frozen bars kill is the
+  default when SURVIVE is not earned. Interpretation, bounded: the warm
+  SIGNAL-001 cell (d=+4.51c, z=+3.10, n=255) diluted to +0.57c/share on
+  a 4× larger partially-overlapping re-draw of the same window — the
+  scan figure behaves like a winner's-curse-inflated local maximum, and
+  even its in-sample replay cannot clear a t=1.5 bar. No graduation; the
+  in-sample-overlap disclosure makes even this weak positive
+  non-confirmatory by construction.
+- **SCR-007 — kill.** Branches fired: q̂ ≤ 0, t ≤ −1 (t = −3.17), and
+  prediction contradicted (EV per played ≈ −8.55, winRate 0.42, CI95
+  excludes 0). The opposite-side ask does NOT lag a maker fill
+  favorably: locking pairs at fill-time books 1 − p − a − fee < 0 on
+  average — fill-conditional transient sums are ADVERSE, sharpening
+  E9 (standing sums never < 1) with a fill-conditional measurement.
+  Model-conditional per D14 on the maker leg; the hedge leg had no
+  simulator favor (real ask + fee), and the loss is dominated by the
+  economics of the pair itself.
