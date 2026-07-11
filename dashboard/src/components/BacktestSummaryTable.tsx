@@ -107,10 +107,17 @@ function formatDurationMs(ms: number): string {
 }
 
 /** Second-row header cell for a grouped column's sub-values. Lower-case,
- * lighter weight, right-aligned to match the numeric sub-columns. */
-function SubHead({ children }: { children: ReactNode }) {
+ * lighter weight, right-aligned to match the numeric sub-columns. `border`
+ * draws a divider on the right edge — set it on a group's last sub-column so a
+ * full-height line marks where the group ends. */
+function SubHead({ children, border }: { children: ReactNode; border?: boolean }) {
   return (
-    <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
+    <TableHead
+      className={cn(
+        'h-8 text-right font-normal normal-case tracking-normal',
+        border && 'border-r border-border/60',
+      )}
+    >
       {children}
     </TableHead>
   )
@@ -325,43 +332,47 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <TableHead rowSpan={2} className="min-w-[180px]">
                 {leadingHeader}
               </TableHead>
-              <TableHead rowSpan={2}>Strategy</TableHead>
-              <TableHead colSpan={3} className="border-b border-border/60 text-center">
+              <TableHead rowSpan={2} className="border-r border-border/60">
+                Strategy
+              </TableHead>
+              <TableHead colSpan={3} className="border-b border-r border-border/60 text-center">
                 Markets
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
                 EV/mkt
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
                 Trades
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead rowSpan={2} className="text-right border-r border-border/60">
                 PnL
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead rowSpan={2} className="text-right border-r border-border/60">
                 Win&nbsp;rate
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
                 Avg&nbsp;W/L
               </TableHead>
-              <TableHead colSpan={4} className="border-b border-border/60 text-center">
+              <TableHead colSpan={4} className="border-b border-r border-border/60 text-center">
                 Streak
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
                 Quality
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead rowSpan={2} className="text-right border-r border-border/60">
                 Fees
               </TableHead>
-              <TableHead rowSpan={2}>Symbol</TableHead>
-              <TableHead colSpan={2} className="border-b border-border/60 text-center">
+              <TableHead rowSpan={2} className="border-r border-border/60">
+                Symbol
+              </TableHead>
+              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
                 Duration
               </TableHead>
               {extraColumns?.map((c, i) => (
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={c.align === 'right' ? 'text-right' : undefined}
+                  className={cn('border-r border-border/60', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
@@ -371,21 +382,21 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
             <TableRow className="hover:bg-transparent">
               <SubHead>Total</SubHead>
               <SubHead>Played</SubHead>
-              <SubHead>Skip</SubHead>
+              <SubHead border>Skip</SubHead>
               <SubHead>Played</SubHead>
+              <SubHead border>Total</SubHead>
               <SubHead>Total</SubHead>
-              <SubHead>Total</SubHead>
-              <SubHead>M/T</SubHead>
+              <SubHead border>M/T</SubHead>
               <SubHead>Win</SubHead>
-              <SubHead>Lose</SubHead>
+              <SubHead border>Lose</SubHead>
               <SubHead>Win</SubHead>
               <SubHead>PnL</SubHead>
               <SubHead>Lose</SubHead>
-              <SubHead>PnL</SubHead>
+              <SubHead border>PnL</SubHead>
               <SubHead>Sys</SubHead>
-              <SubHead>Trade</SubHead>
+              <SubHead border>Trade</SubHead>
               <SubHead>Total</SubHead>
-              <SubHead>/mkt</SubHead>
+              <SubHead border>/mkt</SubHead>
             </TableRow>
           </TableHeader>
           <TableBody>
