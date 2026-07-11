@@ -197,13 +197,14 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
           {formatPnl(b.evPerMarketTotal)}
         </TableCell>
-        <TableCell className="text-left tabular-nums text-xs whitespace-nowrap">
+        {/* Trades → Total / Maker-Taker sub-columns */}
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {compactInt(b.tradesTotal)}
-          {b.tradesMaker + b.tradesTaker > 0 && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {compactInt(b.tradesMaker)}m/{compactInt(b.tradesTaker)}t
-            </span>
-          )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
+          {b.tradesMaker + b.tradesTaker > 0
+            ? `${compactInt(b.tradesMaker)}m/${compactInt(b.tradesTaker)}t`
+            : '—'}
         </TableCell>
         <TableCell className={cn('text-right tabular-nums font-medium', pnlTone)}>
           <span className="inline-flex items-center justify-end gap-1">
@@ -329,7 +330,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 EV/mkt
               </TableHead>
-              <TableHead rowSpan={2} className="text-left">
+              <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 Trades
               </TableHead>
               <TableHead rowSpan={2} className="text-right">
@@ -371,6 +372,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <SubHead>Skip</SubHead>
               <SubHead>Played</SubHead>
               <SubHead>Total</SubHead>
+              <SubHead>Total</SubHead>
+              <SubHead>M/T</SubHead>
               <SubHead>Win</SubHead>
               <SubHead>Lose</SubHead>
               <SubHead>Win</SubHead>
