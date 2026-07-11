@@ -82,14 +82,67 @@ export type BacktestSummaryTableProps<T extends BacktestSummary> = {
   }
 }
 
-function pair(a: number, b: number): string {
-  return `${formatPnl(a)} / ${formatPnl(b)}`
-}
-
 function compactInt(n: number): string {
   if (n < 1000) return n.toLocaleString()
   if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`
   return `${(n / 1_000_000).toFixed(2)}m`
+}
+
+/**
+ * Fixed-width, right-aligned numeric slot. Composite cells (Markets, EV/mkt,
+ * Trades, Avg W/L, Streak, Quality) pack several sub-values; rendering each in
+ * a `ch`-sized slot inside a `font-mono` cell makes every sub-value land at the
+ * same x-offset across rows, so the column scans cleanly top-to-bottom instead
+ * of the numbers drifting with content width. `ch` == one monospace character.
+ */
+function Slot({ children, ch, className }: { children: ReactNode; ch: number; className?: string }) {
+  return (
+    <span className={cn('inline-block text-right', className)} style={{ width: `${ch}ch` }}>
+      {children}
+    </span>
+  )
+}
+
+/** Muted, tight separator between slots (mono → same width per row). Kept
+ * narrow (small margins, no full spaces) so a cell reads as one grouped value
+ * rather than several loose columns. */
+function Sep({ char = '·' }: { char?: string }) {
+  return <span className="mx-0.5 text-muted-foreground/50">{char}</span>
+}
+
+/** Small lower-case second line under a column header naming its sub-values,
+ * in the same order as the cell's slots. */
+function Hint({ children }: { children: ReactNode }) {
+  return (
+    <span className="block text-[9px] font-normal normal-case leading-tight tracking-normal text-muted-foreground/70">
+      {children}
+    </span>
+  )
+}
+
+/** Two right-aligned numeric slots joined by a slash — the shared shape of the
+ * EV/mkt, Avg W/L and Quality cells. Slots are sized snug to the column's real
+ * max so small values don't float far from the slash. */
+function PairCell({
+  a,
+  b,
+  ch = 6,
+  className,
+}: {
+  a: string
+  b: string
+  ch?: number
+  className?: string
+}) {
+  return (
+    <span className={cn('font-mono text-xs tabular-nums', className)}>
+      <Slot ch={ch}>{a}</Slot>
+      <Sep char="/" />
+      <Slot ch={ch} className="text-muted-foreground">
+        {b}
+      </Slot>
+    </span>
+  )
 }
 
 /** Human-readable duration from milliseconds. */
@@ -136,10 +189,6 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
     // genuinely-missing markets (input > persisted) via `notPersisted` below.
     const selectedMarketsTotal = Math.max(b.inputMarketsTotal ?? 0, b.marketsTotal)
     const notPersisted = (b.inputMarketsTotal ?? 0) > b.marketsTotal
-    const quality =
-      qS === null && qT === null
-        ? '—'
-        : `${qS === null ? '—' : qS.toFixed(2)} / ${qT === null ? '—' : qT.toFixed(2)}`
     const rowCls = isFooter
       ? 'border-t-2 border-foreground/20 bg-muted/30 font-medium hover:bg-muted/30'
       : ''
@@ -154,63 +203,76 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-sm">
           <ParamsTooltip strategy={b.strategy ?? '—'} params={b.params} />
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
-          {selectedMarketsTotal}
-          {b.marketsPlayed !== selectedMarketsTotal && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {b.marketsPlayed} played
-            </span>
-          )}
-          {b.marketsSkipped > 0 && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {b.marketsSkipped} skip
-            </span>
-          )}
+        <TableCell className="text-right whitespace-nowrap font-mono text-xs tabular-nums">
           {notPersisted && (
-            <span className="ml-1 text-[11px] text-destructive">
-              ·{' '}
+            <span
+              className="mr-2 text-destructive"
+              title={
+                b.failuresCount && b.failuresCount > 0
+                  ? `${b.failuresCount} markets failed`
+                  : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} markets not persisted`
+              }
+            >
               {b.failuresCount && b.failuresCount > 0
                 ? `${b.failuresCount} failed`
-                : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} not persisted`}
+                : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} missing`}
             </span>
           )}
+          <Slot ch={5}>{selectedMarketsTotal}</Slot>
+          <Sep />
+          <Slot ch={5} className="text-muted-foreground">
+            {b.marketsPlayed}
+          </Slot>
+          <Sep />
+          <Slot ch={5} className="text-muted-foreground">
+            {b.marketsSkipped}
+          </Slot>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
-          {formatPnl(b.evPerMarketPlayed)}
-          <span className="text-muted-foreground">
-            {' / '}
-            {formatPnl(b.evPerMarketTotal)}
-          </span>
+        <TableCell className="text-right whitespace-nowrap">
+          <PairCell a={formatPnl(b.evPerMarketPlayed)} b={formatPnl(b.evPerMarketTotal)} />
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
-          {compactInt(b.tradesTotal)}
+        <TableCell className="text-right whitespace-nowrap font-mono text-xs tabular-nums">
+          <Slot ch={5}>{compactInt(b.tradesTotal)}</Slot>
           {b.tradesMaker + b.tradesTaker > 0 && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {compactInt(b.tradesMaker)}m/{compactInt(b.tradesTaker)}t
-            </span>
+            <>
+              <Sep />
+              <Slot ch={9} className="text-muted-foreground">
+                {`${compactInt(b.tradesMaker)}m/${compactInt(b.tradesTaker)}t`}
+              </Slot>
+            </>
           )}
         </TableCell>
-        <TableCell className={cn('text-right tabular-nums font-medium', pnlTone)}>
+        <TableCell className={cn('text-right font-mono text-xs tabular-nums font-medium', pnlTone)}>
           <span className="inline-flex items-center justify-end gap-1">
-            <Trend className="h-3.5 w-3.5" />
-            {formatPnl(pnlNum)}
+            <Trend className="h-3.5 w-3.5 shrink-0" />
+            <Slot ch={8}>{formatPnl(pnlNum)}</Slot>
           </span>
         </TableCell>
-        <TableCell className="text-right tabular-nums">{wr}</TableCell>
-        <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          {pair(b.pnlAvgWin, b.pnlAvgLose)}
+        <TableCell className="text-right font-mono text-xs tabular-nums">{wr}</TableCell>
+        <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+          <PairCell a={formatPnl(b.pnlAvgWin)} b={formatPnl(b.pnlAvgLose)} />
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          <span className="text-[color:var(--success)]">
-            {b.streakMaxWin}W&nbsp;{formatPnl(b.streakMaxWinPnl)}
-          </span>
-          {' / '}
-          <span className="text-destructive">
-            {b.streakMaxLose}L&nbsp;{formatPnl(b.streakMaxLosePnl)}
-          </span>
+        <TableCell className="text-right whitespace-nowrap font-mono text-xs tabular-nums">
+          <Slot ch={3} className="text-[color:var(--success)]">
+            {b.streakMaxWin}W
+          </Slot>
+          <Slot ch={7} className="text-[color:var(--success)]">
+            {formatPnl(b.streakMaxWinPnl)}
+          </Slot>
+          <Sep char="/" />
+          <Slot ch={3} className="text-destructive">
+            {b.streakMaxLose}L
+          </Slot>
+          <Slot ch={7} className="text-destructive">
+            {formatPnl(b.streakMaxLosePnl)}
+          </Slot>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          {quality}
+        <TableCell className="text-right whitespace-nowrap text-muted-foreground">
+          <PairCell
+            a={qS === null ? '—' : qS.toFixed(2)}
+            b={qT === null ? '—' : qT.toFixed(2)}
+            ch={5}
+          />
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
           {b.totalFeesPaid.toFixed(2)}
@@ -291,14 +353,32 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               ))}
               <TableHead className="min-w-[180px]">{leadingHeader}</TableHead>
               <TableHead>Strategy</TableHead>
-              <TableHead className="text-right">Markets</TableHead>
-              <TableHead className="text-right">EV/mkt</TableHead>
-              <TableHead className="text-right">Trades</TableHead>
+              <TableHead className="text-right">
+                Markets
+                <Hint>total · played · skip</Hint>
+              </TableHead>
+              <TableHead className="text-right">
+                EV/mkt
+                <Hint>played / total</Hint>
+              </TableHead>
+              <TableHead className="text-right">
+                Trades
+                <Hint>total · maker/taker</Hint>
+              </TableHead>
               <TableHead className="text-right">PnL</TableHead>
               <TableHead className="text-right">Win&nbsp;rate</TableHead>
-              <TableHead className="text-right">Avg&nbsp;W/L</TableHead>
-              <TableHead className="text-right">Streak</TableHead>
-              <TableHead className="text-right">Quality</TableHead>
+              <TableHead className="text-right">
+                Avg&nbsp;W/L
+                <Hint>win / lose</Hint>
+              </TableHead>
+              <TableHead className="text-right">
+                Streak
+                <Hint>win / lose</Hint>
+              </TableHead>
+              <TableHead className="text-right">
+                Quality
+                <Hint>sys / trade</Hint>
+              </TableHead>
               <TableHead className="text-right">Fees</TableHead>
               <TableHead>Symbol</TableHead>
               <TableHead className="text-right">Duration</TableHead>
