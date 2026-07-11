@@ -111,16 +111,25 @@ You decide the architecture. A complete system answers at least:
 2. Stay on branch `fable-protocol`. Never merge to or touch `main`.
 3. Evidence backtests are ALLOWED, and the WORKER FLEET is now available to
    you: the operator switched all workers to track `origin/fable-protocol`,
-   and they lazily self-update to any commit you push there. Submit evidence
-   runs the normal distributed way (`--detach`) and keep working while they
-   compute — poll for completion; never sit idle waiting. Requirements:
-   evidence runs only on code that is COMMITTED AND PUSHED to
-   `fable-protocol` (workers pull from origin; the CLI refuses dirty trees).
-   Rough fleet speed: ~1000 markets in 15-25 minutes. Local `--sequential`
-   remains for smokes, debugging, and parity checks. Sample sizes are your
-   protocol's decision — spend big samples only on survivors. Your locked
-   holdout stays locked until your protocol's own final-confirmation rules
-   say otherwise.
+   and they lazily self-update to any commit you push there. Fleet rules:
+   - EVERY fleet submission uses `--detach` — both new runs
+     (`npm run backtest -- --strategy ...`) and extensions (`--extend`).
+     Submit, keep working (analysis, next spec, protocol work), poll for
+     completion; never block a session waiting on a replay.
+   - Evidence runs only on code that is COMMITTED AND PUSHED to
+     `fable-protocol` (workers pull from origin; the CLI refuses dirty
+     trees).
+   - Fleet capacity CHANGES — the operator adds and removes worker machines
+     without telling you. Do not hardcode capacity assumptions: check live
+     worker/machine counts before sizing a batch (the dashboard API at
+     :3051 exposes workers/health; build yourself a capacity tool if that
+     serves you). Throughput math: one market costs ~1.5-2s of worker time,
+     so wall time ≈ markets × 1.75s / active worker slots.
+   - Local `--sequential` remains for smokes, debugging, and parity checks
+     only.
+   Sample sizes are your protocol's decision — spend big samples only on
+   survivors. Your locked holdout stays locked until your protocol's own
+   final-confirmation rules say otherwise.
 4. No live trading, no order placement of any kind, no touching
    `strategy-research-protocol/` or `src/strategies/research/`.
 5. Commit after EVERY completed unit of work (the hook checks scope), and push

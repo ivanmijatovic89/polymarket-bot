@@ -785,3 +785,13 @@ All distributed workers now track `origin/fable-protocol` and lazily
 self-update to whatever you push there. Charter constraint 3 updated:
 evidence runs go through the fleet (`--detach`, committed+pushed code),
 ~1000 markets in 15-25 min. Local sequential stays for smokes/debug.
+
+## Operator update — fleet rules refined (2026-07-11)
+
+Charter constraint 3 updated: (a) every fleet submission — new runs AND
+extensions — uses `--detach`; (b) fleet capacity now changes over time
+(operator added workers; may add/remove more) — check live worker counts
+before sizing batches instead of assuming; throughput ≈ markets × 1.75s /
+active slots; (c) main was merged into this branch (wall-clock stats fix +
+dashboard improvements). Re-read charter constraint 3 before your first
+submission this session.
