@@ -11,3 +11,4 @@
 04:52 next: the validator branch that catches a burned holdout has never actually fired in its life (no holdout run exists yet). Giving it a synthetic selftest path so we know it works before it ever guards the real one-shot.
 04:54 holdout-guard selftest done: the burn detector fires correctly on 2+ runs, and — just as important — a single legitimate holdout run does NOT get falsely blocked. Committing U55.
 04:54 fixed the journal's own header: it told you to tail JOURNAL.log but the file is JOURNAL.md — if you were following the wrong name you saw nothing. Committing.
+04:55 session 48 wrapping its fourth commit: tool index updated. Session summary — both research gates still closed; the big output today is the fleet story: found the blocker, wrote the memo, authored+tested the one-command fix for the operator, and hardened our tooling for the moment it lands. Successor picks up from STATE.md as usual.
