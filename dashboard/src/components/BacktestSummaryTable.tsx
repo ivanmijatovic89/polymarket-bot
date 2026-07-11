@@ -64,6 +64,8 @@ export type BacktestSummaryTableProps<T extends BacktestSummary> = {
   /** Optional last-column renderer — actions (CMD button, arrow, etc.).
    * Omit to skip the actions column entirely. */
   renderActions?: (row: T, index: number) => ReactNode
+  /** Header label for the actions column (defaults to empty). */
+  actionsHeader?: ReactNode
   /** Header label of the leading column. Defaults to "Batch". */
   leadingHeader?: string
   /** Empty-state copy when `rows.length === 0`. */
@@ -123,6 +125,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
   prefixColumns,
   renderLeading,
   renderActions,
+  actionsHeader,
   leadingHeader = 'Batch',
   emptyTitle = 'No backtests found',
   emptyHint = 'Past runs will appear here.',
@@ -252,11 +255,12 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
             <span className="text-xs text-muted-foreground">—</span>
           )}
         </TableCell>
+        {/* Duration → Total (wall-clock) / per-market sub-columns */}
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
           {(() => {
             // Headline = wall-clock (real elapsed), matching the run detail
             // page's Execution card. Fall back to total CPU time if wall-clock
-            // wasn't recorded. Subtitle = mean CPU time per market.
+            // wasn't recorded.
             const wall = b.durationWallClockMs
             const total = b.durationTotalMs
             const headline = wall ?? total
@@ -274,14 +278,12 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                     *
                   </span>
                 )}
-                {b.durationAvgMs != null && (
-                  <span className="ml-1 text-[11px] text-muted-foreground/70">
-                    · {formatDurationMs(b.durationAvgMs)}/mkt
-                  </span>
-                )}
               </>
             )
           })()}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs text-muted-foreground/70 whitespace-nowrap">
+          {b.durationAvgMs != null ? formatDurationMs(b.durationAvgMs) : '—'}
         </TableCell>
         {extraColumns?.map((c, j) => (
           <TableCell key={j} className={c.align === 'right' ? 'text-right' : undefined}>
@@ -352,7 +354,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                 Fees
               </TableHead>
               <TableHead rowSpan={2}>Symbol</TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 Duration
               </TableHead>
               {extraColumns?.map((c, i) => (
@@ -364,7 +366,7 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                   {c.header}
                 </TableHead>
               ))}
-              {renderActions && <TableHead rowSpan={2} />}
+              {renderActions && <TableHead rowSpan={2}>{actionsHeader}</TableHead>}
             </TableRow>
             <TableRow className="hover:bg-transparent">
               <SubHead>Total</SubHead>
@@ -382,6 +384,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <SubHead>PnL</SubHead>
               <SubHead>Sys</SubHead>
               <SubHead>Trade</SubHead>
+              <SubHead>Total</SubHead>
+              <SubHead>/mkt</SubHead>
             </TableRow>
           </TableHeader>
           <TableBody>

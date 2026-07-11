@@ -101,6 +101,7 @@ export function BacktestsTable({
       <BacktestSummaryTable
         rows={batches}
         stickyHeader={stickyHeader}
+        actionsHeader="CMD"
         emptyHint={emptyHint ?? 'Past runs will appear here.'}
         prefixColumns={[
           {
