@@ -218,7 +218,7 @@ mechanics (e.g. large maker fills in thin books) is suspect by construction.
   `(run, kind, key)`; kinds `all` (source of truth), `last_n`
   (500/1000/3000/6000 supersets), `daily`/`weekly`/`monthly` (UTC buckets,
   **capital resets per bucket** — no equity curve/compounding).
-- Stats per segment (`src/backtest/stats/batchStats.ts:172-337`): pnlTotal,
+- Stats per segment (`src/backtest/stats/batchStats.ts:180-343`): pnlTotal,
   fees, win/lose averages and maxima, `evPerMarketPlayed`,
   `evPerMarketTotal`, `qualitySystem` (mean/std over all markets, skipped=0),
   `qualityTrade` (decisive markets), counts (played/won/lost/skipped/flat),

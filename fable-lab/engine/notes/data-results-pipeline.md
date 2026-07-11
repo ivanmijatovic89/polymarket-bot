@@ -41,7 +41,7 @@ _Source: fresh-context Explore subagent, session 1. Input notes for
 ## 5. Stats computed (`src/backtest/stats/`)
 
 - Per market (`marketStats.ts:75-201`): pnl, tradeCount, maker/taker counts, feesPaid, avgEntryPriceUp/Down, shares, mergableShares, cost, splitCost, intentMeta, skipReason, execution meta.
-- Per segment (`batchStats.ts:172-337`): capitalInitial/Final; pnlTotal, totalFeesPaid, pnlAvgWin/Lose, pnlMaxWin/Lose; **evPerMarketPlayed = pnlTotal/marketsPlayed; evPerMarketTotal = pnlTotal/marketsTotal**; **qualitySystem = mean/std of all market pnls (skipped=0); qualityTrade = mean/std over decisive nonzero markets** (nullable, `batchStats.ts:160-167`); market counts (total, skipped, noInWindowActivity, flatWithTrades, played, won, lost); winRate; trade totals; streaks (maxWin/maxLose count + pnl, maxSkipped); duration stats.
+- Per segment (`batchStats.ts:180-343`): capitalInitial/Final; pnlTotal, totalFeesPaid, pnlAvgWin/Lose, pnlMaxWin/Lose; **evPerMarketPlayed = pnlTotal/marketsPlayed; evPerMarketTotal = pnlTotal/marketsTotal**; **qualitySystem = mean/std of all market pnls (skipped=0); qualityTrade = mean/std over decisive nonzero markets** (nullable, `batchStats.ts:162-175`); market counts (total, skipped, noInWindowActivity, flatWithTrades, played, won, lost); winRate; trade totals; streaks (maxWin/maxLose count + pnl, maxSkipped); duration stats.
 - **NOT computed:** max drawdown / equity curve (capital resets per calendar bucket); annualized Sharpe/Sortino; per-trade stats; profit factor; return series.
 
 ## 6. Querying results

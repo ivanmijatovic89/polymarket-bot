@@ -21,7 +21,7 @@ engine's own `qualitySystem` is meaningful.
 
 Primary statistic: **q = qualitySystem = mean(pnl) / std(pnl)** over ALL
 markets in the sample, skipped markets counted as 0 (engine definition,
-`src/backtest/stats/batchStats.ts:160-167`). Skipped-as-zero is the
+`src/backtest/stats/batchStats.ts:162-175`). Skipped-as-zero is the
 deployment-honest choice: capital sits in the market whether the strategy
 trades or not. `qualityTrade` (decisive markets only) is diagnostic, never
 decisive.

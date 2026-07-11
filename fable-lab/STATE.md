@@ -892,8 +892,23 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   span→union-of-busy-intervals — swept: no lab tool/verdict reads it;
   (3) worker self-update orphan fix + lockDuration 10→3 min — fleet
   submissions safer; stalled-job worst case for polling math is now
-  ≤ 3 min + 30 s. D31 fresh-context check: pending (this entry updates
-  when it lands).
+  ≤ 3 min lock expiry + 30 s detection. D31 fresh-context check:
+  sound-with-findings — all load-bearing conclusions independently
+  reproduced (diff stat, guard text at exact lines, sole-producer trace
+  incl. an adversarial sweep of rebuild-backtest-segments and the
+  research insert script, union ≤ total argument, lab consumer sweep,
+  D12/E13 fidelity — no bar or figure tightened); 6 MINOR findings all
+  applied: additional driver-boundary write sites enumerated in the
+  audit §1 (all downstream of the one guarded producer, so the
+  conclusion stands), three stale batchStats.ts line citations corrected
+  (merge shifted the file 337→343 lines: CAPABILITIES.md 172-337→180-343,
+  data-results-pipeline.md same + 160-167→162-175, EPISTEMOLOGY.md
+  162-175), invented `research-*` id prefix fixed to the actual
+  `endgame-panic-bid.*` ids, commitGate.ts "new"-file wording fixed +
+  stats/package.json table row added, fleet-persist process description
+  corrected (aggregate persist runs in the parent worker via
+  aggregateProcessor.ts:161, not the child), §3 stall arithmetic made
+  internally consistent.
 
 ## In progress
 - (nothing in flight)
