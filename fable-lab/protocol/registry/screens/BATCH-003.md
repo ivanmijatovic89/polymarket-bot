@@ -129,3 +129,38 @@ latency setting was behavior-changing, not cosmetic. Counts read via
 fills.ts only. Cell unchanged (schema defaults)._
 
 ## Verdicts (append-only after runs complete)
+
+### SCR-008 — decision: kill (default outcome, D49 amendment 3)
+
+_Session 63, 2026-07-11. Canonical run 472 (SCR-008-touch-screen-r2,
+N=500 random discovery, 0 failures, unique for its batchUid; runs
+466/467 latency-violating per the erratum above, 467 VOID)._
+
+Pre-verdict checks (artifact lines pasted per SCREENING amendment 4):
+- `[fable] latency env: BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0`
+- `[fable] D18 fill-mode hook: 500 BacktestExecution instance(s) forced to touch_or_better` (hook count grep = 2: activation + end summary)
+- boundary market 1777237200: 0 log hits (structurally excluded by
+  `--to-ms 1772323199999`)
+
+Readout (results.ts, all-N convention): N=500, played=479 (ungated —
+nearly every market fills, as designed), maker/taker=479/0,
+pnlTotal=+79, EV/market=+0.158, CI95=[−4.05,+4.36], q̂=+0.0033,
+t=+0.0736, winRate(played)=0.5115 (245/234), positiveDayFrac=0.55
+over 91 days, fees=0 (maker).
+
+Bar application (frozen D49 defaults): no kill branch fires (q̂>0,
+t>−1, prediction "EV per played > 0" HELD at +0.165/played) and the
+survive bar is nowhere near met (t=+0.07 ≪ 1.5) → **kill is the
+default outcome** (amendment 3), same shape as SCR-006. D18: touch is
+the OPTIMISTIC bound — at the friendliest fill assumption the engine
+can express, harvesting the venue's strongest measured regularity
+(G2: +1.16c UP-ask premium, z=−5.2) nets ≈ +0.16c/share/market ≈
+statistical zero. No escalation warranted (a bound-side zero cannot
+clear live costs).
+
+Mechanism note (screen-grade): this is the FIRST touch cell that does
+not lose (every E19/E24/E26 touch cell lost 0.4-4.5/market). The
+ungated DOWN-side bid at touch breaks exactly even: the persistent
+UP-ask premium is real and approximately CANCELS unconditional touch
+adverse selection on the DOWN side — the skew exists but is priced to
+the marginal liquidity provider's break-even, leaving no rent.
