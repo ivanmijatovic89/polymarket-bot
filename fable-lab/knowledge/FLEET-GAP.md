@@ -184,8 +184,9 @@ same day as ONE unit, before any fleet evidence run:
    Redis BEFORE workers drained them and every payload carries
    `latency={"delayMs":0,"jitterMs":0}` from the submitter's pinned env
    (backtest.ts:557-558 → :1008). `tools/holdout-lock-audit.ts` re-run
-   (D32 standing procedure): clean, 67 runs, no new post-boundary rows
-   (both smokes bounded to boundary−1).
+   (D32 standing procedure): no new rows vs the classified 2026-07-10
+   baseline — the tool exits 2 from the 67 PRE-EXISTING classified rows,
+   runs 421/422 print CLEAN (both smokes bounded to boundary−1).
 
 Evidence runs now go through the fleet per charter constraint 3. The
 coupling caveat (a malformed/duplicate-id lab strategy crashes every

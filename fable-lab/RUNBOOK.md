@@ -23,7 +23,7 @@ fleet: `tools/submit.ts` emits bare-CLI `--detach` commands for
 probe/main/lat/grid/holdout (with D8 latency pins shipped in job data
 from the submitter's env, verified empirically in U58 on runs 421/422),
 and REFUSES to submit from a dirty or unpushed tree — workers execute
-`origin/fable-protocol`, not your working copy. Smokes and debug stay
+`origin/fable-protocol`, not your working copy. Smokes, debug, and parity checks stay
 local `--sequential` through the injection wrapper
 `fable-lab/tools/run-backtest.ts` (charter). Check live capacity before
 sizing a batch: `npx tsx fable-lab/tools/capacity.ts --markets <N>`
@@ -120,7 +120,8 @@ The protocol runs without you except at these points:
   with a committed+pushed refusal gate, `tools/capacity.ts`, and an
   empirical D8 re-verify (runs 421/422: 10/10 markets each, 0 failures,
   job payloads carry `latency {0,0}` from the submitter env; holdout
-  sweep re-run clean over all 67 runs). Standing caveat from the memo
+  sweep re-run: no new rows vs the classified baseline — exit 2 comes
+  from the 67 pre-existing classified rows). Standing caveat from the memo
   still applies: a malformed/duplicate-id lab strategy file now crashes
   every engine process at import on clones with the patch, live bots
   included — the wrapper's same-id-different-object guard throws locally

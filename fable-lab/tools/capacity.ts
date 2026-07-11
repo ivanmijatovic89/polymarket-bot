@@ -8,7 +8,7 @@
  *
  * Reads the dashboard API at 127.0.0.1:3051 (`/api/workers` — Redis
  * heartbeats grouped by machine; a worker is alive when its heartbeat is
- * < 5 min old). Prints per-machine alive replay slots (role kind
+ * < 30 s old, dashboard workers.ts). Prints per-machine alive replay slots (role kind
  * 'worker'), each machine's commit vs the local origin/fable-protocol
  * HEAD (workers lazily self-update to origin on their next job — a stale
  * sha here is NOT an error, but a job submitted now runs on origin HEAD,
@@ -61,7 +61,7 @@ async function main(): Promise<void> {
   }
 
   let slots = 0
-  console.log(`fleet capacity (${API}/api/workers, alive = heartbeat < 5 min):`)
+  console.log(`fleet capacity (${API}/api/workers, alive = heartbeat < 30 s):`)
   for (const m of payload.machines) {
     const workers = m.processes.filter((p) => p.role.kind === 'worker')
     const alive = workers.filter((p) => p.alive)

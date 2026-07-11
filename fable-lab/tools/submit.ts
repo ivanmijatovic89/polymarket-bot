@@ -179,8 +179,17 @@ function main() {
   if (process.argv.includes('--execute')) {
     if (fleetStage) {
       // Workers execute origin/fable-protocol, not this tree: refuse to
-      // submit unless the tree is clean and HEAD is pushed.
-      const dirty = spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).stdout.trim()
+      // submit unless the tree is clean and HEAD is pushed. Known
+      // environment symlinks are exempt (U58 verifier finding 1): this
+      // worktree links `data` and `node_modules` to the sibling repo, and
+      // .gitignore's `data/`/`node_modules/` directory patterns do not
+      // match symlinks, so `?? data` / `?? node_modules` lines are
+      // PERMANENT here — without the exemption the gate can never pass
+      // and every submission would bypass it manually.
+      const dirty = spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8' })
+        .stdout.split('\n')
+        .filter((l) => l.trim() && !/^\?\? (data|node_modules)$/.test(l.trim()))
+        .join('\n')
       if (dirty) {
         console.error('REFUSED: working tree is dirty — commit and push before a fleet submission')
         process.exitCode = 1

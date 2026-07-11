@@ -1223,6 +1223,8 @@ run: submit.ts fleet routing (+ dirty/unpushed refusal gate, verified),
 tools/capacity.ts (4 machines / 32 alive slots at build), empirical D8
 re-verify on the fleet path (runs 421/422 clean 10/10; D8B job payloads
 read from Redis pre-drain carry latency 0/0 from the submitter env), and
-a clean holdout-lock re-sweep (67 runs). Evidence stages are fleet
-`--detach` from now on; local `--sequential` remains for smokes/debug
-only. Details: knowledge/FLEET-GAP.md STATUS section, RUNBOOK §1/§5._
+a holdout-lock re-sweep with no new rows vs the classified baseline
+(exit 2 from the 67 pre-existing classified rows; runs 421/422 CLEAN).
+Evidence stages are fleet
+`--detach` from now on; local `--sequential` remains for smokes/debug/
+parity checks only. Details: knowledge/FLEET-GAP.md STATUS section, RUNBOOK §1/§5._

@@ -851,8 +851,9 @@ landed; reconciliation executed — evidence runs are fleet --detach now)._
   only) completed 10/10 with 0 failures on worker-executed commit
   cab72171, and the D8B market-job payloads read from Redis pre-drain
   all carry `latency={"delayMs":0,"jitterMs":0}` from the submitter's
-  pinned env; holdout-lock sweep re-run clean (67 runs, no new
-  post-boundary rows). Docs reconciled: FLEET-GAP STATUS section, D33
+  pinned env; holdout-lock sweep re-run: no new rows vs the
+  classified 2026-07-10 baseline (exit 2 comes from the 67 pre-existing
+  classified rows; runs 421/422 CLEAN). Docs reconciled: FLEET-GAP STATUS section, D33
   amendment, RUNBOOK §1/§5, tools index, this file's gate 3. The
   malformed-lab-strategy coupling caveat STANDS (RUNBOOK §5).
 
@@ -912,8 +913,8 @@ landed; reconciliation executed — evidence runs are fleet --detach now)._
   registry INDEX + LESSONS → this file).
 - Branch `fable-protocol`; write only inside `fable-lab/`; commit + push
   after every unit; evidence runs go through the WORKER FLEET via
-  `tools/submit.ts` (`--detach`, committed+pushed code — U58); smokes and
-  debug stay local `--sequential`; never create `fable-lab/DONE`.
+  `tools/submit.ts` (`--detach`, committed+pushed code — U58); smokes,
+  debug, and parity checks stay local `--sequential`; never create `fable-lab/DONE`.
 
 ## Operator update — worker fleet unlocked (2026-07-09)
 
