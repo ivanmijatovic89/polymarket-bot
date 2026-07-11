@@ -1618,3 +1618,19 @@ If your per-idea process cannot sustain that pace, that inability is
 itself the top-priority friction to fix (operator-motivated, governor-
 satisfied) — streamline the screening path until the pace holds. Holdout
 and confirmation rigor for survivors remain untouched.
+
+## Operator update — hit-rate over count (2026-07-11, supersedes the bare
+## 20-idea framing above)
+
+The operator's actual objective is HIT-RATE, not idea count. Refinement of
+tonight's calibration: before (or interleaved with) grinding ideas, MEASURE
+where any gross predictive signal exists at all — a systematic scan of
+observable features (book shape, price path, timing, volatility, whatever
+you judge measurable) against market outcomes across the full eligible
+universe, gross of costs. Aim ideas at measured signal, not at theory;
+record dead zones so nobody digs there again. The ≥20-screens pace stands
+as a throughput floor, but a night that produces a trustworthy signal map
+plus 10 well-aimed screens beats 25 blind ones. And if the map's honest
+answer is "no exploitable gross signal on the taker side of this data" —
+say it plainly with the evidence; a well-founded barren-verdict is an
+acceptable and valuable product, not a failure.
