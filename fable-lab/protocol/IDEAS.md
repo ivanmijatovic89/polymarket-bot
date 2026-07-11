@@ -353,3 +353,30 @@ Ordered; top entries get registered first.
   2,000 fresh reserve-window markets (q̂=−0.040, t=−1.81). Maker family
   CLOSED FOR GOOD per SIGNAL-FILLS §6/§7 + E30. All 22 ideas resolved:
   21 dead, #10 parked (CONFIRM-010)._
+
+## BATCH-005 (FINAL RUN directive, 2026-07-11) — entries #23-#42
+
+_The operator FINAL RUN directive overrides frontier-closure dedupe for
+CONSTRUCTION in this batch (see BATCH-005.md header). One line per
+screen; verdicts appended at the batch verdict._
+
+- **#23 SCR-010** momentum + maker take-profit exit (exit axis on EXP-003's dead entry).
+- **#24 SCR-011** momentum + taker stop-loss (loss-tail truncation on the same entry).
+- **#25 SCR-012** fade + maker take-profit (reversion scalp; fade-to-settle was E12/E24 dead).
+- **#26 SCR-013** tight-spread × momentum interaction (CAL-004's formally open joint cell).
+- **#27 SCR-014** depth-agreement × momentum interaction (two dead axes conjoined, EXP-004 × CAL-002).
+- **#28 SCR-015** US-hours (14-21 UTC) × momentum subpopulation.
+- **#29 SCR-016** busy-tape (120s range ≥ 4c) × momentum (loud-taker quadrant; loud-maker was E17).
+- **#30 SCR-017** dwell-breakout (quiet 120s then 2c/30s — the open small-then-big path shape).
+- **#31 SCR-018** late-window 4c/30s continuation (unswept aggressive corner of E21's grid).
+- **#32 SCR-019** late favorite-collapse fade (0.80→0.68 in 60s; violent exit ≠ SCR-001's first touch).
+- **#33 SCR-020** extreme favorite 0.90-0.95 + maker TP +3c (exit axis on EXP-001's fair tail).
+- **#34 SCR-021** mid favorite 0.60-0.75 + maker TP +4c (convergence scalp).
+- **#35 SCR-022** underdog 0.20-0.35 + taker stop −5c (payoff reshape).
+- **#36 SCR-023** quiet-early (300s range ≤ 3c) favorite subpopulation.
+- **#37 SCR-024** E21 continuation mirror, tradable taker version (in-sample; kill decisive, survive inflated).
+- **#38 SCR-025** E22 reversal mirror, tradable taker version (in-sample; does NOT touch CONFIRM-010).
+- **#39 SCR-026** maker bid + maker TP re-ask (exit axis on the closed maker family; directive override; D14).
+- **#40 SCR-027** maker bid + taker stop (same override; D14).
+- **#41 SCR-028** fill-as-signal inversion: 1-share probe bid detects the sweep, taker rides WITH it.
+- **#42 SCR-029** second-passage of 0.80 (multi-crossing path shape; SCR-001 killed first passage only).
