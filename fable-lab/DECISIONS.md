@@ -1940,3 +1940,27 @@ Rejected alternative: a heavier pre-freeze derivation review per screen
 E27(c) invariant list keeps the check proportional to screen-tier
 stakes. The batch checker's existing "verdicts follow frozen bars" pass
 naturally audits the line's presence from BATCH-003 on.
+
+## D51 — wrapper latency-pin guard (session 63, 2026-07-11)
+
+`tools/run-backtest.ts` refuses to start (exit 2) when the effective
+latency env is not exactly DELAY=0/JITTER=0, unless the run is a
+labeled latency point (`--batchUid` containing `lat`). Motivating
+evidence (governor): the session-62 SCR-008 launches — smoke run 466
+and screen run 467 — executed under the ambient `.env` DELAY=140
+despite BATCH-003's frozen "latency pinned per D8" line; run 467 (a
+500-market screen, additionally truncated at 73 markets by session
+end) is VOID for the condition violation (BATCH-003 erratum records
+it, with the outcome-exposure disclosure). Root cause: D8's pin lives
+in `submit.ts`, but the D49 screening tier has no submission tool —
+manual screen launches were honor-system on the pin, and the honor
+system failed exactly as it did in E7. The guard follows the D18
+touch-label precedent (mechanical refusal at the wrapper, label-based
+escape hatch). Verified: refusal exit 2 under ambient env; `lat`
+batchUid bypass clean; pinned invocation passes. Rejected alternative:
+a full `screen` stage in submit.ts (spec-parser work for batch
+mini-spec files) — heavier, and it would still leave direct wrapper
+invocations (debug, fixtures, diagnostics) unguarded; the wrapper
+guard covers every local launch path at once. Note: lat-stage
+extensions of lat runs would need the parent's uid to contain `lat` —
+true by construction of submit.ts uid generation.

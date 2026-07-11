@@ -89,4 +89,32 @@ fills via the engine's taker path — favorable-price fills, engine
 semantics), 0 failures. Counts read via fills.ts only, no PnL. Cell
 unchanged post-smoke (schema defaults)._
 
+## Erratum + VOID (session 63, 2026-07-11, pre-verdict)
+
+- **Run 467 (SCR-008-touch-screen) is VOID.** The run executed with
+  `BACKTEST_LATENCY_DELAY=140` (ambient `.env`, logged at startup per
+  the D19 amendment) — the freeze above required "latency pinned per
+  D8" (0/0). Same violation class as the voided first EXP-001 probe
+  (E7). The run was additionally truncated at 73/500 markets by
+  session end (persisted `completed`, 0 failures) — truncation alone
+  would be judgeable per D9; the latency violation voids it
+  regardless. DISCLOSURE: the session-63 resume read the tail of
+  `logs/SCR-008-touch-screen.log`, which included the truncated run's
+  aggregate summary (70 played, winRate 0.4571), BEFORE the latency
+  line was noticed. The void is forced by the objective condition
+  mismatch and was decided independent of those numbers; they are
+  disclosed here and never cited.
+- **Smoke erratum:** the feasibility-smoke paragraph above claims
+  "latency pinned in-log" for run 466 — FALSE. Run 466 also logged
+  DELAY=140. The smoke was counts-only (no PnL) and remains
+  plumbing-grade, but a pinned re-smoke precedes the relaunch.
+- Root cause: the D49 screening tier has no submission tool — screens
+  were launched manually and the session-62 launch omitted the D8 env
+  prefix (submit.ts pins it but only knows experiment stages). Fix:
+  D51 mechanical guard in `tools/run-backtest.ts` (refuses non-zero
+  effective latency unless batchUid contains `lat`).
+- Relaunch: pinned re-smoke `SCR-008-touch-smoke-r2` (counts only),
+  then canonical screen run `SCR-008-touch-screen-r2` (N=500, same
+  frozen sample rule and cell — nothing about the mini-spec changes).
+
 ## Verdicts (append-only after runs complete)

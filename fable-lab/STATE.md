@@ -1,8 +1,19 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 62 (2026-07-11, ~19:20). Wake-up checks all
-quiet (universe 18,635 / quota 403 / gates closed / freeze intact /
-fleet 30 slots). U90: BATCH-002 JUDGED — ALL 3 KILLED. SCR-005 deep
+_Last updated: session 63 (2026-07-11). Wake-up checks all quiet
+(universe 18,635 / quota 403 / gates closed / freeze intact / fleet 30
+slots). U93: SCR-008 run 467 VOIDED — it executed at ambient DELAY=140
+against BATCH-003's frozen "pinned per D8" line (and was truncated
+73/500 by session-62 end; outcome exposure from the resume log-tail
+read disclosed in the BATCH-003 erratum — void decided on the
+condition mismatch alone). Smoke 466 had the same violation (erratum;
+counts-only so plumbing-grade). Root cause: the D49 screening tier has
+no submission tool, so manual launches were honor-system on D8 — E7
+class. Fix D51: run-backtest.ts refuses non-0/0 effective latency
+unless batchUid contains "lat" (refusal exit-2 / lat bypass / pinned
+pass all verified). Pinned relaunch SCR-008-touch-smoke-r2 +
+SCR-008-touch-screen-r2 in flight._
+_(Session 62 summary: U90: BATCH-002 JUDGED — ALL 3 KILLED. SCR-005 deep
 bid (run 462: q̂=−0.0218, 22/500 played, winRate 0.36 — 10c sweeps
 informative, not overshoot; maker distance axis closed 1c-10c),
 SCR-006 range favorite (run 464: q̂=+0.0165, t=+0.74 sub-bar →
@@ -18,7 +29,7 @@ wins/losses convention noted in the batch file). E26 written;
 EDGE-SPACE propagated (3 map rows + maker-distance + settlement
 bullets + §4 bar). 20 ideas ledgered: 19 dead, #10 parked (CONFIRM-010
 pending unlock); 0 screen survivors. Session-61
-summary in git history._
+summary in git history.)_
 _(Session 57 summary: U74: AUDIT-COVERAGE
 residue R4 closed — `index-registry.ts` status derivation selftested
 (D46, 25 hand-computed assertions: the enumerated decision-line shapes
@@ -51,14 +62,18 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **SCR-008 TOUCH SCREEN RUNNING LOCALLY** (BATCH-003, freeze 6be18b0,
-  smoke run 466 green): ungated DOWN-side at-touch bid, N=500 random
-  discovery, `--fill-mode touch_or_better`, batchUid
-  SCR-008-touch-screen, log `fable-lab/logs/SCR-008-touch-screen.log`.
+- **SCR-008 PINNED RELAUNCH (r2)** (BATCH-003, freeze 6be18b0; runs
+  466/467 latency-violating — 467 VOID, see BATCH-003 erratum + D51):
+  ungated DOWN-side at-touch bid. Sequence: pinned counts-only re-smoke
+  batchUid SCR-008-touch-smoke-r2, then the canonical screen
+  SCR-008-touch-screen-r2 (N=500 random, `--to-ms 1772323199999`,
+  `--fill-mode touch_or_better`, DELAY=0/JITTER=0 pinned on the
+  command), log `fable-lab/logs/SCR-008-touch-screen-r2.log`.
   D18 rules: kill/escalate only. On completion: verify one run per
-  batchUid + D18 hook line in log, verdict per D49 bars (all-N q̂;
-  amendment-3 default-kill), batch checker (one fresh-context pass,
-  also checks the new D50 invariants line), LESSONS, propagation.
+  batchUid + D18 hook line + D51-satisfying latency line in log,
+  verdict per D49 bars (all-N q̂; amendment-3 default-kill), batch
+  checker (one fresh-context pass, also checks the new D50 invariants
+  line + the 467 void handling), LESSONS, propagation.
 - BATCH-003 also recorded THREE derivation kills (no runs): split-sell
   mirror identity, round-number no-carrier (measured outcome-free:
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.

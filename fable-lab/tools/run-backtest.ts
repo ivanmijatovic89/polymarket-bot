@@ -188,6 +188,30 @@ console.log(
   `[fable] latency env: BACKTEST_LATENCY_DELAY=${process.env.BACKTEST_LATENCY_DELAY ?? '(unset)'} BACKTEST_LATENCY_JITTER=${process.env.BACKTEST_LATENCY_JITTER ?? '(unset)'}`,
 )
 
+// D51 pin guard (session 63): the D8 latency pin was HONOR-SYSTEM for any
+// launch that bypassed submit.ts — the D49 screening tier has no submission
+// tool, and the session-62 SCR-008 launches (runs 466/467) silently executed
+// under the ambient .env DELAY=140, voiding a 500-market screen (BATCH-003
+// erratum). Same guard style as the D18 touch label guard: refuse to start
+// unless the effective latency env is exactly 0/0, OR the run is an explicit
+// latency-curve point (batchUid containing "lat", which submit.ts --stage lat
+// produces). Deliberate ambient-latency diagnostics can label themselves
+// accordingly.
+{
+  const delay = process.env.BACKTEST_LATENCY_DELAY
+  const jitter = process.env.BACKTEST_LATENCY_JITTER
+  const k = process.argv.indexOf('--batchUid')
+  const batchUid =
+    (k !== -1 ? process.argv[k + 1] : process.argv.find((a) => a.startsWith('--batchUid='))?.slice('--batchUid='.length)) ?? ''
+  if ((delay !== '0' || jitter !== '0') && !batchUid.includes('lat')) {
+    console.error(
+      `[fable] REFUSED (D51): effective latency is DELAY=${delay ?? '(unset)'} JITTER=${jitter ?? '(unset)'} but this is not a labeled lat run (batchUid=${JSON.stringify(batchUid)}). ` +
+        'Pin BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0 on the command (D8), or label a deliberate latency run with a batchUid containing "lat".',
+    )
+    process.exit(2)
+  }
+}
+
 // Quality-column overflow guard (DECISIONS D12, LESSONS E13): a daily
 // segment whose played markets have near-identical pnl produces
 // q = avg/std ~ 1e9+, which overflows DECIMAL(14,6) and rolls back the
