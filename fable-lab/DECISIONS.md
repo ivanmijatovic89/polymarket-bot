@@ -1086,3 +1086,43 @@ run-backtest.ts — it would break the two LEGITIMATE post-boundary uses
 mechanism ever survives to final confirmation). Detection-plus-
 classification fits both; prevention is already handled at the sample-rule
 level by E18's boundary−1 rule.
+
+## D33 — fleet mandate acknowledged but blocked: the engine registry cannot see lab strategies (2026-07-11, U53)
+
+Motivating evidence: the operator's charter constraint 3 updates
+(commits 60a1d8e, 6df3bdb — workers track `origin/fable-protocol`, every
+fleet submission uses `--detach`, "re-read charter constraint 3 before
+your first submission") direct evidence runs through the worker fleet,
+while `tools/submit.ts` hard-appends `--sequential` and its D7 comment
+still claimed "the charter forbids fleet submissions" — stale in
+direction (the charter now MANDATES fleet). Reconciliation was attempted
+this session and hit a mechanical blocker, verified in code and
+reproduced locally: the strategy registry auto-discovers only
+`src/strategies/**` (strategyRegistry.ts:24), the pre-commit hook blocks
+committing strategies anywhere outside `fable-lab/`, nothing in the
+worker path (`backtestWorkerChild` → `marketProcessor` →
+`runSingleMarket:116`) loads `fable-lab/strategies/**`, and the bare
+engine CLI — the exact resolution path a worker child runs — rejects
+`fable-exp-001` with `unknown strategy id` at argument-parse time.
+Full evidence + patch options: `knowledge/FLEET-GAP.md`.
+
+Decision: evidence runs REMAIN local `--sequential` via the D7 wrapper
+(D10 detached-process discipline unchanged) until the operator lands a
+registry patch — the charter's fleet path is blocked by the engine, not
+declined by the lab. The stale D7 comment in submit.ts is corrected to
+cite the real constraint. A third successor wake-up gate is added to
+STATE.md: probe the gap each session with the bare-CLI reproduction
+command; when it resolves `fable-exp-001`, execute the pre-committed
+reconciliation plan in FLEET-GAP.md ("What the lab does when the patch
+lands") as one unit BEFORE any fleet evidence run. The capacity tool the
+charter suggests is deferred with the same trigger (no consumer until
+submissions are possible; building it now would be speculative work the
+evolution governor forbids).
+
+Rejected alternatives: (a) submitting fleet runs anyway to "test" — every
+job would fail on every worker, consuming fleet attempts and polluting
+the queue/DB with a known-outcome failure; the local reproduction buys
+the same fact for free. (b) Committing a shim/symlink under
+`src/strategies/` — blocked by the hook, and charter constraint 1 says
+never bypass it. (c) Renaming/duplicating a lab strategy under an
+existing src id — silently wrong semantics, worst kind of fix.

@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 47, unit U52 (E18 finally patched into
-submit.ts; holdout refusal branch exercised)._
+_Last updated: session 48, unit U53 (fleet mandate blocked by the
+engine registry — knowledge/FLEET-GAP.md, D33; wake-up gate 3 added)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -731,6 +731,37 @@ submit.ts; holdout refusal branch exercised)._
   meta-lesson: a rule constraining future commands must be patched into
   the tool that builds the commands, in the same unit.
 
+- U53 (session 48): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14), trades coverage unchanged (17,878/18,635;
+  only delta/delta-typed converters on disk) — both gates closed. Fleet
+  reconciliation unit (DECISIONS D33): the operator's charter-3 fleet
+  mandate (2026-07-09/11 updates) is mechanically BLOCKED — the engine
+  registry auto-discovers only `src/strategies/**`
+  (strategyRegistry.ts:24), the worker path
+  (backtestWorkerChild → marketProcessor → runSingleMarket:116) loads
+  nothing from `fable-lab/strategies/**`, the pre-commit hook forbids
+  committing strategies anywhere workers would see them, and the bare
+  engine CLI (the exact worker resolution path) rejects `fable-exp-001`
+  with `unknown strategy id` at parse time (reproduced locally, no DB
+  write). Operator memo `knowledge/FLEET-GAP.md`: evidence, minimal
+  patch options (preferred: registry also walks fable-lab/strategies/
+  when present), what already works (D8 latency pinning ships in job
+  data from the SUBMITTER's env — backtest.ts:557-558; jitter defaults
+  to 20 when unset, so the explicit JITTER=0 pin is load-bearing), and the
+  pre-committed reconciliation plan (submit.ts evidence stages →
+  bare-CLI --detach; capacity tool; fleet D8 re-verify; holdout-lock
+  sweep after first fleet run). Stale D7 comment in submit.ts corrected;
+  RUNBOOK §1 reconciled + §5 gained the unblocking control point.
+  Capacity tool deferred with the same trigger (no consumer until
+  submissions are possible). D31 fresh-context check: sound-with-findings,
+  4 MINOR, all applied — two line-citation fixes (strategyArgs.ts :42→:57/:74;
+  :757 is the sequential path, not job data), STATE's :557→:557-558, and a
+  dropped caveat on patch option 1 (a malformed/duplicate lab strategy
+  would crash every engine process at import on that clone, live bots
+  included — added to the memo and RUNBOOK). Verifier independently
+  re-ran the reproduction, the gate-3 probe (GAP), and the submit.ts
+  probe print; core claim confirmed end-to-end.
+
 ## In progress
 - (nothing in flight)
 
@@ -759,7 +790,17 @@ submit.ts; holdout refusal branch exercised)._
      trades-aware converter exists, the queue-realistic fill model
      supersedes both D18 bracket ends; that reopens maker measurement
      with a NEW instrument (full pre-registration required).
-  3. Otherwise: verification depth or targeted diagnostics only; do not
+  3. Fleet-gap probe (D33, side-effect-free — imports the same registry
+     module a worker child resolves against, starts nothing):
+     `npx tsx -e "import('./src/strategy/strategyRegistry.js').then(m =>
+     console.log('fable-exp-001' in m.strategyRegistry ? 'RESOLVED' :
+     'GAP'))"` — `GAP` ⇒ fleet stays blocked, evidence runs remain
+     local-sequential per D7/D10. `RESOLVED` ⇒ the operator patched the
+     registry: execute the reconciliation plan in
+     `knowledge/FLEET-GAP.md` ("What the lab does when the patch lands")
+     as one unit BEFORE any fleet evidence run. Verified this session:
+     prints `GAP`.
+  4. Otherwise: verification depth or targeted diagnostics only; do not
      re-run answered questions (E9-E19).
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —

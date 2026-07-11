@@ -16,11 +16,13 @@ Read in this order — ~15 pages total:
 Strategies live in `fable-lab/strategies/<mechanism>/EXP-NNN.ts` (the
 pre-commit hook restricts commits to `fable-lab/`). They are injected into
 the engine's registry by `fable-lab/tools/run-backtest.ts`, which every run
-goes through; consequently ALL runs are local `--sequential` — there are no
-fleet submissions from this protocol (charter rule; workers run
-`origin/main` and would never see these strategies). See DECISIONS D7 and
-`fable-lab/strategies/README.md`. Sessions launch evidence runs in the
-background and keep working.
+goes through; consequently ALL runs are local `--sequential`. Your 2026-07
+charter updates direct evidence runs through the worker fleet (workers now
+track `origin/fable-protocol`), but that path is blocked by the engine, not
+by the lab: the strategy registry only auto-discovers `src/strategies/**`,
+so fleet workers cannot resolve any `fable-exp-*` id — see the control
+point in §5 and `knowledge/FLEET-GAP.md` (DECISIONS D7, D33). Sessions
+launch evidence runs in the background and keep working.
 
 ## 2. Sanity-check the plumbing (5 minutes)
 
@@ -106,6 +108,19 @@ The protocol runs without you except at these points:
   adequately powered; its unlock further requires venue-drift-quiet
   bands and full pre-registration per the IDEAS entry. Until a sync
   happens, sessions will keep reporting "both wake-up gates closed".
+- **Unblocking the worker fleet** (`knowledge/FLEET-GAP.md`, D33): your
+  fleet unlock cannot take effect until the engine's strategy registry can
+  see `fable-lab/strategies/**` — a ~5-line `src/` change (preferred
+  option: `discoverStrategies()` also walks `fable-lab/strategies/` when
+  the directory exists; full options AND a coupling caveat — a malformed
+  lab strategy file would then crash every engine process on that clone,
+  live bots included — in the memo). The lab cannot make
+  this change itself (the pre-commit hook you installed blocks writes
+  outside `fable-lab/`). Until it lands, sessions keep running evidence
+  locally `--sequential` and probe the gap every wake-up; once the bare
+  CLI resolves `fable-exp-001`, they will reconcile `tools/submit.ts` to
+  `--detach` fleet submissions and build the capacity tool before the
+  next evidence run.
 - **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the
   `touch_or_better` fill mode turned out to be reachable in-lab (U35/D18,
   no src change needed) and its bracket is already measured and CLOSED

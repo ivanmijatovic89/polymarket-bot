@@ -68,7 +68,13 @@ function main() {
   const params = spec.primaryParams.flatMap((p) => ['--param', p])
   // All fable runs go through the registry-injection wrapper and are
   // sequential (DECISIONS D7): strategies live in fable-lab/strategies/,
-  // invisible to queue workers; the charter forbids fleet submissions.
+  // invisible to queue workers. The charter now MANDATES fleet submissions
+  // (constraint 3, 2026-07-09/11) but the engine blocks them — the registry
+  // only discovers src/strategies/**, so every fable-exp-* job would fail
+  // on every worker with "unknown strategy id" (DECISIONS D33,
+  // knowledge/FLEET-GAP.md). When the operator-side registry patch lands
+  // (wake-up gate 3), evidence stages switch to bare-CLI --detach per the
+  // FLEET-GAP reconciliation plan.
   const wrapper = join(HERE, 'run-backtest.ts')
   const args: string[] = ['tsx', wrapper]
 
