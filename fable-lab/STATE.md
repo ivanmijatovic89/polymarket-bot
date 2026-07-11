@@ -69,11 +69,20 @@ append-only history at the bottom; new entries still go there._
   the strategy sees the triggering tick, StrategyRunner.ts:174 vs :296);
   scan `tools/signal3-scan.ts` + selftest 17/17 green; smoke 10/10
   discovery markets, all MAKER first fills, pinned 0/0, D18 hook, all
-  lines parse against the scan regex. NEXT STEP: launch 6 disjoint
-  local shards (`SIGNAL-003-touch-s[0-5]`, all 8,516 discovery markets,
-  verify loaded counts sum to 8,516), fresh-context pre-read audit of
-  the freeze while shards run, then the ONE-SHOT read via
-  signal3-scan.ts after coverage accounting is clean. Interpretation
+  lines parse against the scan regex. Shards LAUNCHED and verified
+  (loaded 1420+1420+1419×4 = 8,516, pinned, hook, single-launch each;
+  logs `logs/SIGNAL-003-shard[0-5].log`). Pre-read audit DONE
+  (SOUND-WITH-FINDINGS, verbatim in
+  `knowledge/AUDIT-2026-07-11-SIGNAL-003-REG.md`); both MAJORs applied
+  pre-read in U99c: complement-gate rule frozen fully mechanical
+  (SIGNAL-FILLS §6c amendment 1), selftest extended to pin all 3
+  families (23/23, planted U-shape + day-of-week detected); E28-class
+  count correction (16 not 17, now 23) + 8 minor disclosures in §6c;
+  coverage tool gained epoch-boundary + staleness checks. NEXT STEP:
+  when shards exit → `sh tools/signal3-coverage.sh
+  logs/SIGNAL-003-shard[0-5].log` must print COVERAGE CLEAN → ONE-SHOT
+  read `npx tsx tools/signal3-scan.ts logs/SIGNAL-003-shard[0-5].log`
+  → results verbatim into SIGNAL-FILLS §7 + verdict. Interpretation
   pre-committed in SIGNAL-FILLS §6: null → maker family closes for good
   (IDEAS #22 dead); candidate → mechanical complement gate → fresh D49
   screen on NEW sample (E26c discount), D18 outcome set (kill/escalate).
