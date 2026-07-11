@@ -1,7 +1,8 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 51, unit U63 (STATE reordered per D37; U62/U62b
-fleet/local parity verified)._
+_Last updated: session 52, unit U64 (D38 dataset-growth split: catalog
+sync self-serve and run — 2,570 markets synced awaiting operator
+ingestion; costed hand-off in knowledge/DATASET-GROWTH.md)._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -28,10 +29,17 @@ append-only history at the bottom; new entries still go there._
   protocol maintenance.
 - Successor wake-up checks (run these FIRST, they are the only things that
   change the gated state from outside):
-  1. `tools/universe.ts` — if the last eligible market is ≥ ~1 month past
-     2026-06-14 (operator ran the Telonex sync), run the VENUE-DRIFT
-     refresh procedure on the new month(s); a fired band reopens §4
-     only after the D27 confirmation redraw (U46).
+  1. `tools/universe.ts` — if the ELIGIBLE universe grew past 18,635 /
+     2026-06-14 (operator ran download+convert on the pending window —
+     see `knowledge/DATASET-GROWTH.md`), run the VENUE-DRIFT refresh
+     procedure on the new month(s); a fired band reopens §4 only after
+     the D27 confirmation redraw (U46). The tool also prints CATALOG
+     AWAITING INGESTION (synced-not-ingested markets; 2,570 as of
+     2026-07-11). The catalog SYNC half is lab-self-serve (D38): if the
+     local catalog looks stale (last awaiting-max well behind today),
+     re-run `npm run telonex:sync` (additive-only, verified) so the
+     operator hand-off stays current; download/convert stays the
+     operator's (D38 — never run it from the lab).
   2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model
@@ -1100,3 +1108,28 @@ plan (fleet --detach + capacity tool) when it does.
   cutting off every operative section. Reorder proven lossless by a
   sorted non-empty-line diff vs the committed file (only the 4-line
   banner added). No figures restated → no D31 check triggered.
+
+- U64 (session 52): wake-up checks ran — universe unchanged (18,635, last
+  2026-06-14), trades coverage unchanged (17,878 has-trades catalog rows;
+  only delta/delta-typed converters on disk), fleet healthy (32 slots / 4
+  machines — the removed machine returned), registry probe RESOLVED, no
+  operator commits since the audited point. Unit: the U43-era "operator
+  ran the Telonex sync" classification FALSIFICATION-TESTED (D18 defect
+  class) — TELONEX_API_KEY + R2 creds are present locally; the pipeline
+  is technically lab-runnable. DECISIONS D38 split it by cost: catalog
+  sync = lab-self-serve (verified in source: single additive INSERT
+  IGNORE write path, finalized-only rows, --dry-run writes nothing, no
+  R2, nothing auto-triggers); download/convert = operator-gated (metered
+  vendor key, R2 spend). Executed: read-only dry-run probe (vendor has
+  24,712 resolved btc-15m markets with book data vs 22,142 local — ALL
+  22,142 have done delta-typed conversions incl. 3,507 below the
+  2025-11-30 floor), then the real sync — exactly 2,570 rows inserted
+  (2026-06-14T09:45Z → 2026-07-11T04:15Z, contiguous, all
+  upload_status=pending), 22,142 skipped (idempotency live), eligible
+  universe verified unchanged at 18,635 (universe.ts re-run). New:
+  `knowledge/DATASET-GROWTH.md` (costed operator hand-off: ~25 GB raw
+  at 9.75 MB/market + ~3.9 GB converted at 1.53 MB/market; payoffs:
+  venue-drift refresh immediately on ingestion, IDEAS #10 unlock
+  ≈ mid-September 2026 with continuous ingestion), universe.ts prints
+  CATALOG AWAITING INGESTION (tsc clean, verified live: 2,570), RUNBOOK
+  §5 control point rewritten to ACTION PENDING, wake-up check 1 updated.

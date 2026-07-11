@@ -1329,3 +1329,48 @@ are pervasive, and a second file adds a boot-read decision for every
 successor; reordering fixes the truncation exposure with zero reference
 churn. Revisit only if STATE grows past what a two-page read of the
 operative head can anchor.
+
+## D38 — Dataset growth: catalog sync is lab-runnable; download/convert stays operator-gated
+
+**Motivating observation (U64, session 52).** Wake-up check 1 has phrased
+dataset growth as "the operator ran the Telonex sync" since U43 — an
+operator-side classification that was ASSUMED, never tested (the exact
+defect class D18 exposed: "operator-side" labels can be wrong). Real time
+is now ~1 month past the last eligible market (2026-06-14), the venue-drift
+refresh horizon, yet the universe cannot grow until ingestion runs — so the
+classification is load-bearing and was worth one falsification test.
+Findings: TELONEX_API_KEY and R2 write credentials are present in this
+machine's `.env`; the full pipeline is technically lab-runnable;
+`sync-markets` was verified in source to have a single additive write path
+(`INSERT IGNORE` into `telonex_markets`, finalized-only rows, `--dry-run`
+writes nothing, no R2 access, nothing auto-triggers downstream).
+
+**Decision.** Split by cost and blast radius, evidence in
+`knowledge/DATASET-GROWTH.md`:
+
+(a) The CATALOG SYNC (`npm run telonex:sync`, default pattern =
+`btc-updown-15m-%`, the lab's exact scope) is lab-runnable and now
+SELF-SERVE: executed 2026-07-11, inserted exactly the 2,570-market
+post-2026-06-14 window (idempotent skip of all 22,142 existing rows
+confirmed live), eligible universe verified unchanged at 18,635 — a sync
+cannot fake dataset growth because eligibility joins `done` conversions.
+Successors re-run it at wake-up when the local catalog looks stale;
+`tools/universe.ts` now prints CATALOG AWAITING INGESTION so lag is visible
+without extra commands.
+
+(b) DOWNLOAD + CONVERT for pending rows stays OPERATOR-GATED: ~25 GB of
+metered vendor download against the operator's API key (terms unknown to
+the lab) plus writes to the operator's R2 bucket, on a pipeline the
+operator actively runs with their own fanout infra. The lab's contribution
+is the costed hand-off in DATASET-GROWTH.md (exact commands, per-market
+figures, payoff schedule: venue-drift refresh immediately at ingestion;
+IDEAS #10 unlock ≈ mid-September 2026 with continuous ingestion).
+
+**Rejected alternative:** running download+convert from the lab now —
+rejected NOT for capability (creds present, claim queue handles
+concurrency) but because it spends the operator's metered vendor
+relationship and storage without authorization; the charter granted the
+fleet for compute, never ingestion spend. The memo channel has a proven
+response loop (D20 → trades advocacy; FLEET-GAP.md → operator patch
+a10b59d). Revisit if the operator sanctions self-serve ingestion in a
+charter/STATE update.

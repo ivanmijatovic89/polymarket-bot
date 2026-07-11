@@ -99,21 +99,27 @@ The protocol runs without you except at these points:
 - **Holdout burns**: if a session reports a burned holdout (validator
   counts >1 holdout run), treat it as an incident — the affected lineage's
   confirmation is void.
-- **Growing the dataset (Telonex sync)**: the eligible universe is frozen
-  at 18,635 markets (last: 2026-06-14) until you run the operator-side
-  Telonex pipeline (`sync-markets` → `download-raw-files` → `convert`).
-  The lab never runs it (convention since U42/D20: it spends operator
-  API credits and writes shared DB state). What new data buys,
-  mechanically: **~1 month** of new markets → the VENUE-DRIFT refresh
-  runs on the new month(s), and a D27-confirmed band fire can reopen the
-  specific mechanism-linked question (VENUE-DRIFT consequence mapping)
-  under EDGE-SPACE §4; **~15,000 markets in a fresh window** — the
-  pristine 5,460-market reserve counts, so ~9,500 NEW markets
-  (~3.3 months at ~96/day) → IDEAS #10's parked reversal-mirror test
-  (the one open positive lead, ≈ +2.4c net at z = +2.40) becomes
-  adequately powered; its unlock further requires venue-drift-quiet
-  bands and full pre-registration per the IDEAS entry. Until a sync
-  happens, sessions will keep reporting "both wake-up gates closed".
+- **Growing the dataset (Telonex ingestion) — ACTION PENDING (U64/D38,
+  2026-07-11)**: the eligible universe is frozen at 18,635 markets (last:
+  2026-06-14) until `download-raw-files` + `convert` run for the pending
+  window. The CATALOG SYNC half is now lab-self-serve (D38: verified
+  additive-only; the lab ran it 2026-07-11 and keeps the catalog current) —
+  **2,570 synced markets (2026-06-14 → 2026-07-11) are waiting on you**:
+  `npm run telonex:download` then `npm run telonex:convert` (~25 GB raw to
+  R2 + ~3.9 GB converted; costed hand-off with per-market figures in
+  `knowledge/DATASET-GROWTH.md`). The lab does not run download/convert
+  itself (D38: it spends your metered Telonex key and R2 storage). What
+  ingestion buys, mechanically: **this pending window alone** → the
+  VENUE-DRIFT refresh runs on 2026-06/07, and a D27-confirmed band fire
+  can reopen the specific mechanism-linked question (VENUE-DRIFT
+  consequence mapping) under EDGE-SPACE §4; **~15,000 markets in a fresh
+  window** — the pristine 5,460-market reserve counts, so ~9,500 NEW
+  markets (~3.3 months at ~96/day; ~7,000 beyond the pending window,
+  ≈ mid-September 2026 with continuous ingestion) → IDEAS #10's parked
+  reversal-mirror test (the one open positive lead, ≈ +2.4c net at
+  z = +2.40) becomes adequately powered; its unlock further requires
+  venue-drift-quiet bands and full pre-registration per the IDEAS entry.
+  `tools/universe.ts` prints the CATALOG AWAITING INGESTION count.
 - **Worker fleet: UNBLOCKED (2026-07-11, D33/U58).** You applied
   `knowledge/fleet-gap-registry.patch` (commit a10b59d); the lab executed
   its pre-committed reconciliation the same day: submit.ts fleet routing
