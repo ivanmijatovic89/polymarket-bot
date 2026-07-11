@@ -46,18 +46,15 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **Session-61 propagation checker** (D25 class): fresh-context verifier
-  over today's knowledge edits (SIGNAL-MAP §3 interpretation, E24/E25,
-  EDGE-SPACE §1 rows+bullets, SIGNAL-002 interpretation, BATCH-001
-  erratum) — in flight. Apply findings when it returns.
-- **BATCH-002 drafting**: mechanism-gap screens per the pre-committed
-  SIGNAL-001 barren branch. Candidates: deep-resting-bid overshoot
-  catcher (distance regime E16/E17 never tested), filled-maker instant
-  lock (fill-conditional transient dutch book — EXP-002 only tested
-  STANDING ask sums), warm-mirror HI-favorite-late-wide-range taker
-  (in-sample overlap with the scan DISCLOSED; reserve confirmation is
-  the real out-of-sample). Freeze after the propagation checker
-  returns.
+- **BATCH-002 ON THE FLEET** (U89, freeze commit 4d5c7f3): SCR-005 deep
+  bid (batchUid SCR-005-screen, N=500), SCR-006 wide-range favorite
+  (SCR-006-screen, N=2000 under D49 amendment 2), SCR-007 fill lock
+  (SCR-007-screen, N=500). Submitted ~19:56 detached, latency pinned.
+  NOTE: a botched zsh loop errored before enqueue on its 3 attempts —
+  verify exactly ONE run per batchUid before reading verdicts. Then:
+  verdicts per SCREENING bars (all-N q̂ per D49 amendment 1) → one
+  batch checker → LESSONS.
+- Propagation checker (U88) DONE — 1 MAJOR + 6 MINOR all applied.
 
 ## Next
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
