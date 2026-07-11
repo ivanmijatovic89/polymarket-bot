@@ -151,6 +151,19 @@ remain formally open.
   +px/(1−p) BEFORE the winner's-curse discount — that number goes in the
   screen's prediction line.
 
+## 6b. Disclosures (append-only, pre-read)
+
+- **Smoke-summary exposure (session 64, post-freeze):** while verifying
+  log-line formats for the coverage tool, a grep against the 10-market
+  SMOKE log printed part of the engine's end-of-run summary block, which
+  includes PnL aggregates (streak fields) for those 10 oldest discovery
+  markets. This happened AFTER the freeze commit (3e8976c), touches only
+  the smoke's own aggregate (never a discovery shard), and cannot alter
+  the frozen method; it is disclosed per E28-adjacent hygiene. Lesson
+  applied mechanically: `tools/signal3-coverage.sh` is count-only by
+  construction — pre-read greps over shard logs must never print matched
+  content because the engine's tail summary is outcome-laden.
+
 ## 7. Results (append-only, written after the one-shot read)
 
 _(empty until all shards complete + coverage accounting clean)_
