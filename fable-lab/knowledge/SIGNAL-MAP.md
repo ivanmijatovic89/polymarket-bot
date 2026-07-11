@@ -121,3 +121,147 @@ economically sub-envelope anyway, per U45).
   strongest distinct zones first.
 
 ## 3. Results (append-only; nothing above this line changes after the read)
+
+_Read executed 2026-07-11 session 61 (U85), one shot, after all six
+shards completed (runs 448/451/452/454/455/458, each with its exact
+frozen market count, 0 failures) and coverage accounting came back clean
+(zero cross-shard slug overlap; 8,127/8,516 markets emitted ≥1 feature
+line; 36,092 deduped (slug,offset) rows; 77 drift-discarded; outcome
+joined for all 8,127 emitting markets, 0 unresolved). Verbatim tool
+output below (the complete durable record — the gitignored
+`logs/SIGNAL-001-scan-output.log` copy is byte-identical), then the
+frozen-rule interpretation._
+
+```
+parsed 36092 deduped (slug,off) rows across 8127 markets (0 malformed, 77 drift-discarded; 8127 markets emitted any line)
+per-offset market coverage: o150=8117
+per-offset market coverage: o300=8109
+per-offset market coverage: o600=7931
+per-offset market coverage: o750=7061
+per-offset market coverage: o850=4874
+outcome joined for 8127/8127 markets (0 missing/unresolved — excluded)
+samples: UP=32670 DOWN=32679 (ask in [0.02,0.98], uncrossed)
+gate G1 UP: n=3623 ask≥0.90 winRate=0.9459
+gate G1 DOWN: n=3518 ask≥0.90 winRate=0.9483
+gate G2 UP: mean residual -1.164c z=-5.21 (n=32670)
+gate G2 DOWN: mean residual -0.071c z=-0.32 (n=32679)
+
+=== MONOTONE SCREEN (Spearman feature vs residual, Stouffer across strata; CANDIDATE |z|≥4.00, WARM |z|≥3.00) ===
+  DOWN o150 firstMid z=-3.01 [LO:1544,MID:4963,HI:1609] WARM
+  UP o150 firstMid z=+2.98 [LO:1478,MID:4941,HI:1698] 
+  UP o300 firstMid z=+2.92 [LO:2298,MID:3267,HI:2539] 
+  UP o850 l1Imb z=+2.87 [LO:1685,MID:412,HI:1224] 
+  DOWN o850 l5Imb z=-2.87 [LO:1609,MID:400,HI:1294] 
+  DOWN o300 firstMid z=-2.85 [LO:2419,MID:3278,HI:2405] 
+  DOWN o850 l10Imb z=-2.77 [LO:1609,MID:400,HI:1294] 
+  DOWN o300 l5Imb z=-2.72 [LO:2419,MID:3278,HI:2405] 
+  DOWN o300 nz z=-2.67 [LO:2419,MID:3278,HI:2405] 
+  UP o300 l5Imb z=+2.62 [LO:2298,MID:3267,HI:2539] 
+  UP o850 l5Imb z=+2.56 [LO:1685,MID:412,HI:1224] 
+  UP o300 nz z=+2.52 [LO:2298,MID:3267,HI:2539] 
+  DOWN o300 move60 z=+2.51 [LO:2419,MID:3278,HI:2405] 
+  UP o300 move60 z=-2.36 [LO:2298,MID:3267,HI:2539] 
+  DOWN o850 l1Imb z=-2.34 [LO:1609,MID:400,HI:1294] 
+  UP o300 range z=+2.29 [LO:2298,MID:3267,HI:2539] 
+  DOWN o600 l10Imb z=-2.26 [LO:3183,MID:1465,HI:2863] 
+  DOWN o300 flips z=-2.25 [LO:2419,MID:3278,HI:2405] 
+  UP o750 move60 z=+2.22 [LO:2597,MID:885,HI:2135] 
+  UP o850 l10Imb z=+2.18 [LO:1685,MID:412,HI:1224] 
+  UP o300 flips z=+2.08 [LO:2298,MID:3267,HI:2539] 
+  DOWN o300 range z=-2.01 [LO:2419,MID:3278,HI:2405] 
+monotone screen: 0 CANDIDATE, 1 WARM of 160 tests (|z|<2 suppressed from listing)
+
+=== CELL GRID (feature quintiles within (off, stratum, side); CANDIDATE |z|≥4.40) ===
+  UP o150 LO flips q1 d=-7.56c z=-3.28 n=294 warm
+  UP o300 LO rate60 q2 d=-6.44c z=-3.85 n=460 warm
+  UP o300 LO nz q1 d=-5.23c z=-3.06 n=459 warm
+  UP o300 LO crossedN q1 d=-5.35c z=-3.04 n=463 warm
+  UP o600 LO rate60 q1 d=-2.66c z=-3.29 n=607 warm
+  UP o600 LO vol q1 d=-3.45c z=-3.18 n=600 warm
+  UP o600 LO firstTs q5 d=-4.58c z=-3.62 n=491 warm
+  UP o750 LO l5Imb q3 d=-4.06c z=-3.51 n=519 warm
+  UP o750 LO nTicks q1 d=-3.74c z=-3.78 n=519 warm
+  UP o750 HI nz q1 d=-6.02c z=-3.73 n=426 warm
+  UP o750 HI flips q1 d=-7.35c z=-4.32 n=428 warm
+  UP o850 LO l10Imb q3 d=-4.05c z=-3.27 n=337 warm
+  UP o850 LO range q4 d=-4.89c z=-4.71 n=338 CANDIDATE
+  UP o850 LO posR q2 d=-3.53c z=-10.74 n=43 CANDIDATE
+  UP o850 MID vol q4 d=-15.53c z=-3.05 n=83 warm
+  DOWN o150 LO posR q2 d=-7.39c z=-3.22 n=307 warm
+  DOWN o300 LO l5Imb q5 d=-5.54c z=-3.16 n=484 warm
+  DOWN o300 HI rate60 q2 d=5.20c z=+3.12 n=481 warm
+  DOWN o600 LO rate60 q1 d=-2.41c z=-3.21 n=637 warm
+  DOWN o600 LO move60 q2 d=-3.52c z=-3.89 n=607 warm
+  DOWN o750 LO l1Imb q2 d=-4.34c z=-4.52 n=522 CANDIDATE
+  DOWN o750 LO flips q1 d=4.21c z=+3.15 n=521 warm
+  DOWN o750 LO posR q4 d=-5.29c z=-6.77 n=41 CANDIDATE
+  DOWN o850 LO rate60 q3 d=-4.95c z=-4.02 n=321 warm
+  DOWN o850 LO nz q4 d=-4.89c z=-3.92 n=322 warm
+  DOWN o850 LO flips q4 d=-4.80c z=-3.96 n=321 warm
+  DOWN o850 HI range q4 d=4.51c z=+3.10 n=255 warm
+cell grid: 4 CANDIDATE, 23 warm (|z|≥3) of 2309 evaluated cells
+
+=== SEASONALITY (hour-of-day 4h bins + day-of-week, UTC; CANDIDATE |z|≥4.40) ===
+seasonality: 0 CANDIDATE
+
+scan complete — interpretation rules are frozen in knowledge/SIGNAL-MAP.md (map-grade only)
+```
+
+### Interpretation (per the pre-committed rules in §2 — map-grade only)
+
+**Headline: ZERO buyer-favorable candidates on any axis.** The monotone
+screen (the sensitive instrument, |ρ| ≳ 0.045 resolution at pooled n)
+returned 0 candidates and 1 WARM in 160 tests; the cell grid returned
+4 candidates in 2,309 evaluated cells — every one buyer-ADVERSE
+(negative d: the taker who buys that cell's ask loses more than fee-free
+fair); seasonality returned 0 candidates in both families. This is the
+pre-committed barren-verdict branch combined with the E21/E22 pattern
+branch: the idea batch that follows aims at MECHANISM-LEVEL gaps
+(order-type structure, settlement/timing mechanics, anything outside
+this feature×offset plane), not at feature zones — and says so.
+
+**Named dead zones (sign = buyer-adverse; aiming value "avoid", not
+"trade"):**
+
+- **Z1 — late low-ask buys in wide-range windows:** UP o850 LO range q4,
+  d=−4.89c z=−4.71 n=338. After a wide intra-window range, the cheap
+  side's late ask still overprices recovery by ~5c gross.
+- **Z2/Z2m — cheap side against range position, late (mirror pair):**
+  UP o850 LO posR q2 (d=−3.53c z=−10.74 n=43) and DOWN o750 LO posR q4
+  (d=−5.29c z=−6.77 n=41). Tiny cells with near-homogeneous residuals
+  (per-sample sd ≈ 2-5c — these are 0.02-0.10-ask lottery tickets that
+  essentially always lose); the huge |z| reflects the homogeneity, not
+  economic size. Same family as E21/E22 continuation staleness: when the
+  price sits at the wrong end of the running range late, the cheap
+  side's ask has not fully converged to ~0.
+- **Z3 — DOWN o750 LO l1Imb q2:** d=−4.34c z=−4.52 n=522. Mid-low
+  top-of-book imbalance against the cheap DOWN late — again adverse.
+
+**Recorded sub-bar structure (not candidates, listed for the map):**
+1 WARM monotone: DOWN o150 firstMid z=−3.01 (mirror UP +2.98) — early
+in the window, a higher opening mid slightly favors the UP buyer's
+residual; sub-bar, sign consistent with drift-momentum, economically
+≤ ~1c. The 23 warm cells cluster at LO strata with negative d —
+diffuse buyer-adverse staleness on cheap sides, same family as the
+candidates.
+
+**Global asymmetry note (gate G2, passed but worth the map):** pooled
+mean residual UP = −1.164c (z=−5.21, n=32,670) vs DOWN = −0.071c
+(z=−0.32). Buying UP at ask across all offsets/strata loses ~1.2c gross
+on this discovery window while buying DOWN is flat — a small systematic
+UP-side overpricing whose tradable mirror (buy DOWN) is already
+measured flat, i.e. it is spread-absorbed, not capturable (the E21
+lesson at global scale). Map-grade observation only.
+
+**Power reminder (frozen in §2):** dead zones are power-scoped — "no
+signal above |ρ| ≈ 0.045 pooled / |d| ≈ 7.3c per MID cell", not "no
+signal". Everything here is gross of costs; nothing in this section is
+a registration citation (EDGE-SPACE §4 and the U45 envelope unchanged).
+
+**Consequence for BATCH-002:** aimed-at-zone screens are OFF the table
+(no favorable zone exists to aim at); the batch draws from
+mechanism-level gaps instead, with Z1-Z3 recorded as places NOT to
+provide the taker side. The four adverse candidates are NOT maker
+invitations either: SCR-004r/t/o (BATCH-001) just measured that at-touch
+maker capture of exactly this staleness family is adversely selected
+even under the touch bound.
