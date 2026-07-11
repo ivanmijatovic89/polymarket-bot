@@ -117,4 +117,15 @@ unchanged post-smoke (schema defaults)._
   then canonical screen run `SCR-008-touch-screen-r2` (N=500, same
   frozen sample rule and cell — nothing about the mini-spec changes).
 
+## Pinned re-smoke (session 63, counts only, no PnL — E15 discipline)
+
+_Run 468 (SCR-008-touch-smoke-r2, oldest-15 discovery markets, local
+`--sequential --fill-mode touch_or_better`, DELAY=0/JITTER=0 verified
+in-log, D18 hook line present): 14/15 markets filled, 14 maker fills,
+0 taker fills, 0 failures. The unpinned run 466's 4 taker-path fills
+do NOT reproduce at pinned latency — they were 140ms artifacts
+(resting bid crossed during the artificial delay), confirming the
+latency setting was behavior-changing, not cosmetic. Counts read via
+fills.ts only. Cell unchanged (schema defaults)._
+
 ## Verdicts (append-only after runs complete)
