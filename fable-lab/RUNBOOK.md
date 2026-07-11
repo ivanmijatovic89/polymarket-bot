@@ -115,7 +115,7 @@ The protocol runs without you except at these points:
   consequence mapping) under EDGE-SPACE §4; **~15,000 markets in a fresh
   window** — the pristine 5,460-market reserve counts, so ~9,500 NEW
   markets (~3.3 months at ~96/day; ~7,000 beyond the pending window,
-  ≈ mid-September 2026 with continuous ingestion) → IDEAS #10's parked
+  ≈ late September 2026 with continuous ingestion) → IDEAS #10's parked
   reversal-mirror test (the one open positive lead, ≈ +2.4c net at
   z = +2.40) becomes adequately powered; its unlock further requires
   venue-drift-quiet bands and full pre-registration per the IDEAS entry.

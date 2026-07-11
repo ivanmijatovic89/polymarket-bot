@@ -35,11 +35,12 @@ append-only history at the bottom; new entries still go there._
      procedure on the new month(s); a fired band reopens §4 only after
      the D27 confirmation redraw (U46). The tool also prints CATALOG
      AWAITING INGESTION (synced-not-ingested markets; 2,570 as of
-     2026-07-11). The catalog SYNC half is lab-self-serve (D38): if the
-     local catalog looks stale (last awaiting-max well behind today),
-     re-run `npm run telonex:sync` (additive-only, verified) so the
-     operator hand-off stays current; download/convert stays the
-     operator's (D38 — never run it from the lab).
+     2026-07-11). The catalog SYNC half is lab-self-serve (D38) but NOT
+     free — each run (dry included) fetches the ~1 GB catalog against
+     the operator's metered key (U64b): re-run `npm run telonex:sync`
+     (additive-only, verified) only when the awaiting-max is well behind
+     today AND a decision depends on current numbers; download/convert
+     stays the operator's (D38 — never run it from the lab).
   2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model
@@ -1124,12 +1125,29 @@ plan (fleet --detach + capacity tool) when it does.
   24,712 resolved btc-15m markets with book data vs 22,142 local — ALL
   22,142 have done delta-typed conversions incl. 3,507 below the
   2025-11-30 floor), then the real sync — exactly 2,570 rows inserted
-  (2026-06-14T09:45Z → 2026-07-11T04:15Z, contiguous, all
-  upload_status=pending), 22,142 skipped (idempotency live), eligible
+  (2026-06-14T09:45Z → 2026-07-11T04:15Z, contiguous with the previous
+  max — one interior slot missing, 2026-06-17T20:15Z, per the U64b
+  verifier — all upload_status=pending), 22,142 skipped (idempotency live), eligible
   universe verified unchanged at 18,635 (universe.ts re-run). New:
   `knowledge/DATASET-GROWTH.md` (costed operator hand-off: ~25 GB raw
   at 9.75 MB/market + ~3.9 GB converted at 1.53 MB/market; payoffs:
   venue-drift refresh immediately on ingestion, IDEAS #10 unlock
-  ≈ mid-September 2026 with continuous ingestion), universe.ts prints
+  ≈ late September 2026 (~Sept 21) with continuous ingestion),
+  universe.ts prints
   CATALOG AWAITING INGESTION (tsc clean, verified live: 2,570), RUNBOOK
   §5 control point rewritten to ACTION PENDING, wake-up check 1 updated.
+
+- U64b (session 52): U64 D31-verified by a fresh-context checker
+  (sound-with-findings — every DB figure reproduced, sync-markets safety
+  argument confirmed line-level, IDEAS #10 unlock elements preserved
+  verbatim vs the pre-U64 RUNBOOK, charter reasoning judged defensible,
+  tsc clean, universe.ts --json carries catalogAwaitingIngestion). 4
+  MINOR findings, all applied: (1) one interior 15m slot missing in the
+  synced window (2026-06-17T20:15Z; count 2,570 unaffected) —
+  "contiguous" rescoped to previous-max only; (2) "2025-10-10" → true
+  MIN market_start_ms 2025-10-11T00:00Z (likely start_date_us
+  contamination, the forbidden-column gotcha); (3) "mid-September" →
+  late September (~Sept 21) in all four carriers; (4) D38's cost split
+  omitted sync's own ~1 GB metered catalog fetch per run — disclosed in
+  D38 amendment + DATASET-GROWTH + wake-up check 1 (sync re-runs are
+  deliberate, not gratuitous). tools/README universe.ts row updated.

@@ -1364,7 +1364,7 @@ the lab) plus writes to the operator's R2 bucket, on a pipeline the
 operator actively runs with their own fanout infra. The lab's contribution
 is the costed hand-off in DATASET-GROWTH.md (exact commands, per-market
 figures, payoff schedule: venue-drift refresh immediately at ingestion;
-IDEAS #10 unlock ≈ mid-September 2026 with continuous ingestion).
+IDEAS #10 unlock ≈ late September 2026 with continuous ingestion).
 
 **Rejected alternative:** running download+convert from the lab now —
 rejected NOT for capability (creds present, claim queue handles
@@ -1374,3 +1374,19 @@ fleet for compute, never ingestion spend. The memo channel has a proven
 response loop (D20 → trades advocacy; FLEET-GAP.md → operator patch
 a10b59d). Revisit if the operator sanctions self-serve ingestion in a
 charter/STATE update.
+
+_U64b amendment (D31 fresh-context check, session 52): verifier verdict
+sound-with-findings; 4 MINOR, all applied. (1) The new-window span has ONE
+interior 15m slot missing (2026-06-17T20:15Z; 2,571 grid slots, 2,570
+rows) — "contiguous" holds only against the previous max; artifacts
+corrected. (2) "back to 2025-10-10" was off by a day (true MIN
+market_start_ms = 2025-10-11T00:00Z); the likely source was start_date_us,
+the exact column the repo gotcha forbids for market time — corrected.
+(3) "mid-September 2026" was ~a week optimistic; 6,970 remaining / 96 per
+day ≈ 73 days ≈ Sept 21 → "late September" in all four carriers. (4) An
+honesty gap in this decision's own cost split: `telonex:sync` itself
+spends the operator's metered key (~1 GB catalog fetch per run, dry-run
+included). The (a)/(b) split survives at 1 GB vs 25 GB, but sync
+re-runs are DELIBERATE, not gratuitous — only when the local catalog is
+well behind today AND a decision depends on current numbers; recorded in
+DATASET-GROWTH.md and wake-up check 1._

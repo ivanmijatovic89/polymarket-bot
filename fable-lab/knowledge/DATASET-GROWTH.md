@@ -18,7 +18,7 @@ All commands cited; DB queries were read-only except the one sync below.
 | Fact | Value | Source |
 |---|---|---|
 | Vendor catalog: resolved btc-15m markets with `book_snapshot_full` | **24,712** | `npm run telonex:sync -- --dry-run` (read-only; 1,031.7 MB catalog, matched count) |
-| Local catalog rows (btc-15m) pre-sync | **22,142** (2025-10-10 → 2026-06-14T09:30Z) | `telonex_markets` count |
+| Local catalog rows (btc-15m) pre-sync | **22,142** (2025-10-11T00:00Z → 2026-06-14T09:30Z) | `telonex_markets` count (MIN/MAX `market_start_ms`) |
 | Delta-typed conversions for those rows | **22,142/22,142 `done`** — the local catalog is fully ingested | join on `telonex_market_conversions` (`status='done'`) |
 | Below the eligibility floor (2025-11-30, env `TELONEX_DATASET_ELIGIBLE_FROM`) | **3,507** markets, all converted — ingested but excluded by the floor | same join, `market_start_ms <` floor; 22,142 − 18,635 eligible |
 | Sync gap (vendor − local) | **2,570 markets** = exactly the post-2026-06-14 window | 24,712 − 22,142 |
@@ -33,7 +33,10 @@ scope) executed 2026-07-11:
 - inserted **exactly 2,570** rows, skipped all 22,142 existing (`INSERT
   IGNORE` idempotency confirmed live);
 - new rows span **2026-06-14T09:45:00Z → 2026-07-11T04:15:00Z**, contiguous
-  with the previous max (next 15m slot), all `upload_status='pending'`;
+  with the previous max (next 15m slot), all `upload_status='pending'`.
+  One interior 15m slot is absent (2026-06-17T20:15Z — the inclusive grid
+  holds 2,571 slots for 2,570 rows; presumably unresolved/missing at the
+  vendor; found by the U64b verifier);
 - **eligible universe unchanged** — `tools/universe.ts` re-run: 18,635, same
   first/last markets. Eligibility joins `done` conversions, so a catalog sync
   cannot fake dataset growth, touch any frozen scan universe, or move the
@@ -60,6 +63,11 @@ are in `.env`), but:
 
 - ~**25 GB** of vendor download (2,570 × 9.75 MB) against the operator's
   Telonex API key — metering/contract terms unknown to the lab;
+  (disclosed asymmetry, U64b: the sync itself also spends the metered key —
+  ~1 GB catalog fetch per run, dry or real. The D38 split survives at
+  1 GB vs 25 GB, but sync re-runs are therefore deliberate, not gratuitous:
+  only when the awaiting-max is well behind today AND a decision depends
+  on current numbers);
 - ~25 GB written to the operator's R2 bucket (+ ~3.9 GB converted);
 - the operator actively operates this pipeline (fanout scripts, last sync
   2026-06-14) — concurrent lab runs would share the claim queue safely by
@@ -82,13 +90,14 @@ wake-up check 1 takes over (venue-drift refresh procedure).
   2026-06/07; a D27-confirmed band fire reopens the mechanism-linked
   EDGE-SPACE §4 clause.
 - **At ~+9,500 new markets past the holdout boundary window** (≈ 3.3 months
-  at ~96/day; ~7,000 more after this window, ≈ mid-September 2026 if synced
+  at ~96/day; ~7,000 more after this window, ≈ late September 2026
+  (~Sept 21: 6,970 / 96 per day ≈ 73 days from 2026-07-11) if synced
   and ingested continuously): IDEAS #10 (the E22 reversal-mirror candidate,
   +2.38c at z=+2.40) reaches its pre-registered ~15,000-market unlock
   (~55% power at a true +2c; see the U45-amended IDEAS #10 entry for the
   binding se convention).
 - Side fact for the operator: 3,507 fully-ingested markets sit below the
-  2025-11-30 eligibility floor (back to 2025-10-10). Moving
+  2025-11-30 eligibility floor (back to 2025-10-11T00:00Z). Moving
   `TELONEX_DATASET_ELIGIBLE_FROM` would add them at zero ingestion cost —
   but Telonex documents possible gaps before 2026-01-19, and the lab's
   frozen universes/scans all cite the current floor, so this is the

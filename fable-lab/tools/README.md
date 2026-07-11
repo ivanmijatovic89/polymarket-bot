@@ -5,7 +5,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 
 | tool | purpose |
 |---|---|
-| `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration (wake-up gate 1) |
+| `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration; also prints CATALOG AWAITING INGESTION (synced-not-ingested lag, U64/D38) (wake-up gate 1) |
 | `run-backtest.ts` | THE lab backtest entry point (D7): registry-injection wrapper (idempotent under the fleet-gap registry patch since U54/D33), refuses non-sequential runs, pins/prints latency env, `--fill-mode` guard (D18) — every evidence run goes through it |
 | `runs.ts` | list recent backtest runs (id, batchUid, strategy, size, status) — find run ids |
 | `fills.ts` | maker/taker fill COUNTS for runs, PnL never selected (E15 outcome-mining-safe design read) |
