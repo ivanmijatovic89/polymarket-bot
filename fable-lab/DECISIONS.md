@@ -1703,3 +1703,21 @@ selftest freezes the contract, it does not change what any existing file
 renders as (byte-identity proof). `lib/spec.ts` field parsing remains
 residue R5 — this unit covers it only incidentally via the pipeline
 fixtures' title/mechanism columns.
+
+**U74b amendment (same session, verifier findings applied —
+`knowledge/AUDIT-2026-07-11-U74-INDEX-SELFTEST.md`):** (MAJOR) the claim
+above that "SCIENTIST.md already instructs this" was FALSE at the time it
+was written — the plain-line rule existed only in the U30 STATE note; the
+rule is NOW actually in SCIENTIST.md's Judge step (this amendment makes the
+sentence true going forward rather than silently rewriting it). (MINOR 2)
+the colon-inside-bold spec-field shape `- **Decision:** kill if q<=0`
+matched the regex and rendered a garbage "** kill if q<=0" status; the
+regex now carries a `(?!\*)` lookahead after the colon so the template
+field convention can never set status — behavior change proven inert on
+the real registry (byte-identical INDEX). (MINOR 3) decision-shaped lines
+inside code fences / HTML comments DO match — ACCEPTED residue, pinned by
+two selftest assertions: fence-stripping was rejected because real specs
+carry 2-10 balanced fences and one unbalanced fence would swallow a
+genuine later verdict, a worse failure than this corpus-absent false
+positive. (MINOR 4) the STATE header's "every shape" over-claim reworded.
+Selftest is now 25 assertions.

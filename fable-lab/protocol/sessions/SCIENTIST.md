@@ -54,7 +54,13 @@ Ground rules that are yours specifically:
   decisive numbers off the dashboard.
 - **You do not judge your own decisive results.** At every decision point,
   spawn a fresh-context Judge subagent per `protocol/sessions/JUDGE.md` and
-  append its verdict verbatim. Kill means kill.
+  append its verdict verbatim. Kill means kill. The machine-read
+  `- decision: <kill|advance|park|...>` line MUST be a plain unquoted
+  line (never blockquoted with `> `, never a bold `- **Decision:** ...`
+  field) — `tools/index-registry.ts` derives INDEX status from the LAST
+  such line and ignores quoted/bold-field forms (U30 incident; contract
+  pinned by the D46 selftest). Quote the rest of the verdict however
+  you like.
 - **You do not audit your own knowledge propagation either (D25).** The
   Judge runs BEFORE the LESSONS / EDGE-SPACE / STATE updates exist, so
   those derived artifacts are unreviewed by construction. After

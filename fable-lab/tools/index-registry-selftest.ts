@@ -19,7 +19,10 @@
  *     (value case/trailing text preserved verbatim)
  *   - NON-matching shapes (pinned as intended): blockquoted `> - decision:`
  *     (U30 — INDEX ignores quoted verdicts; verdicts must be plain lines),
- *     mid-line mentions ("the decision: …"), `Decision rules:` headers
+ *     mid-line mentions ("the decision: …"), `Decision rules:` headers,
+ *     colon-inside-bold spec fields `- **Decision:** …` (U74b lookahead)
+ *   - ACCEPTED RESIDUE pinned as known behavior: decision lines inside
+ *     code fences / HTML comments DO match (see inline note)
  *   - file filter: only `EXP-*.md` (case-insensitive), lexicographic order
  *   - fallback rendering: unparseable title/mechanism → `?` columns
  *   - empty registry dir and missing registry dir → `_No experiments
@@ -70,6 +73,23 @@ check(
 )
 check('mid-line mention ignored', lastDecision('the decision: escalate was wrong\n'), 'registered')
 check('"Decision rules:" header ignored', lastDecision('- **Decision rules:** q<=0\n'), 'registered')
+check(
+  'colon-inside-bold spec field ignored (U74b finding 2)',
+  lastDecision('- **Decision:** kill if q<=0\n'),
+  'registered',
+)
+// ACCEPTED RESIDUE (U74b verifier finding 3, pinned as known behavior): the
+// line-regex has no fence/comment awareness — a decision-shaped line inside a
+// ``` fence or an HTML comment DOES match. Fence-stripping was rejected: real
+// specs carry 2-10 fences each, and one unbalanced fence would swallow a
+// genuine later verdict (worse failure than this implausible false positive;
+// the corpus sweep shows no fenced/commented decision-shaped lines exist).
+check('fenced decision matches (pinned residue)', lastDecision('```\n- decision: kill\n```\n'), 'kill')
+check(
+  'commented decision matches (pinned residue)',
+  lastDecision('<!--\n- decision: kill\n-->\n'),
+  'kill',
+)
 
 // ---------- 2. full-pipeline on synthetic fixtures (byte-for-byte) ----------
 const REG = join(BASE, 'experiments')

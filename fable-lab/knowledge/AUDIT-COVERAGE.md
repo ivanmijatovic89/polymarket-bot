@@ -45,7 +45,7 @@ for the artifact name.
 | Fleet/local parity | A + B | U62/U62b → FLEET-PARITY-2026-07-11.md (verifier re-ran comparisons + raw-string sweep) |
 | Operator merge f1cf90b | A | U59 → MERGE-AUDIT-2026-07-11-f1cf90b.md |
 | DATASET-GROWTH + quota blocker | A | U64b/U66b (verifier reproduced DB figures, 403 bodies) |
-| Experiment registry files EXP-001…009 + INDEX.md | A (via chains) | verdicts audited in U32/U37/U40; INDEX consistency checked in U32; INDEX PARSER itself only C/E — see residue R4 |
+| Experiment registry files EXP-001…009 + INDEX.md | A (via chains) | verdicts audited in U32/U37/U40; INDEX consistency checked in U32; INDEX parser selftested + audited U74/U74b (R4 closed) |
 | LESSONS entries | A (scoped) | E9–E17 audited in U32; E19 in U40; E18 amendments verified in U50/U52; E6 empirically confirmed in U40's market inspection; E7/E8 never chain-audited (E8 is a narrative lesson, no numbers) |
 
 ## 2. Tools
@@ -70,7 +70,7 @@ for the artifact name.
 | fills.ts | C + E | outcome-safety (counts-only) relied on since U29; used as audit instrument in U32/U40; never itself audited — residue R5 |
 | entry-check.ts | C + E | 4 prediction tests reproduced in U32 (tool-mediated) |
 | battery.ts | B + C + E | U71 → BATTERY-RECOMPUTATION-2026-07-11.md: all 10 published rows (8 grid + 2 latency) recomputed from raw rows via SQL aggregates, match at printed precision, tool byte-unchanged since creation; U32 re-ran it (transcription only). Display-only branches + nonzero-maker makerShare path remain unexercised (accepted, see the note) |
-| index-registry.ts + index-registry-selftest.ts | C + D + E | U74/D46 selftest (22 hand-computed assertions: all lastDecision shapes incl. the U30 blockquote quirk pinned, byte-for-byte pipeline comparison, empty/missing-dir arms, override guard); refactor inertness proven by byte-identical real-INDEX regeneration; INDEX-vs-verdict consistency checked U32 |
+| index-registry.ts + index-registry-selftest.ts | A + C + D + E | U74/D46 selftest + U74b fresh-context audit (AUDIT-2026-07-11-U74-INDEX-SELFTEST.md; 25 assertions after findings applied: enumerated lastDecision shapes incl. the U30 blockquote quirk and the U74b bold-field lookahead, byte-for-byte pipeline comparison, dir arms, override guard; fence/comment matching = pinned accepted residue); refactor inertness proven twice by byte-identical real-INDEX regeneration; INDEX-vs-verdict consistency checked U32 |
 | lib/spec.ts | D + E | U10 field-regex bug found via smoke + fixture re-validation; parser feeds validator+submit — residue R5 |
 | detach.mjs | E | dozens of detached evidence runs completed and persisted since D10 |
 | tools/README.md (tool index) | A (completeness-scoped) | U51 completed it grep-verified after its incompleteness caused documented friction; rows updated by later units |
@@ -112,11 +112,14 @@ for the artifact name.
   D35 merge audits catch engine changes; unchanged source can't invalidate
   correct citations. Low urgency; re-audit §-by-§ only if a registration
   leans on a never-again-read claim.
-- **R4 `index-registry.ts` parser — CLOSED (U74).** Selftest with
-  hand-computed expectations (D46): all matching/non-matching decision-line
-  shapes pinned (incl. the U30 blockquote quirk as intended behavior),
-  byte-for-byte pipeline comparison, empty/missing-dir arms, override
-  refusal guard; refactor proven inert (real INDEX byte-identical).
+- **R4 `index-registry.ts` parser — CLOSED (U74/U74b).** Selftest with
+  hand-computed expectations (D46, 25 assertions) + fresh-context audit
+  (AUDIT-2026-07-11-U74-INDEX-SELFTEST.md): enumerated decision-line
+  shapes pinned (U30 blockquote quirk as intended behavior; U74b
+  bold-field lookahead added), byte-for-byte pipeline comparison, dir
+  arms, override refusal guard; refactor proven inert (real INDEX
+  byte-identical, twice). Accepted residue pinned in-selftest:
+  fence/HTML-comment decision lines still match (corpus-absent).
 - **R5 `fills.ts` outcome-safety + `lib/spec.ts` parser.** Both feed
   discipline-critical paths (outcome-mining safety; frozen-spec → command
   fidelity). spec.ts had one real truncation bug (U10). Small units.

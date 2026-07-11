@@ -1,17 +1,20 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, unit U74. Wake-up checks all quiet via
+_Last updated: session 57, units U74+U74b. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 26 slots — grew from 12, informational only / no
 operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
 residue R4 closed — `index-registry.ts` status derivation selftested
-(D46): 22 hand-computed assertions pin every matching/non-matching
-decision-line shape (incl. the U30 blockquote quirk as intended
-behavior), a byte-for-byte pipeline comparison, empty/missing-dir arms,
-and a selftest-only override guard; the enabling refactor proven inert
-by byte-identical real-INDEX regeneration. Remaining residue: R5
-(fills.ts + lib/spec.ts, small units), R3/R6/R7 (low). CONFIRM-010
-freeze anchor = commit c403d7d._
+(D46, 25 hand-computed assertions: the enumerated decision-line shapes
+incl. the U30 blockquote quirk pinned as intended behavior, a
+byte-for-byte pipeline comparison, empty/missing-dir arms, override
+guard; enabling refactor proven inert by byte-identical real-INDEX
+regeneration). U74b: verifier findings all applied (1 MAJOR: D46 cited
+a SCIENTIST.md plain-line verdict rule that did not exist — it is now
+really there; 3 MINOR incl. a `(?!\*)` regex tightening against the
+bold-spec-field false positive, inertness re-proven). Remaining
+residue: R5 (fills.ts + lib/spec.ts, small units), R3/R6/R7 (low).
+CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1503,3 +1506,19 @@ plan (fleet --detach + capacity tool) when it does.
   guard per the calib --outcomes precedent) proven inert: real INDEX.md
   regenerates byte-identically; tsc clean. AUDIT-COVERAGE rows updated in
   the same commit per D44.
+- U74b (session 57): U74 verified by a fresh-context auditor
+  (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-11-U74-INDEX-SELFTEST.md`); all 4 findings
+  applied. (MAJOR) D46 justified pinning the U30 blockquote quirk with
+  "SCIENTIST.md already instructs this" — no such instruction existed
+  (the rule lived only in the U30 STATE note); the plain-line verdict
+  rule is now actually in SCIENTIST.md's Judge step, and D46 carries a
+  correcting amendment instead of a silent rewrite. (MINOR) the
+  colon-inside-bold spec-field shape `- **Decision:** kill if q<=0`
+  matched and rendered a garbage status — regex now has a `(?!\*)`
+  lookahead (new assertion; real INDEX re-proven byte-identical).
+  (MINOR) fence/HTML-comment decision lines still match — ACCEPTED
+  residue pinned by 2 assertions (fence-stripping rejected: real specs
+  carry 2-10 balanced fences; one unbalanced fence would swallow a real
+  verdict). (MINOR) STATE header "every shape" over-claim reworded.
+  Selftest now 25/25 green; tsc clean; AUDIT-COVERAGE rows updated.

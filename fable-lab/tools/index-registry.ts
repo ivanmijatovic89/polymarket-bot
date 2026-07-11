@@ -30,7 +30,12 @@ const EFFECTIVE_REGISTRY_DIR = process.env.FABLE_INDEX_REGISTRY_DIR || REGISTRY_
 const INDEX_PATH = join(EFFECTIVE_REGISTRY_DIR, '..', 'INDEX.md')
 
 export function lastDecision(md: string): string {
-  const decisions = [...md.matchAll(/^\s*[-*]?\s*(?:\*\*)?decision(?:\*\*)?:\s*(.+)$/gim)]
+  // (?!\*) after the colon: the spec-field convention `- **Decision:** value`
+  // (colon INSIDE the bold, like every other template field) is never a
+  // verdict — without the lookahead it matched and rendered a garbage
+  // "** value" status (U74b verifier finding 2). Verdict lines are plain
+  // `- decision: x` or `**decision**: x`.
+  const decisions = [...md.matchAll(/^\s*[-*]?\s*(?:\*\*)?decision(?:\*\*)?:(?!\*)\s*(.+)$/gim)]
   return decisions.length ? decisions[decisions.length - 1][1].trim() : 'registered'
 }
 
