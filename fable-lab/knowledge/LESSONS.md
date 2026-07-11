@@ -569,3 +569,32 @@ forbids importing the old system's research conclusions._
   (SCR-006's N=2000 sizing was adequate — played 774 even EXCEEDED
   the 100-300 incidence forecast, so power was not the binding issue;
   the shrink of d itself was).
+
+- **E27 — SCR-007 was derivably dead BEFORE its run: screen premises
+  must be checked against recorded-data INVARIANTS at freeze
+  (2026-07-11; post-kill decomposition of run 465).** Per-market
+  decomposition by hedge completeness (DB group-by, idea-generation
+  mining of a judged kill): zero-hedged markets −3.31/market (198
+  mkts — plain E16-class directional loss), partially hedged
+  −12.56/market (179), fully locked −23.68/market (21 mkts, 44 pairs ≈
+  −11.3 per locked pair) — hedge intensity made losses monotonically
+  WORSE; the locks themselves were the poison, not the residue. The
+  structural reason was already in the knowledge base: recorded DOWN
+  books are EXACT same-tick UP mirrors (CAL-001 amendment #12; the
+  IDEAS dead-family entry generalizes it). A same-tick hedge therefore
+  buys the ALREADY-MOVED mirror ask — "the opposite ask lags the
+  sweep" was impossible by construction in this dataset, and the lock
+  mechanically freezes adverse-move + spread + fee into every pair.
+  E26b stands (the measurement is real and its magnitude useful) but
+  the run bought nothing derivation couldn't have. Transfer: (a) a
+  screen premise that quantifies over BOTH books must be checked
+  against the mirror invariant before freeze — any mechanism whose
+  edge requires the two books to disagree, even transiently, is dead
+  at derivation here; (b) SCREENING mini-specs now carry a mandatory
+  `invariants:` line (D50) naming the recorded-data invariants the
+  premise touches and why it survives them; (c) the current invariant
+  list for (b): same-tick UP/DOWN mirror books (CAL-001 am. #12),
+  self-crossed books exist (E6), boundary market leak fixed by
+  --to-ms boundary−1 (E18), worst-queue fill = informative
+  punch-through (E16/E17/E26a), results.ts zero-PnL wins/losses
+  convention (BATCH-002 checker f.2).

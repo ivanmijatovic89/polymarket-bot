@@ -25,6 +25,13 @@ probe-stage evidence.
    - `id` SCR-NNN-<k>, mechanism one-liner
    - `not-a-reskin:` one line naming the nearest dead class (E9-E23 /
      EDGE-SPACE §1) and the distinguishing element (D5 discipline)
+   - `invariants:` one line naming the recorded-data invariants the
+     premise touches and why it survives them (D50, motivated by E27:
+     SCR-007's premise required the two books to disagree transiently,
+     which the same-tick mirror invariant — CAL-001 am. #12 — forbids;
+     the run was derivably dead at freeze). Current list in E27(c):
+     mirror books, self-crossed books, boundary leak, worst-queue =
+     informative punch-through, results.ts zero-PnL convention.
    - `aim:` the SIGNAL-MAP zone it targets, or `unaimed` (mechanism-level
      gap) — unaimed is allowed, the map is an aiming aid not a gate
    - `strategy:` file + params (the primary cell, chosen before results)

@@ -1925,3 +1925,18 @@ from the child env so `backtest_runs.cmd` records the truthful
 the historical rows stand as-is). Finding 2 (results.ts wins/losses
 counts only nonzero-PnL markets) recorded as a convention note in
 BATCH-002.md._
+
+## D50 — mini-spec `invariants:` line (session 62, 2026-07-11)
+
+Every SCREENING mini-spec must name the recorded-data invariants its
+premise touches and argue survival, at freeze. Motivating evidence
+(governor): the run-465 post-kill decomposition (E27) — SCR-007's
+fully-locked pairs lost −11.3 each because a same-tick hedge always
+buys the already-moved mirror ask; the mirror invariant (CAL-001
+amendment #12) was IN the knowledge base at freeze time and forbids the
+premise outright. The screen was cheap, but the derivation was free.
+Rejected alternative: a heavier pre-freeze derivation review per screen
+(a second checker) — rejected as ceremony; one mini-spec line plus the
+E27(c) invariant list keeps the check proportional to screen-tier
+stakes. The batch checker's existing "verdicts follow frozen bars" pass
+naturally audits the line's presence from BATCH-003 on.

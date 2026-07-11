@@ -56,7 +56,8 @@ append-only history at the bottom; new entries still go there._
   is BATCH-003: new mechanism-distinct ideas per the operator breadth
   mandate. Idea space guidance after E26: worst-queue punch-through is
   auto-dead at ANY distance (1c-10c measured); book-lags-itself is dead
-  as a class (standing E9 + fill-conditional E26b); the fixed-time,
+  as a class (standing E9 + fill-conditional E26b + structurally
+  forbidden by the mirror invariant, E27); the fixed-time,
   conditional, path, state, feature, and cross-episode planes are all
   scanned null — remaining gaps are order-type structure (GTD expiry
   games, batch/cancel timing), intra-window event-time mechanisms not
@@ -142,6 +143,16 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U91 (session 62): run-465 post-kill decomposition (idea-generation
+  mining, table preserved in BATCH-002.md): hedge intensity made losses
+  monotonically worse (zero-hedged −3.31 / partial −12.56 / fully
+  locked −23.68 per market, ≈ −11.3 per locked pair) — the locks were
+  the poison, and the same-tick mirror invariant (CAL-001 am. #12)
+  makes the "opposite ask lags" premise impossible by construction:
+  SCR-007 was derivably dead at freeze. LESSONS E27 (premise-vs-
+  invariants discipline + the current invariant list); DECISIONS D50 —
+  SCREENING mini-specs now carry a mandatory `invariants:` line from
+  BATCH-003 on.
 - U90 (session 62): BATCH-002 JUDGED — all 3 screens killed; batch
   checker applied; E26 + propagation. Details: SCR-005 duplicate
   enqueue found (runs 462+463, identical cmds 7s apart) and resolved

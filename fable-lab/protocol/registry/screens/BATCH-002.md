@@ -160,3 +160,21 @@ nonzero PnL as wins/losses (4 played markets settled flat), while
 winRate uses the played denominator (167/398 = 0.4196). Tool-convention
 quirk faithfully transcribed, not an error. Full checker report:
 `knowledge/AUDIT-2026-07-11-BATCH-002-CHECKER.md`._
+
+## Post-verdict decomposition of run 465 (idea-generation mining, session 62)
+
+_Read AFTER the kill was judged and checker-verified; licenses nothing,
+cited only by E27/D50. Group-by over `backtest_run_markets` (run 465) by
+hedge completeness:_
+
+| group | markets | maker fills | taker fills | mean PnL | total PnL |
+|---|---|---|---|---|---|
+| fully locked (taker ≥ maker) | 21 | 44 | 44 | −23.68 | −497.37 |
+| partially hedged | 179 | 847 | 319 | −12.56 | −2,248.91 |
+| zero hedged | 198 | 597 | 0 | −3.31 | −656.00 |
+| no maker fill | 102 | 0 | 0 | 0.00 | 0.00 |
+
+Hedge intensity made losses monotonically worse (≈ −11.3 per fully
+locked pair): the locks were the poison, not the directional residue.
+Structural cause: same-tick mirror books (CAL-001 amendment #12) make
+"the opposite ask lags" impossible by construction — see E27 and D50.
