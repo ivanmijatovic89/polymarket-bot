@@ -142,3 +142,36 @@ _(none — parked)_
 ## Results / Verdict (append-only; one-shot)
 
 _(none — parked)_
+
+## Post-freeze addendum — TIGHTEN-ONLY (U72, 2026-07-11; audit-sourced)
+
+_Appended under the D41 pre-run-audit rule (tighten/abort only). Source:
+the first fresh-context audit of the frozen integrity script,
+`knowledge/AUDIT-2026-07-11-CALIB-SHELL-SCRIPTS.md`. The three frozen
+files are untouched; these obligations bind the UNLOCK EXECUTOR when
+reading the battery output (spec §Frozen instrument item 2), because the
+audit demonstrated the script's exit code covers only the latency and
+errors checks — a corrupted log exits 0. Nothing here relaxes any frozen
+expectation._
+
+At each battery run (both logs), the executor MUST mechanically verify,
+in addition to the frozen expectations already pinned above:
+
+1. **Every counter line compared, not the exit code** (audit MAJOR-1):
+   malformed / gaps / dupfiles / epoch mismatches / badoff / tsbounds /
+   crossed / duptuples / over14 / oneSided / tsmono all read from the
+   printout and required to be 0; mirror deviants read and disclosed.
+   Exit 0 certifies nothing beyond latency+errors.
+2. **Independent line-count cross-check** (MAJOR-2): `grep -c
+   'diag-calib' <log>` (UNANCHORED) must equal the battery's
+   `SAMPLES lines=` value; a difference means prefix-mangled sample
+   lines invisible to the anchored battery regex — investigate before
+   any read.
+3. **Balance identity** (MINOR-3): `lines == UP + DOWN` by hand; a
+   shortfall means non-UP/DOWN asset values silently absorbed into the
+   mirror map.
+4. **Zero-lines abort** (MINOR-4): `SAMPLES lines=0` on either log is an
+   automatic abort regardless of exit code.
+5. **grep-family sanity probe** (MINOR-7): before trusting the errors
+   line, verify `echo failed | grep -ci 'error\|failed'` prints 1 on the
+   host (the frozen script uses non-POSIX BRE alternation).

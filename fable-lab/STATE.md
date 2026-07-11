@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 56, units U70-U71. Wake-up checks all quiet via
+_Last updated: session 56, units U70-U72. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 12 slots / no operator drift / CONFIRM-010 freeze
 intact). U70: verification coverage indexed (D44) —
@@ -11,8 +11,13 @@ list instead of re-reading this archive. U71: top residue R1 closed —
 battery.ts math independently recomputed from raw rows, all 10
 published rows match; the D31 verifier also caught that latency runs
 326/327 carry the known E18 boundary-market row (zero-fill, verdict-
-immaterial). Next residue: R1b calib shell scripts, R2 EPISTEMOLOGY
-coherence. CONFIRM-010 freeze anchor = commit c403d7d._
+immaterial). U72: R1b closed — first fresh-context audit of the calib
+shell scripts; the frozen integrity script's exit code certifies almost
+nothing (print-only battery), so the CONFIRM-010 unlock executor now
+has 5 binding battery-reading obligations via a tighten-only spec
+addendum (frozen bytes untouched, wakeup check 6 green). Next residue:
+R2 EPISTEMOLOGY coherence, R4-R7 lower. CONFIRM-010 freeze anchor =
+commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1429,3 +1434,32 @@ plan (fleet --detach + capacity tool) when it does.
   aggregates-over-the-boundary-row disclosure added. Coverage map row
   updated to B + C + E; accepted slivers (display branches,
   nonzero-maker makerShare path) recorded in the note.
+
+- U72 (session 56): AUDIT-COVERAGE residue R1b CLOSED — the two CAL-001
+  shell instruments got their FIRST fresh-context audit
+  (`knowledge/AUDIT-2026-07-11-CALIB-SHELL-SCRIPTS.md`, verdict
+  sound-with-findings). Auditor independently verified: discovery-log
+  sha256+size match the committed fingerprint; both scripts re-run
+  reproduce every published CALIBRATION.md figure verbatim (coverage
+  7 offsets, integrity battery incl. both mirror deviants); read-only
+  and outcome-free confirmed at line level. 2 MAJOR found, both
+  demonstrated empirically: calib-integrity.sh's exit code covers ONLY
+  latency+errors — a log planted with 8 kinds of violations exits 0
+  (the whole sample battery is print-only); and the malformed detector's
+  ^-anchored regex silently EXCLUDES prefix-mangled lines instead of
+  flagging them (plus epoch= omitted from the field check). 6 MINOR
+  (unknown-asset absorption into the DOWN mirror leg, silent
+  all-zeros pass on a diag-free log, stale trailer deviant count,
+  dead code, non-POSIX grep alternation, cross-script anchor
+  inconsistency). NO UNFREEZE NEEDED: all corrections are procedural —
+  CONFIRMATION-010-REVERSAL-MIRROR.md gained a TIGHTEN-ONLY post-freeze
+  addendum (D41 tighten/abort rule) binding the unlock executor to 5
+  mechanical battery-reading obligations (all counters read not exit
+  code; unanchored grep line-count cross-check; lines==UP+DOWN; lines=0
+  abort; grep-family probe). Frozen bytes untouched — wakeup check 6
+  re-run green post-edit. calib-coverage.sh left unchanged (MINOR-8
+  optional, no consumer; recorded residue). D31 propagation check:
+  sound — pure-append tighten-only confirmed by git diff, all 5
+  obligations faithful, no dropped load-bearing caveat; 1 MINOR
+  ("closed by" → "mitigated on the CONFIRM-010 unlock path", defects
+  remain in the frozen bytes for any other use) applied.

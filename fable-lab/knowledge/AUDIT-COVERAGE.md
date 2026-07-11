@@ -53,7 +53,7 @@ for the artifact name.
 | Tool | Coverage | Events |
 |------|----------|--------|
 | calib.ts / calib2/3/4.ts + selftests | A + C + D | U47/U47b/U47c (selftests audited, anchored), reg audits, U60 reproductions |
-| calib-coverage.sh / calib-integrity.sh | D + C/E | builder-session positive/negative planted-defect validation (D23/U43am); ran in the CAL-001 verdict; integrity script in CONFIRM-010 freeze set (U67b) — NEVER fresh-context audited, and calib-integrity.sh sits on the CONFIRM-010 unlock path: residue R1b |
+| calib-coverage.sh / calib-integrity.sh | A + D + C/E | U72 → AUDIT-2026-07-11-CALIB-SHELL-SCRIPTS.md (first fresh-context audit: published figures reproduced on the fingerprint-verified log; 2 MAJOR — print-only exit code, anchored-regex malformedness blindness — mitigated on the CONFIRM-010 unlock path by a tighten-only spec addendum, frozen bytes untouched — defects remain in the script for any other future use); D23/U43am planted-defect validation; CAL-001 verdict run |
 | submit.ts | A + D | U11a (D8 pins), U52 (boundary−1 + holdout refusal exercised), U58/U58c (fleet stages, BOTH dirty-gate arms exercised end-to-end) |
 | run-backtest.ts (wrapper) | A + D | U23 clamp unit-tested; U37 (D18 guard audited); U54 (idempotent injection, verifier re-proved) |
 | validate-experiment.ts | D | U10 positive+negative fixtures; U55 holdout-rows selftest, all row-count arms exercised |
@@ -96,12 +96,13 @@ for the artifact name.
   `BATTERY-RECOMPUTATION-2026-07-11.md`. Accepted slivers recorded there
   (display branches; nonzero-maker makerShare spot-check deferred to any
   future maker battery read).
-- **R1b `calib-coverage.sh` / `calib-integrity.sh`.** Never fresh-context
-  audited (the CAL-001 checklist audit was text-fidelity only and did not
-  run them); builder-validated with planted defects (D23/U43am).
-  calib-integrity.sh is in the CONFIRM-010 byte-identity freeze set, so it
-  runs at the unlock exactly as-is — the D41 pre-run audit should include
-  it. Small unit.
+- **R1b `calib-coverage.sh` / `calib-integrity.sh` — CLOSED (U72).**
+  First fresh-context audit: `AUDIT-2026-07-11-CALIB-SHELL-SCRIPTS.md`.
+  Sound-with-findings; no unfreeze needed — the CONFIRM-010 unlock
+  executor's battery-reading obligations were tightened (spec addendum)
+  because the frozen script's exit code certifies only latency+errors.
+  MINOR-8 (coverage-script anchor inconsistency) accepted as recorded
+  residue in the report.
 - **R2 EPISTEMOLOGY.md coherence post-amendments.** Thresholds were audited
   in application, but no fresh context has read the amended doc end-to-end
   for internal contradictions since U8 (session 1). Medium unit; medium risk
