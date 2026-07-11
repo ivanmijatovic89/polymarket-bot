@@ -102,3 +102,37 @@ wake-up check 1 takes over (venue-drift refresh procedure).
   but Telonex documents possible gaps before 2026-01-19, and the lab's
   frozen universes/scans all cite the current floor, so this is the
   operator's call and no lab artifact assumes it.
+
+## §quota — Vendor download quota EXHAUSTED, ingestion blocked upstream (2026-07-11, U66/D40)
+
+Measured during the D40 single-market trades schema probe (session 54):
+every download request against the vendor returns **HTTP 403** with body
+
+```
+{"detail":"Download not allowed: limit_reached. Upgrade to Pro for unlimited access."}
+```
+
+Verified on ALL four channels (`book_snapshot_full`, `trades`, `quotes`,
+`onchain_fills`) for a known-good asset/date (the 2025-11-30 E6 market,
+whose book files were downloaded successfully in the past). Zero bytes were
+downloaded; the 403 is issued before any transfer, so the probe spent no
+quota. Consequences:
+
+- **`npm run telonex:download` for the 2,570 pending markets will fail the
+  same way** until the account's limit resets or is upgraded — the
+  ACTION-PENDING hand-off above is blocked on the vendor plan, not on
+  operator time. The payoff schedule's "continuous ingestion" assumption
+  (IDEAS #10 unlock ≈ late September) does not start counting until
+  downloads work again.
+- Likely contributor: the metered catalog sync (~1 GB/run; the lab ran one
+  real + one dry sync in U64). Unknown to the lab: the plan's limit size,
+  reset cadence, or whether 215.89 GB of historical raw downloads consumed
+  it. Only the operator can see the Telonex account dashboard.
+- The D40 trades **schema probe is written and ready**
+  (`tools/trades-schema-probe.ts`, refuses holdout-side markets, no
+  R2/DB writes) — re-run it on `btc-updown-15m-1764461700` once the quota
+  is available; its output is the missing input for the EDGE-SPACE §3.2
+  queue-realistic fill-model design.
+- Lab-side discipline until then: no `telonex:sync` re-runs (each costs
+  ~1 GB of exactly the quota that is exhausted) unless the operator
+  confirms headroom.

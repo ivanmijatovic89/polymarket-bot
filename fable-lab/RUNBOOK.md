@@ -99,8 +99,13 @@ The protocol runs without you except at these points:
 - **Holdout burns**: if a session reports a burned holdout (validator
   counts >1 holdout run), treat it as an incident — the affected lineage's
   confirmation is void.
-- **Growing the dataset (Telonex ingestion) — ACTION PENDING (U64/D38,
-  2026-07-11)**: the eligible universe is frozen at 18,635 markets (last:
+- **Growing the dataset (Telonex ingestion) — BLOCKED UPSTREAM as of
+  2026-07-11 (U66/D40): the vendor key returns HTTP 403 `limit_reached`
+  on ALL download channels — `telonex:download` will fail until the
+  Telonex plan resets or is upgraded (only you can see the account
+  dashboard; details in `knowledge/DATASET-GROWTH.md` §quota). The
+  hand-off below stands once quota exists.** ACTION PENDING (U64/D38,
+  2026-07-11): the eligible universe is frozen at 18,635 markets (last:
   2026-06-14) until `download-raw-files` + `convert` run for the pending
   window. The CATALOG SYNC half is now lab-self-serve (D38: verified
   additive-only; the lab ran it 2026-07-11 and keeps the catalog current) —

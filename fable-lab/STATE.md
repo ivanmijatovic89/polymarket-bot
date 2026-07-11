@@ -1,9 +1,10 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 53, unit U65b (D39 verified: trades-coverage.ts
-splits converted vs awaiting-ingestion; wake-up check 2 baseline pinned
-to the converted bucket — the U64 sync alone moved the raw totals; gate
-2 remains closed)._
+_Last updated: session 54, unit U66 (D40 trades schema probe built and
+run — BLOCKED upstream: vendor key returns 403 `limit_reached` on ALL
+download channels; ingestion of the 2,570 pending markets is blocked on
+the Telonex plan; sync re-runs suspended until operator confirms
+headroom)._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -41,7 +42,11 @@ append-only history at the bottom; new entries still go there._
      the operator's metered key (U64b): re-run `npm run telonex:sync`
      (additive-only, verified) only when the awaiting-max is well behind
      today AND a decision depends on current numbers; download/convert
-     stays the operator's (D38 — never run it from the lab).
+     stays the operator's (D38 — never run it from the lab). QUOTA
+     BLOCKER (U66, 2026-07-11): the vendor key is 403 `limit_reached` on
+     ALL download channels — ingestion cannot happen and sync re-runs
+     are SUSPENDED (each spends ~1 GB of the exhausted quota) until the
+     operator confirms headroom (DATASET-GROWTH.md §quota).
   2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model
@@ -1194,3 +1199,41 @@ plan (fleet --detach + capacity tool) when it does.
   (src/telonex/converters/paired.ts exists; not trades-aware, so the
   CLOSED conclusion stands) — U65 entry reworded to the accurate gate
   formulation; prior Done entries stay as-written (append-only).
+
+- U66 (session 54): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14; 2,570 awaiting ingestion), converted-bucket
+  trades coverage unchanged (17,878/18,635; converters on disk not
+  trades-aware), fleet healthy (32 alive slots / 4 machines, registry
+  probe RESOLVED), no operator commits past the audited point. Unit
+  (DECISIONS D40): narrow D38 carve-out — a lab session may download ONE
+  exploration-window market's `trades` files for schema inspection (no
+  R2, no DB writes, gitignored output), because the EDGE-SPACE §3.2
+  fill-model advocacy was blind to what a trade print actually contains.
+  Built `tools/trades-schema-probe.ts` (tsc clean; refusal branches
+  exercised: missing slug, holdout-side slug). Probe RAN on the E6
+  exploration market and was BLOCKED UPSTREAM: HTTP 403
+  `{"detail":"Download not allowed: limit_reached. Upgrade to Pro..."}`
+  on ALL four channels (control included book_snapshot_full for an
+  asset/date the operator had downloaded before) — the vendor account's
+  metered download quota is EXHAUSTED. Zero bytes transferred. Recorded:
+  DATASET-GROWTH.md §quota (ingestion of the 2,570 pending markets is
+  blocked on the vendor plan; the IDEAS #10 "continuous ingestion" clock
+  does not start until downloads work; lab sync re-runs suspended),
+  RUNBOOK control point re-headed BLOCKED UPSTREAM, EDGE-SPACE §3.2
+  status note, D40 execution note, tools/README row, wake-up check 1
+  updated. Schema question stays OPEN; probe is ready to re-run.
+
+- U66b (session 54): U66 D31-verified by a fresh-context checker
+  (sound-with-findings — it re-ran both refusal branches, tsc, the
+  four-channel 403 reproduction (exact body text), the known-good-asset
+  DB check (4 historical book_snapshot_full rows for the probed asset),
+  every restated figure, hunk-by-hunk no-bar-moved sweep, and confirmed
+  the RUNBOOK hand-off text preserved verbatim under the new BLOCKED
+  header). 3 MINOR, all applied: (1) probe mkdir is now lazy — a
+  fully-403 run leaves no empty directory; (2) DATASET-GROWTH heading
+  now carries the literal `§quota` anchor the cross-references cite;
+  (3) noted here: the Done entry's fleet-health / no-operator-commit
+  claims are session-observed tool outputs (capacity.ts, git log) that a
+  verifier cannot reproduce remotely — standard for wake-up-check
+  assertions. Informational (no action): the probe's inline SQL follows
+  the established lab-tool convention (universe/trades-coverage/calib).

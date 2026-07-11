@@ -170,7 +170,13 @@ and 4). Ordered by cost:
    to emit trade events the replayer forwards. This is the highest-value
    instrumentation on the list: it would replace both bracket ends with
    one queue-realistic measurement on HISTORICAL data, no live activity
-   needed.
+   needed. _U66 status (2026-07-11): the D40 single-market trades schema
+   probe (`tools/trades-schema-probe.ts`) is built but was blocked by the
+   vendor — HTTP 403 `limit_reached` on all channels; the trades-file
+   schema (side/aggressor fields, timestamp resolution, per-market size)
+   remains UNKNOWN and is the first input needed for the fill-model
+   design. Re-run the probe when the operator restores download quota
+   (knowledge/DATASET-GROWTH.md §quota)._
 3. **Live paper at the touch (most direct; needs authorization).** Rest
    tiny GTC quotes at touch on a funded account and measure: fill rate per
    quoted hour, realized fill-to-settlement PnL, adverse-selection decay

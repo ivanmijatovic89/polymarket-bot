@@ -1435,3 +1435,54 @@ sum losslessly to the old single-row output including onchain
 exist (EXISTS cannot double-count), and no trades-aware converter exists
 in src/telonex/converters/ (paired.ts also reads book_snapshot_full) —
 gate 2 CLOSED stands on the accurate formulation._
+
+## D40 — Single-market trades-channel schema probe is lab-permitted (narrow D38 carve-out)
+
+**Date:** 2026-07-11 (session 54, U66)
+
+**Motivating observation:** the queue-realistic fill model (EDGE-SPACE
+§3.2, the top instrumentation option — it would replace both D18 bracket
+ends with one measurement and reopen maker research) is advocated purely
+from catalog METADATA (trades_from/trades_to ranges, U42). Nobody on
+either side has ever seen an actual Telonex `trades` file: its columns,
+whether it carries side/aggressor information, timestamp resolution, and
+per-market size are all unknown. Every design decision about the fill
+model — and the operator's download cost estimate for the trades channel
+— is speculation until one file is inspected. D38 gates "download" as an
+operator action, but its motivating concern was BULK spend (~25 GB raw
+across 17,878+ markets plus R2 storage); a one-market schema probe is a
+different action class.
+
+**Decision:** a lab session MAY download the `trades` channel files for a
+SINGLE market for schema inspection, under all of these conditions:
+- one market per probe, exploration-window only (market_start_ms <
+  holdout boundary), never a holdout market;
+- direct vendor GET with `TELONEX_API_KEY` only — NO R2 upload, NO
+  `telonex_market_files` / any DB write; output goes under gitignored
+  `fable-lab/logs/`;
+- the probe is deliberate: a recorded decision or open design question
+  must depend on the file's contents (this unit: the §3.2 fill-model
+  schema question);
+- findings are committed as knowledge (the file itself stays gitignored).
+Bulk download and conversion remain operator-gated exactly per D38 — this
+carve-out does not extend to more than one market per open question, nor
+to any other channel at bulk scale.
+
+**Rejected alternative:** asking the operator to run the probe — rejected
+because the lab holds the same key the D38-permitted catalog sync already
+uses, the marginal metered cost (one 15m market's trades ≈ KB-scale vs
+the ~1 GB sync D38 permits per deliberate run) is negligible, and the
+schema answer blocks the lab's own advocacy work, not an operator
+decision.
+
+_U66 execution note (session 54, same day): the probe RAN and was blocked
+upstream — the vendor returns HTTP 403 `limit_reached` ("Upgrade to Pro")
+on ALL four channels, including `book_snapshot_full` for an asset/date the
+operator successfully downloaded historically. The account's metered
+download quota is exhausted; zero bytes transferred, zero quota spent by
+the probe. The schema question stays OPEN; `tools/trades-schema-probe.ts`
+is committed and ready to re-run (target `btc-updown-15m-1764461700`) once
+quota exists. Wider consequence recorded in DATASET-GROWTH.md: the
+2,570-market ingestion hand-off is blocked on the vendor plan, and lab
+`telonex:sync` re-runs are suspended (each spends ~1 GB of the exhausted
+quota) unless the operator confirms headroom._
