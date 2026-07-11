@@ -87,7 +87,7 @@ for the artifact name.
 | JUDGE.md | A (whole-doc, U76) + A (session 1) + E | U76/D48 → AUDIT-2026-07-11-JUDGE-CONTRACT.md (first re-audit since session 1: 2 MAJOR — decision enumeration missing park/escalate vs post-D45 rules + unfillable simulator-bias field citing forbidden documents — and 5 MINOR, all fixed in place, tagged revision note; no threshold or isolation rule changed); judge OUTPUTS audited throughout |
 | RUNBOOK.md | A (reconciliation-scoped) | U49b, U53/U54/U58 sections verified in their units |
 | templates/EXPERIMENT.md | A (carrier fix) | U52 (stale boundary rule fixed by verifier finding) |
-| DECISIONS.md (governor compliance: every D cites motivating evidence) | E | never swept as a whole — residue R7 |
+| DECISIONS.md (governor compliance: every D cites motivating evidence) | A (whole-file, U77) | U77 → AUDIT-2026-07-11-DECISIONS-GOVERNOR.md (all 48 entries: sound, no MAJOR; D1–D6 pre-governor by git timestamps; 2 MINOR wording observations — D17 gap-noticed-not-hit, D41 preventive — recorded in the report, no entry edited; lessons path is `knowledge/LESSONS.md`) |
 
 ## 4. Residue — never-directly-verified, ranked by (load-bearing × risk)
 
@@ -131,8 +131,15 @@ for the artifact name.
   2 MAJOR + 5 MINOR drift defects, all fixed in place — worst: the
   decision enumeration forbade park/escalate outcomes that post-D45
   EPISTEMOLOGY, the template, and D18 mandate.
-- **R7 DECISIONS.md governor sweep.** Low value: decisions were made inside
-  verified units; a sweep would mostly re-read history.
+- **R7 DECISIONS.md governor sweep — CLOSED (U77).** Fresh-context sweep of
+  all 48 entries (`AUDIT-2026-07-11-DECISIONS-GOVERNOR.md`): **sound**, no
+  MAJOR — every governor-era entry (D7–D48) states sanctioned evidence and
+  every spot-verified citation is content-consistent; D1–D6 are pre-governor
+  by git timestamps (charter v2 at 22:05, D1–D6 at 20:42 the same day,
+  independently re-verified). 2 MINOR wording observations (D17, D41)
+  recorded in the report only; no decision edited. Disclosed depth caveat:
+  run-ID claims verified one-hop-indirect via the prior DB-level chain
+  audits, not re-queried.
 
 Accepted-forever residue (recorded elsewhere, not re-listed): D29 gitignored
 logs (CAL-001 discovery log sha256-fingerprinted in CALIBRATION-2.md note,
