@@ -131,7 +131,6 @@ export function ChunkedSegmentsLive({ id, totals }: { id: number; totals: Chunke
       ) : (
         <BacktestSummaryTable
           rows={segments}
-          stickyHeader
           leadingHeader="Segment"
           emptyTitle="No segments"
           emptyHint={
