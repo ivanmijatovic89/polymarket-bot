@@ -1,4 +1,5 @@
 import type { MarketStats } from './marketStats.js'
+import { unionBusyMs } from './wallClock.js'
 
 export type BatchStatsFields = {
   /** Starting capital for the backtest batch (USDC). */
@@ -61,10 +62,11 @@ export type BatchStatsFields = {
   /** durationTotalMs / (markets that recorded a duration). Mean compute time
    * per market (ms). 0 when no market in the bucket recorded execution meta. */
   durationAvgMs: number
-  /** Real elapsed span of the run: max(finishedAtMs) − min(startedAtMs) over
-   * markets with execution meta. For the `all` segment this equals the run's
-   * true wall-clock. Includes idle gaps for `--extend` runs (markets processed
-   * in disjoint windows), so it can exceed durationTotalMs. */
+  /** Real elapsed wall-clock: the total length of the UNION of the per-market
+   * [startedAtMs, finishedAtMs] busy intervals over markets with execution
+   * meta. Overlapping intervals (parallel workers) count once; idle gaps
+   * between disjoint windows (e.g. an `--extend` that ran hours later) are
+   * excluded. Always ≤ durationTotalMs. See {@link unionBusyMs}. */
   durationWallClockMs: number
 }
 
@@ -187,12 +189,6 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       if (r.execution?.durationMs != null) {
         a.durationTotalMs += r.execution.durationMs
         a.durationSampleCount += 1
-        if (r.execution.startedAtMs < a.durationMinStartedMs) {
-          a.durationMinStartedMs = r.execution.startedAtMs
-        }
-        if (r.execution.finishedAtMs > a.durationMaxFinishedMs) {
-          a.durationMaxFinishedMs = r.execution.finishedAtMs
-        }
       }
 
       if (r.pnl > 0) {
@@ -269,8 +265,6 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
       streakMaxSkipped: 0,
       durationTotalMs: 0,
       durationSampleCount: 0,
-      durationMinStartedMs: Infinity,
-      durationMaxFinishedMs: -Infinity,
     },
   )
 
@@ -289,10 +283,16 @@ export function computeBatchStats(results: MarketStats[], initialCapital: number
 
   const durationAvgMs =
     acc.durationSampleCount > 0 ? acc.durationTotalMs / acc.durationSampleCount : 0
-  const durationWallClockMs =
-    acc.durationSampleCount > 0 && Number.isFinite(acc.durationMinStartedMs)
-      ? acc.durationMaxFinishedMs - acc.durationMinStartedMs
-      : 0
+  // Union of per-market busy intervals — see unionBusyMs. Excludes idle gaps
+  // between disjoint processing windows (e.g. an --extend run), unlike a naive
+  // max(finished) − min(started) span.
+  const durationWallClockMs = unionBusyMs(
+    results.flatMap((r) =>
+      r.execution?.durationMs != null
+        ? [[r.execution.startedAtMs, r.execution.finishedAtMs] as const]
+        : [],
+    ),
+  )
 
   const pnlsMarketsTotal = results.map((r) => r.pnl)
   const pnlsMarketsPlayed = results.filter((r) => r.pnl > 0 || r.pnl < 0).map((r) => r.pnl)
