@@ -6,14 +6,30 @@
  * experiment with no verdicts is `registered`.
  *
  * Usage: npx tsx fable-lab/tools/index-registry.ts
+ *
+ * FABLE_INDEX_REGISTRY_DIR overrides the registry directory (selftest only —
+ * real regeneration always runs without it); INDEX.md is written next to the
+ * chosen directory's parent either way.
  */
 import { readdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { REGISTRY_DIR, parseSpecFile } from './lib/spec.js'
 
-const INDEX_PATH = join(REGISTRY_DIR, '..', 'INDEX.md')
+// guard (house rule, calib --outcomes precedent): the override exists ONLY
+// for the selftest; refuse anything that is not visibly a selftest path so a
+// stray env var can never silently redirect a real regeneration.
+if (
+  process.env.FABLE_INDEX_REGISTRY_DIR &&
+  !process.env.FABLE_INDEX_REGISTRY_DIR.includes('selftest')
+) {
+  console.error('FABLE_INDEX_REGISTRY_DIR is set but does not contain "selftest" — refusing')
+  process.exit(2)
+}
+const EFFECTIVE_REGISTRY_DIR = process.env.FABLE_INDEX_REGISTRY_DIR || REGISTRY_DIR
+const INDEX_PATH = join(EFFECTIVE_REGISTRY_DIR, '..', 'INDEX.md')
 
-function lastDecision(md: string): string {
+export function lastDecision(md: string): string {
   const decisions = [...md.matchAll(/^\s*[-*]?\s*(?:\*\*)?decision(?:\*\*)?:\s*(.+)$/gim)]
   return decisions.length ? decisions[decisions.length - 1][1].trim() : 'registered'
 }
@@ -21,7 +37,7 @@ function lastDecision(md: string): string {
 function main() {
   let files: string[] = []
   try {
-    files = readdirSync(REGISTRY_DIR)
+    files = readdirSync(EFFECTIVE_REGISTRY_DIR)
       .filter((f) => /^EXP-\d+.*\.md$/i.test(f))
       .sort()
   } catch {
@@ -40,7 +56,7 @@ function main() {
     lines.push('| exp | title | mechanism | status | file |')
     lines.push('|---|---|---|---|---|')
     for (const f of files) {
-      const path = join(REGISTRY_DIR, f)
+      const path = join(EFFECTIVE_REGISTRY_DIR, f)
       const spec = parseSpecFile(path)
       const md = readFileSync(path, 'utf8')
       lines.push(
@@ -53,4 +69,7 @@ function main() {
   console.log(`wrote ${INDEX_PATH} (${files.length} experiments)`)
 }
 
-main()
+// run only when executed directly, not when the selftest imports lastDecision
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+}

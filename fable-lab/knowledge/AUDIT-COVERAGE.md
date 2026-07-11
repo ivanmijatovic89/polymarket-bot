@@ -70,7 +70,7 @@ for the artifact name.
 | fills.ts | C + E | outcome-safety (counts-only) relied on since U29; used as audit instrument in U32/U40; never itself audited — residue R5 |
 | entry-check.ts | C + E | 4 prediction tests reproduced in U32 (tool-mediated) |
 | battery.ts | B + C + E | U71 → BATTERY-RECOMPUTATION-2026-07-11.md: all 10 published rows (8 grid + 2 latency) recomputed from raw rows via SQL aggregates, match at printed precision, tool byte-unchanged since creation; U32 re-ran it (transcription only). Display-only branches + nonzero-maker makerShare path remain unexercised (accepted, see the note) |
-| index-registry.ts | C + E | INDEX-vs-verdict consistency checked U32; U30 parser quirk (blockquote lines ignored) found ad hoc — residue R4 |
+| index-registry.ts + index-registry-selftest.ts | C + D + E | U74/D46 selftest (22 hand-computed assertions: all lastDecision shapes incl. the U30 blockquote quirk pinned, byte-for-byte pipeline comparison, empty/missing-dir arms, override guard); refactor inertness proven by byte-identical real-INDEX regeneration; INDEX-vs-verdict consistency checked U32 |
 | lib/spec.ts | D + E | U10 field-regex bug found via smoke + fixture re-validation; parser feeds validator+submit — residue R5 |
 | detach.mjs | E | dozens of detached evidence runs completed and persisted since D10 |
 | tools/README.md (tool index) | A (completeness-scoped) | U51 completed it grep-verified after its incompleteness caused documented friction; rows updated by later units |
@@ -112,9 +112,11 @@ for the artifact name.
   D35 merge audits catch engine changes; unchanged source can't invalidate
   correct citations. Low urgency; re-audit §-by-§ only if a registration
   leans on a never-again-read claim.
-- **R4 `index-registry.ts` parser.** One quirk class found ad hoc (U30);
-  status derivation never selftested. Consequence bounded: INDEX is derived,
-  verdict files are authoritative, U32 checked consistency once. Small unit.
+- **R4 `index-registry.ts` parser — CLOSED (U74).** Selftest with
+  hand-computed expectations (D46): all matching/non-matching decision-line
+  shapes pinned (incl. the U30 blockquote quirk as intended behavior),
+  byte-for-byte pipeline comparison, empty/missing-dir arms, override
+  refusal guard; refactor proven inert (real INDEX byte-identical).
 - **R5 `fills.ts` outcome-safety + `lib/spec.ts` parser.** Both feed
   discipline-critical paths (outcome-mining safety; frozen-spec → command
   fidelity). spec.ts had one real truncation bug (U10). Small units.

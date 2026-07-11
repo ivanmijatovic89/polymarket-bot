@@ -1,25 +1,17 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 56, units U70-U73. Wake-up checks all quiet via
+_Last updated: session 57, unit U74. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
-closed / fleet 12 slots / no operator drift / CONFIRM-010 freeze
-intact). U70: verification coverage indexed (D44) —
-`knowledge/AUDIT-COVERAGE.md` maps every artifact/tool to its
-verification events with an A-E coverage taxonomy and a ranked residue
-list; gated sessions pick verification-depth targets from the residue
-list instead of re-reading this archive. U71: top residue R1 closed —
-battery.ts math independently recomputed from raw rows, all 10
-published rows match; the D31 verifier also caught that latency runs
-326/327 carry the known E18 boundary-market row (zero-fill, verdict-
-immaterial). U72: R1b closed — first fresh-context audit of the calib
-shell scripts; the frozen integrity script's exit code certifies almost
-nothing (print-only battery), so the CONFIRM-010 unlock executor now
-has 5 binding battery-reading obligations via a tighten-only spec
-addendum (frozen bytes untouched, wakeup check 6 green). U73: R2 closed
-— first whole-doc EPISTEMOLOGY re-audit since session 1; 6 coherence
-defects fixed in place (D45), worst: the post-confirmation handoff
-prescribed an impossible dry-run-fills step. Remaining residue: R3-R7
-(all low). CONFIRM-010 freeze anchor = commit c403d7d._
+closed / fleet 26 slots — grew from 12, informational only / no
+operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
+residue R4 closed — `index-registry.ts` status derivation selftested
+(D46): 22 hand-computed assertions pin every matching/non-matching
+decision-line shape (incl. the U30 blockquote quirk as intended
+behavior), a byte-for-byte pipeline comparison, empty/missing-dir arms,
+and a selftest-only override guard; the enabling refactor proven inert
+by byte-identical real-INDEX regeneration. Remaining residue: R5
+(fills.ts + lib/spec.ts, small units), R3/R6/R7 (low). CONFIRM-010
+freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1495,3 +1487,19 @@ plan (fleet --detach + capacity tool) when it does.
   the probe residual branch propagated to templates/EXPERIMENT.md
   (specs copy decision rules from the template; the hole would have
   re-opened there). No threshold value changed.
+- U74 (session 57): wake-up checks quiet via wakeup.ts exit 0 (universe
+  18,635 / quota 403 / trades gate closed / no drift / freeze intact;
+  fleet 26 slots, up from 12 — informational). AUDIT-COVERAGE residue R4
+  closed (DECISIONS D46): `tools/index-registry-selftest.ts` — 22
+  hand-computed assertions pin the INDEX generator's contract: all
+  matching decision-line shapes (dash/star/bare/bold, indentation,
+  case-insensitive label, value verbatim, last-match-wins), the pinned
+  NON-matches (U30 blockquoted verdicts — now intended behavior; mid-line
+  mentions; "Decision rules:" headers), EXP-*.md filter + lexicographic
+  order, ?-fallback columns, empty/missing-dir arms, and a byte-for-byte
+  full-pipeline INDEX comparison against a hand-written expectation.
+  Enabling refactor (export lastDecision, guard main(), selftest-only
+  FABLE_INDEX_REGISTRY_DIR override behind a "selftest"-substring refusal
+  guard per the calib --outcomes precedent) proven inert: real INDEX.md
+  regenerates byte-identically; tsc clean. AUDIT-COVERAGE rows updated in
+  the same commit per D44.

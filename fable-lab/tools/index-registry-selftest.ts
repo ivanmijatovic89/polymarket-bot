@@ -1,0 +1,164 @@
+/**
+ * index-registry-selftest.ts — mechanical validation of index-registry.ts
+ * (the INDEX.md generator) on SYNTHETIC fixtures with hand-written expected
+ * output.
+ *
+ * Usage: npx tsx fable-lab/tools/index-registry-selftest.ts
+ *
+ * Motivation (AUDIT-COVERAGE residue R4): status derivation (`lastDecision`)
+ * had never been selftested — the one known quirk (U30: blockquoted `> `
+ * verdict lines are ignored) was found ad hoc when it made a real verdict
+ * invisible. INDEX is derived and verdict files stay authoritative, so the
+ * blast radius is bounded, but INDEX is what boot sequences and the operator
+ * read first. This pins the parser's contract:
+ *
+ *   - no decision line → `registered`
+ *   - the LAST matching decision line wins
+ *   - matching shapes: `- decision: x`, `* decision: x`, bare `decision: x`,
+ *     `**decision**: x`, any indentation, case-insensitive label
+ *     (value case/trailing text preserved verbatim)
+ *   - NON-matching shapes (pinned as intended): blockquoted `> - decision:`
+ *     (U30 — INDEX ignores quoted verdicts; verdicts must be plain lines),
+ *     mid-line mentions ("the decision: …"), `Decision rules:` headers
+ *   - file filter: only `EXP-*.md` (case-insensitive), lexicographic order
+ *   - fallback rendering: unparseable title/mechanism → `?` columns
+ *   - empty registry dir and missing registry dir → `_No experiments
+ *     registered yet._` (no crash)
+ *   - FABLE_INDEX_REGISTRY_DIR guard refuses paths without "selftest"
+ *
+ * The full-pipeline check compares the generated INDEX.md BYTE-FOR-BYTE
+ * against a hand-written expected string, so any drift in row shape, sort
+ * order, or status derivation fails loudly.
+ */
+import { execFileSync } from 'node:child_process'
+import { mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { dirname, join } from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { lastDecision } from './index-registry.js'
+
+const HERE = dirname(fileURLToPath(import.meta.url))
+const TOOL = join(HERE, 'index-registry.ts')
+const BASE = join(HERE, '..', 'logs', 'index-registry-selftest')
+
+let fails = 0
+function check(name: string, actual: unknown, expected: unknown) {
+  const ok = actual === expected
+  if (!ok) fails++
+  console.log(`${ok ? 'PASS' : 'FAIL'}  ${name}${ok ? '' : ` — got ${JSON.stringify(actual)}, want ${JSON.stringify(expected)}`}`)
+}
+
+// ---------- 1. lastDecision unit assertions (hand-computed) ----------
+check('no decision line → registered', lastDecision('# EXP-9\nsome spec text\n'), 'registered')
+check('empty input → registered', lastDecision(''), 'registered')
+check('dash bullet', lastDecision('- decision: kill\n'), 'kill')
+check('star bullet', lastDecision('* decision: advance\n'), 'advance')
+check('bare label', lastDecision('decision: park\n'), 'park')
+check('bold label', lastDecision('**decision**: kill\n'), 'kill')
+check('indented (real EXP-001..006 shape)', lastDecision('  - decision: kill\n'), 'kill')
+check('label case-insensitive, value verbatim', lastDecision('- Decision: Kill\n'), 'Kill')
+check('trailing text preserved', lastDecision('- decision: kill (bar met)\n'), 'kill (bar met)')
+check('LAST decision wins', lastDecision('- decision: advance\nnoise\n  - decision: kill\n'), 'kill')
+check(
+  'U30 quirk: blockquoted verdict IGNORED',
+  lastDecision('> - decision: kill\n'),
+  'registered',
+)
+check(
+  'blockquoted later line does not override',
+  lastDecision('- decision: park\n> - decision: kill\n'),
+  'park',
+)
+check('mid-line mention ignored', lastDecision('the decision: escalate was wrong\n'), 'registered')
+check('"Decision rules:" header ignored', lastDecision('- **Decision rules:** q<=0\n'), 'registered')
+
+// ---------- 2. full-pipeline on synthetic fixtures (byte-for-byte) ----------
+const REG = join(BASE, 'experiments')
+rmSync(BASE, { recursive: true, force: true })
+mkdirSync(REG, { recursive: true })
+
+writeFileSync(
+  join(REG, 'EXP-101-no-verdict.md'),
+  '# EXP-101 — no-verdict fixture\n\n- **Mechanism class:** `fixture-a`\n\n## Runs\n(none)\n',
+)
+writeFileSync(
+  join(REG, 'EXP-102-last-wins.md'),
+  '# EXP-102 — last verdict wins\n\n- **Mechanism class:** `fixture-b`\n\n## Verdicts\n- decision: advance\nlater:\n  - decision: park\n',
+)
+// no ' — ' in the title and no mechanism field → all '?' columns; only a
+// blockquoted verdict → status must stay `registered` (U30 pinned end-to-end)
+writeFileSync(
+  join(REG, 'EXP-103-blockquoted.md'),
+  '# EXP-103 blockquoted-only fixture\n\n## Verdicts\n> - decision: kill\n',
+)
+writeFileSync(
+  join(REG, 'EXP-104-shapes.md'),
+  '# EXP-104 — shape coverage\n\n- **Mechanism class:** `fixture-c`\n- **Decision rules:** kill if q<=0\n\n## Verdicts\n* decision: advance\n**decision**: kill (bar met)\nthe decision: escalate was wrong\n',
+)
+writeFileSync(join(REG, 'notes-not-an-experiment.md'), 'decision: advance\n')
+
+const EXPECTED_INDEX = [
+  '# Registry index',
+  '',
+  'Generated by `fable-lab/tools/index-registry.ts` — do not hand-edit.',
+  '',
+  '| exp | title | mechanism | status | file |',
+  '|---|---|---|---|---|',
+  '| EXP-101 | no-verdict fixture | `fixture-a` | registered | [EXP-101-no-verdict.md](./experiments/EXP-101-no-verdict.md) |',
+  '| EXP-102 | last verdict wins | `fixture-b` | park | [EXP-102-last-wins.md](./experiments/EXP-102-last-wins.md) |',
+  '| ? | ? | ? | registered | [EXP-103-blockquoted.md](./experiments/EXP-103-blockquoted.md) |',
+  '| EXP-104 | shape coverage | `fixture-c` | kill (bar met) | [EXP-104-shapes.md](./experiments/EXP-104-shapes.md) |',
+  '',
+].join('\n')
+
+function runTool(registryDir: string): { stdout: string; code: number } {
+  try {
+    const stdout = execFileSync('npx', ['tsx', TOOL], {
+      env: { ...process.env, FABLE_INDEX_REGISTRY_DIR: registryDir },
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    return { stdout, code: 0 }
+  } catch (e: any) {
+    return { stdout: String(e.stdout ?? ''), code: e.status ?? -1 }
+  }
+}
+
+const run = runTool(REG)
+check('pipeline exit 0', run.code, 0)
+check('pipeline reports 4 experiments', run.stdout.includes('(4 experiments)'), true)
+const written = readFileSync(join(BASE, 'INDEX.md'), 'utf8')
+check('generated INDEX byte-identical to hand-written expectation', written, EXPECTED_INDEX)
+
+// ---------- 3. empty and missing registry dirs ----------
+const EMPTY = join(BASE, 'empty-selftest', 'experiments')
+mkdirSync(EMPTY, { recursive: true })
+const runEmpty = runTool(EMPTY)
+check('empty dir exit 0', runEmpty.code, 0)
+check(
+  'empty dir → placeholder line',
+  readFileSync(join(BASE, 'empty-selftest', 'INDEX.md'), 'utf8').includes(
+    '_No experiments registered yet._',
+  ),
+  true,
+)
+const MISSING = join(BASE, 'missing-selftest', 'experiments')
+mkdirSync(join(BASE, 'missing-selftest'), { recursive: true }) // parent only — experiments/ absent
+const runMissing = runTool(MISSING)
+check('missing dir exit 0 (catch arm)', runMissing.code, 0)
+check(
+  'missing dir → placeholder line',
+  readFileSync(join(BASE, 'missing-selftest', 'INDEX.md'), 'utf8').includes(
+    '_No experiments registered yet._',
+  ),
+  true,
+)
+
+// ---------- 4. override guard refusal ----------
+const guarded = runTool(join(HERE, '..', 'logs', 'index-guard-probe'))
+check('guard refuses non-selftest override path (exit 2)', guarded.code, 2)
+
+if (fails > 0) {
+  console.error(`SELFTEST FAILED: ${fails} assertion(s)`)
+  process.exit(1)
+}
+console.log('index-registry selftest: all assertions pass')

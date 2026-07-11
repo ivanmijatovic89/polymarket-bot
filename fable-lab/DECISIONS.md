@@ -1672,3 +1672,34 @@ pre-identified tightening to consider (residue candidate, this entry).
 **Boundaries:** no threshold value changed (t ≥ 2, p ≤ 0.023/k, N sizes,
 D13 minority ≥ 30 all as before); the fixes make the existing rules
 unambiguous, they do not redesign the epistemology.
+
+## D46 — index-registry.ts status derivation is selftested (residue R4 closed)
+
+**Decision (session 57, U74):** `tools/index-registry-selftest.ts` pins the
+INDEX generator's contract with hand-written expectations: `lastDecision`
+shapes (dash/star/bare/bold bullets, indentation, case-insensitive label,
+value/trailing text verbatim, last-match-wins), the pinned NON-matches
+(U30 blockquoted verdicts, mid-line mentions, "Decision rules:" headers),
+the `EXP-*.md` file filter and lexicographic order, `?`-fallback rendering,
+empty/missing registry dirs, and a byte-for-byte full-pipeline comparison
+of the generated INDEX against a hand-written expected file. To make the
+generator importable/testable, `lastDecision` is exported, `main()` is
+guarded to direct execution, and a selftest-only `FABLE_INDEX_REGISTRY_DIR`
+override was added behind a refusal guard (calib `--outcomes` precedent:
+paths must contain "selftest"). Inertness of the refactor proven: the real
+INDEX.md regenerates byte-identically (git diff clean); tsc clean; 22/22
+assertions pass.
+
+**Motivating observation (governor):** AUDIT-COVERAGE residue R4 (D44) —
+the status derivation had never been selftested, and its one known quirk
+(U30: a blockquoted verdict silently renders as `registered`) was found ad
+hoc only when it made a real EXP-007 kill invisible. INDEX is what boot
+sequences and the operator read first; a same-class regression would be
+observationally plausible.
+
+**Boundaries:** the U30 quirk is pinned as INTENDED behavior (verdicts must
+be plain `- decision:` lines — SCIENTIST.md already instructs this); the
+selftest freezes the contract, it does not change what any existing file
+renders as (byte-identity proof). `lib/spec.ts` field parsing remains
+residue R5 — this unit covers it only incidentally via the pipeline
+fixtures' title/mechanism columns.
