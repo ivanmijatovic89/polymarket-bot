@@ -311,3 +311,12 @@ Seasonality: 0 candidates. The candidate branch of §6 fires.
   read is SKIPPED — the false-positive protections that remain are the
   frozen bars above and the fresh-sample screen itself, which is the
   binding test.
+
+### §7 addendum — candidate branch resolved (session 65)
+
+SCR-009 (BATCH-004, the mechanical complement gate on a fresh N=2,000
+reserve-window draw) was **KILLED**: kept fills −1.96c/share, q̂=−0.0404,
+t=−1.81, winRate 0.493 (pooled readout verbatim in BATCH-004 Results).
+Per §6, the maker family is now CLOSED FOR GOOD; IDEAS #22 dead; E30
+carries the transferable lesson. No further maker screens without an
+operator-side instrument change or a D27-confirmed venue-drift fire.

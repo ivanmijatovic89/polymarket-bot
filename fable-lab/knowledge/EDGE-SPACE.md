@@ -38,6 +38,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | taker (warm-mirror screen) | late favorite after wide range (SIGNAL-001 warm cell mirror, in-sample overlap disclosed) | BATCH-002 SCR-006 | kill (default: q̂=+0.0165, t=+0.74 sub-bar; warm cell d diluted ~8× on 4× re-draw) | E26 |
 | maker+settlement | filled-maker instant lock (fill-conditional UP+DOWN pair sums) | BATCH-002 SCR-007 | kill (t=−3.17; p+a+fee > 1 conditional on fill — half model-conditional: hedge leg at real ask+fee) | E26 |
 | maker (ungated touch, skew harvest) | ungated DOWN-side at-touch bid — mirror-consistent harvest of the G2 UP-ask premium (no timing gate) | BATCH-003 SCR-008 | kill by default outcome (q̂=+0.0033, t=+0.07, N=500 — first NON-losing touch cell: premium ≈ adverse-selection cost, break-even at the optimistic bound, no rent) | E29 |
+| maker (measured fill-mix gate) | SCR-008 cell minus the one SIGNAL-003 toxic cell (MID price × l10Imb q5, −5.54c/fill z=−4.30 on 8,130 discovery fills) — the mechanical complement, best expressible fill mix | BATCH-004 SCR-009 | kill (q̂=−0.040, t=−1.81, N=2,000 fresh reserve draw: kept fills −1.96c/share — gate did not transfer; maker family CLOSED for good per SIGNAL-FILLS §6) | E30 |
 
 Summary of the map:
 
@@ -316,7 +317,18 @@ registered only if one of these holds:
   that improves the fill mix relative to resting at touch all window),
   not merely a different gate or a measured gross skew: gated = losing,
   ungated = zero rent, and any gate measured so far only worsened the
-  mix.
+  mix. **CLOSED (session 65, E30): the maker family is closed for good
+  in-model.** The "better fill mix" escape was executed to completion:
+  SIGNAL-003 scanned all 21 causal pre-fill features over 8,130 first
+  fills of the ungated cell (Bonferroni bars), found exactly one
+  candidate toxic cell (MID price × l10Imb top quintile, −5.54c/fill,
+  z=−4.30), and the mechanically derived complement gate — the best
+  fill-mix improvement the data can express — was killed on a fresh
+  N=2,000 reserve-window sample at −1.96c/share (q̂=−0.040, t=−1.81,
+  BATCH-004). Per the pre-committed SIGNAL-FILLS §6 rule, NO further
+  maker registrations, whatever the gate, cell, or story, until either
+  (a) an operator-side fill-model change (queue-realistic model from
+  the trades channel, §3.2) or (b) a D27-confirmed VENUE-DRIFT fire.
 - **New data regimes:** the universe accrues ~96 markets/day. A
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence

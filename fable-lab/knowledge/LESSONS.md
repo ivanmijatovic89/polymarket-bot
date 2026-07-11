@@ -655,3 +655,33 @@ forbids importing the old system's research conclusions._
   mechanism that improves the fill mix; (c) 21 of 21 ledgered ideas
   resolved: 20 dead, #10 parked. The venue prices its own
   regularities.
+- **E30 — the first measured fill-mix gate did not transfer; the
+  at-touch maker family is closed for good** (session 65: SIGNAL-003
+  read → SCR-009 kill; SIGNAL-FILLS §7, BATCH-004). The per-fill
+  toxicity scan (8,130 first fills of the run-472 ungated DOWN touch
+  cell, discovery window) found exactly ONE Bonferroni-clean candidate:
+  MID-price fills [0.35,0.65] taken against a top-quintile UP-book
+  10-level imbalance average −5.54c/fill (z=−4.30, n=1,435) — fill
+  toxicity IS partially predictable from causal pre-fill tick state
+  (the first such separation measured in this lab). But the arithmetic
+  was already hollow at the read: the scan's own global anchor measured
+  −1.01c (not E29's zero), and the mechanical complement of the flagged
+  cell measured −0.04c on discovery — excising the worst identifiable
+  fills brought the population to zero, not to profit. The fresh-sample
+  test (SCR-009: same cell + gate, N=2,000 reserve-window draw,
+  touch_or_better bound) measured the kept fills at −1.96c/share
+  (q̂=−0.040, t=−1.81) — KILL on the frozen bar. Transfer: (a) "exclude
+  the measured-toxic subset" is not an edge factory — the E29 zero was
+  an EQUILIBRIUM average, and its profitable-complement arithmetic
+  collapsed under the measured anchor + winner's curse + window drift;
+  (b) discovery-window fill economics did not transfer to the reserve
+  window even directionally (0 → −1.96c/share for an overlapping fill
+  population) — fresh-sample confirmation is not ceremony, it is where
+  candidates die; (c) closure state: taker priced fairly everywhere
+  expressible (E9-E23), maker adverse-to-zero under the engine's MOST
+  OPTIMISTIC fill bound at both gated and ungated ends (E19/E29/E30) —
+  ALL 22 ledgered ideas resolved (21 dead, #10 parked). The next unit
+  of maker work requires an operator-side instrument (queue-realistic
+  fill model from the trades channel, EDGE-SPACE §3.2) or a
+  D27-confirmed venue regime change; the next unit of taker work
+  requires dataset growth past the U45 confirmability envelope.

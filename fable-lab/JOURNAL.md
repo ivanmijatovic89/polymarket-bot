@@ -161,3 +161,4 @@
 19:37 SCR-009 frozen and pushed: SCR-008 cell + the gate (skip MID-price quotes when UP-book 10-level imbalance >= 0.64). Drawing 2000 fresh reserve-window markets, smoking, then launching 6 local shards.
 19:42 Frontier re-checked: the imbalance signal was already null on the taker side (SIGNAL-001), so SCR-009 really is the last expressible attempt in this dataset — no forced extra screens. Shards ~10 min out; preparing the extension slug list and the walk-away handoff meanwhile.
 19:44 SCR-009 shards halfway (~170/334 per shard). Read procedure staged: pool tool committed, extension lists ready, verdict branches pre-planned.
+19:58 SCR-009 results: KILLED. On 2000 fresh markets the gated strategy lost 1.96c/share (t=-1.8) — the toxic-cell gate did not rescue the maker family. Per the pre-committed rule the whole maker direction is now CLOSED for good. Writing the lesson + closures, then the walk-away handoff.

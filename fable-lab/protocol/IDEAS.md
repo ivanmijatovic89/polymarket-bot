@@ -348,3 +348,8 @@ Ordered; top entries get registered first.
   arithmetic disclosed: measured global anchor −1.01c, kept-fill
   complement ≈ −0.04c — prediction ≈ 0; screen bars decide. If SCR-009
   kills, this entry is DEAD and the maker family closes for good._
+  _RESOLVED (session 65, U103): **DEAD.** SCR-009 (BATCH-004) killed on
+  the frozen bar — the mechanical complement gate lost −1.96c/share on
+  2,000 fresh reserve-window markets (q̂=−0.040, t=−1.81). Maker family
+  CLOSED FOR GOOD per SIGNAL-FILLS §6/§7 + E30. All 22 ideas resolved:
+  21 dead, #10 parked (CONFIRM-010)._

@@ -110,4 +110,43 @@ committed alongside; cell = schema defaults._
 
 ## Results (append-only, after all shards complete)
 
-_(empty until run)_
+_Read session 65, ~22:05 UTC. All six shards exited clean (1 elapsedTime
+block each, no failure lines). Pooled readout (`tools/scr009-pool.ts`,
+committed pre-read), output verbatim:_
+
+```
+SCR-009-touch-s0: run 486 status=completed markets=334
+SCR-009-touch-s1: run 485 status=completed markets=334
+SCR-009-touch-s2: run 482 status=completed markets=333
+SCR-009-touch-s3: run 483 status=completed markets=333
+SCR-009-touch-s4: run 484 status=completed markets=333
+SCR-009-touch-s5: run 481 status=completed markets=333
+POOLED: N=2000 played=1992 won/lost=982/1010 winRate=0.4930
+  evPerMarket=-1.9585 sd=48.4984 q=-0.0404 t=-1.8060 CI95=[-4.0840, 0.1670]
+  makerTrades=1992 takerTrades=0 feesTotal=0.0000
+```
+
+(winRate here = won/(won+lost), the pool tool's convention; played
+convention would give 982/1992 = 0.4930 as well since ties are rare.)
+
+### Verdict: SCR-009 — **KILL** (default bar: q̂ ≤ 0)
+
+- q̂ = −0.0404 ≤ 0 → KILL. t = −1.81 (CI95 barely includes 0 from
+  below). Prediction NOT met under either disclosed anchor: the kept
+  fills average −1.96c/share on fresh reserve-window data, vs the
+  −0.04c measured-anchor complement on discovery and the +1.19c frozen
+  zero-anchor formula.
+- Amendment 1 (extension): does NOT fire — requires q̂ > 0. Amendment 2:
+  no fresh-context checker — kill at these bars is self-certifying.
+- D18 conditional: this is a touch_or_better (optimistic-bound) result —
+  the kill is decisive under the most favorable fill assumption the
+  engine can express (the realistic fill model can only be worse).
+- Attribution caveat (recorded, no verdict impact): two things changed
+  vs run 472 (gate added; window moved discovery→reserve). The −1.96c
+  vs −0.04c gap is confounded between gate winner's curse and window
+  drift; the frozen closure rule does not need the attribution.
+- **Consequence (SIGNAL-FILLS §6, pre-committed): the maker family
+  CLOSES FOR GOOD.** IDEAS #22 → dead (all 22 ledgered ideas resolved:
+  21 dead, #10 parked pending CONFIRM-010 unlock). No further maker
+  screens without an operator-side instrument change (queue-realistic
+  fill model per EDGE-SPACE §3.2) or a D27-confirmed venue-drift fire.
