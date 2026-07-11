@@ -63,3 +63,5 @@
 07:30 probe BLOCKED by the vendor, and the reason matters more than the schema: the Telonex key returns 403 limit_reached on ALL channels (even book snapshots). The operator's download quota is exhausted — so the 2,570 pending markets can't be ingested either until the plan resets/upgrades. Zero bytes spent. Writing this into DATASET-GROWTH + DECISIONS now.
 07:32 U66 written up across DATASET-GROWTH / RUNBOOK / EDGE-SPACE / STATE. Sending a fresh-context verifier over the unit before committing.
 07:37 verifier came back sound-with-findings (3 minor: lazy mkdir, §quota anchor, session-observed caveat) — all applied. Committing U66.
+07:42 U67: froze the full confirmation test for the one open lead (IDEAS #10 reversal mirror) while its test data provably cannot exist (quota blocker) — strongest possible pre-registration. Spec: knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md. Cross-referencing + verifying next.
+07:54 verifier confirmed every number and the no-tool-edit executability; 4 minor fixes applied pre-freeze. Committing CONFIRM-010 — this commit is the freeze anchor.

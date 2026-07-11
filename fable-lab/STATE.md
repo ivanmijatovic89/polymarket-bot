@@ -24,7 +24,10 @@ append-only history at the bottom; new entries still go there._
   via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
   mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a
   NEW instrument or reserve-window evidence under full
-  pre-registration); maker in-model needs a cell/gate that escapes
+  pre-registration — FROZEN pre-data at
+  `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` (U67/D41): at the
+  IDEAS #10 unlock, execute that spec, do not redesign the test);
+  maker in-model needs a cell/gate that escapes
   E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
   change. Legitimate non-registration work:
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated
@@ -1237,3 +1240,38 @@ plan (fleet --detach + capacity tool) when it does.
   verifier cannot reproduce remotely — standard for wake-up-check
   assertions. Informational (no action): the probe's inline SQL follows
   the established lab-tool convention (universe/trades-coverage/calib).
+
+- U67 (session 54): CONFIRM-010 FROZEN PRE-DATA (DECISIONS D41) — the
+  full confirmation test for IDEAS #10 (the E22 up-dn reversal mirror,
+  the lab's only open positive lead) is pre-registered in
+  `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` while the fresh
+  window's data provably cannot be obtained (U66 quota blocker), so no
+  future session can design the test after seeing any of it. Frozen:
+  sample rule (reserve 5,460 [2026-03-01 → boundary−1] + FIRST 9,540
+  fresh eligible markets from 1781430300000 ascending = 15,000; holdout
+  excluded by construction), instrument (two local detached diag-calib
+  runs, D23 battery, one-shot calib3.ts --expect-totals read on the
+  concatenated log; fleet unusable — calib reads local logs), decision
+  cell DOWN (450-600-750, up-dn) ONLY, bar CONFIRM iff net>0 ∧ z≥2.00 ∧
+  minority≥30 else KILL (calib3's own 3.26 reserve flag explicitly not
+  the bar; power figures cited from the U45-audited IDEAS #10 entry, not
+  re-derived). Mechanical unlock preconditions: ≥9,540 fresh eligible,
+  D27-quiet drift refresh, byte-identity of calib3.ts +
+  _fixtures/diag-calib.ts since the freeze commit, fresh-context pre-run
+  audit (tighten/abort only). Cross-refs: IDEAS #10 pointer, EDGE-SPACE
+  §4 open-point pointer, STATE Next bullet.
+
+- U67b (session 54): U67 D31-verified pre-freeze by a fresh-context
+  checker (sound-with-findings — every ms bound, count, power figure,
+  z/α convention, cell name, and the no-tool-edit-needed executability
+  of calib3.ts reserve mode on a concatenated log independently
+  reproduced; holdout untouchability confirmed at the engine's
+  inclusive-bounds level; "fleet unusable" claim confirmed). 4 MINOR,
+  all applied BEFORE the freeze commit: (1) unlock-section provenance
+  split (items from IDEAS #10 vs added-at-freeze tightenings); (2)
+  calib-integrity.sh added to the byte-identity list + the spec now
+  pins the expected epoch ranges per window (the script's discovery-
+  framed print-only trailer would otherwise invite an ad-hoc edit at
+  run time); (3) run A count MUST equal 5,460 — deviation is a pre-run-
+  audit investigation; (4) reserve bounds restated in ms. The freeze
+  commit is the one carrying this entry (byte-identity anchors here).

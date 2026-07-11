@@ -238,3 +238,7 @@ Ordered; top entries get registered first.
   below decision power on the tradable side; EXP-003/005 tested different
   taker triggers (post-jump, first-minute). Any registration MUST cite
   this entry and the unlock condition, not the discovery table alone.
+- **Confirmation test FROZEN pre-data (U67/D41, 2026-07-11):**
+  `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` — full pre-registration
+  written while the fresh window's data could not be obtained (U66 vendor
+  quota blocker). At unlock, execute THAT spec; do not redesign the test.

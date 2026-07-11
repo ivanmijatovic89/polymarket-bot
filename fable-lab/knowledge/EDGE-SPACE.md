@@ -235,7 +235,9 @@ registered only if one of these holds:
   per the clause above — the up-dn mirror at ≈ +2.4c net is the
   concrete open point, but citing it requires a NEW instrument or
   reserve-window evidence under full pre-registration, not the
-  discovery table).
+  discovery table — that pre-registration is now FROZEN pre-data:
+  `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` (U67/D41); at the
+  IDEAS #10 unlock, execute that spec rather than designing a test).
 - **Maker, in-model:** the fill trigger must NOT be "the book moves
   through my level" under worst_queue. §3.1 has landed (D18, U35): the
   touch_or_better OPTIMISTIC bound is registrable — full pre-registration

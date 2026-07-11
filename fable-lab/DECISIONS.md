@@ -1486,3 +1486,41 @@ quota exists. Wider consequence recorded in DATASET-GROWTH.md: the
 2,570-market ingestion hand-off is blocked on the vendor plan, and lab
 `telonex:sync` re-runs are suspended (each spends ~1 GB of the exhausted
 quota) unless the operator confirms headroom._
+
+## D41 — CONFIRM-010 frozen pre-data: the IDEAS #10 confirmation test is fully pre-registered while its test data cannot exist
+
+**Date:** 2026-07-11 (session 54, U67)
+
+**Motivating observation:** IDEAS #10 (the E22 up-dn reversal mirror,
+net +2.38c at z=+2.40 — the lab's only open positive lead) unlocks at
+~15,000 markets of reserve+fresh data and then requires "full
+pre-registration". Left to the unlock moment, the spec would be written
+by a session that may already have seen fresh-window drift stats,
+coverage numbers, or partial ingestion — the exact after-the-fact design
+surface D25/D31 keep catching in weaker forms (silently moved bars).
+Today the fresh window's data provably cannot be obtained at all (U66:
+vendor quota exhausted, all download channels 403), so a spec frozen now
+predates any possible access to the test data.
+
+**Decision:** `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` freezes the
+complete confirmation test: sample rule (reserve 5,460 + FIRST 9,540
+fresh eligible markets from 1781430300000, combined 15,000; holdout
+excluded by construction), instrument (two local detached diag-calib
+runs + D23 battery + one-shot calib3.ts --expect-totals read),
+single pre-named decision cell DOWN (450-600-750, up-dn), and decision
+rule (CONFIRM iff net>0 ∧ z≥2.00 ∧ minority≥30, else KILL — the tool's
+own 3.26 reserve flag explicitly NOT the bar), all figures cited from
+the U45-audited IDEAS #10 arithmetic without re-derivation. Unlock
+preconditions are mechanical (≥9,540 fresh eligible; D27-quiet drift
+refresh; byte-identity of calib3.ts + diag-calib.ts since the freeze
+commit; fresh-context pre-run audit that may tighten/abort but never
+loosen). Post-freeze amendments may only correct mechanical errors or
+void the spec on a confirmed drift fire.
+
+**Rejected alternative:** waiting for the unlock to write the spec —
+rejected because it spends the one cheap, provable pre-data moment; and
+registering a strategy-based EXP now instead — rejected because the
+confirmation instrument (calib3 reserve mode) already exists, is
+selftested and audited, and measures the identical sampling semantics
+the hypothesis came from; a live-parity strategy is the CONFIRM branch's
+next step, not a prerequisite.
