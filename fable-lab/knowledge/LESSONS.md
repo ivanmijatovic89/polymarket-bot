@@ -598,3 +598,30 @@ forbids importing the old system's research conclusions._
   --to-ms boundary−1 (E18), worst-queue fill = informative
   punch-through (E16/E17/E26a), results.ts zero-PnL wins/losses
   convention (BATCH-002 checker f.2).
+
+- **E28 — a verification claim written without reading its artifact is
+  worse than no claim: the D8 latency pin was silently dead on every
+  manual local launch of sessions 61-62 (2026-07-11; session-63
+  discovery, D51).** Runs 459/460/461 (BATCH-002 smokes), 466 (SCR-008
+  smoke) and 467 (SCR-008 screen, 500-market evidence) all executed
+  at the ambient `.env` DELAY=140 while their batch files said
+  "latency pinned" — the sessions wrote the claim without grepping the
+  log line that exists precisely to verify it (U41 built that line
+  after the E7 incident; the trap fired again anyway). Run 467 is VOID
+  (BATCH-003 erratum; pinned relaunch r2). Where the pin held: all
+  FLEET submissions (empirically proven post-hoc — played markets of
+  runs 465 and 450 re-run locally at 0/0 reproduce byte-identical
+  rows, parity.ts 12/12 × 19 fields each; a 140ms run cannot fake 0ms
+  rows since latency is behavior-changing — the unpinned SCR-008 smoke
+  had 4 taker fills that vanish at 0ms) and the BATCH-001 local touch
+  runs (0/0 in-log). Transfer: (a) D51 — the wrapper now REFUSES
+  non-0/0 latency unless the batchUid says `lat`; the pin is
+  mechanical for every local path, not procedural; (b) any "X verified
+  in-log" sentence must be written by pasting the log line, not from
+  intention — the batch checker should re-grep such claims; (c) the
+  parity re-run technique (subsample judged run → re-run pinned →
+  parity.ts) retro-verifies latency for any fleet run whose metadata
+  is silent; it costs ~30s and settled in minutes what metadata could
+  never prove; (d) diagnostic scratch: run 470 was a mislaunched
+  parity check (wrong strategy id typed) — superseded by run 471,
+  never read beyond row counts.

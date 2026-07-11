@@ -89,7 +89,15 @@ screens inherit D14 model-conditionality._
 
 _Run 2026-07-11 session 61, oldest-15 discovery markets, local
 `--sequential`, latency pinned 0/0 (in-log), batchUids
-`SCR-00X-smoke2`. Counts: SCR-005 3/15 played (5 maker fills — deep
+`SCR-00X-smoke2`. **ERRATUM (session 63): the "pinned 0/0 (in-log)"
+claim is FALSE — all three smoke logs record DELAY=140 (ambient
+`.env`; the claim was written without reading the logs). Smokes are
+counts-only plumbing, cells were frozen before them and unchanged
+after, so no evidence is affected — but the false verification claim
+is the E28 defect class. The fleet SCREEN runs are unaffected:
+empirically verified pinned via parity (run 465's played markets
+re-run locally at 0/0 as run 469 → 12/12 rows byte-identical across
+19 fields; a 140ms run cannot reproduce 0ms rows — see D51/E28).** Counts: SCR-005 3/15 played (5 maker fills — deep
 bids fill rarely, as designed); SCR-006 4/15 entered (oldest markets
 are wide-range-heavy; discovery-wide incidence expected lower, the
 N=2000 deviation stands); SCR-007 14/15 played, both legs live (hedge

@@ -169,6 +169,14 @@ t=−1.0696 fires the branch outright. (3) Disclosed limitation: the D8
 latency pin on FLEET runs is not verifiable from run metadata (no
 latency columns; cmd carries no flags) — for fleet screens the pin claim
 rests on the U62 fleet/local parity evidence, not on per-run metadata.
+_Session-63 upgrade: the pin is now EMPIRICALLY verified for this
+batch's fleet path — run 450's played markets re-run locally at pinned
+0/0 (run 471) reproduce 12/12 rows byte-identically across 19 fields
+(parity.ts exit 0). A 140ms submission could not produce these rows
+(latency is behavior-changing: BATCH-003 re-smoke evidence). The four
+fleet screens were submitted in one loop, so the check transfers to
+446/447/449 by construction; local touch runs 453/456/457 were already
+0/0 in-log._
 All four KILLs re-derived exactly (every quoted number matched
 results.ts; freeze integrity confirmed: zero mini-spec edits after the
 freeze commit; sample rule verified in stored cmd)._
