@@ -222,6 +222,16 @@ BEFORE the one-shot read, none touches `signal3-scan.ts` or the fixture)
     and skipped — the frozen tool must not be edited pre-read, and the
     honor-system scope here is a single session with the rule written.
 
+- **Amendment 3 (session 65, pre-read — D53):** the candidate-branch
+  fresh-screen sample rule in §6 ("post-discovery markets or a fresh
+  random draw from the reserve-free region") is frozen to ONE mechanical
+  rule: a uniform random draw of N from the reserve window
+  `--from-ms 1772323200000 --to-ms 1777237199999 --random --limit N`
+  (N per D49 sizing with the E26c discount). Rationale, CONFIRM-010
+  non-interference argument, and rejected alternatives in DECISIONS D53.
+  Frozen while shards were still running, before any log line or outcome
+  was read.
+
 ## 7. Results (append-only, written after the one-shot read)
 
 _(empty until all shards complete + coverage accounting clean)_

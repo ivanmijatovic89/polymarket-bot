@@ -1996,3 +1996,40 @@ amendment 2 (cell-grid + seasonality families pinned with planted
 U-shape and day-of-week effects) the selftest has 23 assertions, 23
 PASS grep-verified. Full audit: knowledge/AUDIT-2026-07-11-SIGNAL-003-REG.md;
 amendments frozen pre-read in SIGNAL-FILLS.md §6c._
+
+## D53 — SIGNAL-003 candidate-branch sample rule frozen pre-read (session 65, 2026-07-11)
+
+**Decision:** if the SIGNAL-003 one-shot read produces a gateable
+candidate, the mandated fresh D49 screen samples from the **reserve
+window** — a uniform random draw of N (per D49 sizing incl. the E26c
+winner's-curse discount and incidence arithmetic) from eligible markets
+in `[2026-03-01T00:00:00Z, boundary−1]` = `--from-ms 1772323200000
+--to-ms 1777237199999 --random --limit N`. Disjointness from the scan's
+discovery sample is guaranteed by the window itself. The drawn slugs are
+recorded in the batch file (outcome exposure accounting).
+
+**Motivating evidence (governor):** SIGNAL-FILLS §6 leaves the fresh
+sample ambiguous ("post-discovery markets or a fresh random draw from
+the reserve-free region") — a post-hoc sample choice made AFTER seeing
+which feature is a candidate is exactly the bias-channel class the
+registration audit's MAJOR 2 closed for gate shapes (§6c amendment 1).
+Frozen now, before any shard line or outcome is read (shards still
+running at freeze time).
+
+**Why the reserve window is spendable at screen grade:** the only fresh
+non-holdout data is the reserve (discovery < 2026-03-01 is fully
+consumed by the scan; ≥ boundary is the locked holdout; re-using
+discovery markets for the gate screen is the in-sample trap §0 forbids).
+CONFIRM-010 — the reserve's other claimant — was frozen pre-data at
+c403d7d with zero remaining design freedom (bars, cells, tool, window
+rules all byte-frozen; wakeup verifies byte-identity), so exposing ≤N
+reserve-market outcomes to an unrelated screen cannot bias it
+mechanically; its first-N sanity check counts eligible markets, which a
+read does not change. Cost disclosed: the drawn markets lose pristine
+status for any FUTURE not-yet-frozen test design; bounded at N per
+candidate batch.
+
+**Rejected alternatives:** (a) re-run on discovery markets — in-sample,
+forbidden; (b) wait for universe growth — contradicts the operator
+exploration mandate (months-scale pause); (c) spend the holdout — locked
+by charter until final-confirmation rules say otherwise.
