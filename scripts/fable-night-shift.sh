@@ -10,7 +10,11 @@
 #
 # Usage (run from the MAIN checkout, not the worktree):
 #   ./scripts/fable-night-shift.sh            # start / resume the night shift
-#   MAX_RUNS=50 ./scripts/fable-night-shift.sh
+#   MAX_RUNS=10 ./scripts/fable-night-shift.sh
+#
+# MAX_RUNS is the BUDGET knob: sessions are expensive (tens of $ API-equiv
+# each when active), so size MAX_RUNS to what you want to spend, launch
+# deliberately (e.g. nightly), and read the total cost printed at the end.
 #
 # Overnight launch (recommended): tmux keeps it alive if the terminal closes,
 # caffeinate keeps the Mac awake — tmux alone does NOT prevent system sleep:
@@ -247,6 +251,8 @@ while [ "$run" -lt "$MAX_RUNS" ]; do
     turns:         .num_turns,
     duration_s:    (.duration_ms/1000)
   }' 2>/dev/null || echo "(no result line — session may have been killed)"
+  RUN_COST=$(grep '"type":"result"' "$LOG" | tail -1 | jq -r '.total_cost_usd // 0' 2>/dev/null || echo 0)
+  TOTAL_COST=$(echo "${TOTAL_COST:-0} + ${RUN_COST:-0}" | bc)
 
   [ -f "${WT}/${LAB}/DONE" ] && { echo "[night-shift] DONE (operator kill-switch) — stopping."; break; }
 
@@ -260,4 +266,5 @@ while [ "$run" -lt "$MAX_RUNS" ]; do
   fi
 done
 
-echo "[night-shift] finished after ${run} run(s). Review: cd ${WT} && git log --oneline main..${BRANCH}"
+echo "[night-shift] finished after ${run} run(s) — total cost this invocation: \$${TOTAL_COST:-0} (API-equivalent)"
+echo "[night-shift] review: cd ${WT} && git log --oneline main..${BRANCH}"
