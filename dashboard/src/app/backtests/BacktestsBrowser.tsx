@@ -78,6 +78,7 @@ export function BacktestsBrowser() {
       <BacktestsFilters value={filters} onChange={update} />
       <BacktestsTable
         {...tableProps}
+        stickyHeader
         emptyHint="Try widening the filters or removing the symbol / strategy constraint."
       />
     </div>

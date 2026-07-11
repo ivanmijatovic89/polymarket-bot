@@ -1,9 +1,12 @@
-import type { ReactNode } from 'react'
+'use client'
+
+import { useRef, type ReactNode } from 'react'
 import { History, TrendingDown, TrendingUp } from 'lucide-react'
 import { Card } from './ui/card'
 import { Badge } from './ui/badge'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from './ui/table'
 import { cn, formatPnl } from '@/lib/utils'
+import { useStickyTableHeader } from '@/lib/useStickyTableHeader'
 import { ParamsTooltip } from './ParamsTooltip'
 
 /**
@@ -80,6 +83,10 @@ export type BacktestSummaryTableProps<T extends BacktestSummary> = {
      * Defaults to using the regular extraColumns.render(row, -1). */
     renderActions?: ReactNode
   }
+  /** When true, the header follows the page down as a viewport-pinned bar (via
+   * `useStickyTableHeader`). The page scrolls normally — no inner scroll box or
+   * side scrollbar. Off by default so embeds keep a plain static header. */
+  stickyHeader?: boolean
 }
 
 function pair(a: number, b: number): string {
@@ -115,7 +122,10 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
   emptyHint = 'Past runs will appear here.',
   extraColumns,
   footerRow,
+  stickyHeader = false,
 }: BacktestSummaryTableProps<T>) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  useStickyTableHeader(scrollRef, { enabled: stickyHeader })
   function renderDataRow(
     b: T,
     i: number,
@@ -283,8 +293,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
   }
   return (
     <Card className="overflow-hidden">
-      <Table containerClassName="max-h-[calc(100vh-16rem)]">
-          <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_var(--border)]">
+      <Table containerRef={scrollRef}>
+          <TableHeader>
             <TableRow className="border-b-0 hover:bg-transparent">
               {prefixColumns?.map((c, i) => (
                 <TableHead
