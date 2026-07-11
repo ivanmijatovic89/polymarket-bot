@@ -1,9 +1,15 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, units U74-U76b. Wake-up checks all quiet via
-wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
-closed / fleet 26 slots — grew from 12, informational only / no
-operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
+_Last updated: session 60 (resumed 2026-07-11 ~17:53). Wake-up checks
+all quiet via wakeup.ts exit 0 (universe 18,635 / quota still 403 /
+trades gate closed / fleet 30 slots — informational / no operator
+drift / CONFIRM-010 freeze intact). Session 59's detached runs SURVIVED
+the session boundary: SIGNAL-001 shards s0-s2 complete, s3-s5 still
+replaying; SCR-004r touch screen mid-run. This session finishes the
+in-flight work: SCR-004r/t/o verdicts, then the one-shot signal-scan
+read after all shards + clean coverage accounting. Older session-57
+summary follows below._
+_(Session 57 summary: U74: AUDIT-COVERAGE
 residue R4 closed — `index-registry.ts` status derivation selftested
 (D46, 25 hand-computed assertions: the enumerated decision-line shapes
 incl. the U30 blockquote quirk pinned as intended behavior, a
@@ -27,7 +33,7 @@ park/escalate outcomes that post-D45 EPISTEMOLOGY, the template, and
 D18 mandate; and the simulator-bias field cited documents the Judge is
 forbidden to see) — all fixed in place, no threshold or isolation rule
 changed. Remaining residue: R3, R7 (both low). CONFIRM-010 freeze
-anchor = commit c403d7d._
+anchor = commit c403d7d.)_
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -35,7 +41,17 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- (nothing in flight)
+- **SIGNAL-001 discovery replay** (session 59 launch, detached): shards
+  s0-s2 COMPLETE (logs `fable-lab/logs/SIGNAL-001-shard[0-2].log`, clean
+  end summaries); s3-s5 still replaying as of session 60 start. After ALL
+  complete: coverage accounting (loaded counts must sum to 8,516,
+  disjointness re-checked), then the ONE-SHOT `tools/signal-scan.ts` read
+  → SIGNAL-MAP.md §3.
+- **SCR-004r** (E22 reversal monetization, touch bound, local): mid-run,
+  batchUid SCR-004r-touch-screen, log `fable-lab/logs/SCR-004r-touch-screen.log`.
+  Verdict per BATCH-001 bars + D18 (kill/escalate only) when done.
+- **SCR-004t / SCR-004o**: queued — launch locally as cores free up
+  (same sample rule, batchUid must contain `touch`).
 
 ## Next
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
