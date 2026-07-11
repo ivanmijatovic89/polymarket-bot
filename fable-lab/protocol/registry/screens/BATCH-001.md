@@ -129,3 +129,32 @@ low-incidence (~7-13%); at N=500 expect ~35-65 played — q̂-sign kill
 semantics apply either way (kill-biased by design)._
 
 ## Verdicts (append-only after runs complete)
+
+_Read 2026-07-11 session 59 via `tools/results.ts --run <id>`; all four
+fleet runs completed 500/500 markets, 0 failures, commit 50a76f3 (the
+freeze anchor's push). Screen-grade verdicts per SCREENING.md bars; batch
+checker to follow._
+
+- **SCR-001a — KILL** (run 450, played 465): q̂=−0.0813, t=−1.82,
+  EV/market −2.75 CI95=[−5.72,+0.21]; winRate(played) 0.7849 vs entry ask
+  ≈ 0.81 → prediction CONTRADICTED. Two kill branches fire (q̂≤0 with
+  t≤−1; contradiction). First-arrival continuation at 0.80 pays the
+  spread for a fair coin: the crossing side's ask is already ≥ fair at
+  the crossing tick — event-time entry meets the same adversely-adjusted
+  ask as fixed-time entry (E20 extended to first-passage conditioning).
+- **SCR-001b — KILL** (run 446, played 463): q̂=−0.0024, t=−0.05;
+  winRate(played) 0.1901 vs entry ask ≈ 0.19 → prediction NOT held
+  (no overshoot: the longshot at first passage is priced fair). Minority
+  count 88 ≥ 30 (E14 rule satisfied — the null is well-measured). Kill
+  branch: q̂ ≤ 0.
+- **SCR-002 — KILL** (run 447, played 474): q̂=−0.0348, t=−0.78; winRate
+  0.5169 at mid-range entries, EV −0.94/market. Kill branch: q̂ ≤ 0.
+  Depth-withdrawal points the WRONG way or too late — no tradable
+  momentum after fee+spread. (Gate fired in 95% of markets — loosely
+  selective as flagged pre-freeze; the conditional mean tracked the
+  unconditional E20 null as predicted in the smoke note.)
+- **SCR-003 — KILL** (run 449, played 219): q̂=−0.0478, t=−1.07; winRate
+  0.4795, EV −1.04/market. Kill branches: q̂ ≤ 0 (t within −1 rounding:
+  −1.07 ≤ −1 also fires). Directional quote-revision flow at a flat mid
+  does NOT predict the outcome — one-sided revisions are already-adjusted
+  quotes, not pending flow (E11's lesson extends from stocks to rates).
