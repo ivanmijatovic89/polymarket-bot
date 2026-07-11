@@ -340,3 +340,11 @@ Ordered; top entries get registered first.
   scan `tools/signal3-scan.ts` (selftest 17/17). Discovery shards
   pending; this entry resolves at the one-shot read (dead on null,
   gate-screen on candidate)._
+  _Update (session 65, U101): SIGNAL-003 READ — ONE cell-grid candidate
+  (MID fPrice × l10Imb q5: −5.54c/fill, z=−4.30, n=1,435; verbatim in
+  SIGNAL-FILLS §7). Candidate branch fired: mechanical complement gate
+  (suppress quote when price ∈ [0.35,0.65] ∧ l10Imb ≥ 0.64) → SCR-009
+  (BATCH-004), fresh reserve-window draw N=2000 per D53. Honest
+  arithmetic disclosed: measured global anchor −1.01c, kept-fill
+  complement ≈ −0.04c — prediction ≈ 0; screen bars decide. If SCR-009
+  kills, this entry is DEAD and the maker family closes for good._
