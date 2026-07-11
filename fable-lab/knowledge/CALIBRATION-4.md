@@ -255,6 +255,68 @@ measurement — so "no candidates" is interpretable)
   off=300) each contribute ≤1 sample per affected cell; any verdict
   wording citing an affected (offset) inherits that 1-market exposure.
 
+## Amendments (pre-read, 2026-07-11 — audit-motivated, frozen before any read)
+
+A fresh-context adversarial audit reviewed this registration and the tool
+before the one-shot (verdict sound-with-findings; report verbatim in
+`knowledge/AUDIT-2026-07-11-CAL-004-REG.md`). All findings acted on with
+NO result read. The frozen sections above stay untouched; these
+amendments govern where they conflict.
+
+1. **(finding 1) The candidate proceed/park decision is now fully
+   mechanical, computed only from the printed table.** The frozen
+   W-state envelope note forked on an undefined "mid-priced vs
+   extreme-price" boundary — the one post-table discretionary branch in
+   the registration. Frozen replacement, strictly TIGHTENING the frozen
+   rule (an amendment may never relax reserve protection):
+   - (a) EVERY candidate cell (T or W) proceeds to reserve confirmation
+     only if `z ≥ 4.49`; a candidate with `3.75 ≤ z < 4.49` is PARKED
+     with its power arithmetic recorded (IDEAS #10 precedent).
+     Derivation, frozen now: the one-sided 2.3% lower confidence bound
+     of the discovery effect (`d − 1.995·se`) must itself clear the
+     reserve's 50%-power minimum detectable effect
+     (`1.995 · se · √(8,516/5,460)` = `1.995·se·1.249`), i.e.
+     `d ≥ 1.995·(1 + 1.249)·se = 4.487·se`, rounded UP to 4.49. This
+     removes the winner's-curse coin-flip the bare point estimate would
+     invite.
+   - (b) ADDITIONALLY, a W candidate with printed `meanAsk ∈ (0.10,
+     0.90)` is PARKED regardless of z — this is the frozen envelope rule
+     with its boundary now defined by a printed quantity (the mid-priced
+     buckets are exactly those whose cell meanAsk falls strictly inside
+     (0.10, 0.90)).
+   Both tests use only `z`, `meanAsk`, `d`, `se` as printed. No analyst
+   classification survives.
+2. **(finding 2) Incidence scope correction.** The 82-92% tight-fraction
+   range (and the 8-18% W range) are MARGINAL measurements (spread ×
+   offset and spread × ask-bucket, each pooled over the other axis).
+   Joint (offset × bucket) cells can deviate: the auditor's outcome-free
+   joint measurement found tfr 0.692-0.723 at (850s, [0.90,0.98))
+   (nW/n up to 0.31; seT multiplier up to ~1.20 there, not 1.04-1.10).
+   Binding wording rule: any verdict or LESSONS sentence citing a cell's
+   incidence or dilution must quote that cell's PRINTED tfr, not the
+   marginal range.
+3. **(finding 3) Reserve projection corrected.** `nT(reserve) ≈ 0.55 ×
+   nT(discovery)` is not derivable; under stationary tight fraction the
+   ratio is the market ratio 5,460/8,516 = 0.641 (the 0.55 applied the
+   tight fraction twice). Power at the discovery point estimate is
+   ≈ 84%, not 78% — an understatement, conservative direction, no
+   decision flips. The amendment-1 criterion supersedes this projection
+   for the proceed/park decision.
+4. **(finding 4) Identity-gate precision note.** Gates 5/6 reproduce
+   CAL-001's published gate values at PRINTED precision, not bit level:
+   calib4.ts sums T then W sub-cells while calib.ts summed interleaved in
+   log order, and FP addition is non-associative (measured harmless:
+   ~1e-13 discrepancy, all four gate cells agree at printed precision).
+   If a gate-5/6 abort ever fires, check summation order before
+   suspecting the join.
+5. **(finding 5) Threshold derivation rewording.** The 0.0105 tolerance
+   is one standard tick (0.01) plus HALF OF THE FINE TICK (0.001) as FP
+   tolerance — not "a half-tick" of the standard tick. The constant is
+   unchanged and remains a-priori robust: any tolerance in (0.0001,
+   0.0095) classifies standard-tick books identically, and spreads of
+   exactly 0.0105 cannot occur at either tick size on 4-dp prices, so
+   the selftest's FP edge cases are fixture-only by construction.
+
 ## Results
 
 _(append-only below this line; nothing here until calib4.ts runs ONCE on
