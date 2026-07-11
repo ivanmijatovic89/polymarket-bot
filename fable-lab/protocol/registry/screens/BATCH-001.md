@@ -212,3 +212,24 @@ rules bind — kill/escalate only:_
   latency 0/0 in-log, boundary market absent (0 log hits + structural
   --to-ms exclusion), phantom-fill tripwire clean (fill prices 0.88-
   0.97, plausible for the ≥0.90-fav-mid gate).
+
+- **SCR-004o — KILL** (run 457, N=500, played 472, 923 maker fills,
+  makerShare=1): q̂=−0.2307, t=−5.16, EV/market −2.578
+  CI95=[−3.557,−1.599]; EV(played) = −1289/472 ≈ −2.73/market; winRate
+  (played) 0.2373 (112/262) → prediction (EV per played market > 0
+  under the touch bound) CONTRADICTED; kill branches q̂ ≤ 0 AND t ≤ −1
+  both fire — the strongest and cleanest kill of the batch (t=−5.16).
+  Decisive under the engine's most favorable fill assumption
+  (audit-4.1 wording). The "pre-information grace window" does not
+  exist: quoting both sides at touch in the first 90s gets ~1.96
+  fills per played market (both sides often fill, partially hedged),
+  yet the directional residue loses hard — the side that fills first
+  is systematically the side the window is about to run against, from
+  the very first seconds of the episode (E16/E19 adverse selection has
+  no time-of-window off-switch). Incidence 472/500 = 94.4%, consistent
+  with the smoke (12/15). Pre-verdict checks: D18 hook startup +
+  end-summary (476 instances forced), latency 0/0 in-log, boundary
+  market absent (0 log hits + structural --to-ms exclusion),
+  phantom-fill tripwire clean (fill prices 0.15–0.83, plausible for
+  first-90s touch quotes; worst singles −57 on 100 shares match
+  mid-range entries).
