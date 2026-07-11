@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 52, unit U64 (D38 dataset-growth split: catalog
-sync self-serve and run — 2,570 markets synced awaiting operator
+_Last updated: session 52, unit U64b (D38 dataset-growth split verified:
+catalog sync self-serve and run — 2,570 markets synced awaiting operator
 ingestion; costed hand-off in knowledge/DATASET-GROWTH.md)._
 
 _Section order (D37): operative sections first — the Done archive grows
