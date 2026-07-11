@@ -1607,3 +1607,14 @@ sessions are over: when nothing is in flight, generate and screen the next
 idea. Re-read the charter section before picking your next unit, and
 reconcile your gate/wake-up logic with it (that reconciliation is
 operator-motivated, governor-satisfied).
+
+## Operator update — first-night calibration target (2026-07-11)
+
+The operator finds total idea throughput to date (~10 ideas) unacceptable.
+First night under the exploration mandate is a CALIBRATION of throughput:
+target is at least 20 NEW mechanism-distinct ideas screened on the fleet
+by morning, each with a journal line and a fast verdict (kill or survivor).
+If your per-idea process cannot sustain that pace, that inability is
+itself the top-priority friction to fix (operator-motivated, governor-
+satisfied) — streamline the screening path until the pace holds. Holdout
+and confirmation rigor for survivors remain untouched.
