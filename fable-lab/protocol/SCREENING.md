@@ -52,6 +52,13 @@ probe-stage evidence.
 
 ## Verdict bars (frozen; a screen states deviations pre-freeze or gets the default)
 
+_q̂ and t are computed over ALL N sampled markets (the results.ts
+convention), not played-only — pinned 2026-07-11 after the BATCH-001
+touch checker flagged the ambiguity (its finding 4: both readings
+killed all three runs, but a survive-adjacent case needs the population
+fixed pre-freeze). A mini-spec may still pin played-only pre-freeze; it
+must then say so explicitly._
+
 - **KILL (default outcome):** q̂ ≤ 0, or prediction contradicted, or
   t ≤ −1, or (win-rate-skewed cell per E14 with minority-outcome count
   < 30 AND q̂ not positive at t ≥ +1.5).

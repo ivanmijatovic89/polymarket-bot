@@ -1885,3 +1885,11 @@ registration, pre-results).
 **Read order (frozen):** signal2.ts runs once, only after SIGNAL-001's
 one-shot read and §3 are recorded. Map-grade semantics per SIGNAL-MAP §0
 apply verbatim; no bar, envelope, or holdout rule changes.
+
+_D49 amendment (session 61, 2026-07-11): SCREENING.md verdict bars now
+pin the q̂/t population to all-N (results.ts convention; played-only
+allowed if pinned pre-freeze in the mini-spec). Motivating evidence
+(governor): BATCH-001 touch checker finding 4 — the mini-spec's
+"played-market EV per D14 practice" wording vs the verdicts' all-N q̂
+was ambiguous; harmless here (both readings killed all three runs) but
+decisive for a future survive-adjacent screen. No bar value changed._

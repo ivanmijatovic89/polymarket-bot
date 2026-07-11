@@ -31,6 +31,9 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | taker (conditional scan) | single-segment move sign/size × entry side, 60-cell grid | CAL-002 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.72) | E21 |
 | taker (path scan) | two-segment path shape × entry side, 40-cell grid | CAL-003 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.47; persistence hypothesis dead) | E22 |
 | taker (state scan) | spread state (tight/wide) × the CAL-001 grid, 252 cells | CAL-004 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.75; no tight-confined edge behind the E20 null) | E23 |
+| taker (event-time screens) | first-passage continuation + fade at 0.80, depth-withdrawal momentum, quote-pressure imbalance | BATCH-001 SCR-001a/b, 002, 003 | 4 kills (screen-grade, N=500 each; batch-checked) | E24 |
+| maker (touch bound, screens) | late tail bid at fav ≥ 0.90; E22-reversal DOWN bid; opening 90s two-sided touch quoting | BATCH-001 SCR-004t/r/o | 3 kills (decisive under the most favorable fill assumption; batch-checked) | E24 |
+| taker (feature scan) | 16 book/path/activity features × 5 offsets × both sides, monotone + quintile-cell + seasonality | SIGNAL-001 | map-grade: 0 buyer-favorable candidates; 4 buyer-adverse cells (zones Z1-Z3) | E25 |
 
 Summary of the map:
 
@@ -76,6 +79,30 @@ Summary of the map:
   state; cross-side sums degenerate; sizes unrecorded) — joint/
   interaction conditionings of scanned axes remain formally expressible
   with strictly less power and the same reserve-confirmation burden.
+- **Taker event-time layer: entry triggered by the market's own price
+  path meets the same adjusted ask as fixed-time entry (E24,
+  2026-07-11; screen-grade).** First-passage triggers (continuation and
+  fade at the 0.80 crossing), depth-withdrawal, and quote-pressure all
+  killed at N=500 — the book has already moved when the trigger fires.
+  Complements E20-E23: neither WHEN you look (fixed clock vs price
+  event) nor WHAT you condition on (levels, moves, paths, spread,
+  features) has shown a buyer-favorable cell.
+- **Feature plane: zero buyer-favorable signal; the adverse-staleness
+  family got named zones (E25, 2026-07-11; map-grade).** SIGNAL-001
+  scanned 16 recorded features × 5 offsets × both sides (8,127
+  markets): monotone 0/160, cells 4/2,309 all buyer-adverse (SIGNAL-MAP
+  §3 zones Z1-Z3: cheap-side asks late in wide-range /
+  wrong-end-of-range windows overprice recovery ~4-5c gross),
+  seasonality 0. Dead zones are power-scoped (|ρ| ≳ 0.045 pooled,
+  |d| ≳ 7.3c per MID cell).
+- **Maker at-touch, time-of-window sweep: adverse selection has no
+  off-switch (E24, 2026-07-11; screen-grade, D18 bound).** Opening 90s
+  two-sided quoting (t=−5.16), late tail joining at fav ≥ 0.90
+  (EV(played) −3.56), and the E22-aimed reversal bid (EV(played) −4.52)
+  all lose under the MOST favorable fill assumption — adding to E19's
+  mid-window regime cells. Measured gross taker-adverse staleness is
+  not a maker invitation: the staleness and the adverse selection are
+  the same phenomenon seen from two sides.
 - **Maker punch-through side: adversely selected at both regime extremes.**
   Under worst-queue, a fill IS a move through the level; that move is
   informative whether the tape is quiet (E16: −0.79/played market) or loud

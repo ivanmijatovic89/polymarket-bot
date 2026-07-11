@@ -233,3 +233,37 @@ rules bind — kill/escalate only:_
   phantom-fill tripwire clean (fill prices 0.15–0.83, plausible for
   first-90s touch quotes; worst singles −57 on 100 shares match
   mid-range entries).
+
+## Batch checker — touch verdicts (fresh context, 2026-07-11 session 61)
+
+_Per SCREENING step 5, one fresh-context checker over the three touch
+verdicts (runs 453/456/457; the four fleet verdicts had their own
+checker in session 59). Verdict: **sound-with-findings** — every
+bar-relevant number re-derived exactly from raw SQL (N, played, pnl,
+EV/market, CI95, q̂, t, EV(played), win/loss, fill counts, failures);
+kill bars fire as claimed (004r on q̂≤0 only, 004t/004o on both
+branches; played-only q̂ also kills all three, so the bar holds under
+either population reading); predictions contradicted in sign; touch
+discipline fully verified (batchUids, local single-machine sequential,
+--to-ms in cmd, zero markets ≥ 1772323200000 DB-level, D18 hook +
+latency 0/0 lines in all three logs, hook instance counts 481/472/476
+match); mini-spec block byte-identical from freeze to HEAD, BATCH-001
+diff since freeze removes zero lines. Four MINOR findings, accepted as
+this erratum (verdicts above stay append-only):_
+
+1. **SCR-004t fill-price range**: verdict says "0.88-0.97"; DB shows 68
+   played markets at exactly 0.98 — the frozen `maxPrice=0.98` cap.
+   True range 0.88–0.98. Tripwire conclusion unaffected (0.98 is within
+   the cap, not a phantom price).
+2. **SCR-004t win-size narrative**: "wins collect ~+10-12/market"
+   overstates — mean win ≈ +5.72 (sum +1,195.9 over 209 wins), max +12,
+   only 26/209 wins ≥ +10. The loss asymmetry (worst −96/−97) is
+   thereby STRONGER than stated; kill unaffected.
+3. **Freeze-anchor wording**: BATCH-001.md was introduced at 759e34f
+   (U80); 50a76f3 (U80b, cited in the verdict preamble as "the freeze
+   anchor's push") is the placement-fix follow-up. Mini-spec block
+   byte-identical across both and HEAD — no integrity consequence.
+4. **q̂ population ambiguity**: the mini-spec bar says "played-market EV
+   per D14 practice" while verdicts quote all-N q̂ (results.ts
+   convention). Both readings kill all three runs. Resolved for future
+   batches in SCREENING.md (verdict bars now pin the population).

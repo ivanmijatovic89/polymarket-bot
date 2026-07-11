@@ -478,3 +478,57 @@ forbids importing the old system's research conclusions._
   kills the tool mid-print — run one-shots redirected to a file, glance
   at the file; the truncated first invocation was disclosed and the
   deterministic completion is the read of record.
+
+- **E24 — BATCH-001: event-time entry meets the same adjusted price as
+  fixed-time entry, and at-touch maker capture is adversely selected at
+  every time-of-window tested — including the open (2026-07-11,
+  7 screens, all killed; fresh-context checkers over both verdict
+  groups).** The first SCREENING.md batch (D49): four fleet taker
+  screens — first-passage continuation at 0.80 (q̂=−0.081, the crossing
+  ask is already ≥ fair when price first arrives), first-passage fade
+  (exactly fair, q̂=−0.002), depth-withdrawal momentum (q̂=−0.035),
+  quote-pressure imbalance (q̂=−0.048) — and three at-touch maker
+  screens under the D18 optimistic bound — late tail bid at fav ≥ 0.90
+  (EV(played) −3.56/market: selling reversal insurance at stale
+  prices), the E22-aimed reversal DOWN bid (EV(played) −4.52/market:
+  the ~4.4c gross staleness does NOT survive instrument transfer to a
+  touch bid; fills arrive preferentially when continuation runs through
+  the bid), and opening two-sided touch quoting in the first 90s
+  (t=−5.16, ~1.96 fills/played market yet winRate(played) 0.237 —
+  there is NO pre-information grace window; adverse selection operates
+  from the episode's first seconds). Transfer: (a) conditioning entry
+  on the market's own price path (event-time) buys nothing the
+  fixed-time scans didn't already price — E20's lesson extends to
+  first-passage triggers; (b) measured gross taker-adverse staleness is
+  not a maker invitation: the staleness and the adverse selection are
+  the SAME phenomenon seen from two sides — whoever is resting gets run
+  through, whoever takes pays the adjusted price; (c) batch economics
+  worked as designed: 7 mechanism-distinct ideas, 2 fresh-context
+  checkers, ~3 hours wall including two ~55-min local touch queues —
+  the fleet part cost minutes; touch screens are the bottleneck (local
+  sequential per D18).
+
+- **E25 — SIGNAL-001: the recorded feature space holds ZERO
+  buyer-favorable gross signal at fixed offsets, within stated power;
+  all significant structure is buyer-adverse staleness on cheap sides
+  late (2026-07-11, one-shot read; map-grade).** 16 features
+  (depth-imbalance ladders, total depth, activity rates, realized vol,
+  choppiness, range/position, opening state, crossed-count) × 5 offsets
+  × both sides over all 8,127 emitting discovery markets: monotone
+  screen 0/160 candidates (1 WARM: firstMid at o150, sub-bar
+  drift-momentum ≤ ~1c), cell grid 4/2,309 candidates ALL negative-d
+  (named zones Z1-Z3 in SIGNAL-MAP §3 — wide-range and
+  wrong-end-of-range late cheap-side asks overprice recovery by ~4-5c
+  gross), seasonality 0 candidates (no hour-of-day or day-of-week
+  mispricing at the 4.4 bar). Pooled G2 asymmetry recorded: UP-side
+  buys lose −1.16c gross on average (z=−5.2) while DOWN is flat — the
+  mirror is spread-absorbed, not capturable. Transfer: (a) idea
+  generation on this dataset must now leave the
+  book-state-at-fixed-time plane entirely (mechanism-level gaps:
+  order-type structure, settlement/timing mechanics, cross-episode
+  conditioning — SIGNAL-002 pending); (b) the diffuse warm-cell
+  pattern (23 warm cells, nearly all LO-stratum negative-d) says cheap
+  longshots are systematically slightly overpriced everywhere late —
+  consistent with E14/E21/E22 and the BATCH-001 tail-maker kill; the
+  venue's one persistent regularity remains "the stale cheap side is a
+  trap for both taker and maker".
