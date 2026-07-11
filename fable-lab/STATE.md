@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 49, unit U58c (fleet unblocked + verified both
-ways: gates exercised end-to-end, runs 421-423 clean)._
+_Last updated: session 51, unit U62 (fleet/local numeric parity verified;
+D36)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -941,6 +941,32 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   two sessions and turned out to carry a lab-relevant semantic change,
   U59; only luck made it neutral-or-positive). Audited point recorded:
   f1cf90b + a10b59d; successors diff from there.
+
+- U62 (session 51): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14), trades coverage unchanged (17,878; only
+  delta/delta-typed converters on disk), fleet healthy but SMALLER
+  (18 alive slots across 3 machines, was 32/4 — operator removed a
+  machine; size batches via capacity.ts, never from memory), registry
+  probe RESOLVED, no non-lab commits since the audited point (D35 gate
+  quiet). Verification-depth unit (DECISIONS D36): fleet/local numeric
+  parity — all E9-E23 evidence came from the LOCAL wrapper path but all
+  future evidence executes on the FLEET (U58), and per-market numeric
+  equivalence had never been checked. Local run 424 (FLEET-PARITY-LOCAL,
+  the exact 20 slugs of fleet smokes 421/422, same spec, D8 pins logged)
+  reproduced ALL 20 fleet rows identically across 18 deterministic
+  columns (pnl, fills, fees, entry prices, shares, cost, intentMeta,
+  eventsProcessed/byType) after first proving engine code identical
+  between the worker sha (cab72171) and HEAD (empty diff over src/,
+  drizzle/, package files). New `tools/parity.ts` (outcome-safe: counts
+  only on parity, values only on mismatch), every branch exercised with
+  real exit codes captured pipe-free: real mismatches (352/353 debug
+  pair, disclosed outcome exposure on the dead E19-closed mechanism),
+  disjoint-slug coverage fail, empty-intersection fail, wrong-spec
+  refusal, usage error, tsc clean. Post-run holdout sweep: run 424
+  CLEAN, no new post-boundary rows. Evidence:
+  `knowledge/FLEET-PARITY-2026-07-11.md`. Parity spot-checks are
+  TRIGGERED (worker env change / first run after an operator src merge /
+  fleet-log anomaly), not per-run (D36).
 
 ## In progress
 - (nothing in flight)

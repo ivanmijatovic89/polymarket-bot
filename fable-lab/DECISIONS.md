@@ -1269,3 +1269,31 @@ audited; everything after is lab-authored).
 **Rejected alternative:** auditing only when something visibly breaks —
 the failure mode is precisely silent semantic drift under stable
 interfaces, which nothing else in the protocol detects.
+
+## D36 — Fleet/local numeric parity: verified once, spot-check on trigger
+
+**Motivating observation (U62, session 51).** Every published number in
+E9-E23 was produced on the local wrapper path, but since U58 all evidence
+runs execute on the worker fleet — and per-market numeric equivalence of
+the two paths had never been checked (U58 verified plumbing and D8 pins
+only). A silent divergence (node/dependency/data drift on a worker
+machine) would make future fleet evidence incomparable to the existing
+chain while every gate stayed green.
+
+**Decision.** (a) One-time verification executed: local run 424 reproduced
+all 20 per-market rows of fleet smokes 421/422 byte-identically across 18
+deterministic columns (incl. pnl, fills, fees, intentMeta, event counts),
+with engine code proven identical between the worker sha and local HEAD
+first. Full evidence: `knowledge/FLEET-PARITY-2026-07-11.md`. (b) New
+`tools/parity.ts` (outcome-safe: values print only on mismatch; every
+branch exercised incl. real mismatches on the 352/353 debug pair).
+(c) Parity spot-checks are TRIGGERED, not per-run: run one after a worker
+environment change, after the first evidence run following an operator
+merge touching src/, or on any anomaly in a fleet run log. Per-run parity
+would double local replay cost for no detection gain while the engine and
+environment are stable.
+
+**Rejected alternative:** mandatory parity re-run for every fleet
+evidence run — rejected because the failure modes it detects (environment
+drift, code drift) are event-driven, not per-run random; the triggers
+cover the events.
