@@ -1964,3 +1964,27 @@ invocations (debug, fixtures, diagnostics) unguarded; the wrapper
 guard covers every local launch path at once. Note: lat-stage
 extensions of lat runs would need the parent's uid to contain `lat` —
 true by construction of submit.ts uid generation.
+
+## D52 — SIGNAL-003 per-fill toxicity scan registered (session 64, 2026-07-11)
+
+The instrument IDEAS #22 requires: `_fixtures/diag-fill.ts` replays the
+exact run-472 SCR-008 cell and logs causal pre-fill state per fill;
+`tools/signal3-scan.ts` (frozen, selftest 17/17) joins outcomes once and
+scans 21 features for fill-toxicity predictors. Full registration in
+`knowledge/SIGNAL-FILLS.md`. Motivating evidence (governor): E29 — the
+ungated fill population averages exactly zero, so any causal toxicity
+predictor makes its complement positive-EV by arithmetic; U97 showed the
+DB grain (1 trade/market) cannot carry this measurement — per-fill state
+capture is the named missing instrument. Design choices: (a) state is
+logged at the LAST STRATEGY-SEEN tick before the fill (verified: the
+runner drains fill events before the strategy sees the triggering tick),
+because a live gate can only cancel on information that precedes the
+fill — logging fill-tick state would smuggle in unusable simultaneity;
+(b) the cell's params are HARDCODED, not configurable — the instrument
+measures THAT cell's fill population, and a config surface invites silent
+cell drift; (c) primary sample = first maker fill per market, keeping
+one independent observation per market (the U91 fill-conditional
+non-independence lesson). Rejected alternative: raising the inventory cap
+to harvest multiple fills per market — more rows but correlated outcomes
+within a market and a DIFFERENT cell's fill population; rejected because
+the E29 zero anchor holds only for the cell as run.

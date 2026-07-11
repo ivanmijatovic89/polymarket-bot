@@ -62,19 +62,21 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- Nothing in flight. BATCH-003 fully closed (U96); run-472 mining done
-  (U97: no fill-mix hint at DB grain). Next unit = **SIGNAL-003 design**
-  (IDEAS #22): a per-fill state scan — diag fixture replaying the
-  ungated SCR-008 cell that logs book/path state AT each simulated fill
-  + that fill's settlement PnL. Rationale (E29 arithmetic): ungated
-  fills average ZERO, so any tick-observable predictor of fill toxicity
-  makes its complement positive-EV; if none exists, the maker family
-  closes for good. Discipline: outcome-USING scan → discovery window
-  only, method + cells + bars frozen pre-read (CAL precedent),
-  Bonferroni; any candidate gate then gets a fresh D49 screen on a new
-  sample (E26c winner's-curse discount in sizing). Alternative next
-  unit if SIGNAL-003 feels premature: BATCH-004 idea sweep under the
-  raised §4 bar.
+- **SIGNAL-003 FROZEN (U99, session 64)** — `knowledge/SIGNAL-FILLS.md`
+  (D52): per-fill toxicity scan of the run-472 ungated DOWN at-touch
+  cell. Fixture `_fixtures/diag-fill.ts` (hardcoded run-472 params;
+  causal pre-fill state verified: the runner drains fill events before
+  the strategy sees the triggering tick, StrategyRunner.ts:174 vs :296);
+  scan `tools/signal3-scan.ts` + selftest 17/17 green; smoke 10/10
+  discovery markets, all MAKER first fills, pinned 0/0, D18 hook, all
+  lines parse against the scan regex. NEXT STEP: launch 6 disjoint
+  local shards (`SIGNAL-003-touch-s[0-5]`, all 8,516 discovery markets,
+  verify loaded counts sum to 8,516), fresh-context pre-read audit of
+  the freeze while shards run, then the ONE-SHOT read via
+  signal3-scan.ts after coverage accounting is clean. Interpretation
+  pre-committed in SIGNAL-FILLS §6: null → maker family closes for good
+  (IDEAS #22 dead); candidate → mechanical complement gate → fresh D49
+  screen on NEW sample (E26c discount), D18 outcome set (kill/escalate).
 - BATCH-003 also recorded THREE derivation kills (no runs): split-sell
   mirror identity, round-number no-carrier (measured outcome-free:
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.

@@ -335,3 +335,8 @@ Ordered; top entries get registered first.
   empty (BATCH-003 post-kill decomposition) — the instrument must log
   at fill time, not market aggregates. Park until SIGNAL-003 is built
   and frozen; do not register a gate picked by story.
+  _Update (session 64, U99): SIGNAL-003 built and FROZEN —
+  `knowledge/SIGNAL-FILLS.md` (D52), fixture `_fixtures/diag-fill.ts`,
+  scan `tools/signal3-scan.ts` (selftest 17/17). Discovery shards
+  pending; this entry resolves at the one-shot read (dead on null,
+  gate-screen on candidate)._
