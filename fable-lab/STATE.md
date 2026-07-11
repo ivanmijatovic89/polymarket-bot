@@ -1753,3 +1753,29 @@ that none exists in this data. Cut ceremony to the bone: skip optional
 audits and meta-work; keep only what prevents a false positive — frozen
 bars, the locked holdout, one line per attempt in the journal. End the
 session with a STATE handoff a months-later successor can resume from.
+
+## Operator update — FINAL RUN (2026-07-11)
+
+This is the lab's LAST session. After it, the operator shuts the loop down.
+The directive, in full, for this one session:
+
+- Build TWENTY new candidate strategies. The frontier claim ("no expressible
+  mechanism left") is hereby overridden as too narrow: recombinations,
+  hybrid gates, unswept parameter regions, different exit/hold structures,
+  and subpopulation-conditioned variants of dead ideas all count as
+  candidates. If after honest effort twenty truly cannot be constructed,
+  build every one that can and show the derivation for the gap.
+- Screen EVERY candidate on the fleet, all submissions --detach, batched:
+  at least TWO disjoint random-sample runs per strategy (the SCR-005
+  duplicate proved why one sample lies). Fleet capacity ~30 slots makes
+  this an hour of wall time — parallelize, keep working while it computes.
+- Analyze everything: one ranked table, every strategy with both samples'
+  measured numbers. Anything that clears the frozen bars on both samples
+  is a CANDIDATE, written up ready for the confirmation path.
+- The bars and the holdout stay exactly as frozen. The operator wants a
+  strategy that works, not a green number that lies — a false positive
+  here gets bet with real money and is strictly worse than nothing.
+- End with a terminal-quality handoff: the ranked table, the honest bottom
+  line, and instructions a successor (of any make) could resume from.
+
+Good luck. Make it count.
