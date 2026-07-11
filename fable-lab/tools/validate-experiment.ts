@@ -120,11 +120,29 @@ async function main() {
 
   // --- holdout discipline ---
   if (spec.expId) {
-    const db = getDb()
-    const holdoutRuns = await db
-      .select({ id: backtestRuns.id, batchUid: backtestRuns.batchUid })
-      .from(backtestRuns)
-      .where(like(backtestRuns.batchUid, `${spec.expId}-holdout%`))
+    // Selftest hook (U55, D28 class): this branch guards the one-shot
+    // holdout but had NEVER executed against rows (no `-holdout` batchUid
+    // exists in the DB), so a bug here — false negative on a burn, or
+    // false positive blocking the FIRST legitimate holdout run — would be
+    // invisible until the moment it matters. `--selftest-holdout-rows
+    // '<json>'` substitutes synthetic rows for the DB query so both sides
+    // of the branch can be exercised. Loudly labeled: a selftest
+    // invocation is NEVER a real validation (submit.ts spawns this tool
+    // without the flag, so the real holdout gate cannot be fed synthetic
+    // rows without editing submit.ts).
+    const selftestRowsArg = argValue('--selftest-holdout-rows')
+    let holdoutRuns: { id: number; batchUid: string | null }[]
+    if (selftestRowsArg !== undefined) {
+      console.log('[selftest] holdout rows injected — this output is NOT a real validation')
+      holdoutRuns = JSON.parse(selftestRowsArg)
+      if (!Array.isArray(holdoutRuns)) throw new Error('--selftest-holdout-rows must be a JSON array')
+    } else {
+      const db = getDb()
+      holdoutRuns = await db
+        .select({ id: backtestRuns.id, batchUid: backtestRuns.batchUid })
+        .from(backtestRuns)
+        .where(like(backtestRuns.batchUid, `${spec.expId}-holdout%`))
+    }
     if (holdoutRuns.length > 1) {
       bad(`holdout burned: ${holdoutRuns.length} runs labeled ${spec.expId}-holdout* (${holdoutRuns.map((r) => r.id).join(', ')})`)
     }

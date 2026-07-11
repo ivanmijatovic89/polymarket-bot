@@ -8,3 +8,5 @@
 04:39 verifier came back: core claim confirmed (it re-ran everything itself), 4 small citation/caveat fixes, all applied. Committing and pushing U53.
 04:40 next unit: writing the actual one-file patch the operator can apply to unblock the fleet, plus making our own wrapper survive that patch (it would currently crash on duplicate strategy ids the moment the patch lands). Will test both in a scratch clone.
 04:51 U54 verified by a fresh-context checker: patch confirmed end-to-end, but it caught a real operator trap — our own commit hook would block the operator from committing the patch; the instructions now say to bypass it once with --no-verify. All findings applied. Committing U54.
+04:52 next: the validator branch that catches a burned holdout has never actually fired in its life (no holdout run exists yet). Giving it a synthetic selftest path so we know it works before it ever guards the real one-shot.
+04:54 holdout-guard selftest done: the burn detector fires correctly on 2+ runs, and — just as important — a single legitimate holdout run does NOT get falsely blocked. Committing U55.

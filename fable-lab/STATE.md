@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 48, unit U54 (operator patch for the fleet gap
-authored + clone-verified; wrapper injection made idempotent)._
+_Last updated: session 48, unit U55 (validator holdout-discipline branch
+finally exercised on both sides via guarded selftest rows)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -789,6 +789,22 @@ authored + clone-verified; wrapper injection made idempotent)._
   (compiled-.js engines silently discover zero lab strategies), and
   "tsc clean" is scoped to src/** (the wrapper change is verified by
   execution, not tsc).
+
+- U55 (session 48): U52's accepted residue closed (D28 amendment) —
+  `validate-experiment.ts`'s holdout-discipline branch, the last
+  mechanical guard on the one-shot holdout, had never executed against
+  rows in either direction. New guarded `--selftest-holdout-rows` path
+  (loud NOT-a-real-validation banner; unreachable from submit.ts's real
+  holdout gate). Verified this session: flagless path byte-identical on
+  EXP-001/EXP-006 pre/post; 0 rows → OK; exactly 1 row → OK (the first
+  legitimate holdout run is not falsely blocked); 2 rows → FAIL exit 1
+  listing ids; malformed JSON → hard error exit 1; drizzle like()
+  mechanics validated read-only against the real DB (EXP-001-probe% →
+  run 301). Residue: the exact `-holdout` suffix still has never matched
+  a real DB row (none exists); trivial by inspection. tsc clean. The
+  U52 pre-holdout verification obligation is now discharged — before a
+  first real holdout submission, only the standing validator+submit
+  refusal checks remain.
 
 ## In progress
 - (nothing in flight)

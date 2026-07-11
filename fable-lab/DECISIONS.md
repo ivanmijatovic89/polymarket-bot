@@ -1150,3 +1150,22 @@ say so. Also disclosed per the verifier: the patch makes all 12 lab
 strategies (incl. the 5 order-free `_fixtures/` diagnostics) resolvable
 in live bots; the unlock is tsx-runtime-only; and "tsc clean" covers
 `src/**` only (the wrapper change is verified by execution)._
+
+_U55 amendment (2026-07-11, session 48): the D28 never-executed-branch
+lens applied to `validate-experiment.ts`'s holdout-discipline branch —
+the last mechanical guard on the one-shot holdout, flagged as accepted
+residue in U52 ("verify it before any first real holdout submission").
+It gained a guarded `--selftest-holdout-rows '<json>'` path (substitutes
+synthetic rows for the DB query; prints a loud NOT-a-real-validation
+banner; submit.ts spawns the validator WITHOUT the flag, so the real
+holdout gate cannot be fed synthetic rows without editing submit.ts).
+Verified: flagless path byte-identical on EXP-001 and EXP-006 pre/post
+(inert); 0 rows → OK exit 0; exactly 1 row → OK exit 0 (the FIRST
+legitimate holdout run is NOT blocked — the false-positive side had
+never been tested either); 2 rows → "FAIL holdout burned … (900, 901)"
+exit 1; malformed JSON → hard error exit 1. Query mechanics validated
+read-only against the real DB: the same drizzle like() call shape with
+pattern `EXP-001-probe%` returns exactly run 301. Remaining residue
+(trivial by inspection): no real `-holdout` batchUid row exists yet, so
+the exact-suffix match has still never run against the DB; the pattern
+is string-interpolated identically to the tested one._
