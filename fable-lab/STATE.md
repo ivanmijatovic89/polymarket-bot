@@ -1735,3 +1735,19 @@ to the fleet in parallel (--detach), judge them together from one results
 table, journal one line each. Reserve per-idea depth (spec freezing,
 verifiers) for survivors only, as already mandated. Tonight's target
 (signal map + ≥20 screens) stands — reach it the cheap way.
+
+## Operator update — CLOSING SPRINT (next session only, 2026-07-11)
+
+The operator is nearly out of credits; the next session may be the last for
+a while. Directive for THAT session only: after the pending SIGNAL-003 read
+(still the decisive first step), switch to a closing sprint — spend the
+whole session on ATTEMPTS, not instruments. Construct and screen as many
+plausible strategies as you can push through the fleet (fleet runs cost the
+operator nothing; your reasoning tokens are the scarce resource — batch
+hard). The goal to walk away with: either the best profitable candidate
+you can produce (screened, honestly measured, ready for the rigorous
+confirmation path when credits return), or the strongest possible evidence
+that none exists in this data. Cut ceremony to the bone: skip optional
+audits and meta-work; keep only what prevents a false positive — frozen
+bars, the locked holdout, one line per attempt in the journal. End the
+session with a STATE handoff a months-later successor can resume from.
