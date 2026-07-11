@@ -172,3 +172,25 @@ rests on the U62 fleet/local parity evidence, not on per-run metadata.
 All four KILLs re-derived exactly (every quoted number matched
 results.ts; freeze integrity confirmed: zero mini-spec edits after the
 freeze commit; sample rule verified in stored cmd)._
+
+_Touch-screen verdicts (read session 60, 2026-07-11, via results.ts;
+local `--sequential --fill-mode touch_or_better` per the freeze; D18
+rules bind — kill/escalate only:_
+
+- **SCR-004r — KILL** (run 453, N=500, played 52, maker fills only,
+  makerShare=1): q̂=−0.038, t=−0.85, EV/market −0.47
+  CI95=[−1.55,+0.61]; EV(played) = −235/52 ≈ −4.52/market; winRate
+  (played) 0.5192 (27/25) → prediction (EV per played market > 0 under
+  the touch bound) CONTRADICTED in sign; kill branch q̂ ≤ 0 fires.
+  Decisive under the engine's most favorable fill assumption
+  (audit-4.1 wording). THE AIMED SHOT MISSES: the E22 up-then-down
+  reversal staleness (~4.4c gross taker-side) does NOT survive
+  instrument transfer to a DOWN bid at touch — fills arrive
+  preferentially when continuation runs through the bid (the E16/E19
+  adverse-selection mechanism eats the gross edge even at zero fee and
+  zero spread cost). Incidence 52/500 ≈ 10.4%, consistent with the
+  smoke (2/15). Pre-verdict checks: D18 hook startup + end-summary
+  (481 instances forced), latency 0/0 in-log, boundary market absent
+  (0 log hits; structurally excluded by --to-ms), phantom-fill
+  tripwire clean (best/worst singles at 0.36/0.79 — plausible touch
+  prices).
