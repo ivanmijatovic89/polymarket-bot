@@ -1768,3 +1768,41 @@ restatements read as all 11; re-run in-session on all 11 (341/355/356:
 10-4-6 / 10-8-23 / 10-8-33, identical to raw SQL) and the
 FILLS-RECOMPUTATION note amended to state the original scope. Selftest
 is now 33 assertions, all green.
+
+## D48 — JUDGE.md contract fixes from its first re-audit since session 1 (U76)
+
+**Decision (session 57, U76):** the seven defects found by the first
+fresh-context re-audit of the Judge role contract
+(`knowledge/AUDIT-2026-07-11-JUDGE-CONTRACT.md`, residue R6) are fixed in
+place in JUDGE.md, each traceable via the tagged revision note: the
+verdict decision enumeration gains park and escalate plus the scoping
+rule that the allowed subset at a decision point is fixed by EPISTEMOLOGY
+§3 and the spec's own rules (it contradicted post-D45 EPISTEMOLOGY, the
+experiment template, D18's binding {kill, escalate, park} touch set, and
+SCIENTIST.md); the simulator-bias field is now explicitly fillable from
+the spec's own exposure field + the readout (it cited CAPABILITIES §4 and
+DECISIONS D6, documents the Judge is forbidden to receive — an internal
+isolation contradiction bridged until now only by unwritten practice);
+the missing-number rule gains the holdout exception (outcome set there is
+confirmed/refuted only — "iterate" at holdout was the D45
+impossible-action defect class); the battery field stops demanding a
+latency pass/fail the framework refuses to define (§5.2 records the curve
++ latency-fragile flag); tools/battery.ts is named as the robustness
+paste source (LIFECYCLE already required it); the verdict block gains a
+run id + batch uid field (EPISTEMOLOGY §7 requires it; rendered verdicts
+supplied it inconsistently); After-the-verdict now points at the
+mandatory D25/D31 propagation audit and the U74b plain-line decision
+rule.
+
+**Motivating observation (governor):** AUDIT-COVERAGE residue R6 plus a
+fresh trigger — U73/D45 changed EPISTEMOLOGY.md in place, so the
+session-1 Judge contract could newly contradict the rules it enforces;
+the audit confirmed exactly that (MAJOR-1 cites the D45-added residual
+branch). Every fix quotes both sides of a verified contradiction.
+
+**Boundaries:** no numeric threshold changed (JUDGE.md contains none —
+audit clean-check 2); the isolation rule (three inputs only) is
+UNCHANGED — MAJOR-2's fix states the existing practice, it does not add
+inputs; direction is tighten-or-clarify throughout except the enumeration
+widening, which restores outcomes other binding documents already
+mandated (D18, D5 park) rather than inventing new ones.

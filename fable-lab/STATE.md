@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, units U74-U75b. Wake-up checks all quiet via
+_Last updated: session 57, units U74-U76. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 26 slots — grew from 12, informational only / no
 operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
@@ -20,8 +20,14 @@ from raw SQL (11 runs, all match; outcome-safety statically confirmed;
 one header drift fixed). U75b: verifier findings applied (1 MAJOR:
 simulatorBias — the validator's gating field — was unasserted; selftest
 now 33 assertions incl. all wrap-stop and fallback arms; fills
-transcription genuinely 11/11). Remaining residue: R3/R6/R7 (all low).
-CONFIRM-010 freeze anchor = commit c403d7d._
+transcription genuinely 11/11). U76: residue R6 closed (D48) — first
+fresh-context re-audit of JUDGE.md since session 1 found 2 MAJOR + 5
+MINOR drift defects (worst: the verdict enumeration forbade
+park/escalate outcomes that post-D45 EPISTEMOLOGY, the template, and
+D18 mandate; and the simulator-bias field cited documents the Judge is
+forbidden to see) — all fixed in place, no threshold or isolation rule
+changed. Remaining residue: R3, R7 (both low). CONFIRM-010 freeze
+anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1560,3 +1566,21 @@ plan (fleet --detach + capacity tool) when it does.
   amended to state the original scope. Selftest 33/33 green; auditor
   independently parsed all 9 real specs + the template with spec.ts (no
   shape divergence) and reproduced the full SQL recomputation.
+- U76 (session 57): AUDIT-COVERAGE residue R6 closed (DECISIONS D48) —
+  first fresh-context re-audit of the Judge contract since session 1
+  (report verbatim in `knowledge/AUDIT-2026-07-11-JUDGE-CONTRACT.md`;
+  fresh trigger: U73/D45 changed EPISTEMOLOGY in place under the
+  contract). Sound-with-findings; all 7 applied in place with a tagged
+  revision note: decision enumeration gains park/escalate + the
+  stage/spec scoping rule (was contradicting post-D45 EPISTEMOLOGY §3,
+  templates/EXPERIMENT.md, D18's binding {kill, escalate, park} touch
+  set, and SCIENTIST.md); simulator-bias field now fillable from the
+  spec's exposure field + readout (was citing CAPABILITIES/DECISIONS —
+  forbidden inputs); holdout missing-number exception (iterate was
+  impossible there — D45 defect class); battery field stops demanding
+  the latency binary §5.2 refuses; battery.ts named as robustness
+  source; run id + batch uid field added (EPISTEMOLOGY §7); post-verdict
+  section points at D25/D31 and the U74b plain-line rule. Isolation
+  (three inputs) and all thresholds unchanged. Audit clean-checks
+  confirmed the machine-read `- decision:` contract and the D13
+  no-new-field pin.

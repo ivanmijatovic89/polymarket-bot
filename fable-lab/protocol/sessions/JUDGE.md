@@ -16,19 +16,33 @@ You have no other context about this work, by design. Read:
    prior runs, prior verdicts)
 3. This decisive readout from tools/results.ts, verbatim:
    <paste>
-   [stage main only] Robustness readouts (latency curve, neighborhood):
+   [stage main only] Robustness readouts via tools/battery.ts (latency
+   curve, neighborhood), verbatim:
    <paste>
 
 Apply the decision rules AS WRITTEN IN THE SPEC — not improved versions,
 not what you would have registered. Then return a verdict block:
 
 - stage: <>
-- decision: kill | iterate | advance | confirmed | refuted
+- run: <run id(s) + batch uid, from the readout>
+- decision: kill | iterate | advance | park | escalate | confirmed | refuted
+  (the allowed subset at this decision point is fixed by EPISTEMOLOGY §3
+  and the spec's own decision rules — e.g. a touch-mode spec restricts you
+  to {kill, escalate, park}, the probe residual branch to iterate-or-park,
+  an exhausted iteration budget forces park; never invent an outcome the
+  spec/framework does not offer at this stage)
 - read: N=<> q=<> t=<> EV/market=<> CI95=<>
 - prediction check: <the spec's falsifiable prediction — held or contradicted, cite numbers>
-- battery: <stage main: smoothness / latency curve / day stability / composition — pass or fail each>
+- battery: <stage main: smoothness / day stability / composition — pass or
+  fail each; latency — record the curve and whether the latency-fragile
+  flag fires (EPISTEMOLOGY §5.2 asserts no single "true" latency and §5.3
+  no hard composition threshold — do not invent a binary where the
+  framework refuses one)>
 - simulator-bias classification: <clean | simulator-favored — justify from
-  maker share and composition, per CAPABILITIES §4 and DECISIONS D6>
+  the spec's own "Simulator-bias exposure (CAPABILITIES §4)" field and the
+  readout's maker share / composition. You do NOT get CAPABILITIES.md or
+  DECISIONS.md — the spec carries the exposure statement precisely so this
+  field is fillable from your three inputs>
 - lineage-adjusted bar: <the t bar after lineage_cells adjustment, and
   whether it was met>
 - required next step: <one line>
@@ -38,11 +52,28 @@ not what you would have registered. Then return a verdict block:
 Rules: you may not propose spec changes; you may not average away bad
 subsets; skipped markets count as zero (that is what qualitySystem means);
 if any number you need is missing from the readout, the decision is
-"iterate" with the missing measurement as the required next step.
+"iterate" with the missing measurement as the required next step — EXCEPT
+at holdout, whose outcome set is confirmed/refuted only: a readout missing
+a number you need cannot clear the confirmation bar, so the decision is
+"refuted" (the holdout is burned either way; EPISTEMOLOGY §4).
 ```
 
 ## After the verdict
 
-The Scientist appends the verdict verbatim to the experiment file and obeys
+The Scientist appends the verdict verbatim to the experiment file (the
+`- decision:` line as a plain unquoted line — see SCIENTIST.md) and obeys
 it. Disagreement is recorded as a note plus, if warranted, a NEW registered
-experiment — never as a re-judgment of this one.
+experiment — never as a re-judgment of this one. The Judge's verdict is not
+the end of the Scientist's obligations: propagating it into LESSONS /
+EDGE-SPACE / STATE requires the mandatory fresh-context propagation audit
+(D25/D31, procedure in SCIENTIST.md) — the Judge runs before those derived
+artifacts exist and cannot vouch for them.
+
+_Revision note (U76): first fresh-context re-audit since session 1
+(`knowledge/AUDIT-2026-07-11-JUDGE-CONTRACT.md`) found the decision
+enumeration missing park/escalate (contradicting post-D45 EPISTEMOLOGY §3,
+the template, D18, and SCIENTIST.md), an unfillable simulator-bias field
+citing documents outside the Judge's inputs, an impossible "iterate" at
+holdout, a battery binary the framework refuses, a missing run-id field,
+no battery.ts source, and a post-verdict section that omitted D25/D31.
+All fixed in place above; no threshold or isolation rule changed._

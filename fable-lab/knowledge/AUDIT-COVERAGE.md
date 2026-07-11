@@ -84,7 +84,7 @@ for the artifact name.
 | engine/CAPABILITIES.md | A (session 1) + A (delta) | U2 fresh-context source audit; U59 merge audit confirmed cited semantics unchanged (3 line-cites fixed) — full re-audit never repeated; residue R3 |
 | EPISTEMOLOGY.md | A (whole-doc, U73) + A (session 1, U8) + piecewise | U73 → AUDIT-2026-07-11-EPISTEMOLOGY-COHERENCE.md (first end-to-end re-audit since session 1: arithmetic all verifies, reconciliations reflected; 1 MAJOR impossible dry-run handoff + 5 MINOR coherence defects, all fixed in place per D45); U69 §3-scoped check; threshold applications audited in the chain audits |
 | LIFECYCLE.md, SCIENTIST.md, protocol/README, strategies/README | A (reconciliation-scoped) | U69/D43 verifier checked the fleet-reality rewrite claim-by-claim |
-| JUDGE.md | A (session 1, whole-lab) + E | covered by the U8 whole-lab review; used by every verdict since; judge OUTPUTS audited throughout; contract text not fresh-context audited since session 1 (same aging class as R2) — residue R6 |
+| JUDGE.md | A (whole-doc, U76) + A (session 1) + E | U76/D48 → AUDIT-2026-07-11-JUDGE-CONTRACT.md (first re-audit since session 1: 2 MAJOR — decision enumeration missing park/escalate vs post-D45 rules + unfillable simulator-bias field citing forbidden documents — and 5 MINOR, all fixed in place, tagged revision note; no threshold or isolation rule changed); judge OUTPUTS audited throughout |
 | RUNBOOK.md | A (reconciliation-scoped) | U49b, U53/U54/U58 sections verified in their units |
 | templates/EXPERIMENT.md | A (carrier fix) | U52 (stale boundary rule fixed by verifier finding) |
 | DECISIONS.md (governor compliance: every D cites motivating evidence) | E | never swept as a whole — residue R7 |
@@ -126,9 +126,11 @@ for the artifact name.
   fills.ts: all 11 published figures independently recomputed via raw SQL
   + static outcome-safety check — `FILLS-RECOMPUTATION-2026-07-11.md`;
   fresh-context audit `AUDIT-2026-07-11-U75-R5-CLOSURE.md`.
-- **R6 JUDGE.md contract text.** Judge outputs repeatedly audited
-  (sound-with-findings each time), so the contract works in practice; the
-  text itself never checked against EPISTEMOLOGY for drift. Low.
+- **R6 JUDGE.md contract text — CLOSED (U76).** First fresh-context
+  re-audit since session 1 (`AUDIT-2026-07-11-JUDGE-CONTRACT.md`, D48):
+  2 MAJOR + 5 MINOR drift defects, all fixed in place — worst: the
+  decision enumeration forbade park/escalate outcomes that post-D45
+  EPISTEMOLOGY, the template, and D18 mandate.
 - **R7 DECISIONS.md governor sweep.** Low value: decisions were made inside
   verified units; a sweep would mostly re-read history.
 
