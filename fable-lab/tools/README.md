@@ -19,8 +19,8 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `submit.ts` | build (print) the exact stage command from a frozen spec (`smoke|probe|main|lat|grid|holdout`); `--execute` to run; holdout execution refuses unless the validator passes |
 | `battery.ts` | robustness-battery comparison table across runs (`--exp EXP-014` / `--runs` / `--batches`) for the Judge |
 | `index-registry.ts` | regenerate `protocol/registry/INDEX.md` |
-| `calib.ts` / `calib2.ts` / `calib3.ts` | frozen one-shot readers for CAL-001/-002/-003 (`knowledge/CALIBRATION*.md`); constants are pre-registered — never edit post-read |
-| `calib-selftest.ts` / `calib2-selftest.ts` / `calib3-selftest.ts` | hand-computed synthetic-fixture selftests for the calib readers (D28) |
+| `calib.ts` / `calib2.ts` / `calib3.ts` / `calib4.ts` | frozen one-shot readers for CAL-001/-002/-003/-004 (`knowledge/CALIBRATION*.md`); constants are pre-registered — never edit post-read |
+| `calib-selftest.ts` / `calib2-selftest.ts` / `calib3-selftest.ts` / `calib4-selftest.ts` | hand-computed synthetic-fixture selftests for the calib readers (D28) |
 | `calib-coverage.sh` / `calib-integrity.sh` | CAL-001 outcome-free log checks: per-offset coverage recompute; integrity battery (dup/malformed/mirror/ts checks) |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |
