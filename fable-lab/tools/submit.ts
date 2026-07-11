@@ -6,9 +6,10 @@
  * Prints the command by default; --execute runs it in the foreground.
  * Scope flags are operator-fixed (CHARTER) and not configurable here.
  *
- * Stages:
- *   smoke    --sequential --limit 10, batchUid EXP-NNN-smoke (never evidence)
- *   probe    --random --limit 500 within the exploration window
+ * Stages (U58 fleet routing — see the stage-routing comment in main()):
+ *   smoke    LOCAL wrapper --sequential --limit 10, batchUid EXP-NNN-smoke
+ *            (never evidence)
+ *   probe    FLEET --detach: --random --limit 500 within the exploration window
  *   main     --extend <probe run> up to the holdout boundary. NOTE: extension
  *            keeps the parent's batchUid — the grown run stays labeled
  *            EXP-NNN-probe and is addressed by run id.
@@ -66,17 +67,23 @@ function main() {
 
   const env: Record<string, string> = {}
   const params = spec.primaryParams.flatMap((p) => ['--param', p])
-  // All fable runs go through the registry-injection wrapper and are
-  // sequential (DECISIONS D7): strategies live in fable-lab/strategies/,
-  // invisible to queue workers. The charter now MANDATES fleet submissions
-  // (constraint 3, 2026-07-09/11) but the engine blocks them — the registry
-  // only discovers src/strategies/**, so every fable-exp-* job would fail
-  // on every worker with "unknown strategy id" (DECISIONS D33,
-  // knowledge/FLEET-GAP.md). When the operator-side registry patch lands
-  // (wake-up gate 3), evidence stages switch to bare-CLI --detach per the
-  // FLEET-GAP reconciliation plan.
+  // Stage routing (U58, FLEET-GAP.md reconciliation plan — the operator
+  // applied the registry patch in a10b59d, so workers now resolve
+  // fable-exp-* ids):
+  //   smoke  → local wrapper + --sequential (charter: local stays for
+  //            smokes/debug/parity only).
+  //   probe/main/lat/grid/holdout (evidence) → bare engine CLI + --detach
+  //            (charter constraint 3: EVERY fleet submission detaches).
+  //            D8 latency pins still ship as env on the SUBMIT command:
+  //            backtest.ts captures them into job data at submission
+  //            (backtest.ts:557-558; jitter defaults to 20 when unset, so
+  //            the explicit JITTER=0 pin is load-bearing — D33/U53).
+  //            Workers pull origin/fable-protocol: --execute refuses a
+  //            dirty tree or an unpushed HEAD (evidence must run on
+  //            committed+pushed code).
+  const fleetStage = stage !== 'smoke'
   const wrapper = join(HERE, 'run-backtest.ts')
-  const args: string[] = ['tsx', wrapper]
+  const args: string[] = fleetStage ? ['tsx', 'src/cli/backtest.ts'] : ['tsx', wrapper]
 
   if (stage === 'main') {
     const parent = argValue('--parent-run')
@@ -147,7 +154,11 @@ function main() {
     )
   }
 
-  args.push('--sequential')
+  if (fleetStage) {
+    args.push('--detach')
+  } else {
+    args.push('--sequential')
+  }
 
   // Pin the execution-model env for EVERY stage (DECISIONS D8): the repo's
   // ambient .env sets BACKTEST_LATENCY_DELAY=140, which silently changed run
@@ -166,6 +177,25 @@ function main() {
   console.log(printable)
 
   if (process.argv.includes('--execute')) {
+    if (fleetStage) {
+      // Workers execute origin/fable-protocol, not this tree: refuse to
+      // submit unless the tree is clean and HEAD is pushed.
+      const dirty = spawnSync('git', ['status', '--porcelain'], { encoding: 'utf8' }).stdout.trim()
+      if (dirty) {
+        console.error('REFUSED: working tree is dirty — commit and push before a fleet submission')
+        process.exitCode = 1
+        return
+      }
+      const head = spawnSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).stdout.trim()
+      const origin = spawnSync('git', ['rev-parse', 'origin/fable-protocol'], { encoding: 'utf8' }).stdout.trim()
+      if (!head || head !== origin) {
+        console.error(
+          `REFUSED: HEAD (${head.slice(0, 7)}) != origin/fable-protocol (${origin.slice(0, 7)}) — push before a fleet submission`,
+        )
+        process.exitCode = 1
+        return
+      }
+    }
     if (stage === 'holdout') {
       // holdout is one-shot and burnable — mechanically enforce validation
       const check = spawnSync('npx', ['tsx', join(HERE, 'validate-experiment.ts'), specPath], {
