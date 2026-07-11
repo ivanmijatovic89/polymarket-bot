@@ -1281,10 +1281,15 @@ machine) would make future fleet evidence incomparable to the existing
 chain while every gate stayed green.
 
 **Decision.** (a) One-time verification executed: local run 424 reproduced
-all 20 per-market rows of fleet smokes 421/422 byte-identically across 18
-deterministic columns (incl. pnl, fills, fees, intentMeta, event counts),
-with engine code proven identical between the worker sha and local HEAD
-first. Full evidence: `knowledge/FLEET-PARITY-2026-07-11.md`. (b) New
+all 20 per-market rows of fleet smokes 421/422 identically across the
+tool's deterministic columns (incl. pnl, fills, fees, intentMeta, event
+counts; 18 at first read, 19 after U62b added marketId). The tool proves
+canon-normalized NUMERIC identity; byte-level identity of the raw driver
+strings holds here too but only because the D31 verifier's independent
+raw sweep confirmed it (U62b) — a future PARITY exit alone means numeric
+identity. Engine code was proven identical between the worker sha and
+local HEAD first.
+Full evidence: `knowledge/FLEET-PARITY-2026-07-11.md`. (b) New
 `tools/parity.ts` (outcome-safe: values print only on mismatch; every
 branch exercised incl. real mismatches on the 352/353 debug pair).
 (c) Parity spot-checks are TRIGGERED, not per-run: run one after a worker

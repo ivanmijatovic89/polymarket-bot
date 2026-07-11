@@ -966,7 +966,27 @@ D36)._
   CLEAN, no new post-boundary rows. Evidence:
   `knowledge/FLEET-PARITY-2026-07-11.md`. Parity spot-checks are
   TRIGGERED (worker env change / first run after an operator src merge /
-  fleet-log anomaly), not per-run (D36).
+  fleet-log anomaly), not per-run (D36). _(Figures amended in U62b: 19
+  columns after marketId was added.)_
+
+- U62b (session 51): U62 D31-verified by a fresh-context checker
+  (sound-with-findings; it re-ran both parity comparisons, all negative
+  branches pipe-free, the code-identity diff, and additionally swept all
+  20 row pairs on RAW driver strings — 0 diffs, so the parity is
+  byte-level on this data). 4 MINOR findings, all applied: (1)
+  "byte-identical" in D36/journal overclaimed what the TOOL proves
+  (canon-normalized numeric identity) — D36 rescoped, journal corrected
+  by a follow-up line; (2) marketId was silently excluded from FIELDS —
+  now compared (19 columns; parity re-verified exit 0, mismatch branch
+  re-verified exit 2, tsc clean); (3) cross-machine scope was narrower
+  than stated: 6/20 fleet rows ran on a worker on THIS machine and only
+  2 of 3 fleet machines contributed — genuine cross-environment evidence
+  is 14 rows from one remote machine (caveat added to the note);
+  (4) the note's Result block was undeclared-trimmed tool output — now
+  declared. Correction to the verifier's own report recorded: it cited
+  67 MISMATCH lines for 352-vs-353; both tool versions print 66
+  (re-verified; immaterial). Addendum:
+  `knowledge/FLEET-PARITY-2026-07-11.md` §U62b.
 
 ## In progress
 - (nothing in flight)

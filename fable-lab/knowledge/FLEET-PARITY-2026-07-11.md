@@ -108,3 +108,38 @@ run after an operator merge touching src/, or (c) any anomaly in a fleet run
 log suggests environment differences. Post-run holdout sweep re-run after
 run 424: no new post-boundary rows (67 pre-existing classified rows, run 424
 CLEAN).
+
+## Post-verification addendum (U62b — D31 verifier findings, all applied)
+
+The D31 fresh-context verifier (verdict: sound-with-findings) independently
+reproduced every load-bearing claim — DB state, code-identity diff, both
+parity runs, all negative branches pipe-free — and additionally re-compared
+all 20 row pairs on RAW driver strings without the canon() normalization:
+0 diffs. The parity is therefore byte-level on the real data, stronger than
+the canon-normalized identity the tool itself establishes. Findings applied:
+
+1. **"byte-identical" wording** (D36/journal) overclaimed what the TOOL
+   proves — it proves canon-normalized identity; byte identity is true here
+   only because the verifier checked raw strings independently. Wording now
+   scoped in D36; treat future PARITY exits as numeric identity unless a raw
+   sweep is repeated.
+2. **`marketId` was silently excluded** — now compared (FIELDS is 19
+   columns; deterministic per slug, a divergence would mean slug→market
+   resolution or catalog drift). Re-run after the change: parity 421/422 vs
+   424 holds across all 19 fields, exit 0; the 352-vs-353 mismatch branch
+   still fires (66 lines, exit 2).
+3. **Cross-machine scope was narrower than the caveats stated**: 6 of the
+   20 fleet rows (3 per run) were executed by a worker on THIS machine
+   (machineId 8955f8d87c59 = local node-machine-id), and only 2 of the
+   fleet's 3 machines contributed rows. Genuine cross-environment evidence
+   is 14 rows from one remote machine (527674ef4858); the third machine's
+   environment is untested. The path-equivalence claim (wrapper vs worker
+   code path) still rests on all 20 rows.
+4. **The Result block above is trimmed tool output** (slug-list lines and
+   the "(no outcome values printed)" suffix elided; field count read 18 at
+   the time) — figures unchanged, elision now declared. The tool now prints
+   fields=19.
+
+Verifier count correction (ours, not its): the report cited "67 real
+MISMATCH lines" for 352 vs 353; both the committed and the amended tool
+print 66 (re-verified). Immaterial — the branch fires either way.

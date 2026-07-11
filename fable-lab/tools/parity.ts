@@ -44,6 +44,7 @@ if (!Number.isFinite(runA) || !Number.isFinite(runB) || runA === runB) {
 // checked separately by the caller), idx (submission-order dependent under
 // --random), id/runId.
 const FIELDS = [
+  'marketId', // deterministic per slug; divergence = slug→market resolution / catalog drift (U62b verifier finding)
   'marketStartMs',
   'finalOutcome',
   'skipReason',
@@ -67,7 +68,11 @@ const FIELDS = [
 function canon(field: string, v: unknown): string {
   if (v === null || v === undefined) return 'null'
   // decimal columns arrive as strings; compare numerically so scale
-  // differences ("0.95" vs "0.950000") are not false mismatches
+  // differences ("0.95" vs "0.950000") are not false mismatches.
+  // Collapse cases (string "null" vs SQL NULL, "1e2"/"0x10" vs numbers,
+  // float64 loss beyond ~16 significant digits) are unreachable from the
+  // current column types (canonical MySQL decimal strings, enums, ints) —
+  // revisit if FIELDS ever gains free-text columns (U62b observation).
   if (typeof v === 'string' && v !== '' && Number.isFinite(Number(v))) return String(Number(v))
   if (typeof v === 'object') return JSON.stringify(v)
   return String(v)
