@@ -876,6 +876,25 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   silently narrowed); sweep-"clean" claims reworded to the exit-2
   convention in four docs.
 
+- U59 (session 50): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14), trades coverage unchanged (17,878/18,635;
+  only delta/delta-typed converters on disk) — both gates closed; fleet
+  healthy (32 alive slots, registry probe RESOLVED). Verification unit:
+  the operator's main-merge (f1cf90b, 2026-07-11) AUDITED end-to-end
+  against lab dependencies (`knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`).
+  Verdict: no cited replay/fill/fee/tick/statistics semantics changed —
+  src/trading, src/market, src/parquet, src/strategy untouched; E9-E23
+  and CAPABILITIES.md stand. Three lab-relevant findings: (1) engine-side
+  computeQuality guard (null for |q|>99,999,999) closes the E13 crash
+  class at the source INCLUDING the fleet worker path, which since U58
+  bypasses the D12 wrapper clamp and had carried the exposure unmitigated
+  — D12 amendment + E13 update appended; (2) durationWallClockMs changed
+  span→union-of-busy-intervals — swept: no lab tool/verdict reads it;
+  (3) worker self-update orphan fix + lockDuration 10→3 min — fleet
+  submissions safer; stalled-job worst case for polling math is now
+  ≤ 3 min + 30 s. D31 fresh-context check: pending (this entry updates
+  when it lands).
+
 ## In progress
 - (nothing in flight)
 

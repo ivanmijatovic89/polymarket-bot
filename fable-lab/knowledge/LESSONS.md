@@ -130,6 +130,11 @@ forbids importing the old system's research conclusions._
   run whose pnl distribution can degenerate (tight ask bands, tiny samples
   per day) risks engine-side persistence artifacts — check the persist
   SUCCEEDED (row in runs.ts) before treating a "finished" log as a result.
+  _[Update U59, 2026-07-11: the operator's main-merge (f1cf90b) closed this
+  class engine-side — computeQuality now nulls degenerate ratios before the
+  driver, covering the fleet path the D12 clamp never reached (D12
+  amendment; knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md). The general rule
+  stands.]_
 
 - **E14 — The expiry tail is ALSO efficiently priced; EXP-001's probe
   "advance" was sampling noise, and the probe design has a measurable

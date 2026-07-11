@@ -261,6 +261,20 @@ Residual risk: the already-running main/lat runs predate the guard; their
 ~95 played markets/day make a degenerate day unlikely (probe's 136 days
 were all fine), accepted rather than burning 2h of completed replay.
 
+**Amendment (U59, session 50, 2026-07-11).** The operator's merge of main
+(f1cf90b) added an engine-side guard: `computeQuality` now returns null for
+non-finite or |q| > 99,999,999 ratios (batchStats.ts:168-174), the sole
+producer path into the DECIMAL columns. This closes the E13 crash class at
+the source for ALL persist paths — including the fleet worker path, which
+since U58 bypasses this wrapper clamp entirely and until this merge carried
+the exposure unmitigated (the "residual risk" above covered only the
+then-running local runs; U58's move of evidence stages to the bare CLI had
+silently widened it). The wrapper clamp stays as inert defense-in-depth on
+local wrapper runs; degenerate segments now persist as NULL rather than the
+clamped ±1e6 (equivalent decision information — nothing in the lab reads
+the column; results.ts recomputes q from pnls). Full merge audit:
+`knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`.
+
 ## D13 — Probe precision for skewed payoffs is judged on minority-outcome count
 
 **Motivating observation:** EXP-001 probe (N=379, 231 entered) read
