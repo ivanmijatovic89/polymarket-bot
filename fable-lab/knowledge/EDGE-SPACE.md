@@ -37,6 +37,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | maker (deep distance) | resting bids 10c below fair, both sides (5-15c distance regime) | BATCH-002 SCR-005 | kill (screen-grade; model-conditional D14 — worst-queue punch-through now closed across 1c-10c) | E26 |
 | taker (warm-mirror screen) | late favorite after wide range (SIGNAL-001 warm cell mirror, in-sample overlap disclosed) | BATCH-002 SCR-006 | kill (default: q̂=+0.0165, t=+0.74 sub-bar; warm cell d diluted ~8× on 4× re-draw) | E26 |
 | maker+settlement | filled-maker instant lock (fill-conditional UP+DOWN pair sums) | BATCH-002 SCR-007 | kill (t=−3.17; p+a+fee > 1 conditional on fill — half model-conditional: hedge leg at real ask+fee) | E26 |
+| maker (ungated touch, skew harvest) | ungated DOWN-side at-touch bid — mirror-consistent harvest of the G2 UP-ask premium (no timing gate) | BATCH-003 SCR-008 | kill by default outcome (q̂=+0.0033, t=+0.07, N=500 — first NON-losing touch cell: premium ≈ adverse-selection cost, break-even at the optimistic bound, no rent) | E29 |
 
 Summary of the map:
 
@@ -124,6 +125,21 @@ Summary of the map:
   ends in both regimes — touch mode roughly doubles fill density at the
   same negative EV per played market. The real queue model's location
   inside the brackets is economically moot.
+- **Maker at-touch, ungated end: exact break-even — the family is
+  closed at both ends (E29, 2026-07-11; screen-grade, D18 bound).**
+  The ungated DOWN-side touch bid (BATCH-003 SCR-008) is the first
+  touch cell that does not lose: q̂=+0.0033, t=+0.07 at N=500,
+  maker-only, 479/500 played. It harvested the G2 asymmetry (UP-side
+  taker buys −1.16c gross, z=−5.2, the strongest measured regularity)
+  and netted zero: the premium equals the unconditional
+  adverse-selection cost — equilibrium compensation, not mispricing.
+  Every gated touch cell (E19/E24) is this cell plus a fill-WORSENING
+  filter and loses accordingly; with the sell side mirror-identical
+  (BATCH-003 derivation kill 1), at-touch maker economics are closed
+  under the optimistic bound: gated = losing, ungated = zero rent. A
+  future maker registration must argue a fill population BETTER than
+  unconditional (a mechanism improving the fill mix) or wait for the
+  trades-based fill model (§3.2).
 - **Settlement: arithmetic, not an edge.** Merge/split/redeem are modeled
   costless and priceless; no channel there. The maker×settlement
   interaction is also measured (E26b, BATCH-002 SCR-007):
@@ -291,7 +307,16 @@ registered only if one of these holds:
   measured cells (EXP-006/007 primaries) re-test E19 and are likewise
   auto-dead at dedupe; a NEW touch registration must argue why its cell
   or gate escapes the E19 mechanism (denser at-touch fills were MORE
-  toxic, not less, in both regimes).
+  toxic, not less, in both regimes). E29 (BATCH-003 SCR-008) raises
+  this bar to its limit: the UNGATED cell — no timing filter at all,
+  harvesting the strongest measured skew (G2) — breaks exactly even at
+  the optimistic bound, and the sell side is mirror-identical
+  (BATCH-003 derivation kill 1). "Escapes E19" therefore now requires
+  arguing a fill population BETTER than unconditional (a mechanism
+  that improves the fill mix relative to resting at touch all window),
+  not merely a different gate or a measured gross skew: gated = losing,
+  ungated = zero rent, and any gate measured so far only worsened the
+  mix.
 - **New data regimes:** the universe accrues ~96 markets/day. A
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence

@@ -296,7 +296,10 @@ Ordered; top entries get registered first.
   (G2 asymmetry, −1.16c z=−5.2, the venue's strongest measured
   regularity). Escape vs E19/E24: no informed-flow timing gate — tests
   unconditional skew vs unconditional touch adverse selection. Touch
-  mode, local, D18 kill/escalate only.
+  mode, local, D18 kill/escalate only. → killed in BATCH-003 (run 472:
+  q̂=+0.0033, t=+0.07 at N=500, kill by default outcome — the FIRST
+  non-losing touch cell: the G2 premium cancels touch adverse selection
+  to break-even at the optimistic bound, no rent left; E29).
 - **DEAD FAMILY at derivation: split-funded sell-side maker (any
   gate)** — mirror identity (CAL-001 am. #12) makes UP ask at a ≡ DOWN
   bid at 1−a; the entire sell side collapses onto the measured buy-side

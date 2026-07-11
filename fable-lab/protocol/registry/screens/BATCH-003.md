@@ -138,7 +138,7 @@ N=500 random discovery, 0 failures, unique for its batchUid; runs
 
 Pre-verdict checks (artifact lines pasted per SCREENING amendment 4):
 - `[fable] latency env: BACKTEST_LATENCY_DELAY=0 BACKTEST_LATENCY_JITTER=0`
-- `[fable] D18 fill-mode hook: 500 BacktestExecution instance(s) forced to touch_or_better` (hook count grep = 2: activation + end summary)
+- `[fable] D18 fill-mode hook: 479 BacktestExecution instance(s) forced to touch_or_better` (log line 11715; hook count grep = 2: activation line 2013 + end summary. CORRECTED per checker finding 1 — the verdict as first committed "pasted" 500 from intention, not from the log; 479 = played markets, the 21 no_in_window_activity skips never instantiate an execution. The E28 defect class caught in the very unit that codified it.)
 - boundary market 1777237200: 0 log hits (structurally excluded by
   `--to-ms 1772323199999`)
 
@@ -164,3 +164,22 @@ ungated DOWN-side bid at touch breaks exactly even: the persistent
 UP-ask premium is real and approximately CANCELS unconditional touch
 adverse selection on the DOWN side — the skew exists but is priced to
 the marginal liquidity provider's break-even, leaving no rent.
+
+## Batch checker (fresh-context, session 63) — SOUND-WITH-FINDINGS, both applied
+
+Report verbatim in `knowledge/AUDIT-2026-07-11-BATCH-003-CHECKER.md`.
+Substance: kill re-derived exactly from raw SQL (all statistics match),
+freeze byte-intact (mini-spec block identical 6be18b0 → HEAD), 467 void
+factually grounded, D50 invariants line coherent, derivation kills
+consistent (engine episode-isolation verified in runSingleMarket.ts).
+Findings applied: (1) MAJOR verdict-neutral — the pre-verdict "pasted"
+hook line quoted 500 instances where the log says 479; corrected
+in-place above with attribution (the E28 artifact-fidelity defect,
+caught by the amendment-4 check in its first outing). (2) MINOR —
+derivation kill #1's "already-measured buy-side family" overstates AT
+FREEZE TIME: the ungated buy-side touch cell was measured by SCR-008
+itself within this batch, not before it. The frozen text stands
+unedited per append-only discipline; read "already-measured" as
+"measured once this batch's own screen resolved". The reduction (sell
+side ≡ mirror buy side) is unaffected, so with run 472 killed the
+sell-side family is genuinely closed.

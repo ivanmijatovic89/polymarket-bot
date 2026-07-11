@@ -254,6 +254,14 @@ UP-side overpricing whose tradable mirror (buy DOWN) is already
 measured flat — spread-absorbed, not capturable at the ask (the E21
 lesson at global scale; the maker side is measured separately by the
 BATCH-001 touch kills). Map-grade observation only.
+_Update (session 63): the maker-side harvest of this asymmetry is now
+DIRECTLY measured — BATCH-003 SCR-008 (ungated DOWN-side touch bid,
+run 472) breaks exactly even at the D18 optimistic bound (q̂=+0.0033,
+t=+0.07, N=500). The premium equals the unconditional
+adverse-selection cost of quoting the DOWN side: equilibrium
+compensation, not capturable rent (E29). The G2 row is fully
+resolved — both the taker mirror (flat, above) and the maker harvest
+(zero) are measured._
 
 **Power reminder (frozen in §2):** dead zones are power-scoped — "no
 signal above |ρ| ≈ 0.045 pooled / |d| ≈ 7.3c per MID cell", not "no

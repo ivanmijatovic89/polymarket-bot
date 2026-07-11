@@ -62,18 +62,13 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **SCR-008 PINNED RELAUNCH (r2)** (BATCH-003, freeze 6be18b0; runs
-  466/467 latency-violating — 467 VOID, see BATCH-003 erratum + D51):
-  ungated DOWN-side at-touch bid. Sequence: pinned counts-only re-smoke
-  batchUid SCR-008-touch-smoke-r2, then the canonical screen
-  SCR-008-touch-screen-r2 (N=500 random, `--to-ms 1772323199999`,
-  `--fill-mode touch_or_better`, DELAY=0/JITTER=0 pinned on the
-  command), log `fable-lab/logs/SCR-008-touch-screen-r2.log`.
-  D18 rules: kill/escalate only. On completion: verify one run per
-  batchUid + D18 hook line + D51-satisfying latency line in log,
-  verdict per D49 bars (all-N q̂; amendment-3 default-kill), batch
-  checker (one fresh-context pass, also checks the new D50 invariants
-  line + the 467 void handling), LESSONS, propagation.
+- Nothing in flight. BATCH-003 is fully closed (see U96 in Done);
+  next unit = BATCH-004 idea generation under the E29-raised maker bar
+  (EDGE-SPACE §4: "escapes E19" now requires a BETTER-than-unconditional
+  fill population argument) — or a bottom-up mining pass over run 472
+  (first break-even touch dataset: 479 played markets of unconditional
+  DOWN-side fills could be decomposed outcome-blind by state for
+  fill-mix ideas, the exact axis the new bar demands).
 - BATCH-003 also recorded THREE derivation kills (no runs): split-sell
   mirror identity, round-number no-carrier (measured outcome-free:
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
@@ -156,6 +151,36 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U95/U96 (session 63): SCR-008 JUDGED — **kill by default outcome**
+  (canonical run 472, SCR-008-touch-screen-r2, N=500, 479 played,
+  q̂=+0.0033, t=+0.0736, winRate 0.5115, maker-only; prediction held
+  at +0.165/played but survive bar nowhere near met). The FIRST
+  non-losing touch cell: the G2 UP-ask premium exactly cancels
+  unconditional touch adverse selection — equilibrium compensation,
+  zero rent (E29). Fresh-context batch checker: SOUND-WITH-FINDINGS
+  (report verbatim in `knowledge/AUDIT-2026-07-11-BATCH-003-CHECKER.md`);
+  finding 1 MAJOR verdict-neutral — the verdict's "pasted" D18 hook
+  line said 500 instances where the log says 479 (the E28 defect class
+  caught by amendment 4 in its first outing) — corrected in place with
+  attribution; finding 2 MINOR — derivation kill 1's "already-measured"
+  scoped via appended note (frozen text untouched). Propagation: E29
+  in LESSONS; IDEAS #21 → dead (21/21 resolved: 20 dead, #10 parked);
+  EDGE-SPACE map row + ungated-touch-closure bullet + §4 maker bar
+  raised (fill-mix argument now required); SIGNAL-MAP G2 row resolved;
+  INDEX regenerated.
+- U93/U94 (session 63): run 467 VOID (executed at ambient DELAY=140 vs
+  frozen D8 pin, truncated 73/500; outcome exposure disclosed) — D51
+  wrapper latency-pin guard built and verified (refusal exit-2 / lat
+  bypass / pinned pass); pinned relaunch (re-smoke 468: 466's taker
+  fills were 140ms artifacts; screen 472 clean). Latency-pin audit of
+  ALL judged batches: fleet screens PROVEN pinned by parity re-runs
+  (465 vs 469, 450 vs 471 — 12/12 rows byte-identical × 19 fields
+  each; run 470 = mislaunched scratch, wrong strategy id, superseded);
+  BATCH-002 smoke pin claim FALSE (erratum; counts-only, no evidence
+  impact); BATCH-001 honor-system disclosure upgraded to empirical;
+  SIGNAL-001 shards verified 0/0 in-log. E28 (verification claims need
+  pasted artifacts); SCREENING amendment 4 (checker re-greps in-log
+  claims).
 - U92 (session 62, screen in flight): BATCH-003 frozen + smoked. Idea
   sweep of remaining expressible space produced 4 candidates; 3 died at
   derivation (recorded in BATCH-003.md + IDEAS dead-family entries):

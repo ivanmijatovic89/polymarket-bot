@@ -625,3 +625,33 @@ forbids importing the old system's research conclusions._
   never prove; (d) diagnostic scratch: run 470 was a mislaunched
   parity check (wrong strategy id typed) — superseded by run 471,
   never read beyond row counts.
+
+- **E29 — the G2 UP-ask premium is priced to the liquidity provider's
+  break-even: real skew, zero rent (2026-07-11; SCR-008 kill, run
+  472).** The ungated DOWN-side at-touch bid — the mirror-consistent
+  harvest of the venue's strongest measured regularity (G2: UP-side
+  taker buys lose −1.16c gross, z=−5.2, SIGNAL-001) — nets
+  q̂=+0.0033, t=+0.07 over N=500 (EV +0.16/market on ±48-point
+  swings, winRate 0.512, 479/500 played, maker-only, fees 0) at the
+  D18 OPTIMISTIC touch bound. Kill by default outcome. What makes
+  this kill different: every prior touch cell LOST 0.4-4.5/market
+  (E19 quiet/loud, E24 tail/reversal/opening — all timed informed
+  flow); the ungated DOWN-side cell is the first to break even. The
+  two measurements are mutually consistent: unconditional touch
+  adverse selection costs ≈ the G2 premium earns. Reading: the
+  premium is not mispricing — it is the equilibrium compensation the
+  marginal DOWN-side quoter demands for adverse selection; there is
+  no rent above it, and any GATE that concentrates fills into
+  informed flow does strictly worse (the E19/E24 cells are this cell
+  plus a fill-worsening filter). Transfer: (a) a measured taker-side
+  gross asymmetry is NOT harvestable maker-side if it equals the
+  quoter's adverse-selection cost — future "harvest the skew" ideas
+  must argue a fill population BETTER than unconditional, not just
+  point at the skew; (b) with sell-side ≡ buy-side (mirror identity)
+  and the ungated cell at break-even, the at-touch maker family is
+  now closed at BOTH the gated (losing) and ungated (zero) ends
+  under the optimistic bound — in-model maker registrations need a
+  fill-model change (EDGE-SPACE §3.2 trades instrument) or a
+  mechanism that improves the fill mix; (c) 21 of 21 ledgered ideas
+  resolved: 20 dead, #10 parked. The venue prices its own
+  regularities.
