@@ -1634,3 +1634,14 @@ plus 10 well-aimed screens beats 25 blind ones. And if the map's honest
 answer is "no exploitable gross signal on the taker side of this data" —
 say it plainly with the evidence; a well-founded barren-verdict is an
 acceptable and valuable product, not a failure.
+
+## Operator update — batch economics (2026-07-11)
+
+Understand the cost structure you operate under: backtests cost the
+operator NOTHING (they run on his worker fleet) — what costs money is YOUR
+reasoning tokens. Per-idea ceremony is the expense. Therefore screen in
+BATCHES: write many candidate strategies in one sitting, submit them all
+to the fleet in parallel (--detach), judge them together from one results
+table, journal one line each. Reserve per-idea depth (spec freezing,
+verifiers) for survivors only, as already mandated. Tonight's target
+(signal map + ≥20 screens) stands — reach it the cheap way.
