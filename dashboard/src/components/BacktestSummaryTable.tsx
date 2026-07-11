@@ -266,28 +266,13 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         {/* Duration → Total (wall-clock) / per-market sub-columns */}
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
           {(() => {
-            // Headline = wall-clock (real elapsed), matching the run detail
+            // Headline = wall-clock (real elapsed busy time, union of per-market
+            // intervals — excludes --extend idle gaps), matching the run detail
             // page's Execution card. Fall back to total CPU time if wall-clock
             // wasn't recorded.
-            const wall = b.durationWallClockMs
-            const total = b.durationTotalMs
-            const headline = wall ?? total
+            const headline = b.durationWallClockMs ?? b.durationTotalMs
             if (headline == null) return <span className="text-muted-foreground/50">—</span>
-            // Wall-clock far above summed CPU time ⇒ idle gaps (e.g. --extend).
-            const spansGaps = wall != null && total != null && wall > total
-            return (
-              <>
-                {formatDurationMs(headline)}
-                {spansGaps && (
-                  <span
-                    className="ml-0.5 text-[color:var(--warning)]"
-                    title="wall-clock includes idle gaps (extended run)"
-                  >
-                    *
-                  </span>
-                )}
-              </>
-            )
+            return formatDurationMs(headline)
           })()}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground/70 whitespace-nowrap">
