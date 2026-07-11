@@ -921,9 +921,20 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   ONLY record, now proven faithful), CAL-003 re-run vs raw capture vs
   published block, CAL-004 re-run vs committed raw vs published block.
   One-shot-rule reasoning recorded in each note: post-verdict
-  reproduction of a closed null against its own published bytes steers
-  nothing — verification, not a second read. Notes appended to all three
-  CALIBRATION files. D31 fresh-context check: pending.
+  reproduction of a closed null against its own published bytes cannot
+  inflate false-positive rate or enable data-dependent selection —
+  verification, not a second read. Notes appended to all three
+  CALIBRATION files. D31 fresh-context check: sound-with-findings — the
+  verifier RE-RAN all three tools itself (byte-identity confirmed
+  end-to-end; freeze claims, commit ids, line counts, "no CAL-002
+  capture exists" all independently confirmed); 3 MINOR applied to the
+  CAL-002 note: "nothing it can show steers any decision" tightened to
+  the harms-the-rule-prevents phrasing (a failed repro WOULD steer
+  work), the input-log dependence of "faithful transcription" made
+  explicit with the log's sha256 fingerprint now committed in the note
+  (f8b7678f…, 17,161,328 bytes — verified by both verifier and session),
+  and the gitignored-repro-artifacts point recorded (published blocks
+  are the durable record).
 
 ## In progress
 - (nothing in flight)

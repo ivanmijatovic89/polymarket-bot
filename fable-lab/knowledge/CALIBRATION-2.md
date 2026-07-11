@@ -396,8 +396,19 @@ tool (calib2.ts, unchanged since read commit f5d9aa3 per git log), same
 command (`npx tsx fable-lab/tools/calib2.ts
 fable-lab/logs/CAL-001-discovery-v3.log`), current DB state — and the
 77-line output diffs clean against the verbatim block above. CAL-002 had
-no raw output capture (the block above was the only record); it is now
-proven a faithful transcription. One-shot rule: this is verification of a
-closed null against its own published bytes, not a second read — nothing
-it can show steers any decision (U47 calib.ts precedent; CAL-004's
-deterministic-completion reasoning)._
+no raw output capture (the block above was the only record); it is a
+faithful transcription conditional on the gitignored input log being
+byte-unchanged since the read (no committed fingerprint existed;
+recorded now — sha256
+f8b7678f3c8ce8f890a5439659a99beedd242ece64f10e173ef60c4d7dc88364,
+17,161,328 bytes; three independent tools agreeing byte-for-byte with
+their read-time outputs makes a silent alteration practically
+impossible). One-shot rule: a post-verdict re-run of a closed null
+cannot inflate the false-positive rate or enable data-dependent
+selection — the harms the rule exists to prevent — so this is
+verification, not a second read (U47 calib.ts precedent; CAL-004's
+deterministic-completion reasoning). A FAILED reproduction would of
+course have steered work (investigation/erratum). Re-run outputs live in
+gitignored logs/REPRO-CAL-00{2,3,4}-read-2026-07-11.txt; the published
+blocks are the durable record — and the D31 verifier independently
+re-ran all three tools and confirmed byte-identity end-to-end._
