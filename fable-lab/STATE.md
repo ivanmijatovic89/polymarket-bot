@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, units U74+U74b. Wake-up checks all quiet via
+_Last updated: session 57, units U74-U75. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 26 slots — grew from 12, informational only / no
 operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
@@ -12,8 +12,12 @@ guard; enabling refactor proven inert by byte-identical real-INDEX
 regeneration). U74b: verifier findings all applied (1 MAJOR: D46 cited
 a SCIENTIST.md plain-line verdict rule that did not exist — it is now
 really there; 3 MINOR incl. a `(?!\*)` regex tightening against the
-bold-spec-field false positive, inertness re-proven). Remaining
-residue: R5 (fills.ts + lib/spec.ts, small units), R3/R6/R7 (low).
+bold-spec-field false positive, inertness re-proven). U75: residue R5
+closed (D47) — `lib/spec.ts` got a committed 26-assertion selftest
+(the U10 silent-truncation bug is now a pinned regression case) and
+every figure `fills.ts` ever published was independently recomputed
+from raw SQL (11 runs, all match; outcome-safety statically confirmed;
+one header drift fixed). Remaining residue: R3/R6/R7 (all low).
 CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
@@ -1522,3 +1526,20 @@ plan (fleet --detach + capacity tool) when it does.
   carry 2-10 balanced fences; one unbalanced fence would swallow a real
   verdict). (MINOR) STATE header "every shape" over-claim reworded.
   Selftest now 25/25 green; tsc clean; AUDIT-COVERAGE rows updated.
+- U75 (session 57): AUDIT-COVERAGE residue R5 closed (DECISIONS D47).
+  (a) `tools/spec-selftest.ts` — 26 hand-computed assertions on synthetic
+  fixtures pin the lib/spec.ts contract: field() wrapping incl. the exact
+  U10 EOF-truncation bug as a committed regression case, every
+  parseSpecFile extraction (title/registered/lineage/mechanism/wrapped
+  hypothesis/strategy path+id/ALL --param pairs in order/holdout boundary
+  AND end/placeholder scan with dedupe and post-## Runs exclusion),
+  null/[]-fallback arms, and all three resolveSpecPath arms. (b) every
+  published fills.ts figure independently recomputed with raw SQL
+  aggregates (no outcome columns): 11 runs — E15 feasibility 337-340 with
+  cell binding via run params, smoke 341, D18 pair 352/353, smokes
+  355/356, probes 357/358 — all match published values; fills.ts re-run
+  prints identical numbers (transcription check); static query-surface
+  check confirms the outcome-safety claim; one doc drift fixed (header
+  claimed skip_reason counts that were never selected).
+  `knowledge/FILLS-RECOMPUTATION-2026-07-11.md`; coverage rows updated
+  per D44. tsc clean, both selftests green (26/26, 25/25).

@@ -1721,3 +1721,36 @@ carry 2-10 balanced fences and one unbalanced fence would swallow a
 genuine later verdict, a worse failure than this corpus-absent false
 positive. (MINOR 4) the STATE header's "every shape" over-claim reworded.
 Selftest is now 25 assertions.
+
+## D47 — fills.ts and lib/spec.ts verified (residue R5 closed)
+
+**Decision (session 57, U75):** the two remaining discipline-critical R5
+targets are directly verified. (a) `lib/spec.ts` (frozen-spec → command
+fidelity): new `tools/spec-selftest.ts` — 26 hand-computed assertions on
+synthetic fixtures pin field() wrapping (continuation lines, stop at the
+next field / `##` section / true end-of-input — the exact U10 truncation
+bug is a committed regression case now), every parseSpecFile extraction
+(title, registered, lineage numOrNull, mechanism, wrapped hypothesis,
+strategy path+id, ALL --param pairs in order, holdout boundary AND end,
+placeholder scan with dedupe and post-`## Runs` exclusion), the
+null/[]-fallback arms, and all three resolveSpecPath arms (passthrough,
+real-registry prefix hit, throw). (b) `fills.ts` (E15 outcome-mining
+safety): every published figure it ever produced was independently
+recomputed with raw SQL aggregates — 11 runs (337-341, 352/353, 355/356,
+357/358), all match at published precision including the 337-340
+cell-binding via run params; fills.ts re-run on the same runs prints
+identical values (transcription check); static check confirms no
+outcome column in the query surface. Record:
+`knowledge/FILLS-RECOMPUTATION-2026-07-11.md`. One doc drift fixed:
+fills.ts's header claimed `skip_reason` counts that were never selected
+(comment corrected, query surface unchanged).
+
+**Motivating observation (governor):** AUDIT-COVERAGE residue R5 (D44) —
+spec.ts had one REAL silent-truncation bug (U10) whose fixtures were
+never committed, and fills.ts's outcome-safety claim (relied on since
+U29 for lineage accounting) had never been checked by anyone.
+
+**Boundaries:** no behavior change in either tool (comment-only edit in
+fills.ts); the selftest pins the parser contract as-is — any future
+spec.ts change must keep 26/26 green or amend the selftest with cited
+motivation.

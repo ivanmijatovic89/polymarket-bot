@@ -5,8 +5,10 @@
  * measured punch-through frequency BEFORE freezing a parameter cell. Reading
  * outcome columns (pnl) during that design step would be outcome mining and
  * would multiply lineage_cells; this reader makes the safe read easy and the
- * unsafe one impossible — it selects only trade_as_maker / trade_as_taker /
- * skip_reason counts.
+ * unsafe one impossible — it selects only trade_as_maker / trade_as_taker
+ * counts (plus run params/batchUid for labeling). NOTE (U75): the original
+ * header also claimed skip_reason counts — never implemented; comment fixed
+ * to match the code rather than widening the query surface.
  *
  * Usage: npx tsx fable-lab/tools/fills.ts <runId> [<runId> ...]
  */
