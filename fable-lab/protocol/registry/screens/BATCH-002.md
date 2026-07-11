@@ -99,4 +99,18 @@ Disclosure per BATCH-001 precedent: the engine's end-of-run summary
 prints pnl lines for smoke samples; read for plumbing verification
 only, cells unchanged after reading._
 
+## Pre-verdict submission note (2026-07-11, session 62 — recorded BEFORE any verdict read)
+
+The session-61 submission double-enqueued SCR-005: runs 462 and 463 both
+carry batchUid `SCR-005-screen`, identical cmd (spec-conformant: random
+500, `--to-ms 1772323199999`, `fable-scr-005`), distinct submission
+uids, created 7s apart (18:48:53 / 18:49:00 db-local). Resolution, fixed
+OUTCOME-BLIND (no statistic of either run read at the time of this
+note): **run 462 (first enqueued, lowest id) is canonical; run 463 is
+VOID** — its statistics are never read, by this batch or any future
+work. Rationale: the freeze says N=500, so pooling would be a post-hoc
+sample-size change; picking by enqueue order is the only rule available
+before outcomes are seen. SCR-006 / SCR-007 aggregates were still
+in-flight (Redis waiting-children) at the time of this note.
+
 ## Verdicts (append-only after runs complete)
