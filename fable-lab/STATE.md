@@ -1,10 +1,13 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 54, unit U66 (D40 trades schema probe built and
-run — BLOCKED upstream: vendor key returns 403 `limit_reached` on ALL
+_Last updated: session 54, units U66-U67b. U66: D40 trades schema probe
+built and run — BLOCKED upstream (vendor key 403 `limit_reached` on ALL
 download channels; ingestion of the 2,570 pending markets is blocked on
-the Telonex plan; sync re-runs suspended until operator confirms
-headroom)._
+the Telonex plan; sync re-runs suspended). U67: CONFIRM-010 frozen
+pre-data (D41) — the IDEAS #10 confirmation test is fully pre-registered
+in `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` while its test data
+provably cannot be obtained; freeze anchor = commit c403d7d (carries the
+U67b entry)._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -49,7 +52,12 @@ append-only history at the bottom; new entries still go there._
      BLOCKER (U66, 2026-07-11): the vendor key is 403 `limit_reached` on
      ALL download channels — ingestion cannot happen and sync re-runs
      are SUSPENDED (each spends ~1 GB of the exhausted quota) until the
-     operator confirms headroom (DATASET-GROWTH.md §quota).
+     operator confirms headroom (DATASET-GROWTH.md §quota). If quota is
+     restored: FIRST re-run `tools/trades-schema-probe.ts --slug
+     btc-updown-15m-1764461700` (D40 — the §3.2 fill-model design input),
+     THEN the ingestion hand-off proceeds; and when the eligible universe
+     eventually reaches the IDEAS #10 unlock, execute the FROZEN
+     CONFIRM-010 spec (U67/D41), do not redesign it.
   2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model
