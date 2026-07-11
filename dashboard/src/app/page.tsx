@@ -43,7 +43,7 @@ export default function OverviewPage() {
           subtitle="Last 20 finalized backtests, newest first."
           icon={History}
         />
-        <BacktestsTable limit={20} />
+        <BacktestsTable limit={20} stickyHeader />
         <div className="mt-3 text-right">
           <Link
             href="/backtests"
