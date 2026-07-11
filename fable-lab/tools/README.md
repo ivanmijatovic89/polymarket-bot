@@ -5,6 +5,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 
 | tool | purpose |
 |---|---|
+| `wakeup.ts` | ONE-COMMAND session boot (D42): runs all six wake-up checks — universe vs baseline, trades gate (converter set + converted bucket), fleet (registry probe + capacity relay), operator drift past the audited point (D35), zero-cost vendor quota probe, CONFIRM-010 freeze byte-identity — per-check pointers; exit 0 quiet / 2 fired / 1 unrunnable; STATE bullets stay authoritative |
 | `universe.ts` | eligible BTC 15m universe report + holdout boundary for registration; also prints CATALOG AWAITING INGESTION (synced-not-ingested lag, U64/D38) (wake-up gate 1) |
 | `run-backtest.ts` | THE lab backtest entry point (D7): registry-injection wrapper (idempotent under the fleet-gap registry patch since U54/D33), refuses non-sequential runs, pins/prints latency env, `--fill-mode` guard (D18) — every evidence run goes through it |
 | `runs.ts` | list recent backtest runs (id, batchUid, strategy, size, status) — find run ids |

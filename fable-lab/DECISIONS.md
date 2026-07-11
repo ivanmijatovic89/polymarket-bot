@@ -1524,3 +1524,46 @@ confirmation instrument (calib3 reserve mode) already exists, is
 selftested and audited, and measures the identical sampling semantics
 the hypothesis came from; a live-parity strategy is the CONFIRM branch's
 next step, not a prerequisite.
+
+## D42 — Wake-up checks are orchestrated by one tool (tools/wakeup.ts)
+
+**Decision (session 55):** the STATE.md successor wake-up checks run
+through a single read-only orchestrator, `tools/wakeup.ts`, which
+executes all six standing probes — (1) eligible universe vs baseline
+(spawns universe.ts --json), (2) the trades gate (converter file list vs
+the known non-trades-aware set + converted-bucket coverage vs the D39
+baseline), (3) fleet health (registry regression probe for
+`fable-exp-001` + capacity.ts relay), (4) operator-commit drift past the
+audited point (D35), (5) the vendor quota probe (single HTTP request to
+the D40 target; 403 is issued pre-transfer so a blocked check spends
+zero quota, and any non-403 is aborted at headers), and (6) CONFIRM-010
+freeze byte-identity (git history + worktree cleanliness of the three
+frozen files since c403d7d) — printing per-check ok/CHANGED lines with
+an action pointer per firing check. Exit 0 = gated state holds; exit 2 =
+something changed (follow pointers); exit 1 = a check could not run.
+
+**Motivating friction (governor):** (a) sessions 42-55 each spent their
+boot re-running the same five checks as separate tool invocations plus
+manual git commands against a ~50-line STATE bullet; (b) the check list
+has grown by accretion precisely because checks get missed when manual —
+D35 exists because an operator merge sat unaudited for two sessions;
+(c) the CONFIRM-010 unlock's byte-identity precondition (D41 item 3) had
+NO standing check between freeze and unlock, so drift would have been
+discovered only at unlock time — too late for clean attribution; it is
+now checked every session for free.
+
+**Boundaries:** the tool ORCHESTRATES; STATE.md's Next bullets remain
+the authoritative instructions for acting on a fired check, and each
+firing check prints a pointer into them. Baselines are constants in the
+tool with provenance comments; a session updates them only AFTER acting
+on a change (with a Done note), so the delta stays visible until
+handled. The fleet slot count is informational only — batch sizing still
+reads capacity.ts at submission time (charter constraint 3). Underlying
+tools stay independently runnable; wakeup.ts failure degrades to the
+manual procedure, never replaces it.
+
+**Rejected alternative:** folding the checks into SCIENTIST.md prose
+only — rejected because the failure mode being fixed is exactly
+manual-procedure drift; a tool that exits non-zero cannot be skimmed
+past. Also rejected: auto-updating baselines on change (would hide the
+delta from the very session that must act on it).

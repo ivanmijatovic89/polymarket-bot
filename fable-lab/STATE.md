@@ -1,13 +1,11 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 54, units U66-U67b. U66: D40 trades schema probe
-built and run — BLOCKED upstream (vendor key 403 `limit_reached` on ALL
-download channels; ingestion of the 2,570 pending markets is blocked on
-the Telonex plan; sync re-runs suspended). U67: CONFIRM-010 frozen
-pre-data (D41) — the IDEAS #10 confirmation test is fully pre-registered
-in `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` while its test data
-provably cannot be obtained; freeze anchor = commit c403d7d (carries the
-U67b entry)._
+_Last updated: session 55, unit U68. Wake-up checks all quiet (universe
+18,635 / quota still 403 / trades gate closed / fleet 18 alive slots /
+no operator drift). U68: `tools/wakeup.ts` (D42) — one command now runs
+all six wake-up checks, including a zero-cost quota probe and the
+previously-uncovered CONFIRM-010 freeze byte-identity check.
+CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -36,7 +34,12 @@ append-only history at the bottom; new entries still go there._
   verification depth, keeping EDGE-SPACE §3 current, friction-motivated
   protocol maintenance.
 - Successor wake-up checks (run these FIRST, they are the only things that
-  change the gated state from outside):
+  change the gated state from outside). ONE COMMAND runs them all:
+  `npx tsx fable-lab/tools/wakeup.ts` (D42, U68 — exit 0 gated state
+  holds / exit 2 a check fired, follow its printed pointer / exit 1 a
+  check could not run, do it by hand). It also verifies the CONFIRM-010
+  freeze byte-identity every session. The bullets below remain the
+  AUTHORITATIVE instructions for acting on a fired check:
   1. `tools/universe.ts` — if the ELIGIBLE universe grew past 18,635 /
      2026-06-14 (operator ran download+convert on the pending window —
      see `knowledge/DATASET-GROWTH.md`), run the VENUE-DRIFT refresh
@@ -1283,3 +1286,42 @@ plan (fleet --detach + capacity tool) when it does.
   run time); (3) run A count MUST equal 5,460 — deviation is a pre-run-
   audit investigation; (4) reserve bounds restated in ms. The freeze
   commit is the one carrying this entry (byte-identity anchors here).
+
+- U68 (session 55): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14; 2,570 awaiting ingestion), converted-bucket
+  trades coverage unchanged (18,635/17,878; converter files still the
+  known non-trades-aware set), fleet healthy but SMALLER (18 alive slots
+  / 3 machines + 1 registered machine fully dead — capacity variance,
+  informational), registry probe RESOLVED, no operator commits past the
+  audited point, quota probe still HTTP 403 (zero bytes — D40: the 403
+  precedes any transfer). Friction unit (DECISIONS D42): all six wake-up
+  checks are now orchestrated by read-only `tools/wakeup.ts` — per-check
+  ok/CHANGED lines with an action pointer into the authoritative STATE
+  bullets, exit 0 gated-state-holds / 2 check-fired / 1 check-unrunnable.
+  Closes the standing-coverage gap on the CONFIRM-010 freeze: the D41
+  unlock's byte-identity precondition (calib3.ts, diag-calib.ts,
+  calib-integrity.sh unchanged since c403d7d, worktree clean) is now
+  checked every session instead of only at unlock. Verified this
+  session: all-quiet run matches every manually-gathered fact (exit 0);
+  CHANGED branch fired on a perturbed universe baseline AND a real
+  worktree edit to calib-integrity.sh (exit 2, both pointers printed;
+  edit reverted via git checkout); quota FAIL branch (empty
+  TELONEX_API_KEY) exits 1; --skip-quota/--skip-fleet print [skip]; tsc
+  clean. Baselines live in the tool with provenance comments and are
+  updated only AFTER a change is acted on (D42 boundary). D31
+  fresh-context check: sound-with-findings — the verifier traced every
+  BASE constant to its authoritative source (incl. deriving the quota
+  URL's asset id from the DB as asset_id_0 of the E6 market), confirmed
+  no bar/rule/pointer drift hunk-by-hunk, re-ran all branches with real
+  exit codes, and confirmed the freeze-check logic covers commits/
+  staged/unstaged/renames and fails safe on a bad ref. 4 MINOR findings,
+  all applied pre-commit: (1) header read-only claim scoped (git fetch
+  writes .git remote refs; fetch now quiet, drift line prints the
+  compared post-fetch origin sha); (2) --no-merges dropped from the
+  drift log (STATE's canonical command includes merges and D35's
+  originating event WAS a merge commit); (3) --skip-fleet now skips only
+  the capacity relay — the free registry GAP probe always runs;
+  (4) quota FAIL message covers set-but-empty keys. Verifier's
+  incidental observation: alive slots changed 18→12→25 within the
+  session, empirically confirming the slot-count-is-informational
+  boundary.
