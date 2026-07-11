@@ -1,4 +1,4 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -22,6 +22,10 @@ const requireStrategy = createRequire(import.meta.url)
 
 const selfPath = fileURLToPath(import.meta.url)
 const STRATEGIES_DIR = join(dirname(selfPath), '..', 'strategies')
+
+// Research-lab strategies (fable-lab/CHARTER.md): discovered when the
+// directory exists so queue workers can resolve fable-exp-* ids.
+const FABLE_STRATEGIES_DIR = join(dirname(selfPath), '..', '..', 'fable-lab', 'strategies')
 
 // Load files with the SAME extension as this module: `.ts` under tsx (source),
 // `.js` when running compiled. Avoids importing both copies of a file.
@@ -60,7 +64,10 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
 }
 
 function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
-  const files = walk(STRATEGIES_DIR).sort()
+  const files = [
+    ...walk(STRATEGIES_DIR),
+    ...(existsSync(FABLE_STRATEGIES_DIR) ? walk(FABLE_STRATEGIES_DIR) : []),
+  ].sort()
   const registry: Record<string, StrategyDefinition<unknown>> = {}
 
   for (const file of files) {
