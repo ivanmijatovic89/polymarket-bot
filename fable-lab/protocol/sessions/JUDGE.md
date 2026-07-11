@@ -33,11 +33,14 @@ not what you would have registered. Then return a verdict block:
   spec/framework does not offer at this stage)
 - read: N=<> q=<> t=<> EV/market=<> CI95=<>
 - prediction check: <the spec's falsifiable prediction — held or contradicted, cite numbers>
-- battery: <stage main: smoothness / day stability / composition — pass or
-  fail each; latency — record the curve and whether the latency-fragile
-  flag fires (EPISTEMOLOGY §5.2 asserts no single "true" latency and §5.3
-  no hard composition threshold — do not invent a binary where the
-  framework refuses one)>
+- battery: <stage main, per EPISTEMOLOGY §5's own reading for each item —
+  smoothness: sign-flip check of the neighborhood, pass or fail (§5.1);
+  latency: record the curve and whether the latency-fragile flag fires
+  (§5.2 — no single "true" latency, no binary); time stability: record
+  the positive-day fraction and whether a one-week cliff blocks
+  confirmation (§5.3 — no hard threshold); composition: the §5.4
+  diagnostics, feeding the classification below. Do not invent a binary
+  where the framework refuses one>
 - simulator-bias classification: <clean | simulator-favored — justify from
   the spec's own "Simulator-bias exposure (CAPABILITIES §4)" field and the
   readout's maker share / composition. You do NOT get CAPABILITIES.md or
@@ -55,7 +58,7 @@ if any number you need is missing from the readout, the decision is
 "iterate" with the missing measurement as the required next step — EXCEPT
 at holdout, whose outcome set is confirmed/refuted only: a readout missing
 a number you need cannot clear the confirmation bar, so the decision is
-"refuted" (the holdout is burned either way; EPISTEMOLOGY §4).
+"refuted" (the holdout is burned either way; EPISTEMOLOGY §3 Stage 3).
 ```
 
 ## After the verdict
@@ -76,4 +79,10 @@ the template, D18, and SCIENTIST.md), an unfillable simulator-bias field
 citing documents outside the Judge's inputs, an impossible "iterate" at
 holdout, a battery binary the framework refuses, a missing run-id field,
 no battery.ts source, and a post-verdict section that omitted D25/D31.
-All fixed in place above; no threshold or isolation rule changed._
+All fixed in place above; no threshold or isolation rule changed. U76b
+(same session, D31 fidelity check on this rewrite,
+`knowledge/AUDIT-2026-07-11-JUDGE-CONTRACT.md` addendum): battery field
+re-phrased per-item to §5's own readings (the first fix kept a
+composition/day-stability binary §5.3 refuses and mislabeled §5.3);
+holdout burn citation corrected §4 → §3 Stage 3; the added "verbatim" on
+the robustness paste is a disclosed, kept tightening._

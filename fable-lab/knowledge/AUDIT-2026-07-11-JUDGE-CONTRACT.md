@@ -68,3 +68,34 @@ or isolation rule changed._
 10. **Tie-goes-against-advancement and no-spec-changes rules** — consistent with EPISTEMOLOGY §3 ("data is cheaper than a false belief" ethos), LIFECYCLE §5's no-override rule, and observed Judge behavior in all inspected verdicts.
 
 Nothing was fixed; all findings are report-only.
+
+---
+
+## U76b addendum — D31 application-fidelity check on the U76 rewrite
+
+A second fresh-context checker verified the U76 fixes (verdict:
+sound-with-findings; 6 of 7 findings faithfully applied, named invariants
+byte-unchanged, propagation accurate). Three findings, all applied in the
+same session:
+
+1. **MINOR — the MINOR-4 fix was half-applied and misattributed.** The
+   rewritten battery field kept "pass or fail" for day stability — the very
+   item §5.3 refuses to threshold — and cited "§5.3 no hard composition
+   threshold" (§5.3 is Time stability; §5.4 Composition has no
+   no-threshold statement). Fixed: the field now states §5's own reading
+   per item (smoothness pass/fail §5.1; latency curve + latency-fragile
+   flag §5.2; time stability positive-day fraction + cliff clause §5.3;
+   composition diagnostics §5.4).
+2. **MINOR — wrong pointer:** the holdout missing-number exception cited
+   EPISTEMOLOGY §4; the outcome set and burn semantics live in §3 Stage 3.
+   Fixed (rule itself was verified consistent).
+3. **MINOR (low) — undisclosed one-word tightening:** the robustness paste
+   gained ", verbatim". Consistent with the decisive-readout discipline;
+   kept and now disclosed in the revision note.
+
+Checker clean-list highlights: MAJOR-1 scoping examples all grounded and
+fillable from the three inputs; the scoping + holdout exception jointly bar
+illegal outcomes at every stage; MAJOR-2 fix adds no input (D6 semantics
+reachable via §5.4 which the Judge reads); isolation / as-written /
+tie-against-advancement / skipped-as-zero byte-unchanged; no numeric
+threshold anywhere in the new text.

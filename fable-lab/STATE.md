@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, units U74-U76. Wake-up checks all quiet via
+_Last updated: session 57, units U74-U76b. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 26 slots — grew from 12, informational only / no
 operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
@@ -1584,3 +1584,12 @@ plan (fleet --detach + capacity tool) when it does.
   (three inputs) and all thresholds unchanged. Audit clean-checks
   confirmed the machine-read `- decision:` contract and the D13
   no-new-field pin.
+- U76b (session 57): D31 fidelity check on the U76 JUDGE.md rewrite
+  (fresh-context; addendum in `knowledge/AUDIT-2026-07-11-JUDGE-CONTRACT.md`).
+  Sound-with-findings — 6/7 fixes faithful, invariants byte-unchanged;
+  3 MINOR applied: the battery-field fix had kept a day-stability binary
+  §5.3 refuses and mislabeled §5.3 as composition (field now states §5's
+  per-item readings: smoothness pass/fail, latency curve+flag, time
+  stability fraction+cliff, composition diagnostics); holdout burn cite
+  corrected §4 → §3 Stage 3; the robustness-paste "verbatim" tightening
+  disclosed and kept.

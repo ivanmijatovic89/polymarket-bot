@@ -1806,3 +1806,12 @@ UNCHANGED — MAJOR-2's fix states the existing practice, it does not add
 inputs; direction is tighten-or-clarify throughout except the enumeration
 widening, which restores outcomes other binding documents already
 mandated (D18, D5 park) rather than inventing new ones.
+
+**U76b amendment (same session, D31 fidelity check on the U76 rewrite):**
+the checker found the MINOR-4 fix half-applied (the battery field still
+demanded a day-stability/composition binary while §5.3 — Time stability,
+not composition as the fix's cite claimed — refuses a hard threshold),
+one wrong pointer (holdout burn semantics are EPISTEMOLOGY §3 Stage 3,
+not §4), and one undisclosed one-word tightening (robustness paste
+"verbatim" — kept, now disclosed). All applied; battery field now states
+§5's own per-item readings. Addendum appended to the audit report file.
