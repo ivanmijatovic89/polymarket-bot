@@ -27,7 +27,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `capacity.ts` | live fleet capacity via the :3051 dashboard API (alive worker slots per machine, staleness vs origin HEAD, wall-clock estimate); size every fleet batch with it (charter constraint 3; U58) |
 | `parity.ts` | per-market row parity between two runs of the same spec across 19 deterministic columns (D36 fleet/local check; outcome-safe — values print only on mismatch; `--intersection` for superset runs; exit 2 = divergence) |
 | `calib-coverage.sh` / `calib-integrity.sh` | CAL-001 outcome-free log checks: per-offset coverage recompute; integrity battery (dup/malformed/mirror/ts checks) |
-| `spec-selftest.ts` | hand-computed synthetic-fixture selftest for `lib/spec.ts` (D47): U10 truncation-bug regression case, all parseSpecFile extractions, fallback + resolveSpecPath arms |
+| `spec-selftest.ts` | hand-computed synthetic-fixture selftest for `lib/spec.ts` (D47, 33 assertions): U10 truncation-bug regression case, all parseSpecFile extractions, all wrap-stop arms, fallback + resolveSpecPath arms |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |
 

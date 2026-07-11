@@ -67,11 +67,11 @@ for the artifact name.
 | wakeup.ts | A + D | U68 (all branches, real exit codes; verifier traced every baseline constant) |
 | results.ts | B (on runs 357/358) + C + E | U40 recomputed EV/q/t/CI95/win-rates from rows independently; U32 used it as the audit instrument (C); D16 wins/losses relabel |
 | runs.ts | A (one bug class) + E | U40 found+fixed the timestamp-suffix bug; otherwise listing-only |
-| fills.ts | B + C + E | U75/D47 → FILLS-RECOMPUTATION-2026-07-11.md: all 11 published figures recomputed from raw SQL aggregates (no outcome column), cell binding verified, transcription re-run identical; static outcome-safety check of the query surface (one header drift fixed: skip_reason never selected); used as audit instrument in U32/U40 |
+| fills.ts | A + B + C + E | U75/D47 + U75b fresh-context audit (AUDIT-2026-07-11-U75-R5-CLOSURE.md) → FILLS-RECOMPUTATION-2026-07-11.md: all 11 published figures recomputed from raw SQL aggregates (no outcome column), cell binding verified, transcription re-run identical on all 11 (U75b closed the original 8/11 scope); static outcome-safety check of the query surface (one header drift fixed: skip_reason never selected); used as audit instrument in U32/U40 |
 | entry-check.ts | C + E | 4 prediction tests reproduced in U32 (tool-mediated) |
 | battery.ts | B + C + E | U71 → BATTERY-RECOMPUTATION-2026-07-11.md: all 10 published rows (8 grid + 2 latency) recomputed from raw rows via SQL aggregates, match at printed precision, tool byte-unchanged since creation; U32 re-ran it (transcription only). Display-only branches + nonzero-maker makerShare path remain unexercised (accepted, see the note) |
 | index-registry.ts + index-registry-selftest.ts | A + C + D + E | U74/D46 selftest + U74b fresh-context audit (AUDIT-2026-07-11-U74-INDEX-SELFTEST.md; 25 assertions after findings applied: enumerated lastDecision shapes incl. the U30 blockquote quirk and the U74b bold-field lookahead, byte-for-byte pipeline comparison, dir arms, override guard; fence/comment matching = pinned accepted residue); refactor inertness proven twice by byte-identical real-INDEX regeneration; INDEX-vs-verdict consistency checked U32 |
-| lib/spec.ts + spec-selftest.ts | D + E | U75/D47 committed selftest (26 hand-computed assertions: U10 truncation bug pinned as regression case, all parseSpecFile extractions, fallback arms, resolveSpecPath arms); U10 field-regex bug originally found via smoke |
+| lib/spec.ts + spec-selftest.ts | A + D + E | U75/D47 committed selftest + U75b fresh-context audit (33 assertions after findings applied: U10 truncation bug pinned as regression case, all parseSpecFile extractions incl. simulatorBias, all three wrap-stop arms, fallback + resolveSpecPath arms; auditor also parsed all 9 real specs + template — no shape divergence); U10 field-regex bug originally found via smoke |
 | detach.mjs | E | dozens of detached evidence runs completed and persisted since D10 |
 | tools/README.md (tool index) | A (completeness-scoped) | U51 completed it grep-verified after its incompleteness caused documented friction; rows updated by later units |
 | fixtures/EXP-000-fixture.md | D/E | the fixture spec behind validator positive checks and wrapper smokes since U9/U10 |
@@ -120,11 +120,12 @@ for the artifact name.
   arms, override refusal guard; refactor proven inert (real INDEX
   byte-identical, twice). Accepted residue pinned in-selftest:
   fence/HTML-comment decision lines still match (corpus-absent).
-- **R5 `fills.ts` outcome-safety + `lib/spec.ts` parser — CLOSED (U75).**
-  spec.ts: committed 26-assertion selftest (D47; U10 truncation bug pinned
-  as a regression case). fills.ts: all 11 published figures independently
-  recomputed via raw SQL + static outcome-safety check —
-  `FILLS-RECOMPUTATION-2026-07-11.md`.
+- **R5 `fills.ts` outcome-safety + `lib/spec.ts` parser — CLOSED
+  (U75/U75b).** spec.ts: committed selftest, 33 assertions after the U75b
+  audit findings (D47; U10 truncation bug pinned as a regression case).
+  fills.ts: all 11 published figures independently recomputed via raw SQL
+  + static outcome-safety check — `FILLS-RECOMPUTATION-2026-07-11.md`;
+  fresh-context audit `AUDIT-2026-07-11-U75-R5-CLOSURE.md`.
 - **R6 JUDGE.md contract text.** Judge outputs repeatedly audited
   (sound-with-findings each time), so the contract works in practice; the
   text itself never checked against EPISTEMOLOGY for drift. Low.

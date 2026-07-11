@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 57, units U74-U75. Wake-up checks all quiet via
+_Last updated: session 57, units U74-U75b. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 26 slots — grew from 12, informational only / no
 operator drift / CONFIRM-010 freeze intact). U74: AUDIT-COVERAGE
@@ -17,7 +17,10 @@ closed (D47) — `lib/spec.ts` got a committed 26-assertion selftest
 (the U10 silent-truncation bug is now a pinned regression case) and
 every figure `fills.ts` ever published was independently recomputed
 from raw SQL (11 runs, all match; outcome-safety statically confirmed;
-one header drift fixed). Remaining residue: R3/R6/R7 (all low).
+one header drift fixed). U75b: verifier findings applied (1 MAJOR:
+simulatorBias — the validator's gating field — was unasserted; selftest
+now 33 assertions incl. all wrap-stop and fallback arms; fills
+transcription genuinely 11/11). Remaining residue: R3/R6/R7 (all low).
 CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
@@ -1543,3 +1546,17 @@ plan (fleet --detach + capacity tool) when it does.
   claimed skip_reason counts that were never selected).
   `knowledge/FILLS-RECOMPUTATION-2026-07-11.md`; coverage rows updated
   per D44. tsc clean, both selftests green (26/26, 25/25).
+- U75b (session 57): U75 verified by a fresh-context auditor
+  (sound-with-findings; report verbatim in
+  `knowledge/AUDIT-2026-07-11-U75-R5-CLOSURE.md`); all 4 findings
+  applied. (MAJOR) "every parseSpecFile extraction" over-claimed:
+  simulatorBias — the one field validate-experiment.ts gates
+  registration on, with the only regex-escaped label — had no
+  assertion; now asserted on both fixtures. (MINOR x3) the `\n##`
+  wrap-stop arm, holdoutEndMs-null (submit.ts's holdout-stage gate) and
+  digitless numOrNull pinned via a fourth fixture; the fills.ts
+  transcription re-run really covered 8/11 runs while restatements read
+  as 11 — re-run on all 11 in-session (identical), FILLS-RECOMPUTATION
+  amended to state the original scope. Selftest 33/33 green; auditor
+  independently parsed all 9 real specs + the template with spec.ts (no
+  shape divergence) and reproduced the full SQL recomputation.

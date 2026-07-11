@@ -53,3 +53,12 @@ no PnL/outcome/win column appears anywhere in the file. One doc drift found
 and fixed in the same unit: the header claimed `skip_reason` counts were
 selected; they never were (comment corrected rather than widening the query
 surface).
+
+_U75b amendment: the transcription command above covered 8 of the 11 runs
+(341, 355, 356 omitted) — narrower than the unit's original restatements
+(verifier finding 3, `AUDIT-2026-07-11-U75-R5-CLOSURE.md`). Closed twice
+over: the verifier re-ran fills.ts on all 11 runs (identical to raw SQL),
+and the lab re-ran the three missing runs in-session (341: n=10 filled=4
+maker=6; 355: n=10 filled=8 maker=23; 356: n=10 filled=8 maker=33 — all
+matching the recomputed table). Transcription coverage is now genuinely
+11/11._

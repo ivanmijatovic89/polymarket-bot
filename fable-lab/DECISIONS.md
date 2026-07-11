@@ -1754,3 +1754,17 @@ U29 for lineage accounting) had never been checked by anyone.
 fills.ts); the selftest pins the parser contract as-is — any future
 spec.ts change must keep 26/26 green or amend the selftest with cited
 motivation.
+
+**U75b amendment (same session, verifier findings applied —
+`knowledge/AUDIT-2026-07-11-U75-R5-CLOSURE.md`):** (MAJOR) "every
+parseSpecFile extraction" was over-claimed — `simulatorBias`, the one
+field validate-experiment.ts gates registration on and the only label
+needing regex-escaped parens + `§`, had no assertion; now asserted on
+both fixtures. (MINOR) the `\n##` wrap-stop arm, the `holdoutEndMs`-null
+arm (submit.ts's holdout-stage gate), and digitless `numOrNull` were
+claimed-but-unpinned; a fourth fixture pins all three. (MINOR) the
+fills.ts transcription re-run had covered 8 of 11 runs while the
+restatements read as all 11; re-run in-session on all 11 (341/355/356:
+10-4-6 / 10-8-23 / 10-8-33, identical to raw SQL) and the
+FILLS-RECOMPUTATION note amended to state the original scope. Selftest
+is now 33 assertions, all green.

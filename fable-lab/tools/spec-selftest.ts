@@ -92,6 +92,11 @@ check(
 check('holdout boundary', full.holdoutBoundaryMs, 1777237200000)
 check('holdout end', full.holdoutEndMs, 1780000000000)
 check(
+  'simulator-bias field (escaped parens + § in the label regex; validator gates on it)',
+  full.simulatorBias,
+  'none',
+)
+check(
   'placeholders: deduped, EXP-NNN absorbs its NNN, post-"## Runs" excluded',
   full.unresolvedPlaceholders,
   ['<fill-me>', 'EXP-NNN', 'NNN'],
@@ -126,7 +131,30 @@ check('missing lineage → null', bare.lineageCells, null)
 check('no strategy → null path', bare.strategyPath, null)
 check('no params → []', bare.primaryParams, [])
 check('no holdout clause → null', bare.holdoutBoundaryMs, null)
+check('no holdout end → null (submit.ts gates the holdout stage on this)', bare.holdoutEndMs, null)
+check('missing simulator-bias → null', bare.simulatorBias, null)
 check('no placeholders → []', bare.unresolvedPlaceholders, [])
+
+// ---------- fixture 4: the `\n##` wrap-stop arm + remaining fallbacks ------
+// (U75b verifier findings 2/4: the third stop condition and the
+// boundary-without-end / digitless-numOrNull arms were claimed but unpinned)
+const HASH = join(BASE, 'EXP-204-hash-stop.md')
+writeFileSync(
+  HASH,
+  [
+    '# EXP-204 — hash stop fixture',
+    '- **lineage_cells:** unknown',
+    '- **Mechanism class:** value line',
+    '  wrapped',
+    '## Runs',
+    'Holdout: `market_start_ms` >= 123',
+  ].join('\n') + '\n',
+)
+const hash = parseSpecFile(HASH)
+check('wrap stops at "##" section (third stop arm)', hash.mechanismClass, 'value line wrapped')
+check('digitless lineage_cells → null (numOrNull second arm)', hash.lineageCells, null)
+check('boundary without "and <=" → end stays null', hash.holdoutBoundaryMs, 123)
+check('…and holdoutEndMs null', hash.holdoutEndMs, null)
 
 // ---------- resolveSpecPath arms ----------
 check('existing path passthrough', resolveSpecPath(FULL), FULL)
