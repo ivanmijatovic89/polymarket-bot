@@ -1988,3 +1988,11 @@ non-independence lesson). Rejected alternative: raising the inventory cap
 to harvest multiple fills per market — more rows but correlated outcomes
 within a market and a DIFFERENT cell's fill population; rejected because
 the E29 zero anchor holds only for the cell as run.
+
+_D52 correction (session 64, same day, pre-read): the entry above claimed
+"selftest 17/17" — the committed file had 16 assertions (E28 class,
+caught by the SIGNAL-003 pre-read audit, MINOR 4). After the audit's
+amendment 2 (cell-grid + seasonality families pinned with planted
+U-shape and day-of-week effects) the selftest has 23 assertions, 23
+PASS grep-verified. Full audit: knowledge/AUDIT-2026-07-11-SIGNAL-003-REG.md;
+amendments frozen pre-read in SIGNAL-FILLS.md §6c._

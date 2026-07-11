@@ -42,4 +42,22 @@ for LOG in "$@"; do
 done
 echo "TOTAL: loaded=$totLoaded completed=$totCompleted failures=$totFail fillLines=$totFills fillMkts=$totFillMkts"
 [ "$totLoaded" -eq 8516 ] || { echo "BAD: total loaded != 8516"; bad=1; }
+
+# Discovery-boundary check (audit MINOR 3): every fill-line epoch must be
+# strictly below 1772323200 (2026-03-01T00:00Z). Epochs only — outcome-free.
+overBoundary=$(awk '/^\[diag-fill\]/{split($3,kv,"="); if (kv[2]+0 >= 1772323200) n++} END{print n+0}' "$@")
+echo "epochs >= discovery boundary: $overBoundary"
+[ "$overBoundary" -eq 0 ] || { echo "BAD: fill lines outside discovery window"; bad=1; }
+
+# lastState staleness distribution (audit MINOR 10): fTs - stateTs per fill
+# line. Timestamps only — outcome-free. Dilutive-not-biasing; printed for
+# the verdict's disclosure.
+awk '/^\[diag-fill\]/{
+  fts=""; sts=""
+  for(i=1;i<=NF;i++){split($i,kv,"="); if(kv[1]=="fTs")fts=kv[2]; else if(kv[1]=="stateTs")sts=kv[2]}
+  if(fts!=""&&sts!=""){d=fts-sts; sum+=d; n++; if(d>mx)mx=d; if(d>10)gt10++}
+} END{
+  if(n==0){print "staleness: no fill lines"}
+  else printf "staleness fTs-stateTs (s): n=%d mean=%.2f max=%.1f count>10s=%d\n", n, sum/n, mx, gt10+0
+}' "$@"
 [ "$bad" -eq 0 ] && echo "COVERAGE CLEAN — one-shot read may proceed" || { echo "COVERAGE DIRTY — do NOT read"; exit 2; }

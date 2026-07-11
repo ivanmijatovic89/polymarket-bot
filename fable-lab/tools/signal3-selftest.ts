@@ -190,5 +190,47 @@ const allwin = run([logPath, '--outcomes', outcomesAllWinPath])
 check('T6 G2 abort exit 2', allwin.code === 2, `exit=${allwin.code}`)
 check('T6 G2 abort message', allwin.out.includes('GATE G2 FAILED'), allwin.out.slice(-300))
 
+// ---- T7/T8: cell-grid + seasonality families (SIGNAL-FILLS §6c amendment 2)
+// Second synthetic world, zero-mean globally (G2 must pass):
+//   U-shaped posR effect, invisible to the monotone screen by symmetry —
+//     e(posR) = -A*((|posR-0.5|-0.25)*2): extreme quintiles toxic
+//     (q1/q5 d ≈ -9c), middle quintile favorable (q3 d ≈ +12c);
+//   day-of-week effect — Sundays (d0) toxic by -10c, other days +1.67c.
+// Both effects are mean-zero over the uniform draws, mutually independent.
+const log2Path = join(logsDir, 'synthetic-signal3-selftest2.log')
+const outcomes2Path = join(logsDir, 'synthetic-signal3-selftest2-outcomes.json')
+const N2 = 6000
+const A = 0.3
+const lines2: string[] = []
+const outcomes2: Record<string, string> = {}
+for (let i = 0; i < N2; i++) {
+  const epoch = 1764460800 + i * 900
+  const slug = `btc-updown-15m-${epoch}`
+  const posR = rnd()
+  const ePos = -A * ((Math.abs(posR - 0.5) - 0.25) * 2)
+  const dow = Math.floor(epoch / 86400 + 4) % 7
+  const eSeason = dow === 0 ? -0.1 : 0.1 / 6
+  const pDn = Math.min(0.98, Math.max(0.02, 0.49 + ePos + eSeason))
+  const dnWon = rnd() < pDn
+  outcomes2[slug] = dnWon ? '1' : '0'
+  lines2.push(mkLine(slug, epoch, { posR: posR.toFixed(4) }))
+}
+writeFileSync(log2Path, lines2.join('\n') + '\n')
+writeFileSync(outcomes2Path, JSON.stringify(outcomes2))
+const grid = run([log2Path, '--outcomes', outcomes2Path])
+check('T7 exit 0 (G2 passes on zero-mean U-shape world)', grid.code === 0, `exit=${grid.code}`)
+const q1 = new RegExp('^  MID posR q1 d=-(\\d+\\.\\d+)c z=-(\\d+\\.\\d+) n=\\d+ CANDIDATE$', 'm').exec(grid.out)
+check('T7 U-shape adverse extreme q1 CANDIDATE (−)', q1 !== null && Number(q1[2]) >= 4.2, q1?.[0] ?? grid.out.match(/^  MID posR q1.*$/m)?.[0] ?? 'no q1 line')
+const q5 = new RegExp('^  MID posR q5 d=-(\\d+\\.\\d+)c z=-(\\d+\\.\\d+) n=\\d+ CANDIDATE$', 'm').exec(grid.out)
+check('T7 U-shape adverse extreme q5 CANDIDATE (−)', q5 !== null && Number(q5[2]) >= 4.2, q5?.[0] ?? grid.out.match(/^  MID posR q5.*$/m)?.[0] ?? 'no q5 line')
+const q3 = new RegExp('^  MID posR q3 d=\\+?(\\d+\\.\\d+)c z=\\+(\\d+\\.\\d+) n=\\d+ CANDIDATE$', 'm').exec(grid.out)
+check('T7 U-shape favorable middle q3 CANDIDATE (+)', q3 !== null && Number(q3[2]) >= 4.2, q3?.[0] ?? grid.out.match(/^  MID posR q3.*$/m)?.[0] ?? 'no q3 line')
+const cellTotal = /of (\d+) evaluated cells/.exec(grid.out)
+check('T7 cell grid evaluated cells > 0', cellTotal !== null && Number(cellTotal[1]) > 0, grid.out.match(/cell grid: .*/)?.[0] ?? 'no cell grid summary')
+const noMono = new RegExp('^  posR z=[+-][\\d.]+ .* CANDIDATE$', 'm').exec(grid.out)
+check('T7 U-shape invisible to monotone screen', noMono === null, noMono?.[0] ?? '')
+const d0 = new RegExp('^  MID d0 d=-(\\d+\\.\\d+)c z=-(\\d+\\.\\d+) n=\\d+ CANDIDATE$', 'm').exec(grid.out)
+check('T8 day-of-week d0 CANDIDATE (−)', d0 !== null && Number(d0[2]) >= 4.2, d0?.[0] ?? grid.out.match(/^  MID d0 .*$/m)?.[0] ?? 'no d0 line')
+
 console.log(failures === 0 ? '\nALL PASS' : `\n${failures} FAILURE(S)`)
 process.exit(failures === 0 ? 0 : 1)

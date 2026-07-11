@@ -164,6 +164,64 @@ remain formally open.
   construction — pre-read greps over shard logs must never print matched
   content because the engine's tail summary is outcome-laden.
 
+## 6c. Pre-read amendments (append-only, session 64 — from the
+fresh-context registration audit, verdict SOUND-WITH-FINDINGS, report
+verbatim in `knowledge/AUDIT-2026-07-11-SIGNAL-003-REG.md`; all frozen
+BEFORE the one-shot read, none touches `signal3-scan.ts` or the fixture)
+
+- **Amendment 1 (audit MAJOR 2) — the complement-gate rule is now fully
+  mechanical:** (a) a monotone-screen CANDIDATE → the gate excludes the
+  single adverse EXTREME quintile per stratum, adverse side determined by
+  the Stouffer z sign (z>0: q1 is adverse; z<0: q5 is adverse); (b) a
+  cell-grid-only CANDIDATE → the gate is exactly the union of the flagged
+  cells, nothing else; (c) a feature is GATEABLE iff it is computed by
+  the fixture's own tick code path (all 21 except `fElapsed`, which
+  gates by clock and is gateable trivially); seasonality-only candidates
+  are non-gateable by this rule (recorded as zones). No other gate shape
+  may be derived from this scan's tables.
+- **Amendment 2 (audit MAJOR 1) — selftest extended pre-read** to pin
+  all three statistical families: a planted zero-mean U-shaped quintile
+  effect (invisible to the monotone screen by symmetry) must flag its
+  adverse extreme cells, and a planted day-of-week effect must flag its
+  seasonality cell; plus a cellTotal>0 assertion. Scan semantics
+  untouched.
+- **Correction (audit MINOR 4, E28 class):** §4 and D52 claimed
+  "selftest 17/17" — the file contained 16 assertions (16 PASS when
+  run). Corrected by this note; after amendment 2 the count is 23
+  (grep-verified 23 check() calls, 23 PASS printed). Written-from-memory
+  numbers struck again.
+- **Disclosures (audit MINORs 3, 5-11), all pre-read:**
+  - The scan does not itself enforce the discovery epoch boundary;
+    enforcement is launch-side (verified: all 8,516 launched slugs <
+    boundary) + `signal3-coverage.sh`, which now also checks epochs.
+    G2 is silently skipped under n<100 (would be disclosed manually).
+  - Families 2 and 3 carry an unregistered stratum n≥200 precondition
+    (inherited from the scan's shared stratum loop) — stricter than §4's
+    per-cell n≥30 alone; immaterial at n≈8,100, disclosed.
+  - `qMidDrift` can log a fake 0.0000 when the tracked quote predates
+    the first valid UP tick (attribution stays true); rare corner,
+    scan-side undetectable, dilutive not directional.
+  - A fill arriving before any valid state block is silently dropped
+    WITHOUT consuming fillSeq, so a later fill could be relabeled
+    fillSeq=0; structurally near-empty under the mirror-book invariant,
+    disclosed as a silent arm.
+  - `fElapsed` is mapped from the fill's own timestamp (fTs), not the
+    pre-fill stateTs — causal for a clock gate (time is knowable in
+    advance) but strictly fill-tick information; disclosed.
+  - Family 3 bins by MARKET-OPEN time (epochSec), not fill time —
+    it measures market-open seasonality of fill PnL; ≤1 bin skew.
+  - `lastState` staleness (fTs − stateTs) is unbounded in principle;
+    causal (never future-leaking), dilutes power at worst. The coverage
+    tool now prints the staleness distribution (timestamps only,
+    outcome-free).
+  - Depth features (l5/l10 imbalance, dTot5/10) depend on ambient
+    `WEB_UI_ORDERBOOK_LEVELS`; the shards ran with the repo `.env`
+    value 10 (= engine default). Any recut must pin it.
+  - The one-shot property remains procedural (coverage gate + this
+    file's rules); a scan-side mechanical read-once guard was considered
+    and skipped — the frozen tool must not be edited pre-read, and the
+    honor-system scope here is a single session with the rule written.
+
 ## 7. Results (append-only, written after the one-shot read)
 
 _(empty until all shards complete + coverage accounting clean)_
