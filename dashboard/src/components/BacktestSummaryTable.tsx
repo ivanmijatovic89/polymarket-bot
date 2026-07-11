@@ -115,7 +115,7 @@ function SubHead({ children, border }: { children: ReactNode; border?: boolean }
     <TableHead
       className={cn(
         'h-8 text-right font-normal normal-case tracking-normal',
-        border && 'border-r border-border/80',
+        border && 'border-r border-border',
       )}
     >
       {children}
@@ -207,14 +207,15 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
           {formatPnl(b.evPerMarketTotal)}
         </TableCell>
-        {/* Trades → Total / Maker-Taker sub-columns */}
+        {/* Trades → Total / Maker / Taker sub-columns */}
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {compactInt(b.tradesTotal)}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
-          {b.tradesMaker + b.tradesTaker > 0
-            ? `${compactInt(b.tradesMaker)}m/${compactInt(b.tradesTaker)}t`
-            : '—'}
+          {b.tradesMaker + b.tradesTaker > 0 ? compactInt(b.tradesMaker) : '—'}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
+          {b.tradesMaker + b.tradesTaker > 0 ? compactInt(b.tradesTaker) : '—'}
         </TableCell>
         <TableCell className={cn('text-right tabular-nums font-medium', pnlTone)}>
           <span className="inline-flex items-center justify-end gap-1">
@@ -324,55 +325,55 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={cn('border-r border-border/80', c.align === 'right' && 'text-right')}
+                  className={cn('border-r border-border', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
               ))}
-              <TableHead rowSpan={2} className="min-w-[180px] border-r border-border/80">
+              <TableHead rowSpan={2} className="min-w-[180px] border-r border-border">
                 {leadingHeader}
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border/80">
+              <TableHead rowSpan={2} className="border-r border-border">
                 Strategy
               </TableHead>
-              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Markets
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
-                EV/mkt
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
+                EV
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Trades
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/80">
+              <TableHead rowSpan={2} className="text-right border-r border-border">
                 PnL
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/80">
+              <TableHead rowSpan={2} className="text-right border-r border-border">
                 Win&nbsp;rate
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Avg&nbsp;W/L
               </TableHead>
-              <TableHead colSpan={4} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={4} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Streak
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Quality
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/80">
+              <TableHead rowSpan={2} className="text-right border-r border-border">
                 Fees
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border/80">
+              <TableHead rowSpan={2} className="border-r border-border">
                 Symbol
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
                 Duration
               </TableHead>
               {extraColumns?.map((c, i) => (
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={cn('border-r border-border/80', c.align === 'right' && 'text-right')}
+                  className={cn('border-r border-border', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
@@ -386,7 +387,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <SubHead>Played</SubHead>
               <SubHead border>Total</SubHead>
               <SubHead>Total</SubHead>
-              <SubHead border>M/T</SubHead>
+              <SubHead>Maker</SubHead>
+              <SubHead border>Taker</SubHead>
               <SubHead>Win</SubHead>
               <SubHead border>Lose</SubHead>
               <SubHead>Win</SubHead>
