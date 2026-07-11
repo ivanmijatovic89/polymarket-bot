@@ -42,10 +42,12 @@ economically meaningful pair is (q, EV/market = q·std): q measures
 statistical reliability, EV measures dollars. The protocol requires both:
 
 - **Reliability floor**: t ≥ 2 at each decisive stage (justified in §4).
-- **Economic floor**: the 95% CI of EV/market must exclude 0 *after* the
-  stress battery (§5). No fixed dollar floor is set — that would be an
-  invented constant; the floor is "positive with confidence, under
-  pessimistic execution".
+- **Economic floor**: the 95% CI of EV/market must exclude 0 on the PRIMARY
+  (delay-0) decisive run, with the stress battery (§5) passed as a
+  qualitative gate — §5.2's `latency-fragile` flag, not a re-based CI,
+  carries the pessimistic-execution judgment (U73: previously ambiguous
+  between the primary-run CI and an undefined pessimistic-latency CI).
+  No fixed dollar floor is set — that would be an invented constant.
 
 Detectable-effect table (q resolvable at t=2 for a given N):
 
@@ -66,8 +68,7 @@ running 1,000 anyway is theater.
 
 Compute is cheap relative to holdout data (local sequential replay measured
 ~1.1s/market for a no-op strategy on already-local data — EXP-000-wrapper
-smoke, 2 markets / 2.2s; first-touch R2 downloads add to that; the *most
-recent* markets are finite and burn on first read). Since U58 evidence
+smoke, 2 markets / 2.2s; first-touch R2 downloads add to that). Since U58 evidence
 stages run on the WORKER FLEET: wall time ≈ markets × ~1.75s / alive
 worker slots (charter anchor; read live slots from `tools/capacity.ts`
 at submission time — capacity changes). Stages exist
@@ -89,6 +90,10 @@ window (rule-based selection recorded in the spec). Decides one of:
   falsifiable insight → park (ledger rule, DECISIONS D5).
 - **advance** — q̂ > 0 and the probe cannot rule the idea out at its plausible
   effect size.
+- **residual case** (added U73 — the three branches above leave a hole):
+  q̂ ≤ 0 with −1 < t ≤ 0, prediction neither contradicted nor leaking
+  diagnosably — iterate-or-park within the D5 iteration budget; never
+  advance on a non-positive q̂.
 A probe cannot *confirm* anything: at N=500 only q ≥ 0.089 is resolvable,
 which per §2's table is a large edge. The probe's job is killing and
 diagnostics, not belief.
@@ -108,7 +113,8 @@ may enter the experiment file or STATE.
 **Stage 2 (main)** — the full exploration window (every eligible market
 older than the holdout boundary; thousands). Extends the probe run
 (`--extend`, same run row, segments recomputed over the union). Decides:
-- **advance to holdout** — requires ALL of: t ≥ 2 on the exploration window;
+- **advance to holdout** — requires ALL of: t ≥ 2 (lineage-adjusted per §5's
+  promotion tax when `lineage_cells` > 1) on the exploration window;
   robustness battery passed (§5); simulator-bias classification (DECISIONS
   D6) not `simulator-favored`, or explicitly escalated.
 - **kill / iterate** otherwise, same rules as probe.
@@ -116,8 +122,9 @@ older than the holdout boundary; thousands). Extends the probe run
 **Stage 3 (holdout)** — one-shot run on the pre-registered holdout window
 (the most recent ~25% of the eligible universe at registration time,
 boundary frozen as a `market_start_ms` in the spec). Decides:
-- **confirmed** — t ≥ 2 on holdout alone. The strategy version is frozen
-  forever (code freeze; any change = new experiment).
+- **confirmed** — t ≥ 2 (lineage-adjusted per §5) on holdout alone. The
+  strategy version is frozen forever (code freeze; any change = new
+  experiment).
 - **refuted** — anything else. The holdout is burned for this lineage:
   descendants of this strategy get a NEW holdout boundary (more recent
   markets that have accrued since), and the old holdout window joins their
@@ -125,9 +132,12 @@ boundary frozen as a `market_start_ms` in the spec). Decides:
 
 **Beyond backtest** — a `confirmed` verdict means "replayable edge under the
 simulator's stated biases", not "deploy". The required next step is recorded
-in the verdict: live paper validation (dry-run bot), sized by the same t
-arithmetic on live fills. Out of scope for the backtest protocol but the
-verdict field forces the handoff to be explicit.
+in the verdict: live paper validation with real TINY orders
+(operator-authorized; `DRY_RUN=true` places no orders and produces no
+fills — EDGE-SPACE §3.3), sized by the same t arithmetic on live fills.
+Out of scope for the backtest protocol but the verdict field forces the
+handoff to be explicit. _(U73 correction: previously said "dry-run bot",
+contradicting the measured EDGE-SPACE fact that dry-run yields no fills.)_
 
 ## 4. Why t ≥ 2 twice, not t ≥ 3 once
 
@@ -135,8 +145,10 @@ Two independent chronological samples at t ≥ 2 give a joint false-positive
 rate ≈ 0.023² ≈ 5×10⁻⁴ per candidate lineage — stricter than a single t ≥ 3
 (p ≈ 1.3×10⁻³) and, unlike the single test, it specifically punishes
 regime-fit: noise that survived exploration must independently recur in
-later data. At ~50 advanced lineages a year, expected false confirmations
-≈ 0.03/year. Raising bars further would mostly reject true small edges
+later data. At ~50 advanced lineages a year (an upper-bound assumption —
+the realized rate under the EDGE-SPACE §4 registration bar is far lower,
+which only shrinks the false-confirmation rate; U73), expected false
+confirmations ≈ 0.03/year. Raising bars further would mostly reject true small edges
 (power at q=0.03 on a 5,000-market holdout is already only ~55% at t≥2 —
 see table §2); the protocol prefers catching a false positive at live-paper
 stage over never finding modest edges.

@@ -30,6 +30,8 @@
   main = extend to full exploration window; holdout = full holdout window.
 - **Decision rules (copied from EPISTEMOLOGY at registration):**
   - probe kill: q̂ ≤ 0 with t ≤ −1, or prediction contradicted
+  - probe residual (q̂ ≤ 0, −1 < t ≤ 0, prediction holds, no diagnosable
+    leak): iterate-or-park per EPISTEMOLOGY §3 (U73), never advance
   - main advance: t ≥ <2 adjusted for lineage_cells> on primary cell +
     battery pass + bias classification not simulator-favored
   - holdout confirm: t ≥ <same bar> on holdout alone

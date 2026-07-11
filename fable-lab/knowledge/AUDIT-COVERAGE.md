@@ -82,7 +82,7 @@ for the artifact name.
 | Doc | Coverage | Events |
 |-----|----------|--------|
 | engine/CAPABILITIES.md | A (session 1) + A (delta) | U2 fresh-context source audit; U59 merge audit confirmed cited semantics unchanged (3 line-cites fixed) — full re-audit never repeated; residue R3 |
-| EPISTEMOLOGY.md | A (session 1, whole-lab) + A (reconciliation-scoped, §3: U69/D43) + piecewise | U8; §3 compute-anchor rewrite checked claim-by-claim by the U69 verifier; every threshold APPLICATION audited in the chain audits; the DOC as a coherent whole never re-audited after ~10 amendments (D13, D25, compute anchors, fleet formula) — residue R2 |
+| EPISTEMOLOGY.md | A (whole-doc, U73) + A (session 1, U8) + piecewise | U73 → AUDIT-2026-07-11-EPISTEMOLOGY-COHERENCE.md (first end-to-end re-audit since session 1: arithmetic all verifies, reconciliations reflected; 1 MAJOR impossible dry-run handoff + 5 MINOR coherence defects, all fixed in place per D45); U69 §3-scoped check; threshold applications audited in the chain audits |
 | LIFECYCLE.md, SCIENTIST.md, protocol/README, strategies/README | A (reconciliation-scoped) | U69/D43 verifier checked the fleet-reality rewrite claim-by-claim |
 | JUDGE.md | A (session 1, whole-lab) + E | covered by the U8 whole-lab review; used by every verdict since; judge OUTPUTS audited throughout; contract text not fresh-context audited since session 1 (same aging class as R2) — residue R6 |
 | RUNBOOK.md | A (reconciliation-scoped) | U49b, U53/U54/U58 sections verified in their units |
@@ -103,11 +103,11 @@ for the artifact name.
   because the frozen script's exit code certifies only latency+errors.
   MINOR-8 (coverage-script anchor inconsistency) accepted as recorded
   residue in the report.
-- **R2 EPISTEMOLOGY.md coherence post-amendments.** Thresholds were audited
-  in application, but no fresh context has read the amended doc end-to-end
-  for internal contradictions since U8 (session 1). Medium unit; medium risk
-  (contradiction would surface at the next registration anyway, when its
-  clauses bind).
+- **R2 EPISTEMOLOGY.md coherence — CLOSED (U73).** First whole-doc
+  re-audit since session 1: `AUDIT-2026-07-11-EPISTEMOLOGY-COHERENCE.md`.
+  Sound-with-findings; all six defects (1 MAJOR: the post-confirmation
+  handoff prescribed an impossible dry-run-fills step) fixed in place per
+  D45, no threshold value changed.
 - **R3 CAPABILITIES.md full re-audit.** Aging (session 1) but delta-guarded:
   D35 merge audits catch engine changes; unchanged source can't invalidate
   correct citations. Low urgency; re-audit §-by-§ only if a registration

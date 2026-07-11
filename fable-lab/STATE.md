@@ -1,6 +1,6 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 56, units U70-U72. Wake-up checks all quiet via
+_Last updated: session 56, units U70-U73. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 12 slots / no operator drift / CONFIRM-010 freeze
 intact). U70: verification coverage indexed (D44) —
@@ -15,9 +15,11 @@ immaterial). U72: R1b closed — first fresh-context audit of the calib
 shell scripts; the frozen integrity script's exit code certifies almost
 nothing (print-only battery), so the CONFIRM-010 unlock executor now
 has 5 binding battery-reading obligations via a tighten-only spec
-addendum (frozen bytes untouched, wakeup check 6 green). Next residue:
-R2 EPISTEMOLOGY coherence, R4-R7 lower. CONFIRM-010 freeze anchor =
-commit c403d7d._
+addendum (frozen bytes untouched, wakeup check 6 green). U73: R2 closed
+— first whole-doc EPISTEMOLOGY re-audit since session 1; 6 coherence
+defects fixed in place (D45), worst: the post-confirmation handoff
+prescribed an impossible dry-run-fills step. Remaining residue: R3-R7
+(all low). CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1463,3 +1465,33 @@ plan (fleet --detach + capacity tool) when it does.
   obligations faithful, no dropped load-bearing caveat; 1 MINOR
   ("closed by" → "mitigated on the CONFIRM-010 unlock path", defects
   remain in the frozen bytes for any other use) applied.
+
+- U73 (session 56): AUDIT-COVERAGE residue R2 CLOSED — first whole-doc
+  coherence re-audit of EPISTEMOLOGY.md since session 1
+  (`knowledge/AUDIT-2026-07-11-EPISTEMOLOGY-COHERENCE.md`, verdict
+  sound-with-findings; all arithmetic verifies — §2 table, §4 joint-FP
+  math, promotion-tax formula reproduces every CAL bar; fleet and
+  boundary−1 reconciliations correctly reflected). Six defects, all
+  fixed in place per DECISIONS D45: (MAJOR) the post-confirmation
+  handoff prescribed an IMPOSSIBLE step — "live paper validation
+  (dry-run bot)" while EDGE-SPACE §3.3's measured fact is that dry-run
+  places no orders and yields no fills; now real tiny orders,
+  operator-authorized. (MINOR × 5) probe verdict hole (q̂ ≤ 0 with
+  −1 < t ≤ 0 and prediction holding matched NO branch — now
+  iterate-or-park within the D5 budget, never advance); flat t ≥ 2
+  bars at Stage 2/3 now say "(lineage-adjusted per §5)" so a
+  lineage_cells > 1 registration cannot under-bar itself; economic
+  floor pinned to the PRIMARY delay-0 run's CI with the §5 battery as
+  qualitative gate; ~50 lineages/year labeled an upper-bound
+  assumption; ambiguous "burn on first read" clause deleted. D31
+  propagation check: sound-with-findings — hunk-by-hunk 1:1 mapping
+  confirmed, boundary cases (t=−1, q̂=0) verified unmoved, dry-run fix
+  matches EDGE-SPACE verbatim; 1 MAJOR applied: fix 4 is a DELIBERATE
+  directional loosening vs reading B of the old ambiguous text
+  (CI-widens-but-survives latency case now advance-licensed; reading
+  B's bar was never defined — accepted, with a CI-widening battery
+  clause pre-identified in D45 as the future tightening if a
+  latency-sensitive candidate ever reaches the test); 1 MINOR applied:
+  the probe residual branch propagated to templates/EXPERIMENT.md
+  (specs copy decision rules from the template; the hole would have
+  re-opened there). No threshold value changed.

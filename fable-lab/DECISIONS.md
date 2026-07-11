@@ -1635,3 +1635,40 @@ distinction was not recorded anywhere before this index.
 bar/threshold/gate; it records what exists and what does not. Residue
 entries are candidates, not commitments — the D28/D31 rules still govern
 when a gap must be closed.
+
+## D45 — EPISTEMOLOGY coherence fixes from its first whole-doc re-audit (U73)
+
+**Decision (session 56, U73):** the six defects found by the first
+fresh-context end-to-end re-audit of EPISTEMOLOGY.md since session 1
+(`knowledge/AUDIT-2026-07-11-EPISTEMOLOGY-COHERENCE.md`) are fixed in
+place, minimally, each tagged U73: the impossible "(dry-run bot)"
+post-confirmation handoff (contradicted EDGE-SPACE §3.3's measured
+no-fills fact); the probe verdict hole (q̂ ≤ 0, −1 < t ≤ 0, prediction
+holds → now iterate-or-park within the D5 budget, never advance);
+the flat t ≥ 2 bars at Stage 2/3 now carry "(lineage-adjusted per §5)"
+so a lineage_cells > 1 registration copying §3 cannot under-bar itself;
+the economic-floor CI is pinned to the PRIMARY delay-0 run with the §5
+battery as qualitative gate (the only reading the existing latency-curve
+machinery supports; a pessimistic-latency CI would be a new bar needing
+its own derivation — deliberately NOT introduced); the ~50 lineages/year
+false-confirmation input is labeled an upper-bound assumption; the
+ambiguous "burn on first read" clause is deleted.
+
+**Motivating observation (governor):** each fix cites a verified
+contradiction or ambiguity from the audit — including one clause that
+fires on every future `confirmed` verdict and prescribed an impossible
+action. Direction: two fixes can only tighten, three are factual/wording.
+Fix 4 (economic floor → reading A) is a DELIBERATE directional loosening
+relative to reading B of the old ambiguous text (flagged by the U73
+propagation verifier): a strategy whose delay-0 CI excludes 0 but whose
+150ms CI widens to include 0 WITHOUT the edge dying is advance-licensed
+under the new text, while reading B would have blocked it — §5.2's
+latency-fragile flag covers only the die-by-150ms case. Accepted because
+reading B's bar was never defined (which latency? derived how?) and
+inventing it silently would be worse; if a latency-sensitive candidate
+ever reaches the economic-floor test, a CI-widening battery clause is the
+pre-identified tightening to consider (residue candidate, this entry).
+
+**Boundaries:** no threshold value changed (t ≥ 2, p ≤ 0.023/k, N sizes,
+D13 minority ≥ 30 all as before); the fixes make the existing rules
+unambiguous, they do not redesign the epistemology.
