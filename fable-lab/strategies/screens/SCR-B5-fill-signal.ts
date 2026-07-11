@@ -34,6 +34,8 @@ export const ConfigSchema = z.strictObject({
   maxPrice: z.coerce.number().finite().gt(0).lt(1).default(0.98),
   /** Bound on the UP entry ask after the signal. */
   maxAsk: z.coerce.number().finite().gt(0).lt(1).default(0.97),
+  /** Give up on a pending signal after this long (books are often crossed AT the sweep — E6). */
+  signalTimeoutSec: z.coerce.number().finite().positive().max(120).default(30),
 })
 export type Config = z.infer<typeof ConfigSchema>
 
@@ -50,6 +52,8 @@ export const definition: StrategyDefinition<Config> = {
     let seq = 0
     let quote: Quote | null = null
     let signaled = false
+    let pendingSinceMs: number | null = null
+    let probePrice = 0
 
     const onMarketTick = (
       tick: MarketTick,
@@ -67,6 +71,45 @@ export const definition: StrategyDefinition<Config> = {
         seq = 0
         quote = null
         signaled = false
+        pendingSinceMs = null
+        probePrice = 0
+      }
+      // Pending signal: the sweep tick's UP book was crossed/unusable (E6);
+      // enter on the first clean tick within the timeout.
+      if (!signaled && pendingSinceMs != null) {
+        if (tick.snapshot.timestamp - pendingSinceMs > cfg.signalTimeoutSec * 1000) {
+          signaled = true // timed out — stale information, stand down
+          pendingSinceMs = null
+          return []
+        }
+        const upBook = tick.snapshot.byAssetId[upAssetId]
+        const ask = upBook?.bestAsk
+        if (upBook != null && ask != null && ask <= cfg.maxAsk && !(upBook.bestBid != null && upBook.bestBid >= ask)) {
+          let depth = 0
+          for (const lvl of upBook.asks) {
+            if (lvl.price > ask) break
+            depth += lvl.size
+          }
+          const size = Math.min(cfg.mainShares, depth)
+          if (size > 0) {
+            signaled = true
+            pendingSinceMs = null
+            return [
+              {
+                kind: 'place_limit',
+                clientOrderId: `scrfsigm:${slug}:main`,
+                assetId: upAssetId,
+                side: 'BUY',
+                price: ask,
+                size,
+                orderType: 'FOK',
+                meta: { exp: 'SCR-B5-fsig', leg: 'main', probePrice, entryAsk: ask },
+                reason: 'ride the sweep information',
+              },
+            ]
+          }
+        }
+        return []
       }
       if (signaled) return []
       const epochMatch = slug.match(/-(\d+)$/)
@@ -119,39 +162,17 @@ export const definition: StrategyDefinition<Config> = {
     const strategy: Strategy = {
       name: 'fable-scr-fsig',
       onMarketTick,
-      onAccountEvent: (ev, _portfolio, lastMarket, ctx) => {
+      onAccountEvent: (ev, _portfolio, lastMarket) => {
         if (ev.kind !== 'fill') return []
         const fill = ev.fill
         if (!fill.clientOrderId?.startsWith('scrfsigp:')) return []
-        if (signaled) return []
-        signaled = true
+        if (signaled || pendingSinceMs != null) return []
+        // Arm the pending signal; entry happens on the first CLEAN tick
+        // (the sweep tick's book is typically crossed — E6 artifact class).
         quote = null
-        const upAssetId = ctx?.market?.upAssetId
-        if (!upAssetId || !lastMarket) return []
-        const upBook = lastMarket.byAssetId[upAssetId]
-        const ask = upBook?.bestAsk
-        if (upBook == null || ask == null || ask > cfg.maxAsk) return []
-        if (upBook.bestBid != null && upBook.bestBid >= ask) return [] // E6 guard
-        let depth = 0
-        for (const lvl of upBook.asks) {
-          if (lvl.price > ask) break
-          depth += lvl.size
-        }
-        const size = Math.min(cfg.mainShares, depth)
-        if (size <= 0) return []
-        return [
-          {
-            kind: 'place_limit',
-            clientOrderId: `scrfsigm:${stateSlug}:main`,
-            assetId: upAssetId,
-            side: 'BUY',
-            price: ask,
-            size,
-            orderType: 'FOK',
-            meta: { exp: 'SCR-B5-fsig', leg: 'main', probePrice: fill.price, entryAsk: ask },
-            reason: 'ride the sweep information',
-          },
-        ]
+        probePrice = fill.price
+        pendingSinceMs = lastMarket?.timestamp ?? fill.tsMs
+        return []
       },
     }
     return { strategy }

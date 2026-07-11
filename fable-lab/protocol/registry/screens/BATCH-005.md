@@ -421,8 +421,32 @@ candidate was dropped for capacity reasons.
 
 ## Feasibility smokes (counts only, no PnL — E15 discipline)
 
-_To be appended before submission: one local `--sequential` 10-market
-smoke per template (6 smokes), fill/entry counts only._
+_Run 2026-07-11 session 66, local `--sequential`, oldest-10 discovery
+markets, latency pinned in-log (`BACKTEST_LATENCY_DELAY=0
+BACKTEST_LATENCY_JITTER=0`, 1 grep hit per log). Counts read via
+fills.ts only; no PnL selected._
+
+| template | run | markets filled | maker fills | taker fills |
+|---|---|---|---|---|
+| fable-scr-mom (SCR-010 cell) | 487 | 10/10 | 8 (TP legs) | 10 |
+| fable-scr-lvl (SCR-021 cell) | 488 | 8/10 | 8 (TP legs) | 8 |
+| fable-scr-stm (SCR-024 cell) | 489 | 4/10 | 0 | 4 |
+| fable-scr-mkx (SCR-026 cell) | 490 | 9/10 | 15 (quote+TP) | 0 |
+| fable-scr-fsig | 491 | 1/10 | 1 (probe) | 0 → see amendment 1 |
+| fable-scr-2pass (SCR-029 cell) | 492 | 7/10 | 0 | 7 |
+
+### Pre-submission amendment 1 (fsig pending-signal fix; no PnL read)
+
+Smoke 491's probe filled once but the main UP leg never fired. An
+instrumented debug copy (run EXP-000-debug-fsig2, counts + book state
+only) showed why: AT the sweep tick the UP book was CROSSED (bid 0.57 >
+ask 0.55 — the E6 artifact class), so the same-tick E6 guard correctly
+refused. Fix (before any fleet submission, no batch PnL read anywhere):
+the probe fill now ARMS a pending signal and the entry executes on the
+first clean tick within `signalTimeoutSec=30`; timeout stands down.
+Re-smoke run 495: 1 probe fill → 1 taker main fill, 0 failures. Debug
+runs 493/494 (EXP-000-debug) were counts-only diagnostics. SCR-028's
+mini-spec cell is otherwise unchanged.
 
 ## Verdicts (append-only after runs complete)
 
