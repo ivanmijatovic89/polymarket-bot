@@ -113,9 +113,6 @@ kill of dutch books to the whole feature class._
 
 ## Feasibility smokes (counts only, no PnL — E15/EXP-006 discipline)
 
-_(appended pre-freeze; plumbing evidence, never outcome evidence)_
-
-## Verdicts (append-only after runs complete)
 _Smokes run 2026-07-11 session 59, oldest-15 discovery markets, latency
 0/0. Entry counts: SCR-001a 14/15, SCR-001b 14/15, SCR-002 14/15,
 SCR-003 6/15; touch gates (D18 hook line verified in all three logs):
@@ -130,3 +127,5 @@ conditional mean tracks the unconditional average (E20 ≈ 0), that is the
 expected kill path, not a surprise. Touch tail/reversal gates are
 low-incidence (~7-13%); at N=500 expect ~35-65 played — q̂-sign kill
 semantics apply either way (kill-biased by design)._
+
+## Verdicts (append-only after runs complete)
