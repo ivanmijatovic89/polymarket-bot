@@ -115,7 +115,7 @@ function SubHead({ children, border }: { children: ReactNode; border?: boolean }
     <TableHead
       className={cn(
         'h-8 text-right font-normal normal-case tracking-normal',
-        border && 'border-r border-border',
+        border && 'border-r border-foreground/20',
       )}
     >
       {children}
@@ -325,55 +325,55 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={cn('border-r border-border', c.align === 'right' && 'text-right')}
+                  className={cn('border-r border-foreground/20', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
               ))}
-              <TableHead rowSpan={2} className="min-w-[180px] border-r border-border">
+              <TableHead rowSpan={2} className="min-w-[180px] border-r border-foreground/20">
                 {leadingHeader}
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border">
+              <TableHead rowSpan={2} className="border-r border-foreground/20">
                 Strategy
               </TableHead>
-              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Markets
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 EV
               </TableHead>
-              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Trades
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border">
+              <TableHead rowSpan={2} className="text-right border-r border-foreground/20">
                 PnL
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border">
+              <TableHead rowSpan={2} className="text-right border-r border-foreground/20">
                 Win&nbsp;rate
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Avg&nbsp;W/L
               </TableHead>
-              <TableHead colSpan={4} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={4} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Streak
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Quality
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border">
+              <TableHead rowSpan={2} className="text-right border-r border-foreground/20">
                 Fees
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border">
+              <TableHead rowSpan={2} className="border-r border-foreground/20">
                 Symbol
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-foreground/20 text-center">
                 Duration
               </TableHead>
               {extraColumns?.map((c, i) => (
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={cn('border-r border-border', c.align === 'right' && 'text-right')}
+                  className={cn('border-r border-foreground/20', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
