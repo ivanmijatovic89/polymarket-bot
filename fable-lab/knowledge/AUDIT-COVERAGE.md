@@ -69,7 +69,7 @@ for the artifact name.
 | runs.ts | A (one bug class) + E | U40 found+fixed the timestamp-suffix bug; otherwise listing-only |
 | fills.ts | C + E | outcome-safety (counts-only) relied on since U29; used as audit instrument in U32/U40; never itself audited — residue R5 |
 | entry-check.ts | C + E | 4 prediction tests reproduced in U32 (tool-mediated) |
-| battery.ts | C + E | U32 re-ran it to reproduce the 8 grid rows + latency curve (transcription only); its OWN mean/sd/q/t math never independently recomputed or selftested — residue R1 |
+| battery.ts | B + C + E | U71 → BATTERY-RECOMPUTATION-2026-07-11.md: all 10 published rows (8 grid + 2 latency) recomputed from raw rows via SQL aggregates, match at printed precision, tool byte-unchanged since creation; U32 re-ran it (transcription only). Display-only branches + nonzero-maker makerShare path remain unexercised (accepted, see the note) |
 | index-registry.ts | C + E | INDEX-vs-verdict consistency checked U32; U30 parser quirk (blockquote lines ignored) found ad hoc — residue R4 |
 | lib/spec.ts | D + E | U10 field-regex bug found via smoke + fixture re-validation; parser feeds validator+submit — residue R5 |
 | detach.mjs | E | dozens of detached evidence runs completed and persisted since D10 |
@@ -91,11 +91,11 @@ for the artifact name.
 
 ## 4. Residue — never-directly-verified, ranked by (load-bearing × risk)
 
-- **R1 `battery.ts` math (C-only).** On the ADVANCE path: any future survivor's
-  grid-smoothness/latency read goes through it. A small block of stats
-  duplicated from results.ts semantics; U40's independent recomputation
-  covered results.ts, not battery. Close = selftest or one independent
-  recomputation of a published battery row from raw rows. Small unit.
+- **R1 `battery.ts` math — CLOSED (U71).** Was: C-only on the ADVANCE path.
+  Closed by independent SQL recomputation of all 10 published rows —
+  `BATTERY-RECOMPUTATION-2026-07-11.md`. Accepted slivers recorded there
+  (display branches; nonzero-maker makerShare spot-check deferred to any
+  future maker battery read).
 - **R1b `calib-coverage.sh` / `calib-integrity.sh`.** Never fresh-context
   audited (the CAL-001 checklist audit was text-fidelity only and did not
   run them); builder-validated with planted defects (D23/U43am).

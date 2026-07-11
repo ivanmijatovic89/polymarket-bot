@@ -1,15 +1,18 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 56, unit U70. Wake-up checks all quiet via
+_Last updated: session 56, units U70-U71. Wake-up checks all quiet via
 wakeup.ts exit 0 (universe 18,635 / quota still 403 / trades gate
 closed / fleet 12 slots / no operator drift / CONFIRM-010 freeze
 intact). U70: verification coverage indexed (D44) —
 `knowledge/AUDIT-COVERAGE.md` maps every artifact/tool to its
 verification events with an A-E coverage taxonomy and a ranked residue
 list; gated sessions pick verification-depth targets from the residue
-list instead of re-reading this archive. Top open residue: R1
-battery.ts math (advance-path, same-tool coverage only), R1b the calib
-shell scripts. CONFIRM-010 freeze anchor = commit c403d7d._
+list instead of re-reading this archive. U71: top residue R1 closed —
+battery.ts math independently recomputed from raw rows, all 10
+published rows match; the D31 verifier also caught that latency runs
+326/327 carry the known E18 boundary-market row (zero-fill, verdict-
+immaterial). Next residue: R1b calib shell scripts, R2 EPISTEMOLOGY
+coherence. CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1400,3 +1403,29 @@ plan (fleet --detach + capacity tool) when it does.
   credited A session-1, R6 re-aged), EPISTEMOLOGY row gains the U69
   §3-scoped event, tools/README.md + fixtures/EXP-000-fixture.md rows
   added, R1's unsourced "30 lines" reworded.
+
+- U71 (session 56): AUDIT-COVERAGE residue R1 CLOSED — battery.ts math
+  independently recomputed (`knowledge/BATTERY-RECOMPUTATION-2026-07-11.md`).
+  All 10 published battery rows (8 EXP-001 grid runs 313-325 + latency
+  326/327) recomputed from raw `backtest_run_markets` rows via SQL
+  aggregates (mysql2 direct from /tmp, no lab tool in the loop): n,
+  played, EV/mkt, q (sample sd), t, makerShare, feeTotal all equal at
+  printed precision across battery.ts output, the SQL recomputation, and
+  the published EXP-001 grid/latency records. Rigor: 0 NULLs across all
+  43,954 rows (the ??0/COALESCE convention never fired — value-level
+  match), battery.ts byte-unchanged since its creation commit (4d7a04f).
+  One-shot reasoning per U60: post-verdict reproduction of a closed
+  kill's published numbers. D31 fresh-context check: sound-with-findings
+  — the verifier reproduced everything independently (own SQL, fresh
+  battery run, formulas at line level) and caught 1 MAJOR: the note
+  claimed runs 313-327 are exploration-only, but latency runs 326/327
+  each contain boundary market btc-updown-15m-1777237200 (the E18/U50
+  inclusive-bound leak, documented in the EXP-001 erratum the note
+  itself cites; verifier confirmed trade_count=0 / pnl=0 in both runs,
+  so the row is not outcome-bearing and was already inside the published
+  aggregates) — safety section rewritten on the corrected grounds.
+  2 MINOR applied: "digit-for-digit" softened to equal-at-printed-
+  precision with the trailing-zero normalization disclosed; the SQL-
+  aggregates-over-the-boundary-row disclosure added. Coverage map row
+  updated to B + C + E; accepted slivers (display branches,
+  nonzero-maker makerShare path) recorded in the note.
