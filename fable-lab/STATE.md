@@ -1,18 +1,20 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 63 (2026-07-11). Wake-up checks all quiet
-(universe 18,635 / quota 403 / gates closed / freeze intact / fleet 30
-slots). U93: SCR-008 run 467 VOIDED — it executed at ambient DELAY=140
-against BATCH-003's frozen "pinned per D8" line (and was truncated
-73/500 by session-62 end; outcome exposure from the resume log-tail
-read disclosed in the BATCH-003 erratum — void decided on the
-condition mismatch alone). Smoke 466 had the same violation (erratum;
-counts-only so plumbing-grade). Root cause: the D49 screening tier has
-no submission tool, so manual launches were honor-system on D8 — E7
-class. Fix D51: run-backtest.ts refuses non-0/0 effective latency
-unless batchUid contains "lat" (refusal exit-2 / lat bypass / pinned
-pass all verified). Pinned relaunch SCR-008-touch-smoke-r2 +
-SCR-008-touch-screen-r2 in flight._
+_Last updated: session 65 (2026-07-11) — the CLOSING SPRINT session
+(operator directive 2fcfa5b: possibly the last session for months;
+credits nearly out). Headline for a months-later successor: **the
+research program reached a clean stopping point.** SIGNAL-003 was read
+(one candidate), its complement gate SCR-009 was screened on 2,000
+fresh reserve-window markets and KILLED (−1.96c/share, q̂=−0.040,
+t=−1.81), and per the pre-committed rule the MAKER FAMILY IS CLOSED FOR
+GOOD (E30). All 22 ledgered ideas are resolved: 21 dead, #10 parked
+behind its mechanical unlock. The taker side is closed at current
+power (E9-E23). NOTHING is in flight; no strategy survived. That is
+the honest result: in this dataset, under this engine's fill models,
+every expressible mechanism is priced fairly or worse after costs —
+the strongest evidence of absence this lab could produce. Read "Next"
+for the three unlock conditions; do NOT start new screens against
+closed families without one of them firing._
 _(Session 62 summary: U90: BATCH-002 JUDGED — ALL 3 KILLED. SCR-005 deep
 bid (run 462: q̂=−0.0218, 22/500 played, winRate 0.36 — 10c sweeps
 informative, not overshoot; maker distance axis closed 1c-10c),
@@ -62,115 +64,51 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **CLOSING SPRINT (session 65, operator directive 2fcfa5b):** SIGNAL-003
-  read is DONE (see below); the rest of this session is attempts —
-  construct + screen as many plausible strategies as the fleet takes,
-  minimal ceremony (frozen bars + locked holdout + journal lines are the
-  only retained protections; optional audits skipped per directive).
-- **U101: SIGNAL-003 READ (session 65) — ONE CANDIDATE.** Coverage CLEAN
-  (8,516/8,516, 0 failures, 0 boundary leaks); one-shot read verbatim in
-  `knowledge/SIGNAL-FILLS.md` §7. Cell-grid CANDIDATE: MID stratum ×
-  l10Imb q5, d=−5.54c, z=−4.30, n=1,435 (bar 4.20). Monotone/seasonality:
-  0 candidates (move60 WARM +3.06). Honest arithmetic disclosed in §7:
-  global anchor measured −1.012c (not E29's 0), complement of the flagged
-  cell ≈ −0.04c under the measured anchor (+1.19c under the frozen
-  zero-anchor formula) — prediction ≈ 0, screen bars decide. NEXT: SCR-009
-  = run-472 cell + mechanical gate (exclude quote price ∈ [0.35,0.65] ∧
-  l10Imb in top quintile), fresh reserve-window random draw per D53, D18
-  outcomes {kill, escalate}. If SCR-009 kills → maker family closes for
-  good (IDEAS #22 → dead).
-- **U102 (session 65): SCR-009 FROZEN + IN FLIGHT.** BATCH-004
-  (`protocol/registry/screens/BATCH-004.md`): strategy `fable-scr-009`
-  (SCR-008 cell + gate: cancel/suppress quote when price ∈ [0.35,0.65]
-  ∧ latest valid l10Imb ≥ 0.6400 — threshold verified to select exactly
-  the candidate cell's 1,435/7,171 discovery MID fills, computed
-  outcome-free). Sample: 2,000 of 5,460 reserve-window markets, seeded
-  draw (`tools/scr009-draw.ts`, seed SCR-009-draw-1), slug lists
-  committed. Smoke run 480 green (10/10 filled, counts only; smoke-set
-  deviation disclosed in the batch file). Six local touch shards
-  `SCR-009-touch-s[0-5]` launched detached (~21:40 UTC), all verified
-  pinned 0/0 + D18 hook + 2,000 loaded. Pre-results amendments frozen:
-  extend-once-if-q̂>0 rule; checker only on escalate. READ PROCEDURE:
-  when shards exit → results.ts over the 6 runs → verdict per D49
-  default bars into BATCH-004 → propagate (kill: E30 + EDGE-SPACE maker
-  closure + IDEAS #22 dead; escalate: operator memo + checker).
-- **SIGNAL-003 FROZEN (U99, session 64)** — `knowledge/SIGNAL-FILLS.md`
-  (D52): per-fill toxicity scan of the run-472 ungated DOWN at-touch
-  cell. Fixture `_fixtures/diag-fill.ts` (hardcoded run-472 params;
-  causal pre-fill state verified: the runner drains fill events before
-  the strategy sees the triggering tick, StrategyRunner.ts:174 vs :296);
-  scan `tools/signal3-scan.ts` + selftest 17/17 green; smoke 10/10
-  discovery markets, all MAKER first fills, pinned 0/0, D18 hook, all
-  lines parse against the scan regex. Shards LAUNCHED and verified
-  (loaded 1420+1420+1419×4 = 8,516, pinned, hook, single-launch each;
-  logs `logs/SIGNAL-003-shard[0-5].log`). Pre-read audit DONE
-  (SOUND-WITH-FINDINGS, verbatim in
-  `knowledge/AUDIT-2026-07-11-SIGNAL-003-REG.md`); both MAJORs applied
-  pre-read in U99c: complement-gate rule frozen fully mechanical
-  (SIGNAL-FILLS §6c amendment 1), selftest extended to pin all 3
-  families (23/23, planted U-shape + day-of-week detected); E28-class
-  count correction (16 not 17, now 23) + 8 minor disclosures in §6c;
-  coverage tool gained epoch-boundary + staleness checks. NEXT STEP:
-  when shards exit → `sh tools/signal3-coverage.sh
-  logs/SIGNAL-003-shard[0-5].log` must print COVERAGE CLEAN → ONE-SHOT
-  read `npx tsx tools/signal3-scan.ts logs/SIGNAL-003-shard[0-5].log`
-  → results verbatim into SIGNAL-FILLS §7 + verdict. Interpretation
-  pre-committed in SIGNAL-FILLS §6: null → maker family closes for good
-  (IDEAS #22 dead); candidate → mechanical complement gate → fresh D49
-  screen on NEW sample (E26c discount), D18 outcome set (kill/escalate).
-  U100 (session 65, pre-read): candidate-branch sample rule frozen (D53,
-  §6c amendment 3) — reserve-window random draw `--from-ms 1772323200000
-  --to-ms 1777237199999 --random --limit N`; CONFIRM-010
-  non-interference argued (it was frozen pre-data at c403d7d).
-- BATCH-003 also recorded THREE derivation kills (no runs): split-sell
-  mirror identity, round-number no-carrier (measured outcome-free:
-  mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
+
+**NOTHING is in flight.** Session 65 ended the closing sprint with all
+work units complete: no runs pending, no reads owed, no verdicts
+outstanding, no protocol debt that blocks resumption. The registries,
+lessons, and knowledge files are fully propagated through E30.
 
 ## Next
-- **Frontier check (session 65, pre-SIGNAL-003-read):** no registrable
-  idea exists OUTSIDE the SIGNAL-003 branches right now — verified
-  against the IDEAS ledger (22 entries: 21 resolved, #22 in flight) and
-  the EDGE-SPACE §4 bar. Taker: every expressible single axis + the
-  named conditional layers are measured (E20-E23); the open sub-power
-  windows need reserve/fresh data under the U45 confirmability envelope
-  (universe frozen at 18,635 — months away). Maker: E29 requires a
-  better-than-unconditional fill mix, which is precisely what SIGNAL-003
-  measures. Do NOT force a BATCH-004 before the read; the read's two
-  branches (§6) are the next unit either way.
-- **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
-  gated-state framing below is SUPERSEDED for idea work: breadth is
-  mandated, screens are cheap, "nothing to research" is not a reachable
-  state (charter §Data reality). Session 59 built the machinery:
-  - `protocol/SCREENING.md` (D49) — the batch screening tier. Use it for
-    all new idea batches: frozen mini-specs in one batch file, fleet
-    N=500 discovery-only samples, kill-biased bars, one fresh-context
-    checker per batch.
-  - `knowledge/SIGNAL-MAP.md` — SIGNAL-001 feature scan (16 features ×
-    5 offsets × 2 sides + seasonality) frozen; discovery replay sharded
-    6-way locally (diag-signal fixture; fleet cannot return feature
-    logs). One-shot read via `tools/signal-scan.ts` AFTER all shards
-    complete + coverage accounting is clean. Results → §3 of that file;
-    aimed screens follow.
-  - BATCH-001 (7 screens) frozen and partially judged: 4 fleet taker
-    screens ALL KILLED (runs 446/447/449/450 — first-passage
-    continue/fade, depth-pull, quote-pressure; event-time entries meet
-    the same adjusted ask as fixed-time). 3 touch-maker screens run
-    LOCAL (D18): SCR-004r (E22 reversal monetization — the aimed shot)
-    launched; SCR-004t (late tail) and SCR-004o (opening spread) queued
-    behind the signal shards. Batch checker (one fresh-context pass over
-    the verdict table) still owed.
-- Wake-up checks (`npx tsx fable-lab/tools/wakeup.ts`, D42) still run
-  FIRST every session — they guard the freeze/quota/drift state, which
-  the mandate does NOT supersede. The detailed check-response
-  instructions from the previous STATE revision remain in git history
-  and in the tool's own pointers; headline state: universe 18,635,
-  quota 403 (ingestion suspended), trades gate closed, CONFIRM-010
-  freeze intact (anchor c403d7d), last audited operator commits
-  f1cf90b+a10b59d.
-- The EDGE-SPACE §4 bar and the reserve-confirmability envelope still
-  govern FULL experiment registrations (screens are probe-grade only;
-  SIGNAL-MAP zones are aiming aids, not citations). Holdout locked.
-  CONFIRM-010 executes at the IDEAS #10 unlock, unchanged.
+
+The lab is in a GATED state — deliberately. Every expressible mechanism
+in the current dataset is measured and dead (E9-E30 chain; EDGE-SPACE
+§1 map is the index). The next unit of research work exists only when
+one of these three unlock conditions fires; check them at every wake-up
+and otherwise do NOT manufacture work against closed families:
+
+1. **Dataset growth (the main path).** The operator renews the Telonex
+   subscription "in months". When ingestion resumes and the eligible
+   universe grows past the frozen 18,635: (a) at ≥ ~15,000 NEW
+   post-freeze markets, IDEAS #10 unlocks → execute the FROZEN
+   CONFIRM-010 spec (`knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md`,
+   freeze anchor c403d7d) exactly as written — it is the single live
+   pre-registered experiment and must not be redesigned; (b) fresh data
+   also reopens the U45 sub-power windows (EDGE-SPACE §4 envelope) for
+   NEW pre-registered scans on new markets, and the venue-drift refresh
+   (D17/D27) becomes due after ~a month of new data.
+2. **Operator-side instrument change.** A queue-realistic historical
+   fill model built from the Telonex trades channel (EDGE-SPACE §3.2 —
+   the measured advocacy: 95.9% trades coverage exists) would replace
+   the worst_queue/touch bracket and REOPEN the maker family that E30
+   closed. This is src/ work only the operator can commission.
+3. **Venue regime change.** A VENUE-DRIFT bar fire confirmed by the D27
+   independent redraw reopens the measured questions it names. The
+   baseline table and refresh procedure are in
+   `knowledge/VENUE-DRIFT.md`.
+
+Standing rules that survive this handoff unchanged: wake-up checks
+(`npx tsx fable-lab/tools/wakeup.ts`, D42) run FIRST every session;
+the HOLDOUT (market_start_ms ≥ 1777237200000) has never been read and
+stays locked until a confirmed candidate reaches the final-confirmation
+stage; the reserve window is now partially spent (SCR-009 read outcomes
+on its 2,000-market draw — recorded in BATCH-004; CONFIRM-010's own
+sample rule draws on FRESH post-freeze data, so it is unaffected, see
+D53); screens/registrations follow SCREENING.md (D49) and the
+EDGE-SPACE §4 bars; every fleet run uses `--detach` on committed+pushed
+code; latency pinned per D8/D51; touch runs local-only with `touch` in
+the batchUid (D18).
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
@@ -214,6 +152,38 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U101-U103 (session 65, the CLOSING SPRINT): SIGNAL-003 read + SCR-009
+  screen + program closure. (a) U101: coverage CLEAN (8,516/8,516, 0
+  failures, 0 boundary leaks, staleness benign) → one-shot read
+  (verbatim in SIGNAL-FILLS §7): ONE cell-grid CANDIDATE — MID fPrice
+  [0.35,0.65] × l10Imb top quintile, d=−5.54c/fill, z=−4.30, n=1,435 of
+  8,130; monotone + seasonality families 0 candidates (move60 WARM
+  +3.06). Honest anchor arithmetic disclosed pre-screen: global mean
+  −1.012c (not E29's 0), measured-anchor complement ≈ −0.04c/fill.
+  (b) U102: BATCH-004 frozen — SCR-009 (`fable-scr-009`) = run-472 cell
+  + the amendment-1b mechanical gate (suppress quote when price ∈
+  [0.35,0.65] ∧ latest valid l10Imb ≥ 0.6400; threshold verified to
+  select exactly the candidate cell outcome-free), N=2,000 seeded
+  uniform draw from the reserve window per D53
+  (`tools/scr009-draw.ts`, seed SCR-009-draw-1, slug lists committed),
+  pre-results amendments frozen (extend-iff-q̂>0; checker only on
+  escalate), smoke run 480 green (deviation disclosed: reserve slugs
+  used for smoke, counts only), 6 local touch shards launched pinned
+  0/0 + D18 hook, all verified in-log. (c) U103: SCR-009 JUDGED —
+  **KILL** (pooled runs 481-486 via `tools/scr009-pool.ts`, output
+  verbatim in BATCH-004: N=2,000, played 1,992, EV/market −1.9585,
+  q̂=−0.0404, t=−1.8060, CI95 [−4.084, +0.167], winRate 0.493,
+  maker-only). q̂ ≤ 0 → default kill; no extension (rule requires
+  q̂>0); no checker (kill self-certifying per frozen amendment 2).
+  Maker family CLOSED FOR GOOD per the pre-committed SIGNAL-FILLS §6
+  rule. Propagation: LESSONS E30, IDEAS #22 dead (22/22 resolved: 21
+  dead, #10 parked), EDGE-SPACE map row + maker-bar closure statement,
+  SIGNAL-FILLS §7 addendum. Per the operator closing-sprint directive,
+  optional audits were skipped (the retained protections: frozen bars,
+  fresh-sample test, locked holdout); frontier re-check confirmed
+  taker-side imbalance features already null (SIGNAL-MAP), so no
+  further screens were forced. STATE rewritten as the months-later
+  walk-away handoff.
 - U95/U96 (session 63): SCR-008 JUDGED — **kill by default outcome**
   (canonical run 472, SCR-008-touch-screen-r2, N=500, 479 played,
   q̂=+0.0033, t=+0.0736, winRate 0.5115, maker-only; prediction held
