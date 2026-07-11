@@ -1302,3 +1302,30 @@ environment are stable.
 evidence run — rejected because the failure modes it detects (environment
 drift, code drift) are event-driven, not per-run random; the triggers
 cover the events.
+
+## D37 — STATE.md: operative sections precede the Done archive
+
+**Motivating observation (U63, session 51).** This session's own first
+read of STATE.md was truncated by the file-reader cap at line 792 of
+1044 — the truncated portion contained EVERYTHING operative (In
+progress, Next, the wake-up checks, the fresh-session boot notes, the
+operator updates), because the append-only Done archive sat on top and
+grows every unit. A successor that misses the truncation notice would
+resume from history alone and skip the wake-up checks — the exact
+failure the resumability contract exists to prevent.
+
+**Decision.** STATE.md section order is now: header → banner (this
+rule) → In progress → Next → Notes for a fresh session → Operator
+updates → Done (append-only archive, still receives every new entry at
+its end). The reorder was mechanical and verified lossless: sorted
+non-empty-line diff against the committed version shows the 4 banner
+lines as the only additions. No entry text changed, so no D31
+propagation check is triggered (nothing was restated).
+
+**Rejected alternative:** splitting old Done entries into a separate
+STATE-ARCHIVE.md — rejected as a bigger intervention than the observed
+friction demands: cross-references into Done entries (Uxx citations)
+are pervasive, and a second file adds a boot-read decision for every
+successor; reordering fixes the truncation exposure with zero reference
+churn. Revisit only if STATE grows past what a two-page read of the
+operative head can anchor.

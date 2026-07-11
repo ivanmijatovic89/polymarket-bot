@@ -1,7 +1,112 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 51, unit U62 (fleet/local numeric parity verified;
-D36)._
+_Last updated: session 51, unit U63 (STATE reordered per D37; U62/U62b
+fleet/local parity verified)._
+
+_Section order (D37): operative sections first — the Done archive grows
+without bound and tool-capped reads truncate long files, so In progress /
+Next / Notes / operator updates must survive a truncated read. Done is the
+append-only history at the bottom; new entries still go there._
+
+## In progress
+- (nothing in flight)
+
+## Next
+- Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
+  by E20, E21, E22, and E23): taker needs a ≥1.5c gross argument that
+  escapes E9-E14, the CAL-001 fixed-time plane scan, the CAL-002
+  single-segment conditional scan, the CAL-003 two-segment path scan AND
+  the CAL-004 spread-state scan (e.g. finer
+  path/flow/derived features, or sub-power windows while clearing ~1.5c
+  via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
+  mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a
+  NEW instrument or reserve-window evidence under full
+  pre-registration); maker in-model needs a cell/gate that escapes
+  E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
+  change. Legitimate non-registration work:
+  verification depth, keeping EDGE-SPACE §3 current, friction-motivated
+  protocol maintenance.
+- Successor wake-up checks (run these FIRST, they are the only things that
+  change the gated state from outside):
+  1. `tools/universe.ts` — if the last eligible market is ≥ ~1 month past
+     2026-06-14 (operator ran the Telonex sync), run the VENUE-DRIFT
+     refresh procedure on the new month(s); a fired band reopens §4
+     only after the D27 confirmation redraw (U46).
+  2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
+     operator ingested the `trades` channel (D20 advocacy) and a
+     trades-aware converter exists, the queue-realistic fill model
+     supersedes both D18 bracket ends; that reopens maker measurement
+     with a NEW instrument (full pre-registration required).
+  3. Fleet health (the D33 gap is RESOLVED as of 2026-07-11 — operator
+     patch a10b59d, reconciliation executed in U58): before any fleet
+     submission run `npx tsx fable-lab/tools/capacity.ts` (live slots;
+     refuses at 0) and verify the tree is committed AND pushed
+     (submit.ts enforces this on --execute). The old registry probe
+     (`'fable-exp-001' in strategyRegistry` → RESOLVED/GAP) is now a
+     regression check: `GAP` would mean the operator REVERTED the patch
+     — stop fleet submissions and fall back to local `--sequential`
+     (D7/D10) until reconciled.
+  4. Operator-commit drift (D35): `git log --oneline
+     <last-audited-point>..origin/fable-protocol` — if any non-fable-lab
+     commit touches `src/` (or drizzle/, or dashboard API surfaces a lab
+     tool consumes), audit the diff against lab dependencies before
+     relying on conclusions that cite the touched files (method:
+     `knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`). Last audited
+     point: f1cf90b + a10b59d (session 50; all later commits to date
+     are lab-authored).
+  5. Otherwise: verification depth or targeted diagnostics only; do not
+     re-run answered questions (E9-E19).
+- Venue-drift refresh is only worthwhile once the eligible universe has
+  grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
+  do not re-run it before then.
+- The D15 conclusion is now audited (U32). Remaining known caveat from
+  the audit worth keeping in mind: the maker-side generalization rests
+  on two probe cells (N=500 each); EDGE-SPACE §1-§2 wording already
+  scopes this correctly.
+- Holdout remains locked and unused (no experiment reached it; it stays
+  locked under D15 — holdout data buys nothing without a surviving
+  mechanism).
+
+## Notes for a fresh session
+- Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
+  registry INDEX + LESSONS → this file).
+- Branch `fable-protocol`; write only inside `fable-lab/`; commit + push
+  after every unit; evidence runs go through the WORKER FLEET via
+  `tools/submit.ts` (`--detach`, committed+pushed code — U58); smokes,
+  debug, and parity checks stay local `--sequential`; never create `fable-lab/DONE`.
+
+## Operator update — worker fleet unlocked (2026-07-09)
+
+All distributed workers now track `origin/fable-protocol` and lazily
+self-update to whatever you push there. Charter constraint 3 updated:
+evidence runs go through the fleet (`--detach`, committed+pushed code),
+~1000 markets in 15-25 min. Local sequential stays for smokes/debug.
+
+## Operator update — fleet rules refined (2026-07-11)
+
+Charter constraint 3 updated: (a) every fleet submission — new runs AND
+extensions — uses `--detach`; (b) fleet capacity now changes over time
+(operator added workers; may add/remove more) — check live worker counts
+before sizing batches instead of assuming; throughput ≈ markets × 1.75s /
+active slots; (c) main was merged into this branch (wall-clock stats fix +
+dashboard improvements). Re-read charter constraint 3 before your first
+submission this session.
+
+## Operator update — journal added (2026-07-11)
+
+New standing requirement (charter, resumability section): append plain-
+language progress lines to `fable-lab/JOURNAL.md` AS YOU WORK — the
+operator follows it live with tail -f. Seeded at repo; start every session
+by noting in it that you resumed and what you are picking up.
+
+## Operator update — fleet-gap patch APPLIED (2026-07-11)
+
+Your fleet-gap-registry.patch was reviewed and applied by the operator:
+commit a10b59d on fable-protocol (registry file only; nothing else touched).
+Verified before committing: the registry now resolves fable-exp-004/006/007
+and the fixtures. Workers self-update on their next job. Your wake-up probe
+should find the unlock live — proceed with the pre-committed reconciliation
+plan (fleet --detach + capacity tool) when it does.
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -988,102 +1093,10 @@ D36)._
   (re-verified; immaterial). Addendum:
   `knowledge/FLEET-PARITY-2026-07-11.md` §U62b.
 
-## In progress
-- (nothing in flight)
-
-## Next
-- Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
-  by E20, E21, E22, and E23): taker needs a ≥1.5c gross argument that
-  escapes E9-E14, the CAL-001 fixed-time plane scan, the CAL-002
-  single-segment conditional scan, the CAL-003 two-segment path scan AND
-  the CAL-004 spread-state scan (e.g. finer
-  path/flow/derived features, or sub-power windows while clearing ~1.5c
-  via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
-  mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a
-  NEW instrument or reserve-window evidence under full
-  pre-registration); maker in-model needs a cell/gate that escapes
-  E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
-  change. Legitimate non-registration work:
-  verification depth, keeping EDGE-SPACE §3 current, friction-motivated
-  protocol maintenance.
-- Successor wake-up checks (run these FIRST, they are the only things that
-  change the gated state from outside):
-  1. `tools/universe.ts` — if the last eligible market is ≥ ~1 month past
-     2026-06-14 (operator ran the Telonex sync), run the VENUE-DRIFT
-     refresh procedure on the new month(s); a fired band reopens §4
-     only after the D27 confirmation redraw (U46).
-  2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
-     operator ingested the `trades` channel (D20 advocacy) and a
-     trades-aware converter exists, the queue-realistic fill model
-     supersedes both D18 bracket ends; that reopens maker measurement
-     with a NEW instrument (full pre-registration required).
-  3. Fleet health (the D33 gap is RESOLVED as of 2026-07-11 — operator
-     patch a10b59d, reconciliation executed in U58): before any fleet
-     submission run `npx tsx fable-lab/tools/capacity.ts` (live slots;
-     refuses at 0) and verify the tree is committed AND pushed
-     (submit.ts enforces this on --execute). The old registry probe
-     (`'fable-exp-001' in strategyRegistry` → RESOLVED/GAP) is now a
-     regression check: `GAP` would mean the operator REVERTED the patch
-     — stop fleet submissions and fall back to local `--sequential`
-     (D7/D10) until reconciled.
-  4. Operator-commit drift (D35): `git log --oneline
-     <last-audited-point>..origin/fable-protocol` — if any non-fable-lab
-     commit touches `src/` (or drizzle/, or dashboard API surfaces a lab
-     tool consumes), audit the diff against lab dependencies before
-     relying on conclusions that cite the touched files (method:
-     `knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`). Last audited
-     point: f1cf90b + a10b59d (session 50; all later commits to date
-     are lab-authored).
-  5. Otherwise: verification depth or targeted diagnostics only; do not
-     re-run answered questions (E9-E19).
-- Venue-drift refresh is only worthwhile once the eligible universe has
-  grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
-  do not re-run it before then.
-- The D15 conclusion is now audited (U32). Remaining known caveat from
-  the audit worth keeping in mind: the maker-side generalization rests
-  on two probe cells (N=500 each); EDGE-SPACE §1-§2 wording already
-  scopes this correctly.
-- Holdout remains locked and unused (no experiment reached it; it stays
-  locked under D15 — holdout data buys nothing without a surviving
-  mechanism).
-
-## Notes for a fresh session
-- Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
-  registry INDEX + LESSONS → this file).
-- Branch `fable-protocol`; write only inside `fable-lab/`; commit + push
-  after every unit; evidence runs go through the WORKER FLEET via
-  `tools/submit.ts` (`--detach`, committed+pushed code — U58); smokes,
-  debug, and parity checks stay local `--sequential`; never create `fable-lab/DONE`.
-
-## Operator update — worker fleet unlocked (2026-07-09)
-
-All distributed workers now track `origin/fable-protocol` and lazily
-self-update to whatever you push there. Charter constraint 3 updated:
-evidence runs go through the fleet (`--detach`, committed+pushed code),
-~1000 markets in 15-25 min. Local sequential stays for smokes/debug.
-
-## Operator update — fleet rules refined (2026-07-11)
-
-Charter constraint 3 updated: (a) every fleet submission — new runs AND
-extensions — uses `--detach`; (b) fleet capacity now changes over time
-(operator added workers; may add/remove more) — check live worker counts
-before sizing batches instead of assuming; throughput ≈ markets × 1.75s /
-active slots; (c) main was merged into this branch (wall-clock stats fix +
-dashboard improvements). Re-read charter constraint 3 before your first
-submission this session.
-
-## Operator update — journal added (2026-07-11)
-
-New standing requirement (charter, resumability section): append plain-
-language progress lines to `fable-lab/JOURNAL.md` AS YOU WORK — the
-operator follows it live with tail -f. Seeded at repo; start every session
-by noting in it that you resumed and what you are picking up.
-
-## Operator update — fleet-gap patch APPLIED (2026-07-11)
-
-Your fleet-gap-registry.patch was reviewed and applied by the operator:
-commit a10b59d on fable-protocol (registry file only; nothing else touched).
-Verified before committing: the registry now resolves fable-exp-004/006/007
-and the fixtures. Workers self-update on their next job. Your wake-up probe
-should find the unlock live — proceed with the pre-committed reconciliation
-plan (fleet --detach + capacity tool) when it does.
+- U63 (session 51): STATE.md reordered per DECISIONS D37 — operative
+  sections (In progress / Next / Notes / operator updates) now precede
+  the append-only Done archive. Motivating friction: this session's own
+  first STATE read was truncated by the reader cap at line 792/1044,
+  cutting off every operative section. Reorder proven lossless by a
+  sorted non-empty-line diff vs the committed file (only the 4-line
+  banner added). No figures restated → no D31 check triggered.
