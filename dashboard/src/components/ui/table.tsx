@@ -1,8 +1,12 @@
 import { cn } from '@/lib/utils'
 
-export function Table({ className, ...props }: React.HTMLAttributes<HTMLTableElement>) {
+export function Table({
+  className,
+  containerClassName,
+  ...props
+}: React.HTMLAttributes<HTMLTableElement> & { containerClassName?: string }) {
   return (
-    <div className="relative w-full overflow-auto">
+    <div className={cn('relative w-full overflow-auto', containerClassName)}>
       <table className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )

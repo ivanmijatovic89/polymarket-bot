@@ -283,9 +283,8 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
   }
   return (
     <Card className="overflow-hidden">
-      <div className="overflow-x-auto">
-        <Table>
-          <TableHeader>
+      <Table containerClassName="max-h-[calc(100vh-16rem)]">
+          <TableHeader className="sticky top-0 z-20 bg-card shadow-[0_1px_0_0_var(--border)]">
             <TableRow className="border-b-0 hover:bg-transparent">
               {prefixColumns?.map((c, i) => (
                 <TableHead
@@ -366,7 +365,6 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               )}
           </TableBody>
         </Table>
-      </div>
     </Card>
   )
 }
