@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 48, unit U53 (fleet mandate blocked by the
-engine registry — knowledge/FLEET-GAP.md, D33; wake-up gate 3 added)._
+_Last updated: session 48, unit U54 (operator patch for the fleet gap
+authored + clone-verified; wrapper injection made idempotent)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -761,6 +761,34 @@ engine registry — knowledge/FLEET-GAP.md, D33; wake-up gate 3 added)._
   included — added to the memo and RUNBOOK). Verifier independently
   re-ran the reproduction, the gate-3 probe (GAP), and the submit.ts
   probe print; core claim confirmed end-to-end.
+
+- U54 (session 48): the D33 memo's preferred patch AUTHORED and VERIFIED —
+  `knowledge/fleet-gap-registry.patch` (registry additionally walks
+  `fable-lab/strategies/` when present; applies clean per
+  `git apply --check`). Verified in a throwaway /tmp clone with the patch
+  applied (deleted after): gate-3 probe RESOLVED, `tsc --noEmit` clean,
+  wrapper skips its own injection. Found + fixed in the same unit: the
+  wrapper's duplicate-id guard would have crashed EVERY local run the
+  moment the operator applied the patch — `run-backtest.ts` injection is
+  now idempotent via module-cache reference identity
+  (`strategyRegistry[def.id] === def` ⇒ preloaded same file ⇒ skip;
+  same-id-different-object still throws). Unpatched behavior unchanged
+  (main repo prints "injected 12", tsc clean). RUNBOOK §5 control point
+  now hands the operator the apply procedure. D33 amendment appended.
+  D31 fresh-context check: sound-with-findings — the verifier
+  independently re-created the patched clone (RESOLVED / idempotent-skip
+  / tsc clean all reproduced), proved the module-cache identity argument
+  (incl. planting a real same-id collision, which threw as designed),
+  and cleared symlink/case/EXT split scenarios. 1 MAJOR applied: the
+  RUNBOOK's operator instruction was UNEXECUTABLE as written — the lab's
+  own pre-commit hook blocks committing the patched src/ file (verifier
+  hit `[guard] BLOCKED` empirically); RUNBOOK/patch header/D33 note now
+  instruct a one-time `git commit --no-verify`. 3 MINOR applied: the 5
+  order-free `_fixtures/` diagnostics becoming live-bot-selectable is
+  now disclosed, the tsx-runtime-only scope of the unlock is stated
+  (compiled-.js engines silently discover zero lab strategies), and
+  "tsc clean" is scoped to src/** (the wrapper change is verified by
+  execution, not tsc).
 
 ## In progress
 - (nothing in flight)

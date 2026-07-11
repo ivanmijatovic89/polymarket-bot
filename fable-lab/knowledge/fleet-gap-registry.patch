@@ -1,0 +1,49 @@
+Unblocks the worker fleet for fable-lab strategies (knowledge/FLEET-GAP.md,
+DECISIONS D33): the registry additionally walks fable-lab/strategies/ when
+that directory exists, so queue workers (and live bots) resolve ALL
+fable-lab strategy ids — the fable-exp-* experiments and the 5 _fixtures/
+diagnostics (all order-free). No behavior change when the directory is
+absent. Scope: the unlock is tsx-runtime-only — a compiled-to-.js engine
+inherits EXT='.js' and would silently find no lab strategies (fable-lab is
+not in tsconfig; the registry header says compiled runs need other changes
+anyway). Caveat (FLEET-GAP.md, patch option 1): after this patch a
+malformed or id-colliding file committed under fable-lab/strategies/
+crashes every engine process at import on that clone, live bots included.
+The lab's wrapper detects the patch and skips its own injection
+(idempotent since U54).
+
+Apply from the repo root with:  git apply fable-lab/knowledge/fleet-gap-registry.patch
+Then commit with --no-verify (the fable-lab pre-commit hook blocks src/
+commits) and push to fable-protocol.
+
+--- a/src/strategy/strategyRegistry.ts
++++ b/src/strategy/strategyRegistry.ts
+@@ -1,4 +1,4 @@
+-import { readFileSync, readdirSync } from 'node:fs'
++import { existsSync, readFileSync, readdirSync } from 'node:fs'
+ import { createRequire } from 'node:module'
+ import { dirname, extname, join } from 'node:path'
+ import { fileURLToPath } from 'node:url'
+@@ -22,6 +22,10 @@
+ const selfPath = fileURLToPath(import.meta.url)
+ const STRATEGIES_DIR = join(dirname(selfPath), '..', 'strategies')
+
++// Research-lab strategies (fable-lab/CHARTER.md): discovered when the
++// directory exists so queue workers can resolve fable-exp-* ids.
++const FABLE_STRATEGIES_DIR = join(dirname(selfPath), '..', '..', 'fable-lab', 'strategies')
++
+ // Load files with the SAME extension as this module: `.ts` under tsx (source),
+ // `.js` when running compiled. Avoids importing both copies of a file.
+ const EXT = extname(selfPath)
+@@ -60,7 +64,10 @@
+ }
+
+ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
+-  const files = walk(STRATEGIES_DIR).sort()
++  const files = [
++    ...walk(STRATEGIES_DIR),
++    ...(existsSync(FABLE_STRATEGIES_DIR) ? walk(FABLE_STRATEGIES_DIR) : []),
++  ].sort()
+   const registry: Record<string, StrategyDefinition<unknown>> = {}
+
+   for (const file of files) {

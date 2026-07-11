@@ -143,6 +143,7 @@ if (!process.argv.includes('--sequential')) {
 }
 
 let loaded = 0
+let preloaded = 0
 const files = existsSync(FABLE_STRATEGIES_DIR) ? walk(FABLE_STRATEGIES_DIR).sort() : []
 for (const file of files) {
   if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
@@ -152,12 +153,29 @@ for (const file of files) {
     throw new Error(`[fable] ${file} exports \`definition\` but it is not a valid StrategyDefinition`)
   }
   if (strategyRegistry[def.id]) {
+    // Idempotency under the operator's fleet-gap registry patch (D33 /
+    // knowledge/fleet-gap-registry.patch): if the engine registry already
+    // discovered fable-lab/strategies/**, it require()d the SAME absolute
+    // file path — Node's module cache then makes `definition` the SAME
+    // object, so reference identity cleanly separates "patch landed"
+    // (skip, count) from a genuine id collision with some other file
+    // (still a hard error).
+    if (strategyRegistry[def.id] === def) {
+      preloaded++
+      continue
+    }
     throw new Error(`[fable] duplicate strategy id ${JSON.stringify(def.id)} (in ${file})`)
   }
   strategyRegistry[def.id] = def
   loaded++
 }
-console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
+if (preloaded > 0) {
+  console.log(
+    `[fable] engine registry already contains ${preloaded} fable-lab strategies (fleet-gap patch landed?) — injected ${loaded} more`,
+  )
+} else {
+  console.log(`[fable] injected ${loaded} fable-lab strategies into the registry`)
+}
 
 // Durable latency record (E19-chain audit, "unverifiable claims": the D8
 // "latency pinned 0/0" assertion had no artifact to check against — env vars

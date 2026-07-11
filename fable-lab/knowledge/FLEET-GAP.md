@@ -66,6 +66,36 @@ charter's.
   `run-worker.sh`), matching charter constraint 3's committed-and-pushed
   rule.
 
+## Ready-to-apply patch (U54)
+
+Option 1 below is authored and verified:
+`knowledge/fleet-gap-registry.patch` — apply from the repo root with
+`git apply fable-lab/knowledge/fleet-gap-registry.patch`, then commit
+with `git commit --no-verify` (the fable-lab pre-commit hook blocks any
+commit touching `src/`; the U54 verifier confirmed empirically that a
+normal commit aborts with `[guard] BLOCKED` — bypass it for this one
+commit only) and push to `fable-protocol`. Disclosures: (a) the patch
+registers ALL 12 fable-lab strategies, including the 5 `_fixtures/`
+diagnostics — they become selectable in live bots' strategy list; all
+are order-free (verified by the U54 verifier: no orders, no import-time
+side effects), so the exposure is confusion, not money; (b) the unlock
+is tsx-runtime-only — a compiled-to-`.js` engine would silently discover
+zero lab strategies (`EXT` inheritance; fable-lab is outside tsconfig).
+Verified 2026-07-11 in a throwaway clone of this repo with the patch
+applied (clone deleted after): the gate-3 probe prints `RESOLVED`,
+`tsc --noEmit` is clean (note: tsconfig covers `src/**` only, so "tsc
+clean" attests the patch, not the wrapper change — the wrapper is
+verified by execution), and the lab's wrapper detects the preload and skips its own
+injection ("engine registry already contains 12 fable-lab strategies …
+injected 0 more") instead of crashing on duplicate ids — the wrapper's
+injection was made idempotent in the same unit via module-cache reference
+identity (`strategyRegistry[def.id] === def` ⇒ the registry loaded the
+same file; a different object with the same id still throws). Unpatched
+behavior is unchanged (verified: main repo still prints "injected 12",
+tsc clean). Residual after applying: the reconciliation plan below still
+runs before any fleet evidence run (including one smoke-scale detached
+fleet run as the end-to-end check).
+
 ## Minimal patch options (operator-side, in preference order)
 
 1. **Registry walks `fable-lab/strategies/` when present** — in

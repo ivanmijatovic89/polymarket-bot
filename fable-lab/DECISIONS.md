@@ -1126,3 +1126,27 @@ the same fact for free. (b) Committing a shim/symlink under
 `src/strategies/` — blocked by the hook, and charter constraint 1 says
 never bypass it. (c) Renaming/duplicating a lab strategy under an
 existing src id — silently wrong semantics, worst kind of fix.
+
+_U54 amendment (2026-07-11, session 48): the recommended patch is now
+authored and verified — `knowledge/fleet-gap-registry.patch` (registry
+additionally walks `fable-lab/strategies/` when present). Verified in a
+throwaway /tmp clone with the patch applied: gate-3 probe RESOLVED, tsc
+clean, wrapper idempotent. The wrapper interaction the patch would have
+broken (its duplicate-id guard fired on ALL preloaded ids) was found and
+fixed in the same unit: `run-backtest.ts` now skips injection when the
+registry entry is reference-identical to the module it just require()d
+(same absolute path ⇒ same Node module-cache entry ⇒ same `definition`
+object), and still throws on a same-id-different-object collision.
+Unpatched behavior unchanged (main repo: "injected 12", tsc clean). The
+lab does NOT apply the patch itself — it touches `src/` (hook scope,
+charter constraint 1); applying it is the operator's single action._
+
+_U54 verifier note (same day): the amendment's "applying it is the
+operator's single action" understated the steps — the fable-lab
+pre-commit hook blocks the commit of the patched `src/` file (verifier
+confirmed: `[guard] BLOCKED`), so the operator must `git commit
+--no-verify` for that one commit. RUNBOOK §5 and the patch header now
+say so. Also disclosed per the verifier: the patch makes all 12 lab
+strategies (incl. the 5 order-free `_fixtures/` diagnostics) resolvable
+in live bots; the unlock is tsx-runtime-only; and "tsc clean" covers
+`src/**` only (the wrapper change is verified by execution)._
