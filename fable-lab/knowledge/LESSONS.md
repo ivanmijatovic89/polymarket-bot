@@ -433,15 +433,18 @@ forbids importing the old system's research conclusions._
   findings were amended in before the read, a BINDING
   reserve-confirmation rule with a now-MECHANICAL proceed/park criterion
   computed from printed table quantities only, and six identity gates
-  that reproduced the published CAL-001 read exactly) evaluated k = 252
+  that reproduced the published CAL-001 read exactly at printed
+  precision) evaluated k = 252
   frozen cells (the CAL-001 offset × ask-bucket × side grid × spread
   state T ≤ 0.0105 < W) once: zero CANDIDATE cells, zero NEG-FLAG cells
   (bar z ≥ 3.75; extremes: UP W (750s, [0.20,0.35)) z = −3.05 — the
   W-state concentration of CAL-001's own −3.02 marginal there,
-  buyer-adverse staleness per E21/E22, not an edge; max positive +2.29
-  on an n = 1 cell). Findings: (a) T cells (85,127 of 100,404 samples,
+  buyer-adverse staleness per E21/E22, not an edge (750s cells condition
+  on a book event at-or-after the offset, coverage 0.8746 of sampled
+  markets, plus the spread state at the sampled moment); max positive
+  +2.29 on an n = 1 cell). Findings: (a) T cells (85,127 of 100,404 samples,
   pooled 84.8%; per-cell shares vary — any specific T-cell citation
-  must quote its PRINTED tfr, down to ~0.61 at late offsets) track the
+  must quote its PRINTED tfr, down to ~0.51 at late offsets) track the
   CAL-001 marginals throughout — NOT an independent confirmation of
   E20 (~85% shared samples), but the decomposition arithmetic that E20
   could not settle is now measured: no tight-confined edge with a

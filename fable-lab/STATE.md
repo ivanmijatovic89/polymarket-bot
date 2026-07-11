@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 48, unit U55 (validator holdout-discipline branch
-finally exercised on both sides via guarded selftest rows)._
+_Last updated: session 49, unit U57 (CAL-004 spread-state scan: null,
+judged, propagated; §4 bar now also requires escaping E23)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -806,23 +806,43 @@ finally exercised on both sides via guarded selftest rows)._
   first real holdout submission, only the standing validator+submit
   refusal checks remain.
 
+- U57 (session 49): CAL-004 registered, audited, read, and JUDGED —
+  **NULL, null-confirmed by fresh-context Judge**
+  (`knowledge/CALIBRATION-4.md`, DECISIONS D34). The CAL-001 fixed-time
+  plane decomposed by spread state (T ≤ 0.0105 < W; k=252, bar z ≥ 3.75,
+  minority ≥ 30, binding reserve confirmation with a MECHANICAL
+  proceed/park criterion frozen pre-read): fourth reuse of the discovery
+  log, zero new replay compute. Motivation: the tight state covers
+  82-92% of samples on the measured MARGINALS (joint cells vary, down to
+  printed tfr ~0.51 late) — the U45 high-incidence confirmable regime —
+  and spread was the log's last unscanned single feature axis. Flow:
+  tool `tools/calib4.ts` + 32-assertion selftest (green) → pre-read
+  audit (sound-with-findings, 5 findings → amendments incl. the
+  z ≥ 4.49 + mid-price-W-park proceed/park formula; report verbatim in
+  `knowledge/AUDIT-2026-07-11-CAL-004-REG.md`) → one-shot read (six
+  identity gates reproduced the published CAL-001 read at printed
+  precision; a SIGPIPE-truncated first invocation disclosed, the
+  deterministic completion is the read of record) → ZERO candidates,
+  ZERO neg-flags; extremes UP W (750s, [0.20,0.35)) z=−3.05
+  (buyer-adverse, coverage 0.8746 conditioning) and +2.29 on an n=1
+  cell → Judge null-confirmed with one scope correction (erratum:
+  per-AXIS exhaustion, not categorical log exhaustion — interaction
+  scans stay formally open with less power + the reserve-confirmation
+  burden) → LESSONS E23, EDGE-SPACE §1 map row + spread-state bullet +
+  §4 bar updated → D25 propagation audit (sound-with-findings, 1 MAJOR
+  dropped-coverage-caveat + 3 MINOR, all applied; report verbatim in
+  `knowledge/AUDIT-2026-07-11-E23-PROPAGATION.md`). Reserve unspent;
+  holdout untouched.
+
 ## In progress
-- U57 (session 49): CAL-004 registered (DECISIONS D34,
-  `knowledge/CALIBRATION-4.md`) — the CAL-001 fixed-time plane decomposed
-  by spread state (T ≤ 0.0105 vs W), k=252, bar z ≥ 3.75, minority ≥ 30,
-  binding reserve confirmation, one-shot read on the existing discovery
-  log (fourth reuse, zero new replay compute). Motivated by the session-49
-  outcome-free incidence measurement: tight state = 82-92% of samples in
-  every bucket (the U45 high-incidence confirmable regime); spread is the
-  log's last unscanned feature axis. Next steps in order: tools/calib4.ts
-  + calib4-selftest.ts → fresh-context pre-read audit → one-shot read →
-  Judge → E23 + EDGE-SPACE → propagation audit.
+- (nothing in flight)
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
-  by E20, E21, and E22): taker needs a ≥1.5c gross argument that escapes
-  E9-E14, the CAL-001 fixed-time plane scan, the CAL-002 single-segment
-  conditional scan AND the CAL-003 two-segment path scan (e.g. finer
+  by E20, E21, E22, and E23): taker needs a ≥1.5c gross argument that
+  escapes E9-E14, the CAL-001 fixed-time plane scan, the CAL-002
+  single-segment conditional scan, the CAL-003 two-segment path scan AND
+  the CAL-004 spread-state scan (e.g. finer
   path/flow/derived features, or sub-power windows while clearing ~1.5c
   via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
   mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a

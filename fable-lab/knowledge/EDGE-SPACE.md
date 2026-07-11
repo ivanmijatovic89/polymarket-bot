@@ -69,8 +69,9 @@ Summary of the map:
   marginals (pooled 84.8% shared samples — not independent of E20; any
   specific T-cell citation must quote its printed per-cell tfr); W-cell
   nulls are power statements (mid-range resolves only |d| ≳ 6-10c), and
-  the single |z| ≥ 3 W cell is buyer-adverse staleness consistent with
-  E21/E22. Scope (Judge-corrected, CAL-004 erratum): this exhausts the
+  the single |z| ≥ 3 W cell (750s; coverage 0.8746, conditional on a
+  book event at-or-after the offset plus the spread state) is
+  buyer-adverse staleness consistent with E21/E22. Scope (Judge-corrected, CAL-004 erratum): this exhausts the
   single AXES (levels, moves, two-segment big-move sign paths, spread
   state; cross-side sums degenerate; sizes unrecorded) — joint/
   interaction conditionings of scanned axes remain formally expressible
