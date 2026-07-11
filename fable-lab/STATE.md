@@ -95,6 +95,16 @@ append-only history at the bottom; new entries still go there._
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
 
 ## Next
+- **Frontier check (session 65, pre-SIGNAL-003-read):** no registrable
+  idea exists OUTSIDE the SIGNAL-003 branches right now — verified
+  against the IDEAS ledger (22 entries: 21 resolved, #22 in flight) and
+  the EDGE-SPACE §4 bar. Taker: every expressible single axis + the
+  named conditional layers are measured (E20-E23); the open sub-power
+  windows need reserve/fresh data under the U45 confirmability envelope
+  (universe frozen at 18,635 — months away). Maker: E29 requires a
+  better-than-unconditional fill mix, which is precisely what SIGNAL-003
+  measures. Do NOT force a BATCH-004 before the read; the read's two
+  branches (§6) are the next unit either way.
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
   gated-state framing below is SUPERSEDED for idea work: breadth is
   mandated, screens are cheap, "nothing to research" is not a reachable
