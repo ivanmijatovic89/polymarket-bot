@@ -89,10 +89,6 @@ export type BacktestSummaryTableProps<T extends BacktestSummary> = {
   stickyHeader?: boolean
 }
 
-function pair(a: number, b: number): string {
-  return `${formatPnl(a)} / ${formatPnl(b)}`
-}
-
 function compactInt(n: number): string {
   if (n < 1000) return n.toLocaleString()
   if (n < 1_000_000) return `${(n / 1000).toFixed(1)}k`
@@ -106,6 +102,16 @@ function formatDurationMs(ms: number): string {
   const m = Math.floor(ms / 60_000)
   const s = Math.round((ms % 60_000) / 1000)
   return `${m}m ${s}s`
+}
+
+/** Second-row header cell for a grouped column's sub-values. Lower-case,
+ * lighter weight, right-aligned to match the numeric sub-columns. */
+function SubHead({ children }: { children: ReactNode }) {
+  return (
+    <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
+      {children}
+    </TableHead>
+  )
 }
 
 /**
@@ -146,10 +152,6 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
     // genuinely-missing markets (input > persisted) via `notPersisted` below.
     const selectedMarketsTotal = Math.max(b.inputMarketsTotal ?? 0, b.marketsTotal)
     const notPersisted = (b.inputMarketsTotal ?? 0) > b.marketsTotal
-    const quality =
-      qS === null && qT === null
-        ? '—'
-        : `${qS === null ? '—' : qS.toFixed(2)} / ${qT === null ? '—' : qT.toFixed(2)}`
     const rowCls = isFooter
       ? 'border-t-2 border-foreground/20 bg-muted/30 font-medium hover:bg-muted/30'
       : ''
@@ -188,14 +190,14 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
           {b.marketsSkipped}
         </TableCell>
+        {/* EV/mkt → Played / Total sub-columns */}
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {formatPnl(b.evPerMarketPlayed)}
-          <span className="text-muted-foreground">
-            {' / '}
-            {formatPnl(b.evPerMarketTotal)}
-          </span>
         </TableCell>
-        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
+          {formatPnl(b.evPerMarketTotal)}
+        </TableCell>
+        <TableCell className="text-left tabular-nums text-xs whitespace-nowrap">
           {compactInt(b.tradesTotal)}
           {b.tradesMaker + b.tradesTaker > 0 && (
             <span className="ml-1 text-[11px] text-muted-foreground">
@@ -210,20 +212,32 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
           </span>
         </TableCell>
         <TableCell className="text-right tabular-nums">{wr}</TableCell>
+        {/* Avg W/L → Win / Lose sub-columns */}
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          {pair(b.pnlAvgWin, b.pnlAvgLose)}
+          {formatPnl(b.pnlAvgWin)}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          <span className="text-[color:var(--success)]">
-            {b.streakMaxWin}W&nbsp;{formatPnl(b.streakMaxWinPnl)}
-          </span>
-          {' / '}
-          <span className="text-destructive">
-            {b.streakMaxLose}L&nbsp;{formatPnl(b.streakMaxLosePnl)}
-          </span>
+          {formatPnl(b.pnlAvgLose)}
+        </TableCell>
+        {/* Streak → Win count / Win PnL / Lose count / Lose PnL sub-columns */}
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-[color:var(--success)]">
+          {b.streakMaxWin}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-[color:var(--success)]">
+          {formatPnl(b.streakMaxWinPnl)}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-destructive">
+          {b.streakMaxLose}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-destructive">
+          {formatPnl(b.streakMaxLosePnl)}
+        </TableCell>
+        {/* Quality → Sys / Trade sub-columns */}
+        <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
+          {qS === null ? '—' : qS.toFixed(2)}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground whitespace-nowrap">
-          {quality}
+          {qT === null ? '—' : qT.toFixed(2)}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs text-muted-foreground">
           {b.totalFeesPaid.toFixed(2)}
@@ -312,10 +326,10 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <TableHead colSpan={3} className="border-b border-border/60 text-center">
                 Markets
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 EV/mkt
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead rowSpan={2} className="text-left">
                 Trades
               </TableHead>
               <TableHead rowSpan={2} className="text-right">
@@ -324,13 +338,13 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               <TableHead rowSpan={2} className="text-right">
                 Win&nbsp;rate
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 Avg&nbsp;W/L
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead colSpan={4} className="border-b border-border/60 text-center">
                 Streak
               </TableHead>
-              <TableHead rowSpan={2} className="text-right">
+              <TableHead colSpan={2} className="border-b border-border/60 text-center">
                 Quality
               </TableHead>
               <TableHead rowSpan={2} className="text-right">
@@ -352,15 +366,19 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
               {renderActions && <TableHead rowSpan={2} />}
             </TableRow>
             <TableRow className="hover:bg-transparent">
-              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
-                Total
-              </TableHead>
-              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
-                Played
-              </TableHead>
-              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
-                Skip
-              </TableHead>
+              <SubHead>Total</SubHead>
+              <SubHead>Played</SubHead>
+              <SubHead>Skip</SubHead>
+              <SubHead>Played</SubHead>
+              <SubHead>Total</SubHead>
+              <SubHead>Win</SubHead>
+              <SubHead>Lose</SubHead>
+              <SubHead>Win</SubHead>
+              <SubHead>PnL</SubHead>
+              <SubHead>Lose</SubHead>
+              <SubHead>PnL</SubHead>
+              <SubHead>Sys</SubHead>
+              <SubHead>Trade</SubHead>
             </TableRow>
           </TableHeader>
           <TableBody>
