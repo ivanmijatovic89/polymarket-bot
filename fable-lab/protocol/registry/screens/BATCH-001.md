@@ -1,0 +1,132 @@
+# BATCH-001 — first screening batch under the exploration mandate
+
+_Session 59, 2026-07-11. Tier: protocol/SCREENING.md (D49). Freeze anchor:
+the commit that adds this file (batch file + strategy files together;
+fleet submissions only after push). Sample rule for all fleet screens:
+`--random --limit 500 --to-ms 1772323199999` (discovery window only),
+latency pinned DELAY=0/JITTER=0. Touch screens run local `--sequential
+--fill-mode touch_or_better`, batchUid containing `touch`, same sample
+rule, D18 rules bind (kill/escalate only)._
+
+_Idea-family note recorded at derivation (zero-cost kill): every
+"cross-book freshness/consistency" mechanism (trust the fresher book,
+one-sided staleness gaps, sum inconsistencies beyond E9) is DEGENERATE —
+recorded DOWN books are exact mirrors of UP (CAL-001 amendment #12), so
+no cross-book feature carries information the UP book lacks. The family
+is dead at derivation, not worth a run. This generalizes E9's empirical
+kill of dutch books to the whole feature class._
+
+## Mini-specs (frozen pre-results)
+
+### SCR-001a — first-passage barrier continuation
+- mechanism: first arrival of UP-implied probability at a conviction
+  barrier under-adjusts; buy the crossing side on the crossing tick.
+- not-a-reskin: E20 scans state at fixed offsets, E21/E22 fixed-segment
+  moves between offsets; first passage is event-time conditioning the CAL
+  log cannot express. E12 (first-minute fade) is the opposite bet in a
+  different window.
+- aim: unaimed (event-time mechanism; the map samples fixed times).
+- strategy: `screens/SCR-001-first-passage.ts` (`fable-scr-001`),
+  params `barrier=0.8 mode=continue minElapsedSec=120` (defaults).
+- prediction: winRate(bought side) > mean entry ask (gross continuation
+  ≥ the 1.5c fee floor would need winRate − ask ≥ ~0.015).
+- kill: SCREENING.md default bars.
+
+### SCR-001b — first-passage barrier overshoot fade
+- mechanism: first arrival at an extreme overshoots; buy the OTHER side
+  (at ~1−B) on the crossing tick.
+- not-a-reskin: same escape as SCR-001a; the fade direction additionally
+  tests the tail the E14 tail-discount kill never touched (E14 bought the
+  favorite, this buys the longshot on an event trigger).
+- aim: unaimed.
+- strategy: same file, params `barrier=0.8 mode=fade minElapsedSec=120`.
+- prediction: winRate(bought side) > mean entry ask.
+- kill: default bars. NOTE (E14 transfer): longshot cell — win rate will
+  be low and skewed; minority-outcome count (wins) ≥ 30 required for any
+  survive call.
+
+### SCR-002 — depth-withdrawal momentum
+- mechanism: makers pull 5-level depth ahead of adverse moves before the
+  mid adjusts; buy the side the withdrawal points to.
+- not-a-reskin: E11 tested the static imbalance LEVEL (its lesson
+  "resting depth is not flow" motivates testing the flow); no CAL scan
+  and not even SIGNAL-001 measures depth CHANGES.
+- aim: unaimed (map has static depth only).
+- strategy: `screens/SCR-002-depth-pull.ts` (`fable-scr-002`), defaults
+  (`ratio=0.4 lookbackSec=30 maxMidMove=0.02 minRefDepth=200`).
+- prediction: winRate(bought side) > mean entry ask.
+- kill: default bars.
+
+### SCR-003 — quote-pressure before the move
+- mechanism: one-sided top-of-book revision flow (bid stepping up / ask
+  lifting) precedes mid moves; buy the pressured side while the mid is
+  still flat.
+- not-a-reskin: revision-count flow is a rate, not E11's stock; not
+  expressible in the CAL log; SIGNAL-001's rate60 is direction-blind.
+- aim: unaimed.
+- strategy: `screens/SCR-003-quote-pressure.ts` (`fable-scr-003`),
+  defaults (`minNet=12 windowSec=60 maxMidMove=0.02`).
+- prediction: winRate(bought side) > mean entry ask.
+- kill: default bars.
+
+### SCR-004t — at-touch tail maker (touch bound, local)
+- mechanism: join the favorite's bid at touch late (750-880s, fav mid
+  ≥ 0.90): collect the tail spread at zero fee from late longshot
+  sellers.
+- not-a-reskin: E14 killed TAKING the tail (fee + spread on the cost
+  side); E19's two cells were regime-gated mid-window quotes — this cell
+  is time × extreme-price gated. D18: kill/escalate only.
+- aim: unaimed.
+- strategy: `screens/SCR-004-touch-maker.ts` (`fable-scr-004`),
+  params `gate=tail` (+defaults).
+- prediction: EV per played market > 0 under the touch bound.
+- kill: default bars on q̂ (played-market EV per D14 practice); a kill is
+  decisive under the engine's most favorable fill assumption (audit-4.1
+  wording).
+
+### SCR-004r — at-touch reversal DOWN bid (touch bound, local)
+- mechanism: the E22 buyer-adverse staleness (up-then-down reversal
+  leaves UP ask ~4.4c stale-high gross) monetized from the maker side:
+  bid DOWN at touch after the shape fires — removes fee AND spread from
+  the cost side of the same continuation the taker mirror couldn't clear.
+- not-a-reskin: IDEAS #10's taker mirror is parked on power for NET
+  taker economics; this is a different instrument (maker at touch) on the
+  same measured gross structure — explicitly sanctioned as an aimed shot
+  at the one measured positive. Does NOT spend the reserve, does NOT
+  touch CONFIRM-010 (which stays frozen for the taker mirror at unlock).
+- aim: E22 (the map's seed already lights this zone).
+- strategy: same file, params `gate=reversal minSeg=0.02 startSec=750`.
+- prediction: EV per played market > 0 under the touch bound.
+- kill: as SCR-004t.
+
+### SCR-004o — at-touch opening spread capture (touch bound, local)
+- mechanism: quote both sides at touch in the first 90s, before window
+  information accumulates; cancel after. Pre-information flow is the
+  least adversely selected of the episode.
+- not-a-reskin: E19's quiet cell was regime-gated over the whole window
+  (quiet ticks cluster at extreme mids, U27); this is time-gated at the
+  open where mids sit near 0.5.
+- aim: unaimed.
+- strategy: same file, params `gate=open openEndSec=90`.
+- prediction: EV per played market > 0 under the touch bound.
+- kill: as SCR-004t.
+
+## Feasibility smokes (counts only, no PnL — E15/EXP-006 discipline)
+
+_(appended pre-freeze; plumbing evidence, never outcome evidence)_
+
+## Verdicts (append-only after runs complete)
+_Smokes run 2026-07-11 session 59, oldest-15 discovery markets, latency
+0/0. Entry counts: SCR-001a 14/15, SCR-001b 14/15, SCR-002 14/15,
+SCR-003 6/15; touch gates (D18 hook line verified in all three logs):
+tail 1/15 played, reversal 2/15, open 12/15 (17 maker fills). All
+plumbing green; NO cell was modified post-smoke (cells are the schema
+defaults frozen above). Disclosure: the engine's end-of-run summary
+prints won/lost lines for smoke samples (standard output, 15 markets);
+read for plumbing verification only, per smoke precedent (EXP-001/005/
+006); cells unchanged after reading. Note for verdict reading: SCR-002's
+14/15 entry rate says the frozen gate is loosely selective — if its
+conditional mean tracks the unconditional average (E20 ≈ 0), that is the
+expected kill path, not a surprise. Touch tail/reversal gates are
+low-incidence (~7-13%); at N=500 expect ~35-65 played — q̂-sign kill
+semantics apply either way (kill-biased by design)._

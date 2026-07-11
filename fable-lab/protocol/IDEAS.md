@@ -242,3 +242,32 @@ Ordered; top entries get registered first.
   `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` — full pre-registration
   written while the fresh window's data could not be obtained (U66 vendor
   quota blocker). At unlock, execute THAT spec; do not redesign the test.
+
+## Batch screening ideas (SCREENING tier, D49 — ledger entries for dedupe)
+
+- **#11 SCR-001a first-passage continuation** (BATCH-001): event-time
+  barrier crossing, buy crossing side. Escapes E20-E23 (event-time, not
+  fixed-time/segment). → screened in BATCH-001.
+- **#12 SCR-001b first-passage fade** (BATCH-001): buy the longshot on
+  barrier crossing (overshoot bet). Distinct from E12 (window) and E14
+  (direction). → screened in BATCH-001.
+- **#13 SCR-002 depth-withdrawal momentum** (BATCH-001): 5-level depth
+  collapse before the mid moves. Depth CHANGE, not E11's level. →
+  screened in BATCH-001.
+- **#14 SCR-003 quote-pressure** (BATCH-001): signed top-of-book revision
+  flow. Rate, not stock (E11); direction-aware, unlike SIGNAL-001 rate60.
+  → screened in BATCH-001.
+- **#15 SCR-004t at-touch tail maker** (BATCH-001): join favorite bid at
+  touch late. E14's cell from the maker side; outside E19's two cells.
+  D18: kill/escalate only. → screened in BATCH-001.
+- **#16 SCR-004r at-touch reversal DOWN bid** (BATCH-001): the E22
+  staleness monetized at touch (fee+spread removed from cost side). Aimed
+  at the map's one measured positive. Does not touch reserve/CONFIRM-010.
+  → screened in BATCH-001.
+- **#17 SCR-004o at-touch opening spread** (BATCH-001): time-gated
+  two-sided quoting in the first 90s (pre-information flow). Distinct
+  from E19's regime-gated whole-window cells. → screened in BATCH-001.
+- **DEAD FAMILY at derivation (no run needed): cross-book freshness /
+  consistency signals** — recorded DOWN books are exact UP mirrors
+  (CAL-001 amendment #12); the whole feature class carries zero
+  information beyond the UP book. Generalizes E9 structurally.
