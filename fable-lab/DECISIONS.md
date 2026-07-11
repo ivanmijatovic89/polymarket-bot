@@ -1815,3 +1815,42 @@ one wrong pointer (holdout burn semantics are EPISTEMOLOGY §3 Stage 3,
 not §4), and one undisclosed one-word tightening (robustness paste
 "verbatim" — kept, now disclosed). All applied; battery field now states
 §5's own per-item readings. Addendum appended to the audit report file.
+
+## D49 — Batch screening tier (protocol/SCREENING.md); SIGNAL-MAP as aiming layer (session 59, 2026-07-11)
+
+**Decision:** add a SCREENING tier below the full experiment lifecycle:
+batched mini-spec registration (one committed file per sitting =
+the freeze anchor), fleet N=500 discovery-window-only samples
+(--to-ms 1772323199999; reserve and holdout untouched by every screen),
+default kill-biased verdict bars (survive needs q̂>0, t≥+1.5, prediction
+held, E14 minority count), one batch verdict table, one fresh-context
+checker per BATCH instead of a Judge per idea. Survivors graduate into
+the unchanged full lifecycle with the screen as probe-stage evidence.
+In the same unit: SIGNAL-001 registered (knowledge/SIGNAL-MAP.md) — a
+frozen scan of the feature axes the CAL instruments could not express
+(depth shape, activity, path volatility, seasonality), all outputs
+explicitly map-grade (hypothesis-generating, gross, uncitable), used to
+AIM screens, never to license registrations.
+
+**Motivating evidence (governor):** the operator's three STATE.md updates
+of 2026-07-11 (exploration mandate / ≥20-screens calibration target /
+hit-rate-over-count + batch economics) and charter §Data reality. The
+prior path measured ~10 ideas in the lab's lifetime; the operator
+declared that throughput unacceptable and the per-idea ceremony the
+binding cost. This is the streamlining the mandate itself orders ("if
+your per-idea process cannot sustain that pace, that inability is itself
+the top-priority friction to fix").
+
+**Rejected alternative:** running each idea through the existing full
+registration (spec + validator + smoke + per-idea fresh Judge). Rejected
+on the operator's own economics: the ceremony is reasoning-token cost
+per idea with no evidence it catches what the batch checker misses at
+screen grade; rigor is preserved where the mandate demands it
+(pre-committed predictions/kill bars, survivor-grade full lifecycle,
+locked holdout).
+
+**Boundaries:** EPISTEMOLOGY bars, EDGE-SPACE §4 registration bar for
+FULL experiments, the reserve-confirmability envelope, D14/D18 maker
+conditionals, and the holdout lock are all UNCHANGED. Screens are
+probe-grade evidence under existing §3 stage-1 semantics; SIGNAL-MAP
+zones are not citations.
