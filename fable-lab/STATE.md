@@ -936,6 +936,12 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   and the gitignored-repro-artifacts point recorded (published blocks
   are the durable record).
 
+- U61 (session 50): DECISIONS D35 — operator-merge audit added as
+  standing wake-up check 4 (motivating evidence: f1cf90b sat unaudited
+  two sessions and turned out to carry a lab-relevant semantic change,
+  U59; only luck made it neutral-or-positive). Audited point recorded:
+  f1cf90b + a10b59d; successors diff from there.
+
 ## In progress
 - (nothing in flight)
 
@@ -974,7 +980,15 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
      regression check: `GAP` would mean the operator REVERTED the patch
      — stop fleet submissions and fall back to local `--sequential`
      (D7/D10) until reconciled.
-  4. Otherwise: verification depth or targeted diagnostics only; do not
+  4. Operator-commit drift (D35): `git log --oneline
+     <last-audited-point>..origin/fable-protocol` — if any non-fable-lab
+     commit touches `src/` (or drizzle/, or dashboard API surfaces a lab
+     tool consumes), audit the diff against lab dependencies before
+     relying on conclusions that cite the touched files (method:
+     `knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`). Last audited
+     point: f1cf90b + a10b59d (session 50; all later commits to date
+     are lab-authored).
+  5. Otherwise: verification depth or targeted diagnostics only; do not
      re-run answered questions (E9-E19).
 - Venue-drift refresh is only worthwhile once the eligible universe has
   grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —

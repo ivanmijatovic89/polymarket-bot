@@ -1242,3 +1242,30 @@ a holdout-lock re-sweep with no new rows vs the classified baseline
 Evidence stages are fleet
 `--detach` from now on; local `--sequential` remains for smokes/debug/
 parity checks only. Details: knowledge/FLEET-GAP.md STATUS section, RUNBOOK §1/§5._
+
+## D35 — Operator-merge audit is a standing wake-up check
+
+**Motivating observation (U59, session 50).** The operator merged main
+into fable-protocol at f1cf90b on 2026-07-11 ("wall-clock stats fix,
+dashboard improvements"). The merge sat unaudited across two sessions
+while fleet reconciliation work proceeded on top of it; U59's audit then
+found it contained a lab-relevant semantic change (the computeQuality
+guard — which happened to CLOSE the E13 exposure U58 had silently
+widened) and shifted line numbers under three committed lab citations.
+Only luck made every change semantics-neutral-or-positive: a merge that
+altered fill simulation or fee math would have silently invalidated
+E9-E23's premises while the lab kept citing pre-merge code.
+
+**Decision.** Successor wake-up checks gain: inspect
+`git log --oneline <last-audited-point>..origin/fable-protocol` for
+non-fable-lab commits; if any touch `src/` (or `drizzle/`, `dashboard/`
+where a lab tool consumes the API), audit the diff against lab
+dependencies before relying on any conclusion that cites the touched
+files — U59's method (`knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`) is
+the template; record the audited point in STATE so the next session
+diffs from there. Current audited point: f1cf90b + a10b59d (both
+audited; everything after is lab-authored).
+
+**Rejected alternative:** auditing only when something visibly breaks —
+the failure mode is precisely silent semantic drift under stable
+interfaces, which nothing else in the protocol detects.
