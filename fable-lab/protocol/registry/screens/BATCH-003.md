@@ -183,3 +183,20 @@ unedited per append-only discipline; read "already-measured" as
 "measured once this batch's own screen resolved". The reduction (sell
 side ≡ mirror buy side) is unaffected, so with run 472 killed the
 sell-side family is genuinely closed.
+
+## Post-kill decomposition of run 472 (session 63, idea mining — U91 precedent)
+
+Market-level DB decomposition of the 479 played markets (judged-kill
+data; hint-grade only, never evidence): (a) every played market has
+EXACTLY 1 trade — the inventory cap (100 = one full fill) binds
+immediately, so requote-intensity structure is unmeasurable at this
+cell; (b) DOWN entry-price bands show no monotone structure
+([0.35,0.5) +2.68 vs [0.5,0.65) −2.56 per market, both within ±1σ at
+se≈3.4); (c) UTC 6h buckets flat (±1.6 max, se≈4.3); (d) day-of-week
+best cell Thu +12.95 at n=61 (z≈2.1 uncorrected, 7 comparisons —
+unremarkable). Conclusion: NO fill-mix hint at the DB grain. The
+fill-mix axis the E29-raised bar demands (which fills a maker gets,
+conditioned on book state AT the fill) is not decomposable from
+`backtest_run_markets` aggregates — it would need per-fill event
+capture (a diag fixture logging book state at each simulated fill), a
+possible SIGNAL-003-style instrument if a BATCH-004 idea needs it.
