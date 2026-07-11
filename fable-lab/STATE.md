@@ -910,6 +910,21 @@ ways: gates exercised end-to-end, runs 421-423 clean)._
   aggregateProcessor.ts:161, not the child), §3 stall arithmetic made
   internally consistent.
 
+- U60 (session 50): CAL-002/003/004 published reads REPRODUCED
+  byte-identically (verification depth, U47 calib.ts precedent — the
+  siblings' one-shot reads had never been reproduced; a transcription
+  error in a published Results block would have been invisible, the
+  U43bb "4,372" typo class). All three tools byte-unchanged since their
+  read commits (git log empty over f5d9aa3/a505f1d/974c418 → HEAD);
+  re-run on the surviving discovery log with current DB state; diffs
+  clean: CAL-002 re-run vs published block (77 lines — the block was the
+  ONLY record, now proven faithful), CAL-003 re-run vs raw capture vs
+  published block, CAL-004 re-run vs committed raw vs published block.
+  One-shot-rule reasoning recorded in each note: post-verdict
+  reproduction of a closed null against its own published bytes steers
+  nothing — verification, not a second read. Notes appended to all three
+  CALIBRATION files. D31 fresh-context check: pending.
+
 ## In progress
 - (nothing in flight)
 

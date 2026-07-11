@@ -702,3 +702,11 @@ IDEAS #10 arithmetic, or the trades-channel fill model per EDGE-SPACE
   5. The verdict's "~85% shared samples" is the pooled figure (84.8% by the printed Σ), acceptable as an aggregate under amendment 2 since no per-cell dilution claim is attached, but late-offset T cells share as little as ~61% (e.g. 850s tfr 0.608-0.636) — future citations of specific T cells must use the printed per-cell tfr as amendment 2 requires.
 
 _Erratum (accepted from Judge check (i) / reservation 1, same session, before any propagation): the Consequence paragraph's sentence "No further discovery scan of this log can produce a citable result" over-claims — the supported statement is PER-AXIS exhaustion: every single feature axis the log expresses is now scanned (levels, moves, two-segment big-move sign paths, spread state) or measured degenerate (cross-side sums; sizes unrecorded). Joint/interaction conditionings of scanned axes remain formally expressible with strictly less power per cell (incidence products) and carry the same binding reserve-confirmation burden under the U45 envelope; any such scan needs its own pre-registered motivation. E23 and EDGE-SPACE carry the scoped wording; the verdict text above stays as appended (append-only convention). Reservation 2's obligation (cross-side non-independence) and reservation 5's rule (per-cell printed tfr for any specific T-cell citation) travel with E23._
+
+_Post-verdict reproduction note (U60, session 50, 2026-07-11): the read
+of record reproduced byte-identically (calib4.ts unchanged since read
+commit 974c418; same command, current DB state) against both the
+committed raw `knowledge/CAL-004-discovery-read.txt` and the published
+block. This also independently confirms the invocation-disclosure claim
+that the deterministic completion equals what any invocation of the same
+command produces. Verification of a closed null, not a second read._

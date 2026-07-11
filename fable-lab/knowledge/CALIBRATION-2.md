@@ -389,3 +389,15 @@ range should read "+0.34c to +0.75c, with the 300-450 DOWN dn2 cell at
 −0.13c" — conservative wrt the null; and "the audited pre-read commit"
 should read "the post-audit amended commit f5d9aa3 (audit reviewed
 9cb4940; amendments frozen pre-read)"._
+
+_Post-verdict reproduction note (U60, session 50, 2026-07-11): the
+published discovery read above was reproduced byte-identically — same
+tool (calib2.ts, unchanged since read commit f5d9aa3 per git log), same
+command (`npx tsx fable-lab/tools/calib2.ts
+fable-lab/logs/CAL-001-discovery-v3.log`), current DB state — and the
+77-line output diffs clean against the verbatim block above. CAL-002 had
+no raw output capture (the block above was the only record); it is now
+proven a faithful transcription. One-shot rule: this is verification of a
+closed null against its own published bytes, not a second read — nothing
+it can show steers any decision (U47 calib.ts precedent; CAL-004's
+deterministic-completion reasoning)._

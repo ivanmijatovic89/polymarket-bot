@@ -434,3 +434,10 @@ over the printed ses, 3.26·se spans 2.25c to 4.79c); (3) "strongest gross
 staleness measured in this program" is scoped to the conditional scans
 CAL-002/CAL-003 (max |d| elsewhere 2.89c); CAL-001's marginal extreme-price
 cells are a different statistic family and are not compared._
+
+_Post-verdict reproduction note (U60, session 50, 2026-07-11): the
+published discovery read reproduced byte-identically (calib3.ts unchanged
+since read commit a505f1d; same command, current DB state), and the
+published verbatim block matches the raw capture
+`logs/CAL-003-discovery-read.txt` byte-for-byte. Verification of a closed
+null, not a second read (U47 precedent)._
