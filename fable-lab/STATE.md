@@ -1,8 +1,9 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 53, unit U65 (D39: trades-coverage.ts splits
-converted vs awaiting-ingestion; wake-up check 2 baseline pinned to the
-converted bucket after the U64 sync moved the raw totals)._
+_Last updated: session 53, unit U65b (D39 verified: trades-coverage.ts
+splits converted vs awaiting-ingestion; wake-up check 2 baseline pinned
+to the converted bucket — the U64 sync alone moved the raw totals; gate
+2 remains closed)._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
