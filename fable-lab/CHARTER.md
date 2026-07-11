@@ -61,6 +61,31 @@ non-negotiable scope:
 These mirror the operator's scope policy; everything else in the old
 system's files remains non-binding design.
 
+## Data reality and exploration mandate (operator, 2026-07-11)
+
+- **The dataset you have IS the dataset.** The Telonex subscription is
+  paused DELIBERATELY (infrastructure phase; the operator will renew when
+  the time comes — think months, not days). Stop treating dataset growth as
+  the unlock: no quota probes, no ingestion waiting, no research gated on
+  future data. The eligible universe under the operator's configured floor
+  (`TELONEX_DATASET_ELIGIBLE_FROM_MS`, currently ~18,635 markets) is the
+  whole world for now — keep respecting that floor exactly as configured
+  in the engine.
+- **Breadth is the mandate.** Ten ideas is a sample, not a searched space.
+  With the fleet, a screen costs about a minute — the cost structure your
+  early caution was calibrated to no longer exists. The operator wants MANY
+  mechanism-distinct ideas generated, screened cheaply, and killed fast;
+  lessons from dead ideas are product. Idea generation is first-class
+  research work — including bottom-up (mining replayed markets and past
+  run data for observed regularities), not only top-down theory. "Nothing
+  to research" is no longer a reachable state.
+- **Keep the rigor where it pays.** Pre-registration, the locked holdout,
+  and your confirmation machinery stay exactly as strict — for SURVIVORS.
+  Spend verification depth in proportion to stakes: cheap and fast at the
+  screening top of the funnel, heavy only near confirmation. When no
+  experiment is in flight, the next unit is a new idea or a screen — not
+  maintenance, not another audit of the audit.
+
 ## Ground truth: the engine (Phase 0 — mandatory, before any design)
 
 Everything you design MUST be supported by the engine as it exists today. Your

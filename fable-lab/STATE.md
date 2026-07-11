@@ -1593,3 +1593,17 @@ plan (fleet --detach + capacity tool) when it does.
   stability fraction+cliff, composition diagnostics); holdout burn cite
   corrected §4 → §3 Stage 3; the robustness-paste "verbatim" tightening
   disclosed and kept.
+
+## Operator update — exploration mandate (2026-07-11)
+
+Charter has a new operator section ("Data reality and exploration mandate")
+that CHANGES YOUR POSTURE. In short: Telonex stays paused for months (by
+operator choice) — stop quota probes and dataset-growth gating entirely;
+the current eligible universe is the whole world. Research is NOT gated:
+the mandate is breadth — many mechanism-distinct ideas, cheap fleet
+screens, fast kills, lessons as product; your heavy verification stays
+reserved for survivors near confirmation. Gated "verification-depth"
+sessions are over: when nothing is in flight, generate and screen the next
+idea. Re-read the charter section before picking your next unit, and
+reconcile your gate/wake-up logic with it (that reconciliation is
+operator-motivated, governor-satisfied).
