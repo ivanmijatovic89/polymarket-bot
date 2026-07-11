@@ -154,26 +154,29 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
         <TableCell className="text-sm">
           <ParamsTooltip strategy={b.strategy ?? '—'} params={b.params} />
         </TableCell>
+        {/* Markets → Total / Played / Skip sub-columns (grouped header) */}
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {selectedMarketsTotal}
-          {b.marketsPlayed !== selectedMarketsTotal && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {b.marketsPlayed} played
-            </span>
-          )}
-          {b.marketsSkipped > 0 && (
-            <span className="ml-1 text-[11px] text-muted-foreground">
-              · {b.marketsSkipped} skip
-            </span>
-          )}
           {notPersisted && (
-            <span className="ml-1 text-[11px] text-destructive">
-              ·{' '}
+            <div
+              className="text-[10px] leading-tight text-destructive"
+              title={
+                b.failuresCount && b.failuresCount > 0
+                  ? `${b.failuresCount} markets failed`
+                  : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} markets not persisted`
+              }
+            >
               {b.failuresCount && b.failuresCount > 0
                 ? `${b.failuresCount} failed`
-                : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} not persisted`}
-            </span>
+                : `${(b.inputMarketsTotal ?? 0) - b.marketsTotal} missing`}
+            </div>
           )}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
+          {b.marketsPlayed}
+        </TableCell>
+        <TableCell className="text-right tabular-nums text-xs whitespace-nowrap text-muted-foreground">
+          {b.marketsSkipped}
         </TableCell>
         <TableCell className="text-right tabular-nums text-xs whitespace-nowrap">
           {formatPnl(b.evPerMarketPlayed)}
@@ -283,31 +286,72 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
       <div className="overflow-x-auto">
         <Table>
           <TableHeader>
-            <TableRow>
+            <TableRow className="border-b-0 hover:bg-transparent">
               {prefixColumns?.map((c, i) => (
-                <TableHead key={i} className={c.align === 'right' ? 'text-right' : undefined}>
+                <TableHead
+                  key={i}
+                  rowSpan={2}
+                  className={c.align === 'right' ? 'text-right' : undefined}
+                >
                   {c.header}
                 </TableHead>
               ))}
-              <TableHead className="min-w-[180px]">{leadingHeader}</TableHead>
-              <TableHead>Strategy</TableHead>
-              <TableHead className="text-right">Markets</TableHead>
-              <TableHead className="text-right">EV/mkt</TableHead>
-              <TableHead className="text-right">Trades</TableHead>
-              <TableHead className="text-right">PnL</TableHead>
-              <TableHead className="text-right">Win&nbsp;rate</TableHead>
-              <TableHead className="text-right">Avg&nbsp;W/L</TableHead>
-              <TableHead className="text-right">Streak</TableHead>
-              <TableHead className="text-right">Quality</TableHead>
-              <TableHead className="text-right">Fees</TableHead>
-              <TableHead>Symbol</TableHead>
-              <TableHead className="text-right">Duration</TableHead>
+              <TableHead rowSpan={2} className="min-w-[180px]">
+                {leadingHeader}
+              </TableHead>
+              <TableHead rowSpan={2}>Strategy</TableHead>
+              <TableHead colSpan={3} className="border-b border-border/60 text-center">
+                Markets
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                EV/mkt
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Trades
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                PnL
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Win&nbsp;rate
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Avg&nbsp;W/L
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Streak
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Quality
+              </TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Fees
+              </TableHead>
+              <TableHead rowSpan={2}>Symbol</TableHead>
+              <TableHead rowSpan={2} className="text-right">
+                Duration
+              </TableHead>
               {extraColumns?.map((c, i) => (
-                <TableHead key={i} className={c.align === 'right' ? 'text-right' : undefined}>
+                <TableHead
+                  key={i}
+                  rowSpan={2}
+                  className={c.align === 'right' ? 'text-right' : undefined}
+                >
                   {c.header}
                 </TableHead>
               ))}
-              {renderActions && <TableHead />}
+              {renderActions && <TableHead rowSpan={2} />}
+            </TableRow>
+            <TableRow className="hover:bg-transparent">
+              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
+                Total
+              </TableHead>
+              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
+                Played
+              </TableHead>
+              <TableHead className="h-8 text-right font-normal normal-case tracking-normal">
+                Skip
+              </TableHead>
             </TableRow>
           </TableHeader>
           <TableBody>
