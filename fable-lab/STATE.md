@@ -1165,10 +1165,31 @@ plan (fleet --detach + capacity tool) when it does.
   catalog sync added 2,570 rows inside the tool's window — the session
   had to re-derive this by ad-hoc DB split before trusting the gate.
   `tools/trades-coverage.ts` now groups by `converted` (done delta-typed
-  conversion EXISTS — the eligible-universe population) vs
+  conversion EXISTS — currently coincides exactly with the eligible
+  universe, though eligibility additionally requires resolved +
+  result_id + non-empty r2_url/local_path; U65b wording fix) vs
   `awaiting-ingestion` and prints a gate-reminder line. Verified: the
   converted bucket reproduces the published baseline exactly (18,635 /
   17,878 trades / 18,635 quotes / 17,073 onchain), the awaiting bucket
   is exactly the U64 sync (2,570 / 2,563), buckets sum to the old
   output; tsc clean. STATE check 2 + tools/README updated. Gate 2
-  remains CLOSED (converters on disk still delta / delta-typed only).
+  remains CLOSED (no trades-aware converter exists — all converter
+  implementations read book_snapshot_full; converted-DATA dirs on disk
+  are delta / delta-typed).
+
+- U65b (session 53): U65 D31-verified by a fresh-context checker
+  (sound-with-findings — tool buckets, bucket sums vs the reconstructed
+  old query (19,636 onchain total), all restated figures, diff scope,
+  read-only-ness, and tsc independently reproduced; no bar/threshold/
+  gate change found; no duplicate delta-typed/done conversion rows, so
+  EXISTS cannot double-count). 2 MINOR findings, both applied: (1) the
+  "converted bucket = eligible-universe population" equivalence was
+  overclaimed — it is empirically exact today but the bucket predicate
+  omits eligibility's resolved/result_id/r2_url conditions
+  (telonexEligibility.ts:45-74); wording softened in the tool header,
+  D39 amendment, and the U65 entry, with a cross-check-universe.ts
+  instruction if counts ever diverge; (2) the inherited "converters on
+  disk still delta / delta-typed only" phrasing was literally false
+  (src/telonex/converters/paired.ts exists; not trades-aware, so the
+  CLOSED conclusion stands) — U65 entry reworded to the accurate gate
+  formulation; prior Done entries stay as-written (append-only).

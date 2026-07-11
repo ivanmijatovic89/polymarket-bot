@@ -7,8 +7,11 @@
  * carry per-market availability ranges (schema.ts:379).
  *
  * Since U64 the lab syncs the catalog itself, so catalog rows split into two
- * buckets: `converted` (a done delta-typed conversion exists — these back the
- * eligible universe) and `awaiting-ingestion` (synced, not yet downloaded/
+ * buckets: `converted` (a done delta-typed conversion exists — currently
+ * coincides exactly with the eligible universe, verified 2026-07-11, but
+ * eligibility additionally requires resolved + result_id + non-empty
+ * r2_url/local_path; cross-check universe.ts if the counts ever diverge)
+ * and `awaiting-ingestion` (synced, not yet downloaded/
  * converted by the operator). The wake-up-gate baseline (STATE check 2) is
  * the CONVERTED bucket — a lab-run sync moves only the awaiting bucket
  * (motivating friction recorded in DECISIONS D39: session 53 had to

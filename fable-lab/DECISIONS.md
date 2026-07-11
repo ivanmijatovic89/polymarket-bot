@@ -1417,3 +1417,21 @@ onchain_fills ≈ 91.6%), the awaiting bucket accounts for the full move
 (2,570 / 2,563), and the two buckets sum to the old single-row output.
 tsc clean. Read-only tool; no bar, threshold, or interpretive rule
 changed.
+
+_U65b amendment (D31 fresh-context check, session 53): verifier verdict
+sound-with-findings; 2 MINOR, both applied. (1) This decision's
+"eligible-universe population" gloss on the `converted` bucket was an
+overclaim: the bucket predicate is only converter='delta-typed' AND
+status='done', while eligibility (src/db/telonexEligibility.ts:45-74)
+additionally requires telonex_status='resolved', result_id IS NOT NULL,
+and non-empty r2_url/local_path. The equality (18,635 = 18,635) is
+verified exact as of 2026-07-11 but is empirical, not guaranteed — a
+market converted before resolution would enter the bucket while staying
+ineligible. Wording softened in the tool header and STATE; if the
+converted bucket ever diverges from universe.ts's eligible count,
+cross-check before trusting either. (2) Verifier also confirmed: buckets
+sum losslessly to the old single-row output including onchain
+(17,073+2,563=19,636), no duplicate delta-typed/done conversion rows
+exist (EXISTS cannot double-count), and no trades-aware converter exists
+in src/telonex/converters/ (paired.ts also reads book_snapshot_full) —
+gate 2 CLOSED stands on the accurate formulation._
