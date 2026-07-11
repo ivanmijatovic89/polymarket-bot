@@ -93,6 +93,21 @@ committed alongside; cell = schema defaults._
   kill at these bars is self-certifying (kill-biased screen, honest
   arithmetic already predicts ≈ 0) and gets no checker.
 
+## Launch record (session 65, pre-results)
+
+- Draw: `tools/scr009-draw.ts` → 2,000 of 5,460 eligible reserve-window
+  markets (seed `SCR-009-draw-1`), shard slug lists committed as
+  `logs/SCR-009-shard[0-5].slugs`.
+- Smoke: run 480 (`SCR-009-touch-smoke`), 10 markets, 10/10 filled, 10
+  maker / 0 taker fills, counts only (fills.ts). DEVIATION disclosed:
+  the mini-spec named the discovery smoke set, but the smoke used
+  shard0's first 10 RESERVE slugs (they are inside the N=2000 sample).
+  No outcome was read (plumbing greps + fills.ts counts only), so the
+  sample stays clean; the deviation is procedural and is recorded here.
+- Shards: `SCR-009-touch-s[0-5]`, launched detached ~21:40 UTC, all six
+  verified in-log: latency env 0/0, D18 hook active, loaded
+  334+334+333+333+333+333 = 2,000.
+
 ## Results (append-only, after all shards complete)
 
 _(empty until run)_

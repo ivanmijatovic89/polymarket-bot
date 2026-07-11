@@ -79,6 +79,21 @@ append-only history at the bottom; new entries still go there._
   l10Imb in top quintile), fresh reserve-window random draw per D53, D18
   outcomes {kill, escalate}. If SCR-009 kills → maker family closes for
   good (IDEAS #22 → dead).
+- **U102 (session 65): SCR-009 FROZEN + IN FLIGHT.** BATCH-004
+  (`protocol/registry/screens/BATCH-004.md`): strategy `fable-scr-009`
+  (SCR-008 cell + gate: cancel/suppress quote when price ∈ [0.35,0.65]
+  ∧ latest valid l10Imb ≥ 0.6400 — threshold verified to select exactly
+  the candidate cell's 1,435/7,171 discovery MID fills, computed
+  outcome-free). Sample: 2,000 of 5,460 reserve-window markets, seeded
+  draw (`tools/scr009-draw.ts`, seed SCR-009-draw-1), slug lists
+  committed. Smoke run 480 green (10/10 filled, counts only; smoke-set
+  deviation disclosed in the batch file). Six local touch shards
+  `SCR-009-touch-s[0-5]` launched detached (~21:40 UTC), all verified
+  pinned 0/0 + D18 hook + 2,000 loaded. Pre-results amendments frozen:
+  extend-once-if-q̂>0 rule; checker only on escalate. READ PROCEDURE:
+  when shards exit → results.ts over the 6 runs → verdict per D49
+  default bars into BATCH-004 → propagate (kill: E30 + EDGE-SPACE maker
+  closure + IDEAS #22 dead; escalate: operator memo + checker).
 - **SIGNAL-003 FROZEN (U99, session 64)** — `knowledge/SIGNAL-FILLS.md`
   (D52): per-fill toxicity scan of the run-472 ungated DOWN at-touch
   cell. Fixture `_fixtures/diag-fill.ts` (hardcoded run-472 params;
