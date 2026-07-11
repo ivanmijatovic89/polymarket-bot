@@ -38,91 +38,40 @@ append-only history at the bottom; new entries still go there._
 - (nothing in flight)
 
 ## Next
-- Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
-  by E20, E21, E22, and E23): taker needs a ≥1.5c gross argument that
-  escapes E9-E14, the CAL-001 fixed-time plane scan, the CAL-002
-  single-segment conditional scan, the CAL-003 two-segment path scan AND
-  the CAL-004 spread-state scan (e.g. finer
-  path/flow/derived features, or sub-power windows while clearing ~1.5c
-  via another instrument, per EDGE-SPACE §4 — the E22 up-dn reversal
-  mirror at ≈+2.4c net, z=+2.40, is the concrete open point but needs a
-  NEW instrument or reserve-window evidence under full
-  pre-registration — FROZEN pre-data at
-  `knowledge/CONFIRMATION-010-REVERSAL-MIRROR.md` (U67/D41): at the
-  IDEAS #10 unlock, execute that spec, do not redesign the test);
-  maker in-model needs a cell/gate that escapes
-  E16/E17 (worst-queue) AND E19 (touch); or a cited VENUE-DRIFT regime
-  change. Legitimate non-registration work:
-  verification depth, keeping EDGE-SPACE §3 current, friction-motivated
-  protocol maintenance.
-- Successor wake-up checks (run these FIRST, they are the only things that
-  change the gated state from outside). ONE COMMAND runs them all:
-  `npx tsx fable-lab/tools/wakeup.ts` (D42, U68 — exit 0 gated state
-  holds / exit 2 a check fired, follow its printed pointer / exit 1 a
-  check could not run, do it by hand). It also verifies the CONFIRM-010
-  freeze byte-identity every session. The bullets below remain the
-  AUTHORITATIVE instructions for acting on a fired check:
-  1. `tools/universe.ts` — if the ELIGIBLE universe grew past 18,635 /
-     2026-06-14 (operator ran download+convert on the pending window —
-     see `knowledge/DATASET-GROWTH.md`), run the VENUE-DRIFT refresh
-     procedure on the new month(s); a fired band reopens §4 only after
-     the D27 confirmation redraw (U46). The tool also prints CATALOG
-     AWAITING INGESTION (synced-not-ingested markets; 2,570 as of
-     2026-07-11). The catalog SYNC half is lab-self-serve (D38) but NOT
-     free — each run (dry included) fetches the ~1 GB catalog against
-     the operator's metered key (U64b): re-run `npm run telonex:sync`
-     (additive-only, verified) only when the awaiting-max is well behind
-     today AND a decision depends on current numbers; download/convert
-     stays the operator's (D38 — never run it from the lab). QUOTA
-     BLOCKER (U66, 2026-07-11): the vendor key is 403 `limit_reached` on
-     ALL download channels — ingestion cannot happen and sync re-runs
-     are SUSPENDED (each spends ~1 GB of the exhausted quota) until the
-     operator confirms headroom (DATASET-GROWTH.md §quota). If quota is
-     restored: FIRST re-run `tools/trades-schema-probe.ts --slug
-     btc-updown-15m-1764461700` (D40 — the §3.2 fill-model design input),
-     THEN the ingestion hand-off proceeds; and when the eligible universe
-     eventually reaches the IDEAS #10 unlock, execute the FROZEN
-     CONFIRM-010 spec (U67/D41), do not redesign it.
-  2. `tools/trades-coverage.ts` + `ls data/events/telonex/` — if the
-     operator ingested the `trades` channel (D20 advocacy) and a
-     trades-aware converter exists, the queue-realistic fill model
-     supersedes both D18 bracket ends; that reopens maker measurement
-     with a NEW instrument (full pre-registration required). Read the
-     CONVERTED bucket only (D39): baseline 18,635 rows / 17,878
-     has_trades; the awaiting-ingestion bucket moves with every lab
-     catalog sync and does NOT signal ingestion (2,570/2,563 as of
-     2026-07-11). The gate is the converter on disk, not these counts.
-  3. Fleet health (the D33 gap is RESOLVED as of 2026-07-11 — operator
-     patch a10b59d, reconciliation executed in U58): before any fleet
-     submission run `npx tsx fable-lab/tools/capacity.ts` (live slots;
-     refuses at 0) and verify the tree is committed AND pushed
-     (submit.ts enforces this on --execute). The old registry probe
-     (`'fable-exp-001' in strategyRegistry` → RESOLVED/GAP) is now a
-     regression check: `GAP` would mean the operator REVERTED the patch
-     — stop fleet submissions and fall back to local `--sequential`
-     (D7/D10) until reconciled.
-  4. Operator-commit drift (D35): `git log --oneline
-     <last-audited-point>..origin/fable-protocol` — if any non-fable-lab
-     commit touches `src/` (or drizzle/, or dashboard API surfaces a lab
-     tool consumes), audit the diff against lab dependencies before
-     relying on conclusions that cite the touched files (method:
-     `knowledge/MERGE-AUDIT-2026-07-11-f1cf90b.md`). Last audited
-     point: f1cf90b + a10b59d (session 50; all later commits to date
-     are lab-authored).
-  5. Otherwise: verification depth or targeted diagnostics only; do not
-     re-run answered questions (E9-E19). Pick targets from
-     `knowledge/AUDIT-COVERAGE.md` §4 residue (D44); update its rows in
-     the same commit as any new verification event.
-- Venue-drift refresh is only worthwhile once the eligible universe has
-  grown by ~a month past 2026-06-14 (VENUE-DRIFT refresh procedure §1) —
-  do not re-run it before then.
-- The D15 conclusion is now audited (U32). Remaining known caveat from
-  the audit worth keeping in mind: the maker-side generalization rests
-  on two probe cells (N=500 each); EDGE-SPACE §1-§2 wording already
-  scopes this correctly.
-- Holdout remains locked and unused (no experiment reached it; it stays
-  locked under D15 — holdout data buys nothing without a surviving
-  mechanism).
+- **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
+  gated-state framing below is SUPERSEDED for idea work: breadth is
+  mandated, screens are cheap, "nothing to research" is not a reachable
+  state (charter §Data reality). Session 59 built the machinery:
+  - `protocol/SCREENING.md` (D49) — the batch screening tier. Use it for
+    all new idea batches: frozen mini-specs in one batch file, fleet
+    N=500 discovery-only samples, kill-biased bars, one fresh-context
+    checker per batch.
+  - `knowledge/SIGNAL-MAP.md` — SIGNAL-001 feature scan (16 features ×
+    5 offsets × 2 sides + seasonality) frozen; discovery replay sharded
+    6-way locally (diag-signal fixture; fleet cannot return feature
+    logs). One-shot read via `tools/signal-scan.ts` AFTER all shards
+    complete + coverage accounting is clean. Results → §3 of that file;
+    aimed screens follow.
+  - BATCH-001 (7 screens) frozen and partially judged: 4 fleet taker
+    screens ALL KILLED (runs 446/447/449/450 — first-passage
+    continue/fade, depth-pull, quote-pressure; event-time entries meet
+    the same adjusted ask as fixed-time). 3 touch-maker screens run
+    LOCAL (D18): SCR-004r (E22 reversal monetization — the aimed shot)
+    launched; SCR-004t (late tail) and SCR-004o (opening spread) queued
+    behind the signal shards. Batch checker (one fresh-context pass over
+    the verdict table) still owed.
+- Wake-up checks (`npx tsx fable-lab/tools/wakeup.ts`, D42) still run
+  FIRST every session — they guard the freeze/quota/drift state, which
+  the mandate does NOT supersede. The detailed check-response
+  instructions from the previous STATE revision remain in git history
+  and in the tool's own pointers; headline state: universe 18,635,
+  quota 403 (ingestion suspended), trades gate closed, CONFIRM-010
+  freeze intact (anchor c403d7d), last audited operator commits
+  f1cf90b+a10b59d.
+- The EDGE-SPACE §4 bar and the reserve-confirmability envelope still
+  govern FULL experiment registrations (screens are probe-grade only;
+  SIGNAL-MAP zones are aiming aids, not citations). Holdout locked.
+  CONFIRM-010 executes at the IDEAS #10 unlock, unchanged.
 
 ## Notes for a fresh session
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
