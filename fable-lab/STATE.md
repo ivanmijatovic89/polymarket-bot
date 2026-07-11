@@ -41,17 +41,20 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **SIGNAL-001 discovery replay** (session 59 launch, detached): shards
-  s0-s2 COMPLETE (logs `fable-lab/logs/SIGNAL-001-shard[0-2].log`, clean
-  end summaries); s3-s5 still replaying as of session 60 start. After ALL
-  complete: coverage accounting (loaded counts must sum to 8,516,
-  disjointness re-checked), then the ONE-SHOT `tools/signal-scan.ts` read
-  → SIGNAL-MAP.md §3.
-- **SCR-004r** (E22 reversal monetization, touch bound, local): mid-run,
-  batchUid SCR-004r-touch-screen, log `fable-lab/logs/SCR-004r-touch-screen.log`.
-  Verdict per BATCH-001 bars + D18 (kill/escalate only) when done.
-- **SCR-004t / SCR-004o**: queued — launch locally as cores free up
-  (same sample rule, batchUid must contain `touch`).
+- **SIGNAL-001 discovery replay**: shards s0-s3, s5 COMPLETE (runs
+  448/451/452/454/455, frozen counts match); s4 still replaying. After it
+  completes: final coverage check, then the ONE-SHOT `tools/signal-scan.ts`
+  read → SIGNAL-MAP.md §3 → aimed screens.
+- **SCR-004o** (opening spread capture, touch bound): mid-run locally
+  (batchUid SCR-004o-touch-screen). SCR-004r (U81) and SCR-004t (U83)
+  both JUDGED KILL — verdicts in BATCH-001. After SCR-004o's verdict:
+  ONE fresh-context batch checker over the three touch verdicts
+  (SCREENING step 5; the four fleet verdicts already had theirs), then
+  a batch-level LESSONS entry.
+- **SIGNAL-002 frozen (D50, U82)**: cross-episode conditioning scan on
+  the same signal log (`knowledge/SIGNAL-CROSS-EPISODE.md`,
+  `tools/signal2.ts` + 25-assertion selftest). Runs ONCE, only AFTER
+  the SIGNAL-001 read is recorded.
 
 ## Next
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
