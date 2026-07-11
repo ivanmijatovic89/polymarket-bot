@@ -1169,3 +1169,48 @@ pattern `EXP-001-probe%` returns exactly run 301. Remaining residue
 (trivial by inspection): no real `-holdout` batchUid row exists yet, so
 the exact-suffix match has still never run against the DB; the pattern
 is string-interpolated identically to the tested one._
+
+## D34 — CAL-004 registered: the fixed-time plane decomposed by spread state (2026-07-11, U57)
+
+**Decision:** register and run CAL-004 (`knowledge/CALIBRATION-4.md`,
+tool `tools/calib4.ts`): the frozen CAL-001 126-cell plane split by the
+sampled book's spread state — T (spread ≤ 0.0105, one tick + half-tick
+tolerance) vs W — k = 252, candidate/NEG-FLAG bar z ≥ 3.75 (rounds UP
+past 0.023/252 ≈ 9.127e-5; tail(3.742) = 9.13e-5 would be
+anti-conservative — the exact CAL-003 audit defect class, avoided at
+freeze), minority ≥ 30, sub-window consistency, BINDING reserve
+confirmation, one-shot read. Fourth reuse of the CAL-001 discovery log;
+zero new replay compute.
+
+**Motivating evidence (governor):**
+1. Session-49 outcome-free measurement on the log: the tight state
+   covers 82-92% of samples uniformly across all ask buckets and both
+   sides (pooled 85.4% of 104,776) — the HIGH-INCIDENCE regime that the
+   U45 reserve-confirmability envelope (EDGE-SPACE §4) names as the only
+   one with a live confirmation path today. Wide cells sit at 8-18%
+   incidence: mid-priced W candidates are pre-declared PARK-only per the
+   same envelope (frozen in the registration, not decided post-table).
+2. Spread is the LAST feature axis the log can express that no scan has
+   conditioned on (levels/moves/paths scanned; sizes never recorded;
+   cross-side sums degenerate by the mirror fact). CAL-001's marginal
+   null does not arithmetically exclude a spread-confined edge; the lab's
+   audited defect-class history (D25/D31: plausibility-grade foreclosure)
+   demands measuring it rather than arguing it away. A null makes the log
+   measurement-exhausted — a categorical EDGE-SPACE statement replacing
+   per-axis patchwork.
+3. Charter governor tie-break: "when in doubt between improving the
+   system and using the system: use it" — sessions 44-48 were entirely
+   meta (verification depth); this is the research loop running on its
+   own sanctioned path (§4 high-incidence clause).
+
+**Rejected alternatives:** (a) a wide-spread-only scan (the axis with a
+mechanism story) — measured power-futile: nW 150-900 at mid-range
+resolves only 6-10c; (b) writing an EDGE-SPACE closure note without
+measuring — exactly the foreclosure defect class three propagation
+audits flagged; (c) doing nothing — leaves "is there a tight-confined
+edge?" formally open for every successor to re-derive.
+
+**Process:** CAL-002/003 flow — registration frozen (this commit) →
+tool + synthetic selftest → fresh-context pre-read audit, findings
+applied pre-read → ONE-shot read → fresh-context Judge → LESSONS E23 +
+EDGE-SPACE update → D25/D31 propagation audit.

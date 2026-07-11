@@ -807,7 +807,16 @@ finally exercised on both sides via guarded selftest rows)._
   refusal checks remain.
 
 ## In progress
-- (nothing in flight)
+- U57 (session 49): CAL-004 registered (DECISIONS D34,
+  `knowledge/CALIBRATION-4.md`) — the CAL-001 fixed-time plane decomposed
+  by spread state (T ≤ 0.0105 vs W), k=252, bar z ≥ 3.75, minority ≥ 30,
+  binding reserve confirmation, one-shot read on the existing discovery
+  log (fourth reuse, zero new replay compute). Motivated by the session-49
+  outcome-free incidence measurement: tight state = 82-92% of samples in
+  every bucket (the U45 high-incidence confirmable regime); spread is the
+  log's last unscanned feature axis. Next steps in order: tools/calib4.ts
+  + calib4-selftest.ts → fresh-context pre-read audit → one-shot read →
+  Judge → E23 + EDGE-SPACE → propagation audit.
 
 ## Next
 - Research is gated on the EDGE-SPACE §4 bar (updated in U39, tightened
