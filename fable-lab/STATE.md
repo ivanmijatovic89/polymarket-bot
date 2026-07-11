@@ -1,8 +1,8 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 52, unit U64b (D38 dataset-growth split verified:
-catalog sync self-serve and run — 2,570 markets synced awaiting operator
-ingestion; costed hand-off in knowledge/DATASET-GROWTH.md)._
+_Last updated: session 53, unit U65 (D39: trades-coverage.ts splits
+converted vs awaiting-ingestion; wake-up check 2 baseline pinned to the
+converted bucket after the U64 sync moved the raw totals)._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -45,7 +45,11 @@ append-only history at the bottom; new entries still go there._
      operator ingested the `trades` channel (D20 advocacy) and a
      trades-aware converter exists, the queue-realistic fill model
      supersedes both D18 bracket ends; that reopens maker measurement
-     with a NEW instrument (full pre-registration required).
+     with a NEW instrument (full pre-registration required). Read the
+     CONVERTED bucket only (D39): baseline 18,635 rows / 17,878
+     has_trades; the awaiting-ingestion bucket moves with every lab
+     catalog sync and does NOT signal ingestion (2,570/2,563 as of
+     2026-07-11). The gate is the converter on disk, not these counts.
   3. Fleet health (the D33 gap is RESOLVED as of 2026-07-11 — operator
      patch a10b59d, reconciliation executed in U58): before any fleet
      submission run `npx tsx fable-lab/tools/capacity.ts` (live slots;
@@ -1151,3 +1155,20 @@ plan (fleet --detach + capacity tool) when it does.
   omitted sync's own ~1 GB metered catalog fetch per run — disclosed in
   D38 amendment + DATASET-GROWTH + wake-up check 1 (sync re-runs are
   deliberate, not gratuitous). tools/README universe.ts row updated.
+
+- U65 (session 53): wake-up checks ran — universe unchanged (18,635
+  eligible, last 2026-06-14; 2,570 awaiting ingestion), fleet healthy
+  (32 alive slots / 4 machines, registry probe RESOLVED), no operator
+  commits past the audited point (D35 gate quiet). Friction unit
+  (DECISIONS D39): wake-up check 2's raw totals moved
+  (17,878/18,635 → 20,441/21,205) purely because the lab's own U64
+  catalog sync added 2,570 rows inside the tool's window — the session
+  had to re-derive this by ad-hoc DB split before trusting the gate.
+  `tools/trades-coverage.ts` now groups by `converted` (done delta-typed
+  conversion EXISTS — the eligible-universe population) vs
+  `awaiting-ingestion` and prints a gate-reminder line. Verified: the
+  converted bucket reproduces the published baseline exactly (18,635 /
+  17,878 trades / 18,635 quotes / 17,073 onchain), the awaiting bucket
+  is exactly the U64 sync (2,570 / 2,563), buckets sum to the old
+  output; tsc clean. STATE check 2 + tools/README updated. Gate 2
+  remains CLOSED (converters on disk still delta / delta-typed only).

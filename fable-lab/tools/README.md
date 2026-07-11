@@ -11,7 +11,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `fills.ts` | maker/taker fill COUNTS for runs, PnL never selected (E15 outcome-mining-safe design read) |
 | `entry-check.ts` | mechanical check of the shared "entry beats its price" prediction clause (intent_meta {exp, side, entryAsk}) |
 | `venue-drift.ts` | per-UTC-month + `--pooled` aggregation of `[diag-venue]` log lines (D17 drift instrument; outcome-free) |
-| `trades-coverage.ts` | Telonex catalog trades/quotes/onchain_fills channel coverage over the eligible universe (D20; wake-up gate 2) |
+| `trades-coverage.ts` | Telonex catalog trades/quotes/onchain_fills channel coverage, split `converted` vs `awaiting-ingestion` (D20/D39; wake-up gate 2 — baseline = converted bucket) |
 | `holdout-lock-audit.ts` | global DB sweep: every post-boundary market ever replayed/failed by a lab run, no outcome columns (D32; re-run after any evidence run; exit 2 = classify new rows against `knowledge/HOLDOUT-LOCK-AUDIT-2026-07-10.md`) |
 | `detach.mjs` | launch a command in its own session so it survives session death (D10) — how evidence runs go to background |
 | `results.ts` | THE canonical decisive readout for a run (`--run <id>` / `--batch <uid>`): N, q, t, EV ± CI, composition, day stability |

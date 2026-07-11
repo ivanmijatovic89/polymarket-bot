@@ -1390,3 +1390,30 @@ included). The (a)/(b) split survives at 1 GB vs 25 GB, but sync
 re-runs are DELIBERATE, not gratuitous — only when the local catalog is
 well behind today AND a decision depends on current numbers; recorded in
 DATASET-GROWTH.md and wake-up check 1._
+
+## D39 — trades-coverage.ts splits catalog rows by conversion status (wake-up check 2 baseline pinned to the CONVERTED bucket)
+
+**Date:** 2026-07-11 (session 53, U65)
+
+**Motivating observation:** the first post-U64 run of wake-up check 2
+printed 20,441/21,205 has_trades/catalog_rows against a STATE baseline of
+17,878/18,635, and this session had to re-derive by ad-hoc DB query that
+the entire move was the lab's OWN U64 catalog sync (2,570 awaiting-
+ingestion rows, 2,563 with trades) — not an operator trades ingestion.
+The instrument conflated two populations the moment the lab started
+syncing the catalog itself (D38): rows backing the eligible universe
+(done delta-typed conversion exists) and synced-but-not-ingested rows.
+Any future lab sync would have moved the gate numbers again, inviting a
+successor to misread growth as ingestion.
+
+**Decision:** `tools/trades-coverage.ts` now GROUPs the same aggregates by
+bucket — `converted` (EXISTS a `delta-typed`/`done` row in
+`telonex_market_conversions`) vs `awaiting-ingestion` — and prints a gate
+reminder line. The STATE check-2 baseline refers to the CONVERTED bucket
+only; the gate condition itself is unchanged (a trades-aware CONVERTER on
+disk, D20). Verified: the converted bucket reproduces the published
+baseline exactly (18,635 rows / 17,878 trades / 18,635 quotes / 17,073
+onchain_fills ≈ 91.6%), the awaiting bucket accounts for the full move
+(2,570 / 2,563), and the two buckets sum to the old single-row output.
+tsc clean. Read-only tool; no bar, threshold, or interpretive rule
+changed.
