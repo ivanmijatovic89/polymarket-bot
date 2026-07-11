@@ -291,3 +291,22 @@ Ordered; top entries get registered first.
   measured STANDING ask sums with no position; this measures
   fill-CONDITIONAL sums the standing scan never sampled. → killed in
   BATCH-002 (run 465: t=−3.17, EV −6.80/market; E26b).
+- **#21 SCR-008 ungated DOWN-side at-touch bid** (BATCH-003): the
+  mirror-consistent expression of "sell the persistent UP-ask premium"
+  (G2 asymmetry, −1.16c z=−5.2, the venue's strongest measured
+  regularity). Escape vs E19/E24: no informed-flow timing gate — tests
+  unconditional skew vs unconditional touch adverse selection. Touch
+  mode, local, D18 kill/escalate only.
+- **DEAD FAMILY at derivation: split-funded sell-side maker (any
+  gate)** — mirror identity (CAL-001 am. #12) makes UP ask at a ≡ DOWN
+  bid at 1−a; the entire sell side collapses onto the measured buy-side
+  maker family (E16/E17/E19/E24/E26a). See BATCH-003 derivation kills.
+- **DEAD at design: round-number/tick-granularity anchoring** — no
+  carrier: ask mass at mod-5c levels is 19.1% vs 20% uniform (measured
+  outcome-free on the CAL-001 log, 100,119 asks); scan floor ~3.7c.
+  See BATCH-003 derivation kills.
+- **BLOCKED (not expressible): cross-episode conditioning strategies**
+  — previous-window outcome is not observable from the current
+  market's ticks in backtest (episode isolation); taker side already
+  measured NULL by SIGNAL-002. Needs operator-side engine work + a
+  live-parity argument. See BATCH-003 derivation kills.
