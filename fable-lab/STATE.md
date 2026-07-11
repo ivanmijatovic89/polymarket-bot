@@ -86,6 +86,10 @@ append-only history at the bottom; new entries still go there._
   pre-committed in SIGNAL-FILLS §6: null → maker family closes for good
   (IDEAS #22 dead); candidate → mechanical complement gate → fresh D49
   screen on NEW sample (E26c discount), D18 outcome set (kill/escalate).
+  U100 (session 65, pre-read): candidate-branch sample rule frozen (D53,
+  §6c amendment 3) — reserve-window random draw `--from-ms 1772323200000
+  --to-ms 1777237199999 --random --limit N`; CONFIRM-010
+  non-interference argued (it was frozen pre-data at c403d7d).
 - BATCH-003 also recorded THREE derivation kills (no runs): split-sell
   mirror identity, round-number no-carrier (measured outcome-free:
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
