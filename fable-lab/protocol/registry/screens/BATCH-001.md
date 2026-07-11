@@ -158,3 +158,17 @@ checker to follow._
   −1.07 ≤ −1 also fires). Directional quote-revision flow at a flat mid
   does NOT predict the outcome — one-sided revisions are already-adjusted
   quotes, not pending flow (E11's lesson extends from stocks to rates).
+
+_Batch-checker erratum (fresh-context verification, session 59 — verdicts
+stay append-only): (1) SCR-001b's "prediction NOT held" was imprecise —
+back-derived mean entry ask is 0.1888, so winRate 0.1901 exceeded it by a
+statistically null +0.0013 (t=−0.05); the accurate reading is "priced
+fair"; the kill rests on the independent q̂ ≤ 0 branch and stands. (2)
+SCR-003's "within −1 rounding" hedge was unnecessary — unrounded
+t=−1.0696 fires the branch outright. (3) Disclosed limitation: the D8
+latency pin on FLEET runs is not verifiable from run metadata (no
+latency columns; cmd carries no flags) — for fleet screens the pin claim
+rests on the U62 fleet/local parity evidence, not on per-run metadata.
+All four KILLs re-derived exactly (every quoted number matched
+results.ts; freeze integrity confirmed: zero mini-spec edits after the
+freeze commit; sample rule verified in stored cmd)._
