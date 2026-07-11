@@ -1,14 +1,16 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 60 (resumed 2026-07-11 ~17:53). Wake-up checks
+_Last updated: session 61 (resumed 2026-07-11 ~18:17). Wake-up checks
 all quiet via wakeup.ts exit 0 (universe 18,635 / quota still 403 /
 trades gate closed / fleet 30 slots — informational / no operator
-drift / CONFIRM-010 freeze intact). Session 59's detached runs SURVIVED
-the session boundary: SIGNAL-001 shards s0-s2 complete, s3-s5 still
-replaying; SCR-004r touch screen mid-run. This session finishes the
-in-flight work: SCR-004r/t/o verdicts, then the one-shot signal-scan
-read after all shards + clean coverage accounting. Older session-57
-summary follows below._
+drift / CONFIRM-010 freeze intact). Session 60's runs survived the
+boundary. U84 done: SCR-004o JUDGED KILL (run 457, t=−5.16, cleanest
+kill of the batch — no pre-information grace window at the open). ALL
+7 BATCH-001 screens dead. Touch-batch checker (fresh context, 3
+verdicts) in flight; shard s4 nearly done. Then: one-shot signal-scan
+read → SIGNAL-MAP §3 → batch LESSONS → SIGNAL-002 → BATCH-002 (aimed
+or mechanism-gap per the map's branch). Older session-57 summary
+follows below._
 _(Session 57 summary: U74: AUDIT-COVERAGE
 residue R4 closed — `index-registry.ts` status derivation selftested
 (D46, 25 hand-computed assertions: the enumerated decision-line shapes
@@ -45,12 +47,12 @@ append-only history at the bottom; new entries still go there._
   448/451/452/454/455, frozen counts match); s4 still replaying. After it
   completes: final coverage check, then the ONE-SHOT `tools/signal-scan.ts`
   read → SIGNAL-MAP.md §3 → aimed screens.
-- **SCR-004o** (opening spread capture, touch bound): mid-run locally
-  (batchUid SCR-004o-touch-screen). SCR-004r (U81) and SCR-004t (U83)
-  both JUDGED KILL — verdicts in BATCH-001. After SCR-004o's verdict:
-  ONE fresh-context batch checker over the three touch verdicts
-  (SCREENING step 5; the four fleet verdicts already had theirs), then
-  a batch-level LESSONS entry.
+- **BATCH-001 touch checker**: SCR-004r (U81), SCR-004t (U83), SCR-004o
+  (U84, run 457) all JUDGED KILL — verdicts in BATCH-001. ONE
+  fresh-context batch checker over the three touch verdicts is IN
+  FLIGHT (SCREENING step 5; the four fleet verdicts already had
+  theirs). After it returns: apply findings, then the batch-level
+  LESSONS entry.
 - **SIGNAL-002 frozen (D50, U82)**: cross-episode conditioning scan on
   the same signal log (`knowledge/SIGNAL-CROSS-EPISODE.md`,
   `tools/signal2.ts` + 25-assertion selftest). Runs ONCE, only AFTER
