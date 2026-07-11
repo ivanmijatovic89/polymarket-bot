@@ -115,7 +115,7 @@ function SubHead({ children, border }: { children: ReactNode; border?: boolean }
     <TableHead
       className={cn(
         'h-8 text-right font-normal normal-case tracking-normal',
-        border && 'border-r border-border/60',
+        border && 'border-r border-border/80',
       )}
     >
       {children}
@@ -324,55 +324,55 @@ export function BacktestSummaryTable<T extends BacktestSummary>({
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={c.align === 'right' ? 'text-right' : undefined}
+                  className={cn('border-r border-border/80', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
               ))}
-              <TableHead rowSpan={2} className="min-w-[180px]">
+              <TableHead rowSpan={2} className="min-w-[180px] border-r border-border/80">
                 {leadingHeader}
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border/60">
+              <TableHead rowSpan={2} className="border-r border-border/80">
                 Strategy
               </TableHead>
-              <TableHead colSpan={3} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={3} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Markets
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 EV/mkt
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Trades
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/60">
+              <TableHead rowSpan={2} className="text-right border-r border-border/80">
                 PnL
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/60">
+              <TableHead rowSpan={2} className="text-right border-r border-border/80">
                 Win&nbsp;rate
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Avg&nbsp;W/L
               </TableHead>
-              <TableHead colSpan={4} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={4} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Streak
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Quality
               </TableHead>
-              <TableHead rowSpan={2} className="text-right border-r border-border/60">
+              <TableHead rowSpan={2} className="text-right border-r border-border/80">
                 Fees
               </TableHead>
-              <TableHead rowSpan={2} className="border-r border-border/60">
+              <TableHead rowSpan={2} className="border-r border-border/80">
                 Symbol
               </TableHead>
-              <TableHead colSpan={2} className="border-b border-r border-border/60 text-center">
+              <TableHead colSpan={2} className="border-b border-b-border/60 border-r border-r-border/80 text-center">
                 Duration
               </TableHead>
               {extraColumns?.map((c, i) => (
                 <TableHead
                   key={i}
                   rowSpan={2}
-                  className={cn('border-r border-border/60', c.align === 'right' && 'text-right')}
+                  className={cn('border-r border-border/80', c.align === 'right' && 'text-right')}
                 >
                   {c.header}
                 </TableHead>
