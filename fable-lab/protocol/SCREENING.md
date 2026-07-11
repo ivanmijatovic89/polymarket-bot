@@ -61,6 +61,12 @@ probe-stage evidence.
    post-results spec edits (git diff of the batch file since freeze
    commit). Survivors additionally get the full Judge at graduation
    (unchanged rigor where it pays — operator mandate).
+   _Amendment 4 (2026-07-11, E28/D51): the checker must RE-VERIFY every
+   "in-log" / "verified" claim in the batch file against the artifact it
+   cites (grep the named log lines: latency env, D18 hook, failure
+   count) — sessions 61-62 wrote "latency pinned (in-log)" claims that
+   the logs contradict; a claim without its pasted artifact line is a
+   finding._
 
 ## Verdict bars (frozen; a screen states deviations pre-freeze or gets the default)
 
