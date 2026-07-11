@@ -51,19 +51,17 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- Nothing on the fleet. BATCH-002 fully closed (U90: verdicts, checker,
-  E26, propagation — see the session-62 summary above). The next unit
-  is BATCH-003: new mechanism-distinct ideas per the operator breadth
-  mandate. Idea space guidance after E26: worst-queue punch-through is
-  auto-dead at ANY distance (1c-10c measured); book-lags-itself is dead
-  as a class (standing E9 + fill-conditional E26b + structurally
-  forbidden by the mirror invariant, E27); the fixed-time,
-  conditional, path, state, feature, and cross-episode planes are all
-  scanned null — remaining gaps are order-type structure (GTD expiry
-  games, batch/cancel timing), intra-window event-time mechanisms not
-  expressible as fixed-time cells, and anything the SIGNAL-002 sub-bar
-  anti-momentum lean might aim at mechanism level (licenses nothing on
-  its own).
+- **SCR-008 TOUCH SCREEN RUNNING LOCALLY** (BATCH-003, freeze 6be18b0,
+  smoke run 466 green): ungated DOWN-side at-touch bid, N=500 random
+  discovery, `--fill-mode touch_or_better`, batchUid
+  SCR-008-touch-screen, log `fable-lab/logs/SCR-008-touch-screen.log`.
+  D18 rules: kill/escalate only. On completion: verify one run per
+  batchUid + D18 hook line in log, verdict per D49 bars (all-N q̂;
+  amendment-3 default-kill), batch checker (one fresh-context pass,
+  also checks the new D50 invariants line), LESSONS, propagation.
+- BATCH-003 also recorded THREE derivation kills (no runs): split-sell
+  mirror identity, round-number no-carrier (measured outcome-free:
+  mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
 
 ## Next
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
@@ -143,6 +141,19 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U92 (session 62, screen in flight): BATCH-003 frozen + smoked. Idea
+  sweep of remaining expressible space produced 4 candidates; 3 died at
+  derivation (recorded in BATCH-003.md + IDEAS dead-family entries):
+  split-funded sell-side maker ≡ mirror of measured buy side; round-
+  number anchoring has no carrier (ask mod-5c distribution flat-to-
+  under at round levels, measured outcome-free on the CAL-001 log —
+  cheapest kill to date, ~2 min); cross-episode strategies are not
+  backtest-expressible (episode isolation; SIGNAL-002 already nulled
+  the taker side). Survivor: SCR-008 ungated DOWN-side at-touch bid
+  aimed at the G2 asymmetry (UP asks carry +1.16c persistent premium,
+  z=−5.2) with the E19-escape argument (no informed-flow gate) and the
+  first D50 invariants line. Smoke run 466 green (14/15 filled, counts
+  only).
 - U91 (session 62): run-465 post-kill decomposition (idea-generation
   mining, table preserved in BATCH-002.md): hedge intensity made losses
   monotonically worse (zero-hedged −3.31 / partial −12.56 / fully
