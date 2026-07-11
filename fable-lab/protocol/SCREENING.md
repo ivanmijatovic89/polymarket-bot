@@ -38,6 +38,11 @@ probe-stage evidence.
    2026-03-01). The 5,460-market reserve and the holdout stay untouched by
    every screen, preserving both for survivor confirmation and
    CONFIRM-010. Latency pinned per D8.
+   _Low-incidence exception (D49 amendment 2, 2026-07-11): a screen whose
+   gate incidence makes N=500 structurally unable to reach the SURVIVE
+   bar (expected played < ~100) may pre-freeze N up to 2000, stating its
+   incidence arithmetic in the mini-spec. Same window, same randomness —
+   only the size changes, and only BEFORE the freeze commit._
 4. **Batch verdict:** ONE results table for the whole batch (runs read via
    `tools/results.ts` / `tools/battery.ts` semantics), appended to the
    batch file. Per screen one verdict line: kill / survive / park-design

@@ -1893,3 +1893,15 @@ allowed if pinned pre-freeze in the mini-spec). Motivating evidence
 "played-market EV per D14 practice" wording vs the verdicts' all-N q̂
 was ambiguous; harmless here (both readings killed all three runs) but
 decisive for a future survive-adjacent screen. No bar value changed._
+
+_D49 amendment 2 (session 61, 2026-07-11): screens may pre-freeze N up
+to 2000 when gate incidence makes N=500 structurally unable to reach
+the SURVIVE bar (expected played < ~100), stating the incidence
+arithmetic in the mini-spec. Motivating evidence (governor): BATCH-001
+SCR-004r played 52/500 — fine for its decisive kill, but a
+hypothetical survivor at that incidence could never clear t ≥ +1.5 /
+minority ≥ 30 at N=500, making low-incidence screens
+unkillable-unsurvivable wastes; and BATCH-002's SCR-006 gate
+(late wide-range favorite) has ~5-15% expected incidence. Fleet cost
+of 2000 vs 500 markets is ~2 minutes — negligible against a wasted
+run. Window, randomness, kill bars unchanged._
