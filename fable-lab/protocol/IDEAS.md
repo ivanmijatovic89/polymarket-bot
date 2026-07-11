@@ -313,3 +313,25 @@ Ordered; top entries get registered first.
   market's ticks in backtest (episode isolation); taker side already
   measured NULL by SIGNAL-002. Needs operator-side engine work + a
   live-parity argument. See BATCH-003 derivation kills.
+- **#22 (CANDIDATE, needs SIGNAL-003 instrument first): state-gated
+  DOWN-side touch bid — the complement of toxic fills.** Logic from
+  E29's zero: run 472's UNGATED fills average exactly zero PnL, so if
+  any tick-observable state at fill time predicts fill toxicity, the
+  COMPLEMENT of that state is positive-EV by arithmetic (the average
+  must balance). This is the only maker direction that satisfies the
+  E29-raised EDGE-SPACE §4 bar (a fill population BETTER than
+  unconditional), and it is falsifiable: if toxicity is unpredictable
+  from tick state, the per-fill scan is null and the family closes for
+  good. Dedupe vs E19/E24 gates: those gates were chosen a priori
+  (time/regime stories) and all WORSENED the mix; this one would be
+  MEASURED from per-fill state first. Prerequisite instrument
+  (SIGNAL-003): a diag fixture that simulates the ungated SCR-008 cell
+  and logs book/path state AT each simulated fill plus the fill's
+  settlement PnL — an outcome-USING scan (per-fill PnL is the target),
+  so it must run discovery-window only, frozen pre-read per the CAL
+  discipline, Bonferroni over its cells, and any candidate gate then
+  goes through a fresh D49 screen on a NEW sample (the U91/E26c
+  winner's-curse discount applies). Run-472 DB grain already shown
+  empty (BATCH-003 post-kill decomposition) — the instrument must log
+  at fill time, not market aggregates. Park until SIGNAL-003 is built
+  and frozen; do not register a gate picked by story.

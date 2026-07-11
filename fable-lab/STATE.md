@@ -62,13 +62,19 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- Nothing in flight. BATCH-003 is fully closed (see U96 in Done);
-  next unit = BATCH-004 idea generation under the E29-raised maker bar
-  (EDGE-SPACE §4: "escapes E19" now requires a BETTER-than-unconditional
-  fill population argument) — or a bottom-up mining pass over run 472
-  (first break-even touch dataset: 479 played markets of unconditional
-  DOWN-side fills could be decomposed outcome-blind by state for
-  fill-mix ideas, the exact axis the new bar demands).
+- Nothing in flight. BATCH-003 fully closed (U96); run-472 mining done
+  (U97: no fill-mix hint at DB grain). Next unit = **SIGNAL-003 design**
+  (IDEAS #22): a per-fill state scan — diag fixture replaying the
+  ungated SCR-008 cell that logs book/path state AT each simulated fill
+  + that fill's settlement PnL. Rationale (E29 arithmetic): ungated
+  fills average ZERO, so any tick-observable predictor of fill toxicity
+  makes its complement positive-EV; if none exists, the maker family
+  closes for good. Discipline: outcome-USING scan → discovery window
+  only, method + cells + bars frozen pre-read (CAL precedent),
+  Bonferroni; any candidate gate then gets a fresh D49 screen on a new
+  sample (E26c winner's-curse discount in sizing). Alternative next
+  unit if SIGNAL-003 feels premature: BATCH-004 idea sweep under the
+  raised §4 bar.
 - BATCH-003 also recorded THREE derivation kills (no runs): split-sell
   mirror identity, round-number no-carrier (measured outcome-free:
   mod-5c ask mass 19.1% vs 20%), cross-episode inexpressibility.
