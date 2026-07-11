@@ -194,3 +194,21 @@ rules bind — kill/escalate only:_
   (0 log hits; structurally excluded by --to-ms), phantom-fill
   tripwire clean (best/worst singles at 0.36/0.79 — plausible touch
   prices).
+
+- **SCR-004t — KILL** (run 456, N=500, played 231, 236 maker fills,
+  makerShare=1): q̂=−0.0838, t=−1.87, EV/market −1.65
+  CI95=[−3.37,+0.08]; EV(played) = −823.1/231 ≈ −3.56/market; winRate
+  (played) 0.9048 (209/22) → prediction (EV per played market > 0 under
+  the touch bound) CONTRADICTED; kill branches q̂ ≤ 0 AND t ≤ −1 both
+  fire. Decisive under the engine's most favorable fill assumption.
+  E14 skew disclosure: minority (loss) count 22 < 30 — irrelevant to
+  the kill (that floor gates SURVIVE calls), and the loss pattern is
+  the finding: wins collect ~+10-12/market but worst losses run
+  −96/−97 — bids at 0.96-0.97 fill exactly when the late favorite is
+  flipping. Joining the favorite's bid late is selling insurance
+  against the reversal at stale prices: the tail spread does not cover
+  reversal risk even at zero fee and the friendliest fill model.
+  Pre-verdict checks: D18 hook startup + end-summary (472 instances),
+  latency 0/0 in-log, boundary market absent (0 log hits + structural
+  --to-ms exclusion), phantom-fill tripwire clean (fill prices 0.88-
+  0.97, plausible for the ≥0.90-fav-mid gate).
