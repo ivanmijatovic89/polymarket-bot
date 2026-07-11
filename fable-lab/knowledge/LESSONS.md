@@ -499,7 +499,8 @@ forbids importing the old system's research conclusions._
   from the episode's first seconds). Transfer: (a) conditioning entry
   on the market's own price path (event-time) buys nothing the
   fixed-time scans didn't already price — E20's lesson extends to
-  first-passage triggers; (b) measured gross taker-adverse staleness is
+  first-passage triggers (screen-grade, N=500 — not a null-confirmed
+  plane scan); (b) measured gross taker-adverse staleness is
   not a maker invitation: the staleness and the adverse selection are
   the SAME phenomenon seen from two sides — whoever is resting gets run
   through, whoever takes pays the adjusted price; (c) batch economics
@@ -518,16 +519,18 @@ forbids importing the old system's research conclusions._
   screen 0/160 candidates (1 WARM: firstMid at o150, sub-bar
   drift-momentum ≤ ~1c), cell grid 4/2,309 candidates ALL negative-d
   (named zones Z1-Z3 in SIGNAL-MAP §3 — wide-range and
-  wrong-end-of-range late cheap-side asks overprice recovery by ~4-5c
-  gross), seasonality 0 candidates (no hour-of-day or day-of-week
+  wrong-end-of-range late cheap-side asks overprice recovery by
+  ~3.5-5.3c gross), seasonality 0 candidates (no hour-of-day or day-of-week
   mispricing at the 4.4 bar). Pooled G2 asymmetry recorded: UP-side
   buys lose −1.16c gross on average (z=−5.2) while DOWN is flat — the
-  mirror is spread-absorbed, not capturable. Transfer: (a) idea
+  mirror is spread-absorbed — not capturable at the ask (maker-side
+  capture is measured separately: the BATCH-001 touch kills). Transfer: (a) idea
   generation on this dataset must now leave the
   book-state-at-fixed-time plane entirely (mechanism-level gaps:
   order-type structure, settlement/timing mechanics, cross-episode
   conditioning — SIGNAL-002 pending); (b) the diffuse warm-cell
-  pattern (23 warm cells, nearly all LO-stratum negative-d) says cheap
+  pattern (17 of 23 warm cells are LO-stratum negative-d; 3 warm cells
+  point the buyer-favorable way, all sub-bar) says cheap
   longshots are systematically slightly overpriced everywhere late —
   consistent with E14/E21/E22 and the BATCH-001 tail-maker kill; the
   venue's one persistent regularity remains "the stale cheap side is a

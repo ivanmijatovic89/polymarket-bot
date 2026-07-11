@@ -241,17 +241,19 @@ this feature×offset plane), not at feature zones — and says so.
 1 WARM monotone: DOWN o150 firstMid z=−3.01 (mirror UP +2.98) — early
 in the window, a higher opening mid slightly favors the UP buyer's
 residual; sub-bar, sign consistent with drift-momentum, economically
-≤ ~1c. The 23 warm cells cluster at LO strata with negative d —
+≤ ~1c. 17 of the 23 warm cells are LO-stratum negative-d —
 diffuse buyer-adverse staleness on cheap sides, same family as the
-candidates.
+candidates; 3 warm cells carry positive d (buyer-favorable sign, all
+sub-bar, recorded not licensed).
 
 **Global asymmetry note (gate G2, passed but worth the map):** pooled
 mean residual UP = −1.164c (z=−5.21, n=32,670) vs DOWN = −0.071c
 (z=−0.32). Buying UP at ask across all offsets/strata loses ~1.2c gross
 on this discovery window while buying DOWN is flat — a small systematic
 UP-side overpricing whose tradable mirror (buy DOWN) is already
-measured flat, i.e. it is spread-absorbed, not capturable (the E21
-lesson at global scale). Map-grade observation only.
+measured flat — spread-absorbed, not capturable at the ask (the E21
+lesson at global scale; the maker side is measured separately by the
+BATCH-001 touch kills). Map-grade observation only.
 
 **Power reminder (frozen in §2):** dead zones are power-scoped — "no
 signal above |ρ| ≈ 0.045 pooled / |d| ≈ 7.3c per MID cell", not "no

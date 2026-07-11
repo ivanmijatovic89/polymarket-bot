@@ -251,12 +251,16 @@ o750 ≈ −0.6c, o850 sign flips (+1c, z≈+0.9). Direction: buying the side
 that AGREES with the previous window's outcome does ~3c worse gross
 early in the window, i.e. the book slightly OVERprices cross-episode
 continuation (mild anti-momentum), and the streak family shows the same
-sign (all early +streak cells negative, −streak cells positive) without
-any cell nearing its bar. Everything sub-bar, gross of costs, and the
-~3c magnitude sits inside the U45 mid-price envelope (needs ≥ ~2.4-3.4c
-NET to ever be reserve-confirmable — a fee-paying taker fade of this
-would start from −1.56c fees against ≤3c gross with the sign already
-sub-bar). No screen is licensed by this; it is a dead zone with a noted
+sign (all but one ≈0 cell: early +streak cells negative, −streak cells positive except o150 DOWN −2 at d=−0.0001) without
+any cell nearing its bar. Everything sub-bar and gross of costs.
+Envelope arithmetic (corrected per the session-61 propagation checker —
+the first draft cited the mid-price ≲15-20%-incidence branch, which
+does not apply here): the prevAgree contrast splits ~50/50
+(n1 ≈ n0 ≈ 4,000), so EDGE-SPACE §4's high-incidence floor governs —
+confirmable down to ~1.5-1.9c NET; the ~12.5%-incidence streak cells
+get the 2.4-3.4c band. A fee-paying taker fade nets ≤ ~1.4c
+(≤3c gross − 1.56c fee), below EITHER floor, with the sign already
+sub-bar. No screen is licensed by this; it is a dead zone with a noted
 lean.
 
 **Map consequence:** cross-episode conditioning (lag-1 outcome, streaks

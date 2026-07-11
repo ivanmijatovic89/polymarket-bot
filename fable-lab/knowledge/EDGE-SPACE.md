@@ -92,7 +92,7 @@ Summary of the map:
   scanned 16 recorded features × 5 offsets × both sides (8,127
   markets): monotone 0/160, cells 4/2,309 all buyer-adverse (SIGNAL-MAP
   §3 zones Z1-Z3: cheap-side asks late in wide-range /
-  wrong-end-of-range windows overprice recovery ~4-5c gross),
+  wrong-end-of-range windows overprice recovery ~3.5-5.3c gross),
   seasonality 0. Dead zones are power-scoped (|ρ| ≳ 0.045 pooled,
   |d| ≳ 7.3c per MID cell).
 - **Maker at-touch, time-of-window sweep: adverse selection has no
