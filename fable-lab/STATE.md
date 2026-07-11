@@ -65,10 +65,19 @@ append-only history at the bottom; new entries still go there._
 
 ## In progress
 
-**NOTHING is in flight.** Session 65 ended the closing sprint with all
-work units complete: no runs pending, no reads owed, no verdicts
-outstanding, no protocol debt that blocks resumption. The registries,
-lessons, and knowledge files are fully propagated through E30.
+**Session 66 — the FINAL RUN (operator directive aef8dc3).** BATCH-005
+is IN FLIGHT: 20 new candidate strategies (frozen commit dd41894,
+amendment 5ce1494), each screened on TWO disjoint fleet samples
+(A = discovery < 2026-01-15T12:45Z, B = 2026-01-15T12:45Z → 2026-03-01;
+median split by `tools/final-split.ts`). 40 runs submitted --detach,
+latency pinned per D8, window integrity verified from the submit log
+(A drew only pre-split slugs, B only post-split — checked, zero
+violations). Verdict rule frozen in BATCH-005.md: per-sample D49 bars,
+SURVIVE only if BOTH samples clear. Readout tool: `tools/b5-table.ts`.
+If this session dies mid-flight: wait for the 40 runs
+(batchUids SCR-010-A/B .. SCR-029-A/B), run the table tool, judge per
+the frozen bars, append the table to BATCH-005.md, propagate, and write
+the terminal handoff the directive demands.
 
 ## Next
 
