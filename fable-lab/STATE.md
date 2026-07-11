@@ -1,11 +1,13 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 55, unit U68. Wake-up checks all quiet (universe
-18,635 / quota still 403 / trades gate closed / fleet 18 alive slots /
-no operator drift). U68: `tools/wakeup.ts` (D42) — one command now runs
-all six wake-up checks, including a zero-cost quota probe and the
-previously-uncovered CONFIRM-010 freeze byte-identity check.
-CONFIRM-010 freeze anchor = commit c403d7d._
+_Last updated: session 55, units U68-U69. Wake-up checks all quiet
+(universe 18,635 / quota still 403 / trades gate closed / no operator
+drift). U68: `tools/wakeup.ts` (D42) — one command now runs all six
+wake-up checks, including a zero-cost quota probe and the
+previously-uncovered CONFIRM-010 freeze byte-identity check. U69:
+protocol docs reconciled to the fleet reality (D43) — SCIENTIST/
+LIFECYCLE/README/EPISTEMOLOGY no longer assert the superseded
+local-only evidence rules. CONFIRM-010 freeze anchor = commit c403d7d._
 
 _Section order (D37): operative sections first — the Done archive grows
 without bound and tool-capped reads truncate long files, so In progress /
@@ -1325,3 +1327,36 @@ plan (fleet --detach + capacity tool) when it does.
   incidental observation: alive slots changed 18→12→25 within the
   session, empirically confirming the slot-count-is-informational
   boundary.
+
+- U69 (session 55): protocol docs reconciled to the fleet reality
+  (DECISIONS D43). Mechanical grep found six stale assertions of the
+  superseded pre-fleet rules in the docs a fresh session boots from:
+  SCIENTIST.md ("Evidence runs are local `--sequential`"; ground rule
+  "no fleet submissions"; "every run goes through run-backtest.ts"),
+  LIFECYCLE.md ("D7: charter forbids fleet submissions"; "No fleet
+  submissions ever: workers run `origin/main`"), and protocol/README's
+  loop paragraph — all falsified by the operator's fleet mandate
+  (2026-07-09/11) + patch a10b59d, and missed by U58's reconciliation
+  (which covered submit.ts, capacity.ts, RUNBOOK §1/§5, FLEET-GAP, the
+  D33 amendment, the tools index, and STATE gate 3 — but not the role
+  contract / lifecycle docs). Rewritten to: evidence stages
+  = fleet via `submit.ts --execute` (bare CLI, `--detach`,
+  committed+pushed, capacity.ts-sized); smoke/debug/parity local
+  `--sequential` via the wrapper; EPISTEMOLOGY §3 compute anchor now
+  carries the fleet throughput formula beside the local ~1.1s/market
+  measurement; SCIENTIST.md boot gains the `wakeup.ts` step (D42).
+  Documentation reconciliation only — no bar/threshold/gate/rule
+  changed (U33/U49 precedent). D31 fresh-context check:
+  sound-with-findings — verifier confirmed every rewritten claim against
+  submit.ts code, the charter, and U54/U58/U58c (refusal gates, --detach
+  stages, holdout validator gate, throughput anchor, a10b59d semantics)
+  and that no deleted sentence carried a lost binding constraint. 2
+  MAJOR completeness misses applied: LIFECYCLE §2 item 3 still said
+  strategies are "NOT auto-discovered, so every run goes through that
+  wrapper" (now: auto-discovered since a10b59d, wrapper for local runs),
+  and strategies/README.md — which the new SCIENTIST text points at —
+  still said "all fable runs go through run-backtest.ts and are
+  --sequential" / "queue workers would never see these strategies" (now
+  the fleet/local split). 2 MINOR applied: the five-vs-six stale-spot
+  count made consistent across STATE/D43, and U58's coverage list
+  completed.

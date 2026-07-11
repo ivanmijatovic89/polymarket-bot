@@ -13,7 +13,10 @@ say little more than "read this and continue".
    + `fable-lab/knowledge/EDGE-SPACE.md` (the registration bar, D15)
    — where the research stands.
 4. `fable-lab/STATE.md` — what the last session was doing.
-5. The specific experiment files you will touch.
+5. `npx tsx fable-lab/tools/wakeup.ts` — the successor wake-up checks in
+   one command (D42; exit 2 = a gate fired, follow its printed pointer;
+   the STATE.md bullets stay authoritative for what to do).
+6. The specific experiment files you will touch.
 
 Do not re-read the whole engine study each session; `engine/CAPABILITIES.md`
 is the reference to consult when a design question touches engine behavior.
@@ -22,10 +25,15 @@ is the reference to consult when a design question touches engine behavior.
 
 Work the top of `protocol/IDEAS.md`, one experiment at a time, through the
 lifecycle in `protocol/LIFECYCLE.md`. Prefer finishing one experiment stage
-over starting three. Evidence runs are local `--sequential`, launched in the
-BACKGROUND (charter rule): while a replay computes, do useful offline work —
-diagnostics on completed runs, the next spec, idea-ledger upkeep, lesson
-distillation. Never sit idle waiting on a replay.
+over starting three. Evidence runs go through the WORKER FLEET (charter
+constraint 3, reconciled in U58): `tools/submit.ts --execute` builds and
+launches the bare engine command with `--detach`, and refuses unless the
+tree is committed AND pushed to `fable-protocol` (workers pull from
+origin). Check live capacity first (`tools/capacity.ts` — it changes;
+never size from memory). Smokes, debugging, and parity checks stay local
+`--sequential` through the wrapper. While a run computes, do useful
+offline work — diagnostics on completed runs, the next spec, idea-ledger
+upkeep, lesson distillation. Never sit idle waiting on a replay.
 
 Ground rules that are yours specifically:
 
@@ -74,13 +82,18 @@ Ground rules that are yours specifically:
   experiment id (`lineage_cells` accumulates).
 - **Commit + push after every unit** (spec registered, run recorded, verdict
   appended, lesson distilled). STATE.md updates ride in the same commit.
-  Branch `fable-protocol` only; never touch `main`; no fleet submissions.
+  Branch `fable-protocol` only; never touch `main`. Fleet submissions
+  ONLY via `tools/submit.ts --execute` on committed+pushed code, always
+  `--detach` (charter constraint 3; U58).
 
 ## Writing strategies
 
-Under `fable-lab/strategies/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`
-(loaded by `tools/run-backtest.ts`, which every run goes through —
-`tools/submit.ts` builds the command; see `fable-lab/strategies/README.md`).
+Under `fable-lab/strategies/<mechanism>/EXP-NNN.ts`, id `fable-exp-NNN`.
+Local runs (smoke/debug/parity) load it via the `tools/run-backtest.ts`
+wrapper; fleet evidence runs resolve it through the engine registry
+directly (operator patch a10b59d walks `fable-lab/strategies/`), with
+`tools/submit.ts` building the command either way — see
+`fable-lab/strategies/README.md`.
 Replay-safety rules (CAPABILITIES §3): no `Math.random()`; time from
 `tick.snapshot.timestamp` only; deterministic `clientOrderId`s; gate on
 `fill` events, never on order status (E5); never emit `merge_positions`

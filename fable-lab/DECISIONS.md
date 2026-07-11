@@ -1567,3 +1567,39 @@ only — rejected because the failure mode being fixed is exactly
 manual-procedure drift; a tool that exits non-zero cannot be skimmed
 past. Also rejected: auto-updating baselines on change (would hide the
 delta from the very session that must act on it).
+
+## D43 — Protocol docs reconciled to the fleet reality (U58 finished its own paper trail)
+
+**Decision (session 55, U69):** SCIENTIST.md, LIFECYCLE.md,
+protocol/README.md, and EPISTEMOLOGY.md §3 are reconciled to the
+worker-fleet reality: evidence stages (probe/main/lat/grid/holdout) are
+FLEET submissions via `tools/submit.ts --execute` (bare engine command,
+`--detach`, committed+pushed code, capacity checked via
+`tools/capacity.ts`); smokes/debug/parity stay local `--sequential`
+through the wrapper; EPISTEMOLOGY's compute anchor gains the charter's
+fleet throughput formula next to the local ~1.1s/market measurement.
+SCIENTIST.md's boot sequence also gains the D42 `wakeup.ts` step.
+
+**Motivating observation (governor):** a mechanical grep this session
+found six places where the docs a fresh session boots from still
+asserted the SUPERSEDED pre-fleet rules — SCIENTIST.md "Evidence runs
+are local `--sequential`", "no fleet submissions" (its own ground
+rule), and "every run goes through run-backtest.ts"; LIFECYCLE.md
+"D7: charter forbids fleet submissions" and "No
+fleet submissions ever: workers run `origin/main`" (falsified by the
+operator's 2026-07-09 fleet switch and patch a10b59d); and
+protocol/README's loop paragraph. The unit's own D31 verifier found two
+MORE of the same class, both fixed in-unit: LIFECYCLE §2 item 3 ("NOT
+auto-discovered, so every run goes through that wrapper") and
+strategies/README.md ("all fable runs go through run-backtest.ts and
+are --sequential" / "queue workers would never see these strategies").
+U58 reconciled the tools, RUNBOOK §1/§5, FLEET-GAP, the D33 amendment,
+the tools index, and STATE gate 3 —
+but not the role contract or lifecycle docs, so a fresh session obeying
+its contract verbatim would have defied charter constraint 3. Same
+defect class as U33/U49 (D30): contract-vs-reality drift in the docs a
+session actually reads.
+
+**Boundaries:** documentation reconciliation only — no bar, threshold,
+gate, or interpretive rule changed; the D8 latency pins, E18 boundary−1
+bounds, holdout one-shot discipline, and validator gates are untouched.

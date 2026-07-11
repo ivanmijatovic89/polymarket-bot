@@ -7,14 +7,15 @@ one file per experiment version:
 fable-lab/strategies/<mechanism>/EXP-NNN.ts     id: fable-exp-NNN
 ```
 
-Why: the pre-commit hook allows commits only inside `fable-lab/`, evidence
-runs must be on committed code, and the engine registry auto-discovers only
-`src/strategies/**`. `fable-lab/tools/run-backtest.ts` bridges the gap by
-injecting every strategy in this directory into the in-process registry
-before handing off to the standard backtest CLI (DECISIONS D7). Consequence:
-**all fable runs go through `tools/run-backtest.ts` and are `--sequential`**
-(queue workers would never see these strategies). `tools/submit.ts` builds
-the correct command automatically.
+Why: the pre-commit hook allows commits only inside `fable-lab/`, and
+evidence runs must be on committed+pushed code. Since operator patch
+a10b59d (U54/D33) the engine registry auto-discovers this directory too,
+so FLEET workers resolve `fable-exp-*` ids straight from pushed code —
+evidence stages run on the fleet as bare engine commands with `--detach`
+(U58). Local smoke/debug/parity runs go through the
+`fable-lab/tools/run-backtest.ts` wrapper (`--sequential`, idempotent
+registry injection, D8 latency pins printed). `tools/submit.ts` builds
+the correct command for either path automatically.
 
 Rules (same as SCIENTIST.md):
 - Files export `const definition = { id, schema, create }` exactly like

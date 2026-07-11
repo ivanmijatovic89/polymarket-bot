@@ -67,7 +67,10 @@ running 1,000 anyway is theater.
 Compute is cheap relative to holdout data (local sequential replay measured
 ~1.1s/market for a no-op strategy on already-local data — EXP-000-wrapper
 smoke, 2 markets / 2.2s; first-touch R2 downloads add to that; the *most
-recent* markets are finite and burn on first read). Stages exist
+recent* markets are finite and burn on first read). Since U58 evidence
+stages run on the WORKER FLEET: wall time ≈ markets × ~1.75s / alive
+worker slots (charter anchor; read live slots from `tools/capacity.ts`
+at submission time — capacity changes). Stages exist
 to spend compute before belief and belief before holdout.
 
 **Stage S (smoke)** — ≤10 markets, `--sequential`, on the developer's
