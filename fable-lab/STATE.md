@@ -1,19 +1,24 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 61 (2026-07-11, ~19:10 mid-session). Wake-up
-checks all quiet (universe 18,635 / quota 403 / gates closed / freeze
-intact / fleet 30 slots). BIG session: U84 SCR-004o KILL (t=−5.16, no
-pre-information grace window) → ALL 7 BATCH-001 screens dead; touch
-batch checker returned sound-with-findings (4 MINOR applied as erratum
-+ D49 amendment pinning the q̂ population, U86); U85 SIGNAL-001
-ONE-SHOT READ: ZERO buyer-favorable candidates (0/160 monotone,
-4/2,309 cells ALL buyer-adverse → named dead zones Z1-Z3, 0
-seasonality) — the pre-committed barren branch fires, BATCH-002 aims
-at mechanism-level gaps; U87 SIGNAL-002 read: NULL all families —
-cross-episode conditioning (lag-1/streak) is priced; sub-bar ~3c
-early-window anti-momentum lean recorded, licenses nothing. E24+E25
-written, EDGE-SPACE propagated. Session-61 propagation checker in
-flight. Older session-57 summary follows below._
+_Last updated: session 62 (2026-07-11, ~19:20). Wake-up checks all
+quiet (universe 18,635 / quota 403 / gates closed / freeze intact /
+fleet 30 slots). U90: BATCH-002 JUDGED — ALL 3 KILLED. SCR-005 deep
+bid (run 462: q̂=−0.0218, 22/500 played, winRate 0.36 — 10c sweeps
+informative, not overshoot; maker distance axis closed 1c-10c),
+SCR-006 range favorite (run 464: q̂=+0.0165, t=+0.74 sub-bar →
+default kill; the SIGNAL-001 warm cell diluted ~8× on the 4×
+re-draw — winner's curse made visible), SCR-007 fill lock (run 465:
+t=−3.17, −6.80/market — fill-conditional pair sums ADVERSE, the book
+never lags itself; half model-conditional). SCR-005 duplicate
+enqueue resolved OUTCOME-BLIND pre-read (462 canonical, 463 VOID,
+never read). Batch checker sound-with-findings, 3 MINOR all applied
+(D49 amendment 3 closes the kill-bar text gap; submit.ts strips npm
+env vars so backtest_runs.cmd records truthfully; results.ts
+wins/losses convention noted in the batch file). E26 written;
+EDGE-SPACE propagated (3 map rows + maker-distance + settlement
+bullets + §4 bar). 20 ideas ledgered: 19 dead, #10 parked (CONFIRM-010
+pending unlock); 0 screen survivors. Session-61
+summary in git history._
 _(Session 57 summary: U74: AUDIT-COVERAGE
 residue R4 closed — `index-registry.ts` status derivation selftested
 (D46, 25 hand-computed assertions: the enumerated decision-line shapes
@@ -46,15 +51,18 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
-- **BATCH-002 ON THE FLEET** (U89, freeze commit 4d5c7f3): SCR-005 deep
-  bid (batchUid SCR-005-screen, N=500), SCR-006 wide-range favorite
-  (SCR-006-screen, N=2000 under D49 amendment 2), SCR-007 fill lock
-  (SCR-007-screen, N=500). Submitted ~19:56 detached, latency pinned.
-  NOTE: a botched zsh loop errored before enqueue on its 3 attempts —
-  verify exactly ONE run per batchUid before reading verdicts. Then:
-  verdicts per SCREENING bars (all-N q̂ per D49 amendment 1) → one
-  batch checker → LESSONS.
-- Propagation checker (U88) DONE — 1 MAJOR + 6 MINOR all applied.
+- Nothing on the fleet. BATCH-002 fully closed (U90: verdicts, checker,
+  E26, propagation — see the session-62 summary above). The next unit
+  is BATCH-003: new mechanism-distinct ideas per the operator breadth
+  mandate. Idea space guidance after E26: worst-queue punch-through is
+  auto-dead at ANY distance (1c-10c measured); book-lags-itself is dead
+  as a class (standing E9 + fill-conditional E26b); the fixed-time,
+  conditional, path, state, feature, and cross-episode planes are all
+  scanned null — remaining gaps are order-type structure (GTD expiry
+  games, batch/cancel timing), intra-window event-time mechanisms not
+  expressible as fixed-time cells, and anything the SIGNAL-002 sub-bar
+  anti-momentum lean might aim at mechanism level (licenses nothing on
+  its own).
 
 ## Next
 - **OPERATOR MANDATE ACTIVE (2026-07-11): exploration + signal map.** The
@@ -134,6 +142,27 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U90 (session 62): BATCH-002 JUDGED — all 3 screens killed; batch
+  checker applied; E26 + propagation. Details: SCR-005 duplicate
+  enqueue found (runs 462+463, identical cmds 7s apart) and resolved
+  outcome-blind BEFORE any read (462 canonical / 463 VOID — recorded in
+  the batch file pre-verdict, checker-confirmed internally consistent);
+  verdicts per the frozen D49 bars over all N: SCR-005 kill (q̂≤0 +
+  prediction contradicted), SCR-006 kill by default outcome (q̂=+0.0165,
+  t=+0.74 < 1.5, prediction held, minority 84≥30 — no branch fired,
+  survive not earned), SCR-007 kill (q̂≤0, t=−3.17, CI95 excludes 0).
+  Fresh-context batch checker: SOUND-WITH-FINDINGS, 3 MINOR
+  (`knowledge/AUDIT-2026-07-11-BATCH-002-CHECKER.md`), all applied same
+  unit: D49 amendment 3 (kill-is-the-default text closure in
+  SCREENING.md), submit.ts child-env fix (cmd column now records
+  truthfully; root cause npm_lifecycle_event=npx), results.ts
+  wins/losses convention note in the batch file. LESSONS E26 (a: maker
+  distance axis closed 1c-10c, model-conditional; b: fill-conditional
+  pair sums adverse — book-lags-itself dead as a class, half
+  model-conditional; c: first measured warm-cell dilution ~8× —
+  winner's curse arithmetic made visible). IDEAS #18/#19/#20 → dead
+  with outcome markers; EDGE-SPACE 3 map rows + maker-distance bullet +
+  settlement bullet + §4 dedupe bar updated; INDEX regenerated.
 - U0-U8 (session 1): system built and verified — engine study
   (`engine/CAPABILITIES.md`), protocol (`protocol/*`), tools (`tools/*`),
   runbook, role contracts. See ROADMAP.md and git history for detail.

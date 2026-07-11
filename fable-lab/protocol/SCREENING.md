@@ -66,7 +66,12 @@ must then say so explicitly._
 
 - **KILL (default outcome):** q̂ ≤ 0, or prediction contradicted, or
   t ≤ −1, or (win-rate-skewed cell per E14 with minority-outcome count
-  < 30 AND q̂ not positive at t ≥ +1.5).
+  < 30 AND q̂ not positive at t ≥ +1.5). _Explicitly (D49 amendment 3,
+  2026-07-11, motivated by the BATCH-002 checker finding 1 — SCR-006
+  landed at q̂>0 ∧ −1<t<+1.5 ∧ prediction held, a region no enumerated
+  branch covered): a screen that earns neither SURVIVE nor PARK-DESIGN
+  is KILLED. The enumerated branches are illustrations of the default,
+  not its boundary; there is no fourth outcome._
 - **SURVIVE:** q̂ > 0 AND t ≥ +1.5 AND prediction held AND (if skewed per
   E14) minority-outcome count ≥ 30. Survival buys a full registration,
   not a belief — no "edge found" language at screen grade.

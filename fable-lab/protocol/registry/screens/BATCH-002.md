@@ -153,3 +153,10 @@ resolution; 0 failures in all three._
   Model-conditional per D14 on the maker leg; the hedge leg had no
   simulator favor (real ask + fee), and the loss is dominated by the
   economics of the pair itself.
+
+_Checker note (2026-07-11, batch checker finding 2): run 465 shows
+wins+losses = 394 vs played = 398 — results.ts counts only markets with
+nonzero PnL as wins/losses (4 played markets settled flat), while
+winRate uses the played denominator (167/398 = 0.4196). Tool-convention
+quirk faithfully transcribed, not an error. Full checker report:
+`knowledge/AUDIT-2026-07-11-BATCH-002-CHECKER.md`._

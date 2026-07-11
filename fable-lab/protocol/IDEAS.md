@@ -275,16 +275,19 @@ Ordered; top entries get registered first.
   maker bids ~10c below fair, both sides — the 5-15c distance regime
   E16/E17/E19 never measured (their cells sat 1-3c from fair). Dead
   classes distinguished: taker-after-move is E10/E21/E22; near-fair
-  maker is EXP-006/007.
+  maker is EXP-006/007. → killed in BATCH-002 (run 462: q̂=−0.0218,
+  winRate 0.36 on 22 played; E26a).
 - **#19 SCR-006 late favorite after wide range** (BATCH-002): taker FOK
   on the ≥850s favorite (ask 0.65-0.98) when running UP-mid range ≥
   0.30. Aim disclosed: SIGNAL-001 warm mirror (DOWN o850 HI range q4,
   +4.51c sub-bar) — in-sample overlap with the scan disclosed in the
   mini-spec; E14 distinguisher: range-conditioned, HI stratum not 0.95+
-  tail.
+  tail. → killed in BATCH-002 (run 464: t=+0.74 sub-bar default kill;
+  warm cell diluted 8×; E26c).
 - **#20 SCR-007 filled-maker instant lock** (BATCH-002): rest bids
   below fair; on maker fill, immediately FOK the other side — pair
   settles at $1; bet is on transient post-sweep dislocation
   (p + a < 1 − fee), not direction. E9/EXP-002 distinguisher: EXP-002
   measured STANDING ask sums with no position; this measures
-  fill-CONDITIONAL sums the standing scan never sampled.
+  fill-CONDITIONAL sums the standing scan never sampled. → killed in
+  BATCH-002 (run 465: t=−3.17, EV −6.80/market; E26b).

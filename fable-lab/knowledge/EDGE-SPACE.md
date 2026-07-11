@@ -34,6 +34,9 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | taker (event-time screens) | first-passage continuation + fade at 0.80, depth-withdrawal momentum, quote-pressure imbalance | BATCH-001 SCR-001a/b, 002, 003 | 4 kills (screen-grade, N=500 each; batch-checked) | E24 |
 | maker (touch bound, screens) | late tail bid at fav ≥ 0.90; E22-reversal DOWN bid; opening 90s two-sided touch quoting | BATCH-001 SCR-004t/r/o | 3 kills (decisive under the most favorable fill assumption; batch-checked) | E24 |
 | taker (feature scan) | 16 book/path/activity features × 5 offsets × both sides, monotone + quintile-cell + seasonality | SIGNAL-001 | map-grade: 0 buyer-favorable candidates; 4 buyer-adverse cells (zones Z1-Z3) | E25 |
+| maker (deep distance) | resting bids 10c below fair, both sides (5-15c distance regime) | BATCH-002 SCR-005 | kill (screen-grade; model-conditional D14 — worst-queue punch-through now closed across 1c-10c) | E26 |
+| taker (warm-mirror screen) | late favorite after wide range (SIGNAL-001 warm cell mirror, in-sample overlap disclosed) | BATCH-002 SCR-006 | kill (default: q̂=+0.0165, t=+0.74 sub-bar; warm cell d diluted ~8× on 4× re-draw) | E26 |
+| maker+settlement | filled-maker instant lock (fill-conditional UP+DOWN pair sums) | BATCH-002 SCR-007 | kill (t=−3.17; p+a+fee > 1 conditional on fill — half model-conditional: hedge leg at real ask+fee) | E26 |
 
 Summary of the map:
 
@@ -108,7 +111,11 @@ Summary of the map:
   informative whether the tape is quiet (E16: −0.79/played market) or loud
   (E17: −1.27/played market), at zero maker fee, with fill size simulated
   in the strategy's favor. No regime gate between those extremes has any
-  evidence of flipping the sign.
+  evidence of flipping the sign. The DISTANCE axis is now measured too
+  (E26a, BATCH-002 SCR-005): at 10c below fair — the deep end no prior
+  cell touched — fills are rarer (22/500 markets) and MORE adversely
+  selected (win rate 0.36, EV per played ≈ −4.55); sweep size does not
+  turn information into overshoot anywhere in the measured 1c-10c range.
 - **Maker at-touch bound: worse, not better (E19, 2026-07-10).** The
   U35/D18 `touch_or_better` instrument re-ran both frozen cells at the
   optimistic end of the fill bracket. Measured brackets, EV/market:
@@ -118,7 +125,14 @@ Summary of the map:
   same negative EV per played market. The real queue model's location
   inside the brackets is economically moot.
 - **Settlement: arithmetic, not an edge.** Merge/split/redeem are modeled
-  costless and priceless; no channel there.
+  costless and priceless; no channel there. The maker×settlement
+  interaction is also measured (E26b, BATCH-002 SCR-007):
+  fill-conditional UP+DOWN pair sums are ADVERSE (conditional on a maker
+  fill at p, the same-tick opposite ask a gives p + a + fee > 1;
+  −6.80/market, t=−3.17) — the book does not lag itself after a sweep,
+  so "lock the pair" mechanisms pay the dislocation instead of
+  collecting it. Together with E9 (standing sums never < 1 net of fees)
+  this closes book-lags-itself ideas as a class in recorded data.
 
 ## 2. What this does and does not prove
 
@@ -271,8 +285,9 @@ registered only if one of these holds:
   (frozen cells, prediction, kill bar, N), batchUid containing `touch`,
   and the D18 interpretive rules apply (outcomes are kill or
   operator-escalation only; the holdout stays locked regardless).
-  Worst-queue punch-through variants, whatever their gate, re-test
-  E16/E17 and stay auto-dead at dedupe. Touch-mode re-runs of the two
+  Worst-queue punch-through variants, whatever their gate OR DISTANCE
+  (1c-10c measured, E16/E17/E26a), re-test the same mechanism and stay
+  auto-dead at dedupe. Touch-mode re-runs of the two
   measured cells (EXP-006/007 primaries) re-test E19 and are likewise
   auto-dead at dedupe; a NEW touch registration must argue why its cell
   or gate escapes the E19 mechanism (denser at-touch fills were MORE

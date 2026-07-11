@@ -535,3 +535,37 @@ forbids importing the old system's research conclusions._
   consistent with E14/E21/E22 and the BATCH-001 tail-maker kill; the
   venue's one persistent regularity remains "the stale cheap side is a
   trap for both taker and maker".
+
+- **E26 — BATCH-002: the distance continuum, fill-conditional pair
+  sums, and a measured warm-cell dilution (2026-07-11; screen-grade,
+  checker-verified).** All three mechanism-gap screens killed (runs
+  462/464/465, checker report
+  `knowledge/AUDIT-2026-07-11-BATCH-002-CHECKER.md`). (a) DEEP maker
+  distance is adversely selected like near-fair distance: 10c-deep bids
+  filled in only 22/500 markets and won 36% (needed ~47%+ at the fill
+  prices; EV per played ≈ −4.55) — with E16/E17/E19 this closes the
+  worst-queue punch-through story across the whole measured 1c-10c
+  distance range; sweep size does not turn information into overshoot
+  (model-conditional per D14). (b) FILL-CONDITIONAL transient ask sums
+  are adverse, sharpening E9: conditional on a maker fill at p, the
+  same-tick opposite ask a satisfies p + a + fee > 1 on average and
+  decisively so (locking every pair loses −6.80/market, t=−3.17, CI95
+  excludes 0) — the book does not lag itself after a sweep; the
+  "neutral lock" pays the dislocation instead of collecting it. The
+  hedge leg had no simulator favor (real recorded ask + real fee), so
+  unlike pure maker kills this one is only HALF model-conditional.
+  (c) First measured warm-cell dilution: SIGNAL-001's best
+  buyer-favorable warm cell (DOWN o850 HI-range q4, d=+4.51c, z=+3.10,
+  n=255) re-sampled at 4× with partial overlap came back +0.57c/share
+  (t=+0.74, 774 played, minority 84 ≥ 30 — adequately powered) — an
+  ~8× shrink on mostly the SAME window is winner's-curse arithmetic
+  made visible, and it validates the map rule that warm cells are
+  aiming aids, not evidence. Transfer: (i) maker punch-through ideas
+  at ANY distance now need a non-worst-queue argument to register;
+  (ii) "the book lags itself" ideas are dead as a class in recorded
+  data — both standing (E9) and fill-conditional (this) sums are
+  consistent; (iii) a scan cell's d is an upper bound under re-draw
+  even in-sample: discount warm cells by several× when sizing screens
+  (SCR-006's N=2000 sizing was adequate — played 774 even EXCEEDED
+  the 100-300 incidence forecast, so power was not the binding issue;
+  the shrink of d itself was).

@@ -1905,3 +1905,23 @@ unkillable-unsurvivable wastes; and BATCH-002's SCR-006 gate
 (late wide-range favorite) has ~5-15% expected incidence. Fleet cost
 of 2000 vs 500 markets is ~2 minutes — negligible against a wasted
 run. Window, randomness, kill bars unchanged._
+
+_D49 amendment 3 (session 62, 2026-07-11): the SCREENING.md KILL bullet
+now states explicitly that a screen earning neither SURVIVE nor
+PARK-DESIGN is killed — the enumerated kill branches are illustrations
+of the default, not its boundary. Motivating evidence (governor): the
+BATCH-002 fresh-context checker (finding 1,
+`knowledge/AUDIT-2026-07-11-BATCH-002-CHECKER.md`) — SCR-006 landed at
+q̂>0 ∧ −1<t<+1.5 ∧ prediction held, a region no enumerated branch
+covered; the checker judged the "(default outcome)" label sufficient to
+carry the kill this time, but flagged that a future survive-adjacent
+case could argue the gap the other way. Bars, thresholds, and outcomes
+unchanged — text closure only. Same unit, checker finding 3:
+`tools/submit.ts` now strips `npm_lifecycle_event`/`npm_config_argv`
+from the child env so `backtest_runs.cmd` records the truthful
+`node <entry> ...` instead of the unrunnable `npm run npx -- ...` that
+`npx` invocation leaked into the engine's lifecycle-first cmd recorder
+(runs 453-465 affected; spec tokens verified correct by the checker, so
+the historical rows stand as-is). Finding 2 (results.ts wins/losses
+counts only nonzero-PnL markets) recorded as a convention note in
+BATCH-002.md._

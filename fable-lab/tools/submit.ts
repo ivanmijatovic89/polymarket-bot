@@ -216,7 +216,16 @@ function main() {
         return
       }
     }
-    const res = spawnSync('npx', args, { stdio: 'inherit', env: { ...process.env, ...env } })
+    // BATCH-002 checker finding 3: when this tool itself runs under `npx`,
+    // npm_lifecycle_event=npx leaks into the child and the engine's cmd
+    // recorder (src/cli/helpers/backtestCmd.ts) writes the unrunnable
+    // `npm run npx -- ...` as the permanent launch record. Strip the npm
+    // reconstruction vars so the recorder falls back to the truthful
+    // `node <entry> ...` form.
+    const childEnv = { ...process.env, ...env }
+    delete childEnv.npm_lifecycle_event
+    delete childEnv.npm_config_argv
+    const res = spawnSync('npx', args, { stdio: 'inherit', env: childEnv })
     process.exitCode = res.status ?? 1
   }
 }
