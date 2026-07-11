@@ -81,8 +81,12 @@ alongside; cell = schema defaults. Sample rule: `--random --limit 500
 
 ## Feasibility smoke (counts only, no PnL — E15 discipline)
 
-_To run before the screen: oldest-15 discovery markets, local
-`--sequential --fill-mode touch_or_better`, batchUid
-`SCR-008-touch-smoke`, counts read via fills.ts only._
+_Run 2026-07-11 session 62 (run 466, oldest-15 discovery markets,
+local `--sequential --fill-mode touch_or_better`, latency pinned
+in-log, D18 hook line present): 14/15 markets filled, 15 maker fills +
+4 taker fills (a resting GTC bid that the ask subsequently crosses
+fills via the engine's taker path — favorable-price fills, engine
+semantics), 0 failures. Counts read via fills.ts only, no PnL. Cell
+unchanged post-smoke (schema defaults)._
 
 ## Verdicts (append-only after runs complete)
