@@ -158,3 +158,36 @@ will, as ONE unit and before any fleet evidence run:
 Until then, evidence runs continue local-sequential per D7/D10 — the
 charter's fleet mandate is acknowledged and blocked, not ignored
 (DECISIONS D33).
+
+## STATUS: RESOLVED (2026-07-11, session 49, U58)
+
+The operator applied `fleet-gap-registry.patch` as commit a10b59d
+(registry file only) and left a STATE.md note. The wake-up probe prints
+`RESOLVED`. The pre-committed reconciliation plan above was executed the
+same day as ONE unit, before any fleet evidence run:
+
+1. `tools/submit.ts`: probe/main/lat/grid/holdout now emit the bare
+   engine CLI with `--detach` (smoke stays local `--sequential` via the
+   wrapper); D8 pins remain on the submit command (they ship in job
+   data); `--execute` on a fleet stage REFUSES a dirty tree or
+   `HEAD != origin/fable-protocol` (verified: refused a dirty tree).
+   E18 boundary−1 bounds and the holdout validator gate unchanged.
+2. `tools/capacity.ts` built: live per-machine alive worker slots from
+   the :3051 dashboard API + staleness vs origin HEAD + wall-clock
+   estimate at the charter's 1.75s/market anchor. At build time: 4
+   machines, 32 alive slots, all on fable-protocol.
+3. D8 re-verified EMPIRICALLY on the fleet path: two 10-market detached
+   smokes (runs 421 `FLEET-SMOKE-D8`, 422 `FLEET-SMOKE-D8B`,
+   fable-exp-006 — a killed mechanism, plumbing only) completed 10/10
+   with 0 failures on worker-executed code (commit cab72171), proving
+   workers resolve lab strategy ids; the D8B market jobs were read from
+   Redis BEFORE workers drained them and every payload carries
+   `latency={"delayMs":0,"jitterMs":0}` from the submitter's pinned env
+   (backtest.ts:557-558 → :1008). `tools/holdout-lock-audit.ts` re-run
+   (D32 standing procedure): clean, 67 runs, no new post-boundary rows
+   (both smokes bounded to boundary−1).
+
+Evidence runs now go through the fleet per charter constraint 3. The
+coupling caveat (a malformed/duplicate-id lab strategy crashes every
+patched engine process at import, live bots included) STANDS — see the
+RUNBOOK §5 note.

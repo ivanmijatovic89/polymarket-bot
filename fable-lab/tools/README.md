@@ -21,6 +21,7 @@ against the DB except `submit.ts --execute` (which launches a backtest).
 | `index-registry.ts` | regenerate `protocol/registry/INDEX.md` |
 | `calib.ts` / `calib2.ts` / `calib3.ts` / `calib4.ts` | frozen one-shot readers for CAL-001/-002/-003/-004 (`knowledge/CALIBRATION*.md`); constants are pre-registered — never edit post-read |
 | `calib-selftest.ts` / `calib2-selftest.ts` / `calib3-selftest.ts` / `calib4-selftest.ts` | hand-computed synthetic-fixture selftests for the calib readers (D28) |
+| `capacity.ts` | live fleet capacity via the :3051 dashboard API (alive worker slots per machine, staleness vs origin HEAD, wall-clock estimate); size every fleet batch with it (charter constraint 3; U58) |
 | `calib-coverage.sh` / `calib-integrity.sh` | CAL-001 outcome-free log checks: per-offset coverage recompute; integrity battery (dup/malformed/mirror/ts checks) |
 | `lib/spec.ts` | shared experiment-spec parser |
 | `fixtures/EXP-000-fixture.md` | parser/validator test fixture (not a real experiment) |

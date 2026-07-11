@@ -1214,3 +1214,15 @@ edge?" formally open for every successor to re-derive.
 tool + synthetic selftest → fresh-context pre-read audit, findings
 applied pre-read → ONE-shot read → fresh-context Judge → LESSONS E23 +
 EDGE-SPACE update → D25/D31 propagation audit.
+
+_U58 amendment (2026-07-11, session 49): D33's blocker is RESOLVED — the
+operator applied the lab-authored registry patch (a10b59d, verified by
+the wake-up probe printing `RESOLVED`), and the pre-committed
+reconciliation plan was executed as one unit before any fleet evidence
+run: submit.ts fleet routing (+ dirty/unpushed refusal gate, verified),
+tools/capacity.ts (4 machines / 32 alive slots at build), empirical D8
+re-verify on the fleet path (runs 421/422 clean 10/10; D8B job payloads
+read from Redis pre-drain carry latency 0/0 from the submitter env), and
+a clean holdout-lock re-sweep (67 runs). Evidence stages are fleet
+`--detach` from now on; local `--sequential` remains for smokes/debug
+only. Details: knowledge/FLEET-GAP.md STATUS section, RUNBOOK §1/§5._

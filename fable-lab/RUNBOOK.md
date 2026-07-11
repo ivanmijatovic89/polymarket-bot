@@ -1,8 +1,9 @@
 # RUNBOOK — morning operator guide
 
 How to start driving research with the Fable protocol, step by step.
-Assumes: repo cloned, `.env` with DB/Redis credentials. No worker fleet is
-used (all runs are local `--sequential`). Nothing here trades live.
+Assumes: repo cloned, `.env` with DB/Redis credentials. Evidence runs go
+through the distributed worker fleet (`--detach`, committed+pushed code);
+smokes/debug stay local `--sequential`. Nothing here trades live.
 
 ## 0. Five-minute orientation (once)
 
@@ -14,15 +15,20 @@ Read in this order — ~15 pages total:
 ## 1. Where strategies live and how runs execute
 
 Strategies live in `fable-lab/strategies/<mechanism>/EXP-NNN.ts` (the
-pre-commit hook restricts commits to `fable-lab/`). They are injected into
-the engine's registry by `fable-lab/tools/run-backtest.ts`, which every run
-goes through; consequently ALL runs are local `--sequential`. Your 2026-07
-charter updates direct evidence runs through the worker fleet (workers now
-track `origin/fable-protocol`), but that path is blocked by the engine, not
-by the lab: the strategy registry only auto-discovers `src/strategies/**`,
-so fleet workers cannot resolve any `fable-exp-*` id — see the control
-point in §5 and `knowledge/FLEET-GAP.md` (DECISIONS D7, D33). Sessions
-launch evidence runs in the background and keep working.
+pre-commit hook restricts commits to `fable-lab/`). Since 2026-07-11 the
+engine registry ALSO discovers that directory (you applied
+`knowledge/fleet-gap-registry.patch` as commit a10b59d — D33/U58), so
+fleet workers resolve `fable-exp-*` ids and evidence runs go through the
+fleet: `tools/submit.ts` emits bare-CLI `--detach` commands for
+probe/main/lat/grid/holdout (with D8 latency pins shipped in job data
+from the submitter's env, verified empirically in U58 on runs 421/422),
+and REFUSES to submit from a dirty or unpushed tree — workers execute
+`origin/fable-protocol`, not your working copy. Smokes and debug stay
+local `--sequential` through the injection wrapper
+`fable-lab/tools/run-backtest.ts` (charter). Check live capacity before
+sizing a batch: `npx tsx fable-lab/tools/capacity.ts --markets <N>`
+(fleet size CHANGES; never assume). Sessions submit detached and keep
+working.
 
 ## 2. Sanity-check the plumbing (5 minutes)
 
@@ -108,21 +114,18 @@ The protocol runs without you except at these points:
   adequately powered; its unlock further requires venue-drift-quiet
   bands and full pre-registration per the IDEAS entry. Until a sync
   happens, sessions will keep reporting "both wake-up gates closed".
-- **Unblocking the worker fleet** (`knowledge/FLEET-GAP.md`, D33): your
-  fleet unlock cannot take effect until the engine's strategy registry can
-  see `fable-lab/strategies/**`. The fix is authored and verified for you:
-  run `git apply fable-lab/knowledge/fleet-gap-registry.patch` from the
-  repo root, then commit with `git commit --no-verify` (the pre-commit
-  hook YOU installed blocks any commit touching `src/` — bypassing it is
-  correct here and only here; do not disable the hook permanently), and
-  push (workers self-update). Coupling caveat in
-  the memo: after the patch, a malformed lab strategy file would crash
-  every engine process on that clone, live bots included. The lab cannot
-  apply it itself (the pre-commit hook you installed blocks writes outside
-  `fable-lab/`). Until it lands, sessions keep running evidence locally
-  `--sequential` and probe the gap every wake-up; once the probe prints
-  `RESOLVED`, they will reconcile `tools/submit.ts` to `--detach` fleet
-  submissions and build the capacity tool before the next evidence run.
+- **Worker fleet: UNBLOCKED (2026-07-11, D33/U58).** You applied
+  `knowledge/fleet-gap-registry.patch` (commit a10b59d); the lab executed
+  its pre-committed reconciliation the same day: submit.ts fleet routing
+  with a committed+pushed refusal gate, `tools/capacity.ts`, and an
+  empirical D8 re-verify (runs 421/422: 10/10 markets each, 0 failures,
+  job payloads carry `latency {0,0}` from the submitter env; holdout
+  sweep re-run clean over all 67 runs). Standing caveat from the memo
+  still applies: a malformed/duplicate-id lab strategy file now crashes
+  every engine process at import on clones with the patch, live bots
+  included — the wrapper's same-id-different-object guard throws locally
+  before such a file can be pushed, but treat new strategy files with
+  care.
 - **Instrumentation unlocks** (`knowledge/EDGE-SPACE.md` §3): the
   `touch_or_better` fill mode turned out to be reachable in-lab (U35/D18,
   no src change needed) and its bracket is already measured and CLOSED

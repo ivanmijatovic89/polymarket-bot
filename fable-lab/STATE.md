@@ -1,7 +1,7 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 49, unit U57 (CAL-004 spread-state scan: null,
-judged, propagated; §4 bar now also requires escaping E23)._
+_Last updated: session 49, unit U58 (fleet unblocked: operator patch
+landed; reconciliation executed — evidence runs are fleet --detach now)._
 
 ## Done
 - U0-U8 (session 1): system built and verified — engine study
@@ -834,6 +834,28 @@ judged, propagated; §4 bar now also requires escaping E23)._
   `knowledge/AUDIT-2026-07-11-E23-PROPAGATION.md`). Reserve unspent;
   holdout untouched.
 
+- U58 (session 49): FLEET UNBLOCKED — the operator applied the lab's
+  registry patch mid-session (a10b59d + STATE note 2a9b188; wake-up
+  probe now prints `RESOLVED`), and the pre-committed FLEET-GAP.md
+  reconciliation plan was executed as ONE unit before any fleet evidence
+  run: (1) `tools/submit.ts` evidence stages (probe/main/lat/grid/
+  holdout) now emit bare engine CLI + `--detach` (smoke stays local
+  wrapper `--sequential`), all six stage commands verified printed
+  against the frozen EXP-001 spec (boundary−1 bounds, D8 pins, holdout
+  validator gate intact; main extension correctly carries no
+  --batchUid), with a REFUSAL gate on dirty/unpushed trees (verified:
+  refused a dirty tree); (2) `tools/capacity.ts` built and run — 4
+  machines, 32 alive worker slots, all on fable-protocol; (3) D8
+  re-verified EMPIRICALLY on the fleet path: runs 421/422
+  (FLEET-SMOKE-D8/-D8B, fable-exp-006 — killed mechanism, plumbing
+  only) completed 10/10 with 0 failures on worker-executed commit
+  cab72171, and the D8B market-job payloads read from Redis pre-drain
+  all carry `latency={"delayMs":0,"jitterMs":0}` from the submitter's
+  pinned env; holdout-lock sweep re-run clean (67 runs, no new
+  post-boundary rows). Docs reconciled: FLEET-GAP STATUS section, D33
+  amendment, RUNBOOK §1/§5, tools index, this file's gate 3. The
+  malformed-lab-strategy coupling caveat STANDS (RUNBOOK §5).
+
 ## In progress
 - (nothing in flight)
 
@@ -863,16 +885,15 @@ judged, propagated; §4 bar now also requires escaping E23)._
      trades-aware converter exists, the queue-realistic fill model
      supersedes both D18 bracket ends; that reopens maker measurement
      with a NEW instrument (full pre-registration required).
-  3. Fleet-gap probe (D33, side-effect-free — imports the same registry
-     module a worker child resolves against, starts nothing):
-     `npx tsx -e "import('./src/strategy/strategyRegistry.js').then(m =>
-     console.log('fable-exp-001' in m.strategyRegistry ? 'RESOLVED' :
-     'GAP'))"` — `GAP` ⇒ fleet stays blocked, evidence runs remain
-     local-sequential per D7/D10. `RESOLVED` ⇒ the operator patched the
-     registry: execute the reconciliation plan in
-     `knowledge/FLEET-GAP.md` ("What the lab does when the patch lands")
-     as one unit BEFORE any fleet evidence run. Verified this session:
-     prints `GAP`.
+  3. Fleet health (the D33 gap is RESOLVED as of 2026-07-11 — operator
+     patch a10b59d, reconciliation executed in U58): before any fleet
+     submission run `npx tsx fable-lab/tools/capacity.ts` (live slots;
+     refuses at 0) and verify the tree is committed AND pushed
+     (submit.ts enforces this on --execute). The old registry probe
+     (`'fable-exp-001' in strategyRegistry` → RESOLVED/GAP) is now a
+     regression check: `GAP` would mean the operator REVERTED the patch
+     — stop fleet submissions and fall back to local `--sequential`
+     (D7/D10) until reconciled.
   4. Otherwise: verification depth or targeted diagnostics only; do not
      re-run answered questions (E9-E19).
 - Venue-drift refresh is only worthwhile once the eligible universe has
@@ -890,8 +911,9 @@ judged, propagated; §4 bar now also requires escaping E23)._
 - Boot per `protocol/sessions/SCIENTIST.md` (charter scope → protocol map →
   registry INDEX + LESSONS → this file).
 - Branch `fable-protocol`; write only inside `fable-lab/`; commit + push
-  after every unit; evidence runs local `--sequential` in the background via
-  `tools/submit.ts`; never create `fable-lab/DONE`.
+  after every unit; evidence runs go through the WORKER FLEET via
+  `tools/submit.ts` (`--detach`, committed+pushed code — U58); smokes and
+  debug stay local `--sequential`; never create `fable-lab/DONE`.
 
 ## Operator update — worker fleet unlocked (2026-07-09)
 
