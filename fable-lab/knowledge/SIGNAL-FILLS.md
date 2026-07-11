@@ -234,4 +234,80 @@ BEFORE the one-shot read, none touches `signal3-scan.ts` or the fixture)
 
 ## 7. Results (append-only, written after the one-shot read)
 
-_(empty until all shards complete + coverage accounting clean)_
+_Read session 65, 2026-07-11. Pre-read gates: all 6 shards exited clean;
+`signal3-coverage.sh` printed COVERAGE CLEAN (loaded=8,516 completed=8,516
+failures=0, fillMkts=8,130, 0 epochs ≥ discovery boundary, staleness
+mean 0.03s / 4 rows >10s). One-shot read executed once; output verbatim:_
+
+```
+parsed 8130 primary fills across 8130 markets (0 malformed, 0 later-fill rows excluded, 0 non-maker first fills excluded, 0 price-range excluded; 8130 markets emitted any fill line)
+quote attribution: 8130/8130 attributed (0 sentinel rows excluded from qAgeSec/qMidDrift tests only)
+outcome joined for 8130/8130 fills (0 missing/unresolved — excluded)
+gate G1: n=4 < 30 high-price fills — gate vacuous (disclosed)
+gate G2: mean residual -1.012c z=-1.87 (n=8130)
+
+=== MONOTONE SCREEN (Spearman feature vs residual, Stouffer across fill-price strata; CANDIDATE |z|≥3.50, WARM |z|≥3.00) ===
+  move60 z=+3.06 [LO:271,MID:7171,HI:688] WARM
+  firstMid z=-2.50 [LO:271,MID:7171,HI:688]
+  l10Imb z=-2.47 [LO:271,MID:7171,HI:688]
+  posR z=+2.45 [LO:271,MID:7171,HI:688]
+  fElapsed z=-2.09 [LO:271,MID:7171,HI:688]
+monotone screen: 0 CANDIDATE, 1 WARM of 21 tests (|z|<2 suppressed from listing)
+
+=== CELL GRID (feature quintiles within (stratum, feature); CANDIDATE |z|≥4.20) ===
+  LO l1Imb q5 d=-15.57c z=-3.16 n=54 warm
+  LO crossedN q1 d=-16.19c z=-3.57 n=58 warm
+  MID l10Imb q5 d=-5.54c z=-4.30 n=1435 CANDIDATE
+  MID posR q2 d=-4.91c z=-3.70 n=1398 warm
+  HI qAgeSec q2 d=10.74c z=+3.39 n=150 warm
+  HI vol q2 d=10.44c z=+3.18 n=135 warm
+cell grid: 1 CANDIDATE, 5 warm (|z|≥3) of 295 evaluated cells
+
+=== FILL SEASONALITY (hour-of-day 4h bins + day-of-week, UTC; CANDIDATE |z|≥4.20) ===
+fill seasonality: 0 CANDIDATE
+
+scan complete — interpretation rules are frozen in knowledge/SIGNAL-FILLS.md (map-grade only)
+```
+
+### Verdict (mechanical, per §6 + amendment 1)
+
+**ONE cell-grid CANDIDATE: MID stratum × l10Imb q5 (d=−5.54c, z=−4.30,
+n=1,435).** Monotone family: 0 candidates (move60 WARM +3.06, recorded).
+Seasonality: 0 candidates. The candidate branch of §6 fires.
+
+- **Gate (amendment 1b, cell-grid-only candidate):** exclude exactly the
+  flagged cell — fills whose price falls in the MID stratum [0.35, 0.65]
+  AND whose pre-fill `l10Imb` lies in that stratum's top quintile. Nothing
+  else. `l10Imb` is computed by the fixture's own tick code path →
+  GATEABLE per amendment 1c. (Sign reading: high UP-book 10-level depth
+  imbalance predicts the DOWN buy loses — consistent with the monotone
+  l10Imb z=−2.47 direction, below its own bar.)
+- **Prediction-line arithmetic (both anchors disclosed):** the frozen §6
+  formula assumes the E29 zero anchor: p = 1435/8130 = 0.1765,
+  x = 5.54c → complement = +px/(1−p) = **+1.19c/fill**. HOWEVER this
+  scan's own measured global anchor is −1.012c (G2 line, z=−1.87, n=8,130
+  — statistically compatible with E29's run-472 q̂=+0.33c at N=500 but 16×
+  the sample), and under the measured anchor the complement of the flagged
+  cell averages (m + px)/(1−p) = **−0.04c/fill** — the candidate cell
+  accounts for essentially ALL of the pooled negative drift. Both numbers
+  go to the screen's prediction line; the honest point prediction is ≈ 0,
+  and the E26c winner's-curse discount applies on top of the −5.54c cell
+  estimate itself. The screen's frozen D49 bars decide, not these numbers.
+- **Consequence:** IDEAS #22 stays OPEN pending the fresh screen
+  (SCR-009): run-472 cell + the mechanical complement gate, NEW sample
+  per amendment 3 / D53 (uniform random reserve-window draw), D18 outcome
+  set {kill, escalate}. If that screen kills, the maker family closes for
+  good per §6's null branch logic (the gate was the family's last
+  arithmetic escape).
+- **Warm zones recorded (aiming aids only, not citable):** LO-stratum
+  extreme cells are large but tiny-n (|d|≈16c, n≈55); HI qAgeSec/vol q2
+  positive cells (≈+10.5c, n≈140) are sub-bar and unstable-n; monotone
+  move60 (+3.06) says recent 60s UP-drift mildly predicts BETTER DOWN
+  fills — same family as the candidate's sign (fills against drift are
+  toxic).
+- Judge note: verdict is mechanical against frozen bars (candidate z=−4.30
+  vs bar 4.20 — no discretion exercised); per the operator closing-sprint
+  directive (STATE 2026-07-11) the optional fresh-context audit of this
+  read is SKIPPED — the false-positive protections that remain are the
+  frozen bars above and the fresh-sample screen itself, which is the
+  binding test.

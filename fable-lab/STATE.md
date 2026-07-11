@@ -62,6 +62,23 @@ Next / Notes / operator updates must survive a truncated read. Done is the
 append-only history at the bottom; new entries still go there._
 
 ## In progress
+- **CLOSING SPRINT (session 65, operator directive 2fcfa5b):** SIGNAL-003
+  read is DONE (see below); the rest of this session is attempts —
+  construct + screen as many plausible strategies as the fleet takes,
+  minimal ceremony (frozen bars + locked holdout + journal lines are the
+  only retained protections; optional audits skipped per directive).
+- **U101: SIGNAL-003 READ (session 65) — ONE CANDIDATE.** Coverage CLEAN
+  (8,516/8,516, 0 failures, 0 boundary leaks); one-shot read verbatim in
+  `knowledge/SIGNAL-FILLS.md` §7. Cell-grid CANDIDATE: MID stratum ×
+  l10Imb q5, d=−5.54c, z=−4.30, n=1,435 (bar 4.20). Monotone/seasonality:
+  0 candidates (move60 WARM +3.06). Honest arithmetic disclosed in §7:
+  global anchor measured −1.012c (not E29's 0), complement of the flagged
+  cell ≈ −0.04c under the measured anchor (+1.19c under the frozen
+  zero-anchor formula) — prediction ≈ 0, screen bars decide. NEXT: SCR-009
+  = run-472 cell + mechanical gate (exclude quote price ∈ [0.35,0.65] ∧
+  l10Imb in top quintile), fresh reserve-window random draw per D53, D18
+  outcomes {kill, escalate}. If SCR-009 kills → maker family closes for
+  good (IDEAS #22 → dead).
 - **SIGNAL-003 FROZEN (U99, session 64)** — `knowledge/SIGNAL-FILLS.md`
   (D52): per-fill toxicity scan of the run-472 ungated DOWN at-touch
   cell. Fixture `_fixtures/diag-fill.ts` (hardcoded run-472 params;
