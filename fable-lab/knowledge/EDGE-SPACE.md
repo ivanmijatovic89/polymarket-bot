@@ -30,6 +30,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | taker (plane scan) | fixed-time top-of-book, both sides, 126-cell offset × price grid | CAL-001 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.565) | E20 |
 | taker (conditional scan) | single-segment move sign/size × entry side, 60-cell grid | CAL-002 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.72) | E21 |
 | taker (path scan) | two-segment path shape × entry side, 40-cell grid | CAL-003 | null-confirmed (0 candidates; 1 buyer-adverse NEG-FLAG at z = −3.47; persistence hypothesis dead) | E22 |
+| taker (state scan) | spread state (tight/wide) × the CAL-001 grid, 252 cells | CAL-004 | null-confirmed (0 candidates, 0 neg-flags at z ≥ 3.75; no tight-confined edge behind the E20 null) | E23 |
 
 Summary of the map:
 
@@ -61,6 +62,19 @@ Summary of the map:
   cells condition on both/all offsets live (coverage 0.766 / 0.464); the
   sub-power window (~1.5-3c conditional effects, incl. the E22 reversal
   mirror) remains formally open.
+- **Taker spread-state layer: closed; the discovery log's single feature
+  axes are now ALL measured (E23, 2026-07-11).** CAL-004 decomposed the
+  CAL-001 plane by spread state (T ≤ 0.0105 < W; 252 cells): zero
+  candidates, zero neg-flags at z ≥ 3.75. T cells track the CAL-001
+  marginals (pooled 84.8% shared samples — not independent of E20; any
+  specific T-cell citation must quote its printed per-cell tfr); W-cell
+  nulls are power statements (mid-range resolves only |d| ≳ 6-10c), and
+  the single |z| ≥ 3 W cell is buyer-adverse staleness consistent with
+  E21/E22. Scope (Judge-corrected, CAL-004 erratum): this exhausts the
+  single AXES (levels, moves, two-segment big-move sign paths, spread
+  state; cross-side sums degenerate; sizes unrecorded) — joint/
+  interaction conditionings of scanned axes remain formally expressible
+  with strictly less power and the same reserve-confirmation burden.
 - **Maker punch-through side: adversely selected at both regime extremes.**
   Under worst-queue, a fill IS a move through the level; that move is
   informative whether the tape is quiet (E16: −0.79/played market) or loud
@@ -192,10 +206,24 @@ registered only if one of these holds:
   strongest gross staleness in the conditional scans (−4.39c against the
   UP buyer) but its tradable mirror nets +2.38c at z = +2.40 — inside
   the open sub-power window, NOT citable (reserve unspent,
-  hypothesis-generating only). A conditional-structure argument must
+  hypothesis-generating only). E23 (CAL-004) closes the spread-state
+  layer: decomposing the full fixed-time grid by tight/wide book (252
+  cells) yields no cell clearing the candidate bar in either state —
+  the E20 null is not hiding a tight-book-confined edge, and wide-book
+  states show nothing beyond buyer-adverse staleness at the gross
+  levels the scan resolves (mid-range W cells are power statements,
+  |d| ≳ 6-10c). With that, every SINGLE feature axis the discovery log
+  expresses is measured (levels, moves, two-segment big-move sign
+  paths, spread state; cross-side sums degenerate by the mirror fact;
+  sizes unrecorded — Judge-corrected scope, CAL-004 erratum).
+  A conditional-structure argument must
   therefore go beyond one- AND two-segment BIG-MOVE sign paths at these
-  horizons (this scan — mid-involved two-segment shapes were excluded
-  from the grid and remain a formally open sub-power window; e.g. finer
+  horizons AND single-axis spread state (mid-involved two-segment
+  shapes remain a formally open sub-power window; joint/interaction
+  conditionings of scanned axes remain formally expressible on the log
+  with strictly less power per cell and the same binding
+  reserve-confirmation burden under the envelope below — such a scan
+  needs its own pre-registered motivation; e.g. finer
   path features, flow/derived features, or sub-power windows
   per the clause above — the up-dn mirror at ≈ +2.4c net is the
   concrete open point, but citing it requires a NEW instrument or

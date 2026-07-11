@@ -422,3 +422,51 @@ forbids importing the old system's research conclusions._
   published gate values as an abort condition) caught nothing this time
   but costs nothing and mechanically pins cross-tool derivation
   equivalence — keep it for any future same-log study.
+
+- **E23 — CAL-004: spread state adds no taker-exploitable signal within
+  stated power; the CAL-001 null is not hiding a tight-book-confined
+  edge, and with this scan every single feature axis the discovery log
+  expresses is measured (2026-07-11, null-confirmed by fresh-context
+  Judge).** The pre-registered spread-state decomposition
+  (`knowledge/CALIBRATION-4.md`, D34; zero new replay compute — fourth
+  read of the CAL-001 discovery log, with pre-read audit whose 5
+  findings were amended in before the read, a BINDING
+  reserve-confirmation rule with a now-MECHANICAL proceed/park criterion
+  computed from printed table quantities only, and six identity gates
+  that reproduced the published CAL-001 read exactly) evaluated k = 252
+  frozen cells (the CAL-001 offset × ask-bucket × side grid × spread
+  state T ≤ 0.0105 < W) once: zero CANDIDATE cells, zero NEG-FLAG cells
+  (bar z ≥ 3.75; extremes: UP W (750s, [0.20,0.35)) z = −3.05 — the
+  W-state concentration of CAL-001's own −3.02 marginal there,
+  buyer-adverse staleness per E21/E22, not an edge; max positive +2.29
+  on an n = 1 cell). Findings: (a) T cells (85,127 of 100,404 samples,
+  pooled 84.8%; per-cell shares vary — any specific T-cell citation
+  must quote its PRINTED tfr, down to ~0.61 at late offsets) track the
+  CAL-001 marginals throughout — NOT an independent confirmation of
+  E20 (~85% shared samples), but the decomposition arithmetic that E20
+  could not settle is now measured: no tight-confined edge with a
+  canceling wide-state complement exists at the resolvable level;
+  (b) W cells are power statements almost everywhere (mid-range W
+  resolves only |d| ≳ 6-10c) — the W conclusion is bounded to "no gross
+  dislocation at the several-cent level", and the near-flag W deviation
+  is buyer-adverse continuation, consistent with E21/E22; cross-side
+  reflections share mirrored book samples and are ONE piece of evidence
+  (CAL-001 amendments #12/#13 carry over); (c) SCOPE (Judge-corrected,
+  per the CAL-004 erratum — do not over-tighten): this closes the last
+  single feature AXIS the log can express (levels/E20, moves/E21,
+  two-segment big-move sign paths/E22 with mid-involved shapes formally
+  open, spread state/E23; cross-side sums degenerate by the mirror
+  fact; sizes unrecorded). Joint/interaction conditionings of scanned
+  axes (e.g. spread × prior-move) remain formally expressible with
+  strictly less power per cell (incidence products) and the same
+  binding reserve-confirmation burden under the U45 envelope — a future
+  interaction scan needs its own pre-registered motivation, it is not
+  auto-dead; (d) process transfer: the pre-read audit again converted a
+  post-table discretionary branch (which candidates may spend the
+  reserve) into a frozen formula (z ≥ 4.49 + mid-price W park, from
+  printed z/meanAsk/d/se only) — every future scan should freeze its
+  proceed/park arithmetic at registration, not at candidate time;
+  (e) one-shot hygiene: piping a one-shot read through `head` SIGPIPE-
+  kills the tool mid-print — run one-shots redirected to a file, glance
+  at the file; the truncated first invocation was disclosed and the
+  deterministic completion is the read of record.
