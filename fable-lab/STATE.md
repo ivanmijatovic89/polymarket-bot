@@ -896,3 +896,12 @@ New standing requirement (charter, resumability section): append plain-
 language progress lines to `fable-lab/JOURNAL.md` AS YOU WORK — the
 operator follows it live with tail -f. Seeded at repo; start every session
 by noting in it that you resumed and what you are picking up.
+
+## Operator update — fleet-gap patch APPLIED (2026-07-11)
+
+Your fleet-gap-registry.patch was reviewed and applied by the operator:
+commit a10b59d on fable-protocol (registry file only; nothing else touched).
+Verified before committing: the registry now resolves fable-exp-004/006/007
+and the fixtures. Workers self-update on their next job. Your wake-up probe
+should find the unlock live — proceed with the pre-committed reconciliation
+plan (fleet --detach + capacity tool) when it does.
