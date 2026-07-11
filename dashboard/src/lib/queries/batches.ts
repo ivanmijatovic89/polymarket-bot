@@ -494,11 +494,36 @@ function buildExecutionSummary(rows: MarketRow[]): ExecutionSummary | null {
     }))
     .sort((a, b) => b.eventsProcessed - a.eventsProcessed)
 
-  const wallClockMs = maxFinished - minStarted
-  // Wall-clock should never be shorter than the single longest market; if the
-  // summed busy time of all machines is far below wall-clock there were idle
-  // gaps (disjoint processing windows, e.g. an --extend run).
-  const spansExtension = wallClockMs > workerTimeMs
+  // Wall-clock is the union of the per-market busy intervals, not the raw
+  // outer span (maxFinished − minStarted). The naive span double-counts any
+  // idle gap between disjoint processing windows — e.g. an --extend run that
+  // fired hours after the original — and would report that gap as if the run
+  // had been busy the whole time. Merging overlapping [started, finished]
+  // intervals collapses those gaps while still crediting parallel overlap
+  // across the workers/machines that ran concurrently.
+  const intervals = timed
+    .map((r) => [r.startedAtMs as number, r.finishedAtMs as number] as const)
+    .sort((a, b) => a[0] - b[0])
+  let wallClockMs = 0
+  let curStart = intervals[0][0]
+  let curEnd = intervals[0][1]
+  for (let i = 1; i < intervals.length; i++) {
+    const [s, f] = intervals[i]
+    if (s <= curEnd) {
+      if (f > curEnd) curEnd = f
+    } else {
+      wallClockMs += curEnd - curStart
+      curStart = s
+      curEnd = f
+    }
+  }
+  wallClockMs += curEnd - curStart
+
+  // The run was split across disjoint windows (e.g. an --extend) when the outer
+  // span meaningfully exceeds the merged busy time — surfaced as a hint so the
+  // number isn't mistaken for a single continuous run.
+  const outerSpanMs = maxFinished - minStarted
+  const spansExtension = outerSpanMs - wallClockMs > 60_000
 
   return {
     wallClockMs,

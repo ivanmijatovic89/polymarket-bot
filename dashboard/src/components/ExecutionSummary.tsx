@@ -43,7 +43,7 @@ export function ExecutionSummary({ summary }: { summary: ExecutionSummaryData | 
           label="Wall-clock"
           value={formatDuration(wallClockMs)}
           icon={Clock}
-          hint={spansExtension ? 'includes idle gaps (extended run)' : 'real elapsed'}
+          hint={spansExtension ? 'busy time (excludes extend gap)' : 'real elapsed'}
           tone={spansExtension ? 'warning' : 'default'}
         />
         <StatCard
