@@ -1854,3 +1854,34 @@ FULL experiments, the reserve-confirmability envelope, D14/D18 maker
 conditionals, and the holdout lock are all UNCHANGED. Screens are
 probe-grade evidence under existing §3 stage-1 semantics; SIGNAL-MAP
 zones are not citations.
+
+## D50 — SIGNAL-002 cross-episode conditioning scan registered (session 60, 2026-07-11)
+
+**Decision:** register a second zero-replay scan on the SIGNAL-001
+discovery log: does the entry ask misprice the conditional outcome
+probability given the previous window's outcome (lag 1) or the current
+streak (≤3+)? Frozen method, bars, gates, and interpretation in
+`knowledge/SIGNAL-CROSS-EPISODE.md`; reader `tools/signal2.ts` with a
+25-assertion committed selftest (`tools/signal2-selftest.ts`, green
+pre-freeze: hand-computed tiny case incl. G2 arithmetic and streak
+bucket edges, planted-signal detection both sides, flipped-join G1
+abort, G3 chain-coverage abort, --outcomes refusal guard).
+
+**Motivating evidence (governor):** (a) the operator's exploration
+mandate — bottom-up mining of existing data is first-class; (b) an
+engine fact settled this session: `runSingleMarket.ts:117` re-creates
+the strategy per market, so cross-episode conditioning is inexpressible
+in every prior scan and strategy — the axis is genuinely unmeasured;
+(c) outcome-free feasibility measured first: 99.0% of discovery markets
+have an eligible lag-1 predecessor (97.6% full 3-chains).
+
+**Rejected alternative:** a replayed screen strategy conditioning on
+the previous window — rejected because per-market `create()` makes it
+inexpressible on the fleet today; the scan answers "is there anything
+here at all" for free, and only a buyer-favorable zone would justify
+engine-side work (that design constraint is recorded in the
+registration, pre-results).
+
+**Read order (frozen):** signal2.ts runs once, only after SIGNAL-001's
+one-shot read and §3 are recorded. Map-grade semantics per SIGNAL-MAP §0
+apply verbatim; no bar, envelope, or holdout rule changes.
