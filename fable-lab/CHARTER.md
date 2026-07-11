@@ -109,15 +109,18 @@ You decide the architecture. A complete system answers at least:
 1. Write ONLY inside `fable-lab/` (pre-commit hook enforces this; never bypass
    it, never use `--no-verify`).
 2. Stay on branch `fable-protocol`. Never merge to or touch `main`.
-3. Evidence backtests are ALLOWED — local `--sequential` only, and always in
-   the BACKGROUND: launch the replay, keep working (analysis, next spec,
-   protocol work), poll for completion. Never sit idle waiting on a replay.
-   Evidence runs only on committed code (reproducibility). Sample sizes are
-   your protocol's decision — spend big samples only on survivors; a 1000-
-   market local run costs ~2 hours, budget accordingly. Your locked holdout
-   stays locked until your protocol's own final-confirmation rules say
-   otherwise. No worker-fleet submissions ever (workers run `origin/main`
-   code only — your branch cannot use them).
+3. Evidence backtests are ALLOWED, and the WORKER FLEET is now available to
+   you: the operator switched all workers to track `origin/fable-protocol`,
+   and they lazily self-update to any commit you push there. Submit evidence
+   runs the normal distributed way (`--detach`) and keep working while they
+   compute — poll for completion; never sit idle waiting. Requirements:
+   evidence runs only on code that is COMMITTED AND PUSHED to
+   `fable-protocol` (workers pull from origin; the CLI refuses dirty trees).
+   Rough fleet speed: ~1000 markets in 15-25 minutes. Local `--sequential`
+   remains for smokes, debugging, and parity checks. Sample sizes are your
+   protocol's decision — spend big samples only on survivors. Your locked
+   holdout stays locked until your protocol's own final-confirmation rules
+   say otherwise.
 4. No live trading, no order placement of any kind, no touching
    `strategy-research-protocol/` or `src/strategies/research/`.
 5. Commit after EVERY completed unit of work (the hook checks scope), and push

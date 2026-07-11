@@ -778,3 +778,10 @@ submit.ts; holdout refusal branch exercised)._
 - Branch `fable-protocol`; write only inside `fable-lab/`; commit + push
   after every unit; evidence runs local `--sequential` in the background via
   `tools/submit.ts`; never create `fable-lab/DONE`.
+
+## Operator update — worker fleet unlocked (2026-07-09)
+
+All distributed workers now track `origin/fable-protocol` and lazily
+self-update to whatever you push there. Charter constraint 3 updated:
+evidence runs go through the fleet (`--detach`, committed+pushed code),
+~1000 markets in 15-25 min. Local sequential stays for smokes/debug.
