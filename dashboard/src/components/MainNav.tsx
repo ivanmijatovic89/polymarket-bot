@@ -7,6 +7,7 @@ import {
   Calculator,
   ChevronDown,
   Database,
+  Gauge,
   HeartPulse,
   History,
   LayoutDashboard,
@@ -32,6 +33,7 @@ const ITEMS: NavItem[] = [
 
 const MORE_ITEMS: NavItem[] = [
   { href: '/workers-calculator', label: 'Workers Calculator', icon: Calculator, exact: true },
+  { href: '/llm-usage', label: 'LLM Usage', icon: Gauge, exact: true },
 ]
 
 function isActive(

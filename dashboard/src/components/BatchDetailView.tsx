@@ -151,6 +151,7 @@ export function BatchDetailView({ batchUid }: { batchUid: string }) {
           />
           <BacktestSummaryTable
             rows={data.runs}
+            stickyHeader
             prefixColumns={[
               {
                 header: '#ID',

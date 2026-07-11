@@ -111,8 +111,8 @@ All three conditions must hold simultaneously. The gate evaluates to `false` whe
 ```typescript
 import type { TimeWindowGateSnapshot } from '../plugins/TimeWindowGatePlugin.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const gate = ctx.plugins.timeWindowGate?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const gate = ctx?.plugins?.['timeWindowGate'] as
     TimeWindowGateSnapshot | undefined
 
   if (!gate?.withinWindow) return []
@@ -158,8 +158,8 @@ const pluginSet = new PluginSet([
 The `TimeWindowGatePlugin` models a single contiguous time window. To gate on multiple disjoint windows, instantiate multiple plugins with different IDs, or implement the combination logic directly in the strategy:
 
 ```typescript
-onMarketTick(ctx, snapshot): Intent[] {
-  const gate = ctx.plugins.timeWindowGate?.snapshot() as TimeWindowGateSnapshot | undefined
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const gate = ctx?.plugins?.['timeWindowGate'] as TimeWindowGateSnapshot | undefined
 
   // Alternatively, compute multiple windows in strategy logic:
   const elapsed = gate?.elapsedMs ?? null

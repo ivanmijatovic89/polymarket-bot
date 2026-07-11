@@ -134,8 +134,8 @@ Both gates are evaluated **independently**. A strategy that requires both sides 
 ```typescript
 import type { DwellGateSnapshot } from '../plugins/DwellGatePlugin.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const dwell = ctx.plugins.dwellGate?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const dwell = ctx?.plugins?.['dwellGate'] as
     DwellGateSnapshot | undefined
 
   if (!dwell) return []

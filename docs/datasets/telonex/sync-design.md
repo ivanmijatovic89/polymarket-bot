@@ -156,7 +156,7 @@ elif any failed → upload_status='partial'  (auto-resume next run)
 elif hard auth/403 error → upload_status='failed' (manual intervention)
 ```
 
-- `--concurrency=4` default (parallel markets); CLI override allowed.
+- `--concurrency=1` default (parallel markets); CLI override allowed.
 - Verification: **only** Content-MD5 on PUT to R2. R2 server-side rejects on mismatch. Telonex source ETag cross-check is unnecessary belt-and-suspenders.
 - Failure history is preserved in `telonex_market_files` (Model 2 audit).
 

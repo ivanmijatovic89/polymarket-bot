@@ -32,10 +32,10 @@ The suffix is the Unix epoch in seconds at which the window opened. Slugs appear
 
 ## Strategy
 
-A **strategy** is a TypeScript class that implements two hooks:
+A **strategy** is a plain object (built by a `create()` factory) that implements two hooks:
 
-- `onMarketTick(ctx, snapshot)` — called on every orderbook update
-- `onAccountEvent(ctx, event)` — called when a fill, cancel, or order status change arrives
+- `onMarketTick(tick, portfolio, ctx?)` — called on every orderbook update; the orderbook snapshot is at `tick.snapshot`
+- `onAccountEvent(event, portfolio, lastMarket?, ctx?)` — called when a fill, cancel, or order status change arrives
 
 Both return an array of **Intents**. Strategies are stateless across ticks — all episode state must be held in the closure created by the strategy's `create()` factory.
 

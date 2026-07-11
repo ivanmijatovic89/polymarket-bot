@@ -1,6 +1,6 @@
 ---
 title: External Feeds Plugin
-description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugin — live price and volatility data from RTDS, Binance WebSocket, Polymarket, and Deribit, exposed to strategies via ctx.plugins.externalFeeds.
+description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugin — live price data from RTDS, Binance WebSocket, and Polymarket, exposed to strategies via ctx.plugins.externalFeeds.
 ---
 
 # External Feeds Plugin
@@ -9,7 +9,7 @@ description: Reference for the ExternalFeedsPlugin and ExternalFeedsRequestPlugi
 **Classes:** `ExternalFeedsPlugin`, `ExternalFeedsRequestPlugin`  
 **Source:** `src/strategy/plugins/ExternalFeedsPlugin.ts`, `src/strategy/plugins/ExternalFeedsRequestPlugin.ts`, `src/trading/feeds/externalFeeds.ts`
 
-The External Feeds Plugin makes live market data from external sources available to strategies via `ctx.plugins.externalFeeds`. It aggregates price and volatility data from four independent feed clients into a single `ExternalFeedsSnapshot` object, refreshed out-of-band and snapshotted once per tick.
+The External Feeds Plugin makes live market data from external sources available to strategies via `ctx.plugins.externalFeeds`. It aggregates price data from three independent feed clients into a single `ExternalFeedsSnapshot` object, refreshed out-of-band and snapshotted once per tick.
 
 ::: danger Live trading only
 External feeds are only active during live trading. In backtests, `ctx.plugins.externalFeeds` is absent (`undefined`). Strategies must guard against this; see [Backtest Safety](#backtest-safety) below.
@@ -40,13 +40,14 @@ export const definition = {
         polymarketPriceToBeat: {
           enabled: true,
         },
-        deribitVolatilityIndex: true,
       },
-      onMarketTick(ctx, snapshot) {
+      onMarketTick(tick, portfolio, ctx?) {
         /* ... */
+        return []
       },
-      onAccountEvent(ctx, event) {
+      onAccountEvent(event, portfolio, lastMarket?, ctx?) {
         /* ... */
+        return []
       },
     }
     return { strategy }
@@ -116,7 +117,7 @@ type ExternalFeedsSnapshot = {
 ```
 
 ::: tip Deribit Volatility Index feed
-The `deribitVolatilityIndex` feed referenced in `requiredFeeds` is exposed through the dedicated [`DeribitVolatilityIndexPlugin`](/plugins/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), not through `ctx.plugins.externalFeeds`. It follows its own snapshot type.
+Deribit implied-volatility data is not part of `requiredFeeds` or `ctx.plugins.externalFeeds`. It is provided by the dedicated [`DeribitVolatilityIndexPlugin`](/plugins/plugin-deribit-volatility) (`ctx.plugins.deribitVolatilityIndex`), which follows its own snapshot type.
 :::
 
 ---
@@ -180,8 +181,8 @@ Type: `object | undefined`.
 ```typescript
 import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const feeds = ctx.plugins.externalFeeds?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const feeds = ctx?.plugins?.['externalFeeds'] as
     ExternalFeedsSnapshot | undefined
 
   if (!feeds) return []  // absent in backtests or if feed not started
@@ -220,13 +221,15 @@ onMarketTick(ctx, snapshot): Intent[] {
 In backtests, `ctx.plugins.externalFeeds` is `undefined` because no feed clients are started. Strategies must handle this defensively:
 
 ```typescript
-onMarketTick(ctx, snapshot): Intent[] {
-  const feeds = ctx.plugins.externalFeeds?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const feeds = ctx?.plugins?.['externalFeeds'] as
     ExternalFeedsSnapshot | undefined
 
   // Proceed with or without feeds — do not hard-require them
   const spot = feeds?.binanceWsSpotPrice
-  const price = spot?.value ?? snapshot.byAssetId[ctx.market.upAssetId]?.mid
+  const upAssetId = ctx?.market?.upAssetId
+  const price =
+    spot?.value ?? (upAssetId ? tick.snapshot.byAssetId[upAssetId]?.mid : undefined)
 
   if (price == null) return []
   // ...
@@ -270,4 +273,4 @@ The `ExternalFeedsStore` (defined in `src/trading/feeds/externalFeeds.ts`) is th
 | `clearPolymarketPriceToBeat()`   | Clear the price-to-beat (e.g. on window rotation). |
 | `reset()`                        | Clear all feed data.                               |
 
-Strategies do not interact with the store directly; they access data only through `ctx.plugins.externalFeeds.snapshot()`.
+Strategies do not interact with the store directly; they access data only through `ctx.plugins.externalFeeds` (the per-tick snapshot already resolved by the plugin runtime).

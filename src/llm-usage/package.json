@@ -1,0 +1,10 @@
+{
+  "name": "@polymarket-bot/llm-usage",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "main": "./usage.ts",
+  "exports": {
+    ".": "./usage.ts"
+  }
+}

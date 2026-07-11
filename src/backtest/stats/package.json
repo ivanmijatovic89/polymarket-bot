@@ -8,6 +8,7 @@
     ".": "./batchStats.ts",
     "./batchStats": "./batchStats.ts",
     "./marketStats": "./marketStats.ts",
-    "./coverage": "./coverage.ts"
+    "./coverage": "./coverage.ts",
+    "./wallClock": "./wallClock.ts"
   }
 }

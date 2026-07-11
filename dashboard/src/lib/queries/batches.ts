@@ -8,6 +8,7 @@ import {
   backtestRuns,
 } from '../schema'
 import { aggregateJobId, getAggregateQueue, getMarketQueue } from '../queue'
+import { unionBusyMs } from '@polymarket-bot/stats/wallClock'
 
 const ACTIVE_AGGREGATE_STATES = ['waiting-children', 'waiting', 'active', 'delayed'] as const
 
@@ -37,6 +38,7 @@ export type ActiveBatchSummary = {
   completedChildren: number
   failedChildren: number
   parentState: string | undefined
+  attemptsMade: number
 }
 
 /**
@@ -125,6 +127,7 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
       completedChildren,
       failedChildren,
       parentState: state,
+      attemptsMade: job.attemptsMade ?? 0,
     })
   }
   return out
@@ -420,13 +423,15 @@ export type MachineExecution = {
 }
 
 /**
- * Aggregate timing for a run, derived in-memory from the already-loaded
- * market rows (no extra DB work). `wallClockMs` is the real elapsed span
- * across machines (max finished − min started); `workerTimeMs` is retained as
- * summed per-market elapsed processing time for rate diagnostics. `spansExtension`
- * flags runs whose markets were
- * processed in disjoint time windows (e.g. via `--extend`), where wall-clock
- * includes the idle gap between windows and overstates real run time.
+ * Aggregate timing for a run, derived in-memory from the already-loaded market
+ * rows (no extra DB work). `wallClockMs` is the real elapsed busy time — the
+ * union of the per-market busy intervals (see {@link unionBusyMs}), excluding
+ * idle gaps — and matches the engine-persisted `duration_wall_clock_ms`.
+ * `workerTimeMs` is the summed per-market processing time (total compute),
+ * retained for rate diagnostics. `spansExtension` flags runs whose markets were
+ * processed in disjoint time windows (e.g. via `--extend`): the outer span then
+ * far exceeds the busy time, so wall-clock is reported gap-free but the run
+ * was not continuous.
  */
 export type ExecutionSummary = {
   wallClockMs: number
@@ -492,11 +497,20 @@ function buildExecutionSummary(rows: MarketRow[]): ExecutionSummary | null {
     }))
     .sort((a, b) => b.eventsProcessed - a.eventsProcessed)
 
-  const wallClockMs = maxFinished - minStarted
-  // Wall-clock should never be shorter than the single longest market; if the
-  // summed busy time of all machines is far below wall-clock there were idle
-  // gaps (disjoint processing windows, e.g. an --extend run).
-  const spansExtension = wallClockMs > workerTimeMs
+  // Wall-clock = union of the per-market busy intervals, via the same shared
+  // helper the engine uses to persist `duration_wall_clock_ms` (so the live
+  // detail card and the persisted list value can't drift). Excludes idle gaps
+  // between disjoint windows — e.g. an --extend that ran hours after the
+  // original — which a naive max(finished) − min(started) span would count.
+  const wallClockMs = unionBusyMs(
+    timed.map((r) => [r.startedAtMs as number, r.finishedAtMs as number] as const),
+  )
+
+  // The run was split across disjoint windows (e.g. an --extend) when the outer
+  // span meaningfully exceeds the merged busy time — surfaced as a hint so the
+  // number isn't mistaken for a single continuous run.
+  const outerSpanMs = maxFinished - minStarted
+  const spansExtension = outerSpanMs - wallClockMs > 60_000
 
   return {
     wallClockMs,

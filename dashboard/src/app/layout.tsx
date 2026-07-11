@@ -5,6 +5,7 @@ import { Activity } from 'lucide-react'
 import './globals.css'
 import { Providers } from './providers'
 import { BullBoardLink } from '@/components/BullBoardLink'
+import { LiveStatusBadge } from '@/components/LiveStatusBadge'
 import { MainNav } from '@/components/MainNav'
 
 const geistSans = Geist({ variable: '--font-geist-sans', subsets: ['latin'] })
@@ -39,6 +40,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
                 </Link>
                 <MainNav />
                 <div className="ml-auto flex items-center gap-2 text-sm">
+                  <LiveStatusBadge />
                   <BullBoardLink
                     port={bullBoardPort}
                     className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"

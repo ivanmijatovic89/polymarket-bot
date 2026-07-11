@@ -74,7 +74,7 @@ Pre-commit is implemented with Husky + lint-staged and runs only on staged files
 
 ### lint-staged rules
 
-- `*.{ts,tsx,js,jsx,json,css,html,yml,yaml}` -> `prettier --write`
+- `*.{ts,tsx,js,jsx,json,css,html,yml,yaml,md}` -> `prettier --write`
 - `src/**/*.{ts,tsx}` -> `eslint --fix`
 
 ### What auto-fixes
@@ -109,6 +109,8 @@ Runs:
 1. `npm ci`
 2. `npm run code:prettier:check`
 3. `npm run code:typecheck-eslint`
+4. `npm run research:check`
+5. `npm run research:build-index -- --check`
 
 #### WebUI (Typecheck + Build)
 
@@ -117,6 +119,21 @@ Runs in `webui`:
 1. `npm ci`
 2. `npm run code:typecheck`
 3. `npm run build`
+
+#### Docs (VitePress Build)
+
+Runs in `docs`:
+
+1. `npm install`
+2. `npm run build`
+
+#### Dashboard (Typecheck + Build)
+
+Runs from the repo root (dashboard is an npm workspace):
+
+1. `npm ci`
+2. `npm run dashboard:typecheck`
+3. `npm run dashboard:build`
 
 ## PR and Merge Policy
 

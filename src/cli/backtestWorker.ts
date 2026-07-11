@@ -23,6 +23,7 @@ import {
   SELF_UPDATE_EXIT_CODE,
   STALE_JOB_RELEASE_DELAY_MS,
   canRunJobCommit,
+  haltWorkerForSelfUpdate,
 } from '../backtest/commitGate.js'
 
 type Queues = 'markets' | 'aggregate'
@@ -271,6 +272,11 @@ async function main(): Promise<void> {
   // with the wrapper's update code so it pulls the new commit and relaunches.
   const requestSelfUpdate = (): void => {
     if (stopping) return
+    // Halt in-process workers SYNCHRONOUSLY here, before the async drain below.
+    // drainAndExit awaits stopHeartbeat() before it reaches w.close(), and in
+    // that gap an aggregate worker would otherwise grab (and then orphan) the
+    // next job. Pausing first closes that window. See haltWorkerForSelfUpdate().
+    for (const w of inProcessWorkers) haltWorkerForSelfUpdate(w)
     console.log(
       `[worker=${machineId}] stale code detected — draining and exiting ` +
         `${SELF_UPDATE_EXIT_CODE} for self-update`,

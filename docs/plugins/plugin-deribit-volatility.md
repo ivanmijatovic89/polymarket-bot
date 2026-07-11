@@ -104,8 +104,8 @@ DVOL values are expressed as annualized implied volatility in percentage points 
 ```typescript
 import type { DeribitVolatilityIndexSnapshot } from '../plugins/DeribitVolatilityIndexPlugin.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const dvol = ctx.plugins.deribitVolatilityIndex?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const dvol = ctx?.plugins?.['deribitVolatilityIndex'] as
     DeribitVolatilityIndexSnapshot | undefined
 
   if (!dvol) return []  // not yet available

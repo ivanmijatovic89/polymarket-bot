@@ -98,7 +98,7 @@ type VolatilityWindowStats = {
 | `endTsMs`      | `number \| null` | Timestamp of the newest sample in the window. `null` when no samples exist.                                                                                                                               |
 | `coverageMs`   | `number \| null` | `endTsMs - startTsMs`. Represents the actual time span covered by current samples.                                                                                                                        |
 | `ready`        | `boolean`        | `true` when `coverageMs >= windowMs × 0.93` and `n >= 6`. Indicates the window is sufficiently populated for reliable statistics.                                                                         |
-| `staleMs`      | `number \| null` | When `ready` is `false` and a previous ready value exists: milliseconds elapsed since the last ready computation. `null` if the window has never been ready, or if it is currently ready (`staleMs = 0`). |
+| `staleMs`      | `number \| null` | When `ready` is `false` and a previous ready value exists: milliseconds elapsed since the last ready computation. `0` when the window is currently ready. `null` if the window has never been ready.      |
 | `startPrice`   | `number \| null` | Price of the oldest sample. Populated when `ready`; otherwise retained from the last ready computation.                                                                                                   |
 | `endPrice`     | `number \| null` | Price of the newest sample. Populated when `ready`; otherwise retained from the last ready computation.                                                                                                   |
 | `netChange`    | `number \| null` | `endPrice - startPrice`. Populated when `ready`; otherwise retained from the last ready computation.                                                                                                      |
@@ -130,14 +130,14 @@ These thresholds prevent misleading statistics at startup or after data gaps.
 ```typescript
 import type { VolatilitySnapshot } from '../plugins/TimeWindowVolatility.js'
 
-onMarketTick(ctx, snapshot): Intent[] {
-  const vol = ctx.plugins.timeWindowVolatility?.snapshot() as
+onMarketTick(tick, portfolio, ctx?): Intent[] {
+  const vol = ctx?.plugins?.['timeWindowVolatility'] as
     VolatilitySnapshot | undefined
 
   if (!vol) return []
 
-  const upAssetId   = ctx.market.upAssetId
-  const downAssetId = ctx.market.downAssetId
+  const upAssetId   = ctx?.market?.upAssetId
+  const downAssetId = ctx?.market?.downAssetId
 
   const upVol   = vol.byAssetId[upAssetId]?.['30s']
   const downVol = vol.byAssetId[downAssetId]?.['30s']

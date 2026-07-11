@@ -65,8 +65,8 @@ Each check emits a line per field:
 [blockchain] EOA conditional token contract: 0x...
 [blockchain] EOA POL balance: 1.234 POL
 [blockchain] EOA USDC balance: 500.000000 USDC
-[blockchain] EOA USDC allowance for Exchange: 115792089237316195...
-[blockchain] EOA USDC allowance for CTF: 115792089237316195...
+[blockchain] EOA USDC allowance for Exchange: 115792089237316195... USDC
+[blockchain] EOA USDC allowance for CTF: 115792089237316195... USDC
 [blockchain] EOA conditional tokens approved (ERC1155): YES
 ```
 

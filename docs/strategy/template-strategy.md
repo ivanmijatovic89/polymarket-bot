@@ -88,7 +88,7 @@ export function createStrategy(_cfg: Config): {
 }
 ```
 
-The factory is called exactly once per bot startup (or once per backtest run). State variables declared inside the factory closure (`splitRequested`, counters, flags) are episode-scoped for the bot lifetime. In backtests with multiple episodes, use the `onMarketTick` clock rather than wall-clock time to reason about timing.
+The factory is called exactly once per bot startup (or once per replayed market in a backtest). State variables declared inside the factory closure (`splitRequested`, counters, flags) are episode-scoped for the bot lifetime. In backtests with multiple episodes, use the `onMarketTick` clock rather than wall-clock time to reason about timing.
 
 ### Plugins in the factory
 

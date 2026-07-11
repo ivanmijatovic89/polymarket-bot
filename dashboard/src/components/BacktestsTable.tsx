@@ -18,6 +18,9 @@ export type BacktestsTableProps = {
   symbol?: string
   status?: HistoricalBatch['status']
   emptyHint?: string
+  /** Viewport-pinned header that follows page scroll. Only the full /backtests
+   * page wants this; embeds keep a static header. */
+  stickyHeader?: boolean
 }
 
 async function fetchHistory(params: {
@@ -65,6 +68,7 @@ export function BacktestsTable({
   symbol,
   status,
   emptyHint,
+  stickyHeader,
 }: BacktestsTableProps = {}) {
   const { data, isLoading } = useQuery({
     queryKey: ['batches', 'history', { limit, strategy, symbol, status }],
@@ -96,6 +100,8 @@ export function BacktestsTable({
       />
       <BacktestSummaryTable
         rows={batches}
+        stickyHeader={stickyHeader}
+        actionsHeader="CMD"
         emptyHint={emptyHint ?? 'Past runs will appear here.'}
         prefixColumns={[
           {

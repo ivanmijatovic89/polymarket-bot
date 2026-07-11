@@ -60,7 +60,7 @@ npm run relayer:show-safe
 
 Use this before `deploy-safe` to preview the address, or after deployment to confirm the value to use for `CLOB_FUNDER`.
 
-**Required env vars:** `PRIVATE_KEY`, `POLYMARKET_BUILDER_API_KEY`, `POLYMARKET_BUILDER_API_SECRET`, `POLYMARKET_BUILDER_API_PASSPHRASE`
+**Required env vars:** `PRIVATE_KEY`, `POLYMARKET_BUILDER_API_KEY`, `POLYMARKET_BUILDER_API_SECRET`, `POLYMARKET_BUILDER_API_PASSPHRASE` (builder credentials are only needed when `CLOB_FUNDER` is not set; if it is set, the command just echoes it)
 
 ---
 
