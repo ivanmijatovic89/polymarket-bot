@@ -1,20 +1,31 @@
 # STATE — Fable Protocol lab
 
-_Last updated: session 65 (2026-07-11) — the CLOSING SPRINT session
-(operator directive 2fcfa5b: possibly the last session for months;
-credits nearly out). Headline for a months-later successor: **the
-research program reached a clean stopping point.** SIGNAL-003 was read
-(one candidate), its complement gate SCR-009 was screened on 2,000
-fresh reserve-window markets and KILLED (−1.96c/share, q̂=−0.040,
-t=−1.81), and per the pre-committed rule the MAKER FAMILY IS CLOSED FOR
-GOOD (E30). All 22 ledgered ideas are resolved: 21 dead, #10 parked
-behind its mechanical unlock. The taker side is closed at current
-power (E9-E23). NOTHING is in flight; no strategy survived. That is
+_Last updated: session 69 (2026-07-12) — the RESCUE-025 terminal
+verdict session. Headline for a months-later successor: **the research
+program is again at a clean, fully-resolved stopping point.** The
+operator FINAL RUN arc (sessions 66-69) completed end to end: 20 new
+constructed candidates screened on disjoint samples (BATCH-005, 0
+survivors, E31), then the single both-samples-positive cell (SCR-025,
+the E22 reversal mirror) got a full rescue program — a frozen
+40-variant sweep whose mechanical winner V32 hit t=+3.25 in-sample,
+followed by a pre-committed ONE-SHOT confirmation on a seeded
+4,000-market reserve draw that came back **q̂=−0.0155, t=−0.98 → DEAD
+FOR GOOD** (E32; program-checked SOUND-WITH-FINDINGS, every number
+reproduced from independent SQL). Winner's curse is now a MEASURED
+quantity here: max-of-40 selection inflated t by >4 units and flipped
+the EV sign. ALL 42 ledgered ideas are resolved: 41 dead, #10 parked
+behind its mechanical unlock (CONFIRM-010 — post-freeze data, so
+unaffected by the rescue; honest prior update recorded in E32d). The
+maker family stays closed (E30), the taker side stays closed at
+current power (E9-E23, E31-E32). NOTHING is in flight; no strategy
+survived; the HOLDOUT has NEVER been read (the frozen RSC-025 holdout
+procedure is dead text per its FAIL branch). The reserve window is now
+largely SPENT: outcomes were read on 4,527 of its 5,460 markets
+(SCR-009's 2,000-draw ∪ RSC-025's 4,000-draw, overlap 1,473). That is
 the honest result: in this dataset, under this engine's fill models,
-every expressible mechanism is priced fairly or worse after costs —
-the strongest evidence of absence this lab could produce. Read "Next"
-for the three unlock conditions; do NOT start new screens against
-closed families without one of them firing._
+every expressible mechanism is priced fairly or worse after costs.
+Read "Next" for the three unlock conditions; do NOT start new screens
+against closed families without one of them firing._
 _(Session 62 summary: U90: BATCH-002 JUDGED — ALL 3 KILLED. SCR-005 deep
 bid (run 462: q̂=−0.0218, 22/500 played, winRate 0.36 — 10c sweeps
 informative, not overshoot; maker distance axis closed 1c-10c),
@@ -65,43 +76,13 @@ append-only history at the bottom; new entries still go there._
 
 ## In progress
 
-**Session 68 — RESCUE-025 confirmation stage (continuing the FINAL RUN
-v2 directive; session-67 summary in git history at 556403b).** Done this
-session: (1) wake-up checks green (12 worker slots alive); (2) sweep
-pre-verdict checks passed — all 40 RSC-025-V01..V40 runs completed,
-2000 markets each, 0 failures, exactly one run per batchUid (window
-integrity was already verified pre-flight in U111d); (3) U112: E28
-parity on the fleet's NEW code PASSED — 12 oldest V01 markets
-(outcome-free selection) re-run locally pinned as run 583, byte-compared
-vs fleet run 554: 12 rows × 19 fields, 0 mismatches; (4) U113: frozen
-winner rule applied mechanically via `tools/rsc-table.ts` — **WINNER
-V32** (run 578, params segThresh1=0.03 segThresh2=0.03 ratioMin=1.0):
-q̂=+0.0727, t=+3.25, played=127/2000; full 40-row sweep table + winner
-derivation + parity record appended to RESCUE-025.md; (5) confirmation
-draw re-verified — regenerated sha256 byte-identical to the frozen
-b77ba0cb… pre-commitment, shard files regenerated (8 × 500).
-
-NEXT (possibly in flight): U114 — submit the 8 confirmation runs
-RSC-025-CONFIRM-S0..S7 (`--slug` per `logs/RESCUE-025-shard[0-7].slugs`,
-V32 exact params, latency pinned per D8, `--detach`, committed+pushed
-code; submit log `logs/rsc025-confirm-submit.log`). If this session dies
-after submission: wait for the 8 runs, then (a) pre-verdict checks
-(completed, failures=0, no duplicate batchUids, each run's slug set ==
-its frozen shard list), (b) ONE pooled read via `tools/rsc-pool.ts` —
-frozen bar: pooled q̂>0 ∧ t≥+1.5 ∧ played≥100 ∧ (E14 minority≥30 iff
-winRate>0.9), (c) the verdict is TERMINAL — SAVED (candidate write-up
-per RESCUE-025.md §SAVED consequence; holdout handling per the
-pre-committed branches in commit 556403b) or DEAD FOR GOOD (no retry,
-no runner-up, ever), (d) fresh-context checker over the whole program
-(sweep table + winner derivation + confirmation read) BEFORE ledgering,
-(e) propagate (LESSONS, IDEAS #10a/rescue entry, EDGE-SPACE, INDEX) and
-rewrite this STATE as the months-long walk-away handoff like session 65
-did.
+Nothing. The RESCUE-025 program is terminally resolved (U115/U115b/U116,
+session 69); no runs are queued, no verdicts pending, no partial work.
 
 ## Next
 
 The lab is in a GATED state — deliberately. Every expressible mechanism
-in the current dataset is measured and dead (E9-E30 chain; EDGE-SPACE
+in the current dataset is measured and dead (E9-E32 chain; EDGE-SPACE
 §1 map is the index). The next unit of research work exists only when
 one of these three unlock conditions fires; check them at every wake-up
 and otherwise do NOT manufacture work against closed families:
@@ -130,10 +111,13 @@ Standing rules that survive this handoff unchanged: wake-up checks
 (`npx tsx fable-lab/tools/wakeup.ts`, D42) run FIRST every session;
 the HOLDOUT (market_start_ms ≥ 1777237200000) has never been read and
 stays locked until a confirmed candidate reaches the final-confirmation
-stage; the reserve window is now partially spent (SCR-009 read outcomes
-on its 2,000-market draw — recorded in BATCH-004; CONFIRM-010's own
-sample rule draws on FRESH post-freeze data, so it is unaffected, see
-D53); screens/registrations follow SCREENING.md (D49) and the
+stage; the reserve window is now LARGELY SPENT (4,527 of 5,460 markets
+have had outcomes read: SCR-009's 2,000-draw in BATCH-004 plus
+RSC-025's 4,000-draw in screens/RESCUE-025.md, overlap 1,473 — any
+future reserve use must disclose overlap with both draws, reproducible
+from their committed seeds; CONFIRM-010's own sample rule draws on
+FRESH post-freeze data, so it is unaffected, see D53); screens/
+registrations follow SCREENING.md (D49) and the
 EDGE-SPACE §4 bars; every fleet run uses `--detach` on committed+pushed
 code; latency pinned per D8/D51; touch runs local-only with `touch` in
 the batchUid (D18).
@@ -180,6 +164,36 @@ should find the unlock live — proceed with the pre-committed reconciliation
 plan (fleet --detach + capacity tool) when it does.
 
 ## Done
+- U112-U116 (sessions 68-69): the RESCUE-025 program executed and
+  terminally resolved. Sweep stage (session 68): all 40 RSC-025-V01..V40
+  runs completed clean (2,000 discovery markets each, 0 failures); E28
+  parity on the fleet's new code passed (local run 583 vs fleet 554:
+  12 rows × 19 fields, 0 mismatches); frozen winner rule selected V32
+  (run 578: q̂=+0.0727, t=+3.25, played 127/2000); confirmation draw
+  sha re-verified byte-identical to the frozen pre-commitment; 8
+  confirmation shards submitted --detach (U114); slug-set checker
+  committed outcome-free (U114b); holdout one-shot procedure frozen
+  outcome-blind pre-read (U114c — now dead text per its FAIL branch).
+  Confirmation stage (session 69, U115): all 8 runs completed (584-591,
+  500 markets each, 0 failures, one per batchUid, every shard's slug
+  set == its frozen list), then the ONE pooled read via rsc-pool.ts:
+  N=4000, played=288, won/lost=202/86, q̂=−0.0155, t=−0.9821,
+  CI95=[−0.392, +0.130] → frozen bar failed on both q̂>0 and t≥1.5 →
+  **DEAD FOR GOOD** (no retry, no runner-up; verbatim in
+  RESCUE-025.md §Confirmation result, with the honest shrinkage
+  assessment: the observed q̂ sits ~2.9 se BELOW the SCR-025-scale
+  effect — an active disconfirmation, not a power miss). U115b:
+  fresh-context program checker (mandated pre-ledger) —
+  SOUND-WITH-FINDINGS, every number reproduced from independent SQL
+  (report verbatim in knowledge/AUDIT-2026-07-12-RSC-025-CHECKER.md);
+  3 MINOR applied: two prose arithmetic slips fixed with attribution,
+  and rsc-pool.ts's vacuous per-row failure check (nonexistent column,
+  always 0) replaced with a real run-level failures_count read + a
+  rows==markets_persisted abort, re-run verified output-identical.
+  U116: E32 propagated (LESSONS; EDGE-SPACE map row + reversal-mirror
+  closure bullet; IDEAS rescue-disposition resolution — ledger still
+  42/41 dead/#10 parked; INDEX regenerated). STATE rewritten as the
+  months-long walk-away handoff.
 - U101-U103 (session 65, the CLOSING SPRINT): SIGNAL-003 read + SCR-009
   screen + program closure. (a) U101: coverage CLEAN (8,516/8,516, 0
   failures, 0 boundary leaks, staleness benign) → one-shot read
