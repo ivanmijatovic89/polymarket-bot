@@ -372,6 +372,15 @@ not reopen this entry — a SAVED verdict there creates a new candidate
 under its own registration. Ledger state: 42 ideas — 41 dead, #10
 parked (CONFIRM-010 unlock)._
 
+_Rescue disposition RESOLVED (2026-07-12, U115, E32): RESCUE-025's
+one-shot confirmation came back **DEAD FOR GOOD** (sweep winner V32
+in-sample t=+3.25 → pooled q̂=−0.0155, t=−0.98 on the pre-committed
+4,000-market reserve draw; program-checked). The reversal-mirror taker
+mechanism is closed in the current dataset. Ledger state unchanged:
+42 ideas — 41 dead, #10 parked (CONFIRM-010's frozen spec is on
+post-freeze data and stays parked by its own terms, with the E32 prior
+update noted there)._
+
 - **#23 SCR-010** momentum + maker take-profit exit (exit axis on EXP-003's dead entry).
 - **#24 SCR-011** momentum + taker stop-loss (loss-tail truncation on the same entry).
 - **#25 SCR-012** fade + maker take-profit (reversion scalp; fade-to-settle was E12/E24 dead).

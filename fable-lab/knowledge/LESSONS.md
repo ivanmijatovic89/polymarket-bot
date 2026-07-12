@@ -716,3 +716,37 @@ forbids importing the old system's research conclusions._
   AND late-favorite AND feed-from-open is nearly empty) — a mini-spec
   whose gate is a conjunction should multiply measured marginal rates,
   not guess the joint. Ledger state: 42 ideas, 41 dead, #10 parked.
+- **E32 — the RESCUE-025 one-shot confirmation killed the sweep winner:
+  an in-sample max-of-40 t=+3.25 evaporated completely on fresh data**
+  (session 68-69, runs 543-591, program-checked SOUND-WITH-FINDINGS,
+  AUDIT-2026-07-12-RSC-025-CHECKER.md). The operator-directed rescue of
+  SCR-025 (the E22 reversal mirror — BATCH-005's only both-samples-
+  positive cell) ran a frozen 40-variant grid on 2,000 discovery
+  markets per cell; the frozen mechanical rule selected V32
+  (sharper both-segment thresholds 0.03 + ratioMin=1.0: q̂=+0.0727,
+  t=+3.25, 127/2000 played); the pre-committed one-shot confirmation on
+  a seeded 4,000-market reserve draw came back q̂=−0.0155, t=−0.98
+  (288 played, winRate 0.70 vs 0.76 in-sample) → DEAD FOR GOOD by the
+  frozen bar, no retry, no runner-up. Transfer: (a) winner's-curse
+  magnitude is now MEASURED, not theoretical: max-of-40 selection on
+  2,000-market screens inflated t by >4 units (+3.25 → −0.98) and
+  flipped the sign of EV/market — in-sample refinement grids cannot
+  self-certify at any t the lab has ever observed (complements E26c's
+  ~8× warm-cell dilution with a clean pre-committed design); (b) the
+  E22 reversal-mirror mechanism is terminally dead as a tradable taker
+  cell in the current dataset: the CAL-003 buyer-adverse continuation
+  is real gross, but its tradable mirror does not clear spread+fee on
+  fresh reserve data even after a 40-variant shape search — consistent
+  with E21/E22's original "inside spread+fee net" reading; (c) the
+  reserve window is now largely SPENT: outcomes were read on the 4,000
+  drawn markets (73% of the 5,460-market reserve); any future
+  reserve-based confirmation must disclose overlap with the RSC-025
+  draw (shard lists reproducible from seed RESCUE-025-draw-1) and the
+  SCR-009 draw; (d) IDEAS #10 / CONFIRM-010 is UNCHANGED by its own
+  terms: its frozen spec draws on fresh POST-FREEZE data, not the
+  reserve — but a successor should carry the honest prior update that
+  the same mechanism's tradable form just died out-of-sample at V32's
+  sharpened thresholds; the frozen experiment still runs exactly as
+  written if its mechanical unlock ever fires. Ledger state: 42 ideas,
+  41 dead, #10 parked; the rescue disposition of #38 is resolved
+  (DEAD FOR GOOD); nothing in flight.

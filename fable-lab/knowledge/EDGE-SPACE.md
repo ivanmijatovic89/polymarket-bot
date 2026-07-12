@@ -40,6 +40,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | maker (ungated touch, skew harvest) | ungated DOWN-side at-touch bid — mirror-consistent harvest of the G2 UP-ask premium (no timing gate) | BATCH-003 SCR-008 | kill by default outcome (q̂=+0.0033, t=+0.07, N=500 — first NON-losing touch cell: premium ≈ adverse-selection cost, break-even at the optimistic bound, no rent) | E29 |
 | maker (measured fill-mix gate) | SCR-008 cell minus the one SIGNAL-003 toxic cell (MID price × l10Imb q5, −5.54c/fill z=−4.30 on 8,130 discovery fills) — the mechanical complement, best expressible fill mix | BATCH-004 SCR-009 | kill (q̂=−0.040, t=−1.81, N=2,000 fresh reserve draw: kept fills −1.96c/share — gate did not transfer; maker family CLOSED for good per SIGNAL-FILLS §6) | E30 |
 | taker+maker (FINAL RUN recombination sweep: exit axes, interaction/subpopulation gates, open path shapes, measured-signal mirrors) | 20 constructed candidates (operator directive overriding closure dedupe for CONSTRUCTION): maker-TP / taker-SL exits on momentum, fade, favorite and underdog entries; spread/depth/hour/vol gates × momentum; dwell-breakout; late 4c continuation; favorite-collapse fade; quiet-early subpopulation; E21/E22 tradable mirrors; maker bid + TP/SL exits; fill-as-signal inversion; second passage of 0.80 | BATCH-005 SCR-010..029, each screened on TWO disjoint half-window discovery samples | 0 survive / 19 kill / 1 park-design (SCR-023 entry-less; batch-checked SOUND-WITH-FINDINGS). Only both-samples-positive cell: SCR-025 (E22 reversal mirror, in-sample) — A clears the bar (q̂=+0.041, t=+1.83), B sub-bar (t=+1.10) → kill by the frozen two-sample rule; disposition = operator-directed rescue program RESCUE-025 | E31 |
+| taker (rescue sweep + anti-curse confirmation) | SCR-025's E22 reversal mirror, 40-variant frozen grid (shape strength, reversal ratio, clock placement, segment length, entry bands, persistence delays, exits, combos) on 2,000 discovery markets each; frozen mechanical rule selected V32 (t=+3.25) | RESCUE-025 (runs 543-591; one-shot on the pre-committed 4,000-market seeded reserve draw) | DEAD FOR GOOD (pooled q̂=−0.0155, t=−0.98, 288 played; the max-of-40 in-sample t=+3.25 fully evaporated out-of-sample — measured winner's curse; program-checked SOUND-WITH-FINDINGS) | E32 |
 
 Summary of the map:
 
@@ -164,10 +165,15 @@ Summary of the map:
   momentum), the small-then-big dwell-breakout shape, the late 4c
   continuation corner, favorite-collapse fades, second passages, and
   the fill-as-signal inversion. The E21 mirror (SCR-024) killed with
-  one negative sample; the E22 reversal mirror (SCR-025) is the single
-  both-samples-positive cell of the whole program and is disposed
+  one negative sample; the E22 reversal mirror (SCR-025) was the single
+  both-samples-positive cell of the whole program and was disposed
   through RESCUE-025 (in-sample sweep + reserve anti-curse
-  confirmation), not through this map.
+  confirmation) — RESOLVED 2026-07-12: **DEAD FOR GOOD** (the sweep
+  winner V32's in-sample t=+3.25 came back q̂=−0.0155, t=−0.98 on the
+  pre-committed 4,000-market reserve draw; E32). The reversal-mirror
+  taker cell is closed in the current dataset; only the frozen
+  CONFIRM-010 experiment (post-freeze data, its own mechanical unlock)
+  can lawfully revisit the mechanism.
 
 ## 2. What this does and does not prove
 
