@@ -1836,3 +1836,33 @@ actual last session. Its work, in order:
    or DEAD FOR GOOD (with the grid's evidence). Terminal-quality handoff.
 
 This is the last session. Spend it all here. Good luck — again.
+
+## Operator update — FINAL CAMPAIGN: refine V32, then confirm big (2026-07-12)
+
+The RSC-025 sweep is complete in the DB (40/40, zero failures). Read it
+with rsc-table.ts: winner per the frozen rule is V32 (run 578, q̂=+0.0727,
+t=3.25, 127/2000 played) and 34 of 40 variants are positive. The operator
+directs one final campaign, in this order:
+
+1. **Orient + ledger the sweep** (verdict table into the batch/rescue file
+   per the frozen winner rule; the usual integrity checks).
+2. **Refinement round 2:** design up to FORTY new variants informed by the
+   sweep's shape — a finer grid around V32 plus the axes the other top
+   performers (V30/V22/V04/V06) point at. DISCOVERY data only, larger
+   samples for precision (≥4000 per variant or full discovery — your
+   call, fleet math permitting). Freeze the grid + winner rule BEFORE the
+   first submission. All fleet, --detach, batched.
+3. **Final confirmation, operator-amended for power:** the one-shot test
+   moves from the frozen 4000-market draw to the ENTIRE reserve window
+   (~5,460 markets, every one untouched by any selection). This amendment
+   is a strictly harder test (more power, same bar q̂>0 ∧ t≥1.5) and is
+   recorded now, before any reserve data is read. One shot on the round-2
+   winner: SAVED or DEAD FOR GOOD. The holdout stays locked regardless.
+4. **Deliverable:** if SAVED — a complete candidate write-up: exact
+   params, measured economics (q̂, EV/market, incidence, fee drag),
+   expected live behavior, and what confirmation on future data would
+   look like. If DEAD — the grid's evidence and the honest closure.
+
+Budget note: the campaign spans hours of fleet time — keep working while
+runs compute, and leave STATE resumable at every step; the loop may need
+a second session to finish the read. Good luck.
