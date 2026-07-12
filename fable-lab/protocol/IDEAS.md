@@ -360,6 +360,18 @@ _The operator FINAL RUN directive overrides frontier-closure dedupe for
 CONSTRUCTION in this batch (see BATCH-005.md header). One line per
 screen; verdicts appended at the batch verdict._
 
+_Batch verdict (2026-07-12, U106, batch-checked): 0 survive / 19 kill /
+1 park-design. ALL twenty entries below are DEAD — #23-#35 and #37-#42
+killed on the frozen two-sample bars (table in BATCH-005.md); #36
+(SCR-023) park-design → dead (structurally entry-less at its spec
+parameters, 0 entries in 4,000 markets; no in-batch redesign — the
+directive budget went to the rescue). #38 (SCR-025) is dead AS
+SCREENED but its mechanism is the subject of the operator-directed
+RESCUE-025 program (see screens/RESCUE-025.md): the rescue outcome does
+not reopen this entry — a SAVED verdict there creates a new candidate
+under its own registration. Ledger state: 42 ideas — 41 dead, #10
+parked (CONFIRM-010 unlock)._
+
 - **#23 SCR-010** momentum + maker take-profit exit (exit axis on EXP-003's dead entry).
 - **#24 SCR-011** momentum + taker stop-loss (loss-tail truncation on the same entry).
 - **#25 SCR-012** fade + maker take-profit (reversion scalp; fade-to-settle was E12/E24 dead).

@@ -685,3 +685,34 @@ forbids importing the old system's research conclusions._
   fill model from the trades channel, EDGE-SPACE §3.2) or a
   D27-confirmed venue regime change; the next unit of taker work
   requires dataset growth past the U45 confirmability envelope.
+- **E31 — the FINAL RUN recombination sweep: 20 candidates, two disjoint
+  samples each, zero survivors; the exit axis is measured and lost
+  everywhere it was tested** (session 66-67, BATCH-005, runs 496-536,
+  batch-checked). The operator-directed sweep constructed candidates the
+  closure rules would have deduped away — exit structures, interaction
+  gates, subpopulations, open path shapes, measured-signal mirrors — and
+  screened each on two disjoint half-window discovery samples (median
+  split at 2026-01-15T12:45Z). Verdicts: 0 survive / 19 kill / 1
+  park-design. Transfer: (a) EXIT STRUCTURES at the tested points do not
+  create edge from measured-fair entries — every maker-TP cell loses big
+  at HIGH win rate (0.85-0.95: the resting exit banks 2-4c until an
+  untruncated loser eats it; the TP leg is a maker fill and inherits
+  maker adverse selection), every taker-SL cell loses at LOW win rate
+  (0.07-0.233: stops fire on noise, pay double fee, forfeit the
+  settle-back tail) — scoped to 8 cells × one parameter point each, not
+  an impossibility theorem (checker finding 2); (b) the two-disjoint-
+  sample design is cheap winner's-curse insurance at screen grade: five
+  screens were positive on one half and flat-to-negative on the other
+  (SCR-017/015/018/029/024) — a single-sample design would have sent
+  several to confirmation; (c) the ONLY both-samples-positive cell of
+  the twenty is the E22 reversal mirror (SCR-025: A q̂=+0.041 t=+1.83
+  clears, B q̂=+0.025 t=+1.10 sub-bar) — exactly the cell CAL-003 had
+  already flagged as the strongest open sub-power point, and it is
+  in-sample, so a positive read confirms nothing; its disposition is
+  the operator-directed RESCUE-025 program (frozen variant sweep +
+  reserve-window anti-curse confirmation), not a map claim; (d)
+  incidence priors need arithmetic, not vibes: SCR-023's 10-20% prior
+  produced 0 entries in 4,000 markets (the conjunction of quiet-early
+  AND late-favorite AND feed-from-open is nearly empty) — a mini-spec
+  whose gate is a conjunction should multiply measured marginal rates,
+  not guess the joint. Ledger state: 42 ideas, 41 dead, #10 parked.

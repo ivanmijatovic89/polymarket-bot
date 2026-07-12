@@ -39,6 +39,7 @@ operator-fixed universe (Polymarket BTC 15m up/down, Telonex replay):
 | maker+settlement | filled-maker instant lock (fill-conditional UP+DOWN pair sums) | BATCH-002 SCR-007 | kill (t=−3.17; p+a+fee > 1 conditional on fill — half model-conditional: hedge leg at real ask+fee) | E26 |
 | maker (ungated touch, skew harvest) | ungated DOWN-side at-touch bid — mirror-consistent harvest of the G2 UP-ask premium (no timing gate) | BATCH-003 SCR-008 | kill by default outcome (q̂=+0.0033, t=+0.07, N=500 — first NON-losing touch cell: premium ≈ adverse-selection cost, break-even at the optimistic bound, no rent) | E29 |
 | maker (measured fill-mix gate) | SCR-008 cell minus the one SIGNAL-003 toxic cell (MID price × l10Imb q5, −5.54c/fill z=−4.30 on 8,130 discovery fills) — the mechanical complement, best expressible fill mix | BATCH-004 SCR-009 | kill (q̂=−0.040, t=−1.81, N=2,000 fresh reserve draw: kept fills −1.96c/share — gate did not transfer; maker family CLOSED for good per SIGNAL-FILLS §6) | E30 |
+| taker+maker (FINAL RUN recombination sweep: exit axes, interaction/subpopulation gates, open path shapes, measured-signal mirrors) | 20 constructed candidates (operator directive overriding closure dedupe for CONSTRUCTION): maker-TP / taker-SL exits on momentum, fade, favorite and underdog entries; spread/depth/hour/vol gates × momentum; dwell-breakout; late 4c continuation; favorite-collapse fade; quiet-early subpopulation; E21/E22 tradable mirrors; maker bid + TP/SL exits; fill-as-signal inversion; second passage of 0.80 | BATCH-005 SCR-010..029, each screened on TWO disjoint half-window discovery samples | 0 survive / 19 kill / 1 park-design (SCR-023 entry-less; batch-checked SOUND-WITH-FINDINGS). Only both-samples-positive cell: SCR-025 (E22 reversal mirror, in-sample) — A clears the bar (q̂=+0.041, t=+1.83), B sub-bar (t=+1.10) → kill by the frozen two-sample rule; disposition = operator-directed rescue program RESCUE-025 | E31 |
 
 Summary of the map:
 
@@ -150,6 +151,23 @@ Summary of the map:
   so "lock the pair" mechanisms pay the dislocation instead of
   collecting it. Together with E9 (standing sums never < 1 net of fees)
   this closes book-lags-itself ideas as a class in recorded data.
+- **Exit axis: measured, every tested variant lost (E31, 2026-07-12;
+  screen-grade, two disjoint samples each).** BATCH-005 put maker
+  take-profit and taker stop-loss exits on momentum, fade, favorite,
+  underdog, and maker-bid entries (8 cells, one parameter point each).
+  Maker-TP variants lose big at high win rates (0.85–0.95: the resting
+  TP banks 2-4c constantly, the untruncated losers eat it — adverse
+  selection on the exit leg); taker-SL variants lose at low win rates
+  (0.07–0.233: stops fire on noise, pay double fee, forfeit the
+  settle-back tail). Also measured null at screen grade: interaction
+  gates (tight-spread, depth-agreement, US-hours, busy-tape ×
+  momentum), the small-then-big dwell-breakout shape, the late 4c
+  continuation corner, favorite-collapse fades, second passages, and
+  the fill-as-signal inversion. The E21 mirror (SCR-024) killed with
+  one negative sample; the E22 reversal mirror (SCR-025) is the single
+  both-samples-positive cell of the whole program and is disposed
+  through RESCUE-025 (in-sample sweep + reserve anti-curse
+  confirmation), not through this map.
 
 ## 2. What this does and does not prove
 
@@ -329,6 +347,17 @@ registered only if one of these holds:
   maker registrations, whatever the gate, cell, or story, until either
   (a) an operator-side fill-model change (queue-realistic model from
   the trades channel, §3.2) or (b) a D27-confirmed VENUE-DRIFT fire.
+- **Exit axis (E31, 2026-07-12):** a registration whose only novelty is
+  an exit structure (take-profit, stop-loss, or their parameters) on a
+  measured-fair entry must argue why it escapes the two measured
+  frictions — the maker-TP exit leg is adversely selected under
+  worst-queue exactly like every maker entry (E16-family, seen from the
+  exit side), and the taker-SL pays double fee on noise-triggered
+  stops. BATCH-005 measured 8 exit cells at one parameter point each
+  across entry families; a mere parameter shift on the same
+  entry+exit pair is auto-dead at dedupe, while a genuinely different
+  exit mechanism (e.g. one with a fill-mix argument for its exit leg)
+  needs the argument in the idea entry.
 - **New data regimes:** the universe accrues ~96 markets/day. A
   structural change in the venue (fee schedule change, new market maker
   program, visible microstructure shift in recorded books) is evidence
