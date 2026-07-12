@@ -315,5 +315,52 @@ DEAD TEXT and the holdout stays locked and unread._
 
 ## Confirmation result (append-only, after the one read)
 
-_To be appended: pooled table, bar evaluation, terminal verdict
-SAVED / DEAD FOR GOOD._
+_Read 2026-07-12 session 69 via `tools/rsc-pool.ts` (one invocation,
+output verbatim below). Pre-verdict checks all passed BEFORE the read:
+all 8 runs completed with 500 markets and 0 failures each, exactly one
+run per batchUid RSC-025-CONFIRM-S0..S7 (runs 584-591), and the
+slug-set integrity checker (`tools/rsc-confirm-slugcheck.ts`, committed
+outcome-free in U114b) verified every shard replayed exactly its frozen
+500-slug list: missing=0 extra=0 on all 8 shards._
+
+```
+RSC-025-CONFIRM-S0: run 591 status=completed markets=500
+RSC-025-CONFIRM-S1: run 584 status=completed markets=500
+RSC-025-CONFIRM-S2: run 585 status=completed markets=500
+RSC-025-CONFIRM-S3: run 586 status=completed markets=500
+RSC-025-CONFIRM-S4: run 587 status=completed markets=500
+RSC-025-CONFIRM-S5: run 588 status=completed markets=500
+RSC-025-CONFIRM-S6: run 589 status=completed markets=500
+RSC-025-CONFIRM-S7: run 590 status=completed markets=500
+POOLED: N=4000 played=288 failures=0 won/lost=202/86 winRate=0.7014
+  evPerMarket=-0.1308 sd=8.4212 q=-0.0155 t=-0.9821 CI95=[-0.3917, 0.1302]
+  makerTrades=0 takerTrades=288 feesTotal=73.8100
+FROZEN BAR: q>0=false t>=1.5=false played>=100=true failures=0=true E14(n/a)
+VERDICT: DEAD FOR GOOD
+```
+
+**Terminal verdict: DEAD FOR GOOD.** Pooled q̂ = −0.0155 ≤ 0 — the
+first clause of the frozen bar fails (t = −0.98 fails the second
+independently). Per the freeze: no retry, no runner-up, ever. The
+"Frozen holdout procedure" section above is now DEAD TEXT; the holdout
+stays locked and unread.
+
+Honest shrinkage assessment (obligation from the freeze text): the
+"marginal true effect died to power" caveat does NOT plausibly apply
+at the advocated scale. se(q̂) at N=4,000 ≈ 1/√4000 ≈ 0.0158, so the
+observed q̂ = −0.0155 sits ≈ 2.9 se BELOW a true effect at SCR-025's
+pooled scale (q̂ ≈ +0.03) — the confirmation actively disfavors that
+scale rather than merely failing to detect it. Only a very small true
+effect (roughly q̂ < +0.015, i.e. under ~0.13c/market at this sd)
+remains compatible at 1 se, far below any actionable bar. The sweep's
+V32 t=+3.25 on discovery data is therefore best read as winner's curse
+over a 40-cell grid — the exact failure mode the one-shot fresh-sample
+design was built to catch, catching it.
+
+Interpretation detail (in-sample vs fresh, same convention): winRate
+shrank 0.764 → 0.701 and incidence dropped 127/2000 (6.35%) →
+288/4000 (7.2% — comparable), while EV/market flipped +0.073·sd →
+−0.13. With ~29c average taker fees per played market
+(73.81/288), the fresh-sample win/loss mix no longer clears entry
+cost: the reversal-mirror shape's discovery-window profitability does
+not transfer to the reserve window even directionally.
