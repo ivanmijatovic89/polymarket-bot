@@ -200,8 +200,83 @@ log is `logs/rsc025-submit.log`).
 
 ## Sweep results (append-only after runs complete)
 
-_To be appended: 40-row table (variant, run, N, played, q̂, t, EV/mkt,
-winRate), winner derivation line, parity check result._
+_Read 2026-07-12 session 68 via `tools/rsc-table.ts` (frozen winner rule
+applied mechanically; output verbatim below). Pre-read integrity checks
+all passed: 40/40 runs completed, failures=0 on every run, exactly one
+run per batchUid RSC-025-V01..V40 (no duplicates; verified against the
+full run listing), window integrity verified pre-flight from the submit
+log in U111d (80,000 draws, all < 1772323200000, zero reserve leakage).
+E28 parity: 12 oldest markets of V01 (outcome-free selection by
+market_start_ms) re-run locally pinned (run 583) vs fleet run 554 —
+**shared=12, fields=19, mismatches=0** (parity.ts, `--intersection`);
+the fleet's self-updated code is byte-faithful to local. Disclosure:
+the local re-run's console summary printed aggregate stats for the
+12-market subset (2 played, both wins) before the winner read — a V01
+subset, not the winner; no bearing on selection, which is by the frozen
+rule over full-run statistics._
+
+| rank | variant | run | N | played | fail | q̂ | t | EV/mkt | winRate | eligible |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | V32 | 578 | 2000 | 127 | 0 | 0.0727 | 3.25 | 0.556 | 0.764 (97/30) | yes |
+| 2 | V30 | 581 | 2000 | 191 | 0 | 0.0635 | 2.84 | 0.623 | 0.654 (125/66) | yes |
+| 3 | V22 | 564 | 2000 | 214 | 0 | 0.0483 | 2.16 | 0.497 | 0.706 (151/63) | yes |
+| 4 | V04 | 545 | 2000 | 189 | 0 | 0.0465 | 2.08 | 0.473 | 0.667 (126/63) | yes |
+| 5 | V06 | 547 | 2000 | 209 | 0 | 0.0461 | 2.06 | 0.501 | 0.665 (139/70) | yes |
+| 6 | V33 | 569 | 2000 | 156 | 0 | 0.0398 | 1.78 | 0.307 | 0.718 (112/44) | yes |
+| 7 | V02 | 543 | 2000 | 192 | 0 | 0.0374 | 1.67 | 0.378 | 0.656 (126/66) | yes |
+| 8 | V09 | 550 | 2000 | 143 | 0 | 0.0326 | 1.46 | 0.253 | 0.748 (107/36) | yes |
+| 9 | V38 | 574 | 2000 | 193 | 0 | 0.0321 | 1.43 | 0.345 | 0.679 (131/62) | yes |
+| 10 | V07 | 548 | 2000 | 219 | 0 | 0.0312 | 1.40 | 0.351 | 0.639 (140/79) | yes |
+| 11 | V27 | 582 | 2000 | 229 | 0 | 0.0301 | 1.35 | 0.187 | 0.349 (80/149) | yes |
+| 12 | V29 | 567 | 2000 | 90 | 0 | 0.0281 | 1.26 | 0.197 | 0.733 (66/24) | no |
+| 13 | V28 | 576 | 2000 | 191 | 0 | 0.0271 | 1.21 | 0.159 | 0.403 (77/114) | yes |
+| 14 | V17 | 559 | 2000 | 208 | 0 | 0.0255 | 1.14 | 0.266 | 0.606 (126/82) | yes |
+| 15 | V19 | 561 | 2000 | 85 | 0 | 0.0246 | 1.10 | 0.197 | 0.377 (32/53) | no |
+| 16 | V34 | 570 | 2000 | 112 | 0 | 0.0237 | 1.06 | 0.170 | 0.750 (84/28) | yes |
+| 17 | V03 | 544 | 2000 | 206 | 0 | 0.0200 | 0.89 | 0.221 | 0.680 (140/66) | yes |
+| 18 | V24 | 566 | 2000 | 187 | 0 | 0.0200 | 0.89 | 0.179 | 0.626 (117/70) | yes |
+| 19 | V12 | 553 | 2000 | 298 | 0 | 0.0190 | 0.85 | 0.270 | 0.604 (180/118) | yes |
+| 20 | V40 | 579 | 2000 | 79 | 0 | 0.0185 | 0.83 | 0.129 | 0.317 (25/54) | no |
+| 21 | V21 | 563 | 2000 | 53 | 0 | 0.0185 | 0.83 | 0.120 | 0.528 (28/25) | no |
+| 22 | V16 | 558 | 2000 | 212 | 0 | 0.0185 | 0.83 | 0.200 | 0.623 (132/80) | yes |
+| 23 | V11 | 552 | 2000 | 72 | 0 | 0.0150 | 0.67 | 0.096 | 0.736 (53/19) | no |
+| 24 | V05 | 546 | 2000 | 191 | 0 | 0.0144 | 0.64 | 0.160 | 0.633 (121/70) | yes |
+| 25 | V20 | 562 | 2000 | 158 | 0 | 0.0133 | 0.59 | 0.111 | 0.797 (126/32) | yes |
+| 26 | V13 | 555 | 2000 | 249 | 0 | 0.0128 | 0.57 | 0.147 | 0.602 (150/99) | yes |
+| 27 | V18 | 560 | 2000 | 204 | 0 | 0.0115 | 0.51 | 0.119 | 0.608 (124/80) | yes |
+| 28 | V01 | 554 | 2000 | 209 | 0 | 0.0108 | 0.48 | 0.117 | 0.636 (133/76) | yes |
+| 29 | V10 | 551 | 2000 | 106 | 0 | 0.0086 | 0.38 | 0.061 | 0.708 (75/31) | yes |
+| 30 | V15 | 557 | 2000 | 154 | 0 | 0.0058 | 0.26 | 0.049 | 0.649 (100/54) | yes |
+| 31 | V08 | 549 | 2000 | 220 | 0 | 0.0040 | 0.18 | 0.043 | 0.609 (134/86) | yes |
+| 32 | V23 | 565 | 2000 | 200 | 0 | 0.0026 | 0.12 | 0.026 | 0.550 (110/90) | yes |
+| 33 | V31 | 568 | 2000 | 70 | 0 | 0.0020 | 0.09 | 0.013 | 0.286 (20/50) | no |
+| 34 | V14 | 556 | 2000 | 154 | 0 | 0.0015 | 0.07 | 0.011 | 0.623 (96/58) | yes |
+| 35 | V36 | 572 | 2000 | 55 | 0 | -0.0014 | -0.06 | -0.010 | 0.491 (27/28) | no |
+| 36 | V39 | 580 | 2000 | 92 | 0 | -0.0032 | -0.14 | -0.022 | 0.750 (69/23) | no |
+| 37 | V37 | 573 | 2000 | 202 | 0 | -0.0066 | -0.29 | -0.075 | 0.574 (116/86) | no |
+| 38 | V26 | 577 | 2000 | 230 | 0 | -0.0123 | -0.55 | -0.056 | 0.839 (193/37) | no |
+| 39 | V25 | 575 | 2000 | 212 | 0 | -0.0361 | -1.61 | -0.181 | 0.854 (181/31) | no |
+| 40 | V35 | 571 | 2000 | 186 | 0 | -0.0468 | -2.09 | -0.221 | 0.860 (160/26) | no |
+
+**Winner derivation (frozen rule, mechanical):** eligible set = runs
+with completed ∧ fail=0 ∧ played≥100 ∧ q̂>0; highest-t eligible =
+**V32 (run 578): q̂=+0.0727, t=+3.25, played=127, winRate 0.764** —
+t ≥ +1.5 satisfied → V32 proceeds to the frozen confirmation with its
+exact grid params: `segThresh1=0.03 segThresh2=0.03 ratioMin=1.0`
+(all other params at RESCUE-025.ts defaults). No runner-up advances.
+Selection-only reminder: +0.0727 is a max-of-40 in-sample statistic;
+the only belief-carrying number is the confirmation's pooled read.
+Sweep-shape observations (in-sample, non-binding): the persistence
+axis (V22 t=2.16 at 15s delay) and the sharpened-shape axis (V04/V06
+~t=2.07) both beat baseline V01 (t=0.48); the exit-reshape axis is the
+worst region of the table (V25/V35 strongly negative — consistent with
+E31); V32 stacks shape-strength with ratioMin=1.0.
+
+**Confirmation draw re-verification (session 68):** `rescue-draw.ts`
+re-run before submission; regenerated sha256 =
+`b77ba0cbf26a4c854d919992aff2eb2c262dd79d04c10ceacbb5d87b3f51e6b3` —
+byte-identical to the frozen pre-commitment above; shard files
+regenerated (8 × 500).
 
 ## Confirmation result (append-only, after the one read)
 
