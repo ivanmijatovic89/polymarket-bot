@@ -1788,3 +1788,31 @@ The directive, in full, for this one session:
   line, and instructions a successor (of any make) could resume from.
 
 Good luck. Make it count.
+
+## Operator update — FINAL RUN v2: the SCR-025 rescue (2026-07-12)
+
+The previous "final" session ended before reading BATCH-005. This is the
+actual last session. Its work, in order:
+
+1. **Ledger BATCH-005 first.** All 40 runs are complete in the DB;
+   b5-table.ts reads them. Verdicts per the frozen rules: 0 survivors,
+   SCR-025 the near-miss (A: q̂=+0.041 t=1.83 clears; B: q̂=+0.025 t=1.10
+   sub-bar; both positive). Write the verdicts, lessons, and close the
+   batch properly.
+2. **The rescue program:** the operator directs one full attempt to save
+   SCR-025 (E22 reversal mirror). Design up to FORTY variants — parameter
+   sweeps, entry-timing shifts, gate combinations, exit structures,
+   whatever you judge mechanism-faithful. FREEZE the entire grid AND the
+   winner-selection rule AND the success bar BEFORE the first submission.
+   All runs on the fleet, --detach, batched; size samples for the ~10%
+   incidence (your N=2000 amendment applies).
+3. **Anti-curse discipline (non-negotiable):** whatever the sweep selects
+   must then clear the bar on data that did not select it — a
+   pre-committed fresh draw (reserve window). The holdout stays locked;
+   CONFIRM-010 stays frozen. Expect shrinkage; a variant that only shines
+   where it was picked is dead, and say so plainly.
+4. **Walk away with a terminal verdict either way:** SAVED (a candidate
+   written up, ready for the confirmation path when data/credits return)
+   or DEAD FOR GOOD (with the grid's evidence). Terminal-quality handoff.
+
+This is the last session. Spend it all here. Good luck — again.
