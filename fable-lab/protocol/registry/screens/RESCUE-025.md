@@ -278,6 +278,41 @@ re-run before submission; regenerated sha256 =
 byte-identical to the frozen pre-commitment above; shard files
 regenerated (8 × 500).
 
+## Frozen holdout procedure (PASS branch only; frozen 2026-07-12 session 68 BEFORE the reserve read)
+
+_Per the operator's pre-committed outcome branches (commit 556403b), a
+reserve PASS proceeds to a ONE-SHOT validation on the locked holdout.
+This procedure is frozen now, while the reserve outcome is still
+unknown (the 8 confirmation runs are queued but unread), so no reserve
+result can shape it. If the reserve confirmation FAILS, this section is
+DEAD TEXT and the holdout stays locked and unread._
+
+- **Sample:** ALL eligible holdout markets — market_start_ms ≥
+  1777237200000, counted outcome-free today at 4,659 of the 18,635
+  eligible (no draw, no sampling: the terminal gate uses the entire
+  never-read window). Submission: ONE fleet run, batchUid
+  `RSC-025-HOLDOUT`, `--from-ms 1777237200000 --limit 5000`
+  (limit above the count → takes the whole window; if `--from-ms` is
+  not supported for new runs, fall back to `--slug` over the full
+  eligible holdout slug list generated outcome-free by the same
+  listEligibleTelonexMarkets filter — either way the sample is the
+  full window, deterministically).
+- **Params:** winner V32 exactly (segThresh1=0.03 segThresh2=0.03
+  ratioMin=1.0, all else RESCUE-025.ts defaults), strategy
+  `fable-rsc-025`, latency pinned per D8, `--detach`, committed+pushed
+  code.
+- **Bar (frozen, same convention as the confirmation):** q̂ > 0 ∧
+  t ≥ +1.5 ∧ played ≥ 100 ∧ (if winRate > 0.9: minority-outcome count
+  ≥ 30, E14) — evaluated over all N via results.ts convention.
+- **Pre-verdict checks:** completed ∧ failures=0 ∧ single run for the
+  batchUid ∧ every replayed market_start_ms ≥ 1777237200000 ∧ N =
+  the full eligible holdout count at read time.
+- **One attempt, ever.** Pass → the lab's first VALIDATED strategy
+  (write-up for the operator's live dry-run decision). Fail → verdict
+  stands as reserve-passed/holdout-failed, honestly recorded; no
+  re-rolls, no variant swaps, no partial reads. Either way the holdout
+  is thereafter SPENT for this mechanism.
+
 ## Confirmation result (append-only, after the one read)
 
 _To be appended: pooled table, bar evaluation, terminal verdict
