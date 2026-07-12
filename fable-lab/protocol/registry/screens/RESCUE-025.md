@@ -178,6 +178,26 @@ From the 40 sweep runs, judged on the standard results.ts convention
   discovery slugs (fill counts must match exactly), plus one tp, one
   sl, one delay variant plumbing smoke on the same slugs.
 
+## Pre-submission smokes (counts only, no PnL — E15 discipline)
+
+_Run 2026-07-12 session 67, local `--sequential`, the 40 oldest eligible
+discovery slugs (superset of the BATCH-005 10-slug smoke set; more slugs
+because the updn shape fires only ~12% of markets), latency pinned
+in-log. Counts via fills.ts only._
+
+| run | batchUid | cell | filled markets | maker fills | taker fills | reading |
+|---|---|---|---|---|---|---|
+| 537 | RSC-025-smoke-stm-eq | (SCRATCH — zsh non-word-splitting dropped `--param shape=updn`; ran shape=dn; counts only, superseded) | 9 | 0 | 9 | void, replaced by 539 |
+| 539 | RSC-025-smoke-stm-eq-r2 | fable-scr-stm shape=updn (reference) | 5 | 0 | 5 | reference |
+| 538 | RSC-025-smoke-v01 | fable-rsc-025 defaults (V01) | 5 | 0 | 5 | EQUIVALENCE HOLDS (5/5 = 5/5 exact) |
+| 540 | RSC-025-smoke-v25 | exit=tp tpDelta=0.03 | 5 | 3 | 5 | TP leg fires (3 maker TP fills) |
+| 541 | RSC-025-smoke-v27 | exit=sl slDelta=0.03 | 5 | 0 | 9 | SL leg fires (5 entries + 4 stops) |
+| 542 | RSC-025-smoke-v23 | entryDelaySec=30 | 4 | 0 | 4 | delayed entry works (one entry lost to the one-shot attempt at t2+30 — expected semantics) |
+
+Submission script: `logs/rsc025-submit.sh` (latency pin as a single
+`export`, per the BATCH-005 checker finding 1 convention; the enqueue
+log is `logs/rsc025-submit.log`).
+
 ## Sweep results (append-only after runs complete)
 
 _To be appended: 40-row table (variant, run, N, played, q̂, t, EV/mkt,
