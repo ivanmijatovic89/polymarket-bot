@@ -450,5 +450,117 @@ mini-spec cell is otherwise unchanged.
 
 ## Verdicts (append-only after runs complete)
 
-_To be appended: one ranked table, both samples per screen, per-sample
-q̂/t/played/winRate, verdict line per screen against the frozen bars._
+_Judged 2026-07-12T01:21Z (session 67) by the frozen batch rules above.
+Table is the verbatim `tools/b5-table.ts` output (ranked by the WORSE
+sample's q̂, conservative; the verdict column carries the overall
+verdict on the A row and the per-sample bar reasons on the B row)._
+
+### Pre-verdict integrity checks (this session, before any judgment)
+
+- All 40 runs `completed` with **0 failures each** (checked per-batchUid
+  via `results.ts --json`, all 40 outputs listed in the session log).
+- No duplicate submissions: run IDs 496–536 contain exactly 41 rows =
+  40 screen-samples + run 499 (`PARITY-496-latcheck`); every
+  `SCR-0NN-{A,B}` batchUid appears exactly once. The out-of-sequence
+  IDs (534 = SCR-019-A, 536 = SCR-012-A) completed last under queue
+  re-scheduling — single rows, not resubmissions.
+- Latency pin: proven empirically for the worker path by the run-496
+  parity check (12 markets re-run locally at pinned 0/0, all rows
+  byte-identical across 19 fields — session-66 log, run 499); all 40
+  submit commands carried `BACKTEST_LATENCY_DELAY=0
+  BACKTEST_LATENCY_JITTER=0` per D8/D51.
+- Window integrity: verified at submission (session 66) — every A
+  sample drew only slugs < 1768481100000, every B sample only
+  ≥ 1768481100000 and < 2026-03-01; zero violations.
+
+### Ranked table (verbatim tool output)
+
+| rank | screen | mechanism | sample | run | N | played | q̂ | t | EV/mkt | winRate | verdict |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 1 | SCR-025 | E22 reversal mirror | A | 525 | 2000 | 196 | 0.0410 | 1.83 | 0.452 | 0.622 (122/74) | KILL |
+| 1 | SCR-025 | E22 reversal mirror | B | 526 | 2000 | 241 | 0.0246 | 1.10 | 0.294 | 0.647 (156/85) | A:clears bar B:t<1.5 |
+| 2 | SCR-017 | dwell-breakout | A | 510 | 2000 | 16 | 0.0117 | 0.52 | 0.022 | 0.313 (5/11) | KILL |
+| 2 | SCR-017 | dwell-breakout | B | 512 | 2000 | 14 | 0.0224 | 1.00 | 0.057 | 0.500 (7/7) | A:t<1.5 B:t<1.5 |
+| 3 | SCR-015 | US-hours × momentum | A | 505 | 500 | 129 | 0.0282 | 0.63 | 0.591 | 0.597 (77/52) | KILL |
+| 3 | SCR-015 | US-hours × momentum | B | 506 | 500 | 155 | 0.0104 | 0.23 | 0.257 | 0.594 (92/63) | A:t<1.5 B:t<1.5 |
+| 4 | SCR-023 | quiet-early favorite | A | 521 | 2000 | 0 | — | — | 0.000 | — (0/0) | PARK-DESIGN |
+| 4 | SCR-023 | quiet-early favorite | B | 522 | 2000 | 0 | — | — | 0.000 | — (0/0) | A:entry-less B:entry-less |
+| 5 | SCR-018 | late big-move continuation | A | 511 | 2000 | 1407 | 0.0113 | 0.51 | 0.313 | 0.605 (851/555) | KILL |
+| 5 | SCR-018 | late big-move continuation | B | 513 | 2000 | 1610 | -0.0119 | -0.53 | -0.354 | 0.586 (943/667) | A:t<1.5 B:q≤0 |
+| 6 | SCR-029 | second-passage barrier | A | 533 | 2000 | 1377 | 0.0121 | 0.54 | 0.323 | 0.824 (1134/243) | KILL |
+| 6 | SCR-029 | second-passage barrier | B | 535 | 2000 | 1434 | -0.0203 | -0.91 | -0.553 | 0.804 (1153/281) | A:t<1.5 B:q≤0 |
+| 7 | SCR-014 | depth-agree × momentum | A | 503 | 500 | 465 | -0.0251 | -0.56 | -0.695 | 0.544 (253/212) | KILL |
+| 7 | SCR-014 | depth-agree × momentum | B | 504 | 500 | 486 | -0.0116 | -0.26 | -0.404 | 0.553 (269/217) | A:q≤0 B:q≤0 |
+| 8 | SCR-013 | tight-spread × momentum | A | 501 | 500 | 464 | -0.0071 | -0.16 | -0.257 | 0.569 (264/200) | KILL |
+| 8 | SCR-013 | tight-spread × momentum | B | 502 | 500 | 487 | -0.0307 | -0.69 | -1.144 | 0.569 (277/210) | A:q≤0 B:q≤0 |
+| 9 | SCR-016 | busy-tape × momentum | A | 507 | 500 | 469 | -0.0418 | -0.94 | -1.561 | 0.580 (272/197) | KILL |
+| 9 | SCR-016 | busy-tape × momentum | B | 508 | 500 | 491 | -0.0453 | -1.01 | -1.835 | 0.570 (280/211) | A:q≤0 B:q≤0 |
+| 10 | SCR-024 | E21 continuation mirror | A | 523 | 500 | 110 | -0.0759 | -1.70 | -1.079 | 0.691 (76/34) | KILL |
+| 10 | SCR-024 | E21 continuation mirror | B | 524 | 500 | 145 | 0.0130 | 0.29 | 0.213 | 0.703 (102/43) | A:q≤0 B:t<1.5 |
+| 11 | SCR-027 | maker bid + taker SL | A | 529 | 500 | 446 | -0.0341 | -0.76 | -0.722 | 0.231 (103/343) | KILL |
+| 11 | SCR-027 | maker bid + taker SL | B | 530 | 500 | 480 | -0.0766 | -1.71 | -1.623 | 0.233 (112/368) | A:q≤0 B:q≤0 |
+| 12 | SCR-019 | late favorite-collapse fade | A | 534 | 2000 | 554 | -0.0649 | -2.90 | -1.320 | 0.607 (336/218) | KILL |
+| 12 | SCR-019 | late favorite-collapse fade | B | 516 | 2000 | 625 | -0.0797 | -3.56 | -1.685 | 0.573 (358/267) | A:q≤0 B:q≤0 |
+| 13 | SCR-028 | fill-as-signal inversion | A | 531 | 500 | 282 | -0.0867 | -1.94 | -2.589 | 0.535 (151/131) | KILL |
+| 13 | SCR-028 | fill-as-signal inversion | B | 532 | 500 | 307 | -0.0889 | -1.99 | -2.588 | 0.482 (148/159) | A:q≤0 B:q≤0 |
+| 14 | SCR-020 | extreme favorite + maker TP | A | 514 | 500 | 361 | -0.0667 | -1.49 | -1.014 | 0.950 (343/18) | KILL |
+| 14 | SCR-020 | extreme favorite + maker TP | B | 515 | 500 | 388 | -0.0984 | -2.20 | -1.773 | 0.946 (367/21) | A:q≤0 B:q≤0 |
+| 15 | SCR-022 | underdog + taker SL | A | 519 | 500 | 414 | -0.1515 | -3.39 | -1.917 | 0.070 (29/385) | KILL |
+| 15 | SCR-022 | underdog + taker SL | B | 520 | 500 | 445 | -0.0047 | -0.11 | -0.075 | 0.094 (42/403) | A:q≤0 B:q≤0 |
+| 16 | SCR-011 | momentum + taker SL | A | 497 | 500 | 462 | -0.0223 | -0.50 | -0.417 | 0.212 (98/364) | KILL |
+| 16 | SCR-011 | momentum + taker SL | B | 498 | 500 | 496 | -0.1747 | -3.91 | -3.282 | 0.183 (91/405) | A:q≤0 B:q≤0 |
+| 17 | SCR-021 | mid favorite + maker TP | A | 517 | 500 | 392 | -0.1800 | -4.03 | -2.917 | 0.865 (339/53) | KILL |
+| 17 | SCR-021 | mid favorite + maker TP | B | 518 | 500 | 417 | -0.1485 | -3.32 | -2.316 | 0.885 (369/48) | A:q≤0 B:q≤0 |
+| 18 | SCR-010 | momentum + maker TP | A | 509 | 500 | 459 | -0.2276 | -5.09 | -3.444 | 0.900 (413/46) | KILL |
+| 18 | SCR-010 | momentum + maker TP | B | 496 | 500 | 493 | -0.1839 | -4.11 | -2.483 | 0.929 (458/35) | A:q≤0 B:q≤0 |
+| 19 | SCR-026 | maker bid + maker TP | A | 527 | 500 | 443 | -0.2603 | -5.82 | -4.492 | 0.853 (378/65) | KILL |
+| 19 | SCR-026 | maker bid + maker TP | B | 528 | 500 | 483 | -0.2153 | -4.81 | -3.298 | 0.884 (427/56) | A:q≤0 B:q≤0 |
+| 20 | SCR-012 | fade + maker TP | A | 536 | 500 | 468 | -0.2797 | -6.25 | -3.546 | 0.853 (399/69) | KILL |
+| 20 | SCR-012 | fade + maker TP | B | 500 | 500 | 491 | -0.2457 | -5.49 | -3.126 | 0.874 (429/61) | A:q≤0 B:q≤0 |
+
+`completed: 20/20  pending: none` /
+`SURVIVORS (both samples clear the frozen bar): NONE`
+
+### Verdict statement
+
+**0 SURVIVE / 19 KILL / 1 PARK-DESIGN.** No screen cleared the frozen
+survive bar on both disjoint samples.
+
+- **SCR-025 (E22 reversal mirror) is the near-miss and the only screen
+  positive on BOTH halves**: A q̂=+0.0410 t=+1.83 (clears), B q̂=+0.0246
+  t=+1.10 (sub-bar). Per the frozen rule (E26: one sample lies) the
+  screen verdict is KILL — but per the frozen in-sample caveat this was
+  never a confirmable read anyway (the E22 signal was FOUND on this
+  window; any positive is winner's-curse-inflated). The two-halves-
+  both-positive pattern is exactly what a real-but-small effect OR a
+  window-wide curse artifact would produce; nothing in this batch
+  distinguishes them. Disposition: operator FINAL RUN v2 directive
+  orders a dedicated rescue program (frozen separately as RESCUE-025)
+  whose anti-curse confirmation draws on the reserve window that did
+  NOT produce the signal.
+- **SCR-024 (E21 continuation mirror) killed cleanly** (A q̂ negative):
+  consistent with the scan-table's own sub-bar mirror numbers — the
+  weaker one-segment staleness mirror has no tradable content.
+- **SCR-023 PARK-DESIGN**: 0 entries in 4,000 markets. The
+  quiet-early conjunction (first-300s range ≤ 3c observed from ≤ 60s ∧
+  ask 0.80–0.92 at 600s) is structurally empty at these parameters —
+  an incidence-arithmetic error in the mini-spec's 10-20% prior, not
+  evidence about the mechanism. No relaunch (directive budget goes to
+  the rescue).
+- **Exit-axis lesson (the batch's biggest yield)**: every maker-TP
+  variant (SCR-010/012/020/021/026) is deeply negative with high win
+  rates (0.85–0.95) — the worst-queue TP leg banks 2-4c wins
+  constantly while the untruncated losers eat them (classic
+  short-vol payoff, negative after adverse selection). Every taker-SL
+  variant (SCR-011/022/027) is negative with low win rates (0.07–0.23)
+  — stops fire on noise, pay double fee, and forfeit the settle-back
+  tail. Exit structures RESHAPE the payoff but cannot manufacture
+  edge from a fair entry; both directions lose to their own friction.
+- The interaction/subpopulation gates (SCR-013/014/015/016), the open
+  path shapes (SCR-017/029), the unswept parameter region (SCR-018),
+  and the collapse fade (SCR-019) are all flat-to-negative on both
+  halves: the directive's recombination sweep found no hidden
+  positive quadrant among individually-dead axes.
+
+Batch checker (SCREENING §5, amendment 4): run this session after this
+ledger commit; report appended below when complete.
