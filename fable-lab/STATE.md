@@ -1866,3 +1866,22 @@ directs one final campaign, in this order:
 Budget note: the campaign spans hours of fleet time — keep working while
 runs compute, and leave STATE resumable at every step; the loop may need
 a second session to finish the read. Good luck.
+
+## Operator update — outcome branches for the final confirmation (2026-07-12)
+
+Amending the FINAL CAMPAIGN directive with pre-committed outcome branches,
+recorded before any reserve data is read:
+
+- **If the reserve confirmation FAILS:** no retry on the reserve — once
+  read, it is spent for this mechanism (iterating against it would
+  manufacture a fake pass). Verdict DEAD on current data; write the
+  post-mortem and, if the evidence warrants, a revised pre-registered
+  test (CONFIRM-010 style) that waits for future data. The holdout is
+  NOT touched on the failure branch.
+- **If the reserve confirmation PASSES:** proceed to the terminal gate —
+  a ONE-SHOT validation on the locked holdout (the never-read newest ~25%,
+  the closest data to live regime). Freeze the exact variant, bar
+  (q̂>0 ∧ t≥1.5), and read procedure BEFORE the read; one attempt, ever.
+  Pass → the lab's first VALIDATED strategy, written up ready for the
+  operator's live dry-run decision. Fail → verdict stands as
+  reserve-passed/holdout-failed, honestly recorded; no re-rolls.
