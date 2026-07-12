@@ -466,9 +466,13 @@ verdict on the A row and the per-sample bar reasons on the B row)._
   re-scheduling — single rows, not resubmissions.
 - Latency pin: proven empirically for the worker path by the run-496
   parity check (12 markets re-run locally at pinned 0/0, all rows
-  byte-identical across 19 fields — session-66 log, run 499); all 40
-  submit commands carried `BACKTEST_LATENCY_DELAY=0
-  BACKTEST_LATENCY_JITTER=0` per D8/D51.
+  byte-identical across 19 fields — session-66 log, run 499); the pin
+  shipped as a single `export BACKTEST_LATENCY_DELAY=0
+  BACKTEST_LATENCY_JITTER=0` at the top of `logs/b5-submit.sh`
+  (environment inheritance across all 40 enqueues recorded in
+  `logs/b5-submit.log`), not as per-command flags — corrected per the
+  batch checker's finding 1; the parity re-run is the empirical
+  evidence.
 - Window integrity: verified at submission (session 66) — every A
   sample drew only slugs < 1768481100000, every B sample only
   ≥ 1768481100000 and < 2026-03-01; zero violations.
@@ -552,10 +556,12 @@ survive bar on both disjoint samples.
   rates (0.85–0.95) — the worst-queue TP leg banks 2-4c wins
   constantly while the untruncated losers eat them (classic
   short-vol payoff, negative after adverse selection). Every taker-SL
-  variant (SCR-011/022/027) is negative with low win rates (0.07–0.23)
+  variant (SCR-011/022/027) is negative with low win rates (0.07–0.233)
   — stops fire on noise, pay double fee, and forfeit the settle-back
-  tail. Exit structures RESHAPE the payoff but cannot manufacture
-  edge from a fair entry; both directions lose to their own friction.
+  tail. Every tested exit variant lost at these parameter points —
+  exit structures reshaped the payoff and both directions lost to
+  their own friction (scope per checker finding 2: 8 cells × one
+  parameter point each, not a general impossibility claim).
 - The interaction/subpopulation gates (SCR-013/014/015/016), the open
   path shapes (SCR-017/029), the unswept parameter region (SCR-018),
   and the collapse fade (SCR-019) are all flat-to-negative on both
