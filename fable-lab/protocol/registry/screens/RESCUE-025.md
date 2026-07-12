@@ -350,9 +350,11 @@ Honest shrinkage assessment (obligation from the freeze text): the
 at the advocated scale. se(q̂) at N=4,000 ≈ 1/√4000 ≈ 0.0158, so the
 observed q̂ = −0.0155 sits ≈ 2.9 se BELOW a true effect at SCR-025's
 pooled scale (q̂ ≈ +0.03) — the confirmation actively disfavors that
-scale rather than merely failing to detect it. Only a very small true
-effect (roughly q̂ < +0.015, i.e. under ~0.13c/market at this sd)
-remains compatible at 1 se, far below any actionable bar. The sweep's
+scale rather than merely failing to detect it. _(Sentence corrected per
+checker findings 1-2, AUDIT-2026-07-12-RSC-025-CHECKER.md.)_ At 1 se
+only q̂_true ≲ +0.0003 remains compatible; even the ~95% one-sided
+bound is q̂_true < +0.015 (≈ 13c/market at this sd), far below any
+actionable bar. The sweep's
 V32 t=+3.25 on discovery data is therefore best read as winner's curse
 over a 40-cell grid — the exact failure mode the one-shot fresh-sample
 design was built to catch, catching it.
@@ -360,7 +362,7 @@ design was built to catch, catching it.
 Interpretation detail (in-sample vs fresh, same convention): winRate
 shrank 0.764 → 0.701 and incidence dropped 127/2000 (6.35%) →
 288/4000 (7.2% — comparable), while EV/market flipped +0.073·sd →
-−0.13. With ~29c average taker fees per played market
+−0.13. With ~26c average taker fees per played market
 (73.81/288), the fresh-sample win/loss mix no longer clears entry
 cost: the reversal-mirror shape's discovery-window profitability does
 not transfer to the reserve window even directionally.

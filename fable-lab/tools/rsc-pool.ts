@@ -31,9 +31,17 @@ async function main() {
       .select()
       .from(backtestRunMarkets)
       .where(eq(backtestRunMarkets.runId, runs[0].id))
-    console.log(`${uid}: run ${runs[0].id} status=${runs[0].status} markets=${rows.length}`)
+    // Failure accounting lives at RUN level (backtest_run_markets has no
+    // status column; failed slugs never get a row there). Assert the row
+    // count matches the run's persisted count so a shard with failures
+    // cannot silently shrink N (checker finding 3, AUDIT-2026-07-12).
+    failures += Number(runs[0].failuresCount ?? 0)
+    if (rows.length !== Number(runs[0].marketsPersisted))
+      throw new Error(
+        `batchUid ${uid}: rows=${rows.length} != markets_persisted=${runs[0].marketsPersisted} — refuse read`,
+      )
+    console.log(`${uid}: run ${runs[0].id} status=${runs[0].status} markets=${rows.length} runFailures=${runs[0].failuresCount}`)
     for (const r of rows) {
-      if (r.status === 'failed') failures++
       const pnl = Number(r.pnl ?? 0)
       pnls.push(pnl)
       const trades = Number(r.tradeCount ?? 0)
