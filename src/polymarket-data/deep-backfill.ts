@@ -31,7 +31,8 @@ import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
-import { fetchActivity, type ApiActivity } from './activityApi.js'
+import { fetchActivity } from './activityApi.js'
+import { buildReconstructedRows, takerKeysOf, type ReconstructedRow } from './reconstruct.js'
 import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 import { COMPLETENESS_TOLERANCE } from './tradeRows.js'
@@ -136,33 +137,6 @@ async function participantsOf(
   return { wallets: [...wallets], positionsFetchedLive }
 }
 
-type ReconstructedRow = {
-  wallet: string
-  side: 'BUY' | 'SELL'
-  outcomeIndex: number | null
-  asset: string
-  size: number
-  price: number
-  usdcSize: number
-  isTaker: boolean
-  tsMs: number
-  txHash: string
-}
-
-function fillKey(parts: {
-  wallet: string
-  asset: string
-  side: string
-  price: number
-  size: number
-  ts: number
-  tx: string
-}): string {
-  return [parts.wallet, parts.asset, parts.side, parts.price, parts.size, parts.ts, parts.tx].join(
-    '|',
-  )
-}
-
 /** Run `task` over `items` with at most `concurrency` in flight. */
 async function pool<T, R>(
   items: T[],
@@ -202,19 +176,7 @@ async function reconstructMarket(
   // fraction of all rows, so it is usually well within it. When it is not, we
   // say so rather than silently mislabel every row as a maker fill.
   const taker = await fetchMarketTakerTrades(market.conditionId, { limiter, signal, label: LABEL })
-  const takerCounts = new Map<string, number>()
-  for (const t of taker.trades) {
-    const k = fillKey({
-      wallet: t.proxyWallet.toLowerCase(),
-      asset: t.asset,
-      side: t.side,
-      price: t.price,
-      size: t.size,
-      ts: t.timestamp,
-      tx: t.transactionHash,
-    })
-    takerCounts.set(k, (takerCounts.get(k) ?? 0) + 1)
-  }
+  const takerKeys = takerKeysOf(taker.trades)
 
   const perWallet = await pool(participants, walletConcurrency, async (wallet) =>
     fetchActivity(
@@ -223,56 +185,12 @@ async function reconstructMarket(
     ),
   )
 
-  const rows: ReconstructedRow[] = []
-  const wallets = new Set<string>()
-  let volume = 0
-  let sharesTotal = 0
-
-  for (const activities of perWallet) {
-    for (const a of activities as ApiActivity[]) {
-      if (a.type !== 'TRADE') continue
-      if (a.conditionId !== market.conditionId) continue
-      const wallet = a.proxyWallet.toLowerCase()
-      const size = a.size ?? 0
-      const price = a.price ?? 0
-      const usdcSize = a.usdcSize ?? size * price
-      const ts = a.timestamp
-
-      const key = fillKey({
-        wallet,
-        asset: a.asset ?? '',
-        side: a.side ?? 'BUY',
-        price,
-        size,
-        ts,
-        tx: a.transactionHash ?? '',
-      })
-      const remaining = takerCounts.get(key) ?? 0
-      const isTaker = remaining > 0
-      if (isTaker) takerCounts.set(key, remaining - 1)
-
-      wallets.add(wallet)
-      volume += usdcSize
-      sharesTotal += size
-      rows.push({
-        wallet,
-        side: a.side ?? 'BUY',
-        outcomeIndex: typeof a.outcomeIndex === 'number' ? a.outcomeIndex : null,
-        asset: a.asset ?? '',
-        size,
-        price,
-        usdcSize,
-        isTaker,
-        tsMs: ts * 1000,
-        txHash: a.transactionHash ?? '',
-      })
-    }
-  }
+  const built = buildReconstructedRows(perWallet, takerKeys, market.conditionId)
+  const { rows, volume, sharesVolume } = built
 
   // Same completeness identity the trades stage uses: Gamma's volumeNum is the
   // traded share count with each match counted once. A reconstruction that
   // reproduces it holds every fill; anything short stays `partial`.
-  const sharesVolume = sharesTotal / 2
   const complete =
     market.volumeGamma === null || market.volumeGamma <= 0
       ? null
@@ -280,7 +198,7 @@ async function reconstructMarket(
 
   return {
     rows,
-    wallets: wallets.size,
+    wallets: built.wallets,
     volume,
     sharesVolume,
     complete,
