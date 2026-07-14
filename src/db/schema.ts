@@ -440,6 +440,211 @@ export const telonexMarketFiles = mysqlTable(
   }),
 )
 
+// ---------------------------------------------------------------------------
+// polymarket-data sync pipeline — see docs/datasets/polymarket-data/
+//
+// Historical trades + activity for crypto up/down markets, pulled from the
+// Polymarket public APIs (Gamma series → catalog; Data API /trades,
+// /v1/market-positions, /activity). Completely independent of the telonex
+// tables above: no joins, no shared state, own catalog.
+// ---------------------------------------------------------------------------
+
+// Catalog of every crypto up/down market we sync, plus per-market sync state
+// for the trades and positions stages.
+//
+// Window time: `market_start_ms` is the slug epoch (5m/15m/4h) or Gamma's
+// `eventStartTime` (1h/1d) — never Gamma's `startDate`, which is the market's
+// creation time and is off by ~a day.
+export const polymarketMarkets = mysqlTable(
+  'polymarket_markets',
+  {
+    id: int('id').primaryKey().autoincrement(),
+    conditionId: varchar('condition_id', { length: 66 }).notNull().unique(),
+    slug: varchar('slug', { length: 120 }).notNull().unique(),
+    eventId: varchar('event_id', { length: 20 }),
+    seriesId: varchar('series_id', { length: 20 }).notNull(),
+
+    symbol: varchar('symbol', { length: 10 }).notNull(),
+    timeframe: mysqlEnum('timeframe', ['5m', '15m', '1h', '4h', '1d']).notNull(),
+    marketStartMs: bigint('market_start_ms', { mode: 'number' }).notNull(),
+    marketEndMs: bigint('market_end_ms', { mode: 'number' }).notNull(),
+
+    question: text('question'),
+    outcomes: json('outcomes').$type<string[]>(),
+    resolvedOutcome: varchar('resolved_outcome', { length: 10 }),
+    closed: boolean('closed').notNull().default(false),
+    volumeGamma: decimal('volume_gamma', { precision: 18, scale: 6 }),
+    liquidityGamma: decimal('liquidity_gamma', { precision: 18, scale: 6 }),
+    assetId0: varchar('asset_id_0', { length: 80 }),
+    assetId1: varchar('asset_id_1', { length: 80 }),
+    // Full Gamma market object. Anything not promoted to a column above stays
+    // queryable, and can be promoted later without re-fetching the catalog.
+    rawJson: json('raw_json').$type<Record<string, unknown>>(),
+
+    // Trades stage state.
+    tradesStatus: mysqlEnum('trades_status', ['pending', 'processing', 'done', 'partial', 'failed'])
+      .notNull()
+      .default('pending'),
+    tradesSyncedAt: timestamp('trades_synced_at'),
+    // 'trades-api' (normal) | 'deep-backfill' (reconstructed per-wallet because
+    // the market exceeded the /trades offset cap).
+    tradesSource: varchar('trades_source', { length: 20 }),
+    tradeRows: int('trade_rows'),
+    tradeWallets: int('trade_wallets'),
+    // Sum of usdc over ALL rows (maker + taker). Matches Gamma's volumeNum;
+    // the taker-only sum is exactly half of it.
+    volumeTraded: decimal('volume_traded', { precision: 18, scale: 6 }),
+    tradesError: text('trades_error'),
+
+    // Positions stage state.
+    positionsStatus: mysqlEnum('positions_status', ['pending', 'processing', 'done', 'failed'])
+      .notNull()
+      .default('pending'),
+    positionsSyncedAt: timestamp('positions_synced_at'),
+    positionRows: int('position_rows'),
+    positionsError: text('positions_error'),
+
+    syncedAt: timestamp('synced_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    symbolTfStartIdx: index('idx_polymarket_markets_symbol_tf_start').on(
+      t.symbol,
+      t.timeframe,
+      t.marketStartMs,
+    ),
+    // Supports each stage's claim: walk claimable rows in market_start_ms order
+    // without a filesort.
+    tradesStatusStartIdx: index('idx_polymarket_markets_trades_status_start').on(
+      t.tradesStatus,
+      t.marketStartMs,
+    ),
+    positionsStatusStartIdx: index('idx_polymarket_markets_positions_status_start').on(
+      t.positionsStatus,
+      t.marketStartMs,
+    ),
+    startIdx: index('idx_polymarket_markets_start').on(t.marketStartMs),
+  }),
+)
+
+// One row per fill side. A single match produces one taker row and N maker
+// rows sharing a `tx_hash` — GROUP BY tx_hash reconstructs the whole match with
+// all counterparties.
+//
+// The API gives these rows no unique id, so they are never deduped row-by-row:
+// a market's rows are written whole (delete + insert) inside one transaction.
+export const polymarketTrades = mysqlTable(
+  'polymarket_trades',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    marketId: int('market_id')
+      .notNull()
+      .references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
+    wallet: varchar('wallet', { length: 42 }).notNull(),
+    side: mysqlEnum('side', ['BUY', 'SELL']).notNull(),
+    outcomeIndex: int('outcome_index'),
+    asset: varchar('asset', { length: 80 }).notNull(),
+    size: decimal('size', { precision: 18, scale: 6 }).notNull(),
+    price: decimal('price', { precision: 8, scale: 6 }).notNull(),
+    usdcSize: decimal('usdc_size', { precision: 18, scale: 6 }).notNull(),
+    isTaker: boolean('is_taker').notNull().default(false),
+    tsMs: bigint('ts_ms', { mode: 'number' }).notNull(),
+    txHash: varchar('tx_hash', { length: 66 }).notNull(),
+  },
+  (t) => ({
+    marketIdx: index('idx_polymarket_trades_market').on(t.marketId),
+    walletTsIdx: index('idx_polymarket_trades_wallet_ts').on(t.wallet, t.tsMs),
+    txHashIdx: index('idx_polymarket_trades_tx_hash').on(t.txHash),
+    tsIdx: index('idx_polymarket_trades_ts').on(t.tsMs),
+  }),
+)
+
+// Final per-wallet outcome for a market, from /v1/market-positions. Complete
+// even for markets whose /trades pages are capped, so this is also how the deep
+// backfill discovers every participant.
+export const polymarketMarketPositions = mysqlTable(
+  'polymarket_market_positions',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    marketId: int('market_id')
+      .notNull()
+      .references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
+    wallet: varchar('wallet', { length: 42 }).notNull(),
+    asset: varchar('asset', { length: 80 }).notNull(),
+    outcomeIndex: int('outcome_index'),
+    finalSize: decimal('final_size', { precision: 18, scale: 6 }),
+    avgPrice: decimal('avg_price', { precision: 8, scale: 6 }),
+    totalBought: decimal('total_bought', { precision: 18, scale: 6 }),
+    realizedPnl: decimal('realized_pnl', { precision: 18, scale: 6 }),
+    cashPnl: decimal('cash_pnl', { precision: 18, scale: 6 }),
+  },
+  (t) => ({
+    uniqPosition: unique('uniq_polymarket_market_positions').on(t.marketId, t.wallet, t.asset),
+    marketIdx: index('idx_polymarket_market_positions_market').on(t.marketId),
+    walletIdx: index('idx_polymarket_market_positions_wallet').on(t.wallet),
+  }),
+)
+
+// Every wallet seen trading or holding a position in our markets, plus its
+// activity-sync cursor. Wallets stay re-claimable so later runs pick up late
+// redeems.
+export const polymarketWallets = mysqlTable(
+  'polymarket_wallets',
+  {
+    wallet: varchar('wallet', { length: 42 }).primaryKey(),
+    name: varchar('name', { length: 100 }),
+    pseudonym: varchar('pseudonym', { length: 100 }),
+    tradeCount: int('trade_count').notNull().default(0),
+    marketsCount: int('markets_count').notNull().default(0),
+    firstTradeMs: bigint('first_trade_ms', { mode: 'number' }),
+    lastTradeMs: bigint('last_trade_ms', { mode: 'number' }),
+
+    activityStatus: mysqlEnum('activity_status', ['pending', 'processing', 'done', 'failed'])
+      .notNull()
+      .default('pending'),
+    // Epoch ms synced through. The next run resumes slightly before it.
+    activityCursorTs: bigint('activity_cursor_ts', { mode: 'number' }),
+    activitySyncedAt: timestamp('activity_synced_at'),
+    activityError: text('activity_error'),
+
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    statusTradeCountIdx: index('idx_polymarket_wallets_status_trade_count').on(
+      t.activityStatus,
+      t.tradeCount,
+    ),
+  }),
+)
+
+// Non-trade activity (SPLIT / MERGE / REDEEM / REWARD / CONVERSION …) on our
+// markets. `type` is a varchar, not an enum: the API may add types and we store
+// whatever it sends.
+//
+// `dedup_key` + INSERT IGNORE makes the cursor's deliberate re-fetch overlap
+// idempotent.
+export const polymarketActivity = mysqlTable(
+  'polymarket_activity',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    wallet: varchar('wallet', { length: 42 }).notNull(),
+    type: varchar('type', { length: 20 }).notNull(),
+    marketId: int('market_id').references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
+    conditionId: varchar('condition_id', { length: 66 }).notNull(),
+    size: decimal('size', { precision: 18, scale: 6 }),
+    usdcSize: decimal('usdc_size', { precision: 18, scale: 6 }),
+    outcomeIndex: int('outcome_index'),
+    tsMs: bigint('ts_ms', { mode: 'number' }).notNull(),
+    txHash: varchar('tx_hash', { length: 66 }),
+    dedupKey: varchar('dedup_key', { length: 40 }).notNull(),
+  },
+  (t) => ({
+    uniqDedup: unique('uniq_polymarket_activity_dedup').on(t.dedupKey),
+    marketTypeIdx: index('idx_polymarket_activity_market_type').on(t.marketId, t.type),
+    walletTsIdx: index('idx_polymarket_activity_wallet_ts').on(t.wallet, t.tsMs),
+  }),
+)
+
 // Converted parquet per (market, converter) — Step 2 output.
 export const telonexMarketConversions = mysqlTable(
   'telonex_market_conversions',
