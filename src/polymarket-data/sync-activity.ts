@@ -21,13 +21,13 @@
  */
 
 import '../config/env.js'
-import { createHash } from 'node:crypto'
 import { sql } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity, type ApiActivity } from './activityApi.js'
+import { selectActivityRows } from './activityRows.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 
@@ -42,9 +42,6 @@ const EMPTY_CLAIM_BACKOFF_MS = 500
  * free.
  */
 const CURSOR_OVERLAP_MS = 60 * 60 * 1000
-
-/** Trades are owned by `polymarket_trades`; storing them here would double-count. */
-const EXCLUDED_TYPES = new Set(['TRADE'])
 
 type Args = {
   wallets?: string[]
@@ -144,35 +141,6 @@ async function claimNextWallet(args: Args, signal: AbortSignal): Promise<Claimed
     backoffMs: EMPTY_CLAIM_BACKOFF_MS,
     signal,
   })
-}
-
-/**
- * Stable identity for an activity row. The API gives rows no id, and the cursor
- * deliberately re-reads an overlap window, so this key (with INSERT IGNORE on
- * the unique index) is what makes re-runs idempotent.
- *
- * The occurrence index must come from the row's own identity group — how many
- * byte-identical rows precede it — and NOT from its position in the fetched
- * page. Position depends on where the cursor started, so a second run with a
- * different cursor would mint different keys and re-insert everything. It did:
- * a re-run of 8 wallets doubled the table. Counting within the identity group is
- * cursor-independent, while still letting two genuinely identical events (the
- * same split twice in one transaction) both survive.
- */
-function identityOf(row: ApiActivity): string {
-  return [
-    row.proxyWallet.toLowerCase(),
-    row.type,
-    row.conditionId,
-    row.transactionHash ?? '',
-    row.timestamp,
-    row.size ?? '',
-    row.usdcSize ?? '',
-  ].join('|')
-}
-
-function dedupKey(identity: string, occurrence: number): string {
-  return createHash('sha1').update(`${identity}|${occurrence}`).digest('hex').slice(0, 40)
 }
 
 type MarketIndex = Map<string, number>
@@ -297,22 +265,9 @@ async function main(): Promise<void> {
           { limiter, signal: ac.signal, label: LABEL },
         )
 
-        const keep: Array<{ row: ApiActivity; marketId: number | null; key: string }> = []
-        const seen = new Map<string, number>()
-        for (const row of activities) {
-          if (EXCLUDED_TYPES.has(row.type)) continue
-
-          // Count occurrences per identity, not per page position — see dedupKey.
-          const identity = identityOf(row)
-          const occurrence = seen.get(identity) ?? 0
-          seen.set(identity, occurrence + 1)
-
-          const marketId = marketIndex.get(row.conditionId) ?? null
-          // Default scope is our markets only; --full keeps a wallet's whole
-          // Polymarket history (for wallets under active investigation).
-          if (marketId === null && !args.full) continue
-          keep.push({ row, marketId, key: dedupKey(identity, occurrence) })
-        }
+        // Default scope is our markets only; --full keeps a wallet's whole
+        // Polymarket history (for wallets under active investigation).
+        const keep = selectActivityRows(activities, marketIndex, args.full)
 
         // Cursor: the newest row we saw, or (for a wallet with no activity) now
         // minus the overlap, so the next run doesn't re-read all of history.

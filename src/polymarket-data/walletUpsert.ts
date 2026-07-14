@@ -23,6 +23,7 @@
 
 import { sql } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
+import { withDeadlockRetry } from '../db/txRetry.js'
 
 export type WalletSighting = {
   wallet: string
@@ -59,12 +60,21 @@ export async function upsertWallets(sightings: WalletSighting[]): Promise<void> 
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const values = chunk.map((s) => sql`(${s.wallet}, ${s.name ?? null}, ${s.pseudonym ?? null})`)
-    await db.execute(
-      sql`INSERT INTO polymarket_wallets (wallet, name, pseudonym)
+    // Deadlock-retried like every other writer here: workers on different
+    // markets still collide on this table, because the SAME wallets trade in
+    // many markets at once. Missing the retry here failed real markets whose
+    // trades had already been written — the wallet upsert is the last step, so
+    // a deadlock rolled back nothing but still marked the market failed.
+    await withDeadlockRetry(
+      () =>
+        db.execute(
+          sql`INSERT INTO polymarket_wallets (wallet, name, pseudonym)
           VALUES ${sql.join(values, sql`, `)}
           ON DUPLICATE KEY UPDATE
             name = COALESCE(VALUES(name), name),
             pseudonym = COALESCE(VALUES(pseudonym), pseudonym)`,
+        ),
+      '[polymarket-data:wallets]',
     )
   }
 }
