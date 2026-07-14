@@ -27,7 +27,7 @@ import { and, eq, inArray, sql } from 'drizzle-orm'
 import { getDb, closeDb, telonexMarkets, telonexMarketFiles } from '../db/index.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { getDefaultBucket, putObject } from '../r2/client.js'
-import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
+import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 
 const TELONEX_DOWNLOAD_BASE = 'https://api.telonex.io/v1/downloads/polymarket'
 const MAX_IN_PROCESS_RETRIES = 3

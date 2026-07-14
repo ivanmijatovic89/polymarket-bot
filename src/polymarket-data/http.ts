@@ -13,6 +13,7 @@
  * global requests/second budget.
  */
 
+import { setMaxListeners } from 'node:events'
 import type { RateLimiter } from './rateLimiter.js'
 
 const MAX_RETRIES = 4
@@ -77,6 +78,13 @@ export async function fetchJson<T>(url: string, opts: JsonFetchOptions): Promise
   const label = opts.label ?? '[polymarket-data:http]'
   let retries = 0
   let rateLimitRetries = 0
+
+  // One shutdown signal is shared by every request of the process — hundreds of
+  // them, each of which registers an abort listener. Node's default cap of 10
+  // then floods stderr with MaxListenersExceededWarning. The listeners are
+  // legitimate and short-lived, so lift the cap on this signal rather than
+  // dropping cancellation.
+  if (opts.signal) setMaxListeners(0, opts.signal)
 
   for (;;) {
     await opts.limiter.acquire()

@@ -93,6 +93,21 @@ npm run format ; npm run format:check
 # families) commit and push directly to main, per the branch policy in
 # strategy-research-protocol/AGENTS.md — remote backtest workers track origin/main.
 
+# Polymarket data sync (historical trades + activity → MySQL, `polymarket_*` tables)
+# Independent of telonex: own catalog, own tables, no joins, no shared state.
+npm run polymarket-data:sync-markets -- --symbol btc --timeframe 15m     # 1. catalog (Gamma series)
+npm run polymarket-data:sync-positions -- --symbol btc --concurrency 4   # 2. participants + final PnL
+npm run polymarket-data:sync-trades -- --symbol btc --concurrency 4      # 3. every fill (maker + taker)
+npm run polymarket-data:deep-backfill -- --symbol btc                    # 4. repair markets the /trades cap truncated
+npm run polymarket-data:sync-activity -- --limit 500                     # 5. split/merge/redeem per wallet
+npm run polymarket-data:verify -- --resample 5                           # audit DB vs API
+npm run test:polymarket-data
+# Completeness gate: SUM(polymarket_trades.size)/2 == polymarket_markets.volume_gamma — an exact
+# identity (Gamma's volumeNum is matched SHARES, not USDC). A market is only `done` if it holds.
+# Do NOT compare volume_traded (USDC) to Gamma — different quantity, raises false alarms.
+# Step 4 is NOT optional: ~12% of busy 15m markets exceed the /trades offset cap (3000) and come
+# back `partial`. See docs/datasets/polymarket-data/sync-design.md before touching src/polymarket-data/.
+
 # Database (Drizzle + MySQL)
 npm run db:generate                    # emit migration SQL into drizzle/
 npm run db:migrate                     # apply migrations
