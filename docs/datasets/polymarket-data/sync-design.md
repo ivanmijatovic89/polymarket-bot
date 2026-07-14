@@ -98,6 +98,29 @@ Verified: three runs over the same wallets — empty cursor, warm cursor, and a 
 
 `polymarket_wallets.trade_count` / `markets_count` / `first_trade_ms` / `last_trade_ms` are recomputed from `polymarket_trades` (`refreshWalletStats`), never accumulated with `+= n`. A market's trades are rewritten whole on every re-sync, so incremental bookkeeping would double-count on each retry. `activity_status` is never reset by discovery — a wallet that has already been synced resumes from its cursor instead.
 
+## Trade ordering and time resolution
+
+Read trades with **`ORDER BY ts_ms, tx_hash`**. Never `ORDER BY id`.
+
+`ts_ms` comes from the API's `timestamp` field and is identical whichever stage
+wrote the row, so ordering is fully recoverable and consistent across the whole
+dataset. `id` (autoincrement) is insertion order: in the trades-api path that
+happens to track time, but in a deep-backfilled market the rows are written
+grouped by wallet, so `id` order there is meaningless. Sorting by `ts_ms` erases
+that difference — the two paths are equivalent to one-second resolution.
+
+The resolution *is* one second — that is an API limit, not a pipeline choice, and
+it applies to both paths equally. `timestamp` is epoch **seconds**, and neither
+`/trades` nor `/activity` exposes any finer key (no sequence, block, or
+log-index — checked). A busy second can hold ~50 rows, but those are a handful
+of *matches*, not 50 independent events: each match is one taker + its makers
+sharing a `tx_hash`, and a `tx_hash` never spans more than one second (verified
+across the dataset), so `GROUP BY tx_hash` reconstructs matches exactly in both
+paths. What is genuinely unavailable — from this API, on either path — is the
+sub-second sequence of independent matches within the same second. The only
+source for that is on-chain `(block, tx_index, log_index)` via the `tx_hash`,
+which this pipeline does not fetch.
+
 ## Residual gaps (honest list)
 
 - A wallet that **never traded and holds no position** — i.e. only ever moved tokens on-chain — is invisible to every endpoint we use. It is the one participant class we cannot discover.
