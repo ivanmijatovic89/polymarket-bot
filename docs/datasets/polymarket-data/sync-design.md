@@ -96,7 +96,9 @@ Verified: three runs over the same wallets — empty cursor, warm cursor, and a 
 
 ## Wallet counters are derived, not incremented
 
-`polymarket_wallets.trade_count` / `markets_count` / `first_trade_ms` / `last_trade_ms` are recomputed from `polymarket_trades` (`refreshWalletStats`), never accumulated with `+= n`. A market's trades are rewritten whole on every re-sync, so incremental bookkeeping would double-count on each retry. `activity_status` is never reset by discovery — a wallet that has already been synced resumes from its cursor instead.
+`polymarket_wallets.trade_count` / `markets_count` / `first_trade_ms` / `last_trade_ms` are recomputed from `polymarket_trades` (`refreshWalletStats`), never accumulated with `+= n`. A market's trades are rewritten whole on every re-sync, so incremental bookkeeping would double-count on each retry.
+
+`activity_status` is never reset by discovery: a wallet seen again in a new market stays `done` and is **not** automatically re-synced. That is deliberate — re-discovery is not a reason to re-read a wallet's whole history — but it means a recurring sync must explicitly re-queue already-synced wallets to catch their new activity (see "Recurring sync" in the overview). The cursor makes that refresh cheap: a re-queued wallet resumes from `activity_cursor_ts − 1h`, so it re-reads only the recent window, and `dedup_key` drops anything already stored (verified end-to-end: a re-queued wallet fetched 2,971 recent rows instead of 14,135 and inserted 0 duplicates).
 
 ## Trade ordering and time resolution
 

@@ -15,13 +15,19 @@
  * Each wallet carries a cursor, so re-running later picks up late REDEEMs
  * without re-reading history. Stopping early costs nothing: state is per-wallet.
  *
+ * A plain run only claims `pending` wallets, so a wallet already `done` is NOT
+ * revisited — its new activity would be missed on a recurring sync. Re-queue it
+ * with --stale-after (wallets not refreshed in N hours), --refresh-done (all
+ * done wallets), or --wallet (specific ones). The cursor makes the refresh cheap.
+ *
  * Usage:
  *   npm run polymarket-data:sync-activity -- [--limit N] [--wallet 0x…]
- *       [--min-trades N] [--concurrency N] [--full] [--retry-failed] [--dry-run]
+ *       [--min-trades N] [--concurrency N] [--full] [--retry-failed]
+ *       [--stale-after <hours>] [--refresh-done] [--reset-processing] [--dry-run]
  */
 
 import '../config/env.js'
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
@@ -50,6 +56,9 @@ type Args = {
   concurrency: number
   full: boolean
   retryFailed: boolean
+  refreshDone: boolean
+  staleAfterHours: number | null
+  resetProcessing: boolean
   dryRun: boolean
 }
 
@@ -60,6 +69,9 @@ function parseArgs(argv: string[]): Args {
     concurrency: 4,
     full: false,
     retryFailed: false,
+    refreshDone: false,
+    staleAfterHours: null,
+    resetProcessing: false,
     dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
@@ -69,15 +81,34 @@ function parseArgs(argv: string[]): Args {
         .split(',')
         .map((w) => w.trim().toLowerCase())
         .filter((w) => w !== '')
-    } else if (a === '--limit') out.limit = Number(argv[++i] ?? '') || null
-    else if (a === '--min-trades') out.minTrades = Number(argv[++i] ?? '') || 0
+    } else if (a === '--limit') {
+      // Preserve 0: `--limit 0` means "do the re-queue admin, sync nothing".
+      const n = Number(argv[++i] ?? '')
+      if (!Number.isInteger(n) || n < 0) throw new Error(`${LABEL} --limit needs an integer >= 0`)
+      out.limit = n
+    } else if (a === '--min-trades') out.minTrades = Number(argv[++i] ?? '') || 0
     else if (a === '--concurrency') out.concurrency = Number(argv[++i] ?? '') || 4
     else if (a === '--full') out.full = true
     else if (a === '--retry-failed') out.retryFailed = true
+    else if (a === '--refresh-done') out.refreshDone = true
+    else if (a === '--stale-after') {
+      const h = Number(argv[++i] ?? '')
+      if (!Number.isFinite(h) || h < 0) throw new Error(`${LABEL} --stale-after needs hours >= 0`)
+      out.staleAfterHours = h
+    } else if (a === '--reset-processing') out.resetProcessing = true
     else if (a === '--dry-run') out.dryRun = true
     else throw new Error(`${LABEL} unknown arg: ${a}`)
   }
   return out
+}
+
+/**
+ * Extra WHERE constraints shared by the re-queue statements: honour `--min-trades`
+ * so a threshold set for the run also bounds what gets refreshed. `--wallet` is
+ * handled separately (it force-requeues exactly those wallets).
+ */
+function requeueScope(args: Args): SQL {
+  return args.minTrades > 0 ? sql` AND trade_count >= ${args.minTrades}` : sql``
 }
 
 function walletSelection(args: Args) {
@@ -210,21 +241,62 @@ async function main(): Promise<void> {
 
   const db = getDb()
 
-  if (args.retryFailed) {
+  // Flip a set of wallets back to `pending`, or under --dry-run just report how
+  // many WOULD move. Every re-queue path goes through here so dry-run is honestly
+  // read-only (it previously still wrote — caught in testing).
+  const requeue = async (where: SQL, note: string): Promise<void> => {
+    if (args.dryRun) {
+      const res = await db.execute(sql`SELECT COUNT(*) AS n FROM polymarket_wallets WHERE ${where}`)
+      const n = Number((res as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n ?? 0)
+      console.log(`${LABEL} would requeue ${n} ${note} (dry-run)`)
+      return
+    }
     const res = await db.execute(
-      sql`UPDATE polymarket_wallets SET activity_status = 'pending' WHERE activity_status = 'failed'`,
+      sql`UPDATE polymarket_wallets SET activity_status = 'pending' WHERE ${where}`,
     )
     const n = (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
-    console.log(`${LABEL} requeued ${n} failed wallets`)
+    console.log(`${LABEL} requeued ${n} ${note}`)
+  }
+
+  if (args.resetProcessing) {
+    // Free wallets left in 'processing' by a hard kill (SIGINT reverts its own
+    // claims; a SIGKILL does not). Unsafe while peers are running — their claims
+    // would be stolen — so it's an explicit opt-in.
+    await requeue(
+      sql`activity_status = 'processing'${requeueScope(args)}`,
+      "stuck 'processing' wallets",
+    )
+  }
+  if (args.retryFailed) {
+    await requeue(sql`activity_status = 'failed'${requeueScope(args)}`, 'failed wallets')
+  }
+  // Refresh already-synced wallets so a recurring sync catches their NEW activity
+  // (late redeems/splits). Cheap and idempotent: each wallet resumes from its
+  // stored cursor minus an overlap, and re-read rows are dropped by dedup_key.
+  // --stale-after targets wallets not refreshed in N hours (incl. never); a NULL
+  // activity_synced_at counts as stale so it is always re-queued.
+  if (args.staleAfterHours !== null) {
+    const cutoffSec = Math.floor((Date.now() - args.staleAfterHours * 60 * 60 * 1000) / 1000)
+    await requeue(
+      sql`activity_status = 'done'
+          AND (activity_synced_at IS NULL OR activity_synced_at < FROM_UNIXTIME(${cutoffSec}))
+          ${requeueScope(args)}`,
+      `done wallets not refreshed in ${args.staleAfterHours}h`,
+    )
+  } else if (args.refreshDone) {
+    await requeue(
+      sql`activity_status = 'done'${requeueScope(args)}`,
+      'done wallets for a full refresh',
+    )
   }
   if (args.wallets && args.wallets.length > 0) {
     // Named wallets are always (re)synced, whatever state they were left in.
-    await db.execute(
-      sql`UPDATE polymarket_wallets SET activity_status = 'pending'
-          WHERE wallet IN (${sql.join(
-            args.wallets.map((w) => sql`${w}`),
-            sql`, `,
-          )})`,
+    await requeue(
+      sql`wallet IN (${sql.join(
+        args.wallets.map((w) => sql`${w}`),
+        sql`, `,
+      )})`,
+      'named wallets',
     )
   }
 

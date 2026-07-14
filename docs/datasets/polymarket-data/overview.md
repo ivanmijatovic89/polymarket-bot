@@ -54,6 +54,34 @@ POLYMARKET_DATA_BACKFILL_FROM=2026-01-01T00:00:00Z
 
 Lower it, re-run stages 1→5, and the older markets show up as `pending` and get processed. Nothing already synced is touched or re-fetched. The same mechanism covers "a month has passed, sync again" — new markets appear at the top instead.
 
+## Recurring sync
+
+For markets and trades a plain re-run is fully incremental: `sync-markets` adds the new markets as `pending`, and `sync-positions` / `sync-trades` only claim `pending`, so already-synced markets are never re-processed.
+
+Wallet **activity** needs one extra step. A wallet that is already `done` is not re-synced on a plain run — so its *new* splits/redeems (e.g. a redeem that happens after a market resolves) would be missed. Re-queue already-synced wallets so the recurring run picks them up:
+
+```bash
+# refresh wallets not synced in the last 5 days, then sync (cheap: resumes from each cursor)
+npm run polymarket-data:sync-activity -- --stale-after 120 --concurrency 4
+```
+
+- `--stale-after <hours>` — re-queue `done` wallets whose last sync is older than N hours (a never-synced `done` counts as stale). The natural knob for a periodic job.
+- `--refresh-done` — re-queue **all** `done` wallets (force a full refresh).
+- `--wallet 0x…` — re-queue specific wallets.
+- `--reset-processing` — free wallets stuck in `processing` after a hard kill (only when no other worker is running).
+- `--min-trades N` scopes all of the above; `--limit 0` does the re-queue and syncs nothing (admin-only); `--dry-run` reports what would be re-queued without writing.
+
+The refresh is cheap and idempotent — a re-queued wallet resumes from `cursor − 1h` and `dedup_key` drops anything already stored. So a full recurring pass is:
+
+```bash
+npm run polymarket-data:sync-markets
+npm run polymarket-data:sync-positions -- --concurrency 6
+npm run polymarket-data:sync-trades   -- --concurrency 6
+npm run polymarket-data:deep-backfill -- --wallet-concurrency 16
+npm run polymarket-data:sync-activity -- --stale-after 120 --concurrency 4
+npm run polymarket-data:verify -- --resample 10
+```
+
 ## How we know the data is complete
 
 Gamma reports a `volumeNum` per market. It turns out that this is exactly the **traded share count with each match counted once**:
