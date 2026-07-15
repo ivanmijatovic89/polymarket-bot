@@ -82,6 +82,10 @@ export default withMermaid(
               items: [
                 { text: 'Overview', link: '/datasets/polymarket-data/overview' },
                 { text: 'Sync Design', link: '/datasets/polymarket-data/sync-design' },
+                {
+                  text: 'ADR: Completeness Contract',
+                  link: '/adr/polymarket-data-completeness-contract',
+                },
               ],
             },
             {

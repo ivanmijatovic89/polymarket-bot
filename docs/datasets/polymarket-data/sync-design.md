@@ -28,7 +28,7 @@ Stages share nothing but MySQL state columns. Each is independently resumable, e
 | `/trades` | `takerOnly` defaults to **true** | Must pass `takerOnly=false` or you get taker rows only and lose every maker fill. |
 | `/trades` | rows have **no id** | Row-level dedup is impossible; markets are written whole (delete + insert) in one transaction. |
 | `/activity` | requires `user` (400 without) | Market-wide activity cannot be fetched. Splits/merges/redeems are reachable only per wallet. |
-| `/activity` | `offset` ≤ **3000** — *not* the 10000 the OpenAPI spec advertises | Verified: `offset=3500` → 400 `max historical activity offset of 3000 exceeded`. Escaped by walking the `start` window instead of the offset. |
+| `/activity` | `offset` ≤ **3000** — *not* the 10000 the OpenAPI spec advertises | Verified: `offset=3500` → 400 `max historical activity offset of 3000 exceeded`. Escaped by walking the `start` window instead of the offset. **Exception:** a cluster of rows all sharing one second that exceeds the reachable window (offset cap + page) cannot be paged (advancing `start` doesn't move past that second) — `fetchActivity` throws a clear error rather than looping forever. |
 | `/activity` | `start` / `end` / `sortDirection` **are** honoured (with `user`) | This is what makes the cursor — and the deep backfill — possible. |
 | `/activity` | `start=0` means "default ~3y window", not "all history" | Pass `start=1` for full history. |
 | `/v1/market-positions` | `limit` ≤ 500 **per outcome token**, `offset` pages within a token | Paged accordingly. |
@@ -44,13 +44,19 @@ Gamma's `volumeNum` is the **traded share count with each match counted once**:
 SUM(polymarket_trades.size) / 2  ==  polymarket_markets.volume_gamma
 ```
 
-Verified across every market synced so far — API-synced and deep-backfilled alike — at **0.000% drift, max 0.000%**. It is an identity, so it is a proof of completeness rather than a heuristic: a single missing fill drops the left side below the right.
+Verified across every market synced so far — API-synced and deep-backfilled alike — at **0.000% drift**. It is an identity, so it is a proof of completeness rather than a heuristic: a single missing fill drops the left side below the right.
 
 This is the pipeline's correctness gate, not a report:
 
 - `sync-trades` writes `done` only when the invariant holds; otherwise `partial`, whatever its paging thought it saw.
 - `deep-backfill` may only claim `done` under the same test.
 - `verify` re-checks it for every market offline and can requeue failures.
+
+**Tolerance is ABSOLUTE shares, not a percentage.** The only slack is the rounding from summing thousands of `decimal(18,6)` sizes (~2e-6/row, max ~0.009 shares observed). A relative tolerance hides real shortfalls on big markets (0.1% of 1M shares = 1,000 shares — it let 6 deep-backfilled markets sit `done` while 6.8–60 shares short), so the budget is `completenessToleranceShares(rows) = max(0.05, rows * 5e-6)`, applied identically in sync-trades, deep-backfill, and verify.
+
+**Row completeness ≠ maker/taker-label completeness.** The invariant only proves all *rows* are present. A capped *taker* query mislabels some takers as makers — that does NOT make the market `partial` (every row is there), but records a persistent `maker/taker flags incomplete` diagnostic on the `done` market. `all.capped` and `taker.capped` are separate signals, never merged.
+
+See [ADR: Completeness Contract](/adr/polymarket-data-completeness-contract) for the full rationale (the three-valued `complete`, the no-Gamma-volume policy, and the fail-loudly rules).
 
 **Do not compare the USDC total to Gamma.** `volume_traded` (money that changed hands) is a different quantity and differs by a few percent. Comparing the two produced a convincing 12.9% "shortfall" during development that turned out to be an artefact of comparing dollars to shares.
 
