@@ -47,10 +47,13 @@ import {
   attemptTargets,
   clampBudget,
   mayWriteReconstruction,
-  namedRerunAction,
+  planSlugRerun,
   type ClaimStatus,
+  type SlugRow,
+  type SlugSkipReason,
   type TradesStatus,
 } from './deepBackfillClaim.js'
+import { POLYMARKET_DATA_MIN_CLOSE_AGE_MS } from '../config/polymarketData.js'
 import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:deep-backfill]'
@@ -141,42 +144,88 @@ async function claimPartial(id: number): Promise<boolean> {
   return ((upd as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0) === 1
 }
 
-/**
- * Force explicitly named (`--slug`) markets to be rerun: flip any that are NOT
- * actively `processing` back to `partial` so the normal claim loop rebuilds them,
- * regardless of whether they were `done`. This preserves the "a named market can
- * always be rerun" contract that the always-`partial` claim filter otherwise
- * broke. Never touches a `processing` row — that claim belongs to a live worker.
- * Under `--dry-run` it only reports what WOULD be rerun.
- */
-async function forceRequeueSlugs(args: SyncArgs, dryRun: boolean): Promise<number> {
-  if (!args.slugs || args.slugs.length === 0) return 0
-  const db = getDb()
-  const slugIn = sql`slug IN (${sql.join(
-    args.slugs.map((s) => sql`${s}`),
-    sql`, `,
-  )})`
+/** One named-slug candidate: the fields planSlugRerun classifies on, plus the
+ * full market row it will hand to reconstruction. */
+type SlugCandidate = SlugRow & { market: PartialMarket }
 
-  if (dryRun) {
-    const res = await db.execute(
-      sql`SELECT slug, trades_status FROM polymarket_markets WHERE ${slugIn}`,
-    )
-    const rows = (res as unknown as Array<Array<{ slug: string; trades_status: string }>>)[0] ?? []
-    let would = 0
-    for (const r of rows) {
-      const action = namedRerunAction(r.trades_status as TradesStatus)
-      if (action === 'requeue') would += 1
-      console.log(
-        `${LABEL}   ${r.slug} status=${r.trades_status} → ` +
-          (action === 'requeue' ? 'would rerun' : 'SKIP (processing, owned by a worker)'),
-      )
+const SKIP_REASON: Record<SlugSkipReason, string> = {
+  'skip-processing': 'processing, owned by a worker',
+  'skip-open': 'not closed yet',
+  'skip-unsettled': 'closed but within the settlement delay',
+  'skip-pending': 'pending — run the trades stage first',
+}
+
+/**
+ * Resolve which explicitly named (`--slug`) markets to rerun, and print the plan.
+ * The bounded target set is decided BEFORE any mutation: each named market is
+ * guarded (must be closed, settled, and in a terminal state — see
+ * `classifySlugTarget`), then the eligible ones are ordered and cut to `--limit`.
+ * Only the returned targets are later requeued and attempted, so
+ * `--slug a,b,c --limit 1` touches exactly one market. Read-only.
+ */
+async function resolveSlugTargets(args: SyncArgs): Promise<PartialMarket[]> {
+  if (!args.slugs || args.slugs.length === 0) return []
+  const db = getDb()
+  const res = await db.execute(
+    sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows,
+               closed, trades_status
+        FROM polymarket_markets
+        WHERE slug IN (${sql.join(
+          args.slugs.map((s) => sql`${s}`),
+          sql`, `,
+        )})`,
+  )
+  const rows = (res as unknown as Array<Record<string, unknown>>[])[0] ?? []
+  const candidates: SlugCandidate[] = rows.map((r) => ({
+    id: Number(r.id),
+    slug: String(r.slug),
+    status: String(r.trades_status) as TradesStatus,
+    closed: Number(r.closed) === 1,
+    marketStartMs: Number(r.market_start_ms),
+    marketEndMs: Number(r.market_end_ms),
+    market: rowToPartial(r),
+  }))
+
+  const plan = planSlugRerun(candidates, {
+    latest: args.latest,
+    limit: args.limit,
+    nowMs: Date.now(),
+    minCloseAgeMs: POLYMARKET_DATA_MIN_CLOSE_AGE_MS,
+  })
+
+  const targetIds = new Set(plan.targets.map((t) => t.id))
+  const foundSlugs = new Set(candidates.map((c) => c.slug))
+  for (const s of args.slugs) {
+    if (!foundSlugs.has(s)) console.log(`${LABEL}   ${s} → SKIP (not in catalog)`)
+  }
+  for (const t of plan.targets) console.log(`${LABEL}   ${t.slug} status=${t.status} → rerun`)
+  for (const r of plan.beyondLimit) {
+    if (!targetIds.has(r.id)) {
+      console.log(`${LABEL}   ${r.slug} status=${r.status} → eligible but beyond --limit`)
     }
-    return would
+  }
+  for (const { row, reason } of plan.skipped) {
+    console.log(`${LABEL}   ${row.slug} status=${row.status} → SKIP (${SKIP_REASON[reason]})`)
   }
 
+  return plan.targets.map((t) => t.market)
+}
+
+/**
+ * Requeue ONLY the given (already-bounded, guarded) named markets back to
+ * `partial` so the atomic claim can pick them up. Never touches a `processing`
+ * row — a peer may have claimed it between resolution and here.
+ */
+async function requeueSelectedToPartial(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const db = getDb()
   const res = await db.execute(
     sql`UPDATE polymarket_markets SET trades_status = 'partial'
-        WHERE ${slugIn} AND trades_status <> 'processing'`,
+        WHERE trades_status <> 'processing'
+          AND id IN (${sql.join(
+            ids.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
   )
   return (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
 }
@@ -406,83 +455,20 @@ async function writeReconstructed(
   )
 }
 
-async function main(): Promise<void> {
-  const argv = process.argv.slice(2)
-  let walletConcurrency = DEFAULT_WALLET_CONCURRENCY
-  const wcIdx = argv.indexOf('--wallet-concurrency')
-  if (wcIdx !== -1) {
-    const n = Number(argv[wcIdx + 1] ?? '')
-    if (!Number.isSafeInteger(n) || n <= 0) {
-      throw new Error(`${LABEL} --wallet-concurrency must be > 0`)
-    }
-    walletConcurrency = n
-    argv.splice(wcIdx, 2)
-  }
-
-  const args = parseSyncArgs(argv, LABEL)
-  const limiter = new RateLimiter(POLYMARKET_DATA_ACTIVITY_RPS)
-
-  const ac = new AbortController()
-  let shuttingDown = false
-  const onSignal = () => {
-    if (shuttingDown) process.exit(1)
-    shuttingDown = true
-    console.log(`${LABEL} shutting down; finishing the current market…`)
-    ac.abort()
-  }
-  process.once('SIGINT', onSignal)
-  process.once('SIGTERM', onSignal)
-
-  // Explicitly named markets are force-rerun (flipped back to `partial`) before
-  // claiming, so a named `done` market can still be rebuilt — the always-`partial`
-  // claim filter would otherwise silently skip it.
-  if (args.slugs && args.slugs.length > 0) {
-    const n = await forceRequeueSlugs(args, args.dryRun)
-    console.log(
-      `${LABEL} ${args.dryRun ? 'would rerun' : 'requeued'} ${n} named market(s) → partial (force rerun)` +
-        (args.dryRun ? ' (dry-run)' : ''),
-    )
-  }
-
-  if (args.resetProcessing) {
-    const n = await resetProcessing(args, args.dryRun)
-    console.log(
-      `${LABEL} ${args.dryRun ? 'would reset' : 'reset'} ${n} stuck 'processing' market(s) → partial` +
-        (args.dryRun ? ' (dry-run)' : ''),
-    )
-  }
-
-  if (args.dryRun) {
-    // With --slug the per-slug plan above is the report; otherwise list the
-    // partial markets that would be attempted. Read-only either way.
-    if (!args.slugs || args.slugs.length === 0) {
-      const markets = await selectPartialMarkets(args, args.limit ?? 1000)
-      console.log(`${LABEL} partial markets=${markets.length} (dry-run)`)
-      for (const m of markets) {
-        console.log(`${LABEL}   ${m.slug} capped_rows=${m.tradeRows ?? '?'}`)
-      }
-    }
-    console.log(`${LABEL} nothing executed (dry-run)`)
-    return
-  }
-
-  const total = await countPartial(args)
-  const budget = clampBudget(args.limit, total)
-  console.log(
-    `${LABEL} partial markets=${total} budget=${budget} wallet-concurrency=${walletConcurrency}`,
-  )
-  if (budget === 0) {
-    console.log(`${LABEL} nothing to do`)
-    return
-  }
-
-  // A FIXED target set, claimed and attempted at most ONCE each. A single pass
-  // over this snapshot is what stops a market that finishes `partial` (still
-  // short) from being re-claimed — and starving markets we have not reached — as
-  // it would under a re-querying loop. Atomic per-id claiming still keeps
-  // concurrent invocations from rebuilding the same market. Shuffled so peers
-  // collide less. Parallelism is per-wallet INSIDE a market (hundreds each).
-  const targets = await selectPartialMarkets(args, budget)
+/**
+ * Reconstruct a FIXED target set, claiming and attempting each at most ONCE. A
+ * single pass over this snapshot is what stops a market that finishes `partial`
+ * (still short) from being re-claimed — and starving markets we have not reached
+ * — as a re-querying loop would. Atomic per-id claiming still keeps concurrent
+ * invocations from rebuilding the same market. Shuffled so peers collide less.
+ * Parallelism is per-wallet INSIDE a market (hundreds each).
+ */
+async function runReconstruction(
+  targets: PartialMarket[],
+  walletConcurrency: number,
+  limiter: RateLimiter,
+  ac: AbortController,
+): Promise<void> {
   shuffleInPlace(targets)
   const progress = new ProgressTracker(LABEL, targets.length)
 
@@ -540,6 +526,88 @@ async function main(): Promise<void> {
       `in ${fmtDuration(s.elapsedMs)}` +
       (ac.signal.aborted ? ' (interrupted; released in-flight claim to partial)' : ''),
   )
+}
+
+async function main(): Promise<void> {
+  const argv = process.argv.slice(2)
+  let walletConcurrency = DEFAULT_WALLET_CONCURRENCY
+  const wcIdx = argv.indexOf('--wallet-concurrency')
+  if (wcIdx !== -1) {
+    const n = Number(argv[wcIdx + 1] ?? '')
+    if (!Number.isSafeInteger(n) || n <= 0) {
+      throw new Error(`${LABEL} --wallet-concurrency must be > 0`)
+    }
+    walletConcurrency = n
+    argv.splice(wcIdx, 2)
+  }
+
+  const args = parseSyncArgs(argv, LABEL)
+  const limiter = new RateLimiter(POLYMARKET_DATA_ACTIVITY_RPS)
+
+  const ac = new AbortController()
+  let shuttingDown = false
+  const onSignal = () => {
+    if (shuttingDown) process.exit(1)
+    shuttingDown = true
+    console.log(`${LABEL} shutting down; finishing the current market…`)
+    ac.abort()
+  }
+  process.once('SIGINT', onSignal)
+  process.once('SIGTERM', onSignal)
+
+  if (args.resetProcessing) {
+    const n = await resetProcessing(args, args.dryRun)
+    console.log(
+      `${LABEL} ${args.dryRun ? 'would reset' : 'reset'} ${n} stuck 'processing' market(s) → partial` +
+        (args.dryRun ? ' (dry-run)' : ''),
+    )
+  }
+
+  // --slug: resolve the guarded, bounded (--limit-clamped) rerun set FIRST, then
+  // requeue only those exact markets. This keeps a settlement guard on named
+  // markets (an open one is skipped, not reconstructed) and stops `--limit` from
+  // downgrading more markets than it rebuilds.
+  if (args.slugs && args.slugs.length > 0) {
+    const targets = await resolveSlugTargets(args)
+    if (args.dryRun) {
+      console.log(
+        `${LABEL} would rerun ${targets.length} named market(s); nothing executed (dry-run)`,
+      )
+      return
+    }
+    if (targets.length === 0) {
+      console.log(`${LABEL} nothing to do`)
+      return
+    }
+    const requeued = await requeueSelectedToPartial(targets.map((t) => t.id))
+    console.log(
+      `${LABEL} requeued ${requeued} named market(s) → partial; attempting ${targets.length} ` +
+        `wallet-concurrency=${walletConcurrency}`,
+    )
+    await runReconstruction(targets, walletConcurrency, limiter, ac)
+    return
+  }
+
+  const total = await countPartial(args)
+  const budget = clampBudget(args.limit, total)
+  console.log(
+    `${LABEL} partial markets=${total} budget=${budget} wallet-concurrency=${walletConcurrency}` +
+      (args.dryRun ? ' (dry-run)' : ''),
+  )
+
+  if (args.dryRun) {
+    const markets = await selectPartialMarkets(args, budget)
+    for (const m of markets) console.log(`${LABEL}   ${m.slug} capped_rows=${m.tradeRows ?? '?'}`)
+    console.log(`${LABEL} nothing executed (dry-run)`)
+    return
+  }
+  if (budget === 0) {
+    console.log(`${LABEL} nothing to do`)
+    return
+  }
+
+  const targets = await selectPartialMarkets(args, budget)
+  await runReconstruction(targets, walletConcurrency, limiter, ac)
 }
 
 main()

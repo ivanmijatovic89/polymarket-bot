@@ -4,11 +4,13 @@ import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.j
 import {
   attemptTargets,
   clampBudget,
+  classifySlugTarget,
   mayWriteReconstruction,
-  namedRerunAction,
+  planSlugRerun,
   releaseIfOwned,
   tryClaimPartial,
   type ClaimStatus,
+  type SlugRow,
   type TradesStatus,
 } from './deepBackfillClaim.js'
 
@@ -109,10 +111,76 @@ test('clampBudget: never exceeds the markets that exist', () => {
   assert.equal(clampBudget(0, 5), 0)
 })
 
-test('namedRerunAction: force rerun from any state except active processing', () => {
-  const rerun: TradesStatus[] = ['pending', 'partial', 'done', 'failed']
-  for (const s of rerun) assert.equal(namedRerunAction(s), 'requeue', s)
-  assert.equal(namedRerunAction('processing'), 'skip-active', 'never steal a live claim')
+const NOW = 1_000_000_000_000
+const MIN_AGE = 60 * 60 * 1000 // 1h
+const CTX = { nowMs: NOW, minCloseAgeMs: MIN_AGE }
+const SETTLED_END = NOW - MIN_AGE - 1 // past the settlement delay
+const UNSETTLED_END = NOW - MIN_AGE + 1 // still within the delay
+
+test('classifySlugTarget: reruns only closed, settled, terminal markets', () => {
+  const settled = (status: TradesStatus, closed = true, marketEndMs = SETTLED_END) =>
+    classifySlugTarget({ status, closed, marketEndMs }, CTX)
+
+  // closed + settled + terminal → rerunnable
+  for (const s of ['done', 'partial', 'failed'] as TradesStatus[]) {
+    assert.equal(settled(s), 'rerun', s)
+  }
+  // an active claim is never touched
+  assert.equal(settled('processing'), 'skip-processing')
+  // pending: not yet trade-synced → skip (trades stage first)
+  assert.equal(settled('pending'), 'skip-pending')
+  // still open → skip (would be an in-progress snapshot)
+  assert.equal(settled('done', false), 'skip-open')
+  // closed but within the settlement delay → skip
+  assert.equal(settled('done', true, UNSETTLED_END), 'skip-unsettled')
+})
+
+test('planSlugRerun: --slug a,b,c --limit 1 targets exactly one market', () => {
+  const row = (id: number, over: Partial<SlugRow> = {}): SlugRow => ({
+    id,
+    slug: `s${id}`,
+    status: 'done',
+    closed: true,
+    marketStartMs: id, // ascending id = ascending start
+    marketEndMs: SETTLED_END,
+    ...over,
+  })
+  const rows = [row(1), row(2), row(3)] // all closed+settled+done → all eligible
+
+  const plan = planSlugRerun(rows, { latest: false, limit: 1, nowMs: NOW, minCloseAgeMs: MIN_AGE })
+  assert.equal(plan.targets.length, 1, 'exactly one target under --limit 1')
+  assert.equal(plan.targets[0]!.id, 1, 'ordered by market_start_ms, oldest first')
+  assert.equal(plan.beyondLimit.length, 2, 'the other two are NOT mutated')
+  assert.deepEqual(plan.beyondLimit.map((r) => r.id).sort(), [2, 3])
+  assert.equal(plan.skipped.length, 0)
+})
+
+test('planSlugRerun: guards drop open/unsettled/pending/processing before --limit', () => {
+  const base = { closed: true, marketEndMs: SETTLED_END, marketStartMs: 0 }
+  const rows: SlugRow[] = [
+    { id: 1, slug: 'ok', status: 'done', ...base },
+    { id: 2, slug: 'open', status: 'done', ...base, closed: false },
+    { id: 3, slug: 'fresh', status: 'done', ...base, marketEndMs: UNSETTLED_END },
+    { id: 4, slug: 'pend', status: 'pending', ...base },
+    { id: 5, slug: 'busy', status: 'processing', ...base },
+  ]
+  const plan = planSlugRerun(rows, {
+    latest: false,
+    limit: null,
+    nowMs: NOW,
+    minCloseAgeMs: MIN_AGE,
+  })
+  assert.deepEqual(
+    plan.targets.map((t) => t.id),
+    [1],
+    'only the closed+settled+terminal market is a target',
+  )
+  assert.deepEqual(plan.skipped.map((s) => `${s.row.slug}:${s.reason}`).sort(), [
+    'busy:skip-processing',
+    'fresh:skip-unsettled',
+    'open:skip-open',
+    'pend:skip-pending',
+  ])
 })
 
 // A tiny in-memory harness modelling attemptTargets over a status store, so the

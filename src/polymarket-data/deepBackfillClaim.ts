@@ -54,14 +54,75 @@ export function clampBudget(limit: number | null, total: number): number {
   return Math.min(limit ?? total, total)
 }
 
+export type SlugSkipReason = 'skip-processing' | 'skip-open' | 'skip-unsettled' | 'skip-pending'
+export type SlugDisposition = 'rerun' | SlugSkipReason
+
 /**
- * What to do with an explicitly named (`--slug`) market at a given status. A
- * named market is force-rerun from any terminal/pending state (it is claimed by
- * name on purpose), EXCEPT one that is actively `processing` — that claim belongs
- * to another worker and must not be stolen.
+ * What to do with an explicitly named (`--slug`) market. Force-rerun applies ONLY
+ * to a market that is closed, settled (past the min-close-age delay), and in a
+ * terminal state (`done`/`partial`/`failed`). Everything else is skipped:
+ *   - `processing` — a live worker owns the claim; never steal it;
+ *   - not closed — the market is still open (an in-progress snapshot);
+ *   - closed but within the settlement delay — fills may still be landing;
+ *   - `pending` — not yet trade-synced; the trades stage must run first.
+ * Without the closed/settled guards, `--slug <open>` would reconstruct an
+ * in-progress market and mark it `done`, and later catalog refreshes never reset
+ * the status, so its remaining fills would stay unsynced forever.
  */
-export function namedRerunAction(status: TradesStatus): 'requeue' | 'skip-active' {
-  return status === 'processing' ? 'skip-active' : 'requeue'
+export function classifySlugTarget(
+  market: { status: TradesStatus; closed: boolean; marketEndMs: number },
+  ctx: { nowMs: number; minCloseAgeMs: number },
+): SlugDisposition {
+  if (market.status === 'processing') return 'skip-processing'
+  if (!market.closed) return 'skip-open'
+  if (market.marketEndMs >= ctx.nowMs - ctx.minCloseAgeMs) return 'skip-unsettled'
+  if (market.status === 'pending') return 'skip-pending'
+  return 'rerun'
+}
+
+export type SlugRow = {
+  id: number
+  slug: string
+  status: TradesStatus
+  closed: boolean
+  marketStartMs: number
+  marketEndMs: number
+}
+
+export type SlugRerunPlan<R extends SlugRow> = {
+  /** Bounded, ordered set to requeue → partial and then attempt. */
+  targets: R[]
+  /** Eligible for rerun but past `--limit` — left untouched this run. */
+  beyondLimit: R[]
+  /** Not rerunnable, with the reason (for reporting). */
+  skipped: Array<{ row: R; reason: SlugSkipReason }>
+}
+
+/**
+ * Resolve the bounded `--slug` rerun set from fetched rows, BEFORE any mutation:
+ * classify each named market, order the eligible ones, and apply `--limit`. Only
+ * `targets` should be requeued/attempted — so `--slug a,b,c --limit 1` downgrades
+ * and rebuilds exactly one market, not all three. Pure, so this is unit-testable.
+ */
+export function planSlugRerun<R extends SlugRow>(
+  rows: R[],
+  opts: { latest: boolean; limit: number | null; nowMs: number; minCloseAgeMs: number },
+): SlugRerunPlan<R> {
+  const classified = rows.map((row) => ({ row, cls: classifySlugTarget(row, opts) }))
+  const eligible = classified.filter((c) => c.cls === 'rerun').map((c) => c.row)
+  const ordered = [...eligible].sort((a, b) =>
+    opts.latest ? b.marketStartMs - a.marketStartMs : a.marketStartMs - b.marketStartMs,
+  )
+  const budget = clampBudget(opts.limit, ordered.length)
+  const targets = ordered.slice(0, budget)
+  const targetIds = new Set(targets.map((t) => t.id))
+  return {
+    targets,
+    beyondLimit: ordered.filter((r) => !targetIds.has(r.id)),
+    skipped: classified
+      .filter((c) => c.cls !== 'rerun')
+      .map((c) => ({ row: c.row, reason: c.cls as SlugSkipReason })),
+  }
 }
 
 /**
