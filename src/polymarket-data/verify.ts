@@ -186,14 +186,36 @@ async function main(): Promise<void> {
       )
       const s = ((stored as unknown as Array<Record<string, number>>[])[0] ?? [])[0] ?? {}
 
+      // Cross-check the two independently-sourced tables: every wallet that
+      // traded must have a market-positions row (positions is a verified
+      // superset of trade wallets). A miss means a trade we stored belongs to
+      // the wrong market, or a wallet is missing from positions — either is a
+      // real defect. (We DON'T reconcile avg_price/total_bought here: those are
+      // cost-basis figures shaped by sells and splits, so they legitimately
+      // differ from a naive buy-average and would produce false alarms.)
+      const orphan = await db.execute(
+        sql`SELECT COUNT(*) AS n FROM (
+              SELECT DISTINCT wallet FROM polymarket_trades WHERE market_id = ${r.id}
+            ) tw
+            WHERE NOT EXISTS (
+              SELECT 1 FROM polymarket_market_positions p
+              WHERE p.market_id = ${r.id} AND p.wallet = tw.wallet
+            )`,
+      )
+      const orphanWallets = Number(
+        (orphan as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n ?? 0,
+      )
+
       // `live` is capped for busy markets, so it is a LOWER bound: our stored
       // set should be >= it, never below.
       const short = Number(s.rows_ ?? 0) < live.trades.length
+      const ok = !short && orphanWallets === 0
       console.log(
-        `${LABEL}   ${short ? '✗' : '✓'} ${r.slug} ` +
+        `${LABEL}   ${ok ? '✓' : '✗'} ${r.slug} ` +
           `stored_rows=${s.rows_} live_rows=${live.trades.length}${live.capped ? '(capped)' : ''} ` +
           `stored_positions=${s.positions} live_positions=${positions.length} ` +
-          `stored_shares/2=${Number(r.shares_volume ?? 0).toFixed(0)} live_shares/2=${liveShares.toFixed(0)}`,
+          `stored_shares/2=${Number(r.shares_volume ?? 0).toFixed(0)} live_shares/2=${liveShares.toFixed(0)}` +
+          (orphanWallets > 0 ? ` ⚠ ${orphanWallets} trade-wallets missing from positions` : ''),
       )
     }
   }

@@ -212,14 +212,37 @@ async function main(): Promise<void> {
   }
 
   const t0 = Date.now()
+  const timings: Array<{ label: string; ms: number }> = []
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i]!
+    const selLabel = s.args.filter((a) => !a.startsWith('--') && !/^\d/.test(a)).join(' ')
     console.log(`\n${LABEL} [${i + 1}/${steps.length}] ${s.stage}: ${s.script} ${s.args.join(' ')}`)
+    const stepStart = Date.now()
     await runStep(s)
+    const ms = Date.now() - stepStart
+    timings.push({ label: `${s.stage}${selLabel ? ` ${selLabel}` : ''}`, ms })
+    console.log(`${LABEL} [${i + 1}/${steps.length}] ${s.stage} took ${fmtDur(ms)}`)
   }
-  const mins = ((Date.now() - t0) / 60000).toFixed(1)
-  console.log(`\n${LABEL} all ${steps.length} step(s) done in ${mins} min`)
+
+  const totalMs = Date.now() - t0
+  console.log(`\n${LABEL} all ${steps.length} step(s) done in ${fmtDur(totalMs)}`)
+  // Per-step breakdown, slowest first — makes the long pole (usually backfill on
+  // BTC 5m) obvious at a glance.
+  console.log(`${LABEL} time per step:`)
+  for (const t of [...timings].sort((a, b) => b.ms - a.ms)) {
+    console.log(`${LABEL}   ${fmtDur(t.ms).padStart(8)}  ${t.label}`)
+  }
+
   await printSummary(args)
+}
+
+function fmtDur(ms: number): string {
+  const s = Math.round(ms / 1000)
+  if (s < 60) return `${s}s`
+  const m = Math.floor(s / 60)
+  if (m < 60) return `${m}m ${s % 60}s`
+  const h = Math.floor(m / 60)
+  return `${h}h ${m % 60}m`
 }
 
 /**
