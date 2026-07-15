@@ -186,6 +186,78 @@ async function writeActivity(
   )
 }
 
+/**
+ * Re-scan wallets whose activity coverage went stale because the CATALOG grew
+ * historically — the floor was lowered, or an older symbol/timeframe was added.
+ * Those wallets' activity for the newly-cataloged older markets was filtered out
+ * at their original sync and now sits behind their cursor, so a normal refresh
+ * (`cursor - overlap`) never re-reads it. This requeues each affected wallet with
+ * its cursor rebased back to the earliest such market (see `coverageRebaseTarget`
+ * for the per-wallet rule; the SQL here is its set-based form). `synced_at` is the
+ * market's catalog-insert time — stable, since the catalog upsert never updates
+ * it. Idempotent (dedup_key + the `= 'done'` guard) and concurrent-safe (status
+ * claim); read-only under --dry-run. A cheap pre-check on the small markets table
+ * skips the heavy trades/positions join in normal operation.
+ */
+async function rebaseExpandedCoverage(dryRun: boolean): Promise<number> {
+  const db = getDb()
+
+  // Any market whose window predates a done wallet's refresh floor yet was
+  // cataloged AFTER that wallet synced? New CURRENT markets never trip this
+  // (their start is ~now), so nothing runs unless coverage truly expanded.
+  const gate = await db.execute(
+    sql`SELECT EXISTS(
+          SELECT 1 FROM polymarket_markets m
+          WHERE m.synced_at > (SELECT MIN(activity_synced_at) FROM polymarket_wallets
+                               WHERE activity_status = 'done' AND activity_synced_at IS NOT NULL)
+            AND m.market_start_ms < (SELECT MAX(activity_cursor_ts) FROM polymarket_wallets
+                                     WHERE activity_status = 'done') - ${CURSOR_OVERLAP_MS}
+        ) AS anyp`,
+  )
+  if (Number((gate as unknown as Array<Array<{ anyp: number }>>)[0]?.[0]?.anyp ?? 0) === 0) return 0
+
+  // Affected wallets + how far back each must re-scan (earliest newly-covered
+  // market it participated in, via trades OR positions).
+  const affected = await db.execute(
+    sql`SELECT p.wallet AS wallet, MIN(m.market_start_ms) AS rebase_ms
+        FROM (
+          SELECT DISTINCT wallet, market_id FROM polymarket_trades
+          UNION
+          SELECT DISTINCT wallet, market_id FROM polymarket_market_positions
+        ) p
+        JOIN polymarket_markets m ON m.id = p.market_id
+        JOIN polymarket_wallets w ON w.wallet = p.wallet
+        WHERE w.activity_status = 'done'
+          AND w.activity_synced_at IS NOT NULL
+          AND m.synced_at > w.activity_synced_at
+          AND m.market_start_ms < w.activity_cursor_ts - ${CURSOR_OVERLAP_MS}
+        GROUP BY p.wallet`,
+  )
+  const rows =
+    (affected as unknown as Array<Array<{ wallet: string; rebase_ms: number | string }>>)[0] ?? []
+  if (rows.length === 0) return 0
+  if (dryRun) {
+    console.log(
+      `${LABEL} would rebase ${rows.length} wallet(s) for expanded catalog coverage (dry-run)`,
+    )
+    return rows.length
+  }
+
+  let rebased = 0
+  for (const r of rows) {
+    const rebaseMs = Number(r.rebase_ms)
+    const res = await db.execute(
+      sql`UPDATE polymarket_wallets
+          SET activity_status = 'pending',
+              activity_cursor_ts = LEAST(COALESCE(activity_cursor_ts, ${rebaseMs}), ${rebaseMs})
+          WHERE wallet = ${r.wallet} AND activity_status = 'done'`,
+    )
+    rebased += (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
+  }
+  console.log(`${LABEL} rebased ${rebased} wallet(s) for expanded catalog coverage`)
+  return rebased
+}
+
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const limiter = new RateLimiter(POLYMARKET_DATA_ACTIVITY_RPS)
@@ -296,6 +368,11 @@ async function main(): Promise<void> {
       'named wallets',
     )
   }
+
+  // Auto-detect wallets whose coverage went stale because the catalog grew
+  // historically (floor lowered / older series added) and rebase their cursors.
+  // Skipped for named-wallet runs, which target explicit wallets.
+  if (!namedRun) await rebaseExpandedCoverage(args.dryRun)
 
   const marketIndex = await loadMarketIndex()
   const pending = await countPendingWallets(args)

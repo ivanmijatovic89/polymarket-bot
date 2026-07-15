@@ -2,9 +2,11 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import {
+  attemptableStatuses,
   attemptTargets,
   clampBudget,
   classifySlugTarget,
+  effectiveResetStatus,
   mayWriteReconstruction,
   planSlugRerun,
   releaseIfOwned,
@@ -181,6 +183,69 @@ test('planSlugRerun: guards drop open/unsettled/pending/processing before --limi
     'open:skip-open',
     'pend:skip-pending',
   ])
+})
+
+test('attemptableStatuses: processing only counts under a --reset-processing preview', () => {
+  assert.deepEqual(attemptableStatuses(false), ['partial'])
+  assert.deepEqual(attemptableStatuses(true), ['partial', 'processing'])
+})
+
+test('effectiveResetStatus: processing → partial only when simulating a reset', () => {
+  assert.equal(effectiveResetStatus('processing', true), 'partial')
+  assert.equal(effectiveResetStatus('processing', false), 'processing')
+  // A reset never invents eligibility for other states.
+  assert.equal(effectiveResetStatus('pending', true), 'pending')
+  assert.equal(effectiveResetStatus('done', true), 'done')
+})
+
+test('--slug processing market: --reset-processing --dry-run reruns it, plain dry-run skips it', () => {
+  // A named, closed, settled market that is currently `processing`.
+  const raw: SlugRow = {
+    id: 1,
+    slug: 'busy',
+    status: 'processing',
+    closed: true,
+    marketEndMs: SETTLED_END,
+    marketStartMs: 0,
+  }
+  const opts = { latest: false, limit: null, nowMs: NOW, minCloseAgeMs: MIN_AGE }
+
+  // Without simulating the reset, it is skip-processing (a live worker owns it).
+  const plain = planSlugRerun([{ ...raw, status: effectiveResetStatus(raw.status, false) }], opts)
+  assert.deepEqual(plain.targets, [])
+  assert.equal(plain.skipped[0]!.reason, 'skip-processing')
+
+  // With --reset-processing --dry-run, the reset is modelled → it becomes a
+  // target, matching what a real reset run would attempt.
+  const preview = planSlugRerun([{ ...raw, status: effectiveResetStatus(raw.status, true) }], opts)
+  assert.deepEqual(
+    preview.targets.map((t) => t.id),
+    [1],
+  )
+})
+
+test('--reset-processing --dry-run models processing markets under ordering + --limit', () => {
+  // Three named processing markets; a real reset run would flip all three to
+  // partial, order them, and (with --limit 2) attempt exactly two.
+  const rows: SlugRow[] = [3, 1, 2].map((id) => ({
+    id,
+    slug: `s${id}`,
+    status: effectiveResetStatus('processing', true), // simulate reset → partial
+    closed: true,
+    marketEndMs: SETTLED_END,
+    marketStartMs: id, // start order 1,2,3
+  }))
+  const plan = planSlugRerun(rows, { latest: false, limit: 2, nowMs: NOW, minCloseAgeMs: MIN_AGE })
+  assert.deepEqual(
+    plan.targets.map((t) => t.id),
+    [1, 2],
+    'oldest two by market_start_ms, exactly --limit of them',
+  )
+  assert.deepEqual(
+    plan.beyondLimit.map((t) => t.id),
+    [3],
+    'the third is left untouched (not downgraded)',
+  )
 })
 
 // A tiny in-memory harness modelling attemptTargets over a status store, so the

@@ -1,8 +1,8 @@
 /**
  * Rebuilding a market's fills from per-wallet `/activity` rows (deep-backfill).
  *
- * Pure, because two properties of `/activity` make this subtler than it looks
- * and both are worth pinning down in tests:
+ * Pure, because three properties of `/activity` make this subtler than it looks
+ * and all are worth pinning down in tests:
  *
  * 1. An activity row can AGGREGATE one taker order that swept several makers.
  *    `size` and `usdcSize` are then totals, and `price` is neither their ratio
@@ -13,6 +13,14 @@
  * 2. Because of (1), a taker cannot be identified by matching size+price against
  *    the taker-only `/trades` rows — an aggregated row never matches a per-fill
  *    row, and every aggregated taker would be silently filed as a maker.
+ *
+ * 3. Also because of (1), storing the aggregated taker activity row verbatim
+ *    breaks the one-row-per-fill contract `polymarket_trades` promises: fill
+ *    counts, per-fill prices, and `verify`'s row comparison all skew. So when the
+ *    taker `/trades` query is COMPLETE we take the taker side from ITS per-fill
+ *    rows and drop the aggregated taker activity rows; only the maker side comes
+ *    from `/activity`. When that query is capped we cannot, so the aggregated row
+ *    stands in and the market is flagged (`takerCapped`) rather than pretending.
  */
 
 import type { ApiActivity } from './activityApi.js'
@@ -75,13 +83,13 @@ export type ReconstructResult = {
 
 export function buildReconstructedRows(
   perWalletActivities: ApiActivity[][],
-  takerKeys: Set<string>,
+  takerTrades: ApiTrade[],
+  takerCapped: boolean,
   conditionId: string,
 ): ReconstructResult {
+  const takerKeys = takerKeysOf(takerTrades)
   const rows: ReconstructedRow[] = []
   const wallets = new Set<string>()
-  let volume = 0
-  let sharesTotal = 0
 
   for (const activities of perWalletActivities) {
     for (const a of activities) {
@@ -92,17 +100,21 @@ export function buildReconstructedRows(
       const side = a.side ?? 'BUY'
       const asset = a.asset ?? ''
       const tx = a.transactionHash ?? ''
-      const size = a.size ?? 0
+      const isTaker = takerKeys.has(takerKey({ wallet, tx, asset, side }))
 
+      // Taker side: when the taker `/trades` query is COMPLETE, drop the
+      // (possibly aggregated) taker activity row here and re-add the per-fill
+      // taker rows from `/trades` below. When capped, keep it — an aggregated
+      // stand-in the market is explicitly flagged for.
+      if (isTaker && !takerCapped) continue
+
+      const size = a.size ?? 0
       const usdcSize = a.usdcSize ?? size * (a.price ?? 0)
       // Store the EFFECTIVE price so that `usdc_size = size * price` holds for
       // every row in the table, whichever stage wrote it.
       const price = size > 0 ? usdcSize / size : (a.price ?? 0)
 
       wallets.add(wallet)
-      volume += usdcSize
-      sharesTotal += size
-
       rows.push({
         wallet,
         side,
@@ -111,11 +123,40 @@ export function buildReconstructedRows(
         size,
         price,
         usdcSize,
-        isTaker: takerKeys.has(takerKey({ wallet, tx, asset, side })),
+        isTaker,
         tsMs: a.timestamp * 1000,
         txHash: tx,
       })
     }
+  }
+
+  // Per-fill taker rows from `/trades` (source of truth when complete). A taker
+  // sweep is one aggregated activity row but several `/trades` rows, so this is
+  // what restores the one-row-per-fill count and true per-fill prices.
+  if (!takerCapped) {
+    for (const t of takerTrades) {
+      const wallet = t.proxyWallet.toLowerCase()
+      wallets.add(wallet)
+      rows.push({
+        wallet,
+        side: t.side,
+        outcomeIndex: t.outcomeIndex,
+        asset: t.asset,
+        size: t.size,
+        price: t.price,
+        usdcSize: t.size * t.price,
+        isTaker: true,
+        tsMs: t.timestamp * 1000,
+        txHash: t.transactionHash,
+      })
+    }
+  }
+
+  let volume = 0
+  let sharesTotal = 0
+  for (const r of rows) {
+    volume += r.usdcSize
+    sharesTotal += r.size
   }
 
   return { rows, wallets: wallets.size, volume, sharesVolume: sharesTotal / 2 }

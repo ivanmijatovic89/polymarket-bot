@@ -58,6 +58,26 @@ export type SlugSkipReason = 'skip-processing' | 'skip-open' | 'skip-unsettled' 
 export type SlugDisposition = 'rerun' | SlugSkipReason
 
 /**
+ * The statuses that count as an attemptable "partial" market this run. Normally
+ * just `partial`; under a `--reset-processing --dry-run` preview `processing` is
+ * also included, because a real run resets those to `partial` first and then
+ * attempts them — so the read-only preview must model that same set.
+ */
+export function attemptableStatuses(includeProcessing: boolean): TradesStatus[] {
+  return includeProcessing ? ['partial', 'processing'] : ['partial']
+}
+
+/**
+ * A market's status as the plan should SEE it. Under a `--reset-processing
+ * --dry-run` preview a `processing` market is treated as `partial` (a real run
+ * would have reset it first), so the dry-run plan matches what a real run
+ * attempts instead of reporting it as `skip-processing`.
+ */
+export function effectiveResetStatus(status: TradesStatus, simulateReset: boolean): TradesStatus {
+  return simulateReset && status === 'processing' ? 'partial' : status
+}
+
+/**
  * What to do with an explicitly named (`--slug`) market. Force-rerun applies ONLY
  * to a market that is closed, settled (past the min-close-age delay), and in a
  * terminal state (`done`/`partial`/`failed`). Everything else is skipped:

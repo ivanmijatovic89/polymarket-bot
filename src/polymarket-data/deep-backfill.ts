@@ -38,14 +38,16 @@ import { shuffleInPlace } from '../db/claimQueue.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity } from './activityApi.js'
-import { buildReconstructedRows, takerKeysOf, type ReconstructedRow } from './reconstruct.js'
+import { buildReconstructedRows, type ReconstructedRow } from './reconstruct.js'
 import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 import { completenessToleranceShares, tradeCompleteness } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
 import {
+  attemptableStatuses,
   attemptTargets,
   clampBudget,
+  effectiveResetStatus,
   mayWriteReconstruction,
   planSlugRerun,
   type ClaimStatus,
@@ -101,17 +103,37 @@ function eligibility(args: SyncArgs): SQL {
 }
 
 /**
- * The FIXED set of `partial` markets to attempt this run (at most `limit`),
- * ordered deterministically. Iterated once by the claim loop, so each market is
- * attempted at most once even if a reconstruction leaves it `partial` again.
- * Also serves the dry-run listing (read-only, no claim).
+ * Which statuses count as "a partial market to attempt". Normally just `partial`;
+ * under a `--reset-processing --dry-run` preview we also treat `processing` as
+ * claimable, because a real run would reset those to `partial` first and then
+ * attempt them — so the dry-run plan must model that hypothetical state (while
+ * staying read-only). A real reset run has already mutated them, so it does not
+ * pass this flag.
  */
-async function selectPartialMarkets(args: SyncArgs, limit: number): Promise<PartialMarket[]> {
+function partialStatusClause(includeProcessing: boolean): SQL {
+  const statuses = attemptableStatuses(includeProcessing)
+  return sql`trades_status IN (${sql.join(
+    statuses.map((s) => sql`${s}`),
+    sql`, `,
+  )})`
+}
+
+/**
+ * The FIXED set of markets to attempt this run (at most `limit`), ordered
+ * deterministically. Iterated once by the claim loop, so each market is attempted
+ * at most once even if a reconstruction leaves it `partial` again. Also serves
+ * the dry-run listing (read-only, no claim).
+ */
+async function selectPartialMarkets(
+  args: SyncArgs,
+  limit: number,
+  includeProcessing = false,
+): Promise<PartialMarket[]> {
   const db = getDb()
   const res = await db.execute(
     sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows
         FROM polymarket_markets
-        WHERE trades_status = 'partial' AND ${eligibility(args)}
+        WHERE ${partialStatusClause(includeProcessing)} AND ${eligibility(args)}
         ORDER BY market_start_ms ${args.latest ? sql`DESC` : sql`ASC`}
         LIMIT ${limit}`,
   )
@@ -119,11 +141,11 @@ async function selectPartialMarkets(args: SyncArgs, limit: number): Promise<Part
   return rows.map(rowToPartial)
 }
 
-async function countPartial(args: SyncArgs): Promise<number> {
+async function countPartial(args: SyncArgs, includeProcessing = false): Promise<number> {
   const db = getDb()
   const res = await db.execute(
     sql`SELECT COUNT(*) AS n FROM polymarket_markets
-        WHERE trades_status = 'partial' AND ${eligibility(args)}`,
+        WHERE ${partialStatusClause(includeProcessing)} AND ${eligibility(args)}`,
   )
   return Number((res as unknown as Array<Array<{ n: number | string }>>)[0]?.[0]?.n ?? 0)
 }
@@ -163,7 +185,7 @@ const SKIP_REASON: Record<SlugSkipReason, string> = {
  * Only the returned targets are later requeued and attempted, so
  * `--slug a,b,c --limit 1` touches exactly one market. Read-only.
  */
-async function resolveSlugTargets(args: SyncArgs): Promise<PartialMarket[]> {
+async function resolveSlugTargets(args: SyncArgs, simulateReset = false): Promise<PartialMarket[]> {
   if (!args.slugs || args.slugs.length === 0) return []
   const db = getDb()
   const res = await db.execute(
@@ -179,7 +201,10 @@ async function resolveSlugTargets(args: SyncArgs): Promise<PartialMarket[]> {
   const candidates: SlugCandidate[] = rows.map((r) => ({
     id: Number(r.id),
     slug: String(r.slug),
-    status: String(r.trades_status) as TradesStatus,
+    // --reset-processing --dry-run: a real run would reset these to `partial`
+    // first, so model that here (read-only) — otherwise the dry-run classifies
+    // them `skip-processing` and reports zero reruns while a real run reruns them.
+    status: effectiveResetStatus(String(r.trades_status) as TradesStatus, simulateReset),
     closed: Number(r.closed) === 1,
     marketStartMs: Number(r.market_start_ms),
     marketEndMs: Number(r.market_end_ms),
@@ -351,10 +376,10 @@ async function reconstructMarket(
   const { wallets: participants } = await participantsOf(market, limiter, signal)
 
   // The taker-only /trades query has the same offset cap, but taker rows are a
-  // fraction of all rows, so it is usually well within it. When it is not, we
-  // say so rather than silently mislabel every row as a maker fill.
+  // fraction of all rows, so it is usually well within it. When complete, its
+  // per-fill rows ARE the taker side (see buildReconstructedRows); when capped,
+  // we fall back to the aggregated activity rows and flag the market.
   const taker = await fetchMarketTakerTrades(market.conditionId, { limiter, signal, label: LABEL })
-  const takerKeys = takerKeysOf(taker.trades)
 
   const perWallet = await pool(participants, walletConcurrency, async (wallet) =>
     fetchActivity(
@@ -363,7 +388,7 @@ async function reconstructMarket(
     ),
   )
 
-  const built = buildReconstructedRows(perWallet, takerKeys, market.conditionId)
+  const built = buildReconstructedRows(perWallet, taker.trades, taker.capped, market.conditionId)
   const { rows, volume, sharesVolume } = built
 
   // Same completeness contract as the trades stage (see tradeRows.ts):
@@ -563,12 +588,18 @@ async function main(): Promise<void> {
     )
   }
 
+  // Under a --reset-processing --dry-run preview the reset above did NOT mutate,
+  // so model its effect here: treat currently-`processing` markets as if they
+  // were reset to `partial`, so the plan matches what a real run would attempt.
+  // A real reset run has already flipped them, so this stays false there.
+  const simulateReset = args.resetProcessing && args.dryRun
+
   // --slug: resolve the guarded, bounded (--limit-clamped) rerun set FIRST, then
   // requeue only those exact markets. This keeps a settlement guard on named
   // markets (an open one is skipped, not reconstructed) and stops `--limit` from
   // downgrading more markets than it rebuilds.
   if (args.slugs && args.slugs.length > 0) {
-    const targets = await resolveSlugTargets(args)
+    const targets = await resolveSlugTargets(args, simulateReset)
     if (args.dryRun) {
       console.log(
         `${LABEL} would rerun ${targets.length} named market(s); nothing executed (dry-run)`,
@@ -588,7 +619,7 @@ async function main(): Promise<void> {
     return
   }
 
-  const total = await countPartial(args)
+  const total = await countPartial(args, simulateReset)
   const budget = clampBudget(args.limit, total)
   console.log(
     `${LABEL} partial markets=${total} budget=${budget} wallet-concurrency=${walletConcurrency}` +
@@ -596,7 +627,7 @@ async function main(): Promise<void> {
   )
 
   if (args.dryRun) {
-    const markets = await selectPartialMarkets(args, budget)
+    const markets = await selectPartialMarkets(args, budget, simulateReset)
     for (const m of markets) console.log(`${LABEL}   ${m.slug} capped_rows=${m.tradeRows ?? '?'}`)
     console.log(`${LABEL} nothing executed (dry-run)`)
     return

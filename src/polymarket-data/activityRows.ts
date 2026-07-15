@@ -36,6 +36,38 @@ export function nextActivityCursorMs(
 }
 
 /**
+ * How far back a wallet must re-scan its activity because the CATALOG grew under
+ * it, or null if it hasn't.
+ *
+ * A wallet's activity was filtered against the catalog as it existed at sync
+ * time. If we later lower the backfill floor or add an older symbol/timeframe,
+ * markets the wallet participated in get cataloged AFTER it was synced — and
+ * their activity, which the original sync fetched but dropped (not-in-catalog),
+ * is now older than the wallet's refresh window, so a normal cursor refresh
+ * (`cursor - overlap`) never re-reads it. We detect that and return the earliest
+ * such market's start, so the wallet re-scans from there (dedup drops the rest);
+ * `market.syncedMs` is the market's catalog-insert time (stable — the catalog
+ * upsert does not touch it). Returns null when every participated market was
+ * either cataloged before the wallet synced or is already inside the refresh
+ * window — i.e. nothing was missed. Pure, so this stays testable.
+ */
+export function coverageRebaseTarget(
+  wallet: { activitySyncedMs: number | null; cursorTs: number | null },
+  participatedMarkets: Array<{ syncedMs: number; marketStartMs: number }>,
+  overlapMs: number,
+): number | null {
+  if (wallet.activitySyncedMs === null || wallet.cursorTs === null) return null
+  const refreshFloor = wallet.cursorTs - overlapMs
+  let earliest: number | null = null
+  for (const m of participatedMarkets) {
+    if (m.syncedMs > wallet.activitySyncedMs && m.marketStartMs < refreshFloor) {
+      earliest = earliest === null ? m.marketStartMs : Math.min(earliest, m.marketStartMs)
+    }
+  }
+  return earliest
+}
+
+/**
  * Everything about a row that makes it *that* row — but nothing about where it
  * appeared in a response. This is the SAME canonical identity the fetch-time
  * boundary carry-over uses (`activityIdentity`), re-exported so the persisted

@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   activityFetchStartSec,
+  coverageRebaseTarget,
   dedupKey,
   identityOf,
   needsWalletStatsRefresh,
@@ -59,6 +60,62 @@ test('incremental refresh with no new rows keeps advancing the cursor', () => {
   // (just before t2) would still be within [start, ...] and thus discovered.
   const startSec = activityFetchStartSec(c2, HOUR)
   assert.ok(startSec * 1000 <= t2 - HOUR + 1000)
+})
+
+test('coverage rebase: a wallet synced before an older market was cataloged is rebased', () => {
+  const HR = 60 * 60 * 1000
+  const walletSynced = Date.parse('2026-07-01T00:00:00Z')
+  const cursor = Date.parse('2026-07-14T00:00:00Z') // scanned through mid-July
+  // An older market (June window) that was cataloged AFTER the wallet synced —
+  // e.g. the floor was lowered on 2026-07-10. Its activity was filtered out
+  // originally and now sits behind the cursor's refresh window.
+  const oldMarketStart = Date.parse('2026-06-05T00:00:00Z')
+  const target = coverageRebaseTarget(
+    { activitySyncedMs: walletSynced, cursorTs: cursor },
+    [{ syncedMs: Date.parse('2026-07-10T00:00:00Z'), marketStartMs: oldMarketStart }],
+    HR,
+  )
+  assert.equal(target, oldMarketStart, 'rebase back to the newly-covered market')
+})
+
+test('coverage rebase: earliest affected market wins; recent/pre-existing markets ignored', () => {
+  const HR = 60 * 60 * 1000
+  const walletSynced = Date.parse('2026-07-01T00:00:00Z')
+  const cursor = Date.parse('2026-07-14T00:00:00Z')
+  const target = coverageRebaseTarget(
+    { activitySyncedMs: walletSynced, cursorTs: cursor },
+    [
+      // cataloged before the wallet synced → already covered, ignore
+      { syncedMs: Date.parse('2026-06-20T00:00:00Z'), marketStartMs: Date.parse('2026-06-01') },
+      // two newly-cataloged older markets → earliest start wins
+      { syncedMs: Date.parse('2026-07-11T00:00:00Z'), marketStartMs: Date.parse('2026-06-15') },
+      { syncedMs: Date.parse('2026-07-11T00:00:00Z'), marketStartMs: Date.parse('2026-06-10') },
+      // cataloged late but inside the refresh window (recent) → caught anyway, ignore
+      {
+        syncedMs: Date.parse('2026-07-13T00:00:00Z'),
+        marketStartMs: Date.parse('2026-07-13T12:00:00Z'),
+      },
+    ],
+    HR,
+  )
+  assert.equal(target, Date.parse('2026-06-10'))
+})
+
+test('coverage rebase: no rebase when nothing new predates the refresh window', () => {
+  const HR = 60 * 60 * 1000
+  const walletSynced = Date.parse('2026-07-01T00:00:00Z')
+  const cursor = Date.parse('2026-07-14T00:00:00Z')
+  // Only a market cataloged before the wallet synced (already covered).
+  assert.equal(
+    coverageRebaseTarget(
+      { activitySyncedMs: walletSynced, cursorTs: cursor },
+      [{ syncedMs: Date.parse('2026-06-01T00:00:00Z'), marketStartMs: Date.parse('2026-05-01') }],
+      HR,
+    ),
+    null,
+  )
+  // A never-synced wallet (null cursor) is handled by the normal full scan.
+  assert.equal(coverageRebaseTarget({ activitySyncedMs: null, cursorTs: null }, [], HR), null)
 })
 
 const CID_OURS = '0xours'
