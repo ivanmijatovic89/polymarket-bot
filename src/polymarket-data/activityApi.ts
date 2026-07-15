@@ -143,6 +143,19 @@ export async function fetchActivity(
     offset += PAGE_LIMIT
     if (offset > MAX_OFFSET) {
       const lastTs = page[page.length - 1]!.timestamp
+      // The window advances by re-entering AT `lastTs`. If the entire reachable
+      // window (MAX_OFFSET + PAGE_LIMIT rows) sits in a single second, `lastTs`
+      // equals the current `startSec`, so advancing would not move forward — the
+      // walk would re-read the same capped pages forever. That means more rows
+      // share this second than the offset cap can expose, and this API offers no
+      // finer key to page them. Fail loudly rather than hang.
+      if (lastTs === startSec) {
+        const scope = q.conditionId ? ` on ${q.conditionId}` : ''
+        throw new Error(
+          `activity pagination cannot advance past ${startSec}s for ${q.wallet}${scope}: ` +
+            `more than ${MAX_OFFSET + PAGE_LIMIT} rows share this second and exceed the offset cap`,
+        )
+      }
       // Re-enter AT the last timestamp (not after it) so rows sharing that
       // second are not skipped; the carry-over above removes the ones we have.
       carryOver = new Map()

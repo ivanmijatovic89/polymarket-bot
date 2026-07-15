@@ -35,7 +35,7 @@ import { fetchActivity } from './activityApi.js'
 import { buildReconstructedRows, takerKeysOf, type ReconstructedRow } from './reconstruct.js'
 import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
-import { COMPLETENESS_TOLERANCE, tradeCompleteness } from './tradeRows.js'
+import { completenessToleranceShares, tradeCompleteness } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
 import { upsertWallets } from './walletUpsert.js'
 
@@ -195,7 +195,7 @@ async function reconstructMarket(
   // Only `true` may become `done`.
   const complete =
     market.volumeGamma !== null && market.volumeGamma > 0
-      ? Math.abs((sharesVolume - market.volumeGamma) / market.volumeGamma) <= COMPLETENESS_TOLERANCE
+      ? Math.abs(sharesVolume - market.volumeGamma) <= completenessToleranceShares(rows.length)
       : rows.length === 0
         ? true
         : null

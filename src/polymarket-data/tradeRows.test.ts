@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildTradeRows, tradeCompleteness } from './tradeRows.js'
+import { buildTradeRows, completenessToleranceShares, tradeCompleteness } from './tradeRows.js'
 import type { ApiTrade } from './dataApi.js'
 
 const CID = '0xabc'
@@ -139,6 +139,39 @@ test('completeness: missing fills show up as a shortfall, not a rounding wobble'
 
   assert.equal(short.complete, false)
   assert.match(short.warnings.join(' '), /INCOMPLETE/)
+})
+
+test('tolerance: a small-but-real shortfall on a high-volume market stays partial', () => {
+  // The bug this replaces: a relative 0.1% tolerance let a 60-share shortfall on
+  // a ~1M-share market pass as complete. With the absolute share tolerance it
+  // must be `false`. Build a big market and drop ~10 shares.
+  const rows = Array.from({ length: 2000 }, (_, i) =>
+    trade({ proxyWallet: `0x${i}`, transactionHash: `0x${i}`, size: 100 }),
+  )
+  const sharesTotal = 2000 * 100 // 200,000 shares → gamma = 100,000
+  const out = buildTradeRows({
+    trades: rows,
+    takerTrades: [],
+    market: { ...MARKET, volumeGamma: sharesTotal / 2 + 10 }, // 10 shares short
+  })
+  assert.equal(out.complete, false, '10 missing shares must not be tolerated')
+  assert.match(out.warnings.join(' '), /short 10\.00 shares/)
+})
+
+test('tolerance: harmless sub-rounding difference is accepted as complete', () => {
+  // A tiny difference (well under the per-row rounding budget) is accepted.
+  const out = buildTradeRows({
+    trades: [trade({ size: 200 })], // shares/2 = 100
+    takerTrades: [],
+    market: { ...MARKET, volumeGamma: 100 + 0.004 }, // 0.004 shares off < 0.05 floor
+  })
+  assert.equal(out.complete, true)
+})
+
+test('tolerance: budget scales with row count (per-row decimal rounding)', () => {
+  assert.equal(completenessToleranceShares(0), 0.05) // floor
+  assert.equal(completenessToleranceShares(1000), 0.05) // still under floor
+  assert.equal(completenessToleranceShares(20000), 0.1) // 20000 * 5e-6
 })
 
 test('no Gamma volume but rows exist → unverifiable (null), never done', () => {

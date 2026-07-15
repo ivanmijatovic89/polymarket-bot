@@ -82,10 +82,21 @@ export type BuildInput = {
 const LATE_SLACK_MS = 5 * 60_000
 
 /**
- * `sum(size)/2 == volumeNum` is an identity, not an approximation, so the only
- * tolerance needed is for float/decimal rounding across thousands of rows.
+ * Completeness tolerance, in SHARES (absolute), for `|sum(size)/2 - volumeNum|`.
+ *
+ * `sum(size)/2 == volumeNum` is an identity, so the only slack needed is the
+ * rounding from summing thousands of `decimal(18,6)` sizes (each carries up to
+ * ~1e-6 of truncation). A RELATIVE tolerance is wrong here: 0.1% of a 1M-share
+ * market is 1,000 shares, which silently hides real missing fills — measured on
+ * live data, 6 deep-backfilled markets were `done` while short by 6.8–60 shares
+ * (all < 0.071%). Empirically, genuine rounding never exceeds ~0.009 shares
+ * (max seen ~2e-6 per row), while real shortfalls start at ~7 shares — a clean
+ * gap. This budget sits well inside it: ~5e-6 per row (2.5× the observed
+ * rounding) with a small floor for tiny markets.
  */
-export const COMPLETENESS_TOLERANCE = 0.001
+export function completenessToleranceShares(rowCount: number): number {
+  return Math.max(0.05, rowCount * 5e-6)
+}
 
 /** The maker/taker note — a capped taker query means some takers are stored as makers. */
 export const TAKER_FLAGS_INCOMPLETE_NOTE =
@@ -210,12 +221,13 @@ export function buildTradeRows(input: BuildInput): BuildResult {
   const sharesVolume = sharesTotal / 2
   let complete: boolean | null
   if (market.volumeGamma !== null && market.volumeGamma > 0) {
-    const drift = (sharesVolume - market.volumeGamma) / market.volumeGamma
-    complete = Math.abs(drift) <= COMPLETENESS_TOLERANCE
+    const diff = Math.abs(sharesVolume - market.volumeGamma)
+    complete = diff <= completenessToleranceShares(rows.length)
     if (!complete) {
+      const drift = (sharesVolume - market.volumeGamma) / market.volumeGamma
       warnings.push(
         `INCOMPLETE: shares/2=${sharesVolume.toFixed(2)} vs gamma=${market.volumeGamma.toFixed(2)} ` +
-          `(${(drift * 100).toFixed(2)}%) — fills are missing`,
+          `(short ${diff.toFixed(2)} shares, ${(drift * 100).toFixed(3)}%) — fills are missing`,
       )
     }
   } else if (rows.length === 0) {

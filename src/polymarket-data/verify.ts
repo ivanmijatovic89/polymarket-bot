@@ -35,7 +35,8 @@ import { getDb, closeDb } from '../db/index.js'
 import { POLYMARKET_DATA_TRADES_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchMarketPositions, fetchMarketTrades } from './dataApi.js'
-import { COMPLETENESS_TOLERANCE } from './tradeRows.js'
+import { completenessToleranceShares } from './tradeRows.js'
+import { resampleVerdict } from './resampleVerdict.js'
 import { isTimeframe, type Timeframe } from './marketSeries.js'
 
 const LABEL = '[polymarket-data:verify]'
@@ -96,6 +97,7 @@ type InvariantRow = {
   shares_volume: string | null
   volume_gamma: string | null
   drift_pct: string | null
+  abs_diff: string | null
 }
 
 /** The offline check: every synced market, one SQL statement, no API calls. */
@@ -106,12 +108,13 @@ async function checkInvariant(args: Args): Promise<InvariantRow[]> {
                COUNT(t.id) AS trade_rows,
                SUM(t.size) / 2 AS shares_volume,
                m.volume_gamma,
-               (SUM(t.size) / 2 - m.volume_gamma) / NULLIF(m.volume_gamma, 0) * 100 AS drift_pct
+               (SUM(t.size) / 2 - m.volume_gamma) / NULLIF(m.volume_gamma, 0) * 100 AS drift_pct,
+               ABS(SUM(t.size) / 2 - m.volume_gamma) AS abs_diff
         FROM polymarket_markets m
         LEFT JOIN polymarket_trades t ON t.market_id = m.id
         WHERE ${selection(args)}
         GROUP BY m.id
-        ORDER BY ABS(COALESCE((SUM(t.size) / 2 - m.volume_gamma) / NULLIF(m.volume_gamma, 0), 0)) DESC
+        ORDER BY ABS(COALESCE(SUM(t.size) / 2 - m.volume_gamma, 0)) DESC
         ${args.limit ? sql`LIMIT ${args.limit}` : sql``}`,
   )
   return ((res as unknown as InvariantRow[][])[0] ?? []) as InvariantRow[]
@@ -145,8 +148,10 @@ async function main(): Promise<number> {
       bad.push(r)
       continue
     }
-    const drift = Math.abs(Number(r.drift_pct)) / 100
-    if (drift > COMPLETENESS_TOLERANCE) bad.push(r)
+    // Absolute share tolerance (see completenessToleranceShares) — a relative %
+    // hides real shortfalls on high-volume markets.
+    const diff = r.abs_diff === null ? 0 : Number(r.abs_diff)
+    if (diff > completenessToleranceShares(Number(r.trade_rows))) bad.push(r)
   }
 
   // Split the incomplete markets by intent:
@@ -244,17 +249,20 @@ async function main(): Promise<number> {
         (orphan as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n ?? 0,
       )
 
-      // `live` is capped for busy markets, so it is a LOWER bound: our stored
-      // set should be >= it, never below.
-      const short = Number(s.rows_ ?? 0) < live.trades.length
-      const ok = !short && orphanWallets === 0
-      if (!ok) integrityOk = false
+      const verdict = resampleVerdict({
+        storedRows: Number(s.rows_ ?? 0),
+        liveRows: live.trades.length,
+        storedPositions: Number(s.positions ?? 0),
+        livePositions: positions.length,
+        orphanWallets,
+      })
+      if (!verdict.ok) integrityOk = false
       console.log(
-        `${LABEL}   ${ok ? '✓' : '✗'} ${r.slug} ` +
+        `${LABEL}   ${verdict.ok ? '✓' : '✗'} ${r.slug} ` +
           `stored_rows=${s.rows_} live_rows=${live.trades.length}${live.capped ? '(capped)' : ''} ` +
           `stored_positions=${s.positions} live_positions=${positions.length} ` +
           `stored_shares/2=${Number(r.shares_volume ?? 0).toFixed(0)} live_shares/2=${liveShares.toFixed(0)}` +
-          (orphanWallets > 0 ? ` ⚠ ${orphanWallets} trade-wallets missing from positions` : ''),
+          (verdict.notes.length > 0 ? ` ⚠ ${verdict.notes.join('; ')}` : ''),
       )
     }
   }

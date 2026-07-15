@@ -49,6 +49,17 @@ function stubApi(rows: ApiActivity[], pageLimit = 500, maxOffset = 3000) {
   return calls
 }
 
+test('same-second cluster exceeding the offset cap fails loudly (no infinite loop)', async (t) => {
+  // >3500 rows (MAX_OFFSET 3000 + PAGE_LIMIT 500) all in ONE second: the window
+  // cannot advance past that second, so the old code looped forever re-reading
+  // the same capped pages. It must now throw a clear diagnostic instead.
+  const rows = Array.from({ length: 4000 }, (_, i) => row(5000, `0x${i}`))
+  stubApi(rows, 500, 3000)
+  t.after(() => mock.restoreAll())
+
+  await assert.rejects(fetchActivity({ wallet: '0xa' }, { limiter }), /cannot advance past 5000s/)
+})
+
 test('pages a wallet that fits inside one window', async (t) => {
   const rows = [row(10, '0x1'), row(20, '0x2')]
   stubApi(rows)
