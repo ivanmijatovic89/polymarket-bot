@@ -37,40 +37,9 @@ import { RateLimiter } from './rateLimiter.js'
 import { fetchMarketPositions, fetchMarketTrades } from './dataApi.js'
 import { completenessToleranceShares } from './tradeRows.js'
 import { resampleVerdict } from './resampleVerdict.js'
-import { isTimeframe, type Timeframe } from './marketSeries.js'
+import { parseArgs, type Args } from './verifyArgs.js'
 
 const LABEL = '[polymarket-data:verify]'
-
-type Args = {
-  symbol?: string
-  timeframe?: Timeframe
-  slugs?: string[]
-  limit: number | null
-  resample: number
-  requeue: boolean
-}
-
-function parseArgs(argv: string[]): Args {
-  const out: Args = { limit: null, resample: 0, requeue: false }
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    if (a === '--symbol') out.symbol = (argv[++i] ?? '').toLowerCase()
-    else if (a === '--timeframe') {
-      const tf = argv[++i] ?? ''
-      if (!isTimeframe(tf)) throw new Error(`${LABEL} unknown --timeframe: ${tf}`)
-      out.timeframe = tf
-    } else if (a === '--slug') {
-      out.slugs = (argv[++i] ?? '')
-        .split(',')
-        .map((s) => s.trim())
-        .filter((s) => s !== '')
-    } else if (a === '--limit') out.limit = Number(argv[++i] ?? '') || null
-    else if (a === '--resample') out.resample = Number(argv[++i] ?? '') || 0
-    else if (a === '--requeue') out.requeue = true
-    else throw new Error(`${LABEL} unknown arg: ${a}`)
-  }
-  return out
-}
 
 function selection(args: Args) {
   const clauses = [sql`trades_status IN ('done', 'partial')`]
