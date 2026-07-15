@@ -4,6 +4,7 @@ import {
   activityFetchStartSec,
   coverageRebaseStatuses,
   coverageRebaseTarget,
+  coverageRebaseTradeFloor,
   dedupKey,
   FULL_HISTORY_CURSOR_MS,
   identityOf,
@@ -133,6 +134,12 @@ test('coverage rebase: stale/refresh requeues remain eligible without stealing l
     ),
     '--reset-processing dry-run models the post-reset status',
   )
+})
+
+test('coverage rebase: min-trades scopes normal runs but not named wallets', () => {
+  assert.equal(coverageRebaseTradeFloor(100, false), 100)
+  assert.equal(coverageRebaseTradeFloor(100, true), 0)
+  assert.equal(coverageRebaseTradeFloor(0, false), 0)
 })
 
 test('coverage rebase: no rebase when nothing new predates the refresh window', () => {

@@ -36,6 +36,7 @@ import { fetchActivity, type ApiActivity } from './activityApi.js'
 import {
   activityFetchStartSec,
   coverageRebaseStatuses,
+  coverageRebaseTradeFloor,
   FULL_HISTORY_CURSOR_MS,
   needsWalletStatsRefresh,
   nextActivityCursorMs,
@@ -205,6 +206,7 @@ async function writeActivity(
 async function rebaseExpandedCoverage(
   dryRun: boolean,
   statuses: string[],
+  minTrades: number,
   wallets?: string[],
 ): Promise<number> {
   const db = getDb()
@@ -229,6 +231,9 @@ async function rebaseExpandedCoverage(
           sql`, `,
         )})`
       : sql``
+  const tradeFloorScope = minTrades > 0 ? sql`AND w.trade_count >= ${minTrades}` : sql``
+  const gateTradeFloorScope = minTrades > 0 ? sql`AND trade_count >= ${minTrades}` : sql``
+  const updateTradeFloorScope = minTrades > 0 ? sql`AND trade_count >= ${minTrades}` : sql``
 
   // Any market whose window predates an eligible wallet's refresh floor yet was
   // cataloged AFTER that wallet synced? New CURRENT markets never trip this
@@ -242,9 +247,11 @@ async function rebaseExpandedCoverage(
             SELECT 1 FROM polymarket_markets m
             WHERE m.synced_at > (SELECT MIN(activity_synced_at) FROM polymarket_wallets
                                  WHERE activity_status IN (${rebaseStatuses()})
-                                   AND activity_synced_at IS NOT NULL)
+                                   AND activity_synced_at IS NOT NULL
+                                   ${gateTradeFloorScope})
               AND m.market_start_ms < (SELECT MAX(activity_cursor_ts) FROM polymarket_wallets
-                                       WHERE activity_status IN (${rebaseStatuses()})) - ${CURSOR_OVERLAP_MS}
+                                       WHERE activity_status IN (${rebaseStatuses()})
+                                         ${gateTradeFloorScope}) - ${CURSOR_OVERLAP_MS}
           ) AS anyp`,
     )
     if (Number((gate as unknown as Array<Array<{ anyp: number }>>)[0]?.[0]?.anyp ?? 0) === 0)
@@ -266,6 +273,7 @@ async function rebaseExpandedCoverage(
           AND w.activity_synced_at IS NOT NULL
           AND m.synced_at > w.activity_synced_at
           AND m.market_start_ms < w.activity_cursor_ts - ${CURSOR_OVERLAP_MS}
+          ${tradeFloorScope}
           ${namedScope}
         GROUP BY p.wallet`,
   )
@@ -286,7 +294,9 @@ async function rebaseExpandedCoverage(
       sql`UPDATE polymarket_wallets
           SET activity_status = 'pending',
               activity_cursor_ts = LEAST(COALESCE(activity_cursor_ts, ${rebaseMs}), ${rebaseMs})
-          WHERE wallet = ${r.wallet} AND activity_status IN (${rebaseStatuses()})`,
+          WHERE wallet = ${r.wallet}
+            AND activity_status IN (${rebaseStatuses()})
+            ${updateTradeFloorScope}`,
     )
     rebased += (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
   }
@@ -385,6 +395,7 @@ async function main(): Promise<void> {
       includeFailed: args.retryFailed || namedRun,
       includeProcessingPreview: args.dryRun && args.resetProcessing,
     }),
+    coverageRebaseTradeFloor(args.minTrades, namedRun),
     args.wallets,
   )
 

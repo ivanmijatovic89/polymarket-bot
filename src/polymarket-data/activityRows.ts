@@ -36,6 +36,16 @@ export function coverageRebaseStatuses(opts: {
 }
 
 /**
+ * Trade-count floor for coverage repair. A normal `--min-trades` run must not
+ * mutate wallets below its selection threshold. Explicit named-wallet runs are
+ * intentionally exempt: `--wallet` targets exactly those wallets and already
+ * takes precedence over `--min-trades` in the claim/requeue paths.
+ */
+export function coverageRebaseTradeFloor(minTrades: number, namedRun: boolean): number {
+  return namedRun ? 0 : minTrades
+}
+
+/**
  * Epoch SECONDS a fetch should start from, given the stored cursor (ms) and the
  * overlap (ms). A null cursor means "all history" (`1`, since `0` selects the
  * API's default 3-year window). The overlap re-reads the tail of the last
