@@ -54,28 +54,62 @@ export type QueueFilter = {
 }
 
 /**
- * Eligibility: closed, old enough that the API has settled, and inside the
- * backfill window. `--slug` overrides the time filters entirely so a single
- * market can always be re-run by name.
+ * Which eligibility guards apply, as a pure plan so the rules are unit-testable.
+ *
+ * `closed` and settlement (`market_end_ms` past the min-close-age delay) are
+ * ALWAYS required — a market must be finished and quiet before we snapshot its
+ * trades/positions. `--slug` targets a market by name, so it bypasses
+ * symbol/timeframe and the backfill FLOOR — but NOT those two guards. A
+ * just-cataloged open market is `pending`; without them `--slug <open>` would
+ * sync an in-progress snapshot and mark it `done`, and later catalog refreshes
+ * update Gamma fields without resetting the sync status, so the remaining
+ * fills/position changes would stay unsynced forever.
  */
+export type EligibilityPlan = {
+  requireClosed: boolean
+  requireSettled: boolean
+  requireBackfillFloor: boolean
+  symbol?: string
+  timeframe?: Timeframe
+  slugs?: string[]
+}
+
+export function eligibilityPlan(filter: QueueFilter): EligibilityPlan {
+  if (filter.slugs && filter.slugs.length > 0) {
+    return {
+      requireClosed: true,
+      requireSettled: true,
+      requireBackfillFloor: false,
+      slugs: filter.slugs,
+    }
+  }
+  return {
+    requireClosed: true,
+    requireSettled: true,
+    requireBackfillFloor: true,
+    ...(filter.symbol ? { symbol: filter.symbol } : {}),
+    ...(filter.timeframe ? { timeframe: filter.timeframe } : {}),
+  }
+}
+
 function eligibility(filter: QueueFilter): SQL {
+  const plan = eligibilityPlan(filter)
   const clauses: SQL[] = []
 
-  if (filter.slugs && filter.slugs.length > 0) {
+  if (plan.requireClosed) clauses.push(sql`closed = 1`)
+  if (plan.requireSettled)
+    clauses.push(sql`market_end_ms < ${Date.now() - POLYMARKET_DATA_MIN_CLOSE_AGE_MS}`)
+  if (plan.requireBackfillFloor)
+    clauses.push(sql`market_start_ms >= ${POLYMARKET_DATA_BACKFILL_FROM_MS}`)
+  if (plan.slugs && plan.slugs.length > 0)
     clauses.push(
       sql`slug IN (${sql.join(
-        filter.slugs.map((s) => sql`${s}`),
+        plan.slugs.map((s) => sql`${s}`),
         sql`, `,
       )})`,
     )
-    return sql.join(clauses, sql` AND `)
-  }
-
-  clauses.push(sql`closed = 1`)
-  clauses.push(sql`market_end_ms < ${Date.now() - POLYMARKET_DATA_MIN_CLOSE_AGE_MS}`)
-  clauses.push(sql`market_start_ms >= ${POLYMARKET_DATA_BACKFILL_FROM_MS}`)
-  if (filter.symbol) clauses.push(sql`symbol = ${filter.symbol}`)
-  if (filter.timeframe) clauses.push(sql`timeframe = ${filter.timeframe}`)
+  if (plan.symbol) clauses.push(sql`symbol = ${plan.symbol}`)
+  if (plan.timeframe) clauses.push(sql`timeframe = ${plan.timeframe}`)
 
   return sql.join(clauses, sql` AND `)
 }

@@ -21,7 +21,7 @@
  * stage resumes it from its cursor instead.
  */
 
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 
@@ -31,6 +31,9 @@ export type WalletSighting = {
   pseudonym?: string | null
 }
 
+/** Anything that can run a SQL statement — the pooled `db` OR an open `tx`. */
+export type SqlExecutor = { execute: (query: SQL) => Promise<unknown> }
+
 const CHUNK = 500
 
 function emptyToNull(v: string | null | undefined): string | null {
@@ -39,12 +42,8 @@ function emptyToNull(v: string | null | undefined): string | null {
   return t === '' ? null : t.slice(0, 100)
 }
 
-/** Register wallets (and refresh their display names). Safe to call repeatedly. */
-export async function upsertWallets(sightings: WalletSighting[]): Promise<void> {
-  if (sightings.length === 0) return
-  const db = getDb()
-
-  // One row per wallet: MySQL rejects a batch that hits the same key twice.
+/** One row per wallet: MySQL rejects a batch that hits the same key twice. */
+function dedupeSightings(sightings: WalletSighting[]): WalletSighting[] {
   const unique = new Map<string, WalletSighting>()
   for (const s of sightings) {
     const wallet = s.wallet.toLowerCase()
@@ -55,27 +54,53 @@ export async function upsertWallets(sightings: WalletSighting[]): Promise<void> 
       pseudonym: emptyToNull(s.pseudonym) ?? existing?.pseudonym ?? null,
     })
   }
+  return [...unique.values()]
+}
 
-  const rows = [...unique.values()]
+function walletUpsertChunks(rows: WalletSighting[]): SQL[] {
+  const stmts: SQL[] = []
   for (let i = 0; i < rows.length; i += CHUNK) {
     const chunk = rows.slice(i, i + CHUNK)
     const values = chunk.map((s) => sql`(${s.wallet}, ${s.name ?? null}, ${s.pseudonym ?? null})`)
+    stmts.push(
+      sql`INSERT INTO polymarket_wallets (wallet, name, pseudonym)
+          VALUES ${sql.join(values, sql`, `)}
+          ON DUPLICATE KEY UPDATE
+            name = COALESCE(VALUES(name), name),
+            pseudonym = COALESCE(VALUES(pseudonym), pseudonym)`,
+    )
+  }
+  return stmts
+}
+
+/** Register wallets (and refresh their display names). Safe to call repeatedly. */
+export async function upsertWallets(sightings: WalletSighting[]): Promise<void> {
+  if (sightings.length === 0) return
+  const db = getDb()
+  for (const stmt of walletUpsertChunks(dedupeSightings(sightings))) {
     // Deadlock-retried like every other writer here: workers on different
     // markets still collide on this table, because the SAME wallets trade in
     // many markets at once. Missing the retry here failed real markets whose
     // trades had already been written — the wallet upsert is the last step, so
     // a deadlock rolled back nothing but still marked the market failed.
-    await withDeadlockRetry(
-      () =>
-        db.execute(
-          sql`INSERT INTO polymarket_wallets (wallet, name, pseudonym)
-          VALUES ${sql.join(values, sql`, `)}
-          ON DUPLICATE KEY UPDATE
-            name = COALESCE(VALUES(name), name),
-            pseudonym = COALESCE(VALUES(pseudonym), pseudonym)`,
-        ),
-      '[polymarket-data:wallets]',
-    )
+    await withDeadlockRetry(() => db.execute(stmt), '[polymarket-data:wallets]')
+  }
+}
+
+/**
+ * Register wallets on an ALREADY-OPEN transaction, so the caller can make wallet
+ * discovery atomic with whatever else it writes (e.g. a market's positions +
+ * `done` mark). No own deadlock retry: the caller's transaction is already
+ * wrapped in `withDeadlockRetry`, which replays the whole unit — retrying here
+ * would be nested and could double-apply the enclosing statements.
+ */
+export async function upsertWalletsInTx(
+  tx: SqlExecutor,
+  sightings: WalletSighting[],
+): Promise<void> {
+  if (sightings.length === 0) return
+  for (const stmt of walletUpsertChunks(dedupeSightings(sightings))) {
+    await tx.execute(stmt)
   }
 }
 

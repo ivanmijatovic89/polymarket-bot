@@ -17,7 +17,6 @@
  */
 
 import '../config/env.js'
-import { sql } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_TRADES_RPS } from '../config/polymarketData.js'
@@ -34,70 +33,23 @@ import {
   type ClaimedMarket,
 } from './marketQueue.js'
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
-import { upsertWallets } from './walletUpsert.js'
+import { dedupePositions, writePositionsTx } from './positionsWrite.js'
 
 const LABEL = '[polymarket-data:sync-positions]'
-const INSERT_CHUNK = 500
-
-function dec(v: unknown): string | null {
-  return typeof v === 'number' && Number.isFinite(v) ? v.toFixed(6) : null
-}
 
 /**
  * Replace a market's positions wholesale inside one transaction: the API rows
  * carry no id we could dedupe on, and a market's position set is a snapshot, so
- * "delete + insert" is both the retry story and the correctness story.
+ * "delete + insert" is both the retry story and the correctness story. Wallet
+ * registration runs in the SAME transaction (see writePositionsTx) so a crash
+ * can never leave positions `done` with their participants unregistered.
  */
 async function writePositions(market: ClaimedMarket, positions: ApiPosition[]): Promise<void> {
   const db = getDb()
-
-  // One row per (wallet, asset): a wallet can hold both outcomes, but the API
-  // must not hand us the same pair twice.
-  const unique = new Map<string, ApiPosition>()
-  for (const p of positions) {
-    unique.set(`${p.proxyWallet.toLowerCase()}|${p.asset}`, p)
-  }
-  const rows = [...unique.values()]
-
+  const rows = dedupePositions(positions)
   await withDeadlockRetry(
-    () =>
-      db.transaction(async (tx) => {
-        await tx.execute(
-          sql`DELETE FROM polymarket_market_positions WHERE market_id = ${market.id}`,
-        )
-
-        for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-          const chunk = rows.slice(i, i + INSERT_CHUNK)
-          const values = chunk.map(
-            (p) =>
-              sql`(${market.id}, ${p.proxyWallet.toLowerCase()}, ${p.asset}, ${p.outcomeIndex ?? null},
-               ${dec(p.size)}, ${dec(p.avgPrice)}, ${dec(p.totalBought)}, ${dec(p.realizedPnl)}, ${dec(p.cashPnl)})`,
-          )
-          await tx.execute(
-            sql`INSERT INTO polymarket_market_positions
-              (market_id, wallet, asset, outcome_index, final_size, avg_price, total_bought, realized_pnl, cash_pnl)
-            VALUES ${sql.join(values, sql`, `)}`,
-          )
-        }
-
-        await tx.execute(
-          sql`UPDATE polymarket_markets
-          SET positions_status = 'done',
-              positions_synced_at = CURRENT_TIMESTAMP,
-              position_rows = ${rows.length},
-              positions_error = NULL
-          WHERE id = ${market.id}`,
-        )
-      }),
+    () => db.transaction((tx) => writePositionsTx(tx, market.id, rows)),
     LABEL,
-  )
-
-  await upsertWallets(
-    rows.map((p) => ({
-      wallet: p.proxyWallet,
-      name: p.name ?? null,
-      pseudonym: p.pseudonym ?? null,
-    })),
   )
 }
 
