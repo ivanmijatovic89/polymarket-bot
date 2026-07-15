@@ -27,6 +27,9 @@ npm run polymarket-data:sync
 # a subset
 npm run polymarket-data:sync -- --symbol btc --timeframe 5m,15m
 
+# a specific date range — e.g. just June (from June 1 up to July 1)
+npm run polymarket-data:sync -- --symbol btc --timeframe 5m,15m --from 2026-06-01 --to 2026-07-01
+
 # full backfill from the floor (ignores stored resume state)
 npm run polymarket-data:sync -- --full
 
@@ -34,7 +37,9 @@ npm run polymarket-data:sync -- --full
 npm run polymarket-data:sync -- --dry-run
 ```
 
-`--symbol` and `--timeframe` take comma-separated lists (omit for all). The wrapper's flags:
+`--symbol` and `--timeframe` take comma-separated lists (omit for all). `--from`/`--to` bound the market window (dates are market *start* times; `--to` is roughly inclusive of the boundary market). Note: the window scopes the **catalog** — the later stages then process whatever markets are `pending`. So on a fresh/truncated DB, a June-only catalog means the whole run stays within June; if the DB already holds markets from other dates, those get processed too. Truncate first when you want a run confined to an exact range.
+
+The wrapper's flags:
 
 | Flag | Default | Effect |
 |---|---|---|
@@ -66,9 +71,37 @@ The wrapper just calls these in order; each is independent and resumable, and on
 
 **Step 4 is not optional.** On real crypto markets ~15–20% (higher for BTC 5m) come back `partial` because `/trades` cannot page deep enough, and those markets are missing fills. `sync-trades` refuses to mark such a market `done`; `deep-backfill` is what completes them.
 
-### How long it takes
+### How long it takes, and what to sync first
 
-The catalog, positions and trades stages are fast — a few API calls per market, so the whole BTC 5m+15m set is well under an hour. **Deep-backfill is the long pole:** each capped market is rebuilt wallet-by-wallet (hundreds of wallets), ~10–30s per market depending on `POLYMARKET_DATA_ACTIVITY_RPS`. An initial full backfill is a few hours; raise the RPS budgets (below) to go faster. This is a **one-time** cost — subsequent syncs only touch new markets and are minutes.
+The catalog, positions and trades stages are fast — a few API calls per market. **Deep-backfill is the long pole:** each capped market is rebuilt wallet-by-wallet (hundreds of wallets), ~10–30s per market depending on `POLYMARKET_DATA_ACTIVITY_RPS`. So the total time is driven almost entirely by how many markets hit the `/trades` cap.
+
+Measured cap-hit rate (share of markets needing deep-backfill), from real data:
+
+| Timeframe | Markets that need deep-backfill | Notes |
+|---|---|---|
+| 1d | **0%** | few markets, all fit under the cap |
+| 4h | **0%** | " |
+| 1h | **0%** | " |
+| 15m | ~3% overall | BTC ~7%, ETH/SOL/XRP ~0% |
+| 5m | ~23% overall | **almost all of it is BTC 5m (~92%)**; ETH/SOL/XRP 5m ~0% |
+
+So the work is very lopsided: **1h/4h/1d finish in minutes with no deep-backfill**, 15m is light, and the single heavy job is **BTC 5m**. A good order:
+
+```bash
+# 1) the fast timeframes — all symbols, no backfill, done in minutes
+npm run polymarket-data:sync -- --timeframe 1h,4h,1d --from 2026-06-01 --to 2026-07-01
+
+# 2) 15m — light backfill (mostly BTC)
+npm run polymarket-data:sync -- --timeframe 15m --from 2026-06-01 --to 2026-07-01
+
+# 3) 5m for the light symbols — also fast
+npm run polymarket-data:sync -- --symbol eth,sol,xrp --timeframe 5m --from 2026-06-01 --to 2026-07-01
+
+# 4) the long pole — BTC 5m — let it run (raise ACTIVITY_RPS to speed it up)
+npm run polymarket-data:sync -- --symbol btc --timeframe 5m --from 2026-06-01 --to 2026-07-01
+```
+
+You get complete, queryable data after step 1 and keep widening from there, instead of waiting on BTC 5m up front. The whole thing is a **one-time** cost — later syncs only touch new markets and take minutes.
 
 ### Rate limits and tuning throughput
 
