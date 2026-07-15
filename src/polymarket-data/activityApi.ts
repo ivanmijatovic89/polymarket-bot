@@ -88,16 +88,33 @@ function buildUrl(q: ActivityQuery, offset: number, startSec: number): string {
  * sharing that boundary second are re-fetched and de-duplicated here, so no row
  * is lost or double-counted at a window edge.
  */
-export function activityRowKey(row: ApiActivity): string {
+/**
+ * The canonical identity of an activity event: every immutable field that can
+ * distinguish two events, and nothing about how or where the row was presented
+ * (`name` / `pseudonym` are cosmetic and excluded).
+ *
+ * ONE definition, used both here for boundary carry-over and by
+ * `polymarket_activity`'s persisted dedup key (`identityOf` re-exports it). A
+ * field missing from this list means two events that differ only in that field
+ * collapse into one identity — which lets the boundary walk skip an unseen row
+ * (dropping it and duplicating another), and lets the persisted dedup discard a
+ * genuinely new event. So it must include ALL of them: sibling rows of one
+ * transaction differ only in `asset` / `outcomeIndex` / `side`, and aggregated
+ * rows can differ only in `usdcSize`.
+ */
+export function activityIdentity(row: ApiActivity): string {
   return [
+    row.proxyWallet.toLowerCase(),
     row.type,
     row.conditionId,
-    row.timestamp,
     row.transactionHash ?? '',
+    row.timestamp,
+    row.outcomeIndex ?? '',
     row.asset ?? '',
     row.side ?? '',
     row.size ?? '',
     row.price ?? '',
+    row.usdcSize ?? '',
   ].join('|')
 }
 
@@ -126,7 +143,7 @@ export async function fetchActivity(
 
     for (const row of page) {
       if (carryOver !== null && row.timestamp === startSec) {
-        const key = activityRowKey(row)
+        const key = activityIdentity(row)
         const remaining = carryOver.get(key) ?? 0
         if (remaining > 0) {
           carryOver.set(key, remaining - 1)
@@ -161,7 +178,7 @@ export async function fetchActivity(
       carryOver = new Map()
       for (const row of out) {
         if (row.timestamp !== lastTs) continue
-        const key = activityRowKey(row)
+        const key = activityIdentity(row)
         carryOver.set(key, (carryOver.get(key) ?? 0) + 1)
       }
       startSec = lastTs

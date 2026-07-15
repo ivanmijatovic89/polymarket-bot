@@ -33,7 +33,12 @@ import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity, type ApiActivity } from './activityApi.js'
-import { activityFetchStartSec, nextActivityCursorMs, selectActivityRows } from './activityRows.js'
+import {
+  activityFetchStartSec,
+  needsWalletStatsRefresh,
+  nextActivityCursorMs,
+  selectActivityRows,
+} from './activityRows.js'
 import { refreshWalletStats } from './walletUpsert.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
@@ -268,6 +273,40 @@ async function main(): Promise<void> {
     console.log(`${LABEL} requeued ${n} ${note}`)
   }
 
+  // Recompute wallet trade counts BEFORE the requeues below. This stage is the
+  // only reader of those counts (claim order = trade_count DESC, and
+  // --min-trades scopes both the requeues and the claim), so they must be fresh
+  // *before* any --min-trades-scoped requeue decides which done wallets to
+  // revisit — otherwise a done wallet whose new trades just crossed the
+  // threshold is filtered out on a stale count and, when nothing else is
+  // pending, never refreshed, so it stays undiscovered indefinitely.
+  //
+  // It is a full aggregation of polymarket_trades (index-backed, ~3s), so we
+  // still skip it when it cannot matter: dry-run (read-only) and named-wallet
+  // runs (explicit wallets, no threshold/ordering), or a plain drain with
+  // nothing pending and no requeue requested.
+  const namedRun = !!(args.wallets && args.wallets.length > 0)
+  const requeueRequested =
+    args.retryFailed || args.refreshDone || args.staleAfterHours !== null || args.resetProcessing
+  // Only pay for the cheap status probe when the decision still hinges on it.
+  let anyPending = false
+  if (!args.dryRun && !namedRun && !(args.minTrades > 0 || requeueRequested)) {
+    const gate = await db.execute(
+      sql`SELECT EXISTS(SELECT 1 FROM polymarket_wallets WHERE activity_status = 'pending') AS anyp`,
+    )
+    anyPending = Number((gate as unknown as Array<Array<{ anyp: number }>>)[0]?.[0]?.anyp ?? 0) > 0
+  }
+  if (
+    needsWalletStatsRefresh(
+      { dryRun: args.dryRun, namedRun, minTrades: args.minTrades, requeueRequested },
+      anyPending,
+    )
+  ) {
+    const t = Date.now()
+    await refreshWalletStats()
+    console.log(`${LABEL} refreshed wallet trade stats in ${((Date.now() - t) / 1000).toFixed(1)}s`)
+  }
+
   if (args.resetProcessing) {
     // Free wallets left in 'processing' by a hard kill (SIGINT reverts its own
     // claims; a SIGKILL does not). Unsafe while peers are running — their claims
@@ -308,31 +347,6 @@ async function main(): Promise<void> {
       )})`,
       'named wallets',
     )
-  }
-
-  // Recompute wallet trade counts once, here — this is the only stage that reads
-  // them (claim order = trade_count DESC, and --min-trades). It's a full
-  // aggregation of polymarket_trades (~50s on a large table), which is why the
-  // trades/deep-backfill stages no longer do it after every invocation.
-  //
-  // Order matters: with --min-trades the pending count depends on fresh
-  // trade_count, so the refresh must precede the count. But we gate it on a
-  // cheap status-only check first, so a fully caught-up DB doesn't pay 50s for
-  // nothing. (When --min-trades is set, a wallet that only just crossed the
-  // threshold via this run's new trades is picked up on the next run — fine.)
-  const namedRun = !!(args.wallets && args.wallets.length > 0)
-  if (!args.dryRun && !namedRun) {
-    const gate = await db.execute(
-      sql`SELECT EXISTS(SELECT 1 FROM polymarket_wallets WHERE activity_status = 'pending') AS any`,
-    )
-    const anyPending = Number((gate as unknown as Array<Array<{ any: number }>>)[0]?.[0]?.any ?? 0)
-    if (anyPending > 0) {
-      const t = Date.now()
-      await refreshWalletStats()
-      console.log(
-        `${LABEL} refreshed wallet trade stats in ${((Date.now() - t) / 1000).toFixed(1)}s`,
-      )
-    }
   }
 
   const marketIndex = await loadMarketIndex()

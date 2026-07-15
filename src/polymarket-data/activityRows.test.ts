@@ -4,6 +4,7 @@ import {
   activityFetchStartSec,
   dedupKey,
   identityOf,
+  needsWalletStatsRefresh,
   nextActivityCursorMs,
   selectActivityRows,
 } from './activityRows.js'
@@ -149,7 +150,71 @@ test('a row key does not depend on which markets are in the catalog', () => {
 
 test('identity ignores fields that are not part of the event', () => {
   assert.equal(identityOf(act({ name: 'x' })), identityOf(act({ name: 'y' })))
+  assert.equal(identityOf(act({ pseudonym: 'x' })), identityOf(act({ pseudonym: 'y' })))
   assert.notEqual(identityOf(act({ size: 1 })), identityOf(act({ size: 2 })))
+})
+
+test('identity distinguishes rows that differ only in a previously-omitted field', () => {
+  // Sibling rows of one transaction differ only in asset / outcomeIndex / side;
+  // aggregated rows can differ only in usdcSize. Each must be its OWN identity —
+  // otherwise a genuinely different event collapses into the same occurrence
+  // group and gets discarded on dedup (or skipped at a pagination boundary).
+  const base = act()
+  assert.notEqual(identityOf(base), identityOf(act({ outcomeIndex: 1 })))
+  assert.notEqual(identityOf(act({ asset: '0xtokenA' })), identityOf(act({ asset: '0xtokenB' })))
+  assert.notEqual(identityOf(act({ side: 'BUY' })), identityOf(act({ side: 'SELL' })))
+  assert.notEqual(identityOf(act({ price: 0.4 })), identityOf(act({ price: 0.6 })))
+  assert.notEqual(identityOf(act({ usdcSize: 4 })), identityOf(act({ usdcSize: 6 })))
+})
+
+test('sibling events differing only by outcome/asset are kept as distinct rows', () => {
+  // Two legs of one SPLIT/MERGE: same wallet, tx, timestamp, size, usdcSize, but
+  // different outcome token. They must NOT be treated as the same event.
+  const legs = [
+    act({ type: 'MERGE', outcomeIndex: 0, asset: '0xyes' }),
+    act({ type: 'MERGE', outcomeIndex: 1, asset: '0xno' }),
+  ]
+  const kept = selectActivityRows(legs, INDEX, false)
+  assert.equal(kept.length, 2)
+  assert.notEqual(kept[0]!.key, kept[1]!.key, 'distinct events get distinct keys')
+
+  // And on an incremental overlap re-read they keep the SAME keys (both are
+  // occurrence 0 of their own identity), so ON DUPLICATE KEY no-ops instead of
+  // discarding one leg and duplicating the other.
+  const reread = selectActivityRows(legs, INDEX, false)
+  assert.equal(reread[0]!.key, kept[0]!.key)
+  assert.equal(reread[1]!.key, kept[1]!.key)
+})
+
+test('stats refresh runs before a --min-trades requeue even when nothing is pending', () => {
+  // The bug: a done wallet below the stale threshold whose new trades pushed it
+  // over. With no other wallet pending the old gate skipped the refresh, so the
+  // requeue filtered on a stale count and the wallet stayed undiscovered.
+  const base = { dryRun: false, namedRun: false, minTrades: 10, requeueRequested: true }
+  assert.equal(needsWalletStatsRefresh(base, false), true, 'refresh despite empty pending set')
+
+  // --min-trades alone (fresh claim, no requeue) still needs fresh counts.
+  assert.equal(needsWalletStatsRefresh({ ...base, requeueRequested: false }, false), true)
+  // A requeue without a threshold needs fresh counts for claim ordering.
+  assert.equal(
+    needsWalletStatsRefresh({ ...base, minTrades: 0, requeueRequested: true }, false),
+    true,
+  )
+})
+
+test('stats refresh is skipped only when it cannot matter', () => {
+  const noWork = { dryRun: false, namedRun: false, minTrades: 0, requeueRequested: false }
+  assert.equal(needsWalletStatsRefresh(noWork, false), false, 'plain drain, nothing pending')
+  assert.equal(needsWalletStatsRefresh(noWork, true), true, 'plain drain, pending → order matters')
+  // Dry-run must not write (refresh mutates), and named runs ignore counts.
+  assert.equal(needsWalletStatsRefresh({ ...noWork, dryRun: true }, true), false)
+  assert.equal(
+    needsWalletStatsRefresh(
+      { dryRun: false, namedRun: true, minTrades: 10, requeueRequested: true },
+      true,
+    ),
+    false,
+  )
 })
 
 test('dedupKey fits the column and is deterministic', () => {

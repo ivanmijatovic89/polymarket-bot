@@ -6,7 +6,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import type { ApiActivity } from './activityApi.js'
+import { activityIdentity, type ApiActivity } from './activityApi.js'
 
 /** Trades are owned by `polymarket_trades`; storing them here would double-count. */
 export const EXCLUDED_TYPES = new Set(['TRADE'])
@@ -37,19 +37,12 @@ export function nextActivityCursorMs(
 
 /**
  * Everything about a row that makes it *that* row — but nothing about where it
- * appeared in a response.
+ * appeared in a response. This is the SAME canonical identity the fetch-time
+ * boundary carry-over uses (`activityIdentity`), re-exported so the persisted
+ * dedup key and the pagination de-dup can never disagree about what "the same
+ * event" means.
  */
-export function identityOf(row: ApiActivity): string {
-  return [
-    row.proxyWallet.toLowerCase(),
-    row.type,
-    row.conditionId,
-    row.transactionHash ?? '',
-    row.timestamp,
-    row.size ?? '',
-    row.usdcSize ?? '',
-  ].join('|')
-}
+export const identityOf = activityIdentity
 
 /**
  * `occurrence` is how many byte-identical rows precede this one — NOT its index
@@ -63,6 +56,27 @@ export function identityOf(row: ApiActivity): string {
  */
 export function dedupKey(identity: string, occurrence: number): string {
   return createHash('sha1').update(`${identity}|${occurrence}`).digest('hex').slice(0, 40)
+}
+
+/**
+ * Whether sync-activity must recompute wallet trade counts BEFORE its requeues.
+ *
+ * The counts drive `--min-trades` (both the requeue scope and the claim filter)
+ * and the claim ordering, so a stale count can hide a done wallet whose new
+ * trades just crossed the threshold. The old gate refreshed only when something
+ * was already pending — exactly wrong, since that wallet is the reason nothing
+ * is pending. So: always refresh when the run reads counts (`--min-trades`) or
+ * when a requeue could bring done wallets back into a count-scoped decision;
+ * otherwise only for claim ordering when there is already pending work. Skipped
+ * entirely for dry-run (read-only) and named-wallet runs (no threshold/order).
+ */
+export function needsWalletStatsRefresh(
+  opts: { dryRun: boolean; namedRun: boolean; minTrades: number; requeueRequested: boolean },
+  anyPending: boolean,
+): boolean {
+  if (opts.dryRun || opts.namedRun) return false
+  if (opts.minTrades > 0 || opts.requeueRequested) return true
+  return anyPending
 }
 
 export type KeptRow = {
