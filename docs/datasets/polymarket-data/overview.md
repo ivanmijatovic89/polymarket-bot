@@ -16,33 +16,71 @@ This pipeline is **completely independent of the Telonex pipeline** — its own 
 | `polymarket_wallets` | Every wallet we've seen + its activity cursor |
 | `polymarket_activity` | SPLIT / MERGE / REDEEM / REWARD / CONVERSION on our markets |
 
-## Running a sync
+## Running a sync — the one command
 
-Stages are independent and resumable. Run them in this order; each one only processes what the previous one left for it.
+Use the wrapper. It runs every stage in the right order, and you give it symbols/timeframes once:
 
 ```bash
-# 1. Catalog: discover markets (Gamma series → polymarket_markets)
-npm run polymarket-data:sync-markets -- --symbol btc --timeframe 15m
+# everything, all symbols and timeframes
+npm run polymarket-data:sync
 
-# 2. Positions: who was in each market, and how they finished
-npm run polymarket-data:sync-positions -- --symbol btc --timeframe 15m --concurrency 4
+# a subset
+npm run polymarket-data:sync -- --symbol btc --timeframe 5m,15m
 
-# 3. Trades: every fill
-npm run polymarket-data:sync-trades -- --symbol btc --timeframe 15m --concurrency 4
+# full backfill from the floor (ignores stored resume state)
+npm run polymarket-data:sync -- --full
 
-# 4. Deep-backfill: rebuild markets the /trades cap couldn't fully expose
-npm run polymarket-data:deep-backfill -- --symbol btc --timeframe 15m --wallet-concurrency 16
-
-# 5. Activity: splits / merges / redeems, per wallet, biggest traders first
-npm run polymarket-data:sync-activity -- --limit 500 --concurrency 4
-
-# Audit at any time — does the DB match the API?
-npm run polymarket-data:verify -- --resample 5
+# see the plan without running it
+npm run polymarket-data:sync -- --dry-run
 ```
 
-Common flags: `--symbol`, `--timeframe`, `--slug a,b`, `--limit N`, `--latest`, `--concurrency N`, `--dry-run`, `--retry-failed`, `--retry-partial`, `--reset-processing`.
+`--symbol` and `--timeframe` take comma-separated lists (omit for all). The wrapper's flags:
 
-**Step 4 is not optional.** On a real BTC 15m sample, ~12% of markets came back `partial` because `/trades` cannot page deep enough, and those markets were missing ~12% of their fills. `sync-trades` refuses to mark such a market `done`; `deep-backfill` is what completes them.
+| Flag | Default | Effect |
+|---|---|---|
+| `--symbol <a,b>` | all | symbols to sync |
+| `--timeframe <a,b>` | all | timeframes to sync |
+| `--from` / `--to <date>` | resume → now | catalog window |
+| `--full` | off | catalog: rescan from the backfill floor |
+| `--concurrency <n>` | 6 | positions/trades/activity workers |
+| `--wallet-concurrency <n>` | 16 | deep-backfill per-market fan-out |
+| `--stale-after <hours>` | 120 | activity: also refresh wallets not synced in N hours |
+| `--resample <n>` | 10 | verify: markets to re-check against the live API |
+| `--skip <stages>` | — | comma list: `markets,positions,trades,backfill,activity,verify` |
+| `--dry-run` | off | print the commands, run nothing |
+
+**Why one command, run sequentially:** every stage draws on the same Polymarket rate budget, so running stages (or several syncs) in parallel just trips 429s. The wrapper runs them one at a time on purpose — that is both correct and, at the default RPS, about as fast as the API allows. Don't launch two syncs at once.
+
+### The stages, if you ever run them by hand
+
+The wrapper just calls these in order; each is independent and resumable, and only processes what the previous one left `pending`.
+
+| # | Command | Does | Key flags |
+|---|---|---|---|
+| 1 | `polymarket-data:sync-markets` | catalog from Gamma → `polymarket_markets` | `--symbol`, `--timeframe`, `--from`, `--to`, `--full`, `--dry-run` |
+| 2 | `polymarket-data:sync-positions` | `/v1/market-positions` → participants + final PnL | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--latest`, `--concurrency`, `--retry-failed`, `--reset-processing`, `--dry-run` |
+| 3 | `polymarket-data:sync-trades` | `/trades` → every fill; marks `done` or `partial` | same as positions, plus `--retry-partial` |
+| 4 | `polymarket-data:deep-backfill` | rebuild `partial` markets per-wallet via `/activity` | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--latest`, `--wallet-concurrency`, `--dry-run` |
+| 5 | `polymarket-data:sync-activity` | `/activity` → split/merge/redeem, per wallet | `--limit`, `--wallet`, `--min-trades`, `--concurrency`, `--full`, `--stale-after`, `--refresh-done`, `--retry-failed`, `--reset-processing`, `--dry-run` |
+| — | `polymarket-data:verify` | audit DB vs API | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--resample`, `--requeue` |
+
+**Step 4 is not optional.** On real crypto markets ~15–20% (higher for BTC 5m) come back `partial` because `/trades` cannot page deep enough, and those markets are missing fills. `sync-trades` refuses to mark such a market `done`; `deep-backfill` is what completes them.
+
+### How long it takes
+
+The catalog, positions and trades stages are fast — a few API calls per market, so the whole BTC 5m+15m set is well under an hour. **Deep-backfill is the long pole:** each capped market is rebuilt wallet-by-wallet (hundreds of wallets), ~10–30s per market depending on `POLYMARKET_DATA_ACTIVITY_RPS`. An initial full backfill is a few hours; raise the RPS budgets (below) to go faster. This is a **one-time** cost — subsequent syncs only touch new markets and are minutes.
+
+### Rate limits and tuning throughput
+
+Budgets are requests/second, enforced by a shared token bucket across all workers; 429s are honoured with backoff and don't burn the retry budget. Documented API caps: `/trades` 20/s, general Data API (covers `/activity`) 100/s.
+
+| Env var | Default | Cap | Raise it when |
+|---|---|---|---|
+| `POLYMARKET_DATA_ACTIVITY_RPS` | 60 | ~100/s | a big backfill is slow — this is the main lever (deep-backfill + activity) |
+| `POLYMARKET_DATA_TRADES_RPS` | 15 | ~20/s | positions/trades feel slow |
+| `POLYMARKET_DATA_GAMMA_RPS` | 10 | — | rarely; the catalog is already fast |
+
+Set them in `.env`, e.g. `POLYMARKET_DATA_ACTIVITY_RPS=90`, and re-run. If you start seeing sustained 429 warnings, dial back.
 
 ## Extending the history
 

@@ -65,8 +65,15 @@ export const POLYMARKET_DATA_MIN_CLOSE_AGE_MS = envNumber(
   DEFAULT_MIN_CLOSE_AGE_MS,
 )
 
-/** Requests/second budgets. Documented API caps: Data API /trades 200 req/10s,
- * general Data API 1000 req/10s. Defaults sit well under those. */
+/**
+ * Requests/second budgets. Documented API caps: Data API `/trades` 200 req/10s
+ * (= 20/s); general Data API 1000 req/10s (= 100/s), which covers `/activity`.
+ *
+ * `/activity` is what deep-backfill hammers — hundreds of calls per capped
+ * market — so its budget is the main throughput lever. Defaults leave headroom
+ * (a 429 is honoured with backoff and doesn't burn the retry budget), and each
+ * can be raised via env when a big one-time backfill needs to run faster.
+ */
 export const POLYMARKET_DATA_GAMMA_RPS = envNumber('POLYMARKET_DATA_GAMMA_RPS', 10)
-export const POLYMARKET_DATA_TRADES_RPS = envNumber('POLYMARKET_DATA_TRADES_RPS', 10)
-export const POLYMARKET_DATA_ACTIVITY_RPS = envNumber('POLYMARKET_DATA_ACTIVITY_RPS', 20)
+export const POLYMARKET_DATA_TRADES_RPS = envNumber('POLYMARKET_DATA_TRADES_RPS', 15)
+export const POLYMARKET_DATA_ACTIVITY_RPS = envNumber('POLYMARKET_DATA_ACTIVITY_RPS', 60)

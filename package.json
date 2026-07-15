@@ -66,6 +66,7 @@
     "telonex:convert:fanout": "./scripts/telonex-convert-fanout.sh",
     "telonex:verify": "tsx src/telonex/verify-conversion.ts",
     "telonex:verify-batch": "tsx src/telonex/verify-conversion-batch.ts",
+    "polymarket-data:sync": "tsx src/polymarket-data/sync.ts",
     "polymarket-data:sync-markets": "tsx src/polymarket-data/sync-markets.ts",
     "polymarket-data:sync-positions": "tsx src/polymarket-data/sync-positions.ts",
     "polymarket-data:sync-trades": "tsx src/polymarket-data/sync-trades.ts",
