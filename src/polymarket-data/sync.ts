@@ -35,6 +35,8 @@ import '../config/env.js'
 import { spawn } from 'node:child_process'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { sql } from 'drizzle-orm'
+import { closeDb, getDb } from '../db/index.js'
 import { isTimeframe, SYMBOLS, type Timeframe } from './marketSeries.js'
 
 const LABEL = '[polymarket-data:sync]'
@@ -217,11 +219,76 @@ async function main(): Promise<void> {
   }
   const mins = ((Date.now() - t0) / 60000).toFixed(1)
   console.log(`\n${LABEL} all ${steps.length} step(s) done in ${mins} min`)
+  await printSummary(args)
+}
+
+/**
+ * Bottom line for the synced scope: are the markets actually complete? The
+ * per-stage logs scroll by, and "all steps done" only means the stages RAN — a
+ * market can still be `partial` (fills missing) if deep-backfill didn't finish
+ * it. This makes that visible in one place.
+ */
+async function printSummary(args: Args): Promise<void> {
+  const conds = [sql`1 = 1`]
+  if (args.symbols)
+    conds.push(
+      sql`symbol IN (${sql.join(
+        args.symbols.map((s) => sql`${s}`),
+        sql`, `,
+      )})`,
+    )
+  if (args.timeframes)
+    conds.push(
+      sql`timeframe IN (${sql.join(
+        args.timeframes.map((t) => sql`${t}`),
+        sql`, `,
+      )})`,
+    )
+  const where = sql.join(conds, sql` AND `)
+
+  const db = getDb()
+  const res = await db.execute(
+    sql`SELECT
+          SUM(trades_status = 'done') AS done_,
+          SUM(trades_status = 'partial') AS partial_,
+          SUM(trades_status = 'failed') AS failed_,
+          SUM(trades_status = 'pending') AS pending_,
+          COUNT(*) AS total_
+        FROM polymarket_markets WHERE ${where}`,
+  )
+  const r = (res as unknown as Array<Array<Record<string, number | null>>>)[0]?.[0] ?? {}
+  const n = (v: number | null | undefined) => Number(v ?? 0)
+  const done = n(r.done_)
+  const partial = n(r.partial_)
+  const failed = n(r.failed_)
+  const pending = n(r.pending_)
+
+  console.log(
+    `${LABEL} summary — markets in scope: ${n(r.total_)} ` +
+      `(done=${done} partial=${partial} failed=${failed} pending=${pending})`,
+  )
+  if (partial > 0) {
+    console.log(
+      `${LABEL} ⚠ ${partial} market(s) still incomplete — re-run deep-backfill (or the whole sync) to finish them`,
+    )
+  }
+  if (failed > 0) {
+    console.log(
+      `${LABEL} ⚠ ${failed} market(s) failed — re-run with the trades stage's --retry-failed`,
+    )
+  }
+  if (partial === 0 && failed === 0 && pending === 0 && done > 0) {
+    console.log(`${LABEL} ✓ every market in scope is complete`)
+  }
 }
 
 main()
-  .then(() => process.exit(0))
-  .catch((err) => {
+  .then(async () => {
+    await closeDb()
+    process.exit(0)
+  })
+  .catch(async (err) => {
     console.error(`${LABEL} FAILED: ${(err as Error).message}`)
+    await closeDb().catch(() => {})
     process.exit(1)
   })
