@@ -161,16 +161,16 @@ Gamma reports a `volumeNum` per market. It turns out that this is exactly the **
 SUM(polymarket_trades.size) / 2  ==  polymarket_markets.volume_gamma
 ```
 
-This is an identity, not an approximation — it holds at **0.000% drift across every market synced so far**, from both the trades API and the deep-backfill path. That makes it a precise completeness test: if even one fill is missing, the left side drops below the right.
+This is an identity, not an approximation — it matches to **0.000% across almost every market**, from both the trades API and the deep-backfill path. That makes it a precise completeness test: a real shortfall (missing fills) drops the left side below the right by far more than rounding. The tolerance is **absolute shares** (not a percentage — a relative % would hide real shortfalls on high-volume markets); see the [Completeness Contract ADR](/adr/polymarket-data-completeness-contract) for the full contract.
 
 The pipeline uses it as the gate, not as a report:
 
 - `sync-trades` marks a market `done` **only** if it reproduces Gamma's number; otherwise `partial`.
 - `deep-backfill` may only claim `done` on the same condition.
-- `verify` re-checks every market offline (one SQL statement, no API calls) and `--requeue` sends any failure back to `deep-backfill`.
+- `verify` re-checks every market offline (one SQL statement, no API calls). A `partial` market failing the check is expected work; a **`done` market failing it is an integrity violation** — `verify` prints it loudly and **exits non-zero**, so the sync wrapper and CI surface it. `--requeue` sends failures back to `deep-backfill`. `verify --resample N` additionally re-pulls N markets from the live API and cross-checks row counts, share volume, and the participant identity set.
 
 ```bash
-npm run polymarket-data:verify              # audit
+npm run polymarket-data:verify              # audit (exits non-zero on a broken `done` market)
 npm run polymarket-data:verify -- --requeue # audit + send failures back for repair
 npm run polymarket-data:deep-backfill       # repair
 ```
@@ -245,8 +245,8 @@ ORDER BY 1, 2;
 |---|---|---|
 | `POLYMARKET_DATA_BACKFILL_FROM` | `2026-06-01T00:00:00Z` | Oldest market to sync |
 | `POLYMARKET_DATA_MIN_CLOSE_AGE_MS` | `3600000` | Wait this long after a market closes before syncing it |
-| `POLYMARKET_DATA_TRADES_RPS` | `10` | Request budget for `/trades` + `/v1/market-positions` |
-| `POLYMARKET_DATA_ACTIVITY_RPS` | `20` | Request budget for `/activity` |
+| `POLYMARKET_DATA_TRADES_RPS` | `15` | Request budget for `/trades` + `/v1/market-positions` |
+| `POLYMARKET_DATA_ACTIVITY_RPS` | `60` | Request budget for `/activity` (the deep-backfill lever) |
 | `POLYMARKET_DATA_GAMMA_RPS` | `10` | Request budget for Gamma |
 | `POLYMARKET_DATA_API_URL` | `https://data-api.polymarket.com` | Data API base |
 | `POLYMARKET_DATA_GAMMA_API_URL` | `https://gamma-api.polymarket.com` | Gamma base |

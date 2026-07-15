@@ -84,7 +84,7 @@ Two different mechanisms, because the data has two shapes:
 
 **Trades and positions — whole-market replace.** The API gives rows no id, and two genuinely identical fills can legitimately exist, so row-level dedup is unsafe. A market's rows are deleted and re-inserted inside one transaction. A crashed or retried market is simply re-fetched and rewritten; duplicates are impossible by construction.
 
-**Activity — `dedup_key` + `INSERT IGNORE`.** The wallet cursor deliberately re-reads an overlap window, so rows arrive twice by design. The key is a hash of the row's identity plus **its occurrence index within its identity group** — how many byte-identical rows precede it.
+**Activity — `dedup_key` + `INSERT … ON DUPLICATE KEY UPDATE dedup_key = dedup_key`.** The wallet cursor deliberately re-reads an overlap window, so rows arrive twice by design; the dedup key no-ops the duplicates. The key is a hash of the row's identity plus **its occurrence index within its identity group** — how many byte-identical rows precede it. (Deliberately NOT `INSERT IGNORE`: that also swallows truncation / invalid / out-of-range errors into warnings and stores coerced data — the `ON DUPLICATE KEY` form keeps only the duplicate idempotent and lets a real data error abort the transaction.)
 
 ::: warning The occurrence index must not come from page position
 An early version keyed on the row's index in the fetched page. Page position depends on where the cursor started, so a second run with a different cursor minted fresh keys and re-inserted everything — a re-run of 8 wallets doubled the table. Counting within the identity group is cursor-independent, while still letting two genuinely identical events (the same split twice in one transaction) both survive.
@@ -128,6 +128,18 @@ paths. What is genuinely unavailable — from this API, on either path — is th
 sub-second sequence of independent matches within the same second. The only
 source for that is on-chain `(block, tx_index, log_index)` via the `tx_hash`,
 which this pipeline does not fetch.
+
+## Verify — two checks, and what fails the audit
+
+`verify` runs an **offline invariant** pass over every synced market (`SUM(size)/2` vs `volume_gamma`, absolute-share tolerance) and, with `--resample N`, an **online** pass that re-pulls N markets from the live API. See the [Completeness Contract ADR](/adr/polymarket-data-completeness-contract) for the tolerance and status rules.
+
+Pass/fail is by intent — a `partial` market failing the invariant is expected work, a `done` market failing it is an **integrity violation** (process exits non-zero). The resample adds three live cross-checks, all folded into the verdict:
+
+- **rows** — stored rows must be ≥ the live `/trades` count (live is a *lower bound*, capped for busy markets). This does not over-fire on deep-backfilled markets: `/activity` and `/trades` produce the same per-fill row count (measured 352 == 352), so a complete market is always ≥ live.
+- **positions — identities, not counts.** Compares the `(wallet, asset)` set (wallet lowercased). A **live** position missing from stored → fail (a missing participant; the only signal for a wallet absent from both stored positions and the capped stored trades). A **stored-only** position → informational note (a wallet can redeem to zero and drop from the live snapshot after sync). Equal counts alone never "pass" a mismatched set.
+- **orphan wallets** — every trade wallet must have a stored positions row (positions is a verified superset).
+
+`--dry-run` on any stage is fully read-only: the retry/reset requeue reports the count that *would* move without writing.
 
 ## Residual gaps (honest list)
 
