@@ -125,6 +125,19 @@ test('rows from other markets and non-TRADE rows are dropped', () => {
   assert.equal(out.rows.length, 1)
 })
 
+test('foreign taker rows cannot classify or append rows under the current market', () => {
+  // Same coarse taker key as the local activity row, but a different condition.
+  // Without filtering first, this drops the legitimate local maker and appends
+  // the foreign taker under the current market id.
+  const foreignTaker = takerTrade({ conditionId: '0xother' })
+  const out = buildReconstructedRows([[activity()]], [foreignTaker], false, CID)
+
+  assert.equal(out.rows.length, 1)
+  assert.equal(out.rows[0]!.isTaker, false, 'the local activity row remains a maker')
+  assert.equal(out.rows[0]!.size, 10, 'the foreign per-fill row was not appended')
+  assert.equal(out.volume, 5)
+})
+
 test('volume is USDC summed; sharesVolume is shares halved (Gamma volumeNum)', () => {
   const out = buildReconstructedRows(
     [

@@ -2,8 +2,10 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   activityFetchStartSec,
+  coverageRebaseStatuses,
   coverageRebaseTarget,
   dedupKey,
+  FULL_HISTORY_CURSOR_MS,
   identityOf,
   needsWalletStatsRefresh,
   nextActivityCursorMs,
@@ -75,10 +77,15 @@ test('coverage rebase: a wallet synced before an older market was cataloged is r
     [{ syncedMs: Date.parse('2026-07-10T00:00:00Z'), marketStartMs: oldMarketStart }],
     HR,
   )
-  assert.equal(target, oldMarketStart, 'rebase back to the newly-covered market')
+  assert.equal(target, FULL_HISTORY_CURSOR_MS, 'historical expansion forces a complete re-read')
+  assert.equal(
+    activityFetchStartSec(target, HR),
+    1,
+    'the next fetch includes activity from before the market window',
+  )
 })
 
-test('coverage rebase: earliest affected market wins; recent/pre-existing markets ignored', () => {
+test('coverage rebase: any affected historical market forces full history; others are ignored', () => {
   const HR = 60 * 60 * 1000
   const walletSynced = Date.parse('2026-07-01T00:00:00Z')
   const cursor = Date.parse('2026-07-14T00:00:00Z')
@@ -98,7 +105,34 @@ test('coverage rebase: earliest affected market wins; recent/pre-existing market
     ],
     HR,
   )
-  assert.equal(target, Date.parse('2026-06-10'))
+  assert.equal(target, FULL_HISTORY_CURSOR_MS)
+})
+
+test('coverage rebase: stale/refresh requeues remain eligible without stealing live claims', () => {
+  // --stale-after 0 and --refresh-done move a done wallet to pending. The SQL
+  // rebase predicates are built from this same helper, so pending must
+  // remain repairable while processing (owned by another worker) must not.
+  const normal = coverageRebaseStatuses({
+    includeFailed: false,
+    includeProcessingPreview: false,
+  })
+  assert.ok(normal.includes('pending'))
+  assert.ok(normal.includes('done'))
+  assert.equal(normal.includes('failed'), false, 'failed stays opt-in')
+  assert.equal(normal.includes('processing'), false, 'never steal a live claim')
+
+  assert.ok(
+    coverageRebaseStatuses({ includeFailed: true, includeProcessingPreview: false }).includes(
+      'failed',
+    ),
+    '--retry-failed/named runs may repair failed wallets',
+  )
+  assert.ok(
+    coverageRebaseStatuses({ includeFailed: false, includeProcessingPreview: true }).includes(
+      'processing',
+    ),
+    '--reset-processing dry-run models the post-reset status',
+  )
 })
 
 test('coverage rebase: no rebase when nothing new predates the refresh window', () => {

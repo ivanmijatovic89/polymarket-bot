@@ -35,6 +35,8 @@ import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity, type ApiActivity } from './activityApi.js'
 import {
   activityFetchStartSec,
+  coverageRebaseStatuses,
+  FULL_HISTORY_CURSOR_MS,
   needsWalletStatsRefresh,
   nextActivityCursorMs,
   selectActivityRows,
@@ -192,15 +194,26 @@ async function writeActivity(
  * Those wallets' activity for the newly-cataloged older markets was filtered out
  * at their original sync and now sits behind their cursor, so a normal refresh
  * (`cursor - overlap`) never re-reads it. This requeues each affected wallet with
- * its cursor rebased back to the earliest such market (see `coverageRebaseTarget`
- * for the per-wallet rule; the SQL here is its set-based form). `synced_at` is the
- * market's catalog-insert time — stable, since the catalog upsert never updates
- * it. Idempotent (dedup_key + the `= 'done'` guard) and concurrent-safe (status
- * claim); read-only under --dry-run. A cheap pre-check on the small markets table
+ * a full-history cursor (see `coverageRebaseTarget` for the per-wallet rule; the
+ * SQL here is its set-based form), because valid activity can predate the market
+ * window. `synced_at` is the market's catalog-insert time — stable, since the
+ * catalog upsert never updates it. Idempotent (`dedup_key`) and concurrency-safe:
+ * queued/terminal wallets are repairable, while `processing` claims are never
+ * touched. Read-only under --dry-run. A cheap pre-check on the small markets table
  * skips the heavy trades/positions join in normal operation.
  */
-async function rebaseExpandedCoverage(dryRun: boolean, wallets?: string[]): Promise<number> {
+async function rebaseExpandedCoverage(
+  dryRun: boolean,
+  statuses: string[],
+  wallets?: string[],
+): Promise<number> {
   const db = getDb()
+
+  const rebaseStatuses = () =>
+    sql.join(
+      statuses.map((status) => sql`${status}`),
+      sql`, `,
+    )
 
   const namedScope =
     wallets && wallets.length > 0
@@ -217,7 +230,7 @@ async function rebaseExpandedCoverage(dryRun: boolean, wallets?: string[]): Prom
         )})`
       : sql``
 
-  // Any market whose window predates a done wallet's refresh floor yet was
+  // Any market whose window predates an eligible wallet's refresh floor yet was
   // cataloged AFTER that wallet synced? New CURRENT markets never trip this
   // (their start is ~now), so nothing runs unless coverage truly expanded.
   // Named runs already constrain the heavier query to a few wallets, so they
@@ -228,20 +241,20 @@ async function rebaseExpandedCoverage(dryRun: boolean, wallets?: string[]): Prom
       sql`SELECT EXISTS(
             SELECT 1 FROM polymarket_markets m
             WHERE m.synced_at > (SELECT MIN(activity_synced_at) FROM polymarket_wallets
-                                 WHERE activity_status <> 'processing'
+                                 WHERE activity_status IN (${rebaseStatuses()})
                                    AND activity_synced_at IS NOT NULL)
               AND m.market_start_ms < (SELECT MAX(activity_cursor_ts) FROM polymarket_wallets
-                                       WHERE activity_status <> 'processing') - ${CURSOR_OVERLAP_MS}
+                                       WHERE activity_status IN (${rebaseStatuses()})) - ${CURSOR_OVERLAP_MS}
           ) AS anyp`,
     )
     if (Number((gate as unknown as Array<Array<{ anyp: number }>>)[0]?.[0]?.anyp ?? 0) === 0)
       return 0
   }
 
-  // Affected wallets + how far back each must re-scan (earliest newly-covered
-  // market it participated in, via trades OR positions).
+  // Affected wallets, discovered through trades OR positions. Each gets the
+  // full-history cursor because market activity can precede market_start_ms.
   const affected = await db.execute(
-    sql`SELECT p.wallet AS wallet, MIN(m.market_start_ms) AS rebase_ms
+    sql`SELECT p.wallet AS wallet, ${FULL_HISTORY_CURSOR_MS} AS rebase_ms
         FROM (
           SELECT DISTINCT wallet, market_id FROM polymarket_trades ${namedParticipantScope}
           UNION
@@ -249,7 +262,7 @@ async function rebaseExpandedCoverage(dryRun: boolean, wallets?: string[]): Prom
         ) p
         JOIN polymarket_markets m ON m.id = p.market_id
         JOIN polymarket_wallets w ON w.wallet = p.wallet
-        WHERE w.activity_status <> 'processing'
+        WHERE w.activity_status IN (${rebaseStatuses()})
           AND w.activity_synced_at IS NOT NULL
           AND m.synced_at > w.activity_synced_at
           AND m.market_start_ms < w.activity_cursor_ts - ${CURSOR_OVERLAP_MS}
@@ -273,7 +286,7 @@ async function rebaseExpandedCoverage(dryRun: boolean, wallets?: string[]): Prom
       sql`UPDATE polymarket_wallets
           SET activity_status = 'pending',
               activity_cursor_ts = LEAST(COALESCE(activity_cursor_ts, ${rebaseMs}), ${rebaseMs})
-          WHERE wallet = ${r.wallet} AND activity_status <> 'processing'`,
+          WHERE wallet = ${r.wallet} AND activity_status IN (${rebaseStatuses()})`,
     )
     rebased += (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
   }
@@ -366,7 +379,14 @@ async function main(): Promise<void> {
   // `done` wallets to `pending`, hiding exactly the wallets that needed a rebase;
   // their successful short cursor refresh then made the omission permanent.
   // Named runs are scoped to their explicit wallets instead of skipping repair.
-  await rebaseExpandedCoverage(args.dryRun, args.wallets)
+  await rebaseExpandedCoverage(
+    args.dryRun,
+    coverageRebaseStatuses({
+      includeFailed: args.retryFailed || namedRun,
+      includeProcessingPreview: args.dryRun && args.resetProcessing,
+    }),
+    args.wallets,
+  )
 
   if (args.retryFailed) {
     await requeue(sql`activity_status = 'failed'${requeueScope(args)}`, 'failed wallets')

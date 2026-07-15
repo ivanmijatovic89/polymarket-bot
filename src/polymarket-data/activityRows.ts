@@ -11,6 +11,30 @@ import { activityIdentity, type ApiActivity } from './activityApi.js'
 /** Trades are owned by `polymarket_trades`; storing them here would double-count. */
 export const EXCLUDED_TYPES = new Set(['TRADE'])
 
+/** Epoch ms that makes activityFetchStartSec() request the wallet's full history. */
+export const FULL_HISTORY_CURSOR_MS = 1
+
+export type ActivityStatus = 'pending' | 'processing' | 'done' | 'failed'
+
+/**
+ * Statuses coverage repair may act on for this invocation. `pending` is
+ * load-bearing: --stale-after / --refresh-done can requeue a wallet before
+ * repair observes it. Failed wallets remain opt-in via --retry-failed (or an
+ * explicit named-wallet run), and processing is included only to make a
+ * --reset-processing dry-run preview match the real post-reset plan.
+ */
+export function coverageRebaseStatuses(opts: {
+  includeFailed: boolean
+  includeProcessingPreview: boolean
+}): ActivityStatus[] {
+  return [
+    'pending',
+    'done',
+    ...(opts.includeFailed ? (['failed'] as const) : []),
+    ...(opts.includeProcessingPreview ? (['processing'] as const) : []),
+  ]
+}
+
 /**
  * Epoch SECONDS a fetch should start from, given the stored cursor (ms) and the
  * overlap (ms). A null cursor means "all history" (`1`, since `0` selects the
@@ -44,8 +68,12 @@ export function nextActivityCursorMs(
  * markets the wallet participated in get cataloged AFTER it was synced — and
  * their activity, which the original sync fetched but dropped (not-in-catalog),
  * is now older than the wallet's refresh window, so a normal cursor refresh
- * (`cursor - overlap`) never re-reads it. We detect that and return the earliest
- * such market's start, so the wallet re-scans from there (dedup drops the rest);
+ * (`cursor - overlap`) never re-reads it. We detect that and return the
+ * full-history cursor. Rebasing merely to `marketStartMs` is insufficient:
+ * SPLIT/MERGE/trade activity can legitimately precede the market window by
+ * roughly a day. A historical catalog expansion is rare, and stable dedup keys
+ * make the complete re-read idempotent, so full history is the only guaranteed
+ * bound without storing market creation time as a first-class column.
  * `market.syncedMs` is the market's catalog-insert time (stable — the catalog
  * upsert does not touch it). Returns null when every participated market was
  * either cataloged before the wallet synced or is already inside the refresh
@@ -58,13 +86,12 @@ export function coverageRebaseTarget(
 ): number | null {
   if (wallet.activitySyncedMs === null || wallet.cursorTs === null) return null
   const refreshFloor = wallet.cursorTs - overlapMs
-  let earliest: number | null = null
   for (const m of participatedMarkets) {
     if (m.syncedMs > wallet.activitySyncedMs && m.marketStartMs < refreshFloor) {
-      earliest = earliest === null ? m.marketStartMs : Math.min(earliest, m.marketStartMs)
+      return FULL_HISTORY_CURSOR_MS
     }
   }
-  return earliest
+  return null
 }
 
 /**

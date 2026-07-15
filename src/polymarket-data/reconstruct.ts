@@ -87,7 +87,12 @@ export function buildReconstructedRows(
   takerCapped: boolean,
   conditionId: string,
 ): ReconstructResult {
-  const takerKeys = takerKeysOf(takerTrades)
+  // The Data API has ignored market filters in other query shapes, so treat the
+  // response as untrusted just like the full-trades path does. Foreign taker
+  // rows must neither classify/drop a local activity row nor be appended under
+  // the current market id.
+  const marketTakerTrades = takerTrades.filter((t) => t.conditionId === conditionId)
+  const takerKeys = takerKeysOf(marketTakerTrades)
   const rows: ReconstructedRow[] = []
   const wallets = new Set<string>()
 
@@ -134,7 +139,7 @@ export function buildReconstructedRows(
   // sweep is one aggregated activity row but several `/trades` rows, so this is
   // what restores the one-row-per-fill count and true per-fill prices.
   if (!takerCapped) {
-    for (const t of takerTrades) {
+    for (const t of marketTakerTrades) {
       const wallet = t.proxyWallet.toLowerCase()
       wallets.add(wallet)
       rows.push({
