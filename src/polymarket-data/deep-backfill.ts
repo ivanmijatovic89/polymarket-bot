@@ -35,7 +35,7 @@ import { fetchActivity } from './activityApi.js'
 import { buildReconstructedRows, takerKeysOf, type ReconstructedRow } from './reconstruct.js'
 import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
-import { COMPLETENESS_TOLERANCE } from './tradeRows.js'
+import { COMPLETENESS_TOLERANCE, tradeCompleteness } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
 import { upsertWallets } from './walletUpsert.js'
 
@@ -218,17 +218,15 @@ async function writeReconstructed(
 ): Promise<void> {
   const db = getDb()
 
-  // `done` is only claimed when completeness is PROVEN (`complete === true`).
-  // A still-short reconstruction (`false`) or an unverifiable no-volume market
-  // with rows (`null`) stays `partial` and says why — an unresolved or
-  // unprovable gap must never be filed away as complete.
-  const status = stats.complete === true ? 'done' : 'partial'
-  const notes = [
-    stats.complete === false ? 'reconstruction still short of gamma share volume' : null,
-    stats.complete === null ? 'unverifiable: Gamma reports no volume but trades exist' : null,
-    stats.takerKnown ? null : 'maker/taker flags incomplete: taker query hit the offset cap',
-  ].filter((n): n is string => n !== null)
-  const note = notes.length > 0 ? notes.join('; ') : null
+  // Same status contract as sync-trades (shared helper): `done` only when
+  // completeness is PROVEN; a capped taker query (`!takerKnown`) records the
+  // maker/taker diagnostic without forcing `partial`.
+  const { partial, error: note } = tradeCompleteness({
+    complete: stats.complete,
+    takerCapped: !stats.takerKnown,
+    shortRowsNote: 'reconstruction still short of gamma share volume',
+  })
+  const status = partial ? 'partial' : 'done'
 
   await withDeadlockRetry(
     () =>

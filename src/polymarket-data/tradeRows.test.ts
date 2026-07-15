@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildTradeRows, incompleteReason } from './tradeRows.js'
+import { buildTradeRows, tradeCompleteness } from './tradeRows.js'
 import type { ApiTrade } from './dataApi.js'
 
 const CID = '0xabc'
@@ -165,15 +165,53 @@ test('no Gamma volume AND no rows → empty market is trivially complete (true)'
   }
 })
 
-test('incompleteReason maps completeness to done/partial + a diagnostic', () => {
-  // done: proven complete, even if the cap was hit (invariant already holds)
-  assert.equal(incompleteReason(true, false), null)
-  assert.equal(incompleteReason(true, true), null)
-  // partial: invariant failed
-  assert.match(String(incompleteReason(false, false)), /invariant failed/)
-  assert.match(String(incompleteReason(false, true)), /offset cap/)
-  // partial: unverifiable (no gamma volume but rows exist)
-  assert.match(String(incompleteReason(null, false)), /unverifiable/i)
+// Row completeness and maker/taker-label completeness are INDEPENDENT. `partial`
+// tracks only rows; a capped taker query is always diagnosed but never forces
+// `partial`. `shortRows` is the caller's wording for the complete===false case.
+const SHORT = 'fills missing (offset cap); awaiting deep-backfill'
+const tc = (complete: boolean | null, takerCapped: boolean, shortRowsNote = SHORT) =>
+  tradeCompleteness({ complete, takerCapped, shortRowsNote })
+
+test('complete rows, neither query capped → done, no diagnostic', () => {
+  assert.deepEqual(tc(true, false), { partial: false, error: null })
+})
+
+test('complete rows, taker query capped → done, but taker diagnostic recorded', () => {
+  // THE regression: this used to be done with the diagnostic silently cleared.
+  const out = tc(true, true)
+  assert.equal(out.partial, false, 'all rows present → not partial')
+  assert.match(String(out.error), /maker\/taker flags incomplete: taker query hit the offset cap/)
+})
+
+test('complete rows, full query capped but invariant proves completeness → done', () => {
+  // `all.capped` only refines wording; when the invariant holds, rows are all
+  // present regardless. Full-cap alone (taker not capped) → done, no note.
+  assert.deepEqual(tc(true, false, SHORT), { partial: false, error: null })
+})
+
+test('incomplete rows, full query capped → partial with the offset-cap diagnostic', () => {
+  const out = tc(false, false, 'fills missing (offset cap); awaiting deep-backfill')
+  assert.equal(out.partial, true)
+  assert.match(String(out.error), /offset cap/)
+})
+
+test('incomplete rows, no query capped → partial with the invariant-failed diagnostic', () => {
+  const out = tc(false, false, 'fills missing (invariant failed); awaiting deep-backfill')
+  assert.equal(out.partial, true)
+  assert.match(String(out.error), /invariant failed/)
+})
+
+test('unverifiable non-empty rows (no Gamma volume) → partial, unverifiable diagnostic', () => {
+  const out = tc(null, false)
+  assert.equal(out.partial, true)
+  assert.match(String(out.error), /unverifiable/i)
+})
+
+test('incomplete rows AND capped taker → partial, both diagnostics present', () => {
+  const out = tc(false, true, 'fills missing (offset cap); awaiting deep-backfill')
+  assert.equal(out.partial, true)
+  assert.match(String(out.error), /offset cap/)
+  assert.match(String(out.error), /maker\/taker flags incomplete/)
 })
 
 test('unmatched taker rows are reported', () => {

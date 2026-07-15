@@ -87,19 +87,47 @@ const LATE_SLACK_MS = 5 * 60_000
  */
 export const COMPLETENESS_TOLERANCE = 0.001
 
+/** The maker/taker note — a capped taker query means some takers are stored as makers. */
+export const TAKER_FLAGS_INCOMPLETE_NOTE =
+  'maker/taker flags incomplete: taker query hit the offset cap'
+
+export type TradeCompleteness = {
+  /** true → the market must stay `partial`; false → it may be `done`. */
+  partial: boolean
+  /** `trades_error` diagnostic. MAY be non-null even when `partial` is false. */
+  error: string | null
+}
+
 /**
- * Why a market is not `done`, or `null` when it is provably complete. Shared by
- * the trades and deep-backfill stages so both apply the same status contract:
- * `done` requires `complete === true`. `capped` = the /trades offset cap was hit.
+ * Resolve a market's status and diagnostic from the TWO INDEPENDENT
+ * data-quality dimensions — collapsing them is the bug this replaces:
+ *
+ *   1. Row completeness (`complete`): are all fills present? Only `true` may
+ *      become `done` (invariant proven, or an empty no-volume market). `false`
+ *      = fills missing; `null` = unverifiable (no Gamma volume but rows exist).
+ *      This is the ONLY dimension that drives `partial`.
+ *
+ *   2. Maker/taker-label completeness (`takerCapped`): a capped taker-only query
+ *      leaves some rows that should be `is_taker = true` stored as `false`. This
+ *      does NOT make the market `partial` (every ROW is present, so the Gamma
+ *      invariant still holds) — matching deep-backfill, which files such a market
+ *      as `done` — but the diagnostic must ALWAYS be recorded, never cleared.
+ *
+ * `shortRowsNote` is the caller's wording for the `complete === false` case
+ * (the /trades offset cap and deep-backfill describe it differently).
  */
-export function incompleteReason(complete: boolean | null, capped: boolean): string | null {
-  if (complete === true) return null // invariant held (even if we hit the cap) — we have every fill
-  if (complete === false) {
-    return capped
-      ? 'fills missing (offset cap); awaiting deep-backfill'
-      : 'fills missing (invariant failed); awaiting deep-backfill'
-  }
-  return 'unverifiable: Gamma reports no volume but trades exist'
+export function tradeCompleteness(opts: {
+  complete: boolean | null
+  takerCapped: boolean
+  shortRowsNote: string
+}): TradeCompleteness {
+  const notes: string[] = []
+  if (opts.complete === false) notes.push(opts.shortRowsNote)
+  else if (opts.complete === null)
+    notes.push('unverifiable: Gamma reports no volume but trades exist')
+  if (opts.takerCapped) notes.push(TAKER_FLAGS_INCOMPLETE_NOTE)
+
+  return { partial: opts.complete !== true, error: notes.length > 0 ? notes.join('; ') : null }
 }
 
 export function buildTradeRows(input: BuildInput): BuildResult {

@@ -36,7 +36,7 @@ import {
   type ClaimedMarket,
 } from './marketQueue.js'
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
-import { buildTradeRows, incompleteReason, type TradeRow } from './tradeRows.js'
+import { buildTradeRows, tradeCompleteness, type TradeRow } from './tradeRows.js'
 import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:sync-trades]'
@@ -168,29 +168,38 @@ async function main(): Promise<void> {
           console.warn(`${LABEL} WARN ${market.slug}: ${w}`)
         }
 
-        // `done` ONLY when completeness is proven (`complete === true`). A cap
-        // hit, a failed invariant (`false`), or an unverifiable no-volume market
-        // with rows (`null`) all stay `partial` with a diagnostic reason.
-        const error = incompleteReason(built.complete, all.capped || taker.capped)
-        const incomplete = error !== null
+        // Two INDEPENDENT dimensions:
+        //   - row completeness (built.complete) drives `partial`; only proven
+        //     complete rows may be `done`. `all.capped` only refines the wording.
+        //   - a capped TAKER query leaves some takers labelled makers: that does
+        //     NOT make the market `partial` (all rows are present, invariant
+        //     holds), but the diagnostic is always recorded — never cleared.
+        const { partial, error } = tradeCompleteness({
+          complete: built.complete,
+          takerCapped: taker.capped,
+          shortRowsNote: all.capped
+            ? 'fills missing (offset cap); awaiting deep-backfill'
+            : 'fills missing (invariant failed); awaiting deep-backfill',
+        })
 
         await writeTrades(market, built.rows, {
           volumeTraded: built.volumeTraded,
           wallets: built.wallets,
-          partial: incomplete,
+          partial,
           error,
         })
         await upsertWallets(walletSightings(all.trades))
         inFlight.delete(market.id) // finalized in the DB — release ownership
 
-        if (incomplete) partialCount += 1
+        if (partial) partialCount += 1
         progress.record(true)
         console.log(
           progress.line(
             `${market.slug} rows=${built.rows.length} taker=${built.takerRows} ` +
               `wallets=${built.wallets} vol=${built.volumeTraded.toFixed(0)}` +
               (all.usedSideSplit ? ' side-split' : '') +
-              (incomplete ? ' PARTIAL' : ' ✓complete'),
+              (partial ? ' PARTIAL' : ' ✓complete') +
+              (taker.capped ? ' taker-cap' : ''),
           ),
         )
       } catch (err) {
