@@ -14,9 +14,15 @@
  *
  * 2. RESAMPLE (online, a sample of markets):
  *    re-fetch `/trades` and `/v1/market-positions` and compare row counts,
- *    wallet counts and share volume against what we stored — this catches drift
- *    the invariant cannot see, e.g. rows we stored that the API no longer
- *    reports.
+ *    wallet counts and share volume against what we stored — plus a cross-check
+ *    that every trading wallet has a positions row.
+ *
+ * Pass/fail: incomplete markets are split by intent. A `partial` market failing
+ * the invariant is EXPECTED (it's flagged partial precisely because the /trades
+ * cap cut it off — deep-backfill will finish it), so it does NOT fail the audit.
+ * A `done` market failing the invariant, or a resample mismatch, is a real
+ * defect: it prints an INTEGRITY VIOLATION and the process exits non-zero, so
+ * the sync wrapper and any CI surface it. Clean run → exit 0.
  *
  * Usage:
  *   npm run polymarket-data:verify -- [--symbol btc] [--timeframe 15m]
@@ -111,13 +117,13 @@ async function checkInvariant(args: Args): Promise<InvariantRow[]> {
   return ((res as unknown as InvariantRow[][])[0] ?? []) as InvariantRow[]
 }
 
-async function main(): Promise<void> {
+async function main(): Promise<number> {
   const args = parseArgs(process.argv.slice(2))
   const rows = await checkInvariant(args)
 
   if (rows.length === 0) {
     console.log(`${LABEL} no synced markets match the selection`)
-    return
+    return 0
   }
 
   const bad: InvariantRow[] = []
@@ -139,16 +145,39 @@ async function main(): Promise<void> {
     if (drift > COMPLETENESS_TOLERANCE) bad.push(r)
   }
 
+  // Split the incomplete markets by intent:
+  //   - `partial` incomplete  → EXPECTED. It is flagged partial precisely because
+  //     the /trades cap cut it off; deep-backfill will finish it.
+  //   - `done` incomplete     → a BUG. We claimed it was complete and it is not.
+  //     This must never happen (the completeness gate should have kept it
+  //     `partial`), so it is a hard failure, not a routine "needs backfill".
+  const brokenDone = bad.filter((r) => r.trades_status === 'done')
+  const expectedPartial = bad.filter((r) => r.trades_status !== 'done')
+
   const ok = rows.length - bad.length - unknown
   console.log(
-    `${LABEL} invariant (shares/2 == gamma volume): ` +
-      `${ok}/${rows.length} complete, ${bad.length} incomplete, ${unknown} unknown`,
+    `${LABEL} invariant (shares/2 == gamma volume): ${ok}/${rows.length} complete, ` +
+      `${expectedPartial.length} partial (awaiting deep-backfill), ` +
+      `${brokenDone.length} DONE-but-incomplete, ${unknown} unknown`,
   )
-  for (const r of bad.slice(0, 20)) {
+
+  if (brokenDone.length > 0) {
+    console.error(
+      `${LABEL} ✗✗ INTEGRITY VIOLATION: ${brokenDone.length} market(s) are marked 'done' but do NOT ` +
+        `reproduce Gamma's volume — they were stored as complete while missing fills:`,
+    )
+    for (const r of brokenDone.slice(0, 20)) {
+      console.error(
+        `${LABEL}   ✗✗ ${r.slug} rows=${r.trade_rows} ` +
+          `shares/2=${Number(r.shares_volume ?? 0).toFixed(2)} gamma=${Number(r.volume_gamma).toFixed(2)} ` +
+          `drift=${r.drift_pct === null ? 'n/a' : `${Number(r.drift_pct).toFixed(2)}%`} ` +
+          `[${r.trades_source ?? '-'}]`,
+      )
+    }
+  }
+  for (const r of expectedPartial.slice(0, 10)) {
     console.log(
-      `${LABEL}   ✗ ${r.slug} rows=${r.trade_rows} shares/2=${Number(r.shares_volume ?? 0).toFixed(2)} ` +
-        `gamma=${Number(r.volume_gamma).toFixed(2)} drift=${Number(r.drift_pct).toFixed(2)}% ` +
-        `[${r.trades_status}/${r.trades_source ?? '-'}]`,
+      `${LABEL}   · ${r.slug} rows=${r.trade_rows} drift=${r.drift_pct === null ? 'n/a' : `${Number(r.drift_pct).toFixed(1)}%`} [partial]`,
     )
   }
 
@@ -165,6 +194,11 @@ async function main(): Promise<void> {
     )
     console.log(`${LABEL} requeued ${bad.length} market(s) as partial for deep-backfill`)
   }
+
+  // A DONE-but-incomplete market is a real defect and makes the whole audit fail
+  // (non-zero exit, so the sync wrapper and any CI surface it). Expected
+  // `partial` markets do NOT fail the audit — they are just work still to do.
+  let integrityOk = brokenDone.length === 0
 
   if (args.resample > 0) {
     const limiter = new RateLimiter(POLYMARKET_DATA_TRADES_RPS)
@@ -210,6 +244,7 @@ async function main(): Promise<void> {
       // set should be >= it, never below.
       const short = Number(s.rows_ ?? 0) < live.trades.length
       const ok = !short && orphanWallets === 0
+      if (!ok) integrityOk = false
       console.log(
         `${LABEL}   ${ok ? '✓' : '✗'} ${r.slug} ` +
           `stored_rows=${s.rows_} live_rows=${live.trades.length}${live.capped ? '(capped)' : ''} ` +
@@ -220,15 +255,25 @@ async function main(): Promise<void> {
     }
   }
 
-  if (bad.length > 0 && !args.requeue) {
-    console.log(`${LABEL} re-run with --requeue to send the incomplete markets to deep-backfill`)
+  if (expectedPartial.length > 0 && !args.requeue) {
+    console.log(
+      `${LABEL} ${expectedPartial.length} partial market(s) still to backfill — ` +
+        `run deep-backfill, or verify --requeue`,
+    )
   }
+
+  if (integrityOk) {
+    console.log(`${LABEL} ✓ audit passed — no done market is broken`)
+  } else {
+    console.error(`${LABEL} ✗ audit FAILED — see the INTEGRITY VIOLATION / ✗ lines above`)
+  }
+  return integrityOk ? 0 : 1
 }
 
 main()
-  .then(async () => {
+  .then(async (code) => {
     await closeDb()
-    process.exit(0)
+    process.exit(code)
   })
   .catch(async (err) => {
     console.error(err)
