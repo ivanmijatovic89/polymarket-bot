@@ -123,9 +123,11 @@ function fmtDur(ms: number): string {
  * `sync-activity` persist a `failed` status per item and still exit 0, so
  * without this the wrapper could print "every market complete" while positions
  * or wallet activity silently failed. Returns whether any hard failure was seen
- * (trades / positions / activity) so `main` can exit non-zero — `partial` and
- * `pending` are expected states (deep-backfill territory / `--limit`), NOT
- * failures. Read-only: safe under (and unaffected by) `--dry-run`.
+ * (trades / positions / activity) so `main` can exit non-zero — `partial`,
+ * `pending` and `processing` are expected/transient states (deep-backfill
+ * territory / `--limit` / an in-flight or crash-stranded claim), NOT failures,
+ * but any of them blocks the "complete" claim. Read-only: safe under (and
+ * unaffected by) `--dry-run`.
  */
 async function printSummary(args: Args): Promise<boolean> {
   const conds = [sql`1 = 1`]
@@ -152,7 +154,9 @@ async function printSummary(args: Args): Promise<boolean> {
           SUM(trades_status = 'partial') AS partial_,
           SUM(trades_status = 'failed') AS failed_,
           SUM(trades_status = 'pending') AS pending_,
+          SUM(trades_status = 'processing') AS processing_,
           SUM(positions_status = 'failed') AS pos_failed_,
+          SUM(positions_status IN ('pending', 'processing')) AS pos_unfinished_,
           COUNT(*) AS total_
         FROM polymarket_markets WHERE ${where}`,
   )
@@ -162,27 +166,41 @@ async function printSummary(args: Args): Promise<boolean> {
   const partial = n(r.partial_)
   const failed = n(r.failed_)
   const pending = n(r.pending_)
+  const processing = n(r.processing_)
   const posFailed = args.skip.has('positions') ? 0 : n(r.pos_failed_)
+  const posUnfinished = args.skip.has('positions') ? 0 : n(r.pos_unfinished_)
 
-  // Activity is wallet-based (not market-scoped), so its failures are counted
+  // Activity is wallet-based (not market-scoped), so its counts are taken
   // globally over polymarket_wallets — the activity stage itself runs once, over
   // whatever wallets the market stages discovered.
   let activityFailed = 0
+  let activityUnfinished = 0
   if (!args.skip.has('activity')) {
     const a = await db.execute(
-      sql`SELECT COUNT(*) AS n FROM polymarket_wallets WHERE activity_status = 'failed'`,
+      sql`SELECT
+            SUM(activity_status = 'failed') AS failed_,
+            SUM(activity_status IN ('pending', 'processing')) AS unfinished_
+          FROM polymarket_wallets`,
     )
-    activityFailed = n((a as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n)
+    const ar = (a as unknown as Array<Array<Record<string, number | null>>>)[0]?.[0] ?? {}
+    activityFailed = n(ar.failed_)
+    activityUnfinished = n(ar.unfinished_)
   }
 
   console.log(
     `${LABEL} summary — markets in scope: ${n(r.total_)} ` +
-      `(done=${done} partial=${partial} failed=${failed} pending=${pending})` +
-      ` positions_failed=${posFailed} activity_failed_wallets=${activityFailed}`,
+      `(done=${done} partial=${partial} failed=${failed} pending=${pending} processing=${processing})` +
+      ` positions_failed=${posFailed} positions_unfinished=${posUnfinished}` +
+      ` activity_failed_wallets=${activityFailed} activity_unfinished_wallets=${activityUnfinished}`,
   )
   if (partial > 0) {
     console.log(
       `${LABEL} ⚠ ${partial} market(s) still incomplete — re-run deep-backfill (or the whole sync) to finish them`,
+    )
+  }
+  if (processing > 0) {
+    console.log(
+      `${LABEL} ⚠ ${processing} market(s) stuck in 'processing' — a worker was killed; recover with a stage's --reset-processing`,
     )
   }
   if (failed > 0) {
@@ -206,8 +224,11 @@ async function printSummary(args: Args): Promise<boolean> {
     partial,
     tradesFailed: failed,
     pending,
+    processing,
     positionsFailed: posFailed,
+    positionsUnfinished: posUnfinished,
     activityFailed,
+    activityUnfinished,
   })
   if (complete) {
     console.log(`${LABEL} ✓ every market in scope is complete`)

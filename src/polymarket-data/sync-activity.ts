@@ -39,6 +39,7 @@ import {
   nextActivityCursorMs,
   selectActivityRows,
 } from './activityRows.js'
+import { parseArgs, type Args } from './syncActivityArgs.js'
 import { refreshWalletStats } from './walletUpsert.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
@@ -54,59 +55,6 @@ const EMPTY_CLAIM_BACKOFF_MS = 500
  * free.
  */
 const CURSOR_OVERLAP_MS = 60 * 60 * 1000
-
-type Args = {
-  wallets?: string[]
-  limit: number | null
-  minTrades: number
-  concurrency: number
-  full: boolean
-  retryFailed: boolean
-  refreshDone: boolean
-  staleAfterHours: number | null
-  resetProcessing: boolean
-  dryRun: boolean
-}
-
-function parseArgs(argv: string[]): Args {
-  const out: Args = {
-    limit: null,
-    minTrades: 0,
-    concurrency: 4,
-    full: false,
-    retryFailed: false,
-    refreshDone: false,
-    staleAfterHours: null,
-    resetProcessing: false,
-    dryRun: false,
-  }
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    if (a === '--wallet') {
-      out.wallets = (argv[++i] ?? '')
-        .split(',')
-        .map((w) => w.trim().toLowerCase())
-        .filter((w) => w !== '')
-    } else if (a === '--limit') {
-      // Preserve 0: `--limit 0` means "do the re-queue admin, sync nothing".
-      const n = Number(argv[++i] ?? '')
-      if (!Number.isInteger(n) || n < 0) throw new Error(`${LABEL} --limit needs an integer >= 0`)
-      out.limit = n
-    } else if (a === '--min-trades') out.minTrades = Number(argv[++i] ?? '') || 0
-    else if (a === '--concurrency') out.concurrency = Number(argv[++i] ?? '') || 4
-    else if (a === '--full') out.full = true
-    else if (a === '--retry-failed') out.retryFailed = true
-    else if (a === '--refresh-done') out.refreshDone = true
-    else if (a === '--stale-after') {
-      const h = Number(argv[++i] ?? '')
-      if (!Number.isFinite(h) || h < 0) throw new Error(`${LABEL} --stale-after needs hours >= 0`)
-      out.staleAfterHours = h
-    } else if (a === '--reset-processing') out.resetProcessing = true
-    else if (a === '--dry-run') out.dryRun = true
-    else throw new Error(`${LABEL} unknown arg: ${a}`)
-  }
-  return out
-}
 
 /**
  * Extra WHERE constraints shared by the re-queue statements: honour `--min-trades`

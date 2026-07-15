@@ -7,8 +7,11 @@ const counts = {
   partial: 0,
   tradesFailed: 0,
   pending: 0,
+  processing: 0,
   positionsFailed: 0,
+  positionsUnfinished: 0,
   activityFailed: 0,
+  activityUnfinished: 0,
 }
 
 function activityStep(argv: string[]) {
@@ -87,6 +90,21 @@ test('verdict: partial / pending are not failures but block "complete"', () => {
     hasFailures: false,
     complete: false,
   })
+})
+
+test('verdict: a stuck "processing" market blocks "complete" (not a failure)', () => {
+  // A crashed worker leaves a market in `processing`. It is not an error, but the
+  // pipeline is NOT complete while trade work is still in flight/stranded.
+  const v = summaryVerdict({ ...counts, processing: 1 })
+  assert.equal(v.hasFailures, false)
+  assert.equal(v.complete, false, 'must not claim complete while processing')
+})
+
+test('verdict: unfinished positions or activity block "complete"', () => {
+  assert.equal(summaryVerdict({ ...counts, positionsUnfinished: 3 }).complete, false)
+  assert.equal(summaryVerdict({ ...counts, activityUnfinished: 7 }).complete, false)
+  // Still not "failures" — nothing errored, just not done yet.
+  assert.equal(summaryVerdict({ ...counts, positionsUnfinished: 3 }).hasFailures, false)
 })
 
 test('plan: --skip omits stages', () => {

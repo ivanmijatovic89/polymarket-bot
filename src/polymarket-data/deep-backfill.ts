@@ -22,13 +22,19 @@
  *
  * Usage:
  *   npm run polymarket-data:deep-backfill -- [--symbol btc] [--timeframe 15m]
- *       [--slug a,b] [--limit N] [--concurrency N] [--wallet-concurrency N] [--dry-run]
+ *       [--slug a,b] [--limit N] [--concurrency N] [--wallet-concurrency N]
+ *       [--reset-processing] [--dry-run]
+ *
+ * Markets are claimed atomically (partial→processing) so two concurrent
+ * invocations never rebuild the same market. A hard kill can strand a claim in
+ * `processing`; recover it with --reset-processing (only when no peers run).
  */
 
 import '../config/env.js'
-import { sql } from 'drizzle-orm'
+import { sql, type SQL } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
+import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity } from './activityApi.js'
@@ -37,11 +43,14 @@ import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 import { completenessToleranceShares, tradeCompleteness } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
+import { mayWriteReconstruction, type ClaimStatus } from './deepBackfillClaim.js'
 import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:deep-backfill]'
 const INSERT_CHUNK = 1000
 const DEFAULT_WALLET_CONCURRENCY = 8
+const CLAIM_CANDIDATES = 100
+const EMPTY_CLAIM_BACKOFF_MS = 500
 
 type PartialMarket = {
   id: number
@@ -53,32 +62,8 @@ type PartialMarket = {
   tradeRows: number | null
 }
 
-async function selectPartialMarkets(args: SyncArgs): Promise<PartialMarket[]> {
-  const db = getDb()
-  const clauses = [sql`trades_status = 'partial'`]
-  if (args.slugs && args.slugs.length > 0) {
-    clauses.length = 0
-    clauses.push(
-      sql`slug IN (${sql.join(
-        args.slugs.map((s) => sql`${s}`),
-        sql`, `,
-      )})`,
-    )
-  } else {
-    if (args.symbol) clauses.push(sql`symbol = ${args.symbol}`)
-    if (args.timeframe) clauses.push(sql`timeframe = ${args.timeframe}`)
-  }
-  const limit = args.limit ?? 1000
-
-  const res = await db.execute(
-    sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows
-        FROM polymarket_markets
-        WHERE ${sql.join(clauses, sql` AND `)}
-        ORDER BY market_start_ms ${args.latest ? sql`DESC` : sql`ASC`}
-        LIMIT ${limit}`,
-  )
-  const rows = (res as unknown as Array<Record<string, unknown>>[])[0] ?? []
-  return rows.map((r) => ({
+function rowToPartial(r: Record<string, unknown>): PartialMarket {
+  return {
     id: Number(r.id),
     conditionId: String(r.condition_id),
     slug: String(r.slug),
@@ -86,7 +71,124 @@ async function selectPartialMarkets(args: SyncArgs): Promise<PartialMarket[]> {
     marketEndMs: Number(r.market_end_ms),
     volumeGamma: r.volume_gamma === null ? null : Number(r.volume_gamma),
     tradeRows: r.trade_rows === null ? null : Number(r.trade_rows),
-  }))
+  }
+}
+
+/**
+ * Market-selection filters, WITHOUT the status clause (that varies by caller:
+ * the claim wants `partial`, the reset wants `processing`). `--slug` overrides
+ * symbol/timeframe entirely so a single market can always be re-run by name.
+ */
+function eligibility(args: SyncArgs): SQL {
+  if (args.slugs && args.slugs.length > 0) {
+    return sql`slug IN (${sql.join(
+      args.slugs.map((s) => sql`${s}`),
+      sql`, `,
+    )})`
+  }
+  const clauses: SQL[] = []
+  if (args.symbol) clauses.push(sql`symbol = ${args.symbol}`)
+  if (args.timeframe) clauses.push(sql`timeframe = ${args.timeframe}`)
+  return clauses.length > 0 ? sql.join(clauses, sql` AND `) : sql`1 = 1`
+}
+
+/** Partial markets in scope, for the dry-run listing (read-only, no claim). */
+async function selectPartialMarkets(args: SyncArgs): Promise<PartialMarket[]> {
+  const db = getDb()
+  const res = await db.execute(
+    sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows
+        FROM polymarket_markets
+        WHERE trades_status = 'partial' AND ${eligibility(args)}
+        ORDER BY market_start_ms ${args.latest ? sql`DESC` : sql`ASC`}
+        LIMIT ${args.limit ?? 1000}`,
+  )
+  const rows = (res as unknown as Array<Record<string, unknown>>[])[0] ?? []
+  return rows.map(rowToPartial)
+}
+
+async function countPartial(args: SyncArgs): Promise<number> {
+  const db = getDb()
+  const res = await db.execute(
+    sql`SELECT COUNT(*) AS n FROM polymarket_markets
+        WHERE trades_status = 'partial' AND ${eligibility(args)}`,
+  )
+  return Number((res as unknown as Array<Array<{ n: number | string }>>)[0]?.[0]?.n ?? 0)
+}
+
+/**
+ * Claim one `partial` market atomically (`partial → processing`), or null when
+ * the queue is genuinely drained. Same protocol as the positions/trades stages
+ * (`claimNextOrConfirmEmpty` + a PK-keyed conditional UPDATE): an empty claim is
+ * contention, not drain, until a real COUNT confirms zero. Without this, two
+ * concurrent deep-backfills would rebuild the same market at once.
+ */
+async function claimNextPartialMarket(
+  args: SyncArgs,
+  signal: AbortSignal,
+): Promise<PartialMarket | null> {
+  const db = getDb()
+  const order = args.latest ? sql`DESC` : sql`ASC`
+  return claimNextOrConfirmEmpty<PartialMarket>({
+    claim: async () => {
+      const res = await db.execute(
+        sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows
+            FROM polymarket_markets
+            WHERE trades_status = 'partial' AND ${eligibility(args)}
+            ORDER BY market_start_ms ${order}
+            LIMIT ${CLAIM_CANDIDATES}`,
+      )
+      const rows = (res as unknown as Array<Record<string, unknown>>[])[0] ?? []
+      if (rows.length === 0) return null
+      return claimFromCandidates(rows.map(rowToPartial), async (m) => {
+        const upd = await db.execute(
+          sql`UPDATE polymarket_markets SET trades_status = 'processing'
+              WHERE id = ${m.id} AND trades_status = 'partial'`,
+        )
+        const affected = (upd as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
+        return affected === 1 ? m : null
+      })
+    },
+    countRemaining: () => countPartial(args),
+    backoffMs: EMPTY_CLAIM_BACKOFF_MS,
+    signal,
+  })
+}
+
+/**
+ * Return this process's unfinished claims to `partial` (retryable) on shutdown
+ * or per-market failure. Only rows we still own (`processing`) and only our ids —
+ * reverting by predicate would clobber a peer's claims.
+ */
+async function revertOwnedClaims(ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0
+  const db = getDb()
+  const res = await db.execute(
+    sql`UPDATE polymarket_markets SET trades_status = 'partial'
+        WHERE trades_status = 'processing'
+          AND id IN (${sql.join(
+            ids.map((id) => sql`${id}`),
+            sql`, `,
+          )})`,
+  )
+  return (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
+}
+
+/**
+ * Free markets stranded in `processing` by a hard kill (SIGINT reverts its own
+ * claims; SIGKILL does not) back to `partial`. Unsafe while peers are running —
+ * their claims would be stolen — so it is an explicit `--reset-processing` opt-in.
+ */
+async function resetProcessing(args: SyncArgs, dryRun: boolean): Promise<number> {
+  const db = getDb()
+  const where = sql`trades_status = 'processing' AND ${eligibility(args)}`
+  if (dryRun) {
+    const res = await db.execute(sql`SELECT COUNT(*) AS n FROM polymarket_markets WHERE ${where}`)
+    return Number((res as unknown as Array<Array<{ n: number | string }>>)[0]?.[0]?.n ?? 0)
+  }
+  const res = await db.execute(
+    sql`UPDATE polymarket_markets SET trades_status = 'partial' WHERE ${where}`,
+  )
+  return (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
 }
 
 /**
@@ -215,7 +317,7 @@ async function writeReconstructed(
   market: PartialMarket,
   rows: ReconstructedRow[],
   stats: { wallets: number; volume: number; takerKnown: boolean; complete: boolean | null },
-): Promise<void> {
+): Promise<boolean> {
   const db = getDb()
 
   // Same status contract as sync-trades (shared helper): `done` only when
@@ -228,9 +330,21 @@ async function writeReconstructed(
   })
   const status = partial ? 'partial' : 'done'
 
-  await withDeadlockRetry(
+  return withDeadlockRetry(
     () =>
       db.transaction(async (tx) => {
+        // Write only while we still own the claim. Lock the row and re-check:
+        // if it is no longer `processing` (an operator reset it and another
+        // worker took over), our snapshot must not overwrite theirs — this is
+        // what stops a slow rebuild from clobbering a fresh complete one.
+        const own = await tx.execute(
+          sql`SELECT trades_status AS s FROM polymarket_markets WHERE id = ${market.id} FOR UPDATE`,
+        )
+        const cur = (own as unknown as Array<Array<{ s: string }>>)[0]?.[0]?.s as
+          | ClaimStatus
+          | undefined
+        if (!mayWriteReconstruction(cur)) return false
+
         await tx.execute(sql`DELETE FROM polymarket_trades WHERE market_id = ${market.id}`)
 
         for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
@@ -259,6 +373,7 @@ async function writeReconstructed(
                   trades_error = ${note}
               WHERE id = ${market.id}`,
         )
+        return true
       }),
     LABEL,
   )
@@ -281,6 +396,7 @@ async function main(): Promise<void> {
   const limiter = new RateLimiter(POLYMARKET_DATA_ACTIVITY_RPS)
 
   const ac = new AbortController()
+  const inFlight = new Set<number>()
   let shuttingDown = false
   const onSignal = () => {
     if (shuttingDown) process.exit(1)
@@ -291,27 +407,59 @@ async function main(): Promise<void> {
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
 
-  const markets = await selectPartialMarkets(args)
-  console.log(
-    `${LABEL} partial markets=${markets.length} wallet-concurrency=${walletConcurrency} dry-run=${args.dryRun}`,
-  )
-  if (args.dryRun || markets.length === 0) {
+  if (args.resetProcessing) {
+    const n = await resetProcessing(args, args.dryRun)
+    console.log(
+      `${LABEL} ${args.dryRun ? 'would reset' : 'reset'} ${n} stuck 'processing' market(s) → partial` +
+        (args.dryRun ? ' (dry-run)' : ''),
+    )
+  }
+
+  if (args.dryRun) {
+    const markets = await selectPartialMarkets(args)
+    console.log(`${LABEL} partial markets=${markets.length} (dry-run)`)
     for (const m of markets) {
       console.log(`${LABEL}   ${m.slug} capped_rows=${m.tradeRows ?? '?'}`)
     }
-    console.log(`${LABEL} nothing to do${args.dryRun ? ' (dry-run)' : ''}`)
+    console.log(`${LABEL} nothing to do (dry-run)`)
     return
   }
 
-  const progress = new ProgressTracker(LABEL, markets.length)
+  const total = await countPartial(args)
+  const budget = args.limit ?? total
+  console.log(
+    `${LABEL} partial markets=${total} budget=${budget} wallet-concurrency=${walletConcurrency}`,
+  )
+  if (total === 0 || budget === 0) {
+    console.log(`${LABEL} nothing to do`)
+    return
+  }
 
-  // Markets are processed one at a time; the parallelism is per-wallet inside a
-  // market (hundreds of wallets each), which is where the request cost lives.
-  for (const market of markets) {
+  const progress = new ProgressTracker(LABEL, Math.min(budget, total))
+  let processed = 0
+
+  // Markets are claimed and processed one at a time (atomic partial→processing,
+  // so concurrent invocations never rebuild the same market); the parallelism is
+  // per-wallet inside a market (hundreds each), which is where the cost lives.
+  for (;;) {
     if (ac.signal.aborted) break
+    if (processed >= budget) break
+    const market = await claimNextPartialMarket(args, ac.signal)
+    if (!market) break
+    inFlight.add(market.id)
+    processed += 1
+
     try {
       const built = await reconstructMarket(market, walletConcurrency, limiter, ac.signal)
-      await writeReconstructed(market, built.rows, built)
+      const written = await writeReconstructed(market, built.rows, built)
+      inFlight.delete(market.id)
+      if (!written) {
+        // We lost the claim mid-flight (an operator reset it, a peer took over):
+        // do not overwrite their work, and do not revert — it is not ours.
+        progress.record(false)
+        console.warn(`${LABEL} SKIPPED ${market.slug}: lost claim mid-flight, not overwriting`)
+        continue
+      }
       await upsertWallets(built.rows.map((r) => ({ wallet: r.wallet })))
 
       const before = market.tradeRows ?? 0
@@ -334,11 +482,20 @@ async function main(): Promise<void> {
         ),
       )
     } catch (err) {
+      // On abort the market was NOT finished: leave it in `inFlight` so the
+      // revert below returns it to `partial`. A real failure reverts it now
+      // (retryable) — deep-backfill's input state IS `partial`.
       if (ac.signal.aborted) break
+      await revertOwnedClaims([market.id])
+      inFlight.delete(market.id)
       progress.record(false)
       console.warn(`${LABEL} FAILED ${market.slug}: ${(err as Error).message}`)
     }
   }
+
+  // Any claim still owned here was interrupted mid-flight: return it to partial.
+  let reverted = 0
+  if (inFlight.size > 0) reverted = await revertOwnedClaims([...inFlight])
 
   // Wallet trade counters are refreshed once, at the start of sync-activity —
   // not here. Recomputing them from the full trades table (~50s) after every
@@ -347,7 +504,7 @@ async function main(): Promise<void> {
   const s = progress.summary()
   console.log(
     `${LABEL} done ok=${s.done} failed=${s.failed} in ${fmtDuration(s.elapsedMs)}` +
-      (ac.signal.aborted ? ' (interrupted)' : ''),
+      (ac.signal.aborted ? ` (interrupted; reverted ${reverted} claim(s) to partial)` : ''),
   )
 }
 

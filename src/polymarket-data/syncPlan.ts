@@ -126,25 +126,44 @@ function marketSelectors(args: Args): string[][] {
 /**
  * The wrapper's completion verdict over the scope's stage counts.
  *
- * `partial` and `pending` are expected, non-failing states (deep-backfill
- * territory / a bounded `--limit` run). A hard `failed` on ANY stage — trades,
- * positions, or wallet activity — is a real failure the wrapper must surface and
- * exit non-zero on, because the positions and activity stages persist `failed`
- * per item and still exit 0, so the wrapper is the only place their failures are
- * gated. `complete` is only claimed when nothing failed AND nothing is left.
+ * `partial`, `pending` and `processing` are non-failing states: expected work
+ * (deep-backfill territory), a bounded `--limit` run, or a still-in-flight / a
+ * crash-stranded claim. None is an error, but NONE may coexist with a "complete"
+ * claim — reporting complete while a market is still `processing` (the gap this
+ * closes) or while positions/activity are unfinished would be a lie about the
+ * whole pipeline.
+ *
+ * A hard `failed` on ANY stage — trades, positions, or wallet activity — is a
+ * real failure the wrapper must surface and exit non-zero on, because the
+ * positions and activity stages persist `failed` per item and still exit 0, so
+ * the wrapper is the only place their failures are gated. `complete` is only
+ * claimed when nothing failed AND nothing is left unfinished anywhere.
  */
 export type StageCounts = {
   done: number
   partial: number
   tradesFailed: number
   pending: number
+  /** Trades markets stuck/in-flight in `processing`. */
+  processing: number
   positionsFailed: number
+  /** Positions markets in scope still `pending` or `processing` (0 if skipped). */
+  positionsUnfinished: number
   activityFailed: number
+  /** Wallets still `pending` or `processing` on activity (0 if skipped). */
+  activityUnfinished: number
 }
 
 export function summaryVerdict(c: StageCounts): { hasFailures: boolean; complete: boolean } {
   const hasFailures = c.tradesFailed > 0 || c.positionsFailed > 0 || c.activityFailed > 0
-  const complete = !hasFailures && c.partial === 0 && c.pending === 0 && c.done > 0
+  const complete =
+    !hasFailures &&
+    c.partial === 0 &&
+    c.pending === 0 &&
+    c.processing === 0 &&
+    c.positionsUnfinished === 0 &&
+    c.activityUnfinished === 0 &&
+    c.done > 0
   return { hasFailures, complete }
 }
 
