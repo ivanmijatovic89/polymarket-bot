@@ -556,6 +556,14 @@ export const polymarketTrades = mysqlTable(
     walletTsIdx: index('idx_polymarket_trades_wallet_ts').on(t.wallet, t.tsMs),
     txHashIdx: index('idx_polymarket_trades_tx_hash').on(t.txHash),
     tsIdx: index('idx_polymarket_trades_ts').on(t.tsMs),
+    // Covering index for the per-wallet stats aggregation in refreshWalletStats
+    // (COUNT(*), COUNT(DISTINCT market_id), MIN/MAX(ts_ms) GROUP BY wallet).
+    // Makes it index-only: 128s → 3s on 6M rows.
+    walletStatsIdx: index('idx_polymarket_trades_wallet_market_ts').on(
+      t.wallet,
+      t.marketId,
+      t.tsMs,
+    ),
   }),
 )
 

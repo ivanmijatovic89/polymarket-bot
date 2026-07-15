@@ -37,7 +37,7 @@ import {
 } from './marketQueue.js'
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
 import { buildTradeRows, type TradeRow } from './tradeRows.js'
-import { refreshWalletStats, upsertWallets } from './walletUpsert.js'
+import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:sync-trades]'
 const INSERT_CHUNK = 1000
@@ -205,8 +205,12 @@ async function main(): Promise<void> {
   await Promise.all(Array.from({ length: args.concurrency }, () => worker()))
   await revertOwnedClaims('trades', [...inFlight])
 
-  // Wallet counters are derived, not incremented — see walletUpsert.ts.
-  await refreshWalletStats()
+  // NOTE: wallet trade_count / first/last-trade are NOT recomputed here. They
+  // are derived from the whole polymarket_trades table (6M+ rows, ~50s), and
+  // doing it after every stage invocation — the wrapper runs this stage once per
+  // symbol/timeframe — wasted tens of minutes re-aggregating unchanged data. The
+  // refresh now runs once, at the start of sync-activity, which is the only
+  // consumer of those counts.
 
   const s = progress.summary()
   console.log(

@@ -34,6 +34,7 @@ import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity, type ApiActivity } from './activityApi.js'
 import { selectActivityRows } from './activityRows.js'
+import { refreshWalletStats } from './walletUpsert.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 
@@ -298,6 +299,31 @@ async function main(): Promise<void> {
       )})`,
       'named wallets',
     )
+  }
+
+  // Recompute wallet trade counts once, here — this is the only stage that reads
+  // them (claim order = trade_count DESC, and --min-trades). It's a full
+  // aggregation of polymarket_trades (~50s on a large table), which is why the
+  // trades/deep-backfill stages no longer do it after every invocation.
+  //
+  // Order matters: with --min-trades the pending count depends on fresh
+  // trade_count, so the refresh must precede the count. But we gate it on a
+  // cheap status-only check first, so a fully caught-up DB doesn't pay 50s for
+  // nothing. (When --min-trades is set, a wallet that only just crossed the
+  // threshold via this run's new trades is picked up on the next run — fine.)
+  const namedRun = !!(args.wallets && args.wallets.length > 0)
+  if (!args.dryRun && !namedRun) {
+    const gate = await db.execute(
+      sql`SELECT EXISTS(SELECT 1 FROM polymarket_wallets WHERE activity_status = 'pending') AS any`,
+    )
+    const anyPending = Number((gate as unknown as Array<Array<{ any: number }>>)[0]?.[0]?.any ?? 0)
+    if (anyPending > 0) {
+      const t = Date.now()
+      await refreshWalletStats()
+      console.log(
+        `${LABEL} refreshed wallet trade stats in ${((Date.now() - t) / 1000).toFixed(1)}s`,
+      )
+    }
   }
 
   const marketIndex = await loadMarketIndex()

@@ -37,7 +37,7 @@ import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
 import { COMPLETENESS_TOLERANCE } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
-import { refreshWalletStats, upsertWallets } from './walletUpsert.js'
+import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:deep-backfill]'
 const INSERT_CHUNK = 1000
@@ -336,7 +336,9 @@ async function main(): Promise<void> {
     }
   }
 
-  await refreshWalletStats()
+  // Wallet trade counters are refreshed once, at the start of sync-activity —
+  // not here. Recomputing them from the full trades table (~50s) after every
+  // deep-backfill invocation added up to tens of minutes across a wrapper run.
 
   const s = progress.summary()
   console.log(
