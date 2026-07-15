@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { buildTradeRows } from './tradeRows.js'
+import { buildTradeRows, incompleteReason } from './tradeRows.js'
 import type { ApiTrade } from './dataApi.js'
 
 const CID = '0xabc'
@@ -31,7 +31,12 @@ test('taker rows are flagged, the rest are makers', () => {
   const taker = trade({ proxyWallet: '0xTAKER', transactionHash: '0xtx9' })
   const maker = trade({ proxyWallet: '0xMAKER', side: 'SELL', transactionHash: '0xtx9' })
 
-  const out = buildTradeRows({ trades: [taker, maker], takerTrades: [taker], market: MARKET })
+  // 10 + 10 shares → shares/2 = 10, so a matching Gamma volume keeps it clean.
+  const out = buildTradeRows({
+    trades: [taker, maker],
+    takerTrades: [taker],
+    market: { ...MARKET, volumeGamma: 10 },
+  })
 
   assert.equal(out.rows.length, 2)
   assert.equal(out.takerRows, 1)
@@ -45,7 +50,11 @@ test('two identical fills with one taker flag only one row as taker', () => {
   const a = trade()
   const b = trade()
 
-  const out = buildTradeRows({ trades: [a, b], takerTrades: [a], market: MARKET })
+  const out = buildTradeRows({
+    trades: [a, b],
+    takerTrades: [a],
+    market: { ...MARKET, volumeGamma: 10 }, // 10 + 10 shares → shares/2 = 10
+  })
 
   assert.equal(out.rows.filter((r) => r.isTaker).length, 1)
   assert.equal(out.rows.filter((r) => !r.isTaker).length, 1)
@@ -83,9 +92,9 @@ test('pre-window fills are normal and are not warned about', () => {
   // Markets accept orders from creation, up to ~a day before the window opens;
   // ~6% of a real 15m market's fills land there.
   const out = buildTradeRows({
-    trades: [trade({ timestamp: 999_000 - 86_400 })], // a day early
+    trades: [trade({ timestamp: 999_000 - 86_400 })], // a day early, size 10
     takerTrades: [],
-    market: MARKET,
+    market: { ...MARKET, volumeGamma: 5 }, // 10 shares → shares/2 = 5
   })
 
   assert.equal(out.rows.length, 1)
@@ -132,7 +141,7 @@ test('completeness: missing fills show up as a shortfall, not a rounding wobble'
   assert.match(short.warnings.join(' '), /INCOMPLETE/)
 })
 
-test('completeness is unknown when Gamma reports no volume', () => {
+test('no Gamma volume but rows exist → unverifiable (null), never done', () => {
   const out = buildTradeRows({
     trades: [trade()],
     takerTrades: [],
@@ -140,7 +149,31 @@ test('completeness is unknown when Gamma reports no volume', () => {
   })
 
   assert.equal(out.complete, null)
-  assert.deepEqual(out.warnings, [])
+  assert.match(out.warnings.join(' '), /UNVERIFIABLE/)
+})
+
+test('no Gamma volume AND no rows → empty market is trivially complete (true)', () => {
+  for (const volumeGamma of [null, 0]) {
+    const out = buildTradeRows({
+      trades: [],
+      takerTrades: [],
+      market: { ...MARKET, volumeGamma },
+    })
+    assert.equal(out.complete, true, `volumeGamma=${volumeGamma}`)
+    assert.equal(out.rows.length, 0)
+    assert.deepEqual(out.warnings, [])
+  }
+})
+
+test('incompleteReason maps completeness to done/partial + a diagnostic', () => {
+  // done: proven complete, even if the cap was hit (invariant already holds)
+  assert.equal(incompleteReason(true, false), null)
+  assert.equal(incompleteReason(true, true), null)
+  // partial: invariant failed
+  assert.match(String(incompleteReason(false, false)), /invariant failed/)
+  assert.match(String(incompleteReason(false, true)), /offset cap/)
+  // partial: unverifiable (no gamma volume but rows exist)
+  assert.match(String(incompleteReason(null, false)), /unverifiable/i)
 })
 
 test('unmatched taker rows are reported', () => {

@@ -157,29 +157,29 @@ async function main(): Promise<void> {
           label: LABEL,
         })
         await writePositions(market, positions)
+        inFlight.delete(market.id) // finalized in the DB — release ownership
         progress.record(true)
         console.log(progress.line(`${market.slug} positions=${positions.length}`))
       } catch (err) {
-        if (ac.signal.aborted) {
-          // Not a failure: the market goes back to pending in the revert below.
-          return
-        }
+        // On abort the market was NOT finalized: leave it in `inFlight` so the
+        // revert below returns it to `pending`. Only a real failure is marked
+        // `failed` and released.
+        if (ac.signal.aborted) return
         await markFailed('positions', market.id, (err as Error).message)
+        inFlight.delete(market.id)
         progress.record(false)
         console.warn(`${LABEL} FAILED ${market.slug}: ${(err as Error).message}`)
-      } finally {
-        inFlight.delete(market.id)
       }
     }
   }
 
   await Promise.all(Array.from({ length: args.concurrency }, () => worker()))
-  await revertOwnedClaims('positions', [...inFlight])
+  const reverted = await revertOwnedClaims('positions', [...inFlight])
 
   const s = progress.summary()
   console.log(
     `${LABEL} done ok=${s.done} failed=${s.failed} in ${fmtDuration(s.elapsedMs)}` +
-      (ac.signal.aborted ? ' (interrupted; claims reverted)' : ''),
+      (reverted > 0 ? ` (interrupted; reverted ${reverted} claim(s) to pending)` : ''),
   )
 }
 

@@ -33,7 +33,7 @@ import { withDeadlockRetry } from '../db/txRetry.js'
 import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
 import { fetchActivity, type ApiActivity } from './activityApi.js'
-import { selectActivityRows } from './activityRows.js'
+import { activityFetchStartSec, nextActivityCursorMs, selectActivityRows } from './activityRows.js'
 import { refreshWalletStats } from './walletUpsert.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
@@ -113,9 +113,14 @@ function requeueScope(args: Args): SQL {
 }
 
 function walletSelection(args: Args) {
+  // `activity_status = 'pending'` is ALWAYS required: it is what lets a claimed
+  // (and then finalized → 'done') wallet leave the candidate set, so both the
+  // `LIMIT` candidate query and countRemaining() drain to zero. `--wallet`
+  // NARROWS this pending set rather than replacing the status predicate — the
+  // explicit requeue step in main() first flips named wallets back to 'pending'
+  // (in any prior state), so they are claimable here.
   const clauses = [sql`activity_status = 'pending'`]
   if (args.wallets && args.wallets.length > 0) {
-    clauses.length = 0
     clauses.push(
       sql`wallet IN (${sql.join(
         args.wallets.map((w) => sql`${w}`),
@@ -353,13 +358,14 @@ async function main(): Promise<void> {
       inFlight.add(claim.wallet)
 
       try {
-        const startSec =
-          claim.cursorTs === null
-            ? 1
-            : Math.max(1, Math.floor((claim.cursorTs - CURSOR_OVERLAP_MS) / 1000))
+        const startSec = activityFetchStartSec(claim.cursorTs, CURSOR_OVERLAP_MS)
+        // Capture the upper bound BEFORE fetching and bound the fetch by it, so
+        // the persisted cursor is exactly the interval we scanned through — not
+        // the newest event found. This lets inactive wallets advance efficiently.
+        const upperBoundMs = Date.now()
 
         const activities = await fetchActivity(
-          { wallet: claim.wallet, startSec },
+          { wallet: claim.wallet, startSec, endSec: Math.floor(upperBoundMs / 1000) },
           { limiter, signal: ac.signal, label: LABEL },
         )
 
@@ -367,12 +373,10 @@ async function main(): Promise<void> {
         // Polymarket history (for wallets under active investigation).
         const keep = selectActivityRows(activities, marketIndex, args.full)
 
-        // Cursor: the newest row we saw, or (for a wallet with no activity) now
-        // minus the overlap, so the next run doesn't re-read all of history.
-        const newestTs = activities.reduce((max, r) => Math.max(max, r.timestamp * 1000), 0)
-        const cursorTs = newestTs > 0 ? newestTs : Date.now() - CURSOR_OVERLAP_MS
+        const cursorTs = nextActivityCursorMs(claim.cursorTs, upperBoundMs)
 
         await writeActivity(claim.wallet, keep, cursorTs)
+        inFlight.delete(claim.wallet) // finalized in the DB — release ownership
         storedRows += keep.length
 
         progress.record(true)
@@ -382,24 +386,27 @@ async function main(): Promise<void> {
           ),
         )
       } catch (err) {
+        // On abort the wallet was NOT finalized: leave it in `inFlight` so the
+        // revert below returns it to `pending`. Only a real failure is marked
+        // `failed` and released.
         if (ac.signal.aborted) return
         await db.execute(
           sql`UPDATE polymarket_wallets
               SET activity_status = 'failed', activity_error = ${(err as Error).message.slice(0, 1000)}
               WHERE wallet = ${claim.wallet}`,
         )
+        inFlight.delete(claim.wallet)
         progress.record(false)
         console.warn(`${LABEL} FAILED ${claim.wallet}: ${(err as Error).message}`)
-      } finally {
-        inFlight.delete(claim.wallet)
       }
     }
   }
 
   await Promise.all(Array.from({ length: args.concurrency }, () => worker()))
 
+  let reverted = 0
   if (inFlight.size > 0) {
-    await db.execute(
+    const res = await db.execute(
       sql`UPDATE polymarket_wallets SET activity_status = 'pending'
           WHERE activity_status = 'processing'
             AND wallet IN (${sql.join(
@@ -407,13 +414,14 @@ async function main(): Promise<void> {
               sql`, `,
             )})`,
     )
+    reverted = (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
   }
 
   const s = progress.summary()
   console.log(
     `${LABEL} done wallets_ok=${s.done} failed=${s.failed} activity_rows=${storedRows} ` +
       `in ${fmtDuration(s.elapsedMs)}` +
-      (ac.signal.aborted ? ' (interrupted; claims reverted)' : ''),
+      (reverted > 0 ? ` (interrupted; reverted ${reverted} claim(s) to pending)` : ''),
   )
 }
 

@@ -36,7 +36,7 @@ import {
   type ClaimedMarket,
 } from './marketQueue.js'
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
-import { buildTradeRows, type TradeRow } from './tradeRows.js'
+import { buildTradeRows, incompleteReason, type TradeRow } from './tradeRows.js'
 import { upsertWallets } from './walletUpsert.js'
 
 const LABEL = '[polymarket-data:sync-trades]'
@@ -45,7 +45,7 @@ const INSERT_CHUNK = 1000
 async function writeTrades(
   market: ClaimedMarket,
   rows: TradeRow[],
-  stats: { volumeTraded: number; wallets: number; partial: boolean },
+  stats: { volumeTraded: number; wallets: number; partial: boolean; error: string | null },
 ): Promise<void> {
   const db = getDb()
 
@@ -77,7 +77,7 @@ async function writeTrades(
               trade_rows = ${rows.length},
               trade_wallets = ${stats.wallets},
               volume_traded = ${stats.volumeTraded.toFixed(6)},
-              trades_error = ${stats.partial ? 'fills missing (offset cap); awaiting deep-backfill' : null}
+              trades_error = ${stats.error}
           WHERE id = ${market.id}`,
         )
       }),
@@ -168,18 +168,20 @@ async function main(): Promise<void> {
           console.warn(`${LABEL} WARN ${market.slug}: ${w}`)
         }
 
-        // A market is `done` only if it reproduces Gamma's share count exactly.
-        // Paging's own "did I hit the cap" signal is a hint, not the authority:
-        // `complete === false` means fills are provably missing even if paging
-        // thought it saw everything, and that market goes to deep-backfill.
-        const incomplete = built.complete === false || all.capped || taker.capped
+        // `done` ONLY when completeness is proven (`complete === true`). A cap
+        // hit, a failed invariant (`false`), or an unverifiable no-volume market
+        // with rows (`null`) all stay `partial` with a diagnostic reason.
+        const error = incompleteReason(built.complete, all.capped || taker.capped)
+        const incomplete = error !== null
 
         await writeTrades(market, built.rows, {
           volumeTraded: built.volumeTraded,
           wallets: built.wallets,
           partial: incomplete,
+          error,
         })
         await upsertWallets(walletSightings(all.trades))
+        inFlight.delete(market.id) // finalized in the DB — release ownership
 
         if (incomplete) partialCount += 1
         progress.record(true)
@@ -192,18 +194,20 @@ async function main(): Promise<void> {
           ),
         )
       } catch (err) {
+        // On abort the market was NOT finalized: leave it in `inFlight` so the
+        // revert below returns it to `pending`. Only a real failure is marked
+        // `failed` and released.
         if (ac.signal.aborted) return
         await markFailed('trades', market.id, (err as Error).message)
+        inFlight.delete(market.id)
         progress.record(false)
         console.warn(`${LABEL} FAILED ${market.slug}: ${(err as Error).message}`)
-      } finally {
-        inFlight.delete(market.id)
       }
     }
   }
 
   await Promise.all(Array.from({ length: args.concurrency }, () => worker()))
-  await revertOwnedClaims('trades', [...inFlight])
+  const reverted = await revertOwnedClaims('trades', [...inFlight])
 
   // NOTE: wallet trade_count / first/last-trade are NOT recomputed here. They
   // are derived from the whole polymarket_trades table (6M+ rows, ~50s), and
@@ -215,7 +219,7 @@ async function main(): Promise<void> {
   const s = progress.summary()
   console.log(
     `${LABEL} done ok=${s.done} failed=${s.failed} partial=${partialCount} in ${fmtDuration(s.elapsedMs)}` +
-      (ac.signal.aborted ? ' (interrupted; claims reverted)' : ''),
+      (reverted > 0 ? ` (interrupted; reverted ${reverted} claim(s) to pending)` : ''),
   )
   if (partialCount > 0) {
     console.log(

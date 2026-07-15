@@ -35,7 +35,11 @@ export type BuildResult = {
   sharesVolume: number
   wallets: number
   takerRows: number
-  /** True when `sharesVolume` matches Gamma — i.e. we hold every fill. */
+  /**
+   * `true` = proven complete (invariant held, or an empty no-volume market);
+   * `false` = proven incomplete (fills missing); `null` = unverifiable (Gamma
+   * reports no volume but rows exist). Only `true` may become `done`.
+   */
   complete: boolean | null
   warnings: string[]
 }
@@ -82,6 +86,21 @@ const LATE_SLACK_MS = 5 * 60_000
  * tolerance needed is for float/decimal rounding across thousands of rows.
  */
 export const COMPLETENESS_TOLERANCE = 0.001
+
+/**
+ * Why a market is not `done`, or `null` when it is provably complete. Shared by
+ * the trades and deep-backfill stages so both apply the same status contract:
+ * `done` requires `complete === true`. `capped` = the /trades offset cap was hit.
+ */
+export function incompleteReason(complete: boolean | null, capped: boolean): string | null {
+  if (complete === true) return null // invariant held (even if we hit the cap) — we have every fill
+  if (complete === false) {
+    return capped
+      ? 'fills missing (offset cap); awaiting deep-backfill'
+      : 'fills missing (invariant failed); awaiting deep-backfill'
+  }
+  return 'unverifiable: Gamma reports no volume but trades exist'
+}
 
 export function buildTradeRows(input: BuildInput): BuildResult {
   const { trades, takerTrades, market } = input
@@ -154,8 +173,14 @@ export function buildTradeRows(input: BuildInput): BuildResult {
   // Completeness. Gamma's volumeNum is the traded SHARE count with each match
   // counted once — so half the sum of `size` over all rows. Holding every fill
   // reproduces it exactly; missing fills show up immediately as a shortfall.
+  //
+  //   true  → proven complete (invariant held, OR an empty market with no volume
+  //           and no rows — trivially nothing to fetch).
+  //   false → proven incomplete (invariant failed; fills are missing).
+  //   null  → UNVERIFIABLE (Gamma reports no volume but rows exist, so there is
+  //           nothing to check against). Never treated as `done`.
   const sharesVolume = sharesTotal / 2
-  let complete: boolean | null = null
+  let complete: boolean | null
   if (market.volumeGamma !== null && market.volumeGamma > 0) {
     const drift = (sharesVolume - market.volumeGamma) / market.volumeGamma
     complete = Math.abs(drift) <= COMPLETENESS_TOLERANCE
@@ -165,6 +190,13 @@ export function buildTradeRows(input: BuildInput): BuildResult {
           `(${(drift * 100).toFixed(2)}%) — fills are missing`,
       )
     }
+  } else if (rows.length === 0) {
+    // No Gamma volume AND no trades: an empty market. Trivially verified.
+    complete = true
+  } else {
+    // No Gamma volume but trades exist — can't prove completeness either way.
+    complete = null
+    warnings.push('UNVERIFIABLE: Gamma reports no volume for this market but trades exist')
   }
 
   return { rows, volumeTraded, sharesVolume, wallets: wallets.size, takerRows, complete, warnings }

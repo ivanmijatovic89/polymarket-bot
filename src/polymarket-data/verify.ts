@@ -130,8 +130,12 @@ async function main(): Promise<number> {
   let unknown = 0
   for (const r of rows) {
     if (r.volume_gamma === null || Number(r.volume_gamma) <= 0) {
-      // Gamma reports no volume for this market: nothing to check it against.
-      unknown += 1
+      // No Gamma volume to check against. An empty market (0 rows) is the
+      // verified-complete case and is fine as `done`. But a `done` market with
+      // rows here is inconsistent under the contract (it should be `partial`,
+      // since completeness can't be proven) — flag it.
+      if (r.trades_status === 'done' && Number(r.trade_rows) > 0) bad.push(r)
+      else unknown += 1
       continue
     }
     // A market with no rows at all yields NULL here, not 0 — and NULL must never

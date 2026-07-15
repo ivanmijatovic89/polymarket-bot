@@ -163,11 +163,11 @@ export async function claimNextMarket(
  * Only our own ids — reverting by predicate would clobber the claims of peer
  * processes fanned out against the same DB.
  */
-export async function revertOwnedClaims(stage: Stage, ids: number[]): Promise<void> {
-  if (ids.length === 0) return
+export async function revertOwnedClaims(stage: Stage, ids: number[]): Promise<number> {
+  if (ids.length === 0) return 0
   const db = getDb()
   const col = sql.raw(STATUS_COLUMN[stage])
-  await db.execute(
+  const res = await db.execute(
     sql`UPDATE polymarket_markets SET ${col} = 'pending'
         WHERE ${col} = 'processing'
           AND id IN (${sql.join(
@@ -175,6 +175,7 @@ export async function revertOwnedClaims(stage: Stage, ids: number[]): Promise<vo
             sql`, `,
           )})`,
   )
+  return (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
 }
 
 /**

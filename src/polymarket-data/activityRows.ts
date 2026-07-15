@@ -12,6 +12,30 @@ import type { ApiActivity } from './activityApi.js'
 export const EXCLUDED_TYPES = new Set(['TRADE'])
 
 /**
+ * Epoch SECONDS a fetch should start from, given the stored cursor (ms) and the
+ * overlap (ms). A null cursor means "all history" (`1`, since `0` selects the
+ * API's default 3-year window). The overlap re-reads the tail of the last
+ * scanned window so slightly-late / out-of-order activity is still caught.
+ */
+export function activityFetchStartSec(cursorMs: number | null, overlapMs: number): number {
+  if (cursorMs === null) return 1
+  return Math.max(1, Math.floor((cursorMs - overlapMs) / 1000))
+}
+
+/**
+ * The cursor to persist after a fetch. It is the upper bound we scanned THROUGH
+ * (the captured `end` of the fetch), NOT the newest event found — otherwise an
+ * inactive wallet whose last event is old would keep its cursor in the past and
+ * re-read its entire tail on every refresh. Monotonic: never moves backward.
+ */
+export function nextActivityCursorMs(
+  prevCursorMs: number | null,
+  scannedThroughMs: number,
+): number {
+  return Math.max(prevCursorMs ?? 0, scannedThroughMs)
+}
+
+/**
  * Everything about a row that makes it *that* row — but nothing about where it
  * appeared in a response.
  */

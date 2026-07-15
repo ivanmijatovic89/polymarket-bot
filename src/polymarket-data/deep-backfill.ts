@@ -188,13 +188,17 @@ async function reconstructMarket(
   const built = buildReconstructedRows(perWallet, takerKeys, market.conditionId)
   const { rows, volume, sharesVolume } = built
 
-  // Same completeness identity the trades stage uses: Gamma's volumeNum is the
-  // traded share count with each match counted once. A reconstruction that
-  // reproduces it holds every fill; anything short stays `partial`.
+  // Same completeness contract as the trades stage (see tradeRows.ts):
+  //   true  → invariant held, or an empty no-volume market (trivially complete);
+  //   false → invariant failed (still short);
+  //   null  → unverifiable (no Gamma volume but rows exist).
+  // Only `true` may become `done`.
   const complete =
-    market.volumeGamma === null || market.volumeGamma <= 0
-      ? null
-      : Math.abs((sharesVolume - market.volumeGamma) / market.volumeGamma) <= COMPLETENESS_TOLERANCE
+    market.volumeGamma !== null && market.volumeGamma > 0
+      ? Math.abs((sharesVolume - market.volumeGamma) / market.volumeGamma) <= COMPLETENESS_TOLERANCE
+      : rows.length === 0
+        ? true
+        : null
 
   return {
     rows,
@@ -214,12 +218,14 @@ async function writeReconstructed(
 ): Promise<void> {
   const db = getDb()
 
-  // `done` is only claimed when the rows provably reproduce Gamma's share count.
-  // If the reconstruction is still short, the market stays `partial` and says so
-  // — an unresolved gap must never be filed away as complete.
-  const status = stats.complete === false ? 'partial' : 'done'
+  // `done` is only claimed when completeness is PROVEN (`complete === true`).
+  // A still-short reconstruction (`false`) or an unverifiable no-volume market
+  // with rows (`null`) stays `partial` and says why — an unresolved or
+  // unprovable gap must never be filed away as complete.
+  const status = stats.complete === true ? 'done' : 'partial'
   const notes = [
     stats.complete === false ? 'reconstruction still short of gamma share volume' : null,
+    stats.complete === null ? 'unverifiable: Gamma reports no volume but trades exist' : null,
     stats.takerKnown ? null : 'maker/taker flags incomplete: taker query hit the offset cap',
   ].filter((n): n is string => n !== null)
   const note = notes.length > 0 ? notes.join('; ') : null

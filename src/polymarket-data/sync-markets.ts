@@ -27,6 +27,7 @@ import {
   POLYMARKET_DATA_GAMMA_RPS,
 } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
+import { resolveCatalogStartMs } from './catalogResume.js'
 import { fetchSeriesMarkets, type CatalogMarket } from './gammaSeries.js'
 import {
   isTimeframe,
@@ -76,25 +77,29 @@ function parseArgs(argv: string[]): Args {
   return out
 }
 
-/**
- * Where to resume this series from: just behind the newest market we already
- * have, or the backfill floor when the series is new here. `--from` overrides;
- * `--full` ignores stored state and rescans from the floor.
- */
 async function resolveFromMs(series: MarketSeries, args: Args): Promise<number> {
   if (args.fromMs !== undefined) return args.fromMs
   if (args.full) return POLYMARKET_DATA_BACKFILL_FROM_MS
 
   const db = getDb()
   const rows = await db
-    .select({ maxStart: sql<number | null>`MAX(${polymarketMarkets.marketStartMs})` })
+    .select({
+      minStart: sql<number | null>`MIN(${polymarketMarkets.marketStartMs})`,
+      maxStart: sql<number | null>`MAX(${polymarketMarkets.marketStartMs})`,
+    })
     .from(polymarketMarkets)
     .where(
       sql`${polymarketMarkets.symbol} = ${series.symbol} AND ${polymarketMarkets.timeframe} = ${series.timeframe}`,
     )
-  const maxStart = rows[0]?.maxStart ?? null
-  if (maxStart === null) return POLYMARKET_DATA_BACKFILL_FROM_MS
-  return Math.max(POLYMARKET_DATA_BACKFILL_FROM_MS, Number(maxStart) - RESUME_OVERLAP_MS)
+  return resolveCatalogStartMs({
+    ...(args.fromMs !== undefined ? { fromMs: args.fromMs } : {}),
+    full: args.full,
+    floorMs: POLYMARKET_DATA_BACKFILL_FROM_MS,
+    minStartMs: rows[0]?.minStart == null ? null : Number(rows[0].minStart),
+    maxStartMs: rows[0]?.maxStart == null ? null : Number(rows[0].maxStart),
+    timeframeMs: TIMEFRAME_MS[series.timeframe],
+    resumeOverlapMs: RESUME_OVERLAP_MS,
+  })
 }
 
 function toRow(m: CatalogMarket) {

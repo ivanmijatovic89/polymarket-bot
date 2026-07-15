@@ -1,7 +1,64 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { dedupKey, identityOf, selectActivityRows } from './activityRows.js'
+import {
+  activityFetchStartSec,
+  dedupKey,
+  identityOf,
+  nextActivityCursorMs,
+  selectActivityRows,
+} from './activityRows.js'
 import type { ApiActivity } from './activityApi.js'
+
+const HOUR = 60 * 60 * 1000
+
+test('cursor: a null cursor fetches all history from 1', () => {
+  assert.equal(activityFetchStartSec(null, HOUR), 1)
+})
+
+test('cursor: fetch resumes one overlap before the stored cursor', () => {
+  const cursorMs = Date.parse('2026-07-10T12:00:00Z')
+  const startSec = activityFetchStartSec(cursorMs, HOUR)
+  assert.equal(startSec, Math.floor((cursorMs - HOUR) / 1000))
+})
+
+test('cursor: start is clamped to 1 and never negative', () => {
+  assert.equal(activityFetchStartSec(500, HOUR), 1) // cursor-overlap is negative
+})
+
+test('cursor advances to the scanned-through bound, not the newest event (inactive wallet)', () => {
+  // Wallet's last activity was long ago; we scanned through "now". The next
+  // cursor must be ~now so the next refresh does not re-read the whole tail.
+  const oldEventMs = Date.parse('2026-02-01T00:00:00Z')
+  const scannedThroughMs = Date.parse('2026-07-14T00:00:00Z')
+  const next = nextActivityCursorMs(oldEventMs, scannedThroughMs)
+  assert.equal(next, scannedThroughMs)
+  // And the following fetch starts near the recent window, not in February.
+  assert.ok(activityFetchStartSec(next, HOUR) * 1000 >= scannedThroughMs - HOUR)
+})
+
+test('cursor advances for a wallet with no activity at all', () => {
+  const scannedThroughMs = Date.parse('2026-07-14T00:00:00Z')
+  assert.equal(nextActivityCursorMs(null, scannedThroughMs), scannedThroughMs)
+})
+
+test('cursor never moves backward', () => {
+  const prev = Date.parse('2026-07-14T00:00:00Z')
+  const earlier = Date.parse('2026-07-01T00:00:00Z')
+  assert.equal(nextActivityCursorMs(prev, earlier), prev)
+})
+
+test('incremental refresh with no new rows keeps advancing the cursor', () => {
+  // First run scanned through T1; a later run with nothing new scans through T2.
+  const t1 = Date.parse('2026-07-14T00:00:00Z')
+  const t2 = t1 + 5 * 24 * HOUR
+  const c1 = nextActivityCursorMs(null, t1)
+  const c2 = nextActivityCursorMs(c1, t2)
+  assert.equal(c2, t2)
+  // The next fetch re-reads only the overlap window, so a row landing inside it
+  // (just before t2) would still be within [start, ...] and thus discovered.
+  const startSec = activityFetchStartSec(c2, HOUR)
+  assert.ok(startSec * 1000 <= t2 - HOUR + 1000)
+})
 
 const CID_OURS = '0xours'
 const CID_OTHER = '0xother'
