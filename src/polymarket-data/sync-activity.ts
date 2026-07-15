@@ -207,12 +207,16 @@ async function writeActivity(
                    ${row.size ?? null}, ${row.usdcSize ?? null}, ${row.outcomeIndex ?? null},
                    ${row.timestamp * 1000}, ${row.transactionHash ?? null}, ${key})`,
           )
-          // INSERT IGNORE + unique(dedup_key): the cursor's overlap re-reads rows
-          // we already have, and they are silently skipped.
+          // Duplicate-specific idempotency. `ON DUPLICATE KEY UPDATE dedup_key =
+          // dedup_key` no-ops on the overlap the cursor deliberately re-reads,
+          // but — unlike `INSERT IGNORE` — does NOT swallow truncation / invalid
+          // / out-of-range errors into warnings and store coerced data. Those
+          // now abort the transaction so a data problem is surfaced, not hidden.
           await tx.execute(
-            sql`INSERT IGNORE INTO polymarket_activity
+            sql`INSERT INTO polymarket_activity
                   (wallet, type, market_id, condition_id, size, usdc_size, outcome_index, ts_ms, tx_hash, dedup_key)
-                VALUES ${sql.join(values, sql`, `)}`,
+                VALUES ${sql.join(values, sql`, `)}
+                ON DUPLICATE KEY UPDATE dedup_key = dedup_key`,
           )
         }
 

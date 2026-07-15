@@ -118,13 +118,14 @@ async function main(): Promise<void> {
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
 
+  const dry = args.dryRun
   if (args.resetProcessing) {
-    const n = await requeue('positions', ['processing'], filter)
-    console.log(`${LABEL} reset ${n} stuck 'processing' markets to pending`)
+    const n = await requeue('positions', ['processing'], filter, { dryRun: dry })
+    console.log(`${LABEL} ${dry ? 'would reset' : 'reset'} ${n} stuck 'processing' markets`)
   }
   if (args.retryFailed) {
-    const n = await requeue('positions', ['failed'], filter)
-    console.log(`${LABEL} requeued ${n} failed markets`)
+    const n = await requeue('positions', ['failed'], filter, { dryRun: dry })
+    console.log(`${LABEL} ${dry ? 'would requeue' : 'requeued'} ${n} failed markets`)
   }
 
   const pending = await countPending('positions', filter)

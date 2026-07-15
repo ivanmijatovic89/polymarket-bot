@@ -110,17 +110,19 @@ async function main(): Promise<void> {
   process.once('SIGINT', onSignal)
   process.once('SIGTERM', onSignal)
 
+  const dry = args.dryRun
+  const wouldOrDid = dry ? 'would requeue' : 'requeued'
   if (args.resetProcessing) {
-    const n = await requeue('trades', ['processing'], filter)
-    console.log(`${LABEL} reset ${n} stuck 'processing' markets to pending`)
+    const n = await requeue('trades', ['processing'], filter, { dryRun: dry })
+    console.log(`${LABEL} ${dry ? 'would reset' : 'reset'} ${n} stuck 'processing' markets`)
   }
   if (args.retryFailed) {
-    const n = await requeue('trades', ['failed'], filter)
-    console.log(`${LABEL} requeued ${n} failed markets`)
+    const n = await requeue('trades', ['failed'], filter, { dryRun: dry })
+    console.log(`${LABEL} ${wouldOrDid} ${n} failed markets`)
   }
   if (args.retryPartial) {
-    const n = await requeue('trades', ['partial'], filter)
-    console.log(`${LABEL} requeued ${n} partial markets`)
+    const n = await requeue('trades', ['partial'], filter, { dryRun: dry })
+    console.log(`${LABEL} ${wouldOrDid} ${n} partial markets`)
   }
 
   const pending = await countPending('trades', filter)

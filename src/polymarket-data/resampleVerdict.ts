@@ -3,25 +3,34 @@
  * the live API. Pure so it can be unit-tested without the DB or network (verify
  * self-executes on import).
  *
- * Two independent live pulls back the check:
+ * Backed by two independent live pulls:
  *   - `/trades` (capped for busy markets → a LOWER bound): our stored rows must
  *     be >= what the live query can page.
  *   - `/v1/market-positions` (complete, NOT capped): the participant list is the
- *     ground truth. Our stored positions should MATCH it. A stored count BELOW
- *     live means we are missing participants — and this is the only signal that
- *     catches a participant absent from BOTH our stored positions AND our capped
- *     stored trades (the orphan-wallet check can't see that wallet at all).
+ *     ground truth. We compare IDENTITIES, not just counts — equal counts do not
+ *     prove equal sets (stored could hold a stale participant B while live has a
+ *     new/missing participant A). A live position absent from stored means a
+ *     missing participant, and this is the ONLY signal that catches a wallet
+ *     absent from BOTH our stored positions AND our capped stored trades (the
+ *     orphan-wallet check can't see that wallet at all).
  */
+export type PositionKey = { wallet: string; asset: string }
+
 export type ResampleInputs = {
   storedRows: number
   liveRows: number
-  storedPositions: number
-  livePositions: number
+  storedPositions: PositionKey[]
+  livePositions: PositionKey[]
   /** Trade wallets with no stored positions row (a superset violation). */
   orphanWallets: number
 }
 
 export type ResampleVerdict = { ok: boolean; notes: string[] }
+
+/** `(wallet, asset)` identity, wallet lowercased so casing differences don't hide a real mismatch. */
+function positionKey(p: PositionKey): string {
+  return `${p.wallet.toLowerCase()}|${p.asset}`
+}
 
 export function resampleVerdict(x: ResampleInputs): ResampleVerdict {
   const notes: string[] = []
@@ -31,17 +40,25 @@ export function resampleVerdict(x: ResampleInputs): ResampleVerdict {
     notes.push(`stored_rows ${x.storedRows} < live_rows ${x.liveRows} (missing trades)`)
   }
 
-  // live positions is complete. Stored BELOW live = missing participants (a real
-  // gap, and the failure this check exists for). Stored ABOVE live is treated as
-  // a non-fatal note: positions can legitimately shrink after sync (e.g. a wallet
-  // redeems to zero and drops out of the live snapshot), which is not a data loss.
-  if (x.storedPositions < x.livePositions) {
+  const stored = new Set(x.storedPositions.map(positionKey))
+  const live = new Set(x.livePositions.map(positionKey))
+
+  // Live positions absent from stored = missing participants. This is the real
+  // failure: deep-backfill would never discover these wallets. Comparing
+  // identities (not totals) catches the equal-count-but-different-set case.
+  const missing = [...live].filter((k) => !stored.has(k))
+  if (missing.length > 0) {
     notes.push(
-      `stored_positions ${x.storedPositions} < live_positions ${x.livePositions} (missing participants)`,
+      `${missing.length} live position(s) missing from stored (e.g. ${missing.slice(0, 3).join(', ')})`,
     )
-  } else if (x.storedPositions > x.livePositions) {
+  }
+
+  // Stored positions absent from live are NON-fatal: a wallet can redeem to zero
+  // and drop out of the live snapshot after we synced. Informational only.
+  const storedOnly = [...stored].filter((k) => !live.has(k))
+  if (storedOnly.length > 0) {
     notes.push(
-      `note: stored_positions ${x.storedPositions} > live_positions ${x.livePositions} (positions changed since sync)`,
+      `note: ${storedOnly.length} stored position(s) not in live snapshot (positions changed since sync)`,
     )
   }
 
@@ -49,7 +66,7 @@ export function resampleVerdict(x: ResampleInputs): ResampleVerdict {
     notes.push(`${x.orphanWallets} trade-wallets missing from positions`)
   }
 
-  // The "positions changed since sync" note is informational, not a failure.
+  // "note:" lines are informational, not failures.
   const failing = notes.filter((n) => !n.startsWith('note:'))
   return { ok: failing.length === 0, notes }
 }

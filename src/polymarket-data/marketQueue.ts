@@ -188,18 +188,22 @@ export async function requeue(
   stage: Stage,
   statuses: Array<'failed' | 'partial' | 'processing' | 'done'>,
   filter: QueueFilter,
+  { dryRun = false }: { dryRun?: boolean } = {},
 ): Promise<number> {
   if (statuses.length === 0) return 0
   const db = getDb()
   const col = sql.raw(STATUS_COLUMN[stage])
-  const res = await db.execute(
-    sql`UPDATE polymarket_markets SET ${col} = 'pending'
-        WHERE ${col} IN (${sql.join(
-          statuses.map((s) => sql`${s}`),
-          sql`, `,
-        )})
-          AND ${eligibility(filter)}`,
-  )
+  const where = sql`${col} IN (${sql.join(
+    statuses.map((s) => sql`${s}`),
+    sql`, `,
+  )}) AND ${eligibility(filter)}`
+
+  // Under --dry-run report the count that WOULD move; never write.
+  if (dryRun) {
+    const res = await db.execute(sql`SELECT COUNT(*) AS n FROM polymarket_markets WHERE ${where}`)
+    return Number((res as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n ?? 0)
+  }
+  const res = await db.execute(sql`UPDATE polymarket_markets SET ${col} = 'pending' WHERE ${where}`)
   return (res as unknown as Array<{ affectedRows?: number }>)[0]?.affectedRows ?? 0
 }
 

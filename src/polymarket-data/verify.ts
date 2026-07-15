@@ -229,6 +229,16 @@ async function main(): Promise<number> {
       )
       const s = ((stored as unknown as Array<Record<string, number>>[])[0] ?? [])[0] ?? {}
 
+      // Position IDENTITIES, not just counts: equal counts don't prove equal
+      // participant sets. resampleVerdict normalizes wallet casing.
+      const storedPos = await db.execute(
+        sql`SELECT wallet, asset FROM polymarket_market_positions WHERE market_id = ${r.id}`,
+      )
+      const storedPositions = (
+        (storedPos as unknown as Array<Array<{ wallet: string; asset: string }>>)[0] ?? []
+      ).map((p) => ({ wallet: p.wallet, asset: p.asset }))
+      const livePositions = positions.map((p) => ({ wallet: p.proxyWallet, asset: p.asset }))
+
       // Cross-check the two independently-sourced tables: every wallet that
       // traded must have a market-positions row (positions is a verified
       // superset of trade wallets). A miss means a trade we stored belongs to
@@ -252,8 +262,8 @@ async function main(): Promise<number> {
       const verdict = resampleVerdict({
         storedRows: Number(s.rows_ ?? 0),
         liveRows: live.trades.length,
-        storedPositions: Number(s.positions ?? 0),
-        livePositions: positions.length,
+        storedPositions,
+        livePositions,
         orphanWallets,
       })
       if (!verdict.ok) integrityOk = false
