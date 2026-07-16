@@ -103,6 +103,31 @@ First-hour sample (8.9k trades); re-measure any time with
 `binance:verify-aggtrades` (it prints these percentiles) and override the env
 var if your machine/network differs.
 
+## Distribution: producer → R2 → workers
+
+Day files are immutable once Binance publishes them, so the whole sync
+protocol is skip-if-exists on both hops — no DB index, the (pair, date) pair
+determines every path and key.
+
+```bash
+# Producer (data machine, daily cron):
+npm run binance:download-aggtrades -- --pair BTCUSDT --sync   # newest local +1 → yesterday
+npm run binance:upload-aggtrades-r2 -- --pair BTCUSDT         # mirror new files to R2
+
+# Each worker (before backtests / own cron):
+npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT
+```
+
+- `--sync` derives the range automatically (falls back to
+  `TELONEX_DATASET_ELIGIBLE_FROM − 1 day` when the pair has no local files yet).
+- R2 keys mirror the local layout: `binance/aggTrades/<PAIR>/<PAIR>-aggTrades-<date>.parquet`.
+- Uploads are Content-MD5-validated server-side; worker downloads are atomic
+  (tmp→rename). All three commands support `--dry-run` preflights.
+- **The feed loader itself never touches the network** — a missing local file
+  is a hard per-market error by design, so the data pipeline stays auditable.
+- Additional pairs (ETH/SOL/XRP) are the same three commands with a different
+  `--pair`.
+
 ## Data layout
 
 ```

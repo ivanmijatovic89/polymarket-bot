@@ -24,6 +24,21 @@ export function aggTradesDayPath(pair: string, isoDate: string): string {
   return path.join(binanceDataBaseDir(), 'aggTrades', pair, `${pair}-aggTrades-${isoDate}.parquet`)
 }
 
+/**
+ * R2 mirror key for a converted day file. Deliberately identical to the local
+ * layout under the data root, so producer upload / worker download need no
+ * DB index — the (pair, date) pair fully determines both sides.
+ */
+export function aggTradesR2Key(pair: string, isoDate: string): string {
+  return `binance/aggTrades/${pair}/${pair}-aggTrades-${isoDate}.parquet`
+}
+
+/** Parse the ISO date out of a day-file name (local or R2); null if not a day file. */
+export function isoDateFromAggTradesFilename(name: string): string | null {
+  const m = name.match(/-aggTrades-(\d{4}-\d{2}-\d{2})\.parquet$/)
+  return m?.[1] ?? null
+}
+
 export function aggTradesDumpUrl(pair: string, isoDate: string): { zip: string; checksum: string } {
   const zip = `https://data.binance.vision/data/spot/daily/aggTrades/${pair}/${pair}-aggTrades-${isoDate}.zip`
   return { zip, checksum: `${zip}.CHECKSUM` }

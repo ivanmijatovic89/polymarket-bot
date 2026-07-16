@@ -1,13 +1,22 @@
 import '../config/env.js'
 import { promises as fs } from 'node:fs'
+import path from 'node:path'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
-import { aggTradesDayPath, pairFromFeedSymbol, utcDateRange, utcDateOf } from './paths.js'
+import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
+import {
+  aggTradesDayPath,
+  isoDateFromAggTradesFilename,
+  pairFromFeedSymbol,
+  utcDateRange,
+  utcDateOf,
+} from './paths.js'
 import { downloadAggTradesDay, type DownloadDayResult } from './aggTradesDump.js'
 
 type Args = {
   pair: string
   from: string
   to: string
+  sync: boolean
   concurrency: number
   force: boolean
   keepZip: boolean
@@ -18,10 +27,12 @@ type Args = {
 function usage(): never {
   console.error(
     [
-      'Usage: npm run binance:download-aggtrades -- --pair BTCUSDT --from YYYY-MM-DD --to YYYY-MM-DD',
+      'Usage: npm run binance:download-aggtrades -- --pair BTCUSDT (--from YYYY-MM-DD [--to YYYY-MM-DD] | --sync)',
       '  --pair BTCUSDT | --symbol btc   (btc|eth|sol|xrp → <SYM>USDT)',
       '  --from YYYY-MM-DD               first UTC date (inclusive)',
       '  --to YYYY-MM-DD                 last UTC date (inclusive; default: --from)',
+      '  --sync                          auto-range: newest local day + 1 → yesterday (UTC);',
+      '                                  falls back to TELONEX_DATASET_ELIGIBLE_FROM − 1 day when no local files',
       '  --concurrency N                 parallel downloads (default 4)',
       '  --force                         re-download even if parquet exists',
       '  --keep-zip                      keep the downloaded .zip in data/binance/tmp/',
@@ -36,6 +47,7 @@ function parseArgs(argv: string[]): Args {
   let pair = ''
   let from = ''
   let to = ''
+  let sync = false
   let concurrency = 4
   let force = false
   let keepZip = false
@@ -53,6 +65,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
     else if (a === '--from') from = next()
     else if (a === '--to') to = next()
+    else if (a === '--sync') sync = true
     else if (a === '--concurrency') concurrency = Math.max(1, Number(next()) || 4)
     else if (a === '--force') force = true
     else if (a === '--keep-zip') keepZip = true
@@ -63,8 +76,46 @@ function parseArgs(argv: string[]): Args {
       usage()
     }
   }
-  if (!pair || !from) usage()
-  return { pair, from, to: to || from, concurrency, force, keepZip, dryRun, strict }
+  if (!pair) usage()
+  if (sync && (from || to)) {
+    console.error('[binance:download] --sync and --from/--to are mutually exclusive')
+    usage()
+  }
+  if (!sync && !from) usage()
+  return { pair, from, to: to || from, sync, concurrency, force, keepZip, dryRun, strict }
+}
+
+/** Newest local day file for the pair, or null when none exist yet. */
+async function newestLocalDay(pair: string): Promise<string | null> {
+  const dir = path.dirname(aggTradesDayPath(pair, '0000-00-00'))
+  let names: string[]
+  try {
+    names = await fs.readdir(dir)
+  } catch {
+    return null
+  }
+  let newest: string | null = null
+  for (const n of names) {
+    const d = isoDateFromAggTradesFilename(n)
+    if (d && (!newest || d > newest)) newest = d
+  }
+  return newest
+}
+
+/**
+ * `--sync` range: newest local day + 1 → yesterday (UTC). With no local files
+ * yet, start one day BEFORE the Telonex eligibility floor so the feed
+ * lookback margin is covered for the oldest eligible market.
+ */
+async function resolveSyncRange(pair: string): Promise<{ from: string; to: string } | null> {
+  const DAY_MS = 86_400_000
+  const newest = await newestLocalDay(pair)
+  const fromMs = newest
+    ? Date.parse(`${newest}T00:00:00Z`) + DAY_MS
+    : TELONEX_DATASET_ELIGIBLE_FROM_MS - DAY_MS
+  const toMs = Date.parse(`${utcDateOf(Date.now())}T00:00:00Z`) - DAY_MS
+  if (fromMs > toMs) return null
+  return { from: utcDateOf(fromMs), to: utcDateOf(toMs) }
 }
 
 async function fileExists(p: string): Promise<boolean> {
@@ -84,6 +135,16 @@ function fmtBytes(n: number): string {
 async function main(): Promise<void> {
   installProcessCrashHandlers({ prefix: 'binance:download' })
   const args = parseArgs(process.argv.slice(2))
+  if (args.sync) {
+    const range = await resolveSyncRange(args.pair)
+    if (!range) {
+      console.log(`[binance:download] ${args.pair} is up to date (nothing newer than yesterday)`)
+      return
+    }
+    args.from = range.from
+    args.to = range.to
+    console.log(`[binance:download] --sync resolved range: ${args.from}..${args.to}`)
+  }
   const dates = utcDateRange(args.from, args.to)
 
   // Preflight: which dates are already on disk.
