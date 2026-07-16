@@ -66,14 +66,13 @@ async function main(): Promise<void> {
   const primary = new ChainRpcClient({
     url:
       process.env.POLYGON_ACTIVITY_RPC_URL_PRIMARY?.trim() ||
+      process.env.POLYGON_RPC_URL?.trim() ||
       'https://tenderly.rpc.polygon.community',
     timeoutMs: 180_000,
     maxAttempts: 20,
   })
   const secondary = new ChainRpcClient({
-    url:
-      process.env.POLYGON_ACTIVITY_RPC_URL_SECONDARY?.trim() ||
-      'https://polygon-public.nodies.app/',
+    url: process.env.POLYGON_ACTIVITY_RPC_URL_SECONDARY?.trim() || 'https://polygon.drpc.org',
     timeoutMs: 180_000,
     maxAttempts: 20,
   })
