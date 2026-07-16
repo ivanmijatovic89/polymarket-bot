@@ -188,7 +188,9 @@ async function timestamps(
   blocks: readonly bigint[],
 ): Promise<Map<bigint, bigint>> {
   const output = new Map<bigint, bigint>()
-  for (const batch of ranges(0n, BigInt(blocks.length - 1), 100n)) {
+  // dRPC accepts at most 10 JSON-RPC calls per batch. Earlier sparse chunks
+  // stayed below that limit; dense market activity can span many blocks.
+  for (const batch of ranges(0n, BigInt(blocks.length - 1), 10n)) {
     const numbers = blocks.slice(Number(batch[0]), Number(batch[1] + 1n))
     const [a, b] = await Promise.all([primary.blocks([...numbers]), secondary.blocks([...numbers])])
     for (let i = 0; i < numbers.length; i++) {
