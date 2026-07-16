@@ -68,12 +68,12 @@ async function main(): Promise<void> {
       process.env.POLYGON_ACTIVITY_RPC_URL_PRIMARY?.trim() ||
       process.env.POLYGON_RPC_URL?.trim() ||
       'https://tenderly.rpc.polygon.community',
-    timeoutMs: 180_000,
+    timeoutMs: 30_000,
     maxAttempts: 20,
   })
   const secondary = new ChainRpcClient({
     url: process.env.POLYGON_ACTIVITY_RPC_URL_SECONDARY?.trim() || 'https://polygon.drpc.org',
-    timeoutMs: 180_000,
+    timeoutMs: 30_000,
     maxAttempts: 20,
   })
   const [fromBlock, afterBlock] = await Promise.all([
