@@ -16,11 +16,12 @@ const DEFAULT_LOOKBACK_MS = 300_000
  * Modeled live feed latency (exchange trade time → bot receive), applied as
  * the as-of visibility offset. Default is the measured p50 of
  * `received_at_ms − T` from a live recording on the trading machine
- * (2026-07-16, BTCUSDT, p50=85ms p90=334 p99=519 — see
- * docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure with
- * `binance:verify-aggtrades` and override with BACKTEST_BINANCE_FEED_LATENCY_MS.
+ * (2026-07-16, BTCUSDT, 48k trades over ~105min: p50=110ms p90=171 p99=397 —
+ * see docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure
+ * with `binance:verify-aggtrades` and override with
+ * BACKTEST_BINANCE_FEED_LATENCY_MS.
  */
-const DEFAULT_LATENCY_MS = 85
+const DEFAULT_LATENCY_MS = 110
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name]?.trim()

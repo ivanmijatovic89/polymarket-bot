@@ -173,6 +173,24 @@ async function main(): Promise<void> {
   }, 60_000)
   statsTimer.unref()
 
+  // Sleep/freeze detection: when the machine suspends (laptop lid closed),
+  // the process freezes without any WS close event, so the status log would
+  // show nothing while trades silently go missing. A wall-clock jump on this
+  // 1s heartbeat marks the frozen interval as an excusable gap for
+  // `binance:verify-aggtrades`.
+  let lastBeatMs = Date.now()
+  const beatTimer = setInterval(() => {
+    const now = Date.now()
+    if (now - lastBeatMs > 10_000) {
+      console.warn(
+        `[binance:record] clock jump detected (${((now - lastBeatMs) / 1000).toFixed(0)}s) — machine slept?`,
+      )
+      logStatus({ kind: 'clock-jump', gap_from_ms: lastBeatMs, gap_to_ms: now })
+    }
+    lastBeatMs = now
+  }, 1_000)
+  beatTimer.unref()
+
   logStatus({ kind: 'recorder-start', info: `${feedSymbol}@aggTrade` })
   console.log(`[binance:record] recording ${feedSymbol}@aggTrade → ${recordingsDir(args.pair)}`)
   client.start()

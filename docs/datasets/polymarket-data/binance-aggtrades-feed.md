@@ -93,13 +93,14 @@ p50/p90/p95/p99) — the empirical input for `BACKTEST_BINANCE_FEED_LATENCY_MS`.
 
 | metric | ms |
 |---|---|
-| p50 | **85** ← `BACKTEST_BINANCE_FEED_LATENCY_MS` default |
-| p90 | 334 |
-| p95 | 346 |
-| p99 | 519 |
+| p50 | **110** ← `BACKTEST_BINANCE_FEED_LATENCY_MS` default |
+| p90 | 171 |
+| p95 | 254 |
+| p99 | 397 |
 | min / max | 59 / 3507 |
 
-First-hour sample (8.9k trades); re-measure any time with
+48k-trade sample over ~105 min (verified 100% identical to the exchange
+record — 0 mismatches, 0 missing). Re-measure any time with
 `binance:verify-aggtrades` (it prints these percentiles) and override the env
 var if your machine/network differs.
 

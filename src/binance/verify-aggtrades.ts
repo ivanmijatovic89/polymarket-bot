@@ -73,19 +73,30 @@ async function loadDisconnectGaps(pair: string): Promise<Array<{ fromMs: number;
     return []
   }
   const events: Array<{ ts_ms: number; kind: string }> = []
+  const gaps: Array<{ fromMs: number; toMs: number }> = []
   for (const line of raw.split('\n')) {
     if (!line.trim()) continue
     try {
-      const o = JSON.parse(line) as { ts_ms?: number; kind?: string }
-      if (typeof o.ts_ms === 'number' && typeof o.kind === 'string') {
-        events.push({ ts_ms: o.ts_ms, kind: o.kind })
+      const o = JSON.parse(line) as {
+        ts_ms?: number
+        kind?: string
+        gap_from_ms?: number
+        gap_to_ms?: number
       }
+      if (typeof o.ts_ms !== 'number' || typeof o.kind !== 'string') continue
+      // Machine-sleep freezes carry their own interval (recorder heartbeat).
+      if (o.kind === 'clock-jump') {
+        if (typeof o.gap_from_ms === 'number' && typeof o.gap_to_ms === 'number') {
+          gaps.push({ fromMs: o.gap_from_ms - MARGIN_MS, toMs: o.gap_to_ms + MARGIN_MS })
+        }
+        continue
+      }
+      events.push({ ts_ms: o.ts_ms, kind: o.kind })
     } catch {
       // tolerate torn writes
     }
   }
   events.sort((a, b) => a.ts_ms - b.ts_ms)
-  const gaps: Array<{ fromMs: number; toMs: number }> = []
   let gapStart: number | null = null
   for (const e of events) {
     if (e.kind === 'connected') {
