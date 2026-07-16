@@ -162,6 +162,8 @@ async function main(): Promise<void> {
             `all_logs=${progress.allLogs} target_txs=${progress.targetTransactions} ` +
             `requests=${progress.primary.httpRequests + progress.secondary.httpRequests} ` +
             `retries=${progress.primary.retries + progress.secondary.retries} ` +
+            `rate_limits=${progress.primary.rateLimits + progress.secondary.rateLimits} ` +
+            `timeouts=${progress.primary.timeouts + progress.secondary.timeouts} ` +
             `download=${mb(progress.primary.responseBytes + progress.secondary.responseBytes)} ` +
             `elapsed=${elapsed(startedAt)}`,
         )
@@ -205,6 +207,8 @@ async function main(): Promise<void> {
         `${LABEL} receipts ${percent.toFixed(1)}% txs=${progress.completed}/${progress.total} ` +
           `trades=${progress.trades} requests=${progress.primary.httpRequests + progress.secondary.httpRequests} ` +
           `retries=${progress.primary.retries + progress.secondary.retries} ` +
+          `rate_limits=${progress.primary.rateLimits + progress.secondary.rateLimits} ` +
+          `timeouts=${progress.primary.timeouts + progress.secondary.timeouts} ` +
           `download=${mb(progress.primary.responseBytes + progress.secondary.responseBytes)} ` +
           `elapsed=${elapsed(startedAt)}`,
       )

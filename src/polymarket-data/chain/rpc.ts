@@ -14,11 +14,40 @@ export type RpcClientOptions = {
   maxAttempts?: number
 }
 
+function messageOf(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
+function recordFailure(metrics: RpcMetrics, error: unknown): void {
+  const message = messageOf(error)
+  metrics.lastFailure = message.slice(0, 300)
+  if (/HTTP 429|rate.?limit|too many requests/i.test(message)) metrics.rateLimits += 1
+  else if (error instanceof Error && error.name === 'AbortError') metrics.timeouts += 1
+  else if (/HTTP 5\d\d/.test(message)) metrics.serverErrors += 1
+  else if (/HTTP 4\d\d/.test(message)) metrics.clientErrors += 1
+  else if (/ RPC -?\d+:/.test(message)) metrics.rpcErrors += 1
+  else metrics.networkErrors += 1
+}
+
+function isRetryable(error: unknown): boolean {
+  const message = messageOf(error)
+  if (/HTTP 4\d\d/.test(message) && !/HTTP 429/.test(message)) return false
+  if (/ RPC -3260[012]:/.test(message)) return false
+  return true
+}
+
 export class ChainRpcClient {
   readonly metrics: RpcMetrics = {
     httpRequests: 0,
     rpcCalls: 0,
     retries: 0,
+    rateLimits: 0,
+    timeouts: 0,
+    serverErrors: 0,
+    rpcErrors: 0,
+    networkErrors: 0,
+    clientErrors: 0,
+    lastFailure: null,
     responseBytes: 0,
     startedAtMs: Date.now(),
   }
@@ -61,7 +90,8 @@ export class ChainRpcClient {
         return parsed.result
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        if (attempt === this.maxAttempts) break
+        recordFailure(this.metrics, error)
+        if (attempt === this.maxAttempts || !isRetryable(error)) break
         this.metrics.retries += 1
         await new Promise((resolve) =>
           setTimeout(resolve, Math.min(8_000, 250 * 2 ** (attempt - 1))),
@@ -112,7 +142,8 @@ export class ChainRpcClient {
         })
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
-        if (attempt === this.maxAttempts) break
+        recordFailure(this.metrics, error)
+        if (attempt === this.maxAttempts || !isRetryable(error)) break
         this.metrics.retries += 1
         await new Promise((resolve) =>
           setTimeout(resolve, Math.min(8_000, 250 * 2 ** (attempt - 1))),

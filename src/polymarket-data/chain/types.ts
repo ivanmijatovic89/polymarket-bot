@@ -39,6 +39,13 @@ export type RpcMetrics = {
   httpRequests: number
   rpcCalls: number
   retries: number
+  rateLimits: number
+  timeouts: number
+  serverErrors: number
+  rpcErrors: number
+  networkErrors: number
+  clientErrors: number
+  lastFailure: string | null
   responseBytes: number
   startedAtMs: number
 }
