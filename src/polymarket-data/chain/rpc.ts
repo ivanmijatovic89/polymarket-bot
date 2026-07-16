@@ -208,14 +208,16 @@ export class ChainRpcClient {
     fromBlock: bigint
     toBlock: bigint
     addresses: Hex[]
-    topic0: Hex[]
+    topic0?: Hex[]
+    topics?: Array<Hex | Hex[] | null>
   }): Promise<RpcLog[]> {
+    const topics = filter.topics ?? (filter.topic0 ? [filter.topic0] : undefined)
     return this.request('eth_getLogs', [
       {
         fromBlock: `0x${filter.fromBlock.toString(16)}`,
         toBlock: `0x${filter.toBlock.toString(16)}`,
         address: filter.addresses,
-        topics: [filter.topic0],
+        ...(topics ? { topics } : {}),
       },
     ])
   }

@@ -4,6 +4,29 @@ Every trade and every split / merge / redeem for the crypto up/down markets, pul
 
 Scope: **BTC / ETH / SOL / XRP × 5m / 15m / 1h / 4h / 1d**, from a configurable backfill floor (default `2026-06-01`) to now.
 
+## Chain-canonical prototype
+
+Executed CLOB V2 history can also be reconstructed from finalized Polygon
+events with two independent RPC providers:
+
+```bash
+npm run polymarket-data:chain:backfill -- \
+  --date 2026-06-10 --symbol btc --timeframe 5m
+```
+
+The command is resumable. It scans the sparse `OrdersMatched` event, selects
+transactions by both market token IDs, cross-checks the complete ordered log
+and receipt sequences between providers, and writes exact integer amounts plus
+block/transaction/log ordering to candidate Parquet. Candidates are published
+only if every market matches the API fill multiset and Gamma volume within the
+strict rounding budget. Any discrepancy leaves the files unpublished and exits
+non-zero with a verification report.
+
+Published files are exposed in DuckDB as `polymarket_chain_trades`; the existing
+`polymarket_trades` API view remains available for comparison. See the
+[chain-canonical history ADR](/adr/polymarket-chain-canonical-history) for the
+completeness contract and limitations.
+
 This pipeline is **completely independent of the Telonex pipeline** — its own catalog, its own tables, no joins, no shared state. The two live side by side.
 
 Source selection and the blockchain fallback are documented in [API-First and RPC Fallback](./api-first-and-rpc-fallback.md).
