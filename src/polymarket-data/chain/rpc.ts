@@ -47,9 +47,9 @@ function recordFailure(metrics: RpcMetrics, error: unknown): void {
   else metrics.networkErrors += 1
 }
 
-function isRetryable(error: unknown): boolean {
+export function isRetryableRpcFailure(error: unknown): boolean {
   const message = messageOf(error)
-  if (/HTTP 4\d\d/.test(message) && !/HTTP 429/.test(message)) return false
+  if (/HTTP 4\d\d/.test(message) && !/HTTP (?:408|429)/.test(message)) return false
   if (/ RPC -3260[012]:/.test(message)) return false
   return true
 }
@@ -113,7 +113,7 @@ export class ChainRpcClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
         recordFailure(this.metrics, error)
-        if (attempt === this.maxAttempts || !isRetryable(error)) break
+        if (attempt === this.maxAttempts || !isRetryableRpcFailure(error)) break
         this.metrics.retries += 1
         const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1))
         const delay = error instanceof RetryableRpcError ? (error.retryAfterMs ?? backoff) : backoff
@@ -165,7 +165,7 @@ export class ChainRpcClient {
       } catch (error) {
         lastError = error instanceof Error ? error : new Error(String(error))
         recordFailure(this.metrics, error)
-        if (attempt === this.maxAttempts || !isRetryable(error)) break
+        if (attempt === this.maxAttempts || !isRetryableRpcFailure(error)) break
         this.metrics.retries += 1
         const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1))
         const delay = error instanceof RetryableRpcError ? (error.retryAfterMs ?? backoff) : backoff
