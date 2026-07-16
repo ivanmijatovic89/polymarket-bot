@@ -28,8 +28,11 @@ token IDs are in the market catalog.
 Non-trade activity is sourced separately. `PositionSplit` and
 `PositionsMerge` can be filtered by their indexed condition ID.
 `PayoutRedemption` must be scanned by event signature and filtered after
-decoding because its condition ID is not indexed. Relevant receipts preserve
-the associated conditional-token transfers and exact event order.
+decoding because its condition ID is not indexed. These semantic lifecycle
+events retain canonical block, transaction, and log coordinates, so they can be
+ordered exactly with trade fills. Internal ERC-1155 transfer logs are not
+duplicated as activity rows; doing so would count the token movement and the
+split/merge/redeem that caused it as two user actions.
 
 ## Completeness contract
 
@@ -42,6 +45,8 @@ A scope may be published only when all of these checks pass:
   `OrdersMatched` log sequence for every scanned block chunk;
 - both providers return the same relevant ordered log sequence for every
   selected transaction receipt;
+- both providers return the same ordered split/merge/redemption sequence and
+  matching block headers for every activity checkpoint;
 - block hashes agree between providers and every log has `removed = false`;
 - every matching `OrdersMatched` event discovered for a transaction is present
   at the same log index in its verified receipt;
@@ -73,11 +78,25 @@ at block `88,245,581`.
 The chain is canonical for executed settlements, not for the off-chain order
 book. It cannot recover historical unfilled or cancelled orders, historical
 book snapshots, or the private decision context that preceded an execution.
+Direct ERC-1155 transfers are outside the semantic activity view; add a
+separate transfer-ledger view if that distinction becomes analytically useful.
+
+## Provider constraints established by the prototype
+
+- receipt verification uses 250-receipt JSON batches and keeps its provider
+  pool separate from activity discovery;
+- activity log queries use 25-block ranges because global redemption responses
+  can become dense;
+- dRPC accepts at most 10 calls in a JSON batch, so activity block headers are
+  verified in batches of 10; and
+- HTTP 408, 429, 5xx, network failures, and request timeouts are retryable.
+  Checkpoints are written only after both providers agree, so a failed request
+  can never publish a partial chunk.
 
 ## Storage
 
 Discovery checkpoints and unverified candidate Parquet remain under
 `data/polymarket/chain/staging/`. Verified market facts are published to the
-normal symbol/timeframe/month partitions only after the complete scope passes.
+symbol/timeframe/day prototype partitions only after the complete scope passes.
 Monthly compaction is deliberately deferred until the one-day BTC 5m test is
 complete and validated.

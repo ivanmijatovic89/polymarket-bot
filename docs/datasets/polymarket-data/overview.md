@@ -35,7 +35,7 @@ npm run polymarket-data:chain:activity -- \
   --date 2026-06-10 --symbol btc --timeframe 5m
 ```
 
-It cross-checks the event sequence with two high-range public Polygon providers,
+It cross-checks the event sequence with two independent Polygon providers,
 checkpoints every 1,000 blocks, and publishes only a contiguous verified range.
 Published rows are available as `polymarket_chain_activity`, with exact atomic
 amounts and block/transaction/log order. `--max-chunks 1` is available for a
