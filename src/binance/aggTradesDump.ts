@@ -199,9 +199,12 @@ export async function downloadAggTradesDay(args: {
         `'first_trade_id':'BIGINT','last_trade_id':'BIGINT','transact_time':'BIGINT',` +
         `'is_buyer_maker':'BOOLEAN','is_best_match':'BOOLEAN'})`
       // µs→ms normalization: post-2025 daily files carry microsecond timestamps.
+      // DISTINCT: rare Binance dump artifact — some daily files contain a
+      // duplicated block of full-row-identical rows (seen: BTCUSDT 2026-02-11,
+      // 2000 rows). Dedupe so agg ids stay unique.
       await conn.run(
         `COPY (
-           SELECT
+           SELECT DISTINCT
              agg_trade_id,
              price,
              qty,
