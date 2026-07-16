@@ -1,8 +1,12 @@
 import { decodeEventLog, type Hex } from 'viem'
-import { CTF_EVENTS, EXCHANGE_EVENTS } from './contracts.js'
+import { CTF_EVENTS, EXCHANGE_EVENTS, NEG_RISK_EVENTS } from './contracts.js'
 import type { RpcLog } from './types.js'
 
-const EVENTS = [...Object.values(EXCHANGE_EVENTS), ...Object.values(CTF_EVENTS)]
+const EVENTS = [
+  ...Object.values(EXCHANGE_EVENTS),
+  ...Object.values(CTF_EVENTS),
+  ...Object.values(NEG_RISK_EVENTS),
+]
 
 export type DecodedChainEvent = {
   eventName: string

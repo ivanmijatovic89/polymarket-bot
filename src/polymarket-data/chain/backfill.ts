@@ -109,8 +109,8 @@ async function main(): Promise<void> {
     fromMs,
     toMs,
   })
-  const primary = new ChainRpcClient({ url: primaryUrl, timeoutMs: 120_000, maxAttempts: 8 })
-  const secondary = new ChainRpcClient({ url: secondaryUrl, timeoutMs: 120_000, maxAttempts: 8 })
+  const primary = new ChainRpcClient({ url: primaryUrl, timeoutMs: 120_000, maxAttempts: 20 })
+  const secondary = new ChainRpcClient({ url: secondaryUrl, timeoutMs: 120_000, maxAttempts: 20 })
   const [fromBlock, afterBlock] = await Promise.all([
     firstBlockAtOrAfter(primary, BigInt(Math.floor(scope.scanFromMs / 1000))),
     firstBlockAtOrAfter(primary, BigInt(Math.ceil(scope.scanToMs / 1000))),
@@ -152,7 +152,7 @@ async function main(): Promise<void> {
       toBlock: requestedTo,
       tokens: scope.tokens,
       verificationChunk,
-      concurrency: 4,
+      concurrency: 1,
       onChunk: async (chunk, progress) => {
         const toBlockHash = await assertSameBlock(primary, secondary, chunk.toBlock)
         await writeDiscoveryChunk(args, chunk, toBlockHash as `0x${string}`)

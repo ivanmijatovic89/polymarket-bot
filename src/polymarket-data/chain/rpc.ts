@@ -14,6 +14,24 @@ export type RpcClientOptions = {
   maxAttempts?: number
 }
 
+class RetryableRpcError extends Error {
+  constructor(
+    message: string,
+    readonly retryAfterMs: number | null = null,
+  ) {
+    super(message)
+  }
+}
+
+function retryAfterMs(response: Response): number | null {
+  const raw = response.headers.get('retry-after')
+  if (!raw) return null
+  const seconds = Number(raw)
+  if (Number.isFinite(seconds) && seconds >= 0) return seconds * 1_000
+  const date = Date.parse(raw)
+  return Number.isFinite(date) ? Math.max(0, date - Date.now()) : null
+}
+
 function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error)
 }
@@ -78,7 +96,7 @@ export class ChainRpcClient {
         const body = await response.text()
         this.metrics.responseBytes += Buffer.byteLength(body)
         if (response.status === 429 || response.status >= 500) {
-          throw new Error(`${method} HTTP ${response.status}`)
+          throw new RetryableRpcError(`${method} HTTP ${response.status}`, retryAfterMs(response))
         }
         if (!response.ok)
           throw new Error(`${method} HTTP ${response.status}: ${body.slice(0, 200)}`)
@@ -93,9 +111,9 @@ export class ChainRpcClient {
         recordFailure(this.metrics, error)
         if (attempt === this.maxAttempts || !isRetryable(error)) break
         this.metrics.retries += 1
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.min(8_000, 250 * 2 ** (attempt - 1))),
-        )
+        const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1))
+        const delay = error instanceof RetryableRpcError ? (error.retryAfterMs ?? backoff) : backoff
+        await new Promise((resolve) => setTimeout(resolve, delay))
       } finally {
         clearTimeout(timer)
       }
@@ -127,7 +145,7 @@ export class ChainRpcClient {
         const body = await response.text()
         this.metrics.responseBytes += Buffer.byteLength(body)
         if (response.status === 429 || response.status >= 500) {
-          throw new Error(`batch HTTP ${response.status}`)
+          throw new RetryableRpcError(`batch HTTP ${response.status}`, retryAfterMs(response))
         }
         if (!response.ok) throw new Error(`batch HTTP ${response.status}: ${body.slice(0, 200)}`)
         const parsed = JSON.parse(body) as Array<RpcResponse<T>>
@@ -145,9 +163,9 @@ export class ChainRpcClient {
         recordFailure(this.metrics, error)
         if (attempt === this.maxAttempts || !isRetryable(error)) break
         this.metrics.retries += 1
-        await new Promise((resolve) =>
-          setTimeout(resolve, Math.min(8_000, 250 * 2 ** (attempt - 1))),
-        )
+        const backoff = Math.min(30_000, 500 * 2 ** (attempt - 1))
+        const delay = error instanceof RetryableRpcError ? (error.retryAfterMs ?? backoff) : backoff
+        await new Promise((resolve) => setTimeout(resolve, delay))
       } finally {
         clearTimeout(timer)
       }

@@ -62,6 +62,21 @@ export const CTF_EVENTS = {
   ),
 } as const
 
+export const NEG_RISK_EVENTS = {
+  positionSplit: parseAbiItem(
+    'event PositionSplit(address indexed stakeholder, bytes32 indexed conditionId, uint256 amount)',
+  ),
+  positionsMerge: parseAbiItem(
+    'event PositionsMerge(address indexed stakeholder, bytes32 indexed conditionId, uint256 amount)',
+  ),
+  positionsConverted: parseAbiItem(
+    'event PositionsConverted(address indexed stakeholder, bytes32 indexed marketId, uint256 indexed indexSet, uint256 amount)',
+  ),
+  payoutRedemption: parseAbiItem(
+    'event PayoutRedemption(address indexed redeemer, bytes32 indexed conditionId, uint256[] amounts, uint256 payout)',
+  ),
+} as const
+
 export function eventTopic(signature: string): Hex {
   return keccak256(toBytes(signature))
 }
