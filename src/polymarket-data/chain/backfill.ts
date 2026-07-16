@@ -8,6 +8,7 @@ import { discoverMatchedTransactions } from './discovery.js'
 import {
   buildMarketCandidates,
   completedReceiptTransactions,
+  publishMarketCandidates,
   writeReceiptBatchParquet,
 } from './parquet.js'
 import { verifyDiscoveredReceipts } from './receipts.js'
@@ -243,6 +244,8 @@ async function main(): Promise<void> {
       )
     throw new Error(`chain candidates failed verification: ${failures.join(', ')}`)
   }
+  const published = await publishMarketCandidates(args)
+  console.log(`${LABEL} published verified chain scope to ${published}`)
 }
 
 main()

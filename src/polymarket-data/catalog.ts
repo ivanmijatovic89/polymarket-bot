@@ -6,7 +6,7 @@ import { spawn } from 'node:child_process'
 import { DuckDBInstance, type DuckDBAppender } from '@duckdb/node-api'
 import { sql } from 'drizzle-orm'
 import { closeDb, getDb } from '../db/index.js'
-import { catalogPath, listFactFiles } from './storage/paths.js'
+import { catalogPath, listChainTradeFiles, listFactFiles } from './storage/paths.js'
 
 const LABEL = '[polymarket-data:catalog]'
 
@@ -40,6 +40,27 @@ async function factViewSql(
   return (
     `CREATE VIEW ${name} AS SELECT * FROM read_parquet(` +
     `[${files.map(quote).join(',')}], union_by_name = true${hive})`
+  )
+}
+
+async function chainTradeViewSql(): Promise<string> {
+  const files = await listChainTradeFiles()
+  if (files.length === 0) {
+    return `CREATE VIEW polymarket_chain_trades AS
+      SELECT NULL::INTEGER market_id, NULL::VARCHAR condition_id, NULL::VARCHAR wallet,
+        NULL::VARCHAR counterparty, NULL::VARCHAR side, NULL::TINYINT outcome_index,
+        NULL::VARCHAR asset, NULL::VARCHAR order_hash, NULL::VARCHAR size_atomic,
+        NULL::DECIMAL(38,6) size, NULL::VARCHAR usdc_atomic,
+        NULL::DECIMAL(38,6) usdc_size, NULL::DECIMAL(18,6) price,
+        NULL::VARCHAR fee_atomic, NULL::DECIMAL(38,6) fee, NULL::BOOLEAN is_taker,
+        NULL::BIGINT block_number, NULL::VARCHAR block_hash, NULL::BIGINT ts_ms,
+        NULL::VARCHAR transaction_hash, NULL::INTEGER transaction_index,
+        NULL::INTEGER log_index, NULL::VARCHAR symbol, NULL::VARCHAR timeframe,
+        NULL::DATE date WHERE false`
+  }
+  return (
+    `CREATE VIEW polymarket_chain_trades AS SELECT * FROM read_parquet(` +
+    `[${files.map(quote).join(',')}], union_by_name = true, hive_partitioning = true)`
   )
 }
 
@@ -145,6 +166,7 @@ export async function buildCatalog(): Promise<string> {
           NULL::VARCHAR timeframe, NULL::VARCHAR month WHERE false`,
       ),
     )
+    await connection.run(await chainTradeViewSql())
     await connection.run(
       await factViewSql(
         'polymarket_market_positions',

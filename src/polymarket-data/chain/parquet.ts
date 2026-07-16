@@ -148,6 +148,18 @@ export function candidateTradesDir(scope: ScopeLocator): string {
   )
 }
 
+export function publishedTradesDir(scope: ScopeLocator): string {
+  return path.join(
+    storageRoot(),
+    'chain',
+    'facts',
+    'trades',
+    `symbol=${scope.symbol}`,
+    `timeframe=${scope.timeframe}`,
+    `date=${scope.date}`,
+  )
+}
+
 export function candidateMarketPath(scope: ScopeLocator, slug: string): string {
   if (!/^[a-z0-9]+(?:-[a-z0-9]+)*$/.test(slug)) throw new Error(`invalid market slug ${slug}`)
   return path.join(candidateTradesDir(scope), `${slug}.parquet`)
@@ -198,4 +210,18 @@ export async function buildMarketCandidates(
     instance.closeSync()
   }
   return output
+}
+
+export async function publishMarketCandidates(scope: ScopeLocator): Promise<string> {
+  const source = candidateTradesDir(scope)
+  const target = publishedTradesDir(scope)
+  try {
+    await access(target)
+    return target
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
+  await mkdir(path.dirname(target), { recursive: true })
+  await rename(source, target)
+  return target
 }
