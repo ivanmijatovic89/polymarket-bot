@@ -6,8 +6,8 @@
  *   - 429: honour `Retry-After` when present, otherwise exponential backoff.
  *     A 429 does NOT consume the retry budget (the server is telling us to slow
  *     down, not that the request is bad) — it has its own separate cap.
- *   - 5xx / network errors: exponential backoff, capped retry budget.
- *   - 4xx (other than 429): thrown immediately; retrying won't help.
+ *   - 408 / 5xx / network errors: exponential backoff, capped retry budget.
+ *   - Other 4xx responses: thrown immediately; retrying won't help.
  *
  * Callers pass a shared `RateLimiter` so that N concurrent workers respect one
  * global requests/second budget.
@@ -41,6 +41,10 @@ export function parseRetryAfter(header: string | null): number | null {
   const at = Date.parse(header)
   if (!Number.isNaN(at)) return Math.max(0, at - Date.now())
   return null
+}
+
+export function isRetryableHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
@@ -114,7 +118,7 @@ export async function fetchJson<T>(url: string, opts: JsonFetchOptions): Promise
         continue
       }
 
-      if (res.status >= 500) {
+      if (res.status === 408 || res.status >= 500) {
         throw new PolymarketHttpError(res.status, null, url, await safeText(res))
       }
       if (!res.ok) {
@@ -125,8 +129,7 @@ export async function fetchJson<T>(url: string, opts: JsonFetchOptions): Promise
       return (await res.json()) as T
     } catch (err) {
       if (opts.signal?.aborted) throw err
-      const retryable =
-        !(err instanceof PolymarketHttpError) || err.status >= 500 || err.status === 429
+      const retryable = !(err instanceof PolymarketHttpError) || isRetryableHttpStatus(err.status)
       if (!retryable || retries >= MAX_RETRIES) throw err
       const waitMs = RETRY_DELAYS_MS[retries] ?? 8000
       retries += 1
