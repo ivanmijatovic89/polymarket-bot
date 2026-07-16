@@ -144,7 +144,9 @@ async function main(): Promise<void> {
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
-  const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
+  // Safe by default: an UNSET DRY_RUN means dry-run — real orders require an
+  // explicit DRY_RUN=false in the environment (matches CLAUDE.md / docs).
+  const dryRun = (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
@@ -244,6 +246,9 @@ async function main(): Promise<void> {
   logger.info(`[trading-bot][⚙️] symbol=${symbol}`)
   logger.info(`[trading-bot][⚙️] wsUrl=${wsUrl}`)
   logger.info(`[trading-bot][⚙️] dryRun=${dryRun}`)
+  if (!dryRun) {
+    logger.warn('[trading-bot][💸] LIVE MODE — real orders will be placed (DRY_RUN=false)')
+  }
   logger.info(`[trading-bot][⚙️] intentExecutionMode=${intentExecutionMode}`)
   logger.info(`[trading-bot][⚙️] maxEventsPerDrain=${maxEventsPerDrain}`)
   logger.info(`[trading-bot][⚙️] strategy=${built.strategyId}`)
