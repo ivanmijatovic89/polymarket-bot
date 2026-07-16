@@ -1,11 +1,12 @@
 // -----------------------------------------------------------------------------
-// Shared work-queue claim primitives for the Telonex pipeline.
+// Shared work-queue claim primitives for MySQL-backed pipelines.
 //
-// telonex:download and telonex:convert both pull work from a shared MySQL queue
-// under heavy multi-machine fan-out (many panes across Tailscale, one DB on the
-// MacBook). They used to each reimplement the same claim loop — and repeat the
-// same bug: a worker that merely lost a few claim races would conclude the queue
-// was empty and quit (`done`) while thousands of rows were still pending.
+// Used by telonex (download, convert) and polymarket-data (positions, trades,
+// activity): all of them pull work from a shared MySQL queue under heavy
+// multi-machine fan-out (many panes across Tailscale, one DB on the MacBook).
+// They used to each reimplement the same claim loop — and repeat the same bug:
+// a worker that merely lost a few claim races would conclude the queue was
+// empty and quit (`done`) while thousands of rows were still pending.
 //
 // This module is the ONE correct implementation so every caller behaves the
 // same. Add new queue consumers here rather than hand-rolling another loop.

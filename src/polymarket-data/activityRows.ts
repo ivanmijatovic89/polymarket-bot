@@ -1,0 +1,187 @@
+/**
+ * Selecting and keying activity rows for `polymarket_activity`.
+ *
+ * Pure, so the two rules that actually bit us in production are unit-testable:
+ * which rows we keep, and how a row is identified across re-reads.
+ */
+
+import { createHash } from 'node:crypto'
+import { activityIdentity, type ApiActivity } from './activityApi.js'
+
+/** Trades are owned by `polymarket_trades`; storing them here would double-count. */
+export const EXCLUDED_TYPES = new Set(['TRADE'])
+
+/** Epoch ms that makes activityFetchStartSec() request the wallet's full history. */
+export const FULL_HISTORY_CURSOR_MS = 1
+
+export type ActivityStatus = 'pending' | 'processing' | 'done' | 'failed'
+
+/**
+ * Statuses coverage repair may act on for this invocation. `pending` is
+ * load-bearing: --stale-after / --refresh-done can requeue a wallet before
+ * repair observes it. Failed wallets remain opt-in via --retry-failed (or an
+ * explicit named-wallet run), and processing is included only to make a
+ * --reset-processing dry-run preview match the real post-reset plan.
+ */
+export function coverageRebaseStatuses(opts: {
+  includeFailed: boolean
+  includeProcessingPreview: boolean
+}): ActivityStatus[] {
+  return [
+    'pending',
+    'done',
+    ...(opts.includeFailed ? (['failed'] as const) : []),
+    ...(opts.includeProcessingPreview ? (['processing'] as const) : []),
+  ]
+}
+
+/**
+ * Trade-count floor for coverage repair. A normal `--min-trades` run must not
+ * mutate wallets below its selection threshold. Explicit named-wallet runs are
+ * intentionally exempt: `--wallet` targets exactly those wallets and already
+ * takes precedence over `--min-trades` in the claim/requeue paths.
+ */
+export function coverageRebaseTradeFloor(minTrades: number, namedRun: boolean): number {
+  return namedRun ? 0 : minTrades
+}
+
+/**
+ * Epoch SECONDS a fetch should start from, given the stored cursor (ms) and the
+ * overlap (ms). A null cursor means "all history" (`1`, since `0` selects the
+ * API's default 3-year window). The overlap re-reads the tail of the last
+ * scanned window so slightly-late / out-of-order activity is still caught.
+ */
+export function activityFetchStartSec(cursorMs: number | null, overlapMs: number): number {
+  if (cursorMs === null) return 1
+  return Math.max(1, Math.floor((cursorMs - overlapMs) / 1000))
+}
+
+/**
+ * The cursor to persist after a fetch. It is the upper bound we scanned THROUGH
+ * (the captured `end` of the fetch), NOT the newest event found — otherwise an
+ * inactive wallet whose last event is old would keep its cursor in the past and
+ * re-read its entire tail on every refresh. Monotonic: never moves backward.
+ */
+export function nextActivityCursorMs(
+  prevCursorMs: number | null,
+  scannedThroughMs: number,
+): number {
+  return Math.max(prevCursorMs ?? 0, scannedThroughMs)
+}
+
+/**
+ * How far back a wallet must re-scan its activity because the CATALOG grew under
+ * it, or null if it hasn't.
+ *
+ * A wallet's activity was filtered against the catalog as it existed at sync
+ * time. If we later lower the backfill floor or add an older symbol/timeframe,
+ * markets the wallet participated in get cataloged AFTER it was synced — and
+ * their activity, which the original sync fetched but dropped (not-in-catalog),
+ * is now older than the wallet's refresh window, so a normal cursor refresh
+ * (`cursor - overlap`) never re-reads it. We detect that and return the
+ * full-history cursor. Rebasing merely to `marketStartMs` is insufficient:
+ * SPLIT/MERGE/trade activity can legitimately precede the market window by
+ * roughly a day. A historical catalog expansion is rare, and stable dedup keys
+ * make the complete re-read idempotent, so full history is the only guaranteed
+ * bound without storing market creation time as a first-class column.
+ * `market.syncedMs` is the market's catalog-insert time (stable — the catalog
+ * upsert does not touch it). Returns null when every participated market was
+ * either cataloged before the wallet synced or is already inside the refresh
+ * window — i.e. nothing was missed. Pure, so this stays testable.
+ */
+export function coverageRebaseTarget(
+  wallet: { activitySyncedMs: number | null; cursorTs: number | null },
+  participatedMarkets: Array<{ syncedMs: number; marketStartMs: number }>,
+  overlapMs: number,
+): number | null {
+  if (wallet.activitySyncedMs === null || wallet.cursorTs === null) return null
+  const refreshFloor = wallet.cursorTs - overlapMs
+  for (const m of participatedMarkets) {
+    if (m.syncedMs > wallet.activitySyncedMs && m.marketStartMs < refreshFloor) {
+      return FULL_HISTORY_CURSOR_MS
+    }
+  }
+  return null
+}
+
+/**
+ * Everything about a row that makes it *that* row — but nothing about where it
+ * appeared in a response. This is the SAME canonical identity the fetch-time
+ * boundary carry-over uses (`activityIdentity`), re-exported so the persisted
+ * dedup key and the pagination de-dup can never disagree about what "the same
+ * event" means.
+ */
+export const identityOf = activityIdentity
+
+/**
+ * `occurrence` is how many byte-identical rows precede this one — NOT its index
+ * in the fetched page.
+ *
+ * Page position moves with the cursor, so keying on it mints fresh keys on every
+ * re-run and re-inserts the whole history (a re-run of 8 wallets doubled the
+ * table). Counting within the identity group is cursor-independent, while still
+ * letting two genuinely identical events — the same split twice in one
+ * transaction — both survive.
+ */
+export function dedupKey(identity: string, occurrence: number): string {
+  return createHash('sha1').update(`${identity}|${occurrence}`).digest('hex').slice(0, 40)
+}
+
+/**
+ * Whether sync-activity must recompute wallet trade counts BEFORE its requeues.
+ *
+ * The counts drive `--min-trades` (both the requeue scope and the claim filter)
+ * and the claim ordering, so a stale count can hide a done wallet whose new
+ * trades just crossed the threshold. The old gate refreshed only when something
+ * was already pending — exactly wrong, since that wallet is the reason nothing
+ * is pending. So: always refresh when the run reads counts (`--min-trades`) or
+ * when a requeue could bring done wallets back into a count-scoped decision;
+ * otherwise only for claim ordering when there is already pending work. Skipped
+ * entirely for dry-run (read-only) and named-wallet runs (no threshold/order).
+ */
+export function needsWalletStatsRefresh(
+  opts: { dryRun: boolean; namedRun: boolean; minTrades: number; requeueRequested: boolean },
+  anyPending: boolean,
+): boolean {
+  if (opts.dryRun || opts.namedRun) return false
+  if (opts.minTrades > 0 || opts.requeueRequested) return true
+  return anyPending
+}
+
+export type KeptRow = {
+  row: ApiActivity
+  marketId: number | null
+  key: string
+}
+
+/**
+ * Keep the non-trade rows that touch our markets (or everything, with `full`),
+ * each with a stable dedup key.
+ *
+ * The occurrence counter deliberately runs over ALL non-trade rows, before the
+ * market filter — so a row's key never depends on which markets happen to be in
+ * the catalog when it is synced.
+ */
+export function selectActivityRows(
+  activities: ApiActivity[],
+  marketIndex: Map<string, number>,
+  full: boolean,
+): KeptRow[] {
+  const kept: KeptRow[] = []
+  const seen = new Map<string, number>()
+
+  for (const row of activities) {
+    if (EXCLUDED_TYPES.has(row.type)) continue
+
+    const identity = identityOf(row)
+    const occurrence = seen.get(identity) ?? 0
+    seen.set(identity, occurrence + 1)
+
+    const marketId = marketIndex.get(row.conditionId) ?? null
+    if (marketId === null && !full) continue
+
+    kept.push({ row, marketId, key: dedupKey(identity, occurrence) })
+  }
+
+  return kept
+}

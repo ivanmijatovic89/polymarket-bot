@@ -44,7 +44,7 @@ import {
 } from '../db/index.js'
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
-import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
+import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { localOutputPath } from './localOutputPath.js'
 import { convertPaired } from './converters/paired.js'
 import { createDeltaConverter } from './converters/delta.js'

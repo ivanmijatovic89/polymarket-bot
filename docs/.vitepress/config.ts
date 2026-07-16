@@ -77,6 +77,18 @@ export default withMermaid(
               ],
             },
             {
+              text: 'Polymarket Data',
+              collapsed: true,
+              items: [
+                { text: 'Overview', link: '/datasets/polymarket-data/overview' },
+                { text: 'Sync Design', link: '/datasets/polymarket-data/sync-design' },
+                {
+                  text: 'ADR: Completeness Contract',
+                  link: '/adr/polymarket-data-completeness-contract',
+                },
+              ],
+            },
+            {
               text: 'PMXT',
               collapsed: true,
               items: [
