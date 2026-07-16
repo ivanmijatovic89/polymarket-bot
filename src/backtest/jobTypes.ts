@@ -31,6 +31,8 @@ export type MarketJobData = {
   timeDriven: boolean
   latency: RunSingleMarketLatency
   strategyWindow: { startMs: number; endMs: number } | null
+  /** `--feeds` historical external feeds. Optional so pre-feeds jobs replay unchanged. */
+  feeds?: { binanceAggTrades?: boolean } | null
   /** Producer's git SHA at enqueue time. Worker validates against its own. */
   commitSha: string
 }
@@ -68,6 +70,8 @@ export type AggregateJobData = {
     limit: number | null
     random: boolean
     latest: boolean
+    /** `--feeds` values the batch ran with (audit; `cmd` holds the flag verbatim). */
+    feeds?: string[] | null
   }
   /**
    * Set when this aggregate is the completion of an extension batch. Drives

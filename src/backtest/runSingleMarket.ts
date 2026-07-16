@@ -25,6 +25,7 @@ import {
   replayOrderBookForMarket,
   type ReplayApplyEvent,
 } from '../parquet/replay/replayOrderBookForMarket.js'
+import { wireBacktestBinanceFeed } from './feeds/wireBacktestExternalFeeds.js'
 
 export type RunSingleMarketInputMode = 'recorded' | 'telonex-delta' | 'telonex-paired'
 
@@ -80,6 +81,11 @@ export type RunSingleMarketInput = {
    * For deterministic re-runs (verification, distributed workers), leave undefined.
    */
   shouldStop?: () => boolean
+  /**
+   * Historical external feeds to fulfill during replay (`--feeds` CLI flag).
+   * Absent/null = no feed wiring at all — the pre-`--feeds` behavior.
+   */
+  feeds?: { binanceAggTrades?: boolean } | null
 }
 
 export type RunSingleMarketOutput = {
@@ -112,7 +118,7 @@ function buildRunnerForMarket(args: {
   strategyParams: Record<string, unknown>
   latency: RunSingleMarketLatency
   getMarket?: () => GammaMarketMeta | undefined
-}): { strategy: Strategy; runner: StrategyRunner } {
+}): { strategy: Strategy; runner: StrategyRunner; pluginSet: PluginSet | undefined } {
   const def = getStrategyDefinition(args.strategyId)
   const built = def.create(args.strategyParams as never)
   const strategy = built.strategy
@@ -147,7 +153,7 @@ function buildRunnerForMarket(args: {
     ...(args.getMarket ? { getMarket: args.getMarket } : {}),
     log: (msg, extra) => console.log(msg, extra ?? ''),
   })
-  return { strategy, runner }
+  return { strategy, runner, pluginSet }
 }
 
 /**
@@ -196,12 +202,23 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
-  const { runner } = buildRunnerForMarket({
+  const { runner, pluginSet } = buildRunnerForMarket({
     strategyId: input.strategyId,
     strategyParams: input.strategyParams,
     latency: input.latency,
     getMarket: () => input.marketMeta,
   })
+
+  // `--feeds binance`: fulfill the strategy's external-feeds request with an
+  // as-of provider over historical data before any tick is replayed. Without
+  // the flag this block is skipped entirely — zero change to the hot path.
+  if (input.feeds?.binanceAggTrades) {
+    await wireBacktestBinanceFeed({
+      pluginSet,
+      slug: input.slug,
+      strategyWindow: input.strategyWindow ?? null,
+    })
+  }
 
   let currentMarketId: string | undefined
   const currentMarketTrades: Fill[] = []

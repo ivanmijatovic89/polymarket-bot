@@ -86,6 +86,32 @@ export type BacktestArgs = {
    * without --extend.
    */
   toMs?: number
+  /**
+   * Historical external feeds to fulfill during replay (`--feeds binance`).
+   * Comma-separated; only `binance` is supported today (`chainlink` reserved
+   * for the Telonex crypto_prices follow-up). Absent = no feed wiring.
+   */
+  feeds?: string[]
+}
+
+const FEED_VALUES = ['binance'] as const
+
+function parseFeeds(raw: string | undefined): string[] {
+  if (typeof raw !== 'string' || raw.trim().length === 0) {
+    throw new Error(`[backtest] --feeds requires a value (${FEED_VALUES.join(', ')})`)
+  }
+  const parts = raw
+    .split(',')
+    .map((s) => s.trim().toLowerCase())
+    .filter((s) => s.length > 0)
+  for (const p of parts) {
+    if (!(FEED_VALUES as readonly string[]).includes(p)) {
+      throw new Error(
+        `[backtest] --feeds: unknown feed "${p}" (supported: ${FEED_VALUES.join(', ')}; chainlink is planned but needs the Telonex crypto_prices dataset)`,
+      )
+    }
+  }
+  return [...new Set(parts)]
 }
 
 function parsePositiveInt(raw: string | undefined, flag: string): number {
@@ -128,6 +154,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let extend: number | undefined
   let fromMs: number | undefined
   let toMs: number | undefined
+  let feeds: string[] | undefined
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i]
@@ -268,6 +295,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--feeds':
+        feeds = parseFeeds(argv[i + 1])
+        i += 1
+        break
+
       case '--strategy':
       case '--param':
         i += 1
@@ -333,6 +365,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
         }
         if (arg.startsWith('--to-ms=')) {
           toMs = parseNonNegativeBigIntMs(arg.slice('--to-ms='.length), '--to-ms')
+          break
+        }
+        if (arg.startsWith('--feeds=')) {
+          feeds = parseFeeds(arg.slice('--feeds='.length))
           break
         }
         if (arg.startsWith('--strategy=') || arg.startsWith('--param=') || arg.startsWith('-')) {
@@ -403,6 +439,10 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (filePaths.length > 0) conflicting.push('<positional file path>')
     if (batchUid !== undefined) conflicting.push('--batchUid')
     if (baselineId !== undefined) conflicting.push('--baselineId')
+    // The parent run doesn't record whether it ran with feeds, so an
+    // extension can't safely inherit or change it. Lift once insertMeta.feeds
+    // round-trips through the extension planner.
+    if (feeds !== undefined) conflicting.push('--feeds')
     // --comment is a launch-time label for the original run. An extension
     // doesn't get its own comment because we intentionally don't write
     // per-extend audit metadata (cmd, comment) to backtest_runs — the
@@ -456,6 +496,7 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
     ...(extend !== undefined ? { extend } : {}),
+    ...(feeds !== undefined ? { feeds } : {}),
     ...(fromMs !== undefined ? { fromMs } : {}),
     ...(toMs !== undefined ? { toMs } : {}),
   }

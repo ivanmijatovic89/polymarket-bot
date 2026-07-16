@@ -65,6 +65,15 @@ import {
 import { localOutputPath } from '../telonex/localOutputPath.js'
 import { insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
+import {
+  windowStartMsFromSlug,
+  timeframeMsFromSlug,
+  windowFromSlug,
+  symbolFromSlug,
+} from '../polymarket/upDownSlugWindow.js'
+import { binanceFeedLookbackMs } from '../backtest/feeds/wireBacktestExternalFeeds.js'
+import { aggTradesDayPath, utcDatesCovering } from '../binance/paths.js'
+import { fileExists } from '../telonex/fetchConvertedToLocal.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
@@ -120,31 +129,6 @@ function argvWithBatchUid(argv: string[], batchUid: string): string[] {
 
 function buildBacktestCmdWithBatchUid(argv: string[], batchUid: string): string {
   return buildBacktestCmdInline(argvWithBatchUid(argv, batchUid), { preferArgv: true })
-}
-
-// Parses `<symbol>-updown-<timeframe>-<epochSeconds>` → window-start ms.
-// `eventStartTime` (window open) is what TimeWindowGate / parseGammaMarketStartMs need.
-function windowStartMsFromSlug(slug: string): number | null {
-  const m = slug.match(/^[a-z]+-updown-[^-]+-(\d+)$/)
-  if (!m) return null
-  const sec = Number(m[1])
-  if (!Number.isFinite(sec)) return null
-  return sec * 1000
-}
-
-function timeframeMsFromSlug(slug: string): number | null {
-  const m = slug.match(/^[a-z]+-updown-([^-]+)-\d+$/)
-  if (!m) return null
-  const tf = m[1]?.toLowerCase() ?? ''
-  const parsed = tf.match(/^(\d+)([mhd])$/)
-  if (!parsed) return null
-  const n = Number(parsed[1])
-  if (!Number.isFinite(n) || n <= 0) return null
-  const unit = parsed[2]
-  if (unit === 'm') return n * 60_000
-  if (unit === 'h') return n * 3_600_000
-  if (unit === 'd') return n * 86_400_000
-  return null
 }
 
 function buildMetaFromTokenMap(
@@ -557,6 +541,13 @@ async function main(): Promise<void> {
   const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
   const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
+  // `--feeds binance` → per-market job field. Absent (the default) means not a
+  // single feed statement runs during replay — pre-feeds behavior, bit-identical.
+  const feedsJob: { binanceAggTrades?: boolean } | undefined = parsed.feeds?.includes('binance')
+    ? { binanceAggTrades: true }
+    : undefined
+  if (parsed.feeds) console.log(`[backtest] feeds=${parsed.feeds.join(',')}`)
+
   // ---- Pre-resolve every market context in the producer so that workers
   // ---- never need to touch MySQL / Gamma. This preserves the existing DB
   // ---- lookup + Gamma fallback behavior 1:1 with PR1.
@@ -697,6 +688,35 @@ async function main(): Promise<void> {
     return
   }
 
+  // `--feeds binance` preflight: warn up-front about missing local day files
+  // (with the exact download command) instead of discovering them one failed
+  // market at a time. Workers still hard-error — their disks may differ.
+  if (feedsJob?.binanceAggTrades) {
+    const lookbackMs = binanceFeedLookbackMs()
+    const missingByPair = new Map<string, Set<string>>()
+    for (const ctx of marketContexts) {
+      if (!ctx.slug) continue
+      const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
+      const sym = symbolFromSlug(ctx.slug)
+      if (!window || !sym) continue
+      const pair = `${sym.toUpperCase()}USDT`
+      for (const d of utcDatesCovering(window.startMs - lookbackMs, window.endMs)) {
+        if (!(await fileExists(aggTradesDayPath(pair, d)))) {
+          let set = missingByPair.get(pair)
+          if (!set) missingByPair.set(pair, (set = new Set()))
+          set.add(d)
+        }
+      }
+    }
+    for (const [pair, dates] of missingByPair) {
+      const sorted = [...dates].sort()
+      console.warn(
+        `[backtest] feeds preflight: ${dates.size} Binance aggTrades day file(s) missing for ${pair} — affected markets will fail. ` +
+          `Fetch: npm run binance:download-aggtrades -- --pair ${pair} --from ${sorted[0]} --to ${sorted[sorted.length - 1]}`,
+      )
+    }
+  }
+
   const useBullMQ = !parsed.sequential
 
   // -----------------------------------------------------------------
@@ -756,6 +776,7 @@ async function main(): Promise<void> {
             timeDriven: parsed.timeDriven,
             latency: { delayMs: latencyMs, jitterMs },
             strategyWindow: ctx.strategyWindow,
+            ...(feedsJob ? { feeds: feedsJob } : {}),
             machineId,
             commitSha,
             shouldStop: () => shouldStop,
@@ -987,6 +1008,7 @@ async function main(): Promise<void> {
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
       latest: parsed.latest ?? false,
+      feeds: parsed.feeds ?? null,
     },
     ...(isExtend ? { extension: { parentRunId: planOk!.parent.id } } : {}),
   }
@@ -1007,6 +1029,7 @@ async function main(): Promise<void> {
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },
       strategyWindow: ctx.strategyWindow,
+      ...(feedsJob ? { feeds: feedsJob } : {}),
       commitSha: producerCommitSha,
       ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
     }
