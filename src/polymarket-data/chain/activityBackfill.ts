@@ -66,7 +66,6 @@ async function main(): Promise<void> {
   const primary = new ChainRpcClient({
     url:
       process.env.POLYGON_ACTIVITY_RPC_URL_PRIMARY?.trim() ||
-      process.env.POLYGON_RPC_URL?.trim() ||
       'https://tenderly.rpc.polygon.community',
     timeoutMs: 30_000,
     maxAttempts: 20,
@@ -115,7 +114,7 @@ async function main(): Promise<void> {
       // Redemption logs are global because conditionId is not indexed. Keep
       // ranges small enough that dense blocks cannot produce oversized RPC
       // responses; the outer 1,000-block checkpoint remains unchanged.
-      primaryStep: 10n,
+      primaryStep: 25n,
       secondaryStep: 25n,
       verificationChunk: 1_000n,
       concurrency: 1,
