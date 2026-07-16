@@ -165,13 +165,19 @@ export function candidateMarketPath(scope: ScopeLocator, slug: string): string {
   return path.join(candidateTradesDir(scope), `${slug}.parquet`)
 }
 
+export function manifestBackedReceiptBatches(files: readonly string[]): string[] {
+  const names = new Set(files)
+  return files
+    .filter((file) => /^[0-9a-f]{24}\.json$/.test(file))
+    .map((file) => file.replace(/\.json$/, '.parquet'))
+    .filter((file) => names.has(file))
+    .sort()
+}
+
 async function receiptBatchFiles(scope: ScopeLocator): Promise<string[]> {
   const dir = path.join(chainScopeDir(scope), 'receipt-batches')
   try {
-    return (await readdir(dir))
-      .filter((file) => /^[0-9a-f]{24}\.parquet$/.test(file))
-      .map((file) => path.join(dir, file))
-      .sort()
+    return manifestBackedReceiptBatches(await readdir(dir)).map((file) => path.join(dir, file))
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code === 'ENOENT') return []
     throw error
