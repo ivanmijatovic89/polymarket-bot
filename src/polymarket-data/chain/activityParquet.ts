@@ -127,7 +127,13 @@ export async function readActivityCheckpoints(
   scope: ScopeLocator,
   expectedFrom: bigint,
 ): Promise<ActivityManifest[]> {
-  const dir = chunksDir(scope)
+  let dir = chunksDir(scope)
+  try {
+    await access(publishedActivityDir(scope))
+    dir = publishedActivityDir(scope)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
+  }
   let files: string[]
   try {
     files = (await readdir(dir)).filter((file) => /^\d+-\d+\.json$/.test(file))
