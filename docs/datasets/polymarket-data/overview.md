@@ -27,6 +27,20 @@ Published files are exposed in DuckDB as `polymarket_chain_trades`; the existing
 [chain-canonical history ADR](/adr/polymarket-chain-canonical-history) for the
 completeness contract and limitations.
 
+Split, merge, and redemption events use a separate pass because they are much
+denser than trade discovery and have different indexed fields:
+
+```bash
+npm run polymarket-data:chain:activity -- \
+  --date 2026-06-10 --symbol btc --timeframe 5m
+```
+
+It cross-checks the event sequence with two high-range public Polygon providers,
+checkpoints every 1,000 blocks, and publishes only a contiguous verified range.
+Published rows are available as `polymarket_chain_activity`, with exact atomic
+amounts and block/transaction/log order. `--max-chunks 1` is available for a
+bounded diagnostic run; rerunning without it resumes the same scope.
+
 This pipeline is **completely independent of the Telonex pipeline** — its own catalog, its own tables, no joins, no shared state. The two live side by side.
 
 Source selection and the blockchain fallback are documented in [API-First and RPC Fallback](./api-first-and-rpc-fallback.md).
