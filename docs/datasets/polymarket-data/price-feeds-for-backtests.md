@@ -103,13 +103,18 @@ public dumps are free and identical.
 
 ## Status
 
-- **Binance → IMPLEMENTED** (`--feeds binance`): downloader, backtest as-of
+- **Binance → IMPLEMENTED** (strategy-driven: declaring
+  `ExternalFeedsRequestPlugin` with a `binanceWsSpotPrice` request enables the
+  feed in backtests automatically, like live): downloader, backtest as-of
   provider, live recorder + verification harness. See
   [Binance aggTrades Feed](./binance-aggtrades-feed.md).
 - **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
   subscription / `TELONEX_API_KEY`). The extension recipe is documented in the
-  Binance doc — the provider, `--feeds` flag, and window plumbing are already
-  feed-agnostic.
+  Binance doc — the provider and window plumbing are already feed-agnostic.
+  Note: `crypto_prices` is the Chainlink oracle price series (the main price
+  Polymarket displays and resolves against) — it is NOT the per-market
+  "price to beat"; that comes from the Gamma API (stored on markets since some
+  version) and is a separate future task.
 
 ## Integration approach (original design sketch — implemented for Binance)
 

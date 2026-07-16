@@ -21,10 +21,11 @@ export type ExternalFeedsRequestConfig = {
  * - Strategies can include this in their `plugins: []` list.
  * - Live runtime (trading-bot) reads this config and starts the actual feed clients + store.
  * - Runtime then fulfills this plugin by injecting a snapshot provider.
- * - Backtests (`--feeds ...`) fulfill it with a point-in-time provider that
- *   reads the current tick (`src/backtest/feeds/wireBacktestExternalFeeds.ts`);
- *   the live provider ignores the tick argument. Unfulfilled, it stays absent
- *   from `ctx.plugins` — the pre-`--feeds` behavior.
+ * - Backtests fulfill it the same strategy-driven way with a point-in-time
+ *   provider that reads the current tick
+ *   (`src/backtest/feeds/wireBacktestExternalFeeds.ts`); the live provider
+ *   ignores the tick argument. Unfulfilled (e.g. no backtest data source for
+ *   the requested sub-feed), it stays absent from `ctx.plugins`.
  */
 export class ExternalFeedsRequestPlugin implements Plugin {
   readonly id = 'externalFeeds'

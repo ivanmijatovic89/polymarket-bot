@@ -15,7 +15,7 @@ import { createBacktestExternalFeedsProvider } from '../backtest/feeds/backtestE
 /**
  * Prove the live-recorded Binance WS aggTrade stream identical to the
  * data.binance.vision daily dump — the core "backtest == live" evidence for
- * the `--feeds binance` backtest feed.
+ * the Binance backtest feed.
  *
  *   npm run binance:verify-aggtrades -- --pair BTCUSDT --date 2026-07-16 [--download] [--check-asof]
  *

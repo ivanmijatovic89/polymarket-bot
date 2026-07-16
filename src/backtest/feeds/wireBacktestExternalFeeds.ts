@@ -35,14 +35,22 @@ export function binanceFeedLookbackMs(): number {
 }
 
 /**
- * Backtest-side counterpart of the feed wiring in `trading-bot.ts`: find the
- * strategy's `ExternalFeedsRequestPlugin` and fulfill it with an as-of
- * provider backed by historical data, so `ctx.plugins.externalFeeds` reads
- * identically live and in replay.
+ * Backtest-side counterpart of the feed wiring in `trading-bot.ts`, and
+ * strategy-driven exactly like live: a strategy that registers
+ * `ExternalFeedsRequestPlugin` with a `binanceWsSpotPrice` request gets the
+ * feed fulfilled from historical data — no CLI flag, declaring the plugin IS
+ * the opt-in. Strategies without the plugin (or without a binance request)
+ * replay exactly as before.
  *
- * Only runs when the backtest was launched with `--feeds binance`; only the
- * `binanceWsSpotPrice` sub-feed is currently available (rtds/priceToBeat need
- * the Chainlink series — the Telonex `crypto_prices` follow-up).
+ * Only the `binanceWsSpotPrice` sub-feed is currently available
+ * (rtds/priceToBeat need the Chainlink series — the Telonex `crypto_prices`
+ * follow-up); requested-but-unavailable sub-feeds stay absent from the
+ * snapshot, same as a live run where those clients aren't running.
+ *
+ * Missing historical data is a HARD error (fails the market job with the
+ * exact download command) — a feed-declaring strategy silently replaying
+ * feed-less would diverge from live, which is the one thing this module
+ * exists to prevent.
  */
 export async function wireBacktestBinanceFeed(args: {
   pluginSet: PluginSet | undefined
@@ -52,17 +60,14 @@ export async function wireBacktestBinanceFeed(args: {
   const reqPlugin: ExternalFeedsRequestPlugin | undefined = args.pluginSet
     ?.list()
     .find(isExternalFeedsRequestPlugin)
-  if (!reqPlugin) {
-    console.warn(
-      `[backtest:feeds] --feeds binance set, but strategy registers no ExternalFeedsRequestPlugin — running feed-less (slug=${args.slug})`,
-    )
-    return
-  }
+  // No request plugin → strategy didn't opt in; stay silent (this runs for
+  // every market of every feed-less backtest).
+  if (!reqPlugin) return
 
   const cfgSymbol = reqPlugin.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase()
   if (!cfgSymbol) {
     console.warn(
-      `[backtest:feeds] --feeds binance set, but strategy requests no binanceWsSpotPrice feed — running feed-less (slug=${args.slug})`,
+      `[backtest:feeds] strategy requests external feeds but no binanceWsSpotPrice symbol — only rtds/priceToBeat requested, which have no backtest source yet; running feed-less (slug=${args.slug})`,
     )
     return
   }
@@ -70,7 +75,7 @@ export async function wireBacktestBinanceFeed(args: {
   const window = args.strategyWindow ?? windowFromSlug(args.slug)
   if (!window) {
     throw new Error(
-      `[backtest:feeds] --feeds binance requires a market window, but slug is unparseable: ${args.slug}`,
+      `[backtest:feeds] strategy requests the binance feed but the market window is underivable (unparseable slug: ${args.slug})`,
     )
   }
 

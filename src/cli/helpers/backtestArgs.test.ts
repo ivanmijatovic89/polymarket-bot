@@ -251,25 +251,3 @@ test('parseArgs --extend rejects --comment (launch-time only)', () => {
     /--extend 5 cannot be combined with: --comment/,
   )
 })
-
-test('parseArgs --feeds parses both forms, dedupes, lowercases', () => {
-  const a = parseArgs(['--feeds', 'binance'])
-  assert.deepEqual(a.feeds, ['binance'])
-  const b = parseArgs(['--feeds=binance,BINANCE'])
-  assert.deepEqual(b.feeds, ['binance'])
-  const c = parseArgs([])
-  assert.equal(c.feeds, undefined)
-})
-
-test('parseArgs --feeds rejects unknown or empty values', () => {
-  assert.throws(() => parseArgs(['--feeds', 'chainlink']), /--feeds: unknown feed "chainlink"/)
-  assert.throws(() => parseArgs(['--feeds', '']), /--feeds requires a value/)
-  assert.throws(() => parseArgs(['--feeds']), /--feeds requires a value/)
-})
-
-test('parseArgs --extend rejects --feeds', () => {
-  assert.throws(
-    () => parseArgs(['--extend', '5', '--feeds', 'binance']),
-    /--extend 5 cannot be combined with: --feeds/,
-  )
-})

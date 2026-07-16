@@ -69,10 +69,10 @@ import {
   windowStartMsFromSlug,
   timeframeMsFromSlug,
   windowFromSlug,
-  symbolFromSlug,
 } from '../polymarket/upDownSlugWindow.js'
 import { binanceFeedLookbackMs } from '../backtest/feeds/wireBacktestExternalFeeds.js'
-import { aggTradesDayPath, utcDatesCovering } from '../binance/paths.js'
+import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { aggTradesDayPath, pairFromFeedSymbol, utcDatesCovering } from '../binance/paths.js'
 import { fileExists } from '../telonex/fetchConvertedToLocal.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
@@ -541,12 +541,18 @@ async function main(): Promise<void> {
   const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
   const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
-  // `--feeds binance` → per-market job field. Absent (the default) means not a
-  // single feed statement runs during replay — pre-feeds behavior, bit-identical.
-  const feedsJob: { binanceAggTrades?: boolean } | undefined = parsed.feeds?.includes('binance')
-    ? { binanceAggTrades: true }
-    : undefined
-  if (parsed.feeds) console.log(`[backtest] feeds=${parsed.feeds.join(',')}`)
+  // External feeds are strategy-driven (like live): a strategy that registers
+  // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed
+  // fulfilled per market inside runSingleMarket. The producer only needs the
+  // requested symbol here for the missing-day-files preflight.
+  const feedsRequestPlugin = (built.plugins ?? built.pluginSet?.list() ?? []).find(
+    isExternalFeedsRequestPlugin,
+  )
+  const feedsBinanceSymbol =
+    feedsRequestPlugin?.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase() || null
+  if (feedsBinanceSymbol) {
+    console.log(`[backtest] external feeds: binanceWsSpotPrice symbol=${feedsBinanceSymbol}`)
+  }
 
   // ---- Pre-resolve every market context in the producer so that workers
   // ---- never need to touch MySQL / Gamma. This preserves the existing DB
@@ -688,30 +694,27 @@ async function main(): Promise<void> {
     return
   }
 
-  // `--feeds binance` preflight: warn up-front about missing local day files
-  // (with the exact download command) instead of discovering them one failed
-  // market at a time. Workers still hard-error — their disks may differ.
-  if (feedsJob?.binanceAggTrades) {
+  // Feeds preflight: when the strategy requests the binance feed, warn
+  // up-front about missing local day files (with the exact download command)
+  // instead of discovering them one failed market at a time. Workers still
+  // hard-error — their disks may differ. Pair comes from the strategy's
+  // configured symbol (like live), not the market slug.
+  if (feedsBinanceSymbol) {
+    const pair = pairFromFeedSymbol(feedsBinanceSymbol)
     const lookbackMs = binanceFeedLookbackMs()
-    const missingByPair = new Map<string, Set<string>>()
+    const missingDates = new Set<string>()
     for (const ctx of marketContexts) {
       if (!ctx.slug) continue
       const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
-      const sym = symbolFromSlug(ctx.slug)
-      if (!window || !sym) continue
-      const pair = `${sym.toUpperCase()}USDT`
+      if (!window) continue
       for (const d of utcDatesCovering(window.startMs - lookbackMs, window.endMs)) {
-        if (!(await fileExists(aggTradesDayPath(pair, d)))) {
-          let set = missingByPair.get(pair)
-          if (!set) missingByPair.set(pair, (set = new Set()))
-          set.add(d)
-        }
+        if (!(await fileExists(aggTradesDayPath(pair, d)))) missingDates.add(d)
       }
     }
-    for (const [pair, dates] of missingByPair) {
-      const sorted = [...dates].sort()
+    if (missingDates.size > 0) {
+      const sorted = [...missingDates].sort()
       console.warn(
-        `[backtest] feeds preflight: ${dates.size} Binance aggTrades day file(s) missing for ${pair} — affected markets will fail. ` +
+        `[backtest] feeds preflight: ${missingDates.size} Binance aggTrades day file(s) missing for ${pair} — affected markets will fail. ` +
           `Fetch: npm run binance:download-aggtrades -- --pair ${pair} --from ${sorted[0]} --to ${sorted[sorted.length - 1]}`,
       )
     }
@@ -776,7 +779,6 @@ async function main(): Promise<void> {
             timeDriven: parsed.timeDriven,
             latency: { delayMs: latencyMs, jitterMs },
             strategyWindow: ctx.strategyWindow,
-            ...(feedsJob ? { feeds: feedsJob } : {}),
             machineId,
             commitSha,
             shouldStop: () => shouldStop,
@@ -1008,7 +1010,6 @@ async function main(): Promise<void> {
       limit: parsed.limit ?? null,
       random: parsed.random ?? false,
       latest: parsed.latest ?? false,
-      feeds: parsed.feeds ?? null,
     },
     ...(isExtend ? { extension: { parentRunId: planOk!.parent.id } } : {}),
   }
@@ -1029,7 +1030,6 @@ async function main(): Promise<void> {
       timeDriven: parsed.timeDriven,
       latency: { delayMs: latencyMs, jitterMs },
       strategyWindow: ctx.strategyWindow,
-      ...(feedsJob ? { feeds: feedsJob } : {}),
       commitSha: producerCommitSha,
       ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
     }

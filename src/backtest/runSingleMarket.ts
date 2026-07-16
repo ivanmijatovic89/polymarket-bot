@@ -81,11 +81,6 @@ export type RunSingleMarketInput = {
    * For deterministic re-runs (verification, distributed workers), leave undefined.
    */
   shouldStop?: () => boolean
-  /**
-   * Historical external feeds to fulfill during replay (`--feeds` CLI flag).
-   * Absent/null = no feed wiring at all — the pre-`--feeds` behavior.
-   */
-  feeds?: { binanceAggTrades?: boolean } | null
 }
 
 export type RunSingleMarketOutput = {
@@ -209,16 +204,15 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     getMarket: () => input.marketMeta,
   })
 
-  // `--feeds binance`: fulfill the strategy's external-feeds request with an
-  // as-of provider over historical data before any tick is replayed. Without
-  // the flag this block is skipped entirely — zero change to the hot path.
-  if (input.feeds?.binanceAggTrades) {
-    await wireBacktestBinanceFeed({
-      pluginSet,
-      slug: input.slug,
-      strategyWindow: input.strategyWindow ?? null,
-    })
-  }
+  // Strategy-driven external feeds (same contract as live): if the strategy
+  // registers ExternalFeedsRequestPlugin with a binance request, fulfill it
+  // from historical data before any tick is replayed. Strategies without the
+  // plugin return immediately — no behavior change for them.
+  await wireBacktestBinanceFeed({
+    pluginSet,
+    slug: input.slug,
+    strategyWindow: input.strategyWindow ?? null,
+  })
 
   let currentMarketId: string | undefined
   const currentMarketTrades: Fill[] = []
