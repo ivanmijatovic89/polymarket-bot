@@ -62,7 +62,7 @@ recorded mode derives the window from the file slug) and every timeframe
 
 | Var | Default | Meaning |
 |---|---|---|
-| `BACKTEST_BINANCE_FEED_LATENCY_MS` | `85` (measured p50, see below) | trade visible at `T + offset`; also sets `receivedAtMs` |
+| `BACKTEST_BINANCE_FEED_LATENCY_MS` | `110` (measured p50, see below) | trade visible at `T + offset`; also sets `receivedAtMs` |
 | `BACKTEST_BINANCE_FEED_LOOKBACK_MS` | `300000` | pre-window load margin so a value exists at the first tick |
 | `BINANCE_DATA_BASE_DIR` | `data/binance` | data root (repo-root-anchored when relative) |
 
