@@ -71,7 +71,9 @@ async function main(): Promise<void> {
     maxAttempts: 20,
   })
   const secondary = new ChainRpcClient({
-    url: process.env.POLYGON_ACTIVITY_RPC_URL_SECONDARY?.trim() || 'https://polygon.drpc.org',
+    url:
+      process.env.POLYGON_ACTIVITY_RPC_URL_SECONDARY?.trim() ||
+      'https://polygon-public.nodies.app/',
     timeoutMs: 180_000,
     maxAttempts: 20,
   })
