@@ -221,7 +221,7 @@ async function main(): Promise<void> {
   await verifyDiscoveredReceipts(receiptPrimary, receiptSecondary, remaining, {
     tokens: scope.tokens,
     batchSize: 250,
-    concurrency: 1,
+    concurrency: 2,
     delayBetweenBatchesMs: 250,
     retainResults: false,
     onBatch: async (receipts, progress) => {
