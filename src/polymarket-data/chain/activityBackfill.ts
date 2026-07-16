@@ -111,8 +111,11 @@ async function main(): Promise<void> {
       tokens: scope.tokens,
       includeStandard: scope.markets.some((market) => !market.negativeRisk),
       includeNegativeRisk: scope.markets.some((market) => market.negativeRisk),
-      primaryStep: 100n,
-      secondaryStep: 100n,
+      // Redemption logs are global because conditionId is not indexed. Keep
+      // ranges small enough that dense blocks cannot produce oversized RPC
+      // responses; the outer 1,000-block checkpoint remains unchanged.
+      primaryStep: 25n,
+      secondaryStep: 25n,
       verificationChunk: 1_000n,
       concurrency: 1,
       retainResults: false,
