@@ -708,9 +708,16 @@ async function main(): Promise<void> {
     for (const ctx of marketContexts) {
       if (!ctx.slug) continue
       const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
-      if (!window) continue
-      const feedSymbol =
-        feedsBinanceSymbol ?? (symbolFromSlug(ctx.slug) ? `${symbolFromSlug(ctx.slug)}usdt` : null)
+      if (!window) {
+        // The worker-side wiring hard-errors on exactly this case — surface it
+        // here instead of letting it be discovered one failed market at a time.
+        console.warn(
+          `[backtest] feeds preflight: market window underivable from slug=${ctx.slug} — this market will fail (strategy requests the binance feed)`,
+        )
+        continue
+      }
+      const slugSymbol = symbolFromSlug(ctx.slug)
+      const feedSymbol = feedsBinanceSymbol ?? (slugSymbol ? `${slugSymbol}usdt` : null)
       if (!feedSymbol) continue
       const pair = pairFromFeedSymbol(feedSymbol)
       for (const d of utcDatesCovering(window.startMs - lookbackMs, window.endMs)) {

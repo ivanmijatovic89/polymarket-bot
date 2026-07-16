@@ -32,7 +32,8 @@ function usage(): never {
       '  --force                         re-download even if parquet exists (explicit --from/--to only)',
       '  --keep-zip                      keep the downloaded .zip in data/binance/tmp/',
       '  --dry-run                       preflight only (present / missing)',
-      '  --strict                        any 404 is fatal (default: warn+skip for last 2 days)',
+      '  --strict                        abort on the first 404 (default: last 2 days warn+skip;',
+      '                                  older 404s are collected, other days still download, exit 1)',
     ].join('\n'),
   )
   process.exit(2)
@@ -149,6 +150,7 @@ async function main(): Promise<void> {
   let downloaded = 0
   let skippedUnpublished = 0
   let totalBytes = 0
+  const notFound: string[] = []
 
   const fatal = await runWorkerPool({
     jobs: missing,
@@ -162,17 +164,21 @@ async function main(): Promise<void> {
         keepZip: args.keepZip,
       })
       if (res.status === 'skipped-not-published') {
-        if (date < recentCutoff) {
-          // Older than the publication lag: the dump should exist, so a 404
-          // usually means a mistyped pair or a Binance-side gap — not lag.
-          throw new Error(
-            `[binance:download] dump not found: ${args.pair} ${date} — this date is past the ~1-day publication lag, so it should be published; check the pair spelling (${args.pair}) and https://data.binance.vision availability`,
-          )
-        }
         if (args.strict) {
           throw new Error(
-            `[binance:download] dump not published yet: ${args.pair} ${date} (~1-day publication lag; fatal because of --strict — drop it to warn and skip recent days)`,
+            `[binance:download] dump not found: ${args.pair} ${date} (fatal because of --strict — drop it to collect 404s and keep downloading other days)`,
           )
+        }
+        if (date < recentCutoff) {
+          // Older than the publication lag: the dump should exist, so a 404
+          // usually means a mistyped pair or a genuine Binance-side gap. Do
+          // NOT abort — a permanent gap must never block newer days from
+          // syncing (the run still exits 1 with a summary below).
+          notFound.push(date)
+          console.error(
+            `[binance:download] dump not found: ${args.pair} ${date} — past the ~1-day publication lag, so it should exist; continuing with other days`,
+          )
+          return
         }
         skippedUnpublished++
         console.warn(
@@ -195,9 +201,17 @@ async function main(): Promise<void> {
     process.exit(1)
   }
   console.log(
-    `[binance:download] done: downloaded=${downloaded} skipped-unpublished=${skippedUnpublished} total=${fmtBytes(totalBytes)}` +
+    `[binance:download] done: downloaded=${downloaded} skipped-unpublished=${skippedUnpublished} not-found=${notFound.length} total=${fmtBytes(totalBytes)}` +
       (aborted ? ' (aborted early)' : ''),
   )
+  if (notFound.length > 0) {
+    notFound.sort()
+    console.error(
+      `[binance:download] ${notFound.length} dump(s) not found past the publication lag: ${notFound.join(', ')} — ` +
+        `mistyped pair (${args.pair})? Binance-side gap? Backtests touching these days will hard-error until resolved.`,
+    )
+    process.exit(1)
+  }
   if (aborted) process.exit(130)
 }
 

@@ -110,9 +110,23 @@ export async function loadBinanceAggTradesSeries(args: {
       // feed-less replay.
       throw new Error(
         `[backtest:feeds] Binance aggTrades day file(s) for ${args.pair} contain no trades up to ` +
-          `${new Date(args.endMs).toISOString()} (${dates.join(', ')}) — empty or corrupt day file(s)? ` +
-          `Re-download on the producer with: npm run binance:download-aggtrades -- --pair ${args.pair} ` +
+          `${new Date(args.endMs).toISOString()} (${dates.join(', ')}) — corrupt/empty day file(s), ` +
+          `or the pair had no trades yet (listed later than this window?). If corruption is plausible, ` +
+          `re-download on the producer with: npm run binance:download-aggtrades -- --pair ${args.pair} ` +
           `--from ${dates[0]} --to ${dates[dates.length - 1]} --force`,
+      )
+    }
+    const inRange = total - (seedRow ? 1 : 0)
+    if (inRange === 0) {
+      // Only the pre-window seed exists: legitimate for a long quiet gap, but
+      // also the signature of a truncated day file (converter died mid-day).
+      // Loud enough to investigate, not fatal — live would serve the same
+      // last-known price through a real gap.
+      console.warn(
+        `[backtest:feeds] no ${args.pair} trades inside [${new Date(fromMs).toISOString()}, ` +
+          `${new Date(args.endMs).toISOString()}] — the whole market replays on the single pre-window ` +
+          `price from ${new Date(Number(seedRow![0])).toISOString()}. Quiet gap, or truncated day file? ` +
+          `(verify with: npm run verify:parquet -- ${paths[paths.length - 1]})`,
       )
     }
     const tsMs = new Float64Array(total)

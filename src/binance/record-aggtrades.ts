@@ -112,8 +112,12 @@ async function main(): Promise<void> {
   const appendAggTrade = (agg: AggTradeMessage, receivedAtMs: number): void => {
     // WS frames already buffered when shutdown starts would otherwise enqueue
     // AFTER closeWriter, reopening a writer whose tmp file is abandoned when
-    // process.exit fires (rows silently dropped into a stray .tmp).
-    if (stopping) return
+    // process.exit fires (rows silently dropped into a stray .tmp). Counted
+    // and reported so verify-aggtrades gap analysis isn't left guessing.
+    if (stopping) {
+      droppedAtShutdown++
+      return
+    }
     enqueue(async () => {
       const hourKey = hourKeyOf(receivedAtMs)
       if (!writer || hourKey !== writerHourKey) {
@@ -144,6 +148,7 @@ async function main(): Promise<void> {
   }
 
   let stopping = false
+  let droppedAtShutdown = 0
 
   const client = createBinanceWsSpotPriceClient({
     symbol: feedSymbol,
@@ -162,7 +167,19 @@ async function main(): Promise<void> {
     logStatus({ kind: 'recorder-stop', info: reason })
     client.stop()
     enqueue(closeWriter)
-    void chain.then(() => {
+    void chain.then(async () => {
+      if (droppedAtShutdown > 0) {
+        console.warn(
+          `[binance:record] ${droppedAtShutdown} buffered trade(s) discarded at shutdown (after recorder-stop)`,
+        )
+        // Awaited (unlike logStatus) so process.exit can't cut the append off.
+        await fs
+          .appendFile(
+            statusPath,
+            `${JSON.stringify({ ts_ms: Date.now(), kind: 'recorder-dropped-at-shutdown', count: droppedAtShutdown })}\n`,
+          )
+          .catch(() => {})
+      }
       console.log(`[binance:record] done. total rows=${rowsTotal}`)
       process.exit(chainErr ? 1 : 0)
     })

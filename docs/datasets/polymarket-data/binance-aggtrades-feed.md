@@ -126,9 +126,12 @@ npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT
   the eligibility floor backfills automatically.
 - R2 keys mirror the local layout: `binance/aggTrades/<PAIR>/<PAIR>-aggTrades-<date>.parquet`.
 - Uploads are Content-MD5-validated server-side, and the skip-if-exists check
-  compares sizes, so a locally regenerated day file (converter fix) propagates
-  to R2 on the next cron run. Worker downloads are atomic (tmp→rename) with
-  retries and size validation against the R2 listing. All three commands
+  compares sizes on BOTH hops (upload and worker pull), so a locally
+  regenerated day file (converter fix) propagates end-to-end on the next cron
+  runs. Limitation: the drift check is size-based — a regenerated file that
+  lands on the identical byte size is not detected; pass `--force` after a
+  converter fix if that's plausible. Worker downloads are atomic (tmp→rename)
+  with retries and size validation against the R2 listing. All three commands
   support `--dry-run` preflights.
 - **The feed loader itself never touches the network** — a missing local file
   is a hard per-market error by design, so the data pipeline stays auditable.

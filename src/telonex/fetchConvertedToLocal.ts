@@ -39,7 +39,14 @@ export async function downloadR2ToLocal(
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await getObjectToFile(bucket, key, tmp)
-      const bytes = (await fs.stat(tmp)).size
+      let bytes = 0
+      try {
+        bytes = (await fs.stat(tmp)).size
+      } catch (statErr) {
+        // Without an expected size the stat is informational only — don't
+        // throw away a completed download over it (pre-existing tolerance).
+        if (opts?.expectedBytes !== undefined) throw statErr
+      }
       if (opts?.expectedBytes !== undefined && bytes !== opts.expectedBytes) {
         throw new Error(
           `[r2-fetch] size mismatch for ${key}: downloaded ${bytes} bytes, expected ${opts.expectedBytes}`,

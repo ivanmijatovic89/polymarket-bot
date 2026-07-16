@@ -75,6 +75,46 @@ async function main(): Promise<void> {
     })
     .sort((a, b) => (a.date < b.date ? -1 : 1))
 
+  // Local inventory with sizes: a local file whose size differs from the R2
+  // object (producer regenerated the day after a converter fix) is
+  // re-downloaded, so drift propagates the last hop R2 → worker too.
+  const localSizeByDate = new Map<string, number>()
+  try {
+    const names = await fs.readdir(aggTradesDayDir(args.pair))
+    await Promise.all(
+      names.map(async (n) => {
+        const d = isoDateFromAggTradesFilename(n, args.pair)
+        if (!d) return
+        try {
+          localSizeByDate.set(d, (await fs.stat(aggTradesDayPath(args.pair, d))).size)
+        } catch {
+          // treat as missing
+        }
+      }),
+    )
+  } catch {
+    // No local directory yet — everything is missing; downloadR2ToLocal creates it.
+  }
+
+  const jobs = remote.filter((o) => args.force || localSizeByDate.get(o.date) !== o.size)
+  const onLocal = remote.length - jobs.length
+  let sizeDrift = 0
+  for (const job of jobs) {
+    const localSize = localSizeByDate.get(job.date)
+    if (localSize !== undefined && localSize !== job.size && !args.force) {
+      sizeDrift++
+      console.warn(
+        `[binance:r2-to-local] ${args.pair} ${job.date}: size drift (local=${localSize} r2=${job.size}) — re-downloading`,
+      )
+    }
+  }
+
+  console.log(
+    `[binance:r2-to-local] pair=${args.pair} bucket=${bucket} on-r2=${remote.length} on-local=${onLocal} to-download=${jobs.length}` +
+      (sizeDrift > 0 ? ` (size-drift=${sizeDrift})` : '') +
+      (args.force ? ' force' : '') +
+      (args.dryRun ? ' DRY-RUN' : ''),
+  )
   if (remote.length === 0) {
     console.error(
       `[binance:r2-to-local] no day files under r2://${bucket}/${aggTradesR2Prefix(args.pair)} — ` +
@@ -82,25 +122,6 @@ async function main(): Promise<void> {
     )
     process.exit(2)
   }
-
-  const localDates = new Set<string>()
-  try {
-    for (const n of await fs.readdir(aggTradesDayDir(args.pair))) {
-      const d = isoDateFromAggTradesFilename(n, args.pair)
-      if (d) localDates.add(d)
-    }
-  } catch {
-    // No local directory yet — everything is missing; downloadR2ToLocal creates it.
-  }
-
-  const jobs = remote.filter((o) => args.force || !localDates.has(o.date))
-  const onLocal = remote.length - jobs.length
-
-  console.log(
-    `[binance:r2-to-local] pair=${args.pair} bucket=${bucket} on-r2=${remote.length} on-local=${onLocal} to-download=${jobs.length}` +
-      (args.force ? ' force' : '') +
-      (args.dryRun ? ' DRY-RUN' : ''),
-  )
   if (args.dryRun || jobs.length === 0) return
 
   let aborted = false
