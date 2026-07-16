@@ -54,6 +54,10 @@ function isRetryable(error: unknown): boolean {
   return true
 }
 
+export function isRetryableRpcHttpStatus(status: number): boolean {
+  return status === 408 || status === 429 || status >= 500
+}
+
 export class ChainRpcClient {
   readonly metrics: RpcMetrics = {
     httpRequests: 0,
@@ -95,7 +99,7 @@ export class ChainRpcClient {
         })
         const body = await response.text()
         this.metrics.responseBytes += Buffer.byteLength(body)
-        if (response.status === 429 || response.status >= 500) {
+        if (isRetryableRpcHttpStatus(response.status)) {
           throw new RetryableRpcError(`${method} HTTP ${response.status}`, retryAfterMs(response))
         }
         if (!response.ok)
@@ -144,7 +148,7 @@ export class ChainRpcClient {
         })
         const body = await response.text()
         this.metrics.responseBytes += Buffer.byteLength(body)
-        if (response.status === 429 || response.status >= 500) {
+        if (isRetryableRpcHttpStatus(response.status)) {
           throw new RetryableRpcError(`batch HTTP ${response.status}`, retryAfterMs(response))
         }
         if (!response.ok) throw new Error(`batch HTTP ${response.status}: ${body.slice(0, 200)}`)
