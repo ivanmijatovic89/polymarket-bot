@@ -6,7 +6,12 @@ import { spawn } from 'node:child_process'
 import { DuckDBInstance, type DuckDBAppender } from '@duckdb/node-api'
 import { sql } from 'drizzle-orm'
 import { closeDb, getDb } from '../db/index.js'
-import { catalogPath, listChainTradeFiles, listFactFiles } from './storage/paths.js'
+import {
+  catalogPath,
+  listChainActivityFiles,
+  listChainTradeFiles,
+  listFactFiles,
+} from './storage/paths.js'
 
 const LABEL = '[polymarket-data:catalog]'
 
@@ -60,6 +65,25 @@ async function chainTradeViewSql(): Promise<string> {
   }
   return (
     `CREATE VIEW polymarket_chain_trades AS SELECT * FROM read_parquet(` +
+    `[${files.map(quote).join(',')}], union_by_name = true, hive_partitioning = true)`
+  )
+}
+
+async function chainActivityViewSql(): Promise<string> {
+  const files = await listChainActivityFiles()
+  if (files.length === 0) {
+    return `CREATE VIEW polymarket_chain_activity AS
+      SELECT NULL::VARCHAR type, NULL::INTEGER market_id, NULL::VARCHAR condition_id,
+        NULL::VARCHAR token_id, NULL::TINYINT outcome_index, NULL::VARCHAR wallet,
+        NULL::VARCHAR counterparty, NULL::VARCHAR operator, NULL::VARCHAR amount_atomic,
+        NULL::DECIMAL(38,6) amount, NULL::VARCHAR payout_atomic,
+        NULL::DECIMAL(38,6) payout, NULL::BIGINT index_set, NULL::BIGINT block_number,
+        NULL::BIGINT ts_ms, NULL::VARCHAR transaction_hash,
+        NULL::INTEGER transaction_index, NULL::INTEGER log_index, NULL::VARCHAR contract,
+        NULL::VARCHAR symbol, NULL::VARCHAR timeframe, NULL::DATE date WHERE false`
+  }
+  return (
+    `CREATE VIEW polymarket_chain_activity AS SELECT * FROM read_parquet(` +
     `[${files.map(quote).join(',')}], union_by_name = true, hive_partitioning = true)`
   )
 }
@@ -167,6 +191,7 @@ export async function buildCatalog(): Promise<string> {
       ),
     )
     await connection.run(await chainTradeViewSql())
+    await connection.run(await chainActivityViewSql())
     await connection.run(
       await factViewSql(
         'polymarket_market_positions',

@@ -117,3 +117,7 @@ export async function listFactFiles(kind: FactKind): Promise<string[]> {
 export async function listChainTradeFiles(): Promise<string[]> {
   return listParquetFiles(path.join(storageRoot(), 'chain', 'facts', 'trades'))
 }
+
+export async function listChainActivityFiles(): Promise<string[]> {
+  return listParquetFiles(path.join(storageRoot(), 'chain', 'facts', 'activity'))
+}

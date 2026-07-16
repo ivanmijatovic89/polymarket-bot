@@ -80,6 +80,7 @@
     "polymarket-data:chain:compare-tx": "tsx src/polymarket-data/chain/compareTx.ts",
     "polymarket-data:chain:scan-probe": "tsx src/polymarket-data/chain/scanProbe.ts",
     "polymarket-data:chain:backfill": "tsx src/polymarket-data/chain/backfill.ts",
+    "polymarket-data:chain:activity": "tsx src/polymarket-data/chain/activityBackfill.ts",
     "test:polymarket-data": "tsx --test src/polymarket-data/*.test.ts",
     "test:polymarket-chain": "tsx --test src/polymarket-data/chain/*.test.ts",
     "rebuild:backtest-segments": "tsx src/cli/rebuild-backtest-segments.ts --onlyMissing",

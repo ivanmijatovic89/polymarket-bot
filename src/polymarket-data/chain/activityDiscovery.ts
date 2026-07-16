@@ -45,6 +45,7 @@ type Options = {
   secondaryStep?: bigint
   verificationChunk?: bigint
   concurrency?: number
+  retainResults?: boolean
   onChunk?: (
     chunk: ActivityDiscoveryChunk,
     progress: ActivityDiscoveryProgress,
@@ -262,13 +263,13 @@ export async function discoverActivity(
       digest,
       rows,
     }
-    chunks.push(chunk)
+    if (options.retainResults !== false) chunks.push(chunk)
     allLogs += a.length
     targetRows += rows.length
     await options.onChunk?.(chunk, {
       completedBlocks: toBlock - options.fromBlock + 1n,
       totalBlocks,
-      chunks: chunks.length,
+      chunks: Number((toBlock - options.fromBlock) / verificationChunk + 1n),
       allLogs,
       targetRows,
       primary: primary.metrics,
