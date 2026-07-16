@@ -65,12 +65,24 @@ export async function wireBacktestBinanceFeed(args: {
   // every market of every feed-less backtest).
   if (!reqPlugin) return
 
-  const cfgSymbol = reqPlugin.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase()
-  if (!cfgSymbol) {
+  const binanceReq = reqPlugin.config.binanceWsSpotPrice
+  if (!binanceReq) {
     console.warn(
-      `[backtest:feeds] strategy requests external feeds but no binanceWsSpotPrice symbol — only rtds/priceToBeat requested, which have no backtest source yet; running feed-less (slug=${args.slug})`,
+      `[backtest:feeds] strategy requests external feeds but not binanceWsSpotPrice — only rtds/priceToBeat requested, which have no backtest source yet; running feed-less (slug=${args.slug})`,
     )
     return
+  }
+
+  const slugSymbol = symbolFromSlug(args.slug)
+  // No explicit symbol → follow the traded market (live derives it from
+  // TRADING_SYMBOL the same way), so one strategy works on BTC/ETH/SOL/XRP
+  // without a hardcoded pair.
+  const cfgSymbol =
+    binanceReq.symbol?.trim().toLowerCase() || (slugSymbol ? `${slugSymbol}usdt` : undefined)
+  if (!cfgSymbol) {
+    throw new Error(
+      `[backtest:feeds] strategy requests the binance feed with no symbol and none is derivable from the slug (${args.slug})`,
+    )
   }
 
   const window = args.strategyWindow ?? windowFromSlug(args.slug)
@@ -80,9 +92,9 @@ export async function wireBacktestBinanceFeed(args: {
     )
   }
 
-  // Live would feed whatever symbol the strategy configured, even for a
-  // mismatched market — parity over correctness, but make it loud.
-  const slugSymbol = symbolFromSlug(args.slug)
+  // An explicitly configured symbol wins even for a mismatched market — live
+  // would feed whatever the strategy configured; parity over correctness, but
+  // make it loud.
   if (slugSymbol && !cfgSymbol.startsWith(slugSymbol)) {
     console.warn(
       `[backtest:feeds] strategy requests binance symbol=${cfgSymbol} but market slug is ${args.slug} — feeding ${cfgSymbol} (same as live)`,

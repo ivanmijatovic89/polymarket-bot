@@ -110,6 +110,10 @@ async function main(): Promise<void> {
   }
 
   const appendAggTrade = (agg: AggTradeMessage, receivedAtMs: number): void => {
+    // WS frames already buffered when shutdown starts would otherwise enqueue
+    // AFTER closeWriter, reopening a writer whose tmp file is abandoned when
+    // process.exit fires (rows silently dropped into a stray .tmp).
+    if (stopping) return
     enqueue(async () => {
       const hourKey = hourKeyOf(receivedAtMs)
       if (!writer || hourKey !== writerHourKey) {
@@ -139,6 +143,8 @@ async function main(): Promise<void> {
     })
   }
 
+  let stopping = false
+
   const client = createBinanceWsSpotPriceClient({
     symbol: feedSymbol,
     onPrice: () => {},
@@ -149,7 +155,6 @@ async function main(): Promise<void> {
     },
   })
 
-  let stopping = false
   const shutdown = (reason: string): void => {
     if (stopping) return
     stopping = true

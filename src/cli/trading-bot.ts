@@ -283,11 +283,16 @@ async function main(): Promise<void> {
   }
 
   const binanceWsReq = requiredFeeds?.binanceWsSpotPrice
-  const binanceWsSymbol = (binanceWsReq?.symbol ?? '').toLowerCase().trim()
+  // No explicit symbol → follow the traded market (backtests derive it from
+  // the market slug the same way), so one strategy works on BTC/ETH/SOL/XRP
+  // without a hardcoded pair.
+  const binanceWsSymbol =
+    (binanceWsReq?.symbol ?? '').toLowerCase().trim() ||
+    (binanceWsReq ? `${symbol.toLowerCase()}usdt` : '')
   const binanceWsEnabled = binanceWsSymbol.length > 0
-  if (binanceWsReq && !binanceWsEnabled) {
-    logger.warn(
-      '[trading-bot] binanceWsSpotPrice requested but no symbol configured; Binance WS feed disabled (no prices will be available)',
+  if (binanceWsReq && !binanceWsReq.symbol?.trim()) {
+    logger.info(
+      `[trading-bot] binanceWsSpotPrice symbol derived from TRADING_SYMBOL: ${binanceWsSymbol}`,
     )
   }
 

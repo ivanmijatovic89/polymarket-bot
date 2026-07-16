@@ -88,6 +88,10 @@ export default withMermaid(
                   text: 'Binance aggTrades Feed',
                   link: '/datasets/polymarket-data/binance-aggtrades-feed',
                 },
+                {
+                  text: 'Series Cache (Proposal)',
+                  link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
+                },
               ],
             },
             {

@@ -112,18 +112,24 @@ determines every path and key.
 
 ```bash
 # Producer (data machine, daily cron):
-npm run binance:download-aggtrades -- --pair BTCUSDT --sync   # newest local +1 → yesterday
+npm run binance:download-aggtrades -- --pair BTCUSDT --sync   # eligibility floor −1 → yesterday, missing only
 npm run binance:upload-aggtrades-r2 -- --pair BTCUSDT         # mirror new files to R2
 
 # Each worker (before backtests / own cron):
 npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT
 ```
 
-- `--sync` derives the range automatically (falls back to
-  `TELONEX_DATASET_ELIGIBLE_FROM − 1 day` when the pair has no local files yet).
+- `--sync` always scans the FULL expected range
+  (`TELONEX_DATASET_ELIGIBLE_FROM − 1 day` → yesterday) and downloads whatever
+  is missing — self-healing: a day that failed mid-run, was skipped while
+  unpublished, or was deleted locally is retried on the next run, and lowering
+  the eligibility floor backfills automatically.
 - R2 keys mirror the local layout: `binance/aggTrades/<PAIR>/<PAIR>-aggTrades-<date>.parquet`.
-- Uploads are Content-MD5-validated server-side; worker downloads are atomic
-  (tmp→rename). All three commands support `--dry-run` preflights.
+- Uploads are Content-MD5-validated server-side, and the skip-if-exists check
+  compares sizes, so a locally regenerated day file (converter fix) propagates
+  to R2 on the next cron run. Worker downloads are atomic (tmp→rename) with
+  retries and size validation against the R2 listing. All three commands
+  support `--dry-run` preflights.
 - **The feed loader itself never touches the network** — a missing local file
   is a hard per-market error by design, so the data pipeline stays auditable.
 - Additional pairs (ETH/SOL/XRP) are the same three commands with a different
@@ -153,8 +159,15 @@ BOOLEAN`, ordered by `agg_trade_id`. Timestamps are normalized to
   `utcDatesCovering` in `src/binance/paths.ts` is the single place that logic lives.
 - **`--extend` inherits the feed automatically**: the feed follows the
   strategy, and extensions inherit the parent's strategy — no extra handling.
-- **Symbol comes from the strategy config** (`binanceWsSpotPrice.symbol`), not
-  the market slug — exactly like live. A mismatch logs a loud warning.
+- **Pair follows the traded market by default**: `binanceWsSpotPrice: {}`
+  (no symbol) derives the pair from `TRADING_SYMBOL` live and from the market
+  slug in backtests, so one strategy works on BTC/ETH/SOL/XRP. An explicit
+  `binanceWsSpotPrice.symbol` overrides it — exactly like live — and a
+  slug/config mismatch logs a loud warning.
+- **Quiet gaps don't drop the feed**: the loaded series is seeded with the
+  latest trade before the coverage window, mirroring the live store's
+  retain-last-price-forever semantics; day files with zero trades up to the
+  window end are a hard error (empty/corrupt data), like missing files.
 
 ## Adding the Chainlink feed later (the seam)
 

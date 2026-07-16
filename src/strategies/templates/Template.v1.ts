@@ -42,7 +42,7 @@ export function createStrategy(_cfg: Config): {
     new TimeWindowVolatility({ windows }),
     new ExternalFeedsRequestPlugin({
       rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
-      binanceWsSpotPrice: { symbol: 'btcusdt' },
+      binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
       polymarketPriceToBeat: { enabled: true },
     }),
     new DwellGatePlugin({

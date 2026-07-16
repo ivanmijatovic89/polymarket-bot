@@ -82,7 +82,7 @@ export function createStrategy(cfg: Config): {
 
   const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
     rtdsCryptoPrices: { binanceSymbols: ['btcusdt'], chainlinkSymbols: ['btc/usd'] },
-    binanceWsSpotPrice: { symbol: 'btcusdt' },
+    binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
     polymarketPriceToBeat: { enabled: true },
   })
 

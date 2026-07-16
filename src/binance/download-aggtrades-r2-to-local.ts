@@ -1,14 +1,24 @@
 import '../config/env.js'
 import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
-import { getDefaultBucket, getObjectToFile, listObjects } from '../r2/client.js'
-import { aggTradesDayPath, isoDateFromAggTradesFilename, pairFromFeedSymbol } from './paths.js'
+import { fmtBytes } from '../utils/fmtBytes.js'
+import { runWorkerPool } from '../utils/workerPool.js'
+import { downloadR2ToLocal } from '../telonex/fetchConvertedToLocal.js'
+import { getDefaultBucket, listObjects } from '../r2/client.js'
+import {
+  aggTradesDayDir,
+  aggTradesDayPath,
+  aggTradesR2Key,
+  aggTradesR2Prefix,
+  isoDateFromAggTradesFilename,
+  pairFromFeedSymbol,
+} from './paths.js'
 
 /**
  * Worker-side pull: download every Binance aggTrades day file from the R2
  * mirror (`binance/aggTrades/<PAIR>/`) that is missing locally, to the
- * canonical local path the backtest feed loader reads. Atomic tmp→rename,
+ * canonical local path the backtest feed loader reads. Atomic tmp→rename with
+ * retries and size validation (via the shared `downloadR2ToLocal`),
  * skip-if-exists (files are immutable). Run before backtests / on a cron.
  *
  *   npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT [--concurrency 6] [--dry-run] [--force]
@@ -50,39 +60,41 @@ function parseArgs(argv: string[]): Args {
   return { pair, concurrency, force, dryRun }
 }
 
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
-  }
-}
-
-function fmtBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MiB`
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GiB`
-}
-
 async function main(): Promise<void> {
   installProcessCrashHandlers({ prefix: 'binance:r2-to-local' })
   const args = parseArgs(process.argv.slice(2))
   const bucket = getDefaultBucket()
 
-  const prefix = `binance/aggTrades/${args.pair}/`
-  const remote = (await listObjects(bucket, prefix))
-    .map((o) => ({ ...o, date: isoDateFromAggTradesFilename(o.key) }))
-    .filter((o): o is { key: string; size: number; date: string } => o.date !== null)
+  // Only exact canonical keys count: a nested/backup/foreign key under the
+  // prefix must never be downloaded onto a canonical local path (and duplicate
+  // dates would make two workers write the same tmp file concurrently).
+  const remote = (await listObjects(bucket, aggTradesR2Prefix(args.pair)))
+    .flatMap((o) => {
+      const date = isoDateFromAggTradesFilename(o.key, args.pair)
+      return date && o.key === aggTradesR2Key(args.pair, date) ? [{ ...o, date }] : []
+    })
     .sort((a, b) => (a.date < b.date ? -1 : 1))
 
-  const jobs: Array<{ key: string; size: number; date: string; localPath: string }> = []
-  let onLocal = 0
-  for (const o of remote) {
-    const localPath = aggTradesDayPath(args.pair, o.date)
-    if (!args.force && (await fileExists(localPath))) onLocal++
-    else jobs.push({ ...o, localPath })
+  if (remote.length === 0) {
+    console.error(
+      `[binance:r2-to-local] no day files under r2://${bucket}/${aggTradesR2Prefix(args.pair)} — ` +
+        `wrong R2_BUCKET / pair, or the producer upload has not run yet (binance:upload-aggtrades-r2)`,
+    )
+    process.exit(2)
   }
+
+  const localDates = new Set<string>()
+  try {
+    for (const n of await fs.readdir(aggTradesDayDir(args.pair))) {
+      const d = isoDateFromAggTradesFilename(n, args.pair)
+      if (d) localDates.add(d)
+    }
+  } catch {
+    // No local directory yet — everything is missing; downloadR2ToLocal creates it.
+  }
+
+  const jobs = remote.filter((o) => args.force || !localDates.has(o.date))
+  const onLocal = remote.length - jobs.length
 
   console.log(
     `[binance:r2-to-local] pair=${args.pair} bucket=${bucket} on-r2=${remote.length} on-local=${onLocal} to-download=${jobs.length}` +
@@ -99,32 +111,24 @@ async function main(): Promise<void> {
     },
   })
 
-  const queue = [...jobs]
   let downloaded = 0
   let totalBytes = 0
-  let fatal: Error | undefined
 
-  const worker = async (): Promise<void> => {
-    while (!aborted && !fatal) {
-      const job = queue.shift()
-      if (!job) return
-      const tmp = `${job.localPath}.${process.pid}.tmp`
-      try {
-        await fs.mkdir(path.dirname(job.localPath), { recursive: true })
-        await getObjectToFile(bucket, job.key, tmp)
-        await fs.rename(tmp, job.localPath)
-        downloaded++
-        totalBytes += job.size
-        console.log(
-          `[binance:r2-to-local] ${args.pair} ${job.date}: ${fmtBytes(job.size)} (${downloaded}/${jobs.length})`,
-        )
-      } catch (err) {
-        await fs.rm(tmp, { force: true }).catch(() => {})
-        fatal = err instanceof Error ? err : new Error(String(err))
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(args.concurrency, queue.length) }, worker))
+  const fatal = await runWorkerPool({
+    jobs,
+    concurrency: args.concurrency,
+    isAborted: () => aborted,
+    run: async (job) => {
+      await downloadR2ToLocal(`r2://${bucket}/${job.key}`, aggTradesDayPath(args.pair, job.date), {
+        expectedBytes: job.size,
+      })
+      downloaded++
+      totalBytes += job.size
+      console.log(
+        `[binance:r2-to-local] ${args.pair} ${job.date}: ${fmtBytes(job.size)} (${downloaded}/${jobs.length})`,
+      )
+    },
+  })
 
   if (fatal) {
     console.error('[binance:r2-to-local] fatal:', fatal.message)

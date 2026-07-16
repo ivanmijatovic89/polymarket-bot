@@ -103,7 +103,7 @@ export function createStrategy(cfg: Config): {
           binanceSymbols: ['btcusdt'],
           chainlinkSymbols: ['btc/usd'],
         },
-        binanceWsSpotPrice: { symbol: 'btcusdt' },
+        binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
         polymarketPriceToBeat: { enabled: true },
       }),
     ],

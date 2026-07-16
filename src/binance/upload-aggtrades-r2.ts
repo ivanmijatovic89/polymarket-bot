@@ -1,12 +1,15 @@
 import '../config/env.js'
 import { promises as fs } from 'node:fs'
-import path from 'node:path'
 import crypto from 'node:crypto'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
+import { fmtBytes } from '../utils/fmtBytes.js'
+import { runWorkerPool } from '../utils/workerPool.js'
 import { getDefaultBucket, listObjects, putObject } from '../r2/client.js'
 import {
+  aggTradesDayDir,
   aggTradesDayPath,
   aggTradesR2Key,
+  aggTradesR2Prefix,
   isoDateFromAggTradesFilename,
   pairFromFeedSymbol,
 } from './paths.js'
@@ -14,8 +17,11 @@ import {
 /**
  * Producer-side mirror: upload converted Binance aggTrades day files from
  * `data/binance/aggTrades/<PAIR>/` to R2 under the identical key layout
- * (`binance/aggTrades/<PAIR>/...`). Day files are immutable, so skip-if-exists
- * (by R2 prefix listing) is the whole sync protocol — no DB index needed.
+ * (`binance/aggTrades/<PAIR>/...`). Day files are immutable in the normal
+ * flow, so skip-if-exists (by R2 prefix listing) is the sync protocol — but
+ * the skip also compares sizes: a locally regenerated file (converter fix,
+ * `--force` re-download) whose size differs from the R2 copy is re-uploaded,
+ * so a stale mirror can't silently outlive a data fix.
  *
  * Daily producer routine (e.g. cron on the data machine):
  *   npm run binance:download-aggtrades -- --pair BTCUSDT --sync
@@ -56,22 +62,16 @@ function parseArgs(argv: string[]): Args {
   return { pair, concurrency, force, dryRun }
 }
 
-function fmtBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`
-  if (n < 1024 * 1024 * 1024) return `${(n / (1024 * 1024)).toFixed(1)} MiB`
-  return `${(n / (1024 * 1024 * 1024)).toFixed(2)} GiB`
-}
-
 async function main(): Promise<void> {
   installProcessCrashHandlers({ prefix: 'binance:upload-r2' })
   const args = parseArgs(process.argv.slice(2))
   const bucket = getDefaultBucket()
 
-  const localDir = path.dirname(aggTradesDayPath(args.pair, '0000-00-00'))
+  const localDir = aggTradesDayDir(args.pair)
   const localDates: string[] = []
   try {
     for (const n of await fs.readdir(localDir)) {
-      const d = isoDateFromAggTradesFilename(n)
+      const d = isoDateFromAggTradesFilename(n, args.pair)
       if (d) localDates.push(d)
     }
   } catch {
@@ -80,14 +80,35 @@ async function main(): Promise<void> {
   }
   localDates.sort()
 
-  const prefix = `binance/aggTrades/${args.pair}/`
-  const onR2 = new Set((await listObjects(bucket, prefix)).map((o) => o.key))
-  const toUpload = args.force
-    ? localDates
-    : localDates.filter((d) => !onR2.has(aggTradesR2Key(args.pair, d)))
+  const r2SizeByKey = new Map(
+    (await listObjects(bucket, aggTradesR2Prefix(args.pair))).map((o) => [o.key, o.size]),
+  )
+
+  const toUpload: string[] = []
+  let sizeDrift = 0
+  for (const d of localDates) {
+    if (args.force) {
+      toUpload.push(d)
+      continue
+    }
+    const remoteSize = r2SizeByKey.get(aggTradesR2Key(args.pair, d))
+    if (remoteSize === undefined) {
+      toUpload.push(d)
+      continue
+    }
+    const localSize = (await fs.stat(aggTradesDayPath(args.pair, d))).size
+    if (localSize !== remoteSize) {
+      sizeDrift++
+      console.warn(
+        `[binance:upload-r2] ${args.pair} ${d}: size drift (local=${localSize} r2=${remoteSize}) — re-uploading (local file regenerated?)`,
+      )
+      toUpload.push(d)
+    }
+  }
 
   console.log(
-    `[binance:upload-r2] pair=${args.pair} bucket=${bucket} local=${localDates.length} on-r2=${onR2.size} to-upload=${toUpload.length}` +
+    `[binance:upload-r2] pair=${args.pair} bucket=${bucket} local=${localDates.length} on-r2=${r2SizeByKey.size} to-upload=${toUpload.length}` +
+      (sizeDrift > 0 ? ` (size-drift=${sizeDrift})` : '') +
       (args.force ? ' force' : '') +
       (args.dryRun ? ' DRY-RUN' : ''),
   )
@@ -101,32 +122,25 @@ async function main(): Promise<void> {
     },
   })
 
-  const queue = [...toUpload]
   let uploaded = 0
   let totalBytes = 0
-  let fatal: Error | undefined
 
-  const worker = async (): Promise<void> => {
-    while (!aborted && !fatal) {
-      const date = queue.shift()
-      if (!date) return
-      try {
-        const filePath = aggTradesDayPath(args.pair, date)
-        const body = await fs.readFile(filePath)
-        // Content-MD5 → R2 validates the payload server-side before accepting.
-        const contentMD5 = crypto.createHash('md5').update(body).digest('base64')
-        await putObject(bucket, aggTradesR2Key(args.pair, date), body, { contentMD5 })
-        uploaded++
-        totalBytes += body.length
-        console.log(
-          `[binance:upload-r2] ${args.pair} ${date}: ${fmtBytes(body.length)} (${uploaded}/${toUpload.length})`,
-        )
-      } catch (err) {
-        fatal = err instanceof Error ? err : new Error(String(err))
-      }
-    }
-  }
-  await Promise.all(Array.from({ length: Math.min(args.concurrency, queue.length) }, worker))
+  const fatal = await runWorkerPool({
+    jobs: toUpload,
+    concurrency: args.concurrency,
+    isAborted: () => aborted,
+    run: async (date) => {
+      const body = await fs.readFile(aggTradesDayPath(args.pair, date))
+      // Content-MD5 → R2 validates the payload server-side before accepting.
+      const contentMD5 = crypto.createHash('md5').update(body).digest('base64')
+      await putObject(bucket, aggTradesR2Key(args.pair, date), body, { contentMD5 })
+      uploaded++
+      totalBytes += body.length
+      console.log(
+        `[binance:upload-r2] ${args.pair} ${date}: ${fmtBytes(body.length)} (${uploaded}/${toUpload.length})`,
+      )
+    },
+  })
 
   if (fatal) {
     console.error('[binance:upload-r2] fatal:', fatal.message)
