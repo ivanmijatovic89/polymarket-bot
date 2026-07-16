@@ -115,7 +115,7 @@ async function main(): Promise<void> {
       // Redemption logs are global because conditionId is not indexed. Keep
       // ranges small enough that dense blocks cannot produce oversized RPC
       // responses; the outer 1,000-block checkpoint remains unchanged.
-      primaryStep: 25n,
+      primaryStep: 10n,
       secondaryStep: 25n,
       verificationChunk: 1_000n,
       concurrency: 1,
