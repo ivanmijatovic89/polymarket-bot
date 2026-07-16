@@ -4,18 +4,71 @@ Authoritative design for `src/polymarket-data/`. Read this before changing anyth
 
 Everything below was **measured against the live API**, not taken from the docs. Several of Polymarket's documented behaviours are wrong in ways that silently corrupt a naive sync, so each claim here carries the evidence.
 
+See [API-First and RPC Fallback](./api-first-and-rpc-fallback.md) for the source decision, exact live measurements, accepted ordering limit, and escalation path to Goldsky or raw Polygon RPC.
+
+The accepted-but-deferred final storage step is recorded in
+[Monthly Parquet Compaction Plan](./monthly-compaction-plan.md). Do not let the
+temporary per-market staging layout become the permanent analytics layout.
+
+## Storage architecture
+
+MySQL is the resumable control plane, not the analytics store. It contains only
+`polymarket_markets` and `polymarket_wallets`: catalog metadata, queue statuses,
+summary counts, and activity cursors. The large immutable facts are ZSTD Parquet.
+
+Trades and positions are written as one per-market snapshot in hierarchical
+staging paths:
+
+```
+data/polymarket/staging/trades/symbol=<symbol>/timeframe=<timeframe>/month=<YYYY-MM>/<slug>.parquet
+data/polymarket/staging/positions/symbol=<symbol>/timeframe=<timeframe>/month=<YYYY-MM>/<slug>.parquet
+data/polymarket/facts/activity/<wallet>.parquet
+```
+
+The partition values and slug are validated before use. The month is derived
+from `market_start_ms` in UTC; a display date in a daily market slug can therefore
+differ from the storage month at a month boundary. The local market ID remains
+inside every fact row; condition ID and slug remain in the catalog, with the slug
+also used as the filename. The one-time
+`npm run polymarket-data:migrate-staging-layout` command moves legacy flat files
+with same-filesystem renames and is safe to rerun. It never downloads or rewrites
+Parquet data.
+
+Monthly compaction is deliberately not part of this storage change; see the
+linked compaction plan for the exact rollout and final layout.
+
+Each market snapshot is written to a temporary file and atomically renamed, so a
+reader sees either the previous complete snapshot or the replacement. Activity
+uses the same pattern and merges the deliberate cursor overlap by `dedup_key`.
+
+`npm run polymarket-data:catalog` creates
+`data/polymarket/polymarket.duckdb`. It snapshots the two small MySQL tables and
+exposes the Parquet facts as familiar views:
+`polymarket_trades`, `polymarket_market_positions`, and
+`polymarket_activity`. The trade and position views expose the Hive-derived
+`symbol`, `timeframe`, and `month` columns directly. Rebuild the catalog after a
+sync; the wrapper does this as its final stage. Query it directly, for example:
+
+```bash
+npm run polymarket-data:query -- "SELECT symbol, timeframe, month, count(*) FROM polymarket_trades GROUP BY ALL"
+```
+
+The sync wrapper checks free disk space before every stage and stops while 8 GiB
+of headroom remains. `POLYMARKET_DATA_STORAGE_DIR` changes the storage root.
+
 ## The five stages
 
 ```
-sync-markets    Gamma series          → polymarket_markets          (catalog)
-sync-positions  /v1/market-positions  → polymarket_market_positions (participants + PnL)
-sync-trades     /trades               → polymarket_trades           (every fill)
-deep-backfill   /activity per wallet  → polymarket_trades           (repairs capped markets)
-sync-activity   /activity per wallet  → polymarket_activity         (split/merge/redeem)
-verify          invariant + resample  → audit                        (proves completeness)
+sync-markets    Gamma series          → MySQL market catalog
+sync-positions  /v1/market-positions  → Parquet participants + PnL
+sync-trades     /trades               → Parquet fills
+deep-backfill   /trades per wallet    → replaces capped trade Parquet
+sync-activity   /activity per wallet  → Parquet split/merge/redeem
+verify          invariant + resample  → audit
+catalog         MySQL + Parquet       → DuckDB analytics catalog
 ```
 
-Stages share nothing but MySQL state columns. Each is independently resumable, each claims work with the same atomic MySQL queue (`src/db/claimQueue.ts`, shared with Telonex).
+Stages coordinate only through the small MySQL state columns. Each is independently resumable, each claims work with the same atomic MySQL queue (`src/db/claimQueue.ts`, shared with Telonex).
 
 **Positions runs before trades** because it is one cheap call per market and returns a *superset* of the wallets `/trades` can show — including for markets whose trades are capped, where it is the only complete participant list available. That list is what makes `deep-backfill` possible.
 
@@ -27,14 +80,15 @@ Stages share nothing but MySQL state columns. Each is independently resumable, e
 | `/trades` | `start` / `end` / `before` / `after` / `sortDirection` **silently ignored** when querying by market | No time-slicing escape hatch. Paging is offset-only, newest-first. |
 | `/trades` | `takerOnly` defaults to **true** | Must pass `takerOnly=false` or you get taker rows only and lose every maker fill. |
 | `/trades` | rows have **no id** | Row-level dedup is impossible; markets are written whole (delete + insert) in one transaction. |
+| `/trades` | `user` + `market` filters are honoured | A capped market can be partitioned by the complete position-participant set. This reproduced Gamma volume exactly on two BTC daily markets. |
 | `/activity` | requires `user` (400 without) | Market-wide activity cannot be fetched. Splits/merges/redeems are reachable only per wallet. |
 | `/activity` | `offset` ≤ **3000** — *not* the 10000 the OpenAPI spec advertises | Verified: `offset=3500` → 400 `max historical activity offset of 3000 exceeded`. Escaped by walking the `start` window instead of the offset. **Exception:** a cluster of rows all sharing one second that exceeds the reachable window (offset cap + page) cannot be paged (advancing `start` doesn't move past that second) — `fetchActivity` throws a clear error rather than looping forever. |
-| `/activity` | `start` / `end` / `sortDirection` **are** honoured (with `user`) | This is what makes the cursor — and the deep backfill — possible. |
+| `/activity` | `start` / `end` / `sortDirection` **are** honoured (with `user`) | This makes the non-trade activity cursor possible. `/activity` is not a trade-reconstruction source. |
 | `/activity` | `start=0` means "default ~3y window", not "all history" | Pass `start=1` for full history. |
 | `/v1/market-positions` | `limit` ≤ 500 **per outcome token**, `offset` pages within a token | Paged accordingly. |
 | Gamma `/events` | `limit` capped at 100, `offset` rejected ≥ 3000, **keyset cursor not honoured** | Every cursor param name we tried returns page 1 again. The catalog pages by walking bounded `end_date_min`/`end_date_max` windows instead. |
 | Gamma `startDate` | is the market's **creation** time, ~a day before the window opens | Never use it for market time. Window start = slug epoch (5m/15m/4h) or `eventStartTime` (1h/1d); `endDate` is the true end. Same trap as Telonex's `start_date_us`. |
-| Rate limits | Data API 1000 req/10s general, `/trades` 200 req/10s | Defaults sit at half of that; a shared token bucket enforces it across all workers. |
+| Rate limits | Data API 1000 req/10s general, `/trades` 200 req/10s | Defaults retain headroom (60/s general, 15/s trades); a shared token bucket enforces the budget across all workers. |
 
 ## The completeness invariant
 
@@ -67,24 +121,26 @@ A busy 15m market can exceed 4,000 rows *on a single side*, which is more than t
 Reconstruction path:
 
 1. **Participants** = `/v1/market-positions` (complete even when trades are capped) ∪ wallets already stored from the capped pass.
-2. **Per participant**, `/activity?user=…&market=…&type=TRADE`, walking the `start` window past the offset cap.
+2. **Per participant**, `/trades?user=…&market=…&takerOnly=false`, preserving every returned row including identical-looking fills.
 3. Whole-market replace, `trades_source='deep-backfill'`, `done` only if the invariant holds.
 
-Per-wallet `/activity` was verified to reproduce `/trades` *exactly* for the same market — identical row count and USDC, maker fills included (checked on a wallet with zero taker fills).
+This path was verified on two BTC daily markets: 7,660 rows / 314,586.180452 shares and 13,221 rows / 667,368.531985 shares, both exactly equal to Gamma. In the second market, 717 rows were identical across every API-exposed field; removing them broke the volume identity, so set-based deduplication is forbidden.
 
 ::: warning Positions are load-bearing
 Building the participant list from the capped `/trades` alone means searching only where you have already looked. An early version did that and rebuilt a market that was *still* 18% short. Positions must always be included — from the DB if the positions stage has run, fetched live otherwise.
 :::
 
-`/activity` has two limits the reconstruction has to work around. It carries no maker/taker flag, and it can **aggregate** a taker sweep into one row (several per-fill `/trades` taker rows collapse into a single activity row whose `size`/`usdcSize` are totals and whose `price` is neither their ratio nor an average). So the taker side comes from the taker-only `/trades` query, which is per-fill: when that query is **complete**, its per-fill rows *are* the taker fills stored, and the aggregated taker activity rows are dropped — only the maker side comes from `/activity`. This keeps deep-backfilled markets one-row-per-fill, so fill counts, per-fill prices, and `verify`'s row comparison all line up with a `/trades`-synced market. The taker query has the same offset cap, but taker rows are a fraction of all rows and normally fit; when it **is** capped, exact per-fill reconstruction is impossible, so the aggregated activity row stands in and the market records the limitation (`maker/taker flags incomplete`) rather than pretending the aggregate is a single fill. The share-volume invariant holds either way (an aggregated taker's total shares equal its per-fill total).
+Maker/taker labels use the market-wide `takerOnly=true` subset when it fits. If that subset caps, it is partitioned by wallet through the same endpoint. If a per-wallet full-trade scope also caps, the guarded overflow path time-slices that wallet's market-filtered `TRADE` activity at `offset=0`, replaces aggregated taker groups with per-fill taker `/trades`, and requires the visible `/trades` prefix as a multiset subset. Time slices are disjoint inclusive ranges (`[start, mid]`, `[mid + 1, end]`); this matters because an overlapping two-second split otherwise creates a non-shrinking recursive branch. It still becomes `done` only after the normal Gamma and persisted-Parquet checks pass. A capped per-wallet taker scope, an unsplittable same-second activity page, an out-of-range API row, or a containment failure stops the recovery and triggers investigation/RPC escalation.
+
+Every market is verified twice before its status changes: first against the API rows in memory and Gamma's volume, then by reopening the atomically published Parquet file and checking row count, wallet count, `SUM(size)/2`, and position-participant coverage. This adds no API calls because it reuses the fetched rows and stored Gamma value.
 
 ## Idempotency
 
 Two different mechanisms, because the data has two shapes:
 
-**Trades and positions — whole-market replace.** The API gives rows no id, and two genuinely identical fills can legitimately exist, so row-level dedup is unsafe. A market's rows are deleted and re-inserted inside one transaction. A crashed or retried market is simply re-fetched and rewritten; duplicates are impossible by construction.
+**Trades and positions — whole-market replace.** The API gives rows no id, and two genuinely identical fills can legitimately exist, so row-level dedup is unsafe. A market is re-fetched and its Parquet snapshot is atomically replaced; duplicates are impossible by construction.
 
-**Activity — `dedup_key` + `INSERT … ON DUPLICATE KEY UPDATE dedup_key = dedup_key`.** The wallet cursor deliberately re-reads an overlap window, so rows arrive twice by design; the dedup key no-ops the duplicates. The key is a hash of the row's identity plus **its occurrence index within its identity group** — how many byte-identical rows precede it. (Deliberately NOT `INSERT IGNORE`: that also swallows truncation / invalid / out-of-range errors into warnings and stores coerced data — the `ON DUPLICATE KEY` form keeps only the duplicate idempotent and lets a real data error abort the transaction.)
+**Activity — merge by `dedup_key`.** The wallet cursor deliberately re-reads an overlap window, so rows arrive twice by design; the atomic Parquet rewrite keeps one row per key. The key is a hash of the row's identity plus **its occurrence index within its identity group** — how many byte-identical rows precede it.
 
 ::: warning The occurrence index must not come from page position
 An early version keyed on the row's index in the fetched page. Page position depends on where the cursor started, so a second run with a different cursor minted fresh keys and re-inserted everything — a re-run of 8 wallets doubled the table. Counting within the identity group is cursor-independent, while still letting two genuinely identical events (the same split twice in one transaction) both survive.
@@ -139,7 +195,7 @@ which this pipeline does not fetch.
 
 Pass/fail is by intent — a `partial` market failing the invariant is expected work, a `done` market failing it is an **integrity violation** (process exits non-zero). The resample adds three live cross-checks, all folded into the verdict:
 
-- **rows** — stored rows must be ≥ the live `/trades` count (live is a *lower bound*, capped for busy markets). This does not over-fire on deep-backfilled markets: `/activity` and `/trades` produce the same per-fill row count (measured 352 == 352), so a complete market is always ≥ live.
+- **rows** — stored rows must be ≥ the live market-wide `/trades` count (live is a *lower bound*, capped for busy markets). Per-wallet samples use the same `/trades` representation and therefore require exact row and economic aggregate equality.
 - **positions — identities, not counts.** Compares the `(wallet, asset)` set (wallet lowercased). A **live** position missing from stored → fail (a missing participant; the only signal for a wallet absent from both stored positions and the capped stored trades). A **stored-only** position → informational note (a wallet can redeem to zero and drop from the live snapshot after sync). Equal counts alone never "pass" a mismatched set.
 - **orphan wallets** — every trade wallet must have a stored positions row (positions is a verified superset).
 
@@ -149,5 +205,5 @@ Pass/fail is by intent — a `partial` market failing the invariant is expected 
 
 - A wallet that **never traded and holds no position** — i.e. only ever moved tokens on-chain — is invisible to every endpoint we use. It is the one participant class we cannot discover.
 - Trades **before the window opens are normal**, not an anomaly: a market accepts orders from creation, up to ~a day early, and ~6% of a 15m market's fills land there. Only fills long after settlement are flagged.
-- For a deep-backfilled market whose taker query also hit the cap, `is_taker` flags are incomplete (the market records this).
+- For a deep-backfilled market whose per-wallet taker query still hits the cap, `is_taker` flags are incomplete (the market records this).
 - Markets where Gamma reports no volume cannot be completeness-checked; `verify` reports them as `unknown` rather than assuming they are fine.

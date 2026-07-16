@@ -204,6 +204,13 @@
       "when": 1784100000000,
       "tag": "0028_polymarket_trades_wallet_stats_index",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "5",
+      "when": 1784200000000,
+      "tag": "0029_polymarket_facts_to_parquet",
+      "breakpoints": true
     }
   ]
 }

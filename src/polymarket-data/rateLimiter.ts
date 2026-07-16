@@ -8,6 +8,7 @@
 export class RateLimiter {
   private tokens: number
   private lastRefillMs: number
+  private acquired = 0
 
   constructor(
     private readonly ratePerSecond: number,
@@ -37,11 +38,17 @@ export class RateLimiter {
       this.refill()
       if (this.tokens >= 1) {
         this.tokens -= 1
+        this.acquired += 1
         return
       }
       const deficit = 1 - this.tokens
       const waitMs = Math.max(1, Math.ceil((deficit / this.ratePerSecond) * 1000))
       await this.sleep(waitMs)
     }
+  }
+
+  /** Total request attempts admitted, including HTTP retries. */
+  get requestCount(): number {
+    return this.acquired
   }
 }

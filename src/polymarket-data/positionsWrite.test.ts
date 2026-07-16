@@ -19,10 +19,8 @@ function pos(over: Partial<ApiPosition> = {}): ApiPosition {
 }
 
 /**
- * A fake transaction that counts the statements executed on it, and can be told
- * to throw on the Nth — modelling a crash at a specific step. Everything writes
- * through THIS object, so if a write happened outside it, the count would not add
- * up.
+ * A fake transaction that counts the small MySQL bookkeeping statements. The
+ * position facts themselves have already been atomically published to Parquet.
  */
 function fakeTx(throwOnCall?: number) {
   const calls: number[] = []
@@ -48,34 +46,31 @@ test('dedupePositions keeps one row per (wallet, asset)', () => {
   assert.equal(rows.length, 3)
 })
 
-test('positions, wallets and the done-mark all run on ONE transaction', async () => {
+test('wallet registration and the done-mark run on one transaction', async () => {
   const tx = fakeTx()
   await writePositionsTx(tx, 1, [
     pos({ proxyWallet: '0xA', asset: '0xy' }),
     pos({ proxyWallet: '0xB', asset: '0xn' }),
   ])
-  // DELETE + positions INSERT + wallets INSERT + done UPDATE = 4 statements, all
-  // on the same tx. The old code did 3 here and upserted wallets on a SEPARATE
-  // connection AFTER commit — exactly the split a crash could tear apart.
-  assert.equal(tx.calls.length, 4)
+  // Wallets INSERT + done UPDATE. Position facts are not duplicated in MySQL.
+  assert.equal(tx.calls.length, 2)
 })
 
 test('a crash at the done-mark keeps wallets in the same uncommitted unit', async () => {
   // The done UPDATE is the last statement. Throwing there means the wallet insert
   // issued just before it is part of the same transaction, so a real DB rolls
   // both back together — never "positions done but wallets missing".
-  const tx = fakeTx(4) // throw on the 4th statement = the done UPDATE
-  await assert.rejects(writePositionsTx(tx, 1, [pos()]), /boom at call 4/)
+  const tx = fakeTx(2) // throw on the 2nd statement = the done UPDATE
+  await assert.rejects(writePositionsTx(tx, 1, [pos()]), /boom at call 2/)
   assert.equal(
     tx.calls.length,
-    4,
-    'the wallet insert (call 3) was issued on the tx before the failing done-mark',
+    2,
+    'the wallet insert was issued on the tx before the failing done-mark',
   )
 })
 
-test('a market with no participants still writes atomically (delete + done)', async () => {
+test('a market with no participants only records the done state', async () => {
   const tx = fakeTx()
   await writePositionsTx(tx, 1, [])
-  // DELETE + done UPDATE; no positions/wallets inserts when there are no rows.
-  assert.equal(tx.calls.length, 2)
+  assert.equal(tx.calls.length, 1)
 })

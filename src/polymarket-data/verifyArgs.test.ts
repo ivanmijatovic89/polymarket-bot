@@ -24,7 +24,17 @@ test('defaults hold when the flags are omitted', () => {
   const a = parseArgs([])
   assert.equal(a.limit, null)
   assert.equal(a.resample, 0)
+  assert.equal(a.walletResample, 3)
   assert.equal(a.requeue, false)
+})
+
+test('--wallet-resample requires an integer >= 0', () => {
+  assert.equal(parseArgs(['--wallet-resample', '0']).walletResample, 0)
+  assert.equal(parseArgs(['--wallet-resample', '5']).walletResample, 5)
+  assert.throws(
+    () => parseArgs(['--wallet-resample', '-1']),
+    /--wallet-resample requires an integer >= 0/,
+  )
 })
 
 test('other flags still parse', () => {

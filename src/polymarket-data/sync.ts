@@ -38,6 +38,7 @@ import { fileURLToPath } from 'node:url'
 import { sql } from 'drizzle-orm'
 import { closeDb, getDb } from '../db/index.js'
 import { LABEL, parseArgs, plan, summaryVerdict, type Args, type Step } from './syncPlan.js'
+import { assertStorageHeadroom, formatGiB } from './storage/disk.js'
 
 const HERE = path.dirname(fileURLToPath(import.meta.url))
 const TSX = path.join(HERE, '..', '..', 'node_modules', '.bin', 'tsx')
@@ -77,6 +78,8 @@ async function main(): Promise<void> {
   const timings: Array<{ label: string; ms: number }> = []
   for (let i = 0; i < steps.length; i++) {
     const s = steps[i]!
+    const freeBytes = await assertStorageHeadroom()
+    console.log(`${LABEL} disk preflight: ${formatGiB(freeBytes)} free`)
     const selLabel = s.args.filter((a) => !a.startsWith('--') && !/^\d/.test(a)).join(' ')
     console.log(`\n${LABEL} [${i + 1}/${steps.length}] ${s.stage}: ${s.script} ${s.args.join(' ')}`)
     const stepStart = Date.now()

@@ -34,6 +34,7 @@ import {
 } from './marketQueue.js'
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
 import { dedupePositions, writePositionsTx } from './positionsWrite.js'
+import { writeMarketPositions } from './storage/parquetFacts.js'
 
 const LABEL = '[polymarket-data:sync-positions]'
 
@@ -47,6 +48,9 @@ const LABEL = '[polymarket-data:sync-positions]'
 async function writePositions(market: ClaimedMarket, positions: ApiPosition[]): Promise<void> {
   const db = getDb()
   const rows = dedupePositions(positions)
+  // Atomic rename makes the complete per-market Parquet snapshot visible
+  // before MySQL advertises the market as done. A retry safely replaces it.
+  await writeMarketPositions(market, rows)
   await withDeadlockRetry(
     () => db.transaction((tx) => writePositionsTx(tx, market.id, rows)),
     LABEL,

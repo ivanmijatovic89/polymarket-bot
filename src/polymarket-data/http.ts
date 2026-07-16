@@ -20,6 +20,7 @@ const MAX_RETRIES = 4
 const RETRY_DELAYS_MS = [500, 1500, 4000, 8000]
 const MAX_429_RETRIES = 10
 const DEFAULT_429_BACKOFF_MS = 2000
+const REQUEST_TIMEOUT_MS = 30_000
 
 export class PolymarketHttpError extends Error {
   constructor(
@@ -89,7 +90,14 @@ export async function fetchJson<T>(url: string, opts: JsonFetchOptions): Promise
   for (;;) {
     await opts.limiter.acquire()
     try {
-      const res = await fetch(url, { signal: opts.signal ?? null })
+      // Undici's fetch can otherwise wait indefinitely on a dead connection.
+      // A timeout is a retryable request failure; the caller's shutdown signal
+      // still wins immediately and is never retried.
+      const timeoutSignal = AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      const requestSignal = opts.signal
+        ? AbortSignal.any([opts.signal, timeoutSignal])
+        : timeoutSignal
+      const res = await fetch(url, { signal: requestSignal })
 
       if (res.status === 429) {
         rateLimitRetries += 1

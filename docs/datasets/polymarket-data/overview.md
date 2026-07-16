@@ -1,20 +1,79 @@
 # Polymarket Data — Overview
 
-Every trade and every split / merge / redeem for the crypto up/down markets, pulled from Polymarket's public APIs into our own MySQL, so analysis is a SQL query instead of a few hundred thousand HTTP requests.
+Every trade and every split / merge / redeem for the crypto up/down markets, pulled from Polymarket's public APIs into local Parquet and queried through DuckDB, so analysis is a SQL query instead of a few hundred thousand HTTP requests. MySQL holds only the small resumable catalog and wallet sync state.
 
 Scope: **BTC / ETH / SOL / XRP × 5m / 15m / 1h / 4h / 1d**, from a configurable backfill floor (default `2026-06-01`) to now.
 
 This pipeline is **completely independent of the Telonex pipeline** — its own catalog, its own tables, no joins, no shared state. The two live side by side.
+
+Source selection and the blockchain fallback are documented in [API-First and RPC Fallback](./api-first-and-rpc-fallback.md).
+
+Monthly Parquet compaction is an accepted design but intentionally deferred
+until the hierarchical staging layout and one complete month are validated. The
+implementation trigger and correctness contract are preserved in
+[Monthly Parquet Compaction Plan](./monthly-compaction-plan.md).
+
+Current market-level facts use human-readable Hive staging paths, for example:
+
+```text
+data/polymarket/staging/trades/symbol=btc/timeframe=5m/month=2026-06/<slug>.parquet
+data/polymarket/staging/positions/symbol=btc/timeframe=5m/month=2026-06/<slug>.parquet
+```
+
+DuckDB derives `symbol`, `timeframe`, and `month` from those paths, so an agent
+can filter the fact views directly without first joining the market catalog.
+Per-wallet non-trade activity remains under `data/polymarket/facts/activity/`.
 
 ## Tables
 
 | Table | What's in it |
 |---|---|
 | `polymarket_markets` | Catalog of every market we sync + per-market sync state |
-| `polymarket_trades` | One row per fill side (maker **and** taker) |
-| `polymarket_market_positions` | Final per-wallet outcome per market (`realized_pnl`, `avg_price`, …) |
+| `polymarket_trades` | DuckDB view over Parquet; one row per fill side (maker **and** taker) |
+| `polymarket_market_positions` | DuckDB view over Parquet; final per-wallet outcome per market (`realized_pnl`, `avg_price`, …) |
 | `polymarket_wallets` | Every wallet we've seen + its activity cursor |
-| `polymarket_activity` | SPLIT / MERGE / REDEEM / REWARD / CONVERSION on our markets |
+| `polymarket_activity` | DuckDB view over Parquet; SPLIT / MERGE / REDEEM / REWARD / CONVERSION on our markets |
+
+## June 2026 backfill — results
+
+One-time full backfill of **June 2026** (`--from 2026-06-01 --to 2026-07-01`), run one symbol+timeframe at a time (sequential — never two syncs at once), on a freshly truncated DB.
+
+**Durations time the per-timeframe data stages** (catalog → positions → trades → deep-backfill → verify). The **activity** stage (split/merge/redeem) is run **once at the end** over the whole catalog instead of per-run: activity is wallet-based and global, and running it per-timeframe would make the coverage-rebase re-read every overlapping big trader's full history on each run (big traders appear in all timeframes). Its one-time cost is the separate row below the table.
+
+- **Markets** — markets cataloged for that symbol+timeframe in June.
+- **Done / Partial** — markets that reproduce Gamma's `volumeNum` exactly (`done`) vs. markets still awaiting recovery or investigation (`partial`). A market cannot become `done` until its persisted Parquet snapshot passes the same check.
+- **Trade rows** — fill rows written to `polymarket_trades` (maker + taker).
+- **Deep-backfilled** — markets that hit the `/trades` cap and were rebuilt per-wallet.
+- **Duration** — wall-clock for the data stages of that run.
+
+| Symbol | Timeframe | Markets | Done | Partial | Trade rows | Deep-backfilled | Duration |
+|---|---|---:|---:|---:|---:|---:|---:|
+| btc | 1d  | 30 | 30 | 0 | 223,279 | 22 | phased; 30–50s per deep market |
+| btc | 4h  | — | | | | | _pending_ |
+| btc | 1h  | — | | | | | _pending_ |
+| btc | 15m | — | | | | | _pending_ |
+| btc | 5m  | 6 samples | 6 | 0 | 46,850 | 6 | 1m 39s avg deep-backfill |
+| eth | 1d  | — | | | | | |
+| eth | 4h  | — | | | | | |
+| eth | 1h  | — | | | | | |
+| eth | 15m | — | | | | | |
+| eth | 5m  | — | | | | | |
+| sol | 1d  | — | | | | | |
+| sol | 4h  | — | | | | | |
+| sol | 1h  | — | | | | | |
+| sol | 15m | — | | | | | |
+| sol | 5m  | — | | | | | |
+| xrp | 1d  | — | | | | | |
+| xrp | 4h  | — | | | | | |
+| xrp | 1h  | — | | | | | |
+| xrp | 15m | — | | | | | |
+| xrp | 5m  | — | | | | | |
+| **TOTAL (data stages)** | | | | | | | |
+| _+ activity (once, all)_ | | — | — | — | — | — | _pending_ |
+
+_Current accepted dataset: **BTC 1d plus six BTC 5m benchmark markets**. BTC 1d contains 223,279 trade rows, 17,340 final-position rows, and 5,216 distinct trading wallets across 30 markets. The six 5m benchmarks add 46,850 trades, 11,694 positions, and 5,938 distinct trading wallets. The complete Parquet facts plus DuckDB catalog occupy about 8.1 MB. BTC 4h/1h/15m and the remaining 5m markets and symbols have not started under the accepted API-first Parquet path._
+
+The earlier MySQL and `/activity`-based trade facts were deleted. The table above records only results produced by the accepted per-wallet `/trades` path and its guarded single-wallet overflow recovery.
 
 ## Running a sync — the one command
 
@@ -65,15 +124,19 @@ The wrapper just calls these in order; each is independent and resumable, and on
 | 1 | `polymarket-data:sync-markets` | catalog from Gamma → `polymarket_markets` | `--symbol`, `--timeframe`, `--from`, `--to`, `--full`, `--dry-run` |
 | 2 | `polymarket-data:sync-positions` | `/v1/market-positions` → participants + final PnL | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--latest`, `--concurrency`, `--retry-failed`, `--reset-processing`, `--dry-run` |
 | 3 | `polymarket-data:sync-trades` | `/trades` → every fill; marks `done` or `partial` | same as positions, plus `--retry-partial` |
-| 4 | `polymarket-data:deep-backfill` | rebuild `partial` markets per-wallet via `/activity` | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--latest`, `--wallet-concurrency`, `--dry-run` |
+| 4 | `polymarket-data:deep-backfill` | rebuild `partial` markets via per-wallet `/trades` | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--latest`, `--wallet-concurrency`, `--dry-run` |
 | 5 | `polymarket-data:sync-activity` | `/activity` → split/merge/redeem, per wallet | `--limit`, `--wallet`, `--min-trades`, `--concurrency`, `--full`, `--stale-after`, `--refresh-done`, `--retry-failed`, `--reset-processing`, `--dry-run` |
 | — | `polymarket-data:verify` | audit DB vs API | `--symbol`, `--timeframe`, `--slug`, `--limit`, `--resample`, `--requeue` |
 
 **Step 4 is not optional.** On real crypto markets ~15–20% (higher for BTC 5m) come back `partial` because `/trades` cannot page deep enough, and those markets are missing fills. `sync-trades` refuses to mark such a market `done`; `deep-backfill` is what completes them.
 
+Each deep-backfilled market prints its measured network cost and duration:
+`http_requests` counts actual HTTP attempts including retries, `elapsed` is
+wall-clock time for that market, and `avg_rps` is the effective request rate.
+
 ### How long it takes, and what to sync first
 
-The catalog, positions and trades stages are fast — a few API calls per market. **Deep-backfill is the long pole:** each capped market is rebuilt wallet-by-wallet (hundreds of wallets), ~10–30s per market depending on `POLYMARKET_DATA_ACTIVITY_RPS`. So the total time is driven almost entirely by how many markets hit the `/trades` cap.
+The catalog, positions and trades stages are fast — a few API calls per market. **Deep-backfill is the long pole:** each capped market is rebuilt wallet-by-wallet (hundreds of wallets) under `POLYMARKET_DATA_TRADES_RPS`. So the total time is driven almost entirely by how many markets hit the `/trades` cap.
 
 Measured cap-hit rate (share of markets needing deep-backfill), from real data:
 
@@ -97,7 +160,7 @@ npm run polymarket-data:sync -- --timeframe 15m --from 2026-06-01 --to 2026-07-0
 # 3) 5m for the light symbols — also fast
 npm run polymarket-data:sync -- --symbol eth,sol,xrp --timeframe 5m --from 2026-06-01 --to 2026-07-01
 
-# 4) the long pole — BTC 5m — let it run (raise ACTIVITY_RPS to speed it up)
+# 4) the long pole — BTC 5m — let it run (raise TRADES_RPS cautiously to speed it up)
 npm run polymarket-data:sync -- --symbol btc --timeframe 5m --from 2026-06-01 --to 2026-07-01
 ```
 
@@ -109,8 +172,8 @@ Budgets are requests/second, enforced by a shared token bucket across all worker
 
 | Env var | Default | Cap | Raise it when |
 |---|---|---|---|
-| `POLYMARKET_DATA_ACTIVITY_RPS` | 60 | ~100/s | a big backfill is slow — this is the main lever (deep-backfill + activity) |
-| `POLYMARKET_DATA_TRADES_RPS` | 15 | ~20/s | positions/trades feel slow |
+| `POLYMARKET_DATA_ACTIVITY_RPS` | 60 | ~100/s | non-trade wallet activity is slow |
+| `POLYMARKET_DATA_TRADES_RPS` | 15 | ~20/s | positions, trades, or per-wallet deep-backfill are slow; try 18/s while watching for 429s |
 | `POLYMARKET_DATA_GAMMA_RPS` | 10 | — | rarely; the catalog is already fast |
 
 Set them in `.env`, e.g. `POLYMARKET_DATA_ACTIVITY_RPS=90`, and re-run. If you start seeing sustained 429 warnings, dial back.
@@ -246,7 +309,7 @@ ORDER BY 1, 2;
 | `POLYMARKET_DATA_BACKFILL_FROM` | `2026-06-01T00:00:00Z` | Oldest market to sync |
 | `POLYMARKET_DATA_MIN_CLOSE_AGE_MS` | `3600000` | Wait this long after a market closes before syncing it |
 | `POLYMARKET_DATA_TRADES_RPS` | `15` | Request budget for `/trades` + `/v1/market-positions` |
-| `POLYMARKET_DATA_ACTIVITY_RPS` | `60` | Request budget for `/activity` (the deep-backfill lever) |
+| `POLYMARKET_DATA_ACTIVITY_RPS` | `60` | Request budget for non-trade `/activity` sync |
 | `POLYMARKET_DATA_GAMMA_RPS` | `10` | Request budget for Gamma |
 | `POLYMARKET_DATA_API_URL` | `https://data-api.polymarket.com` | Data API base |
 | `POLYMARKET_DATA_GAMMA_API_URL` | `https://gamma-api.polymarket.com` | Gamma base |

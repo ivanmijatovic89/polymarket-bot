@@ -186,3 +186,63 @@ export async function fetchActivity(
     }
   }
 }
+
+/**
+ * Fetch a bounded activity range without ever using offset pagination.
+ *
+ * A full page is split into disjoint timestamp windows recursively. Live API
+ * checks confirmed that both `start` and `end` are inclusive (including a
+ * one-second `start === end` query), so `[start, mid]` + `[mid + 1, end]` has no
+ * gap or overlap. Every request remains at offset zero and genuinely identical
+ * rows within one response survive.
+ *
+ * This is intentionally separate from the cursor walker above. It is the rare
+ * fallback for one wallet/market whose `/trades` scope itself exceeds the cap.
+ */
+export async function fetchActivityTimeSliced(
+  q: ActivityQuery & { startSec: number; endSec: number },
+  opts: ActivityFetchOptions,
+): Promise<ApiActivity[]> {
+  const startSec = Math.max(1, Math.trunc(q.startSec))
+  const endSec = Math.trunc(q.endSec)
+  if (endSec < startSec) {
+    throw new Error(`activity time slice end ${endSec} precedes start ${startSec}`)
+  }
+
+  const pages: ApiActivity[][] = []
+  const scan = async (start: number, end: number): Promise<void> => {
+    const url = buildUrl({ ...q, endSec: end }, 0, start)
+    const page = await fetchJson<ApiActivity[]>(url, {
+      limiter: opts.limiter,
+      ...(opts.signal ? { signal: opts.signal } : {}),
+      ...(opts.label ? { label: opts.label } : {}),
+    })
+    if (!Array.isArray(page)) throw new Error('activity time slice returned a non-array response')
+    for (const row of page) {
+      if (row.timestamp < start || row.timestamp > end) {
+        throw new Error(
+          `activity time slice returned ${row.timestamp}s outside requested ${start}..${end}s`,
+        )
+      }
+    }
+    if (page.length < PAGE_LIMIT) {
+      pages.push(page)
+      return
+    }
+    if (start === end) {
+      throw new Error(
+        `activity time slice cannot split ${start}s: at least ${PAGE_LIMIT} rows share one second`,
+      )
+    }
+    const mid = Math.floor((start + end) / 2)
+    await scan(start, mid)
+    await scan(mid + 1, end)
+  }
+  await scan(startSec, endSec)
+
+  const out = pages.flat()
+  out.sort(
+    (a, b) => a.timestamp - b.timestamp || activityIdentity(a).localeCompare(activityIdentity(b)),
+  )
+  return out
+}

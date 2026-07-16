@@ -38,37 +38,43 @@ import {
 import { parseSyncArgs, queueFilterOf } from './syncArgs.js'
 import { buildTradeRows, tradeCompleteness, type TradeRow } from './tradeRows.js'
 import { upsertWallets } from './walletUpsert.js'
+import { marketVerification, writeMarketTrades } from './storage/parquetFacts.js'
+import { assertMarketSnapshot } from './marketSnapshotVerification.js'
 
 const LABEL = '[polymarket-data:sync-trades]'
-const INSERT_CHUNK = 1000
-
 async function writeTrades(
   market: ClaimedMarket,
   rows: TradeRow[],
-  stats: { volumeTraded: number; wallets: number; partial: boolean; error: string | null },
+  stats: {
+    volumeTraded: number
+    sharesVolume: number
+    wallets: number
+    complete: boolean | null
+    partial: boolean
+    error: string | null
+  },
 ): Promise<void> {
   const db = getDb()
+
+  // Facts live in Parquet. Publish the complete market snapshot atomically,
+  // then keep only its small status/summary record in MySQL.
+  await writeMarketTrades(market, rows)
+  const persisted = await marketVerification(market)
+  assertMarketSnapshot(
+    market.slug,
+    {
+      rows: rows.length,
+      wallets: stats.wallets,
+      sharesVolume: stats.sharesVolume,
+      complete: stats.complete,
+      volumeGamma: market.volumeGamma,
+    },
+    persisted,
+  )
 
   await withDeadlockRetry(
     () =>
       db.transaction(async (tx) => {
-        await tx.execute(sql`DELETE FROM polymarket_trades WHERE market_id = ${market.id}`)
-
-        for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-          const chunk = rows.slice(i, i + INSERT_CHUNK)
-          const values = chunk.map(
-            (r) =>
-              sql`(${market.id}, ${r.wallet}, ${r.side}, ${r.outcomeIndex}, ${r.asset},
-               ${r.size.toFixed(6)}, ${r.price.toFixed(6)}, ${r.usdcSize.toFixed(6)},
-               ${r.isTaker ? 1 : 0}, ${r.tsMs}, ${r.txHash})`,
-          )
-          await tx.execute(
-            sql`INSERT INTO polymarket_trades
-              (market_id, wallet, side, outcome_index, asset, size, price, usdc_size, is_taker, ts_ms, tx_hash)
-            VALUES ${sql.join(values, sql`, `)}`,
-          )
-        }
-
         await tx.execute(
           sql`UPDATE polymarket_markets
           SET trades_status = ${stats.partial ? 'partial' : 'done'},
@@ -169,6 +175,11 @@ async function main(): Promise<void> {
         for (const w of built.warnings) {
           console.warn(`${LABEL} WARN ${market.slug}: ${w}`)
         }
+        if (built.foreignRows > 0) {
+          throw new Error(
+            `${built.foreignRows} API trade row(s) failed the condition-id verification`,
+          )
+        }
 
         // Two INDEPENDENT dimensions:
         //   - row completeness (built.complete) drives `partial`; only proven
@@ -178,7 +189,7 @@ async function main(): Promise<void> {
         //     holds), but the diagnostic is always recorded — never cleared.
         const { partial, error } = tradeCompleteness({
           complete: built.complete,
-          takerCapped: taker.capped,
+          takerCapped: taker.capped || built.unmatchedTakers > 0,
           shortRowsNote: all.capped
             ? 'fills missing (offset cap); awaiting deep-backfill'
             : 'fills missing (invariant failed); awaiting deep-backfill',
@@ -186,7 +197,9 @@ async function main(): Promise<void> {
 
         await writeTrades(market, built.rows, {
           volumeTraded: built.volumeTraded,
+          sharesVolume: built.sharesVolume,
           wallets: built.wallets,
+          complete: built.complete,
           partial,
           error,
         })
@@ -201,7 +214,7 @@ async function main(): Promise<void> {
               `wallets=${built.wallets} vol=${built.volumeTraded.toFixed(0)}` +
               (all.usedSideSplit ? ' side-split' : '') +
               (partial ? ' PARTIAL' : ' ✓complete') +
-              (taker.capped ? ' taker-cap' : ''),
+              (taker.capped || built.unmatchedTakers > 0 ? ' taker-incomplete' : ''),
           ),
         )
       } catch (err) {
@@ -221,7 +234,7 @@ async function main(): Promise<void> {
   const reverted = await revertOwnedClaims('trades', [...inFlight])
 
   // NOTE: wallet trade_count / first/last-trade are NOT recomputed here. They
-  // are derived from the whole polymarket_trades table (6M+ rows, ~50s), and
+  // are derived from all trade Parquet files, and
   // doing it after every stage invocation — the wrapper runs this stage once per
   // symbol/timeframe — wasted tens of minutes re-aggregating unchanged data. The
   // refresh now runs once, at the start of sync-activity, which is the only

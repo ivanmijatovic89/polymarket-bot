@@ -41,6 +41,9 @@ export type BuildResult = {
    * reports no volume but rows exist). Only `true` may become `done`.
    */
   complete: boolean | null
+  foreignRows: number
+  lateRows: number
+  unmatchedTakers: number
   warnings: string[]
 }
 
@@ -239,5 +242,16 @@ export function buildTradeRows(input: BuildInput): BuildResult {
     warnings.push('UNVERIFIABLE: Gamma reports no volume for this market but trades exist')
   }
 
-  return { rows, volumeTraded, sharesVolume, wallets: wallets.size, takerRows, complete, warnings }
+  return {
+    rows,
+    volumeTraded,
+    sharesVolume,
+    wallets: wallets.size,
+    takerRows,
+    complete,
+    foreignRows: foreign,
+    lateRows,
+    unmatchedTakers,
+    warnings,
+  }
 }

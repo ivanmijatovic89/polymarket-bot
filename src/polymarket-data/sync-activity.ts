@@ -46,10 +46,10 @@ import { parseArgs, type Args } from './syncActivityArgs.js'
 import { refreshWalletStats } from './walletUpsert.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from '../db/claimQueue.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
+import { writeWalletActivity } from './storage/parquetFacts.js'
 
 const LABEL = '[polymarket-data:sync-activity]'
 const CLAIM_CANDIDATES = 50
-const INSERT_CHUNK = 500
 const EMPTY_CLAIM_BACKOFF_MS = 500
 
 /**
@@ -152,30 +152,11 @@ async function writeActivity(
 ): Promise<void> {
   const db = getDb()
 
+  await writeWalletActivity(wallet, rows)
+
   await withDeadlockRetry(
     () =>
       db.transaction(async (tx) => {
-        for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-          const chunk = rows.slice(i, i + INSERT_CHUNK)
-          const values = chunk.map(
-            ({ row, marketId, key }) =>
-              sql`(${wallet}, ${row.type}, ${marketId}, ${row.conditionId},
-                   ${row.size ?? null}, ${row.usdcSize ?? null}, ${row.outcomeIndex ?? null},
-                   ${row.timestamp * 1000}, ${row.transactionHash ?? null}, ${key})`,
-          )
-          // Duplicate-specific idempotency. `ON DUPLICATE KEY UPDATE dedup_key =
-          // dedup_key` no-ops on the overlap the cursor deliberately re-reads,
-          // but — unlike `INSERT IGNORE` — does NOT swallow truncation / invalid
-          // / out-of-range errors into warnings and store coerced data. Those
-          // now abort the transaction so a data problem is surfaced, not hidden.
-          await tx.execute(
-            sql`INSERT INTO polymarket_activity
-                  (wallet, type, market_id, condition_id, size, usdc_size, outcome_index, ts_ms, tx_hash, dedup_key)
-                VALUES ${sql.join(values, sql`, `)}
-                ON DUPLICATE KEY UPDATE dedup_key = dedup_key`,
-          )
-        }
-
         await tx.execute(
           sql`UPDATE polymarket_wallets
               SET activity_status = 'done',
@@ -224,13 +205,6 @@ async function rebaseExpandedCoverage(
           sql`, `,
         )})`
       : sql``
-  const namedParticipantScope =
-    wallets && wallets.length > 0
-      ? sql`WHERE wallet IN (${sql.join(
-          wallets.map((wallet) => sql`${wallet}`),
-          sql`, `,
-        )})`
-      : sql``
   const tradeFloorScope = minTrades > 0 ? sql`AND w.trade_count >= ${minTrades}` : sql``
   const gateTradeFloorScope = minTrades > 0 ? sql`AND trade_count >= ${minTrades}` : sql``
   const updateTradeFloorScope = minTrades > 0 ? sql`AND trade_count >= ${minTrades}` : sql``
@@ -258,24 +232,23 @@ async function rebaseExpandedCoverage(
       return 0
   }
 
-  // Affected wallets, discovered through trades OR positions. Each gets the
-  // full-history cursor because market activity can precede market_start_ms.
+  // A historical catalog expansion is rare, so prefer the simple conservative
+  // repair: rebase every eligible wallet whose previous sync predates an older
+  // newly-cataloged market. This avoids coupling queue bookkeeping back to the
+  // Parquet fact files. Stable activity dedup keys make the extra re-read safe.
   const affected = await db.execute(
-    sql`SELECT p.wallet AS wallet, ${FULL_HISTORY_CURSOR_MS} AS rebase_ms
-        FROM (
-          SELECT DISTINCT wallet, market_id FROM polymarket_trades ${namedParticipantScope}
-          UNION
-          SELECT DISTINCT wallet, market_id FROM polymarket_market_positions ${namedParticipantScope}
-        ) p
-        JOIN polymarket_markets m ON m.id = p.market_id
-        JOIN polymarket_wallets w ON w.wallet = p.wallet
+    sql`SELECT w.wallet AS wallet, ${FULL_HISTORY_CURSOR_MS} AS rebase_ms
+        FROM polymarket_wallets w
         WHERE w.activity_status IN (${rebaseStatuses()})
           AND w.activity_synced_at IS NOT NULL
-          AND m.synced_at > w.activity_synced_at
-          AND m.market_start_ms < w.activity_cursor_ts - ${CURSOR_OVERLAP_MS}
+          AND EXISTS (
+            SELECT 1 FROM polymarket_markets m
+            WHERE m.synced_at > w.activity_synced_at
+              AND m.market_start_ms < w.activity_cursor_ts - ${CURSOR_OVERLAP_MS}
+          )
           ${tradeFloorScope}
           ${namedScope}
-        GROUP BY p.wallet`,
+        ORDER BY w.wallet`,
   )
   const rows =
     (affected as unknown as Array<Array<{ wallet: string; rebase_ms: number | string }>>)[0] ?? []
@@ -347,7 +320,7 @@ async function main(): Promise<void> {
   // threshold is filtered out on a stale count and, when nothing else is
   // pending, never refreshed, so it stays undiscovered indefinitely.
   //
-  // It is a full aggregation of polymarket_trades (index-backed, ~3s), so we
+  // It is a full DuckDB aggregation of the trade Parquet files, so we
   // still skip it when it cannot matter: dry-run (read-only) and named-wallet
   // runs (explicit wallets, no threshold/ordering), or a plain drain with
   // nothing pending and no requeue requested.

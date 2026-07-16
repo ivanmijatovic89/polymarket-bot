@@ -15,6 +15,7 @@ export const STAGE_KEYS = [
   'backfill',
   'activity',
   'verify',
+  'catalog',
 ] as const
 export type StageKey = (typeof STAGE_KEYS)[number]
 
@@ -209,5 +210,8 @@ export function plan(args: Args): Step[] {
   }
 
   add('verify', 'verify.ts', (sel) => [...sel, '--resample', String(args.resample)])
+  if (!args.skip.has('catalog')) {
+    steps.push({ stage: 'catalog', script: 'catalog.ts', args: [] })
+  }
   return steps
 }

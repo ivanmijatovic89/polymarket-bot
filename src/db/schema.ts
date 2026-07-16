@@ -527,72 +527,6 @@ export const polymarketMarkets = mysqlTable(
   }),
 )
 
-// One row per fill side. A single match produces one taker row and N maker
-// rows sharing a `tx_hash` — GROUP BY tx_hash reconstructs the whole match with
-// all counterparties.
-//
-// The API gives these rows no unique id, so they are never deduped row-by-row:
-// a market's rows are written whole (delete + insert) inside one transaction.
-export const polymarketTrades = mysqlTable(
-  'polymarket_trades',
-  {
-    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
-    marketId: int('market_id')
-      .notNull()
-      .references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
-    wallet: varchar('wallet', { length: 42 }).notNull(),
-    side: mysqlEnum('side', ['BUY', 'SELL']).notNull(),
-    outcomeIndex: int('outcome_index'),
-    asset: varchar('asset', { length: 80 }).notNull(),
-    size: decimal('size', { precision: 18, scale: 6 }).notNull(),
-    price: decimal('price', { precision: 8, scale: 6 }).notNull(),
-    usdcSize: decimal('usdc_size', { precision: 18, scale: 6 }).notNull(),
-    isTaker: boolean('is_taker').notNull().default(false),
-    tsMs: bigint('ts_ms', { mode: 'number' }).notNull(),
-    txHash: varchar('tx_hash', { length: 66 }).notNull(),
-  },
-  (t) => ({
-    marketIdx: index('idx_polymarket_trades_market').on(t.marketId),
-    walletTsIdx: index('idx_polymarket_trades_wallet_ts').on(t.wallet, t.tsMs),
-    txHashIdx: index('idx_polymarket_trades_tx_hash').on(t.txHash),
-    tsIdx: index('idx_polymarket_trades_ts').on(t.tsMs),
-    // Covering index for the per-wallet stats aggregation in refreshWalletStats
-    // (COUNT(*), COUNT(DISTINCT market_id), MIN/MAX(ts_ms) GROUP BY wallet).
-    // Makes it index-only: 128s → 3s on 6M rows.
-    walletStatsIdx: index('idx_polymarket_trades_wallet_market_ts').on(
-      t.wallet,
-      t.marketId,
-      t.tsMs,
-    ),
-  }),
-)
-
-// Final per-wallet outcome for a market, from /v1/market-positions. Complete
-// even for markets whose /trades pages are capped, so this is also how the deep
-// backfill discovers every participant.
-export const polymarketMarketPositions = mysqlTable(
-  'polymarket_market_positions',
-  {
-    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
-    marketId: int('market_id')
-      .notNull()
-      .references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
-    wallet: varchar('wallet', { length: 42 }).notNull(),
-    asset: varchar('asset', { length: 80 }).notNull(),
-    outcomeIndex: int('outcome_index'),
-    finalSize: decimal('final_size', { precision: 18, scale: 6 }),
-    avgPrice: decimal('avg_price', { precision: 8, scale: 6 }),
-    totalBought: decimal('total_bought', { precision: 18, scale: 6 }),
-    realizedPnl: decimal('realized_pnl', { precision: 18, scale: 6 }),
-    cashPnl: decimal('cash_pnl', { precision: 18, scale: 6 }),
-  },
-  (t) => ({
-    uniqPosition: unique('uniq_polymarket_market_positions').on(t.marketId, t.wallet, t.asset),
-    marketIdx: index('idx_polymarket_market_positions_market').on(t.marketId),
-    walletIdx: index('idx_polymarket_market_positions_wallet').on(t.wallet),
-  }),
-)
-
 // Every wallet seen trading or holding a position in our markets, plus its
 // activity-sync cursor. Wallets stay re-claimable so later runs pick up late
 // redeems.
@@ -622,34 +556,6 @@ export const polymarketWallets = mysqlTable(
       t.activityStatus,
       t.tradeCount,
     ),
-  }),
-)
-
-// Non-trade activity (SPLIT / MERGE / REDEEM / REWARD / CONVERSION …) on our
-// markets. `type` is a varchar, not an enum: the API may add types and we store
-// whatever it sends.
-//
-// `dedup_key` + INSERT IGNORE makes the cursor's deliberate re-fetch overlap
-// idempotent.
-export const polymarketActivity = mysqlTable(
-  'polymarket_activity',
-  {
-    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
-    wallet: varchar('wallet', { length: 42 }).notNull(),
-    type: varchar('type', { length: 20 }).notNull(),
-    marketId: int('market_id').references(() => polymarketMarkets.id, { onDelete: 'cascade' }),
-    conditionId: varchar('condition_id', { length: 66 }).notNull(),
-    size: decimal('size', { precision: 18, scale: 6 }),
-    usdcSize: decimal('usdc_size', { precision: 18, scale: 6 }),
-    outcomeIndex: int('outcome_index'),
-    tsMs: bigint('ts_ms', { mode: 'number' }).notNull(),
-    txHash: varchar('tx_hash', { length: 66 }),
-    dedupKey: varchar('dedup_key', { length: 40 }).notNull(),
-  },
-  (t) => ({
-    uniqDedup: unique('uniq_polymarket_activity_dedup').on(t.dedupKey),
-    marketTypeIdx: index('idx_polymarket_activity_market_type').on(t.marketId, t.type),
-    walletTsIdx: index('idx_polymarket_activity_wallet_ts').on(t.wallet, t.tsMs),
   }),
 )
 

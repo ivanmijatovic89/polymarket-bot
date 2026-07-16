@@ -13,6 +13,7 @@ const DEFAULT_BACKFILL_FROM_ISO = '2026-06-01T00:00:00Z'
 const DEFAULT_GAMMA_API_URL = 'https://gamma-api.polymarket.com'
 const DEFAULT_DATA_API_URL = 'https://data-api.polymarket.com'
 const DEFAULT_MIN_CLOSE_AGE_MS = 60 * 60 * 1000
+const DEFAULT_STORAGE_DIR = 'data/polymarket'
 
 function envString(name: string, fallback: string): string {
   const raw = (process.env[name] ?? '').trim()
@@ -69,11 +70,17 @@ export const POLYMARKET_DATA_MIN_CLOSE_AGE_MS = envNumber(
  * Requests/second budgets. Documented API caps: Data API `/trades` 200 req/10s
  * (= 20/s); general Data API 1000 req/10s (= 100/s), which covers `/activity`.
  *
- * `/activity` is what deep-backfill hammers — hundreds of calls per capped
- * market — so its budget is the main throughput lever. Defaults leave headroom
- * (a 429 is honoured with backoff and doesn't burn the retry budget), and each
- * can be raised via env when a big one-time backfill needs to run faster.
+ * Deep-backfill partitions `/trades` by wallet and therefore shares the trades
+ * budget. `/activity` is reserved for non-trade wallet events. Defaults leave
+ * headroom (a 429 is honoured with backoff and doesn't burn the retry budget),
+ * and each can be raised via env when a big one-time backfill needs to run faster.
  */
 export const POLYMARKET_DATA_GAMMA_RPS = envNumber('POLYMARKET_DATA_GAMMA_RPS', 10)
 export const POLYMARKET_DATA_TRADES_RPS = envNumber('POLYMARKET_DATA_TRADES_RPS', 15)
 export const POLYMARKET_DATA_ACTIVITY_RPS = envNumber('POLYMARKET_DATA_ACTIVITY_RPS', 60)
+
+/** Local Parquet facts and the generated DuckDB catalog. */
+export const POLYMARKET_DATA_STORAGE_DIR = envString(
+  'POLYMARKET_DATA_STORAGE_DIR',
+  DEFAULT_STORAGE_DIR,
+)

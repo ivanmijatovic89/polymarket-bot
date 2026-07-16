@@ -33,11 +33,24 @@ import '../config/env.js'
 import { sql } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { POLYMARKET_DATA_TRADES_RPS } from '../config/polymarketData.js'
+import { fetchActivityTimeSliced } from './activityApi.js'
 import { RateLimiter } from './rateLimiter.js'
-import { fetchMarketPositions, fetchMarketTrades } from './dataApi.js'
+import {
+  fetchMarketPositions,
+  fetchMarketTrades,
+  fetchWalletTakerTrades,
+  fetchWalletTrades,
+} from './dataApi.js'
+import { reconstructOverflowWalletTrades } from './overflowWalletTrades.js'
 import { completenessToleranceShares } from './tradeRows.js'
 import { resampleVerdict } from './resampleVerdict.js'
 import { parseArgs, type Args } from './verifyArgs.js'
+import {
+  marketVerification,
+  marketWalletAggregates,
+  tradeAggregates,
+} from './storage/parquetFacts.js'
+import { walletAggregateVerdict } from './walletAggregateVerdict.js'
 
 const LABEL = '[polymarket-data:verify]'
 
@@ -59,6 +72,9 @@ function selection(args: Args) {
 type InvariantRow = {
   id: number
   slug: string
+  symbol: string
+  timeframe: string
+  market_start_ms: number
   condition_id: string
   trades_status: string
   trades_source: string | null
@@ -73,20 +89,39 @@ type InvariantRow = {
 async function checkInvariant(args: Args): Promise<InvariantRow[]> {
   const db = getDb()
   const res = await db.execute(
-    sql`SELECT m.id, m.slug, m.condition_id, m.trades_status, m.trades_source,
-               COUNT(t.id) AS trade_rows,
-               SUM(t.size) / 2 AS shares_volume,
-               m.volume_gamma,
-               (SUM(t.size) / 2 - m.volume_gamma) / NULLIF(m.volume_gamma, 0) * 100 AS drift_pct,
-               ABS(SUM(t.size) / 2 - m.volume_gamma) AS abs_diff
+    sql`SELECT m.id, m.slug, m.symbol, m.timeframe, m.market_start_ms,
+               m.condition_id, m.trades_status, m.trades_source,
+               m.volume_gamma
         FROM polymarket_markets m
-        LEFT JOIN polymarket_trades t ON t.market_id = m.id
         WHERE ${selection(args)}
-        GROUP BY m.id
-        ORDER BY ABS(COALESCE(SUM(t.size) / 2 - m.volume_gamma, 0)) DESC
-        ${args.limit ? sql`LIMIT ${args.limit}` : sql``}`,
+        ORDER BY m.id`,
   )
-  return ((res as unknown as InvariantRow[][])[0] ?? []) as InvariantRow[]
+  const aggregates = await tradeAggregates()
+  const rows = (
+    (
+      res as unknown as Array<
+        Array<Omit<InvariantRow, 'trade_rows' | 'shares_volume' | 'drift_pct' | 'abs_diff'>>
+      >
+    )[0] ?? []
+  ).map((market): InvariantRow => {
+    const aggregate = aggregates.get(Number(market.id))
+    const shares = aggregate?.sharesVolume ?? null
+    const gamma = market.volume_gamma === null ? null : Number(market.volume_gamma)
+    const diff = shares === null || gamma === null ? null : Math.abs(shares - gamma)
+    const drift =
+      shares === null || gamma === null || gamma === 0 ? null : ((shares - gamma) / gamma) * 100
+    return {
+      ...market,
+      id: Number(market.id),
+      trade_rows: aggregate?.rows ?? 0,
+      shares_volume: shares === null ? null : String(shares),
+      volume_gamma: gamma === null ? null : String(gamma),
+      drift_pct: drift === null ? null : String(drift),
+      abs_diff: diff === null ? null : String(diff),
+    }
+  })
+  rows.sort((a, b) => Number(b.abs_diff ?? 0) - Number(a.abs_diff ?? 0))
+  return args.limit ? rows.slice(0, args.limit) : rows
 }
 
 async function main(): Promise<number> {
@@ -185,27 +220,19 @@ async function main(): Promise<number> {
     const sample = [...bad, ...rows.filter((r) => !bad.includes(r))].slice(0, args.resample)
     console.log(`${LABEL} resampling ${sample.length} market(s) against the live API…`)
 
-    const db = getDb()
     for (const r of sample) {
       const live = await fetchMarketTrades(r.condition_id, { limiter, label: LABEL })
       const positions = await fetchMarketPositions(r.condition_id, { limiter, label: LABEL })
       const liveShares = live.trades.reduce((sum, t) => sum + t.size, 0) / 2
 
-      const stored = await db.execute(
-        sql`SELECT COUNT(*) AS rows_, COUNT(DISTINCT wallet) AS wallets,
-                   (SELECT COUNT(*) FROM polymarket_market_positions WHERE market_id = ${r.id}) AS positions
-            FROM polymarket_trades WHERE market_id = ${r.id}`,
-      )
-      const s = ((stored as unknown as Array<Record<string, number>>[])[0] ?? [])[0] ?? {}
-
-      // Position IDENTITIES, not just counts: equal counts don't prove equal
-      // participant sets. resampleVerdict normalizes wallet casing.
-      const storedPos = await db.execute(
-        sql`SELECT wallet, asset FROM polymarket_market_positions WHERE market_id = ${r.id}`,
-      )
-      const storedPositions = (
-        (storedPos as unknown as Array<Array<{ wallet: string; asset: string }>>)[0] ?? []
-      ).map((p) => ({ wallet: p.wallet, asset: p.asset }))
+      const stored = await marketVerification({
+        id: r.id,
+        slug: r.slug,
+        symbol: r.symbol,
+        timeframe: r.timeframe,
+        marketStartMs: Number(r.market_start_ms),
+      })
+      const storedPositions = stored.positions
       const livePositions = positions.map((p) => ({ wallet: p.proxyWallet, asset: p.asset }))
 
       // Cross-check the two independently-sourced tables: every wallet that
@@ -215,34 +242,87 @@ async function main(): Promise<number> {
       // real defect. (We DON'T reconcile avg_price/total_bought here: those are
       // cost-basis figures shaped by sells and splits, so they legitimately
       // differ from a naive buy-average and would produce false alarms.)
-      const orphan = await db.execute(
-        sql`SELECT COUNT(*) AS n FROM (
-              SELECT DISTINCT wallet FROM polymarket_trades WHERE market_id = ${r.id}
-            ) tw
-            WHERE NOT EXISTS (
-              SELECT 1 FROM polymarket_market_positions p
-              WHERE p.market_id = ${r.id} AND p.wallet = tw.wallet
-            )`,
-      )
-      const orphanWallets = Number(
-        (orphan as unknown as Array<Array<{ n: number }>>)[0]?.[0]?.n ?? 0,
-      )
-
       const verdict = resampleVerdict({
-        storedRows: Number(s.rows_ ?? 0),
+        storedRows: stored.tradeRows,
         liveRows: live.trades.length,
         storedPositions,
         livePositions,
-        orphanWallets,
+        orphanWallets: stored.orphanWallets,
       })
       if (!verdict.ok) integrityOk = false
       console.log(
         `${LABEL}   ${verdict.ok ? '✓' : '✗'} ${r.slug} ` +
-          `stored_rows=${s.rows_} live_rows=${live.trades.length}${live.capped ? '(capped)' : ''} ` +
-          `stored_positions=${s.positions} live_positions=${positions.length} ` +
+          `stored_rows=${stored.tradeRows} live_rows=${live.trades.length}${live.capped ? '(capped)' : ''} ` +
+          `stored_positions=${stored.positions.length} live_positions=${positions.length} ` +
           `stored_shares/2=${Number(r.shares_volume ?? 0).toFixed(0)} live_shares/2=${liveShares.toFixed(0)}` +
           (verdict.notes.length > 0 ? ` ⚠ ${verdict.notes.join('; ')}` : ''),
       )
+
+      const walletSamples = await marketWalletAggregates(
+        {
+          id: r.id,
+          slug: r.slug,
+          symbol: r.symbol,
+          timeframe: r.timeframe,
+          marketStartMs: Number(r.market_start_ms),
+        },
+        args.walletResample,
+      )
+      for (const storedWallet of walletSamples) {
+        const liveWalletResult = await fetchWalletTrades(r.condition_id, storedWallet.wallet, {
+          limiter,
+          label: LABEL,
+        })
+        let liveWalletRows = liveWalletResult.trades
+        let overflowRecovered = false
+        if (liveWalletResult.capped) {
+          const takerResult = await fetchWalletTakerTrades(r.condition_id, storedWallet.wallet, {
+            limiter,
+            label: LABEL,
+          })
+          if (takerResult.capped) {
+            integrityOk = false
+            console.error(
+              `${LABEL}     ✗ wallet ${storedWallet.wallet.slice(0, 10)}… ` +
+                'cannot be verified exactly: both full and taker trade scopes are capped',
+            )
+            continue
+          }
+          const activities = await fetchActivityTimeSliced(
+            {
+              wallet: storedWallet.wallet,
+              conditionId: r.condition_id,
+              types: ['TRADE'],
+              startSec: 1,
+              endSec: Math.ceil(Date.now() / 1000),
+            },
+            { limiter, label: LABEL },
+          )
+          liveWalletRows = reconstructOverflowWalletTrades({
+            wallet: storedWallet.wallet,
+            conditionId: r.condition_id,
+            activities,
+            visibleTrades: liveWalletResult.trades,
+            takerTrades: takerResult.trades,
+          })
+          overflowRecovered = true
+        }
+        const liveWallet = liveWalletRows.reduce(
+          (sum, row) => ({
+            rows: sum.rows + 1,
+            size: sum.size + row.size,
+            usdcSize: sum.usdcSize + row.size * row.price,
+          }),
+          { rows: 0, size: 0, usdcSize: 0 },
+        )
+        const walletVerdict = walletAggregateVerdict(storedWallet, liveWallet)
+        if (!walletVerdict.ok) integrityOk = false
+        console.log(
+          `${LABEL}     ${walletVerdict.ok ? '✓' : '✗'} wallet ${storedWallet.wallet.slice(0, 10)}… ` +
+            `${walletVerdict.note} rows=${storedWallet.rows}/${liveWallet.rows}` +
+            (overflowRecovered ? ' overflow-recovered' : ''),
+        )
+      }
     }
   }
 

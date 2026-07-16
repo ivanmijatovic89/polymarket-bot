@@ -42,6 +42,16 @@ test('tokens refill over elapsed time without sleeping', async () => {
   assert.equal(clock.t, before, 'a refilled bucket should not sleep')
 })
 
+test('requestCount reports every admitted request attempt', async () => {
+  const clock = fakeClock()
+  const limiter = new RateLimiter(10, 10, clock.now, clock.sleep)
+
+  assert.equal(limiter.requestCount, 0)
+  await limiter.acquire()
+  await limiter.acquire()
+  assert.equal(limiter.requestCount, 2)
+})
+
 test('rate must be positive', () => {
   assert.throws(() => new RateLimiter(0), /ratePerSecond/)
 })

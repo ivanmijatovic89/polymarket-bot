@@ -10,14 +10,13 @@
  * their volume. Without this stage the dataset would be quietly incomplete
  * exactly where the action is.
  *
- * How it escapes the cap: `/activity` is per-wallet, and per-wallet it honours
- * time filters and ASC sort, so each wallet's fills can be walked completely.
- * Verified equivalent to `/trades` on a fully-synced market — same rows, same
- * USDC, maker fills included. Participants come from `/v1/market-positions`,
- * which is complete even when `/trades` is capped (and is a superset of the
- * wallets `/trades` shows).
+ * How it escapes the cap: `/trades` supports `user` + `market`, so a capped
+ * market is partitioned by its complete position-participant set. This keeps
+ * the canonical per-fill representation and avoids `/activity`'s overlapping
+ * pagination and aggregated taker rows. Measured on two BTC daily markets, the
+ * partitioned result reproduced Gamma volume exactly (7,660 and 13,221 rows).
  *
- *   participants (positions ∪ known trades) → per-wallet /activity?type=TRADE
+ *   participants (positions ∪ known trades) → per-wallet /trades?takerOnly=false
  *   → whole-market replace → trades_source='deep-backfill'
  *
  * Usage:
@@ -35,13 +34,18 @@ import { sql, type SQL } from 'drizzle-orm'
 import { getDb, closeDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
 import { shuffleInPlace } from '../db/claimQueue.js'
-import { POLYMARKET_DATA_ACTIVITY_RPS } from '../config/polymarketData.js'
+import { POLYMARKET_DATA_TRADES_RPS } from '../config/polymarketData.js'
 import { RateLimiter } from './rateLimiter.js'
-import { fetchActivity } from './activityApi.js'
-import { buildReconstructedRows, type ReconstructedRow } from './reconstruct.js'
-import { fetchMarketPositions, fetchMarketTakerTrades } from './dataApi.js'
+import { fetchActivityTimeSliced } from './activityApi.js'
+import {
+  fetchMarketPositions,
+  fetchMarketTakerTrades,
+  fetchWalletTakerTrades,
+  fetchWalletTrades,
+  type ApiTrade,
+} from './dataApi.js'
 import { fmtDuration, ProgressTracker } from './marketQueue.js'
-import { completenessToleranceShares, tradeCompleteness } from './tradeRows.js'
+import { buildTradeRows, tradeCompleteness, type BuildResult, type TradeRow } from './tradeRows.js'
 import { parseSyncArgs, type SyncArgs } from './syncArgs.js'
 import {
   attemptableStatuses,
@@ -57,28 +61,57 @@ import {
 } from './deepBackfillClaim.js'
 import { POLYMARKET_DATA_MIN_CLOSE_AGE_MS } from '../config/polymarketData.js'
 import { upsertWallets } from './walletUpsert.js'
+import {
+  marketParticipants,
+  marketPositionParticipants,
+  marketVerification,
+  writeMarketTrades,
+} from './storage/parquetFacts.js'
+import { assertMarketSnapshot } from './marketSnapshotVerification.js'
+import { reconstructOverflowWalletTrades } from './overflowWalletTrades.js'
 
 const LABEL = '[polymarket-data:deep-backfill]'
-const INSERT_CHUNK = 1000
 const DEFAULT_WALLET_CONCURRENCY = 8
 
 type PartialMarket = {
   id: number
   conditionId: string
   slug: string
+  symbol: string
+  timeframe: string
   marketStartMs: number
   marketEndMs: number
+  createdMs: number
   volumeGamma: number | null
   tradeRows: number | null
 }
 
 function rowToPartial(r: Record<string, unknown>): PartialMarket {
+  let raw = r.raw_json
+  if (typeof raw === 'string') {
+    try {
+      raw = JSON.parse(raw) as unknown
+    } catch {
+      raw = null
+    }
+  }
+  const createdAt =
+    raw && typeof raw === 'object' && 'createdAt' in raw
+      ? String((raw as { createdAt?: unknown }).createdAt ?? '')
+      : ''
+  const parsedCreatedMs = Date.parse(createdAt)
+  const marketStartMs = Number(r.market_start_ms)
   return {
     id: Number(r.id),
     conditionId: String(r.condition_id),
     slug: String(r.slug),
-    marketStartMs: Number(r.market_start_ms),
+    symbol: String(r.symbol),
+    timeframe: String(r.timeframe),
+    marketStartMs,
     marketEndMs: Number(r.market_end_ms),
+    createdMs: Number.isFinite(parsedCreatedMs)
+      ? parsedCreatedMs
+      : marketStartMs - 7 * 24 * 60 * 60 * 1000,
     volumeGamma: r.volume_gamma === null ? null : Number(r.volume_gamma),
     tradeRows: r.trade_rows === null ? null : Number(r.trade_rows),
   }
@@ -131,7 +164,8 @@ async function selectPartialMarkets(
 ): Promise<PartialMarket[]> {
   const db = getDb()
   const res = await db.execute(
-    sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows
+    sql`SELECT id, condition_id, slug, symbol, timeframe, market_start_ms, market_end_ms, volume_gamma, trade_rows,
+               raw_json
         FROM polymarket_markets
         WHERE ${partialStatusClause(includeProcessing)} AND ${eligibility(args)}
         ORDER BY market_start_ms ${args.latest ? sql`DESC` : sql`ASC`}
@@ -189,8 +223,8 @@ async function resolveSlugTargets(args: SyncArgs, simulateReset = false): Promis
   if (!args.slugs || args.slugs.length === 0) return []
   const db = getDb()
   const res = await db.execute(
-    sql`SELECT id, condition_id, slug, market_start_ms, market_end_ms, volume_gamma, trade_rows,
-               closed, trades_status
+    sql`SELECT id, condition_id, slug, symbol, timeframe, market_start_ms, market_end_ms, volume_gamma, trade_rows,
+               raw_json, closed, trades_status
         FROM polymarket_markets
         WHERE slug IN (${sql.join(
           args.slugs.map((s) => sql`${s}`),
@@ -311,16 +345,13 @@ async function participantsOf(
   limiter: RateLimiter,
   signal: AbortSignal,
 ): Promise<{ wallets: string[]; positionsFetchedLive: boolean }> {
-  const db = getDb()
-  const wallets = new Set<string>()
+  const positionWallets = await marketPositionParticipants(market)
+  const wallets = new Set(positionWallets)
+  // Retain wallets already visible in the capped trade snapshot, but never let
+  // that incomplete snapshot substitute for positions as the discovery source.
+  for (const wallet of await marketParticipants(market)) wallets.add(wallet)
 
-  const storedPositions = await db.execute(
-    sql`SELECT wallet FROM polymarket_market_positions WHERE market_id = ${market.id}`,
-  )
-  const positionRows = (storedPositions as unknown as Array<{ wallet: string }>[])[0] ?? []
-  for (const r of positionRows) wallets.add(r.wallet.toLowerCase())
-
-  const positionsFetchedLive = positionRows.length === 0
+  const positionsFetchedLive = positionWallets.length === 0
   if (positionsFetchedLive) {
     const positions = await fetchMarketPositions(market.conditionId, {
       limiter,
@@ -328,13 +359,6 @@ async function participantsOf(
       label: LABEL,
     })
     for (const p of positions) wallets.add(p.proxyWallet.toLowerCase())
-  }
-
-  const storedTrades = await db.execute(
-    sql`SELECT DISTINCT wallet FROM polymarket_trades WHERE market_id = ${market.id}`,
-  )
-  for (const r of (storedTrades as unknown as Array<{ wallet: string }>[])[0] ?? []) {
-    wallets.add(r.wallet.toLowerCase())
   }
 
   return { wallets: [...wallets], positionsFetchedLive }
@@ -364,60 +388,161 @@ async function reconstructMarket(
   walletConcurrency: number,
   limiter: RateLimiter,
   signal: AbortSignal,
-): Promise<{
-  rows: ReconstructedRow[]
-  wallets: number
-  volume: number
-  sharesVolume: number
-  complete: boolean | null
-  takerKnown: boolean
-  participants: number
-}> {
+): Promise<
+  BuildResult & {
+    takerKnown: boolean
+    participants: number
+    cappedWalletScopes: number
+    overflowWalletsRecovered: number
+  }
+> {
   const { wallets: participants } = await participantsOf(market, limiter, signal)
+  const participantSet = new Set(participants)
+  const fetchOpts = { limiter, signal, label: LABEL }
 
-  // The taker-only /trades query has the same offset cap, but taker rows are a
-  // fraction of all rows, so it is usually well within it. When complete, its
-  // per-fill rows ARE the taker side (see buildReconstructedRows); when capped,
-  // we fall back to the aggregated activity rows and flag the market.
-  const taker = await fetchMarketTakerTrades(market.conditionId, { limiter, signal, label: LABEL })
+  const marketTaker = await fetchMarketTakerTrades(market.conditionId, fetchOpts)
+  const perWallet = await pool(participants, walletConcurrency, async (wallet) => {
+    const all = await fetchWalletTrades(market.conditionId, wallet, fetchOpts)
+    return { wallet, all }
+  })
 
-  const perWallet = await pool(participants, walletConcurrency, async (wallet) =>
-    fetchActivity(
-      { wallet, conditionId: market.conditionId, types: ['TRADE'], startSec: 1 },
-      { limiter, signal, label: LABEL },
-    ),
+  // Validate the scope filters before using any response. Do not concatenate
+  // yet: a capped wallet may be replaced by the time-sliced overflow path.
+  for (const { wallet, all } of perWallet) {
+    for (const row of all.trades) {
+      if (row.conditionId !== market.conditionId) {
+        throw new Error(`API returned foreign condition ${row.conditionId} for ${market.slug}`)
+      }
+      if (row.proxyWallet.toLowerCase() !== wallet) {
+        throw new Error(
+          `API user filter mismatch for ${market.slug}: requested ${wallet}, got ${row.proxyWallet}`,
+        )
+      }
+    }
+  }
+
+  // Usually the market-wide taker subset fits under the cap and costs only a
+  // few requests. If it caps, partition takers by wallet too so is_taker stays
+  // exact rather than silently labelling some takers as makers.
+  let takerTrades = marketTaker.trades
+  let takerKnown = !marketTaker.capped
+  const cappedTakerWallets = new Set<string>()
+  if (marketTaker.capped) {
+    const perWalletTaker = await pool(participants, walletConcurrency, async (wallet) => {
+      const taker = await fetchWalletTakerTrades(market.conditionId, wallet, fetchOpts)
+      return { wallet, taker }
+    })
+    takerTrades = []
+    takerKnown = true
+    for (const { wallet, taker } of perWalletTaker) {
+      if (taker.capped) {
+        cappedTakerWallets.add(wallet)
+        takerKnown = false
+      }
+      for (const row of taker.trades) {
+        if (row.conditionId !== market.conditionId) {
+          throw new Error(`API returned foreign taker condition for ${market.slug}`)
+        }
+        if (row.proxyWallet.toLowerCase() !== wallet) {
+          throw new Error(
+            `API taker user filter mismatch for ${market.slug}: requested ${wallet}, got ${row.proxyWallet}`,
+          )
+        }
+        takerTrades.push(row)
+      }
+    }
+  }
+
+  const takersByWallet = new Map<string, ApiTrade[]>()
+  for (const row of takerTrades) {
+    if (row.conditionId !== market.conditionId) {
+      throw new Error(`API returned foreign taker condition for ${market.slug}`)
+    }
+    const wallet = row.proxyWallet.toLowerCase()
+    const rows = takersByWallet.get(wallet) ?? []
+    rows.push(row)
+    takersByWallet.set(wallet, rows)
+  }
+
+  const cappedFullScopes = perWallet.filter(({ all }) => all.capped)
+  const recovered = await pool(cappedFullScopes, walletConcurrency, async ({ wallet, all }) => {
+    if (cappedTakerWallets.has(wallet)) return { wallet, rows: null }
+    const activities = await fetchActivityTimeSliced(
+      {
+        wallet,
+        conditionId: market.conditionId,
+        types: ['TRADE'],
+        startSec: Math.max(1, Math.floor(market.createdMs / 1000) - 60),
+        endSec: Math.ceil(Date.now() / 1000),
+      },
+      fetchOpts,
+    )
+    const rows = reconstructOverflowWalletTrades({
+      wallet,
+      conditionId: market.conditionId,
+      activities,
+      visibleTrades: all.trades,
+      takerTrades: takersByWallet.get(wallet) ?? [],
+    })
+    return { wallet, rows }
+  })
+  const recoveredByWallet = new Map(
+    recovered.filter((item) => item.rows !== null).map((item) => [item.wallet, item.rows!]),
   )
 
-  const built = buildReconstructedRows(perWallet, taker.trades, taker.capped, market.conditionId)
-  const { rows, volume, sharesVolume } = built
+  let unresolvedCappedTradeWallets = 0
+  const trades: ApiTrade[] = []
+  for (const { wallet, all } of perWallet) {
+    if (!all.capped) {
+      trades.push(...all.trades)
+      continue
+    }
+    const overflow = recoveredByWallet.get(wallet)
+    if (overflow) trades.push(...overflow)
+    else {
+      unresolvedCappedTradeWallets += 1
+      trades.push(...all.trades)
+    }
+  }
 
-  // Same completeness contract as the trades stage (see tradeRows.ts):
-  //   true  → invariant held, or an empty no-volume market (trivially complete);
-  //   false → invariant failed (still short);
-  //   null  → unverifiable (no Gamma volume but rows exist).
-  // Only `true` may become `done`.
-  const complete =
-    market.volumeGamma !== null && market.volumeGamma > 0
-      ? Math.abs(sharesVolume - market.volumeGamma) <= completenessToleranceShares(rows.length)
-      : rows.length === 0
-        ? true
-        : null
+  const built = buildTradeRows({
+    trades,
+    takerTrades,
+    market: {
+      conditionId: market.conditionId,
+      slug: market.slug,
+      marketStartMs: market.marketStartMs,
+      marketEndMs: market.marketEndMs,
+      volumeGamma: market.volumeGamma,
+    },
+  })
 
+  for (const row of built.rows) {
+    if (!participantSet.has(row.wallet)) {
+      throw new Error(`trade wallet ${row.wallet} is absent from positions for ${market.slug}`)
+    }
+  }
+  if (built.unmatchedTakers > 0) takerKnown = false
   return {
-    rows,
-    wallets: built.wallets,
-    volume,
-    sharesVolume,
-    complete,
-    takerKnown: !taker.capped,
+    ...built,
+    complete: unresolvedCappedTradeWallets > 0 ? false : built.complete,
+    takerKnown,
     participants: participants.length,
+    cappedWalletScopes: unresolvedCappedTradeWallets + cappedTakerWallets.size,
+    overflowWalletsRecovered: recoveredByWallet.size,
   }
 }
 
 async function writeReconstructed(
   market: PartialMarket,
-  rows: ReconstructedRow[],
-  stats: { wallets: number; volume: number; takerKnown: boolean; complete: boolean | null },
+  rows: TradeRow[],
+  stats: {
+    wallets: number
+    volumeTraded: number
+    sharesVolume: number
+    takerKnown: boolean
+    complete: boolean | null
+  },
 ): Promise<boolean> {
   const db = getDb()
 
@@ -446,22 +571,21 @@ async function writeReconstructed(
           | undefined
         if (!mayWriteReconstruction(cur)) return false
 
-        await tx.execute(sql`DELETE FROM polymarket_trades WHERE market_id = ${market.id}`)
-
-        for (let i = 0; i < rows.length; i += INSERT_CHUNK) {
-          const chunk = rows.slice(i, i + INSERT_CHUNK)
-          const values = chunk.map(
-            (r) =>
-              sql`(${market.id}, ${r.wallet}, ${r.side}, ${r.outcomeIndex}, ${r.asset},
-               ${r.size.toFixed(6)}, ${r.price.toFixed(6)}, ${r.usdcSize.toFixed(6)},
-               ${r.isTaker ? 1 : 0}, ${r.tsMs}, ${r.txHash})`,
-          )
-          await tx.execute(
-            sql`INSERT INTO polymarket_trades
-              (market_id, wallet, side, outcome_index, asset, size, price, usdc_size, is_taker, ts_ms, tx_hash)
-            VALUES ${sql.join(values, sql`, `)}`,
-          )
-        }
+        // Keep the claim row locked while the replacement Parquet snapshot is
+        // atomically published, then commit its matching status/summary.
+        await writeMarketTrades(market, rows)
+        const persisted = await marketVerification(market)
+        assertMarketSnapshot(
+          market.slug,
+          {
+            rows: rows.length,
+            wallets: stats.wallets,
+            sharesVolume: stats.sharesVolume,
+            complete: stats.complete,
+            volumeGamma: market.volumeGamma,
+          },
+          persisted,
+        )
 
         await tx.execute(
           sql`UPDATE polymarket_markets
@@ -470,7 +594,7 @@ async function writeReconstructed(
                   trades_synced_at = CURRENT_TIMESTAMP,
                   trade_rows = ${rows.length},
                   trade_wallets = ${stats.wallets},
-                  volume_traded = ${stats.volume.toFixed(6)},
+                  volume_traded = ${stats.volumeTraded.toFixed(6)},
                   trades_error = ${note}
               WHERE id = ${market.id}`,
         )
@@ -496,6 +620,16 @@ async function runReconstruction(
 ): Promise<void> {
   shuffleInPlace(targets)
   const progress = new ProgressTracker(LABEL, targets.length)
+  const marketMetrics = new Map<number, { startedAtMs: number; requestsBefore: number }>()
+
+  const formatMarketMetrics = (marketId: number): string => {
+    const metrics = marketMetrics.get(marketId)
+    if (!metrics) return 'http_requests=? elapsed=? avg_rps=?'
+    const elapsedMs = Date.now() - metrics.startedAtMs
+    const requests = limiter.requestCount - metrics.requestsBefore
+    const averageRps = elapsedMs > 0 ? requests / (elapsedMs / 1000) : 0
+    return `http_requests=${requests} elapsed=${fmtDuration(elapsedMs)} avg_rps=${averageRps.toFixed(1)}`
+  }
 
   const { claimed } = await attemptTargets(targets, {
     aborted: () => ac.signal.aborted,
@@ -504,13 +638,24 @@ async function runReconstruction(
       await revertOwnedClaims([id])
     },
     run: async (market) => {
+      marketMetrics.set(market.id, {
+        startedAtMs: Date.now(),
+        requestsBefore: limiter.requestCount,
+      })
       const built = await reconstructMarket(market, walletConcurrency, limiter, ac.signal)
+      for (const warning of built.warnings) {
+        console.warn(`${LABEL} WARN ${market.slug}: ${warning}`)
+      }
       const written = await writeReconstructed(market, built.rows, built)
       if (!written) {
         // Lost the claim mid-flight (an operator reset it, a peer took over): do
         // not overwrite their work, and do not revert — it is not ours.
         progress.record(false)
-        console.warn(`${LABEL} SKIPPED ${market.slug}: lost claim mid-flight, not overwriting`)
+        console.warn(
+          `${LABEL} SKIPPED ${market.slug}: lost claim mid-flight, not overwriting ` +
+            formatMarketMetrics(market.id),
+        )
+        marketMetrics.delete(market.id)
         return
       }
       await upsertWallets(built.rows.map((r) => ({ wallet: r.wallet })))
@@ -525,19 +670,30 @@ async function runReconstruction(
       console.log(
         progress.line(
           `${market.slug} rows=${built.rows.length} (+${gained}) ` +
-            `wallets=${built.wallets}/${built.participants} vol=${built.volume.toFixed(0)} ` +
+            `wallets=${built.wallets}/${built.participants} vol=${built.volumeTraded.toFixed(0)} ` +
             (built.complete === true
               ? '✓complete'
               : built.complete === false
                 ? `STILL SHORT ${shortfall?.toFixed(2)}%`
                 : 'completeness unknown (no gamma volume)') +
-            (built.takerKnown ? '' : ' TAKER_FLAGS_PARTIAL'),
+            (built.takerKnown ? '' : ' TAKER_FLAGS_PARTIAL') +
+            (built.overflowWalletsRecovered > 0
+              ? ` OVERFLOW_WALLETS_RECOVERED=${built.overflowWalletsRecovered}`
+              : '') +
+            (built.cappedWalletScopes > 0
+              ? ` CAPPED_WALLET_SCOPES=${built.cappedWalletScopes}`
+              : '') +
+            ` ${formatMarketMetrics(market.id)}`,
         ),
       )
+      marketMetrics.delete(market.id)
     },
     onError: (market, err) => {
       progress.record(false)
-      console.warn(`${LABEL} FAILED ${market.slug}: ${(err as Error).message}`)
+      console.warn(
+        `${LABEL} FAILED ${market.slug}: ${(err as Error).message} ${formatMarketMetrics(market.id)}`,
+      )
+      marketMetrics.delete(market.id)
     },
   })
 
@@ -567,7 +723,7 @@ async function main(): Promise<void> {
   }
 
   const args = parseSyncArgs(argv, LABEL)
-  const limiter = new RateLimiter(POLYMARKET_DATA_ACTIVITY_RPS)
+  const limiter = new RateLimiter(POLYMARKET_DATA_TRADES_RPS)
 
   const ac = new AbortController()
   let shuttingDown = false

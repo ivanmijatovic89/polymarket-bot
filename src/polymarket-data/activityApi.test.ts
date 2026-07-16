@@ -1,6 +1,6 @@
 import test, { mock } from 'node:test'
 import assert from 'node:assert/strict'
-import { fetchActivity, type ApiActivity } from './activityApi.js'
+import { fetchActivity, fetchActivityTimeSliced, type ApiActivity } from './activityApi.js'
 import { RateLimiter } from './rateLimiter.js'
 
 const limiter = new RateLimiter(1000)
@@ -177,4 +177,85 @@ test('start=0 is coerced to 1 (0 means the API default window, not all history)'
   await fetchActivity({ wallet: '0xa', startSec: 0 }, { limiter })
 
   assert.equal(calls[0]!.start, 1)
+})
+
+test('time slicing keeps offset at zero and preserves boundary multiplicities', async (t) => {
+  const rows = Array.from({ length: 1200 }, (_, i) => row(1000 + i, `0x${i}`))
+  // Two genuinely identical rows at a likely split boundary must both survive.
+  rows.push(row(1600, '0xrepeat'), row(1600, '0xrepeat'))
+  const offsets: number[] = []
+  mock.method(globalThis, 'fetch', async (input: string | URL) => {
+    const url = new URL(String(input))
+    const start = Number(url.searchParams.get('start'))
+    const end = Number(url.searchParams.get('end'))
+    offsets.push(Number(url.searchParams.get('offset')))
+    const page = rows.filter((r) => r.timestamp >= start && r.timestamp <= end).slice(0, 500)
+    return new Response(JSON.stringify(page), { status: 200 })
+  })
+  t.after(() => mock.restoreAll())
+
+  const out = await fetchActivityTimeSliced(
+    { wallet: '0xa', startSec: 900, endSec: 2300 },
+    { limiter },
+  )
+
+  assert.equal(out.length, rows.length)
+  assert.ok(offsets.every((offset) => offset === 0))
+  assert.equal(out.filter((r) => r.transactionHash === '0xrepeat').length, 2)
+})
+
+test('time slicing makes progress when a full page spans exactly two seconds', async (t) => {
+  const rows = [
+    ...Array.from({ length: 300 }, (_, i) => row(1000, `0xa${i}`)),
+    ...Array.from({ length: 300 }, (_, i) => row(1001, `0xb${i}`)),
+  ]
+  const ranges: Array<[number, number]> = []
+  mock.method(globalThis, 'fetch', async (input: string | URL) => {
+    const url = new URL(String(input))
+    const start = Number(url.searchParams.get('start'))
+    const end = Number(url.searchParams.get('end'))
+    ranges.push([start, end])
+    const page = rows.filter((r) => r.timestamp >= start && r.timestamp <= end).slice(0, 500)
+    return new Response(JSON.stringify(page), { status: 200 })
+  })
+  t.after(() => mock.restoreAll())
+
+  const out = await fetchActivityTimeSliced(
+    { wallet: '0xa', startSec: 1000, endSec: 1001 },
+    { limiter },
+  )
+
+  assert.equal(out.length, 600)
+  assert.deepEqual(ranges, [
+    [1000, 1001],
+    [1000, 1000],
+    [1001, 1001],
+  ])
+})
+
+test('time slicing fails if the API ignores a requested time bound', async (t) => {
+  mock.method(globalThis, 'fetch', async () => {
+    return new Response(JSON.stringify([row(999, '0xoutside')]), { status: 200 })
+  })
+  t.after(() => mock.restoreAll())
+
+  await assert.rejects(
+    fetchActivityTimeSliced({ wallet: '0xa', startSec: 1000, endSec: 1001 }, { limiter }),
+    /outside requested 1000\.\.1001s/,
+  )
+})
+
+test('time slicing fails loudly when one second alone fills a page', async (t) => {
+  mock.method(globalThis, 'fetch', async () => {
+    return new Response(
+      JSON.stringify(Array.from({ length: 500 }, (_, i) => row(1000, `0x${i}`))),
+      { status: 200 },
+    )
+  })
+  t.after(() => mock.restoreAll())
+
+  await assert.rejects(
+    fetchActivityTimeSliced({ wallet: '0xa', startSec: 1000, endSec: 1000 }, { limiter }),
+    /cannot split 1000s/,
+  )
 })

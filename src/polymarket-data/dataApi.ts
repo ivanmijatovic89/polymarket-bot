@@ -5,8 +5,11 @@
  * several documented params, so nothing here is assumed:
  *
  *   GET /trades
- *     - Market-scoped, no auth. `takerOnly=false` is REQUIRED to get maker rows
+ *     - Public, no auth. `takerOnly=false` is REQUIRED to get maker rows
  *       (default true returns taker rows only).
+ *     - `user` + `market` is the escape hatch for a capped market: partitioning
+ *       the same endpoint by the complete position-participant set reproduced
+ *       Gamma volume exactly on two large BTC daily markets.
  *     - `limit` up to 1000 works.
  *     - `start` / `end` / `before` / `after` / `sortDirection` are SILENTLY
  *       IGNORED when querying by market. Paging is offset-only, newest-first.
@@ -89,16 +92,19 @@ function requestOptions(opts: FetchOptions) {
 async function fetchTradesCombo(
   conditionId: string,
   side: 'BUY' | 'SELL' | null,
+  scope: { wallet?: string; takerOnly: boolean },
   opts: FetchOptions,
 ): Promise<{ trades: ApiTrade[]; capped: boolean }> {
   const trades: ApiTrade[] = []
   const sideParam = side ? `&side=${side}` : ''
+  const walletParam = scope.wallet ? `&user=${encodeURIComponent(scope.wallet)}` : ''
 
   for (let offset = 0; ; offset += TRADES_PAGE_LIMIT) {
     const url =
       `${POLYMARKET_DATA_API_URL}/trades` +
       `?market=${encodeURIComponent(conditionId)}` +
-      `&takerOnly=false&limit=${TRADES_PAGE_LIMIT}&offset=${offset}${sideParam}`
+      `&takerOnly=${scope.takerOnly}&limit=${TRADES_PAGE_LIMIT}&offset=${offset}` +
+      `${walletParam}${sideParam}`
 
     const page = await fetchJson<ApiTrade[]>(url, requestOptions(opts))
     if (!Array.isArray(page) || page.length === 0) return { trades, capped: false }
@@ -109,6 +115,38 @@ async function fetchTradesCombo(
       // Full page at the last reachable offset: there is more we cannot see.
       return { trades, capped: true }
     }
+  }
+}
+
+type TradesResult = {
+  trades: ApiTrade[]
+  capped: boolean
+  usedSideSplit: boolean
+}
+
+/**
+ * Fetch one market/user/taker scope. An unsided scope reaches 4,000 rows; if it
+ * fills that window, BUY and SELL are independent query combinations and raise
+ * the reachable ceiling to 8,000 rows. Identical-looking rows are preserved.
+ */
+async function fetchTradesScope(
+  conditionId: string,
+  scope: { wallet?: string; takerOnly: boolean },
+  opts: FetchOptions,
+): Promise<TradesResult> {
+  const unsided = await fetchTradesCombo(conditionId, null, scope, opts)
+  if (!unsided.capped) {
+    return { trades: unsided.trades, capped: false, usedSideSplit: false }
+  }
+
+  const [buys, sells] = await Promise.all([
+    fetchTradesCombo(conditionId, 'BUY', scope, opts),
+    fetchTradesCombo(conditionId, 'SELL', scope, opts),
+  ])
+  return {
+    trades: [...buys.trades, ...sells.trades],
+    capped: buys.capped || sells.capped,
+    usedSideSplit: true,
   }
 }
 
@@ -125,20 +163,16 @@ export async function fetchMarketTrades(
   conditionId: string,
   opts: FetchOptions,
 ): Promise<{ trades: ApiTrade[]; capped: boolean; usedSideSplit: boolean }> {
-  const unsided = await fetchTradesCombo(conditionId, null, opts)
-  if (!unsided.capped) {
-    return { trades: unsided.trades, capped: false, usedSideSplit: false }
-  }
+  return fetchTradesScope(conditionId, { takerOnly: false }, opts)
+}
 
-  const [buys, sells] = await Promise.all([
-    fetchTradesCombo(conditionId, 'BUY', opts),
-    fetchTradesCombo(conditionId, 'SELL', opts),
-  ])
-  return {
-    trades: [...buys.trades, ...sells.trades],
-    capped: buys.capped || sells.capped,
-    usedSideSplit: true,
-  }
+/** Every maker + taker fill row belonging to one participant in one market. */
+export async function fetchWalletTrades(
+  conditionId: string,
+  wallet: string,
+  opts: FetchOptions,
+): Promise<TradesResult> {
+  return fetchTradesScope(conditionId, { wallet, takerOnly: false }, opts)
 }
 
 /**
@@ -149,20 +183,17 @@ export async function fetchMarketTakerTrades(
   conditionId: string,
   opts: FetchOptions,
 ): Promise<{ trades: ApiTrade[]; capped: boolean }> {
-  const trades: ApiTrade[] = []
+  const result = await fetchTradesScope(conditionId, { takerOnly: true }, opts)
+  return { trades: result.trades, capped: result.capped }
+}
 
-  for (let offset = 0; ; offset += TRADES_PAGE_LIMIT) {
-    const url =
-      `${POLYMARKET_DATA_API_URL}/trades` +
-      `?market=${encodeURIComponent(conditionId)}` +
-      `&takerOnly=true&limit=${TRADES_PAGE_LIMIT}&offset=${offset}`
-
-    const page = await fetchJson<ApiTrade[]>(url, requestOptions(opts))
-    if (!Array.isArray(page) || page.length === 0) return { trades, capped: false }
-    trades.push(...page)
-    if (page.length < TRADES_PAGE_LIMIT) return { trades, capped: false }
-    if (offset >= TRADES_MAX_OFFSET) return { trades, capped: true }
-  }
+/** The taker-only subset for one participant, used only if market-wide takers cap. */
+export async function fetchWalletTakerTrades(
+  conditionId: string,
+  wallet: string,
+  opts: FetchOptions,
+): Promise<TradesResult> {
+  return fetchTradesScope(conditionId, { wallet, takerOnly: true }, opts)
 }
 
 type PositionsResponse = Array<{ token?: string; positions?: ApiPosition[] }>

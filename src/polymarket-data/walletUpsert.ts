@@ -8,8 +8,7 @@
  *   upsertWallets()      — identity only (wallet, display name). Idempotent, so
  *                          re-syncing a market can't corrupt anything.
  *   refreshWalletStats() — derives trade_count / markets_count / first_trade_ms
- *                          / last_trade_ms from `polymarket_trades` in one
- *                          statement.
+ *                          / last_trade_ms from the trade Parquet files.
  *
  * Counters are DERIVED rather than incremented on the fly: a market's trades are
  * rewritten whole whenever it is re-synced, so any "+= n" bookkeeping would
@@ -24,6 +23,8 @@
 import { sql, type SQL } from 'drizzle-orm'
 import { getDb } from '../db/index.js'
 import { withDeadlockRetry } from '../db/txRetry.js'
+import { DuckDBInstance } from '@duckdb/node-api'
+import { listFactFiles } from './storage/paths.js'
 
 export type WalletSighting = {
   wallet: string
@@ -105,27 +106,55 @@ export async function upsertWalletsInTx(
 }
 
 /**
- * Recompute per-wallet trade aggregates from `polymarket_trades`.
+ * Recompute per-wallet trade aggregates from Parquet with DuckDB.
  *
  * Wallets known only from positions (they never traded) keep zeroed counters —
  * they are still participants and still get their activity synced.
  */
 export async function refreshWalletStats(): Promise<void> {
   const db = getDb()
+  const files = await listFactFiles('trades')
   await db.execute(
-    sql`UPDATE polymarket_wallets w
-        LEFT JOIN (
-          SELECT wallet,
-                 COUNT(*) AS trade_count,
-                 COUNT(DISTINCT market_id) AS markets_count,
-                 MIN(ts_ms) AS first_trade_ms,
-                 MAX(ts_ms) AS last_trade_ms
-          FROM polymarket_trades
-          GROUP BY wallet
-        ) t ON t.wallet = w.wallet
-        SET w.trade_count = COALESCE(t.trade_count, 0),
-            w.markets_count = COALESCE(t.markets_count, 0),
-            w.first_trade_ms = t.first_trade_ms,
-            w.last_trade_ms = t.last_trade_ms`,
+    sql`UPDATE polymarket_wallets
+        SET trade_count = 0, markets_count = 0, first_trade_ms = NULL, last_trade_ms = NULL`,
   )
+  if (files.length === 0) return
+
+  const quote = (value: string) => `'${value.replaceAll("'", "''")}'`
+  const instance = await DuckDBInstance.create(':memory:')
+  const connection = await instance.connect()
+  let rows: Array<Record<string, unknown>>
+  try {
+    const fileList = `[${files.map(quote).join(',')}]`
+    const result = await connection.runAndReadAll(
+      `SELECT lower(wallet) AS wallet,
+              count(*)::INTEGER AS trade_count,
+              count(DISTINCT market_id)::INTEGER AS markets_count,
+              min(ts_ms)::BIGINT AS first_trade_ms,
+              max(ts_ms)::BIGINT AS last_trade_ms
+       FROM read_parquet(${fileList}, union_by_name = true)
+       GROUP BY lower(wallet)`,
+    )
+    rows = result.getRowObjectsJS()
+  } finally {
+    connection.closeSync()
+  }
+
+  for (let i = 0; i < rows.length; i += CHUNK) {
+    const values = rows.slice(i, i + CHUNK).map(
+      (row) =>
+        sql`(${String(row.wallet)}, ${Number(row.trade_count)}, ${Number(row.markets_count)},
+             ${Number(row.first_trade_ms)}, ${Number(row.last_trade_ms)})`,
+    )
+    await db.execute(
+      sql`INSERT INTO polymarket_wallets
+            (wallet, trade_count, markets_count, first_trade_ms, last_trade_ms)
+          VALUES ${sql.join(values, sql`, `)}
+          ON DUPLICATE KEY UPDATE
+            trade_count = VALUES(trade_count),
+            markets_count = VALUES(markets_count),
+            first_trade_ms = VALUES(first_trade_ms),
+            last_trade_ms = VALUES(last_trade_ms)`,
+    )
+  }
 }

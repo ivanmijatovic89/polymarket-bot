@@ -13,6 +13,7 @@ export type Args = {
   slugs?: string[]
   limit: number | null
   resample: number
+  walletResample: number
   requeue: boolean
 }
 
@@ -33,7 +34,7 @@ export function parseIntArg(raw: string | undefined, flag: string, opts: { min: 
 }
 
 export function parseArgs(argv: string[]): Args {
-  const out: Args = { limit: null, resample: 0, requeue: false }
+  const out: Args = { limit: null, resample: 0, walletResample: 3, requeue: false }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--symbol') out.symbol = (argv[++i] ?? '').toLowerCase()
@@ -49,6 +50,7 @@ export function parseArgs(argv: string[]): Args {
     } else if (a === '--limit') out.limit = parseIntArg(argv[++i], a, { min: 1 })
     // Preserve 0: `--resample 0` means "invariant only, no live re-sampling".
     else if (a === '--resample') out.resample = parseIntArg(argv[++i], a, { min: 0 })
+    else if (a === '--wallet-resample') out.walletResample = parseIntArg(argv[++i], a, { min: 0 })
     else if (a === '--requeue') out.requeue = true
     else throw new Error(`${LABEL} unknown arg: ${a}`)
   }
