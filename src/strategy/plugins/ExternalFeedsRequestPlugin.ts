@@ -58,3 +58,22 @@ export class ExternalFeedsRequestPlugin implements Plugin {
     this.lastTick = undefined
   }
 }
+
+/**
+ * Structural detection of the request plugin. `instanceof` is NOT reliable
+ * here: `strategyRegistry` loads strategy files via CJS `createRequire`, so a
+ * strategy's plugin instance is built from a second copy of this class, while
+ * runtimes (trading-bot / backtest feed wiring) import the ESM copy — two
+ * class identities for the same source. Duck-typing on the stable surface
+ * (`id` + `fulfill` + `config`) works across both module instances.
+ */
+export function isExternalFeedsRequestPlugin(p: Plugin): p is ExternalFeedsRequestPlugin {
+  if (p instanceof ExternalFeedsRequestPlugin) return true
+  const dup = p as Partial<ExternalFeedsRequestPlugin>
+  return (
+    p.id === 'externalFeeds' &&
+    typeof dup.fulfill === 'function' &&
+    typeof dup.config === 'object' &&
+    dup.config !== null
+  )
+}

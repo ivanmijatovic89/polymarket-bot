@@ -22,7 +22,7 @@ import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPr
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
 import { ExternalFeedsPlugin } from '../strategy/plugins/ExternalFeedsPlugin.js'
 import { PluginSet } from '../strategy/plugins/PluginSet.js'
-import { ExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { computePositionMetricsFromMarket } from '../trading/positionMetrics.js'
 import { computeOrderbookMetricsFromMarket } from '../trading/orderbookMetrics.js'
 import { mkdir } from 'node:fs/promises'
@@ -263,10 +263,11 @@ async function main(): Promise<void> {
       })
     : null
 
-  // Optional external feeds (live-only). Enabled only if strategy opts in.
-  const externalFeedsReqPlugin = pluginSet
-    ?.list()
-    .find((p) => p instanceof ExternalFeedsRequestPlugin) as ExternalFeedsRequestPlugin | undefined
+  // Optional external feeds. Enabled only if strategy opts in. Structural
+  // detection: strategyRegistry loads strategies via CJS require, so the
+  // plugin instance comes from a different class identity than this file's
+  // ESM import — `instanceof` alone would silently miss it.
+  const externalFeedsReqPlugin = pluginSet?.list().find(isExternalFeedsRequestPlugin)
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices

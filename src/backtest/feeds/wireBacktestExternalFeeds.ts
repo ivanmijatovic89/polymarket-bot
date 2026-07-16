@@ -1,6 +1,9 @@
 import type { MarketTick } from '../../strategy/Strategy.js'
 import type { PluginSet } from '../../strategy/plugins/PluginSet.js'
-import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import {
+  isExternalFeedsRequestPlugin,
+  type ExternalFeedsRequestPlugin,
+} from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { pairFromFeedSymbol } from '../../binance/paths.js'
 import { symbolFromSlug, windowFromSlug } from '../../polymarket/upDownSlugWindow.js'
 import { loadBinanceAggTradesSeries } from './binanceAggTradesSource.js'
@@ -11,12 +14,13 @@ const DEFAULT_LOOKBACK_MS = 300_000
 
 /**
  * Modeled live feed latency (exchange trade time → bot receive), applied as
- * the as-of visibility offset. Default comes from the measured live
- * distribution (`binance:verify-aggtrades` latency stats — see
- * docs/datasets/polymarket-data/binance-aggtrades-feed.md); override with
- * BACKTEST_BINANCE_FEED_LATENCY_MS.
+ * the as-of visibility offset. Default is the measured p50 of
+ * `received_at_ms − T` from a live recording on the trading machine
+ * (2026-07-16, BTCUSDT, p50=85ms p90=334 p99=519 — see
+ * docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure with
+ * `binance:verify-aggtrades` and override with BACKTEST_BINANCE_FEED_LATENCY_MS.
  */
-const DEFAULT_LATENCY_MS = 0
+const DEFAULT_LATENCY_MS = 85
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name]?.trim()
@@ -45,9 +49,9 @@ export async function wireBacktestBinanceFeed(args: {
   slug: string
   strategyWindow?: { startMs: number; endMs: number } | null
 }): Promise<void> {
-  const reqPlugin = args.pluginSet
+  const reqPlugin: ExternalFeedsRequestPlugin | undefined = args.pluginSet
     ?.list()
-    .find((p): p is ExternalFeedsRequestPlugin => p instanceof ExternalFeedsRequestPlugin)
+    .find(isExternalFeedsRequestPlugin)
   if (!reqPlugin) {
     console.warn(
       `[backtest:feeds] --feeds binance set, but strategy registers no ExternalFeedsRequestPlugin — running feed-less (slug=${args.slug})`,
