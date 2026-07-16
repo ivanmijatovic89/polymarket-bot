@@ -43,7 +43,8 @@ A scope may be published only when all of these checks pass:
 - both providers return the same relevant ordered log sequence for every
   selected transaction receipt;
 - block hashes agree between providers and every log has `removed = false`;
-- every selected receipt has exactly one matching `OrdersMatched` event;
+- every matching `OrdersMatched` event discovered for a transaction is present
+  at the same log index in its verified receipt;
 - every retained fill maps to exactly one catalog market and outcome;
 - no duplicate `(block_hash, transaction_hash, log_index)` identity exists;
 - exact integer amounts are preserved before any decimal presentation value is
@@ -80,4 +81,3 @@ Discovery checkpoints and unverified candidate Parquet remain under
 normal symbol/timeframe/month partitions only after the complete scope passes.
 Monthly compaction is deliberately deferred until the one-day BTC 5m test is
 complete and validated.
-

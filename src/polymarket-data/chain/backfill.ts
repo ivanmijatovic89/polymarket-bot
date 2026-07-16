@@ -98,7 +98,8 @@ async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const primaryUrl = process.env.POLYGON_RPC_URL
   if (!primaryUrl) throw new Error('POLYGON_RPC_URL is required')
-  const secondaryUrl = process.env.POLYGON_RPC_URL_SECONDARY?.trim() || 'https://polygon.drpc.org'
+  const secondaryUrl =
+    process.env.POLYGON_RPC_URL_SECONDARY?.trim() || 'https://tenderly.rpc.polygon.community'
   if (primaryUrl === secondaryUrl)
     throw new Error('primary and secondary RPC URLs must be independent')
   const free = await assertStorageHeadroom()
@@ -112,6 +113,19 @@ async function main(): Promise<void> {
   })
   const primary = new ChainRpcClient({ url: primaryUrl, timeoutMs: 120_000, maxAttempts: 20 })
   const secondary = new ChainRpcClient({ url: secondaryUrl, timeoutMs: 120_000, maxAttempts: 20 })
+  const receiptPrimary = new ChainRpcClient({
+    url:
+      process.env.POLYGON_RECEIPT_RPC_URL_PRIMARY?.trim() || 'https://polygon-public.nodies.app/',
+    timeoutMs: 180_000,
+    maxAttempts: 20,
+  })
+  const receiptSecondary = new ChainRpcClient({
+    url:
+      process.env.POLYGON_RECEIPT_RPC_URL_SECONDARY?.trim() ||
+      'https://tenderly.rpc.polygon.community',
+    timeoutMs: 180_000,
+    maxAttempts: 20,
+  })
   const [fromBlock, afterBlock] = await Promise.all([
     firstBlockAtOrAfter(primary, BigInt(Math.floor(scope.scanFromMs / 1000))),
     firstBlockAtOrAfter(primary, BigInt(Math.ceil(scope.scanToMs / 1000))),
@@ -204,10 +218,11 @@ async function main(): Promise<void> {
       await assertStorageHeadroom()
     }
   }
-  await verifyDiscoveredReceipts(primary, secondary, remaining, {
+  await verifyDiscoveredReceipts(receiptPrimary, receiptSecondary, remaining, {
     tokens: scope.tokens,
-    batchSize: 10,
-    concurrency: 2,
+    batchSize: 250,
+    concurrency: 1,
+    delayBetweenBatchesMs: 250,
     retainResults: false,
     onBatch: async (receipts, progress) => {
       writeQueue = writeQueue.then(async () => {
@@ -221,7 +236,9 @@ async function main(): Promise<void> {
               `trades=${progress.trades} checkpoints=${receiptCheckpoints} ` +
               `requests=${progress.primary.httpRequests + progress.secondary.httpRequests} ` +
               `retries=${progress.primary.retries + progress.secondary.retries} ` +
+              `provider_retries=${progress.primary.retries}/${progress.secondary.retries} ` +
               `rate_limits=${progress.primary.rateLimits + progress.secondary.rateLimits} ` +
+              `provider_limits=${progress.primary.rateLimits}/${progress.secondary.rateLimits} ` +
               `timeouts=${progress.primary.timeouts + progress.secondary.timeouts} ` +
               `download=${mb(progress.primary.responseBytes + progress.secondary.responseBytes)} ` +
               `elapsed=${elapsed(startedAt)}`,
@@ -240,7 +257,7 @@ async function main(): Promise<void> {
     throw new Error(`${missing.length} discovered receipts were not checkpointed`)
   console.log(
     `${LABEL} receipt extraction complete txs=${expected.size} ` +
-      `download=${mb(primary.metrics.responseBytes + secondary.metrics.responseBytes)} ` +
+      `download=${mb(receiptPrimary.metrics.responseBytes + receiptSecondary.metrics.responseBytes)} ` +
       `elapsed=${elapsed(startedAt)}`,
   )
   const candidateFiles = await buildMarketCandidates(args, scope.markets)

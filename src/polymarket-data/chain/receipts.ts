@@ -34,6 +34,7 @@ type VerifyOptions = {
   tokens: readonly TokenMarket[]
   batchSize?: number
   concurrency?: number
+  delayBetweenBatchesMs?: number
   retainResults?: boolean
   onBatch?: (receipts: VerifiedReceipt[], progress: ReceiptProgress) => Promise<void> | void
 }
@@ -152,7 +153,9 @@ export async function verifyDiscoveredReceipts(
     values.push(ref)
     byTx.set(key, values)
   }
-  const txHashes = [...byTx.keys()].sort() as Hex[]
+  // Map insertion order is canonical discovery order (block/transaction/log).
+  // Keeping it groups nearby receipts and minimizes independent archive/header reads.
+  const txHashes = [...byTx.keys()] as Hex[]
   const tokenIndex = new Map(options.tokens.map((token) => [token.tokenId, token]))
   if (tokenIndex.size !== options.tokens.length)
     throw new Error('duplicate token ID in market scope')
@@ -215,6 +218,9 @@ export async function verifyDiscoveredReceipts(
       primary: primary.metrics,
       secondary: secondary.metrics,
     })
+    if (options.delayBetweenBatchesMs && options.delayBetweenBatchesMs > 0) {
+      await new Promise((resolve) => setTimeout(resolve, options.delayBetweenBatchesMs))
+    }
   })
   return output.flat()
 }
