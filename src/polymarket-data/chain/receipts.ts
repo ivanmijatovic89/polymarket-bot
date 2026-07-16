@@ -123,22 +123,20 @@ export function verifyReceiptPair(
   }
 }
 
-async function mapLimit<T, R>(
+async function runLimited<T>(
   values: readonly T[],
   concurrency: number,
-  fn: (value: T) => Promise<R>,
-): Promise<R[]> {
-  const output = new Array<R>(values.length)
+  fn: (value: T) => Promise<void>,
+): Promise<void> {
   let next = 0
   const worker = async (): Promise<void> => {
     for (;;) {
       const index = next++
       if (index >= values.length) return
-      output[index] = await fn(values[index]!)
+      await fn(values[index]!)
     }
   }
   await Promise.all(Array.from({ length: Math.min(concurrency, values.length) }, worker))
-  return output
 }
 
 export async function verifyDiscoveredReceipts(
@@ -169,8 +167,8 @@ export async function verifyDiscoveredReceipts(
     options.retainResults === false ? [] : new Array(batches.length)
   let completed = 0
   let trades = 0
-  await mapLimit(batches, concurrency, async (hashes) => {
-    const batchIndex = batches.indexOf(hashes)
+  await runLimited(batches, concurrency, async (hashes) => {
+    const batchIndex = options.retainResults === false ? -1 : batches.indexOf(hashes)
     const [a, b] = await Promise.all([primary.receipts(hashes), secondary.receipts(hashes)])
     if (a.length !== hashes.length || b.length !== hashes.length) {
       throw new Error(`receipt batch returned ${a.length}/${b.length}, expected ${hashes.length}`)
@@ -207,7 +205,7 @@ export async function verifyDiscoveredReceipts(
       if (timestamp === undefined) throw new Error(`block ${receipt.blockNumber}: no timestamp`)
       receipt.blockTimestampSec = timestamp
     }
-    if (options.retainResults !== false) output[batchIndex] = verified
+    if (batchIndex >= 0) output[batchIndex] = verified
     completed += hashes.length
     trades += verified.reduce((sum, receipt) => sum + receipt.trades.length, 0)
     await options.onBatch?.(verified, {
@@ -217,7 +215,6 @@ export async function verifyDiscoveredReceipts(
       primary: primary.metrics,
       secondary: secondary.metrics,
     })
-    return verified
   })
   return output.flat()
 }
