@@ -271,14 +271,25 @@ async function main(): Promise<void> {
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
-  const rtdsBinanceSymbols = rtdsReq?.binanceSymbols ?? []
+  // No explicit symbols → follow the traded market, mirroring the
+  // binanceWsSpotPrice semantics below: `rtdsCryptoPrices: {}` derives
+  // <symbol>usdt / <symbol>/usd from TRADING_SYMBOL; an explicit list wins.
   // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
-  const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols ?? []
+  const rtdsBinanceSymbols = rtdsReq?.binanceSymbols?.length
+    ? rtdsReq.binanceSymbols
+    : rtdsReq
+      ? [`${symbol}usdt`]
+      : []
+  const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols?.length
+    ? rtdsReq.chainlinkSymbols
+    : rtdsReq
+      ? [`${symbol}/usd`]
+      : []
   const rtdsEnabled = rtdsBinanceSymbols.length > 0 || rtdsChainlinkSymbols.length > 0
 
-  if (rtdsReq && !rtdsEnabled) {
-    logger.warn(
-      '[trading-bot] rtdsCryptoPrices requested but no symbols configured; RTDS feed disabled (no prices will be available)',
+  if (rtdsReq && !rtdsReq.binanceSymbols?.length && !rtdsReq.chainlinkSymbols?.length) {
+    logger.info(
+      `[trading-bot] rtdsCryptoPrices symbols derived from TRADING_SYMBOL: binance=[${rtdsBinanceSymbols.join(', ')}] chainlink=[${rtdsChainlinkSymbols.join(', ')}]`,
     )
   }
 

@@ -166,7 +166,9 @@ BOOLEAN`, ordered by `agg_trade_id`. Timestamps are normalized to
   (no symbol) derives the pair from `TRADING_SYMBOL` live and from the market
   slug in backtests, so one strategy works on BTC/ETH/SOL/XRP. An explicit
   `binanceWsSpotPrice.symbol` overrides it — exactly like live — and a
-  slug/config mismatch logs a loud warning.
+  slug/config mismatch logs a loud warning. The live-only `rtdsCryptoPrices`
+  request works the same way: `{}` derives `<symbol>usdt` / `<symbol>/usd`
+  from `TRADING_SYMBOL`, explicit lists win.
 - **Quiet gaps don't drop the feed**: the loaded series is seeded with the
   latest trade before the coverage window, mirroring the live store's
   retain-last-price-forever semantics; day files with zero trades up to the
