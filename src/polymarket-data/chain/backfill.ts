@@ -11,7 +11,7 @@ import {
   publishMarketCandidates,
   writeReceiptBatchParquet,
 } from './parquet.js'
-import { verifyDiscoveredReceipts } from './receipts.js'
+import { verifyDiscoveredReceipts, type VerifiedReceipt } from './receipts.js'
 import { ChainRpcClient } from './rpc.js'
 import { loadChainMarketScope } from './scope.js'
 import type { Timeframe } from '../marketSeries.js'
@@ -193,28 +193,46 @@ async function main(): Promise<void> {
     `${LABEL} receipt resume complete=${completed.size} remaining_txs=` +
       `${new Set(remaining.map((row) => row.transactionHash)).size}`,
   )
-  let batches = 0
+  const receiptBuffer: VerifiedReceipt[] = []
+  let receiptCheckpoints = 0
+  let writeQueue = Promise.resolve()
+  const flushReceipts = async (force = false): Promise<void> => {
+    while (receiptBuffer.length >= 500 || (force && receiptBuffer.length > 0)) {
+      const batch = receiptBuffer.splice(0, force ? receiptBuffer.length : 500)
+      await writeReceiptBatchParquet(args, batch)
+      receiptCheckpoints += 1
+      await assertStorageHeadroom()
+    }
+  }
   await verifyDiscoveredReceipts(primary, secondary, remaining, {
     tokens: scope.tokens,
-    batchSize: 25,
+    batchSize: 10,
     concurrency: 2,
     retainResults: false,
     onBatch: async (receipts, progress) => {
-      await writeReceiptBatchParquet(args, receipts)
-      batches += 1
-      if (batches % 20 === 0) await assertStorageHeadroom()
-      const percent = progress.total === 0 ? 100 : (progress.completed / progress.total) * 100
-      console.log(
-        `${LABEL} receipts ${percent.toFixed(1)}% txs=${progress.completed}/${progress.total} ` +
-          `trades=${progress.trades} requests=${progress.primary.httpRequests + progress.secondary.httpRequests} ` +
-          `retries=${progress.primary.retries + progress.secondary.retries} ` +
-          `rate_limits=${progress.primary.rateLimits + progress.secondary.rateLimits} ` +
-          `timeouts=${progress.primary.timeouts + progress.secondary.timeouts} ` +
-          `download=${mb(progress.primary.responseBytes + progress.secondary.responseBytes)} ` +
-          `elapsed=${elapsed(startedAt)}`,
-      )
+      writeQueue = writeQueue.then(async () => {
+        receiptBuffer.push(...receipts)
+        const before = receiptCheckpoints
+        await flushReceipts()
+        if (receiptCheckpoints > before || progress.completed === progress.total) {
+          const percent = progress.total === 0 ? 100 : (progress.completed / progress.total) * 100
+          console.log(
+            `${LABEL} receipts ${percent.toFixed(1)}% txs=${progress.completed}/${progress.total} ` +
+              `trades=${progress.trades} checkpoints=${receiptCheckpoints} ` +
+              `requests=${progress.primary.httpRequests + progress.secondary.httpRequests} ` +
+              `retries=${progress.primary.retries + progress.secondary.retries} ` +
+              `rate_limits=${progress.primary.rateLimits + progress.secondary.rateLimits} ` +
+              `timeouts=${progress.primary.timeouts + progress.secondary.timeouts} ` +
+              `download=${mb(progress.primary.responseBytes + progress.secondary.responseBytes)} ` +
+              `elapsed=${elapsed(startedAt)}`,
+          )
+        }
+      })
+      await writeQueue
     },
   })
+  writeQueue = writeQueue.then(() => flushReceipts(true))
+  await writeQueue
   const finalCompleted = await completedReceiptTransactions(args)
   const expected = new Set(discovery.map((row) => row.transactionHash.toLowerCase()))
   const missing = [...expected].filter((hash) => !finalCompleted.has(hash))

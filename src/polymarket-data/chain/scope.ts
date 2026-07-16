@@ -14,6 +14,7 @@ export type ChainScopeMarket = {
   marketEndMs: number
   createdAtMs: number
   volumeGamma: string | null
+  negativeRisk: boolean
   tokens: [TokenMarket, TokenMarket]
 }
 
@@ -95,6 +96,7 @@ function toMarket(row: MarketRow): ChainScopeMarket {
     marketEndMs,
     createdAtMs,
     volumeGamma: row.volume_gamma,
+    negativeRisk: raw.negRisk === true,
     tokens: [
       { ...base, tokenId: row.asset_id_0, outcomeIndex: 0 },
       { ...base, tokenId: row.asset_id_1, outcomeIndex: 1 },
