@@ -35,8 +35,12 @@ bottom.
 8. drfc4eybh7i8 address re-resolution (weak signal, low value).
 9. 5m-book launch date (bracketed Jan-15→Feb-15 by the scans; pin it
    if any unit needs it).
-10. Sub-$1 sum-of-asks scan (P38 re-scope; D1) — still unmeasured on
-    the current era; the lab sweep partially answers it implicitly.
+10. ~~Sub-$1 sum-of-asks scan (D1)~~ **DONE session 8 (A40)** —
+    measurements/dip-scan-btc15m.md: 100% of markets dip but only as
+    sub-second flickers (~$2.5/mkt top-of-book today — taker-taker
+    arb is dust); January had STANDING discounts (124s p90, minSum
+    0.72) since repriced away. Residue: none (regime detector idea
+    noted for ops).
 
 ## Resolved session 7
 

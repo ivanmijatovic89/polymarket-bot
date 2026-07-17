@@ -748,3 +748,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   Post-fill drift per fill class becomes a first-class sweep
   diagnostic (METRICS.md updated). [verified]
   (measurements/edge-source-btc15m.md §Session-8 addendum)
+- **A40 (D1 measured at last — sub-$1 dips are 100%-present but
+  sub-second flickers worth ~$2.5/market today; January had STANDING
+  discounts):** 209 books across Jan/Mar/May/Jun
+  (measurements/dip-scan-btc15m.md): current era = 6–10
+  episodes/market, all closed by the next book event, top-of-book
+  harvest $0.10/episode p50 → taker-taker instant arb is dust and
+  race-contested; passive capture (resting bid eaten by the sweep
+  that makes the flicker) is the only expression — confirms P38
+  re-scope, A37, D2. January (fee-era week 2): dip-time p90
+  124s/market, minSum p10 0.72, standing value up to ~$10k/market
+  top-of-book [reported — possible stale-book inflation, G10 era]:
+  the pool the Jan cheap-side winners harvested, repriced away by
+  March. A standing-discount regime detector is a cheap live metric
+  if a dislocation era returns. [verified for Mar→Jun; Jan tagged
+  reported]

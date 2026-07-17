@@ -960,3 +960,18 @@ geometry, is where the margin lives; this is A36's session split
 seen at per-fill zoom. Post-fill drift is now a first-class
 diagnostic in METRICS.md. W2's remaining residue (vol-regime ladder
 split) is largely superseded by this cleaner discriminator.
+
+## 2026-07-17T14:13Z (real) — session 8, unit 9: the dip scan (A40, D1 closed)
+
+Measured the Game-A number on 209 books across four months: every
+market dips below $1 in ask-sum, but in the current era only as
+sub-second flickers — top-of-book value ~$2.5/market, so crossing
+both legs (taker-taker arb) is dust and a latency race. The class's
+passive expression (resting bids eaten by the sweep that creates the
+flicker) is the only way to collect. January was the exception that
+proves the mechanism: standing sub-$1 books (2 minutes+ per market,
+sums down to 0.72, thousands of dollars top-of-book) existed in
+fee-era week 2 and were repriced away by March — that's the pool the
+January cheap-side winners ate, and the class's own competition
+closed it. D1/OPEN-QUESTIONS #10 closed; a live standing-discount
+regime detector is noted as a future ops metric.

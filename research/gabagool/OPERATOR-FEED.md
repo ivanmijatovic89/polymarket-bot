@@ -298,3 +298,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the profitable and breakeven bots use nearly identical order placement — the difference is that the winner's orders fill right before prices move its way, the breakeven one's right before they move against. Picking WHEN to stand in line is the whole edge.
 - Next: live snapshot 6 (~15:30 UTC), then atlas residue dossiers.
 - Health: on track.
+
+## 2026-07-17T14:13Z — unit: the "free money window" measured (session 8)
+
+- Did: scanned 209 recorded markets for moments when buying BOTH sides costs under $1.
+- Found: those moments happen in every market but last under a second and are worth ~$2.50 a market today — no instant-profit trick exists. In January they lasted minutes and were worth thousands; the bots ate that pool and it's gone. Passive standing orders are the only way to collect the crumbs.
+- Next: live snapshot 6, then a state-file refresh for successors.
+- Health: on track.

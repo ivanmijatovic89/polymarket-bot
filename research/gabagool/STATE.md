@@ -105,6 +105,12 @@ A39 (unit 8): b27bc932 fingerprint joined — four-wallet table in
 edge-source-btc15m.md §addendum; edge signature = post-fill drift
 (fill selection), not ladder depth; drift is now a first-class
 sweep diagnostic (METRICS). W2 vol-regime residue superseded.
+A40 (unit 9): D1 dip scan closed — current-era dips are sub-second
+flickers (~$2.5/mkt, taker-taker arb dust); January had standing
+discounts since repriced away. OPEN-QUESTIONS #10 resolved.
+NOTE: session-8 journal stamps for units 2–8 drifted up to +1h
+ahead again — git times are ground truth (units 1–9 ran
+13:23–14:13Z real).
 
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 
