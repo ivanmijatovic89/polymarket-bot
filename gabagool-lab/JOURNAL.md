@@ -423,3 +423,30 @@ is now the best-evidenced region in the variant space.
 L1 is CLOSED. Next: E003 freeze + launch (10 arms, parity axis,
 halves × lat140 — exact commands frozen in LEDGER §E003 and
 tools/launch-e003.sh).
+
+## 2026-07-17T05:45Z — session 3, unit 14a: stray DONE incident (external), purged + guarded
+
+Incident, fully disclosed: an EMPTY `gabagool-lab/DONE` appeared in the
+worktree at 05:17Z — not created by me or by any lab tool (audited:
+tools/, .hooks/, no writer). My unit-14 `git add -A` swept it into
+commit 6b8c0c5 and pushed it. Minutes later the file was DELETED from
+the worktree, again externally (I never removed it). Best hypothesis:
+neighboring automation (the KB shift's session wound down ~05:20Z and
+its relay uses DONE sentinels) touched the wrong worktree and
+self-corrected; the operator doing a manual test is also possible.
+Cannot be determined from here.
+
+Why this matters: DONE is this mission's end-signal — a stray one at
+the branch tip could kill the relay loop. Actions taken: (1) committed
+the (external) deletion so the tip carries no DONE; (2) pre-commit
+hook now BLOCKS adding gabagool-lab/DONE unless GLAB_L3_DONE=yes is
+set — the L3 mission-end commit sets it deliberately; removal stays
+allowed; (3) session pickup ritual (STATE) gains a DONE-absence check;
+(4) stopped using bare `git add -A` — staging is now explicit
+(`git add gabagool-lab/ src/strategies/gabagool-lab/` still sweeps,
+so the hook guard is the real protection).
+
+If the operator DID intend to end the mission: say so in a way a
+session can read (a note in DONE itself or OPERATOR-FEED); an empty
+sentinel that vanishes 3 minutes later reads as an accident, and the
+charter says L3 is the only legitimate creation point.

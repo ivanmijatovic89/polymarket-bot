@@ -12,4 +12,15 @@ if [ -n "$bad" ]; then
   echo "[guard] unstage them; the lab may write only inside those two paths." >&2
   exit 1
 fi
+# DONE is the mission-end sentinel (charter: L3 only). A stray empty DONE
+# appeared+vanished externally on 2026-07-17 (s3 u14a) and a git add -A
+# swept it into a commit. Block ADDING it unless explicitly authorized;
+# removing it stays allowed.
+if git diff --cached --name-only --diff-filter=A | grep -qx 'gabagool-lab/DONE'; then
+  if [ "${GLAB_L3_DONE:-}" != "yes" ]; then
+    echo "[guard] BLOCKED — gabagool-lab/DONE staged for addition. Only the L3" >&2
+    echo "[guard] mission-end commit may add it: GLAB_L3_DONE=yes git commit ..." >&2
+    exit 1
+  fi
+fi
 exit 0
