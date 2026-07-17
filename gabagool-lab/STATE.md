@@ -81,11 +81,14 @@
   taker share flat, pairRate falls. SEED=2 for E004/E005; loose
   {20,40} in dead regions; LS-6 (floored arms collapse — state
   effective grids).**
-- KB folds: A-1..A-5 in INHERITANCE (A30/A33 deep-pair = best-evidenced
-  region; A32 maker-only cells tier-immune; A26 no-blow-up prior;
-  A-5 = W2 capital anchor $0.9k/mkt p50 + W7 terrain: btc-15m flow
-  down ~9× from Jan peak — cite in capacity notes and monthly-trend
-  attribution). KB register still tops at A33 (checked s4 05:45Z).
+- KB folds: A-1..A-6 in INHERITANCE (A30/A33 deep-pair = best-evidenced
+  region; A32 maker-only cells tier-immune; A-5 = W2 capital anchor
+  $0.9k/mkt p50 + W7 terrain ~9× flow decline; **A-6 (u53) = A34–A39:
+  forensics independently confirms LS-11 (excess leg wins 60–81% at
+  living wallets; post-fill drift = edge signature); A37 (offset ×
+  requote) joint axis — per-rung requote policy seeded as E006b;
+  A38 Jan stub-parquet flag — filter by event count on any Jan run**).
+  KB register tops at A39 (checked s16 14:04Z).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB. Export: results.ts --run N --export
   <path.csv>; battery: --battery id@lat,id@lat,...
@@ -102,13 +105,14 @@
 1. **E008-fair-value proposal draft (freeze-ready):** re-anchor
    quotes on EXTERNAL fair value (binanceWsSpotPrice, replayable
    now; wiring scoped u48) instead of own-book chasing. Mechanistic
-   target per LS-11: keep the winner-tracking remainder payload
-   ($2.2–2.4/mkt at ref) while cutting cancel-in-flight crosses
-   (~$0.3 fee + adverse fills). Draft arms + frozen criteria from
-   u48 scoping + §E006 mechanism evidence; freeze BEFORE launch as
-   always. Check first (moving ground): did price-to-beat /
-   Chainlink feeds land on origin/main? (last checked s4 — recheck
-   wireBacktestExternalFeeds.ts.)
+   target per LS-11 + A-6 (two independent confirmations): keep the
+   winner-tracking remainder payload ($2.2–2.4/mkt at ref) while
+   cutting cancel-in-flight crosses (~$0.3 fee + adverse fills).
+   Feed check DONE s16: price-to-beat/Chainlink NOT landed
+   (origin/main docs-only) — design against binance spot; H4 strike
+   proxy = window-open spot. Consider whether per-rung requote
+   (E006b seed, A37) is subsumed by the E008 design or stays
+   separate.
 2. **After E008:** E005b cap bracket (below 0.96) and completion
    composition per D-008 rank behind — neither touches the
    conversion channel. Candidate assembly stays BLOCKED until a

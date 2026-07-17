@@ -1594,3 +1594,38 @@ channel). Candidate assembly stays BLOCKED per the u40 framework.
 LS-11 recorded; dead region on LEADERBOARD; LEDGER §E006 filled.
 Next unit: E008-fair-value proposal draft (arms, criteria,
 freeze-ready) from the u48 scoping + this mechanism evidence.
+
+## 2026-07-17T14:10Z — session 16, unit 53: KB fold A34–A39 — forensics independently confirms the LS-11 mechanism; (offset × requote) is a joint axis
+
+Ritual completions from pickup: origin/main has NO new feed code
+(docs-only e988131, already seen) — price-to-beat/Chainlink still
+not landed, E008 designs against binanceWsSpotPrice only. KB moved
+A33 → A39 since my s13 read; folded as INHERITANCE A-6.
+
+The two load-bearing amendments, in my terms:
+
+- **A36/A39 are the wallet-forensics twin of LS-11.** The KB
+  measured (from fills, independently of my sim) that living
+  winners' unpaired lean tracks the eventual winner (excess leg
+  wins 60–81%) and that fill-selection quality — post-fill drift —
+  is what separates profitable from breakeven twins. My E006
+  decomp found the same object from the other side: the
+  winner-remainder payload is the load-bearing term. Two
+  independent methods, one mechanism. E008's target ("track the
+  mover without paying the churn") is now confirmed from both
+  directions.
+- **A37 reframes E006's result.** Fast requoting helps at the
+  touch, hurts at depth; my chassis shares ONE requoteDelta across
+  rungs [0.02, 0.13]. E006 measured the shared knob and found fast
+  (0.02) best NET — consistent with A37 if the touch rung's speed
+  benefit dominates the deep rung's patience benefit at my sizing.
+  Per-rung requote policy (fast touch / patient deep) is a
+  mechanistically-seeded variant; needs a schema addition to the
+  strategy — backlogged as E006b unless E008's design subsumes it.
+
+Also folded: A38's January stub-parquet flag (Apr/May halves are
+clean; guard any future Jan extension), A35 capacity context.
+Backlog additions (tools, dossier-grade): post-fill-drift
+diagnostic from intent_meta; session stratification in results.ts.
+
+Next unit: E008-fair-value proposal draft, freeze-ready.

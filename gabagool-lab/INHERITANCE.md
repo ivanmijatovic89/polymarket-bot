@@ -411,3 +411,59 @@ at A33 — these are measurement docs, folded as context.
    observed practice — capital is not the entry barrier (W2's own
    conclusion); (c) late-window outlay tilt is one more independent
    signal for the E006 timing axis (A17/A24 already point there).
+
+### A-6 (2026-07-17T14:09Z) — KB fold A34–A39: the joint (offset × requote) axis + independent confirmation of the LS-11 remainder mechanism
+
+Source: KB PRIORS.md amendments A34–A39 (register now tops at A39),
+measurements/{deep-dive-04b6d7e9-btc15m,session-split-b27bc932,
+fill-density-btc15m,edge-source-btc15m}.md. Folded s16 u53, AFTER the
+E006 judgment and BEFORE the E008 draft — these amendments materially
+shape E008.
+
+1. **A34 + A37 — (offset × requote speed) is a JOINT axis with two
+   living optima; the middle is dominated.** 0x04b6d7e9 is a
+   touch-hugging ladder (offsets p10 −2c) with seconds-scale requote
+   cadence whose deep pair costs come from TIMING dips, not resting
+   depth — a second road to sub-$1 pairs. Density measurement (A37,
+   worst_queue rule): fast requoting helps at the touch but HURTS at
+   depth (−2c: 26 fills at 1s vs 45 at 5s; −5c: 4 vs 18 at 15s) —
+   deep rungs want patient standing orders; fast+shallow (A34) and
+   slow+deep (A17/b55f) are the two optima. Lab consequences: (a) my
+   chassis (rungOffsets [0.02, 0.13], ONE shared requoteDelta)
+   straddles this joint axis — E006 tested a shared delta and found
+   0.02 best; A37 predicts the two rungs want DIFFERENT requote
+   policies (fast touch rung, patient deep rung). Per-rung requote
+   policy is now a mechanistically-seeded variant (needs a small
+   strategy-code change — schema addition, backlog as E006b unless
+   E008 subsumes it); (b) A37's "deep rungs are rare-event
+   harvesters (~5 fills/mkt at −5c) whose value must be per-fill
+   price, not volume" independently matches my battery's lat0
+   finding (sparse organic deep fills, cheap: S 0.80–0.82).
+2. **A36 + A39 — the informed excess leg is the class edge
+   signature; wallet forensics independently confirms LS-11.** The
+   living winners' unpaired lean tracks the eventual winner (excess
+   leg won 60% for 04b6d7e9 by CHOICE, 67–81% for b27bc932 by
+   session), and the two shallow wallets separate ONLY on post-fill
+   drift (+0.9c@60s vs −0.4c) — fill SELECTION, not ladder shape,
+   is what pays. My E006 settlement decomp found the same object
+   from the sim side: the winner-remainder payload ($2.2–2.4/mkt at
+   ref) is what price-chasing requotes buy, and killing it kills
+   the cell. Lab consequences: (a) E008's design target is
+   confirmed from two independent directions — preserve
+   winner-tracking while cutting the cross/churn cost; the axis is
+   HOW quotes track the mover, not whether; (b) post-fill drift per
+   fill class (KB METRICS has the recipe) is adoptable as a sweep
+   diagnostic from intent_meta fill data — tool backlog, dossier
+   grade; (c) A36 session split (parity grind wins off-hours,
+   shallow-fast wins US session) → session stratification joins
+   weekly slices as a dossier-grade reporting dimension (charter
+   eval-req #1 alignment; cheap addition to results.ts, backlog).
+3. **A35 + A38 — data and terrain caveats.** (a) A38 DATA FLAG:
+   13/48 Jan-15 Telonex parquets are near-empty stubs — any future
+   run extending into January must filter by event count or it will
+   silently under-fill (my current halves Apr/May are clean); (b)
+   no monotone Jan→Jun fill-density decay — vol dominates calendar;
+   cite in monthly-trend attribution alongside W7's flow decline;
+   (c) A35: the strongest living variant earns entirely in ~7h/day
+   × 5d/wk — fills are the binding resource, not uptime; capacity
+   notes context.

@@ -315,3 +315,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: freezing quotes kills taker fees as designed (37%→5%) but loses MORE on the winner-side leftovers ($1.3–1.5 vs $0.3 saved) — every arm at-or-worse than reference, so the bot keeps requoteDelta 0.02. Silver lining: worst-case losses shrink ~45%. Also: the pre-commit hook's DONE guard was locally stripped by something outside the lab — restored it.
 - Next: draft E008 — re-anchor quotes on the Binance spot feed instead of chasing our own book (keeps the winner-tracking benefit without the churn).
 - Health: on track
+
+## 2026-07-17T14:10Z — unit 53
+- Did: folded the sibling knowledge base's six new findings (A34–A39) into the lab.
+- Found: their wallet forensics independently confirms my E006 mechanism — winning bots deliberately let the unpaired leg lean toward the eventual winner (their excess legs win 60–81%). Also: touch rungs want fast requotes, deep rungs want patient ones — my strategy uses one shared speed.
+- Next: draft E008 — quotes anchored on the Binance spot feed (freeze before launch, as always).
+- Health: on track
