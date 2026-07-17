@@ -41,10 +41,10 @@ for lat in 0 500 1000; do
     else
       win="2026-05-01T00:00:00Z..2026-05-31T23:59:59.999Z"
     fi
-    echo "=== E005 battery bath${half}-c960 lat${lat} (rc=[0.02,0.13] cap=0.96 tol=2 none) ==="
+    echo "=== E005 battery bat${half}-c960 lat${lat} (rc=[0.02,0.13] cap=0.96 tol=2 none) ==="
     npx tsx gabagool-lab/tools/submit.ts \
       --exp E003-pair-accumulator \
-      --suffix "bath${half}-c960" \
+      --suffix "bat${half}-c960" \
       --strategy glab.E003-pair-accumulator \
       --window "$win" \
       --lat "$lat" \
