@@ -159,3 +159,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E003 ~93% done (ETA ~06:27Z), 0 failed jobs, 8/9 result flows already saved. Nothing new.
 - Next: judge the E003 parity-tolerance axis the moment the queue finishes.
 - Health: on track
+
+## 2026-07-17T06:33Z — unit 27
+- Did: judged E003 (parity-tolerance axis, 10 runs, Apr+May, all validators green).
+- Found: tighter parity is strictly better in both months, but even the best setting only matches the baseline (−4.39/market) — the knob limits damage, it cannot create profit. Loose settings lose up to $1/market more with deeper worst-cases. Axis closed.
+- Next: freeze and launch E004 (completion policy — when to pay to finish a pair) at the winning parity setting.
+- Health: on track

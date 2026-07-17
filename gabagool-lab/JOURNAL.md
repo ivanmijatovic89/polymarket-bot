@@ -783,3 +783,47 @@ gone; sixth consecutive short hop, all clean). Pickup:
 
 No E003-blind prep remains. Next unit: E003 judgment when the
 watcher fires (~06:27Z), then the E004 freeze+launch path from STATE.
+
+## 2026-07-17T06:32Z — session 11, unit 27: E003 judged — AXIS-CLOSED, tighter-is-better, floor = baseline
+
+Session 11 started 06:24Z; the drain finished on schedule (~06:27Z,
+0 failed market jobs across all 10 runs) and this unit is the E003
+judgment, executed exactly per the frozen rule and u17b.
+
+The mechanics first: all 10 runs (681–690) completed with validators
+green everywhere — settlement recheck OK, fee-recon VALID (worst diff
+0.26 vs tol ~58), meta coverage 100%, segments cross-check OK, G2
+99.5% played, G9 pass, G3 n/a. axis-table.ts evaluated the advance
+rule mechanically: trend sign −1 in BOTH halves, top-2 set {0.1, 2}
+in BOTH halves → BOTH HOLD.
+
+What the curve says:
+1. EL worsens monotonically as parity loosens: h1 −4.57 → −5.57,
+   h2 −4.22 → −4.87 across tol {floor, 10, 20, 40}. Endpoints are
+   DISTINCT in both halves (u17b rule 1 → endpoint-direction
+   reporting; only h1 20-vs-40 is adjacent-distinct).
+2. Mechanism (u17b rule 3): it is (a), inventory — NOT completion
+   churn. Taker share is flat (≈34% → ≈32.5%) while fills RISE and
+   pairRate FALLS (0.657→0.629 h1); imbalance p50 climbs 0.175→0.264;
+   CVaR5 deepens −21.5→−32.0. The loose gate admits ~13.7k extra
+   fills (h1, tol 40 vs floor) that cost ≈ −21c each: adverse
+   one-sided accumulation the parity brake had been refusing.
+3. The determinism gift matured: p001 ≡ p020 bit-identically (both
+   floored to 12 shares — LS-6: two of five arms were the same arm),
+   and the p001 pair over both halves reproduces E002-fullwin-lat140
+   TO THE FILL (74,111m/38,144t, EL −4.3904). The axis's tight end
+   IS the L1 reference, from an independently written file.
+
+Verdict written to LEDGER: AXIS-CLOSED. Parity tolerance has a
+measured direction (tighter better) and no payable region here — the
+best arm is the floor, and the floor is the baseline's −4.39. The
+knob is a risk cap, not an edge source; pair creation must come from
+depth (E005), completion (E004), or timing (E006). Loose parity
+{20, 40} added to LEADERBOARD dead regions with numbers.
+
+SEED decision (advance rule held): parityTolPct = 2 from the tied
+top-2 — identical evidence to 0.1 at this scale, less degenerate
+encoding if sizing ever grows. E004's `none` control = runs 682/683
+(the p020 pair), batchUids to be recorded in §E004 at freeze, which
+is the next unit: fill SEED, record controls, freeze, launch
+`launch-e004.sh --tol 2`.

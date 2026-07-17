@@ -36,3 +36,10 @@ lesson (E002). Append-only; cite the source experiment/unit.
   Mechanical fix: capture $(date -u) in the same command that writes
   the entry; cross-check against git commit times. Time discipline is
   epistemic discipline: drifted stamps corrupted drain-ETA math twice.
+- **LS-6 (E003):** A relative knob whose floor binds across the whole
+  tested scale is a constant in disguise: parityTolPct 0.1 and 2 both
+  floored to 12 shares and produced bit-identical runs (and tol 10
+  barely escaped the floor late-window). Two arms of five bought no
+  information. Before freezing an axis grid, compute each arm's
+  EFFECTIVE value under the experiment's sizing and drop arms that
+  collapse onto each other; state the effective grid in the spec.

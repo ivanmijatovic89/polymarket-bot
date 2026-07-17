@@ -30,3 +30,14 @@ The reference to beat: **EL(140) −4.39/market; frictionless bound
   LEDGER). Re-entry only with a structurally different quoting policy
   (standing ladders / requote bans — E005 scope) or a fair-value
   suppression gate (E008).
+- **Loose parity tolerance on the shallow ladder** (parityTolPct ∈
+  {20, 40} of total shares, same cell otherwise): strictly worse than
+  the floor in BOTH halves — ΔEL −0.25 to −1.01/mkt, CVaR5 deepens to
+  −32.0, imbalance p50 up to 0.289, monotone across arms (E003, runs
+  681–690, N = 2,880+2,976, lat140, sel-width 5). Mechanism: the
+  loose gate admits adverse one-sided fills (~−21c each at tol 40)
+  with zero pairing gain — taker share flat, pairRate FALLS. The
+  whole parity axis is payability-dead at this cell (best arm = floor
+  = E002 reference −4.39); tolerance is a risk cap, not an edge
+  source. Re-entry only after some OTHER knob makes the cell pay,
+  and then only to re-tune the cap (LEDGER §E003).

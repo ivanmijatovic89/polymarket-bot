@@ -295,7 +295,93 @@ Template:
     Hardening: submit.ts now REFUSES unknown flags; launch-e003.sh
     accepts only --dry-run and refuses to run if E003 flows are
     already queued. The 10 runs above are the SOLE evidence set.
-- **Judgment / Lesson:** (pending)
+- **Judgment (2026-07-17T06:31Z, session 11, runs 681–690; h1 = Apr
+  2,880 mkts, h2 = May 2,976 mkts, lat 140, clip 6, maker-only,
+  selection width 5 arms):**
+
+  Frozen criteria, evaluated verbatim:
+  1. "all 10 runs complete, validators green" — ✓ all: 0 failed
+     markets on every run; settlement recheck all-OK; fee-recon VALID
+     (diffs 0.01–0.26 vs tol 57.6/59.5); meta coverage 100%; segments
+     cross-check OK; G2 PASS (played 99.5% everywhere); G9 PASS; G3
+     n/a (no quoted win rate > 0.9). Run 679 tombstone excluded as
+     pre-registered.
+  2. "per-arm, per-half readout rendered" — ✓ (table below).
+  3. "adjacent arms distinguished or declared indistinguishable" — ✓:
+     ONLY h1 20-vs-40 is adjacent-distinct (|Δ| 0.657 > 2·se_diff
+     0.568); all other adjacent pairs indistinguishable in both
+     halves. ENDPOINTS (0.1 vs 40) are DISTINCT in BOTH halves
+     (h1 |Δ| 1.007 > 0.537; h2 0.646 > 0.492) → per u17b rule 1:
+     measurable direction, insufficient in-between resolution —
+     endpoint-direction reporting, no interpolation.
+  4. "advance rule evaluated as written" — (a) trend sign −1 in both
+     halves: HOLDS; (b) top-2 by EL = {0.1, 2} in both halves: HOLDS
+     → BOTH HOLD; the agreeing region seeds E004/E005 defaults.
+
+  Axis table (EL $/market era-corrected; REB raw 0.23–0.31 all under
+  the $1 threshold — scale diagnostic only):
+
+  | tol% | half | run | EL | t | taker% | pairRate | imb p50 | outlay | CVaR5 |
+  |------|------|-----|-----|-----|--------|----------|---------|--------|-------|
+  | 0.1 | h1 | 686 | −4.5656 | −30.7 | 33.9 | 0.657 | 0.175 | 56.82 | −21.46 |
+  | 2   | h1 | 682 | −4.5656 | −30.7 | 33.9 | 0.657 | 0.175 | 56.82 | −21.46 |
+  | 10  | h1 | 684 | −4.6612 | −30.6 | 33.9 | 0.655 | 0.176 | 57.70 | −21.96 |
+  | 20  | h1 | 687 | −4.9153 | −28.1 | 33.3 | 0.646 | 0.222 | 62.08 | −24.43 |
+  | 40  | h1 | 689 | −5.5724 | −25.0 | 32.4 | 0.629 | 0.264 | 68.95 | −32.04 |
+  | 0.1 | h2 | 681 | −4.2209 | −30.8 | 34.0 | 0.632 | 0.199 | 52.49 | −19.75 |
+  | 2   | h2 | 683 | −4.2209 | −30.8 | 34.0 | 0.632 | 0.199 | 52.49 | −19.75 |
+  | 10  | h2 | 685 | −4.2642 | −30.6 | 33.8 | 0.630 | 0.199 | 53.08 | −20.11 |
+  | 20  | h2 | 688 | −4.4698 | −27.2 | 33.7 | 0.621 | 0.230 | 56.99 | −23.09 |
+  | 40  | h2 | 690 | −4.8666 | −23.8 | 32.8 | 0.605 | 0.289 | 63.08 | −28.89 |
+
+  Findings (mechanism-level):
+  1. **The floor ties the axis's left end and reproduces E002
+     exactly.** p001 ≡ p020 bit-identical per half (2% of max total
+     240 shares = 4.8 < the 12-share floor ⇒ both arms ARE the
+     floor), and the p001 pair over h1+h2 IS E002-fullwin-lat140 to
+     the fill: 74,111 maker + 38,144 taker fills, weighted EL
+     −4.3904. Full-scale same-code determinism demonstrated from an
+     independently written file; the axis's tight end = the L1
+     reference, reproduced.
+  2. **Loosening parity monotonically worsens EL, and the channel is
+     directional inventory, not completion churn.** Taker share is
+     flat-to-slightly-down (33.9→32.4 h1; 34.0→32.8 h2) while fills
+     RISE (57.2k→70.9k h1 total) — u17b mechanism (a), not (b). The
+     extra fills the loose gate admits end unpaired: pairRate falls
+     (0.657→0.629; 0.632→0.605), imbalance p50 rises (0.175→0.264;
+     0.199→0.289), tails deepen (CVaR5 −21.5→−32.0; −19.7→−28.9),
+     outlay rises (56.8→69.0; 52.5→63.1). Marginal economics at h1
+     tol 40 vs floor: ~13.7k extra fills cost ~$2.9k ≈ −21c/fill —
+     the parity gate was the only thing refusing adverse one-sided
+     accumulation.
+  3. **Honesty note on the top-2 set match:** it holds mechanically,
+     but the top-2 is an exact tie (floor≡floor), and tol 10 is
+     indistinguishable from the floor in both halves (Δ ≤ 0.096 vs
+     2·se_diff ≥ 0.39). The defensible region statement: tol ≤ 10
+     (floor-dominated) indistinguishable from floor; tol ∈ {20, 40}
+     measurably worse. The seed is the FLOOR REGION, not a point.
+  4. **SEED = parityTolPct 2** (from the tied top-2): identical
+     evidence to 0.1 at this scale, less degenerate encoding (scales
+     as a true relative tolerance if sizing ever grows; 0.1% is
+     hard-floored forever). E004 control pair = runs 682/683
+     (batchUids recorded in §E004 at freeze).
+
+  Verdict (EVALUATION §8): **AXIS-CLOSED** — parity tolerance has a
+  measured direction (tighter is better; endpoints distinct in both
+  halves) and NO payable region at this cell: the best arm is the
+  floor and the floor is the L1 reference, EL −4.39 (window Apr–May,
+  lat 140, sel-width 5, worst_queue adverse-subset caveat). Loose
+  parity {20, 40} is a dead sub-region (ΔEL −0.25 to −1.01/mkt vs
+  floor, CVaR5 down to −32). Parity tolerance cannot rescue the
+  shallow ladder; it can only cap the damage. Pair creation must come
+  from depth (E005), completion policy (E004), or timing (E006).
+- **Lesson:** parity tolerance is a brake, not an engine — every
+  loosening beyond the floor buys adverse one-sided inventory
+  (−21c per marginal fill at tol 40) with zero pairing gain, so tune
+  it as a risk cap AFTER an edge exists, never as an edge source; and
+  a relative-tolerance knob whose floor binds at the whole tested
+  scale is really a constant — design axes so arms differ in the
+  regime the sizing actually reaches (LS-6).
 
 ## E004-completion-policy — H6 axis (the margin knob)
 - **Type:** axis
