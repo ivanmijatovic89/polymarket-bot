@@ -575,10 +575,16 @@ Template:
 
 ## E005-ladder-depth — ladder shape × the deep-pair cell
 - **Type:** axis
-- **Status:** proposed (draft — freezes at first evidence submission;
-  parityTolPct = 2, set from E003's judgment u27 — floors to 12
-  shares at clip 6 in every arm, a constant BY DESIGN; completion =
-  none in every arm, axis isolation per §E004)
+- **Status:** frozen (2026-07-17T07:45Z, session 12, at shape-arm
+  launch; spec + both pre-freeze amendments below verbatim — nothing
+  filled at freeze beyond what u29/u31 pre-registered. parityTolPct
+  = 2 (E003 judgment u27) — floors to 12 shares at clip 6 in every
+  arm, a constant BY DESIGN; completion = none in every arm, axis
+  isolation per §E004 (judged u33: candidate confirmations
+  maker-only — E005's isolation choice is now doubly grounded).
+  Shape sub-axis = 6 new runs (amendment 2) + reference reuse of
+  E003 runs 682/683; cap arms (ax4) gated behind the shape
+  sub-judgment + bind-table decision.)
 - **Mechanism:** placement depth is the pair engine (LS-2: shallow
   rungs end the median market fully one-sided; churn, not oscillation,
   "pairs" them). Deeper rungs fill on real oscillation only — fewer,
