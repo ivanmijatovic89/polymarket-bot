@@ -1254,3 +1254,12 @@ Template:
   (imb p50 0.33 at rc+c960). If it composes, best case approaches
   −1.0 territory. D-008 constraint: completion enters via a frozen
   candidate spec (or a new frozen axis).
+- E010-own-book-momentum-veto (seeded by A-8 / KB A44–A45, u60):
+  suppress new rungs (or widen) on a side whose own token mid fell
+  over the last ~10s — the KB's only 3/3-robust pre-fill
+  discriminator ("caught the falling ask" = the adverse subset).
+  Own-book signal, no external feed, 10s horizon = latency-robust
+  by construction. Fixed 30s+ DIRECTIONAL rules are dead per A45
+  (regime-dependent — sweep, never freeze). Conditional-requote
+  form (veto upward requote mid-rally) belongs to E006b's design
+  space. Rank against E006b/E005b after E008's numbers.

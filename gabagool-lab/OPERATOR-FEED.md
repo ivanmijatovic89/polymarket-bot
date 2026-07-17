@@ -357,3 +357,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing changes E008; dip-sniping is now closed as an idea (the money there is dust), and winner history says the market-wide profit ceiling keeps shrinking — useful for the final dossier.
 - Next: E008 lands ~15:15Z; judge it against the frozen criteria.
 - Health: on track
+
+## 2026-07-17T14:38Z — unit 60
+- Did: session 18 pickup (all healthy, backtests ~1/3 done) + folded the knowledge base's newest work: they measured what separates the winning wallet's fills from the breakeven one's.
+- Found: the winner avoids buying while the price is falling — a simple 10-second "don't catch the knife" rule survives every out-of-sample check. It needs no external data feed, so it's a cheap future experiment (queued as E010).
+- Next: E008 lands ~15:15Z; judge it against the frozen criteria.
+- Health: on track

@@ -504,3 +504,60 @@ folded s17 u59 while E008 drained — blind-safe (no arm data read).
 4. Housekeeping: KB session-8 journal stamps drifted +1h again (git
    times are ground truth there too) — same failure mode as my
    stamp rule; keep pasting `date -u`.
+
+### A-8 (2026-07-17T14:37Z) — KB fold A44–A46: the entry gate measured (own-book momentum), forensic answer to OQ #1
+
+Source: KB PRIORS A44–A46 + measurements/drift-features-btc15m.md
+(their session 8 units 14–16). Folded s18 u60 while E008 drains —
+blind-safe (no ax6 arm data read; frozen §E008 untouched).
+
+1. **A44/A45 — the entry gate exists and is own-book momentum, not
+   book geometry.** On 8.6k joined resting fills (04b6d7e9 winner
+   vs b27bc932 breakeven grinder, same books): spread, depth,
+   event rate, and minute discriminate NOTHING; the only
+   discriminating feature is mid momentum into the fill. Validated
+   out-of-sample (3 samples, 2 extra days):
+   - ROBUST: habitat separation — the winner's resting fills fire
+     in near-calm states (preDrift30 ≈ 0, post60 +0.47c); the
+     grinder's fire mid-chase at local tops (+3–4c pre, post60
+     −0.15c). The winner is never filled mid-chase.
+   - ROBUST (3/3): the 10-second falling-ask veto — adverse fills
+     have equal-or-lower preDrift10 in every sample. "Caught the
+     falling ask" is literally the adversely-selected subset (the
+     worst_queue intuition, now shown in real fills).
+   - DEAD: any FIXED 30s+ directional momentum rule — sign flips
+     by day (Jun-10 corr −0.19 vs May-13 +0.21). Directional
+     momentum at 30–60s is regime-dependent; sweep it, never
+     freeze it.
+   - Effect-size honesty: favorable share ~48% for BOTH wallets —
+     gates must be judged on aggregate EL/pair cost, not per-fill
+     win rate (matches my EVALUATION doctrine already).
+2. **Lab consequence — a new, cheap gate family distinct from
+   E008.** E008 gates on EXTERNAL spot distance-from-strike
+   (level, directional, standing). The KB's robust signal is
+   OWN-BOOK, short-horizon (10s), and veto-shaped (suppress/widen
+   the side whose token mid just fell). It needs NO external feed
+   — the book series is native to the sim — and a 10s horizon is
+   latency-robust by construction (survives 500–1000 ms trivially).
+   Seeded as E010-own-book-momentum-veto in the LEDGER backlog.
+   Ranking against E006b/E005b deferred to E008's numbers per
+   STATE queue rule.
+3. **Synthesis with E006 (per-rung requote, A37/E006b seed):** the
+   KB's "never instant-requote upward under a rally" (the
+   grinder's local-top habitat) looks at first like tension with
+   my E006 verdict (fast 0.02 requote preserves the winner
+   remainder; slowing it loses more than it saves). Both can be
+   true: E006 tested UNIFORM requote speed; the KB evidence points
+   at CONDITIONAL requote — fast by default, suppressed only
+   mid-rally on the rising side. Strengthens E006b and gives it a
+   concrete conditional form (veto upward requote when own-book
+   preDrift10 > threshold) rather than a per-rung constant.
+4. **A46 — session ordering is recipe-specific, confirmed from the
+   other side.** b27bc932 replicates US-worst / evening-best 2/2;
+   my chassis refs show the OPPOSITE (evening 20–23Z worst in both
+   halves, u58). Same market, different recipes, different session
+   exposure — session slices stay a DIAGNOSTIC readout in my
+   evaluation, not a design axis, exactly as u58 concluded. Their
+   grinder's gross-negative btc-15m days (carried by rebates) also
+   reinforce A-5: rebate income is a live-side line item my sim
+   correctly excludes (conservative).

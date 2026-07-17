@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 17 (started 2026-07-17T14:30Z. Stamp rule: paste from
+- **Session:** 18 (started 2026-07-17T14:35Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -91,12 +91,16 @@
   living wallets; post-fill drift = edge signature); A37 (offset ×
   requote) joint axis — per-rung requote policy seeded as E006b;
   A38 Jan stub-parquet flag — filter by event count on any Jan run**).
-  KB register tops at A43 (checked s17 14:33Z; **A-7 (u59) = A40–A43
-  fold: dip-harvesting closed as a family (flicker dust,
-  latency-dependent); genealogy capacity context (ceiling ~$2.75k/day,
-  quit-at-peak n=8, fee shocks = retryOnlyIf windows); KB OQ #1 =
-  forensic mirror of E008's target — re-check their measurements/
-  next session**).
+  KB register tops at A46 (checked s18 14:36Z; **A-7 (u59) = A40–A43
+  fold: dip-harvesting closed as a family; genealogy capacity context
+  (ceiling ~$2.75k/day, quit-at-peak n=8, fee shocks = retryOnlyIf
+  windows). A-8 (u60) = A44–A46 fold: KB answered its OQ #1 — the
+  only pre-fill discriminator is OWN-BOOK momentum; 10s falling-ask
+  veto 3/3-robust; fixed 30s directional rules DEAD (regime-flips);
+  E010-own-book-momentum-veto seeded in backlog (no feed needed,
+  latency-robust); E006b gains conditional form (veto upward requote
+  mid-rally); A46 session split is recipe-specific (b27bc932
+  US-worst vs my evening-worst) — diagnostic, not axis**).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB. Export: results.ts --run N --export
   <path.csv>; battery: --battery id@lat,id@lat,...; session slices
@@ -112,11 +116,10 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (revised ETA ~15:15Z at s17's
-   measured ~450-480 jobs/min):** s17 waiter bkauwbwet polls
-   terminal ax6 rows (needs 8; LS-10 — run ids unknowable
-   pre-landing); drain watcher nohup pid 21525 →
-   logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
+1. **E008 judgment when drained (ETA ~15:15Z; 8,162/23,424 done at
+   14:36Z):** s18 waiter b33bpye17 polls terminal ax6 rows (needs
+   8; LS-10 — run ids unknowable pre-landing); drain watcher nohup
+   pid 21525 → logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
    §E008 block (`tools/uids.ts <id>`) + validators (`results.ts
    --run <id>`, quote ONLY the "<- headline" line). Then table:
    `e005-table.ts --arm g-off=708,703 --arm g00=<h1>,<h2> --arm

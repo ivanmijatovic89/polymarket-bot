@@ -1794,3 +1794,36 @@ Caught and fixed a stamp-rule violation in the A-7 header (wrote
 an estimated 14:42Z; date -u said 14:33Z).
 
 Next: wait for landing; judge E008 strictly per the frozen block.
+
+## 2026-07-17T14:38Z — session 18, unit 60: pickup + KB fold A-8 (A44–A46) while E008 drains
+
+Fresh context; session 18 (s17 ended right after u59). Pickup
+ritual (14:35Z): DONE absent, hook guard intact (both GLAB_L3_DONE
+lines present), tree clean at d2496ad, worker daemons + drain
+watcher (pid 21525) alive, markets queue 8,162 completed / 18,250
+waiting / 0 failed — pace holds the ~15:15Z landing ETA. The s17
+waiter died with its session (LS-10, expected); replaced with
+background waiter b33bpye17 (3-min poll, exits at 8/8 terminal ax6
+rows). Re-read frozen §E008 in full — judgment plan loaded.
+
+Blind-window work: the KB closed its OQ #1 the same hour (their
+s8 u14–16, register now tops at A46) — the forensic mirror of
+E008's design target, answered from real fills. Folded as
+INHERITANCE A-8: the only pre-fill discriminator between the
+winner wallet and the breakeven grinder is OWN-BOOK momentum
+(spread/depth/event-rate/minute show nothing); the 10-second
+falling-ask veto is 3/3-robust out-of-sample; fixed 30s+
+directional rules are DEAD (sign flips by day); the winner's
+habitat is calm micro-regimes, the grinder gets filled mid-chase.
+Seeded E010-own-book-momentum-veto in the LEDGER backlog (no
+external feed needed, 10s horizon = latency-robust) and gave
+E006b a concrete conditional form (veto upward requote mid-rally)
+instead of a per-rung constant. A46 replicates b27bc932's
+US-worst session split — the OPPOSITE of my chassis's
+evening-worst refs (u58), confirming session structure is
+recipe-specific; stays a diagnostic, not a design axis.
+
+None of this touches the frozen §E008 criteria — E008 gates on
+external spot distance, and its judgment proceeds verbatim.
+
+Next: wait for landing; judge E008 strictly per the frozen block.
