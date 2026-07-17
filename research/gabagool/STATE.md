@@ -2,22 +2,32 @@
 
 Session relay state. A fresh session continues from CHARTER.md + this file.
 
-## Status digest (updated 2026-07-17T01:05Z, session 1)
+## Status digest (updated 2026-07-17T03:20Z, session 1)
 
-- Phase 0 COMPLETE: all required reading done, PRIORS.md written (51 tagged
-  claims P1–P51, two central tensions T1/T2 ledgered).
-- Binance aggTrades mystery resolved: feed IS implemented + live-verified,
-  on unmerged branch `binance-aggtrades-r2-sync` (doc:
-  `docs/datasets/polymarket-data/binance-aggtrades-feed.md` on that branch).
-  Strategies still wake only on PM book ticks (Binance-driven ticks = ADR,
-  proposed not implemented).
-- Key tensions driving everything: T1 (lab scope BTC 15m vs INV's "edge is
-  on 1h/4h+alts, 15m ≈ 0"); T2 (fable-lab closed passive maker in-model at
-  both fill bounds, yet gabagool wallets made $644k live doing it —
-  candidate reconciliations i–v in PRIORS §9).
-- Next unit: workstream C start — resolve @gabagool22 handle→address, pull
-  activity, first forensic pass (needs scripts/ + data/ scaffolding +
-  .gitignore for data/).
+- Phase 0 DONE: PRIORS.md (51 claims, tensions T1/T2). ENGINE-GAPS.md DONE
+  (8 gaps). VENUE-MECHANICS.md started (fee timeline pinned: 15m crypto
+  fee-free until 2026-01-06; dynamic taker fees + 20% daily maker rebates
+  since; current crypto feeRate 0.07). Wallet forensics WELL UNDERWAY:
+  - All 9 handles resolved (wallets/_META.md table + PnL snapshots).
+    Ecosystem ALIVE: ~7 wallets printing ~$18.5k/day collectively.
+  - gabagool22 = 0x6031…f96d, $868,863 all-time, active 2025-10-29 →
+    2026-02-20 (pinned by data). Tail forensics (final 2.6d) DONE:
+    trading −$1,767, rebates +$1,819 → quit at breakeven; END-STATE WAS
+    REBATE FARMING (pair cost ≥ $1 on purpose). Fingerprint: buys-only,
+    delta-neutral (0.13% leg imbalance), $4 clips, burst ladders, batched
+    cross-market merges, win% 39–65%.
+  - Incumbent 0xb55f full address found:
+    0xb55fa1296e6ec55d0ce53d93b9237389f11764d4 — STILL ACTIVE, 30d $110.6k
+    (GREW since INV → "decaying edge" contested). Cluster lead: incumbent +
+    0xce25 profiles created 121s apart (same operator likely).
+- KNOWN PITFALL for successors: data-api /activity rows have no unique id
+  + second timestamps → identical same-second rows are REAL; never dedupe
+  by content (puller v1 bug, fixed in scripts/pull-activity.ts v2).
+- IN FLIGHT: Dec 8-10 2025 (zero-fee era) activity pull for gabagool22
+  (`data/activity-gabagool22-dec.jsonl`, background task) — compare
+  profitable-era fingerprint vs tail; then update dossier + PRIORS.
+- Next after that: METRICS.md fill-out, mid-life analysis, then D2 prep
+  (Telonex book join for fill-offset measurement).
 
 ## Work queue
 
