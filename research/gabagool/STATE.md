@@ -53,23 +53,18 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: fold A13-A16 into STRATEGY-BRIEF + HYPOTHESES + METRICS.
-   They change H1 materially: (a) fees are now exactly known per era,
-   (b) the winning meta is maker-accumulate + taker-complete (~62%
-   taker by notional), (c) parity is era-dependent, (d) fee-inclusive
-   edge on btc-15m is +2.31% (b55f). H-family should include a
-   taker-completion policy knob and an explicit fee/rebate income
-   statement per market.
-2. Edge-source hunt on btc-15m: level selection vs mid, timing within
+1. NEXT: edge-source hunt on btc-15m: level selection vs mid, timing within
    window, completion behavior — fills x books join for b55f/0xce25
    (data on disk) + reuse measure-onchain-fees.ts role decoding.
-3. D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
+2. D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
    (check fable E24/E25 first).
-4. Venue leftovers: tick/min-size/rate limits, resolution mechanics
+3. Venue leftovers: tick/min-size/rate limits, resolution mechanics
    (Game J), 2026-exchange launch date, bulk-payout provenance.
-5. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
+4. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
-DONE this session: state sync; bonereaper verdict (A12); Jan
+DONE this session: state sync; bonereaper (A12); A13-A16 folded into
+BRIEF/HYPOTHESES (new H6 completion-aggressiveness; H5 resolved
+supported)/METRICS; Jan
 transition (A15); Jan fee rate on-chain (A14); fee-mechanics decode +
 gross-of-fee bias (A13); fee-inclusive re-audit of actives (A16) —
 edge survives at +2.31% btc-15m, meta is majority-taker, new exchange
@@ -90,5 +85,5 @@ contract found. Earlier: A9-A11, _META v2, literature A1/A2.
 - D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
   touch 64–68%; ~30-45% of archetype fills were taker completions**
   (measurements/d2-fill-reality-gap.md). D1 re-scoped (P38). D3–D5 open.
-- E Synthesis: BRIEF/HYPOTHESES current incl. D2+powerwinner (H3
-  "subsidy dominance" now leading).
+- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A16 (H5
+  resolved supported; H6 added; H3 resolved stratified+fee-corrected).

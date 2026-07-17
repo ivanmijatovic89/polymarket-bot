@@ -13,8 +13,13 @@ edge is dead by regime change, do not test it.
   is whether TODAY's thinner bot field + broader fee curve (0.07·p(1−p)
   extends fees to tails → richer rebate pool per fill) re-opened it.
 - **Parameters**: clip $1–10 (archetype p50 $4); band p25–p75 ≈
-  0.31–0.63; parity tolerance ≤1% of accumulated shares; ladder depth
-  1–3 levels/side; books: btc-15m first (lab scope).
+  0.31–0.63; parity tolerance: SWEEP 0.1% → 40% as a first-class knob
+  (archetype ran 0.1% in the zero-fee era; current edge wallets run
+  20–40%, and the one 0%-parity wallet today is trading-negative —
+  BRIEF §5); ladder depth 1–3 levels/side; **completion policy**: sweep
+  maker-only vs taker-complete-when-lagging (fee 0.07·p(1−p) on the
+  crossing leg — exactly modelable now, A16); books: btc-15m first
+  (lab scope).
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.
@@ -63,16 +68,19 @@ edge is dead by regime change, do not test it.
   shows real trading edge (~40% of income). Remaining: 0xaaaaa,
   badfallen, doggystyie, bonereaper, 0xce25.
 - **RESOLVED (measurements/actives-decomposition.md): STRATIFIED.**
-  3 of 7 actives have real trading alpha (+0.7% to +2.31% of turnover:
-  0xce25, badfallen, b55f); 3 are deliberate taker-rebate farmers
-  (trading negative by design); 1 negative window (bonereaper). Real
-  edge persists in July 2026 AND the ecosystem's largest income stream
-  is the taker-rebate pool (~$20k/day across these 7). Consequences:
+  3 of 7 actives have real trading alpha; 3 are deliberate taker-rebate
+  farmers (trading negative by design); bonereaper is a hybrid (A12).
+  **Fee-inclusive correction (A16)**: the gross margins shrink but the
+  btc-15m edge SURVIVES on-chain-audited fees — b55f +2.31%, 0xce25
+  +0.31%; all btc-5m cells fee-negative (farming). Real edge persists
+  in July 2026 AND the ecosystem's largest income stream is the
+  taker-rebate pool (~$20k/day across these 7, incl. occasional BULK
+  payouts — bonereaper got a single $62.6k one, A12). Consequences:
   (a) the lab's target is the edge-wallet profile (small clips $6–11,
-  multi-book, moderate parity) — NOT the farmer profile; (b) program
-  risk (venue repricing rebates) is the systemic risk of everything
-  built here; (c) headline P&L of any wallet is meaningless without
-  decomposition.
+  multi-book, moderate parity, maker-biased completion) — NOT the
+  farmer profile; (b) program risk (venue repricing rebates) is the
+  systemic risk of everything built here; (c) headline P&L of any
+  wallet is meaningless without decomposition AND fee reconstruction.
 - **SRP family**: none directly (rebates unmodelable in sim, G4); this
   hypothesis gates how much sim work is worth doing at all.
 
@@ -95,16 +103,34 @@ edge is dead by regime change, do not test it.
   currently FORBIDS external feeds; the handoff must flag that the feed
   is replayable-deterministic now (the ban's rationale changed).
 
-## H5 — 15m is again the best lab book because 5m concentrates the bots (rank 5, cheap check)
+## H5 — 15m is again the best lab book because 5m concentrates the bots — RESOLVED SUPPORTED
 
-- **Mechanism**: post-fee flow migrated (archetype tail was 5m-heavy;
-  incumbent's top book is btc-5m). If the pro bots crowd 5m, 15m may
-  carry relatively more un-arbitraged retail flow per bot today —
-  supporting the lab's frozen scope rather than fighting it (T1).
-- **Test**: per-book margin decomposition of 2-3 actives (same pulls as
-  H3); compare net$/market and rebate-weight by timeframe.
-- **Kill**: actives' 15m books uniformly negative-to-zero while 5m/1h
-  carry everything → lab scope hosts a dead book; say so in LAB-HANDOFF.
+- **Mechanism**: post-fee flow migrated; the pro bots crowd 5m for
+  rebate weight, leaving 15m relatively more un-arbitraged.
+- **RESOLVED (A11 + A16)**: btc-15m is fee-inclusive POSITIVE for the
+  wallets audited (b55f +2.31%, 0xce25 +0.31%; bonereaper's 15m sleeve
+  +1.12% gross) while btc-5m is fee-inclusive negative for every
+  audited wallet (−2.0 to −2.9%) and exists as rebate manufacturing.
+  The lab's frozen btc-15m scope is the RIGHT hunting ground; 5m is a
+  subsidy game the lab cannot model (G4/G8).
+
+## H6 — Completion aggressiveness is the margin knob (NEW, rank 2.5)
+
+- **Mechanism**: same operator, same books, same era: b55f (+2.31%
+  fee-inclusive btc-15m, taker fills pay 1.43% avg) vs 0xce25 (+0.31%,
+  taker fills pay 2.64% — crossing nearer mid). The ~2% margin gap
+  tracks WHERE the taker completion happens on the fee curve. If true,
+  the single highest-leverage policy in a build is: complete the
+  lagging leg only when the crossing price keeps pair cost + fee under
+  a hard cap (e.g., ≤0.99), else wait or abandon parity.
+- **Test path**: sim can model this exactly (fees known, A16); the
+  maker side stays worst-queue-bounded but the RELATIVE ranking of
+  completion policies survives a pessimistic maker model (same maker
+  fills under both arms).
+- **Kill**: completion-policy sweep shows <0.3% margin spread on
+  identical maker fills → the gap was book-mix or timing, not policy.
+- **SRP family**: parameter axis inside `pair-accumulator` (H1), not a
+  separate family.
 
 ## Discarded (do not re-raise without new evidence)
 

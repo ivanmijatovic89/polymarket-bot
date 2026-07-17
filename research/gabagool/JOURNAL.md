@@ -306,3 +306,20 @@ PRIORS A16, _META fee-correction header, VENUE-MECHANICS new-exchange
 section, OPEN-QUESTIONS: fee re-audit + maker/taker split resolved.
 Next: fold A13–A16 into STRATEGY-BRIEF/HYPOTHESES (they change H1's
 premises materially), then the edge-source hunt.
+
+## 2026-07-17T03:25Z — synthesis fold: A13-A16 into BRIEF/HYPOTHESES/METRICS
+
+BRIEF: fee mechanics now "exactly known per era" in §2; §1 economics
+updated with fee-inclusive July numbers; §4 gains the completion-policy
+knob (the b55f-vs-0xce25 2%-gap observation); §9 marks income
+decomposition + January transition answered. HYPOTHESES: H1 parameters
+now sweep parity 0.1→40% AND completion policy; H3 carries the
+fee-inclusive correction; H5 RESOLVED SUPPORTED (btc-15m is the right
+book; 5m is a subsidy game); new H6 "completion aggressiveness is the
+margin knob" — testable in sim because fees are exactly modelable and
+relative ranking survives a pessimistic maker model. METRICS: added
+taker-fee drag, fee-inclusive margin, taker-share-of-notional rows and
+the gross-accounting discipline note.
+
+Next: edge-source hunt (now question #1) — level/timing analysis of
+b55f vs 0xce25 btc-15m fills against Telonex books.

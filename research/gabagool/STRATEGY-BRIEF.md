@@ -29,8 +29,14 @@ BOTH legs across a band around mid; every filled pair whose combined cost
     ~500k pairs/day scale → +1.9% of turnover, 98.7% win on btc-15m.
   - Fee+rebate era: pair costs compressed to ≥$1; trading PnL → −rebates;
     the 20% maker-rebate pool became the income; competed to breakeven →
-    archetype exited 2026-02-20. Current actives still run 0.9–2.0%
-    margins (composition unknown — measurement in flight).
+    archetype exited 2026-02-20. NUANCE (A15): the fee shock itself was
+    adapted to in ~6 days (Jan 12 was back to 94% win via 130bp deeper
+    discounts); the actual death was slower competitive compression over
+    mid-Jan→Feb.
+  - Current era, FEE-INCLUSIVE (A16, on-chain audit): btc-15m still
+    carries real edge — b55f +2.31% of turnover after fees (+3.20%
+    gross); 0xce25 +0.31%. btc-5m cells are fee-negative and exist for
+    rebate manufacturing. Winners are ~62% TAKER by notional.
 
 ## 2. Who pays (and the era-dependence of the counterparty)
 
@@ -44,6 +50,15 @@ BOTH legs across a band around mid; every filled pair whose combined cost
   rebate stream ∝ own share of fee-weighted maker volume. Rebates are
   volume-proportional → they reward exactly the high-count/small-clip
   fingerprint the archetype had.
+- Fee mechanics are now EXACTLY known per era (A13/A14/A16 +
+  VENUE-MECHANICS): zero until 2026-01-06; then 0.25·p·(p(1−p))²/share
+  taker-only (verified on-chain, no Jan ambiguity); currently
+  0.07·p(1−p)/share taker-only on a new exchange contract that also
+  MINT-matches complementary buys. Makers pay exactly $0 in every era.
+  A lab family can therefore model fees precisely — but must model the
+  TAKER side to do so, because the winning meta taker-completes ~62%
+  of its notional (A16) and /activity-style gross accounting hides
+  that cost.
 
 ## 3. Fair-value options (open — ranked by evidence)
 
@@ -77,6 +92,13 @@ Candidates for the lab:
   taker-completed when parity demands it (free in the zero-fee era;
   post-2026-05-28 the taker leg earns tier rebates, changing this
   arithmetic again).
+- **Taker completion is now the MAJORITY mode (A16)**: July edge
+  wallets run ~62% taker by notional on their edge book and still
+  clear +2.3% fee-inclusive (b55f). A build spec needs an explicit
+  completion policy: when a leg lags, cross the spread and pay
+  0.07·p(1−p) iff expected pair margin + rebate > fee. This knob
+  (completion aggressiveness) separates b55f (+2.31%) from 0xce25
+  (+0.31%) — same operator, different aggression, 2% margin gap.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
@@ -146,10 +168,13 @@ Candidates for the lab:
   64–68% (measurements/d2-fill-reality-gap.md). Sim = lower bound seeing
   the adverse half; screens retain signal, validation needs live-paper
   or a trades-channel queue model.
-- ~~Income decomposition~~ **PARTIALLY ANSWERED**: b55f = 40% trading /
-  60% subsidies; powerwinner = 100%+ subsidies (trading negative). The
-  meta is subsidy-stratified; remaining actives still to decompose.
+- ~~Income decomposition~~ **ANSWERED** (all 7 actives + fee-inclusive
+  re-audit, A16): the meta is stratified; fee-inclusive btc-15m edge
+  +2.31% (b55f) is real; farmers are fee-negative rebate loops.
+- ~~January transition speed~~ **ANSWERED** (A15): fee shock adapted to
+  in ~6 days; competitive compression killed over weeks.
 - Level offsets vs top-of-book at fill time (D2 byproduct).
-- January transition speed (fee introduction → margin collapse curve).
+- Edge SOURCE on btc-15m: what b55f's +2.31% actually selects for
+  (level/timing/completion policy) — the top open question.
 - Whether rebate accrual can be estimated per-fill precisely enough to
   bolt onto backtest stats (G4 estimator; needs pool-share assumption).

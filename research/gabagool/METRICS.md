@@ -15,6 +15,9 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
 | unpaired exposure $ | `(max−min leg) × avg cost of surplus side` | tail-loss driver (P14) | tail p50 $2–8/market |
 | net cash PnL | −BUY + SELL + REDEEM + MERGE (cash flow, no oracle) | ground truth per market incl. abandonment | tail: −0.50% of turnover |
 | rebate income | 20% × Σ venue-fee-curve over own maker fills × pool share | flips the sign in the current meta (G4) | tail: +$1,819/2.6d vs −$1,767 trading |
+| **taker-fee drag** | Σ published-curve fee over own TAKER fills (per era formula, VENUE-MECHANICS) | /activity nets are GROSS of this (A13); the sign of the edge depends on it | Jul actives: 0.9–2.6% of turnover by book (A16) |
+| **fee-inclusive margin** | (net cash PnL − taker-fee drag) / buy turnover | the honest edge number; rebates stay a separate line | b55f btc-15m +2.31%; 0xce25 +0.31%; btc-5m cells negative (A16) |
+| **taker share of notional** | taker-side notional / total (per-fill role from receipts) | the winning meta is ~62% taker (A16) — pure-maker sims model a minority | archetype 29–45% (fills, D2); Jul edge wallets ~62% (notional) |
 | win rate | markets with net cash > 0 | payoff-shape check, NOT edge (fable E14/E31) | tail 39–65% by family (NOT the reported 99%) |
 | PnL tails | p10/p90 net$, worst-market | one −$500 market eats 50 winners | tail p10 −$8..−$53 by family; worst −$145 |
 | fills/market | count; p50/p90/max | capacity + rebate volume driver | tail p50 45–162, p90 up to ~800, max 2,478 |
@@ -47,6 +50,9 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
   (fable E14).
 - Never pool paired/delta replay semantics, or pre/post-fee eras.
 - Cash-flow accounting from /activity is complete and oracle-free, but
-  requires the v2 puller (no content dedupe — see STATE pitfall).
+  requires the v2 puller (no content dedupe — see STATE pitfall) — and
+  it is GROSS OF TAKER FEES in every fee era (A13/A16): fees are docked
+  outside the reported size/usdcSize. Always report gross AND
+  fee-inclusive; never add rebate income to a gross number.
 - Per-leg UI/leaderboard reads are inflated for both-sides wallets (P17);
   lb-api windows mix realized and MTM (P16).
