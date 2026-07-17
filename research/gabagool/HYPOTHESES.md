@@ -16,10 +16,13 @@ edge is dead by regime change, do not test it.
   0.31–0.63; parity tolerance: SWEEP 0.1% → 40% as a first-class knob
   (archetype ran 0.1% in the zero-fee era; current edge wallets run
   20–40%, and the one 0%-parity wallet today is trading-negative —
-  BRIEF §5); ladder depth: levels at touch AND −2c…−13c below touch
-  (A17 — the current edge ladder is deeper than the archetype's 1–4c;
-  ~1/3 of real fills come from sweeps into the deep rungs, which is
-  also the slice worst_queue models best); cheap-side touch-resting
+  BRIEF §5); ladder depth: TWO cells (A34) — (a) deep: levels at touch
+  AND −2c…−13c below touch (A17 — b55f/0xce25; ~1/3 of real fills come
+  from sweeps into the deep rungs, which is also the slice worst_queue
+  models best), (b) shallow+fast: touch-hugging (offsets p10 −2c) with
+  seconds-scale requoting — the strongest living wallet (0x04b6d7e9)
+  reaches pairCost p25 0.940 on btc-15m this way; requote interval is
+  a first-class parameter; cheap-side touch-resting
   for longshot accumulation (b55f touch px p50 0.14); **completion
   policy**: sweep maker-only vs taker-complete-when-lagging (fee
   0.07·p(1−p) on the crossing leg — exactly modelable now, A16);

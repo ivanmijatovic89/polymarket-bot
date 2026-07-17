@@ -249,3 +249,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the picture changes with the clock — every bot's pair cost went above $1 in the busy window, and the top 15-minute bot suddenly ran 5x its usual volume on the 5-minute market. Quiet-hours numbers don't describe the whole day.
 - Next: deep-dive on the strongest living wallet's order patterns (queue #1).
 - Health: on track.
+
+## 2026-07-17T14:05Z — unit: deep-dive on the best living wallet (session 8)
+
+- Did: matched the top wallet's actual trades against the order-book recordings on our target market (this was the #1 open question).
+- Found: it wins differently than assumed — it quotes right AT the market price and re-quotes every few seconds (no deep discount orders), and its lopsided positions are deliberate bets on the favorite that usually pay off. Our lab now has two distinct recipes to test instead of one.
+- Next: re-run the same match on quiet overnight hours; then next queue item.
+- Health: on track.

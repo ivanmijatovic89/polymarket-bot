@@ -130,6 +130,18 @@ Candidates for the lab:
   entry rather than b55f-style taker completion. Sweeps must include
   this cell (pair-cost target ≤0.98, patient/maker-only completion,
   tolerate ~20% unpaired).
+- **A34 refines the deep-pair cell's mechanics (fills×books on its
+  own btc-15m sleeve)**: the ladder is SHALLOW (offset p10 −2c, half
+  of maker volume at-touch/inside) with seconds-scale requoting —
+  its deep pair costs come from timing dips near the touch, not deep
+  resting rungs; on btc-15m it actually grinds pairRate 0.94 p50
+  (the 0.78 was a cross-book artifact of its maker-pure 5m/hourly
+  farming sleeves) and concentrates ~ALL its taker completion on
+  btc-15m; resting fills drift favorably post-fill. So the two
+  proven roads to sub-$1 pairs are (a) deep patient rungs
+  (b55f/0xce25) and (b) shallow fast requoting + timed completion
+  (0x04b6d7e9) — the first sweep should carry BOTH cells, and
+  requote interval joins the parameter list.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
@@ -159,6 +171,12 @@ Candidates for the lab:
   WHICH fills to accept (band, price-vs-value, kill-switch), plus HOW
   MUCH imbalance to carry — sweep parity tolerance as a first-class
   knob (0.1% → 40%), not a fixed virtue.
+- **Which leg to leave unpaired (A34)**: when 0x04b6d7e9 carries an
+  excess leg on btc-15m, it leans toward the FAVORITE (excess avg px
+  0.547 vs 0.437 other leg) and that leg won 18/30 (60%, ≈ +5c/share
+  gross) — the imbalance is a directional choice, not adverse
+  cheap-side pile-up. Leg-risk policy sweeps should include the sign:
+  cap CHEAP-side excess tighter than favorite-side excess.
 
 ## 6. Sizing / cadence / capital
 

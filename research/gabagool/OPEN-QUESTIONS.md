@@ -4,13 +4,13 @@ Ranked by information value per unit effort. Refreshed session 7
 (2026-07-17 ~05:10Z real clock) after A26–A33. Resolved items at the
 bottom.
 
-1. **0x04b6d7e9 deep-dive (the strongest living variant, A30)** —
-   ladder offsets vs touch, requote cadence, per-market leg-imbalance
-   distribution (is pairRate 0.78 a choice or a constraint?), margin
-   stability month-by-month. Method: fills×books join like A17;
-   Telonex covers ≤2026-06-14, wallet born Mar-25 → 2.5 months of
-   joinable data exist. HIGHEST VALUE remaining measurement: it
-   parameterizes the lab's primary target cell (deep-pair).
+1. ~~0x04b6d7e9 deep-dive~~ **DONE session 8 (A34)** —
+   measurements/deep-dive-04b6d7e9-btc15m.md: shallow touch-hugging
+   ladder (p10 −2c) + timing, btc-15m pairRate 0.94 p50 (0.78 was
+   cross-book), excess leg = favorite-side choice (won 60%), all
+   taker flow on 15m, sleeve ≈ breakeven+rebates in the hard regime.
+   Residue: repeat the join on an OVERNIGHT stretch (O7 regime
+   split); margin decay month-by-month still open.
 2. **Maker-only fill density at deep offsets on btc-15m** (paper-EV
    residual): can $143/market maker notional be reached at clip $3–5
    without touch-chasing? Answerable from Telonex book replays +

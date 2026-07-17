@@ -11,8 +11,10 @@
  *   [--out research/gabagool/data/telonex-r2]
  */
 import { mkdirSync, existsSync, writeFileSync, readFileSync, renameSync } from 'node:fs'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { listEligibleTelonexMarkets } from '../../../src/db/telonexMarkets.js'
+import { downloadR2ToLocal } from '../../../src/telonex/fetchConvertedToLocal.js'
+import { isR2Url } from '../../../src/r2/parseR2Url.js'
 
 const args = process.argv.slice(2)
 const argOf = (n: string) => {
@@ -65,11 +67,16 @@ for (const m of sample) {
   if (!m.dataset) continue
   for (let a = 0; a < 4; a++) {
     try {
-      const res = await fetch(m.dataset)
-      if (!res.ok) throw new Error(`http ${res.status}`)
-      const buf = Buffer.from(await res.arrayBuffer())
-      writeFileSync(dest + '.tmp', buf)
-      renameSync(dest + '.tmp', dest)
+      if (isR2Url(m.dataset)) {
+        // r2:// URIs need the repo's S3 client (R2_* env creds), not fetch.
+        await downloadR2ToLocal(m.dataset, resolve(dest))
+      } else {
+        const res = await fetch(m.dataset)
+        if (!res.ok) throw new Error(`http ${res.status}`)
+        const buf = Buffer.from(await res.arrayBuffer())
+        writeFileSync(dest + '.tmp', buf)
+        renameSync(dest + '.tmp', dest)
+      }
       done++
       if (done % 10 === 0) console.log(`  ${done}/${sample.length}`)
       break

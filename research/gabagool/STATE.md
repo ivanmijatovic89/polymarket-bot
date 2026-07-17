@@ -74,6 +74,19 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-8 digest (2026-07-17 13:23Z→, A34)
+
+Live snapshot 4 (O7): US-morning regime — sub-$1 club empty,
+b27bc932 ran a 5x btc-5m sleeve; the meta is clock-dependent. A34:
+0x04b6d7e9 btc-15m deep-dive DONE (was OPEN-QUESTIONS #1) —
+shallow touch-hugging ladder + seconds-scale requoting, pairRate
+0.94 p50 on btc-15m (0.78 was cross-book), excess leg =
+favorite-side choice (60% win), all taker flow on 15m, sleeve ≈
+breakeven+rebates in the hard regime. pull-telonex-r2.ts FIXED
+(r2:// URIs now via S3 client — it never worked for r2-only rows).
+H1 now carries TWO ladder cells (deep vs shallow+fast). Residue:
+overnight-stretch repeat of the join.
+
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 
 Phase 2 is open-ended: NO saturation clause, never create DONE. Research

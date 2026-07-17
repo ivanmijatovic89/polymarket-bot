@@ -852,3 +852,24 @@ regime-dependent and warns that lab certification must span the
 13–20Z session, not just quiet hours. (3) 95f5 fully idle (0 rows) —
 its dust trickle is intermittent. Follow-up for next snapshot:
 does b27bc932's btc-5m sleeve persist (schedule vs expansion)?
+
+## 2026-07-17T14:05Z — session 8, unit 2: 0x04b6d7e9 btc-15m deep-dive (A34, was OPEN-QUESTIONS #1)
+
+Fixed pull-telonex-r2.ts (it fed r2:// URIs to fetch — could never
+work; now routes through src/r2's S3 client), pulled the 30 June
+books, and ran both joins (edge-source + a new per-market audit,
+scripts/deep-dive-04b6.ts). The strongest living wallet does NOT do
+what we assumed: its ladder is SHALLOW (offsets p10 −2c vs b55f's
+−12c) with seconds-scale requoting — the deep pair costs (p25 0.940)
+come from timing near-touch quotes, not deep resting rungs. Its
+famous 0.78 pairRate is a cross-book artifact: on btc-15m it grinds
+0.94 p50. All its taker completion lives on btc-15m while the
+5m/hourly farming sleeves are maker-pure (the arithmetic reconciles
+with the on-chain 0.889 makerShare exactly). The excess leg is a
+favorite-side choice that won 60% — not adverse pile-up. Sleeve
+economics in the hard US regime: gross +0.65% of outlay, 47% of
+markets lose, ±$300–400 tails at $3k/market — breakeven net of fees,
+rebates on top. Folded into H1 (two ladder cells: deep vs
+shallow+fast; requote interval is now a first-class parameter),
+BRIEF §4/§5, dossier, PRIORS A34. Residue: same join on an overnight
+stretch (regime split, O7).

@@ -672,3 +672,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (adapt-across-eras, vs quit-at-peak ×2 and born-native ×2). The
   "professionals exit, don't bleed" pattern is now n=3. [verified]
   (wallets/2d8b401d-vidarx.md)
+- **A34 (0x04b6d7e9 btc-15m mechanism: shallow ladder + timing, taker
+  completion concentrated on 15m; pairRate 0.78 was cross-book):**
+  fills×books join + per-market audit over 30 consecutive Jun-12
+  US-session windows (measurements/deep-dive-04b6d7e9-btc15m.md):
+  offsets vs touch p10 −2c (vs b55f −12c) — a touch-hugging ladder
+  whose deep pair costs (p25 0.940, p50 0.982) come from timing dips,
+  not resting depth; btc-15m pairRate is 0.94 p50 (0.78 was dragged
+  down by 5m/hourly sleeves); excess leg is a favorite-side
+  directional CHOICE that won 60% (not adverse cheap-side pile-up);
+  resting fills drift FAVORABLY post-fill; ~all taker flow lives on
+  btc-15m (5m/hourly sleeves maker-pure — execution differs per
+  book); sleeve gross +0.65% of outlay with 47% losers in the hard
+  regime → ≈ breakeven net of fees + rebates on top. Requote cadence
+  seconds-scale (43–46 levels/side, 1s p50 inter-fill gap). Widens
+  H1: shallow+fast is a second road to sub-$1 pairs. [verified]
