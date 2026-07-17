@@ -142,11 +142,37 @@ Template:
 - **Coverage plan:** two disjoint halves inside the search window
   (E31 rule — this IS a selection among >3 arms): h1 = Apr 1–30,
   h2 = May 1–31, lat 140 only for the axis; battery on the winner
-  region later. Advance rule: sign/ranking agreement across halves.
-- **Success criteria (draft, freeze at submit):** the parity response
-  curve measured with arms distinguished (|ΔEL| between adjacent arms
-  > 2·se or arms declared indistinguishable); conversion-rate and
-  pairing-health curves reported alongside EL.
+  region later.
+- **Advance rule (precise):** (a) the direction of the parity response
+  (EL vs parityTolPct, sign of the fitted monotone trend) agrees across
+  halves; (b) the top-2 arms by EL are the same SET in both halves.
+  Both hold → the agreeing region seeds E004/E005 defaults. Either
+  fails → verdict "axis unstable at this coverage"; no arm advances on
+  a single-half ranking.
+- **Success criteria (freeze-ready; freezes verbatim at submit):**
+  (1) all 10 runs complete, validators green (G9 fee-recon, settlement
+  recheck, meta coverage 100%); (2) per-arm, per-half readout rendered:
+  EL±se, TRADE_corr, REB(+raw), fills maker/taker, conversion share
+  (taker fills / all fills — churn exposure), pairRate, imbalance
+  p50/p90, avg outlay; (3) adjacent arms distinguished (|ΔEL| > 2·se_diff)
+  or declared indistinguishable; (4) the advance rule evaluated as
+  written. NOT gated on EL sign (axis experiments face only G2/G3/G9).
+- **Sizing note:** clip 6 kept (same-code comparability with the E002
+  reference; REB will sit under the $1/market floor at this scale —
+  reported with rebRaw as the scale counterfactual). Candidate-grade
+  confirmation re-runs at EVALUATION §2 sizing come after the axis
+  program; that re-run is where rebate-threshold realism binds.
+- **Launch plan (10 detached submissions via submit.ts; suffix encodes
+  pct*10 since dots are banned in suffixes):** for (tol, code) in
+  {0.1:p001, 2:p020, 10:p100, 20:p200, 40:p400}:
+  - h1: `npx tsx gabagool-lab/tools/submit.ts --exp E003-pair-accumulator
+    --suffix ax1h1-<code> --strategy glab.E003-pair-accumulator
+    --window 2026-04-01T00:00:00Z..2026-04-30T23:59:59.999Z --lat 140
+    --param parityTolPct=<tol> --detach`
+  - h2: same with ax1h2-<code> and
+    `--window 2026-05-01T00:00:00Z..2026-05-31T23:59:59.999Z`
+  (completionMode default none; all other knobs at file defaults =
+  E002 values; ~5,856 market jobs total across the 10 runs.)
 - **Runs / Judgment / Lesson:** (pending)
 
 ## E004-completion-policy — H6 axis (the margin knob)

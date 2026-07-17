@@ -298,3 +298,26 @@ CVaR5 −21.70, avgOutlay 58.51, tail-to-outlay −0.37 → floor $0.50
 would imply TAIL_K 43.4 / cap-floor 0.85%; floor $1.00 → K 21.7 /
 1.71%. The v1.1 freeze will re-run this on the FULLWIN lat140 export
 and pick a row with written rationale. Queue ~12.4k waiting.
+
+## 2026-07-17T06:20Z — session 2, unit 11: E003 launch plan frozen-ready + determinism proven
+
+LEDGER's E003 section now carries the freeze-ready text: precise
+advance rule (trend-direction agreement + same top-2 SET across
+halves), finalized success criteria (per-arm/per-half readout incl.
+conversion share as the churn lens), the sizing rationale (clip 6 for
+same-code comparability; §2 rebate-realistic sizing binds at the
+candidate confirmation stage, not the axis), and the exact 10
+submit.ts commands (suffix encoding p### = pct*10; half-windows end
+23:59:59.999Z to clear the holdout guard).
+
+Determinism of the patched E003 code proven the E001 way: identical
+2-market sequential runs (673, 674) → byte-identical per-market econ
+exports (EL −7.157, fills 15m/13t, era fee re-priced −0.407); run 672
+(same params, pre-probe) matches too — three-way agreement including
+the completion path and its new TTL logic.
+
+Queue reality check: drain slowed to ~1.2 jobs/s in this stretch
+(11.5k waiting at 06:15Z) → market queue empties ~08:00–08:45Z, then
+four aggregates persist the runs. Judgment falls to this session only
+if it lives unusually long; otherwise the successor resumes from
+STATE's checklist with the worker daemon still draining.

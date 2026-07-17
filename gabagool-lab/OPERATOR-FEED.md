@@ -69,3 +69,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: preview shape — a worst-case market burns ~37% of the money a typical market puts to work; thresholds will demand ~$0.50–1.00/market edge to justify that tail.
 - Next: baseline drain continues (~12.4k jobs left); freeze thresholds when it lands.
 - Health: on track
+
+## 2026-07-17T06:22Z — unit 11
+- Did: wrote the exact launch plan for the first parameter sweep (parity tolerance, 10 runs) and proved the strategy code gives byte-identical results on identical input — three times over.
+- Found: nothing new economically; the baseline drain is slower than hoped (~2h left of ~6h total).
+- Next: baseline verdict + threshold freeze when runs land (this session if it lasts, else successor resumes from STATE).
+- Health: on track
