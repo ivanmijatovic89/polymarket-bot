@@ -339,3 +339,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the no-gate path reproduces the reference runs exactly (20/20 markets, to the digit — safe to reuse them), and the gate demonstrably suppresses quoting when BTC drifts (smoke run confirms the feed pipeline works).
 - Next: freeze the experiment spec and launch the 8 runs.
 - Health: on track
+
+## 2026-07-17T14:25Z — unit 57
+- Did: froze the E008 spec and launched all 8 runs (gate thresholds 0/5/9/15 bps × April/May).
+- Found: nothing new — launch unit; queue confirmed healthy (23,424 jobs, zero failures).
+- Next: wait for the runs (~2h), then verify and judge per the frozen criteria.
+- Health: on track

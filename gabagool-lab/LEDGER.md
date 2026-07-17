@@ -1097,11 +1097,25 @@ Template:
 
 ## E008-fv-gate — adverse-side suppression from external fair value
 - **Type:** axis
-- **Status:** DRAFT (2026-07-17T14:13Z, session 16, unit 54 —
-  drafted AFTER the E006 judgment and the A-6 KB fold, BEFORE any
-  implementation or calibration. Freeze verbatim at submit; the
-  arm grid is deliberately open pending the pre-registered
-  calibration below.)
+- **Status:** frozen (2026-07-17T14:25Z, session 16, unit 57, at
+  launch, SHA 800b34cf = the launcher commit; spec verbatim from
+  the u54 draft + u55 calibration — nothing else filled at freeze.
+  Drafted AFTER the E006 judgment/A-6 fold, calibrated u55,
+  implemented + A/A-verified u56, all BEFORE any arm data existed.)
+- **Runs (launched 2026-07-17T14:24Z, 8 flows, h1 = 2,880 / h2 =
+  2,976 each; gate-off reference = runs 708/703, reused —
+  A/A-verified on the launch SHA lineage, run 723 = 20/20 exact):**
+  - ax6h1-g00: `…--ax6h1-g00--lat140--2a6cf667-75d1-49e9-ad77-73c57e00d6c8`
+  - ax6h2-g00: `…--ax6h2-g00--lat140--4367ac01-317c-4c52-9235-d4720295cda8`
+  - ax6h1-g05: `…--ax6h1-g05--lat140--c9682d1b-c67b-44d8-930d-a512d336f301`
+  - ax6h2-g05: `…--ax6h2-g05--lat140--4b7d1627-5d36-47a4-9b0c-6fa1c2201c75`
+  - ax6h1-g09: `…--ax6h1-g09--lat140--3effc218-2ffd-42fd-bf11-2dcfcc787557`
+  - ax6h2-g09: `…--ax6h2-g09--lat140--600b237d-2f1e-4c67-890e-1db3351a7e70`
+  - ax6h1-g15: `…--ax6h1-g15--lat140--eb3f70e8-f922-49ff-b8a6-4627e962c0d6`
+  - ax6h2-g15: `…--ax6h2-g15--lat140--0eb38106-5fab-40c4-a103-2d852eb5d884`
+  (verified read-only via agg-inspect post-launch: 8 ax6
+  waiting-children flows at SHA 800b34cf; markets queue 23,255
+  waiting + 12 active ≈ the expected 23,424; markets failed = 0.)
 - **Why this axis now (proposal policy: measured mechanism first):**
   E006 closed with the loss channel decomposed: the winner-remainder
   payload ($2.2–2.4/mkt at ref) is what price-chasing requotes buy;

@@ -1725,3 +1725,27 @@ Verification, both sides:
 Next unit: launch-e008.sh (LS-3-hardened, arms g00/g05/g09/g15 ×
 halves on the rc+c960 chassis), freeze §E008 at submit, launch,
 waiter up.
+
+## 2026-07-17T14:25Z — session 16, unit 57: E008 FROZEN + LAUNCHED (8 flows, ax6, SHA 800b34cf)
+
+launch-e008.sh committed (LS-3-hardened: --dry-run only flag,
+refuses queued ax6, all knobs hardcoded), dry-run inspected, then
+launched: fvGateBps {0, 5, 9, 15} × halves on the rc+c960 chassis,
+fvGateMode=level, lat140. §E008 status flipped to FROZEN at the
+launcher SHA with all 8 submission uids recorded — spec verbatim
+from the u54 draft + u55 calibration, nothing changed at freeze.
+
+Post-launch verification (read-only): 8 ax6 waiting-children flows
+at SHA 800b34cf, markets queue 23,255 waiting + 12 active ≈ the
+expected 23,424, zero failures. Gate-off reference = runs 708/703
+reused (A/A basis run 723, 20/20 exact). Drain watcher: nohup pid
+21525 → logs/watch-drain-s16-e008.log. LS-10 waiter: background id
+bxiw4w14e, 5-min poll, counts terminal ax6 rows, needs 8. ETA at
+~150-190 jobs/min ≈ 16:30-17:00Z.
+
+On fire: verify uids + validators per run on landing, then the
+5-arm table (e005-table.ts --arm g-chain) + per-arm settlement
+decomp (e004-decomp.ts — criteria (2) makes the remainder term a
+JUDGED quantity this time), then judgment strictly per frozen
+§E008 criteria including the Δrem ≥ −0.3 payload-preservation
+check on any winner.

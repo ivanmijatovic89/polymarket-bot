@@ -19,10 +19,10 @@
 - **Ladder rung:** L2 IN PROGRESS — E006 JUDGED (u52): AXIS-CLOSED,
   prediction REFUTED, chassis keeps requoteDelta 0.02; candidate
   assembly still BLOCKED (no conversion-closing lever proven).
-  Current axis: E008-fv-gate DRAFTED (u54, LEDGER §E008 + D-009),
-  CALIBRATED (u55: grid {5,9,15} bps, primary rule), IMPLEMENTED +
-  VERIFIED (u56: A/A 20/20 exact vs 708; gate-on smoke green) —
-  next: freeze + launch.
+  Current axis: E008-fv-gate FROZEN + LAUNCHED (u57, SHA 800b34cf,
+  8 ax6 flows draining, ETA ~16:30-17:00Z; D-009 level form;
+  grid {0,5,9,15} bps from u55 calibration; A/A basis run 723
+  20/20 exact so refs 708/703 reused).
 - **Phase:** E006 COMPLETE (LEDGER §E006 filled u52). 8/8 landed,
   uids to the digit, 0 failures, validators green ×8. Final map:
   715=q05h2 716=q10h1 717=q10h2 718=q20h1 719=q20h2 720=q45h1
@@ -105,13 +105,20 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 freeze + launch** (implementation DONE u56: A/A vs 708 =
-   20/20 exact PASS on run 723; gate-on smoke run 724 green, gs
-   counter live, feed loads): freeze §E008 verbatim with grid
-   {0, 5, 9, 15} bps; 8 runs, suffixes ax6h<half>-g<code>
-   (g00/g05/g09/g15), refs 708/703 reused; LS-3-hardened
-   launch-e008.sh; LS-10 terminal-state waiter; verify uids on
-   landing.
+1. **E008 judgment when drained (ETA ~16:30-17:00Z):** waiter
+   bxiw4w14e polls terminal ax6 rows (needs 8; LS-10 — run ids
+   unknowable pre-landing); drain watcher nohup pid 21525 →
+   logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
+   §E008 block (`tools/uids.ts <id>`) + validators (`results.ts
+   --run <id>`, quote ONLY the "<- headline" line). Then table:
+   `e005-table.ts --arm g-off=708,703 --arm g00=<h1>,<h2> --arm
+   g05=… --arm g09=… --arm g15=…` + per-arm decomp
+   `e004-decomp.ts --runs 708,<g00h1>,<g05h1>,<g09h1>,<g15h1>`
+   (and h2 chain from 703). Judge strictly per frozen §E008
+   criteria: played<20% caveat, adjacency, advance rule (endpoint
+   dir + top-2 set), Δrem ≥ −0.3 payload-preservation check on any
+   winner, EL-vs-participation curve quoted either way. On partial:
+   windowed --extend re-run per u41 recovery.
 2. **After E008:** E006b per-rung requote (A37 seed), E005b cap
    bracket, completion composition per D-008 — order re-justified
    from E008's numbers. Candidate assembly stays BLOCKED until a
