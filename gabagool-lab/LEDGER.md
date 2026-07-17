@@ -1242,6 +1242,14 @@ Template:
   negative, so this is a lever for a paying cell, not a cell itself).
   Natural pairing: E008's fair-value machinery. Requires D-008 path
   (frozen candidate spec) or a new frozen axis on search-window data.
+  A-9 sharpening (u64, KB A47/A48 measured priors): (a) side-aware —
+  never complete against an own ≥0.99 favorite leg (0/393 flips;
+  completion liquidates the LS-11 winner-remainder payload); (b)
+  protective value concentrates in mid-band 0.50–0.70 held legs
+  (30–40% flip even 300–600s out); (c) any time trigger sweeps
+  60–300s, never <60s (pairing clock p50 40–67s; only 15–20% of
+  pair volume ≤10s); (d) must pass the Δrem ≥ −0.3 preservation
+  check on any winning cell.
 - E005b deep-cap extension (seeded by §E005 cap sub-judgment, u38):
   the tighter-is-better curve was still improving at the frozen
   grid's edge (c960 best in both halves; optimum unbracketed). Grid

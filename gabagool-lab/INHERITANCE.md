@@ -561,3 +561,51 @@ blind-safe (no ax6 arm data read; frozen §E008 untouched).
    grinder's gross-negative btc-15m days (carried by rebates) also
    reinforce A-5: rebate income is a live-side line item my sim
    correctly excludes (conservative).
+
+### A-9 (2026-07-17T14:49Z) — KB fold A47–A48: leg-risk priors measured (endgame flip table + pairing clock)
+
+Source: KB PRIORS A47–A48 + LAB-HANDOFF session-8 addendum item 4
+(measurements/flip-table-btc15m.md, time-to-pair-btc15m.md). Folded
+s22 u64 while E008 drains — blind-safe (no ax6 arm data read;
+frozen §E008 untouched). With this, the KB marks W4 (leg risk)
+FULLY covered: density A38, session A46, endgame A47, pairing A48.
+
+1. **A47 — the endgame flip table at scale (209 markets, 4
+   months).** P(favorite loses): ≥0.99 favorites NEVER flip (0/393
+   pooled, incl. 5-min-out) — leave them unpaired to redemption;
+   0.90–0.99 favorites flip 2–4% at 30–300s — cheap-side completion
+   against them is fairly priced to slightly NEGATIVE (their P43);
+   mid-band 0.50–0.70 favorites flip 30–40% even at 300–600s —
+   parity/completion protects against real variance only there.
+   A34 calibration: the winner's favorite-lean win rate (60% @
+   0.547 avg price) equals the bucket base rate — the lean's value
+   is avoiding the adverse cheap-side lean, not fill selection.
+2. **A48 — pairing is a ~1-minute clock, stable across recipes and
+   days.** Share-weighted completion lag, 408 market-instances:
+   p50 40–67s, ~2/3 of pair volume ≤60s, 95–99% ≤300s, only
+   15–20% ≤10s. A leg unpaired after ~5 min is STRUCTURAL excess
+   (the A34 lean) — manage as inventory, don't await natural
+   pairing. Any timeout parameter belongs in 60–300s. The patient
+   deep-pair recipe pairs slower (p50 67s) than the parity grinder
+   (39–43s) — the A37 speed/depth tradeoff seen in pairing time.
+3. **Lab consequence — E-completion-selective gains measured
+   constraints (backlog entry updated this unit):** (a) side-aware
+   completion — NEVER cross to complete against an own ≥0.99
+   favorite leg (0/393 flips means buying the ~$0.01 counterparty
+   side burns money to insure a near-certain $1 redemption — it
+   liquidates exactly the winner-remainder payload LS-11 showed the
+   chassis lives on); (b) the mid-band (0.50–0.70) is where
+   completion has real protective value (30–40% flip rate); (c)
+   time-triggered completion should sweep 60–300s, never <60s —
+   early forced completion competes with the book's own ~1-min
+   pairing clock (only 15–20% pairs ≤10s, so a 10s trigger would
+   fire on ~80% of legs that would have paired naturally).
+4. **Cross-dataset consistency check (free):** A47's favorite-lean
+   base-rate earning is the wallet-forensics view of the same
+   mechanism my E006 decomposition measured as the Δrem
+   winner-remainder payload ($2.2–2.4/mkt at ref) — two
+   independent datasets (their 209 replayed books vs my 5.8k-market
+   sim) agree the unpaired favorite leg is a payload, not a risk to
+   be neutralized. Strengthens LS-11 from confirmed to
+   doubly-confirmed; any future completion/timeout axis must show
+   Δrem ≥ −0.3 preservation (the §E008 check generalizes).

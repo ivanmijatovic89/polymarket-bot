@@ -381,3 +381,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: run 726 clean (checks green). No reading of results until all 8 are in — that rule is frozen.
 - Next: wait for the remaining 6 runs, then judge E008 against the pre-written criteria.
 - Health: on track
+
+## 2026-07-17T14:49Z — unit 64
+- Did: session-22 pickup (all daemons alive, big E008 batch ~30 min from done; 2 of 8 sub-runs landed clean) + folded the sibling team's two newest findings into our notes.
+- Found: their wallet data confirms our own sim finding from the other direction — holding the near-certain winning side unpaired IS the profit engine, and buying the other side "for safety" only makes sense when the market is genuinely uncertain. Also: natural pairing takes ~1 minute, so any forced-completion timer should wait 60–300s.
+- Next: E008 verdict as soon as the batch finishes draining.
+- Health: on track

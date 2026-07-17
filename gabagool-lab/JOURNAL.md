@@ -1904,3 +1904,47 @@ endpoint direction + top-2 set, Δrem ≥ −0.3 payload check on any
 winner, played<20% caveat, EL-vs-participation curve either way).
 
 Next: wait for landing; judge E008 strictly per the frozen block.
+
+## 2026-07-17T14:49Z — session 22, unit 64: pickup + KB fold A-9 (A47–A48: leg-risk priors)
+
+Fresh context; session 22 (s21 ended right after u63). Pickup
+ritual (14:48Z, stamps from date -u): DONE absent, hook guard
+intact (2 GLAB_L3_DONE lines in gabagool-lab/.hooks/pre-commit),
+tree clean at 4b7df5c, worker daemons + drain watcher (pid 21525)
+alive, markets queue 13,025 waiting / 0 failed (~400-450/min) →
+landing ETA ~15:17-15:21Z. Aggregate: 6 waiting-children = the 6
+unlanded ax6 flows; still 2/8 landed (725 ax6h2-g00, 726
+ax6h1-g05 — both already validated u61/u63, no interpretation).
+The s21 waiter btr6l653b died with its session (LS-10, expected);
+replaced with waiter bzhezph45 (bash loop, 3-min poll, exits at
+8/8 terminal ax6 rows).
+
+KB moved since s21: STATE mtime 14:45Z, register now tops at A48
+(their session-8 FINAL block). Blind-window fold A-9 into
+INHERITANCE (no ax6 data touched):
+
+- A47 (endgame flip table, 209 markets / 4 months): ≥0.99
+  favorites never flip (0/393, incl. 5-min-out) — ride to
+  redemption; 0.90–0.99 flip 2–4% (cheap-side completion vs them
+  fairly priced to slightly negative); mid-band 0.50–0.70 flips
+  30–40% even 300–600s out — completion's protective value lives
+  there and only there.
+- A48 (pairing clock): p50 40–67s, 2/3 of pair volume ≤60s,
+  95–99% ≤300s, only 15–20% ≤10s. Unpaired >5 min = structural
+  excess; timeouts belong in 60–300s.
+- Consequence: E-completion-selective backlog entry sharpened
+  (side-aware — never complete against own ≥0.99 favorite;
+  mid-band-only protection; time triggers sweep 60–300s never
+  <60s; Δrem ≥ −0.3 preservation check mandatory).
+- Free cross-dataset check: A47's favorite-lean-earns-base-rate
+  is the forensic twin of my E006 Δrem winner-remainder payload
+  (LS-11) — two independent datasets agree the unpaired favorite
+  leg is payload, not risk. LS-11 now doubly confirmed.
+
+KB's W4 (leg risk) is now fully covered on their side; my future
+leg-risk/completion axes can cite measured priors end-to-end.
+
+Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
+frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
+endpoint direction + top-2 set, Δrem ≥ −0.3 payload check,
+played<20% caveat, EL-vs-participation curve quoted either way).

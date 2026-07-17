@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 21 (started 2026-07-17T14:45Z. Stamp rule: paste from
+- **Session:** 22 (started 2026-07-17T14:48Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -100,7 +100,15 @@
   E010-own-book-momentum-veto seeded in backlog (no feed needed,
   latency-robust); E006b gains conditional form (veto upward requote
   mid-rally); A46 session split is recipe-specific (b27bc932
-  US-worst vs my evening-worst) — diagnostic, not axis**).
+  US-worst vs my evening-worst) — diagnostic, not axis. **A-9 (u64,
+  s22) = A47–A48 fold: leg-risk priors measured — ≥0.99 favorite
+  legs NEVER flip (0/393, ride to redemption); completion's
+  protective value is mid-band only (0.50–0.70 flips 30–40%);
+  pairing clock ~1 min (timeouts sweep 60–300s, never <60s);
+  A47 favorite-lean base-rate = LS-11 Δrem payload seen from
+  wallet forensics — doubly confirmed. E-completion-selective
+  backlog entry sharpened. KB register tops at A48 (checked s22
+  14:49Z); KB W4 leg-risk now FULLY covered.**).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB. Export: results.ts --run N --export
   <path.csv>; battery: --battery id@lat,id@lat,...; session slices
@@ -116,10 +124,10 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (ETA ~15:18-15:25Z; 13,681 waiting
-   at 14:46Z — LANDED SO FAR: run 725 = ax6h2-g00 EL -0.2681, run
+1. **E008 judgment when drained (ETA ~15:17-15:21Z; 13,025 waiting
+   at 14:48Z — LANDED SO FAR: run 725 = ax6h2-g00 EL -0.2681, run
    726 = ax6h1-g05 EL -1.4600; both uid-exact, validators green,
-   no interpretation yet):** s21 waiter btr6l653b (bash loop) polls
+   no interpretation yet):** s22 waiter bzhezph45 (bash loop) polls
    terminal ax6 rows (needs 8; LS-10 — run ids unknowable
    pre-landing); drain watcher nohup pid 21525 →
    logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
