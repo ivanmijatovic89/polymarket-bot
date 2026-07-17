@@ -106,3 +106,55 @@ Template:
     the judgment will quote the FINAL per-run market counts.
 - **Judgment:** (pending)
 - **Lesson:** (pending)
+
+## E003-pair-accumulator — the L2 workhorse strategy + parity axis
+- **Type:** axis
+- **Status:** proposed (draft — freezes at first evidence submission)
+- **Mechanism:** same as E002 but with ALL campaign knobs parameterized
+  in ONE file (`glab.E003-pair-accumulator`): relative parity tolerance
+  (pct of total shares, floored at 2 clips to avoid cold-start
+  deadlock), ladder shape (offset list incl. deep rungs), completion
+  policy (maker-only | taker-cap≤X | taker-free), time weighting
+  (uniform | back-loaded 8–13 | open-avoid), band, caps. Axis sweeps
+  are then params-only experiments on this frozen file (same-code
+  comparisons; the maker-fill stream cancels in rankings).
+- **First axis (this experiment):** parityTolPct ∈ {0.1, 2, 10, 20, 40}%
+  (handoff seed-1 grid; archetype 0.1% vs current winners 20–40%),
+  completion=maker-only, ladder/timing at E002 defaults.
+- **Coverage plan:** two disjoint halves inside the search window
+  (E31 rule — this IS a selection among >3 arms): h1 = Apr 1–30,
+  h2 = May 1–31, lat 140 only for the axis; battery on the winner
+  region later. Advance rule: sign/ranking agreement across halves.
+- **Success criteria (draft, freeze at submit):** the parity response
+  curve measured with arms distinguished (|ΔEL| between adjacent arms
+  > 2·se or arms declared indistinguishable); conversion-rate and
+  pairing-health curves reported alongside EL.
+- **Runs / Judgment / Lesson:** (pending)
+
+## E004-completion-policy — H6 axis (the margin knob)
+- **Type:** axis
+- **Status:** proposed (draft)
+- **Mechanism:** on the E003 file: completion ∈ {maker-only,
+  taker-cap pair≤0.99, taker-cap pair≤0.97, taker-free}; cross the
+  lagging leg only when projected pair cost + ERA fee stays under the
+  cap (fee-aware crossing: prefer completions far from the p=0.5 fee
+  peak — the b55f-vs-0xce25 2%/turnover gap, H6). Sim ranks these
+  exactly (same maker stream); corrected fees via acc.
+- **Prior:** H6 kill criterion — if the completion-policy spread on
+  identical maker fills is <0.3% of turnover, the live gap was book-mix
+  or timing, not policy.
+- **Runs / Judgment / Lesson:** (pending)
+
+## Backlog (one line each; propose formally when reached)
+- E005 ladder-shape axis: {[1,3]c, [2,6]c, [2,13]c, touch+deep} below
+  bid (archetype vs A17 current-winner shape).
+- E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
+  (start 120s), late-only (start 480s)} (A17/A20; E24 warns open).
+- E007 endgame policy: stop-quote time × band-exit behavior (A20 flip
+  table; minute-14 cut always on elsewhere).
+- E008 fair-value gate (seed 3, unblocked on this branch): Binance
+  window-open-strike proxy, suppression threshold 1–5c (H4; basis
+  caveat A18 near boundary).
+- E009 cheap-side-accumulator (seed 2 / H2): separate mechanism file;
+  entry band 0.02–0.15, loose parity, hold. After the E003 family
+  program has verdicts.
