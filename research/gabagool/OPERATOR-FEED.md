@@ -137,3 +137,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the strategy family never died — the sub-$1 pair-buyer population GREW through every fee change (7 wallets in Nov, ~94 at the Feb peak, ~70 today), and a "farmer" sub-species appeared the same month fees did. Two strong unknown wallets found worth dossiers. The bug: recent sell trades were silently dropped; 4 scan days are re-running clean.
 - Next: write the variant atlas once the re-scan lands; dossier the new finds.
 - Health: on track.
+
+## 2026-07-17T07:45Z — unit: dossier on the scan's biggest find (session 7)
+
+- Did: profiled the strongest unknown wallet the blockchain scan surfaced.
+- Found: a nameless wallet born in March that has quietly made ~$473k in under 4 months — and unlike the other big players it still makes real trading profit, not just subsidies. It buys both sides deeper and more patiently than anyone else. A third of its trading is on exactly our target market.
+- Next: fold it into the strategy brief and seed parameters; atlas write-up once the clean re-scan lands (2 of 4 days in).
+- Health: on track.

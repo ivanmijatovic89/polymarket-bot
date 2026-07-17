@@ -623,3 +623,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   era-scan pass was this artifact, not a meta shift. Scanner fixed;
   affected days re-scanned. [verified]
   (measurements/variant-scan-method.md §A29)
+- **A30 (new atlas find — 0x04b6d7e9, the only known
+  trading-profitable parity wallet at scale today):** born 2026-03-25
+  (post-fees, post-reshape), BTC-only (5m/15m/hourly; ~35% btc-15m),
+  BUY-only, maker share 0.88–1.00, pairRate 0.78 @ pairCost
+  0.964–0.976 (DEEP pairs, patient completion), clips ~$5, ~24k
+  fills/day, ~$350k/day notional, zero merges ever. Income: +$300,795
+  all-time lb (trading) + $167,926 maker rebates since Mar 26; last
+  30d ≈ $1.0k/day trading (+0.30%T) + $1.75k/day rebates (~64%
+  subsidy). Topped the parity-edge cluster on ALL of Apr/May/Jun
+  sample days; unknown to every prior source. Variant sits between
+  seed 1 and seed 2: parity discipline with deep-discount economics —
+  add a "deep-pair" cell to the seed sweeps. Method note: /activity
+  single-page density extrapolation under-read this wallet ~8×; use
+  window-sampled on-chain scans for high-cadence wallets. [verified]
+  (wallets/04b6d7e9.md)

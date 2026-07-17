@@ -683,3 +683,22 @@ as A29 with the method lesson: a cluster count hitting exactly zero
 after a venue infrastructure change is a decoder symptom.
 
 VARIANT-ATLAS.md waits for the clean rescan; Nov–Mar numbers are final.
+
+## 2026-07-17T07:45Z — session 7, unit 7: dossier 0x04b6d7e9 (A30)
+
+The era scan's biggest payoff so far: the wallet that topped the
+parity-edge cluster in Apr, May AND Jun samples turns out to be the
+only known at-scale class wallet with a meaningfully POSITIVE trading
+line today: +$300,795 all-time lb profit (+0.30%T on $332k/day) plus
+$167,926 maker rebates since it was born on 2026-03-25. Total ≈ $473k
+in under 4 months, currently ~$2.75k/day at ~64% subsidy — the rest
+is real edge. Profile: BTC-only, BUY-only, maker share 0.88–1.00,
+pairRate 0.78 at pair cost 0.964–0.976 — DEEP pairs, patient
+completion, the exact midpoint between seed 1 (parity discipline) and
+seed 2 (deep-discount economics). Zero merges ever. ~35% of its flow
+is btc-15m, the lab's book. Dossier: wallets/04b6d7e9.md, ledgered
+A30; seeds should gain a "deep-pair" sweep cell (pair-cost target
+≤0.98, loose-ish parity, patient completion). One instrument lesson:
+the daily-page density extrapolation under-read this wallet ~8× — for
+high-cadence wallets only window-sampled on-chain scans or full pulls
+are trustworthy.
