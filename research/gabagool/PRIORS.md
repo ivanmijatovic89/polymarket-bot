@@ -925,3 +925,19 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   0.25·p·(p(1−p))² ≤Mar-28, 0.072·p(1−p) Mar-31→~May-8,
   0.07·p(1−p) after.
   [verified] (measurements/fee-curve-history.md)
+- **A53 (15m-sleeve toggle dated against fee events — evaluation
+  shutdown, not reflex; revived with the tier program, not the
+  trim):** 12–14Z probe ladder on b27bc932 (17 days Mar-25→Jun-10):
+  sleeve ON through Mar-29; OFF Mar-30/31 (wallet-wide reduced mode
+  during the fee rollout); back ON at full cadence Apr-02→08 (a
+  ~1-week evaluation under the 0.072 curve); shut down Apr-08→09 in
+  one day; still off May-13 AFTER the 0.070 trim; returned ~May-27
+  with the post-dark redeploy, one day before the May-28 taker-tier
+  launch; on ever since. Reading: the operator MEASURED the 2.3×
+  curve for a week and killed the module on evidence — btc-15m
+  taker-completion flipped sign under 0.072 and only tier refunds
+  (up to 50% fee back for incumbents) made it viable again. Closes
+  OQ #2 residue. Lab consequence: btc-15m candidates must clear
+  0.070-curve + tier-tier-0 economics (a NEW entrant gets no
+  refund — cold-start moat A32 now has a dated mechanism).
+  [verified] (measurements/sleeve-toggle-b27bc932.md)

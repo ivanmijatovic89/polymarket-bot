@@ -412,3 +412,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the big fee hike landed Mar 29-31 (with the new exchange's release, NOT at the April cutover, which changed no fees); it launched at a higher rate ($1.80 per 100 shares) than today's ($1.75) — a quiet cut came May 6-10. March's "golden margins" were partly just cheaper fees.
 - Next: evening snapshot of the live bots (~20-21 UTC); if time before that, bisect when the top bot's 15-minute sleeve died vs the fee hike.
 - Health: on track
+
+## 2026-07-17T16:13Z — unit 4 (session 10)
+- Did: dated exactly when the top bot's 15-minute-market module went off and came back, against the fee changes.
+- Found: it ran a one-week trial under the raised fees, then shut the module in a single day (Apr 8-9) — and only revived it when the fee-refund tier program arrived in late May. Verdict: 15-minute markets don't pay full fees; they pay for incumbents with refunds. A newcomer must plan maker-heavy completion.
+- Next: evening snapshot of the live bots (~20-21 UTC; successor session if this one ends).
+- Health: on track

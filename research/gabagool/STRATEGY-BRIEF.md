@@ -190,7 +190,15 @@ Candidates for the lab:
   6–10). Part of the Mar→Jun "margin decay" is therefore a fee-cost
   step, not pure competition — and any taker-completion economics
   must use the right era's curve (0.25·p·(p(1−p))² before Mar-29;
-  0.072·p(1−p) to ~May-8; 0.07·p(1−p) after).
+  0.072·p(1−p) to ~May-8; 0.07·p(1−p) after). **A53 is the
+  revealed-preference confirmation**: b27bc932 ran its btc-15m
+  sleeve for a ~1-week trial under the new curve, killed it in one
+  day (Apr-08→09), ignored the 2.8% May trim, and only revived it
+  (~May-27) when taker-tier refunds arrived — so btc-15m
+  taker-completion economics flipped sign at 0.072 and are only
+  positive-for-incumbents at 0.070+tiers. A lab candidate (tier-0,
+  no refund) must budget the FULL 0.07 curve on every taker leg —
+  maker-completion weight is the lever that decides viability.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

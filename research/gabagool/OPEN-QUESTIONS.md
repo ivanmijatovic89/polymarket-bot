@@ -24,12 +24,14 @@ bottom.
    margin decayed +1.9% (Mar) → ≈0% (Jun→). Bonus A50: btc-5m-first
    is lifelong, the 15m sleeve toggled OFF mid-Apr→May (Apr-15 and
    May-13 = 100% btc-5m; "May downtime" reads in A45/A46 corrected).
-   Residue: exact 15m-sleeve OFF/ON boundary dates (two bisection
-   probes on April and late-May/early-June days) — VALUE RAISED by
-   A52: the fee reshape (Mar-29/31) is the only venue event in the
-   Mar-25→Apr-15 OFF gap; if the sleeve died Mar-29/31 the causal
-   story is locked. The ON boundary (May-13→Jun-10 gap) has the
-   0.072→0.070 trim (May 6–10) as a candidate too.
+   ~~Residue: exact 15m-sleeve OFF/ON boundary dates~~ **DONE
+   session 10 (A53, measurements/sleeve-toggle-b27bc932.md)** — the
+   story is richer than a reflex: rollout pause Mar-30/31, then a
+   ~1-week evaluation under the 0.072 curve (Apr-02→08), one-day
+   shutdown Apr-08→09; the May trim did NOT revive it (May-13 off);
+   revived ~May-27 with the redeploy one day before the taker-tier
+   launch. Module viability is fee-regime-gated; new-entrant
+   (tier-0) economics are the bar for lab candidates.
 3. **W4 remainder**: pair-completion timing + endgame flip table at
    scale (density done, A38; session PnL split is #2 above).
 4. ~~First OrderFilled on the 2026 exchange + earliest migrants~~

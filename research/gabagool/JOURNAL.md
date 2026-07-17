@@ -1228,3 +1228,26 @@ Apr-15) now contains exactly one venue event — the reshape — which
 promotes the sleeve-boundary bisection from low-value residue to a
 real causal test. Era-matched fee constants are now in
 VENUE-MECHANICS for any historical EV work.
+
+## 2026-07-17T16:13Z — session 10, unit 4: sleeve toggle dated (A53)
+
+Ran the promoted bisection with the cheapest possible probes — the
+fee-unit's own activity pulls plus seven new 2h windows, slug counts
+only. The toggle story came out richer than "fees killed it": the
+sleeve survived the rollout days' pause (Mar-30/31), came back at
+FULL cadence for a week under the 2.3× curve (Apr-02→08, same
+fill rates as March), and then was shut down between Apr-08 and
+Apr-09 — a one-day, evidence-based module kill after a measured
+trial. The 0.070 trim in May didn't bring it back (May-13 still
+100% btc-5m); it returned ~May-27 with the post-vacation redeploy,
+one day before the taker-rebate tiers went live, and has been on
+since. So: btc-15m taker-completion flipped sign at 0.072 and is
+carried today by tier refunds the incumbents get and a newcomer
+does not — the cold-start moat (A32) now has a dated, mechanistic
+origin story. Folded into the dossier, PRIORS (A53), BRIEF, and
+OPEN-QUESTIONS (#2 residue closed).
+
+Session 10 so far: OQ #4 closed (A51), snapshot 7 (O10), fee history
+pinned (A52), sleeve toggle dated (A53). Next: W3 evening snapshot
+~20-21Z is the queue head; that is hours away, so this session may
+end here — successor should start with it.

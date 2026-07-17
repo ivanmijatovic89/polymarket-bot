@@ -111,13 +111,24 @@ fee-step confound (March ≠ current era on competition alone); A50
 boundary bisection PROMOTED from low-value residue. Era-matched fee
 constants in VENUE-MECHANICS.
 
-Queue after unit 3: (1) 15m-sleeve OFF-boundary bisection on
-b27bc932 (did the sleeve die Mar-29/31 with the reshape? 2–3
-activity probes Mar-27..Apr-05 checking btc-15m share; ON boundary
-May-13→Jun-10 secondary); (2) W3 evening snapshot ~20–21Z (club
-re-formation test; morning snapshot tomorrow settles OQ #5
-residue); (3) low-value residue (drfc re-resolution, 5m launch pin,
-twin-link checks).
+Unit 4 (16:13Z): sleeve toggle dated — A53
+(measurements/sleeve-toggle-b27bc932.md; 17-day 12–14Z probe
+ladder). OFF is two-phase: rollout pause Mar-30/31, then ~1-week
+FULL-cadence evaluation under 0.072 (Apr-02→08), one-day shutdown
+Apr-08→09; May trim did NOT revive (May-13 off); revived ~May-27
+(redeploy, one day before May-28 tier launch). btc-15m
+taker-completion flipped sign at 0.072; viable today only with tier
+refunds → lab candidates must budget full 0.07 on taker legs
+(maker-weight is the viability lever). OQ #2 residue closed.
+Folded: dossier, PRIORS A53, BRIEF, OQ.
+
+Queue after unit 4: (1) W3 evening snapshot ~20–21Z (club
+re-formation test — A49's evening-positive live check; morning
+snapshot tomorrow settles OQ #5 residue); (2) low-value residue
+(drfc re-resolution, 5m launch pin, twin-link checks
+93c22116/961afce6 + guh123↔gabagool22); (3) if streams dry, mine
+SATURATION.md residue ledger for new measurable questions (prefer
+measurement units).
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 
