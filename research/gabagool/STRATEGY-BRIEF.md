@@ -142,6 +142,14 @@ Candidates for the lab:
   (b55f/0xce25) and (b) shallow fast requoting + timed completion
   (0x04b6d7e9) — the first sweep should carry BOTH cells, and
   requote interval joins the parameter list.
+- **Hour-of-day is a policy variable, not just a regime caveat
+  (A35)**: 0x04b6d7e9 trades ONLY 12–19Z weekdays (zero fills
+  20–05Z, dark on weekends 21/32 and on Memorial Day) and earned its
+  entire +$473k in that envelope — the high-flow US session where
+  realized pair costs look WORST (O7) is where the winner harvests,
+  because fills are the binding resource. Lab evaluation should
+  segment by session (12–19Z weekday vs rest) and consider
+  restricting v1 to the winner's envelope rather than running 24/7.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

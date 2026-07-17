@@ -873,3 +873,19 @@ rebates on top. Folded into H1 (two ladder cells: deep vs
 shallow+fast; requote interval is now a first-class parameter),
 BRIEF §4/§5, dossier, PRIORS A34. Residue: same join on an overnight
 stretch (regime split, O7).
+
+## 2026-07-17T14:35Z — session 8, unit 3: the winner keeps business hours (A35)
+
+Tried to run the A34 overnight-regime repeat and found there is no
+overnight: 0x04b6d7e9 has ZERO trades 20–05Z in its whole July
+history, traded Jun-11 only 15–20Z, skipped Jun 13–14 (a weekend),
+and over its life is active 81/83 weekdays but only 11/32 weekends —
+with US Memorial Day as the one true dark weekday. The strongest
+living variant is a Mon–Fri, ~7h/day US-session operation (~24k
+fills per active day ≈ 1 fill/s sustained), and it earned all
++$473k in exactly the regime O7 flagged as "hard" (worst pair
+costs, 2–5× flow). Reading: fills are the binding resource — the
+winner goes where the counterparties are and accepts worse realized
+pair costs. Lab implication folded into BRIEF §4: segment
+evaluation by session; consider restricting v1 to 12–19Z weekdays.
+Regime comparison residue moves to b27bc932 (24/7 wallet).

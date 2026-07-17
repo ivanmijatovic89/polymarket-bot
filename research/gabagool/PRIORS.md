@@ -687,3 +687,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   regime → ≈ breakeven net of fees + rebates on top. Requote cadence
   seconds-scale (43–46 levels/side, 1s p50 inter-fill gap). Widens
   H1: shallow+fast is a second road to sub-$1 pairs. [verified]
+- **A35 (0x04b6d7e9 keeps business hours — the strongest living
+  variant is a weekday-US-session bot):** hour-of-day over the July
+  pull: 87% of trades 12–19Z, ZERO 20–05Z; life-long weekday/weekend
+  split 81/83 weekdays active vs 11/32 weekends; the only true dark
+  weekday is US Memorial Day (2026-05-25). Its entire +$473k was
+  earned in the O7 hard regime (worst realized pair costs, 2–5×
+  flow) in ~7h/day × 5d/wk — fills are the binding resource, not
+  quiet books; 24/7 uptime is not what wins today. The unit-2
+  "overnight repeat" residue is moot for this wallet (no overnight
+  data exists); regime comparisons need b27bc932 (24/7). [verified]
+  (wallets/04b6d7e9.md §Session schedule)

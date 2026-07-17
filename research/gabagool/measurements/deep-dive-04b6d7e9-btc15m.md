@@ -113,9 +113,13 @@ cohort, and now shown for a shallow near-touch ladder specifically.
 3. **Expect losers**: ~47% of markets lose gross in the US session at
    these parameters; certification metrics must be distributional
    (H-family kill lines), not win-rate-based.
-4. **Regime split matters**: this whole sample is the hard 12–19Z
-   regime; re-run the same joins on an overnight stretch before
-   freezing priors (queued as residue).
+4. **Regime split matters — RESOLVED differently than expected
+   (A35)**: this sample is the hard 12–19Z regime because that is the
+   ONLY regime this wallet trades — zero fills 20–05Z ever, weekdays
+   81/83 vs weekends 11/32, dark on Memorial Day. There is no
+   overnight data to compare; the winner deliberately lives where
+   flow is 2–5× even though realized pair costs are worst there.
+   Overnight-vs-session comparison must use b27bc932 (24/7) instead.
 
 ## Producing commands
 

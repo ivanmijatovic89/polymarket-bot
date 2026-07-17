@@ -256,3 +256,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it wins differently than assumed — it quotes right AT the market price and re-quotes every few seconds (no deep discount orders), and its lopsided positions are deliberate bets on the favorite that usually pay off. Our lab now has two distinct recipes to test instead of one.
 - Next: re-run the same match on quiet overnight hours; then next queue item.
 - Health: on track.
+
+## 2026-07-17T14:35Z — unit: the best wallet works 9-to-5 (session 8)
+
+- Did: mapped when the top wallet actually trades, hour by hour, over its whole life.
+- Found: it only trades US business hours on weekdays (even took Memorial Day off) — it earned all its ~$473k in the busiest, hardest hours, because that's where the trading partners are. Running a bot 24/7 is not what wins.
+- Next: queue item — compare busy-hours vs overnight economics on the 24/7 wallet instead.
+- Health: on track.

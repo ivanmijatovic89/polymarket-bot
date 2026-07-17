@@ -84,8 +84,11 @@ shallow touch-hugging ladder + seconds-scale requoting, pairRate
 favorite-side choice (60% win), all taker flow on 15m, sleeve ≈
 breakeven+rebates in the hard regime. pull-telonex-r2.ts FIXED
 (r2:// URIs now via S3 client — it never worked for r2-only rows).
-H1 now carries TWO ladder cells (deep vs shallow+fast). Residue:
-overnight-stretch repeat of the join.
+H1 now carries TWO ladder cells (deep vs shallow+fast). A35: the
+wallet keeps BUSINESS HOURS (12–19Z weekdays only, zero 20–05Z,
+weekends mostly dark, Memorial Day off) — all +$473k earned in the
+O7 hard regime; overnight-vs-session comparison must use b27bc932
+(24/7). New residue: session-vs-overnight economics on b27bc932.
 
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 
