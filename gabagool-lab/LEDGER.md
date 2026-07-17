@@ -93,6 +93,16 @@ Template:
   NOT gated on EL sign — the reference number is the deliverable.
 - **Kill/stop:** worker-path failure or validator quarantine → fix
   plumbing, re-run arm as --rN. No result-based stopping.
-- **Runs:** (appended at submit)
+- **Runs:**
+  - lat140: `glab--E002-baseline--full--lat140--017d9a2e-9e00-4fe4-b33e-fad9bf986fb4`
+  - lat0: `glab--E002-baseline--full--lat0--74ba35a3-b57c-4120-bdc2-c1d0fb7bf1b0`
+  - lat500: `glab--E002-baseline--full--lat500--85ddeb17-ceba-41e6-a929-930775e48cc9`
+  - lat1000: `glab--E002-baseline--full--lat1000--f6ee28c3-c7b8-47de-9ed2-7211c086b4d9`
+  - NOTE (2026-07-17T06:05Z): producer default LIMIT 1000 truncated each
+    arm to the first ~1,000 window markets (≈ Apr 1–11). submit.ts fixed
+    (explicit limit). Plan: let the 1,000-market chunks land (uniform
+    across arms → valid as a first look), then `--extend` each run to
+    the full window with the same pinned latency env. Coverage claim in
+    the judgment will quote the FINAL per-run market counts.
 - **Judgment:** (pending)
 - **Lesson:** (pending)

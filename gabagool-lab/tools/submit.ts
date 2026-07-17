@@ -142,7 +142,9 @@ async function main(): Promise<void> {
     '--batchUid',
     batchUid,
   ]
-  if (a.limit !== undefined) cli.push('--limit', String(a.limit))
+  // The producer's eligibility query defaults to LIMIT 1000 — always pass
+  // an explicit limit so window runs cover the whole window.
+  cli.push('--limit', String(a.limit !== undefined ? a.limit : 10_000))
   for (const p of a.params) cli.push('--param', p)
   if (a.sequential) cli.push('--sequential')
   if (a.detach) cli.push('--detach')
