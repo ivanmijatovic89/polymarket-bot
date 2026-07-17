@@ -22,7 +22,12 @@ edge is dead by regime change, do not test it.
   models best), (b) shallow+fast: touch-hugging (offsets p10 −2c) with
   seconds-scale requoting — the strongest living wallet (0x04b6d7e9)
   reaches pairCost p25 0.940 on btc-15m this way; requote interval is
-  a first-class parameter; cheap-side touch-resting
+  a first-class parameter — and A37 measured (offset × requote) as a
+  JOINT axis: fast helps at touch (133 vs 58 fills/mkt), hurts at
+  depth (−2c: 26 at 1s vs 45 at 5s) — sweep the two optima corners,
+  not a full grid; the $143 rebate step is reachable maker-only at
+  touch/−1c (93–100% of markets at $4 clips under worst_queue);
+  cheap-side touch-resting
   for longshot accumulation (b55f touch px p50 0.14); **completion
   policy**: sweep maker-only vs taker-complete-when-lagging (fee
   0.07·p(1−p) on the crossing leg — exactly modelable now, A16);

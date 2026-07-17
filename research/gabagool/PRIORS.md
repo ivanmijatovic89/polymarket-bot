@@ -711,3 +711,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   informed unpaired lean is a class pattern (n=2, A34). Session must
   be a sweep/reporting dimension; W4 should stratify by session over
   months. [verified]
+- **A37 (maker fill density: the rebate step is reachable maker-only,
+  and (offset × requote speed) is a joint axis with two local optima
+  = the two living recipes):** worst_queue-rule density over the 30
+  Jun-12 US-session books (measurements/fill-density-btc15m.md):
+  at-touch/1s requote = 133 fills/mkt p50 → $532 maker notional at $4
+  clips, ≥$143 rebate step in 100% of markets (−1c/5s: $268, 93%);
+  fast requoting helps at the touch but HURTS at depth (−2c: 26
+  fills at 1s vs 45 at 5s; −5c: 4 vs 18 at 15s) — deep rungs want
+  patient standing orders. Fast+shallow (A34, 0x04b6d7e9) and
+  slow+deep (A17, b55f) are the two optima; the middle is dominated.
+  Deep rungs are rare-event harvesters (~5/mkt at −5c) whose value
+  must be per-fill price, not volume. Caveat: high-flow regime
+  sample; W4 re-runs off-session. [verified]

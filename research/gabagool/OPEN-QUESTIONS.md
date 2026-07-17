@@ -11,10 +11,12 @@ bottom.
    taker flow on 15m, sleeve ≈ breakeven+rebates in the hard regime.
    Residue: repeat the join on an OVERNIGHT stretch (O7 regime
    split); margin decay month-by-month still open.
-2. **Maker-only fill density at deep offsets on btc-15m** (paper-EV
-   residual): can $143/market maker notional be reached at clip $3–5
-   without touch-chasing? Answerable from Telonex book replays +
-   A17-style fill data BEFORE the lab sweeps (bounds the rebate step).
+2. ~~Maker-only fill density~~ **DONE session 8 (A37)** —
+   measurements/fill-density-btc15m.md: YES, rebate step reachable
+   maker-only (touch/−1c at $4 clips: 93–100% of markets ≥$143 under
+   worst_queue); (offset × requote) is a joint axis with two local
+   optima matching the two living recipes. Residue: re-run the
+   density table on off-session/overnight months (part of W4).
 3. **W4 scale-up of Phase-1 measurements** (thousands of markets,
    month-by-month drift: ladder fill rates, pair-completion timing,
    endgame flip table). Confirms/breaks the numbers the seeds rest on.

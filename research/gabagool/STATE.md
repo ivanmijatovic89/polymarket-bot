@@ -91,7 +91,10 @@ O7 hard regime; overnight-vs-session comparison must use b27bc932
 (24/7). A36 (unit 4): b27bc932 session split — US 12–19Z is its
 ONLY gross-negative session; the two living winners DIVIDE the day
 (grind off-hours, shallow-fast US session); excess-leg-wins is a
-class pattern (n=2). W4 must stratify by session.
+class pattern (n=2). W4 must stratify by session. A37 (unit 5):
+fill-density grid — rebate step reachable maker-only at touch/−1c;
+(offset × requote) is a joint axis, two optima = the two living
+recipes; OPEN-QUESTIONS #2 resolved.
 
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 

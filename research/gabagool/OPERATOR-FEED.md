@@ -270,3 +270,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it loses money only during US business hours — exactly when the 9-to-5 wallet (previous unit) trades with a different style and wins. Each style owns part of the day; a bot should switch styles (or pause) by the clock.
 - Next: next queue item — likely scaling the key measurements to thousands of markets (W4), stratified by time of day.
 - Health: on track.
+
+## 2026-07-17T15:20Z — unit: how many fills a passive bot can get (session 8)
+
+- Did: simulated passive orders at different depths and re-quote speeds against 30 recorded markets.
+- Found: quoting at the market price with fast re-quotes gets plenty of fills to unlock the daily rebate bonus without ever paying fees — and the two profitable styles we found in the wild are exactly the two sweet spots of this trade-off (fast-and-shallow vs slow-and-deep).
+- Next: live snapshot 5, then scaling measurements to more months (W4).
+- Health: on track.

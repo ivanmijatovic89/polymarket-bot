@@ -903,3 +903,19 @@ cross-wallet confirmation: b27bc932's excess leg won 67–81% of
 markets — the informed unpaired lean (A34) is a class pattern, n=2.
 Folded into BRIEF §4 and PRIORS; W4's scale-up should stratify by
 session. Caveat: 2.4 days, one wallet, gross-of-fee.
+
+## 2026-07-17T15:20Z — session 8, unit 5: fill density by depth × requote speed (A37)
+
+Simulated a single resting bid per side over the 30 June books under
+the engine's own conservative fill rule, on a grid of depth offsets ×
+requote intervals. Two headline results: (1) the $1/day/market rebate
+step is reachable MAKER-ONLY — at-touch or −1c quoting at $4 clips
+clears the $143 notional threshold in 93–100% of markets, so subsidy
+access doesn't require taker completion; (2) depth and requote speed
+interact — fast requoting triples fills at the touch but HALVES them
+at −2c and deeper (repricing pulls the level away before sweeps
+arrive). The two local optima of this surface are exactly the two
+living recipes: fast+shallow (0x04b6d7e9) and slow+deep (b55f). The
+middle is dominated. Folded into H1 (sweep the corners), PRIORS A37,
+OPEN-QUESTIONS #2 resolved. Caveat: US-session sample; W4 re-runs
+this off-session.
