@@ -263,3 +263,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it only trades US business hours on weekdays (even took Memorial Day off) — it earned all its ~$473k in the busiest, hardest hours, because that's where the trading partners are. Running a bot 24/7 is not what wins.
 - Next: queue item — compare busy-hours vs overnight economics on the 24/7 wallet instead.
 - Health: on track.
+
+## 2026-07-17T14:55Z — unit: the trading day splits in two (session 8)
+
+- Did: measured the 24/7 bot's profits by time of day across 222 markets.
+- Found: it loses money only during US business hours — exactly when the 9-to-5 wallet (previous unit) trades with a different style and wins. Each style owns part of the day; a bot should switch styles (or pause) by the clock.
+- Next: next queue item — likely scaling the key measurements to thousands of markets (W4), stratified by time of day.
+- Health: on track.

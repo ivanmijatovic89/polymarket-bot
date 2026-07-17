@@ -150,6 +150,14 @@ Candidates for the lab:
   because fills are the binding resource. Lab evaluation should
   segment by session (12–19Z weekday vs rest) and consider
   restricting v1 to the winner's envelope rather than running 24/7.
+  **A36 sharpens this into a two-regime map**: the 24/7 grinder
+  (b27bc932) is gross-NEGATIVE exactly in 12–19Z (pairCost p50
+  1.006, 50% losers, −$384 over 64 June markets) and positive in
+  every other session — so the day divides: parity-grind recipe
+  off-hours, shallow-fast/favorite-lean recipe (A34) in the US
+  session. A v1 that runs the grinder overnight/EU/evening and
+  idles (or switches recipe) 12–19Z matches both living winners'
+  revealed preferences.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

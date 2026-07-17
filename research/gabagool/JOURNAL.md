@@ -889,3 +889,17 @@ winner goes where the counterparties are and accepts worse realized
 pair costs. Lab implication folded into BRIEF §4: segment
 evaluation by session; consider restricting v1 to 12–19Z weekdays.
 Regime comparison residue moves to b27bc932 (24/7 wallet).
+
+## 2026-07-17T14:55Z — session 8, unit 4: the day divides in two (A36)
+
+Session-split audit of the 24/7 wallet (b27bc932, 222 June btc-15m
+markets): its ONLY gross-negative session is US 12–19Z (−$384, 50%
+losers, median pair completes above $1) — while overnight, EU and
+evening all print (+$219/+$274/+$566, pairCost ~0.99). That is
+precisely the session 0x04b6d7e9 exclusively trades (A35) with a
+different recipe. So the two living winners divide the day: parity
+grind off-hours, shallow-fast + favorite-lean during US hours. Bonus
+cross-wallet confirmation: b27bc932's excess leg won 67–81% of
+markets — the informed unpaired lean (A34) is a class pattern, n=2.
+Folded into BRIEF §4 and PRIORS; W4's scale-up should stratify by
+session. Caveat: 2.4 days, one wallet, gross-of-fee.

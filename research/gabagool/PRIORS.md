@@ -698,3 +698,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   "overnight repeat" residue is moot for this wallet (no overnight
   data exists); regime comparisons need b27bc932 (24/7). [verified]
   (wallets/04b6d7e9.md §Session schedule)
+- **A36 (session-dependence is real and recipe-specific — the 24/7
+  grinder bleeds exactly where the business-hours wallet wins):**
+  b27bc932's 222 June btc-15m markets bucketed by window start hour
+  (measurements/session-split-b27bc932.md): US 12–19Z is its ONLY
+  gross-negative session (−$384, 50% losers, pairCost p50 1.006,
+  doubled left tail) despite max capital and fills there; overnight
+  /EU/evening all print (+$219/+$274/+$566, pairCost p50 0.988–0.991).
+  Combined with A35: the two living winners DIVIDE THE DAY — parity
+  grind wins off-hours, shallow-fast+favorite-lean wins the US
+  session. Also: b27bc932's excess leg won 67–81% by session →
+  informed unpaired lean is a class pattern (n=2, A34). Session must
+  be a sweep/reporting dimension; W4 should stratify by session over
+  months. [verified]
