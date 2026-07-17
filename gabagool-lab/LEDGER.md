@@ -385,7 +385,13 @@ Template:
 
 ## E004-completion-policy — H6 axis (the margin knob)
 - **Type:** axis
-- **Status:** proposed (draft)
+- **Status:** frozen (2026-07-17T06:35Z, session 11, at launch; SEED
+  slot filled from the E003 judgment — parityTolPct = 2; everything
+  else verbatim from draft amendment 2. Control pair (NOT
+  resubmitted, per the amendment): run 682 =
+  `glab--E003-pair-accumulator--ax1h1-p020--lat140--47d8d807-554b-40bb-be36-185246646fbf`,
+  run 683 =
+  `glab--E003-pair-accumulator--ax1h2-p020--lat140--b68867c5-f215-4c3a-8258-3d54d1ab64c7`)
 - **Mechanism:** on the E003 file: completion ∈ {maker-only,
   taker-cap pair≤0.99, taker-cap pair≤0.97, taker-free}; cross the
   lagging leg only when projected pair cost + ERA fee stays under the
