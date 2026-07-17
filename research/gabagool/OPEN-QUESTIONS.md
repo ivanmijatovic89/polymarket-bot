@@ -12,9 +12,12 @@ Ranked by information value per unit effort. Refreshed session 3
    maker fills) × pool-share` be computed with a defensible pool-share
    assumption (e.g., from market total volume × taker share)? Needed to
    judge H1 in sim at all.
-3. **Tick-size sub-cent rule** (0.001 outside [0.04, 0.96]?) + rate
-   limits from CLOB docs (min size 5 / tick 0.01 now verified, A18).
-   Also: Chainlink stream sampling precision/timing (Game J residue).
+3. ~~Tick-size sub-cent rule + rate limits + stream precision~~ →
+   RESOLVED (A19): 0.001 exactly outside [0.04, 0.96]; rate limits
+   generous (POST /order 5,000/10s) and non-binding; Chainlink streams
+   ~200ms/18-decimal → ties measure-zero. Residue (low value):
+   primary-source the 1-pUSD marketable minimum; venue-side boundary
+   report sampling.
 4. **P19's "$8M/day" wallet**: still unmatched (largest 30d volume
     seen: bonereaper $663k/day). Either the figure is wrong or the
     wallet is unlisted — check volume leaderboard top-50 for

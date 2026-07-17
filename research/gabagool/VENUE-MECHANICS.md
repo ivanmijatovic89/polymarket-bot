@@ -151,19 +151,30 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
 
 ## Order/market mechanics
 
-- Tick size: books quote at $0.01 normally; endgame favorites trade at
-  sub-cent (0.9662-style) prices and the EPB family rounds to 3 decimals —
-  Polymarket halves tick size to 0.001 when price is outside [0.04, 0.96]
-  (tick_size_change events exist in the engine decoder). **[reported]** —
-  confirm exact rule from CLOB docs in a later unit.
+- Tick size: 0.01 default; the venue emits a `tick_size_change` event
+  when "price hits >0.96 or <0.04" — i.e. the sub-cent (0.001) regime
+  switches on exactly outside [0.04, 0.96]. **[verified]**
+  (docs.polymarket.com/trading/orderbook.md, fetched 2026-07-17;
+  matches the decoder events + EPB 3-decimal rounding).
 - GTD minimum expiry: 60s (OrderManager-enforced repo-side). Live batch
   limit: 15 orders/batch. **[verified]** (repo ENGINE.md/CLAUDE.md; venue
   numbers behind them still to be primary-sourced).
 - Min order size: **5 shares**; tick **0.01**; negRisk **false** for
   btc-updown-15m — from the live gamma market object
   (`orderMinSize`/`orderPriceMinTickSize`/`negRisk`, pulled 2026-07-17).
-  **[verified]** Sub-cent tick rule outside [0.04, 0.96]: still
-  **[reported]** (decoder events only). Rate limits: OPEN.
+  **[verified]** Additionally: a MARKETABLE order (FOK/FAK, or a BUY
+  that crosses) must be ≥ 1 pUSD notional; resting GTC/GTD only need
+  the 5-share minimum. **[reported]** (NautilusTrader Polymarket
+  adapter docs — secondary; primary page not yet found).
+- **Rate limits [verified]** (docs.polymarket.com/api-reference/
+  rate-limits.md, fetched 2026-07-17): POST /order 5,000/10s burst,
+  120,000/10min sustained; DELETE /order same; POST /orders (batch,
+  ≤15) 2,000/10s, 21,000/10min; DELETE /orders 2,000/10s, 15,000/10min;
+  cancel-all 250/10s; cancel-market-orders 1,500/10s. General: CLOB API
+  9,000/10s, Gamma 4,000/10s, Data-API 1,000/10s. Consequence: rate
+  limits are NOT a binding constraint for a gabagool-style bot — the
+  archetype's peak ~700 fills/15m is orders of magnitude inside these
+  caps; data-api pullers should respect 1,000/10s.
 - **Resolution (Game J) — primary-sourced from the market rules text**:
   "resolves to Up if the Bitcoin price at the end of the time range is
   greater than or equal to the price at the beginning" — **ties resolve
@@ -171,8 +182,17 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   (https://data.chain.link/streams/btc-usd), explicitly "not other
   sources or spot markets". `polymarketPriceToBeat` (live feed) is the
   venue's own strike broadcast of that stream's window-open price.
-  Precision/exact sampling timestamp of the stream: OPEN (Chainlink
-  stream docs). **[verified]** (gamma description, 2026-07-17)
+  **[verified]** (gamma description, 2026-07-17)
+- Chainlink Data Streams (the resolution source) publish signed reports
+  at ~sub-second cadence (~200ms class) with **18-decimal** prices and
+  an `observationsTimestamp` per report. **[reported]** (chain.link
+  data-streams docs/marketing + third-party implementations, 2026-07-17).
+  Consequence: exact price ties at window boundaries are measure-zero —
+  the "ties resolve UP" clause is a legal nicety, NOT a tradable
+  asymmetry. Which report the venue samples at the boundary (first
+  report with observationsTimestamp ≥ window edge? venue-side reader?)
+  remains OPEN and is probably unknowable from public docs — treat the
+  final-second boundary as ±1 report (~sub-second) of oracle ambiguity.
 
 ## Open questions (workstream B queue)
 
@@ -181,5 +201,8 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
 2. Did 5m and hourly crypto markets carry fees in Feb 2026, or only 15m?
    (Gabagool's tail volume was 5m-heavy — fee-avoidance or flow-following?)
 3. Rebate program launch date + whether rebate share/formula changed.
-4. Exact tick-size rule, min size, rate limits from CLOB API docs.
-5. Resolution mechanics from official market rules (Game J).
+4. ~~Exact tick-size rule, min size, rate limits~~ RESOLVED (A19) —
+   residue: primary-source the 1-pUSD marketable-order minimum.
+5. ~~Resolution mechanics (Game J)~~ RESOLVED (A18 + A19 stream
+   precision) — residue: venue-side boundary sampling (likely
+   unknowable from public docs).

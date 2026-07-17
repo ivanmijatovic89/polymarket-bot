@@ -479,3 +479,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   2026-07-17). Telonex dataset coverage ENDS 2026-06-14 globally (sync
   has not run since) — the lab cannot currently backtest the July era;
   June is the newest replayable slice. [verified]
+- **A19 (venue limits batch, primary docs 2026-07-17):** sub-cent tick
+  regime switches exactly at price >0.96 or <0.04 (`tick_size_change`,
+  docs orderbook page) [verified]; rate limits generous — POST /order
+  5,000/10s + 120,000/10min, batch POST /orders 2,000/10s, CLOB API
+  9,000/10s, data-api 1,000/10s (docs rate-limits page) [verified] —
+  NOT a binding constraint at archetype cadence (~700 fills/15m peak);
+  marketable orders (FOK/FAK or crossing BUY) need ≥1 pUSD notional,
+  resting GTC/GTD only 5 shares [reported, NautilusTrader adapter
+  docs]; Chainlink Data Streams ≈200ms signed reports, 18-decimal
+  prices [reported] → price ties at window boundaries are measure-zero;
+  the ties→UP clause is not a tradable asymmetry. (VENUE-MECHANICS.md)

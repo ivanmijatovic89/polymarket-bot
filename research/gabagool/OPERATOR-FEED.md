@@ -25,3 +25,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — this unit turns last unit's findings into build guidance (ladder depth, late-window timing, fee-aware completion).
 - Next: endgame/open/spread measurements on the June order-book data.
 - Health: on track.
+
+## 2026-07-17T05:55Z — unit: venue limits closed (A19)
+
+- Did: pulled the official docs for tick rules, rate limits, and the resolution oracle's precision.
+- Found: nothing constrains the concept — rate limits are far above any realistic bot cadence, and the "ties go to UP" rule can never matter in practice (prices have 18 decimals).
+- Next: read out the endgame-flip and window-lifecycle tables now computing over June data.
+- Health: on track.

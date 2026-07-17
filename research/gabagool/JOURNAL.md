@@ -361,3 +361,23 @@ minute-of-window fill-share row.
 Synthesis is now current through A18. Next: D3/D4/D5 measurements —
 first check what fable E24/E25 already cover, then build on June
 Telonex books (the newest replayable slice, G9).
+
+## 2026-07-17T05:55Z — venue leftovers closed (A19) while the D3/D5 replay runs
+
+Primary-sourced the remaining order/market mechanics from the docs
+site (the old CLOB doc URLs 404 — the index lives at
+docs.polymarket.com/llms.txt now): sub-cent tick switches exactly at
+>0.96 / <0.04 (tick_size_change, orderbook page); rate limits are
+generous and non-binding for this concept (POST /order 5,000/10s
+burst, 120k/10min sustained; data-api 1,000/10s — relevant to our own
+pullers); Chainlink Data Streams publish ~200ms signed reports with
+18-decimal prices, so the ties→UP resolution clause is measure-zero,
+not a tradable asymmetry. One [reported] residue: marketable orders
+≥ $1 notional (secondary source only).
+
+Meanwhile scripts/window-lifecycle.ts (D3 flip table + D5 lifecycle,
+one replay pass, 288 June markets sampled from 1,286 on disk) runs in
+the background; smoke test on 8 markets validated plumbing, including
+two gotchas: the book WIPES after resolution (outcome must be read
+from the last decisive post-window quote, walking backwards), and
+minute-14 lifecycle rows condition on the book still being two-sided.

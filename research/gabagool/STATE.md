@@ -53,12 +53,16 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
-   (check fable E24/E25 first). Note: Telonex data ends 2026-06-14
-   (G9) — use June slice.
-2. Venue leftovers: sub-cent tick rule, rate limits, Chainlink stream
-   sampling precision (Game J residue), 2026-exchange launch date,
-   bulk-payout provenance (bonereaper $62.6k lump).
+1. NEXT: D3 endgame reversal + D5 spread lifecycle — script
+   scripts/window-lifecycle.ts DONE and smoke-tested; 288-market June
+   run IN FLIGHT (log: research/gabagool/data/window-lifecycle-jun.log;
+   if a successor finds it finished, write
+   measurements/window-lifecycle-btc15m.md + A20 and fold). D4 open
+   dynamics: RESOLVE BY PRIORS (fable E24 opening-quote kill + A17 no
+   open concentration) — no new measurement needed.
+2. Venue leftovers REMAINING: 2026-exchange launch date, bulk-payout
+   provenance (bonereaper $62.6k lump). (Tick/rate-limits/stream
+   precision RESOLVED, A19.)
 3. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
    wallet hunt, badfallen/doggystyie/0xaaaaa dossiers.
 4. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
