@@ -112,3 +112,14 @@ for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 - Profile-creation timestamps for all actives (cluster detection).
 - Per-wallet behavioral fingerprints (book mix, size ladder, cadence,
   merge-vs-redeem) — one dossier each.
+
+## Session-7 additions (A30–A33)
+
+| wallet | all-time $ | status | file |
+|---|---:|---|---|
+| `0x04b6d7e9…94c8` (quiet winner) | 300,795 + 167,926 rebates | ACTIVE, only trading-profitable parity wallet at scale | wallets/04b6d7e9.md |
+| `0x818f214c…58cb` livebreathevolatility | 385,802 | RETIRED 2026-04-11 (predates gabagool22) | wallets/818f214c-livebreathevolatility.md |
+| `0x2d8b401d…260a` vidarx | 659,586 + 76,093 rebates | wind-down (regime drifter, 3 clusters) | wallets/2d8b401d-vidarx.md |
+| `0x13e0d447…5204` | 81,698 + 39,414 rebates | ACTIVE cold-start win (born May-29) | measurements/cold-start-economics.md |
+| `0xe114e5ca…c208` ohio-house | ~6k week 1 | ACTIVE cold-start, deep pairs | same |
+| `0x76d4d470…c512` | −97,821 + 137,022 rebates | ACTIVE subsidy loop | same |

@@ -662,3 +662,13 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   A16 "cold-start moat" applies ONLY to taker-completion variants —
   the lab's maker-only and deep-pair sweep cells are tier-immune; sim
   taker legs must use tier-0 (3%). [verified] 
+- **A33 (vidarx 0x2d8b401d — the regime drifter; adaptation paid
+  $660k):** all-time lb +$659,586 (+$76k rebates, day-2 rebate
+  adopter), trajectory across the era scans: cheap-side (Dec, 0.68 @
+  0.978) → deep parity-edge through the fee shocks (Feb–Mar, 0.84–0.86
+  @ 0.95–0.976, #2 on btc-5m the week all-crypto fees landed) →
+  farmer (Apr) → wind-down (alive Jul 15, +$4.3k/30d). Third
+  deep-pair existence proof, and the third documented career path
+  (adapt-across-eras, vs quit-at-peak ×2 and born-native ×2). The
+  "professionals exit, don't bleed" pattern is now n=3. [verified]
+  (wallets/2d8b401d-vidarx.md)

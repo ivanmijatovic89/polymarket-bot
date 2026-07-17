@@ -214,3 +214,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — housekeeping.
 - Next: live snapshot 4 around 06:30 UTC; then atlas residue dossiers or W4 scaling.
 - Health: on track.
+
+## 2026-07-17T05:36Z — unit: the shape-shifter wallet (session 7)
+
+- Did: profiled the wallet that changed its style with every rule change.
+- Found: "vidarx" made ~$660k — third-biggest ever in this family — by adapting its recipe each time the venue changed fees, then quietly winding down. Adaptation is a proven third career path, and it used the same deep-pairs trick our top candidate uses.
+- Next: live snapshot 4 (~06:30 UTC), then the remaining big measurement (top wallet's ladder shapes from tick data).
+- Health: on track.

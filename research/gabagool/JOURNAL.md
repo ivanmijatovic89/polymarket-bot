@@ -787,3 +787,14 @@ target (+0.9–1.4%T expected, tier-immune); cheap-side stays second on
 tail risk; taker-completion cells demoted to comparison-only at
 tier-0. W6 queue item done (it will refresh whenever the atlas or
 venue terms move).
+
+## 2026-07-17T05:35Z — session 7, unit 17: vidarx, the regime drifter (A33)
+
+The atlas residue keeps paying. 0x2d8b401d resolves to "vidarx":
++$659,586 all-time — third-biggest in the class — earned by CROSSING
+three variant clusters as eras turned (cheap-side Dec → deep
+parity-edge through both fee shocks → farmer → wind-down; still
+alive at dust scale). Third deep-pair existence proof, third career
+path documented, and the "professionals exit rather than bleed"
+pattern reaches n=3. The class's total documented lifetime winnings
+across the seven biggest wallets now exceed $3.3M.
