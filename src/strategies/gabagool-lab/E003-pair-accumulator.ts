@@ -26,12 +26,16 @@ import { isWarmed } from '../../strategy/strategyToolkit.js'
 
 export const ConfigSchema = z.strictObject({
   clipShares: z.coerce.number().finite().min(5).max(100).default(6),
+  // Accepts a JSON string (CLI --param) OR a plain array — the backtest
+  // pipeline persists TRANSFORMED params and re-validates them on
+  // --extend, so schemas must round-trip their own output (E002 lesson:
+  // its string-only schema made extensions impossible; file frozen).
   rungOffsets: z
-    .string()
+    .union([z.string(), z.array(z.number())])
     .default('[0.01,0.03]')
-    .transform((s, ctx) => {
+    .transform((v, ctx) => {
       try {
-        const arr = JSON.parse(s) as unknown
+        const arr = (typeof v === 'string' ? JSON.parse(v) : v) as unknown
         if (
           !Array.isArray(arr) ||
           !arr.length ||
@@ -43,7 +47,7 @@ export const ConfigSchema = z.strictObject({
       } catch {
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
-          message: 'rungOffsets must be a JSON array of 1..4 numbers in (0,0.5)',
+          message: 'rungOffsets must be a JSON array (or array) of 1..4 numbers in (0,0.5)',
         })
         return z.NEVER
       }
