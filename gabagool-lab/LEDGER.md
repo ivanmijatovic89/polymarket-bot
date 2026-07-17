@@ -1095,6 +1095,102 @@ Template:
   cost — decompose fee vs information terms before building an axis
   to remove a loss channel.
 
+## E008-fv-gate — adverse-side suppression from external fair value
+- **Type:** axis
+- **Status:** DRAFT (2026-07-17T14:13Z, session 16, unit 54 —
+  drafted AFTER the E006 judgment and the A-6 KB fold, BEFORE any
+  implementation or calibration. Freeze verbatim at submit; the
+  arm grid is deliberately open pending the pre-registered
+  calibration below.)
+- **Why this axis now (proposal policy: measured mechanism first):**
+  E006 closed with the loss channel decomposed: the winner-remainder
+  payload ($2.2–2.4/mkt at ref) is what price-chasing requotes buy;
+  freezing quotes forfeits it ($1.2–1.5) to save $0.3 of fees. The
+  battery's conversion channel is therefore fee + INFORMATION, and
+  the lever must cut the adverse-fill component without giving up
+  winner-tracking. Independently, the KB measured the same object
+  from fills (A-6): living winners' excess leg tracks the eventual
+  winner (60–81% win), and post-fill drift — fill selection — is
+  the class edge signature. The only unexplored information source
+  on this branch is the EXTERNAL spot feed (binanceWsSpotPrice,
+  replayable now; u48: 61/61 Apr+May day files on disk, hard-error
+  on gaps, as-of lookup seeded pre-window). E008 gates the ADVERSE
+  side with it and leaves the requote engine untouched.
+- **Mechanism:** strike proxy = first spot value at or after window
+  open (H4; the backtest feed is seeded with the last pre-window
+  trade so a value exists at open; Chainlink-vs-binance basis is a
+  stated limitation, A18 caveat near the boundary). Per tick,
+  signed distance d = (spot − strike)/strike in bps. Side DOWN is
+  ADVERSE when d > +θ (price has left it); side UP is adverse when
+  d < −θ. Gate: place NO new rungs on the adverse side (existing
+  resting rungs cancel via the normal requote/parity paths — the
+  gate blocks placement, not standing orders; simplest honest v1,
+  stated). The favorite side keeps quoting and keeps its fast
+  (0.02) requote — winner-tracking preserved by construction.
+  Prediction (to freeze): the gate removes a slice of
+  leaving-side adverse fills inside the latency window → cost and
+  imbalance fall, remainder term survives (unlike E006), EL
+  improves at moderate θ; θ too small over-suppresses (gabagool
+  needs the cheap side — pairs die), θ → ∞ = ref. The trade-off
+  curve EL vs pairRate/played is the deliverable either way.
+- **Chassis:** rc+c960 (rungOffsets [0.02,0.13], pairCostCap 0.96,
+  parityTolPct 2, completionMode none, clip 6, requoteDelta 0.02),
+  lat140, jitter 0, halves h1 Apr / h2 May. Ref = runs 708/703
+  (gate off ≡ parameter-identical cell).
+- **Implementation plan (same-file doctrine):** E003-pair-accumulator
+  gains fvGateMode ('none' default | 'level') + fvGateBps; the
+  ExternalFeedsRequestPlugin is registered ONLY when fvGateMode !=
+  'none', so gate-none remains bit-identical to the ref runs BY
+  CONSTRUCTION (no feed request, no wiring change on the default
+  path). Cheap A/A insurance before launch: local sequential run of
+  ~20 h1 markets at defaults on the new SHA must reproduce the same
+  markets' per-market EL from run 708 exactly; mismatch = the reuse
+  basis is broken → STOP, diagnose, resubmit refs if needed. If the
+  feed's as-of lookup proves unavailable at some ticks (missing
+  value), the gate treats the side as NOT adverse (fail-open,
+  stated — fail-closed would silently turn the strategy off).
+- **Pre-registered grid rule (execute BEFORE freeze, calibration
+  unit):** measure pooled |d| in bps over the quoting window
+  (elapsed 60–840s, sampled per aggTrade as-of each second) across
+  ALL h1 (Apr) windows from the on-disk aggTrades — no backtest, no
+  DB writes. Grid = {p40, p60, p80} of pooled |d|, rounded to the
+  nearest 1 bps, deduplicated. Arms = ref (no gate) + θ0 = 0 bps
+  (sign-only, max suppression endpoint) + the three quantile arms →
+  5 arms × 2 halves, 8 new runs (refs reused). If p40 rounds to 0,
+  take {p50, p70, p85} instead (stated fallback so θ0 stays a
+  distinct endpoint). Calibration uses h1 only (h2 stays untouched
+  by grid selection — same one-half convention as E005's bind
+  table).
+- **Success criteria (freeze-ready skeleton; freeze verbatim at
+  submit with the calibrated grid filled in):** (1) all 8 new runs
+  complete, validators green (G9 fee-recon, settlement recheck,
+  meta 100%); played < 20% flags the arm unmeasurable-at-coverage
+  (E005 caveat language) — plausible here at small θ, unlike E006.
+  (2) per-arm×half readout: EL±se, t, taker share, fills m/t
+  (+fills/mkt), played%, pairRate, imb p50/p90, S(pair), outlay,
+  CVaR5, PLUS the settlement decomp (e004-decomp.ts) per arm — the
+  remainder term is the load-bearing prediction this time and is
+  judged, not just narrated. (3) adjacency on the θ chain at
+  |ΔEL| > 2·se_diff, plus endpoints vs ref. (4) advance rule (as
+  E003/E005/E006): (a) endpoint direction sign(EL(best θ) −
+  EL(ref)) agrees across halves; (b) top-2 by EL of the 5 arms is
+  the same SET in both halves. Both hold AND the winning arm beats
+  ref DISTINCTLY in at least one half → the gate joins the chassis;
+  else → axis closed with the curve, chassis unchanged, stated.
+  (5) mechanism check (frozen prediction): the winning arm must
+  show Δrem ≥ −0.3 vs ref (payload preserved) — an arm that "wins"
+  by collapsing the remainder again is the E006 failure mode and
+  does NOT advance regardless of EL (guards against winning the
+  wrong way).
+- **Kill/stop:** axis closed when the θ curve is measured at
+  planned resolution; dead cells to LEADERBOARD with numbers.
+- **Out of scope (stated):** favorite-side lean (asymmetric parity
+  toward the spot favorite — A34/A36's informed excess leg) is
+  sub-axis B, proposed separately only if sub-axis A shows the
+  signal has value; per-rung requote speed stays E006b in backlog;
+  E-completion-selective keeps its D-008 constraint.
+- **Runs / Judgment / Lesson:** (pending — DRAFT, not frozen)
+
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind
   quote-stability u43 per the battery's mechanism finding):
@@ -1102,9 +1198,10 @@ Template:
   (start 480s)} (A17/A20; E24 warns open).
 - E007 endgame policy: stop-quote time × band-exit behavior (A20 flip
   table; minute-14 cut always on elsewhere).
-- E008 fair-value gate (seed 3, unblocked on this branch): Binance
-  window-open-strike proxy, suppression threshold 1–5c (H4; basis
-  caveat A18 near boundary).
+- E006b per-rung requote speed (seeded by A-6/A37: fast helps at
+  touch, hurts at depth; my chassis shares one delta across
+  [0.02,0.13]): fast touch rung / patient deep rung; needs a schema
+  addition; propose after E008.
 - E009 cheap-side-accumulator (seed 2 / H2): separate mechanism file;
   entry band 0.02–0.15, loose parity, hold. After the E003 family
   program has verdicts.

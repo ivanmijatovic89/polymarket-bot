@@ -159,3 +159,30 @@ to the winner; (b) declaring cfree the completion default anyway
 the data is the exact failure mode frozen rules exist to prevent; if
 the rule is wrong, the fix applies to future freezes (LS-8), not
 retroactively.
+
+## D-009 (2026-07-17): E008 gate signal form — level (strike distance), not drift (momentum)
+
+**Chosen:** the E008 adverse-side gate uses the LEVEL form: side S
+is adverse when signed (spot − strike)/strike exceeds +θ against it
+(strike = window-open spot, H4 proxy). Rationale: (a) the measured
+E006 mechanism sentence — stale bids fill on the side price is
+LEAVING — is about where price sits relative to the window open,
+which the level form captures directly; (b) stateless (no lookback
+buffer) → smaller code change on the frozen-doctrine shared file,
+cleaner decomp attribution, trivially deterministic; (c) H4 was
+scoped exactly this way (u48) and the binary's terminal value IS a
+level condition on strike, so the signal is the payoff-relevant
+one; (d) A36's session evidence and A34's excess-leg choice are
+both consistent with position-relative-to-open, not short-horizon
+momentum, driving the informed lean.
+
+**Rejected:** (a) drift form (spot moved ≥ θ bps against S over
+lookback L) — adds a second free parameter (L), buffer state, and
+a tick-cadence dependence that muddies latency comparisons; kept as
+a refinement IF the level gate shows signal; (b) probability-model
+form (z-score with realized vol → model p, quote only below
+p − margin) — the honest version needs a vol estimator that is
+itself a research object; premature before the raw signal is shown
+to carry value; (c) gate-plus-cancel (also cancel standing rungs on
+adverse flip) — second cancellation channel, confounds the decomp;
+v1 blocks placement only, stated in the draft.

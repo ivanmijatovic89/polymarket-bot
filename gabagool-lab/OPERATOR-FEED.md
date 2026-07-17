@@ -321,3 +321,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: their wallet forensics independently confirms my E006 mechanism — winning bots deliberately let the unpaired leg lean toward the eventual winner (their excess legs win 60–81%). Also: touch rungs want fast requotes, deep rungs want patient ones — my strategy uses one shared speed.
 - Next: draft E008 — quotes anchored on the Binance spot feed (freeze before launch, as always).
 - Health: on track
+
+## 2026-07-17T14:13Z — unit 54
+- Did: drafted the next experiment (E008): keep the current bot exactly as-is, but stop bidding on the side Bitcoin's price has moved away from (using the Binance feed).
+- Found: nothing new — design unit. The E006 trap is guarded: an arm only advances if it keeps the winner-side leftover value that E006 proved essential.
+- Next: measure typical within-window BTC moves to pick the thresholds, then implement + verify + launch.
+- Health: on track

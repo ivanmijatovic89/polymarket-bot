@@ -1629,3 +1629,44 @@ Backlog additions (tools, dossier-grade): post-fill-drift
 diagnostic from intent_meta; session stratification in results.ts.
 
 Next unit: E008-fair-value proposal draft, freeze-ready.
+
+## 2026-07-17T14:13Z — session 16, unit 54: E008-fv-gate DRAFTED (adverse-side suppression; grid from pre-registered calibration)
+
+LEDGER §E008 written as DRAFT — freeze happens at submit, after
+the calibration fills the grid. The design in one paragraph: keep
+the ref chassis exactly as-is (fast 0.02 requote = the
+winner-tracking engine E006 proved load-bearing) and add ONE
+information gate — no new rungs on the side the spot has left
+(|spot−strike| > θ bps against it, strike = window-open spot per
+H4). The E006 failure mode is guarded structurally: criteria (5)
+requires the winning arm to PRESERVE the remainder term (Δrem ≥
+−0.3 vs ref); an arm that wins by killing the payload again does
+not advance regardless of EL.
+
+Design choices worth recording (DECISIONS gets the fork):
+
+- Level-form signal (distance from strike) over drift-form
+  (momentum over lookback): simpler, no buffer state, H4-scoped,
+  and the E006 mechanism sentence — "stale bids fill on the side
+  price is LEAVING" — is about where price IS relative to where
+  it opened, which the level form captures. Drift-form remains
+  available as a refinement if the level gate shows signal.
+- Gate blocks NEW placement only; standing rungs cancel via the
+  existing requote/parity paths. Simplest honest v1; a
+  cancel-on-adverse variant would add a second cancellation
+  channel and muddy the decomp attribution.
+- Plugin registered ONLY when the gate is on → gate-none stays
+  bit-identical to refs 708/703 by construction; plus a ~20-market
+  local A/A on the new SHA before launch (cheap insurance; if it
+  fails, the reuse basis is broken and refs get resubmitted).
+- Grid from data, rule pre-registered NOW (E005 CAP-GRID pattern):
+  {p40,p60,p80} of pooled |distance| bps over the quoting window,
+  h1-only calibration (h2 untouched by selection), plus θ0
+  sign-only endpoint and ref. 8 new runs.
+- Fail-open on missing feed values (side treated as not-adverse):
+  fail-closed would silently turn the whole strategy off and look
+  like a participation result.
+
+Next unit: the calibration measurement (aggTrades → pooled |d|
+quantiles, read-only, no DB), then implementation + A/A smoke,
+then freeze + launch.
