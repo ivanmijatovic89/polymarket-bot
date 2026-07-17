@@ -1399,3 +1399,23 @@ toward lat0 economics ≈ −0.1) is in trouble. Judgment only on the
 complete 8-run table per the frozen §E006 criteria. Next: waiter
 on the remaining 4 (terminal-state poll, 90-min hard timeout),
 then fill-in-the-ids.
+
+## 2026-07-17T12:05Z — session 13, unit 47: run 719 (ax5h2-q20) verified on landing; terminal-state waiter up for the last 3
+
+Fifth flow terminal: 719 = ax5h2-q20, uid matches the frozen
+LEDGER uuid to the digit, 2976 markets, 0 failed, validators green
+(settlement OK, fee recon |0.20| vs tol 59.52, meta 100%, segments
+OK). Honest peek, still not a judgment: EL −2.3681 vs ref h2
+−2.0229 (worse by 0.35). Taker share is down to 4.8% of fills
+(1296/27173) vs ref ~37% — the delta lever removes conversions
+exactly as designed, and the money still does not come back. Same
+shape as u46's four: the loss morphs into stale-quote adverse
+selection instead of vanishing.
+
+Remaining 3 flows (ax5h1-q05, ax5h1-q45, ax5h2-q45) match the 3
+waiting-children aggregates in the queue. Drain pace ~174/min with
+~5.2k jobs at 12:03Z → ETA ~12:33Z. LS-10 waiter launched in
+background: polls runs for terminal state (completed OR partial OR
+failed) every 60s, 90-min hard timeout, branches on partial per
+the u41 windowed --extend recovery. Judgment stays fill-in-the-ids
+on the complete 8-run table per frozen §E006 criteria.

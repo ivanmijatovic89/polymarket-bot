@@ -22,13 +22,17 @@
   draining
 - **Phase:** E006 draining (launched 10:34Z at SHA 35a6f5de; 8
   flows ax5{h1,h2}×{q05,q10,q20,q45} on rc+c960 chassis, 23,424
-  jobs). Pace halved ~11:08Z (operator's tmux markets worker gone
-  from ps; mine mc=4 alive) → revised ETA ~12:35Z. 4/8 runs ALREADY
-  terminal + verified s13 u46: 715=q05h2, 716=q10h1, 717=q10h2,
-  718=q20h1 — uids to the digit, 0 failures, validators green.
-  Early peek (no judgment): q05h2 EL −2.59 vs ref −2.02 (worse);
-  q10h1/q20h1 ≈ ref h1 −2.29 (flat). Prediction (EL→lat0 econ) in
-  trouble. Watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.
+  jobs). ETA ~12:33Z (~174/min, ~5.2k left at 12:03Z). 5/8 runs
+  terminal + verified (u46+u47): 715=q05h2, 716=q10h1, 717=q10h2,
+  718=q20h1, 719=q20h2 — uids to the digit, 0 failures, validators
+  green. Early peek (no judgment): ALL 5 at-or-worse than ref
+  (q05h2 −2.59, q10h2 −2.33, q20h2 −2.37 vs ref h2 −2.02; q10h1
+  −2.25, q20h1 −2.25 vs ref h1 −2.29); taker share collapses as
+  designed (37%→5–11%) but EL does not recover → prediction
+  (EL→lat0 econ) in trouble; loss morphs into stale-quote adverse
+  selection. LS-10 waiter: background bash id baqvcnq6o polls the
+  3 remaining flows for terminal state, 90-min timeout.
+  Drain watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.
   Ref delta 0.02 = runs 708/703 (reused). Battery verdict (§E005 u42): depth advantage
   latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
   at 0.5 fills/mkt → lat140 loss ~100% requote-conversion; LS-1
@@ -97,13 +101,13 @@
 
 ## Queue (work top to bottom)
 
-1. **E006 judgment when drained (revised ETA ~12:35Z):** 4/8 runs
-   verified (see Phase); remaining 4 = ax5h1-q05, ax5h2-q20,
-   ax5h1-q45, ax5h2-q45. WAITER RULE (LS-10): poll terminal state
-   (completed OR partial OR failed), branch on partial (windowed
-   --extend re-run per u41 recovery). Verify remaining uids
-   (`tools/uids.ts <ids>`), validators per run, then
-   `e005-table.ts --arm q02=708,703 --arm q05=… q10=… q20=… q45=…`
+1. **E006 judgment when drained (ETA ~12:33Z):** 5/8 verified (see
+   Phase); remaining 3 = ax5h1-q05, ax5h1-q45, ax5h2-q45; waiter
+   baqvcnq6o polling terminal state (LS-10), branch on partial
+   (windowed --extend re-run per u41 recovery). On fire: verify
+   uids (`tools/uids.ts <ids>`) + validators per run, then
+   `e005-table.ts --arm q02=708,703 --arm q05=<h1>,715
+   --arm q10=716,717 --arm q20=718,719 --arm q45=<h1>,<h2>`
    (verified blind u45). Judge per frozen §E006 criteria: chain
    adjacency, advance rule (endpoint direction + top-2-of-5 set
    match), EL-vs-participation curve, choke caveat at played<20%.

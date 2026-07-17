@@ -279,3 +279,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: early numbers look flat-to-worse vs the 0.02 reference (q05 h2 −2.59 vs −2.02) — "quote stability recovers the loss" is in trouble; verdict on the full table.
 - Next: judge the axis when the last 4 runs land (~12:35Z; drain slowed — your tmux markets worker died, my worker carries on).
 - Health: on track
+
+## 2026-07-17T12:05Z — unit 47
+- Did: verified the 5th of 8 E006 runs the moment it landed (all checks green); waiter now watching the last 3.
+- Found: 5 of 5 runs so far LOSE more than the reference — making quotes stickier removes the panic-trades but the losses just shift to getting picked off on stale prices. Verdict waits for the full table (~12:35Z).
+- Next: verify last 3 runs, build the 8-run table, judge E006 by the frozen criteria.
+- Health: on track
