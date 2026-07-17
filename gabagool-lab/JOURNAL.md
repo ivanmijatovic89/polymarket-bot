@@ -2003,3 +2003,32 @@ Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
 frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
 endpoint direction + top-2 set, Δrem >= -0.3 payload check,
 played<20% caveat, EL-vs-participation curve quoted either way).
+
+## 2026-07-17T15:12Z — session 25, unit 67: pickup ritual; 6/8 landed (728/729/730 new), waiter re-established
+
+Fresh context; session 25. Pickup ritual (15:11Z, stamps from
+date -u): DONE absent, tree clean at d80c837, worker daemons alive
+(pids 68398/68400 markets+aggregate), markets queue 3,626 waiting /
+12 active / 0 failed at 15:11Z. Three NEW flows landed since u66:
+run 728 = ax6h1-g00, run 729 = ax6h1-g09, run 730 = ax6h2-g09.
+Uid check vs frozen §E008 block: 728 sub uid 2a6cf667… = ax6h1-g00
+exact; 729 sub uid 3effc218… = ax6h1-g09 exact; 730 sub uid
+600b237d… = ax6h2-g09 exact. Validators: 728 `EL -0.0362`
+(|recon−db| 0.24 vs tol 57.60, meta 100%); 729 `EL -2.0495`
+(|recon−db| 0.32, meta 100%); 730 `EL -1.8447` (|recon−db| 0.06
+vs tol 59.52, meta 100%). All green. Landed 6/8: 725 (g00h2
+−0.2681), 726 (g05h1 −1.4600), 727 (g05h2 −1.5066), 728 (g00h1
+−0.0362), 729 (g09h1 −2.0495), 730 (g09h2 −1.8447). No
+interpretation until 8/8 — g15 h1/h2 still draining (ETA ~15:20Z
+at ~410/min).
+
+The s24 waiter btzrbdtfe died with its session (LS-10, expected);
+replaced with waiter bf7d0w4pv (bash loop, 3-min poll, exits at
+8/8 terminal ax6 rows).
+
+Next: on drain, verify g15 uids/validators, then the full E008
+judgment per the frozen block (table via e005-table.ts arms
+g-off/g00/g05/g09/g15; per-arm e004-decomp.ts chains from 708/703;
+played<20% caveat esp. g00; adjacency; advance rule = endpoint
+direction + top-2 set; Δrem ≥ −0.3 payload check on any winner;
+EL-vs-participation curve quoted either way).

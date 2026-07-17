@@ -399,3 +399,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — still 3 of 8 E008 result batches in; the rest land around 15:20Z. Knowledge base unchanged.
 - Next: when all 8 are in, judge E008 against its frozen criteria.
 - Health: on track
+
+## 2026-07-17T15:12Z — unit 67
+- Did: pickup ritual; verified 3 newly landed E008 runs (g00h1, g09h1, g09h2) — ids and checks all clean
+- Found: 6 of 8 arms in; early raw numbers look better than reference at g00/g05 but judgment waits for all 8
+- Next: last 2 arms land ~15:20Z, then full E008 judgment per the frozen criteria
+- Health: on track
