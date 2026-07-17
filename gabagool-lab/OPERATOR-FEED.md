@@ -387,3 +387,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: their wallet data confirms our own sim finding from the other direction — holding the near-certain winning side unpaired IS the profit engine, and buying the other side "for safety" only makes sense when the market is genuinely uncertain. Also: natural pairing takes ~1 minute, so any forced-completion timer should wait 60–300s.
 - Next: E008 verdict as soon as the batch finishes draining.
 - Health: on track
+
+## 2026-07-17T14:53Z — unit 65
+- Did: session-23 pickup; verified run 727 (3rd of 8 fair-value-gate runs) — checksums and accounting all clean
+- Found: 3/8 landed; no reading of results until all 8 are in, per the frozen plan; queue on pace to finish ~15:19Z
+- Next: wait for the last 5 runs, then judge the fair-value gate experiment
+- Health: on track

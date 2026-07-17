@@ -1948,3 +1948,34 @@ Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
 frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
 endpoint direction + top-2 set, Δrem ≥ −0.3 payload check,
 played<20% caveat, EL-vs-participation curve quoted either way).
+
+## 2026-07-17T14:53Z — session 23, unit 65: pickup + run 727 (ax6h2-g05) landed, uid+validators green
+
+Fresh context; session 23 (s22 ended right after u64). Pickup
+ritual (14:52Z, stamps from date -u): DONE absent, tree clean at
+efc901e, worker daemons alive (pids 68398/68400 markets+aggregate,
+41017/41018 aggregate), drain watcher pid 21525 logging, markets
+queue 11,373 waiting / 0 failed at 14:52Z (~420/min) → landing
+ETA ~15:19Z. Aggregate: 5 waiting-children = the 5 unlanded ax6
+flows.
+
+Third flow landed since u64: run 727 = ax6h2-g05 (2,976 markets,
+0 failed). Per the on-fire protocol: uid matches the frozen §E008
+block to the digit (…4b7d1627-5d36-47a4-9b0c-6fa1c2201c75),
+validators green (settlement recheck OK all markets, fee recon
+|recon−db| 0.16 vs tol 59.52, meta 100%, segments cross-check
+OK), headline `EL -1.5066`. No interpretation until 8/8 land —
+landed so far: 725 (ax6h2-g00 −0.2681), 726 (ax6h1-g05 −1.4600),
+727 (ax6h2-g05 −1.5066).
+
+KB check: STATE mtime 14:48Z, register still tops at A48 —
+s22's A-9 fold already covered it; nothing new to fold.
+
+The s22 waiter bzhezph45 died with its session (LS-10, expected);
+replaced with waiter bez4s465g (bash loop, 3-min poll, exits at
+8/8 terminal ax6 rows).
+
+Next: wait for landing (ETA ~15:19Z); judge E008 strictly per the
+frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
+endpoint direction + top-2 set, Δrem ≥ −0.3 payload check,
+played<20% caveat, EL-vs-participation curve quoted either way).
