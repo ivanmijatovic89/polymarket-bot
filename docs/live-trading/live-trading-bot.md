@@ -5,7 +5,7 @@ description: Step-by-step guide to launching the Polymarket live trading bot, co
 
 # Running the Live Trading Bot
 
-The trading bot connects to the Polymarket market WebSocket, resolves the current 15-minute UP/DOWN market for the selected symbol, and runs your chosen strategy against a live order book. Real order placement is enabled by default — set `DRY_RUN=true` to disable it.
+The trading bot connects to the Polymarket market WebSocket, resolves the current 15-minute UP/DOWN market for the selected symbol, and runs your chosen strategy against a live order book. Dry-run is the default — set `DRY_RUN=false` explicitly to place real orders.
 
 ## Prerequisites
 
@@ -24,8 +24,8 @@ POLYMARKET_API_PASSPHRASE=...
 TRADING_SYMBOL=BTC
 ```
 
-::: warning Live execution is the default
-`DRY_RUN` defaults to `false` — orders are sent to the exchange unless you opt out. Set `DRY_RUN=true` (any value other than `false` enables dry-run) to have the bot resolve markets, process the order book, and call strategy logic normally without sending any orders.
+::: tip Dry-run is the default
+`DRY_RUN` defaults to `true` — the bot resolves markets, processes the order book, and calls strategy logic normally without sending any orders. Set `DRY_RUN=false` explicitly to place real orders; startup then logs a loud LIVE MODE warning.
 :::
 
 ## Quick-start commands
@@ -110,7 +110,7 @@ If the startup balance/approval check fails in relayer mode, the bot exits with 
 
 | Variable                                   | Default                   | Description                                                                       |
 | ------------------------------------------ | ------------------------- | --------------------------------------------------------------------------------- |
-| `DRY_RUN`                                  | `false`                   | Set to any value other than `false` to disable real order placement (dry-run)     |
+| `DRY_RUN`                                  | `true`                    | Real orders ONLY when set to exactly `false`; anything else (incl. unset) = dry-run     |
 | `TRADING_SYMBOL`                           | —                         | Required. `BTC`, `ETH`, `SOL`, or `XRP`                                           |
 | `RECORD_SYMBOL`                            | —                         | Fallback if `TRADING_SYMBOL` is unset                                             |
 | `BOT_ENV`                                  | —                         | If set, loads `.env.<BOT_ENV>` with override priority over `.env`                 |

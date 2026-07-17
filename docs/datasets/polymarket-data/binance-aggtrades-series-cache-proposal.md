@@ -42,9 +42,15 @@ per-market query returns today; only the redundant re-reading disappears.
 | | Today (per-market query) | With cache |
 |---|---|---|
 | Parquet scans per 500-market batch | ~500 | ~6–8 (one per distinct day) |
-| Feed-load overhead per market | ~100–500 ms (footer + decompress + filter) | ~0 after the first market of the day |
+| Feed-load overhead per market | **~95 ms measured** (see below) | ~0 after the first market of the day |
 | Worker memory | ~0 between markets | +16–48 MB per cached day (bounded by LRU cap) |
 | Code | — | ~40 lines in `binanceAggTradesSource.ts`, no API change |
+
+Measured 2026-07-17 (M-series laptop, local SSD): `SplitSellRedeem.v5`,
+10 × 15m BTC markets, 509k events, `--sequential` — feed ON 9.98 s / 9.88 s
+vs feed OFF 9.07 s / 8.87 s ⇒ ~0.95 s per 10 markets ≈ **95 ms per market**
+(~10% of total on these small markets; a smaller share on busier ones).
+Extrapolated: a 1,000-market batch pays ~95 s per worker in redundant scans.
 
 ## When it matters — and when it doesn't
 
