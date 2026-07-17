@@ -523,3 +523,16 @@ market-wide /trades per sampled market, find wallets that BUY both
 sides within a window, compute per-wallet pair economics, cluster by
 execution style, then cross-check against the 11 known wallets and
 dossier any new significant finds.
+
+## 2026-07-17T04:04Z — session 6: recovered the W0 scan tooling
+
+Session 5 ended mid-unit: `scripts/variant-scan.ts` and
+`measurements/variant-scan-method.md` were on disk, smoke-tested (one
+window: 48,915 logs decoded, 13k wallet-token cells) but uncommitted.
+The method note carries a load-bearing new fact, now ledgered as A25:
+**data-api /trades is TAKER-ONLY** — verified against an on-chain
+receipt where 3 maker counterparties had zero /trades rows. Any
+tape-based wallet discovery must therefore run on-chain (OrderFilled
+logs on the 3 exchange contracts), which is exactly what the script
+does. Committing the tooling as-is, then starting the era scans
+(one day per month, 2025-11-15 → 2026-07-15, 12 windows each).

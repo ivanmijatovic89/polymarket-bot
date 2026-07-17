@@ -81,3 +81,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — administrative unit.
 - Next: scan the historical trade tape to find every wallet that ever ran any version of this strategy, era by era.
 - Health: on track.
+
+## 2026-07-17T04:04Z — unit: recover session-5 scan tooling (session 6)
+
+- Did: committed the wallet-discovery scanner the previous session built but didn't save, plus its method note.
+- Found: the public trade feed only shows the aggressive side of each trade — passive market makers are invisible there, so the scanner reads the blockchain directly instead.
+- Next: run the scanner across 9 sample days (one per month, Nov 2025 to Jul 2026) to find every wallet that ever ran this strategy family.
+- Health: on track.

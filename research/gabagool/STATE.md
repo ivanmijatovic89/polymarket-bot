@@ -68,13 +68,14 @@ not gabagool-the-wallet. Prefer measurement units over reading units.
 
 Queue (top = next):
 
-1. **W0 variant atlas** — IN PROGRESS (session 5). Scan the trade tape
-   across eras (per-market /trades sampling, Oct 2025 → now) to find
-   EVERY wallet that ever ran a sub-$1 pair-accumulation variant on
-   crypto up/down books; classify on the design axes (entry trigger,
-   ladder, maker/taker completion, timing, leg-risk, exit, subsidy
-   posture); per-variant economics + which died at which venue events.
-   Deliverable: VARIANT-ATLAS.md + dossiers for new finds.
+1. **W0 variant atlas** — IN PROGRESS (session 6). Tooling DONE and
+   committed: scripts/variant-scan.ts (on-chain OrderFilled scan; A25:
+   data-api /trades is TAKER-ONLY so discovery must be on-chain) +
+   measurements/variant-scan-method.md. NEXT: run era scans, one day
+   per month 2025-11-15 → 2026-07-15, 12 windows each →
+   data/variant-scan/scan-<day>.json; then classify wallets on the
+   design axes, cross-check the 11 known wallets, write
+   VARIANT-ATLAS.md + dossiers for new finds.
 2. W1 failed-challenger post-mortem (0x95f51617…779f, −$542k/30d):
    which VARIANT died and why; dossier + "how this strategy dies"
    section in STRATEGY-BRIEF.md.
