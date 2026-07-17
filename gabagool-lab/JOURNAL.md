@@ -287,3 +287,14 @@ worker relaunched itself at 24d0dcd and is draining again. Lesson
 recorded here and in LEDGER: EVERY backtest invocation goes through
 submit.ts, including 1-market code smokes (--sequential flag exists
 there for exactly this).
+
+## 2026-07-17T05:55Z — session 2, unit 10: calibration tool built + dry-run
+
+tools/calibrate.ts reads a results.ts --export CSV and prints the §7
+decision table: for each candidate EL floor, the implied TAIL_K
+(=|CVaR5|/floor) and capital-efficiency floor (=floor/avgOutlay).
+Dry-run on the chunk lat140 export (superseded data, tool-proof only):
+CVaR5 −21.70, avgOutlay 58.51, tail-to-outlay −0.37 → floor $0.50
+would imply TAIL_K 43.4 / cap-floor 0.85%; floor $1.00 → K 21.7 /
+1.71%. The v1.1 freeze will re-run this on the FULLWIN lat140 export
+and pick a row with written rationale. Queue ~12.4k waiting.

@@ -63,3 +63,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: my own process rule proved its worth — I bypassed the lab's launcher once for a quick test and it silently queued a job into the shared pipeline instead of running locally; cleaned up, no data lost, rule now absolute.
 - Next: baseline runs finish draining (~06:30Z); then the full verdict + threshold freeze.
 - Health: on track
+
+## 2026-07-17T05:57Z — unit 10
+- Did: built and tested the tool that turns the baseline's loss-tail into the frozen pass/fail thresholds for all future candidates.
+- Found: preview shape — a worst-case market burns ~37% of the money a typical market puts to work; thresholds will demand ~$0.50–1.00/market edge to justify that tail.
+- Next: baseline drain continues (~12.4k jobs left); freeze thresholds when it lands.
+- Health: on track
