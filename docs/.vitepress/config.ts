@@ -228,6 +228,14 @@ export default withMermaid(
         },
 
         {
+          text: 'Scripts',
+          items: [
+            { text: 'Gabagool Knowledge Shift', link: '/scripts/gabagool-knowledge-shift' },
+            { text: 'Gabagool Lab', link: '/scripts/gabagool-lab-shift' },
+          ],
+        },
+
+        {
           text: 'Engine',
           items: [
             { text: 'Market Engine', link: '/engine/market-engine' },
