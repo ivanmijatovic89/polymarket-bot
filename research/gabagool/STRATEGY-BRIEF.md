@@ -89,15 +89,23 @@ Candidates for the lab:
   — archetype's band implies no quoting beyond ~0.85; endgame-panic-bid
   family results (P43) say late resting bids ≈ fairly priced tail risk.
 
-## 5. Leg-risk policy
+## 5. Leg-risk policy — ERA-DEPENDENT (updated after the actives decomposition)
 
-Archetype answer: prevent, don't manage — parity accumulation keeps the
-unpaired remainder ≈ dust; remainder rides to settlement (never sold).
-SRP evidence agrees from the other side: post-first-fill survivor
-policies were a ±$0.01 sideshow (P42, spread-capture 000/001/002); the
-loss lives in the FIRST fill. A gabagool family should spend its
-parameter budget on WHICH fills to accept (band, parity, kill-switch),
-not on unwind logic.
+- Archetype (zero-fee era): prevent, don't manage — 0.1% parity kept the
+  unpaired remainder ≈ dust; remainder rides to settlement (never sold).
+- **Current edge wallets are LOOSE**: per-market leg imbalance p50 20.3%
+  (0xce25) and 40.0% (b55f, p90 = fully one-sided markets), win rates
+  44–50%, right-tail payoffs. Meanwhile the one perfect-parity wallet
+  today (doggystyie, 0.0%) is trading-NEGATIVE and lives on rebates.
+  Reading: with fees taxing mid-band crossings, forcing parity means
+  paying tax/spread for the completing leg; today's alpha tolerates
+  directional remainders and lets resolution settle them. Parity is a
+  zero-fee-era artifact, not a concept invariant.
+- SRP evidence agrees from the other side: post-first-fill survivor
+  policies were a ±$0.01 sideshow (P42); the decision that matters is
+  WHICH fills to accept (band, price-vs-value, kill-switch), plus HOW
+  MUCH imbalance to carry — sweep parity tolerance as a first-class
+  knob (0.1% → 40%), not a fixed virtue.
 
 ## 6. Sizing / cadence / capital
 
