@@ -1348,3 +1348,27 @@ Jun-13's US window was completely dark while the same weekday a week
 later traded — the wallet had schedule gaps in its early life.
 Dossier residue updated (only the telonex ladder join remains, and
 it must use a Jun-10–14 day since book coverage ends Jun-14).
+
+## 2026-07-17T16:35Z — session 10, unit 11 (small) + session wrap
+
+Tried to set up the 13e0d447 ladder join and hit a wall worth
+recording: the Telonex dataset has ZERO btc-5m conversions (423
+btc-15m eligible for the same June window, 0 for 5m) — G11 ledgered.
+The strongest living wallet and most of the current meta's volume
+trade on a book we cannot study at book level or backtest at all;
+all 5m knowledge is activity-API forensics. That is now an explicit
+scope-decision input for the operator (W7).
+
+Session 10 wrap — eleven units in ~75 minutes, all measurement:
+A51 (venue-wide v1→v2 hard cutover Apr-28 ~11:02Z; OQ #4 closed),
+O10 (snapshot 7: sub-$1 club empty in the US storm), A52 (fee-curve
+history pinned on-chain: reshape Mar-29/31 with the v2 release
+train, cutover fee-neutral, quiet 0.072→0.070 trim May 6-10), A53
+(15m-sleeve: 1-week trial then one-day kill under 0.072; revived
+with the tier launch), A54 (5m launch Dec-18; drfc dud;
+gabagool22→guh123 succession at 6m51s), A55 (lineage sweep:
+52483137→PurpleThunder rotation at −78min; ~3 multi-wallet
+operators), A56 (Jul-01 merge toggle operator-only), A57 (13e0d447
+dossier: strongest living wallet, $3.2k/day, maker-pure cold-start,
+now tracked), plus fee-uniformity and June-book checks, G11.
+Successor: evening snapshot ~20-21Z is the queue head.

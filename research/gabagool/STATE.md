@@ -74,6 +74,43 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
+
+All-measurement session. A51: venue-wide v1→v2 HARD cutover Apr-28
+~11:02Z (first fill Apr-3 was a smoke test; v2 = ALL books; OQ #4
+closed; tenderly RPC is the getLogs workhorse — drpc caps ~100
+blocks). A52: fee history pinned — reshape Mar-29/31 (with v2
+release train, NOT the cutover, which was fee-neutral), launch
+k=0.072 ($1.80/100sh) quietly trimmed to 0.070 May 6–10; curve
+uniform across books (btc-15m/eth-5m both 0.0700); era-matched
+constants in VENUE-MECHANICS; A49 margin decay gains a fee-step
+confound. A53: b27bc932's 15m sleeve = 1-week trial under 0.072
+then one-day kill (Apr-08→09); May trim didn't revive it; back
+~May-27 with the tier launch → btc-15m taker-completion negative
+at tier-0, maker-weight is the viability lever. A54: 5m series
+launched Dec-18 (fee-free→Mar-06); drfc dud; gabagool22→guh123
+succession at 6m51s. A55: lineage sweep — 52483137→PurpleThunder
+rotation (−78min); top earners ≈ 3 multi-wallet operators; two
+actives are PROFILE-LESS. A56: Jul-01 merge toggle operator-only
+(13e0d447 flipped opposite same day). A57: 13e0d447 dossier —
+strongest living wallet ($3.2k/day blended, maker-pure cold-start,
+pairCost 0.976 overnight, btc-5m only, now in live-shadow). O10:
+snapshot 7 — sub-$1 club EMPTY in US storm (A49 live-confirmed).
+G11: NO btc-5m book data exists (telonex 0 conversions) — the
+strongest wallet + most meta volume are book-level unstudyable;
+scope-decision input for W7.
+
+Successor queue (in order): (1) W3 evening snapshot ~20–21Z — club
+re-formation test (A49 evening-positive), now tracks the
+profile-less pair (expect 13e0d447 sub-$1); morning snapshot
+tomorrow settles OQ #5 residue; rerun lineage-sweep.ts if any
+active went dark. (2) 04b6d7e9 overnight-stretch repeat (A34
+residue; btc-15m telonex books EXIST — 423 eligible Jun-10–14,
+some cached in data/telonex-r2-w4/). (3) W7 terrain refresh with
+era-matched fee constants (A52) — activity-API only for 5m/1h (G11).
+(4) Residue: 13e0d447 early-June 15m sleeve (minor), b27bc932
+Jul-01 merge-ON cause (operator-internal, likely dead end).
+
 ### Session-10 digest (2026-07-17 15:27Z→, live)
 
 Unit 1 (15:27–16:10Z): OQ #4 CLOSED — A51

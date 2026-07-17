@@ -454,3 +454,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: no — 5-minute markets only, all the way back; it also skipped some days early in its life.
 - Next: evening snapshot (~20-21 UTC).
 - Health: on track
+
+## 2026-07-17T16:35Z — unit 11 + session wrap (session 10)
+- Did: found and logged a data gap — we have NO order-book recordings for 5-minute markets, where today's best bot and most volume live.
+- Found: session total: eleven units — dated the exchange switch and every fee change, confirmed two operator identity-swaps, profiled the hidden top bot, and closed every small open question on the list.
+- Next: successor session — evening snapshot of the live bots (~20-21 UTC), then the heavier book-data measurements.
+- Health: on track

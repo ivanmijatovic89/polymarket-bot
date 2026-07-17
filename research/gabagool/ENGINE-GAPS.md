@@ -156,3 +156,17 @@ otherwise passive-fill results are silently biased low and
 per-market averages are contaminated by empty episodes. (The
 eligibility layer `listEligibleTelonexMarkets` does NOT screen for
 this; conversion rows exist and point at valid-but-empty files.)
+
+## G11 — No btc-5m book data at all (timeframe coverage gap)
+
+`countEligibleTelonexMarkets({symbol:'btc', timeframe:'5m',
+converter:'delta-typed', readFrom:'r2'})` returns **0** for the
+Jun-10–14 window (vs 423 for 15m) — the Telonex dataset carries NO
+btc-5m conversions, and own WS recordings are 15m-window files. Why
+it matters (raised by A57): the strongest LIVING wallet (13e0d447,
+~$3.2k/day, deepest sub-$1 pair costs) and most of the current meta's
+volume run on btc-5m — none of it can be book-level studied
+(ladder offsets, fill-vs-touch, D2-style fill-reality checks) or
+backtested. Any 5m-scope decision (W7) currently rests on
+activity-API forensics only. Fix directions (for the ops side, not
+this shift): extend telonex sync to 5m markets, or record live 5m WS.
