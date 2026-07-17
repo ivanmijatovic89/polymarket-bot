@@ -221,3 +221,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: "vidarx" made ~$660k — third-biggest ever in this family — by adapting its recipe each time the venue changed fees, then quietly winding down. Adaptation is a proven third career path, and it used the same deep-pairs trick our top candidate uses.
 - Next: live snapshot 4 (~06:30 UTC), then the remaining big measurement (top wallet's ladder shapes from tick data).
 - Health: on track.
+
+## 2026-07-17T05:52Z — unit: the map of all markets, free of charge (session 7)
+
+- Did: reused the blockchain scan to measure how much money flows through each market type over 9 months.
+- Found: our target market's volume shrank ~9x since January (traffic moved to the new 5-minute markets, which are 8x bigger but unprofitable for everyone we audited). Our market is where the MARGINS live — plenty of room for a starter bot, a ceiling for empire-building.
+- Next: live snapshot 4, then the remaining deep measurement on the top wallet's order ladders.
+- Health: on track.

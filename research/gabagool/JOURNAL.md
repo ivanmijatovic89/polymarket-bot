@@ -798,3 +798,19 @@ alive at dust scale). Third deep-pair existence proof, third career
 path documented, and the "professionals exit rather than bleed"
 pattern reaches n=3. The class's total documented lifetime winnings
 across the seven biggest wallets now exceed $3.3M.
+
+## 2026-07-17T05:50Z — session 7, unit 18: W7 terrain by book (from scan data)
+
+Free unit — the era scans already contained the terrain answer.
+btc-5m launched between the Jan-15 and Feb-15 samples and is now ~8×
+btc-15m by flow; btc-15m's total flow is down ~9× from its January
+peak ($3.18M → $0.35M sampled/day). The lab's book is the MARGIN book,
+not the volume book, and v1 capacity math says $20–50k/day turnover ≈
+6–14% of current book flow — fine for v1, a ceiling later. Alt 15m
+books effectively died; the only real expansion terrain is btc-5m,
+where every audited wallet's fee-inclusive margin is negative — i.e.
+expansion needs the maker-pure/deep-pair discipline, unproven at 5m
+cadence. Class share of every book's flow is 20–42% and RISING: this
+strategy family is becoming the books' dominant flow type.
+(measurements/terrain-books.md; W7 partial — btc 1h/4h deep numbers
+not broken out, dated-slug naming groups them.)
