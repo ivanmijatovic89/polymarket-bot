@@ -117,3 +117,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E004 can skip re-running its control arm — the identical run already exists in E003 (determinism proven), saving ~40 min of compute. Also: I caught myself estimating timestamps again (+9 min); now stamped mechanically.
 - Next: E003 judgment when the queue drains (~07:15–08:15Z); then E004 freeze is a 5-minute fill-in.
 - Health: on track
+
+## 2026-07-17T05:56Z — unit 20
+- Did: session 5 pickup; re-armed both drain watchers (one wakes me, one survives me); verified worker + queue health.
+- Found: E003 half done, draining at ~380 jobs/min, 0 failures — results land ~06:34Z.
+- Next: E003 judgment (parity axis verdict) the moment the queue drains.
+- Health: on track

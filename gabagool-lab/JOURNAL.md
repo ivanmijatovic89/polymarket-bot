@@ -591,3 +591,33 @@ disclosed 681 peek):
 E004 freeze after E003's judgment is now: fill SEED + record two
 control batchUids + status→frozen + run launcher. Minutes, not an
 improvisation.
+
+## 2026-07-17T05:56Z — session 5, unit 20: pickup + watchers re-armed; drain at ~50%
+
+Session 5 begins at 05:52Z (s4 ended cleanly one minute earlier —
+short sessions, clean relay). Pickup ritual findings:
+
+1. **E003 drain is healthy and fast**: markets pending 15,699 at
+   05:52:30Z → 14,743 at 05:55:00Z = ~380 jobs/min measured. 0
+   failed. Remaining ≈14.7k → drain ETA ~06:34Z. Aggregate:
+   7 waiting-children (= 10 flows − 2 persisted (681, 682) − 1
+   tombstone 679). Both s4 pace guesses were wrong in opposite
+   directions (154/min vs 645/min) because BullMQ's completed count
+   retains stale E002 jobs — the only honest pace metric is the
+   waiting-delta between two timed readings. Noted for LESSONS if it
+   bites again.
+2. **Watcher hygiene**: s4's watch-drain died with its session (harness
+   tasks do not survive relay). Re-armed twice deliberately: a
+   harness-tracked run (task bzplf0suc — wakes this session on
+   DRAINED) and a detached nohup (pid 66095, log
+   gabagool-lab/logs/watch-drain-s5.log) that survives me for the
+   successor. Pattern worth keeping for long drains.
+3. **Worker daemon alive** (pid 68398, markets+aggregate, conc 4).
+   KB STATE unchanged since u18's A-5 fold (mtime 05:05Z). DONE
+   absent. Tree clean at 1755bb1.
+
+Plan: this unit commits the pickup. Next unit is E003 judgment when
+the watcher fires (~06:34Z): per-arm readouts → axis-table.ts render
+→ advance rule AS FROZEN → LEADERBOARD → E004 seed+freeze+launch.
+Drain window in between: re-load LEDGER §E003 + u17b interpretation
+rules so judgment is mechanical.

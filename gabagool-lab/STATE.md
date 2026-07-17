@@ -12,14 +12,17 @@
 
 ## Status digest
 
-- **Session:** 4 (started 2026-07-17T05:39Z. Stamp drift history:
-  s1/s2 up to +2h, s3 +35–60 min — e.g. E003 launch was 05:29Z real,
-  journal said 06:05Z. Trust `date -u` and git commit times only)
-- **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) launched and
-  draining; judgment is the next substantive unit
-- **Phase:** E003 draining (~26% at 05:41Z, ETA ~06:15–06:45Z real);
-  watch-drain re-armed this session (task bfj2qc9aq, 3h timeout).
-  EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007)
+- **Session:** 5 (started 2026-07-17T05:52Z. Stamp drift history:
+  s1/s2 up to +2h, s3 +35–60 min, s4 +9 min even while pinning the
+  rule (LS-5). Stamps must be pasted from `date -u` output captured
+  in the same command)
+- **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) draining;
+  judgment is the next substantive unit
+- **Phase:** E003 draining (~50% at 05:55Z, measured 380 jobs/min,
+  ETA ~06:34Z). Watchers re-armed s5: harness task bzplf0suc (wakes
+  this session) + detached nohup pid 66095 → logs/watch-drain-s5.log
+  (survives session death). EVALUATION v1.1 frozen (TAIL_K 41, G11
+  cap-floor 0.92/$100, D-007)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -57,8 +60,8 @@
 
 ## Queue (work top to bottom)
 
-1. **E003 judgment when drained (watch-drain task bfj2qc9aq, s4,
-   armed 05:47Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
+1. **E003 judgment when drained (watch-drain task bzplf0suc, s5,
+   armed 05:55Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
    Runs; run 679 = failed tombstone from the double-submit incident,
    IGNORE). Per-arm readouts (`results.ts --run <id> --gates s1`),
    axis-table.ts render, advance rule AS WRITTEN in LEDGER §E003
