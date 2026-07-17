@@ -109,3 +109,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: July 1 at 07:53 UTC, switched on like a light — a code deployment. It now frees its money mid-window in ~$50-110 blocks while still trading the same way. Lesson: the cash-out method is a swappable module, worth a parameter in our build.
 - Next: background wallet-discovery scan continues; then a fresh 2-hour snapshot of the live players.
 - Health: on track.
+
+## 2026-07-17T05:38Z — unit: self-correction on the merge finding + the top wallet's life story (session 7)
+
+- Did: pulled the top wallet's full five-month daily history; it disproved my hours-old claim that July 1 was its first-ever merge.
+- Found: merging is a switch the operator has flipped twice — on in March, off end of April, on again July 1. Also: the wallet went from zero to full scale in two weeks, and takes multi-day breaks.
+- Next: fresh 2-hour snapshot of the live players; the background history scan is 4 of 9 days done.
+- Health: on track (same-hour self-correction, fully ledgered).

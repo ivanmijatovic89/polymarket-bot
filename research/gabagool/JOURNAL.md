@@ -608,3 +608,28 @@ expansion of the short address (0xb27bc932…5b82 mis-expanded) and got
 empty results — caught because empty-at-all is implausible; full
 addresses now recorded in STATE. Era scan still running (mid-2026 days
 are ~3× the log volume of Dec-2025 days).
+
+## 2026-07-17T05:35Z — session 7, unit 3: A27 corrected — merges are a toggle, plus the wallet's life curve
+
+Embarrassing and useful in equal measure: unit 2's "first MERGE ever
+Jul 1" died within the hour. The full-life daily timeline (Feb 1 →
+Jul 17) shows merges/pg=114 on Mar 9 — merges existed all through
+March–April. Exact eras (per-day type=MERGE scans): ON ~Mar 7 →
+Apr-28T14:27Z at 500+/day, OFF Apr 29 → Jun 30 (that's why the June
+pull and my Jun-10→30 scan saw zero), ON again Jul-01T07:53:10Z. Both
+toggles are instant — deployments, not drift. Neither date matches a
+known venue event. A27 rewritten in place with the correction noted;
+dossier section rewritten as a three-era table.
+
+The unit-2 mistake was scanning only Jun 10 → Jul 17 and calling the
+Jul-1 merge "first ever" — an unbounded claim from a bounded window.
+Ledgered as a method lesson: never claim "first ever" from a scan
+that doesn't cover the wallet's whole life.
+
+Bonus from the same pull, new dossier section "Life curve": first
+activity Mar 3, dust probe to Mar 15, 0→full-scale ramp in ~2 weeks,
+and May contains real multi-day DOWNTIME (May 1–3, most of May 16–26)
+— the strongest living variant pauses and resumes at will. Also a
+method caveat ledgered: density extrapolation on bursty flow
+overstates single-day fills (Mar 22 "3.6M fills" is an artifact; the
+calibrated anchor is A24's ~104k/day from the June full pull).

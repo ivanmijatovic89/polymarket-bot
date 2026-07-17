@@ -580,16 +580,22 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   jump-driven event books, which is evidence FOR the bounded-window
   continuous-underlying niche. W1 closed as reclassified. [verified]
   (wallets/95f5-challenger.md, scripts/challenger-timeline.ts)
-- **A27 (b27bc932 exit-style flip dated — A24's "zero merges" is
-  era-bound):** per-day /activity?type=MERGE scan: zero merges every
-  day ≤2026-06-30; first MERGE ever 2026-07-01T07:53:10Z, steady-state
-  cadence (~200/h, ~4.5–4.8k/day) within minutes — a binary
-  deployment. REDEEMs continue unchanged (merge ADDED as a
-  capital-recycling layer); merge sizes p50 $50–110 (50–110 pairs per
-  block) vs $3 clips; no volume step-change around the flip. Class
-  implication: exit style (merge vs hold) is a tunable efficiency
-  layer independent of entry policy — expose as a family parameter;
-  capital is NOT locked to resolution. Trigger unknown (July-2026
-  venue fee revision touched sports only, per secondary sources —
-  [reported]). [verified] (wallets/b27bc932.md §exit-style,
-  data/b27bc932-timeline-jun20-jul17.json)
+- **A27 (b27bc932 merge usage is a TOGGLED module; A24's "zero
+  merges" is era-bound) — corrected same-session:** the first write of
+  this amendment claimed "first MERGE ever Jul 1"; the full-life
+  timeline refuted it within the hour. True eras (per-day
+  /activity?type=MERGE): **ON** ~Mar 7 → **2026-04-28T14:27Z** (500+
+  merges/day; 7 stragglers Apr 30) → **OFF** for 2 months (zero
+  merges/day Apr 29–Jun 30, matching A24's June pull) → **ON** again
+  at **2026-07-01T07:53:10Z**, steady-state ~200/h within minutes
+  (binary deployments both ways). REDEEMs continue in all eras; merge
+  blocks p50 $50–110 (= 50–110 pairs) vs $3 clips; no volume
+  step-change at either toggle; neither toggle date matches a known
+  venue event (May-28 rebate tiers ≠ Apr-28; Jul-2026 fee revision =
+  sports-only [reported]). Class implication (now stronger): exit
+  style (merge vs hold-to-redeem) is a hot-swappable efficiency
+  module independent of the entry engine — the operator has switched
+  it twice without touching entries; expose as a family parameter,
+  don't assume capital locks to resolution. [verified]
+  (wallets/b27bc932.md §exit-style,
+  data/b27bc932-timeline-full.json)

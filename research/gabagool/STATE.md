@@ -86,10 +86,12 @@ Queue (top = next):
    Dossier: wallets/95f5-challenger.md; BRIEF §8.2 corrected.
 3. W2 deep parameter extraction on 0xb27bc932 (full history: ladder
    distributions per vol regime, requote cadence, capital curve,
-   fee-era boundaries). PARTIAL (session 7): exit-style flip dated
-   exactly — first MERGE ever 2026-07-01T07:53:10Z, binary deploy,
-   redeems continue, block merges p50 $50–110 (A27); live-shadow O2
-   contradiction resolved. Full address (avoid A26-style typos):
+   fee-era boundaries). PARTIAL (session 7): merge usage = TOGGLED
+   module (A27, corrected same-session): ON ~Mar 7→Apr-28T14:27Z,
+   OFF Apr 29–Jun 30, ON 2026-07-01T07:53:10Z; binary deploys,
+   redeems continue, block merges p50 $50–110; live-shadow O2
+   resolved. Life curve in dossier (first activity Mar 3, ramp Mar 18,
+   May downtime windows). Full address (avoid A26-style typos):
    0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82.
 4. W3 live shadowing (every ~1-2h, small units, cumulative table in
    measurements/live-shadow.md).

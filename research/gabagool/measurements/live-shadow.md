@@ -24,9 +24,11 @@ rows are the HOURLY series (different slug scheme, caught by the
   merges instead of holding everything to redemption. Follow in later
   snapshots; if stable, A24's "zero merges / redeems only" exit-style
   needs a dated amendment (era: ≤Jun-14 redeem-only → Jul merge-mix).
-  **RESOLVED (A27, session 7):** flip dated exactly to
-  2026-07-01T07:53:10Z, binary deployment, redeems continue, merges
-  are block-sized capital recycling (wallets/b27bc932.md).
+  **RESOLVED (A27, session 7):** merge usage is a TOGGLED module —
+  ON ~Mar 7 → Apr-28T14:27Z, OFF Apr 29–Jun 30 (hence the June pull's
+  zero), ON again 2026-07-01T07:53:10Z; binary deployments both ways,
+  redeems continue throughout, merges are block-sized capital
+  recycling (wallets/b27bc932.md).
 - **O3 (04Z):** The failed challenger 0x95f5…779f is still trading but
   collapsed to dust ($937/2h ≈ $11k/day pace vs $1.48M/day in the
   30d leaderboard window) with pairRate 0.05 — effectively dead, not
