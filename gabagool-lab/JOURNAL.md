@@ -2033,13 +2033,13 @@ played<20% caveat esp. g00; adjacency; advance rule = endpoint
 direction + top-2 set; Δrem ≥ −0.3 payload check on any winner;
 EL-vs-participation curve quoted either way).
 
-## 2026-07-17T15:18Z — session 25, unit 68: run 731 (ax6h1-g15) landed, uid+validators green — 7/8
+## 2026-07-17T15:14Z — session 25, unit 68: run 731 (ax6h1-g15) landed, uid+validators green — 7/8
 
 Run 731 completed, 2,880 markets, 0 failed. Sub uid eb3f70e8… =
 frozen ax6h1-g15 exact. Validators green (|recon−db| 0.38 vs tol
 57.60, meta 100%), headline `EL -2.1974`. No interpretation until
 8/8 — only ax6h2-g15 (0eb38106…) outstanding, 2,883 waiting at
-15:16Z ≈ 7 min. Waiter bf7d0w4pv still up.
+15:13Z ≈ 7 min. Waiter bf7d0w4pv still up.
 
 KB check done this session (15:13Z): STATE mtime 15:05Z but
 register still tops at A48; LAB-HANDOFF session-8 addendum already
@@ -2047,3 +2047,7 @@ folded (INHERITANCE A-9). Nothing new to fold.
 
 Next: final run lands → verify, then full E008 judgment per frozen
 block.
+
+(u68 correction: entry above was first stamped 15:18Z by estimate;
+date -u in the same command printed 15:14:01Z. Fixed to 15:14Z.
+The stamp rule exists for exactly this — paste, never estimate.)

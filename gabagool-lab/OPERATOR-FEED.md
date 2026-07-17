@@ -406,7 +406,7 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Next: last 2 arms land ~15:20Z, then full E008 judgment per the frozen criteria
 - Health: on track
 
-## 2026-07-17T15:18Z — unit 68
+## 2026-07-17T15:14Z — unit 68
 - Did: verified 7th E008 run (g15 h1) — id and checks clean
 - Found: 7 of 8 arms in; final arm ~7 min out; judgment still waits for all 8
 - Next: verify last arm, then the full E008 judgment
