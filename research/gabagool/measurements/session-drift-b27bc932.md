@@ -230,3 +230,38 @@ Final H1 depth×clock rule (supersedes unit-13/14 phrasing): quote
 touch/−1/−2c in any weekday session you run (incl. US if at all);
 add the −3..−5c rungs ONLY in weekday evenings; ignore ≤−6c claims
 either way. Log: data/edge-source-depth-buckets.log (appended runs).
+
+## §10 Jun-11 breaks the band rule — A64 DOWNGRADED (unit 19)
+
+Third weekday (Jun-11, Thu; fresh pull + 48 fresh books, zero
+stubs): US −3..−5c **+1.29c** @60s (first positive US cell in the
+band, n=127); evening −3..−5c **−1.92c** (first negative weekday
+evening cell, n=99). Exactly inverted vs Jun-10/12.
+
+Scoreboard across ALL weekdays with books (there are only three:
+Jun-10/11/12 — G9 caps this forever at n=3):
+
+| band = −3..−5c | Jun-10 | Jun-11 | Jun-12 |
+|---|---|---|---|
+| US | −0.57c | **+1.29c** | −0.26c |
+| evening | +2.69c | **−1.92c** | +3.10c |
+
+Two corrections to A64's confidence, ledgered:
+1. **Same-day cross-wallet cells are PSEUDO-replication** — the
+  "five wallet-cells" agreeing on US toxicity were mostly ONE day
+  (Jun-12); different wallets share that day's flow events, so
+  they are one sample, not five. Effective independent n for the
+  band rule was 3 weekdays; it now stands at 2/3 with a hard flip.
+2. The band-session drift rule therefore joins A45's 30s-momentum
+  rule in the "flips by day — SWEEP it, never fix it" bin. What
+  stays solid: the session-invariant ladder policy (8 cells, all
+  days), A59's session ECONOMICS (n=6/n=10 days of PnL, not
+  drift), and the qualitative claim that the mid-deep band is the
+  most session/day-sensitive part of the ladder (it has the widest
+  swings in every comparison, −1.9→+3.9c, while touch/−1c stays in
+  ±1c).
+
+H1 phrasing updated: depth×clock is a SWEEP DIMENSION with weak
+priors (evening-deep favored 2/3), not a fixed allocation rule.
+Books for more weekdays do not exist (G9); only the lab's sim or
+live-paper can extend this n.

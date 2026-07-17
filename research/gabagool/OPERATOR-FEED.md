@@ -568,3 +568,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — bookkeeping. Top open items now: is the weekend decay real (tomorrow's data decides), and does the new depth rule hold across more days.
 - Next: 20-21 UTC evening snapshot; successor picks up the new question list.
 - Health: on track
+
+## 2026-07-17T18:12Z — unit 19 (session 11)
+- Did: stress-tested yesterday's shiny "deep orders by hour" rule on the one remaining day of order-book data.
+- Found: the rule broke — that day showed the opposite pattern, and the earlier multi-bot "confirmation" turned out to be several bots seeing the SAME day, not independent proof. Downgraded from rule to hint in all files. The solid findings (evenings best, weekends flat, ladder never changes) are money-based and stand.
+- Next: 20-21 UTC evening snapshot; successor continues from a clean question list.
+- Health: on track

@@ -1113,14 +1113,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (A59-consistent). Rule: weekday-evening deep rungs at −3..−5c;
   US shallow-or-off; overnight depth-indifferent. H1 updated.
   [verified] (measurements/session-drift-b27bc932.md §8)
-- **A64 (cross-wallet depth resolution: the −3..−5c band is the
-  session instrument; A58-control [contested] tag RESOLVED):** all
-  five measured wallet-cells have negative-or-flat drift60 in the
-  −3..−5c band in the US session (−0.09→−2.60c — including the US
-  winner 04b6d7e9 at −1.05c, whose US survival lives at
-  touch/−1/−2c +0.7→+1.1c), while the SAME band earns +2.7→+3.9c
-  in weekday evenings (3 cells, 2 wallets). US toxicity is
-  universal but band-specific; shallow bands are session-robust
-  small-positive; ≤−6c is dust-noise. H1 rule: touch/−1/−2c
-  whenever quoting; −3..−5c rungs weekday evenings ONLY.
-  [verified] (measurements/session-drift-b27bc932.md §9)
+- **A64 (DOWNGRADED unit 19: −3..−5c band session rule flips by
+  day; sweep, don't fix):** the band looked like THE session
+  instrument (US-negative 5 wallet-cells, evening +2.7→+3.9c) but
+  Jun-11 inverts both cells (US +1.29c, evening −1.92c) — and the
+  five agreeing cells were mostly ONE day (Jun-12): same-day
+  cross-wallet cells share flow = pseudo-replication. True
+  independent n = 3 weekdays (all that will ever exist, G9), rule
+  holds 2/3. Keep: ladder policy is session-invariant; A59
+  session ECONOMICS stand (PnL-based, n=6/10 days); the mid-deep
+  band is the most day-sensitive ladder segment (swings −1.9→
+  +3.9c while touch stays ±1c). H1: depth×clock = sweep dimension
+  with weak evening-deep prior, NOT a fixed rule.
+  [contested] (measurements/session-drift-b27bc932.md §9–§10)

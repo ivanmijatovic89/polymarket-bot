@@ -43,13 +43,13 @@ edge is dead by regime change, do not test it.
   weekends are flat/structureless (n=10) and the favorite-lean is
   weekday-only (weekend excessWon ~50%) — disable any lean module
   on weekends, and never pool dow in evaluation strata; **depth ×
-  session allocation (A63/A64, cross-wallet)**: touch/−1/−2c bands
-  are session-robust small-positive (quote them whenever running,
-  incl. US — the US winner lives there at +0.7→+1.1c); the
-  −3..−5c band is THE session instrument — toxic in US for all 5
-  measured wallet-cells (−0.1→−2.6c), golden in weekday evenings
-  (+2.7→+3.9c, 3 cells / 2 wallets) — add those rungs weekday
-  evenings ONLY; ≤−6c is dust-noise, build nothing on it.
+  session allocation (A63/A64, downgraded unit 19)**: touch/−1/−2c
+  bands are day-robust small-positive (quote whenever running);
+  the −3..−5c band is the most DAY-sensitive segment (evening
+  +2.7/+3.1c on 2 weekdays, −1.9c on the third; US mirror-flips)
+  — treat depth×clock as a SWEEP dimension with a weak
+  evening-deep prior, never a fixed allocation (A45-class rule);
+  ≤−6c is dust-noise, build nothing on it.
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.

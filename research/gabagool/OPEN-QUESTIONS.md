@@ -10,12 +10,13 @@ Ranked by information value per unit effort. Refreshed session 11
    the residual-lean is decaying beyond weekdays too. Decidable
    with the NEXT weekend's data (Jul-18/19): pull b27bc932 +
    session-split-vol --dow weekend.
-2. **A64 durability across days/months.** The −3..−5c band rule
-   rests on Jun-10/12/13 cells (books end Jun-14, G9). Same-method
-   joins on Jun-10–14's remaining days (Jun-11 books pullable) and
-   on OTHER wallets' evening cells would harden the sharpest rule
-   the shift has produced. Also: does the band structure exist in
-   March-era books (different fee curve)?
+2. ~~A64 durability~~ **TESTED same session (unit 19) — RULE
+   BROKE**: Jun-11 inverts both band cells (US +1.29c, evening
+   −1.92c); rule stands 2/3 weekdays and all book-covered weekdays
+   are now measured (G9 hard cap). A64 downgraded to a sweep prior;
+   same-day cross-wallet agreement identified as pseudo-replication.
+   Remaining variant: March-era band check (b55f fills × Mar-16
+   books — different fee curve; moderate value).
 3. **O5/OQ #5 residue — b27bc932 morning allocation** (15m-first
    vs 5m-first): ONE next-day morning snapshot (~08–10Z) settles
    it; W3 answers passively tomorrow.

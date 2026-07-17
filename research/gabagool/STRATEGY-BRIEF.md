@@ -207,14 +207,15 @@ Candidates for the lab:
   favor overnight/evening on weekdays (+0.4→+1.5c mid drift @60s)
   and are adversely selected in the US session (−0.3→−0.4c, 2/2
   weekdays): flow toxicity by clock, not policy, drives the A49
-  session PnL split. **A63/A64 resolve the depth structure
-  cross-wallet**: the toxicity is universal but band-specific —
-  the −3..−5c band is negative in the US session for all five
-  measured wallet-cells (including the US winner, whose survival
-  lives at touch/−1/−2c) and earns +2.7→+3.9c @60s in weekday
-  evenings (3 cells, 2 wallets). Ladder rule: shallow bands
-  (touch/−1/−2c) whenever quoting; −3..−5c rungs weekday evenings
-  ONLY; ≤−6c is noise at any available n. Touch-class drift is ≈0-to-negative in EVERY
+  session PnL split. **A63/A64 (downgraded)**: the mid-deep band
+  (−3..−5c) is the most DAY-sensitive ladder segment — evening
+  +2.7/+3.1c on two weekdays but −1.9c on the third (Jun-11), US
+  cells mirror-flip; the initial "5 wallet-cells agree" was
+  pseudo-replication (same-day flow is one sample). Depth×clock is
+  a SWEEP dimension with a weak evening-deep prior (2/3), not a
+  fixed rule; touch/−1/−2c stays day-robust small-positive; ≤−6c
+  is noise. Only 3 weekdays of books exist (G9) — the lab's
+  sim/live-paper must extend this n. Touch-class drift is ≈0-to-negative in EVERY
   session — the variant's whole favorable-drift edge (A39) sits in
   the deep ladder off-US-hours (measurements/
   session-drift-b27bc932.md). **A59 settles the weekend question at

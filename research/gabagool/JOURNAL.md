@@ -1645,3 +1645,20 @@ residue (one morning snapshot), (4) cohort tracking for the three
 cold-starts, (5) the ops-side btc-5m recording gap — flagged as the
 program's single highest-value data acquisition, though outside
 this shift's writ.
+
+## 2026-07-17T18:12Z — session 11, unit 19: Jun-11 breaks the band rule — A64 downgraded, honestly
+
+Pulled the third and final book-covered weekday (Jun-11) to harden
+A64 — and it broke it instead: the US mid-deep cell came in POSITIVE
+(+1.29c) and the evening cell NEGATIVE (−1.92c), exactly inverted.
+Worse, the exercise exposed a method flaw in A64's confidence: the
+"five agreeing wallet-cells" were mostly one day — different wallets
+on the same day share the same flow, so cross-wallet same-day
+agreement is pseudo-replication. The honest ledger: the band rule
+stands 2 weekdays out of the 3 that will ever have books (G9), it
+joins A45's momentum rule in the "flips by day — sweep it" bin, and
+the durable survivors are the session-invariant ladder policy and
+A59's PnL-based session economics. Every file that carried the firm
+rule (PRIORS, H1, BRIEF, OQ) now carries the downgrade. Painful and
+correct — this is exactly why the charter says re-verify before the
+lab spends sweeps on it.
