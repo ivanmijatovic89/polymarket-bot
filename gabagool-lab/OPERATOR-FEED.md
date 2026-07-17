@@ -219,3 +219,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: deep quoting is the strongest lever yet — loss drops from −4.39 to −2.36/−2.71 per market (maker-only, best tails, half the capital); the copied 4-rung wallet ladder shape does NOT explain the incumbent's profit. First experiment to pass its pre-set stability rule.
 - Next: judge the pair-cost-cap arms when drained (~09:00Z), then time-weighting (E006).
 - Health: on track
+
+## 2026-07-17T08:26Z — unit 37
+- Did: extended the readout tool for the running cap experiment (blind, verified on known runs).
+- Found: nothing new (tooling unit).
+- Next: judge the cap arms when the queue drains (~09:00Z).
+- Health: on track

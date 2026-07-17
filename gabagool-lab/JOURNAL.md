@@ -1141,3 +1141,22 @@ launched 6 ax4 flows at d8f5be2b, verified via agg-inspect (17,459
 waiting ≈ 17,568 expected, 0 failed), watcher pid 44081. Drain ETA
 ~09:00Z; cap sub-judgment (criteria 5: pairRate/EL trade-off curve)
 when drained.
+
+## 2026-07-17T08:26Z — session 12, unit 37: e005-table extended for the cap sub-axis, ax4-blind
+
+Drain at 15,410 pending — zero ax4 runs exist; this extension is
+blind like u30/u35. Added cap mode to e005-table.ts: labels
+{c960,c970,c980,c990} with their own guards (every cap arm must be
+the winning shape [0.02,0.13]; pairCostCap must match the label,
+with absent-param = 0.99 file default so the reused c990 ref wires
+cleanly; shape labels now also assert cap 0.99 for tightness),
+mode detection that refuses mixed shape/cap wiring, the criteria-(5)
+pairRate/EL trade-off block, the pre-registered participation
+caveat (played < 20% → "cap chokes participation", flagged inline),
+and the E003-style advance rule on the cap chain c960<c970<c980<
+c990-ref.
+
+Blind verification: shape mode regression intact (ra rows exact);
+cap mode c990=698,699 reproduces the rc rows to the digit; guards
+abort on 682-as-c990 (offsets), 698-as-c960 (cap), and ra+c990
+(mixed). Judgment on drain is now a fill-in-the-run-ids exercise.

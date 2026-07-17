@@ -9,6 +9,18 @@
  *     --arm ra=682,683 --arm rb=<h1>,<h2> --arm rc=<h1>,<h2> \
  *     --arm rd=<h1>,<h2>
  *
+ * Cap sub-axis mode (ax4; labels all in {c960,c970,c980,c990} — every
+ * arm is the winning shape rc with pairCostCap per label; c990 is the
+ * reused rc pair 698/699 at the 0.99 file default):
+ *
+ *   npx tsx gabagool-lab/tools/e005-table.ts \
+ *     --arm c960=<h1>,<h2> --arm c970=<h1>,<h2> \
+ *     --arm c980=<h1>,<h2> --arm c990=698,699
+ *
+ * Cap mode adds the §E005 criteria-(5) pairRate/EL trade-off block
+ * and flags cells with played < 20% (participation caveat). Shape
+ * and cap labels cannot be mixed.
+ *
  * Bind-table mode (§E005 cap-grid finalization rule; run on the shape
  * WINNER's pair only, after the sub-judgment is written):
  *
@@ -57,8 +69,18 @@ const EXPECT_OFFSETS: Record<string, number[]> = {
   rc: [0.02, 0.13],
   rd: [0.01, 0.02, 0.05, 0.13],
 }
+// Cap sub-axis (ax4): every arm is the WINNING shape rc with an
+// explicit pairCostCap; c990 is the reused rc pair (cap = file
+// default 0.99, param absent).
+const EXPECT_CAPS: Record<string, number> = {
+  c960: 0.96,
+  c970: 0.97,
+  c980: 0.98,
+  c990: 0.99,
+}
 const DEPTH_CHAIN = ['ra', 'rb', 'rc'] as const
-const ALL_ARMS = ['ra', 'rb', 'rc', 'rd'] as const
+const SHAPE_ARMS = ['ra', 'rb', 'rc', 'rd'] as const
+const CAP_CHAIN = ['c960', 'c970', 'c980', 'c990'] as const
 
 type Cell = {
   label: string
@@ -133,10 +155,19 @@ async function guardParams(label: string, runId: number): Promise<void> {
   const p = (h.params ?? {}) as Record<string, unknown>
   const mode = String(p.completionMode ?? 'none')
   const tol = Number(p.parityTolPct ?? NaN)
-  const exp = EXPECT_OFFSETS[label]
-  if (exp && !offsetsEqual(p.rungOffsets, exp)) {
+  const cap = Number(p.pairCostCap ?? 0.99) // file default when absent
+  const isCapArm = label in EXPECT_CAPS
+  const expOffsets = isCapArm ? EXPECT_OFFSETS.rc! : EXPECT_OFFSETS[label]
+  if (expOffsets && !offsetsEqual(p.rungOffsets, expOffsets)) {
     console.error(
-      `arm ${label} run ${runId}: rungOffsets ${JSON.stringify(p.rungOffsets)} != expected ${JSON.stringify(exp)} — wrong run wired?`,
+      `arm ${label} run ${runId}: rungOffsets ${JSON.stringify(p.rungOffsets)} != expected ${JSON.stringify(expOffsets)} — wrong run wired?`,
+    )
+    process.exit(1)
+  }
+  const expCap = isCapArm ? EXPECT_CAPS[label]! : 0.99 // shape arms ran at default
+  if (Math.abs(cap - expCap) > 1e-9) {
+    console.error(
+      `arm ${label} run ${runId}: pairCostCap=${cap} != expected ${expCap} — wrong run wired?`,
     )
     process.exit(1)
   }
@@ -309,6 +340,17 @@ if (!arms.length) {
   process.exit(1)
 }
 
+const labels = arms.map((a) => a.label)
+const shapeMode = labels.every((l) => (SHAPE_ARMS as readonly string[]).includes(l))
+const capMode = !shapeMode && labels.every((l) => (CAP_CHAIN as readonly string[]).includes(l))
+if (!shapeMode && !capMode) {
+  console.error(
+    `arm labels must be all shapes {${SHAPE_ARMS.join(',')}} or all caps {${CAP_CHAIN.join(',')}} — got: ${labels.join(',')}`,
+  )
+  process.exit(1)
+}
+const ALL_ARMS: readonly string[] = shapeMode ? SHAPE_ARMS : CAP_CHAIN
+
 for (const a of arms) {
   await buildCell(a.label, 'h1', a.h1)
   if (a.h2 !== undefined) await buildCell(a.label, 'h2', a.h2)
@@ -324,7 +366,11 @@ for (const c of cells) {
   seen.set(k, c.runId)
 }
 
-console.log('=== E005 shape table (depth chain ra < rb < rc; rd = A17 package vs ra) ===')
+console.log(
+  shapeMode
+    ? '=== E005 shape table (depth chain ra < rb < rc; rd = A17 package vs ra) ==='
+    : '=== E005 cap table (chain c960 < c970 < c980 < c990-ref; all arms = shape rc) ===',
+)
 for (const half of ['h1', 'h2'] as const) {
   const hs = cells.filter((c) => c.half === half)
   if (!hs.length) continue
@@ -352,21 +398,27 @@ for (const half of ['h1', 'h2'] as const) {
       }  ${c.makers}/${c.takers}`,
     )
     if (c.settleFails > 0) console.log(`     ^ WARNING: ${c.settleFails} settlement-check failures`)
+    if (c.played / Math.max(1, c.n) < 0.2)
+      console.log(
+        `     ^ PARTICIPATION CAVEAT (§E005): played < 20% (G2 level) — cap chokes participation at this shape/sizing; EL unmeasurable-at-coverage`,
+      )
   }
 }
 
 const complete = (['h1', 'h2'] as const).every((h) => ALL_ARMS.every((l) => cellOf(l, h)))
-if (complete) {
+const CHAIN: readonly string[] = shapeMode ? DEPTH_CHAIN : CAP_CHAIN
+const endLo = CHAIN[0]!
+const endHi = CHAIN[CHAIN.length - 1]!
+
+if (complete && shapeMode) {
   console.log('\n-- adjacency: pure-depth chain (2-rung arms) --')
   for (const half of ['h1', 'h2'] as const) {
-    for (let i = 1; i < DEPTH_CHAIN.length; i++) {
-      const a = cellOf(DEPTH_CHAIN[i - 1]!, half)!
-      const b = cellOf(DEPTH_CHAIN[i]!, half)!
+    for (let i = 1; i < CHAIN.length; i++) {
+      const a = cellOf(CHAIN[i - 1]!, half)!
+      const b = cellOf(CHAIN[i]!, half)!
       console.log(`${half} ${a.label} vs ${b.label}: ${fmtDelta(a, b)}`)
     }
-    const ra = cellOf('ra', half)!
-    const rc = cellOf('rc', half)!
-    console.log(`${half} endpoints ra vs rc: ${fmtDelta(ra, rc)}`)
+    console.log(`${half} endpoints ${endLo} vs ${endHi}: ${fmtDelta(cellOf(endLo, half)!, cellOf(endHi, half)!)}`)
   }
   console.log('\n-- package comparison (rd = A17 4-rung, size × depth — NOT pure depth) --')
   for (const half of ['h1', 'h2'] as const) {
@@ -374,21 +426,42 @@ if (complete) {
     const rd = cellOf('rd', half)!
     console.log(`${half} ra vs rd: ${fmtDelta(ra, rd)}`)
   }
+} else if (complete && capMode) {
+  console.log('\n-- pairRate/EL trade-off curve (§E005 criteria 5) --')
+  for (const half of ['h1', 'h2'] as const) {
+    for (const label of CAP_CHAIN) {
+      const c = cellOf(label, half)!
+      console.log(
+        `${half} cap ${EXPECT_CAPS[label]!.toFixed(2)}: EL ${c.el.toFixed(4)}  pairRate ${c.pairRate.toFixed(3)}  played ${((100 * c.played) / Math.max(1, c.n)).toFixed(1)}%  fills m/t ${c.makers}/${c.takers}  S ${Number.isFinite(c.sMean) ? c.sMean.toFixed(4) : 'n/a'}`,
+      )
+    }
+  }
+  console.log('\n-- adjacency: cap chain --')
+  for (const half of ['h1', 'h2'] as const) {
+    for (let i = 1; i < CHAIN.length; i++) {
+      const a = cellOf(CHAIN[i - 1]!, half)!
+      const b = cellOf(CHAIN[i]!, half)!
+      console.log(`${half} ${a.label} vs ${b.label}: ${fmtDelta(a, b)}`)
+    }
+    console.log(`${half} endpoints ${endLo} vs ${endHi}: ${fmtDelta(cellOf(endLo, half)!, cellOf(endHi, half)!)}`)
+  }
+}
 
+if (complete) {
   console.log('\n-- advance rule (§E005 criteria (4), as E003) --')
   const dirs: Record<string, number> = {}
   for (const half of ['h1', 'h2'] as const) {
-    const ra = cellOf('ra', half)!
-    const rb = cellOf('rb', half)!
-    const rc = cellOf('rc', half)!
-    const s1 = Math.sign(rb.el - ra.el)
-    const s2 = Math.sign(rc.el - rb.el)
-    const end = Math.sign(rc.el - ra.el)
+    const signs: string[] = []
+    for (let i = 1; i < CHAIN.length; i++) {
+      const a = cellOf(CHAIN[i - 1]!, half)!
+      const b = cellOf(CHAIN[i]!, half)!
+      const s = Math.sign(b.el - a.el)
+      signs.push(`${a.label}→${b.label} ${s > 0 ? '+' : s < 0 ? '−' : '0'}`)
+    }
+    const end = Math.sign(cellOf(endHi, half)!.el - cellOf(endLo, half)!.el)
     dirs[half] = end
     console.log(
-      `${half} adjacent depth signs: ra→rb ${s1 > 0 ? '+' : s1 < 0 ? '−' : '0'}, rb→rc ${
-        s2 > 0 ? '+' : s2 < 0 ? '−' : '0'
-      }; endpoint direction sign(EL(rc)−EL(ra)) = ${end > 0 ? '+' : end < 0 ? '−' : '0'}`,
+      `${half} adjacent signs: ${signs.join(', ')}; endpoint direction sign(EL(${endHi})−EL(${endLo})) = ${end > 0 ? '+' : end < 0 ? '−' : '0'}`,
     )
   }
   const dirHolds = dirs.h1 === dirs.h2 && dirs.h1 !== 0
@@ -401,13 +474,19 @@ if (complete) {
       .join(',')
   const t1 = top2('h1')
   const t2 = top2('h2')
-  console.log(`(a) endpoint depth direction agrees across halves: ${dirHolds ? 'HOLDS' : 'FAILS'}`)
+  console.log(`(a) endpoint direction agrees across halves: ${dirHolds ? 'HOLDS' : 'FAILS'}`)
   console.log(`(b) top-2 by EL: h1 {${t1}}  h2 {${t2}} → set match: ${t1 === t2 ? 'HOLDS' : 'FAILS'}`)
   console.log(
-    `advance rule: ${dirHolds && t1 === t2 ? 'BOTH HOLD → winning shape advances to the cap sub-axis' : 'FAILS → shape sub-axis unstable at this coverage; record and judge accordingly'}`,
+    `advance rule: ${
+      dirHolds && t1 === t2
+        ? shapeMode
+          ? 'BOTH HOLD → winning shape advances to the cap sub-axis'
+          : 'BOTH HOLD → cap ordering stable across halves'
+        : `FAILS → ${shapeMode ? 'shape' : 'cap'} sub-axis unstable at this coverage; record and judge accordingly`
+    }`,
   )
 } else {
-  console.log('\n(rule evaluation skipped — need all 4 shape arms in both halves)')
+  console.log(`\n(rule evaluation skipped — need all 4 ${shapeMode ? 'shape' : 'cap'} arms in both halves)`)
 }
 
 await closeDb()
