@@ -25,8 +25,9 @@ edge is dead by regime change, do not test it.
   0.07·p(1−p) on the crossing leg — exactly modelable now, A16);
   **time-weighting**: sweep uniform vs back-loaded minutes 8–13 with
   minute-14 cutoff (A17 — the winners are back-loaded; the open needs
-  no special treatment, Game F negative); books: btc-15m first (lab
-  scope).
+  no special treatment, Game F negative; A20 — do NOT sweep open-heavy:
+  the front-loaded churn is the adversely-selected slice, fable E24);
+  books: btc-15m first (lab scope).
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.

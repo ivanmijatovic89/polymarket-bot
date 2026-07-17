@@ -32,3 +32,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing constrains the concept — rate limits are far above any realistic bot cadence, and the "ties go to UP" rule can never matter in practice (prices have 18 decimals).
 - Next: read out the endgame-flip and window-lifecycle tables now computing over June data.
 - Health: on track.
+
+## 2026-07-17T06:20Z — unit: endgame flip table + window lifecycle (D3/D5)
+
+- Did: measured 288 June markets — how spreads, depth, and price churn evolve over the 15 minutes, and how often the leading side loses.
+- Found: books stay tight all window; price churn happens early but the winners trade late; favorites are, if anything, slightly cheap — the trailing longshot side is the trap.
+- Next: write up the rebate-payout discovery (the $62.6k lump was paid to six wallets in the same second — a program-wide back-payment).
+- Health: on track.

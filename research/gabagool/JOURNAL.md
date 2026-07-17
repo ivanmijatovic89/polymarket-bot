@@ -381,3 +381,24 @@ the background; smoke test on 8 markets validated plumbing, including
 two gotchas: the book WIPES after resolution (outcome must be read
 from the last decisive post-window quote, walking backwards), and
 minute-14 lifecycle rows condition on the book still being two-sided.
+
+## 2026-07-17T06:20Z — D3+D5 done (A20): tight books, front-loaded churn, calibrated-to-slightly-cheap favorites
+
+The 288-market June run finished. Three takeaways: (1) btc-15m books
+are 1c-tight the entire window — there is no wide-spread regime; the
+"cheap side" is 1–2c plus depth sweeps. (2) Mid oscillation (the
+mechanical pair-harvest fuel) is front-loaded into minutes 0–5 and dies
+to zero by minute 14, while the edge wallets' fills (A17) are
+back-loaded — combined with fable E24 (open churn = adverse selection
+from the first seconds), the winners' revealed preference makes sense:
+skip the open, position late. (3) The flip table says the leading side
+is slightly UNDERpriced at mid in every band ≥0.6 (0.85-band flips
+10.5–13.8% vs 15% implied) — the mirror of fable's cheap-side trap,
+~1–5c gross, below fee+spread. Endgame bounds for the lab: ≥0.9 with
+<5min flips 0–6%; ≤0.6 is a coin toss at every horizon. D4 resolved by
+priors, no measurement needed. One honest bias: the 27 outcome-
+ambiguous markets are the closest finishes, so tail flip rates are
+slightly understated.
+
+Also this unit (data already pulled, writeup next): the bulk-payout
+question cracked open — the Jul 8 lump is ecosystem-wide, same-second.

@@ -110,11 +110,16 @@ Candidates for the lab:
   longshot bids), taker completions are mid-band (px p50 0.58, IQR
   0.34–0.71). Post-fill mid drift at +10s/+60s ≈ 0 — no visible
   adverse signature at this granularity.
-- **Timing (A17)**: fills are back-loaded — minutes 10–13 carry the
-  most (b55f 39.7% of fills; minute-12 peak 12.1%), the final minute
-  is CUT (6.8%/5.3%), and the open gets no special concentration
+- **Timing (A17 + A20)**: fills are back-loaded — minutes 10–13 carry
+  the most (b55f 39.7% of fills; minute-12 peak 12.1%), the final
+  minute is CUT (6.8%/5.3%), and the open gets no special concentration
   (Game F negative for this cohort). Weight quoting toward minutes
-  8–13; de-risk minute 14.
+  8–13; de-risk minute 14. Lifecycle context (A20): raw two-sided
+  oscillation is FRONT-loaded (min 0–5) but open churn is adversely
+  selected (fable E24); the winners' late concentration means their
+  income is completion/positioning as decision arrives, not churn
+  harvesting. Books are 1c-tight ALL window — the "temporarily cheap
+  side" is a 1–2c-plus-depth-sweep phenomenon, never a wide spread.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
@@ -163,6 +168,13 @@ Candidates for the lab:
   to auto-credit; accept that sim capital velocity is unmeasurable.
 - Redeem the (dust) remainder after resolution; abandonment observed only
   at sub-$20 scale.
+- Endgame flip priors (A20, June flip table): leading side ≥0.90 with
+  <5 min left flips 0–6%; the 0.5–0.6 band is a coin toss at EVERY
+  horizon — "the book has decided" is only true above ~0.8. Measured
+  flips sit at/below price-implied in all bands ≥0.6: the trailing
+  cheap side is ~1–5c overpriced gross (sub-fee; the fable "cheap-side
+  trap" from the other leg). Cheap-side pair completion must come at
+  deep discounts (b55f's 0.14-median touch rests), not near mid.
 - Resolution facts that bound the endgame (A18, primary-sourced):
   oracle = Chainlink BTC/USD data stream ("not other sources or spot
   markets"); end ≥ start → UP, i.e. **ties resolve UP** — a structural

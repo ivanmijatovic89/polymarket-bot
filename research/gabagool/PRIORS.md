@@ -490,3 +490,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   docs]; Chainlink Data Streams ≈200ms signed reports, 18-decimal
   prices [reported] → price ties at window boundaries are measure-zero;
   the ties→UP clause is not a tradable asymmetry. (VENUE-MECHANICS.md)
+- **A20 (window lifecycle + flip table, 288 June markets):** btc-15m
+  books are 1c-tight all window (p90 2c only after min 10); L1 ~150-250
+  shares; mid-oscillation is FRONT-loaded (midTravel p50 0.42 min-0 →
+  0.00 min-14) while decision accumulates smoothly (|mid−0.5| 0.045 →
+  0.415). Flip table: leading side ≥0.9 with <5min left flips 0-6%;
+  0.5-0.6 band is a coin toss at every horizon; measured flips sit at or
+  BELOW price-implied in all bands ≥0.6 — the trailing cheap side is
+  slightly overpriced (~1-5c gross, sub-fee), matching fable E25/E14
+  from the other leg. The A17 back-loading is therefore NOT oscillation
+  harvesting — winners position late, against front-loaded churn that
+  fable E24 showed is adversely selected at the open. [verified]
+  (measurements/window-lifecycle-btc15m.md)

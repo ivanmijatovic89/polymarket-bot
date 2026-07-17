@@ -24,11 +24,13 @@ Ranked by information value per unit effort. Refreshed session 3
     crypto-updown-only wallets.
 5. **drfc4eybh7i8 address** (weak resolution): re-resolve via profile
     JSON; then dossier if gabagool-style.
-6. **D3/D4/D5 measurements**: endgame reversal table, open dynamics,
-    spread lifecycle (check fable E24/E25 coverage first).
 
 ## Resolved this shift
 
+- ~~D3/D4/D5 measurements~~ -> A20 (measurements/window-lifecycle-
+  btc15m.md): flip table by band x seconds-left; 1c-tight books all
+  window; oscillation front-loaded vs winner fills back-loaded; D4
+  resolved by priors (E24 + A17): do not build own-the-open.
 - ~~Level offsets at fill time~~ -> covered by D2 (archetype: ~20%
   touch, ~35% ladder 1-4c deep, 9% inside) + A17 (current wallets:
   ladder p10 -12c). Ladder priors are set.

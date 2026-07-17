@@ -53,13 +53,16 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: D3 endgame reversal + D5 spread lifecycle — script
-   scripts/window-lifecycle.ts DONE and smoke-tested; 288-market June
-   run IN FLIGHT (log: research/gabagool/data/window-lifecycle-jun.log;
-   if a successor finds it finished, write
-   measurements/window-lifecycle-btc15m.md + A20 and fold). D4 open
-   dynamics: RESOLVE BY PRIORS (fable E24 opening-quote kill + A17 no
-   open concentration) — no new measurement needed.
+1. NEXT: rebate-payout provenance writeup (A21) — data PULLED to
+   data/rebates-{taker,maker}-*.json; findings: Jul-8 23:34:35Z lump is
+   SAME-SECOND across 6/7 actives ($174k total; backpay for May 28–
+   Jun 19 pre-daily-payout accrual — daily taker payouts start exactly
+   Jun 20 everywhere); round manual grants (powerwinner $7,500.00,
+   badfallen $1,500.00); maker rebates daily since ≥Mar 26 (01:00Z then
+   00:45Z); off-schedule same-second catch-up batches Jul 4 + Jul 13.
+   Write measurements/rebate-payout-provenance.md, PRIORS A21, _META
+   caveat (bonereaper July income incl. lump is really June income),
+   VENUE-MECHANICS payout-mechanics, resolve OPEN-QUESTIONS #1.
 2. Venue leftovers REMAINING: 2026-exchange launch date, bulk-payout
    provenance (bonereaper $62.6k lump). (Tick/rate-limits/stream
    precision RESOLVED, A19.)
@@ -98,7 +101,7 @@ v2, literature A1/A2.
   decomposition DONE (gross-of-fee caveat A13), edge-source fingerprint
   DONE (A17); remaining: drfc4eybh7i8 re-resolution,
   badfallen/doggystyie/0xaaaaa dossiers optional.
-- D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
+- D Measurements: D3+D5 DONE (A20, window-lifecycle); D4 resolved by priors; **D2 DONE — worst_queue admits 44–49% of real fills,
   touch 64–68%; ~30-45% of archetype fills were taker completions**
   (measurements/d2-fill-reality-gap.md). Edge-source DONE (A17,
   measurements/edge-source-btc15m.md). D1 re-scoped (P38). D3–D5 open
