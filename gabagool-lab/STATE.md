@@ -85,21 +85,22 @@
 ## Queue (work top to bottom)
 
 1. **E005 shape sub-judgment when drained (watcher log
-   watch-drain-s12-e005-shapes.log says DRAINED; ETA ~08:05–08:10Z):**
-   6 runs (uids in §E005) + reused ra = 682/683. Per frozen criteria:
-   per-arm readout (EL±se, taker share, pairRate, imb p50/p90,
-   outlay, fills, PLAYED SHARE — LS-6 asymmetric-band note),
-   adjacency + advance rule (direction agreement + top-2 set match,
-   as E003), rd read as PACKAGE not pure depth. Categorical codes:
-   check whether axis-table.ts can wire ra=682,683 explicitly (E004
-   lesson) or whether e004-table-style wiring is needed.
+   watch-drain-s12-e005-shapes.log says DRAINED; ETA ~08:10Z):**
+   TOOL READY (u35): `e005-table.ts --arm ra=682,683 --arm rb=…
+   --arm rc=… --arm rd=…` (guards + advance rule built in, verified
+   blind: ra reproduces E003 to the digit; wrong wiring aborts).
+   Get ax3 run ids from runs.ts, verify submission uids vs §E005
+   (tmp DB query pattern, u33), check validators via results.ts per
+   run, then table → write sub-judgment in §E005 (state whether
+   pure-depth or package comparison is read; LS-6 notes).
 2. **Cap-grid finalization decision (pre-registered §E005 rule):**
-   from the shape winner's run pair compute bind(c) table from
-   per-market S; KEEP {0.96,0.97,0.98} iff bind(0.96)−bind(0.98) ≥
-   0.15 AND bind(0.98) ≥ 0.05, else quartile grid. Record table +
-   decision in §E005 BEFORE submitting cap arms (ax4).
-3. **Launch + judge E005 cap arms (ax4).** Then E006 timing. Seeds
-   in LEDGER backlog (incl. E-completion-selective from E004).
+   `e005-table.ts --bind <winnerH1>,<winnerH2>` prints the bind
+   table + KEEP/REPLACE verdict (machinery verified on ra pair:
+   n=4621, KEEP at reference). Record table + decision in §E005
+   BEFORE submitting cap arms (ax4).
+3. **Launch + judge E005 cap arms (ax4; launcher NOT built yet —
+   build after grid decision, LS-3 pattern).** Then E006 timing.
+   Seeds in LEDGER backlog (incl. E-completion-selective).
 
 ## Open questions / risks
 

@@ -207,3 +207,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet (launch unit); E004's free-completion finding is banked.
 - Next: judge E005 shapes on drain, then decide the cap grid from the winner's pair-cost distribution.
 - Health: on track
+
+## 2026-07-17T07:38Z — unit 35
+- Did: built + verified the E005 readout tool while the queue drains (blind to results).
+- Found: nothing new (tooling unit); reference numbers reproduce exactly.
+- Next: judge E005 shapes when the queue drains (~08:10Z), then the cap-grid decision.
+- Health: on track

@@ -1056,3 +1056,42 @@ sub-judgment on drain; axis-table.ts should handle the ax3 prefix
 natively (numeric-axis tool — but shapes are categorical codes, so
 the E004 lesson applies: check whether e004-table's explicit-wiring
 pattern is needed for ra reuse before leaning on axis-table).
+
+## 2026-07-17T07:38Z — session 12, unit 35: E005 judgment kit built ax3-blind (e005-table.ts); ra + bind machinery verified
+
+Drain-window build, same discipline as u30: the ax3 queue is ~15.4k
+jobs deep (zero ax3 runs persisted — provably blind; this commit
+predates the first ax3 aggregate by ~25 min).
+
+The frozen criteria name axis-table.ts for adjacency, but the shape
+arms are categorical codes with the reference reused under the ax1
+prefix — the exact wiring problem E004 hit. Built e005-table.ts:
+explicit --arm wiring with LS-3 guards (rungOffsets-vs-label exact
+match, parityTolPct must be 2, completionMode must be none/absent,
+any 'x' meta in a maker-only run aborts, non-completed runs abort),
+per-cell readout per frozen criteria (2) incl. played share
+(first-class per the LS-6 asymmetric-band note), imb p50/p90, CVaR5
+(convention aligned to results.ts after the first check came out
+4c off — same estimator now, mean of worst floor(5%·n)), S(pair)
+mean, fills. Adjacency runs on the pure-depth chain ra<rb<rc with
+endpoints, rd reported separately as the A17 package vs ra (the
+sub-judgment must say which comparison it reads — LS-6). Advance
+rule rendered verbatim: endpoint depth-direction agreement +
+top-2-of-4 set match across halves.
+
+Verification (all blind): ra=682,683 reproduces the E003 table to
+the digit (EL −4.5656/−4.2209, taker 33.9/34.0, pairRate 0.657/
+0.632, imb p50 0.175/0.199, outlay 56.82/52.49, S 0.9767(2304)/
+0.9696(2317), CVaR5 −21.46/−19.75); wrong-shape wiring (682 as rb)
+and completion-run wiring (694 as ra) both abort with the right
+message.
+
+The pre-registered cap-grid bind table is a subcommand (--bind
+h1,h2): pooled per-market S, quantiles, bind(0.96/0.97/0.98), and
+the frozen KEEP/REPLACE rule with the quartile fallback (de-collide
+±0.01, clamp [0.90,0.99]). Machinery check on the ra pair: n=4621,
+S p25/50/75 = 0.9571/0.9786/0.9909, bind spread 0.2541, bind(0.98)
+0.4713 → KEEP at the reference shape (context only — the decision
+input is the WINNER's pair, run after the sub-judgment is written).
+
+Drain at 15,421 pending (07:36Z), ~450/min → judgment ~08:10Z.
