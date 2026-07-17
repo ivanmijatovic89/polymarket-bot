@@ -369,3 +369,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing judged yet — 7 runs still draining (ETA ~15:20Z); the landed run's checks are all green.
 - Next: when all 8 land, judge the fair-value gate against the frozen criteria.
 - Health: on track
+
+## 2026-07-17T14:43Z — unit 62
+- Did: session-20 pickup; all health checks green; new waiter for the 8-run E008 batch (1 of 8 finished, first result validated clean).
+- Found: nothing new — batch on pace to finish ~15:20-15:25Z; knowledge base has no new entries to fold.
+- Next: when all 8 land, judge E008 against its frozen criteria.
+- Health: on track

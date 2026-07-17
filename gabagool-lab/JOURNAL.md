@@ -1852,3 +1852,27 @@ no new fold needed this pickup.
 
 Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
 frozen block.
+
+## 2026-07-17T14:43Z — session 20, unit 62: pickup; E008 drain continues (1/8 landed)
+
+Fresh context; session 20 (s19 ended right after u61). Pickup
+ritual (14:42Z, stamps from date -u): DONE absent, hook guard
+intact (both GLAB_L3_DONE lines), tree clean at 9bd97d5, worker
+daemons + drain watcher (pid 21525) alive, markets queue 7,964
+completed / 15,472 waiting / 0 failed (~340-430/min) → landing
+ETA ~15:20-15:25Z. Aggregate queue: 7 waiting-children = the 7
+unlanded ax6 flows, consistent with run 725 (ax6h2-g00) already
+terminal and validated in u61. The s19 waiter bjll7n5x8 died with
+its session (LS-10, expected); replaced with waiter bnze0nzk8
+(3-min poll, exits at 8/8 terminal ax6 rows). Re-read frozen
+§E008 in full — grid {0,5,9,15} bps, refs 708/703, advance rule
+(endpoint direction + top-2 set), Δrem ≥ −0.3 payload check.
+
+KB check: STATE mtime 14:22Z (before s18's 14:36Z check), no
+entries past A46 anywhere in the KB tree — nothing new to fold.
+
+No blind-window side work this pickup: the remaining drain is
+~35 min and the judgment is the next unit; starting a new fold or
+tool with no unfolded KB material would be make-work.
+
+Next: wait for landing; judge E008 strictly per the frozen block.
