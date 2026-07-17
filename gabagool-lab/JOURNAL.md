@@ -1749,3 +1749,19 @@ decomp (e004-decomp.ts — criteria (2) makes the remainder term a
 JUDGED quantity this time), then judgment strictly per frozen
 §E008 criteria including the Δrem ≥ −0.3 payload-preservation
 check on any winner.
+
+## 2026-07-17T14:27Z — session 16, unit 58: session stratification in results.ts (blind-window tooling; A-6 consequence)
+
+While ax6 drains: results.ts now prints a `-- session EL --` block
+(window-start hour UTC, A36 buckets: overnight 00-05Z, eu 06-11Z,
+us 12-19Z, evening 20-23Z) alongside the weekly slices. Blind-safe:
+built and tested on the LANDED refs only.
+
+First readings on the refs (diagnostic, not a judgment): the ref
+cell's session spread is modest and does NOT reproduce the KB's
+sharp session split — h1 (708): −2.35/−2.19/−2.15/−2.62; h2 (703):
+−1.92/−2.05/−1.87/−2.43. Evening 20–23Z is the worst bucket in
+both halves (~0.4–0.5 worse than US); the b27c pattern (US-session
+bleed) does not show on my chassis, consistent with A36's own
+reading that the split is recipe-specific. Worth carrying into
+dossier-grade readouts; no design action from it now.

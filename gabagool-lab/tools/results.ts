@@ -42,6 +42,7 @@ type RunReadout = {
   elPm: number
   rebShareOfEl: number | null
   subsidyCarry: boolean
+  session: Array<{ label: string; n: number; elPm: number; tradeCorrPm: number }>
   weekly: Array<{
     week: string
     n: number
@@ -110,6 +111,35 @@ async function readRun(runId: number): Promise<RunReadout> {
       rebPm: mean(es.map((e) => e.rebate)),
       positive: mean(es.map((e) => e.el)) > 0,
     }))
+  // Session slices by window-start hour UTC (A36/A-6: the living winners
+  // divide the day — session is a dossier-grade reporting dimension).
+  const sessionOf = (slug: string): string => {
+    const m = slug.match(/-(\d+)$/)
+    if (!m) return 'unknown'
+    const hour = Math.floor((Number(m[1]) % 86_400) / 3600)
+    if (hour >= 12 && hour <= 19) return 'us 12-19Z'
+    if (hour >= 6 && hour <= 11) return 'eu 06-11Z'
+    if (hour >= 20) return 'evening 20-23Z'
+    return 'overnight 00-05Z'
+  }
+  const SESSION_ORDER = ['overnight 00-05Z', 'eu 06-11Z', 'us 12-19Z', 'evening 20-23Z', 'unknown']
+  const bySession = new Map<string, MarketEcon[]>()
+  for (const e of econ) {
+    const key = sessionOf(e.slug)
+    const arr = bySession.get(key) ?? []
+    arr.push(e)
+    bySession.set(key, arr)
+  }
+  const session = SESSION_ORDER.filter((s) => bySession.has(s)).map((label) => {
+    const es = bySession.get(label)!
+    return {
+      label,
+      n: es.length,
+      elPm: mean(es.map((e) => e.el)),
+      tradeCorrPm: mean(es.map((e) => e.pnlCorr)),
+    }
+  })
+
   const fStab = weekly.length ? weekly.filter((w) => w.positive).length / weekly.length : 0
   const posWeekPnls = weekly.filter((w) => w.elPm > 0).map((w) => w.elPm * w.n)
   const maxWeekShare = posWeekPnls.length ? Math.max(...posWeekPnls) / sum(posWeekPnls) : null
@@ -154,6 +184,7 @@ async function readRun(runId: number): Promise<RunReadout> {
     elPm,
     rebShareOfEl,
     subsidyCarry: rebShareOfEl !== null && rebShareOfEl > 0.7,
+    session,
     weekly,
     fStab,
     maxWeekShare,
@@ -258,6 +289,13 @@ function printRun(r: RunReadout, gates?: string): void {
       r.maxWeekShare === null ? 'n/a' : (r.maxWeekShare * 100).toFixed(0) + '%'
     }`,
   )
+  console.log(`\n-- session EL (window-start hour UTC; A36 buckets) --`)
+  for (const s of r.session)
+    console.log(
+      `${s.label.padEnd(16)}  n=${String(s.n).padStart(4)}  EL ${fmt(s.elPm)}  (trade ${fmt(
+        s.tradeCorrPm,
+      )})`,
+    )
   console.log(`\n-- tails (per-market EL) --`)
   console.log(
     `p5 ${fmt(r.tails.p5)}  CVaR5 ${fmt(r.tails.cvar5)}  maxLose ${fmt(

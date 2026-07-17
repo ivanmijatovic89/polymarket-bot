@@ -345,3 +345,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — launch unit; queue confirmed healthy (23,424 jobs, zero failures).
 - Next: wait for the runs (~2h), then verify and judge per the frozen criteria.
 - Health: on track
+
+## 2026-07-17T14:27Z — unit 58
+- Did: added time-of-day breakdown to the results reader (built on finished runs only — the new experiment stays blind).
+- Found: my bot's losses are fairly even across the day; evening (20-23 UTC) is mildly worst in both months. The sharp day/night split the wallet forensics found in live bots does not show on my current design.
+- Next: wait for E008 to finish draining (~16:30Z), then judge it.
+- Health: on track
