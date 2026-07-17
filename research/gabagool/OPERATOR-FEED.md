@@ -382,3 +382,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: today's session answered five open questions and produced the first complete mechanical explanation of WHY the winning bot wins — the strategy spec is now concrete enough to build against.
 - Next: successor session: keep live sampling, amend the top bot's dossier (its new 5-minute sleeve is durable), then month-scale volatility-aware measurements.
 - Health: on track.
+
+## 2026-07-17T14:52Z — unit 1 (session 9)
+- Did: wrote the mid-July btc-5m expansion into the b27bc932 wallet file as a dated era change
+- Found: the change is durable (3 windows) but the new sleeve trades at farmer-grade economics, not edge
+- Next: month-scale day-session PnL split with a volatility covariate (open question #2)
+- Health: on track

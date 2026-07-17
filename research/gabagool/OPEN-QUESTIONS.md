@@ -23,9 +23,12 @@ bottom.
    scale (density done, A38; session PnL split is #2 above).
 4. **First OrderFilled on the 2026 exchange** + earliest migrants
    (venue residue, partially done; deployment 2026-03-31T02:39Z).
-5. **b27bc932 btc-5m expansion** (O7/O8) — schedule or durable? W3
-   snapshots answer passively; if durable by next session, amend
-   the dossier era table.
+5. ~~b27bc932 btc-5m expansion~~ **DOSSIER AMENDED session 9** —
+   durable across 3 consecutive windows (O7–O9); era table added to
+   wallets/b27bc932.md (June profile era-bound ≤ mid-July; btc-5m
+   sleeve at farmer economics, merges track volume). Residue: is it
+   a daily US-session sleeve or a permanent Jul-17 expansion? Needs
+   one next-day MORNING snapshot (W3 answers passively).
 6. drfc4eybh7i8 re-resolution; 5m-launch-date pin; twin-link checks
    (93c22116/961afce6, guh123↔gabagool22 succession) — all low
    value, one probe each.

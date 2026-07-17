@@ -1119,3 +1119,16 @@ covered, LAB-HANDOFF carries the build-ordered mechanism spec. The
 concept moved from "which wallet wins" to "WHY the winner wins"
 (fill selection in calm states) with validated, sim-expressible
 rules. STATE.md §Session-8-FINAL has the successor queue.
+
+## 2026-07-17T14:50Z (real) — session 9, unit 1: b27bc932 era amendment folded
+
+Session 9 opens seconds after session 8's wrap. First queued item:
+folded the O7–O9 finding into wallets/b27bc932.md as a dated era
+amendment — the mid-July live shape is btc-5m-first at 5× fill
+cadence during US hours (farmer economics, pair cost 1.02–1.04,
+merges scaling with volume), while the btc-15m sleeve underneath is
+unchanged. The June "btc-15m-first live" profile is now explicitly
+era-bound. OPEN-QUESTIONS #5 closed with one residue: a next-day
+MORNING snapshot decides "daily US-session sleeve" vs "permanent
+expansion" — W3 answers that passively. Next: OQ #2, the
+month-scale session split with a realized-vol covariate.

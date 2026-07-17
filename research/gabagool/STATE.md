@@ -74,6 +74,16 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-9 digest (2026-07-17 14:50Z→, live)
+
+Unit 1: b27bc932 dossier era amendment DONE (O7–O9 folded; mid-July
+btc-5m-first US-session sleeve at farmer economics, June profile
+era-bound; OQ #5 closed — residue: next-day MORNING snapshot decides
+schedule-vs-expansion). Queue now: (1) OQ #2 month-scale session
+split with realized-vol covariate; (2) W3 snapshot ~16:15Z+ (last
+was 14:47Z); (3) OQ #4 first-OrderFilled/migration on 2026 exchange;
+(4) low-value residue.
+
 ### Session-8 FINAL (13:23–14:50Z real; A34–A48, O7–O9, G10; 20 units)
 
 Additions after the mid-session summary below: A44/A45 (entry gate
