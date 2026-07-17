@@ -258,3 +258,32 @@ Streams, in priority order:
 
 Fold everything into STRATEGY-BRIEF.md / HYPOTHESES.md / METRICS.md
 continuously, as in Phase 1.
+
+## Phase 2 amendment — the CLASS, not the wallet (operator, 2026-07-17)
+
+The research object is hereby broadened: not gabagool-the-wallet, but the
+entire STRATEGY CLASS — every way of accumulating UP + DOWN such that a
+completed pair costs < $1.00. Gabagool's exact variant may well be dead
+(the fee introduction plausibly killed it); the class is alive (A24).
+Variants differ along design axes such as: entry trigger (book-state vs
+fair-value vs time), ladder shape/depth, maker vs taker completion,
+completion timing (front/mid/back-loaded, endgame), leg-risk policy,
+sizing/capital curve, exit style (merge vs hold-to-redemption vs sell),
+and subsidy posture (fee-curve rebate farming vs pure trading edge).
+Study the class across all of these, historical and live.
+
+- **W0 — Variant atlas (top priority, start here).** From the trade tape,
+  find and classify EVERY wallet that ever ran any sub-$1
+  pair-accumulation variant on crypto up/down books — not just the known
+  list. Cluster by execution style and era, map each onto the design axes
+  above, record which variants died at which fee/venue events and which
+  still print today, with per-variant economics (pair cost, completion
+  rate, tails, subsidy share). Deliverable: `VARIANT-ATLAS.md` plus
+  dossiers for new finds — the master map that ranks which variants the
+  lab should implement first.
+- All existing streams W1–W7 remain, reinterpreted through the class lens:
+  W1's post-mortem becomes "which VARIANT died and why"; W2 documents the
+  strongest LIVING variant; W6's paper-EV must cover the strongest atlas
+  variants, not only the three existing seeds.
+- Fold atlas findings into STRATEGY-BRIEF.md and LAB-HANDOFF.md — add or
+  re-rank family seeds whenever the atlas surfaces a stronger variant.
