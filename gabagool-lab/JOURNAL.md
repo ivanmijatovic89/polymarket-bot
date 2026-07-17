@@ -481,3 +481,18 @@ is parent-first, never children-first.
 Drain ETA ~1h (watch-drain armed, 3h timeout). Judgment path when it
 lands: per-arm readouts → advance rule AS WRITTEN (direction agreement
 across halves + top-2 set match) → LEADERBOARD → next axis freeze.
+
+## 2026-07-17T06:25Z — session 3, unit 16: drain-window work — LESSONS.md, axis-table.ts, E004 re-smoke
+
+While E003 drains: (1) LESSONS.md started (LS-1..LS-4: churn×latency,
+depth-not-noise pairing, idempotent-or-refuse scripts, parent-first
+flow removal). (2) tools/axis-table.ts — renders the arms×halves
+matrix and evaluates E003's advance rule MECHANICALLY (trend-sign
+agreement + top-2 set match, adjacent-arm distinguishability at
+2·se_diff); smoked on the old E003 smokes, correctly skips tombstone
+679, refuses duplicate cells. Judgment becomes a render, not an
+improvisation. (3) E004's completion path re-smoked (run 680,
+sequential, NOT evidence): cap-mode crosses issue/fill/record, rej=0,
+validators green — the u9 TTL/gate-close code is functional; E004 can
+freeze after E003's judgment. Also pinned E004's fee basis note (A32
+cold-start tier-0) into the draft before freeze.

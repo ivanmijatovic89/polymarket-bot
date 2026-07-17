@@ -309,6 +309,17 @@ Template:
 - **Prior:** H6 kill criterion — if the completion-policy spread on
   identical maker fills is <0.3% of turnover, the live gap was book-mix
   or timing, not policy.
+- **Fee basis (pre-freeze note, A32):** verdicts must state they price
+  the COLD-START taker leg (tier-0 ≈ full era curve, no refunds —
+  TRADE_corr's existing assumption, conservative within 3%);
+  incumbents' observed completion economics are 1.5–3.5%-of-taker-
+  notional better and must not be used to justify a marginal arm.
+- **Re-smoke (2026-07-17T06:20Z, run 680, NOT evidence):** 10 markets
+  sequential, lat140, completionMode=cap: crosses issue and fill
+  ('x' metas with px recorded), 126m/99t fills, pairRate 0.724,
+  rej=0, settlement recheck OK, fee-recon VALID, meta coverage 100%.
+  The u9 TTL/gate-close code path functions at cap-mode under latency
+  (672 smoke-ttl covered basic TTL at 45a2e32). E004 may freeze.
 - **Runs / Judgment / Lesson:** (pending)
 
 ## Backlog (one line each; propose formally when reached)
