@@ -179,3 +179,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — housekeeping.
 - Next: the variant atlas; re-scan is minutes from done.
 - Health: on track.
+
+## 2026-07-17T09:22Z — unit: the variant atlas is written (session 7)
+
+- Did: finished the master map — every wallet that ever ran this strategy family, classified era by era across 9 months of blockchain data.
+- Found: the strategy family never died — it GREW through every fee change and is now displacing traditional market makers on these books. Today three profitable styles coexist, and nobody has ever blown up running it.
+- Next: candidate dossiers from the atlas residue + fold the atlas into the lab handoff ranking.
+- Health: on track.

@@ -734,3 +734,19 @@ third wallet — so exit-style-as-module is class-wide. Deep pairs
 (≤0.97) now have historical AND live existence proofs. Succession
 timing noted but not claimed: it stopped Apr 11; b27bc932 and
 0x04b6d7e9 were both born Mar 25.
+
+## 2026-07-17T09:20Z — session 7, unit 12: VARIANT-ATLAS.md written (W0 core complete)
+
+The clean rescan landed; re-classified all 9 era days and wrote the
+atlas. Headlines: (1) the class NEVER died — parity-edge went 7
+wallets (Nov) → 94 (Feb clone peak) → ~50–70 today with HIGHER
+notional than the golden era; (2) farmers are a fee-era species (9→27
+wallets the month fees+rebates arrived); (3) classic two-way MM is in
+secular decline (319→94 since Feb) — BUY-only accumulation with
+merge/redeem exits is structurally eating traditional MM on these
+books; (4) cheap-side is the most stable cluster, consistent with the
+A28 subsidy-curve tilt; (5) with A26's reclassification, the class
+has NO large-loss casualty in 9 months of tape. Design-axes map puts
+seven variants in their corners with exemplars and status; §4 ranks
+the un-dossiered candidates. Two-way-mm's restoration after the A29
+fix also confirms the decode bug diagnosis end-to-end.

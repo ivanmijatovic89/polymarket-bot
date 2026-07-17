@@ -68,17 +68,14 @@ not gabagool-the-wallet. Prefer measurement units over reading units.
 
 Queue (top = next):
 
-1. **W0 variant atlas** — IN PROGRESS (session 7). Tooling DONE and
-   committed: scripts/variant-scan.ts (on-chain OrderFilled scan; A25:
-   data-api /trades is TAKER-ONLY so discovery must be on-chain) +
-   measurements/variant-scan-method.md. Era scans running in
-   BACKGROUND (session 7 relaunched after session-6 death): 2025-11-15
-   done; 2025-12-15 → 2026-07-15 (8 days) appending to
-   data/variant-scan/era-run.log, one scan-<day>.json each (~25
-   min/day-scan). If dead on resume, relaunch the same loop minus
-   completed days. THEN: classify wallets on the design axes,
-   cross-check the 11 known wallets, write VARIANT-ATLAS.md +
-   dossiers for new finds.
+1. ~~W0 variant atlas~~ **CORE DONE session 7**: all 9 era days
+   scanned (A29 decoder fix, Apr–Jul re-scanned clean), classified
+   (scripts/atlas-classify.ts), **VARIANT-ATLAS.md written** (era
+   populations, design-axes map, dossier candidates ranked in §4).
+   New dossiers: 0x04b6d7e9 (A30), livebreathevolatility (A31).
+   Residue: §4 candidate dossiers (0x76d4d470, 0x13e0d447,
+   0x2d8b401d regime-drifter case study, …); optional denser
+   sampling (window-of-day effects).
 2. ~~W1 failed-challenger post-mortem~~ **CLOSED session 7 (A26,
    reclassified)**: 0x95f5's −$542k was a WORLD CUP sports-MM blow-up
    (fifwc-* −$615k loss ledger); its crypto-updown life was $28k/day
