@@ -123,3 +123,9 @@ for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 | `0x13e0d447…5204` | 81,698 + 39,414 rebates | ACTIVE cold-start win (born May-29) | measurements/cold-start-economics.md |
 | `0xe114e5ca…c208` ohio-house | ~6k week 1 | ACTIVE cold-start, deep pairs | same |
 | `0x76d4d470…c512` | −97,821 + 137,022 rebates | ACTIVE subsidy loop | same |
+
+## Session-8 addition (A41)
+
+| wallet | all-time $ | status | file |
+|---|---:|---|---|
+| `0xa45fe11d…2429` guh123 | 215,900 (ex-rebates) | RETIRED 2026-03-24 after a 33-day sprint at ~$6.5k/day trading — fastest documented rate, post-fees; started as gabagool22 quit | wallets/a45fe11d-guh123.md |

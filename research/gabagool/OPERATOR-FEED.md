@@ -305,3 +305,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: those moments happen in every market but last under a second and are worth ~$2.50 a market today — no instant-profit trick exists. In January they lasted minutes and were worth thousands; the bots ate that pool and it's gone. Passive standing orders are the only way to collect the crumbs.
 - Next: live snapshot 6, then a state-file refresh for successors.
 - Health: on track.
+
+## 2026-07-17T14:16Z — unit: the sprinter wallet (session 8)
+
+- Did: profiled March's top wallet from the atlas backlog.
+- Found: it made $216k in 33 days — the fastest pace ever seen in this family — starting the same week the original gabagool quit, and stopping just as suddenly. Lesson confirmed: every fee change opens a brief gold rush before the field adjusts.
+- Next: live snapshot 6 (~15:30 UTC), then STATE refresh for successors.
+- Health: on track.

@@ -975,3 +975,17 @@ fee-era week 2 and were repriced away by March — that's the pool the
 January cheap-side winners ate, and the class's own competition
 closed it. D1/OPEN-QUESTIONS #10 closed; a live standing-discount
 regime detector is noted as a future ops metric.
+
+## 2026-07-17T14:16Z (real) — session 8, unit 10: guh123, the 33-day sprint (A41)
+
+Chased the top atlas-residue dossier (Mar-15's #1 wallet): "guh123"
+earned +$215,900 ex-rebates in ~33 days (Feb 18-20 → Mar 24) at
+~$6.5k/day — the fastest documented trading rate in the class,
+post-fees, straight through the March all-crypto fee shock — then
+quit at full speed (quit-at-peak n=4). It started the very days
+gabagool22 exited; succession timing noted as reported-only. Paired
+with the dip scan's January finding, a pattern firms up: every fee/
+venue shock opens a weeks-long rich window before competition
+refills — venue changes are opportunity signals, not just risks.
+Folded into _META, PRIORS A41; OPEN-QUESTIONS #7 partially done
+(guh123 dossier; Jan winners remain).

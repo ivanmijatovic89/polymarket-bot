@@ -763,3 +763,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   March. A standing-discount regime detector is a cheap live metric
   if a dislocation era returns. [verified for Mar→Jun; Jan tagged
   reported]
+- **A41 (guh123 0xa45fe11d — the 33-day sprint; fee shocks open
+  harvest windows):** +$215,900 lb profit (ex-rebates) on $51.5M in
+  ~33 days (first trade Feb 18–20, last 2026-03-24T08:50Z) =
+  ~$6.5k/day trading — the fastest documented daily trading rate in
+  the class, entirely post-fees, THROUGH the Mar-06 all-crypto fee
+  shock (Mar-15 scan: #1 that day, pairRate 0.971 @ 0.9895, maker
+  0.79, clips $4.6, btc+eth all timeframes). Fourth quit-at-peak
+  specimen; started the very days gabagool22 exited (succession
+  timing [reported], no on-chain link). With A40's January pool:
+  fee/venue shocks create weeks-long rich windows before the class
+  re-adds capacity — venue-change events are opportunity signals.
+  [verified except where tagged]

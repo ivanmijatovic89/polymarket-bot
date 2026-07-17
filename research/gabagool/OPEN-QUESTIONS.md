@@ -29,9 +29,12 @@ bottom.
    whether other wallets toggled at the same dates (would imply a
    shared operator or a venue-side cause; scan data can answer for
    the sampled days).
-7. Atlas residue dossiers: 0xa45fe11d (Mar #1 edge — alive?),
-   0x961afce6 / 0x93c22116 (Jan cheap-side winners), golden-era
-   originals (0x589222a5, 0x52483137). Each is one cheap unit.
+7. Atlas residue dossiers: ~~0xa45fe11d~~ **DONE session 8 (A41,
+   guh123 — 33-day sprint at $6.5k/day, quit-at-peak n=4, retired
+   Mar-24)**; remaining: 0x961afce6 / 0x93c22116 (Jan cheap-side
+   winners — now more interesting given A40's January
+   standing-discount pool), golden-era originals (0x589222a5,
+   0x52483137). Each is one cheap unit.
 8. drfc4eybh7i8 address re-resolution (weak signal, low value).
 9. 5m-book launch date (bracketed Jan-15→Feb-15 by the scans; pin it
    if any unit needs it).
