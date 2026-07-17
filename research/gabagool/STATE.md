@@ -2,27 +2,27 @@
 
 Session relay state. A fresh session continues from CHARTER.md + this file.
 
-## Status digest (updated 2026-07-17T00:30Z, session 1)
+## Status digest (updated 2026-07-17T01:05Z, session 1)
 
-- Session 1 started. STATE.md + JOURNAL.md created.
-- Phase 0 (required reading → PRIORS.md) in progress.
-- Discrepancy found already: CHARTER names a "binance aggTrades feed doc
-  under docs/datasets/" — no such doc exists in this repo (grepped repo-wide
-  for aggTrades; only hit is CHARTER itself). Binance spot replay support
-  needs to be located in strategy-research-protocol/ or verified as absent.
+- Phase 0 COMPLETE: all required reading done, PRIORS.md written (51 tagged
+  claims P1–P51, two central tensions T1/T2 ledgered).
+- Binance aggTrades mystery resolved: feed IS implemented + live-verified,
+  on unmerged branch `binance-aggtrades-r2-sync` (doc:
+  `docs/datasets/polymarket-data/binance-aggtrades-feed.md` on that branch).
+  Strategies still wake only on PM book ticks (Binance-driven ticks = ADR,
+  proposed not implemented).
+- Key tensions driving everything: T1 (lab scope BTC 15m vs INV's "edge is
+  on 1h/4h+alts, 15m ≈ 0"); T2 (fable-lab closed passive maker in-model at
+  both fill bounds, yet gabagool wallets made $644k live doing it —
+  candidate reconciliations i–v in PRIORS §9).
+- Next unit: workstream C start — resolve @gabagool22 handle→address, pull
+  activity, first forensic pass (needs scripts/ + data/ scaffolding +
+  .gitignore for data/).
 
 ## Work queue
 
-### Phase 0 — required reading (IN PROGRESS)
-- [ ] Read GABAGOOL-INVESTIGATION.md
-- [ ] Read MISSION.md + PLAYBOOK.md
-- [ ] Read strategy-research-protocol/{SCOPE,ENGINE,STAGE-GATES,LESSONS}.md
-- [ ] Read spread-capture/FAMILY.md + endgame-panic-bid/FAMILY.md
-- [ ] Read ../polymarket-bot-fable/fable-lab/knowledge/{LESSONS,EDGE-SPACE}.md
-- [ ] Read docs/datasets/telonex/overview.md; locate Binance replay docs (or
-      record their absence)
-- [ ] Write PRIORS.md (every load-bearing claim, tagged verified/reported/
-      contested, with source) — Phase 0 output
+### Phase 0 — required reading (DONE, session 1)
+- [x] All charter reading; PRIORS.md written and committed.
 
 ### Workstream A — Literature
 - [ ] Avellaneda–Stoikov & successors (inventory-controlled two-sided quoting)
@@ -37,7 +37,8 @@ Session relay state. A fresh session continues from CHARTER.md + this file.
 - [ ] Resolution source/precision/timing; negRisk status
 
 ### Workstream C — Wallet forensics → wallets/<handle>.md + wallets/_META.md
-- [ ] @gabagool22 deep-dive (archetype)
+- [ ] NEXT: @gabagool22 handle→address + activity pull (scaffolding:
+      scripts/, data/ gitignored)
 - [ ] 0xb55f…64d4 (incumbent flagship; extend 337-market analysis)
 - [ ] @powerwinner, @bonereaper, @0xaaaaa, @doggystyie, @drfc4eybh7i8,
       @0xce25e214d5cfe4f459cf67f08df581885aae7fdc-1777575398144, @badfallen
