@@ -9,11 +9,16 @@
  *   { e: 'E###-slug', leg: 'U'|'D', px: number, sz: number,
  *     k: 'r'|'x',           // 'r' = resting maker rung, 'x' = taker cross
  *     t: number,            // elapsed sec at placement
- *     acc?: { n, mFee, tFee, tSimFee, rej } }  // optional shared accumulator
+ *     acc?: { n, mFee, tFee, tSimFee, rej, dockU, dockD } }
  * Only FILLED orders' metas persist (marketStats dedups by clientOrderId),
  * so metas ARE the per-fill record: maker fills execute at their own px/sz
- * (all-or-nothing, verified), taker crosses at the intended px (validated
- * against the sim's fees_paid; drift → quarantine).
+ * (all-or-nothing, verified). `acc` is ONE shared object per market,
+ * mutated by the strategy on every fill — E001 proved it survives to the
+ * DB by REFERENCE (every entry shows final totals), so when present it
+ * carries EXACT realized economics (actual taker fill prices, per-leg
+ * docked shares). computeMarketEcon prefers acc (highest n) and falls
+ * back to static meta reconstruction; both are validated against the
+ * sim's fees_paid (drift → quarantine).
  */
 import { and, asc, eq, inArray } from 'drizzle-orm'
 import {
@@ -83,7 +88,15 @@ export type LabOrderMeta = {
   sz?: number
   k?: 'r' | 'x'
   t?: number
-  acc?: { n?: number; mFee?: number; tFee?: number; tSimFee?: number; rej?: number }
+  acc?: {
+    n?: number
+    mFee?: number
+    tFee?: number
+    tSimFee?: number
+    rej?: number
+    dockU?: number
+    dockD?: number
+  }
 }
 
 export type MarketRow = {
@@ -168,6 +181,21 @@ export function computeMarketEcon(m: MarketRow): MarketEcon {
       if (meta.leg === 'U') dockedUp += docked
       else if (meta.leg === 'D') dockedDown += docked
     }
+  }
+
+  // Prefer the shared accumulator when present (exact realized economics;
+  // proven reference-persistent by E001). Take the entry with highest n.
+  let best: NonNullable<LabOrderMeta['acc']> | null = null
+  for (const meta of m.metas) {
+    const a = meta.acc
+    if (a && typeof a.n === 'number' && (best === null || a.n > (best.n ?? 0))) best = a
+  }
+  if (best && typeof best.mFee === 'number') {
+    makerFeeEquiv = best.mFee
+    takerFeeEra = best.tFee ?? takerFeeEra
+    takerFeeSimRecon = best.tSimFee ?? takerFeeSimRecon
+    if (typeof best.dockU === 'number') dockedUp = best.dockU
+    if (typeof best.dockD === 'number') dockedDown = best.dockD
   }
 
   // Undo the sim's share-docking, then charge the era fee in USDC (the

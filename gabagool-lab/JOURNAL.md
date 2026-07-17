@@ -97,3 +97,29 @@ the exact holdout window; --to-ms inclusivity handled (searchTo =
 Jun1−1ms — the fable E18 trap, carried mechanically).
 
 Next: E001 smoke — scripted probe strategy through the full pipeline.
+
+## 2026-07-17T05:30Z — session 1, unit 5: E001 smoke green → L0 COMPLETE
+
+E001 ran twice (662, 663 — identical, determinism confirmed). Every
+frozen criterion passed: sequential persistence works; settlement
+recheck exact on all markets (maker fill = own px/sz proven on data);
+fee reconstruction VALID vs the sim's own fees column; meta coverage
+100%; and the big one — the shared accumulator survives to the DB BY
+REFERENCE, so the lab has an exact per-fill export channel (realized
+taker prices, per-leg docked shares) with zero engine changes. The sim's
+share-docking was directly observed (35.91 = 36 − 0.09).
+
+L0 exit criteria (charter): engine facts verified ✓ (INHERITANCE §1),
+EPISTEMOLOGY + EVALUATION written and frozen ✓, tools working ✓
+(submit/results/runs/inspect-meta), end-to-end smoke proven ✓.
+
+**L0 COMPLETE. Moving to L1: the baseline.**
+
+L1 plan: E002-baseline (AXIS-flavored reference, exempt from tail gates
+per EVALUATION §7) — archetype-faithful parity ladder: two-sided GTC
+rungs, parity-driven side selection (bid the lagging leg), never-overpay
+guard (projected pair cost cap), band limits, hold to settlement. Run at
+S1-screen scale first (two disjoint 400-market halves, lat 140), then
+full search window + latency battery. Its distribution calibrates
+TAIL_K and the capital floor (frozen as EVALUATION v1.1 before any
+candidate runs).

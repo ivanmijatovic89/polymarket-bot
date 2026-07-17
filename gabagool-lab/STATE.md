@@ -6,28 +6,33 @@
 ## Status digest
 
 - **Session:** 1 (first working session, started 2026-07-17T03:17Z)
-- **Ladder rung:** L0 — building the lab
-- **Phase:** design docs done; tools next
+- **Ladder rung:** L1 — baseline measurement (L0 complete this session)
+- **Phase:** E002-baseline design + screen runs
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
-- INHERITANCE.md (Phase 0 facts), **EPISTEMOLOGY.md v1 + EVALUATION.md
-  v1 (frozen)**, LEDGER.md (empty registry). No strategy code yet, no
-  runs yet.
+- L0 COMPLETE: INHERITANCE.md, EPISTEMOLOGY v1 + EVALUATION v1 (frozen),
+  LEDGER (E001 judged), tools (submit/results/runs/inspect-meta — all
+  DB-tested), E001 smoke green twice (runs 662/663, deterministic).
+- Key capability: intent_meta shared-accumulator persists BY REFERENCE →
+  exact per-fill economics in DB (realized taker px, per-leg docks).
 
 ## Queue (work top to bottom)
 
-1. **Tools** — minimal: submit.ts (pins latency, derives batchUid,
-   refuses dirty tree), results.ts (DB direct: segments + markets +
-   pairing health + rebate line + corrected fees), ledger validation.
-2. **Smoke** — one end-to-end sequential run of a scripted variant
-   (~10 markets): verifies intent_meta lands in DB, maker fill = own
-   price/size, pnl matches hand-computation. L0 complete when green.
-3. **L1 baseline** — archetype-faithful parity ladder at real coverage
-   (Apr 1→May 31 search window) with full readout incl. time slices +
-   latency stress (0/140/500/1000ms).
+1. **E002-baseline (L1)** — archetype-faithful parity ladder reference:
+   two-sided GTC rungs, parity-driven side selection, never-overpay
+   guard (pair-cost cap), band [0.11,0.85], hold to settlement. Spec →
+   freeze → S1 screen (two disjoint 400-market halves, lat 140) → full
+   search window + latency battery (0/140/500/1000). Its distribution
+   calibrates TAIL_K + capital floor → EVALUATION v1.1 frozen before
+   any candidate.
+2. **L1 readout + threshold freeze** — full evaluation readout of the
+   baseline; DECISIONS entry for v1.1 thresholds; LEADERBOARD.md
+   started. This number is the reference everything must beat.
+3. **L2 campaign start** — first axes from the seed queue: parity
+   tolerance (H1), completion policy (H6), ladder depth/timing (A17).
 
 ## Open questions / risks
 

@@ -27,3 +27,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: readout verified against an existing run in the database; all guards fire correctly (holdout protection, latency pinning).
 - Next: end-to-end smoke — a scripted test strategy through backtest → database → readout.
 - Health: on track
+
+## 2026-07-17T05:32Z — unit 5
+- Did: end-to-end smoke passed twice with identical results — strategy → backtest → database → readout all verified; found an exact per-fill data channel needing no engine changes.
+- Found: every plumbing check green (settlement math exact, fee validation passes, deterministic replay). The lab is built — L0 done.
+- Next: L1 baseline — the first real measurement: archetype-style parity ladder over the search window with time slices + latency stress.
+- Health: on track

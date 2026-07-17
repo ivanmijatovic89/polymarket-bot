@@ -34,7 +34,15 @@ export const ConfigSchema = z.strictObject({
 export type Config = z.infer<typeof ConfigSchema>
 
 type Side = 'UP' | 'DOWN'
-type Acc = { n: number; mFee: number; tFee: number; tSimFee: number; rej: number }
+type Acc = {
+  n: number
+  mFee: number
+  tFee: number
+  tSimFee: number
+  rej: number
+  dockU: number
+  dockD: number
+}
 type Quote = { clientOrderId: string; px: number }
 
 const EPISODE_MS = 900_000
@@ -52,7 +60,7 @@ export const definition: StrategyDefinition<Config> = {
     let stateSlug: string | null = null
     let seq = 0
     let takerDone = false
-    let acc: Acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0 }
+    let acc: Acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
     const quotes: Record<Side, Quote | null> = { UP: null, DOWN: null }
     // Order registry so fills can be classified maker-rung vs taker-cross.
     const orders = new Map<string, { k: 'r' | 'x' }>()
@@ -61,7 +69,7 @@ export const definition: StrategyDefinition<Config> = {
       stateSlug = slug
       seq = 0
       takerDone = false
-      acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0 }
+      acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
       quotes.UP = null
       quotes.DOWN = null
       orders.clear()
@@ -203,6 +211,10 @@ export const definition: StrategyDefinition<Config> = {
           if (reg?.k === 'x' || f.liquidity === 'TAKER') {
             acc.tFee += eraFee(px, sz)
             acc.tSimFee += simFee(px, sz)
+            const dock = px > 0 ? simFee(px, sz) / px : 0
+            // Leg from the clientOrderId (e001:<slug>:XUP:<n> / XDOWN).
+            if (f.clientOrderId?.includes(':XUP:')) acc.dockU += dock
+            else if (f.clientOrderId?.includes(':XDOWN:')) acc.dockD += dock
           } else {
             acc.mFee += eraFee(px, sz)
           }
