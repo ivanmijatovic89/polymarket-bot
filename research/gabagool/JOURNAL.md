@@ -116,3 +116,17 @@ C·0.07·p(1−p) (peak $1.75). Fees extended to ALL crypto markets
 mid-February fee/rebate halving would be a clean exit trigger.
 
 PRIORS amended (A1–A8). Era-comparison measurement file written.
+
+## 2026-07-17T04:55Z — incumbent decomposition: the current meta is subsidy-heavy but edge-positive
+
+Pulled 2 complete days (Jul 14-16) for 0xb55f. Three income streams:
+trading +$2,674/day, MAKER_REBATE $915/day, and a previously-unknown
+TAKER_REBATE program paying $3,050/day — venue subsidies now EXCEED the
+trading edge. The incumbent is a different animal from the archetype:
+never merges (2,220 redeems — INV's "never merges" was about him, A2
+confirmed), 47% win rate with tail-harvest payoffs (worst −$770, best
++$2,202), clips to $1,260, buys deep longshots (p25 price $0.09), all 4
+coins. Wrote wallets/b55f-incumbent.md with the side-by-side fingerprint
+table. The concept now has two verified profitable EXPRESSIONS: parity
+grinder (archetype, zero-fee era) and loss-tolerant tail harvester
+(incumbent, current era).
