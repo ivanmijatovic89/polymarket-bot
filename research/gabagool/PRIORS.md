@@ -409,3 +409,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   market cash flow). P18's "15m ≈ 0" was an era artifact. The lab's
   frozen scope is the right hunting ground. ETH books measured NEGATIVE
   for both — edge is coin-asymmetric. [verified]
+- **A12 (bonereaper resolved + bulk-payout discovery):** bonereaper's
+  negative window is structural, not luck (5 days: trading −1.13% of
+  $3.16M buys) — a hybrid: btc-5m rebate manufacturing (−0.90%) + real
+  15m edge sleeve (btc-15m +1.12% — THIRD independent confirmation of
+  A11) + sports punts. New venue fact: taker rebates can arrive as
+  off-schedule BULK payouts (one $62.6k event = 20–45× the daily rate;
+  daily cadence is 00:10Z taker / 00:45Z maker). Any wallet-income
+  analysis using short windows is hostage to these lumps; and eth-15m
+  was POSITIVE for bonereaper (+0.77%) while negative for b55f/0xce25 —
+  A11's coin-asymmetry is wallet-specific, not a book property.
+  [verified] (wallets/bonereaper.md)

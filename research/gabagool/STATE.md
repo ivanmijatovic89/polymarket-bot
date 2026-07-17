@@ -30,7 +30,10 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
   TAKER rebate $3.1k/day (tiered program since 2026-05-28, top tier 50%
   fee refund — incumbents pay half fees; cold-start moat).
 - Ecosystem: ~7 active wallets, ~$18.5k/day collectively; b55f+0xce25
-  are one operator (profiles created 121s apart).
+  are one operator (profiles created 121s apart). Stratified: 3 edge /
+  3 farmers / bonereaper = hybrid (btc-5m farming + real 15m edge
+  sleeve + sports punts; rescued by a $62.6k BULK taker-rebate payout —
+  A12). btc-15m edge now confirmed by 3 independent wallets.
 - Venue timeline: fee-free → 2026-01-06 15m-crypto taker fees + 20%
   daily maker rebates → 2026-03-06 all-crypto fees → fee curve reshaped
   (peak $0.78→$1.75/100sh) between Feb 28 and May 31 → 2026-05-28 taker
@@ -50,17 +53,12 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. IN FLIGHT (session 3): January transition sample — Jan 10–13 pull
-   RESUMED in background (was interrupted at Jan 11 04:40Z; puller
-   state-file resume works). When done: analyze with analyze-tail.ts +
-   decompose-activity.ts; compare pair cost / win% vs Dec 0.98/98.7%
-   and Feb 1.00/38.6% — decay-speed prior. May also empirically pin the
-   contested January fee rate (implied fee from his fills).
-   Data: data/activity-gabagool22-jan.jsonl.
-2. IN FLIGHT (session 3): bonereaper second window Jul 7–12 pull
-   RESUMED (was at Jul 10 10:33Z). When done: decompose + verdict on
-   its 2-day negative vs $1.19M all-time; update _META.
-3. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
+1. NEXT: January transition analysis — pull COMPLETE
+   (data/activity-gabagool22-jan.jsonl, done:true). Analyze with
+   analyze-tail.ts + decompose-activity.ts; compare pair cost / win%
+   vs Dec 0.98/98.7% and Feb 1.00/38.6% — decay-speed prior. May also
+   empirically pin the contested January fee rate.
+2. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
    the edge wallets do differently from farmers? Candidates: level
    selection, timing within window, coin choice. Needs fills×books join
    (measure-fill-gap.ts pattern) for b55f/0xce25 on btc-15m slugs.

@@ -214,3 +214,27 @@ window (was at Jul 10 10:33Z; ~3.4 days remain). Both running in
 background now. Next: analyze the Jan transition when the pull lands —
 it's the decay-speed prior (Dec 0.98/98.7% → Feb 1.00/38.6%; where was
 mid-January?).
+
+## 2026-07-17T01:55Z — bonereaper verdict: hybrid farmer-with-an-edge-sleeve, and a $62.6k bulk payout
+
+Both resumed pulls landed within minutes (they were nearly done when the
+last session died). Bonereaper Jul 7–12 (5 days, 137,913 rows, complete):
+trading −$35,673 on $3.16M buys (−1.13%) — the earlier 2-day negative was
+NOT sample luck. But the per-book split tells three stories at once:
+btc-5m is rebate manufacturing (−0.90% on $2.6M, 82% of turnover, the
+powerwinner signature), the 15m books are REAL edge (btc-15m +1.12% —
+third independent wallet confirming A11; eth-15m +0.77%, which was
+negative for b55f/0xce25 — so coin asymmetry is wallet-specific), and
+−$15.2k of the loss is discretionary sports punting (one Ronaldo bet
+−$18.7k).
+
+The surprise: one TAKER_REBATE payout of **$62,612.93** at Jul 8 23:34Z —
+off the daily 00:10Z cadence and 20–45× the normal $1.4–2.9k/day.
+Excluding it, bonereaper runs ≈ −$4.5k/day steady-state; including it the
+window is +$40k. Its $1.19M all-time is not trading alpha. New open
+question: what ARE these bulk payouts (true-up? backpay?) — every
+short-window income decomposition is hostage to them.
+
+Wrote wallets/bonereaper.md, updated _META, PRIORS A12, refreshed
+OPEN-QUESTIONS (D2/H3/dossier items moved to resolved). Next: the
+January transition analysis — the pull completed too.

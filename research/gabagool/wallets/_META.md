@@ -28,8 +28,12 @@ Full table + method: `measurements/actives-decomposition.md`. One line:
 **the meta is stratified** — 3 edge wallets (0xce25 +2.31% of turnover,
 badfallen +1.68%, b55f ~+0.7%; small clips, multi-book or btc-5m), 3
 taker-rebate farmers (powerwinner, doggystyie, 0xaaaaa; big clips at
-p≈0.5, trading negative by design), bonereaper negative this window
-(needs a longer sample before judging). The venue's taker-rebate pool
+p≈0.5, trading negative by design), bonereaper resolved as a **hybrid**
+(5-day window, wallets/bonereaper.md): btc-5m rebate manufacturing at
+−0.90% + a REAL 15m edge sleeve (btc-15m +1.12%, eth-15m +0.77% — third
+independent btc-15m confirmation) + lumpy sports punts; steady-state
+negative ≈ −$4.5k/day but rescued by a single off-schedule **$62.6k
+TAKER_REBATE bulk payout** (provenance unknown). The venue's taker-rebate pool
 (~$20k/day across these 7) is the ecosystem's single largest income
 stream — program risk is systemic. btc-15m is a LIVE edge book for both
 multi-book edge wallets (+2.0–3.2%); ETH books are negative for both.
@@ -54,10 +58,12 @@ taker rebates alone.
   outlier at 0.21% on much higher volume — possibly a different, more
   aggressive variant, or heavy wash within its volume figure).
 - gabagool22 remains the biggest single-wallet all-time earner except
-  bonereaper ($1.19M), which predates/outlives him — bonereaper deserves
-  early forensic attention: it may be the "$8M/day, all symbols, more
-  loss-tolerant" wallet of P19 (its 30d volume $19.9M ≈ $663k/day though —
-  the $8M/day figure matches nobody yet; keep P19's wallet unidentified).
+  bonereaper ($1.19M), which predates/outlives him — DOSSIER DONE
+  (wallets/bonereaper.md): hybrid farmer-with-edge-sleeve; its $1.19M
+  all-time cannot be read as trading alpha (rebates incl. bulk payouts +
+  15m sleeve + punt variance). Its 30d volume $19.9M ≈ $663k/day — the
+  P19 "$8M/day" figure still matches nobody; keep P19's wallet
+  unidentified.
 
 ## Open
 
