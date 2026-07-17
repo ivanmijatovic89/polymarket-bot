@@ -761,6 +761,20 @@ Template:
   - **Cap sub-axis next per pre-registered rule:** bind table from
     the rc pair (698/699), grid decision recorded below BEFORE any
     ax4 submission.
+- **CAP-GRID DECISION (2026-07-17T08:20Z, u36; pre-registered rule
+  executed verbatim on the winner pair 698+699, e005-table.ts
+  --bind):** n = 4,135 both-sided played markets; S quantiles p10
+  0.8572, p25 0.9125, p50 0.9567, p75 0.9803, p90 0.9958; bind(0.96)
+  = 0.4663, bind(0.97) = 0.3599, bind(0.98) = 0.2544. Rule:
+  bind(0.96)−bind(0.98) = 0.2119 ≥ 0.15 AND bind(0.98) = 0.2544 ≥
+  0.05 → **KEEP prior grid {0.96, 0.97, 0.98}**. Every cap arm both
+  binds and passes materially at the winning shape; no quartile
+  replacement. Cap reference (0.99) = the rc runs themselves
+  (698/699, pairCostCap file default 0.99) — reused, not
+  resubmitted, same basis as ra/control reuse. Cap sub-axis = 6 new
+  runs: caps {0.96, 0.97, 0.98} × halves on rc, suffixes
+  `ax4h<half>-c<code>` (c960/c970/c980), lat140, clip 6, tol 2,
+  completion none.
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
