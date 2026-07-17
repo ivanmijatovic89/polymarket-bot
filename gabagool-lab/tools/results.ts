@@ -3,6 +3,8 @@
  *
  * Usage:
  *   npx tsx gabagool-lab/tools/results.ts --run <id> [--json] [--gates s1|s2]
+ *       [--export <path.csv>]   # per-market econ rows (TAIL_K calibration);
+ *                               # multiple --run ids → path gets .runN suffix
  *   npx tsx gabagool-lab/tools/results.ts --batch <batchUid>
  *   npx tsx gabagool-lab/tools/results.ts --battery <id@140,id@0,id@500,id@1000>
  *
@@ -11,6 +13,8 @@
  * reconstruction validation verdict, and (optionally) the gate table.
  * Judgments quote THIS output; nothing else counts as a reading.
  */
+import { mkdirSync, writeFileSync } from 'node:fs'
+import { dirname } from 'node:path'
 import {
   closeDb,
   computeMarketEcon,
@@ -65,6 +69,7 @@ type RunReadout = {
     feeReconOk: boolean
     metaCoverage: number
   }
+  econ: MarketEcon[] // per-market rows (export path; stripped from --json)
 }
 
 function fmt(x: number, d = 4): string {
@@ -189,7 +194,39 @@ async function readRun(runId: number): Promise<RunReadout> {
       feeReconOk: feeReconDiff <= feeReconTol,
       metaCoverage,
     },
+    econ,
   }
+}
+
+/** slug btc-updown-15m-<epochSec> → window start ms (0 if unparseable). */
+function slugStartMs(slug: string): number {
+  const m = /-(\d{9,})$/.exec(slug)
+  return m ? Number(m[1]) * 1000 : 0
+}
+
+function exportEconCsv(path: string, econ: MarketEcon[]): void {
+  const header =
+    'slug,start_ms,week,el,pnl_corr,pnl_sim,rebate,rebate_raw,maker_fills,taker_fills,imbalance,pair_rate,outlay'
+  const lines = econ.map((e) =>
+    [
+      e.slug,
+      slugStartMs(e.slug),
+      e.weekKey,
+      e.el.toFixed(6),
+      e.pnlCorr.toFixed(6),
+      e.pnlSim.toFixed(6),
+      e.rebate.toFixed(6),
+      e.rebateRaw.toFixed(6),
+      e.makerFills,
+      e.takerFills,
+      e.imbalance.toFixed(6),
+      e.pairRate.toFixed(6),
+      e.outlay.toFixed(6),
+    ].join(','),
+  )
+  mkdirSync(dirname(path), { recursive: true })
+  writeFileSync(path, [header, ...lines].join('\n') + '\n')
+  console.log(`exported ${econ.length} market rows -> ${path}`)
 }
 
 function printRun(r: RunReadout, gates?: string): void {
@@ -347,9 +384,15 @@ async function main(): Promise<void> {
     process.exit(1)
   }
 
+  const exportPath = get('--export')
   for (const id of runIds) {
     const r = await readRun(id)
-    if (asJson) console.log(JSON.stringify(r, null, 2))
+    if (exportPath) {
+      const path =
+        runIds.length > 1 ? exportPath.replace(/(\.csv)?$/, `.run${id}$1`) : exportPath
+      exportEconCsv(path, r.econ)
+    }
+    if (asJson) console.log(JSON.stringify({ ...r, econ: undefined }, null, 2))
     else printRun(r, gates)
     // Cross-check line: sim's own aggregate (segments) vs per-market recompute.
     const segs = await loadSegments(id, ['all'])

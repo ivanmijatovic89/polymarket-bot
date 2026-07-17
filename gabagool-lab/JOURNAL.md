@@ -223,3 +223,33 @@ window-open spot.
 
 Disk note: volume at 98% (9.7Gi free). Worker logs ~26MB/30min are
 fine; keeping lab artifacts lean regardless.
+
+## 2026-07-17T05:00Z — session 2, unit 8: judgment tooling complete + TAIL_K logic pre-registered
+
+Rehearsed the full judgment path on the superseded chunk runs:
+`--gates s2` renders every line EVALUATION §3–§5 needs at 1000-market
+scale (chunk lat140: EL −4.71, t −17.2, PF 0.22, pairRate 0.678,
+EL/$100 −8.05); `--battery` renders the latency table (EL −0.64 →
+−4.71 → −5.04 → −5.52 across 0/140/500/1000ms; fills 2.8k → 20.7k →
+25.4k → 27.6k — latency MANUFACTURES toxic fills out of requote churn,
+now visible across the whole battery). Added `--export` (per-market
+econ CSV → logs/exports/, gitignored, regenerable) for TAIL_K
+calibration; tested on run 670.
+
+Pre-registering the TAIL_K calibration LOGIC before the fullwin
+numbers exist (form now, numbers later — so the numbers can't pick the
+form; chunk preview seen, disclosed): G7's frozen form is
+CVaR5 ≥ −(TAIL_K × EL). Direct K from baseline's own CVaR5/EL is
+degenerate (baseline EL < 0) and EL-relative K explodes near EL→0
+(G4's t≥2 partially guards). The economically meaningful anchor is the
+TAIL-TO-OUTLAY shape: chunk lat140 CVaR5/avgOutlay ≈ −0.37 (a worst-5%
+market burns ~37% of typical outlay — leg-risk realized). Calibration
+plan: from fullwin lat140 distribution, set TAIL_K so that a candidate
+carrying the baseline's tail-to-outlay shape at baseline sizing passes
+G7 iff its EL clears an explicit floor (target ~$0.5–1.0/market —
+final number written with rationale in DECISIONS at calibration). This
+couples the tail gate to a minimum-edge-per-tail-risk requirement and
+yields the capital-efficiency floor from the same arithmetic.
+
+Queue: 16.7k waiting at ~3.3/s → market queue empties ~06:20Z, then 4
+aggregate jobs persist runs. Judgment this session if the pace holds.

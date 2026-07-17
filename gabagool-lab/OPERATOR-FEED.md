@@ -51,3 +51,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: no jobs lost — ~19k remaining drain at ~6/s, results expected ~05:30Z. KB: the one "big loser" in this strategy family lost on World Cup markets, not on crypto up/down — no known blow-up in this niche.
 - Next: when the four baseline runs land — full judgment (weekly slices, tails, latency curve) + freeze thresholds.
 - Health: on track
+
+## 2026-07-17T05:02Z — unit 8
+- Did: proved the whole judgment readout on the preview runs; added the per-market export needed to set tail thresholds; wrote down HOW thresholds will be derived before seeing the final numbers.
+- Found: preview confirms across all four latencies: delay itself creates bad fills (2.8k fills at 0ms -> 27.6k at 1000ms, half of them forced conversions). Requote discipline is the lever to attack next.
+- Next: runs finish draining ~06:20Z; then the full baseline verdict + threshold freeze.
+- Health: on track
