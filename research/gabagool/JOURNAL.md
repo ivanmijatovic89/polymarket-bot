@@ -657,3 +657,29 @@ Written to measurements/rebate-economics-per-policy.md, folded into
 BRIEF §6, H3, and a LAB-HANDOFF Phase-2 addendum. Farmer-posture
 variants (pair cost >$1, taker-tier-dependent) are confirmed
 non-seedable for a cold-start bot.
+
+## 2026-07-17T07:05Z — session 7, unit 6: era-scan classifier + a decode bug caught (A29)
+
+Built scripts/atlas-classify.ts (clusters each scanned wallet-day into
+parity-edge / parity-farmer / cheap-side / two-way-mm / buy-directional
+/ other-buyer) and ran it over the 8 completed era days. The era story
+is strong — parity-edge population 7 (Nov) → 22 (Dec) → 26 (Jan) → 94
+(Feb!) → 83 (Mar) → 66-71 (Apr-Jun); farmers appear EXACTLY when fees
+do (1 → 27 between Dec and Jan); gabagool22 tops the edge cluster until
+Feb then vanishes; b27bc932 drifts edge→farmer-boundary; b55f/bonereaper
+sit in cheap-side. Plus new persistent unknowns worth dossiers
+(0x04b6d7e9 tops parity-edge 3 months running; 0x818f214c is a btc-15m
+edge specialist across Nov-Mar).
+
+Then the red flag: two-way-mm = 39–319 wallets Nov–Apr, EXACTLY ZERO
+in May/Jun. Selling doesn't just stop. Traced it: the 2026 fee-native
+exchange changed OrderFilled's data layout — d[0] is a side flag and
+tokenId is always d[1]; the v1 rule read SELL tokenIds from d[0],
+binning every new-exchange sell under garbage token "1" (dropped as
+unresolved — the unresolved bucket exploded to $3.3M/$4.7M exactly in
+May/Jun). Verified on a live SELL receipt, fixed the decoder, and
+re-launched scans for the 4 affected days (Apr/May/Jun/Jul). Ledgered
+as A29 with the method lesson: a cluster count hitting exactly zero
+after a venue infrastructure change is a decoder symptom.
+
+VARIANT-ATLAS.md waits for the clean rescan; Nov–Mar numbers are final.

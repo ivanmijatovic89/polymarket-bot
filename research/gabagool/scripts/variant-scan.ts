@@ -191,14 +191,21 @@ function decodeLog(log: any) {
   const maker = ('0x' + log.topics[2].slice(26)).toLowerCase()
   const taker = ('0x' + log.topics[3].slice(26)).toLowerCase()
   const d = (log.data.slice(2).match(/.{64}/g) ?? []).map((h: string) => BigInt('0x' + h))
-  const makerAssetId = d[0]
+  // Layouts (verified 2026-07-17 on tx 0x7711684…, session 7 / A29):
+  //  - v1 contracts: d = (makerAssetId, takerAssetId, making, taking, fee)
+  //    BUY: makerAssetId=0, tokenId=d[1]; SELL: makerAssetId=tokenId (huge).
+  //  - 2026 fee-native exchange (0xe111…): d[0] is a SIDE FLAG (0=maker
+  //    gives USDC/buy, 1=maker gives token/sell) and tokenId is ALWAYS
+  //    d[1]. Old rule read SELL tokenId from d[0] → binned all sells
+  //    under token "1" (never resolves → dropped). Real CTF token ids
+  //    are keccak-derived, so d[0]==1 is unambiguous.
   const making = Number(d[2]) / 1e6
   const taking = Number(d[3]) / 1e6
-  const isBuy = makerAssetId === 0n
+  const isBuy = d[0] === 0n
   if (isBuy ? taking === 0 : making === 0) return null
   const px = isBuy ? making / taking : taking / making
   const shares = isBuy ? taking : making
-  const tokenId = (isBuy ? d[1] : d[0]).toString()
+  const tokenId = (isBuy || d[0] === 1n ? d[1] : d[0]).toString()
   const role: 'maker' | 'taker' = EXCH_SET.has(taker) ? 'taker' : 'maker'
   const bn = parseInt(log.blockNumber, 16)
   return { wallet: maker, tokenId, isBuy, px, shares, role, bn }

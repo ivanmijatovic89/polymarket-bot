@@ -130,3 +130,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the rewards program pays cheap-side buying almost double what it pays balanced quoting, and pays nothing at all below a minimum activity level per market. The strongest live wallet's whole profit is this subsidy.
 - Next: the wallet-discovery scan is 7 of 9 days done; classify the results into the variant atlas next.
 - Health: on track.
+
+## 2026-07-17T07:08Z — unit: first full map of every strategy-family wallet, plus a caught bug (session 7)
+
+- Did: classified every wallet the 8-month blockchain scan found, then caught and fixed a decoding bug affecting the newest exchange contract.
+- Found: the strategy family never died — the sub-$1 pair-buyer population GREW through every fee change (7 wallets in Nov, ~94 at the Feb peak, ~70 today), and a "farmer" sub-species appeared the same month fees did. Two strong unknown wallets found worth dossiers. The bug: recent sell trades were silently dropped; 4 scan days are re-running clean.
+- Next: write the variant atlas once the re-scan lands; dossier the new finds.
+- Health: on track.

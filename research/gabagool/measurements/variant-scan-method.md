@@ -82,3 +82,28 @@ One day per month, 12 windows each: 2025-11-15, 2025-12-15,
 2026-01-06; all-crypto fees 2026-03-06; fee-curve reshape Mar–May;
 taker-rebate tiers 2026-05-28. Results per day →
 `data/variant-scan/scan-<day>.json`; synthesis → `VARIANT-ATLAS.md`.
+
+## A29 (session 7) — OF2 decode bug on the 2026 fee-native exchange: SELLs were dropped
+
+Verified on tx `0x771168493f6ae2f77fa5611f4b093935521446e21bf7ad46419a3609e8e0f889`
+(a SELL on btc-updown-5m-1784262600 via 0xe111…): on the fee-native
+exchange, OrderFilled's data layout is `(sideFlag, tokenId, making,
+taking, fee, ?, ?)` — `d[0]` is 0 (maker gives USDC / buy) or 1 (maker
+gives token / sell) and the tokenId is ALWAYS `d[1]`. The v1 rule
+(SELL tokenId = `d[0]`) binned every new-exchange SELL under token
+"1", which never resolves in gamma → all sells silently dropped.
+
+Blast radius (visible as the `unresolved` notional bucket): Nov–Mar
+scans ≈ clean ($4–9k unresolved); 2026-04-15 mild ($49k); 2026-05-15
+($3.35M) and 2026-06-15 ($4.70M) badly hit; 2026-07-15 worst (new
+exchange dominant). Consequences in the affected days: two-way-mm
+cluster reads ZERO (a two-way MM's sells vanish → buyShare=1 →
+misclassified into buyer clusters), and buyShare/sellShare of any
+selling wallet is inflated. BUY-leg pair metrics (pairRate/pairCost)
+are unaffected. Fixed in variant-scan.ts (`d[0]===1n → tokenId=d[1]`;
+real CTF token ids are keccak-derived so the flag is unambiguous);
+days 04/05/06/07-15 re-scanned with the fixed decoder.
+
+Method lesson: a cluster count hitting EXACTLY zero after a venue
+infrastructure change is a decoder symptom, not a market observation —
+check the residual/unresolved bucket first.

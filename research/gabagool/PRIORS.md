@@ -613,3 +613,13 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   majority-subsidy EV inherits unpriceable venue discretion (G8).
   [verified — arithmetic on verified inputs]
   (measurements/rebate-economics-per-policy.md)
+- **A29 (on-chain OrderFilled layout differs on the 2026 fee-native
+  exchange):** on 0xe111… the event data is `(sideFlag, tokenId,
+  making, taking, fee, ?, ?)` — d[0]∈{0,1} is the side, tokenId always
+  d[1] (verified tx 0x7711684…). v1-style decoding drops ALL sells on
+  the new exchange (binned under token "1"). Any on-chain tape
+  analysis of post-April-2026 crypto-updown flow MUST use the dual
+  layout; the "selling disappeared in May/June" pattern in the first
+  era-scan pass was this artifact, not a meta shift. Scanner fixed;
+  affected days re-scanned. [verified]
+  (measurements/variant-scan-method.md §A29)
