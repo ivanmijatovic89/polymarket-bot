@@ -16,16 +16,19 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED (u38): both
-  sub-axes passed their advance rules (lab's first two); best cell
-  rc+cap0.96 = −2.2884/−2.0229 maker-only (51% of ref loss removed)
-- **Phase:** E005 judged end-to-end in §E005 (shape sub-judgment
-  u36, cap-grid decision u36b, cap sub-judgment + final judgment +
-  LS-9 u38). Cap curve monotone tighter-better, optimum UNBRACKETED
-  at 0.96 edge → E005b {0.92,0.94} seeded. NEXT: latency battery
-  (0/500/1000) on surviving region — pre-registered pre-candidate
-  step (§E005 coverage clause). E004: §E004 (H6 survives; cfree via
-  removal; caps dead; maker-only confirmations D-008; LS-7/8).
+- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED (u38); battery
+  LAUNCHED (u39), draining
+- **Phase:** Battery draining (launched 09:11Z at SHA c19e1365;
+  6 flows bath{1,2}-c960 × lat{0,500,1000}, 17,568 jobs; ETA
+  ~09:52Z). Watcher: nohup pid 1994 →
+  logs/watch-drain-s12-battery.log. lat140 ref = runs 708/703
+  (reused). Addendum pre-registered in §E005 (readout fields, E002
+  comparison curve −0.42/−4.39/−5.03/−5.30, LS-1 hypothesis;
+  L-ratios undefined at EL<0 — characterization NOT G6). E005
+  verdict: §E005 (both sub-axes passed advance rules — lab's first
+  two; best cell rc+cap0.96 −2.2884/−2.0229 maker-only, 51% of ref
+  loss removed; optimum unbracketed → E005b seeded; LS-9). E004:
+  §E004 (H6 survives; cfree via removal; caps dead; D-008; LS-7/8).
   EVALUATION v1.1 frozen. s12 ritual done: KB@A33 no-new, feeds
   unchanged (binance only)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
@@ -84,16 +87,19 @@
 
 ## Queue (work top to bottom)
 
-1. **Latency battery on the surviving region (pre-registered,
-   §E005 coverage clause; pre-candidate requirement):** rc+cap0.96
-   at lat {0, 500, 1000} × halves = 6 runs (lat140 = existing
-   708/703). Launcher LS-3 pattern (hardcode shape/cap/tol/
-   completion; only lat varies; --dry-run; refuse queued ax5).
-   Record uids in §E005 (battery addendum) or a §E005-battery
-   block. Judgment: EL(lat) curve vs EVALUATION latency-robustness
-   gate (survive 500–1000 ms); compare against E002's curve
-   (−0.42/−4.39/−5.03/−5.30) — the deep ladder should degrade
-   LESS (standing-ladder character, LS-1).
+1. **Battery judgment when drained (watcher log
+   watch-drain-s12-battery.log says DRAINED; ETA ~09:52Z):** 6 runs
+   (uids in §E005 battery block) + lat140 ref 708/703. Verify uids
+   (tmp DB query pattern), validators per run, then per addendum:
+   EL±se/taker/fills/pairRate/S/outlay per lat×half; Δ per lat step
+   + lat0→lat1000 total vs E002 curve (−0.42→−5.30, taker 0→55%);
+   LS-1 hypothesis read (deep standing ladder degrades less?).
+   e005-table.ts guards will REJECT lat-varied cells only if they
+   check lat — they don't (params-only) — but labels c960 in both
+   halves at 3 lats = duplicate-cell guard collision (same label
+   ra/c960 twice per half). USE results.ts per run + a small
+   hand-assembled table in the judgment instead, OR extend
+   e005-table with a --battery mode. Decide when drained.
 2. **Next axis decision after battery:** E005b cap extension
    {0.92,0.94} vs E006 timing vs deep×completion (D-008 path).
    Justify order from measured numbers + backlog. Then candidate

@@ -878,6 +878,18 @@ Template:
   dossier + the LS-1 test, NOT a G6 gate evaluation; stated so no
   later reading upgrades it. G2/G9 validity checks per run as
   always.
+- **Battery runs (launched 2026-07-17T09:11Z, session 12, SHA
+  c19e1365; 6 flows; lat140 reference = runs 708/703, reused):**
+  - bath1-c960 lat0: `…--bath1-c960--lat0--3ab5aa2f-444b-4997-8a25-f2208ea22ad3`
+  - bath2-c960 lat0: `…--bath2-c960--lat0--8df15d9a-0865-4d61-a987-2635b186bcc7`
+  - bath1-c960 lat500: `…--bath1-c960--lat500--a6efa857-8c47-4a4e-8ec9-53b97ffd0ffb`
+  - bath2-c960 lat500: `…--bath2-c960--lat500--b62e86c6-54bd-440c-a4c5-94a97b2b5c67`
+  - bath1-c960 lat1000: `…--bath1-c960--lat1000--19040c5e-9a48-4ae7-ad87-7f733d48a423`
+  - bath2-c960 lat1000: `…--bath2-c960--lat1000--70f11d2a-ec56-4e60-baf6-8e0ce74eb890`
+  (verified read-only via agg-inspect post-launch: 6 bath flows;
+  markets queue 17,463 waiting + 12 active ≈ 17,568 expected;
+  markets failed = 0. Drain watcher: nohup pid 1994 →
+  logs/watch-drain-s12-battery.log. Battery judgment: (pending))
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid

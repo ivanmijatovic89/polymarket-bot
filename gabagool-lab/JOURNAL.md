@@ -1197,3 +1197,24 @@ Plan u39: launcher for rc+c960 at lat {0, 500, 1000} × halves
 (6 runs; lat140 cells already exist), LS-3 pattern, then judgment
 of the battery against G-gate latency requirements (EVALUATION:
 edge must survive 500–1000 ms).
+
+## 2026-07-17T09:13Z — session 12, unit 39: latency battery launched on rc+c960 (pre-registered addendum first)
+
+The §E005 coverage clause mandates the battery before any candidate
+talk, so it goes now, by the book: battery addendum pre-registered
+in §E005 and committed BEFORE submission (readout fields, the E002
+comparison curve to beat, the explicit statement that L-ratios are
+undefined at EL(140)<0 and this is characterization + the LS-1
+standing-ladder hypothesis test, not a G6 evaluation). Launcher
+dry-run caught a suffix bug (bath${half} rendered "bathh1" — double
+h vs the pre-registered bath1/bath2 grammar); fixed and committed
+BEFORE launch, then 6 flows enqueued at c19e1365 and verified
+read-only (17,463+12 ≈ 17,568 jobs, 0 failed). Watcher pid 1994.
+Drain ETA ~09:52Z.
+
+The battery question that matters: E002's shallow ladder lost
+−4.88/mkt going lat0→lat1000 (its entire economics were latency
+artifacts). If the deep standing ladder's degradation is small, the
+−2.16 avg cell is real structure that survives execution reality —
+and the family earns candidate assembly. If it degrades like E002,
+depth was another latency mirage. Either answer is decisive.
