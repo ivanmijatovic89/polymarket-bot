@@ -430,3 +430,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: a second swap — the November champion registered its successor account 78 minutes before its own final trade. The strategy's top earners boil down to ~3 operators running multiple wallets; famous "quits" were mostly handoffs.
 - Next: evening snapshot of the live bots (~20-21 UTC).
 - Health: on track
+
+## 2026-07-17T16:26Z — unit 7 (session 10)
+- Did: verified today's fee formula is identical on the 15-minute bitcoin book (our target) and on ether books, not just the 5-minute one measured earlier.
+- Found: yes — same exact rate everywhere; only the ERA of a measurement matters for fee math, never the book.
+- Next: evening snapshot of the live bots (~20-21 UTC).
+- Health: on track

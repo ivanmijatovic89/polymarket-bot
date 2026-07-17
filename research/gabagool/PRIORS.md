@@ -923,7 +923,9 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   as its only in-window venue event — strong causal candidate;
   (3) era-matched fee constants for historical EV:
   0.25·p·(p(1−p))² ≤Mar-28, 0.072·p(1−p) Mar-31→~May-8,
-  0.07·p(1−p) after.
+  0.07·p(1−p) after. Unit-7 addendum: the current 0.070 curve is
+  UNIFORM across books — btc-15m (lab scope) and eth-5m probes both
+  0.0700 exact; no book-specific constant needed.
   [verified] (measurements/fee-curve-history.md)
 - **A53 (15m-sleeve toggle dated against fee events — evaluation
   shutdown, not reflex; revived with the tier program, not the

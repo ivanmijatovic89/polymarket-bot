@@ -1293,3 +1293,13 @@ invisible, so confirmed links are a lower bound. Day-scale
 suggestives (bonereaper +21h, 04b6d7e9 +29h after guh123's exit)
 recorded but not counted. BRIEF §8, golden-era dossier, _META all
 amended.
+
+## 2026-07-17T16:26Z — session 10, unit 7: fee-curve uniformity (small)
+
+Closed the precision gap in A52: all the exact coefficient
+measurements were on btc-5m flow, but the lab's scope is btc-15m.
+Added a --prefix filter to fee-curve-probe.ts and probed btc-15m
+(Jul-15) and eth-5m (Jun-12): both k = 0.0700 exact. The current
+0.07·p(1−p) taker curve is uniform across symbols and timeframes —
+one constant serves all books, era-matching (A52) is the only
+dimension that matters.

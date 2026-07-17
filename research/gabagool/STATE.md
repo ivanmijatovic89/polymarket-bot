@@ -145,7 +145,11 @@ PROFILE-LESS actives (rotations into such wallets invisible).
 Day-scale suggestives (bonereaper +21h / 04b6d7e9 +29h after
 guh123 exit) recorded, not counted.
 
-Queue after unit 6: (1) W3 evening snapshot ~20–21Z (club
+Unit 7 (16:26Z, small): fee-curve uniformity — current 0.070 curve
+identical on btc-15m (lab scope) and eth-5m (both 0.0700 exact;
+fee-curve-history.md addendum; fee-curve-probe.ts gained --prefix).
+
+Queue after unit 7: (1) W3 evening snapshot ~20–21Z (club
 re-formation test — A49's evening-positive live check; morning
 snapshot tomorrow settles OQ #5 residue; if any tracked active has
 gone dark, rerun lineage-sweep.ts around its exit). (2) Queue

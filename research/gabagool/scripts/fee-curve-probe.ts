@@ -34,6 +34,7 @@ const argOf = (n: string) => {
   return i >= 0 ? args[i + 1] : undefined
 }
 const file = argOf('file')!
+const prefix = argOf('prefix') // optional slug-family filter, e.g. btc-updown-15m-
 const fromSec = argOf('from') ? Date.parse(argOf('from')!) / 1000 : 0
 const toSec = argOf('to') ? Date.parse(argOf('to')!) / 1000 : Infinity
 const sampleN = Number(argOf('sample') ?? 80)
@@ -58,6 +59,7 @@ for await (const line of rl) {
   const r = JSON.parse(line)
   if (r.type !== 'TRADE') continue
   if (r.timestamp < fromSec || r.timestamp > toSec) continue
+  if (prefix && !r.slug?.startsWith(prefix)) continue
   txSet.add(r.transactionHash)
 }
 const allTxs = [...txSet]

@@ -87,3 +87,12 @@ All windows are btc-updown-5m flow. "[exact]" = p10 = median = p90 to
   denominator) is price-dependent with ceiling ~0.036 and median
   ~0.025-0.027 — matches the known 0.25·p·(p(1−p))² form; no new
   measurement of the old shape was attempted.
+
+## Addendum (unit 7): the current curve is uniform across books
+
+The table above is all btc-5m flow. Same probe with `--prefix`:
+**btc-updown-15m** (Jul-15, 60 txs — the lab's exact scope) and
+**eth-updown-5m** (Jun-12 via the 0xce25 file, 50 txs) both give
+k = 0.0700 exact. The 0.07·p(1−p) curve is symbol- and
+timeframe-uniform in the current era; no book-specific fee constant
+is needed.
