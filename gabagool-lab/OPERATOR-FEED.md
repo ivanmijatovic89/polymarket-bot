@@ -99,3 +99,15 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: one junk run row (679, labeled failed, ignore); the 10 real runs are draining, first results in ~1 hour.
 - Next: judge E003 when drained (does parity tolerance matter, and does April agree with May).
 - Health: on track
+
+## 2026-07-17T05:34Z — units 16+17 (BACKFILLED by session 4 — session 3 skipped these entries; times are real commit times)
+- Did: while E003 drained: started LESSONS.md, built the tool that renders E003's verdict table mechanically, re-smoked E004's completion code (green), drafted the E005 proposal, and wrote down how E003's curve will be read BEFORE seeing results.
+- Found: the tightest E003 arm reproduces E002's baseline week-by-week to 4 decimals from an independently written strategy file — the comparison is apples-to-apples by construction.
+- Next: judge E003 when the queue drains.
+- Health: on track (this backfill itself: session 3 missed 4 feed entries — repaired, rule re-pinned in STATE)
+
+## 2026-07-17T05:55Z — unit 18
+- Did: session-4 pickup: re-armed the drain watcher, re-checked the new data feeds (still not landed), folded the KB's new capital + market-size measurements, repaired the missing feed entries above.
+- Found: the venue's BTC-15m book has shrunk ~9x since January ($3.2M→$0.35M/day); the strongest live wallet runs its whole 15m operation on $4–8k of capital. Context for sizing/capacity — no strategy change.
+- Next: E003 judgment when the queue drains (~30–60 min); then E004 freeze.
+- Health: on track

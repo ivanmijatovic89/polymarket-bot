@@ -380,3 +380,34 @@ Source: KB PRIORS.md A26, A32, A33 + measurements/cold-start-economics.md
    regimes rather than tune one — supports the charter's per-period
    stability requirement (a variant that only pays in one regime is a
    regime bet, not an edge).
+
+### A-5 (2026-07-17T05:52Z) — W2/W7 measurement fold: capital anchor + terrain decline (context, no new axes)
+
+Source: KB wallets/b27bc932.md §per-market capital curve (W2),
+measurements/terrain-books.md (W7). KB assumption register still tops
+at A33 — these are measurement docs, folded as context.
+
+1. **W7 — btc-15m is the margin book inside a ~9× flow decline.**
+   Sampled day totals: $3.18M/day (2026-01-15 peak) → $347k/day
+   (2026-07-15); class share of book flow rising 23%→37%. Lab
+   consequences: (a) the final dossier's capacity notes must be
+   terrain-cited — a v1 bot at $20–50k/day turnover is 6–14% of
+   TODAY'S book; (b) month-over-month EL trends in E-series verdicts
+   must be read against venue-wide flow decline before claiming
+   strategy decay (regime attribution, charter eval-req #1); (c)
+   "expand to alt-15m" is not a capacity escape (eth-15m ~$96k/day
+   sampled; sol/xrp 15m dead since Feb); btc-5m is the only real
+   expansion terrain and is fee-inclusive NEGATIVE for every audited
+   wallet — out of scope unless the operator widens it.
+2. **W2 — capital-efficiency anchor from the strongest live wallet.**
+   b27bc932, June (pre-merge-module): btc-15m BUY outlay per market
+   p50 $896 / p90 $1.67k; the ENTIRE btc-15m sleeve runs on ~$4–8k
+   working capital (one active window + ~4 windows awaiting
+   redemption); outlay tilts late in the window (deciles 7–9 heavy,
+   final decile cut). Lab consequences: (a) capital-efficiency
+   comparisons in champion scoring get a live anchor (~$0.9k/market
+   p50 at the strongest wallet — quote EL per peak-$ against it);
+   (b) my sizing prior ($150–500/market) sits comfortably inside
+   observed practice — capital is not the entry barrier (W2's own
+   conclusion); (c) late-window outlay tilt is one more independent
+   signal for the E006 timing axis (A17/A24 already point there).

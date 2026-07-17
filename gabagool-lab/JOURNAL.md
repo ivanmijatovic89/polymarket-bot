@@ -522,3 +522,40 @@ Interpretation rules I commit to BEFORE seeing the other arms:
    (b) different completion pressure. Taker share and fill counts per
    arm are the tell: if EL improves WITH taker share flat and fills
    down, it is (a); if taker share moves, it is (b). Quote both.
+
+## 2026-07-17T05:57Z — session 4, unit 18: pickup ritual + KB fold A-5 + a drift repair
+
+Session 4 starts at 05:39Z real. Pickup findings, in order of weight:
+
+1. **E003 is draining well** — 7,736/29,304 market jobs done at
+   05:41Z (~26%), 12 active, 0 failed, my worker daemon alive.
+   Watch-drain re-armed under THIS session (task bfj2qc9aq, 3h cap).
+   Real launch time was 05:29Z (commit c5bc72c at 05:29Z), so drain
+   pace is far better than s3's estimate — ETA ~06:15–06:45Z.
+2. **Two charter drifts by session 3, both repaired here:**
+   (a) OPERATOR-FEED entries for units 16/16b/17/17b were never
+   written — the per-unit-feed rule was violated 4 times in a row.
+   Backfilled (marked as such) and the rule re-pinned in STATE's
+   pickup ritual. (b) Journal stamps drifted AGAIN (+35–60 min in s3
+   — u15 says 06:05Z, the commit is 05:29Z). Every session so far
+   has drifted when estimating; new pickup rule: stamp from `date -u`
+   output only.
+3. **Feeds not landed** (re-checked origin/main at 05:45Z): only
+   `binanceWsSpotPrice` has a backtest source
+   (src/backtest/feeds/wireBacktestExternalFeeds.ts — correct path;
+   STATE previously cited a wrong one). H4's strike proxy stays
+   window-open spot.
+4. **KB delta since last fold (A-5 written):** register still tops at
+   A33, but two W-stream measurement docs matter: W7 terrain — btc-15m
+   book flow is DOWN ~9× from its Jan peak ($3.18M→$347k sampled
+   day), class share rising 23%→37%; and W2 capital — the strongest
+   wallet's whole btc-15m sleeve runs on ~$4–8k working capital,
+   $896/market p50. Folded as capacity/attribution context (dossier
+   capacity notes must cite terrain; monthly EL decay must be
+   attributed against venue flow decline; sizing prior confirmed
+   comfortable). No new axes, no strategy change.
+
+Drain-window plan while E003 finishes: none needed if ETA holds —
+next unit IS the judgment. If the watcher fires late, the E004 freeze
+text (default-seeding slot pending E003) is the only prep left worth
+doing before results exist.

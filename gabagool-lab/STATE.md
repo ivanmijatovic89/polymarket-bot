@@ -5,17 +5,21 @@
 > Pickup ritual additions: (1) verify `gabagool-lab/DONE` does NOT
 > exist (stray external one appeared 2026-07-17T05:17Z, purged u14a;
 > hook blocks re-adds unless GLAB_L3_DONE=yes); (2) never bare
-> `git add -A` — stage explicitly.
+> `git add -A` — stage explicitly; (3) OPERATOR-FEED entry EVERY unit,
+> same commit (s3 skipped 4 — backfilled u18; don't repeat); (4) stamp
+> journal entries from `date -u` output only, never estimates (every
+> session so far has drifted ahead when estimating).
 
 ## Status digest
 
-- **Session:** 3 (started 2026-07-17T04:47Z; s1 ~03:09–04:13Z, s2
-  ~04:14–04:47Z. Journal stamps in s1/s2 drifted up to +2h — trust
-  `date -u` only; s3 stamps are real)
-- **Ladder rung:** L1 COMPLETE (E002 judged, unit 14) → L2 opens with
-  E003 launch
-- **Phase:** E002 judged AXIS-CLOSED; EVALUATION v1.1 frozen (TAIL_K
-  41, G11 cap-floor 0.92/$100, D-007); next = freeze+launch E003
+- **Session:** 4 (started 2026-07-17T05:39Z. Stamp drift history:
+  s1/s2 up to +2h, s3 +35–60 min — e.g. E003 launch was 05:29Z real,
+  journal said 06:05Z. Trust `date -u` and git commit times only)
+- **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) launched and
+  draining; judgment is the next substantive unit
+- **Phase:** E003 draining (~26% at 05:41Z, ETA ~06:15–06:45Z real);
+  watch-drain re-armed this session (task bfj2qc9aq, 3h timeout).
+  EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -35,8 +39,11 @@
   Central mechanism: requote churn × latency = involuntary taker;
   quote-stability is a design axis. LEADERBOARD has the row + first
   dead region.**
-- KB folds: A-1..A-4 in INHERITANCE (A30/A33 deep-pair = best-evidenced
-  region; A32 maker-only cells tier-immune; A26 no-blow-up prior).
+- KB folds: A-1..A-5 in INHERITANCE (A30/A33 deep-pair = best-evidenced
+  region; A32 maker-only cells tier-immune; A26 no-blow-up prior;
+  A-5 = W2 capital anchor $0.9k/mkt p50 + W7 terrain: btc-15m flow
+  down ~9× from Jan peak — cite in capacity notes and monthly-trend
+  attribution). KB register still tops at A33 (checked s4 05:45Z).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB. Export: results.ts --run N --export
   <path.csv>; battery: --battery id@lat,id@lat,...
@@ -50,14 +57,15 @@
 
 ## Queue (work top to bottom)
 
-1. **E003 judgment when drained (ETA ~07:05Z; watch-drain armed,
-   task b4j518rhr, 3h timeout):** 10 flows live (uids in LEDGER §E003
+1. **E003 judgment when drained (watch-drain task bfj2qc9aq, s4,
+   armed 05:47Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
    Runs; run 679 = failed tombstone from the double-submit incident,
    IGNORE). Per-arm readouts (`results.ts --run <id> --gates s1`),
-   advance rule AS WRITTEN in LEDGER §E003 (direction agreement +
-   top-2 set match across halves), judge, lesson, LEADERBOARD update.
-   Axis gates only (G2/G3/G9). h1 = Apr (2,880 mkts), h2 = May
-   (2,976); EL is comparable per-market across halves.
+   axis-table.ts render, advance rule AS WRITTEN in LEDGER §E003
+   (direction agreement + top-2 set match across halves) + u17b
+   pre-registered interpretation rules (JOURNAL), judge, lesson,
+   LEADERBOARD update. Axis gates only (G2/G3/G9). h1 = Apr (2,880
+   mkts), h2 = May (2,976); EL is comparable per-market across halves.
 2. **L2 campaign continues:** E004 completion policy (H6; re-smoke
    first — completionTtl code is unsmoked), E005 ladder + deep-pair
    cell (pairCostCap {0.96,0.97,0.98} — best-evidenced region, A30/
@@ -67,10 +75,12 @@
 ## Open questions / risks
 
 - Feeds: binanceWsSpotPrice replayable NOW; price-to-beat + Chainlink
-  NOT landed (checked origin/main 04:50Z s3 — "no backtest source yet"
-  in wireBacktestExternalFeeds.ts; H4 strike proxy = window-open spot).
-- KB folded through A33; KB session 7 active in parallel (variant
-  atlas done, W3 snapshots). Re-read KB STATE every session.
+  NOT landed (re-checked origin/main 05:45Z s4 — only binance sub-feed
+  available per src/backtest/feeds/wireBacktestExternalFeeds.ts, note
+  the path; H4 strike proxy = window-open spot).
+- KB folded through A33 + W2/W7 measurements (A-5); KB is in PHASE 2
+  (open-ended, operator reopened; its new #1 = 0x04b6d7e9 deep-dive).
+  Re-read KB STATE every session.
 - Telonex coverage ends 2026-06-14; July meta not replayable until
   operator resumes sync.
 - Remote fleet tracks origin/main — not mine; local worker only.
