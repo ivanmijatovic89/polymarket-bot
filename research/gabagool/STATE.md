@@ -47,27 +47,34 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked — mirrors OPEN-QUESTIONS.md)
 
-1. D2 passive-fill reality gap (needs Telonex DB/parquet access; check
-   `.env` DB creds read-only; markets from his Feb tail overlap Telonex
-   coverage).
-2. Income decomposition for powerwinner / 0xaaaaa / badfallen (H3/H5
-   tests; ~30 min each with existing scripts).
-3. January transition sample (Jan 10–14) — decay-speed prior.
-4. Jan fee-rate archaeology (contested 2×) + mid-Feb change hunt.
-5. Remaining dossiers (bonereaper esp.), then wallets/_META synthesis v2.
-6. Literature workstream A (untouched): Avellaneda–Stoikov etc., each
-   note ending "implications for BTC-15m implementation".
-7. Continuous: fold every result into BRIEF/HYPOTHESES/METRICS; when
-   material changes stop → SATURATION.md → LAB-HANDOFF.md → DONE.
+1. Decompose remaining actives: 0xaaaaa, badfallen, doggystyie,
+   bonereaper, 0xce25 (H3 verdict needs majority; scripts ready —
+   pull-activity.ts + the inline python pattern used for
+   b55f/powerwinner). Then _META synthesis v2 with the
+   trading-vs-subsidy table.
+2. January transition sample (Jan 10–14, gabagool) — decay-speed prior.
+3. Per-market leg-balance check for powerwinner (is his btc-5m churn
+   pair-shaped or directional?) — one python pass on existing data.
+4. Jan fee-rate archaeology (contested 2×) + any mid-Feb change (his
+   exit trigger) — archive.org developer-docs pages.
+5. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
+   (charter list; D5 partially covered by fable data — check before
+   duplicating).
+6. Literature A2 (queue-position value, rebate-driven MM literature,
+   prediction-market MM empirics).
+7. Continuous: fold into BRIEF/HYPOTHESES/METRICS; when material changes
+   stop → SATURATION.md → LAB-HANDOFF.md → DONE.
 
 ## Workstream status
 
-- A Literature: NOT STARTED.
-- B Venue mechanics: fee+rebate history solid; open: Jan rate, tick/min/
-  rate limits, resolution mechanics (Game J).
-- C Wallet forensics: archetype DONE (two eras), incumbent DONE (2-day
-  decomposition); 7 wallets remain (addresses resolved in _META).
-- D Own-data measurements: D2 next (the big one); D1 re-scoped by mirror
-  fact (P38): time-separated pair-cost, not instant dutch books; D3–D5
-  untouched.
-- E Synthesis: all files seeded and current as of this digest.
+- A Literature: A1 done (A-S, G-M, queue models → implications).
+- B Venue mechanics: fee+rebate history solid incl. taker-rebate tiers
+  (2026-05-28) + YIELD program existence; open: Jan rate, tick/min/rate
+  limits, resolution mechanics (Game J).
+- C Wallet forensics: archetype DONE (two eras + D2), incumbent DONE,
+  powerwinner DONE (taker-rebate farmer); 6 wallets remain.
+- D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
+  touch 64–68%; ~30-45% of archetype fills were taker completions**
+  (measurements/d2-fill-reality-gap.md). D1 re-scoped (P38). D3–D5 open.
+- E Synthesis: BRIEF/HYPOTHESES current incl. D2+powerwinner (H3
+  "subsidy dominance" now leading).

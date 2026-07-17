@@ -19,10 +19,12 @@ edge is dead by regime change, do not test it.
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.
 - **Kill**: sim (worst_queue) pair cost consistently ≥ 1.005 even with
-  parity control AND D2 shows worst_queue admits <20% of real archetype
-  fills (i.e., sim can't see the strategy) → hand to live-paper, not more
-  sims. Structural kill if rebate-pool arithmetic (20% × fee curve ×
-  plausible pool share) can't cover a measured 0.5c/pair deficit.
+  parity control → NOT fatal alone (D2 measured: worst_queue admits
+  44–49% of real fills — the adverse half — so sim-negative is expected;
+  sim-POSITIVE would be extraordinary evidence). Structural kill only if
+  rebate-pool arithmetic (20% × fee curve × plausible pool share) can't
+  cover a measured 0.5c/pair deficit; otherwise disposition = live-paper
+  or trades-channel queue model (fable EDGE-SPACE §3.2/3.3).
 - **SRP family**: spread-capture roadmap #6 (bid-side mirror) IS this
   baseline — propose as new family `pair-accumulator` with parity as the
   decision driver (spread-capture's driver was symmetric premium
@@ -55,13 +57,15 @@ edge is dead by regime change, do not test it.
   (plausible: competition) the game is "maximize fee-weighted maker
   volume + reach high taker tier with minimal EV bleed" — a subsidy
   yield, decaying with pool dilution and program changes.
-- **Test WITHOUT code**: decompose 3-4 more active wallets (powerwinner,
-  0xaaaaa, badfallen — smaller, younger); if smaller/younger wallets show
-  trading ≈ 0 with rebates dominating, the marginal entrant earns subsidy
-  only → the lab should NOT chase pair-cost alpha, and LAB-HANDOFF
-  should frame the family around rebate-efficiency.
-- **Kill (of the hypothesis)**: young actives show trading-dominant
-  income like b55f → real alpha persists for entrants.
+- **Test WITHOUT code**: decompose the active wallets. FIRST RESULT
+  (powerwinner, the hottest 30d wallet): trading −$13.90/market, taker
+  rebates +$6.1k/day — pure subsidy farmer; STRONG support. b55f still
+  shows real trading edge (~40% of income). Remaining: 0xaaaaa,
+  badfallen, doggystyie, bonereaper, 0xce25.
+- **Kill (of the hypothesis)**: majority of remaining actives show
+  trading-dominant income like b55f → real alpha persists for entrants.
+- **Status: leading.** The ecosystem's headline P&L is subsidy-inflated;
+  every wallet claim needs decomposition (PRIORS A10).
 - **SRP family**: none directly (rebates unmodelable in sim, G4); this
   hypothesis gates how much sim work is worth doing at all.
 

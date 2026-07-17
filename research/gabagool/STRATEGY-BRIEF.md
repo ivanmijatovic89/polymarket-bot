@@ -69,8 +69,15 @@ Candidates for the lab:
 
 ## 4. Quoting policy options
 
-- Band width & ladder: archetype ~[0.11, 0.85] effective; unknown level
-  offsets vs top-of-book (needs D2's fills×books join).
+- **Measured ladder (D2, 43k fills)**: ~20% of fills at the touch, ~35%
+  from a 1–4c-deep ladder below best bid (offset p10–p25 = bid−4c to
+  bid−2c), ~9% inside the spread (Dec), and — the surprise — **29–45%
+  taker completions at/above the ask**. The archetype was maker-BIASED,
+  not maker-pure: passive ladders accumulate, and the lagging leg gets
+  taker-completed when parity demands it (free in the zero-fee era;
+  post-2026-05-28 the taker leg earns tier rebates, changing this
+  arithmetic again).
+- Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
   SRP spread-capture measured never-reprice as the WORST static-ask
@@ -127,10 +134,13 @@ not on unwind logic.
 
 ## 9. Open questions gating the build (→ OPEN-QUESTIONS.md)
 
-- D2: what fraction of archetype fills does worst_queue admit? (sim
-  credibility number)
-- Current actives' income decomposition trading-vs-rebates (pull in
-  flight for 0xb55f).
+- ~~D2~~ **ANSWERED**: worst_queue admits 44–49% of real fills, touch
+  64–68% (measurements/d2-fill-reality-gap.md). Sim = lower bound seeing
+  the adverse half; screens retain signal, validation needs live-paper
+  or a trades-channel queue model.
+- ~~Income decomposition~~ **PARTIALLY ANSWERED**: b55f = 40% trading /
+  60% subsidies; powerwinner = 100%+ subsidies (trading negative). The
+  meta is subsidy-stratified; remaining actives still to decompose.
 - Level offsets vs top-of-book at fill time (D2 byproduct).
 - January transition speed (fee introduction → margin collapse curve).
 - Whether rebate accrual can be estimated per-fill precisely enough to
