@@ -153,7 +153,11 @@ samples have zero stubs, so this initially looked January-specific.
 **A58 correction (session 11): NOT January-specific** — all 24
 Jun-13 00–06Z btc-15m conversions are ~16KB stubs (a full overnight
 session missing at the recording layer), while the same day's
-20–24Z files are normal ~2MB. Stub screening by file size (<100KB
+20–24Z files are normal ~2MB. Unit 8 extends: Jun-14 00–06Z is ALSO
+48/48 stubs while Jun-13 US/evening and Jun-14 daytime are healthy —
+the outage pattern is a weekend-overnight ops window, so WEEKEND
+OVERNIGHT cells are systematically unmeasurable in June. Stub
+screening by file size (<100KB
 suspect) or event count is required on ANY day/session before
 joining or backtesting; a cell whose post-fill drift computes as
 exactly 0.0000 is the tell. Any backtest or measurement

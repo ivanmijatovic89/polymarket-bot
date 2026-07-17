@@ -106,3 +106,29 @@ Minor dossier timeline precision; no interpretation change.
 - `npx tsx research/gabagool/scripts/pull-activity.ts --address 0xb27bc932… --label b27bc932-mar16 --start 1773619200 --end 1773705600`
 - `npx tsx research/gabagool/scripts/pull-telonex-r2.ts --symbol btc --timeframe 15m --from 2026-06-12T00:00:00Z --to 2026-06-12T06:00:00Z --limit 24 --out research/gabagool/data/telonex-r2-jun12sess` (and evening / Jun-13 variants)
 - `npx tsx research/gabagool/scripts/edge-source.ts --activity data/activity-b27bc932-jun10.jsonl --dir data/telonex-r2-w4/2026-06-10 --from 2026-06-10T00:00:00Z --to 2026-06-10T06:00:00Z` (× each session window; paths relative to research/gabagool/)
+
+## §6 Weekend cells addendum (session 11, unit 8)
+
+After A59's dow revision, the weekend book-level cells that CAN be
+measured (b27bc932 fills × fresh book pulls):
+
+| weekend cell | deeper drift @10s/@60s | verdict |
+|---|---|---|
+| Jun-13 (Sat) US 12–20Z (32 books, 6.6k fills) | +0.13c / +0.43c | mildly favorable — NO weekday-US toxicity |
+| Jun-13 (Sat) evening 20–24Z (§2) | −0.48c / −1.38c | adverse — no weekday-evening premium |
+| Jun-13/14 overnights | — | UNMEASURABLE: all 48 conversions are ~16KB stubs |
+
+The weekday drift structure (US-adverse / evening-favorable) is
+ABSENT on the measured weekend day — the two cells point the
+opposite way from their weekday counterparts, and with A59's n=10
+economics (weekends flat everywhere) the right read is: weekend
+drift is day-noise around flat, not a structure. Ladder offsets
+remain identical (p10 −2c / p50 0 / p90 +3c) — session-invariance
+of the policy holds on weekends too.
+
+Data note (G10 refinement): the stub outage covers BOTH weekend
+overnights (Jun-13 00–06Z and Jun-14 00–06Z, 48/48 stubs) while
+Jun-13 US/evening and Jun-14 daytime pulls are healthy — the
+recording gap looks like a weekend-overnight ops window, not random
+dropout. Books: data/telonex-r2-jun13us/, telonex-r2-jun14on/
+(stubs, kept as evidence); log data/edge-source-us-jun13.log.

@@ -1491,3 +1491,18 @@ G11 (no 5m book data anywhere) that closes the dossier's last
 residue as unmeasurable rather than unmeasured — its ladder is
 inferable only from fill prints until someone records 5m books.
 The dossier now carries the first-join-to-run note for the ops side.
+
+## 2026-07-17T17:45Z — session 11, unit 8: weekend book-level cells — no structure there either
+
+Completed the drift picture for the weekend where books allow. The
+Saturday US session (Jun-13, 32 books, 6.6k fills) shows deep fills
+mildly FAVORABLE (+0.43c @60s) — exactly where weekdays are
+adverse; Saturday evening was already measured adverse. So at book
+level, as in the economics (A59 revision), the weekday session
+structure simply does not exist on weekends: single weekend cells
+scatter around flat. Ladder invariance holds on weekends too. Also
+mapped the recording gap properly: BOTH weekend overnights (Jun-13
+and Jun-14, 48/48 files) are stubs while daytime files are healthy —
+a weekend-overnight ops window in the recording layer, folded into
+G10. Weekend overnight cells are systematically unmeasurable for
+June; anyone scaling W4 must screen for this.
