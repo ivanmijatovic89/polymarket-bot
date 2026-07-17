@@ -562,3 +562,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the cleanest rule of the whole shift — orders 3-5 cents below the market are poison in US afternoons for EVERY bot (even the US winner, who succeeds by staying shallow) and gold on weekday evenings. Our bot's ladder should be shallow always, deep only on weekday evenings.
 - Next: 20-21 UTC evening snapshot; then re-mine open questions.
 - Health: on track
+
+## 2026-07-17T18:10Z — unit 18 (session 11)
+- Did: wrote the week's findings into the build spec and rebuilt the open-questions list (the old one was fully answered).
+- Found: nothing new — bookkeeping. Top open items now: is the weekend decay real (tomorrow's data decides), and does the new depth rule hold across more days.
+- Next: 20-21 UTC evening snapshot; successor picks up the new question list.
+- Health: on track

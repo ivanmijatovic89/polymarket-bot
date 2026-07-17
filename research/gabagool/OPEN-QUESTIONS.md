@@ -1,10 +1,34 @@
 # OPEN-QUESTIONS (living)
 
-Ranked by information value per unit effort. Refreshed session 8
-(2026-07-17 ~14:25Z real clock) after A34–A43. Resolved items at the
-bottom.
+Ranked by information value per unit effort. Refreshed session 11
+(2026-07-17 ~18:10Z) after A58–A64. Resolved items at the bottom.
 
-## Current ranking (session 8)
+## Current ranking (session 11)
+
+1. **July weekend lean-collapse: drift or noise?** (A59) Weekend
+   excessWon fell 55–78% (June) → 27–37% (July, 4 days). If real,
+   the residual-lean is decaying beyond weekdays too. Decidable
+   with the NEXT weekend's data (Jul-18/19): pull b27bc932 +
+   session-split-vol --dow weekend.
+2. **A64 durability across days/months.** The −3..−5c band rule
+   rests on Jun-10/12/13 cells (books end Jun-14, G9). Same-method
+   joins on Jun-10–14's remaining days (Jun-11 books pullable) and
+   on OTHER wallets' evening cells would harden the sharpest rule
+   the shift has produced. Also: does the band structure exist in
+   March-era books (different fee curve)?
+3. **O5/OQ #5 residue — b27bc932 morning allocation** (15m-first
+   vs 5m-first): ONE next-day morning snapshot (~08–10Z) settles
+   it; W3 answers passively tomorrow.
+4. **A62 cohort tracking**: e114e5ca week-2 (does the ramp
+   continue past tuition?), 13e0d447/76d4d470 rotation watch
+   (profile-less wallets can rotate invisibly, A55) — fold into
+   W3 cadence.
+5. **btc-5m book recording** (ops-side, G11): every strong living
+   wallet is 5m-centric and unstudyable at book level; the $59k/day
+   subsidy pool (A60) is on that book. Not this shift's job — but
+   the single highest-value data acquisition for the program.
+
+## Prior ranking (session 8) — all resolved or absorbed
 
 1. ~~What predicts the favorable-drift fills?~~ **DONE session 8
    (A44)** — measurements/drift-features-btc15m.md: momentum context

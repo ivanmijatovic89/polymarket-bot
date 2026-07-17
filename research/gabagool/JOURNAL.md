@@ -1632,3 +1632,16 @@ the sharpest rule this shift has produced: shallow rungs always,
 mid-deep rungs weekday evenings only, and nothing built on ≤−6c
 (pure noise at available n). PRIORS, H1 and the measurement note
 all updated; the contested entry carries its resolution pointer.
+
+## 2026-07-17T18:10Z — session 11, unit 18: BRIEF fold + OPEN-QUESTIONS re-rank
+
+Folded the A63/A64 resolution into the BRIEF's session block (the
+build spec now carries the band rule verbatim) and refreshed
+OPEN-QUESTIONS: the session-8 ranking was fully resolved/absorbed,
+so the new top five are (1) the July weekend lean-collapse
+(decidable with tomorrow's weekend data), (2) A64 durability across
+days and the March fee era, (3) the OQ #5 morning-allocation
+residue (one morning snapshot), (4) cohort tracking for the three
+cold-starts, (5) the ops-side btc-5m recording gap — flagged as the
+program's single highest-value data acquisition, though outside
+this shift's writ.
