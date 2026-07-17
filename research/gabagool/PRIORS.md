@@ -553,3 +553,13 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   completion half taker-executed. Lesson ledgered: last-500 /activity
   scans can span <1h — never infer book mix from them. [verified]
   (wallets/b27bc932.md)
+- **A25 (data-api /trades is TAKER-ONLY):** probe on
+  btc-updown-15m-1784258100, tx 0xacc56fb8…: the on-chain receipt has
+  3 maker OrderFilled rows + 1 taker aggregate row; /trades returned
+  ONLY the taker row. Market-wide /trades therefore cannot discover
+  pure-maker wallets (the archetype variant is invisible in it);
+  wallet discovery must run on-chain (OrderFilled on the 3 exchange
+  contracts). /activity?user= DOES include maker fills, so Phase-1
+  dossiers are unaffected. Also corroborates P-fact that /trades
+  single-counts fills (one row per taker order). [verified]
+  (measurements/variant-scan-method.md)

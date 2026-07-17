@@ -536,3 +536,18 @@ tape-based wallet discovery must therefore run on-chain (OrderFilled
 logs on the 3 exchange contracts), which is exactly what the script
 does. Committing the tooling as-is, then starting the era scans
 (one day per month, 2025-11-15 → 2026-07-15, 12 windows each).
+
+## 2026-07-17T04:35Z — W3 live shadow, snapshot 1 (while the era scan runs)
+
+Built scripts/live-shadow.ts and took the first 2h snapshot of the 9
+tracked wallets (measurements/live-shadow.md). Three findings worth
+the operator's attention: (1) CONTRADICTION with A24 — b27bc932 did 89
+MERGEs in 2h; the entire June pull had zero. Its exit style changed
+between Jun-14 and now (redeem-only → merge-mix). (2) The failed
+challenger 95f5 still trades but at ~$11k/day pace (was $1.48M/day) —
+dead, not reformed. (3) Live clip-size split: sub-$1 pair-cost club
+(b55f 0.988 / 0xce25 0.991 / b27bc932 0.995, clips $2-4) vs big-clip
+btc-5m farmers with pair cost ABOVE $1 (powerwinner 1.03 @ $83 clips,
+0xaaaaa 1.12 @ $72) — the two-population structure Phase 1 inferred is
+directly visible in one live window. Era scan running in parallel
+(Nov day in progress).

@@ -88,3 +88,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the public trade feed only shows the aggressive side of each trade — passive market makers are invisible there, so the scanner reads the blockchain directly instead.
 - Next: run the scanner across 9 sample days (one per month, Nov 2025 to Jul 2026) to find every wallet that ever ran this strategy family.
 - Health: on track.
+
+## 2026-07-17T04:35Z — unit: first live snapshot of the current players
+
+- Did: built a live-shadow tool and took a 2-hour snapshot of all 9 known wallets while the big historical scan runs in the background.
+- Found: all 9 are active right now; the top subsidy wallet changed behavior since June (it now recycles capital instead of holding to the end); the big loser is down to pocket change.
+- Next: keep snapshotting every ~2h; meanwhile the historical scan continues (1 of 9 days in).
+- Health: on track.
