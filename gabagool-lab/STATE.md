@@ -21,18 +21,23 @@
 
 ## Queue (work top to bottom)
 
-1. **E002-baseline (L1) — IN FLIGHT.** Four arms submitted detached
-   (lat 0/140/500/1000, batchUids `glab--E002-baseline--full--lat<ms>`,
-   uids in LEDGER). Local worker running from this worktree
-   (4 children). KNOWN: each arm truncated to first 1,000 window
-   markets (producer LIMIT default; submit.ts since fixed). NEXT STEPS:
-   (a) when arms persist, `submit.ts --extend <runId> --lat <ms>
-   --limit 6000 --detach` each to full search window; (b) results.ts
-   --gates s2 + --battery readout; (c) judge E002 in LEDGER;
-   (d) calibrate TAIL_K + capital floor → EVALUATION v1.1 (D-entry).
-   If resuming: check `runs.ts --mine`; worker may need restart
-   (`./scripts/run-worker.sh --queues markets,aggregate
-   --market-concurrency 4` FROM THIS WORKTREE).
+1. **E002-baseline (L1) — IN FLIGHT, full-window arms.** Four fresh
+   arms at 5,856 markets each (batchUids
+   `glab--E002-baseline--fullwin--lat{0,140,500,1000}`, uids in LEDGER;
+   SHA d5574428; ≈2.8h at concurrency 4, submitted ~07:40Z). The
+   earlier 1,000-market chunk runs (666/670/667/669) are SUPERSEDED
+   (extension impossible — schema round-trip; see LEDGER note) but
+   already yielded the churn×latency conversion finding. NEXT STEPS:
+   (a) when the four `fullwin` runs persist: `results.ts --run <id>
+   --gates s2` per arm + `--battery id@0,id@140,id@500,id@1000`;
+   (b) judge E002 in LEDGER (quote numbers, weekly table, tails,
+   pairing, L-ratios); (c) calibrate TAIL_K + capital-efficiency floor
+   from the lat140 distribution → EVALUATION v1.1 + DECISIONS entry;
+   (d) then freeze + launch E003 parity axis (spec drafted in LEDGER).
+   If resuming: `npx tsx gabagool-lab/tools/runs.ts --mine`; worker
+   restart if needed: `./scripts/run-worker.sh --queues
+   markets,aggregate --market-concurrency 4` FROM THIS WORKTREE
+   (background it; logs → gabagool-lab/logs/).
 2. **L1 readout + threshold freeze** — full evaluation readout of the
    baseline; DECISIONS entry for v1.1 thresholds; LEADERBOARD.md
    started. This number is the reference everything must beat.

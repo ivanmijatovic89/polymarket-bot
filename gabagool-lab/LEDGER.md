@@ -100,10 +100,22 @@ Template:
   - lat1000: `glab--E002-baseline--full--lat1000--f6ee28c3-c7b8-47de-9ed2-7211c086b4d9`
   - NOTE (2026-07-17T06:05Z): producer default LIMIT 1000 truncated each
     arm to the first ~1,000 window markets (≈ Apr 1–11). submit.ts fixed
-    (explicit limit). Plan: let the 1,000-market chunks land (uniform
-    across arms → valid as a first look), then `--extend` each run to
-    the full window with the same pinned latency env. Coverage claim in
-    the judgment will quote the FINAL per-run market counts.
+    (explicit limit).
+  - NOTE (2026-07-17T07:40Z): extension of the four chunk runs is
+    IMPOSSIBLE — E002's rungOffsets schema (string-only transform) does
+    not round-trip the persisted array on --extend re-validation, and
+    the file is frozen (no edits on rationalizations). The four chunk
+    runs (666 lat0 / 670 lat140 / 667 lat500 / 669 lat1000; 1,000
+    markets each, 0 failures) are SUPERSEDED as evidence by fresh
+    full-window arms; they remain valid as the first-chunk preview that
+    surfaced the churn×latency conversion mechanism (JOURNAL 07:05Z).
+    E003's schema fixed to accept both forms (unfrozen at the time).
+  - FULL-WINDOW ARMS (the evidence; 5,856 markets each, submitted
+    detached at SHA d5574428):
+    - lat140: `glab--E002-baseline--fullwin--lat140--b408f76c-6241-4414-a114-9010c788bda3`
+    - lat0: `glab--E002-baseline--fullwin--lat0--4a2330ec-d143-4ea6-b75b-6d1d32468f36`
+    - lat500: `glab--E002-baseline--fullwin--lat500--2e2406ad-6dee-41eb-bc80-9e16aaa7b45e`
+    - lat1000: `glab--E002-baseline--fullwin--lat1000--f711124e-5b20-49b8-8176-4592234efc88`
 - **Judgment:** (pending)
 - **Lesson:** (pending)
 

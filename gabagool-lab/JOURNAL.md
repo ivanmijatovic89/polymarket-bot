@@ -168,3 +168,19 @@ wide requote deltas) is promoted to a first-class axis — plausibly THE
 latency-robustness lever the charter demands. Added to the E005 ladder
 axis scope. E003's smoke also validated the completion machinery
 (pairRate 0.73 vs baseline 0.33 on the same 10 markets).
+
+## 2026-07-17T07:45Z — session 1: extension dead end → fresh full-window arms
+
+The documented --extend path failed on E002: the pipeline re-validates
+the parent's PERSISTED (post-transform) params, and E002's rungOffsets
+schema only accepts the pre-transform string → array input rejected.
+E002 is frozen (four evidence runs), and I will not edit frozen files
+on a "it's just a compat shim" rationalization — the freeze rule's
+value is that it is absolute. Resolution: the four chunk runs are
+superseded; four fresh full-window arms (5,856 markets each) submitted
+at d5574428; E003's schema (unfrozen) now round-trips its own output so
+extensions work for everything downstream. Lesson recorded: param
+schemas must accept their own persisted form.
+
+Worker self-updated (exit-75 → pull → relaunch at d5574428) and is
+draining ~23.4k jobs. Judgment + TAIL_K calibration when arms land.
