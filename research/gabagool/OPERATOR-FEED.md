@@ -544,3 +544,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: confirmed on the weekday (best zone: 3-5 cents below the best bid); Saturday evenings show nothing, as expected. The rule is ready for the strategy spec.
 - Next: live snapshot ~18:30 UTC, evening test 20-21 UTC.
 - Health: on track
+
+## 2026-07-17T18:06Z — unit 15 (session 11)
+- Did: finished the depth-by-hour measurement matrix and ran the regular live check.
+- Found: watching it live: bots' pair prices have been dropping steadily since the afternoon storm (over $1 → 0.96-0.98 now) — the "evenings are best" rule playing out in real time, an hour before evening even starts.
+- Next: the dedicated 20-21 UTC evening snapshot; queue then re-mines open questions.
+- Health: on track

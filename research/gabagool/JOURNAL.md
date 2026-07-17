@@ -1595,3 +1595,16 @@ every bucket, exactly as the A59 weekend read predicts. The
 allocation rule ships in its final form: weekday-evening deep rungs
 at −3..−5c, US shallow-or-off, overnight depth-indifferent,
 weekends flat.
+
+## 2026-07-17T18:06Z — session 11, unit 15: overnight buckets + snapshot 9 (O12)
+
+Completed the depth×session matrix (overnight cells: favorable at
+every depth, no ordering — "depth-indifferent overnight" is now a
+measurement) and took snapshot 9. The live tape is drawing the
+session curve for us: club empty at 15:52 in the storm, re-formed
+0.975–0.989 at 17:08, deepened to 0.961–0.984 at 18:04 — three
+snapshots tracing the A49/A58 evening ramp in real time. Small
+color: b55f swung a chunk of its flow into eth-15m at half its
+usual clip size, and the 24/7 grinder's own pair cost worsened to
+1.024 while the edge wallets print sub-$0.97 — buying through the
+bad hours is exactly what its weekday breakeven looks like live.

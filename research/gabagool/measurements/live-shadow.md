@@ -257,3 +257,32 @@ rows are the HOURLY series (different slug scheme, caught by the
   unpaired). Note: script prints 95f5 twice (duplicate tracker
   entry, cosmetic — dedupe when reading; raw JSON renamed to
   shadow-2026-07-17T1708Z.json).
+
+### 2026-07-17T18:04Z (last 2h; ~56m after snapshot 8)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 3858 | $81126 | 1 | 0.624 | 0.9607 | $4.55 | 0 | 132 | btc-5m $18.7k, eth-15m $11.8k, eth-5m $11.6k |
+| 0xce25 | 3559 | $53292 | 1 | 0.834 | 0.9697 | $8.05 | 0 | 126 | btc-5m $16k, btc-15m $11.1k, eth-5m $9.6k |
+| powerwinner | 1199 | $63467 | 1 | 0.956 | 1.0142 | $39.96 | 0 | 43 | btc-5m $61.2k, eth-5m $2.2k |
+| bonereaper | 13117 | $99512 | 1 | 0.513 | 1.03 | $2.76 | 0 | 160 | btc-5m $52.4k, eth-5m $9.3k, sol-5m $7.2k |
+| 0xaaaaa | 559 | $36836 | 1 | 0.709 | 1.0816 | $69.27 | 0 | 24 | btc-5m $36.8k |
+| doggystyie | 812 | $29248 | 1 | 0.99 | 1.0132 | $33.65 | 0 | 24 | btc-5m $29.2k |
+| badfallen | 1299 | $13520 | 1 | 0.832 | 1.0113 | $9.25 | 0 | 21 | btc-5m $13.5k |
+| b27bc932 | 5887 | $38638 | 1 | 0.94 | 1.0237 | $4 | 175 | 38 | btc-5m $28.2k, btc-15m $9.2k, 1h ET $0.7k |
+| 95f5-challenger | 348 | $2404 | 1 | 0.033 | 1.2232 | $3.7 | 0 | 10 | eth-15m $0.9k, btc-5m $0.9k, btc-15m $0.6k |
+| 13e0d447 | 951 | $18555 | 1 | 0.842 | 0.9706 | $3.52 | 0 | 19 | btc-5m $18.6k |
+| 76d4d470 | 4031 | $27978 | 1 | 0.768 | 0.9836 | $2.5 | 727 | 152 | btc-5m $15k, btc-15m $4.6k, eth-5m $1.6k |
+
+- **O12 (18:04Z): the club DEEPENS into the pre-evening hours** —
+  same four sub-$1 wallets as O11 but all deeper (b55f 0.9607, its
+  deepest recent print; 0xce25 0.9697; 13e0d447 0.9706; 76d4d470
+  0.9836). Three consecutive snapshots trace the clock effect live:
+  15:52 club empty (US storm) → 17:08 re-formed (0.975–0.989) →
+  18:04 deepening (0.961–0.984) — the A49/A58 evening ramp in real
+  time. b55f notably shifted book mix toward eth-15m ($11.8k/2h,
+  unusual for it) at $4.55 clips (half its usual). b27bc932's own
+  pair cost WORSENED (1.0237) while running 5m-first — the grinder
+  keeps buying through hours the edge wallets price at sub-$1.
+  bonereaper churn at 13.1k fills/2h, pairRate 0.51, cost 1.03 —
+  farmer economics at full tilt.

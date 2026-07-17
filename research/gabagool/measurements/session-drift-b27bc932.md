@@ -190,3 +190,9 @@ gradient replicates 2/2 through the **−3..−5c band** (+2.7c and
 +3.1c @60s on the two weekdays); the ≤−6c tail flips by day at tiny
 n — unproven, don't build on it. Final allocation rule: weekday
 evening deep rungs at −3..−5c; US shallow-or-off; weekends flat.
+
+Unit-15 completion: overnight buckets measured on both weekdays —
+favorable-to-flat at every depth with NO consistent ordering
+(Jun-10: −0.96/+2.77/+0.88/+5.2c; Jun-12: +1.81/+0.49/+1.15/0.0c
+@60s) — "overnight depth-indifferent" is now measured, not assumed.
+The depth×session matrix is complete.
