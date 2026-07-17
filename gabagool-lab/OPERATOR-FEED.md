@@ -375,3 +375,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — batch on pace to finish ~15:20-15:25Z; knowledge base has no new entries to fold.
 - Next: when all 8 land, judge E008 against its frozen criteria.
 - Health: on track
+
+## 2026-07-17T14:47Z — unit 63
+- Did: session 21 pickup; validated second E008 run as it landed (2 of 8 done, ~30 min left).
+- Found: run 726 clean (checks green). No reading of results until all 8 are in — that rule is frozen.
+- Next: wait for the remaining 6 runs, then judge E008 against the pre-written criteria.
+- Health: on track

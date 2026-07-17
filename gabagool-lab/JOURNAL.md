@@ -1876,3 +1876,31 @@ No blind-window side work this pickup: the remaining drain is
 tool with no unfolded KB material would be make-work.
 
 Next: wait for landing; judge E008 strictly per the frozen block.
+
+## 2026-07-17T14:47Z — session 21, unit 63: pickup; run 726 (ax6h1-g05) landed and validated (2/8)
+
+Fresh context; session 21 (s20 ended right after u62). Pickup
+ritual (14:45Z, stamps from date -u): DONE absent, hook guard
+intact (both GLAB_L3_DONE lines), tree clean at 0df2d78, worker
+daemons + drain watcher (pid 21525) alive, markets queue 13,681
+waiting / 0 failed (~400-450/min) → landing ETA ~15:18-15:25Z.
+Aggregate queue: 6 waiting-children = the 6 unlanded ax6 flows.
+The s20 waiter bnze0nzk8 died with its session (LS-10, expected);
+replaced with waiter btr6l653b (bash loop, 3-min poll, exits at
+8/8 terminal ax6 rows).
+
+Second flow landed since u62: run 726 = ax6h1-g05. Per the
+on-fire protocol: uid matches the frozen block to the digit
+(…c9682d1b…f301), validators green (settlement recheck OK all
+markets, fee recon |recon−db| 0.38 vs tol 57.60, meta 100%,
+segments cross-check OK), headline `EL -1.4600`. No
+interpretation until 8/8 land — the table, decomp, and criteria
+run as one judgment unit.
+
+KB check: STATE mtime 14:22Z (unchanged since s20's check),
+register still tops at A46 — nothing new to fold. Re-read frozen
+§E008 in full (grid {0,5,9,15} bps, refs 708/703, advance rule =
+endpoint direction + top-2 set, Δrem ≥ −0.3 payload check on any
+winner, played<20% caveat, EL-vs-participation curve either way).
+
+Next: wait for landing; judge E008 strictly per the frozen block.

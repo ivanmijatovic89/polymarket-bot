@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 20 (started 2026-07-17T14:42Z. Stamp rule: paste from
+- **Session:** 21 (started 2026-07-17T14:45Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -116,12 +116,13 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (ETA ~15:20-15:25Z; 7,964/23,424
-   queue-completed at 14:42Z — note run 725 = ax6h2-g00 ALREADY
-   LANDED, uid exact, validators green ×4, headline EL -0.2681, no
-   interpretation yet):** s20 waiter bnze0nzk8 polls terminal ax6
-   rows (needs 8; LS-10 — run ids unknowable pre-landing); drain
-   watcher nohup pid 21525 → logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
+1. **E008 judgment when drained (ETA ~15:18-15:25Z; 13,681 waiting
+   at 14:46Z — LANDED SO FAR: run 725 = ax6h2-g00 EL -0.2681, run
+   726 = ax6h1-g05 EL -1.4600; both uid-exact, validators green,
+   no interpretation yet):** s21 waiter btr6l653b (bash loop) polls
+   terminal ax6 rows (needs 8; LS-10 — run ids unknowable
+   pre-landing); drain watcher nohup pid 21525 →
+   logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
    §E008 block (`tools/uids.ts <id>`) + validators (`results.ts
    --run <id>`, quote ONLY the "<- headline" line). Then table:
    `e005-table.ts --arm g-off=708,703 --arm g00=<h1>,<h2> --arm
