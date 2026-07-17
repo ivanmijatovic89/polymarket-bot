@@ -39,3 +39,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: first mechanism discovery — under latency, frequent requoting turns resting bids into fee-paying taker fills at scale (fills 9× at 500ms, EL −0.64 → −5.04/market). Standing ladders look like the counter; promoted to a first-class experiment axis.
 - Next: extend arms to the full Apr–May window, judge the baseline, freeze tail thresholds.
 - Health: on track
+
+## 2026-07-17T08:00Z — unit 6 checkpoint
+- Did: four full-window baseline arms running (5,856 markets × latencies 0/140/500/1000; ~3h); extension dead-end documented and routed around without touching frozen code.
+- Found: rebate income at test sizing is below the venue's $1/market payout floor (raw $0.25/market) — clearing it needs ~4× the fill mass; noted for candidate sizing.
+- Next: when arms land — full baseline judgment (weekly slices, tails, latency curve) + freeze tail thresholds.
+- Health: on track
