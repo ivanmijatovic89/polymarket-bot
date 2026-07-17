@@ -319,3 +319,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: ~$380k each in about five weeks, then both vanished the week the opportunity closed. One of them switched styles the exact month fees arrived — confirming our fee math with its behavior. Every winner in this family exits abruptly at full speed; none has ever bled out.
 - Next: live snapshot 6 (~15:30 UTC), then STATE/queue refresh for successors.
 - Health: on track.
+
+## 2026-07-17T14:20Z — unit: the original masters + the shrinking prize (session 8)
+
+- Did: profiled the two earliest big wallets, completing the historical map of every major player.
+- Found: the #2 earner ever made $854k in nine weeks back in Nov-Jan; but the best achievable daily rate has shrunk 5x since then ($14k/day then, ~$3k/day now). Realistic target for a new bot today: $1-3k/day, with the exit being "margins shrank" — never a blow-up.
+- Next: live snapshot 6, then queue refresh for successors.
+- Health: on track.

@@ -1002,3 +1002,17 @@ flipped to maker 0.766 the month fees landed — the completion-mode
 arithmetic (A16/A32) proven in one wallet's behavior. Quit-at-peak
 is now n=6; no class winner has ever bled out. Twin-operation
 suspicion (profits within $1.8k) ledgered as reported-only.
+
+## 2026-07-17T14:20Z (real) — session 8, unit 12: the originals and the shrinking ceiling (A43)
+
+Closed the last atlas-residue dossiers: PurpleThunderBicycleMountain
+is the class's #2 all-time (+$854k in 9 weeks, ~$14k/day — ~ties
+gabagool22 in half the time), and 0x52483137 (+$486k in 5 weeks)
+quit on Dec-06 2025, BEFORE fees existed — the first exit was pure
+competition. Lining up all eras gives the session's macro insight:
+the best per-operator daily rate has compressed ~5× in 8 months
+($14k → $10.6k → $6.5k → $2.75k), with each venue shock opening a
+brief rich window before the ceiling ratchets down. Folded into
+BRIEF §8 as failure-mode #−1 (plan for $1–3k/day and a
+margin-compression exit). Quit-at-peak now n=8. Atlas residue #7
+fully done.

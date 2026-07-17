@@ -789,3 +789,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   in the class has ever bled out — all exits are abrupt at full
   speed. [verified except twin link]
   (wallets/jan-winners-961afce6-93c22116.md)
+- **A43 (golden-era originals dossiered; the per-operator daily-rate
+  ceiling compressed ~5× in 8 months; the first exit predates
+  fees):** 0x589222a5 "PurpleThunderBicycleMountain" +$853,686 in ~9
+  weeks (Nov-20→Jan-21, ~$14k/day) — the class's #2 all-time,
+  ~tying gabagool22 in half the time; 0x52483137 +$485,895 in ~5
+  weeks (Nov-01→Dec-06, ~$13.9k/day) and quit BEFORE fees existed —
+  competition alone forced the first documented exit. Era ceiling
+  series (best documented rate): Nov ~$14k/day → Dec–Jan ~$10.6k →
+  Feb–Mar ~$6.5k → living best ~$2.75k (incl. rebates). Each venue
+  shock opened a rich window (A40–A42) but the post-window ceiling
+  ratcheted DOWN every time; realistic new-entrant ceiling today =
+  $1–3k/day, and the durable edge is operational (A39 fill
+  selection, A35/A36 session choice, A28 subsidy), not a structural
+  pool. Quit-at-peak n=8, spanning every era. [verified]
+  (wallets/golden-era-originals.md)
