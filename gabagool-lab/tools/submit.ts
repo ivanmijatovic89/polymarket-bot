@@ -99,8 +99,13 @@ async function runExtend(argv: string[]): Promise<void> {
   const runId = Number(get('--extend'))
   const lat = Number(get('--lat'))
   const limitRaw = get('--limit')
+  const windowRaw = get('--window')
   if (!Number.isFinite(runId) || runId <= 0) fail('--extend <runId> required')
   if (!Number.isFinite(lat) || lat < 0) fail('--lat <ms> required (must match the run label)')
+  // A window is REQUIRED: a bare extend pulls ALL missing eligible
+  // markets from the dataset floor (2025-12-01 — wrong fee eras).
+  if (!windowRaw) fail('--window required on extends (search|holdout|transition|from..to)')
+  const win = resolveWindow(windowRaw)
 
   const header = await loadRunHeader(runId)
   await closeDb()
@@ -111,8 +116,25 @@ async function runExtend(argv: string[]): Promise<void> {
   if (!m) fail(`run ${runId} batchUid has no --lat label: ${batchUid}`)
   if (Number(m[1]) !== lat)
     fail(`latency pin ${lat}ms does not match run label --lat${m[1]} (${batchUid})`)
+  // Holdout guard applies to extends identically (batchUid carries the
+  // suffix between exp and lat: glab--<exp>--<suffix>--lat<ms>).
+  const isHoldoutRun = /--holdout--lat\d+$/.test(batchUid)
+  if (isHoldoutRun) {
+    if (win.fromMs !== WINDOWS.holdoutFromMs || win.toMs !== WINDOWS.holdoutToMs)
+      fail('holdout run extends must use --window holdout exactly')
+  } else if (win.toMs >= WINDOWS.holdoutFromMs) {
+    fail('extend window touches the holdout (>= 2026-06-01); only holdout runs may')
+  }
 
-  const cli = ['src/cli/backtest.ts', '--extend', String(runId)]
+  const cli = [
+    'src/cli/backtest.ts',
+    '--extend',
+    String(runId),
+    '--from-ms',
+    String(win.fromMs),
+    '--to-ms',
+    String(win.toMs),
+  ]
   if (limitRaw !== undefined) cli.push('--limit', String(Number(limitRaw)))
   if (argv.includes('--detach')) cli.push('--detach')
 
