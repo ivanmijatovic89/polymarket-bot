@@ -146,3 +146,30 @@ rows are the HOURLY series (different slug scheme, caught by the
      strategy certified on quiet hours will look different 13–20Z.
   3. **95f5 idle** (zero rows in 2h) — first fully-dark window;
      its crypto dust trickle is intermittent, not continuous.
+
+### 2026-07-17T13:50Z (last 2h; ~78% overlap with snapshot 4 — confirmation snapshot)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 3236 | $69359 | 1 | 0.687 | 0.9894 | $6.7 | 0 | 124 | btc-5m $25.5k, btc-15m $10.6k, eth-5m $9.5k |
+| 0xce25 | 3306 | $43717 | 1 | 0.824 | 0.9903 | $6.74 | 0 | 119 | btc-5m $18.4k, btc-15m $7.6k, eth-5m $7.4k |
+| powerwinner | 565 | $43506 | 1 | 0.93 | 1.021 | $75.94 | 0 | 25 | btc-5m $43.5k |
+| bonereaper | 7366 | $101660 | 1 | 0.41 | 1.0388 | $4.23 | 0 | 101 | btc-5m $62k, eth-5m $9.2k, btc-15m $5.6k |
+| 0xaaaaa | 673 | $46112 | 1 | 0.704 | 1.1126 | $70.59 | 0 | 24 | btc-5m $46.1k |
+| doggystyie | 485 | $18542 | 1 | 0.981 | 1.0049 | $35.57 | 0 | 22 | btc-5m $18.5k |
+| badfallen | 2684 | $43146 | 1 | 0.902 | 1.0211 | $7.44 | 0 | 24 | btc-5m $43.1k |
+| b27bc932 | 7449 | $50477 | 1 | 0.946 | 1.0356 | $4.15 | 179 | 36 | btc-5m $40.6k, btc-15m $8.7k, bitcoin-up-or-down-july-17-2026-9am-et $0.6k |
+| 95f5-challenger | 0 | $0 | - | - | - | - | 0 | 0 | (idle) |
+
+- **O8 (13:50Z):** (1) b27bc932's btc-5m sleeve PERSISTS (~$40k/2h,
+  merge cadence ~180/2h) — this is a real mid-July expansion or a
+  daily US-session sleeve, not a blip; its June btc-15m-only profile
+  (A24/W2) is now era-bound ≤Jun. (2) b55f and 0xce25 are back UNDER
+  $1 (0.989/0.990) in the middle of US hours — O7's "sub-$1 club
+  empty" was a transient volatility stretch, not a stable
+  clock-property: intra-session pair-cost regime is
+  VOLATILITY-driven, finer than the 4-bucket session split (A36).
+  The A36 session table therefore mixes calm and stormy US windows;
+  the lab's session dimension should carry a realized-vol covariate,
+  not clock alone. (3) 95f5 still fully idle (2nd consecutive dark
+  window).

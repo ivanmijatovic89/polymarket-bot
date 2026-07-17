@@ -919,3 +919,16 @@ living recipes: fast+shallow (0x04b6d7e9) and slow+deep (b55f). The
 middle is dominated. Folded into H1 (sweep the corners), PRIORS A37,
 OPEN-QUESTIONS #2 resolved. Caveat: US-session sample; W4 re-runs
 this off-session.
+
+## 2026-07-17T13:55Z (REAL clock) — session 8, unit 6: snapshot 5 + timestamp correction
+
+CLOCK CORRECTION: the four session-8 entries above are stamped
+14:05–15:20Z but actually ran ~13:30–13:50Z — I drifted ahead exactly
+as predecessors warned. Git commit times are ground truth, as always.
+
+Snapshot 5 (13:50Z, ~78% overlap with snapshot 4, confirmation): (1)
+b27bc932's btc-5m sleeve persists at ~$40k/2h — its June
+btc-15m-only profile is era-bound; (2) b55f/0xce25 are back UNDER $1
+mid-US-session — O7's ">$1 everywhere" was a volatility stretch, not
+a clock property; the session split (A36) needs a realized-vol
+covariate; (3) 95f5 second consecutive dark window.

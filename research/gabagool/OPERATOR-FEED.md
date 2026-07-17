@@ -277,3 +277,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: quoting at the market price with fast re-quotes gets plenty of fills to unlock the daily rebate bonus without ever paying fees — and the two profitable styles we found in the wild are exactly the two sweet spots of this trade-off (fast-and-shallow vs slow-and-deep).
 - Next: live snapshot 5, then scaling measurements to more months (W4).
 - Health: on track.
+
+## 2026-07-17T13:55Z — unit: live snapshot 5 + clock fix (session 8)
+
+- Did: fifth live sample (mostly confirming the fourth), and corrected my own drifted timestamps in the journal (real times are ~1h earlier than stamped for units 2-5).
+- Found: the top 15-minute bot's new 5-minute sleeve is real and persists; the two best wallets are back under the $1 pair-cost line even in busy hours — storms, not the clock alone, drive the hard stretches.
+- Next: W4 — scale the key measurements to more months/markets.
+- Health: on track.
