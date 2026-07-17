@@ -1419,3 +1419,27 @@ background: polls runs for terminal state (completed OR partial OR
 failed) every 60s, 90-min hard timeout, branches on partial per
 the u41 windowed --extend recovery. Judgment stays fill-in-the-ids
 on the complete 8-run table per frozen §E006 criteria.
+
+## 2026-07-17T12:08Z — session 13, unit 48: E008 blind-window scoping (read-only) while E006 drains
+
+Used the blind window (last 3 E006 flows draining, ETA ~12:36Z) to
+scope the fair-value axis so its proposal can move fast if the
+E006 judgment points there. Findings, all read-only:
+
+- E003-pair-accumulator.ts has NO feed wiring today. The pattern
+  (from readExternalFeedsExample.v1.ts): register
+  `ExternalFeedsRequestPlugin({ binanceWsSpotPrice: {} })` in
+  create()'s pluginSet, read
+  `ctx.plugins['externalFeeds'].binanceWsSpotPrice.value` per tick.
+  ~15-line change; pair follows the market slug in backtests.
+- Strike proxy per H4 = first spot value at/after window open; the
+  backtest feed is seeded with the last pre-window trade, so a
+  value exists at open (as-of lookup, ~110 ms measured offset).
+- Data: 61/61 BTCUSDT aggTrades day files on disk for Apr+May
+  2026 — the whole search window. Missing days would be a hard
+  error; there are none. E008 is unblocked on data.
+
+Design itself (suppression rule, threshold grid) stays unwritten
+until proposal time per the experiment lifecycle — this unit only
+established that the machinery is a small, known change. Drain at
+12:08Z: ~4.3k jobs, ~153/min.

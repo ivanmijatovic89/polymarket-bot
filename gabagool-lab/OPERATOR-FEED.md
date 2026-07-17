@@ -285,3 +285,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: 5 of 5 runs so far LOSE more than the reference — making quotes stickier removes the panic-trades but the losses just shift to getting picked off on stale prices. Verdict waits for the full table (~12:35Z).
 - Next: verify last 3 runs, build the 8-run table, judge E006 by the frozen criteria.
 - Health: on track
+
+## 2026-07-17T12:08Z — unit 48
+- Did: while the last 3 runs drain, confirmed the fair-value experiment (E008) is ready to build: small code change, all 61 days of Binance price data already on disk.
+- Found: nothing new on results — still waiting on 3 of 8 runs (ETA ~12:36Z).
+- Next: verify last 3 runs, build the 8-run table, judge E006 by the frozen criteria.
+- Health: on track
