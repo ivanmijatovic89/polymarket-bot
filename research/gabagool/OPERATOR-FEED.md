@@ -200,3 +200,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: all of today's session-7 work actually happened between 04:11 and 05:03 UTC; commit times were always correct.
 - Next: paper-EV of the strategy candidates using all of today's numbers.
 - Health: on track (bookkeeping error, no data affected).
+
+## 2026-07-17T05:16Z — unit: expected profit math for each strategy candidate (session 7)
+
+- Did: turned all of today's measurements into expected-profit ranges and kill thresholds for each strategy candidate the lab will test.
+- Found: the "deep patient pairs" variant is now the top candidate (~$130-670/day expected at starter scale, immune to the newcomer handicap); the "cheap side" variant has higher expected profit but bigger swings.
+- Next: live snapshot 4, then remaining atlas follow-ups.
+- Health: on track.

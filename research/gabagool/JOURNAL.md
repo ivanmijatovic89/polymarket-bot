@@ -775,3 +775,15 @@ Actual span: session 7 started ~04:11Z; units 1–13 all completed by
 ~05:03Z. Git commit times are the ground truth, as before. Feed
 entries have the same drift. Future entries will check `date -u`
 first.
+
+## 2026-07-17T05:15Z — session 7, unit 15: W6 paper-EV of the seeds
+
+Consolidated every measured number from today (A28 rebate math, A30–A32
+anchors, A16 margins, D2 sim bias) into per-seed EV expectations with
+provenance, dollars-per-day at v1 scale, sim-reading rules, and
+sharpened kill lines (measurements/paper-ev-seeds.md; ranking folded
+into LAB-HANDOFF). Net: the deep-pair cell is now the lab's primary
+target (+0.9–1.4%T expected, tier-immune); cheap-side stays second on
+tail risk; taker-completion cells demoted to comparison-only at
+tier-0. W6 queue item done (it will refresh whenever the atlas or
+venue terms move).

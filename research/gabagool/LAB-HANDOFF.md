@@ -167,3 +167,16 @@ taker-completion cells must be simulated at tier-0 (3% refund), NOT at
 incumbent tiers — using b55f-tier economics for a new bot overstates
 taker-leg EV by up to ~1.7% of taker notional. Report maker-only and
 taker-completion cells as separate economic regimes.
+
+## Phase-2 addendum (session 7) — paper-EV ranking (W6, full table in measurements/paper-ev-seeds.md)
+
+Updated seed ranking from measured priors: (1) seed 1 with the
+DEEP-PAIR cell as primary target (net +0.9–1.4%T expected, tier-immune,
+two live existence proofs); (2) seed 2 cheap-side (+2.0–3.0%T expected
+but tail-shaped — minority-outcome verdict required); (3) plain-parity
+0.99+ cells as baseline ring around the deep-pair cell; (4)
+taker-completion cells at tier-0 as comparison-only (expected ≈ 0, they
+measure the H6 completion premium); (5) seed 3 stays blocked. Sim
+reading rules (D2 2× fill lower bound, rebate step, tier-0 fee lines,
+subsidy-share reporting) are in the note — apply them before killing
+any cell.
