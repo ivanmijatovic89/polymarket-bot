@@ -450,3 +450,34 @@ If the operator DID intend to end the mission: say so in a way a
 session can read (a note in DONE itself or OPERATOR-FEED); an empty
 sentinel that vanishes 3 minutes later reads as an accident, and the
 charter says L3 is the only legitimate creation point.
+
+## 2026-07-17T06:05Z — session 3, unit 15: E003 frozen + launched; a double-submit incident, contained
+
+E003 (parity axis: parityTolPct {0.1,2,10,20,40}% × halves h1/h2,
+lat140, ~5,856 markets total) is frozen (commit 3d70785 — strategy
+file untouched since 45a2e32, which the determinism smokes ran) and
+LAUNCHED: 10 detached flows, submissionUids in the LEDGER.
+
+The incident, honestly: after the clean launch I "verified" with a
+lazy one-liner that RE-RAN the launch script with a stray flag.
+submit.ts silently tolerated the unknown flag → 10 duplicate flows,
+~29k duplicate market jobs. Cleanup: new tools/dedupe-flows.ts
+(keep-oldest-per-batchUid). First attempt removed CHILDREN first —
+wrong: emptying a parent's dependency set promotes it out of
+waiting-children, and the operator's always-on aggregate worker locked
+it within seconds and aggregated an empty flow → run 679 is a
+labeled-failed tombstone (m=0, f=2976; pipeline-written row, stays per
+charter). Fixed order (parent-first cascade) removed the other 9
+cleanly. Hardening in the same unit: submit.ts refuses unknown flags;
+launch-e003.sh accepts only --dry-run and refuses when E003 flows are
+already queued. Queue verified sane after cleanup: 10 parents, ~27.4k
+market jobs, 0 new failures.
+
+Two lessons for the lifecycle doc (both are variants of one rule —
+side-effectful scripts must be idempotent-or-refuse): verification
+must never share a code path with submission; and BullMQ flow removal
+is parent-first, never children-first.
+
+Drain ETA ~1h (watch-drain armed, 3h timeout). Judgment path when it
+lands: per-arm readouts → advance rule AS WRITTEN (direction agreement
+across halves + top-2 set match) → LEADERBOARD → next axis freeze.

@@ -35,10 +35,34 @@ type Args = {
   dryRun: boolean
 }
 
+const KNOWN_FLAGS = new Set([
+  '--exp',
+  '--suffix',
+  '--strategy',
+  '--window',
+  '--lat',
+  '--limit',
+  '--param',
+  '--sequential',
+  '--detach',
+  '--dry-run',
+  '--extend',
+  '--from-ms',
+  '--to-ms',
+])
+
 function parseArgs(argv: string[]): Args {
   const get = (flag: string): string | undefined => {
     const i = argv.indexOf(flag)
     return i >= 0 ? argv[i + 1] : undefined
+  }
+  // Unknown flags are refused, not ignored — a tolerated stray flag
+  // double-launched E003 (s3 u15). Values (non--- tokens) belong to
+  // the preceding flag.
+  for (let i = 0; i < argv.length; i += 1) {
+    const tok = argv[i]!
+    if (tok.startsWith('--') && !KNOWN_FLAGS.has(tok))
+      fail(`unknown flag ${tok} (known: ${[...KNOWN_FLAGS].join(' ')})`)
   }
   const params: string[] = []
   for (let i = 0; i < argv.length; i += 1) {

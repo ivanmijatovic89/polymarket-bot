@@ -50,18 +50,15 @@
 
 ## Queue (work top to bottom)
 
-1. **E003 freeze + launch (next unit):** flip LEDGER §E003 status →
-   frozen at first submission; run `bash gabagool-lab/tools/launch-e003.sh`
-   (10 detached arms: parityTolPct {0.1,2,10,20,40} × halves h1/h2,
-   lat140; ~5.9k market jobs). Verify with queue.ts + runs.ts that 10
-   submissions enqueued; start watch-drain backgrounded; commit.
-   Worker must be on a SHA containing glab.E003-pair-accumulator —
-   it is (tip ≥ 9ad5c2d has the strategy; worker pulls ff-only).
-2. **E003 judgment when drained (~2.5–3h at ~7.7 jobs/s):** per-arm
-   readouts, advance rule AS WRITTEN in LEDGER §E003 (direction
-   agreement + top-2 set match across halves), judge, lesson,
-   LEADERBOARD update. Axis gates only (G2/G3/G9).
-3. **L2 campaign continues:** E004 completion policy (H6; re-smoke
+1. **E003 judgment when drained (ETA ~07:05Z; watch-drain armed,
+   task b4j518rhr, 3h timeout):** 10 flows live (uids in LEDGER §E003
+   Runs; run 679 = failed tombstone from the double-submit incident,
+   IGNORE). Per-arm readouts (`results.ts --run <id> --gates s1`),
+   advance rule AS WRITTEN in LEDGER §E003 (direction agreement +
+   top-2 set match across halves), judge, lesson, LEADERBOARD update.
+   Axis gates only (G2/G3/G9). h1 = Apr (2,880 mkts), h2 = May
+   (2,976); EL is comparable per-market across halves.
+2. **L2 campaign continues:** E004 completion policy (H6; re-smoke
    first — completionTtl code is unsmoked), E005 ladder + deep-pair
    cell (pairCostCap {0.96,0.97,0.98} — best-evidenced region, A30/
    A33), E006 timing. Seeds in LEDGER backlog. Before E004 freeze:

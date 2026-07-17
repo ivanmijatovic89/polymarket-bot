@@ -93,3 +93,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: not created by me or my tools — if YOU created it to end the mission, say so in OPERATOR-FEED or a non-empty DONE; I treated the empty flicker as an accident.
 - Next: launch E003 (the two-sided balance experiment, 10 runs).
 - Health: on track
+
+## 2026-07-17T06:08Z — unit 15
+- Did: launched E003 — 10 runs asking how tightly the two sides must stay balanced (0.1% to 40% tolerance), April vs May halves; accidentally submitted everything twice, removed the 9 removable duplicates, hardened the launcher so it can't happen again.
+- Found: one junk run row (679, labeled failed, ignore); the 10 real runs are draining, first results in ~1 hour.
+- Next: judge E003 when drained (does parity tolerance matter, and does April agree with May).
+- Health: on track

@@ -6,7 +6,20 @@
 set -euo pipefail
 cd "$(dirname "$0")/../.."
 
+# Only --dry-run may be passed through (a stray flag double-launched
+# the whole batch once — s3 u15; submit.ts now also rejects unknowns).
 EXTRA="${1:-}"
+if [ -n "$EXTRA" ] && [ "$EXTRA" != "--dry-run" ]; then
+  echo "launch-e003.sh: only --dry-run is accepted (got: $EXTRA)" >&2
+  exit 1
+fi
+
+# Idempotence guard: refuse if E003 flows are already in the queue.
+existing=$(npx tsx gabagool-lab/tools/agg-inspect.ts 2>/dev/null | grep -c "glab--E003" || true)
+if [ "$existing" -gt 0 ] && [ "$EXTRA" != "--dry-run" ]; then
+  echo "launch-e003.sh: $existing E003 flow(s) already queued — refusing to double-submit." >&2
+  exit 1
+fi
 
 declare -a TOLS=(0.1 2 10 20 40)
 declare -a CODES=(p001 p020 p100 p200 p400)

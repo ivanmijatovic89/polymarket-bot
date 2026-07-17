@@ -271,7 +271,31 @@ Template:
     `--window 2026-05-01T00:00:00Z..2026-05-31T23:59:59.999Z`
   (completionMode default none; all other knobs at file defaults =
   E002 values; ~5,856 market jobs total across the 10 runs.)
-- **Runs / Judgment / Lesson:** (pending)
+- **Runs (launched 2026-07-17T05:23Z real / recorded 06:0xZ, session 3,
+  SHA 3d707855; h1 = 2,880 mkts, h2 = 2,976 mkts each):**
+  - ax1h1-p001: `…--ax1h1-p001--lat140--e9406593-e38d-4007-9cf3-1d83e1e95940`
+  - ax1h1-p020: `…--ax1h1-p020--lat140--47d8d807-554b-40bb-be36-185246646fbf`
+  - ax1h1-p100: `…--ax1h1-p100--lat140--69230ee8-55f4-4196-9a13-ae58225dea6e`
+  - ax1h1-p200: `…--ax1h1-p200--lat140--69c490e3-3366-4468-b135-cb473841c744`
+  - ax1h1-p400: `…--ax1h1-p400--lat140--89df8889-0699-44b5-b8d4-ffb7b5b840ce`
+  - ax1h2-p001: `…--ax1h2-p001--lat140--41e1826e-fed4-4277-93e9-c6d161baab27`
+  - ax1h2-p020: `…--ax1h2-p020--lat140--b68867c5-f215-4c3a-8258-3d54d1ab64c7`
+  - ax1h2-p100: `…--ax1h2-p100--lat140--ee8fa12b-4d2a-4d8b-84d9-00541575eb59`
+  - ax1h2-p200: `…--ax1h2-p200--lat140--d0fddbb5-ba81-4328-8e6d-0077f3d7c020`
+  - ax1h2-p400: `…--ax1h2-p400--lat140--b9aa0f33-4ce4-4969-b4c0-4ff34b165e85`
+  - INCIDENT (2026-07-17T05:24Z): a sloppy verification one-liner
+    re-invoked launch-e003.sh with a stray flag; submit.ts tolerated
+    it → all 10 flows DOUBLE-submitted (~29k duplicate market jobs).
+    Cleanup: tools/dedupe-flows.ts (new) removed 9 duplicate flows
+    parent-first; the 10th (ax1h2-p400 dup) was promoted by a
+    children-first removal attempt and aggregated empty by the
+    operator's aggregate worker → **run 679 = labeled-failed tombstone
+    (m=0, f=2976), not evidence; ignore**. Its DB row is
+    pipeline-written and stays (charter: no manual DB writes).
+    Hardening: submit.ts now REFUSES unknown flags; launch-e003.sh
+    accepts only --dry-run and refuses to run if E003 flows are
+    already queued. The 10 runs above are the SOLE evidence set.
+- **Judgment / Lesson:** (pending)
 
 ## E004-completion-policy — H6 axis (the margin knob)
 - **Type:** axis
