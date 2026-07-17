@@ -132,6 +132,13 @@ for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 | `0xe114e5ca…c208` ohio-house | ~6k week 1 | ACTIVE cold-start, deep pairs | same |
 | `0x76d4d470…c512` | −97,985 + 137,022 rebates | ACTIVE subsidy loop (born Mar-25, subsidy-native; net +$600/day) | wallets/76d4d470.md |
 
+**Field age (A65, session 11):** every living wallet is a
+current-fee-era native — b27bc932 Mar-03, 04b6d7e9 ~Mar-25,
+76d4d470 Mar-25, b55f/0xce25 **Apr-30 (48h post-v2-cutover;
+$1.145M combined in 78 days — fastest documented ramp)**, 13e0d447
+May-29, e114e5ca Jul-10. Zero pre-fee survivors; "incumbent" is a
+misnomer everywhere it appears in earlier notes.
+
 ## Session-8 addition (A41)
 
 | wallet | all-time $ | status | file |

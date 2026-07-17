@@ -1126,3 +1126,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   +3.9c while touch stays ±1c). H1: depth×clock = sweep dimension
   with weak evening-deep prior, NOT a fixed rule.
   [contested] (measurements/session-drift-b27bc932.md §9–§10)
+- **A65 (the "incumbent" b55f pair is a v2-native cold-start; the
+  whole living field is current-era-born):** day-probes — zero
+  activity for both twins through Apr-29; first activity
+  2026-04-30, 48h after the v1→v2 cutover (profile suffixes decode
+  to 2026-04-30T23:34Z, 121s apart). Combined lb $675k + $470k ≈
+  $1.145M in 78 days (~$14.7k/day operator-level ex-rebates) — the
+  fastest, largest documented ramp; guh123's sprint ($6.5k/day) is
+  dethroned. Field birth dates: b27bc932 Mar-03, 04b6d7e9/76d4d470
+  ~Mar-25, b55f/0xce25 Apr-30, 13e0d447 May-29, e114e5ca Jul-10 —
+  NO living wallet predates the March fee reshape; pre-fee
+  survivorship is zero; every "incumbent" is a fee-era native.
+  Launch-with-v2 rotation from an unknown prior wallet is a
+  hypothesis (A55 sweep found no known-wallet link). A62/A32
+  amplified: the tier moat taxes entry, it does not gate it.
+  [verified] (wallets/b55f-incumbent.md §A65)

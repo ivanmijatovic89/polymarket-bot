@@ -74,3 +74,33 @@ $663k/day 30d volume, still not $8M).
 - Extend the INV 337-market analysis: per-market pair cost distribution
   for THIS wallet on a bigger sample; how often is the longshot leg a
   pair-completer vs a naked lottery ticket?
+
+## A65 (session 11): birth date found — the "incumbent" is a v2-native cold-start
+
+Day-probes (unit 20): zero activity for BOTH twin wallets through
+2026-04-29; first activity 2026-04-30 (b55f: sol-updown-4h TRADE;
+0xce25: already redeeming btc-15m the same day). The profile-name
+suffixes decode to the same timestamp (1777575277/398 ms =
+2026-04-30T23:34Z, 121s apart — A9's twin link). So the operator
+pair was born **two days after the Apr-28 v1→v2 venue cutover
+(A51)** and has earned lb $675,059 + $470,335 ≈ **$1.145M combined
+in 78 days (~$14.7k/day operator-level, ex-rebates)** — the largest
+and fastest documented ramp in the class, dwarfing guh123's $6.5k/day
+sprint. Early schedule note: both dark on May-03 (young-wallet gap
+days, like 13e0d447's).
+
+Consequences:
+- "Incumbent" was a misnomer: NO living wallet predates the March
+  fee reshape (field birth dates: b27bc932 Mar-03, 04b6d7e9 ~Mar-25,
+  76d4d470 Mar-25, b55f/0xce25 Apr-30, 13e0d447 May-29, e114e5ca
+  Jul-10). The entire current field consists of current-era natives;
+  survivorship of pre-fee wallets is ZERO.
+- The birth timing (48h post-cutover) suggests the operator launched
+  WITH the v2 exchange. Whether this is a fresh entrant or an
+  identity rotation from a pre-cutover operator is UNKNOWN (A55's
+  sweep found no ≤72h link to any known wallet's exit; rotations
+  into fresh wallets from unknown priors are invisible). Hypothesis,
+  not finding.
+- A62 amplified: the biggest winner of the current era started from
+  zero AFTER the cold-start moat (tier system) existed — the moat
+  taxes but does not gate entry at any measured scale.

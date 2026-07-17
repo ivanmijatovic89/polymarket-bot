@@ -1662,3 +1662,21 @@ A59's PnL-based session economics. Every file that carried the firm
 rule (PRIORS, H1, BRIEF, OQ) now carries the downgrade. Painful and
 correct — this is exactly why the charter says re-verify before the
 lab spends sweeps on it.
+
+## 2026-07-17T18:14Z — session 11, unit 20: A65 — the "incumbent" was born in April
+
+A failed March-era check turned into the session's biggest surprise.
+Wanted b55f fills against the March books; the pull came back EMPTY —
+b55f didn't exist in March. Bisected: both twin wallets' first
+activity is 2026-04-30, exactly two days after the venue's v1→v2
+exchange cutover, matching their profile-creation timestamps (121s
+apart). The pair has made $1.145M combined lb-profit in 78 days
+(~$14.7k/day at operator level) — the fastest and largest ramp on
+record, dethroning guh123's sprint. Bigger consequence: with these
+birth dates, NO living wallet predates the March fee reshape — the
+whole field is fee-era natives, pre-fee survivorship is literally
+zero, and the word "incumbent" has been wrong all along. The tier
+moat demonstrably taxes but does not gate: the era's biggest winner
+cold-started after the moat existed. Whether the pair is a fresh
+entrant or a rotation from an unknown pre-cutover operator stays an
+open hypothesis (no known-wallet link within 72h).

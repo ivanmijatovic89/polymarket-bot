@@ -574,3 +574,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the rule broke — that day showed the opposite pattern, and the earlier multi-bot "confirmation" turned out to be several bots seeing the SAME day, not independent proof. Downgraded from rule to hint in all files. The solid findings (evenings best, weekends flat, ladder never changes) are money-based and stand.
 - Next: 20-21 UTC evening snapshot; successor continues from a clean question list.
 - Health: on track
+
+## 2026-07-17T18:14Z — unit 20 (session 11)
+- Did: tried a March-era study of the biggest live bot and discovered it didn't exist yet — dug up its actual birth date instead.
+- Found: today's #1 bot pair started from ZERO on April 30 — two days after the exchange switch — and made $1.15M in 11 weeks. Every live bot was born after the fees came in; no old-guard survivors at all. Great news for us: newcomers can win, and fast.
+- Next: 20-21 UTC evening snapshot; successor mines the fresh question list.
+- Health: on track
