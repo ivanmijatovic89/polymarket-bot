@@ -34,6 +34,7 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
 | worst-queue admissibility | % of real fills where bestAsk < fillPrice strictly after fill (engine rule) | D2 — THE sim-credibility number |
 | inter-fill gap | within-market gap distribution | cadence fingerprint; tail p50 0s (bursts), successor 11s median |
 | time-to-pair | seconds between one leg's fill and the pair-completing fill on the other | quantifies the oscillation-harvest window; sets leg-risk policy timeouts |
+| minute-of-window fill share | % of fills per minute 0–14 | timing fingerprint; A17: edge wallets back-load minutes 10–13 (b55f 39.7%) and cut minute 14; open is ordinary |
 
 ## Portfolio/meta metrics
 

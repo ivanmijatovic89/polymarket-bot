@@ -18,3 +18,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the winning wallets place deep discount bids, complete pairs by paying the fee late in the window, and the best one waits longest; resolution rules confirmed (ties count as UP).
 - Next: fold these numbers into the build spec + hypotheses files.
 - Health: on track.
+
+## 2026-07-17T05:25Z — unit: synthesis fold A17/A18
+
+- Did: folded the new execution + resolution findings into the build spec, hypotheses, and metric files.
+- Found: nothing new — this unit turns last unit's findings into build guidance (ladder depth, late-window timing, fee-aware completion).
+- Next: endgame/open/spread measurements on the June order-book data.
+- Health: on track.

@@ -76,7 +76,10 @@ Candidates for the lab:
    margin. Feed exists on the unmerged branch (G6); strike must be
    proxied by window-open spot in replay. Untested by any prior campaign
    — the genuinely new territory. Risk: PM-tick-only wakeups leave stale
-   quotes in quiet books (G6).
+   quotes in quiet books (G6). Basis caveat (A18): resolution reads the
+   **Chainlink BTC/USD data stream**, not Binance spot — Binance is a
+   proxy for the oracle, fine mid-window, riskiest in the final seconds
+   when the stream-vs-Binance basis can decide near-flat windows.
 3. **Hybrid: parity-quoting with fair-value kill-switch**: quote like #1
    but pull quotes when |spot drift| since window open exceeds a
    threshold (the trending-window guard, P48). Targets the one measured
@@ -99,6 +102,19 @@ Candidates for the lab:
   0.07·p(1−p) iff expected pair margin + rebate > fee. This knob
   (completion aggressiveness) separates b55f (+2.31%) from 0xce25
   (+0.31%) — same operator, different aggression, 2% margin gap.
+- **Current-era ladder shape (A17, Jun 12–14 fills×books)**: the edge
+  wallets' ladders are DEEPER than the archetype's — offset vs touch
+  p25 −2c but p10 **−12/−13c** below best bid (~35% of fills are these
+  patient discount bids waiting for sweeps); at-touch resting
+  concentrates on the CHEAP side (b55f touch-fill px p50 0.14 —
+  longshot bids), taker completions are mid-band (px p50 0.58, IQR
+  0.34–0.71). Post-fill mid drift at +10s/+60s ≈ 0 — no visible
+  adverse signature at this granularity.
+- **Timing (A17)**: fills are back-loaded — minutes 10–13 carry the
+  most (b55f 39.7% of fills; minute-12 peak 12.1%), the final minute
+  is CUT (6.8%/5.3%), and the open gets no special concentration
+  (Game F negative for this cohort). Weight quoting toward minutes
+  8–13; de-risk minute 14.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
@@ -147,6 +163,12 @@ Candidates for the lab:
   to auto-credit; accept that sim capital velocity is unmeasurable.
 - Redeem the (dust) remainder after resolution; abandonment observed only
   at sub-$20 scale.
+- Resolution facts that bound the endgame (A18, primary-sourced):
+  oracle = Chainlink BTC/USD data stream ("not other sources or spot
+  markets"); end ≥ start → UP, i.e. **ties resolve UP** — a structural
+  (if tiny) asymmetry favoring the UP leg in dead-flat windows; how
+  tiny depends on the stream's price precision, which is still OPEN.
+  negRisk = false, tick 0.01, min order 5 shares.
 
 ## 8. What kills this (measured failure modes)
 
@@ -173,8 +195,12 @@ Candidates for the lab:
   +2.31% (b55f) is real; farmers are fee-negative rebate loops.
 - ~~January transition speed~~ **ANSWERED** (A15): fee shock adapted to
   in ~6 days; competitive compression killed over weeks.
-- Level offsets vs top-of-book at fill time (D2 byproduct).
-- Edge SOURCE on btc-15m: what b55f's +2.31% actually selects for
-  (level/timing/completion policy) — the top open question.
+- ~~Level offsets at fill time~~ **ANSWERED** (D2 + A17): archetype
+  ~20% touch / ~35% ladder 1–4c deep; current edge wallets go deeper
+  (p10 −12c) with cheap-side touch rests.
+- ~~Edge SOURCE on btc-15m~~ **ANSWERED** (A17): deep patient ladders
+  + cheap-side touch accumulation + mid-band taker completion (~43% of
+  notional), back-loaded minutes 10–13; the better wallet waits longer
+  and crosses further from the fee peak (H6 sharpened).
 - Whether rebate accrual can be estimated per-fill precisely enough to
   bolt onto backtest stats (G4 estimator; needs pool-share assumption).

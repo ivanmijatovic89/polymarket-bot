@@ -344,3 +344,20 @@ slice lags the live meta by a month — flagged as G9.
 
 Next: fold A17/A18 into STRATEGY-BRIEF/HYPOTHESES (ladder priors for H1,
 H6 sharpening, endgame bounds from ties→UP), then D3/D4/D5 measurements.
+
+## 2026-07-17T05:25Z — synthesis fold: A17/A18 into BRIEF/HYPOTHESES/METRICS
+
+BRIEF §4 gains the current-era ladder shape (deep rungs to −13c,
+cheap-side touch rests, mid-band completion) and the timing profile
+(back-load minutes 8–13, cut minute 14, ignore the open); §3 and H4
+gain the Chainlink-vs-Binance oracle basis caveat; §7 gains the
+resolution bounds (ties→UP, tick 0.01, min 5 shares); §9 marks
+edge-source + level-offsets answered. H1's parameter block now
+carries the measured ladder-depth and time-weighting priors. H6 gains
+the June fills×books cross-check (the completion-price ranking
+reproduces independently of the receipt decode). METRICS adds the
+minute-of-window fill-share row.
+
+Synthesis is now current through A18. Next: D3/D4/D5 measurements —
+first check what fable E24/E25 already cover, then build on June
+Telonex books (the newest replayable slice, G9).

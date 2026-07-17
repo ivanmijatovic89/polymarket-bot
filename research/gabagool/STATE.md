@@ -53,26 +53,24 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: synthesis fold A17/A18 into STRATEGY-BRIEF + HYPOTHESES:
-   H1 ladder priors (touch + −2c…−13c), H6 sharpened (waits longer,
-   crosses further from fee peak), time-weighting minutes 8–13,
-   endgame bounds from ties→UP resolution; METRICS if touched.
-2. D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
+1. NEXT: D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
    (check fable E24/E25 first). Note: Telonex data ends 2026-06-14
    (G9) — use June slice.
-3. Venue leftovers: sub-cent tick rule, rate limits, Chainlink stream
+2. Venue leftovers: sub-cent tick rule, rate limits, Chainlink stream
    sampling precision (Game J residue), 2026-exchange launch date,
    bulk-payout provenance (bonereaper $62.6k lump).
-4. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
+3. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
    wallet hunt, badfallen/doggystyie/0xaaaaa dossiers.
-5. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
+4. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
 DONE session 4 so far: recovered + committed the edge-source unit a
 crashed predecessor left on disk — A17 (edge execution fingerprint,
 measurements/edge-source-btc15m.md), A18 (resolution = Chainlink
 BTC/USD stream, ties→UP; negRisk false; tick 0.01; min 5 shares),
 G9 (Telonex coverage ends 2026-06-14), OPEN-QUESTIONS re-ranked
-(3 items resolved).
+(3 items resolved). Then: synthesis fold A17/A18 into
+BRIEF/HYPOTHESES/METRICS (H1 ladder+timing priors; H6 June
+cross-check; Chainlink basis caveat on H4; ties→UP endgame bounds).
 DONE session 3: state sync; bonereaper (A12); A13-A16 folded into
 BRIEF/HYPOTHESES (new H6 completion-aggressiveness; H5 resolved
 supported)/METRICS; Jan transition (A15); Jan fee rate on-chain (A14);
@@ -101,5 +99,4 @@ v2, literature A1/A2.
   (measurements/d2-fill-reality-gap.md). Edge-source DONE (A17,
   measurements/edge-source-btc15m.md). D1 re-scoped (P38). D3–D5 open
   (June data only — G9).
-- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A16; A17/A18
-  fold PENDING (queue item 1).
+- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A18.

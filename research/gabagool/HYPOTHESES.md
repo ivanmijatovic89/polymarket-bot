@@ -16,10 +16,17 @@ edge is dead by regime change, do not test it.
   0.31–0.63; parity tolerance: SWEEP 0.1% → 40% as a first-class knob
   (archetype ran 0.1% in the zero-fee era; current edge wallets run
   20–40%, and the one 0%-parity wallet today is trading-negative —
-  BRIEF §5); ladder depth 1–3 levels/side; **completion policy**: sweep
-  maker-only vs taker-complete-when-lagging (fee 0.07·p(1−p) on the
-  crossing leg — exactly modelable now, A16); books: btc-15m first
-  (lab scope).
+  BRIEF §5); ladder depth: levels at touch AND −2c…−13c below touch
+  (A17 — the current edge ladder is deeper than the archetype's 1–4c;
+  ~1/3 of real fills come from sweeps into the deep rungs, which is
+  also the slice worst_queue models best); cheap-side touch-resting
+  for longshot accumulation (b55f touch px p50 0.14); **completion
+  policy**: sweep maker-only vs taker-complete-when-lagging (fee
+  0.07·p(1−p) on the crossing leg — exactly modelable now, A16);
+  **time-weighting**: sweep uniform vs back-loaded minutes 8–13 with
+  minute-14 cutoff (A17 — the winners are back-loaded; the open needs
+  no special treatment, Game F negative); books: btc-15m first (lab
+  scope).
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.
@@ -94,6 +101,11 @@ edge is dead by regime change, do not test it.
   on a recorded day first).
 - **Parameters**: suppression threshold |p_book − p_fair| ∈ 1–5c; vol
   estimator window 5–60 min; latency offset 110ms (measured).
+- **Basis caveat (A18)**: resolution reads the Chainlink BTC/USD data
+  stream, not Binance — Binance-anchored fair value carries oracle
+  basis risk that concentrates in the final seconds of near-flat
+  windows; keep the anchor for mid-window quote filtering, distrust it
+  for endgame calls.
 - **Expected**: fewer adverse first-fills (the P42 loss channel) at cost
   of fill count; improves pair cost by ≥0.5c vs H1 baseline on the same
   markets.
@@ -123,6 +135,12 @@ edge is dead by regime change, do not test it.
   the single highest-leverage policy in a build is: complete the
   lagging leg only when the crossing price keeps pair cost + fee under
   a hard cap (e.g., ≤0.99), else wait or abandon parity.
+- **Cross-checked in June books (A17)**: the same ranking shows up in
+  fills×books independently of receipts — b55f back-loads harder
+  (39.7% of fills in minutes 10–13) AND taker-completes cheaper (taker
+  px p25 0.34 vs 0.42; implied June taker fee 2.07% vs 2.35%). "Waits
+  longer, crosses further from the fee peak" is the behavioral form of
+  the cap rule.
 - **Test path**: sim can model this exactly (fees known, A16); the
   maker side stays worst-queue-bounded but the RELATIVE ranking of
   completion policies survives a pessimistic maker model (same maker
