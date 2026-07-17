@@ -75,3 +75,19 @@ backlog).
   incumbent's documented edge does not come from this ladder shape at
   this sizing; re-entry only with the archetype's OTHER properties
   (fee tier, completion, timing) layered in (LEDGER §E005).
+- **Quote-freezing (requoteDelta ∈ {0.05, 0.10, 0.20, 0.45}) on the
+  deep chassis** (rc+c960, lat140): every arm at-or-worse than the
+  delta-0.02 reference in BOTH halves (E006, runs 715–722 vs
+  708/703, N = 2,880+2,976, sel-width 5). h1 −2.5978/−2.3103/
+  −2.2897/−2.3015 vs ref −2.2884; h2 −2.5887/−2.3715/−2.3681/
+  −2.3428 vs ref −2.0229; q05 distinguishably worst in both halves;
+  advance rule FAILED (top-2 set mismatch). Mechanism (exact
+  settlement decomp): freezing quotes collapses the winner-remainder
+  term ($2.2–2.4 → $0.85–1.1/mkt) while saving only ~$0.3 in taker
+  fees — the requote engine's price-chasing carries the winner-
+  tracking payload (LS-11). Participation never chokes (played
+  99.5%; delta gates re-anchoring only). Real side effect: tails
+  improve ~45% (CVaR5 −15.5 → −8.7). Re-entry only as a RISK lever
+  after some other knob makes the cell pay, or with an
+  information-based anchor that preserves winner-tracking (E008
+  fair-value re-anchoring — the seeded successor) (LEDGER §E006).

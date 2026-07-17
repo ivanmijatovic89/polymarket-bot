@@ -1020,7 +1020,80 @@ Template:
   (NOT gated on EL sign — axis experiment).
 - **Kill/stop:** axis closed when the curve is measured at planned
   resolution; dead cells to LEADERBOARD with numbers.
-- **Runs / Judgment / Lesson:** (pending)
+- **Runs (landed):** 715=ax5h2-q05, 716=ax5h1-q10, 717=ax5h2-q10,
+  718=ax5h1-q20, 719=ax5h2-q20, 720=ax5h1-q45, 721=ax5h1-q05,
+  722=ax5h2-q45. All 8 submission uids match the frozen launch block
+  to the digit (verified on landing: u46/u47/u51 for 715–721, u52
+  for 722). h1 = 2,880, h2 = 2,976 markets each, 0 failures.
+  Validators green ×8: settlement recheck OK, fee-recon VALID
+  (|recon−db| ≤ 0.32 vs tol ≥ 57.60), meta coverage 100%, segments
+  cross-check OK. Peek-line incident: u46/u47 quoted TRADE_sim
+  instead of headline EL for 716/717/718 — corrected u50 before
+  judgment; all numbers below are canonical headline EL.
+- **JUDGMENT (2026-07-17T14:06Z, session 16, unit 52 — AXIS-CLOSED;
+  curve measured at planned resolution; pre-registered prediction
+  REFUTED; chassis keeps requoteDelta 0.02):**
+  - **Participation caveat never armed:** played 99.5% in every new
+    arm (ref 97.8/97.2) — delta gates RE-anchoring only; the first
+    anchor always quotes. The choke branch of criteria (1) is moot.
+  - **Trade-off curve (criteria 5; e005-table.ts, canonical):**
+    | delta | h1 EL | h2 EL | taker% h1/h2 | fills/mkt h1/h2 | CVaR5 h1/h2 |
+    |-------|-------|-------|--------------|-----------------|-------------|
+    | 0.02 ref | **−2.2884±0.1375** | **−2.0229±0.1252** | 37.4/36.9 | 10.9/10.0 | −15.49/−14.61 |
+    | 0.05 | −2.5978 | −2.5887 | 12.3/11.0 | 12.2/11.2 | −9.84/−9.53 |
+    | 0.10 | −2.3103 | −2.3715 | 9.4/7.4 | 10.8/9.5 | −8.93/−8.54 |
+    | 0.20 | −2.2897 | −2.3681 | 7.4/4.8 | 10.5/9.2 | −8.69/−7.92 |
+    | 0.45 | −2.3015 | −2.3428 | 7.1/4.6 | 10.4/9.1 | −8.70/−7.91 |
+    Taker share collapses 37% → 5–7% exactly as designed — and EL
+    does NOT recover: every cell at-or-below reference; the h1 chain
+    is non-monotone (q05 worst, plateau AT ref), h2 is monotone
+    recovering but stops −0.32 below ref. The frozen prediction
+    ("EL rises toward the lat0 economics ≈ −0.1 as delta grows") is
+    REFUTED: the plateau is at −2.29/−2.34, nowhere near the bound.
+    One real gain: tails improve ~45% (CVaR5 −15.5 → −8.7) as taker
+    churn disappears — a risk effect, not an EV effect.
+  - **Adjacency (criteria 3):** h1 — only q05↔q10 DISTINCT (0.2875 >
+    0.2568); endpoints indistinguishable (0.0132 < 0.3195). h2 —
+    q02↔q05 DISTINCT (0.5658 > 0.3026) and endpoints DISTINCT
+    (0.3199 > 0.2912, ref side better); middle indistinguishable.
+    q05 is distinguishably the worst step in both halves.
+  - **Advance rule (criteria 4): FAILS.** (a) endpoint direction −
+    in both halves: HOLDS; (b) top-2 sets h1 {q02, q20} vs h2
+    {q02, q45}: SET MATCH FAILS. Per the frozen consequence: axis
+    unstable at this coverage, **chassis keeps requoteDelta 0.02**.
+  - **Mechanism (e004-decomp.ts, exact settlement split, identity
+    asserts green both chains; $/mkt):** raising delta collapses the
+    winner-remainder term: h1 rem$ 2.17 → 1.09 (q05) → 0.95 (q45);
+    h2 rem$ 2.37 → 1.11 → 0.84. Δrem −1.08 to −1.53 in every arm.
+    Against that, fee savings are only +0.21 to +0.29 and net pair
+    economics (Δpair−Δcost) improve at most +0.93 (q20/q45): the
+    remainder loss outweighs both everywhere → no cell beats ref.
+    Reading: at delta 0.02 the requote engine chases price, so the
+    side being accumulated tracks the eventual winner — unpaired
+    remainder is WORTH $2.2–2.4/mkt at settlement. Freeze the
+    quotes and stale standing bids fill on the side price is
+    leaving; the remainder payload shrinks to $0.85–1.1. The taker
+    conversions the battery blamed were the PRICE of a correlated
+    benefit, not a removable tax.
+  - **Program consequence:** the battery's "residual loss is ~100%
+    requote-conversion" read conflated the fee term with an
+    information term — the settlement decomposition separates them:
+    fees are ~$0.3 of the channel; winner-tracking is ~$1.3–1.5.
+    A conversion-closing lever must preserve winner-tracking while
+    avoiding the cross. Mechanical quote-freezing cannot do both
+    (measured here); an information-based anchor might — quotes
+    re-anchored on EXTERNAL fair value (binance spot, replayable
+    now) instead of own-book chasing could keep tracking the mover
+    without standing stale on the leaving side. E008-fair-value is
+    the next axis; candidate assembly stays BLOCKED per the u40
+    framework (no conversion-closing lever proven yet). E005b and
+    completion composition (D-008) rank behind E008 — neither
+    addresses the loss channel.
+- **Dead cells:** requoteDelta ∈ {0.05, 0.10, 0.20, 0.45} on the
+  rc+c960 chassis at lat140 → LEADERBOARD dead-regions with numbers.
+- **Lesson (LS-11, recorded in LESSONS.md):** churn is not pure
+  cost — decompose fee vs information terms before building an axis
+  to remove a loss channel.
 
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind

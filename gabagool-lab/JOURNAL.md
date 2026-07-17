@@ -1531,3 +1531,66 @@ id blehtrhfn (60s poll, counts terminal ax5 rows, needs 8, 45-min
 timeout — drain is ~14 min out). On fire: verify ax5h2-q45
 (uid + validators), then the full 5-arm × 2-half table via
 e005-table.ts, then judgment strictly per frozen §E006 criteria.
+
+## 2026-07-17T14:06Z — session 16, unit 52: E006 JUDGED — AXIS-CLOSED, prediction refuted, chassis keeps delta 0.02
+
+Session 15 died mid-wait (last commit u51 at ~12:19Z; the LS-10
+waiter died with it). Pickup at 14:03Z: DONE absent, KB/origin
+unchanged since s15's check, queue fully drained (markets 3,000
+completed / 0 waiting; the 3 failed aggregate jobs are the known
+stale foreign duplicates).
+
+**Pickup incident: the pre-commit hook had an UNCOMMITTED local
+modification that stripped the entire DONE guard** (the block added
+after the s3 stray-DONE incident). I did not make this edit; no
+session journaled it. Restored with `git checkout --
+gabagool-lab/.hooks/pre-commit` before doing anything else — the
+guard only blocks unauthorized `DONE` additions and costs nothing,
+so restoring is the conservative move regardless of origin. If the
+operator removed it deliberately: say so in a note and I'll drop it.
+
+**Run 722 = ax5h2-q45 landed and verified:** uid matches the frozen
+LEDGER uuid to the digit (009f6334…), 2,976 markets, 0 failed,
+settlement OK, fee recon |0.21| vs tol 59.52 VALID, meta 100%,
+segments OK. Headline EL **−2.3428**. That completes 8/8 — E006
+fully landed with zero failures.
+
+**Full table + judgment (LEDGER §E006, criteria applied verbatim):**
+
+- h1 chain ref→q05→q10→q20→q45: −2.2884 → −2.5978 → −2.3103 →
+  −2.2897 → −2.3015. h2: −2.0229 → −2.5887 → −2.3715 → −2.3681 →
+  −2.3428. Every cell at-or-below reference. Taker share collapses
+  37% → 5–7% exactly as the mechanism said it would — and EL does
+  not recover. The frozen prediction (EL → lat0 economics ≈ −0.1)
+  is REFUTED: the plateau sits at ref level (h1) or below it (h2).
+- Advance rule: endpoint direction agrees (both −) but top-2 sets
+  differ (h1 {q02,q20}, h2 {q02,q45}) → FAILS → chassis keeps
+  requoteDelta 0.02 per the frozen consequence.
+- Participation caveat never armed: played 99.5% everywhere. Delta
+  gates re-anchoring only; the first anchor always quotes.
+- Completed the u50 decomp on the 3 late runs (both chains now
+  full, identity asserts green): Δrem −1.08..−1.53 $/mkt in every
+  arm vs Δfee only +0.21..+0.29 and net pair improvement ≤ +0.93.
+  The remainder collapse outweighs everything, everywhere. u50's
+  reading is confirmed at full resolution.
+- One genuine effect: CVaR5 improves ~45% (−15.5 → −8.7) as churn
+  disappears. Quote-freezing is a TAIL lever, not an EV lever
+  (LS-11 corollary).
+
+**What this means for the program:** the battery's "loss is ~100%
+requote-conversion" conflated a ~$0.3 fee term with a ~$1.3–1.5
+information term — the requote engine's price-chasing keeps the
+accumulating side on the eventual winner, and that remainder payload
+is load-bearing. A conversion-closing lever must keep winner-
+tracking while avoiding the cross. Mechanical freezing can't
+(measured); an EXTERNAL fair-value anchor might — re-anchor quotes
+on binance spot (replayable now, wiring scoped u48) instead of
+own-book chasing: the quotes follow the mover without standing
+stale on the leaving side, and without cancel-in-flight churn
+against our own fills. E008-fair-value is next; E005b bracket and
+completion composition rank behind it (neither touches the loss
+channel). Candidate assembly stays BLOCKED per the u40 framework.
+
+LS-11 recorded; dead region on LEADERBOARD; LEDGER §E006 filled.
+Next unit: E008-fair-value proposal draft (arms, criteria,
+freeze-ready) from the u48 scoping + this mechanism evidence.

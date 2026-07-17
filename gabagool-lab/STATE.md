@@ -12,44 +12,37 @@
 
 ## Status digest
 
-- **Session:** 15 (started 2026-07-17T12:17Z. Stamp rule: paste from
+- **Session:** 16 (started 2026-07-17T14:03Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED + battery judged
-  (u42: chassis latency-robust, EL conversion-dominated, candidate
-  path BLOCKED); E006-quote-stability FROZEN + LAUNCHED (u44),
-  draining
-- **Phase:** E006 draining, 7/8 terminal + VERIFIED (u46/u47/u51):
-  715=q05h2, 716=q10h1, 717=q10h2, 718=q20h1, 719=q20h2,
-  720=q45h1, 721=q05h1 — uids to the digit, 0 failures, validators
-  green on all 7. Last flow ax5h2-q45 draining, ETA ~12:32Z.
-  Honest peek (headline EL only per u50 rule; NOT a judgment):
-  ALL 7 at-or-worse than ref. h1 chain ref→q05→q10→q20→q45 =
-  −2.2884 → −2.5978 → −2.3103 → −2.2897 → −2.3015 (non-monotone:
-  q05 worst, plateau AT ref); h2 partial ref→q05→q10→q20 =
-  −2.0229 → −2.5887 → −2.3715 → −2.3681. Taker share collapses as
-  designed (37%→5–11%) but EL does not recover → frozen prediction
-  (EL→lat0 econ ≈ −0.1) looks dead; u50 decomp: winner-remainder
-  term collapses (rem$ 2.37→0.86 on h2 chain), remainder turns
-  outcome-adverse when quotes freeze — that asymmetry (~$1.2–1.5
-  lost vs ~$0.3 fee saved) is the mechanism. LS-10 waiter:
-  s15 id blehtrhfn (counts terminal ax5 rows, needs 8, 45-min
-  timeout). Run ids unknowable pre-landing (aggregate creates the
-  row). Drain watcher: nohup pid 94585 →
-  logs/watch-drain-s12-e006.log. Ref delta 0.02 = runs 708/703
-  (reused). Battery verdict (§E005 u42): depth advantage
-  latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
-  at 0.5 fills/mkt → lat140 loss ~100% requote-conversion; LS-1
-  hypothesis refuted; u40 blind framework applied → candidate
-  assembly BLOCKED pending conversion-closing axis (hence E006).
-  E005: both sub-axes passed advance rules; best cell rc+c960
-  −2.2884/−2.0229 (LS-9; E005b seeded). E004: H6 survives; cfree
-  via removal; D-008; LS-7/8. EVALUATION v1.1 frozen. LS-10 (bare
-  --extend footgun + terminal-state waiters). s14 ritual done
-  (12:11Z): KB@A33 no-new (top commit e4157b8 = operator process
-  note, already seen s13), origin/main +e988131 docs-only, DONE
-  absent, tree clean, worker + drain watcher alive
+- **Ladder rung:** L2 IN PROGRESS — E006 JUDGED (u52): AXIS-CLOSED,
+  prediction REFUTED, chassis keeps requoteDelta 0.02; candidate
+  assembly still BLOCKED (no conversion-closing lever proven).
+  Next axis: E008-fair-value (proposal draft = next unit).
+- **Phase:** E006 COMPLETE (LEDGER §E006 filled u52). 8/8 landed,
+  uids to the digit, 0 failures, validators green ×8. Final map:
+  715=q05h2 716=q10h1 717=q10h2 718=q20h1 719=q20h2 720=q45h1
+  721=q05h1 722=q45h2. Chains ref→q05→q10→q20→q45: h1 −2.2884 →
+  −2.5978 → −2.3103 → −2.2897 → −2.3015; h2 −2.0229 → −2.5887 →
+  −2.3715 → −2.3681 → −2.3428. Every cell at-or-below ref; taker
+  37%→5–7% as designed but EL does not recover → frozen prediction
+  (EL→lat0 econ ≈ −0.1) REFUTED. Advance rule FAILS (endpoint dir
+  agrees −/−; top-2 sets h1 {q02,q20} vs h2 {q02,q45} mismatch).
+  Mechanism at full resolution (both chains decomposed, identity
+  green): Δrem −1.08..−1.53 vs Δfee +0.21..+0.29, net pair ≤ +0.93
+  — winner-remainder payload (worth $2.2–2.4/mkt at ref) is what
+  requote-chasing buys; conversions were its price (LS-11). Real
+  side effect: CVaR5 −15.5 → −8.7 (~45% tail improvement) — risk
+  lever, not EV lever. Dead region on LEADERBOARD. Battery verdict
+  stands (§E005 u42): depth latency-robust, candidate BLOCKED.
+  E005: best cell rc+c960 −2.2884/−2.0229 (LS-9; E005b seeded).
+  E004: cfree via removal; D-008; LS-7/8. EVALUATION v1.1 frozen.
+  s16 ritual done (14:03Z): DONE absent, queue drained (3,000
+  completed/0 failed markets; 3 failed agg = known stale foreign),
+  tree had an UNCOMMITTED hook edit stripping the DONE guard (not
+  mine, no journal trail) — restored via git checkout, noted in
+  JOURNAL u52 + OPERATOR-FEED
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -106,24 +99,20 @@
 
 ## Queue (work top to bottom)
 
-1. **E006 judgment when drained (ETA ~12:32Z):** 7/8 verified (see
-   Phase); remaining 1 = ax5h2-q45; waiter blehtrhfn polling
-   terminal state (LS-10), branch on partial (windowed --extend
-   re-run per u41 recovery). On fire: verify uid + validators
-   (`tools/uids.ts <id>`, `results.ts --run <id>`), then
-   `e005-table.ts --arm q02=708,703 --arm q05=721,715
-   --arm q10=716,717 --arm q20=718,719 --arm q45=720,<h2>`
-   (verified blind u45). Judge per frozen §E006 criteria: chain
-   adjacency, advance rule (endpoint direction + top-2-of-5 set
-   match), EL-vs-participation curve, choke caveat at played<20%.
-   Pre-registered prediction to check: EL → lat0-economics (≈ −0.1)
-   as delta grows.
-2. **Next move after E006 judgment:** if a delta arm holds EL near
-   the lat0 bound with real participation → it joins the chassis;
-   then E005b bracket / E008 fair-value / completion composition
-   per D-008 (order re-justified from the new numbers). Candidate
-   assembly stays blocked until a conversion-closing lever is
-   proven.
+1. **E008-fair-value proposal draft (freeze-ready):** re-anchor
+   quotes on EXTERNAL fair value (binanceWsSpotPrice, replayable
+   now; wiring scoped u48) instead of own-book chasing. Mechanistic
+   target per LS-11: keep the winner-tracking remainder payload
+   ($2.2–2.4/mkt at ref) while cutting cancel-in-flight crosses
+   (~$0.3 fee + adverse fills). Draft arms + frozen criteria from
+   u48 scoping + §E006 mechanism evidence; freeze BEFORE launch as
+   always. Check first (moving ground): did price-to-beat /
+   Chainlink feeds land on origin/main? (last checked s4 — recheck
+   wireBacktestExternalFeeds.ts.)
+2. **After E008:** E005b cap bracket (below 0.96) and completion
+   composition per D-008 rank behind — neither touches the
+   conversion channel. Candidate assembly stays BLOCKED until a
+   conversion-closing lever is proven (u40 framework).
 
 ## Open questions / risks
 

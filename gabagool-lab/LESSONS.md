@@ -93,3 +93,20 @@ lesson (E002). Append-only; cite the source experiment/unit.
   `extending_at` (documented recovery) → re-extend WITH the window.
   Second lesson: completion-waiters keyed on status=='completed' sit
   forever on 'partial' runs — poll for terminal-state, then branch.
+- **LS-11 (E006):** Churn is not pure cost. The E005 battery read
+  "residual lat140 loss ≈ 100% requote-conversion" from arm-level
+  comparison and E006 bet on removing it by freezing quotes
+  (requoteDelta 0.02 → 0.45). Taker share collapsed 37% → 5% as
+  designed — and EL did not recover, because the settlement
+  decomposition splits the channel into a fee term (~$0.3/mkt) and
+  an information term (~$1.3–1.5/mkt): price-chasing requotes keep
+  the accumulating side tracking the eventual winner, so unpaired
+  remainder is worth $2.2–2.4/mkt at ref and collapses to $0.85–1.1
+  when quotes freeze. The conversions were the price of a correlated
+  benefit, not a removable tax. Rule: before building an axis to
+  remove a measured loss channel, decompose it at settlement level
+  (fee vs information/selection terms) — "the loss is 100% channel
+  X" from arm deltas can hide a benefit that rides the same
+  mechanism. Corollary: quote-freezing DID buy a real tail
+  improvement (CVaR5 −15.5 → −8.7, ~45%) — a risk lever worth
+  remembering if EV ever turns positive, just not an EV lever.

@@ -309,3 +309,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: 7 of 8 cells are now in, and every one is at-or-worse than the current best. Bigger quote-freeze steps stop the bleeding but never beat the reference.
 - Next: last run (~12:32Z), then the full-table verdict under the pre-frozen rules.
 - Health: on track
+
+## 2026-07-17T14:07Z — unit 52
+- Did: last E006 run landed + verified (8/8, zero failures); judged the whole experiment per the frozen criteria.
+- Found: freezing quotes kills taker fees as designed (37%→5%) but loses MORE on the winner-side leftovers ($1.3–1.5 vs $0.3 saved) — every arm at-or-worse than reference, so the bot keeps requoteDelta 0.02. Silver lining: worst-case losses shrink ~45%. Also: the pre-commit hook's DONE guard was locally stripped by something outside the lab — restored it.
+- Next: draft E008 — re-anchor quotes on the Binance spot feed instead of chasing our own book (keeps the winner-tracking benefit without the churn).
+- Health: on track
