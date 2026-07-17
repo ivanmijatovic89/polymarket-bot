@@ -1541,3 +1541,16 @@ on trading margin because the farm posture needs cross-book breadth
 and the 15m pool is only $6.8k/day; and the data traps (weekend
 stub outages, level-class overcalling taker at tiny clips) are now
 in the handoff so the lab doesn't rediscover them.
+
+## 2026-07-17T17:50Z — session 11, unit 11: cold-start day-7 checkpoint (A62)
+
+Re-checked the newest entrant (e114e5ca, born Jul-10) one week in:
+about two days of tuition (−$1.7k), then +$3,330 of trading profit
+in seven days plus maker rebates already running $1,179/day — week
+one blended ≈ $1.6k/day, 100% btc-5m, live at pull time. Also
+pulled typed rebate histories for all three living cold-starts: the
+taker-rebate lines are $0, $7 and $10 LIFETIME against tens of
+thousands in maker rebates — the entire entrant cohort routes
+around the tier moat exactly as A32 predicted. For the lab: the
+ramp precedent is days, not weeks, and maker-pure is the entry
+play, full stop.

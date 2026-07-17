@@ -520,3 +520,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — bookkeeping unit. The build spec now says: run weekday evenings first, skip volatile US afternoons, disable the winner-lean on weekends, and plan income from trading margin (the 15-minute book's rebate pot is too small to farm).
 - Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
 - Health: on track
+
+## 2026-07-17T17:50Z — unit 11 (session 11)
+- Did: one-week progress check on the newest bot (started July 10 from zero).
+- Found: it paid ~2 days of "tuition" losses, then made $3.3k trading in a week plus ~$1.2k/DAY in rebates already. All three young bots avoid taker fees entirely — the proven way in for a newcomer like ours.
+- Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
+- Health: on track

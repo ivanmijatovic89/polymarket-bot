@@ -43,3 +43,24 @@ Confidence: lb-profit ≈ excludes rebate transfers (P-fact, used
 throughout); 13e0d447's 30d-volume lb row is missing (endpoint quirk)
 so its margin%T is not computed; all four specimens are single wallets
 — treat as existence proofs, not rates.
+
+## Day-7 checkpoint on e114e5ca + rebate-purity proofs (session 11, unit 11)
+
+Re-pulled 2026-07-17 ~17:55Z:
+
+- **e114e5ca ("ohio-house", born Jul-10) is compounding**: lb 7d
+  +$3,330 vs lb all-time +$1,633 → the first ~2 days cost ~−$1,700
+  (tuition), the last 7 days earned +$3,330 trading. Maker rebates:
+  5 daily payouts, $5,893 (**avg $1,179/day — already at
+  13e0d447-scale subsidy income in week one**). Live at pull time:
+  $5.1k/2h, 100% btc-5m. Blended run-rate ≈ $1.6k/day and rising.
+  The cold-start door (A32) is not just open — the ramp is FAST:
+  tuition ≈ 2 days, not weeks.
+- **Rebate-purity proofs via typed pulls** (now cached for all three
+  cold-starts): 13e0d447 taker rebates = 1 entry / $7 lifetime (vs
+  $39,414 maker) — maker-pure confirmed at the payout layer;
+  e114e5ca = 1 entry / $10 (vs $5,893 maker); 76d4d470 = zero
+  entries ever (A61). The entire living cold-start cohort is
+  maker-pure — nobody fights the taker-tier moat anymore; they
+  route around it (A32 confirmed as the standard entry play).
+- Files: `data/rebates-{maker,taker}-{e114e5ca,13e0d447,76d4d470}.json`.

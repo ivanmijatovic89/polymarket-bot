@@ -1080,3 +1080,13 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   fills vs role-exact maker 1.00 → stale-book misclassification at
   sub-$3 clips (extends the A34 reconciliation).
   [verified] (wallets/76d4d470.md)
+- **A62 (cold-start ramp is fast and the whole entrant cohort is
+  maker-pure):** day-7 checkpoint on e114e5ca (born Jul-10): ~2
+  days of tuition (−$1.7k), then +$3,330 trading in 7d + maker
+  rebates already $1,179/day (5 payouts, $5,893) ≈ $1.6k/day
+  blended in week one, 100% btc-5m, live at pull time. Typed
+  rebate pulls prove maker-purity across all three living
+  cold-starts (taker rebates lifetime: $0 / $7 / $10) — A32's
+  route-around-the-moat is the standard entry play, and the ramp
+  precedent for a lab v1 is days, not weeks.
+  [verified] (measurements/cold-start-economics.md day-7 addendum)
