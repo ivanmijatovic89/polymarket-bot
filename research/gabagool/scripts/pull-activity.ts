@@ -39,6 +39,7 @@ if (!address) {
 const outDir = argOf('out') ?? 'research/gabagool/data'
 const label = argOf('label') ?? address.toLowerCase()
 const startSec = argOf('start') ? Number(argOf('start')) : 0
+const endSec = argOf('end') ? Number(argOf('end')) : Number.MAX_SAFE_INTEGER
 const maxRows = argOf('max-rows') ? Number(argOf('max-rows')) : Infinity
 
 mkdirSync(outDir, { recursive: true })
@@ -52,7 +53,7 @@ const MAX_OFFSET = 3000
 type Row = { timestamp: number; [k: string]: unknown }
 
 let total = 0
-let endCursor = Number.MAX_SAFE_INTEGER
+let endCursor = endSec
 
 if (existsSync(statePath) && existsSync(outPath)) {
   const st = JSON.parse(readFileSync(statePath, 'utf8'))

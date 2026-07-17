@@ -83,3 +83,16 @@ unique ids in /activity) was silently dropping ~22% of trades and showed
 
 Also: briefly created (and immediately removed) a stray dir at repo-root
 measurements/ — write-scope discipline note to self.
+
+## 2026-07-17T03:15Z — ENGINE-GAPS.md written
+
+Eight gaps documented from code reading, ranked. New beyond the charter's
+known list: (G3) the sim's taker-fee model is wrong in SHAPE (linear
+min(p,1−p) vs the venue's quadratic p(1−p)) and undercharges takers 2–4×
+across the price range; (G4) rebates — now known to be the end-state edge
+— are absent and their pool-share arithmetic needs trade prints; (G5)
+mid-episode merge in sim DESTROYS value (fable E4) while live merge is the
+capital-recycling engine of the real strategy — capital velocity is
+inexpressible; (G8) the live meta is a 7-bot equilibrium no replay can
+express. Fee-shape check also sharpened a fable-lab premise: their "156
+bps" era matched January's venue curve only at 45% of its mid-price value.
