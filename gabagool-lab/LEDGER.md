@@ -859,6 +859,25 @@ Template:
   capping the pair you RESCUE (completion-side, E004) blocks exactly
   the completions that matter and is useless-to-harmful. Guard
   placement, free the rescue.
+- **BATTERY ADDENDUM (pre-registered 2026-07-17T09:12Z, u39, BEFORE
+  battery submission; discharges the frozen coverage clause
+  "battery (0/500/1000) on the surviving region before any candidate
+  promotion"):** cell = rc+cap0.96 (the surviving region's best
+  cell; c970 statistically tied — battery on the single best cell,
+  stated). Arms: lat {0, 500, 1000} × halves, jitter 0, all other
+  params verbatim from runs 708/703 (which ARE the lat140 cells).
+  6 runs, suffixes `bath<half>-c960`, launcher LS-3-hardened.
+  Readout (pre-registered): EL±se, taker share, fills m/t, pairRate,
+  S(pair), outlay per lat×half; degradation Δ per lat step and
+  lat0→lat1000 total, compared against the E002 shallow-ladder
+  battery (EL −0.4207/−4.3904/−5.0288/−5.3047 at 0/140/500/1000;
+  taker conv 0→34→48→55% of fills; LS-1 hypothesis: the
+  standing-deep-ladder character degrades LESS — quote both Δ$ and
+  taker-share inflation). L-ratios (EVALUATION §4) are UNDEFINED at
+  EL(140) < 0 — this battery is characterization for the family
+  dossier + the LS-1 test, NOT a G6 gate evaluation; stated so no
+  later reading upgrades it. G2/G9 validity checks per run as
+  always.
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
