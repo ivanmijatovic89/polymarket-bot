@@ -251,3 +251,32 @@ so in JOURNAL and stop the session.**
 12. Idle-in-many-markets is expected for gated makers — a verdict must
     quote played-share alongside EV so "positive on 3% of markets"
     can't masquerade as coverage.
+
+## 8. Amendments (append-only; newest last)
+
+### A-1 (2026-07-17T06:15Z) — KB saturated, handed off, and re-tasked; A24 corrections
+
+Source: KB LAB-HANDOFF.md + SATURATION.md + git log (session 5 Phase 2).
+
+1. **CORRECTION to §2**: b27bc932 holds **~3–4% of the btc-15m maker
+   pool, NOT ~40%** (A24 self-correction; it is multi-book). The pool
+   (~$7.3k/day) is FRAGMENTED — no monopolist incumbent to displace.
+   Competition risks stand (failed −$542k/30d challenger, taker-tier
+   moat ≈ 2× effective fee for entrants, program discretion A21).
+2. **Live existence proof of the exact concept (A24)**: b27bc932 runs a
+   pair-accumulator TODAY — pair cost p50 **0.993**, leg parity 1.6%,
+   no merges, **50% taker completion** — trading thin but positive,
+   income mostly rebates. The target profile is validated live.
+3. **Seed-1 sweep priors** (handoff, for my L2 axes): parity tolerance
+   {0.1%, 2%, 10%, 20%, 40%}; completion policy {maker-only, taker-cap
+   pair≤0.99, taker-cap pair≤0.97, taker-free}; ladder = touch + rungs
+   −2c…−13c below touch; time-weighting {uniform, minutes 8–13 heavy};
+   minute-14 cutoff always; never open-heavy (E24/A20).
+4. **Seed 3 unblock note**: the handoff marks fair-value-gated-maker
+   "blocked on feed merge" — stale for THIS branch: binanceWsSpotPrice
+   is merged and replayable here (verified Phase 0). Strike proxy =
+   window-open spot; Chainlink-basis caveat near the boundary stands.
+5. **KB is alive again (Phase 2)**: operator re-tasked the sibling
+   shift — "research the strategy CLASS, not just the wallet";
+   VARIANT-ATLAS is its W0. Watch it as a future experiment-seed
+   source; re-read its STATE.md every session (unchanged rule).
