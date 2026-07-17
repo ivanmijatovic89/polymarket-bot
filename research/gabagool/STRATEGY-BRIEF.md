@@ -142,6 +142,17 @@ Candidates for the lab:
   (b55f/0xce25) and (b) shallow fast requoting + timed completion
   (0x04b6d7e9) — the first sweep should carry BOTH cells, and
   requote interval joins the parameter list.
+- **The shallow-fast cell's ENTRY GATE is momentum context (A44)**:
+  on 5.7k joined resting fills, momentum continues at 30–60s —
+  fills caught during falls keep falling (the adverse subset), and
+  the winner's fills concentrate in near-calm states while the
+  breakeven grinder's fire mid-chase at local tops (its fast
+  requotes trail rallies). Gate spec: quote both sides tight when
+  |mid drift over 30s| ≈ 0; veto/widen the bid after a 10–30s fall
+  on that asset; never instant-requote upward under a rally. No
+  other book feature (spread, depth, event rate, minute)
+  discriminates. Judge gates on aggregate drift + pair cost —
+  favorable share is ~48% for everyone.
 - **Hour-of-day is a policy variable, not just a regime caveat
   (A35)**: 0x04b6d7e9 trades ONLY 12–19Z weekdays (zero fills
   20–05Z, dark on weekends 21/32 and on Memorial Day) and earned its

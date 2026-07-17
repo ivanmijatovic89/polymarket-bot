@@ -333,3 +333,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: after today's ten answers, the new #1 question is: what exactly does the winning bot see in the order book just before it places the orders that pay off? All data to answer it is already downloaded.
 - Next: live snapshot 6 (~15:30 UTC), then attack the new #1.
 - Health: on track.
+
+## 2026-07-17T14:26Z — unit: found the winner's secret (session 8)
+
+- Did: compared what the market looked like right before each bot's passive orders got filled (5,700 fills, winner vs breakeven bot).
+- Found: the winner gets its orders filled in CALM moments; the breakeven bot gets filled while chasing price runs — and short-term price moves tend to continue, so chased fills lose. Concrete rule for our bot: quote when the market is quiet, stand aside right after sharp moves.
+- Next: live snapshot 6, then validate this rule on more days.
+- Health: on track.

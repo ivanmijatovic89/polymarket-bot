@@ -804,3 +804,18 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   selection, A35/A36 session choice, A28 subsidy), not a structural
   pool. Quit-at-peak n=8, spanning every era. [verified]
   (wallets/golden-era-originals.md)
+- **A44 (the entry gate found — momentum context of the resting
+  fill, not book geometry, separates the winner from the breakeven
+  grinder):** pre-fill features on 5.7k resting fills of
+  04b6d7e9 + b27bc932, same 30 Jun-12 books
+  (measurements/drift-features-btc15m.md): momentum CONTINUES at
+  30–60s (fills during falls keep falling — the adversely-selected
+  subset is literally "caught the falling ask"); the winner's fills
+  sit in near-calm states (preDrift30 +1.5c, post60 +0.47c) while
+  the breakeven wallet's fills fire mid-chase at local tops
+  (+5.5c pre, −0.15c post — fast requotes trailing rallies).
+  Spread/depth/event-rate/minute discriminate NOTHING. Lab gate:
+  quote when |preDrift30| ≈ 0; veto after 10–30s falls; don't
+  instant-requote upward under rallies. Favorable share is ~48% for
+  BOTH wallets — judge gates on aggregate drift/pair cost, not
+  per-fill win rate. [verified]

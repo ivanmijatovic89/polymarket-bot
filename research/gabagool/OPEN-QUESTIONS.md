@@ -6,15 +6,14 @@ bottom.
 
 ## Current ranking (session 8)
 
-1. **What predicts the favorable-drift fills?** (from A39) — the
-   whole living edge separates on post-fill drift of resting fills
-   (04b6d7e9 +0.9c@60s vs b27bc932 −0.4c, same books/days). Reverse-
-   engineer the selection rule: compare book state immediately BEFORE
-   each wallet's resting fills (ask-depletion, momentum sign, dip
-   depth, seconds-since-last-sweep). Method: extend edge-source.ts
-   to capture pre-fill features; data all on disk. This parameterizes
-   the shallow-fast cell's ENTRY GATE — the single most build-
-   relevant unknown left.
+1. ~~What predicts the favorable-drift fills?~~ **DONE session 8
+   (A44)** — measurements/drift-features-btc15m.md: momentum context
+   is the only discriminating feature; momentum continues at 30–60s
+   (falling-ask fills are the adverse subset); winner fills in calm
+   states, breakeven wallet fills mid-chase at local tops. Lab gate:
+   quote when |preDrift30| ≈ 0, veto after falls, don't chase
+   rallies with instant upward requotes. Residue: validate the gate
+   threshold on more days/months (fold into W4 #3).
 2. **Session-split scale-up with a realized-vol covariate** (A36 +
    O8) — 222 markets/2.4 days is thin and clock-only; scale to
    months (activity pulls per month for b27bc932) and stratify by

@@ -1028,3 +1028,18 @@ reverse-engineering WHAT book-state predicts the favorable-drift
 resting fills (the A39 discriminator) — it parameterizes the
 shallow-fast cell's entry gate, and all needed data is already on
 disk. STATE now carries a session-8 summary block for successors.
+
+## 2026-07-17T14:26Z (real) — session 8, unit 14: the entry gate (A44, new OQ#1 closed same session)
+
+Compared the book state immediately before 5.7k resting fills of the
+winner and the breakeven grinder on identical books. One feature
+discriminates and it's decisive: momentum context. At the 30-60s
+horizon momentum CONTINUES — bids filled during price falls keep
+falling (that's the adverse subset in the flesh), and the two
+wallets live in different habitats: the winner gets filled in calm
+moments (+0.47c average drift after), the grinder gets filled
+mid-rally at local tops because its fast requotes chase price up
+(−0.15c after). Spread, depth, event rate, minute: nothing. The
+lab's shallow-fast cell now has a concrete, sim-expressible entry
+gate: quote when 30s momentum ≈ 0, veto after falls, don't chase
+rallies. Folded into BRIEF §4, PRIORS A44.
