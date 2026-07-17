@@ -45,7 +45,8 @@ p≈0.5, trading negative by design), bonereaper resolved as a **hybrid**
 −0.90% + a REAL 15m edge sleeve (btc-15m +1.12%, eth-15m +0.77% — third
 independent btc-15m confirmation) + lumpy sports punts; steady-state
 negative ≈ −$4.5k/day but rescued by a single off-schedule **$62.6k
-TAKER_REBATE bulk payout** (provenance unknown). The venue's taker-rebate pool
+TAKER_REBATE bulk payout** (resolved A21: program-wide same-second
+May 28–Jun 19 accrual true-up — June income paid in July). The venue's taker-rebate pool
 (~$20k/day across these 7) is the ecosystem's single largest income
 stream — program risk is systemic. btc-15m is a LIVE edge book for both
 multi-book edge wallets (+2.0–3.2%); ETH books are negative for both.

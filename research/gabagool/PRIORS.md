@@ -502,3 +502,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   harvesting — winners position late, against front-loaded churn that
   fable E24 showed is adversely selected at the open. [verified]
   (measurements/window-lifecycle-btc15m.md)
+- **A21 (bulk payout = program-wide backpay):** the $62.6k bonereaper
+  lump (A12) is one same-second batch (2026-07-08T23:34:35Z) across 6/7
+  actives, $174k total in this cohort; daily TAKER_REBATE payouts start
+  exactly 2026-06-20 in every wallet while the program launched
+  2026-05-28 → the lump is the May 28–Jun 19 accrual true-up (June
+  income paid in July — don't read it as a July windfall). Also: manual
+  round-number grants exist (powerwinner $7,500.00, badfallen
+  $1,500.00); payout jobs batch and hiccup (same-second whole-day
+  delays Jul 4/Jul 13); doggystyie/powerwinner near-zero maker rebates
+  confirm pure-taker fingerprints; taker-rebate stream out-earns the
+  maker stream ~5-10×/day for every wallet. Program discretion is now
+  DIRECTLY evidenced (H3/G8 systemic risk). [verified]
+  (measurements/rebate-payout-provenance.md)

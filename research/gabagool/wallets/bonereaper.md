@@ -44,8 +44,11 @@ $3,270). But the daily cadence is ~00:10 (taker) / ~00:45 (maker) at
 **~$1.4–2.9k/day taker + $0.35–1.2k/day maker** — confirmed identical in
 the separate Jul 14–16 window ($1.4–2.0k + $0.8–1.0k). One payout breaks
 the pattern: **$62,612.93 TAKER_REBATE at 2026-07-08T23:34:35Z** —
-off-schedule, 20–45× the daily rate. Provenance unknown (monthly
-true-up? tier backpay? manual comp?) → OPEN-QUESTIONS.
+off-schedule, 20–45× the daily rate. RESOLVED (A21): it is one
+same-second batch across 6/7 actives — the program's May 28–Jun 19
+accrual true-up (daily payouts only began Jun 20). It is June income
+paid in July, not a windfall
+(measurements/rebate-payout-provenance.md).
 
 Steady-state economics this window, EXCLUDING the anomaly:
 trading −$7.1k/day + rebates +$2.6k/day ≈ **−$4.5k/day**. INCLUDING it,

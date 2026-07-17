@@ -402,3 +402,21 @@ slightly understated.
 
 Also this unit (data already pulled, writeup next): the bulk-payout
 question cracked open — the Jul 8 lump is ecosystem-wide, same-second.
+
+## 2026-07-17T06:45Z — bulk payout resolved (A21): program-wide backpay, and direct evidence of program discretion
+
+The /activity type filter (news to us — makes rebate pulls nearly
+free) gave full payout histories for all 7 actives. The $62.6k lump is
+one same-second batch (2026-07-08T23:34:35Z) hitting 6/7 wallets,
+$174k in this cohort alone; daily taker payouts start exactly Jun 20
+everywhere while the program launched May 28 → it's the launch-window
+accrual true-up. June income paid in July — bonereaper was never
+"rescued", it was owed. Bonus findings: manual round-number grants
+($7,500.00, $1,500.00), same-second whole-day payout slips, doggystyie
+and powerwinner near-zero maker-rebate streams (pure-taker confirmed),
+and the taker stream out-earning the maker stream 5–10×/day for every
+wallet. H3's program-risk framing now has direct evidence: the venue
+pays discretionary amounts to individual wallets.
+
+The queue is nearly empty. Next: saturation assessment against the
+charter's E criterion.

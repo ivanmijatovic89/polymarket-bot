@@ -140,6 +140,16 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   traders as of mid-2026. **[verified]** (docs.polymarket.com/trading/
   taker-rebates + multiple reports; observed payouts to 0xb55f at ~00:10
   UTC, $2.8–3.3k/day).
+- **Payout mechanics (A21, observed streams of all 7 actives)**: daily
+  TAKER_REBATE at ~00:10Z started exactly **2026-06-20** (the May 28–
+  Jun 19 launch-window accrual was paid later as ONE same-second batch,
+  2026-07-08T23:34:35Z — $174k across this cohort alone). MAKER_REBATE
+  daily at ~01:00Z (Mar–Apr) then ~00:45Z; observable back to
+  2026-03-26. Payout jobs are batched and occasionally slip by hours
+  (whole-cohort same-second catch-ups Jul 4 11:39Z, Jul 13 16:50Z);
+  manual round-number grants observed ($7,500.00, $1,500.00). The
+  taker stream out-earns the maker stream ~5–10×/day for every active
+  wallet. **[verified]** (measurements/rebate-payout-provenance.md)
 - Competition-structure consequence: a top-tier incumbent pays an
   EFFECTIVE taker fee of ~half the posted curve, while a new entrant
   starts at 3% refund — a volume-based fee moat protecting incumbent

@@ -39,3 +39,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: books stay tight all window; price churn happens early but the winners trade late; favorites are, if anything, slightly cheap — the trailing longshot side is the trap.
 - Next: write up the rebate-payout discovery (the $62.6k lump was paid to six wallets in the same second — a program-wide back-payment).
 - Health: on track.
+
+## 2026-07-17T06:45Z — unit: the $62.6k mystery payout resolved
+
+- Did: pulled the full rebate-payout history of all seven active wallets.
+- Found: the big lump was owed back-pay (the program's first 3 weeks, paid to six wallets in the same second) — and the venue also hands out manually-set round amounts, which is hard evidence the whole income stream is at the venue's discretion.
+- Next: check whether we've reached knowledge saturation; if yes, write the lab handoff.
+- Health: on track.

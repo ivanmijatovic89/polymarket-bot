@@ -53,22 +53,16 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: rebate-payout provenance writeup (A21) — data PULLED to
-   data/rebates-{taker,maker}-*.json; findings: Jul-8 23:34:35Z lump is
-   SAME-SECOND across 6/7 actives ($174k total; backpay for May 28–
-   Jun 19 pre-daily-payout accrual — daily taker payouts start exactly
-   Jun 20 everywhere); round manual grants (powerwinner $7,500.00,
-   badfallen $1,500.00); maker rebates daily since ≥Mar 26 (01:00Z then
-   00:45Z); off-schedule same-second catch-up batches Jul 4 + Jul 13.
-   Write measurements/rebate-payout-provenance.md, PRIORS A21, _META
-   caveat (bonereaper July income incl. lump is really June income),
-   VENUE-MECHANICS payout-mechanics, resolve OPEN-QUESTIONS #1.
-2. Venue leftovers REMAINING: 2026-exchange launch date, bulk-payout
-   provenance (bonereaper $62.6k lump). (Tick/rate-limits/stream
-   precision RESOLVED, A19.)
-3. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
+1. NEXT: saturation assessment — the queue is nearly empty. Remaining
+   candidates, all low-marginal-value: G4 rebate-estimator feasibility
+   note (paper exercise, feeds H1 kill criterion); P19 $8M/day wallet
+   hunt; drfc4eybh7i8 re-resolution; 2026-exchange launch date;
+   1-pUSD marketable min primary source. Judge each against "does it
+   change BRIEF/HYPOTHESES materially?" — if none do, write
+   SATURATION.md -> LAB-HANDOFF.md -> DONE (charter E).
+2. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
    wallet hunt, badfallen/doggystyie/0xaaaaa dossiers.
-4. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
+3. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
 DONE session 4 so far: recovered + committed the edge-source unit a
 crashed predecessor left on disk — A17 (edge execution fingerprint,
@@ -92,10 +86,10 @@ v2, literature A1/A2.
   subsidized-MM economics, YIELD verdict: dust).
 - B Venue mechanics: fee+rebate history SOLID — Jan rate resolved
   on-chain (A14), fee implementation decoded (charge+refund, A13),
-  formula change bracketed Mar 5→Apr 1 2026. Resolution DONE (A18:
-  Chainlink stream, ties→UP); min size 5 / tick 0.01 / negRisk false
-  verified. Open: sub-cent tick rule, rate limits, stream sampling
-  precision, bulk-payout provenance.
+  formula change bracketed Mar 5→Apr 1 2026. Resolution DONE (A18);
+  tick/min/rate-limits/stream-precision DONE (A19); payout mechanics +
+  bulk-payout provenance DONE (A21). Open residue (low value):
+  2026-exchange launch date, 1-pUSD marketable min primary source.
 - C Wallet forensics: archetype DONE (two eras + Jan transition + D2),
   incumbent DONE, powerwinner DONE, bonereaper DONE (hybrid), 7-wallet
   decomposition DONE (gross-of-fee caveat A13), edge-source fingerprint
@@ -104,6 +98,6 @@ v2, literature A1/A2.
 - D Measurements: D3+D5 DONE (A20, window-lifecycle); D4 resolved by priors; **D2 DONE — worst_queue admits 44–49% of real fills,
   touch 64–68%; ~30-45% of archetype fills were taker completions**
   (measurements/d2-fill-reality-gap.md). Edge-source DONE (A17,
-  measurements/edge-source-btc15m.md). D1 re-scoped (P38). D3–D5 open
-  (June data only — G9).
-- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A18.
+  measurements/edge-source-btc15m.md). D1 re-scoped (P38). Rebate
+  provenance DONE (A21).
+- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A21.

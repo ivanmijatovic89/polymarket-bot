@@ -3,12 +3,7 @@
 Ranked by information value per unit effort. Refreshed session 3
 (2026-07-17T01:5xZ). Resolved items moved to the bottom.
 
-1. **Bulk taker-rebate payouts** (NEW, A12): bonereaper received one
-   off-schedule $62,612 TAKER_REBATE (2026-07-08T23:34Z; 20–45× its
-   daily rate, daily cadence otherwise 00:10Z/00:45Z). Monthly true-up?
-   Tier backpay? Check other wallets' payout streams for similar lumps;
-   affects every income decomposition and the program-risk picture.
-2. **Rebate estimator feasibility** (G4): can `20% × Σ fee-curve(own
+1. **Rebate estimator feasibility** (G4): can `20% × Σ fee-curve(own
    maker fills) × pool-share` be computed with a defensible pool-share
    assumption (e.g., from market total volume × taker share)? Needed to
    judge H1 in sim at all.
