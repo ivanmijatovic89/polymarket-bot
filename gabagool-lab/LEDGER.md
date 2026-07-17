@@ -889,7 +889,65 @@ Template:
   (verified read-only via agg-inspect post-launch: 6 bath flows;
   markets queue 17,463 waiting + 12 active ≈ 17,568 expected;
   markets failed = 0. Drain watcher: nohup pid 1994 →
-  logs/watch-drain-s12-battery.log. Battery judgment: (pending))
+  logs/watch-drain-s12-battery.log. Run 714 landed partial — 1
+  BullMQ stall — completed via windowed --extend, original
+  submissionUid retained, all rows verified in-window; incident +
+  near-miss in JOURNAL u41, LS-10.)
+- **BATTERY JUDGMENT (2026-07-17T10:35Z, session 12, unit 42):
+  depth's advantage is latency-ROBUST (+1.8 to +2.2 $/mkt better
+  than the shallow reference at every arm), but the cell's residual
+  loss at realistic latency is ~entirely the taker-conversion
+  channel — the LS-1 standing-ladder hypothesis is REFUTED at this
+  grid, and by the pre-registered u40 framework, candidate assembly
+  on this family is BLOCKED pending a conversion-closing lever.**
+  - **Identity:** uids 709–714 match the launch block to the digit
+    (714 retained its original uid through the extension). All 6
+    complete, 0 failures. Validators green ×6 (fee-recon |recon−db|
+    ≤ 0.32; meta coverage 100%; settlement + segments OK).
+  - **Curve (results.ts --battery; EL $/mkt; E002 fullwin shallow in
+    parens):**
+    | lat | h1 | h2 | taker% | played% | pairRate | S(pair) | outlay |
+    |-----|----|----|--------|---------|----------|---------|--------|
+    | 0 | −0.1175 | −0.0136 (−0.42) | 1.7/0.0 | 35.4/37.4 | 0.116/0.101 | 0.8197(134)/0.8042(131) | 3.61/3.41 |
+    | 140 | −2.2884 | −2.0229 (−4.39) | 37.4/36.9 | 97.8/97.2 | 0.527/0.514 | 0.9150/0.9110 | 29.12/26.54 |
+    | 500 | −3.1803 | −3.1313 (−5.03) | 50.1/50.1 | 99.3/99.0 | 0.590/0.566 | 0.9420/0.9370 | 43.41/40.67 |
+    | 1000 | −3.4644 | −3.4688 (−5.30) | 56.4/56.5 | 99.4/99.3 | 0.614/0.593 | 0.9522/0.9480 | 50.73/48.19 |
+    (fills m/t: lat0 1,522/26 + 1,535/0; lat140 19,247/11,516 +
+    18,240/10,660; lat500 22,829/22,955 + 22,250/22,371; lat1000
+    23,252/30,052 + 23,012/29,829. REB 0 in all cells.)
+  - **Pre-registered reads:** Δ(140→1000) = −1.1760/−1.4459 (E002:
+    −0.9143); Δ(0→1000) = −3.3469/−3.4552 (E002: −4.8840). Taker
+    inflation 37→50→56% vs E002's 34→48→55% — IDENTICAL slope: deep
+    rungs re-anchor (requoteDelta 0.02) and convert at the same
+    rate; the standing-ladder benefit LS-1 hoped for does not
+    materialize from depth alone. LS-1-hypothesis: REFUTED at this
+    grid.
+  - **The lat0 decomposition (the battery's real finding):** at
+    zero latency the deep book plays 35–37% of markets, ~0.5
+    fills/mkt, taker ≈ 0, pairRate ≈ 0.11, imb p50 = 1.000 (LS-2
+    pattern: organic deep fills are rare and one-sided), and loses
+    ≈ nothing (−0.12/−0.01; the sparse organic pairs are CHEAP:
+    S 0.80–0.82). ~95% of lat140 fills exist only because of the
+    latency window; the entire −2.16 avg at lat140 is
+    conversion-channel loss. Depth improved the lat140 cell by
+    making the latency-window fills FEWER and BETTER-priced, not by
+    building an organic pairing engine.
+  - **Framework applied (pre-registered blind, u40):** the MIRAGE
+    branch fires numerically (Δ(140→1000) ≤ −1; taker → 56%) AND
+    the in-between clause holds (the depth ORDERING survives every
+    lat: −3.47 vs −5.30 at 1000). Verdict per framework: the family
+    keeps its STRUCTURE claim — deep + tight placement cap is the
+    right chassis at every latency — but its lat140 EL is
+    execution-fragile and candidate assembly is BLOCKED until an
+    axis closes the conversion channel (quote-stability / fair-value
+    suppression / completion). No G6 evaluation (L-ratios undefined
+    at EL < 0, per addendum).
+  - **Program consequence (next axis):** the measured loss channel
+    points at QUOTE-STABILITY first (requoteDelta has never been
+    tested; LS-1 named it a design axis; the conversion share is
+    the whole residual loss), then E008 fair-value suppression
+    (same channel, information-based), then E005b/timing/completion
+    composition. E006-quote-stability draft next.
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid

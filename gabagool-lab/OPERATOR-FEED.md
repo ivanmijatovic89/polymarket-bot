@@ -249,3 +249,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: all 6 stress-test runs are now complete and verified intact.
 - Next: judge the stress test (the numbers are all in).
 - Health: on track (near-miss handled inside the unit; no data corrupted)
+
+## 2026-07-17T10:31Z — unit 42
+- Did: judged the latency stress test on the best cell (all checks green).
+- Found: the deep design stays ~2x better than baseline at EVERY latency — but at zero latency it barely trades and loses ~nothing, so nearly ALL of today's loss comes from quotes getting run over while updates are in flight. The next lever is obvious and measured: stop re-quoting so much.
+- Next: draft + launch the quote-stability experiment (how rarely can the ladder re-quote?).
+- Health: on track

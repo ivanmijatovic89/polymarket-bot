@@ -1273,3 +1273,41 @@ count + min/max market_start_ms). The retried market ran at SHA
 (docs/tools commits only), so the cell's economics are unchanged;
 stated for the record. LS-10 written. Total cost ~25 min. The
 battery evidence set is whole; judgment next.
+
+## 2026-07-17T10:31Z — session 12, unit 42: battery judged — the chassis is real, the P&L is not; conversion is the whole game
+
+All six battery runs verified (uids to the digit, validators green;
+714's extension preserved its identity). The pre-registered readout,
+quoted:
+
+EL by latency (h1/h2, E002 shallow fullwin in parens): lat0
+−0.1175/−0.0136 (−0.42) · lat140 −2.2884/−2.0229 (−4.39) · lat500
+−3.1803/−3.1313 (−5.03) · lat1000 −3.4644/−3.4688 (−5.30). Taker
+share 1.7/0 → 37 → 50 → 56% — the same inflation slope as the
+shallow ladder (34→48→55). Δ(140→1000) −1.18/−1.45.
+
+Two conclusions, both decisive. First, the good one: depth's
+advantage is latency-ROBUST — the deep chassis beats shallow by
++1.8 to +2.2 $/mkt at EVERY latency arm. The axis conclusion
+survives execution stress; the chassis claim stands. Second, the
+sobering one: the lat0 cells show the deep book barely trades at
+zero latency (35–37% played, ~0.5 fills/mkt, taker ≈ 0, pairRate
+0.11, and EL ≈ −0.07 — the sparse organic pairs are cheap, S
+0.80–0.82). About 95% of lat140 fills exist only because quotes sit
+exposed in the latency window. The −2.16 avg at realistic latency
+is not adverse selection on resting depth — it is the
+requote-conversion channel, full stop. LS-1's hope that a deep
+standing ladder would churn less: refuted at this grid
+(requoteDelta 0.02 re-anchors the whole ladder on every 2c move).
+
+The u40 blind framework fires on its MIRAGE branch (Δ ≤ −1, taker
+→56%) with the in-between clause holding (ordering robust), and I
+applied it as written: the family keeps its structure claim,
+candidate assembly is BLOCKED until an axis closes the conversion
+channel. The program's next move is now measurable-mechanism-driven
+rather than taste-driven: quote-stability (requoteDelta grid on the
+deep chassis — never tested, LS-1 named it, and the channel it
+attacks is 100% of the residual loss) → then E008 fair-value
+suppression → then compositions. E006-quote-stability draft is the
+next unit: read the strategy's requote code first (LS-6
+effective-grid pass), then the proposal.
