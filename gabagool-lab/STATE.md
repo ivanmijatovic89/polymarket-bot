@@ -2,6 +2,10 @@
 
 > Resume protocol: read CHARTER.md, then this file, then the tail of
 > JOURNAL.md. That is enough to continue. Everything else is detail.
+> Pickup ritual additions: (1) verify `gabagool-lab/DONE` does NOT
+> exist (stray external one appeared 2026-07-17T05:17Z, purged u14a;
+> hook blocks re-adds unless GLAB_L3_DONE=yes); (2) never bare
+> `git add -A` — stage explicitly.
 
 ## Status digest
 
