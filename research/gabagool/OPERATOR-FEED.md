@@ -207,3 +207,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the "deep patient pairs" variant is now the top candidate (~$130-670/day expected at starter scale, immune to the newcomer handicap); the "cheap side" variant has higher expected profit but bigger swings.
 - Next: live snapshot 4, then remaining atlas follow-ups.
 - Health: on track.
+
+## 2026-07-17T05:22Z — unit: state file refreshed for successors (session 7)
+
+- Did: rewrote the relay state so the next session can resume in minutes — session-7 digest, queue statuses, pitfalls.
+- Found: nothing new — housekeeping.
+- Next: live snapshot 4 around 06:30 UTC; then atlas residue dossiers or W4 scaling.
+- Health: on track.

@@ -11,6 +11,20 @@ Operator reopened the shift as Phase 2 (CHARTER.md §Phase 2 + class
 amendment): open-ended, W0 variant atlas first, DONE deleted (committed
 session 5) and must never be recreated.
 
+### Session-7 digest (2026-07-17 ~04:11–05:20Z, A26–A32)
+
+VARIANT-ATLAS.md is written (W0 core done; 9 era days on-chain,
+decoder bug A29 found+fixed, Apr–Jul re-scanned). W1 closed by
+reclassification (A26: the −$542k "challenger" was a World Cup
+sports-MM blow-up; class has NO large-loss casualty). W5 done (A28
+rebate identity), W6 done (paper-EV; deep-pair cell = primary lab
+target). New dossiers: 0x04b6d7e9 "quiet winner" (A30, +$473k in <4mo,
+only trading-profitable parity wallet at scale), livebreathevolatility
+(A31, PREDATES gabagool22, +$386k, quit at peak). A32: cold-start moat
+only taxes taker completion — maker-pure newcomers win today. A27:
+b27bc932 merge usage is a toggled module (era-bound). W3 snapshots 1–3
+taken. Watch: journal timestamps drifted (trust git times).
+
 ### Phase-1 digest (still valid)
 
 NOTE: journal timestamps before session 3 are mislabeled (~4h ahead);
@@ -90,8 +104,11 @@ Queue (top = next):
    resolved. Life curve in dossier (first activity Mar 3, ramp Mar 18,
    May downtime windows). Full address (avoid A26-style typos):
    0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82.
-4. W3 live shadowing (every ~1-2h, small units, cumulative table in
-   measurements/live-shadow.md).
+4. W3 live shadowing (every ~1-2h real clock — CHECK `date -u`, the
+   journal drifted; snapshots 1–3 done ~02–05Z Jul 17; cumulative
+   table in measurements/live-shadow.md; rename each raw JSON after
+   the run, the script's bucket label collides). Watch O6: pair-cost
+   regime drift intra-day; and whether b27bc932's merge era persists.
 5. W4 scale D-measurements to thousands of markets / more months;
    month-by-month regime drift.
 6. ~~W5 rebate economics per policy~~ **DONE session 7 (A28)**:
@@ -100,7 +117,11 @@ Queue (top = next):
    rebate line ≈ 2× lower bound (D2); farmer postures dead cold-start.
    measurements/rebate-economics-per-policy.md; folded into BRIEF §6,
    H3, LAB-HANDOFF addendum. Residue: refresh if venue changes terms.
-7. W6 paper-EV the LAB-HANDOFF seeds + strongest atlas variants.
+7. ~~W6 paper-EV~~ **DONE session 7**: measurements/paper-ev-seeds.md
+   — per-seed EV bands with provenance, sim-reading rules (D2 2×
+   lower bound, rebate step, tier-0 taker legs), sharpened kill
+   lines; deep-pair cell promoted to primary target in LAB-HANDOFF.
+   Refresh if atlas or venue terms move.
 8. W7 terrain map beyond btc-15m (eth/sol/xrp 15m; btc 5m/1h/4h) —
    knowledge only, scope stays btc-15m.
 
