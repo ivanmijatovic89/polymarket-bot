@@ -6,13 +6,9 @@ import {
   type AggTradeMessage,
 } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
-import {
-  pairFromFeedSymbol,
-  recordingHourPath,
-  recordingStatusPath,
-  recordingsDir,
-  utcDateOf,
-} from './paths.js'
+import { fileExists } from '../utils/fs.js'
+import { parseBinanceCliArgs } from './cliArgs.js'
+import { recordingHourPath, recordingStatusPath, recordingsDir, utcDateOf } from './paths.js'
 
 /**
  * Record the LIVE Binance WS aggTrade stream to hourly parquet files, keeping
@@ -39,25 +35,42 @@ export const recordedAggTradeParquetSchema = new parquet.ParquetSchema({
 type Args = { pair: string; hours?: number }
 
 function parseArgs(argv: string[]): Args {
-  let pair = ''
   let hours: number | undefined
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    const next = (): string => {
-      const v = argv[++i]
-      if (v === undefined) throw new Error(`missing value for ${a}`)
-      return v
-    }
-    if (a === '--pair') pair = pairFromFeedSymbol(next())
-    else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
-    else if (a === '--hours') hours = Number(next())
-    else throw new Error(`unknown arg: ${a}`)
+  const { pair } = parseBinanceCliArgs({
+    argv,
+    usage: 'Usage: npm run binance:record-aggtrades -- --pair BTCUSDT [--hours 8]',
+    flags: {
+      '--hours': {
+        kind: 'value',
+        set: (v) => {
+          const n = Number(v)
+          // Reject garbage loudly: a silently dropped --hours would leave an
+          // unattended recording running forever.
+          if (!Number.isFinite(n) || n <= 0) {
+            throw new Error(`invalid --hours value: ${JSON.stringify(v)} (expected hours > 0)`)
+          }
+          hours = n
+        },
+      },
+    },
+  })
+  return { pair, ...(hours !== undefined ? { hours } : {}) }
+}
+
+/**
+ * Never rename onto an existing hourly file: `recordingHourPath` is fully
+ * deterministic, so a recorder restarted within the same UTC hour would
+ * silently clobber the previous session's trades (fs.rename overwrites).
+ * Park later segments under `-part2`, `-part3`, … instead —
+ * `binance:verify-aggtrades` globs `*-aggTrades-live-*.parquet`, so the
+ * segments all join the verification automatically.
+ */
+async function nonClobberingPath(finalPath: string): Promise<string> {
+  if (!(await fileExists(finalPath))) return finalPath
+  for (let n = 2; ; n++) {
+    const candidate = finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
+    if (!(await fileExists(candidate))) return candidate
   }
-  if (!pair) {
-    console.error('Usage: npm run binance:record-aggtrades -- --pair BTCUSDT [--hours 8]')
-    process.exit(2)
-  }
-  return { pair, ...(hours && Number.isFinite(hours) ? { hours } : {}) }
 }
 
 function hourKeyOf(ms: number): string {
@@ -90,8 +103,9 @@ async function main(): Promise<void> {
     writer = undefined
     await w.close()
     if (rowsInHour > 0) {
-      await fs.rename(writerTmpPath, writerFinalPath)
-      console.log(`[binance:record] closed ${writerFinalPath} rows=${rowsInHour}`)
+      const target = await nonClobberingPath(writerFinalPath)
+      await fs.rename(writerTmpPath, target)
+      console.log(`[binance:record] closed ${target} rows=${rowsInHour}`)
     } else {
       await fs.rm(writerTmpPath, { force: true }).catch(() => {})
     }

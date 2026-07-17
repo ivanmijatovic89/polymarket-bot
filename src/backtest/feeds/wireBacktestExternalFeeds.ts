@@ -4,7 +4,7 @@ import {
   isExternalFeedsRequestPlugin,
   type ExternalFeedsRequestPlugin,
 } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { pairFromFeedSymbol } from '../../binance/paths.js'
+import { defaultBinanceFeedSymbol, pairFromFeedSymbol } from '../../binance/paths.js'
 import { symbolFromSlug, windowFromSlug } from '../../polymarket/upDownSlugWindow.js'
 import { loadBinanceAggTradesSeries } from './binanceAggTradesSource.js'
 import { createBacktestExternalFeedsProvider } from './backtestExternalFeedsProvider.js'
@@ -28,6 +28,26 @@ function envInt(name: string, fallback: number): number {
   if (!raw) return fallback
   const n = Number(raw)
   return Number.isFinite(n) && n >= 0 ? n : fallback
+}
+
+/**
+ * The replay stand-in for "the bot's wall clock at tick processing time",
+ * which is what live feed visibility is checked against (and what the
+ * latency offset was measured against: `received_at_ms − T` on the trading
+ * machine). The exchange timestamp is stamped BEFORE the Polymarket→bot
+ * delivery leg (~50–150 ms), so using it would make Binance prices
+ * systematically staler in replay than live.
+ *
+ * Fallbacks: rows without a local receive timestamp (older recordings) use
+ * the exchange timestamp; a local clock BEHIND the exchange clock (recorder
+ * skew / sleep-freeze anomalies) is clamped to the exchange timestamp so the
+ * feed can never see less than the exchange-time baseline.
+ */
+function feedClockMs(tick: MarketTick): number {
+  const exchangeMs = tick.snapshot.timestamp
+  const localMs = tick.source.kind === 'parquet' ? tick.source.tsLocalMs : undefined
+  if (localMs === undefined || !Number.isFinite(localMs) || localMs <= 0) return exchangeMs
+  return Number.isFinite(exchangeMs) && exchangeMs > localMs ? exchangeMs : localMs
 }
 
 /** Effective pre-window lookback. Shared with the producer preflight so both agree on needed day files. */
@@ -78,7 +98,8 @@ export async function wireBacktestBinanceFeed(args: {
   // TRADING_SYMBOL the same way), so one strategy works on BTC/ETH/SOL/XRP
   // without a hardcoded pair.
   const cfgSymbol =
-    binanceReq.symbol?.trim().toLowerCase() || (slugSymbol ? `${slugSymbol}usdt` : undefined)
+    binanceReq.symbol?.trim().toLowerCase() ||
+    (slugSymbol ? defaultBinanceFeedSymbol(slugSymbol) : undefined)
   if (!cfgSymbol) {
     throw new Error(
       `[backtest:feeds] strategy requests the binance feed with no symbol and none is derivable from the slug (${args.slug})`,
@@ -115,7 +136,7 @@ export async function wireBacktestBinanceFeed(args: {
     },
   })
   reqPlugin.fulfill((tick?: MarketTick) =>
-    provider.snapshotAt(tick ? tick.snapshot.timestamp : Number.NaN),
+    provider.snapshotAt(tick ? feedClockMs(tick) : Number.NaN),
   )
   console.log(
     `[backtest:feeds] binanceWsSpotPrice fulfilled slug=${args.slug} symbol=${cfgSymbol} trades=${series.length}`,

@@ -37,8 +37,17 @@ recorded mode derives the window from the file slug) and every timeframe
   `[windowStart − lookback, windowEnd]`
   (`src/backtest/feeds/binanceAggTradesSource.ts`, DuckDB over the day
   parquet) and answers each tick with the latest trade whose
-  `T + latencyOffset ≤ tick ts_exchange_ms`
+  `T + latencyOffset ≤ tick ts_local_ms`
   (`src/backtest/feeds/backtestExternalFeedsProvider.ts`).
+- **The visibility clock is the recorded local receive time (`ts_local_ms`),
+  not the exchange timestamp.** Live, feed freshness is bounded by the bot's
+  wall clock at tick processing time — and the latency offset was measured
+  against that same clock (`received_at_ms − T`). The exchange timestamp is
+  stamped before the Polymarket→bot delivery leg (~50–150 ms), so keying
+  visibility off it would make Binance prices systematically staler in replay
+  than live. Rows without `ts_local_ms` fall back to the exchange timestamp;
+  a local clock behind the exchange clock is clamped to the exchange
+  timestamp (`feedClockMs` in `wireBacktestExternalFeeds.ts`).
 - The snapshot shape is identical to live (`ExternalFeedsSnapshot`):
   `rtdsPolymarketCryptoPrices: {}` always present; `binanceWsSpotPrice` absent
   until the first visible trade (live: absent until the first WS message);

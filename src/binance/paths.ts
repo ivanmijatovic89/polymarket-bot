@@ -84,7 +84,8 @@ export function tmpDir(): string {
 /**
  * Map a live feed symbol (Binance WS stream symbol, lowercase, e.g. "btcusdt")
  * to the dump/pair spelling ("BTCUSDT"). The WS client lowercases; dumps are
- * uppercase — this is the only place that conversion lives.
+ * uppercase — this is the only place that CASING conversion lives (the default
+ * quote-asset rule lives in `defaultBinanceFeedSymbol` below).
  */
 export function pairFromFeedSymbol(feedSymbol: string): string {
   const s = feedSymbol.trim().toUpperCase()
@@ -94,14 +95,35 @@ export function pairFromFeedSymbol(feedSymbol: string): string {
   return s
 }
 
+/**
+ * Default Binance WS feed symbol for a traded market symbol ("btc" → "btcusdt").
+ * The <SYM>USDT quote rule lives ONLY here (and via `defaultBinancePairForSymbol`):
+ * live wiring, backtest wiring + preflight, and every CLI `--symbol` flag derive
+ * their default through these helpers, so live and replay can never disagree
+ * on the derived pair.
+ */
+export function defaultBinanceFeedSymbol(marketSymbol: string): string {
+  return `${marketSymbol.trim().toLowerCase()}usdt`
+}
+
+/** Default dump/pair spelling for a traded market symbol ("btc" → "BTCUSDT"). */
+export function defaultBinancePairForSymbol(marketSymbol: string): string {
+  return pairFromFeedSymbol(defaultBinanceFeedSymbol(marketSymbol))
+}
+
 /** UTC calendar date (YYYY-MM-DD) for an epoch-ms timestamp. */
 export function utcDateOf(ms: number): string {
   return new Date(ms).toISOString().slice(0, 10)
 }
 
 /**
- * Every UTC calendar date whose daily dump can contain trades in [startMs, endMs].
- * Inclusive on both ends; a window crossing UTC midnight yields two dates.
+ * Every UTC calendar date whose daily dump can contain trades in [startMs, endMs).
+ * `endMs` is EXCLUSIVE at day boundaries: a market window ending exactly at UTC
+ * midnight (every 23:45 15m market) must NOT require the next day's dump — that
+ * file only exists ~1 day later, so demanding it would hard-error the freshest
+ * markets even on a fully synced machine, and the only trades it could
+ * contribute (ts == endMs exactly) are never visible under the feed's latency
+ * offset anyway.
  */
 export function utcDatesCovering(startMs: number, endMs: number): string[] {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
@@ -110,10 +132,10 @@ export function utcDatesCovering(startMs: number, endMs: number): string[] {
   const DAY_MS = 86_400_000
   const out: string[] = []
   let dayStart = Math.floor(startMs / DAY_MS) * DAY_MS
-  while (dayStart <= endMs) {
+  do {
     out.push(utcDateOf(dayStart))
     dayStart += DAY_MS
-  }
+  } while (dayStart < endMs)
   return out
 }
 
@@ -125,5 +147,8 @@ export function utcDateRange(from: string, to: string): string[] {
     throw new Error(`[binance] invalid date(s): from=${from} to=${to} (expected YYYY-MM-DD)`)
   }
   if (endMs < startMs) throw new Error(`[binance] --to ${to} is before --from ${from}`)
-  return utcDatesCovering(startMs, endMs)
+  const DAY_MS = 86_400_000
+  const out: string[] = []
+  for (let ms = startMs; ms <= endMs; ms += DAY_MS) out.push(utcDateOf(ms))
+  return out
 }

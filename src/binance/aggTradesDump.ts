@@ -3,9 +3,9 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
-import { DuckDBInstance } from '@duckdb/node-api'
 import { sleep } from '../utils/sleep.js'
 import { fileExists } from '../utils/fs.js'
+import { getInMemoryDuckDb, sqlQuote } from '../utils/duckdb.js'
 import { aggTradesDayPath, aggTradesDumpUrl, tmpDir } from './paths.js'
 
 const MAX_RETRIES = 3
@@ -107,17 +107,6 @@ async function csvHasHeader(csvPath: string): Promise<boolean> {
   }
 }
 
-function sqlQuote(s: string): string {
-  return `'${s.replaceAll("'", "''")}'`
-}
-
-// One shared in-memory DuckDB instance per process (CSV→parquet conversion only).
-let duckDbPromise: Promise<DuckDBInstance> | undefined
-function getDuckDb(): Promise<DuckDBInstance> {
-  duckDbPromise ??= DuckDBInstance.create(':memory:')
-  return duckDbPromise
-}
-
 export type DownloadDayResult = {
   status: 'downloaded' | 'skipped-exists' | 'skipped-not-published'
   parquetPath: string
@@ -169,15 +158,19 @@ export async function downloadAggTradesDay(args: {
   }
 
   try {
+    // Both fetches map a 404 to skipped-not-published: during Binance's daily
+    // publication window the zip can appear minutes before its .CHECKSUM, and
+    // that transient state must skip the day (retried by the next --sync run),
+    // not abort the whole pool run.
     try {
       await downloadToFile(urls.zip, zipPath)
+      await downloadToFile(urls.checksum, checksumPath)
     } catch (err) {
       if (err instanceof DumpNotFoundError) {
         return { status: 'skipped-not-published', parquetPath: finalPath }
       }
       throw err
     }
-    await downloadToFile(urls.checksum, checksumPath)
 
     const expected = (await fs.readFile(checksumPath, 'utf8')).trim().split(/\s+/)[0]?.toLowerCase()
     const actual = await sha256OfFile(zipPath)
@@ -190,7 +183,7 @@ export async function downloadAggTradesDay(args: {
     await extractSingleCsv(zipPath, csvPath)
     const header = await csvHasHeader(csvPath)
 
-    const db = await getDuckDb()
+    const db = await getInMemoryDuckDb()
     const conn = await db.connect()
     try {
       const readCsv =

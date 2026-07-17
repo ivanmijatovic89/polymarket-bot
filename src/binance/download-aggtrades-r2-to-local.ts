@@ -5,13 +5,13 @@ import { fmtBytes } from '../utils/fmtBytes.js'
 import { runWorkerPool } from '../utils/workerPool.js'
 import { downloadR2ToLocal } from '../telonex/fetchConvertedToLocal.js'
 import { getDefaultBucket, listObjects } from '../r2/client.js'
+import { parseBinanceCliArgs, concurrencyFlag } from './cliArgs.js'
 import {
   aggTradesDayDir,
   aggTradesDayPath,
   aggTradesR2Key,
   aggTradesR2Prefix,
   isoDateFromAggTradesFilename,
-  pairFromFeedSymbol,
 } from './paths.js'
 
 /**
@@ -30,33 +30,19 @@ import {
 type Args = { pair: string; concurrency: number; force: boolean; dryRun: boolean }
 
 function parseArgs(argv: string[]): Args {
-  let pair = ''
   let concurrency = 6
   let force = false
   let dryRun = false
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    const next = (): string => {
-      const v = argv[++i]
-      if (v === undefined) throw new Error(`missing value for ${a}`)
-      return v
-    }
-    if (a === '--pair') pair = pairFromFeedSymbol(next())
-    else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
-    else if (a === '--concurrency') concurrency = Math.max(1, Number(next()) || 6)
-    else if (a === '--force') force = true
-    else if (a === '--dry-run') dryRun = true
-    else {
-      console.error(
-        'Usage: npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT [--concurrency 6] [--force] [--dry-run]',
-      )
-      process.exit(2)
-    }
-  }
-  if (!pair) {
-    console.error('Usage: npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT')
-    process.exit(2)
-  }
+  const { pair } = parseBinanceCliArgs({
+    argv,
+    usage:
+      'Usage: npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT [--concurrency 6] [--force] [--dry-run]',
+    flags: {
+      '--concurrency': concurrencyFlag(6, (n) => (concurrency = n)),
+      '--force': { kind: 'boolean', set: () => (force = true) },
+      '--dry-run': { kind: 'boolean', set: () => (dryRun = true) },
+    },
+  })
   return { pair, concurrency, force, dryRun }
 }
 

@@ -9,7 +9,7 @@ import { MarketEngine } from '../../market/MarketEngine.js'
 import { openParquetReaderWithEpermFallback } from '../../cli/helpers/openParquetReader.js'
 import { toBigInt } from '../../utils/toBigInt.js'
 
-type Source = { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+type Source = { kind: 'parquet'; filePath: string; ingestSeq: bigint; tsLocalMs?: number }
 
 type ReplayApplyEvent = {
   msg: AnyMarketMessage
@@ -22,6 +22,7 @@ type TypedDeltaRow = {
   ingest_seq?: unknown
   event_type?: unknown
   ts_exchange_ms?: unknown
+  ts_local_ms?: unknown
   market?: unknown
   asset0_id?: unknown
   asset1_id?: unknown
@@ -168,10 +169,14 @@ export async function replayTelonexDeltaParquetForMarket(params: {
       const event = buildEventFromTyped(row)
       if (!event) continue
 
+      // Telonex's recorder receive time — the replay stand-in for the bot's
+      // wall clock; backtest feed visibility keys off it (see EngineSource).
+      const tsLocalMs = Number(toBigInt(row.ts_local_ms, 0n))
       const source: Source = {
         kind: 'parquet',
         filePath: params.filePath,
         ingestSeq: toBigInt(row.ingest_seq, 0n),
+        ...(tsLocalMs > 0 ? { tsLocalMs } : {}),
       }
       eng.getOrderBookEngine().applyAny(event.msg)
 

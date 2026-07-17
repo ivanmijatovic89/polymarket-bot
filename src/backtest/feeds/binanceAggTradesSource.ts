@@ -1,5 +1,5 @@
-import { DuckDBInstance } from '@duckdb/node-api'
 import { fileExists } from '../../utils/fs.js'
+import { getInMemoryDuckDb, sqlQuote } from '../../utils/duckdb.js'
 import { aggTradesDayPath, utcDatesCovering } from '../../binance/paths.js'
 
 /**
@@ -11,18 +11,6 @@ export type AsOfSeries = {
   tsMs: Float64Array
   value: Float64Array
   length: number
-}
-
-// One in-memory DuckDB per process; backtest worker children are
-// single-concurrency forks, so this is at most one instance per child.
-let dbPromise: Promise<DuckDBInstance> | undefined
-function getDuckDb(): Promise<DuckDBInstance> {
-  dbPromise ??= DuckDBInstance.create(':memory:')
-  return dbPromise
-}
-
-function sqlQuote(s: string): string {
-  return `'${s.replaceAll("'", "''")}'`
 }
 
 /**
@@ -66,7 +54,7 @@ export async function loadBinanceAggTradesSeries(args: {
     )
   }
 
-  const db = await getDuckDb()
+  const db = await getInMemoryDuckDb()
   const conn = await db.connect()
   try {
     const fileList = paths.map(sqlQuote).join(', ')

@@ -1,13 +1,10 @@
 import '../config/env.js'
 import { promises as fs } from 'node:fs'
 import path from 'node:path'
-import { DuckDBInstance, type DuckDBConnection } from '@duckdb/node-api'
-import {
-  aggTradesDayPath,
-  pairFromFeedSymbol,
-  recordingsDir,
-  recordingStatusPath,
-} from './paths.js'
+import { type DuckDBConnection } from '@duckdb/node-api'
+import { getInMemoryDuckDb, sqlQuote } from '../utils/duckdb.js'
+import { parseBinanceCliArgs } from './cliArgs.js'
+import { aggTradesDayPath, recordingsDir, recordingStatusPath } from './paths.js'
 import { downloadAggTradesDay } from './aggTradesDump.js'
 import { loadBinanceAggTradesSeries } from '../backtest/feeds/binanceAggTradesSource.js'
 import { createBacktestExternalFeedsProvider } from '../backtest/feeds/backtestExternalFeedsProvider.js'
@@ -32,35 +29,26 @@ import { createBacktestExternalFeedsProvider } from '../backtest/feeds/backtestE
 type Args = { pair: string; date: string; download: boolean; checkAsof: boolean }
 
 function parseArgs(argv: string[]): Args {
-  let pair = ''
+  const USAGE =
+    'Usage: npm run binance:verify-aggtrades -- --pair BTCUSDT --date YYYY-MM-DD [--download] [--check-asof]'
   let date = ''
   let download = false
   let checkAsof = false
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    const next = (): string => {
-      const v = argv[++i]
-      if (v === undefined) throw new Error(`missing value for ${a}`)
-      return v
-    }
-    if (a === '--pair') pair = pairFromFeedSymbol(next())
-    else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
-    else if (a === '--date') date = next()
-    else if (a === '--download') download = true
-    else if (a === '--check-asof') checkAsof = true
-    else throw new Error(`unknown arg: ${a}`)
-  }
-  if (!pair || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    console.error(
-      'Usage: npm run binance:verify-aggtrades -- --pair BTCUSDT --date YYYY-MM-DD [--download] [--check-asof]',
-    )
+  const { pair } = parseBinanceCliArgs({
+    argv,
+    usage: USAGE,
+    flags: {
+      '--date': { kind: 'value', set: (v) => (date = v) },
+      '--download': { kind: 'boolean', set: () => (download = true) },
+      '--check-asof': { kind: 'boolean', set: () => (checkAsof = true) },
+    },
+  })
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    console.error(`invalid or missing --date: ${JSON.stringify(date)}`)
+    console.error(USAGE)
     process.exit(2)
   }
   return { pair, date, download, checkAsof }
-}
-
-function sqlQuote(s: string): string {
-  return `'${s.replaceAll("'", "''")}'`
 }
 
 /** Excused intervals (ms) where the recorder was not connected, from the status jsonl. */
@@ -205,7 +193,7 @@ async function main(): Promise<void> {
     process.exit(2)
   }
 
-  const db = await DuckDBInstance.create(':memory:')
+  const db = await getInMemoryDuckDb()
   const conn = await db.connect()
   const recGlob = `[${recFiles.map(sqlQuote).join(', ')}]`
 
