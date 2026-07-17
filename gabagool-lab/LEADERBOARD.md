@@ -16,12 +16,15 @@ latency arm of EL, selection width (max-of-N), and fill-model caveat
 | line | EL(140) | EL(0) | EL(500) | EL(1000) | f_stab | PF | pairRate | notes |
 |------|---------|-------|---------|----------|--------|-----|----------|-------|
 | E002-baseline (L1 reference) | **−4.3904** (t −43.5) | −0.4207 | −5.0288 | −5.3047 | 0/9 wk (every arm) | 0.22 @ 140 | 0.644 @ 140 (0.291 @ lat0 — the honest one) | archetype-faithful shallow ladder, runs 675/678/676/677, 5,856 mkts, Apr 1–May 31, sel-width 1; exempt from gates (TAIL_K calibration source, D-007); judged LEDGER §E002 |
-| E004-cfree (best measured cell; axis-grade, NOT a candidate) | −3.4665 h1 / −3.3541 h2 (t −43.5/−49.2) | — | — | — | not run (axis) | — | 0.860/0.848; imb p90 0.335 (all other arms 1.000) | free completion on the shallow ladder, runs 694/695, 2,880+2,976 mkts, Apr/May halves, sel-width 4, lat140 only; completed pairs locked ABOVE $1 (S 1.0207/1.0188) — wins via inventory removal (LS-7); no latency battery, no gate vector; judged LEDGER §E004 |
+| E004-cfree (axis-grade, NOT a candidate) | −3.4665 h1 / −3.3541 h2 (t −43.5/−49.2) | — | — | — | not run (axis) | — | 0.860/0.848; imb p90 0.335 (all other arms 1.000) | free completion on the shallow ladder, runs 694/695, 2,880+2,976 mkts, Apr/May halves, sel-width 4, lat140 only; completed pairs locked ABOVE $1 (S 1.0207/1.0188) — wins via inventory removal (LS-7); no latency battery, no gate vector; judged LEDGER §E004 |
+| E005-rc deep ladder (best measured cell; axis-grade, NOT a candidate) | **−2.7093 h1 / −2.3622 h2** (t −19.8/−18.9) | — | — | — | not run (axis) | — | 0.576/0.558; imb p50 0.270/0.273, p90 1.000 | rungOffsets [0.02,0.13] maker-only, runs 698/699, Apr/May halves, sel-width 4, lat140 only; S(pair) 0.9427/0.9374 (BELOW incumbent 0.95–0.976 region); CVaR5 −16.70/−15.30 (best tails too); outlay 35.14/31.13 (≈60% of ref); ADVANCE RULE HELD (first axis to pass); sub-judged LEDGER §E005 |
 
 The reference to beat: **EL(140) −4.39/market; frictionless bound
 −0.42** (worst_queue adverse-subset caveat on both). Best measured
-cell so far: E004-cfree ≈ **−3.41** avg (axis-grade, sel-width 4 —
-shrinkage expected on confirmation; D-008 path only).
+cell so far: E005-rc deep ladder ≈ **−2.54** avg maker-only
+(axis-grade, sel-width 4 — shrinkage expected on confirmation;
+supersedes E004-cfree −3.41; deep-shape × free-completion
+interaction unmeasured, in backlog).
 
 ## Dead regions (closed with numbers; do not re-enter without new cause)
 
@@ -57,3 +60,14 @@ shrinkage expected on confirmation; D-008 path only).
   (which converge to free) or state-aware caps (E-completion-
   selective seed); plain price caps on completion are closed
   (LEDGER §E004, LS-7).
+- **The A17 4-rung archetype package at archetype sizing**
+  (rungOffsets [0.01,0.02,0.05,0.13], 24 sh/side/cycle at clip 6):
+  indistinguishable from the shallow reference in BOTH halves and
+  point-NEGATIVE both (ΔEL −0.41/−0.28 vs 2·se_diff 0.46/0.42), with
+  reference-like pair economics (S 0.9802/0.9752) at the LARGEST
+  outlay of all shape arms (59.97/54.82) — adding shallow rungs back
+  at 2× resting size cancels the measured depth benefit (E005 shape
+  sub-axis, runs 700/701 vs 682/683, lat140, sel-width 4). The
+  incumbent's documented edge does not come from this ladder shape at
+  this sizing; re-entry only with the archetype's OTHER properties
+  (fee tier, completion, timing) layered in (LEDGER §E005).

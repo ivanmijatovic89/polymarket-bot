@@ -1095,3 +1095,49 @@ S p25/50/75 = 0.9571/0.9786/0.9909, bind spread 0.2541, bind(0.98)
 input is the WINNER's pair, run after the sub-judgment is written).
 
 Drain at 15,421 pending (07:36Z), ~450/min → judgment ~08:10Z.
+
+## 2026-07-17T08:22Z — session 12, unit 36: E005 shapes judged — the first axis to PASS its advance rule; depth is the real lever; caps launched on the winner
+
+All 6 ax3 runs landed clean (uids verified to the digit, validators
+green across the board, G2 97.2–99.5% played). The result is the
+strongest and cleanest signal the lab has produced:
+
+Depth pays, hugely and stably. Both deep 2-rung arms beat the
+shallow reference DISTINCT in both halves: rb [0.02,0.06] by +1.75,
+rc [0.02,0.13] by +1.86. rc wins both halves outright (−2.7093 h1,
+−2.3622 h2) — the best measured cell yet, maker-only, no completion
+machinery — and it does it on 60% of the reference outlay with the
+best tails so far (CVaR5 −16.70/−15.30 vs −21.46/−19.75). Its pairs
+complete at S ≈ 0.9427/0.9374 — BELOW the 0.95–0.976 region where
+every known profitable parity wallet lives. The advance rule held:
+endpoint direction + in both halves, top-2 = {rb, rc} in both
+halves. First time.
+
+Equally informative: the A17 4-rung archetype package (rd) is
+indistinguishable from the reference and point-worse in both halves.
+Adding shallow rungs back at 2× resting size buys reference-like
+pair economics at the largest outlay of any arm. Whatever makes the
+live archetype print, it is NOT this ladder shape at this sizing —
+consistent with A32's tier/completion/timing hypotheses. Dead-region
+row added.
+
+Mechanism: exactly LS-2 inverted. Fewer, better fills — maker fills
+−40%, outlay −40%, pairRate FALLS to 0.576/0.558, imbalance p50
+RISES to 0.270 — and EL still improves 1.9: the fills depth sheds
+were the adverse ones. Notably imb p90 stays 1.000 in every arm:
+the fully one-sided tail market survives depth. That residual tail
+is where E004's completion lever (which crushed p90 to 0.335 on the
+shallow ladder) might compose; deep × free-completion interaction
+is in the backlog, unmeasured.
+
+Then the two pre-registered follow-ons, in order: (1) bind table on
+the winner pair 698/699 — n 4,135, S p25/50/75 = 0.9125/0.9567/
+0.9803, bind(0.96/0.97/0.98) = 0.4663/0.3599/0.2544 → rule says
+KEEP {0.96,0.97,0.98}, recorded and committed before any launcher
+existed; (2) built launch-e005-caps.sh (hardcoded rc + kept grid,
+LS-3 pattern; submit.ts's push-guard caught my unpushed HEAD on the
+first dry-run attempt — the guard rail worked), dry-run verified,
+launched 6 ax4 flows at d8f5be2b, verified via agg-inspect (17,459
+waiting ≈ 17,568 expected, 0 failed), watcher pid 44081. Drain ETA
+~09:00Z; cap sub-judgment (criteria 5: pairRate/EL trade-off curve)
+when drained.

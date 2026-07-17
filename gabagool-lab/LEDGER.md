@@ -775,6 +775,23 @@ Template:
   runs: caps {0.96, 0.97, 0.98} × halves on rc, suffixes
   `ax4h<half>-c<code>` (c960/c970/c980), lat140, clip 6, tol 2,
   completion none.
+- **Cap runs (launched 2026-07-17T08:21Z, session 12, SHA d8f5be2b =
+  the launcher commit; strategy code unchanged since freeze SHA
+  7355c21a; 6 flows, h1 = 2,880, h2 = 2,976 each; cap-0.99 reference
+  = rc runs 698/699, reused):**
+  - ax4h1-c960: `…--ax4h1-c960--lat140--341448af-df76-4a0e-9a24-61a61333d1fb`
+  - ax4h2-c960: `…--ax4h2-c960--lat140--236c872e-aae6-4d89-8ca0-071fa93002a4`
+  - ax4h1-c970: `…--ax4h1-c970--lat140--aa4657a2-a7b3-4272-92fe-a88d2a99c11e`
+  - ax4h2-c970: `…--ax4h2-c970--lat140--edc1ed8c-0ffe-4040-a531-452e161a50b3`
+  - ax4h1-c980: `…--ax4h1-c980--lat140--cfd1e969-78b1-464f-9997-578f3ecc0faa`
+  - ax4h2-c980: `…--ax4h2-c980--lat140--1401f478-dfb3-4d87-9113-0dba940f84b4`
+  (verified read-only via agg-inspect post-launch: 6 ax4
+  waiting-children flows; markets queue 17,459 waiting + 12 active ≈
+  the expected 17,568; markets failed = 0. Drain watcher: nohup pid
+  44081 → logs/watch-drain-s12-e005-caps.log.)
+- **Runs (cap judgment) / Judgment / Lesson:** (pending — cap
+  sub-judgment per criteria (5): the pairRate/EL trade-off curve,
+  participation caveat armed at G2 20%)
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid

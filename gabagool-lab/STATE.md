@@ -16,18 +16,20 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E004 JUDGED (u33); E005 shapes
-  FROZEN + LAUNCHED (u34), draining
-- **Phase:** E005 shapes draining (launched 07:30Z at freeze SHA
-  7355c21a; 6 flows ax3{h1,h2}×{rb,rc,rd}, 17,568 jobs; ETA
-  ~08:05–08:10Z at E004 pace). Watcher: nohup pid 87197 →
-  logs/watch-drain-s12-e005-shapes.log. Reference arm ra = E003
-  runs 682/683 (NOT resubmitted). E004 verdict: LEDGER §E004 (H6
-  survives; cfree best cell −3.4665/−3.3541 via inventory removal;
-  caps dead; maker-only confirmations, D-008; LS-7/LS-8). E003:
-  §E003 (tighter better; floor −4.39; SEED=2). EVALUATION v1.1
-  frozen (TAIL_K 41, G11 0.92/$100, D-007). s12 ritual done: KB@A33
-  no-new, feeds unchanged (binance only)
+- **Ladder rung:** L2 IN PROGRESS — E005 shapes JUDGED (u36):
+  ADVANCE RULE HELD (first passing axis); rc=[0.02,0.13] best cell
+  −2.7093/−2.3622 maker-only; cap arms LAUNCHED (u36c), draining
+- **Phase:** E005 caps draining (launched 08:21Z at SHA d8f5be2b;
+  6 flows ax4{h1,h2}×{c960,c970,c980} on shape rc, 17,568 jobs;
+  ETA ~09:00Z). Watcher: nohup pid 44081 →
+  logs/watch-drain-s12-e005-caps.log. Cap-0.99 reference = rc runs
+  698/699 (reused). Cap-grid decision u36b: KEEP {0.96,0.97,0.98}
+  (bind 0.4663/0.3599/0.2544, n=4135). Shape sub-judgment in §E005
+  (depth DISTINCT +1.75/+1.86; A17 package dead; S(rc) 0.9427/
+  0.9374 below incumbent region; e005-table.ts is the readout
+  tool). E004: §E004 (H6 survives; cfree via removal; caps dead;
+  maker-only confirmations D-008; LS-7/8). EVALUATION v1.1 frozen.
+  s12 ritual done: KB@A33 no-new, feeds unchanged
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -84,23 +86,24 @@
 
 ## Queue (work top to bottom)
 
-1. **E005 shape sub-judgment when drained (watcher log
-   watch-drain-s12-e005-shapes.log says DRAINED; ETA ~08:10Z):**
-   TOOL READY (u35): `e005-table.ts --arm ra=682,683 --arm rb=…
-   --arm rc=… --arm rd=…` (guards + advance rule built in, verified
-   blind: ra reproduces E003 to the digit; wrong wiring aborts).
-   Get ax3 run ids from runs.ts, verify submission uids vs §E005
-   (tmp DB query pattern, u33), check validators via results.ts per
-   run, then table → write sub-judgment in §E005 (state whether
-   pure-depth or package comparison is read; LS-6 notes).
-2. **Cap-grid finalization decision (pre-registered §E005 rule):**
-   `e005-table.ts --bind <winnerH1>,<winnerH2>` prints the bind
-   table + KEEP/REPLACE verdict (machinery verified on ra pair:
-   n=4621, KEEP at reference). Record table + decision in §E005
-   BEFORE submitting cap arms (ax4).
-3. **Launch + judge E005 cap arms (ax4; launcher NOT built yet —
-   build after grid decision, LS-3 pattern).** Then E006 timing.
-   Seeds in LEDGER backlog (incl. E-completion-selective).
+1. **E005 cap sub-judgment when drained (watcher log
+   watch-drain-s12-e005-caps.log says DRAINED; ETA ~09:00Z):** 6
+   ax4 runs (uids in §E005) + cap-0.99 ref = rc runs 698/699
+   (reused). Verify uids (tmp DB query pattern u33/u36), validators
+   per run, then per frozen criteria (5): the pairRate/EL trade-off
+   curve across caps {0.96,0.97,0.98,0.99-ref} — does forcing
+   deeper pairs raise EL or just lower fill count? Participation
+   caveat armed: played < 20% (G2 level) = "cap chokes
+   participation", EL flagged unmeasurable-at-coverage. NOT gated
+   on EL sign. e005-table.ts guards expect completion=none + tol=2
+   but NOT specific pairCostCap — check whether --arm labels
+   c960/c970/c980 need adding to EXPECT_OFFSETS-style guards or a
+   generic cap guard (verify tool handles ax4 wiring BEFORE use;
+   extend if needed, verify on 698/699 as cap-ref).
+2. **Write E005 final judgment + lesson** (both sub-curves
+   measured → axis closed; LEADERBOARD/dead-regions updates; then
+   next axis decision: E006 timing vs deep×completion interaction —
+   justify order from measured numbers + backlog priorities).
 
 ## Open questions / risks
 

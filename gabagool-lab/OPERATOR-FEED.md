@@ -213,3 +213,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new (tooling unit); reference numbers reproduce exactly.
 - Next: judge E005 shapes when the queue drains (~08:10Z), then the cap-grid decision.
 - Health: on track
+
+## 2026-07-17T08:22Z — unit 36
+- Did: judged E005 shapes (6 runs + reference) and launched the cap arms on the winner (6 more runs, draining ~40 min).
+- Found: deep quoting is the strongest lever yet — loss drops from −4.39 to −2.36/−2.71 per market (maker-only, best tails, half the capital); the copied 4-rung wallet ladder shape does NOT explain the incumbent's profit. First experiment to pass its pre-set stability rule.
+- Next: judge the pair-cost-cap arms when drained (~09:00Z), then time-weighting (E006).
+- Health: on track
