@@ -116,3 +116,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: merging is a switch the operator has flipped twice — on in March, off end of April, on again July 1. Also: the wallet went from zero to full scale in two weeks, and takes multi-day breaks.
 - Next: fresh 2-hour snapshot of the live players; the background history scan is 4 of 9 days done.
 - Health: on track (same-hour self-correction, fully ledgered).
+
+## 2026-07-17T05:50Z — unit: live snapshot 2 (session 7)
+
+- Did: took the second 2-hour snapshot of the 9 live wallets.
+- Found: nothing new — the whole scene is stable hour-over-hour (same players, same prices, same books). Also fixed a filename bug so future snapshots don't overwrite old raw data.
+- Next: rebate-income math per candidate quoting policy while the history scan finishes (5 of 9 days done).
+- Health: on track.
