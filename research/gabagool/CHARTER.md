@@ -175,6 +175,24 @@ E. **Synthesis** — update STRATEGY-BRIEF/HYPOTHESES/METRICS continuously,
 7. Commit after EVERY completed unit (hook checks scope) and push the
    branch (`git push -u origin gabagool-knowledge`) so nothing is lost.
 
+## Operator feed (required)
+
+`research/gabagool/OPERATOR-FEED.md` — the operator's 10-second window.
+Append one entry at the END of EVERY unit (in the same commit), max 4
+short lines, plain language, no jargon, append-only:
+
+    ## <UTC timestamp> — unit <n>
+    - Did: <what this unit did, one line>
+    - Found: <the takeaway in plain words — "nothing new" is a valid answer>
+    - Next: <the next unit, one line>
+    - Health: on track | BLOCKED: <why> | OFF-PLAN: <why + what you're doing>
+
+Keep it brutally short — this file exists so the operator can see at a
+glance that the shift is on course, and catch drift early. Be honest in
+Health: if you deviated from the charter or the queue, say OFF-PLAN and
+why. If Health is not "on track" twice in a row, explain fully in
+JOURNAL.md.
+
 ## Resumability contract (you may be killed at any moment)
 
 - `STATE.md` — current status digest + the work queue, updated as part of
