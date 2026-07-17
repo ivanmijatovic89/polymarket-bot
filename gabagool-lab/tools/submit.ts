@@ -20,7 +20,7 @@
  * Prints the exact command + env pins (paste into the ledger), then runs.
  */
 import { spawn, execSync } from 'node:child_process'
-import { WINDOWS } from './lib.js'
+import { WINDOWS, loadRunHeader, closeDb } from './lib.js'
 
 type Args = {
   exp: string
@@ -85,7 +85,60 @@ function resolveWindow(w: string): { fromMs: number; toMs: number; label: string
   return { fromMs, toMs, label: 'custom' }
 }
 
+/**
+ * Extension mode: grow an existing run to fuller coverage with the SAME
+ * latency pin as its batchUid label (verified against the DB — the env
+ * pin cannot silently diverge from what the run claims to be).
+ *   submit.ts --extend <runId> --lat <ms> [--limit N] [--detach]
+ */
+async function runExtend(argv: string[]): Promise<void> {
+  const get = (flag: string): string | undefined => {
+    const i = argv.indexOf(flag)
+    return i >= 0 ? argv[i + 1] : undefined
+  }
+  const runId = Number(get('--extend'))
+  const lat = Number(get('--lat'))
+  const limitRaw = get('--limit')
+  if (!Number.isFinite(runId) || runId <= 0) fail('--extend <runId> required')
+  if (!Number.isFinite(lat) || lat < 0) fail('--lat <ms> required (must match the run label)')
+
+  const header = await loadRunHeader(runId)
+  await closeDb()
+  if (!header) fail(`run ${runId} not found`)
+  const batchUid = header!.batchUid ?? ''
+  if (!batchUid.startsWith('glab--')) fail(`run ${runId} is not a lab run (batchUid ${batchUid})`)
+  const m = batchUid.match(/--lat(\d+)$/)
+  if (!m) fail(`run ${runId} batchUid has no --lat label: ${batchUid}`)
+  if (Number(m[1]) !== lat)
+    fail(`latency pin ${lat}ms does not match run label --lat${m[1]} (${batchUid})`)
+
+  const cli = ['src/cli/backtest.ts', '--extend', String(runId)]
+  if (limitRaw !== undefined) cli.push('--limit', String(Number(limitRaw)))
+  if (argv.includes('--detach')) cli.push('--detach')
+
+  const env = {
+    ...process.env,
+    BACKTEST_LATENCY_DELAY: String(lat),
+    BACKTEST_LATENCY_JITTER: '0',
+  }
+  console.log(`[submit] EXTEND run ${runId} (${batchUid})`)
+  console.log(`[submit] env pins: BACKTEST_LATENCY_DELAY=${lat} BACKTEST_LATENCY_JITTER=0`)
+  console.log(`[submit] cmd: npx tsx ${cli.join(' ')}`)
+  if (argv.includes('--dry-run')) {
+    console.log('[submit] --dry-run: not executing')
+    return
+  }
+  const child = spawn('npx', ['tsx', ...cli], { env, stdio: 'inherit' })
+  child.on('exit', (code) => {
+    process.exitCode = code ?? 1
+  })
+}
+
 async function main(): Promise<void> {
+  if (process.argv.includes('--extend')) {
+    await runExtend(process.argv.slice(2))
+    return
+  }
   const a = parseArgs(process.argv.slice(2))
   if (!a.exp || !/^E\d{3}-[a-z0-9-]+$/.test(a.exp))
     fail(`--exp must match E###-<slug>, got "${a.exp}"`)
