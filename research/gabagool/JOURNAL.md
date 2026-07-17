@@ -35,3 +35,27 @@ docs). PRIORS.md now holds 51 tagged claims. The surprises:
    the passive-fill reality gap (D2) is the measurement that arbitrates.
 
 Next: wallet forensics scaffolding + @gabagool22 handle→address resolution.
+
+## 2026-07-17T01:55Z — wallet forensics unit 1: handles resolved, ecosystem alive
+
+Resolved all 9 target handles to addresses (profile-page dominant-address
+method + lb-api name echo). Findings that move priors:
+
+- gabagool22 = 0x6031…f96d, all-time $868,863 (bigger than the incumbent).
+  Active window pinned by data: 2025-10-29 12:34Z → 2026-02-20 09:06Z.
+  Ran the full multi-book operation from literally the first minute.
+- He DID merge (697 MERGEs in the 2.6-day tail) — "never merges" (P10) is
+  a successor-wallet fact, not an archetype fact. Contested.
+- MAKER_REBATE rows exist: $1,693 paid 2026-02-18. Venue rebate income is
+  real — T2 reconciliation (iv) is live, workstream B must find the terms.
+- His volume was mostly 5m/15m BTC/ETH (~35k fills/day) — contests the
+  INV claim that the edge lives on 1h/4h (P18/T1 needs re-measurement).
+- The ecosystem TODAY: 7 confirmed-active wallets collectively printing
+  ~$18.5k/day over 30d; the incumbent's 30d rate GREW since the INV
+  (83.8k → 110.6k). "Edge decaying" is contested.
+- Cluster lead: incumbent + @0xce25 profiles created 121s apart with the
+  same name pattern — likely one operator, two wallets.
+
+Full-history pull for gabagool22 is infeasible (~3-4M rows via a 500/page
+API); kept the 75k-row tail (Feb 17-20 + post-stop) and will sample
+mid-life windows instead.
