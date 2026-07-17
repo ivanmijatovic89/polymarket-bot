@@ -16,21 +16,24 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED (u38); battery
-  LAUNCHED (u39), draining
-- **Phase:** Battery draining (launched 09:11Z at SHA c19e1365;
-  6 flows bath{1,2}-c960 × lat{0,500,1000}, 17,568 jobs; ETA
-  ~09:52Z). Watcher: nohup pid 1994 →
-  logs/watch-drain-s12-battery.log. lat140 ref = runs 708/703
-  (reused). Addendum pre-registered in §E005 (readout fields, E002
-  comparison curve −0.42/−4.39/−5.03/−5.30, LS-1 hypothesis;
-  L-ratios undefined at EL<0 — characterization NOT G6). E005
-  verdict: §E005 (both sub-axes passed advance rules — lab's first
-  two; best cell rc+cap0.96 −2.2884/−2.0229 maker-only, 51% of ref
-  loss removed; optimum unbracketed → E005b seeded; LS-9). E004:
-  §E004 (H6 survives; cfree via removal; caps dead; D-008; LS-7/8).
-  EVALUATION v1.1 frozen. s12 ritual done: KB@A33 no-new, feeds
-  unchanged (binance only)
+- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED + battery judged
+  (u42: chassis latency-robust, EL conversion-dominated, candidate
+  path BLOCKED); E006-quote-stability FROZEN + LAUNCHED (u44),
+  draining
+- **Phase:** E006 draining (launched 10:34Z at SHA 35a6f5de; 8
+  flows ax5{h1,h2}×{q05,q10,q20,q45} on rc+c960 chassis, 23,424
+  jobs; ETA ~11:26Z). Watcher: nohup pid 94585 →
+  logs/watch-drain-s12-e006.log. Ref delta 0.02 = runs 708/703
+  (reused). Battery verdict (§E005 u42): depth advantage
+  latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
+  at 0.5 fills/mkt → lat140 loss ~100% requote-conversion; LS-1
+  hypothesis refuted; u40 blind framework applied → candidate
+  assembly BLOCKED pending conversion-closing axis (hence E006).
+  E005: both sub-axes passed advance rules; best cell rc+c960
+  −2.2884/−2.0229 (LS-9; E005b seeded). E004: H6 survives; cfree
+  via removal; D-008; LS-7/8. EVALUATION v1.1 frozen. LS-10 (bare
+  --extend footgun + terminal-state waiters). s12 ritual done:
+  KB@A33 no-new, feeds unchanged
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -87,23 +90,24 @@
 
 ## Queue (work top to bottom)
 
-1. **Battery judgment when drained (watcher log
-   watch-drain-s12-battery.log says DRAINED; ETA ~09:52Z):** 6 runs
-   (uids in §E005 battery block) + lat140 ref 708/703. Verify uids
-   (tmp DB query pattern), validators per run, then per addendum:
-   EL±se/taker/fills/pairRate/S/outlay per lat×half; Δ per lat step
-   + lat0→lat1000 total vs E002 curve (−0.42→−5.30, taker 0→55%);
-   LS-1 hypothesis read (deep standing ladder degrades less?).
-   e005-table.ts guards will REJECT lat-varied cells only if they
-   check lat — they don't (params-only) — but labels c960 in both
-   halves at 3 lats = duplicate-cell guard collision (same label
-   ra/c960 twice per half). USE results.ts per run + a small
-   hand-assembled table in the judgment instead, OR extend
-   e005-table with a --battery mode. Decide when drained.
-2. **Next axis decision after battery:** E005b cap extension
-   {0.92,0.94} vs E006 timing vs deep×completion (D-008 path).
-   Justify order from measured numbers + backlog. Then candidate
-   assembly when the family is battery-proven.
+1. **E006 judgment when drained (watcher log
+   watch-drain-s12-e006.log says DRAINED; ETA ~11:26Z):** 8 runs
+   (uids in §E006) + ref q02 = 708/703. WAITER RULE (LS-10): poll
+   terminal state (completed OR partial OR failed), branch on
+   partial (windowed --extend re-run per u41 recovery). Verify uids
+   (tmp DB query pattern), validators per run, then
+   `e005-table.ts --arm q02=708,703 --arm q05=… q10=… q20=… q45=…`
+   (verified blind u45). Judge per frozen §E006 criteria: chain
+   adjacency, advance rule (endpoint direction + top-2-of-5 set
+   match), EL-vs-participation curve, choke caveat at played<20%.
+   Pre-registered prediction to check: EL → lat0-economics (≈ −0.1)
+   as delta grows.
+2. **Next move after E006 judgment:** if a delta arm holds EL near
+   the lat0 bound with real participation → it joins the chassis;
+   then E005b bracket / E008 fair-value / completion composition
+   per D-008 (order re-justified from the new numbers). Candidate
+   assembly stays blocked until a conversion-closing lever is
+   proven.
 
 ## Open questions / risks
 
