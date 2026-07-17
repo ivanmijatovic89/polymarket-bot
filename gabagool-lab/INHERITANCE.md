@@ -1,0 +1,253 @@
+# INHERITANCE — Phase 0 distillation (session 1, 2026-07-17)
+
+What the lab inherited, verified, and will act on. Sources: the live KB
+(`../polymarket-bot-gabagool/research/gabagool/`, read at its session-4
+state), fable-lab, strategy-research-protocol (SRP), repo root docs, and
+my own first-hand code verification. Facts I verified myself in code are
+marked **[verified-in-code]**; everything else cites its source doc.
+Re-check the KB's STATE.md every session — it was near saturation
+(SATURATION.md → LAB-HANDOFF.md pending) when read.
+
+## 1. Engine facts (all verified first-hand this session)
+
+1. **Maker fill model = `worst_queue`, hardcoded.** A resting BUY at P
+   fills only when `bestAsk < P` strictly (through the level), at P, for
+   the FULL remaining size, `liquidity='MAKER'`, zero fee
+   (`src/trading/execution/BacktestExecution.ts:59-114`). Mode
+   `touch_or_better` exists but `src/backtest/runSingleMarket.ts:134`
+   hardcodes worst_queue; not CLI-exposed, and that file is outside my
+   write scope. **[verified-in-code]**
+   - fable E19: touch mode is NOT an upper bound (toxic full-size fills
+     made it strictly worse in both regimes). Fill-model bounds are
+     instrument ends, never dominance proofs.
+2. **Taker path**: a marketable BUY crosses at placement via
+   `buildFillsFromBook`, walking ask levels (size does consume levels
+   within one order), fills carry `feeRateBps`
+   (`BacktestExecution.ts:116-160,365,393`). **[verified-in-code]**
+3. **Taker fee model is era-wrong in shape**: `fee = (bps/1e4) ·
+   min(p,1−p) · size`, default 156 via `BACKTEST_TAKER_FEE_BPS`
+   (`src/trading/fees.ts`). Real current-era fee = `0.07 · p(1−p)` per
+   share (KB VENUE-MECHANICS, verified on-chain to 5 decimals). Sim
+   undercharges takers 2–4× (p=0.5: 0.78c vs 1.75c). No bps value fixes
+   the shape. **[verified-in-code]** → any taker-completion variant needs
+   post-hoc per-fill fee correction (see §4).
+4. **PnL is fee-inclusive** through position/proceeds channels: taker BUY
+   fee docked in shares (`netSize = size − feeBase`), taker SELL fee in
+   proceeds (`src/trading/Portfolio.ts:665-715`). `feesPaid` in
+   marketStats is a diagnostic column, NOT subtracted again
+   (`src/backtest/stats/marketStats.ts:126-134,169`). **[verified-in-code]**
+5. **Pair payoff is scored natively**: `min(upShares, downShares) × $1 +
+   winner-side redeem − remaining cost basis`
+   (`marketStats.ts:104-169`). No merge intent needed — and emitting
+   `merge_positions` mid-episode DESTROYS value in sim (erases legs
+   without the $1 credit; fable E4). Never merge in sim.
+   **[verified-in-code]**
+6. **Latency**: `BACKTEST_LATENCY_DELAY` (default 0) +
+   `BACKTEST_LATENCY_JITTER` (default 20, inert when delay=0)
+   (`src/cli/backtest.ts:546-547`, `runSingleMarket.ts:131-132`).
+   Cancels are ALSO delayed (`cancelLatency=true` default) → fill-before-
+   cancel is real. Jitter uses Math.random → the only nondeterminism;
+   jitter=0 → deterministic. **AMBIENT TRAP: repo `.env` sets
+   `BACKTEST_LATENCY_DELAY=140`, `JITTER=0`** — every run from this repo
+   is silently 140ms unless pinned (fable E7/E28 were bitten twice).
+   All lab tooling pins latency explicitly per run. **[verified-in-code]**
+7. **Risk limits are ACTIVE in backtest and hardcoded**
+   (`src/trading/riskLimits.ts:24-29`): `maxOpenOrders 20` (global! a
+   two-sided ladder gets ≤10 rungs/side), `maxOrderSize 2000`,
+   `maxAbsPosition 2000` shares/asset, `maxLossStop 500` (realized only —
+   never triggers for buy-only strategies since buys realize nothing).
+   Breaches are SILENT `order_rejected` events — strategies must count
+   rejections. **[verified-in-code]**
+8. **Resolution** comes from venue records (Gamma/DB), not price-derived
+   (`src/backtest/stats/marketResolution.ts`); unresolved markets are
+   skipped entirely. Ties→UP is venue truth (Chainlink BTC/USD data
+   stream; KB A18) and not a sim concern. **[verified-in-code]**
+9. **Maker fills emit NO order-status updates** in sim — only `fill` +
+   `order_done`. Gate strategy logic on `fill` events (fable E5).
+   Recorded books can be self-crossed (delta artifacts) — guard before
+   resting quotes (fable E6, KB P39).
+10. **Per-fill data is NOT persisted.** The only strategy-authored
+    channel reaching the DB is `intent_meta` (per FILLED order, deduped
+    by clientOrderId) in `backtest_run_markets`
+    (`marketStats.ts:171-180`). Maker fills are all-or-nothing at the
+    order's own price → placement meta (price, size) reconstructs maker
+    fills EXACTLY. This is the lab's per-fill channel. **[verified-in-code]**
+
+## 2. Concept priors that shape variants (KB, measured)
+
+- **The archetype (@gabagool22, $869k all-time)**: buy-only two-sided
+  ladders, ~0.1% leg imbalance held continuously, $4 median clips,
+  30–600+ fills/market, band p25–p75 = 0.31–0.63, burst cadence.
+  Zero-fee era: pair cost p50 0.98 → +1.9% of turnover, 98.7% win on
+  btc-15m. Fees (2026-01-06) → adapted in ~6 days via 130bp deeper
+  discounts → competitive compression → rebate-farming end-state → quit
+  2026-02-20 (STRATEGY-BRIEF §1, era-comparison, jan-transition).
+- **The current winners are DIFFERENT**: b55f +2.31% fee-inclusive on
+  btc-15m (Jul 2026, on-chain audit A16), 47% win, LOOSE parity (p50
+  20–40% imbalance), deep patient ladders (offset p10 −12/−13c below
+  touch, ~35% of fills), cheap-side touch rests (fill px p50 0.14),
+  **~62% TAKER by notional** (mid-band completions, px p50 0.58),
+  back-loaded minutes 10–13 (39.7% of fills), final minute cut.
+  Post-fill mid drift ≈ 0 — no visible adverse signature (A17).
+- **Completion aggressiveness is the margin knob (H6)**: same operator,
+  two wallets, +2.31% vs +0.31% — the gap tracks WHERE taker completion
+  happens on the fee curve (b55f crosses at px p25 0.34, further from
+  the p=0.5 fee peak). Sim can rank completion policies exactly (same
+  maker fills under all arms).
+- **Parity is a zero-fee-era artifact, not a concept invariant** (BRIEF
+  §5): today's one perfect-parity wallet is trading-negative. Sweep
+  parity tolerance 0.1%→40% as a first-class knob.
+- **Books are 1c-tight all window**; L1 depth 150–250 shares; "cheap
+  side" is a 1–2c + depth-sweep phenomenon, never a wide spread (D5).
+  Endgame: leading side ≥0.90 with <5min flips 0–6%; trailing cheap side
+  is ~1–5c OVERpriced in all bands ≥0.6 — the stale cheap side is a trap
+  (A20); deep-discount completion only (b55f's 0.14 rests).
+- **Sizing**: clip $1–28 (p50 $4); rebate income ∝ fill count ×
+  fee-weight. Min order 5 shares, tick 0.01 in [0.04,0.96] (0.001
+  outside). Marketable orders need ≥1 pUSD notional [reported].
+- **Who's in the pool**: btc-15m maker pool ($7.3k/day) is ~40% owned by
+  one entrenched archetype-style incumbent (b27bc932, 97% of its income
+  = rebates); a $1.48M/day parity-style challenger lost −$542k in 30d
+  (A23). Competition is priced in bodies. The lab's target profile is
+  the EDGE-wallet shape (small clips, moderate parity, deep ladders,
+  cheap completion) — not the farmer shape.
+
+## 3. Sim-interpretation doctrine (the D2 result — load-bearing)
+
+- worst_queue admits **44–49%** of the archetype's real fills (touch
+  64–68%); the missed half is the benign uninformed-arrival half. The
+  **~30–45% of real fills that were taker completions** are expressible
+  in sim. → **Sim EV ≈ EV of the toxic subset**: sim-negative is
+  expected and NON-FATAL for the maker leg; **sim-positive is
+  extraordinary evidence**; relative rankings across variants that share
+  the maker-fill stream (e.g. completion policies) are trustworthy.
+- fable measured pure spread-capture (symmetric, no parity, no pair
+  logic) dead under both fill modes on this book (E16/E17/E19/E30).
+  What was NEVER tested in sim: parity-driven pair accumulation with a
+  pair-cost cap, deep ladders, time-weighting, and taker-completion
+  policy — exactly the gabagool shape (KB P42 note + BRIEF §4). That
+  gap is this lab's opening.
+- **Rebates are exactly computable post-hoc** (A22, estimator proven
+  exact — pool share cancels): `rebate = 0.20 × Σ 0.07·p(1−p)·size over
+  own maker fills`, subject to a **$1/market/day minimum** (dust configs
+  earn $0). btc-15m pool ≈ $7.3k/day. Trading line and subsidy line must
+  be reported SEPARATELY, never silently summed (H3; program risk is
+  the systemic risk).
+
+## 4. Fee eras and the evaluation window (decisive for design)
+
+Timeline (VENUE-MECHANICS, on-chain verified): fee-free → **2026-01-06**
+15m-crypto taker fees (`0.25·p·(p(1−p))²`, peak $0.78/100sh; NO Feb
+halving — press figure wrong) + 20% maker rebates → **2026-03-06** all
+crypto → curve reshaped to **`0.07·p(1−p)`** (peak $1.75/100sh) between
+2026-03-05 and 2026-04-01 → **2026-05-28** taker rebate tiers (3%→50%
+refund by trailing volume; top-tier incumbents pay ~half fees).
+
+Data on disk: 22,142 telonex btc-15m parquet files, **2025-10-11 →
+2026-06-14** (`data/events/telonex/delta-typed/btc/15m/`); Binance
+BTCUSDT aggTrades day files 2025-11-29 → 2026-07-15 contiguous. Telonex
+coverage ENDS 2026-06-14 (G9) — the July meta is not replayable until
+the operator resumes sync.
+
+**Consequences** (frozen into EVALUATION.md):
+- Current-era-valid evaluation window: **2026-04-01 → 2026-06-14** (fee
+  shape certain; ~7,100 markets). 2026-03-06→04-01 is a
+  transition band (curve changing) — usable for mechanism screens,
+  flagged, never for verdicts. Pre-fee Dec is mechanism-sanity only.
+- The **June 1–14 slice (~1,300 markets)** is the only replayable data
+  under the post-2026-05-28 rebate-tier meta → reserve it as the
+  confirmation holdout (never browsed during search).
+- Taker fee correction: reconstruct per-fill economics from intent_meta
+  (maker: exact; taker: intended-cross price at placement), validate the
+  reconstruction against the sim's own `fees_paid` per market, then
+  re-price taker fills at `0.07·p(1−p)` and report corrected EV. A
+  cold-start entrant pays the FULL curve (no tier refunds) —
+  evaluate at full fee; tier refunds are upside, not baseline.
+
+## 5. Pipeline + tooling facts
+
+- Strategy files: `src/strategies/gabagool-lab/**` auto-discovered by
+  the standard registry — no injection wrapper needed (fable needed one
+  only because its strategies lived outside `src/strategies/`).
+- Run paths: sequential `npm run backtest -- ... --sequential` (no
+  Redis); parallel via BullMQ (default) — producer enqueues per-market
+  jobs on `backtest-markets`, workers (`scripts/run-worker.sh`, tracks
+  the branch HEAD is on, self-updates via `git pull --ff-only`, exits 75
+  to relaunch) require COMMITTED+PUSHED code. Telonex research profile:
+  `--input-mode telonex-delta --read-from local-or-download-from-r2-to-local
+  --symbol btc --timeframe 15m` + `--from-ms/--to-ms` windows.
+- Results: MySQL via Drizzle (`src/db/`) — `backtest_runs` (submission_uid
+  unique, batch_uid grouping label), **`backtest_run_segments`** (the
+  evaluation source: `all|daily|weekly|monthly` rows with
+  `ev_per_market_total`, `total_fees_paid`, `pnl_max_lose`,
+  `pnl_avg_lose`, `streak_max_lose*`, win/played/total counts),
+  **`backtest_run_markets`** (per-market `pnl`, `up_shares`,
+  `down_shares`, `mergable_shares`, `cost`, `intent_meta`,
+  `final_outcome`). Weekly/monthly time slices come FREE from segments.
+  Pairing health (unpaired-leg inventory per market) comes FREE from
+  the share columns. Read the DB directly; never depend on the :3051
+  dashboard being up.
+- `--extend <runId>` grows one run's coverage in place (stage climbs);
+  batchUid/submissionUid split: batchUid groups (label), submissionUid
+  identifies (unique). Adopt SRP's naming discipline.
+- Feeds: `binanceWsSpotPrice` is replayable NOW (as-of lookup, ~110ms
+  measured offset; strategy opts in via ExternalFeedsRequestPlugin;
+  producer preflights day files). `polymarketPriceToBeat` and Chainlink
+  are NOT landed (docs/datasets/polymarket-data/price-feeds-for-backtests.md
+  — Chainlink pending Telonex `crypto_prices` subscription; strike =
+  separate future task). H4 fair-value variants: strike proxy =
+  window-open Binance spot; Chainlink-basis caveat applies near the
+  boundary (A18).
+
+## 6. What I take from the quarries (decided)
+
+From SRP (steal): Zod-schema'd memory with cross-field invariants;
+frozen hypothesis+successCriteria at first submission; verdicts quote
+criteria verbatim with measured numbers; append-only logs; measured
+costs from `backtest_run_segments` (no invented cost constants — with
+the ONE lab exception: the era-correct taker fee re-pricing in §4, which
+is an on-chain-verified formula, not an invented constant); mechanical
+naming (experiment ids `NNN-slug`, registry ids derived, batchUid
+suffixes `--smoke/--pN-<param>/--refine/--rN`); code-freeze after first
+evidence run; batchUid/submissionUid split. REDESIGNED: the scalar
+`netEvPerMarket > 0` gate → multi-criteria score vector (EVALUATION.md);
+the family/dedup/ProposeFamily layer (one concept, one lineage);
+minExperiments-20 stopping rule.
+
+From fable-lab (steal): EXP-006 strategy skeleton (crossed-book guard,
+fill-event quote clearing, monotonic-deque windows, deterministic
+clientOrderIds, per-market state reset); results/parity/detach tool
+patterns; two-disjoint-sample screening (E31); seeded one-shot
+confirmation draws (E32: max-of-40 selection inflated t by >4 units,
++3.25 → −0.98 — the measured winner's curse); minority-outcome-count
+precision rule (E14: want ≥30 minority outcomes before trusting a
+skewed-payoff number); "paste the log line" verification rule (E28);
+latency-pin refusal in the submit wrapper (D51). AVOIDED: audit towers
+(AUDIT-COVERAGE residue backlogs), breadth, meta-verification as a unit
+source; idle-session manufacture — **when there is nothing to run, say
+so in JOURNAL and stop the session.**
+
+## 7. Trap list (mechanical, checked by tooling where possible)
+
+1. Ambient `.env` latency 140ms — pin `BACKTEST_LATENCY_DELAY`/`_JITTER`
+   on every run; record them in the ledger entry.
+2. Never emit `merge_positions` in sim (E4). Hold pairs to settlement.
+3. Never gate on order-status events for maker fills (E5) — use `fill`.
+4. Guard crossed books before quoting (E6/P39).
+5. maxOpenOrders=20 — ladder designs must fit ≤10 rungs/side; count
+   `order_rejected` events in-strategy and surface via intent_meta.
+6. A bid ≥ bestAsk crosses as TAKER at placement — the never-overpay
+   guard must check the ask before pricing a rung.
+7. In-sim size scaling lies (all-or-nothing fills) — keep clips small,
+   never claim capacity from sim fills; capacity notes are priors-based.
+8. `ev_per_market_played` vs `ev_per_market_total`: gate on `_total`
+   (idle markets count against a maker); `_played` is diagnostic.
+9. Don't dedupe by content anywhere in analysis pipelines (KB puller v1
+   incident); same-second identical fills are real.
+10. `--latest` leaks the newest data into screens — select screens with
+    explicit `--from-ms/--to-ms`; June 1–14 is holdout, untouchable.
+11. Smoke runs (`--smoke` batchUid suffix) are never evidence and never
+    freeze code.
+12. Idle-in-many-markets is expected for gated makers — a verdict must
+    quote played-share alongside EV so "positive on 3% of markets"
+    can't masquerade as coverage.

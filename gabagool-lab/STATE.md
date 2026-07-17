@@ -13,34 +13,39 @@
 
 ## What exists so far
 
-- Bootstrap files only (this file, JOURNAL, DECISIONS, OPERATOR-FEED).
-- No lab design docs yet, no strategy code yet, no runs yet.
+- Bootstrap files + **INHERITANCE.md** (Phase 0 distillation: verified
+  engine facts, concept priors, sim doctrine, fee eras, trap list).
+- No design docs yet, no strategy code yet, no runs yet.
 
 ## Queue (work top to bottom)
 
-1. **Phase 0 reading** — digest KB (`../polymarket-bot-gabagool/research/gabagool/`),
-   fable-lab, strategy-research-protocol, repo-root gabagool docs; verify the
-   5 engine footguns in code (worst_queue, fee-free maker fills, all-or-nothing
-   size, fill-before-cancel, pair auto-credit in marketStats). Write
-   INHERITANCE.md with the distilled findings + file citations.
-2. **Design docs** — EPISTEMOLOGY.md (experiment lifecycle, proposal policy,
+1. **Design docs** — EPISTEMOLOGY.md (experiment lifecycle, proposal policy,
    honesty mechanisms, holdout design) + EVALUATION.md (frozen multi-criteria
    scoring rule with time slices, tails, latency robustness, capital
-   efficiency, sample size).
-3. **Tools** — minimal: submit backtest, read results, validate verdicts.
-   Quarry fable-lab/tools/ first; port, don't rewrite, where possible.
-4. **Smoke** — one end-to-end run of a trivial variant through the full
-   pipeline (strategy file → backtest → results → evaluation readout).
-   L0 complete when this works.
-5. **L1 baseline** — simplest honest variant at real coverage with full
-   evaluation readout incl. time slices + latency stress.
+   efficiency, sample size). Era policy: verdicts on 2026-04-01→06-14;
+   June 1–14 = untouchable confirmation holdout.
+2. **Tools** — minimal: submit.ts (pins latency, derives batchUid,
+   refuses dirty tree), results.ts (DB direct: segments + markets +
+   pairing health + rebate line + corrected fees), ledger validation.
+3. **Smoke** — one end-to-end sequential run of a scripted variant
+   (~10 markets): verifies intent_meta lands in DB, maker fill = own
+   price/size, pnl matches hand-computation. L0 complete when green.
+4. **L1 baseline** — archetype-faithful parity ladder at real coverage
+   (Apr 1→May 31 search window) with full readout incl. time slices +
+   latency stress (0/140/500/1000ms).
 
 ## Open questions / risks
 
-- Sibling KB shift is live and its STATE.md grows — re-read every session.
-- Price-to-beat + Chainlink feeds not yet checked for arrival (check docs/
-  + git log each session).
-- Remote fleet tracks origin/main — not usable for my branch; plan local.
+- Sibling KB shift near saturation → LAB-HANDOFF.md pending; re-read its
+  STATE.md every session.
+- Feeds: binanceWsSpotPrice replayable NOW; price-to-beat + Chainlink NOT
+  landed (H4 partially blocked; strike proxy = window-open spot is viable).
+- Telonex coverage ends 2026-06-14; July meta not replayable until
+  operator resumes sync.
+- Remote fleet tracks origin/main — not mine; local workers only
+  (run-worker.sh from this worktree needs pushed commits).
+- Ask for operator (non-blocking, noted in feed): CLI/env passthrough for
+  makerFillMode=touch_or_better would enable fill-model bracketing.
 
 ## Key paths
 
