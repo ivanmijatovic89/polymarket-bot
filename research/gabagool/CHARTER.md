@@ -287,3 +287,11 @@ Study the class across all of these, historical and live.
   variants, not only the three existing seeds.
 - Fold atlas findings into STRATEGY-BRIEF.md and LAB-HANDOFF.md — add or
   re-rank family seeds whenever the atlas surfaces a stronger variant.
+
+## Stop markers are operator-owned (clarification, 2026-07-17)
+
+The `DONE` file and any external stop file belong to the OPERATOR, not to
+sessions. Never create one (Phase 2 rule) AND never delete one. If you
+find `research/gabagool/DONE` present, that is the operator telling the
+relay to stop: leave the file exactly where it is, finish and commit your
+current unit, and end your session.
