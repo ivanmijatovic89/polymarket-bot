@@ -19,8 +19,9 @@
 - **Ladder rung:** L2 IN PROGRESS — E006 JUDGED (u52): AXIS-CLOSED,
   prediction REFUTED, chassis keeps requoteDelta 0.02; candidate
   assembly still BLOCKED (no conversion-closing lever proven).
-  Current axis: E008-fv-gate DRAFTED (u54, LEDGER §E008 + D-009) —
-  calibration → implementation → A/A smoke → freeze → launch.
+  Current axis: E008-fv-gate DRAFTED (u54, LEDGER §E008 + D-009) +
+  CALIBRATED (u55: grid {5, 9, 15} bps, primary rule, bind
+  59/38/20%) — implementation → A/A smoke → freeze → launch.
 - **Phase:** E006 COMPLETE (LEDGER §E006 filled u52). 8/8 landed,
   uids to the digit, 0 failures, validators green ×8. Final map:
   715=q05h2 716=q10h1 717=q10h2 718=q20h1 719=q20h2 720=q45h1
@@ -103,23 +104,17 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 calibration (pre-registered rule in §E008 draft):**
-   pooled |spot−strike|/strike bps over elapsed 60–840s across all
-   h1 (Apr) windows from on-disk aggTrades (read-only, no DB, no
-   backtest). Grid = {p40,p60,p80} rounded to 1 bps (fallback
-   {p50,p70,p85} if p40 rounds to 0) + θ0 sign-only + ref. Record
-   the quantile table in §E008 BEFORE implementation.
-2. **E008 implementation:** fvGateMode ('none'|'level') +
+1. **E008 implementation:** fvGateMode ('none'|'level') +
    fvGateBps on E003-pair-accumulator; plugin registered ONLY when
    gate on (gate-none bit-identical to refs by construction);
    fail-open on missing feed values. Then A/A smoke: ~20 h1
    markets local sequential at defaults, per-market EL must match
    run 708 exactly — else STOP, reuse basis broken.
-3. **E008 freeze + launch:** freeze §E008 verbatim with grid
+2. **E008 freeze + launch:** freeze §E008 verbatim with grid
    filled; 8 runs (4 arms × 2 halves, refs 708/703 reused);
    LS-3-hardened launcher; LS-10 terminal-state waiter; verify
    uids on landing.
-4. **After E008:** E006b per-rung requote (A37 seed), E005b cap
+3. **After E008:** E006b per-rung requote (A37 seed), E005b cap
    bracket, completion composition per D-008 — order re-justified
    from E008's numbers. Candidate assembly stays BLOCKED until a
    conversion-closing lever is proven (u40 framework).

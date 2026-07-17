@@ -1182,6 +1182,20 @@ Template:
   by collapsing the remainder again is the E006 failure mode and
   does NOT advance regardless of EL (guards against winning the
   wrong way).
+- **CALIBRATION (2026-07-17T14:17Z, u55; pre-registered rule
+  executed verbatim, tools/e008-calibrate.ts --run 708, read-only):**
+  2,880 h1 markets (run 708's exact universe), 2,249,280 pooled
+  1-second samples over elapsed 60–840 s, strike = as-of spot at
+  open from the day-parquet series (0 markets skipped). Pooled |d|
+  bps quantiles: p25 2.81, p40 4.88, p50 6.52, p60 8.56, p75 12.81,
+  p80 14.92, p90 22.11. p40 rounds to 5 ≠ 0 → PRIMARY rule:
+  **grid = {5, 9, 15} bps**, arms = ref + θ0 (sign-only) +
+  {5, 9, 15}. Bind fractions (share of market-seconds with one side
+  suppressed): θ0 99.9%, θ5 59.2%, θ9 38.1%, θ15 19.9% — the grid
+  spans the suppression range as intended. Profile for the record:
+  |d| p50 grows 3.9 → 9.2 bps from t=120 s to t=840 s (drift
+  accumulates through the window; the gate binds hardest late,
+  where E006 said stale-side fills hurt most).
 - **Kill/stop:** axis closed when the θ curve is measured at
   planned resolution; dead cells to LEADERBOARD with numbers.
 - **Out of scope (stated):** favorite-side lean (asymmetric parity

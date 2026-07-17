@@ -1670,3 +1670,29 @@ Design choices worth recording (DECISIONS gets the fork):
 Next unit: the calibration measurement (aggTrades → pooled |d|
 quantiles, read-only, no DB), then implementation + A/A smoke,
 then freeze + launch.
+
+## 2026-07-17T14:17Z — session 16, unit 55: E008 calibration — grid = {5, 9, 15} bps (primary rule fired)
+
+Built tools/e008-calibrate.ts (read-only: run 708's market rows →
+epochs; one DuckDB aggregate over 32 day-parquets → per-second
+last price; forward-fill; strike = as-of at open). 2.25M pooled
+samples, zero markets skipped, full day-file coverage confirmed
+(2026-03-31..2026-05-01 present for the seed edge).
+
+Numbers: pooled |spot−strike| p40/p60/p80 = 4.88/8.56/14.92 bps →
+rounded grid {5, 9, 15}; p40 ≠ 0 so the primary rule applies, no
+fallback. Bind fractions: sign-only 99.9%, θ5 59%, θ9 38%, θ15
+20% — a well-spread suppression ladder. One profile fact worth
+having on the record: median |d| grows 3.9 → 9.2 bps over the
+window, so the gate binds hardest LATE — exactly where the E006
+mechanism located the stale-side damage. θ0 (sign-only) will
+suppress one side almost always; that's the deliberate
+max-suppression endpoint, and it is the arm most likely to choke
+pairing (criteria already carry the played<20% caveat language —
+though E006 taught us the first-anchor path keeps played high;
+here the gate blocks placement itself, so participation CAN
+genuinely fall. Good: that's the trade-off curve the axis exists
+to measure).
+
+Next unit: implementation (fvGateMode/fvGateBps + conditional
+plugin registration) + the A/A smoke against run 708.

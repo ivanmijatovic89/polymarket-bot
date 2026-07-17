@@ -327,3 +327,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — design unit. The E006 trap is guarded: an arm only advances if it keeps the winner-side leftover value that E006 proved essential.
 - Next: measure typical within-window BTC moves to pick the thresholds, then implement + verify + launch.
 - Health: on track
+
+## 2026-07-17T14:17Z — unit 55
+- Did: measured how far BTC typically drifts from its window-open price (2.25M samples, April) to set the E008 thresholds.
+- Found: median drift 6.5 bps, growing through the window (4→9 bps) — so the gate naturally engages late, where the losses live. Thresholds chosen by the pre-registered rule: 5, 9, 15 bps.
+- Next: implement the gate in the strategy + verify the no-gate path is bit-identical to the reference runs.
+- Health: on track
