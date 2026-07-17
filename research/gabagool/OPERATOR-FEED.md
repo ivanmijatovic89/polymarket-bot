@@ -347,3 +347,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: half survived — "stay calm, don't chase" holds everywhere, and "don't get filled right after a dip" holds everywhere; but the longer-horizon direction signal flips day to day and can't be a fixed rule. The strategy spec is updated accordingly.
 - Next: live snapshot 6 (due ~15:30 UTC), then wrap the session state.
 - Health: on track.
+
+## 2026-07-17T14:40Z — unit: the time-of-day pattern holds (session 8)
+
+- Did: re-checked the "loses during US hours, wins in the evening" pattern on another full day.
+- Found: same pattern — US hours were the only losing stretch again; evenings best again. Also: the breakeven bot can lose money all day on our market and still come out ahead on rebates. Rule for our bot: respect the clock.
+- Next: live snapshot 6, then session wrap-up.
+- Health: on track.

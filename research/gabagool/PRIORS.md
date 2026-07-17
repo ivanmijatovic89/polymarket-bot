@@ -832,3 +832,11 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   signal. Bonus: b27bc932 had ZERO btc-15m resting fills May-13 —
   its May downtime windows confirmed from a second data source.
   [verified]
+- **A46 (A36 session ordering replicates — US worst, evening best,
+  2/2 samples; grinder gross-negative days are normal):** Jun-10
+  full-day session split (85 markets): US −$1,220 of −$1,508 total,
+  evening +$509 (27% losers); whole-day btc-15m sleeve gross −0.9%
+  of outlay — rebates+other books carried it, per A24/A28. May-13:
+  zero btc-15m markets (third independent confirmation of the May
+  downtime). [verified] (measurements/session-split-b27bc932.md
+  §Replication)

@@ -1058,3 +1058,13 @@ corrected. Bonus: b27bc932 had zero btc-15m resting fills on May-13,
 independently confirming its May downtime windows. Also the biggest
 single-unit lesson for the lab: validate any microstructure gate on
 multiple days before freezing — one day WILL overfit.
+
+## 2026-07-17T14:40Z (real) — session 8, unit 16: session pattern replicates (A46)
+
+Ran the session split on b27bc932's Jun-10 full day: the US session
+is again the worst bucket (−$1,220 of −$1,508) and the evening again
+the best (+$509) — the A36 ordering is 2-for-2 on independent
+samples. Also learned the grinder's btc-15m sleeve can run a whole
+day gross-negative (−0.9% of outlay) and live on rebates — normal,
+not an anomaly. May-13 had zero btc-15m markets, confirming the May
+downtime a third way.

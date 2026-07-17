@@ -55,3 +55,21 @@ carries it).
 
 - npx tsx research/gabagool/scripts/session-split.ts --activity
   research/gabagool/data/activity-b27bc932-jun.jsonl
+
+## Replication (A46): Jun-10 full day + May-13
+
+Fresh single-day pulls (session 8, unit 16):
+
+- **Jun-10 (85 markets)**: US 12–19Z again the WORST bucket
+  (−$1,220 of the day's −$1,508 gross; 50% losers, p10 −$229);
+  evening again the BEST (+$509, 27% losers, pairCost p50 0.981).
+  The A36 ordering (US worst / evening best) is now 2-for-2 on
+  independent samples.
+- The whole Jun-10 btc-15m sleeve ran gross-NEGATIVE (−0.9% of
+  $170k outlay) — day-level gross losses are a normal outcome for
+  the grinder recipe; the wallet's income that day was rebates +
+  other books. Reinforces A24/A28: trading ≈ breakeven, subsidy
+  carries.
+- **May-13: zero btc-15m markets traded** — the May downtime
+  windows now confirmed from a third independent source (scan
+  absence, drift-join zero fills, session-split zero markets).
