@@ -1617,3 +1617,18 @@ its buy notional in every 6-hour bucket of Jul-16/17 — routine
 allocation, not a sleeve deployment. Kept the useful baseline: b55f
 buys ~$470k/day across btc-5m (30%), btc-15m (15–25%), eth books
 (~20%) and dated hourlies. STATE folded through unit 16.
+
+## 2026-07-17T18:06Z — session 11, unit 17: A64 — the −3..−5c band is the session instrument
+
+Added the US-session winner (04b6d7e9) and 0xce25 to the depth
+matrix and the picture snapped into focus. The mid-deep band
+(−3..−5c below touch) is negative in the US session for every one
+of five measured wallet-cells — INCLUDING the wallet that wins that
+session, whose survival turns out to live at touch/−1/−2c — and the
+same band earns +2.7 to +3.9 cents in weekday evenings across two
+wallets. So yesterday's "US toxicity" contested tag resolves
+cleanly: universal, but band-specific. The strategy consequence is
+the sharpest rule this shift has produced: shallow rungs always,
+mid-deep rungs weekday evenings only, and nothing built on ≤−6c
+(pure noise at available n). PRIORS, H1 and the measurement note
+all updated; the contested entry carries its resolution pointer.

@@ -556,3 +556,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: no — it's been ~6-11% of its flow all along; false alarm, but we now have its full daily allocation baseline on record.
 - Next: the 20-21 UTC evening snapshot; then re-mine open questions.
 - Health: on track
+
+## 2026-07-17T18:06Z — unit 17 (session 11)
+- Did: extended the order-depth study to two more bots, including the one that actually WINS US afternoons.
+- Found: the cleanest rule of the whole shift — orders 3-5 cents below the market are poison in US afternoons for EVERY bot (even the US winner, who succeeds by staying shallow) and gold on weekday evenings. Our bot's ladder should be shallow always, deep only on weekday evenings.
+- Next: 20-21 UTC evening snapshot; then re-mine open questions.
+- Health: on track

@@ -196,3 +196,37 @@ favorable-to-flat at every depth with NO consistent ordering
 (Jun-10: −0.96/+2.77/+0.88/+5.2c; Jun-12: +1.81/+0.49/+1.15/0.0c
 @60s) — "overnight depth-indifferent" is now measured, not assumed.
 The depth×session matrix is complete.
+
+## §9 Cross-wallet depth resolution (unit 17): the −3..−5c band IS the session instrument (A64)
+
+Added the US winner (04b6d7e9) and 0xce25 to the depth-bucket
+matrix. Deeper-class drift60 by bucket, all measured wallet-cells:
+
+| cell | −1c | −2c | −3..−5c | ≤−6c |
+|---|---|---|---|---|
+| b27bc932 US Jun-10 | +0.32c | −0.59c | **−0.57c** | −1.46c |
+| b27bc932 US Jun-12 | −0.47c | −1.18c | **−0.26c** | +3.18c (n=73) |
+| 04b6d7e9 US Jun-12 | +0.72c | +1.07c | **−1.05c** | +2.86c (n=117) |
+| 0xce25 US Jun-12 | +0.26c | +4.03c (n=109) | **−2.60c** | −1.61c |
+| b55f US Jun-12 | +0.43c | +2.45c (n=119) | **−0.09c** | −3.66c |
+| b27bc932 EVE Jun-10 | +0.69c | +0.71c | **+2.69c** | +3.10c |
+| b27bc932 EVE Jun-12 | +0.68c | +2.37c | **+3.10c** | −1.35c (n=35) |
+| 0xce25 EVE Jun-12 | +0.61c | +2.26c | **+3.93c** | −3.15c |
+
+1. **US session, −3..−5c: negative or flat for ALL FIVE wallet-cells**
+   (−0.09 → −2.60c) — including the US-session WINNER (04b6d7e9,
+   −1.05c; its US survival lives at touch/−1/−2c, +0.7→+1.1c,
+   consistent with its shallow recipe A34). The unit-12 [contested]
+   tag resolves: US toxicity is UNIVERSAL but BAND-SPECIFIC — it
+   concentrates in the mid-deep band, not "all deep fills".
+2. **Weekday evening, −3..−5c: +2.7→+3.9c on all three cells across
+   two wallets** — the same band that bleeds in the US is the
+   session's best instrument in the evening.
+3. Shallow bands (−1c/−2c) are mildly positive in most cells in BOTH
+   sessions (session-robust, small); ≤−6c flips sign cell-to-cell at
+   dust n (no conclusions).
+
+Final H1 depth×clock rule (supersedes unit-13/14 phrasing): quote
+touch/−1/−2c in any weekday session you run (incl. US if at all);
+add the −3..−5c rungs ONLY in weekday evenings; ignore ≤−6c claims
+either way. Log: data/edge-source-depth-buckets.log (appended runs).

@@ -1096,8 +1096,10 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (noise ≈ effect size). US toxicity may be ladder-depth-specific
   (shallow-deep rungs eat it; genuinely deep cheap-side rungs may
   dodge it) — lab should test toxicity per ladder-depth cell, not
-  as a blanket session rule. [contested]
-  (measurements/session-drift-b27bc932.md §7)
+  as a blanket session rule. [contested → RESOLVED by A64: the
+  toxicity is universal but band-specific (−3..−5c); b55f's
+  apparent immunity was its noisy −2c bucket]
+  (measurements/session-drift-b27bc932.md §7, §9)
 - **A63 (depth×session resolution: no depth escape from US
   toxicity; monotone evening depth gradient):** deeper-class
   drift60 by offset bucket — b27bc932 US: toxicity at ALL depths
@@ -1111,3 +1113,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (A59-consistent). Rule: weekday-evening deep rungs at −3..−5c;
   US shallow-or-off; overnight depth-indifferent. H1 updated.
   [verified] (measurements/session-drift-b27bc932.md §8)
+- **A64 (cross-wallet depth resolution: the −3..−5c band is the
+  session instrument; A58-control [contested] tag RESOLVED):** all
+  five measured wallet-cells have negative-or-flat drift60 in the
+  −3..−5c band in the US session (−0.09→−2.60c — including the US
+  winner 04b6d7e9 at −1.05c, whose US survival lives at
+  touch/−1/−2c +0.7→+1.1c), while the SAME band earns +2.7→+3.9c
+  in weekday evenings (3 cells, 2 wallets). US toxicity is
+  universal but band-specific; shallow bands are session-robust
+  small-positive; ≤−6c is dust-noise. H1 rule: touch/−1/−2c
+  whenever quoting; −3..−5c rungs weekday evenings ONLY.
+  [verified] (measurements/session-drift-b27bc932.md §9)
