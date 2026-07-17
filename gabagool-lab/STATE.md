@@ -21,13 +21,18 @@
 
 ## Queue (work top to bottom)
 
-1. **E002-baseline (L1)** — archetype-faithful parity ladder reference:
-   two-sided GTC rungs, parity-driven side selection, never-overpay
-   guard (pair-cost cap), band [0.11,0.85], hold to settlement. Spec →
-   freeze → S1 screen (two disjoint 400-market halves, lat 140) → full
-   search window + latency battery (0/140/500/1000). Its distribution
-   calibrates TAIL_K + capital floor → EVALUATION v1.1 frozen before
-   any candidate.
+1. **E002-baseline (L1) — IN FLIGHT.** Four arms submitted detached
+   (lat 0/140/500/1000, batchUids `glab--E002-baseline--full--lat<ms>`,
+   uids in LEDGER). Local worker running from this worktree
+   (4 children). KNOWN: each arm truncated to first 1,000 window
+   markets (producer LIMIT default; submit.ts since fixed). NEXT STEPS:
+   (a) when arms persist, `submit.ts --extend <runId> --lat <ms>
+   --limit 6000 --detach` each to full search window; (b) results.ts
+   --gates s2 + --battery readout; (c) judge E002 in LEDGER;
+   (d) calibrate TAIL_K + capital floor → EVALUATION v1.1 (D-entry).
+   If resuming: check `runs.ts --mine`; worker may need restart
+   (`./scripts/run-worker.sh --queues markets,aggregate
+   --market-concurrency 4` FROM THIS WORKTREE).
 2. **L1 readout + threshold freeze** — full evaluation readout of the
    baseline; DECISIONS entry for v1.1 thresholds; LEADERBOARD.md
    started. This number is the reference everything must beat.

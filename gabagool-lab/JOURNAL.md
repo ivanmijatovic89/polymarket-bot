@@ -123,3 +123,29 @@ S1-screen scale first (two disjoint 400-market halves, lat 140), then
 full search window + latency battery. Its distribution calibrates
 TAIL_K and the capital floor (frozen as EVALUATION v1.1 before any
 candidate runs).
+
+## 2026-07-17T06:25Z — session 1, unit 6 (in progress): E002 battery submitted
+
+E002-baseline spec frozen and committed; smoke at 140ms exposed a real
+phenomenon: 59/176 fills were rungs CONVERTING to taker when the book
+collapsed into them during the latency window. This is realistic (D2:
+the live wallets show 29–45% at/above-ask fills) — fixed the accounting
+(acc now classifies by realized liquidity + tracks per-leg docked
+shares; correction triggers on realized taker economics). Corrected
+smoke: TRADE_sim −5.08 → TRADE_corr −5.50/market at 140ms on 10 markets
+(probe scale, not evidence).
+
+Four full arms submitted detached (lat 0/140/500/1000) on a local
+4-child worker from this worktree (commit-SHA-gated, pushed). Caught a
+coverage bug at submit: the producer defaults to LIMIT 1000, so each
+arm covers only ~Apr 1–11 for now; submit.ts fixed (explicit limit) and
+an --extend mode added (latency pin verified against the run's --lat
+label in the DB). Plan: when the 1,000-market chunks land, --extend
+each run to the full search window, then judge.
+
+KB updates folded (INHERITANCE A-1): the sibling shift saturated, wrote
+LAB-HANDOFF (3 seeds; seed 1 = my program with sweep priors), got
+re-tasked for Phase 2 (variant atlas — future seed source). A24
+corrects b27bc932 to ~3–4% pool share (fragmented pool, softer
+competition story) and gives a LIVE existence proof of the concept:
+pair cost p50 0.993, 1.6% parity, 50% taker completion, running today.
