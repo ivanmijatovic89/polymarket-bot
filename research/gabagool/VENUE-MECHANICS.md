@@ -159,11 +159,20 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
 - GTD minimum expiry: 60s (OrderManager-enforced repo-side). Live batch
   limit: 15 orders/batch. **[verified]** (repo ENGINE.md/CLAUDE.md; venue
   numbers behind them still to be primary-sourced).
-- Min order size, rate limits, negRisk status for updown series: OPEN.
-- Resolution source/precision/timing for crypto up/down: OPEN (Game J).
-  `polymarketPriceToBeat` = the strike feed exists live (repo). The 15m
-  slugs embed the window epoch; resolution is reportedly Chainlink-based —
-  DO NOT trust until primary-sourced.
+- Min order size: **5 shares**; tick **0.01**; negRisk **false** for
+  btc-updown-15m — from the live gamma market object
+  (`orderMinSize`/`orderPriceMinTickSize`/`negRisk`, pulled 2026-07-17).
+  **[verified]** Sub-cent tick rule outside [0.04, 0.96]: still
+  **[reported]** (decoder events only). Rate limits: OPEN.
+- **Resolution (Game J) — primary-sourced from the market rules text**:
+  "resolves to Up if the Bitcoin price at the end of the time range is
+  greater than or equal to the price at the beginning" — **ties resolve
+  UP**; source = **Chainlink BTC/USD data stream**
+  (https://data.chain.link/streams/btc-usd), explicitly "not other
+  sources or spot markets". `polymarketPriceToBeat` (live feed) is the
+  venue's own strike broadcast of that stream's window-open price.
+  Precision/exact sampling timestamp of the stream: OPEN (Chainlink
+  stream docs). **[verified]** (gamma description, 2026-07-17)
 
 ## Open questions (workstream B queue)
 

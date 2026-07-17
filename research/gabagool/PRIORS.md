@@ -462,3 +462,20 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   native fees: maker 0, taker = published curve in USDC, mint-matching;
   launch date unbracketted). /activity remains gross-of-fee in the
   current era. [verified] (measurements/fee-audit-actives.md)
+- **A17 (edge-source fingerprint, Jun 12–14 fills×books):** the current
+  btc-15m edge expression = deep patient ladders (offset p10 −12c below
+  touch, p25 −2c; ~35% of fills), cheap-side touch-resting (b55f touch
+  px p50 0.14), mid-band taker completion (~43% of notional, px p50
+  0.58), BACK-LOADED into minutes 10–13 (b55f 39.7% of fills) with the
+  final minute cut and NO open concentration (Game F negative for this
+  cohort). b55f vs 0xce25: the better wallet waits longer and crosses
+  further from the fee peak (taker px p25 0.34 vs 0.42) — sharpens H6.
+  Post-fill drift at 10s/60s ≈ 0 for both. [verified]
+  (measurements/edge-source-btc15m.md)
+- **A18 (venue facts batch):** resolution for btc-updown-15m =
+  **Chainlink BTC/USD data stream** (data.chain.link/streams/btc-usd),
+  end-price ≥ start-price → UP (**ties resolve UP**); negRisk = false;
+  tick 0.01; min order 5 shares (gamma market object, live pull
+  2026-07-17). Telonex dataset coverage ENDS 2026-06-14 globally (sync
+  has not run since) — the lab cannot currently backtest the July era;
+  June is the newest replayable slice. [verified]

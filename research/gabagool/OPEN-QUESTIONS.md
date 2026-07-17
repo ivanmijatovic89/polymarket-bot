@@ -3,39 +3,39 @@
 Ranked by information value per unit effort. Refreshed session 3
 (2026-07-17T01:5xZ). Resolved items moved to the bottom.
 
-1. **Edge-source hunt on btc-15m**: what do the edge wallets (b55f,
-   0xce25, bonereaper's 15m sleeve) do differently from the farmers on
-   the SAME book? Level selection vs mid, timing within the 15m window,
-   completion behavior. Needs fills×books join (measure-fill-gap.ts
-   pattern) on btc-15m slugs from the Jul pulls. Directly feeds H1/H2
-   parameter priors. (The receipt decoding from the fee audit gives
-   maker/taker roles per fill — reuse it.)
-2. **Bulk taker-rebate payouts** (NEW, A12): bonereaper received one
+1. **Bulk taker-rebate payouts** (NEW, A12): bonereaper received one
    off-schedule $62,612 TAKER_REBATE (2026-07-08T23:34Z; 20–45× its
    daily rate, daily cadence otherwise 00:10Z/00:45Z). Monthly true-up?
    Tier backpay? Check other wallets' payout streams for similar lumps;
    affects every income decomposition and the program-risk picture.
-3. **Level offsets vs top-of-book at fill time** (D2 byproduct data
-   exists): were the archetype's bids AT touch or improving? Sets H1's
-   ladder parameters.
-4. **Rebate estimator feasibility** (G4): can `20% × Σ fee-curve(own
+2. **Rebate estimator feasibility** (G4): can `20% × Σ fee-curve(own
    maker fills) × pool-share` be computed with a defensible pool-share
    assumption (e.g., from market total volume × taker share)? Needed to
    judge H1 in sim at all.
-5. **Resolution mechanics** (Game J): source/precision/timing — one
-   evening on official rules; matters for endgame quoting bounds.
-6. **Tick-size rule confirmation** (0.001 outside [0.04, 0.96]?) + min
-   order size + rate limits from CLOB docs.
-7. **P19's "$8M/day" wallet**: still unmatched (largest 30d volume
+3. **Tick-size sub-cent rule** (0.001 outside [0.04, 0.96]?) + rate
+   limits from CLOB docs (min size 5 / tick 0.01 now verified, A18).
+   Also: Chainlink stream sampling precision/timing (Game J residue).
+4. **P19's "$8M/day" wallet**: still unmatched (largest 30d volume
     seen: bonereaper $663k/day). Either the figure is wrong or the
     wallet is unlisted — check volume leaderboard top-50 for
     crypto-updown-only wallets.
-8. **drfc4eybh7i8 address** (weak resolution): re-resolve via profile
+5. **drfc4eybh7i8 address** (weak resolution): re-resolve via profile
     JSON; then dossier if gabagool-style.
-9. **D3/D4/D5 measurements**: endgame reversal table, open dynamics,
+6. **D3/D4/D5 measurements**: endgame reversal table, open dynamics,
     spread lifecycle (check fable E24/E25 coverage first).
 
 ## Resolved this shift
+
+- ~~Level offsets at fill time~~ -> covered by D2 (archetype: ~20%
+  touch, ~35% ladder 1-4c deep, 9% inside) + A17 (current wallets:
+  ladder p10 -12c). Ladder priors are set.
+- ~~Edge-source hunt on btc-15m~~ -> A17: deep ladders (p10 -12c),
+  cheap-side touch rests, mid-band taker completion ~43% of notional,
+  back-loaded minutes 10-13, no open concentration; better wallet =
+  waits longer + crosses further from fee peak
+  (measurements/edge-source-btc15m.md).
+- ~~Resolution mechanics (Game J core)~~ -> A18: Chainlink BTC/USD
+  data stream, ties resolve UP, negRisk false, tick 0.01, min 5 shares.
 
 - ~~Maker/taker role split for the incumbent~~ -> A16: measured per
   book — b55f btc-15m 37.8% maker by notional, btc-5m 44.5%; 0xce25

@@ -128,3 +128,13 @@ evaluation.
 | G6 fair-value inputs | high (blocks Game-B anchor) | operator: merge feed branch |
 | G7 status/latency | low-moderate | pin envs; design around |
 | G8 competition | unquantifiable in sim | no |
+
+## G9 — Dataset currency: Telonex coverage ends 2026-06-14
+
+- Not an engine gap but a dataset gap the lab must know: the Telonex
+  sync/conversion pipeline last ran through **2026-06-14 09:30Z**
+  (verified via listEligibleTelonexMarkets, latest, session 3). The
+  July-2026 meta (A16 fee-inclusive numbers, current wallets) cannot be
+  replayed until the operator resumes the sync. June 2026 is the newest
+  era-consistent replayable slice (post 2026-05-28 taker rebates,
+  current fee formula) — use Jun 1–14 for any current-era backtest.

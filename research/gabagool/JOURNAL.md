@@ -323,3 +323,24 @@ the gross-accounting discipline note.
 
 Next: edge-source hunt (now question #1) — level/timing analysis of
 b55f vs 0xce25 btc-15m fills against Telonex books.
+
+## 2026-07-17T05:05Z — session 4: recovered and committed the edge-source unit
+
+Predecessor died after finishing the edge-source hunt but before
+committing. Everything of substance was on disk: A17 (the execution
+fingerprint of the current btc-15m edge — deep patient ladders p10 −12c
+below touch, cheap-side touch rests, ~43% of notional taker-completed
+mid-band, back-loaded into minutes 10–13, no open concentration, and the
+better wallet waits longer + crosses further from the fee peak), A18
+(venue facts: Chainlink BTC/USD data stream resolution with ties→UP,
+negRisk false, tick 0.01, min 5 shares), G9 (Telonex coverage ends
+2026-06-14 — July era not replayable), OPEN-QUESTIONS refreshed with
+three items resolved. This session verified the files against the diffs,
+added the missing journal/feed/state bookkeeping, and committed.
+
+Notable: the July books not existing forced the analysis onto Jun 12–14,
+which is fine (era-consistent) but means the lab's newest replayable
+slice lags the live meta by a month — flagged as G9.
+
+Next: fold A17/A18 into STRATEGY-BRIEF/HYPOTHESES (ladder priors for H1,
+H6 sharpening, endgame bounds from ties→UP), then D3/D4/D5 measurements.

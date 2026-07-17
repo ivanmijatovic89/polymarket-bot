@@ -2,7 +2,7 @@
 
 Session relay state. A fresh session continues from CHARTER.md + this file.
 
-## Status digest (updated 2026-07-17T01:35Z, session 3)
+## Status digest (updated 2026-07-17T05:05Z, session 4)
 
 NOTE: journal timestamps before session 3 are mislabeled (~4h ahead);
 trust git commit times. All sessions so far ran 2026-07-17 00:26Z→.
@@ -53,22 +53,33 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: edge-source hunt on btc-15m: level selection vs mid, timing within
-   window, completion behavior — fills x books join for b55f/0xce25
-   (data on disk) + reuse measure-onchain-fees.ts role decoding.
+1. NEXT: synthesis fold A17/A18 into STRATEGY-BRIEF + HYPOTHESES:
+   H1 ladder priors (touch + −2c…−13c), H6 sharpened (waits longer,
+   crosses further from fee peak), time-weighting minutes 8–13,
+   endgame bounds from ties→UP resolution; METRICS if touched.
 2. D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
-   (check fable E24/E25 first).
-3. Venue leftovers: tick/min-size/rate limits, resolution mechanics
-   (Game J), 2026-exchange launch date, bulk-payout provenance.
-4. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
+   (check fable E24/E25 first). Note: Telonex data ends 2026-06-14
+   (G9) — use June slice.
+3. Venue leftovers: sub-cent tick rule, rate limits, Chainlink stream
+   sampling precision (Game J residue), 2026-exchange launch date,
+   bulk-payout provenance (bonereaper $62.6k lump).
+4. Wallet leftovers (optional): drfc4eybh7i8 re-resolution, P19 $8M/day
+   wallet hunt, badfallen/doggystyie/0xaaaaa dossiers.
+5. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
-DONE this session: state sync; bonereaper (A12); A13-A16 folded into
+DONE session 4 so far: recovered + committed the edge-source unit a
+crashed predecessor left on disk — A17 (edge execution fingerprint,
+measurements/edge-source-btc15m.md), A18 (resolution = Chainlink
+BTC/USD stream, ties→UP; negRisk false; tick 0.01; min 5 shares),
+G9 (Telonex coverage ends 2026-06-14), OPEN-QUESTIONS re-ranked
+(3 items resolved).
+DONE session 3: state sync; bonereaper (A12); A13-A16 folded into
 BRIEF/HYPOTHESES (new H6 completion-aggressiveness; H5 resolved
-supported)/METRICS; Jan
-transition (A15); Jan fee rate on-chain (A14); fee-mechanics decode +
-gross-of-fee bias (A13); fee-inclusive re-audit of actives (A16) —
-edge survives at +2.31% btc-15m, meta is majority-taker, new exchange
-contract found. Earlier: A9-A11, _META v2, literature A1/A2.
+supported)/METRICS; Jan transition (A15); Jan fee rate on-chain (A14);
+fee-mechanics decode + gross-of-fee bias (A13); fee-inclusive re-audit
+of actives (A16) — edge survives at +2.31% btc-15m, meta is
+majority-taker, new exchange contract found. Earlier: A9-A11, _META
+v2, literature A1/A2.
 
 ## Workstream status
 
@@ -76,14 +87,19 @@ contract found. Earlier: A9-A11, _META v2, literature A1/A2.
   subsidized-MM economics, YIELD verdict: dust).
 - B Venue mechanics: fee+rebate history SOLID — Jan rate resolved
   on-chain (A14), fee implementation decoded (charge+refund, A13),
-  formula change bracketed Mar 5→Apr 1 2026. Open: tick/min/rate
-  limits, resolution mechanics (Game J), bulk-payout provenance.
+  formula change bracketed Mar 5→Apr 1 2026. Resolution DONE (A18:
+  Chainlink stream, ties→UP); min size 5 / tick 0.01 / negRisk false
+  verified. Open: sub-cent tick rule, rate limits, stream sampling
+  precision, bulk-payout provenance.
 - C Wallet forensics: archetype DONE (two eras + Jan transition + D2),
   incumbent DONE, powerwinner DONE, bonereaper DONE (hybrid), 7-wallet
-  decomposition DONE (gross-of-fee caveat A13); remaining: drfc4eybh7i8
-  re-resolution, badfallen/doggystyie/0xaaaaa dossiers optional.
+  decomposition DONE (gross-of-fee caveat A13), edge-source fingerprint
+  DONE (A17); remaining: drfc4eybh7i8 re-resolution,
+  badfallen/doggystyie/0xaaaaa dossiers optional.
 - D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
   touch 64–68%; ~30-45% of archetype fills were taker completions**
-  (measurements/d2-fill-reality-gap.md). D1 re-scoped (P38). D3–D5 open.
-- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A16 (H5
-  resolved supported; H6 added; H3 resolved stratified+fee-corrected).
+  (measurements/d2-fill-reality-gap.md). Edge-source DONE (A17,
+  measurements/edge-source-btc15m.md). D1 re-scoped (P38). D3–D5 open
+  (June data only — G9).
+- E Synthesis: BRIEF/HYPOTHESES/METRICS current through A16; A17/A18
+  fold PENDING (queue item 1).
