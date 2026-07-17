@@ -181,3 +181,36 @@ is now the systemic risk of the meta.
 The lab's takeaway sharpened: real alpha exists in the current era, its
 carriers look like gabagool, and BTC-5m/15m are where both the alpha
 wallets and the subsidy flow concentrate.
+
+## 2026-07-17T01:30Z — session 3 start: state sync (clock note + last session's uncommitted narration)
+
+Clock note: earlier journal timestamps ("05:20Z"–"07:10Z") were mislabeled
+— git commit times show all prior work happened 00:26–01:23 UTC. From
+here on, timestamps are real UTC from `date -u`.
+
+Session 2 ended after five commits that never made it into STATE/JOURNAL.
+What they did (recovered from diffs):
+
+- **Per-book nets (b6bfedc)**: btc-15m is a live EDGE book today — T1
+  (does the archetype's best book still pay?) resolved YES; PRIORS A11.
+- **_META v2 (e8b44e7)**: cross-wallet synthesis rewritten around the
+  stratified meta (3 edge / 3 farmers / 1 negative).
+- **Fee-formula bracketing (57b8b85)**: the crypto fee curve's shape
+  change + peak doubling is now bracketed to 2026-03-05 → 2026-04-01 via
+  /trading/fees archive snapshots; ~10 March snapshots exist for exact
+  bisection if it ever matters. January's true rate remains contested.
+- **Literature A2 (5d46efe)**: queue-position value + subsidized-MM
+  economics; the YIELD program is dust for this concept.
+- **Leg-risk policy rewrite (7a6d21b)**: parity is a zero-fee-era
+  artifact, not a concept invariant. Current edge wallets run LOOSE
+  parity (p50 leg imbalance 20–40%); the one perfect-parity wallet today
+  is trading-negative and lives on rebates. BRIEF now says: sweep parity
+  tolerance as a first-class knob (0.1% → 40%).
+
+Also recovered two interrupted pulls and resumed them (puller state files
+worked as designed): gabagool22 Jan 10–13 transition sample (was at Jan
+11 04:40Z walking back; ~1.2 days remain) and bonereaper Jul 7–12 second
+window (was at Jul 10 10:33Z; ~3.4 days remain). Both running in
+background now. Next: analyze the Jan transition when the pull lands —
+it's the decay-speed prior (Dec 0.98/98.7% → Feb 1.00/38.6%; where was
+mid-January?).

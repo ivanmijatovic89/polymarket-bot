@@ -2,7 +2,10 @@
 
 Session relay state. A fresh session continues from CHARTER.md + this file.
 
-## Status digest (updated 2026-07-17T05:20Z, session 1)
+## Status digest (updated 2026-07-17T01:35Z, session 3)
+
+NOTE: journal timestamps before session 3 are mislabeled (~4h ahead);
+trust git commit times. All sessions so far ran 2026-07-17 00:26Z→.
 
 Phase 0 + first forensics arc COMPLETE. All deliverable files exist and
 have substantive content: PRIORS.md (P1–P51 + amendments A1–A8),
@@ -47,33 +50,42 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. IN FLIGHT: January transition sample (Jan 10–13 pull running →
-   analyze with analyze-tail.ts + decompose-activity.ts; compare pair
-   cost / win% vs Dec 0.98/98.7% and Feb 1.00/38.6% — decay-speed
-   prior). Data: data/activity-gabagool22-jan.jsonl when done.
-2. bonereaper longer window (its 2-day negative vs $1.19M all-time needs
-   a 7–10 day pull or a second window before any verdict).
-3. Jan fee-rate archaeology (contested 2×; no /trading/fees snapshots
-   before 2026-03-05 — try the March 5 snapshot to narrow the
-   formula-change date, and Polymarket changelog/blog pages).
-4. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
+1. IN FLIGHT (session 3): January transition sample — Jan 10–13 pull
+   RESUMED in background (was interrupted at Jan 11 04:40Z; puller
+   state-file resume works). When done: analyze with analyze-tail.ts +
+   decompose-activity.ts; compare pair cost / win% vs Dec 0.98/98.7%
+   and Feb 1.00/38.6% — decay-speed prior. May also empirically pin the
+   contested January fee rate (implied fee from his fills).
+   Data: data/activity-gabagool22-jan.jsonl.
+2. IN FLIGHT (session 3): bonereaper second window Jul 7–12 pull
+   RESUMED (was at Jul 10 10:33Z). When done: decompose + verdict on
+   its 2-day negative vs $1.19M all-time; update _META.
+3. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
    the edge wallets do differently from farmers? Candidates: level
    selection, timing within window, coin choice. Needs fills×books join
    (measure-fill-gap.ts pattern) for b55f/0xce25 on btc-15m slugs.
-5. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
+   Data already on disk (activity-{b55f,0xce25}-jul.jsonl).
+4. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
    (check fable coverage first — E24/E25 partially cover D4/D5).
-6. Literature A2 (queue-position value, subsidy/rebate MM literature).
-7. Venue leftovers: tick/min-size/rate limits, resolution mechanics
-   (Game J), YIELD program terms.
-8. Continuous: fold into BRIEF/HYPOTHESES/METRICS; at saturation →
+5. Venue leftovers: tick/min-size/rate limits, resolution mechanics
+   (Game J). Jan fee-rate still contested (2× ambiguity) — formula
+   change now bracketed Mar 5→Apr 1 (57b8b85); Jan rate may fall out
+   of queue item 1's data instead of archaeology.
+6. Continuous: fold into BRIEF/HYPOTHESES/METRICS; at saturation →
    SATURATION.md → LAB-HANDOFF.md → DONE.
+
+DONE since last queue refresh: per-book nets (T1: btc-15m still an edge
+book — A11), _META v2, fee-formula bracketing, literature A2 (queue
+value + subsidized MM; YIELD is dust), leg-risk policy rewrite in BRIEF
+(parity is era-dependent; sweep it 0.1%→40%).
 
 ## Workstream status
 
-- A Literature: A1 done (A-S, G-M, queue models → implications).
+- A Literature: A1 done (A-S, G-M, queue models); A2 done (queue value,
+  subsidized-MM economics, YIELD verdict: dust).
 - B Venue mechanics: fee+rebate history solid incl. taker-rebate tiers
-  (2026-05-28) + YIELD program existence; open: Jan rate, tick/min/rate
-  limits, resolution mechanics (Game J).
+  (2026-05-28); formula change bracketed Mar 5→Apr 1 2026. Open: Jan
+  rate (contested), tick/min/rate limits, resolution mechanics (Game J).
 - C Wallet forensics: archetype DONE (two eras + D2), incumbent DONE,
   powerwinner DONE (taker-rebate farmer); 6 wallets remain.
 - D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
