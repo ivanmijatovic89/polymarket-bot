@@ -1526,3 +1526,18 @@ to clear the per-market payout steps; the 15m pool is $6.8k/day
 total). Method note ledgered: level-class joins overcall "taker" at
 sub-$3 clips (37–42% vs role-exact 1.00 maker) — extends A34's
 reconciliation caveat.
+
+## 2026-07-17T17:49Z — session 11, unit 10: synthesis fold (A58–A61 → HYPOTHESES + LAB-HANDOFF)
+
+Folded the session's findings into the two files the lab actually
+reads. H1 gains an explicit clock-envelope parameter (sweep 24/7 vs
+weekday-only vs weekday-evenings-first vs US-off; lean off on
+weekends; evaluate in session × dow strata). LAB-HANDOFF gains a
+session-11 addendum that amends the build order: the session
+dimension now has a mechanism (invariant ladder, clock-dependent
+flow toxicity), a day-of-week axis, and refined numbers; the
+income-shape map closes with A60/A61 — a btc-15m candidate must win
+on trading margin because the farm posture needs cross-book breadth
+and the 15m pool is only $6.8k/day; and the data traps (weekend
+stub outages, level-class overcalling taker at tiny clips) are now
+in the handoff so the lab doesn't rediscover them.

@@ -514,3 +514,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it's a pure rebate farmer, born the exact week the rebate program started paying daily: it deliberately LOSES ~$630/day trading tiny orders across hundreds of markets and collects ~$1,240/day in maker rebates — netting ~$600/day. Proof our target 15-minute book alone can't support this income style; it needs breadth across all books.
 - Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
 - Health: on track
+
+## 2026-07-17T17:49Z — unit 10 (session 11)
+- Did: folded everything this session learned into the two handoff files the strategy lab will read.
+- Found: nothing new — bookkeeping unit. The build spec now says: run weekday evenings first, skip volatile US afternoons, disable the winner-lean on weekends, and plan income from trading margin (the 15-minute book's rebate pot is too small to farm).
+- Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
+- Health: on track

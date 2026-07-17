@@ -221,3 +221,42 @@ changed for the lab, in build order:
 6. **Data trap (G10)**: January Telonex books are ~27% empty stubs
    on the sampled day — filter markets by event count before any
    January backtest or the sim silently under-fills.
+
+## Phase-2 addendum (session 11) — clock envelope + subsidy terrain (A58–A61)
+
+Updates to the session-8 build order, same numbering:
+
+3′. **Session gets a mechanism and a day-of-week axis (A58/A59)**:
+   the grinder's ladder is session-INVARIANT — what flips is flow
+   toxicity: deep-class fills mean-revert favorably off-US-hours on
+   weekdays (+0.4→+1.5c @60s) and are adversely selected 12–19Z
+   (2/2 weekdays). At n=6 weekdays / n=10 weekend days: weekday
+   evening +1.27% (positive in every vol tercile) is the prime
+   cell; weekday US −0.79% is the only bleed (concentrated in
+   mid/storm vol; US×calm is fine); weekends are FLAT (+0.5%
+   everywhere, no structure). Build rule: v1 envelope = weekday
+   20–24Z first; weekday US off (or calm-only); weekends
+   lean-disabled or idle. Evaluate everything in session × dow
+   strata — pooled-dow metrics hide the regime.
+4′. **The favorite-lean is weekday-native (A59)**: excessWon 55–76%
+   weekday (highest in the US session, where it cushions the bleed)
+   vs ~50% weekend (July weekends 27–37%). The leg-risk rule from
+   item 4 (leave the favorite leg) applies to WEEKDAYS; on weekends
+   leave minimal excess instead.
+5′. **Income-shape map is complete (A60/A61)**: btc-15m maker pool
+   $6.8k/day (A60, stable) — a btc-15m v1 competes for that; the
+   $59k/day pool is on un-backtestable btc-5m (G11). The two living
+   profile-less wallets bound the strategy space: 13e0d447 =
+   deep-pair TRADING income ($3.2k/day, maker-pure, btc-5m) vs
+   76d4d470 = pure SUBSIDY loop (+$600/day net on −$630/day
+   deliberate trading bleed, needs cross-book breadth to clear
+   $1/market/day payout steps — NOT replicable btc-15m-only). A
+   btc-15m candidate must therefore win on TRADING margin with
+   rebates as a secondary line; farm-first postures don't fit the
+   lab book's pool size.
+6′. **Data traps extended (G10/G11)**: stub parquets are not
+   January-only — weekend overnights Jun-13/14 are 48/48 stubs
+   (weekend-overnight recording outages); screen every telonex file
+   by size/event count. Level-class fill joins overcall "taker" at
+   sub-$3 clips (A61 vs role-exact maker 1.00) — treat level-class
+   as approximate below $3 clips.

@@ -35,7 +35,14 @@ edge is dead by regime change, do not test it.
   minute-14 cutoff (A17 — the winners are back-loaded; the open needs
   no special treatment, Game F negative; A20 — do NOT sweep open-heavy:
   the front-loaded churn is the adversely-selected slice, fable E24);
-  books: btc-15m first (lab scope).
+  books: btc-15m first (lab scope); **clock envelope (A58/A59,
+  session 11)**: sweep {24/7, weekday-only, weekday 20–24Z-first,
+  US-off} — the deep-fill favorable drift exists only off-US-hours
+  on WEEKDAYS (US deep fills adversely selected 2/2 days; weekday
+  evening +1.27% is the only all-tercile-positive cell at n=6);
+  weekends are flat/structureless (n=10) and the favorite-lean is
+  weekday-only (weekend excessWon ~50%) — disable any lean module
+  on weekends, and never pool dow in evaluation strata.
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.
