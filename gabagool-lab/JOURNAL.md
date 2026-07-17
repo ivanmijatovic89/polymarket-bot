@@ -321,3 +321,13 @@ Queue reality check: drain slowed to ~1.2 jobs/s in this stretch
 four aggregates persist the runs. Judgment falls to this session only
 if it lives unusually long; otherwise the successor resumes from
 STATE's checklist with the worker daemon still draining.
+
+## 2026-07-17T06:30Z — session 2, unit 12 (in progress): hands-off drain watch
+
+Added tools/watch-drain.ts (exits on DRAINED / WORKER-DEAD / TIMEOUT /
+AGG-FAILURES) and backgrounded it: this session gets woken exactly
+when the four fullwin runs are persisted — or immediately if the
+worker dies — and judgment starts with context intact. If the session
+is killed anyway, STATE's checklist covers the successor. Unit 12 =
+watch → judge E002 → calibrate → freeze v1.1; feed entry lands when
+the unit completes.

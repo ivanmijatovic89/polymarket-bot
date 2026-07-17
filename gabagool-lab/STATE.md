@@ -32,8 +32,10 @@
 1. **E002-baseline (L1) — fullwin arms draining, ETA ~08:00-08:45Z (rate fell to ~1.2/s).** Four
    arms × 5,856 markets (batchUids
    `glab--E002-baseline--fullwin--lat{0,140,500,1000}`, SHA d5574428,
-   uids in LEDGER). At ~5.9 jobs/s the market queue empties ~05:20Z,
-   then 4 aggregate jobs persist the runs (worker handles both queues; it self-updated to 24d0dcd mid-drain, harmless).
+   uids in LEDGER). When the market queue empties, 4 aggregate jobs
+   persist the runs (worker handles both queues; it self-updated to
+   24d0dcd mid-drain, harmless). `tools/watch-drain.ts` blocks until
+   drained/worker-dead/timeout — useful for hands-off waiting.
    THEN: (a) `results.ts --run <id> --gates s2` per arm +
    `--battery id@0,id@140,id@500,id@1000`; (b) judge E002 in LEDGER
    (numbers, weekly table, tails, pairing, L-ratios); (c) calibrate
