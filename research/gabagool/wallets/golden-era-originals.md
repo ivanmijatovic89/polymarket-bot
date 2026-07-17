@@ -28,10 +28,16 @@ Era-scan profiles:
    essentially tying gabagool22 ($869k) in HALF the wall-clock time —
    and at 2× the daily rate. gabagool22 was never the biggest fish;
    it is the best-documented one.
-2. **52483137 quit Dec-06 — BEFORE fees existed.** The first
-   documented exit was competition-driven (Nov→Dec crowding), not
-   fee-driven: margin compression alone was enough. Quit-at-peak is
-   now n=8 and spans every era including the fee-free one.
+2. ~~52483137 quit Dec-06 — BEFORE fees existed~~ **REWRITTEN by
+   A55 (session 10): it was a CONSOLIDATION, not an exit.**
+   PurpleThunder's username was registered 2025-12-06T22:29:53Z —
+   78 minutes before 52483137's final trade (23:48:17Z) — and PT
+   had been trading in parallel since ~Nov-20. One operator ran
+   both and folded the older wallet into the newer that evening;
+   the combined operator earned ~$854k+ Nov-01→Jan-21. The
+   competition-driven-exit reading transfers to the OPERATOR's
+   Jan-21 stop (post-fee squeeze, visible in the Jan-15 pairCost
+   1.0169 row). (measurements/lineage-sweep.md)
 3. **The per-operator daily-rate ceiling has compressed ~5× in 8
    months** (best documented rate per era, trading ex-rebates):
 

@@ -959,3 +959,20 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   wallet dossiers are operator sleeves, and operator-level
   persistence exceeds wallet-level stats.
   [verified] (measurements/residue-closeouts-session10.md)
+- **A55 (lineage sweep: rotation #2 found — 52483137→PurpleThunder
+  at −78min; class top earners are ~3 multi-wallet operators;
+  profile-less wallets cap the method):** all-20-wallet sweep of
+  profile registration vs last trade. PT's username was registered
+  78 minutes BEFORE 52483137's final trade (Dec-06 evening) while
+  PT had already traded ~2 weeks in parallel — one operator,
+  consolidation not exit; REWRITES A43's "first exit was
+  competition-driven quit" (it was a rotation; 52483137+PT ≈ one
+  ~$854k+ operator Nov-01→Jan-21). gabagool22→guh123 re-confirmed.
+  Day-scale suggestives (NOT counted): bonereaper +21h and
+  04b6d7e9 +29h after guh123's exit. The 8 quit-at-peak wallets
+  collapse to ≤6 operator exits; both biggest earners continued
+  under fresh identities. CAVEATS: createdAt = username
+  registration (can lag first trade by weeks — PT did), and
+  13e0d447/76d4d470 have NO profile at all (API-only) — rotations
+  into profile-less wallets are invisible; links are a lower bound.
+  [verified] (measurements/lineage-sweep.md)

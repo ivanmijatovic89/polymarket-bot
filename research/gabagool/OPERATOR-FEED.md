@@ -424,3 +424,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the big one — gabagool22's successor account was created 7 MINUTES after his last trade: the famous "quit" was just a wallet swap, the operator kept going for another month. Also: 5-minute markets launched Dec 18 and were fee-free until March, which dates the whole 5m bot wave.
 - Next: evening snapshot of the live bots (~20-21 UTC); queue is otherwise clean — successor mines new questions.
 - Health: on track
+
+## 2026-07-17T16:24Z — unit 6 (session 10)
+- Did: checked every known bot wallet's account-creation time against every other's last trade, hunting more identity swaps.
+- Found: a second swap — the November champion registered its successor account 78 minutes before its own final trade. The strategy's top earners boil down to ~3 operators running multiple wallets; famous "quits" were mostly handoffs.
+- Next: evening snapshot of the live bots (~20-21 UTC).
+- Health: on track

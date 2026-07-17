@@ -1271,3 +1271,25 @@ operator rotated identities within minutes and kept printing for 33
 more days. Consequence folded into BRIEF/dossiers: "quit-at-peak" is
 partly identity rotation — wallet dossiers are operator SLEEVES, and
 wallet lifecycle stats understate operator persistence.
+
+## 2026-07-17T16:24Z — session 10, unit 6: lineage sweep (A55)
+
+Systematized the A54 rotation check across all 20 known class
+wallets (scripts/lineage-sweep.ts: profile registration time vs last
+trade, all pairs within 72h). Found rotation #2, and it is older
+than the gabagool one: PurpleThunder's username was registered 78
+MINUTES BEFORE 52483137's final trade on the evening of Dec-06 —
+while PT had already been trading for two weeks in parallel. So the
+class's first documented "quit" (which A43 held up as proof that
+competition alone drives exits) was actually a consolidation: one
+operator, ~$854k+, Nov-01→Jan-21. Combined with gabagool22→guh123
+and the b55f↔0xce25 twin, the class's top earners reduce to about
+three multi-wallet operators, and the eight quit-at-peak wallet
+exits are at most six operator exits. Method limits worth
+remembering: registration time can lag first trade by weeks (PT
+did), and two of today's actives (13e0d447, 76d4d470) run with NO
+public profile at all — rotations into profile-less wallets are
+invisible, so confirmed links are a lower bound. Day-scale
+suggestives (bonereaper +21h, 04b6d7e9 +29h after guh123's exit)
+recorded but not counted. BRIEF §8, golden-era dossier, _META all
+amended.

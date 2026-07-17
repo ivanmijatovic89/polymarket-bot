@@ -69,6 +69,14 @@ taker rebates alone.
   timestamps 121s apart (~2026-04-30). Likely one operator, ≥2 wallets.
   Check the other actives' profile-creation timestamps for more cluster
   members.
+- **Operator chains (A54/A55, session 10 — full-roster sweep in
+  measurements/lineage-sweep.md)**: confirmed sequential rotations
+  {52483137 → PurpleThunder} (registration 78min before final trade,
+  ~2wks parallel) and {gabagool22 → guh123} (6m51s). Plus the
+  concurrent twin {b55f ↔ 0xce25}. The class's top earners are ~3
+  multi-wallet operators; treat dossiers as SLEEVES. Sweep caveat:
+  13e0d447 and 76d4d470 trade with NO public profile — rotations
+  into profile-less wallets are invisible to this method.
 - **Margin band 0.9–2.0% of volume** for most actives (bonereaper is the
   outlier at 0.21% on much higher volume — possibly a different, more
   aggressive variant, or heavy wash within its volume figure).

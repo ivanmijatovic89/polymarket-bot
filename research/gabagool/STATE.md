@@ -133,14 +133,28 @@ profile-linked (20d); **gabagool22→guh123 succession CONFIRMED**
 quit-at-peak partly identity rotation, dossiers = operator
 sleeves. OQ #6 fully closed.
 
-Queue after unit 5: (1) W3 evening snapshot ~20–21Z (club
+Unit 6 (16:24Z): lineage sweep — A55
+(measurements/lineage-sweep.md; scripts/lineage-sweep.ts, rerunnable
+whenever an active goes dark). Rotation #2:
+52483137→PurpleThunder (registered 78min BEFORE final trade, 2wks
+parallel — consolidation; rewrites A43's "first exit was
+competition quit"). Top earners ≈ 3 multi-wallet operators; 8
+wallet exits ≤ 6 operator exits. Caveats: createdAt = username
+registration (lags first trade); 13e0d447/76d4d470 are
+PROFILE-LESS actives (rotations into such wallets invisible).
+Day-scale suggestives (bonereaper +21h / 04b6d7e9 +29h after
+guh123 exit) recorded, not counted.
+
+Queue after unit 6: (1) W3 evening snapshot ~20–21Z (club
 re-formation test — A49's evening-positive live check; morning
-snapshot tomorrow settles OQ #5 residue); (2) OQ #3 W4 remainder is
-covered; queue is otherwise CLEAN — mine SATURATION.md residue
-ledger + OPEN-QUESTIONS resolved-item residues for new measurable
-questions (prefer measurement units; candidate: operator-level
-lineage sweep — profile-createdAt vs predecessor last-trade across
-ALL atlas quit-at-peak wallets, extends A54's rotation finding).
+snapshot tomorrow settles OQ #5 residue; if any tracked active has
+gone dark, rerun lineage-sweep.ts around its exit). (2) Queue
+otherwise CLEAN — mine SATURATION.md residue ledger +
+OPEN-QUESTIONS resolved-item residues for new measurable questions
+(prefer measurement units). Candidates: b27bc932 merge-ON Jul-01
+venue-event check (still unexplained after A51/A52); 04b6d7e9
+overnight-stretch repeat (A34 residue); W7 terrain refresh with
+era-matched fee constants (A52).
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 

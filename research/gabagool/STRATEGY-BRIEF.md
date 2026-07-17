@@ -288,11 +288,17 @@ Candidates for the lab:
    abruptly at full speed (quit-at-peak n=8; the first, 52483137,
    quit Dec-06 BEFORE fees — competition alone sufficed). Plan for a
    $1–3k/day ceiling and an eventual margin-compression exit, not a
-   blow-up. **A54 caveat: quit-at-peak is partly identity ROTATION**
-   — gabagool22's successor profile (guh123) was created 6m51s after
-   its last trade and printed for 33 more days. Wallet lifecycles
-   understate operator persistence; the ceiling-compression curve is
-   the real signal, wallet "exits" are noisier than they look.
+   blow-up. **A54/A55 caveat: quit-at-peak is partly identity
+   ROTATION** — two confirmed chains: gabagool22→guh123 (successor
+   profile created 6m51s after the last trade; ran 33 more days) and
+   52483137→PurpleThunder (successor registered 78min BEFORE the
+   final trade after 2 weeks of parallel running — a consolidation).
+   With the b55f↔0xce25 twin, the class's top earners are ~3
+   multi-wallet OPERATORS; the 8 wallet "exits" are ≤6 operator
+   exits. Wallet lifecycles understate operator persistence; the
+   ceiling-compression curve is the real signal (operator-level:
+   ~$13-14k/day Nov→Jan-21, $7.6k→$6.5k/day Oct→Mar-24), wallet
+   "exits" are noisier than they look.
 
 0. **What does NOT kill a cold-start (A32)**: the taker-tier moat only
    taxes taker completion. Maker-pure new entrants win TODAY
