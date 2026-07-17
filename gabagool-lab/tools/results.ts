@@ -34,6 +34,7 @@ type RunReadout = {
   tradeSimPm: number
   tradeCorrPm: number
   rebPm: number
+  rebRawPm: number
   elPm: number
   rebShareOfEl: number | null
   subsidyCarry: boolean
@@ -83,6 +84,7 @@ async function readRun(runId: number): Promise<RunReadout> {
   const tradeCorrPm = mean(econ.map((e) => e.pnlCorr))
   const tradeSimPm = mean(econ.map((e) => e.pnlSim))
   const rebPm = mean(econ.map((e) => e.rebate))
+  const rebRawPm = mean(econ.map((e) => e.rebateRaw))
   const rebShareOfEl = elPm > 0 ? rebPm / elPm : null
 
   // Weekly slices from per-market data (corrected lines; segments table
@@ -143,6 +145,7 @@ async function readRun(runId: number): Promise<RunReadout> {
     tradeSimPm,
     tradeCorrPm,
     rebPm,
+    rebRawPm,
     elPm,
     rebShareOfEl,
     subsidyCarry: rebShareOfEl !== null && rebShareOfEl > 0.7,
@@ -203,7 +206,7 @@ function printRun(r: RunReadout, gates?: string): void {
   console.log(
     `REB        ${fmt(r.rebPm)}   (threshold applied; share of EL: ${
       r.rebShareOfEl === null ? 'n/a' : (r.rebShareOfEl * 100).toFixed(0) + '%'
-    }${r.subsidyCarry ? ' — SUBSIDY-CARRY' : ''})`,
+    }${r.subsidyCarry ? ' — SUBSIDY-CARRY' : ''}; raw pre-threshold ${fmt(r.rebRawPm)} — scale diagnostic)`,
   )
   console.log(`EL         ${fmt(r.elPm)}   <- headline`)
   console.log(`\n-- weekly EL --`)

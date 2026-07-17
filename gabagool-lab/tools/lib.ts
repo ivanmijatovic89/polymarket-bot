@@ -126,6 +126,7 @@ export type MarketEcon = {
   pnlSim: number
   pnlCorr: number // era-fee-corrected trading pnl
   rebate: number // REB line, threshold applied
+  rebateRaw: number // pre-threshold (scale diagnostic only, never in EL)
   el: number // pnlCorr + rebate
   makerFeeEquiv: number // Σ era fee-equiv over maker fills (pre-rebate)
   takerFeeEra: number
@@ -231,6 +232,7 @@ export function computeMarketEcon(m: MarketRow): MarketEcon {
     pnlSim: m.pnl,
     pnlCorr,
     rebate,
+    rebateRaw,
     el: pnlCorr + rebate,
     makerFeeEquiv,
     takerFeeEra,
