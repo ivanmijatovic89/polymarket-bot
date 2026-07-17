@@ -827,3 +827,31 @@ encoding if sizing ever grows. E004's `none` control = runs 682/683
 (the p020 pair), batchUids to be recorded in §E004 at freeze, which
 is the next unit: fill SEED, record controls, freeze, launch
 `launch-e004.sh --tol 2`.
+
+## 2026-07-17T06:36Z — session 11, unit 28: E004 frozen and launched at SEED tol=2
+
+Freeze-then-launch, in the right order this time by construction:
+u28a committed the frozen §E004 (SEED parityTolPct=2, control pair =
+runs 682/683 with full batchUids) BEFORE any submission, so the 6
+flows carry the freeze commit itself as their SHA (77195ba9 — the
+enqueue metadata proves the ordering).
+
+Launch: `launch-e004.sh --tol 2` → 6 detached flows, ax2{h1,h2} ×
+{c990 cap0.99, c970 cap0.97, cfree free}, lat140, clip 6. Verified
+READ-ONLY (LS-3: agg-inspect.ts + queue.ts, no launcher re-invoke):
+6 waiting-children flows at SHA 77195ba9, markets queue 17,461
+waiting + 12 active ≈ 17,568 expected (3 × 5,856), aggregate
+failed=3 = the known stale foreign rows. No double-submit.
+
+Watchers armed for the ~40-minute drain (pace ~430/min → ETA
+~07:16Z): harness task buhv1r5qv (wakes this session, 3h cap, agg
+baseline 3) + detached nohup pid 20098 →
+logs/watch-drain-s11-e004.log (survives session death; the s5 nohup
+exited DRAINED at 06:28Z as designed). Worker daemon pid 68398
+untouched.
+
+While it drains, the next drain-window unit is E005 prep: its spec
+needs the parityTolPct default stamped to 2 (now judged) and the
+shape sub-axis arms sanity-checked against LS-6 (compute EFFECTIVE
+values under clip 6 / maxShares 120 so no two arms collapse into the
+same policy like p001/p020 did).

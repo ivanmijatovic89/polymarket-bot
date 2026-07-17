@@ -455,7 +455,19 @@ Template:
     EL(cap) > EL(none) with few crosses ⇒ selective completion works
     only far from the fee peak. Quote the cap arms' realized
     completion-px distribution either way.
-- **Runs / Judgment / Lesson:** (pending)
+- **Runs (launched 2026-07-17T06:36Z, session 11, SHA 77195ba9 = the
+  freeze commit; 6 flows, h1 = 2,880 mkts, h2 = 2,976 each; control
+  arm = E003 runs 682/683, uids in Status above):**
+  - ax2h1-c990: `…--ax2h1-c990--lat140--ffcaa9e2-4683-4eed-9a2e-3e2dbb2ab39f`
+  - ax2h2-c990: `…--ax2h2-c990--lat140--c4d5e5c3-9dd4-49ef-a44b-edf19e897634`
+  - ax2h1-c970: `…--ax2h1-c970--lat140--25b98901-f939-4846-9a79-bbb6c9ef1748`
+  - ax2h2-c970: `…--ax2h2-c970--lat140--0f57c911-a12a-4b94-a437-2bb1ef543b10`
+  - ax2h1-cfree: `…--ax2h1-cfree--lat140--90fda871-e315-4dc0-8d85-34aa7228dbca`
+  - ax2h2-cfree: `…--ax2h2-cfree--lat140--5fcd4e00-1f34-44f8-a016-bc2012e6beb7`
+  (verified read-only via agg-inspect.ts post-launch: 6
+  waiting-children flows, all at SHA 77195ba9; markets queue 17,461
+  waiting + 12 active ≈ the expected 17,568 jobs; no double-submit.)
+- **Judgment / Lesson:** (pending)
 
 ## E005-ladder-depth — ladder shape × the deep-pair cell
 - **Type:** axis

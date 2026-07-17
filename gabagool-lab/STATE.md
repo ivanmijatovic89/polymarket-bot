@@ -16,15 +16,16 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E003 JUDGED (AXIS-CLOSED, u27);
-  next: E004 freeze + launch
-- **Phase:** E003 drained clean at ~06:27Z (10/10 runs 681–690
-  completed, 0 failed markets, validators green). Judgment in LEDGER
-  §E003: advance rule BOTH HOLD (tighter better, top-2 {0.1,2} both
-  halves); best arm = floor = E002 reference −4.39; loose {20,40}
-  dead region. **SEED = parityTolPct 2** (runs 682/683 = E004 `none`
-  control pair). EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor
-  0.92/$100, D-007)
+- **Ladder rung:** L2 IN PROGRESS — E003 judged (AXIS-CLOSED, u27);
+  E004 FROZEN + LAUNCHED (u28), draining
+- **Phase:** E004 draining (launched 06:36Z at freeze SHA 77195ba9;
+  6 flows ax2{h1,h2}×{c990,c970,cfree}, 17,568 jobs, pace ~430/min →
+  ETA ~07:16Z). Watchers: harness task buhv1r5qv (s11, 3h cap, agg
+  baseline 3) + detached nohup pid 20098 →
+  logs/watch-drain-s11-e004.log. Control arm = E003 runs 682/683
+  (NOT resubmitted). E003 verdict: LEDGER §E003 (tighter better;
+  floor = E002 −4.39; SEED=2). EVALUATION v1.1 frozen (TAIL_K 41,
+  G11 cap-floor 0.92/$100, D-007)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -71,20 +72,22 @@
 
 ## Queue (work top to bottom)
 
-1. **E004 freeze + launch (next unit):** E003 judged → SEED = 2.
-   Steps: in LEDGER §E004 fill SEED=2, record control batchUids
-   (682: …ax1h1-p020…47d8d807-554b-40bb-be36-185246646fbf, 683:
-   …ax1h2-p020…b68867c5-f215-4c3a-8258-3d54d1ab64c7), status→frozen,
-   then `tools/launch-e004.sh --tol 2` (re-smoke done run 680;
-   launcher dry-run verified u22; LS-3: verify with read-only tools
-   only). 6 new runs ~3.5k jobs. Fee basis (A32 tier-0) already in
-   criteria. Arm watch-drain after launch.
-2. **L2 campaign continues after E004 judgment:** E005 ladder +
-   deep-pair cell (pairCostCap {0.96,0.97,0.98} — best-evidenced
-   region, A30/A33; parityTolPct default = 2 per E003), E006 timing.
-   Seeds in LEDGER backlog. E003 detail: LEDGER §E003 judgment
-   (AXIS-CLOSED; loose {20,40} = dead region; LS-6 effective-grid
-   rule for future axis specs).
+1. **Drain-window unit (E004-blind — do NOT read partial ax2
+   results): E005 spec finalization.** Stamp parityTolPct default = 2
+   (E003 judged). LS-6 pass on the arm grids: compute EFFECTIVE
+   values of every rungOffsets / pairCostCap arm under clip 6 /
+   maxSharesPerSide 120 so no two arms collapse into the same policy
+   (E003 wasted 2/5 arms on a floor tie). Two-stage submission rule
+   already in spec (shapes first, caps after shape sub-judgment).
+2. **E004 judgment when drained (watcher buhv1r5qv or nohup log
+   watch-drain-s11-e004.log says DRAINED, ETA ~07:16Z):** 6 runs +
+   control 682/683. Per success criteria frozen in LEDGER §E004:
+   per-arm×half readout (incl. crosses issued/filled, completed-pair
+   cost, taker fees), policy spread vs 0.3%-of-turnover H6 kill,
+   8-cell advance rule (top-2 set match + sign(EL−EL(none))
+   agreement), mechanism split. Axis gates G2/G3/G9 only.
+3. **After E004 judgment:** launch E005 (shapes sub-axis first),
+   then E006 timing. Seeds in LEDGER backlog.
 
 ## Open questions / risks
 
