@@ -394,3 +394,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: evening is the only profitable session now; vol is a red herring; the recipe's margin decayed from +1.9% (Mar) to ~0% (Jun→); the wallet was ALWAYS btc-5m-first — its 15m sleeve just toggles.
 - Next: W3 live snapshot (~16:15Z), then OQ #4 (2026-exchange migration).
 - Health: on track
+
+## 2026-07-17T15:50Z — unit 1 (session 10)
+- Did: finished the stranded scan — dated when Polymarket switched to its new exchange contract, block by block.
+- Found: no gradual migration ever happened — after 3.5 weeks of tiny in-house test trades, the venue hard-switched EVERY market at once on Apr 28 ~11:02 UTC; the top bot dropped its merge routine 3 hours later (now explained); the new exchange runs all books, not just crypto.
+- Next: live snapshot of the current bots, then check whether the fee-curve change shipped at that same cutover moment.
+- Health: on track

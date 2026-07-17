@@ -1155,3 +1155,32 @@ reads in A45/A46 were partially wrong (sleeve off, wallet on). This
 morning's "btc-5m expansion" era amendment is recast as the lifelong
 norm surfacing in live windows. Dossier, BRIEF, METRICS, PRIORS all
 amended; OQ #2 closed.
+
+## 2026-07-17T15:50Z — session 10, unit 1: OQ #4 closed (A51)
+
+Recovered the predecessor's stranded unit: it had written the
+first-fill script and the measurement doc skeleton, launched the scan
+on polygon.drpc.org, and died — the log had one line. Diagnosis: the
+drpc free tier silently caps eth_getLogs at ~100-200 blocks (its
+error text claims 10,000), so the forward scan from the deployment
+block was crawling at ~78 blocks per two calls. Probed five other
+public RPCs; polygon.gateway.tenderly.co accepts ranges bounded only
+by a 50k-result cap and finished phase 1 in seconds.
+
+The answer reframed the question. There were no "earliest migrants":
+the first fill (2026-04-03T12:52:59Z, 3.4 days post-deploy) was two
+in-house wallets passing $38 back and forth on Iran-deal and
+Jesus-return books — a smoke test. For 3.5 weeks the new exchange
+idled at 4-35 fills/15m while v1 did 68-92k. Then on 2026-04-28,
+inside a single 15m window (~11:01-11:03Z), v1 went from 58.7k
+fills/15m to zero, forever — a maintenance-style hard cutover of the
+ENTIRE venue, with v2 reloading from ~1% volume to full scale within
+a day. Two corrections fall out: the 2026 exchange is venue-wide,
+not crypto-only (our session-3/7 read was sampling bias), and the
+b27bc932 dossier's "no venue event matches the Apr-28 merge toggle"
+is wrong — the toggle came 3.4h after the cutover, and v2's
+pair-minting-at-match gives a mechanical reason to retire an
+explicit merge module. The surprise bonus: a new one-probe question
+with real value — the fee-curve reshape (bracketed Feb-28→May-31)
+plausibly shipped at this exact cutover. Receipts on Apr-27 vs
+Apr-29 would settle it.

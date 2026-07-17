@@ -888,3 +888,21 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   table). Bonus: per-day merge counts (8.7k/4.2k/0/0/2.3k) match the
   A27 merge-era boundaries exactly — independent confirmation.
   [verified] (measurements/session-split-vol-b27bc932.md)
+- **A51 (2026 exchange: venue-wide hard cutover 2026-04-28 ~11:02Z;
+  first fill Apr-3 was a smoke test; "crypto-only" assumption
+  corrected):** first OrderFilled on `0xe111…996b` is
+  2026-04-03T12:52:59Z (block 85050371) — 30 fills / $38 between two
+  test wallets on NON-crypto novelty books (Iran-deal,
+  Jesus-return); then a ~3.5-week test trickle (4–35 fills/15m vs
+  68–92k on v1); then a maintenance-style HARD cutover on Apr-28: v1
+  fully active through 10:45–11:00Z (58.7k fills/15m), dead inside
+  11:00–11:15Z, zero forever after; v2 reloaded from ~1% of normal
+  volume at 12:00Z to full scale by Apr-29. The v2 exchange is
+  VENUE-WIDE (all Polymarket books), not crypto-only — fee-native
+  semantics apply to the whole venue from Apr-28 ~11:02Z, and
+  receipt forensics must switch decoders at that timestamp.
+  Cross-link: b27bc932's merge module toggled OFF Apr-28T14:27Z
+  (A27), 3.4h post-cutover — v2 pair-minting at match is the
+  plausible cause. New testable residue: the fee-curve reshape
+  (Feb-28→May-31 bracket) may date to exactly Apr-28.
+  [verified] (measurements/first-fill-2026-exchange.md)

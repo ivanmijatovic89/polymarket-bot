@@ -106,8 +106,21 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   **[verified]** (receipt decodes, measurements/fee-audit-actives.md)
 - v1 (Jan era) flow for comparison: charge 10%×min(p,1−p) to both
   sides + in-tx refunds by `0xe3f18acc…` (see "Fee implementation
-  on-chain" above). Launch date of the new exchange: OPEN (bracket
-  Jan→Jul 2026 if needed).
+  on-chain" above).
+- **Launch dates RESOLVED (A51, session 10,
+  measurements/first-fill-2026-exchange.md):** deployed
+  2026-03-31T02:39:03Z; first fill 2026-04-03T12:52:59Z (a 2-wallet
+  $38 smoke test on novelty books); ~3.5 weeks of test trickle; then
+  a venue-wide HARD cutover **2026-04-28 ~11:01–11:03Z** — v1
+  exchanges at full volume through 11:00Z, zero after 11:15Z, no
+  dual-running at 15m resolution; v2 volume recovered from ~1% of
+  normal (12:00Z) to full scale by Apr-29. **The v2 exchange is
+  venue-wide (all Polymarket books), not crypto-only** — the earlier
+  "crypto up/down" observation was sampling bias. Consequence for
+  forensics: receipts before Apr-28 ~11:02Z decode as v1
+  charge+refund; after, as fee-native. Open (one probe): whether the
+  fee-curve reshape (Feb-28→May-31 bracket) shipped exactly at this
+  cutover.
 
 ## Maker Rebates Program
 

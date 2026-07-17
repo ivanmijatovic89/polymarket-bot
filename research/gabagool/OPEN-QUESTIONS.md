@@ -29,8 +29,18 @@ bottom.
    the toggle correlates with a venue event.
 3. **W4 remainder**: pair-completion timing + endgame flip table at
    scale (density done, A38; session PnL split is #2 above).
-4. **First OrderFilled on the 2026 exchange** + earliest migrants
-   (venue residue, partially done; deployment 2026-03-31T02:39Z).
+4. ~~First OrderFilled on the 2026 exchange + earliest migrants~~
+   **DONE session 10 (A51)** —
+   measurements/first-fill-2026-exchange.md: first fill Apr-3
+   12:52:59Z was a 2-wallet $38 smoke test on novelty books; no
+   migrants ever "moved first" — the venue ran a test trickle for
+   3.5 weeks then hard-cut ALL books v1→v2 on 2026-04-28
+   ~11:01–11:03Z (no dual-running; v2 reloaded over hours). v2 is
+   venue-wide, not crypto-only (corrects session-3/7 assumption).
+   Cross-link: b27bc932 merge-OFF Apr-28T14:27Z = 3.4h post-cutover.
+   NEW residue (one probe, medium value): did the fee-curve reshape
+   (Feb-28→May-31 bracket) ship exactly at the Apr-28 cutover?
+   Decode taker fee rates from receipts Apr-27 vs Apr-29.
 5. ~~b27bc932 btc-5m expansion~~ **DOSSIER AMENDED session 9** —
    durable across 3 consecutive windows (O7–O9); era table added to
    wallets/b27bc932.md (June profile era-bound ≤ mid-July; btc-5m

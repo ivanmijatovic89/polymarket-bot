@@ -74,6 +74,30 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-10 digest (2026-07-17 15:27Z→, live)
+
+Unit 1 (15:27–16:10Z): OQ #4 CLOSED — A51
+(measurements/first-fill-2026-exchange.md; predecessor's stranded
+script recovered + run, plus scripts/bisect-cutover.ts). First fill
+on 0xe111…996b was 2026-04-03T12:52:59Z — a 2-wallet $38 smoke test
+on novelty books; then 3.5 weeks of test trickle; then venue-wide
+HARD cutover 2026-04-28 ~11:01–11:03Z (v1 58.7k fills/15m → 0 in
+one window; no dual-running; v2 reloaded over hours). v2 = ALL
+Polymarket books (corrects "crypto-only" read); receipt forensics
+switch decoders at that timestamp. b27bc932 merge-OFF (A27,
+Apr-28T14:27Z) = 3.4h post-cutover → dossier's "no venue event"
+line corrected. RPC lesson: drpc free getLogs caps ~100-200 blocks;
+polygon.gateway.tenderly.co takes 50k-result ranges (both scripts
+accept --rpc). NEW residue (medium value): does the fee-curve
+reshape date exactly to the Apr-28 cutover? (receipts Apr-27 vs
+Apr-29, measure-onchain-fees.ts pattern).
+
+Queue after unit 1: (1) W3 snapshot ~16:15Z (morning snapshot
+tomorrow settles OQ #5 residue); (2) fee-reshape-at-cutover probe
+(closes the Feb-28→May-31 bracket); (3) low-value residue (drfc
+re-resolution, 5m launch pin, twin-link checks, 15m-sleeve toggle
+bisection).
+
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 
 Unit 1: b27bc932 dossier era amendment DONE (O7–O9 folded; mid-July
