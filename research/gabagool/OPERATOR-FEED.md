@@ -550,3 +550,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: watching it live: bots' pair prices have been dropping steadily since the afternoon storm (over $1 → 0.96-0.98 now) — the "evenings are best" rule playing out in real time, an hour before evening even starts.
 - Next: the dedicated 20-21 UTC evening snapshot; queue then re-mines open questions.
 - Health: on track
+
+## 2026-07-17T18:10Z — unit 16 (session 11)
+- Did: checked whether the big incumbent bot's ether-market push (seen in the last snapshot) was something new.
+- Found: no — it's been ~6-11% of its flow all along; false alarm, but we now have its full daily allocation baseline on record.
+- Next: the 20-21 UTC evening snapshot; then re-mine open questions.
+- Health: on track

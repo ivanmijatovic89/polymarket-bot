@@ -286,3 +286,11 @@ rows are the HOURLY series (different slug scheme, caught by the
   keeps buying through hours the edge wallets price at sub-$1.
   bonereaper churn at 13.1k fills/2h, pairRate 0.51, cost 1.03 —
   farmer economics at full tilt.
+
+- O12 footnote (unit 16): the b55f eth-15m "swing" is NOT new — a
+  2-day pull (Jul-16/17, 58k rows) shows eth-15m at a steady 6–11%
+  of its buy notional in every 6h bucket; the 18:04 print was
+  routine allocation. Baseline worth keeping: b55f buys ~$450–500k
+  /day total, btc-5m ≈ 30%, btc-15m ≈ 15–25%, eth-15m ≈ 8%,
+  eth-5m ≈ 10–14%, plus 1h/4h dated books
+  (data/activity-b55f-jul16-17.jsonl).

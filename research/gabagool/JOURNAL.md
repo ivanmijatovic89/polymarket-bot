@@ -1608,3 +1608,12 @@ color: b55f swung a chunk of its flow into eth-15m at half its
 usual clip size, and the 24/7 grinder's own pair cost worsened to
 1.024 while the edge wallets print sub-$0.97 — buying through the
 bad hours is exactly what its weekday breakeven looks like live.
+
+## 2026-07-17T18:10Z — session 11, unit 16 (small): b55f eth-15m swing was routine
+
+Chased the O12 anomaly (b55f pushing $11.8k/2h into eth-15m at
+half-clips) with a 2-day pull: eth-15m has been a steady 6–11% of
+its buy notional in every 6-hour bucket of Jul-16/17 — routine
+allocation, not a sleeve deployment. Kept the useful baseline: b55f
+buys ~$470k/day across btc-5m (30%), btc-15m (15–25%), eth books
+(~20%) and dated hourlies. STATE folded through unit 16.

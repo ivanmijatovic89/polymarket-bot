@@ -145,17 +145,32 @@ fills +0.26c, not adverse, but n≈500/cell underpowered) — US
 toxicity tagged [contested], may be ladder-depth-specific; lab
 should test per depth cell.
 
-Queue for successor (in order): (1) W3 snapshot due ~18:30–19Z;
-evening snapshot ~20–21Z (club re-formation test); morning
-snapshot tomorrow settles OQ #5 residue; rerun lineage-sweep.ts
-if any active went dark. (2) Depth-bucket toxicity test on
-b27bc932's own deeper fills (US session, −1c vs −2c vs ≤−3c) —
-decides the unit-12 contested tag with adequate n. (3) Residue:
-b27bc932 Jul-01 merge-ON cause (dead end); July weekend
-lean-collapse drift (needs next weekend). All session-11 pulls in
-data/ (weekends jun20-21/jun27-28/jul04-05/jul11-12, weekdays
-jul13-14/jul16, mar16; books telonex-r2-jun12sess/jun13/jun13us/
-jun14on(stubs); 76d4d470+e114e5ca+13e0d447 rebate JSONs).
+Unit 13 (17:57Z): A63 — depth buckets: no depth escape from US
+toxicity (deepest bucket worst on Jun-10); EVENING depth gradient
+monotone favorable. Unit 14 (17:59Z): gradient replicated 2/2
+weekdays, sweet band −3..−5c (+2.7/+3.1c @60s); ≤−6c unproven;
+Sat evening negative all buckets. H1 allocation rule final:
+weekday-evening deep rungs −3..−5c, US shallow-or-off, overnight
+depth-indifferent (measured, unit 15), weekends flat.
+Unit 15 (18:01Z): O12 snapshot 9 — club DEEPENS pre-evening
+(b55f 0.9607; 3 consecutive snapshots trace the evening ramp
+live). Unit 16 (18:10Z): b55f eth-15m "swing" was routine (6–11%
+share steady over 2 days; baseline: ~$470k/day buys, btc-5m 30%,
+btc-15m 15–25%).
+
+Queue for successor (in order): (1) W3 evening snapshot ~20–21Z
+(club re-formation test — expect deepest prints of the day per
+O11→O12 ramp); morning snapshot tomorrow settles OQ #5 residue;
+rerun lineage-sweep.ts if any active went dark. (2) Residue:
+July weekend lean-collapse drift (needs next weekend's data);
+b27bc932 Jul-01 merge-ON cause (dead end); A58 cross-wallet
+toxicity universality (needs pooled multi-day joins, books
+Jun-10–14 only). (3) If streams dry: mine OPEN-QUESTIONS +
+SATURATION residue; prefer measurement units. All session-11
+pulls in data/ (weekends jun20-21/jun27-28/jul04-05/jul11-12,
+weekdays jul13-14/jul16/b55f-jul16-17, mar16; books
+telonex-r2-jun12sess/jun13/jun13us/jun14on(stubs);
+76d4d470+e114e5ca+13e0d447 rebate JSONs).
 
 ### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
 
