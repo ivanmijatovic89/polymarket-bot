@@ -89,6 +89,10 @@ export default withMermaid(
                   link: '/datasets/polymarket-data/binance-aggtrades-feed',
                 },
                 {
+                  text: 'Operations Runbook',
+                  link: '/datasets/polymarket-data/binance-aggtrades-operations',
+                },
+                {
                   text: 'Series Cache (Proposal)',
                   link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
                 },
