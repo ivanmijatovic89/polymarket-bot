@@ -163,14 +163,19 @@ living leaders split the clock (13e0d447 off-hours vs 04b6d7e9
 business hours). live-shadow.ts now tracks both profile-less
 wallets (13e0d447, 76d4d470). BRIEF genealogy re-ranked.
 
-Queue after unit 9: (1) W3 evening snapshot ~20–21Z (club
+Unit 10 (16:33Z, small): 13e0d447 June check — 5m-only from at
+least Jun-20 (both sessions); "5m/15m" tag was early-June at most;
+Jun-13 US window fully dark (early schedule gaps). Dossier residue
+now only the telonex ladder join (must use Jun-10–14, G9 bound).
+
+Queue after unit 10: (1) W3 evening snapshot ~20–21Z (club
 re-formation test; now includes the profile-less pair — expect
-13e0d447 to appear sub-$1 while others don't; morning snapshot
-tomorrow settles OQ #5 residue). (2) Measurable candidates:
-04b6d7e9 overnight-stretch repeat (A34 residue, telonex books);
-13e0d447 ladder-offset join (telonex, extends A57); 13e0d447
-mid-June btc-15m share check (one pull); W7 terrain refresh with
-era-matched fee constants. Session 10 ran units 1–9 (A51–A57,
+13e0d447 sub-$1 while others aren't; morning snapshot tomorrow
+settles OQ #5 residue). (2) Measurable candidates: 13e0d447
+ladder-offset telonex join on a Jun-10–14 day (extends A57; books
+on disk under data/telonex-r2-w4/ may already cover it); 04b6d7e9
+overnight-stretch repeat (A34 residue); W7 terrain refresh with
+era-matched fee constants. Session 10 ran units 1–10 (A51–A57,
 snapshot 7/O10); all API/receipt measurements — no engine runs, no
 src/ touches.
 

@@ -448,3 +448,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it's now the best live wallet — ~$3.2k/day from a cold start six weeks ago, buying pairs under $1 even during hours everyone else pays over $1; it works exactly like the strategy we plan to build, though on 5-minute markets. Our tracker now watches it.
 - Next: evening snapshot (~20-21 UTC) now including the two hidden wallets.
 - Health: on track
+
+## 2026-07-17T16:33Z — unit 10 (session 10)
+- Did: checked whether the hidden top bot ever traded 15-minute markets in June.
+- Found: no — 5-minute markets only, all the way back; it also skipped some days early in its life.
+- Next: evening snapshot (~20-21 UTC).
+- Health: on track

@@ -1338,3 +1338,13 @@ Caveat kept front and center: it runs 5m, not the lab's 15m — but it
 proves maker-pure deep-pair grinding clears cold-start economics at
 full strength today. Added both profile-less wallets to the
 live-shadow tracker so W3 finally sees them.
+
+## 2026-07-17T16:33Z — session 10, unit 10 (small): 13e0d447 June book check
+
+Two June windows (Jun-20 overnight + US): 100% btc-5m, same as July
+— the wallet has been 5m-only from at least Jun-20, so the earlier
+"5m/15m" tag was an early-June artifact at most. One oddity kept:
+Jun-13's US window was completely dark while the same weekday a week
+later traded — the wallet had schedule gaps in its early life.
+Dossier residue updated (only the telonex ladder join remains, and
+it must use a Jun-10–14 day since book coverage ends Jun-14).
