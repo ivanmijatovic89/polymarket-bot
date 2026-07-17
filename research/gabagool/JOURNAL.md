@@ -989,3 +989,16 @@ venue shock opens a weeks-long rich window before competition
 refills — venue changes are opportunity signals, not just risks.
 Folded into _META, PRIORS A41; OPEN-QUESTIONS #7 partially done
 (guh123 dossier; Jan winners remain).
+
+## 2026-07-17T14:18Z (real) — session 8, unit 11: the January winners (A42)
+
+Dossiered the two cheap-side wallets that ate January's
+standing-discount pool: ~$381k and ~$383k each, both dark within a
+week of the pool closing (Jan-26 / Feb-01). The second one's
+~$10.6k/day over 36 days is the fastest trading rate documented in
+the class. Best detail: CRYINGLITTLEBABY was a TAKER-sweeper in
+fee-free December (maker share 0.105 at pair cost 0.921) and
+flipped to maker 0.766 the month fees landed — the completion-mode
+arithmetic (A16/A32) proven in one wallet's behavior. Quit-at-peak
+is now n=6; no class winner has ever bled out. Twin-operation
+suspicion (profits within $1.8k) ledgered as reported-only.

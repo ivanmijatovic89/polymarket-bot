@@ -775,3 +775,17 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   fee/venue shocks create weeks-long rich windows before the class
   re-adds capacity — venue-change events are opportunity signals.
   [verified except where tagged]
+- **A42 (the January winners harvested A40's pool and left when it
+  closed; quit-at-peak n=6; completion mode tracks fee regime):**
+  0x961afce6 "CRYINGLITTLEBABY" +$381,215 (last trade Jan-26) and
+  0x93c22116 +$382,998 (last trade Feb-01, born Dec-28 → ~$10.6k/day
+  over 36 days — fastest documented daily trading rate). 961afce6's
+  scans show makerShare 0.105 @ pairCost 0.921 in fee-free December
+  (taker-sweeping standing discounts) flipping to makerShare 0.766
+  once fees landed — wallet-level behavioral proof of the A16/A32
+  completion arithmetic. Both are cheap-side dislocation harvesters
+  (pairRate 0.57–0.58), seed-2-shaped. Twin-operation suspicion
+  [reported]: profits within $1.8k, same recipe/books/era. No winner
+  in the class has ever bled out — all exits are abrupt at full
+  speed. [verified except twin link]
+  (wallets/jan-winners-961afce6-93c22116.md)

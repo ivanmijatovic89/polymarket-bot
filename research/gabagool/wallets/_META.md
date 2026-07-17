@@ -129,3 +129,5 @@ for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 | wallet | all-time $ | status | file |
 |---|---:|---|---|
 | `0xa45fe11d…2429` guh123 | 215,900 (ex-rebates) | RETIRED 2026-03-24 after a 33-day sprint at ~$6.5k/day trading — fastest documented rate, post-fees; started as gabagool22 quit | wallets/a45fe11d-guh123.md |
+| `0x961afce6…3361` CRYINGLITTLEBABY | 381,215 | RETIRED 2026-01-26 (January-pool harvester) | wallets/jan-winners-961afce6-93c22116.md |
+| `0x93c22116…c072` | 382,998 | RETIRED 2026-02-01 (~$10.6k/day over 36d — fastest documented) | same |

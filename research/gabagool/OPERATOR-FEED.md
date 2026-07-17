@@ -312,3 +312,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it made $216k in 33 days — the fastest pace ever seen in this family — starting the same week the original gabagool quit, and stopping just as suddenly. Lesson confirmed: every fee change opens a brief gold rush before the field adjusts.
 - Next: live snapshot 6 (~15:30 UTC), then STATE refresh for successors.
 - Health: on track.
+
+## 2026-07-17T14:18Z — unit: the January gold-rush winners (session 8)
+
+- Did: profiled the two wallets that ate January's brief "both sides under $1" gold rush.
+- Found: ~$380k each in about five weeks, then both vanished the week the opportunity closed. One of them switched styles the exact month fees arrived — confirming our fee math with its behavior. Every winner in this family exits abruptly at full speed; none has ever bled out.
+- Next: live snapshot 6 (~15:30 UTC), then STATE/queue refresh for successors.
+- Health: on track.
