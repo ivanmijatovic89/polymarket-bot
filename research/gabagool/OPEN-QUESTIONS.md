@@ -1,66 +1,71 @@
 # OPEN-QUESTIONS (living)
 
-Ranked by information value per unit effort. Refreshed session 3
-(2026-07-17T01:5xZ). Resolved items moved to the bottom.
+Ranked by information value per unit effort. Refreshed session 7
+(2026-07-17 ~05:10Z real clock) after A26–A33. Resolved items at the
+bottom.
 
-1. ~~Rebate estimator feasibility (G4)~~ → RESOLVED (A22): the share
-   cancels; rebate = 0.20 × fee-equivalent of own maker fills, exact,
-   with a $1/day/market payout threshold. btc-15m pool ≈ $7.3k/day.
-3. ~~Tick-size sub-cent rule + rate limits + stream precision~~ →
-   RESOLVED (A19): 0.001 exactly outside [0.04, 0.96]; rate limits
-   generous (POST /order 5,000/10s) and non-binding; Chainlink streams
-   ~200ms/18-decimal → ties measure-zero. Residue (low value):
-   primary-source the 1-pUSD marketable minimum; venue-side boundary
-   report sampling.
-4. ~~P19's "$8M/day" wallet~~ → CLOSED (A23): top-50 sweep found no
-    crypto-updown wallet near $8M/day (nearest: mixed whale suntori
-    $6.3M/day). BUT the sweep found 4 untracked specialists incl. the
-    btc-15m maker king `0xb27bc932` (~40% of the book's maker pool)
-    and a −$542k/30d failed challenger. Residue: full b27bc932
-    dossier (optional).
-5. **drfc4eybh7i8 address** (weak resolution): re-resolve via profile
-    JSON; then dossier if gabagool-style.
+1. **0x04b6d7e9 deep-dive (the strongest living variant, A30)** —
+   ladder offsets vs touch, requote cadence, per-market leg-imbalance
+   distribution (is pairRate 0.78 a choice or a constraint?), margin
+   stability month-by-month. Method: fills×books join like A17;
+   Telonex covers ≤2026-06-14, wallet born Mar-25 → 2.5 months of
+   joinable data exist. HIGHEST VALUE remaining measurement: it
+   parameterizes the lab's primary target cell (deep-pair).
+2. **Maker-only fill density at deep offsets on btc-15m** (paper-EV
+   residual): can $143/market maker notional be reached at clip $3–5
+   without touch-chasing? Answerable from Telonex book replays +
+   A17-style fill data BEFORE the lab sweeps (bounds the rebate step).
+3. **W4 scale-up of Phase-1 measurements** (thousands of markets,
+   month-by-month drift: ladder fill rates, pair-completion timing,
+   endgame flip table). Confirms/breaks the numbers the seeds rest on.
+4. **First OrderFilled on the 2026 exchange** (probe running in
+   background, deployment = 2026-03-31T02:39Z pinned) + which wallets
+   migrated first — venue-mechanics residue, partially done.
+5. **b27bc932 ladder-per-volatility-regime + requote cadence** (W2
+   residue; June Telonex + June pull both on disk).
+6. **Why did the Apr-28 / Jul-1 merge toggles happen?** (A27) — watch
+   whether other wallets toggled at the same dates (would imply a
+   shared operator or a venue-side cause; scan data can answer for
+   the sampled days).
+7. Atlas residue dossiers: 0xa45fe11d (Mar #1 edge — alive?),
+   0x961afce6 / 0x93c22116 (Jan cheap-side winners), golden-era
+   originals (0x589222a5, 0x52483137). Each is one cheap unit.
+8. drfc4eybh7i8 address re-resolution (weak signal, low value).
+9. 5m-book launch date (bracketed Jan-15→Feb-15 by the scans; pin it
+   if any unit needs it).
+10. Sub-$1 sum-of-asks scan (P38 re-scope; D1) — still unmeasured on
+    the current era; the lab sweep partially answers it implicitly.
 
-## Resolved this shift
+## Resolved session 7
 
-- ~~D3/D4/D5 measurements~~ -> A20 (measurements/window-lifecycle-
-  btc15m.md): flip table by band x seconds-left; 1c-tight books all
-  window; oscillation front-loaded vs winner fills back-loaded; D4
-  resolved by priors (E24 + A17): do not build own-the-open.
-- ~~Level offsets at fill time~~ -> covered by D2 (archetype: ~20%
-  touch, ~35% ladder 1-4c deep, 9% inside) + A17 (current wallets:
-  ladder p10 -12c). Ladder priors are set.
-- ~~Edge-source hunt on btc-15m~~ -> A17: deep ladders (p10 -12c),
-  cheap-side touch rests, mid-band taker completion ~43% of notional,
-  back-loaded minutes 10-13, no open concentration; better wallet =
-  waits longer + crosses further from fee peak
-  (measurements/edge-source-btc15m.md).
-- ~~Resolution mechanics (Game J core)~~ -> A18: Chainlink BTC/USD
-  data stream, ties resolve UP, negRisk false, tick 0.01, min 5 shares.
+- ~~W1 failed-challenger post-mortem~~ → A26: World Cup blow-up, not
+  a class casualty; class has NO large-loss example.
+- ~~live-shadow O2 (b27bc932 merges)~~ → A27: toggled module, eras
+  pinned to the second.
+- ~~W5 rebate economics~~ → A28: rebate = 1.4%·(1−p) per $ maker
+  notional; $1/day/market step; cheap-side pays ~2× balanced.
+- ~~two-way-mm vanished May/Jun~~ → A29: decoder bug (2026 exchange
+  changed OrderFilled layout); fixed, re-scanned; real story is
+  gradual decline 319→94.
+- ~~"who runs the class today at what economics"~~ → VARIANT-ATLAS.md
+  (W0 core) + A30 (0x04b6d7e9) + A31 (livebreathevolatility predates
+  gabagool22) + A33 (vidarx, adaptation paid $660k).
+- ~~cold-start viability under taker tiers~~ → A32: moat only taxes
+  taker completion; maker-pure newcomers win today (2 live proofs).
+- ~~W6 paper-EV~~ → measurements/paper-ev-seeds.md; deep-pair cell =
+  primary lab target.
+- ~~W7 terrain (books)~~ → measurements/terrain-books.md: btc-15m
+  flow down 9× from Jan peak; btc-5m 8× bigger but margin-negative;
+  class share of flow rising everywhere.
+- ~~2026 exchange deployment date~~ → 2026-03-31T02:39:03Z (block
+  84902353), on-chain getCode binary search.
 
-- ~~Maker/taker role split for the incumbent~~ -> A16: measured per
-  book — b55f btc-15m 37.8% maker by notional, btc-5m 44.5%; 0xce25
-  btc-15m 37.3%; doggystyie 0%.
-- ~~Fee-inclusive re-audit of the July actives~~ -> A16: b55f btc-15m
-  +2.31% fee-inclusive (edge REAL), 0xce25 +0.31% (barely), btc-5m
-  cells fee-negative; edge wallets ~62% taker by notional; new
-  exchange contract 0xe1111800...996b with native fees discovered
-  (measurements/fee-audit-actives.md).
+## Resolved earlier (sessions 1–6, unchanged)
 
-- ~~January transition curve~~ → A15: not monotone decay — fee shock,
-  then ~6-day adaptation back to 94% win via 130bp deeper discounts;
-  the fee-free 1h control book held steady
-  (measurements/jan-transition-gabagool22.md).
-- ~~Jan-era true fee rate~~ → A14: resolved ON-CHAIN — Jan taker fee =
-  Feb formula exactly ($0.78/100sh peak); press 2× figure wrong;
-  mid-Feb fee-cut exit trigger ELIMINATED.
-- ~~D2 passive-fill reality gap~~ → A9: worst_queue admits 44–49%,
-  touch 64–68%; 29–45% of archetype fills were taker completions
-  (measurements/d2-fill-reality-gap.md).
-- ~~H3 decomposition for more actives~~ → all seven decomposed,
-  stratified meta (measurements/actives-decomposition.md).
-- ~~bonereaper dossier / 0.21%-margin mystery~~ → hybrid: btc-5m rebate
-  manufacturing + 15m edge sleeve + sports punts; steady-state negative,
-  bulk-payout-rescued (wallets/bonereaper.md, A12).
-- ~~powerwinner dossier~~ → pure taker-rebate farmer
-  (wallets/powerwinner.md, A10).
+- ~~Rebate estimator (G4)~~ → A22. ~~Tick/limits/precision~~ → A19.
+- ~~P19 "$8M/day"~~ → CLOSED (A23; nobody matches).
+- ~~D2 fill reality gap~~ → A9 (44–49% admitted). ~~D3/D4/D5~~ → A20.
+- ~~Edge-source hunt~~ → A17. ~~Resolution mechanics~~ → A18.
+- ~~Fee-inclusive audit~~ → A16. ~~Jan transition~~ → A15. ~~Jan fee
+  rate~~ → A14. ~~Actives decomposition~~ → A11/A12. ~~bonereaper /
+  powerwinner dossiers~~ → A12/A10.

@@ -825,3 +825,13 @@ working capital. For the lab: bankroll is a non-issue at v1 scale
 DENSITY, exactly what the paper-EV note flagged as the sweep's job to
 measure. Folded into the dossier; BRIEF §6 already carries the
 rebate-step math this connects to.
+
+## 2026-07-17T05:15Z (real) — session 7, unit 20: OPEN-QUESTIONS re-ranked
+
+Rewrote OPEN-QUESTIONS.md against A26–A33: nine session-7 resolutions
+moved to the ledger, new #1 is the 0x04b6d7e9 deep-dive (fills×books
+join on the Telonex window — it parameterizes the lab's primary
+target cell), #2 the maker-fill-density question that gates the
+rebate step, #3 W4 scaling. Clock note: headers between the earlier
+correction and here still drifted (~+1h); units 14–19 actually ran
+05:03–05:10Z. Git times remain ground truth.

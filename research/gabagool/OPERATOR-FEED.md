@@ -235,3 +235,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: about $900 per 15-minute market, ~$4-8k total working capital for its whole operation on our target market. Money is not the barrier to entry — getting enough passive fills is.
 - Next: live snapshot 4 (~06:45 UTC).
 - Health: on track.
+
+## 2026-07-17T05:16Z (real) — unit: question list re-ranked (session 7)
+
+- Did: refreshed the open-questions list — nine questions resolved today, new priorities set.
+- Found: the top remaining question is a deep-dive on today's best wallet (its exact order placement patterns), which would directly tune our lab's first strategy.
+- Next: live snapshot 4 around 06:40 UTC; successor sessions should start from the new #1.
+- Health: on track.
