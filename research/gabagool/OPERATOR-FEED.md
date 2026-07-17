@@ -466,3 +466,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the bot never changes how it quotes; the MARKET changes. Deep bargain fills bounce back in its favor at night and in the evening, but keep falling against it during US hours. Evening edge confirmed on weekdays; one Saturday evening behaved badly — weekends need a check.
 - Next: evening live snapshot of the bots (~20-21 UTC); before that, the weekend-vs-weekday check.
 - Health: on track
+
+## 2026-07-17T17:06Z — unit 2 (session 11)
+- Did: tested whether the "evenings good, US afternoons bad" rule holds on weekends — pulled the top 24/7 bot's full last weekend (574 markets total now split by day type).
+- Found: the rule is a WEEKDAY rule. On weekends the pattern scrambles, nothing is reliably profitable, and the bot's trick of leaning toward the likely winner stops working entirely (worse than a coin flip in calm weekend hours). Our future bot should trade weekday evenings first and sit out weekends.
+- Next: evening live snapshot of the bots (~20-21 UTC); until then, next queue item (terrain refresh or a new measurable).
+- Health: on track

@@ -154,3 +154,47 @@ the storm loss is one cell:
 - `npx tsx research/gabagool/scripts/pull-activity.ts --address 0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82 --label b27bc932-<day> --start <day 00:00:00Z> --end <day 23:59:59Z>`
 - `npx tsx research/gabagool/scripts/fetch-binance-1m.ts 2026-03-25 2026-04-15 2026-05-13 2026-06-10 2026-06-12 2026-06-13 2026-06-14 2026-07-15`
 - `npx tsx research/gabagool/scripts/session-split-vol.ts --activity data/activity-b27bc932-{mar25,apr15,may13,jun10,jun,jul15}.jsonl` (comma-joined)
+
+## A59 addendum (session 11): the session rule is WEEKDAY-ONLY
+
+OQ #7 (raised by A58's Saturday-evening drift flip). Method: same
+script + `--dow weekday|weekend` (UTC day of window start), pooled
+current-era days only — weekday = Jun-10 (Wed), Jun-12 (Fri), Jul-15
+(Wed); weekend = Jun-13/14 (partial Sun), Jul-11/12 (full Sat+Sun,
+fresh pull `activity-b27bc932-jul11-12.jsonl`, 255,690 rows). 574
+markets total (262 weekday / 312 weekend), gross = merge-neutral
+winnerShares − outlay, session marginals:
+
+| session | WEEKDAY %outlay (losers%) | WEEKEND %outlay (losers%) |
+|---|---|---|
+| overnight 00-05Z | −0.34% (44%) | −0.83% (57%) |
+| eu 06-11Z | −0.09% (53%) | −0.98% (59%) |
+| us 12-19Z | **−1.58%** (48%) | +0.59% (57%) |
+| evening 20-23Z | **+1.74%** (30%) | +0.34% (44%) |
+
+- **A49's map is the weekday map.** Weekday evening is the only cell
+  positive in ALL vol terciles (+2.06/+1.84/+0.92% calm/mid/storm) —
+  the "run evenings first" rule survives, but with a weekday
+  qualifier. The weekday US bleed replicates (−1.58%).
+- **Weekends restructure rather than attenuate.** Overnight/EU go
+  negative, US flips positive (+0.59%, but storm-driven: calm −1.72%
+  / mid +1.25% / storm +1.66%), evening decays to +0.34%. Weekend
+  per-day is noisy (Jun-13 +0.72%, Jul-11 +0.42%, Jul-12 −1.70%) —
+  no weekend cell is robust across days.
+- **The favorite-lean module is the casualty**: excessWon 60–76% on
+  weekdays vs 40–51% weekend (calm cells 20–27% — catastrophic).
+  The wallet's residual-lean edge (A34/A36 class pattern) needs
+  weekday flow; on weekends the lean is a coin flip or worse.
+- Book-level echo: A58's Jun-13 (Sat) evening deep-fill drift was
+  adverse (−1.38c @60s) where weekday evenings were +1.4/+1.5c.
+- Lab rule update (supersedes item 1 above): v1 grinder envelope =
+  **weekday** 20–24Z first; weekends have no robust positive cell —
+  idle, or run only with the directional-lean module disabled.
+  Weekend calm is the worst environment measured for the lean.
+- Caveats: 3 weekday vs 4 weekend days, one era (Jun–Jul); dow is
+  UTC (a US-clock Friday night 20–24Z is still UTC Friday =
+  weekday). Log: `data/session-split-dow.log`.
+
+Producing: `npx tsx research/gabagool/scripts/session-split-vol.ts
+--activity data/activity-b27bc932-{jun10,jun,jul11-12,jul15}.jsonl
+--dow weekday` (and `--dow weekend`).

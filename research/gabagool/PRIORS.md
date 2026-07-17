@@ -1025,3 +1025,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (wallet was 100% btc-5m that day → 15m sleeve start bracketed
   Mar-17→25, tightening A50).
   [verified] (measurements/session-drift-b27bc932.md)
+- **A59 (the A49 session rule is weekday-only; weekends restructure
+  and kill the favorite-lean):** 574 current-era markets (262
+  weekday / 312 weekend incl. fresh Jul-11/12 pull). Weekday
+  replicates A49 exactly (evening +1.74% — positive in every vol
+  tercile; US −1.58%); weekend inverts/flattens (overnight −0.83%,
+  eu −0.98%, US +0.59% storm-driven, evening +0.34%) with no cell
+  robust across days. The sharpest casualty is the residual-lean:
+  excessWon 60–76% weekday vs 40–51% weekend (20–27% in weekend
+  calm). Lab: v1 grinder envelope = WEEKDAY 20–24Z; weekends idle
+  or lean-disabled; never evaluate the lean module on pooled dow.
+  [verified] (measurements/session-split-vol-b27bc932.md §A59)

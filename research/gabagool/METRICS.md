@@ -44,7 +44,7 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
 | books traded/day + leading book rotation | which of the ~16 books carried the day | INV: rotates daily; diversification is load-bearing |
 | rebate share sustainability | own maker volume / market total maker volume | pool dilution — the competition variable (G8) |
 | per-era split | all metrics split at 2026-01-06 (fee introduction) and at any later fee change | the game changed regimes mid-life; never pool across |
-| per-session split | all PnL metrics segmented {00–05, 06–11, 12–19, 20–23}Z | A36/A46/A49 (3/3, month scale): US is the grinder bleed, evening the only current-era positive; session is a policy variable |
+| per-session split | all PnL metrics segmented {00–05, 06–11, 12–19, 20–23}Z × {weekday, weekend} | A36/A46/A49 (3/3, month scale): US is the grinder bleed, evening the only current-era positive; session is a policy variable. A59: the map is WEEKDAY-only — weekends restructure (no robust cell) and the favorite-lean collapses (excessWon 40–51%); never pool dow |
 | realized vol (Binance 1m, per window) | volBp = sqrt(Σ 1m logret²) | report as covariate ONLY — A49: vol terciles proxy session (storms cluster 12–19Z); never gate on vol alone, at most a US×storm veto |
 
 ## Measurement discipline (inherited)

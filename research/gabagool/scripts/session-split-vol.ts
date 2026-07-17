@@ -14,7 +14,10 @@
  * total as holding everything to resolution.
  *
  * Usage: npx tsx research/gabagool/scripts/session-split-vol.ts \
- *   --activity fileA.jsonl,fileB.jsonl,...
+ *   --activity fileA.jsonl,fileB.jsonl,... [--dow weekday|weekend]
+ *
+ * --dow (A58 residue / OQ #7): keep only markets whose window START
+ * falls on Mon–Fri (weekday) or Sat/Sun (weekend), UTC.
  */
 import { existsSync, readFileSync, writeFileSync } from 'node:fs'
 
@@ -154,12 +157,23 @@ for (const slug of slugs) {
   })
 }
 
+const dow = argOf('dow')
+let msf = ms
+if (dow === 'weekday' || dow === 'weekend') {
+  const isWeekend = (slug: string) => {
+    const d = new Date(Number(slug.split('-').pop()) * 1000).getUTCDay()
+    return d === 0 || d === 6
+  }
+  msf = ms.filter((m) => isWeekend(m.slug) === (dow === 'weekend'))
+  console.log(`\n--dow ${dow}: ${msf.length}/${ms.length} markets kept`)
+}
+
 const q = (a: number[], p: number) => {
   if (!a.length) return NaN
   const s = [...a].sort((x, y) => x - y)
   return s[Math.min(s.length - 1, Math.floor(p * s.length))]
 }
-const vols = ms.filter((m) => m.volBp !== undefined).map((m) => m.volBp!)
+const vols = msf.filter((m) => m.volBp !== undefined).map((m) => m.volBp!)
 const t1 = q(vols, 1 / 3)
 const t2 = q(vols, 2 / 3)
 console.log(`\nvolBp terciles: ≤${t1.toFixed(1)} | ≤${t2.toFixed(1)} | > (n=${vols.length})`)
@@ -186,19 +200,19 @@ const TERCILES: Array<[string, (v: number) => boolean]> = [
 ]
 
 console.log(`\n== session marginal ==\n${HDR}`)
-for (const [n, p] of SESSIONS) console.log(row(n, ms.filter((m) => p(m.hour))))
+for (const [n, p] of SESSIONS) console.log(row(n, msf.filter((m) => p(m.hour))))
 
 console.log(`\n== vol marginal ==\n${HDR}`)
-for (const [n, p] of TERCILES) console.log(row(n, ms.filter((m) => m.volBp !== undefined && p(m.volBp!))))
+for (const [n, p] of TERCILES) console.log(row(n, msf.filter((m) => m.volBp !== undefined && p(m.volBp!))))
 
 console.log(`\n== session × vol grid ==\n${HDR}`)
 for (const [sn, sp] of SESSIONS)
   for (const [tn, tp] of TERCILES)
-    console.log(row(`${sn} × ${tn}`, ms.filter((m) => sp(m.hour) && m.volBp !== undefined && tp(m.volBp!))))
+    console.log(row(`${sn} × ${tn}`, msf.filter((m) => sp(m.hour) && m.volBp !== undefined && tp(m.volBp!))))
 
 console.log(`\n== per-day (month drift) ==\n${HDR}`)
-for (const day of [...new Set(ms.map((m) => m.day))].sort()) console.log(row(day, ms.filter((m) => m.day === day)))
+for (const day of [...new Set(msf.map((m) => m.day))].sort()) console.log(row(day, msf.filter((m) => m.day === day)))
 
-const all = ms.filter((m) => m.grossPnl !== undefined)
-console.log(`\nALL: ${ms.length} markets, gross PnL $${all.reduce((a, m) => a + m.grossPnl!, 0).toFixed(0)}, outlay $${ms.reduce((a, m) => a + m.outlay, 0).toFixed(0)}`)
+const all = msf.filter((m) => m.grossPnl !== undefined)
+console.log(`\nALL: ${msf.length} markets, gross PnL $${all.reduce((a, m) => a + m.grossPnl!, 0).toFixed(0)}, outlay $${msf.reduce((a, m) => a + m.outlay, 0).toFixed(0)}`)
 process.exit(0)

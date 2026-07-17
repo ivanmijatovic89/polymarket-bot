@@ -1396,3 +1396,22 @@ telonex files are ALL 16KB stubs (G10 is not January-specific —
 ENGINE-GAPS corrected; exact-zero drift is the tell), and zsh does
 not word-split `set -- $s` (the first run silently produced four
 identical unfiltered tables before I caught it).
+
+## 2026-07-17T17:06Z — session 11, unit 2: the session rule is weekday-only (A59)
+
+Closed OQ #7 the same session it was opened. Pulled the wallet's full
+last weekend (Jul-11/12, 255,690 activity rows), added a --dow filter
+to session-split-vol.ts, and split 574 current-era btc-15m markets
+into 262 weekday / 312 weekend. Weekdays reproduce A49's map almost
+digit-for-digit (evening +1.74%, the only cell positive in calm, mid
+AND storm; US −1.58%). Weekends do not attenuate the map — they
+REARRANGE it: overnight and EU go negative, US flips positive but
+only via storm windows, evening decays to +0.34%, and no cell repeats
+across the four weekend days. The cleanest signal is the
+favorite-lean module dying: excess-leg win rate 60–76% on weekdays
+collapses to 40–51% on weekends and to 20–27% in weekend calm — the
+informed-residual edge needs weekday flow. The wallet itself keeps
+running full cadence through weekends and pays for it (Jul-12:
+−$2,170 gross). Lab consequence folded into BRIEF/METRICS/dossier:
+v1 envelope is WEEKDAY 20–24Z first, weekends idle or lean-disabled,
+and no metric may pool day-of-week.

@@ -209,9 +209,17 @@ Candidates for the lab:
   weekdays): flow toxicity by clock, not policy, drives the A49
   session PnL split. Touch-class drift is ≈0-to-negative in EVERY
   session — the variant's whole favorable-drift edge (A39) sits in
-  the deep ladder off-US-hours. Caveat: Saturday evening flipped
-  adverse (n=1) — the evening rule is weekday-established only
-  (measurements/session-drift-b27bc932.md).
+  the deep ladder off-US-hours (measurements/
+  session-drift-b27bc932.md). **A59 settles the weekend question at
+  month scale (574 markets)**: the whole session map is
+  WEEKDAY-only — weekday evening +1.74% (the only cell positive in
+  every vol tercile), weekday US −1.58%; weekends restructure
+  (overnight/EU negative, US +0.59% storm-driven, evening +0.34%,
+  nothing robust across days) and the favorite-lean module
+  collapses there (excessWon 60–76% weekday → 40–51% weekend,
+  20–27% in weekend calm). v1 envelope: WEEKDAY 20–24Z first;
+  weekends idle or lean-disabled
+  (measurements/session-split-vol-b27bc932.md §A59).
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

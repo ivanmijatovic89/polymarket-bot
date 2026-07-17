@@ -89,15 +89,25 @@ size any day). Bycatch: Mar-16 100% btc-5m → 15m sleeve start
 bracketed Mar-17→25. Books cached: telonex-r2-jun12sess/,
 telonex-r2-jun13/ (evening valid, overnight stubs).
 
-Queue for successor (in order): (1) OQ #7 weekday/weekend session
-split (session-split-vol.ts + dow filter, existing pulls). (2) W3
-evening snapshot ~20–21Z — club re-formation test (A49
-evening-positive), tracks profile-less pair (expect 13e0d447
-sub-$1); morning snapshot tomorrow settles OQ #5 residue; rerun
-lineage-sweep.ts if any active went dark. (3) W7 terrain refresh
-with era-matched fee constants (A52) — activity-API only for
-5m/1h (G11). (4) Residue: 13e0d447 early-June 15m sleeve (minor);
-b27bc932 Jul-01 merge-ON cause (operator-internal, likely dead end).
+Unit 2 (17:06Z): A59 — OQ #7 CLOSED same session
+(session-split-vol-b27bc932.md §A59; script gained --dow; fresh
+Jul-11/12 weekend pull, 574 mkts current era). The A49 session map
+is WEEKDAY-only: weekday evening +1.74% (positive all vol
+terciles), weekday US −1.58%; weekends restructure (no robust
+cell; US +0.59% storm-driven only) and the favorite-lean collapses
+(excessWon 40–51%, weekend calm 20–27%). v1 envelope = weekday
+20–24Z; weekends idle or lean-disabled; never pool dow in metrics.
+
+Queue for successor (in order): (1) W3 evening snapshot ~20–21Z —
+club re-formation test (A49 evening-positive), tracks profile-less
+pair (expect 13e0d447 sub-$1); morning snapshot tomorrow settles
+OQ #5 residue; rerun lineage-sweep.ts if any active went dark.
+(2) W7 terrain refresh with era-matched fee constants (A52) —
+activity-API only for 5m/1h (G11). (3) Residue: 13e0d447
+early-June 15m sleeve (minor); b27bc932 Jul-01 merge-ON cause
+(operator-internal, likely dead end). (4) New measurable: A59
+weekend read is n=4 days — extend with more weekends if a unit
+frees up (cheap: pull-activity + session-split-vol --dow).
 
 ### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
 
