@@ -53,17 +53,18 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: saturation assessment. G4 RESOLVED (A22, estimator exact);
-   P19 CLOSED (A23, sweep done). Remaining candidates, all
-   low-marginal-value: full b27bc932 dossier; drfc4eybh7i8
-   re-resolution; badfallen/doggystyie/0xaaaaa dossiers;
-   2026-exchange launch date; 1-pUSD marketable min primary source.
-   None of these should change BRIEF/HYPOTHESES materially → write
+1. NEXT: saturation assessment. G4 RESOLVED (A22); P19 CLOSED (A23);
+   b27bc932 dossier DONE incl. A24 self-correction (multi-book, ~3-4%
+   pool share, H1 existence proof). Remaining candidates, all
+   low-marginal-value: drfc4eybh7i8 re-resolution;
+   badfallen/doggystyie/0xaaaaa dossiers; 2026-exchange launch date;
+   1-pUSD marketable min primary source; b27bc932 handle/era-split.
+   None should change BRIEF/HYPOTHESES materially → write
    SATURATION.md -> LAB-HANDOFF.md -> DONE (charter E). The handoff
-   must carry: pair-accumulator seed (H1+H6, sim-decidable now),
-   cheap-side-accumulator seed (H2), fair-value-gated-maker seed
-   (H4, blocked on feed merge), + the A22 rebate line and A23
-   competition warnings.
+   must carry: pair-accumulator seed (H1+H6, sim-decidable now, A24
+   existence proof), cheap-side-accumulator seed (H2),
+   fair-value-gated-maker seed (H4, blocked on feed merge), + the A22
+   rebate line, A23/A24 competition picture, and T1 scope tension.
 2. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
 DONE session 4 so far: recovered + committed the edge-source unit a

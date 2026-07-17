@@ -527,14 +527,29 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   (measurements/rebate-pool-btc15m.md)
 - **A23 (leaderboard sweep — the cohort was undercounted):** top-50
   30d-volume sweep found 4 unknown crypto-updown wallets ≥$0.7M/day.
-  Headline: `0xb27bc932…5b82` = the archetype fingerprint at scale on
-  btc-15m ONLY (100% BUY, $3.2 clips, all-time lb profit +$762,732),
-  collecting ~$3.2k/day maker rebates since Mar 14 ≈ **~40% of the
-  entire btc-15m maker pool** — trading profit today ≈ +$95/day, i.e.
-  ~97% of its income is venue subsidy. Also: `0x95f5…779f` LOST −$542k
+  Headline: `0xb27bc932…5b82` = the archetype fingerprint at scale
+  (100% BUY, $3.2 clips, all-time lb profit +$762,732), collecting
+  ~$3.2k/day maker rebates since Mar 14 — trading profit today ≈
+  +$95/day, i.e. ~97% of its income is venue subsidy. (The initial
+  "btc-15m only / 40% of its pool" read was a sampling artifact —
+  CORRECTED in A24.) Also: `0x95f5…779f` LOST −$542k
   in 30d doing $1.48M/day of parity-style BUY-only flow (failed
   challenger; caveat lb-profit excludes rebates); HelixEdge (btc-5m
   new entrant) −$20k/30d. P19's $8M/day: unmatched in top-50 — nearest
   is a mixed sports+crypto whale (suntori $6.3M/day); claim stays
   contested and the search is closed. [verified, quick-scan grade]
   (measurements/leaderboard-sweep.md, wallets/b27bc932.md)
+- **A24 (b27bc932 full dossier — and a self-correction):** the June
+  full pull (249k rows/2.4d) overturns A23's quick-scan read: the
+  wallet is MULTI-BOOK (btc-5m $785k > btc-15m $241k > eth-5m $234k)
+  and its ~$3.2k/day maker rebates span ≥3 pools → its btc-15m pool
+  share is ~3–4%, NOT 40%; no wallet owns the book. Verified profile:
+  ~104k fills/day (3× archetype cadence), pair cost p50 0.993 on
+  btc-15m, leg imbalance p50 1.6% (tight parity), ZERO merges
+  (redeems), win 58%, gross trading +0.28% of turnover ≈ breakeven
+  after fees; execution = 50.1% taker by notional, deep ladder p10
+  −15c, near-uniform timing with mild late tilt. The H1 mechanism
+  demonstrably survives the fee era at breakeven-plus-subsidy, with
+  completion half taker-executed. Lesson ledgered: last-500 /activity
+  scans can span <1h — never infer book mix from them. [verified]
+  (wallets/b27bc932.md)

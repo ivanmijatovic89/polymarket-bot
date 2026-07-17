@@ -60,3 +60,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: four new wallets, including one running gabagool's exact playbook on btc-15m that quietly collects ~40% of that market's maker subsidy — and another that lost $542k in a month trying the same shape. The rumored "$8M/day wallet" doesn't exist.
 - Next: saturation check and, if it holds, the lab handoff.
 - Health: on track.
+
+## 2026-07-17T08:25Z — unit: deep-dive on the new wallet (with a self-correction)
+
+- Did: pulled the new wallet's full June history and joined it against order-book data.
+- Found: my earlier claim was wrong — it trades three markets, not one, and owns ~4% (not 40%) of the target market's subsidy. Still the best find of the shift: it runs gabagool's exact recipe today, breaking even on trading and living on subsidies.
+- Next: saturation check, then the lab handoff.
+- Health: on track (one same-day self-correction, fully ledgered).

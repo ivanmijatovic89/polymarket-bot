@@ -40,6 +40,11 @@ edge is dead by regime change, do not test it.
   kill if fee-inclusive pair margin + exact rebate < 0 across the sweep;
   otherwise disposition = live-paper or trades-channel queue model
   (fable EDGE-SPACE §3.2/3.3).
+- **Existence proof (A24)**: `0xb27bc932` runs exactly this TODAY —
+  pair cost p50 0.993, parity 1.6%, no merges, ~50% taker completion,
+  ~breakeven fee-inclusive trading + $3–4k/day rebates across 3 books
+  at 104k fills/day. The mechanism is alive; the open question is only
+  whether it clears at implementable scale/cadence for a new entrant.
 - **SRP family**: spread-capture roadmap #6 (bid-side mirror) IS this
   baseline — propose as new family `pair-accumulator` with parity as the
   decision driver (spread-capture's driver was symmetric premium
@@ -91,13 +96,15 @@ edge is dead by regime change, do not test it.
   farmer profile; (b) program risk (venue repricing rebates) is the
   systemic risk of everything built here; (c) headline P&L of any
   wallet is meaningless without decomposition AND fee reconstruction.
-- **Strongest datum yet (A23)**: the best surviving btc-15m MAKER
-  (`0xb27bc932`, archetype fingerprint, +$762k all-time) now earns
-  ~97% of its income from rebates (trading +$95/day vs rebates
-  ~$4.4k/day) while holding ~40% of the book's maker pool. The
-  maker-heavy end-state IS subsidy; trading alpha lives on the
-  taker-completion side (b55f). Also: a $1.48M/day challenger lost
-  −$542k in 30d — competition is priced in bodies, not basis points.
+- **Strongest datum yet (A23/A24)**: the biggest maker-rebate earner
+  (`0xb27bc932`, archetype-discipline grinder at 3× cadence, +$762k
+  all-time) now earns ~97% of its income from rebates (fee-inclusive
+  trading ≈ −$800/day vs rebates ~$3–4k/day) — while running the H1
+  mechanism cleanly (pair cost p50 0.993, parity 1.6%, no merges,
+  50% taker completion). The parity-maker end-state IS subsidy;
+  trading alpha lives with the taker-heavy completers (b55f). Also: a
+  $1.48M/day challenger lost −$542k in 30d — competition is priced in
+  bodies, not basis points.
 - **SRP family**: none directly — BUT rebates are now exactly
   modelable post-hoc (A22 estimator; G4 resolved), so H3 no longer
   gates sim work; it gates how to READ sim results (subsidy line vs

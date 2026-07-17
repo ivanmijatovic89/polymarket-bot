@@ -1,4 +1,11 @@
-# Volume-leaderboard sweep — 4 unknown crypto-updown wallets, incl. the real btc-15m maker king
+# Volume-leaderboard sweep — 4 unknown crypto-updown wallets
+
+**CORRECTION (A24, same session)**: the `0xb27bc932` rows below carry
+two quick-scan errors, overturned by the June full pull: it is
+MULTI-BOOK (btc-5m > btc-15m > eth-5m; the "btc-15m only" read came
+from a 0.5h last-500 sample) and therefore holds ~3–4% of the btc-15m
+maker pool, NOT ~40%. See wallets/b27bc932.md for the corrected
+dossier. Lesson: never infer book mix from one /activity page.
 
 Trigger: P19's "$8M/day wallet" claim (unmatched). Method: lb-api
 30d volume top-50 → last 300–500 /activity TRADE rows per wallet →

@@ -462,3 +462,22 @@ ledgered).
 Honesty note: these are quick-scan numbers (one /activity page +
 lb-api per wallet), labeled as such everywhere; the full-history
 b27bc932 dossier is optional residue.
+
+## 2026-07-17T08:25Z — b27bc932 full dossier (A24) — and eating my own correction
+
+CONTRADICTION LEDGER: A23's quick scan called b27bc932 "btc-15m only,
+~40% of the book's maker pool". Both wrong. The last-500 /activity rows
+spanned just 30 minutes; the June full pull (249k rows/2.4d) shows a
+multi-book grinder (btc-5m $785k > btc-15m $241k > eth-5m $234k) whose
+rebates span ≥3 pools — its btc-15m share is ~3–4%. No wallet owns the
+book; the pool is fragmented. All five files carrying the wrong claim
+are corrected in place, and the method lesson (never infer book mix
+from one /activity page) is ledgered in A24.
+
+The corrected dossier is still the most lab-relevant wallet found:
+104k fills/day at $3.2 clips, 100% BUY, pair cost p50 0.993 on btc-15m,
+1.6% parity, ZERO merges (holds to redemption), 50.1% taker by
+notional, near-uniform timing, gross trading +0.28% of turnover ≈
+breakeven after fees, income ≈ 97% subsidy. It is a live existence
+proof of H1's mechanism surviving the fee era — as a volume/subsidy
+machine, not an alpha machine. H1, H3, BRIEF §8, _META updated.
