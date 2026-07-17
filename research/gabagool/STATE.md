@@ -45,25 +45,28 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
-## Work queue (ranked — mirrors OPEN-QUESTIONS.md)
+## Work queue (ranked)
 
-1. Decompose remaining actives: 0xaaaaa, badfallen, doggystyie,
-   bonereaper, 0xce25 (H3 verdict needs majority; scripts ready —
-   pull-activity.ts + the inline python pattern used for
-   b55f/powerwinner). Then _META synthesis v2 with the
-   trading-vs-subsidy table.
-2. January transition sample (Jan 10–14, gabagool) — decay-speed prior.
-3. Per-market leg-balance check for powerwinner (is his btc-5m churn
-   pair-shaped or directional?) — one python pass on existing data.
-4. Jan fee-rate archaeology (contested 2×) + any mid-Feb change (his
-   exit trigger) — archive.org developer-docs pages.
+1. IN FLIGHT: January transition sample (Jan 10–13 pull running →
+   analyze with analyze-tail.ts + decompose-activity.ts; compare pair
+   cost / win% vs Dec 0.98/98.7% and Feb 1.00/38.6% — decay-speed
+   prior). Data: data/activity-gabagool22-jan.jsonl when done.
+2. bonereaper longer window (its 2-day negative vs $1.19M all-time needs
+   a 7–10 day pull or a second window before any verdict).
+3. Jan fee-rate archaeology (contested 2×; no /trading/fees snapshots
+   before 2026-03-05 — try the March 5 snapshot to narrow the
+   formula-change date, and Polymarket changelog/blog pages).
+4. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
+   the edge wallets do differently from farmers? Candidates: level
+   selection, timing within window, coin choice. Needs fills×books join
+   (measure-fill-gap.ts pattern) for b55f/0xce25 on btc-15m slugs.
 5. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
-   (charter list; D5 partially covered by fable data — check before
-   duplicating).
-6. Literature A2 (queue-position value, rebate-driven MM literature,
-   prediction-market MM empirics).
-7. Continuous: fold into BRIEF/HYPOTHESES/METRICS; when material changes
-   stop → SATURATION.md → LAB-HANDOFF.md → DONE.
+   (check fable coverage first — E24/E25 partially cover D4/D5).
+6. Literature A2 (queue-position value, subsidy/rebate MM literature).
+7. Venue leftovers: tick/min-size/rate limits, resolution mechanics
+   (Game J), YIELD program terms.
+8. Continuous: fold into BRIEF/HYPOTHESES/METRICS; at saturation →
+   SATURATION.md → LAB-HANDOFF.md → DONE.
 
 ## Workstream status
 

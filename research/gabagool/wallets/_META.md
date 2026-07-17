@@ -22,6 +22,20 @@ The incumbent's full address was found by scanning 3,000 recent global
 `data-api /trades` rows for the `0xb55f` prefix (it trades constantly, so
 it appears in any recent sample).
 
+## Synthesis v2 (2026-07-17, after the 7-wallet decomposition)
+
+Full table + method: `measurements/actives-decomposition.md`. One line:
+**the meta is stratified** — 3 edge wallets (0xce25 +2.31% of turnover,
+badfallen +1.68%, b55f ~+0.7%; small clips, multi-book or btc-5m), 3
+taker-rebate farmers (powerwinner, doggystyie, 0xaaaaa; big clips at
+p≈0.5, trading negative by design), bonereaper negative this window
+(needs a longer sample before judging). The venue's taker-rebate pool
+(~$20k/day across these 7) is the ecosystem's single largest income
+stream — program risk is systemic. btc-15m is a LIVE edge book for both
+multi-book edge wallets (+2.0–3.2%); ETH books are negative for both.
+doggystyie runs the archetype's end-state (0.0% parity) profitably on
+taker rebates alone.
+
 ## First synthesis notes (2026-07-17)
 
 - **The game is NOT dead and NOT decaying (contra P16's trajectory claim).**
