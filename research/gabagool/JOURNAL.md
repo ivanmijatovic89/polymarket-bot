@@ -1198,3 +1198,33 @@ the edge wallets presumably eating a bad hour. b27bc932's btc-5m
 sleeve held a 4th consecutive window; merge module still on.
 Next natural checkpoint: an evening (20-24Z) snapshot to see the
 club re-form in A49's only robustly-positive session.
+
+## 2026-07-17T16:07Z — session 10, unit 3: fee-curve history pinned (A52)
+
+Set out to test whether the fee reshape shipped at the Apr-28 cutover
+(unit 1's residue). Refuted it in one measurement and got a much
+better prize. New script fee-curve-probe.ts decodes the NET taker fee
+per sampled tx (v1: charge minus operator refunds to the taker; v2:
+the fee field) and fits the implied coefficient k in k·p(1−p)·shares.
+Fourteen windows Mar-25→Jul-15, all btc-5m taker flow, and the k
+values are razor exact (p10=median=p90) once a curve is live.
+
+The history: old curve through Mar-28; a GRADUAL rollout day on
+Mar-30 (per-tx k values smeared from old-curve levels up to 0.07 —
+per-order fee terms mixing in multi-fill txs); k=0.0720 exact from
+Mar-31 noon; the Apr-28 exchange cutover changes nothing (0.0720 on
+both sides — fee-neutral, pure infrastructure); then a quiet trim to
+k=0.0700 between May-06 and May-10, where it still sits. Archive.org
+confirms the venue PUBLISHED 0.072 in the Apr-01 fee table — the
+famous "$1.75/100sh" era actually launched at $1.80 and got trimmed
+five weeks later. Reshape and v2 deployment were one release train
+(reshape complete by Mar-31 noon, v2 deployed Mar-31 02:39Z).
+
+Two knock-ons matter more than the dates. First, A49's Mar→Jun
+margin decay now has a fee confound: the +1.88% March margin was
+earned under a 2.3× cheaper taker curve, so the decay is not pure
+competition. Second, A50's 15m-sleeve-OFF (between Mar-25 and
+Apr-15) now contains exactly one venue event — the reshape — which
+promotes the sleeve-boundary bisection from low-value residue to a
+real causal test. Era-matched fee constants are now in
+VENUE-MECHANICS for any historical EV work.

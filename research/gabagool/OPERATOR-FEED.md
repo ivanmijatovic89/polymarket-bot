@@ -406,3 +406,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: for the first time NO bot managed to buy pairs under $1 — even the best wallet paid $1.05 during this stormy US afternoon; all kept trading anyway (subsidies + a bad hour). The top bot's 5-minute-market focus held a 4th straight window.
 - Next: evening snapshot (~20-21 UTC) to see the under-$1 club re-form; meanwhile, probe whether the fee-curve change shipped at the Apr-28 exchange cutover.
 - Health: on track
+
+## 2026-07-17T16:07Z — unit 3 (session 10)
+- Did: dated every change of the venue's trading-fee formula on-chain (14 sampled windows, March through July).
+- Found: the big fee hike landed Mar 29-31 (with the new exchange's release, NOT at the April cutover, which changed no fees); it launched at a higher rate ($1.80 per 100 shares) than today's ($1.75) — a quiet cut came May 6-10. March's "golden margins" were partly just cheaper fees.
+- Next: evening snapshot of the live bots (~20-21 UTC); if time before that, bisect when the top bot's 15-minute sleeve died vs the fee hike.
+- Health: on track

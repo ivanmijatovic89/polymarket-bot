@@ -906,3 +906,22 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   plausible cause. New testable residue: the fee-curve reshape
   (Feb-28→May-31 bracket) may date to exactly Apr-28.
   [verified] (measurements/first-fill-2026-exchange.md)
+- **A52 (fee-curve history pinned on-chain: reshape Mar-29/31 with
+  the v2 release train, NOT at the cutover; launch k=0.072 trimmed
+  quietly to 0.070 May 6–10):** implied taker coefficient k in
+  net fee = k·p(1−p)·shares from 14 receipt-sampled windows
+  (Mar-25→Jul-15, btc-5m taker flow): old curve (implied-k ceiling
+  ~0.036) through Mar-28; MIXED prints Mar-30 (gradual per-order
+  rollout); 0.0720 exact Mar-31→May-06 (published — the Apr-01 docs
+  snapshot's fee table says 0.072; peak $1.80/100sh); 0.0700 exact
+  May-10→now (peak $1.75). The Apr-28 cutover was fee-neutral
+  (0.0720 both sides) — A51's residue hypothesis REFUTED.
+  Consequences: (1) A49's Mar→Jun margin decay has a ~2.3×
+  taker-fee step as confound — March-era margins are not
+  comparable to current-era ones on competition grounds alone;
+  (2) A50's 15m-sleeve-OFF (Mar-25→Apr-15 gap) now has the reshape
+  as its only in-window venue event — strong causal candidate;
+  (3) era-matched fee constants for historical EV:
+  0.25·p·(p(1−p))² ≤Mar-28, 0.072·p(1−p) Mar-31→~May-8,
+  0.07·p(1−p) after.
+  [verified] (measurements/fee-curve-history.md)

@@ -25,8 +25,11 @@ bottom.
    is lifelong, the 15m sleeve toggled OFF mid-Apr→May (Apr-15 and
    May-13 = 100% btc-5m; "May downtime" reads in A45/A46 corrected).
    Residue: exact 15m-sleeve OFF/ON boundary dates (two bisection
-   probes on April and late-May/early-June days) — low value unless
-   the toggle correlates with a venue event.
+   probes on April and late-May/early-June days) — VALUE RAISED by
+   A52: the fee reshape (Mar-29/31) is the only venue event in the
+   Mar-25→Apr-15 OFF gap; if the sleeve died Mar-29/31 the causal
+   story is locked. The ON boundary (May-13→Jun-10 gap) has the
+   0.072→0.070 trim (May 6–10) as a candidate too.
 3. **W4 remainder**: pair-completion timing + endgame flip table at
    scale (density done, A38; session PnL split is #2 above).
 4. ~~First OrderFilled on the 2026 exchange + earliest migrants~~
@@ -38,9 +41,16 @@ bottom.
    ~11:01–11:03Z (no dual-running; v2 reloaded over hours). v2 is
    venue-wide, not crypto-only (corrects session-3/7 assumption).
    Cross-link: b27bc932 merge-OFF Apr-28T14:27Z = 3.4h post-cutover.
-   NEW residue (one probe, medium value): did the fee-curve reshape
-   (Feb-28→May-31 bracket) ship exactly at the Apr-28 cutover?
-   Decode taker fee rates from receipts Apr-27 vs Apr-29.
+   ~~NEW residue: did the fee-curve reshape ship at the Apr-28
+   cutover?~~ **RESOLVED same session (A52,
+   measurements/fee-curve-history.md)** — NO: cutover fee-neutral
+   (k=0.0720 both sides). Reshape rolled out Mar-29/30 (gradual,
+   mixed per-order terms), complete Mar-31 12Z — one release train
+   with the v2 deployment. Launch k was 0.072 (published), quietly
+   trimmed to 0.070 May 6–10. Era-matched fee constants now in
+   VENUE-MECHANICS. Follow-on: A50's 15m-sleeve-OFF gains the
+   reshape as causal candidate; A49 margin decay gains a fee-step
+   confound.
 5. ~~b27bc932 btc-5m expansion~~ **DOSSIER AMENDED session 9** —
    durable across 3 consecutive windows (O7–O9); era table added to
    wallets/b27bc932.md (June profile era-bound ≤ mid-July; btc-5m

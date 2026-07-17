@@ -56,6 +56,19 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
     2026-04-01 (new formula live)** — narrowed via /trading/fees
     snapshots 20260305182223 vs 20260401214533; ~10 March snapshots
     exist for exact-date bisection if ever needed. **[verified]**
+  - **Reshape date PINNED ON-CHAIN (A52, session 10,
+    measurements/fee-curve-history.md)**: rolled out gradually over
+    2026-03-29/30 (mixed per-order fee terms in Mar-30 receipts),
+    complete by Mar-31 12:00Z — same release train as the v2 exchange
+    deployment (Mar-31 02:39Z). Launch coefficient was **0.072**
+    (published as such in the Apr-01 snapshot's fee table → peak
+    $1.80/100sh), then **quietly trimmed to 0.070 between May-06 and
+    May-10** (on-chain; the docs page shows 0.07 by 05-31). The
+    Apr-28 v1→v2 exchange cutover itself was FEE-NEUTRAL (k = 0.0720
+    exact on both sides). Era-matched taker-fee constants for any
+    historical economics: `0.25·p·(p(1−p))²`/share ≤ Mar-28;
+    `0.072·p(1−p)` Mar-31 → ~May-8; `0.07·p(1−p)` after.
+    **[verified]**
   - **January-era rate RESOLVED on-chain (session 3)**: decoded
     OrderFilled receipts of gabagool22's Jan 11–12 taker fills — net
     fee kept after in-tx refund = 0.25·p·(p(1−p))² per share, i.e. the
@@ -118,9 +131,10 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   venue-wide (all Polymarket books), not crypto-only** — the earlier
   "crypto up/down" observation was sampling bias. Consequence for
   forensics: receipts before Apr-28 ~11:02Z decode as v1
-  charge+refund; after, as fee-native. Open (one probe): whether the
-  fee-curve reshape (Feb-28→May-31 bracket) shipped exactly at this
-  cutover.
+  charge+refund; after, as fee-native. RESOLVED same session (A52):
+  the cutover was fee-neutral — the reshape had already shipped
+  Mar-29/31 on v1, and the 0.072→0.070 trim came later (May 6–10).
+  See "Fee formula history" above.
 
 ## Maker Rebates Program
 

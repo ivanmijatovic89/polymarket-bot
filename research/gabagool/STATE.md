@@ -99,13 +99,25 @@ A49's US-worst rule live. b27bc932 btc-5m sleeve 4th consecutive
 window, merge module ON (169). ~$410k/2h tracked flow — everyone
 still buying through the bad hour.
 
-Queue after unit 2: (1) fee-reshape-at-cutover probe — decode taker
-fee rates from receipts Apr-27 vs Apr-29 (measure-onchain-fees.ts
-pattern, tenderly RPC; closes the Feb-28→May-31 bracket); (2) W3
-evening snapshot ~20–21Z (club re-formation test; morning snapshot
-tomorrow settles OQ #5 residue); (3) low-value residue (drfc
-re-resolution, 5m launch pin, twin-link checks, 15m-sleeve toggle
-bisection).
+Unit 3 (16:07Z): fee-curve history pinned — A52
+(measurements/fee-curve-history.md; scripts/fee-curve-probe.ts).
+14 receipt windows Mar-25→Jul-15: reshape rolled out Mar-29/30
+(gradual per-order mixing), complete Mar-31 12Z = one release train
+with v2 deploy; Apr-28 cutover FEE-NEUTRAL (refutes unit-1
+residue); launch k=0.072 (published, peak $1.80/100sh) quietly
+trimmed to 0.070 May 6–10. Knock-ons: A49 margin decay has a 2.3×
+fee-step confound (March ≠ current era on competition alone); A50
+15m-sleeve-OFF gains the reshape as causal candidate → sleeve
+boundary bisection PROMOTED from low-value residue. Era-matched fee
+constants in VENUE-MECHANICS.
+
+Queue after unit 3: (1) 15m-sleeve OFF-boundary bisection on
+b27bc932 (did the sleeve die Mar-29/31 with the reshape? 2–3
+activity probes Mar-27..Apr-05 checking btc-15m share; ON boundary
+May-13→Jun-10 secondary); (2) W3 evening snapshot ~20–21Z (club
+re-formation test; morning snapshot tomorrow settles OQ #5
+residue); (3) low-value residue (drfc re-resolution, 5m launch pin,
+twin-link checks).
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 

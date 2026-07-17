@@ -183,6 +183,14 @@ Candidates for the lab:
   late March and ≈0% June onward (A49) — judge current-era
   candidates on trading-gross + expected rebate (A28), and never
   pool January/March-era measurements with current-era ones.
+  **A52 adds the fee confound to that clock**: the late-March
+  margin was earned under the OLD cheap taker curve (peak
+  $0.78/100sh); the curve 2.3×'d on Mar-29/31 (rollout with the v2
+  exchange release train, published 0.072, trimmed to 0.070 May
+  6–10). Part of the Mar→Jun "margin decay" is therefore a fee-cost
+  step, not pure competition — and any taker-completion economics
+  must use the right era's curve (0.25·p·(p(1−p))² before Mar-29;
+  0.072·p(1−p) to ~May-8; 0.07·p(1−p) after).
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:
