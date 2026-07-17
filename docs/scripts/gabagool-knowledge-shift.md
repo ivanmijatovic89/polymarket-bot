@@ -8,7 +8,7 @@ it does **not** write strategy code and does **not** run evidence backtests.
 Its output is the prior knowledge the Gabagool Lab starts from.
 
 - **Script:** `scripts/gabagool-knowledge-shift.sh` (run from the main checkout)
-- **Launched:** 2026-07-17 ~02:26, `MODEL=fable`, `MAX_RUNS=40`
+- **First launched:** 2026-07-17; the operator starts and stops it (see below)
 - **Companion:** `docs/scripts/gabagool-lab-shift.md` (the lab that consumes this)
 
 ## Where it runs
@@ -21,7 +21,7 @@ Yes — in its own git worktree, so the main checkout stays free for other work:
 | Branch | `gabagool-knowledge` (pushed continuously) |
 | Write scope | `research/gabagool/` **only** — enforced by a worktree-scoped pre-commit hook |
 | Mission file | `research/gabagool/CHARTER.md` (written by the script on first run) |
-| State / narration | `research/gabagool/STATE.md`, `research/gabagool/JOURNAL.md` |
+| State / narration | `research/gabagool/STATE.md`, `research/gabagool/JOURNAL.md`, `research/gabagool/OPERATOR-FEED.md` |
 
 The script bootstraps everything on first run (branch, worktree, hook,
 charter, `node_modules`/`data` symlinks, `.env` copy) and is idempotent —
@@ -59,9 +59,15 @@ in the charter).
 ## Watch
 
 ```bash
-tail -f ../polymarket-bot-gabagool/research/gabagool/JOURNAL.md   # plain-language narration
-tail -f logs/gabagool-knowledge-shift.out                          # outer-loop runner (detached launch)
+tail -f ../polymarket-bot-gabagool/research/gabagool/OPERATOR-FEED.md  # 10-second status feed
+tail -f ../polymarket-bot-gabagool/research/gabagool/JOURNAL.md        # plain-language narration
 ```
+
+`OPERATOR-FEED.md` is the at-a-glance view: one entry per unit of work, max
+four lines — `Did` / `Found` / `Next` / `Health` — where `Health` must
+honestly say `on track`, `BLOCKED: <why>`, or `OFF-PLAN: <why>`. In tmux the
+full live stream renders in the pane; if you ever launch the loop detached
+(`nohup`), redirect its stdout to a file yourself.
 
 claude-code-viewer (full transcripts, see `docs/reference/claude-code-log-viewers.md`):
 open `http://localhost:3400` → project `-Users-mijat-Sites-polymarket-bot-gabagool`.
@@ -89,4 +95,5 @@ is `LAB-HANDOFF.md` — the seed for the Gabagool Lab.
   backtests, fleet submissions, live trading, DB writes, new dependencies.
 - Raw API pulls go to `research/gabagool/data/` (gitignored); findings are
   committed markdown.
-- This file and the script are untracked on `main` for now — PR when convenient.
+- The launcher script itself is still untracked on `main` — PR it when
+  convenient. Until then it lives only in the main checkout on this machine.

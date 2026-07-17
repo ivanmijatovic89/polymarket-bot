@@ -76,9 +76,15 @@ only at mission end (L3).
 ## Watch / review
 
 ```bash
-tail -f ../polymarket-bot-gabagool-lab/gabagool-lab/JOURNAL.md
+tail -f ../polymarket-bot-gabagool-lab/gabagool-lab/OPERATOR-FEED.md  # 10-second status feed
+tail -f ../polymarket-bot-gabagool-lab/gabagool-lab/JOURNAL.md        # full narration
 cd ../polymarket-bot-gabagool-lab && git log --oneline main..gabagool-lab
 ```
+
+`OPERATOR-FEED.md` is the at-a-glance view: one entry per unit of work, max
+four lines — `Did` / `Found` (with experiment numbers) / `Next` / `Health` —
+where `Health` must honestly say `on track`, `BLOCKED: <why>`, or
+`OFF-PLAN: <why>`.
 
 claude-code-viewer: `http://localhost:3400` → project
 `-Users-mijat-Sites-polymarket-bot-gabagool-lab` (appears after first launch;
@@ -96,4 +102,8 @@ knowledge shift if needed).
   changes, new npm dependencies, writing outside its two paths.
 - New replayable feeds (price-to-beat, Chainlink BTC) are being added by
   the operator — the charter tells the lab to design for their arrival.
-- This file and the script are untracked on `main` for now — PR when convenient.
+- The remote `gabagool-lab` branch may exist before the first launch (it was
+  pre-created from `origin/main` so workers could check it out early); the
+  script adopts it and fast-forwards it from the first push on.
+- The launcher script itself is still untracked on `main` — PR it when
+  convenient. Until then it lives only in the main checkout on this machine.
