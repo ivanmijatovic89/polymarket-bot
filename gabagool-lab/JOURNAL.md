@@ -1349,3 +1349,15 @@ table tool (labels q05..q45 + the 0.02 reference; guards on
 requoteDelta-vs-label with chassis params pinned; the delta chain
 adjacency + advance rule; participation flagging already exists).
 Same blind-build discipline as u30/u35/u37.
+
+## 2026-07-17T10:37Z — session 12, unit 45: q-mode added to the family table, ax5-blind
+
+Third label family in e005-table.ts: deltas {q02-ref, q05, q10,
+q20, q45} with chassis pins (offsets rc, cap 0.96, tol 2, none) and
+requoteDelta-vs-label guards (absent = 0.02 default so the reused
+ref pair wires clean); the EL-vs-participation trade-off block adds
+taker% and fills/mkt (the two numbers the conversion story lives
+in). Blind verification: q02=708,703 reproduces the c960 rows to
+the digit; wrong-cap (698 as q02), wrong-delta (708 as q05), and
+mixed-family wiring all abort; shape and cap modes regress clean.
+Judgment on drain is again fill-in-the-ids.

@@ -21,6 +21,15 @@
  * and flags cells with played < 20% (participation caveat). Shape
  * and cap labels cannot be mixed.
  *
+ * E006 quote-stability mode (ax5; labels all in {q02,q05,q10,q20,
+ * q45} — every arm is the rc+c960 chassis with requoteDelta per
+ * label; q02 is the reused chassis pair 708/703 at the 0.02 file
+ * default):
+ *
+ *   npx tsx gabagool-lab/tools/e005-table.ts \
+ *     --arm q02=708,703 --arm q05=<h1>,<h2> --arm q10=<h1>,<h2> \
+ *     --arm q20=<h1>,<h2> --arm q45=<h1>,<h2>
+ *
  * Bind-table mode (§E005 cap-grid finalization rule; run on the shape
  * WINNER's pair only, after the sub-judgment is written):
  *
@@ -78,9 +87,20 @@ const EXPECT_CAPS: Record<string, number> = {
   c980: 0.98,
   c990: 0.99,
 }
+// E006 quote-stability (ax5): every arm is the rc+c960 chassis with
+// an explicit requoteDelta; q02 is the reused chassis pair 708/703
+// (delta = file default 0.02, param absent).
+const EXPECT_DELTAS: Record<string, number> = {
+  q02: 0.02,
+  q05: 0.05,
+  q10: 0.1,
+  q20: 0.2,
+  q45: 0.45,
+}
 const DEPTH_CHAIN = ['ra', 'rb', 'rc'] as const
 const SHAPE_ARMS = ['ra', 'rb', 'rc', 'rd'] as const
 const CAP_CHAIN = ['c960', 'c970', 'c980', 'c990'] as const
+const DELTA_CHAIN = ['q02', 'q05', 'q10', 'q20', 'q45'] as const
 
 type Cell = {
   label: string
@@ -156,18 +176,27 @@ async function guardParams(label: string, runId: number): Promise<void> {
   const mode = String(p.completionMode ?? 'none')
   const tol = Number(p.parityTolPct ?? NaN)
   const cap = Number(p.pairCostCap ?? 0.99) // file default when absent
+  const delta = Number(p.requoteDelta ?? 0.02) // file default when absent
   const isCapArm = label in EXPECT_CAPS
-  const expOffsets = isCapArm ? EXPECT_OFFSETS.rc! : EXPECT_OFFSETS[label]
+  const isDeltaArm = label in EXPECT_DELTAS
+  const expOffsets = isCapArm || isDeltaArm ? EXPECT_OFFSETS.rc! : EXPECT_OFFSETS[label]
   if (expOffsets && !offsetsEqual(p.rungOffsets, expOffsets)) {
     console.error(
       `arm ${label} run ${runId}: rungOffsets ${JSON.stringify(p.rungOffsets)} != expected ${JSON.stringify(expOffsets)} — wrong run wired?`,
     )
     process.exit(1)
   }
-  const expCap = isCapArm ? EXPECT_CAPS[label]! : 0.99 // shape arms ran at default
+  const expCap = isCapArm ? EXPECT_CAPS[label]! : isDeltaArm ? 0.96 : 0.99 // delta arms run on the c960 chassis
   if (Math.abs(cap - expCap) > 1e-9) {
     console.error(
       `arm ${label} run ${runId}: pairCostCap=${cap} != expected ${expCap} — wrong run wired?`,
+    )
+    process.exit(1)
+  }
+  const expDelta = isDeltaArm ? EXPECT_DELTAS[label]! : 0.02 // shape/cap arms ran at default
+  if (Math.abs(delta - expDelta) > 1e-9) {
+    console.error(
+      `arm ${label} run ${runId}: requoteDelta=${delta} != expected ${expDelta} — wrong run wired?`,
     )
     process.exit(1)
   }
@@ -343,13 +372,15 @@ if (!arms.length) {
 const labels = arms.map((a) => a.label)
 const shapeMode = labels.every((l) => (SHAPE_ARMS as readonly string[]).includes(l))
 const capMode = !shapeMode && labels.every((l) => (CAP_CHAIN as readonly string[]).includes(l))
-if (!shapeMode && !capMode) {
+const deltaMode =
+  !shapeMode && !capMode && labels.every((l) => (DELTA_CHAIN as readonly string[]).includes(l))
+if (!shapeMode && !capMode && !deltaMode) {
   console.error(
-    `arm labels must be all shapes {${SHAPE_ARMS.join(',')}} or all caps {${CAP_CHAIN.join(',')}} — got: ${labels.join(',')}`,
+    `arm labels must be all shapes {${SHAPE_ARMS.join(',')}}, all caps {${CAP_CHAIN.join(',')}}, or all deltas {${DELTA_CHAIN.join(',')}} — got: ${labels.join(',')}`,
   )
   process.exit(1)
 }
-const ALL_ARMS: readonly string[] = shapeMode ? SHAPE_ARMS : CAP_CHAIN
+const ALL_ARMS: readonly string[] = shapeMode ? SHAPE_ARMS : capMode ? CAP_CHAIN : DELTA_CHAIN
 
 for (const a of arms) {
   await buildCell(a.label, 'h1', a.h1)
@@ -369,7 +400,9 @@ for (const c of cells) {
 console.log(
   shapeMode
     ? '=== E005 shape table (depth chain ra < rb < rc; rd = A17 package vs ra) ==='
-    : '=== E005 cap table (chain c960 < c970 < c980 < c990-ref; all arms = shape rc) ===',
+    : capMode
+      ? '=== E005 cap table (chain c960 < c970 < c980 < c990-ref; all arms = shape rc) ==='
+      : '=== E006 quote-stability table (chain q02-ref < q05 < q10 < q20 < q45; all arms = rc+c960 chassis) ===',
 )
 for (const half of ['h1', 'h2'] as const) {
   const hs = cells.filter((c) => c.half === half)
@@ -406,7 +439,7 @@ for (const half of ['h1', 'h2'] as const) {
 }
 
 const complete = (['h1', 'h2'] as const).every((h) => ALL_ARMS.every((l) => cellOf(l, h)))
-const CHAIN: readonly string[] = shapeMode ? DEPTH_CHAIN : CAP_CHAIN
+const CHAIN: readonly string[] = shapeMode ? DEPTH_CHAIN : capMode ? CAP_CHAIN : DELTA_CHAIN
 const endLo = CHAIN[0]!
 const endHi = CHAIN[CHAIN.length - 1]!
 
@@ -426,17 +459,22 @@ if (complete && shapeMode) {
     const rd = cellOf('rd', half)!
     console.log(`${half} ra vs rd: ${fmtDelta(ra, rd)}`)
   }
-} else if (complete && capMode) {
-  console.log('\n-- pairRate/EL trade-off curve (§E005 criteria 5) --')
+} else if (complete && (capMode || deltaMode)) {
+  console.log(
+    capMode
+      ? '\n-- pairRate/EL trade-off curve (§E005 criteria 5) --'
+      : '\n-- EL-vs-participation trade-off curve (§E006 criteria 5) --',
+  )
   for (const half of ['h1', 'h2'] as const) {
-    for (const label of CAP_CHAIN) {
+    for (const label of CHAIN) {
       const c = cellOf(label, half)!
+      const knob = capMode ? `cap ${EXPECT_CAPS[label]!.toFixed(2)}` : `delta ${EXPECT_DELTAS[label]!.toFixed(2)}`
       console.log(
-        `${half} cap ${EXPECT_CAPS[label]!.toFixed(2)}: EL ${c.el.toFixed(4)}  pairRate ${c.pairRate.toFixed(3)}  played ${((100 * c.played) / Math.max(1, c.n)).toFixed(1)}%  fills m/t ${c.makers}/${c.takers}  S ${Number.isFinite(c.sMean) ? c.sMean.toFixed(4) : 'n/a'}`,
+        `${half} ${knob}: EL ${c.el.toFixed(4)}  pairRate ${c.pairRate.toFixed(3)}  played ${((100 * c.played) / Math.max(1, c.n)).toFixed(1)}%  taker ${(100 * c.takerShare).toFixed(1)}%  fills m/t ${c.makers}/${c.takers} (${((c.makers + c.takers) / Math.max(1, c.played)).toFixed(1)}/mkt)  S ${Number.isFinite(c.sMean) ? c.sMean.toFixed(4) : 'n/a'}`,
       )
     }
   }
-  console.log('\n-- adjacency: cap chain --')
+  console.log(`\n-- adjacency: ${capMode ? 'cap' : 'delta'} chain --`)
   for (const half of ['h1', 'h2'] as const) {
     for (let i = 1; i < CHAIN.length; i++) {
       const a = cellOf(CHAIN[i - 1]!, half)!
@@ -476,17 +514,21 @@ if (complete) {
   const t2 = top2('h2')
   console.log(`(a) endpoint direction agrees across halves: ${dirHolds ? 'HOLDS' : 'FAILS'}`)
   console.log(`(b) top-2 by EL: h1 {${t1}}  h2 {${t2}} → set match: ${t1 === t2 ? 'HOLDS' : 'FAILS'}`)
+  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : 'delta'
   console.log(
     `advance rule: ${
       dirHolds && t1 === t2
         ? shapeMode
           ? 'BOTH HOLD → winning shape advances to the cap sub-axis'
-          : 'BOTH HOLD → cap ordering stable across halves'
-        : `FAILS → ${shapeMode ? 'shape' : 'cap'} sub-axis unstable at this coverage; record and judge accordingly`
+          : `BOTH HOLD → ${modeName} ordering stable across halves`
+        : `FAILS → ${modeName} sub-axis unstable at this coverage; record and judge accordingly`
     }`,
   )
 } else {
-  console.log(`\n(rule evaluation skipped — need all 4 ${shapeMode ? 'shape' : 'cap'} arms in both halves)`)
+  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : 'delta'
+  console.log(
+    `\n(rule evaluation skipped — need all ${ALL_ARMS.length} ${modeName} arms in both halves)`,
+  )
 }
 
 await closeDb()

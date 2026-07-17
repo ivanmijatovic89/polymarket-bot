@@ -267,3 +267,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet (launch unit).
 - Next: extend the readout tool (blind), then judge on drain (~11:26Z).
 - Health: on track
+
+## 2026-07-17T10:37Z — unit 45
+- Did: extended the readout tool for the running experiment (blind, verified).
+- Found: nothing new (tooling unit).
+- Next: judge quote-stability on drain (~11:26Z).
+- Health: on track
