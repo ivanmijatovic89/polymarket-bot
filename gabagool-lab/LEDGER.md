@@ -217,7 +217,9 @@ Template:
 
 ## E003-pair-accumulator — the L2 workhorse strategy + parity axis
 - **Type:** axis
-- **Status:** proposed (draft — freezes at first evidence submission)
+- **Status:** frozen (2026-07-17T05:50Z, session 3, at launch; spec
+  below verbatim from the draft; strategy file unchanged since 45a2e32
+  — the determinism smokes 672/673/674 ran exactly this code)
 - **Mechanism:** same as E002 but with ALL campaign knobs parameterized
   in ONE file (`glab.E003-pair-accumulator`): relative parity tolerance
   (pct of total shares, floored at 2 clips to avoid cold-start
