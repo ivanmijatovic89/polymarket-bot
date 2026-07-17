@@ -559,3 +559,35 @@ Drain-window plan while E003 finishes: none needed if ETA holds —
 next unit IS the judgment. If the watcher fires late, the E004 freeze
 text (default-seeding slot pending E003) is the only prep left worth
 doing before results exist.
+
+## 2026-07-17T05:51Z — session 4, unit 19: E004 launch path pre-built; owning a fresh stamp drift
+
+First, the confession: unit 18's journal/feed stamps (05:52–05:57Z)
+were written at ~05:46Z real — I estimated forward ~9 minutes in the
+very unit that pinned the no-estimates rule. LS-5 written; from now on
+stamps are $(date -u) captured in the writing command itself (this
+entry's is).
+
+Drain-window work, all E003-blind (no axis numbers seen beyond u17b's
+disclosed 681 peek):
+
+1. **E004's missing pre-registration written** (LEDGER draft
+   amendment 2): precise arms, success criteria, advance rule, H6
+   spread-kill read, and mechanism-split rules — none of it depends
+   on E003's outcome except the SEED slot (agreeing region, else 10).
+   Key design decision: the maker-only CONTROL arm is not resubmitted;
+   it reuses the E003 run pair at the seeded tolerance. Determinism
+   was proven (673≡674, p001≡E002 to 4dp), so a re-run would burn
+   ~5.8k market-jobs to reproduce known bits. Guard: the launcher
+   refuses off-grid seeds (no control run would exist).
+2. **tools/launch-e004.sh built + refusal-smoked**: --tol required
+   and grid-checked, --dry-run only extra flag, refuses queued ax2
+   flows (LS-3 pattern). Dry-run correctly bounced off submit.ts's
+   dirty-tree guard pre-commit; will re-verify post-commit.
+3. Health check mid-drain: 2/10 E003 runs persisted (682 h1-p020,
+   681 h2-p001, both f=0), 0 failed market jobs, rate ~154/min →
+   judgment ETA ~07:15–08:15Z real. Watcher armed (bfj2qc9aq).
+
+E004 freeze after E003's judgment is now: fill SEED + record two
+control batchUids + status→frozen + run launcher. Minutes, not an
+improvisation.

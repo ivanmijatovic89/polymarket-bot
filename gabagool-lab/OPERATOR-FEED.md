@@ -111,3 +111,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the venue's BTC-15m book has shrunk ~9x since January ($3.2M→$0.35M/day); the strongest live wallet runs its whole 15m operation on $4–8k of capital. Context for sizing/capacity — no strategy change.
 - Next: E003 judgment when the queue drains (~30–60 min); then E004 freeze.
 - Health: on track
+
+## 2026-07-17T05:51Z — unit 19
+- Did: pre-wrote E004's rules (what counts as success, how the verdict is read) BEFORE E003's numbers exist, and built its hardened launch script; smoked the refusal paths.
+- Found: E004 can skip re-running its control arm — the identical run already exists in E003 (determinism proven), saving ~40 min of compute. Also: I caught myself estimating timestamps again (+9 min); now stamped mechanically.
+- Next: E003 judgment when the queue drains (~07:15–08:15Z); then E004 freeze is a 5-minute fill-in.
+- Health: on track

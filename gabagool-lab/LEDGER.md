@@ -320,6 +320,49 @@ Template:
   rej=0, settlement recheck OK, fee-recon VALID, meta coverage 100%.
   The u9 TTL/gate-close code path functions at cap-mode under latency
   (672 smoke-ttl covered basic TTL at 45a2e32). E004 may freeze.
+- **Draft amendment 2 (2026-07-17T05:50Z, s4 u19, pre-freeze — arms, control reuse,
+  criteria, advance rule; pre-registered BEFORE any E003 axis numbers
+  exist; the only slot filled at freeze is SEED):**
+  - **Arms (precise):** on the frozen E003 file at parityTolPct = SEED
+    (E003's agreeing region, else file default 10): completion ∈
+    {none (control), cap 0.99, cap 0.97, free} × halves {h1 Apr,
+    h2 May}, lat140, clip 6, jitter 0. The `none` control is NOT
+    resubmitted — it IS the E003 run pair at parityTolPct=SEED
+    (identical file/params/window/lat; determinism basis: det smokes
+    673≡674 + u17b p001≡E002 4-dp; the two batchUids are recorded
+    here at freeze). 6 new runs (~3.5k jobs) via
+    `tools/launch-e004.sh --tol SEED` (LS-3 hardened: --tol/--dry-run
+    only, refuses off-grid seeds and queued ax2 flows).
+  - **Success criteria (freeze-ready; freezes verbatim at submit):**
+    (1) all 6 new runs complete, validators green (G9 fee-recon,
+    settlement recheck, meta coverage 100%); (2) per-arm×half readout:
+    EL±se, TRADE_corr, REB(+raw), fills maker/taker, taker share,
+    crosses issued/filled ('x' metas), share of completed pairs closed
+    by cross, avg completed-pair cost incl. fee, taker fees paid (acc),
+    pairRate, imbalance p50/p90, avg outlay; (3) policy spread per
+    half: max−min EL across the 4 arms, absolute and as % of arm
+    turnover — H6 pre-registered read: spread < 0.3% of turnover in
+    BOTH halves ⇒ "H6 refuted at this cell: completion policy is not
+    the margin knob; the live b55f-vs-0xce25 gap was book-mix/timing";
+    (4) adjacent arms (ordering: none < cap0.97 < cap0.99 < free, by
+    completion aggressiveness) distinguished at |ΔEL| > 2·se_diff or
+    declared indistinguishable. Rule evaluation is by explicit 8-cell
+    table (set-match + sign agreement; no OLS trend needed).
+  - **Advance rule (precise):** (a) top-2 of the 4 arms by EL are the
+    same SET in both halves; (b) for each non-`none` member of that
+    top-2, sign(EL(arm) − EL(none)) agrees across halves. Both hold →
+    the winning policy becomes the completion default for
+    candidate-grade confirmation runs (EVALUATION §2); E005 stays
+    maker-only by design (axis isolation). Either fails → "axis
+    unstable at this coverage"; candidate confirmations run maker-only,
+    stated.
+  - **Mechanism split (pre-registered):** any EL difference is
+    decomposed into Δ(locked-pair value from crosses) vs Δ(taker fees
+    paid) vs Δ(completion px adversity). EL(free) < EL(none) with high
+    cross counts ⇒ completion pressure buys tops (H6 fail direction);
+    EL(cap) > EL(none) with few crosses ⇒ selective completion works
+    only far from the fee peak. Quote the cap arms' realized
+    completion-px distribution either way.
 - **Runs / Judgment / Lesson:** (pending)
 
 ## E005-ladder-depth — ladder shape × the deep-pair cell

@@ -30,3 +30,9 @@ lesson (E002). Append-only; cite the source experiment/unit.
   dependency set, promotes the parent to `waiting`, and any listening
   worker locks it within seconds and aggregates a partial/empty run
   (tombstone run 679).
+- **LS-5 (ops, s4 u19):** Never ESTIMATE a timestamp — every session
+  that estimated drifted ahead (s1/s2 +2h, s3 +35–60 min, and s4's own
+  unit-18 stamps ran +9 min while WRITING the no-estimates rule).
+  Mechanical fix: capture $(date -u) in the same command that writes
+  the entry; cross-check against git commit times. Time discipline is
+  epistemic discipline: drifted stamps corrupted drain-ETA math twice.
