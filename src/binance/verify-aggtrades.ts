@@ -169,7 +169,9 @@ async function main(): Promise<void> {
     const res = await downloadAggTradesDay({ pair: args.pair, isoDate: args.date })
     if (res.status === 'skipped-not-published') {
       console.error(
-        `[binance:verify] dump for ${args.pair} ${args.date} is not published yet (~1-day lag) — retry later`,
+        res.missing === 'checksum'
+          ? `[binance:verify] zip for ${args.pair} ${args.date} is published but its .CHECKSUM is not (yet) — retry later`
+          : `[binance:verify] dump for ${args.pair} ${args.date} is not published yet (~1-day lag) — retry later`,
       )
       process.exit(3)
     }

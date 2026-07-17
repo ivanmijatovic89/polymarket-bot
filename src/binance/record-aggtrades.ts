@@ -6,7 +6,6 @@ import {
   type AggTradeMessage,
 } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
-import { fileExists } from '../utils/fs.js'
 import { parseBinanceCliArgs } from './cliArgs.js'
 import { recordingHourPath, recordingStatusPath, recordingsDir, utcDateOf } from './paths.js'
 
@@ -34,6 +33,10 @@ export const recordedAggTradeParquetSchema = new parquet.ParquetSchema({
 
 type Args = { pair: string; hours?: number }
 
+// Node's setTimeout delay is a 32-bit int; beyond it the timer fires after
+// ~1 ms, which would "successfully" shut the recorder down instantly.
+const MAX_HOURS = Math.floor((2 ** 31 - 1) / 3_600_000)
+
 function parseArgs(argv: string[]): Args {
   let hours: number | undefined
   const { pair } = parseBinanceCliArgs({
@@ -46,8 +49,10 @@ function parseArgs(argv: string[]): Args {
           const n = Number(v)
           // Reject garbage loudly: a silently dropped --hours would leave an
           // unattended recording running forever.
-          if (!Number.isFinite(n) || n <= 0) {
-            throw new Error(`invalid --hours value: ${JSON.stringify(v)} (expected hours > 0)`)
+          if (!Number.isFinite(n) || n <= 0 || n > MAX_HOURS) {
+            throw new Error(
+              `invalid --hours value: ${JSON.stringify(v)} (expected 0 < hours <= ${MAX_HOURS}; omit --hours to record indefinitely)`,
+            )
           }
           hours = n
         },
@@ -58,18 +63,25 @@ function parseArgs(argv: string[]): Args {
 }
 
 /**
- * Never rename onto an existing hourly file: `recordingHourPath` is fully
- * deterministic, so a recorder restarted within the same UTC hour would
- * silently clobber the previous session's trades (fs.rename overwrites).
- * Park later segments under `-part2`, `-part3`, … instead —
- * `binance:verify-aggtrades` globs `*-aggTrades-live-*.parquet`, so the
- * segments all join the verification automatically.
+ * Atomically move the finished tmp file to the first FREE hourly path:
+ * `recordingHourPath` is fully deterministic, so a recorder restarted within
+ * the same UTC hour — or two concurrent recorders on the same pair — would
+ * silently clobber the other session's trades with a plain `fs.rename`
+ * (which overwrites). `fs.link` fails with EEXIST instead of replacing, so
+ * the exists-check and the move are one atomic step; later segments park
+ * under `-part2`, `-part3`, … and `binance:verify-aggtrades` (which globs
+ * `*-aggTrades-live-*.parquet`) picks them all up automatically.
  */
-async function nonClobberingPath(finalPath: string): Promise<string> {
-  if (!(await fileExists(finalPath))) return finalPath
-  for (let n = 2; ; n++) {
-    const candidate = finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
-    if (!(await fileExists(candidate))) return candidate
+async function moveNoReplace(tmpPath: string, finalPath: string): Promise<string> {
+  for (let n = 1; ; n++) {
+    const target = n === 1 ? finalPath : finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
+    try {
+      await fs.link(tmpPath, target)
+      await fs.unlink(tmpPath)
+      return target
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
+    }
   }
 }
 
@@ -103,8 +115,7 @@ async function main(): Promise<void> {
     writer = undefined
     await w.close()
     if (rowsInHour > 0) {
-      const target = await nonClobberingPath(writerFinalPath)
-      await fs.rename(writerTmpPath, target)
+      const target = await moveNoReplace(writerTmpPath, writerFinalPath)
       console.log(`[binance:record] closed ${target} rows=${rowsInHour}`)
     } else {
       await fs.rm(writerTmpPath, { force: true }).catch(() => {})

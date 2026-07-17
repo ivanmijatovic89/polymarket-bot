@@ -110,6 +110,14 @@ async function csvHasHeader(csvPath: string): Promise<boolean> {
 export type DownloadDayResult = {
   status: 'downloaded' | 'skipped-exists' | 'skipped-not-published'
   parquetPath: string
+  /**
+   * Which artifact 404'd for `skipped-not-published`. `zip` = the day is not
+   * published at all; `checksum` = the zip EXISTS but its .CHECKSUM doesn't
+   * (normal minutes-long state during Binance's publication window; if it
+   * persists, integrity is unverifiable — a different problem than a missing
+   * dump, and callers should say so).
+   */
+  missing?: 'zip' | 'checksum'
   rows?: number
   bytes?: number
 }
@@ -161,13 +169,21 @@ export async function downloadAggTradesDay(args: {
     // Both fetches map a 404 to skipped-not-published: during Binance's daily
     // publication window the zip can appear minutes before its .CHECKSUM, and
     // that transient state must skip the day (retried by the next --sync run),
-    // not abort the whole pool run.
+    // not abort the whole pool run. `missing` keeps the two states
+    // distinguishable for callers' diagnostics.
     try {
       await downloadToFile(urls.zip, zipPath)
+    } catch (err) {
+      if (err instanceof DumpNotFoundError) {
+        return { status: 'skipped-not-published', missing: 'zip', parquetPath: finalPath }
+      }
+      throw err
+    }
+    try {
       await downloadToFile(urls.checksum, checksumPath)
     } catch (err) {
       if (err instanceof DumpNotFoundError) {
-        return { status: 'skipped-not-published', parquetPath: finalPath }
+        return { status: 'skipped-not-published', missing: 'checksum', parquetPath: finalPath }
       }
       throw err
     }

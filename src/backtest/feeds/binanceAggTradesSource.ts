@@ -29,6 +29,19 @@ export type AsOfSeries = {
  * silently running feed-less would recreate the exact live/replay divergence
  * this feature exists to eliminate.
  */
+/**
+ * Post-window tail loaded beyond `endMs`: the replay visibility clock is the
+ * recorded LOCAL receive time, which runs up to the Polymarket→bot delivery
+ * leg (~50–150 ms) past the exchange-stamped window end — so the final ticks
+ * can legitimately see trades just after `endMs`, exactly like live. The tail
+ * only widens the SQL range, not the day-file set: for a window ending exactly
+ * at UTC midnight the tail trades live in the next day's dump, which is
+ * deliberately NOT required (see `utcDatesCovering`) — that bounded residual
+ * (≤ tail of trades on the final ticks) is the accepted price of not
+ * hard-erroring every fresh midnight-ending market.
+ */
+const SERIES_TAIL_MS = 2_000
+
 export async function loadBinanceAggTradesSeries(args: {
   pair: string
   startMs: number
@@ -69,7 +82,7 @@ export async function loadBinanceAggTradesSeries(args: {
     const seedRow = seedResult.chunkCount > 0 ? seedResult.getChunk(0).getRows()[0] : undefined
     const result = await conn.run(
       `SELECT ts_ms, price FROM read_parquet([${fileList}])
-       WHERE ts_ms BETWEEN ${Math.floor(fromMs)} AND ${Math.floor(args.endMs)}
+       WHERE ts_ms BETWEEN ${Math.floor(fromMs)} AND ${Math.floor(args.endMs + SERIES_TAIL_MS)}
        ORDER BY agg_trade_id`,
     )
     const tsChunks: Float64Array[] = []

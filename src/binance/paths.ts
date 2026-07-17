@@ -121,9 +121,11 @@ export function utcDateOf(ms: number): string {
  * `endMs` is EXCLUSIVE at day boundaries: a market window ending exactly at UTC
  * midnight (every 23:45 15m market) must NOT require the next day's dump — that
  * file only exists ~1 day later, so demanding it would hard-error the freshest
- * markets even on a fully synced machine, and the only trades it could
- * contribute (ts == endMs exactly) are never visible under the feed's latency
- * offset anyway.
+ * markets even on a fully synced machine. The next-day file could only
+ * contribute the first instants after the window end (the final ticks'
+ * local-clock tail, see SERIES_TAIL_MS in binanceAggTradesSource.ts); that
+ * bounded residual is deliberately accepted — availability of fresh markets
+ * wins over a ≤2s tail of trades at the episode boundary.
  */
 export function utcDatesCovering(startMs: number, endMs: number): string[] {
   if (!Number.isFinite(startMs) || !Number.isFinite(endMs) || endMs < startMs) {
