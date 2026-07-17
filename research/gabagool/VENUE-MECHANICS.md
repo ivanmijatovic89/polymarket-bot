@@ -51,8 +51,11 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
     **[verified]**
   - **Current era** (live page + 05-31 snapshot): `fee = C × feeRate ×
     p(1−p)`, crypto 0.07 → peak $1.75 per 100 shares at p=0.5. The crypto
-    fee curve CHANGED SHAPE and its peak MORE THAN DOUBLED somewhere in
-    2026-02-28 → 2026-05-31. **[verified]** (endpoints), exact date OPEN.
+    fee curve CHANGED SHAPE and its peak MORE THAN DOUBLED between
+    **2026-03-05 (old formula still up, max effective 1.56%/0.44%) and
+    2026-04-01 (new formula live)** — narrowed via /trading/fees
+    snapshots 20260305182223 vs 20260401214533; ~10 March snapshots
+    exist for exact-date bisection if ever needed. **[verified]**
   - January-era rate ambiguity: media reported "$1.56 per 100 shares at
     $0.50" (= effective 3.12%) at the 01-06 introduction, but the Feb
     snapshot's formula yields $0.78 (effective 1.56%). Either the press
