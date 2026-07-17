@@ -21,6 +21,8 @@
     "record:live:sol": "cross-env RECORD_SYMBOL=SOL tsx src/cli/record-live.ts",
     "record:live:xrp": "cross-env RECORD_SYMBOL=XRP tsx src/cli/record-live.ts",
     "binance:download-aggtrades": "tsx src/binance/download-aggtrades.ts",
+    "binance:upload-aggtrades-r2": "tsx src/binance/upload-aggtrades-r2.ts",
+    "binance:download-aggtrades-r2-to-local": "tsx src/binance/download-aggtrades-r2-to-local.ts",
     "binance:record-aggtrades": "tsx src/binance/record-aggtrades.ts",
     "binance:verify-aggtrades": "tsx src/binance/verify-aggtrades.ts",
     "trade:bot": "tsx src/cli/trading-bot.ts",

@@ -4,28 +4,17 @@ import crypto from 'node:crypto'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
 import { DuckDBInstance } from '@duckdb/node-api'
+import { sleep } from '../utils/sleep.js'
+import { fileExists } from '../utils/fs.js'
 import { aggTradesDayPath, aggTradesDumpUrl, tmpDir } from './paths.js'
 
 const MAX_RETRIES = 3
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
 export class DumpNotFoundError extends Error {
   constructor(url: string) {
     super(`404 not found: ${url}`)
     this.name = 'DumpNotFoundError'
-  }
-}
-
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
   }
 }
 
@@ -66,6 +55,17 @@ function extractSingleCsv(zipPath: string, destCsvPath: string): Promise<void> {
     yauzl.open(zipPath, { lazyEntries: true }, (err, zipfile) => {
       if (err || !zipfile) return reject(err ?? new Error('yauzl.open returned no zipfile'))
       let found = false
+      // yauzl auto-closes on its own 'error'/'end' paths, but not when WE
+      // reject (openReadStream error, pipeline failure) — close explicitly so
+      // no zip fd leaks to callers that catch and continue.
+      const fail = (e: unknown): void => {
+        try {
+          zipfile.close()
+        } catch {
+          // already closed
+        }
+        reject(e instanceof Error ? e : new Error(String(e)))
+      }
       zipfile.on('error', reject)
       zipfile.on('entry', (entry: yauzl.Entry) => {
         if (found || !entry.fileName.toLowerCase().endsWith('.csv')) {
@@ -75,14 +75,14 @@ function extractSingleCsv(zipPath: string, destCsvPath: string): Promise<void> {
         found = true
         zipfile.openReadStream(entry, (streamErr, readStream) => {
           if (streamErr || !readStream) {
-            return reject(streamErr ?? new Error('yauzl.openReadStream returned no stream'))
+            return fail(streamErr ?? new Error('yauzl.openReadStream returned no stream'))
           }
           pipeline(readStream, createWriteStream(destCsvPath))
             .then(() => {
               zipfile.close()
               resolve()
             })
-            .catch(reject)
+            .catch(fail)
         })
       })
       zipfile.on('end', () => {

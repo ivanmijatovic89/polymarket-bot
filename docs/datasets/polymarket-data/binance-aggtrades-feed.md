@@ -6,6 +6,7 @@ available in backtests via a point-in-time (as-of) lookup over historical
 live WS client (`<symbol>@aggTrade`) consumes.
 
 Source decision and Chainlink follow-up: [Backtest Price Feeds](./price-feeds-for-backtests.md).
+Day-to-day cron/incident checklists: [Operations Runbook](./binance-aggtrades-operations.md).
 
 ## Usage
 
@@ -62,7 +63,7 @@ recorded mode derives the window from the file slug) and every timeframe
 
 | Var | Default | Meaning |
 |---|---|---|
-| `BACKTEST_BINANCE_FEED_LATENCY_MS` | `85` (measured p50, see below) | trade visible at `T + offset`; also sets `receivedAtMs` |
+| `BACKTEST_BINANCE_FEED_LATENCY_MS` | `110` (measured p50, see below) | trade visible at `T + offset`; also sets `receivedAtMs` |
 | `BACKTEST_BINANCE_FEED_LOOKBACK_MS` | `300000` | pre-window load margin so a value exists at the first tick |
 | `BINANCE_DATA_BASE_DIR` | `data/binance` | data root (repo-root-anchored when relative) |
 
@@ -93,15 +94,50 @@ p50/p90/p95/p99) — the empirical input for `BACKTEST_BINANCE_FEED_LATENCY_MS`.
 
 | metric | ms |
 |---|---|
-| p50 | **85** ← `BACKTEST_BINANCE_FEED_LATENCY_MS` default |
-| p90 | 334 |
-| p95 | 346 |
-| p99 | 519 |
+| p50 | **110** ← `BACKTEST_BINANCE_FEED_LATENCY_MS` default |
+| p90 | 171 |
+| p95 | 254 |
+| p99 | 397 |
 | min / max | 59 / 3507 |
 
-First-hour sample (8.9k trades); re-measure any time with
+48k-trade sample over ~105 min (verified 100% identical to the exchange
+record — 0 mismatches, 0 missing). Re-measure any time with
 `binance:verify-aggtrades` (it prints these percentiles) and override the env
 var if your machine/network differs.
+
+## Distribution: producer → R2 → workers
+
+Day files are immutable once Binance publishes them, so the whole sync
+protocol is skip-if-exists on both hops — no DB index, the (pair, date) pair
+determines every path and key.
+
+```bash
+# Producer (data machine, daily cron):
+npm run binance:download-aggtrades -- --pair BTCUSDT --sync   # eligibility floor −1 → yesterday, missing only
+npm run binance:upload-aggtrades-r2 -- --pair BTCUSDT         # mirror new files to R2
+
+# Each worker (before backtests / own cron):
+npm run binance:download-aggtrades-r2-to-local -- --pair BTCUSDT
+```
+
+- `--sync` always scans the FULL expected range
+  (`TELONEX_DATASET_ELIGIBLE_FROM − 1 day` → yesterday) and downloads whatever
+  is missing — self-healing: a day that failed mid-run, was skipped while
+  unpublished, or was deleted locally is retried on the next run, and lowering
+  the eligibility floor backfills automatically.
+- R2 keys mirror the local layout: `binance/aggTrades/<PAIR>/<PAIR>-aggTrades-<date>.parquet`.
+- Uploads are Content-MD5-validated server-side, and the skip-if-exists check
+  compares sizes on BOTH hops (upload and worker pull), so a locally
+  regenerated day file (converter fix) propagates end-to-end on the next cron
+  runs. Limitation: the drift check is size-based — a regenerated file that
+  lands on the identical byte size is not detected; pass `--force` after a
+  converter fix if that's plausible. Worker downloads are atomic (tmp→rename)
+  with retries and size validation against the R2 listing. All three commands
+  support `--dry-run` preflights.
+- **The feed loader itself never touches the network** — a missing local file
+  is a hard per-market error by design, so the data pipeline stays auditable.
+- Additional pairs (ETH/SOL/XRP) are the same three commands with a different
+  `--pair`.
 
 ## Data layout
 
@@ -127,8 +163,17 @@ BOOLEAN`, ordered by `agg_trade_id`. Timestamps are normalized to
   `utcDatesCovering` in `src/binance/paths.ts` is the single place that logic lives.
 - **`--extend` inherits the feed automatically**: the feed follows the
   strategy, and extensions inherit the parent's strategy — no extra handling.
-- **Symbol comes from the strategy config** (`binanceWsSpotPrice.symbol`), not
-  the market slug — exactly like live. A mismatch logs a loud warning.
+- **Pair follows the traded market by default**: `binanceWsSpotPrice: {}`
+  (no symbol) derives the pair from `TRADING_SYMBOL` live and from the market
+  slug in backtests, so one strategy works on BTC/ETH/SOL/XRP. An explicit
+  `binanceWsSpotPrice.symbol` overrides it — exactly like live — and a
+  slug/config mismatch logs a loud warning. The live-only `rtdsCryptoPrices`
+  request works the same way: `{}` derives `<symbol>usdt` / `<symbol>/usd`
+  from `TRADING_SYMBOL`, explicit lists win.
+- **Quiet gaps don't drop the feed**: the loaded series is seeded with the
+  latest trade before the coverage window, mirroring the live store's
+  retain-last-price-forever semantics; day files with zero trades up to the
+  window end are a hard error (empty/corrupt data), like missing files.
 
 ## Adding the Chainlink feed later (the seam)
 

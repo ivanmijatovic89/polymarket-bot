@@ -88,6 +88,14 @@ export default withMermaid(
                   text: 'Binance aggTrades Feed',
                   link: '/datasets/polymarket-data/binance-aggtrades-feed',
                 },
+                {
+                  text: 'Operations Runbook',
+                  link: '/datasets/polymarket-data/binance-aggtrades-operations',
+                },
+                {
+                  text: 'Series Cache (Proposal)',
+                  link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
+                },
               ],
             },
             {
@@ -117,6 +125,7 @@ export default withMermaid(
             { text: 'Extending a Run', link: '/backtest/extending-a-run' },
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
+            { text: 'ADR: Binance-Driven Ticks', link: '/backtest/adr-binance-driven-ticks' },
             {
               text: 'Distributed Workers',
               collapsed: false,

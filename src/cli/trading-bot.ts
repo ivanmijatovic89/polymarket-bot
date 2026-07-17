@@ -144,7 +144,9 @@ async function main(): Promise<void> {
   // Best-effort attempt tracking from WS status events (used in MarketEngine source metadata).
   let wsAttempt = 1
 
-  const dryRun = (process.env.DRY_RUN ?? 'false').toLowerCase() !== 'false'
+  // Safe by default: an UNSET DRY_RUN means dry-run — real orders require an
+  // explicit DRY_RUN=false in the environment (matches CLAUDE.md / docs).
+  const dryRun = (process.env.DRY_RUN ?? 'true').toLowerCase() !== 'false'
   const rpcUrl = process.env.POLYGON_RPC_URL ?? 'https://polygon-rpc.com'
 
   const intentExecutionModeEnv = (process.env.INTENT_EXECUTION_MODE ?? 'immediate').toLowerCase()
@@ -244,6 +246,9 @@ async function main(): Promise<void> {
   logger.info(`[trading-bot][⚙️] symbol=${symbol}`)
   logger.info(`[trading-bot][⚙️] wsUrl=${wsUrl}`)
   logger.info(`[trading-bot][⚙️] dryRun=${dryRun}`)
+  if (!dryRun) {
+    logger.warn('[trading-bot][💸] LIVE MODE — real orders will be placed (DRY_RUN=false)')
+  }
   logger.info(`[trading-bot][⚙️] intentExecutionMode=${intentExecutionMode}`)
   logger.info(`[trading-bot][⚙️] maxEventsPerDrain=${maxEventsPerDrain}`)
   logger.info(`[trading-bot][⚙️] strategy=${built.strategyId}`)
@@ -271,23 +276,39 @@ async function main(): Promise<void> {
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
-  const rtdsBinanceSymbols = rtdsReq?.binanceSymbols ?? []
+  // No explicit symbols → follow the traded market, mirroring the
+  // binanceWsSpotPrice semantics below: `rtdsCryptoPrices: {}` derives
+  // <symbol>usdt / <symbol>/usd from TRADING_SYMBOL; an explicit list wins.
   // NOTE: Chainlink symbols are slash-separated in RTDS docs (e.g. "btc/usd").
-  const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols ?? []
+  const rtdsBinanceSymbols = rtdsReq?.binanceSymbols?.length
+    ? rtdsReq.binanceSymbols
+    : rtdsReq
+      ? [`${symbol}usdt`]
+      : []
+  const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols?.length
+    ? rtdsReq.chainlinkSymbols
+    : rtdsReq
+      ? [`${symbol}/usd`]
+      : []
   const rtdsEnabled = rtdsBinanceSymbols.length > 0 || rtdsChainlinkSymbols.length > 0
 
-  if (rtdsReq && !rtdsEnabled) {
-    logger.warn(
-      '[trading-bot] rtdsCryptoPrices requested but no symbols configured; RTDS feed disabled (no prices will be available)',
+  if (rtdsReq && !rtdsReq.binanceSymbols?.length && !rtdsReq.chainlinkSymbols?.length) {
+    logger.info(
+      `[trading-bot] rtdsCryptoPrices symbols derived from TRADING_SYMBOL: binance=[${rtdsBinanceSymbols.join(', ')}] chainlink=[${rtdsChainlinkSymbols.join(', ')}]`,
     )
   }
 
   const binanceWsReq = requiredFeeds?.binanceWsSpotPrice
-  const binanceWsSymbol = (binanceWsReq?.symbol ?? '').toLowerCase().trim()
+  // No explicit symbol → follow the traded market (backtests derive it from
+  // the market slug the same way), so one strategy works on BTC/ETH/SOL/XRP
+  // without a hardcoded pair.
+  const binanceWsSymbol =
+    (binanceWsReq?.symbol ?? '').toLowerCase().trim() ||
+    (binanceWsReq ? `${symbol.toLowerCase()}usdt` : '')
   const binanceWsEnabled = binanceWsSymbol.length > 0
-  if (binanceWsReq && !binanceWsEnabled) {
-    logger.warn(
-      '[trading-bot] binanceWsSpotPrice requested but no symbol configured; Binance WS feed disabled (no prices will be available)',
+  if (binanceWsReq && !binanceWsReq.symbol?.trim()) {
+    logger.info(
+      `[trading-bot] binanceWsSpotPrice symbol derived from TRADING_SYMBOL: ${binanceWsSymbol}`,
     )
   }
 

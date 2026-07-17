@@ -20,8 +20,43 @@ export function binanceDataBaseDir(): string {
   return path.isAbsolute(base) ? base : path.resolve(REPO_ROOT, base)
 }
 
+/** Local directory holding a pair's converted day files. */
+export function aggTradesDayDir(pair: string): string {
+  return path.join(binanceDataBaseDir(), 'aggTrades', pair)
+}
+
+function aggTradesDayFilename(pair: string, isoDate: string): string {
+  return `${pair}-aggTrades-${isoDate}.parquet`
+}
+
 export function aggTradesDayPath(pair: string, isoDate: string): string {
-  return path.join(binanceDataBaseDir(), 'aggTrades', pair, `${pair}-aggTrades-${isoDate}.parquet`)
+  return path.join(aggTradesDayDir(pair), aggTradesDayFilename(pair, isoDate))
+}
+
+/**
+ * R2 mirror layout for converted day files. Deliberately identical to the
+ * local layout under the data root, so producer upload / worker download need
+ * no DB index — the (pair, date) pair fully determines both sides.
+ */
+export function aggTradesR2Prefix(pair: string): string {
+  return `binance/aggTrades/${pair}/`
+}
+
+export function aggTradesR2Key(pair: string, isoDate: string): string {
+  return `${aggTradesR2Prefix(pair)}${aggTradesDayFilename(pair, isoDate)}`
+}
+
+/**
+ * Parse the ISO date out of a day-file name or R2 key for THIS pair; null for
+ * anything else. Anchored on the pair so a stray file for another pair (or a
+ * `.tmp`, recording, or backup copy) never counts as a local day file —
+ * `--sync`'s range derivation and the R2 mirror scans depend on that.
+ */
+export function isoDateFromAggTradesFilename(name: string, pair: string): string | null {
+  const base = path.basename(name)
+  // pairFromFeedSymbol guarantees pair is /^[A-Z0-9]+$/, safe inside a regex.
+  const m = base.match(new RegExp(`^${pair}-aggTrades-(\\d{4}-\\d{2}-\\d{2})\\.parquet$`))
+  return m?.[1] ?? null
 }
 
 export function aggTradesDumpUrl(pair: string, isoDate: string): { zip: string; checksum: string } {

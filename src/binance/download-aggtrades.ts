@@ -1,6 +1,9 @@
 import '../config/env.js'
-import { promises as fs } from 'node:fs'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
+import { fileExists } from '../utils/fs.js'
+import { fmtBytes } from '../utils/fmtBytes.js'
+import { runWorkerPool } from '../utils/workerPool.js'
+import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
 import { aggTradesDayPath, pairFromFeedSymbol, utcDateRange, utcDateOf } from './paths.js'
 import { downloadAggTradesDay, type DownloadDayResult } from './aggTradesDump.js'
 
@@ -8,6 +11,7 @@ type Args = {
   pair: string
   from: string
   to: string
+  sync: boolean
   concurrency: number
   force: boolean
   keepZip: boolean
@@ -18,15 +22,18 @@ type Args = {
 function usage(): never {
   console.error(
     [
-      'Usage: npm run binance:download-aggtrades -- --pair BTCUSDT --from YYYY-MM-DD --to YYYY-MM-DD',
+      'Usage: npm run binance:download-aggtrades -- --pair BTCUSDT (--from YYYY-MM-DD [--to YYYY-MM-DD] | --sync)',
       '  --pair BTCUSDT | --symbol btc   (btc|eth|sol|xrp → <SYM>USDT)',
       '  --from YYYY-MM-DD               first UTC date (inclusive)',
       '  --to YYYY-MM-DD                 last UTC date (inclusive; default: --from)',
+      '  --sync                          full expected range: TELONEX_DATASET_ELIGIBLE_FROM − 1 day → yesterday (UTC);',
+      '                                  skip-if-exists makes this self-healing — holes are re-downloaded',
       '  --concurrency N                 parallel downloads (default 4)',
-      '  --force                         re-download even if parquet exists',
+      '  --force                         re-download even if parquet exists (explicit --from/--to only)',
       '  --keep-zip                      keep the downloaded .zip in data/binance/tmp/',
       '  --dry-run                       preflight only (present / missing)',
-      '  --strict                        any 404 is fatal (default: warn+skip for last 2 days)',
+      '  --strict                        abort on the first 404 (default: last 2 days warn+skip;',
+      '                                  older 404s are collected, other days still download, exit 1)',
     ].join('\n'),
   )
   process.exit(2)
@@ -36,6 +43,7 @@ function parseArgs(argv: string[]): Args {
   let pair = ''
   let from = ''
   let to = ''
+  let sync = false
   let concurrency = 4
   let force = false
   let keepZip = false
@@ -53,6 +61,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
     else if (a === '--from') from = next()
     else if (a === '--to') to = next()
+    else if (a === '--sync') sync = true
     else if (a === '--concurrency') concurrency = Math.max(1, Number(next()) || 4)
     else if (a === '--force') force = true
     else if (a === '--keep-zip') keepZip = true
@@ -63,27 +72,53 @@ function parseArgs(argv: string[]): Args {
       usage()
     }
   }
-  if (!pair || !from) usage()
-  return { pair, from, to: to || from, concurrency, force, keepZip, dryRun, strict }
-}
-
-async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
+  if (!pair) usage()
+  if (sync && (from || to)) {
+    console.error('[binance:download] --sync and --from/--to are mutually exclusive')
+    usage()
   }
+  if (sync && force) {
+    console.error(
+      '[binance:download] --sync --force would re-download the entire history; to refresh specific days, use --from/--to with --force',
+    )
+    usage()
+  }
+  if (!sync && !from) usage()
+  return { pair, from, to: to || from, sync, concurrency, force, keepZip, dryRun, strict }
 }
 
-function fmtBytes(n: number): string {
-  if (n < 1024 * 1024) return `${(n / 1024).toFixed(1)} KiB`
-  return `${(n / (1024 * 1024)).toFixed(1)} MiB`
+/**
+ * `--sync` range: the FULL expected window, TELONEX_DATASET_ELIGIBLE_FROM − 1
+ * day (feed lookback margin for the oldest eligible market) → yesterday (UTC).
+ * The skip-if-exists preflight below turns this into "download whatever is
+ * missing", which makes the daily cron self-healing: a day that failed
+ * mid-run, was skipped as not-yet-published, or was deleted locally is picked
+ * up again on the next run — a hole can never become permanent. (Deriving the
+ * range from the newest local file instead would silently skip such holes.)
+ */
+function resolveSyncRange(): { from: string; to: string } | null {
+  const DAY_MS = 86_400_000
+  const fromMs = TELONEX_DATASET_ELIGIBLE_FROM_MS - DAY_MS
+  const toMs = Date.parse(`${utcDateOf(Date.now())}T00:00:00Z`) - DAY_MS
+  if (fromMs > toMs) return null
+  return { from: utcDateOf(fromMs), to: utcDateOf(toMs) }
 }
 
 async function main(): Promise<void> {
   installProcessCrashHandlers({ prefix: 'binance:download' })
   const args = parseArgs(process.argv.slice(2))
+  if (args.sync) {
+    const range = resolveSyncRange()
+    if (!range) {
+      console.log(
+        `[binance:download] ${args.pair}: eligibility floor is in the future — nothing to sync`,
+      )
+      return
+    }
+    args.from = range.from
+    args.to = range.to
+    console.log(`[binance:download] --sync resolved range: ${args.from}..${args.to}`)
+  }
   const dates = utcDateRange(args.from, args.to)
 
   // Preflight: which dates are already on disk.
@@ -112,40 +147,44 @@ async function main(): Promise<void> {
     },
   })
 
-  const queue = [...missing]
   let downloaded = 0
   let skippedUnpublished = 0
   let totalBytes = 0
-  let fatal: Error | undefined
+  const notFound: string[] = []
 
-  const worker = async (): Promise<void> => {
-    while (!aborted && !fatal) {
-      const date = queue.shift()
-      if (!date) return
-      let res: DownloadDayResult
-      try {
-        res = await downloadAggTradesDay({
-          pair: args.pair,
-          isoDate: date,
-          force: args.force,
-          keepZip: args.keepZip,
-        })
-      } catch (err) {
-        fatal = err instanceof Error ? err : new Error(String(err))
-        return
-      }
+  const fatal = await runWorkerPool({
+    jobs: missing,
+    concurrency: args.concurrency,
+    isAborted: () => aborted,
+    run: async (date) => {
+      const res: DownloadDayResult = await downloadAggTradesDay({
+        pair: args.pair,
+        isoDate: date,
+        force: args.force,
+        keepZip: args.keepZip,
+      })
       if (res.status === 'skipped-not-published') {
-        if (args.strict || date < recentCutoff) {
-          fatal = new Error(
-            `[binance:download] dump not published: ${args.pair} ${date} (older than the ~1-day publication lag${args.strict ? '' : '; use --strict to silence this hint'})`,
+        if (args.strict) {
+          throw new Error(
+            `[binance:download] dump not found: ${args.pair} ${date} (fatal because of --strict — drop it to collect 404s and keep downloading other days)`,
+          )
+        }
+        if (date < recentCutoff) {
+          // Older than the publication lag: the dump should exist, so a 404
+          // usually means a mistyped pair or a genuine Binance-side gap. Do
+          // NOT abort — a permanent gap must never block newer days from
+          // syncing (the run still exits 1 with a summary below).
+          notFound.push(date)
+          console.error(
+            `[binance:download] dump not found: ${args.pair} ${date} — past the ~1-day publication lag, so it should exist; continuing with other days`,
           )
           return
         }
         skippedUnpublished++
         console.warn(
-          `[binance:download] ${args.pair} ${date}: not published yet (~1-day lag) — skipped`,
+          `[binance:download] ${args.pair} ${date}: not published yet (~1-day lag) — skipped; the next --sync run retries it`,
         )
-        continue
+        return
       }
       if (res.status === 'downloaded') {
         downloaded++
@@ -154,19 +193,25 @@ async function main(): Promise<void> {
           `[binance:download] ${args.pair} ${date}: rows=${res.rows} ${fmtBytes(res.bytes ?? 0)} (${downloaded}/${missing.length})`,
         )
       }
-    }
-  }
-
-  await Promise.all(Array.from({ length: Math.min(args.concurrency, queue.length) }, worker))
+    },
+  })
 
   if (fatal) {
     console.error(fatal.message)
     process.exit(1)
   }
   console.log(
-    `[binance:download] done: downloaded=${downloaded} skipped-unpublished=${skippedUnpublished} total=${fmtBytes(totalBytes)}` +
+    `[binance:download] done: downloaded=${downloaded} skipped-unpublished=${skippedUnpublished} not-found=${notFound.length} total=${fmtBytes(totalBytes)}` +
       (aborted ? ' (aborted early)' : ''),
   )
+  if (notFound.length > 0) {
+    notFound.sort()
+    console.error(
+      `[binance:download] ${notFound.length} dump(s) not found past the publication lag: ${notFound.join(', ')} — ` +
+        `mistyped pair (${args.pair})? Binance-side gap? Backtests touching these days will hard-error until resolved.`,
+    )
+    process.exit(1)
+  }
   if (aborted) process.exit(130)
 }
 

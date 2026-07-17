@@ -2,23 +2,13 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { getObjectToFile } from '../r2/client.js'
 import { parseR2Url } from '../r2/parseR2Url.js'
+import { sleep } from '../utils/sleep.js'
 
 const MAX_RETRIES = 3
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 
-function sleep(ms: number): Promise<void> {
-  return new Promise((r) => setTimeout(r, ms))
-}
-
-/** True if `p` exists (any stat success). Shared so callers don't each re-roll it. */
-export async function fileExists(p: string): Promise<boolean> {
-  try {
-    await fs.stat(p)
-    return true
-  } catch {
-    return false
-  }
-}
+// Canonical home is src/utils/fs.ts; re-exported here for existing importers.
+export { fileExists } from '../utils/fs.js'
 
 /**
  * Download a converted parquet from R2 to an absolute local path, atomically
@@ -30,11 +20,17 @@ export async function fileExists(p: string): Promise<boolean> {
  * keyed by pid so concurrent fetchers never collide, and the rename is atomic so
  * an interrupted run never leaves a half-written parquet.
  *
+ * When the caller knows the object's size (e.g. from a prior listing), pass
+ * `expectedBytes`: a size mismatch on the downloaded tmp file (silently
+ * truncated stream) then fails the attempt BEFORE the rename, so a corrupt
+ * file can never land on the canonical path that skip-if-exists protects.
+ *
  * Throws if all retries are exhausted (callers decide how to surface it).
  */
 export async function downloadR2ToLocal(
   r2Url: string,
   absolutePath: string,
+  opts?: { expectedBytes?: number },
 ): Promise<{ bytes: number }> {
   const { bucket, key } = parseR2Url(r2Url)
   await fs.mkdir(path.dirname(absolutePath), { recursive: true })
@@ -43,13 +39,20 @@ export async function downloadR2ToLocal(
   for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
     try {
       await getObjectToFile(bucket, key, tmp)
-      await fs.rename(tmp, absolutePath)
       let bytes = 0
       try {
-        bytes = (await fs.stat(absolutePath)).size
-      } catch {
-        // size is best-effort
+        bytes = (await fs.stat(tmp)).size
+      } catch (statErr) {
+        // Without an expected size the stat is informational only — don't
+        // throw away a completed download over it (pre-existing tolerance).
+        if (opts?.expectedBytes !== undefined) throw statErr
       }
+      if (opts?.expectedBytes !== undefined && bytes !== opts.expectedBytes) {
+        throw new Error(
+          `[r2-fetch] size mismatch for ${key}: downloaded ${bytes} bytes, expected ${opts.expectedBytes}`,
+        )
+      }
+      await fs.rename(tmp, absolutePath)
       return { bytes }
     } catch (err) {
       lastErr = err

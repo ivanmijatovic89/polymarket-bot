@@ -16,11 +16,12 @@ const DEFAULT_LOOKBACK_MS = 300_000
  * Modeled live feed latency (exchange trade time → bot receive), applied as
  * the as-of visibility offset. Default is the measured p50 of
  * `received_at_ms − T` from a live recording on the trading machine
- * (2026-07-16, BTCUSDT, p50=85ms p90=334 p99=519 — see
- * docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure with
- * `binance:verify-aggtrades` and override with BACKTEST_BINANCE_FEED_LATENCY_MS.
+ * (2026-07-16, BTCUSDT, 48k trades over ~105min: p50=110ms p90=171 p99=397 —
+ * see docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure
+ * with `binance:verify-aggtrades` and override with
+ * BACKTEST_BINANCE_FEED_LATENCY_MS.
  */
-const DEFAULT_LATENCY_MS = 85
+const DEFAULT_LATENCY_MS = 110
 
 function envInt(name: string, fallback: number): number {
   const raw = process.env[name]?.trim()
@@ -64,12 +65,24 @@ export async function wireBacktestBinanceFeed(args: {
   // every market of every feed-less backtest).
   if (!reqPlugin) return
 
-  const cfgSymbol = reqPlugin.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase()
-  if (!cfgSymbol) {
+  const binanceReq = reqPlugin.config.binanceWsSpotPrice
+  if (!binanceReq) {
     console.warn(
-      `[backtest:feeds] strategy requests external feeds but no binanceWsSpotPrice symbol — only rtds/priceToBeat requested, which have no backtest source yet; running feed-less (slug=${args.slug})`,
+      `[backtest:feeds] strategy requests external feeds but not binanceWsSpotPrice — only rtds/priceToBeat requested, which have no backtest source yet; running feed-less (slug=${args.slug})`,
     )
     return
+  }
+
+  const slugSymbol = symbolFromSlug(args.slug)
+  // No explicit symbol → follow the traded market (live derives it from
+  // TRADING_SYMBOL the same way), so one strategy works on BTC/ETH/SOL/XRP
+  // without a hardcoded pair.
+  const cfgSymbol =
+    binanceReq.symbol?.trim().toLowerCase() || (slugSymbol ? `${slugSymbol}usdt` : undefined)
+  if (!cfgSymbol) {
+    throw new Error(
+      `[backtest:feeds] strategy requests the binance feed with no symbol and none is derivable from the slug (${args.slug})`,
+    )
   }
 
   const window = args.strategyWindow ?? windowFromSlug(args.slug)
@@ -79,9 +92,9 @@ export async function wireBacktestBinanceFeed(args: {
     )
   }
 
-  // Live would feed whatever symbol the strategy configured, even for a
-  // mismatched market — parity over correctness, but make it loud.
-  const slugSymbol = symbolFromSlug(args.slug)
+  // An explicitly configured symbol wins even for a mismatched market — live
+  // would feed whatever the strategy configured; parity over correctness, but
+  // make it loud.
   if (slugSymbol && !cfgSymbol.startsWith(slugSymbol)) {
     console.warn(
       `[backtest:feeds] strategy requests binance symbol=${cfgSymbol} but market slug is ${args.slug} — feeding ${cfgSymbol} (same as live)`,

@@ -110,6 +110,14 @@ async function main(): Promise<void> {
   }
 
   const appendAggTrade = (agg: AggTradeMessage, receivedAtMs: number): void => {
+    // WS frames already buffered when shutdown starts would otherwise enqueue
+    // AFTER closeWriter, reopening a writer whose tmp file is abandoned when
+    // process.exit fires (rows silently dropped into a stray .tmp). Counted
+    // and reported so verify-aggtrades gap analysis isn't left guessing.
+    if (stopping) {
+      droppedAtShutdown++
+      return
+    }
     enqueue(async () => {
       const hourKey = hourKeyOf(receivedAtMs)
       if (!writer || hourKey !== writerHourKey) {
@@ -139,6 +147,9 @@ async function main(): Promise<void> {
     })
   }
 
+  let stopping = false
+  let droppedAtShutdown = 0
+
   const client = createBinanceWsSpotPriceClient({
     symbol: feedSymbol,
     onPrice: () => {},
@@ -149,7 +160,6 @@ async function main(): Promise<void> {
     },
   })
 
-  let stopping = false
   const shutdown = (reason: string): void => {
     if (stopping) return
     stopping = true
@@ -157,7 +167,19 @@ async function main(): Promise<void> {
     logStatus({ kind: 'recorder-stop', info: reason })
     client.stop()
     enqueue(closeWriter)
-    void chain.then(() => {
+    void chain.then(async () => {
+      if (droppedAtShutdown > 0) {
+        console.warn(
+          `[binance:record] ${droppedAtShutdown} buffered trade(s) discarded at shutdown (after recorder-stop)`,
+        )
+        // Awaited (unlike logStatus) so process.exit can't cut the append off.
+        await fs
+          .appendFile(
+            statusPath,
+            `${JSON.stringify({ ts_ms: Date.now(), kind: 'recorder-dropped-at-shutdown', count: droppedAtShutdown })}\n`,
+          )
+          .catch(() => {})
+      }
       console.log(`[binance:record] done. total rows=${rowsTotal}`)
       process.exit(chainErr ? 1 : 0)
     })
@@ -172,6 +194,24 @@ async function main(): Promise<void> {
     console.log(`[binance:record] rows total=${rowsTotal} current-hour=${rowsInHour}`)
   }, 60_000)
   statsTimer.unref()
+
+  // Sleep/freeze detection: when the machine suspends (laptop lid closed),
+  // the process freezes without any WS close event, so the status log would
+  // show nothing while trades silently go missing. A wall-clock jump on this
+  // 1s heartbeat marks the frozen interval as an excusable gap for
+  // `binance:verify-aggtrades`.
+  let lastBeatMs = Date.now()
+  const beatTimer = setInterval(() => {
+    const now = Date.now()
+    if (now - lastBeatMs > 10_000) {
+      console.warn(
+        `[binance:record] clock jump detected (${((now - lastBeatMs) / 1000).toFixed(0)}s) — machine slept?`,
+      )
+      logStatus({ kind: 'clock-jump', gap_from_ms: lastBeatMs, gap_to_ms: now })
+    }
+    lastBeatMs = now
+  }, 1_000)
+  beatTimer.unref()
 
   logStatus({ kind: 'recorder-start', info: `${feedSymbol}@aggTrade` })
   console.log(`[binance:record] recording ${feedSymbol}@aggTrade → ${recordingsDir(args.pair)}`)
