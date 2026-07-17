@@ -62,10 +62,17 @@ edge is dead by regime change, do not test it.
   rebates +$6.1k/day — pure subsidy farmer; STRONG support. b55f still
   shows real trading edge (~40% of income). Remaining: 0xaaaaa,
   badfallen, doggystyie, bonereaper, 0xce25.
-- **Kill (of the hypothesis)**: majority of remaining actives show
-  trading-dominant income like b55f → real alpha persists for entrants.
-- **Status: leading.** The ecosystem's headline P&L is subsidy-inflated;
-  every wallet claim needs decomposition (PRIORS A10).
+- **RESOLVED (measurements/actives-decomposition.md): STRATIFIED.**
+  3 of 7 actives have real trading alpha (+0.7% to +2.31% of turnover:
+  0xce25, badfallen, b55f); 3 are deliberate taker-rebate farmers
+  (trading negative by design); 1 negative window (bonereaper). Real
+  edge persists in July 2026 AND the ecosystem's largest income stream
+  is the taker-rebate pool (~$20k/day across these 7). Consequences:
+  (a) the lab's target is the edge-wallet profile (small clips $6–11,
+  multi-book, moderate parity) — NOT the farmer profile; (b) program
+  risk (venue repricing rebates) is the systemic risk of everything
+  built here; (c) headline P&L of any wallet is meaningless without
+  decomposition.
 - **SRP family**: none directly (rebates unmodelable in sim, G4); this
   hypothesis gates how much sim work is worth doing at all.
 

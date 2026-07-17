@@ -159,3 +159,25 @@ decomposition before its P&L means anything.
 Wrote literature/A1 (Avellaneda-Stoikov, Glosten-Milgrom, queue models →
 BTC-15m implications; the fee introduction as a G-M flow-composition
 shift explains the measured margin collapse mechanism cleanly).
+
+## 2026-07-17T07:10Z — all seven actives decomposed: the meta is stratified
+
+Pulled + decomposed the remaining five wallets (same Jul 14-16 window).
+The verdict on H3: STRATIFIED. Three wallets carry real trading alpha
+(0xce25 +2.31% of turnover — the b55f sibling and the best measured;
+badfallen +1.68% on btc-5m alone; b55f ~+0.7%). Three are deliberate
+taker-rebate farmers (powerwinner, doggystyie, 0xaaaaa) whose trading
+loss is the manufacturing cost of weighted volume. bonereaper printed
+negative this window (its $1.19M all-time says sample luck — flagged).
+
+Standouts: doggystyie runs the archetype's EXACT end-state (perfect
+0.0% parity, pair cost ≥ $1) profitably TODAY because taker rebates now
+pay for it. The edge wallets share the archetype's fingerprint (small
+$6-11 clips, multi-book); the farmers trade $35-84 clips at p≈0.5 on
+btc-5m only. And the single largest income stream of the whole ecosystem
+is the venue's taker-rebate pool (~$20k/day for these 7) — program risk
+is now the systemic risk of the meta.
+
+The lab's takeaway sharpened: real alpha exists in the current era, its
+carriers look like gabagool, and BTC-5m/15m are where both the alpha
+wallets and the subsidy flow concentrate.
