@@ -187,7 +187,12 @@ Candidates for the lab:
 1. Fee-regime shift against takers → pair-cost compression (the
    archetype's actual death; VENUE-MECHANICS timeline).
 2. Rebate-pool dilution — more maker wallets splitting the same 20%
-   (current meta risk; G8 — no sim can price it).
+   (current meta risk; G8 — no sim can price it). Now partially
+   quantified (A23): btc-15m's maker pool ($7.3k/day) is ~40% owned by
+   ONE incumbent (`0xb27bc932`, running the archetype playbook since
+   ≥March); a $1.48M/day parity-style challenger lost −$542k in 30d.
+   Entering this book means taking revenue a months-entrenched
+   incumbent is defending, at a taker-fee-tier disadvantage (A16).
 3. Worst-queue-style adverse selection IS real when quoting without
    parity/flow context: every prior sim family died on the first fill
    (P42/P43/P45). The archetype's counter was flow-feeding parity at

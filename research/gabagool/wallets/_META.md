@@ -78,10 +78,31 @@ taker rebates alone.
   P19 "$8M/day" figure still matches nobody; keep P19's wallet
   unidentified.
 
+## Sweep addendum (2026-07-17, A23 — the cohort above is NOT the whole ecosystem)
+
+A top-50 volume-leaderboard sweep (measurements/leaderboard-sweep.md)
+found 4 crypto-updown wallets ≥$0.7M/day that no prior unit tracked:
+
+| wallet | vol/day | books | note |
+|---|---|---|---|
+| `0xb27bc932…5b82` | $0.73M | btc-15m ONLY | **the maker king**: archetype fingerprint, +$762,732 all-time, ~40% of the btc-15m maker-rebate pool, ~97% of current income = subsidy (wallets/b27bc932.md) |
+| `0x95f51617…779f` | $1.48M | btc+eth 5m/15m | BUY-only parity-style, **−$542k/30d** — a failed challenger at scale |
+| HelixEdge | $0.95M | btc-5m only | new entrant (~Jul 7), −$20k/30d, near-zero rebates (cold-start moat evidence) |
+| neutralwave23 | $0.76M | sol/btc 5m+15m | taker-rebate skewed ($22.7k vs maker $1.2k) |
+
+Consequences: (a) "~$18.5k/day collectively" describes the TRACKED 7,
+not the ecosystem; (b) the btc-15m maker side has a dominant incumbent;
+(c) the family's turnover is ≥$120M/month across the 11 known wallets;
+(d) losing big is a live outcome (0x95f5) — competition is not
+hypothetical. P19's $8M/day: closed as unmatched (top-50 exhaustive
+for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
+
 ## Open
 
 - Resolve @drfc4eybh7i8 properly (JSON-parse the profile page rather than
   counting hex strings).
+- Full dossier for `0xb27bc932` (era split, pair cost, merge behavior,
+  operator-cluster check) — the most lab-relevant wallet found.
 - Profile-creation timestamps for all actives (cluster detection).
 - Per-wallet behavioral fingerprints (book mix, size ladder, cadence,
   merge-vs-redeem) — one dossier each.

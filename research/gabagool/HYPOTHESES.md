@@ -91,8 +91,17 @@ edge is dead by regime change, do not test it.
   farmer profile; (b) program risk (venue repricing rebates) is the
   systemic risk of everything built here; (c) headline P&L of any
   wallet is meaningless without decomposition AND fee reconstruction.
-- **SRP family**: none directly (rebates unmodelable in sim, G4); this
-  hypothesis gates how much sim work is worth doing at all.
+- **Strongest datum yet (A23)**: the best surviving btc-15m MAKER
+  (`0xb27bc932`, archetype fingerprint, +$762k all-time) now earns
+  ~97% of its income from rebates (trading +$95/day vs rebates
+  ~$4.4k/day) while holding ~40% of the book's maker pool. The
+  maker-heavy end-state IS subsidy; trading alpha lives on the
+  taker-completion side (b55f). Also: a $1.48M/day challenger lost
+  −$542k in 30d — competition is priced in bodies, not basis points.
+- **SRP family**: none directly — BUT rebates are now exactly
+  modelable post-hoc (A22 estimator; G4 resolved), so H3 no longer
+  gates sim work; it gates how to READ sim results (subsidy line vs
+  trading line, separately).
 
 ## H4 — Binance-anchored selective quoting beats blind parity quoting (rank 4, blocked)
 

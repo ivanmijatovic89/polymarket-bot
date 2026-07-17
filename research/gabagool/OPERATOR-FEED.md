@@ -53,3 +53,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: a maker's rebate is exactly 20% of the fee value of their own fills — no guessing about competitors needed. The lab can now judge the main hypothesis fully in simulation.
 - Next: saturation check — the open-question list is basically empty.
 - Health: on track.
+
+## 2026-07-17T07:50Z — unit: leaderboard sweep — found the real king of our target market
+
+- Did: swept the top-50 volume leaderboard for crypto up/down specialists we weren't tracking.
+- Found: four new wallets, including one running gabagool's exact playbook on btc-15m that quietly collects ~40% of that market's maker subsidy — and another that lost $542k in a month trying the same shape. The rumored "$8M/day wallet" doesn't exist.
+- Next: saturation check and, if it holds, the lab handoff.
+- Health: on track.

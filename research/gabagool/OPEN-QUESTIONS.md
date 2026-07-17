@@ -12,10 +12,12 @@ Ranked by information value per unit effort. Refreshed session 3
    ~200ms/18-decimal → ties measure-zero. Residue (low value):
    primary-source the 1-pUSD marketable minimum; venue-side boundary
    report sampling.
-4. **P19's "$8M/day" wallet**: still unmatched (largest 30d volume
-    seen: bonereaper $663k/day). Either the figure is wrong or the
-    wallet is unlisted — check volume leaderboard top-50 for
-    crypto-updown-only wallets.
+4. ~~P19's "$8M/day" wallet~~ → CLOSED (A23): top-50 sweep found no
+    crypto-updown wallet near $8M/day (nearest: mixed whale suntori
+    $6.3M/day). BUT the sweep found 4 untracked specialists incl. the
+    btc-15m maker king `0xb27bc932` (~40% of the book's maker pool)
+    and a −$542k/30d failed challenger. Residue: full b27bc932
+    dossier (optional).
 5. **drfc4eybh7i8 address** (weak resolution): re-resolve via profile
     JSON; then dossier if gabagool-style.
 

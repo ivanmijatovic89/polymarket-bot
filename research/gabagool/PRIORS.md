@@ -525,3 +525,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   rebate pool; per-market fees p50 $332. H1 is now fully sim-judgeable
   (fees exact + rebates exact). [verified]
   (measurements/rebate-pool-btc15m.md)
+- **A23 (leaderboard sweep — the cohort was undercounted):** top-50
+  30d-volume sweep found 4 unknown crypto-updown wallets ≥$0.7M/day.
+  Headline: `0xb27bc932…5b82` = the archetype fingerprint at scale on
+  btc-15m ONLY (100% BUY, $3.2 clips, all-time lb profit +$762,732),
+  collecting ~$3.2k/day maker rebates since Mar 14 ≈ **~40% of the
+  entire btc-15m maker pool** — trading profit today ≈ +$95/day, i.e.
+  ~97% of its income is venue subsidy. Also: `0x95f5…779f` LOST −$542k
+  in 30d doing $1.48M/day of parity-style BUY-only flow (failed
+  challenger; caveat lb-profit excludes rebates); HelixEdge (btc-5m
+  new entrant) −$20k/30d. P19's $8M/day: unmatched in top-50 — nearest
+  is a mixed sports+crypto whale (suntori $6.3M/day); claim stays
+  contested and the search is closed. [verified, quick-scan grade]
+  (measurements/leaderboard-sweep.md, wallets/b27bc932.md)

@@ -441,3 +441,24 @@ much per day at min size" answered: dust or zero.
 
 With G4 closed, H1's kill criterion is decidable in sim: fee-inclusive
 pair margin + exact rebates. This upgrades the whole handoff.
+
+## 2026-07-17T07:50Z — leaderboard sweep (A23): the maker king nobody knew about
+
+Chasing P19's "$8M/day wallet" through the top-50 volume leaderboard
+closed that claim (nothing close; nearest is a mixed sports+crypto
+whale at $6.3M/day) but found something better: FOUR untracked
+crypto-updown wallets ≥$0.7M/day. The headline is 0xb27bc932 — the
+archetype fingerprint (btc-15m only, 100% BUY, $3.2 clips), all-time
+profit +$762,732, quietly collecting ~40% of the entire btc-15m
+maker-rebate pool since March, with trading profit now ≈ +$95/day:
+~97% of its income is venue subsidy. The maker side of the lab's
+exact book has a dominant, entrenched incumbent. Counterpoint datum:
+0x95f5 lost −$542k in 30 days doing $1.48M/day of the same-shaped
+flow — competition in this family kills at scale. _META, H3, and the
+BRIEF's failure-modes section updated; the "~7 actives" framing was
+an undercount born of never doing a leaderboard sweep (hygiene lesson
+ledgered).
+
+Honesty note: these are quick-scan numbers (one /activity page +
+lb-api per wallet), labeled as such everywhere; the full-history
+b27bc932 dossier is optional residue.
