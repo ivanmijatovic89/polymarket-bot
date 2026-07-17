@@ -86,7 +86,7 @@ found 4 crypto-updown wallets ≥$0.7M/day that no prior unit tracked:
 | wallet | vol/day | books | note |
 |---|---|---|---|
 | `0xb27bc932…5b82` | $0.73M | btc/eth 5m+15m (CORRECTED A24) | **biggest maker-rebate earner**: archetype-discipline grinder at 3× cadence, +$762,732 all-time, ~3–4% of each book's pool, ~97% of current income = subsidy (wallets/b27bc932.md) |
-| `0x95f51617…779f` | $1.48M | btc+eth 5m/15m | BUY-only parity-style, **−$542k/30d** — a failed challenger at scale |
+| `0x95f51617…779f` | $1.48M | ~~btc+eth 5m/15m~~ WORLD CUP (A26) | ~~failed challenger at scale~~ **RECLASSIFIED (A26)**: −$542k lost MM'ing fifwc-* books at $105 clips Jun 24–Jul 17; its crypto-updown side was $28k/day dust, near-breakeven (wallets/95f5-challenger.md) |
 | HelixEdge | $0.95M | btc-5m only | new entrant (~Jul 7), −$20k/30d, near-zero rebates (cold-start moat evidence) |
 | neutralwave23 | $0.76M | sol/btc 5m+15m | taker-rebate skewed ($22.7k vs maker $1.2k) |
 
@@ -94,7 +94,10 @@ Consequences: (a) "~$18.5k/day collectively" describes the TRACKED 7,
 not the ecosystem; (b) the btc-15m maker pool is FRAGMENTED — even the
 biggest earner holds ~3–4% of it (A24 correction; no dominant
 incumbent); (c) the family's turnover is ≥$120M/month across the 11
-known wallets; (d) losing big is a live outcome (0x95f5) — competition
+known wallets; (d) ~~losing big is a live outcome (0x95f5)~~ WITHDRAWN
+by A26 — 0x95f5's loss was a World Cup sports-MM blow-up, not a
+crypto-updown class casualty; the measured class downside is slow
+bleed (HelixEdge −$20k/30d) or margin compression — competition
 is not hypothetical. P19's $8M/day: closed as unmatched (top-50 exhaustive
 for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 

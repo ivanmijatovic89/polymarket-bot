@@ -95,3 +95,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: all 9 are active right now; the top subsidy wallet changed behavior since June (it now recycles capital instead of holding to the end); the big loser is down to pocket change.
 - Next: keep snapshotting every ~2h; meanwhile the historical scan continues (1 of 9 days in).
 - Health: on track.
+
+## 2026-07-17T04:45Z — unit: the "$542k failed challenger" myth is busted (session 7)
+
+- Did: mapped the big loser's entire trading life day by day and traced exactly where its money went.
+- Found: it did NOT lose $542k running our strategy — it lost it market-making World Cup soccer markets in 3 weeks. Its crypto up/down trading was always tiny and roughly breakeven. Nobody is known to have blown up running this strategy class on crypto.
+- Next: the 8-month wallet-discovery scan is running again in the background; classify its output into the variant atlas when it lands.
+- Health: on track.

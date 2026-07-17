@@ -48,7 +48,12 @@ P19 stays [contested]; the search is done (top-50 is exhaustive for
    missed at least 4 wallets ≥$0.7M/day. The prior wallet list came
    from the investigation + operator hints; a leaderboard sweep should
    have been session 1 hygiene.
-3. **Cold-start losses are real and large**: `0x95f5` (profile created
+3. ~~**Cold-start losses are real and large**~~ **CORRECTED by A26
+   (2026-07-17, wallets/95f5-challenger.md)**: `0x95f5`'s −$542k was
+   lost market-making World Cup sports books (fifwc-*), NOT crypto
+   up/down — this point's "body-count evidence" is withdrawn; only the
+   HelixEdge −$20k/30d part stands. Original text kept below for the
+   record: `0x95f5` (profile created
    2026-01-07, the day after fees) lost −$542k in 30d doing parity-
    style BUY-only flow at $1.48M/day with near-zero taker rebates;
    HelixEdge (btc-5m, since ~Jul 7) is −$20k/30d. The A16 "fee moat +

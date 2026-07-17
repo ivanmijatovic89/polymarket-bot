@@ -28,6 +28,9 @@ rows are the HOURLY series (different slug scheme, caught by the
   collapsed to dust ($937/2h ≈ $11k/day pace vs $1.48M/day in the
   30d leaderboard window) with pairRate 0.05 — effectively dead, not
   reformed. Its post-mortem (W1) is about the loss period, not today.
+  (REFRAMED by A26: it was never a crypto challenger at scale — the
+  $1.48M/day was World Cup volume; today's dust pace is its NORMAL
+  crypto-updown baseline, same as its Apr–Jun grind era.)
 - **O4 (04Z):** Two clip regimes visible live: grinders at $2–9 p50
   (b55f, 0xce25, b27bc932, bonereaper, badfallen, 95f5) vs big-clip
   farmers at $29–83 p50 (powerwinner, 0xaaaaa, doggystyie) whose pair

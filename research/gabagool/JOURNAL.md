@@ -551,3 +551,36 @@ btc-5m farmers with pair cost ABOVE $1 (powerwinner 1.03 @ $83 clips,
 0xaaaaa 1.12 @ $72) — the two-population structure Phase 1 inferred is
 directly visible in one live window. Era scan running in parallel
 (Nov day in progress).
+
+## 2026-07-17T04:40Z — session 7: W1 closed by reclassification (A26)
+
+Resumed after session-6 death: the W0 era scan had died mid-2025-12-15
+(token resolution); relaunched the remaining 8 day-scans in the
+background (same log). Foreground unit: the uncommitted
+challenger-timeline.ts recon on 0x95f5…779f.
+
+The result rewrites W1. The wallet's life has four eras: probe
+(Jan–Apr, dust), gabagool-shaped grind (Apr 22–Jun 10: BUY-only, $3.1
+clips, no merges, btc 5m+15m — but only ~$28k/day notional), 13 days
+of silence, then a WHALE era (Jun 24–Jul 17): clips ×33 to $105,
+merges appear, and the books are fifwc-* World Cup markets. The
+positions ledger (loss-biased by construction: losing tokens are never
+redeemed, so they persist) attributes −$615k of gross losses to World
+Cup books (worst single market: che-col team-to-advance −$136k) vs
+−$2.6k across ALL crypto-updown families combined.
+
+So A23's "failed challenger at scale, −$542k/30d doing parity-style
+flow" was a chimera: leaderboard volume/profit (WC-dominated) welded
+onto a book label from a last-500 /activity sample (crypto, because
+the sample landed after the WC ended). Same failure mode as the A24
+lesson, on the loss side this time. Ledgered as A26; dossier
+wallets/95f5-challenger.md; corrections in BRIEF §8.2, _META (row +
+consequence d), leaderboard-sweep.md, live-shadow O3.
+
+Net effect on the class picture: there is NO known large-loss casualty
+of sub-$1 pair accumulation on crypto-updown. Observed downside is
+slow bleed (HelixEdge −$20k/30d) or fee-margin compression. The one
+observed blow-up happened when the same infrastructure moved to
+jump-driven event books — indirect evidence FOR the bounded-window
+continuous-underlying niche. W1 closed; queue advances (W0 atlas
+classification once the era scans land; W3 snapshot 2 due ~06:30Z).

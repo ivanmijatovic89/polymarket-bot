@@ -68,17 +68,22 @@ not gabagool-the-wallet. Prefer measurement units over reading units.
 
 Queue (top = next):
 
-1. **W0 variant atlas** — IN PROGRESS (session 6). Tooling DONE and
+1. **W0 variant atlas** — IN PROGRESS (session 7). Tooling DONE and
    committed: scripts/variant-scan.ts (on-chain OrderFilled scan; A25:
    data-api /trades is TAKER-ONLY so discovery must be on-chain) +
-   measurements/variant-scan-method.md. NEXT: run era scans, one day
-   per month 2025-11-15 → 2026-07-15, 12 windows each →
-   data/variant-scan/scan-<day>.json; then classify wallets on the
-   design axes, cross-check the 11 known wallets, write
-   VARIANT-ATLAS.md + dossiers for new finds.
-2. W1 failed-challenger post-mortem (0x95f51617…779f, −$542k/30d):
-   which VARIANT died and why; dossier + "how this strategy dies"
-   section in STRATEGY-BRIEF.md.
+   measurements/variant-scan-method.md. Era scans running in
+   BACKGROUND (session 7 relaunched after session-6 death): 2025-11-15
+   done; 2025-12-15 → 2026-07-15 (8 days) appending to
+   data/variant-scan/era-run.log, one scan-<day>.json each (~25
+   min/day-scan). If dead on resume, relaunch the same loop minus
+   completed days. THEN: classify wallets on the design axes,
+   cross-check the 11 known wallets, write VARIANT-ATLAS.md +
+   dossiers for new finds.
+2. ~~W1 failed-challenger post-mortem~~ **CLOSED session 7 (A26,
+   reclassified)**: 0x95f5's −$542k was a WORLD CUP sports-MM blow-up
+   (fifwc-* −$615k loss ledger); its crypto-updown life was $28k/day
+   dust, near-breakeven. The class has NO known large-loss casualty.
+   Dossier: wallets/95f5-challenger.md; BRIEF §8.2 corrected.
 3. W2 deep parameter extraction on 0xb27bc932 (full history: ladder
    distributions per vol regime, requote cadence, capital curve,
    fee-era boundaries).

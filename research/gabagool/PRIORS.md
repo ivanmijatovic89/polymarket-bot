@@ -563,3 +563,20 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   dossiers are unaffected. Also corroborates P-fact that /trades
   single-counts fills (one row per taker order). [verified]
   (measurements/variant-scan-method.md)
+- **A26 (the "failed challenger" was a World Cup blow-up — A23's read
+  REFUTED):** full daily timeline of `0x95f5…779f` (Jan 07 → Jul 17)
+  + positions-ledger loss attribution: the −$542k/30d was lost
+  market-making 2026 FIFA World Cup books (fifwc-*: −$615k gross
+  losses across 254 positions, worst single market −$136k) at ~$105
+  clips, Jun 24–Jul 17. Its crypto-updown life was dust-scale and
+  near-breakeven throughout: a gabagool-shaped grind (BUY-only, $3.1
+  clips, no merges, btc 5m+15m) Apr 22–Jun 10 at only ~$28k/day
+  notional, total crypto loss-ledger residue −$2.6k, pre-whale
+  all-time PnL ≈ −$5k. The class therefore has NO known large-loss
+  casualty; "losing big is a live outcome of this family" (A23,
+  _META cons. d, BRIEF §8.2) is withdrawn — the observed downside on
+  crypto-updown is slow bleed (HelixEdge −$20k/30d) or margin
+  compression, not blow-up. Blow-up risk demonstrably lives in
+  jump-driven event books, which is evidence FOR the bounded-window
+  continuous-underlying niche. W1 closed as reclassified. [verified]
+  (wallets/95f5-challenger.md, scripts/challenger-timeline.ts)

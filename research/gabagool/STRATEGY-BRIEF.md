@@ -190,10 +190,17 @@ Candidates for the lab:
    (current meta risk; G8 — no sim can price it). Now partially
    quantified (A23/A24): btc-15m's maker pool ($7.3k/day) is
    FRAGMENTED — the biggest earner (`0xb27bc932`, archetype-discipline
-   multi-book grinder) holds only ~3–4% of it; but a $1.48M/day
-   parity-style challenger lost −$542k in 30d, and new entrants start
+   multi-book grinder) holds only ~3–4% of it; new entrants start
    at a taker-fee-tier disadvantage (A16). The pool is contestable;
    the entry risk is execution quality, not an incumbent wall.
+   (CORRECTED by A26: the "−$542k/30d failed challenger" cited here
+   earlier was a World Cup sports-MM blow-up, not a class casualty —
+   its crypto-updown life was dust-scale and near-breakeven. The class
+   has NO known large-loss example on crypto-updown; measured downside
+   is slow bleed — HelixEdge −$20k/30d — or fee-margin compression.
+   Blow-up risk concentrates in jump-driven event books, which is
+   evidence for the bounded-window continuous-underlying niche;
+   wallets/95f5-challenger.md.)
 3. Worst-queue-style adverse selection IS real when quoting without
    parity/flow context: every prior sim family died on the first fill
    (P42/P43/P45). The archetype's counter was flow-feeding parity at
