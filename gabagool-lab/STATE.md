@@ -12,20 +12,22 @@
 
 ## Status digest
 
-- **Session:** 11 (started 2026-07-17T06:24Z. Stamp rule: paste from
+- **Session:** 12 (started 2026-07-17T06:52Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
 - **Ladder rung:** L2 IN PROGRESS — E003 judged (AXIS-CLOSED, u27);
   E004 FROZEN + LAUNCHED (u28), draining
 - **Phase:** E004 draining (launched 06:36Z at freeze SHA 77195ba9;
-  6 flows ax2{h1,h2}×{c990,c970,cfree}, 17,568 jobs, pace ~430/min →
-  ETA ~07:16Z). Watchers: harness task buhv1r5qv (s11, 3h cap, agg
-  baseline 3) + detached nohup pid 20098 →
-  logs/watch-drain-s11-e004.log. Control arm = E003 runs 682/683
-  (NOT resubmitted). E003 verdict: LEDGER §E003 (tighter better;
-  floor = E002 −4.39; SEED=2). EVALUATION v1.1 frozen (TAIL_K 41,
-  G11 cap-floor 0.92/$100, D-007)
+  6 flows ax2{h1,h2}×{c990,c970,cfree}, 17,568 jobs; 9,194 pending
+  at 06:53Z s12, pace ~455/min → ETA ~07:13Z). Watcher: detached
+  nohup pid 20098 → logs/watch-drain-s11-e004.log (s11 harness task
+  died with its session). Control arm = E003 runs 682/683 (NOT
+  resubmitted). E003 verdict: LEDGER §E003 (tighter better; floor =
+  E002 −4.39; SEED=2). EVALUATION v1.1 frozen (TAIL_K 41, G11
+  cap-floor 0.92/$100, D-007). s12 pickup ritual done: KB still tops
+  at A33 (top commits = process/re-rank only), origin/main feeds
+  unchanged (binance only)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 

@@ -950,3 +950,25 @@ Second drain-window build unit, still ax2-blind (watcher shows
 
 Post-commit dry-run verification is the next step in this unit; then
 the queue is: E004 judgment on drain → launch E005 shapes.
+
+## 2026-07-17T06:55Z — session 12, unit 32: pickup ritual; judgment kit pre-loaded; drain ETA ~07:13Z
+
+Fresh session in the relay. Ritual results: DONE absent, tree clean
+on gabagool-lab, KB register still tops at A33 (its two new commits
+are an OPEN-QUESTIONS re-rank and an operator-owned stop-marker note
+— nothing to fold), origin/main feed wiring unchanged (binance
+sub-feed only; price-to-beat and Chainlink still not landed). The s11
+harness watcher died with its session as expected; the detached nohup
+watcher (pid 20098) is alive and logging — 9,194 market jobs pending
+at 06:53Z, ~455/min → drain ETA ~07:13Z.
+
+Pre-loaded the whole E004 judgment procedure while the queue drains:
+re-read LEDGER §E004 frozen criteria (readout fields, H6 0.3%-of-
+turnover spread read, adjacency in the frozen order none < c970 <
+c990 < cfree, verbatim 8-cell advance rule, mechanism split) and
+§E005 (both pre-freeze amendments incl. cap-grid finalization rule),
+verified e004-table.ts arm-wiring syntax (--arm label=h1,h2; control
+is none=682,683) and launch-e005-shapes.sh (--dry-run only, refuses
+queued ax3). Missing inputs are only the 6 ax2 run ids, which exist
+after aggregates persist. Plan: monitor drain → judge E004 (u33) →
+launch E005 shapes (u34) → E005 prep/judgment as time allows.
