@@ -1428,7 +1428,7 @@ profile-less actives bracket the merge-posture axis exactly as A56
 framed it (13e0d447 zero merges, 76d4d470 at 666/2h). Small script
 wart noted: the tracker prints 95f5 twice (cosmetic duplicate).
 
-## 2026-07-17T17:30Z — session 11, unit 4: fee/subsidy terrain per book (A60)
+## 2026-07-17T17:14Z — session 11, unit 4: fee/subsidy terrain per book (A60)
 
 W7 refresh done properly: same UTC day (Jul-16), exact current fee
 curve, every relevant book. Generalized rebate-pool.ts to 5m grids
@@ -1444,3 +1444,21 @@ the top-family cut (A54: 5m launched Dec-18). The scope tension is
 now a number: 8.7× the lab book's subsidy pool sits on the book
 with zero book data (G11), and the strongest living wallet takes
 only ~2% of that pool — nobody is close to saturating it.
+
+## 2026-07-17T17:29Z — session 11, unit 5: A59 revised at n=10 weekend days — contradiction ledger
+
+Extended the weekend sample from 4 to 10 days (three more weekends
+pulled: Jun-20/21, Jun-27/28, Jul-04/05; weekend pool now 858
+markets) and the unit-2 weekend read did not survive its own
+medicine: "overnight/EU negative, nothing robust" was small-sample
+noise from a bad Jul-11/12 weekend. At n=10, weekends are mildly
+positive in every session (+0.27→+0.76%, +0.54% overall, 8/10 days
+positive) and STRUCTURELESS — no US bleed, no evening premium. Two
+things survive intact: the session structure is weekday-only, and
+the favorite-lean is a weekday edge (weekend excessWon ~50%, and
+July weekends 27–37% — a possible drift worth a recheck). Rule
+update folded everywhere: weekends are lean-disabled flat grinding
+or idle, NOT toxic; and the weekday map (3 days) is now the thin
+sample — extending it is queued. Method lesson ledgered: a 4-day
+dow split was exactly the kind of read the charter warns about;
+same-session self-correction is the system working.

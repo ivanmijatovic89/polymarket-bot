@@ -213,13 +213,14 @@ Candidates for the lab:
   session-drift-b27bc932.md). **A59 settles the weekend question at
   month scale (574 markets)**: the whole session map is
   WEEKDAY-only — weekday evening +1.74% (the only cell positive in
-  every vol tercile), weekday US −1.58%; weekends restructure
-  (overnight/EU negative, US +0.59% storm-driven, evening +0.34%,
-  nothing robust across days) and the favorite-lean module
-  collapses there (excessWon 60–76% weekday → 40–51% weekend,
-  20–27% in weekend calm). v1 envelope: WEEKDAY 20–24Z first;
-  weekends idle or lean-disabled
-  (measurements/session-split-vol-b27bc932.md §A59).
+  every vol tercile), weekday US −1.58%. At n=10 weekend days (858
+  mkts) weekends are mildly positive in ALL sessions (+0.27→+0.76%,
+  8/10 days positive) and structureless — no US bleed, no evening
+  premium; the favorite-lean module is dead there (excessWon ~50%,
+  July weekends 27–37%) but pair economics alone carry a flat-mild
+  +0.5%. v1 envelope: WEEKDAY 20–24Z first, weekday US off;
+  weekends lean-disabled grinding or idle
+  (measurements/session-split-vol-b27bc932.md §A59 + revision).
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

@@ -1035,6 +1035,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   excessWon 60–76% weekday vs 40–51% weekend (20–27% in weekend
   calm). Lab: v1 grinder envelope = WEEKDAY 20–24Z; weekends idle
   or lean-disabled; never evaluate the lean module on pooled dow.
+  **REVISED same session at n=10 weekend days (858 mkts)**: the
+  "weekend negative/no-robust-cell" half was small-sample noise —
+  weekends are mildly positive in ALL four sessions (+0.27→+0.76%,
+  total +0.54%, 8/10 days positive) and STRUCTURELESS (no US
+  bleed, no evening premium). What stands: the weekday-only session
+  structure, and the lean's weekend death (excessWon ~50%; July
+  weekends 27–37% — possible drift, recheck). Weekends =
+  lean-disabled grinding at flat-mild EV or idle, not "toxic".
+  Weekday map (n=3 days) is now the thinner sample — extend when
+  cheap.
   [verified] (measurements/session-split-vol-b27bc932.md §A59)
 - **A60 (current-era fee/subsidy terrain per book, same-day exact
   measurement):** Jul-16, 0.070 curve, data-api single-counting

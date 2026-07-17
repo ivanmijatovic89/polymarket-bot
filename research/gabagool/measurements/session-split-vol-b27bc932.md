@@ -198,3 +198,38 @@ winnerShares − outlay, session marginals:
 Producing: `npx tsx research/gabagool/scripts/session-split-vol.ts
 --activity data/activity-b27bc932-{jun10,jun,jul11-12,jul15}.jsonl
 --dow weekday` (and `--dow weekend`).
+
+### A59 REVISION at n=10 weekend days (same session, unit 5)
+
+The 4-day weekend read above ("overnight/EU negative, nothing
+robust") was itself small-sample noise. Three more weekends pulled
+(Jun-20/21, Jun-27/28, Jul-04/05 — 192k/173k/209k rows), weekend
+sample now 858 markets over 10 days:
+
+| session | WEEKEND n=10 %outlay (losers%) | weekday n=3 (unchanged) |
+|---|---|---|
+| overnight 00-05Z | +0.27% (48%) | −0.34% (44%) |
+| eu 06-11Z | +0.45% (50%) | −0.09% (53%) |
+| us 12-19Z | +0.76% (47%) | −1.58% (48%) |
+| evening 20-23Z | +0.61% (42%) | +1.74% (30%) |
+
+- **Weekends are mildly positive EVERYWHERE and structureless**:
+  total +$6,442 on $1.19M (+0.54%), 8/10 days positive (only Jul-12
+  −1.70% and Jun-14 −0.06% negative). No US bleed, no evening
+  premium — the weekday session structure simply does not exist on
+  weekends. What survives from the first read: the structure
+  difference, and the lean's death.
+- **The lean stays dead on weekends, and got worse over July**:
+  excessWon by weekend day — Jun 55–78%, Jul-04→12: 37/36/27/32%.
+  Weekend gross stays positive because pair economics (pairCost p50
+  0.988–0.995) carry it lean-less. Whether the July lean collapse
+  is drift or noise: open; recheck on the next weekend.
+- Revised lab rule: weekday evening remains the best cell (+1.74%)
+  and weekday US the only real bleed. On weekends run the grinder
+  WITHOUT the directional-lean module at flat-mild expectation
+  (+0.5%), or idle — but "weekends are toxic" is NOT supported at
+  n=10.
+- Caveat flip: the WEEKDAY map (3 days) is now the thinner sample;
+  its structure matches A49's month-scale read but A49 pooled dow —
+  extending weekday days is the next cheap robustness step.
+  Log: `data/session-split-dow-x10.log`.

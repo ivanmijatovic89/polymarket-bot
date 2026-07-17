@@ -77,10 +77,14 @@ bottom.
    current-era markets (fresh Jul-11/12 weekend pull): the A49
    session map is WEEKDAY-only. Weekday evening +1.74% (positive in
    all vol terciles) / weekday US −1.58% replicate; weekends
-   restructure (no robust positive cell) and the favorite-lean
-   collapses (excessWon 40–51%, calm cells 20–27%). v1 envelope =
-   weekday 20–24Z; weekends idle or lean-disabled. Residue: n=4
-   weekend days, one era — recheck if the lab's sweep disagrees.
+   restructure and the favorite-lean collapses. **REVISED at n=10
+   weekend days same session**: weekends are mildly positive in all
+   sessions (+0.54% overall, 8/10 days) and structureless; only the
+   lean's weekend death stands (excessWon ~50%, July 27–37%). v1
+   envelope = weekday 20–24Z; weekends lean-disabled or idle.
+   Residue: weekday map is now the n=3 thin sample — extend with
+   2–3 more weekdays; watch whether the July weekend lean collapse
+   (37/36/27/32% by day) is drift or noise.
 
 ## Prior ranking (session 7) with resolutions
 
