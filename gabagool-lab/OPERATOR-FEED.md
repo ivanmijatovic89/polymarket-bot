@@ -291,3 +291,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new on results — still waiting on 3 of 8 runs (ETA ~12:36Z).
 - Next: verify last 3 runs, build the 8-run table, judge E006 by the frozen criteria.
 - Health: on track
+
+## 2026-07-17T12:12Z — unit 49
+- Did: session 14 pickup; re-armed the auto-watcher for the last 3 quote-stability runs (the old one died with session 13).
+- Found: nothing new — 5 of 8 runs landed and verified, drain on pace for ~12:30Z.
+- Next: when all 8 land, verify and judge the experiment against its frozen criteria.
+- Health: on track

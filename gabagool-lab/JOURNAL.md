@@ -1443,3 +1443,23 @@ Design itself (suppression rule, threshold grid) stays unwritten
 until proposal time per the experiment lifecycle — this unit only
 established that the machinery is a small, known change. Drain at
 12:08Z: ~4.3k jobs, ~153/min.
+
+## 2026-07-17T12:11Z — session 14, unit 49: pickup + waiter re-established for the last 3 E006 flows
+
+Session 13 ended at u48 (12:08Z); this session started 12:09Z —
+two minutes of gap, nothing lost. Ritual: DONE absent, tree clean
+at fc2ed1c, KB unchanged since A33 (top commit is the operator
+process note s13 already saw), origin/main gained only a docs
+commit (operator-feed runbook note), my worker (mc=4) + the
+operator's aggregate worker + the nohup drain watcher all alive.
+Drain at 12:09:50Z: 4,007 market jobs, ~190/min → ETA ~12:30Z.
+
+s13's LS-10 waiter was a session-scoped background shell and died
+with the session — re-established here as id bpv5csxwx. One
+sharpening while rebuilding it: the 3 remaining flows (ax5h1-q05,
+ax5h1-q45, ax5h2-q45) have NO backtest_runs rows yet — the
+aggregate job creates the row when its market children finish, so
+run ids are unknowable pre-landing. The waiter therefore counts
+terminal ax5 rows (need 8) instead of polling named ids. On fire:
+uids + validators on the 3 new rows, then the full 5-arm × 2-half
+table, then judgment per frozen §E006 criteria only.

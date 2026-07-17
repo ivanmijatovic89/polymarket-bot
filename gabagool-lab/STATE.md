@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 13 (started 2026-07-17T11:56Z. Stamp rule: paste from
+- **Session:** 14 (started 2026-07-17T12:09Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
@@ -30,8 +30,11 @@
   −2.25, q20h1 −2.25 vs ref h1 −2.29); taker share collapses as
   designed (37%→5–11%) but EL does not recover → prediction
   (EL→lat0 econ) in trouble; loss morphs into stale-quote adverse
-  selection. LS-10 waiter: background bash id baqvcnq6o polls the
-  3 remaining flows for terminal state, 90-min timeout.
+  selection. LS-10 waiter: s13's died with its session; s14
+  relaunched as background bash id bpv5csxwx (polls runs.ts for 8
+  terminal ax5 rows, 90-min timeout). NOTE: the last 3 flows have
+  NO backtest_runs rows until their aggregate fires — run ids are
+  unknowable pre-landing; waiter counts terminal ax5 rows.
   Drain watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.
   Ref delta 0.02 = runs 708/703 (reused). Battery verdict (§E005 u42): depth advantage
   latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
@@ -41,10 +44,10 @@
   E005: both sub-axes passed advance rules; best cell rc+c960
   −2.2884/−2.0229 (LS-9; E005b seeded). E004: H6 survives; cfree
   via removal; D-008; LS-7/8. EVALUATION v1.1 frozen. LS-10 (bare
-  --extend footgun + terminal-state waiters). s13 ritual done
-  (11:56Z): KB@A33 no-new (its top commit = operator process note),
-  feeds still binance-only (wireBacktestExternalFeeds.ts:91 "no
-  backtest source yet"), DONE absent, tree clean
+  --extend footgun + terminal-state waiters). s14 ritual done
+  (12:11Z): KB@A33 no-new (top commit e4157b8 = operator process
+  note, already seen s13), origin/main +e988131 docs-only, DONE
+  absent, tree clean, worker + drain watcher alive
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
