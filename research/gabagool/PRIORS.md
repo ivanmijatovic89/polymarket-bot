@@ -978,3 +978,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   13e0d447/76d4d470 have NO profile at all (API-only) — rotations
   into profile-less wallets are invisible; links are a lower bound.
   [verified] (measurements/lineage-sweep.md)
+- **A56 (b27bc932's Jul-01 merge-ON is operator-specific, not a
+  venue event):** MERGE/day Jun-25→Jul-05 across ten actives: seven
+  never merge, bonereaper 1–7/day throughout, 76d4d470 continuous
+  at scale — no coordinated change at Jul-01, so A27's second
+  toggle is a capital-management decision. Recorded unexplained:
+  13e0d447 STOPPED merging the same day (~200/day Jun-29/30 →
+  ≤1/few-days from Jul-02) — opposite-direction flips within ~24h
+  argue against a common venue cause. Merge posture is a
+  per-operator style axis (never / dribble / block-recycle /
+  continuous), confirming the BRIEF's hot-swappable-module read.
+  [verified] (data in wallets/b27bc932.md A56 bullet; one-off API
+  counts, no script)

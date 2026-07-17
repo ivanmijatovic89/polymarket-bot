@@ -1303,3 +1303,19 @@ Added a --prefix filter to fee-curve-probe.ts and probed btc-15m
 0.07·p(1−p) taker curve is uniform across symbols and timeframes —
 one constant serves all books, era-matching (A52) is the only
 dimension that matters.
+
+## 2026-07-17T16:28Z — session 10, unit 8: the Jul-01 merge toggle is operator-only (A56)
+
+Tested the last unexplained b27bc932 toggle (merge module ON
+Jul-01T07:53Z) against the rest of the field: MERGE counts per day,
+Jun-25→Jul-05, ten active wallets. Seven never merge at all,
+bonereaper dribbles a handful daily, 76d4d470 merges continuously at
+scale — nobody else changed anything at Jul-01, so the toggle is an
+operator capital-management decision, not a venue event. One
+genuinely odd datum recorded unexplained: 13e0d447 — the maker-pure
+newcomer — STOPPED merging the very same day (about 200/day on Jun
+29-30 collapsing to one every few days from Jul-02). Two wallets
+flipping the same module in opposite directions within 24 hours
+argues against any common venue cause. Merge posture lands as a
+per-operator style axis: never / dribble / block-recycle /
+continuous.

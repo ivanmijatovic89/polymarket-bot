@@ -436,3 +436,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: yes — same exact rate everywhere; only the ERA of a measurement matters for fee math, never the book.
 - Next: evening snapshot of the live bots (~20-21 UTC).
 - Health: on track
+
+## 2026-07-17T16:28Z — unit 8 (session 10)
+- Did: checked whether the top bot's July 1 switch to merging positions matched any venue-wide change.
+- Found: no — nobody else changed that day (oddly, one other bot STOPPED merging the same day). It's a per-operator bookkeeping choice, not a rule change; our strategy can treat merging as a free design knob.
+- Next: evening snapshot of the live bots (~20-21 UTC).
+- Health: on track

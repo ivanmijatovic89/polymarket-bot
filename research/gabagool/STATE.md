@@ -149,16 +149,22 @@ Unit 7 (16:26Z, small): fee-curve uniformity — current 0.070 curve
 identical on btc-15m (lab scope) and eth-5m (both 0.0700 exact;
 fee-curve-history.md addendum; fee-curve-probe.ts gained --prefix).
 
-Queue after unit 7: (1) W3 evening snapshot ~20–21Z (club
+Unit 8 (16:28Z, small): Jul-01 merge-ON is operator-specific — A56
+(10-wallet MERGE/day scan Jun-25→Jul-05: 7 never merge, no
+coordinated change; 13e0d447 STOPPED same day, opposite direction —
+recorded unexplained). Merge posture = per-operator style axis.
+
+Queue after unit 8: (1) W3 evening snapshot ~20–21Z (club
 re-formation test — A49's evening-positive live check; morning
 snapshot tomorrow settles OQ #5 residue; if any tracked active has
 gone dark, rerun lineage-sweep.ts around its exit). (2) Queue
-otherwise CLEAN — mine SATURATION.md residue ledger +
-OPEN-QUESTIONS resolved-item residues for new measurable questions
-(prefer measurement units). Candidates: b27bc932 merge-ON Jul-01
-venue-event check (still unexplained after A51/A52); 04b6d7e9
-overnight-stretch repeat (A34 residue); W7 terrain refresh with
-era-matched fee constants (A52).
+otherwise CLEAN — remaining measurable candidates: 04b6d7e9
+overnight-stretch repeat (A34 residue, needs telonex books); W7
+terrain refresh with era-matched fee constants (A52); 13e0d447
+dossier (maker-pure cold-start winner, profile-less — atlas §4
+candidate, now also the merge-stop oddity). Session 10 ran units
+1–8 (A51–A56, snapshot 7/O10); all were API/receipt measurements —
+no engine runs, no src/ touches.
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 
