@@ -59,3 +59,29 @@ rows are the HOURLY series (different slug scheme, caught by the
 | badfallen | 1223 | $17935 | 1 | 0.896 | 1.0134 | $8.81 | 0 | 24 | btc-5m $17.9k |
 | b27bc932 | 1831 | $9987 | 1 | 0.984 | 0.9952 | $2.99 | 89 | 8 | btc-15m $8.9k, bitcoin-up-or-down-july-16-2026-10pm-et $0.5k, bitcoin-up-or-down-july-16-2026-11pm-et $0.5k |
 | 95f5-challenger | 270 | $937 | 1 | 0.049 | 1.0296 | $1.87 | 0 | 12 | btc-5m $0.7k, btc-15m $0.1k, eth-5m $0.1k |
+
+### 2026-07-17T05:45Z (last 2h; window overlaps snapshot 1 ~50%)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 2832 | $38893 | 1 | 0.726 | 0.9908 | $1.65 | 0 | 92 | btc-15m $10.6k, btc-5m $10.1k, bitcoin-up-or-down-july-16-2026-11pm-et $4k |
+| 0xce25 | 1980 | $18037 | 1 | 0.825 | 0.9936 | $3.66 | 0 | 84 | btc-5m $7.1k, btc-15m $5.1k, eth-5m $1.7k |
+| powerwinner | 581 | $47633 | 1 | 0.937 | 1.03 | $83.65 | 0 | 25 | btc-5m $47.6k |
+| bonereaper | 2005 | $29449 | 1 | 0.401 | 1.0368 | $5.28 | 0 | 66 | btc-5m $15.6k, eth-5m $4.6k, bitcoin-up-or-down-july-16-2026-11pm-et $2.6k |
+| 0xaaaaa | 563 | $39333 | 1 | 0.706 | 1.1397 | $72.83 | 0 | 23 | btc-5m $39.3k |
+| doggystyie | 757 | $22705 | 1 | 0.986 | 1.016 | $25.28 | 0 | 24 | btc-5m $22.7k |
+| badfallen | 1219 | $17150 | 1 | 0.905 | 1.0063 | $8.24 | 0 | 23 | btc-5m $17.2k |
+| b27bc932 | 1771 | $9579 | 1 | 0.985 | 0.9958 | $2.5 | 87 | 8 | btc-15m $8.3k, bitcoin-up-or-down-july-16-2026-11pm-et $0.5k, bitcoin-up-or-down-july-17-2026-12am-et $0.4k |
+| 95f5-challenger | 296 | $1067 | 1 | 0.043 | 1.0296 | $1.9 | 0 | 16 | btc-5m $0.8k, eth-5m $0.2k, btc-15m $0.1k |
+
+- **O5 (05:45Z):** hour-over-hour STABILITY — all 9 wallets hold rank,
+  pair costs move ≤0.018, clip regimes unchanged, book mixes
+  unchanged, b27bc932's merge cadence steady (87 vs 89 per 2h). The
+  equilibrium does not visibly shift on a ~1.5h scale; day-scale
+  snapshots will carry the information. (Caveat: 2h windows taken
+  1.5h apart overlap ~50%, which mechanically dampens deltas.)
+- Method note: the snapshot JSON filename floors to an even 2h bucket,
+  so snapshot 2 OVERWROTE snapshot 1's raw JSON
+  (shadow-2026-07-17T04Z.json). Tables here are the durable record;
+  future snapshots should pass a distinct --out or rename the JSON
+  after the run.

@@ -37,6 +37,7 @@ const WALLETS: Array<{ label: string; address: string }> = [
   { label: 'doggystyie', address: '0x0484e64092ba4108c2786b61e6fc052d3bf41b1a' },
   { label: 'badfallen', address: '0x3048d65321be3497164cdfc2996f94f98a2e7537' },
   { label: 'b27bc932', address: '0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82' },
+  { label: '95f5-challenger', address: '0x95f51617e900f7d4df2894d77a73c1b2b269779f' },
 ]
 
 async function getJson(url: string): Promise<any> {
