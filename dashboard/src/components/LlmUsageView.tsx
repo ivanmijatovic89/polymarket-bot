@@ -174,8 +174,7 @@ export function LlmUsageView() {
         </button>
         {dataUpdatedAt > 0 && (
           <span>
-            updated{' '}
-            {new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hourCycle: 'h23' })}
+            updated {new Date(dataUpdatedAt).toLocaleTimeString(undefined, { hourCycle: 'h23' })}
           </span>
         )}
         {dataUpdatedAt > 0 && intervalSec > 0 && (
@@ -189,6 +188,9 @@ export function LlmUsageView() {
         <span className="ml-auto flex items-center gap-1.5">
           auto-refresh
           <select
+            // Some mobile browsers inject `__gcruniqueid` into select controls
+            // before React hydrates. The attribute is browser-owned and harmless.
+            suppressHydrationWarning
             value={showCustom ? -1 : intervalSec}
             onChange={(e) => {
               const v = Number(e.target.value)
@@ -224,7 +226,10 @@ export function LlmUsageView() {
         </span>
       </div>
       {error && (
-        <div className="rounded-lg border bg-card p-4 text-xs" style={{ color: 'var(--destructive)' }}>
+        <div
+          className="rounded-lg border bg-card p-4 text-xs"
+          style={{ color: 'var(--destructive)' }}
+        >
           {String(error)}
         </div>
       )}

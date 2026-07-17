@@ -36,7 +36,7 @@ type Tone = 'active' | 'idle' | 'warning'
  * carries the state: green (workers processing), amber (work outstanding but no
  * live workers to pick it up), muted (idle). Links to the Overview page.
  */
-export function LiveStatusBadge() {
+export function LiveStatusBadge({ className }: { className?: string }) {
   const { data: workers } = useQuery({
     queryKey: ['workers', 'nav-badge'],
     queryFn: fetchWorkers,
@@ -57,8 +57,7 @@ export function LiveStatusBadge() {
   const outstanding = Math.max(0, total - done)
   const pct = total > 0 ? Math.round((done / total) * 100) : 0
 
-  const tone: Tone =
-    outstanding > 0 ? (aliveCount > 0 ? 'active' : 'warning') : 'idle'
+  const tone: Tone = outstanding > 0 ? (aliveCount > 0 ? 'active' : 'warning') : 'idle'
 
   const dotClass = cn(
     'h-2 w-2 rounded-full',
@@ -83,6 +82,7 @@ export function LiveStatusBadge() {
         tone === 'warning'
           ? 'border-amber-500/40 text-amber-500 hover:bg-amber-500/10'
           : 'text-muted-foreground hover:text-foreground hover:bg-accent',
+        className,
       )}
     >
       <span className="flex items-center gap-1 tabular-nums">
