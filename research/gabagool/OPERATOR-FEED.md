@@ -102,3 +102,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it did NOT lose $542k running our strategy — it lost it market-making World Cup soccer markets in 3 weeks. Its crypto up/down trading was always tiny and roughly breakeven. Nobody is known to have blown up running this strategy class on crypto.
 - Next: the 8-month wallet-discovery scan is running again in the background; classify its output into the variant atlas when it lands.
 - Health: on track.
+
+## 2026-07-17T05:12Z — unit: dated the top wallet's behavior change to the second (session 7)
+
+- Did: pinned down exactly when today's strongest wallet started merging pairs for instant cash instead of waiting for markets to resolve.
+- Found: July 1 at 07:53 UTC, switched on like a light — a code deployment. It now frees its money mid-window in ~$50-110 blocks while still trading the same way. Lesson: the cash-out method is a swappable module, worth a parameter in our build.
+- Next: background wallet-discovery scan continues; then a fresh 2-hour snapshot of the live players.
+- Health: on track.

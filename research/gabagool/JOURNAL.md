@@ -584,3 +584,27 @@ observed blow-up happened when the same infrastructure moved to
 jump-driven event books — indirect evidence FOR the bounded-window
 continuous-underlying niche. W1 closed; queue advances (W0 atlas
 classification once the era scans land; W3 snapshot 2 due ~06:30Z).
+
+## 2026-07-17T05:10Z — session 7, unit 2: b27bc932's exit-style flip dated (A27)
+
+Chased the live-shadow O2 contradiction (89 merges/2h vs zero in the
+June pull). /activity supports a type=MERGE filter, so this was cheap:
+zero merges every day through Jun 30, 500+/day from Jul 1. First MERGE
+ever at 2026-07-01T07:53:10Z with steady-state cadence within seven
+minutes — someone deployed code, no ramp. REDEEMs continue at the old
+rate, so merging was layered on top as capital recycling; merge blocks
+are p50 $50–110 (50–110 pairs) against $3 trade clips; daily notional
+shows no step-change around the flip. A web check found only the
+July-2026 SPORTS fee revision (0.03→0.05, sports rebate 25%→15%) —
+nothing crypto-side on Jul 1, so the trigger reads as internal
+optimization, not a venue response.
+
+Class takeaway ledgered in A27: exit style is a tunable efficiency
+layer independent of the entry engine — the strongest living variant
+hot-swapped it mid-flight. Family seeds should expose merge-vs-hold as
+a parameter and bankroll math shouldn't assume capital locks to
+resolution. One process note: unit 2 initially queried a WRONG
+expansion of the short address (0xb27bc932…5b82 mis-expanded) and got
+empty results — caught because empty-at-all is implausible; full
+addresses now recorded in STATE. Era scan still running (mid-2026 days
+are ~3× the log volume of Dec-2025 days).

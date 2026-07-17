@@ -580,3 +580,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   jump-driven event books, which is evidence FOR the bounded-window
   continuous-underlying niche. W1 closed as reclassified. [verified]
   (wallets/95f5-challenger.md, scripts/challenger-timeline.ts)
+- **A27 (b27bc932 exit-style flip dated — A24's "zero merges" is
+  era-bound):** per-day /activity?type=MERGE scan: zero merges every
+  day ≤2026-06-30; first MERGE ever 2026-07-01T07:53:10Z, steady-state
+  cadence (~200/h, ~4.5–4.8k/day) within minutes — a binary
+  deployment. REDEEMs continue unchanged (merge ADDED as a
+  capital-recycling layer); merge sizes p50 $50–110 (50–110 pairs per
+  block) vs $3 clips; no volume step-change around the flip. Class
+  implication: exit style (merge vs hold) is a tunable efficiency
+  layer independent of entry policy — expose as a family parameter;
+  capital is NOT locked to resolution. Trigger unknown (July-2026
+  venue fee revision touched sports only, per secondary sources —
+  [reported]). [verified] (wallets/b27bc932.md §exit-style,
+  data/b27bc932-timeline-jun20-jul17.json)
