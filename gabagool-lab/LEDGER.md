@@ -687,7 +687,80 @@ Template:
   failed aggregate jobs are the known stale foreign imbalance-hold
   duplicates. Drain watcher: nohup pid 87197 →
   logs/watch-drain-s12-e005-shapes.log.)
-- **Runs (cap sub-axis) / Judgment / Lesson:** (pending)
+- **SHAPE SUB-JUDGMENT (2026-07-17T08:18Z, session 12, unit 36):
+  ADVANCE RULE BOTH HOLD — the first passing axis in the lab. Depth
+  is the strongest lever measured to date: the deep 2-rung arms beat
+  the reference by +1.75/+1.86 $/mkt, DISTINCT in both halves, on
+  HALF the outlay, with pairs bought at S ≈ 0.94 (below the
+  incumbent 0.95–0.976 region). Winner: rc = [0.02, 0.13] (best EL
+  in both halves; rb statistically tied — point-estimate choice per
+  the frozen "caps on the best rung shape" rule). The A17 4-rung
+  package (rd) buys nothing at 2× resting size.**
+  - **Identity:** runs 697–702 submission uids match the frozen
+    launch uids to the digit (DB query u36); ra = reused 682/683.
+    All 6 new runs 0-failed.
+  - **Validators green ×6:** settlement recheck OK all markets;
+    fee-recon VALID (|recon−db| 0.10–0.36 vs tol ≥ 57.60), meta
+    coverage 100%; segments cross-check OK (max drift 0.0022). Axis
+    gates: G2 PASS (played 97.2–99.5% everywhere), G9 PASS, G3 n/a.
+  - **Table (e005-table.ts, EL $/mkt era-corrected, both halves):**
+    | arm | h1 EL±se | h2 EL±se | played% | taker% | pairRate | imb p50 | outlay | CVaR5 | S(pair) |
+    |-----|----------|----------|---------|--------|----------|---------|--------|-------|---------|
+    | ra [0.01,0.03] (682/683) | −4.5656±0.1487 | −4.2209±0.1371 | 99.5 | 33.9/34.0 | 0.657/0.632 | 0.175/0.199 | 56.82/52.49 | −21.46/−19.75 | 0.9767/0.9696 |
+    | rb [0.02,0.06] (702/697) | −2.8167±0.1631 | −2.4749±0.1466 | 97.8/97.2 | 37.8/36.8 | 0.571/0.552 | 0.273/0.306 | 36.84/32.74 | −21.50/−19.13 | 0.9437/0.9385 |
+    | rc [0.02,0.13] (698/699) | **−2.7093±0.1368** | **−2.3622±0.1247** | 97.8/97.2 | 37.4/36.5 | 0.576/0.558 | 0.270/0.273 | 35.14/31.13 | **−16.70/−15.30** | **0.9427/0.9374** |
+    | rd [0.01,0.02,0.05,0.13] (700/701) | −4.9728±0.1722 | −4.5001±0.1611 | 99.5 | 33.6/33.5 | 0.651/0.630 | 0.180/0.199 | 59.97/54.82 | −26.92/−23.28 | 0.9802/0.9752 |
+    (imb p90 = 1.000 in every arm/half — the fully-one-sided tail
+    market survives depth; fills m/t: ra 37,767/19,385 + 36,344/18,759;
+    rb 23,468/14,261 + 21,904/12,729; rc 22,611/13,480 + 20,940/12,018;
+    rd 39,848/20,138 + 38,013/19,115.)
+  - **Adjacency (pure-depth chain, criterion 3):** ra↔rb DISTINCT
+    both halves (|ΔEL| 1.7489/1.7459 vs 2·se_diff 0.4415/0.4014);
+    rb↔rc indistinguishable both halves (0.1074/0.1128 vs
+    0.4259/0.3848; same sign both); endpoints ra↔rc DISTINCT both
+    (1.8563/1.8587 vs 0.4042/0.3706). Package: rd↔ra
+    indistinguishable both halves (0.4072/0.2792 vs 0.4550/0.4230,
+    point estimates negative both).
+  - **Advance rule (criterion 4, as E003): (a) endpoint depth
+    direction + in both halves — HOLDS (adjacent signs +,+ in both);
+    (b) top-2 by EL = {rb, rc} in both halves — HOLDS. BOTH HOLD →
+    the winning shape advances to the cap sub-axis.** Winner = rc
+    (best EL both halves; rb tied within noise — the choice between
+    them is point-estimate, stated per max-of-N honesty; sel-width
+    of the rc reading is 4).
+  - **Which comparison was read (LS-6 obligation):** the pure-depth
+    conclusion comes from the 2-rung chain only (ra→rb→rc, same
+    12 sh/side/cycle). rd is the A17 archetype PACKAGE (24
+    sh/side/cycle, 4 rungs incl. shallow) and was read ONLY against
+    ra: adding back shallow rungs at 2× resting size cancels the
+    depth benefit (its S 0.9802/0.9752 ≈ ra's, its fills and outlay
+    are the LARGEST of all arms — it behaves like a bigger ra, not
+    like a deeper ladder). The archetype's own shape is not the way
+    in; its documented edge must come from elsewhere (fee tier,
+    completion behavior, or timing — consistent with A32).
+  - **Mechanism readout:** depth works exactly as LS-2 predicted in
+    reverse: fewer, better fills — maker fills drop ~40%, outlay
+    drops ~40% (56.82→35.14), yet EL improves +1.86 because (i)
+    pairs complete at S ≈ 0.9427/0.9374 (locked ~6c/pair discount,
+    vs ~2.5c at ra) — BELOW the incumbent 0.95–0.976 profitable
+    region; (ii) the shed fills were the adverse ones (CVaR5
+    improves 22–25% at rc while pairRate FALLS to 0.576/0.558 and
+    imb p50 RISES to 0.270/0.273 — fewer forced "pairs" via churn,
+    more honest one-sided exposure, and still better tails). Taker
+    share rises ~3pp (deep rungs still convert under latency) but
+    on far fewer fills. Participation cost of depth is mild at this
+    grid: played share 97.8/97.2% vs 99.5% (no G2 choke; the LS-6
+    asymmetric-band concern did not bind at 0.13 offsets).
+  - **Best measured cell is now rc: EL −2.71/−2.36 maker-only** —
+    beats E004-cfree (−3.47/−3.35) with no completion machinery.
+    Still negative: the concept pays ~7–8% of outlay per market to
+    trade at this cell. Open interaction (backlog): deep shape ×
+    free completion (E004's lever was measured on the SHALLOW
+    ladder; its Δ may not transfer to a book where S is already
+    0.94 and imbalance is the residual risk).
+  - **Cap sub-axis next per pre-registered rule:** bind table from
+    the rc pair (698/699), grid decision recorded below BEFORE any
+    ax4 submission.
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
