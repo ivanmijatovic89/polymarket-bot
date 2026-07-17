@@ -273,3 +273,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new (tooling unit).
 - Next: judge quote-stability on drain (~11:26Z).
 - Health: on track
+
+## 2026-07-17T12:01Z — unit 46
+- Did: session 13 pickup; 4 of 8 quote-stability runs finished early — verified all four (ids exact, checks green).
+- Found: early numbers look flat-to-worse vs the 0.02 reference (q05 h2 −2.59 vs −2.02) — "quote stability recovers the loss" is in trouble; verdict on the full table.
+- Next: judge the axis when the last 4 runs land (~12:35Z; drain slowed — your tmux markets worker died, my worker carries on).
+- Health: on track

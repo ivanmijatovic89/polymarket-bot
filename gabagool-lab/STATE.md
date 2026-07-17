@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 12 (started 2026-07-17T06:52Z. Stamp rule: paste from
+- **Session:** 13 (started 2026-07-17T11:56Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
@@ -22,9 +22,14 @@
   draining
 - **Phase:** E006 draining (launched 10:34Z at SHA 35a6f5de; 8
   flows ax5{h1,h2}×{q05,q10,q20,q45} on rc+c960 chassis, 23,424
-  jobs; ETA ~11:26Z). Watcher: nohup pid 94585 →
-  logs/watch-drain-s12-e006.log. Ref delta 0.02 = runs 708/703
-  (reused). Battery verdict (§E005 u42): depth advantage
+  jobs). Pace halved ~11:08Z (operator's tmux markets worker gone
+  from ps; mine mc=4 alive) → revised ETA ~12:35Z. 4/8 runs ALREADY
+  terminal + verified s13 u46: 715=q05h2, 716=q10h1, 717=q10h2,
+  718=q20h1 — uids to the digit, 0 failures, validators green.
+  Early peek (no judgment): q05h2 EL −2.59 vs ref −2.02 (worse);
+  q10h1/q20h1 ≈ ref h1 −2.29 (flat). Prediction (EL→lat0 econ) in
+  trouble. Watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.
+  Ref delta 0.02 = runs 708/703 (reused). Battery verdict (§E005 u42): depth advantage
   latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
   at 0.5 fills/mkt → lat140 loss ~100% requote-conversion; LS-1
   hypothesis refuted; u40 blind framework applied → candidate
@@ -32,8 +37,10 @@
   E005: both sub-axes passed advance rules; best cell rc+c960
   −2.2884/−2.0229 (LS-9; E005b seeded). E004: H6 survives; cfree
   via removal; D-008; LS-7/8. EVALUATION v1.1 frozen. LS-10 (bare
-  --extend footgun + terminal-state waiters). s12 ritual done:
-  KB@A33 no-new, feeds unchanged
+  --extend footgun + terminal-state waiters). s13 ritual done
+  (11:56Z): KB@A33 no-new (its top commit = operator process note),
+  feeds still binance-only (wireBacktestExternalFeeds.ts:91 "no
+  backtest source yet"), DONE absent, tree clean
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -90,12 +97,12 @@
 
 ## Queue (work top to bottom)
 
-1. **E006 judgment when drained (watcher log
-   watch-drain-s12-e006.log says DRAINED; ETA ~11:26Z):** 8 runs
-   (uids in §E006) + ref q02 = 708/703. WAITER RULE (LS-10): poll
-   terminal state (completed OR partial OR failed), branch on
-   partial (windowed --extend re-run per u41 recovery). Verify uids
-   (tmp DB query pattern), validators per run, then
+1. **E006 judgment when drained (revised ETA ~12:35Z):** 4/8 runs
+   verified (see Phase); remaining 4 = ax5h1-q05, ax5h2-q20,
+   ax5h1-q45, ax5h2-q45. WAITER RULE (LS-10): poll terminal state
+   (completed OR partial OR failed), branch on partial (windowed
+   --extend re-run per u41 recovery). Verify remaining uids
+   (`tools/uids.ts <ids>`), validators per run, then
    `e005-table.ts --arm q02=708,703 --arm q05=… q10=… q20=… q45=…`
    (verified blind u45). Judge per frozen §E006 criteria: chain
    adjacency, advance rule (endpoint direction + top-2-of-5 set

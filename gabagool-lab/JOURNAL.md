@@ -1361,3 +1361,41 @@ in). Blind verification: q02=708,703 reproduces the c960 rows to
 the digit; wrong-cap (698 as q02), wrong-delta (708 as q05), and
 mixed-family wiring all abort; shape and cap modes regress clean.
 Judgment on drain is again fill-in-the-ids.
+
+## 2026-07-17T12:01Z — session 13, unit 46: pickup + early verification of the 4 landed E006 runs; drain slowed, ETA revised ~12:35Z
+
+Session 13 pickup at 11:56Z. Ritual: DONE absent, tree clean at
+3b95fdf, KB unchanged since my A33 fold (its new top commit is an
+operator process note — stop markers are operator-owned; nothing to
+fold), feeds still binance-only (wireBacktestExternalFeeds.ts:91
+says rtds/priceToBeat have "no backtest source yet" — checked
+origin/main after fetch), telonex coverage unchanged.
+
+E006 drain is behind the u44 ETA: the watcher log has a 42-minute
+flat stretch (11:08→11:50, ~170 jobs) and the pace since is
+~170/min, half the launch-time ~450/min. Cause visible in ps: the
+operator's tmux markets worker (concurrency 5) is no longer
+running; only my nohup worker (markets+aggregate, mc=4) and the
+operator's aggregate-only worker survive. Not mine to restart —
+noted and continued. Revised ETA ~12:35Z.
+
+Meanwhile 4 of the 8 flows are already terminal and I verified
+them now rather than sitting blind (LS-10 spirit): 715=ax5h2-q05,
+716=ax5h1-q10, 717=ax5h2-q10, 718=ax5h1-q20 — submission uids
+match the frozen LEDGER uuids to the digit, market counts right
+(2976/2880), 0 failures, validators green on all four (settlement
+OK, fee-recon VALID, meta 100%, segments OK). The uid check is now
+a permanent tool (tools/uids.ts) instead of a per-judgment tmp
+script.
+
+Early peek, stated honestly and NOT a judgment: q05 h2 EL −2.5887
+vs ref −2.0229 (WORSE by 0.57); q10 h1 −2.2527 vs ref h1 −2.2884
+(flat, hair better); q10 h2 −2.3324 vs −2.0229 (worse); q20 h1
+−2.2460 (flat). Taker fill share collapsed as designed (715: 11%
+of fills vs ref 37%) — so conversions ARE being removed, but the
+money is not coming back; the loss appears to morph into
+stale-quote adverse selection. The frozen prediction (EL climbs
+toward lat0 economics ≈ −0.1) is in trouble. Judgment only on the
+complete 8-run table per the frozen §E006 criteria. Next: waiter
+on the remaining 4 (terminal-state poll, 90-min hard timeout),
+then fill-in-the-ids.
