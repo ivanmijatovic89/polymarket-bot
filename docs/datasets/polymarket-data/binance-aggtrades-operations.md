@@ -61,7 +61,8 @@ market automatically.
 | `contain no trades up to` (backtest, per market) | day file empty/corrupt up to the window end — or the pair wasn't listed yet | re-download with `--force`; if the pair is newly listed, the data is correct and those markets can't use the feed |
 | `no <PAIR> trades inside [...] replays on the single pre-window price` (warn) | quiet gap longer than the lookback, or a truncated day file | check the named parquet with `verify:parquet`; for liquid pairs treat as suspicious |
 | `dump not found ... past the ~1-day publication lag` | mistyped pair, or a genuine Binance-side gap | fix the pair; a real gap doesn't block other days (run still exits 1 so it stays visible) |
-| `not published yet (~1-day lag) — skipped` (warn) | yesterday's dump not out yet | nothing — the next `--sync` retries |
+| `zip published but .CHECKSUM not found (integrity unverifiable)` | the zip EXISTS but its checksum 404s — normal for minutes during Binance's publication window | nothing at first (next `--sync` retries). If it persists past the lag, the day is **NOT** a data gap — the zip is there, only integrity verification is impossible; check the `.CHECKSUM` URL manually before writing the day off |
+| `(~1-day publication lag) — skipped` (warn) | yesterday's artifacts not fully out yet (the zip, or its checksum — the message says which) | nothing — the next `--sync` retries |
 | `no day files under r2://...` (exit 2) | wrong `R2_BUCKET`/pair, or producer never uploaded | fix env / run the producer upload |
 | `size drift ... re-uploading` / `re-downloading` (warn) | regenerated file propagating | expected after a converter fix; investigate if it appears without one |
 | `size mismatch ... downloaded N bytes, expected M` | truncated R2 stream | auto-retried (3×); if persistent, check connectivity/R2 status |
@@ -72,6 +73,19 @@ Binance publishes daily dumps with a ~1-day lag, so markets **younger than
 about a day cannot be backtested with the feed** — they hard-error on the
 missing day file until the dump lands and the crons pick it up. This is by
 design (no silent feed-less replay); plan research batches accordingly.
+Markets ending exactly at UTC midnight (the day's 23:45 window) are covered
+by the **same day's** dump — the coverage window is exclusive at day
+boundaries, so they do not wait an extra day for the next dump.
+
+## Recorder notes (ground-truth recordings)
+
+- A recorder restarted within the same UTC hour parks the new segment as
+  `...T<hh>-part2.parquet` (`-part3`, …) instead of overwriting the previous
+  session's file — `-partN` files after a restart are normal, and
+  `binance:verify-aggtrades` picks them up automatically.
+- `--hours` accepts `0 < hours ≤ 596` (Node's 32-bit timer limit); omit the
+  flag to record indefinitely. Invalid values fail at parse time instead of
+  being silently ignored.
 
 ## Env quick reference
 

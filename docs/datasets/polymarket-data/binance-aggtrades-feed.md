@@ -34,11 +34,14 @@ recorded mode derives the window from the file slug) and every timeframe
   live). `runSingleMarket` fulfills that plugin with an as-of provider before
   replay starts (`src/backtest/feeds/wireBacktestExternalFeeds.ts`).
 - Per market, the provider loads the aggTrade prices covering
-  `[windowStart − lookback, windowEnd]`
+  `[windowStart − lookback, windowEnd + 2 s]`
   (`src/backtest/feeds/binanceAggTradesSource.ts`, DuckDB over the day
   parquet) and answers each tick with the latest trade whose
   `T + latencyOffset ≤ tick ts_local_ms`
-  (`src/backtest/feeds/backtestExternalFeedsProvider.ts`).
+  (`src/backtest/feeds/backtestExternalFeedsProvider.ts`). The 2 s tail
+  (`SERIES_TAIL_MS`) exists because the local-clock visibility can
+  legitimately run past the exchange-stamped window end by the delivery leg;
+  it widens the SQL range only, never the required day-file set.
 - **The visibility clock is the recorded local receive time (`ts_local_ms`),
   not the exchange timestamp.** Live, feed freshness is bounded by the bot's
   wall clock at tick processing time — and the latency offset was measured
