@@ -379,3 +379,47 @@ Drain rate recovered to ~7.7 jobs/s (2,311 jobs in 301s) — market
 queue empties ~05:10Z, aggregates a few minutes after. Judgment lands
 this session. Next: watch-drain → full E002 judgment → TAIL_K
 calibration → EVALUATION v1.1 freeze → E003 launch.
+
+## 2026-07-17T05:35Z — session 3, unit 14: E002 judged (L1 reference set), EVALUATION v1.1 frozen
+
+All four fullwin arms landed (675/678/676/677 = lat0/140/500/1000;
+5,856 markets each, 0 failures, validators green across the board).
+The E002 judgment is in the LEDGER with the full battery table; the
+short version:
+
+- EL: −0.42 (lat0) → −4.39 (lat140) → −5.03 (500) → −5.30 (1000).
+  All 36 arm-weeks negative. Steady bleed, no regime story.
+- The 0→140ms jump is 10× the 140→1000 jump. Latency doesn't degrade
+  this design, it REPLACES it: fills go 13.5k → 112k, and 34–55% of
+  them are taker conversions from the requote stream. The frozen
+  "maker-only confirmed: taker fills = 0" criterion FAILED on every
+  latency arm — recorded verbatim as the central mechanism finding,
+  not excused. Quote-stability is now a first-class design axis.
+- Pairing at lat0 is 0.291 with median imbalance 1.00 — shallow rungs
+  don't pair; the 0.64–0.69 pairRate under latency is churn buying
+  both sides at bad prices. Genuine pair-discount capture must be
+  engineered at depth (A30/A33's 0.95–0.976 region), exactly what
+  E003/E005 probe.
+- Verdict: AXIS-CLOSED, region dead at all latencies. LEADERBOARD
+  opens its dead-regions section with it. The reference to beat:
+  EL(140) = −4.39, frictionless bound −0.42.
+
+EVALUATION v1.1 discharged §7 exactly as pre-registered (form fixed
+s2-u8 before numbers existed): floor $0.50/market → TAIL_K = 41,
+capital floor EL/$100 ≥ 0.92 (new G11). F=$0.50 is anchored on the
+best observed live parity wallet (A30: ≈0.8–0.9% all-in of turnover ≈
+$0.45–0.52/market at baseline sizing) — the alternative F=$1.00 would
+have demanded 2× anything ever observed and pre-killed the deep-pair
+region three wallets print in. Full table + rejected options in D-007;
+results.ts gate table now renders v1.1 (G7 TAIL_K clause + G11).
+
+Also folded KB A26/A32/A33 (INHERITANCE A-4): cold-start tier moat
+only taxes taker completion (maker-only cells tier-immune; TRADE_corr
+full-curve assumption validated within 3%); the class has NO large-loss
+casualty (A23 withdrawn — downside is slow bleed, not blow-up); vidarx
+is the third independent deep-pair existence proof. The deep-pair cell
+is now the best-evidenced region in the variant space.
+
+L1 is CLOSED. Next: E003 freeze + launch (10 arms, parity axis,
+halves × lat140 — exact commands frozen in LEDGER §E003 and
+tools/launch-e003.sh).

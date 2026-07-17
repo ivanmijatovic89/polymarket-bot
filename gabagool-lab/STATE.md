@@ -8,64 +8,68 @@
 - **Session:** 3 (started 2026-07-17T04:47Z; s1 ~03:09–04:13Z, s2
   ~04:14–04:47Z. Journal stamps in s1/s2 drifted up to +2h — trust
   `date -u` only; s3 stamps are real)
-- **Ladder rung:** L1 — baseline measurement (L0 complete)
-- **Phase:** E002-baseline: lat0 arm DONE (run 675, preview in LEDGER);
-  lat140/500/1000 draining at ~7.7 jobs/s, market queue empties ~05:10Z
+- **Ladder rung:** L1 COMPLETE (E002 judged, unit 14) → L2 opens with
+  E003 launch
+- **Phase:** E002 judged AXIS-CLOSED; EVALUATION v1.1 frozen (TAIL_K
+  41, G11 cap-floor 0.92/$100, D-007); next = freeze+launch E003
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
-- L0 COMPLETE: INHERITANCE.md (folded through KB **A31**), EPISTEMOLOGY
-  v1 + EVALUATION v1 (frozen), LEDGER (E001 judged; E002 lat0 preview
-  in), tools (submit/results/runs/inspect-meta/queue/agg-inspect/
-  calibrate/watch-drain — DB-tested), E001 smoke green twice
-  (deterministic), E003 code determinism proven (672/673/674).
-- E002 fullwin lat0 (run 675): EL −0.42 (t −8.5), 0/9 weeks positive,
-  pairRate 0.29, imbalance p50=1.0 — frictionless baseline loses and
-  barely pairs; validators all green at 5,856-market scale.
-- KB A30 seed (new): deep-pair region pairCostCap ~0.96–0.98 is where
-  the only trading-profitable parity wallet lives → backlog E005 cell.
+- L0 COMPLETE (session 1): INHERITANCE (folded through KB **A33**),
+  EPISTEMOLOGY v1, EVALUATION **v1.1** (frozen; v1.1 = TAIL_K 41 +
+  G11 per D-007), LEDGER (E001+E002 judged), tools (submit/results/
+  runs/inspect-meta/queue/agg-inspect/calibrate/watch-drain +
+  launch-e003.sh — DB-tested), E001 smoke green twice.
+- **L1 COMPLETE (unit 14): E002 fullwin battery, runs 675/678/676/677
+  (lat0/140/500/1000), 5,856 mkts each, 0 failed, validators green.
+  EL −0.42/−4.39/−5.03/−5.30; 0/36 arm-weeks positive; taker
+  conversions 0/34%/48%/55% of fills; pairRate 0.291 at lat0 with
+  imbalance p50=1.00. Verdict AXIS-CLOSED (shallow-requote region
+  dead). Reference to beat: EL(140) −4.39, frictionless bound −0.42.
+  Central mechanism: requote churn × latency = involuntary taker;
+  quote-stability is a design axis. LEADERBOARD has the row + first
+  dead region.**
+- KB folds: A-1..A-4 in INHERITANCE (A30/A33 deep-pair = best-evidenced
+  region; A32 maker-only cells tier-immune; A26 no-blow-up prior).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
-  exact per-fill economics in DB (realized taker px, per-leg docks).
+  exact per-fill economics in DB. Export: results.ts --run N --export
+  <path.csv>; battery: --battery id@lat,id@lat,...
 - **Worker daemon (survives session death):** `nohup caffeinate -is
   ./scripts/run-worker.sh --queues markets,aggregate
   --market-concurrency 4` from THIS worktree, log →
-  `gabagool-lab/logs/worker-fullwin-s2.log`, code at 6de8fa0 (tip).
-  Check `npx tsx gabagool-lab/tools/queue.ts` + `ps auxww | grep
-  run-worker`. If dead: relaunch the same way (subshell + nohup so it
-  reparents). Aggregate queue also has an operator worker (tmux, main
-  repo) — lat0's aggregate persisted fine regardless; the 3 stale
-  `imbalance-hold` failed jobs in the aggregate queue are NOT mine
-  (duplicate-key noise from an old campaign, ignore).
+  `gabagool-lab/logs/worker-fullwin-s2.log`, code at 6de8fa0. Check
+  `npx tsx gabagool-lab/tools/queue.ts` + `ps auxww | grep run-worker`.
+  If dead: relaunch same way. The 3 failed jobs in the aggregate queue
+  are stale foreign `imbalance-hold` duplicates — NOT mine, ignore.
 
 ## Queue (work top to bottom)
 
-1. **E002 judgment (this session):** when the 3 arms persist —
-   (a) `results.ts --run <id> --gates s2` per arm + `--battery
-   <lat0>,<lat140>,<lat500>,<lat1000>` (run ids via runs.ts; lat0=675);
-   (b) judge E002 in LEDGER (numbers, weekly, tails, pairing, L-ratios,
-   the churn×latency pairing mechanism — lat0 pairRate 0.29 vs chunk
-   lat140 0.68 says pairing at 140ms is mostly stale-quote churn);
-   (c) `results.ts --run <lat140> --export` → `calibrate.ts` → TAIL_K +
-   capital floor → EVALUATION v1.1 + DECISIONS entry (logic
-   pre-registered s2 u8: floor target ~$0.5–1.0/market, written
-   rationale at freeze); (d) freeze E003 + launch its 10 arms (exact
-   commands in LEDGER §E003). `tools/watch-drain.ts` blocks until
-   drained/worker-dead — use it for hands-off waiting.
-2. **L1 readout close:** LEADERBOARD.md started (baseline row), feed +
-   STATE updated. This number is the reference everything must beat.
-3. **L2 campaign:** E003 parity-axis judgment → E004 completion policy
-   (H6) → E005 ladder + deep-pair cell (A30) → E006 timing. Seeds in
-   LEDGER backlog.
+1. **E003 freeze + launch (next unit):** flip LEDGER §E003 status →
+   frozen at first submission; run `bash gabagool-lab/tools/launch-e003.sh`
+   (10 detached arms: parityTolPct {0.1,2,10,20,40} × halves h1/h2,
+   lat140; ~5.9k market jobs). Verify with queue.ts + runs.ts that 10
+   submissions enqueued; start watch-drain backgrounded; commit.
+   Worker must be on a SHA containing glab.E003-pair-accumulator —
+   it is (tip ≥ 9ad5c2d has the strategy; worker pulls ff-only).
+2. **E003 judgment when drained (~2.5–3h at ~7.7 jobs/s):** per-arm
+   readouts, advance rule AS WRITTEN in LEDGER §E003 (direction
+   agreement + top-2 set match across halves), judge, lesson,
+   LEADERBOARD update. Axis gates only (G2/G3/G9).
+3. **L2 campaign continues:** E004 completion policy (H6; re-smoke
+   first — completionTtl code is unsmoked), E005 ladder + deep-pair
+   cell (pairCostCap {0.96,0.97,0.98} — best-evidenced region, A30/
+   A33), E006 timing. Seeds in LEDGER backlog. Before E004 freeze:
+   state tier-0 fee basis in its criteria (A32, INHERITANCE A-4).
 
 ## Open questions / risks
 
 - Feeds: binanceWsSpotPrice replayable NOW; price-to-beat + Chainlink
   NOT landed (checked origin/main 04:50Z s3 — "no backtest source yet"
   in wireBacktestExternalFeeds.ts; H4 strike proxy = window-open spot).
-- KB folded through A31. Variant atlas (W0) in progress KB-side —
-  future seed source; re-read KB STATE every session.
+- KB folded through A33; KB session 7 active in parallel (variant
+  atlas done, W3 snapshots). Re-read KB STATE every session.
 - Telonex coverage ends 2026-06-14; July meta not replayable until
   operator resumes sync.
 - Remote fleet tracks origin/main — not mine; local worker only.

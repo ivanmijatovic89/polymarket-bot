@@ -338,3 +338,45 @@ progress on the KB side).
    change beyond framing.
 5. **A29 (method, KB-side)**: 2026 fee-native exchange has a different
    OrderFilled layout; KB scanner fixed. No lab impact.
+
+### A-4 (2026-07-17T05:12Z) — A26/A32/A33 fold: cold-start economics + tail reassurance
+
+Source: KB PRIORS.md A26, A32, A33 + measurements/cold-start-economics.md
+(session-3 re-read #2; KB session 7 active in parallel).
+
+1. **A32 — the lab's cold-start status does NOT handicap maker-only or
+   deep-pair cells.** Post-2026-05-28 tier system refunds taker fees by
+   tier (cold-start tier-0 = 3% refund; incumbents ~50%). Maker fills
+   earn the same rebate at any tier (A28), so: maker-pure cold-starts
+   win TODAY at scale (0x13e0d447, born May-29, ≈+$121k in 5 weeks,
+   pair 0.89@0.984; ohio-house born Jul-10, deep pairs 0.95@0.968,
+   +$6k wk 1); taker-heavy cold-starts bleed (HelixEdge −$20k/mo);
+   maker-pure WITHOUT pair discipline = adverse-selection bleed wrapped
+   in a fragile subsidy loop (0x76d4d470: −$98k trading, +$137k
+   rebates). Lab consequences: (a) E003 axis-1 (maker-only) and the A30
+   deep-pair cell are the transfer-relevant regions — tier-immune;
+   (b) EVALUATION's TRADE_corr "full curve, no refunds" assumption for
+   taker legs is *validated to within 3%* by the tier-0 refund — keep
+   it, it is conservative in the right direction; (c) E004
+   (taker-completion axis) verdicts must state they price the
+   cold-start (tier-0) fee, not incumbent tiers — incumbents' observed
+   taker-completion economics are ~1.5–3.5%-of-taker-notional better
+   than what a newcomer gets.
+2. **A26 — "losing big is a live outcome of this family" is WITHDRAWN
+   (KB refuted its own A23).** The −$542k challenger loss was World Cup
+   sports-MM, not crypto-updown; its crypto-updown life was
+   near-breakeven dust. Class-wide observed downside = slow bleed, not
+   blow-up. Lab consequence: my tail gates (G7) still guard the
+   *mechanical* left tail (worst_queue adverse subset realizes leg
+   risk), but the empirical prior that this family blows up is gone —
+   do not cite it in verdicts.
+3. **A33 — third deep-pair existence proof, plus regime-drift as a
+   career pattern.** vidarx (+$660k all-time): cheap-side (Dec) → deep
+   parity-edge 0.84–0.86 @ 0.95–0.976 through the fee shocks → farmer →
+   wind-down. Deep-pair region now has n=3 independent wallets printing
+   through fee eras (0x04b6d7e9, ohio-house, vidarx) — the E005
+   deep-pair cell (pairCostCap {0.96,0.97,0.98}) is the best-evidenced
+   region in the whole variant space. Also: profitable operators DRIFT
+   regimes rather than tune one — supports the charter's per-period
+   stability requirement (a variant that only pays in one regime is a
+   regime bet, not an edge).

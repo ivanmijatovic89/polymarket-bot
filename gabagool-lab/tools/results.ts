@@ -302,7 +302,7 @@ function printRun(r: RunReadout, gates?: string): void {
   )
 
   if (gates === 's1' || gates === 's2') {
-    console.log(`\n-- gates (${gates.toUpperCase()}, EVALUATION v1) --`)
+    console.log(`\n-- gates (${gates.toUpperCase()}, EVALUATION v1.1) --`)
     const g = (name: string, pass: boolean | null, detail: string) =>
       console.log(`${name}: ${pass === null ? 'N/A ' : pass ? 'PASS' : 'FAIL'}  ${detail}`)
     g('G2 played>=20%', r.playedShare >= 0.2, `${(r.playedShare * 100).toFixed(1)}%`)
@@ -321,7 +321,19 @@ function printRun(r: RunReadout, gates?: string): void {
           r.maxWeekShare === null ? 'n/a' : (r.maxWeekShare * 100).toFixed(0) + '%'
         }`,
       )
-      g('G7 PF>=1.3', r.tails.pf >= 1.3, `PF ${fmt(r.tails.pf, 2)} (TAIL_K pending v1.1)`)
+      g('G7 PF>=1.3', r.tails.pf >= 1.3, `PF ${fmt(r.tails.pf, 2)}`)
+      // TAIL_K = 41 frozen in EVALUATION v1.1 (D-007); clause only
+      // meaningful for EL > 0 (G4 gates first).
+      g(
+        'G7 CVaR5>=-(41xEL)',
+        r.elPm > 0 ? r.tails.cvar5 >= -41 * r.elPm : null,
+        `CVaR5 ${fmt(r.tails.cvar5)} vs bound ${r.elPm > 0 ? fmt(-41 * r.elPm) : 'n/a (EL<=0)'}`,
+      )
+      g(
+        'G11 EL/$100>=0.92',
+        r.capital.avgOutlay > 0 ? r.capital.elPer100 >= 0.92 : null,
+        `EL/$100 ${fmt(r.capital.elPer100, 2)}`,
+      )
       g(
         'G8 pairing',
         r.pairing.pairRate >= 0.5 ? true : null,

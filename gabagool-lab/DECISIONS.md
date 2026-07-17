@@ -92,3 +92,45 @@ for disjoint halves, `--holdout`). SRP's mechanical-derivation rule kept.
 **Rejected:** SRP's `<family>.<NNN>-<name>` — no family layer exists
 here; and freeform names — the suffix grammar is what makes runs
 greppable and the latency pin auditable from the batchUid alone.
+
+## D-007 (2026-07-17): TAIL_K = 41, capital floor = 0.92% EL per $100 avg outlay (EVALUATION v1.1)
+
+**Chosen:** discharge the §7 pre-declared amendment with floor
+F = $0.50/market on the pre-registered coupling (JOURNAL s2-u8, form
+fixed before fullwin numbers existed): TAIL_K = |CVaR5_baseline(140)| /
+F = 20.648/0.50 → **41** (rounded strict); capital floor = F /
+avgOutlay_baseline(140) = 0.50/54.62 → **0.92% per $100** (rounded
+strict). Both from run 678 (lat140 realism anchor, 5,856 markets).
+New hard gate G11 carries the capital floor; G7's TAIL_K placeholder
+resolves to 41.
+
+**Rationale for F = $0.50 (bottom of the pre-registered $0.5–1.0
+band):**
+1. *Existence-proof anchored, not invented.* The only known
+   trading-profitable parity wallet at scale (A30, 0x04b6d7e9) earns
+   ≈ +0.30% of turnover trading + ≈0.5% rebates ≈ 0.8–0.9% all-in.
+   For this BUY-and-hold family turnover ≈ settlement outlay, so at
+   baseline sizing ($54.62/market) the best observed live economics ≈
+   $0.45–0.52/market. F = $0.50 sets the bar exactly at "as good as
+   the best live evidence"; F = $1.00 would demand 2× anything ever
+   observed and pre-kill the region the KB proves exists.
+2. *Blow-up protection is layered.* At K = 41 a boundary candidate's
+   worst-5% markets consume ≈ 2× its net total (0.05 × 41) — permissive
+   alone, but G7 keeps PF ≥ 1.3, G5 caps single-week share, G4 demands
+   t ≥ 2; TAIL_K's distinct job is concentrated-catastrophe shapes
+   that PF misses. A baseline-shaped candidate (CVaR5/outlay −0.378)
+   must earn ≥ $0.50/market to pass — the measured baseline (−4.39) is
+   nowhere close; better-tailed designs need proportionally less EL.
+3. *Capital floor from the same arithmetic* (0.92%/window on deployed
+   capital ≈ best live all-in margin) guards the charter's
+   capital-efficiency requirement with an empirical anchor. It binds
+   independently of tail shape: tiny-tail variants must still clear
+   0.92% per $100 outlay to be worth capital.
+
+**Rejected:** (a) F = $1.00 — stricter-looking but evidence-free: it
+rejects the A30/A33 deep-pair region that three independent wallets
+print in; (b) direct TAIL_K from the baseline's own CVaR5/EL —
+degenerate (baseline EL < 0, pre-registered as invalid); (c) deferring
+until a positive-EL variant exists — that would let the first
+candidate's own shape pick its gate (the exact loophole §7's
+freeze-before-first-candidate rule exists to close).

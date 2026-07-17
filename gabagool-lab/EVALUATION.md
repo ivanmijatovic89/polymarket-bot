@@ -1,10 +1,13 @@
 # EVALUATION — the frozen scoring rule
 
-Version 1, frozen 2026-07-17 (session 1), BEFORE any experiment ran.
-One planned amendment is pre-declared in §7 (tail/capital thresholds
-calibrated from the L1 baseline, frozen before the first CANDIDATE
-experiment). Any other change requires a DECISIONS.md entry and bumps
-the version; verdicts always cite the version they were judged under.
+Version 1.1, frozen 2026-07-17 (session 3). v1 was frozen session 1
+BEFORE any experiment ran, with exactly one amendment pre-declared in
+§7 (tail/capital thresholds calibrated from the L1 baseline, frozen
+before the first CANDIDATE experiment). v1.1 discharges that amendment
+and nothing else: TAIL_K = 41 in G7, new G11 capital floor (calibration
+lineage: run 678, calibrate.ts table, DECISIONS D-007). Any other
+change requires a DECISIONS.md entry and bumps the version; verdicts
+always cite the version they were judged under.
 
 ## 1. Universe and windows (frozen)
 
@@ -100,13 +103,19 @@ battery):
   week's PnL > 60% of the sum of positive weekly PnLs.
 - G6: **latency** — L-ratio-500 ≥ 0.6 AND EL(1000) > 0 AND
   fills(500)/fills(140) ≥ 0.5.
-- G7: **tails** — PF ≥ 1.3 AND CVaR5 ≥ −(TAIL_K × EL) with TAIL_K
-  frozen per §7; pnl_max_lose reported alongside.
+- G7: **tails** — PF ≥ 1.3 AND CVaR5 ≥ −(TAIL_K × EL) with
+  **TAIL_K = 41** (v1.1, D-007: floor $0.50/market against the
+  baseline tail shape CVaR5/outlay −0.378); pnl_max_lose reported
+  alongside.
 - G8: **pairing** — pairRate ≥ 0.5 OR the variant's spec explicitly
   declares a loose-parity design with its residual-exposure budget
   (b55f runs 40% imbalance profitably — loose parity is a design, not
   a defect; undeclared looseness is).
 - G9: fee-reconstruction validation passed (§3).
+- G11: **capital floor** (v1.1, D-007) — EL ≥ 0.92 per $100 avg
+  per-market peak outlay (i.e. EL/$100 ≥ 0.92). Anchored at the best
+  observed live all-in margin (A30 ≈ 0.8–0.9% of turnover); a variant
+  below it is not worth deploying capital on regardless of tails.
 
 Stage S3 — holdout one-shot (Jun 1–14, champion lineage only):
 - G10: EL > 0 at 140 ms AND EL(500) > 0. No re-selection; fail kills
@@ -139,6 +148,14 @@ Procedure, pre-committed:
 3. Freeze both BEFORE the first candidate experiment is proposed.
    Version bumps to 1.1. The baseline itself is exempt from G7 (it is
    the calibration source and cannot be selected by it).
+
+DISCHARGED 2026-07-17 (session 3), before any candidate experiment:
+baseline = E002 run 678 (lat140, 5,856 markets); measured shape
+CVaR5 −20.648, avg outlay 54.62, tail-to-outlay −0.378; chosen floor
+$0.50/market → **TAIL_K = 41**, **capital floor EL/$100 ≥ 0.92**
+(G11). Full decision table + rationale + rejected options: D-007.
+This section is now closed; further threshold changes are ordinary
+amendments (DECISIONS entry + version bump).
 
 ## 8. Verdict vocabulary (what the lab may claim)
 

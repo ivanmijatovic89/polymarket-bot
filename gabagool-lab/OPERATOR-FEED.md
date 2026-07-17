@@ -81,3 +81,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: with zero latency the baseline loses $0.42/market, every week negative, and barely pairs (29%) — while a newly discovered live wallet (the only one profitable on pure trading today) pairs 78% by quoting 2–3 cents deeper. Deep pairs go on the experiment list.
 - Next: last three latency arms finish ~05:10Z; then the full baseline verdict + threshold freeze.
 - Health: on track
+
+## 2026-07-17T05:38Z — unit 14
+- Did: judged the full baseline (4 latency arms × 5,856 markets); froze the tail + capital thresholds (EVALUATION v1.1).
+- Found: baseline loses everywhere — $0.42/market at zero latency, $4.39 at realistic 140ms; the requote loop turns 34–55% of fills into fee-paying taker trades under latency, and shallow quotes almost never complete a pair. Region closed with numbers; this is the reference every variant must beat.
+- Next: launch E003 (10 runs probing how strictly the two sides must stay balanced).
+- Health: on track

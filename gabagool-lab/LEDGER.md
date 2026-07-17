@@ -67,7 +67,7 @@ Template:
 ## E002-baseline — L1 reference: archetype-faithful parity ladder
 - **Type:** axis (reference measurement; exempt from championship gates
   per EVALUATION §7 — it calibrates TAIL_K + capital floor for v1.1)
-- **Status:** frozen
+- **Status:** judged
 - **Mechanism:** passive two-sided BUY-only maker collects the
   time-separated pair discount (pair cost < $1 across oscillation, KB
   P38); parity keeps the unpaired remainder small so settlement risk is
@@ -126,8 +126,94 @@ Template:
     (the median played market ends fully one-sided), avg outlay 6.33,
     EL/$100 −6.65, fills 13,486 maker / 0 taker, REB 0 (raw 0.0403
     under the $1 threshold as sized). Played 84.7%.
-- **Judgment:** (pending)
-- **Lesson:** (pending)
+- **Judgment (2026-07-17T05:25Z, session 3; EVALUATION v1; runs
+  675/678/676/677 = lat0/140/500/1000, 5,856 markets each, 0 failed):**
+
+  Frozen criteria, evaluated verbatim:
+  1. "all four arms complete with validators green (settlement recheck
+     all-OK, meta coverage 100%, maker-only confirmed: taker fills =
+     0)" — arms complete ✓; settlement recheck all-OK ✓ on all four;
+     meta coverage 100% ✓; fee-recon VALID ✓ (diffs 0.00/0.31/0.21/
+     0.39 vs tol 117). **Maker-only FAILS as written on every latency
+     arm**: taker fills 0 / 38,144 / 67,289 / 83,644 at 0/140/500/
+     1000 ms. This is not plumbing (kill/stop untriggered) — the
+     frozen clause encoded the assumption that a decision-time cross
+     guard keeps the strategy maker-only; the measurement refuted the
+     assumption. Under latency the book moves during flight and the
+     requote stream (requoteDelta 0.02) converts to taker at arrival.
+     Recorded as the experiment's central mechanism finding, and the
+     criterion miss is quoted, not excused.
+  2. "EL measured at 140 ms with sign determined (|EL| > 2·se) or
+     N ≥ 5,000" — ✓ both: N = 5,856, t(EL) = −43.5.
+  3. "weekly table, tails, pairing, capital, L-ratios rendered" — ✓
+     (readouts above/below; L-ratios undefined per §4 since
+     EL(140) < 0 — degradation ratios quoted descriptively instead).
+  4. "per-market EL distribution exported for TAIL_K calibration" — ✓
+     (logs/exports/e002-fullwin-lat140.csv, 5,856 rows → calibrate.ts
+     table → EVALUATION v1.1 + DECISIONS D-007).
+
+  The battery (EL $/market, era-corrected; REB under $1 threshold at
+  this sizing in all arms — raw 0.04–0.24 scale diagnostic):
+
+  | arm | EL | t | PF | CVaR5 | maxLose | pairRate | imb p50 | outlay | EL/$100 | fills m/t |
+  |-----|-----|-----|------|--------|---------|----------|---------|--------|---------|-----------|
+  | lat0 | −0.4207 | −8.5 | 0.75 | −6.81 | −12.5 | 0.291 | 1.00 | 6.33 | −6.65 | 13,486/0 |
+  | lat140 | −4.3904 | −43.5 | 0.22 | −20.65 | −72.1 | 0.644 | 0.187 | 54.62 | −8.04 | 74,111/38,144 |
+  | lat500 | −5.0288 | −40.3 | 0.24 | −26.64 | −67.9 | 0.677 | 0.159 | 68.29 | −7.36 | 72,195/67,289 |
+  | lat1000 | −5.3047 | −37.8 | 0.27 | −29.40 | −70.5 | 0.689 | 0.144 | 74.08 | −7.16 | 67,791/83,644 |
+
+  Weekly: 0/9 weeks positive in EVERY arm (all 36 arm-weeks negative);
+  weekly EL band at lat140: −3.65 (W20) to −5.38 (W14) — a steady
+  bleed, no regime dependence, no single-week blowup driving the mean.
+
+  Findings (mechanism-level):
+  1. **The frictionless floor loses.** At lat0 the fee-free maker
+     stream alone is EL −0.42/market (t −8.5) — under worst_queue,
+     shallow blind rungs ([−1c,−3c]) collect the adverse subset and
+     the collected pair discount does not cover the one-sided
+     remainder's settlement losses. Conservative-floor caveat: real
+     books would also grant benign touch fills (D2: worst_queue admits
+     44–49% of real fills), so live EV at lat0 is better than −0.42 —
+     but the SIGN of the sim reference is negative and stable.
+  2. **Latency does not degrade this design — it replaces it.** The
+     0→140 ms jump multiplies fills 8.3× (13.5k → 112k) and costs
+     +$3.97/market; 140→1000 ms adds only +$0.91 more. At every
+     nonzero latency the strategy becomes majority-churn: cancels lag,
+     dead rungs get hit, replacement quotes cross as takers (34%/48%/
+     55% of fills at 140/500/1000 ms). The era-fee correction on those
+     conversions (−$0.39/market at 140 ms) is minor next to their
+     adverse prices. The charter's latency-robustness bar is
+     unreachable for ANY high-churn requote design of this shape —
+     requote discipline (standing ladders, wide requote deltas, or
+     requote bans) is promoted to a first-class axis (E005 scope,
+     already in backlog).
+  3. **Pairing under latency is manufactured, not captured.** lat0
+     pairRate 0.291 with imbalance p50 = 1.00: the shallow ladder
+     almost never genuinely completes a pair — the median played
+     market ends fully one-sided. The apparent pairRate 0.64–0.69 in
+     latency arms is churn conversions "completing" pairs at bad
+     prices (pay 156 bps sim / era curve corrected, still lose). The
+     archetype's real pairing engine (KB: pairRate 0.78 at pair cost
+     0.964–0.976, A30) must come from deeper placement + patient
+     completion, not from latency accidents. E003 (parity axis) and
+     E005 (ladder shape + deep-pair cell) carry this question.
+  4. **Capital scale-up under churn is pure downside**: avg outlay
+     6.33 → 54.6–74.1 (lat0 → latency arms) while EL/$100 stays −6.7
+     to −8.0 everywhere. No sizing tweak rescues this design.
+
+  Verdict (EVALUATION §8 vocabulary): **AXIS-CLOSED** — the
+  archetype-faithful shallow-requote region is DEAD at all latencies
+  (EL < 0, t ≤ −8.5, 0/36 arm-weeks positive, N = 5,856, selection
+  width 1 — no cherry-pick possible). L1's reference number is set:
+  **EL(140) = −4.39/market**; the frictionless bound is −0.42. Every
+  future variant must beat these on the same window/battery. Claims
+  lean on worst_queue (adverse subset; conservative for maker EV) and
+  all-or-nothing fills (sim size lies; no capacity claims).
+- **Lesson:** requote churn × latency converts a passive maker into an
+  involuntary taker — quote-stability is a design axis, not an
+  execution detail; and shallow rungs don't pair (imb p50 1.00 at
+  lat0), so the pair discount must be engineered at depth, not
+  harvested from noise.
 
 ## E003-pair-accumulator — the L2 workhorse strategy + parity axis
 - **Type:** axis
