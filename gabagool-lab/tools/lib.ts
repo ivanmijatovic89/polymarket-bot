@@ -20,7 +20,7 @@
  * back to static meta reconstruction; both are validated against the
  * sim's fees_paid (drift → quarantine).
  */
-import { and, asc, eq, inArray } from 'drizzle-orm'
+import { and, asc, eq, inArray, like } from 'drizzle-orm'
 import {
   getDb,
   closeDb,
@@ -314,6 +314,27 @@ export async function findRunIdsByBatchUid(batchUid: string): Promise<number[]> 
     .where(eq(backtestRuns.batchUid, batchUid))
     .orderBy(asc(backtestRuns.id))
   return rows.map((r) => Number(r.id))
+}
+
+export async function findRunsByBatchUidPrefix(prefix: string): Promise<RunHeader[]> {
+  const db = getDb()
+  const rows = await db
+    .select({
+      id: backtestRuns.id,
+      batchUid: backtestRuns.batchUid,
+      submissionUid: backtestRuns.submissionUid,
+      status: backtestRuns.status,
+      strategy: backtestRuns.strategy,
+      params: backtestRuns.params,
+      cmd: backtestRuns.cmd,
+      marketsPersisted: backtestRuns.marketsPersisted,
+      failuresCount: backtestRuns.failuresCount,
+      createdAt: backtestRuns.createdAt,
+    })
+    .from(backtestRuns)
+    .where(like(backtestRuns.batchUid, `${prefix.replaceAll('%', '')}%`))
+    .orderBy(asc(backtestRuns.id))
+  return rows.map((r) => ({ ...r, id: Number(r.id) }) as RunHeader)
 }
 
 const num = (x: unknown): number => {
