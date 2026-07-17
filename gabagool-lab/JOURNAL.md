@@ -331,3 +331,51 @@ worker dies — and judgment starts with context intact. If the session
 is killed anyway, STATE's checklist covers the successor. Unit 12 =
 watch → judge E002 → calibrate → freeze v1.1; feed entry lands when
 the unit completes.
+
+## 2026-07-17T04:58Z — session 3, unit 13: pickup — lat0 arm done, preview read; KB A27–A31 folded
+
+Session 3 pickup (real time 04:47Z; session-2 stamps above ran ahead of
+the clock — its "06:30Z" unit-12 entry was written ~04:45Z real).
+Handoff state: worker daemon alive at tip (6de8fa0), watch-drain died
+with session 2 as designed, 9.4k market jobs left at pickup. The 3
+failed aggregate jobs are stale `imbalance-hold` duplicates from an old
+campaign (attempts exhausted, already persisted as runs 286–288) — not
+mine. Added tools/agg-inspect.ts to see this in one command.
+
+Surprise: the lat0 fullwin arm was ALREADY persisted (run 675 — its
+aggregate ran before session 2 died; the parent job auto-removed on
+completion, which is why only 3 waiting-children parents remained).
+First fullwin readout, 5,856 markets, validators all green:
+
+  lat0: EL −0.4207 (t −8.52), 0/9 weeks positive, PF 0.75,
+  CVaR5 −6.81, maxLose −12.54, pairRate 0.291, imbalance p50=p90=1.00,
+  avg outlay 6.33, EL/$100 −6.65, 13,486 maker fills, 0 taker, played
+  84.7%, REB 0 (raw 0.0403 — under the $1/market floor as sized).
+
+Two readings, both mechanism-level:
+1. The frictionless baseline LOSES steadily — every week negative.
+   worst_queue doctrine says these fills are the adverse subset, so
+   this is the conservative floor, but the sign and stability of the
+   bleed are the reference number L1 exists to produce.
+2. pairRate 0.291 with median imbalance 1.00: at lat0 the shallow
+   ladder [−1c,−3c] almost never completes the pair — the median
+   played market ends FULLY one-sided. Chunk lat140 showed pairRate
+   0.678 — so the "pairing" seen at 140ms is manufactured by
+   stale-quote churn fills, not by genuine two-sided oscillation
+   capture. The archetype's pairing engine needs deeper/other
+   placement, not latency accidents. This connects directly to KB A30
+   (new since my last fold): 0x04b6d7e9, the ONLY trading-profitable
+   parity wallet at scale today, pairs 78% of shares at pair cost
+   0.964–0.976 — deep pairs, patient completion. Backlog E005 gains a
+   deep-pair cell (pairCostCap {0.96,0.97,0.98}); INHERITANCE A-3
+   records A27–A31 (A28 rebate curve → cheap-side ~2×; A27/A31 exit
+   style = swappable module; A31 class predates archetype).
+
+Feed check (session obligation): price-to-beat/Chainlink backtest
+replay still absent on origin/main ("no backtest source yet" in
+wireBacktestExternalFeeds.ts). Strike proxy = window-open spot stands.
+
+Drain rate recovered to ~7.7 jobs/s (2,311 jobs in 301s) — market
+queue empties ~05:10Z, aggregates a few minutes after. Judgment lands
+this session. Next: watch-drain → full E002 judgment → TAIL_K
+calibration → EVALUATION v1.1 freeze → E003 launch.

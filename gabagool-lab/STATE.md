@@ -5,66 +5,73 @@
 
 ## Status digest
 
-- **Session:** 2 (started 2026-07-17T04:14Z; session 1 ran ~03:09–04:13Z
-  and its journal stamps after unit 4 drifted +2h — trust `date -u` only)
+- **Session:** 3 (started 2026-07-17T04:47Z; s1 ~03:09–04:13Z, s2
+  ~04:14–04:47Z. Journal stamps in s1/s2 drifted up to +2h — trust
+  `date -u` only; s3 stamps are real)
 - **Ladder rung:** L1 — baseline measurement (L0 complete)
-- **Phase:** E002-baseline fullwin arms draining; judgment this session
+- **Phase:** E002-baseline: lat0 arm DONE (run 675, preview in LEDGER);
+  lat140/500/1000 draining at ~7.7 jobs/s, market queue empties ~05:10Z
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
-- L0 COMPLETE: INHERITANCE.md (folded through KB A26), EPISTEMOLOGY v1 +
-  EVALUATION v1 (frozen), LEDGER (E001 judged), tools
-  (submit/results/runs/inspect-meta/queue — all DB-tested), E001 smoke
-  green twice (runs 662/663, deterministic).
+- L0 COMPLETE: INHERITANCE.md (folded through KB **A31**), EPISTEMOLOGY
+  v1 + EVALUATION v1 (frozen), LEDGER (E001 judged; E002 lat0 preview
+  in), tools (submit/results/runs/inspect-meta/queue/agg-inspect/
+  calibrate/watch-drain — DB-tested), E001 smoke green twice
+  (deterministic), E003 code determinism proven (672/673/674).
+- E002 fullwin lat0 (run 675): EL −0.42 (t −8.5), 0/9 weeks positive,
+  pairRate 0.29, imbalance p50=1.0 — frictionless baseline loses and
+  barely pairs; validators all green at 5,856-market scale.
+- KB A30 seed (new): deep-pair region pairCostCap ~0.96–0.98 is where
+  the only trading-profitable parity wallet lives → backlog E005 cell.
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB (realized taker px, per-leg docks).
-- **Worker daemon (survives session death):** relaunched 04:26Z as
-  `nohup caffeinate -is ./scripts/run-worker.sh --queues
-  markets,aggregate --market-concurrency 4` from THIS worktree, log →
-  `gabagool-lab/logs/worker-fullwin-s2.log`. Check with
-  `npx tsx gabagool-lab/tools/queue.ts` and `ps auxww | grep run-worker`.
-  If dead: relaunch the same way (subshell + nohup so it reparents).
+- **Worker daemon (survives session death):** `nohup caffeinate -is
+  ./scripts/run-worker.sh --queues markets,aggregate
+  --market-concurrency 4` from THIS worktree, log →
+  `gabagool-lab/logs/worker-fullwin-s2.log`, code at 6de8fa0 (tip).
+  Check `npx tsx gabagool-lab/tools/queue.ts` + `ps auxww | grep
+  run-worker`. If dead: relaunch the same way (subshell + nohup so it
+  reparents). Aggregate queue also has an operator worker (tmux, main
+  repo) — lat0's aggregate persisted fine regardless; the 3 stale
+  `imbalance-hold` failed jobs in the aggregate queue are NOT mine
+  (duplicate-key noise from an old campaign, ignore).
 
 ## Queue (work top to bottom)
 
-1. **E002-baseline (L1) — fullwin arms draining, ETA ~08:00-08:45Z (rate fell to ~1.2/s).** Four
-   arms × 5,856 markets (batchUids
-   `glab--E002-baseline--fullwin--lat{0,140,500,1000}`, SHA d5574428,
-   uids in LEDGER). When the market queue empties, 4 aggregate jobs
-   persist the runs (worker handles both queues; it self-updated to
-   24d0dcd mid-drain, harmless). `tools/watch-drain.ts` blocks until
-   drained/worker-dead/timeout — useful for hands-off waiting.
-   THEN: (a) `results.ts --run <id> --gates s2` per arm +
-   `--battery id@0,id@140,id@500,id@1000`; (b) judge E002 in LEDGER
-   (numbers, weekly table, tails, pairing, L-ratios); (c) calibrate
-   TAIL_K + capital-efficiency floor from the lat140 distribution →
-   EVALUATION v1.1 + DECISIONS entry; (d) freeze + launch E003 parity
-   axis (spec drafted in LEDGER). Superseded chunk runs 666/667/669/670
-   remain useful for tooling rehearsal only.
-2. **L1 readout + threshold freeze** — full evaluation readout of the
-   baseline; DECISIONS entry for v1.1 thresholds; LEADERBOARD.md
-   started. This number is the reference everything must beat.
-3. **L2 campaign start** — first axes from the seed queue: parity
-   tolerance (H1), completion policy (H6), ladder depth/timing (A17).
+1. **E002 judgment (this session):** when the 3 arms persist —
+   (a) `results.ts --run <id> --gates s2` per arm + `--battery
+   <lat0>,<lat140>,<lat500>,<lat1000>` (run ids via runs.ts; lat0=675);
+   (b) judge E002 in LEDGER (numbers, weekly, tails, pairing, L-ratios,
+   the churn×latency pairing mechanism — lat0 pairRate 0.29 vs chunk
+   lat140 0.68 says pairing at 140ms is mostly stale-quote churn);
+   (c) `results.ts --run <lat140> --export` → `calibrate.ts` → TAIL_K +
+   capital floor → EVALUATION v1.1 + DECISIONS entry (logic
+   pre-registered s2 u8: floor target ~$0.5–1.0/market, written
+   rationale at freeze); (d) freeze E003 + launch its 10 arms (exact
+   commands in LEDGER §E003). `tools/watch-drain.ts` blocks until
+   drained/worker-dead — use it for hands-off waiting.
+2. **L1 readout close:** LEADERBOARD.md started (baseline row), feed +
+   STATE updated. This number is the reference everything must beat.
+3. **L2 campaign:** E003 parity-axis judgment → E004 completion policy
+   (H6) → E005 ladder + deep-pair cell (A30) → E006 timing. Seeds in
+   LEDGER backlog.
 
 ## Open questions / risks
 
 - Feeds: binanceWsSpotPrice replayable NOW; price-to-beat + Chainlink
-  NOT landed (checked origin/main 04:30Z; H4 strike proxy =
-  window-open spot stands).
-- KB (re-read every session): folded through A26. A26 removed the
-  "class blow-up casualty" prior (was World Cup books); tail
-  discipline unchanged. KB Phase 2 (variant atlas) is a future seed
-  source.
+  NOT landed (checked origin/main 04:50Z s3 — "no backtest source yet"
+  in wireBacktestExternalFeeds.ts; H4 strike proxy = window-open spot).
+- KB folded through A31. Variant atlas (W0) in progress KB-side —
+  future seed source; re-read KB STATE every session.
 - Telonex coverage ends 2026-06-14; July meta not replayable until
   operator resumes sync.
 - Remote fleet tracks origin/main — not mine; local worker only.
-- Disk at 98% (9.7Gi free) — keep artifacts lean, prune worker logs
-  when superseded.
-- Ask for operator (non-blocking, noted in feed): CLI/env passthrough
-  for makerFillMode=touch_or_better would enable fill-model bracketing.
+- Disk at 98% (~9.7Gi free) — keep artifacts lean; exports gitignored.
+- Ask for operator (non-blocking): CLI/env passthrough for
+  makerFillMode=touch_or_better would enable fill-model bracketing.
 
 ## Key paths
 

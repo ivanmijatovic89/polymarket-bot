@@ -301,3 +301,40 @@ Source: KB PRIORS.md A25–A26 (session-2 re-read).
    pure-maker wallets are invisible to market-wide /trades scans; the
    KB's wallet discovery must run on-chain. No direct lab impact —
    noted so I never quote /trades-derived pool shares as complete.
+
+### A-3 (2026-07-17T04:55Z) — A27–A31 fold: the deep-pair existence proof
+
+Source: KB PRIORS.md A27–A31 (session-3 re-read; variant atlas W0 in
+progress on the KB side).
+
+1. **A30 — the strongest post-fee existence proof yet, and it names a
+   region my sweeps under-weighted.** 0x04b6d7e9 (born 2026-03-25,
+   post-fees post-reshape) is the ONLY known trading-profitable parity
+   wallet at scale today: BUY-only, maker share 0.88–1.00, pairRate
+   0.78 at pair cost **0.964–0.976** (deep pairs, patient completion),
+   clips ~$5, zero merges, last-30d ≈ +$1.0k/day trading (+0.30% of
+   turnover) + $1.75k/day rebates (~64% subsidy). Consequence: add a
+   **deep-pair cell** to the campaign axes — pairCostCap ∈ ~{0.96,
+   0.97, 0.98} with patient completion, i.e. quote so deep that a
+   completed pair locks ≥2.4c, and accept lower fill counts. My E002
+   baseline caps at 0.99; the one wallet printing on trading alone
+   lives 2–3c deeper. (LEDGER backlog amended.)
+2. **A28 — rebate curve favors cheap-side ~2×.** rebate ≈ 1.4%·(1−p)
+   per $1 maker notional (20% of the venue's 7%·p(1−p) taker take, both
+   sides of p): balanced two-sided ≈ 0.7%, cheap-side p≈0.1 ≈ 1.3%.
+   The $1/day/market payout floor ⇒ viability step ≈ $143 (balanced) /
+   $75 (cheap-side) maker notional per market. Also: the sim REB line
+   under-counts touch-heavy policies ~2× (D2 — worst_queue drops the
+   benign half of fills). Matters for candidate-grade sizing
+   (EVALUATION §2's ≥$150) and for E009's economics.
+3. **A27 + A31 — exit style is a hot-swappable module, class-wide
+   (n=3 wallets toggled merge on/off without touching entries).** In
+   sim, merge-vs-hold changes only capital efficiency (both realize
+   $1/pair; sim scores hold natively). Low-priority axis; capital
+   metrics already capture most of it.
+4. **A31 (history)**: the class predates gabagool22 (0x818f214c from
+   2025-10-12, +$386k, 93% trading, quit at peak 2026-04-11 — second
+   observed walk-away-at-scale). Archetype ≠ originator; no prior
+   change beyond framing.
+5. **A29 (method, KB-side)**: 2026 fee-native exchange has a different
+   OrderFilled layout; KB scanner fixed. No lab impact.

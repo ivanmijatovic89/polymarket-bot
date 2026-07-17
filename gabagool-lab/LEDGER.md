@@ -116,6 +116,16 @@ Template:
     - lat0: `glab--E002-baseline--fullwin--lat0--4a2330ec-d143-4ea6-b75b-6d1d32468f36`
     - lat500: `glab--E002-baseline--fullwin--lat500--2e2406ad-6dee-41eb-bc80-9e16aaa7b45e`
     - lat1000: `glab--E002-baseline--fullwin--lat1000--f711124e-5b20-49b8-8176-4592234efc88`
+  - Run ids: **lat0 = 675** (persisted first, 2026-07-17 ~04:45Z; 5,856
+    markets, 0 failed, validators green: settlement recheck OK,
+    fee-recon diff 0.00, meta coverage 100%, maker-only confirmed).
+    lat140/500/1000 still draining at check time.
+  - **lat0 PREVIEW** (session 3; full judgment after the battery):
+    EL −0.4207 (t −8.52), 0/9 weeks positive, PF 0.75, CVaR5 −6.81,
+    maxLose −12.54, pairRate **0.291** with imbalance p50=p90=1.00
+    (the median played market ends fully one-sided), avg outlay 6.33,
+    EL/$100 −6.65, fills 13,486 maker / 0 taker, REB 0 (raw 0.0403
+    under the $1 threshold as sized). Played 84.7%.
 - **Judgment:** (pending)
 - **Lesson:** (pending)
 
@@ -191,7 +201,9 @@ Template:
 
 ## Backlog (one line each; propose formally when reached)
 - E005 ladder-shape axis: {[1,3]c, [2,6]c, [2,13]c, touch+deep} below
-  bid (archetype vs A17 current-winner shape).
+  bid (archetype vs A17 current-winner shape). PLUS deep-pair cell
+  (A30): pairCostCap ∈ {0.96, 0.97, 0.98} × patient completion — the
+  only trading-profitable parity wallet today pairs at 0.964–0.976.
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
   (start 120s), late-only (start 480s)} (A17/A20; E24 warns open).
 - E007 endgame policy: stop-quote time × band-exit behavior (A20 flip

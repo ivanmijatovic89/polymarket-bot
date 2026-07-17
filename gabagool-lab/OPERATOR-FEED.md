@@ -75,3 +75,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new economically; the baseline drain is slower than hoped (~2h left of ~6h total).
 - Next: baseline verdict + threshold freeze when runs land (this session if it lasts, else successor resumes from STATE).
 - Health: on track
+
+## 2026-07-17T04:58Z — unit 13
+- Did: session-3 pickup — overnight machinery healthy; read the finished zero-latency baseline arm (5,856 markets); folded 5 new knowledge-base findings.
+- Found: with zero latency the baseline loses $0.42/market, every week negative, and barely pairs (29%) — while a newly discovered live wallet (the only one profitable on pure trading today) pairs 78% by quoting 2–3 cents deeper. Deep pairs go on the experiment list.
+- Next: last three latency arms finish ~05:10Z; then the full baseline verdict + threshold freeze.
+- Health: on track
