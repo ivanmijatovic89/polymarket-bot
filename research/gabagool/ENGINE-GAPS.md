@@ -149,9 +149,15 @@ evaluation.
 On the sampled day 2026-01-15, 13 of 48 delta-typed converted parquets
 are near-empty stubs (~20 KB vs ~2 MB normal; discovered in A38, they
 produced zero-fill markets until filtered). Mar-16 / May-13 / Jun-10
-samples have zero stubs, so this looks January-specific (early
-fee-era recording gaps). Any backtest or measurement over January
-months must filter markets by event count / file size first —
+samples have zero stubs, so this initially looked January-specific.
+**A58 correction (session 11): NOT January-specific** — all 24
+Jun-13 00–06Z btc-15m conversions are ~16KB stubs (a full overnight
+session missing at the recording layer), while the same day's
+20–24Z files are normal ~2MB. Stub screening by file size (<100KB
+suspect) or event count is required on ANY day/session before
+joining or backtesting; a cell whose post-fill drift computes as
+exactly 0.0000 is the tell. Any backtest or measurement
+must filter markets by event count / file size first —
 otherwise passive-fill results are silently biased low and
 per-market averages are contaminated by empty episodes. (The
 eligibility layer `listEligibleTelonexMarkets` does NOT screen for

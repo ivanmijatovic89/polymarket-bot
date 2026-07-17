@@ -74,6 +74,31 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-11 digest (2026-07-17 16:40Z→, live)
+
+Unit 1 (16:57Z): A58 — session-drift decomposition
+(measurements/session-drift-b27bc932.md). b27bc932's ladder is
+session-INVARIANT (8 weekday cells, Jun-10/12/13); deep-class
+post-fill drift flips sign by session: weekday overnight/evening
+favorable (+0.4→+1.5c @60s), US adverse (−0.3→−0.4c, 2/2) → A49
+session split = flow toxicity on identical quotes. Saturday evening
+flipped adverse (n=1) → OPEN-QUESTIONS #7: weekday/weekend
+stratification (cheap, dow filter on existing pulls). G10 corrected:
+stubs NOT January-only (Jun-13 overnight all 16KB stubs — screen by
+size any day). Bycatch: Mar-16 100% btc-5m → 15m sleeve start
+bracketed Mar-17→25. Books cached: telonex-r2-jun12sess/,
+telonex-r2-jun13/ (evening valid, overnight stubs).
+
+Queue for successor (in order): (1) OQ #7 weekday/weekend session
+split (session-split-vol.ts + dow filter, existing pulls). (2) W3
+evening snapshot ~20–21Z — club re-formation test (A49
+evening-positive), tracks profile-less pair (expect 13e0d447
+sub-$1); morning snapshot tomorrow settles OQ #5 residue; rerun
+lineage-sweep.ts if any active went dark. (3) W7 terrain refresh
+with era-matched fee constants (A52) — activity-API only for
+5m/1h (G11). (4) Residue: 13e0d447 early-June 15m sleeve (minor);
+b27bc932 Jul-01 merge-ON cause (operator-internal, likely dead end).
+
 ### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
 
 All-measurement session. A51: venue-wide v1→v2 HARD cutover Apr-28

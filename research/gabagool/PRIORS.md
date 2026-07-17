@@ -1007,3 +1007,21 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   analogue is exactly the lab's question. Live-shadow now tracks
   both profile-less actives.
   [verified] (wallets/13e0d447.md)
+- **A58 (session split has a book-level mechanism: session-invariant
+  ladder, session-dependent flow toxicity):** b27bc932 btc-15m
+  fills × telonex books per session (Jun-10 full day, Jun-12
+  overnight/US/evening, Jun-13 evening; 21k+ fills joined). The
+  quoting policy never changes with the clock (offset percentiles
+  ≈ −2c/−1c/0/+1c/+3c in all eight weekday cells; class mix
+  stable). What changes is post-fill drift on the DEEP class:
+  weekday overnight/evening +0.4→+1.5c mid @60s (favorable
+  mean-reversion), US session −0.3→−0.4c (adverse, 2/2 weekdays) —
+  so the A49 session PnL split is flow toxicity hitting identical
+  quotes, not policy or fees (fee% flat across cells). Touch-class
+  drift ≈0-to-negative everywhere: the A39 favorable-drift edge
+  lives ONLY in deep off-US-hours fills. Caveats: Saturday evening
+  flipped adverse (n=1 weekend day — weekday/weekend stratification
+  of A49 is open residue); Mar-16 cross-era replication impossible
+  (wallet was 100% btc-5m that day → 15m sleeve start bracketed
+  Mar-17→25, tightening A50).
+  [verified] (measurements/session-drift-b27bc932.md)

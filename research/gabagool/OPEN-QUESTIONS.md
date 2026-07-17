@@ -71,6 +71,14 @@ bottom.
    **gabagool22→guh123 succession CONFIRMED** (guh123 profile
    created 6m51s after gabagool22's last trade) — quit-at-peak is
    partly identity rotation; dossiers are operator SLEEVES.
+7. **Weekday-vs-weekend stratification of the session rule (A58
+   residue, session 11).** The evening-favorable / US-adverse
+   deep-fill drift pattern replicated 2/2 on weekdays but FLIPPED
+   on the one measured Saturday evening (Jun-13, −1.38c @60s).
+   A49's month-scale session economics never split by day-of-week —
+   if weekends behave like US sessions, the v1 "run evenings first"
+   rule needs a weekday qualifier. Cheap: session-split-vol.ts on
+   existing pulls with a dow filter; no new books needed.
 
 ## Prior ranking (session 7) with resolutions
 

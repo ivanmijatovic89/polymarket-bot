@@ -199,6 +199,19 @@ Candidates for the lab:
   positive-for-incumbents at 0.070+tiers. A lab candidate (tier-0,
   no refund) must budget the FULL 0.07 curve on every taker leg —
   maker-completion weight is the lever that decides viability.
+  **A58 supplies the book-level mechanism for the session split**:
+  b27bc932's ladder is session-INVARIANT (offset p10/p25/p50 ≈
+  −2c/−1c/0 in all eight measured weekday cells, Jun-10/12/13) —
+  it never adapts quoting to the clock; what changes is what the
+  same quotes catch. Deep-class fills mean-revert in the buyer's
+  favor overnight/evening on weekdays (+0.4→+1.5c mid drift @60s)
+  and are adversely selected in the US session (−0.3→−0.4c, 2/2
+  weekdays): flow toxicity by clock, not policy, drives the A49
+  session PnL split. Touch-class drift is ≈0-to-negative in EVERY
+  session — the variant's whole favorable-drift edge (A39) sits in
+  the deep ladder off-US-hours. Caveat: Saturday evening flipped
+  adverse (n=1) — the evening rule is weekday-established only
+  (measurements/session-drift-b27bc932.md).
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

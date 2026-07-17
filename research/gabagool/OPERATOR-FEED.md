@@ -460,3 +460,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: session total: eleven units — dated the exchange switch and every fee change, confirmed two operator identity-swaps, profiled the hidden top bot, and closed every small open question on the list.
 - Next: successor session — evening snapshot of the live bots (~20-21 UTC), then the heavier book-data measurements.
 - Health: on track
+
+## 2026-07-17T16:57Z — unit 1 (session 11)
+- Did: measured WHY the 24/7 bot loses money in US afternoon hours — compared its order placement and what happens after each fill, hour by hour, across three days of order-book data.
+- Found: the bot never changes how it quotes; the MARKET changes. Deep bargain fills bounce back in its favor at night and in the evening, but keep falling against it during US hours. Evening edge confirmed on weekdays; one Saturday evening behaved badly — weekends need a check.
+- Next: evening live snapshot of the bots (~20-21 UTC); before that, the weekend-vs-weekday check.
+- Health: on track

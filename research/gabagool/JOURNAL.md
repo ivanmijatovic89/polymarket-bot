@@ -1372,3 +1372,27 @@ operators), A56 (Jul-01 merge toggle operator-only), A57 (13e0d447
 dossier: strongest living wallet, $3.2k/day, maker-pure cold-start,
 now tracked), plus fee-uniformity and June-book checks, G11.
 Successor: evening snapshot ~20-21Z is the queue head.
+
+## 2026-07-17T16:57Z — session 11, unit 1: session-drift decomposition (A58)
+
+Closed the A34/A35 residue by the prescribed route: b27bc932 (the
+only 24/7 wallet) fills × telonex books, split by session. Eight
+valid weekday cells across Jun-10 (full day), Jun-12
+(overnight/US/evening) and Jun-13 (evening). Two findings that
+matter. First, the ladder never changes: offset percentiles are the
+same −2c/−1c/0/+1c/+3c in every cell — the machine is
+session-blind. Second, what the same quotes CATCH changes sign with
+the clock: deep-class fills mean-revert favorably overnight and
+evening on weekdays (+0.4→+1.5c mid drift @60s) and are adversely
+selected in the US session (−0.3→−0.4c, both weekdays) — so the
+A49 session PnL split is flow toxicity, not policy, and the A39
+favorable-drift edge lives specifically in deep off-US-hours
+fills. One flip recorded honestly: Saturday evening (Jun-13) went
+adverse (−1.38c) — the evening rule is weekday-established only;
+weekday/weekend stratification of A49 added to OPEN-QUESTIONS (#7).
+Bycatch: Mar-16 pull was 100% btc-5m → 15m sleeve start bracketed
+Mar-17→25. Data traps logged for successors: Jun-13 overnight
+telonex files are ALL 16KB stubs (G10 is not January-specific —
+ENGINE-GAPS corrected; exact-zero drift is the tell), and zsh does
+not word-split `set -- $s` (the first run silently produced four
+identical unfiltered tables before I caught it).
