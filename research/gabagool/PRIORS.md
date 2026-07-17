@@ -1090,3 +1090,11 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   route-around-the-moat is the standard entry play, and the ramp
   precedent for a lab v1 is days, not weeks.
   [verified] (measurements/cold-start-economics.md day-7 addendum)
+- **A58 control caveat (unit 12):** b55f's deep fills on the same
+  Jun-12 US session were NOT adverse (+0.26c @60s vs b27bc932's
+  −0.39c) — but at ~500 fills/cell the control is underpowered
+  (noise ≈ effect size). US toxicity may be ladder-depth-specific
+  (shallow-deep rungs eat it; genuinely deep cheap-side rungs may
+  dodge it) — lab should test toxicity per ladder-depth cell, not
+  as a blanket session rule. [contested]
+  (measurements/session-drift-b27bc932.md §7)

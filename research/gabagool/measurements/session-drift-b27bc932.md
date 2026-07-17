@@ -132,3 +132,22 @@ Jun-13 US/evening and Jun-14 daytime pulls are healthy — the
 recording gap looks like a weekend-overnight ops window, not random
 dropout. Books: data/telonex-r2-jun13us/, telonex-r2-jun14on/
 (stubs, kept as evidence); log data/edge-source-us-jun13.log.
+
+## §7 Control: is the US deep-fill toxicity universal? (unit 12 — inconclusive)
+
+Same method, same day (Jun-12), same books, different wallet: b55f
+(the deep tail-harvester, offsets p10 −4c, deeper-class px p50
+0.50–0.61 — a materially deeper ladder than b27bc932's −2c rungs).
+Deeper-class drift @60s: overnight +0.36c / US +0.26c / evening
+−0.80c — its US deep fills were NOT adverse where b27bc932's were
+(−0.39c same day). BUT: b55f runs 632–1,068 fills per cell (vs
+2.4–5.5k), and its non-deep cells swing ±4–9c — cell-level drift
+means at n≈500 carry ~±0.5c noise, the size of the effect itself.
+Verdict: the US toxicity is NOT yet shown to be a venue-wide
+property; it may be specific to near-touch-plus-shallow-deep
+ladders (b27bc932) while genuinely deep cheap-side rungs (b55f)
+dodge it — or this is noise. Deciding needs pooled multi-day joins
+per wallet (books exist only Jun-10–14, G9; b55f pulls exist for
+Jun-12–14). Flagged to the lab: test the toxicity per ladder-depth
+cell, not as a blanket session rule. Log:
+data/edge-source-b55f-sessions.log.

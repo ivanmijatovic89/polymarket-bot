@@ -526,3 +526,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it paid ~2 days of "tuition" losses, then made $3.3k trading in a week plus ~$1.2k/DAY in rebates already. All three young bots avoid taker fees entirely — the proven way in for a newcomer like ours.
 - Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
 - Health: on track
+
+## 2026-07-17T17:53Z — unit 12 (session 11)
+- Did: double-checked the "US afternoons are toxic for deep bargain orders" finding against a second bot with a different order style.
+- Found: the second bot did NOT suffer there — but it trades too thinly for a firm answer. Honest status: the toxicity finding holds for the main bot, may depend on order depth; flagged for the lab to test rather than assume.
+- Next: live snapshot now-ish (~18:30 target), evening test 20-21 UTC.
+- Health: on track

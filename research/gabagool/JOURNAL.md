@@ -1554,3 +1554,18 @@ thousands in maker rebates — the entire entrant cohort routes
 around the tier moat exactly as A32 predicted. For the lab: the
 ramp precedent is days, not weeks, and maker-pure is the entry
 play, full stop.
+
+## 2026-07-17T17:53Z — session 11, unit 12: US-toxicity control on b55f — inconclusive, ledgered honestly
+
+Ran the same session-drift method on b55f (the deep tail-harvester)
+for the same Friday, as a control on whether the US deep-fill
+toxicity is a venue property. Its US deep fills were NOT adverse
+(+0.26c vs b27bc932's −0.39c same day) — but b55f only has ~500
+deep fills per cell, so the noise is the size of the effect. The
+claim "US session is toxic for deep fills" is therefore downgraded
+from mechanism to wallet-specific-observation-with-a-control-gap:
+possibly the shallow-deep rungs (−1..−3c) eat the toxic sweeps
+while genuinely deep cheap-side rungs (b55f's −4c+/0.14-priced)
+sit below them. PRIORS entry tagged [contested]; the lab
+instruction becomes "test toxicity per ladder-depth cell", which is
+the safer framing anyway.
