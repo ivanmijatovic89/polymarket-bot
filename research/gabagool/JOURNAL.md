@@ -59,3 +59,27 @@ method + lb-api name echo). Findings that move priors:
 Full-history pull for gabagool22 is infeasible (~3-4M rows via a 500/page
 API); kept the 75k-row tail (Feb 17-20 + post-stop) and will sample
 mid-life windows instead.
+
+## 2026-07-17T02:50Z — puller bug found+fixed; tail forensics done; venue fee timeline pinned
+
+A dedupe bug in puller v1 (identical same-second rows are LEGITIMATE — no
+unique ids in /activity) was silently dropping ~22% of trades and showed
++$45k tail profit. Fixed puller, re-pulled, validated MERGE semantics
+(= pairs × $1). Corrected picture of his final 2.6 days:
+
+- Trading net −$1,767 (−0.50% of turnover); rebates +$1,819 → he quit at
+  breakeven on 2026-02-20. Win% 39–65% by family, NOT 99%.
+- Fingerprint: buys only, both sides, near-zero delta (0.13% leg imbalance
+  across 845 fills), pair cost ≈ $1.00–1.02 (paying over $1, financed by
+  the 20% maker rebate), $4 median clips, burst ladders (p50 gap 0s),
+  exits via batched cross-market merges.
+- Venue timeline (workstream B): 15m crypto fee-free until 2026-01-06;
+  dynamic taker fees (~1.56c/share at p=0.5 — exactly the repo's 156bps
+  era) + daily 20%-share maker rebates introduced Jan 6-7; current (Jul
+  2026) crypto feeRate 0.07 (1.75c at p=0.5). VENUE-MECHANICS.md started.
+- Big narrative shift: end-state gabagool = REBATE FARMER (trading PnL ≈
+  −rebates; the live E29 equilibrium). His $869k must be mostly from the
+  zero-fee era → mid-life sample (Dec 2025) is the next measurement.
+
+Also: briefly created (and immediately removed) a stray dir at repo-root
+measurements/ — write-scope discipline note to self.

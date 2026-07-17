@@ -53,13 +53,28 @@ windows.
   magnitude (P7 still unverified per-market; check in the per-market
   deep-dive).
 
+## Tail forensics (final 2.6 days — see measurements/tail-forensics-gabagool22.md)
+
+- Trading net **−$1,767 on $356.6k turnover (−0.50%)**; rebates $1,818.86
+  in-window → total ≈ +$52. **He quit at breakeven** (2026-02-20).
+- End-state profile: buys only (0 sells), exits ~99% by MERGE ($350.5k)
+  not redeem ($4.3k); near-perfect delta neutrality (0.13% leg imbalance
+  over 845 fills in the showcase market); pair cost p50 0.99–1.00 (showcase
+  1.020 — paying over $1 on purpose, rebate-financed); clip size p50
+  $3.84; fills p90 up to ~800/market (max 2,478); inter-fill gap p50 0s
+  (burst ladders); max outlay p50 $150–610, max $6.4k.
+- Reading: post-fee-era gabagool = **rebate farmer**; the 20% maker-rebate
+  pool got competed into pair costs ≥ $1 until total EV ≈ 0 → quit. The
+  live-market mirror of fable-lab E29, with rebates as the unmodeled term.
+- CAUTION: end-state only. His $869k was mostly earned earlier (probably
+  the zero-fee era Oct 29 → Jan 6). Win% in tail: 39–65% by family (P8's
+  "99% win" not seen here); hourly books beat 15m even in the tail.
+
 ## Open (next units)
 
-- Per-market forensics on the tail sample: pair-completion rate, avg pair
-  cost, level offsets vs mid (needs Telonex book join), size ladder,
-  inter-fill gaps, per-market PnL incl. tails, capital deployed.
-- Sampled mid-life windows (Nov/Dec/Jan) for drift in behavior.
-- Why did he stop on exactly Feb 20? (fee change? rebate change? clone
-  pressure? Correlate with venue-mechanics timeline from workstream B.)
-- MERGE usage pattern: when does he merge vs redeem? (697 merges vs 560
-  redeems in tail.)
+- **Mid-life sample (early Dec 2025, zero-fee era): pair costs, win rate,
+  book mix — the profitable-era fingerprint vs the tail.** ← next
+- Level offsets vs mid at fill time (needs Telonex book join → D2 prep).
+- Fee/rebate parameter changes near Feb 20 (workstream B archive sweep).
+- Merge cadence: merges are batched cross-market (34 markets/tx seen),
+  ~every few minutes; exact trigger policy still uncharacterized.

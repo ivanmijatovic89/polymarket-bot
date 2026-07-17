@@ -1,20 +1,27 @@
 /**
  * pull-activity.ts — full-history data-api /activity puller for one wallet.
  *
- * The endpoint caps offset at 3000 (max 3500 rows per time window), so we
- * paginate by walking the `end` cursor (unix seconds) backwards: fetch
- * newest-first pages, and when a window is exhausted set end = oldest
- * timestamp seen + 1 (inclusive) and continue. Rows are deduped by a
- * full-row hash so the inclusive boundary never duplicates.
+ * API facts (probed 2026-07-17):
+ * - offset caps at 3000 (max 3500 rows per `end` window), sorted newest-first
+ * - `end`/`start` are unix SECONDS; `end` is INCLUSIVE
+ * - rows have NO unique id and SECOND-granularity timestamps, so two fills
+ *   can be byte-identical legitimate rows — NEVER dedupe by row content
+ *   (v1 of this script did, silently collapsing same-second identical fills).
+ *
+ * Correct pagination: fetch a window newest-first; if it exhausts (< limit
+ * page), append everything. If it hits the offset cap, the oldest second in
+ * the window may be partially fetched — append only rows with ts > that
+ * second, then continue with end = that second (inclusive) so it is
+ * refetched in full next window.
  *
  * Usage:
  *   npx tsx research/gabagool/scripts/pull-activity.ts \
- *     --address 0x... [--out research/gabagool/data] [--start <unixSec>] [--label name]
+ *     --address 0x... [--out research/gabagool/data] [--start <unixSec>]
+ *     [--label name] [--max-rows N]
  *
- * Output: <out>/activity-<label|address>.jsonl (one row per line, as returned)
- * Read-only: only writes inside research/gabagool/data.
+ * Output: <out>/activity-<label|address>.jsonl (append-only)
+ * State:  <out>/activity-<label|address>.state.json (resume cursor)
  */
-import { createHash } from 'node:crypto'
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
@@ -44,27 +51,24 @@ const MAX_OFFSET = 3000
 
 type Row = { timestamp: number; [k: string]: unknown }
 
-const seen = new Set<string>()
 let total = 0
 let endCursor = Number.MAX_SAFE_INTEGER
 
-// resume support: state file stores the last end cursor; the jsonl is append-only
 if (existsSync(statePath) && existsSync(outPath)) {
   const st = JSON.parse(readFileSync(statePath, 'utf8'))
   endCursor = st.endCursor
-  // rebuild the dedupe set from the file so the inclusive boundary never dupes
+  // rows with ts <= endCursor may be partial (killed mid-window): drop them
+  const kept: string[] = []
   for (const line of readFileSync(outPath, 'utf8').split('\n')) {
     if (!line) continue
-    seen.add(createHash('sha1').update(line).digest('hex'))
-    total++
+    const ts = (JSON.parse(line) as Row).timestamp
+    if (ts > endCursor) kept.push(line)
   }
-  console.log(`resuming: endCursor=${endCursor} total=${total}`)
+  writeFileSync(outPath, kept.length ? kept.join('\n') + '\n' : '')
+  total = kept.length
+  console.log(`resuming: endCursor=${endCursor} kept=${total}`)
 } else {
   writeFileSync(outPath, '')
-}
-
-function rowHash(r: Row): string {
-  return createHash('sha1').update(JSON.stringify(r)).digest('hex')
 }
 
 async function fetchPage(end: number, offset: number): Promise<Row[]> {
@@ -87,27 +91,13 @@ async function fetchPage(end: number, offset: number): Promise<Row[]> {
   return []
 }
 
-let windowMin = Number.MAX_SAFE_INTEGER
-
 while (total < maxRows) {
-  let offset = 0
-  let windowRows = 0
-  windowMin = Number.MAX_SAFE_INTEGER
+  const windowRows: Row[] = []
   let exhausted = false
-
+  let offset = 0
   while (offset <= MAX_OFFSET) {
     const page = await fetchPage(endCursor, offset)
-    let fresh = 0
-    for (const r of page) {
-      const h = rowHash(r)
-      if (seen.has(h)) continue
-      seen.add(h)
-      appendFileSync(outPath, JSON.stringify(r) + '\n')
-      total++
-      fresh++
-      if (r.timestamp < windowMin) windowMin = r.timestamp
-    }
-    windowRows += fresh
+    windowRows.push(...page)
     if (page.length < LIMIT) {
       exhausted = true
       break
@@ -116,25 +106,32 @@ while (total < maxRows) {
     await new Promise((r) => setTimeout(r, 120))
   }
 
+  if (windowRows.length === 0) break
+
+  let appended: Row[]
+  let nextEnd: number
+  const minTs = Math.min(...windowRows.map((r) => r.timestamp))
+  if (exhausted) {
+    appended = windowRows
+    nextEnd = minTs - 1 // window fully consumed; continue strictly older
+  } else {
+    // offset cap hit: the oldest second may be partial — hold it back
+    appended = windowRows.filter((r) => r.timestamp > minTs)
+    nextEnd = minTs
+    if (appended.length === 0) {
+      throw new Error(`>${MAX_OFFSET + LIMIT} rows share second ${minTs}; cannot paginate safely`)
+    }
+  }
+
+  appendFileSync(outPath, appended.map((r) => JSON.stringify(r)).join('\n') + '\n')
+  total += appended.length
   console.log(
-    `window end=${endCursor}: +${windowRows} rows (total ${total}), oldest ${windowMin === Number.MAX_SAFE_INTEGER ? '-' : new Date(windowMin * 1000).toISOString()}`,
+    `window end=${endCursor}: +${appended.length} rows (total ${total}), oldest kept ${new Date((exhausted ? minTs : minTs + 1) * 1000).toISOString()}${exhausted ? ' [exhausted]' : ''}`,
   )
+  endCursor = nextEnd
+  writeFileSync(statePath, JSON.stringify({ endCursor, total }, null, 2))
 
-  if (exhausted && windowRows === 0) break // truly done
-  if (windowMin === Number.MAX_SAFE_INTEGER) break // no rows at all
-  if (exhausted && windowMin <= startSec) break
-
-  // next window: inclusive boundary at the oldest second we saw; the row-hash
-  // dedupe absorbs the overlap. Keep only boundary-second hashes to bound memory.
-  const boundary = windowMin
-  endCursor = boundary
-  const boundaryHashes: string[] = []
-  // (we cannot re-derive which hashes belong to the boundary second without
-  // re-reading; keep the whole set — fine for <1M rows)
-  writeFileSync(
-    statePath,
-    JSON.stringify({ endCursor, total, boundaryHashes }, null, 2),
-  )
+  if (exhausted && (windowRows.length === 0 || minTs <= startSec)) break
 }
 
 writeFileSync(statePath, JSON.stringify({ endCursor, total, done: true }, null, 2))
