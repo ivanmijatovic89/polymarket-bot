@@ -765,3 +765,13 @@ completion-mode-specific: maker rebates pay every tier the same, so
 the moat only taxes taker legs. Folded into BRIEF §8.0, LAB-HANDOFF
 (sim taker legs at tier-0), and A32. The atlas §4 residue produced
 its first structural insight one unit after being written.
+
+## 2026-07-17T05:05Z (REAL clock) — session 7 timestamp correction
+
+`date -u` says 05:03Z. Session-7 journal headers above drifted up to
++4.8h ahead of reality (same failure the pre-session-3 note warned
+about — I estimated elapsed time instead of checking the clock).
+Actual span: session 7 started ~04:11Z; units 1–13 all completed by
+~05:03Z. Git commit times are the ground truth, as before. Feed
+entries have the same drift. Future entries will check `date -u`
+first.

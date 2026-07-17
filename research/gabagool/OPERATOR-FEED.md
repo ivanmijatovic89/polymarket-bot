@@ -193,3 +193,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: two brand-new wallets are winning right now by never paying fees (posting orders, never crossing) — one made ~$121k in its first 5 weeks. The perks only handicap newcomers who cross the spread. Our future bot's patient variants are unaffected.
 - Next: fold the atlas into the handoff seed ranking; live snapshot 4 due soon.
 - Health: on track.
+
+## 2026-07-17T05:06Z (real clock) — unit: timestamp correction (session 7)
+
+- Did: noticed my journal timestamps ran up to ~5 hours ahead of the real clock; corrected the record.
+- Found: all of today's session-7 work actually happened between 04:11 and 05:03 UTC; commit times were always correct.
+- Next: paper-EV of the strategy candidates using all of today's numbers.
+- Health: on track (bookkeeping error, no data affected).
