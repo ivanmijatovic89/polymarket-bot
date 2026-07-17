@@ -144,3 +144,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: a nameless wallet born in March that has quietly made ~$473k in under 4 months — and unlike the other big players it still makes real trading profit, not just subsidies. It buys both sides deeper and more patiently than anyone else. A third of its trading is on exactly our target market.
 - Next: fold it into the strategy brief and seed parameters; atlas write-up once the clean re-scan lands (2 of 4 days in).
 - Health: on track.
+
+## 2026-07-17T07:52Z — unit: removed an accidental stop-marker (session 7)
+
+- Did: deleted an empty DONE file that slipped into the previous commit by accident.
+- Found: it was a stray artifact, not a decision — Phase 2 stays open as you directed.
+- Next: variant atlas write-up when the clean re-scan finishes.
+- Health: on track (self-caught within minutes).

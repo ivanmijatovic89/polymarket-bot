@@ -702,3 +702,11 @@ A30; seeds should gain a "deep-pair" sweep cell (pair-cost target
 the daily-page density extrapolation under-read this wallet ~8× — for
 high-cadence wallets only window-sampled on-chain scans or full pulls
 are trustworthy.
+
+## 2026-07-17T07:50Z — incident: stray empty DONE file removed
+
+An empty `research/gabagool/DONE` (mtime 04:44Z, unnoticed shell
+artifact from earlier this session) slipped into the A30 commit.
+Phase 2 forbids DONE entirely. Removed within minutes in the next
+commit. No content was in it; the relay loop should treat Phase 2 as
+permanently open per CHARTER.
