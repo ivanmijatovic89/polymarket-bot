@@ -161,6 +161,13 @@ edge is dead by regime change, do not test it.
   the single highest-leverage policy in a build is: complete the
   lagging leg only when the crossing price keeps pair cost + fee under
   a hard cap (e.g., ≤0.99), else wait or abandon parity.
+- **A30 refinement — the axis is probably U-shaped, not monotone**:
+  the live winners sit at BOTH ends (b55f taker-aggressive +2.31%T at
+  $200k/day; 0x04b6d7e9 maker-patient deep-pair +0.30%T at $332k/day
+  with pairRate 0.78 @ 0.964–0.976), while the middle (b27bc932,
+  ~50% taker at 0.993) is breakeven-plus-subsidy. Sweep must include
+  the deep-pair cell (pair-cost ≤0.98, patient completion, ~20%
+  unpaired tolerated) and test for the U-shape explicitly.
 - **Cross-checked in June books (A17)**: the same ranking shows up in
   fills×books independently of receipts — b55f back-loads harder
   (39.7% of fills in minutes 10–13) AND taker-completes cheaper (taker

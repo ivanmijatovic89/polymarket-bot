@@ -120,6 +120,16 @@ Candidates for the lab:
   income is completion/positioning as decision arrives, not churn
   harvesting. Books are 1c-tight ALL window — the "temporarily cheap
   side" is a 1–2c-plus-depth-sweep phenomenon, never a wide spread.
+- **The deep-pair operating point exists and prints (A30)**: the only
+  known trading-profitable parity wallet at scale today (0x04b6d7e9,
+  +0.30%T on $332k/day + $1.75k/day rebates, BTC-only, ~35% btc-15m)
+  runs maker share 0.88–1.00 with pairRate only 0.78 but pair cost
+  0.964–0.976 — it completes FEWER pairs, each 2–3c deeper, instead
+  of grinding parity at 0.99+. Completion aggressiveness (H6) is not
+  a monotone knob: the profitable corner may be LOW aggression + deep
+  entry rather than b55f-style taker completion. Sweeps must include
+  this cell (pair-cost target ≤0.98, patient/maker-only completion,
+  tolerate ~20% unpaired).
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

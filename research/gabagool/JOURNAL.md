@@ -710,3 +710,13 @@ artifact from earlier this session) slipped into the A30 commit.
 Phase 2 forbids DONE entirely. Removed within minutes in the next
 commit. No content was in it; the relay loop should treat Phase 2 as
 permanently open per CHARTER.
+
+## 2026-07-17T08:05Z — session 7, unit 8: A30 folded into BRIEF/H6/LAB-HANDOFF
+
+Synthesis fold: the deep-pair operating point (0x04b6d7e9) is now in
+BRIEF §4 (quoting policy options), H6 (upgraded to a U-shape
+prediction: live winners sit at both ends of the completion-
+aggressiveness axis, the breakeven wallet sits in the middle), and a
+LAB-HANDOFF addendum instructing seed-1 sweeps to include a deep-pair
+cell (pair-cost ≤0.98, patient completion, ~20% unpaired tolerated).
+Rescan progress: Apr + May done, Jun in progress.

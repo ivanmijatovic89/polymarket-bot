@@ -142,3 +142,18 @@ seeds:
   fee-inclusive margin (+2.31%T). Paper total ≈ +2.7–2.9%T.
 - Farmer-posture variants (pair cost >$1, live on taker-rebate
   tiers): confirmed non-viable cold-start; do not seed.
+
+## Phase-2 addendum (session 7) — the deep-pair cell (A30)
+
+New atlas find 0x04b6d7e9 (wallets/04b6d7e9.md): the only known
+trading-profitable parity wallet at scale today runs a variant BETWEEN
+seed 1 and seed 2 — parity-ladder discipline with deep-discount
+economics (maker share 0.88–1.00, pairRate 0.78, pair cost
+0.964–0.976, clips ~$5, BTC-only, no merges). Seed-1 sweeps MUST
+include a deep-pair cell: pair-cost target ≤0.98 (not just ≤0.995),
+maker-only/patient completion, parity tolerance loose enough to
+tolerate ~20% unpaired inventory. H6's "completion aggressiveness"
+axis is not monotone — the live winners sit at BOTH ends (b55f
+taker-aggressive at +2.31%T, 0x04b6d7e9 maker-patient at +0.30%T on
+16× the turnover), and the breakeven wallet (b27bc932) sits in the
+middle. That U-shape is itself a testable prediction for the sweep.

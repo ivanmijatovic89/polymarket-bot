@@ -151,3 +151,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it was a stray artifact, not a decision — Phase 2 stays open as you directed.
 - Next: variant atlas write-up when the clean re-scan finishes.
 - Health: on track (self-caught within minutes).
+
+## 2026-07-17T08:07Z — unit: folded the new wallet's lessons into the build plan (session 7)
+
+- Did: updated the strategy brief, hypotheses and lab handoff with the quiet winner's recipe.
+- Found: the profitable players sit at OPPOSITE ends of one dial (aggressive completion vs deep patience) while the middle merely breaks even — a concrete, testable shape for the lab's first sweep.
+- Next: variant atlas write-up; clean re-scan is 2 of 4 days done.
+- Health: on track.
