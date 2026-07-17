@@ -90,6 +90,8 @@ export type LabOrderMeta = {
   t?: number
   acc?: {
     n?: number
+    mN?: number
+    tN?: number
     mFee?: number
     tFee?: number
     tSimFee?: number
@@ -196,20 +198,25 @@ export function computeMarketEcon(m: MarketRow): MarketEcon {
     takerFeeSimRecon = best.tSimFee ?? takerFeeSimRecon
     if (typeof best.dockU === 'number') dockedUp = best.dockU
     if (typeof best.dockD === 'number') dockedDown = best.dockD
+    // Realized fill classification (rungs can convert to TAKER under
+    // latency — placement-time k cannot see that).
+    if (typeof best.mN === 'number') makerFills = best.mN
+    if (typeof best.tN === 'number') takerFills = best.tN
   }
 
   // Undo the sim's share-docking, then charge the era fee in USDC (the
-  // real venue charges takers in USDC, not shares).
-  const pnlCorr =
-    takerFills > 0
-      ? settlementPnl(
-          m.upShares + dockedUp,
-          m.downShares + dockedDown,
-          m.cost,
-          m.splitCost,
-          outcome,
-        ) - takerFeeEra
-      : m.pnl
+  // real venue charges takers in USDC, not shares). Trigger on realized
+  // taker economics, not placement-time classification.
+  const hasTakerEconomics = takerFeeEra > 0 || dockedUp > 0 || dockedDown > 0
+  const pnlCorr = hasTakerEconomics
+    ? settlementPnl(
+        m.upShares + dockedUp,
+        m.downShares + dockedDown,
+        m.cost,
+        m.splitCost,
+        outcome,
+      ) - takerFeeEra
+    : m.pnl
 
   const rebateRaw = REBATE_SHARE * makerFeeEquiv
   const rebate = rebateRaw >= REBATE_MIN_PER_MARKET ? rebateRaw : 0

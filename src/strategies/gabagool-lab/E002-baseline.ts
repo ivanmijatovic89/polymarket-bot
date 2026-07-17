@@ -67,6 +67,8 @@ export type Config = z.infer<typeof ConfigSchema>
 type Side = 'UP' | 'DOWN'
 type Acc = {
   n: number
+  mN: number
+  tN: number
   mFee: number
   tFee: number
   tSimFee: number
@@ -88,13 +90,13 @@ export const definition: StrategyDefinition<Config> = {
   create: (cfg) => {
     let stateSlug: string | null = null
     let seq = 0
-    let acc: Acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+    let acc: Acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
     const quotes: Record<Side, SideQuotes | null> = { UP: null, DOWN: null }
 
     const resetFor = (slug: string): void => {
       stateSlug = slug
       seq = 0
-      acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+      acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
       quotes.UP = null
       quotes.DOWN = null
     }
@@ -232,12 +234,20 @@ export const definition: StrategyDefinition<Config> = {
         if (ev.kind === 'fill') {
           const f = ev.fill
           acc.n += 1
-          // Maker-only strategy: any TAKER liquidity here is a bug signal
-          // (a rung crossed) — count it into tFee so validation flags it.
+          // Rungs can convert to TAKER when the book collapses into them
+          // during the latency window (realistic; D2 saw 29–45% taker
+          // completions live). Classify by REALIZED liquidity and track
+          // docked shares per leg so the era-fee correction is exact.
           if (f.liquidity === 'TAKER') {
+            acc.tN += 1
             acc.tFee += eraFee(f.price, f.size)
-            acc.tSimFee += (156 / 10_000) * Math.min(f.price, 1 - f.price) * f.size
+            const sim = (156 / 10_000) * Math.min(f.price, 1 - f.price) * f.size
+            acc.tSimFee += sim
+            const dock = f.price > 0 ? sim / f.price : 0
+            if (f.clientOrderId?.includes(':UP:')) acc.dockU += dock
+            else if (f.clientOrderId?.includes(':DOWN:')) acc.dockD += dock
           } else {
+            acc.mN += 1
             acc.mFee += eraFee(f.price, f.size)
           }
           removeOrderId(f.clientOrderId)

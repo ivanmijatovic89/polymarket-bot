@@ -36,6 +36,8 @@ export type Config = z.infer<typeof ConfigSchema>
 type Side = 'UP' | 'DOWN'
 type Acc = {
   n: number
+  mN: number
+  tN: number
   mFee: number
   tFee: number
   tSimFee: number
@@ -60,7 +62,7 @@ export const definition: StrategyDefinition<Config> = {
     let stateSlug: string | null = null
     let seq = 0
     let takerDone = false
-    let acc: Acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+    let acc: Acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
     const quotes: Record<Side, Quote | null> = { UP: null, DOWN: null }
     // Order registry so fills can be classified maker-rung vs taker-cross.
     const orders = new Map<string, { k: 'r' | 'x' }>()
@@ -69,7 +71,7 @@ export const definition: StrategyDefinition<Config> = {
       stateSlug = slug
       seq = 0
       takerDone = false
-      acc = { n: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+      acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
       quotes.UP = null
       quotes.DOWN = null
       orders.clear()
@@ -209,6 +211,7 @@ export const definition: StrategyDefinition<Config> = {
           const sz = f.size
           acc.n += 1
           if (reg?.k === 'x' || f.liquidity === 'TAKER') {
+            acc.tN += 1
             acc.tFee += eraFee(px, sz)
             acc.tSimFee += simFee(px, sz)
             const dock = px > 0 ? simFee(px, sz) / px : 0
@@ -216,6 +219,7 @@ export const definition: StrategyDefinition<Config> = {
             if (f.clientOrderId?.includes(':XUP:')) acc.dockU += dock
             else if (f.clientOrderId?.includes(':XDOWN:')) acc.dockD += dock
           } else {
+            acc.mN += 1
             acc.mFee += eraFee(px, sz)
           }
           clearQuoteById(f.clientOrderId)
