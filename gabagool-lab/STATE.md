@@ -94,7 +94,9 @@
   KB register tops at A39 (checked s16 14:04Z).
 - Key capability: intent_meta shared-accumulator persists BY REFERENCE →
   exact per-fill economics in DB. Export: results.ts --run N --export
-  <path.csv>; battery: --battery id@lat,id@lat,...
+  <path.csv>; battery: --battery id@lat,id@lat,...; session slices
+  (A36 buckets) in every readout since u58 — refs show modest
+  spread, evening 20-23Z worst both halves.
 - **Worker daemon (survives session death):** `nohup caffeinate -is
   ./scripts/run-worker.sh --queues markets,aggregate
   --market-concurrency 4` from THIS worktree, log →
