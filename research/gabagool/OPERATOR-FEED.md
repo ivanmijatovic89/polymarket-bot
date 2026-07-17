@@ -354,3 +354,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: same pattern — US hours were the only losing stretch again; evenings best again. Also: the breakeven bot can lose money all day on our market and still come out ahead on rebates. Rule for our bot: respect the clock.
 - Next: live snapshot 6, then session wrap-up.
 - Health: on track.
+
+## 2026-07-17T14:50Z — unit: how often the favorite loses (session 8)
+
+- Did: measured how often the leading side flips to losing, by lead size and time left, on 209 markets.
+- Found: near-certain favorites (99c+) never flipped once; strong favorites (90-99c) flip 2-4%; close races flip 30-40% even late. The winner bot's lopsided bets just collect the base odds — its skill is avoiding the bad side, not predicting.
+- Next: live snapshot 6, then session wrap.
+- Health: on track.

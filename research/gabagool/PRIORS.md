@@ -840,3 +840,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   zero btc-15m markets (third independent confirmation of the May
   downtime). [verified] (measurements/session-split-b27bc932.md
   §Replication)
+- **A47 (endgame flip table at scale — 209 markets, 4 months):**
+  P(favorite loses): 0.99+ favorites NEVER flipped (0/393 pooled,
+  incl. 5-min-out); 0.90–0.99 flip 2–4% at 30–300s (cheap-side
+  completion vs them ≈ fairly priced to slightly negative — P43
+  quantified); mid-band 0.50–0.70 favorites flip 30–40% even at
+  300–600s (parity protects real variance). A34 calibration: the
+  winner's favorite-lean win rate (60% @ 0.547) = the bucket base
+  rate — the lean's value is avoiding the adverse cheap-side lean,
+  not selection. Leg-risk rule: cap cheap-side excess, tolerate
+  favorite-side; leave ≥0.99 legs unpaired to redemption.
+  [verified] (measurements/flip-table-btc15m.md)

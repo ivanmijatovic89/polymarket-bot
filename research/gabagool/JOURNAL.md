@@ -1068,3 +1068,16 @@ samples. Also learned the grinder's btc-15m sleeve can run a whole
 day gross-negative (−0.9% of outlay) and live on rebates — normal,
 not an anomaly. May-13 had zero btc-15m markets, confirming the May
 downtime a third way.
+
+## 2026-07-17T14:50Z (real) — session 8, unit 17: endgame flip table at scale (A47)
+
+Computed P(favorite loses) by probability × time-remaining over the
+209 cached books. Headlines: 0.99+ favorites never flipped (0/393
+observations); 0.90–0.99 favorites flip 2–4% (late cheap-side
+lottery tickets are fairly priced to slightly negative — the
+endgame-panic-bid verdict quantified on 4 months); mid-band
+favorites flip 30–40% deep into the window (parity discipline
+protects against real variance). Best calibration: the winner's
+favorite-side lean (A34, won 60% at 0.547) exactly matches the
+bucket base rate — its leg-risk skill is avoiding the BAD lean, not
+picking winners. W4's endgame remainder done.
