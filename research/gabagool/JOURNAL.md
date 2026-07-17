@@ -1479,3 +1479,15 @@ A49's margin-decay story: current-era weekday income = rebates
 plus the evening cell. The dow question is now settled on both
 halves at respectable n; only the July weekend lean-collapse drift
 remains on watch.
+
+## 2026-07-17T17:41Z — session 11, unit 7 (small): 13e0d447 ladder join closed as unmeasurable
+
+Pulled the strongest living wallet's complete Jun-10–14 activity to
+set up the planned telonex ladder join — and there is nothing to
+join: 3,976 rows (its penny-probe ramp week), 100% btc-5m, zero
+15m fills. The wallet has now been verified 5m-only in every
+window ever checked, including the only one with book coverage. With
+G11 (no 5m book data anywhere) that closes the dossier's last
+residue as unmeasurable rather than unmeasured — its ladder is
+inferable only from fill prints until someone records 5m books.
+The dossier now carries the first-join-to-run note for the ops side.

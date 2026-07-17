@@ -496,3 +496,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it holds — US afternoons are still the only losing hours (milder than first measured), evenings still the best and reliably positive. New detail: calm US afternoons are fine; it's the volatile ones that bleed. The bot's winner-lean trick works on weekdays only, and it softens the US losses rather than causing them.
 - Next: evening live snapshot ~20-21 UTC (also the dedicated club re-formation test).
 - Health: on track
+
+## 2026-07-17T17:41Z — unit 7 (session 11)
+- Did: tried the planned order-book study of the hidden top bot's early days (the only week where book recordings exist).
+- Found: dead end, now proven — the bot traded ONLY 5-minute markets even back then, and we have no 5-minute book recordings (known gap). Its exact order placement stays unknowable until someone records those books; noted for the ops team.
+- Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening one.
+- Health: on track

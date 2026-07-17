@@ -98,16 +98,42 @@ cell; US +0.59% storm-driven only) and the favorite-lean collapses
 (excessWon 40–51%, weekend calm 20–27%). v1 envelope = weekday
 20–24Z; weekends idle or lean-disabled; never pool dow in metrics.
 
+Unit 3 (17:08Z): O11 snapshot 8 — sub-$1 club RE-FORMED 76min
+after O10's empty print (4 wallets sub-$1, 13e0d447 deepest
+0.9748 as predicted; O10 was a storm spike). Profile-less pair
+now in the table; 76d4d470 = continuous-merge style (666/2h).
+
+Unit 4 (17:14Z): A60 — per-book fee/subsidy pools, Jul-16 exact
+(terrain-books.md §A60; rebate-pool.ts gained --step/--windows).
+btc-5m $296k fees → $59.2k/day maker pool = 8.7× btc-15m
+($34.2k → $6.8k, replicates Jul-15); eth/sol/xrp pools $1–5k.
+Era-scan 5m absolute levels were 4–5× understated (method
+artifact); single-counting re-verified vs gamma volumeNum.
+
+Unit 5 (17:29Z): A59 REVISED at n=10 weekend days (858 mkts;
++3 weekends pulled): weekends are mildly positive in ALL sessions
+(+0.54% overall, 8/10 days) and STRUCTURELESS — the unit-2
+"weekends negative" read was small-sample noise from Jul-11/12.
+Lean's weekend death stands (excessWon ~50%; July weekends
+27–37% — drift watch). Weekends = lean-disabled grind or idle.
+
+Unit 6 (17:35Z): weekday map confirmed at n=6 (529 mkts, Mon–Fri
+covered): US −0.79% only negative session (toxic = US×mid/storm;
+US×calm +0.95%), evening +1.27% positive in all vol terciles;
+lean weekday-native (excessWon 55–76%, highest in US — cushions
+the bleed). Dow axis settled both halves.
+
 Queue for successor (in order): (1) W3 evening snapshot ~20–21Z —
-club re-formation test (A49 evening-positive), tracks profile-less
-pair (expect 13e0d447 sub-$1); morning snapshot tomorrow settles
-OQ #5 residue; rerun lineage-sweep.ts if any active went dark.
-(2) W7 terrain refresh with era-matched fee constants (A52) —
-activity-API only for 5m/1h (G11). (3) Residue: 13e0d447
-early-June 15m sleeve (minor); b27bc932 Jul-01 merge-ON cause
-(operator-internal, likely dead end). (4) New measurable: A59
-weekend read is n=4 days — extend with more weekends if a unit
-frees up (cheap: pull-activity + session-split-vol --dow).
+club re-formation test (A49 evening-positive); next cadence
+snapshot due ~18:30–19Z; morning snapshot tomorrow settles OQ #5
+residue; rerun lineage-sweep.ts if any active went dark.
+(2) 13e0d447 Jun-10–14 btc-15m ladder join (dossier residue —
+books cached/pullable; check the wallet HAD 15m fills then).
+(3) Residue: b27bc932 Jul-01 merge-ON cause (operator-internal,
+likely dead end); July weekend lean-collapse drift (needs next
+weekend's data). All session-11 pulls in data/ (weekends
+jun20-21/jun27-28/jul04-05/jul11-12, weekdays jul13-14/jul16,
+b27bc932-mar16).
 
 ### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
 
