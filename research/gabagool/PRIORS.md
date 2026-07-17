@@ -650,3 +650,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   switchable module is a CLASS-WIDE pattern (n=3 wallets). gabagool22
   is NOT the class originator; earliest-known is now 0x818f214c.
   [verified] (wallets/818f214c-livebreathevolatility.md)
+- **A32 (cold-start viability is completion-mode-specific — the tier
+  moat only taxes taker completion):** four specimens (measurements/
+  cold-start-economics.md): maker-pure cold-starts WIN today
+  (0x13e0d447: born May-29 with a week of penny probes, ≈+$121k in 5
+  weeks; ohio-house 0xe114e5ca: born Jul-10, deep pairs 0.95@0.968,
+  +$6k week 1); taker-heavy cold-starts bleed (HelixEdge −$20k/mo);
+  maker-pure WITHOUT pair discipline is a fragile subsidy loop
+  (0x76d4d470: −$98k trading + $137k rebates ≈ +$39k in 3.5mo).
+  Maker fills earn the same rebate rate at any tier (A28), so the
+  A16 "cold-start moat" applies ONLY to taker-completion variants —
+  the lab's maker-only and deep-pair sweep cells are tier-immune; sim
+  taker legs must use tier-0 (3%). [verified] 

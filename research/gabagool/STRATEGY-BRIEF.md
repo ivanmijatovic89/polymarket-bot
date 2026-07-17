@@ -204,6 +204,14 @@ Candidates for the lab:
 
 ## 8. What kills this (measured failure modes)
 
+0. **What does NOT kill a cold-start (A32)**: the taker-tier moat only
+   taxes taker completion. Maker-pure new entrants win TODAY
+   (0x13e0d447 ≈ +$121k in its first 5 weeks; ohio-house +$6k in week
+   1 on deep pairs) because maker rebates pay the same rate at every
+   tier. Entry risk concentrates in (a) taker-completion legs at
+   tier-0 fees (HelixEdge −$20k/mo) and (b) maker breadth WITHOUT
+   pair discipline (0x76d4d470: −0.98%T trading, alive only on
+   subsidy). (measurements/cold-start-economics.md)
 1. Fee-regime shift against takers → pair-cost compression (the
    archetype's actual death; VENUE-MECHANICS timeline).
 2. Rebate-pool dilution — more maker wallets splitting the same 20%

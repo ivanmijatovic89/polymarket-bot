@@ -186,3 +186,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the strategy family never died — it GREW through every fee change and is now displacing traditional market makers on these books. Today three profitable styles coexist, and nobody has ever blown up running it.
 - Next: candidate dossiers from the atlas residue + fold the atlas into the lab handoff ranking.
 - Health: on track.
+
+## 2026-07-17T09:52Z — unit: can a newcomer still win? Yes — measured (session 7)
+
+- Did: profiled the newest wallets on the books to test whether the venue's loyalty perks lock out newcomers.
+- Found: two brand-new wallets are winning right now by never paying fees (posting orders, never crossing) — one made ~$121k in its first 5 weeks. The perks only handicap newcomers who cross the spread. Our future bot's patient variants are unaffected.
+- Next: fold the atlas into the handoff seed ranking; live snapshot 4 due soon.
+- Health: on track.

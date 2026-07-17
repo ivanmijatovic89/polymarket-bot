@@ -157,3 +157,13 @@ axis is not monotone — the live winners sit at BOTH ends (b55f
 taker-aggressive at +2.31%T, 0x04b6d7e9 maker-patient at +0.30%T on
 16× the turnover), and the breakeven wallet (b27bc932) sits in the
 middle. That U-shape is itself a testable prediction for the sweep.
+
+## Phase-2 addendum (session 7) — cold-start rules (A32)
+
+The lab's bot is a cold-start (taker tier 3%). Measured consequence
+(measurements/cold-start-economics.md): maker-pure and deep-pair cells
+are TIER-IMMUNE (two live cold-start wins as existence proofs);
+taker-completion cells must be simulated at tier-0 (3% refund), NOT at
+incumbent tiers — using b55f-tier economics for a new bot overstates
+taker-leg EV by up to ~1.7% of taker notional. Report maker-only and
+taker-completion cells as separate economic regimes.

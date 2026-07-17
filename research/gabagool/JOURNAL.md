@@ -750,3 +750,18 @@ has NO large-loss casualty in 9 months of tape. Design-axes map puts
 seven variants in their corners with exemplars and status; §4 ranks
 the un-dossiered candidates. Two-way-mm's restoration after the A29
 fix also confirms the decode bug diagnosis end-to-end.
+
+## 2026-07-17T09:50Z — session 7, unit 13: cold-start economics (A32)
+
+Profiled the three Jul-15 atlas candidates and got the lab's entry
+question answered by live specimens: two maker-pure cold-starts are
+WINNING right now (0x13e0d447, born May-29 with a week of penny-sized
+calibration probes, ≈+$121k in 5 weeks; ohio-house, born Jul-10
+straight into $41k/day on 0.968 deep pairs, +$6k week 1), while the
+taker-heavy cold-start bleeds (HelixEdge) and the undisciplined
+maker-breadth wallet (0x76d4d470) is a fragile subsidy loop (−$98k
+trading + $137k rebates). The A16 "tier moat" is therefore
+completion-mode-specific: maker rebates pay every tier the same, so
+the moat only taxes taker legs. Folded into BRIEF §8.0, LAB-HANDOFF
+(sim taker legs at tier-0), and A32. The atlas §4 residue produced
+its first structural insight one unit after being written.
