@@ -277,3 +277,32 @@ the shift so far. Three results:
 Wrote measurements/jan-transition-gabagool22.md, PRIORS A13–A15,
 VENUE-MECHANICS fee-implementation section, caveats added to
 era-comparison + actives-decomposition, OPEN-QUESTIONS refreshed.
+
+## 2026-07-17T03:05Z — fee-inclusive audit: the edge survives, and the meta is majority-taker
+
+Wrote scripts/measure-onchain-fees.ts (samples a wallet's fill txs,
+decodes receipts for per-fill maker/taker role + net fee). First find:
+July fills settle on a NEW exchange contract (0xe1111800…996b, event
+0xd543adfd…) with NATIVE fees — maker 0, taker = published curve in
+USDC, and mint-matching (complementary buys combine at $1/pair). The
+v1 charge-and-refund dance is history; /activity is still gross.
+
+The audit (Jul 14–16, 120–150 receipts/cell, 100% decoded):
+
+- b55f btc-15m: +3.20% gross → **+2.31% fee-inclusive. The edge is
+  real.** (37.8% maker by notional, taker fills pay 1.43%.)
+- 0xce25 btc-15m: +1.97% → **+0.31%** — barely alive; it's much more
+  taker-aggressive (fee 2.64%). The "best edge wallet" ranking FLIPS
+  after fees (b55f > 0xce25 on btc-15m).
+- b55f btc-5m: −0.14% → −1.98%; doggystyie btc-5m: −0.32% → −2.93%,
+  and doggystyie is 100% TAKER (its "perfect parity maker" fingerprint
+  is a taker loop — no resting orders at all in 120 txs).
+- Edge wallets are ~62% taker by NOTIONAL on their edge book. The
+  winning meta is maker-accumulate + taker-complete, weighted toward
+  completion. A pure-passive lab family models a minority of winner
+  flow.
+
+PRIORS A16, _META fee-correction header, VENUE-MECHANICS new-exchange
+section, OPEN-QUESTIONS: fee re-audit + maker/taker split resolved.
+Next: fold A13–A16 into STRATEGY-BRIEF/HYPOTHESES (they change H1's
+premises materially), then the edge-source hunt.

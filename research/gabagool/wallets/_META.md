@@ -22,6 +22,18 @@ The incumbent's full address was found by scanning 3,000 recent global
 `data-api /trades` rows for the `0xb55f` prefix (it trades constantly, so
 it appears in any recent sample).
 
+## Fee-inclusive correction (session 3, A13/A16 — read before the tables below)
+
+All decomposition "trading net" figures below and in
+measurements/actives-decomposition.md are GROSS of taker fees
+(invisible in /activity). On-chain audit (measurements/
+fee-audit-actives.md): b55f btc-15m +3.20% gross → **+2.31%**
+fee-inclusive (edge real); 0xce25 btc-15m +1.97% → **+0.31%** (barely
+positive; the "best edge wallet" ranking flips); btc-5m cells all
+fee-negative. Edge wallets are ~62% taker by notional; doggystyie 100%
+taker. Rebates refund ≤ tier% (≤50%) of fees and must never be added
+to gross nets without subtracting fees.
+
 ## Synthesis v2 (2026-07-17, after the 7-wallet decomposition)
 
 Full table + method: `measurements/actives-decomposition.md`. One line:

@@ -92,6 +92,23 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   transfers must never be added to them without also subtracting the
   fees they refund. See PRIORS A13. **[verified]**
 
+## The 2026 exchange contract (discovered session 3, fee audit)
+
+- July 2026 crypto up/down fills settle on
+  **`0xe111180000d2663c0091e4f400237545b87b996b`** — NOT the v1 CTF
+  exchange. New fill event (topic0 `0xd543adfd…`, OrderFilled-like
+  layout). Fee semantics NATIVE: maker fee = 0 on-chain, taker fee =
+  published curve charged directly in USDC (verified 0.07·p(1−p)·shares
+  to 5 decimals), fees routed to `0x115f48dc…`. Matching can MINT pairs
+  (complementary buys combine at $1/pair via the CTF) — a taker buying
+  DOWN can be matched against a maker buying UP with no share transfer,
+  just a mint. pUSD (`0xc011a7e1…`) appears in the settlement path.
+  **[verified]** (receipt decodes, measurements/fee-audit-actives.md)
+- v1 (Jan era) flow for comparison: charge 10%×min(p,1−p) to both
+  sides + in-tx refunds by `0xe3f18acc…` (see "Fee implementation
+  on-chain" above). Launch date of the new exchange: OPEN (bracket
+  Jan→Jul 2026 if needed).
+
 ## Maker Rebates Program
 
 - Eligibility: resting orders that add liquidity AND get filled (maker

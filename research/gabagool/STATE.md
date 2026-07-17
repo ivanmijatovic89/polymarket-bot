@@ -53,32 +53,27 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: **Fee-inclusive re-audit of the July actives** (A13 fallout —
-   the premise "real edge exists today" is now uncertain). Method
-   proven on gabagool Jan: sample each wallet's fills' tx receipts,
-   decode OrderFilled + refund transfers -> per-fill (maker/taker role,
-   net fee). Sample btc-15m fills for b55f + 0xce25 + one farmer;
-   compute true fee drag and fee-inclusive margins. This ALSO gives
-   the maker/taker split and feeds the edge-source hunt from the same
-   receipts.
-2. Edge-source hunt on btc-15m (merge with 1 where possible): level
-   selection vs mid, timing within window, completion behavior --
-   fills x books join (measure-fill-gap.ts pattern) for b55f/0xce25.
-   Data on disk (activity-{b55f,0xce25}-jul.jsonl).
-3. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
-   (check fable coverage first -- E24/E25 partially cover D4/D5).
+1. NEXT: fold A13-A16 into STRATEGY-BRIEF + HYPOTHESES + METRICS.
+   They change H1 materially: (a) fees are now exactly known per era,
+   (b) the winning meta is maker-accumulate + taker-complete (~62%
+   taker by notional), (c) parity is era-dependent, (d) fee-inclusive
+   edge on btc-15m is +2.31% (b55f). H-family should include a
+   taker-completion policy knob and an explicit fee/rebate income
+   statement per market.
+2. Edge-source hunt on btc-15m: level selection vs mid, timing within
+   window, completion behavior — fills x books join for b55f/0xce25
+   (data on disk) + reuse measure-onchain-fees.ts role decoding.
+3. D3 endgame reversal / D4 open dynamics / D5 spread lifecycle
+   (check fable E24/E25 first).
 4. Venue leftovers: tick/min-size/rate limits, resolution mechanics
-   (Game J).
-5. Continuous: fold into BRIEF/HYPOTHESES/METRICS (BRIEF + H1 need the
-   A13-A15 updates folded in); at saturation -> SATURATION.md ->
-   LAB-HANDOFF.md -> DONE.
+   (Game J), 2026-exchange launch date, bulk-payout provenance.
+5. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
 
-DONE this session: state sync; bonereaper verdict (hybrid, A12);
-January transition analyzed (A15: adaptation, not decay); Jan fee rate
-resolved on-chain (A14); fee-mechanics decode + gross-of-fee accounting
-bias in ALL fee-era numbers (A13). Earlier sessions: per-book nets
-(A11), _META v2, fee-formula bracketing, literature A1/A2, leg-risk
-policy rewrite, D2 (A9), 7-wallet decomposition (A10).
+DONE this session: state sync; bonereaper verdict (A12); Jan
+transition (A15); Jan fee rate on-chain (A14); fee-mechanics decode +
+gross-of-fee bias (A13); fee-inclusive re-audit of actives (A16) —
+edge survives at +2.31% btc-15m, meta is majority-taker, new exchange
+contract found. Earlier: A9-A11, _META v2, literature A1/A2.
 
 ## Workstream status
 

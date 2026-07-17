@@ -449,3 +449,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   phenomenon (mid-Jan→Feb compression), not the fee shock itself.
   Decay prior for the lab: a structural-fee shock costs days (fast
   re-tune possible); competitive compression takes weeks. [verified]
+- **A16 (fee-inclusive re-audit — A13's question answered):** measured
+  on-chain net fees for the July actives (120–150 receipts/cell,
+  Jul 14–16): b55f btc-15m keeps **+2.31% fee-inclusive** (was +3.20%
+  gross) — the edge is real; 0xce25 btc-15m barely survives (+0.31%,
+  was +1.97%; taker-heavier style, rank vs b55f REVERSES after fees);
+  btc-5m cells are fee-negative (−2.0 to −2.9%) confirming rebate
+  manufacturing. Edge wallets are ~62% TAKER by notional even on edge
+  books; doggystyie is 100% taker (its "perfect parity maker"
+  fingerprint is a taker loop). NEW venue fact: July crypto up/down
+  settles on a NEW exchange `0xe1111800…996b` (fill event 0xd543adfd…,
+  native fees: maker 0, taker = published curve in USDC, mint-matching;
+  launch date unbracketted). /activity remains gross-of-fee in the
+  current era. [verified] (measurements/fee-audit-actives.md)
