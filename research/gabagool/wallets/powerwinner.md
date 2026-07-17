@@ -44,11 +44,16 @@ least three income mechanisms (trading edge, maker rebates, taker
 rebates); per-wallet decomposition is mandatory before calling anything
 "the strategy still prints".
 
-## Open
+## Leg balance (answered)
 
-- Is the buy pattern actually both-sides-balanced per market (pair
-  construction) or directional churn? (Per-market leg balance not yet
-  computed.)
+Per-market |up−down|/max leg imbalance: p50 7.7%, p90 20.0% — loosely
+pair-shaped, far from the archetype's 0.1% parity. Worst markets −$362.
+The buy band centers on p=0.50, which is where fee = 0.07·p(1−p) peaks —
+i.e., where each dollar of churn manufactures the MOST weighted volume
+for the rebate tier. The trading loss is the manufacturing cost of
+subsidy volume, not a failed edge.
+
+## Open
 - YIELD event mechanics (holding rewards program).
 - Whether his volume alone moves the btc-5m books (he IS ~10% of that
   tape some hours).
