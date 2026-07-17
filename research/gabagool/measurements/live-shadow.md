@@ -85,3 +85,26 @@ rows are the HOURLY series (different slug scheme, caught by the
   (shadow-2026-07-17T04Z.json). Tables here are the durable record;
   future snapshots should pass a distinct --out or rename the JSON
   after the run.
+
+### 2026-07-17T08:10Z (last 2h)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 3074 | $42200 | 1 | 0.728 | 0.9932 | $1.67 | 0 | 93 | btc-5m $11.5k, btc-15m $11.2k, bitcoin-up-or-down-july-16-2026-11pm-et $4k |
+| 0xce25 | 2127 | $19828 | 1 | 0.818 | 1.0031 | $4.08 | 0 | 85 | btc-5m $8k, btc-15m $5.3k, eth-5m $1.7k |
+| powerwinner | 538 | $44241 | 1 | 0.935 | 1.0325 | $84.47 | 0 | 24 | btc-5m $44.2k |
+| bonereaper | 1923 | $27058 | 1 | 0.409 | 1.0627 | $5.29 | 0 | 67 | btc-5m $14.2k, eth-5m $4.7k, bitcoin-up-or-down-july-16-2026-11pm-et $2.6k |
+| 0xaaaaa | 542 | $38360 | 1 | 0.683 | 1.1534 | $74.02 | 0 | 24 | btc-5m $38.4k |
+| doggystyie | 723 | $18859 | 1 | 0.986 | 1.0186 | $20.7 | 0 | 24 | btc-5m $18.9k |
+| badfallen | 1159 | $16523 | 1 | 0.907 | 1.0091 | $8.34 | 0 | 24 | btc-5m $16.5k |
+| b27bc932 | 1730 | $9324 | 1 | 0.961 | 1.0045 | $2.75 | 87 | 9 | btc-15m $8.1k, bitcoin-up-or-down-july-17-2026-12am-et $0.7k, bitcoin-up-or-down-july-16-2026-11pm-et $0.5k |
+| 95f5-challenger | 425 | $1852 | 1 | 0.027 | 1.0296 | $2.5 | 0 | 22 | btc-5m $1.4k, eth-5m $0.3k, btc-15m $0.2k |
+
+- **O6 (08:10Z):** first real movement — realized pair costs ROSE
+  across the board vs the 04–06Z snapshots (b55f 0.991→0.993, 0xce25
+  0.994→1.003, b27bc932 0.996→1.005, bonereaper 1.037→1.063): the
+  "sub-$1 club" shrank to b55f alone in this window while cadence and
+  ranks stayed fixed. Realized pair cost is regime-dependent
+  intra-day; a single 2h window cannot certify a wallet's pair-cost
+  discipline — snapshots need a full-day spread before averaging.
+  (Raw JSON now renamed per snapshot: shadow-2026-07-17T0810Z.json.)
