@@ -46,3 +46,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the big lump was owed back-pay (the program's first 3 weeks, paid to six wallets in the same second) — and the venue also hands out manually-set round amounts, which is hard evidence the whole income stream is at the venue's discretion.
 - Next: check whether we've reached knowledge saturation; if yes, write the lab handoff.
 - Health: on track.
+
+## 2026-07-17T07:15Z — unit: rebate math cracked (G4 closed)
+
+- Did: derived the maker-rebate formula from the official docs and measured the btc-15m fee flow for a full day.
+- Found: a maker's rebate is exactly 20% of the fee value of their own fills — no guessing about competitors needed. The lab can now judge the main hypothesis fully in simulation.
+- Next: saturation check — the open-question list is basically empty.
+- Health: on track.

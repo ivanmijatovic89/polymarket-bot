@@ -34,10 +34,12 @@ edge is dead by regime change, do not test it.
 - **Kill**: sim (worst_queue) pair cost consistently ≥ 1.005 even with
   parity control → NOT fatal alone (D2 measured: worst_queue admits
   44–49% of real fills — the adverse half — so sim-negative is expected;
-  sim-POSITIVE would be extraordinary evidence). Structural kill only if
-  rebate-pool arithmetic (20% × fee curve × plausible pool share) can't
-  cover a measured 0.5c/pair deficit; otherwise disposition = live-paper
-  or trades-channel queue model (fable EDGE-SPACE §3.2/3.3).
+  sim-POSITIVE would be extraordinary evidence). Structural kill is now
+  fully DECIDABLE IN SIM (A22): rebate income = 0.20 × fee-equivalent
+  of own maker fills, exactly (respect the $1/market/day threshold);
+  kill if fee-inclusive pair margin + exact rebate < 0 across the sweep;
+  otherwise disposition = live-paper or trades-channel queue model
+  (fable EDGE-SPACE §3.2/3.3).
 - **SRP family**: spread-capture roadmap #6 (bid-side mirror) IS this
   baseline — propose as new family `pair-accumulator` with parity as the
   decision driver (spread-capture's driver was symmetric premium

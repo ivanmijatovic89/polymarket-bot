@@ -515,3 +515,13 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   maker stream ~5-10×/day for every wallet. Program discretion is now
   DIRECTLY evidenced (H3/G8 systemic risk). [verified]
   (measurements/rebate-payout-provenance.md)
+- **A22 (G4 resolved — rebate estimator is exact):** official formula
+  (docs maker-rebates page): per-market daily pro-rata by
+  fee-equivalent (same curve as taker fees), pool = 20% of that
+  market's taker fees → the share CANCELS: own rebate = 0.20 ×
+  Σ 0.07·p(1−p)·size over own maker fills, exactly; $1/day/market
+  minimum threshold (min-size bots round to ZERO). Measured Jul 15:
+  btc-15m ≈ $1.9M/day matched notional, $36.4k/day taker fees, $7.3k/day
+  rebate pool; per-market fees p50 $332. H1 is now fully sim-judgeable
+  (fees exact + rebates exact). [verified]
+  (measurements/rebate-pool-btc15m.md)

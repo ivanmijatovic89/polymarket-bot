@@ -3,10 +3,9 @@
 Ranked by information value per unit effort. Refreshed session 3
 (2026-07-17T01:5xZ). Resolved items moved to the bottom.
 
-1. **Rebate estimator feasibility** (G4): can `20% × Σ fee-curve(own
-   maker fills) × pool-share` be computed with a defensible pool-share
-   assumption (e.g., from market total volume × taker share)? Needed to
-   judge H1 in sim at all.
+1. ~~Rebate estimator feasibility (G4)~~ → RESOLVED (A22): the share
+   cancels; rebate = 0.20 × fee-equivalent of own maker fills, exact,
+   with a $1/day/market payout threshold. btc-15m pool ≈ $7.3k/day.
 3. ~~Tick-size sub-cent rule + rate limits + stream precision~~ →
    RESOLVED (A19): 0.001 exactly outside [0.04, 0.96]; rate limits
    generous (POST /order 5,000/10s) and non-binding; Chainlink streams

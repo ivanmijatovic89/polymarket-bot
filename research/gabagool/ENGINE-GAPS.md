@@ -61,11 +61,16 @@ evaluation.
 - Quantified distortion (tail forensics): gabagool's final 2.6 days were
   trading −$1,767 vs rebates +$1,819 — the rebate term flips the sign of
   the whole strategy. Any sim of the CURRENT meta that ignores rebates
-  mis-signs the equilibrium. A post-hoc rebate estimator (20% × venue-fee
-  curve × your maker volume × your share of market maker volume) can be
-  bolted onto backtest stats without engine changes — but your *share* of
-  the pool needs the market's total maker volume, which needs trade
-  prints (G2) or an assumption.
+  mis-signs the equilibrium. ~~A post-hoc estimator needs a pool-share
+  assumption~~ **RESOLVED (A22): the estimator is EXACT — the official
+  formula is per-market pro-rata by fee-equivalent with pool = 20% of
+  the same fee measure, so the share cancels: rebate = 0.20 ×
+  Σ 0.07·p(1−p)·size over own sim maker fills.** One-line post-hoc
+  stats addition; no trade prints, no engine change, no assumption
+  beyond pro-rata-as-documented. Only nuance: $1/day/market minimum
+  payout threshold (min-size configs earn literally $0). Measured
+  scale: btc-15m pool ≈ $7.3k/day (Jul 15;
+  measurements/rebate-pool-btc15m.md).
 
 ## G5 — Pair credit & merge semantics in sim
 

@@ -420,3 +420,24 @@ pays discretionary amounts to individual wallets.
 
 The queue is nearly empty. Next: saturation assessment against the
 charter's E criterion.
+
+## 2026-07-17T07:15Z — G4 resolved (A22): the rebate estimator is exact, and H1 is now fully sim-judgeable
+
+The best unit of the shift. The official maker-rebates formula is
+per-market pro-rata by fee-equivalent — the SAME curve the taker pays —
+with the pool set to 20% of the same measure. So the pool share
+cancels algebraically: a maker's daily rebate = 20% × the fee-curve
+value of their OWN maker fills. No pool-share assumption, no trade
+prints needed (the thing G4 thought was blocking). One-line post-hoc
+stats addition for the lab. Nuance: $1/day/market minimum payout —
+min-size configs literally earn $0, so "rebates rescue thin margins"
+only operates at scale.
+
+Also measured the magnitudes (scripts/rebate-pool.ts, Jul 15, 24/96
+windows, Σsize==gamma volumeNum validates single-counting): btc-15m
+does ~$1.9M/day matched notional, ~$36.4k/day taker fees, ~$7.3k/day
+maker-rebate pool; per-market fees p50 $332. Charter question "how
+much per day at min size" answered: dust or zero.
+
+With G4 closed, H1's kill criterion is decidable in sim: fee-inclusive
+pair margin + exact rebates. This upgrades the whole handoff.

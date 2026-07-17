@@ -14,7 +14,7 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
 | pair completion | `min(netUp, netDown) / max(netUp, netDown)` | unpaired remainder is the only unhedged risk | gabagool tail ≈ 0.999 (0.13% imbalance) — he completes almost perfectly |
 | unpaired exposure $ | `(max−min leg) × avg cost of surplus side` | tail-loss driver (P14) | tail p50 $2–8/market |
 | net cash PnL | −BUY + SELL + REDEEM + MERGE (cash flow, no oracle) | ground truth per market incl. abandonment | tail: −0.50% of turnover |
-| rebate income | 20% × Σ venue-fee-curve over own maker fills × pool share | flips the sign in the current meta (G4) | tail: +$1,819/2.6d vs −$1,767 trading |
+| rebate income | **exact**: 0.20 × Σ 0.07·p(1−p)·size over own maker fills, per market; $0 if < $1/market/day (A22 — pool share cancels, no assumption) | flips the sign in the current meta (G4) | tail: +$1,819/2.6d vs −$1,767 trading; btc-15m pool ≈ $7.3k/day |
 | **taker-fee drag** | Σ published-curve fee over own TAKER fills (per era formula, VENUE-MECHANICS) | /activity nets are GROSS of this (A13); the sign of the edge depends on it | Jul actives: 0.9–2.6% of turnover by book (A16) |
 | **fee-inclusive margin** | (net cash PnL − taker-fee drag) / buy turnover | the honest edge number; rebates stay a separate line | b55f btc-15m +2.31%; 0xce25 +0.31%; btc-5m cells negative (A16) |
 | **taker share of notional** | taker-side notional / total (per-fill role from receipts) | the winning meta is ~62% taker (A16) — pure-maker sims model a minority | archetype 29–45% (fills, D2); Jul edge wallets ~62% (notional) |
