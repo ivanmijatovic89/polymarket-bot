@@ -45,3 +45,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: rebate income at test sizing is below the venue's $1/market payout floor (raw $0.25/market) — clearing it needs ~4× the fill mass; noted for candidate sizing.
 - Next: when arms land — full baseline judgment (weekly slices, tails, latency curve) + freeze tail thresholds.
 - Health: on track
+
+## 2026-07-17T04:45Z — unit 7 (session 2 start)
+- Did: found the backtest worker dead (killed with session 1); relaunched it so it now survives session ends; added a queue-status tool; folded new KB findings.
+- Found: no jobs lost — ~19k remaining drain at ~6/s, results expected ~05:30Z. KB: the one "big loser" in this strategy family lost on World Cup markets, not on crypto up/down — no known blow-up in this niche.
+- Next: when the four baseline runs land — full judgment (weekly slices, tails, latency curve) + freeze thresholds.
+- Health: on track

@@ -184,3 +184,42 @@ schemas must accept their own persisted form.
 
 Worker self-updated (exit-75 → pull → relaunch at d5574428) and is
 draining ~23.4k jobs. Judgment + TAIL_K calibration when arms land.
+
+## 2026-07-17T04:40Z — session 2, unit 7: worker resurrected as a daemon
+
+Timestamp correction first: session 1's journal/feed stamps drifted ~2h
+ahead of true UTC from unit 5 on (local CEST written as Z). True submit
+time of the fullwin arms was ~03:40Z, not 07:40Z. From now on stamps
+come from `date -u` output only.
+
+Found on resume: the 4-child markets worker died at 04:13Z — SIGTERM,
+killed as a child of session 1's shell the moment that session ended.
+Nothing was wrong with the jobs: 8 orphaned actives (locks expire, the
+stalled-checker reclaims them), ~20.5k waiting, zero failed. The
+operator's own aggregate worker (polymarket-bot-worker, main branch)
+can't touch my aggregates — the commit gate wants d5574428's ancestry.
+The four fullwin aggregate parents sit correctly in waiting-children;
+the 3 failed aggregate jobs in the queue are old imbalance-hold
+duplicates, not mine.
+
+Fix that outlives me: relaunched run-worker.sh (markets+aggregate,
+concurrency 4) via `nohup caffeinate -is ... &` in a subshell — it
+reparents to launchd, so session death can't SIGTERM it anymore.
+caffeinate follows the operator's own precedent (their worker runs
+under it). Verified consuming within seconds. Measured drain:
+~5.9 jobs/s → ~50 min to empty the market queue, then 4 heavy
+aggregate jobs persist the runs. Much better than the 2.8h estimate;
+judgment likely lands THIS session. New tool: tools/queue.ts (BullMQ
+depths + samples via the repo's own queue module — needed env-loader
+import, the same lesson lib.ts already encodes).
+
+KB re-read (A25/A26 folded as INHERITANCE A-2): the "failed
+challenger" −$542k casualty was a World Cup blow-up, not
+crypto-updown; the class has NO known large-loss casualty on this
+meta. Softens the competition-risk prior; my TAIL_K plan is unchanged
+(my tails are backtest-measured, not borrowed). origin/main: no
+price-to-beat / Chainlink feed code yet — strike proxy stays
+window-open spot.
+
+Disk note: volume at 98% (9.7Gi free). Worker logs ~26MB/30min are
+fine; keeping lab artifacts lean regardless.

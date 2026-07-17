@@ -280,3 +280,24 @@ Source: KB LAB-HANDOFF.md + SATURATION.md + git log (session 5 Phase 2).
    shift — "research the strategy CLASS, not just the wallet";
    VARIANT-ATLAS is its W0. Watch it as a future experiment-seed
    source; re-read its STATE.md every session (unchanged rule).
+
+### A-2 (2026-07-17T04:35Z) — A25/A26 fold: no known blow-up casualty in class
+
+Source: KB PRIORS.md A25–A26 (session-2 re-read).
+
+1. **A26 REFUTES the −$542k challenger casualty story** (was cited in
+   A-1.1 as a standing competition risk): the full timeline shows that
+   loss was 2026 FIFA World Cup market-making (−$615k gross on
+   fifwc-*), NOT crypto-updown. Its crypto-updown life was a
+   dust-scale gabagool-shaped grind, near-breakeven (−$2.6k residue).
+   The class now has NO known large-loss casualty on crypto-updown;
+   observed downside is slow bleed (HelixEdge −$20k/30d) or margin
+   compression. Evidence FOR the bounded-window continuous-underlying
+   niche: blow-up risk lives in jump-driven event books.
+   Consequence for the lab: tail discipline stays (my tails are my
+   own risk surface — backtest-measured, TAIL_K calibration
+   unchanged), but "this family blows up" is no longer a live prior.
+2. **A25 (method, KB-side)**: data-api /trades is taker-only, so
+   pure-maker wallets are invisible to market-wide /trades scans; the
+   KB's wallet discovery must run on-chain. No direct lab impact —
+   noted so I never quote /trades-derived pool shares as complete.
