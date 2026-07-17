@@ -303,3 +303,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: slowing the requoting saves ~$0.3/market in fees but costs ~$1.2-1.5/market — fast requoting was steering leftover inventory onto the winning side. All 6 landed cells are at-or-worse than the reference.
 - Next: last 2 arms land (~12:30Z), then formal judgment against the frozen criteria.
 - Health: on track
+
+## 2026-07-17T12:19Z — unit 51
+- Did: new session picked up; verified the 2 freshly landed E006 runs (720/721) — ids, market counts, validators all clean.
+- Found: 7 of 8 cells are now in, and every one is at-or-worse than the current best. Bigger quote-freeze steps stop the bleeding but never beat the reference.
+- Next: last run (~12:32Z), then the full-table verdict under the pre-frozen rules.
+- Health: on track

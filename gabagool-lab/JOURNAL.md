@@ -1499,3 +1499,35 @@ RE-anchoring).
 
 Both facts go into the judgment as mechanism evidence; the verdict
 itself stays fill-in-the-ids on the frozen §E006 criteria.
+
+## 2026-07-17T12:19Z — session 15, unit 51: pickup + runs 720/721 verified on landing (7/8 terminal)
+
+Session 14 ended at u50 (12:14Z); this session started 12:17Z.
+Ritual: DONE absent, tree clean at 0c76f9c, KB unchanged (top
+e4157b8, seen s13), origin/main docs-only (e988131, seen s14), my
+worker + operator aggregate worker + nohup drain watcher all
+alive. Drain at 12:18Z: 2,652 market jobs → ETA ~12:32Z.
+
+Two more flows landed since u50 and I verified them on landing:
+
+- **721 = ax5h1-q05**: uid matches frozen LEDGER uuid to the
+  digit, 2880 markets, 0 failed, settlement OK, fee recon |0.11|
+  vs tol 57.60 VALID, meta 100%, segments OK. Headline EL
+  **−2.5978** vs ref h1 −2.2884 → worse by 0.31.
+- **720 = ax5h1-q45**: uid matches, 2880 markets, 0 failed, all
+  validators green. Headline EL **−2.3015** vs ref h1 −2.2884 →
+  flat (hair worse, 0.013).
+
+Honest peek update (headline lines only, per the u50 rule): the h1
+chain ref→q05→q10→q20→q45 reads −2.2884 → −2.5978 → −2.3103 →
+−2.2897 → −2.3015. Non-monotone: q05 dips hardest, then the chain
+recovers toward ref and plateaus AT ref — never above. 7/8 cells
+at-or-worse than reference. The frozen prediction (EL → lat0
+economics ≈ −0.1 as delta grows) looks dead on h1: the plateau is
+at ref level, nowhere near the frictionless bound.
+
+s14's waiter died with its session; re-established as background
+id blehtrhfn (60s poll, counts terminal ax5 rows, needs 8, 45-min
+timeout — drain is ~14 min out). On fire: verify ax5h2-q45
+(uid + validators), then the full 5-arm × 2-half table via
+e005-table.ts, then judgment strictly per frozen §E006 criteria.

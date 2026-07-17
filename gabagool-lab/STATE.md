@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 14 (started 2026-07-17T12:09Z. Stamp rule: paste from
+- **Session:** 15 (started 2026-07-17T12:17Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
@@ -20,23 +20,25 @@
   (u42: chassis latency-robust, EL conversion-dominated, candidate
   path BLOCKED); E006-quote-stability FROZEN + LAUNCHED (u44),
   draining
-- **Phase:** E006 draining (launched 10:34Z at SHA 35a6f5de; 8
-  flows ax5{h1,h2}×{q05,q10,q20,q45} on rc+c960 chassis, 23,424
-  jobs). ETA ~12:33Z (~174/min, ~5.2k left at 12:03Z). 5/8 runs
-  terminal + verified (u46+u47): 715=q05h2, 716=q10h1, 717=q10h2,
-  718=q20h1, 719=q20h2 — uids to the digit, 0 failures, validators
-  green. Early peek (no judgment): ALL 5 at-or-worse than ref
-  (q05h2 −2.59, q10h2 −2.33, q20h2 −2.37 vs ref h2 −2.02; q10h1
-  −2.25, q20h1 −2.25 vs ref h1 −2.29); taker share collapses as
-  designed (37%→5–11%) but EL does not recover → prediction
-  (EL→lat0 econ) in trouble; loss morphs into stale-quote adverse
-  selection. LS-10 waiter: s13's died with its session; s14
-  relaunched as background bash id bpv5csxwx (polls runs.ts for 8
-  terminal ax5 rows, 90-min timeout). NOTE: the last 3 flows have
-  NO backtest_runs rows until their aggregate fires — run ids are
-  unknowable pre-landing; waiter counts terminal ax5 rows.
-  Drain watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.
-  Ref delta 0.02 = runs 708/703 (reused). Battery verdict (§E005 u42): depth advantage
+- **Phase:** E006 draining, 7/8 terminal + VERIFIED (u46/u47/u51):
+  715=q05h2, 716=q10h1, 717=q10h2, 718=q20h1, 719=q20h2,
+  720=q45h1, 721=q05h1 — uids to the digit, 0 failures, validators
+  green on all 7. Last flow ax5h2-q45 draining, ETA ~12:32Z.
+  Honest peek (headline EL only per u50 rule; NOT a judgment):
+  ALL 7 at-or-worse than ref. h1 chain ref→q05→q10→q20→q45 =
+  −2.2884 → −2.5978 → −2.3103 → −2.2897 → −2.3015 (non-monotone:
+  q05 worst, plateau AT ref); h2 partial ref→q05→q10→q20 =
+  −2.0229 → −2.5887 → −2.3715 → −2.3681. Taker share collapses as
+  designed (37%→5–11%) but EL does not recover → frozen prediction
+  (EL→lat0 econ ≈ −0.1) looks dead; u50 decomp: winner-remainder
+  term collapses (rem$ 2.37→0.86 on h2 chain), remainder turns
+  outcome-adverse when quotes freeze — that asymmetry (~$1.2–1.5
+  lost vs ~$0.3 fee saved) is the mechanism. LS-10 waiter:
+  s15 id blehtrhfn (counts terminal ax5 rows, needs 8, 45-min
+  timeout). Run ids unknowable pre-landing (aggregate creates the
+  row). Drain watcher: nohup pid 94585 →
+  logs/watch-drain-s12-e006.log. Ref delta 0.02 = runs 708/703
+  (reused). Battery verdict (§E005 u42): depth advantage
   latency-robust (+1.8–2.2 vs shallow every arm) BUT lat0 ≈ −0.07
   at 0.5 fills/mkt → lat140 loss ~100% requote-conversion; LS-1
   hypothesis refuted; u40 blind framework applied → candidate
@@ -104,13 +106,13 @@
 
 ## Queue (work top to bottom)
 
-1. **E006 judgment when drained (ETA ~12:33Z):** 5/8 verified (see
-   Phase); remaining 3 = ax5h1-q05, ax5h1-q45, ax5h2-q45; waiter
-   baqvcnq6o polling terminal state (LS-10), branch on partial
-   (windowed --extend re-run per u41 recovery). On fire: verify
-   uids (`tools/uids.ts <ids>`) + validators per run, then
-   `e005-table.ts --arm q02=708,703 --arm q05=<h1>,715
-   --arm q10=716,717 --arm q20=718,719 --arm q45=<h1>,<h2>`
+1. **E006 judgment when drained (ETA ~12:32Z):** 7/8 verified (see
+   Phase); remaining 1 = ax5h2-q45; waiter blehtrhfn polling
+   terminal state (LS-10), branch on partial (windowed --extend
+   re-run per u41 recovery). On fire: verify uid + validators
+   (`tools/uids.ts <id>`, `results.ts --run <id>`), then
+   `e005-table.ts --arm q02=708,703 --arm q05=721,715
+   --arm q10=716,717 --arm q20=718,719 --arm q45=720,<h2>`
    (verified blind u45). Judge per frozen §E006 criteria: chain
    adjacency, advance rule (endpoint direction + top-2-of-5 set
    match), EL-vs-participation curve, choke caveat at played<20%.
