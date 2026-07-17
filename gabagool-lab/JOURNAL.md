@@ -1979,3 +1979,27 @@ Next: wait for landing (ETA ~15:19Z); judge E008 strictly per the
 frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
 endpoint direction + top-2 set, Δrem ≥ −0.3 payload check,
 played<20% caveat, EL-vs-participation curve quoted either way).
+
+## 2026-07-17T14:55Z — session 24, unit 66: pickup ritual; drain mid-flight, waiter re-established
+
+Fresh context; session 24 (s23 ended right after u65). Pickup
+ritual (14:54Z, stamps from date -u): DONE absent, tree clean at
+dac3cc0, worker daemons alive (pids 68398/68400
+markets+aggregate), drain watcher pid 21525 logging, markets
+queue 10,470 waiting / 0 failed at 14:54Z (~410/min from watcher
+log) -> landing ETA ~15:20Z. Aggregate: 5 waiting-children = the
+5 unlanded ax6 flows. No new run landed since u65 — still 3/8:
+725 (ax6h2-g00 -0.2681), 726 (ax6h1-g05 -1.4600), 727 (ax6h2-g05
+-1.5066). No interpretation until 8/8.
+
+KB check: STATE mtime 14:48Z, register still tops at A48 — s22's
+A-9 fold already covered it; nothing new to fold.
+
+The s23 waiter bez4s465g died with its session (LS-10, expected);
+replaced with waiter btzrbdtfe (bash loop, 3-min poll, exits at
+8/8 terminal ax6 rows).
+
+Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
+frozen block (grid {0,5,9,15} bps, refs 708/703, advance rule =
+endpoint direction + top-2 set, Δrem >= -0.3 payload check,
+played<20% caveat, EL-vs-participation curve quoted either way).

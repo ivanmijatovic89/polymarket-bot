@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 23 (started 2026-07-17T14:52Z. Stamp rule: paste from
+- **Session:** 24 (started 2026-07-17T14:54Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -124,11 +124,11 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (ETA ~15:19Z; 11,373 waiting at
-   14:52Z — LANDED SO FAR: run 725 = ax6h2-g00 EL -0.2681, run
+1. **E008 judgment when drained (ETA ~15:20Z; 10,470 waiting at
+   14:54Z — LANDED SO FAR: run 725 = ax6h2-g00 EL -0.2681, run
    726 = ax6h1-g05 EL -1.4600, run 727 = ax6h2-g05 EL -1.5066;
    all uid-exact, validators green,
-   no interpretation yet):** s23 waiter bez4s465g (bash loop) polls
+   no interpretation yet):** s24 waiter btzrbdtfe (bash loop) polls
    terminal ax6 rows (needs 8; LS-10 — run ids unknowable
    pre-landing); drain watcher nohup pid 21525 →
    logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen

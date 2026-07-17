@@ -393,3 +393,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: 3/8 landed; no reading of results until all 8 are in, per the frozen plan; queue on pace to finish ~15:19Z
 - Next: wait for the last 5 runs, then judge the fair-value gate experiment
 - Health: on track
+
+## 2026-07-17T14:55Z — unit 66
+- Did: session-24 pickup — checked queue, worker, watchers, knowledge base; restarted the landing waiter.
+- Found: nothing new — still 3 of 8 E008 result batches in; the rest land around 15:20Z. Knowledge base unchanged.
+- Next: when all 8 are in, judge E008 against its frozen criteria.
+- Health: on track
