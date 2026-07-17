@@ -129,3 +129,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — batch on pace to finish ~06:24Z; 3 of 9 result sets already saved.
 - Next: safety re-test of the "complete the pair" code path while the batch finishes; then E003 judgment.
 - Health: on track
+
+## 2026-07-17T06:06Z — unit 22
+- Did: found the planned safety re-test was already done in session 3 (my to-do list was stale); double-checked that result against the database and test-fired the E004 launch script (print-only).
+- Found: the pair-completion code path is verified working; E004 can launch minutes after E003's verdict.
+- Next: E003 verdict when the batch finishes (~06:25Z); then E004 launch.
+- Health: on track

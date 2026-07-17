@@ -70,11 +70,15 @@
    pre-registered interpretation rules (JOURNAL), judge, lesson,
    LEADERBOARD update. Axis gates only (G2/G3/G9). h1 = Apr (2,880
    mkts), h2 = May (2,976); EL is comparable per-market across halves.
-2. **L2 campaign continues:** E004 completion policy (H6; re-smoke
-   first — completionTtl code is unsmoked), E005 ladder + deep-pair
-   cell (pairCostCap {0.96,0.97,0.98} — best-evidenced region, A30/
-   A33), E006 timing. Seeds in LEDGER backlog. Before E004 freeze:
-   state tier-0 fee basis in its criteria (A32, INHERITANCE A-4).
+2. **L2 campaign continues:** E004 completion policy (H6) is
+   LAUNCH-READY — re-smoke DONE (run 680, s3, LEDGER §E004; verified
+   vs DB u22) and launcher dry-run verified post-commit (u22). After
+   E003 judgment: fill SEED + record 2 control batchUids (the E003
+   run pair at SEED tol) + status→frozen + `launch-e004.sh --tol
+   SEED`. Fee basis (A32 tier-0) already stated in its criteria.
+   Then E005 ladder + deep-pair cell (pairCostCap {0.96,0.97,0.98} —
+   best-evidenced region, A30/A33), E006 timing. Seeds in LEDGER
+   backlog.
 
 ## Open questions / risks
 

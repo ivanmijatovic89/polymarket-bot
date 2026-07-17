@@ -646,3 +646,32 @@ died; short relays continue). Pickup findings:
 Drain-window unit next: E004 completionTtl re-smoke (E003-blind —
 runs the completion path locally on a few markets; LEDGER requires
 it before E004 launch since smoke 668 pre-dates the TTL amendment).
+
+## 2026-07-17T06:06Z — session 6, unit 22: E004 pre-launch verification complete; STATE queue was stale
+
+The planned drain-window unit ("re-smoke completionTtl — unsmoked")
+dissolved on contact with the LEDGER: session 3 already ran the
+re-smoke (run 680, smoke-e004path, 10 mkts seq lat140 cap-mode) and
+recorded "E004 may freeze". STATE's queue line was written before
+that unit and never updated — the stale-queue trap. Two lessons
+folded into practice: trust LEDGER over STATE's queue when they
+disagree (LEDGER is per-experiment ground truth; STATE is a digest),
+and verify claims cheaply before re-doing work.
+
+Verification done this unit (all E003-blind):
+1. **Run 680 exists and matches its LEDGER claim exactly**: params
+   show completionMode=cap + completionTtlSec=10; 126m/99t fills,
+   pairRate 0.724, settlement recheck OK, fee-recon VALID (|Δ| 0.01
+   vs tol 0.20), meta coverage 100%. The TTL-amended completion path
+   is smoked. (Numbers were already disclosed in LEDGER — no new
+   peeking.)
+2. **launch-e004.sh --dry-run re-verified post-commit** (u19 left
+   this pending): all 6 submissions render with correct batchUids
+   (ax2h1/h2 × c990/c970/cfree), correct windows (Apr/May), env pins
+   lat140 jitter0, params correct per arm; off-grid --tol 15 refused
+   with the no-control-run explanation. Launch path is ready.
+3. STATE queue repaired: E004 next-step is now "fill SEED + record
+   2 control batchUids + freeze + launch" (minutes), not a re-smoke.
+
+Drain check: still on pace (~500/min). Judgment next when the
+watcher fires.
