@@ -1335,7 +1335,7 @@ the curve's shape decides whether a standing deep ladder keeps
 enough flow to matter. Next: launcher + q-mode table extension
 (blind), then freeze-at-submit and launch.
 
-## 2026-07-17T10:39Z — session 12, unit 44: E006 frozen + launched at 35a6f5de (8 flows, ~23.4k jobs)
+## 2026-07-17T10:35Z — session 12, unit 44: E006 frozen + launched at 35a6f5de (8 flows, ~23.4k jobs)
 
 Freeze-at-launch ritual held: proposal committed u43, launcher
 committed u44, dry-run verified all 8 cells (chassis params

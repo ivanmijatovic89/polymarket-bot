@@ -262,7 +262,7 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Next: build the launcher + readout, then launch (~8 runs, ~55 min drain).
 - Health: on track
 
-## 2026-07-17T10:39Z — unit 44
+## 2026-07-17T10:35Z — unit 44
 - Did: launched the quote-stability experiment (8 runs, draining ~50 min).
 - Found: nothing new yet (launch unit).
 - Next: extend the readout tool (blind), then judge on drain (~11:26Z).

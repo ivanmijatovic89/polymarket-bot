@@ -951,7 +951,7 @@ Template:
 
 ## E006-quote-stability — requote discipline on the deep chassis
 - **Type:** axis
-- **Status:** frozen (2026-07-17T10:38Z, session 12, at launch, SHA
+- **Status:** frozen (2026-07-17T10:35Z, session 12, at launch, SHA
   35a6f5de = the launcher commit; spec verbatim from the u43 draft —
   nothing filled at freeze. Drafted AFTER the E005 battery judgment,
   BEFORE any E006 data existed.)
