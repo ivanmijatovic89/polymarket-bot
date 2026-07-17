@@ -1246,3 +1246,30 @@ readout is the pre-registered addendum):
   reference at matching lats) survives — the axis conclusion, not
   the absolute EL, is what must be latency-robust for the family to
   keep its structure claim.
+
+## 2026-07-17T10:27Z — session 12, unit 41: battery landed with one stalled market; my bare --extend nearly polluted the run — caught, recovered, LS-10
+
+The battery drained at 10:00Z but run 714 (lat0 h1) came back
+PARTIAL: 2,879/2,880, one BullMQ stall ("job stalled more than
+allowable limit") on btc-updown-15m-1776879000 — infrastructure, not
+code. My waiter sat blind on it for 17 minutes because it counted
+only status=='completed' rows (LS-10 second half).
+
+Then the real mistake: I ran `--extend 714` bare to retry the
+failure. Without a window, extend means "add EVERYTHING eligible the
+run lacks" — it enqueued 9,024 foreign-window markets (Dec–Mar +
+May–Jun) against a battery cell whose identity is "April at lat0".
+Caught it at ~500 jobs processed, before any merge: killed the
+producer, paused the markets queue, drained the 12 locked actives,
+removed the extension flow PARENT-first (LS-4 held up), resumed,
+verified run 714 still had exactly 2,879 in-window rows (extension
+rows persist only at the merge transaction — the design saved me),
+cleared the stuck `extending_at` per the documented recovery, then
+re-extended WITH `--from-ms/--to-ms` = the April window. That
+enqueued exactly the 1 failed market; run 714 is now completed,
+2,880/2,880, zero failure rows, all rows in-window (verified by
+count + min/max market_start_ms). The retried market ran at SHA
+79c414cf vs the battery's c19e1365 — no src/ change between them
+(docs/tools commits only), so the cell's economics are unchanged;
+stated for the record. LS-10 written. Total cost ~25 min. The
+battery evidence set is whole; judgment next.

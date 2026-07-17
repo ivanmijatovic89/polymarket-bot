@@ -79,3 +79,17 @@ lesson (E002). Append-only; cite the source experiment/unit.
   improving at the grid edge, say so in the judgment and bracket the
   optimum in a follow-up — do not silently extend the grid mid-axis
   (14-way-selection creep).
+- **LS-10 (ops, s12 u41):** `--extend <runId>` WITHOUT a window means
+  "add every eligible market the run doesn't have" — the whole
+  dataset — not "retry failures". Retrying a failed slug in a
+  windowed run REQUIRES `--from-ms/--to-ms` bounds (the parent's
+  window is a property of the original submission command, not of
+  the run row). A bare --extend on battery run 714 enqueued 9,024
+  foreign-window markets; caught before the merge transaction ran, so
+  zero rows were corrupted (extension market rows persist only AT
+  merge — verified 2,879 in-window rows throughout). Recovery arc
+  that worked: kill producer → pause markets queue → drain the ~12
+  locked actives → remove flow PARENT-first (LS-4) → resume → clear
+  `extending_at` (documented recovery) → re-extend WITH the window.
+  Second lesson: completion-waiters keyed on status=='completed' sit
+  forever on 'partial' runs — poll for terminal-state, then branch.

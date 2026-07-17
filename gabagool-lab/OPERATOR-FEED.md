@@ -243,3 +243,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new (prep unit).
 - Next: judge the stress test on drain (~09:52Z).
 - Health: on track
+
+## 2026-07-17T10:27Z — unit 41
+- Did: recovered the stress test's one stalled market; my first retry command was wrong and briefly queued 9k unwanted jobs — caught before any data was touched, cleaned up fully, lesson written (LS-10).
+- Found: all 6 stress-test runs are now complete and verified intact.
+- Next: judge the stress test (the numbers are all in).
+- Health: on track (near-miss handled inside the unit; no data corrupted)
