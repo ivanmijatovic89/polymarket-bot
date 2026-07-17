@@ -79,10 +79,28 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 Unit 1: b27bc932 dossier era amendment DONE (O7–O9 folded; mid-July
 btc-5m-first US-session sleeve at farmer economics, June profile
 era-bound; OQ #5 closed — residue: next-day MORNING snapshot decides
-schedule-vs-expansion). Queue now: (1) OQ #2 month-scale session
-split with realized-vol covariate; (2) W3 snapshot ~16:15Z+ (last
-was 14:47Z); (3) OQ #4 first-OrderFilled/migration on 2026 exchange;
-(4) low-value residue.
+schedule-vs-expansion).
+
+Unit 2 (15:04Z): OQ #2 CLOSED — A49 + A50
+(measurements/session-split-vol-b27bc932.md; scripts
+fetch-binance-1m.ts + session-split-vol.ts committed). A49: session
+rule holds at month scale 3/3 (478 mkts Mar/Jun/Jul); current era:
+US −1.05% (bleed, concentrated US×storm −1.43%), evening +1.65%
+(ONLY robust positive — v1 grinder should run 20–24Z first);
+realized-vol tercile = session proxy, never gate on vol alone;
+margin decay +1.9% (Mar-25) → ≈0% (Jun→), losers 16%→~50%. A50:
+b27bc932 was ALWAYS btc-5m-first (Mar-25 75%; Apr-15/May-13 100%
+btc-5m, ZERO 15m — sleeve toggled OFF mid-Apr→May); corrects
+A45/A46 "May downtime" reads; unit-1's "expansion" recast as
+lifelong norm; merge counts re-confirm A27 eras. Folded into
+BRIEF (session block), METRICS (2 rows), dossier (A50 section),
+OPEN-QUESTIONS (#2 closed, #5 recast).
+
+Queue now: (1) W3 snapshot ~16:15Z+ (last was 14:47Z; morning
+snapshot tomorrow settles OQ #5 residue); (2) OQ #4
+first-OrderFilled/migration on 2026 exchange; (3) low-value residue
+(drfc re-resolution, 5m launch pin, twin-link checks, 15m-sleeve
+toggle boundary bisection).
 
 ### Session-8 FINAL (13:23–14:50Z real; A34–A48, O7–O9, G10; 20 units)
 

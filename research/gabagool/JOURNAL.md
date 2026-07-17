@@ -1132,3 +1132,26 @@ era-bound. OPEN-QUESTIONS #5 closed with one residue: a next-day
 MORNING snapshot decides "daily US-session sleeve" vs "permanent
 expansion" — W3 answers that passively. Next: OQ #2, the
 month-scale session split with a realized-vol covariate.
+
+## 2026-07-17T15:04Z (real) — session 9, unit 2: OQ #2 done (A49) + a sleeve rewrite (A50)
+
+Finished the predecessor's half-built unit: resumed the interrupted
+Mar-25 pull (368k rows), fetched the missing Binance vol day, and ran
+the month-scale session × realized-vol split on 478 btc-15m markets
+across Mar-25 / Jun-10 / Jun-12-14 / Jul-15. Three results. (1) The
+session rule survives month scale, 3/3 samples: US 12-19Z is the
+grinder's bleed (-1.05% of outlay in the current era) and evening
+20-23Z is the ONLY robustly positive session (+1.65%, positive in
+every vol cell) — a v1 grinder should run evenings first, not just
+avoid the US session. (2) Realized vol is NOT an independent driver:
+storms cluster in the US session, and evening storms are fine — gate
+on session, not vol. (3) Month drift is brutal and clean: the same
+recipe made +1.9% of outlay in late March and ≈0% from June on;
+losers went 16% → ~50% of markets. The surprise (A50): Apr-15 and
+May-13 had ZERO btc-15m fills but 70-82k btc-5m fills — the wallet
+was never a btc-15m-first operation; btc-5m was always the main
+book, the 15m sleeve is what toggles on/off, and the "May downtime"
+reads in A45/A46 were partially wrong (sleeve off, wallet on). This
+morning's "btc-5m expansion" era amendment is recast as the lifelong
+norm surfacing in live windows. Dossier, BRIEF, METRICS, PRIORS all
+amended; OQ #2 closed.

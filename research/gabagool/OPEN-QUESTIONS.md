@@ -14,11 +14,19 @@ bottom.
    quote when |preDrift30| ≈ 0, veto after falls, don't chase
    rallies with instant upward requotes. Residue: validate the gate
    threshold on more days/months (fold into W4 #3).
-2. **Session-split scale-up with a realized-vol covariate** (A36 +
-   O8) — 222 markets/2.4 days is thin and clock-only; scale to
-   months (activity pulls per month for b27bc932) and stratify by
-   realized vol, not just hour. Confirms/breaks the "day divides in
-   two" build rule.
+2. ~~Session-split scale-up with a realized-vol covariate~~ **DONE
+   session 9 (A49, A50)** —
+   measurements/session-split-vol-b27bc932.md: 478 markets across
+   Mar/Jun/Jul. US-worst/evening-best holds 3/3 at month scale;
+   evening 20–23Z is the only robustly positive session in the
+   current era (+1.65%); realized-vol tercile is a session proxy
+   (gate on session, at most a US-storm veto); the grinder's gross
+   margin decayed +1.9% (Mar) → ≈0% (Jun→). Bonus A50: btc-5m-first
+   is lifelong, the 15m sleeve toggled OFF mid-Apr→May (Apr-15 and
+   May-13 = 100% btc-5m; "May downtime" reads in A45/A46 corrected).
+   Residue: exact 15m-sleeve OFF/ON boundary dates (two bisection
+   probes on April and late-May/early-June days) — low value unless
+   the toggle correlates with a venue event.
 3. **W4 remainder**: pair-completion timing + endgame flip table at
    scale (density done, A38; session PnL split is #2 above).
 4. **First OrderFilled on the 2026 exchange** + earliest migrants
@@ -26,9 +34,11 @@ bottom.
 5. ~~b27bc932 btc-5m expansion~~ **DOSSIER AMENDED session 9** —
    durable across 3 consecutive windows (O7–O9); era table added to
    wallets/b27bc932.md (June profile era-bound ≤ mid-July; btc-5m
-   sleeve at farmer economics, merges track volume). Residue: is it
-   a daily US-session sleeve or a permanent Jul-17 expansion? Needs
-   one next-day MORNING snapshot (W3 answers passively).
+   sleeve at farmer economics, merges track volume). RECAST by A50:
+   btc-5m-first is the wallet's lifelong day-scale norm — the open
+   part is only the intra-day live allocation (morning 15m-first vs
+   US-session 5m-first). One next-day MORNING snapshot still settles
+   it (W3 answers passively).
 6. drfc4eybh7i8 re-resolution; 5m-launch-date pin; twin-link checks
    (93c22116/961afce6, guh123↔gabagool22 succession) — all low
    value, one probe each.

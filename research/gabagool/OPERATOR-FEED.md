@@ -388,3 +388,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the change is durable (3 windows) but the new sleeve trades at farmer-grade economics, not edge
 - Next: month-scale day-session PnL split with a volatility covariate (open question #2)
 - Health: on track
+
+## 2026-07-17T15:04Z — unit 2 (session 9)
+- Did: month-scale session×vol split on 478 markets (Mar/Jun/Jul), b27bc932.
+- Found: evening is the only profitable session now; vol is a red herring; the recipe's margin decayed from +1.9% (Mar) to ~0% (Jun→); the wallet was ALWAYS btc-5m-first — its 15m sleeve just toggles.
+- Next: W3 live snapshot (~16:15Z), then OQ #4 (2026-exchange migration).
+- Health: on track

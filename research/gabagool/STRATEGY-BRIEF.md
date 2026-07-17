@@ -170,7 +170,19 @@ Candidates for the lab:
   off-hours, shallow-fast/favorite-lean recipe (A34) in the US
   session. A v1 that runs the grinder overnight/EU/evening and
   idles (or switches recipe) 12–19Z matches both living winners'
-  revealed preferences.
+  revealed preferences. **A49 confirms this at month scale (478
+  markets, Mar/Jun/Jul)** and sharpens it: in the current era the
+  grinder is gross-flat-or-negative in three of four sessions —
+  evening 20–23Z is the ONLY robustly positive one (+1.65%, 28%
+  losers; US −1.05%) — so the v1 grinder sleeve should run 20–24Z
+  first, not merely avoid 12–19Z. Realized vol is NOT an
+  independent gate: the US bleed concentrates in US×storm (−1.43%)
+  but evening storms are fine (+1.27%) — gate on session (plus at
+  most a US-storm veto), never on a vol tercile alone. And the
+  margin has a clock: the same recipe earned +1.9% of outlay in
+  late March and ≈0% June onward (A49) — judge current-era
+  candidates on trading-gross + expected rebate (A28), and never
+  pool January/March-era measurements with current-era ones.
 - Band width: archetype ~[0.11, 0.85] effective.
 - Reprice cadence: unknown for archetype (cancels invisible, P21);
   inter-fill bursts suggest standing ladders, not chase-the-mid. NOTE:

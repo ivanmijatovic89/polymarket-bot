@@ -860,3 +860,31 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   Patient deep-pair recipe pairs slower (p50 67s) than the parity
   grinder (39–43s) — speed/depth tradeoff as A37 predicts.
   [verified]
+- **A49 (session split at month scale — US-worst/evening-best holds,
+  vol is a proxy, margin decayed to zero):** 478 btc-15m markets
+  across Mar-25/Jun-10/Jun-12–14/Jul-15 (b27bc932, winners via Gamma,
+  Binance 1m realized-vol terciles). Current era (Jun+Jul, 392 mkts):
+  US 12–19Z −1.05% of outlay (the only big bleed, concentrated in
+  US×storm −1.43%), evening 20–23Z +1.65% (only robust positive, all
+  vol cells positive, 28% losers), overnight/EU ≈ 0. Realized-vol
+  tercile is NOT an independent driver — storms concentrate 12–19Z
+  and evening storms are fine (+1.27%); gate on session, not vol.
+  Month drift: gross margin +1.88%/outlay Mar-25 (16% losers, 445
+  fills p50) → ≈0% June onward (48–51% losers, ~170 fills p50) — the
+  grinder's 15m trading edge decayed to subsidy-carried breakeven
+  over Q2; never pool March/January numbers with current-era ones.
+  A36/A46 ordering now 3/3; excessWon 62–80% every day/session.
+  [verified] (measurements/session-split-vol-b27bc932.md)
+- **A50 (b27bc932 was ALWAYS btc-5m-first; the btc-15m sleeve is the
+  toggling module; "May downtime" partially misread):** series mix by
+  sample day — Mar-25: 75% btc-5m / 13% btc-15m / 12% eth-5m (359k
+  trades); Apr-15 and May-13: **100% btc-5m** (82k / 70k trades,
+  ZERO btc-15m); Jun-10: 70/25; Jul-15: 78/18. The 15m sleeve was
+  OFF mid-April→May and back ON by June; the mid-July "btc-5m
+  expansion" (O7–O9, session-9 unit 1) is the wallet's lifelong norm
+  surfacing in live windows, not an expansion. CORRECTS A45/A46:
+  May-13 was not wallet downtime — only the 15m sleeve was off
+  (wallet-level dark days remain May 1–3, most of 16–26 per the life
+  table). Bonus: per-day merge counts (8.7k/4.2k/0/0/2.3k) match the
+  A27 merge-era boundaries exactly — independent confirmation.
+  [verified] (measurements/session-split-vol-b27bc932.md)
