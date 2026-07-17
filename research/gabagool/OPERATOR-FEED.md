@@ -418,3 +418,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it ran a one-week trial under the raised fees, then shut the module in a single day (Apr 8-9) — and only revived it when the fee-refund tier program arrived in late May. Verdict: 15-minute markets don't pay full fees; they pay for incumbents with refunds. A newcomer must plan maker-heavy completion.
 - Next: evening snapshot of the live bots (~20-21 UTC; successor session if this one ends).
 - Health: on track
+
+## 2026-07-17T16:20Z — unit 5 (session 10)
+- Did: cleared the three remaining small open items (5-minute-series launch date, one unresolved handle, two suspected wallet links).
+- Found: the big one — gabagool22's successor account was created 7 MINUTES after his last trade: the famous "quit" was just a wallet swap, the operator kept going for another month. Also: 5-minute markets launched Dec 18 and were fee-free until March, which dates the whole 5m bot wave.
+- Next: evening snapshot of the live bots (~20-21 UTC); queue is otherwise clean — successor mines new questions.
+- Health: on track

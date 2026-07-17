@@ -122,13 +122,25 @@ refunds → lab candidates must budget full 0.07 on taker legs
 (maker-weight is the viability lever). OQ #2 residue closed.
 Folded: dossier, PRIORS A53, BRIEF, OQ.
 
-Queue after unit 4: (1) W3 evening snapshot ~20–21Z (club
+Unit 5 (16:20Z): residue close-outs — A54
+(measurements/residue-closeouts-session10.md). btc-5m launched
+2025-12-18T05:00Z midnight-ET (fee-free until Mar-06 → no 5m
+farmer meta possible before then; Gamma /markets/slug/ PATH form,
+?slug= query form lies). drfc = 0x096924c4… confirmed, ZERO
+lifetime activity — dud, closed. Twins: 961afce6↔93c22116 NOT
+profile-linked (20d); **gabagool22→guh123 succession CONFIRMED**
+(guh123 profile created 6m51s after gabagool22's last trade) —
+quit-at-peak partly identity rotation, dossiers = operator
+sleeves. OQ #6 fully closed.
+
+Queue after unit 5: (1) W3 evening snapshot ~20–21Z (club
 re-formation test — A49's evening-positive live check; morning
-snapshot tomorrow settles OQ #5 residue); (2) low-value residue
-(drfc re-resolution, 5m launch pin, twin-link checks
-93c22116/961afce6 + guh123↔gabagool22); (3) if streams dry, mine
-SATURATION.md residue ledger for new measurable questions (prefer
-measurement units).
+snapshot tomorrow settles OQ #5 residue); (2) OQ #3 W4 remainder is
+covered; queue is otherwise CLEAN — mine SATURATION.md residue
+ledger + OPEN-QUESTIONS resolved-item residues for new measurable
+questions (prefer measurement units; candidate: operator-level
+lineage sweep — profile-createdAt vs predecessor last-trade across
+ALL atlas quit-at-peak wallets, extends A54's rotation finding).
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 

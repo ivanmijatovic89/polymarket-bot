@@ -61,9 +61,16 @@ bottom.
    part is only the intra-day live allocation (morning 15m-first vs
    US-session 5m-first). One next-day MORNING snapshot still settles
    it (W3 answers passively).
-6. drfc4eybh7i8 re-resolution; 5m-launch-date pin; twin-link checks
-   (93c22116/961afce6, guh123↔gabagool22 succession) — all low
-   value, one probe each.
+6. ~~drfc4eybh7i8 re-resolution; 5m-launch-date pin; twin-link
+   checks~~ **ALL DONE session 10 (A54,
+   measurements/residue-closeouts-session10.md)** — drfc =
+   0x096924c4… CONFIRMED but zero lifetime activity (dud handle);
+   btc-5m launched 2025-12-18T05:00Z midnight-ET (fee-free until
+   Mar-06 → 5m farmer meta impossible before then); 961afce6↔
+   93c22116 NOT profile-linked (20d apart);
+   **gabagool22→guh123 succession CONFIRMED** (guh123 profile
+   created 6m51s after gabagool22's last trade) — quit-at-peak is
+   partly identity rotation; dossiers are operator SLEEVES.
 
 ## Prior ranking (session 7) with resolutions
 

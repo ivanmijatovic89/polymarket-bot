@@ -188,6 +188,13 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
 
 ## Order/market mechanics
 
+- **Series launch dates**: btc-updown-15m existed by the 2025-10
+  recordings; **btc-updown-5m first window = 2025-12-18T05:00Z**
+  (midnight-ET launch; daily batches created ~21Z the prior evening;
+  A54, Gamma slug bisection — use the `/markets/slug/<slug>` PATH
+  form, the `?slug=` query form silently returns `[]`). 5m was
+  fee-free Dec-18→Mar-06 (Jan-06 fees were 15m-only) — no rebate
+  pool, hence no 5m farmer meta, before Mar-06. **[verified]**
 - Tick size: 0.01 default; the venue emits a `tick_size_change` event
   when "price hits >0.96 or <0.04" — i.e. the sub-cent (0.001) regime
   switches on exactly outside [0.04, 0.96]. **[verified]**

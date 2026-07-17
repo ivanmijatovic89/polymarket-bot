@@ -1251,3 +1251,23 @@ Session 10 so far: OQ #4 closed (A51), snapshot 7 (O10), fee history
 pinned (A52), sleeve toggle dated (A53). Next: W3 evening snapshot
 ~20-21Z is the queue head; that is hours away, so this session may
 end here — successor should start with it.
+
+## 2026-07-17T16:20Z — session 10, unit 5: residue close-outs (A54)
+
+Cleared the whole low-value residue queue in one unit and one item
+turned out not to be low-value at all. (1) btc-updown-5m launched
+2025-12-18T05:00Z — a midnight-ET series launch, markets batch-created
+the evening before; since the Jan-06 fees were 15m-only, the 5m book
+ran FEE-FREE until Mar-06, which is why the 5m farmer meta (and
+b27bc932's ramp) only appears in March: no fees, no rebate pool to
+farm. (2) @drfc4eybh7i8 resolves to 0x0969…6df3 via the public-search
+API, and that wallet has never traded — a dud handle; closed.
+(3) The twin checks: the January winners' profiles were created 20
+days apart (no b55f-style link — that suspicion stays circumstantial),
+BUT guh123's profile was created 6 minutes 51 seconds after
+gabagool22's last trade ever. The succession is confirmed at the same
+evidence grade as the b55f↔0xce25 121-second link: the archetype
+operator rotated identities within minutes and kept printing for 33
+more days. Consequence folded into BRIEF/dossiers: "quit-at-peak" is
+partly identity rotation — wallet dossiers are operator SLEEVES, and
+wallet lifecycle stats understate operator persistence.

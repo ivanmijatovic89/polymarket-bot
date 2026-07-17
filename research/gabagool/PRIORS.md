@@ -941,3 +941,21 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   0.070-curve + tier-tier-0 economics (a NEW entrant gets no
   refund — cold-start moat A32 now has a dated mechanism).
   [verified] (measurements/sleeve-toggle-b27bc932.md)
+- **A54 (residue close-outs: 5m launch pinned; drfc is an empty
+  shell; gabagool22→guh123 succession CONFIRMED at 6m51s):**
+  (1) btc-updown-5m first window 2025-12-18T05:00Z (midnight-ET
+  launch; batch-created 20:43Z the evening before; Gamma
+  /markets/slug/ path form — the ?slug= query form silently returns
+  [] for existing markets). 5m was fee-free Dec-18→Mar-06 → the
+  5m-farmer/rebate meta was impossible before Mar-06; dates
+  b27bc932's Mar-18 ramp. (2) @drfc4eybh7i8 =
+  0x096924c4…6df3 via public-search proxyWallet (confirms _META
+  guess) with ZERO lifetime activity — dud handle, closed. (3)
+  Twin checks via public-profile createdAt: 961afce6↔93c22116 NOT
+  linked (20d apart; twin stays circumstantial); gabagool22 last
+  trade 2026-02-20T09:06:14Z → guh123 profile created 09:13:05Z
+  same day (**6m51s**) — succession verified at the b55f↔0xce25
+  evidence grade; "quit at peak" is partly identity ROTATION, so
+  wallet dossiers are operator sleeves, and operator-level
+  persistence exceeds wallet-level stats.
+  [verified] (measurements/residue-closeouts-session10.md)

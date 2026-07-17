@@ -66,6 +66,13 @@ windows.
 - Reading: post-fee-era gabagool = **rebate farmer**; the 20% maker-rebate
   pool got competed into pair costs ≥ $1 until total EV ≈ 0 → quit. The
   live-market mirror of fable-lab E29, with rebates as the unmodeled term.
+- **The "quit" was an identity rotation, not an operator exit (A54,
+  session 10):** the guh123 profile (0xa45fe11d) was created
+  2026-02-20T09:13:05Z — 6m51s after this wallet's last trade
+  (09:06:14Z) — and ran a $6.5k/day post-fee parity sprint for 33
+  more days. The operator adapted to the fee era under a fresh
+  wallet; this dossier documents a SLEEVE, not the operator's end
+  (measurements/residue-closeouts-session10.md).
 - CAUTION: end-state only. His $869k was mostly earned earlier (probably
   the zero-fee era Oct 29 → Jan 6). Win% in tail: 39–65% by family (P8's
   "99% win" not seen here); hourly books beat 15m even in the tail.

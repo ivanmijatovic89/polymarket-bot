@@ -288,7 +288,11 @@ Candidates for the lab:
    abruptly at full speed (quit-at-peak n=8; the first, 52483137,
    quit Dec-06 BEFORE fees — competition alone sufficed). Plan for a
    $1–3k/day ceiling and an eventual margin-compression exit, not a
-   blow-up.
+   blow-up. **A54 caveat: quit-at-peak is partly identity ROTATION**
+   — gabagool22's successor profile (guh123) was created 6m51s after
+   its last trade and printed for 33 more days. Wallet lifecycles
+   understate operator persistence; the ceiling-compression curve is
+   the real signal, wallet "exits" are noisier than they look.
 
 0. **What does NOT kill a cold-start (A32)**: the taker-tier moat only
    taxes taker completion. Maker-pure new entrants win TODAY

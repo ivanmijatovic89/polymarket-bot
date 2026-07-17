@@ -15,7 +15,7 @@ partly mark-to-market).
 | @bonereaper | `0xeebde7a0e019a63e6b476eb425505b7b3e6eba30` | 1,189,582 | 42,167 | 3,515 | 19,875,367 | 0.21% | ACTIVE (seen in live tape) |
 | @0xaaaaa | `0x251c1a283703beed41590b0875a8dcb8ddd1541f` | 157,945 | 76,758 | 7,838 | 5,582,141 | 1.38% | ACTIVE |
 | @doggystyie | `0x0484e64092ba4108c2786b61e6fc052d3bf41b1a` | 158,162 | 62,876 | 4,499 | 6,402,512 | 0.98% | ACTIVE |
-| @drfc4eybh7i8 | `0x096924c49e7b92ad96ac6b573dc977398e4a6df3` | none | none | none | none | — | UNCONFIRMED address (weak page signal, 18 hits; no lb rows — re-resolve) |
+| @drfc4eybh7i8 | `0x096924c49e7b92ad96ac6b573dc977398e4a6df3` | none | none | none | none | — | CONFIRMED via public-search proxyWallet (A54) — but ZERO lifetime activity: empty/renamed shell, no dossier possible, CLOSED |
 | @badfallen | `0x3048d65321be3497164cdfc2996f94f98a2e7537` | 83,982 | 54,845 | 5,085 | 2,741,094 | 2.00% | ACTIVE |
 | (quiet winner, A30) | `0x04b6d7e930cf9e493c5e6ef24b496294f95594c8` | 300,795 | 30,332 | — | 9,952,633 | 0.30% | ACTIVE (born 2026-03-25; + $167,926 maker rebates; wallets/04b6d7e9.md) |
 | livebreathevolatility (A31) | `0x818f214c7f3e479cce1d964d53fe3db7297558cb` | 385,802 | — | — | — | — | RETIRED 2026-04-11 (predates gabagool22; wallets/818f214c-livebreathevolatility.md) |

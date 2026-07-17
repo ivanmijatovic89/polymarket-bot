@@ -38,9 +38,13 @@ Era-scan profiles:
    blow-up (A26 confirmed no large-loss casualty).
 3. **Possible twin operation** [reported]: profits within $1.8k of
    each other, same book mix, same era, same recipe, overlapping
-   quits — but no on-chain link established (b55f/0xce25-style
-   profile-creation clustering not checked beyond the embedded
-   creation ms). One-unit residue if it ever matters.
+   quits. **Profile-creation check DONE (A54, session 10): NOT
+   linked** — 0x961afce6bd9aec79c5cf09d2d4dac2b434b23361 created
+   2025-12-08T21:12:19Z vs 0x93c22116e4402c9332ee6db578050e688934c072
+   created 2025-12-28T21:57:38Z, 20 days apart (vs the 121s that
+   nailed b55f↔0xce25). Twin suspicion stays circumstantial;
+   93c22116's creation date equals its first-trade day (fresh
+   wallet, immediate deployment — itself a soft rotation signal).
 4. Low pairRate (0.57–0.58) at deep pairCost — these were
   dislocation harvesters, not parity grinders: grab the discounted
   side hard, complete when the other side dips, tolerate wide
