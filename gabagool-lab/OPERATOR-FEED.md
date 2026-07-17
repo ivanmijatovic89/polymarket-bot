@@ -33,3 +33,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: every plumbing check green (settlement math exact, fee validation passes, deterministic replay). The lab is built — L0 done.
 - Next: L1 baseline — the first real measurement: archetype-style parity ladder over the search window with time slices + latency stress.
 - Health: on track
+
+## 2026-07-17T07:15Z — unit 6 (in progress)
+- Did: baseline battery running (4 latency arms, first 1,000 markets each); built the L2 workhorse strategy (all sweep knobs on one file) and safe run-extension tooling.
+- Found: first mechanism discovery — under latency, frequent requoting turns resting bids into fee-paying taker fills at scale (fills 9× at 500ms, EL −0.64 → −5.04/market). Standing ladders look like the counter; promoted to a first-class experiment axis.
+- Next: extend arms to the full Apr–May window, judge the baseline, freeze tail thresholds.
+- Health: on track
