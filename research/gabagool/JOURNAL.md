@@ -1506,3 +1506,23 @@ and Jun-14, 48/48 files) are stubs while daytime files are healthy —
 a weekend-overnight ops window in the recording layer, folded into
 G10. Weekend overnight cells are systematically unmeasurable for
 June; anyone scaling W4 must screen for this.
+
+## 2026-07-17T17:58Z — session 11, unit 9: 76d4d470 dossier (A61) — the subsidy-native farmer
+
+Dossiered the second profile-less active and the atlas's last living
+candidate. It settles its own classification question: born Mar-25 —
+four days before the fee reshape and six before the first daily
+maker-rebate payout — with zero taker rebates EVER (the cleanest
+maker-purity proof there is), trading at −$98k lifetime against
++$137k of maker rebates. Currently nets ≈$600/day as a pure A28
+subsidy loop: 264 markets/day of $2.55 clips, continuous merges,
+flat −0.3%/market trading bleed in every session, anti-informed
+residue leg (excessWon 26–33%), and no drift signature in the book
+joins — fill selection simply doesn't matter to its income. The two
+profile-less wallets are now near-perfect complements on every
+design axis (deep-pair trader vs breadth farmer), and the farm
+income shape is proven NOT replicable btc-15m-only (needs breadth
+to clear the per-market payout steps; the 15m pool is $6.8k/day
+total). Method note ledgered: level-class joins overcall "taker" at
+sub-$3 clips (37–42% vs role-exact 1.00 maker) — extends A34's
+reconciliation caveat.

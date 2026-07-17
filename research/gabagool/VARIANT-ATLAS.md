@@ -120,7 +120,7 @@ Cross-cutting facts:
 
 | wallet | seen | profile | why interesting |
 |---|---|---|---|
-| `0x76d4d470…` | Apr→Jul, top-5 edge/farmer | pure maker 1.00, 264 mkts/day, pair 0.75–0.81 @ 0.98–1.01 | maker-pure at breadth; straddles edge/farmer line |
+| `0x76d4d470…` | Mar-25→Jul, top-5 farmer | pure maker 1.00, 264 mkts/day, pair 0.75–0.81 @ 0.98–1.01 | DOSSIERED (A61, wallets/76d4d470.md): pure subsidy loop, trading −$98k + rebates +$137k, anti-informed lean — settles the edge/farmer straddle as FARMER |
 | `0x13e0d447…` | Jul 15 #3 edge | maker 1.00, 0.89@0.984, $43k sampled | new entrant printing NOW, cold-start era |
 | `0xe114e5ca…` | Jul 15 edge | maker 0.98, 0.95@0.968 | deep-pair second specimen |
 | `0x2d8b401d…` | Dec cheap → Feb/Mar edge ($134k) → Apr farmer | drifted every era | one wallet crossing three variants — regime-adaptation case study |

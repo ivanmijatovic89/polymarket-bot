@@ -130,7 +130,7 @@ for >$0.5M/day; nearest = mixed whale suntori $6.3M/day).
 | `0x2d8b401d…260a` vidarx | 659,586 + 76,093 rebates | wind-down (regime drifter, 3 clusters) | wallets/2d8b401d-vidarx.md |
 | `0x13e0d447…5204` | 81,698 + 39,414 rebates | ACTIVE cold-start win (born May-29) | measurements/cold-start-economics.md |
 | `0xe114e5ca…c208` ohio-house | ~6k week 1 | ACTIVE cold-start, deep pairs | same |
-| `0x76d4d470…c512` | −97,821 + 137,022 rebates | ACTIVE subsidy loop | same |
+| `0x76d4d470…c512` | −97,985 + 137,022 rebates | ACTIVE subsidy loop (born Mar-25, subsidy-native; net +$600/day) | wallets/76d4d470.md |
 
 ## Session-8 addition (A41)
 

@@ -1063,3 +1063,20 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   levels were understated 4–5× (12-slice extrapolation artifact);
   its 15m-era ratios stand.
   [verified] (measurements/terrain-books.md §A60)
+- **A61 (76d4d470 dossiered — the subsidy-native breadth farmer):**
+  born 2026-03-25 (4 days before the fee reshape, 6 before the
+  first daily maker-rebate payout) — built FOR the subsidy regime.
+  Lifetime: trading −$97,985 + maker rebates $137,022 (107 daily
+  payouts) + taker rebates $0 EVER (cleanest maker-purity proof) ≈
+  +$39k net; currently ≈ +$600/day net ($1,236/day rebates −
+  $632/day trading bleed). Fingerprint: 264 mkts/day breadth,
+  $2.55 clips, continuous merges (666/2h), btc-15m sleeve trades
+  at flat −0.2→−0.5% in every session with ANTI-informed lean
+  (excessWon 26–33%) and no drift signature — fill selection
+  irrelevant, trading is a manufacturing cost for fee-weighted
+  maker volume (A28 loop in production). Needs breadth to clear
+  $1/day/market payout steps — NOT replicable btc-15m-only (A60
+  pool $6.8k/day). Level-class method caveat: 37–42% "taker-priced"
+  fills vs role-exact maker 1.00 → stale-book misclassification at
+  sub-$3 clips (extends the A34 reconciliation).
+  [verified] (wallets/76d4d470.md)

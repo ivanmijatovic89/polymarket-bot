@@ -508,3 +508,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: weekends have no good-hours/bad-hours pattern in the books either — matches the money numbers. Also found our data supplier's recorder was off on weekend nights in June (all such files empty), so those hours are simply unknowable.
 - Next: live snapshot around 18:30-19 UTC, then the 20-21 UTC evening test.
 - Health: on track
+
+## 2026-07-17T17:58Z — unit 9 (session 11)
+- Did: full profile of the second hidden bot (the one nobody can see on the leaderboard).
+- Found: it's a pure rebate farmer, born the exact week the rebate program started paying daily: it deliberately LOSES ~$630/day trading tiny orders across hundreds of markets and collects ~$1,240/day in maker rebates — netting ~$600/day. Proof our target 15-minute book alone can't support this income style; it needs breadth across all books.
+- Next: live snapshot ~18:30-19 UTC, then the 20-21 UTC evening test.
+- Health: on track
