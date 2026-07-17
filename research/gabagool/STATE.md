@@ -53,39 +53,45 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 
 ## Work queue (ranked)
 
-1. NEXT: January transition analysis — pull COMPLETE
-   (data/activity-gabagool22-jan.jsonl, done:true). Analyze with
-   analyze-tail.ts + decompose-activity.ts; compare pair cost / win%
-   vs Dec 0.98/98.7% and Feb 1.00/38.6% — decay-speed prior. May also
-   empirically pin the contested January fee rate.
-2. Edge-source hunt for the CURRENT btc-15m edge (+2-3.2%): what do
-   the edge wallets do differently from farmers? Candidates: level
-   selection, timing within window, coin choice. Needs fills×books join
-   (measure-fill-gap.ts pattern) for b55f/0xce25 on btc-15m slugs.
-   Data already on disk (activity-{b55f,0xce25}-jul.jsonl).
-4. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
-   (check fable coverage first — E24/E25 partially cover D4/D5).
-5. Venue leftovers: tick/min-size/rate limits, resolution mechanics
-   (Game J). Jan fee-rate still contested (2× ambiguity) — formula
-   change now bracketed Mar 5→Apr 1 (57b8b85); Jan rate may fall out
-   of queue item 1's data instead of archaeology.
-6. Continuous: fold into BRIEF/HYPOTHESES/METRICS; at saturation →
-   SATURATION.md → LAB-HANDOFF.md → DONE.
+1. NEXT: **Fee-inclusive re-audit of the July actives** (A13 fallout —
+   the premise "real edge exists today" is now uncertain). Method
+   proven on gabagool Jan: sample each wallet's fills' tx receipts,
+   decode OrderFilled + refund transfers -> per-fill (maker/taker role,
+   net fee). Sample btc-15m fills for b55f + 0xce25 + one farmer;
+   compute true fee drag and fee-inclusive margins. This ALSO gives
+   the maker/taker split and feeds the edge-source hunt from the same
+   receipts.
+2. Edge-source hunt on btc-15m (merge with 1 where possible): level
+   selection vs mid, timing within window, completion behavior --
+   fills x books join (measure-fill-gap.ts pattern) for b55f/0xce25.
+   Data on disk (activity-{b55f,0xce25}-jul.jsonl).
+3. D3 endgame reversal table / D4 open dynamics / D5 spread lifecycle
+   (check fable coverage first -- E24/E25 partially cover D4/D5).
+4. Venue leftovers: tick/min-size/rate limits, resolution mechanics
+   (Game J).
+5. Continuous: fold into BRIEF/HYPOTHESES/METRICS (BRIEF + H1 need the
+   A13-A15 updates folded in); at saturation -> SATURATION.md ->
+   LAB-HANDOFF.md -> DONE.
 
-DONE since last queue refresh: per-book nets (T1: btc-15m still an edge
-book — A11), _META v2, fee-formula bracketing, literature A2 (queue
-value + subsidized MM; YIELD is dust), leg-risk policy rewrite in BRIEF
-(parity is era-dependent; sweep it 0.1%→40%).
+DONE this session: state sync; bonereaper verdict (hybrid, A12);
+January transition analyzed (A15: adaptation, not decay); Jan fee rate
+resolved on-chain (A14); fee-mechanics decode + gross-of-fee accounting
+bias in ALL fee-era numbers (A13). Earlier sessions: per-book nets
+(A11), _META v2, fee-formula bracketing, literature A1/A2, leg-risk
+policy rewrite, D2 (A9), 7-wallet decomposition (A10).
 
 ## Workstream status
 
 - A Literature: A1 done (A-S, G-M, queue models); A2 done (queue value,
   subsidized-MM economics, YIELD verdict: dust).
-- B Venue mechanics: fee+rebate history solid incl. taker-rebate tiers
-  (2026-05-28); formula change bracketed Mar 5→Apr 1 2026. Open: Jan
-  rate (contested), tick/min/rate limits, resolution mechanics (Game J).
-- C Wallet forensics: archetype DONE (two eras + D2), incumbent DONE,
-  powerwinner DONE (taker-rebate farmer); 6 wallets remain.
+- B Venue mechanics: fee+rebate history SOLID — Jan rate resolved
+  on-chain (A14), fee implementation decoded (charge+refund, A13),
+  formula change bracketed Mar 5→Apr 1 2026. Open: tick/min/rate
+  limits, resolution mechanics (Game J), bulk-payout provenance.
+- C Wallet forensics: archetype DONE (two eras + Jan transition + D2),
+  incumbent DONE, powerwinner DONE, bonereaper DONE (hybrid), 7-wallet
+  decomposition DONE (gross-of-fee caveat A13); remaining: drfc4eybh7i8
+  re-resolution, badfallen/doggystyie/0xaaaaa dossiers optional.
 - D Measurements: **D2 DONE — worst_queue admits 44–49% of real fills,
   touch 64–68%; ~30-45% of archetype fills were taker completions**
   (measurements/d2-fill-reality-gap.md). D1 re-scoped (P38). D3–D5 open.

@@ -1,6 +1,9 @@
 # Measurement: gabagool22 era comparison — zero-fee Dec 2025 vs fee-era Feb 2026 tail
 
-Session 1, 2026-07-17. Script: `scripts/analyze-tail.ts` (with fills>0 +
+Session 1, 2026-07-17. CAVEAT added session 3: Feb-side numbers are
+GROSS of taker fees (invisible in /activity, A13) — Feb true trading
+net is more negative than shown; Dec side is exact (fee=0 on-chain).
+Script: `scripts/analyze-tail.ts` (with fills>0 +
 1h/2h boundary margins; see method notes in tail-forensics file). Data:
 `data/activity-gabagool22-dec.jsonl` (277,832 rows, 2025-12-07T23:00Z →
 2025-12-10T12:00Z, complete pull of that window) and the Feb tail file.

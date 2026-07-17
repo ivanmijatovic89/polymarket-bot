@@ -61,6 +61,13 @@ $6–11 p50 — the EDGE wallets trade small like the archetype did.)
 - lb-api "profit" ≠ these numbers (likely excludes rebate transfers,
   includes MTM; PRIORS P51/A10).
 - Maker/taker role per fill still unobserved (needs on-chain data).
+- **GROSS-OF-FEE (added session 3, A13)**: all trading nets here
+  exclude net taker fees (invisible in /activity — fee docked in
+  shares, verified on-chain), while rebate income (a fee REFUND) was
+  counted. True income = gross net − taker fees + rebates; taker fees
+  can be bounded by rebate ÷ tier%. The "edge" margins here need a
+  fee-inclusive re-audit before being trusted
+  (measurements/jan-transition-gabagool22.md).
 
 ## Per-book trading nets for the edge wallets (H5/T1 answer)
 

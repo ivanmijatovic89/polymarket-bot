@@ -56,15 +56,14 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
     2026-04-01 (new formula live)** — narrowed via /trading/fees
     snapshots 20260305182223 vs 20260401214533; ~10 March snapshots
     exist for exact-date bisection if ever needed. **[verified]**
-  - January-era rate ambiguity: media reported "$1.56 per 100 shares at
-    $0.50" (= effective 3.12%) at the 01-06 introduction, but the Feb
-    snapshot's formula yields $0.78 (effective 1.56%). Either the press
-    misread effective-rate-vs-per-share, or crypto fees were HALVED
-    between Jan 7 and Feb 28 — a halving would have halved the rebate
-    pool and is a candidate trigger for gabagool's 2026-02-20 exit
-    (the maker-rebates docs page's FIRST archive capture is 2026-02-20).
-    **[contested/open]** — resolve via Jan snapshots of the developer
-    fees page (the learn page carried no formula in Jan).
+  - **January-era rate RESOLVED on-chain (session 3)**: decoded
+    OrderFilled receipts of gabagool22's Jan 11–12 taker fills — net
+    fee kept after in-tx refund = 0.25·p·(p(1−p))² per share, i.e. the
+    Feb-snapshot formula EXACTLY ($0.78/100sh peak, 1.56% effective at
+    p=0.5). The press "$1.56/100sh" figure is wrong for what was
+    charged; there was NO Jan→Feb halving, so a mid-Feb fee cut is
+    ELIMINATED as gabagool's exit trigger. **[verified]**
+    (measurements/jan-transition-gabagool22.md)
 - Consequence for wallet forensics: gabagool started 2025-10-29 in the
   ZERO-FEE era; fees+rebates arrived 2026-01-06 mid-run; he quit
   2026-02-20, ~6.5 weeks later. The incumbent cluster runs entirely in the
@@ -72,6 +71,26 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   game; they changed who pays whom. Whether gabagool's quit correlates
   with a fee/rebate parameter change in mid-February is OPEN (archive
   snapshots needed).
+
+## Fee implementation on-chain (decoded from receipts, session 3)
+
+- **Gross charge**: the CTF Exchange charges `10% × min(p, 1−p) × size`
+  to BOTH sides of every fill (feeRateBps=1000 signed in orders), taken
+  in the OUTPUT asset — shares for buys, USDC for sells. **[verified]**
+  (OrderFilled `fee` field across price band 0.04→0.96).
+- **In-tx refunds by the operator module** (tx `to` =
+  `0xe3f18acc55091e2c48d883fc8c8413319d4ab7b0`): makers refunded 100%
+  (net maker fee exactly $0 — "makers are never charged" is
+  implemented as charge-then-refund); takers refunded down to the
+  published curve. **[verified]** (transfer-level decode, multiple txs).
+- **December 2025 receipts show fee=0** — the zero-fee era is verified
+  on-chain, not just from press. **[verified]**
+- **Forensics consequence (CRITICAL)**: `data-api /activity` reports
+  gross `size`/`usdcSize` (= price×size exactly, verified on 325k
+  rows); the net taker fee (docked in shares on buys) is INVISIBLE.
+  All activity-based cash-flow nets are gross of taker fees, and rebate
+  transfers must never be added to them without also subtracting the
+  fees they refund. See PRIORS A13. **[verified]**
 
 ## Maker Rebates Program
 

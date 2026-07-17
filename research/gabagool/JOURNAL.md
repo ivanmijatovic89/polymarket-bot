@@ -238,3 +238,42 @@ short-window income decomposition is hostage to them.
 Wrote wallets/bonereaper.md, updated _META, PRIORS A12, refreshed
 OPEN-QUESTIONS (D2/H3/dossier items moved to resolved). Next: the
 January transition analysis — the pull completed too.
+
+## 2026-07-17T02:35Z — January analyzed; fee mechanics decoded on-chain; a systematic accounting bias found in ALL fee-era numbers
+
+The January transition unit turned into the most consequential unit of
+the shift so far. Three results:
+
+1. **The decay was not a decay.** btc-15m by day: Jan 10 win 49.4% /
+   +$0.69/mkt → Jan 12 win 94.0% / +$45.93/mkt, pair cost 0.9945 →
+   0.9815. The fee-free btc-1h control book held 87–96% win with flat
+   pair costs the same days. He absorbed the Jan-6 fee shock, re-tuned
+   his ladder ~130bp deeper in under a week, and was nearly back to
+   December performance by Jan 12. The Feb collapse is a separate,
+   slower phenomenon (competitive compression). Decay prior for the
+   lab: structural shocks are adapted to in days; competition kills in
+   weeks.
+
+2. **Fee mechanics decoded from receipts** (his /activity rows carry
+   tx hashes; POLYGON_RPC_URL read-only). On-chain, EVERY fill is
+   charged 10%×min(p,1−p)×size in the output asset — both sides — and
+   the operator module refunds in the same tx: makers 100% (net $0),
+   takers down to the published curve. His Jan 11–12 net taker fee
+   matches 0.25·p·(p(1−p))² to 4 decimals → **January's rate = the Feb
+   formula; the contested 2× press figure is dead; the "mid-Feb fee
+   halving" exit-trigger hypothesis is eliminated.** December receipts
+   show fee=0 — the zero-fee era verified on-chain.
+
+3. **The bias**: /activity reports GROSS size/usdcSize (verified exact
+   on 325k rows) — net taker fees, docked in shares, are invisible.
+   Every fee-era cash-flow net we have measured is gross-of-fee, and
+   the July decompositions counted rebates (fee REFUNDS) as income
+   without the fees. Jan btc-15m: +$24.52/mkt gross → +$10–15/mkt
+   corrected at D2's 29–45% taker share. New question #1: does the
+   July edge survive fee-inclusive accounting? b55f's $3.05k/day taker
+   rebate implies ≥$6.1k/day fees paid vs +$2.7k/day gross trading net
+   — the sign of the true trading edge is now genuinely uncertain.
+
+Wrote measurements/jan-transition-gabagool22.md, PRIORS A13–A15,
+VENUE-MECHANICS fee-implementation section, caveats added to
+era-comparison + actives-decomposition, OPEN-QUESTIONS refreshed.

@@ -420,3 +420,32 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   was POSITIVE for bonereaper (+0.77%) while negative for b55f/0xce25 —
   A11's coin-asymmetry is wallet-specific, not a book property.
   [verified] (wallets/bonereaper.md)
+- **A13 (fee mechanics + the accounting bias — corrects the LENS on
+  A10/A11/A12):** On-chain, every fill is charged 10%×min(p,1−p)×size
+  in the output asset to both sides; the operator module refunds in the
+  same tx — makers 100% (net maker fee = $0), takers down to the
+  published curve. data-api /activity reports GROSS size/usdcSize, so
+  net taker fees (docked in shares on buys) are invisible: **every
+  fee-era cash-flow net in this knowledge base is gross of taker
+  fees**, and the July decompositions added rebate income without
+  subtracting the fees being refunded. Jan btc-15m example: +$24.52/mkt
+  gross → +$10.24–15.32/mkt after fee drag at the D2 taker share
+  (29–45%). Whether the July "edge wallets" survive fee-inclusive
+  accounting is now the top open question. [verified]
+  (measurements/jan-transition-gabagool22.md)
+- **A14 (Jan fee rate resolved; exit-trigger candidate eliminated):**
+  January's effective taker fee = the Feb-snapshot formula
+  0.25·p·(p(1−p))² ($0.78/100sh peak) — measured on-chain from his own
+  Jan 11–12 taker fills. The press 2× figure is wrong; there was no
+  Jan→Feb halving, so a mid-Feb fee/rebate cut is ELIMINATED as
+  gabagool's 2026-02-20 exit trigger. December receipts show fee=0
+  (zero-fee era verified on-chain). [verified]
+- **A15 (transition curve is adaptation, not monotone decay):** btc-15m
+  by market-start day: Jan 10 win 49.4% / +$0.69/mkt / pair cost
+  0.9945 → Jan 12 win 94.0% / +$45.93 / 0.9815, while the FEE-FREE
+  btc-1h control held 87–96% win with flat pair cost the same days.
+  He re-tuned to the fee within ~6 days by demanding ~130bp deeper
+  discounts on the fee book only. The Feb collapse is a SECOND
+  phenomenon (mid-Jan→Feb compression), not the fee shock itself.
+  Decay prior for the lab: a structural-fee shock costs days (fast
+  re-tune possible); competitive compression takes weeks. [verified]
