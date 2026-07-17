@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Mechanical write-scope guard for the gabagool knowledge shift.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" != "gabagool-knowledge" ]; then
+  echo "[guard] commits allowed only on gabagool-knowledge (on: $branch)" >&2
+  exit 1
+fi
+bad="$(git diff --cached --name-only | grep -vE '^research/gabagool/' || true)"
+if [ -n "$bad" ]; then
+  echo "[guard] BLOCKED — staged files outside research/gabagool/:" >&2
+  echo "$bad" >&2
+  echo "[guard] unstage them; this shift may write only inside research/gabagool/." >&2
+  exit 1
+fi
+exit 0
