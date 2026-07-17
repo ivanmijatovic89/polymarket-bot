@@ -92,9 +92,18 @@ accept --rpc). NEW residue (medium value): does the fee-curve
 reshape date exactly to the Apr-28 cutover? (receipts Apr-27 vs
 Apr-29, measure-onchain-fees.ts pattern).
 
-Queue after unit 1: (1) W3 snapshot ~16:15Z (morning snapshot
-tomorrow settles OQ #5 residue); (2) fee-reshape-at-cutover probe
-(closes the Feb-28→May-31 bracket); (3) low-value residue (drfc
+Unit 2 (15:52Z): W3 snapshot 7 (O10) — sub-$1 club EMPTY at full
+volume for the first time (all pair costs ≥1.0075; b55f blew out to
+1.0496, its worst print, pairRate 0.647); late-US storm regime =
+A49's US-worst rule live. b27bc932 btc-5m sleeve 4th consecutive
+window, merge module ON (169). ~$410k/2h tracked flow — everyone
+still buying through the bad hour.
+
+Queue after unit 2: (1) fee-reshape-at-cutover probe — decode taker
+fee rates from receipts Apr-27 vs Apr-29 (measure-onchain-fees.ts
+pattern, tenderly RPC; closes the Feb-28→May-31 bracket); (2) W3
+evening snapshot ~20–21Z (club re-formation test; morning snapshot
+tomorrow settles OQ #5 residue); (3) low-value residue (drfc
 re-resolution, 5m launch pin, twin-link checks, 15m-sleeve toggle
 bisection).
 

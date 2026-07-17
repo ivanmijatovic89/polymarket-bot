@@ -197,3 +197,30 @@ rows are the HOURLY series (different slug scheme, caught by the
   95f5 back from idle at dust scale ($56/2h). Sub-$1 club this
   window: 0xce25 only (b55f 0.998 borderline) — consistent with O8:
   vol regime, not clock, drives who clears $1.
+
+### 2026-07-17T15:52Z (last 2h; ~65m after snapshot 6)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 3203 | $89949 | 1 | 0.647 | 1.0496 | $7.62 | 0 | 142 | btc-5m $25.9k, eth-5m $13.8k, btc-15m $10.2k |
+| 0xce25 | 3450 | $52846 | 1 | 0.828 | 1.0076 | $8.69 | 0 | 126 | btc-5m $21.8k, eth-5m $10.7k, btc-15m $6.6k |
+| powerwinner | 813 | $65384 | 1 | 0.95 | 1.0082 | $81.2 | 0 | 24 | btc-5m $65.4k |
+| bonereaper | 10678 | $90267 | 1 | 0.509 | 1.0242 | $2.69 | 1 | 124 | btc-5m $55.8k, eth-5m $8.6k, btc-15m $8.3k |
+| 0xaaaaa | 542 | $35700 | 1 | 0.754 | 1.0783 | $66.89 | 0 | 23 | btc-5m $35.7k |
+| doggystyie | 529 | $17327 | 1 | 0.991 | 1.0118 | $27.87 | 0 | 21 | btc-5m $17.3k |
+| badfallen | 1601 | $18235 | 1 | 0.862 | 1.0192 | $7.8 | 0 | 23 | btc-5m $18.2k |
+| b27bc932 | 6048 | $39598 | 1 | 0.922 | 1.0075 | $3.84 | 169 | 34 | btc-5m $30.9k, btc-15m $7.1k, bitcoin-up-or-down-july-17-2026-10am-et $0.9k |
+| 95f5-challenger | 96 | $444 | 1 | 0.054 | 0.9866 | $2.28 | 0 | 4 | eth-5m $0.2k, btc-5m $0.2k, eth-15m $0.1k |
+
+- **O10 (15:52Z):** first FULLY-empty sub-$1 window at full volume —
+  every tracked wallet's pair cost ≥ 1.0075 (95f5's 0.9866 is dust at
+  pairRate 0.05). Even b55f blew out to 1.0496 (its worst observed;
+  0.998 an hour earlier) with pairRate down to 0.647 — a late-US-
+  session storm print consistent with A49's US-worst rule. Flow still
+  elevated (~$410k/2h tracked). b27bc932's btc-5m sleeve persists a
+  4th consecutive window ($30.9k 5m vs $7.1k 15m; merges 169, module
+  ON). bonereaper churned hardest (10.7k fills, $90k) at pairRate
+  0.51 — half its buys unpaired at snapshot time. Watch: does the
+  club re-form in the 20–24Z evening session (A49's only robust
+  positive)? An evening snapshot today would pair nicely with the
+  morning one for OQ #5's residue.

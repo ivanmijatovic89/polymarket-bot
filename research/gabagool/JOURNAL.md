@@ -1184,3 +1184,17 @@ explicit merge module. The surprise bonus: a new one-probe question
 with real value — the fee-curve reshape (bracketed Feb-28→May-31)
 plausibly shipped at this exact cutover. Receipts on Apr-27 vs
 Apr-29 would settle it.
+
+## 2026-07-17T15:58Z — session 10, unit 2: W3 snapshot 7 (O10)
+
+Seventh live snapshot (window 13:52-15:52Z). The headline: the sub-$1
+club is EMPTY for the first time at full volume — all eight active
+tracked wallets printed pair costs above $1.0075, and b55f, the
+strongest edge wallet, blew out to $1.0496 (its worst observed print;
+it was at 0.998 one hour earlier). Late-US-session storm regime,
+exactly the A49 US-worst window. Everyone keeps buying anyway
+(~$410k/2h tracked flow) — the farmers because rebates pay them to,
+the edge wallets presumably eating a bad hour. b27bc932's btc-5m
+sleeve held a 4th consecutive window; merge module still on.
+Next natural checkpoint: an evening (20-24Z) snapshot to see the
+club re-form in A49's only robustly-positive session.

@@ -400,3 +400,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: no gradual migration ever happened — after 3.5 weeks of tiny in-house test trades, the venue hard-switched EVERY market at once on Apr 28 ~11:02 UTC; the top bot dropped its merge routine 3 hours later (now explained); the new exchange runs all books, not just crypto.
 - Next: live snapshot of the current bots, then check whether the fee-curve change shipped at that same cutover moment.
 - Health: on track
+
+## 2026-07-17T15:58Z — unit 2 (session 10)
+- Did: seventh live snapshot of the active bots (2-hour window ending 15:52 UTC).
+- Found: for the first time NO bot managed to buy pairs under $1 — even the best wallet paid $1.05 during this stormy US afternoon; all kept trading anyway (subsidies + a bad hour). The top bot's 5-minute-market focus held a 4th straight window.
+- Next: evening snapshot (~20-21 UTC) to see the under-$1 club re-form; meanwhile, probe whether the fee-curve change shipped at the Apr-28 exchange cutover.
+- Health: on track
