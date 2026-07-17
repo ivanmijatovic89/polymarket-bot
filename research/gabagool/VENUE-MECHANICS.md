@@ -92,6 +92,24 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   fills/day this compounds. Rebate modeling belongs in METRICS/BRIEF as a
   separate PnL line.
 
+## Taker Rebate Program (discovered via 0xb55f's TAKER_REBATE rows)
+
+- Launched **2026-05-28**. Seven tiers (Bronze→Obsidian) by trailing-30d
+  WEIGHTED volume; fee refund share 3% → 50%; one-time bonus per new
+  tier; paid daily ~midnight UTC in pUSD. Crypto markets carry the
+  highest category weight (2.3× vs sports 1.0×). ~$11.9M paid to ~39k
+  traders as of mid-2026. **[verified]** (docs.polymarket.com/trading/
+  taker-rebates + multiple reports; observed payouts to 0xb55f at ~00:10
+  UTC, $2.8–3.3k/day).
+- Competition-structure consequence: a top-tier incumbent pays an
+  EFFECTIVE taker fee of ~half the posted curve, while a new entrant
+  starts at 3% refund — a volume-based fee moat protecting incumbent
+  gabagool-style wallets. The incumbent's taker rebate (~$3,050/day)
+  implies ~$6.1k/day gross taker fees paid → roughly half his flow is
+  TAKER-side. "Passive maker only" no longer describes the winning meta;
+  the current variant mixes maker accumulation with taker completion at
+  halved fees.
+
 ## Order/market mechanics
 
 - Tick size: books quote at $0.01 normally; endgame favorites trade at

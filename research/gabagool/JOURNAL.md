@@ -130,3 +130,14 @@ coins. Wrote wallets/b55f-incumbent.md with the side-by-side fingerprint
 table. The concept now has two verified profitable EXPRESSIONS: parity
 grinder (archetype, zero-fee era) and loss-tolerant tail harvester
 (incumbent, current era).
+
+## 2026-07-17T05:25Z — synthesis checkpoint: HYPOTHESES, OPEN-QUESTIONS, STATE rewrite
+
+Identified the taker-rebate program (launched 2026-05-28, 7 tiers, 3-50%
+refund by 30d weighted volume, crypto 2.3x weight) — incumbents pay ~half
+the posted taker fee; a volume moat against new entrants. Wrote
+HYPOTHESES.md (H1 parity-grinder rebate-adjusted, H2 tail-completer, H3
+subsidy-dominance test, H4 Binance-gated quoting (blocked on branch
+merge), H5 15m-vs-5m book allocation) and OPEN-QUESTIONS.md (12 ranked).
+STATE.md rewritten as a 60-second onboarding for successors. All
+deliverable files now exist with substance. Next big rock: D2.
