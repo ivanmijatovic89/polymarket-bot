@@ -177,3 +177,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the "force cheaper pairs" sub-experiment needed a smarter grid rule — the price caps only matter if fills actually land near them, so the final grid is chosen by a rule written down today, before any results exist.
 - Next: judge E004 when it finishes (~07:09Z), then launch E005.
 - Health: on track
+
+## 2026-07-17T06:47Z — unit 30
+- Did: built + verified the E004 judgment tool (it can now read the completion-policy runs, including what the "pay to finish pairs" crosses actually cost).
+- Found: tool reproduces all known numbers exactly; side note — the current design's average completed pair already costs ~$0.97, right in the region where the profitable live wallets operate.
+- Next: E005 launcher prep, then judge E004 when the runs finish (~07:09Z).
+- Health: on track

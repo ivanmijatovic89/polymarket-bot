@@ -890,3 +890,39 @@ file's actual mechanics (read, not recalled):
 
 This closes the E004-blind prep queue. Next: E004 judgment when the
 watcher fires (~07:09Z), then E005 shape-arm launch.
+
+## 2026-07-17T06:47Z — session 11, unit 30: e004-table.ts built and verified (still ax2-blind)
+
+The E004 judgment kit had a hole: axis-table.ts is numeric-axis-only
+and scans ONE batchUid prefix — E004's arms are categorical
+(none/c970/c990/cfree) and its control pair lives under the ax1
+prefix. The frozen criteria also want completion economics (crosses,
+completed-pair cost, acc taker fees) that no readout tool rendered.
+
+Built tools/e004-table.ts: explicit arm wiring (--arm label=h1,h2),
+params-vs-label cross-check that aborts on wrong-run wiring (LS-3
+spirit: mislabeled evidence must die loudly, not render plausibly),
+per-cell completion economics from intent metas (xN filled crosses,
+x-px p10/50/90, per-meta era fee, rungConv = realized takers − xN,
+acc-exact taker fee $/mkt, S = final avgUp+avgDown over both-sided
+played markets, cross share of paired stock), policy spread with the
+H6 0.3%-of-turnover read, adjacent distinguishability in the frozen
+aggressiveness order, and the verbatim 8-cell advance rule.
+
+Verified ax2-blind against known numbers: controls 682/683 reproduce
+the E003 axis table to the digit (EL −4.5656/−4.2209, taker 33.9/34.0,
+pairRate 0.657/0.632, outlay 56.82/52.49; xN=0 in none mode as it
+must be); smoke 680 reproduces its recorded 44.0% taker share and
+pairRate 0.724, with 39 filled crosses / 60 conversions and S 0.9869
+over 9 both-sided markets.
+
+Two useful context numbers fell out (control arms, not selection
+data): final pair-cost sum S sits at 0.9767 (h1) / 0.9696 (h2) —
+i.e. the E005 cap grid {0.96,0.97,0.98} has real bind-mass at the
+REFERENCE shape, and the incumbent pair-cost region (0.95–0.976) is
+where this design already lands on average; and conversions cost the
+control ~$0.58–0.63/market in era taker fees (acc-exact).
+
+Next: E005 shapes launcher + ref-shape control-reuse amendment
+(the [0.01,0.03] shape arm at tol=2 IS runs 682/683 — same
+params, same reuse logic as E004's control), then judgment on drain.
