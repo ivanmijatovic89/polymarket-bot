@@ -1043,3 +1043,18 @@ mid-rally at local tops because its fast requotes chase price up
 lab's shallow-fast cell now has a concrete, sim-expressible entry
 gate: quote when 30s momentum ≈ 0, veto after falls, don't chase
 rallies. Folded into BRIEF §4, PRIORS A44.
+
+## 2026-07-17T14:44Z (real) — session 8, unit 15: gate validation (A45) — half survives
+
+Re-ran the pre-fill feature join on two more days (fresh pulls,
+May-13 + Jun-10; first attempt used wrong epochs — caught and
+re-pulled). The honest scorecard: the habitat separation (winner
+fills in calm, grinder fills mid-chase) replicates everywhere, and
+the 10-second falling-ask veto holds in all three samples. But the
+30-second directional momentum rule REVERSED sign on Jun-10 —
+momentum continuation vs reversion is a day-level regime, so that
+part of A44's gate is demoted to a sweep parameter. BRIEF gate spec
+corrected. Bonus: b27bc932 had zero btc-15m resting fills on May-13,
+independently confirming its May downtime windows. Also the biggest
+single-unit lesson for the lab: validate any microstructure gate on
+multiple days before freezing — one day WILL overfit.

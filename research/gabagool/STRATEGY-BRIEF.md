@@ -142,17 +142,19 @@ Candidates for the lab:
   (b55f/0xce25) and (b) shallow fast requoting + timed completion
   (0x04b6d7e9) — the first sweep should carry BOTH cells, and
   requote interval joins the parameter list.
-- **The shallow-fast cell's ENTRY GATE is momentum context (A44)**:
-  on 5.7k joined resting fills, momentum continues at 30–60s —
-  fills caught during falls keep falling (the adverse subset), and
-  the winner's fills concentrate in near-calm states while the
-  breakeven grinder's fire mid-chase at local tops (its fast
-  requotes trail rallies). Gate spec: quote both sides tight when
-  |mid drift over 30s| ≈ 0; veto/widen the bid after a 10–30s fall
-  on that asset; never instant-requote upward under a rally. No
-  other book feature (spread, depth, event rate, minute)
-  discriminates. Judge gates on aggregate drift + pair cost —
-  favorable share is ~48% for everyone.
+- **The shallow-fast cell's ENTRY GATE is momentum context (A44,
+  validated + corrected by A45)**: on 8.6k joined resting fills
+  across three day-samples, the winner's fills concentrate in
+  near-calm states while the breakeven grinder's fire mid-chase at
+  local tops (robust in every sample). Gate spec (post-validation):
+  (a) prefer quoting when |mid drift over 30s| ≈ 0; (b) HARD veto
+  fills within ~10s of a fall on that asset (pull/widen the bid on
+  a falling ask — held 3/3 samples, corr up to +0.21); (c) never
+  instant-requote upward under a rally; (d) any DIRECTIONAL 30s+
+  momentum signal is day-regime-dependent (sign flipped on Jun-10)
+  — sweep it, never fix it. No other book feature (spread, depth,
+  event rate, minute) discriminates. Judge gates on aggregate drift
+  + pair cost — favorable share is ~48% for everyone.
 - **Hour-of-day is a policy variable, not just a regime caveat
   (A35)**: 0x04b6d7e9 trades ONLY 12–19Z weekdays (zero fills
   20–05Z, dark on weekends 21/32 and on Memorial Day) and earned its

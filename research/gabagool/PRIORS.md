@@ -819,3 +819,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   instant-requote upward under rallies. Favorable share is ~48% for
   BOTH wallets — judge gates on aggregate drift/pair cost, not
   per-fill win rate. [verified]
+- **A45 (A44 gate validated out-of-sample — habitat and 10s veto
+  survive, 30s directional rule dies):** May-13 + Jun-10 repeats
+  (measurements/drift-features-btc15m.md §validation): (1) habitat
+  separation ROBUST — b27bc932's resting fills always fire in +3–4c
+  chase states, the winner's at ≈0; (2) the 10-second falling-ask
+  veto holds 3/3 samples (May-13 corr +0.21); (3) the 30s
+  directional momentum rule REVERSES sign by day (Jun-10 corr
+  −0.19) — day-regime-dependent, must be swept not fixed. Revised
+  gate: prefer low-|30s momentum| states, hard-veto fills within
+  ~10s of a fall, never chase rallies; no fixed 30s+ direction
+  signal. Bonus: b27bc932 had ZERO btc-15m resting fills May-13 —
+  its May downtime windows confirmed from a second data source.
+  [verified]

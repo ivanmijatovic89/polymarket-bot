@@ -340,3 +340,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the winner gets its orders filled in CALM moments; the breakeven bot gets filled while chasing price runs — and short-term price moves tend to continue, so chased fills lose. Concrete rule for our bot: quote when the market is quiet, stand aside right after sharp moves.
 - Next: live snapshot 6, then validate this rule on more days.
 - Health: on track.
+
+## 2026-07-17T14:44Z — unit: stress-tested the winner's rule (session 8)
+
+- Did: tested yesterday's "quote when calm" rule on two more days of data.
+- Found: half survived — "stay calm, don't chase" holds everywhere, and "don't get filled right after a dip" holds everywhere; but the longer-horizon direction signal flips day to day and can't be a fixed rule. The strategy spec is updated accordingly.
+- Next: live snapshot 6 (due ~15:30 UTC), then wrap the session state.
+- Health: on track.
