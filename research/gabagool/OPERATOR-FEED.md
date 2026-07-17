@@ -158,3 +158,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the profitable players sit at OPPOSITE ends of one dial (aggressive completion vs deep patience) while the middle merely breaks even — a concrete, testable shape for the lab's first sweep.
 - Next: variant atlas write-up; clean re-scan is 2 of 4 days done.
 - Health: on track.
+
+## 2026-07-17T08:15Z — unit: live snapshot 3 (session 7)
+
+- Did: third 2-hour snapshot of the live players.
+- Found: first real movement — everyone's pair prices got worse this window; only one wallet still bought pairs under $1. Lesson: judging a wallet needs a full day of windows, not one.
+- Next: quick profile of the historical btc-15m specialist the scan found, then the atlas.
+- Health: on track.
