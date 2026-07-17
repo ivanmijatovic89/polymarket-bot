@@ -12,17 +12,16 @@
 
 ## Status digest
 
-- **Session:** 6 (started 2026-07-17T05:59Z; s5 lived 7 min. Stamp
-  drift history: s1/s2 up to +2h, s3 +35–60 min, s4 +9 min even while
-  pinning the rule (LS-5). Stamps must be pasted from `date -u`
-  output captured in the same command)
+- **Session:** 7 (started 2026-07-17T06:09Z; s6 lived ~10 min. Stamp
+  rule: paste from `date -u` output captured in the same command —
+  every estimate so far has drifted)
 - **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) draining;
   judgment is the next substantive unit
-- **Phase:** E003 draining (~57% at 05:59Z, ~500 jobs/min per
-  detached log, ETA ~06:24Z; 3/9 live flows persisted). Watchers:
-  harness task bzf2435r9 (s6, wakes this session, 3h cap) + detached
+- **Phase:** E003 draining (~73% at 06:09Z, ~470 jobs/min by
+  waiting-delta, ETA ~06:26Z; 6/9 live flows persisted). Watchers:
+  harness task bjp0w34gz (s7, wakes this session, 3h cap) + detached
   nohup pid 66095 → logs/watch-drain-s5.log (survives session death).
-  Drain-window unit: E004 completionTtl re-smoke (E003-blind).
+  No drain-window prep left (u22 cleared E004 pre-launch).
   EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)

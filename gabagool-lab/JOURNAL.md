@@ -675,3 +675,31 @@ Verification done this unit (all E003-blind):
 
 Drain check: still on pace (~500/min). Judgment next when the
 watcher fires.
+
+## 2026-07-17T06:10Z — session 7, unit 23: pickup; drain ~73%; watcher re-armed for this session
+
+Session 7 begins at 06:09Z (s6 lived ~10 minutes, committed u21+u22,
+died clean — the relay keeps working in short hops). Pickup findings:
+
+1. **Drain healthy and ahead of pace**: 7,890 waiting + 12 active at
+   06:09Z, 0 failed market jobs. Against the 29,280-job E003 total
+   that means ~73% done; waiting-delta pace ~470/min (consistent with
+   s6's ~500/min) → ETA ~06:26Z. Aggregate: 3 waiting-children left,
+   i.e. 6 of 9 live flows already persisted while s6 died. The 3
+   failed aggregate jobs are the known stale foreign imbalance-hold
+   rows (baseline 3, not mine).
+2. **Watchers**: s6's harness task died with its session as expected;
+   re-armed under THIS session (task bjp0w34gz, 3h cap, agg baseline
+   3). Detached nohup 66095 still alive as successor insurance —
+   two-watcher pattern holding across its third relay.
+3. **DONE absent, tree clean at afa1830, worker daemon alive**
+   (pid 68398, conc 4). KB STATE unchanged (mtime 05:05Z, same as s4).
+4. **Judgment kit re-loaded**: LEDGER §E003 advance rule (direction
+   agreement + top-2 set match) + success criteria + u17b
+   interpretation rules (endpoint-direction reporting, default-seed
+   fallback, mechanism split via taker share). E004 launch path
+   verified last unit (u22); post-judgment the E004 freeze is
+   "fill SEED + record 2 control batchUids + freeze + launch".
+
+Next unit is the E003 judgment when the watcher fires (~06:26Z). No
+drain-window work left — u22 cleared the last E003-blind prep item.

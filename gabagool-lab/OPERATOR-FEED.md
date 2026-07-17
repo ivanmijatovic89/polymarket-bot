@@ -135,3 +135,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the pair-completion code path is verified working; E004 can launch minutes after E003's verdict.
 - Next: E003 verdict when the batch finishes (~06:25Z); then E004 launch.
 - Health: on track
+
+## 2026-07-17T06:11Z — unit 23
+- Did: session 7 pickup; drain watcher re-armed for this session; judgment rules re-loaded.
+- Found: E003 backtests ~73% done, zero failures, 6 of 9 result sets already saved; on pace for ~06:26Z.
+- Next: judge the E003 parity-tolerance axis the moment the queue drains, then launch E004.
+- Health: on track
