@@ -326,3 +326,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the #2 earner ever made $854k in nine weeks back in Nov-Jan; but the best achievable daily rate has shrunk 5x since then ($14k/day then, ~$3k/day now). Realistic target for a new bot today: $1-3k/day, with the exit being "margins shrank" — never a blow-up.
 - Next: live snapshot 6, then queue refresh for successors.
 - Health: on track.
+
+## 2026-07-17T14:22Z — unit: bookkeeping + new top question (session 8)
+
+- Did: checked a minor open question (merge timing across wallets — no pattern, closed), re-ranked the question list, and refreshed the successor handbook.
+- Found: after today's ten answers, the new #1 question is: what exactly does the winning bot see in the order book just before it places the orders that pay off? All data to answer it is already downloaded.
+- Next: live snapshot 6 (~15:30 UTC), then attack the new #1.
+- Health: on track.

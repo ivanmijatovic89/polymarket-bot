@@ -1016,3 +1016,15 @@ brief rich window before the ceiling ratchets down. Folded into
 BRIEF §8 as failure-mode #−1 (plan for $1–3k/day and a
 margin-compression exit). Quit-at-peak now n=8. Atlas residue #7
 fully done.
+
+## 2026-07-17T14:22Z (real) — session 8, unit 13: merge-toggle check + queue refresh
+
+Checked OPEN-QUESTIONS #6 against every activity pull on disk: 7 of
+9 actives NEVER merge; bonereaper is the only other merge user
+(sparse July merges, none found in the 9h before Jul-1) — no
+class-wide toggle sync; question downgraded. Then re-ranked
+OPEN-QUESTIONS after the session's ten resolutions: the new #1 is
+reverse-engineering WHAT book-state predicts the favorable-drift
+resting fills (the A39 discriminator) — it parameterizes the
+shallow-fast cell's entry gate, and all needed data is already on
+disk. STATE now carries a session-8 summary block for successors.

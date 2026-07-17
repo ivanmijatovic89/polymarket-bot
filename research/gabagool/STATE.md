@@ -74,6 +74,24 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-8 summary (13:23–14:30Z real; A34–A43, O7–O8, G10; 13 units)
+
+The big session-8 arc: (1) MECHANISM — the two living recipes are
+the two local optima of the (offset × requote) surface (A37/A38:
+fast+shallow vs slow+deep; rebate step reachable maker-only); the
+edge WITHIN a recipe is fill selection, visible as post-fill drift
+(A39); the day divides between recipes (A35 business-hours winner /
+A36 grinder bleeds US session); dips are flickers now, passive
+capture only (A40). (2) HISTORY — full winner genealogy done:
+PurpleThunder #2 all-time $854k (A43), January pool harvesters
+$381k+$383k (A42, A40), guh123 sprint $6.5k/day (A41); per-operator
+ceiling compressed 5× over 8 months ($14k→$2.75k/day); quit-at-peak
+n=8, no winner ever bled out; fee shocks open brief rich windows.
+NEW top question: what book-state predicts the favorable-drift
+fills (OPEN-QUESTIONS #1). Successors: run W3 snapshot ~every 1-2h
+(CHECK date -u — session-8 stamps drifted +1h again), then attack
+OQ #1.
+
 ### Session-8 digest (2026-07-17 13:23Z→, A34)
 
 Live snapshot 4 (O7): US-morning regime — sub-$1 club empty,

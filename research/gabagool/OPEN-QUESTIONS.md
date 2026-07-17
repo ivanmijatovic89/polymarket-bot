@@ -1,8 +1,37 @@
 # OPEN-QUESTIONS (living)
 
-Ranked by information value per unit effort. Refreshed session 7
-(2026-07-17 ~05:10Z real clock) after A26–A33. Resolved items at the
+Ranked by information value per unit effort. Refreshed session 8
+(2026-07-17 ~14:25Z real clock) after A34–A43. Resolved items at the
 bottom.
+
+## Current ranking (session 8)
+
+1. **What predicts the favorable-drift fills?** (from A39) — the
+   whole living edge separates on post-fill drift of resting fills
+   (04b6d7e9 +0.9c@60s vs b27bc932 −0.4c, same books/days). Reverse-
+   engineer the selection rule: compare book state immediately BEFORE
+   each wallet's resting fills (ask-depletion, momentum sign, dip
+   depth, seconds-since-last-sweep). Method: extend edge-source.ts
+   to capture pre-fill features; data all on disk. This parameterizes
+   the shallow-fast cell's ENTRY GATE — the single most build-
+   relevant unknown left.
+2. **Session-split scale-up with a realized-vol covariate** (A36 +
+   O8) — 222 markets/2.4 days is thin and clock-only; scale to
+   months (activity pulls per month for b27bc932) and stratify by
+   realized vol, not just hour. Confirms/breaks the "day divides in
+   two" build rule.
+3. **W4 remainder**: pair-completion timing + endgame flip table at
+   scale (density done, A38; session PnL split is #2 above).
+4. **First OrderFilled on the 2026 exchange** + earliest migrants
+   (venue residue, partially done; deployment 2026-03-31T02:39Z).
+5. **b27bc932 btc-5m expansion** (O7/O8) — schedule or durable? W3
+   snapshots answer passively; if durable by next session, amend
+   the dossier era table.
+6. drfc4eybh7i8 re-resolution; 5m-launch-date pin; twin-link checks
+   (93c22116/961afce6, guh123↔gabagool22 succession) — all low
+   value, one probe each.
+
+## Prior ranking (session 7) with resolutions
 
 1. ~~0x04b6d7e9 deep-dive~~ **DONE session 8 (A34)** —
    measurements/deep-dive-04b6d7e9-btc15m.md: shallow touch-hugging
@@ -25,10 +54,13 @@ bottom.
    migrated first — venue-mechanics residue, partially done.
 5. **b27bc932 ladder-per-volatility-regime + requote cadence** (W2
    residue; June Telonex + June pull both on disk).
-6. **Why did the Apr-28 / Jul-1 merge toggles happen?** (A27) — watch
-   whether other wallets toggled at the same dates (would imply a
-   shared operator or a venue-side cause; scan data can answer for
-   the sampled days).
+6. **Why did the Apr-28 / Jul-1 merge toggles happen?** (A27) —
+   DOWNGRADED session 8: no class-wide sync exists (7 of 9 actives
+   never merge in any pull); bonereaper is the only other merge
+   user — zero merges found in the 9h before Jul-1 (probe), sparse
+   merges + a 139-burst Jul 7–15. Weak coincidence with b27bc932's
+   Jul-1 toggle-ON; venue-side cause not excluded but not testable
+   cross-wallet. Revisit only if a third wallet starts merging.
 7. Atlas residue dossiers: ~~0xa45fe11d~~ **DONE session 8 (A41,
    guh123 — 33-day sprint at $6.5k/day, quit-at-peak n=4, retired
    Mar-24)**; remaining: 0x961afce6 / 0x93c22116 (Jan cheap-side
