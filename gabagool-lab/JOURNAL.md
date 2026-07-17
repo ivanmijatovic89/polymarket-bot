@@ -149,3 +149,22 @@ re-tasked for Phase 2 (variant atlas — future seed source). A24
 corrects b27bc932 to ~3–4% pool share (fragmented pool, softer
 competition story) and gives a LIVE existence proof of the concept:
 pair cost p50 0.993, 1.6% parity, 50% taker completion, running today.
+
+## 2026-07-17T07:05Z — session 1: first latency mechanism discovered
+
+Comparing E002 arms on identical 1,000 markets (Apr 1–11):
+- lat0:   2,846 fills (0 taker), EL −0.64/market, pairRate 0.33
+- lat500: 25,412 fills (12,478 TAKER conversions — half!), EL −5.04,
+  pairRate 0.71 (conversions "complete" pairs at bad prices)
+
+Mechanism: with cancel latency, every requote cycle leaves the old rung
+exposed in flight AND the replacement converts to taker when the book
+moves through it before arrival. Churn × latency = toxic conversion
+volume. The archetype's standing-ladder fingerprint (P21: burst fills,
+no chase-the-mid) reads as the direct counter to exactly this.
+
+Consequence: REQUOTE DISCIPLINE (standing ladders / requote bans /
+wide requote deltas) is promoted to a first-class axis — plausibly THE
+latency-robustness lever the charter demands. Added to the E005 ladder
+axis scope. E003's smoke also validated the completion machinery
+(pairRate 0.73 vs baseline 0.33 on the same 10 markets).
