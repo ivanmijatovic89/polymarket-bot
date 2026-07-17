@@ -12,14 +12,14 @@
 
 ## Status digest
 
-- **Session:** 7 (started 2026-07-17T06:09Z; s6 lived ~10 min. Stamp
+- **Session:** 8 (started 2026-07-17T06:13Z; s7 lived ~4 min. Stamp
   rule: paste from `date -u` output captured in the same command —
   every estimate so far has drifted)
 - **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) draining;
   judgment is the next substantive unit
-- **Phase:** E003 draining (~73% at 06:09Z, ~470 jobs/min by
-  waiting-delta, ETA ~06:26Z; 6/9 live flows persisted). Watchers:
-  harness task bjp0w34gz (s7, wakes this session, 3h cap) + detached
+- **Phase:** E003 draining (~79% at 06:13Z, ~440 jobs/min by
+  waiting-delta, ETA ~06:27Z; 6/9 live flows persisted). Watchers:
+  harness task b7db3g0d3 (s8, wakes this session, 3h cap) + detached
   nohup pid 66095 → logs/watch-drain-s5.log (survives session death).
   No drain-window prep left (u22 cleared E004 pre-launch).
   EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007)

@@ -703,3 +703,31 @@ died clean — the relay keeps working in short hops). Pickup findings:
 
 Next unit is the E003 judgment when the watcher fires (~06:26Z). No
 drain-window work left — u22 cleared the last E003-blind prep item.
+
+## 2026-07-17T06:14Z — session 8, unit 24: pickup; drain ~79%; watcher re-armed
+
+Session 8 begins at 06:13Z (s7 lived ~4 minutes — committed its
+pickup and died; shortest relay hop yet, still clean). Pickup:
+
+1. **Drain healthy**: 6,246 waiting + 12 active at 06:13Z, 0 failed
+   market jobs, detached watcher log shows ~440/min steady → ETA
+   ~06:27Z. Aggregate: 3 waiting-children (same 3 flows as s7 saw;
+   6/9 persisted), 3 failed = known stale foreign rows.
+2. **Watcher re-armed under THIS session** (task b7db3g0d3, 3h cap,
+   agg baseline 3). Detached nohup 66095 alive — fourth relay it has
+   survived.
+3. **DONE absent, tree clean at ad62329, worker daemon alive**
+   (pid 68398 markets+aggregate conc 4). KB STATE unchanged
+   (mtime 05:05Z).
+4. **Judgment kit confirmed loaded**: LEDGER §E003 advance rule
+   ((a) parity-response direction agrees across halves, (b) top-2
+   set identical) + success criteria (per-arm readout fields,
+   adjacent-arm distinguishability at 2·se_diff) + u17b rules
+   (endpoint-direction reporting; advance-rule failure → E004/E005
+   at file default tol 10, stated; mechanism split via taker share
+   + fill counts). E004 post-judgment path: fill SEED + record 2
+   control batchUids + freeze + `launch-e004.sh --tol SEED` (u22
+   verified the launcher end-to-end).
+
+No E003-blind prep work remains, so this unit is pickup-only.
+Next unit: E003 judgment when the watcher fires (~06:27Z).

@@ -141,3 +141,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E003 backtests ~73% done, zero failures, 6 of 9 result sets already saved; on pace for ~06:26Z.
 - Next: judge the E003 parity-tolerance axis the moment the queue drains, then launch E004.
 - Health: on track
+
+## 2026-07-17T06:14Z — unit 24
+- Did: session-8 pickup; drain watcher re-armed; judgment checklist reloaded.
+- Found: E003 ~79% done (ETA ~06:27Z), 0 failures, 6/9 result sets already in DB.
+- Next: judge E003 parity axis the moment the last runs land.
+- Health: on track
