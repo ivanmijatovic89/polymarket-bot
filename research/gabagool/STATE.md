@@ -101,6 +101,10 @@ is not a density axis; G10 ledgered (January stub parquets, ~27%
 on Jan-15 — filter by event count). W4 books cached under
 data/telonex-r2-w4/<day>/ (48 each; Jan stubs quarantined in
 telonex-r2-w4-stubs/). Snapshots 5 (13:50Z) done; next ~15:30Z.
+A39 (unit 8): b27bc932 fingerprint joined — four-wallet table in
+edge-source-btc15m.md §addendum; edge signature = post-fill drift
+(fill selection), not ladder depth; drift is now a first-class
+sweep diagnostic (METRICS). W2 vol-regime residue superseded.
 
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 

@@ -947,3 +947,16 @@ adverse-flow/pair-cost driven, not fill scarcity. Found a real data
 trap: 13/48 January parquets are near-empty stubs that read as
 zero-fill markets — ledgered as G10 (backtests over January must
 filter by event count). Committed as A38.
+
+## 2026-07-17T14:55Z (real) — session 8, unit 8: the fourth fingerprint (A39)
+
+Joined b27bc932's June fills against the same 30 books: shallowest
+ladder and heaviest taker mix of the four wallets measured, flat
+timing. The payoff: comparing the two shallow-ladder wallets, the
+ONLY meaningful difference is post-fill drift on resting fills —
+the profitable one's fills drift +0.9c in its favor at 60s, the
+breakeven one's drift −0.4c against. Fill selection, not ladder
+geometry, is where the margin lives; this is A36's session split
+seen at per-fill zoom. Post-fill drift is now a first-class
+diagnostic in METRICS.md. W2's remaining residue (vol-regime ladder
+split) is largely superseded by this cleaner discriminator.

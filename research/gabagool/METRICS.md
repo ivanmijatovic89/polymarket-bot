@@ -30,7 +30,7 @@ as its result-inspection vocabulary beyond `evPerMarketTotal`).
 |---|---|---|
 | fill offset vs mid | (mid_at_fill − fill price) signed per leg | measures the collected discount; INV P21: only inferable from fills×books |
 | fill offset vs fair | fill price vs Binance-anchored fair value | separates "cheap vs mid" from "cheap vs truth" (adverse selection) |
-| post-fill drift | mid(t+Δ) − mid(t_fill), Δ ∈ {10s, 60s, end} | direct adverse-selection measurement per fill |
+| post-fill drift | mid(t+Δ) − mid(t_fill), Δ ∈ {10s, 60s, end} | direct adverse-selection measurement per fill. A39: this is THE discriminator between the two shallow-ladder wallets — +0.9c@60s (04b6d7e9, +0.30%T) vs −0.4c (b27bc932, ≈0%T); report per sweep cell, it converges long before per-market PnL |
 | worst-queue admissibility | % of real fills where bestAsk < fillPrice strictly after fill (engine rule) | D2 — THE sim-credibility number |
 | inter-fill gap | within-market gap distribution | cadence fingerprint; tail p50 0s (bursts), successor 11s median |
 | time-to-pair | seconds between one leg's fill and the pair-completing fill on the other | quantifies the oscillation-harvest window; sets leg-risk policy timeouts |

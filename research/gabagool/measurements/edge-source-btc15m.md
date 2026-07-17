@@ -83,3 +83,34 @@ both wallets (39k + 33k rows). ~190 markets, 7.7k/8.7k fills joined,
   2026-06-12T00:00:00Z --to 2026-06-14T09:30:00Z
 - scripts/pull-telonex-r2.ts exists for future R2 pulls (July books
   turned out not to exist; kept for when Telonex sync resumes).
+
+## Session-8 addendum (A39): b27bc932 joined — the four-wallet fingerprint table
+
+Same method, same 30 Jun-12 books (data/telonex-r2), b27bc932's June
+activity (5,960 fills matched, $33.6k):
+
+| metric | b55f | 0xce25 | 04b6d7e9 (A34) | b27bc932 |
+|---|---|---|---|---|
+| taker fills% | 32.4 | 35.6 | 38.0 | **45.5** |
+| deeper fills% | 35.5 | 39.3 | 26.1 | 21.9 |
+| offset p10 | −12c | −13c | −2c | −2c |
+| minute profile | back-loaded | back-loaded | ~flat, m14 cut | ~flat, m14 cut |
+| resting drift @60s | ~0 | ~0 | **+0.5–0.9c** | **−0.4c (deeper)** |
+| trading margin (A16/A24/A30) | +2.31%T | +0.31%T | +0.30%T | ≈0 |
+
+- b27bc932 is the SHALLOWEST + most taker-heavy of the four — a
+  touch-grinder that crosses whenever parity demands (A24's ~50%
+  taker share confirmed at fill level).
+- **The edge signature is drift, not depth**: the two shallow
+  wallets differ only in post-fill drift on resting fills —
+  04b6d7e9's rest fills drift FAVORABLY (+0.9c@60s), b27bc932's
+  deeper fills drift ADVERSELY (−0.4c@60s) — and that difference
+  matches their trading margins (+0.30%T vs ≈0). Same books, same
+  days, same shallow ladders: WHEN/WHERE the resting bid sits when
+  it fills is the discriminator. This is the microstructure version
+  of A36's session finding (b27bc932 bleeds exactly where 04b6d7e9
+  wins).
+- For the lab: post-fill mid drift at +10s/+60s per fill class
+  should be a first-class diagnostic metric in every sweep cell
+  (METRICS.md) — it separates "gets fills" from "gets the right
+  fills" long before per-market PnL converges.

@@ -291,3 +291,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the earlier conclusions hold everywhere — passive quoting gets enough fills to unlock the rebate bonus in ~9 of 10 markets, in every month and time slot. Also caught a data trap: some January recordings are empty shells that would silently skew backtests (now documented).
 - Next: live snapshot 6 (~15:30 UTC), then remaining queue (b27bc932 ladder-by-volatility or atlas dossiers).
 - Health: on track.
+
+## 2026-07-17T14:55Z — unit: fourth wallet fingerprinted (session 8)
+
+- Did: matched the breakeven 24/7 bot's trades against the books, completing a four-wallet comparison.
+- Found: the profitable and breakeven bots use nearly identical order placement — the difference is that the winner's orders fill right before prices move its way, the breakeven one's right before they move against. Picking WHEN to stand in line is the whole edge.
+- Next: live snapshot 6 (~15:30 UTC), then atlas residue dossiers.
+- Health: on track.

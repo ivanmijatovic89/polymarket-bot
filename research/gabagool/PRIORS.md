@@ -736,3 +736,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   DATA FLAG: 13/48 Jan-15 parquets are near-empty stubs — January
   backtests must filter by event count or silently under-fill.
   [verified] (measurements/fill-density-btc15m.md §W4)
+- **A39 (four-wallet execution fingerprint complete — the edge
+  signature is post-fill drift, not depth):** b27bc932 joined the
+  fills×books table (same 30 Jun-12 books): shallowest + most
+  taker-heavy of the four (45.5% taker fills, offsets p10 −2c, flat
+  timing with m14 cut — A24's ~50% taker confirmed at fill level).
+  The two shallow wallets separate ONLY on resting-fill drift:
+  04b6d7e9 +0.9c@60s (margin +0.30%T) vs b27bc932 −0.4c on deeper
+  fills (margin ≈0) — fill SELECTION quality, not ladder shape, is
+  what pays; the microstructure twin of A36's session split.
+  Post-fill drift per fill class becomes a first-class sweep
+  diagnostic (METRICS.md updated). [verified]
+  (measurements/edge-source-btc15m.md §Session-8 addendum)
