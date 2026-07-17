@@ -547,6 +547,21 @@ Template:
     participation at this shape/sizing" — a measured cliff on the
     pairRate/EL trade-off curve, not a failed experiment; its EL is
     reported but flagged unmeasurable-at-coverage.
+- **Pre-freeze amendment 2 (2026-07-17T06:49Z, s11 u31 — reference
+  shape reuse + launch plan; still ax2-blind):** the reference shape
+  arm ra = [0.01,0.03] at parityTolPct=2 / completion none / lat140 /
+  clip 6 is EXACTLY E003 runs 682/683 (same file, same params, same
+  windows) — it is NOT resubmitted; the shape table reuses those two
+  runs (determinism basis: u17b 4-dp match, u30 to-the-digit
+  reproduction; same logic as §E004's control reuse). Shape sub-axis
+  therefore submits 6 NEW runs (not 8): suffix grammar
+  `ax3h<half>-<code>` with codes rb = [0.02,0.06], rc = [0.02,0.13],
+  rd = [0.01,0.02,0.05,0.13] (lowercase per submit.ts kebab rule).
+  Launcher: `tools/launch-e005-shapes.sh` (LS-3 hardened: --dry-run
+  only, refuses queued ax3 flows; tol/completion hardcoded to the
+  judged values — no free knobs). Cap arms will use `ax4` suffixes,
+  launched only after the shape sub-judgment + bind-table decision.
+  Total new runs for E005: 6 shapes + 6 caps = 12 (was 14).
 - **Runs / Judgment / Lesson:** (pending)
 
 ## Backlog (one line each; propose formally when reached)

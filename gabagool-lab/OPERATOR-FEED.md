@@ -183,3 +183,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: tool reproduces all known numbers exactly; side note — the current design's average completed pair already costs ~$0.97, right in the region where the profitable live wallets operate.
 - Next: E005 launcher prep, then judge E004 when the runs finish (~07:09Z).
 - Health: on track
+
+## 2026-07-17T06:50Z — unit 31
+- Did: prepared the E005 (ladder depth) launch — 3 new ladder shapes over Apr+May; the 4th (current shape) reuses existing runs, saving ~12k compute jobs.
+- Found: nothing new — two safety guards correctly rejected a bad arm code and an uncommitted launcher during rehearsal.
+- Next: verify the launcher, judge E004 (~07:14Z), then launch E005.
+- Health: on track

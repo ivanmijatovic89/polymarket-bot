@@ -926,3 +926,27 @@ control ~$0.58–0.63/market in era taker fees (acc-exact).
 Next: E005 shapes launcher + ref-shape control-reuse amendment
 (the [0.01,0.03] shape arm at tol=2 IS runs 682/683 — same
 params, same reuse logic as E004's control), then judgment on drain.
+
+## 2026-07-17T06:50Z — session 11, unit 31: E005 shapes launcher built; ra reference reuses 682/683
+
+Second drain-window build unit, still ax2-blind (watcher shows
+10,922 pending at 06:49Z, one ax2 flow already persisted — unread).
+
+1. **Reference-shape reuse formalized (§E005 amendment 2):** the ra =
+   [0.01,0.03] shape arm at tol=2/none/lat140/clip6 is parameter-
+   identical to E003 runs 682/683 — reused, not resubmitted, on the
+   same determinism basis as E004's control (u17b 4-dp, u30
+   to-the-digit). Shape sub-axis: 6 new runs instead of 8; E005 total
+   12 new runs instead of 14.
+2. **launch-e005-shapes.sh built** (LS-3 pattern: --dry-run only,
+   refuses queued ax3 flows, tol/completion HARDCODED to judged
+   values — no free knobs to fat-finger). First dry-run caught two
+   guards doing their jobs: submit.ts kebab rule rejected uppercase
+   arm codes (rB→rb), and the clean-tree guard refused the untracked
+   launcher — commit-then-verify is the required order, same as
+   E004's u22 flow. Codes: rb=[0.02,0.06], rc=[0.02,0.13],
+   rd=[0.01,0.02,0.05,0.13]; suffixes ax3h<half>-<code>; cap arms
+   later under ax4.
+
+Post-commit dry-run verification is the next step in this unit; then
+the queue is: E004 judgment on drain → launch E005 shapes.
