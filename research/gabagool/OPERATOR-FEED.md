@@ -172,3 +172,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: it started 17 days BEFORE gabagool — gabagool didn't invent this. It made ~$386k (real trading profit, not subsidies) on exactly our target market, and like gabagool it quit at full speed rather than fade out.
 - Next: the variant atlas — clean re-scan is on its last day.
 - Health: on track.
+
+## 2026-07-17T08:55Z — unit: bookkeeping — new wallets added to the master table (session 7)
+
+- Did: added the two newly-found wallets to the cross-wallet master table.
+- Found: nothing new — housekeeping.
+- Next: the variant atlas; re-scan is minutes from done.
+- Health: on track.
