@@ -237,3 +237,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet (launch unit); plan and pass/fail reading were written down before launching.
 - Next: judge the stress test when the queue drains (~09:52Z) — it decides whether depth's gains are real structure or a latency artifact.
 - Health: on track
+
+## 2026-07-17T09:15Z — unit 40 (backfilled next commit — same-commit rule missed)
+- Did: verified the stress-test readout path on old runs and wrote down, in advance, how each possible outcome will be acted on.
+- Found: nothing new (prep unit).
+- Next: judge the stress test on drain (~09:52Z).
+- Health: on track
