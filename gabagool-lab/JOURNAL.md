@@ -972,3 +972,56 @@ is none=682,683) and launch-e005-shapes.sh (--dry-run only, refuses
 queued ax3). Missing inputs are only the 6 ax2 run ids, which exist
 after aggregates persist. Plan: monitor drain → judge E004 (u33) →
 launch E005 shapes (u34) → E005 prep/judgment as time allows.
+
+## 2026-07-17T07:28Z — session 12, unit 33: E004 judged — H6 survives; free completion is the strongest lever yet; caps are dead
+
+The queue drained on forecast (last watcher line 07:13Z; all 6 ax2
+runs persisted by 07:12:59Z, 0 failed jobs each). Identity first:
+runs 691–696's submission uids match the frozen launch uids to the
+digit; control stayed 682/683. Validators green on all six (fee-recon
+|recon−db| ≤ 0.27 vs tol ≥ 57.60, meta coverage 100%, settlement and
+segments cross-checks OK).
+
+The headline: completion policy MOVES this book. Policy spread is
+1.99%/2.24% of turnover in the two halves — 6.6–7.5× the
+pre-registered 0.3% kill line, so H6 survives: the live
+b55f-vs-0xce25 gap plausibly WAS policy. And the direction is the
+one nobody pre-registered: free completion (cross the lagging leg
+whenever it lags, no price cap) beats control by +1.10/+0.87 $/mkt,
+the only DISTINCT adjacency in both halves, while both cost-capped
+arms are noise vs control (c990 point-estimates worse).
+
+The mechanism decomposition (new tool e004-decomp.ts, exact additive
+identity asserted against the canonical EL per run) explains the
+paradox: cfree's completed pairs cost ABOVE $1.00 on average
+(S 1.0207/1.0188 — every completed pair locks ~2c loss plus fees),
+yet EL improves because completion REMOVES the bleeding channels:
+maker fills drop 26.6%/23.6%, involuntary latency conversions drop
+39%/38%, and tail one-sidedness collapses (imbalance p90 1.000 →
+0.335). Caps are the same knob pointed backwards — they cross when
+the pair is already cheap (the markets that were fine) and hold
+exactly the adverse inventory. LS-7.
+
+Also new and quantified: cfree forfeits ~$1/mkt of winner-remainder
+redemptions by pairing inventory that would have won anyway. A
+spot-aware completion (cross only when the HELD leg lags fair value;
+binance feed is replayable now) keeps the removal and the remainders
+— seeded as E-completion-selective in the backlog. Upper bound ≈
+−2.4 EL, still negative: a lever, not a cell.
+
+The frozen advance rule FAILS by the letter — top-2 sets differ
+({cfree,c970} h1 vs {cfree,none} h2) because the #2 slot is a coin
+flip among three statistically tied arms. Consequence applied
+verbatim: no completion default; candidate confirmations run
+maker-only, stated. D-008 records the interpretation boundary (a
+future frozen candidate spec MAY include completion=free, citing the
+instability caveat, and then faces the full gates + one-shot
+holdout); LS-8 records the rule-design lesson (test the
+decision-relevant partition, not rank order within noise). E005
+stays maker-only by design.
+
+Ladder position: best measured cell is now cfree −3.47/−3.35
+(sel-width 4, lat140 only, no gate vector) vs reference −4.39. The
+gap to zero narrowed ~24% and the strongest single lever so far is
+identified — but the concept still pays ~6% of outlay per market to
+trade. Next: launch E005 shapes (launcher verified, worker free).

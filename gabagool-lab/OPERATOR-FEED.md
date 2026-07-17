@@ -195,3 +195,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — runs on pace, ~19 min to done.
 - Next: judge E004 (completion policy) the moment runs finish, then launch E005 (ladder depth).
 - Health: on track
+
+## 2026-07-17T07:28Z — unit 33
+- Did: judged E004 (completion policy) — 6 runs + control, all checks green.
+- Found: crossing to complete pairs whenever a leg lags CUTS the loss by ~$1/mkt (−4.39 → −3.41, best cell yet); price-capped crossing does nothing. Still loses money overall.
+- Next: launch E005 (ladder depth/shape arms), the axis aimed at where profitable wallets live.
+- Health: on track

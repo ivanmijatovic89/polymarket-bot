@@ -138,6 +138,8 @@ export type MarketEcon = {
   outlay: number // cost column (buy-only: total spent)
   settleCheckOk: boolean // recomputed settlement == stored pnl
   settleCheckDiff: number
+  dockedUp: number // sim share-docking undone by pnlCorr (era re-price)
+  dockedDown: number
 }
 
 /**
@@ -244,6 +246,8 @@ export function computeMarketEcon(m: MarketRow): MarketEcon {
     outlay: m.cost,
     settleCheckOk: settleCheckDiff <= 0.011 || m.tradeCount === 0,
     settleCheckDiff,
+    dockedUp,
+    dockedDown,
   }
 }
 

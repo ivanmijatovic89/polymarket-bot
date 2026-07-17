@@ -134,3 +134,28 @@ degenerate (baseline EL < 0, pre-registered as invalid); (c) deferring
 until a positive-EL variant exists — that would let the first
 candidate's own shape pick its gate (the exact loophole §7's
 freeze-before-first-candidate rule exists to close).
+
+## D-008 (2026-07-17): Scope of E004's frozen "maker-only" consequence
+
+**Chosen:** E004's advance-rule failure exports exactly what the
+frozen sentence says — completion earns **no default**: candidate
+confirmation runs are maker-only unless a candidate's own FROZEN spec
+includes a completion policy. A future candidate MAY include
+completion=free in its frozen spec, because the axis produced
+direction-stable, distinct evidence for it (sign agreement across two
+disjoint halves — the same standard EPISTEMOLOGY §3.3 applies to
+screening; adjacency DISTINCT in both halves; mechanism decomposed and
+coherent). Any such spec must cite §E004's "axis unstable at this
+coverage" caveat and carries the burden at the full gate vector +
+one-shot holdout like any candidate. E005 stays maker-only (axis
+isolation, unchanged).
+
+**Rejected:** (a) treating the rule failure as banning completion
+from candidate specs entirely — that discards measured information
+the epistemology's own two-halves rule endorses, and the failure was
+localized to the statistically tied middle of the ranking (LS-8), not
+to the winner; (b) declaring cfree the completion default anyway
+("the rule obviously misfired") — post-hoc rule editing after seeing
+the data is the exact failure mode frozen rules exist to prevent; if
+the rule is wrong, the fix applies to future freezes (LS-8), not
+retroactively.

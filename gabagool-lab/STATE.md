@@ -16,18 +16,17 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E003 judged (AXIS-CLOSED, u27);
-  E004 FROZEN + LAUNCHED (u28), draining
-- **Phase:** E004 draining (launched 06:36Z at freeze SHA 77195ba9;
-  6 flows ax2{h1,h2}×{c990,c970,cfree}, 17,568 jobs; 9,194 pending
-  at 06:53Z s12, pace ~455/min → ETA ~07:13Z). Watcher: detached
-  nohup pid 20098 → logs/watch-drain-s11-e004.log (s11 harness task
-  died with its session). Control arm = E003 runs 682/683 (NOT
-  resubmitted). E003 verdict: LEDGER §E003 (tighter better; floor =
-  E002 −4.39; SEED=2). EVALUATION v1.1 frozen (TAIL_K 41, G11
-  cap-floor 0.92/$100, D-007). s12 pickup ritual done: KB still tops
-  at A33 (top commits = process/re-rank only), origin/main feeds
-  unchanged (binance only)
+- **Ladder rung:** L2 IN PROGRESS — E004 JUDGED (u33): H6 survives,
+  cfree DISTINCT best (+1.10/+0.87 vs none), caps dead, advance rule
+  fails on tied middle → candidate confirmations maker-only (D-008)
+- **Phase:** E004 done (runs 691–696 + control 682/683; judgment in
+  LEDGER §E004; best measured cell cfree −3.4665/−3.3541, S>1 —
+  wins via inventory removal, LS-7/LS-8; e004-decomp.ts new).
+  Worker free. NEXT: launch E005 shapes (launcher verified u31b;
+  mark §E005 frozen at launch in same commit). E003 verdict: LEDGER
+  §E003 (tighter better; floor = E002 −4.39; SEED=2). EVALUATION
+  v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007). s12
+  pickup ritual done: KB@A33 no-new, feeds unchanged (binance only)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -38,6 +37,16 @@
   G11 per D-007), LEDGER (E001+E002 judged), tools (submit/results/
   runs/inspect-meta/queue/agg-inspect/calibrate/watch-drain +
   launch-e003.sh — DB-tested), E001 smoke green twice.
+- **E004 JUDGED (u33, s12): H6 SURVIVES (spread 1.99%/2.24% of
+  turnover vs 0.3% kill). cfree (free completion) best cell yet:
+  EL −3.4665/−3.3541 (runs 694/695), DISTINCT vs c990 both halves;
+  caps c970/c990 ≈ none (dead region logged). Mechanism (e004-
+  decomp.ts, exact): completion wins by REMOVAL (maker fills −26%,
+  conversions −39%, imb p90 1.000→0.335) despite S>1 pairs (locked
+  ~2c loss each). Advance rule FAILED (tied middle) → candidate
+  confirmations maker-only; D-008 = completion may enter a frozen
+  candidate spec only. cfree forfeits ~$1/mkt winner remainders →
+  E-completion-selective seeded. LS-7 + LS-8.**
 - **L1 COMPLETE (unit 14): E002 fullwin battery, runs 675/678/676/677
   (lat0/140/500/1000), 5,856 mkts each, 0 failed, validators green.
   EL −0.42/−4.39/−5.03/−5.30; 0/36 arm-weeks positive; taker
@@ -74,23 +83,18 @@
 
 ## Queue (work top to bottom)
 
-1. **E004 judgment when drained (watcher buhv1r5qv or nohup log
-   watch-drain-s11-e004.log says DRAINED; pace ~540/min → ETA
-   ~07:09Z):** 6 runs + control 682/683. Per success criteria frozen
-   in LEDGER §E004: per-arm×half readout (incl. crosses
-   issued/filled, completed-pair cost, taker fees), policy spread vs
-   0.3%-of-turnover H6 kill, 8-cell advance rule (top-2 set match +
-   sign(EL−EL(none)) agreement), mechanism split. Axis gates
-   G2/G3/G9 only. Expect ~4×2 table incl. control; axis-table.ts
-   may need the ax2 prefix + completion-arm ordering (none <
-   cap0.97 < cap0.99 < free) — check its interface before use.
-2. **After E004 judgment: launch E005 shape arms** (8 runs — 4
-   rungOffsets shapes × halves; spec finalized u29 incl.
-   pre-registered cap-grid finalization rule + participation
-   caveat; parityTolPct=2, completion=none everywhere). Cap arms
-   ONLY after the shape sub-judgment + bind-table decision are
-   written (LEDGER §E005). Then E006 timing. Seeds in LEDGER
-   backlog. No E004-blind prep remains.
+1. **Launch E005 shape arms** (6 new runs — shapes {rb,rc,rd} ×
+   halves; ra reference = E003 runs 682/683 reused, §E005 amendment
+   2). Procedure: mark §E005 frozen-at-launch in LEDGER (SEED tol=2
+   already stamped), commit, then `gabagool-lab/tools/
+   launch-e005-shapes.sh` (dry-run first; refuses queued ax3),
+   verify read-only via agg-inspect (expect 6 flows ~17.5k jobs),
+   restart watch-drain nohup, record batchUids in §E005 at launch.
+2. **E005 shape sub-judgment when drained** (per frozen criteria +
+   LS-6 effective-grid statement + participation caveat). Then the
+   pre-registered cap-grid finalization decision + cap arms (ax4).
+   Then E006 timing. Seeds in LEDGER backlog (incl. new
+   E-completion-selective from E004).
 
 ## Open questions / risks
 

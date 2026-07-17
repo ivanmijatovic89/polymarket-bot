@@ -467,7 +467,111 @@ Template:
   (verified read-only via agg-inspect.ts post-launch: 6
   waiting-children flows, all at SHA 77195ba9; markets queue 17,461
   waiting + 12 active ≈ the expected 17,568 jobs; no double-submit.)
-- **Judgment / Lesson:** (pending)
+- **Judgment (2026-07-17T07:35Z, session 12, unit 33): H6 SURVIVES —
+  completion policy IS a margin knob (spread ≈ 2% of turnover, 6.6–7.5×
+  the kill line). Free completion is the strongest lever measured in
+  the lab so far (+1.10/+0.87 $/mkt vs control, DISTINCT in both
+  halves); cost-capped completion is dead. The frozen advance rule
+  FAILS on the tied middle of the ranking, so no completion default is
+  exported: candidate confirmations run maker-only, stated.**
+  - **Identity check first:** all 6 new runs completed 0-failed; runs
+    691–696 submission uids match the frozen launch uids to the digit
+    (verified via DB query u33); control = runs 682/683 as frozen.
+  - **Validators (criterion 1): green ×6** — settlement recheck OK
+    (all markets); fee-recon |recon−db| ≤ 0.27 vs tol ≥ 57.60 → VALID,
+    meta coverage 100% every run; segments cross-check OK (max drift
+    0.0046, run 691).
+  - **8-cell readout (criterion 2; e004-table.ts, arm=run h1/h2):**
+    - none (682/683): EL −4.5656±0.1487 / −4.2209±0.1371; taker 33.9/
+      34.0%; pairRate 0.657/0.632; imb p50 0.175/0.199, p90 1.000 both;
+      outlay 56.82/52.49; xN 0; conv 19,385/18,759; fills m/t
+      37,767/19,385 and 36,344/18,759; tFee$ 0.630/0.583; S 0.9767/
+      0.9696; REB 0 (raw 0.2478/0.2278).
+    - c970 (692/693): EL −4.4642±0.1458 / −4.3580±0.1299; taker 39.2/
+      39.3%; pairRate 0.674/0.650; imb p50 0.158/0.176, p90 1.000;
+      outlay 60.46/56.83; xN 5,032/5,120 (xSh 30,192/30,720; x-px
+      p10/50/90 0.31/0.58/0.80 and 0.37/0.60/0.82; xFee$ 453/462);
+      conv 18,740/18,217; tFee$ 0.768/0.717; S 0.9813/0.9772; x/paired
+      0.097/0.102.
+    - c990 (696/691): EL −4.6639±0.1352 / −4.6054±0.1152; taker 46.5/
+      45.4%; pairRate 0.702/0.674; imb p50 0.142/0.148, p90 1.000;
+      outlay 66.12/60.79; xN 13,214/11,848 (xSh 79,284/71,088; x-px
+      0.38/0.57/0.78 and 0.38/0.59/0.80; xFee$ 1,231/1,093); conv
+      17,709/17,019; tFee$ 1.004/0.893; S 0.9846/0.9816; x/paired
+      0.229/0.219.
+    - cfree (694/695): **EL −3.4665±0.0797 / −3.3541±0.0682** (t −43.5/
+      −49.2); taker 52.0/50.6%; **pairRate 0.860/0.848; imb p50
+      0.098/0.111, p90 0.335 both (every other arm p90 = 1.000)**;
+      outlay 58.26/54.42; xN 18,221/16,854 (xSh 109,326/101,124; x-px
+      0.44/0.66/0.84 and 0.45/0.67/0.84; xFee$ 1,579/1,452); conv
+      11,801/11,603; fills m/t 27,736/30,022 and 27,777/28,457; tFee$
+      0.909/0.822; **S 1.0207/1.0188 (completed pairs locked ABOVE
+      $1)**; x/paired 0.352/0.339. REB 0 in all 8 cells (raw ≤ 0.25).
+    - Crosses ISSUED are not persisted for unfilled orders (no meta);
+      issuance path verified by smoke 680 (39 filled / 60 issued).
+  - **H6 spread (criterion 3):** h1 max−min EL = 1.1974 $/mkt on
+    turnover 60.12 → **1.992%**; h2 = 1.2513 on 55.87 → **2.240%**.
+    Both ≥ 0.3% ⇒ H6 SURVIVES at this cell: completion policy moves
+    EL by ~2% of turnover on an identical maker stream — same order as
+    the live b55f-vs-0xce25 2%/turnover gap it was drawn from.
+  - **Adjacency (criterion 4, frozen order none<c970<c990<cfree):**
+    none↔c970 indistinguishable (|ΔEL| 0.10/0.14 vs 2·se 0.42/0.38);
+    c970↔c990 indistinguishable (0.20/0.25 vs 0.40/0.35); c990↔cfree
+    **DISTINCT both halves** (1.1974 vs 0.3140; 1.2513 vs 0.2678).
+  - **Advance rule: FAILS.** h1 top-2 {cfree, c970}, h2 top-2 {cfree,
+    none} → set mismatch; sign(EL(c970)−EL(none)) flips (+ h1, − h2).
+    Frozen consequence applied verbatim: axis unstable at this
+    coverage; **candidate confirmations run maker-only, stated.** The
+    instability is confined to the statistically tied middle (all
+    none/c970/c990 pairwise |ΔEL| < 2·se_diff); the winner is distinct
+    and direction-stable. Interpretation boundary recorded as D-008;
+    rule-design lesson LS-8.
+  - **Mechanism split (pre-registered; e004-decomp.ts, exact additive
+    identity EL = pair + rem − cost − fee, asserted per-run vs
+    canonical EL):**
+    - cfree−none: h1 **Δpair +3.7899, Δrem −0.9839, Δcost +1.4301,
+      Δfee +0.2768 → ΔEL +1.0991**; h2 +4.0527 / −1.0281 / +1.9190 /
+      +0.2388 → +0.8668.
+    - c990−none: h1 Δpair +9.9602 vs Δcost +9.2548, Δfee +0.3714 →
+      −0.0983; h2 +8.6094 / +8.2545 / +0.3087 → −0.3845 (Δrem −0.43
+      both). Caps buy pair volume at break-even-to-losing prices.
+    - c970−none: ΔEL +0.1014/−0.1371 — noise.
+    - **Neither pre-registered pattern matched.** EL(free) > EL(none)
+      DISTINCT with HIGH cross counts and S > 1: free completion pays
+      ~2c/pair over $1 plus fees, and still wins because of what it
+      REMOVES — maker fills −26.6%/−23.6% (37,767→27,736;
+      36,344→27,777), involuntary latency conversions −39%/−38%
+      (19,385→11,801; 18,759→11,603), imbalance p90 1.000→0.335. In an
+      adverse-selection-dominated book the marginal passive fill has
+      negative EV (E002/E003), so completing the pair early both locks
+      a bounded −2c and shuts down the bleeding channels. Caps are the
+      same knob pointed backwards: they cross only when the projected
+      pair is already cheap (situations that were fine — their maker
+      stream stays ≈ control: 36,914/36,090 maker fills) and hold
+      exactly the adverse inventory; hence caps ≈ none. Cap px
+      distributions quoted above (criterion: either way).
+    - **Winner-remainder giveaway (new, seeds backlog):** cfree
+      forfeits Δrem ≈ −0.98/−1.03 $/mkt by pairing inventory whose
+      unpaired remainder would have redeemed as winner. A completion
+      policy that crosses only when the HELD leg lags fair value
+      (binance spot is replayable NOW) keeps the removal benefit and
+      the winning remainders — upper bound ≈ +1 $/mkt over cfree.
+      Seeded as E-completion-selective in backlog.
+  - **Fee basis (per freeze note):** all cells price the cold-start
+    tier-0 era curve. cfree cross notional ≈ $25/mkt → incumbent
+    completion economics are ~$0.38–0.88/mkt better still; orderings
+    within this experiment are unaffected (identical basis), the true
+    live gap of cfree narrows further.
+  - **Where this leaves the ladder:** best measured cell is now cfree
+    at EL −3.47/−3.35 (sel-width 4, axis-grade, half-windows) vs the
+    E002 reference −4.39 — the gap to zero narrowed ~24% but the
+    concept is still paying ~6%/market of outlay to trade. No gate
+    vector was run (axis experiment; G2/G3/G9 only per spec).
+  - **Lesson: LS-7 (completion value = removal, not pair cheapness)
+    and LS-8 (advance rules must test the decision-relevant partition,
+    not full-ranking stability among statistical ties). E005 proceeds
+    maker-only as designed (axis isolation); completion returns via a
+    frozen candidate spec only (D-008).**
 
 ## E005-ladder-depth — ladder shape × the deep-pair cell
 - **Type:** axis
@@ -575,3 +679,12 @@ Template:
 - E009 cheap-side-accumulator (seed 2 / H2): separate mechanism file;
   entry band 0.02–0.15, loose parity, hold. After the E003 family
   program has verdicts.
+- E-completion-selective (seeded by §E004 judgment, u33): cross the
+  lagging leg ONLY when the held leg lags fair value (binance spot
+  proxy, replayable now) — keep cfree's removal benefit (+3.8–4.1
+  Δpair, −26% maker fills, −39% conversions) without forfeiting
+  winner remainders (cfree gives up Δrem ≈ −0.98/−1.03 $/mkt; upper
+  bound ≈ +1 $/mkt over cfree, i.e. best case ≈ −2.4 EL — still
+  negative, so this is a lever for a paying cell, not a cell itself).
+  Natural pairing: E008's fair-value machinery. Requires D-008 path
+  (frozen candidate spec) or a new frozen axis on search-window data.

@@ -43,3 +43,26 @@ lesson (E002). Append-only; cite the source experiment/unit.
   information. Before freezing an axis grid, compute each arm's
   EFFECTIVE value under the experiment's sizing and drop arms that
   collapse onto each other; state the effective grid in the spec.
+- **LS-7 (E004):** In an adverse-selection-dominated book, the value
+  of completing a pair is what completion REMOVES, not what the pair
+  costs. Free completion won both halves DISTINCT (+1.10/+0.87 $/mkt)
+  while its completed pairs averaged ABOVE $1.00 (S 1.0207/1.0188 —
+  each pair locks ~2c loss plus fees): the win came from cutting
+  maker fills −26.6%/−23.6%, latency conversions −39%/−38%, and
+  imbalance p90 from 1.000 to 0.335. Cost-capped completion
+  (≤0.97/≤0.99) is the same knob pointed backwards — it crosses when
+  the projected pair is already cheap (situations that were fine) and
+  holds exactly the bleeding inventory; both caps were
+  indistinguishable from control. Corollary: never-overpay guards on
+  COMPLETION select against the trades that matter (distinct from
+  rung-placement caps, untested here). Quantified in §E004's
+  decomposition (e004-decomp.ts).
+- **LS-8 (E004, rule design):** An advance rule that tests
+  full-ranking stability (top-2 SET match) among arms that are
+  statistically TIED tests coin flips: E004's rule failed on the
+  none/c970 middle (all pairwise |ΔEL| < 2·se_diff) while the winner
+  was distinct and direction-stable in both halves. Design advance
+  rules on the decision-relevant partition — "is the winner the same
+  and distinguishable from the rest?" — not on rank order within
+  noise. (E004's frozen consequence was still applied verbatim;
+  the fix applies to FUTURE rule freezes.)
