@@ -1462,3 +1462,20 @@ or idle, NOT toxic; and the weekday map (3 days) is now the thin
 sample — extending it is queued. Method lesson ledgered: a 4-day
 dow split was exactly the kind of read the charter warns about;
 same-session self-correction is the system working.
+
+## 2026-07-17T17:35Z — session 11, unit 6: weekday map confirmed at n=6, softer
+
+Doubled the weekday sample (added Mon Jul-13, Tue Jul-14, Thu
+Jul-16; 529 weekday markets over 6 days covering Mon–Fri). The
+session structure survives with honest magnitudes: US is still the
+only negative session (−0.79%, was −1.58% on the storm-tilted n=3),
+evening still the best (+1.27%, positive in every vol tercile). Two
+refinements: the US bleed lives in mid+storm vol (US×calm is
+actually +0.95%), and the favorite-lean is confirmed weekday-native
+— excessWon 55–76% on weekdays, HIGHEST in the bleeding US session,
+so the lean cushions the bleed rather than causing it. The wallet's
+weekday gross nets out to breakeven (−$131 on $726k), matching
+A49's margin-decay story: current-era weekday income = rebates
+plus the evening cell. The dow question is now settled on both
+halves at respectable n; only the July weekend lean-collapse drift
+remains on watch.

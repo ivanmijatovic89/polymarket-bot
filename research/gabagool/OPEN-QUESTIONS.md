@@ -82,9 +82,11 @@ bottom.
    sessions (+0.54% overall, 8/10 days) and structureless; only the
    lean's weekend death stands (excessWon ~50%, July 27–37%). v1
    envelope = weekday 20–24Z; weekends lean-disabled or idle.
-   Residue: weekday map is now the n=3 thin sample — extend with
-   2–3 more weekdays; watch whether the July weekend lean collapse
-   (37/36/27/32% by day) is drift or noise.
+   Weekday map extended to n=6 same session: structure holds
+   (US −0.79% only negative, evening +1.27% all-tercile positive);
+   "US-storm veto" refines to US×mid/storm. Residue: watch whether
+   the July weekend lean collapse (37/36/27/32% by day) is drift
+   or noise (next weekend's data decides).
 
 ## Prior ranking (session 7) with resolutions
 

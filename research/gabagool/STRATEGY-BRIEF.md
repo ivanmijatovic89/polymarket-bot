@@ -212,8 +212,9 @@ Candidates for the lab:
   the deep ladder off-US-hours (measurements/
   session-drift-b27bc932.md). **A59 settles the weekend question at
   month scale (574 markets)**: the whole session map is
-  WEEKDAY-only — weekday evening +1.74% (the only cell positive in
-  every vol tercile), weekday US −1.58%. At n=10 weekend days (858
+  WEEKDAY-only — at n=6 weekdays: evening +1.27% (positive in
+  every vol tercile), US −0.79% the only negative session (toxic
+  cells US×mid/storm; US×calm is fine). At n=10 weekend days (858
   mkts) weekends are mildly positive in ALL sessions (+0.27→+0.76%,
   8/10 days positive) and structureless — no US bleed, no evening
   premium; the favorite-lean module is dead there (excessWon ~50%,

@@ -1043,8 +1043,12 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   structure, and the lean's weekend death (excessWon ~50%; July
   weekends 27–37% — possible drift, recheck). Weekends =
   lean-disabled grinding at flat-mild EV or idle, not "toxic".
-  Weekday map (n=3 days) is now the thinner sample — extend when
-  cheap.
+  Weekday map extended to n=6 same session (529 mkts): structure
+  HOLDS, softer — US −0.79% (only negative; toxic cells are
+  US×mid/storm, US×calm positive), evening +1.27% (positive in all
+  three vol terciles), lean excessWon 55–76% weekday vs ~50%
+  weekend. Weekday gross overall ≈ breakeven (−$131/$726k) —
+  the recipe's weekday income is rebates + the evening cell.
   [verified] (measurements/session-split-vol-b27bc932.md §A59)
 - **A60 (current-era fee/subsidy terrain per book, same-day exact
   measurement):** Jul-16, 0.070 curve, data-api single-counting

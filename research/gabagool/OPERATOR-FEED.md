@@ -490,3 +490,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: correction — weekends aren't bad, they're just FLAT: mildly profitable around the clock, no good or bad hours. What IS confirmed dead on weekends is the bot's lean-toward-the-winner trick. Unit 2's negative read came from one unlucky weekend; fixed in all files.
 - Next: evening live snapshot ~20-21 UTC; extend the weekday sample (now the thin one) if time allows.
 - Health: on track
+
+## 2026-07-17T17:35Z — unit 6 (session 11)
+- Did: doubled the weekday sample too (6 weekdays, 529 markets) to confirm the weekday pattern with better data.
+- Found: it holds — US afternoons are still the only losing hours (milder than first measured), evenings still the best and reliably positive. New detail: calm US afternoons are fine; it's the volatile ones that bleed. The bot's winner-lean trick works on weekdays only, and it softens the US losses rather than causing them.
+- Next: evening live snapshot ~20-21 UTC (also the dedicated club re-formation test).
+- Health: on track

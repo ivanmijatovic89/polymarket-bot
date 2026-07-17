@@ -233,3 +233,32 @@ sample now 858 markets over 10 days:
   its structure matches A49's month-scale read but A49 pooled dow —
   extending weekday days is the next cheap robustness step.
   Log: `data/session-split-dow-x10.log`.
+
+### Weekday sample extended to n=6 (unit 6): structure holds, softer
+
+Added Jul-13 (Mon), Jul-14 (Tue), Jul-16 (Thu) — weekday sample now
+529 markets over 6 days spanning Mon/Tue/Wed/Thu/Fri:
+
+| session | weekday n=6 %outlay (losers%, excessWon%) |
+|---|---|
+| overnight | +0.03% (42%, 66%) |
+| eu | +0.22% (52%, 55%) |
+| us | **−0.79%** (46%, 76%) |
+| evening | **+1.27%** (36%, 59%) |
+
+- The weekday map is confirmed at twice the days with moderated
+  magnitudes: US remains the ONLY negative session; evening remains
+  the best and is positive in calm AND mid AND storm (+1.31/+2.03/
+  +0.20%). The n=3 numbers (−1.58/+1.74%) were the same shape,
+  amplified by the Jun-10 storm day.
+- The lean is confirmed weekday-native: excessWon 55–76% across
+  weekday sessions (vs ~50% weekends) — highest exactly where gross
+  is worst (US 76%): the lean rescues the US session from being
+  even worse, it does not cause the bleed.
+- One nuance moves: at n=6 the US bleed sits in mid/storm (−1.50%/
+  −0.86%) while US×calm is positive (+0.95%, n=30) — "US-storm
+  veto" softens to "US mid+storm are the toxic cells".
+- Per-day: 4/6 weekdays negative-to-flat overall for the wallet
+  (ALL −$131 on $726k ≈ 0) — weekday gross ≈ breakeven + rebates,
+  consistent with A49's margin-decay read.
+  Log: `data/session-split-dow-wd6.log`.
