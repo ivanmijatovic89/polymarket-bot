@@ -98,7 +98,7 @@ posture.
 | variant (exemplar) | pair target | completion | maker share | exit | income mix | status |
 |---|---|---|---|---|---|---|
 | **deep-pair patient** (0x04b6d7e9, A30) | 0.96–0.98, pairRate ~0.78 | maker-patient | 0.9–1.0 | redeem only | ~36% trading / 64% rebates, +$2.75k/day | **strongest living** |
-| **cheap-side tail** (b55f, A16) | ~0.99 completed, entries 0.02–0.15 | taker-aggressive (62%) | ~0.38 | redeem | mostly trading (+2.31%T) + tier rebates | strong, tier-moated |
+| **cheap-side tail** (b55f, A16) | ~0.99 completed, entries 0.02–0.15 | taker-aggressive (62%) | ~0.38 | redeem | mostly trading (+2.31%T) + tier rebates | strong, tier-moated — and YOUNG: pair born Apr-30 48h post-cutover, $1.145M/78d (A65) |
 | **parity grinder at scale** (b27bc932, A24/A27) | 0.993–0.999, pairRate 0.95 | 50% taker | ~0.5–0.9 | redeem + merge module (toggled) | ~breakeven trading + $3.2k/day rebates | prints on subsidy |
 | **big-clip farmer** (powerwinner, 0xaaaaa) | 1.03–1.15 | taker-heavy | ~0 | redeem | fee-negative trading, lives on 50% taker tier | incumbent-only |
 | **golden-era archetype** (gabagool22) | 0.98, pairRate 0.97 | maker-biased + taker completion | ~0.7 | merge era → redeem era | trading (zero-fee) | DEAD (fees) |

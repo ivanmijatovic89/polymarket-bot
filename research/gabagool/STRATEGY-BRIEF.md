@@ -336,7 +336,16 @@ Candidates for the lab:
    exits. Wallet lifecycles understate operator persistence; the
    ceiling-compression curve is the real signal (operator-level:
    ~$13-14k/day Nov→Jan-21, $7.6k→$6.5k/day Oct→Mar-24), wallet
-   "exits" are noisier than they look.
+   "exits" are noisier than they look. **A65 breaks the monotone
+   compression story at OPERATOR level**: the b55f+0xce25 pair —
+   born Apr-30, 48h after the v2 cutover — earned $1.145M combined
+   lb in its first 78 days (~$14.7k/day average, back at the
+   Nov-2025 peak rate). The wallet-level ceiling numbers above
+   understate what a multi-wallet, multi-book, tier-maxed operator
+   extracts today. For a single-book v1 the $1–3k/day plan stands;
+   the compression curve is real per-BOOK, not per-operator. Also:
+   the whole living field is fee-era-born (no pre-fee survivor) —
+   regime shocks fully turned over the population, twice.
 
 0. **What does NOT kill a cold-start (A32)**: the taker-tier moat only
    taxes taker completion. Maker-pure new entrants win TODAY

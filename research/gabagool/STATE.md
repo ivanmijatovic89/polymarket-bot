@@ -74,6 +74,46 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
+### Session-11 FINAL (16:40–18:20Z real; units 1–21; A58–A65, O11–O12)
+
+Arc 1 — session mechanics (A58/A59/A63/A64): ladder is
+session-INVARIANT; session PnL split is weekday-only (evening
++1.27% only all-tercile-positive cell, US −0.79% only bleed,
+weekends flat structureless at n=10 days, favorite-lean
+weekday-native); depth×clock drift rules FLIP BY DAY (Jun-11
+inverted the band rule; same-day cross-wallet agreement =
+pseudo-replication; G9 caps book-weekdays at 3) → sweep dimension
+with weak evening-deep prior, never a fixed rule. A49 economics
+stand (PnL-based, n=6/10 days).
+Arc 2 — terrain/subsidy (A60/A61): per-book pools Jul-16 exact —
+btc-5m $59.2k/day maker pool = 8.7× btc-15m ($6.8k); 76d4d470
+dossiered = pure subsidy loop (+$600/day net, needs breadth, NOT
+btc-15m-replicable).
+Arc 3 — field genealogy (A62/A65): cold-start ramp is DAYS
+(e114e5ca: 2d tuition → $1.6k/day wk1); entrant cohort maker-pure
+(taker rebates $0/$7/$10 lifetime); b55f pair born Apr-30 48h
+post-cutover, $1.145M/78d ≈ $14.7k/day operator-level — "incumbent"
+was a misnomer, NO living wallet predates the Mar fee reshape,
+per-operator ceiling compression breaks at operator level.
+Plus: O11/O12 (club re-formed 76min after O10's storm-empty, then
+deepened pre-evening — evening ramp live), 13e0d447 ladder join
+closed unmeasurable (5m-only + G11), G10 refined (weekend-overnight
+stub outages), fee-uniformity of level-class caveat at sub-$3 clips.
+
+Successor queue (in order): (1) W3 evening snapshot ~20–21Z (club
+re-formation test — expect deepest prints of day; rename raw JSON
+after run). (2) Tomorrow morning snapshot ~08–10Z settles OQ #5
+residue (b27bc932 morning allocation). (3) OQ #1: next weekend's
+data (Jul-18/19) decides the July lean-collapse question — pull
+b27bc932 Sat/Sun + session-split-vol --dow weekend. (4) A65
+follow-ups: where did the b55f pair's capital/style come from
+(rotation hypothesis — check unknown prior wallets going dark
+Apr-27–30 in the trade tape); March-era drift check needs a
+March-active wallet with 15m fills (b27bc932 had none Mar-16;
+try Mar-25+ vs... no books — G9; likely dead end, deprioritize).
+(5) Mine OPEN-QUESTIONS (rebuilt session 11) — prefer measurement
+units.
+
 ### Session-11 digest (2026-07-17 16:40Z→, live)
 
 Unit 1 (16:57Z): A58 — session-drift decomposition

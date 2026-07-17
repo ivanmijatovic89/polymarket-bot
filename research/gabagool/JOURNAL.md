@@ -1680,3 +1680,19 @@ moat demonstrably taxes but does not gate: the era's biggest winner
 cold-started after the moat existed. Whether the pair is a fresh
 entrant or a rotation from an unknown pre-cutover operator stays an
 open hypothesis (no known-wallet link within 72h).
+
+## 2026-07-17T18:17Z — session 11, unit 21: A65 knock-ons folded + session wrap
+
+Folded A65 through the BRIEF (§8's ceiling-compression story now
+carries the operator-level exception: the b55f pair ran at the
+Nov-2025 peak rate in May–Jul, so compression is per-book, not
+per-operator), the cold-start table (largest ramp entry), and the
+atlas. STATE carries the session-11 FINAL digest: twenty-one units,
+A58–A65, two snapshots. The shape of the session: the drift
+mechanics arc ended in an honest downgrade (day-flipping rules,
+pseudo-replication lesson), the economics arc produced durable
+rules (weekday-only session map, band-agnostic ladder invariance,
+per-book subsidy pools), and the genealogy arc rewrote who the
+field actually is — everyone alive today was born into the fee
+regime, and the biggest of them started from zero eleven weeks ago.
+Successor's queue starts with the 20–21Z evening snapshot.

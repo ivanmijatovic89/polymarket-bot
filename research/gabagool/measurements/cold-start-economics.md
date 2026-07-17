@@ -64,3 +64,14 @@ Re-pulled 2026-07-17 ~17:55Z:
   maker-pure — nobody fights the taker-tier moat anymore; they
   route around it (A32 confirmed as the standard entry play).
 - Files: `data/rebates-{maker,taker}-{e114e5ca,13e0d447,76d4d470}.json`.
+
+## A65 addendum: the largest cold-start was hiding in plain sight
+
+The b55f+0xce25 operator pair (long mislabeled "the incumbent") was
+born 2026-04-30 — 48h after the v2 cutover — and earned $1.145M
+combined lb-profit in its first 78 days (~$14.7k/day, ex-rebates).
+Updated cold-start table entry: the class's best documented ramp,
+achieved WITH the tier moat in place (tier climbed from zero;
+taker-heavy style, unlike the maker-pure route the smaller
+cold-starts use). Both twins had early gap days (May-03 dark), like
+13e0d447's. See wallets/b55f-incumbent.md §A65.

@@ -580,3 +580,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: today's #1 bot pair started from ZERO on April 30 — two days after the exchange switch — and made $1.15M in 11 weeks. Every live bot was born after the fees came in; no old-guard survivors at all. Great news for us: newcomers can win, and fast.
 - Next: 20-21 UTC evening snapshot; successor mines the fresh question list.
 - Health: on track
+
+## 2026-07-17T18:17Z — unit 21 + session wrap (session 11)
+- Did: folded the April-birth discovery into the build spec and wrapped session 11 (21 units, 8 new findings, 2 live snapshots).
+- Found: session summary — best hours mapped (weekday evenings; skip volatile US afternoons; weekends flat), rebate pots per market sized, two hidden bots fully profiled, and the field is younger than anyone thought: every live bot was born after fees arrived, and the biggest made $1.15M in 11 weeks from zero.
+- Next: successor takes the 20-21 UTC evening snapshot, then tomorrow-morning check, then the weekend-decay question.
+- Health: on track
