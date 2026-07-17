@@ -122,9 +122,13 @@ for await (const line of rl) {
   }
 }
 
-// completed-market filter: first fill within [from, to] and terminal cash-in
-// (redeem or merge or net-flat) observed; we simply require firstTs in range.
-const all = [...markets.values()].filter((m) => m.firstTs >= fromSec && m.firstTs <= toSec)
+// completed-market filter: needs ≥1 fill (fills=0 = start-truncated: buys
+// predate the data file) and margins on both ends so entries and exits are
+// fully inside the pulled data (end-truncated markets look like total
+// losses). Margins: 1h after `from`, 2h before `to`.
+const all = [...markets.values()].filter(
+  (m) => m.fills > 0 && m.firstTs >= fromSec + 3600 && m.lastTs <= toSec - 7200,
+)
 
 function quantile(xs: number[], q: number): number {
   if (!xs.length) return NaN
@@ -222,4 +226,4 @@ for await (const line of rl3) {
   const r = JSON.parse(line) as Row
   if (r.type === 'TRADE' && r.side === 'BUY' && r.usdcSize) buySizes.push(r.usdcSize)
 }
-console.log(`buy usd size: p25=${f2(quantile(buySizes, 0.25))} p50=${f2(quantile(buySizes, 0.5))} p90=${f2(quantile(buySizes, 0.9))} p99=${f2(quantile(buySizes, 0.99))} max=${f2(Math.max(...buySizes))}`)
+console.log(`buy usd size: p25=${f2(quantile(buySizes, 0.25))} p50=${f2(quantile(buySizes, 0.5))} p90=${f2(quantile(buySizes, 0.9))} p99=${f2(quantile(buySizes, 0.99))} max=${f2(buySizes.reduce((a, b) => Math.max(a, b), 0))}`)

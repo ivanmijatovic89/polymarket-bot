@@ -96,3 +96,23 @@ capital-recycling engine of the real strategy — capital velocity is
 inexpressible; (G8) the live meta is a 7-bot equilibrium no replay can
 express. Fee-shape check also sharpened a fable-lab premise: their "156
 bps" era matched January's venue curve only at 45% of its mid-price value.
+
+## 2026-07-17T04:10Z — era comparison: the edge lived and died with the fee regime
+
+Pulled Dec 8-10 2025 (277k rows) and compared to the Feb tail with fixed
+boundary handling. Zero-fee December: +1.90% of turnover (~$10k/day), BTC
+15m his best book at +$63.85/market and 98.7% win over 229 markets, pair
+cost 0.98, worst market −$121. Fee-era February: −0.50%, win rates
+collapsed, pair cost ≥ $1, rebates ≈ −trading. The operator claim "99%
+win, $30-120/market" is now VERIFIED for December and REFUTED for
+February — both were true, at different times.
+
+Venue archaeology (archive.org): Feb-era crypto fee = C·p·0.25·(p(1−p))²
+(peak $0.78/100sh = the repo's 156bps calibration, exactly); current =
+C·0.07·p(1−p) (peak $1.75). Fees extended to ALL crypto markets
+2026-03-06. The maker-rebates docs page first appears in the archive on
+2026-02-20 — the day gabagool quit. January's true rate is contested
+(press says 2× the Feb snapshot); resolving it matters because a
+mid-February fee/rebate halving would be a clean exit trigger.
+
+PRIORS amended (A1–A8). Era-comparison measurement file written.

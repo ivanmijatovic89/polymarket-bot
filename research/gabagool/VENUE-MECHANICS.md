@@ -37,11 +37,31 @@ Living file (workstream B). Every claim tagged and sourced. Last update:
   independent outlets + the repo's own 156bps default, which matches the
   1.56c/share@0.5 era exactly — the repo constant was calibrated to the
   January schedule).
-- **Between Feb and Jul 2026**: fees extended from "15-minute crypto" to
-  category-wide (current docs list ALL categories with rates; sports fees
-  reported by PANews). Exact dates of (a) the 0.0624→0.07 crypto bump,
-  (b) 5m/hourly/4h crypto inclusion, (c) sports/others rollout — OPEN;
-  needs archive.org snapshots of the fees page. **[reported]**.
+- **Fee formula history (archive.org, fetched 2026-07-17)** — snapshots of
+  the fees page changed content on 2026-01-08, 01-12, 01-22, 02-28, 05-31:
+  - **Feb-2026 era** (snapshot 2026-02-28): `fee = C × p × feeRate ×
+    (p(1−p))^exponent`; two market groups: {feeRate 0.0175, exponent 1,
+    rebate 25%} and crypto {feeRate 0.25, exponent 2, rebate 20%}. Crypto
+    peak: $0.78 per 100 shares at p=0.5 → "maximum effective fee rate is
+    1.56%" (of trade value). **The repo's 156bps model equals this era's
+    peak exactly.** **[verified]**
+  - Same snapshot announces: fees extend to **ALL crypto markets starting
+    2026-03-06** (only markets deployed on/after the date) + NCAAB +
+    Serie A; and a separate "Liquidity Rewards" program appears in nav.
+    **[verified]**
+  - **Current era** (live page + 05-31 snapshot): `fee = C × feeRate ×
+    p(1−p)`, crypto 0.07 → peak $1.75 per 100 shares at p=0.5. The crypto
+    fee curve CHANGED SHAPE and its peak MORE THAN DOUBLED somewhere in
+    2026-02-28 → 2026-05-31. **[verified]** (endpoints), exact date OPEN.
+  - January-era rate ambiguity: media reported "$1.56 per 100 shares at
+    $0.50" (= effective 3.12%) at the 01-06 introduction, but the Feb
+    snapshot's formula yields $0.78 (effective 1.56%). Either the press
+    misread effective-rate-vs-per-share, or crypto fees were HALVED
+    between Jan 7 and Feb 28 — a halving would have halved the rebate
+    pool and is a candidate trigger for gabagool's 2026-02-20 exit
+    (the maker-rebates docs page's FIRST archive capture is 2026-02-20).
+    **[contested/open]** — resolve via Jan snapshots of the developer
+    fees page (the learn page carried no formula in Jan).
 - Consequence for wallet forensics: gabagool started 2025-10-29 in the
   ZERO-FEE era; fees+rebates arrived 2026-01-06 mid-run; he quit
   2026-02-20, ~6.5 weeks later. The incumbent cluster runs entirely in the

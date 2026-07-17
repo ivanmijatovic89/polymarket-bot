@@ -345,3 +345,47 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
    days old).
 5. Rewards question (P24) is cheap to answer from primary docs and could
    single-handedly explain T2 (reconciliation iv).
+
+---
+
+## Amendments (session 1, post-forensics — append-only)
+
+- **A1 (amends P6, P2):** Active window pinned by data: first trade
+  2025-10-29T12:34:51Z, last trade 2026-02-20T09:06:14Z, last redeem
+  2026-02-21. Account still receives referral rewards (Jun 2026) — not
+  "dead". [verified]
+- **A2 (amends P10 → contested):** gabagool22 DID merge — dominant exit
+  (~99% of exit dollars in both sampled eras). "Never merges / redeems
+  winner" is a SUCCESSOR-wallet trait (INV's 337-market analysis of
+  0xb55f), not the archetype's. Merge-vs-redeem is operator choice, not
+  concept-defining. [verified]
+- **A3 (amends P8):** "99% win, $30–120/market" VERIFIED for the Dec-2025
+  zero-fee era on BTC books (98.7% win, p50 +$54.75, p90 +$128.84,
+  btc-15m, n=229); REFUTED for the Feb-2026 tail (win 38.6–64.7%). The
+  "$34k/market" part matches nothing measured (Dec p50 outlay $3.2k, max
+  $7.9k). [verified both ways]
+- **A4 (amends P18/T1):** BTC-15m was the archetype's BIGGEST earner in
+  Dec 2025 (~$5.9k/day from that book alone, one wallet). "15m ≈ 0"
+  described the late/fee era. T1 re-framed: the lab's scope hosted the
+  crown-jewel edge in the zero-fee era; the open question is what the
+  fee+rebate+multi-bot era left. [verified for Dec era]
+- **A5 (amends P15/P16):** Incumbent 0xb55f full address
+  0xb55fa1296e6ec55d0ce53d93b9237389f11764d4; STILL ACTIVE (fills hours
+  before the 2026-07-17 pull); 30d profit GREW to $110.6k (vs $83.8k on
+  Jul 13-14) — "edge decaying" contested. ~7 active gabagool-style
+  wallets print ~$18.5k/day collectively (wallets/_META.md). [verified]
+- **A6 (new):** MAKER REBATES: 15m-crypto taker fees (introduced
+  2026-01-06/07) fund a 20% maker-rebate pool, paid daily ~00:11 UTC.
+  End-state gabagool: trading −$1,767 vs rebates +$1,819 over the final
+  2.6 days — he was a rebate farmer at the end and quit at breakeven.
+  The engine models no rebates (ENGINE-GAPS G4). [verified]
+- **A7 (amends P22):** Fee formula evolved: Feb era
+  `C·p·0.25·(p(1−p))²` (peak $0.78/100sh — repo's 156bps matches this
+  peak); current `C·0.07·p(1−p)` (peak $1.75/100sh). Shape AND rate
+  changed 2026-02-28→05-31; Jan rate contested (press vs snapshot 2×
+  discrepancy). [verified endpoints]
+- **A8 (new, method):** data-api /activity has NO row ids +
+  second-granularity timestamps → byte-identical same-second rows are
+  REAL fills; content-dedupe silently destroys ~20%+ of a bot's trades
+  (puller v1 incident: flipped measured tail PnL from −$1.8k to +$45k).
+  [verified the hard way]
