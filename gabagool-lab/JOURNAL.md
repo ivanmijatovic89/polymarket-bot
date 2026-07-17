@@ -1025,3 +1025,34 @@ Ladder position: best measured cell is now cfree −3.47/−3.35
 gap to zero narrowed ~24% and the strongest single lever so far is
 identified — but the concept still pays ~6% of outlay per market to
 trade. Next: launch E005 shapes (launcher verified, worker free).
+
+## 2026-07-17T07:33Z — session 12, unit 34: E005 shapes frozen + launched at 7355c21a
+
+Freeze-then-launch, same ritual as E004: §E005 status flipped to
+frozen (spec + both pre-freeze amendments verbatim, nothing filled at
+freeze — tol=2 and completion=none were stamped by prior judgments),
+freeze commit 7355c21 pushed, THEN the launcher ran. Dry-run showed
+all six cells correct (windows Apr/May, rungOffsets per code, env
+pins lat140/jitter0); real launch enqueued 6 flows, every one at
+commitSha=7355c21a — the freeze commit is the run SHA, as it should
+be. agg-inspect confirms 6 waiting-children flows and 17,446+12
+market jobs ≈ the expected 17,568; markets failed=0. Watcher: nohup
+pid 87197 → logs/watch-drain-s12-e005-shapes.log. At the E004 pace
+(~450–540/min) the drain lands ~08:05–08:10Z.
+
+This axis reads pure placement depth on the 2-rung arms (rb
+[0.02,0.06], rc [0.02,0.13]) against the reused reference ra
+[0.01,0.03] = runs 682/683, plus the archetype 4-rung package rd
+[0.01,0.02,0.05,0.13] (size × depth, per the LS-6 effective-grid
+notes: rd rests 24 shares/side/cycle and its parity floor binds
+mid-sweep). Deep arms have asymmetric band suppression (a 0.13 rung
+quotes only when bid ≥ 0.24), so played share and fills are
+first-class readouts, not just EL. The target region is where the
+only profitable parity wallets live: pair cost 0.95–0.976.
+
+While it drains: E004 aftermath is fully banked (judgment, LS-7/8,
+D-008, LEADERBOARD rows, backlog seed). Next unit is the shape
+sub-judgment on drain; axis-table.ts should handle the ax3 prefix
+natively (numeric-axis tool — but shapes are categorical codes, so
+the E004 lesson applies: check whether e004-table's explicit-wiring
+pattern is needed for ra reuse before leaning on axis-table).

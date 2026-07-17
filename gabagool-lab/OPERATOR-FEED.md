@@ -201,3 +201,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: crossing to complete pairs whenever a leg lags CUTS the loss by ~$1/mkt (−4.39 → −3.41, best cell yet); price-capped crossing does nothing. Still loses money overall.
 - Next: launch E005 (ladder depth/shape arms), the axis aimed at where profitable wallets live.
 - Health: on track
+
+## 2026-07-17T07:33Z — unit 34
+- Did: froze and launched E005 (ladder depth/shape) — 6 runs, ~17.6k jobs, draining ~35 min.
+- Found: nothing new yet (launch unit); E004's free-completion finding is banked.
+- Next: judge E005 shapes on drain, then decide the cap grid from the winner's pair-cost distribution.
+- Health: on track

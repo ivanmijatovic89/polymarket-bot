@@ -672,7 +672,22 @@ Template:
   judged values — no free knobs). Cap arms will use `ax4` suffixes,
   launched only after the shape sub-judgment + bind-table decision.
   Total new runs for E005: 6 shapes + 6 caps = 12 (was 14).
-- **Runs / Judgment / Lesson:** (pending)
+- **Shape runs (launched 2026-07-17T07:30Z, session 12, SHA 7355c21a
+  = the freeze commit; 6 flows, h1 = 2,880 mkts, h2 = 2,976 each;
+  ra reference = E003 runs 682/683, reused per amendment 2):**
+  - ax3h1-rb: `…--ax3h1-rb--lat140--3d28aed9-7687-44f0-aefb-18b6afc8b0ef`
+  - ax3h2-rb: `…--ax3h2-rb--lat140--91d28ace-a361-4b88-93ea-c108006c3210`
+  - ax3h1-rc: `…--ax3h1-rc--lat140--51ff68fa-9d58-4007-a62a-63ba68e049c9`
+  - ax3h2-rc: `…--ax3h2-rc--lat140--5ebc01d2-5182-4cc0-89ca-5011d20bebae`
+  - ax3h1-rd: `…--ax3h1-rd--lat140--1c13e7da-95e2-453a-a8e0-942bc4cd3761`
+  - ax3h2-rd: `…--ax3h2-rd--lat140--5acd12f1-a1ef-43a6-b2cd-fd3b354c69dd`
+  (verified read-only via agg-inspect post-launch: 6 waiting-children
+  flows, all at SHA 7355c21a; markets queue 17,446 waiting + 12
+  active ≈ the expected 17,568 jobs; markets failed = 0; the 3
+  failed aggregate jobs are the known stale foreign imbalance-hold
+  duplicates. Drain watcher: nohup pid 87197 →
+  logs/watch-drain-s12-e005-shapes.log.)
+- **Runs (cap sub-axis) / Judgment / Lesson:** (pending)
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
