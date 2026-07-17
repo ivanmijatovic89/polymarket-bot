@@ -1569,3 +1569,18 @@ while genuinely deep cheap-side rungs (b55f's −4c+/0.14-priced)
 sit below them. PRIORS entry tagged [contested]; the lab
 instruction becomes "test toxicity per ladder-depth cell", which is
 the safer framing anyway.
+
+## 2026-07-17T17:57Z — session 11, unit 13: depth buckets settle the shape (A63)
+
+Added a depth-bucket table to the join script and re-ran the US and
+evening cells. Two results. The depth-escape idea from unit 12 is
+dead: b27bc932's US toxicity spans every depth (its deepest rungs
+were the WORST on Jun-10), and b55f's apparent immunity came from
+one noisy bucket while its own deepest rungs bled hardest. But the
+evening cell produced the session's best actionable find: the
+depth gradient there is monotone and strong — the deeper the rung,
+the more favorable the drift, up to +3.1c at ≤−6c. Deep rungs are
+an evening instrument. H1's allocation rule now reads: deep rungs
+weekday evenings, shallow-or-off in the US session, depth
+indifferent overnight. Cross-wallet universality of US toxicity
+stays honestly [contested].

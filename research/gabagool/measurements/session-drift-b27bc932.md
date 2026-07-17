@@ -151,3 +151,32 @@ per wallet (books exist only Jun-10–14, G9; b55f pulls exist for
 Jun-12–14). Flagged to the lab: test the toxicity per ladder-depth
 cell, not as a blanket session rule. Log:
 data/edge-source-b55f-sessions.log.
+
+## §8 Depth-bucket resolution (unit 13): toxicity is not depth-localized; the evening depth GRADIENT is the find
+
+edge-source.ts now buckets deeper-class fills by offset (−1c / −2c /
+−3..−5c / ≤−6c). Deeper-class drift60 by bucket:
+
+| cell | −1c | −2c | −3..−5c | ≤−6c |
+|---|---|---|---|---|
+| b27bc932 US Jun-10 (n=670/354/490/190) | +0.32c | −0.59c | −0.57c | **−1.46c** |
+| b27bc932 US Jun-12 (n=615/298/318/73) | −0.47c | −1.18c | −0.26c | +3.18c (n=73) |
+| b55f US Jun-12 (n=170/119/147/57) | +0.43c | +2.45c | −0.09c | −3.66c (n=57) |
+| b27bc932 EVENING Jun-10 (n=227/120/168/78) | +0.69c | +0.71c | **+2.69c** | **+3.10c** |
+
+1. **"Depth dodges US toxicity" is NOT supported.** b27bc932's US
+   toxicity spans all depths (deepest bucket its WORST on Jun-10);
+   b55f's unit-12 apparent immunity traces to one noisy +2.45c
+   bucket (n=119) while its own deepest bucket was −3.66c. The
+   [contested] tag on cross-wallet universality stands, but the
+   depth-escape hypothesis is dead.
+2. **The evening depth gradient is monotone and strong**: deeper
+   rungs earn progressively MORE favorable drift in the weekday
+   evening (+0.69 → +3.10c @60s). The deep-rung honey is an
+   EVENING phenomenon — combined with A59 (evening +1.27% the only
+   robust cell), the H1 allocation rule sharpens to: deep rungs
+   (−3c and beyond) in weekday evenings; shallow-only or off in
+   the US session; depth buys nothing extra overnight (A58 §2
+   overnight deep ≈ +0.7–1.1c, flat-ish across depth).
+Log: data/edge-source-depth-buckets.log (script gained the
+depth-bucket table permanently).

@@ -48,6 +48,13 @@ type Cls = 'taker' | 'touch' | 'inside' | 'deeper'
 type ClsAcc = { n: number; usd: number; drift10: number[]; drift60: number[]; prices: number[]; fee: number }
 const mk = (): ClsAcc => ({ n: 0, usd: 0, drift10: [], drift60: [], prices: [], fee: 0 })
 const cls: Record<Cls, ClsAcc> = { taker: mk(), touch: mk(), inside: mk(), deeper: mk() }
+// depth buckets for deeper-class fills (offset = price − bestBid, cents)
+const depthBuckets: Array<{ name: string; min: number; max: number; n: number; usd: number; drift10: number[]; drift60: number[] }> = [
+  { name: '-1c', min: -0.015, max: -0.005, n: 0, usd: 0, drift10: [], drift60: [] },
+  { name: '-2c', min: -0.025, max: -0.015, n: 0, usd: 0, drift10: [], drift60: [] },
+  { name: '-3..-5c', min: -0.055, max: -0.025, n: 0, usd: 0, drift10: [], drift60: [] },
+  { name: '<=-6c', min: -Infinity, max: -0.055, n: 0, usd: 0, drift10: [], drift60: [] },
+]
 const offsets: number[] = []
 const byMinute = Array.from({ length: 15 }, () => ({ n: 0, usd: 0 }))
 let unmatched = 0
@@ -118,6 +125,16 @@ for (const slug of slugs) {
     const m60 = midAt(s, f.tsMs + 60_000)
     if (m0 !== null && m10 !== null) cls[c].drift10.push(m10 - m0)
     if (m0 !== null && m60 !== null) cls[c].drift60.push(m60 - m0)
+    if (c === 'deeper') {
+      const off = f.price - st.bid
+      const b = depthBuckets.find((x) => off > x.min - 1e-9 && off <= x.max + 1e-9)
+      if (b) {
+        b.n++
+        b.usd += usd
+        if (m0 !== null && m10 !== null) b.drift10.push(m10 - m0)
+        if (m0 !== null && m60 !== null) b.drift60.push(m60 - m0)
+      }
+    }
     const minute = Math.min(14, Math.max(0, Math.floor((f.tsMs - epochMs) / 60_000)))
     byMinute[minute].n++
     byMinute[minute].usd += usd
@@ -142,6 +159,12 @@ for (const [k, v] of Object.entries(cls)) {
   )
 }
 console.log(`\noffset vs touch (price − bestBid): p10=${f4(q(offsets, 0.1))} p25=${f4(q(offsets, 0.25))} p50=${f4(q(offsets, 0.5))} p75=${f4(q(offsets, 0.75))} p90=${f4(q(offsets, 0.9))}`)
+console.log('\ndeeper-class by depth bucket | n | notional | drift10 mean | drift60 mean')
+for (const b of depthBuckets) {
+  const d10 = b.drift10.length ? b.drift10.reduce((a, x) => a + x, 0) / b.drift10.length : NaN
+  const d60 = b.drift60.length ? b.drift60.reduce((a, x) => a + x, 0) / b.drift60.length : NaN
+  console.log(`${b.name.padEnd(8)} | ${b.n} | $${b.usd.toFixed(0)} | ${f4(d10)} | ${f4(d60)}`)
+}
 console.log('\nminute | fills% | notional%')
 for (let i = 0; i < 15; i++) {
   console.log(

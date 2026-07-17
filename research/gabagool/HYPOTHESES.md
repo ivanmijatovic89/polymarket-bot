@@ -42,7 +42,12 @@ edge is dead by regime change, do not test it.
   evening +1.27% is the only all-tercile-positive cell at n=6);
   weekends are flat/structureless (n=10) and the favorite-lean is
   weekday-only (weekend excessWon ~50%) — disable any lean module
-  on weekends, and never pool dow in evaluation strata.
+  on weekends, and never pool dow in evaluation strata; **depth ×
+  session allocation (A63)**: the evening depth gradient is
+  monotone favorable (deeper rungs +0.7→+3.1c @60s) — run deep
+  rungs (−3c+) in weekday evenings, shallow-or-off in the US
+  session; depth does NOT escape US toxicity (deepest bucket can
+  be worst there).
 - **Expected metrics** (METRICS.md): pair cost ≤ 0.995 required gross;
   rebate estimate ≥ |trading net| when pair cost ∈ [0.995, 1.005];
   fills/market ≥ 50 for rebate mass; pair completion ≥ 99%.

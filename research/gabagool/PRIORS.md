@@ -1098,3 +1098,14 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   dodge it) — lab should test toxicity per ladder-depth cell, not
   as a blanket session rule. [contested]
   (measurements/session-drift-b27bc932.md §7)
+- **A63 (depth×session resolution: no depth escape from US
+  toxicity; monotone evening depth gradient):** deeper-class
+  drift60 by offset bucket — b27bc932 US: toxicity at ALL depths
+  (deepest bucket worst on Jun-10, −1.46c); b55f's apparent US
+  immunity (unit 12) traces to one noisy n=119 bucket, own deepest
+  −3.66c → depth-escape hypothesis dead, cross-wallet universality
+  still [contested]. The keeper: weekday EVENING depth gradient is
+  monotone favorable (+0.69/−1c → +3.10c/≤−6c @60s) — deep rungs
+  belong in weekday evenings; US session shallow-or-off; overnight
+  depth-indifferent. H1 allocation rule updated.
+  [verified] (measurements/session-drift-b27bc932.md §8)

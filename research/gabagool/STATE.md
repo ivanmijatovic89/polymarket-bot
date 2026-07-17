@@ -123,17 +123,39 @@ US×calm +0.95%), evening +1.27% positive in all vol terciles;
 lean weekday-native (excessWon 55–76%, highest in US — cushions
 the bleed). Dow axis settled both halves.
 
-Queue for successor (in order): (1) W3 evening snapshot ~20–21Z —
-club re-formation test (A49 evening-positive); next cadence
-snapshot due ~18:30–19Z; morning snapshot tomorrow settles OQ #5
-residue; rerun lineage-sweep.ts if any active went dark.
-(2) 13e0d447 Jun-10–14 btc-15m ladder join (dossier residue —
-books cached/pullable; check the wallet HAD 15m fills then).
-(3) Residue: b27bc932 Jul-01 merge-ON cause (operator-internal,
-likely dead end); July weekend lean-collapse drift (needs next
-weekend's data). All session-11 pulls in data/ (weekends
-jun20-21/jun27-28/jul04-05/jul11-12, weekdays jul13-14/jul16,
-b27bc932-mar16).
+Unit 7 (17:37Z): 13e0d447 ladder join CLOSED as unmeasurable —
+Jun-10–14 pull is 100% btc-5m (zero 15m ever verified); G11 bound.
+Unit 8 (17:39Z): weekend book cells — Sat US deep +0.43c
+(favorable, no weekday toxicity), weekend drift = noise around
+flat; G10 refined: Jun-13 AND Jun-14 overnights are 48/48 stubs
+(weekend-overnight recording outage window).
+Unit 9 (17:48Z): A61 — 76d4d470 dossier (wallets/76d4d470.md):
+subsidy-native breadth farmer, born Mar-25 (4d before reshape),
+trading −$98k + maker rebates $137k + taker rebates $0 EVER ≈
+net +$600/day; anti-informed lean; NOT replicable btc-15m-only.
+Level-class overcalls taker at sub-$3 clips (method caveat).
+Unit 10 (17:49Z): synthesis fold — H1 clock-envelope parameter;
+LAB-HANDOFF session-11 addendum (3′–6′).
+Unit 11 (17:50Z): A62 — cold-start day-7 checkpoint: e114e5ca
+tuition ~2 days then +$3.3k/7d + $1.2k/day rebates; all three
+living cold-starts maker-pure at payout layer ($0/$7/$10 taker
+rebates lifetime).
+Unit 12 (17:53Z): A58 control on b55f INCONCLUSIVE (its US deep
+fills +0.26c, not adverse, but n≈500/cell underpowered) — US
+toxicity tagged [contested], may be ladder-depth-specific; lab
+should test per depth cell.
+
+Queue for successor (in order): (1) W3 snapshot due ~18:30–19Z;
+evening snapshot ~20–21Z (club re-formation test); morning
+snapshot tomorrow settles OQ #5 residue; rerun lineage-sweep.ts
+if any active went dark. (2) Depth-bucket toxicity test on
+b27bc932's own deeper fills (US session, −1c vs −2c vs ≤−3c) —
+decides the unit-12 contested tag with adequate n. (3) Residue:
+b27bc932 Jul-01 merge-ON cause (dead end); July weekend
+lean-collapse drift (needs next weekend). All session-11 pulls in
+data/ (weekends jun20-21/jun27-28/jul04-05/jul11-12, weekdays
+jul13-14/jul16, mar16; books telonex-r2-jun12sess/jun13/jun13us/
+jun14on(stubs); 76d4d470+e114e5ca+13e0d447 rebate JSONs).
 
 ### Session-10 FINAL (15:27–16:35Z real; units 1–11; A51–A57, O10, G11)
 

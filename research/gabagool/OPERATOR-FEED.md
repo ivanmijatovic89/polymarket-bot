@@ -532,3 +532,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the second bot did NOT suffer there — but it trades too thinly for a firm answer. Honest status: the toxicity finding holds for the main bot, may depend on order depth; flagged for the lab to test rather than assume.
 - Next: live snapshot now-ish (~18:30 target), evening test 20-21 UTC.
 - Health: on track
+
+## 2026-07-17T17:57Z — unit 13 (session 11)
+- Did: broke the "deep bargain orders" finding down by exact order depth, across afternoon and evening hours.
+- Found: the week's best practical rule — deep discount orders are an EVENING tool (the deeper, the better there, up to +3 cents of favorable follow-through); in US afternoons no depth is safe. Our future bot should place its deep ladder in weekday evenings only.
+- Next: live snapshot ~18:30 UTC, evening test 20-21 UTC.
+- Health: on track
