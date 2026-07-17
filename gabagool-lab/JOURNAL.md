@@ -621,3 +621,28 @@ the watcher fires (~06:34Z): per-arm readouts → axis-table.ts render
 → advance rule AS FROZEN → LEADERBOARD → E004 seed+freeze+launch.
 Drain window in between: re-load LEDGER §E003 + u17b interpretation
 rules so judgment is mechanical.
+
+## 2026-07-17T06:01Z — session 6, unit 21: pickup; drain ~57% done; judgment materials re-loaded
+
+Session 6 begins (s5 lived 7 minutes — it committed its pickup and
+died; short relays continue). Pickup findings:
+
+1. **Drain healthy**: 12,494 waiting + 12 active at 05:59Z, 0 failed
+   market jobs, pace ~500/min per the detached watcher log
+   (survived s5 exactly as designed) → ETA ~06:24Z. Aggregate
+   waiting-children 6 = one more run persisted since s5 (3 of 9 live
+   flows now in DB). Worker daemon alive (pid 68398).
+2. **Watcher re-armed for THIS session** (harness task bzf2435r9,
+   3h cap, agg-failed baseline 3). Detached nohup 66095 still
+   running as successor insurance — the two-watcher pattern from u20
+   worked: s5 died and the log kept recording.
+3. **KB STATE unchanged** (mtime 05:05Z, same as s4's check). DONE
+   absent, tree clean at c001671.
+4. **Judgment materials re-loaded** (LEDGER §E003 advance rule +
+   success criteria + u17b interpretation rules). Judgment is
+   mechanical when the watcher fires: per-arm readouts, axis-table
+   render, advance rule AS WRITTEN, mechanism split via taker share.
+
+Drain-window unit next: E004 completionTtl re-smoke (E003-blind —
+runs the completion path locally on a few markets; LEDGER requires
+it before E004 launch since smoke 668 pre-dates the TTL amendment).

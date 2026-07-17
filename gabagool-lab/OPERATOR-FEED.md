@@ -123,3 +123,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E003 half done, draining at ~380 jobs/min, 0 failures — results land ~06:34Z.
 - Next: E003 judgment (parity axis verdict) the moment the queue drains.
 - Health: on track
+
+## 2026-07-17T06:01Z — unit 21
+- Did: session 6 pickup — E003 batch ~57% done (0 failures), completion watcher re-armed for this session, judgment rules re-loaded.
+- Found: nothing new — batch on pace to finish ~06:24Z; 3 of 9 result sets already saved.
+- Next: safety re-test of the "complete the pair" code path while the batch finishes; then E003 judgment.
+- Health: on track
