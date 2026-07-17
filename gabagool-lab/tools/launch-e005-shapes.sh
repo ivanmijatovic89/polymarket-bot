@@ -65,4 +65,4 @@ for i in "${!CODES[@]}"; do
       --detach ${DRY}
   done
 done
-echo "=== all 6 shape submissions issued (rA reference = reused E003 runs 682/683) ==="
+echo "=== all 6 shape submissions issued (ra reference = reused E003 runs 682/683) ==="
