@@ -1696,3 +1696,32 @@ to measure).
 
 Next unit: implementation (fvGateMode/fvGateBps + conditional
 plugin registration) + the A/A smoke against run 708.
+
+## 2026-07-17T14:22Z — session 16, unit 56: E008 implemented + A/A PASS + gate-on smoke green
+
+Implementation (E003-pair-accumulator.ts, same-file doctrine):
+fvGateMode ('none' default | 'level') + fvGateBps; strike captured
+at the first tick at/after open (fail-open until a feed value
+exists); adverse side = the one spot has left by > θ bps; gate
+blocks NEW rung placement only (standing rungs clear via the
+normal requote/parity paths); acc gains a `gs` suppression counter
+(persisted via the shared-accumulator meta). The feed plugin is
+registered ONLY when the gate is on, so the default path requests
+nothing. Typecheck clean.
+
+Verification, both sides:
+
+- **A/A (run 723 vs ref 708): PASS 20/20 exact.** 20 h1 markets,
+  sequential, new SHA, gate none, ref params + lat140 — per-market
+  EL reproduces run 708 to the last digit on every slug
+  (tools/e008-aa.ts). The ref reuse basis survives the code change.
+- **Gate-on smoke (run 724, θ=9, 5 markets): machinery works.**
+  Params persist correctly (fvGateMode/fvGateBps in the run row),
+  feed loads for telonex-delta input (no aggTrades hard-error),
+  gate engages (gs = 77,518 suppressions on one market), fills
+  still happen, played 5/5. EL on 5 markets is noise — no reading
+  taken, per the peek discipline.
+
+Next unit: launch-e008.sh (LS-3-hardened, arms g00/g05/g09/g15 ×
+halves on the rc+c960 chassis), freeze §E008 at submit, launch,
+waiter up.

@@ -14,6 +14,9 @@
  *    ('cap' mode), always ('free' mode), or never ('none' = maker-only).
  *  - Time modes (A17/A20 priors): uniform (start 60s) | openAvoid
  *    (start 120s) | late (start 480s); stop always 840s (minute-14 cut).
+ *  - E008 fair-value gate (fvGateMode/fvGateBps): suppress NEW rung
+ *    placement on the side the Binance spot has left vs the window-open
+ *    strike; feed requested only when the gate is on.
  *
  * Buy-only, GTC, never merge, hold to settlement. Lab meta convention
  * with shared acc (realized-liquidity classification, per-leg docks).
@@ -22,6 +25,8 @@ import * as z from 'zod'
 import type { Intent, MarketTick, PortfolioSnapshot, Strategy } from '../../strategy/Strategy.js'
 import type { StrategyContext } from '../../strategy/StrategyContext.js'
 import type { StrategyDefinition } from '../../strategy/strategyDefinition.js'
+import type { ExternalFeedsSnapshot } from '../../trading/feeds/externalFeeds.js'
+import { ExternalFeedsRequestPlugin } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { isWarmed } from '../../strategy/strategyToolkit.js'
 
 export const ConfigSchema = z.strictObject({
@@ -73,6 +78,13 @@ export const ConfigSchema = z.strictObject({
   stopSec: z.coerce.number().finite().positive().max(895).default(840),
   requoteDelta: z.coerce.number().finite().gt(0).lt(0.5).default(0.02),
   maxSharesPerSide: z.coerce.number().finite().positive().max(1500).default(120),
+  /** E008 fair-value gate: with mode 'level', place NO new rungs on the
+   *  side the spot has left — DOWN when (spot−strike)/strike > +fvGateBps,
+   *  UP when < −fvGateBps (strike = spot at the first tick at/after window
+   *  open; fail-open while no feed value exists). 'none' keeps the default
+   *  path bit-identical to pre-E008 code: the feed is not even requested. */
+  fvGateMode: z.enum(['none', 'level']).default('none'),
+  fvGateBps: z.coerce.number().finite().min(0).max(500).default(9),
 })
 export type Config = z.infer<typeof ConfigSchema>
 
@@ -87,6 +99,8 @@ type Acc = {
   rej: number
   dockU: number
   dockD: number
+  /** E008: per-side placement opportunities suppressed by the fv gate. */
+  gs: number
 }
 type SideQuotes = { basisBid: number; clientOrderIds: string[] }
 
@@ -110,16 +124,29 @@ export const definition: StrategyDefinition<Config> = {
   create: (cfg) => {
     let stateSlug: string | null = null
     let seq = 0
-    let acc: Acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+    let acc: Acc = {
+      n: 0,
+      mN: 0,
+      tN: 0,
+      mFee: 0,
+      tFee: 0,
+      tSimFee: 0,
+      rej: 0,
+      dockU: 0,
+      dockD: 0,
+      gs: 0,
+    }
     let pendingCompletion: { id: string; placedAtSec: number } | null = null
+    let fvStrike: number | null = null
     const quotes: Record<Side, SideQuotes | null> = { UP: null, DOWN: null }
     const startSec = START_SEC[cfg.timeMode]
 
     const resetFor = (slug: string): void => {
       stateSlug = slug
       seq = 0
-      acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
+      acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0, gs: 0 }
       pendingCompletion = null
+      fvStrike = null
       quotes.UP = null
       quotes.DOWN = null
     }
@@ -153,6 +180,25 @@ export const definition: StrategyDefinition<Config> = {
       if (!epochMatch) return []
       const ts = tick.snapshot.timestamp
       const elapsedSec = (ts - Number(epochMatch[1]) * 1000) / 1000
+
+      // E008 fv gate (LEDGER §E008): strike = spot at the first tick at/after
+      // window open; each tick classify the adverse side (the one price has
+      // left by > fvGateBps). Fail-open — no feed value means no suppression.
+      // Sits BEFORE the time gate so the strike is captured as close to the
+      // open as the tick stream allows.
+      let fvAdverse: Side | null = null
+      if (cfg.fvGateMode === 'level') {
+        const feeds = ctx?.plugins?.['externalFeeds'] as ExternalFeedsSnapshot | undefined
+        const spot = feeds?.binanceWsSpotPrice?.value
+        if (spot != null && Number.isFinite(spot) && elapsedSec >= 0) {
+          if (fvStrike === null) fvStrike = spot
+          else {
+            const dBps = ((spot - fvStrike) / fvStrike) * 1e4
+            if (dBps > cfg.fvGateBps) fvAdverse = 'DOWN'
+            else if (dBps < -cfg.fvGateBps) fvAdverse = 'UP'
+          }
+        }
+      }
 
       const intents: Intent[] = []
       const cancelSide = (side: Side, reason: string): void => {
@@ -227,6 +273,12 @@ export const definition: StrategyDefinition<Config> = {
         const q = quotes[side]
         if (q && Math.abs(bid - q.basisBid) < cfg.requoteDelta) continue
         if (q) cancelSide(side, 'requote')
+        // E008: block NEW placement on the adverse side. Standing rungs are
+        // untouched (they clear via the requote/parity/gate paths above).
+        if (fvAdverse === side) {
+          acc.gs += 1
+          continue
+        }
 
         const placed: string[] = []
         for (const off of cfg.rungOffsets) {
@@ -348,6 +400,12 @@ export const definition: StrategyDefinition<Config> = {
         }
         return []
       },
+    }
+    // The feed is requested ONLY when the gate is on: the default ('none')
+    // path stays bit-identical to pre-E008 code — no feed wiring, no
+    // aggTrades requirement — preserving refs 708/703 as a reuse basis.
+    if (cfg.fvGateMode !== 'none') {
+      return { strategy, plugins: [new ExternalFeedsRequestPlugin({ binanceWsSpotPrice: {} })] }
     }
     return { strategy }
   },

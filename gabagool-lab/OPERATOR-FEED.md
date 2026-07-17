@@ -333,3 +333,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: median drift 6.5 bps, growing through the window (4→9 bps) — so the gate naturally engages late, where the losses live. Thresholds chosen by the pre-registered rule: 5, 9, 15 bps.
 - Next: implement the gate in the strategy + verify the no-gate path is bit-identical to the reference runs.
 - Health: on track
+
+## 2026-07-17T14:22Z — unit 56
+- Did: built the E008 gate into the strategy and verified it two ways.
+- Found: the no-gate path reproduces the reference runs exactly (20/20 markets, to the digit — safe to reuse them), and the gate demonstrably suppresses quoting when BTC drifts (smoke run confirms the feed pipeline works).
+- Next: freeze the experiment spec and launch the 8 runs.
+- Health: on track
