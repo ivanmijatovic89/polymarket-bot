@@ -789,9 +789,76 @@ Template:
   waiting-children flows; markets queue 17,459 waiting + 12 active ≈
   the expected 17,568; markets failed = 0. Drain watcher: nohup pid
   44081 → logs/watch-drain-s12-e005-caps.log.)
-- **Runs (cap judgment) / Judgment / Lesson:** (pending — cap
-  sub-judgment per criteria (5): the pairRate/EL trade-off curve,
-  participation caveat armed at G2 20%)
+- **CAP SUB-JUDGMENT (2026-07-17T09:07Z, session 12, unit 38):
+  monotone tighter-is-better through the whole grid, ADVANCE RULE
+  BOTH HOLD (second passing sub-axis). Forcing deeper pairs RAISES
+  EL — it does not merely lower fill count. Best cell: c960 at
+  EL −2.2884/−2.0229.**
+  - **Identity:** runs 703–708 submission uids match the frozen
+    launch uids to the digit (DB query u38); c990 ref = reused rc
+    runs 698/699. All 6 new runs 0-failed.
+  - **Validators green ×6:** settlement recheck OK; fee-recon VALID
+    (|recon−db| 0.03–0.32 vs tol ≥ 57.60), meta coverage 100%;
+    segments cross-check OK (max drift 0.0045). G2 PASS everywhere —
+    played 97.8/97.2% CONSTANT across caps: the participation caveat
+    never armed; pairCostCap binds pair ASSEMBLY, not quoting
+    eligibility.
+  - **Trade-off curve (criteria 5; e005-table.ts cap mode):**
+    | cap | h1 EL | h2 EL | pairRate h1/h2 | S h1/h2 | outlay h1/h2 | CVaR5 h1/h2 |
+    |-----|-------|-------|----------------|---------|--------------|-------------|
+    | 0.96 | **−2.2884±0.1375** | **−2.0229±0.1252** | 0.527/0.514 | 0.9150/0.9110 | 29.12/26.54 | −15.49/−14.61 |
+    | 0.97 | −2.3791 | −2.1354 | 0.545/0.527 | 0.9247/0.9200 | 31.08/28.00 | −15.39/−14.54 |
+    | 0.98 | −2.5335 | −2.1810 | 0.559/0.544 | 0.9332/0.9282 | 33.17/29.73 | −16.24/−15.01 |
+    | 0.99 ref | −2.7093 | −2.3622 | 0.576/0.558 | 0.9427/0.9374 | 35.14/31.13 | −16.70/−15.30 |
+    (fills fall ~15% ref→c960: 22,611/13,480 → 19,247/11,516 h1;
+    imb p50 rises 0.270→0.332/0.273→0.333; imb p90 1.000 everywhere;
+    taker% flat ~37; answer to the pre-registered question: EL rises
+    AND fill count falls — pair quality beats pair quantity on this
+    book.)
+  - **Adjacency:** every adjacent step indistinguishable (|ΔEL|
+    0.05–0.18 vs 2·se_diff 0.35–0.39); endpoints c960↔c990 DISTINCT
+    in h1 (0.4209 > 0.3880), just short in h2 (0.3392 < 0.3534) —
+    u17b standard: measurable direction, insufficient in-between
+    resolution.
+  - **Advance rule: BOTH HOLD.** (a) endpoint direction − in both
+    halves (adjacent signs −,−,− in both); (b) top-2 = {c960, c970}
+    in both halves. Cap ordering is stable; the surviving region is
+    the tight-cap end {0.96, 0.97} on shape rc.
+  - **Grid-edge caveat (LS-6 spirit, stated):** the curve is still
+    improving AT the grid's lower bound — the optimum is NOT
+    bracketed; it lies at or below 0.96. bind(0.96) = 0.4663 says
+    almost half of both-sided markets hit this cap, and S(c960) =
+    0.9150/0.9110 sits BELOW the incumbent 0.95–0.976 region.
+    Extension below 0.96 is NOT run here (not pre-registered; the
+    axis closes at planned resolution per Kill/stop) — seeded as
+    E005b in backlog.
+- **JUDGMENT (2026-07-17T09:07Z, session 12, unit 38 — axis closed;
+  both sub-curves measured at planned resolution):** placement depth
+  and the placement-side pair-cost cap are BOTH real, stable,
+  same-direction levers, and they compose: reference −4.5656/−4.2209
+  → deep shape rc −2.7093/−2.3622 (DISTINCT) → rc+cap0.96
+  −2.2884/−2.0229 (direction stable, endpoints DISTINCT h1). The
+  combined best measured cell removes ~51% of the reference loss,
+  maker-only, at 52% of the reference outlay, with the best tails
+  measured (CVaR5 −15.49/−14.61 vs −21.46/−19.75). Fewer, better
+  fills is the entire story: S(pair) walks from 0.9767 down to
+  0.9150 while EL improves monotonically along BOTH knobs — the
+  adverse-selection tax falls fastest where fills are hardest to
+  get. The A17 archetype package is excluded as the incumbent's
+  mechanism (dead region). Both sub-axes passed their advance rules
+  (the lab's first and second) — this axis family is
+  confirmation-grade input for candidate assembly, NOT a candidate:
+  still −2.0 to −2.3 $/mkt at lat140, sel-width 4 per sub-axis,
+  no latency battery yet (pre-registered as pre-candidate
+  requirement), no holdout. Next per spec: battery (0/500/1000) on
+  the surviving region before any promotion.
+- **Lesson (LS-9, recorded in LESSONS.md):** the two "caps" sit on
+  opposite sides of the pair lifecycle and have OPPOSITE value:
+  capping the pair you BUILD (placement-side never-overpay,
+  pairCostCap) filters bad assembly and improves EL monotonically;
+  capping the pair you RESCUE (completion-side, E004) blocks exactly
+  the completions that matter and is useless-to-harmful. Guard
+  placement, free the rescue.
 
 ## Backlog (one line each; propose formally when reached)
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
@@ -813,3 +880,15 @@ Template:
   negative, so this is a lever for a paying cell, not a cell itself).
   Natural pairing: E008's fair-value machinery. Requires D-008 path
   (frozen candidate spec) or a new frozen axis on search-window data.
+- E005b deep-cap extension (seeded by §E005 cap sub-judgment, u38):
+  the tighter-is-better curve was still improving at the frozen
+  grid's edge (c960 best in both halves; optimum unbracketed). Grid
+  {0.92, 0.94} on shape rc, halves, lat140 — 4 runs. Bracket before
+  candidate assembly freezes a cap value.
+- E-deep×completion interaction (seeded u36): E004's free-completion
+  lever (+1.10/+0.87 on the SHALLOW ladder, via inventory removal +
+  imb p90 1.000→0.335) is unmeasured on the deep book, where imb p90
+  is STILL 1.000 and one-sided endings are the residual loss channel
+  (imb p50 0.33 at rc+c960). If it composes, best case approaches
+  −1.0 territory. D-008 constraint: completion enters via a frozen
+  candidate spec (or a new frozen axis).

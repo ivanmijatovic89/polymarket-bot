@@ -17,14 +17,17 @@ latency arm of EL, selection width (max-of-N), and fill-model caveat
 |------|---------|-------|---------|----------|--------|-----|----------|-------|
 | E002-baseline (L1 reference) | **−4.3904** (t −43.5) | −0.4207 | −5.0288 | −5.3047 | 0/9 wk (every arm) | 0.22 @ 140 | 0.644 @ 140 (0.291 @ lat0 — the honest one) | archetype-faithful shallow ladder, runs 675/678/676/677, 5,856 mkts, Apr 1–May 31, sel-width 1; exempt from gates (TAIL_K calibration source, D-007); judged LEDGER §E002 |
 | E004-cfree (axis-grade, NOT a candidate) | −3.4665 h1 / −3.3541 h2 (t −43.5/−49.2) | — | — | — | not run (axis) | — | 0.860/0.848; imb p90 0.335 (all other arms 1.000) | free completion on the shallow ladder, runs 694/695, 2,880+2,976 mkts, Apr/May halves, sel-width 4, lat140 only; completed pairs locked ABOVE $1 (S 1.0207/1.0188) — wins via inventory removal (LS-7); no latency battery, no gate vector; judged LEDGER §E004 |
-| E005-rc deep ladder (best measured cell; axis-grade, NOT a candidate) | **−2.7093 h1 / −2.3622 h2** (t −19.8/−18.9) | — | — | — | not run (axis) | — | 0.576/0.558; imb p50 0.270/0.273, p90 1.000 | rungOffsets [0.02,0.13] maker-only, runs 698/699, Apr/May halves, sel-width 4, lat140 only; S(pair) 0.9427/0.9374 (BELOW incumbent 0.95–0.976 region); CVaR5 −16.70/−15.30 (best tails too); outlay 35.14/31.13 (≈60% of ref); ADVANCE RULE HELD (first axis to pass); sub-judged LEDGER §E005 |
+| E005-rc deep ladder (axis-grade, NOT a candidate) | −2.7093 h1 / −2.3622 h2 (t −19.8/−18.9) | — | — | — | not run (axis) | — | 0.576/0.558; imb p50 0.270/0.273, p90 1.000 | rungOffsets [0.02,0.13] maker-only, runs 698/699, Apr/May halves, sel-width 4, lat140 only; S(pair) 0.9427/0.9374; outlay 35.14/31.13 (≈60% of ref); ADVANCE RULE HELD (first axis to pass); sub-judged LEDGER §E005 |
+| E005 rc+cap0.96 (best measured cell; axis-grade, NOT a candidate) | **−2.2884 h1 / −2.0229 h2** (t −16.6/−16.2) | — | — | — | not run (axis) | — | 0.527/0.514; imb p50 0.332/0.333, p90 1.000 | deep ladder [0.02,0.13] + placement pairCostCap 0.96, maker-only, runs 708/703, Apr/May halves, sel-width 4 per sub-axis, lat140 only; S(pair) 0.9150/0.9110 (below incumbent region); CVaR5 −15.49/−14.61 (best tails); outlay 29.12/26.54 (52% of ref); cap curve monotone tighter-better, optimum UNBRACKETED at grid edge (E005b seeded); no latency battery yet; judged LEDGER §E005 |
 
 The reference to beat: **EL(140) −4.39/market; frictionless bound
 −0.42** (worst_queue adverse-subset caveat on both). Best measured
-cell so far: E005-rc deep ladder ≈ **−2.54** avg maker-only
-(axis-grade, sel-width 4 — shrinkage expected on confirmation;
-supersedes E004-cfree −3.41; deep-shape × free-completion
-interaction unmeasured, in backlog).
+cell so far: E005 rc+cap0.96 ≈ **−2.16** avg maker-only (axis-grade,
+sel-width 4 per sub-axis — shrinkage expected on confirmation;
+~51% of the reference loss removed by depth + placement cap;
+supersedes E004-cfree −3.41; battery 0/500/1000 pre-registered as
+the pre-candidate step; deep × free-completion interaction and
+E005b cap extension in backlog).
 
 ## Dead regions (closed with numbers; do not re-enter without new cause)
 

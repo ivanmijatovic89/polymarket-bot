@@ -225,3 +225,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new (tooling unit).
 - Next: judge the cap arms when the queue drains (~09:00Z).
 - Health: on track
+
+## 2026-07-17T09:08Z — unit 38
+- Did: judged the pair-cost-cap arms; E005 (depth axis) is now fully closed.
+- Found: tighter buying discipline monotonically cuts the loss — best cell now −2.02 to −2.29/market (was −4.39 at baseline; half the bleed removed, maker-only, half the capital). Optimum may be even tighter — follow-up seeded.
+- Next: latency stress test (0/500/1000 ms) on the winning cell — required before this can become a candidate.
+- Health: on track

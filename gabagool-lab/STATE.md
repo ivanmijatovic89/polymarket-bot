@@ -16,20 +16,18 @@
   `date -u` output captured in the same command — every estimate so
   far has drifted. TZ note: this box is UTC+2; raw `stat` mtimes
   print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E005 shapes JUDGED (u36):
-  ADVANCE RULE HELD (first passing axis); rc=[0.02,0.13] best cell
-  −2.7093/−2.3622 maker-only; cap arms LAUNCHED (u36c), draining
-- **Phase:** E005 caps draining (launched 08:21Z at SHA d8f5be2b;
-  6 flows ax4{h1,h2}×{c960,c970,c980} on shape rc, 17,568 jobs;
-  ETA ~09:00Z). Watcher: nohup pid 44081 →
-  logs/watch-drain-s12-e005-caps.log. Cap-0.99 reference = rc runs
-  698/699 (reused). Cap-grid decision u36b: KEEP {0.96,0.97,0.98}
-  (bind 0.4663/0.3599/0.2544, n=4135). Shape sub-judgment in §E005
-  (depth DISTINCT +1.75/+1.86; A17 package dead; S(rc) 0.9427/
-  0.9374 below incumbent region; e005-table.ts is the readout
-  tool). E004: §E004 (H6 survives; cfree via removal; caps dead;
-  maker-only confirmations D-008; LS-7/8). EVALUATION v1.1 frozen.
-  s12 ritual done: KB@A33 no-new, feeds unchanged
+- **Ladder rung:** L2 IN PROGRESS — E005 CLOSED (u38): both
+  sub-axes passed their advance rules (lab's first two); best cell
+  rc+cap0.96 = −2.2884/−2.0229 maker-only (51% of ref loss removed)
+- **Phase:** E005 judged end-to-end in §E005 (shape sub-judgment
+  u36, cap-grid decision u36b, cap sub-judgment + final judgment +
+  LS-9 u38). Cap curve monotone tighter-better, optimum UNBRACKETED
+  at 0.96 edge → E005b {0.92,0.94} seeded. NEXT: latency battery
+  (0/500/1000) on surviving region — pre-registered pre-candidate
+  step (§E005 coverage clause). E004: §E004 (H6 survives; cfree via
+  removal; caps dead; maker-only confirmations D-008; LS-7/8).
+  EVALUATION v1.1 frozen. s12 ritual done: KB@A33 no-new, feeds
+  unchanged (binance only)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -86,24 +84,20 @@
 
 ## Queue (work top to bottom)
 
-1. **E005 cap sub-judgment when drained (watcher log
-   watch-drain-s12-e005-caps.log says DRAINED; ETA ~09:00Z):** 6
-   ax4 runs (uids in §E005) + cap-0.99 ref = rc runs 698/699
-   (reused). Verify uids (tmp DB query pattern u33/u36), validators
-   per run, then per frozen criteria (5): the pairRate/EL trade-off
-   curve across caps {0.96,0.97,0.98,0.99-ref} — does forcing
-   deeper pairs raise EL or just lower fill count? Participation
-   caveat armed: played < 20% (G2 level) = "cap chokes
-   participation", EL flagged unmeasurable-at-coverage. NOT gated
-   on EL sign. e005-table.ts guards expect completion=none + tol=2
-   but NOT specific pairCostCap — check whether --arm labels
-   c960/c970/c980 need adding to EXPECT_OFFSETS-style guards or a
-   generic cap guard (verify tool handles ax4 wiring BEFORE use;
-   extend if needed, verify on 698/699 as cap-ref).
-2. **Write E005 final judgment + lesson** (both sub-curves
-   measured → axis closed; LEADERBOARD/dead-regions updates; then
-   next axis decision: E006 timing vs deep×completion interaction —
-   justify order from measured numbers + backlog priorities).
+1. **Latency battery on the surviving region (pre-registered,
+   §E005 coverage clause; pre-candidate requirement):** rc+cap0.96
+   at lat {0, 500, 1000} × halves = 6 runs (lat140 = existing
+   708/703). Launcher LS-3 pattern (hardcode shape/cap/tol/
+   completion; only lat varies; --dry-run; refuse queued ax5).
+   Record uids in §E005 (battery addendum) or a §E005-battery
+   block. Judgment: EL(lat) curve vs EVALUATION latency-robustness
+   gate (survive 500–1000 ms); compare against E002's curve
+   (−0.42/−4.39/−5.03/−5.30) — the deep ladder should degrade
+   LESS (standing-ladder character, LS-1).
+2. **Next axis decision after battery:** E005b cap extension
+   {0.92,0.94} vs E006 timing vs deep×completion (D-008 path).
+   Justify order from measured numbers + backlog. Then candidate
+   assembly when the family is battery-proven.
 
 ## Open questions / risks
 

@@ -1160,3 +1160,40 @@ Blind verification: shape mode regression intact (ra rows exact);
 cap mode c990=698,699 reproduces the rc rows to the digit; guards
 abort on 682-as-c990 (offsets), 698-as-c960 (cap), and ra+c990
 (mixed). Judgment on drain is now a fill-in-the-run-ids exercise.
+
+## 2026-07-17T09:08Z — session 12, unit 38: E005 caps judged, axis CLOSED — tighter placement caps are monotone better; best cell −2.29/−2.02; E005 done end to end
+
+All 6 ax4 runs clean (uids to the digit, validators green, max
+segment drift 0.0045). The cap sub-axis answered its pre-registered
+question crisply: forcing deeper pairs RAISES EL, it does not just
+lower fill count. The curve is monotone tighter-better in BOTH
+halves (every adjacent sign −), the advance rule held AGAIN (top-2
+{c960, c970} both halves, endpoint direction stable, endpoints
+DISTINCT in h1), and the participation caveat never armed — played
+share is constant across caps because pairCostCap binds pair
+assembly, not quoting eligibility.
+
+Two things worth saying plainly. First, the composition: reference
+−4.57/−4.22 → deep shape −2.71/−2.36 → deep + cap0.96 −2.29/−2.02.
+Half the reference loss is gone, maker-only, at half the outlay,
+with the best tails the lab has measured. Both E005 sub-axes passed
+their advance rules — the lab's first two passes — so this is
+stable structure, not noise-mining. Second, the honesty caveat: the
+curve was still improving AT the grid edge, so the optimum is
+unbracketed below 0.96. Per the frozen kill/stop the axis closes at
+planned resolution; the extension {0.92, 0.94} is seeded as E005b
+in the backlog, not silently bolted on (LS-9 corollary).
+
+LS-9 recorded: the placement-side cap and the completion-side cap
+are the same knob on opposite sides of the pair lifecycle with
+OPPOSITE value — guard placement, free the rescue. Backlog also
+gains E-deep×completion (E004's removal lever is unmeasured on the
+deep book, where imb p90 is still 1.000 and one-sidedness is the
+residual loss channel).
+
+Next per the frozen §E005 coverage clause: the latency battery
+(0/500/1000) on the surviving region before any candidate talk.
+Plan u39: launcher for rc+c960 at lat {0, 500, 1000} × halves
+(6 runs; lat140 cells already exist), LS-3 pattern, then judgment
+of the battery against G-gate latency requirements (EVALUATION:
+edge must survive 500–1000 ms).

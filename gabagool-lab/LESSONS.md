@@ -66,3 +66,16 @@ lesson (E002). Append-only; cite the source experiment/unit.
   and distinguishable from the rest?" — not on rank order within
   noise. (E004's frozen consequence was still applied verbatim;
   the fix applies to FUTURE rule freezes.)
+- **LS-9 (E005):** The two "pair-cost caps" sit on opposite sides of
+  the pair lifecycle and have OPPOSITE value on an
+  adverse-selection-dominated book. Capping the pair you BUILD
+  (placement-side never-overpay, pairCostCap 0.99→0.96) filtered bad
+  assembly and improved EL monotonically through the whole grid
+  (−2.71→−2.29 h1, −2.36→−2.02 h2, direction stable both halves)
+  while cutting outlay and tails. Capping the pair you RESCUE
+  (completion-side, E004) blocked exactly the completions that
+  mattered and was useless-to-harmful. Guard placement, free the
+  rescue. Corollary (grid design): when a monotone curve is still
+  improving at the grid edge, say so in the judgment and bracket the
+  optimum in a follow-up — do not silently extend the grid mid-axis
+  (14-way-selection creep).
