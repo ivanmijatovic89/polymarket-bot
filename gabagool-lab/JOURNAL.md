@@ -1827,3 +1827,28 @@ None of this touches the frozen §E008 criteria — E008 gates on
 external spot distance, and its judgment proceeds verbatim.
 
 Next: wait for landing; judge E008 strictly per the frozen block.
+
+## 2026-07-17T14:41Z — session 19, unit 61: pickup + first E008 landing validated (run 725)
+
+Fresh context; session 19 (s18 ended right after u60). Pickup
+ritual (14:39Z, stamps from date -u): DONE absent, hook guard
+intact (both GLAB_L3_DONE lines), tree clean at 896d3ba, worker
+daemons + drain watcher (pid 21525) alive, markets queue 6,773
+completed / 16,663 waiting / 0 failed at ~430/min → landing ETA
+~15:20Z. The s18 waiter b33bpye17 died with its session (LS-10,
+expected); replaced with waiter bjll7n5x8 (3-min poll, exits at
+8/8 terminal ax6 rows). Re-read frozen §E008 in full.
+
+First flow landed while checking: run 725 = ax6h2-g00 (sign-only
+max-suppression endpoint). Per the queue plan's on-fire protocol:
+uid matches the frozen block to the digit (…4367ac01…cda8),
+validators green (settlement recheck OK all markets, fee recon
+|recon−db| 0.10 vs tol 59.52, meta 100%, segments cross-check
+OK), headline `EL -0.2681`. No interpretation until 8/8 land —
+the table, decomp, and criteria run as one judgment unit.
+
+KB check: register still tops at A46 (folded through A-8 in u60);
+no new fold needed this pickup.
+
+Next: wait for landing (ETA ~15:20Z); judge E008 strictly per the
+frozen block.

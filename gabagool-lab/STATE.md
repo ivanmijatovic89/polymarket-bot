@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 18 (started 2026-07-17T14:35Z. Stamp rule: paste from
+- **Session:** 19 (started 2026-07-17T14:39Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -116,10 +116,12 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (ETA ~15:15Z; 8,162/23,424 done at
-   14:36Z):** s18 waiter b33bpye17 polls terminal ax6 rows (needs
-   8; LS-10 — run ids unknowable pre-landing); drain watcher nohup
-   pid 21525 → logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
+1. **E008 judgment when drained (ETA ~15:20Z; 6,773/23,424 queue-
+   completed at 14:39Z — note run 725 = ax6h2-g00 ALREADY LANDED,
+   uid exact, validators green ×4, headline EL -0.2681, no
+   interpretation yet):** s19 waiter bjll7n5x8 polls terminal ax6
+   rows (needs 8; LS-10 — run ids unknowable pre-landing); drain
+   watcher nohup pid 21525 → logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
    §E008 block (`tools/uids.ts <id>`) + validators (`results.ts
    --run <id>`, quote ONLY the "<- headline" line). Then table:
    `e005-table.ts --arm g-off=708,703 --arm g00=<h1>,<h2> --arm

@@ -363,3 +363,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the winner avoids buying while the price is falling — a simple 10-second "don't catch the knife" rule survives every out-of-sample check. It needs no external data feed, so it's a cheap future experiment (queued as E010).
 - Next: E008 lands ~15:15Z; judge it against the frozen criteria.
 - Health: on track
+
+## 2026-07-17T14:41Z — unit 61
+- Did: session-19 pickup; re-armed the results waiter; first of 8 fair-value-gate runs landed and passed all validity checks.
+- Found: nothing judged yet — 7 runs still draining (ETA ~15:20Z); the landed run's checks are all green.
+- Next: when all 8 land, judge the fair-value gate against the frozen criteria.
+- Health: on track
