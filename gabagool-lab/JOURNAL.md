@@ -79,3 +79,21 @@ experiment). The design departures from the old protocol, in short:
 LEDGER.md created with the entry template. Next unit: tools
 (submit.ts, results.ts) — port fable patterns, write against
 backtest_run_segments/_markets directly.
+
+## 2026-07-17T05:00Z — session 1, unit 4: tools built and tested
+
+tools/: lib.ts (fee math, windows, per-market corrected economics,
+settlement revalidation, DB loaders), results.ts (the canonical readout:
+lines/weekly/tails/pairing/capital/sample/validation + gate table +
+latency-battery mode), submit.ts (guarded launcher: latency pins,
+batchUid grammar, holdout guard, clean-tree rule), runs.ts (lister).
+
+Tested against the live DB: runs.ts lists; results.ts read foreign run
+658 correctly — segments cross-check matched my per-market recompute
+(−0.350 vs −0.347, rounding), and the validators correctly flagged a
+foreign sell-strategy as not lab-checkable. submit.ts guards fire:
+non-holdout windows touching June are refused; holdout suffix requires
+the exact holdout window; --to-ms inclusivity handled (searchTo =
+Jun1−1ms — the fable E18 trap, carried mechanically).
+
+Next: E001 smoke — scripted probe strategy through the full pipeline.

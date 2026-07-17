@@ -21,3 +21,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — design unit; the scoring rule is now frozen BEFORE any run, as the charter requires.
 - Next: build the two tools (submit + results reader), then the end-to-end smoke.
 - Health: on track
+
+## 2026-07-17T05:02Z — unit 4
+- Did: built and tested the lab tools — guarded run launcher, results readout (with fee correction, rebate line, weekly slices, validators), run lister.
+- Found: readout verified against an existing run in the database; all guards fire correctly (holdout protection, latency pinning).
+- Next: end-to-end smoke — a scripted test strategy through backtest → database → readout.
+- Health: on track
