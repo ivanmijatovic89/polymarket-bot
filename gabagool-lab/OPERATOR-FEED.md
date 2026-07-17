@@ -57,3 +57,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: preview confirms across all four latencies: delay itself creates bad fills (2.8k fills at 0ms -> 27.6k at 1000ms, half of them forced conversions). Requote discipline is the lever to attack next.
 - Next: runs finish draining ~06:20Z; then the full baseline verdict + threshold freeze.
 - Health: on track
+
+## 2026-07-17T05:45Z — unit 9
+- Did: found and fixed two bugs in the next strategy's "complete the pair by paying up" path (a missed order could jam it for the whole market and linger into the risky final minute); verified with a clean 2-market smoke.
+- Found: my own process rule proved its worth — I bypassed the lab's launcher once for a quick test and it silently queued a job into the shared pipeline instead of running locally; cleaned up, no data lost, rule now absolute.
+- Next: baseline runs finish draining (~06:30Z); then the full verdict + threshold freeze.
+- Health: on track
