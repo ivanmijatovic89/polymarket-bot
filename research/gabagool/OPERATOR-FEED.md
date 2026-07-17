@@ -361,3 +361,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: near-certain favorites (99c+) never flipped once; strong favorites (90-99c) flip 2-4%; close races flip 30-40% even late. The winner bot's lopsided bets just collect the base odds — its skill is avoiding the bad side, not predicting.
 - Next: live snapshot 6, then session wrap.
 - Health: on track.
+
+## 2026-07-17T14:50Z — unit: how fast pairs complete (session 8)
+
+- Did: measured how long the second half of each $1 pair takes to arrive, across 400+ markets.
+- Found: about one minute typically, 99% within five — same for both bot styles. If a position sits unpaired longer than ~5 minutes, it's a bet, not a pending pair — manage it as such.
+- Next: live snapshot 6, then final session wrap.
+- Health: on track.

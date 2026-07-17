@@ -1081,3 +1081,15 @@ protects against real variance). Best calibration: the winner's
 favorite-side lean (A34, won 60% at 0.547) exactly matches the
 bucket base rate — its leg-risk skill is avoiding the BAD lean, not
 picking winners. W4's endgame remainder done.
+
+## 2026-07-17T14:50Z (real) — session 8, unit 18: the pairing clock (A48)
+
+Measured time-to-pair on four samples (408 market-instances, both
+recipes): pairs complete on a ~1-minute clock (p50 40-67s, two
+thirds within 60s, ~99% within 5 minutes) — stable everywhere. A
+leg still unpaired after ~5 minutes is the structural excess, not a
+pending pair; leg-risk timeouts belong in the 60-300s band. The
+patient wallet pairs slower at deeper discounts, the grinder faster
+at parity — the speed/depth tradeoff the density surface (A37)
+predicts. W4's pair-completion-timing remainder done; W4 is now
+fully covered (density A38, session A46, endgame A47, pairing A48).

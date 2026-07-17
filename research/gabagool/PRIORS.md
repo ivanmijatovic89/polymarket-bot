@@ -851,3 +851,12 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   not selection. Leg-risk rule: cap cheap-side excess, tolerate
   favorite-side; leave ≥0.99 legs unpaired to redemption.
   [verified] (measurements/flip-table-btc15m.md)
+- **A48 (time-to-pair is a ~1-minute clock, stable across recipes
+  and days):** share-weighted completion lag on 4 samples / 408
+  market-instances (measurements/time-to-pair-btc15m.md): p50
+  40–67s, ~2/3 of pair volume ≤60s, 95–99% ≤300s, only 15–20% ≤10s.
+  Leg unpaired after ~5 min = structural excess (A34 lean) — manage
+  as inventory, don't await. Leg-risk timeouts belong in 60–300s.
+  Patient deep-pair recipe pairs slower (p50 67s) than the parity
+  grinder (39–43s) — speed/depth tradeoff as A37 predicts.
+  [verified]
