@@ -4,7 +4,14 @@
 
 Session relay state. A fresh session continues from CHARTER.md + this file.
 
-## Status digest (updated 2026-07-17T05:05Z, session 4)
+## Status digest (updated 2026-07-17, session 5 — PHASE 2 OPEN)
+
+Phase 1 closed at saturation (all deliverables + LAB-HANDOFF.md done).
+Operator reopened the shift as Phase 2 (CHARTER.md §Phase 2 + class
+amendment): open-ended, W0 variant atlas first, DONE deleted (committed
+session 5) and must never be recreated.
+
+### Phase-1 digest (still valid)
 
 NOTE: journal timestamps before session 3 are mislabeled (~4h ahead);
 trust git commit times. All sessions so far ran 2026-07-17 00:26Z→.
@@ -53,16 +60,39 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
-## Work queue
+## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 
-**SHIFT COMPLETE (2026-07-17, session 4).** SATURATION.md written
-(stability test + per-item residue ledger), LAB-HANDOFF.md written
-(3 family seeds: pair-accumulator, cheap-side-accumulator,
-fair-value-gated-maker + operating notes), DONE created. Nothing is
-queued. If a successor session starts anyway: do NOT reopen the
-queue — verify the DONE state, and only act on genuinely NEW external
-events (e.g., Telonex sync resumes, venue reprices fees/rebates, the
-operator merges the Binance feed branch → unblock seed 3).
+Phase 2 is open-ended: NO saturation clause, never create DONE. Research
+object = the whole STRATEGY CLASS (sub-$1 UP+DOWN pair accumulation),
+not gabagool-the-wallet. Prefer measurement units over reading units.
+
+Queue (top = next):
+
+1. **W0 variant atlas** — IN PROGRESS (session 5). Scan the trade tape
+   across eras (per-market /trades sampling, Oct 2025 → now) to find
+   EVERY wallet that ever ran a sub-$1 pair-accumulation variant on
+   crypto up/down books; classify on the design axes (entry trigger,
+   ladder, maker/taker completion, timing, leg-risk, exit, subsidy
+   posture); per-variant economics + which died at which venue events.
+   Deliverable: VARIANT-ATLAS.md + dossiers for new finds.
+2. W1 failed-challenger post-mortem (0x95f51617…779f, −$542k/30d):
+   which VARIANT died and why; dossier + "how this strategy dies"
+   section in STRATEGY-BRIEF.md.
+3. W2 deep parameter extraction on 0xb27bc932 (full history: ladder
+   distributions per vol regime, requote cadence, capital curve,
+   fee-era boundaries).
+4. W3 live shadowing (every ~1-2h, small units, cumulative table in
+   measurements/live-shadow.md).
+5. W4 scale D-measurements to thousands of markets / more months;
+   month-by-month regime drift.
+6. W5 rebate economics per candidate quoting policy (uses A22 20% rule
+   + measured fill distributions).
+7. W6 paper-EV the LAB-HANDOFF seeds + strongest atlas variants.
+8. W7 terrain map beyond btc-15m (eth/sol/xrp 15m; btc 5m/1h/4h) —
+   knowledge only, scope stays btc-15m.
+
+Fold findings into BRIEF/HYPOTHESES/METRICS continuously; re-rank
+LAB-HANDOFF seeds when the atlas surfaces stronger variants.
 
 DONE session 4 so far: recovered + committed the edge-source unit a
 crashed predecessor left on disk — A17 (edge execution fingerprint,

@@ -74,3 +74,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the strategy's full story is now documented — how it made money in each era, exact fee/rebate math, who runs it today and how, and what the lab should build first.
 - Next: nothing — the relay ends; the lab picks up LAB-HANDOFF.md.
 - Health: on track.
+
+## 2026-07-17T03:47Z — unit: Phase 2 kickoff (session 5)
+
+- Did: reopened the shift per your Phase 2 directive — removed the DONE marker and rebuilt the work queue (variant atlas first).
+- Found: nothing new — administrative unit.
+- Next: scan the historical trade tape to find every wallet that ever ran any version of this strategy, era by era.
+- Health: on track.

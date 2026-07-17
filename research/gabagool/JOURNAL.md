@@ -503,3 +503,23 @@ Creating DONE. The shift ends here: 4 sessions, P1–P51 + A1–A24,
 G1–G9, H1–H6 (2 resolved), 11 wallets characterized, 11 measurement
 files, one self-correction ledgered same-day. The knowledge base the
 charter asked for exists and is internally consistent.
+
+## 2026-07-17T03:47Z — session 5: Phase 2 kickoff
+
+(Clock note: `date -u` says 03:47Z while session-4 entries claim up to
+08:50Z on the same day — the pre-session-3 mislabel pattern persists in
+later entries too. Trust git commit times, not journal header times.)
+
+Operator reopened the shift: DONE deleted, CHARTER.md gained Phase 2
+(W1–W7, no saturation clause) plus the class amendment (W0 variant
+atlas as top priority — research the strategy CLASS, every sub-$1
+pair-accumulation variant, not just gabagool's). Rebuilt STATE.md's
+work queue from the Phase 2 streams, committed the DONE deletion.
+
+Next: W0 — design the tape-scan. Plan: sample markets across eras
+(zero-fee Nov–Dec 2025, fee transition Jan 2026, fee-curve era
+Mar–May, rebate-tier era Jun–Jul) on crypto up/down books, pull
+market-wide /trades per sampled market, find wallets that BUY both
+sides within a window, compute per-wallet pair economics, cluster by
+execution style, then cross-check against the 11 known wallets and
+dossier any new significant finds.
