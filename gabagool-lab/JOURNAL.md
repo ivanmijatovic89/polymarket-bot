@@ -1463,3 +1463,39 @@ run ids are unknowable pre-landing. The waiter therefore counts
 terminal ax5 rows (need 8) instead of polling named ids. On fire:
 uids + validators on the 3 new rows, then the full 5-arm × 2-half
 table, then judgment per frozen §E006 criteria only.
+
+## 2026-07-17T12:14Z — session 14, unit 50: blind-window mechanism decomposition + peek-line correction
+
+Two findings while the last 3 flows drain (3,415 jobs at 12:14Z),
+both from landed runs only — judgment still waits for the full
+table.
+
+**Correction first (honesty): the u46/u47 "early peek" quoted the
+wrong line for three runs.** results.ts prints TRADE_sim and then
+the era-corrected EL headline; the peeks for 716/717/718 quoted
+TRADE_sim (−2.2527/−2.3324/−2.2460) instead of canonical EL
+(−2.3103/−2.3715/−2.2897). 715/719 were quoted correctly. The
+u46 phrase "q10 h1 flat, hair better" is therefore wrong: q10 h1
+is WORSE than ref (−2.3103 vs −2.2884). Corrected picture: all 6
+landed non-ref cells are at-or-worse than reference. Rule for
+future peeks: quote only the line labeled "<- headline".
+
+**Mechanism (e004-decomp.ts runs unchanged on ax5 — the identity
+holds, asserts green): raising requoteDelta kills the
+winner-remainder term, and that term was load-bearing.** h2 chain
+(703→715→717→719): rem$ 2.37 → 1.11 → 0.99 → 0.86/mkt while fee
+savings are only +0.21..0.28. h1 partial (708→716→718): same rem
+collapse (−1.18/−1.22) offset by slightly better pair economics →
+flat EL. Reading: the requote engine chases price, so the side
+being accumulated tracks the eventual winner — unpaired remainder
+at ref is worth ~$2.2–2.4/mkt at settlement. Freeze the quotes and
+stale bids fill on the side price is leaving: remainder becomes
+outcome-adverse. Conversion-fee removal (the E006 bet) recovers
+~$0.3; remainder adverseness costs ~$1.2–1.5. That asymmetry is
+why EL does not climb toward lat0 economics. Also: played stays
+99.5% at q10 — the participation-choke caveat looks unlikely to
+trigger even at q45 (first anchor always quotes; delta only gates
+RE-anchoring).
+
+Both facts go into the judgment as mechanism evidence; the verdict
+itself stays fill-in-the-ids on the frozen §E006 criteria.

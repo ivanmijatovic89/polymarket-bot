@@ -297,3 +297,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — 5 of 8 runs landed and verified, drain on pace for ~12:30Z.
 - Next: when all 8 land, verify and judge the experiment against its frozen criteria.
 - Health: on track
+
+## 2026-07-17T12:15Z — unit 50
+- Did: while the last 3 runs drain, decomposed where the money goes in the 6 landed quote-stability runs; corrected 3 misquoted numbers from yesterday's quick peek.
+- Found: slowing the requoting saves ~$0.3/market in fees but costs ~$1.2-1.5/market — fast requoting was steering leftover inventory onto the winning side. All 6 landed cells are at-or-worse than the reference.
+- Next: last 2 arms land (~12:30Z), then formal judgment against the frozen criteria.
+- Health: on track
