@@ -154,6 +154,16 @@ Candidates for the lab:
 
 - Clip $1–28, median $4 (both eras) — sits inside L1 depth; rebate
   income scales with fill COUNT × fee-weight, favoring many small fills.
+- **Rebate arithmetic per policy (W5, A28)**: per $1 of maker
+  notional at price p the rebate is exactly `1.4%·(1−p)`; a taker
+  pays `7%·(1−p)` on the same dollar. Balanced two-sided quoting
+  earns ~0.7% of maker notional; cheap-side (p≈0.1) earns ~1.3% —
+  the subsidy curve structurally favors cheap-side accumulation.
+  $1/day/market payout threshold ⇒ minimum viable density ≈ $143
+  (balanced) / $75 (cheap-side) maker notional per market — a STEP
+  function; below it the rebate line is zero. Calibrated: b27bc932's
+  whole profit at scale = +0.43% of turnover subsidy on breakeven
+  trading. (measurements/rebate-economics-per-policy.md)
 - Per-market outlay: Dec p50 $3.2k (btc-15m), max $7.9k; capital
   recycled by merges within minutes. Per-day capital ≈ few × $10k for
   ~$10k/day at peak (extraordinary ROC — enabled by merge velocity, G5).

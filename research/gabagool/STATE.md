@@ -97,8 +97,12 @@ Queue (top = next):
    measurements/live-shadow.md).
 5. W4 scale D-measurements to thousands of markets / more months;
    month-by-month regime drift.
-6. W5 rebate economics per candidate quoting policy (uses A22 20% rule
-   + measured fill distributions).
+6. ~~W5 rebate economics per policy~~ **DONE session 7 (A28)**:
+   rebate = 1.4%·(1−p) per $ maker notional (cheap-side ≈ 2× balanced);
+   $1/day/market step at ~$143/$75 maker notional per market; sim
+   rebate line ≈ 2× lower bound (D2); farmer postures dead cold-start.
+   measurements/rebate-economics-per-policy.md; folded into BRIEF §6,
+   H3, LAB-HANDOFF addendum. Residue: refresh if venue changes terms.
 7. W6 paper-EV the LAB-HANDOFF seeds + strongest atlas variants.
 8. W7 terrain map beyond btc-15m (eth/sol/xrp 15m; btc 5m/1h/4h) —
    knowledge only, scope stays btc-15m.

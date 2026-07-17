@@ -121,3 +121,24 @@ read STRATEGY-BRIEF.md first, PRIORS.md for any specific claim.
   definitions: METRICS.md. Venue numbers: VENUE-MECHANICS.md. Sim
   blind spots: ENGINE-GAPS.md (G1–G9). Wallet evidence: wallets/ +
   measurements/. Claim provenance: PRIORS.md (P1–P51, A1–A24).
+
+## Phase-2 addendum (session 7) — rebate lines per seed (W5, A28)
+
+Exact per-policy subsidy math in
+measurements/rebate-economics-per-policy.md. What changes for the
+seeds:
+
+- All seeds: report the rebate line SEPARATELY from trading margin,
+  and as a LOWER BOUND (worst_queue admits ~44–49% of touch fills, so
+  sim rebate ≈ half of live for touch-heavy cells).
+- The $1/day/market payout threshold makes rebates a STEP function:
+  cells below ~$143 (balanced) / ~$75 (cheap-side) maker notional per
+  market earn $0 — do not average the rebate across sweep cells.
+- Seed 1: maker-only cells are subsidy-viable standalone at +0.7% of
+  maker notional; taker-completion cells pay 3.0–3.5% on the taker
+  leg at mid-band — separate economics regimes, judge separately.
+- Seed 2 gains the most: cheap-side maker fills earn ~1.3% of
+  notional (double balanced) on top of the only measured positive
+  fee-inclusive margin (+2.31%T). Paper total ≈ +2.7–2.9%T.
+- Farmer-posture variants (pair cost >$1, live on taker-rebate
+  tiers): confirmed non-viable cold-start; do not seed.

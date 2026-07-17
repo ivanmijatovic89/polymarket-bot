@@ -633,3 +633,27 @@ and May contains real multi-day DOWNTIME (May 1–3, most of May 16–26)
 method caveat ledgered: density extrapolation on bursty flow
 overstates single-day fills (Mar 22 "3.6M fills" is an artifact; the
 calibrated anchor is A24's ~104k/day from the June full pull).
+
+## 2026-07-17T06:20Z — session 7, unit 5: W5 rebate economics per policy (A28)
+
+Pure arithmetic unit while the era scan grinds (7/9 days done). The
+A22 estimator collapses to a one-liner per dollar of maker notional:
+rebate = 1.4%·(1−p). That single factor reshapes the seed ranking
+logic: cheap-side maker fills (p≈0.1) earn ~1.3% of notional, nearly
+double balanced two-sided quoting (~0.7%) — the subsidy curve
+structurally favors exactly the b55f variant (Seed 2), which already
+has the only measured positive fee-inclusive trading margin. Both
+anchors calibrate: predicted b27bc932 $2.7k/day (observed $3.2k),
+b55f ~$0.9k/day (observed $0.77–1.06k).
+
+Second structural fact: the $1/day/market payout threshold turns the
+rebate line into a STEP function — below ~$143 (balanced) / ~$75
+(cheap-side) maker notional per market you earn exactly zero. Sweep
+cells must not average the rebate. Third: sim maker fills are the
+worst_queue subset (44–49% of touch fills), so any sim rebate line is
+a ~2× lower bound for touch-heavy policies.
+
+Written to measurements/rebate-economics-per-policy.md, folded into
+BRIEF §6, H3, and a LAB-HANDOFF Phase-2 addendum. Farmer-posture
+variants (pair cost >$1, taker-tier-dependent) are confirmed
+non-seedable for a cold-start bot.

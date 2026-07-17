@@ -109,6 +109,13 @@ edge is dead by regime change, do not test it.
   modelable post-hoc (A22 estimator; G4 resolved), so H3 no longer
   gates sim work; it gates how to READ sim results (subsidy line vs
   trading line, separately).
+- **W5 quantification (A28)**: rebate = 1.4%·(1−p) per $ maker
+  notional (cheap-side ≈ double balanced); $1/day/market threshold ⇒
+  step function at ~$143/$75 maker notional per market; sim rebate
+  line is a ~2× LOWER BOUND for touch-heavy policies (D2 fill
+  admission). Seed-2-style cheap-side policies gain the most; farmer
+  postures confirmed dead at cold-start taker tiers.
+  (measurements/rebate-economics-per-policy.md)
 
 ## H4 — Binance-anchored selective quoting beats blind parity quoting (rank 4, blocked)
 

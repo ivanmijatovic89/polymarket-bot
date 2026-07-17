@@ -599,3 +599,17 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   don't assume capital locks to resolution. [verified]
   (wallets/b27bc932.md §exit-style,
   data/b27bc932-timeline-full.json)
+- **A28 (rebate economics per policy — the subsidy curve favors
+  cheap-side):** from the A22 estimator: rebate = 1.4%·(1−p) per $1
+  maker notional (taker pays 7%·(1−p) on the same dollar; venue keeps
+  80%). Balanced two-sided ⇒ ~0.7% of maker notional; cheap-side
+  p≈0.1 ⇒ ~1.3%. $1/day/market threshold ⇒ viability step at ~$143
+  (balanced) / ~$75 (cheap-side) maker notional per market (≈48 maker
+  fills/market at $3 clips). Calibration: predicts b27bc932 $2.7k/day
+  (obs $3.2k) and b55f ~$0.9k/day (obs $0.77–1.06k). b27bc932's
+  entire at-scale profit = +0.43% of turnover subsidy on breakeven
+  trading. Sim rebate line = ~2× lower bound for touch-heavy policies
+  (D2). Policy risk: program terms changed twice in 6 months;
+  majority-subsidy EV inherits unpriceable venue discretion (G8).
+  [verified — arithmetic on verified inputs]
+  (measurements/rebate-economics-per-policy.md)

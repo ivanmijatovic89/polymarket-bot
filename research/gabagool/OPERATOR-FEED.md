@@ -123,3 +123,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: nothing new — the whole scene is stable hour-over-hour (same players, same prices, same books). Also fixed a filename bug so future snapshots don't overwrite old raw data.
 - Next: rebate-income math per candidate quoting policy while the history scan finishes (5 of 9 days done).
 - Health: on track.
+
+## 2026-07-17T06:22Z — unit: subsidy math per strategy flavor (session 7)
+
+- Did: worked out exactly how much the venue's maker rewards pay each candidate strategy flavor, checked against two real wallets' incomes.
+- Found: the rewards program pays cheap-side buying almost double what it pays balanced quoting, and pays nothing at all below a minimum activity level per market. The strongest live wallet's whole profit is this subsidy.
+- Next: the wallet-discovery scan is 7 of 9 days done; classify the results into the variant atlas next.
+- Health: on track.
