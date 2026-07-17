@@ -1093,3 +1093,14 @@ patient wallet pairs slower at deeper discounts, the grinder faster
 at parity — the speed/depth tradeoff the density surface (A37)
 predicts. W4's pair-completion-timing remainder done; W4 is now
 fully covered (density A38, session A46, endgame A47, pairing A48).
+
+## 2026-07-17T14:50Z (real) — session 8, unit 19: LAB-HANDOFF synthesis
+
+Folded the session's fifteen amendments (A34-A48) into LAB-HANDOFF
+as a build-ordered spec addendum: the joint (offset × requote) axis
+with its two corners, the validated entry gate, session as a
+first-class dimension, measured leg-risk numbers (favorite-lean,
+0.99 ride, 1-minute pairing clock, 60-300s timeouts), the $1-3k/day
+ceiling expectation, and the January data trap. The deep-pair cell
+is no longer just a target — it now has a mechanism spec the lab
+can implement directly.

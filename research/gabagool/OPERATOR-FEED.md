@@ -368,3 +368,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: about one minute typically, 99% within five — same for both bot styles. If a position sits unpaired longer than ~5 minutes, it's a bet, not a pending pair — manage it as such.
 - Next: live snapshot 6, then final session wrap.
 - Health: on track.
+
+## 2026-07-17T14:50Z — unit: everything folded into the lab handbook (session 8)
+
+- Did: condensed today's fifteen findings into the lab's build spec, in implementation order.
+- Found: the strategy blueprint is now concrete: quote at the touch with fast re-quotes when calm, pause after sharp moves and during US hours (or switch style), let near-certain positions ride, treat 5-minute-old unpaired legs as bets. Target: $1-3k/day realistic ceiling.
+- Next: live snapshot 6, then session state wrap.
+- Health: on track.

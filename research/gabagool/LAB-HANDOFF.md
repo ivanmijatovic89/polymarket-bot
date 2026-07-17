@@ -180,3 +180,44 @@ measure the H6 completion premium); (5) seed 3 stays blocked. Sim
 reading rules (D2 2× fill lower bound, rebate step, tier-0 fee lines,
 subsidy-share reporting) are in the note — apply them before killing
 any cell.
+
+## Phase-2 addendum (session 8) — mechanism priors A34–A48
+
+Session 8 turned the deep-pair cell from a target into a SPEC. What
+changed for the lab, in build order:
+
+1. **The (offset × requote-interval) axis is JOINT with two optima
+   (A37/A38, replicated 4 months × 4 sessions)**: fast requoting
+   wins AT the touch (133 fills/mkt p50 vs 58 at 15s), and HURTS at
+   −2c and deeper (patient standing rungs win there). Sweep the two
+   corners — fast+shallow (the 0x04b6d7e9 recipe) and slow+deep
+   (b55f) — not a full grid; the middle is dominated. The
+   $143/market rebate step is reachable MAKER-ONLY at touch/−1c in
+   ≥75% of markets in every month/session stratum.
+2. **The shallow-fast cell gets an entry gate (A44/A45)**: prefer
+   quoting when |30s mid drift| ≈ 0; HARD veto fills within ~10s of
+   a fall (held 3/3 day-samples); never instant-requote upward
+   under a rally (that manufactures the breakeven wallet's
+   local-top fills). Directional 30s+ momentum signals flip sign by
+   day — sweep, never fix. Post-fill mid drift @60s per fill class
+   is the cell diagnostic (A39): it separates winner from breakeven
+   before PnL converges.
+3. **Session is a first-class dimension (A35/A36/A46)**: the
+   grinder recipe is gross-negative 12–19Z (2/2 samples) and
+   positive off-hours; the strongest living wallet trades ONLY
+   12–19Z weekdays with the shallow-fast recipe. Evaluate every
+   cell per session bucket; a v1 that switches recipe (or idles) by
+   clock matches both living winners.
+4. **Leg-risk numbers are now measured (A34/A47/A48)**: leave the
+   FAVORITE-side leg unpaired (cheap-side excess pays the flip
+   lottery; favorite-lean earns the base rate); ≥0.99 legs ride to
+   redemption (0/393 flips); pairing clock is ~1 min (2/3 of pair
+   volume ≤60s) — legs unpaired >5 min are structural excess to
+   manage, not await; timeouts belong in 60–300s.
+5. **Expectations (A43)**: the per-operator ceiling compressed 5×
+   in 8 months; realistic v1 ceiling is $1–3k/day. Winners exit at
+   full speed when margins compress (n=8); the downside profile is
+   compression, not blow-up (no class casualty exists, A26).
+6. **Data trap (G10)**: January Telonex books are ~27% empty stubs
+   on the sampled day — filter markets by event count before any
+   January backtest or the sim silently under-fills.
