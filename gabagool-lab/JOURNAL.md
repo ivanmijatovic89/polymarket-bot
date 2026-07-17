@@ -52,3 +52,30 @@ into INHERITANCE.md with citations. The load-bearing findings:
   intent_meta as the only per-fill channel).
 
 Next unit: EPISTEMOLOGY.md + EVALUATION.md (the frozen scoring rule).
+
+## 2026-07-17T04:45Z — session 1, unit 3: the rulebook
+
+Wrote EPISTEMOLOGY.md v1 and EVALUATION.md v1 (frozen before any
+experiment). The design departures from the old protocol, in short:
+
+- Three experiment types (axis / candidate / probe) instead of
+  everything facing a go/kill gate — sweeps produce curves, not
+  verdicts; only candidates face championship gates (D-001).
+- Era-partitioned evaluation: search Apr 1–May 31, one-shot holdout
+  Jun 1–14 (the only post-taker-rebate slice), transition band labeled,
+  no cross-era pooling (D-002).
+- The headline number is EL = corrected trading line + rebate line,
+  with taker fees re-priced per-fill at the on-chain-verified curve and
+  the reconstruction validated against the sim's own fees column
+  (D-003). Trading and subsidy lines always reported separately.
+- Championship = hard gates (stability across weeks, tails, latency
+  500/1000ms, pairing health, sample size) then a transparent SCORE for
+  ordering only (D-004). Tail thresholds get calibrated from the L1
+  baseline then frozen (D-005, pre-declared amendment path).
+- Honesty machinery: frozen specs in LEDGER.md (git-timestamped),
+  two-disjoint-halves screening, max-of-N labeling, paste-the-numbers
+  rule, nothing-to-run → stop.
+
+LEDGER.md created with the entry template. Next unit: tools
+(submit.ts, results.ts) — port fable patterns, write against
+backtest_run_segments/_markets directly.

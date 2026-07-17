@@ -7,30 +7,25 @@
 
 - **Session:** 1 (first working session, started 2026-07-17T03:17Z)
 - **Ladder rung:** L0 — building the lab
-- **Phase:** 0 — inheriting (reading KB, quarries, verifying engine facts)
+- **Phase:** design docs done; tools next
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
-- Bootstrap files + **INHERITANCE.md** (Phase 0 distillation: verified
-  engine facts, concept priors, sim doctrine, fee eras, trap list).
-- No design docs yet, no strategy code yet, no runs yet.
+- INHERITANCE.md (Phase 0 facts), **EPISTEMOLOGY.md v1 + EVALUATION.md
+  v1 (frozen)**, LEDGER.md (empty registry). No strategy code yet, no
+  runs yet.
 
 ## Queue (work top to bottom)
 
-1. **Design docs** — EPISTEMOLOGY.md (experiment lifecycle, proposal policy,
-   honesty mechanisms, holdout design) + EVALUATION.md (frozen multi-criteria
-   scoring rule with time slices, tails, latency robustness, capital
-   efficiency, sample size). Era policy: verdicts on 2026-04-01→06-14;
-   June 1–14 = untouchable confirmation holdout.
-2. **Tools** — minimal: submit.ts (pins latency, derives batchUid,
+1. **Tools** — minimal: submit.ts (pins latency, derives batchUid,
    refuses dirty tree), results.ts (DB direct: segments + markets +
    pairing health + rebate line + corrected fees), ledger validation.
-3. **Smoke** — one end-to-end sequential run of a scripted variant
+2. **Smoke** — one end-to-end sequential run of a scripted variant
    (~10 markets): verifies intent_meta lands in DB, maker fill = own
    price/size, pnl matches hand-computation. L0 complete when green.
-4. **L1 baseline** — archetype-faithful parity ladder at real coverage
+3. **L1 baseline** — archetype-faithful parity ladder at real coverage
    (Apr 1→May 31 search window) with full readout incl. time slices +
    latency stress (0/140/500/1000ms).
 

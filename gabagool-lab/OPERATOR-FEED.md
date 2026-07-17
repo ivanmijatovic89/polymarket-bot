@@ -15,3 +15,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the edge is real and measurable NOW (b55f +2.31% after fees on btc-15m); the sim shows only the worst half of maker fills, so the lab will judge on rankings, corrected fees, rebate line, and time slices — not raw EV alone. June 1–14 data reserved as untouched holdout.
 - Next: write the lab's rulebook — EPISTEMOLOGY.md + EVALUATION.md (frozen scoring rule).
 - Health: on track
+
+## 2026-07-17T04:50Z — unit 3
+- Did: wrote and froze the lab rulebook — EPISTEMOLOGY.md (how experiments are proposed, frozen, judged) + EVALUATION.md (the scoring rule: time-sliced stability, tails, latency stress, subsidy split).
+- Found: nothing new — design unit; the scoring rule is now frozen BEFORE any run, as the charter requires.
+- Next: build the two tools (submit + results reader), then the end-to-end smoke.
+- Health: on track
