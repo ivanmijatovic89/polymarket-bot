@@ -322,11 +322,45 @@ Template:
   (672 smoke-ttl covered basic TTL at 45a2e32). E004 may freeze.
 - **Runs / Judgment / Lesson:** (pending)
 
+## E005-ladder-depth — ladder shape × the deep-pair cell
+- **Type:** axis
+- **Status:** proposed (draft — freezes at first evidence submission;
+  parityTolPct default TO BE SET from E003's agreeing region, or kept
+  at file default 10 if E003's advance rule fails)
+- **Mechanism:** placement depth is the pair engine (LS-2: shallow
+  rungs end the median market fully one-sided; churn, not oscillation,
+  "pairs" them). Deeper rungs fill on real oscillation only — fewer,
+  better fills, larger locked discount per completed pair, and a
+  standing-ladder character that reduces requote churn (LS-1). The
+  deep-pair cell targets the region where the ONLY known
+  trading-profitable parity wallets live: pair cost 0.95–0.976
+  (A30 0x04b6d7e9 0.964–0.976; A33 vidarx 0.95–0.976; A32 ohio-house
+  0.95@0.968 — n=3 independent existence proofs).
+- **Knobs:** rungOffsets ∈ {[0.01,0.03] (E002 ref), [0.02,0.06],
+  [0.02,0.13], [0.01,0.02,0.05,0.13] (touch+deep, A17 shape)};
+  pairCostCap ∈ {0.99 (ref), 0.98, 0.97, 0.96} on the best rung shape
+  — 4 shape arms + 3 deep-cap arms = 7 arms × 2 halves = 14 runs.
+  Two-stage inside one experiment: shapes first (8 runs), then caps on
+  the winning shape (6 runs) — cap arms are submitted only after the
+  shape sub-judgment is written (prevents 14-way selection).
+- **Coverage:** halves h1 = Apr, h2 = May (E31 rule; selection among
+  >3 arms), lat140 primary; battery (0/500/1000) on the surviving
+  region before any candidate promotion.
+- **Execution:** BullMQ parallel via submit.ts, clip 6, jitter 0.
+- **Success criteria (freeze-ready):** (1) all runs complete,
+  validators green; (2) per-arm: EL±se, taker share, pairRate,
+  imbalance p50/p90, avg outlay, fills; (3) shape sub-axis: adjacent
+  arms distinguished or declared indistinguishable (axis-table.ts);
+  (4) advance rule per sub-axis: direction agreement + top-2 set match
+  across halves (as E003); (5) deep-cap sub-axis: the pairRate/EL
+  trade-off curve measured — does forcing deeper pairs raise EL or
+  just lower fill count? NOT gated on EL sign (axis).
+- **Kill/stop:** axis closed when both sub-curves measured at planned
+  resolution; dead cells recorded in LEADERBOARD dead-regions with
+  numbers.
+- **Runs / Judgment / Lesson:** (pending)
+
 ## Backlog (one line each; propose formally when reached)
-- E005 ladder-shape axis: {[1,3]c, [2,6]c, [2,13]c, touch+deep} below
-  bid (archetype vs A17 current-winner shape). PLUS deep-pair cell
-  (A30): pairCostCap ∈ {0.96, 0.97, 0.98} × patient completion — the
-  only trading-profitable parity wallet today pairs at 0.964–0.976.
 - E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
   (start 120s), late-only (start 480s)} (A17/A20; E24 warns open).
 - E007 endgame policy: stop-quote time × band-exit behavior (A20 flip
