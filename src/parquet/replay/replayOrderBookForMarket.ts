@@ -17,7 +17,7 @@ export type ReplayApplyEvent = {
   msg: AnyMarketMessage
   rawJson: string
   market: string
-  source: { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+  source: { kind: 'parquet'; filePath: string; ingestSeq: bigint; tsLocalMs?: number }
 }
 
 /**
@@ -87,6 +87,9 @@ export async function replayOrderBookForMarket(params: {
         typeof row.raw_json === 'string' ? row.raw_json : JSON.stringify(row.raw_json ?? null)
       const ingestSeq = toBigInt(row.ingest_seq, 0n)
       const filePath = filePaths[item.fileIdx] ?? '(unknown)'
+      // Recorder receive time, surfaced on the tick source so backtest feed
+      // visibility can use the same clock live uses (the bot's wall clock).
+      const tsLocalMs = Number(toBigInt(row.ts_local_ms, 0n))
 
       // Fast-path skip for non-market-channel types without JSON parse.
       if (
@@ -98,10 +101,13 @@ export async function replayOrderBookForMarket(params: {
       ) {
         // skip
       } else {
-        const msg = await eng.handleRaw({
-          rawJson,
-          source: { kind: 'parquet', filePath, ingestSeq },
-        })
+        const source: ReplayApplyEvent['source'] = {
+          kind: 'parquet',
+          filePath,
+          ingestSeq,
+          ...(tsLocalMs > 0 ? { tsLocalMs } : {}),
+        }
+        const msg = await eng.handleRaw({ rawJson, source })
         if (msg) {
           const market = msg.market
           if (!activeMarket) activeMarket = market
@@ -112,7 +118,7 @@ export async function replayOrderBookForMarket(params: {
                 msg,
                 rawJson,
                 market: activeMarket,
-                source: { kind: 'parquet', filePath, ingestSeq },
+                source,
               })
             }
           }

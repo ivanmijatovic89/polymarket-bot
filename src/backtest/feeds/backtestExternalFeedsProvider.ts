@@ -34,6 +34,12 @@ export function createBacktestExternalFeedsProvider(args: {
   // Replay timestamps are non-decreasing in practice; a backwards tick falls
   // back to binary search instead of trusting the cursor.
   let cursor = -1
+  // Live feed visibility is bounded by the bot's wall clock, which is
+  // monotone. Replay tick clocks may not be (`--order exchange_time` reorders
+  // rows whose local receive times interleave), so clamp to the high-water
+  // mark — the feed value must never move backward between consecutive ticks,
+  // because live it can't.
+  let clockHighWaterMs = Number.NEGATIVE_INFINITY
 
   const visibleAt = (i: number, tMs: number): boolean => {
     if (!binance) return false
@@ -68,7 +74,9 @@ export function createBacktestExternalFeedsProvider(args: {
     snapshotAt: (tickTsMs: number): ExternalFeedsSnapshot => {
       const snap: ExternalFeedsSnapshot = { rtdsPolymarketCryptoPrices: {} }
       if (binance) {
-        const i = advanceTo(tickTsMs)
+        const clamped = Number.isFinite(tickTsMs) ? Math.max(tickTsMs, clockHighWaterMs) : tickTsMs
+        if (Number.isFinite(clamped)) clockHighWaterMs = clamped
+        const i = advanceTo(clamped)
         if (i >= 0) {
           const tsMs = binance.series.tsMs[i]!
           snap.binanceWsSpotPrice = {

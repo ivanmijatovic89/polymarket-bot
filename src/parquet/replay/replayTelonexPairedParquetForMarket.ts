@@ -7,7 +7,7 @@ import { MarketEngine } from '../../market/MarketEngine.js'
 import { openParquetReaderWithEpermFallback } from '../../cli/helpers/openParquetReader.js'
 import { toBigInt } from '../../utils/toBigInt.js'
 
-type Source = { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+type Source = { kind: 'parquet'; filePath: string; ingestSeq: bigint; tsLocalMs?: number }
 
 type ReplayApplyEvent = {
   msg: AnyMarketMessage
@@ -20,6 +20,7 @@ type PairedRow = {
   ingest_seq?: unknown
   event_type?: unknown
   ts_exchange_ms?: unknown
+  ts_local_ms?: unknown
   market?: unknown
   up_asset_id?: unknown
   down_asset_id?: unknown
@@ -103,10 +104,14 @@ export async function replayTelonexPairedParquetForMarket(params: {
       })
       if (!upMsg || !downMsg) continue
 
+      // Telonex's recorder receive time — the replay stand-in for the bot's
+      // wall clock; backtest feed visibility keys off it (see EngineSource).
+      const tsLocalMs = Number(toBigInt(row.ts_local_ms, 0n))
       const downSource: Source = {
         kind: 'parquet',
         filePath: params.filePath,
         ingestSeq: baseSeq * 2n + 2n,
+        ...(tsLocalMs > 0 ? { tsLocalMs } : {}),
       }
 
       eng.getOrderBookEngine().applyAny(upMsg)

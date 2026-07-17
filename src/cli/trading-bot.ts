@@ -40,6 +40,7 @@ import {
   type BotUiCommand,
   type TradingBotWebUiServer,
 } from './webui/createTradingBotWebUiServer.js'
+import { defaultBinanceFeedSymbol } from '../binance/paths.js'
 import type { GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
 import type { BalanceAndApprovalResult } from '../blockchain/checkBalanceAndApproval.js'
 import type {
@@ -283,7 +284,7 @@ async function main(): Promise<void> {
   const rtdsBinanceSymbols = rtdsReq?.binanceSymbols?.length
     ? rtdsReq.binanceSymbols
     : rtdsReq
-      ? [`${symbol}usdt`]
+      ? [defaultBinanceFeedSymbol(symbol)]
       : []
   const rtdsChainlinkSymbols = rtdsReq?.chainlinkSymbols?.length
     ? rtdsReq.chainlinkSymbols
@@ -304,7 +305,7 @@ async function main(): Promise<void> {
   // without a hardcoded pair.
   const binanceWsSymbol =
     (binanceWsReq?.symbol ?? '').toLowerCase().trim() ||
-    (binanceWsReq ? `${symbol.toLowerCase()}usdt` : '')
+    (binanceWsReq ? defaultBinanceFeedSymbol(symbol) : '')
   const binanceWsEnabled = binanceWsSymbol.length > 0
   if (binanceWsReq && !binanceWsReq.symbol?.trim()) {
     logger.info(

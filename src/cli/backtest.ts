@@ -72,7 +72,12 @@ import {
 } from '../polymarket/upDownSlugWindow.js'
 import { binanceFeedLookbackMs } from '../backtest/feeds/wireBacktestExternalFeeds.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
-import { aggTradesDayPath, pairFromFeedSymbol, utcDatesCovering } from '../binance/paths.js'
+import {
+  aggTradesDayPath,
+  defaultBinanceFeedSymbol,
+  pairFromFeedSymbol,
+  utcDatesCovering,
+} from '../binance/paths.js'
 import { fileExists } from '../utils/fs.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
@@ -705,6 +710,9 @@ async function main(): Promise<void> {
   if (feedsBinanceRequested) {
     const lookbackMs = binanceFeedLookbackMs()
     const missingByPair = new Map<string, Set<string>>()
+    // Markets share day files (a 15m batch touches ~2 dates per pair), so
+    // memoize existence per pair|date instead of re-statting per market.
+    const dayFileExists = new Map<string, boolean>()
     for (const ctx of marketContexts) {
       if (!ctx.slug) continue
       const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
@@ -717,11 +725,18 @@ async function main(): Promise<void> {
         continue
       }
       const slugSymbol = symbolFromSlug(ctx.slug)
-      const feedSymbol = feedsBinanceSymbol ?? (slugSymbol ? `${slugSymbol}usdt` : null)
+      const feedSymbol =
+        feedsBinanceSymbol ?? (slugSymbol ? defaultBinanceFeedSymbol(slugSymbol) : null)
       if (!feedSymbol) continue
       const pair = pairFromFeedSymbol(feedSymbol)
       for (const d of utcDatesCovering(window.startMs - lookbackMs, window.endMs)) {
-        if (!(await fileExists(aggTradesDayPath(pair, d)))) {
+        const key = `${pair}|${d}`
+        let exists = dayFileExists.get(key)
+        if (exists === undefined) {
+          exists = await fileExists(aggTradesDayPath(pair, d))
+          dayFileExists.set(key, exists)
+        }
+        if (!exists) {
           let set = missingByPair.get(pair)
           if (!set) missingByPair.set(pair, (set = new Set()))
           set.add(d)

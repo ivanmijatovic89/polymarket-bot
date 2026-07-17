@@ -6,13 +6,8 @@ import {
   type AggTradeMessage,
 } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
-import {
-  pairFromFeedSymbol,
-  recordingHourPath,
-  recordingStatusPath,
-  recordingsDir,
-  utcDateOf,
-} from './paths.js'
+import { parseBinanceCliArgs } from './cliArgs.js'
+import { recordingHourPath, recordingStatusPath, recordingsDir, utcDateOf } from './paths.js'
 
 /**
  * Record the LIVE Binance WS aggTrade stream to hourly parquet files, keeping
@@ -38,26 +33,56 @@ export const recordedAggTradeParquetSchema = new parquet.ParquetSchema({
 
 type Args = { pair: string; hours?: number }
 
+// Node's setTimeout delay is a 32-bit int; beyond it the timer fires after
+// ~1 ms, which would "successfully" shut the recorder down instantly.
+const MAX_HOURS = Math.floor((2 ** 31 - 1) / 3_600_000)
+
 function parseArgs(argv: string[]): Args {
-  let pair = ''
   let hours: number | undefined
-  for (let i = 0; i < argv.length; i++) {
-    const a = argv[i]
-    const next = (): string => {
-      const v = argv[++i]
-      if (v === undefined) throw new Error(`missing value for ${a}`)
-      return v
+  const { pair } = parseBinanceCliArgs({
+    argv,
+    usage: 'Usage: npm run binance:record-aggtrades -- --pair BTCUSDT [--hours 8]',
+    flags: {
+      '--hours': {
+        kind: 'value',
+        set: (v) => {
+          const n = Number(v)
+          // Reject garbage loudly: a silently dropped --hours would leave an
+          // unattended recording running forever.
+          if (!Number.isFinite(n) || n <= 0 || n > MAX_HOURS) {
+            throw new Error(
+              `invalid --hours value: ${JSON.stringify(v)} (expected 0 < hours <= ${MAX_HOURS}; omit --hours to record indefinitely)`,
+            )
+          }
+          hours = n
+        },
+      },
+    },
+  })
+  return { pair, ...(hours !== undefined ? { hours } : {}) }
+}
+
+/**
+ * Atomically move the finished tmp file to the first FREE hourly path:
+ * `recordingHourPath` is fully deterministic, so a recorder restarted within
+ * the same UTC hour — or two concurrent recorders on the same pair — would
+ * silently clobber the other session's trades with a plain `fs.rename`
+ * (which overwrites). `fs.link` fails with EEXIST instead of replacing, so
+ * the exists-check and the move are one atomic step; later segments park
+ * under `-part2`, `-part3`, … and `binance:verify-aggtrades` (which globs
+ * `*-aggTrades-live-*.parquet`) picks them all up automatically.
+ */
+async function moveNoReplace(tmpPath: string, finalPath: string): Promise<string> {
+  for (let n = 1; ; n++) {
+    const target = n === 1 ? finalPath : finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
+    try {
+      await fs.link(tmpPath, target)
+      await fs.unlink(tmpPath)
+      return target
+    } catch (err) {
+      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
     }
-    if (a === '--pair') pair = pairFromFeedSymbol(next())
-    else if (a === '--symbol') pair = pairFromFeedSymbol(`${next()}usdt`)
-    else if (a === '--hours') hours = Number(next())
-    else throw new Error(`unknown arg: ${a}`)
   }
-  if (!pair) {
-    console.error('Usage: npm run binance:record-aggtrades -- --pair BTCUSDT [--hours 8]')
-    process.exit(2)
-  }
-  return { pair, ...(hours && Number.isFinite(hours) ? { hours } : {}) }
 }
 
 function hourKeyOf(ms: number): string {
@@ -90,8 +115,8 @@ async function main(): Promise<void> {
     writer = undefined
     await w.close()
     if (rowsInHour > 0) {
-      await fs.rename(writerTmpPath, writerFinalPath)
-      console.log(`[binance:record] closed ${writerFinalPath} rows=${rowsInHour}`)
+      const target = await moveNoReplace(writerTmpPath, writerFinalPath)
+      console.log(`[binance:record] closed ${target} rows=${rowsInHour}`)
     } else {
       await fs.rm(writerTmpPath, { force: true }).catch(() => {})
     }

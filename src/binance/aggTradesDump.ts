@@ -3,9 +3,9 @@ import path from 'node:path'
 import crypto from 'node:crypto'
 import { pipeline } from 'node:stream/promises'
 import yauzl from 'yauzl'
-import { DuckDBInstance } from '@duckdb/node-api'
 import { sleep } from '../utils/sleep.js'
 import { fileExists } from '../utils/fs.js'
+import { getInMemoryDuckDb, sqlQuote } from '../utils/duckdb.js'
 import { aggTradesDayPath, aggTradesDumpUrl, tmpDir } from './paths.js'
 
 const MAX_RETRIES = 3
@@ -107,20 +107,17 @@ async function csvHasHeader(csvPath: string): Promise<boolean> {
   }
 }
 
-function sqlQuote(s: string): string {
-  return `'${s.replaceAll("'", "''")}'`
-}
-
-// One shared in-memory DuckDB instance per process (CSV→parquet conversion only).
-let duckDbPromise: Promise<DuckDBInstance> | undefined
-function getDuckDb(): Promise<DuckDBInstance> {
-  duckDbPromise ??= DuckDBInstance.create(':memory:')
-  return duckDbPromise
-}
-
 export type DownloadDayResult = {
   status: 'downloaded' | 'skipped-exists' | 'skipped-not-published'
   parquetPath: string
+  /**
+   * Which artifact 404'd for `skipped-not-published`. `zip` = the day is not
+   * published at all; `checksum` = the zip EXISTS but its .CHECKSUM doesn't
+   * (normal minutes-long state during Binance's publication window; if it
+   * persists, integrity is unverifiable — a different problem than a missing
+   * dump, and callers should say so).
+   */
+  missing?: 'zip' | 'checksum'
   rows?: number
   bytes?: number
 }
@@ -169,15 +166,27 @@ export async function downloadAggTradesDay(args: {
   }
 
   try {
+    // Both fetches map a 404 to skipped-not-published: during Binance's daily
+    // publication window the zip can appear minutes before its .CHECKSUM, and
+    // that transient state must skip the day (retried by the next --sync run),
+    // not abort the whole pool run. `missing` keeps the two states
+    // distinguishable for callers' diagnostics.
     try {
       await downloadToFile(urls.zip, zipPath)
     } catch (err) {
       if (err instanceof DumpNotFoundError) {
-        return { status: 'skipped-not-published', parquetPath: finalPath }
+        return { status: 'skipped-not-published', missing: 'zip', parquetPath: finalPath }
       }
       throw err
     }
-    await downloadToFile(urls.checksum, checksumPath)
+    try {
+      await downloadToFile(urls.checksum, checksumPath)
+    } catch (err) {
+      if (err instanceof DumpNotFoundError) {
+        return { status: 'skipped-not-published', missing: 'checksum', parquetPath: finalPath }
+      }
+      throw err
+    }
 
     const expected = (await fs.readFile(checksumPath, 'utf8')).trim().split(/\s+/)[0]?.toLowerCase()
     const actual = await sha256OfFile(zipPath)
@@ -190,7 +199,7 @@ export async function downloadAggTradesDay(args: {
     await extractSingleCsv(zipPath, csvPath)
     const header = await csvHasHeader(csvPath)
 
-    const db = await getDuckDb()
+    const db = await getInMemoryDuckDb()
     const conn = await db.connect()
     try {
       const readCsv =

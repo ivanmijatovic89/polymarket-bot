@@ -4,7 +4,19 @@ import { decodeMarketChannelMessage } from './marketChannelDecoder.js'
 
 export type EngineSource =
   | { kind: 'live'; attempt: number }
-  | { kind: 'parquet'; filePath: string; ingestSeq: bigint }
+  | {
+      kind: 'parquet'
+      filePath: string
+      ingestSeq: bigint
+      /**
+       * The recorder's local receive time (`ts_local_ms`) of this row, when the
+       * dataset has one. This is the replay stand-in for "the bot's wall clock
+       * at tick processing time" — external-feed visibility must be checked
+       * against it, not the exchange timestamp, which is stamped BEFORE the
+       * Polymarket→bot delivery leg (~50–150 ms).
+       */
+      tsLocalMs?: number
+    }
 
 export type EngineTick = {
   source: EngineSource
