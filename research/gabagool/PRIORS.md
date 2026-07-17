@@ -1105,7 +1105,9 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   immunity (unit 12) traces to one noisy n=119 bucket, own deepest
   −3.66c → depth-escape hypothesis dead, cross-wallet universality
   still [contested]. The keeper: weekday EVENING depth gradient is
-  monotone favorable (+0.69/−1c → +3.10c/≤−6c @60s) — deep rungs
-  belong in weekday evenings; US session shallow-or-off; overnight
-  depth-indifferent. H1 allocation rule updated.
+  monotone favorable and REPLICATES 2/2 weekdays through the
+  −3..−5c band (Jun-10 +2.69c, Jun-12 +3.10c @60s); the ≤−6c tail
+  flips by day at dust n (unproven); Saturday evening all-negative
+  (A59-consistent). Rule: weekday-evening deep rungs at −3..−5c;
+  US shallow-or-off; overnight depth-indifferent. H1 updated.
   [verified] (measurements/session-drift-b27bc932.md §8)

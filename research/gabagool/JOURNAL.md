@@ -1584,3 +1584,14 @@ an evening instrument. H1's allocation rule now reads: deep rungs
 weekday evenings, shallow-or-off in the US session, depth
 indifferent overnight. Cross-wallet universality of US toxicity
 stays honestly [contested].
+
+## 2026-07-17T18:02Z — session 11, unit 14 (small): evening depth gradient replicated — sweet band −3..−5c
+
+Re-ran the evening cells with the new bucket table. Friday evening
+replicates the gradient through the −3..−5c band (+0.68 → +2.37 →
++3.10c @60s); the ≤−6c tail flips by day at dust-level n (35 fills,
+$119) so nothing gets built on it; Saturday evening is negative in
+every bucket, exactly as the A59 weekend read predicts. The
+allocation rule ships in its final form: weekday-evening deep rungs
+at −3..−5c, US shallow-or-off, overnight depth-indifferent,
+weekends flat.

@@ -538,3 +538,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the week's best practical rule — deep discount orders are an EVENING tool (the deeper, the better there, up to +3 cents of favorable follow-through); in US afternoons no depth is safe. Our future bot should place its deep ladder in weekday evenings only.
 - Next: live snapshot ~18:30 UTC, evening test 20-21 UTC.
 - Health: on track
+
+## 2026-07-17T18:02Z — unit 14 (session 11)
+- Did: re-tested yesterday's "deep orders are an evening tool" rule on a second weekday and a Saturday.
+- Found: confirmed on the weekday (best zone: 3-5 cents below the best bid); Saturday evenings show nothing, as expected. The rule is ready for the strategy spec.
+- Next: live snapshot ~18:30 UTC, evening test 20-21 UTC.
+- Health: on track

@@ -180,3 +180,13 @@ edge-source.ts now buckets deeper-class fills by offset (−1c / −2c /
    overnight deep ≈ +0.7–1.1c, flat-ish across depth).
 Log: data/edge-source-depth-buckets.log (script gained the
 depth-bucket table permanently).
+
+### §8 replication (unit 14): the gradient's sweet band is −3..−5c
+
+Jun-12 (Fri) evening buckets: +0.68c / +2.37c / **+3.10c** / −1.35c
+(≤−6c n=35, $119 — dust). Jun-13 (Sat) evening: ALL buckets
+−0.6→−1.7c (weekend, as A59 predicts). So the weekday-evening depth
+gradient replicates 2/2 through the **−3..−5c band** (+2.7c and
++3.1c @60s on the two weekdays); the ≤−6c tail flips by day at tiny
+n — unproven, don't build on it. Final allocation rule: weekday
+evening deep rungs at −3..−5c; US shallow-or-off; weekends flat.
