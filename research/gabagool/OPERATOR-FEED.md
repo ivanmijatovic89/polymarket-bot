@@ -228,3 +228,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: our target market's volume shrank ~9x since January (traffic moved to the new 5-minute markets, which are 8x bigger but unprofitable for everyone we audited). Our market is where the MARGINS live — plenty of room for a starter bot, a ceiling for empire-building.
 - Next: live snapshot 4, then the remaining deep measurement on the top wallet's order ladders.
 - Health: on track.
+
+## 2026-07-17T06:07Z — unit: how much money this actually takes (session 7)
+
+- Did: measured how much capital the top wallet commits per market from its full June history.
+- Found: about $900 per 15-minute market, ~$4-8k total working capital for its whole operation on our target market. Money is not the barrier to entry — getting enough passive fills is.
+- Next: live snapshot 4 (~06:45 UTC).
+- Health: on track.

@@ -814,3 +814,14 @@ cadence. Class share of every book's flow is 20–42% and RISING: this
 strategy family is becoming the books' dominant flow type.
 (measurements/terrain-books.md; W7 partial — btc 1h/4h deep numbers
 not broken out, dated-slug naming groups them.)
+
+## 2026-07-17T06:05Z — session 7, unit 19: b27bc932 capital curve (W2 item)
+
+From the June full pull: btc-15m outlay p50 $896/market (p90 $1.7k),
+near-uniform pacing with a late tilt and the final decile cut; the
+whole btc-15m sleeve of the biggest subsidy earner runs on ~$4–8k
+working capital. For the lab: bankroll is a non-issue at v1 scale
+($1–3k covers $150–500/market); the binding constraint is maker fill
+DENSITY, exactly what the paper-EV note flagged as the sweep's job to
+measure. Folded into the dossier; BRIEF §6 already carries the
+rebate-step math this connects to.
