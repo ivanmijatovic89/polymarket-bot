@@ -100,6 +100,7 @@ rows are the HOURLY series (different slug scheme, caught by the
 | b27bc932 | 1730 | $9324 | 1 | 0.961 | 1.0045 | $2.75 | 87 | 9 | btc-15m $8.1k, bitcoin-up-or-down-july-17-2026-12am-et $0.7k, bitcoin-up-or-down-july-16-2026-11pm-et $0.5k |
 | 95f5-challenger | 425 | $1852 | 1 | 0.027 | 1.0296 | $2.5 | 0 | 22 | btc-5m $1.4k, eth-5m $0.3k, btc-15m $0.2k |
 
+- **O6/continued (13:24Z):** see O7 below the 13Z snapshot.
 - **O6 (08:10Z):** first real movement — realized pair costs ROSE
   across the board vs the 04–06Z snapshots (b55f 0.991→0.993, 0xce25
   0.994→1.003, b27bc932 0.996→1.005, bonereaper 1.037→1.063): the
@@ -108,3 +109,40 @@ rows are the HOURLY series (different slug scheme, caught by the
   intra-day; a single 2h window cannot certify a wallet's pair-cost
   discipline — snapshots need a full-day spread before averaging.
   (Raw JSON now renamed per snapshot: shadow-2026-07-17T0810Z.json.)
+
+### 2026-07-17T13:24Z (last 2h; first afternoon-UTC sample, no overlap with 1–3)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 2504 | $47337 | 1 | 0.63 | 1.0161 | $6.95 | 0 | 123 | btc-5m $17.5k, eth-5m $6.7k, btc-15m $5.7k |
+| 0xce25 | 2895 | $33565 | 1 | 0.847 | 1.0164 | $6.18 | 0 | 119 | btc-5m $14.9k, eth-5m $5.8k, btc-15m $5.4k |
+| powerwinner | 444 | $32646 | 1 | 0.917 | 1.0304 | $69.27 | 0 | 25 | btc-5m $32.6k |
+| bonereaper | 6569 | $100101 | 1 | 0.383 | 1.0582 | $4.6 | 0 | 100 | btc-5m $59.7k, eth-5m $7.6k, btc-15m $5.2k |
+| 0xaaaaa | 545 | $39067 | 1 | 0.667 | 1.1554 | $75.1 | 0 | 24 | btc-5m $39.1k |
+| doggystyie | 560 | $21877 | 1 | 0.977 | 1.0029 | $35.69 | 0 | 24 | btc-5m $21.9k |
+| badfallen | 1305 | $26931 | 1 | 0.862 | 1.0223 | $13.2 | 0 | 24 | btc-5m $26.9k |
+| b27bc932 | 7655 | $50686 | 1 | 0.947 | 1.0306 | $4.12 | 181 | 38 | btc-5m $41.4k, btc-15m $8.1k, bitcoin-up-or-down-july-17-2026-8am-et $0.5k |
+| 95f5-challenger | 0 | $0 | - | - | - | - | 0 | 0 | (idle) |
+
+- **O7 (13:24Z) — the meta is NOT static intra-day; b27bc932 expands
+  to btc-5m.** Three findings vs the 04–08Z morning snapshots:
+  1. **b27bc932 changed shape**: 7,655 fills / $50.7k in 2h (vs
+     ~1,800 / $9.5k all morning), with **btc-5m now its top book
+     ($41.4k vs $8.1k btc-15m)**. All prior data (June pull, A24,
+     A27, capital-curve W2) showed it as btc-15m-first with btc-5m
+     absent/dust. Either a session schedule (US-morning btc-5m
+     sleeve) or a fresh expansion — check next snapshots. Merge
+     cadence scaled with it (181/2h vs 87), so merges track volume,
+     not clock. Its 2h pair cost went ABOVE $1 (1.031) during the
+     expansion — the btc-5m sleeve trades at farmer-like economics,
+     consistent with terrain-books.md (btc-5m margins negative).
+  2. **Everyone's realized pair cost is >$1 in this window** (even
+     b55f 1.016; sub-$1 club EMPTY). US-morning session: fills and
+     notional 2–5× the quiet overnight hours (bonereaper $100k/2h),
+     clips bigger (b55f p50 $1.67→$6.95). High-activity regime =
+     worse realized pair costs for every wallet — direct support for
+     the H-family claim that pair-cost discipline is
+     volatility-regime-dependent, and a warning for the lab: a
+     strategy certified on quiet hours will look different 13–20Z.
+  3. **95f5 idle** (zero rows in 2h) — first fully-dark window;
+     its crypto dust trickle is intermittent, not continuous.

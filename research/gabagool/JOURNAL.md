@@ -835,3 +835,20 @@ target cell), #2 the maker-fill-density question that gates the
 rebate step, #3 W4 scaling. Clock note: headers between the earlier
 correction and here still drifted (~+1h); units 14–19 actually ran
 05:03–05:10Z. Git times remain ground truth.
+
+## 2026-07-17T13:30Z — session 8, unit 1: live snapshot 4 (W3)
+
+Fresh session, ~7.5h gap since snapshot 3 — snapshot 4 at 13:24Z is
+the first afternoon-UTC (US-morning) sample and the first with no
+window overlap. The meta is NOT static across the day: (1) b27bc932
+expanded to btc-5m at scale — $41.4k btc-5m vs $8.1k btc-15m in 2h,
+7,655 fills vs ~1,800 per morning window; every prior dataset (June
+pull, all morning snapshots) had it btc-15m-first. Merge cadence
+scaled with volume (181/2h), so merges track flow, not clock. (2) The
+sub-$1 club is EMPTY this window — even b55f printed 1.016; the
+US-morning high-activity regime degrades everyone's realized pair
+cost while volumes run 2–5×. Supports pair-cost discipline being
+regime-dependent and warns that lab certification must span the
+13–20Z session, not just quiet hours. (3) 95f5 fully idle (0 rows) —
+its dust trickle is intermittent. Follow-up for next snapshot:
+does b27bc932's btc-5m sleeve persist (schedule vs expansion)?

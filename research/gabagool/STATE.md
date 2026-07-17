@@ -105,10 +105,12 @@ Queue (top = next):
    May downtime windows). Full address (avoid A26-style typos):
    0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82.
 4. W3 live shadowing (every ~1-2h real clock — CHECK `date -u`, the
-   journal drifted; snapshots 1–3 done ~02–05Z Jul 17; cumulative
-   table in measurements/live-shadow.md; rename each raw JSON after
-   the run, the script's bucket label collides). Watch O6: pair-cost
-   regime drift intra-day; and whether b27bc932's merge era persists.
+   journal drifted; snapshots 1–4 done, latest 13:24Z Jul 17 (O7:
+   US-morning regime — sub-$1 club empty, b27bc932 ran a btc-5m
+   sleeve at 5x volume; watch if it persists); cumulative table in
+   measurements/live-shadow.md; rename each raw JSON after the run,
+   the script's bucket label collides). Watch O6: pair-cost regime
+   drift intra-day; and whether b27bc932's merge era persists.
 5. W4 scale D-measurements to thousands of markets / more months;
    month-by-month regime drift.
 6. ~~W5 rebate economics per policy~~ **DONE session 7 (A28)**:

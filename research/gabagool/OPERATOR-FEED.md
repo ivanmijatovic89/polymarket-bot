@@ -242,3 +242,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the top remaining question is a deep-dive on today's best wallet (its exact order placement patterns), which would directly tune our lab's first strategy.
 - Next: live snapshot 4 around 06:40 UTC; successor sessions should start from the new #1.
 - Health: on track.
+
+## 2026-07-17T13:30Z — unit: live snapshot 4 (session 8)
+
+- Did: took the fourth live sample of the active bots, first one in the busy US-morning hours.
+- Found: the picture changes with the clock — every bot's pair cost went above $1 in the busy window, and the top 15-minute bot suddenly ran 5x its usual volume on the 5-minute market. Quiet-hours numbers don't describe the whole day.
+- Next: deep-dive on the strongest living wallet's order patterns (queue #1).
+- Health: on track.
