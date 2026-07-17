@@ -389,3 +389,17 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   REAL fills; content-dedupe silently destroys ~20%+ of a bot's trades
   (puller v1 incident: flipped measured tail PnL from −$1.8k to +$45k).
   [verified the hard way]
+- **A9 (D2 — the charter's key measurement):** worst_queue admits ~44–49%
+  of gabagool22's real btc-15m fills (touch_or_better ~64–68%; 3s
+  alignment window; 43k fills across both eras). The missed half is the
+  benign uninformed-arrival half → sim EV ≈ EV of the toxic subset only.
+  Sim results are a lower bound, not a verdict. Also: 29–45% of his
+  fills printed at/above the ask — he taker-completed substantially;
+  "passive maker" is only ~60-70% of the story. [verified]
+- **A10 (new, current meta):** The venue now runs THREE subsidy programs:
+  maker rebates (20% crypto pool, since ~2026-01-06), tiered taker
+  rebates (3–50% refund, since 2026-05-28, crypto weight 2.3×), and pUSD
+  YIELD. Powerwinner (hottest 30d wallet, +$122.8k) is a PURE
+  taker-rebate farmer: trading −$13.90/market on btc-5m only, rebates
+  +$6.1k/day. Leaderboard "profit" for rebate-era wallets requires
+  decomposition before interpretation (extends P51). [verified]

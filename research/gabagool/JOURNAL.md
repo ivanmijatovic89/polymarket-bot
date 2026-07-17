@@ -141,3 +141,21 @@ subsidy-dominance test, H4 Binance-gated quoting (blocked on branch
 merge), H5 15m-vs-5m book allocation) and OPEN-QUESTIONS.md (12 ranked).
 STATE.md rewritten as a 60-second onboarding for successors. All
 deliverable files now exist with substance. Next big rock: D2.
+
+## 2026-07-17T06:20Z — D2 measured + powerwinner decomposed + literature A1
+
+D2 (the charter's priority measurement): worst_queue admits 44-49% of the
+archetype's real fills, touch 64-68% (3s window; 43k fills, both eras,
+40+40 markets). The sim sees half the volume — the adverse half. Also
+discovered he taker-completed 29-45% of fills (not purely passive), with
+a 1-4c-deep bid ladder + touch joins for the passive rest.
+
+powerwinner (hottest wallet, +$122.8k/30d) decomposed: pure TAKER-rebate
+farmer — btc-5m only, $84 clips, trading −$13.90/market, taker rebates
++$6.1k/day. The current "ecosystem" mixes real edge (b55f), taker-rebate
+farming (powerwinner), and everything between; every wallet needs
+decomposition before its P&L means anything.
+
+Wrote literature/A1 (Avellaneda-Stoikov, Glosten-Milgrom, queue models →
+BTC-15m implications; the fee introduction as a G-M flow-composition
+shift explains the measured margin collapse mechanism cleanly).
