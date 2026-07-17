@@ -478,3 +478,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the "nobody can buy pairs under $1" moment from the last check was just a storm blip — four bots are back under $1 within ~76 minutes, the hidden 5-minute bot cheapest of all, exactly as predicted.
 - Next: one more measurable unit, then the ~20-21 UTC evening snapshot.
 - Health: on track
+
+## 2026-07-17T17:30Z — unit 4 (session 11)
+- Did: measured yesterday's total flow, fees paid, and rebate money available on every crypto market type, with the exact current fee formula.
+- Found: the 5-minute bitcoin market pays out ~$59k/day in maker rebates — almost 9x our target 15-minute book's ~$7k/day — and even the best bot there collects only ~2% of it. But we have zero order-book data for that market (already flagged), so our strategy scope stays on 15-minute.
+- Next: evening live snapshot ~20-21 UTC; smaller measurables in between.
+- Health: on track

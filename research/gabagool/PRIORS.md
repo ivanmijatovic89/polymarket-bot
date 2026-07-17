@@ -1036,3 +1036,16 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   calm). Lab: v1 grinder envelope = WEEKDAY 20–24Z; weekends idle
   or lean-disabled; never evaluate the lean module on pooled dow.
   [verified] (measurements/session-split-vol-b27bc932.md §A59)
+- **A60 (current-era fee/subsidy terrain per book, same-day exact
+  measurement):** Jul-16, 0.070 curve, data-api single-counting
+  re-verified (Σsize = gamma volumeNum on a 3.1k-row btc-5m
+  window). btc-5m $13.58M notional/day → $296k taker fees →
+  **$59.2k/day maker pool** vs btc-15m $1.84M → $34.2k → $6.8k
+  (stable vs the Jul-15 A22 reference). eth-5m/eth-15m/sol-5m/
+  xrp-5m pools: $4.8k/$1.2k/$1.8k/$1.1k daily. The subsidy center
+  of gravity (8.7× the lab book) sits on the un-backtestable book
+  (G11); 13e0d447's $1.1k/day rebate take is only ~2% of the
+  btc-5m pool — no operator saturation. Era-scan 5m absolute
+  levels were understated 4–5× (12-slice extrapolation artifact);
+  its 15m-era ratios stand.
+  [verified] (measurements/terrain-books.md §A60)

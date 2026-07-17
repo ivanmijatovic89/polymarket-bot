@@ -1427,3 +1427,20 @@ now visible live at 76-minute resolution. Bonus color: the two
 profile-less actives bracket the merge-posture axis exactly as A56
 framed it (13e0d447 zero merges, 76d4d470 at 666/2h). Small script
 wart noted: the tracker prints 95f5 twice (cosmetic duplicate).
+
+## 2026-07-17T17:30Z — session 11, unit 4: fee/subsidy terrain per book (A60)
+
+W7 refresh done properly: same UTC day (Jul-16), exact current fee
+curve, every relevant book. Generalized rebate-pool.ts to 5m grids
+and re-verified single-counting against Gamma's official volume (a
+3,105-row btc-5m window matched to the cent). The sheet: btc-5m
+$13.6M/day notional → $296k/day taker fees → $59k/day maker-rebate
+pool; btc-15m $1.84M → $34.2k → $6.8k (replicating Jul-15); eth-5m
+$4.8k pool, eth-15m $1.2k, sol-5m $1.8k, xrp-5m $1.1k. Two
+corrections to older knowledge: the era-scan's btc-5m absolute
+levels were 4–5× understated (sampling artifact — its cross-era
+15m ratios stand), and its "no 5m in January" cell just reflects
+the top-family cut (A54: 5m launched Dec-18). The scope tension is
+now a number: 8.7× the lab book's subsidy pool sits on the book
+with zero book data (G11), and the strongest living wallet takes
+only ~2% of that pool — nobody is close to saturating it.

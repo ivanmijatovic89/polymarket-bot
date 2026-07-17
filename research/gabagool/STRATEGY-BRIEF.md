@@ -270,6 +270,12 @@ Candidates for the lab:
   function; below it the rebate line is zero. Calibrated: b27bc932's
   whole profit at scale = +0.43% of turnover subsidy on breakeven
   trading. (measurements/rebate-economics-per-policy.md)
+  **Pool ceilings per book (A60, Jul-16 exact)**: the btc-15m maker
+  pool is $6.8k/day (stable vs Jul-15's $7.3k) — a v1 bot's rebate
+  line competes inside that; btc-5m's pool is $59k/day (8.7×, ~2%
+  taken by the strongest living wallet — unsaturated, but
+  un-backtestable, G11); eth/sol/xrp pools are $1–5k/day dust
+  (measurements/terrain-books.md §A60).
 - Per-market outlay: Dec p50 $3.2k (btc-15m), max $7.9k; capital
   recycled by merges within minutes. Per-day capital ≈ few × $10k for
   ~$10k/day at peak (extraordinary ROC — enabled by merge velocity, G5).

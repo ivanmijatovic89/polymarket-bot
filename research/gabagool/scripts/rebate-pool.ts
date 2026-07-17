@@ -7,6 +7,9 @@
  *
  * Usage: npx tsx research/gabagool/scripts/rebate-pool.ts \
  *   --day 2026-07-15 [--prefix btc-updown-15m] [--every 4]
+ *   [--step 900] [--windows 96]
+ *
+ * For 5m books: --prefix btc-updown-5m --step 300 --windows 288.
  */
 const args = process.argv.slice(2)
 const argOf = (n: string) => {
@@ -16,6 +19,8 @@ const argOf = (n: string) => {
 const day = argOf('day') ?? '2026-07-15'
 const prefix = argOf('prefix') ?? 'btc-updown-15m'
 const every = Number(argOf('every') ?? 4)
+const step = Number(argOf('step') ?? 900)
+const windows = Number(argOf('windows') ?? 96)
 
 const dayStartSec = Date.parse(`${day}T00:00:00Z`) / 1000
 const results: Array<{ slug: string; trades: number; shares: number; notional: number; fees: number }> = []
@@ -29,8 +34,8 @@ async function getJson(url: string): Promise<unknown> {
   throw new Error(`failed: ${url}`)
 }
 
-for (let w = 0; w < 96; w += every) {
-  const epoch = dayStartSec + w * 900
+for (let w = 0; w < windows; w += every) {
+  const epoch = dayStartSec + w * step
   const slug = `${prefix}-${epoch}`
   let market: { conditionId?: string } | null = null
   try {
@@ -63,8 +68,8 @@ for (let w = 0; w < 96; w += every) {
 }
 
 const tot = (k: 'trades' | 'shares' | 'notional' | 'fees') => results.reduce((a, r) => a + r[k], 0)
-const scale = 96 / results.length
-console.log(`\nsampled ${results.length}/96 windows of ${day}`)
+const scale = windows / results.length
+console.log(`\nsampled ${results.length}/${windows} windows of ${day}`)
 console.log(`sample totals: trades ${tot('trades')}, notional $${tot('notional').toFixed(0)}, fees $${tot('fees').toFixed(2)}`)
 console.log(`day estimate (x${scale.toFixed(2)}): notional $${(tot('notional') * scale).toFixed(0)}, taker fees $${(tot('fees') * scale).toFixed(0)}`)
 console.log(`implied daily maker-rebate pool (20%): $${(tot('fees') * scale * 0.2).toFixed(0)}`)

@@ -174,5 +174,8 @@ it matters (raised by A57): the strongest LIVING wallet (13e0d447,
 volume run on btc-5m — none of it can be book-level studied
 (ladder offsets, fill-vs-touch, D2-style fill-reality checks) or
 backtested. Any 5m-scope decision (W7) currently rests on
-activity-API forensics only. Fix directions (for the ops side, not
+activity-API forensics only. A60 quantifies the stakes: btc-5m
+carries $13.6M/day notional, $296k/day taker fees and a $59k/day
+maker-rebate pool — 8.7× the lab book's subsidy pool, all on the
+book with zero book data. Fix directions (for the ops side, not
 this shift): extend telonex sync to 5m markets, or record live 5m WS.

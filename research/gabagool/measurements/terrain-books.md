@@ -49,3 +49,49 @@ growing minority of ALL up/down flow on every book.
 Caveats: window sampling misses intra-day book rotation; "1h(dated)"
 naming groups all dated hourly slugs; 5m launch date is bracketed
 (Jan-15 → Feb-15), not pinned.
+
+## A60 addendum (session 11): current-era fee/subsidy pools per book (Jul-16, exact curve)
+
+W7 refresh with era-matched constants (A52: current curve
+0.070·p·(1−p), uniform across books per session-10 unit 7). Method:
+`rebate-pool.ts` (generalized with `--step/--windows` for 5m grids),
+data-api /trades per sampled window, single-counting re-verified on a
+btc-5m window (Σsize = gamma volumeNum to the cent, 3,105 rows, no
+offset cap). Same UTC day for every book (2026-07-16), 24 windows
+sampled per book (12 for sol/xrp):
+
+| book | notional/day | taker fees/day | maker pool/day (20%) | per-mkt fees p10/p50/p90 |
+|---|---:|---:|---:|---|
+| btc-5m | $13.58M | **$296k** | **$59.2k** | $613/$1,007/$1,551 |
+| btc-15m | $1.84M | $34.2k | $6.8k | $204/$372/$560 |
+| eth-5m | $1.27M | $24.0k | $4.8k | $46/$74/$176 |
+| eth-15m | $0.40M | $6.2k | $1.2k | $27/$54/$99 |
+| sol-5m | $0.49M | $9.2k | $1.8k | $13/$28/$50 |
+| xrp-5m | $0.32M | $5.4k | $1.1k | $8/$17/$33 |
+
+- btc-15m Jul-16 ($34.2k fees / $6.8k pool) replicates the Jul-15
+  reference ($36.4k / $7.3k, rebate-pool-btc15m.md) — the A22/A28
+  numbers are stable day-to-day.
+- **btc-5m is 7.4× the notional and 8.7× the fee/subsidy pool of the
+  lab's book** — $59k/day of maker rebates plus the taker-tier refund
+  stream sit on the book we cannot backtest (G11). This is THE
+  quantified scope-decision tension: the strongest living wallet
+  (13e0d447, A57) collects from this pool at ~$1.1k/day rebates —
+  i.e. ~2% of the btc-5m maker pool; the pool is nowhere near
+  operator-saturated.
+- **Correction to the era-scan table above**: its btc-5m column is
+  understated ~4–5× ($2.9M vs $13.6M for adjacent days). The
+  cross-check proves data-api complete; the era-scan's 12-slice ×8
+  extrapolation under-sampled the 5m grid (and its btc-5m absence on
+  2026-01-15 is wrong for presence — A54: 5m launched 2025-12-18;
+  it was merely below the scan's top-family cut in its fee-free
+  infancy). Era-scan RATIOS across eras for 15m books stand; treat
+  its 5m absolute levels as floors.
+- eth-5m ≈ eth-15m×4 in fees but both are an order below btc books;
+  sol/xrp 5m alive at dust-pool scale ($1–2k/day). "Expand to alts"
+  remains a non-option; the only real expansion question is btc-5m
+  (knowledge-only for now — strategy scope stays btc-15m).
+- Caveat: btc-5m day estimate could still be a slight LOWER bound if
+  any unsampled window exceeded the /trades offset cap (sampled max
+  was 3,105 rows vs cap ~4,500; US-storm windows could exceed it).
+  Logs: `data/pool-jul16-*.log`.
