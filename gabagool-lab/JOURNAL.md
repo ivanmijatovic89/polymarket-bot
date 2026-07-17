@@ -496,3 +496,29 @@ sequential, NOT evidence): cap-mode crosses issue/fill/record, rej=0,
 validators green — the u9 TTL/gate-close code is functional; E004 can
 freeze after E003's judgment. Also pinned E004's fee basis note (A32
 cold-start tier-0) into the draft before freeze.
+
+## 2026-07-17T06:40Z — session 3, unit 17b: pre-registering E003 curve interpretation (before the table exists)
+
+Seen so far: ONE arm's headline (681, h2-p001, EL −4.22) — and a
+determinism gift: its complete weeks match E002's weekly ELs to 4
+decimals, because parityTolPct=0.1% floors to 2 clips ≡ E002's
+parityTolShares=12. The axis's left endpoint IS the baseline,
+reproduced from an independently written file. Same-code comparability
+is now demonstrated, not assumed.
+
+Interpretation rules I commit to BEFORE seeing the other arms:
+1. "Flat" vs "unresolved": if adjacent arms are indistinguishable
+   (≤2·se_diff) but the ENDPOINTS (0.1 vs 40) are DISTINCT, the axis
+   has a measurable direction with insufficient resolution in between
+   — report endpoint direction, do not interpolate. If even endpoints
+   are indistinguishable, the verdict is "parity tolerance does not
+   move EL at this ladder shape/coverage" — an axis-closed NULL, not
+   a failure.
+2. The advance rule is evaluated EXACTLY as frozen (axis-table.ts
+   renders it); if it fails, no arm seeds E004/E005 defaults — they
+   run at file defaults (parityTolPct=10) with that stated.
+3. Mechanism split accompanies any EL difference: parity tolerance can
+   move EL via (a) fewer leading-leg quotes (less churn exposure) or
+   (b) different completion pressure. Taker share and fill counts per
+   arm are the tell: if EL improves WITH taker share flat and fills
+   down, it is (a); if taker share moves, it is (b). Quote both.
