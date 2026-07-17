@@ -255,3 +255,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the deep design stays ~2x better than baseline at EVERY latency — but at zero latency it barely trades and loses ~nothing, so nearly ALL of today's loss comes from quotes getting run over while updates are in flight. The next lever is obvious and measured: stop re-quoting so much.
 - Next: draft + launch the quote-stability experiment (how rarely can the ladder re-quote?).
 - Health: on track
+
+## 2026-07-17T10:36Z — unit 43
+- Did: wrote the quote-stability experiment plan (how rarely can the ladder re-quote before it stops trading?).
+- Found: nothing new (proposal unit); prediction written down before any data.
+- Next: build the launcher + readout, then launch (~8 runs, ~55 min drain).
+- Health: on track

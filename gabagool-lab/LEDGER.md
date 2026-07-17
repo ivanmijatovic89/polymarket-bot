@@ -949,9 +949,69 @@ Template:
     (same channel, information-based), then E005b/timing/completion
     composition. E006-quote-stability draft next.
 
+## E006-quote-stability — requote discipline on the deep chassis
+- **Type:** axis
+- **Status:** proposed (draft 2026-07-17T10:36Z, s12 u43 — freezes at
+  first evidence submission; written AFTER the E005 battery judgment
+  and BEFORE any E006 data exists)
+- **Why this axis now (proposal policy: measured mechanism first):**
+  the E005 battery decomposed the best cell's loss: at lat0 the deep
+  book loses ≈ nothing (−0.12/−0.01, taker ≈ 0) while at lat140 it
+  loses −2.29/−2.02 with 37% taker share → the residual loss is
+  ~100% requote-conversion (cancel-in-flight + re-anchor churn,
+  LS-1). requoteDelta has NEVER been tested (0.02 fixed since E002);
+  LS-1 named quote-stability a design axis; this is the
+  highest-information axis available. Time-weighting (old E006 seed)
+  moves to backlog as E-timing.
+- **Mechanism:** rungs re-anchor when |bid − basisBid| ≥
+  requoteDelta (E003-pair-accumulator.ts:228). Every re-anchor
+  under latency exposes the old rung in flight and can cross at
+  arrival (LS-1). Raising the threshold trades participation for
+  conversion-immunity: standing rungs fill only on organic sweeps
+  (the lat0-like subset, which the battery showed is ≈ EV-neutral
+  and CHEAP — S 0.80–0.82). Prediction: EL rises toward the lat0
+  economics as delta grows; played share and fills/mkt fall; the
+  EL-vs-participation trade-off curve is the deliverable. The knob
+  is an absolute price distance — no sizing floor, no LS-6
+  collapse; arms are distinct by construction (schema bound
+  lt(0.5) makes 0.45 the effective "never within a window" arm;
+  a true never-requote needs a code change — out of scope, stated).
+- **Arms:** requoteDelta ∈ {0.02 (ref = runs 708/703, NOT
+  resubmitted — parameter-identical cell, standing determinism
+  basis), 0.05, 0.10, 0.20, 0.45} on the E005 chassis: rungOffsets
+  [0.02,0.13], pairCostCap 0.96, parityTolPct 2, completionMode
+  none, clip 6, lat140, jitter 0. Halves h1 Apr / h2 May. 8 new
+  runs (~23.4k jobs). Suffixes `ax5h<half>-q<code>`, codes q05,
+  q10, q20, q45. Launcher `tools/launch-e006.sh`, LS-3 hardened
+  (--dry-run only; refuses queued ax5; all knobs hardcoded).
+- **Success criteria (freeze-ready; freeze verbatim at submit):**
+  (1) all 8 new runs complete, validators green (G9 fee-recon,
+  settlement recheck, meta coverage 100%); participation is a
+  MEASURED OUTPUT, not a validity gate — an arm with played < 20%
+  (G2 level) is flagged "delta chokes participation at this
+  chassis" and its EL reported but marked
+  unmeasurable-at-coverage (E005 caveat language). (2) per-arm×half
+  readout: EL±se, t, taker share, fills m/t (+ fills/mkt), played%,
+  pairRate, imb p50/p90, S(pair), outlay, CVaR5. Cancel counts are
+  not persisted — stated limitation; conversion is read from taker
+  share × fills. (3) adjacency on the chain 0.02 < 0.05 < 0.10 <
+  0.20 < 0.45 at |ΔEL| > 2·se_diff, plus endpoints. (4) advance
+  rule (as E003/E005): (a) endpoint direction sign(EL(0.45) −
+  EL(0.02)) agrees across halves; (b) top-2 by EL of the 5 arms is
+  the same SET in both halves. Both hold → the winning delta joins
+  the chassis for subsequent axes/candidate assembly; either fails
+  → axis unstable at this coverage, chassis keeps 0.02, stated.
+  (5) the EL-vs-participation trade-off curve quoted either way
+  (NOT gated on EL sign — axis experiment).
+- **Kill/stop:** axis closed when the curve is measured at planned
+  resolution; dead cells to LEADERBOARD with numbers.
+- **Runs / Judgment / Lesson:** (pending)
+
 ## Backlog (one line each; propose formally when reached)
-- E006 time-weighting axis: {uniform, minutes 8–13 heavy, open-avoid
-  (start 120s), late-only (start 480s)} (A17/A20; E24 warns open).
+- E-timing time-weighting axis (was the E006 seed; re-ranked behind
+  quote-stability u43 per the battery's mechanism finding):
+  {uniform, minutes 8–13 heavy, open-avoid (start 120s), late-only
+  (start 480s)} (A17/A20; E24 warns open).
 - E007 endgame policy: stop-quote time × band-exit behavior (A20 flip
   table; minute-14 cut always on elsewhere).
 - E008 fair-value gate (seed 3, unblocked on this branch): Binance

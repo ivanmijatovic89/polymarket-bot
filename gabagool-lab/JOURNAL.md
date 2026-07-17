@@ -1311,3 +1311,26 @@ attacks is 100% of the residual loss) → then E008 fair-value
 suppression → then compositions. E006-quote-stability draft is the
 next unit: read the strategy's requote code first (LS-6
 effective-grid pass), then the proposal.
+
+## 2026-07-17T10:36Z — session 12, unit 43: E006-quote-stability proposed (requoteDelta grid on the deep chassis)
+
+The proposal writes itself from the battery: the residual loss is
+~100% requote-conversion, requoteDelta has sat untested at 0.02
+since E002, and LS-1 called quote-stability a design axis on day
+one. Grid {0.02 ref (= runs 708/703 reused), 0.05, 0.10, 0.20,
+0.45} on the rc+c960 chassis, halves, lat140 — 8 new runs. The
+schema bounds requoteDelta below 0.5, so 0.45 is the effective
+"never re-anchor within a window" arm; a true never-requote needs a
+code change and is explicitly out of scope this axis. LS-6 pass:
+the knob is an absolute price distance — no sizing floor to
+collapse arms; all five are behaviorally distinct by construction.
+Participation is pre-declared as a measured output with the E005
+choke-caveat language (high deltas SHOULD trade less; that is the
+trade-off being bought). Old E006 (time-weighting) re-ranked to
+backlog as E-timing, reason recorded in the proposal.
+
+Prediction pre-registered in the mechanism block: EL climbs toward
+the lat0 economics (≈ −0.1) as delta grows, participation falls;
+the curve's shape decides whether a standing deep ladder keeps
+enough flow to matter. Next: launcher + q-mode table extension
+(blind), then freeze-at-submit and launch.
