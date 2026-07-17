@@ -153,3 +153,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E003 ~86% done (ETA ~06:28Z), 0 failures, 7 of 9 pending result sets now in DB.
 - Next: judge E003 parity axis the moment the last runs land.
 - Health: on track
+
+## 2026-07-17T06:23Z — unit 26
+- Did: session 10 pickup — re-armed the drain watcher, re-loaded the judgment materials.
+- Found: E003 ~93% done (ETA ~06:27Z), 0 failed jobs, 8/9 result flows already saved. Nothing new.
+- Next: judge the E003 parity-tolerance axis the moment the queue finishes.
+- Health: on track

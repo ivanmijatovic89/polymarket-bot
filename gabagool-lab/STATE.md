@@ -12,15 +12,15 @@
 
 ## Status digest
 
-- **Session:** 9 (started 2026-07-17T06:16Z; s8 lived ~3 min. Stamp
+- **Session:** 10 (started 2026-07-17T06:21Z; s9 lived ~3 min. Stamp
   rule: paste from `date -u` output captured in the same command —
   every estimate so far has drifted. TZ note: this box is UTC+2;
   raw `stat` mtimes print LOCAL — subtract 2h)
 - **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) draining;
   judgment is the next substantive unit
-- **Phase:** E003 draining (~86% at 06:18Z, ~425 jobs/min by
-  waiting-delta, ETA ~06:28Z; 2 waiting-children left in aggregate).
-  Watchers: harness task b3lekba6d (s9, wakes this session, 3h cap) +
+- **Phase:** E003 draining (~93% at 06:23Z, ETA ~06:27Z; 1
+  waiting-children left in aggregate, 8/9 flows persisted).
+  Watchers: harness task b5tn9drpb (s10, wakes this session, 3h cap) +
   detached nohup pid 66095 → logs/watch-drain-s5.log (survives
   session death). No drain-window prep left (u22 cleared E004
   pre-launch). EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor
@@ -62,8 +62,8 @@
 
 ## Queue (work top to bottom)
 
-1. **E003 judgment when drained (watch-drain task b3lekba6d, s9,
-   armed 06:17Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
+1. **E003 judgment when drained (watch-drain task b5tn9drpb, s10,
+   armed 06:22Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
    Runs; run 679 = failed tombstone from the double-submit incident,
    IGNORE). Per-arm readouts (`results.ts --run <id> --gates s1`),
    axis-table.ts render, advance rule AS WRITTEN in LEDGER §E003

@@ -759,3 +759,27 @@ gone; the relay's hops keep shrinking but stay clean). Pickup:
 
 No E003-blind prep remains (u22 cleared the E004 pre-launch), so this
 unit is pickup-only. Next unit: E003 judgment when the watcher fires.
+
+## 2026-07-17T06:23Z — session 10, unit 26: pickup; drain ~93%; watcher re-armed
+
+Session 10 begins at 06:21Z (s9 lived ~3 min — pickup commit, then
+gone; sixth consecutive short hop, all clean). Pickup:
+
+1. **Drain healthy**: 1,918 waiting + 12 active at 06:23Z, 0 failed
+   market jobs → ~93% done, ETA ~06:27Z. Aggregate: 1 waiting-children
+   left (8/9 flows persisted), failed=3 = known stale foreign rows.
+2. **Watcher re-armed under THIS session** (task b5tn9drpb, 3h cap,
+   agg baseline 3). Detached nohup 66095 alive — sixth relay survived.
+3. **DONE absent, tree clean at 8b68c94, worker daemon alive**
+   (pid 68398, markets+aggregate, conc 4). KB STATE unchanged.
+4. **Judgment kit loaded fresh**: LEDGER §E003 advance rule ((a)
+   parity-response direction agrees across halves via OLS-on-rank
+   sign, (b) top-2 set identical — axis-table.ts evaluates both
+   mechanically) + success criteria (10 runs complete, validators
+   green, per-arm readout fields, 2·se_diff distinguishability) +
+   u17b rules (endpoint-direction reporting; rule-failure → E004/E005
+   at file default tol 10, stated; mechanism split via taker share +
+   fill counts) + G2/G3/G9 definitions from EVALUATION §5.
+
+No E003-blind prep remains. Next unit: E003 judgment when the
+watcher fires (~06:27Z), then the E004 freeze+launch path from STATE.
