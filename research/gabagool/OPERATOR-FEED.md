@@ -442,3 +442,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: no — nobody else changed that day (oddly, one other bot STOPPED merging the same day). It's a per-operator bookkeeping choice, not a rule change; our strategy can treat merging as a free design knob.
 - Next: evening snapshot of the live bots (~20-21 UTC).
 - Health: on track
+
+## 2026-07-17T16:32Z — unit 9 (session 10)
+- Did: full profile of the strongest under-the-radar bot (no username, invisible to leaderboard browsing).
+- Found: it's now the best live wallet — ~$3.2k/day from a cold start six weeks ago, buying pairs under $1 even during hours everyone else pays over $1; it works exactly like the strategy we plan to build, though on 5-minute markets. Our tracker now watches it.
+- Next: evening snapshot (~20-21 UTC) now including the two hidden wallets.
+- Health: on track

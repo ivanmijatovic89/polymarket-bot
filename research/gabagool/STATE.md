@@ -154,17 +154,25 @@ Unit 8 (16:28Z, small): Jul-01 merge-ON is operator-specific — A56
 coordinated change; 13e0d447 STOPPED same day, opposite direction —
 recorded unexplained). Merge posture = per-operator style axis.
 
-Queue after unit 8: (1) W3 evening snapshot ~20–21Z (club
-re-formation test — A49's evening-positive live check; morning
-snapshot tomorrow settles OQ #5 residue; if any tracked active has
-gone dark, rerun lineage-sweep.ts around its exit). (2) Queue
-otherwise CLEAN — remaining measurable candidates: 04b6d7e9
-overnight-stretch repeat (A34 residue, needs telonex books); W7
-terrain refresh with era-matched fee constants (A52); 13e0d447
-dossier (maker-pure cold-start winner, profile-less — atlas §4
-candidate, now also the merge-stop oddity). Session 10 ran units
-1–8 (A51–A56, snapshot 7/O10); all were API/receipt measurements —
-no engine runs, no src/ touches.
+Unit 9 (16:32Z): 13e0d447 dossier — A57 (wallets/13e0d447.md). The
+profile-less cold-start is now the STRONGEST living wallet:
+~$3.2k/day blended 7d (lb $2.14k + rebates $1.13k), ≈$124k in 5.5
+weeks; btc-5m only, maker-pure, pairCost 0.9761 overnight/0.9978
+US (deepest current-era sub-$1); overnight-tilted 1.6× — the two
+living leaders split the clock (13e0d447 off-hours vs 04b6d7e9
+business hours). live-shadow.ts now tracks both profile-less
+wallets (13e0d447, 76d4d470). BRIEF genealogy re-ranked.
+
+Queue after unit 9: (1) W3 evening snapshot ~20–21Z (club
+re-formation test; now includes the profile-less pair — expect
+13e0d447 to appear sub-$1 while others don't; morning snapshot
+tomorrow settles OQ #5 residue). (2) Measurable candidates:
+04b6d7e9 overnight-stretch repeat (A34 residue, telonex books);
+13e0d447 ladder-offset join (telonex, extends A57); 13e0d447
+mid-June btc-15m share check (one pull); W7 terrain refresh with
+era-matched fee constants. Session 10 ran units 1–9 (A51–A57,
+snapshot 7/O10); all API/receipt measurements — no engine runs, no
+src/ touches.
 
 ### Session-9 digest (2026-07-17 14:50Z→, live)
 

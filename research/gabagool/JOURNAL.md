@@ -1319,3 +1319,22 @@ flipping the same module in opposite directions within 24 hours
 argues against any common venue cause. Merge posture lands as a
 per-operator style axis: never / dribble / block-recycle /
 continuous.
+
+## 2026-07-17T16:32Z — session 10, unit 9: 13e0d447 dossier (A57)
+
+Dossiered the atlas's top remaining candidate and it re-ranks the
+living field. 13e0d447 — no public profile, API-only, born May-29
+with a week of penny probes — has earned ≈$124k in 5.5 weeks
+(lb $84.6k + rebates $39.4k) and its 7-day run-rate is ~$3.2k/day
+blended, which overtakes 04b6d7e9 as the strongest living wallet.
+The fingerprint is the lab's deep-pair seed made flesh: btc-5m only,
+100% buys, $3.85 clips, maker-pure, pair cost 0.976 overnight and
+0.998 even in the US session — the deepest sub-$1 prints in the
+current era, achieved while every tracked wallet in today's O10
+snapshot sat above 1.0075. Volume tilts overnight 1.6×: the two
+strongest living wallets split the clock (13e0d447 off-hours,
+04b6d7e9 business hours) exactly like the previous winner pair.
+Caveat kept front and center: it runs 5m, not the lab's 15m — but it
+proves maker-pure deep-pair grinding clears cold-start economics at
+full strength today. Added both profile-less wallets to the
+live-shadow tracker so W3 finally sees them.

@@ -38,6 +38,9 @@ const WALLETS: Array<{ label: string; address: string }> = [
   { label: 'badfallen', address: '0x3048d65321be3497164cdfc2996f94f98a2e7537' },
   { label: 'b27bc932', address: '0xb27bc932bf8110d8f78e55da7d5f0497a18b5b82' },
   { label: '95f5-challenger', address: '0x95f51617e900f7d4df2894d77a73c1b2b269779f' },
+  // profile-less actives (A55/A57) — invisible to handle-based tracking
+  { label: '13e0d447', address: '0x13e0d447520ebe7f8eeaf7817211201b2c585204' },
+  { label: '76d4d470', address: '0x76d4d4703add6e94cfdb1107f3d991d85ff2c512' },
 ]
 
 async function getJson(url: string): Promise<any> {

@@ -990,3 +990,20 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   continuous), confirming the BRIEF's hot-swappable-module read.
   [verified] (data in wallets/b27bc932.md A56 bullet; one-off API
   counts, no script)
+- **A57 (13e0d447 dossiered — the profile-less cold-start champion
+  is plausibly the strongest LIVING wallet):** lb +$84.6k all-time
+  ($17.6M vol) + $39.4k maker rebates (35 daily payouts Jun-10→) ≈
+  $124k in 5.5 weeks; 7d run-rate $2.14k/day trading + $1.13k/day
+  rebates ≈ **$3.2k/day blended, accelerating** — above 04b6d7e9's
+  $2.75k/day. Fingerprint (Jul-16 2h windows): btc-5m ONLY, 100%
+  BUY, clips $3.85 p50, pairRate 0.84–0.88, pairCost **0.9761
+  overnight / 0.9978 US** — deepest current-era sub-$1 prints;
+  volume tilts overnight 1.6× (off-hours grinder, opposite habitat
+  to 04b6d7e9 — the two strongest living wallets split the clock
+  like the A36 pair). Maker-pure → tier moat bypassed (A32's win
+  specimen at full strength); merge module stopped Jul-02 (A56);
+  no public profile (A55). Lab: the deep-pair maker-pure cell is
+  ALIVE at $3.2k/day on btc-5m from a cold start — the btc-15m
+  analogue is exactly the lab's question. Live-shadow now tracks
+  both profile-less actives.
+  [verified] (wallets/13e0d447.md)

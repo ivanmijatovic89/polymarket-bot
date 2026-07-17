@@ -282,7 +282,8 @@ Candidates for the lab:
 -1. **The long-run force is ceiling compression, not blow-up (A43)**:
    best documented per-operator daily rate by era — Nov 2025 ~$14k
    (PurpleThunder/52483137) → Dec–Jan ~$10.6k (93c22116) → Feb–Mar
-   ~$6.5k (guh123) → living best ~$2.75k incl. rebates (0x04b6d7e9).
+   ~$6.5k (guh123) → living best **~$3.2k incl. rebates (13e0d447,
+   A57 — maker-pure cold-start, overtook 04b6d7e9's $2.75k)**.
    Each fee/venue shock opened a briefly-rich window (A40–A42), then
    the ceiling ratcheted down. All 8 documented winners exited
    abruptly at full speed (quit-at-peak n=8; the first, 52483137,
