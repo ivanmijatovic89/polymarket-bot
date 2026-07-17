@@ -1,0 +1,15 @@
+#!/usr/bin/env bash
+# Mechanical write-scope guard for the gabagool lab shift.
+branch="$(git rev-parse --abbrev-ref HEAD)"
+if [ "$branch" != "gabagool-lab" ]; then
+  echo "[guard] commits allowed only on gabagool-lab (on: $branch)" >&2
+  exit 1
+fi
+bad="$(git diff --cached --name-only | grep -vE '^(gabagool-lab/|src/strategies/gabagool-lab/)' || true)"
+if [ -n "$bad" ]; then
+  echo "[guard] BLOCKED — staged files outside gabagool-lab/ and src/strategies/gabagool-lab/:" >&2
+  echo "$bad" >&2
+  echo "[guard] unstage them; the lab may write only inside those two paths." >&2
+  exit 1
+fi
+exit 0
