@@ -72,22 +72,23 @@
 
 ## Queue (work top to bottom)
 
-1. **Drain-window unit (E004-blind — do NOT read partial ax2
-   results): E005 spec finalization.** Stamp parityTolPct default = 2
-   (E003 judged). LS-6 pass on the arm grids: compute EFFECTIVE
-   values of every rungOffsets / pairCostCap arm under clip 6 /
-   maxSharesPerSide 120 so no two arms collapse into the same policy
-   (E003 wasted 2/5 arms on a floor tie). Two-stage submission rule
-   already in spec (shapes first, caps after shape sub-judgment).
-2. **E004 judgment when drained (watcher buhv1r5qv or nohup log
-   watch-drain-s11-e004.log says DRAINED, ETA ~07:16Z):** 6 runs +
-   control 682/683. Per success criteria frozen in LEDGER §E004:
-   per-arm×half readout (incl. crosses issued/filled, completed-pair
-   cost, taker fees), policy spread vs 0.3%-of-turnover H6 kill,
-   8-cell advance rule (top-2 set match + sign(EL−EL(none))
-   agreement), mechanism split. Axis gates G2/G3/G9 only.
-3. **After E004 judgment:** launch E005 (shapes sub-axis first),
-   then E006 timing. Seeds in LEDGER backlog.
+1. **E004 judgment when drained (watcher buhv1r5qv or nohup log
+   watch-drain-s11-e004.log says DRAINED; pace ~540/min → ETA
+   ~07:09Z):** 6 runs + control 682/683. Per success criteria frozen
+   in LEDGER §E004: per-arm×half readout (incl. crosses
+   issued/filled, completed-pair cost, taker fees), policy spread vs
+   0.3%-of-turnover H6 kill, 8-cell advance rule (top-2 set match +
+   sign(EL−EL(none)) agreement), mechanism split. Axis gates
+   G2/G3/G9 only. Expect ~4×2 table incl. control; axis-table.ts
+   may need the ax2 prefix + completion-arm ordering (none <
+   cap0.97 < cap0.99 < free) — check its interface before use.
+2. **After E004 judgment: launch E005 shape arms** (8 runs — 4
+   rungOffsets shapes × halves; spec finalized u29 incl.
+   pre-registered cap-grid finalization rule + participation
+   caveat; parityTolPct=2, completion=none everywhere). Cap arms
+   ONLY after the shape sub-judgment + bind-table decision are
+   written (LEDGER §E005). Then E006 timing. Seeds in LEDGER
+   backlog. No E004-blind prep remains.
 
 ## Open questions / risks
 

@@ -472,8 +472,9 @@ Template:
 ## E005-ladder-depth — ladder shape × the deep-pair cell
 - **Type:** axis
 - **Status:** proposed (draft — freezes at first evidence submission;
-  parityTolPct default TO BE SET from E003's agreeing region, or kept
-  at file default 10 if E003's advance rule fails)
+  parityTolPct = 2, set from E003's judgment u27 — floors to 12
+  shares at clip 6 in every arm, a constant BY DESIGN; completion =
+  none in every arm, axis isolation per §E004)
 - **Mechanism:** placement depth is the pair engine (LS-2: shallow
   rungs end the median market fully one-sided; churn, not oscillation,
   "pairs" them). Deeper rungs fill on real oscillation only — fewer,
@@ -505,6 +506,47 @@ Template:
 - **Kill/stop:** axis closed when both sub-curves measured at planned
   resolution; dead cells recorded in LEADERBOARD dead-regions with
   numbers.
+- **Pre-freeze amendment (2026-07-17T06:44Z, s11 u29 — LS-6
+  effective-grid pass, done E004-blind during the ax2 drain; written
+  BEFORE any E005 data exists):**
+  - **Shape arms pass LS-6:** all four rung lists are distinct on the
+    2-dp price grid at clip 6 / maxShares 120 — no two collapse (the
+    E003 p001≡p020 failure mode is absent). Effective-behavior notes
+    that the readout must carry: (a) band suppression is asymmetric —
+    a 0.13-offset rung is quotable only when bid ≥ 0.24 (bandLo 0.11),
+    a 0.06 rung needs bid ≥ 0.17, so deep arms have smaller effective
+    quote windows on the cheap side and (via soloCap 0.65 on px, not
+    bid) larger pre-pairing windows on the expensive side — played
+    share and fills are first-class shape readouts, not just EL;
+    (b) the 4-rung A17 arm rests 24 shares/side/cycle vs 12 for the
+    2-rung arms — it tests the archetype ladder AS A PACKAGE (size ×
+    depth), while the three 2-rung arms carry the pure-depth
+    comparison; the sub-judgment must say which comparison it is
+    reading; (c) the 12-share parity floor binds mid-sweep for the
+    4-rung arm (one full one-sided sweep = 24 ≥ 12) — same floor,
+    different duty cycle; quote suspension counts belong in the
+    readout if the mechanism split needs them.
+  - **Cap-grid finalization rule (pre-registered; executes AFTER the
+    shape sub-judgment, BEFORE cap submission):** the prior grid
+    {0.96, 0.97, 0.98} is anchored on live incumbents (A30/A33
+    pair cost 0.95–0.976) but pairCostCap binds on the RUNNING
+    AVERAGE pair-cost sum, so its bind-mass depends on the winning
+    shape. From the shape winner's run pair (both halves, cap 0.99),
+    compute per-market final S = avgUp + avgDown from intentMeta
+    fills (both-sided played markets only; read-only DB). Define
+    bind(c) = share of those markets with S > c. KEEP the prior grid
+    iff bind(0.96) − bind(0.98) ≥ 0.15 AND bind(0.98) ≥ 0.05 (each
+    arm both binds and passes materially). ELSE replace with
+    {round2(P25(S)), round2(P50(S)), round2(P75(S))} restricted to
+    S ≤ 0.99, de-collided by ±0.01 steps, clamped to [0.90, 0.99] —
+    quartile caps have bind shares ≈ 75/50/25% by construction. The
+    computed bind() table and the grid decision are recorded in this
+    section before the cap arms are submitted.
+  - **Participation caveat (pre-registered):** a cap arm whose played
+    share falls below 20% (G2 level) is recorded as "cap chokes
+    participation at this shape/sizing" — a measured cliff on the
+    pairRate/EL trade-off curve, not a failed experiment; its EL is
+    reported but flagged unmeasurable-at-coverage.
 - **Runs / Judgment / Lesson:** (pending)
 
 ## Backlog (one line each; propose formally when reached)

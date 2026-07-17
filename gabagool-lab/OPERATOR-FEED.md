@@ -171,3 +171,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet — runs queued clean (~17.5k jobs, ETA ~07:16Z), no double-submit, watchers armed.
 - Next: prep E005 (ladder depth) spec while E004 drains; judge E004 when done.
 - Health: on track
+
+## 2026-07-17T06:42Z — unit 29
+- Did: finalized the E005 (ladder depth) experiment spec while E004 runs — checked every planned arm against the code so no two arms secretly test the same thing (E003 wasted 2 of 5 arms that way).
+- Found: the "force cheaper pairs" sub-experiment needed a smarter grid rule — the price caps only matter if fills actually land near them, so the final grid is chosen by a rule written down today, before any results exist.
+- Next: judge E004 when it finishes (~07:09Z), then launch E005.
+- Health: on track

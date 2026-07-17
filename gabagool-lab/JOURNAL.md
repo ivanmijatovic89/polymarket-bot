@@ -855,3 +855,38 @@ needs the parityTolPct default stamped to 2 (now judged) and the
 shape sub-axis arms sanity-checked against LS-6 (compute EFFECTIVE
 values under clip 6 / maxShares 120 so no two arms collapse into the
 same policy like p001/p020 did).
+
+## 2026-07-17T06:41Z — session 11, unit 29: E005 spec finalized (LS-6 pass), E004-blind
+
+Drain-window unit, executed blind to ax2 partials (only the watcher's
+pending counts seen: 14,794 at 06:41Z, pace ~540/min — ETA ~07:09Z).
+
+E005's spec got the LS-6 treatment it prescribed, from the strategy
+file's actual mechanics (read, not recalled):
+
+1. **parityTolPct stamped = 2** (E003 SEED; effective value 12 shares
+   at clip 6 in EVERY arm — a deliberate constant, stated as such).
+2. **Shape arms pass LS-6**: four distinct rung lists on the 2-dp
+   grid, no p001≡p020-style collapse. But effective behavior is NOT
+   uniform: band suppression clips deep rungs on the cheap side
+   (0.13-offset needs bid ≥ 0.24), soloCap 0.65 binds on rung PRICE
+   so deep rungs quote at higher bids pre-pairing, and the 4-rung A17
+   arm rests 24 sh/side/cycle vs 12 (it tests the archetype package,
+   not pure depth — the three 2-rung arms carry pure depth). Played
+   share + fills promoted to first-class shape readouts.
+3. **The cap sub-axis got a pre-registered finalization rule** instead
+   of a blind grid: pairCostCap binds on the running-average pair-cost
+   sum, so whether {0.96,0.97,0.98} even differentiates depends on
+   the winning shape's realized S = avgUp+avgDown distribution.
+   Rule (frozen now, executes after the shape sub-judgment, before
+   cap submission): keep the incumbent-anchored grid iff
+   bind(0.96)−bind(0.98) ≥ 0.15 and bind(0.98) ≥ 0.05, else quartile
+   caps {P25,P50,P75 of S} de-collided, clamped [0.90,0.99]. Bind
+   table recorded in the LEDGER either way. Computable read-only from
+   intentMeta (per-fill px/sz/leg — verified the schema carries it).
+4. **Participation caveat pre-registered**: cap arms that choke
+   played share below 20% are a measured cliff, not a dead
+   experiment.
+
+This closes the E004-blind prep queue. Next: E004 judgment when the
+watcher fires (~07:09Z), then E005 shape-arm launch.
