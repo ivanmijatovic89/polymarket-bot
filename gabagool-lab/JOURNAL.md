@@ -253,3 +253,37 @@ yields the capital-efficiency floor from the same arithmetic.
 
 Queue: 16.7k waiting at ~3.3/s → market queue empties ~06:20Z, then 4
 aggregate jobs persist runs. Judgment this session if the pace holds.
+
+## 2026-07-17T05:35Z — session 2, unit 9: E003 completion-path defects fixed; a self-inflicted queue incident
+
+Fresh-eyes review of E003 (unfrozen until first evidence submission)
+found two real defects in the taker-completion path — dormant for
+axis-1 (maker-only arms) but poisonous for E004 and any latency
+battery on completion variants:
+1. A completion cross that misses under latency (ask moves before
+   arrival) rested as a stale GTC order FOREVER: not tracked in
+   quotes[], so no requote path cancels it; pendingCompletion never
+   clears → every later completion is blocked for the market; and the
+   gate-close branch canceled rungs but not the cross → it could fill
+   deep in the final-minute adverse window (A17/A20).
+2. order_done(canceled) deliberately skips removeOrderId, so even an
+   explicit cancel would not have released pendingCompletion.
+Fix: completionTtlSec param (default 10s; sweepable later), TTL cancel
+each tick, cancel-at-gate-close, and clear-tracking-at-issue semantics
+(mirrors cancelSide), so the canceled-guard never matters.
+Fill-before-cancel remains possible under latency — realistic, and the
+acc accounting classifies it by realized liquidity.
+
+The incident: I ran the verification smoke via `npm run backtest`
+directly WITHOUT --sequential — which is a DISTRIBUTED submission, not
+a local run. It enqueued a bare-UUID 1-market flow at my tip SHA,
+which (a) sat behind 13.6k queued jobs, (b) forced my worker into an
+exit-75 self-update mid-drain when it reached it. EPISTEMOLOGY §3
+exists precisely to prevent this (submit.ts is the only launch path) —
+I bypassed my own rule and it bit within the hour. Cleanup: killed the
+submitter, removed the market child from the queue; the de-blocked
+parent aggregated to a no-op (succeeded=0, no run row — verified);
+worker relaunched itself at 24d0dcd and is draining again. Lesson
+recorded here and in LEDGER: EVERY backtest invocation goes through
+submit.ts, including 1-market code smokes (--sequential flag exists
+there for exactly this).

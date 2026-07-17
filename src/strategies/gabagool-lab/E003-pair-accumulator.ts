@@ -59,6 +59,11 @@ export const ConfigSchema = z.strictObject({
    *  lag exceeds tolerance. */
   completionMode: z.enum(['none', 'cap', 'free']).default('none'),
   completionCap: z.coerce.number().finite().gt(0.5).lt(1.1).default(0.99),
+  /** Cancel a completion cross that hasn't filled after this many seconds
+   *  (latency can leave it resting when the ask moves before arrival;
+   *  without a TTL it blocks further completions for the whole window
+   *  and can fill deep in the endgame). */
+  completionTtlSec: z.coerce.number().finite().min(1).max(120).default(10),
   /** Never-overpay guard for RESTING rungs (maker side). */
   pairCostCap: z.coerce.number().finite().gt(0.5).lt(1.1).default(0.99),
   soloCap: z.coerce.number().finite().gt(0).lt(1).default(0.65),
@@ -106,7 +111,7 @@ export const definition: StrategyDefinition<Config> = {
     let stateSlug: string | null = null
     let seq = 0
     let acc: Acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0 }
-    let pendingCompletion: string | null = null
+    let pendingCompletion: { id: string; placedAtSec: number } | null = null
     const quotes: Record<Side, SideQuotes | null> = { UP: null, DOWN: null }
     const startSec = START_SEC[cfg.timeMode]
 
@@ -121,7 +126,7 @@ export const definition: StrategyDefinition<Config> = {
 
     const removeOrderId = (clientOrderId: string | undefined): void => {
       if (!clientOrderId) return
-      if (pendingCompletion === clientOrderId) pendingCompletion = null
+      if (pendingCompletion?.id === clientOrderId) pendingCompletion = null
       for (const side of ['UP', 'DOWN'] as const) {
         const q = quotes[side]
         if (!q) continue
@@ -157,6 +162,13 @@ export const definition: StrategyDefinition<Config> = {
         for (const id of q.clientOrderIds)
           intents.push({ kind: 'cancel_order', clientOrderId: id, reason })
       }
+      // Clears tracking at issue time (like cancelSide), so the
+      // order_done(canceled) guard below never needs to know about it.
+      const cancelCompletion = (reason: string): void => {
+        if (!pendingCompletion) return
+        intents.push({ kind: 'cancel_order', clientOrderId: pendingCompletion.id, reason })
+        pendingCompletion = null
+      }
 
       const up = tick.snapshot.byAssetId[upAssetId]
       const down = tick.snapshot.byAssetId[downAssetId]
@@ -167,8 +179,16 @@ export const definition: StrategyDefinition<Config> = {
       if (elapsedSec < startSec || elapsedSec > cfg.stopSec || isCrossed(up) || isCrossed(down)) {
         cancelSide('UP', 'gate closed')
         cancelSide('DOWN', 'gate closed')
+        cancelCompletion('gate closed')
         return intents
       }
+
+      // A completion cross that missed (ask moved before arrival) must not
+      // rest indefinitely: it blocks further completions and becomes pure
+      // endgame leg-risk. Fill-before-cancel under latency stays possible —
+      // that is realistic and the accounting handles it.
+      if (pendingCompletion && elapsedSec - pendingCompletion.placedAtSec > cfg.completionTtlSec)
+        cancelCompletion('completion ttl')
 
       const posUp = portfolio.positionsByAssetId[upAssetId]
       const posDown = portfolio.positionsByAssetId[downAssetId]
@@ -272,7 +292,7 @@ export const definition: StrategyDefinition<Config> = {
           }
           if (allowed && notionalOk && inBand) {
             const clientOrderId = `e003:${slug}:X${lagging}:${seq++}`
-            pendingCompletion = clientOrderId
+            pendingCompletion = { id: clientOrderId, placedAtSec: elapsedSec }
             intents.push({
               kind: 'place_limit',
               clientOrderId,

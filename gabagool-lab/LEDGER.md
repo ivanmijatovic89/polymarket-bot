@@ -133,6 +133,12 @@ Template:
 - **First axis (this experiment):** parityTolPct ∈ {0.1, 2, 10, 20, 40}%
   (handoff seed-1 grid; archetype 0.1% vs current winners 20–40%),
   completion=maker-only, ladder/timing at E002 defaults.
+- **Draft amendment (2026-07-17T05:35Z, pre-freeze):** completion path
+  hardened after fresh-eyes review — completionTtlSec knob (default 10)
+  cancels a missed cross instead of letting it rest forever (it blocked
+  all later completions and could fill in the endgame); crosses now
+  also cancel at gate-close. Axis-1 arms (maker-only) are unaffected;
+  smoke 668's pairRate 0.73 pre-dates this code and E004 must re-smoke.
 - **Coverage plan:** two disjoint halves inside the search window
   (E31 rule — this IS a selection among >3 arms): h1 = Apr 1–30,
   h2 = May 1–31, lat 140 only for the axis; battery on the winner
