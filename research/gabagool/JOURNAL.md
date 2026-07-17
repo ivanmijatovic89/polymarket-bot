@@ -720,3 +720,17 @@ aggressiveness axis, the breakeven wallet sits in the middle), and a
 LAB-HANDOFF addendum instructing seed-1 sweeps to include a deep-pair
 cell (pair-cost ≤0.98, patient completion, ~20% unpaired tolerated).
 Rescan progress: Apr + May done, Jun in progress.
+
+## 2026-07-17T08:40Z — session 7, unit 10: livebreathevolatility (A31)
+
+The scan's #2 golden-era wallet resolves to a named account,
+"livebreathevolatility": +$385,802 all-time (93% trading profit),
+btc-15m specialist at pair cost 0.96, active 2025-10-12 → 2026-04-11.
+Two rewrites: (1) it PREDATES gabagool22 by 17 days — the archetype
+did not originate the class; (2) it's the second professional exit
+"at peak scale, not by bleeding" (Apr 11, five weeks after all-crypto
+fees, while running $734k/day). Merge toggling shows up here too —
+third wallet — so exit-style-as-module is class-wide. Deep pairs
+(≤0.97) now have historical AND live existence proofs. Succession
+timing noted but not claimed: it stopped Apr 11; b27bc932 and
+0x04b6d7e9 were both born Mar 25.

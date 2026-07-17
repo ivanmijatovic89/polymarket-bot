@@ -165,3 +165,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: first real movement — everyone's pair prices got worse this window; only one wallet still bought pairs under $1. Lesson: judging a wallet needs a full day of windows, not one.
 - Next: quick profile of the historical btc-15m specialist the scan found, then the atlas.
 - Health: on track.
+
+## 2026-07-17T08:42Z — unit: found the strategy's actual pioneer (session 7)
+
+- Did: profiled the #2 wallet of the golden era, which turned out to have a name — "livebreathevolatility".
+- Found: it started 17 days BEFORE gabagool — gabagool didn't invent this. It made ~$386k (real trading profit, not subsidies) on exactly our target market, and like gabagool it quit at full speed rather than fade out.
+- Next: the variant atlas — clean re-scan is on its last day.
+- Health: on track.

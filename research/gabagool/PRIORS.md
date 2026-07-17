@@ -638,3 +638,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   single-page density extrapolation under-read this wallet ~8×; use
   window-sampled on-chain scans for high-cadence wallets. [verified]
   (wallets/04b6d7e9.md)
+- **A31 (livebreathevolatility 0x818f214c — the class PREDATES the
+  archetype):** first fills 2025-10-12, 17 days before gabagool22;
+  btc-updown-15m specialist in the golden era (pair 0.90–0.92 @
+  0.959–0.966, maker 0.80–0.84, clips $7–9); all-time lb profit
+  +$385,802 (~93% trading, only $27.7k rebates); scaled Oct $23k/day →
+  Mar $734k/day, adapting to the fee eras (pair→0.985+, maker→0.96,
+  multi-book), then QUIT AT PEAK 2026-04-11 — second observed
+  "walk away at scale" exit (n=2 with gabagool22). Merge usage
+  toggled here too (Oct–Nov mix → zero from Dec): exit style as a
+  switchable module is a CLASS-WIDE pattern (n=3 wallets). gabagool22
+  is NOT the class originator; earliest-known is now 0x818f214c.
+  [verified] (wallets/818f214c-livebreathevolatility.md)
