@@ -224,3 +224,36 @@ rows are the HOURLY series (different slug scheme, caught by the
   club re-form in the 20–24Z evening session (A49's only robust
   positive)? An evening snapshot today would pair nicely with the
   morning one for OQ #5's residue.
+
+### 2026-07-17T17:08Z (last 2h; ~76m after snapshot 7)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 3174 | $81891 | 1 | 0.643 | 0.9892 | $7.26 | 0 | 137 | btc-5m $19.2k, eth-5m $13.8k, btc-15m $10.6k |
+| 0xce25 | 3427 | $53563 | 1 | 0.828 | 0.9807 | $8.77 | 0 | 127 | btc-5m $18.6k, eth-5m $9.9k, btc-15m $8.6k |
+| powerwinner | 824 | $60677 | 1 | 0.953 | 1.0109 | $75.59 | 0 | 27 | btc-5m $60.3k, eth-5m $0.4k |
+| bonereaper | 12324 | $92777 | 1 | 0.494 | 1.0219 | $2.67 | 1 | 158 | btc-5m $54.3k, eth-5m $9.1k, btc-15m $6k |
+| 0xaaaaa | 371 | $25308 | 1 | 0.664 | 1.0937 | $70.71 | 0 | 24 | btc-5m $25.3k |
+| doggystyie | 720 | $24839 | 1 | 0.994 | 1.013 | $31.47 | 0 | 24 | btc-5m $24.8k |
+| badfallen | 1041 | $10568 | 1 | 0.824 | 1.029 | $9.05 | 0 | 22 | btc-5m $10.6k |
+| b27bc932 | 5581 | $36753 | 1 | 0.922 | 1.0096 | $3.76 | 173 | 33 | btc-5m $27.5k, btc-15m $8k, bitcoin-up-or-down-july-17 1h $0.7k |
+| 95f5-challenger | 285 | $1975 | 1 | 0.054 | 1.1484 | $3.8 | 0 | 8 | eth-15m $0.9k, btc-15m $0.5k, btc-5m $0.4k |
+| 13e0d447 | 1029 | $24498 | 1 | 0.805 | 0.9748 | $3.05 | 0 | 20 | btc-5m $24.5k |
+| 76d4d470 | 3717 | $26651 | 1 | 0.77 | 0.9877 | $2.55 | 666 | 151 | btc-5m $15.9k, btc-15m $3.8k, eth-5m $1.3k |
+
+- **O11 (17:08Z): the sub-$1 club RE-FORMED within ~76 minutes of the
+  O10 empty print** — four wallets sub-$1 (13e0d447 0.9748 deepest,
+  exactly the queue's prediction; 0xce25 0.9807; 76d4d470 0.9877;
+  b55f 0.9892 after its worst-ever 1.0496). First snapshot including
+  the profile-less pair: 13e0d447 runs $24.5k/2h btc-5m-only at the
+  deepest pair cost on the board with zero merges; 76d4d470 is the
+  continuous-merge style (666 merges/2h) at 0.9877 — the two
+  profile-less actives bracket the merge-posture axis (A56). O10 was
+  a storm SPIKE, not a regime shift: pair-cost dispersion collapsed
+  back as the US storm passed (A49/A58 clock effect visible live at
+  76-minute resolution). b27bc932 unchanged (5m sleeve $27.5k/2h,
+  merge module ON at 173, pairCost still ≥1). bonereaper still the
+  churn leader (12.3k fills at pairRate 0.49 — half its flow
+  unpaired). Note: script prints 95f5 twice (duplicate tracker
+  entry, cosmetic — dedupe when reading; raw JSON renamed to
+  shadow-2026-07-17T1708Z.json).

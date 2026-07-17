@@ -1415,3 +1415,15 @@ running full cadence through weekends and pays for it (Jul-12:
 −$2,170 gross). Lab consequence folded into BRIEF/METRICS/dossier:
 v1 envelope is WEEKDAY 20–24Z first, weekends idle or lean-disabled,
 and no metric may pool day-of-week.
+
+## 2026-07-17T17:08Z — session 11, unit 3: snapshot 8 (O11) — club re-formed in 76 minutes
+
+W3 cadence snapshot, first to include the profile-less pair. The O10
+"sub-$1 club empty" print lasted barely an hour: four wallets are
+back under $1 (13e0d447 deepest at 0.9748 — the queue's prediction
+verified; b55f recovered from its worst-ever 1.0496 to 0.9892). O10
+was a storm spike, not a regime shift — the A49/A58 clock effect is
+now visible live at 76-minute resolution. Bonus color: the two
+profile-less actives bracket the merge-posture axis exactly as A56
+framed it (13e0d447 zero merges, 76d4d470 at 666/2h). Small script
+wart noted: the tracker prints 95f5 twice (cosmetic duplicate).

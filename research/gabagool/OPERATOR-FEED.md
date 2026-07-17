@@ -472,3 +472,9 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the rule is a WEEKDAY rule. On weekends the pattern scrambles, nothing is reliably profitable, and the bot's trick of leaning toward the likely winner stops working entirely (worse than a coin flip in calm weekend hours). Our future bot should trade weekday evenings first and sit out weekends.
 - Next: evening live snapshot of the bots (~20-21 UTC); until then, next queue item (terrain refresh or a new measurable).
 - Health: on track
+
+## 2026-07-17T17:08Z — unit 3 (session 11)
+- Did: regular 2-hour live check of all tracked bots, now including the two hidden ones.
+- Found: the "nobody can buy pairs under $1" moment from the last check was just a storm blip — four bots are back under $1 within ~76 minutes, the hidden 5-minute bot cheapest of all, exactly as predicted.
+- Next: one more measurable unit, then the ~20-21 UTC evening snapshot.
+- Health: on track
