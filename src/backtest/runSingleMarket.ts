@@ -25,6 +25,7 @@ import {
   replayOrderBookForMarket,
   type ReplayApplyEvent,
 } from '../parquet/replay/replayOrderBookForMarket.js'
+import { wireBacktestBinanceFeed } from './feeds/wireBacktestExternalFeeds.js'
 
 export type RunSingleMarketInputMode = 'recorded' | 'telonex-delta' | 'telonex-paired'
 
@@ -112,7 +113,7 @@ function buildRunnerForMarket(args: {
   strategyParams: Record<string, unknown>
   latency: RunSingleMarketLatency
   getMarket?: () => GammaMarketMeta | undefined
-}): { strategy: Strategy; runner: StrategyRunner } {
+}): { strategy: Strategy; runner: StrategyRunner; pluginSet: PluginSet | undefined } {
   const def = getStrategyDefinition(args.strategyId)
   const built = def.create(args.strategyParams as never)
   const strategy = built.strategy
@@ -147,7 +148,7 @@ function buildRunnerForMarket(args: {
     ...(args.getMarket ? { getMarket: args.getMarket } : {}),
     log: (msg, extra) => console.log(msg, extra ?? ''),
   })
-  return { strategy, runner }
+  return { strategy, runner, pluginSet }
 }
 
 /**
@@ -196,11 +197,21 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
     }
   }
 
-  const { runner } = buildRunnerForMarket({
+  const { runner, pluginSet } = buildRunnerForMarket({
     strategyId: input.strategyId,
     strategyParams: input.strategyParams,
     latency: input.latency,
     getMarket: () => input.marketMeta,
+  })
+
+  // Strategy-driven external feeds (same contract as live): if the strategy
+  // registers ExternalFeedsRequestPlugin with a binance request, fulfill it
+  // from historical data before any tick is replayed. Strategies without the
+  // plugin return immediately — no behavior change for them.
+  await wireBacktestBinanceFeed({
+    pluginSet,
+    slug: input.slug,
+    strategyWindow: input.strategyWindow ?? null,
   })
 
   let currentMarketId: string | undefined

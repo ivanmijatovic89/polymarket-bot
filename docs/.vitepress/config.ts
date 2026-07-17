@@ -77,6 +77,20 @@ export default withMermaid(
               ],
             },
             {
+              text: 'Polymarket Data',
+              collapsed: true,
+              items: [
+                {
+                  text: 'Backtest Price Feeds',
+                  link: '/datasets/polymarket-data/price-feeds-for-backtests',
+                },
+                {
+                  text: 'Binance aggTrades Feed',
+                  link: '/datasets/polymarket-data/binance-aggtrades-feed',
+                },
+              ],
+            },
+            {
               text: 'PMXT',
               collapsed: true,
               items: [

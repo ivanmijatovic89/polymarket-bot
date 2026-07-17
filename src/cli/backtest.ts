@@ -65,6 +65,15 @@ import {
 import { localOutputPath } from '../telonex/localOutputPath.js'
 import { insertBacktestRun } from '../db/backtests.js'
 import { buildGammaMarketMeta, type GammaMarketMeta } from '../polymarket/gammaMarketMeta.js'
+import {
+  windowStartMsFromSlug,
+  timeframeMsFromSlug,
+  windowFromSlug,
+} from '../polymarket/upDownSlugWindow.js'
+import { binanceFeedLookbackMs } from '../backtest/feeds/wireBacktestExternalFeeds.js'
+import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { aggTradesDayPath, pairFromFeedSymbol, utcDatesCovering } from '../binance/paths.js'
+import { fileExists } from '../telonex/fetchConvertedToLocal.js'
 import { fetchGammaMarketBySlug } from '../polymarket/gamma.js'
 
 installProcessCrashHandlers({ prefix: 'backtest' })
@@ -120,31 +129,6 @@ function argvWithBatchUid(argv: string[], batchUid: string): string[] {
 
 function buildBacktestCmdWithBatchUid(argv: string[], batchUid: string): string {
   return buildBacktestCmdInline(argvWithBatchUid(argv, batchUid), { preferArgv: true })
-}
-
-// Parses `<symbol>-updown-<timeframe>-<epochSeconds>` → window-start ms.
-// `eventStartTime` (window open) is what TimeWindowGate / parseGammaMarketStartMs need.
-function windowStartMsFromSlug(slug: string): number | null {
-  const m = slug.match(/^[a-z]+-updown-[^-]+-(\d+)$/)
-  if (!m) return null
-  const sec = Number(m[1])
-  if (!Number.isFinite(sec)) return null
-  return sec * 1000
-}
-
-function timeframeMsFromSlug(slug: string): number | null {
-  const m = slug.match(/^[a-z]+-updown-([^-]+)-\d+$/)
-  if (!m) return null
-  const tf = m[1]?.toLowerCase() ?? ''
-  const parsed = tf.match(/^(\d+)([mhd])$/)
-  if (!parsed) return null
-  const n = Number(parsed[1])
-  if (!Number.isFinite(n) || n <= 0) return null
-  const unit = parsed[2]
-  if (unit === 'm') return n * 60_000
-  if (unit === 'h') return n * 3_600_000
-  if (unit === 'd') return n * 86_400_000
-  return null
 }
 
 function buildMetaFromTokenMap(
@@ -557,6 +541,19 @@ async function main(): Promise<void> {
   const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
   const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
+  // External feeds are strategy-driven (like live): a strategy that registers
+  // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed
+  // fulfilled per market inside runSingleMarket. The producer only needs the
+  // requested symbol here for the missing-day-files preflight.
+  const feedsRequestPlugin = (built.plugins ?? built.pluginSet?.list() ?? []).find(
+    isExternalFeedsRequestPlugin,
+  )
+  const feedsBinanceSymbol =
+    feedsRequestPlugin?.config.binanceWsSpotPrice?.symbol?.trim().toLowerCase() || null
+  if (feedsBinanceSymbol) {
+    console.log(`[backtest] external feeds: binanceWsSpotPrice symbol=${feedsBinanceSymbol}`)
+  }
+
   // ---- Pre-resolve every market context in the producer so that workers
   // ---- never need to touch MySQL / Gamma. This preserves the existing DB
   // ---- lookup + Gamma fallback behavior 1:1 with PR1.
@@ -695,6 +692,32 @@ async function main(): Promise<void> {
     console.log('[backtest] shutdown requested before dispatch; aborting')
     await closeDb()
     return
+  }
+
+  // Feeds preflight: when the strategy requests the binance feed, warn
+  // up-front about missing local day files (with the exact download command)
+  // instead of discovering them one failed market at a time. Workers still
+  // hard-error — their disks may differ. Pair comes from the strategy's
+  // configured symbol (like live), not the market slug.
+  if (feedsBinanceSymbol) {
+    const pair = pairFromFeedSymbol(feedsBinanceSymbol)
+    const lookbackMs = binanceFeedLookbackMs()
+    const missingDates = new Set<string>()
+    for (const ctx of marketContexts) {
+      if (!ctx.slug) continue
+      const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
+      if (!window) continue
+      for (const d of utcDatesCovering(window.startMs - lookbackMs, window.endMs)) {
+        if (!(await fileExists(aggTradesDayPath(pair, d)))) missingDates.add(d)
+      }
+    }
+    if (missingDates.size > 0) {
+      const sorted = [...missingDates].sort()
+      console.warn(
+        `[backtest] feeds preflight: ${missingDates.size} Binance aggTrades day file(s) missing for ${pair} — affected markets will fail. ` +
+          `Fetch: npm run binance:download-aggtrades -- --pair ${pair} --from ${sorted[0]} --to ${sorted[sorted.length - 1]}`,
+      )
+    }
   }
 
   const useBullMQ = !parsed.sequential

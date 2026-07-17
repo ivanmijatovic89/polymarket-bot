@@ -20,6 +20,9 @@
     "record:live:eth": "cross-env RECORD_SYMBOL=ETH tsx src/cli/record-live.ts",
     "record:live:sol": "cross-env RECORD_SYMBOL=SOL tsx src/cli/record-live.ts",
     "record:live:xrp": "cross-env RECORD_SYMBOL=XRP tsx src/cli/record-live.ts",
+    "binance:download-aggtrades": "tsx src/binance/download-aggtrades.ts",
+    "binance:record-aggtrades": "tsx src/binance/record-aggtrades.ts",
+    "binance:verify-aggtrades": "tsx src/binance/verify-aggtrades.ts",
     "trade:bot": "tsx src/cli/trading-bot.ts",
     "trade:bot:btc": "cross-env TRADING_SYMBOL=BTC tsx src/cli/trading-bot.ts",
     "trade:bot:eth": "cross-env TRADING_SYMBOL=ETH tsx src/cli/trading-bot.ts",
@@ -106,6 +109,7 @@
   "devDependencies": {
     "@types/node": "^25.0.3",
     "@types/ws": "^8.18.1",
+    "@types/yauzl": "^3.4.0",
     "@typescript-eslint/eslint-plugin": "^8.50.0",
     "@typescript-eslint/parser": "^8.50.0",
     "cross-env": "^10.1.0",
@@ -141,6 +145,7 @@
     "tiktoken": "^1.0.22",
     "viem": "^2.33.3",
     "ws": "^8.18.3",
+    "yauzl": "^3.4.0",
     "zod": "^4.2.1"
   }
 }

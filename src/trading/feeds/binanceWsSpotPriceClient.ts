@@ -1,6 +1,6 @@
 import { createWsConnection, type WsConnection } from '../../polymarket/ws/wsConnection.js'
 
-type AggTradeMessage = {
+export type AggTradeMessage = {
   e: 'aggTrade'
   E: number // event time
   s: string // symbol
@@ -27,6 +27,11 @@ export type BinanceWsSpotPriceClientOptions = {
    */
   baseUrl?: string
   onPrice: (u: { symbol: string; tsMs: number; value: number }) => void
+  /**
+   * Optional: full aggTrade message with local receive time. Used by the
+   * recorder/verification tooling; the live trading path leaves it unset.
+   */
+  onAggTrade?: (agg: AggTradeMessage, receivedAtMs: number) => void
   onStatus?: (s: {
     kind: 'connected' | 'reconnecting' | 'disconnected'
     attempt: number
@@ -122,6 +127,7 @@ export function createBinanceWsSpotPriceClient(
         if (!agg) return
         const price = Number(agg.p)
         if (!Number.isFinite(price)) return
+        opts.onAggTrade?.(agg, Date.now())
         // Use trade time as the price timestamp for "spot last price"
         opts.onPrice({ symbol: agg.s.toLowerCase(), tsMs: agg.T, value: price })
       },
