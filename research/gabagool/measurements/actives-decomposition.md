@@ -61,3 +61,26 @@ $6–11 p50 — the EDGE wallets trade small like the archetype did.)
 - lb-api "profit" ≠ these numbers (likely excludes rebate transfers,
   includes MTM; PRIORS P51/A10).
 - Maker/taker role per fill still unobserved (needs on-chain data).
+
+## Per-book trading nets for the edge wallets (H5/T1 answer)
+
+Same window/method, per book family:
+
+| book | b55f net (% of buys) | 0xce25 net (% of buys) |
+|---|---|---|
+| **btc-15m** | **+$5,578 (+3.20%)** — his best absolute book | **+$2,567 (+1.97%)** |
+| btc-5m | −$312 (−0.14%) | +$8,482 (+4.56%) — her best |
+| sol-15m | +$1,534 (+6.36%) | +$675 (+3.26%) |
+| eth-15m | −$1,203 (−1.81%) | −$398 (−0.72%) |
+| eth-5m | −$1,741 (−2.47%) | −$10 (−0.02%) |
+| btc-1h+ | +$451 (+0.44%) | n/a |
+
+- **T1 RESOLVED FOR THE LAB'S SCOPE: btc-updown-15m is a live positive-
+  edge book in July 2026** for both current edge wallets (+2.0 to +3.2%
+  of turnover). The INV's "15m ≈ 0" (P18) was an era artifact.
+- ETH books are NEGATIVE for both edge wallets — whatever the edge is,
+  it is not symmetric across coins (BTC+SOL yes, ETH no). Coin-level
+  flow composition differs; worth one look at why (retail concentration?
+  another bot owning ETH?).
+- The two edge wallets DISAGREE on btc-5m (+4.56% vs −0.14%) —
+  variant-specific, not book-structural.

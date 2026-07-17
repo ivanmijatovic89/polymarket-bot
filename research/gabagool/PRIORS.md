@@ -403,3 +403,9 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   taker-rebate farmer: trading −$13.90/market on btc-5m only, rebates
   +$6.1k/day. Leaderboard "profit" for rebate-era wallets requires
   decomposition before interpretation (extends P51). [verified]
+- **A11 (T1 RESOLVED):** btc-updown-15m carries live positive trading
+  edge in July 2026 for both measured edge wallets: b55f +3.20% of buy
+  turnover (best absolute book), 0xce25 +1.97% (2 full days, complete-
+  market cash flow). P18's "15m ≈ 0" was an era artifact. The lab's
+  frozen scope is the right hunting ground. ETH books measured NEGATIVE
+  for both — edge is coin-asymmetric. [verified]
