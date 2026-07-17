@@ -63,3 +63,36 @@ Template:
 - **Lesson:** the shared-accumulator meta channel survives to the DB by
   reference — the lab has an exact per-fill export mechanism with zero
   engine changes; use acc as primary, static metas as fallback.
+
+## E002-baseline — L1 reference: archetype-faithful parity ladder
+- **Type:** axis (reference measurement; exempt from championship gates
+  per EVALUATION §7 — it calibrates TAIL_K + capital floor for v1.1)
+- **Status:** frozen
+- **Mechanism:** passive two-sided BUY-only maker collects the
+  time-separated pair discount (pair cost < $1 across oscillation, KB
+  P38); parity keeps the unpaired remainder small so settlement risk is
+  bounded; who pays = impatient/uninformed takers hitting resting bids
+  (the sim shows only the adverse subset of these — doctrine §3).
+- **Knobs (defaults frozen for the reference; sweeps are later axes):**
+  clipShares 6; rungOffsets [0.01,0.03] (archetype mass touch..−4c, D2);
+  parityTolShares 12 (≈2 clips; archetype 0.1% is sub-clip at this
+  scale); pairCostCap 0.99 (2c/pair Dec margin, BRIEF §1); soloCap 0.65
+  (band p75); band [0.11,0.85] (p5–p95); startSec 60; stopSec 840
+  (final-minute cut, A17); requoteDelta 0.02; maxSharesPerSide 120.
+- **Coverage:** full search window (2026-04-01 → 2026-05-31 inclusive,
+  ~5,800 markets), NO half-split (single reference variant, no
+  selection among arms — E31 rule not triggered).
+- **Execution:** BullMQ parallel, local worker(s) from this worktree;
+  latency battery lat140 (primary) then lat0/lat500/lat1000; jitter 0.
+- **Success criteria (frozen):** (1) all four arms complete with
+  validators green (settlement recheck all-OK, meta coverage 100%,
+  maker-only confirmed: taker fills = 0); (2) EL measured at 140ms with
+  sign determined (|EL| > 2·se) or N ≥ 5,000; (3) weekly table, tails,
+  pairing, capital, L-ratios all rendered from results.ts; (4) the
+  per-market EL distribution is exported for TAIL_K calibration.
+  NOT gated on EL sign — the reference number is the deliverable.
+- **Kill/stop:** worker-path failure or validator quarantine → fix
+  plumbing, re-run arm as --rN. No result-based stopping.
+- **Runs:** (appended at submit)
+- **Judgment:** (pending)
+- **Lesson:** (pending)
