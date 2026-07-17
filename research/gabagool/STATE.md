@@ -1,3 +1,5 @@
+> **OPERATOR NOTE (2026-07-17, after Phase 1 close):** Phase 1 ended at saturation and the relay notes below say the shift is over — that is now HISTORY. The operator re-opened the shift: DONE was removed deliberately and CHARTER.md gained a **Phase 2** section (streams W1–W7, NO saturation clause, never re-create DONE). Rebuild the work queue from Phase 2 and continue.
+
 # STATE — gabagool knowledge shift
 
 Session relay state. A fresh session continues from CHARTER.md + this file.

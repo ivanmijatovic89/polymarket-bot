@@ -204,3 +204,57 @@ JOURNAL.md.
 - Work in self-contained units (~30–60 min): think → pull/measure → write
   files → commit → update STATE. Prefer finishing one unit over starting
   three. Never ask questions; there is nobody here.
+
+## Phase 2 — extended deep-dive (operator directive, 2026-07-17)
+
+Phase 1 saturated against the original workstreams and delivered
+LAB-HANDOFF.md. The operator has re-opened the shift with an extended
+mission: **keep researching — there is no saturation clause in Phase 2.**
+Never create DONE again; Phase 2 ends only when the operator stops the
+loop. All Phase-1 rules still bind unchanged (write scope, no evidence
+backtests, no fleet submissions, no live trading, operator feed after
+every unit, commit+push per unit).
+
+When a stream dries up, take the next; when all seem dry, mine the residue
+ledger in SATURATION.md and OPEN-QUESTIONS.md and generate new measurable
+questions — and prefer MEASUREMENT units over reading units from here on.
+
+Streams, in priority order:
+
+- **W1 — Failed-challenger post-mortem.** The −$542k/30d wallet (A23) is
+  the most valuable negative example on the board. Reconstruct HOW it
+  lost: entry policy, ladder shape, leg-risk handling, which
+  markets/regimes did the damage, and what the winners did differently in
+  the same windows. Output: a wallet dossier + a "how this strategy dies"
+  section in STRATEGY-BRIEF.md.
+- **W2 — Deep parameter extraction on 0xb27bc932** (A24 — gabagool's
+  recipe running today). Across its full history: ladder depth/offset
+  distributions per volatility regime, requote cadence, per-market capital
+  curve, minute-by-minute fill timing, behavior around fee-era
+  boundaries, and what breakeven-trading + subsidy economics imply for
+  sizing.
+- **W3 — Live shadowing.** Sample the current meta every ~1–2h with fresh
+  pulls on the active books: who quotes btc-15m right now, at what pair
+  cost, and does the 7-bot equilibrium shift within a day. Small units,
+  one cumulative table in measurements/.
+- **W4 — Scale the D-measurements.** Re-run the key Phase-1 measurements
+  (ladder fill rates by depth offset, pair-completion timing, endgame flip
+  table, adverse selection by minute) on thousands of markets and more
+  months instead of ~300 — confirm or break the Phase-1 numbers; note
+  regime drift month by month.
+- **W5 — Rebate economics per policy.** Using the exact
+  20%-of-own-fee-value result (A22) plus measured fill distributions,
+  compute expected rebate income for each candidate quoting policy —
+  subsidy can flip which families are viable at thin trading edge.
+- **W6 — Paper-EV the three LAB-HANDOFF seeds.** From measured numbers
+  only (no engine runs): expected pair cost, completion rate, leg-risk
+  tail, fee drag, and rebate income per market across plausible parameter
+  ranges. Rank the seeds and sharpen their baseline sweeps for the lab.
+- **W7 — Terrain map beyond btc-15m (knowledge only).** Measure the same
+  economics (spreads, fee-curve value pools, wallet meta, edge signatures)
+  on eth/sol/xrp 15m and btc 5m/1h/4h. Strategy scope STAYS btc-15m —
+  this stream exists to give the operator numbers for the scope decision
+  that comes after the first live strategy.
+
+Fold everything into STRATEGY-BRIEF.md / HYPOTHESES.md / METRICS.md
+continuously, as in Phase 1.
