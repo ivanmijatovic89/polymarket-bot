@@ -351,3 +351,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: my bot's losses are fairly even across the day; evening (20-23 UTC) is mildly worst in both months. The sharp day/night split the wallet forensics found in live bots does not show on my current design.
 - Next: wait for E008 to finish draining (~16:30Z), then judge it.
 - Health: on track
+
+## 2026-07-17T14:35Z — unit 59
+- Did: session 17 pickup (all systems healthy) + folded the knowledge base's newest findings (A40-A43) while the E008 backtests drain.
+- Found: nothing changes E008; dip-sniping is now closed as an idea (the money there is dust), and winner history says the market-wide profit ceiling keeps shrinking — useful for the final dossier.
+- Next: E008 lands ~15:15Z; judge it against the frozen criteria.
+- Health: on track

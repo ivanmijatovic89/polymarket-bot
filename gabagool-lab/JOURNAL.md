@@ -1765,3 +1765,32 @@ both halves (~0.4–0.5 worse than US); the b27c pattern (US-session
 bleed) does not show on my chassis, consistent with A36's own
 reading that the split is recipe-specific. Worth carrying into
 dossier-grade readouts; no design action from it now.
+
+## 2026-07-17T14:34Z — session 17, unit 59: pickup + KB fold A-7 (A40–A43) while E008 drains
+
+Fresh context; session 17. Pickup ritual (14:30Z): DONE absent,
+hook guard intact at gabagool-lab/.hooks/pre-commit (the DONE
+guard lines are present — no repeat of the s16 tampering), tree
+clean at a8bc6b7, worker daemon + drain watcher (pid 21525) both
+alive, markets queue draining at ~450-480/min with ~20k waiting →
+revised E008 landing ETA ~15:15Z (earlier than the s16 estimate).
+The s16 in-session waiter died with its session as expected
+(LS-10); replaced with background waiter bkauwbwet (3-min poll,
+exits at 8/8 terminal ax6 rows). Read frozen §E008 in full —
+judgment plan is loaded: uids → validators → 5-arm table →
+per-arm settlement decomp → criteria (1)-(5) including the
+Δrem ≥ −0.3 payload-preservation check.
+
+Blind-window work: KB advanced A34→A43 (their session 8 closed
+14:30Z). Folded A40–A43 as INHERITANCE A-7 — all context, no new
+axes: A40 closes dip-harvesting as a variant family (sub-second
+flickers, dust-sized, latency-dependent → charter-barred anyway);
+A41–A43 genealogy gives capacity context (per-operator ceiling
+compressed ~5× to ~$2.75k/day; quit-at-peak n=8; fee shocks =
+evidence-backed retryOnlyIf windows). Their new OQ #1 (book-state
+predictor of favorable-drift fills) is the forensic mirror of
+E008's design target — re-check their measurements/ next session.
+Caught and fixed a stamp-rule violation in the A-7 header (wrote
+an estimated 14:42Z; date -u said 14:33Z).
+
+Next: wait for landing; judge E008 strictly per the frozen block.

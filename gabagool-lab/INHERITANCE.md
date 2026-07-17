@@ -467,3 +467,40 @@ shape E008.
    (c) A35: the strongest living variant earns entirely in ~7h/day
    × 5d/wk — fills are the binding resource, not uptime; capacity
    notes context.
+
+### A-7 (2026-07-17T14:33Z) — KB fold A40–A43: dip closure + winner genealogy (context; no new axes)
+
+Source: KB STATE session-8 summary (register now tops at A43),
+folded s17 u59 while E008 drained — blind-safe (no arm data read).
+
+1. **A40 — dip harvesting is CLOSED as a variant family.** Current-era
+   order-book dips are sub-second flickers (~$2.5/mkt of taker-taker
+   arb dust); January's standing discounts have been repriced away.
+   Lab consequence: no "buy the flicker" variant is worth seeding —
+   it would be latency-dependent (charter-barred) and the KB now
+   shows the prize is dust anyway. Passive capture (standing rungs,
+   which is what this lab already does) is the only way that flow
+   is reachable. Cheap closure of a whole idea family.
+2. **A41–A43 — winner genealogy: the addressable edge compresses.**
+   Full history now mapped: PurpleThunder $854k (#2 all-time),
+   January pool harvesters $381k + $383k, guh123 33-day sprint at
+   $6.5k/day. Per-operator daily ceiling compressed ~5× over 8
+   months ($14k → $2.75k/day); quit-at-peak n=8 with NO winner ever
+   bleeding out; fee shocks open brief rich windows before the pool
+   re-equilibrates. Lab consequences: (a) capacity notes in any L3
+   dossier must cite the CURRENT ceiling (~$2.75k/day/operator), not
+   historical peaks; (b) "fee schedule changes" is now
+   evidence-backed retryOnlyIf material — every fee shock in the
+   genealogy created a short window of outsized returns; (c) the
+   quit-at-peak pattern suggests winners exit when their recipe's
+   regime ends, not when capital is lost — consistent with my
+   time-sliced evaluation requirement (decay must be visible).
+3. **KB's new OQ #1 is adjacent to my E008 axis.** Their top open
+   question — what book-state predicts the favorable-drift fills —
+   is the forensic mirror of E008's design target (external spot as
+   the fill-selection signal). If they find a book-state predictor,
+   it becomes a candidate gate input on this branch; re-check their
+   measurements/ next session.
+4. Housekeeping: KB session-8 journal stamps drifted +1h again (git
+   times are ground truth there too) — same failure mode as my
+   stamp rule; keep pasting `date -u`.
