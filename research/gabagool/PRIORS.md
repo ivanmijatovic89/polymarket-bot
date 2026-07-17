@@ -724,3 +724,15 @@ sessions); `SRP` = `strategy-research-protocol/` docs; `SC` =
   Deep rungs are rare-event harvesters (~5/mkt at −5c) whose value
   must be per-fill price, not volume. Caveat: high-flow regime
   sample; W4 re-runs off-session. [verified]
+- **A38 (W4 scale-up of the density grid — A37 replicates across 4
+  months × 4 sessions; January Telonex has stub-file gaps):** 192
+  books on Jan-15/Mar-16/May-13/Jun-10 (48 each, every 2nd window):
+  pooled touch/1s = 71 fills/mkt p50 (Jun-12 was a ~1.9× hot
+  stretch); the (offset × requote) interaction and touch≫depth hold
+  in EVERY stratum; rebate step reachable maker-only in ≥75% of
+  markets in every clean stratum; NO monotone Jan→Jun density decay
+  (vol dominates calendar); session is not a stable density axis (
+  A36's split is pair-cost/adverse-flow, not fill availability).
+  DATA FLAG: 13/48 Jan-15 parquets are near-empty stubs — January
+  backtests must filter by event count or silently under-fill.
+  [verified] (measurements/fill-density-btc15m.md §W4)

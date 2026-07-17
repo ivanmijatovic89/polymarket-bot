@@ -932,3 +932,18 @@ btc-15m-only profile is era-bound; (2) b55f/0xce25 are back UNDER $1
 mid-US-session — O7's ">$1 everywhere" was a volatility stretch, not
 a clock property; the session split (A36) needs a realized-vol
 covariate; (3) 95f5 second consecutive dark window.
+
+## 2026-07-17T14:35Z (real) — session 8, unit 7: density grid scaled 4 months (A38, W4 slice)
+
+Pulled 192 books (48 each on Jan-15, Mar-16, May-13, Jun-10 — every
+2nd window of a full weekday) and re-ran the density grid stratified
+by day × session. A37 replicates everywhere: touch ≫ depth, fast
+requoting wins at touch and loses at depth, in every month and
+session. The maker-only rebate step clears in ≥75% of markets in
+every clean stratum. No density decay Jan→Jun — volatility, not
+calendar, drives regimes; and session is NOT a stable density axis
+(Jan US weak, Jun US strongest), so A36's session PnL split must be
+adverse-flow/pair-cost driven, not fill scarcity. Found a real data
+trap: 13/48 January parquets are near-empty stubs that read as
+zero-fill markets — ledgered as G10 (backtests over January must
+filter by event count). Committed as A38.

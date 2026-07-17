@@ -94,7 +94,13 @@ ONLY gross-negative session; the two living winners DIVIDE the day
 class pattern (n=2). W4 must stratify by session. A37 (unit 5):
 fill-density grid — rebate step reachable maker-only at touch/−1c;
 (offset × requote) is a joint axis, two optima = the two living
-recipes; OPEN-QUESTIONS #2 resolved.
+recipes; OPEN-QUESTIONS #2 resolved. A38 (unit 7, W4 slice):
+density grid replicated on 192 books across Jan/Mar/May/Jun × 4
+sessions — structure holds everywhere, no calendar decay, session
+is not a density axis; G10 ledgered (January stub parquets, ~27%
+on Jan-15 — filter by event count). W4 books cached under
+data/telonex-r2-w4/<day>/ (48 each; Jan stubs quarantined in
+telonex-r2-w4-stubs/). Snapshots 5 (13:50Z) done; next ~15:30Z.
 
 ## Work queue — PHASE 2 (rebuilt 2026-07-17, session 5)
 

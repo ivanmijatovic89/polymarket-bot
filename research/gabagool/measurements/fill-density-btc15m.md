@@ -71,3 +71,48 @@ output.)
 
 - npx tsx research/gabagool/scripts/fill-density.ts --dir
   research/gabagool/data/telonex-r2 --clip 4
+
+## W4 scale-up: 192 markets across 4 months × 4 sessions (A38)
+
+Same script over 48 books each (every 2nd window of a full weekday) on
+2026-01-15, 2026-03-16, 2026-05-13, 2026-06-10
+(data/telonex-r2-w4/<day>/, `--recursive --by-stratum`).
+
+Pooled (192 mkts): touch/1s = 71 fills/mkt p50 ($284 at $4 clips, 87%
+of markets ≥ $143); −1c/5s = 42 ($168, 61%); −2c/15s = 26; −5c/15s =
+12. The Jun-12 table above was a hot stretch (~1.9× the pooled p50)
+but structurally representative.
+
+Per (day × session), touch/1s fills p50 (clean books only):
+
+| day | overnight | eu | us | evening |
+|---|---|---|---|---|
+| Jan 15 | 69 | 56 | 67* | 86* |
+| Mar 16 | 146 | 77 | 122 | 73 |
+| May 13 | 58 | 45 | 60 | 63 |
+| Jun 10 | 97 | 99 | 143 | 80 |
+
+(*Jan corrected after removing 13/48 STUB parquets — near-empty
+files, a Telonex January coverage gap; raw run showed Jan
+US/evening at 20/0 fills purely from empty books. Mar/May/Jun days
+have zero stubs.)
+
+Findings:
+
+1. **A37's structure replicates in every stratum**: touch ≫ depth
+   everywhere, and the (offset × requote) interaction (fast wins at
+   touch, slow wins at −2c and deeper) holds pooled and per month.
+2. **The rebate step is reachable maker-only in EVERY month and
+   session**: ≥75% of markets clear $143 at touch/1s in all clean
+   strata (83–100% in most). Not a hot-day artifact.
+3. **No monotone density decay Jan→Jun**: day-to-day/volatility
+   variation dominates any month trend (Mar overnight 146 vs May
+   overnight 58). Consistent with O8: regimes are vol-driven, finer
+   than clock or calendar.
+4. **Session is NOT a stable density axis** (Jan US weak vs Jun US
+   strongest): A36's session PnL split is about pair COST/adverse
+   flow, not fill availability.
+5. Data-quality flag for the lab: January Telonex books contain
+   ~27% near-empty stubs on the sampled day; any backtest over
+   January must filter by file size / event count or it will
+   under-fill silently.

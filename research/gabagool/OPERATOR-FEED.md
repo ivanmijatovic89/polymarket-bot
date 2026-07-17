@@ -284,3 +284,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the top 15-minute bot's new 5-minute sleeve is real and persists; the two best wallets are back under the $1 pair-cost line even in busy hours — storms, not the clock alone, drive the hard stretches.
 - Next: W4 — scale the key measurements to more months/markets.
 - Health: on track.
+
+## 2026-07-17T14:35Z — unit: fill measurement scaled to 4 months (session 8)
+
+- Did: repeated the passive-fill measurement on 192 markets spread over January-June, split by time of day.
+- Found: the earlier conclusions hold everywhere — passive quoting gets enough fills to unlock the rebate bonus in ~9 of 10 markets, in every month and time slot. Also caught a data trap: some January recordings are empty shells that would silently skew backtests (now documented).
+- Next: live snapshot 6 (~15:30 UTC), then remaining queue (b27bc932 ladder-by-volatility or atlas dossiers).
+- Health: on track.

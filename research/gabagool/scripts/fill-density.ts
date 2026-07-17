@@ -21,8 +21,10 @@
  *
  * Usage: npx tsx research/gabagool/scripts/fill-density.ts \
  *   [--dir research/gabagool/data/telonex-r2] [--clip 4]
+ *   [--recursive] [--by-stratum]   # W4: subdirs per day; report per
+ *                                  # (day × session bucket) as well
  */
-import { readdirSync } from 'node:fs'
+import { readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { replayTelonexDeltaParquetForMarket } from '../../../src/parquet/replay/replayTelonexDeltaParquetForMarket.js'
 
@@ -36,23 +38,38 @@ const clip = Number(argOf('clip') ?? 4)
 
 const OFFSETS = [0, 0.01, 0.02, 0.05, 0.1]
 const REQUOTES = [1, 5, 15]
+const recursive = args.includes('--recursive')
+const byStratum = args.includes('--by-stratum')
 
-const files = readdirSync(dir)
-  .filter((f) => f.startsWith('btc-updown-15m-') && f.endsWith('.parquet'))
-  .sort()
+const files: string[] = []
+const walk = (d: string) => {
+  for (const e of readdirSync(d)) {
+    const p = join(d, e)
+    if (recursive && statSync(p).isDirectory()) walk(p)
+    else if (e.startsWith('btc-updown-15m-') && e.endsWith('.parquet')) files.push(p)
+  }
+}
+walk(dir)
+files.sort()
 console.log(`markets: ${files.length}`)
+
+const sessionOf = (h: number) =>
+  h < 6 ? 'overnight' : h < 12 ? 'eu' : h < 20 ? 'us' : 'evening'
 
 // fillsPerMarket[oi][ri] -> array over markets of summed fills (both sides)
 const fillsPerMarket: number[][][] = OFFSETS.map(() => REQUOTES.map(() => []))
+// stratum -> same structure (only a focus subset of the grid to keep output sane)
+const strata = new Map<string, number[][][]>()
 
-for (const f of files) {
+for (const path of files) {
+  const f = path.slice(path.lastIndexOf('/') + 1)
   const slug = f.replace('.parquet', '')
   const epochMs = Number(slug.split('-').pop()) * 1000
   const endQuoteMs = epochMs + 840_000
   const series = new Map<string, Array<{ ts: number; bid: number | null; ask: number | null }>>()
   const last = new Map<string, { bid: number | null; ask: number | null }>()
   await replayTelonexDeltaParquetForMarket({
-    filePath: join(dir, f),
+    filePath: path,
     onSnapshot: (snapshot) => {
       for (const [assetId, book] of Object.entries(snapshot.byAssetId)) {
         const bid = (book as { bestBid: number | null }).bestBid
@@ -97,6 +114,13 @@ for (const f of files) {
         }
       }
       fillsPerMarket[oi][ri].push(total)
+      if (byStratum) {
+        const dt = new Date(epochMs)
+        const key = `${dt.toISOString().slice(0, 10)} ${sessionOf(dt.getUTCHours())}`
+        let st = strata.get(key)
+        if (!st) strata.set(key, (st = OFFSETS.map(() => REQUOTES.map(() => []))))
+        st[oi][ri].push(total)
+      }
     }
   }
 }
@@ -114,6 +138,23 @@ for (let oi = 0; oi < OFFSETS.length; oi++) {
     console.log(
       `-${(OFFSETS[oi] * 100).toFixed(0)}c | ${REQUOTES[ri]}s | ${q(a, 0.25)}/${q(a, 0.5)}/${q(a, 0.75)} | $${q(notional, 0.5).toFixed(0)} | ${pct.toFixed(0)}%`,
     )
+  }
+}
+if (byStratum) {
+  // focus cells: (touch,1s), (touch,15s), (-1c,5s), (-2c,15s), (-5c,15s)
+  const FOCUS: Array<[number, number, string]> = [
+    [0, 0, 'touch/1s'],
+    [0, 2, 'touch/15s'],
+    [1, 1, '-1c/5s'],
+    [2, 2, '-2c/15s'],
+    [3, 2, '-5c/15s'],
+  ]
+  console.log(`\nstratum | n | ${FOCUS.map(([, , l]) => `${l} p50`).join(' | ')} | %>=143 @touch/1s`)
+  for (const [key, st] of [...strata].sort()) {
+    const cells = FOCUS.map(([oi, ri]) => q(st[oi][ri], 0.5))
+    const t1 = st[0][0].map((x) => x * clip)
+    const pct = (100 * t1.filter((x) => x >= 143).length) / (t1.length || 1)
+    console.log(`${key} | ${st[0][0].length} | ${cells.join(' | ')} | ${pct.toFixed(0)}%`)
   }
 }
 process.exit(0)

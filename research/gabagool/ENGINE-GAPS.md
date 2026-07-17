@@ -143,3 +143,16 @@ evaluation.
   replayed until the operator resumes the sync. June 2026 is the newest
   era-consistent replayable slice (post 2026-05-28 taker rebates,
   current fee formula) — use Jun 1–14 for any current-era backtest.
+
+## G10 — Telonex January stub files (silent under-fill risk)
+
+On the sampled day 2026-01-15, 13 of 48 delta-typed converted parquets
+are near-empty stubs (~20 KB vs ~2 MB normal; discovered in A38, they
+produced zero-fill markets until filtered). Mar-16 / May-13 / Jun-10
+samples have zero stubs, so this looks January-specific (early
+fee-era recording gaps). Any backtest or measurement over January
+months must filter markets by event count / file size first —
+otherwise passive-fill results are silently biased low and
+per-market averages are contaminated by empty episodes. (The
+eligibility layer `listEligibleTelonexMarkets` does NOT screen for
+this; conversion rows exist and point at valid-but-empty files.)
