@@ -12,17 +12,19 @@
 
 ## Status digest
 
-- **Session:** 8 (started 2026-07-17T06:13Z; s7 lived ~4 min. Stamp
+- **Session:** 9 (started 2026-07-17T06:16Z; s8 lived ~3 min. Stamp
   rule: paste from `date -u` output captured in the same command —
-  every estimate so far has drifted)
+  every estimate so far has drifted. TZ note: this box is UTC+2;
+  raw `stat` mtimes print LOCAL — subtract 2h)
 - **Ladder rung:** L2 IN PROGRESS — E003 (parity axis) draining;
   judgment is the next substantive unit
-- **Phase:** E003 draining (~79% at 06:13Z, ~440 jobs/min by
-  waiting-delta, ETA ~06:27Z; 6/9 live flows persisted). Watchers:
-  harness task b7db3g0d3 (s8, wakes this session, 3h cap) + detached
-  nohup pid 66095 → logs/watch-drain-s5.log (survives session death).
-  No drain-window prep left (u22 cleared E004 pre-launch).
-  EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor 0.92/$100, D-007)
+- **Phase:** E003 draining (~86% at 06:18Z, ~425 jobs/min by
+  waiting-delta, ETA ~06:28Z; 2 waiting-children left in aggregate).
+  Watchers: harness task b3lekba6d (s9, wakes this session, 3h cap) +
+  detached nohup pid 66095 → logs/watch-drain-s5.log (survives
+  session death). No drain-window prep left (u22 cleared E004
+  pre-launch). EVALUATION v1.1 frozen (TAIL_K 41, G11 cap-floor
+  0.92/$100, D-007)
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -60,8 +62,8 @@
 
 ## Queue (work top to bottom)
 
-1. **E003 judgment when drained (watch-drain task bzplf0suc, s5,
-   armed 05:55Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
+1. **E003 judgment when drained (watch-drain task b3lekba6d, s9,
+   armed 06:17Z, 3h timeout):** 10 flows live (uids in LEDGER §E003
    Runs; run 679 = failed tombstone from the double-submit incident,
    IGNORE). Per-arm readouts (`results.ts --run <id> --gates s1`),
    axis-table.ts render, advance rule AS WRITTEN in LEDGER §E003

@@ -731,3 +731,31 @@ pickup and died; shortest relay hop yet, still clean). Pickup:
 
 No E003-blind prep work remains, so this unit is pickup-only.
 Next unit: E003 judgment when the watcher fires (~06:27Z).
+
+## 2026-07-17T06:18Z — session 9, unit 25: pickup; drain ~86%; watcher re-armed
+
+Session 9 begins at 06:16Z (s8 lived ~3 minutes — pickup commit, then
+gone; the relay's hops keep shrinking but stay clean). Pickup:
+
+1. **Drain healthy**: 4,064 waiting + 12 active at 06:18Z, 0 failed
+   market jobs; waiting-delta pace ~425/min → ETA ~06:28Z. Aggregate:
+   2 waiting-children left (one more flow persisted since s8's check),
+   failed=3 = the known stale foreign rows.
+2. **Watcher re-armed under THIS session** (task b3lekba6d, 3h cap,
+   agg baseline 3). Detached nohup 66095 alive — fifth relay survived.
+3. **DONE absent, tree clean at d2500a4, worker daemon alive**
+   (pid 68398, markets+aggregate, conc 4). KB STATE unchanged —
+   mtime 05:05Z UTC (raw `stat` prints 07:05 LOCAL; the box is UTC+2 —
+   noted so successors don't misread it as a KB update).
+4. **Judgment kit loaded fresh**: LEDGER §E003 advance rule ((a)
+   parity-response direction agrees across halves, (b) top-2 set
+   identical) + success criteria + u17b interpretation rules
+   (endpoint-direction reporting; rule-failure → E004/E005 at file
+   default tol 10, stated; mechanism split via taker share + fill
+   counts). axis-table.ts interface confirmed
+   (`--prefix glab--E003-pair-accumulator--ax1 --axis-param
+   parityTolPct` — renders the matrix and evaluates the rule
+   mechanically); G2/G3/G9 definitions re-read from EVALUATION.
+
+No E003-blind prep remains (u22 cleared the E004 pre-launch), so this
+unit is pickup-only. Next unit: E003 judgment when the watcher fires.

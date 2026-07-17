@@ -147,3 +147,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: E003 ~79% done (ETA ~06:27Z), 0 failures, 6/9 result sets already in DB.
 - Next: judge E003 parity axis the moment the last runs land.
 - Health: on track
+
+## 2026-07-17T06:19Z — unit 25
+- Did: session-9 pickup; drain watcher re-armed; judgment kit reloaded.
+- Found: E003 ~86% done (ETA ~06:28Z), 0 failures, 7 of 9 pending result sets now in DB.
+- Next: judge E003 parity axis the moment the last runs land.
+- Health: on track
