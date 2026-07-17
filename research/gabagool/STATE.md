@@ -74,7 +74,30 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
-### Session-8 summary (13:23–14:30Z real; A34–A43, O7–O8, G10; 13 units)
+### Session-8 FINAL (13:23–14:50Z real; A34–A48, O7–O9, G10; 20 units)
+
+Additions after the mid-session summary below: A44/A45 (entry gate
+found + validated: habitat separation robust, 10s falling-ask veto
+robust 3/3, 30s directional rule flips by day — sweep it), A46 (A36
+session ordering replicates 2/2; grinder gross-negative days
+normal), A47 (endgame flip table at scale: 0.99+ never flips 0/393;
+mid-band flips 30–40%; A34 lean = base rate), A48 (pairing clock
+~1 min, timeouts 60–300s), LAB-HANDOFF session-8 addendum (the
+build-ordered mechanism spec — READ THIS FIRST for the lab view).
+W4 is now FULLY covered (density A38, session A46, endgame A47,
+pairing A48). Snapshot 6 (14:47Z, O9): b27bc932 btc-5m sleeve
+persists 3rd window — DOSSIER ERA AMENDMENT PENDING (next session:
+add mid-July btc-5m expansion era to wallets/b27bc932.md).
+
+Next-session queue (in order): (1) W3 snapshot ~every 1–2h + fold
+O7–O9 era amendment into b27bc932 dossier; (2) OQ #2 remainder —
+month-scale session split with realized-vol covariate; (3) OQ #4
+first-OrderFilled/migration on the 2026 exchange; (4) low-value
+residue (drfc re-resolution, 5m launch pin, twin-link checks).
+Data on disk: 209 clean books (telonex-r2 + telonex-r2-w4/<day>),
+activity pulls for both key wallets on Jun-12-14/May-13/Jun-10.
+
+### Session-8 mid-session summary (superseded by FINAL above)
 
 The big session-8 arc: (1) MECHANISM — the two living recipes are
 the two local optima of the (offset × requote) surface (A37/A38:

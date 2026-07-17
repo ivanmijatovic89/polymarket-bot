@@ -173,3 +173,27 @@ rows are the HOURLY series (different slug scheme, caught by the
   the lab's session dimension should carry a realized-vol covariate,
   not clock alone. (3) 95f5 still fully idle (2nd consecutive dark
   window).
+
+### 2026-07-17T14:47Z (last 2h; ~55m after snapshot 5)
+
+| wallet | fills | notional | BUY% | pairRate | pairCost | clip p50 | merges | redeems | top books |
+|---|---|---|---|---|---|---|---|---|---|
+| b55f | 4056 | $96727 | 1 | 0.725 | 0.9981 | $6.68 | 0 | 139 | btc-5m $31.2k, eth-5m $13.4k, btc-15m $13.4k |
+| 0xce25 | 3928 | $57233 | 1 | 0.832 | 0.9923 | $7.87 | 0 | 129 | btc-5m $21.9k, eth-5m $10.2k, btc-15m $10.1k |
+| powerwinner | 759 | $61888 | 1 | 0.941 | 1.0162 | $82.8 | 0 | 25 | btc-5m $61.9k |
+| bonereaper | 8237 | $96602 | 1 | 0.474 | 1.0613 | $3.43 | 0 | 94 | btc-5m $61.3k, eth-5m $9.2k, btc-15m $8.3k |
+| 0xaaaaa | 729 | $48003 | 1 | 0.769 | 1.081 | $66.89 | 0 | 24 | btc-5m $48k |
+| doggystyie | 390 | $13901 | 1 | 0.982 | 1.011 | $30.35 | 0 | 19 | btc-5m $13.9k |
+| badfallen | 2853 | $41064 | 1 | 0.904 | 1.0178 | $6.62 | 0 | 24 | btc-5m $41.1k |
+| b27bc932 | 6689 | $43002 | 1 | 0.949 | 1.0183 | $4.06 | 174 | 37 | btc-5m $33.5k, btc-15m $8.1k, bitcoin-up-or-down-july-17-2026-9am-et $0.9k |
+| 95f5-challenger | 27 | $56 | 1 | 0 | - | $1.25 | 0 | 0 | btc-15m $0k, eth-15m $0k |
+
+- **O9 (14:47Z):** the US-session surge continues and broadens —
+  total tracked flow ~$460k/2h (vs ~$250k in the overnight
+  snapshots); b55f nearly $100k/2h with pair cost right AT 0.998.
+  b27bc932's btc-5m sleeve persists (3rd consecutive window,
+  $33.5k) — this is a durable mid-July expansion, not a blip; its
+  dossier era table needs the amendment (residue for next session).
+  95f5 back from idle at dust scale ($56/2h). Sub-$1 club this
+  window: 0xce25 only (b55f 0.998 borderline) — consistent with O8:
+  vol regime, not clock, drives who clears $1.

@@ -1104,3 +1104,18 @@ first-class dimension, measured leg-risk numbers (favorite-lean,
 ceiling expectation, and the January data trap. The deep-pair cell
 is no longer just a target — it now has a mechanism spec the lab
 can implement directly.
+
+## 2026-07-17T14:50Z (real) — session 8, unit 20: snapshot 6 (O9) + session wrap
+
+Snapshot 6: the US surge broadens (~$460k/2h tracked flow vs ~$250k
+overnight); b27bc932's btc-5m sleeve is now 3 consecutive windows —
+durable expansion, dossier era amendment queued for the successor;
+95f5 back at dust. Sub-$1 club = 0xce25 alone this window — more
+evidence the pair-cost regime is vol-driven, not clock-driven.
+
+SESSION 8 CLOSES: 20 units, A34–A48 (15 amendments), O7–O9, G10,
+five OPEN-QUESTIONS closed (#1 old and new, #2, #7, #10), W4 fully
+covered, LAB-HANDOFF carries the build-ordered mechanism spec. The
+concept moved from "which wallet wins" to "WHY the winner wins"
+(fill selection in calm states) with validated, sim-expressible
+rules. STATE.md §Session-8-FINAL has the successor queue.

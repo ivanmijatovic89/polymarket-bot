@@ -375,3 +375,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: the strategy blueprint is now concrete: quote at the touch with fast re-quotes when calm, pause after sharp moves and during US hours (or switch style), let near-certain positions ride, treat 5-minute-old unpaired legs as bets. Target: $1-3k/day realistic ceiling.
 - Next: live snapshot 6, then session state wrap.
 - Health: on track.
+
+## 2026-07-17T14:50Z — unit: snapshot 6 + session close (session 8)
+
+- Did: sixth live sample and the session wrap-up; successor queue written.
+- Found: today's session answered five open questions and produced the first complete mechanical explanation of WHY the winning bot wins — the strategy spec is now concrete enough to build against.
+- Next: successor session: keep live sampling, amend the top bot's dossier (its new 5-minute sleeve is durable), then month-scale volatility-aware measurements.
+- Health: on track.
