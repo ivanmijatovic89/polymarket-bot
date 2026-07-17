@@ -481,3 +481,25 @@ notional, near-uniform timing, gross trading +0.28% of turnover ≈
 breakeven after fees, income ≈ 97% subsidy. It is a live existence
 proof of H1's mechanism surviving the fee era — as a volume/subsidy
 machine, not an alpha machine. H1, H3, BRIEF §8, _META updated.
+
+## 2026-07-17T08:50Z — SATURATION declared; LAB-HANDOFF written; DONE
+
+The stability test held: H1–H6 last changed structurally in session 3;
+the seven units since (A17–A24) only sharpened parameters, priors, and
+warnings. Every remaining open item fails the "changes
+BRIEF/HYPOTHESES materially" test — the ledger with per-item verdicts
+is in SATURATION.md.
+
+LAB-HANDOFF.md carries three paste-ready family seeds:
+pair-accumulator (H1+H6, fully sim-decidable now that fees AND rebates
+are exact, with a live existence proof), cheap-side-accumulator (H2,
+the b55f profile), and fair-value-gated-maker (H4, blocked on the
+Binance feed merge, with the scope-change flag surfaced). Plus the
+five operating notes that keep sim results readable (exact fee/rebate
+lines, worst_queue-is-a-lower-bound, June replay window, scope
+confirmation, competition realities).
+
+Creating DONE. The shift ends here: 4 sessions, P1–P51 + A1–A24,
+G1–G9, H1–H6 (2 resolved), 11 wallets characterized, 11 measurement
+files, one self-correction ledgered same-day. The knowledge base the
+charter asked for exists and is internally consistent.

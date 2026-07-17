@@ -51,21 +51,16 @@ measurements/{tail-forensics,era-comparison}-gabagool22.md.
 - Write ONLY inside research/gabagool/ (pre-commit hook; one near-miss
   with a stray repo-root measurements/ dir — deleted).
 
-## Work queue (ranked)
+## Work queue
 
-1. NEXT: saturation assessment. G4 RESOLVED (A22); P19 CLOSED (A23);
-   b27bc932 dossier DONE incl. A24 self-correction (multi-book, ~3-4%
-   pool share, H1 existence proof). Remaining candidates, all
-   low-marginal-value: drfc4eybh7i8 re-resolution;
-   badfallen/doggystyie/0xaaaaa dossiers; 2026-exchange launch date;
-   1-pUSD marketable min primary source; b27bc932 handle/era-split.
-   None should change BRIEF/HYPOTHESES materially → write
-   SATURATION.md -> LAB-HANDOFF.md -> DONE (charter E). The handoff
-   must carry: pair-accumulator seed (H1+H6, sim-decidable now, A24
-   existence proof), cheap-side-accumulator seed (H2),
-   fair-value-gated-maker seed (H4, blocked on feed merge), + the A22
-   rebate line, A23/A24 competition picture, and T1 scope tension.
-2. Continuous: at saturation -> SATURATION.md -> LAB-HANDOFF.md -> DONE.
+**SHIFT COMPLETE (2026-07-17, session 4).** SATURATION.md written
+(stability test + per-item residue ledger), LAB-HANDOFF.md written
+(3 family seeds: pair-accumulator, cheap-side-accumulator,
+fair-value-gated-maker + operating notes), DONE created. Nothing is
+queued. If a successor session starts anyway: do NOT reopen the
+queue — verify the DONE state, and only act on genuinely NEW external
+events (e.g., Telonex sync resumes, venue reprices fees/rebates, the
+operator merges the Binance feed branch → unblock seed 3).
 
 DONE session 4 so far: recovered + committed the edge-source unit a
 crashed predecessor left on disk — A17 (edge execution fingerprint,

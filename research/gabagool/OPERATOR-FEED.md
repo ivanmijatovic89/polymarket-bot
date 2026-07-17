@@ -67,3 +67,10 @@ rules: see CHARTER.md § Operator feed. Watch with:
 - Found: my earlier claim was wrong — it trades three markets, not one, and owns ~4% (not 40%) of the target market's subsidy. Still the best find of the shift: it runs gabagool's exact recipe today, breaking even on trading and living on subsidies.
 - Next: saturation check, then the lab handoff.
 - Health: on track (one same-day self-correction, fully ledgered).
+
+## 2026-07-17T08:50Z — unit: shift complete
+
+- Did: declared knowledge saturation (with a per-item residue ledger), wrote the lab handoff with three ready-to-run family seeds, created DONE.
+- Found: the strategy's full story is now documented — how it made money in each era, exact fee/rebate math, who runs it today and how, and what the lab should build first.
+- Next: nothing — the relay ends; the lab picks up LAB-HANDOFF.md.
+- Health: on track.

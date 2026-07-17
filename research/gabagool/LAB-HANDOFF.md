@@ -1,0 +1,123 @@
+# LAB-HANDOFF — gabagool knowledge shift → strategy-research-protocol
+
+Written 2026-07-17 at saturation (see SATURATION.md). This file gives
+the lab 3 family seeds for `strategy-research-protocol/scripts/
+propose-family.sh "<seed>"`, plus the operating notes that make sim
+results readable. Everything cites the knowledge base in this folder;
+read STRATEGY-BRIEF.md first, PRIORS.md for any specific claim.
+
+## Read-this-first operating notes (apply to every seed)
+
+1. **Fees + rebates are exactly modelable — do it or the sign is
+   wrong.** Current era (June+ replay): taker fee 0.07·p(1−p)/share on
+   crossing fills, maker $0; maker rebate = 0.20 × Σ 0.07·p(1−p)·size
+   over own maker fills, per market, $0 if < $1/market/day (A22 —
+   pool share cancels; one-line post-hoc stats). Report trading and
+   rebate as SEPARATE lines (H3: they are different businesses).
+2. **The sim's maker fill model is a lower bound.** worst_queue admits
+   44–49% of the archetype's real fills — the adverse subset (D2).
+   Sim-negative absolute EV is expected, NOT a kill by itself; kill
+   criteria and dispositions are written per-hypothesis in
+   HYPOTHESES.md. Relative rankings on identical maker fills
+   (completion policy, time-weighting) ARE trustworthy (H6 test path).
+3. **Replay window**: Telonex coverage ends 2026-06-14 (G9). Use
+   Jun 1–14 2026 (1,286 btc-15m markets on local disk) — era-consistent
+   with the current fee/rebate regime.
+4. **Scope confirmation**: btc-15m is the RIGHT book (H5 resolved:
+   fee-inclusive positive for audited wallets while 5m is a subsidy
+   game); the old P18 "15m ≈ 0 edge" prior is superseded (T1 closed).
+5. **Competition reality** (not simulatable, G8): fragmented rebate
+   pool (~$7.3k/day on btc-15m, biggest earner holds ~3–4%), a
+   −$542k/30d failed challenger, and a taker-fee-tier moat (new
+   entrants pay ~2× an incumbent's effective taker fee). Any
+   sim-positive result inherits these as live risks, plus program risk
+   (the venue demonstrably re-tunes fees/rebates and pays
+   discretionary amounts — A21).
+
+## Seed 1 — `pair-accumulator` (H1 + H6; rank 1)
+
+    propose-family.sh "pair-accumulator: two-sided BUY-only ladder maker
+    on btc-15m with delta-parity sizing and an explicit taker-completion
+    policy. Decision driver: parity tolerance x completion policy. See
+    research/gabagool/LAB-HANDOFF.md seed 1."
+
+- **Mechanism**: rest small BUY clips on both legs around mid; size
+  each new bid to close leg imbalance; complete the lagging leg by
+  crossing ONLY when pair cost + fee stays under a hard cap. Existence
+  proof running today: b27bc932 (pair cost p50 0.993, parity 1.6%, no
+  merges, 50% taker completion — A24).
+- **Baseline sweep** (priors: A17/A20/A24, BRIEF §4/§5):
+  clip $1–10; ladder = touch + rungs at −2c…−13c below touch;
+  band ≈ [0.11, 0.85]; parity tolerance {0.1%, 2%, 10%, 20%, 40%};
+  completion policy {maker-only, taker-cap pair≤0.99, taker-cap
+  pair≤0.97, taker-free}; time-weighting {uniform, minutes 8–13 heavy};
+  minute-14 cutoff always on; never quote open-heavy (E24/A20).
+- **Metrics** (METRICS.md): pair cost, pair completion, fee-inclusive
+  margin, exact rebate line, fills/market, unpaired exposure $, PnL
+  tails, minority-outcome count ≥ 30 before judging.
+- **Kill**: fee-inclusive pair margin + exact rebate < 0 across the
+  whole sweep (now decidable in sim, A22). Sub-kill signal to report
+  either way: does completion-policy ranking reproduce H6's ~2% margin
+  spread?
+- **SRP lineage**: spread-capture roadmap #6 (bid-side mirror) is this
+  family; spread-capture died WITHOUT parity control (P42) — parity is
+  the decision driver, not a detail.
+
+## Seed 2 — `cheap-side-accumulator` (H2; rank 2)
+
+    propose-family.sh "cheap-side-accumulator: deep discount BUY ladders
+    on the 0.02-0.15 side of btc-15m, loose parity, hold to redemption.
+    Decision driver: entry band x hold. See
+    research/gabagool/LAB-HANDOFF.md seed 2."
+
+- **Mechanism**: harvest panic-dumps of dying longshots and sweeps into
+  deep bids (b55f's live profile: 47% win, right-tail payoff, never
+  merges — verified +2.31% fee-inclusive with taker completion).
+- **Baseline sweep**: entry band 0.02–0.15 (b55f p25 0.09); clip
+  ladder $1–200; hold-to-resolution always; optional endgame guard from
+  the flip table (A20: trailing side is ~1–5c overpriced — deep
+  discounts are mandatory, touch-chasing the cheap side is the trap).
+- **Kill** (H2): sim EV < 0 across the Jun window at every band cell
+  under the CURRENT fee curve, maker fills only. Judge on market-level
+  EV with minority count ≥ 30 (fable E14) — tail shape is the result.
+- **SRP lineage**: endgame-panic-bid measured the last-seconds slice ≈
+  breakeven (P43); this family differs by operating the whole window.
+
+## Seed 3 — `fair-value-gated-maker` (H4; rank 3, BLOCKED)
+
+    propose-family.sh "fair-value-gated-maker: pair-accumulator quoting
+    filtered by Binance-anchored fair value; suppress the rich side.
+    Decision driver: suppression threshold. See
+    research/gabagool/LAB-HANDOFF.md seed 3."
+
+- **Blocked on**: operator merging the `binance-aggtrades-r2-sync`
+  branch (feed is implemented + verified there, 110ms latency baked
+  in). Do not start before that merge.
+- **Mechanism**: quote like seed 1 but pull the side fair value calls
+  rich (|p_book − p_fair| threshold 1–5c); targets the P42 first-fill
+  adverse-selection channel. Strike proxy = window-open spot; NOTE the
+  oracle basis caveat (A18): resolution reads Chainlink, not Binance —
+  keep the anchor for mid-window filtering, distrust it in the final
+  seconds.
+- **Scope flag for the proposal**: SRP SCOPE.md currently forbids
+  external feeds; the ban's rationale (non-replayable) is obsolete for
+  this feed (replayable-deterministic). The proposal must surface this
+  explicitly — scope change is the operator's call.
+
+## Not proposed (and why)
+
+- Rebate-volume farming (b27bc932's actual business): income is ~97%
+  venue discretion (A21/A24) and requires tier position + scale a lab
+  family cannot express; H3's role is to make you read sim results as
+  two lines, not to be built.
+- Own-the-open: Game F is negative for this cohort (A17) and opening
+  touch quoting is adversely selected from the first seconds (E24).
+- Instantaneous dutch book / zero-fee replication / post-first-fill
+  unwind cleverness: discarded with evidence in HYPOTHESES.md.
+
+## Pointers
+
+- Build spec: STRATEGY-BRIEF.md. Testable set: HYPOTHESES.md. Metric
+  definitions: METRICS.md. Venue numbers: VENUE-MECHANICS.md. Sim
+  blind spots: ENGINE-GAPS.md (G1–G9). Wallet evidence: wallets/ +
+  measurements/. Claim provenance: PRIORS.md (P1–P51, A1–A24).
