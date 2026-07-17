@@ -951,9 +951,24 @@ Template:
 
 ## E006-quote-stability — requote discipline on the deep chassis
 - **Type:** axis
-- **Status:** proposed (draft 2026-07-17T10:36Z, s12 u43 — freezes at
-  first evidence submission; written AFTER the E005 battery judgment
-  and BEFORE any E006 data exists)
+- **Status:** frozen (2026-07-17T10:38Z, session 12, at launch, SHA
+  35a6f5de = the launcher commit; spec verbatim from the u43 draft —
+  nothing filled at freeze. Drafted AFTER the E005 battery judgment,
+  BEFORE any E006 data existed.)
+- **Runs (launched 2026-07-17T10:34Z, 8 flows, h1 = 2,880 / h2 =
+  2,976 each; delta-0.02 reference = runs 708/703, reused):**
+  - ax5h1-q05: `…--ax5h1-q05--lat140--4762a14d-575a-4bb0-8f3c-83d78499e203`
+  - ax5h2-q05: `…--ax5h2-q05--lat140--2428068e-927c-48e8-a4ec-f80968ab7ba8`
+  - ax5h1-q10: `…--ax5h1-q10--lat140--26da577b-5db5-4729-964b-76a7b28c62d4`
+  - ax5h2-q10: `…--ax5h2-q10--lat140--4989ab76-1564-4025-aeb9-74ef56426f48`
+  - ax5h1-q20: `…--ax5h1-q20--lat140--d1440f82-c2d4-4095-857c-cd730b942da9`
+  - ax5h2-q20: `…--ax5h2-q20--lat140--cb22d12f-1a33-4693-99c9-e3f7f52096f3`
+  - ax5h1-q45: `…--ax5h1-q45--lat140--d7a370e8-416e-4027-9a23-b5576269bc34`
+  - ax5h2-q45: `…--ax5h2-q45--lat140--009f6334-2a5b-469c-8adb-5854cb4abc03`
+  (verified read-only via agg-inspect post-launch: 8 ax5
+  waiting-children flows at SHA 35a6f5de; markets queue 23,296
+  waiting + 12 active ≈ the expected 23,424; markets failed = 0.
+  Drain watcher: nohup pid 94585 → logs/watch-drain-s12-e006.log.)
 - **Why this axis now (proposal policy: measured mechanism first):**
   the E005 battery decomposed the best cell's loss: at lat0 the deep
   book loses ≈ nothing (−0.12/−0.01, taker ≈ 0) while at lat140 it

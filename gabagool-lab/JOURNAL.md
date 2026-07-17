@@ -1334,3 +1334,18 @@ the lat0 economics (≈ −0.1) as delta grows, participation falls;
 the curve's shape decides whether a standing deep ladder keeps
 enough flow to matter. Next: launcher + q-mode table extension
 (blind), then freeze-at-submit and launch.
+
+## 2026-07-17T10:39Z — session 12, unit 44: E006 frozen + launched at 35a6f5de (8 flows, ~23.4k jobs)
+
+Freeze-at-launch ritual held: proposal committed u43, launcher
+committed u44, dry-run verified all 8 cells (chassis params
+verbatim, delta per code, windows right), real launch enqueued 8
+flows all at the launcher SHA, verified read-only (23,296+12 ≈
+23,424 jobs, 0 failed), uids recorded in §E006, watcher pid 94585.
+Drain ETA ~11:26Z at the standing ~450/min pace.
+
+While it drains, the judgment kit needs a q-mode in the family
+table tool (labels q05..q45 + the 0.02 reference; guards on
+requoteDelta-vs-label with chassis params pinned; the delta chain
+adjacency + advance rule; participation flagging already exists).
+Same blind-build discipline as u30/u35/u37.
