@@ -1218,3 +1218,31 @@ artifacts). If the deep standing ladder's degradation is small, the
 −2.16 avg cell is real structure that survives execution reality —
 and the family earns candidate assembly. If it degrades like E002,
 depth was another latency mirage. Either answer is decisive.
+
+## 2026-07-17T09:15Z — session 12, unit 40: battery readout path verified + interpretation framework pre-registered (0/6 battery runs persisted — blind)
+
+Readout path: results.ts --battery reproduces the E002 curve to the
+digit (−4.3904/−0.4207/−5.0288/−5.3047, fills matching the L1
+record), so the battery judgment uses it per half; S(pair)/pairRate/
+imb per lat come from per-lat e005-table invocations (one c960 label
+per call — no duplicate-cell collision; its param guards are
+lat-agnostic by design). No new tooling.
+
+Interpretation framework, written BEFORE any battery number exists
+(program-prioritization guide, not an evidence rule — the evidence
+readout is the pre-registered addendum):
+- Family REAL (small degradation, roughly: EL(1000) − EL(140)
+  shallower than about −1 $/mkt and taker share not exploding
+  toward E002's 55%): candidate assembly path opens; priority
+  E005b bracket (4 cheap runs) → E006 timing → candidate spec
+  (D-008 decides whether completion=free joins).
+- Family MIRAGE (E002-like collapse, Δ(140→1000) around −1 $/mkt or
+  worse on a −2.16 base, taker share inflating toward 50%+): the
+  lat140 numbers are execution artifacts; block candidate talk;
+  E008 fair-value gate becomes the priority (quote-stability alone
+  is insufficient), and the dead-region record gets the latency
+  column.
+- In-between: judge by whether the DEPTH ordering (rc+c960 vs ra
+  reference at matching lats) survives — the axis conclusion, not
+  the absolute EL, is what must be latency-robust for the family to
+  keep its structure claim.
