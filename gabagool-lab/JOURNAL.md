@@ -2334,3 +2334,35 @@ rows reproduce the u69 numbers to the digit (−0.0362/−0.2681, 2.6/
 Drain at 07:15Z: watcher up (pid 67462). Contamination probes: g05
 @lat0 and ungated@lat0 still grinding (pathological market), probe
 4 (ungated@lat140, the 714 reproduction check) queued behind them.
+
+## 2026-07-18T07:16Z — session 28, unit 77: u73 addendum — g05@lat0 counterfactual landed (run 746); exact correction replaces the LOO bound for 742; ungated probes relaunched
+
+Session 28 pickup at 07:12Z: DONE absent, hook intact, worker alive
+(4 children grinding E008b), E008b draining fast (5.8k done at
+07:12Z, ~890 jobs/min — well ahead of the 330/min ETA; could drain
+~07:50Z). The u73 probe chain died with session 27: probe 2 (g05@
+lat0, run 746) COMPLETED, but probes 3–4 (ungated@lat0, ungated@
+lat140) never started — the sequential shell was not detached from
+the session. Relaunched both under nohup with latency pinned
+explicitly per LS-13 (BACKTEST_LATENCY_DELAY=0 / =140 shell env,
+which beats the ambient .env because dotenv does not override), pid
+77993 → logs/probe-contam-ungated-s28.log.
+
+Run 746 (g05@lat0, btc-updown-15m-1776879000, uid probe-contam-g05
+--lat0): pnl +6.9000, 6 maker / 0 taker fills, cost 17.10 — the
+taker≈0 fingerprint confirms it really ran at lat0. The true lat0
+row is far SMALLER than the contaminated lat140 row (corrected EL
++6.90 vs +15.99): at 140 ms the strategy chased the pathological
+market into 25 taker fills and got paid for the ride; at lat0 it
+sits maker-only and captures a third as much. Exact correction for
+run 742 (2880 mkts, from the per-market export): contaminated EL
+−0.0756 → true −0.0787 (LOO bound was −0.0812; truth lands between,
+as LS-13 predicted). Δ = −0.0032 ≈ se/11 — no judgment call in the
+E008-lat battery moves; the failing payload cell (733/709) remains
+contamination-free. Run 714's exact correction follows when the
+ungated@lat0 probe lands; probe 4 (ungated@lat140) is the
+determinism check that must reproduce 714's contaminated row
+(41 trades, 26 taker) field-for-field.
+
+Also: tools/cmd.ts added (prints stored launch cmd for run ids —
+needed it to reconstruct the probe wiring; small, reusable).

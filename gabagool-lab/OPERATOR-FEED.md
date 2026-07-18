@@ -459,3 +459,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — instrument reproduces the incumbent's known numbers exactly.
 - Next: wait for the 12 runs to land (~09:00Z), then judge.
 - Health: on track
+
+## 2026-07-18T07:16Z — unit 77
+- Did: recorded the first repair-incident counterfactual (the mispriced market truly re-run at zero latency) and restarted the two follow-up probes that died with the last session.
+- Found: the incident's real impact is even smaller than the earlier bound — the affected run's average moves by ~0.003 of a dollar per market; no conclusions change.
+- Next: judge the 12-run favorite-side experiment when it drains (~07:50–08:50Z).
+- Health: on track

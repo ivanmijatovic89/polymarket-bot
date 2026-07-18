@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 27 (started 2026-07-18T06:41Z. Stamp rule: paste from
+- **Session:** 28 (started 2026-07-18T07:12Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -46,14 +46,19 @@
   to §E005. LOO impact: −0.006/−0.005 EL (≈se/6, se/8); NO
   judgment call flips; the binding payload-FAIL cell (733/709) is
   contamination-free. Both runs stand with the flaw stated.**
-  Counterfactual lat0 probes were still grinding at commit (the
-  market takes ~10 CPU-min at lat0 — why it stalls BullMQ); record
-  their numbers as a journal addendum when they land. Earlier: E008
-  judged u69 (first reference-beating lever; LS-12; D-010), E006
-  AXIS-CLOSED (LS-11), E005 battery (LS-9), E004 cfree/D-008,
-  EVALUATION v1.1 frozen.
-  s27 ritual done (06:41Z): DONE absent, hook intact this time,
-  worker alive, battery drained 06:34Z.
+  Counterfactual probes (u77): run 746 (g05@lat0) LANDED — true row
+  +6.90 (6m/0t) vs contaminated +15.99; run 742 exact EL −0.0756 →
+  −0.0787 (LOO bound −0.0812; truth between; Δ ≈ se/11, nothing
+  flips). Ungated probes relaunched DETACHED pid 77993 (s27 chain
+  died with the session) → logs/probe-contam-ungated-s28.log;
+  ungated@lat0 gives 714's exact correction, ungated@lat140 is the
+  714-row determinism check (expect 41 trades / 26 taker exact).
+  Earlier: E008 judged u69 (first reference-beating lever; LS-12;
+  D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
+  cfree/D-008, EVALUATION v1.1 frozen.
+  s28 ritual done (07:12Z): DONE absent, hook intact, worker alive
+  (4 children on E008b), queue 32.4k waiting at 07:12Z, ~890
+  jobs/min — drain possibly ~07:50Z (earlier than the 08:50Z ETA).
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
@@ -154,13 +159,14 @@
    caveats. On partial: submit.ts --extend ONLY (LS-13). Advancing
    cell → pre-committed survival battery (criteria 4; g00 same-lat
    cells exist: 738/733, 734/735, 736/737 — 6 new runs max).
-2. **Journal addendum when the lat0 counterfactual probes land**
-   (bg probes on btc-updown-15m-1776879000: g05@lat0 pid 42021 +
-   ungated@lat0 + ungated@lat140 sequential behind it; each lat0
-   run ~10+ CPU-min — pathological market). Record: exact lat0 pnl
-   for 742/714's market (replaces the LOO bound) + probe-4
-   reproduction check of 714's contaminated row. No judgment
-   changes expected (LOO ≤ se/6).
+2. **Journal addendum when the ungated probes land** (relaunched
+   u77, DETACHED pid 77993, sequential: ungated@lat0 then ungated@
+   lat140 on btc-updown-15m-1776879000; lat0 leg ~10+ CPU-min —
+   pathological market; log logs/probe-contam-ungated-s28.log).
+   Record: 714's exact corrected EL (replaces LOO −0.1225) +
+   probe-4 field-for-field reproduction of 714's contaminated row
+   (41 trades / 26 taker). g05 side DONE u77 (742: −0.0787 exact).
+   No judgment changes expected.
 3. **After E008b: fresh-data confirmation path per EVALUATION**
    (holdout; E32 winner's-curse defense — sel-width shrinkage).
    Candidate assembly: blocked until a POSITIVE-EL cell exists
