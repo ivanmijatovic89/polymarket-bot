@@ -2670,3 +2670,27 @@ Because acc gained the `ms` field, the 055a0b7 A/A basis does NOT
 carry over — the block makes re-proving it a launch precondition.
 Next unit: A/A vs 728 (20 markets exact), veto-on smoke, then
 launch 6 arms and flip §E010 to FROZEN.
+
+## 2026-07-18T08:44Z — session 32, unit 88: E010 identity checks PASS (A/A 20/20 exact vs 728; veto-on smoke green) + launcher ready
+
+Both §E010 launch preconditions are met on the new code:
+
+- **A/A (run 761 vs ref 728): PASS 20/20 exact.** 20 h1 markets,
+  sequential, g00 params (gate on at θ=0, veto 'none'), lat140 —
+  per-market EL reproduces run 728 to the last digit on every
+  slug. The determinism basis is re-established after the `ms`
+  accumulator field: the g00/g05 reference runs remain valid reuse
+  bases for §E010 (and the E008b comparisons stay same-code).
+- **Veto-on smoke (run 762, w10, 5 markets): machinery works.**
+  momVetoMode/momWindowSec/momMinDrop persist in the run row; the
+  veto engages hard (ms 11.7k–46.2k per market, same order as the
+  fv gate's gs counter — per-tick suppression counts); fills still
+  happen (6 maker fills, played 4/5); settlement recheck OK. EL on
+  5 markets is noise — no reading taken, per peek discipline.
+
+launch-e010.sh committed (LS-3-hardened: --dry-run only flag, ax8
+idempotence guard, all knobs hardcoded to the §E010 block: w5/w10/
+w20 × halves on the g00 chassis, momMinDrop 0.01, lat140).
+
+Next unit: dry-run inspect, launch the 6 flows, flip §E010 to
+FROZEN at the launch SHA with uids recorded, drain watcher up.

@@ -525,3 +525,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — design work; one fork settled: watch the ask, not the midpoint, because the ask is what actually fills our orders
 - Next: prove the default path is bit-identical (A/A vs run 728), smoke the veto, then launch 6 runs
 - Health: on track
+
+## 2026-07-18T08:44Z — unit 88
+- Did: proved the code change is inert when off (20/20 markets byte-identical to the reference run) and that the veto actually engages when on
+- Found: machinery healthy — the veto suppresses thousands of placement opportunities per market yet trading continues; no readings taken yet
+- Next: launch the 6 experiment runs and freeze the plan
+- Health: on track
