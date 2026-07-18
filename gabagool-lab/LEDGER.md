@@ -1305,6 +1305,73 @@ Template:
   interior optimum is a hypothesis, not a fact — measure the
   endpoint arm.
 
+### §E008 BATTERY ADDENDUM — latency stress on the gated cells (pre-registered s26 u70; freeze at submit)
+
+- **Type:** battery (characterization + falsification; discharges
+  the charter latency-stress requirement for the E008 lever).
+- **Status:** frozen at launch (launcher commit = the freeze SHA;
+  strategy file untouched since 800b34cf lineage — last change
+  055a0b7 u56, A/A run 723 = 20/20 exact — so battery runs share
+  the ax6 determinism basis; no code change in this unit).
+- **Why now:** E008's judgment (u69) hangs on one untested charter
+  mandate: variants must survive BACKTEST_LATENCY_DELAY 500–1000 ms.
+  The gate is placement-only and reads the binance feed as-of at
+  DECISION time; under latency the placement arrives up to 1000 ms
+  after the gate decision — stale-gating is exactly the live risk
+  (feed offset ~110 ms is separate and always on). lat0 additionally
+  gives the gated cell's frictionless bound (is g00's residual
+  −0.04/−0.27 conversion-channel, as E005's was?).
+- **Cells:** BOTH judged cells — g00 (chassis, D-010) and g05 (the
+  designated two-sided chassis for pairing-dependent axes; its
+  latency profile is a prerequisite there; one battery now avoids a
+  second drain later). 12 runs = {g00, g05} × lat {0, 500, 1000} ×
+  halves {h1 Apr, h2 May}; jitter 0; params verbatim from the ax6
+  arms (rc+c960 chassis + fvGateMode=level, fvGateBps 0/5). lat140
+  cells are NOT submitted — they ARE runs 728/725 (g00) and 726/727
+  (g05). Ungated same-lat references are NOT submitted — they ARE
+  the §E005 battery: lat0 714/709, lat500 710/711, lat1000 712/713,
+  lat140 708/703. Suffixes `ax6bat<half>-<code>` (uid grammar
+  `…--ax6bath1-g00--lat0--<uuid>`), launcher
+  `tools/launch-e008-battery.sh` (LS-3: --dry-run only, refuses
+  queued ax6bat, all knobs hardcoded). ~35.1k jobs, local worker
+  concurrency 4, expected drain ~2 h.
+- **Success criteria (frozen before submit):**
+  1. All 12 runs complete, validators green (G9 fee-recon,
+     settlement recheck, meta 100%); played < 20% flags the cell
+     unmeasurable-at-coverage (§E005 language).
+  2. Readout: per cell×half the full latency curve {0, 140, 500,
+     1000}: EL±se, t, taker share, fills/mkt, played%, pairRate,
+     outlay, CVaR5 — PLUS the settlement decomp (e004-decomp.ts) of
+     gated vs UNGATED AT THE SAME LATENCY for lat 0/500/1000 (the
+     140 column reuses §E008's decomp).
+  3. **Survival rule (the judgment):** the gate SURVIVES latency
+     iff for g00, at BOTH lat500 AND lat1000, in BOTH halves,
+     ΔEL(g00 − ungated same-lat) is positive AND DISTINCT
+     (|Δ| > 2·se_diff). Survives → chassis confirmed for subsequent
+     axes; charter latency mandate discharged for this lever. Fails
+     anywhere → the gate is latency-fragile at that horizon: record
+     the curve as a dead-region entry, fall back per D-010
+     (g05 line if g05 survives; else chassis reverts to rc+c960 and
+     E008 is re-classed AXIS-CLOSED-AT-LATENCY).
+  4. **Payload-at-latency check:** Δrem(g00 vs same-lat ungated) ≥
+     −0.3 at every latency — the winner-remainder capture must not
+     be a latency artifact (anti-E006 guard carried forward).
+  5. **Frozen predictions (judged, not narrated):**
+     P1: ΔEL(g00 vs ungated same-lat) ≥ +1.5 $/mkt at every latency
+     in both halves. P2: g00's own slope EL(1000) − EL(0) ≥ −1.0
+     $/mkt in both halves (ungated slope was −3.34/−3.45 — the gate
+     should flatten the decay because the book is ~4× smaller and
+     the adverse side never quotes). P3 (secondary): g05 retains a
+     DISTINCT positive ΔEL vs ungated at lat500 in both halves.
+  6. Stated limitations: worst_queue adverse-subset fills at all
+     latencies; strike = binance-at-open not Chainlink (A18);
+     halves straddle the v1→v2 exchange cutover 2026-04-28 (KB A51)
+     and the fee trim May 6–10 (A52) — cross-half agreement is
+     therefore also a regime-robustness read, and any h1-vs-h2
+     disagreement gets an A51 caveat, not a coin-flip narrative.
+- **Runs (launched — filled at submit):** (pending)
+- **Judgment:** (pending)
+
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind
   quote-stability u43 per the battery's mechanism finding):
