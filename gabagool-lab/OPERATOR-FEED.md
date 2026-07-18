@@ -501,3 +501,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the replay reproduces the old bad row digit-for-digit — the January data-mixup incident is now fully closed with exact numbers on both affected runs; nothing changes.
 - Next: wait out the queue (~08:20Z) for the last 5 runs, then the full 12-run judgment.
 - Health: on track
+
+## 2026-07-18T07:56Z — unit 84
+- Did: sketched the next queued experiment (E010: skip buying on a side whose price fell in the last 10s) and confirmed the code can do it with no new data feeds. Correction to unit 83: the closed incident was the latency mix-up, not a January data issue.
+- Found: nothing new numerically — design prep only, while the big batch queue drains (~08:20Z).
+- Next: when the last 5 runs land, run the frozen 12-run judgment for E008b.
+- Health: on track

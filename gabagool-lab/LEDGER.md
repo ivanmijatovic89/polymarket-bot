@@ -1650,3 +1650,20 @@ Template:
   (regime-dependent — sweep, never freeze). Conditional-requote
   form (veto upward requote mid-rally) belongs to E006b's design
   space. Rank against E006b/E005b after E008's numbers.
+  - *Design sketch (s30 u84, pre-freeze, informational):* E003
+    file extension, same pattern as the E008 fvGate — params
+    `momVetoMode ('none'|'fall', default 'none' = bit-identical
+    path)`, `momWindowSec` (sweep axis, e.g. 5/10/20), `momMinDrop`
+    (cents; A44's signature is any fall, so 0.01 is the natural
+    floor and a possible second rung). Signal: per-side ring
+    buffer of (ts, mid) from tick.snapshot; veto NEW rung
+    placement on a side whose mid at as-of(ts−momWindowSec) is
+    higher than now by ≥ momMinDrop (falling own-book = price
+    coming into the bid = the adverse subset). Composes with the
+    g00 chassis (rc+c960+g00) the way the gate did; the E008b
+    decomp table gives the incumbent's loss anatomy to predict
+    against. In-strategy state only — no plugin, no feed, no
+    aggTrades dependency, works at any latency arm. Feasibility
+    verified against E003 code (u84): snapshot exposes both
+    books per tick; the fvGate's fail-open/param-default pattern
+    transfers 1:1.

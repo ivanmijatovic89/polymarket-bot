@@ -2532,3 +2532,28 @@ Queue item 2 is done; the only remaining work before judgment is
 the drain (12.6k waiting at 07:53Z, ~460/min → ETA ~08:20Z) for
 the last 5 cells: r3d-h2, s75 ×2, s85 ×2 — the whole solo-cap
 sub-axis (P2).
+
+## 2026-07-18T07:56Z — session 30, unit 84: E010 design sketch written while the drain grinds — feasibility verified against E003 code
+
+Drain at 11.7k waiting (07:55Z, ~470/min → ETA ~08:20Z). No more
+front-loadable E008b work: the judgment instrument's frozen wiring
+takes arms only as complete half-pairs, so r3d h1 cannot be peeked
+alone (correct behavior — partial-arm peeking is exactly the kind
+of informal pre-judgment the freeze exists to prevent).
+
+Spent the wait on the top backlog seed instead. E010 (own-book
+momentum veto, KB A44–A45: suppress new rungs on a side whose own
+mid fell over ~10s — the only 3/3-robust pre-fill discriminator
+the KB found) now has a concrete design sketch in its backlog
+entry: E003-file extension exactly like the fvGate (momVetoMode
+default 'none' = bit-identical path; momWindowSec sweep 5/10/20;
+momMinDrop floor 0.01), signal from a per-side ring buffer of
+tick-snapshot mids, in-strategy state only — no feed, no plugin,
+works at any latency arm. Feasibility read against the E003 code:
+the snapshot exposes both books per tick and the fvGate's
+fail-open/default-off pattern transfers 1:1. NOT frozen, NOT
+ranked — that happens after the E008b judgment per the proposal
+policy. Also correcting a plain-language slip in u83's operator
+feed entry: the closed incident was the LATENCY mix-up (140 ms
+data inside a zero-latency cell, April data), not a "January
+data-mixup" — January was a different flag (A38 stub parquets).
