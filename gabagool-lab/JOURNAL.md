@@ -2366,3 +2366,23 @@ determinism check that must reproduce 714's contaminated row
 
 Also: tools/cmd.ts added (prints stored launch cmd for run ids —
 needed it to reconstruct the probe wiring; small, reusable).
+
+## 2026-07-18T07:39Z — session 28, unit 78: session ritual completed — KB re-read (nothing new past A65), feeds re-checked (still binance-only)
+
+The two per-session charter mandates, done while E008b drains. KB
+STATE re-read in full: register still tops at A65 (session-11 final,
+A58–A65), all folded by u71's A-10 — nothing new to absorb. Its
+successor queue is chasing weekend-lean and wallet-genealogy
+threads; the first lab-relevant watch item remains the July
+weekend lean-collapse question (A59 drift watch), which does not
+touch any frozen E008b rule. origin/main fetched (f22ca1c, dashboard
++ docs merges only): wireBacktestExternalFeeds.ts still fulfills
+ONLY binanceWsSpotPrice — priceToBeat/Chainlink have not landed, so
+H4's strike proxy (window-open spot) stays the only strike source
+and the retryOnlyIf condition stays open.
+
+Drain check 07:38Z: 19.4k pending at ~500 jobs/min → E008b lands
+~08:15Z (the 07:50Z hope from pickup was the early burst; steady
+rate is ~500/min). Ungated lat0 probe still grinding the
+pathological market (23+ CPU-min). Monitors go up next; judgment
+fires the moment the queue drains.

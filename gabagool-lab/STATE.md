@@ -56,9 +56,11 @@
   Earlier: E008 judged u69 (first reference-beating lever; LS-12;
   D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
   cfree/D-008, EVALUATION v1.1 frozen.
-  s28 ritual done (07:12Z): DONE absent, hook intact, worker alive
-  (4 children on E008b), queue 32.4k waiting at 07:12Z, ~890
-  jobs/min — drain possibly ~07:50Z (earlier than the 08:50Z ETA).
+  s28 ritual done (07:12Z + u78 07:39Z): DONE absent, hook intact,
+  worker alive (4 children on E008b); KB re-read — register still
+  tops at A65, nothing new to fold; origin/main f22ca1c — feeds
+  still binance-only (priceToBeat/Chainlink NOT landed). Drain:
+  19.4k pending at 07:38Z, steady ~500 jobs/min → ETA ~08:15Z.
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 

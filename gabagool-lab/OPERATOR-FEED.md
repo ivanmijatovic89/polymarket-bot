@@ -465,3 +465,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the incident's real impact is even smaller than the earlier bound — the affected run's average moves by ~0.003 of a dollar per market; no conclusions change.
 - Next: judge the 12-run favorite-side experiment when it drains (~07:50–08:50Z).
 - Health: on track
+
+## 2026-07-18T07:39Z — unit 78
+- Did: session ritual — re-read the knowledge base and re-checked for new replayable data feeds.
+- Found: nothing new — KB unchanged since last fold; strike/Chainlink feeds still not available.
+- Next: judge the E008b experiment when its ~19k remaining jobs finish (~08:15Z).
+- Health: on track
