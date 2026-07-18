@@ -537,3 +537,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet — queue is healthy, ~40 minutes to results
 - Next: verify and judge the 6 runs by the frozen rules when they land
 - Health: on track
+
+## 2026-07-18T08:37Z — unit 90
+- Did: built and tested the judgment tool for E010 before the runs land (guards against wiring the wrong runs, applies the frozen rules mechanically)
+- Found: nothing new — tooling; ~35 minutes until the runs finish
+- Next: verify all 6 runs and judge E010
+- Health: on track

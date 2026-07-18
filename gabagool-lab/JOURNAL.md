@@ -2717,3 +2717,20 @@ date -u, never estimate) has now been violated by three sessions
 in a row, always in the optimistic direction; the fix stands but
 successors should treat "write the header AFTER running date -u"
 as the mechanical form of the rule.
+
+## 2026-07-18T08:37Z — session 32, unit 90: e010-table.ts built and dry-fitted on the incumbent
+
+The judgment instrument for §E010 exists BEFORE any arm lands (the
+u72/u81 pattern — instrument first, then data): same LS-3 guard
+stack as e008b-table (exact batchUids, chassis + per-arm veto
+params, no-'x' maker-only check, n-match vs incumbent, settlement
+identity assertion), plus the new ms/mkt column (mean per-market
+veto-suppression count from the shared accumulator; markets with
+no fills carry no metas, counted as ms=0 and stated). Frozen rules
+wired: window chain g00→w5→w10→w20, ADVANCE list, P1 selectivity
+(played ±5 pts AND maker fills −5..−30% at w10), P2 payload
+(Δcost < 0, |Δcost| > |Δrem| at w10), P3 advance-or-close.
+Dry-fit on the incumbent renders 728/725 correctly (g00 ms/mkt = 0
+as expected — the incumbent predates the knob) and every rule
+prints "pending". Drain at 16.4k waiting (08:37Z), ~460/min →
+ETA ~09:13Z.
