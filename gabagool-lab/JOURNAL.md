@@ -2051,3 +2051,60 @@ block.
 (u68 correction: entry above was first stamped 15:18Z by estimate;
 date -u in the same command printed 15:14:01Z. Fixed to 15:14Z.
 The stamp rule exists for exactly this — paste, never estimate.)
+
+## 2026-07-18T05:07Z — session 26, unit 69: E008 JUDGED — AXIS ADVANCES; first reference-beating lever in the program
+
+Pickup ritual: DONE absent; queue drained (3,000 completed, 0
+failed; 3 aggregate fails = known stale foreign); worker daemon
+alive. The pre-commit hook AGAIN had an uncommitted external edit
+stripping the DONE guard (same shape as the s16 incident, no
+journal trail) — restored via git checkout before anything else.
+
+Run 732 (ax6h2-g15) landed: uid 0eb38106… = frozen block exact,
+validators green (settlement OK, |recon−db| 0.10 vs tol 59.52, meta
+100%, segments OK), headline `EL -1.9992`. That makes 8/8, zero
+failures. Extended e005-table.ts with the gate chain (g00<g05<g09<
+g15<g-off, chassis + fvGate param guards) and ran the frozen
+readout.
+
+The result is the strongest of the program:
+
+- θ chain MONOTONE in both halves — every adjacent step negative,
+  no interior optimum. g00 (θ=0 sign-only): h1 −0.0362±0.147
+  (t −0.2, statistically BREAKEVEN at lat140), h2 −0.2681±0.125
+  (t −2.2). Ref: −2.2884/−2.0229. Endpoints DISTINCT both halves.
+- Advance rule BOTH HOLD (endpoint dir − / −; top-2 {g00,g05} both
+  halves). Winning arm beats ref DISTINCTLY in both halves.
+- The anti-E006 payload check PASSES with the sign flipped: Δrem
+  +3.88/+3.20 (needed ≥ −0.3). The gate doesn't preserve the
+  winner-remainder — it TRIPLES it ($2.2→$6.0/mkt): blocking the
+  losing side concentrates the book on the eventual winner, buying
+  E006's winner-tracking payload by placement suppression instead
+  of taker-priced requote chasing.
+- What it costs: pairing. pairRate 0.53→0.044, imb p50=p90=1.0,
+  2.6 fills/mkt, outlay $8.4. At θ=0 this is a spot-favorite maker
+  holding to redemption — not a pair accumulator. Measured verdict
+  on the concept so far: the pairs themselves were priced at a loss
+  (pair$−cost$ ≈ −4.1/mkt at ref); the concept's value lives in the
+  winner-remainder term.
+
+Per the frozen rule the gate joins the chassis at g00 (D-010 —
+followed the rule, recorded the identity shift as a finding, named
+g05 as the two-sided reference cell: −1.46/−1.51, also DISTINCT vs
+ref both halves, pairRate 0.46/0.48). LEADERBOARD updated (new best
+cell + best pairing-preserving cell; no new dead regions — nothing
+in this axis lost to ref). LS-12 written: information beats
+mechanics; always run the full-application endpoint arm.
+
+Honest flags, so nobody mistakes this for a champion: EL is still
+≤ 0 (pooled ≈ −0.155±0.096); sel-width 5; the cell rests on 2.6
+fills/mkt of worst_queue adverse-subset fills; latency stress
+(500/1000ms — charter-mandated) not yet run on any gated cell; and
+the strike is binance-at-open, not Chainlink (A18 basis caveat).
+The u40 conversion-lever blocker is LIFTED (taker fills −83%), but
+candidate assembly waits for a positive-EL cell that survives the
+battery.
+
+Next unit: draft + freeze the E008-lat battery on g00 and g05
+(lat0/500/1000 × both halves — lat0 gives the gated frictionless
+bound; 500/1000 is the falsification test).

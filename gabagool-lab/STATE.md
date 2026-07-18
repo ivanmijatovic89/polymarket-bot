@@ -12,45 +12,52 @@
 
 ## Status digest
 
-- **Session:** 25 (started 2026-07-17T15:11Z. Stamp rule: paste from
+- **Session:** 26 (started 2026-07-18T05:00Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — E006 JUDGED (u52): AXIS-CLOSED,
-  prediction REFUTED, chassis keeps requoteDelta 0.02; candidate
-  assembly still BLOCKED (no conversion-closing lever proven).
-  Current axis: E008-fv-gate FROZEN + LAUNCHED (u57, SHA 800b34cf,
-  8 ax6 flows draining, ETA ~16:30-17:00Z; D-009 level form;
-  grid {0,5,9,15} bps from u55 calibration; A/A basis run 723
-  20/20 exact so refs 708/703 reused).
-- **Phase:** E006 COMPLETE (LEDGER §E006 filled u52). 8/8 landed,
+- **Ladder rung:** L2 IN PROGRESS — **E008 JUDGED (u69): AXIS
+  ADVANCES — first reference-beating lever of the program.** Gate
+  joins the chassis at g00 per the frozen rule: working chassis =
+  rc+c960 + fvGateMode=level + fvGateBps=0 (D-010; g05 named as the
+  two-sided reference cell for pairing-dependent axes). u40 blocker
+  LIFTED (taker fills −83%), but candidate assembly awaits a
+  POSITIVE-EL cell + the latency battery. Next: E008-lat battery
+  on g00/g05 (draft, freeze, launch).
+- **Phase:** E008 COMPLETE (LEDGER §E008 filled u69). 8/8 landed,
   uids to the digit, 0 failures, validators green ×8. Final map:
-  715=q05h2 716=q10h1 717=q10h2 718=q20h1 719=q20h2 720=q45h1
-  721=q05h1 722=q45h2. Chains ref→q05→q10→q20→q45: h1 −2.2884 →
-  −2.5978 → −2.3103 → −2.2897 → −2.3015; h2 −2.0229 → −2.5887 →
-  −2.3715 → −2.3681 → −2.3428. Every cell at-or-below ref; taker
-  37%→5–7% as designed but EL does not recover → frozen prediction
-  (EL→lat0 econ ≈ −0.1) REFUTED. Advance rule FAILS (endpoint dir
-  agrees −/−; top-2 sets h1 {q02,q20} vs h2 {q02,q45} mismatch).
-  Mechanism at full resolution (both chains decomposed, identity
-  green): Δrem −1.08..−1.53 vs Δfee +0.21..+0.29, net pair ≤ +0.93
-  — winner-remainder payload (worth $2.2–2.4/mkt at ref) is what
-  requote-chasing buys; conversions were its price (LS-11). Real
-  side effect: CVaR5 −15.5 → −8.7 (~45% tail improvement) — risk
-  lever, not EV lever. Dead region on LEADERBOARD. Battery verdict
-  stands (§E005 u42): depth latency-robust, candidate BLOCKED.
-  E005: best cell rc+c960 −2.2884/−2.0229 (LS-9; E005b seeded).
-  E004: cfree via removal; D-008; LS-7/8. EVALUATION v1.1 frozen.
-  s16 ritual done (14:03Z): DONE absent, queue drained (3,000
-  completed/0 failed markets; 3 failed agg = known stale foreign),
-  tree had an UNCOMMITTED hook edit stripping the DONE guard (not
-  mine, no journal trail) — restored via git checkout, noted in
-  JOURNAL u52 + OPERATOR-FEED
+  725=g00h2 726=g05h1 727=g05h2 728=g00h1 729=g09h1 730=g09h2
+  731=g15h1 732=g15h2. θ chain ref→g15→g09→g05→g00 MONOTONE
+  improving in BOTH halves; g00 h1 −0.0362 (t −0.2, statistically
+  breakeven at lat140!) h2 −0.2681 (t −2.2) vs ref −2.2884/−2.0229;
+  endpoints DISTINCT; advance rule BOTH HOLD (top-2 {g00,g05} both
+  halves). Anti-E006 payload check PASSED with sign flipped: Δrem
+  +3.88/+3.20 — remainder TRIPLES ($2.2→$6.0/mkt); the gate buys
+  winner-tracking via placement suppression instead of taker-priced
+  chasing. Cost: pairing dies at θ=0 (pairRate 0.044, imb p50=p90
+  =1.0, 2.6 fills/mkt, outlay $8.4) — g00 is a spot-favorite maker,
+  not a pair accumulator; measured: pairs at ref were priced at a
+  loss (pair$−cost$ ≈ −4.1/mkt, S≈0.915) — concept value lives in
+  the winner-remainder (LS-12). g05 = best pairing-preserving cell
+  (−1.46/−1.51, DISTINCT vs ref both halves, pairRate 0.46/0.48).
+  No new dead regions. LEADERBOARD rewritten (new best cell −0.15
+  pooled ≈ 97% of reference loss removed). Honest flags: EL still
+  ≤0, sel-width 5, worst_queue adverse-subset fills, latency
+  500/1000 NOT yet run on any gated cell, strike = binance not
+  Chainlink (A18). Earlier: E006 AXIS-CLOSED (LS-11), E005 battery
+  (LS-9), E004 cfree/D-008, EVALUATION v1.1 frozen.
+  s26 ritual done (05:00Z): DONE absent, queue drained (3,000/0),
+  worker alive; hook AGAIN had the uncommitted DONE-guard-stripping
+  edit (s16 shape, not mine) — restored via git checkout, noted in
+  JOURNAL u69.
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
+- **E008 JUDGED (u69, s26): AXIS ADVANCES — see Status digest above
+  (the current headline result). Chassis = rc+c960+g00; g05 = the
+  two-sided reference; D-010; LS-12; table tool gained gate mode.**
 - L0 COMPLETE (session 1): INHERITANCE (folded through KB **A33**),
   EPISTEMOLOGY v1, EVALUATION **v1.1** (frozen; v1.1 = TAIL_K 41 +
   G11 per D-007), LEDGER (E001+E002 judged), tools (submit/results/
@@ -124,29 +131,29 @@
 
 ## Queue (work top to bottom)
 
-1. **E008 judgment when drained (ETA ~15:20Z; 3,626 waiting at
-   15:11Z — LANDED 6/8: 725 = g00h2 EL -0.2681, 726 = g05h1
-   EL -1.4600, 727 = g05h2 EL -1.5066, 728 = g00h1 EL -0.0362,
-   729 = g09h1 EL -2.0495, 730 = g09h2 EL -1.8447; all uid-exact,
-   validators green, only g15 h1/h2 outstanding,
-   no interpretation yet):** s25 waiter bf7d0w4pv (bash loop) polls
-   terminal ax6 rows (needs 8; LS-10 — run ids unknowable
-   pre-landing); drain watcher nohup pid 21525 →
-   logs/watch-drain-s16-e008.log. On fire per run: uid vs frozen
-   §E008 block (`tools/uids.ts <id>`) + validators (`results.ts
-   --run <id>`, quote ONLY the "<- headline" line). Then table:
-   `e005-table.ts --arm g-off=708,703 --arm g00=<h1>,<h2> --arm
-   g05=… --arm g09=… --arm g15=…` + per-arm decomp
-   `e004-decomp.ts --runs 708,<g00h1>,<g05h1>,<g09h1>,<g15h1>`
-   (and h2 chain from 703). Judge strictly per frozen §E008
-   criteria: played<20% caveat, adjacency, advance rule (endpoint
-   dir + top-2 set), Δrem ≥ −0.3 payload-preservation check on any
-   winner, EL-vs-participation curve quoted either way. On partial:
-   windowed --extend re-run per u41 recovery.
-2. **After E008:** E006b per-rung requote (A37 seed), E005b cap
-   bracket, completion composition per D-008 — order re-justified
-   from E008's numbers. Candidate assembly stays BLOCKED until a
-   conversion-closing lever is proven (u40 framework).
+1. **E008-lat battery on the gated cells (draft → freeze → launch
+   → judge):** g00 and g05, both halves, lat ∈ {0, 500, 1000}
+   (lat140 already measured) = 12 runs (~35k jobs, ~2× an axis;
+   consider g00-only 6 runs if queue pressure — decide in the
+   draft, state why). Purpose: (a) charter-mandated latency stress
+   — the gate is placement-only and reads the binance feed as-of,
+   so 500/1000ms is the falsification test for the whole E008
+   result; (b) lat0 = gated frictionless bound (is g00's residual
+   −0.04/−0.27 all conversion, like E005's was?). Pattern:
+   launch-e005-battery.sh is the quarry; refs for comparison
+   709–714 (ungated battery). Freeze criteria BEFORE launch,
+   including what "survives" means numerically (EVALUATION f_lat
+   uses EL(500); write the exact rule into the block).
+2. **After the battery:** if g00 survives latency → E008b
+   favorite-side depth/sizing (the lean is maximal at θ=0; the
+   remaining knobs are rung count/depth/clip on the favorite side)
+   + fresh-data confirmation path per EVALUATION (holdout; E32
+   winner's-curse defense — sel-width 5 needs shrinkage). If it
+   does NOT survive → the gate is a latency artifact; write the
+   dead region, fall back to g05 two-sided line, re-rank E006b/
+   E005b/completion from §E008's numbers. Candidate assembly:
+   blocked until a POSITIVE-EL cell exists that survives the
+   battery (u40 framework, updated u69).
 
 ## Open questions / risks
 

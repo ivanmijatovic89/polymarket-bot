@@ -186,3 +186,40 @@ itself a research object; premature before the raw signal is shown
 to carry value; (c) gate-plus-cancel (also cancel standing rungs on
 adverse flip) — second cancellation channel, confounds the decomp;
 v1 blocks placement only, stated in the draft.
+
+## D-010 (2026-07-18): Chassis after E008 — frozen rule followed (g00), concept identity recorded, g05 preserved as the two-sided reference
+
+**Context:** E008's frozen advance rule says "the winning arm beats
+ref DISTINCTLY in at least one half → the gate joins the chassis".
+The winning arm is g00 (θ=0, sign-only): h1 −0.0362 / h2 −0.2681 vs
+ref −2.2884/−2.0229, DISTINCT in both halves, Δrem check passed. But
+at θ=0 the book is one-sided at almost every tick (bind 99.9%,
+pairRate 4–5%, imb p50=p90=1.0): the cell is a spot-favorite maker
+holding to redemption, not a two-sided pair accumulator. The charter
+concept is the pair accumulator.
+
+**Chosen:** follow the frozen rule — the working chassis for
+subsequent axes is rc+c960 + fvGateMode=level + fvGateBps=0 (g00).
+Rules frozen before data exist are the lab's defense against
+narrative re-selection AFTER seeing results; overriding one because
+the winner "feels off-concept" is exactly the failure mode freezing
+exists to prevent. The identity shift is recorded as a MEASURED
+FINDING, not suppressed: the gabagool pairing payoff at this book
+is priced at a loss (pair$−cost$ ≈ −4.1/mkt at ref, S≈0.915), and
+the concept's actual value concentrates in the winner-remainder.
+g05 (θ=5 bps) is named on the LEADERBOARD as the best
+pairing-preserving cell (pairRate 0.46/0.48, EL −1.46/−1.51, both
+halves DISTINCT vs ref) — any future axis that needs two-sided
+inventory (completion, merge policies, parity levers) runs on g05,
+stated per-experiment.
+
+**Rejected:** (a) adopt g05 as chassis for concept purity —
+post-hoc rule override; also strictly worse EL, and the charter's
+mission is "which ways pay", not "which ways look like the
+archetype"; (b) declare the concept dead at θ=0 and close the
+program — wrong: the θ curve itself is the concept's verdict-in-
+progress, and the latency battery + fresh-half confirmation must
+come first (a breakeven cell built on 2.6 fills/mkt could still be
+fill-model artifact); (c) split the lab into two tracks now —
+premature fan-out (fable-lab died of breadth); one chassis, one
+queue.

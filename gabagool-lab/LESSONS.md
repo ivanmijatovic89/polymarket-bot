@@ -110,3 +110,24 @@ lesson (E002). Append-only; cite the source experiment/unit.
   mechanism. Corollary: quote-freezing DID buy a real tail
   improvement (CVaR5 −15.5 → −8.7, ~45%) — a risk lever worth
   remembering if EV ever turns positive, just not an EV lever.
+- **LS-12 (E008):** Information beats mechanics, and predicted
+  interior optima are hypotheses. The SAME intervention — stop
+  standing on the side price is leaving — destroyed value when done
+  mechanically (E006 quote-freezing: winner-remainder collapsed
+  $2.2→$0.9/mkt) and produced the program's first reference-beating
+  lever when conditioned on an external signal (E008 level gate:
+  remainder TRIPLED $2.2→$6.0/mkt, EL −2.29→−0.04 h1 at lat140).
+  The difference is WHERE the winner-tracking information comes
+  from: requote-chasing carried it implicitly and expensively (taker
+  conversions); the spot-vs-strike level carries it explicitly and
+  free. Second half: the frozen prediction said small θ would
+  over-suppress ("pairs die → EL suffers"); pairs died (pairRate
+  0.53→0.044) and EL monotonically IMPROVED to the θ=0 endpoint in
+  both halves — the trade-off curve had no interior peak. Rule:
+  when a signal is real, do not assume partial application is
+  optimal — always include the full-application endpoint arm (θ=0
+  here) and let the curve decide. Corollary (measured): the
+  gabagool pairing payoff on this book is priced at a loss
+  (pair$−cost$ ≈ −4.1/mkt, S≈0.915); the concept's value is the
+  winner-remainder, and levers should be judged by what they do to
+  THAT term.

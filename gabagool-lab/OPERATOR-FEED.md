@@ -411,3 +411,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: 7 of 8 arms in; final arm ~7 min out; judgment still waits for all 8
 - Next: verify last arm, then the full E008 judgment
 - Health: on track
+
+## 2026-07-18T05:07Z — unit 69
+- Did: judged E008 (all 8 runs landed clean) — the spot-vs-strike gate that stops buying the side price has left.
+- Found: first lever that actually wins. Tightest gate cuts the loss from −2.29 to −0.04 (April, statistically breakeven) and −2.02 to −0.27 (May) per market. Trade-off: it barely pairs anymore — it becomes "buy only the winning side and hold". Still not positive, and the 500–1000ms latency stress hasn't run yet.
+- Next: latency battery on the two best gate cells — if the edge survives slow execution, this is the first real candidate path.
+- Health: on track

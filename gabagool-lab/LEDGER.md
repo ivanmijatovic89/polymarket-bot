@@ -1217,7 +1217,93 @@ Template:
   sub-axis B, proposed separately only if sub-axis A shows the
   signal has value; per-rung requote speed stays E006b in backlog;
   E-completion-selective keeps its D-008 constraint.
-- **Runs / Judgment / Lesson:** (pending — DRAFT, not frozen)
+- **Runs (landed):** 725=ax6h2-g00, 726=ax6h1-g05, 727=ax6h2-g05,
+  728=ax6h1-g00, 729=ax6h1-g09, 730=ax6h2-g09, 731=ax6h1-g15,
+  732=ax6h2-g15. All 8 submission uids match the frozen launch block
+  to the digit (verified on landing: u67 for 725–730, u68 for 731,
+  s26 pickup for 732). h1 = 2,880, h2 = 2,976 markets each, 0
+  failures. Validators green ×8: settlement recheck OK, fee-recon
+  VALID, meta coverage 100%, segments cross-check OK (732 headline
+  −1.9992 re-verified at judgment).
+- **JUDGMENT (2026-07-18T05:00Z, session 26 — AXIS ADVANCES; first
+  lever in the program to beat the reference; gate joins the chassis
+  at the winning arm g00 per the frozen rule):**
+  - **Participation caveat never armed:** played 77.0–96.5% in every
+    arm (floor: g00 78.0%/77.0%) — well above the 20% flag. The
+    unmeasurable-at-coverage branch of criteria (1) is moot.
+  - **Trade-off curve (criteria 2; e005-table.ts gate mode):**
+    | θ | h1 EL | h2 EL | pairRate h1/h2 | played h1/h2 | fills/mkt h1/h2 | outlay h1/h2 |
+    |---|-------|-------|----------------|--------------|-----------------|--------------|
+    | 0 bps | **−0.0362±0.1471** (t −0.2) | **−0.2681±0.1245** (t −2.2) | 0.044/0.049 | 78.0/77.0% | 2.6/2.5 | 8.44/8.21 |
+    | 5 bps | −1.4600 | −1.5066 | 0.462/0.480 | 89.3/90.1% | 8.5/8.7 | 23.50/23.64 |
+    | 9 bps | −2.0495 | −1.8447 | 0.511/0.509 | 94.0/94.7% | 10.2/9.7 | 27.48/26.03 |
+    | 15 bps | −2.1974 | −1.9992 | 0.528/0.516 | 96.5/96.5% | 10.8/10.0 | 28.93/26.58 |
+    | off (ref) | −2.2884 | −2.0229 | 0.527/0.514 | 97.8/97.2% | 10.9/10.0 | 29.12/26.54 |
+    The θ chain is MONOTONE in BOTH halves (all four adjacent steps
+    − in each): every bp of tightening improves EL, all the way to
+    the θ=0 sign-only endpoint. The frozen prediction's first clause
+    ("EL improves at moderate θ") is CONFIRMED; its second clause
+    ("θ too small over-suppresses — pairs die → hurts") is REFUTED
+    in the interesting direction: pairs DO die (pairRate 0.53 →
+    0.044) and EL does NOT suffer — there is no interior optimum.
+  - **Adjacency (criteria 3):** h1 — g00↔g05 DISTINCT (1.4238 >
+    0.4125), g05↔g09 DISTINCT (0.5894 > 0.4024), g09↔g15 and
+    g15↔ref indistinguishable; endpoints DISTINCT (2.2522 > 0.4028).
+    h2 — g00↔g05 DISTINCT (1.2386 > 0.3521), middle
+    indistinguishable; endpoints DISTINCT (1.7549 > 0.3532).
+  - **Advance rule (criteria 4): BOTH HOLD.** (a) endpoint direction
+    sign(EL(ref) − EL(g00)) = − in both halves; (b) top-2 by EL =
+    {g00, g05} in both halves — set match. Winning arm g00 beats ref
+    DISTINCTLY in BOTH halves (rule requires one). → **the gate
+    joins the chassis: fvGateMode=level, fvGateBps=0 on rc+c960.**
+  - **Mechanism check (criteria 5, the frozen anti-E006 guard):
+    PASSES with sign flipped.** Δrem(g00 vs ref) = **+3.88** h1 /
+    **+3.20** h2 (required ≥ −0.3). The remainder payload does not
+    merely survive — it TRIPLES (rem$ 2.17→6.05 h1, 2.37→5.57 h2): the
+    gate blocks accumulation on the side spot has left, so the book
+    concentrates on the eventual winner; E006's winner-tracking
+    payload is captured by placement suppression instead of requote
+    chasing. Full split (Δ vs ref, h1/h2): Δpair −23.82/−21.17,
+    Δrem +3.88/+3.20, Δcost −21.90/−19.46, Δfee −0.30/−0.26 →
+    ΔEL +2.25/+1.75. The pairs the gate gives up were PRICED AT A
+    LOSS (S≈0.915 + adverse timing ⇒ pair$−cost$ ≈ −4.1/mkt at
+    ref); dropping them is a gain, not a cost.
+  - **What g00 actually is (stated honestly):** at θ=0 one side is
+    adverse at almost every tick (bind fraction 99.9%), so the book
+    is effectively ONE-SIDED (imb p50 = p90 = 1.000, pairRate 4–5%,
+    2.6 fills/mkt, outlay $8.4 vs $29). The cell is no longer a
+    pair accumulator — it is a spot-favorite maker that holds to
+    redemption. The two-sided gabagool concept survives at θ=5
+    (pairRate 0.46/0.48), which ALSO beats ref DISTINCTLY in both
+    halves (+0.83/+0.52) and is the best pairing-preserving cell
+    ever measured. Both cells are recorded on the LEADERBOARD;
+    the chassis for subsequent axes is g00 per the frozen rule
+    (see D-010 for the identity fork).
+  - **EL sign (not gated, quoted):** g00 h1 −0.0362 (t −0.2) is the
+    first cell statistically indistinguishable from breakeven at
+    lat140; h2 −0.2681 (t −2.2) is still distinctly negative.
+    Pooled ≈ −0.155 ± 0.096. NOT a positive-EV cell; no candidate.
+  - **Program consequence:** (1) the u40 blocker is LIFTED — a
+    conversion-closing lever is proven (absolute taker fills −83%,
+    11.5k→2.0k per half; EL −2.29→−0.04) — but candidate assembly
+    still awaits a POSITIVE-EL cell; (2) immediate next: latency
+    battery on g00 (and g05) — the gate is placement-only and reads
+    an external feed, so charter latency stress (500/1000 ms) is
+    the falsification test; lat0 gives the gated cell's
+    frictionless bound; (3) sub-axis B (favorite-side lean) is now
+    justified — the signal has proven value — but on the g00
+    chassis the lean is already maximal by construction; B collapses
+    into "sizing/depth on the favorite side", to be proposed with
+    fresh eyes; (4) E006b/E005b/completion stay behind these (none
+    addresses the remaining ~$0.15–0.27 gap or the latency
+    question).
+- **Dead cells:** none — every gate arm at-or-better than ref; no
+  new dead region (θ 9/15 are indistinguishable-from-ref, not dead).
+- **Lesson (LS-12, recorded in LESSONS.md):** information beats
+  mechanics — the same suppression that failed mechanically (E006)
+  wins when conditioned on an external signal; and a predicted
+  interior optimum is a hypothesis, not a fact — measure the
+  endpoint arm.
 
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind

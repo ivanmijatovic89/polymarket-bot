@@ -101,6 +101,17 @@ const DEPTH_CHAIN = ['ra', 'rb', 'rc'] as const
 const SHAPE_ARMS = ['ra', 'rb', 'rc', 'rd'] as const
 const CAP_CHAIN = ['c960', 'c970', 'c980', 'c990'] as const
 const DELTA_CHAIN = ['q02', 'q05', 'q10', 'q20', 'q45'] as const
+// E008 fair-value gate (ax6): every arm is the rc+c960 chassis with
+// fvGateMode=level and an explicit fvGateBps; g-off is the reused
+// chassis pair 708/703 (fvGateMode absent, predates the param).
+// Chain ordered by θ ascending; g-off is the θ→∞ endpoint.
+const EXPECT_GATES: Record<string, number> = {
+  g00: 0,
+  g05: 5,
+  g09: 9,
+  g15: 15,
+}
+const GATE_CHAIN = ['g00', 'g05', 'g09', 'g15', 'g-off'] as const
 
 type Cell = {
   label: string
@@ -179,25 +190,44 @@ async function guardParams(label: string, runId: number): Promise<void> {
   const delta = Number(p.requoteDelta ?? 0.02) // file default when absent
   const isCapArm = label in EXPECT_CAPS
   const isDeltaArm = label in EXPECT_DELTAS
-  const expOffsets = isCapArm || isDeltaArm ? EXPECT_OFFSETS.rc! : EXPECT_OFFSETS[label]
+  const isGateArm = label in EXPECT_GATES || label === 'g-off'
+  const expOffsets =
+    isCapArm || isDeltaArm || isGateArm ? EXPECT_OFFSETS.rc! : EXPECT_OFFSETS[label]
   if (expOffsets && !offsetsEqual(p.rungOffsets, expOffsets)) {
     console.error(
       `arm ${label} run ${runId}: rungOffsets ${JSON.stringify(p.rungOffsets)} != expected ${JSON.stringify(expOffsets)} — wrong run wired?`,
     )
     process.exit(1)
   }
-  const expCap = isCapArm ? EXPECT_CAPS[label]! : isDeltaArm ? 0.96 : 0.99 // delta arms run on the c960 chassis
+  const expCap = isCapArm ? EXPECT_CAPS[label]! : isDeltaArm || isGateArm ? 0.96 : 0.99 // delta/gate arms run on the c960 chassis
   if (Math.abs(cap - expCap) > 1e-9) {
     console.error(
       `arm ${label} run ${runId}: pairCostCap=${cap} != expected ${expCap} — wrong run wired?`,
     )
     process.exit(1)
   }
-  const expDelta = isDeltaArm ? EXPECT_DELTAS[label]! : 0.02 // shape/cap arms ran at default
+  const expDelta = isDeltaArm ? EXPECT_DELTAS[label]! : 0.02 // shape/cap/gate arms ran at default
   if (Math.abs(delta - expDelta) > 1e-9) {
     console.error(
       `arm ${label} run ${runId}: requoteDelta=${delta} != expected ${expDelta} — wrong run wired?`,
     )
+    process.exit(1)
+  }
+  const gateMode = String(p.fvGateMode ?? 'none')
+  const gateBps = Number(p.fvGateBps ?? NaN)
+  if (label in EXPECT_GATES) {
+    if (gateMode !== 'level') {
+      console.error(`arm ${label} run ${runId}: fvGateMode=${gateMode} != 'level' — wrong run wired?`)
+      process.exit(1)
+    }
+    if (Math.abs(gateBps - EXPECT_GATES[label]!) > 1e-9) {
+      console.error(
+        `arm ${label} run ${runId}: fvGateBps=${gateBps} != expected ${EXPECT_GATES[label]} — wrong run wired?`,
+      )
+      process.exit(1)
+    }
+  } else if (gateMode !== 'none') {
+    console.error(`arm ${label} run ${runId}: fvGateMode=${gateMode} but arm is not a gate arm — wrong run wired?`)
     process.exit(1)
   }
   if (mode !== 'none') {
@@ -374,13 +404,24 @@ const shapeMode = labels.every((l) => (SHAPE_ARMS as readonly string[]).includes
 const capMode = !shapeMode && labels.every((l) => (CAP_CHAIN as readonly string[]).includes(l))
 const deltaMode =
   !shapeMode && !capMode && labels.every((l) => (DELTA_CHAIN as readonly string[]).includes(l))
-if (!shapeMode && !capMode && !deltaMode) {
+const gateMode_ =
+  !shapeMode &&
+  !capMode &&
+  !deltaMode &&
+  labels.every((l) => (GATE_CHAIN as readonly string[]).includes(l))
+if (!shapeMode && !capMode && !deltaMode && !gateMode_) {
   console.error(
-    `arm labels must be all shapes {${SHAPE_ARMS.join(',')}}, all caps {${CAP_CHAIN.join(',')}}, or all deltas {${DELTA_CHAIN.join(',')}} — got: ${labels.join(',')}`,
+    `arm labels must be all shapes {${SHAPE_ARMS.join(',')}}, all caps {${CAP_CHAIN.join(',')}}, all deltas {${DELTA_CHAIN.join(',')}}, or all gates {${GATE_CHAIN.join(',')}} — got: ${labels.join(',')}`,
   )
   process.exit(1)
 }
-const ALL_ARMS: readonly string[] = shapeMode ? SHAPE_ARMS : capMode ? CAP_CHAIN : DELTA_CHAIN
+const ALL_ARMS: readonly string[] = shapeMode
+  ? SHAPE_ARMS
+  : capMode
+    ? CAP_CHAIN
+    : deltaMode
+      ? DELTA_CHAIN
+      : GATE_CHAIN
 
 for (const a of arms) {
   await buildCell(a.label, 'h1', a.h1)
@@ -402,7 +443,9 @@ console.log(
     ? '=== E005 shape table (depth chain ra < rb < rc; rd = A17 package vs ra) ==='
     : capMode
       ? '=== E005 cap table (chain c960 < c970 < c980 < c990-ref; all arms = shape rc) ==='
-      : '=== E006 quote-stability table (chain q02-ref < q05 < q10 < q20 < q45; all arms = rc+c960 chassis) ===',
+      : deltaMode
+        ? '=== E006 quote-stability table (chain q02-ref < q05 < q10 < q20 < q45; all arms = rc+c960 chassis) ==='
+        : '=== E008 fv-gate table (θ chain g00 < g05 < g09 < g15 < g-off-ref; all arms = rc+c960 chassis) ===',
 )
 for (const half of ['h1', 'h2'] as const) {
   const hs = cells.filter((c) => c.half === half)
@@ -439,7 +482,13 @@ for (const half of ['h1', 'h2'] as const) {
 }
 
 const complete = (['h1', 'h2'] as const).every((h) => ALL_ARMS.every((l) => cellOf(l, h)))
-const CHAIN: readonly string[] = shapeMode ? DEPTH_CHAIN : capMode ? CAP_CHAIN : DELTA_CHAIN
+const CHAIN: readonly string[] = shapeMode
+  ? DEPTH_CHAIN
+  : capMode
+    ? CAP_CHAIN
+    : deltaMode
+      ? DELTA_CHAIN
+      : GATE_CHAIN
 const endLo = CHAIN[0]!
 const endHi = CHAIN[CHAIN.length - 1]!
 
@@ -459,22 +508,28 @@ if (complete && shapeMode) {
     const rd = cellOf('rd', half)!
     console.log(`${half} ra vs rd: ${fmtDelta(ra, rd)}`)
   }
-} else if (complete && (capMode || deltaMode)) {
+} else if (complete && (capMode || deltaMode || gateMode_)) {
   console.log(
     capMode
       ? '\n-- pairRate/EL trade-off curve (§E005 criteria 5) --'
-      : '\n-- EL-vs-participation trade-off curve (§E006 criteria 5) --',
+      : deltaMode
+        ? '\n-- EL-vs-participation trade-off curve (§E006 criteria 5) --'
+        : '\n-- EL-vs-participation trade-off curve (§E008 criteria 2) --',
   )
   for (const half of ['h1', 'h2'] as const) {
     for (const label of CHAIN) {
       const c = cellOf(label, half)!
-      const knob = capMode ? `cap ${EXPECT_CAPS[label]!.toFixed(2)}` : `delta ${EXPECT_DELTAS[label]!.toFixed(2)}`
+      const knob = capMode
+        ? `cap ${EXPECT_CAPS[label]!.toFixed(2)}`
+        : deltaMode
+          ? `delta ${EXPECT_DELTAS[label]!.toFixed(2)}`
+          : `theta ${label === 'g-off' ? 'off' : EXPECT_GATES[label]!.toFixed(0) + 'bps'}`
       console.log(
         `${half} ${knob}: EL ${c.el.toFixed(4)}  pairRate ${c.pairRate.toFixed(3)}  played ${((100 * c.played) / Math.max(1, c.n)).toFixed(1)}%  taker ${(100 * c.takerShare).toFixed(1)}%  fills m/t ${c.makers}/${c.takers} (${((c.makers + c.takers) / Math.max(1, c.played)).toFixed(1)}/mkt)  S ${Number.isFinite(c.sMean) ? c.sMean.toFixed(4) : 'n/a'}`,
       )
     }
   }
-  console.log(`\n-- adjacency: ${capMode ? 'cap' : 'delta'} chain --`)
+  console.log(`\n-- adjacency: ${capMode ? 'cap' : deltaMode ? 'delta' : 'theta'} chain --`)
   for (const half of ['h1', 'h2'] as const) {
     for (let i = 1; i < CHAIN.length; i++) {
       const a = cellOf(CHAIN[i - 1]!, half)!
@@ -514,7 +569,7 @@ if (complete) {
   const t2 = top2('h2')
   console.log(`(a) endpoint direction agrees across halves: ${dirHolds ? 'HOLDS' : 'FAILS'}`)
   console.log(`(b) top-2 by EL: h1 {${t1}}  h2 {${t2}} → set match: ${t1 === t2 ? 'HOLDS' : 'FAILS'}`)
-  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : 'delta'
+  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : deltaMode ? 'delta' : 'gate'
   console.log(
     `advance rule: ${
       dirHolds && t1 === t2
@@ -525,7 +580,7 @@ if (complete) {
     }`,
   )
 } else {
-  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : 'delta'
+  const modeName = shapeMode ? 'shape' : capMode ? 'cap' : deltaMode ? 'delta' : 'gate'
   console.log(
     `\n(rule evaluation skipped — need all ${ALL_ARMS.length} ${modeName} arms in both halves)`,
   )
