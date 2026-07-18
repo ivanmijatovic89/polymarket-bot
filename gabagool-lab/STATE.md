@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 30 (started 2026-07-18T07:49Z. Stamp rule: paste from
+- **Session:** 31 (started 2026-07-18T07:57Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -59,14 +59,12 @@
   cfree/D-008, EVALUATION v1.1 frozen.
   s29 ritual done (07:44Z): DONE absent, hook intact, worker alive
   (4 children on E008b); KB unchanged past A65 (u78 checked 30 min
-  prior); feeds still binance-only on f22ca1c. Drain: 16.5k
-  pending at 07:45Z ~450/min → ETA ~08:25Z. **7/12 E008b runs
-  landed: 747–752 verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s,
-  750=h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
-  validators green ×6); **754 (h1-r3d) verified u83** (uid MATCH,
-  green, raw EL −0.0184 vs g00 h1 −0.0362 — no judgment).
-  Unlanded: r3d-h2, s75 ×2, s85 ×2 — the solo-cap sub-axis
-  (P2) still fully pending.** u81 dry-fit of
+  prior); feeds still binance-only on f22ca1c. **8/12 E008b runs
+  verified (s31 u85): 747–752, 754, 756 — the STRUCTURE sub-axis
+  (r1, r12s, r3m, r3d) is fully landed (uids MATCH mechanically,
+  validators green ×8; 756 raw EL −0.2715 h2, 754 raw −0.0184 h1
+  — no judgment). Unlanded: s75 ×2, s85 ×2 — the solo-cap
+  sub-axis (P2); drain ETA ~08:20Z, waiter up.** u81 dry-fit of
   e008b-table.ts on the 6 landed arms: **P1 mechanically REFUTED,
   sign backwards** (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0;
   Δcost +2.65/+2.85 swamps it → ΔEL −0.08 indist / −0.46 DISTINCT

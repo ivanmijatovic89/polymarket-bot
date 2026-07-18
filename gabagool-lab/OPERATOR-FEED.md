@@ -507,3 +507,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new numerically — design prep only, while the big batch queue drains (~08:20Z).
 - Next: when the last 5 runs land, run the frozen 12-run judgment for E008b.
 - Health: on track
+
+## 2026-07-18T07:59Z — unit 85
+- Did: verified run 756 (deep-ladder arm, May half) — 8 of 12 experiment runs now checked and clean.
+- Found: all four ladder-structure arms are in; nothing judged yet — the scoring waits for the last 4 runs (the exposure-cap arms), still in the queue (~20 min).
+- Next: when the queue drains, verify the last 4 and run the full frozen judgment.
+- Health: on track

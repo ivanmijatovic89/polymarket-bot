@@ -2557,3 +2557,29 @@ policy. Also correcting a plain-language slip in u83's operator
 feed entry: the closed incident was the LATENCY mix-up (140 ms
 data inside a zero-latency cell, April data), not a "January
 data-mixup" — January was a different flag (A38 stub parquets).
+
+## 2026-07-18T07:59Z — session 31, unit 85: run 756 (r3d h2) verifies clean — 8/12; structure sub-axis fully landed
+
+Session 31 pickup (07:57Z): DONE absent, worker daemon alive
+(pid 68398, 4 children), drain watcher running, KB unchanged past
+A65 (git log checked). Queue at 10.4k waiting, ~460/min → ETA
+~08:20Z for the last cells.
+
+**Run 756 (ax7h2-r3d) verified:** submission uid matches the
+frozen §E008b block mechanically (31cb58e6-…-b0c1a37e27ba).
+Params confirm the arm: rungOffsets [0.02,0.13,0.25], fvGateMode
+level @ 0 bps, soloCap 0.65, everything else verbatim g00.
+m=2976, f=0. Validators green: settlement recheck OK (all
+markets), fee recon |0.15| vs tol 59.52 VALID, meta 100%,
+segments OK. Raw headline EL −0.2715 (played 77.0%) vs same-half
+g00 −0.2681 — recorded WITHOUT judgment (frozen tests fire when
+all 12 land). One raw observation for the record, no
+interpretation: the readout prints pairRate 0.050 / imbalance
+p50 1.000 for this arm — the decomp stage of the judgment will
+say what the deep rung actually did.
+
+That completes the STRUCTURE sub-axis (r1, r12s, r3m, r3d — all
+8 runs verified: 747–752, 754, 756). Remaining 4 are the
+solo-cap sub-axis (s75/s85 × halves), still in the drain.
+Background waiter is up on the queue; judgment fires when it
+reports drained.
