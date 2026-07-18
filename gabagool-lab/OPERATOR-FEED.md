@@ -531,3 +531,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: machinery healthy — the veto suppresses thousands of placement opportunities per market yet trading continues; no readings taken yet
 - Next: launch the 6 experiment runs and freeze the plan
 - Health: on track
+
+## 2026-07-18T08:36Z — unit 89
+- Did: froze the E010 plan and launched all 6 runs (three veto-window settings, two months each)
+- Found: nothing new yet — queue is healthy, ~40 minutes to results
+- Next: verify and judge the 6 runs by the frozen rules when they land
+- Health: on track

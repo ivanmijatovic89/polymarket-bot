@@ -2694,3 +2694,26 @@ w20 × halves on the g00 chassis, momMinDrop 0.01, lat140).
 
 Next unit: dry-run inspect, launch the 6 flows, flip §E010 to
 FROZEN at the launch SHA with uids recorded, drain watcher up.
+
+## 2026-07-18T08:36Z — session 32, unit 89: E010 FROZEN + LAUNCHED (6 flows, ax8, SHA 6f131eb2)
+
+Dry-run inspected (windows, env pins lat140/jitter0, per-arm
+params all match the block), then launched: momWindowSec {5,10,20}
+× halves on the g00 chassis, momVetoMode=fall, momMinDrop=0.01.
+§E010 flipped to FROZEN at the launcher SHA with all 6 submission
+uids recorded — spec verbatim from the u87 proposal, nothing
+changed at freeze.
+
+Post-launch verification (read-only): 6 ax8 waiting-children
+flows at SHA 6f131eb2, markets queue 17,499 waiting + 12 active ≈
+the expected 17,568 (3 arms × 5,856), zero failures. Drain
+watcher pid 77344 → logs/watch-drain-s32-e010.log. ETA at
+~460 jobs/min ≈ 09:13Z. Judgment fires when it drains.
+
+Also: u88's journal/feed entries were first stamped 08:44Z from an
+estimate while the true time was 08:33Z — corrected in a follow-up
+commit before anything else happened. The stamp rule (paste from
+date -u, never estimate) has now been violated by three sessions
+in a row, always in the optimistic direction; the fix stands but
+successors should treat "write the header AFTER running date -u"
+as the mechanical form of the rule.

@@ -146,16 +146,16 @@
 
 ## Queue (work top to bottom)
 
-1. **E010 identity checks + launch (proposal WRITTEN u87 — §E010
-   in LEDGER; code landed u87: momVetoMode/momWindowSec/momMinDrop
-   on the E003 file, ask-signal per D-012, `ms` counter):**
-   (a) A/A vs run 728 — 20 h1 markets sequential, g00 params, veto
-   'none', per-market EL exact 20/20 (e008-aa.ts pattern; REQUIRED:
-   acc gained `ms`, so the 055a0b7 basis must be re-proven);
-   (b) veto-on smoke ~5 markets w10 (ms > 0, params persist);
-   (c) launch 6 arms (w5/w10/w20 × halves) vs 728/725 via a
-   LS-3-hardened launcher, flip §E010 to FROZEN at the launch SHA,
-   record uids, drain watcher up.
+1. **E010 judgment when drained (LAUNCHED 08:34Z u89, SHA
+   6f131eb2, 6 ax8 flows, 17,568 jobs, ETA ~09:13Z; drain watcher
+   pid 77344 → logs/watch-drain-s32-e010.log; A/A basis run 761 =
+   20/20 exact vs 728, u88):** per run land: uids vs frozen §E010
+   block + validators. Readout per frozen criteria (2): arm table
+   + e004-decomp vs same-half g00 (728/725) + mean ms/mkt; judge
+   advance rule (3) over w5→w10→w20, predictions P1–P3 (5).
+   On partial: submit.ts --extend ONLY (LS-13). Advancing cell →
+   pre-committed latency battery (criteria 4; same-lat g00 cells
+   738/733, 734/735, 736/737).
 2. **E010 judgment when drained** (uids + validators + frozen
    rules; advancing cell → pre-committed latency battery vs
    same-lat g00 cells 738/733, 734/735, 736/737).

@@ -1673,11 +1673,13 @@ Template:
 ## E010-own-book-momentum-veto — falling-ask placement veto on the gated chassis
 - **Type:** axis (pre-fill adverse-selection discriminator; the KB's
   only 3/3-robust one)
-- **Status:** PROPOSED (2026-07-18, session 32, unit 87; flips to
-  frozen at launch, launcher commit = freeze SHA). Params-only after
-  the u87 code change; determinism basis must be RE-established by
-  A/A before launch (the shared accumulator gained an `ms` field, so
-  the 055a0b7 basis does not carry over automatically).
+- **Status:** FROZEN (2026-07-18T08:34Z, session 32, unit 89, at
+  launch; freeze SHA = 6f131eb2 — the launcher commit and the SHA
+  all 6 flows carry). Spec verbatim from the u87 proposal, nothing
+  changed at freeze. Determinism basis RE-established u88 (A/A run
+  761 vs 728: 20/20 exact; the `ms` accumulator field does not
+  break the reuse basis); veto-on smoke run 762 green (ms
+  11.7k–46.2k/mkt, fills persist, params in the run row).
 - **Why now (proposal policy: measured mechanism first):** E008b
   closed the favorite-side axis with the finding that ADDING
   exposure never pays — the marginal favorite fill is fairly-to-
@@ -1754,7 +1756,18 @@ Template:
      stated, not modeled); strike = binance-at-open (A18); halves
      straddle A51/A52; sel-width 3; ask-signal noise accepted per
      D-012.
-- **Runs:** (pending — filled at launch)
+- **Runs (launched 2026-07-18T08:34Z, 6 flows at SHA 6f131eb2 =
+  the freeze commit; h1 = 2,880 / h2 = 2,976 each):**
+  - ax8h1-w5: `…--ax8h1-w5--lat140--380e74f4-1f6f-4d39-8bf1-18864f5722ab`
+  - ax8h2-w5: `…--ax8h2-w5--lat140--779ca8f2-08e6-438e-b0ff-c381ba19d753`
+  - ax8h1-w10: `…--ax8h1-w10--lat140--8d3a4e06-0a32-40ab-8b3f-320fca46483f`
+  - ax8h2-w10: `…--ax8h2-w10--lat140--7b12e5d7-337a-42e5-872d-f80722e552cf`
+  - ax8h1-w20: `…--ax8h1-w20--lat140--421b8b82-25a5-4408-bc38-8d3b6e5664de`
+  - ax8h2-w20: `…--ax8h2-w20--lat140--a2d6bd9d-7b3b-41ec-894d-064b1faa078f`
+  (verified read-only post-launch: 6 ax8 waiting-children flows;
+  markets queue 17,499 waiting + 12 active ≈ the expected 17,568;
+  failures = 0; drain watcher pid 77344 →
+  logs/watch-drain-s32-e010.log; ETA ~09:13Z at ~460/min.)
 - **Judgment:** (pending)
 
 ## Backlog (one line each; propose formally when reached)
