@@ -2468,3 +2468,39 @@ arms are a flat family: the gate, not the ladder shape, does the
 work. The solo-cap sub-axis (P2's subject, the cap-binding lever)
 is still entirely unlanded — that is where the freeze put the
 payload hypothesis, and it stays open until s75/s85 land.
+
+## 2026-07-18T07:51Z — session 30, unit 82: run 714's exact correction landed (753) — EL −0.1175 → −0.1195, ≈ se/19; the fvGate is inert on the pathological market at lat0
+
+Session 30 pickup at 07:49Z (relay gap ~1 min from s29 u81).
+Ritual: DONE absent, tree clean at 8798f14, worker alive (12
+active market jobs), drain at 14.7k waiting (~450/min → ETA
+~08:25Z), probe chain pid 77993 now on its final leg (ungated@
+lat140 — the batchUid is visible in ps). KB unchanged past A65
+(checked 10 min earlier by s29; register re-grepped, nothing new).
+
+Probe 3 landed as run 753 (ungated@lat0, btc-updown-15m-1776879000,
+uid probe-contam-ungated--lat0): EL +6.9000, 6 maker / 0 taker,
+cost 17.10, validators green. Two facts fall out:
+
+1. **Run 714's exact correction.** Contaminated row from the
+   per-market export: +12.8192 (15m/26t — the exact 41-trade/
+   26-taker fingerprint from u73). Replacing it with the true row:
+   headline EL −0.1175 → **−0.1195 exact** (CSV-sum recompute,
+   n=2880). The LOO bound from the same export is −0.1220 — truth
+   lands between contaminated and LOO, exactly as LS-13's "LOO is
+   the cheap honest bound" framing predicted, same as 742's case
+   (−0.0787 vs bound −0.0812). Δ = −0.0021 ≈ se/19. No E005 or
+   E008-lat judgment call moves. Erratum addendum appended to
+   LEDGER §E005.
+
+2. **The gate is inert on this market at lat0.** Run 753 (ungated)
+   and run 746 (g05) produce the IDENTICAL row: +6.9000, 6m/0t,
+   cost 17.10. At zero latency on this pathological
+   requote-churner, the fvGate never fires a veto that changes a
+   fill. Consistent with the u74 picture: the gate's value is
+   suppressing latency-INDUCED adverse flow, not reshaping the
+   lat0 book.
+
+Remaining from the probe chain: the lat140 determinism leg (must
+reproduce 714's contaminated row field-for-field). E008b: run 754
+(ax7h1-r3d) landed since u81 — verification is the next unit.

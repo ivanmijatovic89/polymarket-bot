@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 29 (started 2026-07-18T07:44Z. Stamp rule: paste from
+- **Session:** 30 (started 2026-07-18T07:49Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -46,24 +46,26 @@
   to §E005. LOO impact: −0.006/−0.005 EL (≈se/6, se/8); NO
   judgment call flips; the binding payload-FAIL cell (733/709) is
   contamination-free. Both runs stand with the flaw stated.**
-  Counterfactual probes (u77): run 746 (g05@lat0) LANDED — true row
-  +6.90 (6m/0t) vs contaminated +15.99; run 742 exact EL −0.0756 →
-  −0.0787 (LOO bound −0.0812; truth between; Δ ≈ se/11, nothing
-  flips). Ungated probes relaunched DETACHED pid 77993 (s27 chain
-  died with the session) → logs/probe-contam-ungated-s28.log;
-  ungated@lat0 gives 714's exact correction, ungated@lat140 is the
-  714-row determinism check (expect 41 trades / 26 taker exact).
+  Counterfactual probes: BOTH exact corrections now landed — 742:
+  −0.0756 → −0.0787 exact (run 746, u77); 714: −0.1175 → **−0.1195
+  exact** (run 753, u82; LOO bound −0.1220, truth between; Δ ≈
+  se/19). Bonus fact: gate INERT on the pathological market at lat0
+  (753 ungated ≡ 746 g05, +6.90 6m/0t identical). Only the ungated@
+  lat140 determinism leg still grinding (pid 77993, must reproduce
+  714's contaminated row 41tr/26t field-for-field) →
+  logs/probe-contam-ungated-s28.log.
   Earlier: E008 judged u69 (first reference-beating lever; LS-12;
   D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
   cfree/D-008, EVALUATION v1.1 frozen.
   s29 ritual done (07:44Z): DONE absent, hook intact, worker alive
   (4 children on E008b); KB unchanged past A65 (u78 checked 30 min
   prior); feeds still binance-only on f22ca1c. Drain: 16.5k
-  pending at 07:45Z ~450/min → ETA ~08:20Z. **6/12 E008b runs
-  landed+verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s, 750=
-  h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
-  validators green ×6). Unlanded: r3d/s75/s85 × halves — the
-  whole solo-cap sub-axis (P2) still pending.** u81 dry-fit of
+  pending at 07:45Z ~450/min → ETA ~08:25Z. **7/12 E008b runs
+  landed: 747–752 verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s,
+  750=h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
+  validators green ×6); 754 (h1-r3d) landed u82, verification
+  next. Unlanded: r3d-h2, s75 ×2, s85 ×2 — the solo-cap sub-axis
+  (P2) still fully pending.** u81 dry-fit of
   e008b-table.ts on the 6 landed arms: **P1 mechanically REFUTED,
   sign backwards** (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0;
   Δcost +2.65/+2.85 swamps it → ΔEL −0.08 indist / −0.46 DISTINCT
@@ -171,14 +173,12 @@
    caveats. On partial: submit.ts --extend ONLY (LS-13). Advancing
    cell → pre-committed survival battery (criteria 4; g00 same-lat
    cells exist: 738/733, 734/735, 736/737 — 6 new runs max).
-2. **Journal addendum when the ungated probes land** (relaunched
-   u77, DETACHED pid 77993, sequential: ungated@lat0 then ungated@
-   lat140 on btc-updown-15m-1776879000; lat0 leg ~10+ CPU-min —
-   pathological market; log logs/probe-contam-ungated-s28.log).
-   Record: 714's exact corrected EL (replaces LOO −0.1225) +
-   probe-4 field-for-field reproduction of 714's contaminated row
-   (41 trades / 26 taker). g05 side DONE u77 (742: −0.0787 exact).
-   No judgment changes expected.
+2. **Journal addendum when the ungated@lat140 determinism leg
+   lands** (pid 77993, log logs/probe-contam-ungated-s28.log).
+   Record: field-for-field reproduction of 714's contaminated row
+   (41 trades / 26 taker, row EL +12.8192). Exact corrections DONE
+   both sides: 742 −0.0787 (u77), 714 −0.1195 (u82). No judgment
+   changes expected.
 3. **After E008b: fresh-data confirmation path per EVALUATION**
    (holdout; E32 winner's-curse defense — sel-width shrinkage).
    Candidate assembly: blocked until a POSITIVE-EL cell exists

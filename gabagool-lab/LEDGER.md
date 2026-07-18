@@ -970,6 +970,20 @@ Template:
     reason it stalls BullMQ) so a true-lat0 replacement was not
     forced. Rule change: LS-13 — all extends go through submit.ts
     --extend (latency pin), never the raw CLI.
+  - **Erratum addendum (2026-07-18, s30 u82): exact correction
+    landed.** Counterfactual probe run 753 (ungated@lat0 on the
+    contaminated market, latency pinned via shell env per LS-13)
+    completed: true row EL +6.9000, 6 maker / 0 taker fills —
+    the taker≈0 fingerprint confirms lat0, and the row is
+    IDENTICAL to the g05 true row (run 746): the fvGate is inert
+    on this market at lat0. Replacing the contaminated row
+    (+12.8192, 15m/26t) with the true row moves 714's headline
+    EL −0.1175 → **−0.1195 exact** (LOO bound from the same
+    export: −0.1220; truth lands between, as LS-13 predicted).
+    Δ = −0.0021 ≈ se/19 (se 0.0395). No E005 or E008-lat
+    conclusion moves. The lat140 determinism check (probe 4,
+    must reproduce 714's contaminated row field-for-field) was
+    still running at write time; recorded when it lands.
 
 ## E006-quote-stability — requote discipline on the deep chassis
 - **Type:** axis

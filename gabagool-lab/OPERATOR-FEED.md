@@ -489,3 +489,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: prediction P1 already failed, backwards: the shallow-ladder arm grabs MORE winner remainder (~+$2/mkt) but overpays for it (net worse). Removing the deep rung changes almost nothing.
 - Next: wait for the last 6 runs (~08:20Z), especially the solo-cap arms, then full judgment
 - Health: on track
+
+## 2026-07-18T07:51Z — unit 82
+- Did: read the finished lat0 counterfactual probe (run 753) and computed run 714's exact corrected result.
+- Found: 714's true average moves −0.1175 → −0.1195 per market — a tiny shift (1/19 of noise); no past conclusion changes. Bonus: the gate makes zero difference on that odd market at zero latency.
+- Next: verify newly landed E008b run 754; keep waiting on the drain (~08:25Z) for the full 12-run judgment.
+- Health: on track
