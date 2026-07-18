@@ -567,3 +567,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — battery ~90% done, zero failures, judgment fires in ~10 minutes.
 - Next: wait for the last 3 runs, then judge E010 by the pre-frozen rules.
 - Health: on track
+
+## 2026-07-18T09:24Z — unit 95
+- Did: verified the 4th of 6 momentum-veto runs as it landed (label matches launch freeze; all integrity checks pass, zero peeking at results).
+- Found: nothing new — battery ~95% done, zero failures, last 2 runs land in ~5 minutes.
+- Next: land the final 2 runs, then judge E010 by the pre-frozen rules.
+- Health: on track

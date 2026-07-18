@@ -147,11 +147,11 @@
 ## Queue (work top to bottom)
 
 1. **E010 judgment when drained (LAUNCHED 08:34Z u89, SHA
-   6f131eb2, 6 ax8 flows, 17,568 jobs; 3/6 landed + verified as
-   of u94 09:21Z — 763/764/765, uids match, validators green;
-   ~3.3k jobs left, ETA ~09:28Z; drain watcher pid 77344 →
-   logs/watch-drain-s32-e010.log; A/A basis run 761 =
-   20/20 exact vs 728, u88):** per run land: uids vs frozen §E010
+   6f131eb2, 6 ax8 flows, 17,568 jobs; 4/6 landed + verified as
+   of u95 09:24Z — 763/764/765/766, uids match, validators green;
+   ~2.2k jobs left, ETA ~09:29Z; drain watcher pid 77344 →
+   logs/watch-drain-s32-e010.log + 60s background poller in-session;
+   A/A basis run 761 = 20/20 exact vs 728, u88):** per run land: uids vs frozen §E010
    block + validators. Readout per frozen criteria (2): arm table
    + e004-decomp vs same-half g00 (728/725) + mean ms/mkt; judge
    advance rule (3) over w5→w10→w20, predictions P1–P3 (5).

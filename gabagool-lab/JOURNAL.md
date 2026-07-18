@@ -2820,3 +2820,19 @@ mid-drain checks to keep the peek surface at zero.
 
 Next: background wait on drain, then the §E010 judgment via
 e010-table.ts per frozen criteria (2)/(3)/(5).
+
+## 2026-07-18T09:24Z — session 33, unit 95: mid-drain verification #3 — 4/6 landed (766 joins), uid match, validators green
+
+Run 766 (ax8h1-w20, m=2880, f=0) landed. Verified with uids.ts +
+validation section only (peek surface zero, per the u94 discipline
+note): submission uid matches the frozen §E010 block to the digit
+(…421b8b82-25a5-4408-bc38-8d3b6e5664de); validators green
+(settlement recheck OK all markets, fee-recon |Δ| 0.06 vs tol
+57.60, meta coverage 100%, segments cross-check OK). Queue at
+09:23:50Z: 2,156 waiting + 12 active, 0 failed → ETA ~09:29Z.
+Remaining flows: ax8h1-w5 (…380e74f4), ax8h2-w20 (…a2d6bd9d).
+Background drain poller launched (60s cadence) to trigger the
+judgment unit the moment the queue empties.
+
+Next: drain, land+verify 767/768, then the §E010 judgment via
+e010-table.ts per frozen criteria (2)/(3)/(5).
