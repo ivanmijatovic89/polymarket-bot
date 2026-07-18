@@ -2504,3 +2504,31 @@ cost 17.10, validators green. Two facts fall out:
 Remaining from the probe chain: the lat140 determinism leg (must
 reproduce 714's contaminated row field-for-field). E008b: run 754
 (ax7h1-r3d) landed since u81 — verification is the next unit.
+
+## 2026-07-18T07:53Z — session 30, unit 83: run 754 (r3d h1) verifies clean — 7/12; run 755 closes the LS-13 incident with a field-for-field reproduction
+
+Two landings since u82, both verified:
+
+**Run 754 (ax7h1-r3d):** submission uid matches the frozen §E008b
+block mechanically (scripted grep, 9da6f332…77bd). Params confirm
+the arm: rungOffsets [0.02,0.13,0.25], fvGateMode level @ 0 bps
+(g00 gate). Validators green: settlement recheck OK, fee recon
+|0.25| vs tol 57.60 VALID, meta 100%, segments OK, f=0. Raw
+headline EL −0.0184 (played 78.0%) vs same-half g00 −0.0362 — a
+slightly better point estimate, recorded WITHOUT judgment; the
+frozen DISTINCT tests and sub-axis rules fire only when all 12
+land. That makes 7/12 verified (747–752, 754).
+
+**Run 755 (ungated@lat140 determinism check): PASSES exactly.**
+EL 12.8192, sim pnl 14.2000, 15 maker / 26 taker fills, outlay
+110.58, pairRate 0.975 — field-for-field identical to 714's
+contaminated row from the per-market export (12.819184 / 14.20 /
+15m/26t / 110.58). This is the final piece of the LS-13 incident:
+both contaminated runs now have (a) an exact deterministic
+reproduction of the bad row (742→745, 714→755) and (b) an exact
+correction from the true-lat0 row (742: −0.0787, 714: −0.1195).
+INCIDENT CLOSED — erratum addendum finalized in LEDGER §E005.
+Queue item 2 is done; the only remaining work before judgment is
+the drain (12.6k waiting at 07:53Z, ~460/min → ETA ~08:20Z) for
+the last 5 cells: r3d-h2, s75 ×2, s85 ×2 — the whole solo-cap
+sub-axis (P2).

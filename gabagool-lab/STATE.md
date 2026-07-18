@@ -46,14 +46,14 @@
   to §E005. LOO impact: −0.006/−0.005 EL (≈se/6, se/8); NO
   judgment call flips; the binding payload-FAIL cell (733/709) is
   contamination-free. Both runs stand with the flaw stated.**
-  Counterfactual probes: BOTH exact corrections now landed — 742:
-  −0.0756 → −0.0787 exact (run 746, u77); 714: −0.1175 → **−0.1195
-  exact** (run 753, u82; LOO bound −0.1220, truth between; Δ ≈
-  se/19). Bonus fact: gate INERT on the pathological market at lat0
-  (753 ungated ≡ 746 g05, +6.90 6m/0t identical). Only the ungated@
-  lat140 determinism leg still grinding (pid 77993, must reproduce
-  714's contaminated row 41tr/26t field-for-field) →
-  logs/probe-contam-ungated-s28.log.
+  **LS-13 INCIDENT CLOSED (u83):** all 4 counterfactual probes
+  landed. Exact corrections — 742: −0.0756 → −0.0787 (run 746);
+  714: −0.1175 → **−0.1195** (run 753; LOO bound −0.1220
+  bracketed; Δ ≈ se/19). Determinism reproductions — 742→745,
+  714→**755** (field-for-field: EL 12.8192, 15m/26t, outlay
+  110.58). Bonus fact: gate INERT on the pathological market at
+  lat0 (753 ungated ≡ 746 g05, +6.90 6m/0t identical). Nothing
+  flips anywhere; erratum finalized in LEDGER §E005.
   Earlier: E008 judged u69 (first reference-beating lever; LS-12;
   D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
   cfree/D-008, EVALUATION v1.1 frozen.
@@ -63,8 +63,9 @@
   pending at 07:45Z ~450/min → ETA ~08:25Z. **7/12 E008b runs
   landed: 747–752 verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s,
   750=h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
-  validators green ×6); 754 (h1-r3d) landed u82, verification
-  next. Unlanded: r3d-h2, s75 ×2, s85 ×2 — the solo-cap sub-axis
+  validators green ×6); **754 (h1-r3d) verified u83** (uid MATCH,
+  green, raw EL −0.0184 vs g00 h1 −0.0362 — no judgment).
+  Unlanded: r3d-h2, s75 ×2, s85 ×2 — the solo-cap sub-axis
   (P2) still fully pending.** u81 dry-fit of
   e008b-table.ts on the 6 landed arms: **P1 mechanically REFUTED,
   sign backwards** (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0;
@@ -173,12 +174,8 @@
    caveats. On partial: submit.ts --extend ONLY (LS-13). Advancing
    cell → pre-committed survival battery (criteria 4; g00 same-lat
    cells exist: 738/733, 734/735, 736/737 — 6 new runs max).
-2. **Journal addendum when the ungated@lat140 determinism leg
-   lands** (pid 77993, log logs/probe-contam-ungated-s28.log).
-   Record: field-for-field reproduction of 714's contaminated row
-   (41 trades / 26 taker, row EL +12.8192). Exact corrections DONE
-   both sides: 742 −0.0787 (u77), 714 −0.1195 (u82). No judgment
-   changes expected.
+2. ~~Probe chain~~ DONE u83 — LS-13 incident fully closed (see
+   digest). No open background work besides the E008b drain.
 3. **After E008b: fresh-data confirmation path per EVALUATION**
    (holdout; E32 winner's-curse defense — sel-width shrinkage).
    Candidate assembly: blocked until a POSITIVE-EL cell exists

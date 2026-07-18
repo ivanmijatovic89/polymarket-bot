@@ -495,3 +495,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: 714's true average moves −0.1175 → −0.1195 per market — a tiny shift (1/19 of noise); no past conclusion changes. Bonus: the gate makes zero difference on that odd market at zero latency.
 - Next: verify newly landed E008b run 754; keep waiting on the drain (~08:25Z) for the full 12-run judgment.
 - Health: on track
+
+## 2026-07-18T07:53Z — unit 83
+- Did: verified newly landed E008b run 754 (7 of 12 now in, all clean) and read the final replay-check probe (run 755).
+- Found: the replay reproduces the old bad row digit-for-digit — the January data-mixup incident is now fully closed with exact numbers on both affected runs; nothing changes.
+- Next: wait out the queue (~08:20Z) for the last 5 runs, then the full 12-run judgment.
+- Health: on track

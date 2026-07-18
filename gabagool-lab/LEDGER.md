@@ -981,9 +981,14 @@ Template:
     EL −0.1175 → **−0.1195 exact** (LOO bound from the same
     export: −0.1220; truth lands between, as LS-13 predicted).
     Δ = −0.0021 ≈ se/19 (se 0.0395). No E005 or E008-lat
-    conclusion moves. The lat140 determinism check (probe 4,
-    must reproduce 714's contaminated row field-for-field) was
-    still running at write time; recorded when it lands.
+    conclusion moves. Determinism check (s30 u83): probe run 755
+    (ungated@lat140, latency pinned) reproduces 714's
+    contaminated row FIELD-FOR-FIELD — EL 12.8192, sim pnl
+    14.2000, 15 maker / 26 taker, outlay 110.58, pairRate 0.975
+    — proving the row in 714 is exactly the lat140 artifact.
+    INCIDENT CLOSED: both contaminated runs (714, 742) have
+    exact corrections, exact reproductions, and stand with the
+    flaw stated.
 
 ## E006-quote-stability — requote discipline on the deep chassis
 - **Type:** axis
