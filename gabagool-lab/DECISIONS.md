@@ -260,3 +260,32 @@ next battery's payload rule should scope its floor to latencies
 where the reference actually trades (fills/mkt above a stated
 minimum), which is a design improvement to propose at the next
 freeze, not retroactively.
+
+## D-012 (2026-07-18): E010 momentum signal = own bestAsk, not mid
+
+**Context:** the u84 design sketch (explicitly pre-freeze,
+informational) proposed a per-side ring buffer of MIDs for the
+own-book momentum veto. At proposal time (u87) the signal choice
+had to be fixed before the freeze.
+
+**Chosen:** the veto samples the own-side BEST ASK. Two reasons,
+both about fidelity to what is actually measured: (a) the KB prior
+this experiment operationalizes is literally a falling-ASK
+signature (A44: "caught the falling ask" = the adverse fill subset,
+the only 3/3-robust pre-fill discriminator) — using the ask tests
+the prior as measured, not a derived proxy; (b) in the worst_queue
+simulator a resting BUY fills only when bestAsk comes down through
+the level — the ask IS the fill channel, so "ask has been falling"
+is the direct precursor of the modeled adverse fill. Sampling
+excludes crossed and one-sided books (anomalous states the strategy
+never quotes into anyway).
+
+**Rejected:** mid-based signal. The mid mixes in bid-side moves,
+which are not the fill channel in this simulator and were not the
+measured KB signature; a mid fall driven purely by bid retreat
+would veto placement exactly when the ask (the thing that fills
+you) has NOT moved — diluting the discriminator the experiment
+exists to test. Cost of the choice: the ask is noisier to
+quote-flicker (pull/re-add without trades); accepted, because the
+5–20s as-of window already spans flicker and the sweep measures
+the sensitivity directly.

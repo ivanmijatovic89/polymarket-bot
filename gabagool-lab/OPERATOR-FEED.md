@@ -519,3 +519,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: axis CLOSED — no variant beats the incumbent; buying more of the favorite side earns more redemptions but pays exactly that much more for them (cancels to a cent per market, both halves)
 - Next: E010 — stop quoting a side whose own price just fell (the known bad-fill signature); write the frozen plan, then implement and launch
 - Health: on track
+
+## 2026-07-18T08:31Z — unit 87
+- Did: wrote the formal E010 plan (skip quoting a side whose own ask just fell — the known bad-fill signature) and implemented it behind a default-off switch
+- Found: nothing new — design work; one fork settled: watch the ask, not the midpoint, because the ask is what actually fills our orders
+- Next: prove the default path is bit-identical (A/A vs run 728), smoke the veto, then launch 6 runs
+- Health: on track

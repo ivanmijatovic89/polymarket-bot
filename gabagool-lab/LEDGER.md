@@ -1670,6 +1670,93 @@ Template:
     until a positive-EL cell exists (they are refinements for a
     paying cell, not cell-finders).
 
+## E010-own-book-momentum-veto — falling-ask placement veto on the gated chassis
+- **Type:** axis (pre-fill adverse-selection discriminator; the KB's
+  only 3/3-robust one)
+- **Status:** PROPOSED (2026-07-18, session 32, unit 87; flips to
+  frozen at launch, launcher commit = freeze SHA). Params-only after
+  the u87 code change; determinism basis must be RE-established by
+  A/A before launch (the shared accumulator gained an `ms` field, so
+  the 055a0b7 basis does not carry over automatically).
+- **Why now (proposal policy: measured mechanism first):** E008b
+  closed the favorite-side axis with the finding that ADDING
+  exposure never pays — the marginal favorite fill is fairly-to-
+  adversely priced (Δrem ≈ Δcost everywhere). The only lever that
+  ever improved EL is REMOVING adverse fills (the fv gate). The
+  residual g00 loss at lat140 (−0.0362/−0.2681) lives in the adverse
+  subset of maker fills + taker conversions (taker 33% of fills at
+  2.6 fills/mkt). E010 attacks exactly that subset BEFORE the fill:
+  KB A44–A45 measured that the incumbent's adverse fills are
+  preceded by their own side's falling ask over ~10s ("caught the
+  falling ask"), 3/3-robust across wallets/recipes — the only
+  pre-fill discriminator the KB found. Own-book signal: no feed, no
+  plugin, works at any latency arm — latency-robust by construction
+  (charter mandate designed-in, still must be measured if it
+  advances). Fixed DIRECTIONAL 30s+ rules are dead per A45
+  (regime-flip) — this is a same-side veto, not a directional rule.
+- **Mechanism (code, u87):** momVetoMode ('none' default = the
+  E008b-verified path with the feed/gate wiring unchanged | 'fall'),
+  momWindowSec, momMinDrop. Per-side ring buffer of (ts, bestAsk)
+  sampled every tick with a two-sided uncrossed book, BEFORE the
+  time gate (buffer warm at startSec); as-of lookup (newest sample
+  ≤ now − window); veto NEW rung placement on a side whose ask fell
+  ≥ momMinDrop; standing rungs untouched (same contract as the fv
+  gate); fail-open until the buffer spans the window. Suppression
+  counter `ms` in the shared accumulator. Signal = ask, not mid:
+  D-012 (the ask is A44's measured signature AND the worst_queue
+  fill channel).
+- **Knobs (3 arms vs the g00 incumbent 728/725, reused):**
+  momWindowSec ∈ {5 (w5), 10 (w10 — A44's window), 20 (w20)} at
+  momMinDrop 0.01 (one tick — A44's signature is any fall),
+  momVetoMode=fall. Chassis verbatim g00: rc ([0.02,0.13]) + c960 +
+  fvGateMode=level @ 0 bps + soloCap 0.65, lat140/jitter0, h1 Apr /
+  h2 May. sel-width 3.
+- **Identity requirements (before launch):** (a) A/A vs run 728: 20
+  h1 markets, sequential, new SHA, g00 params (veto 'none') —
+  per-market EL must reproduce 728 exactly, 20/20 (e008-aa.ts
+  pattern); (b) veto-on smoke (~5 markets, w10): params persist in
+  the run row, ms > 0, fills still happen. No launch without both.
+- **Success criteria (frozen at launch):**
+  1. All 6 runs complete, validators green (fee-recon, settlement
+     recheck, meta 100%); played < 20% flags unmeasurable-at-
+     coverage.
+  2. Readout: per arm×half EL±se, t, played%, fills/mkt, taker
+     share, pairRate, outlay, CVaR5, mean ms/mkt, PLUS settlement
+     decomp (e004-decomp) vs the same-half g00 ref — Δcost vs Δrem
+     asymmetry is the payload metric here (a good veto removes more
+     cost than remainder).
+  3. Advance rule (E005/E008 standard) over the window chain
+     w5→w10→w20 vs g00: ordering trend agreement across halves;
+     top-2 set agreement; endpoints DISTINCT. A cell ADVANCES only
+     if EL-DISTINCT better than g00 in BOTH halves.
+  4. Pre-committed latency path: any advancing cell runs the
+     standard survival battery — lat {0,500,1000} × halves vs the
+     SAME-lat g00 cells (738/733, 734/735, 736/737; only the
+     advancing cell's 6 runs are new), survival rule identical in
+     form to §E008 battery rule (3). No candidate assembly without
+     it.
+  5. Frozen predictions: P1 (selectivity, not blanket): at w10,
+     played% within ±5 points of g00 (78.0/77.0) AND maker
+     fills/mkt fall by 5–30% in both halves (<5% = veto inert;
+     >30% or played collapse = blanket participation cut, not a
+     discriminator). P2 (payload direction): at w10 in both
+     halves, Δcost < 0 and |Δcost| > |Δrem| — the vetoed fills are
+     net-adverse; the EL gain, if any, comes through the cost
+     term. P3 (advance): at least one of {w5, w10, w20} is
+     EL-DISTINCT better than g00 in both halves. If P3 fails, the
+     pre-fill discriminator axis is CLOSED at this chassis and the
+     program proceeds to the EVALUATION fresh-data pass plus a
+     ceiling assessment (the g00 lat0 bound ≈ 0 as evidence for
+     the L3 verdict path).
+  6. Limitations: worst_queue adverse-subset fills (the veto is
+     tested against the sim's OWN adverse channel — favorable-
+     subset fills it might also suppress are invisible here;
+     stated, not modeled); strike = binance-at-open (A18); halves
+     straddle A51/A52; sel-width 3; ask-signal noise accepted per
+     D-012.
+- **Runs:** (pending — filled at launch)
+- **Judgment:** (pending)
+
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind
   quote-stability u43 per the battery's mechanism finding):
@@ -1713,7 +1800,8 @@ Template:
   (imb p50 0.33 at rc+c960). If it composes, best case approaches
   −1.0 territory. D-008 constraint: completion enters via a frozen
   candidate spec (or a new frozen axis).
-- E010-own-book-momentum-veto (seeded by A-8 / KB A44–A45, u60):
+- ~~E010-own-book-momentum-veto~~ PROMOTED to §E010 (u87, s32) —
+  entry kept below for provenance (seeded by A-8 / KB A44–A45, u60):
   suppress new rungs (or widen) on a side whose own token mid fell
   over the last ~10s — the KB's only 3/3-robust pre-fill
   discriminator ("caught the falling ask" = the adverse subset).

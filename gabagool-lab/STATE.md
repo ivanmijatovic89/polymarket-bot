@@ -146,16 +146,16 @@
 
 ## Queue (work top to bottom)
 
-1. **E010 formal proposal + freeze (own-book momentum veto):**
-   design sketch is in the LEDGER backlog entry (u84, feasibility
-   verified vs E003 code). Write the frozen block per proposal
-   policy: knobs (momVetoMode 'fall'; momWindowSec sweep 5/10/20;
-   momMinDrop 0.01 floor), success criteria, predictions, arms vs
-   g00 incumbent (728/725) on the rc+c960+g00 chassis, lat140,
-   Apr/May halves. Then implement momVeto params in the E003
-   strategy file (default 'none' = bit-identical path — verify
-   with an A/A run before launch), smoke, launch via submit.ts,
-   freeze SHA in LEDGER.
+1. **E010 identity checks + launch (proposal WRITTEN u87 — §E010
+   in LEDGER; code landed u87: momVetoMode/momWindowSec/momMinDrop
+   on the E003 file, ask-signal per D-012, `ms` counter):**
+   (a) A/A vs run 728 — 20 h1 markets sequential, g00 params, veto
+   'none', per-market EL exact 20/20 (e008-aa.ts pattern; REQUIRED:
+   acc gained `ms`, so the 055a0b7 basis must be re-proven);
+   (b) veto-on smoke ~5 markets w10 (ms > 0, params persist);
+   (c) launch 6 arms (w5/w10/w20 × halves) vs 728/725 via a
+   LS-3-hardened launcher, flip §E010 to FROZEN at the launch SHA,
+   record uids, drain watcher up.
 2. **E010 judgment when drained** (uids + validators + frozen
    rules; advancing cell → pre-committed latency battery vs
    same-lat g00 cells 738/733, 734/735, 736/737).

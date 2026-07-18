@@ -85,6 +85,16 @@ export const ConfigSchema = z.strictObject({
    *  path bit-identical to pre-E008 code: the feed is not even requested. */
   fvGateMode: z.enum(['none', 'level']).default('none'),
   fvGateBps: z.coerce.number().finite().min(0).max(500).default(9),
+  /** E010 own-book momentum veto: with mode 'fall', place NO new rungs
+   *  on a side whose own bestAsk fell ≥ momMinDrop over the last
+   *  momWindowSec (KB A44: "caught the falling ask" = the adverse fill
+   *  subset; the ask is also the worst_queue fill channel — D-012).
+   *  Signal is per-side tick-snapshot asks (two-sided, uncrossed books
+   *  only), as-of lookup, fail-open until the buffer spans the window.
+   *  'none' keeps the default path bit-identical. */
+  momVetoMode: z.enum(['none', 'fall']).default('none'),
+  momWindowSec: z.coerce.number().finite().min(1).max(60).default(10),
+  momMinDrop: z.coerce.number().finite().min(0.005).max(0.2).default(0.01),
 })
 export type Config = z.infer<typeof ConfigSchema>
 
@@ -101,13 +111,14 @@ type Acc = {
   dockD: number
   /** E008: per-side placement opportunities suppressed by the fv gate. */
   gs: number
+  /** E010: placement opportunities suppressed by the momentum veto. */
+  ms: number
 }
 type SideQuotes = { basisBid: number; clientOrderIds: string[] }
 
 const EXP = 'E003-pair-accumulator'
 const eraFee = (px: number, sz: number): number => 0.07 * px * (1 - px) * sz
-const simFeeUsd = (px: number, sz: number): number =>
-  (156 / 10_000) * Math.min(px, 1 - px) * sz
+const simFeeUsd = (px: number, sz: number): number => (156 / 10_000) * Math.min(px, 1 - px) * sz
 
 const START_SEC: Record<Config['timeMode'], number> = {
   uniform: 60,
@@ -135,20 +146,36 @@ export const definition: StrategyDefinition<Config> = {
       dockU: 0,
       dockD: 0,
       gs: 0,
+      ms: 0,
     }
     let pendingCompletion: { id: string; placedAtSec: number } | null = null
     let fvStrike: number | null = null
     const quotes: Record<Side, SideQuotes | null> = { UP: null, DOWN: null }
+    const askHist: Record<Side, { ts: number; ask: number }[]> = { UP: [], DOWN: [] }
     const startSec = START_SEC[cfg.timeMode]
 
     const resetFor = (slug: string): void => {
       stateSlug = slug
       seq = 0
-      acc = { n: 0, mN: 0, tN: 0, mFee: 0, tFee: 0, tSimFee: 0, rej: 0, dockU: 0, dockD: 0, gs: 0 }
+      acc = {
+        n: 0,
+        mN: 0,
+        tN: 0,
+        mFee: 0,
+        tFee: 0,
+        tSimFee: 0,
+        rej: 0,
+        dockU: 0,
+        dockD: 0,
+        gs: 0,
+        ms: 0,
+      }
       pendingCompletion = null
       fvStrike = null
       quotes.UP = null
       quotes.DOWN = null
+      askHist.UP = []
+      askHist.DOWN = []
     }
 
     const removeOrderId = (clientOrderId: string | undefined): void => {
@@ -222,6 +249,34 @@ export const definition: StrategyDefinition<Config> = {
       const isCrossed = (b: typeof up): boolean =>
         b.bestBid != null && b.bestAsk != null && b.bestBid >= b.bestAsk
 
+      // E010 momentum veto (LEDGER §E010): per-side own-book bestAsk
+      // history (two-sided, uncrossed books only — D-012: the ask IS the
+      // worst_queue fill channel and A44's measured signal); veto NEW
+      // rung placement on a side whose ask fell ≥ momMinDrop over the
+      // last momWindowSec. Fail-open until the buffer spans the window.
+      // Sampled BEFORE the time gate so the buffer is warm at startSec.
+      const momAdverse: Record<Side, boolean> = { UP: false, DOWN: false }
+      if (cfg.momVetoMode === 'fall') {
+        const horizonMs = cfg.momWindowSec * 1000
+        for (const side of ['UP', 'DOWN'] as const) {
+          const book = side === 'UP' ? up : down
+          if (book.bestBid == null || book.bestAsk == null || isCrossed(book)) continue
+          const ask = book.bestAsk
+          const hist = askHist[side]
+          hist.push({ ts, ask })
+          while (hist.length && (hist[0]?.ts ?? Infinity) < ts - horizonMs - 5000) hist.shift()
+          let ref: number | null = null
+          for (let i = hist.length - 1; i >= 0; i--) {
+            const s = hist[i]
+            if (s && s.ts <= ts - horizonMs) {
+              ref = s.ask
+              break
+            }
+          }
+          if (ref != null && ref - ask >= cfg.momMinDrop - 1e-9) momAdverse[side] = true
+        }
+      }
+
       if (elapsedSec < startSec || elapsedSec > cfg.stopSec || isCrossed(up) || isCrossed(down)) {
         cancelSide('UP', 'gate closed')
         cancelSide('DOWN', 'gate closed')
@@ -277,6 +332,11 @@ export const definition: StrategyDefinition<Config> = {
         // untouched (they clear via the requote/parity/gate paths above).
         if (fvAdverse === side) {
           acc.gs += 1
+          continue
+        }
+        // E010: same contract as the fv gate — NEW placement only.
+        if (momAdverse[side]) {
+          acc.ms += 1
           continue
         }
 

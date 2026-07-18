@@ -2636,3 +2636,37 @@ added (favorite-side book design at θ=0); STATE queue rewritten.
 Next unit: E010 formal proposal + freeze, then implementation
 (momVeto params on the E003 file, default-off bit-identical path,
 A/A verified before launch).
+
+## 2026-07-18T08:31Z — session 32, unit 87: E010 PROPOSED (§E010 in LEDGER) + implemented; D-012 fixes the signal to the ask
+
+The E008b consequence executed: E010 (own-book momentum veto) is
+now a formal proposal with the full frozen-shape block in LEDGER —
+knobs (momWindowSec {5,10,20} at momMinDrop 0.01, momVetoMode
+fall), identity requirements (A/A vs 728 + veto-on smoke, both
+required before launch), success criteria, advance rule, latency
+path, and predictions P1 (selectivity: played% within ±5 pts,
+maker fills −5..−30%), P2 (payload: |Δcost| > |Δrem|, gain via the
+cost term), P3 (advance; on failure the pre-fill discriminator
+axis closes and the program moves to the EVALUATION fresh-data
+pass + ceiling assessment).
+
+Implementation (same-file doctrine, E003-pair-accumulator.ts):
+per-side ring buffer of (ts, bestAsk) sampled on two-sided
+uncrossed books BEFORE the time gate (buffer warm at startSec);
+as-of lookup; veto NEW rung placement only (same contract as the
+fv gate); fail-open until the buffer spans the window; `ms`
+suppression counter on the shared accumulator. Typecheck, eslint,
+prettier all clean.
+
+One design fork closed pre-freeze: D-012 — the signal is the own
+bestASK, not the mid the u84 sketch mentioned. The KB prior is
+literally a falling-ask signature (A44), and in worst_queue the
+ask IS the fill channel (a resting BUY fills only when bestAsk
+comes through it). A mid fall driven by bid retreat would veto
+exactly when the thing that fills you hasn't moved. Ask noise
+(quote flicker) accepted; the window sweep measures sensitivity.
+
+Because acc gained the `ms` field, the 055a0b7 A/A basis does NOT
+carry over — the block makes re-proving it a launch precondition.
+Next unit: A/A vs 728 (20 markets exact), veto-on smoke, then
+launch 6 arms and flip §E010 to FROZEN.
