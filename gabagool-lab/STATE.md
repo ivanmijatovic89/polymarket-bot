@@ -22,8 +22,9 @@
   rc+c960 + fvGateMode=level + fvGateBps=0 (D-010; g05 named as the
   two-sided reference cell for pairing-dependent axes). u40 blocker
   LIFTED (taker fills −83%), but candidate assembly awaits a
-  POSITIVE-EL cell + the latency battery. Next: E008-lat battery
-  on g00/g05 (draft, freeze, launch).
+  POSITIVE-EL cell + the latency battery. E008-lat battery FROZEN +
+  LAUNCHED (u70, SHA b9ef46c7, 12 ax6bat flows draining, ETA
+  ~07:00Z; survival rule + P1-P3 frozen pre-launch).
 - **Phase:** E008 COMPLETE (LEDGER §E008 filled u69). 8/8 landed,
   uids to the digit, 0 failures, validators green ×8. Final map:
   725=g00h2 726=g05h1 727=g05h2 728=g00h1 729=g09h1 730=g09h2
@@ -131,20 +132,26 @@
 
 ## Queue (work top to bottom)
 
-1. **E008-lat battery on the gated cells (draft → freeze → launch
-   → judge):** g00 and g05, both halves, lat ∈ {0, 500, 1000}
-   (lat140 already measured) = 12 runs (~35k jobs, ~2× an axis;
-   consider g00-only 6 runs if queue pressure — decide in the
-   draft, state why). Purpose: (a) charter-mandated latency stress
-   — the gate is placement-only and reads the binance feed as-of,
-   so 500/1000ms is the falsification test for the whole E008
-   result; (b) lat0 = gated frictionless bound (is g00's residual
-   −0.04/−0.27 all conversion, like E005's was?). Pattern:
-   launch-e005-battery.sh is the quarry; refs for comparison
-   709–714 (ungated battery). Freeze criteria BEFORE launch,
-   including what "survives" means numerically (EVALUATION f_lat
-   uses EL(500); write the exact rule into the block).
-2. **After the battery:** if g00 survives latency → E008b
+1. **A-10 KB fold while battery drains:** KB register now tops at
+   A65 (A49–A65 new since A-9). Load-bearing: A51 v1→v2 exchange
+   cutover 2026-04-28 ~11:02Z INSIDE my halves straddle (regime
+   caveat on all h1-vs-h2 disagreements from now on); A52 fee trim
+   0.072→0.070 May 6–10; A49/A58/A59/A63/A64 weekday session
+   toxicity map (US toxic, evening favorable — recipe-specific vs
+   my A46 note, diagnostic); A60 subsidy pools; A62/A65 genealogy.
+   Fold into INHERITANCE, re-rank backlog if warranted.
+2. **E008-lat battery judgment when drained (launched 05:12Z u70,
+   SHA b9ef46c7, 12 ax6bat flows, ~35.1k jobs, ETA ~07:00Z; drain
+   watcher pid 43917 → logs/watch-drain-s26-battery.log):** per
+   run land: uid vs frozen §E008 BATTERY block (`tools/uids.ts`) +
+   validators (`results.ts --run N`, quote only headline). Then:
+   latency curve table per cell×half {0,140,500,1000} + decomps
+   gated-vs-ungated at same lat (chains: lat0 714/709, lat500
+   710/711, lat1000 712/713, lat140 708/703 — g00 arms and g05
+   arms separately). Judge STRICTLY per frozen criteria: survival
+   rule (3), payload check (4), predictions P1–P3 (5), A51/A52
+   regime caveats (6). On partial: windowed --extend per u41.
+3. **After the battery:** if g00 survives latency → E008b
    favorite-side depth/sizing (the lean is maximal at θ=0; the
    remaining knobs are rung count/depth/clip on the favorite side)
    + fresh-data confirmation path per EVALUATION (holdout; E32

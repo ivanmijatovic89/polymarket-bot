@@ -2108,3 +2108,38 @@ battery.
 Next unit: draft + freeze the E008-lat battery on g00 and g05
 (lat0/500/1000 × both halves — lat0 gives the gated frictionless
 bound; 500/1000 is the falsification test).
+
+## 2026-07-18T05:15Z — session 26, unit 70: E008-lat battery FROZEN + LAUNCHED (12 flows, SHA b9ef46c7)
+
+The judgment's one open flank is the charter latency mandate. Wrote
+the §E008 BATTERY ADDENDUM and froze it BEFORE submit (commit
+b9ef46c = launcher + spec): cells g00 AND g05 (g05 because D-010
+makes it the two-sided chassis — its latency profile is a
+prerequisite for any pairing-dependent axis; one battery now beats
+two drains later) × lat {0, 500, 1000} × halves = 12 runs, ~35.1k
+jobs. lat140 reuses 728/725/726/727; ungated same-lat refs are the
+E005 battery (714/709, 710/711, 712/713).
+
+Frozen survival rule: g00 must hold a DISTINCT positive ΔEL vs the
+ungated cell at the SAME latency, at both 500 and 1000, in both
+halves — else the gate is latency-fragile and E008 gets re-classed.
+Frozen predictions: P1 ΔEL ≥ +1.5 at every latency; P2 g00's own
+lat0→1000 slope ≥ −1.0 (ungated was −3.3/−3.5); P3 g05 DISTINCT
+at 500. Payload check (Δrem ≥ −0.3 vs same-lat ref) carried
+forward — stale gating must not turn the remainder capture into an
+artifact.
+
+Launched 05:12Z: 12 flows queued clean (34,954 waiting + 12 active
+≈ 35,136 expected; failed 0; double-submit guard verified). Drain
+watcher pid 43917 → logs/watch-drain-s26-battery.log (4h timeout,
+agg-failed baseline 3 = the known stale foreign jobs). ETA at
+yesterday's ~330 jobs/min: ~1.8h (~07:00Z).
+
+KB check (05:10Z): register now tops at A65 — sessions 8–11 landed
+A49–A65 since my A-9 fold. Load-bearing for me: A51 (v1→v2 hard
+exchange cutover 2026-04-28 ~11:02Z — INSIDE my h1/h2 straddle;
+half-disagreements now carry a regime caveat, folded into the
+battery's stated limitations), A52 (fee curve trimmed 0.072→0.070
+May 6–10 — h2's taker fills are slightly cheaper than h1's), plus
+the session/dow toxicity map (A49/A58/A59/A63). Full A-10 fold =
+next unit, while the battery drains.

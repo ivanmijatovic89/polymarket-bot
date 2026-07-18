@@ -1369,7 +1369,24 @@ Template:
      and the fee trim May 6–10 (A52) — cross-half agreement is
      therefore also a regime-robustness read, and any h1-vs-h2
      disagreement gets an A51 caveat, not a coin-flip narrative.
-- **Runs (launched — filled at submit):** (pending)
+- **Runs (launched 2026-07-18T05:12Z, 12 flows at SHA b9ef46c7 =
+  the freeze commit; h1 = 2,880 / h2 = 2,976 each):**
+  - ax6bath1-g00 lat0: `…--ax6bath1-g00--lat0--77d28621-46af-4a70-ab1a-e4f1cd9c7995`
+  - ax6bath2-g00 lat0: `…--ax6bath2-g00--lat0--1d8fa4c3-5215-4fe2-8435-c2648bed6800`
+  - ax6bath1-g00 lat500: `…--ax6bath1-g00--lat500--a7ec9419-f7b6-45a8-aec0-fb2f0dc0d981`
+  - ax6bath2-g00 lat500: `…--ax6bath2-g00--lat500--c48f3aa8-c4a7-4439-b8e2-964f9da76b9f`
+  - ax6bath1-g00 lat1000: `…--ax6bath1-g00--lat1000--d6560115-34f1-4cce-928d-8135f4d8ffd7`
+  - ax6bath2-g00 lat1000: `…--ax6bath2-g00--lat1000--49a4244d-a0ed-41e1-b88b-da96100cc487`
+  - ax6bath1-g05 lat0: `…--ax6bath1-g05--lat0--1c9aa96b-fcc2-4916-8c7d-3fb2188163d0`
+  - ax6bath2-g05 lat0: `…--ax6bath2-g05--lat0--80dfc68f-3504-43fc-828b-15a38de9a36a`
+  - ax6bath1-g05 lat500: `…--ax6bath1-g05--lat500--7d332996-104e-47d1-b572-84eb42ff04e8`
+  - ax6bath2-g05 lat500: `…--ax6bath2-g05--lat500--4862438f-6ddc-442f-bf1d-3f99621dabc4`
+  - ax6bath1-g05 lat1000: `…--ax6bath1-g05--lat1000--62a00b8d-2a3b-4e89-b63c-242f882d40e6`
+  - ax6bath2-g05 lat1000: `…--ax6bath2-g05--lat1000--a6fc234a-f6cd-453d-8892-55e08bb1ba5a`
+  (verified read-only via agg-inspect post-launch: 12 ax6bat
+  waiting-children flows at SHA b9ef46c7; markets queue 34,954
+  waiting + 12 active ≈ the expected 35,136; markets failed = 0;
+  double-submit guard fires on re-invoke.)
 - **Judgment:** (pending)
 
 ## Backlog (one line each; propose formally when reached)

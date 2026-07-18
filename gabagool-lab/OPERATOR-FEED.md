@@ -417,3 +417,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: first lever that actually wins. Tightest gate cuts the loss from −2.29 to −0.04 (April, statistically breakeven) and −2.02 to −0.27 (May) per market. Trade-off: it barely pairs anymore — it becomes "buy only the winning side and hold". Still not positive, and the 500–1000ms latency stress hasn't run yet.
 - Next: latency battery on the two best gate cells — if the edge survives slow execution, this is the first real candidate path.
 - Health: on track
+
+## 2026-07-18T05:15Z — unit 70
+- Did: froze and launched the latency stress test on the two winning gate cells (12 runs, ~35k markets; rules and predictions written before launch).
+- Found: nothing new yet — this is the test that decides whether yesterday's breakthrough survives slow execution (the operator's key requirement).
+- Next: fold the knowledge base's 17 new findings while the runs drain (~2h), then judge the battery.
+- Health: on track
