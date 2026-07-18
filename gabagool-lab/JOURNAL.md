@@ -2755,3 +2755,30 @@ says so.
 
 No results were read; peek discipline holds. Next: wait for
 drain, then the §E010 judgment via e010-table.ts.
+
+## 2026-07-18T08:43Z — session 32, unit 92: moving-ground checks (feeds NOT landed; KB unchanged) + P3-fail routing pre-read
+
+Charter-mandated checks while the battery drains (14.2k waiting at
+08:43Z, ~430/min, 0 failed):
+
+- **Feeds: still binance-only.** origin/main fetched fresh;
+  wireBacktestExternalFeeds.ts wires only binanceWsSpotPrice —
+  price-to-beat and Chainlink have NOT landed (last verified s4;
+  now re-verified s32). Any ceiling verdict keeps "price-to-beat
+  feed lands" as a retryOnlyIf condition.
+- **KB: unchanged.** STATE.md mtime 2026-07-17T18:16Z, register
+  still tops at A65, Phase 2 queue unchanged. Nothing new to fold.
+- **P3-fail routing pre-read** (no E010 data touched): re-read
+  EVALUATION §1/§5/§8 and EPISTEMOLOGY §4. The concept-level
+  structural kill needs the economic line to miss zero even with
+  fee-free maker fills, era-correct taker fees, full rebate, AND
+  the benign-half grant (fills × 1/0.44). Since the g00 lat0
+  bound is ≈ 0 BEFORE those grants, a P3 failure almost certainly
+  routes to "not found at this chassis + conditional ceiling with
+  retryOnlyIf", not "cannot pay" — the honest-vocabulary
+  distinction EPISTEMOLOGY §4 forces. The S3 holdout stays
+  untouched in that branch (it is champion-lineage-only; no
+  champion exists). Decision deferred to the judgment unit with
+  numbers on the table.
+
+Next: background wait on drain, then the §E010 judgment.
