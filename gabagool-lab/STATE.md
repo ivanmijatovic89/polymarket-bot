@@ -12,7 +12,7 @@
 
 ## Status digest
 
-- **Session:** 28 (started 2026-07-18T07:12Z. Stamp rule: paste from
+- **Session:** 29 (started 2026-07-18T07:44Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
@@ -56,14 +56,15 @@
   Earlier: E008 judged u69 (first reference-beating lever; LS-12;
   D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
   cfree/D-008, EVALUATION v1.1 frozen.
-  s28 ritual done (07:12Z + u78 07:39Z): DONE absent, hook intact,
-  worker alive (4 children on E008b); KB re-read — register still
-  tops at A65, nothing new to fold; origin/main f22ca1c — feeds
-  still binance-only (priceToBeat/Chainlink NOT landed). Drain:
-  18.1k pending at 07:41Z ~450/min → ETA ~08:25Z. u79: first 4
-  E008b runs landed+verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s,
-  750=h1-r3m; uids MATCH mechanically, validators green ×4).
-  Session waiters up on drain + probe chain (pid 77993).
+  s29 ritual done (07:44Z): DONE absent, hook intact, worker alive
+  (4 children on E008b); KB unchanged past A65 (u78 checked 30 min
+  prior); feeds still binance-only on f22ca1c. Drain: 16.5k
+  pending at 07:45Z ~450/min → ETA ~08:20Z. **6/12 E008b runs
+  landed+verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s, 750=
+  h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
+  validators green ×6). Unlanded: r3d/s75/s85 × halves — the
+  whole solo-cap sub-axis (P2) still pending.** Session waiters
+  up on drain + probe chain (pid 77993).
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 

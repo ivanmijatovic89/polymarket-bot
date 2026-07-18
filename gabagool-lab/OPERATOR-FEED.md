@@ -477,3 +477,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing judged yet; one arm shows a hint of positive EV pre-correction — full verdict when all 12 land (~08:25Z).
 - Next: judge E008b the moment the queue drains; record probe correction when it finishes.
 - Health: on track
+
+## 2026-07-18T07:46Z — unit 80
+- Did: new session picked up seamlessly; verified 2 more finished E008b runs (6 of 12 now checked, all clean)
+- Found: nothing judged yet — the remaining 6 runs (including the whole solo-cap group) land ~08:20Z
+- Next: wait for the batch to finish, then run the frozen judgment
+- Health: on track

@@ -2410,3 +2410,30 @@ survived the session after all; my earlier grep pattern just
 missed it. Two fresh session-local waiters are up regardless (one
 on queue drain, one on the ungated probe chain pid 77993, still
 grinding the pathological lat0 market at 26+ CPU-min).
+
+## 2026-07-18T07:46Z — session 29, unit 80: pickup + mid-drain verification continues — 6/12 E008b runs landed, uids MATCH, validators green ×6
+
+Session 29 pickup at 07:44Z (s28 ended cleanly at u79 one minute
+earlier — the relay gap was seconds). Ritual: DONE absent, hook
+intact, tree clean at 693b39c, worker alive (4 children), drain
+watcher pid 67462 logging, probe chain pid 77993 still grinding the
+pathological ungated@lat0 market. KB STATE re-read: nothing past
+A65 (u78 checked 30 min ago; unchanged, as expected). Queue at
+07:45Z: 16.5k pending, ~450/min → E008b drain ETA ~08:20Z.
+
+Two more E008b runs landed since u79 and both verify clean:
+- run 751 (ax7h2-r3m): uid MATCH (scripted grep vs frozen §E008b
+  block), settlement recheck OK, fee recon |0.04| vs tol 59.52
+  VALID, meta 100%, segments OK. Raw headline EL −0.2915.
+- run 752 (ax7h1-r1): uid MATCH, settlement OK, fee recon |0.31|
+  vs tol 57.60 VALID, meta 100%, segments OK. Raw headline EL
+  −0.1005.
+
+Raw observation recorded without interpretation (judgment fires
+only when all 12 land, per frozen criteria): both new rows sit
+below their same-half g00 references (r1 h1 −0.1005 vs g00 h1
+−0.0362; r3m h2 −0.2915 vs g00 h2 −0.2681) — but DISTINCT tests
+and the sub-axis trend rules are the frozen deciders, not
+eyeballed point estimates. 6/12 verified: 747–752. Remaining:
+r3d ×2, s75 ×2, s85 ×2 (the solo-cap sub-axis — P2's subject —
+is entirely unlanded). Waiters going up next on drain + probe pid.
