@@ -1596,7 +1596,79 @@ Template:
   - ax7h2-s75: `…--ax7h2-s75--lat140--f7232377-9a62-4a3a-a2b0-ddfd5a30783e`
   - ax7h1-s85: `…--ax7h1-s85--lat140--61df8720-6fa1-4f3f-952b-262464fd38f0`
   - ax7h2-s85: `…--ax7h2-s85--lat140--f5e3b685-9f31-4e24-96f4-acc60c672683`
-- **Judgment:** (pending)
+- **Judgment (2026-07-18T08:22Z, session 32, unit 86; runs 747–752,
+  754, 756–760 vs incumbent g00 728/725; instrument e008b-table.ts,
+  frozen wiring, dry-fit u81):** **NO ARM ADVANCES — the
+  favorite-side axis (ladder structure × solo-exposure cap at θ=0)
+  is CLOSED at this chassis. P3 REFUTED: nothing in {r3m, r3d, s75,
+  s85} is EL-DISTINCT better than g00 in either half, let alone
+  both. Measured mechanism: every way of buying more favorite-side
+  exposure buys winner-remainder and adverse cost in near-equal
+  measure — the marginal favorite fill is fairly-to-adversely
+  priced; only the gate (which REMOVES fills) has ever improved the
+  ratio.**
+  - **Identity:** all 12 uids match the launch block to the digit;
+    all completed clean on the first pass (f=0 ×12 — first battery
+    of the program with zero stalls; no extends, no LS-13
+    exposure). Validators green ×12 (settlement recheck OK,
+    fee-recon |≤0.15| vs tol, meta coverage 100%, segments OK).
+  - **Table (EL $/mkt h1/h2; g00 = −0.0362/−0.2681):** r12s
+    −0.1125/−0.7301; r1 −0.1005/−0.2952; r3m +0.0037/−0.2915; r3d
+    −0.0184/−0.2715; s75 −0.1182/−0.3693; s85 −0.0828/−0.3825.
+    Every ΔEL vs g00 is indistinguishable (|Δ| 0.003–0.115 vs
+    2·se_diff 0.35–0.46) EXCEPT r12s h2: −0.4620 vs 0.4117 —
+    DISTINCT WORSE.
+  - **Advance rule (3): FAILS both sub-axes.** Endpoint direction
+    agreement holds in both (structure: deeper ≥ shallower; solo:
+    g00 ≥ wider caps) but top-2 sets disagree across halves
+    (structure h1 {r3d,r3m} vs h2 {g00,r3d}; solo h1 {g00,s85} vs
+    h2 {g00,s75}). ADVANCE list: empty.
+  - **P1 REFUTED, sign backwards:** r12s Δrem +2.2817/+1.9253
+    (predicted ≤ −1.0). The premise "the remainder lives at depth"
+    is wrong — the extra SHALLOW rung adds remainder because
+    remainder scales with favorite-side outlay wherever it sits;
+    it also adds Δcost +2.6504/+2.8519 and Δpair +0.31/+0.49,
+    netting worse (3.2–3.3 fills/mkt, highest outlay and worst
+    CVaR5 of the battery: −19.4/−20.2).
+  - **P2 CONFIRMED — and economically neutralized:** s85 Δrem
+    +2.1761/+2.0484 (≥ +1.0 both halves — the solo cap IS the
+    binding remainder lever, exactly as the placement-code read
+    predicted) but Δcost +2.1268/+2.0576 cancels it to within a
+    cent per market. Same at s75: Δrem +1.3036/+1.2747 vs Δcost
+    +1.2969/+1.2878. The A47 prior (strong favorites almost never
+    flip) is PRICED IN on this book: you can buy more favorite,
+    you pay full freight.
+  - **Sub-axis reads:** structure is FLAT at θ=0 — r1 ≈ g00 ≈ r3m
+    ≈ r3d within noise (the depth rung is near-inert once gated;
+    the gate does the work, confirming u81's dry-fit). The solo
+    arms raise played% (78 → 86.9/91.3) by quoting favorites that
+    previously never quoted; those extra markets are EL-neutral in
+    aggregate.
+  - **Caveats (6):** h2 uniformly worse than h1 across all 7 cells
+    — consistent with every prior lat140 read on this chassis
+    (predates the fee trim; A51/A52 straddle noted, not a
+    coin-flip narrative). sel-width 6 is moot — no winner was
+    selected, so there is nothing to shrink. worst_queue
+    adverse-subset fills and binance-at-open strike as always.
+  - **Dead region:** r12s ([0.01,0.02] shallow pair, no depth) —
+    the only arm to lose DISTINCT (h2). Extra near-touch exposure
+    on the gated chassis is closed.
+  - **Program consequence (per frozen rule 5):** axis CLOSED;
+    chassis rc+c960+g00 unchanged; candidate assembly REMAINS
+    BLOCKED (no positive-EL cell at realistic latency; g00 stays
+    the best measured cell). Backlog re-ranked from §E008's decomp
+    numbers: the residual g00 loss at lat140 sits in the adverse
+    subset of maker fills plus taker conversions (taker 33% of
+    fills at 2.6 fills/mkt) — **E010 own-book momentum veto is
+    RANK 1** (attacks exactly that adverse subset PRE-fill; the
+    KB's only 3/3-robust discriminator, A44–A45; no feed;
+    latency-robust by construction; composes with the chassis;
+    design sketch already verified feasible, u84). E006b
+    conditional requote overlaps E010's design space and needs a
+    schema addition → rank 2, informed by E010's result. E005b cap
+    bracket, E-completion-selective, E-deep×completion: deferred
+    until a positive-EL cell exists (they are refinements for a
+    paying cell, not cell-finders).
 
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind

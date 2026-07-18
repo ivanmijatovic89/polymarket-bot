@@ -2583,3 +2583,56 @@ That completes the STRUCTURE sub-axis (r1, r12s, r3m, r3d — all
 solo-cap sub-axis (s75/s85 × halves), still in the drain.
 Background waiter is up on the queue; judgment fires when it
 reports drained.
+
+## 2026-07-18T08:24Z — session 32, unit 86: E008b JUDGED — the favorite-side axis is CLOSED; no arm advances; E010 is next
+
+Session 32 pickup (08:17Z): DONE absent, worker daemon alive,
+drain watcher up, KB unchanged past A65. The queue drained at
+08:18Z — all 12 E008b runs landed, and for the first time in the
+program a full battery landed with ZERO stalls (f=0 ×12, no
+extends, no LS-13 exposure).
+
+Landed the last 4 (757/758 = s75 h1/h2, 759/760 = s85 h1/h2):
+submission uids match the frozen block character-for-character
+(checked with uids.ts), params confirm the arms (soloCap 0.75/0.85,
+everything else verbatim g00), validators green (settlement
+recheck OK all markets, fee-recon ≤ 0.12 vs tol, meta 100%,
+segments OK). Then ran the frozen instrument (e008b-table.ts,
+dry-fit u81) over all 12.
+
+**Verdict: AXIS CLOSED.** The advance list is empty — nothing is
+EL-DISTINCT better than g00 in even one half. The only DISTINCT
+result anywhere is r12s h2 losing (−0.7301 vs −0.2681). P1
+refuted sign-backwards exactly as the dry-fit foreshadowed. P3
+refuted → per frozen rule 5 the axis closes and the backlog
+re-ranks.
+
+The economically interesting result is P2: CONFIRMED and
+worthless at once. The solo cap IS the binding remainder lever —
+s85 buys +2.18/+2.05 $/mkt of extra winner-remainder, precisely
+as the placement-code analysis predicted — but it pays
++2.13/+2.06 in extra cost for it. Cancellation to within a cent
+per market, in both halves, and the same at s75 and (with worse
+terms) at r12s. That is a clean economic statement about this
+book: the marginal favorite fill is fairly-to-adversely priced.
+The A47 prior (strong favorites almost never flip) is not an
+edge; it is already in the price. Every lever that ADDS exposure
+buys remainder at full freight; the only lever that ever improved
+the EL ratio is the gate, which REMOVES fills. Structure is flat
+at θ=0 — the depth rung is near-inert once gated.
+
+Consequences: chassis rc+c960+g00 unchanged, g00 stays the best
+measured cell, candidate assembly stays blocked (still no
+positive-EL cell at realistic latency). Backlog re-ranked from
+§E008's decomp numbers: E010 (own-book momentum veto) is rank 1 —
+it is the only seeded lever that attacks the adverse maker-fill
+subset BEFORE the fill happens, which is exactly where the
+residual loss lives, and it needs no feed and is latency-robust
+by construction. E006b rank 2 (overlapping design space; let E010
+inform it). E005b/completion levers deferred until something
+pays. LEDGER §E008b judgment filled; LEADERBOARD dead-region
+added (favorite-side book design at θ=0); STATE queue rewritten.
+
+Next unit: E010 formal proposal + freeze, then implementation
+(momVeto params on the E003 file, default-off bit-identical path,
+A/A verified before launch).

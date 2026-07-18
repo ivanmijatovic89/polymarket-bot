@@ -12,71 +12,55 @@
 
 ## Status digest
 
-- **Session:** 31 (started 2026-07-18T07:57Z. Stamp rule: paste from
+- **Session:** 32 (started 2026-07-18T08:17Z. Stamp rule: paste from
   `date -u` output captured in the same command — every estimate so
   far has drifted, including s17 u59's first draft. TZ note: this
   box is UTC+2; raw `stat` mtimes print LOCAL — subtract 2h)
-- **Ladder rung:** L2 IN PROGRESS — **E008-lat battery JUDGED (u74):
-  the gate SURVIVES latency.** Survival rule passed ×4: ΔEL(g00 −
-  ungated) +2.96/+2.61 at 500ms, +3.22/+2.89 at 1000ms, all
-  DISTINCT; g00 slope lat0→1000 −0.26/−0.62 vs ungated −3.35/−3.46
-  (~6–13× flatter; P2 ✓). P3 ✓ (g05 DISTINCT at 500 both halves).
-  Chassis rc+c960+g00 CONFIRMED under stress; charter 500–1000ms
-  mandate DISCHARGED for this lever. Honest misses: payload check
-  FAILED as frozen at the lat0 boundary (h2 Δrem −0.365 vs −0.3
-  floor) → D-011: the remainder capture is latency-CONDITIONAL
-  (defensive lever — suppresses latency-induced adverse flow; at
-  140–1000ms payload +3.2..+5.8, GROWS with latency); P1 REFUTED at
-  lat0 (same root). g00 lat0 = first positive-EL cells
-  (+0.013/+0.041) but played 13–16% <20% → unmeasurable-at-coverage:
-  a bound, not a result. Candidate assembly STILL BLOCKED (no
-  positive-EL cell at realistic latency; g00 best −0.036/−0.268 at
-  140). Next lever: E008b favorite-side depth/sizing, then
-  fresh-data confirmation (EVALUATION path, sel-width shrinkage).
-- **Phase:** E008 + battery COMPLETE (LEDGER §E008 + addendum filled
-  u69/u74). Battery runs 733–744 (g00: 738/733 lat0, 734/735 lat500,
-  736/737 lat1000; g05: 742/739 lat0, 740/741 lat500, 743/744
-  lat1000), uids to the digit, validators green ×12. **INCIDENT
-  (u73, LS-13): run 742's stall-retry ran 1 market at lat140 inside
-  the lat0 cell (raw --extend reads ambient .env=140ms; submit.ts
-  --extend exists to pin it). Caught by fill fingerprint (25 taker
-  fills in a taker≈0 cell), proven by exact deterministic
-  reproduction (probe run 745). Run 714 (E005 battery, lat0 h1 ref)
-  has carried the SAME 1-market flaw since u41 — erratum appended
-  to §E005. LOO impact: −0.006/−0.005 EL (≈se/6, se/8); NO
-  judgment call flips; the binding payload-FAIL cell (733/709) is
-  contamination-free. Both runs stand with the flaw stated.**
-  **LS-13 INCIDENT CLOSED (u83):** all 4 counterfactual probes
-  landed. Exact corrections — 742: −0.0756 → −0.0787 (run 746);
-  714: −0.1175 → **−0.1195** (run 753; LOO bound −0.1220
-  bracketed; Δ ≈ se/19). Determinism reproductions — 742→745,
-  714→**755** (field-for-field: EL 12.8192, 15m/26t, outlay
-  110.58). Bonus fact: gate INERT on the pathological market at
-  lat0 (753 ungated ≡ 746 g05, +6.90 6m/0t identical). Nothing
-  flips anywhere; erratum finalized in LEDGER §E005.
-  Earlier: E008 judged u69 (first reference-beating lever; LS-12;
-  D-010), E006 AXIS-CLOSED (LS-11), E005 battery (LS-9), E004
-  cfree/D-008, EVALUATION v1.1 frozen.
-  s29 ritual done (07:44Z): DONE absent, hook intact, worker alive
-  (4 children on E008b); KB unchanged past A65 (u78 checked 30 min
-  prior); feeds still binance-only on f22ca1c. **8/12 E008b runs
-  verified (s31 u85): 747–752, 754, 756 — the STRUCTURE sub-axis
-  (r1, r12s, r3m, r3d) is fully landed (uids MATCH mechanically,
-  validators green ×8; 756 raw EL −0.2715 h2, 754 raw −0.0184 h1
-  — no judgment). Unlanded: s75 ×2, s85 ×2 — the solo-cap
-  sub-axis (P2); drain ETA ~08:20Z, waiter up.** u81 dry-fit of
-  e008b-table.ts on the 6 landed arms: **P1 mechanically REFUTED,
-  sign backwards** (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0;
-  Δcost +2.65/+2.85 swamps it → ΔEL −0.08 indist / −0.46 DISTINCT
-  worse); r1 ≈ g00 both halves (depth rung near-inert at θ=0);
-  r3m indistinguishable both halves. Structure family looks flat —
-  the gate does the work. Full judgment waits for all 12. Session
-  waiters up on drain + probe chain (pid 77993).
+- **Ladder rung:** L2 IN PROGRESS — **E008b JUDGED (u86): the
+  favorite-side axis is CLOSED. No arm advances.** All 12 runs
+  landed clean (f=0 ×12, zero stalls — first battery with no
+  extends), uids to the digit, validators green ×12. Every ΔEL vs
+  g00 indistinguishable (|Δ| 0.003–0.115 vs 2·se_diff 0.35–0.46)
+  except r12s h2 DISTINCT WORSE (−0.730 vs −0.268). P1 REFUTED
+  sign-backwards (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0);
+  **P2 CONFIRMED but economically neutralized** (s85 Δrem
+  +2.18/+2.05 vs Δcost +2.13/+2.06 — cancels to a cent; s75 same);
+  P3 REFUTED → axis closes per frozen rule 5. Mechanism: the
+  marginal favorite fill is fairly-to-adversely priced — remainder
+  scales with outlay but is never free; the A47 never-flip prior
+  is in the price; only the GATE (removing fills) ever improved
+  the ratio. Structure flat at θ=0 (depth rung near-inert once
+  gated). Chassis stays rc+c960+g00; g00 stays best cell
+  (−0.036/−0.268 at lat140, lat0 bound ≈ 0). Candidate assembly
+  STILL BLOCKED (no positive-EL cell at realistic latency).
+  **Backlog re-ranked per frozen rule 5: E010 own-book momentum
+  veto is RANK 1** (attacks the adverse maker-fill subset
+  pre-fill; KB A44–A45 3/3-robust; no feed; latency-robust by
+  construction; design sketch verified feasible u84). E006b rank
+  2 (overlaps E010 space, needs schema addition). E005b /
+  E-completion-selective / E-deep×completion deferred until a
+  positive-EL cell exists.
+- **Phase:** E008b COMPLETE (LEDGER §E008b judgment filled u86;
+  dead region r12s logged; LEADERBOARD dead-regions updated).
+  Runs 747–752, 754, 756–760 vs incumbent 728/725, sel-width 6.
+  Earlier: E008-lat battery judged u74 (gate SURVIVES latency,
+  ~6–13× flatter decay; D-011 payload latency-conditional;
+  charter latency mandate discharged for the lever), LS-13
+  incident closed u83 (742 corr −0.0787, 714 corr −0.1195,
+  determinism reproductions 745/755, no flips), E008 judged u69
+  (first reference-beating lever; LS-12; D-010), E006 AXIS-CLOSED
+  (LS-11), E005 battery (LS-9), E004 cfree/D-008, EVALUATION v1.1
+  frozen. s32 ritual done (08:17Z): DONE absent, worker alive,
+  drain watcher up, KB unchanged past A65, queue drained 08:18Z.
+  No background work open.
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
 ## What exists so far
 
+- **E008b JUDGED (u86, s32): favorite-side axis CLOSED — no arm
+  beats g00; Δrem ≈ Δcost everywhere (remainder is never free);
+  dead region r12s; backlog re-ranked, E010 next. Runs 747–760.**
 - **E008-lat battery JUDGED (u74, s27): gate SURVIVES latency —
   see Status digest above (the current headline result). D-011
   (payload = defensive/latency-conditional); LS-13 (extend env
@@ -162,25 +146,27 @@
 
 ## Queue (work top to bottom)
 
-1. **E008b judgment when drained (launched 07:06Z u75, SHA
-   a59a2ebf, 12 ax7 flows, ~35.1k jobs, ETA ~08:50Z; drain watcher
-   pid 67462 → logs/watch-drain-s27-e008b.log):** per run land:
-   uids vs frozen §E008b block + validators (headline only) +
-   LS-13 fingerprint check on any repaired run. Readout per frozen
-   criteria (2): arm table + e004-decomp vs same-half g00 (728/
-   725); judge advance rule (3), predictions P1–P3 (5), A51/A52
-   caveats. On partial: submit.ts --extend ONLY (LS-13). Advancing
-   cell → pre-committed survival battery (criteria 4; g00 same-lat
-   cells exist: 738/733, 734/735, 736/737 — 6 new runs max).
-2. ~~Probe chain~~ DONE u83 — LS-13 incident fully closed (see
-   digest). No open background work besides the E008b drain.
-3. **After E008b: fresh-data confirmation path per EVALUATION**
-   (holdout; E32 winner's-curse defense — sel-width shrinkage).
-   Candidate assembly: blocked until a POSITIVE-EL cell exists
-   that survives a latency battery (u40 framework, updated
-   u69/u74). If E008b P3 fails: axis closed, re-rank backlog
-   (E010 own-book momentum veto, E006b, E-completion-selective)
-   from §E008 decomp numbers.
+1. **E010 formal proposal + freeze (own-book momentum veto):**
+   design sketch is in the LEDGER backlog entry (u84, feasibility
+   verified vs E003 code). Write the frozen block per proposal
+   policy: knobs (momVetoMode 'fall'; momWindowSec sweep 5/10/20;
+   momMinDrop 0.01 floor), success criteria, predictions, arms vs
+   g00 incumbent (728/725) on the rc+c960+g00 chassis, lat140,
+   Apr/May halves. Then implement momVeto params in the E003
+   strategy file (default 'none' = bit-identical path — verify
+   with an A/A run before launch), smoke, launch via submit.ts,
+   freeze SHA in LEDGER.
+2. **E010 judgment when drained** (uids + validators + frozen
+   rules; advancing cell → pre-committed latency battery vs
+   same-lat g00 cells 738/733, 734/735, 736/737).
+3. **Fresh-data confirmation path per EVALUATION** (holdout; E32
+   winner's-curse defense — sel-width shrinkage). Candidate
+   assembly: blocked until a POSITIVE-EL cell exists that survives
+   a latency battery (u40 framework). If E010 also fails to
+   produce one: assess whether the g00 lat0 bound ≈ 0 constitutes
+   ceiling evidence for the L3 verdict path (the residual lat140
+   gap may be all execution friction — a proof sketch, not a
+   surrender; needs the EVALUATION fresh-data pass either way).
 
 ## Open questions / risks
 

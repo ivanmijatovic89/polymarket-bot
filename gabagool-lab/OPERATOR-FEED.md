@@ -513,3 +513,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: all four ladder-structure arms are in; nothing judged yet — the scoring waits for the last 4 runs (the exposure-cap arms), still in the queue (~20 min).
 - Next: when the queue drains, verify the last 4 and run the full frozen judgment.
 - Health: on track
+
+## 2026-07-18T08:25Z — unit 86
+- Did: landed and verified the last 4 runs, then judged the whole favorite-side experiment (12 runs) by the frozen rules
+- Found: axis CLOSED — no variant beats the incumbent; buying more of the favorite side earns more redemptions but pays exactly that much more for them (cancels to a cent per market, both halves)
+- Next: E010 — stop quoting a side whose own price just fell (the known bad-fill signature); write the frozen plan, then implement and launch
+- Health: on track

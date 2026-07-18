@@ -34,8 +34,9 @@ latency-robustness mandate is discharged for this lever.** The u40
 conversion-lever blocker is LIFTED (§E008: absolute taker fills
 −83%); candidate assembly still awaits a POSITIVE-EL cell at
 realistic latency (g00's lat0 bound ≈ 0 caps how much the remaining
-gap can yield at this chassis — E008b favorite-side sizing is the
-next lever). Best two-sided cell: E008 g05 ≈ −1.48 (D-010 chassis
+gap can yield at this chassis — the favorite-side axis is CLOSED
+with numbers, E008b s32 u86; next lever: E010 own-book momentum
+veto). Best two-sided cell: E008 g05 ≈ −1.48 (D-010 chassis
 for pairing-dependent axes; holds DISTINCT vs ungated at every
 latency ≥ 140).
 
@@ -100,3 +101,19 @@ latency ≥ 140).
   after some other knob makes the cell pay, or with an
   information-based anchor that preserves winner-tracking (E008
   fair-value re-anchoring — the seeded successor) (LEDGER §E006).
+- **Favorite-side book design at θ=0 on the gated chassis**
+  (structure: r1 [0.02] / r12s [0.01,0.02] / r3m [0.02,0.06,0.13] /
+  r3d [0.02,0.13,0.25] at soloCap 0.65; solo-cap: 0.75 / 0.85 on
+  [0.02,0.13]): nothing EL-DISTINCT better than g00 in ANY half
+  (|ΔEL| 0.003–0.115 vs 2·se_diff 0.35–0.46); r12s DISTINCT worse
+  in h2 (−0.7301 vs −0.2681). Mechanism (exact settlement decomp):
+  Δrem ≈ Δcost across the whole battery (s85 +2.18/+2.05 rem vs
+  +2.13/+2.06 cost; s75 +1.30/+1.27 vs +1.30/+1.29; r12s +2.28/
+  +1.93 rem vs +2.65/+2.85 cost) — the marginal favorite fill is
+  fairly-to-adversely priced; remainder scales with outlay but is
+  never free, and the A47 never-flip prior is already in the price
+  (E008b, runs 747–760 vs 728/725, N = 2,880+2,976, lat140,
+  sel-width 6). Re-entry only with a pre-fill adverse-selection
+  discriminator (E010 own-book momentum veto — the seeded
+  successor) or live queue-position evidence the worst_queue sim
+  cannot price (LEDGER §E008b).
