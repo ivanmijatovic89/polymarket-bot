@@ -99,7 +99,12 @@
   living wallets; post-fill drift = edge signature); A37 (offset ×
   requote) joint axis — per-rung requote policy seeded as E006b;
   A38 Jan stub-parquet flag — filter by event count on any Jan run**).
-  KB register tops at A46 (checked s18 14:36Z; **A-7 (u59) = A40–A43
+  KB register tops at A65 (checked s26 05:16Z; A-10 = A49–A65 fold
+  u71: v1→v2 cutover Apr-28 INSIDE h1 — regime caveat on half
+  disagreements, agreement now spans a migration; fee 0.072 h1 vs
+  0.070 h2; weekday session map final, g00 dow-probe shows NO
+  weekend collapse — signal-driven lean; capacity: btc-15m pool
+  \$6.8k/day, cold-start ramp = days). Earlier: (checked s18 14:36Z; **A-7 (u59) = A40–A43
   fold: dip-harvesting closed as a family; genealogy capacity context
   (ceiling ~$2.75k/day, quit-at-peak n=8, fee shocks = retryOnlyIf
   windows). A-8 (u60) = A44–A46 fold: KB answered its OQ #1 — the
@@ -132,15 +137,7 @@
 
 ## Queue (work top to bottom)
 
-1. **A-10 KB fold while battery drains:** KB register now tops at
-   A65 (A49–A65 new since A-9). Load-bearing: A51 v1→v2 exchange
-   cutover 2026-04-28 ~11:02Z INSIDE my halves straddle (regime
-   caveat on all h1-vs-h2 disagreements from now on); A52 fee trim
-   0.072→0.070 May 6–10; A49/A58/A59/A63/A64 weekday session
-   toxicity map (US toxic, evening favorable — recipe-specific vs
-   my A46 note, diagnostic); A60 subsidy pools; A62/A65 genealogy.
-   Fold into INHERITANCE, re-rank backlog if warranted.
-2. **E008-lat battery judgment when drained (launched 05:12Z u70,
+1. **E008-lat battery judgment when drained (launched 05:12Z u70,
    SHA b9ef46c7, 12 ax6bat flows, ~35.1k jobs, ETA ~07:00Z; drain
    watcher pid 43917 → logs/watch-drain-s26-battery.log):** per
    run land: uid vs frozen §E008 BATTERY block (`tools/uids.ts`) +

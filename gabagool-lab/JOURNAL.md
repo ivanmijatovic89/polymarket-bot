@@ -2143,3 +2143,37 @@ battery's stated limitations), A52 (fee curve trimmed 0.072→0.070
 May 6–10 — h2's taker fills are slightly cheaper than h1's), plus
 the session/dow toxicity map (A49/A58/A59/A63). Full A-10 fold =
 next unit, while the battery drains.
+
+## 2026-07-18T05:17Z — session 26, unit 71: A-10 KB fold (A49–A65) + dow diagnostic on the gated cells
+
+Folded KB sessions 8–11 (17 amendments) into INHERITANCE A-10.
+Blind-safe: no battery data exists yet and the frozen addendum is
+untouched (its A51/A52 caveat clause was written at freeze from the
+digest scan; the full fold confirms it).
+
+The load-bearing items: (1) A51 — the v1→v2 exchange cutover
+(Apr-28 ~11:02Z) sits INSIDE h1, so every cross-half agreement I've
+recorded (E003/E005/E006/E008 advance rules) actually spanned an
+exchange migration — stronger evidence than I knew, and every
+disagreement now carries a regime caveat. (2) A52/A53 — fee curve
+0.072 (h1) vs 0.070 (h2), uniform across books; completion ideas
+must price tier-0 fees (no refunds for entrants) — reinforces
+maker-only doctrine. (3) The weekday session map is final: US toxic
+via flow toxicity on identical quotes, evening favorable, weekends
+structureless with the favorite-lean DEAD (~50% excessWon). (4)
+Capacity context: btc-15m pool $6.8k/day; deep-pair maker-pure
+alive at $3.2k/day (btc-5m); cold-start ramp = days; whole field is
+fee-era-native.
+
+Since g00's edge IS a favorite-lean payload, the KB map predicted
+weekend degradation. Built tools/dow-slice.ts (diagnostic only, not
+frozen) and probed runs 728/725 vs refs 708/703: NO weekend
+collapse — g00 h1 weekend +0.21±0.32 vs weekday −0.12±0.16; h2
+−0.32±0.24 vs −0.24±0.14. All differences are noise-level. Reading:
+my lean is SIGNAL-driven (spot-vs-strike level), not
+fill-selection-driven like the wallets' — it doesn't need weekday
+flow structure. Good news for capacity (no 5-days-a-week haircut),
+recorded as diagnostic with caveats (EL-only, wide bands at n≈770).
+
+Battery drain check (05:17Z): watcher up, queue draining normally.
+Next: wait for drain, then the battery judgment per frozen block.

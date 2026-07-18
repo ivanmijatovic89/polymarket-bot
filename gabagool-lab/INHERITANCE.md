@@ -609,3 +609,76 @@ FULLY covered: density A38, session A46, endgame A47, pairing A48.
    be neutralized. Strengthens LS-11 from confirmed to
    doubly-confirmed; any future completion/timeout axis must show
    Δrem ≥ −0.3 preservation (the §E008 check generalizes).
+
+### A-10 (2026-07-18T05:16Z) — KB fold A49–A65: venue regime timeline (v1→v2 cutover + fee-curve history) lands inside my data window; weekday session map finalized; field genealogy = fee-era natives
+
+Source: KB PRIORS A49–A65 (KB sessions 8–11, landed 2026-07-17
+15:27–18:20Z, after my A-9 fold). Folded s26 u71 while the E008-lat
+battery drains — blind-safe (no ax6bat data exists yet; frozen
+battery addendum untouched; the A51/A52 regime caveat was already
+written into the battery's stated-limitations clause at freeze,
+BEFORE this full fold).
+
+1. **A51 — the v1→v2 exchange hard cutover is 2026-04-28 ~11:02Z,
+   INSIDE my h1/h2 straddle.** Venue-wide (all books), no
+   dual-running: v1 at full volume through 11:00Z, dead by 11:15Z.
+   My h1 (April) is ~27 days v1 + ~3 days v2; h2 (May) is pure v2.
+   Standing consequence for EVERY past and future half-comparison:
+   h1-vs-h2 disagreement is regime-confounded (not a coin flip),
+   and cross-half AGREEMENT is a stronger claim than I knew — it
+   spans an exchange migration. E008's advance rule held across the
+   cutover; that is now part of its evidence weight. Diagnostic
+   available on demand: within-April split at Apr-28 for any
+   suspicious h1 number.
+2. **A52 — fee-curve history: k=0.072 Mar-31→May-06, trimmed to
+   0.070 May-10→now, uniform across books; the cutover itself was
+   fee-neutral.** So h1 ran at 0.072 and h2 at ~0.070 (trim rolled
+   May 6–10). My maker-only gated cells carry fee$ 0.07–0.36/mkt —
+   a ~3% curve step is immaterial vs the ELs being compared, and
+   segment-measured fees capture whatever the sim charged; noted,
+   not chased. A53 (same arc): b27bc932 MEASURED btc-15m
+   taker-completion for one week under 0.072 and killed it in a
+   day; only the May-28 tier program (refunds incumbents up to
+   50%) revived it. A new entrant gets tier-0 = no refund — every
+   D-008-constrained completion idea must price fees at FULL 0.070
+   curve, no tier credit. Reinforces maker-only chassis doctrine.
+3. **A49/A58/A59/A63/A64 — the session map is finished and it is
+   weekday-only:** weekday US 12–19Z is the toxic cell (flow
+   toxicity on IDENTICAL quotes — post-fill drift −0.3..−0.4c deep,
+   no depth escape), weekday evening 20–23Z the only robust
+   positive; weekends are structureless and mild, and the
+   favorite-lean (excessWon) COLLAPSES on weekends (~50% vs 60–80%
+   weekday). Two lab consequences: (a) my A46 note stands — my
+   chassis' session exposure differs from the grinder's (evening
+   worst for me), so session stays diagnostic; (b) NEW, sharper:
+   g00's entire edge is the favorite-lean payload — the KB predicts
+   it should WEAKEN on weekends. A dow slice (weekday vs weekend
+   per-market EL) on runs 728/725 is a cheap falsification probe;
+   add as DIAGNOSTIC readout in the battery judgment (not frozen,
+   not judged — but if weekend g00 EL degrades materially, the
+   dossier must say the edge is weekday-concentrated and capacity
+   math changes).
+4. **A57/A60/A62/A65 — capacity & deployment context for any
+   dossier:** btc-15m maker rebate pool $6.8k/day (the 8.7× bigger
+   btc-5m pool sits on a book with NO telonex data, G11 — out of
+   scope and unstudyable); the deep-pair maker-pure cell is ALIVE
+   at $3.2k/day blended on btc-5m from a 5.5-week-old cold start
+   (13e0d447, pairCost 0.976 overnight); cold-start ramp is DAYS
+   (e114e5ca: 2d tuition → $1.6k/day wk1); the entire living field
+   is fee-era-native (no wallet predates Mar-29) and maker-pure at
+   the payout layer — A32's route-around-the-moat is the standard
+   entry, so a lab v1 faces no incumbency wall on the maker path.
+   Rebate income stays a live-side line item my sim excludes
+   (conservative, per A-5).
+5. **A54/A55/A56/A61 — genealogy hygiene (context only):**
+   "quit-at-peak" is partly identity ROTATION (gabagool22→guh123 at
+   6m51s; 52483137→PurpleThunder at −78min) — operator persistence
+   exceeds wallet stats, so the A-7 capacity genealogy (ceiling
+   ~$2.75k/day/wallet) is a per-SLEEVE number, not per-operator
+   (b55f pair runs $14.7k/day operator-level). Merge posture is a
+   per-operator style axis (never/dribble/block-recycle/continuous)
+   — consistent with treating merge/completion as hot-swappable
+   modules (D-008). 76d4d470 proves the pure-subsidy loop exists
+   but needs 264-markets/day breadth — NOT a btc-15m-only path
+   (pool too small); kills any "farm rebates on our one book" idea
+   without a backtest.

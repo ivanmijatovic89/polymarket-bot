@@ -423,3 +423,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet — this is the test that decides whether yesterday's breakthrough survives slow execution (the operator's key requirement).
 - Next: fold the knowledge base's 17 new findings while the runs drain (~2h), then judge the battery.
 - Health: on track
+
+## 2026-07-18T05:17Z — unit 71
+- Did: folded 17 new knowledge-base findings; probed whether the gate's edge weakens on weekends (the KB said similar edges do).
+- Found: it does not — the gate works as well on weekends as weekdays (its signal comes from the spot price, not from weekday order flow). Also: April's data straddles a venue migration, which makes our April/May agreement tests stronger than we thought.
+- Next: judge the latency stress test when the ~35k runs finish (~1h remaining).
+- Health: on track
