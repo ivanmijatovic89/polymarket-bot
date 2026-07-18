@@ -435,3 +435,15 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — pure preparation; the test itself is ~55% queued, done ~06:45 UTC.
 - Next: when runs finish, verify them and judge the stress test with this tool.
 - Health: on track
+
+## 2026-07-18T07:01Z — unit 73
+- Did: battery landed (12/12 runs); found and proved a repair bug — one retried market ran at the wrong latency, in today's run AND (undetected since s12) in one older evidence run.
+- Found: impact measured at ~1/6 of noise on one market of 2,880 — no conclusion moves; both runs stand with the flaw stated; rule added so it can't recur.
+- Next: judge the latency battery per the frozen rules.
+- Health: on track
+
+## 2026-07-18T07:01Z — unit 74
+- Did: judged the latency stress battery on the gated cells (0/500/1000 ms, both halves, vs ungated references).
+- Found: the gate SURVIVES — it beats ungated by +2.6 to +3.2 $/market at 500–1000 ms (clearly outside noise) and its decay with latency is ~6–13× flatter; but it protects against latency losses rather than making money: still ~breakeven-to-slightly-negative at realistic latency.
+- Next: E008b — size up the favorite side of the gated book; then fresh-data confirmation.
+- Health: on track

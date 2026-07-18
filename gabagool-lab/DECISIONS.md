@@ -223,3 +223,40 @@ come first (a breakeven cell built on 2.6 fills/mkt could still be
 fill-model artifact); (c) split the lab into two tracks now —
 premature fan-out (fable-lab died of breadth); one chassis, one
 queue.
+
+## D-011 (2026-07-18): The payload-check FAIL is carried as a mechanism re-classification, not a kill
+
+**Context:** the §E008 battery's frozen payload check (4) — Δrem ≥
+−0.3 vs same-lat ungated at EVERY latency — failed on exactly one
+boundary cell (lat0 h2: −0.3649), while at every realistic latency
+(140/500/1000) the payload is large, positive, and monotone
+INCREASING with latency (+3.20 → +5.80). The frozen text labels a
+failure "the remainder capture is a latency artifact". The survival
+rule (3) — the actual judgment — passed in all four required cells.
+
+**Chosen:** record the FAIL verbatim (frozen is frozen; the rule
+fired as written and the miss is quoted in the judgment), and carry
+its measured meaning forward as a re-classification: g00's
+winner-remainder capture is latency-CONDITIONAL — it exists because
+latency-driven adverse flow exists, and it suppresses that flow. The
+gate is a DEFENSIVE lever whose value grows with execution friction,
+not a latency-independent alpha source. Consequences: (a) any future
+claim built on the remainder payload must state this conditionality;
+(b) the anti-E006 intent of the check (stale gating must not fake
+the capture) is measured as satisfied — staleness at 1000 ms
+strengthens, not fakes, the capture; (c) the lat0 boundary behavior
+(gated book plays 13–16%, captures nothing) is the g00 identity
+already recorded in D-010, seen from the other side.
+
+**Rejected:** (a) declaring the whole E008 lever an artifact and
+re-classing the axis — that clause was reserved (frozen rule 3) for
+a survival-rule failure, which did not occur; conflating the payload
+label with the survival verdict would kill a lever that beats its
+reference DISTINCTLY at every stressed latency; (b) quietly
+narrating the FAIL away as "just a boundary case" without a
+DECISIONS entry — the whole point of freezing rule 4 was that its
+misses must cost something visible; this entry is the cost, and the
+next battery's payload rule should scope its floor to latencies
+where the reference actually trades (fills/mkt above a stated
+minimum), which is a design improvement to propose at the next
+freeze, not retroactively.

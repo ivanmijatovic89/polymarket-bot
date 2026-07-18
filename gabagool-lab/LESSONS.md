@@ -131,3 +131,22 @@ lesson (E002). Append-only; cite the source experiment/unit.
   (pair$−cost$ ≈ −4.1/mkt, S≈0.915); the concept's value is the
   winner-remainder, and levers should be judged by what they do to
   THAT term.
+- **LS-13 (E008-lat battery, s27):** Guard rails only guard the
+  path that goes through them. submit.ts --extend exists solely to
+  pin BACKTEST_LATENCY_DELAY/_JITTER against the ambient `.env`
+  (which sets 140 ms); running the raw `npm run backtest -- --extend`
+  bypasses the pin and silently runs retried markets at 140 ms
+  inside whatever-latency cell is being repaired. This fired TWICE:
+  u41's repair of run 714 (undetected for 15 sessions) and s27's
+  repair of run 742 (caught same-session). Detection that worked:
+  fill fingerprint — a lat0 cell has taker ≈ 0, so a retried market
+  with 25–26 taker fills is wearing the wrong latency on its face;
+  proof that worked: the sim is deterministic, so a one-market probe
+  at the suspected latency reproduces the contaminated row
+  field-for-field (run 745 vs 742's market: exact). Rules: (1)
+  extends ONLY via submit.ts --extend; (2) after ANY out-of-band
+  repair to an evidence run, fingerprint the repaired rows against
+  the cell's expected latency signature before judging; (3) a
+  quantified leave-one-out bound (drop the suspect market, restate
+  EL) is the cheap honest fallback when the true counterfactual is
+  expensive — here shifts were ≤ se/6 and no call flipped.

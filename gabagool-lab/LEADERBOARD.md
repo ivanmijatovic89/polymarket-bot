@@ -18,8 +18,8 @@ latency arm of EL, selection width (max-of-N), and fill-model caveat
 | E002-baseline (L1 reference) | **−4.3904** (t −43.5) | −0.4207 | −5.0288 | −5.3047 | 0/9 wk (every arm) | 0.22 @ 140 | 0.644 @ 140 (0.291 @ lat0 — the honest one) | archetype-faithful shallow ladder, runs 675/678/676/677, 5,856 mkts, Apr 1–May 31, sel-width 1; exempt from gates (TAIL_K calibration source, D-007); judged LEDGER §E002 |
 | E004-cfree (axis-grade, NOT a candidate) | −3.4665 h1 / −3.3541 h2 (t −43.5/−49.2) | — | — | — | not run (axis) | — | 0.860/0.848; imb p90 0.335 (all other arms 1.000) | free completion on the shallow ladder, runs 694/695, 2,880+2,976 mkts, Apr/May halves, sel-width 4, lat140 only; completed pairs locked ABOVE $1 (S 1.0207/1.0188) — wins via inventory removal (LS-7); no latency battery, no gate vector; judged LEDGER §E004 |
 | E005-rc deep ladder (axis-grade, NOT a candidate) | −2.7093 h1 / −2.3622 h2 (t −19.8/−18.9) | — | — | — | not run (axis) | — | 0.576/0.558; imb p50 0.270/0.273, p90 1.000 | rungOffsets [0.02,0.13] maker-only, runs 698/699, Apr/May halves, sel-width 4, lat140 only; S(pair) 0.9427/0.9374; outlay 35.14/31.13 (≈60% of ref); ADVANCE RULE HELD (first axis to pass); sub-judged LEDGER §E005 |
-| E008 g00 fv-gate θ=0 (BEST measured cell; axis-grade, NOT a candidate) | **−0.0362 h1 / −0.2681 h2** (t −0.2/−2.2) | — (battery pending) | — | — | not run (axis) | — | 0.044/0.049; imb p50=p90 1.000 — ONE-SIDED book | rc+c960 chassis + fvGateMode=level, fvGateBps=0 (suppress placement on the side spot has left vs window-open strike), runs 728/725, Apr/May halves, sel-width 5, lat140 only; played 78/77%, 2.6/2.5 fills/mkt, outlay $8.4/8.2; Δrem vs ref +3.88/+3.20 (payload check PASSED — remainder triples); h1 statistically breakeven, h2 still negative; NOT a pair accumulator at θ=0 (spot-favorite maker, D-010); latency battery + fresh-data confirmation pending; judged LEDGER §E008 |
-| E008 g05 fv-gate θ=5bps (best PAIRING-PRESERVING cell; axis-grade) | −1.4600 h1 / −1.5066 h2 (t −10.1/−12.1) | — | — | — | not run (axis) | — | 0.462/0.480; imb p50 0.428/0.413 | same chassis at θ=5 bps, runs 726/727; DISTINCT vs ref both halves (+0.83/+0.52); the two-sided gabagool concept survives here — designated chassis for any future pairing-dependent axis (D-010); judged LEDGER §E008 |
+| E008 g00 fv-gate θ=0 (BEST measured cell; axis-grade, NOT a candidate) | **−0.0362 h1 / −0.2681 h2** (t −0.2/−2.2) | +0.0134/+0.0411 † | −0.2189/−0.5211 | −0.2420/−0.5778 | not run (axis) | — | 0.044/0.049; imb p50=p90 1.000 — ONE-SIDED book | rc+c960 chassis + fvGateMode=level, fvGateBps=0 (suppress placement on the side spot has left vs window-open strike), runs 728/725 + battery 733–738, Apr/May halves, sel-width 5; played 78/77% @140, 2.6 fills/mkt, outlay $8.4; **LATENCY BATTERY PASSED (s27 u74): ΔEL vs ungated +2.61 to +3.22 at 500/1000, DISTINCT ×4; slope lat0→1000 −0.26/−0.62 (ungated −3.35/−3.46, ~6–13× flatter); charter latency mandate discharged.** † lat0 = first positive-EL cells of the program BUT played 13/16% < 20% — unmeasurable-at-coverage, a bound not a result. Payload FAIL as frozen at lat0 h2 (D-011: remainder capture is latency-conditional — defensive lever); NOT a pair accumulator at θ=0 (D-010); fresh-data confirmation pending; judged LEDGER §E008 + battery addendum |
+| E008 g05 fv-gate θ=5bps (best PAIRING-PRESERVING cell; axis-grade) | −1.4600 h1 / −1.5066 h2 (t −10.1/−12.1) | −0.0756/−0.0042 | −2.3749/−2.4766 | −2.5459/−2.7982 | not run (axis) | — | 0.462/0.480 @140; 0.52–0.56 at 500/1000 (two-sided identity intact under latency) | same chassis at θ=5 bps, runs 726/727 + battery 739–744; DISTINCT vs ref at EVERY latency ≥ 140 both halves (P3 CONFIRMED: +0.81/+0.65 at 500); designated chassis for pairing-dependent axes (D-010); run 742 carries a stated 1-market contamination (LOO shift −0.006 ≈ se/6, §E005 erratum, LS-13); judged LEDGER §E008 + battery addendum |
 | E005 rc+cap0.96 (pre-E008 best; axis-grade, NOT a candidate) | **−2.2884 h1 / −2.0229 h2** (t −16.6/−16.2) | −0.1175/−0.0136 | −3.1803/−3.1313 | −3.4644/−3.4688 | not run (axis) | — | 0.527/0.514; imb p50 0.332/0.333, p90 1.000 | deep ladder [0.02,0.13] + placement pairCostCap 0.96, maker-only, runs 708/703 + battery 709–714, Apr/May halves, sel-width 4 per sub-axis; S(pair) 0.9150/0.9110; CVaR5 −15.49/−14.61; outlay 29.12/26.54 (52% of ref); BATTERY READ (§E005 u42): depth advantage latency-robust (+1.8–2.2 vs shallow at every lat) but lat140 EL is ~all conversion-channel (lat0 ≈ −0.07 at 0.5 fills/mkt; taker 37→56%); candidate assembly BLOCKED pending a conversion-closing axis; L-ratios undefined (EL<0) |
 
 The reference to beat: **EL(140) −4.39/market; frictionless bound
@@ -27,11 +27,17 @@ The reference to beat: **EL(140) −4.39/market; frictionless bound
 cell: E008 g00 ≈ **−0.15** pooled (h1 −0.04 statistically breakeven,
 h2 −0.27; axis-grade, sel-width 5 — shrinkage expected on
 confirmation; ~97% of the reference loss removed by depth + cap +
-fair-value gate). The u40 conversion-lever blocker is LIFTED (§E008:
-absolute taker fills −83%) but candidate assembly awaits a
-POSITIVE-EL cell and the g00 latency battery (gate is placement-only;
-500/1000 ms stress is the falsification test). Best two-sided cell:
-E008 g05 ≈ −1.48 (D-010 chassis for pairing-dependent axes).
+fair-value gate). **The g00 latency battery PASSED (s27): the gate's
+edge is DISTINCT at 500 and 1000 ms in both halves and its latency
+decay is ~6–13× flatter than ungated — the charter's
+latency-robustness mandate is discharged for this lever.** The u40
+conversion-lever blocker is LIFTED (§E008: absolute taker fills
+−83%); candidate assembly still awaits a POSITIVE-EL cell at
+realistic latency (g00's lat0 bound ≈ 0 caps how much the remaining
+gap can yield at this chassis — E008b favorite-side sizing is the
+next lever). Best two-sided cell: E008 g05 ≈ −1.48 (D-010 chassis
+for pairing-dependent axes; holds DISTINCT vs ungated at every
+latency ≥ 140).
 
 ## Dead regions (closed with numbers; do not re-enter without new cause)
 

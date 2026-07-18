@@ -2208,3 +2208,75 @@ results.ts --run per run (validators, headline only) →
 e008-lat-table.ts with all six --arm pairs → e004-decomp.ts chains
 (gated vs ungated per lat, per the criteria-(2) wording) → write
 the judgment strictly per rules (3)–(6).
+
+## 2026-07-18T07:01Z — session 27, unit 73: battery landed 12/12; the 742 retry repeated u41's .env trap — caught by fingerprint, proven by determinism; run 714 has carried the same flaw since s12
+
+The battery drained at 06:34Z. All 12 uids match the frozen block to
+the digit; 11/12 completed clean; 742 (g05 lat0 h1) landed partial —
+one BullMQ stall on btc-updown-15m-1776879000, the SAME market that
+stalled u41's run 714. I retried it with a windowed --extend per the
+u41 recovery — and stepped in the exact hole submit.ts --extend was
+built to cover: the raw CLI reads the ambient .env, which pins
+BACKTEST_LATENCY_DELAY=140. The retried market ran at 140 ms inside
+a lat0 cell.
+
+Caught it the same session by fill fingerprint: the market came back
+with 25 taker fills of 40 trades — a lat0 book has taker ≈ 0 (the
+correctly-launched 738 played it with 2 maker fills, 0 taker). Then
+the worse discovery: run 714's u41-retried market shows 26 taker
+fills of 41 trades — u41's recovery ran the SAME raw CLI with the
+SAME ambient .env. Run 714 (ungated lat0 h1, an E005 battery
+evidence run and a reference cell in THIS battery) has carried a
+1-market lat140 contamination for 15 sessions, stated nowhere.
+
+Proof and quantification: the sim is deterministic, so a one-market
+probe at lat140 (run 745) reproduces 742's contaminated row
+field-for-field (pnl 17.36, 40 trades, 15/25 m/t, cost 107.52 —
+exact). The market is pathological at lat0 (~10 CPU-min of
+tick-by-tick requoting; that is WHY it stalls BullMQ), so instead of
+blocking on true-lat0 counterfactuals I quantified by leave-one-out:
+dropping the market moves 742's EL −0.0756 → −0.0817 (−0.006 ≈
+se/6) and 714's −0.1175 → −0.1225 (−0.005 ≈ se/8). No judgment call
+in E005 or this battery flips under either treatment, and the one
+rule the battery fails (payload at lat0 h2) sits on runs 733/709 —
+both contamination-free. Erratum appended to §E005 battery, LS-13
+written (extends ONLY via submit.ts --extend; fingerprint any
+out-of-band repair; LOO is the cheap honest bound). Counterfactual
+probes at lat0 are still grinding in the background and will be
+recorded when they land.
+
+## 2026-07-18T07:01Z — session 27, unit 74: E008-lat battery JUDGED — the gate SURVIVES latency; payload re-classed as defensive (D-011); charter mandate discharged
+
+Validators green ×12; e008-lat-table.ts (u72 instrument, frozen
+wiring) evaluated every rule mechanically. The frozen survival rule
+PASSES in all four required cells: ΔEL(g00 − ungated same-lat) =
++2.96/+2.61 at 500 ms and +3.22/+2.89 at 1000 ms, all DISTINCT
+(2·se_diff 0.42–0.48). g00's own latency slope is −0.26/−0.62 per
+half vs ungated −3.35/−3.46 — the gate flattens latency decay
+~6–13× (P2 CONFIRMED). P3 CONFIRMED: g05 stays DISTINCT at 500 in
+both halves (+0.81/+0.65) — the two-sided chassis is
+latency-robust too. Chassis rc+c960+g00 stands (D-010 confirmed
+under stress); the charter's 500–1000 ms mandate is discharged for
+this lever.
+
+Two honest misses, both at the lat0 boundary. The payload check
+FAILS as frozen: Δrem at lat0 h2 = −0.365 vs the −0.3 floor (at
+140/500/1000 the payload is +3.20 to +5.80 and GROWS with latency).
+P1 is REFUTED for the same reason (ΔEL at lat0 = +0.13/+0.05, far
+under +1.5). The measured meaning, carried per D-011: at lat0
+nobody reaches the gated book (played 13–16%, unmeasurable-at-
+coverage per criteria 1) — there is no adverse flow to suppress, so
+there is no payload. The gate is a DEFENSIVE lever whose value is
+latency-conditional but latency-robust: staleness at 1000 ms
+strengthens the capture instead of faking it. The g00 lat0 cells
+are the program's first positive-EL cells (+0.013/+0.041) — quoted
+as a bound, not a result.
+
+Program state after judgment: no cell has positive EL at realistic
+latency (g00 best: −0.036/−0.268 at 140 with lat0 bound ≈ 0), so
+candidate assembly stays blocked per u40. The remaining gap at
+lat140 is small; next levers per the queue: E008b favorite-side
+depth/sizing (rung count/depth/clip on the favorite side at θ=0),
+then the EVALUATION fresh-data confirmation path with sel-width
+shrinkage. No new dead regions — nothing in this battery lost to
+its reference. LEADERBOARD rows updated with full latency curves.

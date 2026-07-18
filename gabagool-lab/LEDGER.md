@@ -948,6 +948,28 @@ Template:
     the whole residual loss), then E008 fair-value suppression
     (same channel, information-based), then E005b/timing/completion
     composition. E006-quote-stability draft next.
+  - **ERRATUM (2026-07-18, s27 u73): run 714 carries a 1-market
+    lat140 contamination.** The u41 windowed --extend that completed
+    714's stalled market (btc-updown-15m-1776879000) was run via the
+    raw backtest CLI, which reads the ambient `.env`
+    (BACKTEST_LATENCY_DELAY=140) — not via submit.ts --extend, whose
+    entire purpose is to pin that env. Detected s27 by fill
+    fingerprint (the retried market shows 26 taker fills of 41
+    trades inside a lat0 cell whose other 2,879 markets have taker ≈
+    0) and proven by deterministic reproduction (the identical
+    mistake in s27's retry of run 742 was reproduced exactly —
+    field-for-field pnl/trades/fees — by a one-market probe at
+    lat140, run 745). Quantified (leave-one-out): dropping the
+    market moves 714's EL −0.1175 → −0.1225 (shift −0.005 ≈ se/8,
+    se 0.0395). No E005 battery conclusion moves: the lat0 read
+    "loses ≈ nothing" and every Δ vs shallow/deep comparison are
+    orders of magnitude above the shift. Same contamination existed
+    in s27's first retry of run 742 (same slug, same trap; LOO shift
+    −0.006 vs se 0.0353) — both runs stand WITH this stated flaw;
+    the affected market is pathological at lat0 (~10 CPU-min; the
+    reason it stalls BullMQ) so a true-lat0 replacement was not
+    forced. Rule change: LS-13 — all extends go through submit.ts
+    --extend (latency pin), never the raw CLI.
 
 ## E006-quote-stability — requote discipline on the deep chassis
 - **Type:** axis
@@ -1387,7 +1409,86 @@ Template:
   waiting-children flows at SHA b9ef46c7; markets queue 34,954
   waiting + 12 active ≈ the expected 35,136; markets failed = 0;
   double-submit guard fires on re-invoke.)
-- **Judgment:** (pending)
+- **Judgment (2026-07-18T07:10Z, session 27, units 73–74; runs
+  733–744; instrument e008-lat-table.ts u72, wiring verified against
+  the frozen block):** **the gate SURVIVES latency — survival rule
+  (3) passes in all four required cells. The chassis (rc+c960+g00)
+  is confirmed under execution stress; the charter latency mandate
+  for this lever is discharged. The payload check (4) FAILS as
+  frozen on one boundary cell, which re-frames the mechanism: the
+  winner-remainder capture exists only where latency-driven adverse
+  flow exists — the gate is a defensive lever (loss-avoidance that
+  grows with latency), not latency-independent alpha.**
+  - **Identity:** all 12 uids match the launch block to the digit.
+    11/12 completed clean on first pass; 742 landed partial (1
+    BullMQ stall on btc-updown-15m-1776879000 — the SAME market
+    that stalled u41's run 714; it is pathological at lat0, ~10
+    CPU-min) and was completed by windowed --extend. That retry
+    initially repeated u41's ambient-.env trap (market ran at
+    lat140 inside the lat0 cell — caught same-session by fill
+    fingerprint, proven by exact deterministic reproduction, probe
+    run 745; LOO shift −0.006 ≈ se/6; no judgment call flips under
+    either treatment; full erratum at §E005 battery + LS-13).
+    Validators green ×12 (settlement recheck OK, fee-recon ≤ 0.50
+    vs tol, meta coverage 100%, segments OK).
+  - **Curve (EL $/mkt, h1/h2; ungated rc+c960 in parens):**
+    | lat | g00 | g05 | ungated ref |
+    |-----|-----|-----|-------------|
+    | 0 | +0.0134/+0.0411 † | −0.0756/−0.0042 | −0.1175/−0.0136 |
+    | 140 | −0.0362/−0.2681 | −1.4600/−1.5066 | −2.2884/−2.0229 |
+    | 500 | −0.2189/−0.5211 | −2.3749/−2.4766 | −3.1803/−3.1313 |
+    | 1000 | −0.2420/−0.5778 | −2.5459/−2.7982 | −3.4644/−3.4688 |
+    († g00 lat0 carries the criteria-(1) participation caveat:
+    played 13.4/15.5% < 20% — unmeasurable-at-coverage. First
+    positive-EL cells of the program, but frictionless AND
+    coverage-caveated: a bound, not a result.)
+  - **Survival rule (3): PASS.** ΔEL(g00 − ungated same-lat):
+    lat500 +2.9614/+2.6102, lat1000 +3.2224/+2.8910 — positive and
+    DISTINCT (2·se_diff 0.42–0.48) in all four cells. Cross-half
+    agreement spans the v1→v2 exchange migration (A51) and the fee
+    trim (A52) — regime-robust by construction.
+  - **Payload check (4): FAIL as frozen.** Δrem ≥ −0.3 required at
+    every latency; lat0 h2 = −0.3649 (h1 −0.2458). At lat 140/500/
+    1000 the payload is large and positive (+3.20 to +5.80,
+    growing with latency). Reading: at lat0 nobody reaches the
+    book (both gated and ungated barely fill), so there is no
+    remainder to capture; the entire Δrem payload is suppression
+    of latency-induced adverse flow. The frozen wording called
+    that "a latency artifact" — accepted as the label, with the
+    measured content stated: the payload is latency-CONDITIONAL
+    but latency-ROBUST (monotone increasing 140→1000, never
+    decaying). Anti-E006 intent (stale gating must not fake the
+    capture) is not violated — stale gating at 1000 ms STRENGTHENS
+    the capture. Carried forward per D-011.
+  - **Predictions:** P1 REFUTED (ΔEL at lat0 = +0.1309/+0.0547,
+    far below +1.5 — same root cause as the payload FAIL: nothing
+    to suppress frictionlessly; at lat ≥ 140 P1's bound holds in
+    all six cells). P2 CONFIRMED (g00 slope lat0→1000:
+    −0.2555/−0.6189, both ≥ −1.0; ungated −3.3470/−3.4552 — the
+    gate flattens latency decay ~6–13×). P3 CONFIRMED (g05 lat500
+    ΔEL +0.8053/+0.6547, DISTINCT both halves; g05 holds a
+    distinct edge at every latency ≥ 140).
+  - **Mechanics under latency (context):** g00's taker share still
+    inflates (33→42→49% h1) and fills/mkt grow 2.6→3.6 — the gate
+    does not exempt the residual book from conversion; it shrinks
+    the book that can convert (outlay 8.4→11.5 vs ungated
+    29→51). CVaR5 −17.4/−19.0 at 500/1000 vs ungated −19.1/−22.1.
+    g05 keeps pairRate 0.52–0.56 at latency (two-sided identity
+    intact) at ~7× g00's loss.
+  - **A51/A52 caveats (6):** all four survival cells agree across
+    halves — no disagreement to caveat. The g00 h2-worse-than-h1
+    pattern (every latency) is consistent with E008's lat140 read
+    and predates the fee trim; noted, not actionable.
+  - **Program consequence:** chassis rc+c960+g00 stands for
+    subsequent axes (D-010 confirmed under stress). Candidate
+    assembly REMAINS BLOCKED (u40 framework): no cell has positive
+    EL at realistic latency — g00's best is −0.0362/−0.2681 at
+    lat140 with the lat0 bound ≈ 0 — the residual gap to zero is
+    small and the next levers are E008b favorite-side depth/sizing
+    (rung count/depth/clip on the favorite side at θ=0) and the
+    EVALUATION fresh-data confirmation path (sel-width shrinkage
+    before any champion claim). Dead regions: none new (nothing in
+    this battery lost to its reference).
 
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind
