@@ -60,7 +60,10 @@
   worker alive (4 children on E008b); KB re-read — register still
   tops at A65, nothing new to fold; origin/main f22ca1c — feeds
   still binance-only (priceToBeat/Chainlink NOT landed). Drain:
-  19.4k pending at 07:38Z, steady ~500 jobs/min → ETA ~08:15Z.
+  18.1k pending at 07:41Z ~450/min → ETA ~08:25Z. u79: first 4
+  E008b runs landed+verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s,
+  750=h1-r3m; uids MATCH mechanically, validators green ×4).
+  Session waiters up on drain + probe chain (pid 77993).
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 

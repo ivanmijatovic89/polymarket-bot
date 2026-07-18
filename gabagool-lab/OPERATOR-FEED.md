@@ -471,3 +471,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — KB unchanged since last fold; strike/Chainlink feeds still not available.
 - Next: judge the E008b experiment when its ~19k remaining jobs finish (~08:15Z).
 - Health: on track
+
+## 2026-07-18T07:43Z — unit 79
+- Did: verified the first 4 (of 12) finished E008b runs — IDs match the frozen plan, all integrity checks green.
+- Found: nothing judged yet; one arm shows a hint of positive EV pre-correction — full verdict when all 12 land (~08:25Z).
+- Next: judge E008b the moment the queue drains; record probe correction when it finishes.
+- Health: on track

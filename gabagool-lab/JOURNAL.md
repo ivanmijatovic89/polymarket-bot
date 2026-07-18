@@ -2386,3 +2386,27 @@ Drain check 07:38Z: 19.4k pending at ~500 jobs/min → E008b lands
 rate is ~500/min). Ungated lat0 probe still grinding the
 pathological market (23+ CPU-min). Monitors go up next; judgment
 fires the moment the queue drains.
+
+## 2026-07-18T07:43Z — session 28, unit 79: mid-drain E008b verification — 4/12 runs landed, uids MATCH mechanically, validators green ×4
+
+While the E008b queue drains (18.1k pending at 07:41Z, ~450/min →
+ETA ~08:25Z), front-loaded the per-run landing checks on the four
+runs whose aggregation already completed: 747 (ax7h2-r1), 748
+(ax7h1-r12s), 749 (ax7h2-r12s), 750 (ax7h1-r3m). Submission uids
+diffed MECHANICALLY against the frozen §E008b block (scripted
+grep, not eyeballs — a UUID is not an eyeball object): 4/4 MATCH.
+Validators: settlement recheck OK all markets, fee recon within
+tol, meta coverage 100%, segments cross-check OK — green ×4, f=0
+everywhere.
+
+No judgment yet — every frozen rule waits for all 12 cells. One
+raw observation recorded without interpretation: run 750 (r3m h1)
+segments show a POSITIVE raw sim EV (+0.043/mkt pre-era-
+correction); the headline EL and DISTINCT tests decide what that
+means when the battery lands.
+
+The s27 drain watcher (pid 67462) turned out to be alive — it
+survived the session after all; my earlier grep pattern just
+missed it. Two fresh session-local waiters are up regardless (one
+on queue drain, one on the ungated probe chain pid 77993, still
+grinding the pathological lat0 market at 26+ CPU-min).
