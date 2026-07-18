@@ -2316,3 +2316,21 @@ logs/watch-drain-s27-e008b.log. ETA at ~330 jobs/min ≈ 1.8h
 the background (two pathological lat0 sims); their numbers become a
 journal addendum when they land — LS-13's fingerprint check is now
 part of the judgment ritual for every run they touch.
+
+## 2026-07-18T07:15Z — session 27, unit 76: e008b-table.ts — judgment instrument built + validated while the queue drains
+
+Same pattern as u72: the §E008b judgment has the two sub-axis
+chains, an advance list, and three predictions across 14 cells —
+mechanical evaluation beats hand arithmetic. The tool hardcodes the
+frozen g00 incumbent wiring (728/725, exact-uid guarded), takes the
+six new arms as --arm code=<h1>,<h2>, guards chassis + per-arm
+rungOffsets/soloCap + gate params + maker-only + n-equality,
+asserts the settlement identity per run, and evaluates rule (3)
+(both chains + ADVANCE list) and P1–P3, each printing "pending"
+until its cells land. Validated against the incumbent alone: g00
+rows reproduce the u69 numbers to the digit (−0.0362/−0.2681, 2.6/
+2.5 fills/mkt, taker 33.4/32.7%).
+
+Drain at 07:15Z: watcher up (pid 67462). Contamination probes: g05
+@lat0 and ungated@lat0 still grinding (pathological market), probe
+4 (ungated@lat140, the 714 reproduction check) queued behind them.

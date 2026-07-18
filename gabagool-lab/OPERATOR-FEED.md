@@ -453,3 +453,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the current strategy never buys favorites priced above ~0.67 — a hard cap nobody had questioned; two of the new arms lift it to 0.75/0.85.
 - Next: judge when runs land (~09:00Z); background probes from the repair incident still finishing.
 - Health: on track
+
+## 2026-07-18T07:15Z — unit 76
+- Did: built and validated the judgment instrument for the running experiment (mechanical rule evaluation, wrong-run guards).
+- Found: nothing new — instrument reproduces the incumbent's known numbers exactly.
+- Next: wait for the 12 runs to land (~09:00Z), then judge.
+- Health: on track
