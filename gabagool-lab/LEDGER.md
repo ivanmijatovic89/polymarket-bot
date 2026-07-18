@@ -1563,7 +1563,20 @@ Template:
      v1→v2 cutover (A51) and the fee trim (A52); sel-width 6 on
      this axis (max-of-6 winner's-curse; shrinkage due at
      confirmation).
-- **Runs:** (filled at launch)
+- **Runs (launched 2026-07-18T07:06Z, 12 flows at SHA a59a2ebf =
+  the freeze commit; h1 = 2,880 / h2 = 2,976 each):**
+  - ax7h1-r1: `…--ax7h1-r1--lat140--1f521375-326e-41be-8965-7552284e01ab`
+  - ax7h2-r1: `…--ax7h2-r1--lat140--94aa72ac-a5b6-406f-91a9-a9c7f3cb8021`
+  - ax7h1-r12s: `…--ax7h1-r12s--lat140--8dd993a9-3214-47be-8ae2-76da0d0ae08b`
+  - ax7h2-r12s: `…--ax7h2-r12s--lat140--7fa99e35-4b0f-470a-ac31-90e4309671f4`
+  - ax7h1-r3m: `…--ax7h1-r3m--lat140--39535f7d-75df-4d5f-a135-98b24d5913f7`
+  - ax7h2-r3m: `…--ax7h2-r3m--lat140--ab67232f-8e5d-4d11-982c-65cea4b9158c`
+  - ax7h1-r3d: `…--ax7h1-r3d--lat140--9da6f332-d686-439e-9338-6875624277bd`
+  - ax7h2-r3d: `…--ax7h2-r3d--lat140--31cb58e6-f847-47e1-b3f0-b0c1a37e27ba`
+  - ax7h1-s75: `…--ax7h1-s75--lat140--2343beab-951c-468a-ab23-aafb00ed24f3`
+  - ax7h2-s75: `…--ax7h2-s75--lat140--f7232377-9a62-4a3a-a2b0-ddfd5a30783e`
+  - ax7h1-s85: `…--ax7h1-s85--lat140--61df8720-6fa1-4f3f-952b-262464fd38f0`
+  - ax7h2-s85: `…--ax7h2-s85--lat140--f5e3b685-9f31-4e24-96f4-acc60c672683`
 - **Judgment:** (pending)
 
 ## Backlog (one line each; propose formally when reached)

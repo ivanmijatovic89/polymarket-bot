@@ -144,28 +144,30 @@
 
 ## Queue (work top to bottom)
 
-1. **Journal addendum when the lat0 counterfactual probes land**
-   (bg probes on btc-updown-15m-1776879000: g05@lat0 pid 42021,
-   then ungated@lat0 + ungated@lat140 sequentially; each lat0 run
-   takes ~10+ CPU-min — pathological market). Record: exact lat0
-   pnl for 742/714's market (replaces the LOO bound with the true
-   counterfactual) + probe-4 reproduction check of 714's
-   contaminated row. Numbers go to a short JOURNAL addendum; no
-   judgment changes expected (LOO already showed ≤ se/6).
-2. **E008b — favorite-side depth/sizing on g00 (draft + freeze +
-   launch):** the lean is maximal at θ=0; the gated book is 2.6
-   fills/mkt, outlay $8.4, one-sided by construction. Knobs: rung
-   count/depth/clip ON THE FAVORITE SIDE (the side the gate
-   allows). Goal: turn −0.036/−0.268 at lat140 positive by sizing
-   into the measured winner-remainder payload. Design from §E008's
-   decomp numbers; freeze BEFORE submit per protocol; include
-   latency arms in the freeze (survival at 500/1000 now standard
-   for any advancing cell).
+1. **E008b judgment when drained (launched 07:06Z u75, SHA
+   a59a2ebf, 12 ax7 flows, ~35.1k jobs, ETA ~08:50Z; drain watcher
+   pid 67462 → logs/watch-drain-s27-e008b.log):** per run land:
+   uids vs frozen §E008b block + validators (headline only) +
+   LS-13 fingerprint check on any repaired run. Readout per frozen
+   criteria (2): arm table + e004-decomp vs same-half g00 (728/
+   725); judge advance rule (3), predictions P1–P3 (5), A51/A52
+   caveats. On partial: submit.ts --extend ONLY (LS-13). Advancing
+   cell → pre-committed survival battery (criteria 4; g00 same-lat
+   cells exist: 738/733, 734/735, 736/737 — 6 new runs max).
+2. **Journal addendum when the lat0 counterfactual probes land**
+   (bg probes on btc-updown-15m-1776879000: g05@lat0 pid 42021 +
+   ungated@lat0 + ungated@lat140 sequential behind it; each lat0
+   run ~10+ CPU-min — pathological market). Record: exact lat0 pnl
+   for 742/714's market (replaces the LOO bound) + probe-4
+   reproduction check of 714's contaminated row. No judgment
+   changes expected (LOO ≤ se/6).
 3. **After E008b: fresh-data confirmation path per EVALUATION**
-   (holdout; E32 winner's-curse defense — sel-width 5 needs
-   shrinkage). Candidate assembly: blocked until a POSITIVE-EL
-   cell exists that survives a latency battery (u40 framework,
-   updated u69/u74).
+   (holdout; E32 winner's-curse defense — sel-width shrinkage).
+   Candidate assembly: blocked until a POSITIVE-EL cell exists
+   that survives a latency battery (u40 framework, updated
+   u69/u74). If E008b P3 fails: axis closed, re-rank backlog
+   (E010 own-book momentum veto, E006b, E-completion-selective)
+   from §E008 decomp numbers.
 
 ## Open questions / risks
 

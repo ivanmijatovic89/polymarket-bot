@@ -447,3 +447,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: the gate SURVIVES — it beats ungated by +2.6 to +3.2 $/market at 500–1000 ms (clearly outside noise) and its decay with latency is ~6–13× flatter; but it protects against latency losses rather than making money: still ~breakeven-to-slightly-negative at realistic latency.
 - Next: E008b — size up the favorite side of the gated book; then fresh-data confirmation.
 - Health: on track
+
+## 2026-07-18T07:08Z — unit 75
+- Did: froze and launched the next experiment (12 runs): reshaping the buying ladder and raising the price cap on the favorite side of the gated strategy.
+- Found: the current strategy never buys favorites priced above ~0.67 — a hard cap nobody had questioned; two of the new arms lift it to 0.75/0.85.
+- Next: judge when runs land (~09:00Z); background probes from the repair incident still finishing.
+- Health: on track

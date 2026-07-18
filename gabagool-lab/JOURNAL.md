@@ -2280,3 +2280,39 @@ depth/sizing (rung count/depth/clip on the favorite side at θ=0),
 then the EVALUATION fresh-data confirmation path with sel-width
 shrinkage. No new dead regions — nothing in this battery lost to
 its reference. LEADERBOARD rows updated with full latency curves.
+
+## 2026-07-18T07:08Z — session 27, unit 75: §E008b FROZEN + LAUNCHED — favorite-side structure × solo-cap on the gated chassis (12 ax7 flows at a59a2ebf)
+
+The battery's consequence, turned into the next axis the same
+session. At θ=0 the favorite side is the only live surface, and the
+placement code shows soloCap=0.65 binds nearly always there (the
+book is one-sided, so the solo branch gates every rung): the
+incumbent never quotes favorites stronger than ~0.67 bid. That makes
+two honestly-measurable knob families: ladder STRUCTURE (r1 [0.02],
+r12s [0.01,0.02], r3m [0.02,0.06,0.13], r3d [0.02,0.13,0.25]) and
+the SOLO CAP itself (s75, s85 on the incumbent ladder). clipShares
+is excluded by design and the freeze says why: worst_queue fills
+are all-or-nothing at full size with no depth consumed — a clip
+sweep would manufacture linear fake EV (charter footgun; size
+questions belong to live evidence).
+
+Frozen before submit: predictions P1 (r12s loses ≥$1/mkt of
+remainder — the payload lives at depth), P2 (s85 gains ≥$1/mkt of
+remainder — the cap is the binding lever), P3 (some arm beats g00
+EL-DISTINCT in both halves, else the axis closes and the backlog
+re-ranks); the E005/E008-standard advance rule per sub-axis; and a
+pre-committed latency path — any advancing cell runs the standard
+survival battery vs the SAME-lat g00 cells, which already exist
+(738/733, 734/735, 736/737), so only 6 new runs would be needed.
+Effective-grid notes stated per LS-6 (soloCap × rung interaction:
+deep rungs reach strong favorites, shallow rungs only weak ones —
+the sub-axes are mechanically entangled and the freeze says where).
+
+Launched 07:06Z: 12 flows at SHA a59a2ebf (the freeze commit),
+34,787 waiting + 12 active ≈ the expected 35,136; failed 0; uids
+recorded in the ledger to the digit. Drain watcher pid 67462 →
+logs/watch-drain-s27-e008b.log. ETA at ~330 jobs/min ≈ 1.8h
+(~08:50Z). The contamination probes from u73 are still grinding in
+the background (two pathological lat0 sims); their numbers become a
+journal addendum when they land — LS-13's fingerprint check is now
+part of the judgment ritual for every run they touch.
