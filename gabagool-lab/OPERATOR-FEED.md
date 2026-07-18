@@ -555,3 +555,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — the strike/Chainlink feeds still haven't landed, and the knowledge base hasn't changed since yesterday evening.
 - Next: wait for the batch (~30 min), then judge E010.
 - Health: on track
+
+## 2026-07-18T09:02Z — unit 93
+- Did: new session picked up; checked the 2 finished runs of the 6-run momentum-veto experiment — labels and accounting checks all clean.
+- Found: nothing new yet — 4 runs still computing, ~09:20Z finish expected, zero failures so far.
+- Next: wait for the remaining runs, then judge the experiment against the frozen rules.
+- Health: on track

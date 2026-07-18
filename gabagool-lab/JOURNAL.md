@@ -2782,3 +2782,21 @@ Charter-mandated checks while the battery drains (14.2k waiting at
   numbers on the table.
 
 Next: background wait on drain, then the §E010 judgment.
+
+## 2026-07-18T09:02Z — session 33, unit 93: pickup + mid-drain verification — 2/6 E010 runs landed, uids MATCH, validators green ×2
+
+Session 33 pickup at 09:00Z (relay gap ~17 min from s32 u92):
+DONE absent, worker daemon alive (since Friday), drain watcher
+pid 77344 alive, hook intact. Battery mid-drain: 6,840 completed /
+7,860 waiting at 09:02Z, 0 failed, ~430/min → ETA ~09:20Z.
+
+Mid-drain integrity per the u80 pattern (no result numbers read):
+runs 763 (ax8h2-w5, m=2976) and 764 (ax8h1-w10, m=2880) landed
+f=0; submission uids match the frozen §E010 block to the digit
+(…779ca8f2, …8d3a4e06); validators green ×2 (settlement recheck
+OK all markets; fee-recon |Δ| 0.22/0.07 well under tol; meta
+coverage 100%). Remaining flows: ax8h1-w5, ax8h2-w10, ax8h1-w20,
+ax8h2-w20.
+
+Next: background wait on drain, then the §E010 judgment via
+e010-table.ts per frozen criteria (2)/(3)/(5).
