@@ -1490,6 +1490,82 @@ Template:
     before any champion claim). Dead regions: none new (nothing in
     this battery lost to its reference).
 
+## E008b-favorite-side — ladder structure × solo-exposure cap on the gated chassis
+- **Type:** axis (favorite-side book design at θ=0)
+- **Status:** frozen (2026-07-18, session 27, at launch; launcher
+  commit = the freeze SHA; params-only axis — the strategy file is
+  untouched since the 800b34cf lineage / 055a0b7 A/A basis, so all
+  arms share the ax6/battery determinism basis).
+- **Why now (proposal policy: measured mechanism first):** the §E008
+  battery confirmed the gated chassis under latency (u74) and
+  re-classed its payload as defensive winner-remainder capture
+  (D-011). g00's residual gap to zero at lat140 is small
+  (−0.0362/−0.2681) and its lat0 bound ≈ 0 — the remaining EL must
+  come from capturing MORE remainder per market, and at θ=0 the
+  favorite-side book is the only live surface. Measured facts the
+  arms aim at: 2.6 fills/mkt, outlay $8.4, remainder ≈ $6/mkt,
+  played 78%; placement code shows soloCap=0.65 binds nearly always
+  at θ=0 (one-sided book → otherQty ≈ 0 → rungs with px > 0.65 are
+  never placed): the incumbent never quotes favorites stronger than
+  ~0.67 bid. KB priors: A47 (≥0.99 favorites never flip, 0/393),
+  A20 flip tables — strong favorites keep winning, so widening the
+  solo cap should add remainder; what it costs in adverse fills is
+  the measurement.
+- **Knobs (6 arms, all vs the g00 incumbent [0.02,0.13] @ soloCap
+  0.65 = runs 728/725, reused):** structure sub-axis: r1 = [0.02]
+  (is depth even needed once gated?), r12s = [0.01,0.02] (shallow
+  pair, no depth), r3m = [0.02,0.06,0.13] (interior rung), r3d =
+  [0.02,0.13,0.25] (deeper rung); solo-cap sub-axis on the
+  incumbent ladder: s75 = soloCap 0.75, s85 = soloCap 0.85. All
+  other params verbatim g00 (rc+c960 + fvGateMode=level,
+  fvGateBps=0), lat140/jitter0, h1 Apr / h2 May.
+- **Excluded knob, stated once:** clipShares. worst_queue maker
+  fills are all-or-nothing at full size with no depth consumed
+  (charter footgun: in-sim size scaling lies) — a clip sweep would
+  manufacture linear fake EV. Size questions go to live/dry-run
+  evidence, not this simulator.
+- **Effective-grid notes (LS-6):** at θ=0 soloCap gates px in ALL
+  structure arms (bid 0.80: −0.13 rung px 0.67 > 0.65 skipped;
+  −0.25 rung px 0.55 places — deep rungs reach strong favorites,
+  shallow rungs only weak ones); r3d's 0.25 rung needs bid ≥ 0.36
+  to clear bandLo 0.11; s85 coincides with bandHi 0.85; s-arms
+  change WHICH favorites quote at all (near-touch rung needs bid ≤
+  soloCap + 0.02), so played% is expected to move.
+- **Success criteria (frozen before submit):**
+  1. All 12 runs complete, validators green (fee-recon, settlement
+     recheck, meta 100%); played < 20% flags unmeasurable-at-
+     coverage.
+  2. Readout: per arm×half EL±se, t, played%, fills/mkt, taker
+     share, pairRate, outlay, CVaR5, PLUS settlement decomp
+     (e004-decomp.ts) vs the same-half g00 ref — Δrem is the
+     payload metric.
+  3. Advance rule (per sub-axis, the E005/E008 standard): ordering
+     trend agreement across halves; top-2 set agreement; endpoints
+     DISTINCT. A cell ADVANCES only if EL-DISTINCT better than g00
+     in BOTH halves.
+  4. Pre-committed latency path: any advancing cell runs the
+     standard survival battery — lat {0,500,1000} × halves, judged
+     vs the SAME-lat g00 cells (738/733, 734/735, 736/737 — all
+     exist; only the advancing cell's 6 runs are new), survival
+     rule identical in form to §E008 battery rule (3) with g00 as
+     the reference. No candidate assembly without it.
+  5. Frozen predictions: P1 — r12s loses payload: Δrem ≤ −1.0 vs
+     g00 in both halves (the remainder lives at depth). P2 — s85
+     gains payload: Δrem ≥ +1.0 vs g00 in both halves (the solo
+     cap is the binding lever). P3 — at least one of {r3m, r3d,
+     s75, s85} is EL-DISTINCT better than g00 in both halves. If
+     P3 fails, the favorite-side axis is CLOSED at this chassis
+     and the program re-ranks the backlog (E010 own-book momentum
+     veto, E006b conditional requote, E-completion-selective) from
+     §E008's decomp numbers.
+  6. Limitations: worst_queue adverse-subset fills; strike =
+     binance-at-open, not Chainlink (A18); halves straddle the
+     v1→v2 cutover (A51) and the fee trim (A52); sel-width 6 on
+     this axis (max-of-6 winner's-curse; shrinkage due at
+     confirmation).
+- **Runs:** (filled at launch)
+- **Judgment:** (pending)
+
 ## Backlog (one line each; propose formally when reached)
 - E-timing time-weighting axis (was the E006 seed; re-ranked behind
   quote-stability u43 per the battery's mechanism finding):
