@@ -561,3 +561,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new yet — 4 runs still computing, ~09:20Z finish expected, zero failures so far.
 - Next: wait for the remaining runs, then judge the experiment against the frozen rules.
 - Health: on track
+
+## 2026-07-18T09:21Z — unit 94
+- Did: verified the 3rd of 6 momentum-veto runs as it landed (labels match what was frozen at launch; all integrity checks pass).
+- Found: nothing new — battery ~90% done, zero failures, judgment fires in ~10 minutes.
+- Next: wait for the last 3 runs, then judge E010 by the pre-frozen rules.
+- Health: on track

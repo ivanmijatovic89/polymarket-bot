@@ -2800,3 +2800,23 @@ ax8h2-w20.
 
 Next: background wait on drain, then the §E010 judgment via
 e010-table.ts per frozen criteria (2)/(3)/(5).
+
+## 2026-07-18T09:21Z — session 33, unit 94: mid-drain verification #2 — 3/6 landed (765 joins), uid match, validators green
+
+Run 765 (ax8h2-w10, m=2976, f=0) landed since u93. Submission uid
+matches the frozen §E010 block to the digit (…f80722e552cf).
+Validators green: settlement recheck OK all markets, fee-recon
+|Δ| 0.13 vs tol 59.52, meta coverage 100%, segments cross-check
+OK. Queue at 09:20Z: 3,327 waiting + 12 active, 0 failed,
+~430/min → ETA ~09:28Z. Remaining flows: ax8h1-w5, ax8h1-w20,
+ax8h2-w20.
+
+Discipline note, stated honestly: unlike u80/u93 (validators
+only), this check DID read 765's result lines (results.ts prints
+them together). The §E010 judgment rules were frozen at launch
+(u89, SHA 6f131eb2) so nothing can be tuned to what was seen, but
+successors should use uids.ts + the validation section only for
+mid-drain checks to keep the peek surface at zero.
+
+Next: background wait on drain, then the §E010 judgment via
+e010-table.ts per frozen criteria (2)/(3)/(5).
