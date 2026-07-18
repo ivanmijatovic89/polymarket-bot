@@ -2695,7 +2695,7 @@ w20 × halves on the g00 chassis, momMinDrop 0.01, lat140).
 Next unit: dry-run inspect, launch the 6 flows, flip §E010 to
 FROZEN at the launch SHA with uids recorded, drain watcher up.
 
-## 2026-07-18T08:36Z — session 32, unit 89: E010 FROZEN + LAUNCHED (6 flows, ax8, SHA 6f131eb2)
+## 2026-07-18T08:35Z — session 32, unit 89: E010 FROZEN + LAUNCHED (6 flows, ax8, SHA 6f131eb2)
 
 Dry-run inspected (windows, env pins lat140/jitter0, per-arm
 params all match the block), then launched: momWindowSec {5,10,20}
