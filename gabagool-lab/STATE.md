@@ -154,11 +154,10 @@
    + e004-decomp vs same-half g00 (728/725) + mean ms/mkt; judge
    advance rule (3) over w5→w10→w20, predictions P1–P3 (5).
    On partial: submit.ts --extend ONLY (LS-13). Advancing cell →
-   pre-committed latency battery (criteria 4; same-lat g00 cells
-   738/733, 734/735, 736/737).
-2. **E010 judgment when drained** (uids + validators + frozen
-   rules; advancing cell → pre-committed latency battery vs
-   same-lat g00 cells 738/733, 734/735, 736/737).
+   pre-committed latency battery via **launch-e010-lat.sh
+   --window <5|10|20>** (built+guard-verified u91; ordering guard
+   refuses until ax8 drains; criteria 4; same-lat g00 cells
+   738/733, 734/735, 736/737; NEVER run it if no arm advances).
 3. **Fresh-data confirmation path per EVALUATION** (holdout; E32
    winner's-curse defense — sel-width shrinkage). Candidate
    assembly: blocked until a POSITIVE-EL cell exists that survives

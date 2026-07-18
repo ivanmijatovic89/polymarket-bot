@@ -543,3 +543,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing new — tooling; ~35 minutes until the runs finish
 - Next: verify all 6 runs and judge E010
 - Health: on track
+
+## 2026-07-18T08:41Z — unit 91
+- Did: pre-built the follow-up launcher (latency stress test) for whichever E010 arm wins, before results exist; verified its safety guards.
+- Found: nothing new — the big E010 test batch is still running, about 45 min to go, zero failures so far.
+- Next: wait for the batch to finish, then judge E010 against the frozen rules.
+- Health: on track

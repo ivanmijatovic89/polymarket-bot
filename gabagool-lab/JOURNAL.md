@@ -2734,3 +2734,24 @@ Dry-fit on the incumbent renders 728/725 correctly (g00 ms/mkt = 0
 as expected — the incumbent predates the knob) and every rule
 prints "pending". Drain at 16.4k waiting (08:37Z), ~460/min →
 ETA ~09:13Z.
+
+## 2026-07-18T08:41Z — session 32, unit 91: launch-e010-lat.sh pre-built (criteria-4 battery launcher, guards verified)
+
+While the ax8 battery drains (15.0k waiting at 08:41Z, ~350/min —
+ETA nearer 09:25Z than the 09:13Z estimate), the pre-committed
+latency battery from §E010 criteria (4) got its launcher, before
+any arm result exists (instrument-first, same reasoning as u90):
+--window <5|10|20> is the ONLY free knob; everything else is
+hardcoded to the frozen block (g00 chassis params verbatim, fall
+veto at momMinDrop 0.01, lat {0,500,1000} × halves, jitter 0,
+suffix ax8bat). Guards verified live: --window 7 rejected; a live
+launch while ax8 flows are still queued is refused ("judge §E010
+first" — the ordering guard makes running-before-judgment
+mechanically hard); ax8bat idempotence guard same as every
+launcher since LS-3. Dry-run inspected for w10: 6 correct
+batchUids, correct windows and lat env pins, params match the
+block. If no arm advances the script must never run — its header
+says so.
+
+No results were read; peek discipline holds. Next: wait for
+drain, then the §E010 judgment via e010-table.ts.
