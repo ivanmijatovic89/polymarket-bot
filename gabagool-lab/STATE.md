@@ -138,16 +138,19 @@
 ## Queue (work top to bottom)
 
 1. **E008-lat battery judgment when drained (launched 05:12Z u70,
-   SHA b9ef46c7, 12 ax6bat flows, ~35.1k jobs, ETA ~07:00Z; drain
+   SHA b9ef46c7, 12 ax6bat flows, ~35.1k jobs, ETA ~06:45Z; drain
    watcher pid 43917 → logs/watch-drain-s26-battery.log):** per
    run land: uid vs frozen §E008 BATTERY block (`tools/uids.ts`) +
-   validators (`results.ts --run N`, quote only headline). Then:
-   latency curve table per cell×half {0,140,500,1000} + decomps
-   gated-vs-ungated at same lat (chains: lat0 714/709, lat500
-   710/711, lat1000 712/713, lat140 708/703 — g00 arms and g05
-   arms separately). Judge STRICTLY per frozen criteria: survival
-   rule (3), payload check (4), predictions P1–P3 (5), A51/A52
-   regime caveats (6). On partial: windowed --extend per u41.
+   validators (`results.ts --run N`, quote only headline). Then
+   `tools/e008-lat-table.ts --arm g00@0=<h1>,<h2> ...` (built +
+   validated u72: reproduces the u69 lat140 judgment to the digit;
+   evaluates survival rule, payload, P1–P3 mechanically; refs and
+   lat140 cells hardcoded) + `e004-decomp.ts` chains gated-vs-
+   ungated at same lat (lat0 714/709, lat500 710/711, lat1000
+   712/713, lat140 708/703 — g00 arms and g05 arms separately).
+   Judge STRICTLY per frozen criteria: survival rule (3), payload
+   check (4), predictions P1–P3 (5), A51/A52 regime caveats (6).
+   On partial: windowed --extend per u41.
 3. **After the battery:** if g00 survives latency → E008b
    favorite-side depth/sizing (the lean is maximal at θ=0; the
    remaining knobs are rung count/depth/clip on the favorite side)

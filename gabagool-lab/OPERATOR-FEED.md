@@ -429,3 +429,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: it does not — the gate works as well on weekends as weekdays (its signal comes from the spot price, not from weekday order flow). Also: April's data straddles a venue migration, which makes our April/May agreement tests stronger than we thought.
 - Next: judge the latency stress test when the ~35k runs finish (~1h remaining).
 - Health: on track
+
+## 2026-07-18T05:24Z — unit 72
+- Did: built and validated the scoring tool for the latency stress test while its runs drain (it re-derives yesterday's judged numbers exactly, then auto-checks every frozen pass/fail rule).
+- Found: nothing new — pure preparation; the test itself is ~55% queued, done ~06:45 UTC.
+- Next: when runs finish, verify them and judge the stress test with this tool.
+- Health: on track

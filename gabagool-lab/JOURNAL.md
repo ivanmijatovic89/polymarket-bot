@@ -2177,3 +2177,34 @@ recorded as diagnostic with caveats (EL-only, wide bands at n≈770).
 
 Battery drain check (05:17Z): watcher up, queue draining normally.
 Next: wait for drain, then the battery judgment per frozen block.
+
+## 2026-07-18T05:24Z — session 26, unit 72: e008-lat-table.ts — battery judgment instrument built + validated
+
+The battery judgment (frozen §E008 BATTERY ADDENDUM) has five
+compound rules (survival, payload, P1–P3) across 24 cells; deciding
+them by hand invites arithmetic drift. Built
+tools/e008-lat-table.ts while the queue drains: hardcodes the frozen
+wiring (ungated refs 714/709, 708/703, 710/711, 712/713; gated
+lat140 728/725, 726/727 — LS-3 style, exact batchUid match), takes
+the six new pairs as --arm g00@0=<h1>,<h2> ..., guards chassis +
+gate params + maker-only + n-equality vs the same-(lat,half) ref,
+asserts the e004-decomp settlement identity per run, and evaluates
+every frozen rule mechanically (each prints "pending" until its
+cells land — partial wiring is safe during the drain).
+
+Validation against the already-landed lat140 cells reproduces the
+u69 judgment to the digit: g00 ΔEL +2.2522/+1.7549 (2·se_diff
+0.4028/0.3532), Δrem +3.8791/+3.1983, Δpair −23.82/−21.17, Δcost
+−21.90/−19.46, Δfee −0.30/−0.26; g05 +0.8283/+0.5163, all DISTINCT.
+The ungated latency slopes print as context and match the frozen
+P2 clause (−3.3469 h1 / −3.4552 h2 ≈ the −3.34/−3.45 written at
+freeze). Bonus context now visible in one table: ref lat0 plays
+only 35–37% of markets (the frictionless chassis barely binds its
+cap) — worth remembering when reading g00's lat0 bound.
+
+Drain at 05:20Z: ~32.6k pending, ~400 jobs/min → ETA ~06:45Z.
+Judgment procedure when drained: uids.ts vs frozen block →
+results.ts --run per run (validators, headline only) →
+e008-lat-table.ts with all six --arm pairs → e004-decomp.ts chains
+(gated vs ungated per lat, per the criteria-(2) wording) → write
+the judgment strictly per rules (3)–(6).
