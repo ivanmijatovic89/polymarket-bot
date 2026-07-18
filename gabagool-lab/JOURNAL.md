@@ -2437,3 +2437,34 @@ and the sub-axis trend rules are the frozen deciders, not
 eyeballed point estimates. 6/12 verified: 747–752. Remaining:
 r3d ×2, s75 ×2, s85 ×2 (the solo-cap sub-axis — P2's subject —
 is entirely unlanded). Waiters going up next on drain + probe pid.
+
+## 2026-07-18T07:48Z — session 29, unit 81: judgment-instrument dry-fit on the 6 landed runs — P1 mechanically REFUTED (sign backwards); depth rung near-inert
+
+Front-loaded the e008b-table.ts readout on the three fully-landed
+arms (r1, r12s, r3m — both halves each). The instrument's partial
+wiring works as designed: cells print, chain rules print "pending".
+Everything below is the instrument's mechanical output; the full
+judgment still waits for all 12 runs.
+
+P1 is DECIDED, because both its cells landed and the rule reads
+only them: **REFUTED, with the sign backwards.** The freeze
+predicted r12s loses payload (Δrem ≤ −1.0 both halves — "the
+remainder lives at depth"). Measured: Δrem +2.2817 (h1) / +1.9253
+(h2) — the shallow second rung at −0.01 CAPTURES ~$2/mkt MORE
+winner remainder than the incumbent ladder. But it pays more than
+that for the inventory: Δcost +2.6504/+2.8519, netting ΔEL −0.0763
+(indistinguishable, h1) / −0.4620 (DISTINCT WORSE, h2). Mechanism
+in one line: near-touch depth buys more of everything — more
+remainder AND more adverse cost — and the cost wins. The E008
+remainder payload is not simply "more fills = more payload".
+
+Raw rows recorded without judgment calls: r1 (single rung, no
+depth) is nearly bit-identical to g00 in both halves (ΔEL
+−0.0643/−0.0272, both indistinguishable; fills 3900 vs 3905 h1) —
+the 0.13 depth rung almost never fills at θ=0 on the gated
+chassis. r3m (interior 0.06 rung): +0.0399/−0.0234, both
+indistinguishable, Δrem +0.39/+0.28. First hint that structure
+arms are a flat family: the gate, not the ladder shape, does the
+work. The solo-cap sub-axis (P2's subject, the cap-binding lever)
+is still entirely unlanded — that is where the freeze put the
+payload hypothesis, and it stays open until s75/s85 land.

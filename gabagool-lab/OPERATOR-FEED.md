@@ -483,3 +483,9 @@ Append-only. One entry per completed unit. Newest at the bottom.
 - Found: nothing judged yet — the remaining 6 runs (including the whole solo-cap group) land ~08:20Z
 - Next: wait for the batch to finish, then run the frozen judgment
 - Health: on track
+
+## 2026-07-18T07:48Z — unit 81
+- Did: ran the judgment table early on the 6 finished runs (no verdicts — partial data prints, rules wait)
+- Found: prediction P1 already failed, backwards: the shallow-ladder arm grabs MORE winner remainder (~+$2/mkt) but overpays for it (net worse). Removing the deep rung changes almost nothing.
+- Next: wait for the last 6 runs (~08:20Z), especially the solo-cap arms, then full judgment
+- Health: on track

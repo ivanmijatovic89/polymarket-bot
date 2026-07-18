@@ -63,8 +63,14 @@
   landed+verified (747=h2-r1, 748=h1-r12s, 749=h2-r12s, 750=
   h1-r3m, 751=h2-r3m, 752=h1-r1; uids MATCH mechanically,
   validators green ×6). Unlanded: r3d/s75/s85 × halves — the
-  whole solo-cap sub-axis (P2) still pending.** Session waiters
-  up on drain + probe chain (pid 77993).
+  whole solo-cap sub-axis (P2) still pending.** u81 dry-fit of
+  e008b-table.ts on the 6 landed arms: **P1 mechanically REFUTED,
+  sign backwards** (r12s Δrem +2.28/+1.93 vs predicted ≤ −1.0;
+  Δcost +2.65/+2.85 swamps it → ΔEL −0.08 indist / −0.46 DISTINCT
+  worse); r1 ≈ g00 both halves (depth rung near-inert at θ=0);
+  r3m indistinguishable both halves. Structure family looks flat —
+  the gate does the work. Full judgment waits for all 12. Session
+  waiters up on drain + probe chain (pid 77993).
 - **Branch:** gabagool-lab (worktree at ~/Sites/polymarket-bot-gabagool-lab)
 - **Write scope:** gabagool-lab/ + src/strategies/gabagool-lab/ (hook enforces)
 
