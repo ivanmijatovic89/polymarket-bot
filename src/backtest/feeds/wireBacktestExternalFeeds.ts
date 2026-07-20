@@ -196,9 +196,10 @@ export async function wireBacktestExternalFeeds(args: {
       // lands in backtest_run_failures. Exclude these windows from batches
       // instead.
       throw new Error(
-        `[backtest:feeds] priceToBeat requested but Polymarket never wrote a strike for ${args.slug} ` +
-          `(known platform-side gap — see the outage list in docs/datasets/data-coverage.md). ` +
-          `Exclude this market from the batch; the data does not exist anywhere.`,
+        `[backtest:feeds] MISSING priceToBeat for ${args.slug} — this market has no price-to-beat: ` +
+          `Polymarket never recorded the strike for this window (known outage day, ~1.36% of markets since Apr 2026; ` +
+          `outage list in docs/datasets/data-coverage.md). The data does not exist anywhere and cannot be fetched — ` +
+          `exclude this market from the batch.`,
       )
     } else {
       providerArgs.polymarketPriceToBeat = {
