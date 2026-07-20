@@ -38,15 +38,43 @@ Official ([telonex.io/docs/exchanges/polymarket](https://telonex.io/docs/exchang
 
 ## Gamma API
 
-Measured 2026-07-20 by probing `gamma-api.polymarket.com/markets?slug=…&closed=true`
-(binary search over 15m BTC slugs; spot-confirmed on 5m and eth/sol):
+Measured 2026-07-20 from the **complete backfill** of all 179,285 cataloged
+markets (`telonex:sync-pricetobeat-and-final-price`; per-market ground truth,
+supersedes the earlier probe estimates):
 
-| field | exists from | notes |
-|---|---|---|
-| `events[].eventMetadata.priceToBeat` | **~2026-02-19** (between 02-18 20:00 and 02-19 04:00) | the Chainlink open/strike of the window; `eventMetadata: null` before — **no backfill** |
-| `events[].eventMetadata.finalPrice` | **~2026-03-21** (between 12:00 and 18:00) | the Chainlink settle price — free resolution cross-check |
+### `events[].eventMetadata.priceToBeat` (Chainlink open/strike)
 
-This is the only bulk-history source for priceToBeat found.
+| series | exists from |
+|---|---|
+| 15m btc / eth / sol / xrp | **2026-02-18 23:45 UTC** |
+| 5m btc | **2026-02-19 00:05 UTC** |
+| 5m eth / sol / xrp | **2026-03-18 23:00 UTC** (a month later!) |
+
+- `eventMetadata: null` before those dates — Polymarket did **not** backfill.
+- **Holes after full rollout** (~1.7k markets, symbol-symmetric ⇒ platform-side
+  writer outages, not fetch errors): Mar 23 (72), **Apr 1 (708)**, Apr 24 (44),
+  May 3–4 (628), May 20 (16), May 22 (153), Jun 2 (17), Jun 16 (3),
+  Jul 5–6 (21). Clean otherwise. Backtests replay these with an absent
+  `polymarketPriceToBeat` key + a loud warning.
+
+### `events[].eventMetadata.finalPrice` (Chainlink settle)
+
+Present from the same 2026-02-18/19 start, then **patchy/absent roughly
+Feb 24 → Mar 21**, consistent after **~2026-03-21 ~15:00 UTC**. Net effect:
+~22.6k markets have a strike but no settle (concentrated in that gap).
+
+### Documentation status (investigated 2026-07-20, exhaustively)
+
+- The `eventMetadata` **container** is official: in Gamma's OpenAPI spec
+  (`gamma-api.polymarket.com/openapi.json`, `Event.eventMetadata`) and typed in
+  the v2 SDKs since their launch (`Polymarket/ts-sdk` created **2026-04-02** —
+  the April "v2 wave"; same day Telonex's `crypto_prices` coverage begins).
+- The **contents** (`priceToBeat`, `finalPrice`) are typed as
+  `record<string, unknown>` and are documented **nowhere** — not on
+  docs.polymarket.com (full-text checked), not in the OpenAPI spec, not in
+  either SDK. The dates above exist only in our measurements.
+- This is the only bulk-history source for priceToBeat found (the
+  resolution endpoint serves ~30 days).
 
 ## Binance aggTrades (data.binance.vision)
 
