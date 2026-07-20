@@ -9,17 +9,37 @@ discovered) — no sync high-water marks or row counts, those go stale.
 
 ## Polymarket
 
-### Up/down market series
+### MASTER TABLE — per symbol & timeframe, from when do I have each dataset
 
-| series | first market | market slug format | notes |
-|---|---|---|---|
-| 15m btc / eth | **2025-10-11** | `btc-updown-15m-<epochSec>` | series genuinely born then — probed Gamma: 2025-10-08/09 don't exist, 10-11 does |
-| 15m sol / xrp | **2025-10-27** | same | |
-| 5m btc | **2026-02-12** | `btc-updown-5m-<epochSec>` | |
-| 5m eth / sol / xrp | **2026-02-18** | same | |
-| 4h (btc; eth/sol also have series) | **2025-10-14** | `btc-updown-4h-<epochSec>` — **same machine format as 5m/15m** | series `btc-up-or-down-4h` (id 10331) |
-| 1h "hourly" (btc; eth also) | **2025-05-28** | `bitcoin-up-or-down-<month>-<day>-<year>-<N>pm-et` — **human date, ET hours** | series `btc-up-or-down-hourly` (id 10114); our slug parsers do NOT handle this format |
-| 1d "daily" (btc) | **2025-03-15** | `bitcoin-up-or-down-on-<month>-<day>-<year>` — human date | series `btc-up-or-down-daily` (id 41, created 2023, relaunched 2025-03) |
+| series | markets exist from | Telonex orderbook (our catalog) from | priceToBeat from | Binance spot feed from |
+|---|---|---|---|---|
+| **15m btc** | 2025-10-11 (series birth, Gamma-verified) | 2025-10-11 (backtest floor: 2025-11-30) | **2026-02-18 23:45** | 2025-11-29 (BTCUSDT synced daily) |
+| **15m eth** | 2025-10-11 | 2025-10-11 (floor 2025-11-30) | **2026-02-18 23:45** | not downloaded yet (one command) |
+| **15m sol** | 2025-10-27 | 2025-10-27 (floor 2025-11-30) | **2026-02-18 23:45** | not downloaded yet |
+| **15m xrp** | 2025-10-27 | 2025-10-27 (floor 2025-11-30) | **2026-02-18 23:45** | not downloaded yet |
+| **5m btc** | 2026-02-12 | 2026-02-12 | **2026-02-19 00:05** | 2025-11-29 |
+| **5m eth** | 2026-02-18 | 2026-02-18 | **2026-03-18 23:00** | not downloaded yet |
+| **5m sol** | 2026-02-18 | 2026-02-18 | **2026-03-18 23:00** | not downloaded yet |
+| **5m xrp** | 2026-02-18 | 2026-02-18 | **2026-03-18 23:00** | not downloaded yet |
+| 1h btc ("hourly") | 2025-05-28 | ✗ not in catalog (our sync filter) | ~2026-03-18/19 (measured) | n/a until cataloged |
+| 4h btc | 2025-10-14 | ✗ not in catalog | spot-checked ≥ late Mar 2026 | n/a until cataloged |
+| 1d btc ("daily") | 2025-03-15 | ✗ not in catalog | spot-checked ≥ late Mar 2026 | n/a until cataloged |
+
+Reading guide: "Telonex orderbook from" = when our backtest catalog has the
+market (series birth, since Telonex coverage starts 2025-10-11 and every synced
+series was born on/after that); the env floor `TELONEX_DATASET_ELIGIBLE_FROM`
+(2025-11-30) additionally bounds the *eligible backtest universe*. Chainlink
+feed (Task 2) will add a column when built — Telonex `crypto_prices` exists
+from 2026-04-02 for all symbols.
+
+### Up/down market series details
+
+| series | market slug format | notes |
+|---|---|---|
+| 5m / 15m (all symbols) | `btc-updown-15m-<epochSec>` | machine format, our parsers handle it |
+| 4h (btc; eth/sol also have series) | `btc-updown-4h-<epochSec>` — **same machine format** | series `btc-up-or-down-4h` (id 10331) |
+| 1h "hourly" (btc; eth also) | `bitcoin-up-or-down-<month>-<day>-<year>-<N>pm-et` — **human date, ET hours** | series `btc-up-or-down-hourly` (id 10114); our slug parsers do NOT handle this |
+| 1d "daily" (btc) | `bitcoin-up-or-down-on-<month>-<day>-<year>` — human date | series `btc-up-or-down-daily` (id 41, created 2023, relaunched 2025-03) |
 
 - **Why 1h/4h/1d are absent from our catalog**: our own sync filter —
   `telonex:sync:crypto:5m-15min` pulls only the 5m/15m slug patterns. 4h could
