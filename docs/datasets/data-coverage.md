@@ -44,7 +44,8 @@ supersedes the earlier probe estimates):
 | 15m btc / eth / sol / xrp | **2026-02-18 23:45 UTC** |
 | 5m btc | **2026-02-19 00:05 UTC** |
 | 5m eth / sol / xrp | **2026-03-18 23:00 UTC** (a month later!) |
-| 1h / 4h / 1d | present on recent markets (spot-checked ≥ late Mar 2026); exact epochs unmeasured — not in our catalog yet |
+| 1h "hourly" (btc) | **~2026-03-18/19** (probed: Feb 17 / Feb 19 / Mar 1 events null; Mar 18/19+ have it — same rollout wave as 5m alts) |
+| 4h / 1d | present on recent markets (spot-checked ≥ late Mar 2026); exact epochs unmeasured — not in our catalog yet |
 
 - `eventMetadata: null` before those dates — Polymarket did **not** backfill.
 - **Holes after full rollout** (~1.7k markets = 1.36% since Apr 2026,
