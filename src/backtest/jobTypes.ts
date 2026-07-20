@@ -31,6 +31,8 @@ export type MarketJobData = {
   timeDriven: boolean
   latency: RunSingleMarketLatency
   strategyWindow: { startMs: number; endMs: number } | null
+  /** Producer-resolved Gamma metadata for priceToBeat-requesting strategies. Optional: pre-existing jobs replay unchanged. */
+  gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
   /** Producer's git SHA at enqueue time. Worker validates against its own. */
   commitSha: string
 }

@@ -108,6 +108,17 @@ public dumps are free and identical.
   feed in backtests automatically, like live): downloader, backtest as-of
   provider, live recorder + verification harness. See
   [Binance aggTrades Feed](./binance-aggtrades-feed.md).
+- **priceToBeat → IMPLEMENTED** (strategy-driven via
+  `polymarketPriceToBeat: { enabled: true }`): the Chainlink open/strike per
+  market, backfilled from Gamma `events[].eventMetadata` into
+  `telonex_markets.price_to_beat` by
+  `npm run telonex:backfill-markets-pricetobeat-and-final-price` (run it after
+  `telonex:sync`). Replay models the live poll: the key appears ~1s after
+  window start (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`). Markets before the Gamma
+  epoch (~2026-02-19, varies per series — see
+  [Data Coverage](../data-coverage.md)) get an absent key; post-epoch markets
+  without backfill hard-error. `final_price` (Chainlink settle) is captured in
+  the same pass for future resolution cross-checks.
 - **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
   subscription / `TELONEX_API_KEY`). The extension recipe is documented in the
   Binance doc — the provider and window plumbing are already feed-agnostic.

@@ -57,6 +57,7 @@ import {
 import {
   getMarketsBySlugs as getTelonexMarketsBySlugs,
   getMarketBySlug as getTelonexMarketBySlug,
+  getGammaMetadataBySlug,
   listEligibleTelonexMarkets,
   type Market as TelonexMarket,
   type Converter,
@@ -563,6 +564,16 @@ async function main(): Promise<void> {
       `[backtest] external feeds: binanceWsSpotPrice symbol=${feedsBinanceSymbol ?? '(derived per market slug)'}`,
     )
   }
+  // priceToBeat feed: the producer resolves the Gamma-backfilled strike per
+  // market (workers stay DB-free). Catalog-wide lookup (no conversion join),
+  // so recorded-mode backtests get it too.
+  const feedsPriceToBeatRequested =
+    feedsRequestPlugin?.config.polymarketPriceToBeat?.enabled === true
+  if (feedsPriceToBeatRequested) {
+    console.log(
+      '[backtest] external feeds: polymarketPriceToBeat (from telonex_markets.price_to_beat)',
+    )
+  }
 
   // ---- Pre-resolve every market context in the producer so that workers
   // ---- never need to touch MySQL / Gamma. This preserves the existing DB
@@ -579,6 +590,8 @@ async function main(): Promise<void> {
      * (the canonical local path) is not present on the worker's disk.
      */
     r2Fallback?: string
+    /** Set only when the strategy requests the priceToBeat feed. */
+    gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
   }
   const marketContexts: ResolvedContext[] = []
 
@@ -685,6 +698,14 @@ async function main(): Promise<void> {
       return window
     })()
 
+    let gammaPriceToBeat:
+      | { priceToBeat: number | null; syncedAtMs: number | null }
+      | null
+      | undefined
+    if (feedsPriceToBeatRequested && slug) {
+      gammaPriceToBeat = await getGammaMetadataBySlug(slug)
+    }
+
     marketContexts.push({
       idx,
       filePath: resolvedFilePath,
@@ -693,6 +714,7 @@ async function main(): Promise<void> {
       marketResolution,
       strategyWindow,
       ...(r2Fallback ? { r2Fallback } : {}),
+      ...(gammaPriceToBeat !== undefined ? { gammaPriceToBeat } : {}),
     })
   }
 
@@ -816,6 +838,9 @@ async function main(): Promise<void> {
             commitSha,
             shouldStop: () => shouldStop,
             ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
+            ...(ctx.gammaPriceToBeat !== undefined
+              ? { gammaPriceToBeat: ctx.gammaPriceToBeat }
+              : {}),
           })
         } catch (err) {
           // Mirror BullMQ's exhausted-children semantics: record the failure so
@@ -1065,6 +1090,7 @@ async function main(): Promise<void> {
       strategyWindow: ctx.strategyWindow,
       commitSha: producerCommitSha,
       ...(ctx.r2Fallback ? { r2Fallback: ctx.r2Fallback } : {}),
+      ...(ctx.gammaPriceToBeat !== undefined ? { gammaPriceToBeat: ctx.gammaPriceToBeat } : {}),
     }
     return {
       name: 'market',
