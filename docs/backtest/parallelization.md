@@ -145,7 +145,7 @@ For long-lived workers (local or remote), launch through
 `./scripts/run-worker.sh` instead of `npm run backtest:worker` — same flags.
 The wrapper relaunches the supervisor on new code so a worker never runs a
 stale strategy registry. See
-[worker self-update](/backtest/worker-self-update).
+[worker self-update](/backtest/fleet/self-update).
 :::
 
 ::: warning Why N processes instead of `concurrency: N` on one Worker
@@ -284,7 +284,7 @@ it before treating the BullMQ path as equivalent to the sequential one.
 - The producer's git SHA is attached to every job (`commitSha` field). A market
   worker runs any job whose commit its loaded code already contains, and
   **self-updates** (pull + relaunch) when a job needs a newer commit — see
-  [worker self-update](/backtest/worker-self-update).
+  [worker self-update](/backtest/fleet/self-update).
   Worker heartbeats publish the loaded commit and whether it matches
   `origin/main`.
 

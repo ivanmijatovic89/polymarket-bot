@@ -335,7 +335,7 @@ write strategy -> commit -> push main -> sync worker fleet -> run backtest
   [`strategy-research-protocol/rules/NAMING.md`](./rules/NAMING.md).
 
 Full mechanism:
-[`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md).
+[`docs/backtest/fleet/self-update.md`](../docs/backtest/fleet/self-update.md).
 
 ## Result Semantics
 
@@ -376,13 +376,13 @@ Use these docs when more detail is needed:
 - Backtest execution:
   [`docs/engine/backtest-execution.md`](../docs/engine/backtest-execution.md)
 - Distributed workers:
-  [`docs/backtest/distributed-future.md`](../docs/backtest/distributed-future.md)
+  [`docs/backtest/fleet/overview.md`](../docs/backtest/fleet/overview.md)
 - Backtest parallelization:
   [`docs/backtest/parallelization.md`](../docs/backtest/parallelization.md)
 - Worker self-update:
-  [`docs/backtest/worker-self-update.md`](../docs/backtest/worker-self-update.md)
+  [`docs/backtest/fleet/self-update.md`](../docs/backtest/fleet/self-update.md)
 - Worker install:
-  [`docs/backtest/worker-install-instructions.md`](../docs/backtest/worker-install-instructions.md)
+  [`docs/backtest/fleet/install.md`](../docs/backtest/fleet/install.md)
 - Order manager:
   [`docs/engine/order-manager.md`](../docs/engine/order-manager.md)
 - Portfolio:

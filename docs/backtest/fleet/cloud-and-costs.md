@@ -5,7 +5,7 @@ description: How to host the backtest database, queue, and worker fleet across o
 
 # Cloud Workers & Costs
 
-[Distributed Workers](/backtest/distributed-future) explains *how* the worker
+[Distributed Workers](/backtest/fleet/overview) explains *how* the worker
 pool spans multiple machines. This page explains *where* to run those workers
 and *what it costs* — the infrastructure and economics behind a distributed
 backtest fleet. It is a planning reference: read it before buying hardware,

@@ -43,7 +43,7 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
   - Redis running locally (`brew services start redis`)
   - At least one worker daemon up — launch via `./scripts/run-worker.sh` so it
     self-updates to your code (see
-    [worker self-update](/backtest/worker-self-update))
+    [worker self-update](/backtest/fleet/self-update))
   - **A clean (committed) working tree.** Workers gate on the producer's commit
     SHA, so uncommitted strategy code can't reach them; the producer therefore
     blocks on a dirty tree. Commit (and push, if you run remote workers) first,

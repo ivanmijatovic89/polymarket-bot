@@ -120,7 +120,7 @@ polymarket-backtest-worker
 
 The update playbook only starts this session again when it was already running
 and a checkout update required stopping it. Starting missing sessions is handled
-by [Start Worker Fleet](/backtest/start-worker-fleet).
+by [Start Worker Fleet](/backtest/fleet/start).
 
 The managed session command is:
 
@@ -233,7 +233,7 @@ the old loaded commit, which is the correct signal.
 
 ## Relationship to Self-Update
 
-Ansible does not replace [Worker Self-Update](/backtest/worker-self-update).
+Ansible does not replace [Worker Self-Update](/backtest/fleet/self-update).
 
 - Ansible keeps the fleet fresh before jobs arrive.
 - Self-update protects correctness when a worker is still stale.

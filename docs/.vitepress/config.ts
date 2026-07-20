@@ -127,15 +127,27 @@ export default withMermaid(
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'ADR: Binance-Driven Ticks', link: '/backtest/adr-binance-driven-ticks' },
             {
-              text: 'Distributed Workers',
+              text: 'Fleet',
               collapsed: false,
               items: [
-                { text: 'Distributed Workers', link: '/backtest/distributed-future' },
-                { text: 'Install a Backtest Worker', link: '/backtest/worker-install-instructions' },
-                { text: 'Worker Self-Update', link: '/backtest/worker-self-update' },
-                { text: 'Worker Fleet Ansible', link: '/backtest/worker-fleet-ansible' },
-                { text: 'Start Worker Fleet', link: '/backtest/start-worker-fleet' },
-                { text: 'Cloud Workers & Costs', link: '/backtest/cloud-workers-and-costs' },
+                { text: 'Overview', link: '/backtest/fleet/overview' },
+                {
+                  text: 'Provision a Worker',
+                  collapsed: false,
+                  items: [
+                    { text: 'Install a Worker', link: '/backtest/fleet/install' },
+                    { text: 'Self-Update', link: '/backtest/fleet/self-update' },
+                  ],
+                },
+                {
+                  text: 'Fleet Operations',
+                  collapsed: false,
+                  items: [
+                    { text: 'Update Fleet (Ansible)', link: '/backtest/fleet/ansible' },
+                    { text: 'Start the Fleet', link: '/backtest/fleet/start' },
+                  ],
+                },
+                { text: 'Planning & Costs', link: '/backtest/fleet/cloud-and-costs' },
               ],
             },
             {
