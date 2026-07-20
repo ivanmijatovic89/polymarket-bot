@@ -46,6 +46,7 @@ export function makeMarketProcessor(args: { machineId: string; workerChildId?: n
       timeDriven: data.timeDriven,
       latency: data.latency,
       strategyWindow: data.strategyWindow,
+      ...(data.gammaPriceToBeat !== undefined ? { gammaPriceToBeat: data.gammaPriceToBeat } : {}),
       machineId: args.machineId,
       workerChildId: args.workerChildId ?? null,
       commitSha: WORKER_LAUNCH_SHA,

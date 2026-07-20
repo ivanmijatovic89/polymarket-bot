@@ -3,6 +3,13 @@ export type PolymarketPriceToBeatClientOptions = {
   eventStartTimeIso: string
   endDateIso: string
   /**
+   * Exact window-start ms for the availability-latency log (the tuning input
+   * for BACKTEST_PRICE_TO_BEAT_LATENCY_MS). Pass the slug-derived epoch:
+   * `eventStartTimeIso` may be Gamma's `startDate` fallback, which is market
+   * CREATION time (~22h before the window) and would corrupt the measurement.
+   */
+  windowStartMs?: number
+  /**
    * Polymarket endpoint variant. User requested: `fifteen`.
    */
   variant?: 'fifteen'
@@ -116,7 +123,20 @@ export function createPolymarketPriceToBeatClient(
           ? { apiTimestampMs: body.timestamp }
           : {}),
       })
-      opts.onStatus?.({ kind: 'resolved' })
+      // Availability latency vs window start — the empirical input for the
+      // backtest model (BACKTEST_PRICE_TO_BEAT_LATENCY_MS). The endpoint is
+      // observed to lag window start by ~10–60s; collect these from live logs
+      // to pin the distribution. Only trust the slug-derived windowStartMs:
+      // eventStartTimeIso may be the startDate fallback (creation time, ~22h
+      // early), which would log a garbage latency and mislead tuning.
+      const sinceStartMs =
+        opts.windowStartMs !== undefined ? Date.now() - opts.windowStartMs : Number.NaN
+      opts.onStatus?.({
+        kind: 'resolved',
+        info: Number.isFinite(sinceStartMs)
+          ? `openPrice available ${(sinceStartMs / 1000).toFixed(1)}s after window start`
+          : 'openPrice availability latency unknown (no slug-derived window start)',
+      })
       clear()
     } catch (err) {
       // Retry on any error (including abort / parse errors).

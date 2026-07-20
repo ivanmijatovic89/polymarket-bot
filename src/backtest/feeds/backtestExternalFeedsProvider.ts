@@ -21,12 +21,25 @@ export type BacktestExternalFeedsProvider = {
  *   modeled arrival `T + latencyOffsetMs` (live: wall-clock `Date.now()`).
  * - same-ms trades resolve to the last one in exchange order (agg id) —
  *   live last-write-wins.
+ * - `polymarketPriceToBeat` is absent until `availableAtMs` (live: the client
+ *   starts polling at window rotation, 1s cadence, so the strike appears
+ *   shortly AFTER window start — never before; the previous window's value is
+ *   cleared at rotation, matching per-market provider lifetime here).
  */
 export function createBacktestExternalFeedsProvider(args: {
   binanceWsSpotPrice?: {
     symbol: string
     series: AsOfSeries
     latencyOffsetMs: number
+  }
+  polymarketPriceToBeat?: {
+    /** Uppercase trading symbol, e.g. "BTC" — live passes `symbolUpper`. */
+    symbol: string
+    eventStartTimeIso: string
+    endDateIso: string
+    openPrice: number
+    /** Modeled first-successful-poll time (window start + poll latency). */
+    availableAtMs: number
   }
 }): BacktestExternalFeedsProvider {
   const binance = args.binanceWsSpotPrice
@@ -73,9 +86,10 @@ export function createBacktestExternalFeedsProvider(args: {
   return {
     snapshotAt: (tickTsMs: number): ExternalFeedsSnapshot => {
       const snap: ExternalFeedsSnapshot = { rtdsPolymarketCryptoPrices: {} }
+      // One monotone clock for every feed key (see clockHighWaterMs above).
+      const clamped = Number.isFinite(tickTsMs) ? Math.max(tickTsMs, clockHighWaterMs) : tickTsMs
+      if (Number.isFinite(clamped)) clockHighWaterMs = clamped
       if (binance) {
-        const clamped = Number.isFinite(tickTsMs) ? Math.max(tickTsMs, clockHighWaterMs) : tickTsMs
-        if (Number.isFinite(clamped)) clockHighWaterMs = clamped
         const i = advanceTo(clamped)
         if (i >= 0) {
           const tsMs = binance.series.tsMs[i]!
@@ -84,6 +98,18 @@ export function createBacktestExternalFeedsProvider(args: {
             tsMs,
             value: binance.series.value[i]!,
             receivedAtMs: tsMs + binance.latencyOffsetMs,
+          }
+        }
+      }
+      const ptb = args.polymarketPriceToBeat
+      if (ptb) {
+        if (Number.isFinite(clamped) && clamped >= ptb.availableAtMs) {
+          snap.polymarketPriceToBeat = {
+            symbol: ptb.symbol,
+            eventStartTimeIso: ptb.eventStartTimeIso,
+            endDateIso: ptb.endDateIso,
+            openPrice: ptb.openPrice,
+            receivedAtMs: ptb.availableAtMs,
           }
         }
       }

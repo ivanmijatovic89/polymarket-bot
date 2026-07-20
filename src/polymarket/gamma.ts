@@ -25,6 +25,37 @@ export async function fetchGammaMarketBySlug(args: {
 }
 
 /**
+ * Batch lookup of CLOSED markets by slug — Gamma accepts repeated `slug`
+ * params and returns one array entry per found market (order not guaranteed;
+ * missing slugs are silently absent). Used by the eventMetadata backfill to
+ * cut request count ~batch-size-fold. Only queries `closed=true`: historical
+ * (settled) markets are always closed on Gamma; callers wanting open markets
+ * should use `fetchGammaMarketBySlug` per slug.
+ */
+export async function fetchClosedGammaMarketsBySlugs(
+  slugs: string[],
+): Promise<Map<string, Record<string, unknown>>> {
+  const out = new Map<string, Record<string, unknown>>()
+  if (slugs.length === 0) return out
+  const gammaBaseUrl = loadPolymarketConfigFromEnv().gamma.baseUrl
+  const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join('&')
+  // Explicit limit: a slug maps to one market, so slugs.length covers the full
+  // batch without relying on Gamma's (undocumented) default page size — a
+  // smaller default would silently truncate matches.
+  const res = await fetch(`${gammaBaseUrl}/markets?${qs}&closed=true&limit=${slugs.length}`)
+  if (!res.ok) throw new Error(`Gamma HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
+  const arr: unknown = await res.json()
+  if (!Array.isArray(arr)) throw new Error('Gamma batch response is not an array')
+  for (const m of arr) {
+    if (m && typeof m === 'object') {
+      const slug = (m as Record<string, unknown>).slug
+      if (typeof slug === 'string') out.set(slug, m as Record<string, unknown>)
+    }
+  }
+  return out
+}
+
+/**
  * Helper to parse JSON array string from Gamma API response.
  */
 function parseJsonArrayString(s: unknown): unknown[] | null {

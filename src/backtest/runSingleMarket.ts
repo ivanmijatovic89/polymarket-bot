@@ -25,7 +25,7 @@ import {
   replayOrderBookForMarket,
   type ReplayApplyEvent,
 } from '../parquet/replay/replayOrderBookForMarket.js'
-import { wireBacktestBinanceFeed } from './feeds/wireBacktestExternalFeeds.js'
+import { wireBacktestExternalFeeds } from './feeds/wireBacktestExternalFeeds.js'
 
 export type RunSingleMarketInputMode = 'recorded' | 'telonex-delta' | 'telonex-paired'
 
@@ -81,6 +81,13 @@ export type RunSingleMarketInput = {
    * For deterministic re-runs (verification, distributed workers), leave undefined.
    */
   shouldStop?: () => boolean
+  /**
+   * Producer-resolved Gamma metadata (`telonex_markets.price_to_beat`) for
+   * strategies that request the `polymarketPriceToBeat` feed. `undefined` =
+   * not resolved (producer only resolves it when the strategy requests the
+   * feed); `null` = slug not in the catalog. Workers stay DB-free.
+   */
+  gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
 }
 
 export type RunSingleMarketOutput = {
@@ -205,13 +212,14 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   })
 
   // Strategy-driven external feeds (same contract as live): if the strategy
-  // registers ExternalFeedsRequestPlugin with a binance request, fulfill it
+  // registers ExternalFeedsRequestPlugin, fulfill its requested sub-feeds
   // from historical data before any tick is replayed. Strategies without the
   // plugin return immediately — no behavior change for them.
-  await wireBacktestBinanceFeed({
+  await wireBacktestExternalFeeds({
     pluginSet,
     slug: input.slug,
     strategyWindow: input.strategyWindow ?? null,
+    ...(input.gammaPriceToBeat !== undefined ? { gammaPriceToBeat: input.gammaPriceToBeat } : {}),
   })
 
   let currentMarketId: string | undefined

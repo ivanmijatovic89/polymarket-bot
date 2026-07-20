@@ -108,6 +108,26 @@ public dumps are free and identical.
   feed in backtests automatically, like live): downloader, backtest as-of
   provider, live recorder + verification harness. See
   [Binance aggTrades Feed](./binance-aggtrades-feed.md).
+- **priceToBeat → IMPLEMENTED** (strategy-driven via
+  `polymarketPriceToBeat: { enabled: true }`): the Chainlink open/strike per
+  market, backfilled from Gamma `events[].eventMetadata` into
+  `telonex_markets.price_to_beat` by
+  `npm run telonex:sync-pricetobeat-and-final-price` (run it after
+  `telonex:sync`). Replay models the live availability lag: the key appears
+  **30s after window start by default** (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`;
+  live the endpoint publishes the open price ~10–60s late — the live client
+  logs the real lag on every resolve, re-tune the default from those logs).
+  Markets before their series' recording epoch (per-series dates in
+  [Data Coverage](../data-coverage.md)) get an absent key, as do markets
+  settled <30h ago (pipeline-lag grace: Telonex catalogs daily and the
+  backfill waits 3h after settle — warned, not errored, so record-today /
+  backtest-tonight keeps working); other post-epoch markets without backfill —
+  or inside a verified Polymarket-side hole — hard-error. If a hard error
+  turns out to be a transiently-empty Gamma answer that got stamped as
+  permanent, re-fetch with
+  `npm run telonex:sync-pricetobeat-and-final-price -- --refetch-nulls`.
+  `final_price` (Chainlink settle) is captured in
+  the same pass for future resolution cross-checks.
 - **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
   subscription / `TELONEX_API_KEY`). The extension recipe is documented in the
   Binance doc — the provider and window plumbing are already feed-agnostic.

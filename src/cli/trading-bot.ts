@@ -20,6 +20,7 @@ import { createExternalFeedsStore } from '../trading/feeds/externalFeeds.js'
 import { createRtdsCryptoPricesClient } from '../trading/feeds/rtdsCryptoPricesClient.js'
 import { createBinanceWsSpotPriceClient } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { createPolymarketPriceToBeatClient } from '../trading/feeds/polymarketPriceToBeatClient.js'
+import { windowStartMsFromSlug } from '../polymarket/upDownSlugWindow.js'
 import { ExternalFeedsPlugin } from '../strategy/plugins/ExternalFeedsPlugin.js'
 import { PluginSet } from '../strategy/plugins/PluginSet.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
@@ -374,10 +375,14 @@ async function main(): Promise<void> {
     // so strategies don't see stale priceToBeat while polling for the new window.
     feedsStore.clearPolymarketPriceToBeat()
 
+    // Latency log anchor: the slug epoch is the exact window start;
+    // eventStartTimeIso may be Gamma's startDate fallback (~22h early).
+    const windowStartMs = windowStartMsFromSlug(args.slug)
     priceToBeatClient = createPolymarketPriceToBeatClient({
       symbol: args.symbolUpper,
       eventStartTimeIso: args.eventStartTimeIso,
       endDateIso: args.endDateIso,
+      ...(windowStartMs !== null ? { windowStartMs } : {}),
       variant: 'fifteen',
       pollIntervalMs: 1000,
       onOpenPrice: (u) => {
@@ -387,7 +392,7 @@ async function main(): Promise<void> {
         if (s.kind === 'polling') logger.info(`[feeds][polymarket_price_to_beat][🔄] polling`)
         if (s.kind === 'resolved')
           logger.info(
-            `[feeds][polymarket_price_to_beat][🟢] resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
+            `[feeds][polymarket_price_to_beat][🟢] resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}${s.info ? ` — ${s.info}` : ''}`,
           )
       },
     })

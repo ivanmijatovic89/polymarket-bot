@@ -190,6 +190,20 @@
       "when": 1783901000000,
       "tag": "0026_backtest_run_segments_wall_clock",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "5",
+      "when": 1784918000000,
+      "tag": "0027_telonex_markets_gamma_metadata",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "5",
+      "when": 1784988000000,
+      "tag": "0028_telonex_markets_gamma_synced_idx",
+      "breakpoints": true
     }
   ]
 }

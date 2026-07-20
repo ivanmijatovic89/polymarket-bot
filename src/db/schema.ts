@@ -4,6 +4,7 @@ import {
   longtext,
   varchar,
   decimal,
+  double,
   timestamp,
   datetime,
   date,
@@ -389,6 +390,19 @@ export const telonexMarkets = mysqlTable(
     onchainFillsFrom: date('onchain_fills_from'),
     onchainFillsTo: date('onchain_fills_to'),
 
+    // Gamma `events[].eventMetadata` (backfilled by
+    // `telonex:sync-pricetobeat-and-final-price`, NOT by telonex
+    // sync — Gamma is the only bulk-history source; see
+    // docs/datasets/data-coverage.md for the field epoch boundaries).
+    // `priceToBeat` = Chainlink open/strike of the window (exists ~2026-02-19+),
+    // `finalPrice`  = Chainlink settle price (exists ~2026-03-21+).
+    // `gammaMetadataSyncedAt` records that a fetch was ATTEMPTED — a synced row
+    // with NULL prices means Gamma genuinely has no data for that market, so
+    // the backfill never re-fetches it.
+    priceToBeat: double('price_to_beat'),
+    finalPrice: double('final_price'),
+    gammaMetadataSyncedAt: timestamp('gamma_metadata_synced_at'),
+
     // Local pipeline state (Step 1)
     uploadStatus: mysqlEnum('upload_status', ['pending', 'processing', 'done', 'partial', 'failed'])
       .notNull()
@@ -410,6 +424,13 @@ export const telonexMarkets = mysqlTable(
     // single-column upload_status index could not satisfy the ORDER BY.
     uploadStatusStartIdx: index('idx_telonex_markets_upload_status_start').on(
       t.uploadStatus,
+      t.marketStartMs,
+    ),
+    // Supports the Gamma backfill's claim/count queries: `gamma_metadata_synced_at
+    // IS NULL AND market_start_ms >= ?` ORDER BY market_start_ms. Without it every
+    // claim iteration and every cron preflight full-scans the table.
+    gammaSyncedStartIdx: index('idx_telonex_markets_gamma_synced_start').on(
+      t.gammaMetadataSyncedAt,
       t.marketStartMs,
     ),
   }),
