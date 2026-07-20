@@ -116,7 +116,15 @@ export function createPolymarketPriceToBeatClient(
           ? { apiTimestampMs: body.timestamp }
           : {}),
       })
-      opts.onStatus?.({ kind: 'resolved' })
+      // Availability latency vs window start — the empirical input for the
+      // backtest model (BACKTEST_PRICE_TO_BEAT_LATENCY_MS). The endpoint is
+      // observed to lag window start by ~10–60s; collect these from live logs
+      // to pin the distribution.
+      const sinceStartMs = Date.now() - Date.parse(eventStartTimeIso)
+      opts.onStatus?.({
+        kind: 'resolved',
+        info: `openPrice available ${Number.isFinite(sinceStartMs) ? (sinceStartMs / 1000).toFixed(1) : '?'}s after window start`,
+      })
       clear()
     } catch (err) {
       // Retry on any error (including abort / parse errors).

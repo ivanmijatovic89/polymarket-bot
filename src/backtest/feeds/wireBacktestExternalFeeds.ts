@@ -58,12 +58,15 @@ export function binanceFeedLookbackMs(): number {
 
 /**
  * Modeled delay between window start and the first successful priceToBeat
- * poll. Live, `createPolymarketPriceToBeatClient` starts polling at market
- * rotation with a 1s cadence, so the strike appears shortly AFTER window
- * start — never at the exact first tick. Override with
- * BACKTEST_PRICE_TO_BEAT_LATENCY_MS.
+ * poll. Live, `createPolymarketPriceToBeatClient` polls from market rotation
+ * at 1s cadence, but the endpoint itself publishes the open price LATE —
+ * observed ~10–60s after window start (owner-reported). Until the live logs
+ * pin the distribution (the client now logs "openPrice available Xs after
+ * window start" on every resolve), default to a mid-range 30s so backtests
+ * don't grant strategies the strike earlier than live plausibly could.
+ * Override with BACKTEST_PRICE_TO_BEAT_LATENCY_MS.
  */
-const DEFAULT_PRICE_TO_BEAT_LATENCY_MS = 1_000
+const DEFAULT_PRICE_TO_BEAT_LATENCY_MS = 30_000
 
 /**
  * Backtest-side counterpart of the feed wiring in `trading-bot.ts`, and
@@ -173,7 +176,7 @@ export async function wireBacktestExternalFeeds(args: {
     } else if (args.gammaPriceToBeat === null || args.gammaPriceToBeat.syncedAtMs === null) {
       throw new Error(
         `[backtest:feeds] priceToBeat requested but telonex_markets has no backfilled Gamma metadata for slug=${args.slug}. ` +
-          `Run: npm run telonex:backfill-markets-pricetobeat-and-final-price` +
+          `Run: npm run telonex:sync-pricetobeat-and-final-price` +
           (args.gammaPriceToBeat === null
             ? ' (slug missing from catalog — run telonex:sync first)'
             : ''),

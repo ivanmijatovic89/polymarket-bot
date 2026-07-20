@@ -112,11 +112,14 @@ public dumps are free and identical.
   `polymarketPriceToBeat: { enabled: true }`): the Chainlink open/strike per
   market, backfilled from Gamma `events[].eventMetadata` into
   `telonex_markets.price_to_beat` by
-  `npm run telonex:backfill-markets-pricetobeat-and-final-price` (run it after
-  `telonex:sync`). Replay models the live poll: the key appears ~1s after
-  window start (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`). Markets before the Gamma
-  epoch (~2026-02-19, varies per series — see `docs/datasets/data-coverage.md`,
-  PR #132) get an absent key; post-epoch markets without backfill hard-error. `final_price` (Chainlink settle) is captured in
+  `npm run telonex:sync-pricetobeat-and-final-price` (run it after
+  `telonex:sync`). Replay models the live availability lag: the key appears
+  **30s after window start by default** (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`;
+  live the endpoint publishes the open price ~10–60s late — the live client
+  logs the real lag on every resolve, re-tune the default from those logs).
+  Markets before the Gamma epoch (~2026-02-19, varies per series — see
+  [Data Coverage](../data-coverage.md)) get an absent key; post-epoch markets
+  without backfill hard-error. `final_price` (Chainlink settle) is captured in
   the same pass for future resolution cross-checks.
 - **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
   subscription / `TELONEX_API_KEY`). The extension recipe is documented in the

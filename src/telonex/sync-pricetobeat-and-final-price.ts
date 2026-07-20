@@ -17,8 +17,8 @@ import {
  * Backfill `telonex_markets.price_to_beat` / `final_price` from Gamma
  * `events[].eventMetadata` (the Chainlink open/strike and settle price).
  *
- *   npm run telonex:backfill-markets-pricetobeat-and-final-price
- *   npm run telonex:backfill-markets-pricetobeat-and-final-price -- --limit 5000 --dry-run
+ *   npm run telonex:sync-pricetobeat-and-final-price
+ *   npm run telonex:sync-pricetobeat-and-final-price -- --limit 5000 --dry-run
  *
  * Batched (default 20 slugs per Gamma request, `closed=true`) with polite
  * spacing and exponential backoff on rate-limit/challenge responses — Gamma
@@ -73,7 +73,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--dry-run') dryRun = true
     else {
       console.error(
-        'Usage: npm run telonex:backfill-markets-pricetobeat-and-final-price -- ' +
+        'Usage: npm run telonex:sync-pricetobeat-and-final-price -- ' +
           '[--from <iso|ms>] [--to <iso|ms>] [--limit N] [--batch-size 20] [--dry-run]',
       )
       process.exit(2)

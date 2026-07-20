@@ -391,7 +391,7 @@ export const telonexMarkets = mysqlTable(
     onchainFillsTo: date('onchain_fills_to'),
 
     // Gamma `events[].eventMetadata` (backfilled by
-    // `telonex:backfill-markets-pricetobeat-and-final-price`, NOT by telonex
+    // `telonex:sync-pricetobeat-and-final-price`, NOT by telonex
     // sync — Gamma is the only bulk-history source; see
     // docs/datasets/data-coverage.md for the field epoch boundaries).
     // `priceToBeat` = Chainlink open/strike of the window (exists ~2026-02-19+),
