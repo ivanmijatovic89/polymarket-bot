@@ -17,14 +17,28 @@
 export const GAMMA_PRICE_TO_BEAT_FROM_MS = Date.parse('2026-02-18T20:00:00Z')
 
 /**
- * Per-series priceToBeat epochs, measured from the COMPLETE 179k-market
- * backfill (2026-07-20, docs/datasets/data-coverage.md): Polymarket enabled
- * the strike per series, not globally — recording for 5m eth/sol/xrp simply
- * started a month later. Markets before their series' epoch are
- * "recording had not started yet" (feed key absent, no error); markets after
- * it with no strike are genuine platform-side holes (hard error in backtests).
- * Unknown series (future timeframes/symbols) fall back to the global floor so
- * their nulls surface loudly rather than being silently excused.
+ * Per-series priceToBeat epochs. 15m/5m are exact, measured from the COMPLETE
+ * 179k-market backfill (2026-07-20, docs/datasets/data-coverage.md):
+ * Polymarket enabled the strike per series, not globally — recording for
+ * 5m eth/sol/xrp simply started a month later. Markets before their series'
+ * epoch are "recording had not started yet" (feed key absent, no error);
+ * markets after it with no strike are genuine platform-side holes (hard error
+ * in backtests).
+ *
+ * 1h/4h/1d are PROVISIONAL, deliberately-late estimates (probes only: 1h got
+ * the strike in the same ~2026-03-18/19 wave as the 5m alts; 4h/1d were
+ * spot-checked present ≥ late Mar 2026). A late epoch is safe because the
+ * backtest wiring feeds a backfilled strike whenever one EXISTS regardless of
+ * epoch — the epoch only classifies markets with a null strike (quiet-absent
+ * vs hard-error), so overshooting merely softens hole detection inside the
+ * provisional span. Tighten by measurement (MIN(market_start_ms) WHERE
+ * price_to_beat IS NOT NULL per series) once those series enter the catalog.
+ * Note: only 4h uses the machine slug format today; 1h/1d human-date slugs
+ * don't parse to a timeframe yet (see docs/datasets/data-coverage.md) and
+ * need slug-parser support before they can reach this lookup.
+ *
+ * Unknown series (anything else) fall back to the global floor so their nulls
+ * surface loudly rather than being silently excused.
  */
 export function gammaPriceToBeatEpochMs(symbol: string | null, timeframe: string | null): number {
   if (timeframe === '15m') return Date.parse('2026-02-18T23:45:00Z')
@@ -34,6 +48,8 @@ export function gammaPriceToBeatEpochMs(symbol: string | null, timeframe: string
       return Date.parse('2026-03-18T23:00:00Z')
     }
   }
+  if (timeframe === '1h') return Date.parse('2026-03-20T00:00:00Z')
+  if (timeframe === '4h' || timeframe === '1d') return Date.parse('2026-04-01T00:00:00Z')
   return GAMMA_PRICE_TO_BEAT_FROM_MS
 }
 
@@ -43,7 +59,10 @@ export type GammaEventMetadata = {
 }
 
 function asFiniteNumber(x: unknown): number | null {
-  const n = typeof x === 'string' ? Number(x) : x
+  // Empty/whitespace strings must be null, not Number('') === 0 — a $0 strike
+  // would silently pass the null checks downstream. Matches the live client's
+  // parser (polymarketPriceToBeatClient guards x.length > 0 the same way).
+  const n = typeof x === 'string' ? (x.trim().length > 0 ? Number(x) : Number.NaN) : x
   return typeof n === 'number' && Number.isFinite(n) ? n : null
 }
 

@@ -67,6 +67,13 @@ supersedes the earlier probe estimates):
 | 1h "hourly" (btc) | **~2026-03-18/19** (probed: Feb 17 / Feb 19 / Mar 1 events null; Mar 18/19+ have it — same rollout wave as 5m alts) |
 | 4h / 1d | present on recent markets (spot-checked ≥ late Mar 2026); exact epochs unmeasured — not in our catalog yet |
 
+Code (`gammaPriceToBeatEpochMs`) carries the 15m/5m epochs exactly and
+PROVISIONAL, deliberately-late epochs for 1h (**2026-03-20**) and 4h/1d
+(**2026-04-01**). Safe because a backfilled strike always feeds regardless of
+epoch — the epoch only classifies null strikes (quiet-absent vs hard-error);
+tighten from `MIN(market_start_ms) WHERE price_to_beat IS NOT NULL` per series
+once those series enter the catalog.
+
 - `eventMetadata: null` before those dates — Polymarket did **not** backfill.
 - **Holes after full rollout** (~1.7k markets = 1.36% since Apr 2026,
   symbol-symmetric ⇒ platform-side writer outages, not fetch errors):

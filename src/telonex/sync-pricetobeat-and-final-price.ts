@@ -53,6 +53,14 @@ function parseDateMs(raw: string, flag: string): number {
   return ms
 }
 
+function parsePositiveInt(raw: string, flag: string): number {
+  const n = Number(raw)
+  if (!Number.isInteger(n) || n <= 0) {
+    throw new Error(`[gamma-backfill] ${flag} must be a positive integer, got: ${raw}`)
+  }
+  return n
+}
+
 function parseArgs(argv: string[]): Args {
   let fromMs = GAMMA_PRICE_TO_BEAT_FROM_MS
   let toMs: number | undefined
@@ -68,8 +76,9 @@ function parseArgs(argv: string[]): Args {
     }
     if (a === '--from') fromMs = parseDateMs(next(), '--from')
     else if (a === '--to') toMs = parseDateMs(next(), '--to')
-    else if (a === '--limit') limit = Math.max(1, Number(next()) || 0)
-    else if (a === '--batch-size') batchSize = Math.min(50, Math.max(1, Number(next()) || 20))
+    else if (a === '--limit') limit = parsePositiveInt(next(), '--limit')
+    else if (a === '--batch-size')
+      batchSize = Math.min(50, parsePositiveInt(next(), '--batch-size'))
     else if (a === '--dry-run') dryRun = true
     else {
       console.error(
@@ -95,18 +104,27 @@ const RETRY_DELAYS_MS = [5_000, 15_000, 45_000, 90_000]
 /** Only touch markets whose window ended at least this long ago (settled ⇒ closed on Gamma). */
 const SETTLED_MARGIN_MS = 3 * 3_600_000
 
-async function fetchBatchWithRetry(
-  slugs: string[],
+/**
+ * Run one Gamma request with the shared backoff schedule. Returns null only
+ * when aborted mid-backoff (callers must check the abort flag; a null Gamma
+ * result is a different `T`-level null). Used by BOTH the batch request and
+ * the per-slug fallback — an unretried fallback burst would trip the exact
+ * Cloudflare rate limit the batch path backs off from, and its throw would
+ * kill the whole run.
+ */
+async function withGammaRetry<T>(
+  what: string,
+  fn: () => Promise<T>,
   isAborted: () => boolean,
-): Promise<Map<string, Record<string, unknown>> | null> {
+): Promise<T | null> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await fetchClosedGammaMarketsBySlugs(slugs)
+      return await fn()
     } catch (err) {
       if (attempt >= RETRY_DELAYS_MS.length) throw err
       const delay = RETRY_DELAYS_MS[attempt]!
       console.warn(
-        `[gamma-backfill] batch failed (${err instanceof Error ? err.message.slice(0, 120) : err}) — backing off ${delay / 1000}s (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`,
+        `[gamma-backfill] ${what} failed (${err instanceof Error ? err.message.slice(0, 120) : err}) — backing off ${delay / 1000}s (attempt ${attempt + 1}/${RETRY_DELAYS_MS.length})`,
       )
       await sleep(delay)
       if (isAborted()) return null
@@ -118,16 +136,23 @@ async function main(): Promise<void> {
   installProcessCrashHandlers({ prefix: 'gamma-backfill' })
   const args = parseArgs(process.argv.slice(2))
 
-  // Clamp the upper bound so still-open windows are never queried against
-  // closed=true (their absence there would be misread as "not on Gamma").
-  const settledCutoff = Date.now() - SETTLED_MARGIN_MS
-  const effectiveToMs = Math.min(args.toMs ?? Number.MAX_SAFE_INTEGER, settledCutoff)
+  // Settled gate: only markets whose window ENDED ≥3h ago are queried against
+  // closed=true (an open market's absence there would be misread as "not on
+  // Gamma" and stamped null permanently). Filtered on window END in SQL —
+  // start-based clamping would let a still-open 4h/1d market through.
+  const settledBeforeMs = Date.now() - SETTLED_MARGIN_MS
+  const queryWindow = {
+    fromMs: args.fromMs,
+    ...(args.toMs !== undefined ? { toMs: args.toMs } : {}),
+    settledBeforeMs,
+  }
 
-  const pending = await countMarketsForGammaBackfill({ fromMs: args.fromMs, toMs: effectiveToMs })
+  const pending = await countMarketsForGammaBackfill(queryWindow)
   const target = args.limit !== undefined ? Math.min(pending, args.limit) : pending
   console.log(
     `[gamma-backfill] pending=${pending} target=${target} from=${new Date(args.fromMs).toISOString()} ` +
-      `to=${new Date(effectiveToMs).toISOString()} batch=${args.batchSize}` +
+      (args.toMs !== undefined ? `to=${new Date(args.toMs).toISOString()} ` : '') +
+      `settledBefore=${new Date(settledBeforeMs).toISOString()} batch=${args.batchSize}` +
       (args.dryRun ? ' DRY-RUN' : ''),
   )
   if (args.dryRun || target === 0) {
@@ -148,22 +173,34 @@ async function main(): Promise<void> {
   let withFinal = 0
   let gammaNull = 0
   let notFound = 0
+  let nextLogAt = 1000
   const startedAt = Date.now()
+
+  /** Parse + count + stamp one definitive Gamma answer (null raw = not on Gamma). */
+  const applyResult = async (slug: string, raw: Record<string, unknown> | null): Promise<void> => {
+    const md = raw ? parseGammaEventMetadata(raw) : { priceToBeat: null, finalPrice: null }
+    if (!raw) notFound++
+    else if (md.priceToBeat !== null) withPrice++
+    else gammaNull++
+    if (md.finalPrice !== null) withFinal++
+    await updateGammaMetadata(slug, md)
+    processed++
+  }
 
   // Batched claim loop: stamped rows drop out of the pending query, so the
   // CLI is resumable at any point.
   while (!aborted && processed < target) {
     const rows = await listMarketsForGammaBackfill({
-      fromMs: args.fromMs,
-      toMs: effectiveToMs,
+      ...queryWindow,
       limit: Math.min(500, target - processed),
     })
     if (rows.length === 0) break
 
     for (let i = 0; i < rows.length && !aborted; i += args.batchSize) {
       const batch = rows.slice(i, i + args.batchSize)
-      const bySlug = await fetchBatchWithRetry(
-        batch.map((r) => r.slug),
+      const bySlug = await withGammaRetry(
+        'batch',
+        () => fetchClosedGammaMarketsBySlugs(batch.map((r) => r.slug)),
         () => aborted,
       )
       if (!bySlug) break
@@ -171,30 +208,24 @@ async function main(): Promise<void> {
       for (const row of batch) {
         const raw = bySlug.get(row.slug)
         if (raw) {
-          const md = parseGammaEventMetadata(raw)
-          if (md.priceToBeat !== null) withPrice++
-          else gammaNull++
-          if (md.finalPrice !== null) withFinal++
-          await updateGammaMetadata(row.slug, md)
+          await applyResult(row.slug, raw)
         } else {
           // Not in the closed set — try the single-slug path (open + closed)
-          // before concluding Gamma doesn't know the market at all.
-          const single = await fetchGammaMarketBySlug({ slug: row.slug })
-          if (single) {
-            const md = parseGammaEventMetadata(single)
-            if (md.priceToBeat !== null) withPrice++
-            else gammaNull++
-            if (md.finalPrice !== null) withFinal++
-            await updateGammaMetadata(row.slug, md)
-          } else {
-            notFound++
-            await updateGammaMetadata(row.slug, { priceToBeat: null, finalPrice: null })
-          }
+          // before concluding Gamma doesn't know the market at all. Same
+          // spacing + backoff as the batch path.
+          await sleep(REQUEST_SPACING_MS)
+          const single = await withGammaRetry(
+            `fallback ${row.slug}`,
+            () => fetchGammaMarketBySlug({ slug: row.slug }),
+            () => aborted,
+          )
+          if (aborted) break
+          await applyResult(row.slug, single)
         }
-        processed++
       }
 
-      if (processed % 1000 < args.batchSize) {
+      if (processed >= nextLogAt) {
+        nextLogAt = processed + 1000
         const rate = processed / ((Date.now() - startedAt) / 1000)
         const etaMin = (target - processed) / rate / 60
         console.log(

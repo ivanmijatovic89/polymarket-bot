@@ -387,7 +387,7 @@ async function main(): Promise<void> {
         if (s.kind === 'polling') logger.info(`[feeds][polymarket_price_to_beat][🔄] polling`)
         if (s.kind === 'resolved')
           logger.info(
-            `[feeds][polymarket_price_to_beat][🟢] resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}`,
+            `[feeds][polymarket_price_to_beat][🟢] resolved openPrice=${feedsStore.snapshot().polymarketPriceToBeat?.openPrice}${s.info ? ` — ${s.info}` : ''}`,
           )
       },
     })

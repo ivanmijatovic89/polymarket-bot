@@ -17,7 +17,7 @@
 // differ from the slug epoch).
 // -----------------------------------------------------------------------------
 
-import { and, asc, count, eq, sql } from 'drizzle-orm'
+import { and, asc, count, eq, inArray, sql } from 'drizzle-orm'
 import type { SQL } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { telonexMarkets, telonexMarketConversions } from './schema.js'
@@ -369,71 +369,98 @@ export async function getMarketsBySlugs(
 // Gamma eventMetadata backfill (price_to_beat / final_price)
 // -----------------------------------------------------------------------------
 
-/**
- * Rows that still need a Gamma eventMetadata fetch: never attempted
- * (`gamma_metadata_synced_at IS NULL`) within `[fromMs, toMs]`, oldest first.
- * No conversion join — the strike exists for every market Gamma knows,
- * converted or not.
- */
-export async function listMarketsForGammaBackfill(opts: {
+type GammaBackfillWindow = {
+  /** Lower bound on `market_start_ms` (the measured priceToBeat epoch by default). */
   fromMs: number
+  /** Optional upper bound on `market_start_ms` (operator's `--to`). */
   toMs?: number
-  limit: number
-}): Promise<Array<{ slug: string; marketStartMs: number }>> {
-  const db = mustGetDb()
+  /**
+   * Only rows whose trading window ENDED at or before this instant (window
+   * end, not start — a 1d market that started 3h ago is still open). Uses
+   * `end_date_us` (verified to equal `market_start_ms + timeframe_ms`); rows
+   * without it conservatively assume the longest series duration (1 day).
+   */
+  settledBeforeMs?: number
+}
+
+const MAX_SERIES_DURATION_MS = 86_400_000 // 1d — the longest up/down series
+
+/**
+ * Single where-builder for the backfill claim + count queries: the CLI's
+ * `processed < target` termination depends on both selecting the exact same
+ * row set, so the predicate must exist exactly once.
+ */
+function gammaBackfillConds(opts: GammaBackfillWindow): SQL[] {
   const conds: SQL[] = [
     sql`${telonexMarkets.gammaMetadataSyncedAt} IS NULL`,
     sql`${telonexMarkets.marketStartMs} >= ${opts.fromMs}`,
   ]
   if (opts.toMs !== undefined) conds.push(sql`${telonexMarkets.marketStartMs} <= ${opts.toMs}`)
+  if (opts.settledBeforeMs !== undefined) {
+    conds.push(
+      sql`COALESCE(${telonexMarkets.endDateUs} / 1000, ${telonexMarkets.marketStartMs} + ${MAX_SERIES_DURATION_MS}) <= ${opts.settledBeforeMs}`,
+    )
+  }
+  return conds
+}
+
+/**
+ * Rows that still need a Gamma eventMetadata fetch: never attempted
+ * (`gamma_metadata_synced_at IS NULL`) within the window, oldest first.
+ * No conversion join — the strike exists for every market Gamma knows,
+ * converted or not.
+ */
+export async function listMarketsForGammaBackfill(
+  opts: GammaBackfillWindow & { limit: number },
+): Promise<Array<{ slug: string; marketStartMs: number }>> {
+  const db = mustGetDb()
   return db
     .select({ slug: telonexMarkets.slug, marketStartMs: telonexMarkets.marketStartMs })
     .from(telonexMarkets)
-    .where(and(...conds))
+    .where(and(...gammaBackfillConds(opts)))
     .orderBy(asc(telonexMarkets.marketStartMs))
     .limit(opts.limit)
 }
 
 /** Count of rows still pending a Gamma eventMetadata fetch (preflight). */
-export async function countMarketsForGammaBackfill(opts: {
-  fromMs: number
-  toMs?: number
-}): Promise<number> {
+export async function countMarketsForGammaBackfill(opts: GammaBackfillWindow): Promise<number> {
   const db = mustGetDb()
-  const conds: SQL[] = [
-    sql`${telonexMarkets.gammaMetadataSyncedAt} IS NULL`,
-    sql`${telonexMarkets.marketStartMs} >= ${opts.fromMs}`,
-  ]
-  if (opts.toMs !== undefined) conds.push(sql`${telonexMarkets.marketStartMs} <= ${opts.toMs}`)
   const rows = await db
     .select({ count: count() })
     .from(telonexMarkets)
-    .where(and(...conds))
+    .where(and(...gammaBackfillConds(opts)))
   return rows[0]?.count ?? 0
 }
 
 /**
- * Gamma metadata for one slug, catalog-wide (no conversion join — recorded-mode
- * backtests need this too). Returns null when the slug isn't in the catalog.
+ * Gamma metadata for a batch of slugs, catalog-wide (no conversion join —
+ * recorded-mode backtests need this too). Slugs missing from the catalog are
+ * absent from the returned map.
  */
-export async function getGammaMetadataBySlug(
-  slug: string,
-): Promise<{ priceToBeat: number | null; syncedAtMs: number | null } | null> {
+export async function getGammaMetadataBySlugs(
+  slugs: string[],
+): Promise<Map<string, { priceToBeat: number | null; syncedAtMs: number | null }>> {
+  const out = new Map<string, { priceToBeat: number | null; syncedAtMs: number | null }>()
+  if (slugs.length === 0) return out
   const db = mustGetDb()
-  const rows = await db
-    .select({
-      priceToBeat: telonexMarkets.priceToBeat,
-      gammaMetadataSyncedAt: telonexMarkets.gammaMetadataSyncedAt,
-    })
-    .from(telonexMarkets)
-    .where(eq(telonexMarkets.slug, slug))
-    .limit(1)
-  const row = rows[0]
-  if (!row) return null
-  return {
-    priceToBeat: row.priceToBeat,
-    syncedAtMs: row.gammaMetadataSyncedAt ? row.gammaMetadataSyncedAt.getTime() : null,
+  // Chunked IN(...) to keep individual statements bounded for very large batches.
+  for (let i = 0; i < slugs.length; i += 5000) {
+    const rows = await db
+      .select({
+        slug: telonexMarkets.slug,
+        priceToBeat: telonexMarkets.priceToBeat,
+        gammaMetadataSyncedAt: telonexMarkets.gammaMetadataSyncedAt,
+      })
+      .from(telonexMarkets)
+      .where(inArray(telonexMarkets.slug, slugs.slice(i, i + 5000)))
+    for (const row of rows) {
+      out.set(row.slug, {
+        priceToBeat: row.priceToBeat,
+        syncedAtMs: row.gammaMetadataSyncedAt ? row.gammaMetadataSyncedAt.getTime() : null,
+      })
+    }
   }
+  return out
 }
 
 /**

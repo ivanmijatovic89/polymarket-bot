@@ -167,51 +167,56 @@ export async function wireBacktestExternalFeeds(args: {
   }
 
   if (priceToBeatEnabled) {
-    // Recording started per series, not globally (5m eth/sol/xrp a month
-    // after everyone else) — a market before ITS series' epoch simply
-    // predates recording: key stays absent, no error, exactly like live
-    // before the first successful poll.
-    const seriesEpochMs = gammaPriceToBeatEpochMs(slugSymbol, timeframeFromSlug(args.slug))
-    if (window.startMs < seriesEpochMs) {
-      console.log(
-        `[backtest:feeds] priceToBeat requested but this series' recording starts ${new Date(seriesEpochMs).toISOString().slice(0, 10)} — key stays absent (slug=${args.slug})`,
-      )
-    } else if (args.gammaPriceToBeat === undefined) {
-      throw new Error(
-        `[backtest:feeds] internal: strategy requests priceToBeat but the producer did not resolve gamma metadata for slug=${args.slug}`,
-      )
-    } else if (args.gammaPriceToBeat === null || args.gammaPriceToBeat.syncedAtMs === null) {
-      throw new Error(
-        `[backtest:feeds] priceToBeat requested but telonex_markets has no backfilled Gamma metadata for slug=${args.slug}. ` +
-          `Run: npm run telonex:sync-pricetobeat-and-final-price` +
-          (args.gammaPriceToBeat === null
-            ? ' (slug missing from catalog — run telonex:sync first)'
-            : ''),
-      )
-    } else if (args.gammaPriceToBeat.priceToBeat === null) {
-      // Post-epoch market with an empty strike = a genuine Polymarket-side
-      // hole (verified: re-fetching returns empty; ~1.7k markets, listed in
-      // docs/datasets/data-coverage.md). A strategy that DEPENDS on the
-      // strike must not silently run without it — hard error, the market
-      // lands in backtest_run_failures. Exclude these windows from batches
-      // instead.
-      throw new Error(
-        `[backtest:feeds] MISSING priceToBeat for ${args.slug} — this market has no price-to-beat: ` +
-          `Polymarket never recorded the strike for this window (known outage day, ~1.36% of markets since Apr 2026; ` +
-          `outage list in docs/datasets/data-coverage.md). The data does not exist anywhere and cannot be fetched — ` +
-          `exclude this market from the batch.`,
-      )
-    } else {
+    const meta = args.gammaPriceToBeat
+    if (meta && meta.priceToBeat !== null) {
+      // A backfilled strike ALWAYS feeds, regardless of the series epoch —
+      // the epoch below only classifies missing strikes. This keeps the
+      // provisional (deliberately late) 1h/4h/1d epochs safe: data present
+      // inside the provisional span is still served.
       providerArgs.polymarketPriceToBeat = {
         symbol: (slugSymbol ?? '').toUpperCase(),
         eventStartTimeIso: new Date(window.startMs).toISOString(),
         endDateIso: new Date(window.endMs).toISOString(),
-        openPrice: args.gammaPriceToBeat.priceToBeat,
+        openPrice: meta.priceToBeat,
         availableAtMs:
           window.startMs +
           envInt('BACKTEST_PRICE_TO_BEAT_LATENCY_MS', DEFAULT_PRICE_TO_BEAT_LATENCY_MS),
       }
-      fulfilled.push(`polymarketPriceToBeat(openPrice=${args.gammaPriceToBeat.priceToBeat})`)
+      fulfilled.push(`polymarketPriceToBeat(openPrice=${meta.priceToBeat})`)
+    } else {
+      // No strike. Recording started per series, not globally (5m eth/sol/xrp
+      // a month after everyone else) — a market before ITS series' epoch
+      // simply predates recording: key stays absent, no error, exactly like
+      // live before the first successful poll.
+      const seriesEpochMs = gammaPriceToBeatEpochMs(slugSymbol, timeframeFromSlug(args.slug))
+      if (window.startMs < seriesEpochMs) {
+        console.log(
+          `[backtest:feeds] priceToBeat requested but this series' recording starts ${new Date(seriesEpochMs).toISOString().slice(0, 10)} — key stays absent (slug=${args.slug})`,
+        )
+      } else if (meta === undefined) {
+        throw new Error(
+          `[backtest:feeds] internal: strategy requests priceToBeat but the producer did not resolve gamma metadata for slug=${args.slug}`,
+        )
+      } else if (meta === null || meta.syncedAtMs === null) {
+        throw new Error(
+          `[backtest:feeds] priceToBeat requested but telonex_markets has no backfilled Gamma metadata for slug=${args.slug}. ` +
+            `Run: npm run telonex:sync-pricetobeat-and-final-price` +
+            (meta === null ? ' (slug missing from catalog — run telonex:sync first)' : ''),
+        )
+      } else {
+        // Post-epoch market with an empty strike = a genuine Polymarket-side
+        // hole (verified: re-fetching returns empty; ~1.7k markets, listed in
+        // docs/datasets/data-coverage.md). A strategy that DEPENDS on the
+        // strike must not silently run without it — hard error, the market
+        // lands in backtest_run_failures. Exclude these windows from batches
+        // instead.
+        throw new Error(
+          `[backtest:feeds] MISSING priceToBeat for ${args.slug} — this market has no price-to-beat: ` +
+            `Polymarket never recorded the strike for this window (known outage day, ~1.36% of markets since Apr 2026; ` +
+            `outage list in docs/datasets/data-coverage.md). The data does not exist anywhere and cannot be fetched — ` +
+            `exclude this market from the batch.`,
+        )
+      }
     }
   }
 

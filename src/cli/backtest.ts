@@ -57,7 +57,7 @@ import {
 import {
   getMarketsBySlugs as getTelonexMarketsBySlugs,
   getMarketBySlug as getTelonexMarketBySlug,
-  getGammaMetadataBySlug,
+  getGammaMetadataBySlugs,
   listEligibleTelonexMarkets,
   type Market as TelonexMarket,
   type Converter,
@@ -595,6 +595,15 @@ async function main(): Promise<void> {
   }
   const marketContexts: ResolvedContext[] = []
 
+  // One batched catalog-wide lookup for the priceToBeat feed (works for
+  // recorded mode too) — a per-market SELECT inside the loop would be N
+  // serial round-trips before any job dispatches.
+  const gammaMetaBySlug = feedsPriceToBeatRequested
+    ? await getGammaMetadataBySlugs(
+        filePaths.map((fp) => parseSlugFromFilename(fp)).filter((s): s is string => s !== null),
+      )
+    : null
+
   for (let idx = 0; idx < filePaths.length; idx += 1) {
     const fp = filePaths[idx]!
     if (shouldStop) break
@@ -702,8 +711,9 @@ async function main(): Promise<void> {
       | { priceToBeat: number | null; syncedAtMs: number | null }
       | null
       | undefined
-    if (feedsPriceToBeatRequested && slug) {
-      gammaPriceToBeat = await getGammaMetadataBySlug(slug)
+    if (gammaMetaBySlug && slug) {
+      // Map miss = slug not in the catalog (same `null` contract the wiring expects).
+      gammaPriceToBeat = gammaMetaBySlug.get(slug) ?? null
     }
 
     marketContexts.push({

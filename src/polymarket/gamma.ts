@@ -39,7 +39,10 @@ export async function fetchClosedGammaMarketsBySlugs(
   if (slugs.length === 0) return out
   const gammaBaseUrl = loadPolymarketConfigFromEnv().gamma.baseUrl
   const qs = slugs.map((s) => `slug=${encodeURIComponent(s)}`).join('&')
-  const res = await fetch(`${gammaBaseUrl}/markets?${qs}&closed=true`)
+  // Explicit limit: a slug maps to one market, so slugs.length covers the full
+  // batch without relying on Gamma's (undocumented) default page size — a
+  // smaller default would silently truncate matches.
+  const res = await fetch(`${gammaBaseUrl}/markets?${qs}&closed=true&limit=${slugs.length}`)
   if (!res.ok) throw new Error(`Gamma HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const arr: unknown = await res.json()
   if (!Array.isArray(arr)) throw new Error('Gamma batch response is not an array')
