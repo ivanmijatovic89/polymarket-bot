@@ -3,6 +3,7 @@ import { promises as fs } from 'node:fs'
 import * as parquet from '@dsnp/parquetjs'
 import { createRtdsCryptoPricesClient } from '../../trading/feeds/rtdsCryptoPricesClient.js'
 import { installSignalHandlers, installProcessCrashHandlers } from '../../utils/runtime.js'
+import { moveNoReplace } from '../../utils/moveNoReplace.js'
 import { utcDateOf } from '../../binance/paths.js'
 import { parseCryptoPricesCliArgs } from './cliArgs.js'
 import {
@@ -63,29 +64,6 @@ function parseArgs(argv: string[]): Args {
     },
   })
   return { assetId, ...(hours !== undefined ? { hours } : {}) }
-}
-
-/**
- * Atomically move the finished tmp file to the first FREE hourly path:
- * `recordingHourPath` is fully deterministic, so a recorder restarted within
- * the same UTC hour — or two concurrent recorders on the same asset — would
- * silently clobber the other session's rows with a plain `fs.rename` (which
- * overwrites). `fs.link` fails with EEXIST instead of replacing, so the
- * exists-check and the move are one atomic step; later segments park under
- * `-part2`, `-part3`, … and the verify CLI (which globs
- * `*-rtds-chainlink-*.parquet`) picks them all up automatically.
- */
-async function moveNoReplace(tmpPath: string, finalPath: string): Promise<string> {
-  for (let n = 1; ; n++) {
-    const target = n === 1 ? finalPath : finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
-    try {
-      await fs.link(tmpPath, target)
-      await fs.unlink(tmpPath)
-      return target
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-    }
-  }
 }
 
 function hourKeyOf(ms: number): string {
@@ -179,7 +157,8 @@ async function main(): Promise<void> {
         ...(m.serverTimestampMs !== null
           ? { server_ts_ms: BigInt(Math.trunc(m.serverTimestampMs)) }
           : {}),
-        value_raw: typeof m.rawValue === 'string' ? m.rawValue : JSON.stringify(m.rawValue),
+        value_raw:
+          typeof m.rawValue === 'string' ? m.rawValue : (JSON.stringify(m.rawValue) ?? 'undefined'),
         value,
         received_at_ms: BigInt(m.receivedAtMs),
       })

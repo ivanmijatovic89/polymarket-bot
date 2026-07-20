@@ -64,12 +64,22 @@ export async function fetchTelonexFile(
     redirect: 'follow',
     signal,
   })
-  if (res.status === 404) return { notFound: true }
+  // Cancel unread bodies on every non-success path so the underlying socket
+  // is released immediately (undici keeps it reserved until the body settles).
+  const discardBody = (): void => {
+    void res.body?.cancel().catch(() => {})
+  }
+  if (res.status === 404) {
+    discardBody()
+    return { notFound: true }
+  }
   if (res.status === 429) {
+    discardBody()
     const ra = parseRetryAfter(res.headers.get('retry-after'))
     throw new HttpError(429, ra ?? 4000, `429 Too Many Requests`, 'rateLimit')
   }
   if (res.status === 403) {
+    discardBody()
     const remaining = res.headers.get('x-downloads-remaining')
     throw new HttpError(
       403,
@@ -80,6 +90,7 @@ export async function fetchTelonexFile(
     )
   }
   if (!res.ok) {
+    discardBody()
     throw new HttpError(res.status, null, `HTTP ${res.status} ${res.statusText}`)
   }
   if (!res.body) throw new HttpError(500, null, 'empty body')
