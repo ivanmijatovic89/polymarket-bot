@@ -181,6 +181,19 @@ grep -qxF 'eval "$(starship init zsh)"' ~/.zshrc || echo 'eval "$(starship init 
 source ~/.zshrc
 ```
 
+Optional history search with arrow keys:
+
+```bash
+cat >> ~/.zshrc <<'EOF'
+
+# Up/down arrows search history matching the typed prefix
+bindkey "^[[A" history-beginning-search-backward
+bindkey "^[[B" history-beginning-search-forward
+EOF
+
+source ~/.zshrc
+```
+
 ## 5. Clone the Project
 
 Run these commands on the worker:
