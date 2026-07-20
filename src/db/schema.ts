@@ -426,6 +426,13 @@ export const telonexMarkets = mysqlTable(
       t.uploadStatus,
       t.marketStartMs,
     ),
+    // Supports the Gamma backfill's claim/count queries: `gamma_metadata_synced_at
+    // IS NULL AND market_start_ms >= ?` ORDER BY market_start_ms. Without it every
+    // claim iteration and every cron preflight full-scans the table.
+    gammaSyncedStartIdx: index('idx_telonex_markets_gamma_synced_start').on(
+      t.gammaMetadataSyncedAt,
+      t.marketStartMs,
+    ),
   }),
 )
 

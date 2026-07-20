@@ -73,6 +73,17 @@ export function binanceFeedLookbackMs(): number {
 const DEFAULT_PRICE_TO_BEAT_LATENCY_MS = 30_000
 
 /**
+ * Markets settled more recently than this replay with the priceToBeat key
+ * absent (warning, not error) when no strike is backfilled yet: the Telonex
+ * catalog publishes daily (~24h lag) and the backfill's settled gate waits 3h
+ * after window end, so a just-recorded market CANNOT have the strike in
+ * `telonex_markets` yet — hard-erroring would fail every record-today /
+ * backtest-tonight run with remediation commands that are no-ops until the
+ * pipeline catches up.
+ */
+const FRESH_MARKET_GRACE_MS = 30 * 3_600_000
+
+/**
  * Backtest-side counterpart of the feed wiring in `trading-bot.ts`, and
  * strategy-driven exactly like live: a strategy that registers
  * `ExternalFeedsRequestPlugin` gets its requested sub-feeds fulfilled from
@@ -196,6 +207,15 @@ export async function wireBacktestExternalFeeds(args: {
       } else if (meta === undefined) {
         throw new Error(
           `[backtest:feeds] internal: strategy requests priceToBeat but the producer did not resolve gamma metadata for slug=${args.slug}`,
+        )
+      } else if (window.endMs > Date.now() - FRESH_MARKET_GRACE_MS) {
+        // Recently settled market: the pipeline legitimately hasn't caught up
+        // yet (Telonex publishes its catalog daily, and the backfill's settled
+        // gate waits 3h after window end), so "no strike" is expected, not an
+        // error. Warn loudly and replay with the key absent — re-run after the
+        // backfill catches up to get the strike fed.
+        console.warn(
+          `[backtest:feeds] priceToBeat requested but the market settled <${FRESH_MARKET_GRACE_MS / 3_600_000}h ago and the backfill pipeline hasn't caught up yet — key stays absent for this run (slug=${args.slug}); re-run after telonex:sync + telonex:sync-pricetobeat-and-final-price to feed the strike`,
         )
       } else if (meta === null || meta.syncedAtMs === null) {
         throw new Error(

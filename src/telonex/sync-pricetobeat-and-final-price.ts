@@ -19,6 +19,13 @@ import {
  *
  *   npm run telonex:sync-pricetobeat-and-final-price
  *   npm run telonex:sync-pricetobeat-and-final-price -- --limit 5000 --dry-run
+ *   npm run telonex:sync-pricetobeat-and-final-price -- --refetch-nulls   # recovery pass
+ *
+ * `--refetch-nulls` re-fetches rows already stamped but with a NULL strike —
+ * the recovery path when a transient Gamma inconsistency (empty 200 response,
+ * lagging eventMetadata writer) was recorded as a permanent "no data". Genuine
+ * holes simply re-stamp null; recovered strikes fill in. Scope it with
+ * --from/--to/--limit to avoid re-fetching the known permanent holes.
  *
  * Batched (default 20 slugs per Gamma request, `closed=true`) with polite
  * spacing and exponential backoff on rate-limit/challenge responses — Gamma
@@ -43,10 +50,23 @@ type Args = {
   limit?: number
   batchSize: number
   dryRun: boolean
+  refetchNulls: boolean
 }
 
 function parseDateMs(raw: string, flag: string): number {
-  const ms = /^\d+$/.test(raw) ? Number(raw) : Date.parse(raw)
+  if (/^\d+$/.test(raw)) {
+    const n = Number(raw)
+    // Epoch ms only (13 digits) — a compact date like `20260301` would
+    // otherwise silently parse as ~1970 and widen the window to the whole
+    // catalog (hours of rate-limited Gamma fetches the floor exists to avoid).
+    if (n < 1_000_000_000_000) {
+      throw new Error(
+        `[gamma-backfill] ${flag}: ambiguous numeric value "${raw}" — pass epoch milliseconds (13 digits) or an ISO date like 2026-03-01`,
+      )
+    }
+    return n
+  }
+  const ms = Date.parse(raw)
   if (!Number.isFinite(ms)) {
     throw new Error(`[gamma-backfill] ${flag} must be an ISO date or epoch ms, got: ${raw}`)
   }
@@ -67,6 +87,7 @@ function parseArgs(argv: string[]): Args {
   let limit: number | undefined
   let batchSize = 20
   let dryRun = false
+  let refetchNulls = false
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     const next = (): string => {
@@ -80,10 +101,11 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--batch-size')
       batchSize = Math.min(50, parsePositiveInt(next(), '--batch-size'))
     else if (a === '--dry-run') dryRun = true
+    else if (a === '--refetch-nulls') refetchNulls = true
     else {
       console.error(
         'Usage: npm run telonex:sync-pricetobeat-and-final-price -- ' +
-          '[--from <iso|ms>] [--to <iso|ms>] [--limit N] [--batch-size 20] [--dry-run]',
+          '[--from <iso|ms>] [--to <iso|ms>] [--limit N] [--batch-size 20] [--dry-run] [--refetch-nulls]',
       )
       process.exit(2)
     }
@@ -94,6 +116,7 @@ function parseArgs(argv: string[]): Args {
     ...(limit ? { limit } : {}),
     batchSize,
     dryRun,
+    refetchNulls,
   }
 }
 
@@ -145,6 +168,7 @@ async function main(): Promise<void> {
     fromMs: args.fromMs,
     ...(args.toMs !== undefined ? { toMs: args.toMs } : {}),
     settledBeforeMs,
+    refetchNulls: args.refetchNulls,
   }
 
   const pending = await countMarketsForGammaBackfill(queryWindow)
@@ -153,6 +177,7 @@ async function main(): Promise<void> {
     `[gamma-backfill] pending=${pending} target=${target} from=${new Date(args.fromMs).toISOString()} ` +
       (args.toMs !== undefined ? `to=${new Date(args.toMs).toISOString()} ` : '') +
       `settledBefore=${new Date(settledBeforeMs).toISOString()} batch=${args.batchSize}` +
+      (args.refetchNulls ? ' REFETCH-NULLS' : '') +
       (args.dryRun ? ' DRY-RUN' : ''),
   )
   if (args.dryRun || target === 0) {
@@ -187,15 +212,8 @@ async function main(): Promise<void> {
     processed++
   }
 
-  // Batched claim loop: stamped rows drop out of the pending query, so the
-  // CLI is resumable at any point.
-  while (!aborted && processed < target) {
-    const rows = await listMarketsForGammaBackfill({
-      ...queryWindow,
-      limit: Math.min(500, target - processed),
-    })
-    if (rows.length === 0) break
-
+  /** Process a claimed slice of rows in Gamma-batch-sized chunks. */
+  const processRows = async (rows: Array<{ slug: string; marketStartMs: number }>) => {
     for (let i = 0; i < rows.length && !aborted; i += args.batchSize) {
       const batch = rows.slice(i, i + args.batchSize)
       const bySlug = await withGammaRetry(
@@ -233,6 +251,25 @@ async function main(): Promise<void> {
         )
       }
       await sleep(REQUEST_SPACING_MS)
+    }
+  }
+
+  if (args.refetchNulls) {
+    // Refetch mode: rows whose strike is STILL null after re-fetching keep
+    // matching the predicate, so an incremental claim loop would spin on the
+    // same oldest rows forever — fetch the whole work list once instead.
+    const rows = await listMarketsForGammaBackfill({ ...queryWindow, limit: target })
+    await processRows(rows)
+  } else {
+    // Batched claim loop: stamped rows drop out of the pending query, so the
+    // CLI is resumable at any point.
+    while (!aborted && processed < target) {
+      const rows = await listMarketsForGammaBackfill({
+        ...queryWindow,
+        limit: Math.min(500, target - processed),
+      })
+      if (rows.length === 0) break
+      await processRows(rows)
     }
   }
 

@@ -381,6 +381,14 @@ type GammaBackfillWindow = {
    * without it conservatively assume the longest series duration (1 day).
    */
   settledBeforeMs?: number
+  /**
+   * Also select rows already stamped but with a NULL strike — recovery pass
+   * for transiently-empty Gamma answers that were recorded as permanent (the
+   * stamped row is otherwise never re-fetched). NOTE: re-stamped rows whose
+   * strike is still NULL keep matching this predicate, so the CLI must fetch
+   * its work list ONCE up front in this mode (no incremental claim loop).
+   */
+  refetchNulls?: boolean
 }
 
 const MAX_SERIES_DURATION_MS = 86_400_000 // 1d — the longest up/down series
@@ -392,7 +400,9 @@ const MAX_SERIES_DURATION_MS = 86_400_000 // 1d — the longest up/down series
  */
 function gammaBackfillConds(opts: GammaBackfillWindow): SQL[] {
   const conds: SQL[] = [
-    sql`${telonexMarkets.gammaMetadataSyncedAt} IS NULL`,
+    opts.refetchNulls
+      ? sql`(${telonexMarkets.gammaMetadataSyncedAt} IS NULL OR ${telonexMarkets.priceToBeat} IS NULL)`
+      : sql`${telonexMarkets.gammaMetadataSyncedAt} IS NULL`,
     sql`${telonexMarkets.marketStartMs} >= ${opts.fromMs}`,
   ]
   if (opts.toMs !== undefined) conds.push(sql`${telonexMarkets.marketStartMs} <= ${opts.toMs}`)
