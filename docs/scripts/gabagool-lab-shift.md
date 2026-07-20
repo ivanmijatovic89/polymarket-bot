@@ -10,7 +10,7 @@ mandate). Then it builds strategy variants, backtests them, and drives
 toward either a live-ready validated variant or a numeric proof that the
 concept cannot pay, with retry conditions.
 
-- **Script:** `scripts/gabagool-lab-shift.sh` (run from the main checkout)
+- **Script:** `gabagool-knowledge-and-lab/gabagool-lab-shift.sh` (run from the main checkout)
 - **Status:** staged, **not launched** — start after the weekly Fable
   credits renew (it shares the budget with the Knowledge Shift), ideally
   once `research/gabagool/LAB-HANDOFF.md` exists.
@@ -51,7 +51,7 @@ its epistemology. Going live is the operator's decision alone.
 ```bash
 cd /Users/mijat/Sites/polymarket-bot
 tmux new -s gabalab
-MODEL=fable caffeinate -is ./scripts/gabagool-lab-shift.sh
+MODEL=fable caffeinate -is ./gabagool-knowledge-and-lab/gabagool-lab-shift.sh
 ```
 
 Knobs (env vars): `MAX_RUNS` (default 30), `MODEL`, `FAIL_SLEEP` (default
