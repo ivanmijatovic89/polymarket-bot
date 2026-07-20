@@ -17,7 +17,6 @@ discovered) — no sync high-water marks or row counts, those go stale.
 | First 5m up/down markets (eth, sol, xrp) | **2026-02-18** | earliest catalog entries |
 | 1h / 4h / 1d series | **unknown** | not in the Telonex catalog (0 rows) — TODO: confirm whether Telonex carries them or our sync filters them |
 | Resolution source | Chainlink Data Streams (not Binance, not on-chain `getRoundData`) | official docs + resolution endpoint |
-| `polymarket.com/api/crypto/crypto-price` endpoint | authoritative open/close, but **only ~last 30 days** | measured |
 | RTDS WS (`crypto_prices_chainlink` topic) | live Chainlink ticks; a sponsored Chainlink API key exists for 15m-market traders | official docs |
 
 ## Telonex
@@ -47,8 +46,7 @@ Measured 2026-07-20 by probing `gamma-api.polymarket.com/markets?slug=…&closed
 | `events[].eventMetadata.priceToBeat` | **~2026-02-19** (between 02-18 20:00 and 02-19 04:00) | the Chainlink open/strike of the window; `eventMetadata: null` before — **no backfill** |
 | `events[].eventMetadata.finalPrice` | **~2026-03-21** (between 12:00 and 18:00) | the Chainlink settle price — free resolution cross-check |
 
-This is the only bulk-history source for priceToBeat found (the
-`crypto-price` endpoint is capped at ~30 days).
+This is the only bulk-history source for priceToBeat found.
 
 ## Binance aggTrades (data.binance.vision)
 
