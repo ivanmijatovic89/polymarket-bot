@@ -7,7 +7,7 @@ resolution). It reads, pulls public trade data, measures, and synthesizes —
 it does **not** write strategy code and does **not** run evidence backtests.
 Its output is the prior knowledge the Gabagool Lab starts from.
 
-- **Script:** `scripts/gabagool-knowledge-shift.sh` (run from the main checkout)
+- **Script:** `gabagool-knowledge-and-lab/gabagool-knowledge-shift.sh` (run from the main checkout)
 - **First launched:** 2026-07-17; the operator starts and stops it (see below)
 - **Companion:** `docs/scripts/gabagool-lab-shift.md` (the lab that consumes this)
 
@@ -32,7 +32,7 @@ relaunching just resumes from `STATE.md`.
 ```bash
 cd /Users/mijat/Sites/polymarket-bot
 tmux new -s gaba
-MODEL=fable caffeinate -is ./scripts/gabagool-knowledge-shift.sh
+MODEL=fable caffeinate -is ./gabagool-knowledge-and-lab/gabagool-knowledge-shift.sh
 ```
 
 Knobs (env vars): `MAX_RUNS` (session budget, default 40), `MODEL` (default:
