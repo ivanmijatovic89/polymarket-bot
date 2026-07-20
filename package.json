@@ -24,6 +24,7 @@
     "telonex:crypto-prices:upload-r2": "tsx src/telonex/cryptoPrices/upload-crypto-prices-r2.ts",
     "telonex:crypto-prices:download-r2-to-local": "tsx src/telonex/cryptoPrices/download-crypto-prices-r2-to-local.ts",
     "telonex:crypto-prices:record-rtds": "tsx src/telonex/cryptoPrices/record-rtds-chainlink.ts",
+    "telonex:crypto-prices:verify": "tsx src/telonex/cryptoPrices/verify-crypto-prices.ts",
     "binance:download-aggtrades": "tsx src/binance/download-aggtrades.ts",
     "binance:upload-aggtrades-r2": "tsx src/binance/upload-aggtrades-r2.ts",
     "binance:download-aggtrades-r2-to-local": "tsx src/binance/download-aggtrades-r2-to-local.ts",
