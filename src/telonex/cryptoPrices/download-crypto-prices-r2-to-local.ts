@@ -141,7 +141,7 @@ async function main(): Promise<void> {
   })
 
   if (fatal) {
-    console.error('[crypto-prices:r2-to-local] fatal:', fatal.message)
+    console.error('[crypto-prices:r2-to-local] fatal:', fatal)
     process.exit(1)
   }
   console.log(
