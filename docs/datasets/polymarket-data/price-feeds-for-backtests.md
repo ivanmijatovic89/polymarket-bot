@@ -115,9 +115,8 @@ public dumps are free and identical.
   `npm run telonex:backfill-markets-pricetobeat-and-final-price` (run it after
   `telonex:sync`). Replay models the live poll: the key appears ~1s after
   window start (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`). Markets before the Gamma
-  epoch (~2026-02-19, varies per series — see
-  [Data Coverage](../data-coverage.md)) get an absent key; post-epoch markets
-  without backfill hard-error. `final_price` (Chainlink settle) is captured in
+  epoch (~2026-02-19, varies per series — see `docs/datasets/data-coverage.md`,
+  PR #132) get an absent key; post-epoch markets without backfill hard-error. `final_price` (Chainlink settle) is captured in
   the same pass for future resolution cross-checks.
 - **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
   subscription / `TELONEX_API_KEY`). The extension recipe is documented in the
