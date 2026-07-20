@@ -13,7 +13,7 @@ is free, and each worker keeps itself on the right code automatically.
 
 ::: tip Code stays in sync on its own
 Workers detect when a job needs newer code, pull, and relaunch — see
-[Worker Self-Update](/backtest/worker-self-update). Launch every machine's
+[Worker Self-Update](/backtest/fleet/self-update). Launch every machine's
 worker through `./scripts/run-worker.sh` so this works.
 :::
 
@@ -91,7 +91,7 @@ write to your database, and can only read parquet from R2.
 Self-update relies on `git pull --ff-only`. Keep each worker's checkout on the
 tracked branch with no local edits, so a pull always fast-forwards. Do
 experimental work in a separate clone. See
-[Worker Self-Update](/backtest/worker-self-update#the-one-rule-commit-and-push-first).
+[Worker Self-Update](/backtest/fleet/self-update#the-one-rule-commit-and-push-first).
 :::
 
 ### 4. Parquet access
@@ -108,7 +108,7 @@ that path once and reuses it on subsequent runs — so it works across boxes
 ## Keeping code in sync
 
 This is handled automatically — full detail in
-[Worker Self-Update](/backtest/worker-self-update). In short:
+[Worker Self-Update](/backtest/fleet/self-update). In short:
 
 - Every job carries the producer's commit SHA; a worker runs jobs whose code it
   already has and **pulls + relaunches** when a job needs newer code.
@@ -145,6 +145,6 @@ doubles cost on the verified slice and is overkill for a small, trusted team.
 
 ## See also
 
-- [Worker Self-Update](/backtest/worker-self-update) — how workers stay on the right code
+- [Worker Self-Update](/backtest/fleet/self-update) — how workers stay on the right code
 - [Parallelization (BullMQ)](/backtest/parallelization) — the local worker pool and dashboard
 - [Running Backtests](/backtest/running-backtests) — flags, env, execution modes

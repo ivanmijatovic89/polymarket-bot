@@ -35,8 +35,8 @@ Current implementation: script
 
 ## Source Of Truth
 
-- [`docs/backtest/worker-fleet-ansible.md`](../../docs/backtest/worker-fleet-ansible.md)
-- [`docs/backtest/worker-self-update.md`](../../docs/backtest/worker-self-update.md)
+- [`docs/backtest/fleet/ansible.md`](../../docs/backtest/fleet/ansible.md)
+- [`docs/backtest/fleet/self-update.md`](../../docs/backtest/fleet/self-update.md)
 - [`strategy-research-protocol/SESSIONS.md`](../SESSIONS.md) (Preconditions)
 
 ## Output

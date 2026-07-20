@@ -109,7 +109,7 @@ only for smoke tests, local debugging, or parity checks.
 - [`docs/backtest/running-backtests.md`](../../docs/backtest/running-backtests.md)
 - [`docs/datasets/telonex/backtest.md`](../../docs/datasets/telonex/backtest.md)
 - [`docs/backtest/parallelization.md`](../../docs/backtest/parallelization.md)
-- [`docs/backtest/worker-self-update.md`](../../docs/backtest/worker-self-update.md)
+- [`docs/backtest/fleet/self-update.md`](../../docs/backtest/fleet/self-update.md)
 
 ## Output
 

@@ -290,7 +290,7 @@ Run aggregate workers only on machines that have database credentials:
 
 Worker self-update is still the correctness fallback, but sibling workers can
 also be updated before they receive a new-code job. The full workflow is in
-[Worker Fleet Ansible](/backtest/worker-fleet-ansible).
+[Worker Fleet Ansible](/backtest/fleet/ansible).
 
 Copy the example inventory and edit it for your worker hosts:
 

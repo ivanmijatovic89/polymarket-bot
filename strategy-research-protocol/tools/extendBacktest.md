@@ -131,7 +131,7 @@ Detailed extension behavior belongs to the parent repo docs:
 - [`docs/backtest/extending-a-run.md`](../../docs/backtest/extending-a-run.md)
 - [`docs/backtest/running-backtests.md`](../../docs/backtest/running-backtests.md)
 - [`docs/backtest/parallelization.md`](../../docs/backtest/parallelization.md)
-- [`docs/backtest/distributed-future.md`](../../docs/backtest/distributed-future.md)
+- [`docs/backtest/fleet/overview.md`](../../docs/backtest/fleet/overview.md)
 
 Do not copy the full extension manual into this tool file. This file defines how
 the research protocol should use the extend operation.
