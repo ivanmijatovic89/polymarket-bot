@@ -5,8 +5,12 @@ import {
   type ExternalFeedsRequestPlugin,
 } from '../../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import { defaultBinanceFeedSymbol, pairFromFeedSymbol } from '../../binance/paths.js'
-import { symbolFromSlug, windowFromSlug } from '../../polymarket/upDownSlugWindow.js'
-import { GAMMA_PRICE_TO_BEAT_FROM_MS } from '../../polymarket/gammaEventMetadata.js'
+import {
+  symbolFromSlug,
+  timeframeFromSlug,
+  windowFromSlug,
+} from '../../polymarket/upDownSlugWindow.js'
+import { gammaPriceToBeatEpochMs } from '../../polymarket/gammaEventMetadata.js'
 import { loadBinanceAggTradesSeries } from './binanceAggTradesSource.js'
 import { createBacktestExternalFeedsProvider } from './backtestExternalFeedsProvider.js'
 
@@ -163,11 +167,14 @@ export async function wireBacktestExternalFeeds(args: {
   }
 
   if (priceToBeatEnabled) {
-    if (window.startMs < GAMMA_PRICE_TO_BEAT_FROM_MS) {
-      // The strike cannot exist for this market (Gamma epoch) — key stays
-      // absent, exactly like live before the first successful poll.
+    // Recording started per series, not globally (5m eth/sol/xrp a month
+    // after everyone else) — a market before ITS series' epoch simply
+    // predates recording: key stays absent, no error, exactly like live
+    // before the first successful poll.
+    const seriesEpochMs = gammaPriceToBeatEpochMs(slugSymbol, timeframeFromSlug(args.slug))
+    if (window.startMs < seriesEpochMs) {
       console.log(
-        `[backtest:feeds] priceToBeat requested but market predates the Gamma eventMetadata epoch (~2026-02-19) — key stays absent (slug=${args.slug})`,
+        `[backtest:feeds] priceToBeat requested but this series' recording starts ${new Date(seriesEpochMs).toISOString().slice(0, 10)} — key stays absent (slug=${args.slug})`,
       )
     } else if (args.gammaPriceToBeat === undefined) {
       throw new Error(
@@ -182,10 +189,16 @@ export async function wireBacktestExternalFeeds(args: {
             : ''),
       )
     } else if (args.gammaPriceToBeat.priceToBeat === null) {
-      // Synced but Gamma has no data for a post-epoch market — anomalous
-      // (boundary-window markets aside); loud, not fatal, key stays absent.
-      console.warn(
-        `[backtest:feeds] Gamma has no priceToBeat for post-epoch market ${args.slug} — key stays absent`,
+      // Post-epoch market with an empty strike = a genuine Polymarket-side
+      // hole (verified: re-fetching returns empty; ~1.7k markets, listed in
+      // docs/datasets/data-coverage.md). A strategy that DEPENDS on the
+      // strike must not silently run without it — hard error, the market
+      // lands in backtest_run_failures. Exclude these windows from batches
+      // instead.
+      throw new Error(
+        `[backtest:feeds] priceToBeat requested but Polymarket never wrote a strike for ${args.slug} ` +
+          `(known platform-side gap — see the outage list in docs/datasets/data-coverage.md). ` +
+          `Exclude this market from the batch; the data does not exist anywhere.`,
       )
     } else {
       providerArgs.polymarketPriceToBeat = {

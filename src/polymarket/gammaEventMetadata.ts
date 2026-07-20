@@ -16,6 +16,27 @@
  */
 export const GAMMA_PRICE_TO_BEAT_FROM_MS = Date.parse('2026-02-18T20:00:00Z')
 
+/**
+ * Per-series priceToBeat epochs, measured from the COMPLETE 179k-market
+ * backfill (2026-07-20, docs/datasets/data-coverage.md): Polymarket enabled
+ * the strike per series, not globally — recording for 5m eth/sol/xrp simply
+ * started a month later. Markets before their series' epoch are
+ * "recording had not started yet" (feed key absent, no error); markets after
+ * it with no strike are genuine platform-side holes (hard error in backtests).
+ * Unknown series (future timeframes/symbols) fall back to the global floor so
+ * their nulls surface loudly rather than being silently excused.
+ */
+export function gammaPriceToBeatEpochMs(symbol: string | null, timeframe: string | null): number {
+  if (timeframe === '15m') return Date.parse('2026-02-18T23:45:00Z')
+  if (timeframe === '5m') {
+    if (symbol === 'btc') return Date.parse('2026-02-19T00:05:00Z')
+    if (symbol === 'eth' || symbol === 'sol' || symbol === 'xrp') {
+      return Date.parse('2026-03-18T23:00:00Z')
+    }
+  }
+  return GAMMA_PRICE_TO_BEAT_FROM_MS
+}
+
 export type GammaEventMetadata = {
   priceToBeat: number | null
   finalPrice: number | null

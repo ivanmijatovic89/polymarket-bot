@@ -45,3 +45,9 @@ export function symbolFromSlug(slug: string): string | null {
   const m = slug.match(/^([a-z]+)-updown-/)
   return m?.[1] ?? null
 }
+
+/** Timeframe token of an up/down slug (`btc-updown-15m-...` → `15m`), or null. */
+export function timeframeFromSlug(slug: string): string | null {
+  const m = slug.match(/^[a-z]+-updown-([^-]+)-\d+$/)
+  return m?.[1]?.toLowerCase() ?? null
+}

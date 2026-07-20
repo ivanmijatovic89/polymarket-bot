@@ -54,8 +54,13 @@ supersedes the earlier probe estimates):
 - **Holes after full rollout** (~1.7k markets, symbol-symmetric ⇒ platform-side
   writer outages, not fetch errors): Mar 23 (72), **Apr 1 (708)**, Apr 24 (44),
   May 3–4 (628), May 20 (16), May 22 (153), Jun 2 (17), Jun 16 (3),
-  Jul 5–6 (21). Clean otherwise. Backtests replay these with an absent
-  `polymarketPriceToBeat` key + a loud warning.
+  Jul 5–6 (21). Clean otherwise. Re-verified 2026-07-20: a random 20-market
+  sample re-fetched from Gamma still returns empty metadata — these are
+  permanent platform-side gaps, not transient fetch errors.
+- **Backtest policy**: markets before their SERIES' epoch (recording not yet
+  started) replay with an absent key, quietly; post-epoch markets with no
+  strike **hard-error** in strike-requesting backtests (exclude those windows
+  from batches — the data does not exist anywhere).
 
 ### `events[].eventMetadata.finalPrice` (Chainlink settle)
 
