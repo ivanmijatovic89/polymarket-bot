@@ -326,21 +326,35 @@ function printInventory(markets: Market[]): void {
   }
 }
 
-/** Run one child process; resolve with its exit code. With a prefix, lines are tagged so parallel children stay readable. */
-function runChild(tsxBin: string, argv: string[], prefix: string | null): Promise<number> {
+/**
+ * Run one child process; resolve with its exit code. Output is piped through
+ * line-by-line (prefixed when several children run in parallel) so `onLine`
+ * can harvest the children's own preflight/result counts for the summary.
+ */
+function runChild(
+  tsxBin: string,
+  argv: string[],
+  prefix: string | null,
+  onLine: (line: string) => void,
+): Promise<number> {
   return new Promise((resolve) => {
-    const child = spawn(tsxBin, argv, {
-      stdio: prefix != null ? ['ignore', 'pipe', 'pipe'] : 'inherit',
-    })
-    if (prefix != null && child.stdout && child.stderr) {
+    const child = spawn(tsxBin, argv, { stdio: ['ignore', 'pipe', 'pipe'] })
+    if (child.stdout && child.stderr) {
       for (const stream of [child.stdout, child.stderr]) {
         const rl = readline.createInterface({ input: stream })
-        rl.on('line', (line) => console.log(`${prefix} ${line}`))
+        rl.on('line', (line) => {
+          console.log(prefix != null ? `${prefix} ${line}` : line)
+          onLine(line)
+        })
       }
     }
     child.on('close', (code) => resolve(code ?? 1))
   })
 }
+
+/** Lines worth surfacing in the final summary — the children's own counts. */
+const FINDING_RE =
+  /queue size=|queue=\d|to-download=|to-upload=|to download:|matched \d+ market|pending=\d/
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
@@ -371,6 +385,7 @@ async function main(): Promise<void> {
 
   const status = new Map<string, StepStatus>()
   const durations = new Map<string, number>()
+  const findings = new Map<string, string>()
   const runStart = Date.now()
   let position = 0
 
@@ -400,13 +415,20 @@ async function main(): Promise<void> {
       `\n[data:sync] ===== ${pos} ${step.id}: ${step.title}${fanNote} ===== (started ${clock()}, run elapsed ${formatSeconds(Date.now() - runStart)})`,
     )
     const startedAt = Date.now()
+    const onLine = (line: string): void => {
+      if (FINDING_RE.test(line)) {
+        findings.set(step.id, line.replace(/^\[[^\]]+\]\s*/, '').trim())
+      }
+    }
     let exitCodes: number[]
     if (fanout > 1) {
       exitCodes = await Promise.all(
-        Array.from({ length: fanout }, (_, k) => runChild(tsxBin, argv, `[${step.id}#${k + 1}]`)),
+        Array.from({ length: fanout }, (_, k) =>
+          runChild(tsxBin, argv, `[${step.id}#${k + 1}]`, onLine),
+        ),
       )
     } else {
-      exitCodes = [await runChild(tsxBin, argv, null)]
+      exitCodes = [await runChild(tsxBin, argv, null, onLine)]
     }
     durations.set(step.id, Date.now() - startedAt)
     const failedCodes = exitCodes.filter((c) => c !== 0)
@@ -428,11 +450,17 @@ async function main(): Promise<void> {
 
   console.log('\n[data:sync] summary:')
   let failed = 0
+  const idWidth = Math.max(...selected.map((s) => s.id.length))
   for (const step of selected) {
     const st = status.get(step.id) ?? 'skipped'
     if (st === 'failed') failed++
-    const dur = durations.has(step.id) ? `  ${formatSeconds(durations.get(step.id)!)}` : ''
-    console.log(`  ${st.toUpperCase().padEnd(7)} ${step.id}${dur}`)
+    const dur = durations.has(step.id)
+      ? formatSeconds(durations.get(step.id)!).padStart(7)
+      : ''.padStart(7)
+    const finding = findings.get(step.id)
+    console.log(
+      `  ${st.toUpperCase().padEnd(7)} ${step.id.padEnd(idWidth)} ${dur}${finding ? `  — ${finding}` : ''}`,
+    )
   }
 
   if (!args.dryRun) printInventory(args.markets)
