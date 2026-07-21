@@ -135,6 +135,7 @@ export default withMermaid(
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'ADR: Binance-Driven Ticks', link: '/backtest/adr-binance-driven-ticks' },
+            { text: 'Feeds Parity Harness', link: '/backtest/feeds-parity-harness' },
             {
               text: 'Fleet',
               collapsed: false,
