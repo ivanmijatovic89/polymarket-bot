@@ -114,7 +114,8 @@ public dumps are free and identical.
   `telonex_markets.price_to_beat` by
   `npm run telonex:sync-pricetobeat-and-final-price` (run it after
   `telonex:sync`). Replay models the live availability lag: the key appears
-  **30s after window start by default** (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`;
+  **~2.7s after window start by default** (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`,
+  measured p50 by the feeds:parity harness — p90 3.5s, max 5.4s;
   live the endpoint publishes the open price ~10–60s late — the live client
   logs the real lag on every resolve, re-tune the default from those logs).
   Markets before their series' recording epoch (per-series dates in

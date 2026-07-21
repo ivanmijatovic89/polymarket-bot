@@ -34,7 +34,12 @@ window, latency-env snapshot, covered recordings, every replay's exact envs),
 ## What the report means
 
 - **agreement** — % of seconds (1s grid over the overlap) where live and
-  replay saw the same feed value. Target ≥99%.
+  replay saw the same feed value. Target ≥99% — but ONLY meaningful for feeds
+  whose value persists well beyond the grid step. Chainlink updates every ~1s,
+  so most grid samples land near a transition boundary and inter-connection
+  jitter turns them into coin flips (~30% observed is expected, not an error);
+  for such feeds the lag stats below are the real fidelity measure. Binance's
+  number is also depressed by sampling density (see the 2026-07-21 findings).
 - **lag** (the tuning signal) — for each feed value transition live saw, the
   signed time offset to the same transition in replay. **Mean ≈ bias**
   (fixable: lower/raise the latency env by it); **spread ≈ jitter** (two
@@ -69,6 +74,27 @@ harness changes:
   suggestion back to the true default (235ms, ±2ms).
 
 Unit tests: `npx tsx --test src/cli/research/feedsParityCompare.test.ts src/strategies/feedsParityProbe.v1.test.ts`.
+
+## First real run (2026-07-21, run `202607211243-btc`)
+
+6h capture on the trading machine, 24 markets recorded, 21 replayed (the last
+3 windows fell after the chainlink recorder's last closed hour). Findings, all
+baked into the defaults by the follow-up commit:
+
+- **binance**: mean bias **−1ms** at the 110ms default — the modeled latency
+  is validated end-to-end; unchanged. (Raw recorder-level p50 that day was
+  38ms — network conditions vary, but the strategy-eye-level bias is what
+  matters and it was already zero.)
+- **chainlink**: mean bias −86ms at 235 → default raised to **320**
+  (residual bias 2ms after one tune iteration).
+- **priceToBeat**: live availability measured across 24 markets:
+  p50=2651ms, p90=3455ms, max=5384ms after window start — the old 30s
+  owner-estimate default was ~27s too pessimistic → default now **2700**.
+- **top-of-book agreement 99.9%** — recording/replay path itself is sound.
+- **Sampling-density datum** (phase-2 motivation): replay logged ~20k binance
+  value transitions that the live probe never observed (live's Polymarket
+  ticks landed differently), ~24% of all transitions — quantifies what
+  synthetic feed ticks ([ADR](./adr-binance-driven-ticks.md)) would recover.
 
 ## Safety
 

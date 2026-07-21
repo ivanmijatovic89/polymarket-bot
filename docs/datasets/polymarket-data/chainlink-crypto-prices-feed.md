@@ -74,7 +74,7 @@ land in `backtest_run_failures` → dashboard.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `BACKTEST_RTDS_CHAINLINK_LATENCY_MS` | `235` (measured p50, see below) | broadcast→bot leg ONLY; visibility = `server_ts + offset` |
+| `BACKTEST_RTDS_CHAINLINK_LATENCY_MS` | `320` (parity-calibrated, see below) | broadcast→bot leg ONLY; visibility = `server_ts + offset` |
 | `BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS` | `300000` | pre-window load margin (seed row guarantees a value at tick 1) |
 | `BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS` | `300000` | max tolerated in-window stale span before the market hard-errors; `0` disables (stale replay accepted) |
 | `TELONEX_CRYPTO_PRICES_BASE_DIR` | `data/telonex/crypto_prices` | data root (repo-root-anchored) |
@@ -99,18 +99,26 @@ recording (`telonex:crypto-prices:record-rtds`) against the Telonex day file
 on the round time (both sides deduped last-per-round in broadcast order) —
 acceptance is 0 value mismatches and 0 missing either side outside excused
 disconnect/clock-jump gaps. It also prints both latency legs; the measured
-p50 of `received_at − server_ts` is the `BACKTEST_RTDS_CHAINLINK_LATENCY_MS`
-default.
+p50 of `received_at − server_ts` is the recorder-level candidate for
+`BACKTEST_RTDS_CHAINLINK_LATENCY_MS`.
 
 Measured (2026-07-21, btcusd, 27,447 rounds over ~10.5h on the trading machine):
 
 | leg | p50 | p90 | p95 | p99 | min/max |
 |---|---|---|---|---|---|
-| broadcast→bot (`received_at − server_ts`) | **235** ← env default | 375 | 407 | 470 | −20 / 6109 |
+| broadcast→bot (`received_at − server_ts`) | **235** (recorder-level) | 375 | 407 | 470 | −20 / 6109 |
 | total round→bot (`received_at − round_ts`) | 1314 | — | — | — | — |
 
 The two legs are consistent: total ≈ the ~1.0–1.2s structural round→broadcast
 lag (carried as data in `visibleAtMs`) + this network leg.
+
+The **env default is 320**, not 235: the feeds:parity harness (same day,
+21 live 15m markets vs replay, boundary-lag bias at the strategy's eyes)
+showed 235 left replay seeing chainlink transitions 86ms EARLY; 320 brought
+the residual mean bias to 2ms. The recorder-level p50 varies with network
+conditions and misses the in-bot processing between socket receive and
+strategy visibility — the parity number is end-to-end, which is exactly what
+the knob models. See `docs/backtest/feeds-parity-harness.md`.
 
 ### As-of correctness
 
