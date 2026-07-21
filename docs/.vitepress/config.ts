@@ -30,7 +30,7 @@ export default withMermaid(
 
       sidebar: [
         { text: 'Overview', link: '/' },
-        { text: 'Quickstart', link: '/quickstart-new' },
+        { text: 'Quickstart', link: '/quickstart' },
         { text: 'How It Works', link: '/how-it-works' },
         { text: 'Key Concepts', link: '/key-concepts' },
 
@@ -190,7 +190,7 @@ export default withMermaid(
             { text: 'PnL Report', link: '/research/pnl-report' },
             { text: 'Redeem Watcher', link: '/research/redeem-watcher' },
             { text: 'Export Trade Features', link: '/research/export-trade-features' },
-            { text: 'Research Gate Analysis', link: '/research/research-gate-new' },
+            { text: 'Research Gate Analysis', link: '/research/research-gate' },
             { text: 'Save Intent Metrics', link: '/research/save-intent-metrics' },
             { text: 'Rebuild Backtest Segments', link: '/research/rebuild-backtest-segments' },
           ],

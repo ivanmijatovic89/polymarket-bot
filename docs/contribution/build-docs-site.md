@@ -112,7 +112,7 @@ docs/
 ├── plugins/               # Plugin pages
 ├── contribution/          # Developer workflow pages
 ├── index.md               # Site home page
-├── quickstart-new.md
+├── quickstart.md
 └── package.json
 ```
 

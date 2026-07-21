@@ -148,7 +148,7 @@ npx tsx src/cli/research/research-gate-on-backtests.ts \
   "netChange_45s>0.05"
 ```
 
-See [Research Gate Analysis](./research-gate-new.md) for full usage.
+See [Research Gate Analysis](./research-gate.md) for full usage.
 :::
 
 ## Console output

@@ -8,7 +8,7 @@ description: A step-by-step walkthrough of building a simple trading strategy â€
 This tutorial walks you through creating a working strategy from scratch. By the end, you will have a strategy that places a limit buy order when a token's price drops below a threshold, registered in the bot and runnable in backtests.
 
 ::: tip Prerequisites
-Complete the [Quickstart](/quickstart-new) first. You need recorded Parquet files and a working backtest setup before following this tutorial.
+Complete the [Quickstart](/quickstart) first. You need recorded Parquet files and a working backtest setup before following this tutorial.
 :::
 
 ## What we're building
