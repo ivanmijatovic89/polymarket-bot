@@ -74,7 +74,7 @@ land in `backtest_run_failures` → dashboard.
 
 | Var | Default | Meaning |
 |---|---|---|
-| `BACKTEST_RTDS_CHAINLINK_LATENCY_MS` | `268` (measured p50, see below) | broadcast→bot leg ONLY; visibility = `server_ts + offset` |
+| `BACKTEST_RTDS_CHAINLINK_LATENCY_MS` | `235` (measured p50, see below) | broadcast→bot leg ONLY; visibility = `server_ts + offset` |
 | `BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS` | `300000` | pre-window load margin (seed row guarantees a value at tick 1) |
 | `BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS` | `300000` | max tolerated in-window stale span before the market hard-errors; `0` disables (stale replay accepted) |
 | `TELONEX_CRYPTO_PRICES_BASE_DIR` | `data/telonex/crypto_prices` | data root (repo-root-anchored) |
@@ -102,12 +102,12 @@ disconnect/clock-jump gaps. It also prints both latency legs; the measured
 p50 of `received_at − server_ts` is the `BACKTEST_RTDS_CHAINLINK_LATENCY_MS`
 default.
 
-Measured (2026-07-21, btcusd, 3,226 rounds on the trading machine):
+Measured (2026-07-21, btcusd, 27,447 rounds over ~10.5h on the trading machine):
 
 | leg | p50 | p90 | p95 | p99 | min/max |
 |---|---|---|---|---|---|
-| broadcast→bot (`received_at − server_ts`) | **268** ← env default | 401 | 437 | 626 | 53 / 1520 |
-| total round→bot (`received_at − round_ts`) | 1334 | — | — | — | — |
+| broadcast→bot (`received_at − server_ts`) | **235** ← env default | 375 | 407 | 470 | −20 / 6109 |
+| total round→bot (`received_at − round_ts`) | 1314 | — | — | — | — |
 
 The two legs are consistent: total ≈ the ~1.0–1.2s structural round→broadcast
 lag (carried as data in `visibleAtMs`) + this network leg.

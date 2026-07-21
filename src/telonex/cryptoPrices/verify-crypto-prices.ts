@@ -126,11 +126,15 @@ async function checkAsOfCorrectness(args: {
       // The provider clamps to its monotone high-water clock — mirror it in
       // the reference query so backwards samples compare like-for-like.
       clockHighWater = Math.max(clockHighWater, t)
+      // NOTE: no lower bound on the round time — the live store retains the
+      // last received value indefinitely, so the newest VISIBLE round may
+      // predate the window (the loader's seed row). Restricting to
+      // `timestamp_us >= fromMs` here once flagged the provider's correct
+      // seed answer as a mismatch.
       const res = await args.conn.run(
         `SELECT CAST(price AS DOUBLE), timestamp_us // 1000
          FROM read_parquet(${sqlQuote(args.dayPath)})
          WHERE server_timestamp_us // 1000 + ${latencyOffsetMs} <= ${clockHighWater}
-           AND timestamp_us >= ${args.fromMs} * 1000
          ORDER BY server_timestamp_us DESC, timestamp_us DESC LIMIT 1`,
       )
       const rows = rowsOf(res)
