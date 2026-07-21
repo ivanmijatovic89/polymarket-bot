@@ -283,7 +283,17 @@ function matchesPrefix(id: string, prefixes: string[]): boolean {
 }
 
 function formatSeconds(ms: number): string {
-  return `${(ms / 1000).toFixed(1)}s`
+  if (ms < 90_000) return `${(ms / 1000).toFixed(1)}s`
+  const totalMin = Math.floor(ms / 60_000)
+  const h = Math.floor(totalMin / 60)
+  const min = totalMin % 60
+  return h > 0
+    ? `${h}h${String(min).padStart(2, '0')}m`
+    : `${min}m${Math.floor((ms % 60_000) / 1000)}s`
+}
+
+function clock(): string {
+  return new Date().toTimeString().slice(0, 8)
 }
 
 /** Count parquet files + newest filename in a directory (flat, non-recursive). */
@@ -361,28 +371,34 @@ async function main(): Promise<void> {
 
   const status = new Map<string, StepStatus>()
   const durations = new Map<string, number>()
+  const runStart = Date.now()
+  let position = 0
 
   for (const step of selected) {
+    position++
+    const pos = `[${position}/${selected.length}]`
     const selectedIds = new Set(selected.map((s) => s.id))
     const activeDeps = step.deps.filter((d) => selectedIds.has(d))
     const blocked = activeDeps.some((d) => status.get(d) !== 'ok')
     if (blocked) {
       status.set(step.id, 'skipped')
-      console.log(`\n[data:sync] SKIP ${step.id} (dependency failed)`)
+      console.log(`\n[data:sync] ${pos} SKIP ${step.id} (dependency failed)`)
       continue
     }
 
     const argv = stepCommand(step, args)
     if (args.dryRun && !step.supportsDryRun) {
       status.set(step.id, 'ok')
-      console.log(`\n[data:sync] DRY-RUN ${step.id} — no native --dry-run; would run:`)
+      console.log(`\n[data:sync] ${pos} DRY-RUN ${step.id} — no native --dry-run; would run:`)
       console.log(`  tsx ${argv.join(' ')}`)
       continue
     }
 
     const fanout = step.fanoutable ? args.fanout : 1
     const fanNote = fanout > 1 ? ` (${fanout} parallel processes)` : ''
-    console.log(`\n[data:sync] ===== ${step.id}: ${step.title}${fanNote} =====`)
+    console.log(
+      `\n[data:sync] ===== ${pos} ${step.id}: ${step.title}${fanNote} ===== (started ${clock()}, run elapsed ${formatSeconds(Date.now() - runStart)})`,
+    )
     const startedAt = Date.now()
     let exitCodes: number[]
     if (fanout > 1) {
@@ -394,12 +410,20 @@ async function main(): Promise<void> {
     }
     durations.set(step.id, Date.now() - startedAt)
     const failedCodes = exitCodes.filter((c) => c !== 0)
-    status.set(step.id, failedCodes.length === 0 ? 'ok' : 'failed')
-    if (failedCodes.length > 0) {
+    const ok = failedCodes.length === 0
+    status.set(step.id, ok ? 'ok' : 'failed')
+    if (!ok) {
       console.error(
         `[data:sync] step ${step.id}: ${failedCodes.length}/${exitCodes.length} process(es) failed (codes: ${failedCodes.join(', ')})`,
       )
     }
+    const remaining = selected
+      .slice(position)
+      .map((s) => s.id)
+      .join(', ')
+    console.log(
+      `[data:sync] ${pos} ${step.id} ${ok ? 'OK' : 'FAILED'} in ${formatSeconds(durations.get(step.id)!)} (run elapsed ${formatSeconds(Date.now() - runStart)}${remaining ? `; remaining: ${remaining}` : '; last step'})`,
+    )
   }
 
   console.log('\n[data:sync] summary:')
