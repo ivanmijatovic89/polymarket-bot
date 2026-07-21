@@ -182,6 +182,7 @@ export default withMermaid(
             { text: 'Running the Live Trading Bot', link: '/live-trading/live-trading-bot' },
             { text: 'Add a New Bot', link: '/live-trading/add-new-bot' },
             { text: 'Multiple Bots', link: '/live-trading/multiple-bots' },
+            { text: 'Redeem Watcher', link: '/live-trading/redeem-watcher' },
             { text: 'Resolve UP/DOWN 15m Assets', link: '/live-trading/resolve-updown-15m-assets' },
           ],
         },
@@ -190,7 +191,6 @@ export default withMermaid(
           text: 'Research',
           items: [
             { text: 'PnL Report', link: '/research/pnl-report' },
-            { text: 'Redeem Watcher', link: '/research/redeem-watcher' },
             { text: 'Export Trade Features', link: '/research/export-trade-features' },
             { text: 'Research Gate Analysis', link: '/research/research-gate' },
             { text: 'Save Intent Metrics', link: '/research/save-intent-metrics' },
