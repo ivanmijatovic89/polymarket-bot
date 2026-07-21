@@ -17,7 +17,7 @@ const REPO_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..
  *
  *   npm run feeds:parity -- capture --symbol btc --minutes 360
  *   npm run feeds:parity -- replay  --run <id> [--base recorded|telonex] [--env K=V ...] [--suffix name]
- *   npm run feeds:parity -- compare --run <id> [--replay-file replay-recorded.jsonl]
+ *   npm run feeds:parity -- compare --run <id> [--replay-file replay-recorded.jsonl] [--live-file live.jsonl]
  *   npm run feeds:parity -- tune    --run <id> [--apply]
  *
  * capture: runs the LIVE trading-bot (DRY_RUN=true, enforced + asserted from
@@ -324,12 +324,13 @@ async function replay(argv: string[]): Promise<void> {
 async function loadReport(
   runId: string,
   replayFile: string,
+  liveFile = 'live.jsonl',
 ): Promise<{ report: ParityReport; manifest: Manifest; replayName: string }> {
   const manifest = await readManifest(runId)
   const runDir = path.join(PARITY_ROOT, runId)
   const replayName = replayFile.replace(/\.jsonl$/, '')
   const replayMeta = manifest.replays?.[replayName]
-  const live = parseParityJsonl(await fs.readFile(path.join(runDir, 'live.jsonl'), 'utf8'))
+  const live = parseParityJsonl(await fs.readFile(path.join(runDir, liveFile), 'utf8'))
   const rep = parseParityJsonl(await fs.readFile(path.join(runDir, replayFile), 'utf8'))
   const cur = replayMeta?.env ?? manifest.env
   const report = compareParityLogs({
@@ -378,15 +379,21 @@ function printReport(r: ParityReport): void {
 async function compare(argv: string[]): Promise<void> {
   let runId = ''
   let replayFile = 'replay-recorded.jsonl'
+  let liveFile = 'live.jsonl'
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--run') runId = argv[++i] ?? ''
     else if (argv[i] === '--replay-file') replayFile = argv[++i] ?? replayFile
+    else if (argv[i] === '--live-file') liveFile = argv[++i] ?? liveFile
     else fail(`[feeds:parity] unknown compare arg: ${argv[i]}`)
   }
   if (!runId) fail('[feeds:parity] compare requires --run <id>')
-  const { report, replayName } = await loadReport(runId, replayFile)
+  const { report, replayName } = await loadReport(runId, replayFile, liveFile)
   printReport(report)
-  const outPath = path.join(PARITY_ROOT, runId, `report-${replayName}.json`)
+  // Replay-vs-replay cuts (--live-file replay-*.jsonl) get a two-sided report
+  // name so they never overwrite the live-based report for the same replay.
+  const liveName = liveFile.replace(/\.jsonl$/, '')
+  const reportName = liveName === 'live' ? replayName : `${liveName}-vs-${replayName}`
+  const outPath = path.join(PARITY_ROOT, runId, `report-${reportName}.json`)
   await fs.writeFile(outPath, `${JSON.stringify(report, null, 2)}\n`)
   console.log(`[feeds:parity] report written: ${outPath}`)
 }
