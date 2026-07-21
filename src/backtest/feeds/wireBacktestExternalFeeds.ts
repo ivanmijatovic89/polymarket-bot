@@ -85,6 +85,14 @@ export function rtdsChainlinkLookbackMs(): number {
   return envInt('BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS', DEFAULT_LOOKBACK_MS)
 }
 
+/** Effective feed latencies (env override or measured default). Exported for the feeds:parity harness. */
+export function binanceFeedLatencyMs(): number {
+  return envInt('BACKTEST_BINANCE_FEED_LATENCY_MS', DEFAULT_LATENCY_MS)
+}
+export function rtdsChainlinkLatencyMs(): number {
+  return envInt('BACKTEST_RTDS_CHAINLINK_LATENCY_MS', DEFAULT_RTDS_CHAINLINK_LATENCY_MS)
+}
+
 /**
  * Modeled delay between window start and the first successful priceToBeat
  * poll. Live, `createPolymarketPriceToBeatClient` polls from market rotation

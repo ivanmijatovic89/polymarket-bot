@@ -41,6 +41,7 @@
     "backtest": "tsx src/cli/backtest.ts",
     "backtest:worker": "tsx src/cli/backtestWorker.ts",
     "backtest:verify-diff": "tsx src/cli/verify-backtest-diff.ts",
+    "feeds:parity": "tsx src/cli/research/feeds-parity.ts",
     "dashboard": "npm --prefix dashboard run dev",
     "dashboard:build": "npm --prefix dashboard run build",
     "dashboard:start": "npm --prefix dashboard run start",
