@@ -28,7 +28,7 @@ const DEFAULT_LOOKBACK_MS = 300_000
  * the as-of visibility offset. Default is the measured p50 of
  * `received_at_ms − T` from a live recording on the trading machine
  * (2026-07-16, BTCUSDT, 48k trades over ~105min: p50=110ms p90=171 p99=397 —
- * see docs/datasets/polymarket-data/binance-aggtrades-feed.md). Re-measure
+ * see docs/datasets/price-feeds/binance/feed.md). Re-measure
  * with `binance:verify-aggtrades` and override with
  * BACKTEST_BINANCE_FEED_LATENCY_MS.
  */
@@ -77,8 +77,8 @@ export function binanceFeedLookbackMs(): number {
  * 320 brings the residual bias to 2ms. (Raw recorder-level p50 varies with
  * network conditions — 235 overnight, 273 evening — but the parity harness
  * measures at the strategy's eyes, which is the quantity this knob models;
- * see docs/backtest/feeds-parity-harness.md and
- * docs/datasets/polymarket-data/chainlink-crypto-prices-feed.md). Re-measure
+ * see docs/datasets/price-feeds/parity-harness.md and
+ * docs/datasets/price-feeds/chainlink/feed.md). Re-measure
  * with `telonex:crypto-prices:verify` and override with
  * BACKTEST_RTDS_CHAINLINK_LATENCY_MS.
  */

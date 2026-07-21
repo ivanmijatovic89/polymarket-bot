@@ -7,7 +7,7 @@ in the LIVE bot (DRY_RUN=true) and in REPLAY over a parallel recording; the
 harness compares the two per-tick views and suggests tuned latency envs.
 Re-run it whenever fidelity needs re-checking (new feed, infra change, new
 machine) — it is also the measuring instrument for the future
-synthetic-feed-ticks work ([ADR](./adr-binance-driven-ticks.md)).
+synthetic-feed-ticks work ([ADR](/backtest/adr-binance-driven-ticks)).
 
 ## The loop
 
@@ -94,7 +94,7 @@ baked into the defaults by the follow-up commit:
 - **Sampling-density datum** (phase-2 motivation): replay logged ~20k binance
   value transitions that the live probe never observed (live's Polymarket
   ticks landed differently), ~24% of all transitions — quantifies what
-  synthetic feed ticks ([ADR](./adr-binance-driven-ticks.md)) would recover.
+  synthetic feed ticks ([ADR](/backtest/adr-binance-driven-ticks)) would recover.
 
 ## Safety
 

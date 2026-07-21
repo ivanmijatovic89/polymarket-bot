@@ -8,7 +8,7 @@ Everything below was **measured against the live APIs**, not taken from vendor
 marketing. Each claim carries its evidence.
 
 > Note: this is a cross-cutting concern. The recommended Chainlink source is the
-> **Telonex** `crypto_prices` channel, even though the `polymarket-data` pipeline
+> **Telonex** `crypto_prices` channel, even though the price-feeds pipeline
 > is otherwise Telonex-independent. It is filed here because the feeds serve
 > backtests of these crypto up/down markets; the data source is orthogonal to
 > which analytics pipeline consumes it.
@@ -107,7 +107,7 @@ public dumps are free and identical.
   `ExternalFeedsRequestPlugin` with a `binanceWsSpotPrice` request enables the
   feed in backtests automatically, like live): downloader, backtest as-of
   provider, live recorder + verification harness. See
-  [Binance aggTrades Feed](./binance-aggtrades-feed.md).
+  [Binance aggTrades Feed](./binance/feed.md).
 - **priceToBeat → IMPLEMENTED** (strategy-driven via
   `polymarketPriceToBeat: { enabled: true }`): the Chainlink open/strike per
   market, backfilled from Gamma `events[].eventMetadata` into
@@ -139,7 +139,7 @@ public dumps are free and identical.
   market outcomes at **99.80%** with bit-exact strike matches. Hard-error
   policy everywhere the feed is requested and unavailable (including
   pre-2026-04-02 markets — it is the resolution price). See
-  [Chainlink crypto_prices Feed](./chainlink-crypto-prices-feed.md).
+  [Chainlink crypto_prices Feed](./chainlink/feed.md).
   `rtdsPolymarketCryptoPrices.binance` remains live-only (the channel carries
   only the chainlink stream — use `binanceWsSpotPrice`).
 

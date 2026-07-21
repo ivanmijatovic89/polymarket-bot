@@ -5,8 +5,8 @@ feed available in backtests from the Telonex `crypto_prices` channel — the
 **Chainlink oracle rounds Polymarket displays and resolves crypto markets
 with**, broadcast by Polymarket's RTDS and archived by Telonex.
 
-Source decision: [Backtest Price Feeds](./price-feeds-for-backtests.md).
-Day-to-day cron/incident checklists: [Operations Runbook](./chainlink-crypto-prices-operations.md).
+Source decision: [Backtest Price Feeds](../overview.md).
+Day-to-day cron/incident checklists: [Operations Runbook](./operations.md).
 
 ## Usage
 
@@ -29,7 +29,7 @@ Strategies without the plugin replay bit-identically to before.
 `rtdsPolymarketCryptoPrices.binance` has **no backtest source** (the channel
 carries only the chainlink stream) and stays absent in replay — same as a live
 run without that subscription. Strategies needing a Binance price use
-`binanceWsSpotPrice` ([Binance aggTrades Feed](./binance-aggtrades-feed.md)).
+`binanceWsSpotPrice` ([Binance aggTrades Feed](../binance/feed.md)).
 
 ## The two-clock model (the one structural difference vs the Binance feed)
 
@@ -118,7 +118,7 @@ showed 235 left replay seeing chainlink transitions 86ms EARLY; 320 brought
 the residual mean bias to 2ms. The recorder-level p50 varies with network
 conditions and misses the in-bot processing between socket receive and
 strategy visibility — the parity number is end-to-end, which is exactly what
-the knob models. See `docs/backtest/feeds-parity-harness.md`.
+the knob models. See [Parity Harness](../parity-harness.md).
 
 ### As-of correctness
 

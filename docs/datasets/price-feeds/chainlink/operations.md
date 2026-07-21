@@ -1,7 +1,7 @@
 # Chainlink crypto_prices — Operations Runbook
 
-Day-to-day operation of the [Chainlink crypto_prices feed](./chainlink-crypto-prices-feed.md)
-dataset. Mirrors the [Binance aggTrades runbook](./binance-aggtrades-operations.md)
+Day-to-day operation of the [Chainlink crypto_prices feed](./feed.md)
+dataset. Mirrors the [Binance aggTrades runbook](../binance/operations.md)
 — same three-command producer→R2→worker topology.
 
 ## Daily producer cron (data machine)

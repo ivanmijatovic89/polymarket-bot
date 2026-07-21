@@ -78,33 +78,32 @@ export default withMermaid(
               ],
             },
             {
-              text: 'Polymarket Data',
+              text: 'Backtest Price Feeds',
               collapsed: true,
               items: [
+                { text: 'Overview & Source Decision', link: '/datasets/price-feeds/overview' },
                 {
-                  text: 'Backtest Price Feeds',
-                  link: '/datasets/polymarket-data/price-feeds-for-backtests',
+                  text: 'Binance aggTrades',
+                  collapsed: true,
+                  items: [
+                    { text: 'Feed', link: '/datasets/price-feeds/binance/feed' },
+                    { text: 'Operations', link: '/datasets/price-feeds/binance/operations' },
+                    {
+                      text: 'Proposal: Series Cache',
+                      link: '/datasets/price-feeds/binance/series-cache-proposal',
+                    },
+                  ],
                 },
                 {
-                  text: 'Binance aggTrades Feed',
-                  link: '/datasets/polymarket-data/binance-aggtrades-feed',
+                  text: 'Chainlink crypto_prices (via Telonex)',
+                  collapsed: true,
+                  items: [
+                    { text: 'Feed', link: '/datasets/price-feeds/chainlink/feed' },
+                    { text: 'Operations', link: '/datasets/price-feeds/chainlink/operations' },
+                  ],
                 },
-                {
-                  text: 'Operations Runbook',
-                  link: '/datasets/polymarket-data/binance-aggtrades-operations',
-                },
-                {
-                  text: 'Series Cache (Proposal)',
-                  link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
-                },
-                {
-                  text: 'Chainlink crypto_prices Feed',
-                  link: '/datasets/polymarket-data/chainlink-crypto-prices-feed',
-                },
-                {
-                  text: 'Chainlink Operations Runbook',
-                  link: '/datasets/polymarket-data/chainlink-crypto-prices-operations',
-                },
+                { text: 'Price to Beat (Gamma)', link: '/datasets/price-feeds/price-to-beat' },
+                { text: 'Parity Harness (Calibration)', link: '/datasets/price-feeds/parity-harness' },
               ],
             },
             {
@@ -135,7 +134,6 @@ export default withMermaid(
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'ADR: Binance-Driven Ticks', link: '/backtest/adr-binance-driven-ticks' },
-            { text: 'Feeds Parity Harness', link: '/backtest/feeds-parity-harness' },
             {
               text: 'Fleet',
               collapsed: false,
