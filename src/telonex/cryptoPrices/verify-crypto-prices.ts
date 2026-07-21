@@ -320,7 +320,9 @@ async function loadDisconnectGaps(
         gap_to_ms?: number
       }
       if (typeof o.ts_ms !== 'number' || typeof o.kind !== 'string') continue
-      if (o.kind === 'clock-jump') {
+      // Interval-carrying gap kinds: machine sleep (clock-jump) and silently
+      // stale WS detected by the recorder's idle watchdog (idle-reconnect).
+      if (o.kind === 'clock-jump' || o.kind === 'idle-reconnect') {
         if (typeof o.gap_from_ms === 'number' && typeof o.gap_to_ms === 'number') {
           gaps.push({ fromMs: o.gap_from_ms - MARGIN_MS, toMs: o.gap_to_ms + MARGIN_MS })
         }

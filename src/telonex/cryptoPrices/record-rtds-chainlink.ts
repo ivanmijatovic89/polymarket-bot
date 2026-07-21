@@ -134,6 +134,7 @@ async function main(): Promise<void> {
       droppedAtShutdown++
       return
     }
+    lastTickAtMs = m.receivedAtMs
     const value = Number(m.rawValue)
     if (!Number.isFinite(value)) return // mirror of the live parse gate (asFiniteNumber)
     enqueue(async () => {
@@ -232,6 +233,29 @@ async function main(): Promise<void> {
     lastBeatMs = now
   }, 1_000)
   beatTimer.unref()
+
+  // Idle watchdog: chainlink rounds arrive ~1/s, so >30s of silence on a
+  // connection that never closed means a silently stale WS (half-open TCP —
+  // observed in production: the server stops delivering, no FIN arrives, the
+  // reconnect logic never fires). Force a reconnect and log the gap interval
+  // so the verify CLI excuses it like a disconnect.
+  const IDLE_RECONNECT_MS = 30_000
+  let lastTickAtMs = Date.now()
+  const idleTimer = setInterval(() => {
+    if (stopping) return
+    const now = Date.now()
+    const idleMs = now - lastTickAtMs
+    if (idleMs > IDLE_RECONNECT_MS) {
+      console.warn(
+        `[crypto-prices:record] no ticks for ${(idleMs / 1000).toFixed(0)}s — stale connection? forcing reconnect`,
+      )
+      logStatus({ kind: 'idle-reconnect', gap_from_ms: lastTickAtMs, gap_to_ms: now })
+      lastTickAtMs = now // reset so a dead upstream doesn't re-trigger every 5s
+      client.stop()
+      client.start()
+    }
+  }, 5_000)
+  idleTimer.unref()
 
   logStatus({ kind: 'recorder-start', info: `rtds crypto_prices_chainlink ${feedSymbol}` })
   console.log(
