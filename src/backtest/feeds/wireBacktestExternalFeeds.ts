@@ -72,11 +72,13 @@ export function binanceFeedLookbackMs(): number {
  * it — the ~1s round→broadcast lag is carried by the series' `visibleAtMs`
  * data and must never be double-counted here. Default is the measured p50 of
  * `received_at_ms − server_ts_ms` from a live RTDS recording on the trading
- * machine (`telonex:crypto-prices:verify` prints it; see
- * docs/datasets/polymarket-data/chainlink-crypto-prices-feed.md). Override
- * with BACKTEST_RTDS_CHAINLINK_LATENCY_MS.
+ * machine (2026-07-21, btcusd, 3,226 rounds: p50=268ms p90=401 p99=626;
+ * total round→bot p50=1334ms ≈ 1066ms structural + this leg — see
+ * docs/datasets/polymarket-data/chainlink-crypto-prices-feed.md). Re-measure
+ * with `telonex:crypto-prices:verify` and override with
+ * BACKTEST_RTDS_CHAINLINK_LATENCY_MS.
  */
-const DEFAULT_RTDS_CHAINLINK_LATENCY_MS = 100
+const DEFAULT_RTDS_CHAINLINK_LATENCY_MS = 268
 
 /** Effective chainlink pre-window lookback. Shared with the producer preflight. */
 export function rtdsChainlinkLookbackMs(): number {
