@@ -49,10 +49,14 @@ Field reference: [External Feeds Plugin](/plugins/plugin-external-feeds#polymark
    window start** by default, modeling when the value becomes visible live.
 
 The 2.7&nbsp;s default is the live p50 measured by the
-[Parity Harness](/datasets/price-feeds/parity-harness) (p90 3.5&nbsp;s, max
-5.4&nbsp;s; 2026-07-21). Live, the Gamma endpoint publishes the open price
-~10–60&nbsp;s late and the live client logs the real lag on every resolve —
-re-tune the default from those logs when the harness is re-run.
+[Parity Harness](/datasets/price-feeds/parity-harness): across 24 consecutive
+BTC 15m markets on the trading machine (2026-07-21), the strike became visible
+to the strategy p50=2651&nbsp;ms, p90=3455&nbsp;ms, min=1159&nbsp;ms,
+max=5384&nbsp;ms after window start. (An earlier ~10–60&nbsp;s estimate
+predated the measurement and was wrong by an order of magnitude.) The sample
+is one day and one machine — the live client independently logs
+"openPrice available Xs after window start" on every resolve, so drift is
+visible in ordinary bot logs; re-run the harness to re-tune.
 
 ## Availability & missing-data policy
 

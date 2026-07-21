@@ -31,6 +31,18 @@ Everything lands in `data/feeds-parity/<runId>/`: `manifest.json` (symbol,
 window, latency-env snapshot, covered recordings, every replay's exact envs),
 `live.jsonl`, `replay-*.jsonl`, child logs, and `report-*.json`.
 
+For the telonex base, run the comparison **twice** — the two cuts answer
+different questions:
+
+- **live vs replay-telonex** — end-to-end parity against the canonical
+  dataset, but includes live WS jitter.
+- **replay-recorded vs replay-telonex** (pass `--live-file
+  replay-recorded.jsonl`) — both sides deterministic, zero jitter, so any
+  disagreement is purely a **dataset difference** between our own recording
+  and the Telonex orderbook stream. Target: ~100% top-of-book agreement at
+  aligned exchange timestamps. Note this compares top-of-book only — a
+  discrepancy deeper in the book would not show up here.
+
 ## What the report means
 
 - **agreement** — % of seconds (1s grid over the overlap) where live and
