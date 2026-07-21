@@ -78,7 +78,7 @@ export default withMermaid(
               ],
             },
             {
-              text: 'Backtest Price Feeds',
+              text: 'Price Feeds',
               collapsed: true,
               items: [
                 { text: 'Overview & Source Decision', link: '/datasets/price-feeds/overview' },
