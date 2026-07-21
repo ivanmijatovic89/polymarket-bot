@@ -111,8 +111,14 @@ the child noise:
 
 ```bash
 npm run data:sync:main -- --market btc:15m --fanout 6 2>&1 | tee data-sync.log
-# in another terminal:
-grep "^\[data:sync\]" data-sync.log
+```
+
+In another terminal, follow just the orchestrator lines live (plain `grep`
+reads to EOF and exits — use one of these instead):
+
+```bash
+tail -f data-sync.log | grep --line-buffered "^\[data:sync\]"   # streaming
+watch -n 10 'grep "^\[data:sync\]" data-sync.log | tail -15'    # refreshing snapshot
 ```
 
 ## Failure handling
