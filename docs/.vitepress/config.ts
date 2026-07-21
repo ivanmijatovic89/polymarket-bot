@@ -43,6 +43,7 @@ export default withMermaid(
           text: 'Datasets',
           items: [
             { text: 'Overview', link: '/datasets/index' },
+            { text: 'Machine Roles & Sync', link: '/datasets/sync' },
             { text: 'Data Coverage (epochs)', link: '/datasets/data-coverage' },
             {
               text: 'Live Recording',
