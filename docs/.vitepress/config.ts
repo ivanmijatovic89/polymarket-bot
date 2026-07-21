@@ -180,6 +180,8 @@ export default withMermaid(
           text: 'Live Trading',
           items: [
             { text: 'Running the Live Trading Bot', link: '/live-trading/live-trading-bot' },
+            { text: 'Add a New Bot', link: '/live-trading/add-new-bot' },
+            { text: 'Multiple Bots', link: '/live-trading/multiple-bots' },
             { text: 'Resolve UP/DOWN 15m Assets', link: '/live-trading/resolve-updown-15m-assets' },
           ],
         },
@@ -306,8 +308,6 @@ export default withMermaid(
           items: [
             { text: 'Architecture', link: '/other/architecture' },
             { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
-            { text: 'Add New Bot', link: '/other/AddNewBot' },
-            { text: 'Multiple Bots', link: '/other/MultipleBots' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },
