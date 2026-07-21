@@ -1,66 +1,111 @@
+---
+title: Quickstart
+description: Get the bot recording, backtesting, and trading in under 10 minutes.
+---
+
 # Quickstart
 
 ## Prerequisites
 
-- Node.js v20
-- npm
-- `.env` configured from `.env.example`
+- Node.js v20 (`node --version` should print `v20.x.x`)
+- MySQL 8+ running locally or remotely
+- A Polymarket account with an EOA private key and CLOB API credentials
 
-Install dependencies:
+## Install
 
 ```bash
+git clone https://github.com/ivanmijatovic89/polymarket-bot.git
+cd polymarket-bot
 npm install
 npm --prefix webui install
 ```
 
-## Most Common Workflows
-
-### 1) Record live market stream to parquet
+Copy the example environment file and fill in your credentials:
 
 ```bash
-npm run record:live:btc
+cp .env.example .env
 ```
 
-Output goes to `data/events/<symbol>/` unless `RECORD_BASE_DIR` overrides.
-
-### 2) Backtest strategy on parquet files
+Minimum required variables to get started:
 
 ```bash
-npm run backtest -- --strategy basicFak.v1 data/events/btc/<slug>.parquet
+# .env
+PRIVATE_KEY=0x...
+POLYMARKET_API_KEY=...
+POLYMARKET_API_SECRET=...
+POLYMARKET_API_PASSPHRASE=...
+
+DATABASE_HOST=127.0.0.1
+DATABASE_PORT=3306
+DATABASE_USERNAME=root
+DATABASE_PASSWORD=...
+DATABASE_NAME=polymarket_bot
 ```
 
-From DB by symbol:
+Set up the database:
 
 ```bash
-npm run backtest -- --strategy SplitSellRedeem.v3 --symbol btc --limit 100 --latest
+npm run db:migrate
 ```
 
-### 3) Run live trading bot
+## Step 1 — Record live market data
 
-Dry-run (safe default behavior):
+The bot trades on 15-minute UP/DOWN markets for BTC, ETH, SOL, and XRP. Before backtesting, you need recorded data.
 
 ```bash
-TRADING_SYMBOL=BTC DRY_RUN=true npm run trade:bot -- --strategy basicFak.v1
+RECORD_SYMBOL=BTC npm run record:live:btc
 ```
 
-Real orders:
+Data is written to `data/events/btc/` as `.parquet` files, one per 15-minute window. Let it run for at least one full window (15 minutes) to capture a complete episode.
+
+::: tip
+Press `Ctrl+C` to stop the recorder cleanly. The current file is renamed to `*-terminated.parquet` and is valid for backtesting.
+:::
+
+## Step 2 — Seed the database
+
+After recording, register the new files in the database so the backtest runner can find them:
 
 ```bash
-TRADING_SYMBOL=BTC DRY_RUN=false npm run trade:bot -- --strategy basicFak.v1
+npm run db:insert-parquet
 ```
 
-### 4) Web UI
+## Step 3 — Run a backtest
 
 ```bash
-ENABLE_WEB_UI=true WEB_UI_HOST=127.0.0.1 WEB_UI_PORT=3001 npm run trade:bot:btc -- --strategy basicFak.v1
+npm run backtest -- --strategy basicFak.v1 --symbol btc --limit 5 --latest
 ```
 
-Open: `http://127.0.0.1:3001`
+This replays the 5 most recent BTC recordings with the `basicFak.v1` strategy and prints per-market and aggregate statistics.
 
-## Baseline Validation Checklist
+::: tip
+`DRY_RUN` has no effect in backtests — execution is always simulated. Safe to run at any time.
+:::
 
-- `npm run code:eslint` passes.
-- `record:live` writes valid parquet files.
-- `backtest` runs at least one file end-to-end.
-- live bot starts, connects market WS, and processes ticks.
-- strategy appears in runtime logs and produces expected intents/events.
+## Step 4 — Run the live trading bot
+
+By default, `DRY_RUN=true`. The bot connects to live markets, runs strategy logic, and logs what it _would_ do — but places no real orders.
+
+```bash
+TRADING_SYMBOL=BTC npm run trade:bot:btc -- --strategy basicFak.v1
+```
+
+To place real orders, set `DRY_RUN=false`:
+
+```bash
+TRADING_SYMBOL=BTC DRY_RUN=false npm run trade:bot:btc -- --strategy basicFak.v1
+```
+
+::: danger
+Real orders move real money. Verify your strategy in backtest and dry-run first.
+:::
+
+## Validation checklist
+
+Before going live, confirm:
+
+- [ ] `npm run code:eslint` passes
+- [ ] `npm run record:live:btc` writes valid `.parquet` files
+- [ ] `npm run backtest` runs at least one file end-to-end without errors
+- [ ] `npm run trade:bot:btc` starts, connects to market WebSocket, and logs ticks in dry-run mode
+- [ ] `npm run check:balances` shows sufficient USDC and correct approvals

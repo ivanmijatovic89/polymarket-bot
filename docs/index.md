@@ -12,7 +12,7 @@ hero:
   actions:
     - theme: brand
       text: Get Started
-      link: /quickstart-new
+      link: /quickstart
     - theme: alt
       text: How It Works
       link: /how-it-works
@@ -49,7 +49,7 @@ The recorder captures raw WebSocket events to Parquet. The backtester replays th
 
 | If you want to… | Go to |
 | --- | --- |
-| Get up and running fast | [Quickstart](/quickstart-new) |
+| Get up and running fast | [Quickstart](/quickstart) |
 | Understand the architecture | [How It Works](/how-it-works) |
 | Learn the terminology | [Key Concepts](/key-concepts) |
 | Write your first strategy | [Tutorial: First Strategy](/strategy/tutorial-first-strategy) |

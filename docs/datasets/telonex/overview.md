@@ -9,6 +9,10 @@ Telonex is a third-party platform that continuously records the Polymarket WebSo
 
 This page explains how the integration is structured. For step-by-step instructions see the linked pages at the bottom.
 
+::: tip Telonex also provides the Chainlink `crypto_prices` channel
+The orderbook pipeline documented here is not the only Telonex dataset: the paid `crypto_prices` channel supplies the Chainlink rounds used as a backtest price feed. That dataset has its own pipeline, documented under [Backtest Price Feeds → Chainlink](/datasets/price-feeds/chainlink/feed).
+:::
+
 ## The production pipeline and verification gate
 
 Ingesting Telonex data is split into three production stages plus an explicit verification gate. The production stages have dedicated CLIs and write their state to MySQL, so any stage can be re-run or resumed without touching the others. Verification is intentionally local and temporary: it rebuilds converter output for one slug and proves that backtest replay reconstructs the original raw Telonex orderbook state.

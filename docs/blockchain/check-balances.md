@@ -116,4 +116,4 @@ npm run eoa:approve
 npm run relayer:approve
 ```
 
-See [SAFE Relayer CLI](./relayer-cli.md) and [Deposit, Approve, Withdraw, Check Balance](/other/DepositApproveWithdrawCheckBalance) for full details.
+See [SAFE Relayer CLI](./relayer-cli.md) for full details.

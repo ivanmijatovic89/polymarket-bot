@@ -84,7 +84,7 @@ POLYMARKET_API_PASSPHRASE=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 ```
 
 ::: tip Multi-bot credential isolation
-When running multiple bots with different wallets, place each wallet's credentials in its own `.env.botX` file and set `BOT_ENV=botX` before starting that bot instance. See [Multiple Bots](/other/MultipleBots) for the full setup.
+When running multiple bots with different wallets, place each wallet's credentials in its own `.env.botX` file and set `BOT_ENV=botX` before starting that bot instance. See [Multiple Bots](/live-trading/multiple-bots) for the full setup.
 :::
 
 ## Troubleshooting

@@ -5,8 +5,8 @@ available in backtests via a point-in-time (as-of) lookup over historical
 `data.binance.vision` daily aggTrades dumps — the **same event stream** the
 live WS client (`<symbol>@aggTrade`) consumes.
 
-Source decision and Chainlink follow-up: [Backtest Price Feeds](./price-feeds-for-backtests.md).
-Day-to-day cron/incident checklists: [Operations Runbook](./binance-aggtrades-operations.md).
+Source decision and Chainlink follow-up: [Backtest Price Feeds](../overview.md).
+Day-to-day cron/incident checklists: [Operations Runbook](./operations.md).
 
 ## Usage
 

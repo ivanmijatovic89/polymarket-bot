@@ -30,7 +30,7 @@ export default withMermaid(
 
       sidebar: [
         { text: 'Overview', link: '/' },
-        { text: 'Quickstart', link: '/quickstart-new' },
+        { text: 'Quickstart', link: '/quickstart' },
         { text: 'How It Works', link: '/how-it-works' },
         { text: 'Key Concepts', link: '/key-concepts' },
 
@@ -78,33 +78,32 @@ export default withMermaid(
               ],
             },
             {
-              text: 'Polymarket Data',
+              text: 'Price Feeds',
               collapsed: true,
               items: [
+                { text: 'Overview & Source Decision', link: '/datasets/price-feeds/overview' },
                 {
-                  text: 'Backtest Price Feeds',
-                  link: '/datasets/polymarket-data/price-feeds-for-backtests',
+                  text: 'Binance aggTrades',
+                  collapsed: true,
+                  items: [
+                    { text: 'Feed', link: '/datasets/price-feeds/binance/feed' },
+                    { text: 'Operations', link: '/datasets/price-feeds/binance/operations' },
+                    {
+                      text: 'Proposal: Series Cache',
+                      link: '/datasets/price-feeds/binance/series-cache-proposal',
+                    },
+                  ],
                 },
                 {
-                  text: 'Binance aggTrades Feed',
-                  link: '/datasets/polymarket-data/binance-aggtrades-feed',
+                  text: 'Chainlink crypto_prices (via Telonex)',
+                  collapsed: true,
+                  items: [
+                    { text: 'Feed', link: '/datasets/price-feeds/chainlink/feed' },
+                    { text: 'Operations', link: '/datasets/price-feeds/chainlink/operations' },
+                  ],
                 },
-                {
-                  text: 'Operations Runbook',
-                  link: '/datasets/polymarket-data/binance-aggtrades-operations',
-                },
-                {
-                  text: 'Series Cache (Proposal)',
-                  link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
-                },
-                {
-                  text: 'Chainlink crypto_prices Feed',
-                  link: '/datasets/polymarket-data/chainlink-crypto-prices-feed',
-                },
-                {
-                  text: 'Chainlink Operations Runbook',
-                  link: '/datasets/polymarket-data/chainlink-crypto-prices-operations',
-                },
+                { text: 'Price to Beat (Gamma)', link: '/datasets/price-feeds/price-to-beat' },
+                { text: 'Parity Harness (Calibration)', link: '/datasets/price-feeds/parity-harness' },
               ],
             },
             {
@@ -135,7 +134,6 @@ export default withMermaid(
             { text: 'Parallelization (BullMQ)', link: '/backtest/parallelization' },
             { text: 'Generate Backtest Jobs', link: '/backtest/generate-backtest-jobs' },
             { text: 'ADR: Binance-Driven Ticks', link: '/backtest/adr-binance-driven-ticks' },
-            { text: 'Feeds Parity Harness', link: '/backtest/feeds-parity-harness' },
             {
               text: 'Fleet',
               collapsed: false,
@@ -180,6 +178,9 @@ export default withMermaid(
           text: 'Live Trading',
           items: [
             { text: 'Running the Live Trading Bot', link: '/live-trading/live-trading-bot' },
+            { text: 'Add a New Bot', link: '/live-trading/add-new-bot' },
+            { text: 'Multiple Bots', link: '/live-trading/multiple-bots' },
+            { text: 'Redeem Watcher', link: '/live-trading/redeem-watcher' },
             { text: 'Resolve UP/DOWN 15m Assets', link: '/live-trading/resolve-updown-15m-assets' },
           ],
         },
@@ -188,9 +189,8 @@ export default withMermaid(
           text: 'Research',
           items: [
             { text: 'PnL Report', link: '/research/pnl-report' },
-            { text: 'Redeem Watcher', link: '/research/redeem-watcher' },
             { text: 'Export Trade Features', link: '/research/export-trade-features' },
-            { text: 'Research Gate Analysis', link: '/research/research-gate-new' },
+            { text: 'Research Gate Analysis', link: '/research/research-gate' },
             { text: 'Save Intent Metrics', link: '/research/save-intent-metrics' },
             { text: 'Rebuild Backtest Segments', link: '/research/rebuild-backtest-segments' },
           ],
@@ -306,9 +306,6 @@ export default withMermaid(
           items: [
             { text: 'Architecture', link: '/other/architecture' },
             { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
-            { text: 'Commands', link: '/other/Commands' },
-            { text: 'Add New Bot', link: '/other/AddNewBot' },
-            { text: 'Multiple Bots', link: '/other/MultipleBots' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },

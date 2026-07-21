@@ -1,17 +1,25 @@
-# Backtest Price Feeds: Chainlink + Binance — Source Decision
+---
+title: Price Feeds — Overview & Source Decision
+description: The source-of-truth decision record for the backtest price feeds (Chainlink, Binance, price to beat), with implementation status and links to the per-feed pages.
+---
+
+# Price Feeds: Overview & Source Decision
 
 This document records the source-of-truth decision for making the **Chainlink**
 and **Binance** price feeds available in **backtests**, so strategies can read
-`ctx.plugins.externalFeeds.*` in replay exactly as they do live.
+`ctx.plugins.externalFeeds.*` in replay exactly as they do live. A third feed,
+**price to beat** (the per-market Chainlink open/strike from Gamma), joined
+later and is covered in [Status](#status) with its own page.
 
 Everything below was **measured against the live APIs**, not taken from vendor
 marketing. Each claim carries its evidence.
 
-> Note: this is a cross-cutting concern. The recommended Chainlink source is the
-> **Telonex** `crypto_prices` channel, even though the `polymarket-data` pipeline
-> is otherwise Telonex-independent. It is filed here because the feeds serve
-> backtests of these crypto up/down markets; the data source is orthogonal to
-> which analytics pipeline consumes it.
+::: tip Cross-cutting concern
+The recommended Chainlink source is the **Telonex** `crypto_prices` channel,
+even though the price-feeds pipeline is otherwise Telonex-independent. It is
+filed here because the feeds serve backtests of these crypto up/down markets;
+the data source is orthogonal to which analytics pipeline consumes it.
+:::
 
 ## The problem
 
@@ -103,43 +111,22 @@ public dumps are free and identical.
 
 ## Status
 
-- **Binance → IMPLEMENTED** (strategy-driven: declaring
-  `ExternalFeedsRequestPlugin` with a `binanceWsSpotPrice` request enables the
-  feed in backtests automatically, like live): downloader, backtest as-of
-  provider, live recorder + verification harness. See
-  [Binance aggTrades Feed](./binance-aggtrades-feed.md).
-- **priceToBeat → IMPLEMENTED** (strategy-driven via
-  `polymarketPriceToBeat: { enabled: true }`): the Chainlink open/strike per
-  market, backfilled from Gamma `events[].eventMetadata` into
-  `telonex_markets.price_to_beat` by
-  `npm run telonex:sync-pricetobeat-and-final-price` (run it after
-  `telonex:sync`). Replay models the live availability lag: the key appears
-  **~2.7s after window start by default** (`BACKTEST_PRICE_TO_BEAT_LATENCY_MS`,
-  measured p50 by the feeds:parity harness — p90 3.5s, max 5.4s;
-  live the endpoint publishes the open price ~10–60s late — the live client
-  logs the real lag on every resolve, re-tune the default from those logs).
-  Markets before their series' recording epoch (per-series dates in
-  [Data Coverage](../data-coverage.md)) get an absent key, as do markets
-  settled <30h ago (pipeline-lag grace: Telonex catalogs daily and the
-  backfill waits 3h after settle — warned, not errored, so record-today /
-  backtest-tonight keeps working); other post-epoch markets without backfill —
-  or inside a verified Polymarket-side hole — hard-error. If a hard error
-  turns out to be a transiently-empty Gamma answer that got stamped as
-  permanent, re-fetch with
-  `npm run telonex:sync-pricetobeat-and-final-price -- --refetch-nulls`.
-  `final_price` (Chainlink settle) is captured in
-  the same pass for future resolution cross-checks.
-- **Chainlink via Telonex `crypto_prices` → IMPLEMENTED** (strategy-driven via
-  `rtdsCryptoPrices` in the request plugin; explicit `chainlinkSymbols` or
-  slug-derived): dataset pipeline (download `--sync` → R2 mirror → worker
-  pull), two-clock as-of provider (visibility on Polymarket's broadcast time
-  ~1s after the round time + measured bot leg; emitted `tsMs` = round time,
-  live parity), RTDS recorder + verification harness, and a resolution
-  replication check — deriving UP/DOWN from the series reproduces actual
-  market outcomes at **99.80%** with bit-exact strike matches. Hard-error
-  policy everywhere the feed is requested and unavailable (including
-  pre-2026-04-02 markets — it is the resolution price). See
-  [Chainlink crypto_prices Feed](./chainlink-crypto-prices-feed.md).
+All three feeds are **IMPLEMENTED** and strategy-driven (declared via
+`ExternalFeedsRequestPlugin`; backtests fulfill them automatically, like
+live). The details below live on the per-feed pages:
+
+- **Binance** (`binanceWsSpotPrice`) — downloader, backtest as-of provider,
+  live recorder + verification harness. See
+  [Binance aggTrades: Feed](./binance/feed.md).
+- **priceToBeat** (`polymarketPriceToBeat`) — the Chainlink open/strike per
+  market, backfilled from Gamma into `telonex_markets.price_to_beat`, replayed
+  with the measured availability lag. See
+  [Price to Beat](./price-to-beat.md).
+- **Chainlink** (`rtdsCryptoPrices`) — Telonex `crypto_prices` pipeline,
+  two-clock as-of provider, RTDS recorder + verification harness; resolution
+  replication reproduces actual outcomes at 99.80%. Hard-error policy wherever
+  requested and unavailable — it is the resolution price. See
+  [Chainlink crypto_prices: Feed](./chainlink/feed.md).
   `rtdsPolymarketCryptoPrices.binance` remains live-only (the channel carries
   only the chainlink stream — use `binanceWsSpotPrice`).
 
@@ -166,13 +153,16 @@ existing raw-file downloader expands `(date, asset_id)` candidates and
 `crypto_prices`. So the fetch is keyed differently from the `book_snapshot_full`
 path — small additions, not a blocker.
 
-## Open items before implementation
+## Open items before implementation — all RESOLVED
 
-1. **One authenticated `crypto_prices` pull** to lock the exact column names
-   (`llms.txt` gives the three timestamps and the coin list, but not the final
-   `price`/`symbol`/`source` spelling).
-2. Confirm the existing Telonex plan is the Polymarket one (it must be — the
-   `book_snapshot_full` sync already works through it).
+Kept as part of the decision record; both were closed by the `crypto_prices`
+implementation:
+
+1. ~~**One authenticated `crypto_prices` pull** to lock the exact column names~~
+   — done; the schema is documented in
+   [Chainlink crypto_prices: Feed](./chainlink/feed.md).
+2. ~~Confirm the existing Telonex plan is the Polymarket one~~ — confirmed; the
+   full pipeline runs through the existing `TELONEX_API_KEY`.
 
 ## Sources
 

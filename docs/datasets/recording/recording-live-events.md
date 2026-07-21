@@ -10,7 +10,7 @@ The recorder subscribes to Polymarket's market WebSocket for a chosen symbol and
 ## Prerequisites
 
 - `RECORD_SYMBOL` environment variable set to one of `BTC`, `ETH`, `SOL`, or `XRP`.
-- A valid `.env` file (or the variables exported into the shell environment). The Polymarket WebSocket URL and Gamma API base URL are read from the standard environment — see the [Reference](/other/Reference) for the full variable list.
+- A valid `.env` file (or the variables exported into the shell environment). The Polymarket WebSocket URL and Gamma API base URL are read from the standard environment — see [Environment Variables](/reference/environment-variables) for the full variable list.
 
 ## Starting the recorder
 

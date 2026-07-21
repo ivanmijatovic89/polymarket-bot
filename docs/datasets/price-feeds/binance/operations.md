@@ -1,6 +1,6 @@
 # Binance aggTrades — Operations Runbook
 
-Checklist-style companion to the [feature doc](./binance-aggtrades-feed.md).
+Checklist-style companion to the [feature doc](./feed.md).
 Everything here assumes the standard layout: one **producer** (data machine
 with internet access to `data.binance.vision` and R2 write access) and N
 **workers** (backtest machines that read day files from local disk only).
