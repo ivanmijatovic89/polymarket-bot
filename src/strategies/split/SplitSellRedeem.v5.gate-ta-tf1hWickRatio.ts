@@ -62,7 +62,6 @@ export function createStrategy(cfg: Config): {
   })
 
   // const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
-  //   rtdsCryptoPrices: {}, // symbols follow the traded market (TRADING_SYMBOL); rtds is live-only
   //   binanceWsSpotPrice: {}, // pair follows the traded market (TRADING_SYMBOL live, slug in backtests)
   //   polymarketPriceToBeat: { enabled: true },
   // })

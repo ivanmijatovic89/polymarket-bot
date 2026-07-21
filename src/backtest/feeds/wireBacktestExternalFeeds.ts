@@ -11,7 +11,13 @@ import {
   windowFromSlug,
 } from '../../polymarket/upDownSlugWindow.js'
 import { gammaPriceToBeatEpochMs } from '../../polymarket/gammaEventMetadata.js'
+import {
+  assetIdForSymbol,
+  assetIdFromChainlinkFeedSymbol,
+  chainlinkFeedSymbolForMarketSymbol,
+} from '../../telonex/cryptoPrices/paths.js'
 import { loadBinanceAggTradesSeries } from './binanceAggTradesSource.js'
+import { loadChainlinkCryptoPricesSeries } from './chainlinkCryptoPricesSource.js'
 import { createBacktestExternalFeedsProvider } from './backtestExternalFeedsProvider.js'
 
 /** Pre-window margin so an as-of value exists at the first in-window tick. */
@@ -61,6 +67,25 @@ export function binanceFeedLookbackMs(): number {
 }
 
 /**
+ * Modeled RTDS broadcast→bot latency for the chainlink feed. This is ONLY the
+ * network leg between Polymarket broadcasting a round and the bot receiving
+ * it — the ~1s round→broadcast lag is carried by the series' `visibleAtMs`
+ * data and must never be double-counted here. Default is the measured p50 of
+ * `received_at_ms − server_ts_ms` from a live RTDS recording on the trading
+ * machine (2026-07-21, btcusd, 27,447 rounds over ~10.5h: p50=235ms p90=375
+ * p99=470; total round→bot p50=1314ms ≈ ~1.1s structural + this leg — see
+ * docs/datasets/polymarket-data/chainlink-crypto-prices-feed.md). Re-measure
+ * with `telonex:crypto-prices:verify` and override with
+ * BACKTEST_RTDS_CHAINLINK_LATENCY_MS.
+ */
+const DEFAULT_RTDS_CHAINLINK_LATENCY_MS = 235
+
+/** Effective chainlink pre-window lookback. Shared with the producer preflight. */
+export function rtdsChainlinkLookbackMs(): number {
+  return envInt('BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS', DEFAULT_LOOKBACK_MS)
+}
+
+/**
  * Modeled delay between window start and the first successful priceToBeat
  * poll. Live, `createPolymarketPriceToBeatClient` polls from market rotation
  * at 1s cadence, but the endpoint itself publishes the open price LATE —
@@ -90,12 +115,15 @@ const FRESH_MARKET_GRACE_MS = 30 * 3_600_000
  * historical data — no CLI flag, declaring the plugin IS the opt-in.
  * Strategies without the plugin replay exactly as before.
  *
- * Available sub-feeds: `binanceWsSpotPrice` (data.binance.vision aggTrades)
- * and `polymarketPriceToBeat` (Gamma eventMetadata via `telonex_markets`,
- * resolved by the producer into `gammaPriceToBeat`). `rtdsCryptoPrices` needs
- * the Telonex `crypto_prices` series — still live-only; requested-but-
- * unavailable sub-feeds stay absent from the snapshot, same as a live run
- * where those clients aren't running.
+ * Available sub-feeds: `binanceWsSpotPrice` (data.binance.vision aggTrades),
+ * `polymarketPriceToBeat` (Gamma eventMetadata via `telonex_markets`, resolved
+ * by the producer into `gammaPriceToBeat`), and
+ * `rtdsPolymarketCryptoPrices.chainlink` (Telonex `crypto_prices` — the
+ * Chainlink rounds Polymarket resolves with, two-clock visibility model).
+ * `rtdsPolymarketCryptoPrices.binance` has no backtest source (the channel
+ * carries only the chainlink stream) and stays absent, same as a live run
+ * without that subscription — strategies needing a Binance price use
+ * `binanceWsSpotPrice`.
  *
  * Missing historical data that SHOULD exist is a HARD error (fails the market
  * job naming the exact fix command) — a feed-declaring strategy silently
@@ -103,7 +131,10 @@ const FRESH_MARKET_GRACE_MS = 30 * 3_600_000
  * module exists to prevent. Data that CANNOT exist (priceToBeat before Gamma's
  * ~2026-02-19 epoch) leaves the key absent instead: no command can produce it,
  * and strategies must handle an absent key anyway (live it is absent until the
- * first poll succeeds).
+ * first poll succeeds). EXCEPTION — the chainlink feed is hard-error in EVERY
+ * unavailable case, including pre-coverage markets (project decision): it is
+ * the resolution price, and a strategy requesting it must never silently run
+ * without it.
  */
 export async function wireBacktestExternalFeeds(args: {
   pluginSet: PluginSet | undefined
@@ -125,12 +156,8 @@ export async function wireBacktestExternalFeeds(args: {
 
   const binanceReq = reqPlugin.config.binanceWsSpotPrice
   const priceToBeatEnabled = reqPlugin.config.polymarketPriceToBeat?.enabled === true
-  if (!binanceReq && !priceToBeatEnabled) {
-    console.warn(
-      `[backtest:feeds] strategy requests external feeds but only rtdsCryptoPrices, which has no backtest source yet (Telonex crypto_prices follow-up); running feed-less (slug=${args.slug})`,
-    )
-    return
-  }
+  const rtdsReq = reqPlugin.config.rtdsCryptoPrices
+  if (!binanceReq && !priceToBeatEnabled && !rtdsReq) return
 
   const window = args.strategyWindow ?? windowFromSlug(args.slug)
   if (!window) {
@@ -175,6 +202,56 @@ export async function wireBacktestExternalFeeds(args: {
       latencyOffsetMs: envInt('BACKTEST_BINANCE_FEED_LATENCY_MS', DEFAULT_LATENCY_MS),
     }
     fulfilled.push(`binanceWsSpotPrice(symbol=${cfgSymbol} trades=${series.length})`)
+  }
+
+  if (rtdsReq) {
+    if (rtdsReq.binanceSymbols?.length) {
+      console.warn(
+        `[backtest:feeds] strategy requests rtds BINANCE symbols (${rtdsReq.binanceSymbols.join(', ')}) — that sub-key has no backtest source (crypto_prices carries only the chainlink stream); it stays absent, same as a live run without that subscription. Use binanceWsSpotPrice for a Binance price. (slug=${args.slug})`,
+      )
+    }
+    // Explicit chainlinkSymbols win; no list → follow the traded market
+    // (live derives `${TRADING_SYMBOL}/usd` the same way).
+    let feedSymbol: string | undefined
+    if (rtdsReq.chainlinkSymbols?.length) {
+      if (rtdsReq.chainlinkSymbols.length > 1) {
+        console.warn(
+          `[backtest:feeds] backtest supports a single chainlink symbol per market (live last-write-wins across symbols is not reproducible) — using ${rtdsReq.chainlinkSymbols[0]} (slug=${args.slug})`,
+        )
+      }
+      feedSymbol = rtdsReq.chainlinkSymbols[0]!.trim().toLowerCase()
+    } else if (slugSymbol) {
+      feedSymbol = chainlinkFeedSymbolForMarketSymbol(slugSymbol)
+    }
+    if (!feedSymbol) {
+      throw new Error(
+        `[backtest:feeds] strategy requests the rtds chainlink feed with no symbol and none is derivable from the slug (${args.slug})`,
+      )
+    }
+    const assetId = assetIdFromChainlinkFeedSymbol(feedSymbol) ?? assetIdForSymbol(feedSymbol)
+    // An explicitly configured symbol wins even for a mismatched market — live
+    // would feed whatever the strategy configured; parity over correctness,
+    // but make it loud.
+    if (slugSymbol && !assetId.startsWith(slugSymbol)) {
+      console.warn(
+        `[backtest:feeds] strategy requests chainlink symbol=${feedSymbol} but market slug is ${args.slug} — feeding ${feedSymbol} (same as live)`,
+      )
+    }
+    const series = await loadChainlinkCryptoPricesSeries({
+      assetId,
+      startMs: window.startMs,
+      endMs: window.endMs,
+      lookbackMs: rtdsChainlinkLookbackMs(),
+    })
+    providerArgs.rtdsChainlink = {
+      symbol: feedSymbol,
+      series,
+      latencyOffsetMs: envInt(
+        'BACKTEST_RTDS_CHAINLINK_LATENCY_MS',
+        DEFAULT_RTDS_CHAINLINK_LATENCY_MS,
+      ),
+    }
+    fulfilled.push(`rtdsChainlink(symbol=${feedSymbol} rounds=${series.length})`)
   }
 
   if (priceToBeatEnabled) {

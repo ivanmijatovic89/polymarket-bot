@@ -71,7 +71,17 @@ import {
   windowFromSlug,
   symbolFromSlug,
 } from '../polymarket/upDownSlugWindow.js'
-import { binanceFeedLookbackMs } from '../backtest/feeds/wireBacktestExternalFeeds.js'
+import {
+  binanceFeedLookbackMs,
+  rtdsChainlinkLookbackMs,
+} from '../backtest/feeds/wireBacktestExternalFeeds.js'
+import {
+  assetIdForSymbol,
+  assetIdFromChainlinkFeedSymbol,
+  cryptoPricesDayPath,
+  CRYPTO_PRICES_COVERAGE_FROM,
+  CRYPTO_PRICES_COVERAGE_FROM_MS,
+} from '../telonex/cryptoPrices/paths.js'
 import { isExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
 import {
   aggTradesDayPath,
@@ -574,6 +584,20 @@ async function main(): Promise<void> {
       '[backtest] external feeds: polymarketPriceToBeat (from telonex_markets.price_to_beat)',
     )
   }
+  // rtds chainlink feed (Telonex crypto_prices): explicit symbol, or null when
+  // it follows each market's slug (the wiring derives it the same way).
+  const feedsRtdsReq = feedsRequestPlugin?.config.rtdsCryptoPrices
+  const feedsChainlinkSymbol = feedsRtdsReq?.chainlinkSymbols?.[0]?.trim().toLowerCase() || null
+  if (feedsRtdsReq) {
+    console.log(
+      `[backtest] external feeds: rtdsChainlink symbol=${feedsChainlinkSymbol ?? '(derived per market slug)'} (from telonex crypto_prices)`,
+    )
+    if (feedsRtdsReq.binanceSymbols?.length) {
+      console.warn(
+        `[backtest] external feeds: rtds BINANCE symbols requested (${feedsRtdsReq.binanceSymbols.join(', ')}) have no backtest source — that sub-key stays absent in replay (use binanceWsSpotPrice instead)`,
+      )
+    }
+  }
 
   // ---- Pre-resolve every market context in the producer so that workers
   // ---- never need to touch MySQL / Gamma. This preserves the existing DB
@@ -781,6 +805,66 @@ async function main(): Promise<void> {
         `[backtest] feeds preflight: ${missingDates.size} Binance aggTrades day file(s) missing for ${pair} — affected markets will fail. ` +
           `Worker machines: npm run binance:download-aggtrades-r2-to-local -- --pair ${pair} (pull from the R2 mirror). ` +
           `Producer: npm run binance:download-aggtrades -- --pair ${pair} --from ${sorted[0]} --to ${sorted[sorted.length - 1]}`,
+      )
+    }
+  }
+
+  // Chainlink feed preflight — same shape as the binance one. The policy is
+  // hard-error EVERYWHERE the feed is requested and unavailable, so this also
+  // counts pre-coverage markets: the user learns at launch, not after N
+  // failed jobs.
+  if (feedsRtdsReq) {
+    const lookbackMs = rtdsChainlinkLookbackMs()
+    const missingByAsset = new Map<string, Set<string>>()
+    let preCoverage = 0
+    const dayFileExists = new Map<string, boolean>()
+    for (const ctx of marketContexts) {
+      if (!ctx.slug) continue
+      const window = ctx.strategyWindow ?? windowFromSlug(ctx.slug)
+      if (!window) {
+        console.warn(
+          `[backtest] feeds preflight: market window underivable from slug=${ctx.slug} — this market will fail (strategy requests the chainlink feed)`,
+        )
+        continue
+      }
+      if (window.startMs < CRYPTO_PRICES_COVERAGE_FROM_MS) {
+        preCoverage++
+        continue
+      }
+      const slugSymbol = symbolFromSlug(ctx.slug)
+      const assetId =
+        (feedsChainlinkSymbol ? assetIdFromChainlinkFeedSymbol(feedsChainlinkSymbol) : null) ??
+        (slugSymbol ? assetIdForSymbol(slugSymbol) : null)
+      if (!assetId) continue
+      for (const d of utcDatesCovering(
+        Math.max(window.startMs - lookbackMs, CRYPTO_PRICES_COVERAGE_FROM_MS),
+        window.endMs,
+      )) {
+        const key = `${assetId}|${d}`
+        let exists = dayFileExists.get(key)
+        if (exists === undefined) {
+          exists = await fileExists(cryptoPricesDayPath(assetId, d))
+          dayFileExists.set(key, exists)
+        }
+        if (!exists) {
+          let set = missingByAsset.get(assetId)
+          if (!set) missingByAsset.set(assetId, (set = new Set()))
+          set.add(d)
+        }
+      }
+    }
+    if (preCoverage > 0) {
+      console.warn(
+        `[backtest] feeds preflight: ${preCoverage} market(s) predate crypto_prices coverage (${CRYPTO_PRICES_COVERAGE_FROM}) and WILL FAIL — ` +
+          `exclude them with --from-ms ${CRYPTO_PRICES_COVERAGE_FROM_MS} or drop the rtdsCryptoPrices request`,
+      )
+    }
+    for (const [assetId, missingDates] of missingByAsset) {
+      const sorted = [...missingDates].sort()
+      console.warn(
+        `[backtest] feeds preflight: ${missingDates.size} crypto_prices day file(s) missing for ${assetId} — affected markets will fail. ` +
+          `Worker machines: npm run telonex:crypto-prices:download-r2-to-local -- --asset ${assetId} (pull from the R2 mirror). ` +
+          `Producer: npm run telonex:crypto-prices:download -- --asset ${assetId} --from ${sorted[0]} --to ${sorted[sorted.length - 1]}`,
       )
     }
   }
