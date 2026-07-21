@@ -69,7 +69,7 @@ honestly say `on track`, `BLOCKED: <why>`, or `OFF-PLAN: <why>`. In tmux the
 full live stream renders in the pane; if you ever launch the loop detached
 (`nohup`), redirect its stdout to a file yourself.
 
-claude-code-viewer (full transcripts, see `docs/reference/claude-code-log-viewers.md`):
+claude-code-viewer (full transcripts, see `docs/other/claude-code-log-viewers.md`):
 open `http://localhost:3400` → project `-Users-mijat-Sites-polymarket-bot-gabagool`.
 Transcripts of the 2026-07-17 launch live under `~/.claude-balsa/projects/`
 (launched from a desktop background session); a symlink at

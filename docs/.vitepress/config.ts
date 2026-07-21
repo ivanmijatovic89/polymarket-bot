@@ -311,6 +311,7 @@ export default withMermaid(
             { text: 'Multiple Bots', link: '/other/MultipleBots' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
+            { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },
           ],
         },
       ],
