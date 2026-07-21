@@ -38,7 +38,7 @@ npm run data:sync:main -- --market btc:15m --market eth:5m --market eth:15m
 | Telonex catalog (`telonex_markets`) | ✓ | | `telonex:sync` |
 | priceToBeat + finalPrice backfill | ✓ | | `telonex:sync-pricetobeat-and-final-price` |
 | Raw orderbook files (Telonex → R2) | ✓ | | `telonex:download` |
-| Convert to delta-typed (→ R2) | ✓ | | `telonex:convert` |
+| Convert to delta-typed (→ local + R2) | ✓ | | `telonex:convert --output both` |
 | Binance aggTrades day files (→ R2) | ✓ | | `binance:download-aggtrades --sync` + `binance:upload-aggtrades-r2` |
 | Chainlink crypto_prices day files (→ R2) | ✓ | | `telonex:crypto-prices:download --sync` + `:upload-r2` |
 | Converted parquet R2 → local | | ✓ | `telonex:download-converted-r2-to-local` |

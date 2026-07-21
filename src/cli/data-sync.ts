@@ -177,9 +177,9 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
     })
     steps.push({
       id: 'convert',
-      title: 'Convert raw files (delta-typed → R2)',
+      title: 'Convert raw files (delta-typed → local + R2)',
       script: 'src/telonex/convert.ts',
-      args: ['--converter', 'delta-typed', '--output', 'r2', '--slug-pattern', patterns],
+      args: ['--converter', 'delta-typed', '--output', 'both', '--slug-pattern', patterns],
       deps: ['orderbook-download'],
       supportsDryRun: true,
       supportsConcurrency: true,
