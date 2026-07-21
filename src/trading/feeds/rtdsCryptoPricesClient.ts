@@ -14,6 +14,26 @@ export type RtdsCryptoPricesClientOptions = {
   chainlinkSymbols: string[]
   onBinanceUpdate: (u: { symbol: string; tsMs: number; value: number }) => void
   onChainlinkUpdate: (u: { symbol: string; tsMs: number; value: number }) => void
+  /**
+   * Optional: raw chainlink tick with BOTH clocks and the unparsed value.
+   * Used by the recorder/verification tooling (`telonex:crypto-prices:record-rtds`);
+   * the live trading path leaves it unset. Fired for the same allow-listed
+   * messages as `onChainlinkUpdate`, immediately before it.
+   *
+   * - `payloadTimestampMs` — `payload.timestamp`, the chainlink round time
+   *   (what `onChainlinkUpdate` reports as `tsMs`).
+   * - `serverTimestampMs` — the top-level message `timestamp`, when Polymarket
+   *   broadcast the tick (observed ~1s after the round time).
+   * - `rawValue` — `payload.value` exactly as parsed from JSON (string or
+   *   number), before `Number(...)` coercion.
+   */
+  onChainlinkRaw?: (m: {
+    symbol: string
+    payloadTimestampMs: number
+    serverTimestampMs: number | null
+    rawValue: unknown
+    receivedAtMs: number
+  }) => void
   onStatus?: (s: {
     kind: 'connected' | 'reconnecting' | 'disconnected'
     attempt: number
@@ -169,6 +189,13 @@ export function createRtdsCryptoPricesClient(
           if (!p) return
           // Require explicit allow-list: empty list means "accept none"
           if (!allowedChainlink.has(p.symbol.toLowerCase())) return
+          opts.onChainlinkRaw?.({
+            symbol: p.symbol,
+            payloadTimestampMs: p.timestamp,
+            serverTimestampMs: asFiniteNumber(msg.timestamp),
+            rawValue: (msg.payload as { value?: unknown }).value,
+            receivedAtMs: Date.now(),
+          })
           opts.onChainlinkUpdate({
             symbol: p.symbol,
             tsMs: p.timestamp,

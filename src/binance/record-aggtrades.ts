@@ -6,6 +6,7 @@ import {
   type AggTradeMessage,
 } from '../trading/feeds/binanceWsSpotPriceClient.js'
 import { installSignalHandlers, installProcessCrashHandlers } from '../utils/runtime.js'
+import { moveNoReplace } from '../utils/moveNoReplace.js'
 import { parseBinanceCliArgs } from './cliArgs.js'
 import { recordingHourPath, recordingStatusPath, recordingsDir, utcDateOf } from './paths.js'
 
@@ -60,29 +61,6 @@ function parseArgs(argv: string[]): Args {
     },
   })
   return { pair, ...(hours !== undefined ? { hours } : {}) }
-}
-
-/**
- * Atomically move the finished tmp file to the first FREE hourly path:
- * `recordingHourPath` is fully deterministic, so a recorder restarted within
- * the same UTC hour — or two concurrent recorders on the same pair — would
- * silently clobber the other session's trades with a plain `fs.rename`
- * (which overwrites). `fs.link` fails with EEXIST instead of replacing, so
- * the exists-check and the move are one atomic step; later segments park
- * under `-part2`, `-part3`, … and `binance:verify-aggtrades` (which globs
- * `*-aggTrades-live-*.parquet`) picks them all up automatically.
- */
-async function moveNoReplace(tmpPath: string, finalPath: string): Promise<string> {
-  for (let n = 1; ; n++) {
-    const target = n === 1 ? finalPath : finalPath.replace(/\.parquet$/, `-part${n}.parquet`)
-    try {
-      await fs.link(tmpPath, target)
-      await fs.unlink(tmpPath)
-      return target
-    } catch (err) {
-      if ((err as NodeJS.ErrnoException).code !== 'EEXIST') throw err
-    }
-  }
 }
 
 function hourKeyOf(ms: number): string {

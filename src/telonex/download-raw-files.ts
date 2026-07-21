@@ -28,8 +28,14 @@ import { getDb, closeDb, telonexMarkets, telonexMarketFiles } from '../db/index.
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { getDefaultBucket, putObject } from '../r2/client.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
+import {
+  TELONEX_DOWNLOAD_BASE,
+  HttpError,
+  fetchTelonexFile,
+  readTelonexApiKey,
+  abortableSleep as sleep,
+} from './telonexHttp.js'
 
-const TELONEX_DOWNLOAD_BASE = 'https://api.telonex.io/v1/downloads/polymarket'
 const MAX_IN_PROCESS_RETRIES = 3
 const RETRY_DELAYS_MS = [1000, 2000, 4000]
 const MAX_429_RETRIES = 10
@@ -70,12 +76,6 @@ function parseArgs(argv: string[]): Args {
     )
   }
   return out
-}
-
-function readApiKey(): string {
-  const k = process.env.TELONEX_API_KEY
-  if (!k || k.trim() === '') throw new Error('[telonex:download] TELONEX_API_KEY is required')
-  return k.trim()
 }
 
 function fmtMs(ms: number): string {
@@ -133,63 +133,6 @@ function buildR2Key(args: {
 }): string {
   const filename = `${args.assetId}_${args.date}_${args.channel}.parquet`
   return `telonex/raw/${args.symbol}/${args.timeframe}/${args.epoch}/${args.channel}/${filename}`
-}
-
-class HttpError extends Error {
-  constructor(
-    public status: number,
-    public retryAfterMs: number | null,
-    message: string,
-  ) {
-    super(message)
-  }
-}
-
-function parseRetryAfter(h: string | null): number | null {
-  if (!h) return null
-  const n = Number(h)
-  if (!isNaN(n)) return Math.max(0, n * 1000)
-  const t = Date.parse(h)
-  if (!isNaN(t)) return Math.max(0, t - Date.now())
-  return null
-}
-
-async function fetchTelonexFile(
-  url: string,
-  apiKey: string,
-  signal: AbortSignal,
-): Promise<{ buffer: Buffer; sourceEtag: string | null } | { notFound: true }> {
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${apiKey}` },
-    redirect: 'follow',
-    signal,
-  })
-  if (res.status === 404) return { notFound: true }
-  if (res.status === 429) {
-    const ra = parseRetryAfter(res.headers.get('retry-after'))
-    throw new HttpError(429, ra ?? 4000, `429 Too Many Requests`)
-  }
-  if (!res.ok) {
-    throw new HttpError(res.status, null, `HTTP ${res.status} ${res.statusText}`)
-  }
-  if (!res.body) throw new HttpError(500, null, 'empty body')
-  const buffer = Buffer.from(await res.arrayBuffer())
-  return { buffer, sourceEtag: res.headers.get('etag')?.replace(/^"|"$/g, '') ?? null }
-}
-
-function sleep(ms: number, signal: AbortSignal): Promise<void> {
-  return new Promise((resolve, reject) => {
-    if (signal.aborted) return reject(new Error('aborted'))
-    const t = setTimeout(() => {
-      signal.removeEventListener('abort', onAbort)
-      resolve()
-    }, ms)
-    const onAbort = () => {
-      clearTimeout(t)
-      reject(new Error('aborted'))
-    }
-    signal.addEventListener('abort', onAbort, { once: true })
-  })
 }
 
 type FetchResult =
@@ -708,7 +651,7 @@ async function worker(
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
-  const apiKey = readApiKey()
+  const apiKey = readTelonexApiKey('telonex:download')
   const bucket = getDefaultBucket()
   const selection = buildSlugSelection(args.slugPatterns)
   console.log(
