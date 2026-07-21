@@ -306,7 +306,6 @@ export default withMermaid(
           items: [
             { text: 'Architecture', link: '/other/architecture' },
             { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
-            { text: 'Commands', link: '/other/Commands' },
             { text: 'Add New Bot', link: '/other/AddNewBot' },
             { text: 'Multiple Bots', link: '/other/MultipleBots' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
