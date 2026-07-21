@@ -93,6 +93,28 @@ Step ids are shown by `--plan`. On the main role:
 On the worker role: `converted-<sym>-<tf>`, `binance-local-<sym>`,
 `crypto-prices-local-<sym>`.
 
+## Long runs
+
+The first run for a new pair downloads and converts months of data — hours,
+sometimes days. Two layers of progress keep it observable:
+
+- **Orchestrator lines** (`[data:sync] [4/8] convert OK in 2h41m (run elapsed
+  5h53m; remaining: …)`) — position, per-step duration, total elapsed and
+  what is still queued.
+- **Child heartbeats** — the download/convert CLIs print their own
+  `[247/2547 … rate=1.8/s eta=21m]` lines, and the catalog download reports
+  every 100 MB with rate and percent.
+
+Run long syncs inside tmux and tee the output to a file; the orchestrator
+lines all start with `[data:sync]`, so a grep gives a clean overview without
+the child noise:
+
+```bash
+npm run data:sync:main -- --market btc:15m --fanout 6 2>&1 | tee data-sync.log
+# in another terminal:
+grep "^\[data:sync\]" data-sync.log
+```
+
 ## Failure handling
 
 Steps run sequentially in dependency order. When a step fails, its dependents

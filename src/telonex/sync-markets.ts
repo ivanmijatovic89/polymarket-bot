@@ -18,7 +18,9 @@
  */
 
 import '../config/env.js'
-import { promises as fs } from 'node:fs'
+import { promises as fs, createWriteStream } from 'node:fs'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import os from 'node:os'
 import { DuckDBInstance } from '@duckdb/node-api'
@@ -79,9 +81,25 @@ async function downloadCatalog(destPath: string, apiKey: string): Promise<number
   if (!res.body) {
     throw new Error('[telonex:sync] catalog fetch returned empty body')
   }
-  const buf = Buffer.from(await res.arrayBuffer())
-  await fs.writeFile(destPath, buf)
-  return buf.length
+  // Stream to disk with periodic progress — the catalog is ~1 GB and a silent
+  // buffered download looks like a hang on slower links.
+  const totalBytes = Number(res.headers.get('content-length') ?? 0)
+  const t0 = Date.now()
+  let downloaded = 0
+  let lastLogged = 0
+  const source = Readable.fromWeb(res.body as import('stream/web').ReadableStream)
+  source.on('data', (chunk: Buffer) => {
+    downloaded += chunk.length
+    if (downloaded - lastLogged >= 100 * 1024 * 1024) {
+      lastLogged = downloaded
+      const mb = (downloaded / 1024 / 1024).toFixed(0)
+      const pct = totalBytes > 0 ? ` (${((downloaded / totalBytes) * 100).toFixed(0)}%)` : ''
+      const rate = (downloaded / 1024 / 1024 / ((Date.now() - t0) / 1000)).toFixed(1)
+      console.log(`[telonex:sync] catalog download ${mb} MB${pct} at ${rate} MB/s`)
+    }
+  })
+  await pipeline(source, createWriteStream(destPath))
+  return downloaded
 }
 
 function emptyToNull(s: unknown): string | null {
