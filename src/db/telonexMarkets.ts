@@ -492,3 +492,55 @@ export async function updateGammaMetadata(
     })
     .where(eq(telonexMarkets.slug, slug))
 }
+
+/**
+ * Resolved markets for the chainlink verification cross-checks
+ * (`telonex:crypto-prices:verify --resolution-check`): newest-first resolved
+ * markets of one symbol/timeframe with `market_start_ms >= fromMs`, carrying
+ * the fields needed to replicate resolution from the crypto_prices series
+ * (window start via marketStartMs, outcome via resultId) and to cross-check
+ * the Gamma strike/close (priceToBeat / finalPrice).
+ */
+export async function listResolvedMarketsForChainlinkCheck(opts: {
+  symbol: string
+  timeframe: string
+  fromMs: number
+  limit: number
+}): Promise<
+  Array<{
+    slug: string
+    marketStartMs: number
+    resultId: string | null
+    priceToBeat: number | null
+    finalPrice: number | null
+  }>
+> {
+  const db = mustGetDb()
+  const rows = await db
+    .select({
+      slug: telonexMarkets.slug,
+      marketStartMs: telonexMarkets.marketStartMs,
+      resultId: telonexMarkets.resultId,
+      priceToBeat: telonexMarkets.priceToBeat,
+      finalPrice: telonexMarkets.finalPrice,
+    })
+    .from(telonexMarkets)
+    .where(
+      and(
+        eq(telonexMarkets.symbol, opts.symbol),
+        eq(telonexMarkets.timeframe, opts.timeframe),
+        eq(telonexMarkets.telonexStatus, 'resolved'),
+        sql`${telonexMarkets.marketStartMs} >= ${opts.fromMs}`,
+        sql`${telonexMarkets.resultId} <> ''`,
+      ),
+    )
+    .orderBy(sql`${telonexMarkets.marketStartMs} DESC`)
+    .limit(opts.limit)
+  return rows.map((r) => ({
+    slug: r.slug,
+    marketStartMs: Number(r.marketStartMs),
+    resultId: r.resultId,
+    priceToBeat: r.priceToBeat,
+    finalPrice: r.finalPrice,
+  }))
+}

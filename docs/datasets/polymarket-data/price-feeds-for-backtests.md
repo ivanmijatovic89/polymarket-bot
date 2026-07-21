@@ -128,13 +128,19 @@ public dumps are free and identical.
   `npm run telonex:sync-pricetobeat-and-final-price -- --refetch-nulls`.
   `final_price` (Chainlink settle) is captured in
   the same pass for future resolution cross-checks.
-- **Chainlink via Telonex `crypto_prices` → pending** (needs the Telonex
-  subscription / `TELONEX_API_KEY`). The extension recipe is documented in the
-  Binance doc — the provider and window plumbing are already feed-agnostic.
-  Note: `crypto_prices` is the Chainlink oracle price series (the main price
-  Polymarket displays and resolves against) — it is NOT the per-market
-  "price to beat"; that comes from the Gamma API (stored on markets since some
-  version) and is a separate future task.
+- **Chainlink via Telonex `crypto_prices` → IMPLEMENTED** (strategy-driven via
+  `rtdsCryptoPrices` in the request plugin; explicit `chainlinkSymbols` or
+  slug-derived): dataset pipeline (download `--sync` → R2 mirror → worker
+  pull), two-clock as-of provider (visibility on Polymarket's broadcast time
+  ~1s after the round time + measured bot leg; emitted `tsMs` = round time,
+  live parity), RTDS recorder + verification harness, and a resolution
+  replication check — deriving UP/DOWN from the series reproduces actual
+  market outcomes at **99.80%** with bit-exact strike matches. Hard-error
+  policy everywhere the feed is requested and unavailable (including
+  pre-2026-04-02 markets — it is the resolution price). See
+  [Chainlink crypto_prices Feed](./chainlink-crypto-prices-feed.md).
+  `rtdsPolymarketCryptoPrices.binance` remains live-only (the channel carries
+  only the chainlink stream — use `binanceWsSpotPrice`).
 
 ## Integration approach (original design sketch — implemented for Binance)
 

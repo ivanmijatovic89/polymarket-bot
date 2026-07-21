@@ -28,9 +28,11 @@ discovered) — no sync high-water marks or row counts, those go stale.
 Reading guide: "Telonex orderbook from" = when our backtest catalog has the
 market (series birth, since Telonex coverage starts 2025-10-11 and every synced
 series was born on/after that); the env floor `TELONEX_DATASET_ELIGIBLE_FROM`
-(2025-11-30) additionally bounds the *eligible backtest universe*. Chainlink
-feed (Task 2) will add a column when built — Telonex `crypto_prices` exists
-from 2026-04-02 for all symbols.
+(2025-11-30) additionally bounds the *eligible backtest universe*. The
+Chainlink feed (Task 2, SHIPPED) reads Telonex `crypto_prices` — coverage
+from 2026-04-02 for all symbols; btcusd backfilled + mirrored to R2. Known
+upstream holes (live bots also saw nothing): 2026-06-11 ~05:15–13:19 UTC,
+2026-07-07 ~19:38–20:15 UTC.
 
 ### Up/down market series details
 
@@ -120,7 +122,7 @@ Official ([telonex.io/docs/exchanges/polymarket](https://telonex.io/docs/exchang
 |---|---|---|
 | Off-chain (`trades`, `quotes`, `book_snapshot_5/25/full`) | **2025-10-11** | event-driven, not interval-sampled |
 | `onchain_fills` / `all_onchain_fills` | **market inception** | |
-| `crypto_prices` (Chainlink oracle ticks) | **2026-04-02** | per-symbol `asset_id` (e.g. `btcusd`); NOT synced by us yet (needs subscription — Task 2) |
+| `crypto_prices` (Chainlink oracle ticks) | **2026-04-02** | per-symbol `asset_id` (e.g. `btcusd`); synced: btcusd fully backfilled + R2-mirrored (eth/sol/xrp pending); powers `rtdsPolymarketCryptoPrices.chainlink` in backtests |
 
 - **Reliability boundary**: Telonex states coverage **before 2026-01-19 may
   contain occasional gaps**; 2026-01-19 onward is the most reliable window.

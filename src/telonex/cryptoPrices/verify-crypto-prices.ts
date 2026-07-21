@@ -3,8 +3,18 @@ import { promises as fs } from 'node:fs'
 import path from 'node:path'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { sqlQuote } from '../../utils/duckdb.js'
+import { closeDb } from '../../db/index.js'
+import { listResolvedMarketsForChainlinkCheck } from '../../db/telonexMarkets.js'
+import { timeframeMsFromSlug } from '../../polymarket/upDownSlugWindow.js'
+import { loadChainlinkCryptoPricesSeries } from '../../backtest/feeds/chainlinkCryptoPricesSource.js'
+import { createBacktestExternalFeedsProvider } from '../../backtest/feeds/backtestExternalFeedsProvider.js'
 import { parseCryptoPricesCliArgs } from './cliArgs.js'
-import { cryptoPricesDayPath, recordingStatusPath, recordingsDir } from './paths.js'
+import {
+  CRYPTO_PRICES_COVERAGE_FROM_MS,
+  cryptoPricesDayPath,
+  recordingStatusPath,
+  recordingsDir,
+} from './paths.js'
 
 /**
  * Prove the live-recorded RTDS `crypto_prices_chainlink` stream identical to
@@ -35,22 +45,251 @@ import { cryptoPricesDayPath, recordingStatusPath, recordingsDir } from './paths
  * `binance:verify-aggtrades`).
  */
 
-type Args = { assetId: string; date: string }
+type Args = {
+  assetId: string
+  date: string
+  checkAsof: boolean
+  resolutionCheck: boolean
+  timeframe: string
+  limit: number
+}
+
+const USAGE =
+  'Usage: npm run telonex:crypto-prices:verify -- --asset btcusd (--date YYYY-MM-DD [--check-asof] | --resolution-check [--timeframe 15m] [--limit 500])'
 
 function parseArgs(argv: string[]): Args {
   let date = ''
+  let checkAsof = false
+  let resolutionCheck = false
+  let timeframe = '15m'
+  let limit = 500
   const { assetId } = parseCryptoPricesCliArgs({
     argv,
-    usage: 'Usage: npm run telonex:crypto-prices:verify -- --asset btcusd --date YYYY-MM-DD',
+    usage: USAGE,
     flags: {
       '--date': { kind: 'value', set: (v) => (date = v) },
+      '--check-asof': { kind: 'boolean', set: () => (checkAsof = true) },
+      '--resolution-check': { kind: 'boolean', set: () => (resolutionCheck = true) },
+      '--timeframe': { kind: 'value', set: (v) => (timeframe = v.trim()) },
+      '--limit': { kind: 'value', set: (v) => (limit = Math.max(1, Number(v) || 500)) },
     },
   })
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
-    console.error('Usage: npm run telonex:crypto-prices:verify -- --asset btcusd --date YYYY-MM-DD')
+  if (!resolutionCheck && !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    console.error(USAGE)
     process.exit(2)
   }
-  return { assetId, date }
+  return { assetId, date, checkAsof, resolutionCheck, timeframe, limit }
+}
+
+/**
+ * As-of correctness: the loader+provider pair (the exact code path backtests
+ * use) must answer every sampled timestamp identically to a reference SQL
+ * query over the raw day file — checking BOTH the value and the emitted
+ * round-`tsMs`, at offset 0 and at a nonzero offset. Deterministic LCG sample,
+ * ascending (the replay pattern) with periodic backwards jumps spliced in to
+ * exercise the binary-search fallback.
+ */
+async function checkAsOfCorrectness(args: {
+  conn: import('@duckdb/node-api').DuckDBConnection
+  assetId: string
+  dayPath: string
+  fromMs: number
+  toMs: number
+}): Promise<number> {
+  const SAMPLES = 1_000
+  let totalMismatches = 0
+  for (const latencyOffsetMs of [0, 100]) {
+    const series = await loadChainlinkCryptoPricesSeries({
+      assetId: args.assetId,
+      startMs: args.fromMs,
+      endMs: args.toMs,
+      lookbackMs: 0,
+    })
+    const provider = createBacktestExternalFeedsProvider({
+      rtdsChainlink: { symbol: 'btc/usd', series, latencyOffsetMs },
+    })
+    let seed = 0x9e3779b9
+    const rand = (): number => {
+      seed = (seed * 1664525 + 1013904223) >>> 0
+      return seed / 0xffffffff
+    }
+    const ts = Array.from(
+      { length: SAMPLES },
+      () => args.fromMs + Math.floor(rand() * (args.toMs - args.fromMs)),
+    ).sort((a, b) => a - b)
+    for (let i = 100; i < ts.length; i += 100) ts.splice(i, 0, ts[i - 50]!)
+
+    let mismatches = 0
+    let clockHighWater = Number.NEGATIVE_INFINITY
+    for (const t of ts) {
+      const snap = provider.snapshotAt(t).rtdsPolymarketCryptoPrices?.chainlink
+      // The provider clamps to its monotone high-water clock — mirror it in
+      // the reference query so backwards samples compare like-for-like.
+      clockHighWater = Math.max(clockHighWater, t)
+      const res = await args.conn.run(
+        `SELECT CAST(price AS DOUBLE), timestamp_us // 1000
+         FROM read_parquet(${sqlQuote(args.dayPath)})
+         WHERE server_timestamp_us // 1000 + ${latencyOffsetMs} <= ${clockHighWater}
+           AND timestamp_us >= ${args.fromMs} * 1000
+         ORDER BY server_timestamp_us DESC, timestamp_us DESC LIMIT 1`,
+      )
+      const rows = rowsOf(res)
+      const expValue = rows.length > 0 ? Number(rows[0]![0]) : null
+      const expTsMs = rows.length > 0 ? Number(rows[0]![1]) : null
+      const gotValue = snap?.value ?? null
+      const gotTsMs = snap?.tsMs ?? null
+      if (gotValue !== expValue || gotTsMs !== expTsMs) {
+        mismatches++
+        if (mismatches <= 5) {
+          console.error(
+            `  [check-asof offset=${latencyOffsetMs}] t=${t} provider=${gotValue}@${gotTsMs} sql=${expValue}@${expTsMs}`,
+          )
+        }
+      }
+    }
+    console.log(
+      `  [check-asof] offset=${latencyOffsetMs}ms: ${ts.length} samples, mismatches=${mismatches}`,
+    )
+    totalMismatches += mismatches
+  }
+  return totalMismatches
+}
+
+/**
+ * Resolution replication + Gamma cross-checks — the strongest end-to-end
+ * proof that this series is THE feed Polymarket resolves with:
+ *
+ * For each resolved market: open = last round at-or-before window start,
+ * close = last round at-or-before window end (round clock — resolution is
+ * about the oracle series itself, not delivery latency). Then:
+ *  - derived outcome sign(close − open) vs telonex `result_id` (G),
+ *  - chainlink open vs Gamma `price_to_beat` (F),
+ *  - chainlink close vs Gamma `final_price` (F).
+ */
+async function resolutionCheck(args: {
+  assetId: string
+  timeframe: string
+  limit: number
+}): Promise<boolean> {
+  const symbol = args.assetId.replace(/usd$/, '')
+  const markets = await listResolvedMarketsForChainlinkCheck({
+    symbol,
+    timeframe: args.timeframe,
+    fromMs: CRYPTO_PRICES_COVERAGE_FROM_MS,
+    limit: args.limit,
+  })
+  if (markets.length === 0) {
+    console.error(
+      `[crypto-prices:verify] no resolved ${symbol}/${args.timeframe} markets after coverage start — nothing to check`,
+    )
+    return false
+  }
+  const tfMs = timeframeMsFromSlug(markets[0]!.slug)
+  if (!tfMs) {
+    console.error(`[crypto-prices:verify] cannot parse timeframe from slug ${markets[0]!.slug}`)
+    return false
+  }
+
+  const db = await DuckDBInstance.create(':memory:')
+  const conn = await db.connect()
+  let agree = 0
+  let disagree = 0
+  let ties = 0
+  let skippedNoData = 0
+  let strikeChecked = 0
+  let strikeExact = 0
+  let maxStrikeDiff = 0
+  let closeChecked = 0
+  let closeExact = 0
+  let maxCloseDiff = 0
+  const disagreements: string[] = []
+
+  try {
+    for (const m of markets) {
+      const startMs = m.marketStartMs
+      const endMs = startMs + tfMs
+      let series
+      try {
+        series = await loadChainlinkCryptoPricesSeries({
+          assetId: args.assetId,
+          startMs,
+          endMs,
+          lookbackMs: 300_000,
+        })
+      } catch {
+        skippedNoData++
+        continue
+      }
+      // Open/close on the ROUND clock (the oracle series itself).
+      let open: number | null = null
+      let openTs = Number.NEGATIVE_INFINITY
+      let close: number | null = null
+      let closeTs = Number.NEGATIVE_INFINITY
+      for (let i = 0; i < series.length; i++) {
+        const ts = series.tsMs[i]!
+        if (ts <= startMs && ts >= openTs) {
+          openTs = ts
+          open = series.value[i]!
+        }
+        if (ts <= endMs && ts >= closeTs) {
+          closeTs = ts
+          close = series.value[i]!
+        }
+      }
+      if (open === null || close === null) {
+        skippedNoData++
+        continue
+      }
+      const derived = close > open ? '0' : close < open ? '1' : 'tie'
+      if (derived === 'tie') ties++
+      else if (derived === m.resultId) agree++
+      else {
+        disagree++
+        if (disagreements.length < 5) {
+          disagreements.push(
+            `${m.slug}: derived=${derived === '0' ? 'UP' : 'DOWN'} actual=${m.resultId === '0' ? 'UP' : 'DOWN'} open=${open} close=${close}`,
+          )
+        }
+      }
+      if (m.priceToBeat !== null) {
+        strikeChecked++
+        const diff = Math.abs(open - m.priceToBeat)
+        if (diff === 0) strikeExact++
+        maxStrikeDiff = Math.max(maxStrikeDiff, diff)
+      }
+      if (m.finalPrice !== null) {
+        closeChecked++
+        const diff = Math.abs(close - m.finalPrice)
+        if (diff === 0) closeExact++
+        maxCloseDiff = Math.max(maxCloseDiff, diff)
+      }
+    }
+  } finally {
+    conn.closeSync()
+  }
+
+  const decided = agree + disagree
+  const pct = decided > 0 ? (agree / decided) * 100 : 0
+  console.log(
+    `[crypto-prices:verify] resolution replication (${symbol}/${args.timeframe}, ${markets.length} resolved markets):`,
+  )
+  console.log(
+    `  outcome agreement     ${agree}/${decided} (${pct.toFixed(2)}%)  ties=${ties} skipped-no-data=${skippedNoData}`,
+  )
+  for (const d of disagreements) console.log(`    disagreement: ${d}`)
+  console.log(
+    `  strike vs chainlink@open   checked=${strikeChecked} exact=${strikeExact} max|diff|=${maxStrikeDiff}`,
+  )
+  console.log(
+    `  finalPrice vs chainlink@close checked=${closeChecked} exact=${closeExact} max|diff|=${maxCloseDiff}`,
+  )
+  const pass = decided > 0 && pct >= 99
+  console.log(
+    pass
+      ? '[crypto-prices:verify] RESOLUTION CHECK PASS (≥99% agreement)'
+      : '[crypto-prices:verify] RESOLUTION CHECK FAIL',
+  )
+  return pass
 }
 
 /**
@@ -123,6 +362,16 @@ function rowsOf(result: {
 
 async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
+
+  if (args.resolutionCheck) {
+    const ok = await resolutionCheck({
+      assetId: args.assetId,
+      timeframe: args.timeframe,
+      limit: args.limit,
+    })
+    await closeDb()
+    process.exit(ok ? 0 : 1)
+  }
 
   const dayPath = cryptoPricesDayPath(args.assetId, args.date)
   try {
@@ -255,9 +504,22 @@ async function main(): Promise<void> {
     `[crypto-prices:verify] latency — total round→bot (received_at − round_ts, ms): p50=${lat[7]} p99=${lat[8]} (≈1s structural broadcast lag + bot leg)`,
   )
 
+  let asofMismatches = 0
+  if (args.checkAsof) {
+    console.log('[crypto-prices:verify] as-of correctness: sampled timestamps vs reference SQL...')
+    asofMismatches = await checkAsOfCorrectness({
+      conn,
+      assetId: args.assetId,
+      dayPath,
+      fromMs,
+      toMs,
+    })
+  }
+
   conn.closeSync()
 
-  const pass = valueMm === 0 && missingInTelonex === 0 && missingInRecording === 0
+  const pass =
+    valueMm === 0 && missingInTelonex === 0 && missingInRecording === 0 && asofMismatches === 0
   console.log(
     pass
       ? '[crypto-prices:verify] PASS — live stream and telonex file are identical within the overlap window'

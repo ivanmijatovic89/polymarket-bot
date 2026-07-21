@@ -97,6 +97,14 @@ export default withMermaid(
                   text: 'Series Cache (Proposal)',
                   link: '/datasets/polymarket-data/binance-aggtrades-series-cache-proposal',
                 },
+                {
+                  text: 'Chainlink crypto_prices Feed',
+                  link: '/datasets/polymarket-data/chainlink-crypto-prices-feed',
+                },
+                {
+                  text: 'Chainlink Operations Runbook',
+                  link: '/datasets/polymarket-data/chainlink-crypto-prices-operations',
+                },
               ],
             },
             {
