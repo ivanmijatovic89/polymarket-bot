@@ -159,20 +159,6 @@ export async function loadChainlinkCryptoPricesSeries(args: {
           `--asset ${args.assetId} --from ${dates[0]} --to ${dates[dates.length - 1]} --force`,
       )
     }
-    const inRange = total - (seedRow ? 1 : 0)
-    if (inRange === 0) {
-      // Only the pre-window seed exists: legitimate for an upstream feed
-      // outage (live bots also saw no fresh rounds — e.g. the known
-      // 2026-06-11 ~8h source-side hole), but also the signature of a
-      // truncated day file. Loud enough to investigate, not fatal — live
-      // would serve the same last-known price through a real gap.
-      console.warn(
-        `[backtest:feeds] no ${args.assetId} chainlink rounds inside [${new Date(fromMs).toISOString()}, ` +
-          `${new Date(args.endMs).toISOString()}] — the whole market replays on the single pre-window ` +
-          `round from ${new Date(Number(seedRow![0])).toISOString()}. Upstream feed outage, or truncated ` +
-          `day file? (inspect with: npm run verify:parquet -- ${paths[paths.length - 1]})`,
-      )
-    }
     const tsMs = new Float64Array(total)
     const visibleAtMs = new Float64Array(total)
     const value = new Float64Array(total)
@@ -183,8 +169,72 @@ export async function loadChainlinkCryptoPricesSeries(args: {
       value.set(pxChunks[i]!, off)
       off += tsChunks[i]!.length
     }
+    assertNoDataHoleInWindow({
+      assetId: args.assetId,
+      roundTsMs: tsMs,
+      startMs: args.startMs,
+      endMs: args.endMs,
+    })
     return { tsMs, visibleAtMs, value, length: total }
   } finally {
     conn.closeSync()
+  }
+}
+
+/**
+ * Maximum tolerated stale span inside the market window before the market is
+ * rejected. Chainlink rounds arrive ~1/s, so any span ≥5min is an upstream
+ * outage (34 such gaps exist in Apr–Jul 2026, largest ~8h — see
+ * data-coverage.md). Policy (project decision): a strategy that requests the
+ * chainlink feed must FAIL on such markets rather than silently trade a
+ * frozen price — even though live bots in those windows also saw the stale
+ * value, research results from them would be quietly polluted. Set the env
+ * var to 0 to disable (accept stale replay, the live-faithful behavior).
+ */
+const DEFAULT_MAX_GAP_MS = 300_000
+
+/**
+ * Hard-error when the largest round-to-round stale span clipped to
+ * `[startMs, endMs]` reaches the threshold. Uses the ROUND clock (the oracle
+ * series itself); the pre-window seed bounds staleness at the window start and
+ * the post-window tail bounds it at the end.
+ */
+function assertNoDataHoleInWindow(args: {
+  assetId: string
+  roundTsMs: Float64Array
+  startMs: number
+  endMs: number
+}): void {
+  const raw = process.env.BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS?.trim()
+  const parsed = raw ? Number(raw) : NaN
+  const maxGapMs = Number.isFinite(parsed) && parsed >= 0 ? parsed : DEFAULT_MAX_GAP_MS
+  if (maxGapMs === 0) return // explicitly disabled — stale replay accepted
+
+  // Round timestamps ascending (the series is sorted by broadcast time).
+  const sorted = Array.from(args.roundTsMs).sort((a, b) => a - b)
+  let worstSpan = 0
+  let worstFrom = args.startMs
+  let prev = Number.NEGATIVE_INFINITY // no round before the window → span runs from startMs
+  for (let i = 0; i <= sorted.length; i++) {
+    const next = i < sorted.length ? sorted[i]! : Number.POSITIVE_INFINITY
+    const spanFrom = Math.max(prev, args.startMs)
+    const spanTo = Math.min(next, args.endMs)
+    if (spanTo - spanFrom > worstSpan) {
+      worstSpan = spanTo - spanFrom
+      worstFrom = spanFrom
+    }
+    prev = next
+    if (next >= args.endMs) break
+  }
+  if (worstSpan >= maxGapMs) {
+    throw new Error(
+      `[backtest:feeds] MISSING chainlink data for ${args.assetId}: the market window ` +
+        `[${new Date(args.startMs).toISOString()} .. ${new Date(args.endMs).toISOString()}] contains a ` +
+        `${(worstSpan / 60_000).toFixed(1)}-minute hole in the oracle series (from ` +
+        `${new Date(worstFrom).toISOString()}) — an upstream Polymarket/Telonex outage; the data does not ` +
+        `exist anywhere. Exclude this market from the batch (upstream gap list: docs/datasets/data-coverage.md), ` +
+        `or set BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS=0 to accept replaying on the frozen last-known price ` +
+        `(what live bots saw during the outage).`,
+    )
   }
 }

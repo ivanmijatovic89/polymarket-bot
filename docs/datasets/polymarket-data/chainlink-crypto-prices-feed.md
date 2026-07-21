@@ -64,7 +64,7 @@ unavailable** (project decision — it is the resolution price):
 | day file within the ~1-day publication lag | error: run `--sync` later and retry |
 | older day file missing | error naming the worker (`download-r2-to-local`) and producer (`download`) commands |
 | day file empty/corrupt | error naming `--force` re-download |
-| rounds exist but none inside the window (upstream outage) | **warn + replay on the last pre-window round** — live bots also had no fresh rounds then |
+| in-window data hole ≥ `BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS` (default 5min) | **error naming the hole** — data-driven, no hole list to maintain; set the env var to `0` to instead accept replaying on the frozen last-known price (the live-faithful behavior — live bots during upstream outages also saw a stale value) |
 
 The producer preflight surfaces all of it at launch (including a pre-coverage
 market count), so nothing is discovered one failed job at a time. Failures
@@ -76,6 +76,7 @@ land in `backtest_run_failures` → dashboard.
 |---|---|---|
 | `BACKTEST_RTDS_CHAINLINK_LATENCY_MS` | measured p50 (see below) | broadcast→bot leg ONLY; visibility = `server_ts + offset` |
 | `BACKTEST_RTDS_CHAINLINK_LOOKBACK_MS` | `300000` | pre-window load margin (seed row guarantees a value at tick 1) |
+| `BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS` | `300000` | max tolerated in-window stale span before the market hard-errors; `0` disables (stale replay accepted) |
 | `TELONEX_CRYPTO_PRICES_BASE_DIR` | `data/telonex/crypto_prices` | data root (repo-root-anchored) |
 
 ## Verification evidence
@@ -131,9 +132,14 @@ live's `Number(payload.value)` bit-for-bit). ~1 round/s, ~3MB/day/asset.
 - **Coverage from 2026-04-02** (all assets). btcusd fully backfilled +
   mirrored to R2 (109 days, 9.15M rounds, integrity-swept: 0 foreign rows,
   0 unparseable prices, 0 broadcast-before-round rows).
-- **Known upstream holes** (source-side, live bots also saw nothing):
-  2026-06-11 ~05:15→13:19 UTC (~8h), 2026-07-07 ~19:38→20:15 UTC. Markets
-  inside them replay on the last known round with a loud warning.
+- **Known upstream holes** (source-side, live bots also saw nothing): a gap
+  census over Apr–Jul 2026 btcusd found **34 intra-day gaps ≥5min** (~20h of
+  dead time total, ~0.8%; largest 8.1h on 2026-06-11, 3.6h on 2026-06-10,
+  clustered late-May/early-June). Impact on the market universe (btc):
+  ~1.5% of 5m and ~0.9% of 15m coverage-window markets have their whole
+  window inside a hole. Enforcement is **data-driven** — the loader measures
+  the worst in-window stale span itself (no hole list to maintain), so this
+  applies automatically to eth/sol/xrp once backfilled.
 - eth/sol/xrp: same three commands with a different `--asset`.
 
 ## Gotchas

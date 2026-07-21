@@ -30,9 +30,11 @@ market (series birth, since Telonex coverage starts 2025-10-11 and every synced
 series was born on/after that); the env floor `TELONEX_DATASET_ELIGIBLE_FROM`
 (2025-11-30) additionally bounds the *eligible backtest universe*. The
 Chainlink feed (Task 2, SHIPPED) reads Telonex `crypto_prices` — coverage
-from 2026-04-02 for all symbols; btcusd backfilled + mirrored to R2. Known
-upstream holes (live bots also saw nothing): 2026-06-11 ~05:15–13:19 UTC,
-2026-07-07 ~19:38–20:15 UTC.
+from 2026-04-02 for all symbols; btcusd backfilled + mirrored to R2. Gap
+census (btcusd, Apr–Jul 2026): 34 intra-day upstream gaps ≥5min, ~20h total
+(~0.8%; largest 8.1h on 2026-06-11), clustered late-May/early-June — markets
+whose window sits in a hole hard-error by default
+(`BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS`, data-driven, no list maintained).
 
 ### Up/down market series details
 

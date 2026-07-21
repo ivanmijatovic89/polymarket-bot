@@ -129,6 +129,35 @@ test('missing day within publication lag → hard error naming the lag', async (
   )
 })
 
+test('in-window data hole ≥ threshold → hard error naming the hole', async () => {
+  // Rounds end at +13s; a window stretching to +400s leaves a ~387s hole ≥ the
+  // 300s default threshold.
+  await assert.rejects(
+    loadChainlinkCryptoPricesSeries({
+      assetId: 'btcusd',
+      startMs: DAY0 + 10_000,
+      endMs: DAY0 + 400_000,
+      lookbackMs: 0,
+    }),
+    /hole in the oracle series[\s\S]*BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS=0/,
+  )
+})
+
+test('BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS=0 disables the hole check (stale replay accepted)', async () => {
+  process.env.BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS = '0'
+  try {
+    const series = await loadChainlinkCryptoPricesSeries({
+      assetId: 'btcusd',
+      startMs: DAY0 + 10_000,
+      endMs: DAY0 + 400_000,
+      lookbackMs: 0,
+    })
+    assert.equal(series.length, 4)
+  } finally {
+    delete process.env.BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS
+  }
+})
+
 test('day file with no rounds up to window end → hard error', async () => {
   const EMPTY_DAY = '2026-04-12'
   const d0 = Date.parse(`${EMPTY_DAY}T00:00:00Z`)

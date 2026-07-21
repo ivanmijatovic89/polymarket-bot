@@ -48,11 +48,13 @@ strategy.
 lapsed. Progress is saved; re-run `--sync` after the limit resets. Check the
 Telonex dashboard/plan.
 
-**"no … rounds inside [window]" warning during backtests** — an upstream feed
-outage (known holes: 2026-06-11 ~8h, 2026-07-07 ~40min). The market replays on
-the last known round, which is what live bots experienced. No action unless the
-warning appears for windows OUTSIDE known holes — then inspect the day file
-(`npm run verify:parquet -- <path>`) and consider a `--force` re-download.
+**Backtest fails "hole in the oracle series"** — the market window contains
+an upstream feed outage ≥5min (34 known gaps Apr–Jul 2026, see data-coverage).
+The data does not exist anywhere. Exclude the market from the batch, or set
+`BACKTEST_RTDS_CHAINLINK_MAX_GAP_MS=0` to accept replaying on the frozen
+last-known price (what live bots saw). If the hole is NOT in the known census
+window, inspect the day file (`npm run verify:parquet -- <path>`) and consider
+a `--force` re-download.
 
 **Suspected corrupt/regenerated day file** — `--force` re-download on the
 producer; the size-drift check propagates the fix through R2 to every worker
