@@ -72,13 +72,17 @@ export function binanceFeedLookbackMs(): number {
  * it — the ~1s round→broadcast lag is carried by the series' `visibleAtMs`
  * data and must never be double-counted here. Default is the measured p50 of
  * `received_at_ms − server_ts_ms` from a live RTDS recording on the trading
- * machine (2026-07-21, btcusd, 27,447 rounds over ~10.5h: p50=235ms p90=375
- * p99=470; total round→bot p50=1314ms ≈ ~1.1s structural + this leg — see
+ * machine. End-to-end calibration by the feeds:parity harness (2026-07-21,
+ * 21 live markets vs replay, boundary-lag bias): 235 left replay 86ms EARLY;
+ * 320 brings the residual bias to 2ms. (Raw recorder-level p50 varies with
+ * network conditions — 235 overnight, 273 evening — but the parity harness
+ * measures at the strategy's eyes, which is the quantity this knob models;
+ * see docs/backtest/feeds-parity-harness.md and
  * docs/datasets/polymarket-data/chainlink-crypto-prices-feed.md). Re-measure
  * with `telonex:crypto-prices:verify` and override with
  * BACKTEST_RTDS_CHAINLINK_LATENCY_MS.
  */
-const DEFAULT_RTDS_CHAINLINK_LATENCY_MS = 235
+const DEFAULT_RTDS_CHAINLINK_LATENCY_MS = 320
 
 /** Effective chainlink pre-window lookback. Shared with the producer preflight. */
 export function rtdsChainlinkLookbackMs(): number {
@@ -95,15 +99,13 @@ export function rtdsChainlinkLatencyMs(): number {
 
 /**
  * Modeled delay between window start and the first successful priceToBeat
- * poll. Live, `createPolymarketPriceToBeatClient` polls from market rotation
- * at 1s cadence, but the endpoint itself publishes the open price LATE —
- * observed ~10–60s after window start (owner-reported). Until the live logs
- * pin the distribution (the client now logs "openPrice available Xs after
- * window start" on every resolve), default to a mid-range 30s so backtests
- * don't grant strategies the strike earlier than live plausibly could.
- * Override with BACKTEST_PRICE_TO_BEAT_LATENCY_MS.
+ * poll. MEASURED live by the feeds:parity harness (2026-07-21, 24 markets on
+ * the trading machine): p50=2651ms, p90=3455ms, max=5384ms after window
+ * start — far faster than the earlier ~10-60s owner estimate. Default is the
+ * measured p50 (rounded); strategies gating on the strike should still
+ * tolerate up to ~5s absence. Override with BACKTEST_PRICE_TO_BEAT_LATENCY_MS.
  */
-const DEFAULT_PRICE_TO_BEAT_LATENCY_MS = 30_000
+const DEFAULT_PRICE_TO_BEAT_LATENCY_MS = 2_700
 
 /**
  * Markets settled more recently than this replay with the priceToBeat key
