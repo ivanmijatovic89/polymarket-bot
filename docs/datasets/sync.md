@@ -11,17 +11,17 @@ mirrors everything to R2. **Workers** pull from R2 to local disk before
 running backtests. One command per role brings every dataset that role needs
 up to date:
 
-::: code-group
+**Main device:**
 
-```bash [main device]
+```bash
 npm run data:sync:main -- --market btc:15m
 ```
 
-```bash [worker]
+**Worker:**
+
+```bash
 npm run data:sync:worker -- --market btc:15m
 ```
-
-:::
 
 The scope is **explicit on purpose** — there is no default market, so a bare
 invocation prints usage and exits. `--market` is repeatable and per-pair, so
@@ -84,6 +84,7 @@ instead of computing on stale data — re-run those slugs after the sync with
 | `--plan` | Print the resolved step list with dependencies and exit. Runs nothing, touches nothing. |
 | `--only a,b` / `--skip a,b` | Filter steps by id prefix (e.g. `--only binance`, `--skip catalog,convert`). |
 | `--concurrency N` | Forwarded to steps that support it. |
+| `--fanout N` | Run `N` parallel processes for the claim-based steps (`orderbook-download`, `convert`). Conversion is CPU-bound single-threaded JS, so real parallelism needs processes — the same idea as the [tmux fan-out scripts](/contribution/tmuxinator-workspace#telonex-download-fan-out), which remain available when you want each process in its own visible pane. |
 
 Step ids are shown by `--plan`. On the main role:
 `catalog`, `pricetobeat`, `orderbook-download`, `convert`,

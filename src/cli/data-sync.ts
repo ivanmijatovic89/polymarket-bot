@@ -21,6 +21,10 @@
  *   --only a,b       run only steps whose id starts with one of the prefixes
  *   --skip a,b       skip steps whose id starts with one of the prefixes
  *   --concurrency N  forwarded to steps that support it
+ *   --fanout N       N parallel processes for claim-based steps (orderbook
+ *                    download + convert; conversion is CPU-bound so real
+ *                    parallelism needs processes — same idea as the tmux
+ *                    fan-out scripts, see docs/contribution/tmuxinator-workspace.md)
  *
  * Step failure: dependent steps are SKIPPED, independent branches continue,
  * the summary table shows per-step status and the exit code is non-zero if
@@ -31,7 +35,8 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import { spawnSync } from 'node:child_process'
+import readline from 'node:readline'
+import { spawn } from 'node:child_process'
 
 interface Market {
   symbol: string
@@ -46,6 +51,14 @@ interface Step {
   deps: string[]
   supportsDryRun: boolean
   supportsConcurrency: boolean
+  /**
+   * True for steps whose underlying CLI claims work items in the DB
+   * (SELECT ... FOR UPDATE SKIP LOCKED), so N identical processes can
+   * cooperatively drain the same queue. Conversion in particular is
+   * CPU-bound single-threaded JS — real parallelism needs processes, which
+   * is what --fanout provides (same idea as the tmux fan-out scripts).
+   */
+  fanoutable?: boolean
 }
 
 type StepStatus = 'ok' | 'failed' | 'skipped'
@@ -58,6 +71,7 @@ interface Args {
   only: string[]
   skip: string[]
   concurrency: number | null
+  fanout: number
 }
 
 const USAGE = [
@@ -70,6 +84,8 @@ const USAGE = [
   '  --only a,b         run only step ids starting with these prefixes',
   '  --skip a,b         skip step ids starting with these prefixes',
   '  --concurrency N    forwarded to steps that support it',
+  '  --fanout N         run N parallel processes for claim-based steps',
+  '                     (orderbook-download, convert) — same idea as the tmux fan-outs',
 ].join('\n')
 
 function parseArgs(argv: string[]): Args {
@@ -81,6 +97,7 @@ function parseArgs(argv: string[]): Args {
     only: [],
     skip: [],
     concurrency: null,
+    fanout: 1,
   }
   let roleSeen = false
   for (let i = 0; i < argv.length; i++) {
@@ -103,6 +120,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--only') out.only = splitList(argv[++i])
     else if (a === '--skip') out.skip = splitList(argv[++i])
     else if (a === '--concurrency') out.concurrency = Math.max(1, Number(argv[++i] ?? '1'))
+    else if (a === '--fanout') out.fanout = Math.max(1, Number(argv[++i] ?? '1'))
     else throw new Error(`[data:sync] unknown arg: ${a}\n${USAGE}`)
   }
   if (!roleSeen)
@@ -155,6 +173,7 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
       deps: ['catalog'],
       supportsDryRun: false,
       supportsConcurrency: true,
+      fanoutable: true,
     })
     steps.push({
       id: 'convert',
@@ -164,6 +183,7 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
       deps: ['orderbook-download'],
       supportsDryRun: false,
       supportsConcurrency: true,
+      fanoutable: true,
     })
     for (const sym of symbols) {
       steps.push({
@@ -296,7 +316,23 @@ function printInventory(markets: Market[]): void {
   }
 }
 
-function main(): void {
+/** Run one child process; resolve with its exit code. With a prefix, lines are tagged so parallel children stay readable. */
+function runChild(tsxBin: string, argv: string[], prefix: string | null): Promise<number> {
+  return new Promise((resolve) => {
+    const child = spawn(tsxBin, argv, {
+      stdio: prefix != null ? ['ignore', 'pipe', 'pipe'] : 'inherit',
+    })
+    if (prefix != null && child.stdout && child.stderr) {
+      for (const stream of [child.stdout, child.stderr]) {
+        const rl = readline.createInterface({ input: stream })
+        rl.on('line', (line) => console.log(`${prefix} ${line}`))
+      }
+    }
+    child.on('close', (code) => resolve(code ?? 1))
+  })
+}
+
+async function main(): Promise<void> {
   const args = parseArgs(process.argv.slice(2))
   const allSteps = buildSteps(args.role, args.markets)
 
@@ -316,7 +352,8 @@ function main(): void {
   if (args.plan) {
     for (const step of selected) {
       const deps = step.deps.length > 0 ? `  (after: ${step.deps.join(', ')})` : ''
-      console.log(`  ${step.id}${deps}`)
+      const fan = args.fanout > 1 && step.fanoutable ? `  ×${args.fanout} processes` : ''
+      console.log(`  ${step.id}${deps}${fan}`)
       console.log(`    tsx ${stepCommand(step, args).join(' ')}`)
     }
     return
@@ -343,13 +380,25 @@ function main(): void {
       continue
     }
 
-    console.log(`\n[data:sync] ===== ${step.id}: ${step.title} =====`)
+    const fanout = step.fanoutable ? args.fanout : 1
+    const fanNote = fanout > 1 ? ` (${fanout} parallel processes)` : ''
+    console.log(`\n[data:sync] ===== ${step.id}: ${step.title}${fanNote} =====`)
     const startedAt = Date.now()
-    const res = spawnSync(tsxBin, argv, { stdio: 'inherit' })
+    let exitCodes: number[]
+    if (fanout > 1) {
+      exitCodes = await Promise.all(
+        Array.from({ length: fanout }, (_, k) => runChild(tsxBin, argv, `[${step.id}#${k + 1}]`)),
+      )
+    } else {
+      exitCodes = [await runChild(tsxBin, argv, null)]
+    }
     durations.set(step.id, Date.now() - startedAt)
-    status.set(step.id, res.status === 0 ? 'ok' : 'failed')
-    if (res.status !== 0) {
-      console.error(`[data:sync] step ${step.id} exited with code ${res.status ?? 'signal'}`)
+    const failedCodes = exitCodes.filter((c) => c !== 0)
+    status.set(step.id, failedCodes.length === 0 ? 'ok' : 'failed')
+    if (failedCodes.length > 0) {
+      console.error(
+        `[data:sync] step ${step.id}: ${failedCodes.length}/${exitCodes.length} process(es) failed (codes: ${failedCodes.join(', ')})`,
+      )
     }
   }
 
@@ -370,4 +419,7 @@ function main(): void {
   }
 }
 
-main()
+main().catch((err: unknown) => {
+  console.error(err instanceof Error ? err.message : err)
+  process.exitCode = 1
+})
