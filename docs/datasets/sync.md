@@ -80,7 +80,7 @@ instead of computing on stale data — re-run those slugs after the sync with
 | Flag | Meaning |
 | --- | --- |
 | `--market <symbol>:<timeframe>` | Repeatable, required. E.g. `btc:15m`. |
-| `--dry-run` | Preflight only. Forwarded to every step that supports it natively; the two that do not (`telonex:download`, `telonex:convert`) print the exact command they would run. |
+| `--dry-run` | Full preflight — every step runs with its native `--dry-run` and reports what it would do: catalog rows to upsert, raw-file queue size, conversion queue, missing feed days, files to upload/pull. Note: the download/convert counts reflect the **current** catalog; new markets appear in them only after a real catalog sync. |
 | `--plan` | Print the resolved step list with dependencies and exit. Runs nothing, touches nothing. |
 | `--only a,b` / `--skip a,b` | Filter steps by id prefix (e.g. `--only binance`, `--skip catalog,convert`). |
 | `--concurrency N` | Forwarded to steps that support it. |

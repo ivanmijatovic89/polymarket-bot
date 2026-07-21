@@ -15,8 +15,8 @@
  *
  * Options:
  *   --market <symbol>:<timeframe>   repeatable; e.g. btc:15m (required)
- *   --dry-run        pass --dry-run to steps that support it; print the exact
- *                    command for the two that do not (telonex download/convert)
+ *   --dry-run        full preflight: every step runs with --dry-run and
+ *                    reports what it WOULD do (missing markets/days/files)
  *   --plan           print the resolved step list and exit (runs nothing)
  *   --only a,b       run only steps whose id starts with one of the prefixes
  *   --skip a,b       skip steps whose id starts with one of the prefixes
@@ -79,7 +79,7 @@ const USAGE = [
   '       npm run data:sync:worker -- --market <symbol>:<timeframe> [--market ...] [options]',
   '',
   '  --market btc:15m   repeatable, required (no default scope)',
-  '  --dry-run          preflight only; steps without native --dry-run print their command',
+  '  --dry-run          full preflight; every step reports what it would do',
   '  --plan             print resolved steps and exit',
   '  --only a,b         run only step ids starting with these prefixes',
   '  --skip a,b         skip step ids starting with these prefixes',
@@ -171,7 +171,7 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
       script: 'src/telonex/download-raw-files.ts',
       args: ['--slug-pattern', patterns],
       deps: ['catalog'],
-      supportsDryRun: false,
+      supportsDryRun: true,
       supportsConcurrency: true,
       fanoutable: true,
     })
@@ -181,7 +181,7 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
       script: 'src/telonex/convert.ts',
       args: ['--converter', 'delta-typed', '--output', 'r2', '--slug-pattern', patterns],
       deps: ['orderbook-download'],
-      supportsDryRun: false,
+      supportsDryRun: true,
       supportsConcurrency: true,
       fanoutable: true,
     })

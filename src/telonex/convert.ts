@@ -14,7 +14,7 @@
  * Usage:
  *   npm run telonex:convert -- [--converter paired] [--converter delta] [--converter delta-typed] [--output local|r2|both] [--force]
  *                              [--concurrency N] [--limit N] [--book-interval N]
- *                              [--slug s1,s2,...] [--slug-pattern 'p1,p2,...']
+ *                              [--slug s1,s2,...] [--slug-pattern 'p1,p2,...'] [--dry-run]
  *
  * --converter can be repeated to run multiple converters per market in a single pass,
  * downloading raw files only once. Defaults to paired if omitted.
@@ -63,6 +63,7 @@ type Args = {
   slugFilter: string[] | null
   slugPatterns: string[] | null
   force: boolean
+  dryRun: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -75,6 +76,7 @@ function parseArgs(argv: string[]): Args {
     slugFilter: null,
     slugPatterns: null,
     force: false,
+    dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -94,6 +96,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
     else if (a === '--book-interval') out.bookInterval = Number(argv[++i] ?? '0') || null
     else if (a === '--force') out.force = true
+    else if (a === '--dry-run') out.dryRun = true
     else if (a === '--slug')
       out.slugFilter = (argv[++i] ?? '')
         .split(',')
@@ -988,6 +991,11 @@ async function main(): Promise<void> {
       ? ` · ${totalFiles} files (${args.converters.length} converters × ${totalQueue})`
       : ''
   console.log(`[telonex:convert] queue=${totalQueue} markets${filesLabel}`)
+
+  if (args.dryRun) {
+    console.log('[telonex:convert] dry-run — nothing converted')
+    return
+  }
 
   const reserved = { count: 0 }
   const claimed = { count: 0 }
