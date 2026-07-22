@@ -41,7 +41,7 @@ npm run data:sync:main -- --market btc:15m --market eth:5m --market eth:15m
 | Convert to delta-typed (→ local + R2) | ✓ | | `telonex:convert --output both` |
 | Binance aggTrades day files (→ R2) | ✓ | | `binance:download-aggtrades --sync` + `binance:upload-aggtrades-r2` |
 | Chainlink crypto_prices day files (→ R2) | ✓ | | `telonex:crypto-prices:download --sync` + `:upload-r2` |
-| Converted parquet R2 → local | | ✓ | `telonex:download-converted-r2-to-local` |
+| Converted parquet R2 → local | ✓ | ✓ | `telonex:download-converted-r2-to-local` (on main: reconciles the local set with conversions made by fanned-out workers) |
 | Binance aggTrades R2 → local | | ✓ | `binance:download-aggtrades-r2-to-local` |
 | crypto_prices R2 → local | | ✓ | `telonex:crypto-prices:download-r2-to-local` |
 
