@@ -40,27 +40,34 @@
             [ -x "$c" ] && tmux_bin="$c"
           done
 
+          err=/tmp/fleet-pull-err.$$
+          # Emit the one-line summary, then a DETAIL: block for anything that
+          # went wrong, so an unexpected failure carries its reason instead of
+          # a bare marker (git stderr, npm tail, or the worker log on a failed
+          # restart). The recap parses line 1 for fields and shows DETAIL as-is.
+          fail() { echo "$1 $before ? skipped none $2 $(( $(date +%s) - t0 ))"; echo "DETAIL: $3"; exit 0; }
+
           before="$(git rev-parse --short HEAD)"
           lock_before="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
 
-          git fetch --prune --quiet "$remote" || { echo "FETCH_FAILED"; exit 1; }
+          git fetch --prune "$remote" >"$err" 2>&1 || fail FETCH_FAILED - "$(tail -3 "$err")"
           branch="$(git rev-parse --abbrev-ref HEAD)"
           if [ -n "$want" ] && [ "$want" != "$branch" ]; then
             # Never reset an existing local branch (it may hold unpushed work).
             if git rev-parse --verify --quiet "refs/heads/$want" >/dev/null; then
-              git checkout --quiet "$want" || { echo "CHECKOUT_FAILED"; exit 1; }
+              git checkout "$want" >"$err" 2>&1 || fail CHECKOUT_FAILED - "$(tail -3 "$err")"
             else
-              git checkout --quiet --track "$remote/$want" || { echo "CHECKOUT_FAILED"; exit 1; }
+              git checkout --track "$remote/$want" >"$err" 2>&1 || fail CHECKOUT_FAILED - "$(tail -3 "$err")"
             fi
             branch="$want"
           fi
-          git merge --ff-only "$remote/$branch" >/dev/null 2>&1 || { echo "MERGE_FAILED"; exit 1; }
+          git merge --ff-only "$remote/$branch" >"$err" 2>&1 || fail MERGE_FAILED - "$(tail -3 "$err")"
           after="$(git rev-parse --short HEAD)"
           lock_after="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
 
           deps=skipped
           if [ "$lock_before" != "$lock_after" ]; then
-            npm install >/dev/null 2>&1 && deps=installed || deps=FAILED
+            npm install >"$err" 2>&1 && deps=installed || deps=FAILED
           fi
 
           # Restart only what was actually running, and only when the code moved.
@@ -96,14 +103,23 @@
               restarted=DRAIN_TIMEOUT
             else
               mkdir -p "$log_dir"
+              worker_log="$log_dir/$session.log"
               "$tmux_bin" new-session -d -s "$session" -c {{ worker_repo_dir | quote }} \
                 {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_dir ~ "/" ~ worker_session ~ ".log 2>&1") | quote) | quote }}
               sleep 2
-              if "$tmux_bin" has-session -t "$session" 2>/dev/null; then restarted=yes; else restarted=START_FAILED; fi
+              if "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+                restarted=yes
+              else
+                restarted=START_FAILED
+                start_detail="$(tail -6 "$worker_log" 2>/dev/null | tr '\n' '|')"
+              fi
             fi
           fi
 
           echo "$branch $before $after $deps $worker_state $restarted $(( $(date +%s) - t0 ))"
+          [ "$restarted" = START_FAILED ] && echo "DETAIL: worker log — ${start_detail:-<empty>}"
+          [ "$deps" = FAILED ] && echo "DETAIL: npm install — $(tail -3 "$err" 2>/dev/null | tr '\n' '|')"
+          rm -f "$err"
       register: pull_result
       failed_when: false
       changed_when: pull_result.rc == 0 and (pull_result.stdout.split()[1] | default('')) != (pull_result.stdout.split()[2] | default(''))
@@ -124,7 +140,12 @@
           {% elif r.rc != 0 %}
           {{ h }}  🔴 failed: {{ (r.stdout | default('') | trim) }} {{ (r.stderr | default('') | trim)[:100] }}
           {% else %}
-          {% set p = r.stdout.split() %}
-          {{ h }}  ✅ {{ '%5s' | format(p[6] ~ 's') }}  {{ p[0] }}  {{ p[1] }} → {{ p[2] }}{{ '  (already current)' if p[1] == p[2] else '' }}{{ '  deps:' ~ p[3] if p[3] != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] == 'yes' else (p[5] if p[5] != 'no' else ('running, code unchanged' if p[4] != 'none' else 'not running')) }}
+          {% set p = (r.stdout_lines[0] | default('')).split() %}
+          {% set bad = ['START_FAILED', 'DRAIN_TIMEOUT', 'FETCH_FAILED', 'CHECKOUT_FAILED', 'MERGE_FAILED', 'FAILED'] %}
+          {% set icon = '🔴' if p[0] | default('') in bad or p[5] | default('') in bad or p[3] | default('') == 'FAILED' else '✅' %}
+          {{ h }}  {{ icon }} {{ '%5s' | format((p[6] | default('?')) ~ 's') }}  {{ p[0] | default('?') }}  {{ p[1] | default('?') }} → {{ p[2] | default('?') }}{{ '  (already current)' if p[1] | default('') == p[2] | default('x') else '' }}{{ '  deps:' ~ p[3] if p[3] | default('skipped') != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] | default('') == 'yes' else (p[5] if p[5] | default('no') != 'no' else ('running, code unchanged' if p[4] | default('none') != 'none' else 'not running')) }}
+          {% for d in r.stdout_lines[1:] if d.startswith('DETAIL:') %}
+                {{ d }}
+          {% endfor %}
           {% endif %}
           {% endfor %}

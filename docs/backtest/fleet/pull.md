@@ -40,6 +40,16 @@ worker-2  ✅    1s  main  c5ec546 → c5ec546  (already current)  worker:runnin
 milan-m1  ✅   24s  main  a6ed241 → c5ec546  deps:installed  worker:not running
 ```
 
+A failing step is marked 🔴 and followed by a `DETAIL:` line carrying the
+reason — git's stderr for a fetch/checkout/merge failure, the `npm install`
+tail for a dependency failure, or the worker log tail when a restart did not
+come up (e.g. two restart operations racing for the same tmux session):
+
+```
+worker-1  🔴    1s  CHECKOUT_FAILED  a6ed241 → ?  worker:-
+      DETAIL: fatal: 'origin/does-not-exist-xyz' is not a commit ...
+```
+
 The column after the check mark is that machine's own elapsed time, so a
 slow host is visible immediately (the wrapper's total is printed at the very
 end).
