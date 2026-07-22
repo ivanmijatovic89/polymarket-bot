@@ -71,10 +71,10 @@ function cell(r, stepId) {
 const anyDryRun = parsed.some((r) => r.dryRun)
 
 function resultCell(r) {
-  if (r.rc == null) return '✗ unreachable'
-  if (r.rc !== 0) return `FAILED rc=${r.rc}`
-  if (!anyDryRun) return 'OK'
-  return r.synced ? 'SYNCED ✓' : `BEHIND (${r.behind})`
+  if (r.rc == null) return '⚠️  unreachable'
+  if (r.rc !== 0) return `🔴 FAILED rc=${r.rc}`
+  if (!anyDryRun) return '✅ OK'
+  return r.synced ? '✅ SYNCED' : `🔴 BEHIND (${r.behind})`
 }
 
 const header = ['machine', 'result', 'time', ...stepIds]
@@ -94,10 +94,10 @@ console.log('')
 if (anyDryRun) {
   const laggards = parsed.filter((r) => !r.synced)
   if (laggards.length === 0) {
-    console.log('FLEET SYNCED: YES — every machine is fully up to date.')
+    console.log('✅ FLEET SYNCED — every machine is fully up to date.')
   } else {
     console.log(
-      `FLEET SYNCED: NO — ${laggards.map((r) => `${r.host} (${r.rc == null ? 'unreachable' : `-${r.behind}`})`).join(', ')}`,
+      `🔴 FLEET NOT SYNCED — ${laggards.map((r) => `${r.host} (${r.rc == null ? 'unreachable' : `-${r.behind}`})`).join(', ')}`,
     )
     process.exitCode = 1
   }
