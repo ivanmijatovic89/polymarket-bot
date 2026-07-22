@@ -1,0 +1,57 @@
+---
+- name: Sync datasets on backtest workers (data:sync:worker per host)
+  hosts: backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+    # Required: pass the market scope, e.g.
+    #   npm run fleet:data -- -e data_sync_markets='btc:15m'
+    # Multiple pairs comma-separated: -e data_sync_markets='btc:15m,eth:15m'
+    data_sync_extra_default: ''
+
+  tasks:
+    - name: Resolve data sync settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        sync_markets: "{{ data_sync_markets | mandatory('pass -e data_sync_markets=btc:15m') }}"
+        sync_extra: '{{ data_sync_extra | default(data_sync_extra_default) }}'
+
+    - name: Build market args
+      ansible.builtin.set_fact:
+        sync_market_args: >-
+          {{ sync_markets.split(',') | map('trim') | select | map('regex_replace', '^(.*)$', '--market \1') | join(' ') }}
+
+    - name: Run data:sync:worker
+      # Interactive login shell so nvm-installed node/npm are on PATH.
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - >-
+            cd {{ worker_repo_dir | quote }} &&
+            npm run data:sync:worker -- {{ sync_market_args }} {{ sync_extra }}
+      register: sync_run
+      failed_when: false
+      changed_when: sync_run.rc | default(1) == 0
+      check_mode: false
+
+    - name: Show sync tail
+      ansible.builtin.debug:
+        msg: |-
+          {{ inventory_hostname }} rc={{ sync_run.rc | default('unreachable') }}
+          {{ (sync_run.stdout_lines | default([]))[-14:] | join('\n') }}
+          {{ (sync_run.stderr | default(''))[-300:] }}
+
+- name: Fleet data sync recap
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Recap
+      ansible.builtin.debug:
+        msg: |-
+          {% for h in groups['backtest_workers'] %}
+          {% set r = hostvars[h].sync_run | default(none) %}
+          {{ '%-12s' | format(h) }} {{ 'OK' if (r is not none and r.rc | default(1) == 0) else 'FAILED/UNREACHABLE' }}
+          {% endfor %}

@@ -1,0 +1,77 @@
+---
+- name: Report fleet status (read-only)
+  hosts: backtest_workers
+  gather_facts: false
+  # Keep unreachable hosts in the play result instead of aborting — an
+  # offline machine is a status finding, not an error.
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+
+  tasks:
+    - name: Resolve status settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+
+    - name: Push status probe
+      # Copied from the control machine so status works even on machines
+      # whose repo checkout is outdated or dirty.
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../scripts/fleet-status-probe.mjs'
+        dest: /tmp/fleet-status-probe.mjs
+        mode: '0644'
+
+    - name: Run status probe
+      # Interactive login shell (-lic) so nvm-installed node is on PATH —
+      # nvm init typically lives in .zshrc. cwd must be the repo root (the
+      # probe inspects it). A probe failure is a status finding, not a
+      # playbook error.
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - 'cd {{ worker_repo_dir | quote }} && node /tmp/fleet-status-probe.mjs'
+      register: probe
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Parse probe output
+      ansible.builtin.set_fact:
+        fleet_status: '{{ probe.stdout_lines | last | from_json }}'
+      when: probe.rc | default(1) == 0 and (probe.stdout_lines | default([]) | length) > 0
+
+    - name: Show machine status
+      ansible.builtin.debug:
+        msg: >-
+          {{ inventory_hostname }}:
+          {{ fleet_status.git.branch }}@{{ fleet_status.git.commit }}{{ ' DIRTY' if fleet_status.git.dirty else '' }}
+          | cores={{ fleet_status.cores }} disk_free={{ fleet_status.diskFreeGb }}GB
+          | worker={{ 'RUNNING(' ~ fleet_status.sessions.backtestWorker.panes ~ ' panes)' if fleet_status.sessions.backtestWorker.alive else 'stopped' }}
+          converter={{ 'RUNNING(' ~ fleet_status.sessions.telonexConverter.panes ~ ' panes)' if fleet_status.sessions.telonexConverter.alive else 'stopped' }}
+          | converted={{ fleet_status.datasets.converted }}
+          | binance={{ fleet_status.datasets.binanceAggTrades }}
+          | crypto_prices={{ fleet_status.datasets.cryptoPrices }}
+      when: fleet_status is defined
+
+    - name: Show probe failure
+      ansible.builtin.debug:
+        msg: '{{ inventory_hostname }}: PROBE FAILED rc={{ probe.rc | default("?") }} stderr={{ (probe.stderr | default(""))[:300] }}'
+      when: fleet_status is not defined
+
+- name: Fleet status recap
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Recap
+      ansible.builtin.debug:
+        msg: |-
+          {% for h in groups['backtest_workers'] %}
+          {% set st = hostvars[h].fleet_status | default(none) %}
+          {% if st is none %}
+          {{ '%-12s' | format(h) }} UNREACHABLE or probe failed
+          {% else %}
+          {{ '%-12s' | format(h) }} {{ st.git.branch }}@{{ st.git.commit }}{{ ' DIRTY' if st.git.dirty else '' }}  cores={{ st.cores }}  free={{ st.diskFreeGb }}GB  worker={{ 'UP' if st.sessions.backtestWorker.alive else 'down' }}  converter={{ 'UP' if st.sessions.telonexConverter.alive else 'down' }}
+          {% endif %}
+          {% endfor %}
