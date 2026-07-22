@@ -84,6 +84,10 @@ The default command inside that session is:
 ./scripts/run-worker.sh --queues markets
 ```
 
+Market concurrency is intentionally absent: `run-worker.sh` resolves it per
+machine from `dashboard/src/data/machines.json` (`cores_for_backtest`, else
+`cores - 2`). An explicit flag in a per-host `backtest_worker_command` wins.
+
 The playbook looks for tmux in `PATH`, `/opt/homebrew/bin/tmux`, and
 `/usr/local/bin/tmux`. If a worker uses a different tmux path, override it in
 `ops/ansible/inventory.ini`:

@@ -109,6 +109,14 @@ The inventory variables are:
 | `backtest_worker_session` | No | `polymarket-backtest-worker` |
 | `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets` |
 
+When the command carries no `--market-concurrency`, `run-worker.sh` resolves
+it **on that machine** from `dashboard/src/data/machines.json`
+(`cores_for_backtest`, matched by `node-machine-id`; else `cores - 2`) — so
+per-host commands can stay concurrency-free and machines.json is the single
+place to tune how many cores each machine spends on backtests. A machine that
+is producer and worker just sets
+`backtest_worker_command="./scripts/run-worker.sh --queues markets,aggregate"`.
+
 Override `backtest_worker_command` per host when different machines should use
 different concurrency or queue ownership.
 
