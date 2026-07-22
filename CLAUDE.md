@@ -70,6 +70,29 @@ npm run backtest -- --extend <runId> --latest --limit 200     # 200 newest missi
 # --extend: --strategy, --param, --symbol, --timeframe, --input-mode, --read-from,
 # --slug, --dir, --batchUid, --baselineId, positional file paths.
 
+# Dataset sync — one command per machine role (scope is explicit; no default market)
+npm run data:sync:main -- --market btc:15m [--fanout 6] [--dry-run] [--plan]
+npm run data:sync:worker -- --market btc:15m
+# main:   catalog → priceToBeat backfill → raw download → convert (local+R2) →
+#         binance/crypto_prices download+upload → converted-pull (reconciles the
+#         local set with conversions made by fanned-out workers)
+# worker: converted parquet + binance + crypto_prices, R2 → local
+# See docs/datasets/sync.md.
+
+# Fleet (ansible; hosts in ops/ansible/inventory.ini, [producer] + [backtest_workers])
+npm run fleet:status                    # inventory: git, sessions, cores, disk, datasets
+npm run fleet:git:pull [-- <branch>]    # pull code (+switch branch), deps, drain+restart — ~4-7s
+npm run fleet:update                    # same, verbose per-step pre-flight — ~50s
+npm run fleet:data:sync -- btc:15m      # run data:sync:worker everywhere ('-e data_sync_extra=--dry-run' = verdict)
+npm run fleet:start | fleet:stop        # ensure workers running / drain them
+# fleet:start and fleet:update default to branch main — pass
+# `-e backtest_branch=<name>` when the fleet should stay on a feature branch.
+# See docs/backtest/fleet/overview.md for the full command cheat sheet.
+
+# Backtest worker (self-updating wrapper; --market-concurrency defaults to this
+# machine's cores_for_backtest in dashboard/src/data/machines.json, else cores-2)
+npm run worker:markets | worker:aggregate | worker:markets-and-aggregate
+
 # Record live WS → Parquet
 npm run record:live:btc                # or :eth :sol :xrp
 
@@ -275,5 +298,7 @@ Redeem watcher: `REDEEM_WATCH_INTERVAL_MS`, `REDEEM_LOOKBACK_HOURS`, `REDEEM_MAX
 ## Additional docs
 
 `docs/` contains the canonical VitePress documentation site. The `webui/` directory has its own README.
+
+**Writing docs:** use the `docs-writer` skill when creating a NEW page under `docs/` — it enforces the Diátaxis type (tutorial / how-to / reference / explanation), frontmatter, and VitePress conventions. Editing an existing page does not need it. Every new page also needs a sidebar entry in `docs/.vitepress/config.ts`, otherwise it is invisible; run `npm --prefix docs run build` before committing (CI builds the site and fails on dead links).
 
 **Telonex pipeline:** `docs/datasets/telonex/sync-design.md` is the authoritative design for the Telonex dataset ingestion pipeline (`sync-markets` → `download-raw-files` → `convert`). Read it before working on anything under `src/telonex/`. Existing Telonex usage doc: `docs/datasets/telonex/overview.md`.
