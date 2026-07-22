@@ -4,9 +4,9 @@ set -euo pipefail
 # Runs data:sync:worker on every fleet machine via ansible.
 #
 # Usage:
-#   npm run fleet:data -- btc:15m                        # one or more pairs, comma-separated
-#   npm run fleet:data -- btc:15m --limit worker-1       # extra ansible args after the pairs
-#   npm run fleet:data -- btc:15m -e data_sync_extra='--dry-run'
+#   npm run fleet:data:sync -- btc:15m                   # one or more pairs, comma-separated
+#   npm run fleet:data:sync -- btc:15m --limit worker-1  # extra ansible args after the pairs
+#   npm run fleet:data:sync -- btc:15m -e data_sync_extra='--dry-run'
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
