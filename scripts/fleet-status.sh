@@ -14,4 +14,15 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+rm -f /tmp/fleet-status-summary.txt
+set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "$@"
+code=$?
+set -e
+
+if [ -f /tmp/fleet-status-summary.txt ]; then
+  echo
+  cat /tmp/fleet-status-summary.txt
+  echo
+fi
+exit "$code"

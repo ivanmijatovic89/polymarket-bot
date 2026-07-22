@@ -42,19 +42,6 @@
         fleet_status: '{{ probe.stdout_lines | last | from_json }}'
       when: probe.rc | default(1) == 0 and (probe.stdout_lines | default([]) | length) > 0
 
-    - name: Show machine status
-      ansible.builtin.debug:
-        msg: >-
-          {{ inventory_hostname }}:
-          {{ fleet_status.git.branch }}@{{ fleet_status.git.commit }}{{ ' DIRTY' if fleet_status.git.dirty else '' }}
-          | cores={{ fleet_status.cores }} disk_free={{ fleet_status.diskFreeGb }}GB
-          | worker={{ 'RUNNING(' ~ fleet_status.sessions.backtestWorker.panes ~ ' panes)' if fleet_status.sessions.backtestWorker.alive else 'stopped' }}
-          converter={{ 'RUNNING(' ~ fleet_status.sessions.telonexConverter.panes ~ ' panes)' if fleet_status.sessions.telonexConverter.alive else 'stopped' }}
-          | converted={{ fleet_status.datasets.converted }}
-          | binance={{ fleet_status.datasets.binanceAggTrades }}
-          | crypto_prices={{ fleet_status.datasets.cryptoPrices }}
-      when: fleet_status is defined
-
     - name: Show probe failure
       ansible.builtin.debug:
         msg: '{{ inventory_hostname }}: PROBE FAILED rc={{ probe.rc | default("?") }} stderr={{ (probe.stderr | default(""))[:300] }}'
@@ -64,14 +51,36 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Recap
-      ansible.builtin.debug:
-        msg: |-
+    - name: Write recap file
+      ansible.builtin.copy:
+        dest: /tmp/fleet-status-summary.txt
+        mode: '0644'
+        content: |-
+
+          ================ FLEET STATUS ================
           {% for h in groups['backtest_workers'] %}
           {% set st = hostvars[h].fleet_status | default(none) %}
           {% if st is none %}
-          {{ '%-12s' | format(h) }} UNREACHABLE or probe failed
+          {{ h }}  ✗ UNREACHABLE or probe failed
           {% else %}
-          {{ '%-12s' | format(h) }} {{ st.git.branch }}@{{ st.git.commit }}{{ ' DIRTY' if st.git.dirty else '' }}  cores={{ st.cores }}  free={{ st.diskFreeGb }}GB  worker={{ 'UP' if st.sessions.backtestWorker.alive else 'down' }}  converter={{ 'UP' if st.sessions.telonexConverter.alive else 'down' }}
+          {{ h }}  {{ st.git.branch }}@{{ st.git.commit }}{{ ' DIRTY' if st.git.dirty else '' }} · {{ st.cores }} cores · {{ st.diskFreeGb }}GB free · worker {{ 'UP(' ~ st.sessions.backtestWorker.panes ~ ')' if st.sessions.backtestWorker.alive else 'down' }} · converter {{ 'UP(' ~ st.sessions.telonexConverter.panes ~ ')' if st.sessions.telonexConverter.alive else 'down' }}
+          {% for k, v in st.datasets.converted.items() %}
+              converted {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} files   newest {{ '%Y-%m-%d %H:%M' | strftime(v.newest.split('-')[-1].split('.')[0] | int) if v.newest else '—' }}
+          {% endfor %}
+          {% if st.datasets.converted | length == 0 %}
+              converted          — none —
+          {% endif %}
+          {% for k, v in st.datasets.binanceAggTrades.items() %}
+              binance   {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} days    newest {{ v.newest[-18:-8] if v.newest else '—' }}
+          {% endfor %}
+          {% if st.datasets.binanceAggTrades | length == 0 %}
+              binance            — none —
+          {% endif %}
+          {% for k, v in st.datasets.cryptoPrices.items() %}
+              chainlink {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} days    newest {{ v.newest[-18:-8] if v.newest else '—' }}
+          {% endfor %}
+          {% if st.datasets.cryptoPrices | length == 0 %}
+              chainlink          — none —
+          {% endif %}
           {% endif %}
           {% endfor %}

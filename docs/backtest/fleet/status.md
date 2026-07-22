@@ -20,18 +20,27 @@ Read-only. For every host in `ops/ansible/inventory.ini` it reports:
   `symbol:timeframe`, Binance aggTrades pair, and crypto_prices asset (the
   same directories [data:sync](/datasets/sync) fills and reports)
 
-Example recap:
+The run ends with a plain-text summary (also written to
+`/tmp/fleet-status-summary.txt`):
 
 ```
-worker-1     main@2b0aaea  cores=10  free=118GB  worker=down  converter=down
-worker-2     main@f22ca1c  cores=10  free=125GB  worker=down  converter=down
-milan-m1     main@2b0aaea  cores=8   free=386GB  worker=down  converter=down
-milan-m5     UNREACHABLE or probe failed
+================ FLEET STATUS ================
+worker-1  main@a6ed241 · 10 cores · 118GB free · worker down · converter down
+    converted btc:15m    23023 files   newest 2026-07-22 01:15
+    binance   BTCUSDT      229 days    newest 2026-07-15
+    chainlink          — none —
+worker-2  main@a6ed241 · 10 cores · 125GB free · worker down · converter down
+    converted btc:15m    19028 files   newest 2026-07-22 01:45
+    binance   BTCUSDT      229 days    newest 2026-07-15
+    chainlink          — none —
+milan-m1  main@a6ed241 · 8 cores · 386GB free · worker down · converter down
+    converted btc:15m    19252 files   newest 2026-07-21 23:00
+    binance            — none —
+    chainlink          — none —
 ```
 
-Above the recap, each reachable host prints its full status line including
-the dataset inventory, so stale feeds ("binance newest = 5 days ago") and
-missing datasets are visible at a glance.
+Stale feeds ("binance newest = a week ago") and missing datasets are
+visible at a glance; an offline host shows as `✗ UNREACHABLE`.
 
 ## How it works
 
