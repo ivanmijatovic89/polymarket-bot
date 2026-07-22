@@ -277,6 +277,7 @@ export default withMermaid(
             { text: 'Code Quality Workflow', link: '/contribution/code-quality-workflow' },
             { text: 'Build the Docs Site', link: '/contribution/build-docs-site' },
             { text: 'Tmuxinator Workspace', link: '/contribution/tmuxinator-workspace' },
+            { text: 'Menu Bar Status', link: '/contribution/menu-bar-status' },
             {
               text: 'Ideas & Research',
               collapsed: false,
