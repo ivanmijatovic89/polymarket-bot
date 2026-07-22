@@ -35,10 +35,14 @@ just gets the code.
 
 ```
 ================ FLEET PULL ================
-worker-1  ✅ feat/fleet-status  a6ed241 → c5ec546  worker:restarted
-worker-2  ✅ main  c5ec546 → c5ec546  (already current)  worker:running, code unchanged
-milan-m1  ✅ main  a6ed241 → c5ec546  deps:installed  worker:not running
+worker-1  ✅    7s  feat/fleet-status  a6ed241 → c5ec546  worker:restarted
+worker-2  ✅    1s  main  c5ec546 → c5ec546  (already current)  worker:running, code unchanged
+milan-m1  ✅   24s  main  a6ed241 → c5ec546  deps:installed  worker:not running
 ```
+
+The column after the check mark is that machine's own elapsed time, so a
+slow host is visible immediately (the wrapper's total is printed at the very
+end).
 
 The drain is graceful: in-flight market jobs finish before the worker
 relaunches. A worker that outlasts `pull_drain_seconds` (default 120) is

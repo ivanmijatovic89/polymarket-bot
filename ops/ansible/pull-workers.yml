@@ -26,6 +26,7 @@
       ansible.builtin.shell:
         cmd: |
           set -u
+          t0=$(date +%s)
           cd {{ worker_repo_dir | quote }}
           remote={{ backtest_remote | default('origin') | quote }}
           want={{ pull_branch | default('') | quote }}
@@ -102,7 +103,7 @@
             fi
           fi
 
-          echo "$branch $before $after $deps $worker_state $restarted"
+          echo "$branch $before $after $deps $worker_state $restarted $(( $(date +%s) - t0 ))"
       register: pull_result
       failed_when: false
       changed_when: pull_result.rc == 0 and (pull_result.stdout.split()[1] | default('')) != (pull_result.stdout.split()[2] | default(''))
@@ -124,6 +125,6 @@
           {{ h }}  🔴 failed: {{ (r.stdout | default('') | trim) }} {{ (r.stderr | default('') | trim)[:100] }}
           {% else %}
           {% set p = r.stdout.split() %}
-          {{ h }}  ✅ {{ p[0] }}  {{ p[1] }} → {{ p[2] }}{{ '  (already current)' if p[1] == p[2] else '' }}{{ '  deps:' ~ p[3] if p[3] != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] == 'yes' else (p[5] if p[5] != 'no' else ('running, code unchanged' if p[4] != 'none' else 'not running')) }}
+          {{ h }}  ✅ {{ '%5s' | format(p[6] ~ 's') }}  {{ p[0] }}  {{ p[1] }} → {{ p[2] }}{{ '  (already current)' if p[1] == p[2] else '' }}{{ '  deps:' ~ p[3] if p[3] != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] == 'yes' else (p[5] if p[5] != 'no' else ('running, code unchanged' if p[4] != 'none' else 'not running')) }}
           {% endif %}
           {% endfor %}
