@@ -16,13 +16,17 @@ lifecycle.
 
 ## What it does per machine
 
-1. Sends `Ctrl-C` to the worker session. The worker **drains**: it finishes
-   the market jobs already in flight and stops claiming new ones, so no
-   BullMQ locks are left to expire. `run-worker.sh` forwards the signal and
-   then exits its self-update loop.
-2. Waits up to `stop_grace_seconds` (default **120**) for the session to
-   disappear on its own.
-3. If it is still alive after the grace period, kills it — and says so, so
+1. **Managed session** — sends `Ctrl-C` to the worker session. The worker
+   **drains**: it finishes the market jobs already in flight and stops
+   claiming new ones, so no BullMQ locks are left to expire.
+   `run-worker.sh` forwards the signal and then exits its self-update loop.
+2. **Unmanaged workers** — a worker started outside that session (e.g.
+   `npm run worker:markets` typed over ssh) is still a worker, so it gets a
+   `SIGTERM`, which drains it exactly the same way. Reported as
+   `stopped (drained, unmanaged process)`.
+3. Waits up to `stop_grace_seconds` (default **120**) for everything to
+   exit on its own.
+4. Anything still alive after the grace period is killed — and said so, so
    an interrupted job is never silently hidden.
 
 Each machine ends up in exactly one state:

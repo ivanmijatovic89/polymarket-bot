@@ -82,13 +82,57 @@
       when: session_before.rc == 0 and session_after_grace.rc | default(1) == 0
       changed_when: true
 
+    # Workers started outside the managed session (e.g. `npm run
+    # worker:markets` over ssh) are still workers — stopping the fleet must
+    # stop them too. SIGTERM makes the supervisor drain exactly like Ctrl-C
+    # does; run-worker.sh then sees a clean exit and stops its loop.
+    # The [.] pattern keeps pgrep from matching its own command line.
+    - name: Look for unmanaged worker processes
+      ansible.builtin.shell:
+        cmd: pgrep -f 'cli/backtestWorker[.]ts' || true
+      register: stray_before
+      changed_when: false
+      check_mode: false
+
+    - name: Terminate unmanaged worker processes (drain)
+      ansible.builtin.shell:
+        cmd: pkill -TERM -f 'cli/backtestWorker[.]ts' || true
+      when: stray_before.stdout | trim | length > 0 and not force_stop
+      changed_when: true
+
+    - name: Wait for unmanaged workers to drain
+      ansible.builtin.shell:
+        cmd: pgrep -f 'cli/backtestWorker[.]ts' || true
+      register: stray_wait
+      changed_when: false
+      check_mode: false
+      retries: '{{ ((grace_seconds | int) / 5) | round(0, "ceil") | int }}'
+      delay: 5
+      until: stray_wait.stdout | trim | length == 0
+      failed_when: false
+      when: stray_before.stdout | trim | length > 0 and not force_stop
+
+    - name: Kill unmanaged workers still alive
+      ansible.builtin.shell:
+        cmd: pkill -KILL -f 'cli/backtestWorker[.]ts' || true
+      register: stray_kill
+      when: >-
+        stray_before.stdout | trim | length > 0 and
+        (force_stop or (stray_wait.stdout | default('') | trim | length > 0))
+      changed_when: true
+
     - name: Record outcome
       ansible.builtin.set_fact:
+        had_session: '{{ session_before.rc == 0 }}'
+        had_stray: '{{ stray_before.stdout | trim | length > 0 }}'
         stop_outcome: >-
           {{
-            'not-running' if session_before.rc != 0
+            'not-running' if (session_before.rc != 0 and stray_before.stdout | trim | length == 0)
             else ('forced' if force_stop
-                  else ('killed-after-grace' if session_after_grace.rc | default(1) == 0 else 'drained'))
+                  else ('killed-after-grace'
+                        if (session_after_grace.rc | default(1) == 0
+                            or (stray_wait.stdout | default('') | trim | length > 0))
+                        else 'drained'))
           }}
 
     - name: Write recap file
@@ -105,7 +149,7 @@
           {% if o is none %}
           {{ h }}  ⚠️  unreachable
           {% elif o == 'drained' %}
-          {{ h }}  ✅ stopped (drained)
+          {{ h }}  ✅ stopped (drained{{ ', unmanaged process' if hostvars[h].had_stray | default(false) and not hostvars[h].had_session | default(false) else '' }})
           {% elif o == 'not-running' %}
           {{ h }}  ➖ was not running
           {% elif o == 'forced' %}
