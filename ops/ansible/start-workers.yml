@@ -4,7 +4,7 @@
   gather_facts: false
   vars:
     backtest_worker_session_default: polymarket-backtest-worker
-    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets
     backtest_worker_shell_default: /bin/zsh
 
   tasks:

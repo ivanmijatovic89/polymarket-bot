@@ -277,7 +277,7 @@ Start a markets-only worker through the self-updating wrapper:
 Use higher market concurrency only after the worker is verified:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
 
 Run aggregate workers only on machines that have database credentials:

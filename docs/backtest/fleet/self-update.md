@@ -20,6 +20,15 @@ That is documented separately in
 [Worker Fleet Ansible](/backtest/fleet/ansible); the commit gate on this
 page remains the correctness layer.
 
+::: tip Default market concurrency
+When `--market-concurrency` is not given, `run-worker.sh` resolves it from
+`dashboard/src/data/machines.json`: this machine's `cores_for_backtest`
+(matched by `node-machine-id`, the same identity the worker reports to the
+dashboard), falling back to `cores - 2` when the machine is unknown there or
+the field is `null`. An explicit flag always wins. Human shortcuts:
+`npm run worker:markets` and `npm run worker:aggregate`.
+:::
+
 ## The idea in one line
 
 > Run any job whose code I already have. If a job needs newer code, update and
@@ -88,7 +97,7 @@ Code `75` is a signal to the launcher script, `scripts/run-worker.sh`, which
 wraps the worker:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
 
 On exit `75` the wrapper runs `git fetch && git pull --ff-only`, reinstalls
@@ -117,7 +126,7 @@ machines, with the same flags you would pass to `npm run backtest:worker`:
 
 ::: code-group
 ```bash [local]
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
 ```bash [remote / sibling]
 # Markets only; no DB or trading credentials needed.

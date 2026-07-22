@@ -105,7 +105,7 @@ The inventory variables are:
 | `backtest_worker_shell` | No | `/bin/zsh` |
 | `backtest_worker_log_dir` | No | `<backtest_repo_dir>/logs/workers` |
 | `backtest_worker_session` | No | `polymarket-backtest-worker` |
-| `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets --market-concurrency 5` |
+| `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets` |
 
 Override `backtest_worker_command` per host when different machines should use
 different concurrency or queue ownership.
@@ -128,7 +128,7 @@ The managed session command is:
 tmux new-session -d \
   -s polymarket-backtest-worker \
   -c "$repo" \
-  "exec ./scripts/run-worker.sh --queues markets --market-concurrency 5"
+  "exec ./scripts/run-worker.sh --queues markets"
 ```
 
 If a worker is currently running manually in another terminal or tmux pane, stop

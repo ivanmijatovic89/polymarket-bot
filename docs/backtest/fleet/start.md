@@ -81,7 +81,7 @@ polymarket-backtest-worker
 The default command inside that session is:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
 
 The playbook looks for tmux in `PATH`, `/opt/homebrew/bin/tmux`, and
