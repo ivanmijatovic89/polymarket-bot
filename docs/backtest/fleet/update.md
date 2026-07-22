@@ -24,190 +24,47 @@ Two speeds, measured on a three-machine fleet with one overseas host:
 
 | | `npm run fleet:git:pull` | `npm run fleet:update` |
 | --- | --- | --- |
-| Does | `git fetch` + `git merge --ff-only` on the branch each worker is already on | that, plus branch switching, session stop/restart, `npm install` when the lockfile moved |
-| Takes | **~4 s** | **~50 s** |
-| Use when | you pushed again, or want the fleet on another branch fast | you want workers **running** that code immediately (session restart + deps) |
+| Does | fetch → (optional branch switch) → `merge --ff-only` → `npm install` **only if the lockfile moved** → drain + restart the worker **only if the code actually changed** | the same, plus repo/dirty/fast-forward pre-checks and per-step reporting |
+| Round trips | **one shell per machine** | ~19 ansible tasks per machine |
+| Takes | **~4 s** idle, **~7 s** with a restart | **~50 s** |
+| Use when | almost always | you want the verbose pre-flight and per-step audit trail |
 
-`fleet:pull` skips those extras safely: `--ff-only` is git's own divergence
-guard, a dirty tree fails the merge loudly, and a **running** worker keeps
-executing the code it loaded until a job needs something newer — at which
-point [self-update](/backtest/fleet/self-update) relaunches it (its own pull
-is then a no-op) and reinstalls dependencies if the lockfile changed.
+The speed difference is not about doing less work — it is that every ansible
+task costs an SSH round trip, and the slowest (overseas) host pays for all of
+them. `fleet:git:pull` runs the whole sequence as a single remote shell.
+
+After it, workers are **running** the new code — no waiting for a
+[self-update](/backtest/fleet/self-update) to pick it up. Nothing is
+restarted when the code did not move, and a machine whose worker is stopped
+just gets the code.
 
 ```
 ================ FLEET PULL ================
-worker-1  ✅ feat/fleet-status  614c47b → 8b29327
-worker-2  ✅ feat/fleet-status  614c47b → 8b29327  (already current)
-milan-m1  ⚠️  unreachable
+worker-1  ✅ feat/fleet-status  a6ed241 → c5ec546  worker:restarted
+worker-2  ✅ main  c5ec546 → c5ec546  (already current)  worker:running, code unchanged
+milan-m1  ✅ main  a6ed241 → c5ec546  deps:installed  worker:not running
 ```
+
+The drain is graceful: in-flight market jobs finish before the worker
+relaunches. A worker that outlasts `pull_drain_seconds` (default 120) is
+reported as `DRAIN_TIMEOUT` and left alone rather than killed.
 
 ### Switching branches
 
-Both commands can do it — pick by whether the workers must be **running**
-that code right away:
-
 ```bash
-# fast (~4 s): switches the checkout; running workers adopt it on their next
-# self-update (a job built on newer code triggers it automatically)
 npm run fleet:git:pull -- feat/my-branch
 npm run fleet:git:pull -- main
-
-# thorough (~50 s): switches AND restarts the workers, so the dashboard shows
-# them on the new commit immediately
-npm run fleet:update -- -e backtest_branch=feat/my-branch
 ```
 
-Neither resets a local branch that already exists (it might hold unpushed
-commits) — the branch is checked out and fast-forwarded; only a branch the
-machine has never used is created from the fetched remote ref.
+Because the restart is part of the command, switching works in **any**
+direction. That matters: moving *backwards* (feature branch → main) would
+otherwise leave workers running the feature code indefinitely — their loaded
+commit already contains everything a main-built job needs, so self-update
+never fires.
 
-## What This Solves
-
-Without Ansible, a quiet worker can stay on old code indefinitely. That is safe:
-the first new-code job will be delayed, the worker will exit with code `75`, and
-`scripts/run-worker.sh` will pull and relaunch it. But it costs time at the
-start of the run, and stale workers are visible on the dashboard until they are
-given work.
-
-With Ansible, you can run one command after merging or pushing:
-
-```bash
-npm run fleet:update
-```
-
-That command connects to every worker in the inventory, fast-forwards the repo,
-installs dependencies only if needed, and restarts the managed worker process
-only when that process was already running and the checkout changed.
-
-## Architecture
-
-```mermaid
-flowchart TD
-    A[Main machine] --> B["scripts/update-worker-fleet.sh"]
-    B --> C["ansible-playbook update-workers.yml"]
-    C --> D[Worker 1]
-    C --> E[Worker 2]
-    C --> F[Worker N]
-
-    D --> G["git fetch origin"]
-    G --> H{"checkout update needed?"}
-    H -- No --> I["leave worker running"]
-    H -- "Update needed" --> J["verify fast-forward"]
-    J --> K{"managed tmux<br/>session running?"}
-    K -- Yes --> L["stop managed tmux session"]
-    K -- No --> M["leave worker stopped"]
-    L --> N["git checkout main"]
-    M --> N
-    N --> O["git merge --ff-only origin/main"]
-    O --> P["npm ci if package-lock changed"]
-    P --> Q{"session was running?"}
-    Q -- Yes --> R["start scripts/run-worker.sh"]
-    Q -- No --> S["do not start worker"]
-```
-
-`scripts/run-worker.sh` is still the process that runs the worker. Ansible does
-not bypass it. That matters because the wrapper already knows how to handle
-worker exit code `75`, reinstall dependencies after lazy self-update, and avoid
-infinite relaunch loops when a needed commit is unreachable.
-
-## Files
-
-| File | Purpose |
-| --- | --- |
-| `ops/ansible/update-workers.yml` | The playbook that updates worker checkouts and restarts already-running managed sessions when needed. |
-| `ops/ansible/start-workers.yml` | The playbook that starts missing managed worker sessions. |
-| `ops/ansible/inventory.example.ini` | Example inventory. Copy it to `inventory.ini` and edit hosts. |
-| `ops/ansible/ansible.cfg` | Local Ansible defaults used by the wrapper. |
-| `scripts/update-worker-fleet.sh` | Local wrapper that runs the playbook against `ops/ansible/inventory.ini`. |
-| `scripts/start-worker-fleet.sh` | Local wrapper that starts missing managed worker sessions. |
-
-`ops/ansible/inventory.ini` is intentionally ignored by Git because it can
-contain private hostnames, users, IPs, or per-machine command overrides.
-
-## Inventory
-
-Create your local inventory:
-
-```bash
-cp ops/ansible/inventory.example.ini ops/ansible/inventory.ini
-```
-
-Example:
-
-```ini
-[backtest_workers]
-worker-1 ansible_host=worker-1-ansible backtest_repo_dir=/Users/worker-1/Sites/polymarket-bot
-worker-2 ansible_host=100.64.0.25 backtest_repo_dir=/Users/worker-2/Sites/polymarket-bot backtest_worker_command="./scripts/run-worker.sh --queues markets --market-concurrency 8"
-```
-
-The inventory variables are:
-
-| Variable | Required | Default |
-| --- | --- |
-| `backtest_repo_dir` | Yes | none |
-| `backtest_branch` | No | `main` |
-| `backtest_remote` | No | `origin` |
-| `backtest_tmux_bin` | No | auto-detect from `PATH`, `/opt/homebrew/bin/tmux`, or `/usr/local/bin/tmux` |
-| `backtest_worker_shell` | No | `/bin/zsh` |
-| `backtest_worker_log_dir` | No | `<backtest_repo_dir>/logs/workers` |
-| `backtest_worker_session` | No | `polymarket-backtest-worker` |
-| `backtest_worker_command` | No | `./scripts/run-worker.sh --queues markets` |
-
-When the command carries no `--market-concurrency`, `run-worker.sh` resolves
-it **on that machine** from `dashboard/src/data/machines.json`
-(`cores_for_backtest`, matched by `node-machine-id`; else `cores - 2`) — so
-per-host commands can stay concurrency-free and machines.json is the single
-place to tune how many cores each machine spends on backtests. A machine that
-is producer and worker just sets
-`backtest_worker_command="./scripts/run-worker.sh --queues markets,aggregate"`.
-
-Override `backtest_worker_command` per host when different machines should use
-different concurrency or queue ownership.
-
-## Managed tmux Session
-
-The current version uses a named tmux session instead of `launchd`:
-
-```text
-polymarket-backtest-worker
-```
-
-The update playbook only starts this session again when it was already running
-and a checkout update required stopping it. Starting missing sessions is handled
-by [Start Worker Fleet](/backtest/fleet/start).
-
-The managed session command is:
-
-```bash
-tmux new-session -d \
-  -s polymarket-backtest-worker \
-  -c "$repo" \
-  "exec ./scripts/run-worker.sh --queues markets"
-```
-
-If a worker is currently running manually in another terminal or tmux pane, stop
-that process once before switching to the managed session.
-
-## Update Flow
-
-For each host, the playbook:
-
-1. Verifies the repository exists.
-2. Fails if tracked files are dirty.
-3. Reads the current `HEAD`.
-4. Fetches `origin`.
-5. Checks whether the managed tmux session exists.
-6. Decides whether the checkout must change.
-7. Verifies the target branch can fast-forward to `origin/main`.
-8. Stops the managed tmux session before any working-tree mutation when a
-   checkout update is needed.
-9. Checks out `main` and runs `git merge --ff-only origin/main`.
-10. Runs `npm ci` only if `package-lock.json` changed.
-11. Starts the managed tmux session again only if it was running before the
-    update.
-
-This is deliberately conservative. A dirty or diverged checkout is an operator
-problem, not something the playbook should repair automatically.
+Neither command resets a local branch that already exists (it might hold
+unpushed commits) — the branch is checked out and fast-forwarded; only a
+branch the machine has never used is created from the fetched remote ref.
 
 ## Running It
 

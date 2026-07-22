@@ -28,8 +28,8 @@ Everything fleet- and data-related in one place. Human-typed commands use the
 | `npm run fleet:status` | Inventory of every machine: git, sessions, disk, datasets (what each machine HAS) | [Fleet Status](/backtest/fleet/status) |
 | `npm run fleet:data:sync -- btc:15m -e data_sync_extra='--dry-run'` | Verdict: what is MISSING per machine vs R2/upstream, `FLEET SYNCED` yes/no | [Sync Fleet Data](/backtest/fleet/data-sync) |
 | `npm run fleet:data:sync -- btc:15m` | Pull datasets R2 → local on every worker | [Sync Fleet Data](/backtest/fleet/data-sync) |
-| `npm run fleet:git:pull [branch]` | Fast code pull, optionally switching branch (~4 s, no restart) | [Update Fleet](/backtest/fleet/update#quick-pull-vs-full-update) |
-| `npm run fleet:update` | Full update: branch switch, checkout, deps, worker restart (~50 s) | [Update Fleet](/backtest/fleet/update) |
+| `npm run fleet:git:pull [branch]` | Pull code (optionally switching branch) and restart workers onto it — ~4-7 s | [Update Fleet](/backtest/fleet/update#quick-pull-vs-full-update) |
+| `npm run fleet:update` | Same, with verbose per-step pre-flight and audit trail (~50 s) | [Update Fleet](/backtest/fleet/update) |
 | `npm run fleet:start` | Update + start the managed tmux worker session everywhere | [Start the Fleet](/backtest/fleet/start) |
 | `npm run fleet:stop` | Stop workers everywhere — graceful drain, force only after the grace period | [Stop the Fleet](/backtest/fleet/stop) |
 | `npm run data:sync:main -- --market btc:15m` | Producer: catalog → raw → convert → feeds → R2 (+ local reconcile) | [Machine Roles & Sync](/datasets/sync) |

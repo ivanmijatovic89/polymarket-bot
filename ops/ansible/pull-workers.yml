@@ -1,43 +1,108 @@
 ---
-- name: Fast pull on backtest workers (code only)
+- name: Pull code on backtest workers and restart them onto it
   hosts: backtest_workers
   gather_facts: false
   ignore_unreachable: true
+  vars:
+    backtest_worker_session_default: polymarket-backtest-worker
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets
+    backtest_worker_shell_default: /bin/zsh
+    pull_drain_seconds_default: 120
 
   tasks:
-    # Deliberately minimal: fetch + fast-forward the branch each worker is
-    # already on, nothing else. That is ~4s across the fleet versus ~50s for
-    # fleet:update, which additionally switches branches, stops/restarts the
-    # managed session and reinstalls dependencies.
-    #
-    # Safe because the parts left out are covered elsewhere: `--ff-only` is
-    # git's own divergence guard, a dirty tree makes the merge fail loudly,
-    # and a RUNNING worker keeps executing the code it loaded until a job
-    # needs something newer — at which point run-worker.sh self-updates
-    # (its pull is then a no-op) and reinstalls deps if the lockfile moved.
-    - name: Fetch and fast-forward (optionally switching branch)
+    - name: Resolve settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        worker_log_dir: '{{ backtest_worker_log_dir | default((backtest_repo_dir | mandatory) ~ "/logs/workers") }}'
+        drain_seconds: '{{ pull_drain_seconds | default(pull_drain_seconds_default) | int }}'
+
+    # Everything in ONE remote shell: each ansible task costs an SSH round
+    # trip, and the slowest (overseas) host pays for all of them — that is why
+    # the multi-task fleet:update takes ~50s while this stays in seconds.
+    - name: Pull, drain and restart
       ansible.builtin.shell:
         cmd: |
-          set -e
+          set -u
+          cd {{ worker_repo_dir | quote }}
           remote={{ backtest_remote | default('origin') | quote }}
           want={{ pull_branch | default('') | quote }}
-          git fetch --prune --quiet "$remote"
+          session={{ worker_session | quote }}
+          log_dir={{ worker_log_dir | quote }}
+          drain={{ drain_seconds }}
+
+          tmux_bin="$(command -v tmux || true)"
+          for c in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux; do
+            [ -n "$tmux_bin" ] && break
+            [ -x "$c" ] && tmux_bin="$c"
+          done
+
           before="$(git rev-parse --short HEAD)"
+          lock_before="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
+
+          git fetch --prune --quiet "$remote" || { echo "FETCH_FAILED"; exit 1; }
           branch="$(git rev-parse --abbrev-ref HEAD)"
           if [ -n "$want" ] && [ "$want" != "$branch" ]; then
-            # Never reset an existing local branch (it may hold unpushed
-            # commits) — check it out and fast-forward like any other; only a
-            # branch this machine has never used is created from the remote.
+            # Never reset an existing local branch (it may hold unpushed work).
             if git rev-parse --verify --quiet "refs/heads/$want" >/dev/null; then
-              git checkout --quiet "$want"
+              git checkout --quiet "$want" || { echo "CHECKOUT_FAILED"; exit 1; }
             else
-              git checkout --quiet --track "$remote/$want"
+              git checkout --quiet --track "$remote/$want" || { echo "CHECKOUT_FAILED"; exit 1; }
             fi
             branch="$want"
           fi
-          git merge --ff-only "$remote/$branch" >/dev/null
-          echo "$branch $before $(git rev-parse --short HEAD)"
-        chdir: '{{ backtest_repo_dir | mandatory }}'
+          git merge --ff-only "$remote/$branch" >/dev/null 2>&1 || { echo "MERGE_FAILED"; exit 1; }
+          after="$(git rev-parse --short HEAD)"
+          lock_after="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
+
+          deps=skipped
+          if [ "$lock_before" != "$lock_after" ]; then
+            npm install >/dev/null 2>&1 && deps=installed || deps=FAILED
+          fi
+
+          # Restart only what was actually running, and only when the code moved.
+          worker_state=none
+          if [ -n "$tmux_bin" ] && "$tmux_bin" has-session -t "$session" 2>/dev/null; then
+            worker_state=managed
+          elif pgrep -f 'cli/backtestWorker[.]ts' >/dev/null 2>&1; then
+            worker_state=unmanaged
+          fi
+
+          restarted=no
+          if [ "$before" != "$after" ] && [ "$worker_state" != none ]; then
+            if [ "$worker_state" = managed ]; then
+              "$tmux_bin" send-keys -t "$session" C-c
+            else
+              pgrep -f 'cli/backtestWorker[.]ts' | while read -r pid; do
+                [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && kill -TERM "$pid"
+              done
+            fi
+            waited=0
+            while [ "$waited" -lt "$drain" ]; do
+              alive=no
+              if [ "$worker_state" = managed ]; then
+                "$tmux_bin" has-session -t "$session" 2>/dev/null && alive=yes
+              else
+                pgrep -f 'cli/backtestWorker[.]ts' >/dev/null 2>&1 && alive=yes
+              fi
+              [ "$alive" = no ] && break
+              sleep 2
+              waited=$((waited + 2))
+            done
+            if [ "$alive" = yes ]; then
+              restarted=DRAIN_TIMEOUT
+            else
+              mkdir -p "$log_dir"
+              "$tmux_bin" new-session -d -s "$session" -c {{ worker_repo_dir | quote }} \
+                {{ ("exec " ~ worker_shell ~ " -lic " ~ ("exec " ~ worker_command ~ " >> " ~ worker_log_dir ~ "/" ~ worker_session ~ ".log 2>&1") | quote) | quote }}
+              sleep 2
+              if "$tmux_bin" has-session -t "$session" 2>/dev/null; then restarted=yes; else restarted=START_FAILED; fi
+            fi
+          fi
+
+          echo "$branch $before $after $deps $worker_state $restarted"
       register: pull_result
       failed_when: false
       changed_when: pull_result.rc == 0 and (pull_result.stdout.split()[1] | default('')) != (pull_result.stdout.split()[2] | default(''))
@@ -56,9 +121,9 @@
           {% if r is none or r.rc is not defined %}
           {{ h }}  ⚠️  unreachable
           {% elif r.rc != 0 %}
-          {{ h }}  🔴 failed: {{ (r.stderr | default('') | trim)[:120] }}
+          {{ h }}  🔴 failed: {{ (r.stdout | default('') | trim) }} {{ (r.stderr | default('') | trim)[:100] }}
           {% else %}
-          {% set parts = r.stdout.split() %}
-          {{ h }}  ✅ {{ parts[0] }}  {{ parts[1] }} → {{ parts[2] }}{{ '  (already current)' if parts[1] == parts[2] else '' }}
+          {% set p = r.stdout.split() %}
+          {{ h }}  ✅ {{ p[0] }}  {{ p[1] }} → {{ p[2] }}{{ '  (already current)' if p[1] == p[2] else '' }}{{ '  deps:' ~ p[3] if p[3] != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] == 'yes' else (p[5] if p[5] != 'no' else ('running, code unchanged' if p[4] != 'none' else 'not running')) }}
           {% endif %}
           {% endfor %}
