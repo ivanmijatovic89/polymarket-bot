@@ -1,6 +1,6 @@
 {
   "8955f8d87c59": {
-    "name": "NotHumbleAtAll-macbook-m1",
+    "name": "m1-ivan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: MacBookPro18,1",
@@ -17,7 +17,7 @@
     "parallelThroughput": 21235
   },
   "527674ef4858": {
-    "name": "NotHumbleAtAll-mac-mini-m4",
+    "name": "m4-worker-1",
     "hardware": [
       "Model Name: Mac mini",
       "Model Identifier: Mac16,10",
@@ -34,7 +34,7 @@
     "parallelThroughput": 26516
   },
   "8e367b2f7eb8": {
-    "name": "Laranist-macbook-m5",
+    "name": "m5-milan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: Mac17,9",
@@ -51,7 +51,7 @@
     "parallelThroughput": 68000
   },
   "5a69e8aa2068": {
-    "name": "Laranist-macbook-m1",
+    "name": "m1-milan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: MacBookPro18,3",
@@ -66,7 +66,7 @@
     "cores_for_backtest": 6
   },
   "a5288c4cae5f": {
-    "name": "NotHumbleAtAll-PC",
+    "name": "PC",
     "hardware": [],
     "geekbench6Multi": null,
     "geekbench6Source": "unknown",
