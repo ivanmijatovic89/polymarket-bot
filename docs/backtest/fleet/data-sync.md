@@ -15,6 +15,14 @@ and crypto_prices day files, all pulled R2 → local on each machine. The
 market scope is the first argument (comma-separated pairs), mirroring
 `data:sync`'s explicit-scope rule.
 
+With `--dry-run`, the producer (from the `[producer]` inventory group) is
+checked too — it runs a `data:sync:main` preflight against the upstream
+sources (Telonex raw files, Gamma backfill, Binance/crypto_prices publishing,
+R2 uploads) and gets its own table. The catalog step is skipped in this check
+(its dry-run would download the ~1 GB catalog), so the verdict reads "up to
+date relative to the known catalog". On real runs the producer is excluded:
+its sync is `data:sync:main`, run directly or from cron.
+
 The run ends with one aligned table — a row per machine, a column per sync
 step, each cell the step status and its download count. With `--dry-run`
 the result column becomes a verdict (`SYNCED ✓` / `BEHIND (N)`), the run

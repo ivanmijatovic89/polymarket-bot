@@ -1,4 +1,44 @@
 ---
+- name: Check producer against upstream (dry-run only)
+  hosts: producer
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+    data_sync_extra_default: ''
+
+  tasks:
+    - name: Resolve producer check settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        sync_markets: "{{ data_sync_markets | mandatory('pass -e data_sync_markets=btc:15m') }}"
+        sync_extra: '{{ data_sync_extra | default(data_sync_extra_default) }}'
+
+    - name: Build market args
+      ansible.builtin.set_fact:
+        sync_market_args: >-
+          {{ sync_markets.split(',') | map('trim') | select | map('regex_replace', '^(.*)$', '--market \1') | join(' ') }}
+
+    - name: Run data:sync:main preflight (catalog skipped — it would download ~1 GB)
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - >-
+            cd {{ worker_repo_dir | quote }} &&
+            npm run data:sync:main -- {{ sync_market_args }} --skip catalog {{ sync_extra }}
+      register: sync_run
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: "'--dry-run' in sync_extra"
+
+    - name: Note producer skipped on real runs
+      ansible.builtin.debug:
+        msg: 'producer sync is data:sync:main (run it directly or via cron); fleet:data only checks the producer in --dry-run mode'
+      when: "'--dry-run' not in sync_extra"
+
 - name: Sync datasets on backtest workers (data:sync:worker per host)
   hosts: backtest_workers
   gather_facts: false
@@ -54,10 +94,14 @@
         mode: '0644'
         content: |-
           [
-          {% for h in groups['backtest_workers'] %}
+          {% set prod = groups['producer'] | default([]) %}
+          {% set work = groups['backtest_workers'] | default([]) %}
+          {% set hosts = (prod + work) | unique %}
+          {% for h in hosts %}
           {% set r = hostvars[h].sync_run | default(none) %}
             {
               "host": {{ h | to_json }},
+              "role": {{ ('producer' if h in prod else 'worker') | to_json }},
               "rc": {{ (r.rc | default(none)) if r is not none else none | to_json }},
               "stdoutLines": {{ ((r.stdout_lines | default([]))[-80:] if r is not none else []) | to_json }}
             }{{ '' if loop.last else ',' }}

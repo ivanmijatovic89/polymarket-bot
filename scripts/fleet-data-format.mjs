@@ -35,7 +35,11 @@ function parseSummary(lines) {
 
 /** Pull the download/upload count out of a finding line, whatever its exact wording. */
 function countOf(finding) {
-  const m = finding.match(/to[ -]download[:=]\s*(\d+)/) ?? finding.match(/to[ -]upload[:=]\s*(\d+)/)
+  const m =
+    finding.match(/to[ -]download[:=]\s*(\d+)/) ??
+    finding.match(/to[ -]upload[:=]\s*(\d+)/) ??
+    finding.match(/queue(?: size)?=(\d+)/) ??
+    finding.match(/pending=(\d+)/)
   return m ? Number(m[1]) : null
 }
 
@@ -71,6 +75,8 @@ function cell(r, stepId) {
 }
 
 const anyDryRun = parsed.some((r) => r.dryRun)
+const producers = parsed.filter((r) => r.role === 'producer' && (r.rc != null || anyDryRun))
+const workers = parsed.filter((r) => r.role !== 'producer')
 
 function resultCell(r) {
   if (r.rc == null) return '⚠️  unreachable'
@@ -79,22 +85,29 @@ function resultCell(r) {
   return r.synced ? '✅ SYNCED' : `🔴 BEHIND (${r.behind})`
 }
 
-const header = ['machine', 'result', 'time', ...stepIds]
-const table = [
-  header,
-  ...parsed.map((r) => [r.host, resultCell(r), r.time ?? '', ...stepIds.map((id) => cell(r, id))]),
-]
-const widths = header.map((_, i) => Math.max(...table.map((row) => String(row[i] ?? '').length)))
-
-console.log('')
-console.log('='.repeat(widths.reduce((a, b) => a + b + 2, 0)))
-for (const [i, row] of table.entries()) {
-  console.log(row.map((c, j) => String(c ?? '').padEnd(widths[j])).join('  '))
-  if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
+function printTable(rowsIn, title) {
+  if (rowsIn.length === 0) return
+  const ids = [...new Set(rowsIn.flatMap((r) => r.steps.map((s) => s.step)))]
+  const header = ['machine', 'result', 'time', ...ids]
+  const table = [
+    header,
+    ...rowsIn.map((r) => [r.host, resultCell(r), r.time ?? '', ...ids.map((id) => cell(r, id))]),
+  ]
+  const widths = header.map((_, i) => Math.max(...table.map((row) => String(row[i] ?? '').length)))
+  console.log('')
+  if (title) console.log(title)
+  console.log('='.repeat(widths.reduce((a, b) => a + b + 2, 0)))
+  for (const [i, row] of table.entries()) {
+    console.log(row.map((c, j) => String(c ?? '').padEnd(widths[j])).join('  '))
+    if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
+  }
 }
+
+printTable(producers, anyDryRun ? 'PRODUCER vs upstream (catalog check skipped — see docs)' : null)
+printTable(workers, producers.length > 0 ? 'WORKERS vs R2' : null)
 console.log('')
 if (anyDryRun) {
-  const laggards = parsed.filter((r) => !r.synced)
+  const laggards = parsed.filter((r) => !r.synced && (r.role !== 'producer' || r.rc != null))
   if (laggards.length === 0) {
     console.log('✅ FLEET SYNCED — every machine is fully up to date.')
   } else {
