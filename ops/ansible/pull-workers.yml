@@ -26,6 +26,7 @@
       ansible.builtin.shell:
         cmd: |
           set -u
+          {{ lookup('file', playbook_dir + '/lib/worker-control.sh') | indent(10, first=False) }}
           t0=$(date +%s)
           cd {{ worker_repo_dir | quote }}
           remote={{ backtest_remote | default('origin') | quote }}
@@ -34,12 +35,7 @@
           log_dir={{ worker_log_dir | quote }}
           drain={{ drain_seconds }}
 
-          tmux_bin="$(command -v tmux || true)"
-          for c in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux; do
-            [ -n "$tmux_bin" ] && break
-            [ -x "$c" ] && tmux_bin="$c"
-          done
-
+          tmux_bin="$(resolve_tmux)"
           err=/tmp/fleet-pull-err.$$
           # Emit the one-line summary, then a DETAIL: block for anything that
           # went wrong, so an unexpected failure carries its reason instead of
@@ -74,34 +70,13 @@
           worker_state=none
           if [ -n "$tmux_bin" ] && "$tmux_bin" has-session -t "$session" 2>/dev/null; then
             worker_state=managed
-          elif pgrep -f 'cli/backtestWorker[.]ts' >/dev/null 2>&1; then
+          elif [ -n "$(strays)" ]; then
             worker_state=unmanaged
           fi
 
           restarted=no
           if [ "$before" != "$after" ] && [ "$worker_state" != none ]; then
-            if [ "$worker_state" = managed ]; then
-              "$tmux_bin" send-keys -t "$session" C-c
-            else
-              pgrep -f 'cli/backtestWorker[.]ts' | while read -r pid; do
-                [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && kill -TERM "$pid"
-              done
-            fi
-            waited=0
-            while [ "$waited" -lt "$drain" ]; do
-              alive=no
-              if [ "$worker_state" = managed ]; then
-                "$tmux_bin" has-session -t "$session" 2>/dev/null && alive=yes
-              else
-                pgrep -f 'cli/backtestWorker[.]ts' >/dev/null 2>&1 && alive=yes
-              fi
-              [ "$alive" = no ] && break
-              sleep 2
-              waited=$((waited + 2))
-            done
-            if [ "$alive" = yes ]; then
-              restarted=DRAIN_TIMEOUT
-            else
+            if drain_workers "$tmux_bin" "$session" "$drain"; then
               mkdir -p "$log_dir"
               worker_log="$log_dir/$session.log"
               "$tmux_bin" new-session -d -s "$session" -c {{ worker_repo_dir | quote }} \
@@ -113,6 +88,8 @@
                 restarted=START_FAILED
                 start_detail="$(tail -6 "$worker_log" 2>/dev/null | tr '\n' '|')"
               fi
+            else
+              restarted=DRAIN_TIMEOUT
             fi
           fi
 

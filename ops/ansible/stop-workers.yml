@@ -16,25 +16,14 @@
       ansible.builtin.shell:
         cmd: |
           set -u
+          {{ lookup('file', playbook_dir + '/lib/worker-control.sh') | indent(10, first=False) }}
           t0=$(date +%s)
           cd {{ backtest_repo_dir | mandatory | quote }}
           session={{ backtest_worker_session | default(backtest_worker_session_default) | quote }}
           grace={{ stop_grace_seconds | default(stop_grace_seconds_default) | int }}
           force={{ stop_force | default(stop_force_default) | bool | ternary(1, 0) }}
 
-          tmux_bin="$(command -v tmux || true)"
-          for c in /opt/homebrew/bin/tmux /usr/local/bin/tmux /usr/bin/tmux; do
-            [ -n "$tmux_bin" ] && break
-            [ -x "$c" ] && tmux_bin="$c"
-          done
-
-          # Only NODE processes running the worker entrypoint — a bare match on
-          # the path would also catch an editor/tail/grep open on that file.
-          strays() {
-            pgrep -f 'cli/backtestWorker[.]ts' 2>/dev/null | while read -r pid; do
-              [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && echo "$pid"
-            done
-          }
+          tmux_bin="$(resolve_tmux)"
 
           had_session=0
           [ -n "$tmux_bin" ] && "$tmux_bin" has-session -t "$session" 2>/dev/null && had_session=1
@@ -46,40 +35,17 @@
             exit 0
           fi
 
-          send_stop() {  # graceful unless force
-            if [ "$1" = force ]; then
-              [ "$had_session" = 1 ] && "$tmux_bin" kill-session -t "$session" 2>/dev/null || true
-              strays | xargs -r kill -KILL 2>/dev/null || true
-            else
-              [ "$had_session" = 1 ] && "$tmux_bin" send-keys -t "$session" C-c 2>/dev/null || true
-              strays | xargs -r kill -TERM 2>/dev/null || true
-            fi
-          }
-
-          alive() {
-            { [ "$had_session" = 1 ] && "$tmux_bin" has-session -t "$session" 2>/dev/null; } && return 0
-            [ -n "$(strays)" ] && return 0
-            return 1
-          }
-
           if [ "$force" = 1 ]; then
-            send_stop force
+            hard_stop "$tmux_bin" "$session"
             echo "forced $(( $(date +%s) - t0 ))"
             exit 0
           fi
 
-          send_stop drain
-          waited=0
-          while [ "$waited" -lt "$grace" ] && alive; do
-            sleep 2; waited=$((waited + 2))
-          done
-
-          if alive; then
-            "$tmux_bin" kill-session -t "$session" 2>/dev/null || true
-            strays | xargs -r kill -KILL 2>/dev/null || true
-            echo "killed-after-grace $(( $(date +%s) - t0 ))"
-          else
+          if drain_workers "$tmux_bin" "$session" "$grace"; then
             echo "drained${had_stray:+ }$( [ "$had_stray" = 1 ] && [ "$had_session" = 0 ] && echo unmanaged ) $(( $(date +%s) - t0 ))" | tr -s ' '
+          else
+            hard_stop "$tmux_bin" "$session"
+            echo "killed-after-grace $(( $(date +%s) - t0 ))"
           fi
         chdir: '{{ backtest_repo_dir | mandatory }}'
       register: stop_result
