@@ -17,6 +17,28 @@ Workers detect when a job needs newer code, pull, and relaunch — see
 worker through `./scripts/run-worker.sh` so this works.
 :::
 
+
+## Command cheat sheet
+
+Everything fleet- and data-related in one place. Human-typed commands use the
+`npm run` form; extra flags go after `--`.
+
+| Command | What it does | Docs |
+| --- | --- | --- |
+| `npm run fleet:status` | Inventory of every machine: git, sessions, disk, datasets (what each machine HAS) | [Fleet Status](/backtest/fleet/status) |
+| `npm run fleet:data -- btc:15m -e data_sync_extra='--dry-run'` | Verdict: what is MISSING per machine vs R2/upstream, `FLEET SYNCED` yes/no | [Sync Fleet Data](/backtest/fleet/data-sync) |
+| `npm run fleet:data -- btc:15m` | Pull datasets R2 → local on every worker | [Sync Fleet Data](/backtest/fleet/data-sync) |
+| `npm run fleet:update` | Fast-forward every worker checkout to origin/main | [Update Fleet](/backtest/fleet/update) |
+| `npm run fleet:start` | Update + start the managed tmux worker session everywhere | [Start the Fleet](/backtest/fleet/start) |
+| `npm run data:sync:main -- --market btc:15m` | Producer: catalog → raw → convert → feeds → R2 (+ local reconcile) | [Machine Roles & Sync](/datasets/sync) |
+| `npm run data:sync:worker -- --market btc:15m` | This machine only: pull all datasets R2 → local | [Machine Roles & Sync](/datasets/sync) |
+| `npm run worker:markets` | Start a markets-only backtest worker (self-updating wrapper) | [Self-Update](/backtest/fleet/self-update) |
+| `npm run worker:aggregate` | Aggregate-only worker (needs DB credentials) | [Self-Update](/backtest/fleet/self-update) |
+| `npm run worker:markets-and-aggregate` | Both queues in one process (producer / DB host) | [Self-Update](/backtest/fleet/self-update) |
+
+Typical daily rhythm: `data:sync:main` → `fleet:data` → `fleet:data --dry-run`
+until it prints `✅ FLEET SYNCED` → run batches.
+
 ## Architecture sketch
 
 ```
