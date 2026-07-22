@@ -97,7 +97,8 @@ instead of computing on stale data — re-run those slugs after the sync with
 Step ids are shown by `--plan`. On the main role:
 `catalog`, `pricetobeat`, `orderbook-download`, `convert`,
 `binance-download-<sym>`, `binance-upload-<sym>`,
-`crypto-prices-download-<sym>`, `crypto-prices-upload-<sym>`.
+`crypto-prices-download-<sym>`, `crypto-prices-upload-<sym>`,
+`converted-pull-<sym>-<tf>`.
 On the worker role: `converted-<sym>-<tf>`, `binance-local-<sym>`,
 `crypto-prices-local-<sym>`.
 
