@@ -132,6 +132,24 @@
         worker_restart_needed: >-
           {{ (head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch) and worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}
 
+    # A branch this machine has never checked out exists only as
+    # <remote>/<branch> after the fetch; there is nothing local to
+    # fast-forward, and `git checkout <branch>` will create it as a tracking
+    # branch. Without this probe the ancestry check below died with
+    # 'Not a valid object name' on every worker that had not used the branch.
+    - name: Check whether the target branch exists locally
+      ansible.builtin.command:
+        cmd: 'git rev-parse --verify --quiet refs/heads/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
+      register: local_branch_probe
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Resolve whether a local branch is at play
+      ansible.builtin.set_fact:
+        local_branch_exists: '{{ local_branch_probe.rc == 0 }}'
+
     - name: Verify update can fast-forward
       ansible.builtin.command:
         cmd: >-
@@ -143,11 +161,12 @@
       changed_when: false
       failed_when: fast_forward_check.rc not in [0, 1]
       check_mode: false
+      when: local_branch_exists
 
     - name: Fail when target branch cannot fast-forward
       ansible.builtin.fail:
         msg: 'Local {{ worker_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ worker_remote }}/{{ worker_branch }}.'
-      when: fast_forward_check.rc == 1
+      when: local_branch_exists and fast_forward_check.rc | default(0) == 1
 
     - name: Stop managed tmux worker session before mutating checkout
       ansible.builtin.command:
