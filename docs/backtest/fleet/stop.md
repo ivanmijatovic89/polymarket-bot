@@ -23,7 +23,9 @@ lifecycle.
 2. **Unmanaged workers** — a worker started outside that session (e.g.
    `npm run worker:markets` typed over ssh) is still a worker, so it gets a
    `SIGTERM`, which drains it exactly the same way. Reported as
-   `stopped (drained, unmanaged process)`.
+   `stopped (drained, unmanaged process)`. Only **node** processes running
+   the worker entrypoint are matched, so an editor, `tail` or `grep` open on
+   that file is never touched.
 3. Waits up to `stop_grace_seconds` (default **120**) for everything to
    exit on its own.
 4. Anything still alive after the grace period is killed — and said so, so
@@ -62,3 +64,11 @@ conversion fan-out that wants the cores), then bring it back with
 
 - [Start the Fleet](/backtest/fleet/start) — `npm run fleet:start`
 - [Fleet Status](/backtest/fleet/status) — check what is running
+
+::: tip Prefer the managed session
+Start workers with [`npm run fleet:start`](/backtest/fleet/start) rather than
+by hand over ssh: the managed session survives your ssh disconnect, keeps
+logs in `logs/workers/`, and is what `fleet:update` restarts after a
+self-update. Stopping unmanaged workers is a safety net, not the intended
+workflow.
+:::

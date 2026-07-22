@@ -87,22 +87,34 @@
     # stop them too. SIGTERM makes the supervisor drain exactly like Ctrl-C
     # does; run-worker.sh then sees a clean exit and stops its loop.
     # The [.] pattern keeps pgrep from matching its own command line.
+    # Only NODE processes running the worker entrypoint — a bare `pkill -f`
+    # on the path would also match an editor, tail or grep someone has open
+    # on that file.
     - name: Look for unmanaged worker processes
       ansible.builtin.shell:
-        cmd: pgrep -f 'cli/backtestWorker[.]ts' || true
+        cmd: |
+          pgrep -f 'cli/backtestWorker[.]ts' 2>/dev/null | while read -r pid; do
+            [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && echo "$pid"
+          done || true
       register: stray_before
       changed_when: false
       check_mode: false
 
     - name: Terminate unmanaged worker processes (drain)
       ansible.builtin.shell:
-        cmd: pkill -TERM -f 'cli/backtestWorker[.]ts' || true
+        cmd: |
+          pgrep -f 'cli/backtestWorker[.]ts' 2>/dev/null | while read -r pid; do
+            [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && echo "$pid"
+          done || true | xargs -r kill -TERM 2>/dev/null || true
       when: stray_before.stdout | trim | length > 0 and not force_stop
       changed_when: true
 
     - name: Wait for unmanaged workers to drain
       ansible.builtin.shell:
-        cmd: pgrep -f 'cli/backtestWorker[.]ts' || true
+        cmd: |
+          pgrep -f 'cli/backtestWorker[.]ts' 2>/dev/null | while read -r pid; do
+            [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && echo "$pid"
+          done || true
       register: stray_wait
       changed_when: false
       check_mode: false
@@ -114,7 +126,10 @@
 
     - name: Kill unmanaged workers still alive
       ansible.builtin.shell:
-        cmd: pkill -KILL -f 'cli/backtestWorker[.]ts' || true
+        cmd: |
+          pgrep -f 'cli/backtestWorker[.]ts' 2>/dev/null | while read -r pid; do
+            [ "$(ps -o comm= -p "$pid" 2>/dev/null | sed 's:.*/::')" = node ] && echo "$pid"
+          done || true | xargs -r kill -KILL 2>/dev/null || true
       register: stray_kill
       when: >-
         stray_before.stdout | trim | length > 0 and
