@@ -15,14 +15,26 @@
     # and a RUNNING worker keeps executing the code it loaded until a job
     # needs something newer — at which point run-worker.sh self-updates
     # (its pull is then a no-op) and reinstalls deps if the lockfile moved.
-    - name: Fetch and fast-forward the current branch
+    - name: Fetch and fast-forward (optionally switching branch)
       ansible.builtin.shell:
         cmd: |
           set -e
           remote={{ backtest_remote | default('origin') | quote }}
+          want={{ pull_branch | default('') | quote }}
           git fetch --prune --quiet "$remote"
-          branch="$(git rev-parse --abbrev-ref HEAD)"
           before="$(git rev-parse --short HEAD)"
+          branch="$(git rev-parse --abbrev-ref HEAD)"
+          if [ -n "$want" ] && [ "$want" != "$branch" ]; then
+            # Never reset an existing local branch (it may hold unpushed
+            # commits) — check it out and fast-forward like any other; only a
+            # branch this machine has never used is created from the remote.
+            if git rev-parse --verify --quiet "refs/heads/$want" >/dev/null; then
+              git checkout --quiet "$want"
+            else
+              git checkout --quiet --track "$remote/$want"
+            fi
+            branch="$want"
+          fi
           git merge --ff-only "$remote/$branch" >/dev/null
           echo "$branch $before $(git rev-parse --short HEAD)"
         chdir: '{{ backtest_repo_dir | mandatory }}'

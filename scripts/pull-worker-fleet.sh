@@ -6,8 +6,9 @@ set -euo pipefail
 # use `npm run fleet:update` for those.
 #
 # Usage:
-#   npm run fleet:pull
-#   npm run fleet:pull -- --limit worker-1
+#   npm run fleet:git:pull                       # pull the branch each worker is on
+#   npm run fleet:git:pull -- feat/my-branch     # switch the fleet to a branch, then pull
+#   npm run fleet:git:pull -- main --limit worker-1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -22,10 +23,16 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+BRANCH_ARG=()
+if [ "${1:-}" != "" ] && [ "${1#-}" = "$1" ]; then
+  BRANCH_ARG=(-e "pull_branch=$1")
+  shift
+fi
+
 started_at="$(date +%s)"
 rm -f /tmp/fleet-pull-summary.txt
 set +e
-ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "$@"
+ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "${BRANCH_ARG[@]}" "$@"
 code=$?
 set -e
 

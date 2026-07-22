@@ -20,7 +20,7 @@
     "fleet:status": "./scripts/fleet-status.sh",
     "fleet:data:sync": "./scripts/fleet-data.sh",
     "fleet:update": "./scripts/update-worker-fleet.sh",
-    "fleet:pull": "./scripts/pull-worker-fleet.sh",
+    "fleet:git:pull": "./scripts/pull-worker-fleet.sh",
     "fleet:start": "./scripts/start-worker-fleet.sh",
     "fleet:stop": "./scripts/stop-worker-fleet.sh",
     "fable:night-shift": "./scripts/fable-night-shift.sh",

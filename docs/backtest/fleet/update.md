@@ -22,11 +22,11 @@ updates improve operator workflow without weakening determinism.
 
 Two speeds, measured on a three-machine fleet with one overseas host:
 
-| | `npm run fleet:pull` | `npm run fleet:update` |
+| | `npm run fleet:git:pull` | `npm run fleet:update` |
 | --- | --- | --- |
 | Does | `git fetch` + `git merge --ff-only` on the branch each worker is already on | that, plus branch switching, session stop/restart, `npm install` when the lockfile moved |
 | Takes | **~4 s** | **~50 s** |
-| Use when | you pushed again to the branch the fleet already tracks | switching branches, or you want workers running the new code immediately |
+| Use when | you pushed again, or want the fleet on another branch fast | you want workers **running** that code immediately (session restart + deps) |
 
 `fleet:pull` skips those extras safely: `--ff-only` is git's own divergence
 guard, a dirty tree fails the merge loudly, and a **running** worker keeps
@@ -41,16 +41,25 @@ worker-2  ✅ feat/fleet-status  614c47b → 8b29327  (already current)
 milan-m1  ⚠️  unreachable
 ```
 
-## Switching the fleet to another branch
+### Switching branches
+
+Both commands can do it — pick by whether the workers must be **running**
+that code right away:
 
 ```bash
+# fast (~4 s): switches the checkout; running workers adopt it on their next
+# self-update (a job built on newer code triggers it automatically)
+npm run fleet:git:pull -- feat/my-branch
+npm run fleet:git:pull -- main
+
+# thorough (~50 s): switches AND restarts the workers, so the dashboard shows
+# them on the new commit immediately
 npm run fleet:update -- -e backtest_branch=feat/my-branch
-npm run fleet:update -- -e backtest_branch=main          # back to main
 ```
 
-The playbook stops the managed session before touching the checkout, creates
-the branch from the fetched remote ref if the machine has never used it, and
-restarts the worker afterwards.
+Neither resets a local branch that already exists (it might hold unpushed
+commits) — the branch is checked out and fast-forwarded; only a branch the
+machine has never used is created from the fetched remote ref.
 
 ## What This Solves
 
