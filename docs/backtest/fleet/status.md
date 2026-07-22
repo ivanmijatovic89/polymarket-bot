@@ -21,20 +21,25 @@ Read-only. For every host in `ops/ansible/inventory.ini` it reports:
   same directories [data:sync](/datasets/sync) fills and reports)
 
 The run ends with one aligned table — a row per machine (producer first),
-a column per dataset, and each worker's gap shown relative to the producer:
+a column per dataset. It is a pure **inventory**: what each machine HAS
+(file counts + newest dates). It never claims something is missing — that
+is [`fleet:data --dry-run`](/backtest/fleet/data-sync)'s job, which compares
+against R2 and gives per-machine verdicts:
 
 ```
-machine   role      git            W/C  free   conv btc:15m          binance BTCUSDT  chainlink btcusd
-------------------------------------------------------------------------------------------------------
-ivan-mbp  producer  main@aadf718   --   58GB   25748·07-21           235·07-21        111·07-21
-worker-1  worker    main@a6ed241   --   118GB  23023·07-21 (≈-2725)  229·07-15 (≈-6)  — (≈-111)
-milan-m1  worker    main@a6ed241   --   386GB  19252·07-21 (≈-6496)  — (≈-235)        — (≈-111)
+machine   role      git            W/C  free   conv btc:15m  binance BTCUSDT  chainlink btcusd
+----------------------------------------------------------------------------------------------
+ivan-mbp  producer  main@a1762a7   --   55GB   25748·07-21   235·07-21        111·07-21
+worker-1  worker    main@a1762a7   W-   112GB  25748·07-21   234·07-20        111·07-21
+milan-m1  worker    main@a1762a7   --   376GB  22241·07-21   234·07-20        111·07-21
 ```
 
-`(≈-N)` is an approximation (fewer files than the producer) — the exact
-download plan is `npm run fleet:data -- <pairs> -e data_sync_extra='--dry-run'`.
-`W/C` flags the backtest-worker / converter tmux sessions; `*` after a commit
-means a dirty tree; an offline host shows as `✗ unreachable`.
+Counts can legitimately differ between machines without anything being
+wrong (e.g. the producer holds pre-eligibility historical files workers
+never need, or a day file not yet mirrored to R2) — which is exactly why
+this table does not render gaps. `W/C` flags the backtest-worker /
+converter tmux sessions; `*` after a commit means a dirty tree; an offline
+host shows as `✗ unreachable`.
 
 The producer comes from a `[producer]` inventory group (see
 `ops/ansible/inventory.example.ini`) — typically the local machine:

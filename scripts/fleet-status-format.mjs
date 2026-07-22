@@ -42,18 +42,11 @@ for (const [group, label] of GROUPS) {
   for (const k of [...keys].sort()) datasetCols.push({ group, key: k, header: `${label} ${k}` })
 }
 
-const producer = rows.find((r) => r.role === 'producer' && r.status != null)
-
 function cell(r, col) {
   if (r.status == null) return ''
   const inv = r.status.datasets?.[col.group]?.[col.key]
-  const ref = producer?.status.datasets?.[col.group]?.[col.key]
   const files = inv?.files ?? 0
-  let out = files === 0 ? '—' : `${files}·${newestDate(inv.newest) ?? '?'}`
-  if (r.role !== 'producer' && ref != null && ref.files > files) {
-    out += ` (≈-${ref.files - files})`
-  }
-  return out
+  return files === 0 ? '—' : `${files}·${newestDate(inv.newest) ?? '?'}`
 }
 
 function machineCells(r) {
@@ -81,5 +74,5 @@ for (const [i, row] of table.entries()) {
   if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
 }
 console.log('')
-console.log("(≈-N) = fewer files than the producer; exact download counts: npm run fleet:data -- <pairs> -e data_sync_extra='--dry-run'")
+console.log("Inventory only — what each machine HAS. What is MISSING: npm run fleet:data -- <pairs> -e data_sync_extra='--dry-run'")
 console.log("W/C = backtest worker / telonex converter tmux session up. '*' after commit = dirty tree.")
