@@ -102,7 +102,7 @@
             {
               "host": {{ h | to_json }},
               "role": {{ ('producer' if h in prod else 'worker') | to_json }},
-              "rc": {{ (r.rc | default(none)) if r is not none else none | to_json }},
+              "rc": {{ ((r.rc | default(none)) if r is not none else none) | to_json }},
               "stdoutLines": {{ ((r.stdout_lines | default([]))[-80:] if r is not none else []) | to_json }}
             }{{ '' if loop.last else ',' }}
           {% endfor %}
