@@ -1,9 +1,11 @@
 ---
-title: Worker Fleet Ansible
+title: Update Fleet
 description: Proactively update backtest worker machine checkouts with Ansible, while preserving the worker self-update safety gate.
 ---
 
-# Worker Fleet Ansible
+# Update Fleet
+
+Implemented with Ansible (`ops/ansible/update-workers.yml`).
 
 Worker self-update is intentionally lazy: a worker updates when it receives a
 job whose producer commit is newer than the code it loaded. That is the

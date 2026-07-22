@@ -55,7 +55,7 @@ npm run fleet:data -- btc:15m -e data_sync_extra='--only binance --concurrency 6
 
 ::: tip Requires the fleet to be updated first
 `data:sync:worker` must exist in each worker's checkout — run
-[`npm run fleet:update`](/backtest/fleet/ansible) first if the fleet is
+[`npm run fleet:update`](/backtest/fleet/update) first if the fleet is
 behind. [`npm run fleet:status`](/backtest/fleet/status) shows each
 machine's commit and current dataset inventory, so run it before and after.
 :::

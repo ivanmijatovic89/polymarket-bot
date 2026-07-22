@@ -157,7 +157,7 @@ export default withMermaid(
                   collapsed: false,
                   items: [
                     { text: 'Fleet Status', link: '/backtest/fleet/status' },
-                    { text: 'Update Fleet (Ansible)', link: '/backtest/fleet/ansible' },
+                    { text: 'Update Fleet', link: '/backtest/fleet/update' },
                     { text: 'Sync Fleet Data', link: '/backtest/fleet/data-sync' },
                     { text: 'Start the Fleet', link: '/backtest/fleet/start' },
                   ],

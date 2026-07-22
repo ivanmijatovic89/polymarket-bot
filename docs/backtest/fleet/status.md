@@ -60,6 +60,6 @@ npm run fleet:status -- --limit worker-1,worker-2
 
 ## See also
 
-- [Update Fleet (Ansible)](/backtest/fleet/ansible) — `npm run fleet:update`
+- [Update Fleet](/backtest/fleet/update) — `npm run fleet:update`
 - [Start the Fleet](/backtest/fleet/start) — `npm run fleet:start`
 - [Sync Fleet Data](/backtest/fleet/data-sync) — `npm run fleet:data`

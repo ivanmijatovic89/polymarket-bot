@@ -63,7 +63,7 @@ machines that can reach the database; let everyone else run markets only.
 ./scripts/run-worker.sh --queues markets,aggregate
 ```
 ```bash [sibling — markets only]
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 :::
 
@@ -81,7 +81,7 @@ cp .env.example .env
 #   REDIS_URL=rediss://default:<password>@<redis-host>:<port>
 #   R2_ENDPOINT / R2_BUCKET / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY  (read-only)
 # Leave DATABASE_* and trading keys empty.
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 
 That is the whole onboarding. The sibling cannot trade with your keys, cannot
