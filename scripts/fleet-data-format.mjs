@@ -39,7 +39,17 @@ function countOf(finding) {
   return m ? Number(m[1]) : null
 }
 
-const parsed = rows.map((r) => ({ ...r, steps: parseSummary(r.stdoutLines) }))
+/** Last "run elapsed X" occurrence = the machine's total data:sync time. */
+function runElapsed(lines) {
+  let out = null
+  for (const line of lines ?? []) {
+    const m = line.match(/run elapsed ([0-9hms.]+)/)
+    if (m) out = m[1]
+  }
+  return out
+}
+
+const parsed = rows.map((r) => ({ ...r, steps: parseSummary(r.stdoutLines), time: runElapsed(r.stdoutLines) }))
 const stepIds = [...new Set(parsed.flatMap((r) => r.steps.map((s) => s.step)))]
 
 function cell(r, stepId) {
@@ -51,12 +61,13 @@ function cell(r, stepId) {
   return n == null ? 'OK' : `OK ${n}`
 }
 
-const header = ['machine', 'result', ...stepIds]
+const header = ['machine', 'result', 'time', ...stepIds]
 const table = [
   header,
   ...parsed.map((r) => [
     r.host,
     r.rc == null ? '✗ unreachable' : r.rc === 0 ? 'OK' : `FAILED rc=${r.rc}`,
+    r.time ?? '',
     ...stepIds.map((id) => cell(r, id)),
   ]),
 ]

@@ -14,6 +14,7 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+started_at="$(date +%s)"
 rm -f /tmp/fleet-status.json
 set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "$@"
@@ -23,4 +24,6 @@ set -e
 if [ -f /tmp/fleet-status.json ]; then
   node "$REPO_DIR/scripts/fleet-status-format.mjs" /tmp/fleet-status.json
 fi
+elapsed=$(( $(date +%s) - started_at ))
+printf '[fleet-status] elapsed=%02d:%02d:%02d\n' $((elapsed / 3600)) $(((elapsed % 3600) / 60)) $((elapsed % 60))
 exit "$code"
