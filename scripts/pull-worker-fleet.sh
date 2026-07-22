@@ -35,6 +35,9 @@ if [ "${1:-}" = "--branch" ]; then
   shift 2
 fi
 
+source "$SCRIPT_DIR/lib/fleet-lock.sh"
+acquire_fleet_lock "fleet:git:pull"
+
 started_at="$(date +%s)"
 rm -f /tmp/fleet-pull-summary.txt
 set +e

@@ -26,6 +26,9 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+source "$SCRIPT_DIR/lib/fleet-lock.sh"
+acquire_fleet_lock "fleet:stop"
+
 started_at="$(date +%s)"
 rm -f /tmp/fleet-stop-summary.txt
 set +e

@@ -25,6 +25,9 @@ if [ "${1:-}" = "--branch" ]; then
   shift 2
 fi
 
+source "$SCRIPT_DIR/lib/fleet-lock.sh"
+acquire_fleet_lock "fleet:start"
+
 started_at="$(date +%s)"
 set +e
 echo "[start-worker-fleet] phase=update"

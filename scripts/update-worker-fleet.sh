@@ -24,6 +24,9 @@ if [ "${1:-}" = "--branch" ]; then
   shift 2
 fi
 
+source "$SCRIPT_DIR/lib/fleet-lock.sh"
+acquire_fleet_lock "fleet:update"
+
 started_at="$(date +%s)"
 set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" ${BRANCH_ARG[@]+"${BRANCH_ARG[@]}"} "$@"
