@@ -23,6 +23,8 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+# bash 3.2 (macOS) treats "${arr[@]}" on an empty array as unbound under
+# `set -u`, hence the ${arr[@]+...} guard at the call site below.
 BRANCH_ARG=()
 if [ "${1:-}" != "" ] && [ "${1#-}" = "$1" ]; then
   BRANCH_ARG=(-e "pull_branch=$1")
@@ -32,7 +34,7 @@ fi
 started_at="$(date +%s)"
 rm -f /tmp/fleet-pull-summary.txt
 set +e
-ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "${BRANCH_ARG[@]}" "$@"
+ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" ${BRANCH_ARG[@]+"${BRANCH_ARG[@]}"} "$@"
 code=$?
 set -e
 
