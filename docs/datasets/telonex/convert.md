@@ -162,6 +162,31 @@ A market is eligible as long as at least one of the requested converters is not 
 
 If any step throws, the conversion row is updated to `status='failed'` with `last_error`, and the worker moves on. Failed rows are re-claimed automatically on the next run.
 
+## Stale-claim recovery
+
+A graceful shutdown (Ctrl-C, SIGTERM) reverts this process's own `in_progress`
+claims back to `pending`. A **hard** kill (SIGKILL, a `tmux kill-session`
+race, an ENOSPC crash) cannot — those rows would stay `in_progress` forever
+and silently exclude their markets from every process's queue.
+
+Claims therefore age out: an `in_progress` row older than
+`TELONEX_CONVERT_STALE_CLAIM_MINUTES` (default **120**) no longer blocks
+claiming. The next worker that picks the market logs
+`reclaiming stale in_progress claim <slug>/<converter> (age=..m)` and
+converts it normally.
+
+::: warning Converting larger timeframes
+The default threshold is sized for 15m markets (~70 s median conversion).
+1h/4h/1d markets carry far bigger snapshot files — if a legitimate conversion
+can exceed the threshold, raise it (`TELONEX_CONVERT_STALE_CLAIM_MINUTES=360`)
+or a slow-but-alive claim may be double-converted. Double conversion is
+wasteful but safe: writes are atomic and idempotent, last writer wins.
+:::
+
+Timestamps are compared against `UTC_TIMESTAMP()` — measured on this fleet,
+stored `started_at` values align with UTC wall-clock (drizzle writes UTC
+strings) while `NOW()` on a CEST server reads two hours ahead.
+
 ## Running long conversions
 
 A full conversion run is tens of thousands of markets and takes hours, so it is normally run as a long-lived background job. Two things matter for it to behave well.
