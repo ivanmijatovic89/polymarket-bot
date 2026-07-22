@@ -23,7 +23,7 @@ Read-only. For every host in `ops/ansible/inventory.ini` it reports:
 The run ends with one aligned table — a row per machine (producer first),
 a column per dataset. It is a pure **inventory**: what each machine HAS
 (file counts + newest dates). It never claims something is missing — that
-is [`fleet:data --dry-run`](/backtest/fleet/data-sync)'s job, which compares
+is [`fleet:data:sync --dry-run`](/backtest/fleet/data-sync)'s job, which compares
 against R2 and gives per-machine verdicts:
 
 ```
@@ -67,4 +67,4 @@ npm run fleet:status -- --limit worker-1,worker-2
 
 - [Update Fleet](/backtest/fleet/update) — `npm run fleet:update`
 - [Start the Fleet](/backtest/fleet/start) — `npm run fleet:start`
-- [Sync Fleet Data](/backtest/fleet/data-sync) — `npm run fleet:data`
+- [Sync Fleet Data](/backtest/fleet/data-sync) — `npm run fleet:data:sync`

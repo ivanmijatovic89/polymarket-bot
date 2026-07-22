@@ -18,7 +18,7 @@
     "data:sync:main": "tsx src/cli/data-sync.ts --role main",
     "data:sync:worker": "tsx src/cli/data-sync.ts --role worker",
     "fleet:status": "./scripts/fleet-status.sh",
-    "fleet:data": "./scripts/fleet-data.sh",
+    "fleet:data:sync": "./scripts/fleet-data.sh",
     "fleet:update": "./scripts/update-worker-fleet.sh",
     "fleet:start": "./scripts/start-worker-fleet.sh",
     "fable:night-shift": "./scripts/fable-night-shift.sh",

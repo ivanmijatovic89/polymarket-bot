@@ -36,7 +36,7 @@
 
     - name: Note producer skipped on real runs
       ansible.builtin.debug:
-        msg: 'producer sync is data:sync:main (run it directly or via cron); fleet:data only checks the producer in --dry-run mode'
+        msg: 'producer sync is data:sync:main (run it directly or via cron); fleet:data:sync only checks the producer in --dry-run mode'
       when: "'--dry-run' not in sync_extra"
 
 - name: Sync datasets on backtest workers (data:sync:worker per host)
@@ -46,7 +46,7 @@
   vars:
     backtest_worker_shell_default: /bin/zsh
     # Required: pass the market scope, e.g.
-    #   npm run fleet:data -- -e data_sync_markets='btc:15m'
+    #   npm run fleet:data:sync -- -e data_sync_markets='btc:15m'
     # Multiple pairs comma-separated: -e data_sync_markets='btc:15m,eth:15m'
     data_sync_extra_default: ''
 

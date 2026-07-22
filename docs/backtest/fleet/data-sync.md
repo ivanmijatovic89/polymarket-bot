@@ -6,7 +6,7 @@ description: Run data:sync:worker on every fleet machine with one command, so al
 # Sync Fleet Data
 
 ```bash
-npm run fleet:data -- btc:15m
+npm run fleet:data:sync -- btc:15m
 ```
 
 Runs [`data:sync:worker`](/datasets/sync) on every host in
@@ -27,7 +27,7 @@ The run ends with one aligned table — a row per machine, a column per sync
 step, each cell the step status and its download count. With `--dry-run`
 the result column becomes a verdict (`SYNCED ✓` / `BEHIND (N)`), the run
 ends with a one-line `FLEET SYNCED: YES/NO`, and the command exits non-zero
-when any machine is behind — so `npm run fleet:data -- btc:15m -e
+when any machine is behind — so `npm run fleet:data:sync -- btc:15m -e
 data_sync_extra='--dry-run' && echo synced` works in scripts. A failed or
 unreachable host is reported and does not stop the others.
 
@@ -41,16 +41,16 @@ milan-m1  OK      OK 2989            OK 234             OK 110
 
 ```bash
 # several pairs
-npm run fleet:data -- btc:15m,eth:15m
+npm run fleet:data:sync -- btc:15m,eth:15m
 
 # only some hosts
-npm run fleet:data -- btc:15m --limit worker-1
+npm run fleet:data:sync -- btc:15m --limit worker-1
 
 # preflight only — every step reports what it would download
-npm run fleet:data -- btc:15m -e data_sync_extra='--dry-run'
+npm run fleet:data:sync -- btc:15m -e data_sync_extra='--dry-run'
 
 # forward any data:sync flag the same way
-npm run fleet:data -- btc:15m -e data_sync_extra='--only binance --concurrency 6'
+npm run fleet:data:sync -- btc:15m -e data_sync_extra='--only binance --concurrency 6'
 ```
 
 ::: tip Requires the fleet to be updated first
@@ -65,6 +65,6 @@ Typical operating order before a big backtest batch:
 ```bash
 npm run fleet:status              # what state is everything in?
 npm run fleet:update              # bring repos to origin/main
-npm run fleet:data -- btc:15m     # bring datasets up to date
+npm run fleet:data:sync -- btc:15m     # bring datasets up to date
 npm run fleet:start               # start (or restart) the workers
 ```
