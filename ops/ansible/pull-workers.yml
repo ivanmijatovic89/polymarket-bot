@@ -1,0 +1,52 @@
+---
+- name: Fast pull on backtest workers (code only)
+  hosts: backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+
+  tasks:
+    # Deliberately minimal: fetch + fast-forward the branch each worker is
+    # already on, nothing else. That is ~4s across the fleet versus ~50s for
+    # fleet:update, which additionally switches branches, stops/restarts the
+    # managed session and reinstalls dependencies.
+    #
+    # Safe because the parts left out are covered elsewhere: `--ff-only` is
+    # git's own divergence guard, a dirty tree makes the merge fail loudly,
+    # and a RUNNING worker keeps executing the code it loaded until a job
+    # needs something newer — at which point run-worker.sh self-updates
+    # (its pull is then a no-op) and reinstalls deps if the lockfile moved.
+    - name: Fetch and fast-forward the current branch
+      ansible.builtin.shell:
+        cmd: |
+          set -e
+          remote={{ backtest_remote | default('origin') | quote }}
+          git fetch --prune --quiet "$remote"
+          branch="$(git rev-parse --abbrev-ref HEAD)"
+          before="$(git rev-parse --short HEAD)"
+          git merge --ff-only "$remote/$branch" >/dev/null
+          echo "$branch $before $(git rev-parse --short HEAD)"
+        chdir: '{{ backtest_repo_dir | mandatory }}'
+      register: pull_result
+      failed_when: false
+      changed_when: pull_result.rc == 0 and (pull_result.stdout.split()[1] | default('')) != (pull_result.stdout.split()[2] | default(''))
+
+    - name: Write recap file
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: /tmp/fleet-pull-summary.txt
+        mode: '0644'
+        content: |-
+
+          ================ FLEET PULL ================
+          {% for h in ansible_play_hosts_all %}
+          {% set r = hostvars[h].pull_result | default(none) %}
+          {% if r is none or r.rc is not defined %}
+          {{ h }}  ⚠️  unreachable
+          {% elif r.rc != 0 %}
+          {{ h }}  🔴 failed: {{ (r.stderr | default('') | trim)[:120] }}
+          {% else %}
+          {% set parts = r.stdout.split() %}
+          {{ h }}  ✅ {{ parts[0] }}  {{ parts[1] }} → {{ parts[2] }}{{ '  (already current)' if parts[1] == parts[2] else '' }}
+          {% endif %}
+          {% endfor %}

@@ -246,9 +246,11 @@
         - not ansible_check_mode
         - worker_restart_needed
 
+    # wait_for (not pause) — pause bypasses the host loop and is unsupported
+    # under strategy: free.
     - name: Wait for restarted worker session to stay alive
-      ansible.builtin.pause:
-        seconds: 2
+      ansible.builtin.wait_for:
+        timeout: 2
       when:
         - not ansible_check_mode
         - worker_restart_needed

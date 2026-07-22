@@ -17,6 +17,41 @@ before they receive a job, so the fleet is already on fresh `origin/main` when
 you launch a backtest. The commit gate still remains active, so proactive
 updates improve operator workflow without weakening determinism.
 
+
+## Quick pull vs full update
+
+Two speeds, measured on a three-machine fleet with one overseas host:
+
+| | `npm run fleet:pull` | `npm run fleet:update` |
+| --- | --- | --- |
+| Does | `git fetch` + `git merge --ff-only` on the branch each worker is already on | that, plus branch switching, session stop/restart, `npm install` when the lockfile moved |
+| Takes | **~4 s** | **~50 s** |
+| Use when | you pushed again to the branch the fleet already tracks | switching branches, or you want workers running the new code immediately |
+
+`fleet:pull` skips those extras safely: `--ff-only` is git's own divergence
+guard, a dirty tree fails the merge loudly, and a **running** worker keeps
+executing the code it loaded until a job needs something newer — at which
+point [self-update](/backtest/fleet/self-update) relaunches it (its own pull
+is then a no-op) and reinstalls dependencies if the lockfile changed.
+
+```
+================ FLEET PULL ================
+worker-1  ✅ feat/fleet-status  614c47b → 8b29327
+worker-2  ✅ feat/fleet-status  614c47b → 8b29327  (already current)
+milan-m1  ⚠️  unreachable
+```
+
+## Switching the fleet to another branch
+
+```bash
+npm run fleet:update -- -e backtest_branch=feat/my-branch
+npm run fleet:update -- -e backtest_branch=main          # back to main
+```
+
+The playbook stops the managed session before touching the checkout, creates
+the branch from the fetched remote ref if the machine has never used it, and
+restarts the worker afterwards.
+
 ## What This Solves
 
 Without Ansible, a quiet worker can stay on old code indefinitely. That is safe:
