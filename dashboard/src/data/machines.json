@@ -12,6 +12,7 @@
     "geekbench6Multi": 12359,
     "geekbench6Source": "verified",
     "cores": 10,
+    "cores_for_backtest": 4,
     "priceUsd": 1300,
     "parallelThroughput": 21235
   },
@@ -28,6 +29,7 @@
     "geekbench6Multi": 14724,
     "geekbench6Source": "verified",
     "cores": 10,
+    "cores_for_backtest": 8,
     "priceUsd": 800,
     "parallelThroughput": 26516
   },
@@ -44,6 +46,7 @@
     "geekbench6Multi": 28111,
     "geekbench6Source": "verified",
     "cores": 18,
+    "cores_for_backtest": 12,
     "priceUsd": 3300,
     "parallelThroughput": 68000
   },
@@ -59,13 +62,15 @@
     ],
     "geekbench6Multi": 9700,
     "geekbench6Source": "estimated",
-    "cores": 8
+    "cores": 8,
+    "cores_for_backtest": 6
   },
   "a5288c4cae5f": {
     "name": "NotHumbleAtAll-PC",
     "hardware": [],
     "geekbench6Multi": null,
     "geekbench6Source": "unknown",
-    "cores": null
+    "cores": null,
+    "cores_for_backtest": null
   }
 }
