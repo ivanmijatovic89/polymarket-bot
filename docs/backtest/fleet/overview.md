@@ -38,6 +38,26 @@ Everything fleet- and data-related in one place. Human-typed commands use the
 | `npm run worker:aggregate` | Aggregate-only worker (needs DB credentials) | [Self-Update](/backtest/fleet/self-update) |
 | `npm run worker:markets-and-aggregate` | Both queues in one process (producer / DB host) | [Self-Update](/backtest/fleet/self-update) |
 
+### The four code/lifecycle commands compared
+
+| | `fleet:git:pull` | `fleet:update` | `fleet:start` | `fleet:stop` |
+| --- | :-: | :-: | :-: | :-: |
+| Pull code (fetch + ff-merge) | ✅ | ✅ | ✅ | — |
+| `--branch` switches branch | ✅ | ✅ | ✅ | — |
+| `npm install` if lockfile moved | ✅ | ✅ | ✅ | — |
+| Restart a **running** worker on new code | ✅ | ✅ | ✅ | — |
+| **Start a stopped** worker | — | — | ✅ | — |
+| **Stop** workers (graceful drain) | — | — | — | ✅ |
+| Verbose per-step pre-flight | — | ✅ | ✅ | — |
+| Per-machine timing in output | ✅ | — | — | ✅ |
+| Typical time | **~4-7 s** | ~50 s | ~40-50 s | **~4 s** |
+
+Rule of thumb: `fleet:git:pull` is the everyday one (pushed → fleet runs the
+new code in seconds); `fleet:start` when workers are down; `fleet:stop`
+before heavy maintenance; `fleet:update` when something is wrong and you want
+the step-by-step audit trail. None of them change a machine's branch without
+`--branch`.
+
 Typical daily rhythm: `data:sync:main` → `fleet:data:sync` → `fleet:data:sync --dry-run`
 until it prints `✅ FLEET SYNCED` → run batches.
 

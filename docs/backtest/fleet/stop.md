@@ -14,6 +14,10 @@ in `ops/ansible/inventory.ini`. The converter session
 (`polymarket-telonex-converter`) is **not** touched — it has its own
 lifecycle.
 
+The whole sequence runs as a single remote shell per machine (one SSH round
+trip), so it finishes in seconds; each machine's own elapsed time is shown
+in the recap.
+
 ## What it does per machine
 
 1. **Managed session** — sends `Ctrl-C` to the worker session. The worker
@@ -35,9 +39,9 @@ Each machine ends up in exactly one state:
 
 ```
 ================ FLEET STOP ================
-worker-1  ✅ stopped (drained)
-worker-2  ➖ was not running
-milan-m1  🔴 killed after grace period — a job may have been interrupted
+worker-1  ✅    0s  stopped (drained)
+worker-2  ➖    0s  was not running
+milan-m1  🔴  122s  killed after grace period — a job may have been interrupted
 ```
 
 `⚠️ unreachable` appears for hosts that could not be reached; the others
