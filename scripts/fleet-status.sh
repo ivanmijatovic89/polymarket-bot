@@ -14,15 +14,13 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
-rm -f /tmp/fleet-status-summary.txt
+rm -f /tmp/fleet-status.json
 set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" "$@"
 code=$?
 set -e
 
-if [ -f /tmp/fleet-status-summary.txt ]; then
-  echo
-  cat /tmp/fleet-status-summary.txt
-  echo
+if [ -f /tmp/fleet-status.json ]; then
+  node "$REPO_DIR/scripts/fleet-status-format.mjs" /tmp/fleet-status.json
 fi
 exit "$code"

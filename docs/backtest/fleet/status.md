@@ -20,27 +20,29 @@ Read-only. For every host in `ops/ansible/inventory.ini` it reports:
   `symbol:timeframe`, Binance aggTrades pair, and crypto_prices asset (the
   same directories [data:sync](/datasets/sync) fills and reports)
 
-The run ends with a plain-text summary (also written to
-`/tmp/fleet-status-summary.txt`):
+The run ends with one aligned table — a row per machine (producer first),
+a column per dataset, and each worker's gap shown relative to the producer:
 
 ```
-================ FLEET STATUS ================
-worker-1  main@a6ed241 · 10 cores · 118GB free · worker down · converter down
-    converted btc:15m    23023 files   newest 2026-07-22 01:15
-    binance   BTCUSDT      229 days    newest 2026-07-15
-    chainlink          — none —
-worker-2  main@a6ed241 · 10 cores · 125GB free · worker down · converter down
-    converted btc:15m    19028 files   newest 2026-07-22 01:45
-    binance   BTCUSDT      229 days    newest 2026-07-15
-    chainlink          — none —
-milan-m1  main@a6ed241 · 8 cores · 386GB free · worker down · converter down
-    converted btc:15m    19252 files   newest 2026-07-21 23:00
-    binance            — none —
-    chainlink          — none —
+machine   role      git            W/C  free   conv btc:15m          binance BTCUSDT  chainlink btcusd
+------------------------------------------------------------------------------------------------------
+ivan-mbp  producer  main@aadf718   --   58GB   25748·07-21           235·07-21        111·07-21
+worker-1  worker    main@a6ed241   --   118GB  23023·07-21 (≈-2725)  229·07-15 (≈-6)  — (≈-111)
+milan-m1  worker    main@a6ed241   --   386GB  19252·07-21 (≈-6496)  — (≈-235)        — (≈-111)
 ```
 
-Stale feeds ("binance newest = a week ago") and missing datasets are
-visible at a glance; an offline host shows as `✗ UNREACHABLE`.
+`(≈-N)` is an approximation (fewer files than the producer) — the exact
+download plan is `npm run fleet:data -- <pairs> -e data_sync_extra='--dry-run'`.
+`W/C` flags the backtest-worker / converter tmux sessions; `*` after a commit
+means a dirty tree; an offline host shows as `✗ unreachable`.
+
+The producer comes from a `[producer]` inventory group (see
+`ops/ansible/inventory.example.ini`) — typically the local machine:
+
+```ini
+[producer]
+ivan-mbp ansible_connection=local backtest_repo_dir=/Users/you/Sites/polymarket-bot
+```
 
 ## How it works
 

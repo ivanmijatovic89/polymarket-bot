@@ -1,6 +1,6 @@
 ---
 - name: Report fleet status (read-only)
-  hosts: backtest_workers
+  hosts: producer:backtest_workers
   gather_facts: false
   # Keep unreachable hosts in the play result instead of aborting — an
   # offline machine is a status finding, not an error.
@@ -51,36 +51,18 @@
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Write recap file
+    - name: Write status JSON for the table formatter
       ansible.builtin.copy:
-        dest: /tmp/fleet-status-summary.txt
+        dest: /tmp/fleet-status.json
         mode: '0644'
         content: |-
-
-          ================ FLEET STATUS ================
-          {% for h in groups['backtest_workers'] %}
-          {% set st = hostvars[h].fleet_status | default(none) %}
-          {% if st is none %}
-          {{ h }}  ✗ UNREACHABLE or probe failed
-          {% else %}
-          {{ h }}  {{ st.git.branch }}@{{ st.git.commit }}{{ ' DIRTY' if st.git.dirty else '' }} · {{ st.cores }} cores · {{ st.diskFreeGb }}GB free · worker {{ 'UP(' ~ st.sessions.backtestWorker.panes ~ ')' if st.sessions.backtestWorker.alive else 'down' }} · converter {{ 'UP(' ~ st.sessions.telonexConverter.panes ~ ')' if st.sessions.telonexConverter.alive else 'down' }}
-          {% for k, v in st.datasets.converted.items() %}
-              converted {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} files   newest {{ '%Y-%m-%d %H:%M' | strftime(v.newest.split('-')[-1].split('.')[0] | int) if v.newest else '—' }}
+          [
+          {% set hosts = (groups['producer'] | default([])) + (groups['backtest_workers'] | default([])) %}
+          {% for h in hosts %}
+            {
+              "host": {{ h | to_json }},
+              "role": {{ ('producer' if h in (groups['producer'] | default([])) else 'worker') | to_json }},
+              "status": {{ hostvars[h].fleet_status | default(none) | to_json }}
+            }{{ '' if loop.last else ',' }}
           {% endfor %}
-          {% if st.datasets.converted | length == 0 %}
-              converted          — none —
-          {% endif %}
-          {% for k, v in st.datasets.binanceAggTrades.items() %}
-              binance   {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} days    newest {{ v.newest[-18:-8] if v.newest else '—' }}
-          {% endfor %}
-          {% if st.datasets.binanceAggTrades | length == 0 %}
-              binance            — none —
-          {% endif %}
-          {% for k, v in st.datasets.cryptoPrices.items() %}
-              chainlink {{ '%-8s' | format(k) }} {{ '%7d' | format(v.files) }} days    newest {{ v.newest[-18:-8] if v.newest else '—' }}
-          {% endfor %}
-          {% if st.datasets.cryptoPrices | length == 0 %}
-              chainlink          — none —
-          {% endif %}
-          {% endif %}
-          {% endfor %}
+          ]
