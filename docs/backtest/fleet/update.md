@@ -18,53 +18,14 @@ you launch a backtest. The commit gate still remains active, so proactive
 updates improve operator workflow without weakening determinism.
 
 
-## Quick pull vs full update
+## Faster alternative
 
-Two speeds, measured on a three-machine fleet with one overseas host:
-
-| | `npm run fleet:git:pull` | `npm run fleet:update` |
-| --- | --- | --- |
-| Does | fetch → (optional branch switch) → `merge --ff-only` → `npm install` **only if the lockfile moved** → drain + restart the worker **only if the code actually changed** | the same, plus repo/dirty/fast-forward pre-checks and per-step reporting |
-| Round trips | **one shell per machine** | ~19 ansible tasks per machine |
-| Takes | **~4 s** idle, **~7 s** with a restart | **~50 s** |
-| Use when | almost always | you want the verbose pre-flight and per-step audit trail |
-
-The speed difference is not about doing less work — it is that every ansible
-task costs an SSH round trip, and the slowest (overseas) host pays for all of
-them. `fleet:git:pull` runs the whole sequence as a single remote shell.
-
-After it, workers are **running** the new code — no waiting for a
-[self-update](/backtest/fleet/self-update) to pick it up. Nothing is
-restarted when the code did not move, and a machine whose worker is stopped
-just gets the code.
-
-```
-================ FLEET PULL ================
-worker-1  ✅ feat/fleet-status  a6ed241 → c5ec546  worker:restarted
-worker-2  ✅ main  c5ec546 → c5ec546  (already current)  worker:running, code unchanged
-milan-m1  ✅ main  a6ed241 → c5ec546  deps:installed  worker:not running
-```
-
-The drain is graceful: in-flight market jobs finish before the worker
-relaunches. A worker that outlasts `pull_drain_seconds` (default 120) is
-reported as `DRAIN_TIMEOUT` and left alone rather than killed.
-
-### Switching branches
-
-```bash
-npm run fleet:git:pull -- feat/my-branch
-npm run fleet:git:pull -- main
-```
-
-Because the restart is part of the command, switching works in **any**
-direction. That matters: moving *backwards* (feature branch → main) would
-otherwise leave workers running the feature code indefinitely — their loaded
-commit already contains everything a main-built job needs, so self-update
-never fires.
-
-Neither command resets a local branch that already exists (it might hold
-unpushed commits) — the branch is checked out and fast-forwarded; only a
-branch the machine has never used is created from the fetched remote ref.
+[`npm run fleet:git:pull`](/backtest/fleet/pull) does the same job — fetch,
+optional branch switch, dependency install, drain and restart — as a single
+remote shell per machine, in ~4-7 s instead of ~50 s. This page's playbook
+keeps the verbose per-step pre-flight (repo present, tree clean,
+fast-forward possible, restart verified), which is what you want when
+something is wrong and you need to see exactly which step failed.
 
 ## Running It
 

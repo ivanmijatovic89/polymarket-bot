@@ -157,6 +157,7 @@ export default withMermaid(
                   collapsed: false,
                   items: [
                     { text: 'Fleet Status', link: '/backtest/fleet/status' },
+                    { text: 'Pull Code', link: '/backtest/fleet/pull' },
                     { text: 'Update Fleet', link: '/backtest/fleet/update' },
                     { text: 'Sync Fleet Data', link: '/backtest/fleet/data-sync' },
                     { text: 'Start the Fleet', link: '/backtest/fleet/start' },
