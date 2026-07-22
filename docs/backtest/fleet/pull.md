@@ -7,8 +7,8 @@ description: Pull new code onto every fleet machine and restart the workers onto
 
 ```bash
 npm run fleet:git:pull                       # pull the branch each worker is on
-npm run fleet:git:pull -- feat/my-branch     # switch the fleet to a branch, then pull
-npm run fleet:git:pull -- main --limit worker-1
+npm run fleet:git:pull -- --branch feat/my-branch     # switch the fleet to a branch, then pull
+npm run fleet:git:pull -- --branch main --limit worker-1
 ```
 
 Per machine, in a single remote shell: `git fetch` → optional branch switch →
@@ -51,8 +51,8 @@ reported as `DRAIN_TIMEOUT` and left alone rather than killed.
 ## Switching branches
 
 ```bash
-npm run fleet:git:pull -- feat/my-branch
-npm run fleet:git:pull -- main
+npm run fleet:git:pull -- --branch feat/my-branch
+npm run fleet:git:pull -- --branch main
 ```
 
 Because the restart is part of the command, switching works in **any**

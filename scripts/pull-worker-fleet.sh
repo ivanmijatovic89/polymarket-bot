@@ -6,9 +6,9 @@ set -euo pipefail
 # use `npm run fleet:update` for those.
 #
 # Usage:
-#   npm run fleet:git:pull                       # pull the branch each worker is on
-#   npm run fleet:git:pull -- feat/my-branch     # switch the fleet to a branch, then pull
-#   npm run fleet:git:pull -- main --limit worker-1
+#   npm run fleet:git:pull                                # pull the branch each worker is on
+#   npm run fleet:git:pull -- --branch feat/my-branch     # switch the fleet, then pull
+#   npm run fleet:git:pull -- --branch main --limit worker-1
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
@@ -26,9 +26,13 @@ fi
 # bash 3.2 (macOS) treats "${arr[@]}" on an empty array as unbound under
 # `set -u`, hence the ${arr[@]+...} guard at the call site below.
 BRANCH_ARG=()
-if [ "${1:-}" != "" ] && [ "${1#-}" = "$1" ]; then
-  BRANCH_ARG=(-e "pull_branch=$1")
-  shift
+if [ "${1:-}" = "--branch" ]; then
+  if [ -z "${2:-}" ]; then
+    echo "[fleet-pull] --branch needs a branch name" >&2
+    exit 1
+  fi
+  BRANCH_ARG=(-e "pull_branch=$2")
+  shift 2
 fi
 
 started_at="$(date +%s)"
