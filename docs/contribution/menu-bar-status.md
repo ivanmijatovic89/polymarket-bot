@@ -57,7 +57,7 @@ processes, 📥 queue):
 | Title | Meaning |
 | --- | --- |
 | `🖥 1 ⚙️ 5 📥 163 🟢 17%` | Running. Green dot. |
-| `🖥 1 ⚙️ 5 📥 0 🔵 idle` | No active batches. |
+| `🖥 1 ⚙️ 5 📥 0 ⚫ idle` | No active batches. |
 | `🖥 1 ⚙️ 0 📥 163 🟠 17%` | Work outstanding, no live workers to pick it up. |
 | `? —` | Dashboard on :3051 not reachable. |
 
@@ -106,7 +106,7 @@ or go illegible — both were hit in practice:
 2. **No `sfcolor`/`color` parameters on the title line.** SwiftBar tints the
    whole line rather than just the indexed symbol, which rendered the title
    grey at idle and green while running. State colour is carried by an emoji
-   dot (🟢/🟠/🔵) instead; icons and text keep the native menu bar colour in
+   dot (🟢/🟠/⚫) instead; icons and text keep the native menu bar colour in
    both appearances.
 
 ## Config
