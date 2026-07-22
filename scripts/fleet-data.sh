@@ -29,5 +29,14 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+rm -f /tmp/fleet-data.json
+set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" \
   -e "data_sync_markets=$MARKETS" "$@"
+code=$?
+set -e
+
+if [ -f /tmp/fleet-data.json ]; then
+  node "$REPO_DIR/scripts/fleet-data-format.mjs" /tmp/fleet-data.json
+fi
+exit "$code"

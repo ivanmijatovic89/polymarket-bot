@@ -37,21 +37,29 @@
       changed_when: sync_run.rc | default(1) == 0
       check_mode: false
 
-    - name: Show sync tail
+    - name: Show failure detail
       ansible.builtin.debug:
         msg: |-
           {{ inventory_hostname }} rc={{ sync_run.rc | default('unreachable') }}
-          {{ (sync_run.stdout_lines | default([]))[-14:] | join('\n') }}
-          {{ (sync_run.stderr | default(''))[-300:] }}
+          {{ (sync_run.stderr | default(''))[-400:] }}
+      when: sync_run.rc | default(1) != 0
 
 - name: Fleet data sync recap
   hosts: localhost
   gather_facts: false
   tasks:
-    - name: Recap
-      ansible.builtin.debug:
-        msg: |-
+    - name: Write sync JSON for the table formatter
+      ansible.builtin.copy:
+        dest: /tmp/fleet-data.json
+        mode: '0644'
+        content: |-
+          [
           {% for h in groups['backtest_workers'] %}
           {% set r = hostvars[h].sync_run | default(none) %}
-          {{ '%-12s' | format(h) }} {{ 'OK' if (r is not none and r.rc | default(1) == 0) else 'FAILED/UNREACHABLE' }}
+            {
+              "host": {{ h | to_json }},
+              "rc": {{ (r.rc | default(none)) if r is not none else none | to_json }},
+              "stdoutLines": {{ ((r.stdout_lines | default([]))[-80:] if r is not none else []) | to_json }}
+            }{{ '' if loop.last else ',' }}
           {% endfor %}
+          ]

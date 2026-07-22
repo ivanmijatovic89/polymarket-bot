@@ -15,9 +15,18 @@ and crypto_prices day files, all pulled R2 → local on each machine. The
 market scope is the first argument (comma-separated pairs), mirroring
 `data:sync`'s explicit-scope rule.
 
-Each host prints the tail of its sync output (per-step summary + local
-inventory), followed by a one-line-per-host recap. A failed or unreachable
-host is reported and does not stop the others.
+The run ends with one aligned table — a row per machine, a column per sync
+step, each cell the step status and its download count (with `--dry-run`:
+what would be fetched). A failed or unreachable host is reported and does
+not stop the others.
+
+```
+machine   result  converted-btc-15m  binance-local-btc  crypto-prices-local-btc
+-------------------------------------------------------------------------------
+worker-1  OK      OK 2725            OK 5               OK 110
+worker-2  OK      OK 3213            OK 5               OK 110
+milan-m1  OK      OK 2989            OK 234             OK 110
+```
 
 ```bash
 # several pairs
