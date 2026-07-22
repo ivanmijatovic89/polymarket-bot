@@ -29,7 +29,10 @@ the result column becomes a verdict (`SYNCED ✓` / `BEHIND (N)`), the run
 ends with a one-line `FLEET SYNCED: YES/NO`, and the command exits non-zero
 when any machine is behind — so `npm run fleet:data:sync -- btc:15m -e
 data_sync_extra='--dry-run' && echo synced` works in scripts. A failed or
-unreachable host is reported and does not stop the others.
+unreachable host is reported and does not stop the others; after the recap,
+the command exits non-zero in both real and dry-run modes. If one inventory
+host is both producer and worker, it gets a separate row for each role so the
+upstream and R2 checks remain visible independently.
 
 ```
 machine   result  converted-btc-15m  binance-local-btc  crypto-prices-local-btc

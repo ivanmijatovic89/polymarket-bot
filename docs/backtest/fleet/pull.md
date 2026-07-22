@@ -50,6 +50,11 @@ worker-1  🔴    1s  CHECKOUT_FAILED  a6ed241 → ?  worker:-
       DETAIL: fatal: 'origin/does-not-exist-xyz' is not a commit ...
 ```
 
+The command exits non-zero after printing the complete fleet recap if any
+host fails or is unreachable. A dependency-install failure is reported before
+the drain/restart phase, so it never replaces a running worker with a process
+using an incomplete install.
+
 The column after the check mark is that machine's own elapsed time, so a
 slow host is visible immediately (the wrapper's total is printed at the very
 end).

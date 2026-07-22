@@ -8,6 +8,14 @@
     backtest_worker_command_default: ./scripts/run-worker.sh --queues markets
     backtest_worker_shell_default: /bin/zsh
     pull_drain_seconds_default: 120
+    pull_failure_markers:
+      - START_FAILED
+      - DRAIN_TIMEOUT
+      - FETCH_FAILED
+      - CHECKOUT_FAILED
+      - MERGE_FAILED
+      - DEPS_FAILED
+      - FAILED
 
   tasks:
     - name: Resolve settings
@@ -63,7 +71,15 @@
 
           deps=skipped
           if [ "$lock_before" != "$lock_after" ]; then
-            npm install >"$err" 2>&1 && deps=installed || deps=FAILED
+            if npm install >"$err" 2>&1; then
+              deps=installed
+            else
+              deps=FAILED
+              echo "$branch $before $after $deps none DEPS_FAILED $(( $(date +%s) - t0 ))"
+              echo "DETAIL: npm install — $(tail -3 "$err" 2>/dev/null | tr '\n' '|')"
+              rm -f "$err"
+              exit 0
+            fi
           fi
 
           # Restart only what was actually running, and only when the code moved.
@@ -95,11 +111,24 @@
 
           echo "$branch $before $after $deps $worker_state $restarted $(( $(date +%s) - t0 ))"
           [ "$restarted" = START_FAILED ] && echo "DETAIL: worker log — ${start_detail:-<empty>}"
-          [ "$deps" = FAILED ] && echo "DETAIL: npm install — $(tail -3 "$err" 2>/dev/null | tr '\n' '|')"
           rm -f "$err"
       register: pull_result
       failed_when: false
       changed_when: pull_result.rc == 0 and (pull_result.stdout.split()[1] | default('')) != (pull_result.stdout.split()[2] | default(''))
+
+    - name: Parse pull outcome
+      ansible.builtin.set_fact:
+        pull_fields: "{{ ((pull_result.stdout_lines | default([]) | first) | default('')).split() }}"
+
+    - name: Record whether pull failed
+      ansible.builtin.set_fact:
+        pull_failed: >-
+          {{
+            pull_result.rc | default(1) != 0
+            or (pull_fields[0] | default('')) in pull_failure_markers
+            or (pull_fields[3] | default('')) in pull_failure_markers
+            or (pull_fields[5] | default('')) in pull_failure_markers
+          }}
 
     - name: Write recap file
       run_once: true
@@ -118,7 +147,7 @@
           {{ h }}  🔴 failed: {{ (r.stdout | default('') | trim) }} {{ (r.stderr | default('') | trim)[:100] }}
           {% else %}
           {% set p = (r.stdout_lines[0] | default('')).split() %}
-          {% set bad = ['START_FAILED', 'DRAIN_TIMEOUT', 'FETCH_FAILED', 'CHECKOUT_FAILED', 'MERGE_FAILED', 'FAILED'] %}
+          {% set bad = ['START_FAILED', 'DRAIN_TIMEOUT', 'FETCH_FAILED', 'CHECKOUT_FAILED', 'MERGE_FAILED', 'DEPS_FAILED', 'FAILED'] %}
           {% set icon = '🔴' if p[0] | default('') in bad or p[5] | default('') in bad or p[3] | default('') == 'FAILED' else '✅' %}
           {{ h }}  {{ icon }} {{ '%5s' | format((p[6] | default('?')) ~ 's') }}  {{ p[0] | default('?') }}  {{ p[1] | default('?') }} → {{ p[2] | default('?') }}{{ '  (already current)' if p[1] | default('') == p[2] | default('x') else '' }}{{ '  deps:' ~ p[3] if p[3] | default('skipped') != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] | default('') == 'yes' else (p[5] if p[5] | default('no') != 'no' else ('running, code unchanged' if p[4] | default('none') != 'none' else 'not running')) }}
           {% for d in r.stdout_lines[1:] if d.startswith('DETAIL:') %}
@@ -126,3 +155,9 @@
           {% endfor %}
           {% endif %}
           {% endfor %}
+
+    # Keep every host in the recap, then make the command machine-checkable.
+    - name: Fail after recap when this host did not pull cleanly
+      ansible.builtin.fail:
+        msg: '{{ inventory_hostname }} did not complete fleet:git:pull successfully; see the fleet recap above.'
+      when: pull_failed | default(true)

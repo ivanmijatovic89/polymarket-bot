@@ -13,6 +13,18 @@ import fs from 'node:fs'
 const file = process.argv[2] ?? '/tmp/fleet-data.json'
 const rows = JSON.parse(fs.readFileSync(file, 'utf8'))
 
+// One inventory host can be both producer and worker. Keep those executions
+// as distinct rows so neither result overwrites or hides the other.
+const runRows = rows.flatMap((r) => {
+  // Backward compatibility for recap files written by an older checkout.
+  if (r.role != null) return [r]
+  const out = []
+  if (r.producer != null)
+    out.push({ host: r.host, role: 'producer', dryRun: r.dryRun, ...r.producer })
+  if (r.worker != null) out.push({ host: r.host, role: 'worker', dryRun: r.dryRun, ...r.worker })
+  return out
+})
+
 /** Parse a host's stdout: the data:sync summary block → [{status, step, finding}]. */
 function parseSummary(lines) {
   const out = []
@@ -53,15 +65,17 @@ function runElapsed(lines) {
   return out
 }
 
-const parsed = rows.map((r) => {
+const parsed = runRows.map((r) => {
   const steps = parseSummary(r.stdoutLines)
-  const dryRun = (r.stdoutLines ?? []).some((l) => l.includes('DRY-RUN') || l.includes('--dry-run'))
+  const dryRun =
+    r.dryRun ?? (r.stdoutLines ?? []).some((l) => l.includes('DRY-RUN') || l.includes('--dry-run'))
   const counts = steps.map((s) => countOf(s.finding)).filter((n) => n != null)
   const behind = counts.reduce((a, b) => a + b, 0)
-  const synced = r.rc === 0 && steps.every((s) => s.status === 'OK') && behind === 0
-  return { ...r, steps, time: runElapsed(r.stdoutLines), dryRun, behind, synced }
+  const failed =
+    r.rc == null || r.rc !== 0 || steps.length === 0 || steps.some((s) => s.status !== 'OK')
+  const synced = !failed && behind === 0
+  return { ...r, steps, time: runElapsed(r.stdoutLines), dryRun, behind, failed, synced }
 })
-const stepIds = [...new Set(parsed.flatMap((r) => r.steps.map((s) => s.step)))]
 
 function cell(r, stepId) {
   if (r.rc == null) return '⚠️'
@@ -81,6 +95,7 @@ const workers = parsed.filter((r) => r.role !== 'producer')
 function resultCell(r) {
   if (r.rc == null) return '⚠️  unreachable'
   if (r.rc !== 0) return `🔴 FAILED rc=${r.rc}`
+  if (r.steps.length === 0) return '🔴 NO SUMMARY'
   if (!anyDryRun) return '✅ OK'
   return r.synced ? '✅ SYNCED' : `🔴 BEHIND (${r.behind})`
 }
@@ -107,12 +122,12 @@ printTable(producers, anyDryRun ? 'PRODUCER vs upstream (catalog check skipped �
 printTable(workers, producers.length > 0 ? 'WORKERS vs R2' : null)
 console.log('')
 if (anyDryRun) {
-  const laggards = parsed.filter((r) => !r.synced && (r.role !== 'producer' || r.rc != null))
+  const laggards = parsed.filter((r) => !r.synced)
   if (laggards.length === 0) {
     console.log('✅ FLEET SYNCED — every machine is fully up to date.')
   } else {
     console.log(
-      `🔴 FLEET NOT SYNCED — ${laggards.map((r) => `${r.host} (${r.rc == null ? 'unreachable' : `-${r.behind}`})`).join(', ')}`,
+      `🔴 FLEET NOT SYNCED — ${laggards.map((r) => `${r.host}:${r.role} (${r.rc == null ? 'unreachable' : r.failed ? 'failed' : `-${r.behind}`})`).join(', ')}`,
     )
     process.exitCode = 1
   }
@@ -120,4 +135,11 @@ if (anyDryRun) {
   console.log(
     'Cells show the step status and its download count (what the preflight found before fetching).',
   )
+  const failures = parsed.filter((r) => r.failed)
+  if (failures.length > 0) {
+    console.log(
+      `🔴 FLEET DATA SYNC FAILED — ${failures.map((r) => `${r.host}:${r.role}`).join(', ')}`,
+    )
+    process.exitCode = 1
+  }
 }

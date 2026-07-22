@@ -50,8 +50,15 @@ function cell(r, col) {
 }
 
 function machineCells(r) {
-  if (r.status == null)
-    return [r.host, r.role, '✗ unreachable', '', '', ...datasetCols.map(() => '')]
+  if (r.status == null) {
+    if (r.probe?.unreachable) {
+      return [r.host, r.role, '✗ unreachable', '', '', ...datasetCols.map(() => '')]
+    }
+    const rc = r.probe?.rc == null ? '' : ` rc=${r.probe.rc}`
+    const rawDetail = r.probe?.error?.trim() || (r.probe?.rc === 0 ? 'invalid probe output' : '')
+    const detail = rawDetail === '' ? '' : `: ${rawDetail.replace(/\s+/g, ' ').slice(0, 80)}`
+    return [r.host, r.role, `✗ probe failed${rc}${detail}`, '', '', ...datasetCols.map(() => '')]
+  }
   const s = r.status
   const sess = `${s.sessions.backtestWorker.alive ? 'W' : '-'}${s.sessions.telonexConverter.alive ? 'C' : '-'}`
   return [

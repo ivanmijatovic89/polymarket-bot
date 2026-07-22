@@ -39,7 +39,9 @@ wrong (e.g. the producer holds pre-eligibility historical files workers
 never need, or a day file not yet mirrored to R2) — which is exactly why
 this table does not render gaps. `W/C` flags the backtest-worker /
 converter tmux sessions; `*` after a commit means a dirty tree; an offline
-host shows as `✗ unreachable`.
+host shows as `✗ unreachable`. A reachable host whose probe cannot run
+(for example, Node is missing or the repo path is wrong) shows as
+`✗ probe failed` with its exit code and a short error instead.
 
 The producer comes from a `[producer]` inventory group (see
 `ops/ansible/inventory.example.ini`) — typically the local machine:

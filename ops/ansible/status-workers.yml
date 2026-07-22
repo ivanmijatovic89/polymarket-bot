@@ -61,10 +61,16 @@
           {% set prod = groups['producer'] | default([]) %}
           {% set hosts = ansible_play_hosts_all %}
           {% for h in hosts %}
+          {% set p = hostvars[h].probe | default(none) %}
             {
               "host": {{ h | to_json }},
               "role": {{ ('producer+worker' if (h in prod and h in (groups['backtest_workers'] | default([]))) else ('producer' if h in prod else 'worker')) | to_json }},
-              "status": {{ hostvars[h].fleet_status | default(none) | to_json }}
+              "status": {{ hostvars[h].fleet_status | default(none) | to_json }},
+              "probe": {
+                "unreachable": {{ ((p.unreachable | default(false)) if p is not none else false) | to_json }},
+                "rc": {{ ((p.rc | default(none)) if p is not none else none) | to_json }},
+                "error": {{ ((p.stderr | default(p.msg | default(''))) if p is not none else 'probe did not run')[:300] | to_json }}
+              }
             }{{ '' if loop.last else ',' }}
           {% endfor %}
           ]
