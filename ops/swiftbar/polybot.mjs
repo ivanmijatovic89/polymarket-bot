@@ -132,13 +132,13 @@ function updateRate(done) {
  *    whole line, not just the indexed symbol, which made everything grey at
  *    idle and green while running. State colour is carried by an emoji dot
  *    instead — emoji render in their own colour, icons and text keep the
- *    native menu bar colour in both light and dark appearance. Idle is 🔵
- *    rather than ⚪/⚫ because a white or black circle disappears against one
- *    of the two menu bar appearances.
+ *    native menu bar colour in both light and dark appearance. Idle is ⚫ by
+ *    owner preference; note it has low contrast against a dark menu bar
+ *    (⚪ has the mirror problem on a light one, 🔵 works on both).
  */
 function titleLine({ tone, machineCount, alive, queued, pct }) {
   const mode = TITLE_MODE
-  const dot = tone === 'active' ? '🟢' : tone === 'stalled' ? '🟠' : '🔵'
+  const dot = tone === 'active' ? '🟢' : tone === 'stalled' ? '🟠' : '⚫'
   const progress = tone === 'idle' ? 'idle' : `${pct}%`
 
   const parts = []
