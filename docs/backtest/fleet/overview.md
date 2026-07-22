@@ -60,7 +60,7 @@ machines that can reach the database; let everyone else run markets only.
 
 ::: code-group
 ```bash [DB host — both queues]
-./scripts/run-worker.sh --queues markets,aggregate
+npm run worker:markets-and-aggregate
 ```
 ```bash [sibling — markets only]
 npm run worker:markets

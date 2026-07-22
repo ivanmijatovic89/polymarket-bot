@@ -285,7 +285,7 @@ npm run worker:markets -- --market-concurrency 8
 Run aggregate workers only on machines that have database credentials:
 
 ```bash
-./scripts/run-worker.sh --queues markets,aggregate
+npm run worker:markets-and-aggregate
 ```
 
 ## 11. Update Workers Proactively

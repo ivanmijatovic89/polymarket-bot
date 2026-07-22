@@ -49,6 +49,7 @@
     "backtest:worker": "tsx src/cli/backtestWorker.ts",
     "worker:markets": "./scripts/run-worker.sh --queues markets",
     "worker:aggregate": "./scripts/run-worker.sh --queues aggregate",
+    "worker:markets-and-aggregate": "./scripts/run-worker.sh --queues markets,aggregate",
     "backtest:verify-diff": "tsx src/cli/verify-backtest-diff.ts",
     "feeds:parity": "tsx src/cli/research/feeds-parity.ts",
     "dashboard": "npm --prefix dashboard run dev",
