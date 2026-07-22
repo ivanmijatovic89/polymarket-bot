@@ -14,7 +14,7 @@
  *   - per-market outcome is written to telonex_markets.upload_status
  *
  * Usage:
- *   npm run telonex:download -- --slug-pattern '<like>[,<like>...]' [--concurrency N] [--limit N] [--channel C]
+ *   npm run telonex:download -- --slug-pattern '<like>[,<like>...]' [--concurrency N] [--limit N] [--channel C] [--dry-run]
  *
  * --slug-pattern is required (no default). Defaults: concurrency=1, channel=book_snapshot_full
  *
@@ -50,15 +50,23 @@ type Args = {
   channel: string
   limit: number | null
   slugPatterns: string[]
+  dryRun: boolean
 }
 
 function parseArgs(argv: string[]): Args {
-  const out: Args = { concurrency: 1, channel: 'book_snapshot_full', limit: null, slugPatterns: [] }
+  const out: Args = {
+    concurrency: 1,
+    channel: 'book_snapshot_full',
+    limit: null,
+    slugPatterns: [],
+    dryRun: false,
+  }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
     if (a === '--concurrency') out.concurrency = Math.max(1, Number(argv[++i] ?? '1'))
     else if (a === '--channel') out.channel = argv[++i] ?? out.channel
     else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
+    else if (a === '--dry-run') out.dryRun = true
     else if (a === '--slug-pattern') {
       // Comma-separated LIKE patterns. Markets are processed in pattern order
       // (all of pattern[0] first, then pattern[1], …) and chronologically
@@ -689,6 +697,11 @@ async function main(): Promise<void> {
   console.log(
     `[telonex:download] queue size=${totalQueue} (pending+partial matching slug-patterns, capped by --limit)`,
   )
+
+  if (args.dryRun) {
+    console.log('[telonex:download] dry-run — nothing downloaded')
+    return
+  }
 
   const t0 = Date.now()
   try {

@@ -82,12 +82,19 @@ once those series enter the catalog.
 - **Holes after full rollout** (~1.7k markets = 1.36% since Apr 2026,
   symbol-symmetric ⇒ platform-side writer outages, not fetch errors):
   Mar 23 (72), **Apr 1 (708)**, Apr 24 (44), May 3–4 (628), May 20 (16),
-  May 22 (153), Jun 2 (17), Jun 16 (3), Jul 5–6 (21). Clean otherwise.
+  May 22 (153), Jun 2 (17), Jun 16 (3), Jul 5–6 (21), Jul 11–12 (17 btc-15m),
+  Jul 16 (2 btc-15m). Clean otherwise.
+  The Jul 11–16 holes were found 2026-07-22 during the btc-15m backfill;
+  counts are btc-15m only because the catalog currently syncs just that
+  series — per the historical symbol-symmetric pattern, expect matching
+  holes in the other series once they are cataloged.
   **Re-verified exhaustively 2026-07-21**: ALL 1,662 post-2026-03-21
   null-strike markets re-fetched from Gamma via
   `telonex:sync-pricetobeat-and-final-price -- --refetch-nulls --from 2026-03-21`
   — zero strikes recovered (10 missing `final_price` values did fill in).
-  100% confirmed permanent gaps, not transient fetch errors.
+  100% confirmed permanent gaps, not transient fetch errors. The Jul 11–16
+  batch was re-fetched the same way 2026-07-22 (`--refetch-nulls --from
+  2026-07-10`): 19/19 still null at Gamma — permanent.
 - **Backtest policy**: markets before their SERIES' epoch (recording not yet
   started) replay with an absent key, quietly; markets settled <30h ago also
   replay key-absent (warned — pipeline-lag grace: Telonex catalogs daily, the

@@ -14,7 +14,7 @@
  * Usage:
  *   npm run telonex:convert -- [--converter paired] [--converter delta] [--converter delta-typed] [--output local|r2|both] [--force]
  *                              [--concurrency N] [--limit N] [--book-interval N]
- *                              [--slug s1,s2,...] [--slug-pattern 'p1,p2,...']
+ *                              [--slug s1,s2,...] [--slug-pattern 'p1,p2,...'] [--dry-run]
  *
  * --converter can be repeated to run multiple converters per market in a single pass,
  * downloading raw files only once. Defaults to paired if omitted.
@@ -43,6 +43,7 @@ import {
   telonexMarketConversions,
 } from '../db/index.js'
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
+import { TELONEX_CONVERT_STALE_CLAIM_MINUTES } from '../config/telonex.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
 import { localOutputPath } from './localOutputPath.js'
@@ -63,6 +64,7 @@ type Args = {
   slugFilter: string[] | null
   slugPatterns: string[] | null
   force: boolean
+  dryRun: boolean
 }
 
 function parseArgs(argv: string[]): Args {
@@ -75,6 +77,7 @@ function parseArgs(argv: string[]): Args {
     slugFilter: null,
     slugPatterns: null,
     force: false,
+    dryRun: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i]
@@ -94,6 +97,7 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--limit') out.limit = Number(argv[++i] ?? '0') || null
     else if (a === '--book-interval') out.bookInterval = Number(argv[++i] ?? '0') || null
     else if (a === '--force') out.force = true
+    else if (a === '--dry-run') out.dryRun = true
     else if (a === '--slug')
       out.slugFilter = (argv[++i] ?? '')
         .split(',')
@@ -215,14 +219,38 @@ function needsWorkConditionSql(
   return sql`(SELECT COUNT(*) FROM telonex_market_conversions c WHERE c.market_id = ${telonexMarkets.id} AND c.converter IN (${sql.raw(converterInSql(converters))}) AND c.status = 'done' AND ${outputDoneConditionSql(output)}) < ${converters.length}`
 }
 
+// A claim whose process died without reverting (SIGKILL, tmux kill races,
+// ENOSPC crash) stays 'in_progress' forever and would exclude its market from
+// every queue. Claims older than TELONEX_CONVERT_STALE_CLAIM_MINUTES are
+// treated as abandoned and become claimable again.
+//
+// Timezone note (measured, not assumed): drizzle writes `timestamp` columns
+// as UTC wall-clock strings, so stored started_at aligns with
+// UTC_TIMESTAMP() (verified: live claim age 4s) while NOW() on a CEST server
+// reads 2h ahead and a raw-bound JS Date serializes in process-local time.
+// SQL therefore anchors on UTC_TIMESTAMP(); the JS mirror in rowNeedsWork
+// uses Date.now() against ORM-read Dates, which round-trip correctly.
+function staleClaimCutoffMs(): number {
+  return Date.now() - TELONEX_CONVERT_STALE_CLAIM_MINUTES * 60_000
+}
+
 // Excludes markets where any requested converter is currently being processed by
-// another worker. Combined with FOR UPDATE SKIP LOCKED this prevents double-claiming.
+// another worker (fresh 'in_progress' claim). Combined with FOR UPDATE SKIP
+// LOCKED this prevents double-claiming. Stale claims (older than
+// TELONEX_CONVERT_STALE_CLAIM_MINUTES, or with NULL started_at) do not block.
 function noInProgressConditionSql(converters: ConverterName[]): ReturnType<typeof sql> {
-  return sql`NOT EXISTS (SELECT 1 FROM telonex_market_conversions c2 WHERE c2.market_id = ${telonexMarkets.id} AND c2.converter IN (${sql.raw(converterInSql(converters))}) AND c2.status = 'in_progress')`
+  return sql`NOT EXISTS (SELECT 1 FROM telonex_market_conversions c2 WHERE c2.market_id = ${telonexMarkets.id} AND c2.converter IN (${sql.raw(converterInSql(converters))}) AND c2.status = 'in_progress' AND c2.started_at > UTC_TIMESTAMP() - INTERVAL ${sql.raw(String(TELONEX_CONVERT_STALE_CLAIM_MINUTES))} MINUTE)`
 }
 
 function rowNeedsWork(
-  row: { status: string | null; localPath: string | null; r2Url: string | null } | undefined,
+  row:
+    | {
+        status: string | null
+        localPath: string | null
+        r2Url: string | null
+        startedAt: Date | null
+      }
+    | undefined,
   output: OutputMode,
   force: boolean,
 ): boolean {
@@ -233,6 +261,11 @@ function rowNeedsWork(
     if (output === 'local') return row.localPath == null
     if (output === 'r2') return row.r2Url == null
     return row.localPath == null || row.r2Url == null
+  }
+  if (row.status === 'in_progress') {
+    // Mirror noInProgressConditionSql: a stale (or timestamp-less) claim is
+    // abandoned work, claimable again.
+    return row.startedAt == null || row.startedAt.getTime() < staleClaimCutoffMs()
   }
   return false
 }
@@ -426,6 +459,7 @@ async function tryClaimConvertMarket(
         status: telonexMarketConversions.status,
         localPath: telonexMarketConversions.localPath,
         r2Url: telonexMarketConversions.r2Url,
+        startedAt: telonexMarketConversions.startedAt,
       })
       .from(telonexMarketConversions)
       .where(
@@ -443,6 +477,16 @@ async function tryClaimConvertMarket(
 
     // Claim: upsert only the converters that actually need work.
     for (const conv of convertersToProcess) {
+      const prev = existingMap.get(conv)
+      if (prev?.status === 'in_progress') {
+        const ageMin =
+          prev.startedAt != null
+            ? Math.round((Date.now() - prev.startedAt.getTime()) / 60_000)
+            : null
+        console.log(
+          `[telonex:convert] reclaiming stale in_progress claim ${row.slug}/${conv} (age=${ageMin ?? 'unknown'}m, threshold=${TELONEX_CONVERT_STALE_CLAIM_MINUTES}m)`,
+        )
+      }
       await tx
         .insert(telonexMarketConversions)
         .values({
@@ -988,6 +1032,11 @@ async function main(): Promise<void> {
       ? ` · ${totalFiles} files (${args.converters.length} converters × ${totalQueue})`
       : ''
   console.log(`[telonex:convert] queue=${totalQueue} markets${filesLabel}`)
+
+  if (args.dryRun) {
+    console.log('[telonex:convert] dry-run — nothing converted')
+    return
+  }
 
   const reserved = { count: 0 }
   const claimed = { count: 0 }
