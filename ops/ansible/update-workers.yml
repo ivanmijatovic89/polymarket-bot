@@ -3,7 +3,6 @@
   hosts: backtest_workers
   gather_facts: false
   vars:
-    backtest_branch_default: main
     backtest_remote_default: origin
     backtest_worker_session_default: polymarket-backtest-worker
     backtest_worker_command_default: ./scripts/run-worker.sh --queues markets
@@ -13,7 +12,11 @@
     - name: Resolve worker update settings
       ansible.builtin.set_fact:
         worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
-        worker_branch: '{{ backtest_branch | default(backtest_branch_default) }}'
+        # Empty means "whatever branch this machine is already on" — resolved
+        # after the current branch is read. Defaulting to main here silently
+        # dragged a fleet deliberately parked on a feature branch back to main
+        # on every start/update.
+        requested_branch: '{{ backtest_branch | default("") }}'
         worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
         worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
         worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
@@ -60,6 +63,11 @@
       register: branch_before
       changed_when: false
       check_mode: false
+
+    - name: Resolve target branch
+      ansible.builtin.set_fact:
+        worker_branch: >-
+          {{ requested_branch if requested_branch | length > 0 else branch_before.stdout }}
 
     - name: Read current package lock blob
       ansible.builtin.command:

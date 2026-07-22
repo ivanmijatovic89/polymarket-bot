@@ -85,8 +85,8 @@ npm run fleet:git:pull [-- <branch>]    # pull code (+switch branch), deps, drai
 npm run fleet:update                    # same, verbose per-step pre-flight — ~50s
 npm run fleet:data:sync -- btc:15m      # run data:sync:worker everywhere ('-e data_sync_extra=--dry-run' = verdict)
 npm run fleet:start | fleet:stop        # ensure workers running / drain them
-# fleet:start and fleet:update default to branch main — pass
-# `-e backtest_branch=<name>` when the fleet should stay on a feature branch.
+# No command changes a machine's branch unless asked: fleet:update / fleet:start
+# take `--branch <name>`, fleet:git:pull takes it positionally.
 # See docs/backtest/fleet/overview.md for the full command cheat sheet.
 
 # Backtest worker (self-updating wrapper; --market-concurrency defaults to this

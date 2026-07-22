@@ -187,3 +187,6 @@ startup file loaded by that shell.
 
 To stop the fleet again, see [Stop the Fleet](/backtest/fleet/stop)
 (`npm run fleet:stop`) — graceful drain by default.
+
+`npm run fleet:start -- --branch <name>` switches the fleet while starting
+it; without the flag each machine stays on its current branch.

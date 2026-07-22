@@ -27,6 +27,22 @@ keeps the verbose per-step pre-flight (repo present, tree clean,
 fast-forward possible, restart verified), which is what you want when
 something is wrong and you need to see exactly which step failed.
 
+## Choosing the branch
+
+Neither `fleet:update` nor `fleet:start` changes the branch a machine is on
+unless you ask: with no `--branch`, each host stays on whatever it has
+checked out and is simply fast-forwarded.
+
+```bash
+npm run fleet:update -- --branch feat/my-branch   # switch and update
+npm run fleet:update -- --branch main             # back to main
+npm run fleet:start -- --branch main              # same flag on start
+npm run fleet:update                              # stay where you are
+```
+
+Earlier these commands defaulted to `main`, which silently dragged a fleet
+deliberately parked on a feature branch back to main on every run.
+
 ## Running It
 
 Normal update:
