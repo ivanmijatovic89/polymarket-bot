@@ -65,6 +65,10 @@ export default withMermaid(
                 { text: 'Overview', link: '/datasets/telonex/overview' },
                 { text: 'Sync Design', link: '/datasets/telonex/sync-design' },
                 { text: 'Sync Markets', link: '/datasets/telonex/sync-markets' },
+                {
+                  text: 'ADR: Publication-Lag Guard',
+                  link: '/datasets/telonex/adr-publication-lag-guard',
+                },
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },
                 {

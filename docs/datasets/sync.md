@@ -66,6 +66,14 @@ same invocation covers all three situations:
   is fetched from each dataset's coverage epoch (see
   [Data Coverage](/datasets/data-coverage)).
 
+::: tip Publication-lag guard
+Markets younger than `TELONEX_DATASET_MIN_AGE_DAYS` (default 3) are neither
+cataloged nor eligible — upstream sources publish their day files ~T+1/T+2,
+so a market only has its complete dataset once it is a few days old. This is
+why sync queues and fleet verdicts only count doable work, and why backtest
+batches no longer pick markets whose feed data does not exist yet.
+:::
+
 ::: tip Backtests during a sync are safe
 Writers finish files atomically (`tmp` → rename) and Telonex markets become
 eligible only once their conversion is recorded in the DB, so a backtest

@@ -22,7 +22,7 @@ import type { SQL } from 'drizzle-orm'
 import { getDb } from './index.js'
 import { telonexMarkets, telonexMarketConversions } from './schema.js'
 import { buildTelonexEligibilityConditions } from './telonexEligibility.js'
-import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
+import { TELONEX_DATASET_ELIGIBLE_FROM_MS, telonexDatasetMaxStartMs } from '../config/telonex.js'
 
 // `local-or-download-from-r2-to-local` resolves like `r2` for the DB query (gates on r2_url, returns
 // r2_url as the dataset) — `pickDataset` / eligibility route any non-`local`
@@ -233,7 +233,15 @@ function buildEligibleWhere(opts: EligibleMarketsQuery): SQL {
           r2Url: telonexMarketConversions.r2Url,
         },
       },
-      { ...opts, fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS },
+      {
+        ...opts,
+        fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS,
+        // Publication-lag guard (TELONEX_DATASET_MIN_AGE_DAYS): markets
+        // younger than the guard never count as eligible, even when the
+        // caller passes an explicit toMs — "eligible" must imply "complete
+        // dataset exists" (orderbook + feeds + priceToBeat). See issue #146.
+        toMs: Math.min(opts.toMs ?? Number.POSITIVE_INFINITY, telonexDatasetMaxStartMs()),
+      },
     ),
   )!
 }

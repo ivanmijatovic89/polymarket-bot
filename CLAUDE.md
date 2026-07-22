@@ -262,6 +262,7 @@ Telonex:
 - `TELONEX_API_KEY` (required for `telonex:sync`)
 - `TELONEX_DATASET_ELIGIBLE_FROM` (ISO 8601 UTC; default `2025-12-01T00:00:00Z`; lower bound for eligible markets)
 - `TELONEX_CONVERT_STALE_CLAIM_MINUTES` (default `120`; `in_progress` conversion claims older than this are treated as abandoned and re-claimed — raise it when converting large timeframes whose conversion legitimately runs long)
+- `TELONEX_DATASET_MIN_AGE_DAYS` (default `3`; publication-lag guard — markets younger than this are neither cataloged by `telonex:sync` nor eligible, because Telonex/Binance publish their day files ~T+1/T+2; guarantees "eligible ⇒ complete dataset exists")
 
 Database: `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `DATABASE_NAME`.
 

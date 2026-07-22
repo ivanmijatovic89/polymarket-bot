@@ -53,6 +53,25 @@ When multiple patterns are passed, the breakdown lists one row per `<symbol>-<ti
 | `--limit <N>` | unlimited | Cap the number of rows returned by the DuckDB query. Useful for smoke tests. |
 | `--dry-run` | off | Run the download and query, log a sample row, but skip the database writes. |
 
+## Publication-lag guard
+
+Markets younger than **`TELONEX_DATASET_MIN_AGE_DAYS`** (default **3**) are
+matched but **not cataloged** — the sync logs
+`skipped N younger than 3d (publication-lag guard)` and they enter on a later
+run, complete. Rationale: Telonex publishes raw day files and crypto_prices
+~T+1/T+2 and Binance publishes aggTrades dumps ~T+2, so cataloging earlier
+only produced partial-download churn, misleading sync/fleet queue counts,
+and backtest batches hard-erroring on missing feed days.
+
+The same threshold is enforced as an upper bound in the eligibility module
+(`listEligibleTelonexMarkets`), so *eligible always implies the complete
+dataset exists* — even for rows that entered the DB before this guard.
+Lowering the env takes effect on the next sync; raising it leaves a
+transient tail of already-cataloged younger rows that ages out on its own.
+
+Full rationale, rejected alternatives and the upgrade path:
+[ADR: Publication-Lag Guard](/datasets/telonex/adr-publication-lag-guard).
+
 ## Selecting which markets to sync
 
 The default pattern targets BTC 15-minute up/down markets. Change it for other symbols or timeframes:
