@@ -117,5 +117,7 @@ if (anyDryRun) {
     process.exitCode = 1
   }
 } else {
-  console.log('Cells show the step status and its download count (what the preflight found before fetching).')
+  console.log(
+    'Cells show the step status and its download count (what the preflight found before fetching).',
+  )
 }

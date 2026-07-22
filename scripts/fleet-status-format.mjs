@@ -50,7 +50,8 @@ function cell(r, col) {
 }
 
 function machineCells(r) {
-  if (r.status == null) return [r.host, r.role, '✗ unreachable', '', '', ...datasetCols.map(() => '')]
+  if (r.status == null)
+    return [r.host, r.role, '✗ unreachable', '', '', ...datasetCols.map(() => '')]
   const s = r.status
   const sess = `${s.sessions.backtestWorker.alive ? 'W' : '-'}${s.sessions.telonexConverter.alive ? 'C' : '-'}`
   return [
@@ -74,5 +75,9 @@ for (const [i, row] of table.entries()) {
   if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
 }
 console.log('')
-console.log("Inventory only — what each machine HAS. What is MISSING: npm run fleet:data:sync -- <pairs> -e data_sync_extra='--dry-run'")
-console.log("W/C = backtest worker / telonex converter tmux session up. '*' after commit = dirty tree.")
+console.log(
+  "Inventory only — what each machine HAS. What is MISSING: npm run fleet:data:sync -- <pairs> -e data_sync_extra='--dry-run'",
+)
+console.log(
+  "W/C = backtest worker / telonex converter tmux session up. '*' after commit = dirty tree.",
+)
