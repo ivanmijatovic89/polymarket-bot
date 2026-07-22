@@ -25,8 +25,8 @@ When `--market-concurrency` is not given, `run-worker.sh` resolves it from
 `dashboard/src/data/machines.json`: this machine's `cores_for_backtest`
 (matched by `node-machine-id`, the same identity the worker reports to the
 dashboard), falling back to `cores - 2` when the machine is unknown there or
-the field is `null`. An explicit flag always wins. Human shortcuts:
-`npm run worker:markets` and `npm run worker:aggregate`.
+the field is `null`. An explicit flag always wins. Human shortcuts: `npm run worker:markets`, `npm run worker:aggregate`,
+`npm run worker:markets-and-aggregate` (both queues, one process).
 :::
 
 ## The idea in one line
