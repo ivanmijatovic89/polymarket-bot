@@ -60,12 +60,14 @@ const parsed = rows.map((r) => {
 const stepIds = [...new Set(parsed.flatMap((r) => r.steps.map((s) => s.step)))]
 
 function cell(r, stepId) {
-  if (r.rc == null) return '✗ unreachable'
+  if (r.rc == null) return '⚠️'
   const s = r.steps.find((x) => x.step === stepId)
   if (!s) return r.rc === 0 ? '' : '?'
+  if (s.status !== 'OK') return `🔴 ${s.status}`
   const n = countOf(s.finding)
-  if (s.status !== 'OK') return s.status
-  return n == null ? 'OK' : `OK ${n}`
+  if (n == null) return '✅'
+  if (anyDryRun) return n === 0 ? '✅' : `🔴 missing ${n}`
+  return `✅ ${n}`
 }
 
 const anyDryRun = parsed.some((r) => r.dryRun)
