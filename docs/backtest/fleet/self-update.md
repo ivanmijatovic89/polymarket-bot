@@ -189,7 +189,7 @@ is on the latest `main`, amber when it is behind. See
 | --- | --- | --- |
 | Self-update exit code | `75` | `src/cli/backtestWorker.ts` |
 | Launcher / relauncher | `scripts/run-worker.sh` | repo root |
-| Proactive fleet update | `scripts/update-worker-fleet.sh` | see [Worker Fleet Ansible](/backtest/fleet/ansible) |
+| Proactive fleet update | `npm run fleet:update` | see [Worker Fleet Ansible](/backtest/fleet/ansible) |
 | Commit gate | `canRunJobCommit` → `isAncestorOrEqual` | `src/backtest/commitGate.ts`, `src/backtest/workerIdentity.ts` |
 | Loaded-commit env | `WORKER_LAUNCH_SHA` | stamped by the supervisor onto children |
 | Loaded-branch env | `WORKER_LAUNCH_BRANCH` | stamped by the supervisor onto children |

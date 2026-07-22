@@ -301,8 +301,8 @@ cp ops/ansible/inventory.example.ini ops/ansible/inventory.ini
 Then run:
 
 ```bash
-./scripts/update-worker-fleet.sh
-./scripts/start-worker-fleet.sh
+npm run fleet:update
+npm run fleet:start
 ```
 
 The playbook manages a tmux session named `polymarket-backtest-worker` by

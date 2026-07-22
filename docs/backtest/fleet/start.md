@@ -5,9 +5,9 @@ description: Safely update worker checkouts, then start missing managed tmux bac
 
 # Start Worker Fleet
 
-`scripts/start-worker-fleet.sh` brings the worker fleet to the desired running
-state. It first runs the same safe checkout update used by
-`scripts/update-worker-fleet.sh`, then starts the managed tmux worker session on
+`npm run fleet:start` (wrapper: `scripts/start-worker-fleet.sh`) brings the
+worker fleet to the desired running state. It first runs the same safe
+checkout update used by `npm run fleet:update`, then starts the managed tmux worker session on
 hosts where that session is missing.
 
 ## Responsibility
@@ -34,19 +34,19 @@ worker on a dirty, diverged, or otherwise unsafe checkout.
 Dry run:
 
 ```bash
-./scripts/start-worker-fleet.sh --check
+npm run fleet:start -- --check
 ```
 
 Update checkouts if needed, then start missing managed sessions:
 
 ```bash
-./scripts/start-worker-fleet.sh
+npm run fleet:start
 ```
 
 Limit to one host:
 
 ```bash
-./scripts/start-worker-fleet.sh --limit worker-1
+npm run fleet:start -- --limit worker-1
 ```
 
 The wrapper prints elapsed time and the Ansible exit code:
@@ -143,10 +143,10 @@ Ctrl-b, then d
 Use the two commands like this:
 
 ```bash
-./scripts/update-worker-fleet.sh --check
-./scripts/update-worker-fleet.sh
-./scripts/start-worker-fleet.sh --check
-./scripts/start-worker-fleet.sh
+npm run fleet:update -- --check
+npm run fleet:update
+npm run fleet:start -- --check
+npm run fleet:start
 ```
 
 `update-worker-fleet.sh` updates code and restarts only sessions that were
@@ -165,7 +165,7 @@ ssh milan-ansible 'brew install tmux'
 Then rerun:
 
 ```bash
-./scripts/start-worker-fleet.sh
+npm run fleet:start
 ```
 
 ## Worker exits immediately

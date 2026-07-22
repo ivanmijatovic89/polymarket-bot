@@ -26,7 +26,7 @@ given work.
 With Ansible, you can run one command after merging or pushing:
 
 ```bash
-./scripts/update-worker-fleet.sh
+npm run fleet:update
 ```
 
 That command connects to every worker in the inventory, fast-forwards the repo,
@@ -160,7 +160,7 @@ problem, not something the playbook should repair automatically.
 Normal update:
 
 ```bash
-./scripts/update-worker-fleet.sh
+npm run fleet:update
 ```
 
 The wrapper prints total elapsed time and the Ansible exit code at the end:
@@ -174,21 +174,21 @@ running, use the composed start command. It runs the update phase first, then
 starts only missing managed tmux sessions:
 
 ```bash
-./scripts/start-worker-fleet.sh
+npm run fleet:start
 ```
 
 Pass Ansible flags through the wrapper:
 
 ```bash
-./scripts/update-worker-fleet.sh --check
-./scripts/update-worker-fleet.sh --limit worker-1
-./scripts/update-worker-fleet.sh -v
+npm run fleet:update -- --check
+npm run fleet:update -- --limit worker-1
+npm run fleet:update -- -v
 ```
 
 Use another inventory file:
 
 ```bash
-ANSIBLE_INVENTORY=/path/to/inventory.ini ./scripts/update-worker-fleet.sh
+ANSIBLE_INVENTORY=/path/to/inventory.ini npm run fleet:update
 ```
 
 ## Failure Modes
