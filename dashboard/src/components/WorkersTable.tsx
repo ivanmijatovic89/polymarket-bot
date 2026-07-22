@@ -81,6 +81,11 @@ function MachineHeaderRow({ machine }: { machine: MachineGroup }) {
       <TableCell colSpan={2} className="text-xs font-semibold">
         <span className="inline-flex items-baseline">
           <MachineName machineId={machine.machineId} />
+          {machine.supervisorQueues?.includes('aggregate') ? (
+            <span className="ml-2">
+              <Badge variant="warning">aggregator</Badge>
+            </span>
+          ) : null}
           <span className="ml-3 font-sans text-xs font-normal text-muted-foreground">
             {machine.totals.aliveCount} alive
           </span>

@@ -238,7 +238,12 @@ async function main(): Promise<void> {
       ` branch=${launchBranch} commitSha=${launchSha}`,
   )
 
-  const stopHeartbeat = await startHeartbeat(supervisorKey, launchSha, launchBranch)
+  const stopHeartbeat = await startHeartbeat(
+    supervisorKey,
+    launchSha,
+    launchBranch,
+    [...args.queues].join(','),
+  )
   const inProcessWorkers: Worker[] = []
   let marketChildren: {
     children: ChildProcess[]
