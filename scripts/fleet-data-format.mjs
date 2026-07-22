@@ -49,7 +49,14 @@ function runElapsed(lines) {
   return out
 }
 
-const parsed = rows.map((r) => ({ ...r, steps: parseSummary(r.stdoutLines), time: runElapsed(r.stdoutLines) }))
+const parsed = rows.map((r) => {
+  const steps = parseSummary(r.stdoutLines)
+  const dryRun = (r.stdoutLines ?? []).some((l) => l.includes('DRY-RUN') || l.includes('--dry-run'))
+  const counts = steps.map((s) => countOf(s.finding)).filter((n) => n != null)
+  const behind = counts.reduce((a, b) => a + b, 0)
+  const synced = r.rc === 0 && steps.every((s) => s.status === 'OK') && behind === 0
+  return { ...r, steps, time: runElapsed(r.stdoutLines), dryRun, behind, synced }
+})
 const stepIds = [...new Set(parsed.flatMap((r) => r.steps.map((s) => s.step)))]
 
 function cell(r, stepId) {
@@ -61,15 +68,19 @@ function cell(r, stepId) {
   return n == null ? 'OK' : `OK ${n}`
 }
 
+const anyDryRun = parsed.some((r) => r.dryRun)
+
+function resultCell(r) {
+  if (r.rc == null) return '✗ unreachable'
+  if (r.rc !== 0) return `FAILED rc=${r.rc}`
+  if (!anyDryRun) return 'OK'
+  return r.synced ? 'SYNCED ✓' : `BEHIND (${r.behind})`
+}
+
 const header = ['machine', 'result', 'time', ...stepIds]
 const table = [
   header,
-  ...parsed.map((r) => [
-    r.host,
-    r.rc == null ? '✗ unreachable' : r.rc === 0 ? 'OK' : `FAILED rc=${r.rc}`,
-    r.time ?? '',
-    ...stepIds.map((id) => cell(r, id)),
-  ]),
+  ...parsed.map((r) => [r.host, resultCell(r), r.time ?? '', ...stepIds.map((id) => cell(r, id))]),
 ]
 const widths = header.map((_, i) => Math.max(...table.map((row) => String(row[i] ?? '').length)))
 
@@ -80,4 +91,16 @@ for (const [i, row] of table.entries()) {
   if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
 }
 console.log('')
-console.log('Cells show the step status and its download count (dry-run: what WOULD be fetched; real run: what the preflight found before fetching).')
+if (anyDryRun) {
+  const laggards = parsed.filter((r) => !r.synced)
+  if (laggards.length === 0) {
+    console.log('FLEET SYNCED: YES — every machine is fully up to date.')
+  } else {
+    console.log(
+      `FLEET SYNCED: NO — ${laggards.map((r) => `${r.host} (${r.rc == null ? 'unreachable' : `-${r.behind}`})`).join(', ')}`,
+    )
+    process.exitCode = 1
+  }
+} else {
+  console.log('Cells show the step status and its download count (what the preflight found before fetching).')
+}

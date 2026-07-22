@@ -37,8 +37,12 @@ ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOO
 code=$?
 set -e
 
+fmt_code=0
 if [ -f /tmp/fleet-data.json ]; then
-  node "$REPO_DIR/scripts/fleet-data-format.mjs" /tmp/fleet-data.json
+  node "$REPO_DIR/scripts/fleet-data-format.mjs" /tmp/fleet-data.json || fmt_code=$?
+fi
+if [ "$code" -eq 0 ] && [ "$fmt_code" -ne 0 ]; then
+  code=$fmt_code
 fi
 elapsed=$(( $(date +%s) - started_at ))
 printf '[fleet-data] elapsed=%02d:%02d:%02d\n' $((elapsed / 3600)) $(((elapsed % 3600) / 60)) $((elapsed % 60))

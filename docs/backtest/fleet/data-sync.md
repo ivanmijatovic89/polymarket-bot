@@ -16,9 +16,12 @@ market scope is the first argument (comma-separated pairs), mirroring
 `data:sync`'s explicit-scope rule.
 
 The run ends with one aligned table — a row per machine, a column per sync
-step, each cell the step status and its download count (with `--dry-run`:
-what would be fetched). A failed or unreachable host is reported and does
-not stop the others.
+step, each cell the step status and its download count. With `--dry-run`
+the result column becomes a verdict (`SYNCED ✓` / `BEHIND (N)`), the run
+ends with a one-line `FLEET SYNCED: YES/NO`, and the command exits non-zero
+when any machine is behind — so `npm run fleet:data -- btc:15m -e
+data_sync_extra='--dry-run' && echo synced` works in scripts. A failed or
+unreachable host is reported and does not stop the others.
 
 ```
 machine   result  converted-btc-15m  binance-local-btc  crypto-prices-local-btc
