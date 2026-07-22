@@ -25,7 +25,7 @@ here, and `/protocol-audit` is discovered.
 2. Redis + backtest workers running. Remote workers track `origin/main`; after
    pushing research commits to `main`, run `./scripts/update-worker-fleet.sh`
    before submitting jobs. Local-only workers can still be started manually with
-   `./scripts/run-worker.sh` using your usual queues (market + aggregate).
+   `npm run worker:markets` (plus `npm run worker:aggregate` on the DB host, or `./scripts/run-worker.sh --queues markets,aggregate` for both in one process).
 3. (Optional, speeds up first runs) prewarm Telonex data locally:
    `npm run telonex:download-converted-r2-to-local -- --converter delta-typed --symbol btc --timeframe 15m`
    — not required: protocol backtests always run with

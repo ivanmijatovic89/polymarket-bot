@@ -41,7 +41,7 @@ This page focuses on the default `recorded` mode. For telonex modes, see [Run a 
 - At least one Parquet file under `data/events/<symbol>/`
 - For the **default** (BullMQ) execution path:
   - Redis running locally (`brew services start redis`)
-  - At least one worker daemon up — launch via `./scripts/run-worker.sh` so it
+  - At least one worker daemon up — launch via `npm run worker:markets` (self-updating wrapper) so it
     self-updates to your code (see
     [worker self-update](/backtest/fleet/self-update))
   - **A clean (committed) working tree.** Workers gate on the producer's commit
