@@ -85,18 +85,22 @@
       when: sync_run.rc | default(1) != 0
 
 - name: Fleet data sync recap
-  hosts: localhost
+  # Targets both groups (not localhost) so --limit keeps the recap: the play
+  # inherits the limited host set and run_once writes it locally.
+  hosts: producer:backtest_workers
   gather_facts: false
+  ignore_unreachable: true
   tasks:
     - name: Write sync JSON for the table formatter
+      run_once: true
+      delegate_to: localhost
       ansible.builtin.copy:
         dest: /tmp/fleet-data.json
         mode: '0644'
         content: |-
           [
           {% set prod = groups['producer'] | default([]) %}
-          {% set work = groups['backtest_workers'] | default([]) %}
-          {% set hosts = (prod + work) | unique %}
+          {% set hosts = ansible_play_hosts_all %}
           {% for h in hosts %}
           {% set r = hostvars[h].sync_run | default(none) %}
             {

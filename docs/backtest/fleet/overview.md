@@ -30,6 +30,7 @@ Everything fleet- and data-related in one place. Human-typed commands use the
 | `npm run fleet:data:sync -- btc:15m` | Pull datasets R2 → local on every worker | [Sync Fleet Data](/backtest/fleet/data-sync) |
 | `npm run fleet:update` | Fast-forward every worker checkout to origin/main | [Update Fleet](/backtest/fleet/update) |
 | `npm run fleet:start` | Update + start the managed tmux worker session everywhere | [Start the Fleet](/backtest/fleet/start) |
+| `npm run fleet:stop` | Stop workers everywhere — graceful drain, force only after the grace period | [Stop the Fleet](/backtest/fleet/stop) |
 | `npm run data:sync:main -- --market btc:15m` | Producer: catalog → raw → convert → feeds → R2 (+ local reconcile) | [Machine Roles & Sync](/datasets/sync) |
 | `npm run data:sync:worker -- --market btc:15m` | This machine only: pull all datasets R2 → local | [Machine Roles & Sync](/datasets/sync) |
 | `npm run worker:markets` | Start a markets-only backtest worker (self-updating wrapper) | [Self-Update](/backtest/fleet/self-update) |

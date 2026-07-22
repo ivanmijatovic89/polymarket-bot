@@ -160,6 +160,7 @@ export default withMermaid(
                     { text: 'Update Fleet', link: '/backtest/fleet/update' },
                     { text: 'Sync Fleet Data', link: '/backtest/fleet/data-sync' },
                     { text: 'Start the Fleet', link: '/backtest/fleet/start' },
+                    { text: 'Stop the Fleet', link: '/backtest/fleet/stop' },
                   ],
                 },
                 { text: 'Planning & Costs', link: '/backtest/fleet/cloud-and-costs' },

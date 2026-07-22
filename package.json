@@ -21,6 +21,7 @@
     "fleet:data:sync": "./scripts/fleet-data.sh",
     "fleet:update": "./scripts/update-worker-fleet.sh",
     "fleet:start": "./scripts/start-worker-fleet.sh",
+    "fleet:stop": "./scripts/stop-worker-fleet.sh",
     "fable:night-shift": "./scripts/fable-night-shift.sh",
     "record:live": "tsx src/cli/record-live.ts",
     "record:live:btc": "cross-env RECORD_SYMBOL=BTC tsx src/cli/record-live.ts",

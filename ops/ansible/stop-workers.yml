@@ -1,0 +1,116 @@
+---
+- name: Stop managed backtest workers (graceful drain, then force)
+  hosts: backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_session_default: polymarket-backtest-worker
+    stop_grace_seconds_default: 120
+    stop_force_default: false
+
+  tasks:
+    - name: Resolve stop settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        grace_seconds: '{{ stop_grace_seconds | default(stop_grace_seconds_default) | int }}'
+        force_stop: '{{ stop_force | default(stop_force_default) | bool }}'
+        tmux_bin_override: '{{ backtest_tmux_bin | default("") }}'
+
+    - name: Locate tmux
+      ansible.builtin.stat:
+        path: '{{ item }}'
+      loop:
+        - /opt/homebrew/bin/tmux
+        - /usr/local/bin/tmux
+        - /usr/bin/tmux
+      register: tmux_candidates
+      when: tmux_bin_override | length == 0
+
+    - name: Resolve tmux binary
+      ansible.builtin.set_fact:
+        tmux_bin: >-
+          {{
+            tmux_bin_override if tmux_bin_override | length > 0
+            else (tmux_candidates.results | selectattr('stat.exists', 'defined')
+                  | selectattr('stat.exists') | map(attribute='item') | list | first | default('tmux'))
+          }}
+
+    - name: Check managed worker session
+      ansible.builtin.command:
+        cmd: '{{ tmux_bin }} has-session -t {{ worker_session }}'
+      register: session_before
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    # Ctrl-C makes the worker drain: it finishes the market jobs already in
+    # flight and stops claiming new ones, instead of leaving BullMQ locks to
+    # expire. run-worker.sh forwards the signal and then exits its loop.
+    - name: Send Ctrl-C to the worker session (graceful drain)
+      ansible.builtin.command:
+        cmd: '{{ tmux_bin }} send-keys -t {{ worker_session }} C-c'
+      when: session_before.rc == 0 and not force_stop
+      changed_when: true
+
+    - name: Wait for the session to exit
+      ansible.builtin.command:
+        cmd: '{{ tmux_bin }} has-session -t {{ worker_session }}'
+      register: session_wait
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      retries: '{{ ((grace_seconds | int) / 5) | round(0, "ceil") | int }}'
+      delay: 5
+      until: session_wait.rc != 0
+      when: session_before.rc == 0 and not force_stop
+
+    - name: Check whether the session survived the grace period
+      ansible.builtin.command:
+        cmd: '{{ tmux_bin }} has-session -t {{ worker_session }}'
+      register: session_after_grace
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: session_before.rc == 0
+
+    # Force path: either --force was requested, or the drain outlasted the
+    # grace period (a stuck job, a wedged child). Reported distinctly.
+    - name: Kill the session
+      ansible.builtin.command:
+        cmd: '{{ tmux_bin }} kill-session -t {{ worker_session }}'
+      when: session_before.rc == 0 and session_after_grace.rc | default(1) == 0
+      changed_when: true
+
+    - name: Record outcome
+      ansible.builtin.set_fact:
+        stop_outcome: >-
+          {{
+            'not-running' if session_before.rc != 0
+            else ('forced' if force_stop
+                  else ('killed-after-grace' if session_after_grace.rc | default(1) == 0 else 'drained'))
+          }}
+
+    - name: Write recap file
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: /tmp/fleet-stop-summary.txt
+        mode: '0644'
+        content: |-
+
+          ================ FLEET STOP ================
+          {% for h in ansible_play_hosts_all %}
+          {% set o = hostvars[h].stop_outcome | default(none) %}
+          {% if o is none %}
+          {{ h }}  ⚠️  unreachable
+          {% elif o == 'drained' %}
+          {{ h }}  ✅ stopped (drained)
+          {% elif o == 'not-running' %}
+          {{ h }}  ➖ was not running
+          {% elif o == 'forced' %}
+          {{ h }}  ⚠️  killed (--force, no drain)
+          {% else %}
+          {{ h }}  🔴 killed after grace period — a job may have been interrupted
+          {% endif %}
+          {% endfor %}

@@ -2,8 +2,8 @@
 /**
  * fleet-status formatter — reads the JSON collected by
  * ops/ansible/status-workers.yml and prints one aligned table:
- * a row per machine, a column per dataset, worker gaps shown relative to
- * the producer (approximate — the exact number is fleet:data --dry-run).
+ * a row per machine, a column per dataset. Pure inventory — what each
+ * machine HAS; what is MISSING is fleet:data:sync --dry-run's answer.
  *
  * Usage: node scripts/fleet-status-format.mjs /tmp/fleet-status.json
  */
@@ -74,5 +74,5 @@ for (const [i, row] of table.entries()) {
   if (i === 0) console.log('-'.repeat(widths.reduce((a, b) => a + b + 2, 0)))
 }
 console.log('')
-console.log("Inventory only — what each machine HAS. What is MISSING: npm run fleet:data -- <pairs> -e data_sync_extra='--dry-run'")
+console.log("Inventory only — what each machine HAS. What is MISSING: npm run fleet:data:sync -- <pairs> -e data_sync_extra='--dry-run'")
 console.log("W/C = backtest worker / telonex converter tmux session up. '*' after commit = dirty tree.")

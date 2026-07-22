@@ -184,3 +184,6 @@ An error like `env: node: No such file or directory` means the worker shell did
 not initialize the same environment you use manually. Make sure the shell set in
 `backtest_worker_shell` loads your NVM/Homebrew setup, or move that setup into a
 startup file loaded by that shell.
+
+To stop the fleet again, see [Stop the Fleet](/backtest/fleet/stop)
+(`npm run fleet:stop`) — graceful drain by default.

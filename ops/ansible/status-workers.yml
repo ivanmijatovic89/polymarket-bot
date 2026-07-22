@@ -47,23 +47,23 @@
         msg: '{{ inventory_hostname }}: PROBE FAILED rc={{ probe.rc | default("?") }} stderr={{ (probe.stderr | default(""))[:300] }}'
       when: fleet_status is not defined
 
-- name: Fleet status recap
-  hosts: localhost
-  gather_facts: false
-  tasks:
+    # Recap runs inside this play (run_once + delegate_to localhost) so it is
+    # not skipped when --limit narrows the run; it iterates the hosts this
+    # play actually targeted.
     - name: Write status JSON for the table formatter
+      run_once: true
+      delegate_to: localhost
       ansible.builtin.copy:
         dest: /tmp/fleet-status.json
         mode: '0644'
         content: |-
           [
           {% set prod = groups['producer'] | default([]) %}
-          {% set work = groups['backtest_workers'] | default([]) %}
-          {% set hosts = (prod + work) | unique %}
+          {% set hosts = ansible_play_hosts_all %}
           {% for h in hosts %}
             {
               "host": {{ h | to_json }},
-              "role": {{ ('producer+worker' if (h in prod and h in work) else ('producer' if h in prod else 'worker')) | to_json }},
+              "role": {{ ('producer+worker' if (h in prod and h in (groups['backtest_workers'] | default([]))) else ('producer' if h in prod else 'worker')) | to_json }},
               "status": {{ hostvars[h].fleet_status | default(none) | to_json }}
             }{{ '' if loop.last else ',' }}
           {% endfor %}
