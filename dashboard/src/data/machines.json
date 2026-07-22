@@ -17,7 +17,24 @@
     "parallelThroughput": 21235
   },
   "527674ef4858": {
-    "name": "m4-worker-1",
+    "name": "worker-1",
+    "hardware": [
+      "Model Name: Mac mini",
+      "Model Identifier: Mac16,10",
+      "Model Number: MU9D3AB/A",
+      "Chip: Apple M4",
+      "Total Number of Cores: 10 (4 performance and 6 efficiency)",
+      "Memory: 16 GB"
+    ],
+    "geekbench6Multi": 14724,
+    "geekbench6Source": "verified",
+    "cores": 10,
+    "cores_for_backtest": 8,
+    "priceUsd": 800,
+    "parallelThroughput": 26516
+  },
+  "da1482db09f6": {
+    "name": "worker-2",
     "hardware": [
       "Model Name: Mac mini",
       "Model Identifier: Mac16,10",
