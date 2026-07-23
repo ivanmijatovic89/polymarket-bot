@@ -229,6 +229,22 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
         supportsConcurrency: true,
       })
     }
+    // Reconcile the producer's LOCAL converted set with R2. Conversions made
+    // by fanned-out workers (--output both on their machines) exist on R2 and
+    // in the DB (local_path set), but not on this disk — the convert step's
+    // DB-driven queue cannot see that. This pull scans the disk, so the
+    // producer stays self-sufficient for --read-from local backtests.
+    for (const m of markets) {
+      steps.push({
+        id: `converted-pull-${m.symbol}-${m.timeframe}`,
+        title: `Converted parquet R2 → local (${m.symbol} ${m.timeframe})`,
+        script: 'src/telonex/download-converted-r2-to-local.ts',
+        args: ['--converter', 'delta-typed', '--symbol', m.symbol, '--timeframe', m.timeframe],
+        deps: ['convert'],
+        supportsDryRun: true,
+        supportsConcurrency: true,
+      })
+    }
     return steps
   }
 

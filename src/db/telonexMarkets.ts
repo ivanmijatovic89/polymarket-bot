@@ -6,8 +6,8 @@
 // Eligibility = `conversion.status = 'done'` AND the requested converter has a
 // non-empty `local_path` (if readFrom='local') or `r2_url` (if readFrom='r2'),
 // AND the market window start is >= TELONEX_DATASET_ELIGIBLE_FROM_MS (per env
-// `TELONEX_DATASET_ELIGIBLE_FROM`, default 2025-12-01), AND the market is
-// resolved with a final result_id.
+// `TELONEX_DATASET_ELIGIBLE_FROM`, default 2025-12-01), AND old enough to pass
+// TELONEX_DATASET_MIN_AGE_DAYS, AND the market is resolved with a final result_id.
 //
 // Ordering is always `market_start_ms ASC` (chronological) unless `random` is
 // set. `market_start_ms` is derived from the slug suffix at sync time and is
@@ -233,7 +233,10 @@ function buildEligibleWhere(opts: EligibleMarketsQuery): SQL {
           r2Url: telonexMarketConversions.r2Url,
         },
       },
-      { ...opts, fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS },
+      {
+        ...opts,
+        fromMs: opts.fromMs ?? TELONEX_DATASET_ELIGIBLE_FROM_MS,
+      },
     ),
   )!
 }

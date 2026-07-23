@@ -1,0 +1,107 @@
+---
+- name: Stop managed backtest workers (graceful drain, then force)
+  hosts: backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_session_default: polymarket-backtest-worker
+    stop_grace_seconds_default: 120
+    stop_force_default: false
+
+  tasks:
+    # Everything in ONE remote shell per machine: each ansible task is an SSH
+    # round trip, and the slowest (overseas) host pays for all of them — the
+    # old multi-task version took ~24s where this stays in single digits.
+    - name: Drain and stop workers
+      ansible.builtin.shell:
+        cmd: |
+          set -u
+          {{ lookup('file', playbook_dir + '/lib/worker-control.sh') | indent(10, first=False) }}
+          t0=$(date +%s)
+          cd {{ backtest_repo_dir | mandatory | quote }}
+          session={{ backtest_worker_session | default(backtest_worker_session_default) | quote }}
+          grace={{ stop_grace_seconds | default(stop_grace_seconds_default) | int }}
+          force={{ stop_force | default(stop_force_default) | bool | ternary(1, 0) }}
+
+          tmux_bin="$(resolve_tmux)"
+
+          had_session=0
+          [ -n "$tmux_bin" ] && "$tmux_bin" has-session -t "$session" 2>/dev/null && had_session=1
+          had_stray=0
+          [ -n "$(strays)" ] && had_stray=1
+
+          if [ "$had_session" = 0 ] && [ "$had_stray" = 0 ]; then
+            echo "not-running $(( $(date +%s) - t0 ))"
+            exit 0
+          fi
+
+          if [ "$force" = 1 ]; then
+            if ! hard_stop_and_wait "$tmux_bin" "$session" 4; then
+              echo "STOP_FAILED $(( $(date +%s) - t0 ))"
+              exit 1
+            fi
+            echo "forced $(( $(date +%s) - t0 ))"
+            exit 0
+          fi
+
+          if drain_workers "$tmux_bin" "$session" "$grace"; then
+            echo "drained${had_stray:+ }$( [ "$had_stray" = 1 ] && [ "$had_session" = 0 ] && echo unmanaged ) $(( $(date +%s) - t0 ))" | tr -s ' '
+          else
+            if ! hard_stop_and_wait "$tmux_bin" "$session" 4; then
+              echo "STOP_FAILED $(( $(date +%s) - t0 ))"
+              exit 1
+            fi
+            echo "killed-after-grace $(( $(date +%s) - t0 ))"
+          fi
+        chdir: '{{ backtest_repo_dir | mandatory }}'
+      register: stop_result
+      failed_when: false
+      changed_when: "'not-running' not in (stop_result.stdout | default(''))"
+
+    - name: Parse stop outcome
+      ansible.builtin.set_fact:
+        stop_fields: "{{ ((stop_result.stdout_lines | default([]) | first) | default('')).split() }}"
+
+    - name: Record whether stop failed
+      ansible.builtin.set_fact:
+        stop_failed: >-
+          {{
+            stop_result.rc | default(1) != 0
+            or (stop_fields[0] | default('')) not in ['not-running', 'drained', 'forced', 'killed-after-grace']
+          }}
+
+    - name: Write recap file
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: /tmp/fleet-stop-summary.txt
+        mode: '0644'
+        content: |-
+
+          ================ FLEET STOP ================
+          {% for h in ansible_play_hosts_all %}
+          {% set r = hostvars[h].stop_result | default(none) %}
+          {% if r is none or r.rc is not defined %}
+          {{ h }}  ⚠️  unreachable
+          {% elif r.rc != 0 %}
+          {{ h }}  🔴 failed rc={{ r.rc }}: {{ (((r.stderr | default('') | trim) or (r.stdout | default('') | trim)))[:160] }}
+          {% else %}
+          {% set p = r.stdout.split() %}
+          {% set o = p[0] | default('?') %}
+          {% set secs = p[-1] ~ 's' %}
+          {% if o == 'not-running' %}
+          {{ h }}  ➖ {{ '%5s' | format(secs) }}  was not running
+          {% elif o == 'drained' %}
+          {{ h }}  ✅ {{ '%5s' | format(secs) }}  stopped (drained{{ ', unmanaged process' if 'unmanaged' in r.stdout else '' }})
+          {% elif o == 'forced' %}
+          {{ h }}  ⚠️  {{ '%5s' | format(secs) }}  killed (--force, no drain)
+          {% else %}
+          {{ h }}  🔴 {{ '%5s' | format(secs) }}  killed after grace period — a job may have been interrupted
+          {% endif %}
+          {% endif %}
+          {% endfor %}
+
+    - name: Fail after recap when this host did not stop cleanly
+      ansible.builtin.fail:
+        msg: '{{ inventory_hostname }} did not complete fleet:stop successfully; see the fleet recap above.'
+      when: stop_failed | default(true)

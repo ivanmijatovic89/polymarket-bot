@@ -41,7 +41,7 @@ npm run data:sync:main -- --market btc:15m --market eth:5m --market eth:15m
 | Convert to delta-typed (→ local + R2) | ✓ | | `telonex:convert --output both` |
 | Binance aggTrades day files (→ R2) | ✓ | | `binance:download-aggtrades --sync` + `binance:upload-aggtrades-r2` |
 | Chainlink crypto_prices day files (→ R2) | ✓ | | `telonex:crypto-prices:download --sync` + `:upload-r2` |
-| Converted parquet R2 → local | | ✓ | `telonex:download-converted-r2-to-local` |
+| Converted parquet R2 → local | ✓ | ✓ | `telonex:download-converted-r2-to-local` (on main: reconciles the local set with conversions made by fanned-out workers) |
 | Binance aggTrades R2 → local | | ✓ | `binance:download-aggtrades-r2-to-local` |
 | crypto_prices R2 → local | | ✓ | `telonex:crypto-prices:download-r2-to-local` |
 
@@ -66,6 +66,14 @@ same invocation covers all three situations:
   is fetched from each dataset's coverage epoch (see
   [Data Coverage](/datasets/data-coverage)).
 
+::: tip Publication-lag guard
+Markets younger than `TELONEX_DATASET_MIN_AGE_DAYS` (default 3) are neither
+cataloged nor eligible — upstream sources publish their day files ~T+1/T+2,
+so a market only has its complete dataset once it is a few days old. This is
+why sync queues and fleet verdicts only count doable work, and why backtest
+batches no longer pick markets whose feed data does not exist yet.
+:::
+
 ::: tip Backtests during a sync are safe
 Writers finish files atomically (`tmp` → rename) and Telonex markets become
 eligible only once their conversion is recorded in the DB, so a backtest
@@ -89,7 +97,8 @@ instead of computing on stale data — re-run those slugs after the sync with
 Step ids are shown by `--plan`. On the main role:
 `catalog`, `pricetobeat`, `orderbook-download`, `convert`,
 `binance-download-<sym>`, `binance-upload-<sym>`,
-`crypto-prices-download-<sym>`, `crypto-prices-upload-<sym>`.
+`crypto-prices-download-<sym>`, `crypto-prices-upload-<sym>`,
+`converted-pull-<sym>-<tf>`.
 On the worker role: `converted-<sym>-<tf>`, `binance-local-<sym>`,
 `crypto-prices-local-<sym>`.
 

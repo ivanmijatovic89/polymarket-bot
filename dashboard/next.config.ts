@@ -32,6 +32,12 @@ const nextConfig: NextConfig = {
   // can resolve the workspace package (and silence the multi-lockfile warning).
   turbopack: {
     root: resolve(__dirname, '..'),
+    // Root NodeNext source uses emitted-JS specifiers (`*.js`) while the
+    // dashboard consumes that source directly as TypeScript. Turbopack does
+    // not remap this cross-package specifier to the sibling `.ts` source.
+    resolveAlias: {
+      '../config/telonex.js': '../src/config/telonex.ts',
+    },
   },
   // `@polymarket-bot/stats` is a sibling workspace package shipped as TS
   // source (no build step) — Next must transpile it like our own src/.

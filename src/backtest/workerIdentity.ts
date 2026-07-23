@@ -126,6 +126,7 @@ export async function startHeartbeat(
   processKey: string,
   loadedSha?: string,
   loadedBranch?: string,
+  queues?: string,
 ): Promise<() => Promise<void>> {
   const conn = getRedisConnection()
   const interval = 5000
@@ -147,6 +148,9 @@ export async function startHeartbeat(
         commitSha !== 'unknown' && mainCommitSha !== 'unknown' && commitSha === mainCommitSha
           ? '1'
           : '0',
+        // Which queues this process consumes (e.g. 'markets,aggregate') — lets
+        // the dashboard show that a combined supervisor also aggregates.
+        ...(queues ? ['queues', queues] : []),
       )
     } catch {
       /* best-effort */

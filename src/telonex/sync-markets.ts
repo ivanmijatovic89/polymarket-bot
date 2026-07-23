@@ -25,6 +25,7 @@ import path from 'node:path'
 import os from 'node:os'
 import { DuckDBInstance } from '@duckdb/node-api'
 import { getDb, closeDb, telonexMarkets } from '../db/index.js'
+import { TELONEX_DATASET_MIN_AGE_DAYS, telonexDatasetMaxStartMs } from '../config/telonex.js'
 
 const CATALOG_URL = 'https://api.telonex.io/v1/datasets/polymarket/markets'
 
@@ -414,9 +415,19 @@ async function main(): Promise<void> {
 
     console.log(`[telonex:sync] querying catalog via DuckDB...`)
     const tQ0 = Date.now()
-    const rows = await queryCatalog(tmpPath, args)
+    const allRows = await queryCatalog(tmpPath, args)
     const tQ = Date.now() - tQ0
-    console.log(`[telonex:sync] matched ${rows.length} markets (query=${fmtMs(tQ)})`)
+
+    // Publication-lag guard: markets younger than TELONEX_DATASET_MIN_AGE_DAYS
+    // are not cataloged yet — Telonex/Binance publish their day files ~T+1/T+2,
+    // so cataloging earlier only produced partial-download churn and misleading
+    // sync/backtest queues (issue #146). They enter on a later sync, complete.
+    const maxStartMs = telonexDatasetMaxStartMs()
+    const rows = allRows.filter((r) => r.marketStartMs <= maxStartMs)
+    const skippedYoung = allRows.length - rows.length
+    console.log(
+      `[telonex:sync] matched ${allRows.length} markets (query=${fmtMs(tQ)}); cataloging ${rows.length}, skipped ${skippedYoung} younger than ${TELONEX_DATASET_MIN_AGE_DAYS}d (publication-lag guard)`,
+    )
 
     const groups = groupBySymbolTimeframe(rows)
 

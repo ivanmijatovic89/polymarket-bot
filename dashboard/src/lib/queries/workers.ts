@@ -22,11 +22,20 @@ export type WorkerProcess = {
   eventsTotal: number
   lastMarket: string | null
   lastFinishedAt: number | null
+  /** Queues this process consumes, e.g. 'markets,aggregate' (written by the supervisor heartbeat). */
+  queues: string | null
 }
 
 export type MachineGroup = {
   machineId: string
   processes: WorkerProcess[]
+  /**
+   * Queues the (hidden) supervisor process consumes, e.g. 'markets,aggregate'.
+   * Supervisor rows are filtered out of `processes` — the machine header
+   * represents them — so this is where the UI learns a combined supervisor
+   * also aggregates.
+   */
+  supervisorQueues: string | null
   totals: {
     processedTotal: number
     eventsTotal: number
@@ -115,6 +124,7 @@ export async function listWorkers(): Promise<MachineGroup[]> {
         eventsTotal: Number(hash.eventsTotal ?? 0) || 0,
         lastMarket: hash.lastMarket ?? null,
         lastFinishedAt: hash.lastFinishedAt ? Number(hash.lastFinishedAt) : null,
+        queues: hash.queues ?? null,
       })
       continue
     }
@@ -132,6 +142,7 @@ export async function listWorkers(): Promise<MachineGroup[]> {
       eventsTotal: Number(hash.eventsTotal ?? 0) || 0,
       lastMarket: hash.lastMarket ?? null,
       lastFinishedAt: hash.lastFinishedAt ? Number(hash.lastFinishedAt) : null,
+      queues: hash.queues ?? null,
     })
   }
 
@@ -166,6 +177,7 @@ export async function listWorkers(): Promise<MachineGroup[]> {
     // died) but it has nothing meaningful to render in the table: it owns
     // no queue work, so processed/events are always 0. The machine header
     // row already represents the supervisor visually.
+    const supervisor = allProcesses.find((p) => p.role.kind === 'supervisor') ?? null
     const processes = allProcesses.filter((p) => p.role.kind !== 'supervisor')
     processes.sort((a, b) => {
       const oa = roleOrder(a.role)
@@ -182,6 +194,7 @@ export async function listWorkers(): Promise<MachineGroup[]> {
     result.push({
       machineId,
       processes,
+      supervisorQueues: supervisor?.queues ?? null,
       totals: {
         processedTotal: workerProcs.reduce((s, p) => s + p.processedTotal, 0),
         eventsTotal: workerProcs.reduce((s, p) => s + p.eventsTotal, 0),

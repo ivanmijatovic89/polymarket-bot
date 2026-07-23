@@ -1,4 +1,5 @@
 import { eq, gte, inArray, lte, notInArray, sql, type SQL, type SQLWrapper } from 'drizzle-orm'
+import { telonexDatasetMaxStartMs } from '../config/telonex.js'
 
 // `local-or-download-from-r2-to-local` is treated like `r2` here (the `datasetNonEmpty` check below
 // routes any non-`local` value to the r2_url gate).
@@ -52,15 +53,19 @@ export function buildTelonexEligibilityConditions(
     eq(columns.conversions.status, 'done'),
     datasetNonEmpty,
     gte(columns.markets.marketStartMs, opts.fromMs),
+    // Keep every eligibility consumer on the same publication-lag ceiling.
+    // This helper is shared by the CLI/database layer and dashboard coverage;
+    // applying the cap here prevents either surface from drifting.
+    lte(
+      columns.markets.marketStartMs,
+      Math.min(opts.toMs ?? Number.POSITIVE_INFINITY, telonexDatasetMaxStartMs()),
+    ),
   ]
   if (opts.symbol !== undefined) {
     conditions.push(eq(columns.markets.symbol, opts.symbol.toLowerCase()))
   }
   if (opts.timeframe !== undefined) {
     conditions.push(eq(columns.markets.timeframe, opts.timeframe))
-  }
-  if (opts.toMs !== undefined) {
-    conditions.push(lte(columns.markets.marketStartMs, opts.toMs))
   }
   if (opts.slugs !== undefined && opts.slugs.length > 0) {
     conditions.push(inArray(columns.markets.slug, opts.slugs))

@@ -17,8 +17,17 @@ code its jobs need: it runs what it can, and when a job requires newer code it
 
 Remote fleets can also be updated proactively with Ansible before jobs arrive.
 That is documented separately in
-[Worker Fleet Ansible](/backtest/fleet/ansible); the commit gate on this
+[Worker Fleet Ansible](/backtest/fleet/update); the commit gate on this
 page remains the correctness layer.
+
+::: tip Default market concurrency
+When `--market-concurrency` is not given, `run-worker.sh` resolves it from
+`dashboard/src/data/machines.json`: this machine's `cores_for_backtest`
+(matched by `node-machine-id`, the same identity the worker reports to the
+dashboard), falling back to `cores - 2` when the machine is unknown there or
+the field is `null`. An explicit flag always wins. Human shortcuts: `npm run worker:markets`, `npm run worker:aggregate`,
+`npm run worker:markets-and-aggregate` (both queues, one process).
+:::
 
 ## The idea in one line
 
@@ -88,7 +97,7 @@ Code `75` is a signal to the launcher script, `scripts/run-worker.sh`, which
 wraps the worker:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
 
 On exit `75` the wrapper runs `git fetch && git pull --ff-only`, reinstalls
@@ -117,11 +126,11 @@ machines, with the same flags you would pass to `npm run backtest:worker`:
 
 ::: code-group
 ```bash [local]
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+npm run worker:markets
 ```
 ```bash [remote / sibling]
 # Markets only; no DB or trading credentials needed.
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 :::
 
@@ -138,7 +147,7 @@ and starts the process again.
 After relaunch, the worker's startup line should print the new commit SHA.
 
 For proactive updates before the first job reaches a stale worker, use
-[Worker Fleet Ansible](/backtest/fleet/ansible).
+[Worker Fleet Ansible](/backtest/fleet/update).
 
 ## The one rule: commit and push first
 
@@ -189,7 +198,7 @@ is on the latest `main`, amber when it is behind. See
 | --- | --- | --- |
 | Self-update exit code | `75` | `src/cli/backtestWorker.ts` |
 | Launcher / relauncher | `scripts/run-worker.sh` | repo root |
-| Proactive fleet update | `scripts/update-worker-fleet.sh` | see [Worker Fleet Ansible](/backtest/fleet/ansible) |
+| Proactive fleet update | `npm run fleet:update` | see [Worker Fleet Ansible](/backtest/fleet/update) |
 | Commit gate | `canRunJobCommit` → `isAncestorOrEqual` | `src/backtest/commitGate.ts`, `src/backtest/workerIdentity.ts` |
 | Loaded-commit env | `WORKER_LAUNCH_SHA` | stamped by the supervisor onto children |
 | Loaded-branch env | `WORKER_LAUNCH_BRANCH` | stamped by the supervisor onto children |

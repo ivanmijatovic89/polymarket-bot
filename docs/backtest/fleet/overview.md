@@ -17,6 +17,50 @@ Workers detect when a job needs newer code, pull, and relaunch — see
 worker through `./scripts/run-worker.sh` so this works.
 :::
 
+
+## Command cheat sheet
+
+Everything fleet- and data-related in one place. Human-typed commands use the
+`npm run` form; extra flags go after `--`.
+
+| Command | What it does | Docs |
+| --- | --- | --- |
+| `npm run fleet:status` | Inventory of every machine: git, sessions, disk, datasets (what each machine HAS) | [Fleet Status](/backtest/fleet/status) |
+| `npm run fleet:data:sync -- btc:15m -e data_sync_extra='--dry-run'` | Verdict: what is MISSING per machine vs R2/upstream, `FLEET SYNCED` yes/no | [Sync Fleet Data](/backtest/fleet/data-sync) |
+| `npm run fleet:data:sync -- btc:15m` | Pull datasets R2 → local on every worker | [Sync Fleet Data](/backtest/fleet/data-sync) |
+| `npm run fleet:git:pull [-- --branch X]` | Pull code (optionally switching branch) and restart workers onto it — ~4-7 s | [Pull Code](/backtest/fleet/pull) |
+| `npm run fleet:update [-- --branch X]` | Same, with verbose per-step pre-flight and audit trail (~50 s) | [Update Fleet](/backtest/fleet/update) |
+| `npm run fleet:start [-- --branch X]` | Update + start the managed tmux worker session everywhere | [Start the Fleet](/backtest/fleet/start) |
+| `npm run fleet:stop` | Stop workers everywhere — graceful drain, force only after the grace period | [Stop the Fleet](/backtest/fleet/stop) |
+| `npm run data:sync:main -- --market btc:15m` | Producer: catalog → raw → convert → feeds → R2 (+ local reconcile) | [Machine Roles & Sync](/datasets/sync) |
+| `npm run data:sync:worker -- --market btc:15m` | This machine only: pull all datasets R2 → local | [Machine Roles & Sync](/datasets/sync) |
+| `npm run worker:markets` | Start a markets-only backtest worker (self-updating wrapper) | [Self-Update](/backtest/fleet/self-update) |
+| `npm run worker:aggregate` | Aggregate-only worker (needs DB credentials) | [Self-Update](/backtest/fleet/self-update) |
+| `npm run worker:markets-and-aggregate` | Both queues in one process (producer / DB host) | [Self-Update](/backtest/fleet/self-update) |
+
+### The four code/lifecycle commands compared
+
+| | `fleet:git:pull` | `fleet:update` | `fleet:start` | `fleet:stop` |
+| --- | :-: | :-: | :-: | :-: |
+| Pull code (fetch + ff-merge) | ✅ | ✅ | ✅ | — |
+| `--branch` switches branch | ✅ | ✅ | ✅ | — |
+| `npm install` if lockfile moved | ✅ | ✅ | ✅ | — |
+| Restart a **running** worker on new code | ✅ | ✅ | ✅ | — |
+| **Start a stopped** worker | — | — | ✅ | — |
+| **Stop** workers (graceful drain) | — | — | — | ✅ |
+| Verbose per-step pre-flight | — | ✅ | ✅ | — |
+| Per-machine timing in output | ✅ | — | — | ✅ |
+| Typical time | **~4-7 s** | ~50 s | ~40-50 s | **~4 s** |
+
+Rule of thumb: `fleet:git:pull` is the everyday one (pushed → fleet runs the
+new code in seconds); `fleet:start` when workers are down; `fleet:stop`
+before heavy maintenance; `fleet:update` when something is wrong and you want
+the step-by-step audit trail. None of them change a machine's branch without
+`--branch`.
+
+Typical daily rhythm: `data:sync:main` → `fleet:data:sync` → `fleet:data:sync --dry-run`
+until it prints `✅ FLEET SYNCED` → run batches.
+
 ## Architecture sketch
 
 ```
@@ -60,10 +104,10 @@ machines that can reach the database; let everyone else run markets only.
 
 ::: code-group
 ```bash [DB host — both queues]
-./scripts/run-worker.sh --queues markets,aggregate
+npm run worker:markets-and-aggregate
 ```
 ```bash [sibling — markets only]
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 :::
 
@@ -81,7 +125,7 @@ cp .env.example .env
 #   REDIS_URL=rediss://default:<password>@<redis-host>:<port>
 #   R2_ENDPOINT / R2_BUCKET / R2_ACCESS_KEY_ID / R2_SECRET_ACCESS_KEY  (read-only)
 # Leave DATABASE_* and trading keys empty.
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 
 That is the whole onboarding. The sibling cannot trade with your keys, cannot

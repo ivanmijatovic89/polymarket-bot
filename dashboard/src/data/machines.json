@@ -1,6 +1,6 @@
 {
   "8955f8d87c59": {
-    "name": "NotHumbleAtAll-macbook-m1",
+    "name": "m1-ivan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: MacBookPro18,1",
@@ -12,11 +12,12 @@
     "geekbench6Multi": 12359,
     "geekbench6Source": "verified",
     "cores": 10,
+    "cores_for_backtest": 4,
     "priceUsd": 1300,
     "parallelThroughput": 21235
   },
   "527674ef4858": {
-    "name": "NotHumbleAtAll-mac-mini-m4",
+    "name": "worker-1",
     "hardware": [
       "Model Name: Mac mini",
       "Model Identifier: Mac16,10",
@@ -28,11 +29,29 @@
     "geekbench6Multi": 14724,
     "geekbench6Source": "verified",
     "cores": 10,
+    "cores_for_backtest": 8,
+    "priceUsd": 800,
+    "parallelThroughput": 26516
+  },
+  "da1482db09f6": {
+    "name": "worker-2",
+    "hardware": [
+      "Model Name: Mac mini",
+      "Model Identifier: Mac16,10",
+      "Model Number: MU9D3AB/A",
+      "Chip: Apple M4",
+      "Total Number of Cores: 10 (4 performance and 6 efficiency)",
+      "Memory: 16 GB"
+    ],
+    "geekbench6Multi": 14724,
+    "geekbench6Source": "verified",
+    "cores": 10,
+    "cores_for_backtest": 8,
     "priceUsd": 800,
     "parallelThroughput": 26516
   },
   "8e367b2f7eb8": {
-    "name": "Laranist-macbook-m5",
+    "name": "m5-milan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: Mac17,9",
@@ -44,11 +63,12 @@
     "geekbench6Multi": 28111,
     "geekbench6Source": "verified",
     "cores": 18,
+    "cores_for_backtest": 12,
     "priceUsd": 3300,
     "parallelThroughput": 68000
   },
   "5a69e8aa2068": {
-    "name": "Laranist-macbook-m1",
+    "name": "m1-milan",
     "hardware": [
       "Model Name: MacBook Pro",
       "Model Identifier: MacBookPro18,3",
@@ -59,13 +79,15 @@
     ],
     "geekbench6Multi": 9700,
     "geekbench6Source": "estimated",
-    "cores": 8
+    "cores": 8,
+    "cores_for_backtest": 6
   },
   "a5288c4cae5f": {
-    "name": "NotHumbleAtAll-PC",
+    "name": "PC",
     "hardware": [],
     "geekbench6Multi": null,
     "geekbench6Source": "unknown",
-    "cores": null
+    "cores": null,
+    "cores_for_backtest": null
   }
 }

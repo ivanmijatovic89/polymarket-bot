@@ -65,6 +65,10 @@ export default withMermaid(
                 { text: 'Overview', link: '/datasets/telonex/overview' },
                 { text: 'Sync Design', link: '/datasets/telonex/sync-design' },
                 { text: 'Sync Markets', link: '/datasets/telonex/sync-markets' },
+                {
+                  text: 'ADR: Publication-Lag Guard',
+                  link: '/datasets/telonex/adr-publication-lag-guard',
+                },
                 { text: 'Download Raw Files', link: '/datasets/telonex/download-raw-files' },
                 { text: 'Convert', link: '/datasets/telonex/convert' },
                 {
@@ -152,8 +156,12 @@ export default withMermaid(
                   text: 'Fleet Operations',
                   collapsed: false,
                   items: [
-                    { text: 'Update Fleet (Ansible)', link: '/backtest/fleet/ansible' },
+                    { text: 'Fleet Status', link: '/backtest/fleet/status' },
+                    { text: 'Pull Code', link: '/backtest/fleet/pull' },
+                    { text: 'Update Fleet', link: '/backtest/fleet/update' },
+                    { text: 'Sync Fleet Data', link: '/backtest/fleet/data-sync' },
                     { text: 'Start the Fleet', link: '/backtest/fleet/start' },
+                    { text: 'Stop the Fleet', link: '/backtest/fleet/stop' },
                   ],
                 },
                 { text: 'Planning & Costs', link: '/backtest/fleet/cloud-and-costs' },

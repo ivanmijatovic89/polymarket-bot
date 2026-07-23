@@ -5,9 +5,9 @@ description: Safely update worker checkouts, then start missing managed tmux bac
 
 # Start Worker Fleet
 
-`scripts/start-worker-fleet.sh` brings the worker fleet to the desired running
-state. It first runs the same safe checkout update used by
-`scripts/update-worker-fleet.sh`, then starts the managed tmux worker session on
+`npm run fleet:start` (wrapper: `scripts/start-worker-fleet.sh`) brings the
+worker fleet to the desired running state. It first runs the same safe
+checkout update used by `npm run fleet:update`, then starts the managed tmux worker session on
 hosts where that session is missing.
 
 ## Responsibility
@@ -34,19 +34,19 @@ worker on a dirty, diverged, or otherwise unsafe checkout.
 Dry run:
 
 ```bash
-./scripts/start-worker-fleet.sh --check
+npm run fleet:start -- --check
 ```
 
 Update checkouts if needed, then start missing managed sessions:
 
 ```bash
-./scripts/start-worker-fleet.sh
+npm run fleet:start
 ```
 
 Limit to one host:
 
 ```bash
-./scripts/start-worker-fleet.sh --limit worker-1
+npm run fleet:start -- --limit worker-1
 ```
 
 The wrapper prints elapsed time and the Ansible exit code:
@@ -81,8 +81,12 @@ polymarket-backtest-worker
 The default command inside that session is:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+./scripts/run-worker.sh --queues markets
 ```
+
+Market concurrency is intentionally absent: `run-worker.sh` resolves it per
+machine from `dashboard/src/data/machines.json` (`cores_for_backtest`, else
+`cores - 2`). An explicit flag in a per-host `backtest_worker_command` wins.
 
 The playbook looks for tmux in `PATH`, `/opt/homebrew/bin/tmux`, and
 `/usr/local/bin/tmux`. If a worker uses a different tmux path, override it in
@@ -143,10 +147,10 @@ Ctrl-b, then d
 Use the two commands like this:
 
 ```bash
-./scripts/update-worker-fleet.sh --check
-./scripts/update-worker-fleet.sh
-./scripts/start-worker-fleet.sh --check
-./scripts/start-worker-fleet.sh
+npm run fleet:update -- --check
+npm run fleet:update
+npm run fleet:start -- --check
+npm run fleet:start
 ```
 
 `update-worker-fleet.sh` updates code and restarts only sessions that were
@@ -165,7 +169,7 @@ ssh milan-ansible 'brew install tmux'
 Then rerun:
 
 ```bash
-./scripts/start-worker-fleet.sh
+npm run fleet:start
 ```
 
 ## Worker exits immediately
@@ -180,3 +184,9 @@ An error like `env: node: No such file or directory` means the worker shell did
 not initialize the same environment you use manually. Make sure the shell set in
 `backtest_worker_shell` loads your NVM/Homebrew setup, or move that setup into a
 startup file loaded by that shell.
+
+To stop the fleet again, see [Stop the Fleet](/backtest/fleet/stop)
+(`npm run fleet:stop`) — graceful drain by default.
+
+`npm run fleet:start -- --branch <name>` switches the fleet while starting
+it; without the flag each machine stays on its current branch.

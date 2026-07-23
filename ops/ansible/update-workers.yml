@@ -3,17 +3,20 @@
   hosts: backtest_workers
   gather_facts: false
   vars:
-    backtest_branch_default: main
     backtest_remote_default: origin
     backtest_worker_session_default: polymarket-backtest-worker
-    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets --market-concurrency 5
+    backtest_worker_command_default: ./scripts/run-worker.sh --queues markets
     backtest_worker_shell_default: /bin/zsh
 
   tasks:
     - name: Resolve worker update settings
       ansible.builtin.set_fact:
         worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
-        worker_branch: '{{ backtest_branch | default(backtest_branch_default) }}'
+        # Empty means "whatever branch this machine is already on" — resolved
+        # after the current branch is read. Defaulting to main here silently
+        # dragged a fleet deliberately parked on a feature branch back to main
+        # on every start/update.
+        requested_branch: '{{ backtest_branch | default("") }}'
         worker_remote: '{{ backtest_remote | default(backtest_remote_default) }}'
         worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
         worker_command: '{{ backtest_worker_command | default(backtest_worker_command_default) }}'
@@ -60,6 +63,11 @@
       register: branch_before
       changed_when: false
       check_mode: false
+
+    - name: Resolve target branch
+      ansible.builtin.set_fact:
+        worker_branch: >-
+          {{ requested_branch if requested_branch | length > 0 else branch_before.stdout }}
 
     - name: Read current package lock blob
       ansible.builtin.command:
@@ -132,6 +140,24 @@
         worker_restart_needed: >-
           {{ (head_before.stdout != remote_head.stdout or branch_before.stdout != worker_branch) and worker_tmux_available and tmux_session is defined and tmux_session.rc == 0 }}
 
+    # A branch this machine has never checked out exists only as
+    # <remote>/<branch> after the fetch; there is nothing local to
+    # fast-forward, and `git checkout <branch>` will create it as a tracking
+    # branch. Without this probe the ancestry check below died with
+    # 'Not a valid object name' on every worker that had not used the branch.
+    - name: Check whether the target branch exists locally
+      ansible.builtin.command:
+        cmd: 'git rev-parse --verify --quiet refs/heads/{{ worker_branch }}'
+        chdir: '{{ worker_repo_dir }}'
+      register: local_branch_probe
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Resolve whether a local branch is at play
+      ansible.builtin.set_fact:
+        local_branch_exists: '{{ local_branch_probe.rc == 0 }}'
+
     - name: Verify update can fast-forward
       ansible.builtin.command:
         cmd: >-
@@ -143,11 +169,12 @@
       changed_when: false
       failed_when: fast_forward_check.rc not in [0, 1]
       check_mode: false
+      when: local_branch_exists
 
     - name: Fail when target branch cannot fast-forward
       ansible.builtin.fail:
         msg: 'Local {{ worker_branch }} on {{ inventory_hostname }} cannot fast-forward to {{ worker_remote }}/{{ worker_branch }}.'
-      when: fast_forward_check.rc == 1
+      when: local_branch_exists and fast_forward_check.rc | default(0) == 1
 
     - name: Stop managed tmux worker session before mutating checkout
       ansible.builtin.command:
@@ -227,9 +254,11 @@
         - not ansible_check_mode
         - worker_restart_needed
 
+    # wait_for (not pause) — pause bypasses the host loop and is unsupported
+    # under strategy: free.
     - name: Wait for restarted worker session to stay alive
-      ansible.builtin.pause:
-        seconds: 2
+      ansible.builtin.wait_for:
+        timeout: 2
       when:
         - not ansible_check_mode
         - worker_restart_needed

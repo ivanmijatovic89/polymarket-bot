@@ -271,26 +271,28 @@ Skip this step when jobs use `--read-from r2` or
 Start a markets-only worker through the self-updating wrapper:
 
 ```bash
-./scripts/run-worker.sh --queues markets
+npm run worker:markets
 ```
 
-Use higher market concurrency only after the worker is verified:
+Market concurrency defaults to this machine's `cores_for_backtest` from
+`dashboard/src/data/machines.json` (else `cores - 2`); override it only after
+the worker is verified:
 
 ```bash
-./scripts/run-worker.sh --queues markets --market-concurrency 5
+npm run worker:markets -- --market-concurrency 8
 ```
 
 Run aggregate workers only on machines that have database credentials:
 
 ```bash
-./scripts/run-worker.sh --queues markets,aggregate
+npm run worker:markets-and-aggregate
 ```
 
 ## 11. Update Workers Proactively
 
 Worker self-update is still the correctness fallback, but sibling workers can
 also be updated before they receive a new-code job. The full workflow is in
-[Worker Fleet Ansible](/backtest/fleet/ansible).
+[Worker Fleet Ansible](/backtest/fleet/update).
 
 Copy the example inventory and edit it for your worker hosts:
 
@@ -301,8 +303,8 @@ cp ops/ansible/inventory.example.ini ops/ansible/inventory.ini
 Then run:
 
 ```bash
-./scripts/update-worker-fleet.sh
-./scripts/start-worker-fleet.sh
+npm run fleet:update
+npm run fleet:start
 ```
 
 The playbook manages a tmux session named `polymarket-backtest-worker` by

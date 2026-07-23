@@ -15,14 +15,27 @@ if [ ! -f "$INVENTORY" ]; then
   exit 1
 fi
 
+BRANCH_ARG=()
+if [ "${1:-}" = "--branch" ]; then
+  if [ -z "${2:-}" ]; then
+    echo "[start-worker-fleet] --branch needs a branch name" >&2
+    exit 1
+  fi
+  BRANCH_ARG=(-e "backtest_branch=$2")
+  shift 2
+fi
+
+source "$SCRIPT_DIR/lib/fleet-lock.sh"
+acquire_fleet_lock "fleet:start"
+
 started_at="$(date +%s)"
 set +e
 echo "[start-worker-fleet] phase=update"
-ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$UPDATE_PLAYBOOK" "$@"
+ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$UPDATE_PLAYBOOK" ${BRANCH_ARG[@]+"${BRANCH_ARG[@]}"} "$@"
 code=$?
 if [ "$code" -eq 0 ]; then
   echo "[start-worker-fleet] phase=start"
-  ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$START_PLAYBOOK" "$@"
+  ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$START_PLAYBOOK" ${BRANCH_ARG[@]+"${BRANCH_ARG[@]}"} "$@"
   code=$?
 else
   echo "[start-worker-fleet] update failed - skipping start phase" >&2

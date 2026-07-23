@@ -1,0 +1,82 @@
+---
+- name: Report fleet status (read-only)
+  hosts: producer:backtest_workers
+  gather_facts: false
+  # Keep unreachable hosts in the play result instead of aborting — an
+  # offline machine is a status finding, not an error.
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+    backtest_worker_session_default: polymarket-backtest-worker
+
+  tasks:
+    - name: Resolve status settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_tmux_bin: '{{ backtest_tmux_bin | default("") }}'
+
+    - name: Push status probe
+      # Copied from the control machine so status works even on machines
+      # whose repo checkout is outdated or dirty.
+      ansible.builtin.copy:
+        src: '{{ playbook_dir }}/../../scripts/fleet-status-probe.mjs'
+        dest: /tmp/fleet-status-probe.mjs
+        mode: '0644'
+
+    - name: Run status probe
+      # Interactive login shell (-lic) so nvm-installed node is on PATH —
+      # nvm init typically lives in .zshrc. cwd must be the repo root (the
+      # probe inspects it). A probe failure is a status finding, not a
+      # playbook error.
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - 'cd {{ worker_repo_dir | quote }} && node /tmp/fleet-status-probe.mjs'
+      register: probe
+      environment:
+        FLEET_BACKTEST_WORKER_SESSION: '{{ worker_session }}'
+        FLEET_TMUX_BIN: '{{ worker_tmux_bin }}'
+      failed_when: false
+      changed_when: false
+      check_mode: false
+
+    - name: Parse probe output
+      ansible.builtin.set_fact:
+        fleet_status: '{{ probe.stdout_lines | last | from_json }}'
+      when: probe.rc | default(1) == 0 and (probe.stdout_lines | default([]) | length) > 0
+
+    - name: Show probe failure
+      ansible.builtin.debug:
+        msg: '{{ inventory_hostname }}: PROBE FAILED rc={{ probe.rc | default("?") }} stderr={{ (probe.stderr | default(""))[:300] }}'
+      when: fleet_status is not defined
+
+    # Recap runs inside this play (run_once + delegate_to localhost) so it is
+    # not skipped when --limit narrows the run; it iterates the hosts this
+    # play actually targeted.
+    - name: Write status JSON for the table formatter
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: /tmp/fleet-status.json
+        mode: '0644'
+        content: |-
+          [
+          {% set prod = groups['producer'] | default([]) %}
+          {% set hosts = ansible_play_hosts_all %}
+          {% for h in hosts %}
+          {% set p = hostvars[h].probe | default(none) %}
+            {
+              "host": {{ h | to_json }},
+              "role": {{ ('producer+worker' if (h in prod and h in (groups['backtest_workers'] | default([]))) else ('producer' if h in prod else 'worker')) | to_json }},
+              "status": {{ hostvars[h].fleet_status | default(none) | to_json }},
+              "probe": {
+                "unreachable": {{ ((p.unreachable | default(false)) if p is not none else false) | to_json }},
+                "rc": {{ ((p.rc | default(none)) if p is not none else none) | to_json }},
+                "error": {{ ((p.stderr | default(p.msg | default(''))) if p is not none else 'probe did not run')[:300] | to_json }}
+              }
+            }{{ '' if loop.last else ',' }}
+          {% endfor %}
+          ]

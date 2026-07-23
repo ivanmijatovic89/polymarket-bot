@@ -142,7 +142,7 @@ I/O-bound) runs in-process on the supervisor.
 
 ::: tip Run via the self-updating wrapper
 For long-lived workers (local or remote), launch through
-`./scripts/run-worker.sh` instead of `npm run backtest:worker` — same flags.
+`npm run worker:markets` / `npm run worker:aggregate` (the self-updating wrapper) instead of the raw `npm run backtest:worker` — extra flags go after `--`.
 The wrapper relaunches the supervisor on new code so a worker never runs a
 stale strategy registry. See
 [worker self-update](/backtest/fleet/self-update).

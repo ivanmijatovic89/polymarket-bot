@@ -1,0 +1,122 @@
+---
+- name: Check producer against upstream (dry-run only)
+  hosts: producer
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+    data_sync_extra_default: ''
+
+  tasks:
+    - name: Resolve producer check settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        sync_markets: "{{ data_sync_markets | mandatory('pass -e data_sync_markets=btc:15m') }}"
+        sync_extra: '{{ data_sync_extra | default(data_sync_extra_default) }}'
+
+    - name: Build market args
+      ansible.builtin.set_fact:
+        sync_market_args: >-
+          {{ sync_markets.split(',') | map('trim') | select | map('regex_replace', '^(.*)$', '--market \1') | join(' ') }}
+
+    - name: Run data:sync:main preflight (catalog skipped — it would download ~1 GB)
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - >-
+            cd {{ worker_repo_dir | quote }} &&
+            npm run data:sync:main -- {{ sync_market_args }} --skip catalog {{ sync_extra }}
+      register: producer_sync_run
+      failed_when: false
+      changed_when: false
+      check_mode: false
+      when: "'--dry-run' in sync_extra"
+
+    - name: Note producer skipped on real runs
+      ansible.builtin.debug:
+        msg: 'producer sync is data:sync:main (run it directly or via cron); fleet:data:sync only checks the producer in --dry-run mode'
+      when: "'--dry-run' not in sync_extra"
+
+- name: Sync datasets on backtest workers (data:sync:worker per host)
+  hosts: backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  vars:
+    backtest_worker_shell_default: /bin/zsh
+    # Required: pass the market scope, e.g.
+    #   npm run fleet:data:sync -- -e data_sync_markets='btc:15m'
+    # Multiple pairs comma-separated: -e data_sync_markets='btc:15m,eth:15m'
+    data_sync_extra_default: ''
+
+  tasks:
+    - name: Resolve data sync settings
+      ansible.builtin.set_fact:
+        worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
+        worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        sync_markets: "{{ data_sync_markets | mandatory('pass -e data_sync_markets=btc:15m') }}"
+        sync_extra: '{{ data_sync_extra | default(data_sync_extra_default) }}'
+
+    - name: Build market args
+      ansible.builtin.set_fact:
+        sync_market_args: >-
+          {{ sync_markets.split(',') | map('trim') | select | map('regex_replace', '^(.*)$', '--market \1') | join(' ') }}
+
+    - name: Run data:sync:worker
+      # Interactive login shell so nvm-installed node/npm are on PATH.
+      ansible.builtin.command:
+        argv:
+          - '{{ worker_shell }}'
+          - '-lic'
+          - >-
+            cd {{ worker_repo_dir | quote }} &&
+            npm run data:sync:worker -- {{ sync_market_args }} {{ sync_extra }}
+      register: worker_sync_run
+      failed_when: false
+      changed_when: worker_sync_run.rc | default(1) == 0
+      check_mode: false
+
+    - name: Show failure detail
+      ansible.builtin.debug:
+        msg: |-
+          {{ inventory_hostname }} rc={{ worker_sync_run.rc | default('unreachable') }}
+          {{ (worker_sync_run.stderr | default(''))[-400:] }}
+      when: worker_sync_run.rc | default(1) != 0
+
+- name: Fleet data sync recap
+  # Targets both groups (not localhost) so --limit keeps the recap: the play
+  # inherits the limited host set and run_once writes it locally.
+  hosts: producer:backtest_workers
+  gather_facts: false
+  ignore_unreachable: true
+  tasks:
+    - name: Write sync JSON for the table formatter
+      run_once: true
+      delegate_to: localhost
+      ansible.builtin.copy:
+        dest: "{{ fleet_data_output | mandatory('fleet_data_output must name the per-run recap file') }}"
+        mode: '0644'
+        content: |-
+          [
+          {% set prod = groups['producer'] | default([]) %}
+          {% set workers = groups['backtest_workers'] | default([]) %}
+          {% set hosts = ansible_play_hosts_all %}
+          {% set dry = '--dry-run' in (data_sync_extra | default('')) %}
+          {% for h in hosts %}
+          {% set pr = hostvars[h].producer_sync_run | default(none) %}
+          {% set wr = hostvars[h].worker_sync_run | default(none) %}
+            {
+              "host": {{ h | to_json }},
+              "dryRun": {{ dry | to_json }},
+              "producer": {% if dry and h in prod and pr is not none %}{
+                "rc": {{ pr.rc | default(none) | to_json }},
+                "stdoutLines": {{ (pr.stdout_lines | default([]))[-80:] | to_json }}
+              }{% else %}null{% endif %},
+              "worker": {% if h in workers and wr is not none %}{
+                "rc": {{ wr.rc | default(none) | to_json }},
+                "stdoutLines": {{ (wr.stdout_lines | default([]))[-80:] | to_json }}
+              }{% else %}null{% endif %}
+            }{{ '' if loop.last else ',' }}
+          {% endfor %}
+          ]

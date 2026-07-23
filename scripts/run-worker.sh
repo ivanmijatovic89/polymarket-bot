@@ -26,6 +26,29 @@ if [ ! -x "$TSX" ]; then
   exit 1
 fi
 
+# Default --market-concurrency: this machine's cores_for_backtest from
+# dashboard/src/data/machines.json (matched via node-machine-id — the same
+# identity the worker reports to the dashboard), else cores-2 when the machine
+# is unknown there or the field is null. An explicit flag always wins.
+ARGS=("$@")
+case " $* " in
+  *" --market-concurrency"*) ;;
+  *)
+    MC="$(node -e '
+      const os = require("os")
+      let val = null
+      try {
+        const { machineIdSync } = require("node-machine-id")
+        const machines = require("./dashboard/src/data/machines.json")
+        val = machines[machineIdSync().slice(0, 12)]?.cores_for_backtest ?? null
+      } catch {}
+      console.log(val ?? Math.max(1, os.cpus().length - 2))
+    ' 2>/dev/null || echo 4)"
+    echo "[run-worker] --market-concurrency not given — using $MC (machines.json cores_for_backtest, else cores-2)"
+    ARGS+=(--market-concurrency "$MC")
+    ;;
+esac
+
 WORKER_PID=""
 forward_signal() {
   # Ctrl-C / SIGTERM: forward to the worker so it drains, then stop looping.
@@ -44,7 +67,7 @@ while true; do
 
   # Run the worker directly under tsx so its exit code reaches us verbatim
   # (npm would rewrite it).
-  "$TSX" src/cli/backtestWorker.ts "$@" &
+  "$TSX" src/cli/backtestWorker.ts "${ARGS[@]}" &
   WORKER_PID=$!
   wait "$WORKER_PID"
   code=$?
