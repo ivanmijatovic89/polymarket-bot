@@ -1,4 +1,4 @@
-import { promises as fs } from 'node:fs'
+import { appendFileSync, mkdirSync } from 'node:fs'
 import path from 'node:path'
 import * as z from 'zod'
 import type { MarketTick, PortfolioSnapshot, Strategy, Intent } from '../strategy/Strategy.js'
@@ -51,17 +51,26 @@ type FeedSample = {
 export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plugin[] } {
   const outPath = process.env.FEEDS_PARITY_OUT?.trim()
   let warned = false
-  let dirReady: Promise<void> | null = null
+  let dirReady = false
 
-  // Serialized append chain — rows stay ordered, no interleaved writes.
-  let chain: Promise<void> = Promise.resolve()
+  // SYNCHRONOUS append — deliberate. A promise-chained async writer only
+  // flushes when the host yields to the event loop AND survives until the
+  // chain drains; the backtest CLI ends with process.exit(), which discards
+  // whatever is still queued. Sync writes make the probe's output independent
+  // of the replayer's yielding behavior, stay ordered by construction, and
+  // are cheap at probe volumes (~4 rows/s live; replay bursts land in the OS
+  // page cache).
   const writeRow = (row: Record<string, unknown>): void => {
     if (!outPath) return
-    dirReady ??= fs.mkdir(path.dirname(outPath), { recursive: true }).then(() => {})
-    chain = chain
-      .then(() => dirReady!)
-      .then(() => fs.appendFile(outPath, `${JSON.stringify(row)}\n`))
-      .catch((err) => console.error('[feedsParityProbe] write failed:', err))
+    try {
+      if (!dirReady) {
+        mkdirSync(path.dirname(outPath), { recursive: true })
+        dirReady = true
+      }
+      appendFileSync(outPath, `${JSON.stringify(row)}\n`)
+    } catch (err) {
+      console.error('[feedsParityProbe] write failed:', err)
+    }
   }
 
   let lastWrittenAtMs = Number.NEGATIVE_INFINITY

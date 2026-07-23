@@ -287,8 +287,10 @@ async function replay(argv: string[]): Promise<void> {
   if (base === 'recorded') {
     args.push(...covered)
   } else {
+    // Recordings interrupted by SIGINT are named `<slug>-terminated.parquet`;
+    // the Telonex dataset knows only the bare slug.
     const slugs = covered
-      .map((f) => path.basename(f, '.parquet'))
+      .map((f) => path.basename(f, '.parquet').replace(/-terminated$/, ''))
       .filter((s) => /^[a-z]+-updown-/.test(s))
     args.push('--input-mode', 'telonex-delta', '--read-from', 'local', '--slug', slugs.join(','))
   }
