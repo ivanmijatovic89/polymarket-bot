@@ -49,7 +49,7 @@ SLEEP_BETWEEN="${SLEEP_BETWEEN:-20}"
 MIN_RUN_SECS="${MIN_RUN_SECS:-120}"
 FAIL_SLEEP="${FAIL_SLEEP:-900}"
 PERM="${PERM:-bypassPermissions}"
-MODEL="${MODEL:-}"
+MODEL="${MODEL:-claude-fable-5}"
 EFFORT="${EFFORT:-}"   # optional reasoning effort per session: low|medium|high|max
 
 # ---------------------------------------------------------------- setup ----
@@ -297,6 +297,8 @@ fi
 
 # ------------------------------------------------------------------ loop ----
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+export BACKTEST_PROTOCOL="gabagool-lab"
+export BACKTEST_MODEL="$MODEL"
 
 INSTRUCTION="Read gabagool-lab/CHARTER.md and execute it. You are in an \
 isolated git worktree on branch gabagool-lab; the repo root is your working \
@@ -307,8 +309,7 @@ Create gabagool-lab/DONE only at mission end (L3) as the charter defines; \
 otherwise, when your session naturally ends, the loop relaunches a successor \
 that continues from your files."
 
-MODEL_ARGS=()
-[ -n "$MODEL" ] && MODEL_ARGS+=(--model "$MODEL")
+MODEL_ARGS=(--model "$MODEL")
 [ -n "$EFFORT" ] && MODEL_ARGS+=(--effort "$EFFORT")
 
 run=0

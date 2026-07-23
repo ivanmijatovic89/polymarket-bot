@@ -32,6 +32,8 @@ export type ActiveBatchSummary = {
   batchUid: string
   submissionUid: string
   strategy: string
+  protocol: string | null
+  model: string | null
   totalMarkets: number
   waitingChildren: number
   activeChildren: number
@@ -101,7 +103,11 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
       submissionUid?: string
       batchUid?: string
       totalMarkets?: number
-      insertMeta?: { strategy?: string }
+      insertMeta?: {
+        strategy?: string
+        protocol?: string | null
+        model?: string | null
+      }
     }
     const submissionUid = data.submissionUid ?? job.id?.replace(/-agg$/, '') ?? 'unknown'
     const batchUid = data.batchUid ?? submissionUid
@@ -121,6 +127,8 @@ export async function listActiveBatches(): Promise<ActiveBatchSummary[]> {
       batchUid,
       submissionUid,
       strategy: data.insertMeta?.strategy ?? 'unknown',
+      protocol: data.insertMeta?.protocol ?? null,
+      model: data.insertMeta?.model ?? null,
       totalMarkets,
       waitingChildren,
       activeChildren,
@@ -143,6 +151,8 @@ export type HistoricalBatch = {
   limit: number | null
   inputMarketsTotal: number | null
   comment: string | null
+  protocol: string | null
+  model: string | null
   pnlTotal: number
   winRatePct: number
   tradesTotal: number
@@ -333,6 +343,8 @@ export async function listHistoricalBatches(
       limit: summary.limit,
       inputMarketsTotal: summary.inputMarketsTotal,
       comment: summary.comment,
+      protocol: summary.protocol,
+      model: summary.model,
       pnlTotal: summary.pnlTotal,
       winRatePct: summary.winRatePct,
       tradesTotal: summary.tradesTotal,
@@ -591,6 +603,8 @@ export type ActiveBatchDetail = {
   submissionUid: string
   parentState: string
   strategy: string
+  protocol: string | null
+  model: string | null
   totalMarkets: number
   waitingChildren: number
   activeChildren: number
@@ -614,13 +628,20 @@ export async function getActiveBatchDetail(
   const data = parent.data as {
     batchUid?: string
     totalMarkets?: number
-    insertMeta?: { strategy?: string; comment?: string | null }
+    insertMeta?: {
+      strategy?: string
+      comment?: string | null
+      protocol?: string | null
+      model?: string | null
+    }
   }
   return {
     batchUid: data.batchUid ?? submissionUid,
     submissionUid,
     parentState: state,
     strategy: data.insertMeta?.strategy ?? 'unknown',
+    protocol: data.insertMeta?.protocol ?? null,
+    model: data.insertMeta?.model ?? null,
     totalMarkets: data.totalMarkets ?? 0,
     waitingChildren: Math.max(0, (dependencies.unprocessed ?? 0) - activeChildren),
     activeChildren,

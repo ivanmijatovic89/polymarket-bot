@@ -44,6 +44,8 @@ export const backtestRuns = mysqlTable(
     baselineId: varchar('baseline_id', { length: 255 }),
     cmd: longtext('cmd'),
     comment: text('comment'),
+    protocol: varchar('protocol', { length: 100 }),
+    model: varchar('model', { length: 255 }),
 
     inputMarketsTotal: int('input_markets_total'),
     marketsPersisted: int('markets_persisted').notNull().default(0),
@@ -58,6 +60,11 @@ export const backtestRuns = mysqlTable(
     batchUidIdx: index('idx_backtest_runs_batch_uid').on(t.batchUid),
     submissionUidUnique: unique('uniq_backtest_runs_submission_uid').on(t.submissionUid),
     createdAtIdx: index('idx_backtest_runs_created_at').on(t.createdAt),
+    protocolModelCreatedAtIdx: index('idx_backtest_runs_protocol_model_created_at').on(
+      t.protocol,
+      t.model,
+      t.createdAt,
+    ),
   }),
 )
 

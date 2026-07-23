@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseArgs } from './backtestArgs.js'
+import { parseArgs, resolveBacktestProvenance } from './backtestArgs.js'
 
 test('parseArgs parses repeated --dir and --dir= forms', () => {
   const parsed = parseArgs(['--dir', '/tmp/a', '--dir=/tmp/b', 'x.parquet'])
@@ -249,5 +249,58 @@ test('parseArgs --extend rejects --comment (launch-time only)', () => {
   assert.throws(
     () => parseArgs(['--extend', '5', '--comment', 'foo']),
     /--extend 5 cannot be combined with: --comment/,
+  )
+})
+
+test('parseArgs parses protocol and model provenance flags', () => {
+  const parsed = parseArgs([
+    '--protocol',
+    ' strategy-research-protocol ',
+    '--model=claude-opus-4-8',
+  ])
+  assert.equal(parsed.protocol, 'strategy-research-protocol')
+  assert.equal(parsed.model, 'claude-opus-4-8')
+})
+
+test('parseArgs rejects empty protocol and model provenance flags', () => {
+  assert.throws(() => parseArgs(['--protocol']), /missing value for --protocol/)
+  assert.throws(() => parseArgs(['--protocol=']), /missing value for --protocol/)
+  assert.throws(() => parseArgs(['--model', '']), /missing value for --model/)
+  assert.throws(() => parseArgs(['--model=  ']), /missing value for --model/)
+})
+
+test('parseArgs --extend rejects explicit protocol and model provenance', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--protocol', 'fable-lab', '--model', 'claude-fable-5']),
+    /--extend 5 cannot be combined with: --protocol, --model/,
+  )
+})
+
+test('resolveBacktestProvenance uses CLI values before launcher environment values', () => {
+  assert.deepEqual(
+    resolveBacktestProvenance(
+      { protocol: 'manual-review', model: 'gpt-5.6' },
+      { BACKTEST_PROTOCOL: 'fable-lab', BACKTEST_MODEL: 'claude-fable-5' },
+    ),
+    { protocol: 'manual-review', model: 'gpt-5.6' },
+  )
+  assert.deepEqual(
+    resolveBacktestProvenance(
+      {},
+      { BACKTEST_PROTOCOL: ' gabagool-lab ', BACKTEST_MODEL: ' claude-fable-5 ' },
+    ),
+    { protocol: 'gabagool-lab', model: 'claude-fable-5' },
+  )
+  assert.deepEqual(resolveBacktestProvenance({}, {}), { protocol: null, model: null })
+})
+
+test('resolveBacktestProvenance rejects values wider than the database columns', () => {
+  assert.throws(
+    () => resolveBacktestProvenance({ protocol: 'x'.repeat(101) }, {}),
+    /protocol must be at most 100 characters/,
+  )
+  assert.throws(
+    () => resolveBacktestProvenance({}, { BACKTEST_MODEL: 'x'.repeat(256) }),
+    /model must be at most 255 characters/,
   )
 })

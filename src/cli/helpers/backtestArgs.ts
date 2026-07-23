@@ -55,6 +55,10 @@ export type BacktestArgs = {
   comment?: string
   batchUid?: string
   baselineId?: string
+  /** Research system that launched the run (for example, strategy-research-protocol). */
+  protocol?: string
+  /** Model id or alias requested by the launcher (for example, claude-fable-5). */
+  model?: string
   /**
    * Run the batch in-process (single thread), bypassing BullMQ / Redis / workers.
    * Useful for quick local smoke tests and bit-identical verification.
@@ -123,6 +127,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let comment: string | undefined
   let batchUid: string | undefined
   let baselineId: string | undefined
+  let protocol: string | undefined
+  let model: string | undefined
   let sequential = false
   let detach = false
   let extend: number | undefined
@@ -245,6 +251,22 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--protocol':
+        if (typeof argv[i + 1] !== 'string' || argv[i + 1]!.trim().length === 0) {
+          throw new Error('[backtest] missing value for --protocol')
+        }
+        protocol = argv[i + 1]!.trim()
+        i += 1
+        break
+
+      case '--model':
+        if (typeof argv[i + 1] !== 'string' || argv[i + 1]!.trim().length === 0) {
+          throw new Error('[backtest] missing value for --model')
+        }
+        model = argv[i + 1]!.trim()
+        i += 1
+        break
+
       case '--sequential':
         sequential = true
         break
@@ -284,6 +306,16 @@ export function parseArgs(argv: string[]): BacktestArgs {
         }
         if (arg.startsWith('--baselineId=')) {
           baselineId = arg.slice('--baselineId='.length)
+          break
+        }
+        if (arg.startsWith('--protocol=')) {
+          protocol = arg.slice('--protocol='.length).trim()
+          if (protocol.length === 0) throw new Error('[backtest] missing value for --protocol')
+          break
+        }
+        if (arg.startsWith('--model=')) {
+          model = arg.slice('--model='.length).trim()
+          if (model.length === 0) throw new Error('[backtest] missing value for --model')
           break
         }
         if (arg.startsWith('--slug=')) {
@@ -403,6 +435,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (filePaths.length > 0) conflicting.push('<positional file path>')
     if (batchUid !== undefined) conflicting.push('--batchUid')
     if (baselineId !== undefined) conflicting.push('--baselineId')
+    if (protocol !== undefined) conflicting.push('--protocol')
+    if (model !== undefined) conflicting.push('--model')
     // --comment is a launch-time label for the original run. An extension
     // doesn't get its own comment because we intentionally don't write
     // per-extend audit metadata (cmd, comment) to backtest_runs — the
@@ -453,10 +487,48 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(comment !== undefined ? { comment } : {}),
     ...(batchUid !== undefined ? { batchUid } : {}),
     ...(baselineId !== undefined ? { baselineId } : {}),
+    ...(protocol !== undefined ? { protocol } : {}),
+    ...(model !== undefined ? { model } : {}),
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
     ...(extend !== undefined ? { extend } : {}),
     ...(fromMs !== undefined ? { fromMs } : {}),
     ...(toMs !== undefined ? { toMs } : {}),
+  }
+}
+
+export const BACKTEST_PROTOCOL_MAX_LENGTH = 100
+export const BACKTEST_MODEL_MAX_LENGTH = 255
+
+function provenanceValue(
+  cliValue: string | undefined,
+  envValue: string | undefined,
+  label: 'protocol' | 'model',
+  maxLength: number,
+): string | null {
+  const value = (cliValue ?? envValue)?.trim()
+  if (!value) return null
+  if (value.length > maxLength) {
+    throw new Error(`[backtest] ${label} must be at most ${maxLength} characters`)
+  }
+  return value
+}
+
+/**
+ * Resolve immutable launch provenance. Explicit CLI flags win over the
+ * environment inherited from an autonomous protocol launcher.
+ */
+export function resolveBacktestProvenance(
+  args: Pick<BacktestArgs, 'protocol' | 'model'>,
+  env: NodeJS.ProcessEnv = process.env,
+): { protocol: string | null; model: string | null } {
+  return {
+    protocol: provenanceValue(
+      args.protocol,
+      env.BACKTEST_PROTOCOL,
+      'protocol',
+      BACKTEST_PROTOCOL_MAX_LENGTH,
+    ),
+    model: provenanceValue(args.model, env.BACKTEST_MODEL, 'model', BACKTEST_MODEL_MAX_LENGTH),
   }
 }

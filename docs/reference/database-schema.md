@@ -72,6 +72,7 @@ Important indexes:
 | ------------------------ | -------------------------------- | ---------------------------------------- |
 | `backtest_runs`          | index `batch_uid`, unique `submission_uid` | Group lookup by label; unique per-submission identity |
 | `backtest_runs`          | `created_at`, `(strategy, created_at)`, `(symbol, created_at)` | Dashboard history and filter queries     |
+| `backtest_runs`          | `(protocol, model, created_at)` | Protocol/model provenance analysis and chronological lookup |
 | `backtest_run_markets`   | unique `(run_id, idx)`           | Deterministic per-run order              |
 | `backtest_run_markets`   | `(run_id, slug)`, `(run_id, pnl)`, `slug`, `(run_id, duration_ms)`, `(run_id, market_start_ms)` | Detail, search, slow-market and chronological views |
 | `backtest_run_failures`  | `(run_id, idx)`, `(run_id, slug)` | Failure detail views                     |
@@ -293,6 +294,8 @@ insertBacktestRun(row: {
   baselineId: string | null
   cmd: string
   comment: string | null
+  protocol: string | null
+  model: string | null
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
@@ -317,7 +320,7 @@ insertBacktestRun(row: {
 }): Promise<void>
 ```
 
-Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`, and `backtest_run_segments`. Called automatically by the backtest CLI and aggregate worker at the end of each run. `batchStats` supplies run configuration such as `capital_initial`; `segments` is produced by `computeBacktestSegments` and one row is inserted into `backtest_run_segments` for each `(segment_kind, segment_key)` pair. The `all` segment is the persisted run-level summary.
+Inserts a terminal backtest run transactionally into `backtest_runs`, `backtest_run_markets`, `backtest_run_failures`, and `backtest_run_segments`. Called automatically by the backtest CLI and aggregate worker at the end of each run. `protocol` and `model` are nullable immutable launch provenance populated by protocol launchers (or direct CLI flags). `batchStats` supplies run configuration such as `capital_initial`; `segments` is produced by `computeBacktestSegments` and one row is inserted into `backtest_run_segments` for each `(segment_kind, segment_key)` pair. The `all` segment is the persisted run-level summary.
 
 #### `getBacktestRunById(id)` / `getBacktestRunByBatchUid(batchUid)`
 

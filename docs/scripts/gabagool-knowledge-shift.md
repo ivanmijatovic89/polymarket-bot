@@ -36,7 +36,7 @@ MODEL=fable caffeinate -is ./gabagool-knowledge-and-lab/gabagool-knowledge-shift
 ```
 
 Knobs (env vars): `MAX_RUNS` (session budget, default 40), `MODEL` (default:
-your CLI default), `FAIL_SLEEP` (backoff after failed launch, default 900s),
+`claude-fable-5`; also recorded on any allowed smoke backtest), `FAIL_SLEEP` (backoff after failed launch, default 900s),
 `MIN_RUN_SECS` (default 120 — shorter runs count as failed launches),
 `PERM` (default `bypassPermissions`).
 

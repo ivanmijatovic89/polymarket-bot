@@ -53,7 +53,7 @@ SLEEP_BETWEEN="${SLEEP_BETWEEN:-20}"
 MIN_RUN_SECS="${MIN_RUN_SECS:-120}"
 FAIL_SLEEP="${FAIL_SLEEP:-900}"
 PERM="${PERM:-bypassPermissions}"
-MODEL="${MODEL:-}"
+MODEL="${MODEL:-claude-fable-5}"
 
 # ---------------------------------------------------------------- setup ----
 git fetch origin main --quiet 2>/dev/null || echo "[gaba-shift] fetch failed (offline?) — using local refs"
@@ -306,6 +306,8 @@ fi
 
 # ------------------------------------------------------------------ loop ----
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+export BACKTEST_PROTOCOL="gabagool-knowledge"
+export BACKTEST_MODEL="$MODEL"
 
 INSTRUCTION="Read research/gabagool/CHARTER.md and execute it. You are in an \
 isolated git worktree on branch gabagool-knowledge; the repo root is your \
@@ -316,8 +318,7 @@ every unit of work. Create research/gabagool/DONE only at knowledge \
 saturation as the charter defines it; otherwise, when your session naturally \
 ends, the loop relaunches a successor that continues from your files."
 
-MODEL_ARGS=()
-[ -n "$MODEL" ] && MODEL_ARGS=(--model "$MODEL")
+MODEL_ARGS=(--model "$MODEL")
 
 # Operator kill-switch OUTSIDE the agent's write scope (a session once
 # deleted the in-folder DONE as "stray"): touch this file to stop the loop

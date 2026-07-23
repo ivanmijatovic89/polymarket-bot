@@ -87,6 +87,12 @@ failed run.
 | `baseline_id` | `VARCHAR(255)` | Optional baseline identifier for research/diff workflows.         |
 | `cmd`         | `LONGTEXT`     | Effective command used to launch the run.                         |
 | `comment`     | `TEXT`         | Optional user comment.                                            |
+| `protocol`    | `VARCHAR(100)` | Nullable research protocol that launched the run.                 |
+| `model`       | `VARCHAR(255)` | Nullable model id or alias requested by that protocol launcher.   |
+
+`protocol` and `model` are immutable launch provenance. Existing and direct
+manual runs may leave either value null. An extension keeps the parent row's
+original provenance instead of attributing the enlarged run to the extender.
 
 ### Input Selection
 

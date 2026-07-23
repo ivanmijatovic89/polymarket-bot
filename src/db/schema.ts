@@ -115,6 +115,10 @@ export const backtestRuns = mysqlTable(
     baselineId: varchar('baseline_id', { length: 255 }),
     cmd: longtext('cmd'),
     comment: text('comment'),
+    // Immutable launch provenance. Nullable for historical and direct/manual
+    // runs that predate or do not use a research protocol launcher.
+    protocol: varchar('protocol', { length: 100 }),
+    model: varchar('model', { length: 255 }),
 
     inputMarketsTotal: int('input_markets_total'),
     marketsPersisted: int('markets_persisted').notNull().default(0),
@@ -144,6 +148,11 @@ export const backtestRuns = mysqlTable(
       t.createdAt,
     ),
     symbolCreatedAtIdx: index('idx_backtest_runs_symbol_created_at').on(t.symbol, t.createdAt),
+    protocolModelCreatedAtIdx: index('idx_backtest_runs_protocol_model_created_at').on(
+      t.protocol,
+      t.model,
+      t.createdAt,
+    ),
   }),
 )
 

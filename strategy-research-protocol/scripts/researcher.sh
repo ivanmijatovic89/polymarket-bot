@@ -19,6 +19,7 @@
 #                            (default: src/strategies/research/<family>/logs/researcher.jsonl — gitignored)
 #   PERM=acceptEdits         override permission mode (default: bypassPermissions —
 #                            rationale in SESSIONS.md, launcher checklist)
+#   MODEL=claude-opus-4-8    model id/alias (default shown); propagated to backtest provenance
 set -uo pipefail
 cd "$(git rev-parse --show-toplevel)" || exit 1
 ROOT="$(pwd)"
@@ -37,12 +38,15 @@ MODULE="strategy-research-protocol/modules/Researcher.md"
 mkdir -p "${FAMILY_DIR}/logs"
 LOG="${LOG:-${ROOT}/${FAMILY_DIR}/logs/researcher.jsonl}"
 PERM="${PERM:-bypassPermissions}"
+MODEL="${MODEL:-claude-opus-4-8}"
 
 # Session isolation: the session is launched from strategy-research-protocol/
 # so it inherits that folder's COMMITTED .claude/settings.json (root CLAUDE.md
 # + user memory excluded, auto-memory off, log reads denied). Settings load
 # ONLY from the starting directory — verified; see SESSIONS.md.
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+export BACKTEST_PROTOCOL="strategy-research-protocol"
+export BACKTEST_MODEL="$MODEL"
 
 INSTRUCTION="Execute the researcher per ${MODULE}. Family: '${FAMILY}'. \
 Work continuously and autonomously: never ask questions; write the family \
@@ -74,12 +78,12 @@ each step, and pause when I interrupt. Your working directory is \
 strategy-research-protocol/; the repo root is its parent, and repo paths \
 in the docs (src/..., docs/...) are relative to that root."
   cd strategy-research-protocol || exit 1
-  claude --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
+  claude --model "$MODEL" --permission-mode "${PERM_INTERACTIVE:-acceptEdits}" "$INSTRUCTION"
   exit $?
 fi
 
 cd strategy-research-protocol || exit 1
-claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+claude -p --model "$MODEL" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
   2>>"$LOG" \
   | tee -a "$LOG" \
   | jq -Rj '

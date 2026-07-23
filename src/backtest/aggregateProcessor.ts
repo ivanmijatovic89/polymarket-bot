@@ -167,6 +167,8 @@ export async function aggregateProcessor(job: Job<AggregateJobData>): Promise<Ag
       baselineId: data.insertMeta.baselineId,
       cmd: data.insertMeta.cmd,
       comment: data.insertMeta.comment,
+      protocol: data.insertMeta.protocol,
+      model: data.insertMeta.model,
       strategy: data.insertMeta.strategy,
       params: data.insertMeta.params,
       symbol: data.insertMeta.symbol,

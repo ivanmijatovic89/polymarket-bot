@@ -39,6 +39,8 @@ type RunDetail = {
   params: Record<string, unknown>
   createdAt: string | Date
   comment: string | null
+  protocol: string | null
+  model: string | null
   baselineId: string | null
   cmd: string | null
   pnlTotal: number
@@ -323,6 +325,16 @@ export function BacktestRunDetailView({ id }: { id: number }) {
                   {b.inputMode}
                 </Badge>
               )}
+              <Badge variant="outline" title={b.protocol ?? 'Not recorded for this run'}>
+                protocol: {b.protocol ?? '—'}
+              </Badge>
+              <Badge
+                variant="outline"
+                className="text-muted-foreground"
+                title={b.model ?? 'Not recorded for this run'}
+              >
+                model: {b.model ?? '—'}
+              </Badge>
               {b.comment && (
                 <span className="inline-flex items-center rounded-md border border-border/50 bg-muted/30 px-2 py-0.5 text-xs italic text-muted-foreground">
                   {b.comment}

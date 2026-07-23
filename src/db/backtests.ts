@@ -51,6 +51,8 @@ export type BacktestRunRecord = {
   baselineId: string | null
   cmd: string | null
   comment: string | null
+  protocol: string | null
+  model: string | null
   capitalInitial: number
   capitalFinal: number
   pnlTotal: number
@@ -100,6 +102,8 @@ type InsertBacktestRunRow = {
   baselineId: string | null
   cmd: string
   comment: string | null
+  protocol: string | null
+  model: string | null
   strategy: string
   params: Record<string, unknown>
   symbol: string | null
@@ -398,6 +402,8 @@ export async function insertBacktestRun(row: InsertBacktestRunRow): Promise<void
         baselineId: row.baselineId,
         cmd: row.cmd,
         comment: row.comment,
+        protocol: row.protocol,
+        model: row.model,
         strategy: row.strategy,
         params: row.params,
         symbol: row.symbol,
@@ -588,6 +594,8 @@ async function hydrateBacktestRun(
     baselineId: run.baselineId,
     cmd: run.cmd,
     comment: run.comment,
+    protocol: run.protocol,
+    model: run.model,
     ...stats,
     marketStats,
     failedMarkets: failureRows.map((f) => ({
@@ -655,6 +663,8 @@ export async function getCoveredRangeForRun(
 export type ExtensibleRun = {
   id: number
   batchUid: string
+  protocol: string | null
+  model: string | null
   strategy: string
   params: Record<string, unknown>
   symbol: string
@@ -687,6 +697,8 @@ export async function getRunForExtension(
     .select({
       id: backtestRuns.id,
       batchUid: backtestRuns.batchUid,
+      protocol: backtestRuns.protocol,
+      model: backtestRuns.model,
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
       symbol: backtestRuns.symbol,
@@ -718,6 +730,8 @@ export async function getRunForExtension(
     run: {
       id: row.id,
       batchUid: row.batchUid,
+      protocol: row.protocol,
+      model: row.model,
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
       symbol: row.symbol!,

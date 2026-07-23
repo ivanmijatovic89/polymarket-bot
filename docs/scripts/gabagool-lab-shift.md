@@ -54,7 +54,8 @@ tmux new -s gabalab
 MODEL=fable caffeinate -is ./gabagool-knowledge-and-lab/gabagool-lab-shift.sh
 ```
 
-Knobs (env vars): `MAX_RUNS` (default 30), `MODEL`, `FAIL_SLEEP` (default
+Knobs (env vars): `MAX_RUNS` (default 30), `MODEL` (default
+`claude-fable-5`; also recorded on launched backtests), `FAIL_SLEEP` (default
 900s), `MIN_RUN_SECS` (default 120), `PERM` (default `bypassPermissions`).
 Credit exhaustion → 15-min backoff and automatic resume after the reset.
 
