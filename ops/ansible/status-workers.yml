@@ -7,12 +7,15 @@
   ignore_unreachable: true
   vars:
     backtest_worker_shell_default: /bin/zsh
+    backtest_worker_session_default: polymarket-backtest-worker
 
   tasks:
     - name: Resolve status settings
       ansible.builtin.set_fact:
         worker_repo_dir: '{{ backtest_repo_dir | mandatory }}'
         worker_shell: '{{ backtest_worker_shell | default(backtest_worker_shell_default) }}'
+        worker_session: '{{ backtest_worker_session | default(backtest_worker_session_default) }}'
+        worker_tmux_bin: '{{ backtest_tmux_bin | default("") }}'
 
     - name: Push status probe
       # Copied from the control machine so status works even on machines
@@ -33,6 +36,9 @@
           - '-lic'
           - 'cd {{ worker_repo_dir | quote }} && node /tmp/fleet-status-probe.mjs'
       register: probe
+      environment:
+        FLEET_BACKTEST_WORKER_SESSION: '{{ worker_session }}'
+        FLEET_TMUX_BIN: '{{ worker_tmux_bin }}'
       failed_when: false
       changed_when: false
       check_mode: false

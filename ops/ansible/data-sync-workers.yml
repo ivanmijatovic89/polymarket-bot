@@ -95,7 +95,7 @@
       run_once: true
       delegate_to: localhost
       ansible.builtin.copy:
-        dest: /tmp/fleet-data.json
+        dest: "{{ fleet_data_output | mandatory('fleet_data_output must name the per-run recap file') }}"
         mode: '0644'
         content: |-
           [

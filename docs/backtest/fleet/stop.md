@@ -45,7 +45,9 @@ milan-m1  🔴  122s  killed after grace period — a job may have been interrup
 ```
 
 `⚠️ unreachable` appears for hosts that could not be reached; the others
-still stop.
+still stop. After printing the complete recap, the command exits non-zero if
+any host was unreachable, its remote stop command failed, or a worker remained
+alive after the hard-stop attempt.
 
 ## Options
 

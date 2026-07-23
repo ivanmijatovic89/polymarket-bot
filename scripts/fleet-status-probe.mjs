@@ -24,8 +24,12 @@ function run(cmd, args) {
   }
 }
 
+const tmuxBin = process.env.FLEET_TMUX_BIN?.trim() || 'tmux'
+const backtestWorkerSession =
+  process.env.FLEET_BACKTEST_WORKER_SESSION?.trim() || 'polymarket-backtest-worker'
+
 function tmuxSession(name) {
-  const out = run('tmux', ['list-panes', '-t', name, '-F', '#{pane_id}'])
+  const out = run(tmuxBin, ['list-panes', '-t', name, '-F', '#{pane_id}'])
   if (out == null) return { alive: false, panes: 0 }
   return { alive: true, panes: out.split('\n').filter(Boolean).length }
 }
@@ -100,7 +104,7 @@ const status = {
   cores: os.cpus().length,
   diskFreeGb,
   sessions: {
-    backtestWorker: tmuxSession('polymarket-backtest-worker'),
+    backtestWorker: tmuxSession(backtestWorkerSession),
     telonexConverter: tmuxSession('polymarket-telonex-converter'),
   },
   datasets,

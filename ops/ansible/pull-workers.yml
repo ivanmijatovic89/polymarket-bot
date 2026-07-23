@@ -15,7 +15,9 @@
       - CHECKOUT_FAILED
       - MERGE_FAILED
       - DEPS_FAILED
+      - DIRTY_TREE
       - FAILED
+      - LOCAL_AHEAD
 
   tasks:
     - name: Resolve settings
@@ -49,10 +51,13 @@
           # went wrong, so an unexpected failure carries its reason instead of
           # a bare marker (git stderr, npm tail, or the worker log on a failed
           # restart). The recap parses line 1 for fields and shows DETAIL as-is.
-          fail() { echo "$1 $before ? skipped none $2 $(( $(date +%s) - t0 ))"; echo "DETAIL: $3"; exit 0; }
+          fail() { echo "$1 $before ? skipped none $2 $(( $(date +%s) - t0 ))"; echo "DETAIL: $3"; rm -f "$err"; exit 0; }
 
           before="$(git rev-parse --short HEAD)"
           lock_before="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
+
+          dirty="$(git status --porcelain --untracked-files=no 2>"$err")" || fail DIRTY_TREE - "$(tail -3 "$err")"
+          [ -z "$dirty" ] || fail DIRTY_TREE - "tracked working tree is dirty; clean it before pulling"
 
           git fetch --prune "$remote" >"$err" 2>&1 || fail FETCH_FAILED - "$(tail -3 "$err")"
           branch="$(git rev-parse --abbrev-ref HEAD)"
@@ -66,6 +71,9 @@
             branch="$want"
           fi
           git merge --ff-only "$remote/$branch" >"$err" 2>&1 || fail MERGE_FAILED - "$(tail -3 "$err")"
+          remote_head="$(git rev-parse "$remote/$branch" 2>"$err")" || fail MERGE_FAILED - "$(tail -3 "$err")"
+          local_head="$(git rev-parse HEAD 2>"$err")" || fail MERGE_FAILED - "$(tail -3 "$err")"
+          [ "$local_head" = "$remote_head" ] || fail LOCAL_AHEAD - "local $branch is not exactly $remote/$branch; refusing to run local-only commits"
           after="$(git rev-parse --short HEAD)"
           lock_after="$(git rev-parse HEAD:package-lock.json 2>/dev/null || echo none)"
 
@@ -81,6 +89,8 @@
               exit 0
             fi
           fi
+          dirty="$(git status --porcelain --untracked-files=no 2>"$err")" || fail DIRTY_TREE - "$(tail -3 "$err")"
+          [ -z "$dirty" ] || fail DIRTY_TREE - "dependency install changed tracked files; refusing to restart"
 
           # Restart only what was actually running, and only when the code moved.
           worker_state=none
@@ -147,7 +157,7 @@
           {{ h }}  🔴 failed: {{ (r.stdout | default('') | trim) }} {{ (r.stderr | default('') | trim)[:100] }}
           {% else %}
           {% set p = (r.stdout_lines[0] | default('')).split() %}
-          {% set bad = ['START_FAILED', 'DRAIN_TIMEOUT', 'FETCH_FAILED', 'CHECKOUT_FAILED', 'MERGE_FAILED', 'DEPS_FAILED', 'FAILED'] %}
+          {% set bad = ['START_FAILED', 'DRAIN_TIMEOUT', 'FETCH_FAILED', 'CHECKOUT_FAILED', 'MERGE_FAILED', 'DEPS_FAILED', 'DIRTY_TREE', 'LOCAL_AHEAD', 'FAILED'] %}
           {% set icon = '🔴' if p[0] | default('') in bad or p[5] | default('') in bad or p[3] | default('') == 'FAILED' else '✅' %}
           {{ h }}  {{ icon }} {{ '%5s' | format((p[6] | default('?')) ~ 's') }}  {{ p[0] | default('?') }}  {{ p[1] | default('?') }} → {{ p[2] | default('?') }}{{ '  (already current)' if p[1] | default('') == p[2] | default('x') else '' }}{{ '  deps:' ~ p[3] if p[3] | default('skipped') != 'skipped' else '' }}  worker:{{ 'restarted' if p[5] | default('') == 'yes' else (p[5] if p[5] | default('no') != 'no' else ('running, code unchanged' if p[4] | default('none') != 'none' else 'not running')) }}
           {% for d in r.stdout_lines[1:] if d.startswith('DETAIL:') %}

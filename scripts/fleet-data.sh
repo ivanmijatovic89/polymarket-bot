@@ -30,16 +30,20 @@ if [ ! -f "$INVENTORY" ]; then
 fi
 
 started_at="$(date +%s)"
-rm -f /tmp/fleet-data.json
+SUMMARY_FILE="$(mktemp "${TMPDIR:-/tmp}/fleet-data.XXXXXX")"
+trap 'rm -f "$SUMMARY_FILE"' EXIT
 set +e
 ANSIBLE_CONFIG="$ANSIBLE_CONFIG_FILE" ansible-playbook -i "$INVENTORY" "$PLAYBOOK" \
-  -e "data_sync_markets=$MARKETS" "$@"
+  -e "data_sync_markets=$MARKETS" -e "fleet_data_output=$SUMMARY_FILE" "$@"
 code=$?
 set -e
 
 fmt_code=0
-if [ -f /tmp/fleet-data.json ]; then
-  node "$REPO_DIR/scripts/fleet-data-format.mjs" /tmp/fleet-data.json || fmt_code=$?
+if [ -s "$SUMMARY_FILE" ]; then
+  node "$REPO_DIR/scripts/fleet-data-format.mjs" "$SUMMARY_FILE" || fmt_code=$?
+else
+  echo "[fleet-data] recap was not written: $SUMMARY_FILE" >&2
+  fmt_code=1
 fi
 if [ "$code" -eq 0 ] && [ "$fmt_code" -ne 0 ]; then
   code=$fmt_code

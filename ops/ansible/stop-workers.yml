@@ -36,7 +36,10 @@
           fi
 
           if [ "$force" = 1 ]; then
-            hard_stop "$tmux_bin" "$session"
+            if ! hard_stop_and_wait "$tmux_bin" "$session" 4; then
+              echo "STOP_FAILED $(( $(date +%s) - t0 ))"
+              exit 1
+            fi
             echo "forced $(( $(date +%s) - t0 ))"
             exit 0
           fi
@@ -44,13 +47,28 @@
           if drain_workers "$tmux_bin" "$session" "$grace"; then
             echo "drained${had_stray:+ }$( [ "$had_stray" = 1 ] && [ "$had_session" = 0 ] && echo unmanaged ) $(( $(date +%s) - t0 ))" | tr -s ' '
           else
-            hard_stop "$tmux_bin" "$session"
+            if ! hard_stop_and_wait "$tmux_bin" "$session" 4; then
+              echo "STOP_FAILED $(( $(date +%s) - t0 ))"
+              exit 1
+            fi
             echo "killed-after-grace $(( $(date +%s) - t0 ))"
           fi
         chdir: '{{ backtest_repo_dir | mandatory }}'
       register: stop_result
       failed_when: false
       changed_when: "'not-running' not in (stop_result.stdout | default(''))"
+
+    - name: Parse stop outcome
+      ansible.builtin.set_fact:
+        stop_fields: "{{ ((stop_result.stdout_lines | default([]) | first) | default('')).split() }}"
+
+    - name: Record whether stop failed
+      ansible.builtin.set_fact:
+        stop_failed: >-
+          {{
+            stop_result.rc | default(1) != 0
+            or (stop_fields[0] | default('')) not in ['not-running', 'drained', 'forced', 'killed-after-grace']
+          }}
 
     - name: Write recap file
       run_once: true
@@ -65,6 +83,8 @@
           {% set r = hostvars[h].stop_result | default(none) %}
           {% if r is none or r.rc is not defined %}
           {{ h }}  ⚠️  unreachable
+          {% elif r.rc != 0 %}
+          {{ h }}  🔴 failed rc={{ r.rc }}: {{ (((r.stderr | default('') | trim) or (r.stdout | default('') | trim)))[:160] }}
           {% else %}
           {% set p = r.stdout.split() %}
           {% set o = p[0] | default('?') %}
@@ -80,3 +100,8 @@
           {% endif %}
           {% endif %}
           {% endfor %}
+
+    - name: Fail after recap when this host did not stop cleanly
+      ansible.builtin.fail:
+        msg: '{{ inventory_hostname }} did not complete fleet:stop successfully; see the fleet recap above.'
+      when: stop_failed | default(true)

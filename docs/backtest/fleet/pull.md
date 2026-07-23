@@ -21,8 +21,8 @@ graceful drain + restart of the worker **only if the code actually changed**.
 | --- | --- | --- |
 | Round trips | **one shell per machine** | ~19 ansible tasks per machine |
 | Takes | **~4 s** idle, **~7 s** with a restart | **~50 s** |
-| Extra | — | repo/dirty/fast-forward pre-checks, per-step reporting |
-| Use when | almost always | something is wrong and you need to see which step failed |
+| Safety | clean tracked tree + exact remote commit required | same guards, split into visible tasks |
+| Use when | routine pulls | something is wrong and you need to see which step failed |
 
 The speed difference is not about doing less work — it is that every ansible
 task costs an SSH round trip, and the slowest (overseas) host pays for all of
@@ -55,6 +55,10 @@ host fails or is unreachable. A dependency-install failure is reported before
 the drain/restart phase, so it never replaces a running worker with a process
 using an incomplete install.
 
+The pull also refuses a dirty tracked tree or a local branch whose `HEAD` is
+not exactly the fetched remote commit. That prevents workers from restarting
+on uncommitted or unpushed code that the producer did not submit.
+
 The column after the check mark is that machine's own elapsed time, so a
 slow host is visible immediately (the wrapper's total is printed at the very
 end).
@@ -76,9 +80,10 @@ otherwise leave workers running the feature code indefinitely — their loaded
 commit already contains everything a main-built job needs, so self-update
 never fires.
 
-Neither command resets a local branch that already exists (it might hold
-unpushed commits) — the branch is checked out and fast-forwarded; only a
-branch the machine has never used is created from the fetched remote ref.
+Neither command resets a local branch that already exists. The branch is
+checked out and fast-forwarded, then required to equal the fetched remote ref;
+local-only commits are reported and must be handled manually. Only a branch
+the machine has never used is created from the fetched remote ref.
 
 ## See also
 

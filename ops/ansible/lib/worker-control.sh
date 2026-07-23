@@ -52,3 +52,15 @@ hard_stop() {
   { [ -n "$1" ] && "$1" kill-session -t "$2" 2>/dev/null; } || true
   kill_strays KILL
 }
+
+# hard_stop_and_wait TMUX SESSION SECONDS — hard-stop, then allow the OS a
+# short bounded interval to reap the signaled processes before verification.
+hard_stop_and_wait() {
+  hard_stop "$1" "$2"
+  _waited=0
+  while [ "$_waited" -lt "$3" ] && worker_alive "$1" "$2"; do
+    sleep 1
+    _waited=$((_waited + 1))
+  done
+  worker_alive "$1" "$2" && return 1 || return 0
+}

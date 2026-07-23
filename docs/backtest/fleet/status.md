@@ -59,6 +59,9 @@ to each host and runs it in the repo directory. Because the probe is copied
 from the control machine, status works even on hosts whose repo checkout is
 outdated or dirty — exactly the machines you most want to see.
 
+The probe honors the same per-host `backtest_worker_session` and optional
+`backtest_tmux_bin` inventory settings used by the worker lifecycle playbooks.
+
 Extra `ansible-playbook` arguments pass through:
 
 ```bash
