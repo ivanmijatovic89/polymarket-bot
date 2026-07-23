@@ -15,7 +15,7 @@ import {
   lockRunForExtension,
   type IndexedMarketStats,
 } from '../db/backtests.js'
-import { parseArgs } from './helpers/backtestArgs.js'
+import { parseArgs, resolveBacktestProvenance } from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
@@ -201,6 +201,11 @@ async function main(): Promise<void> {
   // the parent run's original comment is preserved.
   // -----------------------------------------------------------------
   const isExtend = parsed.extend !== undefined
+  // Explicit provenance flags are rejected for extensions and inherited
+  // launcher env is ignored. Once the parent is loaded below, its original
+  // provenance is copied into the queue payload for active-batch display;
+  // extension persistence still leaves the parent row unchanged.
+  let provenance = isExtend ? { protocol: null, model: null } : resolveBacktestProvenance(parsed)
   let extensionPlan: Awaited<ReturnType<typeof planExtension>> | null = null
 
   if (isExtend) {
@@ -252,6 +257,7 @@ async function main(): Promise<void> {
     // extensionPlan.kind === 'ok' from here
 
     const plan = extensionPlan.plan
+    provenance = { protocol: plan.parent.protocol, model: plan.parent.model }
     const pct =
       plan.eligibleTotal > 0
         ? Math.round((plan.parentCoveredCount / plan.eligibleTotal) * 1000) / 10
@@ -1050,6 +1056,8 @@ async function main(): Promise<void> {
         baselineId: parsed.baselineId ?? null,
         cmd,
         comment: parsed.comment ?? null,
+        protocol: provenance.protocol,
+        model: provenance.model,
         strategy: built.strategyId,
         params: built.params as Record<string, unknown>,
         symbol: parsed.symbol ?? null,
@@ -1151,6 +1159,8 @@ async function main(): Promise<void> {
       baselineId: parsed.baselineId ?? null,
       cmd,
       comment: parsed.comment ?? null,
+      protocol: provenance.protocol,
+      model: provenance.model,
       strategy: built.strategyId,
       params: built.params as Record<string, unknown>,
       symbol: isExtend ? planOk!.parent.symbol : (parsed.symbol ?? null),

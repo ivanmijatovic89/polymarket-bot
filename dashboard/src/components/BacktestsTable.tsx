@@ -112,6 +112,28 @@ export function BacktestsTable({
               </Link>
             ),
           },
+          {
+            header: 'Protocol',
+            render: (b) => (
+              <span
+                className="block max-w-[160px] truncate font-mono text-[11px] text-muted-foreground"
+                title={b.protocol ?? 'Not recorded for this run'}
+              >
+                {b.protocol ?? '—'}
+              </span>
+            ),
+          },
+          {
+            header: 'Model',
+            render: (b) => (
+              <span
+                className="block max-w-[180px] truncate font-mono text-[11px] text-muted-foreground"
+                title={b.model ?? 'Not recorded for this run'}
+              >
+                {b.model ?? '—'}
+              </span>
+            ),
+          },
         ]}
         extraColumns={[
           {

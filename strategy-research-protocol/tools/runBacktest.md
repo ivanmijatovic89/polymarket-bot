@@ -101,6 +101,10 @@ Common flags: `--param k=v`, `--limit n`, `--latest`, `--random`,
 `--from-ms`, `--to-ms`, `--sequential`, `--detach`, `--batchUid`,
 `--baselineId`.
 
+The Researcher launcher propagates session provenance automatically per
+[`strategy-research-protocol/SESSIONS.md`](../SESSIONS.md); do not repeat it
+in every backtest command.
+
 For evidence runs prefer the normal BullMQ worker path. Use `--sequential`
 only for smoke tests, local debugging, or parity checks.
 

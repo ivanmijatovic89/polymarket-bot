@@ -143,6 +143,8 @@ npm run backtest -- --strategy <id> --slug btc-updown-15m-1700000000,btc-updown-
 | `--comment <text>`  | Free-text annotation stored with the run record in the database.                                 |
 | `--batchUid <label>` | Group label for the run. **Non-unique by design** — give several runs the same label to group them (e.g. every cell of one param sweep), then view them together at `/batches/<label>` in the dashboard. Defaults to the run's internal submission UUID. |
 | `--baselineId <id>` | Reference a prior run for comparison purposes.                                                   |
+| `--protocol <name>` | Research protocol that launched the run. Stored as immutable provenance; launcher environment is usually preferred. |
+| `--model <id>`       | Model id or alias requested by the launcher. Stored as immutable provenance.                    |
 
 ### Execution mode
 
@@ -200,6 +202,8 @@ bit-identical verification against the BullMQ path.
 | `BACKTEST_WAIT_FOR_TECHNICAL_INDICATORS` | —                        | Set to `1` when using the `TechnicalIndicators` plugin. Allows the plugin's warmup period to complete before the strategy acts. |
 | `INITIAL_CAPITAL`                        | `1000`                   | Starting capital in USDC used as the baseline for batch-level P&L calculations.                                                 |
 | `BACKTEST_ALLOW_DIRTY`                    | —                        | Set to `1` to let the BullMQ producer enqueue with uncommitted changes in the working tree. Off by default (a dirty tree is blocked) because workers gate on the commit SHA. Only safe for a local `--sequential` run. |
+| `BACKTEST_PROTOCOL`                       | —                        | Research protocol provenance. Used when `--protocol` is absent. Autonomous launchers set this automatically. |
+| `BACKTEST_MODEL`                          | —                        | Requested launch-model id or alias. Used when `--model` is absent. Autonomous launchers set this automatically. |
 | `REDIS_URL`                              | `redis://localhost:6379` | Redis connection string used by the producer, worker daemon, and dashboard.                                                     |
 | `DASHBOARD_PORT`                         | `3051`                   | Port for `npm run dashboard` (Next.js). 3001 is reserved for the live WebUI.                                                    |
 | `BULL_BOARD_PORT`                        | `3052`                   | Port for `npm run bull-board` (raw queue inspector). Dashboard nav reads this server-side and links to it.                      |
@@ -207,6 +211,11 @@ bit-identical verification against the BullMQ path.
 ::: warning Dry-run note
 The backtest engine always runs with `dryRun: false` internally — the `BacktestExecution` simulator handles order fills without touching real funds. The live `DRY_RUN` environment variable has no effect on backtests.
 :::
+
+`--protocol` / `--model` override their environment counterparts. Both values
+are optional for direct/manual runs and nullable for historical rows. They are
+launch audit metadata only: they do not affect strategy execution, and
+`--extend` preserves the parent run's original values.
 
 ## Latency Simulation
 

@@ -11,6 +11,7 @@
 # Usage (run from the MAIN checkout, not the worktree):
 #   ./scripts/fable-night-shift.sh            # start / resume the night shift
 #   MAX_RUNS=10 ./scripts/fable-night-shift.sh
+#   MODEL=claude-fable-5 ./scripts/fable-night-shift.sh
 #
 # MAX_RUNS is the BUDGET knob: sessions are expensive (tens of $ API-equiv
 # each when active), so size MAX_RUNS to what you want to spend, launch
@@ -22,8 +23,8 @@
 #   caffeinate -is ./scripts/fable-night-shift.sh
 #   # detach: Ctrl+B then D    reattach: tmux attach -t fable
 #
-# The account/model used is whatever this terminal's `claude` CLI is set to;
-# permission mode is passed by this script (bypassPermissions).
+# The account is whatever this terminal's `claude` CLI is configured to use.
+# MODEL defaults to the exact id below and is recorded on launched backtests.
 #
 # The mission is PERPETUAL (charter v2): sessions never declare themselves
 # done. Stop it yourself: `touch ../polymarket-bot-fable/fable-lab/DONE`
@@ -49,6 +50,7 @@ SLEEP_BETWEEN="${SLEEP_BETWEEN:-20}"
 MIN_RUN_SECS="${MIN_RUN_SECS:-120}"
 FAIL_SLEEP="${FAIL_SLEEP:-900}"
 PERM="${PERM:-bypassPermissions}"
+MODEL="${MODEL:-claude-fable-5}"
 
 # ---------------------------------------------------------------- setup ----
 if ! git show-ref --verify --quiet "refs/heads/${BRANCH}"; then
@@ -199,6 +201,8 @@ fi
 
 # ------------------------------------------------------------------ loop ----
 export CLAUDE_CODE_DISABLE_AUTO_MEMORY=1
+export BACKTEST_PROTOCOL="fable-lab"
+export BACKTEST_MODEL="$MODEL"
 
 INSTRUCTION="Read fable-lab/CHARTER.md and execute it. You are in an isolated \
 git worktree on branch fable-protocol; the repo root is your working \
@@ -221,7 +225,7 @@ while [ "$run" -lt "$MAX_RUNS" ]; do
 
   (
     cd "$WT" || exit 1
-    claude -p --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
+    claude -p --model "$MODEL" --permission-mode "$PERM" --output-format stream-json --verbose "$INSTRUCTION" \
       2>>"$LOG" \
       | tee -a "$LOG" \
       | jq -Rj '

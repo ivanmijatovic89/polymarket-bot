@@ -19,6 +19,10 @@ contract ([`modules/Researcher.md`](./modules/Researcher.md)):
   same contract in a normal Claude session the operator can steer and
   interrupt.
 
+The launcher pins `MODEL` (default `claude-opus-4-8`) and exports it together
+with `BACKTEST_PROTOCOL=strategy-research-protocol`. Any backtest command run
+inside the session therefore records launch provenance automatically.
+
 `scripts/propose-family.sh ["seed"]` creates one family and exits.
 
 ## Session isolation

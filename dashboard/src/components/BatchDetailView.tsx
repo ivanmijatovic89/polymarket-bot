@@ -17,6 +17,8 @@ type ActiveSubmission = {
   submissionUid: string
   parentState: string
   strategy: string
+  protocol: string | null
+  model: string | null
   totalMarkets: number
   waitingChildren: number
   activeChildren: number
@@ -238,6 +240,16 @@ function ActiveSubmissionCard({ data }: { data: ActiveSubmission }) {
             {data.parentState}
           </Badge>
           <CardTitle className="text-base">{data.strategy}</CardTitle>
+          <Badge variant="outline" title={data.protocol ?? 'Not recorded for this batch'}>
+            protocol: {data.protocol ?? '—'}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="text-muted-foreground"
+            title={data.model ?? 'Not recorded for this batch'}
+          >
+            model: {data.model ?? '—'}
+          </Badge>
           <span className="font-mono text-[11px] text-muted-foreground">{data.submissionUid}</span>
           {data.comment && (
             <span className="text-xs text-muted-foreground truncate">— {data.comment}</span>

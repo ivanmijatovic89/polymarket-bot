@@ -39,7 +39,7 @@ export type MarketJobData = {
 
 export type MarketJobResult = RunSingleMarketOutput
 
-export const AGGREGATE_JOB_PROTOCOL_VERSION = 3
+export const AGGREGATE_JOB_PROTOCOL_VERSION = 4
 
 /**
  * Payload for the FlowProducer parent job that runs after all children settle.
@@ -59,6 +59,8 @@ export type AggregateJobData = {
     baselineId: string | null
     cmd: string
     comment: string | null
+    protocol: string | null
+    model: string | null
     strategy: string
     params: Record<string, unknown>
     symbol: string | null

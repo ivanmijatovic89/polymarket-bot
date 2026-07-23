@@ -41,6 +41,8 @@ export function ActiveBatchesTable() {
           <TableRow>
             <TableHead>Batch</TableHead>
             <TableHead>Strategy</TableHead>
+            <TableHead>Protocol</TableHead>
+            <TableHead>Model</TableHead>
             <TableHead className="min-w-[220px]">Progress</TableHead>
             <TableHead className="text-right">Done</TableHead>
             <TableHead className="text-right">Active</TableHead>
@@ -62,6 +64,22 @@ export function ActiveBatchesTable() {
                 </Link>
               </TableCell>
               <TableCell className="text-sm">{b.strategy}</TableCell>
+              <TableCell>
+                <span
+                  className="block max-w-[160px] truncate font-mono text-[11px] text-muted-foreground"
+                  title={b.protocol ?? 'Not recorded for this batch'}
+                >
+                  {b.protocol ?? '—'}
+                </span>
+              </TableCell>
+              <TableCell>
+                <span
+                  className="block max-w-[180px] truncate font-mono text-[11px] text-muted-foreground"
+                  title={b.model ?? 'Not recorded for this batch'}
+                >
+                  {b.model ?? '—'}
+                </span>
+              </TableCell>
               <TableCell>
                 <ProgressBar
                   total={b.totalMarkets}
