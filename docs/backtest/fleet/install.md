@@ -10,6 +10,9 @@ backtest market jobs. A markets-only worker needs Redis access and, when replay
 data is read from R2, read-only R2 credentials. It does not need database
 credentials or Polymarket trading keys.
 
+To configure the always-on machine that hosts MySQL, Redis, and the producer,
+see [Set Up the Producer Host](/backtest/fleet/producer-host-setup).
+
 ::: warning Keep worker checkouts clean
 Long-running workers self-update with `git pull --ff-only`. Keep the worker on a
 tracked branch with no local edits. Do experimental work in a separate checkout.
@@ -310,3 +313,149 @@ npm run fleet:start
 The playbook manages a tmux session named `polymarket-backtest-worker` by
 default. If a worker is currently running manually in another terminal or tmux
 pane, stop that process once before switching to the managed session.
+
+## 12. Enable Unattended Recovery
+
+This optional setup allows a dedicated Mac worker to recover automatically after
+a reboot or power outage.
+
+The verified Worker2 implementation is stored in
+[`ops/macos/worker-2`](https://github.com/ivanmijatovic89/polymarket-bot/tree/main/ops/macos/worker-2).
+
+### Enable restart after power loss
+
+Run:
+
+```bash
+sudo pmset -a autorestart 1
+pmset -g custom | grep autorestart
+```
+
+Expected output:
+
+```text
+autorestart          1
+```
+
+### Disable FileVault
+
+Automatic login is unavailable while FileVault is enabled.
+
+Open:
+
+```text
+System Settings → Privacy & Security → FileVault
+```
+
+Select **Turn Off FileVault**, enter the administrator password, and wait until
+the following command confirms completion:
+
+```bash
+fdesetup status
+```
+
+Expected output:
+
+```text
+FileVault is Off.
+```
+
+Disabling FileVault reduces protection against physical access. Use this setup
+only for a dedicated worker in a physically secure location.
+
+### Enable automatic login
+
+Tailscale's macOS application starts after a desktop user logs in. Automatic
+login is therefore required for unattended Tailscale recovery.
+
+Open:
+
+```text
+System Settings → Users & Groups
+```
+
+Set **Automatically log in as** to the worker account and enter its password.
+
+Verify:
+
+```bash
+defaults read /Library/Preferences/com.apple.loginwindow autoLoginUser
+test -f /etc/kcpassword && echo "Automatic-login credential exists"
+```
+
+Do not display or copy the contents of `/etc/kcpassword`.
+
+### Install the worker boot service
+
+The Worker2 files assume:
+
+```text
+macOS user:  worker-2
+repository:  /Users/worker-2/Sites/polymarket-bot
+queues:      markets
+```
+
+Update these values before using the files on another machine.
+
+Install:
+
+```bash
+chmod +x ops/macos/worker-2/*.zsh
+./ops/macos/worker-2/install.zsh
+```
+
+The installer:
+
+1. Confirms FileVault is off.
+2. Confirms automatic login is configured.
+3. Confirms `autorestart 1`.
+4. Installs a system launchd boot service.
+5. Starts an idempotent boot helper.
+
+At boot, the helper:
+
+1. Reads `REDIS_URL` from the worker's `.env`.
+2. Waits for Tailscale and the producer host's Redis.
+3. Checks whether `polymarket-backtest-worker` already exists.
+4. Starts a markets-only worker when necessary.
+
+The boot command does not hardcode concurrency:
+
+```bash
+./scripts/run-worker.sh --queues markets
+```
+
+`run-worker.sh` resolves `cores_for_backtest` from
+`dashboard/src/data/machines.json`, falling back to `CPU cores - 2` for an
+unknown machine.
+
+### Verify
+
+```bash
+sudo launchctl print system/com.polymarket.backtest-worker
+tmux has-session -t polymarket-backtest-worker
+grep "market-concurrency not given" \
+  logs/workers/polymarket-backtest-worker.log | tail -n 1
+tail -n 100 logs/workers/worker-2-boot.log
+```
+
+The launchd helper is one-shot. After a successful start, this is expected:
+
+```text
+state = not running
+last exit code = 0
+```
+
+The tmux worker continues running independently.
+
+### Test recovery
+
+1. Confirm there are no active backtest jobs.
+2. Reboot the worker without manually logging in.
+3. Verify Tailscale and the worker return automatically.
+4. Perform a physical power-loss test only after the reboot test succeeds:
+   unplug the worker, wait approximately 30 seconds, and restore power.
+5. Verify that exactly one worker supervisor is running.
+
+The boot helper does not use permanent `KeepAlive`, so an intentional
+`npm run fleet:stop` remains stopped until an explicit start or the next boot.
