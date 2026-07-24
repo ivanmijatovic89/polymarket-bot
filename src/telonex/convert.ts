@@ -32,6 +32,7 @@
 import '../config/env.js'
 import path from 'node:path'
 import os from 'node:os'
+import { pathToFileURL } from 'node:url'
 import crypto from 'node:crypto'
 import { promises as fs } from 'node:fs'
 import { and, eq, inArray, or, sql, type SQL } from 'drizzle-orm'
@@ -43,6 +44,7 @@ import {
   telonexMarketConversions,
 } from '../db/index.js'
 import { getDefaultBucket, getObjectToFile, putObject } from '../r2/client.js'
+import { windowFromSlug } from '../polymarket/upDownSlugWindow.js'
 import { TELONEX_CONVERT_STALE_CLAIM_MINUTES } from '../config/telonex.js'
 import { buildSlugSelection, type SlugSelection } from '../db/telonexMarkets.js'
 import { claimFromCandidates, claimNextOrConfirmEmpty } from './claimQueue.js'
@@ -542,12 +544,50 @@ async function claimMarketOnce(
   )
 }
 
-async function getRawFiles(slug: string): Promise<Array<{ assetId: string; r2Key: string }>> {
+async function getRawFiles(
+  slug: string,
+): Promise<Array<{ assetId: string; r2Key: string; date: string }>> {
   const db = getDb()
   return db
-    .select({ assetId: telonexMarketFiles.assetId, r2Key: telonexMarketFiles.r2Key })
+    .select({
+      assetId: telonexMarketFiles.assetId,
+      r2Key: telonexMarketFiles.r2Key,
+      date: sql<string>`DATE_FORMAT(${telonexMarketFiles.date}, '%Y-%m-%d')`,
+    })
     .from(telonexMarketFiles)
     .where(and(eq(telonexMarketFiles.slug, slug), eq(telonexMarketFiles.status, 'uploaded')))
+}
+
+/**
+ * Refuse to convert from raw files that do not cover the market's trading
+ * window. Telonex records each market from creation (~24h before the window)
+ * and cuts raw files at UTC midnight, so a market's window day lives in a
+ * LATER day file than its creation day. Converting before that file exists
+ * produces a parquet with zero in-window events — a backtest then silently
+ * replays "no activity" instead of failing (2026-07 incident: 205 such
+ * conversions). Missing days usually mean the sync range was stale or Telonex
+ * has not published the day dump yet.
+ */
+export function assertRawFilesCoverWindow(slug: string, fileDates: string[]): void {
+  const window = windowFromSlug(slug)
+  if (!window) return // non-updown slug shapes have no derivable window
+  const have = new Set(fileDates)
+  const missing: string[] = []
+  // Iterate the UTC days the window [startMs, endMs) touches (endMs exclusive).
+  for (let ms = window.startMs; ms < window.endMs; ms += 86_400_000) {
+    const day = new Date(ms).toISOString().slice(0, 10)
+    if (!have.has(day)) missing.push(day)
+  }
+  const lastDay = new Date(window.endMs - 1).toISOString().slice(0, 10)
+  if (!have.has(lastDay) && !missing.includes(lastDay)) missing.push(lastDay)
+  if (missing.length > 0) {
+    throw new Error(
+      `raw files for ${slug} do not cover the market window: missing day file(s) ${missing.join(', ')} ` +
+        `(have: ${[...have].sort().join(', ') || 'none'}). ` +
+        `Run telonex:sync (repairs stale date ranges) then telonex:download; if the dates are recent, ` +
+        `Telonex may not have published the day dump yet — retry later.`,
+    )
+  }
 }
 
 async function recordConversionSuccess(args: {
@@ -698,6 +738,10 @@ async function convertOneMarket(args: {
   if (rawFiles.length === 0) {
     throw new Error(`no raw files in DB for slug ${market.slug}`)
   }
+  assertRawFilesCoverWindow(
+    market.slug,
+    rawFiles.map((f) => f.date),
+  )
 
   const tmpDir = path.join(
     os.tmpdir(),
@@ -1125,13 +1169,18 @@ async function main(): Promise<void> {
   }
 }
 
-main()
-  .then(async () => {
-    await closeDb()
-    process.exit(0)
-  })
-  .catch(async (err) => {
-    console.error(err)
-    await closeDb().catch(() => {})
-    process.exit(1)
-  })
+// Run only when executed directly (tsx src/... or a self-fork) — NEVER on
+// import. Without this guard, importing this module (e.g. from a unit test)
+// silently launches the full CLI against the live DB/R2.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .then(async () => {
+      await closeDb()
+      process.exit(0)
+    })
+    .catch(async (err) => {
+      console.error(err)
+      await closeDb().catch(() => {})
+      process.exit(1)
+    })
+}
