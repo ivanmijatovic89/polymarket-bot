@@ -35,7 +35,8 @@ Power returns
 The worker helper is idempotent. If the tmux session already exists, it exits
 without starting a duplicate. It is not a permanent `KeepAlive` supervisor, so
 an intentional `npm run fleet:stop` remains stopped until the next explicit
-start or machine boot.
+start or machine boot. After creating a session, the helper verifies that it
+survives initial startup; a failure is returned to launchd so it can retry.
 
 ## Important scope
 

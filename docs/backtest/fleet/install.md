@@ -418,6 +418,7 @@ At boot, the helper:
 2. Waits for Tailscale and the producer host's Redis.
 3. Checks whether `polymarket-backtest-worker` already exists.
 4. Starts a markets-only worker when necessary.
+5. Verifies that the tmux session remains alive before reporting success.
 
 The boot command does not hardcode concurrency:
 
