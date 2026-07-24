@@ -90,6 +90,8 @@ export type Market = {
   priceToBeat: number | null
   /** When the Gamma metadata fetch was last attempted for this row (null = never). */
   gammaMetadataSyncedAt: Date | null
+  /** Converted parquet size recorded at conversion time — lets pullers detect local drift. */
+  conversionSizeBytes: number | null
 }
 
 /**
@@ -139,6 +141,8 @@ type JoinedRow = {
   gammaMetadataSyncedAt: Date | null
   localPath: string | null
   r2Url: string | null
+  /** Converted parquet size recorded at conversion time — lets pullers detect local drift. */
+  conversionSizeBytes: number | null
 }
 
 function mustGetDb(): ReturnType<typeof getDb> {
@@ -180,6 +184,7 @@ function toMarket(row: JoinedRow, readFrom: ReadFrom): Market {
     endDateMs: usToMs(row.endDateUs),
     priceToBeat: row.priceToBeat,
     gammaMetadataSyncedAt: row.gammaMetadataSyncedAt,
+    conversionSizeBytes: row.conversionSizeBytes,
   }
 }
 
@@ -205,6 +210,7 @@ function baseSelect() {
       gammaMetadataSyncedAt: telonexMarkets.gammaMetadataSyncedAt,
       localPath: telonexMarketConversions.localPath,
       r2Url: telonexMarketConversions.r2Url,
+      conversionSizeBytes: telonexMarketConversions.sizeBytes,
     })
     .from(telonexMarkets)
     .innerJoin(telonexMarketConversions, eq(telonexMarketConversions.marketId, telonexMarkets.id))

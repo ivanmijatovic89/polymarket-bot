@@ -36,6 +36,7 @@
 
 import '../config/env.js'
 import path from 'node:path'
+import { promises as fs } from 'node:fs'
 import { fork, type ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import {
@@ -45,7 +46,7 @@ import {
 } from '../db/telonexMarkets.js'
 import { closeDb } from '../db/index.js'
 import { TELONEX_DATASET_ELIGIBLE_FROM_MS } from '../config/telonex.js'
-import { downloadR2ToLocal, fileExists } from './fetchConvertedToLocal.js'
+import { downloadR2ToLocal } from './fetchConvertedToLocal.js'
 import { localOutputPath } from './localOutputPath.js'
 
 // Eligibility query caps at 1000 when no limit is passed; we want the whole set.
@@ -53,7 +54,7 @@ const NO_LIMIT = 100_000_000
 // Bounded parallelism for the pre-flight local-existence scan.
 const STAT_CONCURRENCY = 64
 
-type Job = { r2Url: string; absolute: string; slug: string }
+type Job = { r2Url: string; absolute: string; slug: string; expectedSize: number | null }
 type Outcome = 'downloaded' | 'failed'
 
 // IPC message shapes between parent and child.
@@ -239,22 +240,39 @@ async function buildCandidates(args: Args): Promise<Job[]> {
       timeframe: m.timeframe,
       slug: m.slug,
     })
-    return [{ r2Url: m.dataset, absolute, slug: m.slug }]
+    return [{ r2Url: m.dataset, absolute, slug: m.slug, expectedSize: m.conversionSizeBytes }]
   })
 }
 
-/** Bounded-parallel local-existence scan. Returns the subset that is NOT yet local. */
+/**
+ * Bounded-parallel local scan. Returns the subset that must be (re)downloaded:
+ * files that are absent, plus files whose on-disk size differs from the
+ * conversion's recorded size_bytes — a re-converted market (e.g. after a
+ * stale-catalog repair) changes the R2 object, and a puller that only checks
+ * existence would keep serving the stale local copy forever.
+ */
 async function partitionMissing(
   candidates: Job[],
   force: boolean,
-): Promise<{ missing: Job[]; onLocal: number }> {
-  if (force) return { missing: candidates.slice(), onLocal: 0 }
+): Promise<{ missing: Job[]; onLocal: number; drifted: number }> {
+  if (force) return { missing: candidates.slice(), onLocal: 0, drifted: 0 }
   const present = new Array<boolean>(candidates.length).fill(false)
+  const drift = new Array<boolean>(candidates.length).fill(false)
   let next = 0
   const worker = async (): Promise<void> => {
     while (next < candidates.length) {
       const i = next++
-      present[i] = await fileExists(candidates[i]!.absolute)
+      const job = candidates[i]!
+      const st = await fs.stat(job.absolute).catch(() => null)
+      if (!st) continue
+      if (job.expectedSize !== null && st.size !== job.expectedSize) {
+        drift[i] = true
+        console.log(
+          `[telonex:dl-converted] ${job.slug}: local size ${st.size} != conversion size ${job.expectedSize} — stale copy, re-downloading`,
+        )
+      } else {
+        present[i] = true
+      }
     }
   }
   await Promise.all(
@@ -262,7 +280,8 @@ async function partitionMissing(
   )
   const missing = candidates.filter((_, i) => !present[i])
   const onLocal = present.filter(Boolean).length
-  return { missing, onLocal }
+  const drifted = drift.filter(Boolean).length
+  return { missing, onLocal, drifted }
 }
 
 function resolveSelfAndTsx(): { self: string; tsx: string } {
@@ -422,12 +441,13 @@ async function runParent(args: Args): Promise<void> {
 
   console.log(`[telonex:dl-converted] scanning ${candidates.length} local file(s)…`)
   const tScan = Date.now()
-  const { missing, onLocal } = await partitionMissing(candidates, args.force)
+  const { missing, onLocal, drifted } = await partitionMissing(candidates, args.force)
   console.log(`[telonex:dl-converted] scanned local files in ${fmtElapsed(Date.now() - tScan)}`)
 
   console.log(
     `[telonex:dl-converted] r2 eligible: ${candidates.length}   ` +
-      `on local: ${onLocal}   to download: ${missing.length}`,
+      `on local: ${onLocal}   to download: ${missing.length}` +
+      (drifted > 0 ? `   (of which stale/size-drift: ${drifted})` : ''),
   )
 
   if (args.dryRun) {

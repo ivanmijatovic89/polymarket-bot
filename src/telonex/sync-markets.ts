@@ -23,7 +23,9 @@ import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import path from 'node:path'
 import os from 'node:os'
+import { pathToFileURL } from 'node:url'
 import { DuckDBInstance } from '@duckdb/node-api'
+import { sql as dsql } from 'drizzle-orm'
 import { getDb, closeDb, telonexMarkets } from '../db/index.js'
 import { TELONEX_DATASET_MIN_AGE_DAYS, telonexDatasetMaxStartMs } from '../config/telonex.js'
 
@@ -307,10 +309,13 @@ async function queryCatalog(catalogPath: string, args: Args): Promise<CatalogRow
     .map((p) => `slug LIKE '${p.replace(/'/g, "''")}'`)
     .join(' OR ')
 
-  // Only insert finalized markets: resolved with a final result_id. This keeps
-  // INSERT IGNORE correct forever — an active market is never inserted (and thus
-  // never downloaded/converted) until Telonex publishes its resolution, so its
-  // mutable fields (status/result_id/settled_at_us) can't go stale in our DB.
+  // Only insert finalized markets: resolved with a final result_id. An active
+  // market is never inserted (and thus never downloaded/converted) until
+  // Telonex publishes its resolution, so status/result_id/settled_at_us can't
+  // go stale in our DB. NOTE this does NOT make INSERT IGNORE sufficient on
+  // its own: a market can be resolved before Telonex finishes uploading its
+  // day files, freezing the `*_from`/`*_to` ranges at partial values — those
+  // are healed by repairAdvancedRanges() on every sync.
   // 'resolved' implies a non-empty result_id (verified empirically), but we
   // assert both to match the downstream eligibility predicate exactly.
   const sql = `
@@ -360,6 +365,88 @@ async function batchInsert(
     )
   }
   return { attempted: rows.length, inserted }
+}
+
+/** Channel date-range column pairs mirrored from the catalog (DB column ⇄ CatalogRow key). */
+const RANGE_COLUMNS = [
+  ['trades_from', 'tradesFrom'],
+  ['trades_to', 'tradesTo'],
+  ['quotes_from', 'quotesFrom'],
+  ['quotes_to', 'quotesTo'],
+  ['book_snapshot_5_from', 'bookSnapshot5From'],
+  ['book_snapshot_5_to', 'bookSnapshot5To'],
+  ['book_snapshot_25_from', 'bookSnapshot25From'],
+  ['book_snapshot_25_to', 'bookSnapshot25To'],
+  ['book_snapshot_full_from', 'bookSnapshotFullFrom'],
+  ['book_snapshot_full_to', 'bookSnapshotFullTo'],
+  ['onchain_fills_from', 'onchainFillsFrom'],
+  ['onchain_fills_to', 'onchainFillsTo'],
+] as const
+
+export function isoDay(d: Date | null): string | null {
+  return d ? d.toISOString().slice(0, 10) : null
+}
+
+/**
+ * Repair rows whose catalog date ranges advanced after we cataloged them.
+ *
+ * A market can be resolved BEFORE Telonex finishes uploading its window-day
+ * files — resolution time and full-data-availability are not simultaneous —
+ * so a row inserted in that gap freezes with a partial `*_from`/`*_to` range
+ * that INSERT IGNORE never fixes. Every download derives its candidate dates
+ * from that range, so the window-day file is silently never fetched and the
+ * conversion replays with zero in-window ticks (2026-07 incident: 1,945 stale
+ * rows, 205 poisoned conversions). The publication-lag guard above prevents
+ * new occurrences; this pass heals any row the guard predates or misses.
+ *
+ * When the book_snapshot_full range changed, upload_status is also reset to
+ * 'partial' so the downloader re-queues the market and fetches the newly
+ * published day files. 'pending' rows are already queued and 'processing'
+ * rows belong to an active download claim — both keep their status.
+ */
+async function repairAdvancedRanges(
+  rows: CatalogRow[],
+  label: string,
+): Promise<{ repaired: number; requeued: number }> {
+  if (rows.length === 0) return { repaired: 0, requeued: 0 }
+  const db = getDb()
+  const BATCH = 500
+  let repaired = 0
+  let requeued = 0
+  for (let i = 0; i < rows.length; i += BATCH) {
+    const slice = rows.slice(i, i + BATCH)
+    const bySlug = new Map(slice.map((r) => [r.slug, r]))
+    const rangeSelects = RANGE_COLUMNS.map(
+      ([col]) => `DATE_FORMAT(${col}, '%Y-%m-%d') AS ${col}`,
+    ).join(', ')
+    const existing = await db.execute(
+      dsql`SELECT slug, upload_status, ${dsql.raw(rangeSelects)} FROM telonex_markets WHERE slug IN ${[...bySlug.keys()]}`,
+    )
+    for (const row of existing[0] as unknown as Array<Record<string, string | null>>) {
+      const cat = bySlug.get(row.slug as string)
+      if (!cat) continue
+      const changed = RANGE_COLUMNS.filter(
+        ([col, key]) => isoDay(cat[key]) !== null && isoDay(cat[key]) !== (row[col] ?? null),
+      )
+      if (changed.length === 0) continue
+      const bookFullChanged = changed.some(([col]) => col.startsWith('book_snapshot_full'))
+      const resetStatus =
+        bookFullChanged && row.upload_status !== 'pending' && row.upload_status !== 'processing'
+      const sets = changed.map(([col, key]) => dsql`${dsql.raw(col)} = ${isoDay(cat[key])}`)
+      if (resetStatus) sets.push(dsql`upload_status = 'partial'`)
+      await db.execute(
+        dsql`UPDATE telonex_markets SET ${dsql.join(sets, dsql`, `)} WHERE slug = ${row.slug}`,
+      )
+      repaired += 1
+      if (resetStatus) requeued += 1
+    }
+  }
+  if (repaired > 0) {
+    console.log(
+      `[telonex:sync] [${label}] repaired ${repaired} stale date range(s), re-queued ${requeued} for download`,
+    )
+  }
+  return { repaired, requeued }
 }
 
 function fmtMs(ms: number): string {
@@ -451,25 +538,37 @@ async function main(): Promise<void> {
     const tI0 = Date.now()
     let attempted = 0
     let inserted = 0
-    const breakdown: string[][] = [['group', 'matched', 'inserted', 'skipped']]
+    let repaired = 0
+    let requeued = 0
+    const breakdown: string[][] = [['group', 'matched', 'inserted', 'skipped', 'repaired']]
     for (const [key, groupRows] of groups) {
       const res = await batchInsert(groupRows, key)
+      const rep = await repairAdvancedRanges(groupRows, key)
       attempted += res.attempted
       inserted += res.inserted
+      repaired += rep.repaired
+      requeued += rep.requeued
       breakdown.push([
         key,
         String(res.attempted),
         String(res.inserted),
         String(res.attempted - res.inserted),
+        String(rep.repaired),
       ])
     }
     const tI = Date.now() - tI0
     const skipped = attempted - inserted
-    breakdown.push(['TOTAL', String(attempted), String(inserted), String(skipped)])
+    breakdown.push([
+      'TOTAL',
+      String(attempted),
+      String(inserted),
+      String(skipped),
+      String(repaired),
+    ])
     console.log(`[telonex:sync] breakdown by symbol/timeframe:`)
     printTable(breakdown)
     console.log(
-      `[telonex:sync] done attempted=${attempted} inserted=${inserted} skipped=${skipped}`,
+      `[telonex:sync] done attempted=${attempted} inserted=${inserted} skipped=${skipped} repaired=${repaired} requeued=${requeued}`,
     )
     console.log(
       `[telonex:sync] timing: download=${fmtMs(tDl)} query=${fmtMs(tQ)} insert=${fmtMs(tI)} total=${fmtMs(Date.now() - t0)}`,
@@ -479,13 +578,18 @@ async function main(): Promise<void> {
   }
 }
 
-main()
-  .then(async () => {
-    await closeDb()
-    process.exit(0)
-  })
-  .catch(async (err) => {
-    console.error(err)
-    await closeDb().catch(() => {})
-    process.exit(1)
-  })
+// Run only when executed directly (tsx src/... or a self-fork) — NEVER on
+// import. Without this guard, importing this module (e.g. from a unit test)
+// silently launches the full CLI against the live DB/R2.
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main()
+    .then(async () => {
+      await closeDb()
+      process.exit(0)
+    })
+    .catch(async (err) => {
+      console.error(err)
+      await closeDb().catch(() => {})
+      process.exit(1)
+    })
+}
