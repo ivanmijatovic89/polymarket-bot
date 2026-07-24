@@ -25,6 +25,7 @@ out/
 .env.*
 !.env.example
 ops/ansible/inventory.ini
+ops/ansible/inventory-producer-macbook.ini
 
 # logs
 logs/
