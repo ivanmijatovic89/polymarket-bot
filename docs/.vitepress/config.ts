@@ -149,6 +149,7 @@ export default withMermaid(
                   collapsed: false,
                   items: [
                     { text: 'Install a Worker', link: '/backtest/fleet/install' },
+                    { text: 'Set Up the Producer Host', link: '/backtest/fleet/producer-host-setup' },
                     { text: 'Self-Update', link: '/backtest/fleet/self-update' },
                   ],
                 },
@@ -316,6 +317,7 @@ export default withMermaid(
           items: [
             { text: 'Architecture', link: '/other/architecture' },
             { text: 'Architecture Diagrams', link: '/other/ARCHITECTURE_DIAGRAMS' },
+            { text: 'MySQL Local vs Worker1 Benchmark', link: '/other/mysql-local-vs-worker1-ai-agent-benchmark' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },

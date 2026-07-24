@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>Label</key>
+  <string>com.polymarket.mysql84</string>
+  <key>UserName</key>
+  <string>worker-1</string>
+  <key>GroupName</key>
+  <string>staff</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/opt/homebrew/opt/mysql@8.4/bin/mysqld_safe</string>
+    <string>--datadir=/opt/homebrew/var/mysql</string>
+  </array>
+  <key>WorkingDirectory</key>
+  <string>/opt/homebrew/var/mysql</string>
+  <key>RunAtLoad</key>
+  <true/>
+  <key>KeepAlive</key>
+  <true/>
+  <key>ProcessType</key>
+  <string>Background</string>
+</dict>
+</plist>
