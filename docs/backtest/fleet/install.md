@@ -414,7 +414,7 @@ The installer:
 
 At boot, the helper:
 
-1. Reads `REDIS_URL` from the worker's `.env`.
+1. Resolves `REDIS_URL` through the same dotenv loader used by the worker.
 2. Waits for Tailscale and the producer host's Redis.
 3. Checks whether `polymarket-backtest-worker` already exists.
 4. Starts a markets-only worker when necessary.

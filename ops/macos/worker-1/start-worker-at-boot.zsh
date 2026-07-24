@@ -39,14 +39,14 @@ if ! /bin/mkdir -p "${repo_dir}/logs/workers"; then
 fi
 
 readonly worker_command="exec /bin/zsh -lic 'exec ./scripts/run-worker.sh --queues markets,aggregate >> ${worker_log} 2>&1'"
+start_result="started ${session_name}"
 if ! "${tmux_bin}" new-session -d -s "${session_name}" -c "${repo_dir}" "${worker_command}"; then
   if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
-    print "$(date -Iseconds) ${session_name} was started by another launcher"
-    exit 0
+    start_result="${session_name} was started by another launcher"
+  else
+    print -u2 "$(date -Iseconds) failed to create ${session_name}"
+    exit 75
   fi
-
-  print -u2 "$(date -Iseconds) failed to create ${session_name}"
-  exit 75
 fi
 
 /bin/sleep "${startup_check_delay}"
@@ -55,4 +55,4 @@ if ! "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
   exit 75
 fi
 
-print "$(date -Iseconds) started ${session_name}"
+print "$(date -Iseconds) ${start_result}"

@@ -20,6 +20,13 @@ const dataWrapper = path.join(repo, 'scripts', 'fleet-data.sh')
 const statusFormatter = path.join(repo, 'scripts', 'fleet-status-format.mjs')
 const statusProbe = path.join(repo, 'scripts', 'fleet-status-probe.mjs')
 const lockLibrary = path.join(repo, 'scripts', 'lib', 'fleet-lock.sh')
+const redisEndpointResolver = path.join(repo, 'src', 'cli', 'resolveRedisEndpoint.ts')
+const tsx = path.join(repo, 'node_modules', '.bin', 'tsx')
+const redisEndpointMarker = 'POLYMARKET_REDIS_ENDPOINT'
+const macosWorkerBootScripts = [
+  path.join(repo, 'ops', 'macos', 'worker-1', 'start-worker-at-boot.zsh'),
+  path.join(repo, 'ops', 'macos', 'worker-2', 'start-worker-at-boot.zsh'),
+]
 
 function runFormatter(script, rows) {
   const dir = mkdtempSync(path.join(os.tmpdir(), 'fleet-formatter-test-'))
@@ -33,6 +40,124 @@ function runFormatter(script, rows) {
 function successfulSummary(step) {
   return ['[data:sync] summary:', `  OK      ${step}  0.1s  — to-download=0`]
 }
+
+function runRedisEndpointResolver({ envFile, botEnvFile, env: envOverrides = {} }) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'redis-endpoint-resolver-test-'))
+  if (envFile !== undefined) writeFileSync(path.join(dir, '.env'), envFile)
+  if (botEnvFile !== undefined) writeFileSync(path.join(dir, '.env.worker-2'), botEnvFile)
+
+  const env = { ...process.env }
+  delete env.REDIS_URL
+  delete env.BOT_ENV
+  Object.assign(env, envOverrides)
+
+  const result = spawnSync(tsx, [redisEndpointResolver], { cwd: dir, encoding: 'utf8', env })
+  rmSync(dir, { recursive: true, force: true })
+  return result
+}
+
+function runConcurrentTmuxStart(bootScript, sessionSurvives) {
+  const dir = mkdtempSync(path.join(os.tmpdir(), 'macos-worker-boot-test-'))
+  const repoDir = path.join(dir, 'repo')
+  const fakeTmux = path.join(dir, 'tmux')
+  const tmuxCalls = path.join(dir, 'tmux-calls')
+  const testBootScript = path.join(dir, 'start-worker-at-boot.zsh')
+  mkdirSync(repoDir)
+
+  writeFileSync(
+    fakeTmux,
+    [
+      '#!/usr/bin/env bash',
+      'set -u',
+      `calls_file=${JSON.stringify(tmuxCalls)}`,
+      'calls=0',
+      '[ ! -r "$calls_file" ] || calls="$(<"$calls_file")"',
+      'if [ "${1:-}" = has-session ]; then',
+      '  calls=$((calls + 1))',
+      '  printf \'%s\\n\' "$calls" > "$calls_file"',
+      '  [ "$calls" -ne 1 ] || exit 1',
+      '  [ "$calls" -ne 2 ] || exit 0',
+      `  exit ${sessionSurvives ? 0 : 1}`,
+      'fi',
+      '[ "${1:-}" != new-session ] || exit 1',
+      'exit 1',
+      '',
+    ].join('\n'),
+  )
+  chmodSync(fakeTmux, 0o755)
+
+  let source = readFileSync(bootScript, 'utf8')
+    .replace(/^readonly repo_dir=.*$/m, `readonly repo_dir=${JSON.stringify(repoDir)}`)
+    .replace(/^readonly tmux_bin=.*$/m, `readonly tmux_bin=${JSON.stringify(fakeTmux)}`)
+    .replace(/^readonly startup_check_delay=.*$/m, 'readonly startup_check_delay=0')
+    .replace('/usr/bin/nc -z 127.0.0.1 3306', '/usr/bin/true')
+    .replace('/usr/bin/nc -z 127.0.0.1 6379', '/usr/bin/true')
+    .replace('/usr/bin/nc -z "${redis_host}" "${redis_port}"', '/usr/bin/true')
+    .replace(
+      "/bin/zsh -lic 'exec ./node_modules/.bin/tsx ./src/cli/resolveRedisEndpoint.ts'",
+      "/usr/bin/printf 'POLYMARKET_REDIS_ENDPOINT\\t127.0.0.1\\t6379\\n'",
+    )
+  writeFileSync(testBootScript, source)
+
+  const result = spawnSync('/bin/zsh', [testBootScript], { encoding: 'utf8' })
+  const calls = Number(readFileSync(tmuxCalls, 'utf8').trim())
+  rmSync(dir, { recursive: true, force: true })
+  return { ...result, calls }
+}
+
+test('Redis endpoint resolver uses the worker dotenv parsing semantics', () => {
+  const result = runRedisEndpointResolver({
+    envFile: [
+      'export REDIS_URL = redis://old-host:6379',
+      'REDIS_URL = "redis://worker-1.test:6380" # active endpoint',
+      '',
+    ].join('\n'),
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.stdout.trim(), `${redisEndpointMarker}\tworker-1.test\t6380`)
+})
+
+test('Redis endpoint resolver honors BOT_ENV overrides from the shared environment loader', () => {
+  const result = runRedisEndpointResolver({
+    envFile: 'REDIS_URL=redis://base-host:6379\n',
+    botEnvFile: "REDIS_URL='rediss://worker-1.tailnet:6381/0'\n",
+    env: { BOT_ENV: 'worker-2' },
+  })
+
+  assert.equal(result.status, 0, result.stderr)
+  assert.equal(result.stdout.trim(), `${redisEndpointMarker}\tworker-1.tailnet\t6381`)
+})
+
+test('Redis endpoint resolver supports IPv6 without exposing credentials on errors', () => {
+  const ipv6 = runRedisEndpointResolver({ env: { REDIS_URL: 'redis://[fd00::1]:6380/0' } })
+  assert.equal(ipv6.status, 0, ipv6.stderr)
+  assert.equal(ipv6.stdout.trim(), `${redisEndpointMarker}\tfd00::1\t6380`)
+
+  const invalid = runRedisEndpointResolver({
+    env: { REDIS_URL: 'https://user:super-secret@worker-1.test:6379' },
+  })
+  assert.equal(invalid.status, 75)
+  assert.doesNotMatch(invalid.stderr, /super-secret/)
+})
+
+test('macOS boot helpers retry when a concurrent tmux session exits during startup', () => {
+  for (const bootScript of macosWorkerBootScripts) {
+    const result = runConcurrentTmuxStart(bootScript, false)
+    assert.equal(result.status, 75, `${bootScript}: ${result.stderr}`)
+    assert.equal(result.calls, 3, `${bootScript} should perform the delayed liveness check`)
+    assert.match(result.stderr, /exited during startup/)
+  }
+})
+
+test('macOS boot helpers accept a concurrent tmux session after the liveness check', () => {
+  for (const bootScript of macosWorkerBootScripts) {
+    const result = runConcurrentTmuxStart(bootScript, true)
+    assert.equal(result.status, 0, `${bootScript}: ${result.stderr}`)
+    assert.equal(result.calls, 3, `${bootScript} should perform the delayed liveness check`)
+    assert.match(result.stdout, /was started by another launcher/)
+  }
+})
 
 test('real fleet data sync returns non-zero when a worker command failed', () => {
   const result = runFormatter(dataFormatter, [
