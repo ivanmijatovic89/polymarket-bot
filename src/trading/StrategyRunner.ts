@@ -111,6 +111,11 @@ export class StrategyRunner {
   private draining = false
   private readonly recentDrainEvents: { kind: AccountEvent['kind']; tsMs?: number }[] = []
 
+  // Serial dispatch funnel — see runSerial().
+  private serialTail: Promise<void> = Promise.resolve()
+  private serialDepth = 0
+  private serialDepthWarnedAt = 0
+
   constructor(opts: StrategyRunnerOptions) {
     this.strategyId = opts.strategyId
     this.strategyParams = opts.strategyParams
@@ -152,7 +157,49 @@ export class StrategyRunner {
     }
   }
 
-  async onMarketTick(tick: MarketTick): Promise<void> {
+  /**
+   * Run `fn` strictly after every previously submitted entry point finished.
+   *
+   * Live callers fire-and-forget (`void runner.onMarketTick(...)` per WS
+   * message, account events from user WS / poller / WebUI commands), while the
+   * tick body awaits real I/O (live order placement is a REST round-trip). An
+   * unserialized runner therefore interleaves ticks and account events at
+   * every `await` — mid-placement portfolio snapshots, out-of-order strategy
+   * callbacks — none of which can happen in backtests, where runSingleMarket
+   * awaits each call sequentially. This funnel gives live the same semantics:
+   * one entry point at a time, in arrival order. In backtests callers already
+   * await, so the chain never holds more than one entry and behavior (and
+   * replay determinism) is unchanged.
+   *
+   * Errors propagate to the submitting caller but never break the chain.
+   * The queue is unbounded by design (dropping ticks would silently change
+   * strategy semantics); a persistent backlog means the strategy cannot keep
+   * up with the market and is surfaced via the depth warning.
+   */
+  private runSerial(label: 'tick' | 'account', fn: () => Promise<void>): Promise<void> {
+    this.serialDepth += 1
+    if (this.serialDepth >= 200 && this.serialDepth >= this.serialDepthWarnedAt * 2) {
+      this.serialDepthWarnedAt = this.serialDepth
+      this.log?.('[runner] serial dispatch backlog is growing', {
+        depth: this.serialDepth,
+        entry: label,
+      })
+    }
+    const run = this.serialTail.then(fn)
+    this.serialTail = run
+      .catch(() => {})
+      .finally(() => {
+        this.serialDepth -= 1
+        if (this.serialDepth === 0) this.serialDepthWarnedAt = 0
+      })
+    return run
+  }
+
+  onMarketTick(tick: MarketTick): Promise<void> {
+    return this.runSerial('tick', () => this.processMarketTick(tick))
+  }
+
+  private async processMarketTick(tick: MarketTick): Promise<void> {
     this.lastMarket = tick.snapshot
     const market = this.getMarket?.()
     const balance = this.getBalance?.()
@@ -301,9 +348,11 @@ export class StrategyRunner {
     await this.drainAccountEvents()
   }
 
-  async onAccountEvent(ev: AccountEvent): Promise<void> {
-    this.enqueueAccountEvent(ev)
-    await this.drainAccountEvents()
+  onAccountEvent(ev: AccountEvent): Promise<void> {
+    return this.runSerial('account', async () => {
+      this.enqueueAccountEvent(ev)
+      await this.drainAccountEvents()
+    })
   }
 
   private async applyIntents(
