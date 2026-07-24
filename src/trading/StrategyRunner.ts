@@ -180,14 +180,32 @@ export class StrategyRunner {
     this.serialDepth += 1
     if (this.serialDepth >= 200 && this.serialDepth >= this.serialDepthWarnedAt * 2) {
       this.serialDepthWarnedAt = this.serialDepth
-      this.log?.('[runner] serial dispatch backlog is growing', {
+      // console.warn unconditionally: the optional `log` sink is disabled in
+      // the default live config (LOG_TRADES=false), and a growing backlog is
+      // exactly the situation that must never go unreported.
+      console.warn('[runner] serial dispatch backlog is growing', {
         depth: this.serialDepth,
         entry: label,
       })
+      try {
+        this.log?.('[runner] serial dispatch backlog is growing', {
+          depth: this.serialDepth,
+          entry: label,
+        })
+      } catch {
+        // never let a logger break dispatch or the depth accounting
+      }
     }
     const run = this.serialTail.then(fn)
     this.serialTail = run
-      .catch(() => {})
+      .catch((err) => {
+        // Chaining onto `run` marks its rejection as handled, so a
+        // fire-and-forget live caller (`void runner.onMarketTick(...)`) would
+        // otherwise lose the error entirely — pre-funnel these surfaced via
+        // the process unhandledRejection handler. Log unconditionally; a
+        // caller that awaits (backtest) still receives the rejection too.
+        console.error(`[runner] ${label} entry failed:`, err)
+      })
       .finally(() => {
         this.serialDepth -= 1
         if (this.serialDepth === 0) this.serialDepthWarnedAt = 0
