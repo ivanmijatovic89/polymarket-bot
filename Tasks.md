@@ -2,7 +2,7 @@
 ✅ open_price - price_to_beat.
 ✅ crypto_prices - pay telonex - make inguestion pipeline.
 
-- štelovanje
+- štelovanje 03:00
 
 10. trades + activity || RPC logs
 
@@ -20,13 +20,13 @@
 
 # Tasks:
 
+✅ backtest_runs - add: protocol, model
 mac mini m4 as main ( database + redis )
 reboot mac mini after power failure.
-backtest_runs - add: protocol, model
 
 2.
 
-# Syncer
+# ✅ Syncer
 
 ## Main Device:
 
@@ -35,23 +35,27 @@ backtest_runs - add: protocol, model
 - ✅ binance agg
 - ✅ crypto_prices
 - ✅ price_to_beat
-- Make one script to sync all data.
+- ✅ Make one script to sync all DATA. / dry-run
 
 ## Workers:
 
-- git pull?
 - ✅ orderbook
 - ✅ binance agg
 - ✅ crypto_prices
-- Make one script to sync all data.
+- ✅ Make one script to sync all DATA / dry-run
 
 ## Fleet:
 
-- check each machine STATUS
+- ✅ check each machine STATUS
   - on/off
+  - worker runing ? how many cores?
   - branch + commit
   - telenox dataset
     - converted files on local
     - binance agg
     - crypto_prices
-- update fleet ...
+- ✅ git
+  - START fleet ...
+  - UPDATE fleet ...
+- ✅ data
+  - npm run fleet:data -- btc:15m -e data_sync_extra='--dry-run'
