@@ -3,47 +3,38 @@
 set -u
 
 readonly repo_dir="/Users/worker-2/Sites/polymarket-bot"
-readonly env_file="${repo_dir}/.env"
 readonly tmux_bin="/opt/homebrew/bin/tmux"
 readonly session_name="polymarket-backtest-worker"
 readonly worker_log="${repo_dir}/logs/workers/polymarket-backtest-worker.log"
 readonly max_attempts=120
 readonly startup_check_delay=2
+readonly redis_endpoint_marker="POLYMARKET_REDIS_ENDPOINT"
 
 if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
   print "$(date -Iseconds) ${session_name} is already running"
   exit 0
 fi
 
-if [[ ! -r "${env_file}" ]]; then
-  print -u2 "$(date -Iseconds) cannot read ${env_file}"
+if ! resolver_output="$(
+  cd "${repo_dir}" &&
+    /bin/zsh -lic 'exec ./node_modules/.bin/tsx ./src/cli/resolveRedisEndpoint.ts'
+)"; then
+  print -u2 "$(date -Iseconds) could not resolve REDIS_URL through the application environment loader"
   exit 75
 fi
 
-redis_url="$(/usr/bin/awk -F= '$1 == "REDIS_URL" { sub(/^[^=]*=/, ""); print; exit }' "${env_file}")"
-redis_url="${redis_url#\"}"
-redis_url="${redis_url%\"}"
-redis_url="${redis_url#\'}"
-redis_url="${redis_url%\'}"
-
-if [[ -z "${redis_url}" ]]; then
-  print -u2 "$(date -Iseconds) REDIS_URL is missing from ${env_file}"
+redis_endpoint_line="${resolver_output##*$'\n'}"
+if [[ "${redis_endpoint_line}" != "${redis_endpoint_marker}"$'\t'*$'\t'* ]]; then
+  print -u2 "$(date -Iseconds) Redis endpoint resolver returned unexpected output"
   exit 75
 fi
 
-redis_authority="${redis_url#*://}"
-redis_authority="${redis_authority%%/*}"
-redis_host_port="${redis_authority##*@}"
-redis_host="${redis_host_port%%:*}"
-redis_port="6379"
+redis_endpoint="${redis_endpoint_line#*$'\t'}"
+redis_host="${redis_endpoint%%$'\t'*}"
+redis_port="${redis_endpoint#*$'\t'}"
 
-if [[ "${redis_host_port}" == *:* ]]; then
-  redis_port="${redis_host_port##*:}"
-  redis_port="${redis_port%%\?*}"
-fi
-
-if [[ -z "${redis_host}" || -z "${redis_port}" ]]; then
-  print -u2 "$(date -Iseconds) could not parse the Redis host and port"
+if [[ -z "${redis_host}" || -z "${redis_port}" || "${redis_host}" == "${redis_endpoint}" ]]; then
+  print -u2 "$(date -Iseconds) Redis endpoint resolver returned an invalid host or port"
   exit 75
 fi
 
@@ -72,14 +63,14 @@ if ! /bin/mkdir -p "${repo_dir}/logs/workers"; then
 fi
 
 readonly worker_command="exec /bin/zsh -lic 'exec ./scripts/run-worker.sh --queues markets >> ${worker_log} 2>&1'"
+start_result="started ${session_name}"
 if ! "${tmux_bin}" new-session -d -s "${session_name}" -c "${repo_dir}" "${worker_command}"; then
   if "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
-    print "$(date -Iseconds) ${session_name} was started by another launcher"
-    exit 0
+    start_result="${session_name} was started by another launcher"
+  else
+    print -u2 "$(date -Iseconds) failed to create ${session_name}"
+    exit 75
   fi
-
-  print -u2 "$(date -Iseconds) failed to create ${session_name}"
-  exit 75
 fi
 
 /bin/sleep "${startup_check_delay}"
@@ -88,4 +79,4 @@ if ! "${tmux_bin}" has-session -t "${session_name}" 2>/dev/null; then
   exit 75
 fi
 
-print "$(date -Iseconds) started ${session_name}; run-worker.sh will resolve market concurrency"
+print "$(date -Iseconds) ${start_result}; run-worker.sh will resolve market concurrency"
