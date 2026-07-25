@@ -63,8 +63,9 @@ Shared shift conventions (keep them uniform across protocols):
 
 - **Graceful stop**: the shift checks for `protocols/<name>/DONE` between
   units and exits when it appears (`touch` it to stop).
-- **Pre-push self-check**: run `npm run code:typecheck:protocols` before
-  pushing strategy changes, so red CI stays rare.
+- **Pre-push self-check**: run `npm run code:typecheck:protocols` and
+  `npm run code:eslint:protocols` before pushing strategy changes. This is the
+  only check there is — protocol strategies have no CI gate.
 
 ## Rules
 
@@ -77,8 +78,8 @@ Shared shift conventions (keep them uniform across protocols):
 3. **Protocol strategies load fail-soft.** A broken file is warned about and
    skipped — a protocol can only break itself, never the fleet or another
    protocol. Check compile/lint health with `npm run code:typecheck:protocols`
-   and `npm run code:eslint:protocols` (both also run as the non-blocking
-   `Protocols Quality` CI job).
+   and `npm run code:eslint:protocols` (the pre-push self-check above; there
+   is no CI job for `protocols/**`).
 4. **Commits go straight to main**, message prefixed `<name>: ...`. Shared
    `src/` changes are the exception — those go through a normal PR like any
    other code change.

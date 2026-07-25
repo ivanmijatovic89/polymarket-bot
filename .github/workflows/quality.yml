@@ -6,8 +6,10 @@ on:
     branches:
       - main
     # Protocol shifts (protocols/README.md) push journal/strategy commits
-    # straight to main continuously; those are checked by protocols-quality.yml
-    # instead of burning the full quality matrix on every unit. PRs are
+    # straight to main continuously; skip the full quality matrix for those.
+    # Compile/lint health of protocol strategies is the shift's own pre-push
+    # check (code:typecheck:protocols + code:eslint:protocols) — the registry
+    # loads them fail-soft, so there is deliberately no CI gate. PRs are
     # unfiltered — required status checks must always run there.
     paths-ignore:
       - 'protocols/**'

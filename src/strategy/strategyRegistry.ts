@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync } from 'node:fs'
+import { readFileSync, readdirSync, statSync } from 'node:fs'
 import { createRequire } from 'node:module'
 import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -69,12 +69,23 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
 
 /** protocols/<name>/strategies/ directories that exist, with their protocol name. */
 function protocolStrategyDirs(): { protocol: string; dir: string }[] {
-  if (!existsSync(PROTOCOLS_ROOT)) return []
   const out: { protocol: string; dir: string }[] = []
-  for (const entry of readdirSync(PROTOCOLS_ROOT, { withFileTypes: true })) {
-    if (!entry.isDirectory()) continue
-    const dir = join(PROTOCOLS_ROOT, entry.name, 'strategies')
-    if (existsSync(dir)) out.push({ protocol: entry.name, dir })
+  // Fail-soft: any fs surprise here (protocols/ missing, a `strategies` entry
+  // that is not a directory, permissions, a dir vanishing mid-scan) must never
+  // take the registry down with it.
+  try {
+    for (const entry of readdirSync(PROTOCOLS_ROOT, { withFileTypes: true })) {
+      if (!entry.isDirectory()) continue
+      const dir = join(PROTOCOLS_ROOT, entry.name, 'strategies')
+      if (statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
+        out.push({ protocol: entry.name, dir })
+      }
+    }
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      console.warn(`[strategy] skipping protocol discovery: ${(err as Error).message}`)
+    }
+    return []
   }
   return out.sort((a, b) => a.protocol.localeCompare(b.protocol))
 }
@@ -114,8 +125,19 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
 
   // Protocol strategies: same discovery, but every failure warns and skips
   // (fail-soft) instead of throwing — a protocol may only break itself.
-  for (const { protocol, dir } of protocolStrategyDirs()) {
-    for (const file of walk(dir).sort()) {
+  const protocolDirs = protocolStrategyDirs()
+  const protocolNames = protocolDirs.map((p) => p.protocol)
+  for (const { protocol, dir } of protocolDirs) {
+    let files: string[]
+    try {
+      files = walk(dir).sort()
+    } catch (err) {
+      console.warn(
+        `[strategy] skipping protocol "${protocol}": cannot list ${dir} — ${(err as Error).message}`,
+      )
+      continue
+    }
+    for (const file of files) {
       try {
         if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
         const mod = requireStrategy(file) as Record<string, unknown>
@@ -126,9 +148,15 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
           )
           continue
         }
-        if (!def.id.startsWith(`${protocol}-`)) {
+        // Namespace check by LONGEST matching protocol name, so a protocol
+        // named "foo" cannot claim ids in the namespace of a protocol named
+        // "foo-bar" (plain startsWith would let it register first and win).
+        const owner = protocolNames
+          .filter((n) => def.id.startsWith(`${n}-`))
+          .sort((a, b) => b.length - a.length)[0]
+        if (owner !== protocol) {
           console.warn(
-            `[strategy] skipping ${file}: id ${JSON.stringify(def.id)} must start with "${protocol}-" (protocol strategy ids are namespaced by folder)`,
+            `[strategy] skipping ${file}: id ${JSON.stringify(def.id)} must start with "${protocol}-" and not fall in another protocol's namespace (ids are namespaced by folder)`,
           )
           continue
         }
