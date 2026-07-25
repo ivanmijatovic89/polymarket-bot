@@ -1,8 +1,39 @@
 import path from 'node:path'
 import { loadPolymarketConfigFromEnv } from './config.js'
 
+/**
+ * Per-request budget for Gamma calls. A bare fetch() has NO timeout: one
+ * half-open connection hangs the caller forever, silently — observed
+ * 2026-07-26 when the priceToBeat backfill froze mid-run at 0% CPU (the same
+ * hang-without-signal failure class the WS clients needed a watchdog for).
+ */
+const GAMMA_FETCH_TIMEOUT_MS = 20_000
+const GAMMA_FETCH_ATTEMPTS = 3
+
+/**
+ * fetch with a timeout and a small bounded retry for transport-level
+ * failures (timeouts, resets). HTTP error STATUSES are not retried here —
+ * callers already classify those.
+ */
+async function gammaFetch(url: string): Promise<Response> {
+  let lastErr: unknown
+  for (let attempt = 1; attempt <= GAMMA_FETCH_ATTEMPTS; attempt++) {
+    try {
+      return await fetch(url, { signal: AbortSignal.timeout(GAMMA_FETCH_TIMEOUT_MS) })
+    } catch (err) {
+      lastErr = err
+      if (attempt < GAMMA_FETCH_ATTEMPTS) {
+        await new Promise((r) => setTimeout(r, 1_000 * attempt))
+      }
+    }
+  }
+  throw new Error(
+    `Gamma fetch failed after ${GAMMA_FETCH_ATTEMPTS} attempts (${GAMMA_FETCH_TIMEOUT_MS}ms timeout each): ${String(lastErr)}`,
+  )
+}
+
 async function fetchFirstMarket(url: string): Promise<Record<string, unknown> | null> {
-  const res = await fetch(url)
+  const res = await gammaFetch(url)
   if (!res.ok) throw new Error(`Gamma HTTP ${res.status}: ${await res.text()}`)
   const arr: unknown = await res.json()
   const first = Array.isArray(arr) ? (arr[0] ?? null) : null
@@ -42,7 +73,7 @@ export async function fetchClosedGammaMarketsBySlugs(
   // Explicit limit: a slug maps to one market, so slugs.length covers the full
   // batch without relying on Gamma's (undocumented) default page size — a
   // smaller default would silently truncate matches.
-  const res = await fetch(`${gammaBaseUrl}/markets?${qs}&closed=true&limit=${slugs.length}`)
+  const res = await gammaFetch(`${gammaBaseUrl}/markets?${qs}&closed=true&limit=${slugs.length}`)
   if (!res.ok) throw new Error(`Gamma HTTP ${res.status}: ${(await res.text()).slice(0, 200)}`)
   const arr: unknown = await res.json()
   if (!Array.isArray(arr)) throw new Error('Gamma batch response is not an array')
