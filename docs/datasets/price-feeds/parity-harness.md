@@ -97,8 +97,9 @@ default sampling would fold a synthetic tick into the value-change row it
 usually coincides with. Probe rows carry `eventType` and `synthetic: true`,
 and the report gains a `synthetic ticks` line: live vs replay counts and
 backward-time counts. Acceptance: count Δ ≤ max(1%, 5) per window, 0
-backward-time rows on either side (the monotone clamp's observable), and the
-non-opted-in numbers unchanged (machinery inert when off).
+backward-`exchangeTsMs` synthetic rows on either side (exchangeTsMs is the
+field the monotone clamp stamps, so a clamp regression is observable), and
+the non-opted-in numbers unchanged (machinery inert when off).
 
 ## First real run (2026-07-21, run `202607211243-btc`)
 

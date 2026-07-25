@@ -289,14 +289,16 @@ export function compareParityLogs(args: {
   const syntheticCounts = (rows: ParityRow[]): { n: number; backward: number } => {
     let n = 0
     let backward = 0
-    let prevSeen = Number.NEGATIVE_INFINITY
+    // Backwardness keys on exchangeTsMs — the field the monotone clamp
+    // stamps — so a clamp regression is actually observable here.
+    let prevExchange = Number.NEGATIVE_INFINITY
     for (const r of rows) {
       if (r.seenAtMs < ov.fromMs || r.seenAtMs > ov.toMs) continue
       if (r.synthetic === true) {
         n += 1
-        if (r.seenAtMs < prevSeen) backward += 1
+        if (r.exchangeTsMs < prevExchange) backward += 1
       }
-      prevSeen = r.seenAtMs
+      prevExchange = r.exchangeTsMs
     }
     return { n, backward }
   }

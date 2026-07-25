@@ -352,7 +352,11 @@ async function main(): Promise<void> {
         })
       : null
 
-  const binanceTickOnTrade = binanceWsReq?.tickOnTrade === true
+  // tickOnTrade is read ONLY from the request plugin, never from the legacy
+  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
+  // legacy seam live would create the exact live/replay divergence this
+  // feature is built to avoid.
+  const binanceTickOnTrade = externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnTrade === true
   const binanceWsClient =
     binanceWsReq && binanceWsEnabled
       ? createBinanceWsSpotPriceClient({
@@ -577,6 +581,11 @@ async function main(): Promise<void> {
   if (binanceTickOnTrade) {
     logger.info(
       `[trading-bot][⚙️] synthetic feed ticks ENABLED (binance_agg_trade, symbol=${binanceWsSymbol})`,
+    )
+  }
+  if (externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnRound === true) {
+    logger.warn(
+      '[trading-bot][⚠️] rtdsCryptoPrices.tickOnRound is reserved but NOT implemented — no chainlink synthetic ticks will fire (see docs/backtest/adr-binance-driven-ticks.md)',
     )
   }
 

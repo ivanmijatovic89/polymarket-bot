@@ -51,7 +51,11 @@ export function buildSyntheticTickSchedule(args: {
   // Stable merge: both inputs are already time-sorted; sort is stable in JS,
   // so equal-visibility events keep insertion order per feed and the explicit
   // eventType comparison pins the cross-feed tie-break.
-  out.sort((a, b) => a.visibilityMs - b.visibilityMs || a.eventType.localeCompare(b.eventType))
+  out.sort(
+    (a, b) =>
+      a.visibilityMs - b.visibilityMs ||
+      (a.eventType === b.eventType ? 0 : a.eventType < b.eventType ? -1 : 1),
+  )
   return out
 }
 

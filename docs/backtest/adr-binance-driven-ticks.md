@@ -60,7 +60,16 @@ serialization (#156).
   joins the periodic stats line.
 - **Stats**: `eventsByType` gains a `binance_agg_trade` bucket (only for
   opted-in runs); the `[backtest:feeds] fulfilled` line logs the scheduled
-  count — replay verification asserts dispatched == scheduled.
+  count for comparison. Dispatched can be LOWER than scheduled: entries whose
+  visibility precedes the first real book snapshot are dropped (live rule),
+  and the strategyWindow gate can clip a clamped tick after it was counted.
+- **Clock sawtooth (opted-in only)**: a synthetic tick is stamped in the
+  local-receive clock domain, so the NEXT real tick's exchange timestamp
+  (typically ~50–150 ms behind) steps backwards. This oscillation is
+  latency-model-matched in both runtimes (not a parity break), but opted-in
+  strategies and the time-flagged gate plugins observe a non-monotone
+  `snapshot.timestamp` near thresholds — pure-function gates (DwellGate /
+  TimeWindowGate compute from the timestamp, never accumulate) tolerate it.
 
 ## Context
 

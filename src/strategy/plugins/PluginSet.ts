@@ -16,6 +16,10 @@ export interface Plugin {
    * synthetic ticks. `snapshot()` is still rebuilt on every tick either way.
    * Structural (a data property), so it survives the CJS/ESM dual-class
    * loading described in isExternalFeedsRequestPlugin.
+   *
+   * NOTE: `snapshot()` IS still invoked on synthetic ticks even for skipped
+   * plugins (the per-tick cache is always rebuilt) — keep snapshot() pure and
+   * cheap; only onMarketTick is gated by this flag.
    */
   handlesSyntheticTicks?: boolean
   snapshot?: () => unknown

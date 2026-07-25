@@ -423,11 +423,15 @@ export type AccountEvent =
 export type Strategy = {
   name: string
   /**
-   * Optional, strategy-declared external feed requirements (legacy seam —
-   * prefer registering `ExternalFeedsRequestPlugin`; keep the shapes in sync).
+   * Optional, strategy-declared external feed requirements (LEGACY seam —
+   * prefer registering `ExternalFeedsRequestPlugin`).
    *
-   * Fulfilled in BOTH runtimes: live by `trading-bot.ts` (real feed clients),
-   * in backtests by `wireBacktestExternalFeeds` (historical datasets).
+   * Runtime coverage differs: live `trading-bot.ts` falls back to this when
+   * no request plugin is registered, but backtest fulfillment
+   * (`wireBacktestExternalFeeds`) reads ONLY the plugin. Features that must
+   * stay live==replay (like synthetic ticks' `tickOnTrade`) are therefore
+   * deliberately NOT part of this legacy shape — they exist only on
+   * `ExternalFeedsRequestConfig`.
    */
   requiredFeeds?: {
     rtdsCryptoPrices?: {
@@ -435,12 +439,6 @@ export type Strategy = {
       binanceSymbols?: string[]
       /** Chainlink RTDS symbols, e.g. ["btc/usd"] */
       chainlinkSymbols?: string[]
-      /**
-       * Opt-in synthetic strategy ticks on every Chainlink round
-       * (event_type 'chainlink_round'). Not implemented yet — reserved;
-       * see docs/backtest/adr-binance-driven-ticks.md.
-       */
-      tickOnRound?: boolean
     }
     /**
      * Direct Binance Spot websocket price feed (aggTrade last price).
@@ -452,13 +450,6 @@ export type Strategy = {
     binanceWsSpotPrice?: {
       /** e.g. "btcusdt" */
       symbol?: string
-      /**
-       * Opt-in synthetic strategy ticks on every Binance aggTrade
-       * (event_type 'binance_agg_trade'), live and replay. Default false —
-       * without it, strategies only tick on Polymarket book events and
-       * behavior is bit-identical to before this feature existed.
-       */
-      tickOnTrade?: boolean
     }
     /**
      * Polymarket price-to-beat for Up/Down markets (open price for the interval).
