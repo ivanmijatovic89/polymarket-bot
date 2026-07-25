@@ -159,9 +159,10 @@ export async function wireBacktestExternalFeeds(args: {
   gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
 }): Promise<{
   /**
-   * Replay schedule for opt-in synthetic feed ticks (binanceWsSpotPrice
-   * tickOnUpdate), or null when the strategy didn't opt in — runSingleMarket
-   * interleaves these between real ticks. See syntheticTickSchedule.ts.
+   * Replay schedule for opt-in synthetic feed ticks (tickOnUpdate on
+   * binanceWsSpotPrice and/or rtdsCryptoPrices), or null when the strategy
+   * didn't opt in — runSingleMarket interleaves these between real ticks.
+   * See syntheticTickSchedule.ts.
    */
   syntheticTicks: SyntheticTickEvent[] | null
 }> {

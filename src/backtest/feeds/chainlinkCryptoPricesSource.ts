@@ -143,6 +143,15 @@ export async function loadChainlinkCryptoPricesSeries(args: {
         ts[i] = Number(rows[i]?.[0])
         vis[i] = Number(rows[i]?.[1])
         px[i] = Number(rows[i]?.[2])
+        // A NULL/zero broadcast time would split the provider (treats it as
+        // visible-from-t0) from the synthetic-tick schedule (drops it as
+        // pre-window) — refuse corrupt rows instead of diverging silently.
+        if (!Number.isFinite(vis[i]!) || vis[i]! <= 0) {
+          throw new Error(
+            `[backtest:feeds] NULL/invalid server_timestamp_us in crypto_prices day file(s) for ${args.assetId} ` +
+              `(round ts=${ts[i]}) — corrupt row; re-download with --force`,
+          )
+        }
       }
       tsChunks.push(ts)
       visChunks.push(vis)

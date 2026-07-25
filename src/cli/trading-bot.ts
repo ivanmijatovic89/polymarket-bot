@@ -279,6 +279,16 @@ async function main(): Promise<void> {
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
+
+  // tickOnUpdate is read ONLY from the request plugin, never from the legacy
+  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
+  // legacy seam live would create the exact live/replay divergence this
+  // feature is built to avoid. Declared before the feed clients so their
+  // callbacks never touch a TDZ binding.
+  const binanceTickOnUpdate =
+    externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnUpdate === true
+  const chainlinkTickOnUpdate =
+    externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnUpdate === true
   // No explicit symbols → follow the traded market, mirroring the
   // binanceWsSpotPrice semantics below: `rtdsCryptoPrices: {}` derives
   // <symbol>usdt / <symbol>/usd from TRADING_SYMBOL; an explicit list wins.
@@ -348,7 +358,10 @@ async function main(): Promise<void> {
             // Store first, then (opt-in) tick — the tick body reads a store
             // that already contains this round.
             feedsStore!.updateChainlink(u)
-            if (chainlinkTickOnUpdate) dispatchSyntheticFeedTick?.('chainlink_round', u.symbol)
+            if (chainlinkTickOnUpdate)
+              // Lowercased for parity: replay schedules the lowercased feed
+              // symbol, and live wire payloads are not case-guaranteed.
+              dispatchSyntheticFeedTick?.('chainlink_round', u.symbol.toLowerCase())
           },
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
@@ -357,14 +370,6 @@ async function main(): Promise<void> {
         })
       : null
 
-  // tickOnUpdate is read ONLY from the request plugin, never from the legacy
-  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
-  // legacy seam live would create the exact live/replay divergence this
-  // feature is built to avoid.
-  const binanceTickOnUpdate =
-    externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnUpdate === true
-  const chainlinkTickOnUpdate =
-    externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnUpdate === true
   const binanceWsClient =
     binanceWsReq && binanceWsEnabled
       ? createBinanceWsSpotPriceClient({
@@ -595,6 +600,11 @@ async function main(): Promise<void> {
     logger.info(
       `[trading-bot][⚙️] synthetic feed ticks ENABLED (chainlink_round, symbols=${rtdsChainlinkSymbols.join(', ')})`,
     )
+    if (rtdsChainlinkSymbols.length > 1) {
+      logger.warn(
+        `[trading-bot][⚠️] tickOnUpdate with ${rtdsChainlinkSymbols.length} chainlink symbols: live ticks on EVERY symbol's round, but replay schedules only the first (${rtdsChainlinkSymbols[0]}) — tick counts will diverge from backtests. Use a single symbol for parity.`,
+      )
+    }
   }
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {

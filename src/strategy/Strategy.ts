@@ -19,7 +19,7 @@ export type IntentMeta = Record<string, unknown>
 
 export type MarketTick = Omit<EngineTick, 'msg'> & {
   // MarketEngine emits ticks only for book + price_change. Strategies may
-  // additionally receive opt-in synthetic feed ticks (tickOnUpdate/tickOnUpdate)
+  // additionally receive opt-in synthetic feed ticks (tickOnUpdate)
   // whose msg type is deliberately outside AnyMarketMessage so it can never
   // reach the orderbook engine — see src/market/syntheticTick.ts.
   msg: AnyMarketMessage | SyntheticFeedTickMessage

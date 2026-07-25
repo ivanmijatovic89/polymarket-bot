@@ -169,6 +169,12 @@ async function main(): Promise<void> {
   }
 
   const client = createRtdsCryptoPricesClient({
+    // Exactly ONE watchdog: the recorder keeps its own (below) because
+    // verify-crypto-prices excuses gaps via the 'idle-reconnect' status
+    // record it writes; the client's built-in watchdog is disabled so the
+    // two never race (a client-first reconnect would suppress the gap record
+    // and leave ~30s of missing rows unexcused in verify).
+    idleReconnectMs: 0,
     binanceSymbols: [],
     chainlinkSymbols: [feedSymbol],
     onBinanceUpdate: () => {},

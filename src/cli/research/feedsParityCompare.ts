@@ -293,9 +293,12 @@ export function compareParityLogs(args: {
     // stamps — compared per feed among SYNTHETIC rows only. Mixing real rows
     // into the comparison produces false positives: a clamped synthetic tick
     // legitimately carries the (later) book timestamp while sorting earlier
-    // by seenAtMs, so a following real row's exchange ts can be lower without
-    // any clamp violation. Within one feed's synthetic stream, dispatch order
-    // == seenAtMs order and the clamp guarantees non-decreasing stamps.
+    // by seenAtMs. Within one feed's synthetic stream dispatch order ==
+    // seenAtMs order; the clamp bounds each stamp against its CURRENT base
+    // snapshot, so rare single inversions can still appear when Polymarket's
+    // own non-monotone exchange stamps land on a real tick between two
+    // synthetics — the acceptance target is therefore ≈0, not exactly 0
+    // (see docs/datasets/price-feeds/parity-harness.md).
     const prevByFeed = new Map<string, number>()
     for (const r of rows) {
       if (r.seenAtMs < ov.fromMs || r.seenAtMs > ov.toMs) continue
