@@ -160,7 +160,7 @@ export async function wireBacktestExternalFeeds(args: {
 }): Promise<{
   /**
    * Replay schedule for opt-in synthetic feed ticks (binanceWsSpotPrice
-   * tickOnTrade), or null when the strategy didn't opt in — runSingleMarket
+   * tickOnUpdate), or null when the strategy didn't opt in — runSingleMarket
    * interleaves these between real ticks. See syntheticTickSchedule.ts.
    */
   syntheticTicks: SyntheticTickEvent[] | null
@@ -343,19 +343,19 @@ export async function wireBacktestExternalFeeds(args: {
   // Opt-in synthetic feed ticks: pre-compute the visibility-time schedule from
   // the SAME series + latency the provider uses, so a synthetic tick's feed
   // snapshot is exactly the event that scheduled it.
-  if (rtdsReq?.tickOnRound === true) {
+  if (rtdsReq?.tickOnUpdate === true) {
     console.warn(
-      `[backtest:feeds] rtdsCryptoPrices.tickOnRound is reserved but NOT implemented — no chainlink synthetic ticks will fire (slug=${args.slug})`,
+      `[backtest:feeds] rtdsCryptoPrices.tickOnUpdate is reserved but NOT implemented — no chainlink synthetic ticks will fire (slug=${args.slug})`,
     )
   }
   let syntheticTicks: SyntheticTickEvent[] | null = null
-  if (binanceReq?.tickOnTrade === true && providerArgs.binanceWsSpotPrice) {
+  if (binanceReq?.tickOnUpdate === true && providerArgs.binanceWsSpotPrice) {
     syntheticTicks = buildSyntheticTickSchedule({
       binance: providerArgs.binanceWsSpotPrice,
       windowStartMs: window.startMs,
       windowEndMs: window.endMs,
     })
-    fulfilled.push(`tickOnTrade(syntheticTicks=${syntheticTicks.length})`)
+    fulfilled.push(`tickOnUpdate(syntheticTicks=${syntheticTicks.length})`)
   }
 
   if (fulfilled.length > 0) {

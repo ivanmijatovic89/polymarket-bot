@@ -61,7 +61,7 @@ test('probe writes versioned rows with mode-correct clocks and emits no intents'
     const { strategy } = createStrategy({
       heartbeatMs: 1000,
       logEveryTick: true,
-      tickOnTrade: false,
+      tickOnUpdate: false,
     })
     const before = Date.now()
     const intentsLive = strategy.onMarketTick(
