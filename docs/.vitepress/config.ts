@@ -108,6 +108,10 @@ export default withMermaid(
                   ],
                 },
                 { text: 'Price to Beat (Gamma)', link: '/datasets/price-feeds/price-to-beat' },
+                {
+                  text: 'Synthetic Feed Ticks',
+                  link: '/datasets/price-feeds/synthetic-ticks',
+                },
                 { text: 'Parity Harness (Calibration)', link: '/datasets/price-feeds/parity-harness' },
               ],
             },

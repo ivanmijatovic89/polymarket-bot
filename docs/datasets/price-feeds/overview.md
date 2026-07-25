@@ -130,6 +130,11 @@ live). The details below live on the per-feed pages:
   `rtdsPolymarketCryptoPrices.binance` remains live-only (the channel carries
   only the chainlink stream — use `binanceWsSpotPrice`).
 
+Beyond passive sampling, the Binance and Chainlink feeds can also **wake the
+strategy on every update** (opt-in `tickOnUpdate` — extra `onMarketTick` per
+trade/round, live and replay identically, non-opted-in strategies
+bit-identical). See [Synthetic Feed Ticks](./synthetic-ticks.md).
+
 ## Integration approach (original design sketch — implemented for Binance)
 
 - Add a **backtest-side variant of**

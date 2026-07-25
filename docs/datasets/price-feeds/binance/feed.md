@@ -28,6 +28,14 @@ Works with every input mode (telonex modes use the precise `strategyWindow`;
 recorded mode derives the window from the file slug) and every timeframe
 (5m/15m/1h/4h/1d — the feed only needs coverage of the market window).
 
+## Waking the strategy on every trade (tickOnUpdate)
+
+The feed above is passive — sampled when the Polymarket book ticks. Adding
+`tickOnUpdate: true` to the same config block additionally fires a synthetic
+`onMarketTick` (event_type `binance_agg_trade`) on **every aggTrade**, live
+and replay identically. Full semantics, guarantees and the measured
+verification numbers: [Synthetic Feed Ticks](/datasets/price-feeds/synthetic-ticks).
+
 ## How it works
 
 - The strategy declares its feeds via `ExternalFeedsRequestPlugin` (same as
