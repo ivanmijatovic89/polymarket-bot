@@ -1,0 +1,45 @@
+name: Protocols Quality
+
+# Typechecks protocol strategies (protocols/*/strategies/ + src/ via
+# tsconfig.protocols.json). Deliberately NOT in the ruleset's required status
+# checks: a protocol's type error must never block unrelated PRs. The registry
+# loads protocol strategies fail-soft, so a red run here means "this protocol's
+# strategy is being skipped by the fleet" — signal for the protocol, not a gate.
+
+on:
+  pull_request:
+    paths:
+      - 'protocols/**'
+      - 'tsconfig.protocols.json'
+  push:
+    branches:
+      - main
+    paths:
+      - 'protocols/**'
+      - 'tsconfig.protocols.json'
+
+concurrency:
+  group: protocols-quality-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  protocols-typecheck:
+    name: Protocols (Typecheck)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Protocols typecheck
+        run: npm run code:typecheck:protocols

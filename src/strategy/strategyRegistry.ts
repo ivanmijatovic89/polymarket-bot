@@ -1,6 +1,6 @@
-import { readFileSync, readdirSync } from 'node:fs'
+import { existsSync, readFileSync, readdirSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { dirname, extname, join } from 'node:path'
+import { basename, dirname, extname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { StrategyDefinition } from './strategyDefinition.js'
 
@@ -17,11 +17,19 @@ const requireStrategy = createRequire(import.meta.url)
  * The registry is built by auto-discovery: every file under src/strategies/**
  * (at any depth) that exports a `definition` is registered automatically. There
  * is no hand-maintained list — add a strategy by adding a file, remove one by
- * deleting its file.
+ * deleting its file. protocols/<name>/strategies/** is scanned the same way,
+ * but fail-soft (see PROTOCOLS_ROOT below).
  */
 
 const selfPath = fileURLToPath(import.meta.url)
 const STRATEGIES_DIR = join(dirname(selfPath), '..', 'strategies')
+
+// Protocol workspaces (see protocols/README.md): each protocols/<name>/strategies/
+// directory is also scanned. Protocol strategies load TOLERANTLY — a broken file
+// is warned about and skipped, never fatal — because protocols push straight to
+// main and self-updating workers must not be taken down by one experiment.
+// Their ids must start with "<name>-" so protocols can't collide in the registry.
+const PROTOCOLS_ROOT = join(dirname(selfPath), '..', '..', 'protocols')
 
 // Load files with the SAME extension as this module: `.ts` under tsx (source),
 // `.js` when running compiled. Avoids importing both copies of a file.
@@ -59,6 +67,18 @@ function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
   )
 }
 
+/** protocols/<name>/strategies/ directories that exist, with their protocol name. */
+function protocolStrategyDirs(): { protocol: string; dir: string }[] {
+  if (!existsSync(PROTOCOLS_ROOT)) return []
+  const out: { protocol: string; dir: string }[] = []
+  for (const entry of readdirSync(PROTOCOLS_ROOT, { withFileTypes: true })) {
+    if (!entry.isDirectory()) continue
+    const dir = join(PROTOCOLS_ROOT, entry.name, 'strategies')
+    if (existsSync(dir)) out.push({ protocol: entry.name, dir })
+  }
+  return out.sort((a, b) => a.protocol.localeCompare(b.protocol))
+}
+
 function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
   const files = walk(STRATEGIES_DIR).sort()
   const registry: Record<string, StrategyDefinition<unknown>> = {}
@@ -90,6 +110,41 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
       throw new Error(`[strategy] duplicate strategy id ${JSON.stringify(def.id)} (in ${file})`)
     }
     registry[def.id] = def
+  }
+
+  // Protocol strategies: same discovery, but every failure warns and skips
+  // (fail-soft) instead of throwing — a protocol may only break itself.
+  for (const { protocol, dir } of protocolStrategyDirs()) {
+    for (const file of walk(dir).sort()) {
+      try {
+        if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
+        const mod = requireStrategy(file) as Record<string, unknown>
+        const def = mod.definition
+        if (!isStrategyDefinition(def)) {
+          console.warn(
+            `[strategy] skipping ${file}: exports \`definition\` but it is not a valid StrategyDefinition`,
+          )
+          continue
+        }
+        if (!def.id.startsWith(`${protocol}-`)) {
+          console.warn(
+            `[strategy] skipping ${file}: id ${JSON.stringify(def.id)} must start with "${protocol}-" (protocol strategy ids are namespaced by folder)`,
+          )
+          continue
+        }
+        if (registry[def.id]) {
+          console.warn(
+            `[strategy] skipping ${file}: duplicate strategy id ${JSON.stringify(def.id)}`,
+          )
+          continue
+        }
+        registry[def.id] = def
+      } catch (err) {
+        console.warn(
+          `[strategy] skipping ${basename(file)} (${protocol}): failed to load — ${(err as Error).message}`,
+        )
+      }
+    }
   }
 
   return registry

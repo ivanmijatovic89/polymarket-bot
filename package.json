@@ -73,6 +73,7 @@
     "verify:parquet": "tsx src/parquet/cli/verify-parquet.ts",
     "scan:disconnect-events": "tsx src/parquet/cli/scan-disconnect-events.ts",
     "code:typecheck": "tsc -p tsconfig.json --noEmit --pretty false",
+    "code:typecheck:protocols": "tsc -p tsconfig.protocols.json --noEmit --pretty false",
     "code:typecheck:webui": "npm --prefix webui run code:typecheck",
     "code:typecheck-eslint": "npm run code:typecheck && npm run code:eslint",
     "code:eslint": "eslint \"src/**/*.{ts,tsx}\"",

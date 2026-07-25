@@ -132,6 +132,11 @@ Direct push to `main` is blocked. Always follow:
 4. Wait for CI (`quality.yml`: Prettier + Typecheck + ESLint + WebUI + Docs build)
 5. Merge PR once all checks pass
 
+Exceptions: strategy-research sessions (`src/strategies/research/`, per
+`strategy-research-protocol/AGENTS.md`) and protocol workspaces
+(`protocols/<name>/`, per `protocols/README.md`) commit and push directly to
+main. A protocol's changes to shared `src/` code still go through a normal PR.
+
 ## Coding Style
 
 - Keep code simple, explicit, and composable.

@@ -5,6 +5,12 @@ on:
   push:
     branches:
       - main
+    # Protocol shifts (protocols/README.md) push journal/strategy commits
+    # straight to main continuously; those are checked by protocols-quality.yml
+    # instead of burning the full quality matrix on every unit. PRs are
+    # unfiltered — required status checks must always run there.
+    paths-ignore:
+      - 'protocols/**'
 
 concurrency:
   group: quality-${{ github.ref }}
