@@ -50,10 +50,14 @@ function realTick(snapshot: MarketOrderBooksSnapshot): MarketTick {
   }
 }
 
-function synTick(base: MarketOrderBooksSnapshot, visibilityMs: number): MarketTick {
+function synTick(
+  base: MarketOrderBooksSnapshot,
+  visibilityMs: number,
+  eventType: 'binance_agg_trade' | 'chainlink_round' = 'binance_agg_trade',
+): MarketTick {
   return buildSyntheticFeedTick({
-    eventType: 'binance_agg_trade',
-    symbol: 'btcusdt',
+    eventType,
+    symbol: eventType === 'chainlink_round' ? 'btc/usd' : 'btcusdt',
     visibilityMs,
     baseSnapshot: base,
     source: { kind: 'parquet', filePath: '/x.parquet', ingestSeq: 0n, tsLocalMs: visibilityMs },
@@ -197,4 +201,15 @@ test('synthetic tick does not trigger a spurious market-change plugin reset', as
   assert.equal(resets, 0)
   // The clamped synthetic snapshot is what account-event handlers would reuse.
   assert.equal(runner.getLastMarketSnapshot()?.timestamp, 2_000)
+})
+
+test('REGRESSION also holds for chainlink_round synthetic ticks', async () => {
+  const runner = makeStack({ placeOnTickTs: 1_000, intent: { ...buy40, clientOrderId: 'c5' } })
+  const crossed = makeBook({ ts: 1_000, bestAsk: 0.39, askSize: 40 })
+  await runner.onMarketTick(realTick(crossed))
+  await runner.onMarketTick(synTick(crossed, 1_400, 'chainlink_round'))
+  await runner.onMarketTick(realTick(makeBook({ ts: 2_000, bestAsk: 0.45, askSize: 500 })))
+  const snap = runner.getPortfolio().snapshot()
+  // Remainder not spuriously maker-filled by the chainlink synthetic tick.
+  assert.equal(snap.openOrdersByClientId['c5']?.remaining, 60)
 })

@@ -341,17 +341,17 @@ export async function wireBacktestExternalFeeds(args: {
   )
 
   // Opt-in synthetic feed ticks: pre-compute the visibility-time schedule from
-  // the SAME series + latency the provider uses, so a synthetic tick's feed
-  // snapshot is exactly the event that scheduled it.
-  if (rtdsReq?.tickOnUpdate === true) {
-    console.warn(
-      `[backtest:feeds] rtdsCryptoPrices.tickOnUpdate is reserved but NOT implemented — no chainlink synthetic ticks will fire (slug=${args.slug})`,
-    )
-  }
+  // the SAME series + latency each provider uses, so a synthetic tick's feed
+  // snapshot is exactly the event that scheduled it. Chainlink visibility uses
+  // the two-clock model's visibleAtMs (broadcast time) + the measured bot leg
+  // — the same instant the provider makes the round readable.
   let syntheticTicks: SyntheticTickEvent[] | null = null
-  if (binanceReq?.tickOnUpdate === true && providerArgs.binanceWsSpotPrice) {
+  const wantBinanceTicks = binanceReq?.tickOnUpdate === true && !!providerArgs.binanceWsSpotPrice
+  const wantChainlinkTicks = rtdsReq?.tickOnUpdate === true && !!providerArgs.rtdsChainlink
+  if (wantBinanceTicks || wantChainlinkTicks) {
     syntheticTicks = buildSyntheticTickSchedule({
-      binance: providerArgs.binanceWsSpotPrice,
+      ...(wantBinanceTicks ? { binance: providerArgs.binanceWsSpotPrice } : {}),
+      ...(wantChainlinkTicks ? { chainlink: providerArgs.rtdsChainlink } : {}),
       windowStartMs: window.startMs,
       windowEndMs: window.endMs,
     })
