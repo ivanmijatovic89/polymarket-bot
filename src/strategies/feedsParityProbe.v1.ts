@@ -6,6 +6,7 @@ import type { StrategyDefinition } from '../strategy/strategyDefinition.js'
 import type { StrategyContext } from '../strategy/StrategyContext.js'
 import type { Plugin } from '../strategy/plugins/PluginSet.js'
 import { ExternalFeedsRequestPlugin } from '../strategy/plugins/ExternalFeedsRequestPlugin.js'
+import { isSyntheticFeedTick } from '../market/syntheticTick.js'
 import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 
 /**
@@ -35,6 +36,11 @@ import type { ExternalFeedsSnapshot } from '../trading/feeds/externalFeeds.js'
 export const ConfigSchema = z.strictObject({
   heartbeatMs: z.coerce.number().finite().positive().default(1000),
   logEveryTick: z
+    .union([z.boolean(), z.string()])
+    .transform((v) => v === true || v === 'true')
+    .default(false),
+  /** Opt into synthetic binance ticks — measuring them needs logEveryTick=true. */
+  tickOnTrade: z
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
     .default(false),
@@ -77,7 +83,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
   let lastSampleKey = ''
 
   const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
-    binanceWsSpotPrice: {}, // pair follows the traded market
+    // pair follows the traded market; tickOnTrade opts into synthetic ticks
+    binanceWsSpotPrice: { ...(cfg.tickOnTrade ? { tickOnTrade: true } : {}) },
     rtdsCryptoPrices: {}, // chainlink symbol follows the traded market
     polymarketPriceToBeat: { enabled: true },
   })
@@ -140,6 +147,8 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
       mode: liveMode ? 'live' : 'parquet',
       seenAtMs,
       exchangeTsMs: tick.snapshot.timestamp,
+      eventType: tick.msg.event_type,
+      ...(isSyntheticFeedTick(tick.msg) ? { synthetic: true } : {}),
       slug: ctx?.market?.slug,
       ...(sample.binance ? { binance: sample.binance } : {}),
       ...(sample.chainlink ? { chainlink: sample.chainlink } : {}),
