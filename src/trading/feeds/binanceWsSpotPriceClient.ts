@@ -29,7 +29,8 @@ export type BinanceWsSpotPriceClientOptions = {
   onPrice: (u: { symbol: string; tsMs: number; value: number }) => void
   /**
    * Optional: full aggTrade message with local receive time. Used by the
-   * recorder/verification tooling; the live trading path leaves it unset.
+   * recorder/verification tooling, and by the live trading path when
+   * synthetic feed ticks are enabled (binanceWsSpotPrice.tickOnTrade).
    */
   onAggTrade?: (agg: AggTradeMessage, receivedAtMs: number) => void
   onStatus?: (s: {

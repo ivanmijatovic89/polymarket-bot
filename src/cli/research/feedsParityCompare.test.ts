@@ -186,3 +186,46 @@ test('overlapWindow trims to the common span', () => {
   assert.equal(ov.toMs, T0 + 100_000)
   assert.equal(overlapWindow([], b), null)
 })
+
+test('syntheticTicks counts synthetic rows and flags backward exchangeTsMs (the clamp observable)', () => {
+  const mk = (side: 'live' | 'parquet', rows: Array<[number, number, boolean]>): ParityRow[] =>
+    rows.map(([seenAtMs, exchangeTsMs, synthetic]) =>
+      row({ seenAtMs, exchangeTsMs, mode: side, ...(synthetic ? { synthetic: true } : {}) }),
+    )
+  // Live: clamped correctly — synthetic exchangeTs never below the previous row.
+  const live = mk('live', [
+    [T0, T0, false],
+    [T0 + 100, T0 + 100, true],
+    [T0 + 60_000, T0 + 60_000, false],
+  ])
+  // Replay: one synthetic row stamped BELOW the preceding real tick's exchange
+  // ts — exactly what an un-clamped builder would produce.
+  const replay = mk('parquet', [
+    [T0, T0, false],
+    [T0 + 100, T0 - 50, true],
+    [T0 + 60_000, T0 + 60_000, false],
+  ])
+  const report = compareParityLogs({
+    live,
+    replay,
+    currentLatency: { binanceMs: 110, chainlinkMs: 320 },
+  })
+  assert.ok(report)
+  assert.deepEqual(report.syntheticTicks, {
+    live: 1,
+    replay: 1,
+    backwardTimeLive: 0,
+    backwardTimeReplay: 1,
+  })
+})
+
+test('syntheticTicks is null when neither side has synthetic rows', () => {
+  const rows = [row({ seenAtMs: T0 }), row({ seenAtMs: T0 + 60_000 })]
+  const report = compareParityLogs({
+    live: rows,
+    replay: rows.map((r) => ({ ...r, mode: 'parquet' as const })),
+    currentLatency: { binanceMs: 110, chainlinkMs: 320 },
+  })
+  assert.ok(report)
+  assert.equal(report.syntheticTicks, null)
+})
