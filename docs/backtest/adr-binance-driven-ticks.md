@@ -1,15 +1,66 @@
 ---
 title: 'ADR: Binance-Driven Strategy Ticks'
-description: Architecture decision record for a future extension where strategies wake up on Binance aggTrade events, not only on Polymarket orderbook ticks.
+description: Architecture decision record for synthetic feed ticks — strategies waking up on Binance aggTrade events, not only on Polymarket orderbook ticks.
 ---
 
 # ADR: Binance-Driven Strategy Ticks (synthetic feed ticks)
 
 ## Status
 
-**Proposed — not implemented.** Parked deliberately; this document exists so
-the idea can be picked up later without re-deriving the design. Prerequisite:
-the Binance aggTrades feed (PR #121/#122) is merged.
+**Accepted — implemented for `binance_agg_trade`** (opt-in
+`binanceWsSpotPrice: { tickOnTrade: true }`, live + replay).
+`chainlink_round` (`rtdsCryptoPrices: { tickOnRound: true }`) is reserved in
+the types and scheduler and ships as a follow-up PR with its own parity
+capture. Prerequisites that landed first: the Binance aggTrades feed
+(PR #121), the feeds parity harness (#141), and live tick-dispatch
+serialization (#156).
+
+## Implementation notes (what shipped, where it deviates or sharpens the proposal)
+
+- **Types** (`src/market/syntheticTick.ts`): `SyntheticFeedTickMessage` is
+  deliberately OUTSIDE `AnyMarketMessage`, and `MarketTick.msg` is widened to
+  the union — so a synthetic message reaching the orderbook engine is a
+  compile error, not a runtime assertion. One shared constructor
+  (`buildSyntheticFeedTick`) stamps ticks identically live and replay.
+- **Clock**: `snapshot.timestamp = max(visibilityMs, lastBookSnapshot.timestamp)`
+  (monotone clamp — never steps back; live receive clocks and Polymarket
+  exchange stamps are different domains). Replay visibility = trade time +
+  `BACKTEST_BINANCE_FEED_LATENCY_MS`; live visibility = local receipt time —
+  the same physical quantity. Real ticks are never re-stamped. Precision
+  caveat: when the book clock is already ahead of the visibility time, the
+  tick may read a marginally newer trade — the value the strategy could
+  already see at that clock; pinned by a provider test.
+- **Execution safety**: `StrategyRunner.processMarketTick` skips
+  `orderManager.onMarketTick` on synthetic ticks — the fill simulator never
+  runs on an unchanged book (a resting maker remainder re-tested against a
+  stale crossed book would fill where live never fills; regression-tested).
+  Live this call is a no-op (`LiveExecution.onMarketTick` returns `[]`), so
+  the skip in shared code keeps live == replay by construction. Queued-mode
+  intents consequently dispatch only on real book ticks, in both runtimes.
+  Strategy intents ON synthetic ticks execute normally (taker fills at spot
+  time — the feature).
+- **Plugin policy**: plugins do NOT see synthetic ticks unless they declare
+  `handlesSyntheticTicks = true` (default-skip inverts the failure mode: a
+  forgotten flag misses resolution, never corrupts event-counting state).
+  Flagged: `ExternalFeedsRequestPlugin` (must record the synthetic tick for
+  its provider), `DwellGatePlugin`, `TimeWindowGatePlugin` (pure time
+  functions). Unflagged by design: `TimeWindowVolatility` (one sample per
+  tick — duplicate samples would bias stddev/avgAbsChange; invariance is
+  unit-tested byte-equal).
+- **Replay scheduling**: interleaving lives in `runSingleMarket` (shared
+  `dispatchTick` + `createSyntheticFlusher`) — the three replayers are
+  byte-untouched, which makes non-opted-in bit-identity structurally obvious.
+  Flush rule: schedule events dispatch strictly BEFORE the real tick whose
+  feed clock passes them; equal timestamps ⇒ orderbook first. The schedule is
+  window-bounded, and events before the first real book snapshot are dropped
+  (live rule: no book ⇒ no tick).
+- **Live dispatch**: `onAggTrade` is wired only when opted in; the dispatcher
+  guards on `shouldStop`/`isRotating`/`currentMarket`/empty engine snapshot
+  and fire-and-forgets into the #156 serial funnel. `synthetic_ticks_total`
+  joins the periodic stats line.
+- **Stats**: `eventsByType` gains a `binance_agg_trade` bucket (only for
+  opted-in runs); the `[backtest:feeds] fulfilled` line logs the scheduled
+  count — replay verification asserts dispatched == scheduled.
 
 ## Context
 

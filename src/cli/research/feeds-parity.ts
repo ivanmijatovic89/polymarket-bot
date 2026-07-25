@@ -49,6 +49,8 @@ type Manifest = {
   endedAtMs?: number
   gitSha?: string
   env: Record<string, string>
+  /** --param k=v pairs passed to the probe strategy in BOTH capture and replay. */
+  probeParams?: string[]
   coveredFiles?: string[]
   replays?: Record<string, { base: string; env: Record<string, string>; file: string }>
 }
@@ -129,10 +131,14 @@ function waitForLine(
 async function capture(argv: string[]): Promise<void> {
   let symbol = ''
   let minutes = 360
+  const probeParams: string[] = []
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === '--symbol') symbol = (argv[++i] ?? '').trim().toUpperCase()
     else if (argv[i] === '--minutes') minutes = Math.max(5, Number(argv[++i]) || 360)
-    else fail(`[feeds:parity] unknown capture arg: ${argv[i]}`)
+    else if (argv[i] === '--probe-param') {
+      const v = (argv[++i] ?? '').trim()
+      if (v) probeParams.push(v)
+    } else fail(`[feeds:parity] unknown capture arg: ${argv[i]}`)
   }
   if (!/^(BTC|ETH|SOL|XRP)$/.test(symbol))
     fail('[feeds:parity] capture requires --symbol btc|eth|sol|xrp')
@@ -150,6 +156,7 @@ async function capture(argv: string[]): Promise<void> {
     startedAtMs: Date.now(),
     plannedMinutes: minutes,
     env: latencyEnvSnapshot(),
+    ...(probeParams.length > 0 ? { probeParams } : {}),
   }
   await writeManifest(manifest)
 
@@ -165,7 +172,14 @@ async function capture(argv: string[]): Promise<void> {
 
   // 2. Live bot, dry-run FORCED and ASSERTED (this is a live-trading machine).
   const bot = spawnNpm(
-    ['run', 'trade:bot', '--', '--strategy', 'feedsParityProbe.v1'],
+    [
+      'run',
+      'trade:bot',
+      '--',
+      '--strategy',
+      'feedsParityProbe.v1',
+      ...probeParams.flatMap((kv) => ['--param', kv]),
+    ],
     {
       TRADING_SYMBOL: symbol,
       DRY_RUN: 'true',
@@ -283,6 +297,7 @@ async function replay(argv: string[]): Promise<void> {
     '--sequential',
     '--batchUid',
     `parity-${runId}-${name}`,
+    ...(manifest.probeParams ?? []).flatMap((kv) => ['--param', kv]),
   ]
   if (base === 'recorded') {
     args.push(...covered)
@@ -369,6 +384,12 @@ function printReport(r: ParityReport): void {
   console.log(
     `top-of-book agreement (exchange-ts aligned): ${r.book.pct.toFixed(2)}% (${r.book.agree}/${r.book.total})`,
   )
+  if (r.syntheticTicks) {
+    const st = r.syntheticTicks
+    console.log(
+      `synthetic ticks: live=${st.live} replay=${st.replay} (Δ=${st.replay - st.live})  backward-time live/replay=${st.backwardTimeLive}/${st.backwardTimeReplay}`,
+    )
+  }
   for (const f of [r.binance, r.chainlink]) {
     if (f.suggestion && f.lag.stats) {
       console.log(
