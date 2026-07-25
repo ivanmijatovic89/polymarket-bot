@@ -87,15 +87,13 @@ export function createRtdsCryptoPricesClient(
 ): RtdsCryptoPricesClient {
   const url = opts.url ?? 'wss://ws-live-data.polymarket.com'
 
-  // Idle watchdog. The RTDS socket has been observed going silent WITHOUT a
-  // close event (2026-07-21 recorder incident; 2026-07-25 trading-bot capture:
-  // frozen 28 min, no error) — chainlink rounds arrive ~1/s, so prolonged
-  // silence means a stale connection, not a quiet market. When no DATA
-  // message (crypto_prices topics; PONGs and acks do NOT count) arrives for
-  // this long, force a reconnect through the normal path. 0 disables.
+  // Idle watchdog — provided by the shared WS layer (wsConnection
+  // heartbeat.deadAfterMs): liveness keys on DATA topics only via isActivity
+  // (PONGs and acks do NOT count), recovery is an immediate terminate()
+  // flowing through the normal onClose → reconnect path. 0 disables (the
+  // recorder does — it keeps its own watchdog whose gap records feed
+  // verify-crypto-prices).
   const idleReconnectMs = opts.idleReconnectMs ?? 30_000
-  let lastMessageAtMs = 0
-  let idleTimer: NodeJS.Timeout | undefined
 
   const allowedBinance = new Set(opts.binanceSymbols.map((s) => s.toLowerCase()))
   const allowedChainlink = new Set(opts.chainlinkSymbols.map((s) => s.toLowerCase()))
@@ -113,8 +111,6 @@ export function createRtdsCryptoPricesClient(
     reconnectTimer = undefined
     if (pingTimer) clearInterval(pingTimer)
     pingTimer = undefined
-    if (idleTimer) clearInterval(idleTimer)
-    idleTimer = undefined
   }
 
   const stopConn = (): void => {
@@ -171,7 +167,25 @@ export function createRtdsCryptoPricesClient(
         origin: 'https://polymarket.com',
       },
       // RTDS docs recommend sending text "PING" every ~5s; keep ws-level ping off here.
-      heartbeat: { pingIntervalMs: 0 },
+      // RTDS docs recommend the app-level text PING (below); ws-level pings
+      // stay off. The shared dead-check needs no ping interval.
+      heartbeat: {
+        pingIntervalMs: 0,
+        ...(idleReconnectMs > 0 ? { deadAfterMs: idleReconnectMs } : {}),
+        // DATA frames only: text PONG replies and non-data topics must not
+        // count as liveness (the stalled-subscription incident class).
+        // Anchored on the topic FIELD so acks/errors that merely mention the
+        // topic in their body don't count as liveness. Whitespace-tolerant so
+        // a formatting change server-side can't turn into a reconnect loop.
+        isActivity: (raw) => /"topic"\s*:\s*"crypto_prices/.test(raw),
+        onDead: ({ idleMs }) => {
+          opts.onStatus?.({
+            kind: 'disconnected',
+            attempt,
+            info: `idle watchdog: ${Math.round(idleMs / 1000)}s without data — terminating stale socket`,
+          })
+        },
+      },
       onOpen: () => {
         backoffMs = 1_000
         opts.onStatus?.({ kind: 'connected', attempt })
@@ -183,27 +197,6 @@ export function createRtdsCryptoPricesClient(
             // ignore
           }
         }, 5_000)
-        if (idleReconnectMs > 0) {
-          lastMessageAtMs = Date.now()
-          idleTimer = setInterval(() => {
-            if (!running) return
-            const idleMs = Date.now() - lastMessageAtMs
-            if (idleMs > idleReconnectMs) {
-              // terminate(), not close(): a graceful close handshake on a
-              // stale socket only completes after ws's ~30s close timeout, by
-              // which time the reconnect has already built a healthy
-              // replacement — whose lifecycle the late 'close' event would
-              // then wrongly tear down. terminate() emits 'close' immediately
-              // on THIS socket, flowing through the normal onClose path once.
-              const stale = conn
-              conn = undefined
-              clearTimers()
-              stale?.terminate()
-              scheduleReconnect(`idle watchdog (${Math.round(idleMs / 1000)}s without data)`)
-            }
-          }, 5_000)
-          idleTimer.unref?.()
-        }
       },
       onMessageText: (raw) => {
         if (!raw) return
@@ -213,15 +206,6 @@ export function createRtdsCryptoPricesClient(
 
         const msg = parsed as RtdsMessage
         if (typeof msg.topic !== 'string' || typeof msg.type !== 'string') return
-
-        // Liveness keys on DATA topics only (any symbol): a server that keeps
-        // answering PING or sending acks while the crypto_prices subscription
-        // is stalled must still trip the watchdog — the exact "frozen, no
-        // error, no close" incident class this exists for. Rounds arrive
-        // ~1/s, so 30s without data is never a quiet market.
-        if (msg.topic === 'crypto_prices' || msg.topic === 'crypto_prices_chainlink') {
-          lastMessageAtMs = Date.now()
-        }
 
         if (msg.topic === 'crypto_prices' && msg.type === 'update') {
           const p = parseUpdatePayload(msg.payload)
