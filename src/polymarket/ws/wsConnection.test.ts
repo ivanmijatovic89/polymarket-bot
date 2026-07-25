@@ -171,3 +171,23 @@ test('local close() stops the dead-check (no terminate after deliberate shutdown
   assert.equal(closes, 1)
   await server.close()
 })
+
+test('a THROWING onDead does not disarm the watchdog — socket still terminated', async () => {
+  const server = await startServer() // silence
+  let closed = false
+  createWsConnection({
+    url: server.url,
+    heartbeat: {
+      pingIntervalMs: 0,
+      deadAfterMs: 300,
+      onDead: () => {
+        throw new Error('observer boom')
+      },
+    },
+    onClose: () => {
+      closed = true
+    },
+  })
+  assert.ok(await waitFor(() => closed, 3_000), 'terminate must still happen after onDead throws')
+  await server.close()
+})

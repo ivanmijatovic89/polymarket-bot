@@ -114,6 +114,9 @@ export function createBinanceWsSpotPriceClient(
   }
 
   const connect = (): void => {
+    // Per-connect identity: callbacks close over THEIR socket so a late
+    // event from a replaced socket can't tear down the current one.
+    let thisConn: WsConnection | undefined
     if (!running) return
     stopConn()
 
@@ -157,6 +160,7 @@ export function createBinanceWsSpotPriceClient(
         opts.onStatus?.({ kind: 'disconnected', attempt, info: `ws error: ${err.message}` })
       },
       onClose: (code, reason) => {
+        if (conn !== thisConn) return
         opts.onStatus?.({
           kind: 'disconnected',
           attempt,
@@ -166,6 +170,7 @@ export function createBinanceWsSpotPriceClient(
         scheduleReconnect(`ws closed code=${code}`)
       },
     })
+    thisConn = conn
   }
 
   return {

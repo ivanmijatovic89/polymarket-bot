@@ -68,10 +68,22 @@ async function loadDisconnectGaps(pair: string): Promise<Array<{ fromMs: number;
       const o = JSON.parse(line) as {
         ts_ms?: number
         kind?: string
+        info?: string
         gap_from_ms?: number
         gap_to_ms?: number
       }
       if (typeof o.ts_ms !== 'number' || typeof o.kind !== 'string') continue
+      // The shared WS watchdog reports HOW LONG the socket had been silent
+      // when it fired — backdate the gap to the stall's actual start, so the
+      // pre-detection window (trades lost before the ~30s threshold tripped)
+      // is excused too, matching the chainlink recorder's gap semantics.
+      if (o.kind === 'disconnected' && typeof o.info === 'string') {
+        const m = /idle watchdog: (\d+)s without data/.exec(o.info)
+        if (m) {
+          events.push({ ts_ms: o.ts_ms - Number(m[1]) * 1000, kind: o.kind })
+          continue
+        }
+      }
       // Machine-sleep freezes carry their own interval (recorder heartbeat).
       if (o.kind === 'clock-jump') {
         if (typeof o.gap_from_ms === 'number' && typeof o.gap_to_ms === 'number') {

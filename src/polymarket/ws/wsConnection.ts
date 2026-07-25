@@ -114,8 +114,10 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
 
   ws.on('open', () => {
     bump()
-    opts.onOpen?.()
 
+    // Timers are armed BEFORE the consumer's onOpen so a deliberate
+    // close()/terminate() inside that callback clears them (instead of the
+    // handler re-arming timers on a closing socket).
     if (pingIntervalMs > 0) {
       pingTimer = setInterval(() => {
         safePing()
@@ -126,11 +128,22 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
     // interval (the old coupling made deadAfterMs silently inert for every
     // client with pingIntervalMs: 0).
     if (deadAfterMs > 0) {
+      let deadNotified = false
       deadTimer = setInterval(() => {
         const idleMs = Date.now() - lastActivityMs
         if (idleMs > deadAfterMs) {
-          clearTimers()
-          opts.heartbeat?.onDead?.({ idleMs })
+          if (!deadNotified) {
+            deadNotified = true
+            // A throwing observer must never disarm the recovery.
+            try {
+              opts.heartbeat?.onDead?.({ idleMs })
+            } catch {
+              // ignore
+            }
+          }
+          // The timer keeps running: terminate() is retried every tick until
+          // the 'close' event clears it — a one-shot attempt that failed
+          // would otherwise leave the stale socket alive forever.
           try {
             ws.terminate()
           } catch {
@@ -139,6 +152,8 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
         }
       }, deadCheckIntervalMs(deadAfterMs))
     }
+
+    opts.onOpen?.()
   })
 
   ws.on('pong', () => {
@@ -148,7 +163,9 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
   ws.on('message', (data: RawData) => {
     // Some servers send JSON as "binary" frames. We still try to decode as UTF-8 text.
     const s = rawDataToString(data)
-    if (treatMessagesAsActivity && (s === null || !isActivity || isActivity(s))) bump()
+    // Under an isActivity predicate, an undecodable frame cannot be proven to
+    // be data — it does not count as liveness.
+    if (treatMessagesAsActivity && (isActivity ? s !== null && isActivity(s) : true)) bump()
     if (s === null) return
     opts.onMessageText?.(s)
   })

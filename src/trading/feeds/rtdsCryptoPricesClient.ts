@@ -174,7 +174,10 @@ export function createRtdsCryptoPricesClient(
         ...(idleReconnectMs > 0 ? { deadAfterMs: idleReconnectMs } : {}),
         // DATA frames only: text PONG replies and non-data topics must not
         // count as liveness (the stalled-subscription incident class).
-        isActivity: (raw) => raw !== 'PONG' && raw.includes('"crypto_prices'),
+        // Anchored on the topic FIELD so acks/errors that merely mention the
+        // topic in their body don't count as liveness. Whitespace-tolerant so
+        // a formatting change server-side can't turn into a reconnect loop.
+        isActivity: (raw) => /"topic"\s*:\s*"crypto_prices/.test(raw),
         onDead: ({ idleMs }) => {
           opts.onStatus?.({
             kind: 'disconnected',
