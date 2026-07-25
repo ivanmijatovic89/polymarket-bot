@@ -33,6 +33,13 @@ export type BinanceWsSpotPriceClientOptions = {
    * synthetic feed ticks are enabled (binanceWsSpotPrice.tickOnUpdate).
    */
   onAggTrade?: (agg: AggTradeMessage, receivedAtMs: number) => void
+  /**
+   * Force a reconnect when no message arrives for this long — the same
+   * silent-stall protection the RTDS client has (shared wsConnection
+   * dead-check). aggTrades flow continuously (~2-20/s), so 30s of silence is
+   * a stale socket, not a quiet market. Default 30_000; 0 disables.
+   */
+  idleReconnectMs?: number
   onStatus?: (s: {
     kind: 'connected' | 'reconnecting' | 'disconnected'
     attempt: number
@@ -73,6 +80,8 @@ export function createBinanceWsSpotPriceClient(
 
   const base = (opts.baseUrl ?? 'wss://stream.binance.com:9443').replace(/\/+$/, '')
   const url = `${base}/ws/${symbol}@aggTrade`
+
+  const idleReconnectMs = opts.idleReconnectMs ?? 30_000
 
   let running = false
   let conn: WsConnection | undefined
@@ -116,7 +125,19 @@ export function createBinanceWsSpotPriceClient(
         maxPayload: 10 * 1024 * 1024,
       },
       // Binance WS server sends ping frames; `ws` replies with pong automatically.
-      heartbeat: { pingIntervalMs: 0 },
+      // Binance sends protocol pings (ws auto-pongs); ws-level pings stay
+      // off. The shared dead-check keys on messages — aggTrades are the data.
+      heartbeat: {
+        pingIntervalMs: 0,
+        ...(idleReconnectMs > 0 ? { deadAfterMs: idleReconnectMs } : {}),
+        onDead: ({ idleMs }) => {
+          opts.onStatus?.({
+            kind: 'disconnected',
+            attempt,
+            info: `idle watchdog: ${Math.round(idleMs / 1000)}s without data — terminating stale socket`,
+          })
+        },
+      },
       onOpen: () => {
         backoffMs = 1_000
         opts.onStatus?.({ kind: 'connected', attempt, info: `${symbol}@aggTrade` })

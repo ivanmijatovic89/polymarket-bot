@@ -7,8 +7,18 @@ export type WsHeartbeatOptions = {
    */
   pingIntervalMs?: number
   /**
-   * If set, terminate the socket when no activity has been observed for this long.
-   * If omitted, we will NOT terminate due to inactivity (quiet streams are allowed).
+   * If set, terminate the socket when no activity has been observed for this
+   * long. If omitted (or 0), we will NOT terminate due to inactivity (quiet
+   * streams are allowed — e.g. the user WS).
+   *
+   * The dead-check runs on its OWN timer, independent of `pingIntervalMs` —
+   * a client that disables ws-level pings (both feed clients do) still gets
+   * stall protection. Sockets have twice been observed going silent WITHOUT
+   * a close event (RTDS, 2026-07-21 and 2026-07-25 — the second froze the
+   * chainlink feed for 28 minutes with zero log output). Recovery uses
+   * `terminate()`, not `close()`: a graceful close handshake on a stale
+   * socket only completes after ws's ~30s close timeout, long after the
+   * consumer's reconnect built a healthy replacement.
    */
   deadAfterMs?: number
   /**
@@ -16,6 +26,19 @@ export type WsHeartbeatOptions = {
    * Defaults to true.
    */
   treatMessagesAsActivity?: boolean
+  /**
+   * When messages count as activity, only those for which this predicate
+   * returns true do. Lets a client key liveness on DATA frames only — e.g.
+   * the RTDS client excludes text "PONG" replies and non-data topics, so a
+   * server that keeps answering pings while the subscription is stalled
+   * still trips the dead-check. Default: every message counts.
+   */
+  isActivity?: (raw: string) => boolean
+  /**
+   * Observability hook: called once, just before the dead-check terminates
+   * the socket. The subsequent `onClose` is the normal teardown path.
+   */
+  onDead?: (info: { idleMs: number }) => void
 }
 
 export type WsConnectionOptions = {
@@ -52,14 +75,21 @@ function rawDataToString(d: RawData): string | null {
   }
 }
 
+/** Dead-check poll cadence: fine-grained for short thresholds (tests), capped at 5s. */
+export function deadCheckIntervalMs(deadAfterMs: number): number {
+  return Math.max(50, Math.min(5_000, Math.trunc(deadAfterMs / 4)))
+}
+
 export function createWsConnection(opts: WsConnectionOptions): WsConnection {
   const ws = new WebSocket(opts.url, opts.wsOptions)
 
   const treatMessagesAsActivity = opts.heartbeat?.treatMessagesAsActivity ?? true
   const pingIntervalMs = opts.heartbeat?.pingIntervalMs ?? 0
-  const deadAfterMs = opts.heartbeat?.deadAfterMs
+  const deadAfterMs = opts.heartbeat?.deadAfterMs ?? 0
+  const isActivity = opts.heartbeat?.isActivity
 
   let pingTimer: NodeJS.Timeout | undefined
+  let deadTimer: NodeJS.Timeout | undefined
   let lastActivityMs = Date.now()
 
   const bump = (): void => {
@@ -69,6 +99,8 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
   const clearTimers = (): void => {
     if (pingTimer) clearInterval(pingTimer)
     pingTimer = undefined
+    if (deadTimer) clearInterval(deadTimer)
+    deadTimer = undefined
   }
 
   const safePing = (): void => {
@@ -86,19 +118,26 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
 
     if (pingIntervalMs > 0) {
       pingTimer = setInterval(() => {
-        if (deadAfterMs !== undefined) {
-          const now = Date.now()
-          if (now - lastActivityMs > deadAfterMs) {
-            try {
-              ws.terminate()
-            } catch {
-              // ignore
-            }
-            return
-          }
-        }
         safePing()
       }, pingIntervalMs)
+    }
+
+    // Dead-check on its own timer — deliberately NOT coupled to the ping
+    // interval (the old coupling made deadAfterMs silently inert for every
+    // client with pingIntervalMs: 0).
+    if (deadAfterMs > 0) {
+      deadTimer = setInterval(() => {
+        const idleMs = Date.now() - lastActivityMs
+        if (idleMs > deadAfterMs) {
+          clearTimers()
+          opts.heartbeat?.onDead?.({ idleMs })
+          try {
+            ws.terminate()
+          } catch {
+            // ignore
+          }
+        }
+      }, deadCheckIntervalMs(deadAfterMs))
     }
   })
 
@@ -108,8 +147,8 @@ export function createWsConnection(opts: WsConnectionOptions): WsConnection {
 
   ws.on('message', (data: RawData) => {
     // Some servers send JSON as "binary" frames. We still try to decode as UTF-8 text.
-    if (treatMessagesAsActivity) bump()
     const s = rawDataToString(data)
+    if (treatMessagesAsActivity && (s === null || !isActivity || isActivity(s))) bump()
     if (s === null) return
     opts.onMessageText?.(s)
   })
