@@ -169,6 +169,10 @@ export type DwellGateSnapshot = {
 export class DwellGatePlugin implements Plugin {
   readonly id = 'dwellGate'
 
+  // Pure function of tick time — synthetic ticks improve gate resolution
+  // (the gate opens at the true elapsed instant, not the next book event).
+  readonly handlesSyntheticTicks = true
+
   private readonly from: number
   private readonly to: number
   private readonly requiredMs: number

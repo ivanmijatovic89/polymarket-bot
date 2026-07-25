@@ -1,11 +1,23 @@
 import type { MarketTick } from '../Strategy.js'
 import type { StrategyContext } from '../StrategyContext.js'
+import { isSyntheticFeedTick } from '../../market/syntheticTick.js'
 
 export type PluginId = string
 
 export interface Plugin {
   id: PluginId
   onMarketTick: (tick: MarketTick, ctx?: StrategyContext) => void
+  /**
+   * Opt-in: when true, onMarketTick also fires for synthetic feed ticks
+   * (event_type 'binance_agg_trade' / 'chainlink_round' — unchanged book,
+   * re-stamped time). Default absent/false: the plugin only ever sees real
+   * book ticks, so event-counting plugins (e.g. TimeWindowVolatility's
+   * one-sample-per-tick) cannot silently regress when a strategy opts into
+   * synthetic ticks. `snapshot()` is still rebuilt on every tick either way.
+   * Structural (a data property), so it survives the CJS/ESM dual-class
+   * loading described in isExternalFeedsRequestPlugin.
+   */
+  handlesSyntheticTicks?: boolean
   snapshot?: () => unknown
   reset?: () => void
 }
@@ -48,7 +60,11 @@ export class PluginSet {
   }
 
   onMarketTick(tick: MarketTick, ctx?: StrategyContext): void {
-    for (const p of this.plugins) p.onMarketTick(tick, ctx)
+    const synthetic = isSyntheticFeedTick(tick.msg)
+    for (const p of this.plugins) {
+      if (synthetic && p.handlesSyntheticTicks !== true) continue
+      p.onMarketTick(tick, ctx)
+    }
     this.cached = this.buildSnapshot()
   }
 

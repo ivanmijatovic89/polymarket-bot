@@ -89,6 +89,9 @@ export type TimeWindowGateSnapshot = {
 export class TimeWindowGatePlugin implements Plugin {
   readonly id = 'timeWindowGate'
 
+  // Pure function of tick time — synthetic ticks improve gate resolution.
+  readonly handlesSyntheticTicks = true
+
   private readonly allowAfterMs: number
   private readonly disableAfterMs: number
   private readonly gate: ReturnType<typeof createTimeWindowGate>

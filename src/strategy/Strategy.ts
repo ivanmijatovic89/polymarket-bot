@@ -1,5 +1,6 @@
 import type { EngineTick } from '../market/MarketEngine.js'
-import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
+import type { AnyMarketMessage, MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
+import type { SyntheticFeedTickMessage } from '../market/syntheticTick.js'
 import type { StrategyContext } from './StrategyContext.js'
 
 export type OrderSide = 'BUY' | 'SELL'
@@ -16,8 +17,12 @@ export type ExchangeOrderId = string
 
 export type IntentMeta = Record<string, unknown>
 
-export type MarketTick = EngineTick & {
-  // MarketEngine emits ticks only for book + price_change, but keep type permissive.
+export type MarketTick = Omit<EngineTick, 'msg'> & {
+  // MarketEngine emits ticks only for book + price_change. Strategies may
+  // additionally receive opt-in synthetic feed ticks (tickOnTrade/tickOnRound)
+  // whose msg type is deliberately outside AnyMarketMessage so it can never
+  // reach the orderbook engine — see src/market/syntheticTick.ts.
+  msg: AnyMarketMessage | SyntheticFeedTickMessage
   snapshot: MarketOrderBooksSnapshot
 }
 
@@ -418,10 +423,11 @@ export type AccountEvent =
 export type Strategy = {
   name: string
   /**
-   * Optional, strategy-declared external feed requirements.
+   * Optional, strategy-declared external feed requirements (legacy seam —
+   * prefer registering `ExternalFeedsRequestPlugin`; keep the shapes in sync).
    *
-   * Live-only: CLIs (like `src/cli/trading-bot.ts`) may enable these feeds.
-   * Backtests should ignore them (no external data).
+   * Fulfilled in BOTH runtimes: live by `trading-bot.ts` (real feed clients),
+   * in backtests by `wireBacktestExternalFeeds` (historical datasets).
    */
   requiredFeeds?: {
     rtdsCryptoPrices?: {
@@ -429,6 +435,12 @@ export type Strategy = {
       binanceSymbols?: string[]
       /** Chainlink RTDS symbols, e.g. ["btc/usd"] */
       chainlinkSymbols?: string[]
+      /**
+       * Opt-in synthetic strategy ticks on every Chainlink round
+       * (event_type 'chainlink_round'). Not implemented yet — reserved;
+       * see docs/backtest/adr-binance-driven-ticks.md.
+       */
+      tickOnRound?: boolean
     }
     /**
      * Direct Binance Spot websocket price feed (aggTrade last price).
@@ -440,6 +452,13 @@ export type Strategy = {
     binanceWsSpotPrice?: {
       /** e.g. "btcusdt" */
       symbol?: string
+      /**
+       * Opt-in synthetic strategy ticks on every Binance aggTrade
+       * (event_type 'binance_agg_trade'), live and replay. Default false —
+       * without it, strategies only tick on Polymarket book events and
+       * behavior is bit-identical to before this feature existed.
+       */
+      tickOnTrade?: boolean
     }
     /**
      * Polymarket price-to-beat for Up/Down markets (open price for the interval).
