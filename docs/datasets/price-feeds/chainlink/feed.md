@@ -31,6 +31,14 @@ carries only the chainlink stream) and stays absent in replay — same as a live
 run without that subscription. Strategies needing a Binance price use
 `binanceWsSpotPrice` ([Binance aggTrades Feed](../binance/feed.md)).
 
+## Waking the strategy on every round (tickOnUpdate)
+
+`rtdsCryptoPrices: { tickOnUpdate: true }` additionally fires a synthetic
+`onMarketTick` (event_type `chainlink_round`) on **every round** (~1/s), live
+and replay identically — replay visibility uses the two-clock broadcast time
+plus the measured bot leg described below. Full semantics and measured
+verification: [Synthetic Feed Ticks](/datasets/price-feeds/synthetic-ticks).
+
 ## The two-clock model (the one structural difference vs the Binance feed)
 
 Every Chainlink round carries two timestamps:
