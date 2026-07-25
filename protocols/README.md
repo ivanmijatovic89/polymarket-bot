@@ -38,8 +38,9 @@ protocols/<name>/
    `fable-exp-041`). The registry skips non-conforming ids with a warning.
 3. **Protocol strategies load fail-soft.** A broken file is warned about and
    skipped — a protocol can only break itself, never the fleet or another
-   protocol. Check compile health with `npm run code:typecheck:protocols`
-   (also run as the non-blocking `Protocols Quality` CI job).
+   protocol. Check compile/lint health with `npm run code:typecheck:protocols`
+   and `npm run code:eslint:protocols` (both also run as the non-blocking
+   `Protocols Quality` CI job).
 4. **Commits go straight to main**, message prefixed `<name>: ...`. Shared
    `src/` changes are the exception — those go through a normal PR like any
    other code change.

@@ -1,6 +1,6 @@
 name: Protocols Quality
 
-# Typechecks protocol strategies (protocols/*/strategies/ + src/ via
+# Typechecks and lints protocol strategies (protocols/*/strategies/ + src/ via
 # tsconfig.protocols.json). Deliberately NOT in the ruleset's required status
 # checks: a protocol's type error must never block unrelated PRs. The registry
 # loads protocol strategies fail-soft, so a red run here means "this protocol's
@@ -43,3 +43,6 @@ jobs:
 
       - name: Protocols typecheck
         run: npm run code:typecheck:protocols
+
+      - name: Protocols ESLint
+        run: npm run code:eslint:protocols
