@@ -279,6 +279,16 @@ async function main(): Promise<void> {
   const requiredFeeds = externalFeedsReqPlugin?.config ?? strategy.requiredFeeds
 
   const rtdsReq = requiredFeeds?.rtdsCryptoPrices
+
+  // tickOnUpdate is read ONLY from the request plugin, never from the legacy
+  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
+  // legacy seam live would create the exact live/replay divergence this
+  // feature is built to avoid. Declared before the feed clients so their
+  // callbacks never touch a TDZ binding.
+  const binanceTickOnUpdate =
+    externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnUpdate === true
+  const chainlinkTickOnUpdate =
+    externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnUpdate === true
   // No explicit symbols → follow the traded market, mirroring the
   // binanceWsSpotPrice semantics below: `rtdsCryptoPrices: {}` derives
   // <symbol>usdt / <symbol>/usd from TRADING_SYMBOL; an explicit list wins.
@@ -344,7 +354,15 @@ async function main(): Promise<void> {
           binanceSymbols: rtdsBinanceSymbols,
           chainlinkSymbols: rtdsChainlinkSymbols,
           onBinanceUpdate: (u) => feedsStore!.updateBinance(u),
-          onChainlinkUpdate: (u) => feedsStore!.updateChainlink(u),
+          onChainlinkUpdate: (u) => {
+            // Store first, then (opt-in) tick — the tick body reads a store
+            // that already contains this round.
+            feedsStore!.updateChainlink(u)
+            if (chainlinkTickOnUpdate)
+              // Lowercased for parity: replay schedules the lowercased feed
+              // symbol, and live wire payloads are not case-guaranteed.
+              dispatchSyntheticFeedTick?.('chainlink_round', u.symbol.toLowerCase())
+          },
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
             logger.info(`[feeds][rtds_polymarket_ws] ${s.kind} attempt=${s.attempt}${extra}`)
@@ -352,12 +370,6 @@ async function main(): Promise<void> {
         })
       : null
 
-  // tickOnUpdate is read ONLY from the request plugin, never from the legacy
-  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
-  // legacy seam live would create the exact live/replay divergence this
-  // feature is built to avoid.
-  const binanceTickOnTrade =
-    externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnUpdate === true
   const binanceWsClient =
     binanceWsReq && binanceWsEnabled
       ? createBinanceWsSpotPriceClient({
@@ -367,7 +379,7 @@ async function main(): Promise<void> {
           // runner's serial funnel — the tick body runs on a later microtask,
           // after onPrice has synchronously updated the store, so the tick
           // reads a store that already contains this trade.
-          ...(binanceTickOnTrade
+          ...(binanceTickOnUpdate
             ? {
                 onAggTrade: () => dispatchSyntheticFeedTick?.('binance_agg_trade', binanceWsSymbol),
               }
@@ -579,15 +591,20 @@ async function main(): Promise<void> {
       }),
     )
   }
-  if (binanceTickOnTrade) {
+  if (binanceTickOnUpdate) {
     logger.info(
       `[trading-bot][⚙️] synthetic feed ticks ENABLED (binance_agg_trade, symbol=${binanceWsSymbol})`,
     )
   }
-  if (externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnUpdate === true) {
-    logger.warn(
-      '[trading-bot][⚠️] rtdsCryptoPrices.tickOnUpdate is reserved but NOT implemented — no chainlink synthetic ticks will fire (see docs/backtest/adr-binance-driven-ticks.md)',
+  if (chainlinkTickOnUpdate) {
+    logger.info(
+      `[trading-bot][⚙️] synthetic feed ticks ENABLED (chainlink_round, symbols=${rtdsChainlinkSymbols.join(', ')})`,
     )
+    if (rtdsChainlinkSymbols.length > 1) {
+      logger.warn(
+        `[trading-bot][⚠️] tickOnUpdate with ${rtdsChainlinkSymbols.length} chainlink symbols: live ticks on EVERY symbol's round, but replay schedules only the first (${rtdsChainlinkSymbols[0]}) — tick counts will diverge from backtests. Use a single symbol for parity.`,
+      )
+    }
   }
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {

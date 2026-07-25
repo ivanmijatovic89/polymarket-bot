@@ -39,7 +39,7 @@ export const ConfigSchema = z.strictObject({
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
     .default(false),
-  /** Opt into synthetic binance ticks — measuring them needs logEveryTick=true. */
+  /** Opt into synthetic ticks on BOTH feeds (binance trades + chainlink rounds) — measuring them needs logEveryTick=true. */
   tickOnUpdate: z
     .union([z.boolean(), z.string()])
     .transform((v) => v === true || v === 'true')
@@ -84,8 +84,9 @@ export function createStrategy(cfg: Config): { strategy: Strategy; plugins: Plug
 
   const externalFeedsPlugin = new ExternalFeedsRequestPlugin({
     // pair follows the traded market; tickOnUpdate opts into synthetic ticks
+    // on BOTH feeds (binance trades + chainlink rounds)
     binanceWsSpotPrice: { ...(cfg.tickOnUpdate ? { tickOnUpdate: true } : {}) },
-    rtdsCryptoPrices: {}, // chainlink symbol follows the traded market
+    rtdsCryptoPrices: { ...(cfg.tickOnUpdate ? { tickOnUpdate: true } : {}) }, // chainlink symbol follows the traded market
     polymarketPriceToBeat: { enabled: true },
   })
 

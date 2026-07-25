@@ -6,7 +6,12 @@ export type ExternalFeedsRequestConfig = {
   rtdsCryptoPrices?: {
     binanceSymbols?: string[]
     chainlinkSymbols?: string[]
-    /** Reserved for the chainlink synthetic-tick follow-up (see ADR). */
+    /**
+     * Opt-in synthetic strategy ticks on every Chainlink round
+     * (event_type 'chainlink_round'), live and replay identically.
+     * With multiple chainlinkSymbols only the first is replay-schedulable —
+     * use a single symbol for parity.
+     */
     tickOnUpdate?: boolean
   }
   binanceWsSpotPrice?: {

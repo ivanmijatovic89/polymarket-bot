@@ -198,11 +198,13 @@ test('syntheticTicks counts synthetic rows and flags backward exchangeTsMs (the 
     [T0 + 100, T0 + 100, true],
     [T0 + 60_000, T0 + 60_000, false],
   ])
-  // Replay: one synthetic row stamped BELOW the preceding real tick's exchange
-  // ts — exactly what an un-clamped builder would produce.
+  // Replay: a synthetic row stamped BELOW the preceding SYNTHETIC row of the
+  // same feed — exactly what an un-clamped builder would produce. (A synthetic
+  // row below a REAL row is legitimate sort-order noise and must NOT count.)
   const replay = mk('parquet', [
     [T0, T0, false],
-    [T0 + 100, T0 - 50, true],
+    [T0 + 100, T0 + 100, true],
+    [T0 + 200, T0 + 50, true],
     [T0 + 60_000, T0 + 60_000, false],
   ])
   const report = compareParityLogs({
@@ -213,7 +215,7 @@ test('syntheticTicks counts synthetic rows and flags backward exchangeTsMs (the 
   assert.ok(report)
   assert.deepEqual(report.syntheticTicks, {
     live: 1,
-    replay: 1,
+    replay: 2,
     backwardTimeLive: 0,
     backwardTimeReplay: 1,
   })
@@ -228,4 +230,45 @@ test('syntheticTicks is null when neither side has synthetic rows', () => {
   })
   assert.ok(report)
   assert.equal(report.syntheticTicks, null)
+})
+
+test('syntheticTicks backwardness is per-feed and ignores interleaved real rows', () => {
+  const mk = (rows: Array<[number, number, string | null]>): ParityRow[] =>
+    rows.map(([seenAtMs, exchangeTsMs, eventType]) =>
+      row({
+        seenAtMs,
+        exchangeTsMs,
+        mode: 'parquet',
+        ...(eventType ? { eventType, synthetic: true } : {}),
+      }),
+    )
+  const replay = mk([
+    [T0, T0, null],
+    // binance synthetic clamped UP to a late book ts…
+    [T0 + 100, T0 + 500, 'binance_agg_trade'],
+    // …then a REAL row with a lower exchange ts (legit — must NOT flag)…
+    [T0 + 200, T0 + 150, null],
+    // …then a CHAINLINK synthetic below the binance one — different feed, must NOT cross-flag…
+    [T0 + 300, T0 + 300, 'chainlink_round'],
+    // …and a later chainlink synthetic above it (in-feed forward — clean).
+    [T0 + 400, T0 + 400, 'chainlink_round'],
+    [T0 + 60_000, T0 + 60_000, null],
+  ])
+  const live = mk([
+    [T0, T0, null],
+    [T0 + 100, T0 + 100, 'binance_agg_trade'],
+    [T0 + 60_000, T0 + 60_000, null],
+  ])
+  const report = compareParityLogs({
+    live,
+    replay,
+    currentLatency: { binanceMs: 110, chainlinkMs: 320 },
+  })
+  assert.ok(report)
+  assert.deepEqual(report.syntheticTicks, {
+    live: 1,
+    replay: 3,
+    backwardTimeLive: 0,
+    backwardTimeReplay: 0, // no cross-feed or real-row false positives
+  })
 })

@@ -7,13 +7,14 @@ description: Architecture decision record for synthetic feed ticks — strategie
 
 ## Status
 
-**Accepted — implemented for `binance_agg_trade`** (opt-in
-`binanceWsSpotPrice: { tickOnUpdate: true }`, live + replay).
-`chainlink_round` (`rtdsCryptoPrices: { tickOnUpdate: true }`) is reserved in
-the types and scheduler and ships as a follow-up PR with its own parity
-capture. Prerequisites that landed first: the Binance aggTrades feed
-(PR #121), the feeds parity harness (#141), and live tick-dispatch
-serialization (#156).
+**Accepted — implemented for BOTH `binance_agg_trade` and `chainlink_round`**
+(opt-in via the uniform `tickOnUpdate: true` flag on `binanceWsSpotPrice` /
+`rtdsCryptoPrices`, live + replay). Chainlink visibility uses the two-clock
+model's broadcast time + the measured bot leg
+(`BACKTEST_RTDS_CHAINLINK_LATENCY_MS`) — the same instant the passive feed
+makes the round readable. Prerequisites that landed first: the Binance
+aggTrades feed (PR #121), the chainlink crypto_prices feed (#139), the feeds
+parity harness (#141), and live tick-dispatch serialization (#156).
 
 ## Implementation notes (what shipped, where it deviates or sharpens the proposal)
 
