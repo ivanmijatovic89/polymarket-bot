@@ -6,9 +6,17 @@ export type ExternalFeedsRequestConfig = {
   rtdsCryptoPrices?: {
     binanceSymbols?: string[]
     chainlinkSymbols?: string[]
+    /** Reserved for the chainlink synthetic-tick follow-up (see ADR). */
+    tickOnRound?: boolean
   }
   binanceWsSpotPrice?: {
     symbol?: string
+    /**
+     * Opt-in synthetic strategy ticks on every Binance aggTrade
+     * (event_type 'binance_agg_trade'), live and replay identically.
+     * Default false: behavior is bit-identical to before the feature.
+     */
+    tickOnTrade?: boolean
   }
   polymarketPriceToBeat?: {
     enabled?: boolean
@@ -29,6 +37,10 @@ export type ExternalFeedsRequestConfig = {
  */
 export class ExternalFeedsRequestPlugin implements Plugin {
   readonly id = 'externalFeeds'
+
+  // Must see synthetic ticks: lastTick drives the point-in-time provider, so a
+  // synthetic tick's feed snapshot must be read as-of that tick's clock.
+  readonly handlesSyntheticTicks = true
 
   readonly config: ExternalFeedsRequestConfig
 

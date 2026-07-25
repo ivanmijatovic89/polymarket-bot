@@ -25,7 +25,10 @@ import {
   replayOrderBookForMarket,
   type ReplayApplyEvent,
 } from '../parquet/replay/replayOrderBookForMarket.js'
-import { wireBacktestExternalFeeds } from './feeds/wireBacktestExternalFeeds.js'
+import { feedClockMs, wireBacktestExternalFeeds } from './feeds/wireBacktestExternalFeeds.js'
+import { createSyntheticFlusher } from './feeds/syntheticTickSchedule.js'
+import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
+import type { MarketTick } from '../strategy/Strategy.js'
 
 export type RunSingleMarketInputMode = 'recorded' | 'telonex-delta' | 'telonex-paired'
 
@@ -215,7 +218,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   // registers ExternalFeedsRequestPlugin, fulfill its requested sub-feeds
   // from historical data before any tick is replayed. Strategies without the
   // plugin return immediately — no behavior change for them.
-  await wireBacktestExternalFeeds({
+  const { syntheticTicks } = await wireBacktestExternalFeeds({
     pluginSet,
     slug: input.slug,
     strategyWindow: input.strategyWindow ?? null,
@@ -228,20 +231,20 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
   const currentMarketSplits: PositionsSplit[] = []
   const seenSplitIds = new Set<string>()
 
-  const onSnapshot = async (
-    snap: MarketOrderBooksSnapshot,
-    raw: ReplayApplyEvent,
-  ): Promise<void> => {
+  // Shared per-tick pipeline for real AND synthetic ticks: stats → window
+  // gate → runner → fill/split harvest. Verbatim extraction of the previous
+  // onSnapshot body (behavior-preserving for real ticks).
+  const dispatchTick = async (tick: MarketTick): Promise<void> => {
     if (input.shouldStop?.()) return
     eventsProcessed += 1
-    eventsByType[raw.msg.event_type] = (eventsByType[raw.msg.event_type] ?? 0) + 1
+    eventsByType[tick.msg.event_type] = (eventsByType[tick.msg.event_type] ?? 0) + 1
 
     if (!currentMarketId) {
-      currentMarketId = snap.market
+      currentMarketId = tick.snapshot.market
     }
 
     if (input.strategyWindow) {
-      const ts = snap.timestamp
+      const ts = tick.snapshot.timestamp
       if (
         !Number.isFinite(ts) ||
         ts < input.strategyWindow.startMs ||
@@ -251,7 +254,7 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       }
     }
 
-    await runner.onMarketTick({ source: raw.source, msg: raw.msg, snapshot: snap })
+    await runner.onMarketTick(tick)
 
     if (!currentMarketId) return
     const portfolio = runner.getPortfolio().snapshot()
@@ -270,6 +273,46 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
         seenSplitIds.add(s.id)
       }
     }
+  }
+
+  // Opt-in synthetic feed ticks: interleaved here — the three replayers stay
+  // untouched, so non-opted-in replays are structurally bit-identical. The
+  // flusher dispatches scheduled events strictly BEFORE each real tick's feed
+  // clock (equal timestamps ⇒ orderbook first, mirroring live where the book
+  // event is applied before the feed value is read), reusing the last real
+  // book snapshot (live rule: no book yet ⇒ feed events are dropped).
+  let lastRealSnap: MarketOrderBooksSnapshot | undefined
+  const synthSource = (visibilityMs: number): MarketTick['source'] => ({
+    kind: 'parquet',
+    filePath: input.filePath,
+    ingestSeq: 0n, // no parquet row backs a synthetic tick
+    tsLocalMs: visibilityMs,
+  })
+  const flusher = createSyntheticFlusher({
+    schedule: syntheticTicks,
+    hasBaseSnapshot: () => lastRealSnap !== undefined,
+    ...(input.shouldStop ? { shouldStop: input.shouldStop } : {}),
+    dispatch: (ev) =>
+      dispatchTick(
+        buildSyntheticFeedTick({
+          eventType: ev.eventType,
+          symbol: ev.symbol,
+          visibilityMs: ev.visibilityMs,
+          baseSnapshot: lastRealSnap!,
+          source: synthSource(ev.visibilityMs),
+        }),
+      ),
+  })
+
+  const onSnapshot = async (
+    snap: MarketOrderBooksSnapshot,
+    raw: ReplayApplyEvent,
+  ): Promise<void> => {
+    if (input.shouldStop?.()) return
+    const tick: MarketTick = { source: raw.source, msg: raw.msg, snapshot: snap }
+    await flusher.flushUpTo(feedClockMs(tick))
+    lastRealSnap = snap
+    await dispatchTick(tick)
   }
 
   // Relative paths are anchored at REPO_ROOT (not process.cwd()) so workers
@@ -319,6 +362,9 @@ export async function runSingleMarket(input: RunSingleMarketInput): Promise<RunS
       onSnapshot,
     })
   }
+
+  // Window-bounded synthetic ticks scheduled after the last real event.
+  await flusher.flushTail()
 
   // If we couldn't resolve, skip stats but report counts/timing.
   if (!input.marketResolution) {

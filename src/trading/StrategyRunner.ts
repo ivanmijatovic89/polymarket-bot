@@ -1,4 +1,5 @@
 import type { MarketOrderBooksSnapshot } from '../market/orderbook/index.js'
+import { isSyntheticFeedTick } from '../market/syntheticTick.js'
 import type {
   AccountEvent,
   Intent,
@@ -236,13 +237,23 @@ export class StrategyRunner {
 
     // Allow execution layer to emit fills/state updates that happen "because the market moved"
     // (only used in backtests; live fills arrive via user WS / polling).
-    const preEvents = await this.orderManager.onMarketTick({
-      nowMs: tick.snapshot.timestamp || Date.now(),
-      ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
-      portfolio: this.portfolio.snapshot(),
-    })
-    for (const ev of preEvents) this.enqueueAccountEvent(ev)
-    await this.drainAccountEvents()
+    //
+    // Synthetic feed ticks carry an UNCHANGED book, so the execution simulator
+    // must not run on them: re-testing a resting maker remainder against a
+    // stale crossed book would create fills live never gives, and GTD expiry /
+    // the latency queue would re-time. Live this call is a no-op anyway
+    // (LiveExecution.onMarketTick returns []), so skipping it here — in shared
+    // code — keeps live == replay by construction. Queued-mode intents
+    // consequently also dispatch only on real book ticks, in both runtimes.
+    if (!isSyntheticFeedTick(tick.msg)) {
+      const preEvents = await this.orderManager.onMarketTick({
+        nowMs: tick.snapshot.timestamp || Date.now(),
+        ...(this.lastMarket ? { lastMarket: this.lastMarket } : {}),
+        portfolio: this.portfolio.snapshot(),
+      })
+      for (const ev of preEvents) this.enqueueAccountEvent(ev)
+      await this.drainAccountEvents()
+    }
 
     const portfolio = this.portfolio.snapshot()
     const positionMetrics = computePositionMetricsFromMarket({

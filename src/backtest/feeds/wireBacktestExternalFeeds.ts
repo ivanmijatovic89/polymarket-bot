@@ -19,6 +19,7 @@ import {
 import { loadBinanceAggTradesSeries } from './binanceAggTradesSource.js'
 import { loadChainlinkCryptoPricesSeries } from './chainlinkCryptoPricesSource.js'
 import { createBacktestExternalFeedsProvider } from './backtestExternalFeedsProvider.js'
+import { buildSyntheticTickSchedule, type SyntheticTickEvent } from './syntheticTickSchedule.js'
 
 /** Pre-window margin so an as-of value exists at the first in-window tick. */
 const DEFAULT_LOOKBACK_MS = 300_000
@@ -54,7 +55,7 @@ function envInt(name: string, fallback: number): number {
  * skew / sleep-freeze anomalies) is clamped to the exchange timestamp so the
  * feed can never see less than the exchange-time baseline.
  */
-function feedClockMs(tick: MarketTick): number {
+export function feedClockMs(tick: MarketTick): number {
   const exchangeMs = tick.snapshot.timestamp
   const localMs = tick.source.kind === 'parquet' ? tick.source.tsLocalMs : undefined
   if (localMs === undefined || !Number.isFinite(localMs) || localMs <= 0) return exchangeMs
@@ -156,18 +157,25 @@ export async function wireBacktestExternalFeeds(args: {
    * `null` = slug not in the `telonex_markets` catalog.
    */
   gammaPriceToBeat?: { priceToBeat: number | null; syncedAtMs: number | null } | null
-}): Promise<void> {
+}): Promise<{
+  /**
+   * Replay schedule for opt-in synthetic feed ticks (binanceWsSpotPrice
+   * tickOnTrade), or null when the strategy didn't opt in — runSingleMarket
+   * interleaves these between real ticks. See syntheticTickSchedule.ts.
+   */
+  syntheticTicks: SyntheticTickEvent[] | null
+}> {
   const reqPlugin: ExternalFeedsRequestPlugin | undefined = args.pluginSet
     ?.list()
     .find(isExternalFeedsRequestPlugin)
   // No request plugin → strategy didn't opt in; stay silent (this runs for
   // every market of every feed-less backtest).
-  if (!reqPlugin) return
+  if (!reqPlugin) return { syntheticTicks: null }
 
   const binanceReq = reqPlugin.config.binanceWsSpotPrice
   const priceToBeatEnabled = reqPlugin.config.polymarketPriceToBeat?.enabled === true
   const rtdsReq = reqPlugin.config.rtdsCryptoPrices
-  if (!binanceReq && !priceToBeatEnabled && !rtdsReq) return
+  if (!binanceReq && !priceToBeatEnabled && !rtdsReq) return { syntheticTicks: null }
 
   const window = args.strategyWindow ?? windowFromSlug(args.slug)
   if (!window) {
@@ -331,7 +339,27 @@ export async function wireBacktestExternalFeeds(args: {
   reqPlugin.fulfill((tick?: MarketTick) =>
     provider.snapshotAt(tick ? feedClockMs(tick) : Number.NaN),
   )
+
+  // Opt-in synthetic feed ticks: pre-compute the visibility-time schedule from
+  // the SAME series + latency the provider uses, so a synthetic tick's feed
+  // snapshot is exactly the event that scheduled it.
+  if (rtdsReq?.tickOnRound === true) {
+    console.warn(
+      `[backtest:feeds] rtdsCryptoPrices.tickOnRound is reserved but NOT implemented — no chainlink synthetic ticks will fire (slug=${args.slug})`,
+    )
+  }
+  let syntheticTicks: SyntheticTickEvent[] | null = null
+  if (binanceReq?.tickOnTrade === true && providerArgs.binanceWsSpotPrice) {
+    syntheticTicks = buildSyntheticTickSchedule({
+      binance: providerArgs.binanceWsSpotPrice,
+      windowStartMs: window.startMs,
+      windowEndMs: window.endMs,
+    })
+    fulfilled.push(`tickOnTrade(syntheticTicks=${syntheticTicks.length})`)
+  }
+
   if (fulfilled.length > 0) {
     console.log(`[backtest:feeds] fulfilled slug=${args.slug}: ${fulfilled.join(', ')}`)
   }
+  return { syntheticTicks }
 }

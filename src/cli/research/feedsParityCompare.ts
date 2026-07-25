@@ -26,6 +26,10 @@ export type ParityRow = {
   seenAtMs: number
   exchangeTsMs: number
   slug?: string
+  /** Tick event type ('book' | 'price_change' | synthetic kinds); absent in pre-feature rows. */
+  eventType?: string
+  /** Present (true) only on synthetic feed ticks. */
+  synthetic?: boolean
   binance?: { tsMs: number; value: number }
   chainlink?: { tsMs: number; value: number }
   ptb?: { openPrice: number; receivedAtMs: number }
@@ -234,6 +238,13 @@ export type ParityReport = {
   chainlink: FeedParityReport
   ptb: { liveFirstSeenMs: number | null; replayFirstSeenMs: number | null; dtMs: number | null }
   book: BookAgreement
+  /** Synthetic feed tick counts inside the overlap (null when neither side has any). */
+  syntheticTicks: {
+    live: number
+    replay: number
+    backwardTimeLive: number
+    backwardTimeReplay: number
+  } | null
 }
 
 /**
@@ -275,6 +286,24 @@ export function compareParityLogs(args: {
   }
   const liveFirst = ptbFirstSeen(args.live)
   const replayFirst = ptbFirstSeen(args.replay)
+  const syntheticCounts = (rows: ParityRow[]): { n: number; backward: number } => {
+    let n = 0
+    let backward = 0
+    // Backwardness keys on exchangeTsMs — the field the monotone clamp
+    // stamps — so a clamp regression is actually observable here.
+    let prevExchange = Number.NEGATIVE_INFINITY
+    for (const r of rows) {
+      if (r.seenAtMs < ov.fromMs || r.seenAtMs > ov.toMs) continue
+      if (r.synthetic === true) {
+        n += 1
+        if (r.exchangeTsMs < prevExchange) backward += 1
+      }
+      prevExchange = r.exchangeTsMs
+    }
+    return { n, backward }
+  }
+  const synL = syntheticCounts(args.live)
+  const synR = syntheticCounts(args.replay)
   return {
     overlap: { ...ov, minutes: (ov.toMs - ov.fromMs) / 60_000 },
     rows: { live: args.live.length, replay: args.replay.length },
@@ -294,5 +323,14 @@ export function compareParityLogs(args: {
       dtMs: liveFirst !== null && replayFirst !== null ? replayFirst - liveFirst : null,
     },
     book: bookAgreement(args.live, args.replay),
+    syntheticTicks:
+      synL.n > 0 || synR.n > 0
+        ? {
+            live: synL.n,
+            replay: synR.n,
+            backwardTimeLive: synL.backward,
+            backwardTimeReplay: synR.backward,
+          }
+        : null,
   }
 }

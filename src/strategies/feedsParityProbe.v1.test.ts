@@ -58,7 +58,11 @@ test('probe writes versioned rows with mode-correct clocks and emits no intents'
   const out = path.join(dir, 'probe.jsonl')
   process.env.FEEDS_PARITY_OUT = out
   try {
-    const { strategy } = createStrategy({ heartbeatMs: 1000, logEveryTick: true })
+    const { strategy } = createStrategy({
+      heartbeatMs: 1000,
+      logEveryTick: true,
+      tickOnTrade: false,
+    })
     const before = Date.now()
     const intentsLive = strategy.onMarketTick(
       makeTick({ kind: 'live', exchangeTsMs: 111 }),

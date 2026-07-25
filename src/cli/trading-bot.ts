@@ -3,6 +3,7 @@ import { loadPolymarketConfigFromEnv } from '../polymarket/config.js'
 import { requireUpDown15mSymbolFromEnv } from '../polymarket/symbols.js'
 import { createLiveMarketEventSource } from '../polymarket/liveMarketEventSource.js'
 import { MarketEngine } from '../market/MarketEngine.js'
+import { buildSyntheticFeedTick } from '../market/syntheticTick.js'
 import { createWindowBoundaryScheduler, msUntilNextBoundary } from '../utils/windowBoundary.js'
 import { FIFTEEN_MIN_MS as FIFTEEN_MIN_MS_CONST } from '../utils/timeWindows.js'
 import { resolveCurrentUpDown15mAssets } from '../polymarket/resolveUpDown15mAssets.js'
@@ -300,6 +301,14 @@ async function main(): Promise<void> {
     )
   }
 
+  // Synthetic feed ticks (opt-in): assigned after marketEngine exists (feed
+  // clients are constructed before runner/marketEngine — TDZ), called from
+  // feed-client callbacks. See src/market/syntheticTick.ts and the ADR.
+  let dispatchSyntheticFeedTick:
+    | ((eventType: 'binance_agg_trade' | 'chainlink_round', feedSymbol: string) => void)
+    | null = null
+  let totalSyntheticTicks = 0
+
   const binanceWsReq = requiredFeeds?.binanceWsSpotPrice
   // No explicit symbol → follow the traded market (backtests derive it from
   // the market slug the same way), so one strategy works on BTC/ETH/SOL/XRP
@@ -343,11 +352,25 @@ async function main(): Promise<void> {
         })
       : null
 
+  // tickOnTrade is read ONLY from the request plugin, never from the legacy
+  // requiredFeeds fallback: backtests fulfill only the plugin, so honoring the
+  // legacy seam live would create the exact live/replay divergence this
+  // feature is built to avoid.
+  const binanceTickOnTrade = externalFeedsReqPlugin?.config.binanceWsSpotPrice?.tickOnTrade === true
   const binanceWsClient =
     binanceWsReq && binanceWsEnabled
       ? createBinanceWsSpotPriceClient({
           symbol: binanceWsSymbol,
           onPrice: (u) => feedsStore!.updateBinanceWsSpotPrice(u),
+          // Fires before onPrice, but the dispatcher only ENQUEUES into the
+          // runner's serial funnel — the tick body runs on a later microtask,
+          // after onPrice has synchronously updated the store, so the tick
+          // reads a store that already contains this trade.
+          ...(binanceTickOnTrade
+            ? {
+                onAggTrade: () => dispatchSyntheticFeedTick?.('binance_agg_trade', binanceWsSymbol),
+              }
+            : {}),
           onStatus: (s) => {
             const extra = s.info ? ` ${s.info}` : ''
             logger.info(`[trading-bot][binance_ws] ${s.kind} attempt=${s.attempt}${extra}`)
@@ -531,6 +554,40 @@ async function main(): Promise<void> {
       void runner.onMarketTick({ source, msg, snapshot })
     },
   })
+
+  dispatchSyntheticFeedTick = (eventType, feedSymbol) => {
+    if (shouldStop || isRotating) return // mirror the real-tick source.onEvent guard
+    if (!currentMarket) return // mirror the real-tick market gate
+    const snap = marketEngine.snapshot()
+    // No book yet (startup / just after rotation reset): drop feed events
+    // until the first book snapshot — replay drops pre-first-tick schedule
+    // entries identically.
+    if (!Number.isFinite(snap.timestamp) || snap.timestamp <= 0) return
+    if (Object.keys(snap.byAssetId).length === 0) return
+    totalSyntheticTicks += 1
+    // Fire-and-forget like real ticks; the runner's serial funnel preserves
+    // arrival order. Visibility = local receipt time (same quantity the
+    // replay models as feed event time + measured latency).
+    void runner.onMarketTick(
+      buildSyntheticFeedTick({
+        eventType,
+        symbol: feedSymbol,
+        visibilityMs: Date.now(),
+        baseSnapshot: snap,
+        source: { kind: 'live', attempt: wsAttempt },
+      }),
+    )
+  }
+  if (binanceTickOnTrade) {
+    logger.info(
+      `[trading-bot][⚙️] synthetic feed ticks ENABLED (binance_agg_trade, symbol=${binanceWsSymbol})`,
+    )
+  }
+  if (externalFeedsReqPlugin?.config.rtdsCryptoPrices?.tickOnRound === true) {
+    logger.warn(
+      '[trading-bot][⚠️] rtdsCryptoPrices.tickOnRound is reserved but NOT implemented — no chainlink synthetic ticks will fire (see docs/backtest/adr-binance-driven-ticks.md)',
+    )
+  }
 
   const resolveAssetsIds = async (): Promise<{ assetsIds: string[]; label?: string }> => {
     const r = await resolveCurrentUpDown15mAssets({ symbol, date: new Date() })
@@ -850,7 +907,7 @@ async function main(): Promise<void> {
     statsInterval = setInterval(() => {
       const candleLeft = msUntilNextBoundary(Date.now(), FIFTEEN_MIN_MS)
       logger.info(
-        `[trading-bot] stats ws_events_total=${totalWsEvents} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
+        `[trading-bot] stats ws_events_total=${totalWsEvents}${totalSyntheticTicks > 0 ? ` synthetic_ticks_total=${totalSyntheticTicks}` : ''} candle_left_ms=${candleLeft} slug=${currentSlug ?? 'n/a'}`,
       )
     }, 10_000)
   }

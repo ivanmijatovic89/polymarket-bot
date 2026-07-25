@@ -1,5 +1,9 @@
 import type { AnyMarketMessage } from './orderbook/index.js'
 
+// NOTE: these are RECORDER MARKERS (rows injected into parquet on WS close),
+// skipped before the engine. They are unrelated to synthetic FEED ticks
+// ('binance_agg_trade' / 'chainlink_round', src/market/syntheticTick.ts),
+// which never enter the decoder path at all.
 export const SYNTHETIC_EVENT_TYPES = new Set<string>([
   // Synthetic markers recorded by record-live.ts
   'disconnect',
