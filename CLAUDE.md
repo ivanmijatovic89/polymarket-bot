@@ -201,6 +201,7 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
 | `webui/` | Separate Vite/React package served by each bot process |
 | `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the normalized backtest result schema locally; uses TanStack Query for polling. |
+| `protocols/` | Self-contained autonomous protocol workspaces (journals, ops docs, strategies) — see `protocols/README.md`. Each is context for its own sessions only: do NOT read protocol internals in normal dev sessions unless explicitly asked. |
 
 ### Strategy system
 

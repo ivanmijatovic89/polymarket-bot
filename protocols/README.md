@@ -21,12 +21,50 @@ they are; this folder's rules apply from the next protocol onward.
 
 ```
 protocols/<name>/
-  CLAUDE.md        # context for sessions launched with cwd here
-  MISSION.md       # what the protocol researches, stop conditions
-  OPS.md           # how to start/stop/watch the shift
-  strategies/      # runnable strategies — auto-discovered by the registry
-  ...              # journal, knowledge base, tools — the protocol's business
+  CLAUDE.md                 # context for sessions launched with cwd here
+  .claude/settings.json     # committed — session isolation (see below)
+  MISSION.md                # what the protocol researches, stop conditions
+  OPS.md                    # how to start/stop/watch the shift
+  strategies/               # runnable strategies — auto-discovered by the registry
+  ...                       # journal, knowledge base, tools — the protocol's business
 ```
+
+## Per-protocol session isolation (every protocol needs this)
+
+Protocol sessions must see the protocol's own `CLAUDE.md`, not the root one
+(and vice versa: normal dev sessions must not wander into protocol internals).
+The working pattern — verified empirically, see
+`strategy-research-protocol/.claude/settings.json` for the original:
+
+1. Commit `protocols/<name>/.claude/settings.json`:
+
+   ```json
+   {
+     "claudeMdExcludes": ["**/polymarket-bot*/CLAUDE.md", "**/.claude/CLAUDE.md"],
+     "autoMemoryEnabled": false
+   }
+   ```
+
+   The `polymarket-bot*` glob (not `polymarket-bot`) matters: shift worktrees
+   are named `polymarket-bot-<name>`, and the root `CLAUDE.md` must be excluded
+   there too. The protocol's own `CLAUDE.md` (nested deeper) stays loaded.
+   `autoMemoryEnabled: false` because the protocol's journal IS its memory.
+
+2. **Launch scripts `cd` into `protocols/<name>/` before invoking `claude`.**
+   Settings files load only from the session's starting cwd (no upward walk),
+   while `CLAUDE.md` discovery DOES walk up — which is exactly why the
+   excludes are needed.
+
+3. **Never pass the settings via the `--settings` CLI flag** — it silently
+   ignores `claudeMdExcludes` (verified on Claude Code 2.1.187). Only the
+   cwd-scoped committed file works.
+
+Shared shift conventions (keep them uniform across protocols):
+
+- **Graceful stop**: the shift checks for `protocols/<name>/DONE` between
+  units and exits when it appears (`touch` it to stop).
+- **Pre-push self-check**: run `npm run code:typecheck:protocols` before
+  pushing strategy changes, so red CI stays rare.
 
 ## Rules
 
