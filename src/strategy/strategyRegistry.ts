@@ -1,8 +1,14 @@
-import { readFileSync, readdirSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { createRequire } from 'node:module'
-import { basename, dirname, extname, join } from 'node:path'
+import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import type { StrategyDefinition } from './strategyDefinition.js'
+import {
+  DEFINITION_EXPORT,
+  discoverProtocolStrategies,
+  isStrategyDefinition,
+  walkStrategyFiles,
+} from './protocolStrategyDiscovery.js'
 
 // Synchronous module loader. Using `require` (not dynamic `import`) lets the
 // registry be built synchronously at module load, with NO top-level await —
@@ -18,7 +24,7 @@ const requireStrategy = createRequire(import.meta.url)
  * (at any depth) that exports a `definition` is registered automatically. There
  * is no hand-maintained list — add a strategy by adding a file, remove one by
  * deleting its file. protocols/<name>/strategies/** is scanned the same way,
- * but fail-soft (see PROTOCOLS_ROOT below).
+ * but fail-soft (see ./protocolStrategyDiscovery.ts).
  */
 
 const selfPath = fileURLToPath(import.meta.url)
@@ -31,67 +37,8 @@ const STRATEGIES_DIR = join(dirname(selfPath), '..', 'strategies')
 // Their ids must start with "<name>-" so protocols can't collide in the registry.
 const PROTOCOLS_ROOT = join(dirname(selfPath), '..', '..', 'protocols')
 
-// Load files with the SAME extension as this module: `.ts` under tsx (source),
-// `.js` when running compiled. Avoids importing both copies of a file.
-const EXT = extname(selfPath)
-
-/**
- * A strategy file is recognised by this exact export, e.g.
- *   `export const definition: StrategyDefinition<Config> = { ... }`
- * We check the SOURCE for this before importing, so helper/CLI scripts (which
- * may have side effects or call process.exit on import) are never loaded.
- */
-const DEFINITION_EXPORT = /^export\s+const\s+definition\b/m
-
-/** Recursively collect strategy source files under src/strategies/ (any depth). */
-function walk(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir, { withFileTypes: true })) {
-    const full = join(dir, entry.name)
-    if (entry.isDirectory()) {
-      out.push(...walk(full))
-    } else if (entry.isFile() && extname(entry.name) === EXT && !entry.name.endsWith(`.d${EXT}`)) {
-      out.push(full)
-    }
-  }
-  return out
-}
-
-function isStrategyDefinition(x: unknown): x is StrategyDefinition<unknown> {
-  return (
-    typeof x === 'object' &&
-    x !== null &&
-    typeof (x as { id?: unknown }).id === 'string' &&
-    typeof (x as { create?: unknown }).create === 'function' &&
-    'schema' in (x as object)
-  )
-}
-
-/** protocols/<name>/strategies/ directories that exist, with their protocol name. */
-function protocolStrategyDirs(): { protocol: string; dir: string }[] {
-  const out: { protocol: string; dir: string }[] = []
-  // Fail-soft: any fs surprise here (protocols/ missing, a `strategies` entry
-  // that is not a directory, permissions, a dir vanishing mid-scan) must never
-  // take the registry down with it.
-  try {
-    for (const entry of readdirSync(PROTOCOLS_ROOT, { withFileTypes: true })) {
-      if (!entry.isDirectory()) continue
-      const dir = join(PROTOCOLS_ROOT, entry.name, 'strategies')
-      if (statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
-        out.push({ protocol: entry.name, dir })
-      }
-    }
-  } catch (err) {
-    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
-      console.warn(`[strategy] skipping protocol discovery: ${(err as Error).message}`)
-    }
-    return []
-  }
-  return out.sort((a, b) => a.protocol.localeCompare(b.protocol))
-}
-
 function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
-  const files = walk(STRATEGIES_DIR).sort()
+  const files = walkStrategyFiles(STRATEGIES_DIR).sort()
   const registry: Record<string, StrategyDefinition<unknown>> = {}
 
   for (const file of files) {
@@ -123,56 +70,16 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
     registry[def.id] = def
   }
 
-  // Protocol strategies: same discovery, but every failure warns and skips
-  // (fail-soft) instead of throwing — a protocol may only break itself.
-  const protocolDirs = protocolStrategyDirs()
-  const protocolNames = protocolDirs.map((p) => p.protocol)
-  for (const { protocol, dir } of protocolDirs) {
-    let files: string[]
-    try {
-      files = walk(dir).sort()
-    } catch (err) {
+  // Protocol strategies: fail-soft discovery with per-id conflict resolution
+  // (see protocolStrategyDiscovery.ts). Core src/strategies/ ids always win.
+  for (const { file, def } of discoverProtocolStrategies(PROTOCOLS_ROOT)) {
+    if (registry[def.id]) {
       console.warn(
-        `[strategy] skipping protocol "${protocol}": cannot list ${dir} — ${(err as Error).message}`,
+        `[strategy] skipping ${file}: duplicate strategy id ${JSON.stringify(def.id)} (already defined in src/strategies)`,
       )
       continue
     }
-    for (const file of files) {
-      try {
-        if (!DEFINITION_EXPORT.test(readFileSync(file, 'utf8'))) continue
-        const mod = requireStrategy(file) as Record<string, unknown>
-        const def = mod.definition
-        if (!isStrategyDefinition(def)) {
-          console.warn(
-            `[strategy] skipping ${file}: exports \`definition\` but it is not a valid StrategyDefinition`,
-          )
-          continue
-        }
-        // Namespace check by LONGEST matching protocol name, so a protocol
-        // named "foo" cannot claim ids in the namespace of a protocol named
-        // "foo-bar" (plain startsWith would let it register first and win).
-        const owner = protocolNames
-          .filter((n) => def.id.startsWith(`${n}-`))
-          .sort((a, b) => b.length - a.length)[0]
-        if (owner !== protocol) {
-          console.warn(
-            `[strategy] skipping ${file}: id ${JSON.stringify(def.id)} must start with "${protocol}-" and not fall in another protocol's namespace (ids are namespaced by folder)`,
-          )
-          continue
-        }
-        if (registry[def.id]) {
-          console.warn(
-            `[strategy] skipping ${file}: duplicate strategy id ${JSON.stringify(def.id)}`,
-          )
-          continue
-        }
-        registry[def.id] = def
-      } catch (err) {
-        console.warn(
-          `[strategy] skipping ${basename(file)} (${protocol}): failed to load — ${(err as Error).message}`,
-        )
-      }
-    }
+    registry[def.id] = def
   }
 
   return registry

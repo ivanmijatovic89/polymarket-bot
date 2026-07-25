@@ -63,9 +63,13 @@ Shared shift conventions (keep them uniform across protocols):
 
 - **Graceful stop**: the shift checks for `protocols/<name>/DONE` between
   units and exits when it appears (`touch` it to stop).
-- **Pre-push self-check**: run `npm run code:typecheck:protocols` and
-  `npm run code:eslint:protocols` before pushing strategy changes. This is the
-  only check there is — protocol strategies have no CI gate.
+- **Pre-push self-check**: run `npm run protocol:check -- <name>` (from the
+  repo root) before pushing strategy changes — it typechecks and lints ONLY
+  this protocol plus its `src/` imports, so another protocol's broken code on
+  main can never block you. This is the only check there is — protocol
+  strategies have no CI gate. (`code:typecheck:protocols` /
+  `code:eslint:protocols` check all protocols at once — repo-health tools, not
+  the shift gate.)
 
 ## Rules
 
@@ -73,13 +77,16 @@ Shared shift conventions (keep them uniform across protocols):
    used to be `src/strategies/` — no longer: strategies go in
    `protocols/<name>/strategies/` and `src/strategy/strategyRegistry.ts`
    auto-discovers them there.
-2. **Strategy ids are namespaced**: they must start with `<name>-` (e.g.
-   `fable-exp-041`). The registry skips non-conforming ids with a warning.
+2. **Strategy ids are namespaced by folder**: they must start with `<name>-`
+   (e.g. `fable-exp-041`). The registry skips non-conforming ids with a
+   warning. Ownership comes solely from the containing folder — another
+   protocol appearing later can never invalidate your existing ids; a true id
+   collision resolves deterministically to the namespace owner (longest
+   matching protocol-name prefix).
 3. **Protocol strategies load fail-soft.** A broken file is warned about and
    skipped — a protocol can only break itself, never the fleet or another
-   protocol. Check compile/lint health with `npm run code:typecheck:protocols`
-   and `npm run code:eslint:protocols` (the pre-push self-check above; there
-   is no CI job for `protocols/**`).
+   protocol. Check compile/lint health with `npm run protocol:check -- <name>`
+   (the pre-push self-check above; there is no CI job for `protocols/**`).
 4. **Commits go straight to main**, message prefixed `<name>: ...`. Shared
    `src/` changes are the exception — those go through a normal PR like any
    other code change.
@@ -89,7 +96,9 @@ Shared shift conventions (keep them uniform across protocols):
    stops. Its save loop, per unit:
 
    ```bash
-   git add protocols/<name>/ && git commit -m "<name>: ..."
+   # run from the protocol's own directory (the session cwd — see isolation
+   # above), so `git add .` stages exactly protocols/<name>/ and nothing else
+   git add . && git commit -m "<name>: ..."
    until git pull --rebase origin main && git push origin HEAD:main; do sleep 5; done
    ```
 

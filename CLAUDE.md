@@ -205,7 +205,7 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 
 ### Strategy system
 
-Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Protocol workspaces are discovered too: `protocols/<name>/strategies/**` registers the same way, but **fail-soft** (broken files are warned about and skipped, never fatal) and ids must start with `<name>-`; typecheck them with `npm run code:typecheck:protocols` (see `protocols/README.md`). Each `definition` has:
+Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Protocol workspaces are discovered too: `protocols/<name>/strategies/**` registers the same way, but **fail-soft** (broken files are warned about and skipped, never fatal) and ids must start with `<name>-`; check one protocol with `npm run protocol:check -- <name>` (see `protocols/README.md`). Each `definition` has:
 
 - `id` (string) — selected via `--strategy <id>`
 - `schema` (Zod) — validates `--param key=value` pairs; unknown keys / invalid values error out

@@ -1,8 +1,10 @@
 {
-  // Typechecks protocol strategies (protocols/*/strategies/) together with src/.
-  // Kept OUT of the root tsconfig on purpose: a protocol's type error must never
-  // fail the root typecheck that gates unrelated PRs. Run via
-  // `npm run code:typecheck:protocols` (shift pre-push self-check; no CI job).
+  // Typechecks ALL protocol strategies (protocols/*/strategies/) together with
+  // src/ — a repo-wide health check (`npm run code:typecheck:protocols`; no CI
+  // job). Kept OUT of the root tsconfig on purpose: a protocol's type error
+  // must never fail the root typecheck that gates unrelated PRs. Shifts use
+  // `npm run protocol:check -- <name>` instead, which narrows the include to
+  // one protocol so a broken sibling can't block their pre-push self-check.
   "extends": "./tsconfig.json",
   "include": ["src/**/*.ts", "src/**/*.tsx", "protocols/*/strategies/**/*.ts"]
 }
