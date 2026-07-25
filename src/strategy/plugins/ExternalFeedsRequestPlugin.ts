@@ -7,7 +7,7 @@ export type ExternalFeedsRequestConfig = {
     binanceSymbols?: string[]
     chainlinkSymbols?: string[]
     /** Reserved for the chainlink synthetic-tick follow-up (see ADR). */
-    tickOnRound?: boolean
+    tickOnUpdate?: boolean
   }
   binanceWsSpotPrice?: {
     symbol?: string
@@ -16,7 +16,7 @@ export type ExternalFeedsRequestConfig = {
      * (event_type 'binance_agg_trade'), live and replay identically.
      * Default false: behavior is bit-identical to before the feature.
      */
-    tickOnTrade?: boolean
+    tickOnUpdate?: boolean
   }
   polymarketPriceToBeat?: {
     enabled?: boolean

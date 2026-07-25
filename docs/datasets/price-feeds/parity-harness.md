@@ -91,7 +91,7 @@ Unit tests: `npx tsx --test src/cli/research/feedsParityCompare.test.ts src/stra
 
 Runs that opt into synthetic ticks pass the probe params through capture and
 replay: `npm run feeds:parity -- capture --symbol btc --minutes 75
---probe-param tickOnTrade=true --probe-param logEveryTick=true` (replay reuses
+--probe-param tickOnUpdate=true --probe-param logEveryTick=true` (replay reuses
 them from the manifest automatically). `logEveryTick=true` is required —
 default sampling would fold a synthetic tick into the value-change row it
 usually coincides with. Probe rows carry `eventType` and `synthetic: true`,

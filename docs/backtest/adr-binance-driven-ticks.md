@@ -8,8 +8,8 @@ description: Architecture decision record for synthetic feed ticks — strategie
 ## Status
 
 **Accepted — implemented for `binance_agg_trade`** (opt-in
-`binanceWsSpotPrice: { tickOnTrade: true }`, live + replay).
-`chainlink_round` (`rtdsCryptoPrices: { tickOnRound: true }`) is reserved in
+`binanceWsSpotPrice: { tickOnUpdate: true }`, live + replay).
+`chainlink_round` (`rtdsCryptoPrices: { tickOnUpdate: true }`) is reserved in
 the types and scheduler and ships as a follow-up PR with its own parity
 capture. Prerequisites that landed first: the Binance aggTrades feed
 (PR #121), the feeds parity harness (#141), and live tick-dispatch
@@ -113,11 +113,11 @@ Extend the request-plugin config (the same strategy-driven seam as the feed):
 
 ```ts
 new ExternalFeedsRequestPlugin({
-  binanceWsSpotPrice: { symbol: 'btcusdt', tickOnTrade: true },
+  binanceWsSpotPrice: { symbol: 'btcusdt', tickOnUpdate: true },
 })
 ```
 
-Strategies without `tickOnTrade` keep today's behavior **bit-identically** —
+Strategies without `tickOnUpdate` keep today's behavior **bit-identically** —
 same zero-blast-radius bar as the feed itself (verify with
 `backtest:verify-diff`).
 

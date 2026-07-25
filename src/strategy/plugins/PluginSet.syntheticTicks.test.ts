@@ -112,7 +112,7 @@ test('flag assignments: feeds + time gates opted in, volatility not', () => {
 })
 
 test('ExternalFeedsRequestPlugin records the synthetic tick as lastTick for its provider', () => {
-  const feeds = new ExternalFeedsRequestPlugin({ binanceWsSpotPrice: { tickOnTrade: true } })
+  const feeds = new ExternalFeedsRequestPlugin({ binanceWsSpotPrice: { tickOnUpdate: true } })
   const seenTicks: (MarketTick | undefined)[] = []
   feeds.fulfill((tick) => {
     seenTicks.push(tick)

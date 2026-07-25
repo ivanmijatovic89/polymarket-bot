@@ -30,7 +30,7 @@ export type BinanceWsSpotPriceClientOptions = {
   /**
    * Optional: full aggTrade message with local receive time. Used by the
    * recorder/verification tooling, and by the live trading path when
-   * synthetic feed ticks are enabled (binanceWsSpotPrice.tickOnTrade).
+   * synthetic feed ticks are enabled (binanceWsSpotPrice.tickOnUpdate).
    */
   onAggTrade?: (agg: AggTradeMessage, receivedAtMs: number) => void
   onStatus?: (s: {

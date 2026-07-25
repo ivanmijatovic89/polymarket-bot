@@ -19,7 +19,7 @@ export type IntentMeta = Record<string, unknown>
 
 export type MarketTick = Omit<EngineTick, 'msg'> & {
   // MarketEngine emits ticks only for book + price_change. Strategies may
-  // additionally receive opt-in synthetic feed ticks (tickOnTrade/tickOnRound)
+  // additionally receive opt-in synthetic feed ticks (tickOnUpdate/tickOnUpdate)
   // whose msg type is deliberately outside AnyMarketMessage so it can never
   // reach the orderbook engine — see src/market/syntheticTick.ts.
   msg: AnyMarketMessage | SyntheticFeedTickMessage
@@ -429,7 +429,7 @@ export type Strategy = {
    * Runtime coverage differs: live `trading-bot.ts` falls back to this when
    * no request plugin is registered, but backtest fulfillment
    * (`wireBacktestExternalFeeds`) reads ONLY the plugin. Features that must
-   * stay live==replay (like synthetic ticks' `tickOnTrade`) are therefore
+   * stay live==replay (like synthetic ticks' `tickOnUpdate`) are therefore
    * deliberately NOT part of this legacy shape — they exist only on
    * `ExternalFeedsRequestConfig`.
    */
