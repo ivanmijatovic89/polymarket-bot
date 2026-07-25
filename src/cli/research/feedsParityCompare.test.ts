@@ -198,11 +198,13 @@ test('syntheticTicks counts synthetic rows and flags backward exchangeTsMs (the 
     [T0 + 100, T0 + 100, true],
     [T0 + 60_000, T0 + 60_000, false],
   ])
-  // Replay: one synthetic row stamped BELOW the preceding real tick's exchange
-  // ts — exactly what an un-clamped builder would produce.
+  // Replay: a synthetic row stamped BELOW the preceding SYNTHETIC row of the
+  // same feed — exactly what an un-clamped builder would produce. (A synthetic
+  // row below a REAL row is legitimate sort-order noise and must NOT count.)
   const replay = mk('parquet', [
     [T0, T0, false],
-    [T0 + 100, T0 - 50, true],
+    [T0 + 100, T0 + 100, true],
+    [T0 + 200, T0 + 50, true],
     [T0 + 60_000, T0 + 60_000, false],
   ])
   const report = compareParityLogs({
@@ -213,7 +215,7 @@ test('syntheticTicks counts synthetic rows and flags backward exchangeTsMs (the 
   assert.ok(report)
   assert.deepEqual(report.syntheticTicks, {
     live: 1,
-    replay: 1,
+    replay: 2,
     backwardTimeLive: 0,
     backwardTimeReplay: 1,
   })

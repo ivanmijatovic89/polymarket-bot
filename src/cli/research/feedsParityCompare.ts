@@ -290,15 +290,21 @@ export function compareParityLogs(args: {
     let n = 0
     let backward = 0
     // Backwardness keys on exchangeTsMs — the field the monotone clamp
-    // stamps — so a clamp regression is actually observable here.
-    let prevExchange = Number.NEGATIVE_INFINITY
+    // stamps — compared per feed among SYNTHETIC rows only. Mixing real rows
+    // into the comparison produces false positives: a clamped synthetic tick
+    // legitimately carries the (later) book timestamp while sorting earlier
+    // by seenAtMs, so a following real row's exchange ts can be lower without
+    // any clamp violation. Within one feed's synthetic stream, dispatch order
+    // == seenAtMs order and the clamp guarantees non-decreasing stamps.
+    const prevByFeed = new Map<string, number>()
     for (const r of rows) {
       if (r.seenAtMs < ov.fromMs || r.seenAtMs > ov.toMs) continue
-      if (r.synthetic === true) {
-        n += 1
-        if (r.exchangeTsMs < prevExchange) backward += 1
-      }
-      prevExchange = r.exchangeTsMs
+      if (r.synthetic !== true) continue
+      n += 1
+      const feed = r.eventType ?? 'unknown'
+      const prev = prevByFeed.get(feed)
+      if (prev !== undefined && r.exchangeTsMs < prev) backward += 1
+      prevByFeed.set(feed, r.exchangeTsMs)
     }
     return { n, backward }
   }

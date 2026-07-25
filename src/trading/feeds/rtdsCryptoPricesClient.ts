@@ -34,6 +34,11 @@ export type RtdsCryptoPricesClientOptions = {
     rawValue: unknown
     receivedAtMs: number
   }) => void
+  /**
+   * Force a reconnect when no WS message arrives for this long (the socket
+   * can go silent without a close event). Default 30_000; 0 disables.
+   */
+  idleReconnectMs?: number
   onStatus?: (s: {
     kind: 'connected' | 'reconnecting' | 'disconnected'
     attempt: number
@@ -80,6 +85,16 @@ export function createRtdsCryptoPricesClient(
 ): RtdsCryptoPricesClient {
   const url = opts.url ?? 'wss://ws-live-data.polymarket.com'
 
+  // Idle watchdog. The RTDS socket has been observed going silent WITHOUT a
+  // close event (2026-07-21 recorder incident; 2026-07-25 trading-bot capture:
+  // frozen 28 min, no error) — chainlink rounds arrive ~1/s, so prolonged
+  // silence means a stale connection, not a quiet market. When no message
+  // (PONG included) arrives for this long, force a reconnect through the
+  // normal path. 0 disables.
+  const idleReconnectMs = opts.idleReconnectMs ?? 30_000
+  let lastMessageAtMs = 0
+  let idleTimer: NodeJS.Timeout | undefined
+
   const allowedBinance = new Set(opts.binanceSymbols.map((s) => s.toLowerCase()))
   const allowedChainlink = new Set(opts.chainlinkSymbols.map((s) => s.toLowerCase()))
 
@@ -96,6 +111,8 @@ export function createRtdsCryptoPricesClient(
     reconnectTimer = undefined
     if (pingTimer) clearInterval(pingTimer)
     pingTimer = undefined
+    if (idleTimer) clearInterval(idleTimer)
+    idleTimer = undefined
   }
 
   const stopConn = (): void => {
@@ -161,8 +178,26 @@ export function createRtdsCryptoPricesClient(
             // ignore
           }
         }, 5_000)
+        if (idleReconnectMs > 0) {
+          lastMessageAtMs = Date.now()
+          idleTimer = setInterval(() => {
+            if (!running) return
+            const idleMs = Date.now() - lastMessageAtMs
+            if (idleMs > idleReconnectMs) {
+              opts.onStatus?.({
+                kind: 'reconnecting',
+                attempt,
+                info: `idle ${Math.round(idleMs / 1000)}s — stale connection, forcing reconnect`,
+              })
+              stopConn()
+              scheduleReconnect('idle watchdog')
+            }
+          }, 5_000)
+          idleTimer.unref?.()
+        }
       },
       onMessageText: (raw) => {
+        lastMessageAtMs = Date.now()
         if (!raw) return
         if (raw === 'PONG') return
         const parsed = safeJsonParse(raw)
