@@ -35,8 +35,10 @@ export type RtdsCryptoPricesClientOptions = {
     receivedAtMs: number
   }) => void
   /**
-   * Force a reconnect when no WS message arrives for this long (the socket
-   * can go silent without a close event). Default 30_000; 0 disables.
+   * Force a reconnect when no DATA message (crypto_prices topics — PONGs do
+   * not count) arrives for this long: the socket can go silent, or keep
+   * answering pings with a stalled subscription, without a close event.
+   * Default 30_000; 0 disables.
    */
   idleReconnectMs?: number
   onStatus?: (s: {
@@ -88,9 +90,9 @@ export function createRtdsCryptoPricesClient(
   // Idle watchdog. The RTDS socket has been observed going silent WITHOUT a
   // close event (2026-07-21 recorder incident; 2026-07-25 trading-bot capture:
   // frozen 28 min, no error) — chainlink rounds arrive ~1/s, so prolonged
-  // silence means a stale connection, not a quiet market. When no message
-  // (PONG included) arrives for this long, force a reconnect through the
-  // normal path. 0 disables.
+  // silence means a stale connection, not a quiet market. When no DATA
+  // message (crypto_prices topics; PONGs and acks do NOT count) arrives for
+  // this long, force a reconnect through the normal path. 0 disables.
   const idleReconnectMs = opts.idleReconnectMs ?? 30_000
   let lastMessageAtMs = 0
   let idleTimer: NodeJS.Timeout | undefined
