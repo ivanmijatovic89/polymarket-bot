@@ -1,14 +1,14 @@
-# Pair — vision (v4, agreed design)
+# Pair — vision (v5, final design)
 
-> Status: DESIGN AGREED — next: MISSION.md (needs the human's precise strategy
-> definition), model safety kit, then Fable solo launch. Red-teamed by three
+> Status: DESIGN FINAL. Next: MISSION.md (needs the human's precise strategy
+> definition) + safety kit, then both agents launch. Red-teamed by three
 > independent reviews (architecture, ops, methodology) on 2026-07-26.
 
 ## Goal
 
 Make **one strategy** profitable on **BTC 15m**, run it live, earn real money —
 then keep improving it forever. The human defines the strategy and the
-invariants and gates every money step; the models do everything else.
+invariants and gates every money step; the AI does everything else.
 
 ## The strategy (fixed by the human)
 
@@ -24,114 +24,132 @@ mechanics (MINED wait, gas, capital recycling) are execution details measured
 by the live probe, not by backtests. The eval marks merge-containing runs
 invalid.
 
+## The model: one team, one backlog, interchangeable workers
+
+There is no per-model competition and no per-model knowledge silo. Models
+(Fable via Claude Code, GPT via Codex, later others) are **interchangeable
+labor with different capability profiles**, all working ONE backlog toward ONE
+strategy lineage. Attribution is metadata: every commit, experiment, and
+`backtest_runs` row records which model did the work.
+
+Isolation is **per piece of work, not per model**: one writer per task file,
+per experiment file, per variant file. Two agents never edit the same file by
+construction — that is what keeps the continuous push-to-main loop
+conflict-free.
+
 ## Structure
 
 ```
 protocols/pair/
-  MISSION.md              # the one human-authored doc: strategy, invariants,
-                          #   eval command, rules. Only the human edits it.
-  commons/
-    knowledge/<id>/       # one DIRECTORY per finding — append-only:
-      claim.md            #   written once by the discoverer (claim + repro:
-                          #   exact backtest command + DB run id + model)
-      evidence-<model>-N.md#   added by others; status is DERIVED from evidence
-                          #   files, never hand-edited
-    bugs/<id>/            # same scheme
-    tools/                # starts empty; a model promotes a tool here when
-                          #   it's useful to others
-  models/
-    fable/                # one folder per SEAT (model line, stable across
-      STATUS.md           #   versions: fable/ survives Fable 5 → 5.5)
-      INBOX.md            # human → model channel; ack required at unit start
-      JOURNAL / tools/    # the model designs its own record-keeping
-      strategies/         # ids pair-fable-* (registry-discovered)
-    gpt/                  # same shape (Codex harness, AGENTS.md boot)
+  MISSION.md            # human-authored: strategy, invariants, eval command,
+                        #   rules, role profiles. Only the human edits it.
+  ENGINE.md             # AI-format digest: what THIS protocol needs to know
+                        #   about the engine, citing docs/ and source. Docs
+                        #   stay canonical; generic discoveries get upstreamed;
+                        #   the digest cites, never forks.
+  tasks/                # THE shared backlog — one file per task. Anyone adds;
+                        #   an agent claims by writing a claim marker; done
+                        #   tasks point at their experiment verdict.
+  experiments/<id>.md   # one file per experiment: hypothesis, parent variant,
+                        #   exact run command + DB run ids, verdict, model.
+                        #   Append-only; written by whoever claimed the task.
+  strategies/           # ONE shared lineage: pair-e001.ts, pair-e002.ts, ...
+                        #   HARD RULE: never edit an existing variant — fork it
+                        #   into a new id. Lineage is the history.
+  knowledge/            # flat files: distilled durable findings, INCLUDING
+                        #   negative results ("tried X, doesn't work, run id").
+  bugs/                 # flat files: suspected engine/data bugs + repro.
+  tools/                # shared tools; a model promotes a tool here when it's
+                        #   useful to others.
+  agents/
+    fable/              # THIN: STATUS.md, INBOX.md, scratch notes. Nothing
+    gpt/                #   else lives here — no strategies, no knowledge.
 ```
 
-Model = whatever runs concurrently, named by model line. Exact model version is
-metadata: stamped on every commit (`pair: [opus-4.8] u42 ...`) and already in
-`backtest_runs`.
+## The working loop (any agent, any session)
 
-## Roles (quota reality, not aspiration)
+1. Boot: read MISSION.md + ENGINE.md + own INBOX.md (ack anything new).
+2. Look at `tasks/`, claim the next task matching your profile.
+3. Fork the relevant variant into a new strategy id; submit backtests to the
+   fleet; never run local workers on the live machine.
+4. Write `experiments/<id>.md` with run ids and an honest verdict; mark the
+   task done; distill any durable lesson (wins AND failures) into
+   `knowledge/`; add follow-up tasks that emerged.
+5. Update own `STATUS.md` (5 lines: alive-at, current work, champion id +
+   eval run id, last lesson); commit → pull --rebase → push (hardened loop).
 
-- **fable** — the main 24/7 worker (Claude Code, $200 Max). "24/7" honestly
-  means: dark when quota windows reset.
-- **gpt** — daily **verifier/reviewer** (Codex, $20 ≈ a few hours/day): audits
-  the champion, replicates findings, disputes entries. Not a 24/7 peer.
-- **opus** — tactical model, scheduled sessions only (shares Fable's budget).
-- **Advisors** (Perplexity/Grok/…): a worker may consult them; suggestions
-  enter the commons as `unverified`.
+Duplicated work is structurally impossible (claimed is claimed); a fresh agent
+months from now catches up by reading `knowledge/` + the champion's lineage,
+never by replaying journals.
 
-## Knowledge rules
+## Roles (quota reality)
 
-Confirmation is natural, never bureaucratic: (1) **independent
-double-discovery** — same finding found in a model's own work → add evidence
-file → confirmed; (2) **verify-on-dependence** — before building a decision on
-an entry, re-run its repro. But a deterministic re-run proves determinism, not
-truth: real confirmation of execution-realism claims needs a **different
-method** (latency sweep, different data path). Verifier duty is adversarial —
-refutations are wins; a refutation rate near zero means verification is
-decorative. Engine facts belong in `docs/` (canonical, outlives protocols);
-the commons holds only strategy-specific knowledge.
+- **fable** — main worker (Claude Code, $200 Max): design + experiment tasks,
+  near-24/7 (honestly: dark when quota windows reset).
+- **gpt** — daily worker (Codex, $20 ≈ hours/day): verification, review,
+  replication, small experiments. Same backlog, from day one.
+- **opus** — tactical sessions (shares Fable's budget), when a third opinion
+  is worth the tokens.
+- **Advisors** (Perplexity/Grok/…): consulted for ideas; suggestions enter
+  `tasks/` or `knowledge/` as unverified leads.
+
+A weak model cannot damage the lineage: variants are never edited, only
+forked — a bad variant is a new file that loses in eval.
 
 ## Eval & promotion (mechanical, not prose)
 
-- Seats **nominate** a strategy id; the **neutral eval tool** launches the
-  runs itself (fixed slug set, pinned latency env) — self-reported numbers
-  don't exist; the leaderboard derives from DB run ids.
+- Agents **nominate** a variant; the **neutral eval tool** launches the runs
+  itself (fixed slug set, pinned latency env) — self-reported numbers don't
+  exist; results derive from DB run ids.
 - **Holdout embargo enforced in the eligibility layer**, not in rules text.
 - **Walk-forward promotion**: ~96 new BTC 15m markets arrive per day; a
   champion must stay positive on markets that started AFTER its code was
-  frozen. Kills the winner's curse for free.
+  frozen.
 - **Latency honesty**: the standard eval includes an edge-vs-latency sweep —
   a structural edge decays smoothly; a stale-book artifact cliffs.
-- Champion lineage: every experiment declares its parent variant; each model's
-  STATUS.md names its current champion (strategy id + eval run id).
+- Verification tasks are adversarial — refutations are wins; re-running a
+  deterministic repro proves determinism, not truth, so real verification
+  uses a different method (latency sweep, different data path).
 
 ## Mission control
 
-- Per-model `STATUS.md` (5 lines); heartbeat = the file's **last-commit time**
-  (git does not preserve mtimes).
-- `INBOX.md` steering with mandatory ack; `touch DONE` for graceful stop.
+- Per-agent `STATUS.md`; heartbeat = the file's **last-commit time**.
+- `INBOX.md` steering with mandatory ack; `touch agents/<a>/DONE` to stop.
 - **External watchdog** (launchd, outside the agent loop): stale heartbeat /
-  dead tmux / low disk → push notification to the phone. Non-negotiable — the
-  previous generation of shifts died silently and unnoticed for a week.
-- Drift self-check: every N units the model re-reads MISSION and journals a
-  short "still on course?" note.
-- Phase 2: a page in the existing dashboard (:3051) reading the DB + status
-  files.
+  dead tmux / low disk → push notification. Non-negotiable — the previous
+  generation of shifts died silently and went unnoticed for a week.
+- Drift self-check: every N units re-read MISSION, journal a "still on
+  course?" note.
 
 ## Safety kit (mechanical invariants)
 
-All guard scripts live OUTSIDE `protocols/` (in `scripts/`), so models cannot
-edit their own guardrails — anything under `protocols/**` is model-writable by
-design.
+Guard scripts live OUTSIDE `protocols/` (in `scripts/`) — anything under
+`protocols/**` is agent-writable by design, and agents must not be able to
+edit their own guardrails.
 
-1. Launcher **generates** a minimal model `.env`: `DRY_RUN=true` hardcoded, no
+1. Launcher **generates** a minimal agent `.env`: `DRY_RUN=true` hardcoded, no
    private/relayer/API keys, scoped DB user. Never copies the root `.env`.
 2. Per-worktree `npm ci` — no `node_modules` symlink shared with the live
    checkout.
-3. Worktree **pre-commit scope hook**: a model can only commit
-   `models/<model>/` + `commons/`; never MISSION.md, never `src/`; secret-scan
-   included. Save loop stages explicit paths, never `git add .`.
+3. Worktree **pre-commit scope hook**: agents commit only inside
+   `protocols/pair/` (never MISSION.md, never `src/`); secret-scan included;
+   explicit path staging, never `git add .` from repo root.
 4. Hardened save loop (wedged rebase → abort + recover, not retry forever);
-   **main is revert-only** once models run — no history rewrites.
+   **main is revert-only** once agents run.
 5. Live bots never load protocol strategies (discovery kill-switch env).
-6. Seats submit backtests to the fleet only — never local workers on the
-   live-trading machine. Per-model daily market budget; human runs keep queue
-   priority.
-7. Repo goes **private** before launch (a public repo leaks the champion's
-   parameters to competitors; a leaked secret is irrevocable).
+6. Backtests go to the fleet only; per-agent daily market budget; human runs
+   keep queue priority.
+7. Repo goes **private** before launch.
 
 ## Phases
 
-P0 — MISSION.md + safety kit + seeded commons entry documenting the
-merge-accounting hole. P1 — **Fable solo**, battle-tests everything.
-P1.5 — **micro live probe** (~$50, one pair at a time, ~a week): measures
-whether sub-$1 pairs are actually capturable against live competition — the
-one question no backtest volume or model consensus can answer — and calibrates
-the simulator against reality. P2 — + gpt verifier model. P3 — more models only
-if P2 proves value.
+P0 — MISSION.md + ENGINE.md (seeded from fable-lab's CAPABILITIES.md,
+verify-then-write) + safety kit + seeded knowledge entry on the
+merge-accounting hole. P1 — **both agents from day one**: Fable on
+design/experiments, GPT on verification/review. P1.5 — **micro live probe**
+(~$50, one pair at a time, ~a week): measures whether sub-$1 pairs are
+actually capturable against live competition and calibrates the simulator.
+P2 — more models only if they earn their place.
 
 ## End goal
 
