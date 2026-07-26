@@ -381,6 +381,14 @@ export async function getMarketsBySlugs(
 type GammaBackfillWindow = {
   /** Lower bound on `market_start_ms` (the measured priceToBeat epoch by default). */
   fromMs: number
+  /**
+   * Optional SQL LIKE patterns on the slug (OR-ed; e.g. ['btc-updown-15m-%']).
+   * Lets a scoped data:sync backfill only its own market families instead of
+   * every cataloged row — a broad catalog otherwise turns a scoped sync into
+   * an hours-long Gamma crawl. Absent/empty = catalog-wide (standalone
+   * default).
+   */
+  slugPatterns?: string[]
   /** Optional upper bound on `market_start_ms` (operator's `--to`). */
   toMs?: number
   /**
@@ -414,6 +422,10 @@ function gammaBackfillConds(opts: GammaBackfillWindow): SQL[] {
       : sql`${telonexMarkets.gammaMetadataSyncedAt} IS NULL`,
     sql`${telonexMarkets.marketStartMs} >= ${opts.fromMs}`,
   ]
+  if (opts.slugPatterns !== undefined && opts.slugPatterns.length > 0) {
+    const likes = opts.slugPatterns.map((p) => sql`${telonexMarkets.slug} LIKE ${p}`)
+    conds.push(sql`(${sql.join(likes, sql` OR `)})`)
+  }
   if (opts.toMs !== undefined) conds.push(sql`${telonexMarkets.marketStartMs} <= ${opts.toMs}`)
   if (opts.settledBeforeMs !== undefined) {
     conds.push(

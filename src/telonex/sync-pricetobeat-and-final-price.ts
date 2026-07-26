@@ -45,6 +45,7 @@ import {
  */
 
 type Args = {
+  slugPatterns?: string[]
   fromMs: number
   toMs?: number
   limit?: number
@@ -83,6 +84,7 @@ function parsePositiveInt(raw: string, flag: string): number {
 
 function parseArgs(argv: string[]): Args {
   let fromMs = GAMMA_PRICE_TO_BEAT_FROM_MS
+  let slugPatterns: string[] | undefined
   let toMs: number | undefined
   let limit: number | undefined
   let batchSize = 20
@@ -100,18 +102,25 @@ function parseArgs(argv: string[]): Args {
     else if (a === '--limit') limit = parsePositiveInt(next(), '--limit')
     else if (a === '--batch-size')
       batchSize = Math.min(50, parsePositiveInt(next(), '--batch-size'))
-    else if (a === '--dry-run') dryRun = true
+    else if (a === '--slug-pattern') {
+      const parts = next()
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean)
+      if (parts.length > 0) slugPatterns = parts
+    } else if (a === '--dry-run') dryRun = true
     else if (a === '--refetch-nulls') refetchNulls = true
     else {
       console.error(
         'Usage: npm run telonex:sync-pricetobeat-and-final-price -- ' +
-          '[--from <iso|ms>] [--to <iso|ms>] [--limit N] [--batch-size 20] [--dry-run] [--refetch-nulls]',
+          '[--from <iso|ms>] [--to <iso|ms>] [--slug-pattern btc-updown-15m-%] [--limit N] [--batch-size 20] [--dry-run] [--refetch-nulls]',
       )
       process.exit(2)
     }
   }
   return {
     fromMs,
+    ...(slugPatterns !== undefined ? { slugPatterns } : {}),
     ...(toMs !== undefined ? { toMs } : {}),
     ...(limit ? { limit } : {}),
     batchSize,
@@ -166,6 +175,7 @@ async function main(): Promise<void> {
   const settledBeforeMs = Date.now() - SETTLED_MARGIN_MS
   const queryWindow = {
     fromMs: args.fromMs,
+    ...(args.slugPatterns !== undefined ? { slugPatterns: args.slugPatterns } : {}),
     ...(args.toMs !== undefined ? { toMs: args.toMs } : {}),
     settledBeforeMs,
     refetchNulls: args.refetchNulls,
