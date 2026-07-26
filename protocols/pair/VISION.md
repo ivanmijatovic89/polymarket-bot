@@ -163,6 +163,15 @@ on the shared backlog. P1.5 — **micro live probe**
 actually capturable against live competition and calibrates the simulator.
 P2 — more models only if they earn their place.
 
+## Evolution clause
+
+The system above is the **starting operating system**, deliberately
+prescriptive so the team learns the human's intent by working inside it. Once
+it runs smoothly, agents may propose changes to the process itself (as tasks
+tagged `process`), with reasoning and evidence from lived units. Process
+changes take effect only when the human folds them into MISSION/VISION —
+self-governance is earned, not assumed.
+
 ## End goal
 
 Honest, calibrated backtest profit → DRY_RUN live → small real size → scale.
