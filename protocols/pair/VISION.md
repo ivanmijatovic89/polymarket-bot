@@ -67,10 +67,9 @@ what tools exist — **the team designs this itself**, the way earlier protocols
 did their best work. The bootstrap is a relay:
 
 - **Expedition (first Fable session(s))**: explore the engine hands-on, write
-  `ENGINE.md` (AI-format digest of what this protocol needs, citing docs/ and
-  source; seeded from fable-lab's CAPABILITIES.md, verify-then-write), build
-  the first tools, and **propose the team's working conventions** in a
-  team-owned document.
+  `ENGINE.md` from scratch (AI-format digest of what this protocol needs,
+  citing docs/ and source — no inherited material), build the first tools,
+  and **propose the team's working conventions** in a team-owned document.
 - **Review (first GPT session)**: read, verify, amend or dispute the
   conventions. From then on they belong to the team, versioned in the folder,
   changed whenever the team finds better — constitution permitting.

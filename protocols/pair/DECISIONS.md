@@ -36,13 +36,9 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
    `protocol:check` stays in `scripts/` for exactly this reason.
 6. **Engine truth lives in `docs/`; this protocol keeps an `ENGINE.md`
    digest** (AI-format, cites docs/source, never forks them). Generic
-   discoveries get upstreamed to docs. Seed material:
-   `fable-lab/engine/CAPABILITIES.md` (branch `fable-protocol`, dated Jul 11,
-   partially stale — verify-then-write).
-7. **Old protocols are NOT migrated** (strategy-research-protocol, gabagool,
-   fable stay where they are). Their reusable value: engine audit (above) and
-   tools as port-on-demand raw material.
-8. **Safety kit before launch** (from a three-review red-team on 2026-07-26):
+   discoveries get upstreamed to docs. The digest is written **from scratch**
+   during the P1 expedition — hands-on exploration, no inherited material.
+7. **Safety kit before launch** (from a three-review red-team on 2026-07-26):
    - launcher GENERATES a keyless agent `.env` with `DRY_RUN=true` hardcoded
      (the old shift scripts copied the root `.env` containing real keys and
      `DRY_RUN=false` — never repeat that);
@@ -56,7 +52,7 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
    - backtests go to the fleet only; per-agent daily budget; human keeps
      queue priority;
    - repo flips to **private** before launch (currently public).
-9. **Registry support already shipped** on the same branch: discovery of
+8. **Registry support already shipped** on the same branch: discovery of
    `protocols/*/strategies/` and `protocols/*/models/*/strategies/`
    (fail-soft, folder-owned ids, deterministic collision resolution; 12 tests
    in `src/strategy/protocolStrategyDiscovery.test.ts`). Per-protocol check:
