@@ -13,8 +13,7 @@ import { discoverProtocolStrategies } from './protocolStrategyDiscovery.js'
  */
 
 let seq = 0
-function writeStrategy(root: string, protocol: string, name: string, id: string): string {
-  const dir = join(root, protocol, 'strategies')
+function writeStrategyAt(dir: string, name: string, id: string): string {
   mkdirSync(dir, { recursive: true })
   const file = join(dir, `${name}.ts`)
   // Unique export per file so require() caching can never alias fixtures.
@@ -23,6 +22,20 @@ function writeStrategy(root: string, protocol: string, name: string, id: string)
     `export const definition = { id: ${JSON.stringify(id)}, schema: {}, create: () => ({ strategy: {} }), seq: ${seq++} }\n`,
   )
   return file
+}
+
+function writeStrategy(root: string, protocol: string, name: string, id: string): string {
+  return writeStrategyAt(join(root, protocol, 'strategies'), name, id)
+}
+
+function writeSeatStrategy(
+  root: string,
+  protocol: string,
+  seat: string,
+  name: string,
+  id: string,
+): string {
+  return writeStrategyAt(join(root, protocol, 'models', seat, 'strategies'), name, id)
 }
 
 function withFixture(fn: (root: string) => void): void {
@@ -117,6 +130,52 @@ test('same-protocol duplicate id keeps the lexicographically first file', () => 
     const found = silenced(() => discoverProtocolStrategies(root))
     assert.equal(found.length, 1)
     assert.equal(found[0]?.file, a)
+  })
+})
+
+test('models/<seat>/strategies is discovered with <protocol>-<seat>- namespace', () => {
+  withFixture((root) => {
+    writeSeatStrategy(root, 'pair', 'fable', 'e01', 'pair-fable-e01')
+    const found = discoverProtocolStrategies(root)
+    assert.deepEqual(
+      found.map((s) => s.def.id),
+      ['pair-fable-e01'],
+    )
+    assert.equal(found[0]?.protocol, 'pair-fable')
+  })
+})
+
+test('a seat strategy with only the protocol prefix is skipped (needs the seat prefix)', () => {
+  withFixture((root) => {
+    writeSeatStrategy(root, 'pair', 'fable', 'bad', 'pair-e01')
+    const found = silenced(() => discoverProtocolStrategies(root))
+    assert.deepEqual(found, [])
+  })
+})
+
+test('seat id collision with a protocol-level file resolves to the seat (namespace owner)', () => {
+  withFixture((root) => {
+    // A protocol-level file squats a seat-namespaced id; the seat owns it.
+    writeStrategy(root, 'pair', 'squat', 'pair-fable-x')
+    const seatFile = writeSeatStrategy(root, 'pair', 'fable', 'x', 'pair-fable-x')
+    const found = silenced(() => discoverProtocolStrategies(root))
+    const winner = found.find((s) => s.def.id === 'pair-fable-x')
+    assert.equal(winner?.protocol, 'pair-fable')
+    assert.equal(winner?.file, seatFile)
+  })
+})
+
+test('a broken seat file is skipped; sibling seats survive', () => {
+  withFixture((root) => {
+    writeSeatStrategy(root, 'pair', 'fable', 'ok', 'pair-fable-ok')
+    const gptDir = join(root, 'pair', 'models', 'gpt', 'strategies')
+    mkdirSync(gptDir, { recursive: true })
+    writeFileSync(join(gptDir, 'broken.ts'), 'export const definition = { syntax error here\n')
+    const found = silenced(() => discoverProtocolStrategies(root))
+    assert.deepEqual(
+      found.map((s) => s.def.id),
+      ['pair-fable-ok'],
+    )
   })
 })
 

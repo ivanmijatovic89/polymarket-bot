@@ -6,5 +6,10 @@
   // `npm run protocol:check -- <name>` instead, which narrows the include to
   // one protocol so a broken sibling can't block their pre-push self-check.
   "extends": "./tsconfig.json",
-  "include": ["src/**/*.ts", "src/**/*.tsx", "protocols/*/strategies/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "src/**/*.tsx",
+    "protocols/*/strategies/**/*.ts",
+    "protocols/*/models/*/strategies/**/*.ts"
+  ]
 }

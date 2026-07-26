@@ -25,10 +25,16 @@ if (!existsSync(join(root, 'protocols', name))) {
   process.exit(2)
 }
 
+// Strategy code can live at the protocol level and/or per seat
+// (protocols/<name>/models/<seat>/strategies — multi-model protocols).
 const strategiesDir = join(root, 'protocols', name, 'strategies')
+const seatStrategiesGlob = join(root, 'protocols', name, 'models', '*', 'strategies')
 const hasStrategies = existsSync(strategiesDir)
-if (!hasStrategies) {
-  console.log(`[protocol-check] ${name}: no strategies/ directory — nothing to check, OK`)
+const hasModels = existsSync(join(root, 'protocols', name, 'models'))
+if (!hasStrategies && !hasModels) {
+  console.log(
+    `[protocol-check] ${name}: no strategies/ or models/ directory — nothing to check, OK`,
+  )
   process.exit(0)
 }
 
@@ -56,6 +62,7 @@ try {
           join(root, 'src/**/*.ts'),
           join(root, 'src/**/*.tsx'),
           join(strategiesDir, '**/*.ts'),
+          join(seatStrategiesGlob, '**/*.ts'),
         ],
         exclude: [join(root, 'src/llm-usage')],
       },
@@ -76,10 +83,11 @@ try {
   rmSync(tmp, { recursive: true, force: true })
 }
 
-console.log(`[protocol-check] ${name}: eslint (protocols/${name}/strategies/)`)
+console.log(`[protocol-check] ${name}: eslint (protocol + seat strategies)`)
 ok =
   run(join(root, 'node_modules/.bin/eslint'), [
     `protocols/${name}/strategies/**/*.ts`,
+    `protocols/${name}/models/*/strategies/**/*.ts`,
     '--no-error-on-unmatched-pattern',
   ]) && ok
 

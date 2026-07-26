@@ -65,7 +65,16 @@ export interface ProtocolStrategy {
   def: StrategyDefinition<unknown>
 }
 
-/** <root>/<name>/strategies/ directories that exist, with their protocol name. */
+/**
+ * Strategy directories under `protocolsRoot`, with their owner (namespace) name:
+ *
+ * - `<root>/<name>/strategies/`            → owner `<name>`
+ * - `<root>/<name>/models/<seat>/strategies/` → owner `<name>-<seat>`
+ *
+ * The `models/<seat>/` layout is for multi-model protocols (see
+ * protocols/README.md): each seat is a competitor's self-contained workspace,
+ * and its strategy ids are namespaced `<name>-<seat>-*`.
+ */
 function protocolStrategyDirs(protocolsRoot: string): { protocol: string; dir: string }[] {
   const out: { protocol: string; dir: string }[] = []
   // Fail-soft: any fs surprise here (protocols/ missing, a `strategies` entry
@@ -77,6 +86,16 @@ function protocolStrategyDirs(protocolsRoot: string): { protocol: string; dir: s
       const dir = join(protocolsRoot, entry.name, 'strategies')
       if (statSync(dir, { throwIfNoEntry: false })?.isDirectory()) {
         out.push({ protocol: entry.name, dir })
+      }
+      const modelsDir = join(protocolsRoot, entry.name, 'models')
+      if (statSync(modelsDir, { throwIfNoEntry: false })?.isDirectory()) {
+        for (const seat of readdirSync(modelsDir, { withFileTypes: true })) {
+          if (!seat.isDirectory()) continue
+          const seatDir = join(modelsDir, seat.name, 'strategies')
+          if (statSync(seatDir, { throwIfNoEntry: false })?.isDirectory()) {
+            out.push({ protocol: `${entry.name}-${seat.name}`, dir: seatDir })
+          }
+        }
       }
     }
   } catch (err) {
