@@ -91,7 +91,7 @@ instead of computing on stale data — re-run those slugs after the sync with
 | `--dry-run` | Full preflight — every step runs with its native `--dry-run` and reports what it would do: catalog rows to upsert, raw-file queue size, conversion queue, missing feed days, files to upload/pull. Note: the download/convert counts reflect the **current** catalog; new markets appear in them only after a real catalog sync. |
 | `--plan` | Print the resolved step list with dependencies and exit. Runs nothing, touches nothing. |
 | `--only a,b` / `--skip a,b` | Filter steps by id prefix (e.g. `--only binance`, `--skip catalog,convert`). |
-| `--concurrency N` | Forwarded to steps that support it. |
+| `--concurrency N` | Forwarded to steps that support it. **When it matters:** the main role's `convert` step is CPU-bound (~40-60s per market sequentially) — a backlog of ~90 markets drops from ~75 min to ~13 min at `--concurrency 6` (the sensible cap on the live-trading producer). Worker-role steps are network-bound R2 pulls — the daily delta finishes in seconds either way; pass it (≤4) only for large catch-ups (hundreds of files, e.g. a fresh worker or a mass re-conversion). Claim-based queues make concurrent processes safe — an extra `telonex:convert --concurrency N` from a second terminal drains the same queue without overlap. |
 | `--fanout N` | Run `N` parallel processes for the claim-based steps (`orderbook-download`, `convert`). Conversion is CPU-bound single-threaded JS, so real parallelism needs processes — the same idea as the [tmux fan-out scripts](/contribution/tmuxinator-workspace#telonex-download-fan-out), which remain available when you want each process in its own visible pane. |
 
 Step ids are shown by `--plan`. On the main role:

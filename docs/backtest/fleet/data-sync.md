@@ -56,6 +56,16 @@ npm run fleet:data:sync -- btc:15m -e data_sync_extra='--dry-run'
 npm run fleet:data:sync -- btc:15m -e data_sync_extra='--only binance --concurrency 6'
 ```
 
+::: tip When to pass --concurrency to workers
+Worker steps are network-bound R2 pulls: the daily delta finishes in seconds
+without it. Reach for `-e data_sync_extra='--concurrency 4'` only on large
+catch-ups — a freshly installed worker, or after a mass re-conversion pushed
+hundreds of replacement files to R2 (the size-drift check re-pulls them all).
+:::
+
+```bash
+```
+
 ::: tip Requires the fleet to be updated first
 `data:sync:worker` must exist in each worker's checkout — run
 [`npm run fleet:update`](/backtest/fleet/update) first if the fleet is
