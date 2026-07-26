@@ -28,14 +28,14 @@ function writeStrategy(root: string, protocol: string, name: string, id: string)
   return writeStrategyAt(join(root, protocol, 'strategies'), name, id)
 }
 
-function writeSeatStrategy(
+function writeModelStrategy(
   root: string,
   protocol: string,
-  seat: string,
+  model: string,
   name: string,
   id: string,
 ): string {
-  return writeStrategyAt(join(root, protocol, 'models', seat, 'strategies'), name, id)
+  return writeStrategyAt(join(root, protocol, 'models', model, 'strategies'), name, id)
 }
 
 function withFixture(fn: (root: string) => void): void {
@@ -133,9 +133,9 @@ test('same-protocol duplicate id keeps the lexicographically first file', () => 
   })
 })
 
-test('models/<seat>/strategies is discovered with <protocol>-<seat>- namespace', () => {
+test('models/<model>/strategies is discovered with <protocol>-<model>- namespace', () => {
   withFixture((root) => {
-    writeSeatStrategy(root, 'pair', 'fable', 'e01', 'pair-fable-e01')
+    writeModelStrategy(root, 'pair', 'fable', 'e01', 'pair-fable-e01')
     const found = discoverProtocolStrategies(root)
     assert.deepEqual(
       found.map((s) => s.def.id),
@@ -145,29 +145,29 @@ test('models/<seat>/strategies is discovered with <protocol>-<seat>- namespace',
   })
 })
 
-test('a seat strategy with only the protocol prefix is skipped (needs the seat prefix)', () => {
+test('a model strategy with only the protocol prefix is skipped (needs the model prefix)', () => {
   withFixture((root) => {
-    writeSeatStrategy(root, 'pair', 'fable', 'bad', 'pair-e01')
+    writeModelStrategy(root, 'pair', 'fable', 'bad', 'pair-e01')
     const found = silenced(() => discoverProtocolStrategies(root))
     assert.deepEqual(found, [])
   })
 })
 
-test('seat id collision with a protocol-level file resolves to the seat (namespace owner)', () => {
+test('model id collision with a protocol-level file resolves to the model (namespace owner)', () => {
   withFixture((root) => {
-    // A protocol-level file squats a seat-namespaced id; the seat owns it.
+    // A protocol-level file squats a model-namespaced id; the model owns it.
     writeStrategy(root, 'pair', 'squat', 'pair-fable-x')
-    const seatFile = writeSeatStrategy(root, 'pair', 'fable', 'x', 'pair-fable-x')
+    const modelFile = writeModelStrategy(root, 'pair', 'fable', 'x', 'pair-fable-x')
     const found = silenced(() => discoverProtocolStrategies(root))
     const winner = found.find((s) => s.def.id === 'pair-fable-x')
     assert.equal(winner?.protocol, 'pair-fable')
-    assert.equal(winner?.file, seatFile)
+    assert.equal(winner?.file, modelFile)
   })
 })
 
-test('a broken seat file is skipped; sibling seats survive', () => {
+test('a broken model file is skipped; sibling models survive', () => {
   withFixture((root) => {
-    writeSeatStrategy(root, 'pair', 'fable', 'ok', 'pair-fable-ok')
+    writeModelStrategy(root, 'pair', 'fable', 'ok', 'pair-fable-ok')
     const gptDir = join(root, 'pair', 'models', 'gpt', 'strategies')
     mkdirSync(gptDir, { recursive: true })
     writeFileSync(join(gptDir, 'broken.ts'), 'export const definition = { syntax error here\n')

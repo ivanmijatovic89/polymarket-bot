@@ -29,19 +29,19 @@ protocols/<name>/
   ...                       # journal, knowledge base, tools — the protocol's business
 ```
 
-Multi-model protocols may additionally give each competing model ("seat") a
+Multi-model protocols may additionally give each competing model a
 self-contained workspace with its own strategies:
 
 ```
 protocols/<name>/
   MISSION.md
   commons/                  # shared: knowledge, bugs, tools
-  models/<seat>/            # one folder per seat (model line: fable, gpt, ...)
-    strategies/             # auto-discovered; ids MUST start with <name>-<seat>-
-    ...                     # the seat's journal, STATUS.md, INBOX.md, tools
+  models/<model>/           # one folder per model LINE (fable, gpt — not versions)
+    strategies/             # auto-discovered; ids MUST start with <name>-<model>-
+    ...                     # the model's journal, STATUS.md, INBOX.md, tools
 ```
 
-Seat strategy ids are namespaced `<name>-<seat>-*`; on an id collision the
+Model strategy ids are namespaced `<name>-<model>-*`; on an id collision the
 namespace owner (longest matching prefix) wins deterministically. Check with
 the same `npm run protocol:check -- <name>` (covers both layouts).
 

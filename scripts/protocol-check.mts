@@ -25,10 +25,10 @@ if (!existsSync(join(root, 'protocols', name))) {
   process.exit(2)
 }
 
-// Strategy code can live at the protocol level and/or per seat
-// (protocols/<name>/models/<seat>/strategies — multi-model protocols).
+// Strategy code can live at the protocol level and/or per model
+// (protocols/<name>/models/<model>/strategies — multi-model protocols).
 const strategiesDir = join(root, 'protocols', name, 'strategies')
-const seatStrategiesGlob = join(root, 'protocols', name, 'models', '*', 'strategies')
+const modelStrategiesGlob = join(root, 'protocols', name, 'models', '*', 'strategies')
 const hasStrategies = existsSync(strategiesDir)
 const hasModels = existsSync(join(root, 'protocols', name, 'models'))
 if (!hasStrategies && !hasModels) {
@@ -62,7 +62,7 @@ try {
           join(root, 'src/**/*.ts'),
           join(root, 'src/**/*.tsx'),
           join(strategiesDir, '**/*.ts'),
-          join(seatStrategiesGlob, '**/*.ts'),
+          join(modelStrategiesGlob, '**/*.ts'),
         ],
         exclude: [join(root, 'src/llm-usage')],
       },
@@ -83,7 +83,7 @@ try {
   rmSync(tmp, { recursive: true, force: true })
 }
 
-console.log(`[protocol-check] ${name}: eslint (protocol + seat strategies)`)
+console.log(`[protocol-check] ${name}: eslint (protocol + model strategies)`)
 ok =
   run(join(root, 'node_modules/.bin/eslint'), [
     `protocols/${name}/strategies/**/*.ts`,
