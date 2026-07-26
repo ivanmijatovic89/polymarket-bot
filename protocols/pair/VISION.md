@@ -1,9 +1,15 @@
 # Pair — vision (v6, final)
 
-> Status: DESIGN FINAL. Order of work: the human defines MISSION.md (strategy
-> + constitution) → the AI expedition explores and designs its own working
-> system → research begins. Red-teamed by three independent reviews
-> (architecture, ops, methodology) on 2026-07-26.
+> Status: DESIGN FINAL. Red-teamed by three independent reviews (architecture,
+> ops, methodology) on 2026-07-26.
+>
+> **CURRENT PHASE: P0 — definition** (update this line as phases advance)
+>
+> - [ ] P0 — the human defines MISSION.md (strategy + constitution) + safety kit
+> - [ ] P1 — expedition: Fable explores + proposes the team system, GPT reviews
+> - [ ] P2 — research, both agents, 24/7
+> - [ ] P2.5 — micro live probe (~$50)
+> - [ ] P3 — more models, only if earned
 
 ## Goal
 
