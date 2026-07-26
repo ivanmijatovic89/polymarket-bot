@@ -843,7 +843,16 @@ type SharedState = {
   failed: { count: number }
   inflight: { count: number }
   recent: Completion[] // ring buffer, capped
-  forceClaimedSlugs: Set<string>
+  /**
+   * Slugs already claimed by THIS run — never re-claimed within the run.
+   * Two reasons: in --force mode a reconverted 'done' row stays claimable by
+   * the force predicate; and in EVERY mode a market whose conversion FAILS
+   * stays 'failed' = claimable, which used to make the queue re-claim an
+   * instantly-failing market in a tight loop (observed 2026-07-26: 8 markets
+   * retried ~400x each in one run, with ok=-3297 stats). One attempt per
+   * market per run; later runs retry failed markets as before.
+   */
+  attemptedSlugs: Set<string>
   // (market, converter) claims this process set to 'in_progress' and has not
   // yet resolved to done/failed. Used to revert exactly our own work on exit.
   ownedClaims: Set<string>
@@ -926,7 +935,7 @@ async function worker(
 ): Promise<void> {
   while (!state.signal.aborted) {
     if (!reserveLimitSlot(args.limit, state.reserved)) return
-    const excludeSlugs = args.force ? Array.from(state.forceClaimedSlugs) : []
+    const excludeSlugs = Array.from(state.attemptedSlugs)
     let market: ClaimedMarket | null
     try {
       // Shared drain logic: claim one, and on a miss confirm with a real count
@@ -968,7 +977,7 @@ async function worker(
       return
     }
     if (market.convertersToProcess.length === 0) continue
-    if (args.force) state.forceClaimedSlugs.add(market.slug)
+    state.attemptedSlugs.add(market.slug)
     state.claimed.count++
     state.inflight.count++
     // Record our claims so any shutdown path can revert exactly these rows.
@@ -1088,7 +1097,7 @@ async function main(): Promise<void> {
   const failed = { count: 0 }
   const inflight = { count: 0 }
   const recent: Completion[] = []
-  const forceClaimedSlugs = new Set<string>()
+  const attemptedSlugs = new Set<string>()
   const ownedClaims = new Set<string>()
   const t0 = Date.now()
   const sharedState: SharedState = {
@@ -1099,7 +1108,7 @@ async function main(): Promise<void> {
     failed,
     inflight,
     recent,
-    forceClaimedSlugs,
+    attemptedSlugs,
     ownedClaims,
     totalQueue,
     runStart: t0,
