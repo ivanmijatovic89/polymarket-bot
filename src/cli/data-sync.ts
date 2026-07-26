@@ -160,7 +160,10 @@ function buildSteps(role: Args['role'], markets: Market[]): Step[] {
       id: 'pricetobeat',
       title: 'priceToBeat + finalPrice backfill (Gamma)',
       script: 'src/telonex/sync-pricetobeat-and-final-price.ts',
-      args: [],
+      // Scoped to this sync's market family — a broad catalog otherwise turns
+      // a scoped sync into an hours-long catalog-wide Gamma crawl. Run the
+      // backfill standalone (no --slug-pattern) for a catalog-wide pass.
+      args: ['--slug-pattern', patterns],
       deps: ['catalog'],
       supportsDryRun: true,
       supportsConcurrency: false,
