@@ -47,9 +47,16 @@ protocols/pair/
                         #   about the engine, citing docs/ and source. Docs
                         #   stay canonical; generic discoveries get upstreamed;
                         #   the digest cites, never forks.
-  tasks/                # THE shared backlog — one file per task. Anyone adds;
-                        #   an agent claims by writing a claim marker; done
-                        #   tasks point at their experiment verdict.
+  tasks/                # THE shared backlog — one file per task. Sources:
+                        #   (1) agents themselves — every session writes down
+                        #   the follow-up ideas its work generated (main
+                        #   source; research makes more questions than
+                        #   answers), (2) the human (directly or via INBOX),
+                        #   (3) the P0 seed batch from the MISSION talk.
+                        #   Claim = write a claim marker; done tasks point at
+                        #   their experiment verdict. An agent with nothing
+                        #   claimable generates hypotheses from knowledge/ +
+                        #   the champion's weak spots.
   experiments/<id>.md   # one file per experiment: hypothesis, parent variant,
                         #   exact run command + DB run ids, verdict, model.
                         #   Append-only; written by whoever claimed the task.
@@ -84,10 +91,15 @@ never by replaying journals.
 
 ## Roles (quota reality)
 
-- **fable** — main worker (Claude Code, $200 Max): design + experiment tasks,
-  near-24/7 (honestly: dark when quota windows reset).
-- **gpt** — daily worker (Codex, $20 ≈ hours/day): verification, review,
-  replication, small experiments. Same backlog, from day one.
+**Every model researches.** Nobody is locked to a role — both hunt for what
+makes the strategy better, and the experiments they author carry their name,
+so it stays visible who finds what. Verification is a TASK TYPE on the shared
+backlog, not somebody's job; MISSION sets a minimum mix (the backlog must not
+starve verification/replication tasks) and any agent can pick them up.
+
+- **fable** — Claude Code ($200 Max): near-24/7 (honestly: dark when quota
+  windows reset).
+- **gpt** — Codex ($20 ≈ hours/day): same backlog, same rights, from day one.
 - **opus** — tactical sessions (shares Fable's budget), when a third opinion
   is worth the tokens.
 - **Advisors** (Perplexity/Grok/…): consulted for ideas; suggestions enter
@@ -145,8 +157,8 @@ edit their own guardrails.
 
 P0 — MISSION.md + ENGINE.md (seeded from fable-lab's CAPABILITIES.md,
 verify-then-write) + safety kit + seeded knowledge entry on the
-merge-accounting hole. P1 — **both agents from day one**: Fable on
-design/experiments, GPT on verification/review. P1.5 — **micro live probe**
+merge-accounting hole. P1 — **both agents from day one, both researching**
+on the shared backlog. P1.5 — **micro live probe**
 (~$50, one pair at a time, ~a week): measures whether sub-$1 pairs are
 actually capturable against live competition and calibrates the simulator.
 P2 — more models only if they earn their place.
