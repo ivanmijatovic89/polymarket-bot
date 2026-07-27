@@ -54,6 +54,17 @@ In this section i will define all rubics strategy must follow:
 
 # Backtesting
 
+- Every backtest run must set `BACKTEST_LATENCY_DELAY` explicitly and record
+  it with the run. A run whose latency came from the ambient `.env` is not
+  evidence — pin it per run.
+- Canonical run:
+
+  ```bash
+  npm run backtest -- --strategy <id> --input-mode telonex-delta \
+    --read-from local-or-download-from-r2-to-local --symbol btc --timeframe 15m \
+    --from-ms 1775001600000   # 2026-04-02 protocol floor
+  ```
+
 ## Backtesting Speed
 - market speed: ~1.5 s per market per worker slot (older anchor measurement —
   re-verify once before relying on it for planning)
