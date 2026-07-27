@@ -131,3 +131,7 @@ producer). Active workers (ansible inventory):
 - Commit messages start: `pair: [<model-version>] ...`
 - Save loop per unit: commit → `git pull --rebase origin main` → `git push`.
 - Never force-push, never rewrite history.
+
+# Memory System
+
+Stateless - everything lives in files, after each step we write in memory system. Agents can be stoped at any time, and new session can continue
