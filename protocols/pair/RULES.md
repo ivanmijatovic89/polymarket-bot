@@ -54,17 +54,26 @@ In this section i will define all rubics strategy must follow:
 
 # Backtesting
 
-- Never compare or pool results across fee eras (our dataset floor
-  2026-04-02 already guarantees single-era data — keep it that way).
-
 ## Backtesting Speed
-market speed:
-fleet speed:
+- market speed: ~1.5 s per market per worker slot (older anchor measurement —
+  re-verify once before relying on it for planning)
+- fleet speed: ~22 active slots ⇒ the full protocol universe
+  (≥ 2026-04-02 ≈ 11k markets, growing ~96/day) replays in roughly 15 min
+  end-to-end when the fleet is idle
 
 ## Distributed Backtesting (Fleet)
-Currently we have:
-- worker-1
-- worker-2
-- m1-milan
-- m1-ivan
+Backtests are submitted to the BullMQ fleet (never run locally on the
+producer). Active workers (ansible inventory):
+
+| Machine | Chip | Backtest slots | Queues |
+|---------|------|----------------|--------|
+| worker-1 | Mac mini M4 | 8 | markets + aggregate |
+| worker-2 | Mac mini M4 | 8 | markets |
+| m1-milan | M1 | 6 | markets |
+
+- m5-milan (12 slots) exists but is currently disabled in the inventory.
+- m1-ivan (M1 Pro, 4 slots) is the PRODUCER and live-trading machine — agents
+  never run backtest workers on it.
+- Workers self-update from origin/main and run committed code only (jobs are
+  gated on the producer's commit SHA — push before submitting).
 
