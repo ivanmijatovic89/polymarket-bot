@@ -54,6 +54,11 @@ In this section i will define all rubics strategy must follow:
 
 # Backtesting
 
+- Backtest runs must NOT emit `merge_positions` — the simulator cannot
+  account for mid-market merges (verified: a full merge scores $0, a partial
+  merge scores negative on a profitable trade). Pairs are valued at
+  settlement, which measures the same edge correctly. Live merge timing is
+  an execution detail, out of backtest scope.
 - Every backtest run must set `BACKTEST_LATENCY_DELAY` explicitly and record
   it with the run. A run whose latency came from the ambient `.env` is not
   evidence — pin it per run.
@@ -88,3 +93,41 @@ producer). Active workers (ansible inventory):
 - Workers self-update from origin/main and run committed code only (jobs are
   gated on the producer's commit SHA — push before submitting).
 
+
+# Working Rules
+
+## Workspace (worktree)
+
+- Each model works in its own git worktree: `../polymarket-bot-pair-<model>`,
+  created by `protocols/pair/scripts/setup-model-worktree.sh` (idempotent —
+  safe to rerun). The worktree has a generated keyless `.env`
+  (`DRY_RUN=true`) and `node_modules` + `data/` symlinked from the main
+  checkout.
+- Never run `npm install` / `npm ci` — dependencies are the human's job in
+  the main checkout.
+- A pre-commit hook enforces the write scopes below. Never bypass it
+  (`--no-verify` is forbidden).
+
+## Write scopes
+
+- Your private space is `models/<you>/` (STATUS.md, INBOX.md, scratch).
+  Everything else in `protocols/pair/` is shared team space.
+- Never edit: `VISION.md`, `DECISIONS.md`, `RULES.md`, `MISSION.md`,
+  `scripts/` — human-authored. `src/` changes go through a normal PR — never
+  direct to main.
+
+## Human interface (v1 — improvable)
+
+- Current contract: keep `models/<you>/STATUS.md` current at every unit end;
+  read and acknowledge `models/<you>/INBOX.md` at every unit start; stop
+  gracefully when `models/<you>/DONE` exists.
+- This mechanism is NOT set in stone: during P1 you may propose a better
+  design for it — you will also design and build mission control for the
+  human — but until a replacement is agreed with the human, this contract
+  holds.
+
+## Git discipline
+
+- Commit messages start: `pair: [<model-version>] ...`
+- Save loop per unit: commit → `git pull --rebase origin main` → `git push`.
+- Never force-push, never rewrite history.
