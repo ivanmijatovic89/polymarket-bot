@@ -121,6 +121,74 @@ For automated trading this means fees never shrink your share count -- they rais
 
 For the full fee schedule and current rates, see the [Polymarket fee documentation](https://docs.polymarket.com/trading/fees#fee-structure).
 
+### How Fees Evolved (Fee Eras)
+
+Polymarket did not always charge fees. The schedule changed several times in
+the first half of 2026, and each change materially altered trading economics —
+results measured under one fee regime are not comparable to results measured
+under another. The timeline below focuses on crypto markets. Current-era facts
+match the official documentation; the era boundaries and the era-1 formula
+come from on-chain fill analysis (public sources do not document the early
+history precisely, and some even disagree on the start month).
+
+```
+        2025            2026
+  ───────────────┬───────┬─────────────┬──────┬───────────────────>
+                 │ Jan 6 │  Mar 29-31  │ ~May 8│
+   ERA 0         │ ERA 1 │   ERA 2     │ ERA 3 │
+   no fees       │ small │  new curve, │ today │  (+ taker tiers
+                 │ taker │  ~2.3x at   │       │    from ~May 27)
+                 │ fee   │  the peak   │       │
+```
+
+| Era | Period | Taker fee per share | Cost per 100 shares @ p=0.50 |
+|-----|--------|--------------------|------------------------------|
+| 0 | until 2026-01-06 | none | $0.00 |
+| 1 | 2026-01-06 → 2026-03-29 | `0.25 · p · (p(1−p))²` | $0.78 |
+| 2 | 2026-03-29/31 → ~2026-05-08 | `0.072 · p · (1−p)` | $1.80 |
+| 3 | ~2026-05-08 → today | `0.07 · p · (1−p)` | $1.75 |
+
+Makers paid exactly **$0 in every era** — no fee change has ever touched the
+maker side. What did change for makers: since era 1, ~20% of collected taker
+fees are redistributed daily to makers as rebates (the Maker Rebates
+Program), proportional to each maker's fee-weighted volume.
+
+The two formula families also have different *shapes* across the price range.
+Era 1's quartic-like curve was nearly free outside the mid-range; the current
+parabola charges meaningfully across a much wider band:
+
+```
+  Taker fee (cents/share) vs share price p
+
+  1.8¢ ┤                    ERA 2/3: 0.07·p·(1−p)
+  1.6¢ ┤               ╭────●────╮
+  1.4¢ ┤            ╭──╯         ╰──╮
+  1.2¢ ┤          ╭─╯               ╰─╮
+  1.0¢ ┤        ╭─╯                   ╰─╮
+  0.8¢ ┤      ╭─╯      ERA 1 (quartic)  ╰─╮
+  0.6¢ ┤    ╭─╯        ╭────●────╮        ╰─╮
+  0.4¢ ┤  ╭─╯      ╭───╯         ╰───╮      ╰─╮
+  0.2¢ ┤╭─╯    ╭───╯                 ╰───╮    ╰─╮
+  0.0¢ ┼●──────╯─────────────────────────╰──────●
+       0.0    0.2       0.5       0.8         1.0
+                     share price p
+```
+
+Two later refinements, both still active:
+
+- **Taker Rebate Program (tiers), from ~2026-05-27**: high-volume takers
+  recover a portion of their fees, tiered by volume. A new or low-volume
+  account (tier 0) pays the full curve.
+- **Category expansion, 2026-03-30**: alongside the era-2 curve change, taker
+  fees rolled out beyond crypto to nearly every market category (sports,
+  finance, politics, economics, …), each with its own rate; only geopolitics
+  remained fee-free.
+
+Practical consequence for any historical analysis: **never pool or compare
+results across a fee-era boundary.** A strategy that printed money in era 0
+may be structurally unprofitable in era 3 — the game changed, not the
+players.
+
 ### Order Types
 
 Polymarket supports four order types:
