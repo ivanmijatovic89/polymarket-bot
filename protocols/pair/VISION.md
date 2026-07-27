@@ -57,7 +57,7 @@ invalid.
    pre-commit hook itself protects, so agents cannot edit their guardrails):
    generated keyless `.env` with `DRY_RUN=true` hardcoded; per-worktree
    `npm ci`; pre-commit scope hook + secret scan; hardened save loop; main is
-   revert-only; live bots never load protocol strategies; backtests go to the
+   revert-only; backtests go to the
    fleet only, per-agent daily budget, human keeps queue priority; repo
    private before launch.
 
