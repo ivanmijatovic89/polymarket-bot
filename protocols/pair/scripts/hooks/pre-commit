@@ -17,7 +17,7 @@ if [[ -z "$MODEL" ]]; then
   exit 1
 fi
 
-PROTECTED_RE='^protocols/pair/((VISION|DECISIONS|RULES|MISSION)\.md|scripts(/|$))'
+PROTECTED_RE='^protocols/pair/((VISION|DECISIONS|RULES|MISSION)\.md|scripts(/|$)|missions(/|$))'
 FAIL=0
 
 while IFS= read -r path; do
