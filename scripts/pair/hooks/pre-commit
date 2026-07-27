@@ -1,0 +1,51 @@
+#!/usr/bin/env bash
+# Pair-protocol worktree pre-commit hook (installed by setup-agent-worktree.sh
+# via worktree-scoped core.hooksPath — lives in scripts/, outside agent reach).
+#
+# Enforces (protocols/pair/VISION.md §Safety kit):
+#   1. commits touch ONLY protocols/pair/**
+#   2. never the human-authored files (VISION/DECISIONS/RULES/MISSION)
+#   3. never another agent's agents/<x>/ folder
+#   4. staged content passes a secret scan
+set -euo pipefail
+
+AGENT="$(git config pair.agent || true)"
+if [[ -z "$AGENT" ]]; then
+  echo "pre-commit: git config pair.agent is not set — rerun setup-agent-worktree.sh" >&2
+  exit 1
+fi
+
+PROTECTED_RE='^protocols/pair/(VISION|DECISIONS|RULES|MISSION)\.md$'
+FAIL=0
+
+while IFS= read -r path; do
+  [[ -z "$path" ]] && continue
+  if [[ "$path" != protocols/pair/* ]]; then
+    echo "pre-commit: BLOCKED — '$path' is outside protocols/pair/ (agents commit only there; src/ changes go through a PR)" >&2
+    FAIL=1
+  elif [[ "$path" =~ $PROTECTED_RE ]]; then
+    echo "pre-commit: BLOCKED — '$path' is human-authored (only the human edits it)" >&2
+    FAIL=1
+  elif [[ "$path" == protocols/pair/agents/* ]]; then
+    owner="${path#protocols/pair/agents/}"
+    owner="${owner%%/*}"
+    if [[ "$owner" != "$AGENT" ]]; then
+      echo "pre-commit: BLOCKED — '$path' belongs to agent '$owner', you are '$AGENT'" >&2
+      FAIL=1
+    fi
+  fi
+done < <(git diff --cached --name-only)
+
+# --- secret scan on staged additions -----------------------------------------
+# 64-hex (EVM private keys), PEM blocks, and obvious credential assignments.
+SECRET_RE='([0-9a-fA-F]{64}|-----BEGIN [A-Z ]*PRIVATE KEY|PRIVATE_KEY[[:space:]]*=|API_SECRET[[:space:]]*=|SECRET_ACCESS_KEY[[:space:]]*=|PASSPHRASE[[:space:]]*=)'
+if git diff --cached --unified=0 | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eq "$SECRET_RE"; then
+  echo "pre-commit: BLOCKED — staged content matches a secret pattern (key/credential)." >&2
+  echo "  If this is a false positive (e.g. a 64-hex hash), rewrite it truncated — never commit full 64-hex strings." >&2
+  FAIL=1
+fi
+
+if [[ "$FAIL" -ne 0 ]]; then
+  echo "pre-commit: commit rejected by pair safety hook." >&2
+  exit 1
+fi

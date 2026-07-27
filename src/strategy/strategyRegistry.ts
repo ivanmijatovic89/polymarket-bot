@@ -72,6 +72,11 @@ function discoverStrategies(): Record<string, StrategyDefinition<unknown>> {
 
   // Protocol strategies: fail-soft discovery with per-id conflict resolution
   // (see protocolStrategyDiscovery.ts). Core src/strategies/ ids always win.
+  // Kill-switch: live-trading processes have zero reason to load protocol
+  // experiments — set STRATEGY_PROTOCOL_DISCOVERY=off in the live bots' env
+  // so agent-pushed code can never execute inside a wallet-holding process.
+  if (process.env.STRATEGY_PROTOCOL_DISCOVERY === 'off') return registry
+
   for (const { file, def } of discoverProtocolStrategies(PROTOCOLS_ROOT)) {
     if (registry[def.id]) {
       console.warn(
