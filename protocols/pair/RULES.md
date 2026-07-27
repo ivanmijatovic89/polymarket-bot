@@ -44,24 +44,15 @@ In this section i will define all rubics strategy must follow:
 4. All accounting is FEE-INCLUSIVE: maker fills cost $0 in fees; every
    taker fill budgets the full 0.07·p·(1−p)/share curve (we are tier-0,
    no fee refunds). A pair is "below $1" only after fees.
-5. Leg imbalance is a controlled, swept risk knob (from strict parity up
-   to ~40%), never unbounded — and cheap-side excess is capped tighter
-   than favorite-side excess.
-6. Never-overpay guards go on PLACEMENT (the pair you build), never on
-   COMPLETION (the pair you rescue).
-7. Exits are merge and redeem only (follows from rule 1: no sells, ever).
+5. Exits are merge and redeem only (follows from rule 1: no sells, ever).
 
 
 # Trading Rubics
-- Not latency aware strategy
 - Not latency dependent — operational definition: a variant must remain
   profitable at BOTH 0 ms and 140 ms+ simulated latency (the latency
   battery). Requote churn is the known killer: at 140 ms it multiplies
   fills ~8× and converts ~34% into fee-paying taker fills — quote
   stability is a design axis, not an execution detail.
-- Hour-of-day and minute-of-window are ALLOWED policy variables (measured
-  edge concentrates in minutes 10–13 and, for passive quoting, in the
-  20–24Z weekday session; the US session 12–19Z is adverse for it).
 
 # Backtesting
 
