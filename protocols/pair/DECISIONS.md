@@ -30,10 +30,12 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
    human chose this rule INSTEAD of fixing the simulator. Live merge
    mechanics (MINED wait, gas, capital recycling) are measured by the live
    probe.
-5. **Guardrails live outside `protocols/`** (in `scripts/`): everything under
-   `protocols/**` is agent-writable via the direct-push-to-main policy, so a
-   guard placed here could be edited by the agents it guards.
-   `protocol:check` stays in `scripts/` for exactly this reason.
+5. **Guardrails live in `protocols/pair/scripts/`, self-protected** (revised
+   2026-07-27; originally they sat in repo `scripts/`): the pre-commit hook
+   blocks agent commits to `protocols/pair/scripts/**` and to the
+   human-authored files, so agents cannot weaken their own guardrails through
+   the normal commit flow. Repo-wide `protocol:check` stays in `scripts/`
+   (it is platform tooling, not pair-specific).
 6. **Engine truth lives in `docs/`; this protocol keeps an `ENGINE.md`
    digest** (AI-format, cites docs/source, never forks them). Generic
    discoveries get upstreamed to docs. The digest is written **from scratch**

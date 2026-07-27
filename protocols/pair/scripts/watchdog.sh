@@ -15,11 +15,11 @@
 # the ntfy app).
 #
 # Usage:
-#   scripts/pair/watchdog.sh [agents...]        # one check pass (default: fable gpt)
-#   scripts/pair/watchdog.sh --install [agents...]  # install launchd job (every 15 min)
+#   protocols/pair/scripts/watchdog.sh [agents...]        # one check pass (default: fable gpt)
+#   protocols/pair/scripts/watchdog.sh --install [agents...]  # install launchd job (every 15 min)
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 HEARTBEAT_MAX_AGE_S="${PAIR_HEARTBEAT_MAX_AGE_S:-10800}"
 MIN_DISK_GB="${PAIR_MIN_DISK_GB:-15}"
 NTFY_TOPIC="${PAIR_NTFY_TOPIC:-}"
@@ -35,7 +35,7 @@ if [[ "${1:-}" == "--install" ]]; then
   <key>Label</key><string>com.polymarket-bot.pair-watchdog</string>
   <key>ProgramArguments</key><array>
     <string>/bin/bash</string>
-    <string>$ROOT/scripts/pair/watchdog.sh</string>
+    <string>$ROOT/protocols/pair/scripts/watchdog.sh</string>
 $(for a in $AGENTS; do echo "    <string>$a</string>"; done)
   </array>
   <key>StartInterval</key><integer>900</integer>

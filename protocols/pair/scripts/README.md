@@ -1,16 +1,16 @@
 # Pair protocol — safety kit
 
 Guard scripts for the `protocols/pair/` agents (design: `protocols/pair/VISION.md`
-§Safety kit). They live HERE, in `scripts/`, deliberately outside `protocols/**`:
-everything under `protocols/**` is agent-writable via the direct-push-to-main
-policy, and agents must not be able to edit their own guardrails. Changes to
-these files go through a normal PR.
+§Safety kit). They live inside the protocol for self-containment, and the
+pre-commit hook **protects this directory from agent commits** (its own path is
+on the blocked list), so agents cannot weaken their guardrails through the
+normal commit flow. Only the human edits these files.
 
 ## setup-agent-worktree.sh
 
 ```bash
-scripts/pair/setup-agent-worktree.sh fable            # create/refresh agent worktree
-scripts/pair/setup-agent-worktree.sh gpt main --no-install
+protocols/pair/scripts/setup-agent-worktree.sh fable            # create/refresh agent worktree
+protocols/pair/scripts/setup-agent-worktree.sh gpt main --no-install
 ```
 
 Creates `../polymarket-bot-pair-<agent>` with:
@@ -49,9 +49,9 @@ assignments).
 ## watchdog.sh
 
 ```bash
-scripts/pair/watchdog.sh fable gpt              # one check pass
-scripts/pair/watchdog.sh --install fable gpt    # launchd job, every 15 min
-PAIR_NTFY_TOPIC=<secret-topic> scripts/pair/watchdog.sh --install fable gpt  # + phone push
+protocols/pair/scripts/watchdog.sh fable gpt              # one check pass
+protocols/pair/scripts/watchdog.sh --install fable gpt    # launchd job, every 15 min
+PAIR_NTFY_TOPIC=<secret-topic> protocols/pair/scripts/watchdog.sh --install fable gpt  # + phone push
 ```
 
 Runs OUTSIDE the agent loop (launchd) so a dead shift cannot silence its own

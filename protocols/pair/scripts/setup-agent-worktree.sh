@@ -7,7 +7,7 @@
 #     scope + secret scan; the agent name is pinned in git config pair.agent
 #   - its own npm ci (no node_modules symlink shared with the live checkout)
 #
-# Usage: scripts/pair/setup-agent-worktree.sh <agent> [branch] [--no-install]
+# Usage: protocols/pair/scripts/setup-agent-worktree.sh <agent> [branch] [--no-install]
 #   <agent>  lowercase name, e.g. fable | gpt | opus
 #   [branch] base branch for the worktree (default: main)
 set -euo pipefail
@@ -22,9 +22,12 @@ if [[ ! "$AGENT" =~ ^[a-z0-9-]+$ ]]; then
   exit 2
 fi
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
 WT="$(dirname "$ROOT")/polymarket-bot-pair-${AGENT}"
-HOOKS_DIR="$ROOT/scripts/pair/hooks"
+# Hooks are referenced from the MAIN checkout (this repo), not the worktree
+# copy — and the hook protects protocols/pair/scripts/** from agent commits,
+# so agents cannot weaken their own guardrails through the normal flow.
+HOOKS_DIR="$ROOT/protocols/pair/scripts/hooks"
 
 cd "$ROOT"
 git fetch origin "$BRANCH" --quiet

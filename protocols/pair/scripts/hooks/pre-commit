@@ -1,12 +1,14 @@
 #!/usr/bin/env bash
 # Pair-protocol worktree pre-commit hook (installed by setup-agent-worktree.sh
-# via worktree-scoped core.hooksPath — lives in scripts/, outside agent reach).
+# via worktree-scoped core.hooksPath, pointing at the MAIN checkout's copy).
 #
 # Enforces (protocols/pair/VISION.md §Safety kit):
 #   1. commits touch ONLY protocols/pair/**
 #   2. never the human-authored files (VISION/DECISIONS/RULES/MISSION)
-#   3. never another agent's agents/<x>/ folder
-#   4. staged content passes a secret scan
+#   3. never the safety kit itself (protocols/pair/scripts/**) — the hook
+#      protects its own directory, so agents cannot weaken their guardrails
+#   4. never another agent's agents/<x>/ folder
+#   5. staged content passes a secret scan
 set -euo pipefail
 
 AGENT="$(git config pair.agent || true)"
@@ -15,7 +17,7 @@ if [[ -z "$AGENT" ]]; then
   exit 1
 fi
 
-PROTECTED_RE='^protocols/pair/(VISION|DECISIONS|RULES|MISSION)\.md$'
+PROTECTED_RE='^protocols/pair/((VISION|DECISIONS|RULES|MISSION)\.md|scripts(/|$))'
 FAIL=0
 
 while IFS= read -r path; do
@@ -24,7 +26,7 @@ while IFS= read -r path; do
     echo "pre-commit: BLOCKED — '$path' is outside protocols/pair/ (agents commit only there; src/ changes go through a PR)" >&2
     FAIL=1
   elif [[ "$path" =~ $PROTECTED_RE ]]; then
-    echo "pre-commit: BLOCKED — '$path' is human-authored (only the human edits it)" >&2
+    echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2
     FAIL=1
   elif [[ "$path" == protocols/pair/agents/* ]]; then
     owner="${path#protocols/pair/agents/}"
