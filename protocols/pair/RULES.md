@@ -112,7 +112,7 @@ producer). Active workers (ansible inventory):
 
 - Your private space is `models/<you>/` (STATUS.md, INBOX.md, scratch).
   Everything else in `protocols/pair/` is shared team space.
-- Never edit: `VISION.md`, `DECISIONS.md`, `RULES.md`, `MISSION.md`,
+- Never edit: `VISION.md`, `DECISIONS.md`, `RULES.md`, `missions/`,
   `scripts/` — human-authored. `src/` changes go through a normal PR — never
   direct to main.
 
