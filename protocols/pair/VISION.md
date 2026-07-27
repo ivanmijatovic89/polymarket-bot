@@ -13,10 +13,14 @@
 
 ## Goal
 
-Make **one strategy** profitable on **BTC 15m**, run it live, earn real money —
-then keep improving it forever. The human defines the strategy and the
-constitution and gates every money step; the AI does everything else —
-including designing how the team works.
+Make the **pair strategy** profitable on **BTC 15m**, run it live, earn real
+money — then keep improving it forever. Everything works toward the SAME
+goal: build pairs (buy UP + DOWN below $1 combined) and earn the difference
+at merge/redeem. That one goal may be reached by **multiple independent
+strategies running in parallel** — the concept is one, the ways are many
+(why multi is allowed: see missions/02-research.md). The human defines the
+strategy and the constitution and gates every money step; the AI does
+everything else — including designing how the team works.
 
 ## The strategy (fixed by the human)
 
@@ -39,7 +43,7 @@ invalid.
    id). The neutral eval tool launches all scoring runs itself (fixed slug
    set, pinned latency env) — self-reported numbers don't exist. Holdout
    embargo enforced in the eligibility layer. **Walk-forward promotion**: a
-   champion must stay positive on markets that started after its code froze
+   candidate variant must stay positive on markets that started after its code froze
    (~96 new markets/day make this free). Standard eval includes an
    edge-vs-latency sweep. Strategy variants are **forked, never edited**.
 3. **Write scopes**: `models/<model>/` is that model's only private space
@@ -128,4 +132,4 @@ if they earn their place.
 ## End goal
 
 Honest, calibrated backtest profit → DRY_RUN live → small real size → scale.
-Champion changes only via walk-forward eval + human approval.
+Champions — one or several independent variants in parallel — change only via walk-forward eval + human approval.
