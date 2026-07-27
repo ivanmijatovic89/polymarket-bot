@@ -42,7 +42,7 @@ invalid.
    champion must stay positive on markets that started after its code froze
    (~96 new markets/day make this free). Standard eval includes an
    edge-vs-latency sweep. Strategy variants are **forked, never edited**.
-3. **Write scopes**: `agents/<name>/` is that agent's only private space
+3. **Write scopes**: `models/<name>/` is that agent's only private space
    (STATUS.md, INBOX.md, scratch); everything else in `protocols/pair/` is
    shared; MISSION.md is human-only; `src/` changes go through a normal PR.
 4. **Sharing obligation**: anything you learn or build that another agent
@@ -50,16 +50,16 @@ invalid.
    memory.
 5. **Human interface**: keep `STATUS.md` current (heartbeat = its last-commit
    time); acknowledge `INBOX.md` at unit start; stop gracefully on
-   `agents/<name>/DONE`.
+   `models/<name>/DONE`.
 6. **Registry fixed points**: runnable strategies live in `strategies/`, ids
    start with `pair-`.
 7. **Safety kit** (mechanical, in `protocols/pair/scripts/` — a directory the
    pre-commit hook itself protects, so agents cannot edit their guardrails):
-   generated keyless `.env` with `DRY_RUN=true` hardcoded; per-worktree
-   `npm ci`; pre-commit scope hook + secret scan; hardened save loop; main is
-   revert-only; backtests go to the
-   fleet only, per-agent daily budget, human keeps queue priority; repo
-   private before launch.
+   generated keyless `.env` with `DRY_RUN=true` hardcoded; `node_modules` +
+   `data/` symlinked from the main checkout (agents never run
+   `npm install`/`ci`); pre-commit scope hook + secret scan; hardened save
+   loop; main is revert-only; backtests go to the fleet only, per-agent daily
+   budget, human keeps queue priority; repo private before launch.
 
 ## Layer 2 — The team's own system (designed by the models, not by us)
 
@@ -108,7 +108,7 @@ forked — a bad variant is a new file that loses in eval.
 ## Mission control
 
 - Per-agent `STATUS.md`; heartbeat = last-commit time.
-- `INBOX.md` steering with mandatory ack; `touch agents/<a>/DONE` to stop.
+- `INBOX.md` steering with mandatory ack; `touch models/<a>/DONE` to stop.
 - The human checks liveness manually for now (STATUS.md commit times); an
   external watchdog gets built when the need is real.
 - Drift self-check: every N units re-read MISSION, note "still on course?".

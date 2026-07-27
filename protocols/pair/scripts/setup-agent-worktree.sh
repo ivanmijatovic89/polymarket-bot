@@ -70,7 +70,7 @@ git -C "$WT" config --worktree pair.agent "$AGENT"
 echo "[pair-setup] pre-commit scope hook active (core.hooksPath=$HOOKS_DIR, pair.agent=$AGENT)"
 
 # --- agent home --------------------------------------------------------------
-mkdir -p "$WT/protocols/pair/agents/${AGENT}"
+mkdir -p "$WT/protocols/pair/models/${AGENT}"
 
 # --- shared node_modules + data (symlinks to the main checkout) --------------
 # Always-fresh deps, no duplicate installs, no duplicate parquet downloads.
@@ -84,4 +84,4 @@ done
 echo "[pair-setup] symlinked node_modules + data -> $ROOT"
 
 echo "[pair-setup] READY: $WT"
-echo "  next: launch the agent with cwd $WT/protocols/pair/agents/${AGENT}"
+echo "  next: launch the agent with cwd $WT/protocols/pair/models/${AGENT}"

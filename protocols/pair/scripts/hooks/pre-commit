@@ -7,7 +7,7 @@
 #   2. never the human-authored files (VISION/DECISIONS/RULES/MISSION)
 #   3. never the safety kit itself (protocols/pair/scripts/**) — the hook
 #      protects its own directory, so agents cannot weaken their guardrails
-#   4. never another agent's agents/<x>/ folder
+#   4. never another agent's models/<x>/ folder
 #   5. staged content passes a secret scan
 set -euo pipefail
 
@@ -28,8 +28,8 @@ while IFS= read -r path; do
   elif [[ "$path" =~ $PROTECTED_RE ]]; then
     echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2
     FAIL=1
-  elif [[ "$path" == protocols/pair/agents/* ]]; then
-    owner="${path#protocols/pair/agents/}"
+  elif [[ "$path" == protocols/pair/models/* ]]; then
+    owner="${path#protocols/pair/models/}"
     owner="${owner%%/*}"
     if [[ "$owner" != "$AGENT" ]]; then
       echo "pre-commit: BLOCKED — '$path' belongs to agent '$owner', you are '$AGENT'" >&2

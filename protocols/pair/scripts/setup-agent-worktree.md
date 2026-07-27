@@ -45,7 +45,7 @@ it's datasets, not money.)
 
 Blocks, in every agent worktree: commits outside `protocols/pair/**`; edits to
 the human-authored files (`VISION.md`, `DECISIONS.md`, `RULES.md`,
-`MISSION.md`); writes into another agent's `agents/<x>/` folder; and staged
+`MISSION.md`); writes into another agent's `models/<x>/` folder; and staged
 content matching secret patterns (64-hex keys, PEM blocks, credential
 assignments).
 
