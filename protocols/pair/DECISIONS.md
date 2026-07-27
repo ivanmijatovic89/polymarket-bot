@@ -48,11 +48,10 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
      checkout);
    - pre-commit scope hook + secret scan; save loop stages explicit paths,
      handles wedged rebases (abort + recover); main is revert-only;
-   - external launchd watchdog with phone push — the previous shift
-     generation died silently ~Jul 17-18 and went unnoticed for a week;
-   - live bots never load protocol strategies (discovery kill-switch);
    - backtests go to the fleet only; per-agent daily budget; human keeps
      queue priority;
+   - (dropped for now, by the human, 2026-07-27: external watchdog and a
+     live-bot discovery kill-switch — build them when actually needed);
    - repo flips to **private** before launch (currently public).
 8. **Registry support already shipped** on the same branch: discovery of
    `protocols/*/strategies/` and `protocols/*/models/*/strategies/`

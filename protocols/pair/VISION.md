@@ -109,9 +109,8 @@ forked — a bad variant is a new file that loses in eval.
 
 - Per-agent `STATUS.md`; heartbeat = last-commit time.
 - `INBOX.md` steering with mandatory ack; `touch agents/<a>/DONE` to stop.
-- **External watchdog** (launchd, outside the agent loop): stale heartbeat /
-  dead tmux / low disk → push notification. Non-negotiable — the previous
-  generation of shifts died silently and went unnoticed for a week.
+- The human checks liveness manually for now (STATUS.md commit times); an
+  external watchdog gets built when the need is real.
 - Drift self-check: every N units re-read MISSION, note "still on course?".
 
 ## Phases

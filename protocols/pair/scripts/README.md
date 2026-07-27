@@ -46,29 +46,3 @@ the human-authored files (`VISION.md`, `DECISIONS.md`, `RULES.md`,
 content matching secret patterns (64-hex keys, PEM blocks, credential
 assignments).
 
-## watchdog.sh
-
-```bash
-protocols/pair/scripts/watchdog.sh fable gpt              # one check pass
-protocols/pair/scripts/watchdog.sh --install fable gpt    # launchd job, every 15 min
-PAIR_NTFY_TOPIC=<secret-topic> protocols/pair/scripts/watchdog.sh --install fable gpt  # + phone push
-```
-
-Runs OUTSIDE the agent loop (launchd) so a dead shift cannot silence its own
-alarm. Alerts on: stale `STATUS.md` heartbeat on origin/main (default > 3h),
-missing `pair-<agent>` tmux session, low disk. Alert = macOS notification (+
-ntfy.sh push to your phone when `PAIR_NTFY_TOPIC` is set — subscribe to the
-topic in the ntfy app). Log: `~/Library/Logs/pair-watchdog.log`.
-
-## Live-bot kill-switch
-
-`src/strategy/strategyRegistry.ts` honors `STRATEGY_PROTOCOL_DISCOVERY=off`:
-the process skips ALL `protocols/**` strategy discovery. **Set it in every
-live-trading env file** (`.env`, `.env.bot1`, `.env.bot2`) so agent-pushed
-code can never execute inside a wallet-holding process:
-
-```
-STRATEGY_PROTOCOL_DISCOVERY=off
-```
-
-Backtest workers (the fleet) must NOT set it — they need protocol strategies.
