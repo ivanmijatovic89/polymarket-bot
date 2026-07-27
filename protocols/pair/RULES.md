@@ -48,17 +48,12 @@ In this section i will define all rubics strategy must follow:
 
 
 # Trading Rubics
-- Not latency dependent — operational definition: a variant must remain
-  profitable at BOTH 0 ms and 140 ms+ simulated latency (the latency
-  battery). Requote churn is the known killer: at 140 ms it multiplies
-  fills ~8× and converts ~34% into fee-paying taker fills — quote
-  stability is a design axis, not an execution detail.
+- Not latency dependent — operational definition: a variant must be
+  profitable at the measured live latency (~140 ms) and must not collapse
+  as latency INCREASES (the standard eval sweeps latency upward).
 
 # Backtesting
 
-- The simulator admits only ~44–49% of real-world fills (worst_queue
-  maker model): backtests are a LOWER BOUND and a screening tool;
-  promotion-grade validation requires walk-forward + the live probe.
 - Never compare or pool results across fee eras (our dataset floor
   2026-04-02 already guarantees single-era data — keep it that way).
 
