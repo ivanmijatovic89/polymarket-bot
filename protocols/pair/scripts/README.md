@@ -9,8 +9,8 @@ normal commit flow. Only the human edits these files.
 ## setup-agent-worktree.sh
 
 ```bash
-protocols/pair/scripts/setup-agent-worktree.sh fable            # create/refresh agent worktree
-protocols/pair/scripts/setup-agent-worktree.sh gpt main --no-install
+protocols/pair/scripts/setup-agent-worktree.sh fable   # create/refresh agent worktree
+protocols/pair/scripts/setup-agent-worktree.sh gpt
 ```
 
 Creates `../polymarket-bot-pair-<agent>` with:
@@ -21,7 +21,10 @@ Creates `../polymarket-bot-pair-<agent>` with:
   no RPC.
 - **Worktree-scoped pre-commit hook** (`hooks/pre-commit` via
   `core.hooksPath`; agent identity pinned in `git config pair.agent`).
-- **Own `npm ci`** — no `node_modules` symlink shared with the live checkout.
+- **`node_modules` + `data/` symlinked from the main checkout** — always
+  fresh, no duplicate installs or dataset downloads. Consequence (rule):
+  agents never run `npm install`/`npm ci` — dependencies are the human's job
+  in the main checkout.
 
 Hardening still recommended (manual, once): create a scoped MySQL user for
 agents instead of the root app user —

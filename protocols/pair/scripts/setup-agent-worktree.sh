@@ -3,22 +3,22 @@
 # §Safety kit). Creates or refreshes an AGENT WORKTREE with:
 #   - a GENERATED minimal .env: DRY_RUN=true hardcoded, whitelisted keys only —
 #     never a copy of the root .env (which holds live keys)
-#   - a worktree-scoped pre-commit hook (scripts/pair/hooks) enforcing commit
-#     scope + secret scan; the agent name is pinned in git config pair.agent
-#   - its own npm ci (no node_modules symlink shared with the live checkout)
+#   - a worktree-scoped pre-commit hook (hooks/) enforcing commit scope +
+#     secret scan; the agent name is pinned in git config pair.agent
+#   - node_modules and data/ SYMLINKED from the main checkout (always fresh,
+#     no duplicate installs/downloads). Consequence: agents must never run
+#     npm install/ci — deps are the human's job in the main checkout.
 #
-# Usage: protocols/pair/scripts/setup-agent-worktree.sh <agent> [branch] [--no-install]
+# Usage: protocols/pair/scripts/setup-agent-worktree.sh <agent> [branch]
 #   <agent>  lowercase name, e.g. fable | gpt | opus
 #   [branch] base branch for the worktree (default: main)
 set -euo pipefail
 
 AGENT="${1:-}"
 BRANCH="${2:-main}"
-NO_INSTALL="${3:-}"
-[[ "$BRANCH" == "--no-install" ]] && { NO_INSTALL="--no-install"; BRANCH="main"; }
 
 if [[ ! "$AGENT" =~ ^[a-z0-9-]+$ ]]; then
-  echo "usage: $0 <agent> [branch] [--no-install]  (agent: lowercase [a-z0-9-])" >&2
+  echo "usage: $0 <agent> [branch]  (agent: lowercase [a-z0-9-])" >&2
   exit 2
 fi
 
@@ -72,16 +72,16 @@ echo "[pair-setup] pre-commit scope hook active (core.hooksPath=$HOOKS_DIR, pair
 # --- agent home --------------------------------------------------------------
 mkdir -p "$WT/protocols/pair/agents/${AGENT}"
 
-# --- own dependencies (no symlink to the live checkout) ----------------------
-if [[ "$NO_INSTALL" == "--no-install" ]]; then
-  echo "[pair-setup] skipping npm ci (--no-install)"
-elif [[ -L "$WT/node_modules" ]]; then
-  echo "[pair-setup] ERROR: node_modules is a symlink — remove it and rerun" >&2
-  exit 1
-else
-  (cd "$WT" && npm ci --no-audit --no-fund)
-  echo "[pair-setup] npm ci done"
-fi
+# --- shared node_modules + data (symlinks to the main checkout) --------------
+# Always-fresh deps, no duplicate installs, no duplicate parquet downloads.
+for link in node_modules data; do
+  if [[ -e "$WT/$link" && ! -L "$WT/$link" ]]; then
+    echo "[pair-setup] ERROR: $WT/$link exists and is not a symlink — remove it and rerun" >&2
+    exit 1
+  fi
+  ln -sfn "$ROOT/$link" "$WT/$link"
+done
+echo "[pair-setup] symlinked node_modules + data -> $ROOT"
 
 echo "[pair-setup] READY: $WT"
 echo "  next: launch the agent with cwd $WT/protocols/pair/agents/${AGENT}"
