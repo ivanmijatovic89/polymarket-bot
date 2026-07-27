@@ -7,7 +7,7 @@
 >
 > - [ ] P0 — the human defines MISSION.md (strategy + constitution) + safety kit
 > - [ ] P1 — expedition: Fable explores + proposes the team system, GPT reviews
-> - [ ] P2 — research, both agents, 24/7
+> - [ ] P2 — research, both models, 24/7
 > - [ ] P2.5 — micro live probe (~$50)
 > - [ ] P3 — more models, only if earned
 
@@ -42,23 +42,23 @@ invalid.
    champion must stay positive on markets that started after its code froze
    (~96 new markets/day make this free). Standard eval includes an
    edge-vs-latency sweep. Strategy variants are **forked, never edited**.
-3. **Write scopes**: `models/<name>/` is that agent's only private space
+3. **Write scopes**: `models/<model>/` is that model's only private space
    (STATUS.md, INBOX.md, scratch); everything else in `protocols/pair/` is
    shared; MISSION.md is human-only; `src/` changes go through a normal PR.
-4. **Sharing obligation**: anything you learn or build that another agent
+4. **Sharing obligation**: anything you learn or build that another model
    could use goes in the shared space, not in your corner. One home, one
    memory.
 5. **Human interface**: keep `STATUS.md` current (heartbeat = its last-commit
    time); acknowledge `INBOX.md` at unit start; stop gracefully on
-   `models/<name>/DONE`.
+   `models/<model>/DONE`.
 6. **Registry fixed points**: runnable strategies live in `strategies/`, ids
    start with `pair-`.
 7. **Safety kit** (mechanical, in `protocols/pair/scripts/` — a directory the
-   pre-commit hook itself protects, so agents cannot edit their guardrails):
+   pre-commit hook itself protects, so models cannot edit their guardrails):
    generated keyless `.env` with `DRY_RUN=true` hardcoded; `node_modules` +
-   `data/` symlinked from the main checkout (agents never run
+   `data/` symlinked from the main checkout (models never run
    `npm install`/`ci`); pre-commit scope hook + secret scan; hardened save
-   loop; main is revert-only; backtests go to the fleet only, per-agent daily
+   loop; main is revert-only; backtests go to the fleet only, per-model daily
    budget, human keeps queue priority; repo private before launch.
 
 ## Layer 2 — The team's own system (designed by the models, not by us)
@@ -77,8 +77,8 @@ did their best work. The bootstrap is a relay:
 
 ### Starting proposal (the team may adopt, reshape, or replace it — documenting why)
 
-A pull-queue system that fits the constitution and two-agent concurrency:
-`tasks/` (one file per task; agents add follow-ups each session, the human
+A pull-queue system that fits the constitution and two-model concurrency:
+`tasks/` (one file per task; models add follow-ups each session, the human
 adds via INBOX or directly; claim by marker; nobody must claim what they
 don't understand), `experiments/` (one append-only file per experiment:
 hypothesis, parent variant, run ids, verdict, model), `knowledge/` (flat
@@ -107,8 +107,8 @@ forked — a bad variant is a new file that loses in eval.
 
 ## Mission control
 
-- Per-agent `STATUS.md`; heartbeat = last-commit time.
-- `INBOX.md` steering with mandatory ack; `touch models/<a>/DONE` to stop.
+- Per-model `STATUS.md`; heartbeat = last-commit time.
+- `INBOX.md` steering with mandatory ack; `touch models/<model>/DONE` to stop.
 - The human checks liveness manually for now (STATUS.md commit times); an
   external watchdog gets built when the need is real.
 - Drift self-check: every N units re-read MISSION, note "still on course?".
@@ -119,7 +119,7 @@ forked — a bad variant is a new file that loses in eval.
 constitution above — plus the safety kit and a seeded knowledge note on the
 merge-accounting hole. **P1 (expedition)**: Fable explores, writes ENGINE.md,
 builds tools, proposes the team system; GPT reviews and joins. **P2
-(research)**: both agents on the shared work, full speed. **P2.5 (micro live
+(research)**: both models on the shared work, full speed. **P2.5 (micro live
 probe)**: ~$50, one pair at a time, ~a week — measures whether sub-$1 pairs
 are actually capturable against live competition, the one question no
 backtest can answer, and calibrates the simulator. **P3**: more models only

@@ -32,8 +32,8 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
    probe.
 5. **Guardrails live in `protocols/pair/scripts/`, self-protected** (revised
    2026-07-27; originally they sat in repo `scripts/`): the pre-commit hook
-   blocks agent commits to `protocols/pair/scripts/**` and to the
-   human-authored files, so agents cannot weaken their own guardrails through
+   blocks model commits to `protocols/pair/scripts/**` and to the
+   human-authored files, so models cannot weaken their own guardrails through
    the normal commit flow. Repo-wide `protocol:check` stays in `scripts/`
    (it is platform tooling, not pair-specific).
 6. **Engine truth lives in `docs/`; this protocol keeps an `ENGINE.md`
@@ -41,14 +41,15 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
    discoveries get upstreamed to docs. The digest is written **from scratch**
    during the P1 expedition — hands-on exploration, no inherited material.
 7. **Safety kit before launch** (from a three-review red-team on 2026-07-26):
-   - launcher GENERATES a keyless agent `.env` with `DRY_RUN=true` hardcoded
+   - launcher GENERATES a keyless model `.env` with `DRY_RUN=true` hardcoded
      (the old shift scripts copied the root `.env` containing real keys and
      `DRY_RUN=false` — never repeat that);
-   - per-worktree `npm ci` (no `node_modules` symlink shared with the live
-     checkout);
+   - `node_modules` + `data/` symlinked from the main checkout (revised
+     2026-07-27 by the human, from per-worktree `npm ci`); rule: models never
+     run `npm install`/`ci` — dependencies are the human's job;
    - pre-commit scope hook + secret scan; save loop stages explicit paths,
      handles wedged rebases (abort + recover); main is revert-only;
-   - backtests go to the fleet only; per-agent daily budget; human keeps
+   - backtests go to the fleet only; per-model daily budget; human keeps
      queue priority;
    - (dropped for now, by the human, 2026-07-27: external watchdog and a
      live-bot discovery kill-switch — build them when actually needed);
@@ -63,7 +64,12 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
 
 - MISSION.md — needs the human's strategy definition (pair threshold,
   maker/taker, unpaired-leg handling, sizing, numeric meaning of
-  "profitable") + the constitution written out.
-- Safety kit scripts (item 8) — not yet built.
+  "profitable") + the constitution written out. RULES.md (human-built,
+  section by section) already covers dataset, rubrics, and backtesting.
+- Safety kit: `scripts/setup-model-worktree.sh` + pre-commit hook are BUILT
+  and tested. Still missing: per-model boot files (CLAUDE.md +
+  `.claude/settings.json` with claudeMdExcludes for Claude models; AGENTS.md
+  for Codex) and the LAUNCHER — which will call setup-model-worktree.sh
+  (idempotent) as its first step, then start tmux + the session loop.
 - Repo → private — human's action.
 - PR #159 merge — human's call.

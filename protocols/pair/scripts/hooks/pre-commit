@@ -1,19 +1,19 @@
 #!/usr/bin/env bash
-# Pair-protocol worktree pre-commit hook (installed by setup-agent-worktree.sh
+# Pair-protocol worktree pre-commit hook (installed by setup-model-worktree.sh
 # via worktree-scoped core.hooksPath, pointing at the MAIN checkout's copy).
 #
 # Enforces (protocols/pair/VISION.md §Safety kit):
 #   1. commits touch ONLY protocols/pair/**
 #   2. never the human-authored files (VISION/DECISIONS/RULES/MISSION)
 #   3. never the safety kit itself (protocols/pair/scripts/**) — the hook
-#      protects its own directory, so agents cannot weaken their guardrails
-#   4. never another agent's models/<x>/ folder
+#      protects its own directory, so models cannot weaken their guardrails
+#   4. never another model's models/<x>/ folder
 #   5. staged content passes a secret scan
 set -euo pipefail
 
-AGENT="$(git config pair.agent || true)"
-if [[ -z "$AGENT" ]]; then
-  echo "pre-commit: git config pair.agent is not set — rerun setup-agent-worktree.sh" >&2
+MODEL="$(git config pair.model || true)"
+if [[ -z "$MODEL" ]]; then
+  echo "pre-commit: git config pair.model is not set — rerun setup-model-worktree.sh" >&2
   exit 1
 fi
 
@@ -23,7 +23,7 @@ FAIL=0
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
   if [[ "$path" != protocols/pair/* ]]; then
-    echo "pre-commit: BLOCKED — '$path' is outside protocols/pair/ (agents commit only there; src/ changes go through a PR)" >&2
+    echo "pre-commit: BLOCKED — '$path' is outside protocols/pair/ (models commit only there; src/ changes go through a PR)" >&2
     FAIL=1
   elif [[ "$path" =~ $PROTECTED_RE ]]; then
     echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2
@@ -31,8 +31,8 @@ while IFS= read -r path; do
   elif [[ "$path" == protocols/pair/models/* ]]; then
     owner="${path#protocols/pair/models/}"
     owner="${owner%%/*}"
-    if [[ "$owner" != "$AGENT" ]]; then
-      echo "pre-commit: BLOCKED — '$path' belongs to agent '$owner', you are '$AGENT'" >&2
+    if [[ "$owner" != "$MODEL" ]]; then
+      echo "pre-commit: BLOCKED — '$path' belongs to model '$owner', you are '$MODEL'" >&2
       FAIL=1
     fi
   fi

@@ -83,7 +83,7 @@ producer). Active workers (ansible inventory):
 | m1-milan | M1 | 6 | markets |
 
 - m5-milan (12 slots) exists but is currently disabled in the inventory.
-- m1-ivan (M1 Pro, 4 slots) is the PRODUCER and live-trading machine — agents
+- m1-ivan (M1 Pro, 4 slots) is the PRODUCER and live-trading machine — models
   never run backtest workers on it.
 - Workers self-update from origin/main and run committed code only (jobs are
   gated on the producer's commit SHA — push before submitting).
