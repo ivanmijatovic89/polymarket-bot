@@ -71,6 +71,15 @@ sta hocu da pratim/opcije da imam:
     Ovaj Mission Control bi trebalo da se self-update-uje. Znači, kako gradimo nove feature itd., obratiti pažnju da li treba nešto od toga da dodamo i u Mission Control da se prati.
 - where to build?
     vec imamo /dashboard direktorijum koji je admin ( dashboard ), mislim da je najbolje tamo da dodas sve sto je vezano za mission control ( /dashboard/mission-control )
+- v1 constraint (limits, not design)
+    v1 must ship fast — within roughly one working unit, before any other
+    tool-building — and its only job is that I can open it and know what you
+    are doing without asking. What v1 contains is your call. Two hard limits:
+    v1 only READS state (files, git, DB) — anything that controls sessions
+    (start/stop, turns, effort) or does token/cost accounting is v2, and v2
+    needs my sign-off on a short design note BEFORE you build it. After v1,
+    improve mission control in small increments alongside research — it must
+    never again be the main thing you are working on.
 
 ## Self check system
 Treba da napravis system koji ce na svakih par turnova da pogleda sta radi sistem i da pogleda da nije skrenuo sa misije/goal na neke nebitne stvari i sitinice.

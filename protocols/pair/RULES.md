@@ -62,6 +62,15 @@ In this section i will define all rubics strategy must follow:
 - Every backtest run must set `BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` explicitly and record
   it with the run. A run whose latency came from the ambient `.env` is not
   evidence — pin it per run.
+- The maker-fill model is CONSERVATIVE: the simulator fills a resting order
+  only when the book trades THROUGH its price level (worst-queue assumption —
+  you are last in line at your price; see src/trading/execution/
+  BacktestExecution.ts). Live, takers also lift resting orders without the
+  price moving through them. Since this strategy leans maker (maker fills pay
+  $0 fees), backtests systematically UNDERSTATE maker fill rates — the safe
+  direction of error, but it can make genuinely profitable passive variants
+  look unprofitable. Keep this bias in mind when judging results and when
+  comparing maker-style vs taker-style variants
 - Canonical run:
 
   ```bash

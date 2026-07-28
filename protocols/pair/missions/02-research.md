@@ -1,4 +1,4 @@
-# Mission 02: Autonomus Strategy Research Loop
+# Mission 02: Autonomous Strategy Research Loop
 
 Ovo je Autonomna Research Lab koja treba da radi 24/7 i da za pair strategiju.
 da radi research, daje predloge, pokrece eksperimente, cita iz baze, zapisuje u memoriju, unapredjuje sistem, unapredjuje strategiju.
