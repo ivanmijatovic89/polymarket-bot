@@ -42,5 +42,8 @@ Ovo ne mora od samog pocetka, za pocetak mi je dovoljno da zaraduje > $2-3 per E
 ### Smart Token Usage
 Npr u proslom sistemu sam radio da uvek pokrece jedan po jedan eksperiment i da na osnovu njega donosi sledecu odluku ( ovo sam ja dizajnirao ), ali sam u medjuvremnu shvatio da je to je to preveliki token burn, jel pokrecem celu sesiju i ucitavam gomilu context-a (ceo protocol, eksperimente, itd...) da bi na kraju napravio samo jedan eksperiment, kad vec sa tim sto ima u sessiji ima dovoljno znanja da pokrene umesto jedan experiment vise njih. Koliko je to vise njih i kako ce da functionise to ostavljam tebi da odlučiš, ovo je samo primer iz moje proslosti koji sam imao pa reko da razmishljas i o tome dok dizajniras sistem
 
+### Smoke test new Experiment
+You should do smoke test for a new experiment on backtest witn --sequential before push to fleet, if there is error in code fleet will get error and die.
+
 ### Self check system
 Treba da napravis system koji ce na svakih par turnova da pogleda sta radi sistem i da pogleda da nije skrenuo sa misije/goal na neke nebitne stvari i sitinice.

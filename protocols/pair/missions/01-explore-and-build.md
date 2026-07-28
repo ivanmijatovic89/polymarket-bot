@@ -69,6 +69,12 @@ sta hocu da pratim/opcije da imam:
     neki način da ako mi padne neka ideja ili hocu nesto da testira ili ako vidim da ide u pogresnom smeru da mogu da ga preusmerim ili da mu kazem, pa on moze u sledecm turn to da primeni, znaci neki nacin da mogu da komuniciram sa njim, odnosno da ga usmeravam. ( ovo mozda moze da bude zajedno sa Interactive System)
 - self upgrade
     Ovaj Mission Control bi trebalo da se self-update-uje. Znači, kako gradimo nove feature itd., obratiti pažnju da li treba nešto od toga da dodamo i u Mission Control da se prati.
+- where to build?
+    vec imamo /dashboard direktorijum koji je admin ( dashboard ), mislim da je najbolje tamo da dodas sve sto je vezano za mission control ( /dashboard/mission-control )
+
+## Self check system
+Treba da napravis system koji ce na svakih par turnova da pogleda sta radi sistem i da pogleda da nije skrenuo sa misije/goal na neke nebitne stvari i sitinice.
+
 
 ## Kraj misije / spremnost za research
 Ova misija traje koliko treba — nema rok — ali ima jasan cilj: SPREMNOST za

@@ -59,7 +59,7 @@ In this section i will define all rubics strategy must follow:
   merge scores negative on a profitable trade). Pairs are valued at
   settlement, which measures the same edge correctly. Live merge timing is
   an execution detail, out of backtest scope.
-- Every backtest run must set `BACKTEST_LATENCY_DELAY` explicitly and record
+- Every backtest run must set `BACKTEST_LATENCY_DELAY` and `BACKTEST_LATENCY_JITTER` explicitly and record
   it with the run. A run whose latency came from the ambient `.env` is not
   evidence — pin it per run.
 - Canonical run:
