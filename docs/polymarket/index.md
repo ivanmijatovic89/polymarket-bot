@@ -106,19 +106,18 @@ Where `C` is the number of shares traded, `p` is the share price, and `feeRate` 
   Geopolitics                           0 (fee-free)
 ```
 
-How fees are collected depends on the order side. On buy orders, the fee is deducted in shares -- you pay the full USDC amount but receive fewer shares than the gross fill. On sell orders, the fee is deducted in USDC from the proceeds.
+Fees are calculated and charged **in USDC on both sides** -- never in outcome shares. A taker buy receives the full share size and pays the fee as additional USDC; a taker sell has the fee deducted from the USDC proceeds. (Polymarket's older CLOB docs described a received-asset convention where buy fees were taken in shares; the current documentation charges USDC on both sides.)
 
 ```
   Example: FOK buy 6 shares of UP @ $0.64 (crypto market)
 
-  fee      = 6 × 0.07 × 0.64 × 0.36 = $0.0968
-  fee in shares = $0.0968 / $0.64   = 0.1512 shares
-  net shares    = 6.00 - 0.1512     = 5.8488 shares
+  fee  = 6 × 0.07 × 0.64 × 0.36 = $0.0968
 
-  You paid $3.84 but received 5.8488 shares, not 6.
+  You receive all 6 shares and pay $3.84 + $0.0968 = $3.9368 total,
+  an effective entry of $0.6561 per share.
 ```
 
-This distinction matters for automated trading. If you buy 6 shares with a FOK order and immediately try to sell 6 shares, the sell will fail because you only hold 5.8488 shares after fees.
+For automated trading this means fees never shrink your share count -- they raise your effective entry price instead. The backtest engine accounts for this the same way: taker buy fees are capitalized into the position's cost basis, and taker sell fees reduce proceeds (see [Fee Computation](../reference/fee-computation.md)).
 
 For the full fee schedule and current rates, see the [Polymarket fee documentation](https://docs.polymarket.com/trading/fees#fee-structure).
 
