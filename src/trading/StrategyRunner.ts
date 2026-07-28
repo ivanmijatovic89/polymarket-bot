@@ -508,13 +508,13 @@ export class StrategyRunner {
         if (ev.fill.liquidity !== 'TAKER') return 0
         if (typeof ev.fill.feeRateBps !== 'number' || !Number.isFinite(ev.fill.feeRateBps)) return 0
         if (!Number.isFinite(ev.fill.price) || !Number.isFinite(ev.fill.size)) return 0
-        const fee = computePolymarketTakerFee({
-          feeRateBps: ev.fill.feeRateBps,
-          price: ev.fill.price,
-          size: ev.fill.size,
-          side: ev.fill.side,
-        })
-        return round8(fee.feeQuote + fee.feeBase * ev.fill.price)
+        return round8(
+          computePolymarketTakerFee({
+            feeRateBps: ev.fill.feeRateBps,
+            price: ev.fill.price,
+            size: ev.fill.size,
+          }),
+        )
       })()
       this.log?.('[trade]', { ...ev.fill, timeIso, notional, cashDelta, feePaid })
     }

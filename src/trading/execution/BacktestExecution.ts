@@ -11,7 +11,7 @@ import type {
   WsOrderUpdate,
 } from '../../strategy/Strategy.js'
 import type { ExecutionAdapter, OrderManagerContext } from '../OrderManager.js'
-import { getBacktestTakerFeeBps } from '../fees.js'
+import { POLYMARKET_CRYPTO_TAKER_FEE_BPS } from '../fees.js'
 
 type SimOrder = {
   clientOrderId: string
@@ -194,7 +194,7 @@ export class BacktestExecution implements ExecutionAdapter {
     this.jitterMs = Math.max(0, Math.trunc(opts?.jitterMs ?? 0))
     this.cancelLatency = opts?.cancelLatency ?? true
     this.makerFillMode = opts?.makerFillMode ?? 'worst_queue'
-    this.feeRateBps = getBacktestTakerFeeBps()
+    this.feeRateBps = POLYMARKET_CRYPTO_TAKER_FEE_BPS
   }
 
   private computeExecuteAtMs(nowMs: number): number {
