@@ -113,8 +113,14 @@ producer). Active workers (ansible inventory):
 - Your private space is `models/<you>/` (STATUS.md, INBOX.md, scratch).
   Everything else in `protocols/pair/` is shared team space.
 - Never edit: `VISION.md`, `DECISIONS.md`, `RULES.md`, `missions/`,
-  `scripts/` — human-authored. `src/` changes go through a normal PR — never
-  direct to main.
+  `scripts/` — human-authored.
+- `src/` (engine code) is OFF-LIMITS — you never change it, not even via a
+  PR (the pre-commit hook enforces this). When you find an engine bug or
+  want an engine improvement: file an issue — a GitHub issue or an issue
+  file in the protocol's shared space — with the exact repro, and continue
+  your work. The human reviews issues and decides; you only touch `src/` if
+  the human explicitly hands you that fix, in the way the human specifies
+  then.
 
 ## Human interface (v1 — improvable)
 

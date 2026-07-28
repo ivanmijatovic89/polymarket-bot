@@ -49,7 +49,10 @@ invalid.
 3. **Write scopes**: `models/<model>/` is that model's only private space
    (STATUS.md, INBOX.md, scratch); everything else in `protocols/pair/` is
    shared; the human-authored files (VISION, DECISIONS, RULES, missions/,
-   scripts/) are human-only; `src/` changes go through a normal PR.
+   scripts/) are human-only; `src/` (engine code) is off-limits — models
+   never change it. Engine bugs and improvement ideas are filed as issues
+   (GitHub issue or an issue file in the protocol's shared space); the human
+   reviews and decides who fixes what.
 4. **Sharing obligation**: anything you learn or build that another model
    could use goes in the shared space, not in your corner. One home, one
    memory.
