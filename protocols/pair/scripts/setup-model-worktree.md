@@ -32,20 +32,9 @@ Creates `../polymarket-bot-pair-<model>` with:
   models never run `npm install`/`npm ci` — dependencies are the human's job
   in the main checkout.
 
-Hardening still recommended (manual, once): create a scoped MySQL user for
-models instead of the root app user —
-
-```sql
-CREATE USER 'pair_agent'@'%' IDENTIFIED BY '<generated>';
-GRANT SELECT ON polymarket.* TO 'pair_agent'@'%';
-GRANT SELECT, INSERT, UPDATE ON polymarket.backtest_runs TO 'pair_agent'@'%';
-GRANT SELECT, INSERT, UPDATE ON polymarket.backtest_run_markets TO 'pair_agent'@'%';
-GRANT SELECT, INSERT, UPDATE, DELETE ON polymarket.backtest_run_segments TO 'pair_agent'@'%';
-```
-
-then put its credentials in the generated `.env` instead of the app user's.
-(R2 keys are the shared data-bucket keys — write-capable; acceptable exposure,
-it's datasets, not money.)
+Models use the app DB user (decided 2026-07-28: no scoped MySQL user). R2
+keys are the shared data-bucket keys — write-capable; acceptable exposure,
+it's datasets, not money.
 
 ## hooks/pre-commit
 

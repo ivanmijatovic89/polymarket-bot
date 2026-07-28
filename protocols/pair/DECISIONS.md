@@ -8,7 +8,7 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
 
 ## Decisions
 
-1. **Order of work**: P0 human defines MISSION (strategy + constitution) →
+1. **Order of work**: P0 human defines RULES + missions (strategy + constitution) →
    P1 expedition (Fable explores the engine, writes ENGINE.md, proposes the
    team's working system; GPT reviews/amends) → P2 research 24/7, both
    models → P2.5 micro live probe (~$50) → P3 more models only if earned.
@@ -62,10 +62,11 @@ Canonical design: `VISION.md` (v6). Everything lives on PR #159
 
 ## Still open (as of 2026-07-27)
 
-- MISSION.md — needs the human's strategy definition (pair threshold,
-  maker/taker, unpaired-leg handling, sizing, numeric meaning of
-  "profitable") + the constitution written out. RULES.md (human-built,
-  section by section) already covers dataset, rubrics, and backtesting.
+- ~~MISSION.md~~ — resolved 2026-07-28: there is NO MISSION.md. RULES.md is
+  the constitution + strategy definition; missions/ are the mission briefs.
+  VISION.md updated to match. Open sub-questions folded into research (pair
+  threshold, unpaired-leg handling, sizing); the profitability target lives
+  in missions/02-research.md ($2-3 avg EV per market).
 - Safety kit: `scripts/setup-model-worktree.sh` + pre-commit hook are BUILT
   and tested. Still missing: per-model boot files (CLAUDE.md +
   `.claude/settings.json` with claudeMdExcludes for Claude models; AGENTS.md

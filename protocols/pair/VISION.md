@@ -5,7 +5,7 @@
 >
 > **CURRENT PHASE: P0 — definition** (update this line as phases advance)
 >
-> - [ ] P0 — the human defines MISSION.md (strategy + constitution) + safety kit
+> - [ ] P0 — the human defines RULES.md (strategy + constitution) + missions/ + safety kit
 > - [ ] P1 — expedition: Fable explores + proposes the team system, GPT reviews
 > - [ ] P2 — research, both models, 24/7
 > - [ ] P2.5 — micro live probe (~$50)
@@ -26,7 +26,7 @@ everything else — including designing how the team works.
 
 Buy both sides — UP and DOWN — when the combined price is below $1; pairs are
 worth $1 at settlement. Structural/microstructure edge, not predictive. Precise
-definition lives in `MISSION.md`.
+definition lives in `RULES.md`.
 
 **Backtest rule (hard):** experiments must NOT emit `merge_positions` — the
 simulator cannot account for mid-episode merges (verified 2026-07-26: full
@@ -36,7 +36,7 @@ mechanics (MINED wait, gas, capital recycling) are execution details measured
 by the live probe, not by backtests. The eval marks merge-containing runs
 invalid.
 
-## Layer 1 — The constitution (human law, in MISSION.md, never violated)
+## Layer 1 — The constitution (human law, in RULES.md, never violated)
 
 1. **Scope**: this strategy, BTC 15m, until profitable → live → scale.
 2. **Honesty**: every claim carries its exact repro (backtest command + DB run
@@ -48,7 +48,8 @@ invalid.
    edge-vs-latency sweep. Strategy variants are **forked, never edited**.
 3. **Write scopes**: `models/<model>/` is that model's only private space
    (STATUS.md, INBOX.md, scratch); everything else in `protocols/pair/` is
-   shared; MISSION.md is human-only; `src/` changes go through a normal PR.
+   shared; the human-authored files (VISION, DECISIONS, RULES, missions/,
+   scripts/) are human-only; `src/` changes go through a normal PR.
 4. **Sharing obligation**: anything you learn or build that another model
    could use goes in the shared space, not in your corner. One home, one
    memory.
@@ -115,11 +116,12 @@ forked — a bad variant is a new file that loses in eval.
 - `INBOX.md` steering with mandatory ack; `touch models/<model>/DONE` to stop.
 - The human checks liveness manually for now (STATUS.md commit times); an
   external watchdog gets built when the need is real.
-- Drift self-check: every N units re-read MISSION, note "still on course?".
+- Drift self-check: every N units re-read RULES + the active mission, note
+  "still on course?".
 
 ## Phases
 
-**P0 (human + assistant)**: MISSION.md — strategy definition + the
+**P0 (human + assistant)**: RULES.md + missions/ — strategy definition + the
 constitution above — plus the safety kit and a seeded knowledge note on the
 merge-accounting hole. **P1 (expedition)**: Fable explores, writes ENGINE.md,
 builds tools, proposes the team system; GPT reviews and joins. **P2

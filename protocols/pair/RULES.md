@@ -67,7 +67,7 @@ In this section i will define all rubics strategy must follow:
   ```bash
   npm run backtest -- --strategy <id> --input-mode telonex-delta \
     --read-from local-or-download-from-r2-to-local --symbol btc --timeframe 15m \
-    --from-ms 1775001600000   # 2026-04-02 protocol floor
+    --from-ms 1775088000000   # 2026-04-02 protocol floor
   ```
 
 ## Backtesting Speed
@@ -129,7 +129,11 @@ producer). Active workers (ansible inventory):
 ## Git discipline
 
 - Commit messages start: `pair: [<model-version>] ...`
-- Save loop per unit: commit → `git pull --rebase origin main` → `git push`.
+- Save loop per unit: commit → `git pull --rebase origin main` →
+  `git push origin HEAD:main`. (Model worktrees live on a `wt/pair-<model>`
+  branch — a bare `git push` would publish that branch, which the fleet never
+  runs; `HEAD:main` lands the commits on `origin/main`, the only branch
+  workers self-update from.)
 - Never force-push, never rewrite history.
 
 # Memory System
