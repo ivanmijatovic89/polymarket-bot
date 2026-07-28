@@ -124,13 +124,11 @@ export function computeMarketStats(params: {
     }
 
     if (trade.liquidity === 'TAKER' && typeof trade.feeRateBps === 'number') {
-      const fee = computePolymarketTakerFee({
+      feesPaid += computePolymarketTakerFee({
         feeRateBps: trade.feeRateBps,
         price: trade.price,
         size: trade.size,
-        side: trade.side,
       })
-      feesPaid += fee.feeQuote + fee.feeBase * trade.price
     }
   }
 

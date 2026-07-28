@@ -59,7 +59,7 @@ When an order is placed and the current book can satisfy it, taker fills are com
 - BUY order: consumes `asks` in ascending price order, stopping when `ask.price > limitPrice`
 - SELL order: consumes `bids` in descending price order, stopping when `bid.price < limitPrice`
 
-Taker fills carry `liquidity: 'TAKER'` and include the `feeRateBps` from `getBacktestTakerFeeBps()` (read from the `BACKTEST_TAKER_FEE_BPS` environment variable, or a default).
+Taker fills carry `liquidity: 'TAKER'` and are stamped with `feeRateBps` = `POLYMARKET_CRYPTO_TAKER_FEE_BPS` (hardcoded 700 bps, matching Polymarket's documented crypto-market fee — see [Fee Computation](../reference/fee-computation.md)).
 
 ### Maker Fills (Resting GTC/GTD orders)
 

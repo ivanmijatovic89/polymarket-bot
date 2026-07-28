@@ -665,9 +665,9 @@ export class Portfolio {
     const feeRateBps =
       typeof f.feeRateBps === 'number' && Number.isFinite(f.feeRateBps) ? f.feeRateBps : undefined
     const shouldApplyFee = f.liquidity === 'TAKER' && feeRateBps !== undefined && feeRateBps > 0
-    const fee = shouldApplyFee
-      ? computePolymarketTakerFee({ feeRateBps, price, size, side: f.side })
-      : { feeBase: 0, feeQuote: 0 }
+    // Taker fees are charged in USDC (never in outcome shares): a BUY fee
+    // increases the cost of the acquired shares, a SELL fee reduces proceeds.
+    const feeUsdc = shouldApplyFee ? computePolymarketTakerFee({ feeRateBps, price, size }) : 0
 
     if (f.side === 'BUY') {
       // Increase position, update avg + cost basis (average-cost accounting).
@@ -677,9 +677,8 @@ export class Portfolio {
           : prev.avgEntryPrice === null
             ? 0
             : prev.avgEntryPrice * prev.qty
-      const netSize = Math.max(0, size - fee.feeBase)
-      const newQty = prev.qty + netSize
-      const newCostBasis = prevCostBasis + price * size
+      const newQty = prev.qty + size
+      const newCostBasis = prevCostBasis + price * size + feeUsdc
       const avg = newQty > 0 ? newCostBasis / newQty : null
       this.positionsByAssetId.set(key, {
         assetId,
@@ -709,7 +708,7 @@ export class Portfolio {
     // Realize PnL against average cost-per-share (more consistent than rounded avgEntryPrice).
     // We keep only portfolio-level realized PnL (cumulative across all assets).
     const grossProceeds = price * sellQty
-    const netProceeds = grossProceeds - fee.feeQuote
+    const netProceeds = grossProceeds - feeUsdc
     const realizedDelta = round2(netProceeds - avgCostPerShare * sellQty)
     if (Number.isFinite(realizedDelta))
       this.realizedPnlTotal = round2(this.realizedPnlTotal + realizedDelta)
