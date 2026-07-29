@@ -10,6 +10,11 @@ This is a finite construction mission. It ends with a review package and a
 proposed Mission 02. Do not begin the permanent research mission without human
 approval.
 
+This mission spans many independently launched sessions. Do not attempt all
+deliverables in one session. In each session, complete one bounded unit of
+work, record progress and the next recommended step, then exit. Organize the
+overall sequence yourself.
+
 ## Freedom
 
 You are expected to design the system, not merely follow a research workflow
@@ -18,6 +23,10 @@ methodology, work division, and experiment process that best serve the vision.
 
 The requirements below define outcomes and boundaries. They do not prescribe
 the implementation unless `RULES.md` makes something mandatory.
+
+Prefer the smallest system that completes the full research cycle. Build
+required capabilities first; defer improvements and nice-to-have tools until
+after the end-to-end demonstration works.
 
 ## Required outcomes
 
