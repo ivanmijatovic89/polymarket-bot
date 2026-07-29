@@ -12,7 +12,7 @@ Mission Control provides one small end-to-end mission that can be started with f
 | Fable    | Claude Code | `claude-fable-5`           |
 | Opus 4.8 | Claude Code | `claude-opus-4-8`          |
 | Opus 5   | Claude Code | `opus` (latest Opus alias) |
-| GPT-5.6  | Codex       | `gpt-5.6`                  |
+| GPT-5.6  | Codex       | `gpt-5.6-sol`              |
 
 The mission intentionally requires three fresh sessions. Sessions 1 and 2 return `continue`; session 3 returns `complete`. This verifies that the outer loop starts the next process and that file-based memory survives between sessions.
 

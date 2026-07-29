@@ -53,8 +53,8 @@ const SMOKE_TEMPLATES: SmokeTemplate[] = [
     id: 'gpt-5.6',
     label: 'GPT-5.6',
     provider: 'codex',
-    model: 'gpt-5.6',
-    description: 'Codex GPT-5.6 · shared three-session mission',
+    model: 'gpt-5.6-sol',
+    description: 'Codex GPT-5.6 Sol · shared three-session mission',
   },
 ]
 
@@ -283,7 +283,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                 </select>
               </Field>
               <Field label="Model">
-                <input name="model" required placeholder="gpt-5.6-codex" className={fieldClass} />
+                <input name="model" required placeholder="gpt-5.6-sol" className={fieldClass} />
               </Field>
               <Field label="Effort">
                 <select name="effort" defaultValue="high" className={fieldClass}>
