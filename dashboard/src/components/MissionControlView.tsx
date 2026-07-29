@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -63,6 +63,18 @@ const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
 
 export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  if (!mounted) return null
+
+  return <MissionControlContent examplesRoot={examplesRoot} />
+}
+
+function MissionControlContent({ examplesRoot }: { examplesRoot: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
