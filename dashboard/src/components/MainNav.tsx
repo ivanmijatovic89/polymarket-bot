@@ -12,6 +12,7 @@ import {
   History,
   LayoutDashboard,
   Menu,
+  Bot,
   Trophy,
   X,
 } from 'lucide-react'
@@ -33,6 +34,7 @@ const ITEMS: NavItem[] = [
   { href: '/backtests/datasets', label: 'Datasets', icon: Database, exact: true },
   { href: '/leaderboard', label: 'Leaderboard', icon: Trophy, exact: false },
   { href: '/health', label: 'Health', icon: HeartPulse, exact: false },
+  { href: '/mission-control', label: 'Mission Control', icon: Bot, exact: false },
 ]
 
 const MORE_ITEMS: NavItem[] = [

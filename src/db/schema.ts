@@ -494,3 +494,104 @@ export const telonexMarketConversions = mysqlTable(
     marketIdx: index('idx_telonex_market_conversions_market').on(t.marketId),
   }),
 )
+
+// ---------------------------------------------------------------------------
+// Global Runtime — domain-neutral long-running CLI mission loops
+// ---------------------------------------------------------------------------
+
+export const runtimeRuns = mysqlTable(
+  'runtime_runs',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    name: varchar('name', { length: 255 }).notNull(),
+    provider: mysqlEnum('provider', ['claude', 'codex']).notNull(),
+    model: varchar('model', { length: 255 }).notNull(),
+    effort: mysqlEnum('effort', ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']).notNull(),
+    accessMode: mysqlEnum('access_mode', ['workspace-write', 'full-access'])
+      .notNull()
+      .default('workspace-write'),
+    authHome: varchar('auth_home', { length: 1024 }),
+    workspacePath: varchar('workspace_path', { length: 1024 }).notNull(),
+    missionPath: varchar('mission_path', { length: 1024 }).notNull(),
+    maxSessions: int('max_sessions').notNull(),
+    delaySeconds: int('delay_seconds').notNull().default(20),
+    statusFile: varchar('status_file', { length: 1024 }).notNull(),
+    journalFile: varchar('journal_file', { length: 1024 }).notNull(),
+    inboxFile: varchar('inbox_file', { length: 1024 }).notNull(),
+    readOnlyFiles: json('read_only_files').$type<string[]>().notNull(),
+    status: mysqlEnum('status', [
+      'idle',
+      'running',
+      'pause_requested',
+      'paused',
+      'waiting',
+      'rate_limited',
+      'completed',
+      'stopped',
+      'error',
+    ])
+      .notNull()
+      .default('idle'),
+    currentSession: int('current_session').notNull().default(0),
+    processId: int('process_id'),
+    heartbeatAt: timestamp('heartbeat_at'),
+    lastActivityAt: timestamp('last_activity_at'),
+    nextStartAt: timestamp('next_start_at'),
+    startedAt: timestamp('started_at'),
+    endedAt: timestamp('ended_at'),
+    lastError: text('last_error'),
+    lastResultSummary: text('last_result_summary'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+    updatedAt: timestamp('updated_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    statusIdx: index('idx_runtime_runs_status').on(t.status),
+    updatedAtIdx: index('idx_runtime_runs_updated_at').on(t.updatedAt),
+  }),
+)
+
+export const runtimeSessions = mysqlTable(
+  'runtime_sessions',
+  {
+    id: bigint('id', { mode: 'number' }).primaryKey().autoincrement(),
+    runId: bigint('run_id', { mode: 'number' })
+      .notNull()
+      .references(() => runtimeRuns.id, { onDelete: 'cascade' }),
+    sessionNumber: int('session_number').notNull(),
+    provider: mysqlEnum('provider', ['claude', 'codex']).notNull(),
+    model: varchar('model', { length: 255 }).notNull(),
+    effort: mysqlEnum('effort', ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']).notNull(),
+    status: mysqlEnum('status', [
+      'running',
+      'completed',
+      'waiting',
+      'rate_limited',
+      'stopped',
+      'failed',
+      'invalid_result',
+    ])
+      .notNull()
+      .default('running'),
+    processId: int('process_id'),
+    action: mysqlEnum('action', ['continue', 'complete', 'wait']),
+    summary: text('summary'),
+    error: text('error'),
+    exitCode: int('exit_code'),
+    exitSignal: varchar('exit_signal', { length: 32 }),
+    inputTokens: bigint('input_tokens', { mode: 'number' }),
+    cachedInputTokens: bigint('cached_input_tokens', { mode: 'number' }),
+    outputTokens: bigint('output_tokens', { mode: 'number' }),
+    reasoningOutputTokens: bigint('reasoning_output_tokens', { mode: 'number' }),
+    rawLogPath: varchar('raw_log_path', { length: 1024 }).notNull(),
+    startedAt: timestamp('started_at').defaultNow().notNull(),
+    heartbeatAt: timestamp('heartbeat_at'),
+    lastActivityAt: timestamp('last_activity_at'),
+    finishedAt: timestamp('finished_at'),
+    createdAt: timestamp('created_at').defaultNow().notNull(),
+  },
+  (t) => ({
+    runSessionUnique: unique('uniq_runtime_sessions_run_session').on(t.runId, t.sessionNumber),
+    runStartedIdx: index('idx_runtime_sessions_run_started').on(t.runId, t.startedAt),
+    statusIdx: index('idx_runtime_sessions_status').on(t.status),
+  }),
+)
