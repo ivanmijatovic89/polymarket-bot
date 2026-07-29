@@ -43,7 +43,7 @@ Each loop has a provider, model, effort, access mode, workspace, mission path, m
 - apply pause after the active session, stop immediately, and resume with a fresh session;
 - keep one active owner per workspace;
 - retry quota-limited sessions after `GLOBAL_RUNTIME_RATE_LIMIT_RETRY_SECONDS`;
-- terminate recorded provider process groups and reconcile interrupted sessions to `waiting` after an unclean daemon restart.
+- verify a runtime identity token before terminating a recorded provider process group, then reconcile interrupted sessions to `waiting` after an unclean daemon restart.
 
 The runtime never interprets the mission domain.
 
@@ -149,7 +149,7 @@ Only two tables are added:
 
 Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
 
-Human-readable progress remains in workspace files. Raw JSONL and stderr are stored under `logs/global-runtime/run-<id>/` and are not exposed as a browser terminal or log viewer. A log stream failure stops the provider and records a controlled session error instead of crashing the daemon.
+Human-readable progress remains in workspace files. Raw JSONL and stderr are stored under `logs/global-runtime/run-<id>/` and are not exposed as a browser terminal or log viewer. Provider stdout and stderr respect file-stream backpressure so verbose sessions cannot create an unbounded in-memory log queue. A log stream failure stops the provider and records a controlled session error instead of crashing the daemon.
 
 The provider adapter waits for the child process `close` event before final parsing, ensuring stdout and stderr have closed and their final events have been captured even when a CLI exits while PID persistence is still pending.
 
@@ -157,7 +157,7 @@ The provider adapter waits for the child process `close` event before final pars
 
 | Symptom | Behavior / fix |
 | --- | --- |
-| Runtime was killed during a session | On startup the recorded provider process group is terminated, the session becomes `failed`, and the loop becomes `waiting`. Review files and resume. |
+| Runtime was killed during a session | Every launched provider carries a run/session identity token. On startup the runtime terminates the recorded process group only when that token still matches, then marks the session `failed` and the loop `waiting`. If identity cannot be verified, the process is not signaled and Mission Control asks the operator to confirm that no old provider remains before resuming. |
 | Result file missing or invalid | The session becomes `invalid_result` and the loop waits. Fix the mission/agent behavior, then resume. |
 | Workspace already locked | Stop or pause the active owner, or use a different worktree. |
 | Provider quota reached | The loop shows `rate_limited` and retries automatically. Pause or stop if no retry is wanted. |

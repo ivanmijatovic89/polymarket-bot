@@ -1,5 +1,11 @@
+import { execFile } from 'node:child_process'
+import { readFile } from 'node:fs/promises'
 import path from 'node:path'
-import { buildSessionPrompt } from './contracts.js'
+import {
+  buildRuntimeProcessToken,
+  buildSessionPrompt,
+  RUNTIME_PROCESS_TOKEN_ENV,
+} from './contracts.js'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
 import { CliProviderAdapter, type ProviderAdapter } from './providers.js'
 import type { RuntimeStore } from './store.js'
@@ -51,6 +57,7 @@ export interface GlobalRuntimeOptions {
   providers?: Partial<Record<RuntimeProvider, ProviderAdapter>>
   now?: () => Date
   terminateProcess?: (pid: number) => Promise<void>
+  verifyProcess?: (pid: number, expectedToken: string) => Promise<boolean>
 }
 
 export class GlobalRuntime {
@@ -63,6 +70,7 @@ export class GlobalRuntime {
   private readonly providers: Record<RuntimeProvider, ProviderAdapter>
   private readonly now: () => Date
   private readonly terminateProcess: (pid: number) => Promise<void>
+  private readonly verifyProcess: (pid: number, expectedToken: string) => Promise<boolean>
   private shuttingDown = false
 
   constructor(
@@ -79,19 +87,31 @@ export class GlobalRuntime {
     this.heartbeatMs = options.heartbeatMs ?? 5000
     this.now = options.now ?? (() => new Date())
     this.terminateProcess = options.terminateProcess ?? terminatePersistedProcess
+    this.verifyProcess = options.verifyProcess ?? processHasRuntimeToken
   }
 
   async initialize(): Promise<void> {
     const interrupted = await this.store.listRunsByStatuses(['running', 'pause_requested'])
-    const interruptedProcessIds = [
-      ...new Set(
-        interrupted
-          .map((run) => run.processId)
-          .filter((processId): processId is number => processId !== null),
-      ),
-    ]
-    await Promise.all(interruptedProcessIds.map((processId) => this.terminateProcess(processId)))
     for (const run of interrupted) {
+      let recoveryError = 'Runtime restarted. Review the last session and resume when ready.'
+      if (run.processId !== null) {
+        const sessions = await this.store.listSessions(run.id)
+        const currentSession = sessions.find(
+          (session) => session.status === 'running' && session.sessionNumber === run.currentSession,
+        )
+        if (currentSession) {
+          const expectedToken = buildRuntimeProcessToken(run.id, currentSession.sessionNumber)
+          if (await this.verifyProcess(run.processId, expectedToken)) {
+            await this.terminateProcess(run.processId)
+          } else {
+            recoveryError =
+              'Runtime restarted, but the recorded process identity could not be verified. Confirm that no previous provider process remains before resuming.'
+          }
+        } else {
+          recoveryError =
+            'Runtime restarted without a verifiable running session. Confirm that no previous provider process remains before resuming.'
+        }
+      }
       await this.store.finishRunningSessions(
         run.id,
         'failed',
@@ -102,7 +122,7 @@ export class GlobalRuntime {
         processId: null,
         heartbeatAt: null,
         nextStartAt: null,
-        lastError: 'Runtime restarted. Review the last session and resume when ready.',
+        lastError: recoveryError,
       })
     }
 
@@ -256,32 +276,36 @@ export class GlobalRuntime {
           `workspace is already locked by run ${conflict.id} (${conflict.name})`,
         )
       }
+
+      let launchedRun = run
+      if (initialDelayMs <= 0) {
+        launchedRun = await this.store.updateRun(run.id, {
+          status: 'running',
+          startedAt: run.startedAt ?? this.now(),
+          endedAt: null,
+          lastError: null,
+          nextStartAt: null,
+        })
+      }
+
+      const control: ActiveRun = {
+        workspacePath: run.workspacePath,
+        abortController: new AbortController(),
+        pauseRequested: false,
+        stopRequested: false,
+        wakeDelay: null,
+        task: Promise.resolve(),
+      }
+      this.active.set(run.id, control)
+      control.task = this.runManaged(run.id, control, initialDelayMs)
+
+      return launchedRun
     } catch (error) {
       if (this.workspaceOwners.get(run.workspacePath) === run.id) {
         this.workspaceOwners.delete(run.workspacePath)
       }
       throw error
     }
-
-    const control: ActiveRun = {
-      workspacePath: run.workspacePath,
-      abortController: new AbortController(),
-      pauseRequested: false,
-      stopRequested: false,
-      wakeDelay: null,
-      task: Promise.resolve(),
-    }
-    this.active.set(run.id, control)
-    control.task = this.runManaged(run.id, control, initialDelayMs)
-
-    if (initialDelayMs > 0) return run
-    return this.store.updateRun(run.id, {
-      status: 'running',
-      startedAt: run.startedAt ?? this.now(),
-      endedAt: null,
-      lastError: null,
-      nextStartAt: null,
-    })
   }
 
   private async runManaged(
@@ -315,14 +339,7 @@ export class GlobalRuntime {
 
   private async runLoop(runId: number, control: ActiveRun): Promise<void> {
     for (;;) {
-      if (control.stopRequested) {
-        await this.markStopped(runId)
-        return
-      }
-      if (control.pauseRequested) {
-        await this.markPaused(runId)
-        return
-      }
+      if (await this.applyPendingControl(runId, control)) return
 
       const run = await this.requireRun(runId)
       if (run.currentSession >= run.maxSessions) {
@@ -344,6 +361,7 @@ export class GlobalRuntime {
       )
       const startedAt = this.now()
       await prepareSessionResultFile(run)
+      if (await this.applyPendingControl(runId, control)) return
       const session = await this.store.startSession(
         {
           runId,
@@ -417,6 +435,7 @@ export class GlobalRuntime {
 
       if (result.rateLimited) {
         await this.finishSession(session, 'rate_limited', result, null, result.error)
+        if (await this.applyPendingControl(runId, control)) return
         const nextStartAt = new Date(this.now().getTime() + this.rateLimitRetryMs)
         await this.store.updateRun(runId, {
           status: 'rate_limited',
@@ -425,6 +444,7 @@ export class GlobalRuntime {
           nextStartAt,
           lastError: result.error ?? 'Provider rate limit reached.',
         })
+        if (await this.applyPendingControl(runId, control)) return
         await this.wait(control, this.rateLimitRetryMs)
         continue
       }
@@ -477,8 +497,16 @@ export class GlobalRuntime {
         await this.store.updateRun(runId, { status: 'waiting', nextStartAt: null })
         return
       }
-      if (control.pauseRequested) {
-        await this.markPaused(runId)
+      if (await this.applyPendingControl(runId, control)) return
+      if (sessionNumber >= run.maxSessions) {
+        await this.store.updateRun(runId, {
+          status: 'waiting',
+          processId: null,
+          heartbeatAt: null,
+          nextStartAt: null,
+          lastError: `Session limit reached (${run.maxSessions}).`,
+        })
+        if (await this.applyPendingControl(runId, control)) return
         return
       }
       await this.wait(control, run.delaySeconds * 1000)
@@ -525,8 +553,22 @@ export class GlobalRuntime {
     })
   }
 
+  private async applyPendingControl(runId: number, control: ActiveRun): Promise<boolean> {
+    if (control.stopRequested) {
+      await this.markStopped(runId)
+      return true
+    }
+    if (control.pauseRequested) {
+      await this.markPaused(runId)
+      return true
+    }
+    return false
+  }
+
   private wait(control: ActiveRun, delayMs: number): Promise<void> {
-    if (delayMs <= 0) return Promise.resolve()
+    if (delayMs <= 0 || control.stopRequested || control.pauseRequested) {
+      return Promise.resolve()
+    }
     return new Promise((resolve) => {
       const timer = setTimeout(finish, delayMs)
       timer.unref()
@@ -592,6 +634,29 @@ function workspacesOverlap(first: string, second: string): boolean {
 function isSameOrAncestor(parent: string, candidate: string): boolean {
   const relative = path.relative(parent, candidate)
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+async function processHasRuntimeToken(pid: number, expectedToken: string): Promise<boolean> {
+  if (!Number.isSafeInteger(pid) || pid <= 0 || process.platform === 'win32') return false
+  const marker = `${RUNTIME_PROCESS_TOKEN_ENV}=${expectedToken}`
+
+  if (process.platform === 'linux') {
+    try {
+      const environment = await readFile(`/proc/${pid}/environ`)
+      return environment.toString('utf8').split('\0').includes(marker)
+    } catch {
+      return false
+    }
+  }
+
+  return new Promise((resolve) => {
+    execFile(
+      'ps',
+      ['eww', '-p', String(pid), '-o', 'command='],
+      { encoding: 'utf8', maxBuffer: 1024 * 1024 },
+      (error, stdout) => resolve(!error && stdout.split(/\s+/u).includes(marker)),
+    )
+  })
 }
 
 async function terminatePersistedProcess(pid: number): Promise<void> {
