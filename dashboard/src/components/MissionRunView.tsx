@@ -4,6 +4,8 @@ import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square } from 'lucide-react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
 import { runtimeFetch } from '@/components/MissionControlView'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
@@ -25,6 +27,30 @@ type FilesResponse = { files: RuntimeFile[] }
 // #, Status, Model, Started, Duration, Tokens, Est. cost, Summary, Details
 const SESSION_COLUMNS = 9
 
+// The dashboard has no typography plugin, so the rendered-markdown styles live
+// here as descendant variants rather than a `prose` class.
+const MARKDOWN_CLASS = cn(
+  'max-h-[34rem] overflow-auto rounded-md bg-muted/50 p-4 text-sm leading-6',
+  '[&>*:first-child]:mt-0 [&>*:last-child]:mb-0',
+  '[&_h1]:mt-5 [&_h1]:mb-3 [&_h1]:text-base [&_h1]:font-semibold',
+  '[&_h2]:mt-5 [&_h2]:mb-2 [&_h2]:text-sm [&_h2]:font-semibold',
+  '[&_h3]:mt-4 [&_h3]:mb-1.5 [&_h3]:text-sm [&_h3]:font-medium',
+  '[&_p]:my-2',
+  '[&_ul]:my-2 [&_ul]:list-disc [&_ul]:pl-5',
+  '[&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5',
+  '[&_li]:my-0.5 [&_li]:pl-0.5',
+  '[&_a]:underline [&_a]:underline-offset-2',
+  '[&_strong]:font-semibold',
+  '[&_code]:rounded [&_code]:bg-background/80 [&_code]:px-1 [&_code]:py-0.5 [&_code]:font-mono [&_code]:text-[0.85em]',
+  '[&_pre]:my-3 [&_pre]:overflow-auto [&_pre]:rounded-md [&_pre]:bg-background [&_pre]:p-3',
+  '[&_pre_code]:bg-transparent [&_pre_code]:p-0 [&_pre_code]:text-xs',
+  '[&_blockquote]:my-3 [&_blockquote]:border-l-2 [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground',
+  '[&_table]:my-3 [&_table]:w-full [&_table]:text-xs',
+  '[&_th]:border-b [&_th]:px-2 [&_th]:py-1 [&_th]:text-left [&_th]:font-medium',
+  '[&_td]:border-b [&_td]:px-2 [&_td]:py-1',
+  '[&_hr]:my-4 [&_hr]:border-t',
+)
+
 export function MissionRunView({ runId }: { runId: string }) {
   const queryClient = useQueryClient()
   const [busy, setBusy] = useState(false)
@@ -33,6 +59,7 @@ export function MissionRunView({ runId }: { runId: string }) {
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [extendTarget, setExtendTarget] = useState<string | null>(null)
   const [promptSession, setPromptSession] = useState<number | null>(null)
+  const [renderMarkdown, setRenderMarkdown] = useState(true)
   const detailQuery = useQuery({
     queryKey: ['runtime-run', runId],
     queryFn: () => runtimeFetch<RuntimeRunDetail>(`/runs/${runId}`),
@@ -306,7 +333,7 @@ export function MissionRunView({ runId }: { runId: string }) {
             <CardTitle>Workspace communication</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex flex-wrap gap-1 border-b pb-2">
+            <div className="flex flex-wrap items-center gap-1 border-b pb-2">
               {files.map((file) => (
                 <button
                   key={file.path}
@@ -324,6 +351,29 @@ export function MissionRunView({ runId }: { runId: string }) {
                   {!file.exists && <span className="ml-1 opacity-60">(missing)</span>}
                 </button>
               ))}
+              {isMarkdownPath(visibleFile?.path) && (
+                <div className="ml-auto flex rounded-md border p-0.5">
+                  {[
+                    { id: true, label: 'Rendered' },
+                    { id: false, label: 'Raw' },
+                  ].map((option) => (
+                    <button
+                      key={option.label}
+                      type="button"
+                      onClick={() => setRenderMarkdown(option.id)}
+                      aria-pressed={renderMarkdown === option.id}
+                      className={cn(
+                        'rounded px-2 py-1 text-xs transition-colors',
+                        renderMarkdown === option.id
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-muted-foreground hover:text-foreground',
+                      )}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+              )}
             </div>
             {visibleFile ? (
               <div className="mt-3 space-y-2">
@@ -338,11 +388,31 @@ export function MissionRunView({ runId }: { runId: string }) {
                     This file is truncated. Mission Control is showing only its latest content.
                   </p>
                 )}
-                <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-4 font-mono text-xs leading-5">
-                  {visibleFile.exists
-                    ? visibleFile.content
-                    : `${visibleFile.path} does not exist yet.`}
-                </pre>
+                {visibleFile.exists &&
+                renderMarkdown &&
+                isMarkdownPath(visibleFile.path) &&
+                visibleFile.content.trim() ? (
+                  <div className={MARKDOWN_CLASS}>
+                    <Markdown
+                      remarkPlugins={[remarkGfm]}
+                      components={{
+                        a: ({ href, children }) => (
+                          <a href={href} target="_blank" rel="noreferrer noopener">
+                            {children}
+                          </a>
+                        ),
+                      }}
+                    >
+                      {visibleFile.content}
+                    </Markdown>
+                  </div>
+                ) : (
+                  <pre className="max-h-[34rem] overflow-auto rounded-md bg-muted/50 p-4 font-mono text-xs leading-5 whitespace-pre-wrap">
+                    {visibleFile.exists
+                      ? visibleFile.content
+                      : `${visibleFile.path} does not exist yet.`}
+                  </pre>
+                )}
               </div>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">No files configured.</p>
@@ -645,6 +715,10 @@ function Meta({ label, value, mono }: { label: string; value: string; mono?: boo
       </div>
     </div>
   )
+}
+
+function isMarkdownPath(path: string | undefined): boolean {
+  return path !== undefined && path.toLowerCase().endsWith('.md')
 }
 
 function fileLabel(file: RuntimeFile): string {
