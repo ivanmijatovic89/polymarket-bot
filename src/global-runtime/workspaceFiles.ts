@@ -1,4 +1,4 @@
-import { randomUUID } from 'node:crypto'
+import { createHash, randomUUID } from 'node:crypto'
 import { constants as fsConstants, type BigIntStats } from 'node:fs'
 import { lstat, mkdir, open, realpath, stat, unlink, type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
@@ -259,6 +259,24 @@ export async function appendInboxEntry(
     await handle.close()
   }
   return { id, appendedAt }
+}
+
+export async function computeMissionHash(run: RuntimeRun): Promise<string | null> {
+  try {
+    const opened = await openVerifiedWorkspaceFile(run, run.missionPath, false)
+    if (!opened) return null
+    try {
+      return createHash('sha256')
+        .update(await opened.handle.readFile())
+        .digest('hex')
+    } finally {
+      await opened.handle.close()
+    }
+  } catch {
+    // The mission file is validated at launch; a transient read failure here
+    // only loses the provenance hash, never the session.
+    return null
+  }
 }
 
 export async function prepareSessionResultFile(run: RuntimeRun): Promise<void> {

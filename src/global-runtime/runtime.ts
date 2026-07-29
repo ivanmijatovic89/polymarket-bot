@@ -4,6 +4,7 @@ import path from 'node:path'
 import {
   buildRuntimeProcessToken,
   buildSessionPrompt,
+  GLOBAL_RUNTIME_CONTRACT_VERSION,
   RUNTIME_PROCESS_TOKEN_ENV,
 } from './contracts.js'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
@@ -27,6 +28,7 @@ import {
 import {
   appendInboxEntry,
   canonicalWorkspace,
+  computeMissionHash,
   prepareSessionResultFile,
   readSessionResultFile,
   readRuntimeFiles,
@@ -505,7 +507,9 @@ export class GlobalRuntime {
         `session-${String(sessionNumber).padStart(4, '0')}.jsonl`,
       )
       const startedAt = this.now()
+      const prompt = buildSessionPrompt(run, sessionNumber)
       await prepareSessionResultFile(run)
+      const missionHash = await computeMissionHash(run)
       const session = await this.withRunTransition(runId, async () => {
         if (await this.applyPendingControlUnlocked(runId, control)) return null
         return this.store.startSession(
@@ -515,6 +519,9 @@ export class GlobalRuntime {
             provider: run.provider,
             model: run.model,
             effort: run.effort,
+            prompt,
+            contractVersion: GLOBAL_RUNTIME_CONTRACT_VERSION,
+            missionHash,
             rawLogPath,
             startedAt,
           },
@@ -567,7 +574,7 @@ export class GlobalRuntime {
           {
             run,
             sessionNumber,
-            prompt: buildSessionPrompt(run, sessionNumber),
+            prompt,
             logDirectory: path.dirname(rawLogPath),
           },
           control.abortController.signal,

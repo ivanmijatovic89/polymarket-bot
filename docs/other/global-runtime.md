@@ -153,7 +153,9 @@ Pause does not terminate an active session; it prevents the next session. Stop s
 Only two tables are added:
 
 - `runtime_runs`: configuration and current loop state;
-- `runtime_sessions`: one row per CLI invocation, including result, exact model, token/cache breakdown, and estimated API-equivalent cost.
+- `runtime_sessions`: one row per CLI invocation, including result, exact model, token/cache breakdown, estimated API-equivalent cost, the exact rendered session prompt, the contract version, and a SHA-256 hash of the mission file at session start.
+
+The session prompt is rendered from the template in `src/global-runtime/session-contract.md`; edit that Markdown file (not code) to change the contract wording for all future sessions.
 
 Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
 

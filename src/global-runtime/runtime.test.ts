@@ -419,6 +419,9 @@ test('initialization reconciles an interrupted session to waiting', async () => 
     provider: run.provider,
     model: run.model,
     effort: run.effort,
+    prompt: 'test prompt',
+    contractVersion: 1,
+    missionHash: null,
     rawLogPath: 'test.jsonl',
     startedAt,
   })
@@ -456,6 +459,9 @@ test('does not terminate an interrupted PID when process identity cannot be veri
     provider: run.provider,
     model: run.model,
     effort: run.effort,
+    prompt: 'test prompt',
+    contractVersion: 1,
+    missionHash: null,
     rawLogPath: 'test.jsonl',
     startedAt,
   })
@@ -488,6 +494,9 @@ test('initialization finishes a stopped run that still has a live session', asyn
     provider: run.provider,
     model: run.model,
     effort: run.effort,
+    prompt: 'test prompt',
+    contractVersion: 1,
+    missionHash: null,
     rawLogPath: 'test.jsonl',
     startedAt,
   })
@@ -537,6 +546,9 @@ test(
         provider: run.provider,
         model: run.model,
         effort: run.effort,
+        prompt: 'test prompt',
+        contractVersion: 1,
+        missionHash: null,
         rawLogPath: 'test.jsonl',
         startedAt,
       })

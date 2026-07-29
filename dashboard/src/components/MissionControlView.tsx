@@ -110,9 +110,8 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
           missionPath: values.get('missionPath'),
           maxSessions: Number(values.get('maxSessions')),
           delaySeconds: Number(values.get('delaySeconds')),
-          statusFile: 'STATUS.md',
-          journalFile: 'JOURNAL.md',
-          inboxFile: 'INBOX.md',
+          // State-file names are defaulted by the runtime so the convention
+          // lives in one place (src/global-runtime/types.ts).
           readOnlyFiles: String(values.get('readOnlyFiles') || '')
             .split('\n')
             .map((value) => value.trim())
