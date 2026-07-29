@@ -315,27 +315,29 @@ export class GlobalRuntime {
         `session-${String(sessionNumber).padStart(4, '0')}.jsonl`,
       )
       const startedAt = this.now()
-      const session = await this.store.createSession({
-        runId,
-        sessionNumber,
-        provider: run.provider,
-        model: run.model,
-        effort: run.effort,
-        rawLogPath,
-        startedAt,
-      })
       await prepareSessionResultFile(run)
-      await this.store.updateRun(runId, {
-        status: 'running',
-        currentSession: sessionNumber,
-        processId: null,
-        heartbeatAt: startedAt,
-        lastActivityAt: startedAt,
-        nextStartAt: null,
-        startedAt: run.startedAt ?? startedAt,
-        endedAt: null,
-        lastError: null,
-      })
+      const session = await this.store.startSession(
+        {
+          runId,
+          sessionNumber,
+          provider: run.provider,
+          model: run.model,
+          effort: run.effort,
+          rawLogPath,
+          startedAt,
+        },
+        {
+          status: 'running',
+          currentSession: sessionNumber,
+          processId: null,
+          heartbeatAt: startedAt,
+          lastActivityAt: startedAt,
+          nextStartAt: null,
+          startedAt: run.startedAt ?? startedAt,
+          endedAt: null,
+          lastError: null,
+        },
+      )
 
       let lastActivityWrite = 0
       const updateHeartbeat = async () => {

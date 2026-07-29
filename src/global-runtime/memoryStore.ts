@@ -82,26 +82,21 @@ export class MemoryRuntimeStore implements RuntimeStore {
   }
 
   async createSession(input: CreateSessionInput): Promise<RuntimeSession> {
-    const session: RuntimeSession = {
-      ...input,
-      id: this.nextSessionId++,
-      status: 'running',
-      processId: null,
-      action: null,
-      summary: null,
-      error: null,
-      exitCode: null,
-      exitSignal: null,
-      inputTokens: null,
-      cachedInputTokens: null,
-      outputTokens: null,
-      reasoningOutputTokens: null,
-      heartbeatAt: input.startedAt,
-      lastActivityAt: null,
-      finishedAt: null,
-      createdAt: input.startedAt,
-    }
+    const session = this.buildSession(input)
     this.sessions.set(session.id, session)
+    return cloneSession(session)
+  }
+
+  async startSession(
+    input: CreateSessionInput,
+    runPatch: RuntimeRunPatch,
+  ): Promise<RuntimeSession> {
+    const run = this.runs.get(input.runId)
+    if (!run) throw new RuntimeNotFoundError(`runtime run ${input.runId} was not found`)
+    const session = this.buildSession(input)
+    const updatedRun = { ...run, ...runPatch, updatedAt: new Date() }
+    this.sessions.set(session.id, session)
+    this.runs.set(run.id, updatedRun)
     return cloneSession(session)
   }
 
@@ -135,6 +130,28 @@ export class MemoryRuntimeStore implements RuntimeStore {
       if (session.runId === runId && session.status === 'running') {
         this.sessions.set(id, { ...session, status, error, finishedAt: now })
       }
+    }
+  }
+
+  private buildSession(input: CreateSessionInput): RuntimeSession {
+    return {
+      ...input,
+      id: this.nextSessionId++,
+      status: 'running',
+      processId: null,
+      action: null,
+      summary: null,
+      error: null,
+      exitCode: null,
+      exitSignal: null,
+      inputTokens: null,
+      cachedInputTokens: null,
+      outputTokens: null,
+      reasoningOutputTokens: null,
+      heartbeatAt: input.startedAt,
+      lastActivityAt: null,
+      finishedAt: null,
+      createdAt: input.startedAt,
     }
   }
 }

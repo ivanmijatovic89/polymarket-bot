@@ -70,6 +70,24 @@ export class DrizzleRuntimeStore implements RuntimeStore {
     return this.requireSession(id)
   }
 
+  async startSession(
+    input: CreateSessionInput,
+    runPatch: RuntimeRunPatch,
+  ): Promise<RuntimeSession> {
+    const db = getDb()
+    const id = await db.transaction(async (tx) => {
+      const ids = await tx.insert(runtimeSessions).values(input).$returningId()
+      const insertedId = ids[0]?.id
+      if (insertedId === undefined) throw new Error('runtime session insert did not return an id')
+      await tx
+        .update(runtimeRuns)
+        .set({ ...runPatch, updatedAt: new Date() })
+        .where(eq(runtimeRuns.id, input.runId))
+      return insertedId
+    })
+    return this.requireSession(id)
+  }
+
   async getSession(id: number): Promise<RuntimeSession | null> {
     const rows = await getDb()
       .select()
