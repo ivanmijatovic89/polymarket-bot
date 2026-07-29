@@ -1,59 +1,55 @@
 'use client'
 
-import { useRef, useState, type FormEvent } from 'react'
+import { useMemo, useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, ChevronRight, Pause, Play, Plus, RefreshCw, Sparkles, Square, X } from 'lucide-react'
+import { ChevronRight, Pause, Play, Plus, RefreshCw, Sparkles, Square, X } from 'lucide-react'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
+import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { cn } from '@/lib/utils'
 import type { RuntimeRun, RuntimeRunSummary } from '@/lib/runtimeTypes'
 
 type RunsResponse = { runs: RuntimeRunSummary[] }
+type ProviderId = 'claude' | 'codex'
 type ClaudeProfile = 'default' | 'balsa'
-type ClaudeSmokeTemplate = {
-  id: 'fable' | 'opus-5'
-  label: string
-  provider: 'claude'
-  model: string
-  description: string
-}
-type CodexSmokeTemplate = {
-  id: 'gpt-5.6'
-  label: string
-  provider: 'codex'
-  model: string
-  description: string
-}
-type SmokeTemplate = ClaudeSmokeTemplate | CodexSmokeTemplate
+type ModelOption = { id: string; label: string; hint: string }
 
-const SMOKE_TEMPLATES: SmokeTemplate[] = [
-  {
-    id: 'fable',
-    label: 'Fable',
-    provider: 'claude',
-    model: 'claude-fable-5',
-    description: 'Claude Fable 5 · shared three-session mission',
-  },
-  {
-    id: 'opus-5',
-    label: 'Opus 5',
-    provider: 'claude',
-    model: 'opus',
-    description: 'Latest Claude Opus alias · shared three-session mission',
-  },
-  {
-    id: 'gpt-5.6',
-    label: 'GPT-5.6',
-    provider: 'codex',
-    model: 'gpt-5.6-sol',
-    description: 'Codex GPT-5.6 Sol · shared three-session mission',
-  },
+const PROVIDERS: { id: ProviderId; label: string }[] = [
+  { id: 'claude', label: 'Claude Code' },
+  { id: 'codex', label: 'Codex' },
 ]
 
+// Model ids the provider CLIs accept for `--model`. Aliases (e.g. `opus`) let a
+// loop follow the newest model in a family without editing this list.
+const EXAMPLE_MODELS: Record<ProviderId, ModelOption[]> = {
+  claude: [
+    { id: 'claude-opus-5', label: 'Opus 5', hint: 'Current Opus generation' },
+    { id: 'claude-fable-5', label: 'Fable 5', hint: 'Most capable, highest cost' },
+    { id: 'claude-sonnet-5', label: 'Sonnet 5', hint: 'Near-Opus quality, lower cost' },
+    { id: 'claude-haiku-4-5', label: 'Haiku 4.5', hint: 'Fastest and cheapest' },
+    { id: 'opus', label: 'Opus (alias)', hint: 'Whatever the CLI resolves as latest Opus' },
+  ],
+  codex: [
+    { id: 'gpt-5.6-sol', label: 'GPT-5.6 Sol', hint: 'Highest capability tier' },
+    { id: 'gpt-5.6-terra', label: 'GPT-5.6 Terra', hint: 'Mid tier' },
+    { id: 'gpt-5.6-luna', label: 'GPT-5.6 Luna', hint: 'Cheapest tier' },
+  ],
+}
+
+const DEFAULT_MODEL: Record<ProviderId, string> = {
+  claude: 'claude-opus-5',
+  codex: 'gpt-5.6-sol',
+}
+
+const ACTIVE_STATUSES = ['running', 'pause_requested', 'rate_limited']
+const RESUMABLE_STATUSES = ['paused', 'waiting', 'stopped', 'error']
 const SMOKE_WORKSPACE = 'shared-loop'
 const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
+const selectClass = 'rounded-md border bg-background px-2.5 py-2 text-sm text-foreground'
 
 export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   const router = useRouter()
@@ -61,14 +57,11 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   const [creating, setCreating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionRunId, setActionRunId] = useState<number | null>(null)
-  const [startingTemplate, setStartingTemplate] = useState<SmokeTemplate['id'] | null>(null)
-  const smokeStartInFlight = useRef(false)
-  const [claudeProfiles, setClaudeProfiles] = useState<
-    Record<ClaudeSmokeTemplate['id'], ClaudeProfile>
-  >({
-    fable: 'default',
-    'opus-5': 'default',
-  })
+  const [startingExample, setStartingExample] = useState(false)
+  const exampleStartInFlight = useRef(false)
+  const [provider, setProvider] = useState<ProviderId>('claude')
+  const [modelByProvider, setModelByProvider] = useState<Record<ProviderId, string>>(DEFAULT_MODEL)
+  const [claudeProfile, setClaudeProfile] = useState<ClaudeProfile>('default')
   const [error, setError] = useState<string | null>(null)
 
   const {
@@ -81,6 +74,16 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     queryFn: () => runtimeFetch<RunsResponse>('/runs'),
     refetchInterval: 5000,
   })
+
+  const runs = useMemo(() => data?.runs ?? [], [data])
+  const fleet = useMemo(
+    () => ({
+      active: runs.filter((run) => ACTIVE_STATUSES.includes(run.status)).length,
+      sessions: runs.reduce((total, run) => total + run.currentSession, 0),
+      cost: runs.reduce((total, run) => total + (run.totals.estimatedApiCostUsd ?? 0), 0),
+    }),
+    [runs],
+  )
 
   async function createRun(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -132,28 +135,28 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     }
   }
 
-  async function startSmokeTest(template: SmokeTemplate) {
-    if (smokeStartInFlight.current) return
-    smokeStartInFlight.current = true
-    setStartingTemplate(template.id)
+  async function startExample() {
+    if (exampleStartInFlight.current) return
+    exampleStartInFlight.current = true
+    setStartingExample(true)
     setError(null)
-    const profile = template.provider === 'claude' ? claudeProfiles[template.id] : null
-    const profileLabel = profile === 'balsa' ? 'Balsa' : 'default account'
+    const modelId = modelByProvider[provider]
+    const model = EXAMPLE_MODELS[provider].find((option) => option.id === modelId)
+    const isClaude = provider === 'claude'
+    const profileLabel = claudeProfile === 'balsa' ? 'Balsa' : 'default account'
     try {
       const created = await runtimeFetch<{ run: RuntimeRun }>('/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
-          name:
-            template.provider === 'claude'
-              ? `Example: ${template.label} (${profileLabel})`
-              : `Example: ${template.label}`,
-          provider: template.provider,
-          model: template.model,
+          name: isClaude
+            ? `Example: ${model?.label ?? modelId} (${profileLabel})`
+            : `Example: ${model?.label ?? modelId}`,
+          provider,
+          model: modelId,
           effort: 'low',
           accessMode: 'workspace-write',
-          authHome:
-            template.provider === 'claude' && profile === 'balsa' ? '~/.claude-balsa' : null,
+          authHome: isClaude && claudeProfile === 'balsa' ? '~/.claude-balsa' : null,
           workspacePath: `${examplesRoot}/${SMOKE_WORKSPACE}`,
           missionPath: 'MISSION.md',
           maxSessions: SMOKE_SESSION_COUNT,
@@ -168,12 +171,14 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
-      smokeStartInFlight.current = false
-      setStartingTemplate(null)
+      exampleStartInFlight.current = false
+      setStartingExample(false)
     }
   }
 
-  const runs = data?.runs ?? []
+  const models = EXAMPLE_MODELS[provider]
+  const selectedModel = models.find((option) => option.id === modelByProvider[provider])
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -209,59 +214,96 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
         </div>
       )}
 
-      <section className="space-y-3">
-        <div>
+      <Card>
+        <CardContent className="py-4">
           <h2 className="flex items-center gap-2 text-sm font-semibold">
             <Sparkles className="h-4 w-4" /> Shared loop example
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            Every model runs the same low-cost mission through three fresh sessions: continue,
-            continue, complete.
+            Three fresh sessions — continue, continue, complete — over the same mission.
           </p>
-        </div>
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-          {SMOKE_TEMPLATES.map((template) => {
-            return (
-              <Card key={template.id}>
-                <CardContent className="space-y-3 py-4">
-                  <div>
-                    <div className="font-medium">{template.label}</div>
-                    <div className="mt-1 text-xs text-muted-foreground">{template.description}</div>
-                  </div>
-                  {template.provider === 'claude' && (
-                    <label className="block text-xs text-muted-foreground">
-                      Claude account
-                      <select
-                        value={claudeProfiles[template.id]}
-                        suppressHydrationWarning
-                        onChange={(event) =>
-                          setClaudeProfiles((current) => ({
-                            ...current,
-                            [template.id]: event.target.value as ClaudeProfile,
-                          }))
-                        }
-                        className="mt-1 w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground"
-                      >
-                        <option value="default">Default (normal claude login)</option>
-                        <option value="balsa">Balsa (~/.claude-balsa)</option>
-                      </select>
-                    </label>
-                  )}
+
+          <div className="mt-4 flex flex-wrap items-end gap-3">
+            <div>
+              <span className="block text-xs text-muted-foreground">Provider</span>
+              <div className="mt-1 flex rounded-md border p-0.5">
+                {PROVIDERS.map((option) => (
                   <button
+                    key={option.id}
                     type="button"
-                    onClick={() => void startSmokeTest(template)}
-                    disabled={startingTemplate !== null}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+                    onClick={() => setProvider(option.id)}
+                    aria-pressed={provider === option.id}
+                    className={cn(
+                      'rounded px-3 py-1.5 text-sm transition-colors',
+                      provider === option.id
+                        ? 'bg-primary text-primary-foreground'
+                        : 'text-muted-foreground hover:text-foreground',
+                    )}
                   >
-                    <Play className="h-4 w-4" />
-                    {startingTemplate === template.id ? 'Starting…' : 'Start 3-session example'}
+                    {option.label}
                   </button>
-                </CardContent>
-              </Card>
-            )
-          })}
-        </div>
-      </section>
+                ))}
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="example-model" className="block text-xs text-muted-foreground">
+                Model
+              </label>
+              <select
+                id="example-model"
+                value={modelByProvider[provider]}
+                suppressHydrationWarning
+                onChange={(event) =>
+                  setModelByProvider((current) => ({ ...current, [provider]: event.target.value }))
+                }
+                className={cn(selectClass, 'mt-1 block w-64 font-mono')}
+              >
+                {models.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.id}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {provider === 'claude' && (
+              <div>
+                <label htmlFor="example-account" className="block text-xs text-muted-foreground">
+                  Claude account
+                </label>
+                <select
+                  id="example-account"
+                  value={claudeProfile}
+                  suppressHydrationWarning
+                  onChange={(event) => setClaudeProfile(event.target.value as ClaudeProfile)}
+                  className={cn(selectClass, 'mt-1 block w-48')}
+                >
+                  <option value="default">Default login</option>
+                  <option value="balsa">Balsa (~/.claude-balsa)</option>
+                </select>
+              </div>
+            )}
+
+            <button
+              type="button"
+              onClick={() => void startExample()}
+              disabled={startingExample}
+              className="ml-auto inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm text-primary-foreground disabled:opacity-50"
+            >
+              <Play className="h-4 w-4" />
+              {startingExample ? 'Starting…' : 'Start 3-session example'}
+            </button>
+          </div>
+
+          {selectedModel && (
+            <p className="mt-3 text-xs text-muted-foreground">
+              <span className="text-foreground">{selectedModel.label}</span> — {selectedModel.hint}.
+              Runs at <span className="font-mono">low</span> effort with isolated state files.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       {creating && (
         <Card>
@@ -347,89 +389,187 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
         </Card>
       )}
 
-      <div className="grid gap-3">
-        {runs.map((run) => (
-          <div key={run.id} className="rounded-lg border bg-card p-4">
-            <div className="flex flex-wrap items-center gap-3">
-              <div className="rounded-md bg-muted p-2">
-                <Bot className="h-4 w-4" />
-              </div>
-              <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">{run.name}</span>
-                  <RuntimeStatusBadge status={run.status} />
-                </div>
-                <div className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 xl:grid-cols-6">
-                  <SummaryMetric label="Account" value={formatAccount(run)} />
-                  <SummaryMetric label="Exact model" value={run.resolvedModel ?? run.model} mono />
-                  <SummaryMetric
-                    label="Duration"
-                    value={formatDurationBetween(run.startedAt, run.endedAt)}
-                  />
-                  <SummaryMetric
-                    label="Sessions"
-                    value={`${run.currentSession} / ${run.maxSessions}`}
-                  />
-                  <SummaryMetric label="Tokens" value={formatRunTokens(run)} />
-                  <SummaryMetric
-                    label="Est. API cost"
-                    value={formatUsd(run.totals.estimatedApiCostUsd)}
-                  />
-                </div>
-                <div className="mt-2 truncate text-xs text-muted-foreground">
-                  {run.workspacePath} · last activity {formatDate(run.lastActivityAt)}
-                </div>
-              </div>
-              <div className="flex items-center gap-1">
-                {run.status === 'idle' && (
-                  <RunButton
-                    label="Start"
-                    icon={Play}
-                    onClick={() => controlRun(run.id, 'start')}
-                    disabled={actionRunId === run.id}
-                  />
-                )}
-                {['running', 'pause_requested', 'rate_limited'].includes(run.status) && (
-                  <RunButton
-                    label="Pause"
-                    icon={Pause}
-                    onClick={() => controlRun(run.id, 'pause')}
-                    disabled={actionRunId === run.id || run.status === 'pause_requested'}
-                  />
-                )}
-                {['paused', 'waiting', 'stopped', 'error'].includes(run.status) && (
-                  <RunButton
-                    label="Resume"
-                    icon={Play}
-                    onClick={() => controlRun(run.id, 'resume')}
-                    disabled={actionRunId === run.id}
-                  />
-                )}
-                {!['idle', 'completed'].includes(run.status) && (
-                  <RunButton
-                    label="Stop"
-                    icon={Square}
-                    onClick={() => controlRun(run.id, 'stop')}
-                    disabled={actionRunId === run.id}
-                  />
-                )}
-                <Link
-                  href={`/mission-control/${run.id}`}
-                  aria-label={`Open ${run.name}`}
-                  className="group ml-1 rounded-md border p-2 hover:bg-accent"
-                >
-                  <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
-                </Link>
-              </div>
+      <Card>
+        <CardContent className="p-0">
+          <div className="flex flex-wrap items-center gap-x-6 gap-y-1 border-b px-3 py-2.5 text-xs text-muted-foreground">
+            <span>
+              <span className="font-medium text-foreground tabular-nums">{runs.length}</span> loops
+            </span>
+            <span>
+              <span className="font-medium text-foreground tabular-nums">{fleet.active}</span> active
+            </span>
+            <span>
+              <span className="font-medium text-foreground tabular-nums">{fleet.sessions}</span>{' '}
+              sessions run
+            </span>
+            <span>
+              <span className="font-medium text-foreground tabular-nums">
+                {formatUsd(fleet.cost)}
+              </span>{' '}
+              est. API cost
+            </span>
+          </div>
+
+          <Table containerClassName="max-w-full" className="min-w-[1180px]">
+            <TableHeader>
+              <TableRow className="hover:bg-transparent">
+                <TableHead>Loop</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Model</TableHead>
+                <TableHead>Account</TableHead>
+                <TableHead className="text-right">Sessions</TableHead>
+                <TableHead className="text-right">Duration</TableHead>
+                <TableHead className="text-right">Tokens</TableHead>
+                <TableHead className="text-right">Est. cost</TableHead>
+                <TableHead className="w-px" />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {runs.map((run) => (
+                <TableRow key={run.id} className="align-top">
+                  <TableCell className="max-w-[22rem]">
+                    <Link
+                      href={`/mission-control/${run.id}`}
+                      className="font-medium hover:underline"
+                    >
+                      {run.name}
+                    </Link>
+                    <div
+                      className="truncate font-mono text-[11px] text-muted-foreground"
+                      title={`${run.workspacePath}/${run.missionPath}`}
+                    >
+                      #{run.id} · {shortenPath(run.workspacePath)} · {run.missionPath}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="max-w-[16rem]">
+                    <div className="flex flex-wrap items-center gap-1">
+                      <RuntimeStatusBadge status={run.status} />
+                      {run.accessMode === 'full-access' && (
+                        <Badge variant="warning">full access</Badge>
+                      )}
+                    </div>
+                    {statusDetail(run) && (
+                      <div
+                        className={cn(
+                          'mt-1 line-clamp-2 text-[11px]',
+                          run.status === 'error' ? 'text-destructive' : 'text-muted-foreground',
+                        )}
+                        title={statusDetail(run) ?? undefined}
+                      >
+                        {statusDetail(run)}
+                      </div>
+                    )}
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="font-mono text-xs whitespace-nowrap">
+                      {run.resolvedModel ?? run.model}
+                    </div>
+                    <div className="mt-0.5 text-[11px] whitespace-nowrap text-muted-foreground">
+                      {run.provider === 'claude' ? 'Claude Code' : 'Codex'} · {run.effort}
+                      {run.resolvedModel && run.resolvedModel !== run.model
+                        ? ` · asked ${run.model}`
+                        : ''}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-xs whitespace-nowrap">{formatAccount(run)}</TableCell>
+
+                  <TableCell className="text-right">
+                    <div className="text-xs tabular-nums">
+                      {run.currentSession} / {run.maxSessions}
+                    </div>
+                    <div className="mt-1 ml-auto h-1 w-16 overflow-hidden rounded-full bg-muted">
+                      <div
+                        className="h-full rounded-full bg-primary"
+                        style={{
+                          width: `${Math.min(100, Math.round((run.currentSession / Math.max(1, run.maxSessions)) * 100))}%`,
+                        }}
+                      />
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-right whitespace-nowrap">
+                    <div className="text-xs tabular-nums">
+                      {formatDurationBetween(run.startedAt, run.endedAt)}
+                    </div>
+                    <div className="mt-0.5 text-[11px] text-muted-foreground">
+                      {run.lastActivityAt ? `active ${formatRelative(run.lastActivityAt)}` : '—'}
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-right whitespace-nowrap">
+                    <div className="text-xs tabular-nums" title={tokenBreakdown(run)}>
+                      {formatCompact(totalTokens(run))}
+                    </div>
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                      {formatCompact(run.totals.inputTokens)}i ·{' '}
+                      {formatCompact(run.totals.cacheReadInputTokens)}r ·{' '}
+                      {formatCompact(run.totals.outputTokens)}o
+                    </div>
+                  </TableCell>
+
+                  <TableCell className="text-right text-xs tabular-nums whitespace-nowrap">
+                    {formatUsd(run.totals.estimatedApiCostUsd)}
+                  </TableCell>
+
+                  <TableCell>
+                    <div className="flex items-center justify-end gap-1">
+                      {run.status === 'idle' && (
+                        <RunButton
+                          label="Start"
+                          icon={Play}
+                          onClick={() => controlRun(run.id, 'start')}
+                          disabled={actionRunId === run.id}
+                        />
+                      )}
+                      {ACTIVE_STATUSES.includes(run.status) && (
+                        <RunButton
+                          label="Pause"
+                          icon={Pause}
+                          onClick={() => controlRun(run.id, 'pause')}
+                          disabled={actionRunId === run.id || run.status === 'pause_requested'}
+                        />
+                      )}
+                      {RESUMABLE_STATUSES.includes(run.status) && (
+                        <RunButton
+                          label="Resume"
+                          icon={Play}
+                          onClick={() => controlRun(run.id, 'resume')}
+                          disabled={actionRunId === run.id}
+                        />
+                      )}
+                      {!['idle', 'completed'].includes(run.status) && (
+                        <RunButton
+                          label="Stop"
+                          icon={Square}
+                          onClick={() => controlRun(run.id, 'stop')}
+                          disabled={actionRunId === run.id}
+                        />
+                      )}
+                      <Link
+                        href={`/mission-control/${run.id}`}
+                        aria-label={`Open ${run.name}`}
+                        className="group ml-1 rounded-md border p-2 hover:bg-accent"
+                      >
+                        <ChevronRight className="h-4 w-4 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+                      </Link>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+
+          {!isFetching && runs.length === 0 && (
+            <div className="px-3 py-12 text-center text-sm text-muted-foreground">
+              No loops yet. Start the shared example above, or create one with{' '}
+              <span className="font-medium text-foreground">New loop</span>.
             </div>
-          </div>
-        ))}
-        {!isFetching && runs.length === 0 && (
-          <div className="rounded-lg border border-dashed p-10 text-center text-sm text-muted-foreground">
-            No loops yet.
-          </div>
-        )}
-      </div>
+          )}
+        </CardContent>
+      </Card>
     </div>
   )
 }
@@ -469,23 +609,6 @@ function Field({
   )
 }
 
-function SummaryMetric({
-  label,
-  value,
-  mono,
-}: {
-  label: string
-  value: string
-  mono?: boolean
-}) {
-  return (
-    <div className="min-w-0">
-      <div className="text-muted-foreground">{label}</div>
-      <div className={`mt-0.5 truncate text-foreground ${mono ? 'font-mono' : ''}`}>{value}</div>
-    </div>
-  )
-}
-
 export async function runtimeFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/mission-control${path}`, { ...init, cache: 'no-store' })
   const payload: unknown = await response.json().catch(() => null)
@@ -499,29 +622,72 @@ export async function runtimeFetch<T = unknown>(path: string, init?: RequestInit
   return payload as T
 }
 
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleString(undefined, { hourCycle: 'h23' }) : '—'
+// The runtime surfaces one reason at a time: a pending retry beats a stale
+// error, and an error beats the previous session's summary.
+function statusDetail(run: RuntimeRunSummary): string | null {
+  if (run.status === 'rate_limited' && run.nextStartAt) {
+    return `retry ${formatRelative(run.nextStartAt)}`
+  }
+  return run.lastError ?? run.lastResultSummary ?? null
+}
+
+function shortenPath(value: string): string {
+  const segments = value.split('/').filter(Boolean)
+  return segments.length <= 2 ? value : `…/${segments.slice(-2).join('/')}`
 }
 
 function formatAccount(run: RuntimeRun): string {
-  if (run.provider === 'claude') {
-    if (!run.authHome) return 'Default Claude login'
-    return run.authHome === '~/.claude-balsa'
-      ? `Balsa (${run.authHome})`
-      : `Claude profile (${run.authHome})`
-  }
-  return run.authHome ? `Codex profile (${run.authHome})` : 'Default Codex login'
+  const fallback = run.provider === 'claude' ? 'Default Claude login' : 'Default Codex login'
+  if (!run.authHome) return fallback
+  return run.authHome === '~/.claude-balsa' ? 'Balsa' : run.authHome
 }
 
-function formatRunTokens(run: RuntimeRunSummary): string {
+function totalTokens(run: RuntimeRunSummary): number | null {
   const values = [
     run.totals.inputTokens,
     run.totals.cacheReadInputTokens,
     run.totals.cacheCreationInputTokens,
     run.totals.outputTokens,
   ]
-  if (values.every((value) => value === null)) return '—'
-  return values.reduce<number>((total, value) => total + (value ?? 0), 0).toLocaleString()
+  if (values.every((value) => value === null)) return null
+  return values.reduce<number>((total, value) => total + (value ?? 0), 0)
+}
+
+function tokenBreakdown(run: RuntimeRunSummary): string {
+  return [
+    `input ${formatNumber(run.totals.inputTokens)}`,
+    `cache read ${formatNumber(run.totals.cacheReadInputTokens)}`,
+    `cache write ${formatNumber(run.totals.cacheCreationInputTokens)}`,
+    `output ${formatNumber(run.totals.outputTokens)}`,
+    `reasoning ${formatNumber(run.totals.reasoningOutputTokens)}`,
+  ].join('\n')
+}
+
+function formatNumber(value: number | null): string {
+  return value === null ? '—' : value.toLocaleString()
+}
+
+function formatCompact(value: number | null): string {
+  if (value === null) return '—'
+  if (Math.abs(value) < 1000) return String(value)
+  return new Intl.NumberFormat(undefined, {
+    notation: 'compact',
+    maximumFractionDigits: 1,
+  }).format(value)
+}
+
+function formatRelative(value: string): string {
+  const deltaSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1000)
+  const magnitude = Math.abs(deltaSeconds)
+  const [amount, unit]: [number, Intl.RelativeTimeFormatUnit] =
+    magnitude < 60
+      ? [deltaSeconds, 'second']
+      : magnitude < 3600
+        ? [Math.round(deltaSeconds / 60), 'minute']
+        : magnitude < 86_400
+          ? [Math.round(deltaSeconds / 3600), 'hour']
+          : [Math.round(deltaSeconds / 86_400), 'day']
+  return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(amount, unit)
 }
 
 function formatDurationBetween(start: string | null, end: string | null): string {
