@@ -16,7 +16,10 @@ export class MemoryRuntimeStore implements RuntimeStore {
   private nextSessionId = 1
   private runtimeLeaseHeld = false
 
-  async acquireRuntimeLease(): Promise<(() => Promise<void>) | null> {
+  async acquireRuntimeLease(
+    onLost: (error: unknown) => void,
+  ): Promise<(() => Promise<void>) | null> {
+    void onLost
     if (this.runtimeLeaseHeld) return null
     this.runtimeLeaseHeld = true
     let released = false

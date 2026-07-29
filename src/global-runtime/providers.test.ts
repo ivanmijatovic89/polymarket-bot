@@ -140,6 +140,7 @@ test('parses structured output and usage from fake Claude and Codex CLI processe
 
   for (const provider of ['codex', 'claude'] as const) {
     const run = makeRun(workspace, provider)
+    if (provider === 'codex') run.model = 'gpt-5.6-sol'
     const result = await adapter.execute(
       {
         run,
@@ -154,10 +155,10 @@ test('parses structured output and usage from fake Claude and Codex CLI processe
     assert.deepEqual(result.finalResult, { action: 'complete', summary: `${provider} finished` })
     assert.equal(result.usage.inputTokens, provider === 'codex' ? 9 : 21)
     assert.equal(result.usage.cacheReadInputTokens, provider === 'codex' ? 2 : 4)
-    assert.equal(result.usage.cacheCreationInputTokens, provider === 'codex' ? null : 6)
+    assert.equal(result.usage.cacheCreationInputTokens, provider === 'codex' ? 3 : 6)
     assert.equal(result.usage.outputTokens, provider === 'codex' ? 7 : 9)
-    assert.equal(result.usage.estimatedApiCostUsd, provider === 'codex' ? null : 0.125)
-    assert.equal(result.resolvedModel, provider === 'codex' ? 'test-model' : 'claude-test-model')
+    assert.equal(result.usage.estimatedApiCostUsd, provider === 'codex' ? 0.00027475 : 0.125)
+    assert.equal(result.resolvedModel, provider === 'codex' ? 'gpt-5.6-sol' : 'claude-test-model')
   }
 })
 
@@ -214,6 +215,45 @@ test('reports log stream failures without crashing the runtime process', async (
   assert.equal(result.rateLimited, false)
 })
 
+test(
+  'escalates the provider process group after the CLI leader exits',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const workspace = await createDirectory()
+    process.env.GLOBAL_RUNTIME_CODEX_BIN = await createStubbornProcessTreeCli(workspace)
+    const adapter = new CliProviderAdapter(50)
+    const controller = new AbortController()
+    let activityObserved: (() => void) | null = null
+    const activity = new Promise<void>((resolve) => {
+      activityObserved = resolve
+    })
+    const execution = adapter.execute(
+      {
+        run: makeRun(workspace, 'codex'),
+        sessionNumber: 7,
+        prompt: 'test prompt',
+        logDirectory: path.join(workspace, 'logs-stubborn-process-tree'),
+      },
+      controller.signal,
+      {
+        onStarted: () => undefined,
+        onActivity: () => activityObserved?.(),
+      },
+    )
+
+    await activity
+    const abortedAt = Date.now()
+    controller.abort()
+    const result = await execution
+
+    assert.ok(
+      Date.now() - abortedAt < 2000,
+      'provider descendants were not killed after escalation',
+    )
+    assert.equal(result.exitSignal, 'SIGTERM')
+  },
+)
+
 async function createFakeCli(workspace: string): Promise<string> {
   const fakeCli = path.join(workspace, 'fake-cli.mjs')
   await writeFile(
@@ -229,10 +269,30 @@ await writeFile(path.join(process.cwd(), ${JSON.stringify(SESSION_RESULT_FILE)})
 if (provider === 'codex') {
   const outputIndex = args.indexOf('--output-last-message')
   await writeFile(args[outputIndex + 1], JSON.stringify(result))
-  console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 11, cached_input_tokens: 2, output_tokens: 7, reasoning_output_tokens: 3 } }))
+  console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 14, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 7, reasoning_output_tokens: 3 } }))
 } else {
   console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.125, structured_output: result, usage: { input_tokens: 21, cache_read_input_tokens: 4, cache_creation_input_tokens: 6, output_tokens: 9 }, modelUsage: { 'claude-helper-model': { costUSD: 0.001 }, 'claude-test-model': { costUSD: 0.124 } } }))
 }
+`,
+    'utf8',
+  )
+  await chmod(fakeCli, 0o700)
+  return fakeCli
+}
+
+async function createStubbornProcessTreeCli(workspace: string): Promise<string> {
+  const fakeCli = path.join(workspace, 'stubborn-process-tree-cli.mjs')
+  await writeFile(
+    fakeCli,
+    `#!/usr/bin/env node
+import { spawn } from 'node:child_process'
+const descendant = spawn(process.execPath, ['-e', \`process.on('SIGTERM', () => {}); process.send?.('ready'); setTimeout(() => process.exit(0), 3000)\`], {
+  stdio: ['ignore', 'inherit', 'inherit', 'ipc'],
+})
+descendant.once('message', () => {
+  console.log(JSON.stringify({ type: 'descendant.ready' }))
+})
+setInterval(() => {}, 1000)
 `,
     'utf8',
   )

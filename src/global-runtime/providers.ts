@@ -98,6 +98,8 @@ const PROVIDER_ENV_KEYS = [
 ] as const
 
 export class CliProviderAdapter implements ProviderAdapter {
+  constructor(private readonly terminationGraceMs = 5000) {}
+
   async execute(
     context: ProviderExecutionContext,
     signal: AbortSignal,
@@ -110,7 +112,7 @@ export class CliProviderAdapter implements ProviderAdapter {
     let child: ChildProcess | null = null
     const observeStream = (stream: typeof rawLog, label: string): Promise<void> => {
       stream.on('error', (error) => {
-        if (streamErrors.length === 0 && child) terminateChild(child)
+        if (streamErrors.length === 0 && child) terminateChild(child, this.terminationGraceMs)
         streamErrors.push(`${label}: ${error.message}`)
       })
       return finished(stream).catch(() => undefined)
@@ -128,7 +130,7 @@ export class CliProviderAdapter implements ProviderAdapter {
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     })
-    if (streamErrors.length > 0) terminateChild(child)
+    if (streamErrors.length > 0) terminateChild(child, this.terminationGraceMs)
 
     const writeStdoutLog = createBackpressureWriter(child.stdout!, rawLog)
     const writeStderrLog = createBackpressureWriter(child.stderr!, stderrLog)
@@ -167,7 +169,7 @@ export class CliProviderAdapter implements ProviderAdapter {
       child.once('close', (code, exitSignal) => finish({ code, signal: exitSignal }))
     })
 
-    const onAbort = () => terminateChild(child)
+    const onAbort = () => terminateChild(child, this.terminationGraceMs)
     if (signal.aborted) onAbort()
     else signal.addEventListener('abort', onAbort, { once: true })
 
@@ -176,7 +178,7 @@ export class CliProviderAdapter implements ProviderAdapter {
       if (child.pid !== undefined) await callbacks.onStarted(child.pid)
     } catch (error) {
       startCallbackError = error
-      terminateChild(child)
+      terminateChild(child, this.terminationGraceMs)
     }
 
     const exit = await completion
@@ -372,7 +374,9 @@ async function parseCodexEvents(
       const totalInputTokens = numberOrNull(event.usage.input_tokens)
       const cacheReadInputTokens = numberOrNull(event.usage.cached_input_tokens)
       const cacheCreationInputTokens = numberOrNull(
-        event.usage.cache_write_tokens ?? event.usage.cache_creation_input_tokens,
+        event.usage.cache_write_input_tokens ??
+          event.usage.cache_write_tokens ??
+          event.usage.cache_creation_input_tokens,
       )
       usage = {
         inputTokens: subtractTokenParts(
@@ -496,23 +500,34 @@ export function createBackpressureWriter(
   }
 }
 
-function terminateChild(child: ChildProcess): void {
-  if (child.pid === undefined || child.exitCode !== null || child.signalCode !== null) return
-  try {
-    if (process.platform === 'win32') child.kill('SIGTERM')
-    else process.kill(-child.pid, 'SIGTERM')
-  } catch {
-    child.kill('SIGTERM')
-  }
+const terminatingChildren = new WeakSet<ChildProcess>()
+
+function terminateChild(child: ChildProcess, graceMs: number): void {
+  const pid = child.pid
+  if (pid === undefined || terminatingChildren.has(child)) return
+  if (process.platform === 'win32' && (child.exitCode !== null || child.signalCode !== null)) return
+  terminatingChildren.add(child)
+  if (!signalChildProcess(child, pid, 'SIGTERM')) return
 
   const killTimer = setTimeout(() => {
-    if (child.exitCode !== null || child.signalCode !== null || child.pid === undefined) return
-    try {
-      if (process.platform === 'win32') child.kill('SIGKILL')
-      else process.kill(-child.pid, 'SIGKILL')
-    } catch {
-      child.kill('SIGKILL')
-    }
-  }, 5000)
+    // On POSIX the CLI leader may already have exited while a descendant still
+    // owns its stdio pipes. Signal the process group even when ChildProcess has
+    // an exitCode/signalCode so `close` cannot wait forever for that descendant.
+    signalChildProcess(child, pid, 'SIGKILL')
+  }, graceMs)
   killTimer.unref()
+}
+
+function signalChildProcess(child: ChildProcess, pid: number, signal: NodeJS.Signals): boolean {
+  if (process.platform === 'win32') {
+    if (child.exitCode !== null || child.signalCode !== null) return false
+    return child.kill(signal)
+  }
+  try {
+    process.kill(-pid, signal)
+    return true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+    return child.kill(signal)
+  }
 }

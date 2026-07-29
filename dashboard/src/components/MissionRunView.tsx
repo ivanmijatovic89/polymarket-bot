@@ -159,7 +159,9 @@ export function MissionRunView({ runId }: { runId: string }) {
 
       <p className="text-xs text-muted-foreground">
         API-equivalent cost is informational even for subscription runs. Cache reads are cumulative
-        across every provider turn; they are not the size of one unique prompt.
+        across every provider turn; they are not the size of one unique prompt. Codex reports token
+        usage but not dollar cost or per-request context sizes, so its value uses published standard
+        token rates and may differ for long-context pricing.
       </p>
 
       <Card>

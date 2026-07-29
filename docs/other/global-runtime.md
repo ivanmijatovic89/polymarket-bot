@@ -92,7 +92,7 @@ Mission 0.1, Mission 0.2, and later loops use this same contract. Their mission 
 
 Mission Control communicates with the daemon through its localhost API. It may create and control loops, display persisted runtime/session state, read configured workspace files, and append inbox entries. It does not edit `STATUS.md`, `JOURNAL.md`, mission files, or result files.
 
-Both the run list and run detail page show the selected account, requested and resolved model, wall-clock duration, uncached input, cache reads, cache writes, output, reasoning tokens, and estimated API-equivalent cost. Claude supplies `total_cost_usd` directly in its result event. Codex JSONL supplies token counts but no cost field, so the runtime estimates known GPT-5.6 models from their published token prices. Subscription users are not necessarily charged that amount; it is a comparison estimate.
+Both the run list and run detail page show the selected account, requested and resolved model, wall-clock duration, uncached input, cache reads, cache writes, output, reasoning tokens, and estimated API-equivalent cost. Claude supplies `total_cost_usd` directly in its result event. Codex JSONL supplies token counts but no cost field or per-request context sizes, so the runtime estimates known GPT-5.6 models from their published standard token prices. Long-context pricing may differ. Subscription users are not necessarily charged that amount; it is a comparison estimate.
 
 Cache counters are cumulative across every provider turn in a session. A session that makes ten model turns can report roughly ten reads of the same cached system/tool prefix. Cache reads therefore do not represent the size of one unique prompt.
 
@@ -160,6 +160,7 @@ The provider adapter waits for the child process `close` event before final pars
 | Symptom | Behavior / fix |
 | --- | --- |
 | Runtime was killed during a session | Every launched provider carries a run/session identity token. On startup the runtime terminates the recorded process group only when that token still matches, then marks the session `failed` and the loop `waiting`. If identity cannot be verified, the process is not signaled and Mission Control asks the operator to confirm that no old provider remains before resuming. |
+| Database lease connection was lost | The daemon immediately becomes unready, stops active sessions, closes its API and database pool, and exits unsuccessfully so a process supervisor can restart it. |
 | Result file missing or invalid | The session becomes `invalid_result` and the loop waits. Fix the mission/agent behavior, then resume. |
 | Workspace already locked | Stop or pause the active owner, or use a different worktree. |
 | Provider quota reached | The loop shows `rate_limited` and retries automatically. Pause or stop if no retry is wanted. |

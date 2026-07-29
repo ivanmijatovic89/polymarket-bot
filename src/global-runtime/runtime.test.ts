@@ -281,6 +281,27 @@ test('shutdown releases a lease acquisition that is still pending', async () => 
   await secondRuntime.shutdown()
 })
 
+test('lease loss invokes the fatal handler and permanently shuts down the runtime', async () => {
+  const workspace = await createWorkspace()
+  const store = new ControllableLeaseStore()
+  let fatalError: unknown = null
+  const runtime = createRuntime(store, new BlockingProvider(), {
+    onBackgroundError: () => undefined,
+    onFatalError: (error) => {
+      fatalError = error
+    },
+  })
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.initialize()
+  store.loseLease()
+  await waitFor(() => Promise.resolve(fatalError !== null))
+
+  assert.match(String(fatalError), /database lease was lost/iu)
+  await assert.rejects(() => runtime.start(run.id), /runtime is shutting down/iu)
+  await runtime.shutdown()
+})
+
 test('workspace lock rejects overlapping parent and child workspaces', async () => {
   const workspace = await createWorkspace()
   const nestedWorkspace = path.join(workspace, 'nested')
@@ -908,10 +929,23 @@ class DelayedLeaseStore extends MemoryRuntimeStore {
     this.releaseLease?.()
   }
 
-  override async acquireRuntimeLease() {
+  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
     this.leaseRequested?.()
     await this.released
-    return super.acquireRuntimeLease()
+    return super.acquireRuntimeLease(onLost)
+  }
+}
+
+class ControllableLeaseStore extends MemoryRuntimeStore {
+  private onLost: ((error: unknown) => void) | null = null
+
+  override async acquireRuntimeLease(onLost: (error: unknown) => void) {
+    this.onLost = onLost
+    return super.acquireRuntimeLease(onLost)
+  }
+
+  loseLease(): void {
+    this.onLost?.(new Error('simulated lease connection failure'))
   }
 }
 
