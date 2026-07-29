@@ -1,6 +1,6 @@
 ---
 title: Global Runtime Loop Example
-description: Run one shared three-session mission with Fable, Opus 5, or GPT-5.6.
+description: Run one shared session-limit-driven mission with Fable, Opus 5, or GPT-5.6.
 ---
 
 # Global Runtime loop example
@@ -13,7 +13,7 @@ Mission Control provides one small end-to-end mission that can be started with t
 | Opus 5   | Claude Code | `opus` (latest Opus alias) |
 | GPT-5.6  | Codex       | `gpt-5.6-sol`              |
 
-The mission intentionally requires three fresh sessions. Sessions 1 and 2 return `continue`; session 3 returns `complete`. This verifies that the outer loop starts the next process and that file-based memory survives between sessions.
+The mission is **session-limit-driven**: each session completes one checkpoint, returns `continue` while sessions remain, and returns `complete` on the final allowed session. The launcher creates the loop with `maxSessions: 3`, so by default it runs three fresh sessions. This verifies that the outer loop starts the next process and that file-based memory survives between sessions.
 
 ## Run an example
 
@@ -33,14 +33,24 @@ Claude examples offer two subscription profiles:
 
 The GPT-5.6 example uses the normal Codex login (`CODEX_HOME` is not overridden).
 
+## Demonstrate a mid-run extension
+
+Because the mission finishes on the final *allowed* session, it also demonstrates `extend`. While the loop is running (before its last session starts), raise the limit:
+
+```bash
+npm run mission -- extend <id> --max-sessions 5
+```
+
+The next session's prompt already carries the new maximum, the loop runs past the original limit, and it completes on session 5 with summary `Loop example passed after 5 sessions.` Extending during the final session has no visible effect: that session's prompt was rendered with the old maximum, so the agent completes as instructed. Raising the limit never adds work on its own — a mission that has declared `complete` stays completed.
+
 ## Expected result
 
-The loop should reach `completed` after three sessions. The detail page should show:
+The loop should reach `completed` after the allowed number of sessions (three by default). The detail page should show:
 
-- three completed sessions;
+- one completed session per allowed session, the last returning `complete`;
 - duration, exact resolved model, token/cache breakdown, and estimated API-equivalent cost;
 - populated `STATUS.md` and `JOURNAL.md`;
-- `RESULT.md` showing that all three checkpoints passed.
+- `RESULT.md` listing one passed checkpoint per session.
 
 All launchers use the same workspace and mission. Each launch asks Global Runtime for isolated state files, and the server creates fresh status, journal, and inbox paths under `.global-runtime/runs/`. Steering and memory from an older run therefore cannot leak into a new example. Generated runtime files are ignored by Git. The workspace lock prevents two examples from running at the same time, so wait for one model to finish before starting another.
 
