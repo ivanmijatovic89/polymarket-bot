@@ -13,6 +13,9 @@ export interface CreateSessionInput {
   provider: RuntimeRun['provider']
   model: string
   effort: RuntimeRun['effort']
+  prompt: string
+  contractVersion: number
+  missionHash: string | null
   rawLogPath: string
   startedAt: Date
 }

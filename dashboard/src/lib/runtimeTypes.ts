@@ -58,6 +58,9 @@ export type RuntimeSession = {
   cacheCreationInputTokens: number | null
   estimatedApiCostUsd: number | null
   resolvedModel: string | null
+  prompt: string | null
+  contractVersion: number | null
+  missionHash: string | null
   rawLogPath: string
   startedAt: string
   finishedAt: string | null

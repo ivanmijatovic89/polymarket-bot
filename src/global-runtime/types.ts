@@ -160,6 +160,9 @@ export interface RuntimeSession extends TokenUsage {
   exitCode: number | null
   exitSignal: string | null
   resolvedModel: string | null
+  prompt: string | null
+  contractVersion: number | null
+  missionHash: string | null
   rawLogPath: string
   startedAt: Date
   heartbeatAt: Date | null

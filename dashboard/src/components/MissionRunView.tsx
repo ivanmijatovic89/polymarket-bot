@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square } from 'lucide-react'
@@ -18,6 +18,7 @@ export function MissionRunView({ runId }: { runId: string }) {
   const [message, setMessage] = useState('')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
   const [extendTarget, setExtendTarget] = useState<string | null>(null)
+  const [promptSession, setPromptSession] = useState<number | null>(null)
   const detailQuery = useQuery({
     queryKey: ['runtime-run', runId],
     queryFn: () => runtimeFetch<RuntimeRunDetail>(`/runs/${runId}`),
@@ -334,6 +335,7 @@ export function MissionRunView({ runId }: { runId: string }) {
                   'Output',
                   'Reasoning',
                   'Est. API cost',
+                  'Prompt',
                   'Raw output',
                   'Summary',
                 ].map((label) => (
@@ -345,7 +347,8 @@ export function MissionRunView({ runId }: { runId: string }) {
             </thead>
             <tbody>
               {sessions.map((session) => (
-                <tr key={session.id} className="border-b last:border-0">
+                <Fragment key={session.id}>
+                  <tr className="border-b last:border-0">
                   <td className="px-2 py-3 tabular-nums">{session.sessionNumber}</td>
                   <td className="px-2 py-3">{session.status}</td>
                   <td className="px-2 py-3">{session.action || '—'}</td>
@@ -370,11 +373,44 @@ export function MissionRunView({ runId }: { runId: string }) {
                   <td className="px-2 py-3 whitespace-nowrap tabular-nums">
                     {formatUsd(session.estimatedApiCostUsd)}
                   </td>
+                  <td className="px-2 py-3">
+                    {session.prompt ? (
+                      <button
+                        type="button"
+                        onClick={() =>
+                          setPromptSession(
+                            promptSession === session.sessionNumber ? null : session.sessionNumber,
+                          )
+                        }
+                        className="rounded-md border px-2 py-1 hover:bg-accent"
+                      >
+                        {promptSession === session.sessionNumber ? 'Hide' : 'View'}
+                      </button>
+                    ) : (
+                      '—'
+                    )}
+                  </td>
                   <td className="max-w-lg px-2 py-3 break-all font-mono text-[11px]">
                     {session.rawLogPath}
                   </td>
                   <td className="max-w-md px-2 py-3">{session.summary || session.error || '—'}</td>
                 </tr>
+                {session.prompt && promptSession === session.sessionNumber && (
+                  <tr className="border-b last:border-0">
+                    <td colSpan={15} className="px-2 py-3">
+                      <div className="mb-2 text-muted-foreground">
+                        Session contract v{session.contractVersion ?? '?'}
+                        {session.missionHash
+                          ? ` · mission sha256 ${session.missionHash.slice(0, 12)}…`
+                          : ''}
+                      </div>
+                      <pre className="max-h-96 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 font-mono text-[11px] leading-4">
+                        {session.prompt}
+                      </pre>
+                    </td>
+                  </tr>
+                )}
+                </Fragment>
               ))}
             </tbody>
           </table>
