@@ -38,7 +38,7 @@ Different loops may run concurrently, but active loops cannot share a canonical 
 Each loop has a provider, model, effort, access mode, workspace, mission path, maximum session count, session delay, and files shown by Mission Control. The runtime owns process lifecycle only:
 
 - launch a fresh CLI process in the configured workspace;
-- record session status, timestamps, PID, heartbeat, token usage, summary, and errors;
+- register process lifecycle and stdio handlers before persisting the PID, then record session status, timestamps, heartbeat, token usage, summary, and errors;
 - launch the next session only after `continue`;
 - apply pause after the active session, stop immediately, and resume with a fresh session;
 - keep one active owner per workspace;
@@ -77,6 +77,8 @@ These three files are sufficient for communication across any number of fresh se
 - `STATUS.md`: the agent rewrites this concise snapshot with current work, completed work, next step, blockers, a `Needs human` section, and `Inbox processed through: <entry-id>`.
 - `JOURNAL.md`: the agent appends short milestone entries. It must not paste raw CLI output.
 - `INBOX.md`: Mission Control appends timestamped, uniquely identified user messages. Agents read new entries but never edit this file.
+
+Inbox appends are performed through a verified file handle. The runtime rejects paths that escape the canonical workspace, dangling final symlinks, non-regular files, and files that change while they are being opened.
 
 For steering, write the instruction in Mission Control. The active or next session reads `INBOX.md`, applies entries newer than the marker in `STATUS.md`, and advances that marker. If an answer is required before useful work can continue, the agent writes the question under `Needs human` and returns `wait`.
 
@@ -139,7 +141,11 @@ Only two tables are added:
 - `runtime_runs`: configuration and current loop state;
 - `runtime_sessions`: one row per CLI invocation, including result and token usage.
 
+Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
+
 Human-readable progress remains in workspace files. Raw JSONL and stderr are stored under `logs/global-runtime/run-<id>/` and are not exposed as a browser terminal or log viewer.
+
+The provider adapter waits for the child process `close` event before final parsing, ensuring stdout and stderr have closed and their final events have been captured even when a CLI exits while PID persistence is still pending.
 
 ## Recovery and troubleshooting
 
@@ -150,6 +156,8 @@ Human-readable progress remains in workspace files. Raw JSONL and stderr are sto
 | Workspace already locked | Stop or pause the active owner, or use a different worktree. |
 | Provider quota reached | The loop shows `rate_limited` and retries automatically. Pause or stop if no retry is wanted. |
 | CLI binary not found or login expired | The loop becomes `error`. Repair the CLI installation/login and resume. |
+| Inbox path is rejected | Replace dangling symlinks or non-regular files with a regular inbox file inside the workspace. |
+| Result path cannot be prepared | Repair `.global-runtime/` and resume. No session number is consumed by the failed preparation. |
 | Dashboard says runtime unavailable | Start `npm run global-runtime` and verify `GLOBAL_RUNTIME_URL`. |
 | Session limit reached | The loop waits rather than extending itself. Create a larger loop or deliberately change the mission plan. |
 

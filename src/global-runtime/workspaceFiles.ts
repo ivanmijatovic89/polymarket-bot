@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto'
+import { constants as fsConstants } from 'node:fs'
 import { lstat, mkdir, open, readFile, realpath, stat, unlink } from 'node:fs/promises'
 import path from 'node:path'
 import { SESSION_RESULT_FILE } from './contracts.js'
@@ -157,8 +158,33 @@ export async function appendInboxEntry(
   const appendedAt = new Date().toISOString()
   const id = `${appendedAt}-${randomUUID().slice(0, 8)}`
   const entry = `\n## ${id}\n\n${message.trim()}\n`
-  const handle = await open(absolutePath, 'a', 0o600)
+  const flags =
+    fsConstants.O_WRONLY |
+    fsConstants.O_APPEND |
+    fsConstants.O_CREAT |
+    (fsConstants.O_NOFOLLOW ?? 0)
+  let handle: Awaited<ReturnType<typeof open>>
   try {
+    handle = await open(absolutePath, flags, 0o600)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ELOOP') {
+      throw new RuntimeValidationError('inbox path must not be a symbolic link')
+    }
+    throw error
+  }
+  try {
+    const openedInfo = await handle.stat({ bigint: true })
+    if (!openedInfo.isFile()) {
+      throw new RuntimeValidationError('inbox path must be a regular file')
+    }
+    const resolvedPath = await realpath(absolutePath)
+    if (!isInside(root, resolvedPath)) {
+      throw new RuntimeValidationError('inbox path resolves outside the workspace')
+    }
+    const resolvedInfo = await stat(resolvedPath, { bigint: true })
+    if (openedInfo.dev !== resolvedInfo.dev || openedInfo.ino !== resolvedInfo.ino) {
+      throw new RuntimeValidationError('inbox path changed while it was being opened')
+    }
     await handle.writeFile(entry, 'utf8')
     await handle.sync()
   } finally {

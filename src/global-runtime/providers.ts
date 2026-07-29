@@ -82,12 +82,6 @@ export class CliProviderAdapter implements ProviderAdapter {
       shell: false,
     })
 
-    if (child.pid !== undefined) await callbacks.onStarted(child.pid)
-
-    const onAbort = () => terminateChild(child)
-    if (signal.aborted) onAbort()
-    else signal.addEventListener('abort', onAbort, { once: true })
-
     const stdoutLines = createInterface({ input: child.stdout! })
     stdoutLines.on('line', (line) => {
       rawLog.write(`${line}\n`)
@@ -110,7 +104,7 @@ export class CliProviderAdapter implements ProviderAdapter {
       void Promise.resolve(callbacks.onActivity(new Date())).catch(() => undefined)
     })
 
-    const exit = await new Promise<{ code: number | null; signal: string | null }>((resolve) => {
+    const completion = new Promise<{ code: number | null; signal: string | null }>((resolve) => {
       let settled = false
       const finish = (value: { code: number | null; signal: string | null }) => {
         if (settled) return
@@ -119,16 +113,31 @@ export class CliProviderAdapter implements ProviderAdapter {
       }
       child.once('error', (error) => {
         spawnError = error.message
-        finish({ code: null, signal: null })
       })
-      child.once('exit', (code, exitSignal) => finish({ code, signal: exitSignal }))
+      child.once('close', (code, exitSignal) => finish({ code, signal: exitSignal }))
     })
+
+    const onAbort = () => terminateChild(child)
+    if (signal.aborted) onAbort()
+    else signal.addEventListener('abort', onAbort, { once: true })
+
+    let startCallbackError: unknown = null
+    try {
+      if (child.pid !== undefined) await callbacks.onStarted(child.pid)
+    } catch (error) {
+      startCallbackError = error
+      terminateChild(child)
+    }
+
+    const exit = await completion
 
     signal.removeEventListener('abort', onAbort)
     stdoutLines.close()
     rawLog.end()
     stderrLog.end()
     await Promise.allSettled([finished(rawLog), finished(stderrLog)])
+
+    if (startCallbackError) throw startCallbackError
 
     const parsed =
       context.run.provider === 'claude'

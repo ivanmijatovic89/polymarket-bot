@@ -166,6 +166,32 @@ test('provider crashes are persisted on the run and session', async () => {
   assert.match(detail.sessions[0]?.error ?? '', /fake provider crash/iu)
 })
 
+test('a result-path preparation failure does not consume or poison a session number', async () => {
+  const workspace = await createWorkspace()
+  const resultDirectory = path.join(workspace, '.global-runtime')
+  await writeFile(resultDirectory, 'blocks directory creation', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'recovered', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'error')
+
+  let detail = await runtime.getRunDetail(run.id)
+  assert.equal(detail.run.currentSession, 0)
+  assert.equal(detail.sessions.length, 0)
+
+  await rm(resultDirectory)
+  await runtime.resume(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
+
+  detail = await runtime.getRunDetail(run.id)
+  assert.equal(detail.run.currentSession, 1)
+  assert.equal(detail.sessions.length, 1)
+  assert.equal(detail.sessions[0]?.sessionNumber, 1)
+})
+
 test('different workspaces can run concurrently', async () => {
   const firstWorkspace = await createWorkspace()
   const secondWorkspace = await createWorkspace()

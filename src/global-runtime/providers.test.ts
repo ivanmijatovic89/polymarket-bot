@@ -72,6 +72,37 @@ test('parses structured output and usage from fake Claude and Codex CLI processe
   }
 })
 
+test('observes a fast CLI exit while the started callback is still pending', async () => {
+  const workspace = await createDirectory()
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = await createFakeCli(workspace)
+  const adapter = new CliProviderAdapter()
+  let timeout: NodeJS.Timeout | undefined
+
+  const result = await Promise.race([
+    adapter.execute(
+      {
+        run: makeRun(workspace, 'codex'),
+        sessionNumber: 5,
+        prompt: 'test prompt',
+        logDirectory: path.join(workspace, 'logs-fast-exit'),
+      },
+      new AbortController().signal,
+      {
+        onStarted: () => new Promise((resolve) => setTimeout(resolve, 100)),
+        onActivity: () => undefined,
+      },
+    ),
+    new Promise<null>((resolve) => {
+      timeout = setTimeout(() => resolve(null), 2000)
+      timeout.unref()
+    }),
+  ])
+  if (timeout) clearTimeout(timeout)
+
+  assert.ok(result, 'provider execution timed out after the child had already exited')
+  assert.equal(result.exitCode, 0)
+})
+
 async function createFakeCli(workspace: string): Promise<string> {
   const fakeCli = path.join(workspace, 'fake-cli.mjs')
   await writeFile(
