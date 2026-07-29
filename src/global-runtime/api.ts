@@ -56,6 +56,9 @@ export function buildRuntimeApi(
     if (error instanceof RuntimeValidationError) {
       return reply.code(400).send({ error: error.message })
     }
+    if (isHttpClientError(error)) {
+      return reply.code(error.statusCode).send({ error: error.message })
+    }
     console.error('[global-runtime] request failed:', error)
     return reply.code(500).send({ error: 'internal runtime error' })
   })
@@ -67,4 +70,10 @@ function parseId(value: string): number {
   const id = Number(value)
   if (!Number.isSafeInteger(id) || id < 1) throw new RuntimeValidationError('invalid run id')
   return id
+}
+
+function isHttpClientError(error: unknown): error is Error & { statusCode: number } {
+  if (!(error instanceof Error) || !('statusCode' in error)) return false
+  const statusCode = error.statusCode
+  return typeof statusCode === 'number' && statusCode >= 400 && statusCode < 500
 }
