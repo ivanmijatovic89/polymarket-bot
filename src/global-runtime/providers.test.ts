@@ -21,11 +21,15 @@ const temporaryDirectories: string[] = []
 const originalCodexBin = process.env.GLOBAL_RUNTIME_CODEX_BIN
 const originalClaudeBin = process.env.GLOBAL_RUNTIME_CLAUDE_BIN
 const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR
+const originalDatabasePassword = process.env.DATABASE_PASSWORD
+const originalPrivateKey = process.env.PRIVATE_KEY
 
 afterEach(async () => {
   restoreEnv('GLOBAL_RUNTIME_CODEX_BIN', originalCodexBin)
   restoreEnv('GLOBAL_RUNTIME_CLAUDE_BIN', originalClaudeBin)
   restoreEnv('CLAUDE_CONFIG_DIR', originalClaudeConfigDir)
+  restoreEnv('DATABASE_PASSWORD', originalDatabasePassword)
+  restoreEnv('PRIVATE_KEY', originalPrivateKey)
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })),
   )
@@ -105,6 +109,26 @@ test('uses normal Claude authentication unless a separate profile is selected', 
     logDirectory: path.join(workspace, 'alternate-logs'),
   })
   assert.equal(alternateClaude.env.CLAUDE_CONFIG_DIR, path.join(os.homedir(), '.claude-balsa'))
+})
+
+test('does not expose repository secrets to provider processes', async () => {
+  const workspace = await createDirectory()
+  process.env.DATABASE_PASSWORD = 'database-secret'
+  process.env.PRIVATE_KEY = 'wallet-secret'
+
+  for (const provider of ['codex', 'claude'] as const) {
+    const run = makeRun(workspace, provider)
+    const prepared = await prepareProviderCommand({
+      run,
+      sessionNumber: 1,
+      prompt: 'mission',
+      logDirectory: path.join(workspace, `secret-logs-${provider}`),
+    })
+    assert.equal(prepared.env.DATABASE_PASSWORD, undefined)
+    assert.equal(prepared.env.PRIVATE_KEY, undefined)
+    assert.equal(prepared.env.PATH, process.env.PATH)
+    assert.equal(prepared.env[RUNTIME_PROCESS_TOKEN_ENV], buildRuntimeProcessToken(run.id, 1))
+  }
 })
 
 test('parses structured output and usage from fake Claude and Codex CLI processes', async () => {

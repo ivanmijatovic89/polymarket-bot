@@ -4,7 +4,7 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 import type { RuntimeRun } from './types.js'
-import { appendInboxEntry } from './workspaceFiles.js'
+import { appendInboxEntry, readRuntimeFiles } from './workspaceFiles.js'
 
 const temporaryDirectories: string[] = []
 
@@ -50,9 +50,51 @@ test('rejects an inbox hard link without modifying its external peer', async () 
   assert.equal(await readFile(externalTarget, 'utf8'), 'outside content\n')
 })
 
+test('rejects configured file reads through links outside the workspace', async () => {
+  const root = await mkdtemp(path.join(os.tmpdir(), 'runtime-read-link-test-'))
+  temporaryDirectories.push(root)
+  const workspace = path.join(root, 'workspace')
+  const externalTarget = path.join(root, 'outside.md')
+  await mkdir(workspace)
+  await writeFile(externalTarget, 'outside content\n', 'utf8')
+  await symlink(externalTarget, path.join(workspace, 'STATUS.md'))
+
+  await assert.rejects(
+    () => readRuntimeFiles(makeRun(workspace)),
+    /resolves outside the configured workspace/iu,
+  )
+})
+
 function makeRun(workspacePath: string): RuntimeRun {
+  const now = new Date()
+
   return {
+    id: 1,
+    name: 'workspace files test',
+    provider: 'codex',
+    model: 'test-model',
+    effort: 'high',
+    accessMode: 'workspace-write',
+    authHome: null,
     workspacePath,
+    missionPath: 'MISSION.md',
+    maxSessions: 1,
+    delaySeconds: 0,
+    statusFile: 'STATUS.md',
+    journalFile: 'JOURNAL.md',
     inboxFile: 'INBOX.md',
-  } as RuntimeRun
+    readOnlyFiles: [],
+    status: 'idle',
+    currentSession: 0,
+    processId: null,
+    heartbeatAt: null,
+    lastActivityAt: null,
+    nextStartAt: null,
+    startedAt: null,
+    endedAt: null,
+    lastError: null,
+    lastResultSummary: null,
+    createdAt: now,
+    updatedAt: now,
+  }
 }

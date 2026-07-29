@@ -78,6 +78,23 @@ test('pause is applied between sessions and resume starts a fresh session', asyn
   assert.deepEqual(provider.sessionNumbers, [1, 2])
 })
 
+test('pause cannot overwrite a concurrently completed terminal state', async () => {
+  const workspace = await createWorkspace()
+  const store = new DelayedCompletionStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'done', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await store.waitForCompletionWrite()
+  const pause = runtime.pause(run.id)
+  store.releaseCompletionWrite()
+
+  await assert.rejects(pause, RuntimeConflictError)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
+  assert.equal((await store.getRun(run.id))?.status, 'completed')
+})
+
 test('persists the running state before launching the provider task', async () => {
   const workspace = await createWorkspace()
   const store = new DelayedLaunchStore()
@@ -137,6 +154,24 @@ test('stop remains recoverable until the provider process has exited', async () 
   assert.equal(stopped.status, 'stopped')
   assert.equal(stopped.processId, null)
   assert.equal((await runtime.getRunDetail(run.id)).sessions[0]?.status, 'stopped')
+})
+
+test('stop finalizes a running session when provider cancellation throws', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new ThrowingOnAbortProvider()
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await provider.waitForStart()
+  const stopped = await runtime.stop(run.id)
+
+  const detail = await runtime.getRunDetail(run.id)
+  assert.equal(stopped.status, 'stopped')
+  assert.equal(detail.sessions[0]?.status, 'stopped')
+  assert.ok(detail.sessions[0]?.finishedAt)
+  assert.match(detail.sessions[0]?.error ?? '', /provider cleanup failed/iu)
 })
 
 test('moves directly to waiting when the final allowed session requests continuation', async () => {
@@ -205,6 +240,45 @@ test('workspace lock is race-safe for simultaneous start requests', async () => 
   assert.ok(active)
   await runtime.stop(active.id)
   await runtime.shutdown()
+})
+
+test('a store lease prevents separate runtime instances from launching concurrently', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const firstRuntime = createRuntime(store, new BlockingProvider())
+  const secondRuntime = createRuntime(store, new BlockingProvider())
+  const first = await firstRuntime.createRun(runInput(workspace, 'first'))
+  const second = await secondRuntime.createRun(runInput(workspace, 'second'))
+
+  await firstRuntime.start(first.id)
+  await assert.rejects(() => secondRuntime.start(second.id), RuntimeConflictError)
+
+  await firstRuntime.stop(first.id)
+  await firstRuntime.shutdown()
+  await secondRuntime.start(second.id)
+  await secondRuntime.stop(second.id)
+  await secondRuntime.shutdown()
+})
+
+test('shutdown releases a lease acquisition that is still pending', async () => {
+  const workspace = await createWorkspace()
+  const store = new DelayedLeaseStore()
+  const firstRuntime = createRuntime(store, new BlockingProvider())
+  const first = await firstRuntime.createRun(runInput(workspace, 'first'))
+
+  const start = firstRuntime.start(first.id)
+  await store.waitForLeaseRequest()
+  const shutdown = firstRuntime.shutdown()
+  store.releaseLeaseRequest()
+
+  await assert.rejects(start, RuntimeConflictError)
+  await shutdown
+
+  const secondRuntime = createRuntime(store, new BlockingProvider())
+  const second = await secondRuntime.createRun(runInput(workspace, 'second'))
+  await secondRuntime.start(second.id)
+  await secondRuntime.stop(second.id)
+  await secondRuntime.shutdown()
 })
 
 test('workspace lock rejects overlapping parent and child workspaces', async () => {
@@ -432,6 +506,25 @@ test('provider crashes are persisted on the run and session', async () => {
   assert.match(detail.sessions[0]?.error ?? '', /fake provider crash/iu)
 })
 
+test('background persistence failures are observed instead of becoming unhandled', async () => {
+  const workspace = await createWorkspace()
+  const store = new FailingErrorPersistenceStore()
+  let observed: unknown = null
+  const runtime = createRuntime(store, new ThrowingProvider(), {
+    onBackgroundError: (_runId, error) => {
+      observed = error
+    },
+  })
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await waitFor(() => Promise.resolve(observed !== null))
+
+  assert.ok(observed instanceof AggregateError)
+  assert.ok(observed.errors.some((error) => /database unavailable/iu.test(String(error))))
+  await runtime.shutdown()
+})
+
 test('a result-path preparation failure does not consume or poison a session number', async () => {
   const workspace = await createWorkspace()
   const resultDirectory = path.join(workspace, '.global-runtime')
@@ -483,7 +576,24 @@ test('rejects runtime file roles that overlap each other or the reserved result 
   await unlink(hardLink)
 
   const resultDirectory = path.join(workspace, '.global-runtime')
+  await symlink('.global-runtime', path.join(workspace, 'result-alias'))
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace),
+        statusFile: 'result-alias/session-result.json',
+      }),
+    RuntimeValidationError,
+  )
   await mkdir(resultDirectory)
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace),
+        statusFile: 'result-alias/session-result.json',
+      }),
+    RuntimeValidationError,
+  )
   await writeFile(path.join(resultDirectory, 'session-result.json'), '{}', 'utf8')
   await assert.rejects(
     () =>
@@ -654,6 +764,32 @@ class SlowStoppingProvider implements ProviderAdapter {
   }
 }
 
+class ThrowingOnAbortProvider implements ProviderAdapter {
+  private startObserved: (() => void) | null = null
+  private readonly started = new Promise<void>((resolve) => {
+    this.startObserved = resolve
+  })
+
+  waitForStart(): Promise<void> {
+    return this.started
+  }
+
+  async execute(
+    _context: ProviderExecutionContext,
+    signal: AbortSignal,
+    callbacks: ProviderExecutionCallbacks,
+  ): Promise<ProviderExecutionResult> {
+    await callbacks.onStarted(12348)
+    this.startObserved?.()
+    if (!signal.aborted) {
+      await new Promise<void>((resolve) =>
+        signal.addEventListener('abort', () => resolve(), { once: true }),
+      )
+    }
+    throw new Error('provider cleanup failed')
+  }
+}
+
 class ThrowingProvider implements ProviderAdapter {
   async execute(): Promise<ProviderExecutionResult> {
     throw new Error('fake provider crash')
@@ -717,6 +853,65 @@ class DelayedLaunchStore extends MemoryRuntimeStore {
       await this.launchReleased
     }
     return super.updateRun(id, patch)
+  }
+}
+
+class DelayedCompletionStore extends MemoryRuntimeStore {
+  private completionWriteStarted: (() => void) | null = null
+  private releaseCompletion: (() => void) | null = null
+  private readonly completionStarted = new Promise<void>((resolve) => {
+    this.completionWriteStarted = resolve
+  })
+  private readonly completionReleased = new Promise<void>((resolve) => {
+    this.releaseCompletion = resolve
+  })
+
+  waitForCompletionWrite(): Promise<void> {
+    return this.completionStarted
+  }
+
+  releaseCompletionWrite(): void {
+    this.releaseCompletion?.()
+  }
+
+  override async updateRun(id: number, patch: RuntimeRunPatch) {
+    if (patch.status === 'completed') {
+      this.completionWriteStarted?.()
+      await this.completionReleased
+    }
+    return super.updateRun(id, patch)
+  }
+}
+
+class FailingErrorPersistenceStore extends MemoryRuntimeStore {
+  override async updateRun(id: number, patch: RuntimeRunPatch) {
+    if (patch.status === 'error') throw new Error('database unavailable while persisting error')
+    return super.updateRun(id, patch)
+  }
+}
+
+class DelayedLeaseStore extends MemoryRuntimeStore {
+  private leaseRequested: (() => void) | null = null
+  private releaseLease: (() => void) | null = null
+  private readonly requested = new Promise<void>((resolve) => {
+    this.leaseRequested = resolve
+  })
+  private readonly released = new Promise<void>((resolve) => {
+    this.releaseLease = resolve
+  })
+
+  waitForLeaseRequest(): Promise<void> {
+    return this.requested
+  }
+
+  releaseLeaseRequest(): void {
+    this.releaseLease?.()
+  }
+
+  override async acquireRuntimeLease() {
+    this.leaseRequested?.()
+    await this.released
+    return super.acquireRuntimeLease()
   }
 }
 

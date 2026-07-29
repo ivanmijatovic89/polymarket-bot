@@ -14,6 +14,20 @@ export class MemoryRuntimeStore implements RuntimeStore {
   private readonly sessions = new Map<number, RuntimeSession>()
   private nextRunId = 1
   private nextSessionId = 1
+  private runtimeLeaseHeld = false
+
+  async acquireRuntimeLease(): Promise<(() => Promise<void>) | null> {
+    if (this.runtimeLeaseHeld) return null
+    this.runtimeLeaseHeld = true
+    let released = false
+    return () => {
+      if (!released) {
+        released = true
+        this.runtimeLeaseHeld = false
+      }
+      return Promise.resolve()
+    }
+  }
 
   async createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun> {
     const now = new Date()

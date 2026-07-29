@@ -72,6 +72,31 @@ const EMPTY_USAGE: TokenUsage = {
   estimatedApiCostUsd: null,
 }
 
+const PROVIDER_ENV_KEYS = [
+  'COLORTERM',
+  'FORCE_COLOR',
+  'HOME',
+  'LANG',
+  'LC_ALL',
+  'LC_CTYPE',
+  'LOGNAME',
+  'NO_COLOR',
+  'NODE_EXTRA_CA_CERTS',
+  'PATH',
+  'Path',
+  'SHELL',
+  'SSL_CERT_DIR',
+  'SSL_CERT_FILE',
+  'TEMP',
+  'TERM',
+  'TMP',
+  'TMPDIR',
+  'USER',
+  'XDG_CACHE_HOME',
+  'XDG_CONFIG_HOME',
+  'XDG_DATA_HOME',
+] as const
+
 export class CliProviderAdapter implements ProviderAdapter {
   async execute(
     context: ProviderExecutionContext,
@@ -215,7 +240,7 @@ function prepareClaudeCommand(
   const permissionMode =
     context.run.accessMode === 'full-access' ? 'bypassPermissions' : 'acceptEdits'
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...buildProviderEnvironment(),
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
     [RUNTIME_PROCESS_TOKEN_ENV]: buildRuntimeProcessToken(context.run.id, context.sessionNumber),
   }
@@ -259,7 +284,7 @@ function prepareCodexCommand(
     `session-${String(context.sessionNumber).padStart(4, '0')}.result.json`,
   )
   const env: NodeJS.ProcessEnv = {
-    ...process.env,
+    ...buildProviderEnvironment(),
     [RUNTIME_PROCESS_TOKEN_ENV]: buildRuntimeProcessToken(context.run.id, context.sessionNumber),
   }
   if (context.run.authHome) env.CODEX_HOME = expandHome(context.run.authHome)
@@ -443,6 +468,15 @@ function isRateLimitError(text: string): boolean {
 function expandHome(value: string): string {
   if (value === '~') return os.homedir()
   return value.startsWith('~/') ? path.join(os.homedir(), value.slice(2)) : value
+}
+
+function buildProviderEnvironment(): NodeJS.ProcessEnv {
+  const env: NodeJS.ProcessEnv = {}
+  for (const key of PROVIDER_ENV_KEYS) {
+    const value = process.env[key]
+    if (value !== undefined) env[key] = value
+  }
+  return env
 }
 
 export function createBackpressureWriter(

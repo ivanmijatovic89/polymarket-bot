@@ -64,6 +64,7 @@ export interface GlobalRuntimeOptions {
   now?: () => Date
   terminateProcess?: (pid: number) => Promise<void>
   verifyProcess?: (pid: number, expectedToken: string) => Promise<boolean>
+  onBackgroundError?: (runId: number, error: unknown) => void
 }
 
 export class GlobalRuntime {
@@ -77,6 +78,10 @@ export class GlobalRuntime {
   private readonly now: () => Date
   private readonly terminateProcess: (pid: number) => Promise<void>
   private readonly verifyProcess: (pid: number, expectedToken: string) => Promise<boolean>
+  private readonly onBackgroundError: (runId: number, error: unknown) => void
+  private readonly runTransitions = new Map<number, Promise<void>>()
+  private runtimeLeaseRelease: (() => Promise<void>) | null = null
+  private runtimeLeasePending: Promise<void> | null = null
   private shuttingDown = false
 
   constructor(
@@ -94,9 +99,14 @@ export class GlobalRuntime {
     this.now = options.now ?? (() => new Date())
     this.terminateProcess = options.terminateProcess ?? terminatePersistedProcess
     this.verifyProcess = options.verifyProcess ?? processHasRuntimeToken
+    this.onBackgroundError =
+      options.onBackgroundError ??
+      ((runId, error) => console.error(`[global-runtime] run ${runId} task failed:`, error))
   }
 
   async initialize(): Promise<void> {
+    await this.ensureRuntimeLease()
+    if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
     const interrupted = await this.store.listRunsByStatuses(['running', 'pause_requested'])
     for (const run of interrupted) {
       let recoveryError = 'Runtime restarted. Review the last session and resume when ready.'
@@ -221,64 +231,90 @@ export class GlobalRuntime {
   }
 
   async start(id: number): Promise<RuntimeRun> {
-    const run = await this.requireRun(id)
-    return this.launch(run, ['idle'])
+    return this.withRunTransition(id, async () => {
+      const run = await this.requireRun(id)
+      return this.launch(run, ['idle'])
+    })
   }
 
   async resume(id: number): Promise<RuntimeRun> {
-    const run = await this.requireRun(id)
-    return this.launch(run, RESUMABLE_STATUSES)
+    return this.withRunTransition(id, async () => {
+      const run = await this.requireRun(id)
+      return this.launch(run, RESUMABLE_STATUSES)
+    })
   }
 
   async pause(id: number): Promise<RuntimeRun> {
-    const run = await this.requireRun(id)
-    const control = this.active.get(id)
-    if (!control || !ACTIVE_STATUSES.includes(run.status)) {
-      throw new RuntimeConflictError('run is not active')
-    }
-    control.pauseRequested = true
-    control.wakeDelay?.()
-    return this.store.updateRun(id, {
-      status: 'pause_requested',
-      nextStartAt: null,
-      lastError: null,
+    return this.withRunTransition(id, async () => {
+      const run = await this.requireRun(id)
+      const control = this.active.get(id)
+      if (!control || !ACTIVE_STATUSES.includes(run.status)) {
+        throw new RuntimeConflictError('run is not active')
+      }
+      if (control.stopRequested) throw new RuntimeConflictError('run is stopping')
+      control.pauseRequested = true
+      control.wakeDelay?.()
+      return this.store.updateRun(id, {
+        status: 'pause_requested',
+        nextStartAt: null,
+        lastError: null,
+      })
     })
   }
 
   async stop(id: number): Promise<RuntimeRun> {
-    const run = await this.requireRun(id)
-    if (run.status === 'completed') {
-      throw new RuntimeConflictError('completed run cannot be stopped')
-    }
-    const control = this.active.get(id)
-    if (!control) {
-      if (ACTIVE_STATUSES.includes(run.status)) {
-        throw new RuntimeConflictError('active run is not owned by this runtime')
+    let task: Promise<void> | null = null
+    const stopped = await this.withRunTransition(id, async () => {
+      const run = await this.requireRun(id)
+      if (run.status === 'completed') {
+        throw new RuntimeConflictError('completed run cannot be stopped')
       }
-      return this.store.updateRun(id, {
-        status: 'stopped',
-        processId: null,
-        heartbeatAt: null,
-        nextStartAt: null,
-        endedAt: this.now(),
-      })
-    }
-    control.stopRequested = true
-    control.abortController.abort()
-    control.wakeDelay?.()
-    await control.task
+      const control = this.active.get(id)
+      if (!control) {
+        if (ACTIVE_STATUSES.includes(run.status)) {
+          throw new RuntimeConflictError('active run is not owned by this runtime')
+        }
+        return this.store.updateRun(id, {
+          status: 'stopped',
+          processId: null,
+          heartbeatAt: null,
+          nextStartAt: null,
+          endedAt: this.now(),
+        })
+      }
+      control.stopRequested = true
+      control.abortController.abort()
+      control.wakeDelay?.()
+      task = control.task
+      return null
+    })
+    if (stopped) return stopped
+    await task
     return this.requireRun(id)
   }
 
   async shutdown(): Promise<void> {
     this.shuttingDown = true
+    await this.runtimeLeasePending?.catch(() => undefined)
     const controls = [...this.active.values()]
     for (const control of controls) {
       control.stopRequested = true
       control.abortController.abort()
       control.wakeDelay?.()
     }
-    await Promise.allSettled(controls.map((control) => control.task))
+    try {
+      await Promise.allSettled(controls.map((control) => control.task))
+    } finally {
+      const release = this.runtimeLeaseRelease
+      this.runtimeLeaseRelease = null
+      if (release) {
+        try {
+          await release()
+        } catch (error) {
+          this.reportBackgroundError(0, error)
+        }
+      }
+    }
   }
 
   private async launch(
@@ -286,6 +322,8 @@ export class GlobalRuntime {
     allowedStatuses: RuntimeRunStatus[],
     initialDelayMs = 0,
   ): Promise<RuntimeRun> {
+    if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
+    await this.ensureRuntimeLease()
     if (this.shuttingDown) throw new RuntimeConflictError('runtime is shutting down')
     if (!allowedStatuses.includes(run.status)) {
       throw new RuntimeConflictError(`run cannot start from status ${run.status}`)
@@ -304,7 +342,9 @@ export class GlobalRuntime {
       task: Promise.resolve(),
     }
     this.active.set(run.id, control)
-    control.task = this.runManaged(run.id, control, initialDelayMs, launchReady.promise)
+    control.task = this.runManaged(run.id, control, initialDelayMs, launchReady.promise).catch(
+      (error) => this.recoverBackgroundFailure(run.id, control, error),
+    )
     try {
       return await this.reserveAndLaunch(run, initialDelayMs, launchReady)
     } catch (error) {
@@ -374,21 +414,33 @@ export class GlobalRuntime {
       if (initialDelayMs > 0) await this.wait(control, initialDelayMs)
       await this.runLoop(runId, control)
     } catch (error) {
-      if (launched && !control.stopRequested) {
+      if (launched) {
         const message = error instanceof Error ? error.message : String(error)
-        await this.store.finishRunningSessions(runId, 'failed', message)
-        await this.store.updateRun(runId, {
-          status: 'error',
-          processId: null,
-          heartbeatAt: null,
-          nextStartAt: null,
-          endedAt: this.now(),
-          lastError: message,
-        })
+        if (control.stopRequested) {
+          await this.store.finishRunningSessions(
+            runId,
+            'stopped',
+            `Stopped while provider cleanup failed: ${message}`,
+          )
+        } else {
+          await this.store.finishRunningSessions(runId, 'failed', message)
+          await this.withRunTransition(runId, () =>
+            this.store.updateRun(runId, {
+              status: 'error',
+              processId: null,
+              heartbeatAt: null,
+              nextStartAt: null,
+              endedAt: this.now(),
+              lastError: message,
+            }),
+          )
+        }
       }
     } finally {
       try {
-        if (control.stopRequested) await this.markStopped(runId)
+        if (control.stopRequested) {
+          await this.withRunTransition(runId, () => this.markStopped(runId))
+        }
       } finally {
         this.active.delete(runId)
         if (this.workspaceOwners.get(control.workspacePath) === runId) {
@@ -404,12 +456,15 @@ export class GlobalRuntime {
 
       const run = await this.requireRun(runId)
       if (run.currentSession >= run.maxSessions) {
-        await this.store.updateRun(runId, {
-          status: 'waiting',
-          processId: null,
-          heartbeatAt: null,
-          nextStartAt: null,
-          lastError: `Session limit reached (${run.maxSessions}).`,
+        await this.withRunTransition(runId, async () => {
+          if (await this.applyPendingControlUnlocked(runId, control)) return
+          await this.store.updateRun(runId, {
+            status: 'waiting',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt: null,
+            lastError: `Session limit reached (${run.maxSessions}).`,
+          })
         })
         return
       }
@@ -422,29 +477,32 @@ export class GlobalRuntime {
       )
       const startedAt = this.now()
       await prepareSessionResultFile(run)
-      if (await this.applyPendingControl(runId, control)) return
-      const session = await this.store.startSession(
-        {
-          runId,
-          sessionNumber,
-          provider: run.provider,
-          model: run.model,
-          effort: run.effort,
-          rawLogPath,
-          startedAt,
-        },
-        {
-          status: 'running',
-          currentSession: sessionNumber,
-          processId: null,
-          heartbeatAt: startedAt,
-          lastActivityAt: startedAt,
-          nextStartAt: null,
-          startedAt: run.startedAt ?? startedAt,
-          endedAt: null,
-          lastError: null,
-        },
-      )
+      const session = await this.withRunTransition(runId, async () => {
+        if (await this.applyPendingControlUnlocked(runId, control)) return null
+        return this.store.startSession(
+          {
+            runId,
+            sessionNumber,
+            provider: run.provider,
+            model: run.model,
+            effort: run.effort,
+            rawLogPath,
+            startedAt,
+          },
+          {
+            status: 'running',
+            currentSession: sessionNumber,
+            processId: null,
+            heartbeatAt: startedAt,
+            lastActivityAt: startedAt,
+            nextStartAt: null,
+            startedAt: run.startedAt ?? startedAt,
+            endedAt: null,
+            lastError: null,
+          },
+        )
+      })
+      if (!session) return
 
       if (control.stopRequested) {
         await this.store.updateSession(session.id, {
@@ -457,6 +515,7 @@ export class GlobalRuntime {
       }
 
       let lastActivityWrite = 0
+      let heartbeatWrite: Promise<void> | null = null
       const updateHeartbeat = async () => {
         const at = this.now()
         await Promise.all([
@@ -464,10 +523,14 @@ export class GlobalRuntime {
           this.store.updateSession(session.id, { heartbeatAt: at }),
         ])
       }
-      const heartbeat = setInterval(
-        () => void updateHeartbeat().catch(() => undefined),
-        this.heartbeatMs,
-      )
+      const heartbeat = setInterval(() => {
+        if (heartbeatWrite) return
+        heartbeatWrite = updateHeartbeat()
+          .catch(() => undefined)
+          .finally(() => {
+            heartbeatWrite = null
+          })
+      }, this.heartbeatMs)
       heartbeat.unref()
 
       const result = await this.providers[run.provider]
@@ -496,7 +559,10 @@ export class GlobalRuntime {
             },
           },
         )
-        .finally(() => clearInterval(heartbeat))
+        .finally(async () => {
+          clearInterval(heartbeat)
+          await heartbeatWrite
+        })
 
       if (control.stopRequested) {
         await this.finishSession(session, 'stopped', result, null, 'Stopped by user.')
@@ -505,16 +571,19 @@ export class GlobalRuntime {
 
       if (result.rateLimited) {
         await this.finishSession(session, 'rate_limited', result, null, result.error)
-        if (await this.applyPendingControl(runId, control)) return
-        const nextStartAt = new Date(this.now().getTime() + this.rateLimitRetryMs)
-        await this.store.updateRun(runId, {
-          status: 'rate_limited',
-          processId: null,
-          heartbeatAt: null,
-          nextStartAt,
-          lastError: result.error ?? 'Provider rate limit reached.',
+        const pausedOrStopped = await this.withRunTransition(runId, async () => {
+          if (await this.applyPendingControlUnlocked(runId, control)) return true
+          const nextStartAt = new Date(this.now().getTime() + this.rateLimitRetryMs)
+          await this.store.updateRun(runId, {
+            status: 'rate_limited',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt,
+            lastError: result.error ?? 'Provider rate limit reached.',
+          })
+          return false
         })
-        if (await this.applyPendingControl(runId, control)) return
+        if (pausedOrStopped) return
         await this.wait(control, this.rateLimitRetryMs)
         continue
       }
@@ -522,13 +591,15 @@ export class GlobalRuntime {
       if (result.error || result.exitCode !== 0) {
         const error = result.error ?? `CLI exited with code ${String(result.exitCode)}`
         await this.finishSession(session, 'failed', result, null, error)
-        await this.store.updateRun(runId, {
-          status: 'error',
-          processId: null,
-          heartbeatAt: null,
-          endedAt: this.now(),
-          lastError: error,
-        })
+        await this.withRunTransition(runId, () =>
+          this.store.updateRun(runId, {
+            status: 'error',
+            processId: null,
+            heartbeatAt: null,
+            endedAt: this.now(),
+            lastError: error,
+          }),
+        )
         return
       }
 
@@ -542,41 +613,60 @@ export class GlobalRuntime {
       if (!parsed.success) {
         const error = 'Provider did not return a valid Global Runtime session result.'
         await this.finishSession(session, 'invalid_result', result, null, error)
-        await this.store.updateRun(runId, {
-          status: 'waiting',
-          processId: null,
-          heartbeatAt: null,
-          lastError: error,
-        })
+        await this.withRunTransition(runId, () =>
+          this.store.updateRun(runId, {
+            status: 'waiting',
+            processId: null,
+            heartbeatAt: null,
+            lastError: error,
+          }),
+        )
         return
       }
 
       const sessionStatus = parsed.data.action === 'wait' ? 'waiting' : 'completed'
       await this.finishSession(session, sessionStatus, result, parsed.data, null)
-      await this.store.updateRun(runId, {
-        processId: null,
-        heartbeatAt: null,
-        lastResultSummary: parsed.data.summary,
-      })
-
-      if (parsed.data.action === 'complete') {
-        await this.store.updateRun(runId, { status: 'completed', endedAt: this.now() })
-        return
-      }
-      if (parsed.data.action === 'wait') {
-        await this.store.updateRun(runId, { status: 'waiting', nextStartAt: null })
-        return
-      }
-      if (await this.applyPendingControl(runId, control)) return
-      if (sessionNumber >= run.maxSessions) {
+      const terminal = await this.withRunTransition(runId, async () => {
+        if (parsed.data.action === 'complete') {
+          await this.store.updateRun(runId, {
+            status: 'completed',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt: null,
+            endedAt: this.now(),
+            lastResultSummary: parsed.data.summary,
+          })
+          return true
+        }
+        if (parsed.data.action === 'wait') {
+          await this.store.updateRun(runId, {
+            status: 'waiting',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt: null,
+            lastResultSummary: parsed.data.summary,
+          })
+          return true
+        }
         await this.store.updateRun(runId, {
-          status: 'waiting',
           processId: null,
           heartbeatAt: null,
-          nextStartAt: null,
-          lastError: `Session limit reached (${run.maxSessions}).`,
+          lastResultSummary: parsed.data.summary,
         })
-        if (await this.applyPendingControl(runId, control)) return
+        return this.applyPendingControlUnlocked(runId, control)
+      })
+      if (terminal) return
+      if (sessionNumber >= run.maxSessions) {
+        await this.withRunTransition(runId, async () => {
+          if (await this.applyPendingControlUnlocked(runId, control)) return
+          await this.store.updateRun(runId, {
+            status: 'waiting',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt: null,
+            lastError: `Session limit reached (${run.maxSessions}).`,
+          })
+        })
         return
       }
       await this.wait(control, run.delaySeconds * 1000)
@@ -624,6 +714,10 @@ export class GlobalRuntime {
   }
 
   private async applyPendingControl(runId: number, control: ActiveRun): Promise<boolean> {
+    return this.withRunTransition(runId, () => this.applyPendingControlUnlocked(runId, control))
+  }
+
+  private async applyPendingControlUnlocked(runId: number, control: ActiveRun): Promise<boolean> {
     if (control.stopRequested) {
       return true
     }
@@ -654,6 +748,85 @@ export class GlobalRuntime {
     const run = await this.store.getRun(id)
     if (!run) throw new RuntimeNotFoundError(`runtime run ${id} was not found`)
     return run
+  }
+
+  private async ensureRuntimeLease(): Promise<void> {
+    if (this.runtimeLeaseRelease) return
+    if (!this.runtimeLeasePending) {
+      this.runtimeLeasePending = (async () => {
+        const release = await this.store.acquireRuntimeLease((error) => {
+          const leaseError = new Error('Global Runtime database lease was lost', { cause: error })
+          this.reportBackgroundError(0, leaseError)
+          void this.shutdown().catch((shutdownError: unknown) => {
+            this.reportBackgroundError(0, shutdownError)
+          })
+        })
+        if (!release) {
+          throw new RuntimeConflictError('another Global Runtime instance already owns this store')
+        }
+        this.runtimeLeaseRelease = release
+      })().finally(() => {
+        this.runtimeLeasePending = null
+      })
+    }
+    await this.runtimeLeasePending
+  }
+
+  private async recoverBackgroundFailure(
+    runId: number,
+    control: ActiveRun,
+    error: unknown,
+  ): Promise<void> {
+    let reportedError = error
+    const message = error instanceof Error ? error.message : String(error)
+    try {
+      if (control.stopRequested) {
+        await this.store.finishRunningSessions(runId, 'stopped', message)
+        await this.withRunTransition(runId, () => this.markStopped(runId))
+      } else {
+        await this.store.finishRunningSessions(runId, 'failed', message)
+        await this.withRunTransition(runId, () =>
+          this.store.updateRun(runId, {
+            status: 'error',
+            processId: null,
+            heartbeatAt: null,
+            nextStartAt: null,
+            endedAt: this.now(),
+            lastError: message,
+          }),
+        )
+      }
+    } catch (recoveryError) {
+      reportedError = new AggregateError(
+        [error, recoveryError],
+        'Global Runtime task and its persistence recovery both failed',
+      )
+    }
+    this.reportBackgroundError(runId, reportedError)
+  }
+
+  private reportBackgroundError(runId: number, error: unknown): void {
+    try {
+      this.onBackgroundError(runId, error)
+    } catch {
+      // Reporting must never recreate the unhandled rejection being reported.
+    }
+  }
+
+  private async withRunTransition<T>(id: number, action: () => Promise<T>): Promise<T> {
+    const previous = this.runTransitions.get(id) ?? Promise.resolve()
+    let release!: () => void
+    const current = new Promise<void>((resolve) => {
+      release = resolve
+    })
+    this.runTransitions.set(id, current)
+    await previous
+    try {
+      return await action()
+    } finally {
+      release()
+      if (this.runTransitions.get(id) === current) this.runTransitions.delete(id)
+    }
   }
 }
 

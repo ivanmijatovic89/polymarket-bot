@@ -1,6 +1,6 @@
 import { randomUUID } from 'node:crypto'
-import { constants as fsConstants } from 'node:fs'
-import { lstat, mkdir, open, readFile, realpath, stat, unlink } from 'node:fs/promises'
+import { constants as fsConstants, type BigIntStats } from 'node:fs'
+import { lstat, mkdir, open, realpath, stat, unlink, type FileHandle } from 'node:fs/promises'
 import path from 'node:path'
 import { SESSION_RESULT_FILE } from './contracts.js'
 import { RuntimeValidationError } from './errors.js'
@@ -14,20 +14,31 @@ function isInside(root: string, candidate: string): boolean {
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
 }
 
-async function existingAncestor(candidate: string): Promise<string> {
-  let current = candidate
-  for (;;) {
+async function canonicalizePotentialPath(root: string, candidate: string): Promise<string> {
+  const segments = path.relative(root, candidate).split(path.sep).filter(Boolean)
+  let current = root
+  for (let index = 0; index < segments.length; index += 1) {
+    const next = path.join(current, segments[index]!)
     try {
-      await stat(current)
-      return current
+      current = await realpath(next)
+      if (!isInside(root, current)) {
+        throw new RuntimeValidationError('configured path resolves outside the workspace')
+      }
     } catch (error) {
       const code = (error as NodeJS.ErrnoException).code
       if (code !== 'ENOENT') throw error
-      const parent = path.dirname(current)
-      if (parent === current) throw error
-      current = parent
+      try {
+        const info = await lstat(next)
+        if (info.isSymbolicLink()) {
+          throw new RuntimeValidationError('configured path must not be a symbolic link')
+        }
+      } catch (lstatError) {
+        if ((lstatError as NodeJS.ErrnoException).code !== 'ENOENT') throw lstatError
+      }
+      return path.resolve(current, ...segments.slice(index))
     }
   }
+  return current
 }
 
 export async function canonicalWorkspace(workspacePath: string): Promise<string> {
@@ -65,11 +76,7 @@ export async function resolveWorkspaceFile(
     return resolved
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !allowMissing) throw error
-    const ancestor = await realpath(await existingAncestor(path.dirname(candidate)))
-    if (!isInside(root, ancestor)) {
-      throw new RuntimeValidationError(`${relativePath} has a parent outside the workspace`)
-    }
-    return candidate
+    return canonicalizePotentialPath(root, candidate)
   }
 }
 
@@ -158,34 +165,32 @@ async function readWorkspaceFile(
   role: RuntimeFileView['role'],
   relativePath: string,
 ): Promise<RuntimeFileView> {
-  const absolutePath = await resolveWorkspaceFile(run.workspacePath, relativePath, true)
-  try {
-    const info = await stat(absolutePath)
-    if (!info.isFile()) throw new RuntimeValidationError(`${relativePath} is not a file`)
-    if (info.nlink !== 1) {
-      throw new RuntimeValidationError(`${relativePath} must not be hard-linked`)
-    }
+  const opened = await openVerifiedWorkspaceFile(run, relativePath, true)
+  if (opened) {
     const limit = role === 'journal' ? JOURNAL_TAIL_BYTES : MAX_FILE_BYTES
-    const truncated = info.size > limit
-    const visible = await readTail(absolutePath, info.size, limit)
-    return {
-      role,
-      path: relativePath,
-      exists: true,
-      content: visible.toString('utf8'),
-      truncated,
-      modifiedAt: info.mtime.toISOString(),
+    try {
+      const size = safeFileSize(opened.info.size, relativePath)
+      const truncated = size > limit
+      const visible = await readTail(opened.handle, size, limit)
+      return {
+        role,
+        path: relativePath,
+        exists: true,
+        content: visible.toString('utf8'),
+        truncated,
+        modifiedAt: opened.info.mtime.toISOString(),
+      }
+    } finally {
+      await opened.handle.close()
     }
-  } catch (error) {
-    if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error
-    return {
-      role,
-      path: relativePath,
-      exists: false,
-      content: '',
-      truncated: false,
-      modifiedAt: null,
-    }
+  }
+  return {
+    role,
+    path: relativePath,
+    exists: false,
+    content: '',
+    truncated: false,
+    modifiedAt: null,
   }
 }
 
@@ -281,30 +286,78 @@ export async function prepareSessionResultFile(run: RuntimeRun): Promise<void> {
 }
 
 export async function readSessionResultFile(run: RuntimeRun): Promise<unknown> {
-  const candidate = path.resolve(run.workspacePath, SESSION_RESULT_FILE)
-  const candidateInfo = await lstat(candidate)
-  if (candidateInfo.isSymbolicLink()) {
-    throw new RuntimeValidationError('session result path must not be a symbolic link')
+  const opened = await openVerifiedWorkspaceFile(run, SESSION_RESULT_FILE, false)
+  if (!opened) throw new RuntimeValidationError('session result file does not exist')
+  try {
+    if (opened.info.size > BigInt(16 * 1024)) {
+      throw new RuntimeValidationError('session result must be a JSON file smaller than 16 KB')
+    }
+    return JSON.parse(await opened.handle.readFile('utf8')) as unknown
+  } finally {
+    await opened.handle.close()
   }
-  const absolutePath = await resolveWorkspaceFile(run.workspacePath, SESSION_RESULT_FILE, false)
-  const info = await stat(absolutePath)
-  if (!info.isFile() || info.size > 16 * 1024) {
-    throw new RuntimeValidationError('session result must be a JSON file smaller than 16 KB')
-  }
-  if (info.nlink !== 1) {
-    throw new RuntimeValidationError('session result path must not be hard-linked')
-  }
-  return JSON.parse(await readFile(absolutePath, 'utf8')) as unknown
 }
 
-async function readTail(filePath: string, size: number, limit: number): Promise<Buffer> {
+async function openVerifiedWorkspaceFile(
+  run: RuntimeRun,
+  relativePath: string,
+  allowMissing: boolean,
+): Promise<{
+  handle: FileHandle
+  info: BigIntStats
+} | null> {
+  const root = await canonicalWorkspace(run.workspacePath)
+  const absolutePath = await resolveWorkspaceFile(run.workspacePath, relativePath, allowMissing)
+  const flags = fsConstants.O_RDONLY | (fsConstants.O_NOFOLLOW ?? 0)
+  let handle: Awaited<ReturnType<typeof open>>
+  try {
+    handle = await open(absolutePath, flags)
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' && allowMissing) return null
+    if (code === 'ELOOP') {
+      throw new RuntimeValidationError(`${relativePath} must not be a symbolic link`)
+    }
+    throw error
+  }
+
+  try {
+    const openedInfo = await handle.stat({ bigint: true })
+    if (!openedInfo.isFile()) throw new RuntimeValidationError(`${relativePath} is not a file`)
+    if (openedInfo.nlink !== 1n) {
+      throw new RuntimeValidationError(`${relativePath} must not be hard-linked`)
+    }
+    const resolvedPath = await realpath(absolutePath)
+    if (!isInside(root, resolvedPath)) {
+      throw new RuntimeValidationError(`${relativePath} resolves outside the workspace`)
+    }
+    const resolvedInfo = await stat(resolvedPath, { bigint: true })
+    if (openedInfo.dev !== resolvedInfo.dev || openedInfo.ino !== resolvedInfo.ino) {
+      throw new RuntimeValidationError(`${relativePath} changed while it was being opened`)
+    }
+    return { handle, info: openedInfo }
+  } catch (error) {
+    await handle.close()
+    throw error
+  }
+}
+
+function safeFileSize(size: bigint, relativePath: string): number {
+  if (size > BigInt(Number.MAX_SAFE_INTEGER)) {
+    throw new RuntimeValidationError(`${relativePath} is too large to display safely`)
+  }
+  return Number(size)
+}
+
+async function readTail(handle: FileHandle, size: number, limit: number): Promise<Buffer> {
   const length = Math.min(size, limit)
   const buffer = Buffer.alloc(length)
-  const handle = await open(filePath, 'r')
-  try {
-    await handle.read(buffer, 0, length, Math.max(0, size - length))
-    return buffer
-  } finally {
-    await handle.close()
+  const start = Math.max(0, size - length)
+  let offset = 0
+  while (offset < length) {
+    const { bytesRead } = await handle.read(buffer, offset, length - offset, start + offset)
+    if (bytesRead === 0) break
+    offset += bytesRead
   }
+  return offset === length ? buffer : buffer.subarray(0, offset)
 }
