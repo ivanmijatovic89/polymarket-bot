@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict'
+import { once } from 'node:events'
 import { chmod, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
+import { PassThrough, Writable } from 'node:stream'
 import { afterEach, test } from 'node:test'
-import { SESSION_RESULT_FILE } from './contracts.js'
-import { CliProviderAdapter, prepareProviderCommand } from './providers.js'
+import {
+  buildRuntimeProcessToken,
+  RUNTIME_PROCESS_TOKEN_ENV,
+  SESSION_RESULT_FILE,
+} from './contracts.js'
+import {
+  CliProviderAdapter,
+  createBackpressureWriter,
+  prepareProviderCommand,
+} from './providers.js'
 import type { RuntimeRun } from './types.js'
 
 const temporaryDirectories: string[] = []
@@ -24,14 +34,16 @@ afterEach(async () => {
 test('builds shell-free Claude and Codex commands with the requested access and effort', async () => {
   const workspace = await createDirectory()
   const logDirectory = path.join(workspace, 'logs')
+  const codexRun = makeRun(workspace, 'codex')
+  const claudeRun = makeRun(workspace, 'claude')
   const codex = await prepareProviderCommand({
-    run: makeRun(workspace, 'codex'),
+    run: codexRun,
     sessionNumber: 1,
     prompt: 'mission',
     logDirectory,
   })
   const claude = await prepareProviderCommand({
-    run: makeRun(workspace, 'claude'),
+    run: claudeRun,
     sessionNumber: 2,
     prompt: 'mission',
     logDirectory,
@@ -42,10 +54,33 @@ test('builds shell-free Claude and Codex commands with the requested access and 
   assert.ok(codex.args.includes('--skip-git-repo-check'))
   assert.ok(codex.args.includes('workspace-write'))
   assert.ok(codex.args.includes('model_reasoning_effort="high"'))
+  assert.equal(codex.env[RUNTIME_PROCESS_TOKEN_ENV], buildRuntimeProcessToken(codexRun.id, 1))
   assert.equal(claude.command, 'claude')
   assert.ok(claude.args.includes('--no-session-persistence'))
   assert.ok(claude.args.includes('acceptEdits'))
   assert.ok(claude.args.includes('--json-schema'))
+  assert.equal(claude.env[RUNTIME_PROCESS_TOKEN_ENV], buildRuntimeProcessToken(claudeRun.id, 2))
+})
+
+test('pauses provider output until a saturated log stream drains', async () => {
+  const source = new PassThrough()
+  const destination = new Writable({
+    highWaterMark: 1,
+    write(_chunk, _encoding, callback) {
+      setImmediate(callback)
+    },
+  })
+  const write = createBackpressureWriter(source, destination)
+
+  write(Buffer.alloc(64 * 1024))
+  assert.equal(source.isPaused(), true)
+
+  await once(destination, 'drain')
+  assert.equal(source.isPaused(), false)
+
+  destination.end()
+  await once(destination, 'finish')
+  source.destroy()
 })
 
 test('uses normal Claude authentication unless a separate profile is selected', async () => {

@@ -520,12 +520,14 @@ function formatAccount(run: RuntimeRun): string {
 }
 
 function formatRunTokens(run: RuntimeRunSummary): string {
-  const total =
-    (run.totals.inputTokens ?? 0) +
-    (run.totals.cacheReadInputTokens ?? 0) +
-    (run.totals.cacheCreationInputTokens ?? 0) +
-    (run.totals.outputTokens ?? 0)
-  return total === 0 ? '—' : total.toLocaleString()
+  const values = [
+    run.totals.inputTokens,
+    run.totals.cacheReadInputTokens,
+    run.totals.cacheCreationInputTokens,
+    run.totals.outputTokens,
+  ]
+  if (values.every((value) => value === null)) return '—'
+  return values.reduce<number>((total, value) => total + (value ?? 0), 0).toLocaleString()
 }
 
 function formatDurationBetween(start: string | null, end: string | null): string {

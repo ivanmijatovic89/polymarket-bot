@@ -4,8 +4,13 @@ import { mkdir, readFile, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createInterface } from 'node:readline'
+import type { Readable, Writable } from 'node:stream'
 import { finished } from 'node:stream/promises'
-import { SESSION_RESULT_JSON_SCHEMA } from './contracts.js'
+import {
+  buildRuntimeProcessToken,
+  RUNTIME_PROCESS_TOKEN_ENV,
+  SESSION_RESULT_JSON_SCHEMA,
+} from './contracts.js'
 import { estimateCodexApiCost, resolveCodexModel } from './pricing.js'
 import type { RuntimeRun, TokenUsage } from './types.js'
 
@@ -100,9 +105,11 @@ export class CliProviderAdapter implements ProviderAdapter {
     })
     if (streamErrors.length > 0) terminateChild(child)
 
+    const writeStdoutLog = createBackpressureWriter(child.stdout!, rawLog)
+    const writeStderrLog = createBackpressureWriter(child.stderr!, stderrLog)
     const stdoutLines = createInterface({ input: child.stdout! })
     stdoutLines.on('line', (line) => {
-      rawLog.write(`${line}\n`)
+      writeStdoutLog(`${line}\n`)
       void Promise.resolve(callbacks.onActivity(new Date())).catch(() => undefined)
       try {
         const event: unknown = JSON.parse(line)
@@ -117,7 +124,7 @@ export class CliProviderAdapter implements ProviderAdapter {
 
     child.stderr!.on('data', (chunk: Buffer) => {
       const text = chunk.toString('utf8')
-      stderrLog.write(text)
+      writeStderrLog(text)
       stderrText = `${stderrText}${text}`.slice(-65_536)
       void Promise.resolve(callbacks.onActivity(new Date())).catch(() => undefined)
     })
@@ -210,6 +217,7 @@ function prepareClaudeCommand(
   const env: NodeJS.ProcessEnv = {
     ...process.env,
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
+    [RUNTIME_PROCESS_TOKEN_ENV]: buildRuntimeProcessToken(context.run.id, context.sessionNumber),
   }
   if (context.run.authHome) env.CLAUDE_CONFIG_DIR = expandHome(context.run.authHome)
   else delete env.CLAUDE_CONFIG_DIR
@@ -250,7 +258,10 @@ function prepareCodexCommand(
     context.logDirectory,
     `session-${String(context.sessionNumber).padStart(4, '0')}.result.json`,
   )
-  const env: NodeJS.ProcessEnv = { ...process.env }
+  const env: NodeJS.ProcessEnv = {
+    ...process.env,
+    [RUNTIME_PROCESS_TOKEN_ENV]: buildRuntimeProcessToken(context.run.id, context.sessionNumber),
+  }
   if (context.run.authHome) env.CODEX_HOME = expandHome(context.run.authHome)
 
   return {
@@ -432,6 +443,23 @@ function isRateLimitError(text: string): boolean {
 function expandHome(value: string): string {
   if (value === '~') return os.homedir()
   return value.startsWith('~/') ? path.join(os.homedir(), value.slice(2)) : value
+}
+
+export function createBackpressureWriter(
+  source: Readable,
+  destination: Writable,
+): (chunk: string | Buffer) => void {
+  let paused = false
+  return (chunk) => {
+    const canContinue = destination.write(chunk)
+    if (canContinue || paused) return
+    paused = true
+    source.pause()
+    destination.once('drain', () => {
+      paused = false
+      if (!source.destroyed) source.resume()
+    })
+  }
 }
 
 function terminateChild(child: ChildProcess): void {

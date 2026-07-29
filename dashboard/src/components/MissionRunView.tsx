@@ -205,11 +205,18 @@ export function MissionRunView({ runId }: { runId: string }) {
               ))}
             </div>
             {visibleFile ? (
-              <pre className="mt-3 max-h-[34rem] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-4 font-mono text-xs leading-5">
-                {visibleFile.exists
-                  ? visibleFile.content
-                  : `${visibleFile.path} does not exist yet.`}
-              </pre>
+              <div className="mt-3 space-y-2">
+                {visibleFile.truncated && (
+                  <p className="rounded-md border border-[color:var(--warning)]/40 bg-[color:var(--warning)]/10 px-3 py-2 text-xs text-[color:var(--warning)]">
+                    This file is truncated. Mission Control is showing only its latest content.
+                  </p>
+                )}
+                <pre className="max-h-[34rem] overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-4 font-mono text-xs leading-5">
+                  {visibleFile.exists
+                    ? visibleFile.content
+                    : `${visibleFile.path} does not exist yet.`}
+                </pre>
+              </div>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">No files configured.</p>
             )}

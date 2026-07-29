@@ -35,6 +35,9 @@ jobs:
       - name: Typecheck + ESLint
         run: npm run code:typecheck-eslint
 
+      - name: Global Runtime tests
+        run: npm run global-runtime:test
+
       - name: Research protocol check
         run: npm run research:check
 

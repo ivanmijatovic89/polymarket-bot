@@ -2,6 +2,11 @@ import type { RuntimeRun } from './types.js'
 
 export const GLOBAL_RUNTIME_CONTRACT_VERSION = 1
 export const SESSION_RESULT_FILE = '.global-runtime/session-result.json'
+export const RUNTIME_PROCESS_TOKEN_ENV = 'GLOBAL_RUNTIME_PROCESS_TOKEN'
+
+export function buildRuntimeProcessToken(runId: number, sessionNumber: number): string {
+  return `run-${runId}-session-${sessionNumber}`
+}
 
 export const SESSION_RESULT_JSON_SCHEMA = {
   type: 'object',

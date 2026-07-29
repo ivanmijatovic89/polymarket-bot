@@ -1,4 +1,6 @@
 import assert from 'node:assert/strict'
+import { spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
@@ -12,7 +14,12 @@ import type {
   ProviderExecutionResult,
 } from './providers.js'
 import { GlobalRuntime, type GlobalRuntimeOptions } from './runtime.js'
-import { SESSION_RESULT_FILE } from './contracts.js'
+import {
+  buildRuntimeProcessToken,
+  RUNTIME_PROCESS_TOKEN_ENV,
+  SESSION_RESULT_FILE,
+} from './contracts.js'
+import type { RuntimeRunPatch } from './types.js'
 
 const temporaryDirectories: string[] = []
 
@@ -69,6 +76,59 @@ test('pause is applied between sessions and resume starts a fresh session', asyn
   await runtime.resume(run.id)
   await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
   assert.deepEqual(provider.sessionNumbers, [1, 2])
+})
+
+test('persists the running state before launching the provider task', async () => {
+  const workspace = await createWorkspace()
+  const store = new DelayedLaunchStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'done', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  const start = runtime.start(run.id)
+  await store.waitForLaunchWrite()
+  assert.deepEqual(provider.sessionNumbers, [])
+
+  store.releaseLaunchWrite()
+  await start
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
+  assert.deepEqual(provider.sessionNumbers, [1])
+})
+
+test('moves directly to waiting when the final allowed session requests continuation', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new ScriptedProvider([successfulResult('continue', 'more work remains', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun({
+    ...runInput(workspace),
+    maxSessions: 1,
+    delaySeconds: 60,
+  })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'waiting')
+
+  const persisted = await store.getRun(run.id)
+  assert.equal(persisted?.currentSession, 1)
+  assert.match(persisted?.lastError ?? '', /session limit reached/iu)
+})
+
+test('applies a pending pause before entering the rate-limit retry delay', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new BlockingRateLimitedProvider()
+  const runtime = createRuntime(store, provider, { rateLimitRetryMs: 60_000 })
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await waitFor(() => Promise.resolve(provider.started))
+  await runtime.pause(run.id)
+  provider.release()
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'paused')
+
+  const detail = await runtime.getRunDetail(run.id)
+  assert.equal(detail.sessions[0]?.status, 'rate_limited')
 })
 
 test('only one active run can own a workspace', async () => {
@@ -167,6 +227,11 @@ test('initialization reconciles an interrupted session to waiting', async () => 
 
   const terminatedProcessIds: number[] = []
   const runtime = createRuntime(store, new ScriptedProvider([]), {
+    verifyProcess: (processId, expectedToken) => {
+      assert.equal(processId, 43210)
+      assert.equal(expectedToken, `run-${run.id}-session-1`)
+      return Promise.resolve(true)
+    },
     terminateProcess: (processId) => {
       terminatedProcessIds.push(processId)
       return Promise.resolve()
@@ -180,6 +245,86 @@ test('initialization reconciles an interrupted session to waiting', async () => 
   assert.equal(detail.sessions[0]?.status, 'failed')
   assert.match(detail.run.lastError ?? '', /restarted/iu)
 })
+
+test('does not terminate an interrupted PID when process identity cannot be verified', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const run = await store.createRun(runInput(workspace))
+  const startedAt = new Date()
+  await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
+  await store.createSession({
+    runId: run.id,
+    sessionNumber: 1,
+    provider: run.provider,
+    model: run.model,
+    effort: run.effort,
+    rawLogPath: 'test.jsonl',
+    startedAt,
+  })
+
+  const terminatedProcessIds: number[] = []
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    verifyProcess: () => Promise.resolve(false),
+    terminateProcess: (processId) => {
+      terminatedProcessIds.push(processId)
+      return Promise.resolve()
+    },
+  })
+  await runtime.initialize()
+
+  assert.deepEqual(terminatedProcessIds, [])
+  const recovered = await store.getRun(run.id)
+  assert.equal(recovered?.status, 'waiting')
+  assert.match(recovered?.lastError ?? '', /could not be verified/iu)
+})
+
+test(
+  'verifies the runtime token before terminating an interrupted process',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const workspace = await createWorkspace()
+    const store = new MemoryRuntimeStore()
+    const run = await store.createRun(runInput(workspace))
+    const token = buildRuntimeProcessToken(run.id, 1)
+    const child = spawn(process.execPath, ['-e', 'setInterval(() => {}, 1000)'], {
+      env: { ...process.env, [RUNTIME_PROCESS_TOKEN_ENV]: token },
+      stdio: 'ignore',
+    })
+    await once(child, 'spawn')
+    assert.ok(child.pid)
+
+    try {
+      const startedAt = new Date()
+      await store.updateRun(run.id, {
+        status: 'running',
+        currentSession: 1,
+        processId: child.pid,
+      })
+      await store.createSession({
+        runId: run.id,
+        sessionNumber: 1,
+        provider: run.provider,
+        model: run.model,
+        effort: run.effort,
+        rawLogPath: 'test.jsonl',
+        startedAt,
+      })
+
+      const terminatedProcessIds: number[] = []
+      const runtime = createRuntime(store, new ScriptedProvider([]), {
+        terminateProcess: (processId) => {
+          terminatedProcessIds.push(processId)
+          return Promise.resolve()
+        },
+      })
+      await runtime.initialize()
+
+      assert.deepEqual(terminatedProcessIds, [child.pid])
+    } finally {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL')
+    }
+  },
+)
 
 test('missing session result pauses safely for human attention', async () => {
   const workspace = await createWorkspace()
@@ -344,6 +489,37 @@ class BlockingProvider implements ProviderAdapter {
   }
 }
 
+class BlockingRateLimitedProvider implements ProviderAdapter {
+  started = false
+  private releaseExecution: (() => void) | null = null
+
+  release(): void {
+    this.releaseExecution?.()
+  }
+
+  async execute(
+    _context: ProviderExecutionContext,
+    _signal: AbortSignal,
+    callbacks: ProviderExecutionCallbacks,
+  ): Promise<ProviderExecutionResult> {
+    this.started = true
+    await callbacks.onStarted(12346)
+    await new Promise<void>((resolve) => {
+      this.releaseExecution = resolve
+    })
+    return {
+      exitCode: 1,
+      exitSignal: null,
+      finalResult: null,
+      usage: emptyUsage(),
+      resolvedModel: null,
+      rateLimited: true,
+      error: 'Provider rate limit reached.',
+      rawLogPath: 'rate-limited.jsonl',
+    }
+  }
+}
+
 class ThrowingProvider implements ProviderAdapter {
   async execute(): Promise<ProviderExecutionResult> {
     throw new Error('fake provider crash')
@@ -378,9 +554,36 @@ function createRuntime(
   return new GlobalRuntime(store, {
     ...options,
     providers: { codex: provider },
-    rateLimitRetryMs: 10,
-    heartbeatMs: 10,
+    rateLimitRetryMs: options.rateLimitRetryMs ?? 10,
+    heartbeatMs: options.heartbeatMs ?? 10,
   })
+}
+
+class DelayedLaunchStore extends MemoryRuntimeStore {
+  private launchWriteStarted: (() => void) | null = null
+  private releaseLaunch: (() => void) | null = null
+  private readonly launchStarted = new Promise<void>((resolve) => {
+    this.launchWriteStarted = resolve
+  })
+  private readonly launchReleased = new Promise<void>((resolve) => {
+    this.releaseLaunch = resolve
+  })
+
+  waitForLaunchWrite(): Promise<void> {
+    return this.launchStarted
+  }
+
+  releaseLaunchWrite(): void {
+    this.releaseLaunch?.()
+  }
+
+  override async updateRun(id: number, patch: RuntimeRunPatch) {
+    if (patch.status === 'running' && patch.currentSession === undefined) {
+      this.launchWriteStarted?.()
+      await this.launchReleased
+    }
+    return super.updateRun(id, patch)
+  }
 }
 
 async function createWorkspace(): Promise<string> {
