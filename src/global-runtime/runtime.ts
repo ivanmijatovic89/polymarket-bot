@@ -65,6 +65,7 @@ export interface GlobalRuntimeOptions {
   terminateProcess?: (pid: number) => Promise<void>
   verifyProcess?: (pid: number, expectedToken: string) => Promise<boolean>
   onBackgroundError?: (runId: number, error: unknown) => void
+  onFatalError?: (error: unknown) => void
 }
 
 export class GlobalRuntime {
@@ -79,9 +80,11 @@ export class GlobalRuntime {
   private readonly terminateProcess: (pid: number) => Promise<void>
   private readonly verifyProcess: (pid: number, expectedToken: string) => Promise<boolean>
   private readonly onBackgroundError: (runId: number, error: unknown) => void
+  private readonly onFatalError: ((error: unknown) => void) | null
   private readonly runTransitions = new Map<number, Promise<void>>()
   private runtimeLeaseRelease: (() => Promise<void>) | null = null
   private runtimeLeasePending: Promise<void> | null = null
+  private shutdownPromise: Promise<void> | null = null
   private shuttingDown = false
 
   constructor(
@@ -102,6 +105,7 @@ export class GlobalRuntime {
     this.onBackgroundError =
       options.onBackgroundError ??
       ((runId, error) => console.error(`[global-runtime] run ${runId} task failed:`, error))
+    this.onFatalError = options.onFatalError ?? null
   }
 
   async initialize(): Promise<void> {
@@ -293,8 +297,13 @@ export class GlobalRuntime {
     return this.requireRun(id)
   }
 
-  async shutdown(): Promise<void> {
+  shutdown(): Promise<void> {
     this.shuttingDown = true
+    if (!this.shutdownPromise) this.shutdownPromise = this.performShutdown()
+    return this.shutdownPromise
+  }
+
+  private async performShutdown(): Promise<void> {
     await this.runtimeLeasePending?.catch(() => undefined)
     const controls = [...this.active.values()]
     for (const control of controls) {
@@ -757,6 +766,17 @@ export class GlobalRuntime {
         const release = await this.store.acquireRuntimeLease((error) => {
           const leaseError = new Error('Global Runtime database lease was lost', { cause: error })
           this.reportBackgroundError(0, leaseError)
+          try {
+            this.onFatalError?.(leaseError)
+          } catch (callbackError) {
+            this.reportBackgroundError(
+              0,
+              new AggregateError(
+                [leaseError, callbackError],
+                'Global Runtime fatal-error callback failed',
+              ),
+            )
+          }
           void this.shutdown().catch((shutdownError: unknown) => {
             this.reportBackgroundError(0, shutdownError)
           })

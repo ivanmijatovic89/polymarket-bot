@@ -14,16 +14,20 @@ async function main(): Promise<void> {
   const runtime = new GlobalRuntime(new DrizzleRuntimeStore(), {
     logRoot: process.env.GLOBAL_RUNTIME_LOG_DIR || 'logs/global-runtime',
     rateLimitRetryMs: retrySeconds * 1000,
+    onFatalError: (error) => {
+      void shutdown('database lease lost', error)
+    },
   })
   let ready = false
   const app = buildRuntimeApi(runtime, { isReady: () => ready })
   let closing = false
 
-  const shutdown = async (signal: string): Promise<void> => {
+  async function shutdown(reason: string, fatalError?: unknown): Promise<void> {
+    if (fatalError !== undefined) process.exitCode = 1
     if (closing) return
     closing = true
     ready = false
-    console.log(`[global-runtime] ${signal} received, stopping active sessions...`)
+    console.log(`[global-runtime] ${reason}, stopping active sessions...`)
     await app.close().catch(() => undefined)
     await runtime.shutdown()
     await closeDb()
