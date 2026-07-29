@@ -145,6 +145,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     const profile = template.provider === 'claude' ? claudeProfiles[template.id] : null
     const profileLabel = profile === 'balsa' ? 'Balsa' : 'default account'
     try {
+      const stateDirectory = `.global-runtime/example-runs/${crypto.randomUUID()}`
       const created = await runtimeFetch<{ run: RuntimeRun }>('/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -163,9 +164,9 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
           missionPath: 'MISSION.md',
           maxSessions: SMOKE_SESSION_COUNT,
           delaySeconds: 0,
-          statusFile: 'STATUS.md',
-          journalFile: 'JOURNAL.md',
-          inboxFile: 'INBOX.md',
+          statusFile: `${stateDirectory}/STATUS.md`,
+          journalFile: `${stateDirectory}/JOURNAL.md`,
+          inboxFile: `${stateDirectory}/INBOX.md`,
           readOnlyFiles: ['RESULT.md'],
         }),
       })

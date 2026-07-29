@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict'
-import { mkdtemp, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
-import { RuntimeConflictError } from './errors.js'
+import { RuntimeConflictError, RuntimeValidationError } from './errors.js'
 import { MemoryRuntimeStore } from './memoryStore.js'
 import type {
   ProviderAdapter,
@@ -11,7 +11,7 @@ import type {
   ProviderExecutionContext,
   ProviderExecutionResult,
 } from './providers.js'
-import { GlobalRuntime } from './runtime.js'
+import { GlobalRuntime, type GlobalRuntimeOptions } from './runtime.js'
 import { SESSION_RESULT_FILE } from './contracts.js'
 
 const temporaryDirectories: string[] = []
@@ -99,6 +99,39 @@ test('workspace lock is race-safe for simultaneous start requests', async () => 
   await runtime.shutdown()
 })
 
+test('workspace lock rejects overlapping parent and child workspaces', async () => {
+  const workspace = await createWorkspace()
+  const nestedWorkspace = path.join(workspace, 'nested')
+  await mkdir(nestedWorkspace)
+  await writeFile(path.join(nestedWorkspace, 'MISSION.md'), '# Nested mission\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const provider = new BlockingProvider()
+  const runtime = createRuntime(store, provider)
+  const parent = await runtime.createRun(runInput(workspace, 'parent'))
+  const nested = await runtime.createRun(runInput(nestedWorkspace, 'nested'))
+
+  await runtime.start(parent.id)
+  await waitFor(() => Promise.resolve(provider.started))
+  await assert.rejects(() => runtime.start(nested.id), RuntimeConflictError)
+  await runtime.stop(parent.id)
+  await runtime.shutdown()
+})
+
+test('workspace lock rejects overlap with a persisted active owner', async () => {
+  const workspace = await createWorkspace()
+  const nestedWorkspace = path.join(workspace, 'nested')
+  await mkdir(nestedWorkspace)
+  await writeFile(path.join(nestedWorkspace, 'MISSION.md'), '# Nested mission\n', 'utf8')
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new BlockingProvider())
+  const parent = await runtime.createRun(runInput(workspace, 'persisted parent'))
+  await store.updateRun(parent.id, { status: 'running' })
+  const nested = await runtime.createRun(runInput(nestedWorkspace, 'nested'))
+
+  await assert.rejects(() => runtime.start(nested.id), RuntimeConflictError)
+  assert.equal((await store.getRun(nested.id))?.status, 'idle')
+})
+
 test('the same run cannot be launched twice by simultaneous requests', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()
@@ -117,7 +150,7 @@ test('initialization reconciles an interrupted session to waiting', async () => 
   const store = new MemoryRuntimeStore()
   const run = await store.createRun(runInput(workspace))
   const startedAt = new Date()
-  await store.updateRun(run.id, { status: 'running', currentSession: 1 })
+  await store.updateRun(run.id, { status: 'running', currentSession: 1, processId: 43210 })
   await store.createSession({
     runId: run.id,
     sessionNumber: 1,
@@ -128,10 +161,17 @@ test('initialization reconciles an interrupted session to waiting', async () => 
     startedAt,
   })
 
-  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const terminatedProcessIds: number[] = []
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    terminateProcess: (processId) => {
+      terminatedProcessIds.push(processId)
+      return Promise.resolve()
+    },
+  })
   await runtime.initialize()
 
   const detail = await runtime.getRunDetail(run.id)
+  assert.deepEqual(terminatedProcessIds, [43210])
   assert.equal(detail.run.status, 'waiting')
   assert.equal(detail.sessions[0]?.status, 'failed')
   assert.match(detail.run.lastError ?? '', /restarted/iu)
@@ -190,6 +230,35 @@ test('a result-path preparation failure does not consume or poison a session num
   assert.equal(detail.run.currentSession, 1)
   assert.equal(detail.sessions.length, 1)
   assert.equal(detail.sessions[0]?.sessionNumber, 1)
+})
+
+test('rejects runtime file roles that overlap each other or the reserved result path', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+
+  await assert.rejects(
+    () => runtime.createRun({ ...runInput(workspace), statusFile: 'MISSION.md' }),
+    RuntimeValidationError,
+  )
+
+  await symlink('MISSION.md', path.join(workspace, 'mission-alias.md'))
+  await assert.rejects(
+    () => runtime.createRun({ ...runInput(workspace), statusFile: 'mission-alias.md' }),
+    RuntimeValidationError,
+  )
+
+  const resultDirectory = path.join(workspace, '.global-runtime')
+  await mkdir(resultDirectory)
+  await writeFile(path.join(resultDirectory, 'session-result.json'), '{}', 'utf8')
+  await assert.rejects(
+    () =>
+      runtime.createRun({
+        ...runInput(workspace),
+        missionPath: '.global-runtime/session-result.json',
+      }),
+    RuntimeValidationError,
+  )
 })
 
 test('different workspaces can run concurrently', async () => {
@@ -296,8 +365,13 @@ class ConcurrentProvider implements ProviderAdapter {
   }
 }
 
-function createRuntime(store: MemoryRuntimeStore, provider: ProviderAdapter): GlobalRuntime {
+function createRuntime(
+  store: MemoryRuntimeStore,
+  provider: ProviderAdapter,
+  options: GlobalRuntimeOptions = {},
+): GlobalRuntime {
   return new GlobalRuntime(store, {
+    ...options,
     providers: { codex: provider },
     rateLimitRetryMs: 10,
     heartbeatMs: 10,

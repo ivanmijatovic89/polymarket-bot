@@ -129,6 +129,28 @@ test('observes a fast CLI exit while the started callback is still pending', asy
   assert.equal(result.exitCode, 0)
 })
 
+test('reports log stream failures without crashing the runtime process', async () => {
+  const workspace = await createDirectory()
+  const logDirectory = path.join(workspace, 'logs-invalid-stream')
+  await mkdir(path.join(logDirectory, 'session-0006.jsonl'), { recursive: true })
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = await createFakeCli(workspace)
+  const adapter = new CliProviderAdapter()
+
+  const result = await adapter.execute(
+    {
+      run: makeRun(workspace, 'codex'),
+      sessionNumber: 6,
+      prompt: 'test prompt',
+      logDirectory,
+    },
+    new AbortController().signal,
+    { onStarted: () => undefined, onActivity: () => undefined },
+  )
+
+  assert.match(result.error ?? '', /raw log failed/iu)
+  assert.equal(result.rateLimited, false)
+})
+
 async function createFakeCli(workspace: string): Promise<string> {
   const fakeCli = path.join(workspace, 'fake-cli.mjs')
   await writeFile(

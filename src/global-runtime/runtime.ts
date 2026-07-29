@@ -49,6 +49,7 @@ export interface GlobalRuntimeOptions {
   heartbeatMs?: number
   providers?: Partial<Record<RuntimeProvider, ProviderAdapter>>
   now?: () => Date
+  terminateProcess?: (pid: number) => Promise<void>
 }
 
 export class GlobalRuntime {
@@ -60,6 +61,7 @@ export class GlobalRuntime {
   private readonly heartbeatMs: number
   private readonly providers: Record<RuntimeProvider, ProviderAdapter>
   private readonly now: () => Date
+  private readonly terminateProcess: (pid: number) => Promise<void>
   private shuttingDown = false
 
   constructor(
@@ -75,10 +77,19 @@ export class GlobalRuntime {
     this.rateLimitRetryMs = options.rateLimitRetryMs ?? 15 * 60 * 1000
     this.heartbeatMs = options.heartbeatMs ?? 5000
     this.now = options.now ?? (() => new Date())
+    this.terminateProcess = options.terminateProcess ?? terminatePersistedProcess
   }
 
   async initialize(): Promise<void> {
     const interrupted = await this.store.listRunsByStatuses(['running', 'pause_requested'])
+    const interruptedProcessIds = [
+      ...new Set(
+        interrupted
+          .map((run) => run.processId)
+          .filter((processId): processId is number => processId !== null),
+      ),
+    ]
+    await Promise.all(interruptedProcessIds.map((processId) => this.terminateProcess(processId)))
     for (const run of interrupted) {
       await this.store.finishRunningSessions(
         run.id,
@@ -216,13 +227,19 @@ export class GlobalRuntime {
 
   private async reserveAndLaunch(run: RuntimeRun, initialDelayMs: number): Promise<RuntimeRun> {
     await validateRunWorkspace(run)
-    const localOwner = this.workspaceOwners.get(run.workspacePath)
-    if (localOwner !== undefined && localOwner !== run.id) {
-      throw new RuntimeConflictError(`workspace is already locked by run ${localOwner}`)
+    const localConflict = [...this.workspaceOwners].find(
+      ([workspacePath, owner]) =>
+        owner !== run.id && workspacesOverlap(workspacePath, run.workspacePath),
+    )
+    if (localConflict) {
+      throw new RuntimeConflictError(`workspace is already locked by run ${localConflict[1]}`)
     }
     this.workspaceOwners.set(run.workspacePath, run.id)
     try {
-      const conflict = await this.store.findWorkspaceConflict(run.workspacePath, run.id)
+      const conflict = (await this.store.listRunsByStatuses(ACTIVE_STATUSES)).find(
+        (candidate) =>
+          candidate.id !== run.id && workspacesOverlap(candidate.workspacePath, run.workspacePath),
+      )
       if (conflict) {
         throw new RuntimeConflictError(
           `workspace is already locked by run ${conflict.id} (${conflict.name})`,
@@ -550,5 +567,37 @@ function asValidationRun(input: CreateRuntimeRunInput): RuntimeRun {
     lastResultSummary: null,
     createdAt: now,
     updatedAt: now,
+  }
+}
+
+function workspacesOverlap(first: string, second: string): boolean {
+  return isSameOrAncestor(first, second) || isSameOrAncestor(second, first)
+}
+
+function isSameOrAncestor(parent: string, candidate: string): boolean {
+  const relative = path.relative(parent, candidate)
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+async function terminatePersistedProcess(pid: number): Promise<void> {
+  if (!Number.isSafeInteger(pid) || pid <= 0) return
+  if (!sendProcessSignal(pid, 'SIGTERM')) return
+
+  const deadline = Date.now() + 5000
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 100))
+    if (!sendProcessSignal(pid, 0)) return
+  }
+  sendProcessSignal(pid, 'SIGKILL')
+}
+
+function sendProcessSignal(pid: number, signal: NodeJS.Signals | 0): boolean {
+  const target = process.platform === 'win32' ? pid : -pid
+  try {
+    process.kill(target, signal)
+    return true
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code === 'ESRCH') return false
+    throw error
   }
 }

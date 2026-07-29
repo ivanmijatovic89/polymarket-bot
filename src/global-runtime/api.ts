@@ -6,10 +6,24 @@ interface RunParams {
   id: string
 }
 
-export function buildRuntimeApi(runtime: GlobalRuntime): FastifyInstance {
-  const app = Fastify({ logger: false, bodyLimit: 32 * 1024 })
+export interface RuntimeApiOptions {
+  isReady?: () => boolean
+}
 
-  app.get('/health', async () => ({ ok: true }))
+export function buildRuntimeApi(
+  runtime: GlobalRuntime,
+  options: RuntimeApiOptions = {},
+): FastifyInstance {
+  const app = Fastify({ logger: false, bodyLimit: 32 * 1024 })
+  const isReady = options.isReady ?? (() => true)
+
+  app.addHook('onRequest', async (request, reply) => {
+    if (request.url === '/health' || isReady()) return
+    return reply.code(503).header('retry-after', '1').send({ error: 'runtime is initializing' })
+  })
+  app.get('/health', async (_request, reply) =>
+    reply.code(isReady() ? 200 : 503).send({ ok: isReady() }),
+  )
   app.get('/runs', async () => ({ runs: await runtime.listRuns() }))
   app.post('/runs', async (request, reply) => {
     const run = await runtime.createRun(request.body)

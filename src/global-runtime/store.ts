@@ -23,7 +23,6 @@ export interface RuntimeStore {
   listRuns(): Promise<RuntimeRun[]>
   updateRun(id: number, patch: RuntimeRunPatch): Promise<RuntimeRun>
   listRunsByStatuses(statuses: RuntimeRun['status'][]): Promise<RuntimeRun[]>
-  findWorkspaceConflict(workspacePath: string, excludeRunId?: number): Promise<RuntimeRun | null>
 
   createSession(input: CreateSessionInput): Promise<RuntimeSession>
   startSession(input: CreateSessionInput, runPatch: RuntimeRunPatch): Promise<RuntimeSession>

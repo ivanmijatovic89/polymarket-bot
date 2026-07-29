@@ -9,12 +9,6 @@ import type {
   RuntimeSessionStatus,
 } from './types.js'
 
-const ACTIVE_STATUSES = new Set<RuntimeRun['status']>([
-  'running',
-  'pause_requested',
-  'rate_limited',
-])
-
 export class MemoryRuntimeStore implements RuntimeStore {
   private readonly runs = new Map<number, RuntimeRun>()
   private readonly sessions = new Map<number, RuntimeSession>()
@@ -66,19 +60,6 @@ export class MemoryRuntimeStore implements RuntimeStore {
   async listRunsByStatuses(statuses: RuntimeRun['status'][]): Promise<RuntimeRun[]> {
     const wanted = new Set(statuses)
     return [...this.runs.values()].filter((run) => wanted.has(run.status)).map(cloneRun)
-  }
-
-  async findWorkspaceConflict(
-    workspacePath: string,
-    excludeRunId?: number,
-  ): Promise<RuntimeRun | null> {
-    const run = [...this.runs.values()].find(
-      (candidate) =>
-        candidate.id !== excludeRunId &&
-        candidate.workspacePath === workspacePath &&
-        ACTIVE_STATUSES.has(candidate.status),
-    )
-    return run ? cloneRun(run) : null
   }
 
   async createSession(input: CreateSessionInput): Promise<RuntimeSession> {
