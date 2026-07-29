@@ -256,7 +256,7 @@ export function MissionRunView({ runId }: { runId: string }) {
           <CardTitle>Sessions</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[1280px] text-left text-xs">
+          <table className="w-full min-w-[1600px] text-left text-xs">
             <thead className="border-b text-muted-foreground">
               <tr>
                 {[
@@ -272,6 +272,7 @@ export function MissionRunView({ runId }: { runId: string }) {
                   'Output',
                   'Reasoning',
                   'Est. API cost',
+                  'Raw output',
                   'Summary',
                 ].map((label) => (
                     <th key={label} className="px-2 py-2 font-medium">
@@ -306,6 +307,9 @@ export function MissionRunView({ runId }: { runId: string }) {
                   </td>
                   <td className="px-2 py-3 whitespace-nowrap tabular-nums">
                     {formatUsd(session.estimatedApiCostUsd)}
+                  </td>
+                  <td className="max-w-lg px-2 py-3 break-all font-mono text-[11px]">
+                    {session.rawLogPath}
                   </td>
                   <td className="max-w-md px-2 py-3">{session.summary || session.error || '—'}</td>
                 </tr>
