@@ -131,7 +131,7 @@ async function create(argv: string[]): Promise<void> {
     ...(values.effort ? { effort: values.effort } : {}),
     ...(values.access ? { accessMode: values.access } : {}),
     authHome: values['auth-home'] ?? null,
-    workspacePath: path.resolve(values.workspace!),
+    workspacePath: resolveFromInvocationDir(values.workspace!),
     missionPath: values.mission,
     maxSessions: Number(values['max-sessions']),
     ...(values.delay !== undefined ? { delaySeconds: Number(values.delay) } : {}),
@@ -276,6 +276,14 @@ async function request<T>(method: string, pathname: string, body?: unknown): Pro
     throw new Error(error ?? `Global Runtime responded with HTTP ${response.status}`)
   }
   return parsed as T
+}
+
+// `npm run` executes scripts with cwd set to the package root, so resolving a
+// relative --workspace against process.cwd() would silently point the loop at
+// this repository instead of the directory the user typed the command in. npm
+// preserves that directory in INIT_CWD.
+function resolveFromInvocationDir(target: string): string {
+  return path.resolve(process.env.INIT_CWD?.trim() || process.cwd(), target)
 }
 
 function requireId(positionals: string[]): number {
