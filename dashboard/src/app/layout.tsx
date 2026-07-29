@@ -24,7 +24,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
       className={`${geistSans.variable} ${geistMono.variable} antialiased dark`}
       suppressHydrationWarning
     >
-      <body className="min-h-screen bg-background text-foreground">
+      <body className="min-h-screen bg-background text-foreground" suppressHydrationWarning>
         <Providers>
           <div className="flex min-h-screen flex-col">
             <header className="sticky top-0 z-30 border-b bg-background/80 backdrop-blur-md">
