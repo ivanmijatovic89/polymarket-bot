@@ -1,3 +1,4 @@
+import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 export const runtimeProviders = ['claude', 'codex'] as const
@@ -55,9 +56,10 @@ export const createRuntimeRunSchema = z
     missionPath: relativePathSchema,
     maxSessions: z.coerce.number().int().min(1).max(10_000),
     delaySeconds: z.coerce.number().int().min(0).max(86_400).default(20),
-    statusFile: relativePathSchema.default('STATUS.md'),
-    journalFile: relativePathSchema.default('JOURNAL.md'),
-    inboxFile: relativePathSchema.default('INBOX.md'),
+    statusFile: relativePathSchema.optional(),
+    journalFile: relativePathSchema.optional(),
+    inboxFile: relativePathSchema.optional(),
+    isolatedStateFiles: z.boolean().default(false),
     readOnlyFiles: z.array(relativePathSchema).max(20).default([]),
   })
   .strict()
@@ -68,6 +70,29 @@ export const createRuntimeRunSchema = z
         path: ['effort'],
         message: 'Claude Code supports effort levels through max, not ultra',
       })
+    }
+    if (
+      value.isolatedStateFiles &&
+      (value.statusFile !== undefined ||
+        value.journalFile !== undefined ||
+        value.inboxFile !== undefined)
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['isolatedStateFiles'],
+        message: 'isolated state files cannot be combined with explicit state file paths',
+      })
+    }
+  })
+  .transform((value) => {
+    const { isolatedStateFiles, ...run } = value
+    const stateDirectory = isolatedStateFiles ? `.global-runtime/runs/${randomUUID()}` : null
+    return {
+      ...run,
+      statusFile: run.statusFile ?? (stateDirectory ? `${stateDirectory}/STATUS.md` : 'STATUS.md'),
+      journalFile:
+        run.journalFile ?? (stateDirectory ? `${stateDirectory}/JOURNAL.md` : 'JOURNAL.md'),
+      inboxFile: run.inboxFile ?? (stateDirectory ? `${stateDirectory}/INBOX.md` : 'INBOX.md'),
     }
   })
 
