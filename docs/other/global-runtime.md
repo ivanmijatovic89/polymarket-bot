@@ -113,7 +113,7 @@ The runtime binds to `127.0.0.1:3053` by default. The dashboard proxies requests
 
 ## Subscription profiles
 
-With no `authHome`, the CLIs use their normal logged-in profile. To select a separate subscription profile, set the loop's optional auth home:
+With no `authHome`, Claude runs without a `CLAUDE_CONFIG_DIR` override and uses the same login as a normal terminal command. To select a separate subscription profile, set the loop's optional auth home:
 
 - Claude Code: the runtime sets `CLAUDE_CONFIG_DIR` to the configured directory.
 - Codex: the runtime sets `CODEX_HOME` to the configured directory.

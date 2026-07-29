@@ -158,11 +158,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
           effort: 'low',
           accessMode: 'workspace-write',
           authHome:
-            template.provider === 'claude'
-              ? profile === 'balsa'
-                ? '~/.claude-balsa'
-                : '~/.claude'
-              : null,
+            template.provider === 'claude' && profile === 'balsa' ? '~/.claude-balsa' : null,
           workspacePath: `${examplesRoot}/${SMOKE_WORKSPACE}`,
           missionPath: 'MISSION.md',
           maxSessions: SMOKE_SESSION_COUNT,
@@ -251,7 +247,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                         }
                         className="mt-1 w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground"
                       >
-                        <option value="default">Default (~/.claude)</option>
+                        <option value="default">Default (normal claude login)</option>
                         <option value="balsa">Balsa (~/.claude-balsa)</option>
                       </select>
                     </label>
