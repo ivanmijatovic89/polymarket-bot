@@ -157,7 +157,15 @@ Only two tables are added:
 - `runtime_runs`: configuration and current loop state;
 - `runtime_sessions`: one row per CLI invocation, including result, exact model, token/cache breakdown, estimated API-equivalent cost, the exact rendered session prompt, the contract version, and a SHA-256 hash of the mission file at session start.
 
-The session prompt is rendered from the template in `src/global-runtime/session-contract.md`; edit that Markdown file (not code) to change the contract wording for all future sessions.
+The session prompt is rendered from the template in `src/global-runtime/session-contract.md`; edit that Markdown file (not code) to change the contract wording. The template is read once per session rather than cached at startup, so an edit applies to the next session a running daemon launches.
+
+The file declares its own version in a leading marker, and that number is what lands in `runtime_sessions.contract_version`:
+
+```markdown
+<!-- contract-version: 1 -->
+```
+
+Bump it in the same edit that changes the wording, so sessions rendered from different contract texts stay distinguishable in the database. A missing or malformed marker, or a `{{placeholder}}` the renderer does not provide, fails the session loudly instead of shipping a half-rendered prompt to the provider.
 
 Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
 

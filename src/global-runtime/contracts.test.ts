@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { test } from 'node:test'
-import {
-  buildSessionPrompt,
-  GLOBAL_RUNTIME_CONTRACT_VERSION,
-  SESSION_RESULT_FILE,
-} from './contracts.js'
+import { renderSessionContract, SESSION_RESULT_FILE } from './contracts.js'
 import type { RuntimeRun } from './types.js'
 
 function exampleRun(overrides: Partial<RuntimeRun> = {}): RuntimeRun {
@@ -42,12 +39,14 @@ function exampleRun(overrides: Partial<RuntimeRun> = {}): RuntimeRun {
 }
 
 test('session prompt renders the template with every placeholder resolved', () => {
-  const prompt = buildSessionPrompt(exampleRun(), 2)
+  const { prompt, version } = renderSessionContract(exampleRun(), 2)
 
+  assert.ok(Number.isSafeInteger(version) && version >= 1)
   assert.doesNotMatch(prompt, /\{\{/u)
-  assert.match(prompt, /session 2 of at most 5/u)
+  assert.doesNotMatch(prompt, /contract-version:/u)
+  assert.match(prompt, /^You are session 2 of at most 5/u)
   assert.match(prompt, /"Contract test loop"/u)
-  assert.match(prompt, new RegExp(`Contract v${GLOBAL_RUNTIME_CONTRACT_VERSION}\\b`, 'u'))
+  assert.match(prompt, new RegExp(`Contract v${version}\\b`, 'u'))
   assert.ok(prompt.includes('MISSION.md'))
   assert.ok(prompt.includes('STATUS.md'))
   assert.ok(prompt.includes('JOURNAL.md'))
@@ -58,9 +57,16 @@ test('session prompt renders the template with every placeholder resolved', () =
   assert.match(prompt, /wait:/u)
 })
 
+test('contract version comes from the template file, not a code constant', () => {
+  const raw = readFileSync(new URL('./session-contract.md', import.meta.url), 'utf8')
+  const declared = /^<!--\s*contract-version:\s*(\d+)\s*-->/u.exec(raw)
+  assert.ok(declared, 'session-contract.md must declare its contract version')
+  assert.equal(renderSessionContract(exampleRun(), 1).version, Number(declared[1]))
+})
+
 test('session prompt lists configured read-only files or none', () => {
-  assert.match(buildSessionPrompt(exampleRun(), 1), /None\./u)
-  const prompt = buildSessionPrompt(
+  assert.match(renderSessionContract(exampleRun(), 1).prompt, /None\./u)
+  const { prompt } = renderSessionContract(
     exampleRun({ readOnlyFiles: ['RESULT.md', 'data/notes.md'] }),
     1,
   )
@@ -69,7 +75,7 @@ test('session prompt lists configured read-only files or none', () => {
 })
 
 test('session prompt uses per-run state file paths', () => {
-  const prompt = buildSessionPrompt(
+  const { prompt } = renderSessionContract(
     exampleRun({
       statusFile: '.global-runtime/runs/x/STATUS.md',
       journalFile: '.global-runtime/runs/x/JOURNAL.md',

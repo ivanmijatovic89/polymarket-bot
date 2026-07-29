@@ -58,7 +58,7 @@ Required flags: `--name`, `--provider` (`claude` or `codex`), `--model`, `--work
 | `--status-file`, `--journal-file`, `--inbox-file` | `STATUS.md`, `JOURNAL.md`, `INBOX.md` | Explicit state-file paths; not combinable with `--isolated`. |
 | `--start` | off | Start the loop right after creating it. |
 
-The workspace path is resolved to an absolute path before it is sent. Validation happens in the daemon — invalid combinations return the same errors the dashboard shows.
+`--workspace` is resolved to an absolute path before it is sent, relative to the directory the command was run in (`npm run` moves the process to the repository root, so the CLI reads npm's `INIT_CWD` to recover the caller's directory). The printed `workspace:` line is the path the daemon received — check it before starting a loop. Validation happens in the daemon; invalid combinations return the same errors the dashboard shows.
 
 ## Continuing a capped loop
 

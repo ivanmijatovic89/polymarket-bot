@@ -3,8 +3,7 @@ import { readFile } from 'node:fs/promises'
 import path from 'node:path'
 import {
   buildRuntimeProcessToken,
-  buildSessionPrompt,
-  GLOBAL_RUNTIME_CONTRACT_VERSION,
+  renderSessionContract,
   RUNTIME_PROCESS_TOKEN_ENV,
 } from './contracts.js'
 import { RuntimeConflictError, RuntimeNotFoundError, RuntimeValidationError } from './errors.js'
@@ -507,7 +506,7 @@ export class GlobalRuntime {
         `session-${String(sessionNumber).padStart(4, '0')}.jsonl`,
       )
       const startedAt = this.now()
-      const prompt = buildSessionPrompt(run, sessionNumber)
+      const { prompt, version: contractVersion } = renderSessionContract(run, sessionNumber)
       await prepareSessionResultFile(run)
       const missionHash = await computeMissionHash(run)
       const session = await this.withRunTransition(runId, async () => {
@@ -520,7 +519,7 @@ export class GlobalRuntime {
             model: run.model,
             effort: run.effort,
             prompt,
-            contractVersion: GLOBAL_RUNTIME_CONTRACT_VERSION,
+            contractVersion,
             missionHash,
             rawLogPath,
             startedAt,

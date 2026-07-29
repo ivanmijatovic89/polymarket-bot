@@ -1,3 +1,5 @@
+<!-- contract-version: 1 -->
+
 You are session {{sessionNumber}} of at most {{maxSessions}} for the loop "{{name}}".
 
 Follow Global Runtime Session Contract v{{contractVersion}}:
