@@ -1,16 +1,15 @@
 ---
 title: Global Runtime Loop Example
-description: Run one shared three-session mission with Fable, Opus 4.8, Opus 5, or GPT-5.6.
+description: Run one shared three-session mission with Fable, Opus 5, or GPT-5.6.
 ---
 
 # Global Runtime loop example
 
-Mission Control provides one small end-to-end mission that can be started with four model configurations. Every model runs the same mission from `examples/global-runtime/shared-loop/MISSION.md`.
+Mission Control provides one small end-to-end mission that can be started with three model configurations. Every model runs the same mission from `examples/global-runtime/shared-loop/MISSION.md`.
 
 | Launcher | Provider    | Model                      |
 | -------- | ----------- | -------------------------- |
 | Fable    | Claude Code | `claude-fable-5`           |
-| Opus 4.8 | Claude Code | `claude-opus-4-8`          |
 | Opus 5   | Claude Code | `opus` (latest Opus alias) |
 | GPT-5.6  | Codex       | `gpt-5.6-sol`              |
 
