@@ -50,6 +50,12 @@ interface ActiveRun {
   task: Promise<void>
 }
 
+interface Deferred<T> {
+  promise: Promise<T>
+  resolve: (value: T | PromiseLike<T>) => void
+  reject: (error: unknown) => void
+}
+
 export interface GlobalRuntimeOptions {
   logRoot?: string
   rateLimitRetryMs?: number
@@ -122,6 +128,40 @@ export class GlobalRuntime {
         processId: null,
         heartbeatAt: null,
         nextStartAt: null,
+        lastError: recoveryError,
+      })
+    }
+
+    const incompleteStops = await this.store.listRunsByStatuses(['stopped'])
+    for (const run of incompleteStops) {
+      const sessions = await this.store.listSessions(run.id)
+      const runningSession = sessions.find((session) => session.status === 'running')
+      if (run.processId === null && !runningSession) continue
+
+      let recoveryError = 'Runtime restarted while stop completion was still pending.'
+      if (run.processId !== null && runningSession) {
+        const expectedToken = buildRuntimeProcessToken(run.id, runningSession.sessionNumber)
+        if (await this.verifyProcess(run.processId, expectedToken)) {
+          await this.terminateProcess(run.processId)
+        } else {
+          recoveryError =
+            'Runtime restarted during stop, but the recorded process identity could not be verified. Confirm that no previous provider process remains before resuming.'
+        }
+      } else if (run.processId !== null) {
+        recoveryError =
+          'Runtime restarted during stop without a verifiable running session. Confirm that no previous provider process remains before resuming.'
+      }
+      await this.store.finishRunningSessions(
+        run.id,
+        'stopped',
+        'The Global Runtime restarted while stop completion was pending.',
+      )
+      await this.store.updateRun(run.id, {
+        status: 'stopped',
+        processId: null,
+        heartbeatAt: null,
+        nextStartAt: null,
+        endedAt: this.now(),
         lastError: recoveryError,
       })
     }
@@ -207,10 +247,14 @@ export class GlobalRuntime {
 
   async stop(id: number): Promise<RuntimeRun> {
     const run = await this.requireRun(id)
+    if (run.status === 'completed') {
+      throw new RuntimeConflictError('completed run cannot be stopped')
+    }
     const control = this.active.get(id)
     if (!control) {
-      if (run.status === 'completed')
-        throw new RuntimeConflictError('completed run cannot be stopped')
+      if (ACTIVE_STATUSES.includes(run.status)) {
+        throw new RuntimeConflictError('active run is not owned by this runtime')
+      }
       return this.store.updateRun(id, {
         status: 'stopped',
         processId: null,
@@ -222,7 +266,8 @@ export class GlobalRuntime {
     control.stopRequested = true
     control.abortController.abort()
     control.wakeDelay?.()
-    return this.store.updateRun(id, { status: 'stopped', nextStartAt: null })
+    await control.task
+    return this.requireRun(id)
   }
 
   async shutdown(): Promise<void> {
@@ -249,14 +294,33 @@ export class GlobalRuntime {
       throw new RuntimeConflictError('run is already active')
     }
     this.launching.add(run.id)
+    const launchReady = createDeferred<void>()
+    const control: ActiveRun = {
+      workspacePath: run.workspacePath,
+      abortController: new AbortController(),
+      pauseRequested: false,
+      stopRequested: false,
+      wakeDelay: null,
+      task: Promise.resolve(),
+    }
+    this.active.set(run.id, control)
+    control.task = this.runManaged(run.id, control, initialDelayMs, launchReady.promise)
     try {
-      return await this.reserveAndLaunch(run, initialDelayMs)
+      return await this.reserveAndLaunch(run, initialDelayMs, launchReady)
+    } catch (error) {
+      launchReady.reject(error)
+      await Promise.allSettled([control.task])
+      throw error
     } finally {
       this.launching.delete(run.id)
     }
   }
 
-  private async reserveAndLaunch(run: RuntimeRun, initialDelayMs: number): Promise<RuntimeRun> {
+  private async reserveAndLaunch(
+    run: RuntimeRun,
+    initialDelayMs: number,
+    launchReady: Deferred<void>,
+  ): Promise<RuntimeRun> {
     await validateRunWorkspace(run)
     const localConflict = [...this.workspaceOwners].find(
       ([workspacePath, owner]) =>
@@ -287,18 +351,7 @@ export class GlobalRuntime {
           nextStartAt: null,
         })
       }
-
-      const control: ActiveRun = {
-        workspacePath: run.workspacePath,
-        abortController: new AbortController(),
-        pauseRequested: false,
-        stopRequested: false,
-        wakeDelay: null,
-        task: Promise.resolve(),
-      }
-      this.active.set(run.id, control)
-      control.task = this.runManaged(run.id, control, initialDelayMs)
-
+      launchReady.resolve()
       return launchedRun
     } catch (error) {
       if (this.workspaceOwners.get(run.workspacePath) === run.id) {
@@ -312,12 +365,16 @@ export class GlobalRuntime {
     runId: number,
     control: ActiveRun,
     initialDelayMs: number,
+    launchReady: Promise<void>,
   ): Promise<void> {
+    let launched = false
     try {
+      await launchReady
+      launched = true
       if (initialDelayMs > 0) await this.wait(control, initialDelayMs)
       await this.runLoop(runId, control)
     } catch (error) {
-      if (!control.stopRequested) {
+      if (launched && !control.stopRequested) {
         const message = error instanceof Error ? error.message : String(error)
         await this.store.finishRunningSessions(runId, 'failed', message)
         await this.store.updateRun(runId, {
@@ -330,9 +387,13 @@ export class GlobalRuntime {
         })
       }
     } finally {
-      this.active.delete(runId)
-      if (this.workspaceOwners.get(control.workspacePath) === runId) {
-        this.workspaceOwners.delete(control.workspacePath)
+      try {
+        if (control.stopRequested) await this.markStopped(runId)
+      } finally {
+        this.active.delete(runId)
+        if (this.workspaceOwners.get(control.workspacePath) === runId) {
+          this.workspaceOwners.delete(control.workspacePath)
+        }
       }
     }
   }
@@ -385,6 +446,16 @@ export class GlobalRuntime {
         },
       )
 
+      if (control.stopRequested) {
+        await this.store.updateSession(session.id, {
+          status: 'stopped',
+          processId: null,
+          error: 'Stopped before the provider process was launched.',
+          finishedAt: this.now(),
+        })
+        return
+      }
+
       let lastActivityWrite = 0
       const updateHeartbeat = async () => {
         const at = this.now()
@@ -429,7 +500,6 @@ export class GlobalRuntime {
 
       if (control.stopRequested) {
         await this.finishSession(session, 'stopped', result, null, 'Stopped by user.')
-        await this.markStopped(runId)
         return
       }
 
@@ -555,7 +625,6 @@ export class GlobalRuntime {
 
   private async applyPendingControl(runId: number, control: ActiveRun): Promise<boolean> {
     if (control.stopRequested) {
-      await this.markStopped(runId)
       return true
     }
     if (control.pauseRequested) {
@@ -634,6 +703,16 @@ function workspacesOverlap(first: string, second: string): boolean {
 function isSameOrAncestor(parent: string, candidate: string): boolean {
   const relative = path.relative(parent, candidate)
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
+}
+
+function createDeferred<T>(): Deferred<T> {
+  let resolve!: Deferred<T>['resolve']
+  let reject!: Deferred<T>['reject']
+  const promise = new Promise<T>((resolvePromise, rejectPromise) => {
+    resolve = resolvePromise
+    reject = rejectPromise
+  })
+  return { promise, resolve, reject }
 }
 
 async function processHasRuntimeToken(pid: number, expectedToken: string): Promise<boolean> {

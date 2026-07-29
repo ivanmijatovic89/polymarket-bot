@@ -78,7 +78,7 @@ These three files are sufficient for communication across any number of fresh se
 - `JOURNAL.md`: the agent appends short milestone entries. It must not paste raw CLI output.
 - `INBOX.md`: Mission Control appends timestamped, uniquely identified user messages. Agents read new entries but never edit this file.
 
-Inbox appends are performed through a verified file handle. The runtime rejects paths that escape the canonical workspace, dangling final symlinks, non-regular files, and files that change while they are being opened.
+Inbox appends are performed through a verified file handle. The runtime rejects paths that escape the canonical workspace, dangling final symlinks, hard-linked files, non-regular files, and files that change while they are being opened.
 
 Mission, status, journal, inbox, and additional read-only paths must resolve to distinct files. None may use the reserved `.global-runtime/session-result.json` control path.
 
@@ -138,7 +138,7 @@ idle --start--> running --continue--> running
                      |--stop--------> stopped --resume--> running
 ```
 
-Pause does not terminate an active session; it prevents the next session. Stop sends `SIGTERM` to the CLI process group and escalates to `SIGKILL` after five seconds if needed.
+Pause does not terminate an active session; it prevents the next session. Stop sends `SIGTERM` to the CLI process group and escalates to `SIGKILL` after five seconds if needed. The stop request completes and the loop becomes `stopped` only after the provider task exits. Until then the persisted run remains active and recoverable, so an unclean daemon restart can still find and terminate the recorded process.
 
 ## Persistence and logs
 

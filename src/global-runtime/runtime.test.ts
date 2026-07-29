@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict'
 import { spawn } from 'node:child_process'
 import { once } from 'node:events'
-import { mkdir, mkdtemp, rm, symlink, writeFile } from 'node:fs/promises'
+import { link, mkdir, mkdtemp, rm, symlink, unlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
@@ -93,6 +93,50 @@ test('persists the running state before launching the provider task', async () =
   await start
   await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
   assert.deepEqual(provider.sessionNumbers, [1])
+})
+
+test('stop cancels a launch while the running state is being persisted', async () => {
+  const workspace = await createWorkspace()
+  const store = new DelayedLaunchStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'must not run', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  const start = runtime.start(run.id)
+  await store.waitForLaunchWrite()
+  const stop = runtime.stop(run.id)
+  await new Promise((resolve) => setImmediate(resolve))
+  store.releaseLaunchWrite()
+
+  const [, stopped] = await Promise.all([start, stop])
+  assert.equal(stopped.status, 'stopped')
+  assert.deepEqual(provider.sessionNumbers, [])
+  assert.equal((await store.getRun(run.id))?.status, 'stopped')
+  assert.equal((await store.listSessions(run.id)).length, 0)
+})
+
+test('stop remains recoverable until the provider process has exited', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new SlowStoppingProvider()
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await provider.waitForStart()
+  const stop = runtime.stop(run.id)
+  await provider.waitForAbort()
+
+  const stopping = await runtime.getRunDetail(run.id)
+  assert.equal(stopping.run.status, 'running')
+  assert.equal(stopping.run.processId, 12347)
+  assert.equal(stopping.sessions[0]?.status, 'running')
+
+  provider.release()
+  const stopped = await stop
+  assert.equal(stopped.status, 'stopped')
+  assert.equal(stopped.processId, null)
+  assert.equal((await runtime.getRunDetail(run.id)).sessions[0]?.status, 'stopped')
 })
 
 test('moves directly to waiting when the final allowed session requests continuation', async () => {
@@ -278,6 +322,39 @@ test('does not terminate an interrupted PID when process identity cannot be veri
   assert.match(recovered?.lastError ?? '', /could not be verified/iu)
 })
 
+test('initialization finishes a stopped run that still has a live session', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const run = await store.createRun(runInput(workspace))
+  const startedAt = new Date()
+  await store.updateRun(run.id, { status: 'stopped', currentSession: 1, processId: 43211 })
+  await store.createSession({
+    runId: run.id,
+    sessionNumber: 1,
+    provider: run.provider,
+    model: run.model,
+    effort: run.effort,
+    rawLogPath: 'test.jsonl',
+    startedAt,
+  })
+
+  const terminatedProcessIds: number[] = []
+  const runtime = createRuntime(store, new ScriptedProvider([]), {
+    verifyProcess: () => Promise.resolve(true),
+    terminateProcess: (processId) => {
+      terminatedProcessIds.push(processId)
+      return Promise.resolve()
+    },
+  })
+  await runtime.initialize()
+
+  const detail = await runtime.getRunDetail(run.id)
+  assert.deepEqual(terminatedProcessIds, [43211])
+  assert.equal(detail.run.status, 'stopped')
+  assert.equal(detail.run.processId, null)
+  assert.equal(detail.sessions[0]?.status, 'stopped')
+})
+
 test(
   'verifies the runtime token before terminating an interrupted process',
   { skip: process.platform === 'win32' },
@@ -396,6 +473,14 @@ test('rejects runtime file roles that overlap each other or the reserved result 
     () => runtime.createRun({ ...runInput(workspace), statusFile: 'mission-alias.md' }),
     RuntimeValidationError,
   )
+
+  const hardLink = path.join(workspace, 'mission-hardlink.md')
+  await link(path.join(workspace, 'MISSION.md'), hardLink)
+  await assert.rejects(
+    () => runtime.createRun({ ...runInput(workspace), statusFile: 'mission-hardlink.md' }),
+    RuntimeValidationError,
+  )
+  await unlink(hardLink)
 
   const resultDirectory = path.join(workspace, '.global-runtime')
   await mkdir(resultDirectory)
@@ -516,6 +601,55 @@ class BlockingRateLimitedProvider implements ProviderAdapter {
       rateLimited: true,
       error: 'Provider rate limit reached.',
       rawLogPath: 'rate-limited.jsonl',
+    }
+  }
+}
+
+class SlowStoppingProvider implements ProviderAdapter {
+  private startObserved: (() => void) | null = null
+  private abortObserved: (() => void) | null = null
+  private releaseExecution: (() => void) | null = null
+  private readonly started = new Promise<void>((resolve) => {
+    this.startObserved = resolve
+  })
+  private readonly aborted = new Promise<void>((resolve) => {
+    this.abortObserved = resolve
+  })
+  private readonly released = new Promise<void>((resolve) => {
+    this.releaseExecution = resolve
+  })
+
+  waitForStart(): Promise<void> {
+    return this.started
+  }
+
+  waitForAbort(): Promise<void> {
+    return this.aborted
+  }
+
+  release(): void {
+    this.releaseExecution?.()
+  }
+
+  async execute(
+    _context: ProviderExecutionContext,
+    signal: AbortSignal,
+    callbacks: ProviderExecutionCallbacks,
+  ): Promise<ProviderExecutionResult> {
+    await callbacks.onStarted(12347)
+    this.startObserved?.()
+    if (signal.aborted) this.abortObserved?.()
+    else signal.addEventListener('abort', () => this.abortObserved?.(), { once: true })
+    await this.released
+    return {
+      exitCode: null,
+      exitSignal: 'SIGTERM',
+      finalResult: null,
+      usage: emptyUsage(),
+      resolvedModel: null,
+      rateLimited: false,
+      error: null,
+      rawLogPath: 'slow-stop.jsonl',
     }
   }
 }
