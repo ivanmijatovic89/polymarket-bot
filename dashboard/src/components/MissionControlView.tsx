@@ -33,31 +33,33 @@ const SMOKE_TEMPLATES: SmokeTemplate[] = [
     label: 'Fable',
     provider: 'claude',
     model: 'claude-fable-5',
-    description: 'Claude Fable 5 · one low-effort session',
+    description: 'Claude Fable 5 · shared three-session mission',
   },
   {
     id: 'opus',
     label: 'Opus 4.8',
     provider: 'claude',
     model: 'claude-opus-4-8',
-    description: 'Claude Opus 4.8 · one low-effort session',
+    description: 'Claude Opus 4.8 · shared three-session mission',
   },
   {
     id: 'opus-5',
     label: 'Opus 5',
     provider: 'claude',
     model: 'opus',
-    description: 'Latest Claude Opus alias · one low-effort session',
+    description: 'Latest Claude Opus alias · shared three-session mission',
   },
   {
     id: 'gpt-5.6',
     label: 'GPT-5.6',
     provider: 'codex',
     model: 'gpt-5.6',
-    description: 'Codex GPT-5.6 · one low-effort session',
+    description: 'Codex GPT-5.6 · shared three-session mission',
   },
 ]
 
+const SMOKE_WORKSPACE = 'shared-loop'
+const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
 
 export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
@@ -149,8 +151,8 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
         body: JSON.stringify({
           name:
             template.provider === 'claude'
-              ? `Smoke: ${template.label} (${profileLabel})`
-              : `Smoke: ${template.label}`,
+              ? `Example: ${template.label} (${profileLabel})`
+              : `Example: ${template.label}`,
           provider: template.provider,
           model: template.model,
           effort: 'low',
@@ -161,9 +163,9 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                 ? '~/.claude-balsa'
                 : '~/.claude'
               : null,
-          workspacePath: `${examplesRoot}/${template.id}`,
+          workspacePath: `${examplesRoot}/${SMOKE_WORKSPACE}`,
           missionPath: 'MISSION.md',
-          maxSessions: 1,
+          maxSessions: SMOKE_SESSION_COUNT,
           delaySeconds: 0,
           statusFile: 'STATUS.md',
           journalFile: 'JOURNAL.md',
@@ -220,10 +222,11 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
       <section className="space-y-3">
         <div>
           <h2 className="flex items-center gap-2 text-sm font-semibold">
-            <Sparkles className="h-4 w-4" /> Quick smoke tests
+            <Sparkles className="h-4 w-4" /> Shared loop example
           </h2>
           <p className="mt-1 text-xs text-muted-foreground">
-            One session, low effort, no research. Each test writes a small RESULT.md and completes.
+            Every model runs the same low-cost mission through three fresh sessions: continue,
+            continue, complete.
           </p>
         </div>
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
@@ -260,7 +263,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                     className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
                   >
                     <Play className="h-4 w-4" />
-                    {startingTemplate === template.id ? 'Starting…' : 'Run smoke test'}
+                    {startingTemplate === template.id ? 'Starting…' : 'Start 3-session example'}
                   </button>
                 </CardContent>
               </Card>
