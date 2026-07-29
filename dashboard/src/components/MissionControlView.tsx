@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -69,6 +69,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   const [submitting, setSubmitting] = useState(false)
   const [actionRunId, setActionRunId] = useState<number | null>(null)
   const [startingTemplate, setStartingTemplate] = useState<SmokeTemplate['id'] | null>(null)
+  const smokeStartInFlight = useRef(false)
   const [claudeProfiles, setClaudeProfiles] = useState<
     Record<'fable' | 'opus' | 'opus-5', ClaudeProfile>
   >({
@@ -141,12 +142,13 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   }
 
   async function startSmokeTest(template: SmokeTemplate) {
+    if (smokeStartInFlight.current) return
+    smokeStartInFlight.current = true
     setStartingTemplate(template.id)
     setError(null)
     const profile = template.provider === 'claude' ? claudeProfiles[template.id] : null
     const profileLabel = profile === 'balsa' ? 'Balsa' : 'default account'
     try {
-      const stateDirectory = `.global-runtime/example-runs/${crypto.randomUUID()}`
       const created = await runtimeFetch<{ run: RuntimeRun }>('/runs', {
         method: 'POST',
         headers: { 'content-type': 'application/json' },
@@ -165,9 +167,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
           missionPath: 'MISSION.md',
           maxSessions: SMOKE_SESSION_COUNT,
           delaySeconds: 0,
-          statusFile: `${stateDirectory}/STATUS.md`,
-          journalFile: `${stateDirectory}/JOURNAL.md`,
-          inboxFile: `${stateDirectory}/INBOX.md`,
+          isolatedStateFiles: true,
           readOnlyFiles: ['RESULT.md'],
         }),
       })
@@ -177,6 +177,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     } catch (caught) {
       setError(caught instanceof Error ? caught.message : String(caught))
     } finally {
+      smokeStartInFlight.current = false
       setStartingTemplate(null)
     }
   }

@@ -82,6 +82,8 @@ Inbox appends are performed through a verified file handle. The runtime rejects 
 
 Mission, status, journal, inbox, and additional read-only paths must resolve to distinct files. None may use the reserved `.global-runtime/session-result.json` control path.
 
+Run creation can set `isolatedStateFiles: true` instead of supplying explicit status, journal, and inbox paths. Global Runtime then generates one server-owned directory under `.global-runtime/runs/` for all three files. The isolation option cannot be combined with explicit state-file paths.
+
 For steering, write the instruction in Mission Control. The active or next session reads `INBOX.md`, applies entries newer than the marker in `STATUS.md`, and advances that marker. If an answer is required before useful work can continue, the agent writes the question under `Needs human` and returns `wait`.
 
 Mission 0.1, Mission 0.2, and later loops use this same contract. Their mission files define their work; the runtime and Mission Control do not need mission-specific communication protocols.

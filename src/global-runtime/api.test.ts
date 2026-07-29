@@ -59,6 +59,63 @@ test('local API creates a loop and returns persisted Mission Control state', asy
   }
 })
 
+test('local API gives each run an isolated server-generated state directory', async () => {
+  const workspace = await mkdtemp(path.join(os.tmpdir(), 'runtime-api-state-test-'))
+  await writeFile(path.join(workspace, 'MISSION.md'), '# API state test\n', 'utf8')
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  const app = buildRuntimeApi(runtime)
+  const payload = {
+    name: 'Isolated API loop',
+    provider: 'codex',
+    model: 'test-model',
+    effort: 'high',
+    accessMode: 'workspace-write',
+    authHome: null,
+    workspacePath: workspace,
+    missionPath: 'MISSION.md',
+    maxSessions: 3,
+    delaySeconds: 0,
+    isolatedStateFiles: true,
+    readOnlyFiles: [],
+  }
+  try {
+    const first = await app.inject({ method: 'POST', url: '/runs', payload })
+    const second = await app.inject({ method: 'POST', url: '/runs', payload })
+    const sharedDefaults = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { ...payload, isolatedStateFiles: false },
+    })
+    const ambiguous = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { ...payload, statusFile: 'STATUS.md' },
+    })
+    assert.equal(first.statusCode, 201)
+    assert.equal(second.statusCode, 201)
+    assert.equal(sharedDefaults.statusCode, 201)
+    assert.equal(ambiguous.statusCode, 400)
+
+    const firstRun = first.json<{
+      run: { statusFile: string; journalFile: string; inboxFile: string }
+    }>().run
+    const secondRun = second.json<{
+      run: { statusFile: string; journalFile: string; inboxFile: string }
+    }>().run
+    const firstDirectory = path.posix.dirname(firstRun.statusFile)
+
+    assert.match(firstDirectory, /^\.global-runtime\/runs\/[0-9a-f-]{36}$/u)
+    assert.equal(path.posix.dirname(firstRun.journalFile), firstDirectory)
+    assert.equal(path.posix.dirname(firstRun.inboxFile), firstDirectory)
+    assert.notEqual(path.posix.dirname(secondRun.statusFile), firstDirectory)
+    assert.equal(sharedDefaults.json<{ run: { statusFile: string } }>().run.statusFile, 'STATUS.md')
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+    await rm(workspace, { recursive: true })
+  }
+})
+
 test('local API reports invalid workspace configuration as a client error', async () => {
   const runtime = new GlobalRuntime(new MemoryRuntimeStore())
   const app = buildRuntimeApi(runtime)
