@@ -113,6 +113,20 @@ All four variables are required when any command that reads from or writes to My
 
 ---
 
+## Global Runtime
+
+| Variable | Type | Default | Description |
+| --- | --- | --- | --- |
+| `GLOBAL_RUNTIME_HOST` | `string` | `127.0.0.1` | Local control API bind address. Keep this loopback-only unless an authenticated proxy is added. |
+| `GLOBAL_RUNTIME_PORT` | `integer` | `3053` | Local control API port. |
+| `GLOBAL_RUNTIME_URL` | `URL` | `http://127.0.0.1:3053` | Server-side dashboard proxy target. |
+| `GLOBAL_RUNTIME_LOG_DIR` | `path` | `logs/global-runtime` | Raw provider JSONL and stderr root. |
+| `GLOBAL_RUNTIME_RATE_LIMIT_RETRY_SECONDS` | `integer` | `900` | Delay before retrying a quota-limited loop. |
+| `GLOBAL_RUNTIME_CLAUDE_BIN` | `path/name` | `claude` | Claude Code CLI override, primarily for testing. |
+| `GLOBAL_RUNTIME_CODEX_BIN` | `path/name` | `codex` | Codex CLI override, primarily for testing. |
+
+---
+
 ## Recorder
 
 | Variable                      | Type           | Default              | Description                                                                                                                                                            |

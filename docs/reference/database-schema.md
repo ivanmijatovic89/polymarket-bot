@@ -85,6 +85,14 @@ field references.
 
 ---
 
+## Tables: `runtime_runs`, `runtime_sessions`
+
+The domain-neutral [Global Runtime](/other/global-runtime) uses exactly two tables. `runtime_runs` stores loop configuration and current lifecycle state. `runtime_sessions` stores one row per Claude Code or Codex CLI invocation, including the structured action, summary, exit status, token usage, heartbeat, and raw-log path. Human messages and progress documents remain in the configured workspace and are not duplicated into MySQL.
+
+Migration: `drizzle/0030_global_runtime.sql`.
+
+---
+
 ## Query Helpers
 
 Helpers are split into three modules, each exporting its own functions (no wildcard re-export from `src/db/index.ts` to avoid name collisions between the recorded and telonex families):

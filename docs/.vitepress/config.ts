@@ -324,6 +324,7 @@ export default withMermaid(
             { text: 'MySQL Local vs Worker1 Benchmark', link: '/other/mysql-local-vs-worker1-ai-agent-benchmark' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
+            { text: 'Global Runtime', link: '/other/global-runtime' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },
           ],
         },
