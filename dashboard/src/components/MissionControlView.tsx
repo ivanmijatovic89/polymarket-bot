@@ -12,7 +12,7 @@ import type { RuntimeRun, RuntimeRunSummary } from '@/lib/runtimeTypes'
 type RunsResponse = { runs: RuntimeRunSummary[] }
 type ClaudeProfile = 'default' | 'balsa'
 type ClaudeSmokeTemplate = {
-  id: 'fable' | 'opus' | 'opus-5'
+  id: 'fable' | 'opus-5'
   label: string
   provider: 'claude'
   model: string
@@ -34,13 +34,6 @@ const SMOKE_TEMPLATES: SmokeTemplate[] = [
     provider: 'claude',
     model: 'claude-fable-5',
     description: 'Claude Fable 5 · shared three-session mission',
-  },
-  {
-    id: 'opus',
-    label: 'Opus 4.8',
-    provider: 'claude',
-    model: 'claude-opus-4-8',
-    description: 'Claude Opus 4.8 · shared three-session mission',
   },
   {
     id: 'opus-5',
@@ -71,10 +64,9 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   const [startingTemplate, setStartingTemplate] = useState<SmokeTemplate['id'] | null>(null)
   const smokeStartInFlight = useRef(false)
   const [claudeProfiles, setClaudeProfiles] = useState<
-    Record<'fable' | 'opus' | 'opus-5', ClaudeProfile>
+    Record<ClaudeSmokeTemplate['id'], ClaudeProfile>
   >({
     fable: 'default',
-    opus: 'default',
     'opus-5': 'default',
   })
   const [error, setError] = useState<string | null>(null)
