@@ -29,7 +29,7 @@ Open `http://127.0.0.1:3051/mission-control`. Under **Shared loop example**, cho
 
 Claude examples offer two subscription profiles:
 
-- **Default** uses the normal Claude Code login (`~/.claude`).
+- **Default** leaves `CLAUDE_CONFIG_DIR` unset and uses the same login as a normal `claude` terminal command.
 - **Balsa** sets `CLAUDE_CONFIG_DIR=~/.claude-balsa` for that CLI process.
 
 The GPT-5.6 example uses the normal Codex login (`CODEX_HOME` is not overridden).

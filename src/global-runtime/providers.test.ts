@@ -10,10 +10,12 @@ import type { RuntimeRun } from './types.js'
 const temporaryDirectories: string[] = []
 const originalCodexBin = process.env.GLOBAL_RUNTIME_CODEX_BIN
 const originalClaudeBin = process.env.GLOBAL_RUNTIME_CLAUDE_BIN
+const originalClaudeConfigDir = process.env.CLAUDE_CONFIG_DIR
 
 afterEach(async () => {
   restoreEnv('GLOBAL_RUNTIME_CODEX_BIN', originalCodexBin)
   restoreEnv('GLOBAL_RUNTIME_CLAUDE_BIN', originalClaudeBin)
+  restoreEnv('CLAUDE_CONFIG_DIR', originalClaudeConfigDir)
   await Promise.all(
     temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true })),
   )
@@ -44,6 +46,30 @@ test('builds shell-free Claude and Codex commands with the requested access and 
   assert.ok(claude.args.includes('--no-session-persistence'))
   assert.ok(claude.args.includes('acceptEdits'))
   assert.ok(claude.args.includes('--json-schema'))
+})
+
+test('uses normal Claude authentication unless a separate profile is selected', async () => {
+  const workspace = await createDirectory()
+  process.env.CLAUDE_CONFIG_DIR = '/tmp/inherited-claude-profile'
+
+  const defaultRun = makeRun(workspace, 'claude')
+  const defaultClaude = await prepareProviderCommand({
+    run: defaultRun,
+    sessionNumber: 1,
+    prompt: 'mission',
+    logDirectory: path.join(workspace, 'default-logs'),
+  })
+  assert.equal(defaultClaude.env.CLAUDE_CONFIG_DIR, undefined)
+
+  const alternateRun = makeRun(workspace, 'claude')
+  alternateRun.authHome = '~/.claude-balsa'
+  const alternateClaude = await prepareProviderCommand({
+    run: alternateRun,
+    sessionNumber: 1,
+    prompt: 'mission',
+    logDirectory: path.join(workspace, 'alternate-logs'),
+  })
+  assert.equal(alternateClaude.env.CLAUDE_CONFIG_DIR, path.join(os.homedir(), '.claude-balsa'))
 })
 
 test('parses structured output and usage from fake Claude and Codex CLI processes', async () => {

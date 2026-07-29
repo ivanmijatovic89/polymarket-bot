@@ -191,6 +191,7 @@ function prepareClaudeCommand(
     CLAUDE_CODE_DISABLE_AUTO_MEMORY: '1',
   }
   if (context.run.authHome) env.CLAUDE_CONFIG_DIR = expandHome(context.run.authHome)
+  else delete env.CLAUDE_CONFIG_DIR
 
   return {
     command: process.env.GLOBAL_RUNTIME_CLAUDE_BIN?.trim() || 'claude',
