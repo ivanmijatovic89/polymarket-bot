@@ -39,10 +39,10 @@ The GPT-5.6 example uses the normal Codex login (`CODEX_HOME` is not overridden)
 The loop should reach `completed` after three sessions. The detail page should show:
 
 - three completed sessions;
-- token usage reported by the CLI;
+- duration, exact resolved model, token/cache breakdown, and estimated API-equivalent cost;
 - populated `STATUS.md` and `JOURNAL.md`;
 - `RESULT.md` showing that all three checkpoints passed.
 
 All launchers use the same workspace and mission. Each launch gets fresh status, journal, and inbox paths under `.global-runtime/example-runs/`, so steering and memory from an older run cannot leak into a new example. Generated runtime files are ignored by Git. The workspace lock prevents two examples from running at the same time, so wait for one model to finish before starting another.
 
-These are deliberately small tests, but each CLI still loads its normal startup instructions and tool context. Actual subscription usage can therefore be larger than the visible mission text.
+These are deliberately small tests, but each CLI still loads its normal startup instructions and tool context. Each tool call can cause another model turn that rereads the cached prefix, so cumulative cache-read tokens can be much larger than the mission text. The displayed API-equivalent estimate is useful for model comparison even when the run uses a subscription and is not billed as an API request.

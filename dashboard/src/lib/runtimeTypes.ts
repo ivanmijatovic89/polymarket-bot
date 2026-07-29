@@ -16,6 +16,7 @@ export type RuntimeRun = {
   model: string
   effort: string
   accessMode: 'workspace-write' | 'full-access'
+  authHome: string | null
   workspacePath: string
   missionPath: string
   maxSessions: number
@@ -53,6 +54,10 @@ export type RuntimeSession = {
   cachedInputTokens: number | null
   outputTokens: number | null
   reasoningOutputTokens: number | null
+  cacheReadInputTokens: number | null
+  cacheCreationInputTokens: number | null
+  estimatedApiCostUsd: number | null
+  resolvedModel: string | null
   startedAt: string
   finishedAt: string | null
 }
@@ -63,9 +68,17 @@ export type RuntimeRunDetail = {
   totals: {
     inputTokens: number | null
     cachedInputTokens: number | null
+    cacheReadInputTokens: number | null
+    cacheCreationInputTokens: number | null
     outputTokens: number | null
     reasoningOutputTokens: number | null
+    estimatedApiCostUsd: number | null
   }
+}
+
+export type RuntimeRunSummary = RuntimeRun & {
+  resolvedModel: string | null
+  totals: RuntimeRunDetail['totals']
 }
 
 export type RuntimeFile = {

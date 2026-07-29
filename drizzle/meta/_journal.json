@@ -218,6 +218,13 @@
       "when": 1785312000000,
       "tag": "0030_global_runtime",
       "breakpoints": true
+    },
+    {
+      "idx": 31,
+      "version": "5",
+      "when": 1785326055000,
+      "tag": "0031_runtime_session_metrics",
+      "breakpoints": true
     }
   ]
 }
