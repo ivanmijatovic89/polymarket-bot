@@ -93,8 +93,12 @@ test('parses structured output and usage from fake Claude and Codex CLI processe
     )
     assert.equal(result.exitCode, 0)
     assert.deepEqual(result.finalResult, { action: 'complete', summary: `${provider} finished` })
-    assert.equal(result.usage.inputTokens, provider === 'codex' ? 11 : 21)
+    assert.equal(result.usage.inputTokens, provider === 'codex' ? 9 : 21)
+    assert.equal(result.usage.cacheReadInputTokens, provider === 'codex' ? 2 : 4)
+    assert.equal(result.usage.cacheCreationInputTokens, provider === 'codex' ? null : 6)
     assert.equal(result.usage.outputTokens, provider === 'codex' ? 7 : 9)
+    assert.equal(result.usage.estimatedApiCostUsd, provider === 'codex' ? null : 0.125)
+    assert.equal(result.resolvedModel, provider === 'codex' ? 'test-model' : 'claude-test-model')
   }
 })
 
@@ -168,7 +172,7 @@ if (provider === 'codex') {
   await writeFile(args[outputIndex + 1], JSON.stringify(result))
   console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 11, cached_input_tokens: 2, output_tokens: 7, reasoning_output_tokens: 3 } }))
 } else {
-  console.log(JSON.stringify({ type: 'result', structured_output: result, usage: { input_tokens: 21, cache_read_input_tokens: 4, output_tokens: 9 } }))
+  console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.125, structured_output: result, usage: { input_tokens: 21, cache_read_input_tokens: 4, cache_creation_input_tokens: 6, output_tokens: 9 }, modelUsage: { 'claude-helper-model': { costUSD: 0.001 }, 'claude-test-model': { costUSD: 0.124 } } }))
 }
 `,
     'utf8',

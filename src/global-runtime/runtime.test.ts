@@ -44,6 +44,10 @@ test('runs fresh sessions until the provider reports completion', async () => {
   assert.equal(detail.run.lastResultSummary, 'mission complete')
   assert.deepEqual(provider.sessionNumbers, [1, 2])
   assert.equal(detail.totals.inputTokens, 30)
+
+  const [summary] = await runtime.listRuns()
+  assert.equal(summary?.resolvedModel, 'test-model')
+  assert.equal(summary?.totals.inputTokens, 30)
 })
 
 test('pause is applied between sessions and resume starts a fresh session', async () => {
@@ -332,6 +336,7 @@ class BlockingProvider implements ProviderAdapter {
       exitSignal: 'SIGTERM',
       finalResult: null,
       usage: emptyUsage(),
+      resolvedModel: null,
       rateLimited: false,
       error: null,
       rawLogPath: 'blocked.jsonl',
@@ -414,6 +419,7 @@ function successfulResult(
     exitSignal: null,
     finalResult: { action, summary },
     usage: { ...emptyUsage(), inputTokens },
+    resolvedModel: 'test-model',
     rateLimited: false,
     error: null,
     rawLogPath: 'test.jsonl',
@@ -424,8 +430,11 @@ function emptyUsage() {
   return {
     inputTokens: null,
     cachedInputTokens: null,
+    cacheReadInputTokens: null,
+    cacheCreationInputTokens: null,
     outputTokens: null,
     reasoningOutputTokens: null,
+    estimatedApiCostUsd: null,
   }
 }
 

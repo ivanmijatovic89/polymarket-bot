@@ -148,25 +148,39 @@ export function MissionRunView({ runId }: { runId: string }) {
 
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         <Stat label="Sessions" value={`${run.currentSession} / ${run.maxSessions}`} />
-        <Stat label="Input tokens" value={formatNumber(totals.inputTokens)} />
-        <Stat label="Cached input" value={formatNumber(totals.cachedInputTokens)} />
-        <Stat
-          label="Output + reasoning"
-          value={formatNumber((totals.outputTokens ?? 0) + (totals.reasoningOutputTokens ?? 0))}
-        />
+        <Stat label="Run duration" value={formatDurationBetween(run.startedAt, run.endedAt)} />
+        <Stat label="Est. API cost" value={formatUsd(totals.estimatedApiCostUsd)} />
+        <Stat label="Uncached input" value={formatNumber(totals.inputTokens)} />
+        <Stat label="Cache read" value={formatNumber(totals.cacheReadInputTokens)} />
+        <Stat label="Cache write" value={formatNumber(totals.cacheCreationInputTokens)} />
+        <Stat label="Output" value={formatNumber(totals.outputTokens)} />
+        <Stat label="Reasoning" value={formatNumber(totals.reasoningOutputTokens)} />
       </div>
+
+      <p className="text-xs text-muted-foreground">
+        API-equivalent cost is informational even for subscription runs. Cache reads are cumulative
+        across every provider turn; they are not the size of one unique prompt.
+      </p>
 
       <Card>
         <CardHeader>
           <CardTitle>Current state</CardTitle>
         </CardHeader>
-        <CardContent className="grid gap-3 text-sm md:grid-cols-2">
+        <CardContent className="grid gap-3 text-sm md:grid-cols-2 xl:grid-cols-3">
+          <Meta label="Provider" value={run.provider} />
+          <Meta label="Account" value={formatAccount(run)} />
+          <Meta label="Requested model" value={run.model} mono />
+          <Meta label="Exact model" value={latestResolvedModel(sessions) ?? run.model} mono />
+          <Meta label="Effort" value={run.effort} />
+          <Meta label="Access" value={run.accessMode} />
+          <Meta label="Started" value={formatDate(run.startedAt)} />
+          <Meta label="Ended" value={formatDate(run.endedAt)} />
           <Meta label="Workspace" value={run.workspacePath} mono />
           <Meta label="Mission" value={run.missionPath} mono />
           <Meta label="Last activity" value={formatDate(run.lastActivityAt)} />
           <Meta label="Heartbeat" value={formatDate(run.heartbeatAt)} />
           <Meta label="Next start" value={formatDate(run.nextStartAt)} />
-          <div className="md:col-span-2">
+          <div className="md:col-span-2 xl:col-span-3">
             <Meta label="Last result" value={run.lastResultSummary || '—'} />
           </div>
         </CardContent>
@@ -235,16 +249,28 @@ export function MissionRunView({ runId }: { runId: string }) {
           <CardTitle>Sessions</CardTitle>
         </CardHeader>
         <CardContent className="overflow-x-auto">
-          <table className="w-full min-w-[760px] text-left text-xs">
+          <table className="w-full min-w-[1280px] text-left text-xs">
             <thead className="border-b text-muted-foreground">
               <tr>
-                {['#', 'Status', 'Action', 'Started', 'Input', 'Cached', 'Output', 'Summary'].map(
-                  (label) => (
+                {[
+                  '#',
+                  'Status',
+                  'Action',
+                  'Exact model',
+                  'Started',
+                  'Duration',
+                  'Input',
+                  'Cache read',
+                  'Cache write',
+                  'Output',
+                  'Reasoning',
+                  'Est. API cost',
+                  'Summary',
+                ].map((label) => (
                     <th key={label} className="px-2 py-2 font-medium">
                       {label}
                     </th>
-                  ),
-                )}
+                  ))}
               </tr>
             </thead>
             <tbody>
@@ -253,12 +279,27 @@ export function MissionRunView({ runId }: { runId: string }) {
                   <td className="px-2 py-3 tabular-nums">{session.sessionNumber}</td>
                   <td className="px-2 py-3">{session.status}</td>
                   <td className="px-2 py-3">{session.action || '—'}</td>
+                  <td className="px-2 py-3 whitespace-nowrap font-mono">
+                    {session.resolvedModel ?? session.model}
+                  </td>
                   <td className="px-2 py-3 whitespace-nowrap">{formatDate(session.startedAt)}</td>
+                  <td className="px-2 py-3 whitespace-nowrap tabular-nums">
+                    {formatDurationBetween(session.startedAt, session.finishedAt)}
+                  </td>
                   <td className="px-2 py-3 tabular-nums">{formatNumber(session.inputTokens)}</td>
                   <td className="px-2 py-3 tabular-nums">
-                    {formatNumber(session.cachedInputTokens)}
+                    {formatNumber(session.cacheReadInputTokens)}
+                  </td>
+                  <td className="px-2 py-3 tabular-nums">
+                    {formatNumber(session.cacheCreationInputTokens)}
                   </td>
                   <td className="px-2 py-3 tabular-nums">{formatNumber(session.outputTokens)}</td>
+                  <td className="px-2 py-3 tabular-nums">
+                    {formatNumber(session.reasoningOutputTokens)}
+                  </td>
+                  <td className="px-2 py-3 whitespace-nowrap tabular-nums">
+                    {formatUsd(session.estimatedApiCostUsd)}
+                  </td>
                   <td className="max-w-md px-2 py-3">{session.summary || session.error || '—'}</td>
                 </tr>
               ))}
@@ -313,4 +354,36 @@ function formatNumber(value: number | null): string {
 }
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString(undefined, { hourCycle: 'h23' }) : '—'
+}
+
+function formatAccount(run: RuntimeRunDetail['run']): string {
+  if (run.provider === 'claude') {
+    if (!run.authHome) return 'Default Claude login'
+    return run.authHome === '~/.claude-balsa'
+      ? `Balsa (${run.authHome})`
+      : `Claude profile (${run.authHome})`
+  }
+  return run.authHome ? `Codex profile (${run.authHome})` : 'Default Codex login'
+}
+
+function latestResolvedModel(sessions: RuntimeRunDetail['sessions']): string | null {
+  return sessions.find((session) => session.resolvedModel)?.resolvedModel ?? null
+}
+
+function formatDurationBetween(start: string | null, end: string | null): string {
+  if (!start) return '—'
+  const startMs = new Date(start).getTime()
+  const endMs = end ? new Date(end).getTime() : Date.now()
+  const totalSeconds = Math.round(Math.max(0, endMs - startMs) / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function formatUsd(value: number | null): string {
+  if (value === null) return '—'
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
 }

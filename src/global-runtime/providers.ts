@@ -6,6 +6,7 @@ import path from 'node:path'
 import { createInterface } from 'node:readline'
 import { finished } from 'node:stream/promises'
 import { SESSION_RESULT_JSON_SCHEMA } from './contracts.js'
+import { estimateCodexApiCost, resolveCodexModel } from './pricing.js'
 import type { RuntimeRun, TokenUsage } from './types.js'
 
 export interface ProviderExecutionContext {
@@ -25,6 +26,7 @@ export interface ProviderExecutionResult {
   exitSignal: string | null
   finalResult: unknown
   usage: TokenUsage
+  resolvedModel: string | null
   rateLimited: boolean
   error: string | null
   rawLogPath: string
@@ -51,14 +53,18 @@ export interface PreparedCommand {
 interface ParsedProviderOutput {
   finalResult: unknown
   usage: TokenUsage
+  resolvedModel: string | null
   errors: string[]
 }
 
 const EMPTY_USAGE: TokenUsage = {
   inputTokens: null,
   cachedInputTokens: null,
+  cacheReadInputTokens: null,
+  cacheCreationInputTokens: null,
   outputTokens: null,
   reasoningOutputTokens: null,
+  estimatedApiCostUsd: null,
 }
 
 export class CliProviderAdapter implements ProviderAdapter {
@@ -154,7 +160,7 @@ export class CliProviderAdapter implements ProviderAdapter {
     const parsed =
       context.run.provider === 'claude'
         ? parseClaudeEvents(events)
-        : await parseCodexEvents(events, prepared.finalOutputPath)
+        : await parseCodexEvents(events, prepared.finalOutputPath, context.run.model)
     const providerErrors = [...parsed.errors, stderrText].filter(Boolean).join('\n')
     const combinedErrors = [spawnError, ...streamErrors, providerErrors].filter(Boolean).join('\n')
 
@@ -163,6 +169,7 @@ export class CliProviderAdapter implements ProviderAdapter {
       exitSignal: exit.signal,
       finalResult: parsed.finalResult,
       usage: parsed.usage,
+      resolvedModel: parsed.resolvedModel,
       rateLimited: isRateLimitError(providerErrors),
       error:
         spawnError ??
@@ -285,7 +292,7 @@ function parseClaudeEvents(events: unknown[]): ParsedProviderOutput {
     if (event.type === 'result') resultEvent = event
     if (event.type === 'error') errors.push(JSON.stringify(event))
   }
-  if (!resultEvent) return { finalResult: null, usage: EMPTY_USAGE, errors }
+  if (!resultEvent) return { finalResult: null, usage: EMPTY_USAGE, resolvedModel: null, errors }
 
   const usage = isRecord(resultEvent.usage) ? resultEvent.usage : {}
   if (resultEvent.is_error === true && typeof resultEvent.result === 'string') {
@@ -304,9 +311,13 @@ function parseClaudeEvents(events: unknown[]): ParsedProviderOutput {
         usage.cache_read_input_tokens,
         usage.cache_creation_input_tokens,
       ),
+      cacheReadInputTokens: numberOrNull(usage.cache_read_input_tokens),
+      cacheCreationInputTokens: numberOrNull(usage.cache_creation_input_tokens),
       outputTokens: numberOrNull(usage.output_tokens),
       reasoningOutputTokens: null,
+      estimatedApiCostUsd: numberOrNull(resultEvent.total_cost_usd),
     },
+    resolvedModel: primaryClaudeModel(resultEvent.modelUsage),
     errors,
   }
 }
@@ -314,6 +325,7 @@ function parseClaudeEvents(events: unknown[]): ParsedProviderOutput {
 async function parseCodexEvents(
   events: unknown[],
   finalOutputPath: string | null,
+  requestedModel: string,
 ): Promise<ParsedProviderOutput> {
   let usage: TokenUsage = EMPTY_USAGE
   let fallbackFinal: unknown = null
@@ -321,12 +333,25 @@ async function parseCodexEvents(
   for (const event of events) {
     if (!isRecord(event)) continue
     if (event.type === 'turn.completed' && isRecord(event.usage)) {
+      const totalInputTokens = numberOrNull(event.usage.input_tokens)
+      const cacheReadInputTokens = numberOrNull(event.usage.cached_input_tokens)
+      const cacheCreationInputTokens = numberOrNull(
+        event.usage.cache_write_tokens ?? event.usage.cache_creation_input_tokens,
+      )
       usage = {
-        inputTokens: numberOrNull(event.usage.input_tokens),
-        cachedInputTokens: numberOrNull(event.usage.cached_input_tokens),
+        inputTokens: subtractTokenParts(
+          totalInputTokens,
+          cacheReadInputTokens,
+          cacheCreationInputTokens,
+        ),
+        cachedInputTokens: sumNumbers(cacheReadInputTokens, cacheCreationInputTokens),
+        cacheReadInputTokens,
+        cacheCreationInputTokens,
         outputTokens: numberOrNull(event.usage.output_tokens),
         reasoningOutputTokens: numberOrNull(event.usage.reasoning_output_tokens),
+        estimatedApiCostUsd: null,
       }
+      usage.estimatedApiCostUsd = estimateCodexApiCost(requestedModel, usage)
     }
     if (event.type === 'item.completed' && isRecord(event.item)) {
       if (event.item.type === 'agent_message') fallbackFinal = parseMaybeJson(event.item.text)
@@ -342,7 +367,27 @@ async function parseCodexEvents(
       if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(String(error))
     }
   }
-  return { finalResult, usage, errors }
+  return { finalResult, usage, resolvedModel: resolveCodexModel(requestedModel), errors }
+}
+
+function primaryClaudeModel(value: unknown): string | null {
+  if (!isRecord(value)) return null
+  let primary: { model: string; cost: number } | null = null
+  for (const [model, rawUsage] of Object.entries(value)) {
+    if (!isRecord(rawUsage)) continue
+    const cost = numberOrNull(rawUsage.costUSD) ?? 0
+    if (!primary || cost > primary.cost) primary = { model, cost }
+  }
+  return primary?.model ?? null
+}
+
+function subtractTokenParts(
+  total: number | null,
+  cacheRead: number | null,
+  cacheCreation: number | null,
+): number | null {
+  if (total === null) return null
+  return Math.max(0, total - (cacheRead ?? 0) - (cacheCreation ?? 0))
 }
 
 function parseMaybeJson(value: unknown): unknown {

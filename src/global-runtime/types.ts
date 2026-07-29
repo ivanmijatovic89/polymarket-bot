@@ -91,8 +91,11 @@ export const appendInboxSchema = z
 export interface TokenUsage {
   inputTokens: number | null
   cachedInputTokens: number | null
+  cacheReadInputTokens: number | null
+  cacheCreationInputTokens: number | null
   outputTokens: number | null
   reasoningOutputTokens: number | null
+  estimatedApiCostUsd: number | null
 }
 
 export interface RuntimeRun extends CreateRuntimeRunInput {
@@ -125,6 +128,7 @@ export interface RuntimeSession extends TokenUsage {
   error: string | null
   exitCode: number | null
   exitSignal: string | null
+  resolvedModel: string | null
   rawLogPath: string
   startedAt: Date
   heartbeatAt: Date | null
@@ -161,8 +165,12 @@ export type RuntimeSessionPatch = Partial<
     | 'exitSignal'
     | 'inputTokens'
     | 'cachedInputTokens'
+    | 'cacheReadInputTokens'
+    | 'cacheCreationInputTokens'
     | 'outputTokens'
     | 'reasoningOutputTokens'
+    | 'estimatedApiCostUsd'
+    | 'resolvedModel'
     | 'heartbeatAt'
     | 'lastActivityAt'
     | 'finishedAt'
@@ -172,6 +180,11 @@ export type RuntimeSessionPatch = Partial<
 export interface RuntimeRunDetail {
   run: RuntimeRun
   sessions: RuntimeSession[]
+  totals: TokenUsage
+}
+
+export interface RuntimeRunSummary extends RuntimeRun {
+  resolvedModel: string | null
   totals: TokenUsage
 }
 

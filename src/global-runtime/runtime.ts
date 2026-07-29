@@ -12,6 +12,7 @@ import {
   type RuntimeProvider,
   type RuntimeRun,
   type RuntimeRunDetail,
+  type RuntimeRunSummary,
   type RuntimeRunStatus,
   type RuntimeSession,
   type TokenUsage,
@@ -127,8 +128,18 @@ export class GlobalRuntime {
     return this.store.createRun(input)
   }
 
-  listRuns(): Promise<RuntimeRun[]> {
-    return this.store.listRuns()
+  async listRuns(): Promise<RuntimeRunSummary[]> {
+    const runs = await this.store.listRuns()
+    return Promise.all(
+      runs.map(async (run) => {
+        const sessions = await this.store.listSessions(run.id)
+        return {
+          ...run,
+          resolvedModel: sessions.find((session) => session.resolvedModel)?.resolvedModel ?? null,
+          totals: totalUsage(sessions),
+        }
+      }),
+    )
   }
 
   async getRunDetail(id: number): Promise<RuntimeRunDetail> {
@@ -489,6 +500,7 @@ export class GlobalRuntime {
       error,
       exitCode: result.exitCode,
       exitSignal: result.exitSignal,
+      resolvedModel: result.resolvedModel,
       ...result.usage,
       finishedAt: this.now(),
     })
@@ -538,8 +550,11 @@ function totalUsage(sessions: RuntimeSession[]): TokenUsage {
   return {
     inputTokens: sumTokens(sessions, 'inputTokens'),
     cachedInputTokens: sumTokens(sessions, 'cachedInputTokens'),
+    cacheReadInputTokens: sumTokens(sessions, 'cacheReadInputTokens'),
+    cacheCreationInputTokens: sumTokens(sessions, 'cacheCreationInputTokens'),
     outputTokens: sumTokens(sessions, 'outputTokens'),
     reasoningOutputTokens: sumTokens(sessions, 'reasoningOutputTokens'),
+    estimatedApiCostUsd: sumTokens(sessions, 'estimatedApiCostUsd'),
   }
 }
 

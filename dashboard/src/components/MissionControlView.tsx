@@ -7,9 +7,9 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Bot, ChevronRight, Pause, Play, Plus, RefreshCw, Sparkles, Square, X } from 'lucide-react'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
-import type { RuntimeRun } from '@/lib/runtimeTypes'
+import type { RuntimeRun, RuntimeRunSummary } from '@/lib/runtimeTypes'
 
-type RunsResponse = { runs: RuntimeRun[] }
+type RunsResponse = { runs: RuntimeRunSummary[] }
 type ClaudeProfile = 'default' | 'balsa'
 type ClaudeSmokeTemplate = {
   id: 'fable' | 'opus' | 'opus-5'
@@ -365,12 +365,25 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                   <span className="font-medium">{run.name}</span>
                   <RuntimeStatusBadge status={run.status} />
                 </div>
-                <div className="mt-1 truncate text-xs text-muted-foreground">
-                  {run.provider} · {run.model} · session {run.currentSession}/{run.maxSessions} ·{' '}
-                  {run.workspacePath}
+                <div className="mt-3 grid gap-x-6 gap-y-2 text-xs sm:grid-cols-2 xl:grid-cols-6">
+                  <SummaryMetric label="Account" value={formatAccount(run)} />
+                  <SummaryMetric label="Exact model" value={run.resolvedModel ?? run.model} mono />
+                  <SummaryMetric
+                    label="Duration"
+                    value={formatDurationBetween(run.startedAt, run.endedAt)}
+                  />
+                  <SummaryMetric
+                    label="Sessions"
+                    value={`${run.currentSession} / ${run.maxSessions}`}
+                  />
+                  <SummaryMetric label="Tokens" value={formatRunTokens(run)} />
+                  <SummaryMetric
+                    label="Est. API cost"
+                    value={formatUsd(run.totals.estimatedApiCostUsd)}
+                  />
                 </div>
-                <div className="mt-1 text-xs text-muted-foreground">
-                  Heartbeat: {formatDate(run.heartbeatAt)}
+                <div className="mt-2 truncate text-xs text-muted-foreground">
+                  {run.workspacePath} · last activity {formatDate(run.lastActivityAt)}
                 </div>
               </div>
               <div className="flex items-center gap-1">
@@ -462,6 +475,23 @@ function Field({
   )
 }
 
+function SummaryMetric({
+  label,
+  value,
+  mono,
+}: {
+  label: string
+  value: string
+  mono?: boolean
+}) {
+  return (
+    <div className="min-w-0">
+      <div className="text-muted-foreground">{label}</div>
+      <div className={`mt-0.5 truncate text-foreground ${mono ? 'font-mono' : ''}`}>{value}</div>
+    </div>
+  )
+}
+
 export async function runtimeFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
   const response = await fetch(`/api/mission-control${path}`, { ...init, cache: 'no-store' })
   const payload: unknown = await response.json().catch(() => null)
@@ -477,4 +507,45 @@ export async function runtimeFetch<T = unknown>(path: string, init?: RequestInit
 
 function formatDate(value: string | null): string {
   return value ? new Date(value).toLocaleString(undefined, { hourCycle: 'h23' }) : '—'
+}
+
+function formatAccount(run: RuntimeRun): string {
+  if (run.provider === 'claude') {
+    if (!run.authHome) return 'Default Claude login'
+    return run.authHome === '~/.claude-balsa'
+      ? `Balsa (${run.authHome})`
+      : `Claude profile (${run.authHome})`
+  }
+  return run.authHome ? `Codex profile (${run.authHome})` : 'Default Codex login'
+}
+
+function formatRunTokens(run: RuntimeRunSummary): string {
+  const total =
+    (run.totals.inputTokens ?? 0) +
+    (run.totals.cacheReadInputTokens ?? 0) +
+    (run.totals.cacheCreationInputTokens ?? 0) +
+    (run.totals.outputTokens ?? 0)
+  return total === 0 ? '—' : total.toLocaleString()
+}
+
+function formatDurationBetween(start: string | null, end: string | null): string {
+  if (!start) return '—'
+  const startMs = new Date(start).getTime()
+  const endMs = end ? new Date(end).getTime() : Date.now()
+  return formatDuration(Math.max(0, endMs - startMs))
+}
+
+function formatDuration(milliseconds: number): string {
+  const totalSeconds = Math.round(milliseconds / 1000)
+  const hours = Math.floor(totalSeconds / 3600)
+  const minutes = Math.floor((totalSeconds % 3600) / 60)
+  const seconds = totalSeconds % 60
+  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
+  if (minutes > 0) return `${minutes}m ${seconds}s`
+  return `${seconds}s`
+}
+
+function formatUsd(value: number | null): string {
+  if (value === null) return '—'
+  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
 }

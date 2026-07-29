@@ -90,6 +90,10 @@ Mission 0.1, Mission 0.2, and later loops use this same contract. Their mission 
 
 Mission Control communicates with the daemon through its localhost API. It may create and control loops, display persisted runtime/session state, read configured workspace files, and append inbox entries. It does not edit `STATUS.md`, `JOURNAL.md`, mission files, or result files.
 
+Both the run list and run detail page show the selected account, requested and resolved model, wall-clock duration, uncached input, cache reads, cache writes, output, reasoning tokens, and estimated API-equivalent cost. Claude supplies `total_cost_usd` directly in its result event. Codex JSONL supplies token counts but no cost field, so the runtime estimates known GPT-5.6 models from their published token prices. Subscription users are not necessarily charged that amount; it is a comparison estimate.
+
+Cache counters are cumulative across every provider turn in a session. A session that makes ten model turns can report roughly ten reads of the same cached system/tool prefix. Cache reads therefore do not represent the size of one unique prompt.
+
 ## Setup
 
 Requirements:
@@ -141,7 +145,7 @@ Pause does not terminate an active session; it prevents the next session. Stop s
 Only two tables are added:
 
 - `runtime_runs`: configuration and current loop state;
-- `runtime_sessions`: one row per CLI invocation, including result and token usage.
+- `runtime_sessions`: one row per CLI invocation, including result, exact model, token/cache breakdown, and estimated API-equivalent cost.
 
 Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
 
@@ -165,4 +169,4 @@ The provider adapter waits for the child process `close` event before final pars
 
 ## Explicit V1 boundaries
 
-Global Runtime does not provide model cooperation, consensus, shared model memory, research scheduling, automatic synthesis, Git automation, direct API calls, exact subscription cost, multi-host execution, or a browser terminal. Those capabilities can be built as missions on top of these contracts without changing the runtime lifecycle.
+Global Runtime does not provide model cooperation, consensus, shared model memory, research scheduling, automatic synthesis, Git automation, direct API calls, actual subscription billing, multi-host execution, or a browser terminal. Those capabilities can be built as missions on top of these contracts without changing the runtime lifecycle.
