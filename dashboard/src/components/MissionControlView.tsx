@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
@@ -65,6 +65,7 @@ const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-s
 export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   const router = useRouter()
   const queryClient = useQueryClient()
+  const [queryEnabled, setQueryEnabled] = useState(false)
   const [creating, setCreating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionRunId, setActionRunId] = useState<number | null>(null)
@@ -77,6 +78,11 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
     'opus-5': 'default',
   })
   const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    setQueryEnabled(true)
+  }, [])
+
   const {
     data,
     isFetching,
@@ -85,6 +91,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
   } = useQuery({
     queryKey: ['runtime-runs'],
     queryFn: () => runtimeFetch<RunsResponse>('/runs'),
+    enabled: queryEnabled,
     refetchInterval: 5000,
   })
 
