@@ -128,6 +128,15 @@ export async function validateRunWorkspace(run: RuntimeRun): Promise<void> {
       throw new RuntimeValidationError(`${file.role} path overlaps the ${previousRole} path`)
     }
     seenPaths.set(file.absolutePath, file.role)
+
+    try {
+      const info = await stat(file.absolutePath, { bigint: true })
+      if (info.isFile() && info.nlink !== 1n) {
+        throw new RuntimeValidationError(`${file.role} path must not be hard-linked`)
+      }
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT' || !file.allowMissing) throw error
+    }
   }
 
   try {
@@ -153,6 +162,9 @@ async function readWorkspaceFile(
   try {
     const info = await stat(absolutePath)
     if (!info.isFile()) throw new RuntimeValidationError(`${relativePath} is not a file`)
+    if (info.nlink !== 1) {
+      throw new RuntimeValidationError(`${relativePath} must not be hard-linked`)
+    }
     const limit = role === 'journal' ? JOURNAL_TAIL_BYTES : MAX_FILE_BYTES
     const truncated = info.size > limit
     const visible = await readTail(absolutePath, info.size, limit)
@@ -222,6 +234,9 @@ export async function appendInboxEntry(
     if (!openedInfo.isFile()) {
       throw new RuntimeValidationError('inbox path must be a regular file')
     }
+    if (openedInfo.nlink !== 1n) {
+      throw new RuntimeValidationError('inbox path must not be hard-linked')
+    }
     const resolvedPath = await realpath(absolutePath)
     if (!isInside(root, resolvedPath)) {
       throw new RuntimeValidationError('inbox path resolves outside the workspace')
@@ -229,6 +244,9 @@ export async function appendInboxEntry(
     const resolvedInfo = await stat(resolvedPath, { bigint: true })
     if (openedInfo.dev !== resolvedInfo.dev || openedInfo.ino !== resolvedInfo.ino) {
       throw new RuntimeValidationError('inbox path changed while it was being opened')
+    }
+    if (resolvedInfo.nlink !== 1n) {
+      throw new RuntimeValidationError('inbox path must not be hard-linked')
     }
     await handle.writeFile(entry, 'utf8')
     await handle.sync()
@@ -272,6 +290,9 @@ export async function readSessionResultFile(run: RuntimeRun): Promise<unknown> {
   const info = await stat(absolutePath)
   if (!info.isFile() || info.size > 16 * 1024) {
     throw new RuntimeValidationError('session result must be a JSON file smaller than 16 KB')
+  }
+  if (info.nlink !== 1) {
+    throw new RuntimeValidationError('session result path must not be hard-linked')
   }
   return JSON.parse(await readFile(absolutePath, 'utf8')) as unknown
 }
