@@ -320,6 +320,7 @@ export default withMermaid(
           text: 'Global Runtime',
           items: [
             { text: 'Overview', link: '/global-runtime/overview' },
+            { text: 'Writing Missions', link: '/global-runtime/writing-missions' },
             { text: 'Mission CLI', link: '/global-runtime/cli' },
             { text: 'Loop Example', link: '/global-runtime/examples' },
           ],
