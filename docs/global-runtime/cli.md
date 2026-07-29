@@ -69,6 +69,8 @@ npm run mission -- extend 12 --max-sessions 20
 npm run mission -- resume 12
 ```
 
+`extend` raises the session **ceiling**; it does not add work. A running loop keeps going only while the agent returns `continue` — once it returns `complete`, the run finishes regardless of how much allowance remains, and a completed run cannot be extended. Extending mid-run is safe: the loop re-reads the limit after every session, so the next session's prompt already states the new maximum (the [loop example](/global-runtime/examples) demonstrates this).
+
 ## Steering a running mission
 
 ```bash

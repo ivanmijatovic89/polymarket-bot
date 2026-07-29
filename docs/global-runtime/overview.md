@@ -53,6 +53,11 @@ that fail closed when sandboxing is unavailable and disallow unsandboxed command
 built-in file tools retain their working-directory boundary. `full-access` remains an explicit
 operator choice.
 
+`workspace-write` bounds **writes**, not reads: sessions can still read files outside the
+workspace, so a workspace nested inside a larger repository exposes the surrounding code to the
+mission. If the mission must not consult its surroundings, state that in the mission file (the
+shared-loop example's "Do not inspect the parent repository" line exists for this reason).
+
 ### 2. Session completion contract
 
 Before exit, every agent writes `.global-runtime/session-result.json`:
@@ -190,7 +195,7 @@ The provider adapter waits for the child process `close` event before final pars
 | Inbox path is rejected | Replace dangling symlinks or non-regular files with a regular inbox file inside the workspace. |
 | Result path cannot be prepared | Repair `.global-runtime/` and resume. No session number is consumed by the failed preparation. |
 | Dashboard says runtime unavailable | Start `npm run global-runtime` and verify `GLOBAL_RUNTIME_URL`. |
-| Session limit reached | The loop waits rather than extending itself. Press **Extend** in Mission Control (or `POST /runs/:id/extend` with a higher `maxSessions`), then resume; sessions continue in the same run. |
+| Session limit reached | The loop waits rather than extending itself. Press **Extend** in Mission Control (or `POST /runs/:id/extend` with a higher `maxSessions`), then resume; sessions continue in the same run. Extend raises the ceiling only — a run whose agent already returned `complete` is finished and cannot be extended. |
 
 ## Explicit V1 boundaries
 
