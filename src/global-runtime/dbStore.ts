@@ -1,5 +1,5 @@
 import { and, desc, eq, inArray } from 'drizzle-orm'
-import { getDb, runtimeRuns, runtimeSessions } from '../db/index.js'
+import { acquireDbAdvisoryLock, getDb, runtimeRuns, runtimeSessions } from '../db/index.js'
 import { RuntimeNotFoundError } from './errors.js'
 import type { CreateSessionInput, RuntimeStore } from './store.js'
 import type {
@@ -12,6 +12,10 @@ import type {
 } from './types.js'
 
 export class DrizzleRuntimeStore implements RuntimeStore {
+  acquireRuntimeLease(onLost: (error: unknown) => void): Promise<(() => Promise<void>) | null> {
+    return acquireDbAdvisoryLock('polymarket-bot:global-runtime', onLost)
+  }
+
   async createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun> {
     const db = getDb()
     const ids = await db.insert(runtimeRuns).values(input).$returningId()

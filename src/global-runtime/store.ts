@@ -18,6 +18,8 @@ export interface CreateSessionInput {
 }
 
 export interface RuntimeStore {
+  acquireRuntimeLease(onLost: (error: unknown) => void): Promise<(() => Promise<void>) | null>
+
   createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun>
   getRun(id: number): Promise<RuntimeRun | null>
   listRuns(): Promise<RuntimeRun[]>

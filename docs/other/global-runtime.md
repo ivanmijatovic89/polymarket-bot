@@ -29,7 +29,7 @@ INBOX.md       append-only user steering
 .global-runtime/session-result.json
 ```
 
-Different loops may run concurrently, but active loops cannot use equal or nested canonical workspace paths. Sessions within one loop are always sequential and fresh; continuity comes from files, not CLI conversation history.
+Different loops may run concurrently inside one daemon, but active loops cannot use equal or nested canonical workspace paths. A database advisory lease prevents a second daemon from starting against the same database. Sessions within one loop are always sequential and fresh; continuity comes from files, not CLI conversation history.
 
 ## The contracts
 
@@ -124,7 +124,7 @@ With no `authHome`, Claude runs without a `CLAUDE_CONFIG_DIR` override and uses 
 - Claude Code: the runtime sets `CLAUDE_CONFIG_DIR` to the configured directory.
 - Codex: the runtime sets `CODEX_HOME` to the configured directory.
 
-The directory must already contain a valid CLI login. Runtime configuration stores only its path; it does not copy or expose credentials. `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `--no-session-persistence`, and Codex `--ephemeral` keep continuity under the workspace contract instead of hidden provider memory.
+The directory must already contain a valid CLI login. Runtime configuration stores only its path; it does not copy or expose credentials. Provider processes receive a minimal system environment rather than the daemon's full `.env`, so trading keys, database credentials, and storage credentials are not exposed to missions. `CLAUDE_CODE_DISABLE_AUTO_MEMORY=1`, `--no-session-persistence`, and Codex `--ephemeral` keep continuity under the workspace contract instead of hidden provider memory.
 
 ## State transitions
 
