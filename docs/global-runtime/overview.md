@@ -123,6 +123,8 @@ npm run dashboard
 
 Open `http://127.0.0.1:3051/mission-control`. Create a loop, verify the resolved workspace and mission file, then press **Start**.
 
+Loops can also be created and controlled from the terminal with the [Mission CLI](/global-runtime/cli) (`npm run mission`), which talks to the same daemon API.
+
 The runtime binds to `127.0.0.1:3053` by default. The dashboard proxies requests server-side, so browsers never call the daemon directly.
 
 ## Subscription profiles

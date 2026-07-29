@@ -317,6 +317,15 @@ export default withMermaid(
         },
 
         {
+          text: 'Global Runtime',
+          items: [
+            { text: 'Overview', link: '/global-runtime/overview' },
+            { text: 'Mission CLI', link: '/global-runtime/cli' },
+            { text: 'Loop Example', link: '/global-runtime/examples' },
+          ],
+        },
+
+        {
           text: 'Other',
           items: [
             { text: 'Architecture', link: '/other/architecture' },
@@ -324,8 +333,6 @@ export default withMermaid(
             { text: 'MySQL Local vs Worker1 Benchmark', link: '/other/mysql-local-vs-worker1-ai-agent-benchmark' },
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
-            { text: 'Global Runtime', link: '/other/global-runtime' },
-            { text: 'Global Runtime Loop Example', link: '/other/global-runtime-examples' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },
           ],
         },

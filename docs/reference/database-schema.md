@@ -87,7 +87,7 @@ field references.
 
 ## Tables: `runtime_runs`, `runtime_sessions`
 
-The domain-neutral [Global Runtime](/other/global-runtime) uses exactly two tables. `runtime_runs` stores loop configuration and current lifecycle state. `runtime_sessions` stores one row per Claude Code or Codex CLI invocation, including the structured action, summary, exit status, token usage, heartbeat, and raw-log path. Human messages and progress documents remain in the configured workspace and are not duplicated into MySQL.
+The domain-neutral [Global Runtime](/global-runtime/overview) uses exactly two tables. `runtime_runs` stores loop configuration and current lifecycle state. `runtime_sessions` stores one row per Claude Code or Codex CLI invocation, including the structured action, summary, exit status, token usage, heartbeat, and raw-log path. Human messages and progress documents remain in the configured workspace and are not duplicated into MySQL.
 
 Migration: `drizzle/0030_global_runtime.sql`.
 
