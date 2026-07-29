@@ -1,4 +1,4 @@
-import { and, desc, eq, inArray, ne } from 'drizzle-orm'
+import { and, desc, eq, inArray } from 'drizzle-orm'
 import { getDb, runtimeRuns, runtimeSessions } from '../db/index.js'
 import { RuntimeNotFoundError } from './errors.js'
 import type { CreateSessionInput, RuntimeStore } from './store.js'
@@ -10,8 +10,6 @@ import type {
   RuntimeSessionPatch,
   RuntimeSessionStatus,
 } from './types.js'
-
-const ACTIVE_RUN_STATUSES: RuntimeRun['status'][] = ['running', 'pause_requested', 'rate_limited']
 
 export class DrizzleRuntimeStore implements RuntimeStore {
   async createRun(input: CreateRuntimeRunInput): Promise<RuntimeRun> {
@@ -47,20 +45,6 @@ export class DrizzleRuntimeStore implements RuntimeStore {
       .from(runtimeRuns)
       .where(inArray(runtimeRuns.status, statuses))
     return rows.map(mapRun)
-  }
-
-  async findWorkspaceConflict(
-    workspacePath: string,
-    excludeRunId?: number,
-  ): Promise<RuntimeRun | null> {
-    const workspace = eq(runtimeRuns.workspacePath, workspacePath)
-    const active = inArray(runtimeRuns.status, ACTIVE_RUN_STATUSES)
-    const where =
-      excludeRunId === undefined
-        ? and(workspace, active)
-        : and(workspace, active, ne(runtimeRuns.id, excludeRunId))
-    const rows = await getDb().select().from(runtimeRuns).where(where).limit(1)
-    return rows[0] ? mapRun(rows[0]) : null
   }
 
   async createSession(input: CreateSessionInput): Promise<RuntimeSession> {

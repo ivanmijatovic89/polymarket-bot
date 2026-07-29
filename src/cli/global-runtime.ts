@@ -15,13 +15,14 @@ async function main(): Promise<void> {
     logRoot: process.env.GLOBAL_RUNTIME_LOG_DIR || 'logs/global-runtime',
     rateLimitRetryMs: retrySeconds * 1000,
   })
-  await runtime.initialize()
-  const app = buildRuntimeApi(runtime)
+  let ready = false
+  const app = buildRuntimeApi(runtime, { isReady: () => ready })
   let closing = false
 
   const shutdown = async (signal: string): Promise<void> => {
     if (closing) return
     closing = true
+    ready = false
     console.log(`[global-runtime] ${signal} received, stopping active sessions...`)
     await app.close().catch(() => undefined)
     await runtime.shutdown()
@@ -30,7 +31,16 @@ async function main(): Promise<void> {
   process.once('SIGINT', () => void shutdown('SIGINT'))
   process.once('SIGTERM', () => void shutdown('SIGTERM'))
 
-  await app.listen({ host, port })
+  try {
+    await app.listen({ host, port })
+    await runtime.initialize()
+    if (closing) return
+    ready = true
+  } catch (error) {
+    await app.close().catch(() => undefined)
+    await runtime.shutdown()
+    throw error
+  }
   console.log(`[global-runtime] listening on http://${host}:${port}`)
 }
 

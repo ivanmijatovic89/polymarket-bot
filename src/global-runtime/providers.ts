@@ -70,17 +70,29 @@ export class CliProviderAdapter implements ProviderAdapter {
     const prepared = await prepareProviderCommand(context)
     const rawLog = createWriteStream(prepared.rawLogPath, { flags: 'a', mode: 0o600 })
     const stderrLog = createWriteStream(prepared.stderrLogPath, { flags: 'a', mode: 0o600 })
+    const streamErrors: string[] = []
+    let child: ChildProcess | null = null
+    const observeStream = (stream: typeof rawLog, label: string): Promise<void> => {
+      stream.on('error', (error) => {
+        if (streamErrors.length === 0 && child) terminateChild(child)
+        streamErrors.push(`${label}: ${error.message}`)
+      })
+      return finished(stream).catch(() => undefined)
+    }
+    const rawLogFinished = observeStream(rawLog, 'raw log failed')
+    const stderrLogFinished = observeStream(stderrLog, 'stderr log failed')
     const events: unknown[] = []
     let stderrText = ''
     let spawnError: string | null = null
 
-    const child = spawn(prepared.command, prepared.args, {
+    child = spawn(prepared.command, prepared.args, {
       cwd: prepared.cwd,
       env: prepared.env,
       detached: process.platform !== 'win32',
       stdio: ['ignore', 'pipe', 'pipe'],
       shell: false,
     })
+    if (streamErrors.length > 0) terminateChild(child)
 
     const stdoutLines = createInterface({ input: child.stdout! })
     stdoutLines.on('line', (line) => {
@@ -135,7 +147,7 @@ export class CliProviderAdapter implements ProviderAdapter {
     stdoutLines.close()
     rawLog.end()
     stderrLog.end()
-    await Promise.allSettled([finished(rawLog), finished(stderrLog)])
+    await Promise.all([rawLogFinished, stderrLogFinished])
 
     if (startCallbackError) throw startCallbackError
 
@@ -143,16 +155,18 @@ export class CliProviderAdapter implements ProviderAdapter {
       context.run.provider === 'claude'
         ? parseClaudeEvents(events)
         : await parseCodexEvents(events, prepared.finalOutputPath)
-    const combinedErrors = [spawnError, ...parsed.errors, stderrText].filter(Boolean).join('\n')
+    const providerErrors = [...parsed.errors, stderrText].filter(Boolean).join('\n')
+    const combinedErrors = [spawnError, ...streamErrors, providerErrors].filter(Boolean).join('\n')
 
     return {
       exitCode: exit.code,
       exitSignal: exit.signal,
       finalResult: parsed.finalResult,
       usage: parsed.usage,
-      rateLimited: isRateLimitError(combinedErrors),
+      rateLimited: isRateLimitError(providerErrors),
       error:
         spawnError ??
+        streamErrors[0] ??
         (exit.code !== 0 && !signal.aborted
           ? combinedErrors.trim().slice(-4000) || `CLI exited with code ${String(exit.code)}`
           : null),

@@ -78,8 +78,60 @@ export async function validateRunWorkspace(run: RuntimeRun): Promise<void> {
   if (canonical !== run.workspacePath) {
     throw new RuntimeValidationError('workspace path must be stored in canonical form')
   }
+  const configuredFiles = [
+    { role: 'mission', relativePath: run.missionPath, allowMissing: false },
+    { role: 'status', relativePath: run.statusFile, allowMissing: true },
+    { role: 'journal', relativePath: run.journalFile, allowMissing: true },
+    { role: 'inbox', relativePath: run.inboxFile, allowMissing: true },
+    ...run.readOnlyFiles.map((relativePath, index) => ({
+      role: `read-only file ${index + 1}`,
+      relativePath,
+      allowMissing: true,
+    })),
+  ]
+  let resolvedFiles: Array<(typeof configuredFiles)[number] & { absolutePath: string }>
   try {
-    const mission = await resolveWorkspaceFile(run.workspacePath, run.missionPath, false)
+    resolvedFiles = await Promise.all(
+      configuredFiles.map(async (file) => ({
+        ...file,
+        absolutePath: await resolveWorkspaceFile(
+          run.workspacePath,
+          file.relativePath,
+          file.allowMissing,
+        ),
+      })),
+    )
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR' || code === 'EACCES') {
+      throw new RuntimeValidationError('configured runtime file paths must be accessible')
+    }
+    throw error
+  }
+  let reservedResultPath: string
+  try {
+    reservedResultPath = await resolveWorkspaceFile(run.workspacePath, SESSION_RESULT_FILE, true)
+  } catch (error) {
+    if ((error as NodeJS.ErrnoException).code !== 'ENOTDIR') throw error
+    reservedResultPath = path.resolve(run.workspacePath, SESSION_RESULT_FILE)
+  }
+
+  const seenPaths = new Map<string, string>()
+  for (const file of resolvedFiles) {
+    if (file.absolutePath === reservedResultPath) {
+      throw new RuntimeValidationError(
+        `${file.role} path must not use the reserved ${SESSION_RESULT_FILE} path`,
+      )
+    }
+    const previousRole = seenPaths.get(file.absolutePath)
+    if (previousRole) {
+      throw new RuntimeValidationError(`${file.role} path overlaps the ${previousRole} path`)
+    }
+    seenPaths.set(file.absolutePath, file.role)
+  }
+
+  try {
+    const mission = resolvedFiles[0]!.absolutePath
     const info = await stat(mission)
     if (!info.isFile()) throw new RuntimeValidationError('mission path must be a readable file')
   } catch (error) {
@@ -90,13 +142,6 @@ export async function validateRunWorkspace(run: RuntimeRun): Promise<void> {
     }
     throw error
   }
-
-  await Promise.all([
-    resolveWorkspaceFile(run.workspacePath, run.statusFile, true),
-    resolveWorkspaceFile(run.workspacePath, run.journalFile, true),
-    resolveWorkspaceFile(run.workspacePath, run.inboxFile, true),
-    ...run.readOnlyFiles.map((file) => resolveWorkspaceFile(run.workspacePath, file, true)),
-  ])
 }
 
 async function readWorkspaceFile(

@@ -89,3 +89,25 @@ test('local API reports invalid workspace configuration as a client error', asyn
     await runtime.shutdown()
   }
 })
+
+test('local API rejects control requests until runtime initialization completes', async () => {
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  let ready = false
+  const app = buildRuntimeApi(runtime, { isReady: () => ready })
+  try {
+    const unavailable = await app.inject({ method: 'GET', url: '/runs' })
+    assert.equal(unavailable.statusCode, 503)
+    assert.deepEqual(unavailable.json(), { error: 'runtime is initializing' })
+
+    const health = await app.inject({ method: 'GET', url: '/health' })
+    assert.equal(health.statusCode, 503)
+    assert.deepEqual(health.json(), { ok: false })
+
+    ready = true
+    const available = await app.inject({ method: 'GET', url: '/runs' })
+    assert.equal(available.statusCode, 200)
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+  }
+})
