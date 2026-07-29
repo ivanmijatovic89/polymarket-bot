@@ -168,3 +168,29 @@ test('local API rejects control requests until runtime initialization completes'
     await runtime.shutdown()
   }
 })
+
+test('local API preserves Fastify client errors for malformed and oversized bodies', async () => {
+  const runtime = new GlobalRuntime(new MemoryRuntimeStore())
+  const app = buildRuntimeApi(runtime)
+  try {
+    const malformed = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      headers: { 'content-type': 'application/json' },
+      payload: '{',
+    })
+    assert.equal(malformed.statusCode, 400)
+    assert.match(malformed.json<{ error: string }>().error, /not valid JSON/iu)
+
+    const oversized = await app.inject({
+      method: 'POST',
+      url: '/runs',
+      payload: { value: 'x'.repeat(33 * 1024) },
+    })
+    assert.equal(oversized.statusCode, 413)
+    assert.match(oversized.json<{ error: string }>().error, /too large/iu)
+  } finally {
+    await app.close()
+    await runtime.shutdown()
+  }
+})

@@ -1,6 +1,6 @@
 import { spawn, type ChildProcess } from 'node:child_process'
 import { createWriteStream } from 'node:fs'
-import { mkdir, readFile, writeFile } from 'node:fs/promises'
+import { mkdir, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { createInterface } from 'node:readline'
@@ -52,7 +52,6 @@ export interface PreparedCommand {
   env: NodeJS.ProcessEnv
   rawLogPath: string
   stderrLogPath: string
-  finalOutputPath: string | null
 }
 
 interface ParsedProviderOutput {
@@ -97,6 +96,23 @@ const PROVIDER_ENV_KEYS = [
   'XDG_DATA_HOME',
 ] as const
 
+const CLAUDE_WORKSPACE_SANDBOX_SETTINGS = JSON.stringify({
+  sandbox: {
+    enabled: true,
+    failIfUnavailable: true,
+    allowUnsandboxedCommands: false,
+    autoAllowBashIfSandboxed: true,
+    excludedCommands: [],
+    filesystem: {
+      disabled: false,
+      allowWrite: [],
+    },
+    network: {
+      allowUnixSockets: [],
+    },
+  },
+})
+
 export class CliProviderAdapter implements ProviderAdapter {
   constructor(private readonly terminationGraceMs = 5000) {}
 
@@ -106,8 +122,8 @@ export class CliProviderAdapter implements ProviderAdapter {
     callbacks: ProviderExecutionCallbacks,
   ): Promise<ProviderExecutionResult> {
     const prepared = await prepareProviderCommand(context)
-    const rawLog = createWriteStream(prepared.rawLogPath, { flags: 'a', mode: 0o600 })
-    const stderrLog = createWriteStream(prepared.stderrLogPath, { flags: 'a', mode: 0o600 })
+    const rawLog = createWriteStream(prepared.rawLogPath, { flags: 'wx', mode: 0o600 })
+    const stderrLog = createWriteStream(prepared.stderrLogPath, { flags: 'wx', mode: 0o600 })
     const streamErrors: string[] = []
     let child: ChildProcess | null = null
     const observeStream = (stream: typeof rawLog, label: string): Promise<void> => {
@@ -194,7 +210,7 @@ export class CliProviderAdapter implements ProviderAdapter {
     const parsed =
       context.run.provider === 'claude'
         ? parseClaudeEvents(events)
-        : await parseCodexEvents(events, prepared.finalOutputPath, context.run.model)
+        : parseCodexEvents(events, context.run.model)
     const providerErrors = [...parsed.errors, stderrText].filter(Boolean).join('\n')
     const combinedErrors = [spawnError, ...streamErrors, providerErrors].filter(Boolean).join('\n')
 
@@ -227,6 +243,7 @@ export async function prepareProviderCommand(
   await writeFile(schemaPath, JSON.stringify(SESSION_RESULT_JSON_SCHEMA, null, 2), {
     encoding: 'utf8',
     mode: 0o600,
+    flag: 'wx',
   })
 
   return context.run.provider === 'claude'
@@ -259,6 +276,9 @@ function prepareClaudeCommand(
       context.run.effort,
       '--permission-mode',
       permissionMode,
+      ...(context.run.accessMode === 'workspace-write'
+        ? ['--settings', CLAUDE_WORKSPACE_SANDBOX_SETTINGS]
+        : []),
       '--output-format',
       'stream-json',
       '--verbose',
@@ -271,7 +291,6 @@ function prepareClaudeCommand(
     env,
     rawLogPath,
     stderrLogPath,
-    finalOutputPath: null,
   }
 }
 
@@ -281,10 +300,6 @@ function prepareCodexCommand(
   stderrLogPath: string,
   schemaPath: string,
 ): PreparedCommand {
-  const finalOutputPath = path.join(
-    context.logDirectory,
-    `session-${String(context.sessionNumber).padStart(4, '0')}.result.json`,
-  )
   const env: NodeJS.ProcessEnv = {
     ...buildProviderEnvironment(),
     [RUNTIME_PROCESS_TOKEN_ENV]: buildRuntimeProcessToken(context.run.id, context.sessionNumber),
@@ -306,8 +321,6 @@ function prepareCodexCommand(
       context.run.workspacePath,
       '--output-schema',
       schemaPath,
-      '--output-last-message',
-      finalOutputPath,
       '-c',
       `model_reasoning_effort="${context.run.effort}"`,
       '-c',
@@ -318,7 +331,6 @@ function prepareCodexCommand(
     env,
     rawLogPath,
     stderrLogPath,
-    finalOutputPath,
   }
 }
 
@@ -360,11 +372,7 @@ function parseClaudeEvents(events: unknown[]): ParsedProviderOutput {
   }
 }
 
-async function parseCodexEvents(
-  events: unknown[],
-  finalOutputPath: string | null,
-  requestedModel: string,
-): Promise<ParsedProviderOutput> {
+function parseCodexEvents(events: unknown[], requestedModel: string): ParsedProviderOutput {
   let usage: TokenUsage = EMPTY_USAGE
   let fallbackFinal: unknown = null
   const errors: string[] = []
@@ -399,15 +407,12 @@ async function parseCodexEvents(
     if (event.type === 'error' || event.type === 'turn.failed') errors.push(JSON.stringify(event))
   }
 
-  let finalResult = fallbackFinal
-  if (finalOutputPath) {
-    try {
-      finalResult = parseMaybeJson(await readFile(finalOutputPath, 'utf8'))
-    } catch (error) {
-      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') errors.push(String(error))
-    }
+  return {
+    finalResult: fallbackFinal,
+    usage,
+    resolvedModel: resolveCodexModel(requestedModel),
+    errors,
   }
-  return { finalResult, usage, resolvedModel: resolveCodexModel(requestedModel), errors }
 }
 
 function primaryClaudeModel(value: unknown): string | null {

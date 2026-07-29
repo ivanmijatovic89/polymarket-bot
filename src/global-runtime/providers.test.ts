@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { once } from 'node:events'
-import { chmod, mkdtemp, mkdir, rm, writeFile } from 'node:fs/promises'
+import { chmod, mkdtemp, mkdir, readFile, rm, symlink, writeFile } from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { PassThrough, Writable } from 'node:stream'
@@ -57,13 +57,38 @@ test('builds shell-free Claude and Codex commands with the requested access and 
   assert.deepEqual(codex.args.slice(0, 3), ['exec', '--json', '--ephemeral'])
   assert.ok(codex.args.includes('--skip-git-repo-check'))
   assert.ok(codex.args.includes('workspace-write'))
+  assert.equal(codex.args.includes('--output-last-message'), false)
   assert.ok(codex.args.includes('model_reasoning_effort="high"'))
   assert.equal(codex.env[RUNTIME_PROCESS_TOKEN_ENV], buildRuntimeProcessToken(codexRun.id, 1))
   assert.equal(claude.command, 'claude')
   assert.ok(claude.args.includes('--no-session-persistence'))
   assert.ok(claude.args.includes('acceptEdits'))
   assert.ok(claude.args.includes('--json-schema'))
+  const settingsIndex = claude.args.indexOf('--settings')
+  assert.notEqual(settingsIndex, -1)
+  assert.deepEqual(JSON.parse(claude.args[settingsIndex + 1]!), {
+    sandbox: {
+      enabled: true,
+      failIfUnavailable: true,
+      allowUnsandboxedCommands: false,
+      autoAllowBashIfSandboxed: true,
+      excludedCommands: [],
+      filesystem: { disabled: false, allowWrite: [] },
+      network: { allowUnixSockets: [] },
+    },
+  })
   assert.equal(claude.env[RUNTIME_PROCESS_TOKEN_ENV], buildRuntimeProcessToken(claudeRun.id, 2))
+
+  const fullAccessRun = makeRun(workspace, 'claude')
+  fullAccessRun.accessMode = 'full-access'
+  const fullAccessClaude = await prepareProviderCommand({
+    run: fullAccessRun,
+    sessionNumber: 3,
+    prompt: 'mission',
+    logDirectory,
+  })
+  assert.ok(fullAccessClaude.args.includes('bypassPermissions'))
+  assert.equal(fullAccessClaude.args.includes('--settings'), false)
 })
 
 test('pauses provider output until a saturated log stream drains', async () => {
@@ -215,6 +240,44 @@ test('reports log stream failures without crashing the runtime process', async (
   assert.equal(result.rateLimited, false)
 })
 
+test('refuses symlinked provider artifacts without modifying their targets', async () => {
+  const workspace = await createDirectory()
+  const target = path.join(workspace, 'outside-artifact-target.txt')
+  await writeFile(target, 'unchanged', 'utf8')
+
+  const schemaLogDirectory = path.join(workspace, 'logs-symlinked-schema')
+  await mkdir(schemaLogDirectory)
+  await symlink(target, path.join(schemaLogDirectory, 'session-0008.schema.json'))
+  await assert.rejects(
+    () =>
+      prepareProviderCommand({
+        run: makeRun(workspace, 'codex'),
+        sessionNumber: 8,
+        prompt: 'test prompt',
+        logDirectory: schemaLogDirectory,
+      }),
+    (error: unknown) => (error as NodeJS.ErrnoException).code === 'EEXIST',
+  )
+  assert.equal(await readFile(target, 'utf8'), 'unchanged')
+
+  const rawLogDirectory = path.join(workspace, 'logs-symlinked-raw')
+  await mkdir(rawLogDirectory)
+  await symlink(target, path.join(rawLogDirectory, 'session-0009.jsonl'))
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = await createFakeCli(workspace)
+  const result = await new CliProviderAdapter().execute(
+    {
+      run: makeRun(workspace, 'codex'),
+      sessionNumber: 9,
+      prompt: 'test prompt',
+      logDirectory: rawLogDirectory,
+    },
+    new AbortController().signal,
+    { onStarted: () => undefined, onActivity: () => undefined },
+  )
+  assert.match(result.error ?? '', /raw log failed/iu)
+  assert.equal(await readFile(target, 'utf8'), 'unchanged')
+})
+
 test(
   'escalates the provider process group after the CLI leader exits',
   { skip: process.platform === 'win32' },
@@ -267,8 +330,7 @@ const result = { action: 'complete', summary: provider + ' finished' }
 await mkdir(path.join(process.cwd(), '.global-runtime'), { recursive: true })
 await writeFile(path.join(process.cwd(), ${JSON.stringify(SESSION_RESULT_FILE)}), JSON.stringify(result))
 if (provider === 'codex') {
-  const outputIndex = args.indexOf('--output-last-message')
-  await writeFile(args[outputIndex + 1], JSON.stringify(result))
+  console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(result) } }))
   console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 14, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 7, reasoning_output_tokens: 3 } }))
 } else {
   console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.125, structured_output: result, usage: { input_tokens: 21, cache_read_input_tokens: 4, cache_creation_input_tokens: 6, output_tokens: 9 }, modelUsage: { 'claude-helper-model': { costUSD: 0.001 }, 'claude-test-model': { costUSD: 0.124 } } }))

@@ -47,6 +47,12 @@ Each loop has a provider, model, effort, access mode, workspace, mission path, m
 
 The runtime never interprets the mission domain.
 
+`workspace-write` is enforced through each provider's native isolation. Codex receives
+`--sandbox workspace-write`; Claude's Bash subprocesses receive command-line OS sandbox settings
+that fail closed when sandboxing is unavailable and disallow unsandboxed command retries, while its
+built-in file tools retain their working-directory boundary. `full-access` remains an explicit
+operator choice.
+
 ### 2. Session completion contract
 
 Before exit, every agent writes `.global-runtime/session-result.json`:
@@ -152,6 +158,10 @@ Only two tables are added:
 Starting a session inserts its session row and advances `runtime_runs.current_session` in the same database transaction. The result-file path is prepared before that transaction, so a filesystem preparation failure does not consume a session number or make the loop unresumable.
 
 Human-readable progress remains in workspace files. Raw JSONL and stderr are stored under `logs/global-runtime/run-<id>/` and are not exposed as a browser terminal or log viewer. Provider stdout and stderr respect file-stream backpressure so verbose sessions cannot create an unbounded in-memory log queue. A log stream failure stops the provider and records a controlled session error instead of crashing the daemon.
+
+Runtime-owned schema and log artifacts are created exclusively with private file permissions.
+Pre-existing files and symbolic links are rejected instead of followed, so a mission cannot redirect
+the daemon's writes through a predictable artifact path.
 
 The provider adapter waits for the child process `close` event before final parsing, ensuring stdout and stderr have closed and their final events have been captured even when a CLI exits while PID persistence is still pending.
 
