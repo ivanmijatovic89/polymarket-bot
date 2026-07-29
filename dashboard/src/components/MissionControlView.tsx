@@ -2,21 +2,78 @@
 
 import { useState, type FormEvent } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Bot, ChevronRight, Pause, Play, Plus, RefreshCw, Square, X } from 'lucide-react'
+import { Bot, ChevronRight, Pause, Play, Plus, RefreshCw, Sparkles, Square, X } from 'lucide-react'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Card, CardContent } from '@/components/ui/card'
 import type { RuntimeRun } from '@/lib/runtimeTypes'
 
 type RunsResponse = { runs: RuntimeRun[] }
+type ClaudeProfile = 'default' | 'balsa'
+type ClaudeSmokeTemplate = {
+  id: 'fable' | 'opus' | 'opus-5'
+  label: string
+  provider: 'claude'
+  model: string
+  description: string
+}
+type CodexSmokeTemplate = {
+  id: 'gpt-5.6'
+  label: string
+  provider: 'codex'
+  model: string
+  description: string
+}
+type SmokeTemplate = ClaudeSmokeTemplate | CodexSmokeTemplate
+
+const SMOKE_TEMPLATES: SmokeTemplate[] = [
+  {
+    id: 'fable',
+    label: 'Fable',
+    provider: 'claude',
+    model: 'claude-fable-5',
+    description: 'Claude Fable 5 · one low-effort session',
+  },
+  {
+    id: 'opus',
+    label: 'Opus 4.8',
+    provider: 'claude',
+    model: 'claude-opus-4-8',
+    description: 'Claude Opus 4.8 · one low-effort session',
+  },
+  {
+    id: 'opus-5',
+    label: 'Opus 5',
+    provider: 'claude',
+    model: 'opus',
+    description: 'Latest Claude Opus alias · one low-effort session',
+  },
+  {
+    id: 'gpt-5.6',
+    label: 'GPT-5.6',
+    provider: 'codex',
+    model: 'gpt-5.6',
+    description: 'Codex GPT-5.6 · one low-effort session',
+  },
+]
 
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
 
-export function MissionControlView() {
+export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
+  const router = useRouter()
   const queryClient = useQueryClient()
   const [creating, setCreating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [actionRunId, setActionRunId] = useState<number | null>(null)
+  const [startingTemplate, setStartingTemplate] = useState<SmokeTemplate['id'] | null>(null)
+  const [claudeProfiles, setClaudeProfiles] = useState<
+    Record<'fable' | 'opus' | 'opus-5', ClaudeProfile>
+  >({
+    fable: 'default',
+    opus: 'default',
+    'opus-5': 'default',
+  })
   const [error, setError] = useState<string | null>(null)
   const {
     data,
@@ -80,6 +137,50 @@ export function MissionControlView() {
     }
   }
 
+  async function startSmokeTest(template: SmokeTemplate) {
+    setStartingTemplate(template.id)
+    setError(null)
+    const profile = template.provider === 'claude' ? claudeProfiles[template.id] : null
+    const profileLabel = profile === 'balsa' ? 'Balsa' : 'default account'
+    try {
+      const created = await runtimeFetch<{ run: RuntimeRun }>('/runs', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({
+          name:
+            template.provider === 'claude'
+              ? `Smoke: ${template.label} (${profileLabel})`
+              : `Smoke: ${template.label}`,
+          provider: template.provider,
+          model: template.model,
+          effort: 'low',
+          accessMode: 'workspace-write',
+          authHome:
+            template.provider === 'claude'
+              ? profile === 'balsa'
+                ? '~/.claude-balsa'
+                : '~/.claude'
+              : null,
+          workspacePath: `${examplesRoot}/${template.id}`,
+          missionPath: 'MISSION.md',
+          maxSessions: 1,
+          delaySeconds: 0,
+          statusFile: 'STATUS.md',
+          journalFile: 'JOURNAL.md',
+          inboxFile: 'INBOX.md',
+          readOnlyFiles: ['RESULT.md'],
+        }),
+      })
+      await runtimeFetch(`/runs/${created.run.id}/start`, { method: 'POST' })
+      await queryClient.invalidateQueries({ queryKey: ['runtime-runs'] })
+      router.push(`/mission-control/${created.run.id}`)
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setStartingTemplate(null)
+    }
+  }
+
   const runs = data?.runs ?? []
   return (
     <div className="space-y-6">
@@ -115,6 +216,58 @@ export function MissionControlView() {
           {error || String(queryError)}
         </div>
       )}
+
+      <section className="space-y-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-sm font-semibold">
+            <Sparkles className="h-4 w-4" /> Quick smoke tests
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            One session, low effort, no research. Each test writes a small RESULT.md and completes.
+          </p>
+        </div>
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+          {SMOKE_TEMPLATES.map((template) => {
+            return (
+              <Card key={template.id}>
+                <CardContent className="space-y-3 py-4">
+                  <div>
+                    <div className="font-medium">{template.label}</div>
+                    <div className="mt-1 text-xs text-muted-foreground">{template.description}</div>
+                  </div>
+                  {template.provider === 'claude' && (
+                    <label className="block text-xs text-muted-foreground">
+                      Claude account
+                      <select
+                        value={claudeProfiles[template.id]}
+                        onChange={(event) =>
+                          setClaudeProfiles((current) => ({
+                            ...current,
+                            [template.id]: event.target.value as ClaudeProfile,
+                          }))
+                        }
+                        className="mt-1 w-full rounded-md border bg-background px-2.5 py-2 text-sm text-foreground"
+                      >
+                        <option value="default">Default (~/.claude)</option>
+                        <option value="balsa">Balsa (~/.claude-balsa)</option>
+                      </select>
+                    </label>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => void startSmokeTest(template)}
+                    disabled={startingTemplate !== null}
+                    className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+                  >
+                    <Play className="h-4 w-4" />
+                    {startingTemplate === template.id ? 'Starting…' : 'Run smoke test'}
+                  </button>
+                </CardContent>
+              </Card>
+            )
+          })}
+        </div>
+      </section>
 
       {creating && (
         <Card>
