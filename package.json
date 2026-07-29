@@ -61,6 +61,7 @@
     "dashboard:typecheck": "npm --prefix dashboard run typecheck",
     "llm-usage": "tsx src/llm-usage/cli.ts",
     "global-runtime": "tsx src/cli/global-runtime.ts",
+    "mission": "tsx src/cli/mission.ts",
     "global-runtime:test": "tsx --test src/global-runtime/*.test.ts",
     "bull-board": "tsx src/cli/bull-board.ts",
     "backtest:telonex:btc:15m": "tsx src/cli/backtest.ts --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m",
