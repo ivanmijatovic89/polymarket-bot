@@ -3,7 +3,7 @@
 import { Fragment, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square } from 'lucide-react'
+import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square, Target } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
 import { runtimeFetch } from '@/components/MissionControlView'
@@ -334,22 +334,32 @@ export function MissionRunView({ runId }: { runId: string }) {
           </CardHeader>
           <CardContent>
             <div className="flex flex-wrap items-center gap-1 border-b pb-2">
-              {files.map((file) => (
-                <button
-                  key={file.path}
-                  type="button"
-                  onClick={() => setSelectedFile(file.path)}
-                  title={file.path}
-                  className={cn(
-                    'rounded-md px-2.5 py-1.5 text-xs',
-                    visibleFile?.path === file.path
-                      ? 'bg-accent text-foreground'
-                      : 'text-muted-foreground hover:bg-accent',
+              {files.map((file, index) => (
+                <Fragment key={file.path}>
+                  {/* Divider where the agent's own state files end and the
+                      reference material the loop only reads begins. */}
+                  {isReference(file.role) && !isReference(files[index - 1]?.role) && (
+                    <span aria-hidden className="mx-1 h-4 w-px bg-border" />
                   )}
-                >
-                  {fileLabel(file)}
-                  {!file.exists && <span className="ml-1 opacity-60">(missing)</span>}
-                </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedFile(file.path)}
+                    title={
+                      isReference(file.role) ? `${file.path} — read-only reference` : file.path
+                    }
+                    className={cn(
+                      'inline-flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs',
+                      visibleFile?.path === file.path
+                        ? 'bg-accent text-foreground'
+                        : 'text-muted-foreground hover:bg-accent',
+                      isReference(file.role) && 'border border-dashed',
+                    )}
+                  >
+                    {file.role === 'mission' && <Target className="h-3 w-3" />}
+                    {fileLabel(file)}
+                    {!file.exists && <span className="opacity-60">(missing)</span>}
+                  </button>
+                </Fragment>
               ))}
               {isMarkdownPath(visibleFile?.path) && (
                 <div className="ml-auto flex rounded-md border p-0.5">
@@ -719,6 +729,12 @@ function Meta({ label, value, mono }: { label: string; value: string; mono?: boo
 
 function isMarkdownPath(path: string | undefined): boolean {
   return path !== undefined && path.toLowerCase().endsWith('.md')
+}
+
+// The loop writes status/journal and reads the inbox; the mission and any
+// extra paths are material it only ever reads.
+function isReference(role: RuntimeFile['role'] | undefined): boolean {
+  return role === 'mission' || role === 'read_only'
 }
 
 function fileLabel(file: RuntimeFile): string {

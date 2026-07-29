@@ -86,7 +86,7 @@ export type RuntimeRunSummary = RuntimeRun & {
 }
 
 export type RuntimeFile = {
-  role: 'status' | 'journal' | 'inbox' | 'read_only'
+  role: 'mission' | 'status' | 'journal' | 'inbox' | 'read_only'
   path: string
   exists: boolean
   content: string
