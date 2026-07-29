@@ -1,18 +1,20 @@
 ---
-title: Global Runtime Smoke Tests
-description: One-click Fable, Opus 4.8, Opus 5, and GPT-5.6 examples for Mission Control.
+title: Global Runtime Loop Example
+description: Run one shared three-session mission with Fable, Opus 4.8, Opus 5, or GPT-5.6.
 ---
 
-# Global Runtime smoke tests
+# Global Runtime loop example
 
-Mission Control includes four small end-to-end examples. Each example uses low effort, permits exactly one session, avoids research and network access, and writes a short `RESULT.md` before completing.
+Mission Control provides one small end-to-end mission that can be started with four model configurations. Every model runs the same mission from `examples/global-runtime/shared-loop/MISSION.md`.
 
-| Example  | Provider    | Model                      | Workspace                          |
-| -------- | ----------- | -------------------------- | ---------------------------------- |
-| Fable    | Claude Code | `claude-fable-5`           | `examples/global-runtime/fable/`   |
-| Opus 4.8 | Claude Code | `claude-opus-4-8`          | `examples/global-runtime/opus/`    |
-| Opus 5   | Claude Code | `opus` (latest Opus alias) | `examples/global-runtime/opus-5/`  |
-| GPT-5.6  | Codex       | `gpt-5.6`                  | `examples/global-runtime/gpt-5.6/` |
+| Launcher | Provider    | Model                      |
+| -------- | ----------- | -------------------------- |
+| Fable    | Claude Code | `claude-fable-5`           |
+| Opus 4.8 | Claude Code | `claude-opus-4-8`          |
+| Opus 5   | Claude Code | `opus` (latest Opus alias) |
+| GPT-5.6  | Codex       | `gpt-5.6`                  |
+
+The mission intentionally requires three fresh sessions. Sessions 1 and 2 return `continue`; session 3 returns `complete`. This verifies that the outer loop starts the next process and that file-based memory survives between sessions.
 
 ## Run an example
 
@@ -23,7 +25,7 @@ npm run global-runtime
 npm run dashboard
 ```
 
-Open `http://127.0.0.1:3051/mission-control`. Under **Quick smoke tests**, select a Claude account when applicable and click **Run smoke test**. Mission Control creates the loop, starts it, and opens its detail page.
+Open `http://127.0.0.1:3051/mission-control`. Under **Shared loop example**, choose the model launcher, select a Claude account when applicable, and click **Start 3-session example**. Mission Control creates the loop with `maxSessions: 3`, starts session 1, and opens its detail page.
 
 Claude examples offer two subscription profiles:
 
@@ -34,13 +36,13 @@ The GPT-5.6 example uses the normal Codex login (`CODEX_HOME` is not overridden)
 
 ## Expected result
 
-The loop should reach `completed` after one session. The detail page should show:
+The loop should reach `completed` after three sessions. The detail page should show:
 
-- one completed session;
+- three completed sessions;
 - token usage reported by the CLI;
 - populated `STATUS.md` and `JOURNAL.md`;
-- `RESULT.md` containing the selected model name.
+- `RESULT.md` showing that all three checkpoints passed.
 
-Generated runtime files are ignored by Git. Re-running a template creates another run record but reuses its example workspace, so do not start two runs for the same template at the same time.
+All launchers use the same workspace and mission. Generated runtime files are ignored by Git. The workspace lock prevents two examples from running at the same time, so wait for one model to finish before starting another.
 
 These are deliberately small tests, but each CLI still loads its normal startup instructions and tool context. Actual subscription usage can therefore be larger than the visible mission text.

@@ -325,7 +325,7 @@ export default withMermaid(
             { text: 'Measure Latency', link: '/other/MeasureLatency' },
             { text: 'LLM Usage', link: '/other/llm-usage' },
             { text: 'Global Runtime', link: '/other/global-runtime' },
-            { text: 'Global Runtime Smoke Tests', link: '/other/global-runtime-examples' },
+            { text: 'Global Runtime Loop Example', link: '/other/global-runtime-examples' },
             { text: 'Claude Code Log Viewers', link: '/other/claude-code-log-viewers' },
           ],
         },
