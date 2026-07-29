@@ -178,7 +178,7 @@ The provider adapter waits for the child process `close` event before final pars
 | Inbox path is rejected | Replace dangling symlinks or non-regular files with a regular inbox file inside the workspace. |
 | Result path cannot be prepared | Repair `.global-runtime/` and resume. No session number is consumed by the failed preparation. |
 | Dashboard says runtime unavailable | Start `npm run global-runtime` and verify `GLOBAL_RUNTIME_URL`. |
-| Session limit reached | The loop waits rather than extending itself. Create a larger loop or deliberately change the mission plan. |
+| Session limit reached | The loop waits rather than extending itself. Press **Extend** in Mission Control (or `POST /runs/:id/extend` with a higher `maxSessions`), then resume; sessions continue in the same run. |
 
 ## Explicit V1 boundaries
 

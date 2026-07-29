@@ -44,6 +44,21 @@ test('local API creates a loop and returns persisted Mission Control state', asy
     assert.equal(detail.statusCode, 200)
     assert.equal(detail.json<{ run: { name: string } }>().run.name, 'API loop')
 
+    const extended = await app.inject({
+      method: 'POST',
+      url: `/runs/${runId}/extend`,
+      payload: { maxSessions: 8 },
+    })
+    assert.equal(extended.statusCode, 200)
+    assert.equal(extended.json<{ run: { maxSessions: number } }>().run.maxSessions, 8)
+
+    const rejectedExtension = await app.inject({
+      method: 'POST',
+      url: `/runs/${runId}/extend`,
+      payload: { maxSessions: 8 },
+    })
+    assert.equal(rejectedExtension.statusCode, 400)
+
     const inbox = await app.inject({
       method: 'POST',
       url: `/runs/${runId}/inbox`,
