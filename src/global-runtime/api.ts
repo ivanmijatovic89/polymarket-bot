@@ -35,6 +35,9 @@ export function buildRuntimeApi(
   app.get<{ Params: RunParams }>('/runs/:id/files', async (request) =>
     runtime.getFiles(parseId(request.params.id)),
   )
+  app.post<{ Params: RunParams }>('/runs/:id/extend', async (request) => ({
+    run: await runtime.extendMaxSessions(parseId(request.params.id), request.body),
+  }))
   app.post<{ Params: RunParams }>('/runs/:id/inbox', async (request, reply) => {
     const entry = await runtime.appendInbox(parseId(request.params.id), request.body)
     return reply.code(201).send(entry)

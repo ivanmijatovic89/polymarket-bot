@@ -193,6 +193,65 @@ test('moves directly to waiting when the final allowed session requests continua
   assert.match(persisted?.lastError ?? '', /session limit reached/iu)
 })
 
+test('extend raises the session limit and resume continues the same run', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new ScriptedProvider([
+    successfulResult('continue', 'first checkpoint', 1),
+    successfulResult('complete', 'done after extension', 1),
+  ])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun({ ...runInput(workspace), maxSessions: 1 })
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'waiting')
+
+  const extended = await runtime.extendMaxSessions(run.id, { maxSessions: 2 })
+  assert.equal(extended.maxSessions, 2)
+
+  await runtime.resume(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
+
+  const detail = await runtime.getRunDetail(run.id)
+  assert.equal(detail.run.currentSession, 2)
+  assert.equal(detail.sessions.length, 2)
+  assert.deepEqual(provider.sessionNumbers, [1, 2])
+})
+
+test('extend rejects limits that do not raise the current maximum', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun({ ...runInput(workspace), maxSessions: 3 })
+
+  await assert.rejects(
+    runtime.extendMaxSessions(run.id, { maxSessions: 3 }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    runtime.extendMaxSessions(run.id, { maxSessions: 0 }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    runtime.extendMaxSessions(run.id, { maxSessions: 4, extra: true }),
+    RuntimeValidationError,
+  )
+  assert.equal((await store.getRun(run.id))?.maxSessions, 3)
+})
+
+test('extend rejects a completed run', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'done', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
+
+  await assert.rejects(runtime.extendMaxSessions(run.id, { maxSessions: 10 }), RuntimeConflictError)
+})
+
 test('applies a pending pause before entering the rate-limit retry delay', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()

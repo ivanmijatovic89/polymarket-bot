@@ -12,6 +12,7 @@ import type { RuntimeStore } from './store.js'
 import {
   appendInboxSchema,
   createRuntimeRunSchema,
+  extendRunSchema,
   sessionResultSchema,
   type CreateRuntimeRunInput,
   type RuntimeFilesResponse,
@@ -232,6 +233,25 @@ export class GlobalRuntime {
       throw new RuntimeValidationError(parsed.error.issues[0]?.message ?? 'invalid inbox entry')
     }
     return appendInboxEntry(await this.requireRun(id), parsed.data.message)
+  }
+
+  async extendMaxSessions(id: number, value: unknown): Promise<RuntimeRun> {
+    const parsed = extendRunSchema.safeParse(value)
+    if (!parsed.success) {
+      throw new RuntimeValidationError(parsed.error.issues[0]?.message ?? 'invalid extension')
+    }
+    return this.withRunTransition(id, async () => {
+      const run = await this.requireRun(id)
+      if (run.status === 'completed') {
+        throw new RuntimeConflictError('completed run cannot be extended')
+      }
+      if (parsed.data.maxSessions <= run.maxSessions) {
+        throw new RuntimeValidationError(
+          `maxSessions must be greater than the current limit (${run.maxSessions})`,
+        )
+      }
+      return this.store.updateRun(id, { maxSessions: parsed.data.maxSessions })
+    })
   }
 
   async start(id: number): Promise<RuntimeRun> {
@@ -665,19 +685,21 @@ export class GlobalRuntime {
         return this.applyPendingControlUnlocked(runId, control)
       })
       if (terminal) return
-      if (sessionNumber >= run.maxSessions) {
-        await this.withRunTransition(runId, async () => {
-          if (await this.applyPendingControlUnlocked(runId, control)) return
-          await this.store.updateRun(runId, {
-            status: 'waiting',
-            processId: null,
-            heartbeatAt: null,
-            nextStartAt: null,
-            lastError: `Session limit reached (${run.maxSessions}).`,
-          })
+      // Re-read the run so an extension applied during this session takes effect immediately.
+      const limitReached = await this.withRunTransition(runId, async () => {
+        if (await this.applyPendingControlUnlocked(runId, control)) return true
+        const latest = await this.requireRun(runId)
+        if (sessionNumber < latest.maxSessions) return false
+        await this.store.updateRun(runId, {
+          status: 'waiting',
+          processId: null,
+          heartbeatAt: null,
+          nextStartAt: null,
+          lastError: `Session limit reached (${latest.maxSessions}).`,
         })
-        return
-      }
+        return true
+      })
+      if (limitReached) return
       await this.wait(control, run.delaySeconds * 1000)
     }
   }

@@ -98,6 +98,12 @@ export const createRuntimeRunSchema = z
 
 export type CreateRuntimeRunInput = z.infer<typeof createRuntimeRunSchema>
 
+export const extendRunSchema = z
+  .object({
+    maxSessions: z.coerce.number().int().min(1).max(10_000),
+  })
+  .strict()
+
 export const sessionResultSchema = z
   .object({
     action: z.enum(runtimeActions),
@@ -166,6 +172,7 @@ export type RuntimeRunPatch = Partial<
   Pick<
     RuntimeRun,
     | 'status'
+    | 'maxSessions'
     | 'currentSession'
     | 'processId'
     | 'heartbeatAt'

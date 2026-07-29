@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { ChevronLeft, Pause, Play, RefreshCw, Send, Square } from 'lucide-react'
+import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square } from 'lucide-react'
 import { runtimeFetch } from '@/components/MissionControlView'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -17,6 +17,7 @@ export function MissionRunView({ runId }: { runId: string }) {
   const [error, setError] = useState<string | null>(null)
   const [message, setMessage] = useState('')
   const [selectedFile, setSelectedFile] = useState<string | null>(null)
+  const [extendTarget, setExtendTarget] = useState<string | null>(null)
   const detailQuery = useQuery({
     queryKey: ['runtime-run', runId],
     queryFn: () => runtimeFetch<RuntimeRunDetail>(`/runs/${runId}`),
@@ -39,6 +40,28 @@ export function MissionRunView({ runId }: { runId: string }) {
     setError(null)
     try {
       await runtimeFetch(`/runs/${runId}/${name}`, { method: 'POST' })
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ['runtime-run', runId] }),
+        queryClient.invalidateQueries({ queryKey: ['runtime-runs'] }),
+      ])
+    } catch (caught) {
+      setError(caught instanceof Error ? caught.message : String(caught))
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function extendLimit() {
+    const maxSessions = Number(extendTarget)
+    setBusy(true)
+    setError(null)
+    try {
+      await runtimeFetch(`/runs/${runId}/extend`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ maxSessions }),
+      })
+      setExtendTarget(null)
       await Promise.all([
         queryClient.invalidateQueries({ queryKey: ['runtime-run', runId] }),
         queryClient.invalidateQueries({ queryKey: ['runtime-runs'] }),
@@ -136,6 +159,43 @@ export function MissionRunView({ runId }: { runId: string }) {
                 Stop
               </Control>
             )}
+            {run.status !== 'completed' &&
+              (extendTarget === null ? (
+                <Control
+                  onClick={() => setExtendTarget(String(run.maxSessions + 5))}
+                  disabled={busy}
+                  icon={Plus}
+                >
+                  Extend
+                </Control>
+              ) : (
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min={run.maxSessions + 1}
+                    max={10000}
+                    value={extendTarget}
+                    onChange={(event) => setExtendTarget(event.target.value)}
+                    className="w-20 rounded-md border bg-background px-2 py-2 text-sm tabular-nums"
+                    aria-label="New session limit"
+                  />
+                  <button
+                    type="button"
+                    disabled={busy || Number(extendTarget) <= run.maxSessions}
+                    onClick={() => void extendLimit()}
+                    className="rounded-md bg-primary px-3 py-2 text-sm text-primary-foreground disabled:opacity-50"
+                  >
+                    Set limit
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setExtendTarget(null)}
+                    className="rounded-md border px-3 py-2 text-sm hover:bg-accent"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              ))}
           </div>
         </div>
       </div>
