@@ -195,10 +195,13 @@ async function readWorkspaceFile(
 }
 
 export async function readRuntimeFiles(run: RuntimeRun): Promise<RuntimeFilesResponse> {
+  // The mission is reference material rather than communication, so it trails
+  // the three state files and leads the other read-only paths.
   const files = await Promise.all([
     readWorkspaceFile(run, 'status', run.statusFile),
     readWorkspaceFile(run, 'journal', run.journalFile),
     readWorkspaceFile(run, 'inbox', run.inboxFile),
+    readWorkspaceFile(run, 'mission', run.missionPath),
     ...run.readOnlyFiles.map((file) => readWorkspaceFile(run, 'read_only', file)),
   ])
   return { files }

@@ -224,7 +224,7 @@ export interface RuntimeRunSummary extends RuntimeRun {
 }
 
 export interface RuntimeFileView {
-  role: 'status' | 'journal' | 'inbox' | 'read_only'
+  role: 'mission' | 'status' | 'journal' | 'inbox' | 'read_only'
   path: string
   exists: boolean
   content: string
