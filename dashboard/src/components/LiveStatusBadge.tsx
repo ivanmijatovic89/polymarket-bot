@@ -3,7 +3,6 @@
 import { useQuery } from '@tanstack/react-query'
 import Link from 'next/link'
 import { Cpu, Server } from 'lucide-react'
-import { useEffect, useState } from 'react'
 import { cn } from '@/lib/utils'
 import type { MachineGroup } from '@/lib/queries/workers'
 import type { ActiveBatchSummary } from '@/lib/queries/batches'
@@ -38,22 +37,14 @@ type Tone = 'active' | 'idle' | 'warning'
  * live workers to pick it up), muted (idle). Links to the Overview page.
  */
 export function LiveStatusBadge({ className }: { className?: string }) {
-  const [queriesEnabled, setQueriesEnabled] = useState(false)
-
-  useEffect(() => {
-    setQueriesEnabled(true)
-  }, [])
-
   const { data: workers } = useQuery({
     queryKey: ['workers', 'nav-badge'],
     queryFn: fetchWorkers,
-    enabled: queriesEnabled,
     refetchInterval: 5000,
   })
   const { data: batchData } = useQuery({
     queryKey: ['active-batches', 'nav-badge'],
     queryFn: fetchActiveBatches,
-    enabled: queriesEnabled,
     refetchInterval: 5000,
   })
 
