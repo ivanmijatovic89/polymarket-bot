@@ -8,7 +8,15 @@ import { runtimeFetch } from '@/components/MissionControlView'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableFooter,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table'
 import { cn } from '@/lib/utils'
 import type { RuntimeFile, RuntimeRunDetail, RuntimeSession } from '@/lib/runtimeTypes'
 
@@ -255,57 +263,42 @@ export function MissionRunView({ runId }: { runId: string }) {
         </Stat>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-3">
-        <Card>
-          <CardHeader>
-            <CardTitle>Configuration</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Meta label="Requested model" value={run.model} mono />
-            <Meta label="Exact model" value={resolvedModel ?? '—'} mono />
-            <Meta label="Effort" value={run.effort} />
-            <Meta label="Access" value={run.accessMode} />
-            <Meta label="Account" value={formatAccount(run)} />
-            <Meta label="Delay between sessions" value={`${run.delaySeconds}s`} />
-          </CardContent>
-        </Card>
+      <Card>
+        <CardContent className="grid gap-x-8 gap-y-5 py-4 text-xs lg:grid-cols-3">
+          <Spec title="Configuration">
+            <SpecRow label="Model" value={run.model} mono />
+            {resolvedModel && resolvedModel !== run.model && (
+              <SpecRow label="Resolved" value={resolvedModel} mono />
+            )}
+            <SpecRow label="Access" value={run.accessMode} />
+            <SpecRow label="Session delay" value={`${run.delaySeconds}s`} />
+            <SpecRow label="Session limit" value={String(run.maxSessions)} />
+            <SpecRow label="Process id" value={run.processId === null ? '—' : String(run.processId)} />
+          </Spec>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Workspace</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Meta label="Path" value={run.workspacePath} mono />
-            <Meta label="Mission" value={run.missionPath} mono />
-            <Meta label="Status file" value={run.statusFile} mono />
-            <Meta label="Journal file" value={run.journalFile} mono />
-            <Meta label="Inbox file" value={run.inboxFile} mono />
-            <Meta
-              label="Read-only files"
+          <Spec title="Workspace">
+            <SpecRow label="Path" value={run.workspacePath} mono />
+            <SpecRow label="Mission" value={run.missionPath} mono />
+            <SpecRow label="Status" value={run.statusFile} mono />
+            <SpecRow label="Journal" value={run.journalFile} mono />
+            <SpecRow label="Inbox" value={run.inboxFile} mono />
+            <SpecRow
+              label="Read-only"
               value={run.readOnlyFiles.length > 0 ? run.readOnlyFiles.join(', ') : '—'}
               mono
             />
-          </CardContent>
-        </Card>
+          </Spec>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Timing</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm">
-            <Meta label="Created" value={formatDate(run.createdAt)} />
-            <Meta label="Started" value={formatDate(run.startedAt)} />
-            <Meta label="Ended" value={formatDate(run.endedAt)} />
-            <Meta label="Last activity" value={formatDate(run.lastActivityAt)} />
-            <Meta label="Heartbeat" value={formatDate(run.heartbeatAt)} />
-            <Meta
-              label="Next start"
-              value={run.nextStartAt ? formatDate(run.nextStartAt) : '—'}
-            />
-            <Meta label="Process id" value={run.processId === null ? '—' : String(run.processId)} />
-          </CardContent>
-        </Card>
-      </div>
+          <Spec title="Timing">
+            <SpecRow label="Created" value={formatDate(run.createdAt)} />
+            <SpecRow label="Started" value={formatDate(run.startedAt)} />
+            <SpecRow label="Ended" value={formatDate(run.endedAt)} />
+            <SpecRow label="Last activity" value={formatDate(run.lastActivityAt)} />
+            <SpecRow label="Heartbeat" value={formatDate(run.heartbeatAt)} />
+            <SpecRow label="Next start" value={formatDate(run.nextStartAt)} />
+          </Spec>
+        </CardContent>
+      </Card>
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(20rem,1fr)]">
         <Card className="min-w-0">
@@ -488,6 +481,8 @@ export function MissionRunView({ runId }: { runId: string }) {
                               <Meta label="Raw output" value={session.rawLogPath} mono />
                             </div>
                             <div className="grid gap-2 text-xs sm:grid-cols-2 xl:grid-cols-4">
+                              <Meta label="Effort" value={session.effort} />
+                              <Meta label="Ended" value={formatDate(session.finishedAt)} />
                               <Meta label="Input" value={formatNumber(session.inputTokens)} />
                               <Meta
                                 label="Cache read"
@@ -497,10 +492,12 @@ export function MissionRunView({ runId }: { runId: string }) {
                                 label="Cache write"
                                 value={formatNumber(session.cacheCreationInputTokens)}
                               />
+                              <Meta label="Output" value={formatNumber(session.outputTokens)} />
                               <Meta
                                 label="Reasoning"
                                 value={formatNumber(session.reasoningOutputTokens)}
                               />
+                              <Meta label="Cache hit" value={formatCacheHit(session)} />
                             </div>
                             <div>
                               <div className="mb-1 text-xs text-muted-foreground">
@@ -524,6 +521,33 @@ export function MissionRunView({ runId }: { runId: string }) {
                 )
               })}
             </TableBody>
+            {sessions.length > 0 && (
+              <TableFooter>
+                <TableRow>
+                  <TableCell colSpan={4} className="text-xs">
+                    Total · {sessions.length} {sessions.length === 1 ? 'session' : 'sessions'}
+                  </TableCell>
+                  <TableCell
+                    className="text-right text-xs tabular-nums whitespace-nowrap"
+                    title="Time inside sessions; the run duration above also counts the gaps between them."
+                  >
+                    {formatDuration(activeMs(sessions))}
+                  </TableCell>
+                  <TableCell className="text-right whitespace-nowrap">
+                    <div className="text-xs tabular-nums">{formatCompact(tokenTotal)}</div>
+                    <div className="mt-0.5 font-mono text-[11px] text-muted-foreground">
+                      {formatCompact(totals.inputTokens)}i ·{' '}
+                      {formatCompact(totals.cacheReadInputTokens)}r ·{' '}
+                      {formatCompact(totals.outputTokens)}o
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-right text-xs tabular-nums whitespace-nowrap">
+                    {formatUsd(totals.estimatedApiCostUsd)}
+                  </TableCell>
+                  <TableCell colSpan={2} />
+                </TableRow>
+              </TableFooter>
+            )}
           </Table>
           {sessions.length === 0 && (
             <p className="py-10 text-center text-sm text-muted-foreground">No sessions yet.</p>
@@ -585,6 +609,30 @@ function Stat({
       <div className="mt-1 text-xl font-semibold tabular-nums">{value}</div>
       {children}
     </div>
+  )
+}
+
+function Spec({ title, children }: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="min-w-0">
+      <div className="mb-2 text-[11px] font-semibold tracking-wider text-muted-foreground uppercase">
+        {title}
+      </div>
+      <dl className="grid grid-cols-[6.5rem_minmax(0,1fr)] gap-x-3 gap-y-1.5">{children}</dl>
+    </div>
+  )
+}
+
+// Long paths truncate rather than wrap — a wrapped workspace path was most of
+// what made the old three-card block so tall. Full value stays on the tooltip.
+function SpecRow({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <>
+      <dt className="text-muted-foreground">{label}</dt>
+      <dd className={cn('truncate', mono && 'font-mono')} title={value}>
+        {value}
+      </dd>
+    </>
   )
 }
 
@@ -665,11 +713,32 @@ function latestResolvedModel(sessions: RuntimeRunDetail['sessions']): string | n
   return sessions.find((session) => session.resolvedModel)?.resolvedModel ?? null
 }
 
+// Wall-clock time actually spent inside sessions. The run duration on the tile
+// above spans the whole loop, so it also counts the delay between sessions.
+function activeMs(sessions: RuntimeSession[]): number {
+  return sessions.reduce((total, session) => {
+    const startMs = new Date(session.startedAt).getTime()
+    const endMs = session.finishedAt ? new Date(session.finishedAt).getTime() : Date.now()
+    return total + Math.max(0, endMs - startMs)
+  }, 0)
+}
+
+function formatCacheHit(session: RuntimeSession): string {
+  const read = session.cacheReadInputTokens ?? 0
+  const prompt = (session.inputTokens ?? 0) + read + (session.cacheCreationInputTokens ?? 0)
+  if (prompt === 0) return '—'
+  return `${((read / prompt) * 100).toFixed(1)}%`
+}
+
 function formatDurationBetween(start: string | null, end: string | null): string {
   if (!start) return '—'
   const startMs = new Date(start).getTime()
   const endMs = end ? new Date(end).getTime() : Date.now()
-  const totalSeconds = Math.round(Math.max(0, endMs - startMs) / 1000)
+  return formatDuration(Math.max(0, endMs - startMs))
+}
+
+function formatDuration(milliseconds: number): string {
+  const totalSeconds = Math.round(milliseconds / 1000)
   const hours = Math.floor(totalSeconds / 3600)
   const minutes = Math.floor((totalSeconds % 3600) / 60)
   const seconds = totalSeconds % 60
