@@ -344,3 +344,19 @@
   pipeline, the v0 baseline (an honest stationary-loss KILL), and 8 engine
   proposals — two of which (P-001, P-008) the human already fixed upstream.
   Returning `complete`. On to research.
+
+## 2026-07-31 — Mission 02, session 1
+
+- Implemented and verified the full MISSION01-REVIEW gate M1–M5 (commit
+  4809a8e): evaluate.ts now machine-enforces cross-run params/latency
+  identity, engine-SHA consistency, a design-ts sanity check, and an
+  SE-scaled (noise-aware) champion bar; folded minors m6/m8/m9/m10/m11.
+  The Mission-01 exemplar that mixed configs now correctly FAILS MECHANICAL.
+  The champion-promotion blocker is cleared.
+- First research increment: pair-v1 (join-only starts, aggressive maker
+  repair, 3-min end-of-window cutoff) — frozen at 6a1ecde, smoked (run 871),
+  screened on an identical 800-market universe vs a fresh v0 baseline
+  (runs 872/873 vs 874). Structural fixes recover +0.61 ev/market with
+  per-dollar improving too (win rate 21%→52%); best config ev −1.07 — still
+  negative, ITERATE. New lead: repair legs cross the spread (taker share
+  13–16%) — v2 will fix repair pricing.
