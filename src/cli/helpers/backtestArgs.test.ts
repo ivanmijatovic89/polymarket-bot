@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseArgs, resolveBacktestProvenance } from './backtestArgs.js'
+import { parseArgs, parseLatencyFlagsFromCmd, resolveBacktestProvenance } from './backtestArgs.js'
 
 test('parseArgs parses repeated --dir and --dir= forms', () => {
   const parsed = parseArgs(['--dir', '/tmp/a', '--dir=/tmp/b', 'x.parquet'])
@@ -302,6 +302,58 @@ test('parseArgs --extend rejects explicit latency flags', () => {
   assert.throws(
     () => parseArgs(['--extend', '5', '--latency-delay-ms', '140', '--latency-jitter-ms', '20']),
     /--extend 5 cannot be combined with: --latency-delay-ms, --latency-jitter-ms/,
+  )
+})
+
+test('parseLatencyFlagsFromCmd recovers latency flags from a recorded cmd', () => {
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --strategy x --latency-delay-ms 140 --latency-jitter-ms=20 --protocol pair-fable',
+    ),
+    { delayMs: 140, jitterMs: 20 },
+  )
+  assert.deepEqual(parseLatencyFlagsFromCmd('npm run backtest -- --latency-delay-ms 140'), {
+    delayMs: 140,
+  })
+  assert.deepEqual(parseLatencyFlagsFromCmd('npm run backtest -- --strategy x'), {})
+  assert.deepEqual(parseLatencyFlagsFromCmd(null), {})
+  assert.deepEqual(parseLatencyFlagsFromCmd(undefined), {})
+})
+
+test('parseLatencyFlagsFromCmd ignores flag text inside comment and param values', () => {
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --strategy x --comment "baseline vs --latency-delay-ms 250 run"',
+    ),
+    {},
+  )
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd('npm run backtest -- --param "note=--latency-jitter-ms=999"'),
+    {},
+  )
+  // Unquoted flag-shaped value: quoteInlineArg leaves it unquoted, and only
+  // real argv semantics (value-slot consumption) can tell it apart.
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd('npm run backtest -- --strategy x --comment --latency-delay-ms=250'),
+    {},
+  )
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --comment "sweep --latency-delay-ms 250" --latency-delay-ms 140',
+    ),
+    { delayMs: 140 },
+  )
+})
+
+test('parseLatencyFlagsFromCmd matches launch semantics for duplicates and node-form cmds', () => {
+  // parseArgs is last-wins for duplicated flags; inheritance must match.
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd('npm run backtest -- --latency-delay-ms 100 --latency-delay-ms 200'),
+    { delayMs: 200 },
+  )
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd('node /repo/src/cli/backtest.ts --latency-delay-ms 140'),
+    { delayMs: 140 },
   )
 })
 

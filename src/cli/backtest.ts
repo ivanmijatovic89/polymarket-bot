@@ -15,7 +15,11 @@ import {
   lockRunForExtension,
   type IndexedMarketStats,
 } from '../db/backtests.js'
-import { parseArgs, resolveBacktestProvenance } from './helpers/backtestArgs.js'
+import {
+  parseArgs,
+  parseLatencyFlagsFromCmd,
+  resolveBacktestProvenance,
+} from './helpers/backtestArgs.js'
 import { buildBacktestCmdInline } from './helpers/backtestCmd.js'
 import { resolveParquetFilesFromDirs } from './helpers/resolveParquetFilesFromDirs.js'
 import { computeBatchStats } from '../backtest/stats/batchStats.js'
@@ -382,7 +386,9 @@ async function main(): Promise<void> {
     } else if (parsed.symbol) {
       try {
         const marketRecords = await getMarketsBySymbol(parsed.symbol, {
-          ...(parsed.limit !== undefined && { limit: parsed.limit }),
+          // No --limit means every recorded market for the symbol, not the
+          // module's legacy 1000-row default (P-008).
+          limit: parsed.limit ?? Number.MAX_SAFE_INTEGER,
           ...(parsed.random ? { random: true } : {}),
           ...(parsed.latest ? { latest: true } : {}),
           onlyWithDataset: true,
@@ -467,7 +473,10 @@ async function main(): Promise<void> {
           timeframe: parsed.timeframe,
           converter: conv,
           readFrom: rf,
-          ...(parsed.limit !== undefined && { limit: parsed.limit }),
+          // No --limit means the FULL eligible universe. The module's legacy
+          // 1000-row default must never silently truncate a "full" run
+          // (P-008); same explicit-ceiling contract as the extension planner.
+          limit: parsed.limit ?? Number.MAX_SAFE_INTEGER,
           ...(parsed.random ? { random: true } : {}),
           ...(parsed.latest ? { latest: true } : {}),
           // --from-ms / --to-ms apply to fresh telonex selection the same
@@ -562,12 +571,37 @@ async function main(): Promise<void> {
 
   // Explicit flags win over the environment: unlike env vars, they land in the
   // recorded `cmd`, so the run's simulated latency stays auditable.
+  // Extensions inherit the parent's recorded latency flags (P-001): the
+  // parent's cmd is the only durable record of its simulated latency, and an
+  // extension must not mix a different latency into the same run.
+  const parentLatency = isExtend ? parseLatencyFlagsFromCmd(planOk!.parent.cmd) : {}
   const latencyMs =
+    parentLatency.delayMs ??
     parsed.latencyDelayMs ??
     Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
   const jitterMs =
+    parentLatency.jitterMs ??
     parsed.latencyJitterMs ??
     Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
+  if (isExtend) {
+    const inherited: string[] = []
+    const fallbacks: string[] = []
+    ;(parentLatency.delayMs !== undefined ? inherited : fallbacks).push('delay')
+    ;(parentLatency.jitterMs !== undefined ? inherited : fallbacks).push('jitter')
+    if (inherited.length > 0) {
+      console.log(
+        `[backtest] Extension inherits parent latency (${inherited.join(', ')}): ` +
+          `delay=${latencyMs}ms, jitter=${jitterMs}ms`,
+      )
+    }
+    if (fallbacks.length > 0) {
+      console.warn(
+        `[backtest] WARNING: parent cmd records no latency flag for ${fallbacks.join(' and ')} — ` +
+          `falling back to the current environment (delay=${latencyMs}ms, jitter=${jitterMs}ms), ` +
+          `which may differ from the parent run.`,
+      )
+    }
+  }
 
   // External feeds are strategy-driven (like live): a strategy that registers
   // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed

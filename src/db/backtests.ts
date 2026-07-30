@@ -665,6 +665,8 @@ export type ExtensibleRun = {
   batchUid: string
   protocol: string | null
   model: string | null
+  /** Launch command of the parent run — extensions inherit its latency flags. */
+  cmd: string | null
   strategy: string
   params: Record<string, unknown>
   symbol: string
@@ -699,6 +701,7 @@ export async function getRunForExtension(
       batchUid: backtestRuns.batchUid,
       protocol: backtestRuns.protocol,
       model: backtestRuns.model,
+      cmd: backtestRuns.cmd,
       strategy: backtestRuns.strategy,
       params: backtestRuns.params,
       symbol: backtestRuns.symbol,
@@ -732,6 +735,7 @@ export async function getRunForExtension(
       batchUid: row.batchUid,
       protocol: row.protocol,
       model: row.model,
+      cmd: row.cmd,
       strategy: row.strategy,
       params: parseJsonValue<Record<string, unknown>>(row.params),
       symbol: row.symbol!,
