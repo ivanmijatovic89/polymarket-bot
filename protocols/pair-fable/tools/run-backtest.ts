@@ -26,7 +26,12 @@
  * Options:
  *   --strategy <id>          required
  *   --param k=v              repeatable, passed through
- *   --limit N                market count cap
+ *   --limit N                market count cap. Omitted ⇒ the FULL universe:
+ *                            an explicit huge --limit is injected, because the
+ *                            engine's listEligibleTelonexMarkets silently caps
+ *                            at 1000 when no limit is passed
+ *                            (src/db/telonexMarkets.ts:117,276 — run 864
+ *                            "full" run persisted exactly 1000 markets)
  *   --latest | --random      selection mode (both require --limit)
  *   --slug s1,s2             explicit slugs; replaces symbol/timeframe/floor
  *                            pins; slugs below the floor need --override-floor
@@ -67,6 +72,9 @@ const DEFAULT_LATENCY_DELAY_MS = 140
 const DEFAULT_LATENCY_JITTER_MS = 20
 const DEFAULT_MODEL = 'claude-fable-5'
 const PROTOCOL = 'pair-fable'
+// Injected when the caller passes no --limit: defeats the engine's silent
+// LIMIT 1000 default so "no limit" really is the whole eligible universe.
+const FULL_UNIVERSE_LIMIT = 1000000
 
 // ---------------------------------------------------------------------------
 // Argument parsing — every flag must be known; unknown flags are fatal.
@@ -313,7 +321,10 @@ function composeArgv(o: Opts, latencyDelayMs: number, batchUid: string): string[
     argv.push('--from-ms', String(o.fromMs ?? FLOOR_MS))
     if (o.toMs !== undefined) argv.push('--to-ms', String(o.toMs))
   }
-  if (o.limit !== undefined) argv.push('--limit', String(o.limit))
+  // No --limit means "full universe" — but the engine's eligibility query
+  // silently defaults to LIMIT 1000 (src/db/telonexMarkets.ts:276), so an
+  // explicit no-op cap must be injected to actually get every market.
+  argv.push('--limit', String(o.limit ?? FULL_UNIVERSE_LIMIT))
   if (o.latest) argv.push('--latest')
   if (o.random) argv.push('--random')
   argv.push('--latency-delay-ms', String(latencyDelayMs))
