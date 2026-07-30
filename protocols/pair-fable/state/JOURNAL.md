@@ -288,3 +288,33 @@
   subsystem outside the surveyed area stays invisible until the watch list is
   extended — that extension is part of absorbing the first note about it).
 - One PLAN item left: `mission-02-review-and-ready`.
+
+## 2026-07-30 — session 12: READY — mission 01 complete, pending review
+
+- **Final audit passed**: every one of the 19 evidence runs (852–870) was
+  re-verified in MySQL this session — all completed with the exact market
+  counts recorded in PLAN evidence, zero failures, provenance columns set.
+  `protocol:check` passes and `refresh-capabilities` reports all six
+  capability notes CURRENT against origin/main. One gap surfaced and was
+  fixed: the promised team-workflow document did not exist yet.
+- **`memory/process/team-workflow.md` written** — how parallel agent loops
+  (other models, sibling `protocols/pair-*` workspaces) will cooperate: the
+  shared MySQL is the coordination medium (every run is attributable via the
+  provenance columns), loops read each other's memory but write only their
+  own, verified engine facts are imported by citation instead of re-tested,
+  a ledger scan precedes any new variant family so loops complement rather
+  than duplicate, and portfolio admission is cross-model via the same
+  independence rule. One decision left to the human: confirming
+  cross-protocol read access.
+- **`state/READY.md` written** — the mission completion report: what was
+  delivered (tools, memory, parity map, evaluator, baseline with its
+  stationary-loss finding, 8 proposals), 7 honest unknowns/risks (headline:
+  the live side is code-verified only — no live process was ever started),
+  and seven proposed Mission-02 amendments A1–A7 with reasons (pin the EV
+  target's unit/universe/capital level; capital levels as strategy params;
+  reference the verified independence definition; codify the fleet-wait
+  rule; LIVE-CANDIDATE requires the evidence bar incl. ~4–5 days of
+  out-of-sample markets; forbid `--extend`; session-start capability guard).
+- **Mission 01 is READY**: all 9 PLAN items passed with run-verified
+  evidence. Returning `wait` — the human reviews READY.md and answers via
+  the inbox; on "READY accepted" the next session returns `complete`.

@@ -74,13 +74,22 @@ Pointers, not content.)
   ids, batches ≤15, no MINED gates, fill-chunking indifference, on-grid
   prices, meta stamping), and the 8-point live-trust evidence bar. Proposals
   P-005/P-006/P-007 filed from this work.
-- **Evaluator**: capital-aware units DESIGNED and RUN-VERIFIED in
-  `process/evaluator.md` (2026-07-30, run 856) — cost==invested for
-  no-sell/no-split/no-merge strategies (winning side incl.), 6 unit formulas
-  + SQL skeleton, binding intent_meta stamping convention (dedup +
-  price-improvement caveats proven), capital levels only via strategy-param
-  sweeps (no cash model). Stage pipeline / promotion criteria still open
-  (PLAN `evaluator-design`).
+- **Evaluator**: COMPLETE in `process/evaluator.md` (2026-07-30) —
+  capital-aware units RUN-VERIFIED (run 856: cost==invested for
+  no-sell/no-split/no-merge strategies incl. winning side; 6 unit formulas +
+  SQL; binding intent_meta convention; capital levels only via
+  strategy-param sweeps — no cash model), stage pipeline S0 smoke → S1
+  screen (noise floor 0.0008 measured, runs 865v868) → S2 full+weekly
+  walk-forward → S3 upward latency sweep → S4 future-as-holdout OOS
+  (design-ts split), independence r<0.6/≥14d (verified r=0.9989 on 863v868),
+  overfitting guards. Executable form: `tools/evaluate.ts`, executed
+  end-to-end on runs 863–870 with correct verdicts at every stage.
+- **Team workflow**: `process/team-workflow.md` (PROPOSED, awaiting READY
+  review) — how parallel agent loops in sibling `protocols/pair-*/`
+  workspaces cooperate: shared MySQL as coordination medium (provenance
+  columns), cross-protocol read / own-protocol write, import-by-citation for
+  engine facts, LEDGER scan before opening a family, no duplicate FULL runs,
+  cross-model portfolio admission via the independence rule.
 - **Capability refresh**: `process/capability-refresh.md` +
   `tools/refresh-capabilities.ts` (run-verified 2026-07-30: clean pass at
   c219ad3, simulated drift correctly flags only notes watching the changed
@@ -88,10 +97,11 @@ Pointers, not content.)
   contract enforced as ERROR). Human trigger is one command; sessions run it
   before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
-  family files. E-001: baseline `pair-fable-v0`
-  (`protocols/pair-fable/strategies/pair.v0.ts`, runs 861 smoke / 862
-  fleet-50) — the loop is proven end-to-end (strategy → smoke → push →
-  fleet → results → memory); v0 defaults NOT profitable on the 50 oldest
-  floor markets (EV −2.43/mkt) with loss anatomy + variant ideas in
-  `experiments/pair-v0.md`. Strategy-system capabilities upgraded to
-  run-verified (see `capabilities/strategy-system.md` header).
+  family files. E-001..E-005 recorded, all pair-v0 family
+  (`strategies/pair.v0.ts`, runs 861–870, details `experiments/pair-v0.md`):
+  loop proven end-to-end; v0 defaults time-scoped KILL @ 2026-07 — loss is
+  STATIONARY on the full 10,747-market universe (monthly ev −2.21..−2.26 all
+  4 months, 0/16 positive weeks, run 870): mechanism (unpaired residue), not
+  regime. Noise floor 0.0008 (E-002); taker share rises 1.4%→9.1% with
+  latency (E-003); maxPairCost 0.95 = direction not cure (E-004). Six
+  untested variant axes pre-registered in pair-v0.md for mission 02.

@@ -117,7 +117,8 @@
         "state/PROPOSALS.md contains every engine finding made during the mission (nothing silently forgotten)",
         "Session returns wait: 'READY for review'"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 12. Step 1 audit: all 19 evidence runs 852-870 re-verified in MySQL this session (SELECT over backtest_runs + market counts: every run completed, counts match recorded evidence exactly — 852=5, 853=1, 854=20, 855=200, 856-860=3, 861=5, 862=50, 863=300, 864=1000, 865-869=300, 870=10747; failures_count=0 on all; protocol/model set on all); protocol:check OK; refresh-capabilities.ts CLEAN at origin/main @ 5538f6c (all 6 notes CURRENT); all referenced memory/tool/strategy files exist. One discrepancy found and fixed: process/README.md promised team-workflow.md which did not exist -> written this session (memory/process/team-workflow.md, 7 conventions, DB-mediated cross-loop cooperation). Step 2: state/READY.md written — delivered inventory, 7 unknowns/risks, Mission-02 amendments A1-A7 each with reason (incl. the 3 candidates named in this item's description: capital-cap convention=A2, evPerMarketTotal headline=A1, extend-latency bug=A6), stays-unchanged list, team-workflow summary, needs-human list. Step 3: PROPOSALS.md re-read — P-001..P-008 all present, each with repro + status. Step 4: session returns wait 'READY for review' with .global-runtime/session-result.json written first."
     }
   ]
 }

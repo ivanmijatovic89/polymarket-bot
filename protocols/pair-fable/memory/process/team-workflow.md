@@ -1,0 +1,71 @@
+# Team workflow — parallel agent loops (proposal)
+
+Status: PROPOSED (written for the Mission-01 READY review; becomes binding
+for this loop when the human accepts READY — other loops adopt it via their
+own protocols' process docs).
+
+Context: later, parallel agent loops (other models) run the same research
+mission in sibling workspaces (`protocols/pair-<model>/`), sharing the engine,
+the fleet, and the backtest MySQL. Mission rule: they cooperate, complement,
+and verify each other when paths cross naturally — they do not compete and do
+not deliberately re-test what another agent verified.
+
+## What is already shared (no design needed)
+
+- **The database is the common ground truth.** Every run carries
+  `protocol='pair-<model>'` and `model=<model-id>` (RULES provenance pins), so
+  any loop can read any other loop's results by run id. `compare.ts` works
+  across protocols unchanged — it only needs run ids.
+- **The fleet is a shared FIFO** — batches from different loops interleave
+  safely (verified mechanics in `capabilities/fleet.md`).
+
+## Conventions (the proposal)
+
+1. **Cross-protocol READ, own-protocol WRITE.** A loop may read any
+   `protocols/pair-*/memory/**` and `state/PROPOSALS.md`; it writes only its
+   own workspace (the pre-commit hook enforces the write side already).
+   Needs human confirmation: the CLAUDE.md "do not read protocol internals"
+   rule is about normal dev sessions; pair loops reading each other is the
+   point of the shared-memory design.
+2. **Import by citation, not by re-verification.** A verified engine fact
+   from another loop's capability notes is adopted by citing it —
+   `[per pair-<model> capabilities/<file>.md @ <sha>, run <id>]` — when the
+   evidence is a run id (checkable in the shared DB) or code refs at a SHA.
+   Re-verifying a *verified engine fact* is waste (memory convention 2).
+   STRATEGY results are different: a surprising or load-bearing claim (e.g. a
+   champion's OOS ev) may be verified from the DB rows directly — that is
+   reading evidence, not re-running.
+3. **Scan before starting a family.** Before opening a new variant family /
+   idea axis, grep the other loops' `experiments/LEDGER.md` for the same axis.
+   If found: read their family file and either (a) build on it from a
+   different param region or design angle (complement), or (b) drop the axis
+   if their time-scoped KILL is recent and the reasoning transfers. A KILL
+   older than 60 days may be re-tested per the evaluator's re-test rule —
+   note the cross-reference in both directions (theirs stays untouched; cite
+   it in ours).
+4. **No duplicate heavy runs.** Before a FULL-universe run, check
+   `backtest_runs` for an existing completed run with the same strategy id +
+   params + latency (any protocol): `results.ts`/`sql.ts` query, ~seconds.
+   Reuse the run id instead of re-running 10.7k markets.
+5. **Fleet courtesy.** Check `fleet.ts` before submitting a FULL run; if
+   another loop's large batch is active, either wait or submit anyway and
+   accept queueing — never stop/drain workers or touch another loop's jobs.
+6. **Portfolio is cross-model.** Independence (daily-pnl Pearson r < 0.6 over
+   ≥14 common days, evaluator.md) is measured between variants regardless of
+   which loop authored them; the portfolio admits the best independent set
+   across all loops. Champion comparisons across loops use the slug
+   intersection of their OOS windows (same rule as intra-loop dethroning).
+7. **Disagreements are data.** If loop B's evidence contradicts loop A's
+   note, B records the contradiction in its own memory with both run ids and
+   files a PROPOSALS entry if an engine fact is at stake — B never edits A's
+   files. The human arbitrates only if the loops cannot resolve it by
+   evidence.
+
+## What this buys
+
+- Verification "when paths cross naturally": DB-mediated, zero coordination
+  overhead — no locks, no shared mutable files, no messaging protocol.
+- Complementarity: the LEDGER scan (rule 3) plus pre-registration
+  (evaluator.md guard 1) makes each loop's search legible to the others
+  before results exist.
+- The only new human decision needed: confirm cross-protocol read (rule 1).
