@@ -215,3 +215,25 @@
 - Created the memory system (`memory/INDEX.md` + `capabilities/` seeded with
   evidence-tagged notes, `experiments/`, `process/`) and the `tools/`
   skeleton with naming and conventions.
+
+## 2026-07-30 — session 8 (loop): evaluator designed, verified, and armed
+
+- **The evaluation system is designed and executable.** evaluator.md now
+  specifies the full pipeline: smoke → cheap screen (latest 800 markets) →
+  full universe + weekly walk-forward → upward latency sweep
+  (140/300/600/1000 ms) → out-of-sample-by-design (a variant is judged on
+  markets that did not exist when it was designed — a holdout nobody can
+  peek at). Plus: capital grid, portfolio independence rule, overfitting
+  guards. tools/evaluate.ts computes every stage verdict; verified end-to-end.
+- **Measured, not assumed:** noise floor between identical runs is Δev
+  0.0008/market (essentially deterministic); variant-independence measure
+  verified (two v0 param variants correlate 0.9989 — same bet, correctly
+  caught); NEW finding — v0's taker share climbs 1.4%→9.1% as latency grows,
+  so "maker-only by construction" must be judged by fill counts, not intent.
+- **Engine trap found:** a backtest launched with no --limit silently runs
+  only the 1000 OLDEST markets, not the full universe (P-008 filed; our
+  launcher now injects an explicit limit — the trap can't bite us again).
+  The true universe is 10,747 markets.
+- A true full-universe run of pair-fable-v0 (10.7k markets) was in flight at
+  session end (~7k done, 0 failures); next session reads it, runs the
+  definitive evaluation, and closes the PLAN item.
