@@ -262,3 +262,29 @@
   is corrected permanently: never end a session waiting on the fleet; always
   write the result file. Remaining: capability-refresh procedure, then the
   Mission-02 review / READY.
+
+## 2026-07-30 — session 11: capability self-upgrade built and drift-tested
+
+- **`tools/refresh-capabilities.ts` built** — the mission's "engine keeps
+  evolving" answer. Every capability note now declares which engine paths its
+  claims depend on (a new `watches:` header, added to all six notes); the tool
+  diffs each note's verified SHA against origin/main over exactly those paths
+  and reports CURRENT / STALE (with the changed files) / ERROR. The human
+  trigger is one read-only command:
+  `npx tsx protocols/pair-fable/tools/refresh-capabilities.ts`.
+- **Drift detection verified for real, not assumed**: today's clean state
+  reports all 6 notes CURRENT (exit 0). Simulating an older baseline flags
+  exactly the right notes — the last src/cli commit stales only
+  backtest-cli.md with its 3 changed files; a deeper baseline stales the two
+  notes watching src/strategy and fires the "uncovered" sweep on package.json
+  (changed in the surveyed area, watched by nobody). Typo'd watch paths and
+  missing headers surface as ERROR instead of hiding drift.
+- **`memory/process/capability-refresh.md` written**: when to run (human
+  announcement, session-start guard before research work, after any rebase
+  that pulls in engine commits), the note header contract, and the fold-back
+  procedure — re-read changed code, re-verify behavioral claims by running,
+  only then bump the note's SHA; engine bugs go to PROPOSALS, never fixed
+  in src/. Limitations recorded honestly (path-granular; a brand-new
+  subsystem outside the surveyed area stays invisible until the watch list is
+  extended — that extension is part of absorbing the first note about it).
+- One PLAN item left: `mission-02-review-and-ready`.

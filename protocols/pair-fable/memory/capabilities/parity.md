@@ -4,6 +4,7 @@ verified: 2026-07-30 @ e96b246 (code-read of both execution adapters, OrderManag
 StrategyRunner, user-WS account source, telonex replayer, Portfolio id-mapping.
 Behavioral claims about the running EXCHANGE are marked PARKED — unverifiable from
 this repo's code.)
+watches: src/trading, src/market, src/strategy, src/polymarket, src/parquet/replay
 
 This is the definitive map of what a backtest does and does not prove about live
 behavior, for THIS strategy (maker-leaning both-side BUY accumulation, no sells,

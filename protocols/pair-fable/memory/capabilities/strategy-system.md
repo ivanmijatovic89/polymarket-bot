@@ -9,6 +9,7 @@ order_done(filled|expired) event flow, meta stamping. Fill-mechanics nuance
 found: a placement-time price<bestAsk check does NOT guarantee maker — book
 drift across simulated latency turned 1 of 291 fills taker (run 862); judge
 maker-ness by trades_taker.
+watches: src/strategy, src/trading/StrategyRunner.ts
 
 ## Interface
 

@@ -105,7 +105,8 @@
         "Simulated drift test: against an older SHA the tool correctly flags affected notes",
         "capability-refresh.md written; human trigger documented in one command"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 11. Design refinement: each note declares its own dependencies via a new binding 'watches:' header line (added to all 6 capability notes) instead of one hardcoded path map — notes added later participate automatically; tool validates watched paths exist in the target tree so typos surface as ERROR instead of silently diffing empty. Step 1: clean run vs origin/main @ c219ad3 -> all 6 notes CURRENT, verdict CLEAN, exit 0 (recorded SHAs 6c457e4/1415c2b/e96b246/433647d/4fde3ae all resolve; git-verified zero engine-path changes since each). Step 2: --assume-note-sha 77e4682 (parent of 74bd30d, the last src/ commit) -> ONLY backtest-cli.md STALE listing exactly the 3 changed src/cli files, exit 1; deeper baseline 9952004 -> 3 notes STALE (src/strategy changes correctly flag BOTH parity.md and strategy-system.md) + UNCOVERED sweep fires on package.json (watched by no note; GLOBAL_WATCH widened to src/db, src/parquet, src/config, package.json beyond note coverage); ERROR path verified with a headerless temp note; --json parses (verdict/notes/statuses/uncoveredBase). Step 3: memory/process/capability-refresh.md written — one-command trigger, 3 run-triggers, header contract, fold-back procedures for STALE/UNCOVERED/ERROR, honest limitations (path-granular; new top-level subsystems invisible until GLOBAL_WATCH extended), reviewed-and-ignored ledger. tsc --noEmit clean."
     },
     {
       "id": "mission-02-review-and-ready",

@@ -1,39 +1,37 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (loop session 10 — `evaluator-design` CLOSED passes:true)
+Updated: 2026-07-30 (loop session 11 — `capability-refresh-procedure` CLOSED passes:true)
 
 ## Current work
 
-Nothing in flight. `evaluator-design` closed this session:
+Nothing in flight. `capability-refresh-procedure` closed this session:
 
-- Full-universe run confirmed: **run 870**, batchUid
-  pf0-fullreal-20260730T202123-9wmpy2, 10,747 markets, 0 failures.
-- Definitive evaluation executed: `evaluate.ts --full-run 870 --sweep-runs
-  865,866,867,869 --screen-run 863 --screen-baseline 868 --noise-ev 0.0008
-  --design-ts 2026-07-30T20:09:25Z` → MECHANICAL PASS, S1 ADVANCE (+0.29),
-  S2 FAIL (ev −2.24; 0/16 positive weeks; monthly ev stationary
-  −2.21..−2.26), S3 NA-on-negative-base + taker-drift WARNING, S4 waits
-  correctly (0 OOS markets), OVERALL FAILS-S2-FULL.
-- Recorded: pair-v0.md run-870 row + §Full-universe anatomy + §Definitive
-  evaluation; LEDGER **E-005** (v0 defaults time-scoped KILL @ 2026-07 —
-  loss is structural, not regime); PLAN evidence written.
-- Session-10 self-check (every 5th): no drift; 7/9 PLAN items passed with
-  run evidence; session-9 contract corrections adopted permanently (write
-  .global-runtime/session-result.json before final message; never end a
-  session waiting on an in-flight fleet run — record ids and `continue`).
+- `tools/refresh-capabilities.ts` built and run-verified: clean pass vs
+  origin/main @ c219ad3 (all 6 notes CURRENT, exit 0); simulated drift via
+  `--assume-note-sha 77e4682` flags ONLY backtest-cli.md with the exact 3
+  changed src/cli files; deeper baseline 9952004 flags parity.md +
+  strategy-system.md (both watch src/strategy) and the uncovered sweep fires
+  on package.json; ERROR path (headerless note) and `--json` verified;
+  `tsc --noEmit` clean.
+- All 6 `memory/capabilities/*.md` notes now carry a binding `watches:`
+  header (their engine-path dependencies); the tool validates watched paths
+  exist in the target tree so typos become ERROR, not silent empty diffs.
+- `memory/process/capability-refresh.md` written: one-command human trigger,
+  when to run, header contract, STALE/UNCOVERED/ERROR fold-back procedures,
+  limitations, reviewed-and-ignored ledger. INDEX.md + tools/README.md
+  updated.
 
 ## Next step (first thing next session)
 
-Take PLAN `capability-refresh-procedure`:
-1. Build tools/refresh-capabilities.ts — diff origin/main vs the SHAs in
-   memory/capabilities/*.md headers over surveyed paths (src/cli,
-   src/backtest, src/trading, src/strategy, src/db/schema.ts,
-   scripts/run-worker.sh, ops/); report stale notes + changed files.
-2. Verify: current SHAs report clean; simulated drift vs an older SHA flags
-   the right notes.
-3. Write memory/process/capability-refresh.md (when to run, how findings
-   fold back). Commit+push.
-Then only `mission-02-review-and-ready` remains.
+Take PLAN `mission-02-review-and-ready` (the LAST item):
+1. Re-audit every passes:true PLAN item against its recorded evidence.
+2. Review missions/02-research.md against everything learned/built.
+3. Write state/READY.md: delivered inventory, unknowns/risks, Mission-02
+   amendment proposals with reasons (candidates already noted in the PLAN
+   item description), team-workflow proposal for parallel agent loops.
+4. Check PROPOSALS.md completeness (P-001..P-008 all recorded).
+5. Write session-result.json FIRST, then return `wait` with summary
+   "READY for review".
 
 ## Completed (prior sessions)
 
@@ -41,7 +39,9 @@ Then only `mission-02-review-and-ready` remains.
   ~870 mkts/min); parity-boundary-map (parity.md); metrics-and-capital-units
   (856, cost==invested); tools-launch-and-smoke (857); tools-results-and-
   compare (858/859/860); baseline-pair-strategy (861/862, pair-fable-v0,
-  E-001); evaluator-design (863–870, evaluator.md + evaluate.ts, E-002..E-005).
+  E-001); evaluator-design (863–870, evaluator.md + evaluate.ts, E-002..E-005);
+  capability-refresh-procedure (refresh-capabilities.ts + capability-refresh.md,
+  session 11).
 
 ## Blockers
 
@@ -56,4 +56,4 @@ silently caps eligible universe at 1000 oldest; launcher mitigates).
 
 2026-07-30T20:43:49.924Z-5f674b1f (session-9 corrections: session-result.json
 is mandatory before the final message; never `wait` on an in-flight fleet
-run — both adopted as permanent practice, see self-check above).
+run — both adopted as permanent practice).

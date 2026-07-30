@@ -1,6 +1,7 @@
 # Capability: backtest execution simulator
 
 verified: 2026-07-30 @ 433647d (code-survey; the merge trap is also asserted independently in RULES from live verification. Maker fill model partially RUN-VERIFIED — see below; deeper checks in PLAN `parity-boundary-map`)
+watches: src/trading/execution
 
 ## Run-verified (2026-07-30, run 852)
 

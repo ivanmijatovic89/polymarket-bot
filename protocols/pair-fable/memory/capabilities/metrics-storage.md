@@ -1,6 +1,7 @@
 # Capability: metrics & result storage
 
 verified: 2026-07-30 @ 1415c2b (code-survey + initializer spot-check of the settlement formula; storage layout RUN-VERIFIED via run 852; cost==invested + intent_meta channel RUN-VERIFIED via run 856 — see below)
+watches: src/backtest/stats, src/db/schema.ts, src/trading
 
 ## Run-verified (2026-07-30, run 856: pair-fable-probe-capital-v0, 3 markets, multi-buy both sides, 22 taker fills, winning-side settlement)
 

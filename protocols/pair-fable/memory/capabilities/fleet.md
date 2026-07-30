@@ -1,6 +1,7 @@
 # Capability: fleet & queues
 
 verified: 2026-07-30 @ 6c457e4 (RUN-VERIFIED by PLAN `fleet-round-trip` — runs 854 (20 markets) and 855 (200 markets), canonical RULES-pinned batches submitted from this producer)
+watches: src/backtest, scripts/run-worker.sh, ops
 
 ## Topology
 

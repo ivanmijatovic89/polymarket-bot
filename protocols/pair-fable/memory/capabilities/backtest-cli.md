@@ -1,6 +1,7 @@
 # Capability: backtest CLI
 
 verified: 2026-07-30 @ 6c457e4 (code-survey via parallel readers + initializer spot-checks; sequential path RUN-VERIFIED by PLAN `smoke-local-backtest` — runs 852/853; queue/fleet path RUN-VERIFIED by PLAN `fleet-round-trip` — runs 854 (20 markets) / 855 (200 markets), details in fleet.md)
+watches: src/cli, src/backtest, src/db/telonexMarkets.ts
 
 ## Canonical launch (RULES-pinned)
 

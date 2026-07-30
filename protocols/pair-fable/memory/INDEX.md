@@ -26,9 +26,11 @@ not survive. Written for AI consumption: dense, factual, evidence-tagged.
    market changes; a wrong "does not work" note buries a profitable idea
    forever. Re-testing an old negative on new data is legitimate; re-testing a
    *verified engine fact* is waste.
-3. **Capability notes carry a `verified:` header** (date + repo SHA). The
-   capability-refresh procedure (see `process/`) re-checks notes whose SHA is
-   behind origin/main in the surveyed paths.
+3. **Capability notes carry a `verified:` header** (date + repo SHA) **and a
+   `watches:` header** (comma-separated engine paths the note's claims depend
+   on). `tools/refresh-capabilities.ts` enforces both and diffs each note's
+   SHA against origin/main over its watched paths; fold-back procedure in
+   `process/capability-refresh.md`.
 4. **Update memory after every step, not at session end.** A session can die
    at any moment; files must always be continuable.
 5. **Shared future**: parallel agent loops (other models) will read this
@@ -79,6 +81,12 @@ Pointers, not content.)
   price-improvement caveats proven), capital levels only via strategy-param
   sweeps (no cash model). Stage pipeline / promotion criteria still open
   (PLAN `evaluator-design`).
+- **Capability refresh**: `process/capability-refresh.md` +
+  `tools/refresh-capabilities.ts` (run-verified 2026-07-30: clean pass at
+  c219ad3, simulated drift correctly flags only notes watching the changed
+  paths, uncovered sweep catches surveyed-area files no note watches, header
+  contract enforced as ERROR). Human trigger is one command; sessions run it
+  before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
   family files. E-001: baseline `pair-fable-v0`
   (`protocols/pair-fable/strategies/pair.v0.ts`, runs 861 smoke / 862
