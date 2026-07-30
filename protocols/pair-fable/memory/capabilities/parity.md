@@ -96,7 +96,9 @@ metrics-storage.md (what persists).
    whether a fill arrives as one all-at-once maker fill (backtest) or dribbled
    partials (live). Never count fill events; sum sizes.
 7. **Stamp `Intent.meta` on every order** (side/price/size/tick context) — the
-   only per-order analytics channel that persists.
+   only per-order analytics channel that persists. Definitive key spec +
+   dedup/price-improvement caveats: memory/process/evaluator.md (verified
+   run 856).
 8. **Design inside the shared risk walls**: ≤20 open orders, ≤2000 shares/side,
    order size ≤2000, loss stop −500.
 

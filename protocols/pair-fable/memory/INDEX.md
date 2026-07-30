@@ -57,5 +57,11 @@ Pointers, not content.)
   ids, batches ≤15, no MINED gates, fill-chunking indifference, on-grid
   prices, meta stamping), and the 8-point live-trust evidence bar. Proposals
   P-005/P-006/P-007 filed from this work.
-- **Evaluator**: not yet designed (PLAN `evaluator-design`).
+- **Evaluator**: capital-aware units DESIGNED and RUN-VERIFIED in
+  `process/evaluator.md` (2026-07-30, run 856) — cost==invested for
+  no-sell/no-split/no-merge strategies (winning side incl.), 6 unit formulas
+  + SQL skeleton, binding intent_meta stamping convention (dedup +
+  price-improvement caveats proven), capital levels only via strategy-param
+  sweeps (no cash model). Stage pipeline / promotion criteria still open
+  (PLAN `evaluator-design`).
 - **Experiments**: none yet (mission 02).

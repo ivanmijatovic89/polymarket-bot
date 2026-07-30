@@ -1,5 +1,31 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 5 (metrics-and-capital-units)
+
+- Settled the big open accounting question with a purpose-built probe
+  strategy (`pair-fable-probe-capital-v0` — 6 alternating FOK taker buys on
+  both sides plus one crossing GTC, every order stamped with intent meta) run
+  on 3 markets with RULES pins: run 856.
+- **`cost` IS invested capital** for our no-sell strategies, verified to the
+  cent on all 3 markets including the winning side: stored cost equals buy
+  notional plus taker fees, and pnl equals mergeable + winning shares minus
+  cost, exactly. Settlement never touches the stored basis. "Profit per $100
+  invested" is now a plain SQL query — no engine change needed (P-002
+  sharpened accordingly, priority lowered).
+- Proved the intent_meta channel end-to-end: one market produced 8 fills from
+  7 orders (the crossing GTC ate 2 book levels) and stored exactly 7 meta
+  entries — dedup by clientOrderId works, order-level analytics survive
+  fill chunking. Also caught price improvement in the sim (limit 0.62 filled
+  at 0.60): meta records intent, cost records truth — invested must never be
+  computed from meta.
+- Verified the taker fee curve exactly: 0.07·p·(1−p)·share (0.9408 observed
+  on a printed 56-share fill at 0.60).
+- Wrote the capital-units half of memory/process/evaluator.md: 6 unit
+  formulas over stored columns (with SQL), the scope guard they depend on,
+  the binding meta-stamping convention, and the rule that capital levels are
+  swept via a mandatory per-market stake-cap param (there is no cash model).
+- Next: build the launcher + smoke tools (tools-launch-and-smoke).
+
 ## 2026-07-30 — Session 4 (parity-boundary-map)
 
 - Wrote the live/backtest parity boundary map (memory/capabilities/parity.md)

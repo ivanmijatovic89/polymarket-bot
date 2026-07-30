@@ -46,7 +46,8 @@
         "intent_meta convention documented and shown to survive the dedup-per-clientOrderId behavior",
         "P-002 updated: either withdrawn (intent_meta suffices) or sharpened with the exact columns wanted"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 4. Built probe strategy pair-fable-probe-capital-v0 (protocols/pair-fable/strategies/probe-capital.v0.ts; protocol:check OK) and ran it sequentially with RULES pins: run 856, 3 markets, 22 taker fills, multi-buy BOTH sides, all outcomes UP (winning-side settlement covered). Step 1: memory/process/evaluator.md written — 6 units with exact formulas + SQL skeleton + scope guard (no-sell/no-split/no-merge only) + capital-cap-param convention. Step 2: cost==invested CONFIRMED to the cent on all 3 markets (cost = avgUp*upSh + avgDn*dnSh + fees_paid; pnl = mergable + remainingWinner - cost exactly; e.g. 0.4098*51+0.59*15+1.11=30.86 stored 30.86). Taker fee formula verified: 0.07*p*(1-p)*size (0.9408 observed on printed fill). Step 3: intent_meta convention in evaluator.md; dedup PROVEN — market btc-updown-15m-1775088900 had 8 fills from 7 orders (crossing GTC consumed 2 ask levels) and stored exactly 7 meta entries; also proved meta=intent!=execution (GTC meta p=0.62 filled at 0.60). Step 4: P-002 sharpened (pair-fable unblocked; exact columns buy_size_up/buy_cost_up/buy_size_down/buy_cost_down; priority low). Bonus: recentFills-500-cap eviction edge documented in metrics-storage.md gotchas."
     },
     {
       "id": "tools-launch-and-smoke",

@@ -51,6 +51,19 @@ Entry format:
   included, with no replay-time behavior change. For pair-fable's no-sell
   strategies `cost` may serve as a workaround (to be verified in PLAN
   `metrics-and-capital-units`), but the general fix belongs in the engine.
+- update 2026-07-30 (PLAN `metrics-and-capital-units`, run 856): pair-fable is
+  NO LONGER BLOCKED by this — verified empirically that for no-sell/no-split/
+  no-merge strategies `cost` equals fee-inclusive invested to the cent,
+  winning-side settlement included (3 markets, multi-buy both sides; full
+  arithmetic in protocols/pair-fable/memory/process/evaluator.md). Proposal
+  stays open, sharpened for the general case: persist the four accumulators
+  computeMarketStats already computes and discards
+  (src/backtest/stats/marketStats.ts:107-137) as columns
+  `buy_size_up`, `buy_cost_up`, `buy_size_down`, `buy_cost_down` on
+  `backtest_run_markets` (raw notional, fee-exclusive — fees_paid already
+  exists separately). That makes invested derivable for selling/splitting
+  strategies too and doubles as an integrity check on `cost`. Priority for
+  pair-fable: low.
 
 ## P-003: Sequential backtests print no run/batch identity
 - status: proposed
