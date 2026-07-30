@@ -1,0 +1,114 @@
+{
+  "note": "Mission 01 plan. One item per session: do, verify against steps, set passes:true only with evidence (run ids, DB rows, file:line), record learnings in memory, commit+push. Owner: the agent — restructure as understanding improves.",
+  "items": [
+    {
+      "id": "smoke-local-backtest",
+      "description": "Run-verify the local leg of the research loop: execute the canonical telonex-delta btc 15m backtest with --sequential on ~5 markets using an existing strategy, with RULES pins (--latency-delay-ms 140 --latency-jitter-ms 20 --protocol pair-fable --model <model-id>). Confirm what actually lands in MySQL and upgrade the seeded capability notes from code-verified to run-verified where touched.",
+      "steps": [
+        "Backtest exits 0 and prints a run/batch identity",
+        "backtest_runs row exists with protocol='pair-fable', model set, cmd containing both latency flags and --from-ms",
+        "backtest_run_markets rows and the segments row (kind='all') exist and are consistent with the printed summary",
+        "memory/capabilities notes updated with [run <id>] evidence tags"
+      ],
+      "passes": false
+    },
+    {
+      "id": "fleet-round-trip",
+      "description": "Run-verify the distributed leg: submit a small (~20 market) canonical batch to the fleet from pushed code, watch it through the queues, confirm workers process it and the aggregate persists. Re-measure per-market speed (RULES says the ~1.5s anchor is stale). Document submission mechanics, queue observation, and measured speed in memory.",
+      "steps": [
+        "Batch submitted non-sequentially completes without manual intervention; run id recorded",
+        "Worker heartbeats and queue counts observed programmatically (not via dashboard UI) and the method noted in memory",
+        "Measured markets/minute recorded in memory/capabilities/fleet.md with the run id as evidence",
+        "backtest_run_markets.machine_id shows fleet machines, not this producer"
+      ],
+      "passes": false
+    },
+    {
+      "id": "parity-boundary-map",
+      "description": "Write memory/capabilities/parity.md: the definitive live/backtest parity boundary for THIS strategy — truly shared (MarketEngine, StrategyRunner, strategy code, tick semantics), simulated (fills, fees, latency, order status), and the pair-specific implications (worst-queue maker understates fill rate = safe bias; all-or-nothing maker fill size = optimistic for large orders; no MINED status; merge trap; no cash model; hardcoded risk limits). Resolve the survey's open questions (place_batch 15-cap enforcement, FOK visible-depth semantics). Define the evidence bar a backtest result must meet before it is trusted live.",
+      "steps": [
+        "parity.md exists; every claim carries file:line at a stated SHA or a run id",
+        "Each survey open-question is resolved in code or explicitly parked with reason",
+        "The live-trust evidence bar is written down (what runs, at which latencies, over which universe, with which capital units)",
+        "Anything found engine-bug-shaped is in state/PROPOSALS.md"
+      ],
+      "passes": false
+    },
+    {
+      "id": "metrics-and-capital-units",
+      "description": "Design the capital-aware units (mission goal: invested per market, profit per $100 invested, EV at several capital levels) and verify how each is computed from stored data. Test the key hypothesis that for a no-sell strategy `cost` (remaining basis) equals total invested, define the intent_meta stamping convention pair-fable strategies must follow for per-order analytics, and decide whether engine persistence of buy notional is needed (P-002).",
+      "steps": [
+        "Units defined in memory/process/evaluator.md (draft section) with exact formulas over DB columns / intent_meta",
+        "cost==invested hypothesis tested against a real run's data (evidence: run id + query)",
+        "intent_meta convention documented and shown to survive the dedup-per-clientOrderId behavior",
+        "P-002 updated: either withdrawn (intent_meta suffices) or sharpened with the exact columns wanted"
+      ],
+      "passes": false
+    },
+    {
+      "id": "tools-launch-and-smoke",
+      "description": "Build tools/run-backtest.ts (canonical launcher: single and batch, enforces RULES pins, validates flags against the silent-typo hazard, supports deliberate latency sweeps) and tools/smoke.ts (local --sequential smoke of a strategy on a few markets, the mandatory pre-fleet gate). Both print machine-parsable output.",
+      "steps": [
+        "smoke.ts runs an existing strategy end-to-end locally and reports the run id + headline stats",
+        "run-backtest.ts refuses a missing pin (latency/provenance/floor) unless explicitly overridden",
+        "A deliberate typo flag is rejected, demonstrating the validation the raw CLI lacks",
+        "tools/README.md updated to match reality"
+      ],
+      "passes": false
+    },
+    {
+      "id": "tools-results-and-compare",
+      "description": "Build tools/results.ts (run/batch summary from MySQL incl. the capital-aware units from metrics-and-capital-units), tools/compare.ts (two+ runs on the same universe: EV deltas, win rates, per-segment stability, latency-sweep table), and tools/fleet.ts (queue depths, active batches, worker heartbeats via BullMQ/Redis patterns already mapped in memory).",
+      "steps": [
+        "results.ts output verified by hand against direct SQL for one run",
+        "compare.ts run on two real runs (e.g. smoke vs fleet run of same strategy) produces a correct comparison",
+        "fleet.ts shows live queue/worker state matching bull-board",
+        "All three emit --json output consumable by later automation"
+      ],
+      "passes": false
+    },
+    {
+      "id": "baseline-pair-strategy",
+      "description": "Implement pair-fable-v0: the simplest honest version of the RULES strategy — alternating small-increment maker BUY accumulation on both sides gated on fee-inclusive pair price < $1 (uses ctx.metrics.position pair_avg/imbalance), no sells, no merge intents, hold to settlement. Purpose is proving the loop end-to-end, not profitability. Smoke locally, push, run a small fleet batch, read results with the tools.",
+      "steps": [
+        "npm run protocol:check -- pair-fable passes",
+        "Strategy appears in the registry (backtest accepts --strategy pair-fable-v0)",
+        "Local smoke run completes; fleet batch of ~50 markets completes with provenance columns set",
+        "Results read via tools/results.ts; behavior sanity-checked (buys both sides, imbalance stays within its cap, zero sells, zero merges); learnings in memory/experiments/"
+      ],
+      "passes": false
+    },
+    {
+      "id": "evaluator-design",
+      "description": "Design and document the evaluation system in memory/process/evaluator.md: stage pipeline (cheap screen on a subset -> full protocol universe -> upward latency sweep per RULES -> temporal holdout/walk-forward using the existing segment machinery and walkForwardRank), champion and portfolio selection criteria, the capital-aware units as the reporting standard, overfitting guards (param-count discipline, holdout hygiene), and variant-independence measurement (e.g. daily-pnl correlation across variants). Implement whatever scoring the tools don't already cover.",
+      "steps": [
+        "evaluator.md complete: stages, promotion criteria, units, guards — concrete enough that a fresh session can evaluate a run without judgment calls",
+        "The pipeline is executed once on baseline-pair-strategy results as a dry run (evidence: run ids + the produced evaluation)",
+        "Latency-sweep protocol specified with exact flag values and comparison method",
+        "Independence measure computable from stored per-market rows (verified on real data)"
+      ],
+      "passes": false
+    },
+    {
+      "id": "capability-refresh-procedure",
+      "description": "Build the human-triggerable capability self-upgrade: tools/refresh-capabilities.ts diffs origin/main against the SHAs recorded in memory/capabilities/*.md headers over the surveyed paths (src/cli, src/backtest, src/trading, src/strategy, src/db/schema.ts, scripts/run-worker.sh, ops/), reports which notes are stale and which files changed, and memory/process/capability-refresh.md documents the procedure (when to run, how findings fold back into notes).",
+      "steps": [
+        "Running the tool now reports all notes current at their recorded SHAs (or lists real drift if main moved)",
+        "Simulated drift test: against an older SHA the tool correctly flags affected notes",
+        "capability-refresh.md written; human trigger documented in one command"
+      ],
+      "passes": false
+    },
+    {
+      "id": "mission-02-review-and-ready",
+      "description": "Self-audit every plan item against its evidence, then review missions/02-research.md against everything learned and built. Write state/READY.md: delivered inventory, remaining unknowns/risks, proposed Mission 02 amendments each with reason (candidates from current knowledge: capital-cap params as a required strategy convention given no cash model; evPerMarketTotal as the headline unit given flat-market classification; the extend-latency bug's impact on long-running result accumulation), what should stay unchanged, and the proposed team workflow for later parallel agent loops. Return wait with summary 'READY for review'.",
+      "steps": [
+        "Every passes:true item re-checked against recorded evidence; discrepancies fixed or reopened",
+        "READY.md contains: delivered, unknowns/risks, Mission-02 amendment list with reasons, team-workflow proposal",
+        "state/PROPOSALS.md contains every engine finding made during the mission (nothing silently forgotten)",
+        "Session returns wait: 'READY for review'"
+      ],
+      "passes": false
+    }
+  ]
+}
