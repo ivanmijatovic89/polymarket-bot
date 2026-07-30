@@ -35,6 +35,7 @@ one line per run in LEDGER.md.
 | 867 | 300 oldest @ 600/20 | −693.34 | −2.31 | −8.89 | 1580/99 | sweep |
 | 868 | 300 oldest @ 140/20, duplicate of 865 (noise floor) | −705.01 | −2.35 | −9.19 | 1623/24 | Δev vs 865 = 0.0008 — near-deterministic |
 | 869 | 300 oldest @ 1000/20 | −675.90 | −2.25 | −8.66 | 1530/153 | stress latency |
+| 870 | **FULL universe** 10,747 mkts @ 140/20 | −24046.03 | −2.24 | −8.71 | 58452/817 | batchUid pf0-fullreal-20260730T202123-9wmpy2; 0 failures, 805s wall |
 
 Verdict (time-scoped per memory convention): v0 with default params was NOT
 profitable on the first 50 protocol-floor markets (2026-04-02+) at 140/20ms —
@@ -102,7 +103,35 @@ RULES safe bias).
   Daily-pnl corr 868~863 = 0.9989 (hand-verified Pearson from the daily
   sums) — same-family param variants are the same bet; the independence
   measure discriminates as designed. [runs 863/868 | 2026-07-30]
-- **Full-universe anatomy**: see run 870 row above and the evaluation below.
+- **Full-universe anatomy** [run 870 | 2026-07-30]: 10,747 markets
+  (2026-04-02 → 2026-07-27 eligibility edge), 0 failures, ~13.4 min fleet.
+  ev −2.24/mkt, p/100 −8.71 (median −11.33, p10 −100, p90 +2.04), winRate
+  21.3%, played 9750 (744 flat, 253 no-activity), invested $276k total /
+  $26.31 avg/played, taker share 817/59269 = 1.38% (consistent with the
+  sweep base at 140ms). The loss is REMARKABLY stationary: monthly ev
+  Apr −2.23 / May −2.26 / Jun −2.21 / Jul −2.25; weekly walk-forward over
+  16 full segments wfMeanEv −2.288, minEv −2.46, ZERO positive weeks. The
+  baseline's structural loss (unpaired residue) is a property of the
+  mechanism, not of a market phase — fixing it is a design problem, and any
+  variant that turns a week positive is a genuine signal, not regime luck.
+
+## Definitive evaluation (evaluate.ts, 2026-07-30)
+
+`evaluate.ts --full-run 870 --sweep-runs 865,866,867,869 --screen-run 863
+--screen-baseline 868 --noise-ev 0.0008 --design-ts 2026-07-30T20:09:25Z`
+(design-ts = bcca2c8 commit time) produced:
+
+- MECHANICAL: PASS. S1 SCREEN: PASS — ADVANCE (Δev +0.2929 vs ±0.05
+  threshold, common=300; correctly promotes the 0.95-gate variant direction).
+- S2 FULL: **FAIL** — ev −2.24 ≤ 0; walk-forward stability FAIL (16
+  segments, minEv −2.46, tailPositive 0, wfMeanEv −2.288).
+- S3 SWEEP: NA on negative base (gate needs ev(140) > 0), table + taker-drift
+  WARNING emitted as designed.
+- S4 OOS: FAIL correctly-by-design — 0 markets past design-ts (needs ~5 more
+  days of new markets before the future-as-holdout read).
+- OVERALL: FAILS-S2-FULL → kill-or-iterate per family grid. Verdict for v0
+  defaults: time-scoped KILL at 2026-07 (evidence above); family continues
+  via the variant ideas below.
 
 ## Variant ideas for mission 02 (untested — do not treat as knowledge)
 

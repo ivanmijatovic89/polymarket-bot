@@ -237,3 +237,28 @@
 - A true full-universe run of pair-fable-v0 (10.7k markets) was in flight at
   session end (~7k done, 0 failures); next session reads it, runs the
   definitive evaluation, and closes the PLAN item.
+
+## 2026-07-30 — session 10 (loop): evaluator closed on the full universe
+
+- **The full-universe run landed clean**: run 870, all 10,747 protocol-floor
+  markets, 0 failures, ~13.4 min of fleet time.
+- **The definitive evaluation ran end-to-end** on real data and produced the
+  right verdict at every stage: screen ADVANCE for the deeper-gate variant
+  direction, full-universe FAIL for v0 defaults (ev −2.24/market), latency
+  sweep correctly NA on a negative base (with the taker-drift warning), and
+  the out-of-sample stage correctly answers "wait ~5 days — no markets exist
+  past the design timestamp yet". PLAN `evaluator-design` is now passed with
+  evidence.
+- **Most valuable finding**: v0's loss is *stationary* — monthly EV sits in
+  a −2.21..−2.26 band across all four months and 0 of 16 weeks are positive.
+  The baseline loses by mechanism (unpaired residue), not by market phase.
+  That is good news for research: any variant that turns even one week
+  positive is a real signal, not regime luck. v0 defaults: time-scoped KILL
+  (E-005); the family continues via the recorded variant ideas.
+- **Fifth-session self-check** (sessions 6–10 vs mission): no drift — tools,
+  baseline strategy, and evaluator all land on mission goals 3/4/5 with
+  run-verified evidence; 7 of 9 PLAN items passed. Session 9's contract
+  failure (waiting on an in-flight fleet run + missing session-result file)
+  is corrected permanently: never end a session waiting on the fleet; always
+  write the result file. Remaining: capability-refresh procedure, then the
+  Mission-02 review / READY.

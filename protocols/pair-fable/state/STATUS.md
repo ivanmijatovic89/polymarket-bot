@@ -1,54 +1,39 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (loop session 8 — PLAN `evaluator-design`, ~90% done,
-session cut at harness deadline with full-universe run in flight)
+Updated: 2026-07-30 (loop session 10 — `evaluator-design` CLOSED passes:true)
 
 ## Current work
 
-PLAN `evaluator-design`: design COMPLETE and verified, final dry-run step in
-flight. Delivered this session (all on disk, committed):
+Nothing in flight. `evaluator-design` closed this session:
 
-- memory/process/evaluator.md COMPLETE: universes (FULL=10,747 mkts,
-  SCREEN=`--latest --limit 800`), measured noise floor, stages S0 smoke →
-  S1 screen → S2 full+walk-forward → S3 latency sweep 140/300/600/1000 →
-  S4 design-ts OOS (future-as-holdout), capital grid capPerMarket
-  25/50/100/200, independence rule (daily-pnl Pearson < 0.6, ≥14 days),
-  overfitting guards (pre-registration, ≤6 params, stopping rule,
-  time-scoped kills), champion/dethrone criteria.
-- tools/evaluate.ts built + verified on run 864 (all stages exercised;
-  typecheck clean). tools/README.md updated.
-- Verified on real runs: noise floor Δev=0.0008 (865v868 identical configs);
-  independence r=0.9989 (863v868), hand-recomputed Pearson matches
-  compare.ts exactly; sweep mechanism + NEW family finding: taker share
-  rises with latency 1.4%→9.1% (865/866/867/869) — placement-time maker
-  check decays; mpc95 variant E-004.
-- ENGINE TRAP found+fixed at tool layer: no `--limit` silently caps at 1000
-  oldest markets (src/db/telonexMarkets.ts:276) — P-008 filed; launcher now
-  injects explicit limit (d8b8cc9); run 864 was the bitten evidence.
-
-IN FLIGHT: true full-universe run pf0-fullreal (10,747 markets, batchUid
-pf0-fullreal-2026-07-30, expected runId 870, was at ~7k/10747 with 0
-failures, ETA ~4 min when session ended).
+- Full-universe run confirmed: **run 870**, batchUid
+  pf0-fullreal-20260730T202123-9wmpy2, 10,747 markets, 0 failures.
+- Definitive evaluation executed: `evaluate.ts --full-run 870 --sweep-runs
+  865,866,867,869 --screen-run 863 --screen-baseline 868 --noise-ev 0.0008
+  --design-ts 2026-07-30T20:09:25Z` → MECHANICAL PASS, S1 ADVANCE (+0.29),
+  S2 FAIL (ev −2.24; 0/16 positive weeks; monthly ev stationary
+  −2.21..−2.26), S3 NA-on-negative-base + taker-drift WARNING, S4 waits
+  correctly (0 OOS markets), OVERALL FAILS-S2-FULL.
+- Recorded: pair-v0.md run-870 row + §Full-universe anatomy + §Definitive
+  evaluation; LEDGER **E-005** (v0 defaults time-scoped KILL @ 2026-07 —
+  loss is structural, not regime); PLAN evidence written.
+- Session-10 self-check (every 5th): no drift; 7/9 PLAN items passed with
+  run evidence; session-9 contract corrections adopted permanently (write
+  .global-runtime/session-result.json before final message; never end a
+  session waiting on an in-flight fleet run — record ids and `continue`).
 
 ## Next step (first thing next session)
 
-1. Confirm the full run completed: `tools/results.ts --batch-uid
-   pf0-fullreal-<see backtest_runs, label prefix pf0-fullreal>` (or
-   `--last 5`). Expect ~10747 markets, run id likely 870.
-2. Run the definitive dry-run evaluation:
-   `tsx protocols/pair-fable/tools/evaluate.ts --full-run <id>
-   --sweep-runs 865,866,867,869 --screen-run 863 --screen-baseline 868
-   --noise-ev 0.0008 --design-ts 2026-07-30T20:09:25Z` (design-ts =
-   bcca2c8; OOS will correctly say "wait ~N days" — arithmetic already
-   verified with synthetic design-ts on 864).
-3. Fix the two "[run 870]" references in evaluator.md + backtest-cli.md if
-   the real id differs; add run-870 row + full-universe anatomy to
-   pair-v0.md, E-005 to LEDGER; paste the evaluation verdict into
-   pair-v0.md.
-4. Set `evaluator-design` passes:true with evidence (steps: design doc ✓,
-   dry run ✓ [864 + full run], sweep protocol ✓ [865-869], independence ✓
-   [863v868 r=0.9989 hand-verified]); commit+push.
-5. Then take PLAN `capability-refresh-procedure`.
+Take PLAN `capability-refresh-procedure`:
+1. Build tools/refresh-capabilities.ts — diff origin/main vs the SHAs in
+   memory/capabilities/*.md headers over surveyed paths (src/cli,
+   src/backtest, src/trading, src/strategy, src/db/schema.ts,
+   scripts/run-worker.sh, ops/); report stale notes + changed files.
+2. Verify: current SHAs report clean; simulated drift vs an older SHA flags
+   the right notes.
+3. Write memory/process/capability-refresh.md (when to run, how findings
+   fold back). Commit+push.
+Then only `mission-02-review-and-ready` remains.
 
 ## Completed (prior sessions)
 
@@ -56,19 +41,19 @@ failures, ETA ~4 min when session ended).
   ~870 mkts/min); parity-boundary-map (parity.md); metrics-and-capital-units
   (856, cost==invested); tools-launch-and-smoke (857); tools-results-and-
   compare (858/859/860); baseline-pair-strategy (861/862, pair-fable-v0,
-  E-001).
+  E-001); evaluator-design (863–870, evaluator.md + evaluate.ts, E-002..E-005).
 
 ## Blockers
 
-None. Full-universe run may need re-checking if the fleet died mid-run
-(0 failures at ~7k/10747 when last seen).
+None.
 
 ## Needs human
 
-Nothing blocking. PROPOSALS now 8 open: P-001..P-007 (see prior status) +
-NEW **P-008** (no --limit silently caps eligible universe at 1000 oldest —
-engine CLI fix suggested; launcher already mitigates).
+Nothing blocking. PROPOSALS: 8 open, P-001..P-008 (latest P-008: no --limit
+silently caps eligible universe at 1000 oldest; launcher mitigates).
 
 ## Inbox processed through
 
-(none — no inbox file / entries yet)
+2026-07-30T20:43:49.924Z-5f674b1f (session-9 corrections: session-result.json
+is mandatory before the final message; never `wait` on an in-flight fleet
+run — both adopted as permanent practice, see self-check above).
