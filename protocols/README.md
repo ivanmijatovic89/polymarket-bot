@@ -102,6 +102,11 @@ parts of the shell-shift layout above:
 - Everything else — registry entry, `strategies/` with `<name>-` ids,
   fail-soft loading, `<name>:` commit prefix, main-only, own worktree —
   applies unchanged.
+- **Cross-protocol read is allowed between `pair-*` protocols** (human
+  ruling, 2026-07-30): a loop may read sibling protocols' `memory/**` and
+  `state/PROPOSALS.md` and import verified facts by citation; writes remain
+  own-protocol only (hook-enforced). The root CLAUDE.md "don't read protocol
+  internals" rule is about normal dev sessions, not protocol loops.
 
 ## Rules
 
