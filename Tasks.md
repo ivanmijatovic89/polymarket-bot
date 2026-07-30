@@ -21,8 +21,8 @@
 # Tasks:
 
 ✅ backtest_runs - add: protocol, model
-mac mini m4 as main ( database + redis )
-reboot mac mini after power failure.
+✅ mac mini m4 as main ( database + redis )
+✅ reboot mac mini after power failure.
 
 2.
 

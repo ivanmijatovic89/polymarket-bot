@@ -276,6 +276,35 @@ test('parseArgs --extend rejects explicit protocol and model provenance', () => 
   )
 })
 
+test('parseArgs parses explicit latency flags in both spellings', () => {
+  const parsed = parseArgs(['--latency-delay-ms', '140', '--latency-jitter-ms=20'])
+  assert.equal(parsed.latencyDelayMs, 140)
+  assert.equal(parsed.latencyJitterMs, 20)
+  assert.equal(parseArgs([]).latencyDelayMs, undefined)
+})
+
+test('parseArgs rejects invalid latency flag values', () => {
+  assert.throws(
+    () => parseArgs(['--latency-delay-ms', '-1']),
+    /--latency-delay-ms must be a non-negative integer/,
+  )
+  assert.throws(
+    () => parseArgs(['--latency-jitter-ms', 'abc']),
+    /--latency-jitter-ms must be a non-negative integer/,
+  )
+  assert.throws(
+    () => parseArgs(['--latency-delay-ms=1.5']),
+    /--latency-delay-ms must be a non-negative integer/,
+  )
+})
+
+test('parseArgs --extend rejects explicit latency flags', () => {
+  assert.throws(
+    () => parseArgs(['--extend', '5', '--latency-delay-ms', '140', '--latency-jitter-ms', '20']),
+    /--extend 5 cannot be combined with: --latency-delay-ms, --latency-jitter-ms/,
+  )
+})
+
 test('resolveBacktestProvenance uses CLI values before launcher environment values', () => {
   assert.deepEqual(
     resolveBacktestProvenance(

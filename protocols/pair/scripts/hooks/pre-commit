@@ -1,0 +1,60 @@
+#!/usr/bin/env bash
+# Pair-protocol worktree pre-commit hook (installed by setup-model-worktree.sh
+# via worktree-scoped core.hooksPath, pointing at the MAIN checkout's copy).
+#
+# Enforces (protocols/pair/VISION.md §Safety kit):
+#   1. commits touch ONLY protocols/pair/**
+#   2. never the human-authored files (VISION/DECISIONS/RULES/MISSION)
+#   3. never the safety kit itself (protocols/pair/scripts/**) — the hook
+#      protects its own directory, so models cannot weaken their guardrails
+#   4. never another model's models/<x>/ folder
+#   5. staged content passes a secret scan
+set -euo pipefail
+
+MODEL="$(git config pair.model || true)"
+if [[ -z "$MODEL" ]]; then
+  echo "pre-commit: git config pair.model is not set — rerun setup-model-worktree.sh" >&2
+  exit 1
+fi
+
+# The protocol directory this worktree may write to (set by the setup script;
+# defaults to the original multi-model pair protocol). Strategies live INSIDE
+# the protocol dir (protocols/<name>/strategies/, fail-soft loaded by the
+# registry, ids prefixed <name>-) — src/ stays fully off-limits.
+PROTO_DIR="$(git config pair.protocolDir || true)"
+[[ -z "$PROTO_DIR" ]] && PROTO_DIR='protocols/pair'
+
+PROTECTED_RE="^${PROTO_DIR}/((VISION|DECISIONS|RULES|MISSION|README)\.md|scripts(/|$)|missions(/|$))"
+FAIL=0
+
+while IFS= read -r path; do
+  [[ -z "$path" ]] && continue
+  if [[ "$path" != ${PROTO_DIR}/* ]]; then
+    echo "pre-commit: BLOCKED — '$path' is outside ${PROTO_DIR}/ (models commit only there; engine changes go through the human)" >&2
+    FAIL=1
+  elif [[ "$path" =~ $PROTECTED_RE ]]; then
+    echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2
+    FAIL=1
+  elif [[ "$path" == ${PROTO_DIR}/models/* ]]; then
+    owner="${path#${PROTO_DIR}/models/}"
+    owner="${owner%%/*}"
+    if [[ "$owner" != "$MODEL" ]]; then
+      echo "pre-commit: BLOCKED — '$path' belongs to model '$owner', you are '$MODEL'" >&2
+      FAIL=1
+    fi
+  fi
+done < <(git diff --cached --name-only)
+
+# --- secret scan on staged additions -----------------------------------------
+# 64-hex (EVM private keys), PEM blocks, and obvious credential assignments.
+SECRET_RE='([0-9a-fA-F]{64}|-----BEGIN [A-Z ]*PRIVATE KEY|PRIVATE_KEY[[:space:]]*=|API_SECRET[[:space:]]*=|SECRET_ACCESS_KEY[[:space:]]*=|PASSPHRASE[[:space:]]*=)'
+if git diff --cached --unified=0 | grep -E '^\+' | grep -Ev '^\+\+\+' | grep -Eq "$SECRET_RE"; then
+  echo "pre-commit: BLOCKED — staged content matches a secret pattern (key/credential)." >&2
+  echo "  If this is a false positive (e.g. a 64-hex hash), rewrite it truncated — never commit full 64-hex strings." >&2
+  FAIL=1
+fi
+
+if [[ "$FAIL" -ne 0 ]]; then
+  echo "pre-commit: commit rejected by pair safety hook." >&2
+  exit 1
+fi

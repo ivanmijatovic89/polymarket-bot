@@ -560,8 +560,14 @@ async function main(): Promise<void> {
   const initialCapital = parseFloat(process.env.INITIAL_CAPITAL ?? '1000')
   const totalMarkets = filePaths.length
 
-  const latencyMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
-  const jitterMs = Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
+  // Explicit flags win over the environment: unlike env vars, they land in the
+  // recorded `cmd`, so the run's simulated latency stays auditable.
+  const latencyMs =
+    parsed.latencyDelayMs ??
+    Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_DELAY ?? '0') || 0))
+  const jitterMs =
+    parsed.latencyJitterMs ??
+    Math.max(0, Math.trunc(Number(process.env.BACKTEST_LATENCY_JITTER ?? '20') || 0))
 
   // External feeds are strategy-driven (like live): a strategy that registers
   // ExternalFeedsRequestPlugin with a binanceWsSpotPrice request gets the feed

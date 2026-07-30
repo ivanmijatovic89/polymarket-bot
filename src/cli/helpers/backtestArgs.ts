@@ -60,6 +60,14 @@ export type BacktestArgs = {
   /** Model id or alias requested by the launcher (for example, claude-fable-5). */
   model?: string
   /**
+   * Explicit simulated latency (ms). Overrides BACKTEST_LATENCY_DELAY. Unlike
+   * the env var, a flag lands in the recorded `cmd`, making the run's latency
+   * auditable.
+   */
+  latencyDelayMs?: number
+  /** Explicit latency jitter (ms). Overrides BACKTEST_LATENCY_JITTER; auditable via `cmd`. */
+  latencyJitterMs?: number
+  /**
    * Run the batch in-process (single thread), bypassing BullMQ / Redis / workers.
    * Useful for quick local smoke tests and bit-identical verification.
    * Default: false (use BullMQ FlowProducer + workers).
@@ -100,6 +108,16 @@ function parsePositiveInt(raw: string | undefined, flag: string): number {
   return n
 }
 
+function parseNonNegativeMs(raw: string | undefined, flag: string): number {
+  const n = raw !== undefined ? Number(raw) : NaN
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
+    throw new Error(
+      `[backtest] ${flag} must be a non-negative integer (milliseconds), got: ${String(raw)}`,
+    )
+  }
+  return n
+}
+
 function parseNonNegativeBigIntMs(raw: string | undefined, flag: string): number {
   const n = raw !== undefined ? Number(raw) : NaN
   if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) {
@@ -129,6 +147,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
   let baselineId: string | undefined
   let protocol: string | undefined
   let model: string | undefined
+  let latencyDelayMs: number | undefined
+  let latencyJitterMs: number | undefined
   let sequential = false
   let detach = false
   let extend: number | undefined
@@ -267,6 +287,16 @@ export function parseArgs(argv: string[]): BacktestArgs {
         i += 1
         break
 
+      case '--latency-delay-ms':
+        latencyDelayMs = parseNonNegativeMs(argv[i + 1], '--latency-delay-ms')
+        i += 1
+        break
+
+      case '--latency-jitter-ms':
+        latencyJitterMs = parseNonNegativeMs(argv[i + 1], '--latency-jitter-ms')
+        i += 1
+        break
+
       case '--sequential':
         sequential = true
         break
@@ -316,6 +346,20 @@ export function parseArgs(argv: string[]): BacktestArgs {
         if (arg.startsWith('--model=')) {
           model = arg.slice('--model='.length).trim()
           if (model.length === 0) throw new Error('[backtest] missing value for --model')
+          break
+        }
+        if (arg.startsWith('--latency-delay-ms=')) {
+          latencyDelayMs = parseNonNegativeMs(
+            arg.slice('--latency-delay-ms='.length),
+            '--latency-delay-ms',
+          )
+          break
+        }
+        if (arg.startsWith('--latency-jitter-ms=')) {
+          latencyJitterMs = parseNonNegativeMs(
+            arg.slice('--latency-jitter-ms='.length),
+            '--latency-jitter-ms',
+          )
           break
         }
         if (arg.startsWith('--slug=')) {
@@ -437,6 +481,11 @@ export function parseArgs(argv: string[]): BacktestArgs {
     if (baselineId !== undefined) conflicting.push('--baselineId')
     if (protocol !== undefined) conflicting.push('--protocol')
     if (model !== undefined) conflicting.push('--model')
+    // Extension jobs must replay with the same simulated latency as the
+    // parent run (whose cmd records it); an explicit override would silently
+    // mix latencies inside one run.
+    if (latencyDelayMs !== undefined) conflicting.push('--latency-delay-ms')
+    if (latencyJitterMs !== undefined) conflicting.push('--latency-jitter-ms')
     // --comment is a launch-time label for the original run. An extension
     // doesn't get its own comment because we intentionally don't write
     // per-extend audit metadata (cmd, comment) to backtest_runs — the
@@ -489,6 +538,8 @@ export function parseArgs(argv: string[]): BacktestArgs {
     ...(baselineId !== undefined ? { baselineId } : {}),
     ...(protocol !== undefined ? { protocol } : {}),
     ...(model !== undefined ? { model } : {}),
+    ...(latencyDelayMs !== undefined ? { latencyDelayMs } : {}),
+    ...(latencyJitterMs !== undefined ? { latencyJitterMs } : {}),
     ...(sequential ? { sequential } : {}),
     ...(detach ? { detach } : {}),
     ...(extend !== undefined ? { extend } : {}),

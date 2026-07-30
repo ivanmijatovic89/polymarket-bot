@@ -115,6 +115,9 @@ npm run format ; npm run format:check
 # EXCEPTION: strategy-research sessions (working on src/strategies/research/
 # families) commit and push directly to main, per the branch policy in
 # strategy-research-protocol/AGENTS.md — remote backtest workers track origin/main.
+# EXCEPTION: protocol workspaces (protocols/<name>/) commit and push directly to
+# main with a "<name>: ..." prefix — see protocols/README.md. Shared src/
+# changes from a protocol still go through a normal PR.
 
 # Database (Drizzle + MySQL)
 npm run db:generate                    # emit migration SQL into drizzle/
@@ -198,10 +201,11 @@ AccountEvent sources: userWsAccountSource (primary) + restPollAccountSource (fal
 | `src/config/env.ts` | Loads `.env` (+ `.env.$BOT_ENV` when set) via dotenv |
 | `webui/` | Separate Vite/React package served by each bot process |
 | `dashboard/` | Separate Next.js 15 (App Router) package — backtest dashboard reading MySQL + Redis. Mirrors the normalized backtest result schema locally; uses TanStack Query for polling. |
+| `protocols/` | Self-contained autonomous protocol workspaces (journals, ops docs, strategies) — see `protocols/README.md`. Each is context for its own sessions only: do NOT read protocol internals in normal dev sessions unless explicitly asked. |
 
 ### Strategy system
 
-Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Each `definition` has:
+Strategies live in `src/strategies/` and are **auto-discovered** — any file under `src/strategies/` (any depth) that does `export const definition` is registered automatically by `src/strategy/strategyRegistry.ts`; there is no list to edit. Protocol workspaces are discovered too: `protocols/<name>/strategies/**` registers the same way, but **fail-soft** (broken files are warned about and skipped, never fatal) and ids must start with `<name>-`; check one protocol with `npm run protocol:check -- <name>` (see `protocols/README.md`). Each `definition` has:
 
 - `id` (string) — selected via `--strategy <id>`
 - `schema` (Zod) — validates `--param key=value` pairs; unknown keys / invalid values error out
@@ -242,6 +246,7 @@ Backtest heap-merges multiple files by `ingest_seq` (deterministic multi-asset r
 
 Backtest latency simulation (intent → exchange-visible):
 - `BACKTEST_LATENCY_DELAY` (ms, e.g. `140`) and `BACKTEST_LATENCY_JITTER` (ms symmetric).
+- CLI flags `--latency-delay-ms` / `--latency-jitter-ms` override the env vars and land in the recorded `cmd` (auditable); forbidden with `--extend` (extensions replay the parent's latency).
 - Delays apply to `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll` — so an order can fill before its cancel "arrives".
 - Maker fills use a conservative "worst-queue" model (BUY @ P fills only when `bestAsk < P`).
 
