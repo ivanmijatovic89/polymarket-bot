@@ -318,3 +318,29 @@
 - **Mission 01 is READY**: all 9 PLAN items passed with run-verified
   evidence. Returning `wait` — the human reviews READY.md and answers via
   the inbox; on "READY accepted" the next session returns `complete`.
+
+## 2026-07-31 — sessions 13–14: READY ACCEPTED — Mission 01 COMPLETE
+
+- **The human accepted READY** after commissioning an independent review
+  (24 verifier agents, ~475 tool calls, 115 reproduced checks): verdict
+  **APPROVE WITH NOTES** — every load-bearing number reproduced against the
+  live database and the code; no Mission 01 conclusion was invalidated.
+  Archived at `state/MISSION01-REVIEW.md`.
+- **The review's notes become Mission 02's opening gate**: M1–M5 (cross-run
+  params+latency identity in evaluate.ts, machine-checkable design-ts for
+  param variants, noise-aware champion/dethroning threshold, engine-SHA
+  awareness in comparisons and run reuse, incrementSize bound) must be
+  implemented and verified before the first champion promotion or
+  LIVE-CANDIDATE. Session 13 bound this into `missions/02-research.md`
+  (commit 7448316) but died before updating state; session 14 finished the
+  bookkeeping.
+- **Cross-protocol read ruling recorded as BINDING** in
+  `memory/process/team-workflow.md`: pair-* loops may read each other's
+  `memory/**` and `state/PROPOSALS.md`; writes stay own-protocol
+  (hook-enforced). Rule 4 (run reuse) carries the pending M4 engine-SHA
+  amendment for early Mission 02.
+- **Mission 01 closes**: 9/9 PLAN items passed with run-verified evidence,
+  19 fleet runs (852–870), 6 capability notes, 9 tools, the evaluator
+  pipeline, the v0 baseline (an honest stationary-loss KILL), and 8 engine
+  proposals — two of which (P-001, P-008) the human already fixed upstream.
+  Returning `complete`. On to research.

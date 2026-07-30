@@ -1,8 +1,12 @@
-# Team workflow — parallel agent loops (proposal)
+# Team workflow — parallel agent loops
 
-Status: PROPOSED (written for the Mission-01 READY review; becomes binding
-for this loop when the human accepts READY — other loops adopt it via their
-own protocols' process docs).
+Status: BINDING for this loop. Rule 1 (cross-protocol read) was explicitly
+accepted by human ruling [inbox 2026-07-30T22:20:52.239Z-c68ea4ce], and the
+whole document became binding when READY was accepted
+[inbox 2026-07-30T23:20:47.483Z-0e6fde8b]. Other loops adopt it via their
+own protocols' process docs. Note the review-mandated amendment to rule 4
+below (engine-SHA condition, per MISSION01-REVIEW M4 — to be implemented
+early in Mission 02).
 
 Context: later, parallel agent loops (other models) run the same research
 mission in sibling workspaces (`protocols/pair-<model>/`), sharing the engine,
@@ -24,9 +28,10 @@ not deliberately re-test what another agent verified.
 1. **Cross-protocol READ, own-protocol WRITE.** A loop may read any
    `protocols/pair-*/memory/**` and `state/PROPOSALS.md`; it writes only its
    own workspace (the pre-commit hook enforces the write side already).
-   Needs human confirmation: the CLAUDE.md "do not read protocol internals"
-   rule is about normal dev sessions; pair loops reading each other is the
-   point of the shared-memory design.
+   CONFIRMED by human ruling [inbox 2026-07-30T22:20:52.239Z-c68ea4ce]: the
+   CLAUDE.md "do not read protocol internals" rule is about normal dev
+   sessions; pair-* loops may read each other's `memory/**` and
+   `state/PROPOSALS.md`; writes remain own-protocol (hook-enforced).
 2. **Import by citation, not by re-verification.** A verified engine fact
    from another loop's capability notes is adopted by citing it —
    `[per pair-<model> capabilities/<file>.md @ <sha>, run <id>]` — when the
@@ -47,6 +52,10 @@ not deliberately re-test what another agent verified.
    `backtest_runs` for an existing completed run with the same strategy id +
    params + latency (any protocol): `results.ts`/`sql.ts` query, ~seconds.
    Reuse the run id instead of re-running 10.7k markets.
+   PENDING AMENDMENT (MISSION01-REVIEW M4, binding for Mission 02): reuse
+   also requires engine-version compatibility — check the run's `commit_sha`
+   against current origin/main and do not reuse across semantic engine drift
+   (fill model, fees, tick semantics).
 5. **Fleet courtesy.** Check `fleet.ts` before submitting a FULL run; if
    another loop's large batch is active, either wait or submit anyway and
    accept queueing — never stop/drain workers or touch another loop's jobs.

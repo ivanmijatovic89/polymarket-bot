@@ -1,33 +1,36 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (loop session 12 — `mission-02-review-and-ready` CLOSED;
-READY report written; awaiting human review)
+Updated: 2026-07-31 (loop session 14 — MISSION 01 COMPLETE)
 
 ## Current work
 
-**AWAITING HUMAN REVIEW of `state/READY.md`.** All 9 PLAN items are
-passes:true with evidence. This session:
+**None — Mission 01 is COMPLETE.** READY was accepted by the human
+[inbox 2026-07-30T23:20:47.483Z-0e6fde8b] after an independent review
+(24 verifier agents, 115 reproduced checks) returned APPROVE WITH NOTES.
+The review is archived at `state/MISSION01-REVIEW.md` — **Mission 02
+sessions must read it**; its M1–M5 findings are a binding gate in
+`missions/02-research.md` (implement + verify before the first champion
+promotion or LIVE-CANDIDATE), and m6–m11 fold into the next touch of each
+affected file.
 
-- Audited every passes:true item: all 19 evidence runs (852–870) re-verified
-  in MySQL (completed, counts match, 0 failures, provenance set);
-  protocol:check OK; refresh-capabilities CLEAN at origin/main @ 5538f6c.
-  One discrepancy fixed: the promised `memory/process/team-workflow.md` did
-  not exist → written (7 conventions, DB-mediated cross-loop cooperation).
-- Wrote `state/READY.md`: delivered inventory, 7 unknowns/risks, Mission-02
-  amendments A1–A7 with reasons, stays-unchanged list, team-workflow
-  summary, needs-human list.
-- Refreshed stale INDEX.md digest paragraphs (evaluator now COMPLETE,
-  experiments now E-001..E-005).
+Closing actions across sessions 13–14:
+
+- Session 13: archived the review and bound M1–M5 as the champion gate in
+  `missions/02-research.md` (commit 7448316, pushed to origin/main). It
+  died before updating state files; session 14 completed the bookkeeping.
+- Session 14: committed `memory/process/team-workflow.md` update — status
+  BINDING (rule 1 cross-protocol read explicitly accepted by human ruling
+  [inbox c68ea4ce]; whole doc binding via READY acceptance), with the M4
+  engine-SHA amendment to rule 4 marked pending for early Mission 02.
 
 ## Next step
 
-Depends on the inbox response to READY:
+Nothing in this mission. Mission 02 (`missions/02-research.md`) starts when
+the human launches its loop. First Mission-02 priorities per the review
+gate: implement M1–M5 in `tools/evaluate.ts` / schema / team-workflow rule 4
+before any champion promotion.
 
-- **Feedback** → address it, update READY.md, return `wait` again.
-- **"READY accepted"** → return `complete` (never before acceptance).
-- Until a response arrives, there is nothing to do: session returns `wait`.
-
-## Completed (all 9 PLAN items, run-verified)
+## Completed (all 9 PLAN items, run-verified; READY accepted)
 
 Initializer; smoke-local-backtest (852/853); fleet-round-trip (854/855);
 parity-boundary-map (parity.md); metrics-and-capital-units (856);
@@ -35,23 +38,21 @@ tools-launch-and-smoke (857); tools-results-and-compare (858/859/860);
 baseline-pair-strategy (861/862, pair-fable-v0, E-001); evaluator-design
 (863–870, evaluator.md + evaluate.ts, E-002..E-005, full universe = 10,747
 markets); capability-refresh-procedure (refresh-capabilities.ts);
-mission-02-review-and-ready (session 12, READY.md).
+mission-02-review-and-ready (READY.md, session 12). Independent review:
+APPROVE WITH NOTES, zero evidentiary numbers failed reproduction.
 
 ## Blockers
 
-None — waiting is the correct state (READY review is the human's move).
+None.
 
 ## Needs human
 
-1. Review `state/READY.md`: accept/adjust Mission-02 amendments A1–A7.
-2. Confirm the team-workflow cross-protocol read convention
-   (`memory/process/team-workflow.md` rule 1).
-3. Rule on P-004 before any live start (producer machine worker slots).
-4. Optionally act on P-001/P-008 engine fixes (protocol mitigations already
-   in place). PROPOSALS: 8 open, P-001..P-008.
+Nothing blocking. Still-open items carried into Mission 02 context:
+P-004 ruling before any live start (producer worker slots); optional
+engine-side action on remaining open PROPOSALS (P-001/P-008 already fixed
+upstream on origin/main).
 
 ## Inbox processed through
 
-2026-07-30T20:43:49.924Z-5f674b1f (session-9 corrections: session-result.json
-is mandatory before the final message; never `wait` on an in-flight fleet
-run — both adopted as permanent practice).
+2026-07-30T23:20:47.483Z-0e6fde8b (READY accepted → mission complete;
+review archived; M1–M5 binding gate recorded).
