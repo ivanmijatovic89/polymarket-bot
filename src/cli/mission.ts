@@ -218,6 +218,11 @@ async function control(action: string, argv: string[]): Promise<void> {
   const { positionals } = parseArgs({ args: argv, options: {}, allowPositionals: true })
   const id = requireId(positionals)
   const { run } = await request<{ run: RunView }>('POST', `/runs/${id}/${action}`)
+  // Stop is a no-op on runs that already ended; don't imply a transition.
+  if (action === 'stop' && run.status !== 'stopped') {
+    console.log(`Loop ${run.id} had already ended (${run.status}); nothing to stop.`)
+    return
+  }
   console.log(`Loop ${run.id} is now ${run.status}.`)
 }
 

@@ -240,29 +240,38 @@ test('reports log stream failures without crashing the runtime process', async (
   assert.equal(result.rateLimited, false)
 })
 
-test('counts rate-limit stderr text only when the CLI exits unsuccessfully', async () => {
-  const workspace = await createDirectory()
-  const adapter = new CliProviderAdapter()
+test(
+  'counts rate-limit stderr text only when the CLI exits with a failure code',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const workspace = await createDirectory()
+    const adapter = new CliProviderAdapter()
 
-  for (const [exitCode, expected] of [
-    [0, false],
-    [1, true],
-  ] as const) {
-    process.env.GLOBAL_RUNTIME_CODEX_BIN = await createQuotaStderrCli(workspace, exitCode)
-    const result = await adapter.execute(
-      {
-        run: makeRun(workspace, 'codex'),
-        sessionNumber: 10 + exitCode,
-        prompt: 'test prompt',
-        logDirectory: path.join(workspace, `logs-quota-${exitCode}`),
-      },
-      new AbortController().signal,
-      { onStarted: () => undefined, onActivity: () => undefined },
-    )
-    assert.equal(result.exitCode, exitCode)
-    assert.equal(result.rateLimited, expected)
-  }
-})
+    const cases = [
+      { exit: 0, expectedExitCode: 0, rateLimited: false },
+      { exit: 1, expectedExitCode: 1, rateLimited: true },
+      // A signal death has no exit code and is never the CLI reporting a
+      // rate limit, even when the buffered stderr mentions quotas.
+      { exit: 'signal', expectedExitCode: null, rateLimited: false },
+    ] as const
+
+    for (const [index, testCase] of cases.entries()) {
+      process.env.GLOBAL_RUNTIME_CODEX_BIN = await createQuotaStderrCli(workspace, testCase.exit)
+      const result = await adapter.execute(
+        {
+          run: makeRun(workspace, 'codex'),
+          sessionNumber: 10 + index,
+          prompt: 'test prompt',
+          logDirectory: path.join(workspace, `logs-quota-${String(testCase.exit)}`),
+        },
+        new AbortController().signal,
+        { onStarted: () => undefined, onActivity: () => undefined },
+      )
+      assert.equal(result.exitCode, testCase.expectedExitCode)
+      assert.equal(result.rateLimited, testCase.rateLimited)
+    }
+  },
+)
 
 test('keeps the Claude result event when later error events flood the bounded buffer', async () => {
   const workspace = await createDirectory()
@@ -410,14 +419,16 @@ if (provider === 'codex') {
   return fakeCli
 }
 
-async function createQuotaStderrCli(workspace: string, exitCode: number): Promise<string> {
-  const fakeCli = path.join(workspace, `quota-stderr-${exitCode}-cli.mjs`)
+async function createQuotaStderrCli(workspace: string, exit: number | 'signal'): Promise<string> {
+  const fakeCli = path.join(workspace, `quota-stderr-${String(exit)}-cli.mjs`)
+  const finalStatement =
+    exit === 'signal' ? `process.kill(process.pid, 'SIGKILL')` : `process.exit(${exit})`
   await writeFile(
     fakeCli,
     `#!/usr/bin/env node
 console.error('backtest tool: provider quota snapshot logged; rate limit headroom ok')
 console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }))
-process.exit(${exitCode})
+${finalStatement}
 `,
     'utf8',
   )
