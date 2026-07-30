@@ -15,13 +15,17 @@ unchanged on Opus 5, GPT-5.6, or other models for comparison.
 | `state/` | agent | Runtime contract files (STATUS/JOURNAL/INBOX) + PLAN.json, PROPOSALS.md, READY.md. |
 | `memory/` | agent | The agent-designed memory system. |
 | `tools/` | agent | Tools the agent builds for itself. |
+| `strategies/` | agent | Strategy experiments — auto-discovered fail-soft, ids `pair-fable-*`, checked with `npm run protocol:check -- pair-fable`. |
 
 ## One-time setup
 
+Create the worktree only after this protocol has landed on `origin/main`
+(the agent's save loop pushes `HEAD:main`, so the worktree must never be
+based on an unmerged branch).
+
 ```bash
 # Create the dedicated worktree (keyless .env, scope hook, symlinked deps/data).
-# Third argument selects this protocol; while this branch is unmerged, pass it
-# as the base branch instead of main.
+# Third argument selects this protocol.
 protocols/pair/scripts/setup-model-worktree.sh fable main pair-fable
 ```
 

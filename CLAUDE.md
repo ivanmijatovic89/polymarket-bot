@@ -246,6 +246,7 @@ Backtest heap-merges multiple files by `ingest_seq` (deterministic multi-asset r
 
 Backtest latency simulation (intent → exchange-visible):
 - `BACKTEST_LATENCY_DELAY` (ms, e.g. `140`) and `BACKTEST_LATENCY_JITTER` (ms symmetric).
+- CLI flags `--latency-delay-ms` / `--latency-jitter-ms` override the env vars and land in the recorded `cmd` (auditable); forbidden with `--extend` (extensions replay the parent's latency).
 - Delays apply to `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll` — so an order can fill before its cancel "arrives".
 - Maker fills use a conservative "worst-queue" model (BUY @ P fills only when `bestAsk < P`).
 

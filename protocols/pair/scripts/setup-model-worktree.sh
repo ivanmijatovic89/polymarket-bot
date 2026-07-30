@@ -91,7 +91,8 @@ echo "[pair-setup] pre-commit scope hook active (core.hooksPath=$HOOKS_DIR, pair
 if [[ "$PROTOCOL" == "pair" ]]; then
   mkdir -p "$WT/protocols/pair/models/${MODEL}"
 else
-  mkdir -p "$WT/protocols/${PROTOCOL}/state" "$WT/protocols/${PROTOCOL}/memory" "$WT/protocols/${PROTOCOL}/tools"
+  mkdir -p "$WT/protocols/${PROTOCOL}/state" "$WT/protocols/${PROTOCOL}/memory" \
+    "$WT/protocols/${PROTOCOL}/tools" "$WT/protocols/${PROTOCOL}/strategies"
 fi
 
 # --- shared node_modules + data (symlinks to the main checkout) --------------

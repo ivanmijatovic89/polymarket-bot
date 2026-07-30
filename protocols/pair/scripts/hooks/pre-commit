@@ -18,23 +18,19 @@ if [[ -z "$MODEL" ]]; then
 fi
 
 # The protocol directory this worktree may write to (set by the setup script;
-# defaults to the original multi-model pair protocol).
+# defaults to the original multi-model pair protocol). Strategies live INSIDE
+# the protocol dir (protocols/<name>/strategies/, fail-soft loaded by the
+# registry, ids prefixed <name>-) — src/ stays fully off-limits.
 PROTO_DIR="$(git config pair.protocolDir || true)"
 [[ -z "$PROTO_DIR" ]] && PROTO_DIR='protocols/pair'
-PROTO_NAME="${PROTO_DIR#protocols/}"
-
-# Strategy implementations must live in src/strategies (the registry only
-# discovers them there, and the fleet runs committed code) — so each protocol
-# gets exactly one research namespace. Engine code stays off-limits.
-STRATEGY_DIR="src/strategies/research/${PROTO_NAME}"
 
 PROTECTED_RE="^${PROTO_DIR}/((VISION|DECISIONS|RULES|MISSION|README)\.md|scripts(/|$)|missions(/|$))"
 FAIL=0
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
-  if [[ "$path" != ${PROTO_DIR}/* && "$path" != ${STRATEGY_DIR}/* ]]; then
-    echo "pre-commit: BLOCKED — '$path' is outside ${PROTO_DIR}/ and ${STRATEGY_DIR}/ (engine changes go through the human)" >&2
+  if [[ "$path" != ${PROTO_DIR}/* ]]; then
+    echo "pre-commit: BLOCKED — '$path' is outside ${PROTO_DIR}/ (models commit only there; engine changes go through the human)" >&2
     FAIL=1
   elif [[ "$path" =~ $PROTECTED_RE ]]; then
     echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2

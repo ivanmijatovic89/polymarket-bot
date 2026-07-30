@@ -67,10 +67,15 @@ survive independently of how backtest latency is tuned.
   merge scores negative on a profitable trade). Pairs are valued at
   settlement, which measures the same edge correctly. Live merge timing is
   an execution detail, out of backtest scope.
-- Every backtest run must set `BACKTEST_LATENCY_DELAY` and
-  `BACKTEST_LATENCY_JITTER` explicitly and record them with the run. A run
-  whose latency came from the ambient `.env` is not evidence — pin it per
-  run.
+- Every backtest run must pin its simulated latency explicitly with the
+  `--latency-delay-ms` and `--latency-jitter-ms` flags. Flags — not the
+  `BACKTEST_LATENCY_*` env vars — because flags land in the run's recorded
+  `cmd`, making the latency auditable later. A run whose latency came from
+  the ambient `.env` is not evidence.
+- Every fleet submission must carry provenance: `--protocol pair-fable`
+  and `--model <model-id>` (the model id this loop runs as — shown in the
+  Mission Control run configuration). Runs without provenance cannot be
+  compared across models or protocols later.
 - The maker-fill model is CONSERVATIVE: the simulator fills a resting order
   only when the book trades THROUGH its price level (worst-queue assumption —
   you are last in line at your price; see src/trading/execution/
@@ -85,8 +90,14 @@ survive independently of how backtest latency is tuned.
   ```bash
   npm run backtest -- --strategy <id> --input-mode telonex-delta \
     --read-from local-or-download-from-r2-to-local --symbol btc --timeframe 15m \
-    --from-ms 1775088000000   # 2026-04-02 protocol floor
+    --from-ms 1775088000000 \
+    --latency-delay-ms 140 --latency-jitter-ms 20 \
+    --protocol pair-fable --model <model-id>
   ```
+
+  (`--from-ms 1775088000000` is the 2026-04-02 protocol floor; 140/20 ms is
+  the measured live latency baseline — vary it deliberately, never
+  ambiently.)
 
 ## Backtesting speed
 
@@ -129,17 +140,21 @@ producer). Active workers (ansible inventory):
 
 ## Write scopes
 
-- Your space is `protocols/pair-fable/` (state, memory, tools) plus
-  `src/strategies/research/pair-fable/` for strategy implementations the
-  fleet must run.
+- Your space is `protocols/pair-fable/`: `state/`, `memory/`, `tools/`, and
+  `strategies/`. Strategy implementations live ONLY in
+  `protocols/pair-fable/strategies/` — the registry auto-discovers them
+  there fail-soft (a broken experiment logs a warning and is skipped, it
+  cannot take down another protocol or the fleet). Strategy ids MUST start
+  with `pair-fable-`. Validate with `npm run protocol:check -- pair-fable`
+  before pushing strategy code.
 - Never edit: `README.md`, `RULES.md`, `missions/` in this protocol, and
   anything under `protocols/pair/scripts/` — human-authored.
-- `src/` outside `src/strategies/research/pair-fable/` is OFF-LIMITS — engine
-  code is never changed by models, not even via a PR (the pre-commit hook
-  enforces this). When you find an engine bug or want an engine improvement:
-  record it in `state/PROPOSALS.md` with the exact repro and continue your
-  work. The human reviews proposals and decides; you only touch engine code
-  if the human explicitly hands you that fix.
+- ALL of `src/` is OFF-LIMITS — engine code is never changed by models, not
+  even via a PR (the pre-commit hook enforces this). When you find an engine
+  bug or want an engine improvement: record it in `state/PROPOSALS.md` with
+  the exact repro and continue your work. The human reviews proposals and
+  decides; you only touch engine code if the human explicitly hands you that
+  fix.
 
 ## Human interface (Global Runtime)
 
@@ -154,7 +169,8 @@ producer). Active workers (ansible inventory):
 
 ## Git discipline
 
-- Commit messages start: `pair: [fable-5] ...`
+- Commit messages start: `pair-fable: ...` (the protocol-name prefix from
+  `protocols/README.md`).
 - Save loop per unit of work: commit → `git pull --rebase origin main` →
   `git push origin HEAD:main`. (The worktree lives on a `wt/pair-fable`
   branch — a bare `git push` would publish that branch, which the fleet never

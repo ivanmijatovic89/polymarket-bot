@@ -1,5 +1,10 @@
 # Mission 02: Autonomous Strategy Research Loop
 
+> **Provisional.** This file is the current strategic brief, not a final
+> contract. It is never launched automatically: Mission 01 reviews it against
+> what it learned and built, proposes evidence-based amendments in its READY
+> report, and the human approves the final version before launching it.
+
 ## Why
 
 This is the autonomous research lab for the pair strategy: it researches,

@@ -9,7 +9,7 @@ main** — nothing accumulates on private branches.
 
 | Protocol | Directory | Status | Notes |
 |----------|-----------|--------|-------|
-| _(none yet — new protocols register here)_ | | | |
+| pair-fable | `protocols/pair-fable/` | pre-launch | Global Runtime-managed (see below); launch guide in its README. |
 
 Legacy protocols predate this structure and are NOT migrated:
 `strategy-research-protocol/` (main), `gabagool-knowledge-and-lab/` (pointer on
@@ -86,6 +86,22 @@ Shared shift conventions (keep them uniform across protocols):
   strategies have no CI gate. (`code:typecheck:protocols` /
   `code:eslint:protocols` check all protocols at once — repo-health tools, not
   the shift gate.)
+
+## Global Runtime-managed protocols
+
+Protocols run as Global Runtime loops (e.g. `pair-fable`) intentionally skip
+parts of the shell-shift layout above:
+
+- **No `CLAUDE.md` / `.claude/settings.json` / `OPS.md` / `DONE` file.** The
+  runtime launches sessions with cwd at the WORKTREE ROOT (not the protocol
+  dir), so nested cwd-scoped settings would never load. Session behavior comes
+  from the runtime's session contract plus the protocol's mission file;
+  start/stop/steering happen through Mission Control instead of a `DONE` file.
+- **Mission files live in `missions/`** (plural, human-authored, several per
+  protocol) instead of one `MISSION.md`.
+- Everything else — registry entry, `strategies/` with `<name>-` ids,
+  fail-soft loading, `<name>:` commit prefix, main-only, own worktree —
+  applies unchanged.
 
 ## Rules
 

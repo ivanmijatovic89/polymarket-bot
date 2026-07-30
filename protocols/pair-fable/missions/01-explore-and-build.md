@@ -59,10 +59,12 @@ if tests fail or something is unverified, say so explicitly.
 1. **Capabilities.** Research the complete polymarket-bot. Do not trust the
    documentation — verify in code; do not trust the code blindly — verify by
    running: start backtests, submit to the fleet, read what lands in the
-   database. The point: know exactly which strategies can be built such that
-   they execute **100% identically in backtest and live**, so a strategy
-   proven in backtest is trusted live. Find which metrics exist, which are
-   missing for this strategy, and what matters for evaluating it.
+   database. The point: determine the exact **boundary of live/backtest
+   parity** — what is truly shared (strategy logic, tick semantics), what is
+   simulated (fills, latency, fees), which unavoidable differences matter
+   for this strategy, and what evidence is required before a backtest result
+   is trusted live. Find which metrics exist, which are missing for this
+   strategy, and what matters for evaluating it.
 2. **Capability self-upgrade.** The engine keeps evolving (example: a large
    trades+activities dataset is coming — do not build for it now). Design a
    repeatable procedure the human can trigger that discovers engine changes
@@ -101,9 +103,16 @@ you and propose a solution instead of continuing to circle.
 READY means: you can run the whole research loop end-to-end with no
 unknowns — design a variant → run it through the fleet → read and compare
 results → record in memory — and the tools, memory system, and your proposed
-team workflow exist. When you judge yourself READY, write `state/READY.md`:
-what was delivered, what remains unknown or risky, and why research is ready
-to start. Then return `wait` with summary "READY for review".
+team workflow exist. Before declaring READY, review Mission 02
+(`missions/02-research.md`) against everything you learned and built: record
+in `state/READY.md` any amendments you propose (each with its reason), what
+should stay unchanged, and any unresolved risks or assumptions. You never
+edit the mission file itself — the human reviews and applies accepted
+amendments before Mission 02 launches.
+
+When you judge yourself READY, write `state/READY.md`: what was delivered,
+what remains unknown or risky, the Mission 02 review above, and why research
+is ready to start. Then return `wait` with summary "READY for review".
 
 The human reviews and responds through the inbox: on feedback, address it
 and repeat; on "READY accepted", return `complete`. Never return `complete`
