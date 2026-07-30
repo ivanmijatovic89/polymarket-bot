@@ -18,7 +18,7 @@ Entry format:
 <!-- entries below, newest last -->
 
 ## P-001: `--extend` silently drops the parent run's simulated latency
-- status: proposed
+- status: accepted — engine fix in progress (extend will inherit latency from the parent cmd; CLAUDE.md corrected)
 - date: 2026-07-30
 - context: Initializer code survey of the backtest CLI (spot-checked by hand).
 - proposal: The comment at `src/cli/helpers/backtestArgs.ts` (extend-conflict
@@ -89,7 +89,7 @@ Entry format:
   priority for pair-fable: low.
 
 ## P-004: Producer machine is running 5 backtest worker slots — intended?
-- status: proposed
+- status: accepted — human ruling: producer worker slots will be disabled before live trading starts; backtest-only operation may continue meanwhile
 - date: 2026-07-30
 - context: PLAN `fleet-round-trip` (runs 854/855). RULES says "m1-ivan is the
   PRODUCER and live-trading machine — models never run backtest workers on
@@ -155,7 +155,7 @@ Entry format:
 
 
 ## P-008: no --limit silently caps eligible markets at 1000 (oldest) — "full universe" runs are quietly truncated
-- status: proposed
+- status: accepted — engine fix in progress (no --limit at the backtest CLI will mean the full eligible universe)
 - date: 2026-07-30
 - context: PLAN `evaluator-design`. Run 864, launched with no `--limit` expecting the full protocol universe (10,747 eligible markets from 2026-04-02), persisted exactly 1000 markets — the 1000 oldest.
 - proposal: `listEligibleTelonexMarkets` defaults `limit ?? 1000` ("to match legacy behaviour", src/db/telonexMarkets.ts:117,276), and the backtest CLI passes `--limit` through without distinguishing "user asked for 1000" from "user asked for everything". A run whose cmd shows NO --limit looks like a full replay but silently isn't — dangerous for anyone comparing "full universe" runs over time as the universe grows past 1000. Repro: `npm run backtest -- --strategy <id> --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --from-ms 1775088000000` ⇒ 1000 markets despite 10k+ eligible. Suggested fix: make no-limit mean unlimited at the CLI boundary (or require an explicit --limit and error otherwise); the 1000 default inside the module can stay for legacy callers if the CLI always passes an explicit value. Mitigated at tool layer: protocols/pair-fable/tools/run-backtest.ts injects `--limit 1000000` when the caller gives none (d8b8cc9).
