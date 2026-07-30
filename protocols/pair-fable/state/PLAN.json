@@ -58,7 +58,8 @@
         "A deliberate typo flag is rejected, demonstrating the validation the raw CLI lacks",
         "tools/README.md updated to match reality"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 5. Step 1: smoke.ts end-to-end on pair-fable-probe-capital-v0 (--limit 3) -> SMOKE PASS, runId=857, status=completed, 3 markets, 0 failures, headline stats (pnl 67.66, evPerMarketTotal 22.55, 23 taker trades) + capital units (invested 117.34, profitPer100 57.66) attached; protocol:check gate ran first; FAIL path verified too (nonexistent strategy -> SMOKE FAIL, exit 1). Step 2: floor refused (--from-ms 100 -> exit 2 unless --override-floor, override verified to pass 100 through to argv); latency/provenance pins cannot be missing (injected; dry-run T5 shows all pins incl. --from-ms 1775088000000, 140/20, --protocol/--model); --extend refused outright citing P-001; managed flags (--symbol etc.) refused with specific reasons. Step 3: --lattest -> hard error listing valid flags, exit 2 (raw CLI silently drops it, backtestArgs.ts:414-417). Step 4: tools/README.md moved both tools to Built with full contracts. Bonus: deterministic run-id recovery via generated unique --batchUid run-verified (run 857, batch_uid=smoke-20260730T194744-4vrhbh) -> P-003 mitigated at tool layer; HEAD-on-origin/main pre-check for queue submissions; --sweep-latency fan-out (dry-run verified, 3 distinct batchUids/delays)."
     },
     {
       "id": "tools-results-and-compare",

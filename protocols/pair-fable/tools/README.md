@@ -23,13 +23,13 @@ Built:
 | --- | --- |
 | `sql.ts` | Read-only ad-hoc SQL against the backtest MySQL (`tsx protocols/pair-fable/tools/sql.ts "SELECT ..."`); refuses non-SELECT statements. For verification queries; recurring reads become dedicated tools. |
 | `fleet.ts` | Read-only fleet/queue status (`tsx protocols/pair-fable/tools/fleet.ts [--json]`): queue counts for both BullMQ queues, worker heartbeats (alive = hb age <30s) with SHA/processed/lastMarket, active batches with child progress. Built early by `fleet-round-trip`; the `tools-results-and-compare` item may extend it. |
+| `run-backtest.ts` | THE canonical launcher — never call `npm run backtest` directly for protocol runs. Injects every RULES pin (telonex-delta, read-from local-or-download, btc/15m, floor `--from-ms`, latency 140/20, provenance), hard-errors on unknown flags (the raw CLI silently drops typos), refuses `--extend` (P-001: latency not replayed), pre-checks HEAD∈origin/main for queue submissions (SHA-gate hang prevention), and generates a unique `--batchUid` per launch so the run id is recovered deterministically from `backtest_runs.batch_uid` (P-003 workaround) with headline stats + capital units attached. `--sweep-latency 140,300,600` fans one run per latency. `--dry-run` prints the composed argv. Result JSON on stdout with `--json`; child output streams to stderr. Deliberate escapes: `--override-floor`, `--latency-delay-ms/-jitter-ms` (auditable — flags land in `cmd`). |
+| `smoke.ts` | The MANDATORY pre-fleet gate: `tsx protocols/pair-fable/tools/smoke.ts --strategy <id> [--param k=v] [--limit N≤20] [--json]`. Runs `protocol:check` for `pair-fable-*` strategies (registry is fail-soft — a broken file otherwise surfaces as "unknown strategy"), then delegates to `run-backtest.ts --sequential` (valid for unpushed code). Prints `SMOKE PASS/FAIL` + run id + headline stats; exit 0 only on PASS (row exists, status completed, 0 failures, markets > 0). PASS means "runs and persists sane rows", not "strategy is good". |
 
 Planned (built by PLAN items, listed here so names stay stable):
 
 | Tool | Purpose | PLAN item |
 | --- | --- | --- |
-| `run-backtest.ts` | Canonical single/batch launcher with pins + deliberate overrides | `tools-launch-and-smoke` |
-| `smoke.ts` | Local `--sequential` smoke run of a strategy on a few markets | `tools-launch-and-smoke` |
 | `results.ts` | Read a run/batch from DB → capital-aware summary | `tools-results-and-compare` |
 | `compare.ts` | Compare two or more runs on the same universe | `tools-results-and-compare` |
 | `refresh-capabilities.ts` | Engine-change discovery vs memory SHAs | `capability-refresh-procedure` |

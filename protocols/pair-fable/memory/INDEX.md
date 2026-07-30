@@ -48,7 +48,13 @@ Pointers, not content.)
   2026-07-30 — submission mechanics, SHA self-update observed live,
   machine attribution, sustained speed ~870 markets/min over 27 slots).
   Tools: `tools/sql.ts` (read-only DB queries), `tools/fleet.ts`
-  (queue/worker/batch status).
+  (queue/worker/batch status), `tools/run-backtest.ts` (THE canonical
+  launcher — RULES pins injected, unknown flags fatal, `--extend` refused
+  per P-001, unique-batchUid run recovery per P-003, HEAD∈origin/main
+  pre-check for queue runs, `--sweep-latency` fan-out; run-verified run 857),
+  `tools/smoke.ts` (mandatory pre-fleet gate: protocol:check +
+  sequential run + PASS/FAIL verdict; run-verified run 857). Protocol runs
+  NEVER call `npm run backtest` directly — always via these tools.
 - **Parity boundary**: mapped in `capabilities/parity.md` (2026-07-30 @
   e96b246) — shared core (MarketEngine/StrategyRunner/OrderManager/Portfolio,
   identical risk walls), the simulated boundary per intent/event, resolved

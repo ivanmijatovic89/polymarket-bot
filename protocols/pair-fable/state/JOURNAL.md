@@ -1,5 +1,33 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 6 (tools-launch-and-smoke)
+
+- Five-session self-check first (mission requirement): sessions to date map
+  cleanly onto mission goals — capabilities and parity run-verified (runs
+  852–856), capital units settled, 7 proposals filed, no drift, no circling.
+  4 of 10 plan items done with 15 runtime sessions of headroom; no plan
+  correction needed.
+- Built `tools/run-backtest.ts`, the canonical launcher. It injects every
+  RULES pin automatically, hard-errors on unknown flags (the raw CLI
+  silently drops typos — `--lattest` now dies loudly), refuses `--extend`
+  (P-001: extensions would silently drop the pinned latency), refuses
+  below-floor universes unless `--override-floor`, and pre-checks that HEAD
+  is on origin/main before any fleet submission (an unpushed commit would
+  hang the batch with no error). `--sweep-latency 140,300,600` launches the
+  standard upward latency sweep in one command.
+- Solved the "sequential runs print no run id" problem (P-003) at the tool
+  layer: every launch gets a generated unique `--batchUid`, and the run is
+  recovered deterministically from the DB by that value — verified live
+  (run 857), with headline stats and capital-aware units attached to the
+  result JSON.
+- Built `tools/smoke.ts`, the mandatory pre-fleet gate: protocol:check for
+  pair-fable strategies, then a small sequential RULES-pinned run, then a
+  strict PASS/FAIL verdict. Verified both directions: probe strategy →
+  SMOKE PASS (run 857, 3 markets, 0 failures); nonexistent strategy →
+  SMOKE FAIL, exit 1.
+- Next: `tools-results-and-compare` (results.ts + compare.ts, extend
+  fleet.ts if needed).
+
 ## 2026-07-30 — Session 5 (metrics-and-capital-units)
 
 - Settled the big open accounting question with a purpose-built probe

@@ -81,6 +81,12 @@ Entry format:
   protocol's launch tools query the DB immediately after a sequential run
   completes and match on cmd/batchUid (the injected `--batchUid` in cmd is
   unique enough: it equals submission_uid).
+- update 2026-07-30 (PLAN `tools-launch-and-smoke`, run 857): mitigated at
+  the tool layer — `tools/run-backtest.ts` generates a unique `--batchUid`
+  per launch and recovers the run via `WHERE batch_uid = ?` (deterministic,
+  race-free, works on both sequential and queue paths). The engine fix
+  (print the persisted run id) would still help humans running the raw CLI;
+  priority for pair-fable: low.
 
 ## P-004: Producer machine is running 5 backtest worker slots — intended?
 - status: proposed
