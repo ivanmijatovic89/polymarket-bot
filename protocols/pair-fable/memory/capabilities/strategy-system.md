@@ -1,6 +1,14 @@
 # Capability: strategy system
 
-verified: 2026-07-30 @ 4fde3ae (code-survey; NOT yet run-verified — PLAN `baseline-pair-strategy` exercises all of this)
+verified: 2026-07-30 @ 4fde3ae (code-survey), RUN-VERIFIED 2026-07-30 by PLAN
+`baseline-pair-strategy` (runs 861/862, strategy `pair-fable-v0`): protocol
+auto-discovery, Zod param defaults land in `backtest_runs.params`,
+ctx.market up/downAssetId, ctx.metrics.position, portfolio
+positionsByAssetId/openOrdersByClientId reconciliation, GTD expiry +
+order_done(filled|expired) event flow, meta stamping. Fill-mechanics nuance
+found: a placement-time price<bestAsk check does NOT guarantee maker — book
+drift across simulated latency turned 1 of 291 fills taker (run 862); judge
+maker-ness by trades_taker.
 
 ## Interface
 

@@ -1,5 +1,34 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 8 (baseline-pair-strategy)
+
+- First real strategy of the protocol: `pair-fable-v0`
+  (`protocols/pair-fable/strategies/pair.v0.ts`). The simplest honest version
+  of the RULES idea — one small resting GTD bid at a time, always on the side
+  with fewer shares, gated so the projected fee-inclusive pair cost stays
+  ≤ 0.98, $50 capital cap per market, no sells, no cancels, no merges. Its job
+  was to prove the whole research loop, and it did: protocol:check → local
+  smoke (run 861, PASS) → push → 50-market fleet batch (run 862, 4 machines,
+  21.8 s, zero failures) → results/compare tooling → memory. Every step ran
+  through the tools built in earlier sessions, no manual glue.
+- Behavior verified in the stored rows, not assumed: both sides accumulate,
+  imbalance never exceeded one increment (max |up−down| = 10 over all 55
+  markets), capital cap binds exactly at $50, split_cost 0 everywhere,
+  289 of 291 fleet fills were maker at $0 fees. One instructive nuance:
+  1 fill still executed as taker because the book drifted across the 140 ms
+  simulated latency — "maker by construction" must always be re-checked in
+  the data (`trades_taker`), never trusted from code.
+- The baseline is mechanically sound but NOT profitable, as expected:
+  EV −2.43/market, profit per $100 invested −8.94 on the 50 oldest
+  protocol-floor markets. The loss anatomy is now written down
+  (memory/experiments/pair-v0.md): completed pairs earn at most $0.02 each
+  while unpaired residue can lose the whole increment, and resting bids fill
+  preferentially on the side the market moves against. That asymmetry — not
+  the pair gate — is what mission 02 variants must attack; six concrete
+  variant ideas are recorded. Experiment ledger opened (E-001).
+- Remaining mission-01 items: evaluator-design, capability-refresh-procedure,
+  mission-02 review + READY.
+
 ## 2026-07-30 — Session 7 (tools-results-and-compare)
 
 - Built the reading half of the research loop. `tools/results.ts` turns any

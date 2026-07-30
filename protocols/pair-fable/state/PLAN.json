@@ -82,7 +82,8 @@
         "Local smoke run completes; fleet batch of ~50 markets completes with provenance columns set",
         "Results read via tools/results.ts; behavior sanity-checked (buys both sides, imbalance stays within its cap, zero sells, zero merges); learnings in memory/experiments/"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 7. Strategy protocols/pair-fable/strategies/pair.v0.ts (id pair-fable-v0) @ bcca2c8: one GTD maker bid at a time on the lesser side (tie alternates), projected-pair-avg gate <= maxPairCost (0.98), price < bestAsk at placement, capPerMarket $50 cap param, meta {t,i,side,ot,p,s,ts}, no cancel/sell/merge intents. Step 1: protocol:check OK. Step 2: registry accepts --strategy pair-fable-v0 (both runs). Step 3: smoke.ts --limit 5 -> SMOKE PASS runId=861 (5 mkts, 0 failures, 30 maker / 0 taker fills, fees 0); pushed bcca2c8; fleet batch run-backtest.ts --limit 50 -> runId=862 completed 21.8s, 0 failures, provenance protocol=pair-fable model=claude-fable-5, cmd has 140/20 + floor. Step 4: results.ts on 862 (pnl -121.69, ev/mkt -2.43, p/100 -8.94, 43 played, 290/1 maker/taker); SQL invariants over both runs: MAX(ABS(up-down))=10=incrementSize, SUM(split_cost)=0, MAX(cost)=50=cap, both sides bought (meta sides alternate; 4/5 smoke mkts hold both sides), zero sells/merges by construction + cost==invested consistency; machine_ids = 4 fleet machines. Learnings in memory/experiments/pair-v0.md + LEDGER E-001 (loss anatomy: pairs earn <=0.02, unpaired residue dominates; 1/291 fills went taker via latency drift - placement-time maker check is not a guarantee)."
     },
     {
       "id": "evaluator-design",

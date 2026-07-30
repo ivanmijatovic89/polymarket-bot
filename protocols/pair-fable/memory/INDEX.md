@@ -79,4 +79,11 @@ Pointers, not content.)
   price-improvement caveats proven), capital levels only via strategy-param
   sweeps (no cash model). Stage pipeline / promotion criteria still open
   (PLAN `evaluator-design`).
-- **Experiments**: none yet (mission 02).
+- **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
+  family files. E-001: baseline `pair-fable-v0`
+  (`protocols/pair-fable/strategies/pair.v0.ts`, runs 861 smoke / 862
+  fleet-50) — the loop is proven end-to-end (strategy → smoke → push →
+  fleet → results → memory); v0 defaults NOT profitable on the 50 oldest
+  floor markets (EV −2.43/mkt) with loss anatomy + variant ideas in
+  `experiments/pair-v0.md`. Strategy-system capabilities upgraded to
+  run-verified (see `capabilities/strategy-system.md` header).
