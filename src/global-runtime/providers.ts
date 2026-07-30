@@ -158,7 +158,7 @@ export class CliProviderAdapter implements ProviderAdapter {
         const event: unknown = JSON.parse(line)
         if (isRelevantEvent(context.run.provider, event)) {
           events.push(event)
-          if (events.length > 100) events.shift()
+          if (events.length > 100) evictOldestExpendableEvent(events)
         }
       } catch {
         // The complete line remains in the raw log; only structured summary events stay in memory.
@@ -220,7 +220,9 @@ export class CliProviderAdapter implements ProviderAdapter {
       finalResult: parsed.finalResult,
       usage: parsed.usage,
       resolvedModel: parsed.resolvedModel,
-      rateLimited: isRateLimitError(providerErrors),
+      // Only a failed exit may count as rate-limited: a successful session's
+      // stderr can legitimately contain words like "quota" or "rate limit".
+      rateLimited: exit.code !== 0 && isRateLimitError(providerErrors),
       error:
         spawnError ??
         streamErrors[0] ??
@@ -468,6 +470,15 @@ function sumNumbers(...values: unknown[]): number | null {
     (value): value is number => typeof value === 'number' && Number.isFinite(value),
   )
   return numbers.length === 0 ? null : numbers.reduce((sum, value) => sum + value, 0)
+}
+
+// Claude emits exactly one `result` event and it carries the session's usage
+// and cost, so it must survive the bounded buffer even when later events
+// (e.g. an error flood) would otherwise push it out. Codex has no such single
+// authoritative event; its parser already keeps the latest `turn.completed`.
+function evictOldestExpendableEvent(events: unknown[]): void {
+  const index = events.findIndex((event) => !(isRecord(event) && event.type === 'result'))
+  events.splice(index === -1 ? 0 : index, 1)
 }
 
 function isRateLimitError(text: string): boolean {

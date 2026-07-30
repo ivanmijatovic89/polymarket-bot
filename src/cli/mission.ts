@@ -241,9 +241,11 @@ async function extend(argv: string[]): Promise<void> {
 }
 
 async function inbox(argv: string[]): Promise<void> {
-  const { positionals } = parseArgs({ args: argv, options: {}, allowPositionals: true })
-  const id = requireId(positionals)
-  const message = positionals.slice(1).join(' ').trim()
+  // No parseArgs here: everything after the id is the literal message, so
+  // words that start with "-" must not be interpreted as options.
+  const [idArg, ...messageParts] = argv
+  const id = requireId(idArg === undefined ? [] : [idArg])
+  const message = messageParts.join(' ').trim()
   if (!message) throw new Error(`a message is required\n\n${USAGE}`)
   const entry = await request<{ id: string }>('POST', `/runs/${id}/inbox`, { message })
   console.log(`Appended inbox entry ${entry.id} to loop ${id}.`)

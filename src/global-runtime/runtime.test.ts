@@ -518,6 +518,35 @@ test('initialization finishes a stopped run that still has a live session', asyn
   assert.equal(detail.sessions[0]?.status, 'stopped')
 })
 
+test('initialization marks an unrelaunchable rate-limited run as error instead of failing startup', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun(runInput(workspace))
+  await store.updateRun(run.id, { status: 'rate_limited', nextStartAt: new Date() })
+  await rm(workspace, { recursive: true, force: true })
+
+  await runtime.initialize()
+
+  const recovered = await store.getRun(run.id)
+  assert.equal(recovered?.status, 'error')
+  assert.match(recovered?.lastError ?? '', /could not restart/iu)
+})
+
+test('stopping an already-stopped run does not rewrite its recorded end time', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun(runInput(workspace))
+  const endedAt = new Date(Date.now() - 60_000)
+  await store.updateRun(run.id, { status: 'stopped', endedAt })
+
+  const stopped = await runtime.stop(run.id)
+
+  assert.equal(stopped.status, 'stopped')
+  assert.equal(stopped.endedAt?.getTime(), endedAt.getTime())
+})
+
 test(
   'verifies the runtime token before terminating an interrupted process',
   { skip: process.platform === 'win32' },

@@ -6,7 +6,6 @@ import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { ChevronLeft, Pause, Play, Plus, RefreshCw, Send, Square, Target } from 'lucide-react'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
-import { runtimeFetch } from '@/components/MissionControlView'
 import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
@@ -19,6 +18,16 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
+import { runtimeFetch } from '@/lib/runtimeClient'
+import {
+  formatAccount,
+  formatCompact,
+  formatDate,
+  formatDuration,
+  formatDurationBetween,
+  formatNumber,
+  formatUsd,
+} from '@/lib/runtimeFormat'
 import { cn } from '@/lib/utils'
 import type { RuntimeFile, RuntimeRunDetail, RuntimeSession } from '@/lib/runtimeTypes'
 
@@ -147,6 +156,9 @@ export function MissionRunView({ runId }: { runId: string }) {
   const { run, sessions, totals } = detail
   const active = ['running', 'pause_requested', 'rate_limited'].includes(run.status)
   const resumable = ['paused', 'waiting', 'stopped', 'error'].includes(run.status)
+  // Stopping an already-stopped or errored loop would only rewrite its
+  // recorded end state, so the button is limited to states with work to halt.
+  const stoppable = active || ['waiting', 'paused'].includes(run.status)
   const resolvedModel = latestResolvedModel(sessions)
   const tokenTotal = sumTokens(totals)
 
@@ -200,7 +212,7 @@ export function MissionRunView({ runId }: { runId: string }) {
                 Resume
               </Control>
             )}
-            {(active || resumable) && (
+            {stoppable && (
               <Control onClick={() => action('stop')} disabled={busy} icon={Square}>
                 Stop
               </Control>
@@ -424,6 +436,13 @@ export function MissionRunView({ runId }: { runId: string }) {
                   </pre>
                 )}
               </div>
+            ) : filesQuery.error ? (
+              <p className="mt-3 text-sm text-destructive">
+                Workspace files are unavailable:{' '}
+                {filesQuery.error instanceof Error
+                  ? filesQuery.error.message
+                  : String(filesQuery.error)}
+              </p>
             ) : (
               <p className="mt-3 text-sm text-muted-foreground">No files configured.</p>
             )}
@@ -774,31 +793,6 @@ function sessionTokenTitle(session: RuntimeSession): string {
   ].join('\n')
 }
 
-function formatNumber(value: number | null): string {
-  return value === null ? '—' : value.toLocaleString()
-}
-
-function formatCompact(value: number | null): string {
-  if (value === null) return '—'
-  if (Math.abs(value) < 1000) return String(value)
-  return new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
-
-function formatDate(value: string | null): string {
-  return value ? new Date(value).toLocaleString(undefined, { hourCycle: 'h23' }) : '—'
-}
-
-function formatAccount(run: RuntimeRunDetail['run']): string {
-  if (run.provider === 'claude') {
-    if (!run.authHome) return 'Default Claude login'
-    return run.authHome === '~/.claude-balsa' ? 'Balsa' : run.authHome
-  }
-  return run.authHome ? run.authHome : 'Default Codex login'
-}
-
 function latestResolvedModel(sessions: RuntimeRunDetail['sessions']): string | null {
   return sessions.find((session) => session.resolvedModel)?.resolvedModel ?? null
 }
@@ -820,24 +814,3 @@ function formatCacheHit(session: RuntimeSession): string {
   return `${((read / prompt) * 100).toFixed(1)}%`
 }
 
-function formatDurationBetween(start: string | null, end: string | null): string {
-  if (!start) return '—'
-  const startMs = new Date(start).getTime()
-  const endMs = end ? new Date(end).getTime() : Date.now()
-  return formatDuration(Math.max(0, endMs - startMs))
-}
-
-function formatDuration(milliseconds: number): string {
-  const totalSeconds = Math.round(milliseconds / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
-  if (minutes > 0) return `${minutes}m ${seconds}s`
-  return `${seconds}s`
-}
-
-function formatUsd(value: number | null): string {
-  if (value === null) return '—'
-  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
-}

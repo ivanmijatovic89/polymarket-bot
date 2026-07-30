@@ -9,6 +9,18 @@ import type { RuntimeFileView, RuntimeFilesResponse, RuntimeRun } from './types.
 const MAX_FILE_BYTES = 256 * 1024
 const JOURNAL_TAIL_BYTES = 64 * 1024
 
+// macOS and Windows default filesystems are case-insensitive, so two configured
+// paths that differ only in casing can alias one physical file. Distinctness
+// and reserved-path checks must therefore compare case-folded on those
+// platforms. This may reject a config that would be valid on a case-sensitive
+// volume — acceptable for a guard whose failure mode is corrupting the
+// session-result control channel.
+const CASE_INSENSITIVE_FILESYSTEM = process.platform === 'darwin' || process.platform === 'win32'
+
+function comparablePath(value: string): string {
+  return CASE_INSENSITIVE_FILESYSTEM ? value.toLowerCase() : value
+}
+
 function isInside(root: string, candidate: string): boolean {
   const relative = path.relative(root, candidate)
   return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative))
@@ -125,16 +137,16 @@ export async function validateRunWorkspace(run: RuntimeRun): Promise<void> {
 
   const seenPaths = new Map<string, string>()
   for (const file of resolvedFiles) {
-    if (file.absolutePath === reservedResultPath) {
+    if (comparablePath(file.absolutePath) === comparablePath(reservedResultPath)) {
       throw new RuntimeValidationError(
         `${file.role} path must not use the reserved ${SESSION_RESULT_FILE} path`,
       )
     }
-    const previousRole = seenPaths.get(file.absolutePath)
+    const previousRole = seenPaths.get(comparablePath(file.absolutePath))
     if (previousRole) {
       throw new RuntimeValidationError(`${file.role} path overlaps the ${previousRole} path`)
     }
-    seenPaths.set(file.absolutePath, file.role)
+    seenPaths.set(comparablePath(file.absolutePath), file.role)
 
     try {
       const info = await stat(file.absolutePath, { bigint: true })

@@ -188,7 +188,21 @@ export class GlobalRuntime {
         0,
         (run.nextStartAt?.getTime() ?? this.now().getTime()) - this.now().getTime(),
       )
-      await this.launch(run, ['rate_limited'], delayMs)
+      // One unrelaunchable run (deleted workspace, stale conflict) must not
+      // prevent the daemon from starting and serving every other loop.
+      try {
+        await this.launch(run, ['rate_limited'], delayMs)
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error)
+        await this.store.updateRun(run.id, {
+          status: 'error',
+          processId: null,
+          heartbeatAt: null,
+          nextStartAt: null,
+          endedAt: this.now(),
+          lastError: `Automatic rate-limit retry could not restart after a daemon restart: ${message}`,
+        })
+      }
     }
   }
 
@@ -294,6 +308,8 @@ export class GlobalRuntime {
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be stopped')
       }
+      // Stopping an already-stopped run must not rewrite its recorded endedAt.
+      if (run.status === 'stopped') return run
       const control = this.active.get(id)
       if (!control) {
         if (ACTIVE_STATUSES.includes(run.status)) {
