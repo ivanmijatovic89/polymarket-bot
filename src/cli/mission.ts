@@ -218,6 +218,11 @@ async function control(action: string, argv: string[]): Promise<void> {
   const { positionals } = parseArgs({ args: argv, options: {}, allowPositionals: true })
   const id = requireId(positionals)
   const { run } = await request<{ run: RunView }>('POST', `/runs/${id}/${action}`)
+  // Stop is a no-op on runs that already ended; don't imply a transition.
+  if (action === 'stop' && run.status !== 'stopped') {
+    console.log(`Loop ${run.id} had already ended (${run.status}); nothing to stop.`)
+    return
+  }
   console.log(`Loop ${run.id} is now ${run.status}.`)
 }
 
@@ -241,9 +246,13 @@ async function extend(argv: string[]): Promise<void> {
 }
 
 async function inbox(argv: string[]): Promise<void> {
-  const { positionals } = parseArgs({ args: argv, options: {}, allowPositionals: true })
-  const id = requireId(positionals)
-  const message = positionals.slice(1).join(' ').trim()
+  // No parseArgs here: everything after the id is the literal message, so
+  // words that start with "-" must not be interpreted as options. A single
+  // leading "--" is still treated as the conventional options terminator.
+  const [idArg, ...messageParts] = argv
+  const id = requireId(idArg === undefined ? [] : [idArg])
+  const literalParts = messageParts[0] === '--' ? messageParts.slice(1) : messageParts
+  const message = literalParts.join(' ').trim()
   if (!message) throw new Error(`a message is required\n\n${USAGE}`)
   const entry = await request<{ id: string }>('POST', `/runs/${id}/inbox`, { message })
   console.log(`Appended inbox entry ${entry.id} to loop ${id}.`)

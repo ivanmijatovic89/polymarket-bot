@@ -1,10 +1,20 @@
 import assert from 'node:assert/strict'
-import { link, mkdtemp, mkdir, readFile, rm, stat, symlink, writeFile } from 'node:fs/promises'
+import {
+  link,
+  mkdtemp,
+  mkdir,
+  readFile,
+  realpath,
+  rm,
+  stat,
+  symlink,
+  writeFile,
+} from 'node:fs/promises'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, test } from 'node:test'
 import type { RuntimeRun } from './types.js'
-import { appendInboxEntry, readRuntimeFiles } from './workspaceFiles.js'
+import { appendInboxEntry, readRuntimeFiles, validateRunWorkspace } from './workspaceFiles.js'
 
 const temporaryDirectories: string[] = []
 
@@ -64,6 +74,42 @@ test('rejects configured file reads through links outside the workspace', async 
     /resolves outside the configured workspace/iu,
   )
 })
+
+test(
+  'rejects state files that alias each other only by casing on case-insensitive filesystems',
+  { skip: process.platform !== 'darwin' && process.platform !== 'win32' },
+  async () => {
+    const root = await mkdtemp(path.join(os.tmpdir(), 'runtime-case-alias-test-'))
+    temporaryDirectories.push(root)
+    await mkdir(path.join(root, 'workspace'))
+    const workspace = await realpath(path.join(root, 'workspace'))
+    await writeFile(path.join(workspace, 'MISSION.md'), '# Test mission\n', 'utf8')
+
+    await assert.rejects(
+      () => validateRunWorkspace({ ...makeRun(workspace), journalFile: 'status.MD' }),
+      /overlaps/iu,
+    )
+    // APFS/HFS+ are normalization-insensitive too: NFC and NFD spellings of
+    // the same name open one physical file.
+    await assert.rejects(
+      () =>
+        validateRunWorkspace({
+          ...makeRun(workspace),
+          statusFile: 'caf\u00e9.md',
+          journalFile: 'cafe\u0301.md',
+        }),
+      /overlaps/iu,
+    )
+    await assert.rejects(
+      () =>
+        validateRunWorkspace({
+          ...makeRun(workspace),
+          inboxFile: '.Global-Runtime/Session-Result.json',
+        }),
+      /reserved/iu,
+    )
+  },
+)
 
 function makeRun(workspacePath: string): RuntimeRun {
   const now = new Date()

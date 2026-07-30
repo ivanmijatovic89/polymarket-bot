@@ -9,6 +9,15 @@ import { RuntimeStatusBadge } from '@/components/RuntimeStatusBadge'
 import { Badge } from '@/components/ui/badge'
 import { Card, CardContent } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
+import { runtimeFetch } from '@/lib/runtimeClient'
+import {
+  formatAccount,
+  formatCompact,
+  formatDurationBetween,
+  formatNumber,
+  formatRelative,
+  formatUsd,
+} from '@/lib/runtimeFormat'
 import { cn } from '@/lib/utils'
 import type { RuntimeRun, RuntimeRunSummary } from '@/lib/runtimeTypes'
 
@@ -46,6 +55,10 @@ const DEFAULT_MODEL: Record<ProviderId, string> = {
 
 const ACTIVE_STATUSES = ['running', 'pause_requested', 'rate_limited']
 const RESUMABLE_STATUSES = ['paused', 'waiting', 'stopped', 'error']
+// Stop only makes sense while there is something to stop or hold: an active
+// session, or a loop parked in waiting/paused. Stopping a run that is already
+// stopped (or errored out) would only rewrite its recorded end state.
+const STOPPABLE_STATUSES = [...ACTIVE_STATUSES, 'waiting', 'paused']
 const SMOKE_WORKSPACE = 'shared-loop'
 const SMOKE_SESSION_COUNT = 3
 const fieldClass = 'mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm'
@@ -540,7 +553,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
                           disabled={actionRunId === run.id}
                         />
                       )}
-                      {!['idle', 'completed'].includes(run.status) && (
+                      {STOPPABLE_STATUSES.includes(run.status) && (
                         <RunButton
                           label="Stop"
                           icon={Square}
@@ -562,7 +575,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
             </TableBody>
           </Table>
 
-          {!isFetching && runs.length === 0 && (
+          {!isFetching && !queryError && runs.length === 0 && (
             <div className="px-3 py-12 text-center text-sm text-muted-foreground">
               No loops yet. Start the shared example above, or create one with{' '}
               <span className="font-medium text-foreground">New loop</span>.
@@ -609,19 +622,6 @@ function Field({
   )
 }
 
-export async function runtimeFetch<T = unknown>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`/api/mission-control${path}`, { ...init, cache: 'no-store' })
-  const payload: unknown = await response.json().catch(() => null)
-  if (!response.ok) {
-    const message =
-      payload && typeof payload === 'object' && 'error' in payload
-        ? String(payload.error)
-        : `Request failed (${response.status})`
-    throw new Error(message)
-  }
-  return payload as T
-}
-
 // The runtime surfaces one reason at a time: a pending retry beats a stale
 // error, and an error beats the previous session's summary.
 function statusDetail(run: RuntimeRunSummary): string | null {
@@ -634,12 +634,6 @@ function statusDetail(run: RuntimeRunSummary): string | null {
 function shortenPath(value: string): string {
   const segments = value.split('/').filter(Boolean)
   return segments.length <= 2 ? value : `…/${segments.slice(-2).join('/')}`
-}
-
-function formatAccount(run: RuntimeRun): string {
-  const fallback = run.provider === 'claude' ? 'Default Claude login' : 'Default Codex login'
-  if (!run.authHome) return fallback
-  return run.authHome === '~/.claude-balsa' ? 'Balsa' : run.authHome
 }
 
 function totalTokens(run: RuntimeRunSummary): number | null {
@@ -663,51 +657,3 @@ function tokenBreakdown(run: RuntimeRunSummary): string {
   ].join('\n')
 }
 
-function formatNumber(value: number | null): string {
-  return value === null ? '—' : value.toLocaleString()
-}
-
-function formatCompact(value: number | null): string {
-  if (value === null) return '—'
-  if (Math.abs(value) < 1000) return String(value)
-  return new Intl.NumberFormat(undefined, {
-    notation: 'compact',
-    maximumFractionDigits: 1,
-  }).format(value)
-}
-
-function formatRelative(value: string): string {
-  const deltaSeconds = Math.round((new Date(value).getTime() - Date.now()) / 1000)
-  const magnitude = Math.abs(deltaSeconds)
-  const [amount, unit]: [number, Intl.RelativeTimeFormatUnit] =
-    magnitude < 60
-      ? [deltaSeconds, 'second']
-      : magnitude < 3600
-        ? [Math.round(deltaSeconds / 60), 'minute']
-        : magnitude < 86_400
-          ? [Math.round(deltaSeconds / 3600), 'hour']
-          : [Math.round(deltaSeconds / 86_400), 'day']
-  return new Intl.RelativeTimeFormat(undefined, { numeric: 'auto' }).format(amount, unit)
-}
-
-function formatDurationBetween(start: string | null, end: string | null): string {
-  if (!start) return '—'
-  const startMs = new Date(start).getTime()
-  const endMs = end ? new Date(end).getTime() : Date.now()
-  return formatDuration(Math.max(0, endMs - startMs))
-}
-
-function formatDuration(milliseconds: number): string {
-  const totalSeconds = Math.round(milliseconds / 1000)
-  const hours = Math.floor(totalSeconds / 3600)
-  const minutes = Math.floor((totalSeconds % 3600) / 60)
-  const seconds = totalSeconds % 60
-  if (hours > 0) return `${hours}h ${minutes}m ${seconds}s`
-  if (minutes > 0) return `${minutes}m ${seconds}s`
-  return `${seconds}s`
-}
-
-function formatUsd(value: number | null): string {
-  if (value === null) return '—'
-  return `$${value.toLocaleString(undefined, { minimumFractionDigits: 4, maximumFractionDigits: 6 })}`
-}

@@ -24,7 +24,7 @@ The daemon URL comes from `GLOBAL_RUNTIME_URL` (default `http://127.0.0.1:3053`)
 | `show <id>` | One loop in detail, including its session table. |
 | `start <id>` | Start an idle loop. |
 | `pause <id>` | Let the active session finish, then hold before the next one. |
-| `resume <id>` | Continue a paused, waiting, stopped, or errored loop with a fresh session. |
+| `resume <id>` | Continue a paused, waiting, rate-limited, stopped, or errored loop with a fresh session. |
 | `stop <id>` | Terminate the active session's process group and stop the loop. |
 | `extend <id>` | Raise `maxSessions` on the same run (`--max-sessions <n>`, raise-only). |
 | `inbox <id> <message>` | Append a steering message to the loop's inbox file. |

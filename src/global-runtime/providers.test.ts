@@ -240,6 +240,83 @@ test('reports log stream failures without crashing the runtime process', async (
   assert.equal(result.rateLimited, false)
 })
 
+test(
+  'counts rate-limit stderr text only when the CLI exits with a failure code',
+  { skip: process.platform === 'win32' },
+  async () => {
+    const workspace = await createDirectory()
+    const adapter = new CliProviderAdapter()
+
+    const cases = [
+      { exit: 0, expectedExitCode: 0, rateLimited: false },
+      { exit: 1, expectedExitCode: 1, rateLimited: true },
+      // A signal death has no exit code and is never the CLI reporting a
+      // rate limit, even when the buffered stderr mentions quotas.
+      { exit: 'signal', expectedExitCode: null, rateLimited: false },
+    ] as const
+
+    for (const [index, testCase] of cases.entries()) {
+      process.env.GLOBAL_RUNTIME_CODEX_BIN = await createQuotaStderrCli(workspace, testCase.exit)
+      const result = await adapter.execute(
+        {
+          run: makeRun(workspace, 'codex'),
+          sessionNumber: 10 + index,
+          prompt: 'test prompt',
+          logDirectory: path.join(workspace, `logs-quota-${String(testCase.exit)}`),
+        },
+        new AbortController().signal,
+        { onStarted: () => undefined, onActivity: () => undefined },
+      )
+      assert.equal(result.exitCode, testCase.expectedExitCode)
+      assert.equal(result.rateLimited, testCase.rateLimited)
+    }
+  },
+)
+
+test('keeps the Claude result event when later error events flood the bounded buffer', async () => {
+  const workspace = await createDirectory()
+  process.env.GLOBAL_RUNTIME_CLAUDE_BIN = await createErrorFloodClaudeCli(workspace)
+  const adapter = new CliProviderAdapter()
+
+  const result = await adapter.execute(
+    {
+      run: makeRun(workspace, 'claude'),
+      sessionNumber: 12,
+      prompt: 'test prompt',
+      logDirectory: path.join(workspace, 'logs-error-flood'),
+    },
+    new AbortController().signal,
+    { onStarted: () => undefined, onActivity: () => undefined },
+  )
+
+  assert.equal(result.exitCode, 0)
+  assert.deepEqual(result.finalResult, { action: 'continue', summary: 'flooded' })
+  assert.equal(result.usage.inputTokens, 11)
+  assert.equal(result.usage.estimatedApiCostUsd, 0.5)
+})
+
+test('keeps the Codex usage and final message when error events flood the bounded buffer', async () => {
+  const workspace = await createDirectory()
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = await createErrorFloodCodexCli(workspace)
+  const adapter = new CliProviderAdapter()
+
+  const result = await adapter.execute(
+    {
+      run: { ...makeRun(workspace, 'codex'), model: 'gpt-5.6-sol' },
+      sessionNumber: 13,
+      prompt: 'test prompt',
+      logDirectory: path.join(workspace, 'logs-codex-error-flood'),
+    },
+    new AbortController().signal,
+    { onStarted: () => undefined, onActivity: () => undefined },
+  )
+
+  assert.equal(result.exitCode, 0)
+  assert.deepEqual(result.finalResult, { action: 'continue', summary: 'flooded' })
+  assert.equal(result.usage.outputTokens, 7)
+  assert.equal(result.usage.cacheReadInputTokens, 2)
+})
+
 test('refuses symlinked provider artifacts without modifying their targets', async () => {
   const workspace = await createDirectory()
   const target = path.join(workspace, 'outside-artifact-target.txt')
@@ -334,6 +411,62 @@ if (provider === 'codex') {
   console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 14, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 7, reasoning_output_tokens: 3 } }))
 } else {
   console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.125, structured_output: result, usage: { input_tokens: 21, cache_read_input_tokens: 4, cache_creation_input_tokens: 6, output_tokens: 9 }, modelUsage: { 'claude-helper-model': { costUSD: 0.001 }, 'claude-test-model': { costUSD: 0.124 } } }))
+}
+`,
+    'utf8',
+  )
+  await chmod(fakeCli, 0o700)
+  return fakeCli
+}
+
+async function createQuotaStderrCli(workspace: string, exit: number | 'signal'): Promise<string> {
+  const fakeCli = path.join(workspace, `quota-stderr-${String(exit)}-cli.mjs`)
+  const finalStatement =
+    exit === 'signal' ? `process.kill(process.pid, 'SIGKILL')` : `process.exit(${exit})`
+  await writeFile(
+    fakeCli,
+    `#!/usr/bin/env node
+console.error('backtest tool: provider quota snapshot logged; rate limit headroom ok')
+console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 1, output_tokens: 1 } }))
+${finalStatement}
+`,
+    'utf8',
+  )
+  await chmod(fakeCli, 0o700)
+  return fakeCli
+}
+
+async function createErrorFloodClaudeCli(workspace: string): Promise<string> {
+  const fakeCli = path.join(workspace, 'error-flood-claude-cli.mjs')
+  await writeFile(
+    fakeCli,
+    `#!/usr/bin/env node
+import { mkdir, writeFile } from 'node:fs/promises'
+import path from 'node:path'
+const result = { action: 'continue', summary: 'flooded' }
+await mkdir(path.join(process.cwd(), '.global-runtime'), { recursive: true })
+await writeFile(path.join(process.cwd(), ${JSON.stringify(SESSION_RESULT_FILE)}), JSON.stringify(result))
+console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.5, structured_output: result, usage: { input_tokens: 11, output_tokens: 3 } }))
+for (let index = 0; index < 150; index += 1) {
+  console.log(JSON.stringify({ type: 'error', message: 'noise ' + index }))
+}
+`,
+    'utf8',
+  )
+  await chmod(fakeCli, 0o700)
+  return fakeCli
+}
+
+async function createErrorFloodCodexCli(workspace: string): Promise<string> {
+  const fakeCli = path.join(workspace, 'error-flood-codex-cli.mjs')
+  await writeFile(
+    fakeCli,
+    `#!/usr/bin/env node
+const result = { action: 'continue', summary: 'flooded' }
+console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(result) } }))
+console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 14, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 7 } }))
+for (let index = 0; index < 150; index += 1) {
+  console.log(JSON.stringify({ type: 'error', message: 'noise ' + index }))
 }
 `,
     'utf8',
