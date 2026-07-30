@@ -1,6 +1,14 @@
 # Capability: metrics & result storage
 
-verified: 2026-07-30 @ 4fde3ae (code-survey + initializer spot-check of the settlement formula; NOT yet run-verified)
+verified: 2026-07-30 @ 433647d (code-survey + initializer spot-check of the settlement formula; storage layout RUN-VERIFIED via run 852 — see below)
+
+## Run-verified (2026-07-30, run 852: BuyLowPrice.v1, 5 markets, 1 maker BUY 10sh@0.10 each, all on the losing side)
+
+- Column names as stored: `final_outcome`, `trade_count`, `trade_as_maker/taker`, `fees_paid`, `up_shares/down_shares/mergable_shares`, `cost`, `avg_entry_price_up/down`, `intent_meta`, `machine_id`, `commit_sha`. (`backtest_runs` has NO machine_id — that column is per-market only.) [db run 852 | 2026-07-30]
+- `cost` = buy notional for a no-sell no-settlement-consumed position: 10 sh × 0.10 = 1.0000 stored, pnl −1.0000 (full loss of basis), fees 0 (maker). Consistent with cost==invested for no-sell strategies; the multi-buy + winning-side case is still to be tested (PLAN `metrics-and-capital-units`) because settlement of WINNING shares may reduce remaining basis differently. [db run 852 | 2026-07-30]
+- `intent_meta` is `[]` (not NULL) when the strategy attaches no `Intent.meta`. Per-order analytics require the strategy to stamp meta explicitly. [db run 852 | 2026-07-30]
+- `avg_entry_price_*` is NULL for the side never bought (not 0). [db run 852 | 2026-07-30]
+- Segment rows for small runs: all/daily/weekly/monthly only; last_n starts at ≥500 markets. Numbers matched the printed BATCH STATS exactly. [db run 852 | 2026-07-30]
 
 ## Where results live
 

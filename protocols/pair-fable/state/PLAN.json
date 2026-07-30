@@ -10,7 +10,8 @@
         "backtest_run_markets rows and the segments row (kind='all') exist and are consistent with the printed summary",
         "memory/capabilities notes updated with [run <id>] evidence tags"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 1 (of the plan). Runs 852 (5 markets) + 853 (1 market, EXIT=0 captured), strategy BuyLowPrice.v1 with RULES pins. Step 1 half-holds: exit 0 verified, but sequential mode prints NO run/batch identity (code src/cli/backtest.ts:1052-1096) -> filed P-003; identity recovered from DB instead. Steps 2-3: db run 852 — protocol/model/params/cmd (latency flags + --from-ms + injected --batchUid) all present; 5 market rows + all/daily/weekly/monthly segments match printed BATCH STATS (pnl -5, 5 maker trades, fees 0); last_n absent because <500 markets. Step 4: backtest-cli.md, metrics-storage.md, simulator.md updated with [run 852/853] tags. Bonus: maker worst-queue + all-or-nothing fill size observed; cost==buy notional for the no-sell single-buy case; tools/sql.ts built."
     },
     {
       "id": "fleet-round-trip",

@@ -1,25 +1,29 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (session 1, initializer)
+Updated: 2026-07-30 (session 2 — PLAN `smoke-local-backtest`)
 
 ## Current work
 
-Initialization complete. Next session starts the plan proper.
+PLAN item `smoke-local-backtest` DONE (passes:true with evidence — runs
+852/853). Nothing in flight.
 
 ## Completed
 
-- Initializer step done: repository surveyed (5-subsystem parallel code
-  survey + spot-checks), `state/PLAN.json` written (10 items),
-  `memory/` + `tools/` skeletons created, capability notes seeded
-  (code-verified, run-verification is PLAN items 1-2).
-- Two engine findings filed: PROPOSALS P-001 (--extend drops parent latency),
-  P-002 (persist per-market invested capital).
+- Initializer: PLAN.json (10 items), memory/tools skeletons, capability
+  notes seeded, proposals P-001/P-002 filed.
+- `smoke-local-backtest`: canonical RULES-pinned sequential backtest
+  run-verified end-to-end (run 852: 5 markets, run 853: 1 market EXIT=0).
+  DB rows verified (provenance columns, cmd with latency flags, market rows,
+  segments matching printed stats). Capability notes upgraded to
+  run-verified for the sequential path. Built `tools/sql.ts` (read-only DB
+  query runner). Filed P-003 (sequential runs print no run identity).
 
 ## Next step
 
-Take PLAN item `smoke-local-backtest` (first item with passes:false): run the
-canonical telonex-delta btc 15m backtest with --sequential on ~5 markets,
-verify DB rows, upgrade capability notes to run-verified.
+Take PLAN item `fleet-round-trip`: submit a ~20-market canonical batch to
+the BullMQ fleet from pushed code, observe queues programmatically, confirm
+worker machine_ids in DB, re-measure fleet markets/minute. Note: workers run
+origin/main — push this session's commit first (done as part of save loop).
 
 ## Blockers
 
@@ -27,10 +31,10 @@ None.
 
 ## Needs human
 
-Nothing blocking. When convenient: review PROPOSALS P-001 / P-002 (P-001
-matters if any long-running run is ever extended — until accepted+fixed the
-protocol treats latency-pinned runs as non-extendable).
+Nothing blocking. When convenient: review PROPOSALS P-001 (extend drops
+parent latency — until fixed, latency-pinned runs are non-extendable),
+P-002 (persist invested capital), P-003 (sequential runs print no run id).
 
 ## Inbox processed through
 
-(none — no inbox entries yet)
+(none — no inbox file / entries yet)

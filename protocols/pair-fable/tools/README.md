@@ -17,6 +17,12 @@ Executable helpers the protocol builds for itself. Conventions:
   <model-id>`), the 2026-04-02 universe floor (`--from-ms 1775088000000`),
   input mode `telonex-delta`, read mode `local-or-download-from-r2-to-local`.
 
+Built:
+
+| Tool | Purpose |
+| --- | --- |
+| `sql.ts` | Read-only ad-hoc SQL against the backtest MySQL (`tsx protocols/pair-fable/tools/sql.ts "SELECT ..."`); refuses non-SELECT statements. For verification queries; recurring reads become dedicated tools. |
+
 Planned (built by PLAN items, listed here so names stay stable):
 
 | Tool | Purpose | PLAN item |

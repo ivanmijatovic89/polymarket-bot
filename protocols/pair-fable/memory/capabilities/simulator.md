@@ -1,6 +1,12 @@
 # Capability: backtest execution simulator
 
-verified: 2026-07-30 @ 4fde3ae (code-survey; the merge trap is also asserted independently in RULES from live verification. NOT yet run-verified — PLAN `smoke-local-backtest` / `parity-boundary-map`)
+verified: 2026-07-30 @ 433647d (code-survey; the merge trap is also asserted independently in RULES from live verification. Maker fill model partially RUN-VERIFIED — see below; deeper checks in PLAN `parity-boundary-map`)
+
+## Run-verified (2026-07-30, run 852)
+
+- Maker worst-queue + all-or-nothing size both observed: in 5/5 markets a resting GTC BUY 10sh@0.10 on the eventually-losing side filled as ONE trade of the FULL size at 0.10 (notional 1.00), liquidity=MAKER, feePaid=0 — the book traded through the level as the losing side collapsed toward 0. The winning side's 0.10 bid never filled (its price never came down through 0.10). [run 852 trade logs + db | 2026-07-30]
+- Maker fills cost $0 fees end-to-end (fees_paid 0.0000 stored). [db run 852 | 2026-07-30]
+- Latency flags accepted and recorded in cmd; behavioral latency assertions (fill-before-cancel etc.) not yet run-tested. [run 852 | 2026-07-30]
 
 ## Fill models
 

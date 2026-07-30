@@ -43,8 +43,11 @@ Pointers, not content.)
 - **Engine capabilities**: seeded from the initializer's code survey —
   `capabilities/backtest-cli.md`, `capabilities/metrics-storage.md`,
   `capabilities/strategy-system.md`, `capabilities/simulator.md`,
-  `capabilities/fleet.md`. Status: code-verified only; run-verification is
-  PLAN items `smoke-local-backtest` and `fleet-round-trip`.
+  `capabilities/fleet.md`. Status: local sequential path RUN-VERIFIED
+  (runs 852/853, 2026-07-30 — canonical command, DB layout, maker fill
+  model, provenance columns); fleet/queue path still code-only
+  (PLAN `fleet-round-trip` next). `tools/sql.ts` exists for read-only DB
+  verification queries.
 - **Parity boundary**: not yet mapped (PLAN `parity-boundary-map`).
 - **Evaluator**: not yet designed (PLAN `evaluator-design`).
 - **Experiments**: none yet (mission 02).

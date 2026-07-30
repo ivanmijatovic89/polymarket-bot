@@ -52,3 +52,20 @@ Entry format:
   strategies `cost` may serve as a workaround (to be verified in PLAN
   `metrics-and-capital-units`), but the general fix belongs in the engine.
 
+## P-003: Sequential backtests print no run/batch identity
+- status: proposed
+- date: 2026-07-30
+- context: PLAN `smoke-local-backtest` run-verification (runs 852/853).
+- proposal: `--sequential` persists the run silently — stdout contains neither
+  the numeric run id nor the batchUid (the BullMQ path prints both:
+  `src/cli/backtest.ts:1224,1263`). The sequential path persists via
+  `insertBacktestRun` at `src/cli/backtest.ts:1059-1083` and prints only
+  BATCH STATS. Automation must recover the run by querying the newest
+  `backtest_runs` row for its protocol/model — racy when runs launch in
+  parallel. Suggested fix: after `insertBacktestRun`, print one line, e.g.
+  `[backtest] persisted run id=<id> batchUid=<uid>` (insertBacktestRun would
+  need to return the inserted id if it does not already). Until then the
+  protocol's launch tools query the DB immediately after a sequential run
+  completes and match on cmd/batchUid (the injected `--batchUid` in cmd is
+  unique enough: it equals submission_uid).
+
