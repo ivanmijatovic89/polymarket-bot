@@ -761,6 +761,11 @@ export class GlobalRuntime {
   }
 
   private async markStopped(runId: number): Promise<void> {
+    // A stop request can race a session that returns 'complete': the terminal
+    // transition persists 'completed' before runManaged's finally observes
+    // stopRequested. A mission that finished must keep its completed state.
+    const run = await this.requireRun(runId)
+    if (run.status === 'completed') return
     await this.store.updateRun(runId, {
       status: 'stopped',
       processId: null,

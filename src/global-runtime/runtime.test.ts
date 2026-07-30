@@ -19,7 +19,7 @@ import {
   RUNTIME_PROCESS_TOKEN_ENV,
   SESSION_RESULT_FILE,
 } from './contracts.js'
-import type { RuntimeRunPatch } from './types.js'
+import type { RuntimeRunPatch, RuntimeSessionPatch } from './types.js'
 
 const temporaryDirectories: string[] = []
 
@@ -93,6 +93,26 @@ test('pause cannot overwrite a concurrently completed terminal state', async () 
   await assert.rejects(pause, RuntimeConflictError)
   await waitFor(async () => (await store.getRun(run.id))?.status === 'completed')
   assert.equal((await store.getRun(run.id))?.status, 'completed')
+})
+
+test('stop cannot overwrite a concurrently completed terminal state', async () => {
+  const workspace = await createWorkspace()
+  const store = new DelayedSessionCompletionStore()
+  const provider = new ScriptedProvider([successfulResult('complete', 'done', 1)])
+  const runtime = createRuntime(store, provider)
+  const run = await runtime.createRun(runInput(workspace))
+
+  await runtime.start(run.id)
+  await store.waitForSessionCompletionWrite()
+  const stop = runtime.stop(run.id)
+  await new Promise((resolve) => setImmediate(resolve))
+  store.releaseSessionCompletionWrite()
+
+  const stopped = await stop
+  assert.equal(stopped.status, 'completed')
+  const persisted = await store.getRun(run.id)
+  assert.equal(persisted?.status, 'completed')
+  assert.equal(persisted?.lastResultSummary, 'done')
 })
 
 test('persists the running state before launching the provider task', async () => {
@@ -1016,6 +1036,33 @@ class DelayedCompletionStore extends MemoryRuntimeStore {
       await this.completionReleased
     }
     return super.updateRun(id, patch)
+  }
+}
+
+class DelayedSessionCompletionStore extends MemoryRuntimeStore {
+  private sessionCompletionWriteStarted: (() => void) | null = null
+  private releaseSessionCompletion: (() => void) | null = null
+  private readonly sessionCompletionStarted = new Promise<void>((resolve) => {
+    this.sessionCompletionWriteStarted = resolve
+  })
+  private readonly sessionCompletionReleased = new Promise<void>((resolve) => {
+    this.releaseSessionCompletion = resolve
+  })
+
+  waitForSessionCompletionWrite(): Promise<void> {
+    return this.sessionCompletionStarted
+  }
+
+  releaseSessionCompletionWrite(): void {
+    this.releaseSessionCompletion?.()
+  }
+
+  override async updateSession(id: number, patch: RuntimeSessionPatch) {
+    if (patch.status === 'completed') {
+      this.sessionCompletionWriteStarted?.()
+      await this.sessionCompletionReleased
+    }
+    return super.updateSession(id, patch)
   }
 }
 
