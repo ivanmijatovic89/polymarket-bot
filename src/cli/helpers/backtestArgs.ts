@@ -556,9 +556,12 @@ export function parseArgs(argv: string[]): BacktestArgs {
  * the caller can warn and fall back.
  *
  * The cmd is tokenized with quote awareness (matching quoteInlineArg's
- * double-quote/backslash format) and flags match whole tokens only, so the
- * flag text appearing INSIDE a quoted `--comment` or `--param` value can
- * never be mistaken for the real flag.
+ * double-quote/backslash format) and the recovered argv is then re-parsed by
+ * parseArgs itself — the SAME parser that interpreted the parent's launch —
+ * so value-slot consumption, duplicate-flag last-wins, and every other
+ * semantic detail match what the parent actually ran with. A cmd this
+ * function cannot faithfully re-parse yields {} (the caller warns and falls
+ * back) rather than a guess.
  */
 export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
   delayMs?: number
@@ -566,23 +569,24 @@ export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
 } {
   if (!cmd) return {}
   const tokens = tokenizeRecordedCmd(cmd)
-  const read = (flag: string): number | undefined => {
-    for (let i = 0; i < tokens.length; i += 1) {
-      const token = tokens[i]!
-      let raw: string | undefined
-      if (token === flag) raw = tokens[i + 1]
-      else if (token.startsWith(`${flag}=`)) raw = token.slice(flag.length + 1)
-      else continue
-      const value = Number(raw)
-      return Number.isSafeInteger(value) && value >= 0 ? value : undefined
-    }
-    return undefined
+  // buildBacktestCmdInline emits either `npm run <script> -- <argv…>` or
+  // `node <script> <argv…>`.
+  let argv: string[]
+  if (tokens[0] === 'npm') {
+    const separator = tokens.indexOf('--')
+    argv = separator === -1 ? [] : tokens.slice(separator + 1)
+  } else {
+    argv = tokens.slice(2)
   }
-  const delayMs = read('--latency-delay-ms')
-  const jitterMs = read('--latency-jitter-ms')
-  return {
-    ...(delayMs !== undefined ? { delayMs } : {}),
-    ...(jitterMs !== undefined ? { jitterMs } : {}),
+  if (argv.length === 0) return {}
+  try {
+    const parsed = parseArgs(argv)
+    return {
+      ...(parsed.latencyDelayMs !== undefined ? { delayMs: parsed.latencyDelayMs } : {}),
+      ...(parsed.latencyJitterMs !== undefined ? { jitterMs: parsed.latencyJitterMs } : {}),
+    }
+  } catch {
+    return {}
   }
 }
 
