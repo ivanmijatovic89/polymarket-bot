@@ -62,6 +62,13 @@ watches: <path>[, <path> ...]
    targeted probe — before writing the new claim.
 3. Only after ALL claims are re-checked, bump the note's `verified:` line to
    the new date + origin/main short SHA.
+4. **Re-baseline after semantic engine drift** (MISSION01-REVIEW M4): if the
+   drift changed run SEMANTICS (fill model, fee math, latency handling, tick
+   semantics — anything that would change a run's numbers, not just tooling),
+   existing runs stop being valid comparison baselines/S2 evidence: re-run
+   affected screen baselines and treat pre-drift FULL runs as historical
+   only. evaluate.ts/compare.ts warn on cross-run engine-SHA mismatch;
+   team-workflow rule 4 forbids reusing runs across such drift.
 4. Re-run the tool: must report CLEAN.
 5. Anything that looks like an engine bug or regression → `state/PROPOSALS.md`
    (never fix src/ yourself). Anything that changes how RESEARCH should run

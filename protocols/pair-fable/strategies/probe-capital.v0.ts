@@ -19,8 +19,8 @@ import type { StrategyDefinition } from '../../../src/strategy/strategyDefinitio
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
-  /** Shares per plain FOK probe order. */
-  size: z.coerce.number().finite().positive().default(5),
+  /** Shares per plain FOK probe order. Bounded per M5 (no-depth fill model). */
+  size: z.coerce.number().finite().positive().max(100).default(5),
   /** Place one probe order every N ticks (a 15m market has ~125k ticks). */
   everyNTicks: z.coerce.number().finite().int().positive().default(1500),
   /** Plain FOK orders before the final crossing-GTC probe (alternating UP/DOWN). */

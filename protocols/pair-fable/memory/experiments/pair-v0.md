@@ -83,7 +83,8 @@ RULES safe bias).
 ## Evaluator dry-run findings (2026-07-30, runs 863–870)
 
 - **Noise floor**: identical config, different jitter draws (865 vs 868,
-  N=300): Δev/mkt 0.0008, one market moved (−0.20), daily corr 1.0000. The
+  N=300): Δev/mkt 0.0008, two markets moved (−0.20, and one flipped pnl
+  0 → −0.06 — jitter can flicker played/flat; m10), daily corr 1.0000. The
   passive-GTD-maker family is near-deterministic under jitter; use the
   evaluator's 0.05 default threshold anyway (family-specific floors for
   taker-heavy variants must be re-measured). [runs 865/868 | 2026-07-30]
@@ -104,7 +105,8 @@ RULES safe bias).
   sums) — same-family param variants are the same bet; the independence
   measure discriminates as designed. [runs 863/868 | 2026-07-30]
 - **Full-universe anatomy** [run 870 | 2026-07-30]: 10,747 markets
-  (2026-04-02 → 2026-07-27 eligibility edge), 0 failures, ~13.4 min fleet.
+  (2026-04-02 → 2026-07-23 01:15 eligibility edge — the frontier lags real
+  time ~7–8 days, m11), 0 failures, ~13.4 min fleet.
   ev −2.24/mkt, p/100 −8.71 (median −11.33, p10 −100, p90 +2.04), winRate
   21.3%, played 9750 (744 flat, 253 no-activity), invested $276k total /
   $26.31 avg/played, taker share 817/59269 = 1.38% (consistent with the

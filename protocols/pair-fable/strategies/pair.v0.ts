@@ -32,8 +32,13 @@ import type { StrategyDefinition } from '../../../src/strategy/strategyDefinitio
 import * as z from 'zod'
 
 export const ConfigSchema = z.strictObject({
-  /** Shares per resting bid (the accumulation increment). */
-  incrementSize: z.coerce.number().finite().positive().default(10),
+  /**
+   * Shares per resting bid (the accumulation increment). Bounded (M5): the
+   * simulator fills the ENTIRE resting size when price trades through the
+   * level, with no depth constraint — large increments inflate backtest $
+   * headlines in a way live books cannot honor.
+   */
+  incrementSize: z.coerce.number().finite().positive().max(100).default(10),
   /** Per-market capital cap in $ (binding evaluator convention — the sweep knob). */
   capPerMarket: z.coerce.number().finite().positive().default(50),
   /** Fee-inclusive pair budget: projected up_avg+down_avg must stay ≤ this. */

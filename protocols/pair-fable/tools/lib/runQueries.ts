@@ -231,6 +231,59 @@ export async function fetchMarkets(conn: mysql.Connection, runId: number): Promi
   }))
 }
 
+/**
+ * Distinct engine commit SHAs across a run's market rows (MISSION01-REVIEW
+ * M4). Fleet SHA-gating keeps a run internally consistent, so >1 SHA within
+ * one run is an anomaly; ACROSS runs a mismatch means the compared runs were
+ * produced by different engine versions — warn before trusting deltas.
+ */
+export async function fetchDistinctCommitShas(
+  conn: mysql.Connection,
+  runId: number,
+): Promise<string[]> {
+  const [rows] = (await conn.query(
+    `SELECT DISTINCT commit_sha FROM backtest_run_markets WHERE run_id = ?`,
+    [runId],
+  )) as [Array<Record<string, unknown>>, unknown]
+  return rows.map((r) => (r.commit_sha ? String(r.commit_sha) : '(null)')).sort()
+}
+
+/**
+ * Earliest created_at among completed runs of one strategy with EXACTLY the
+ * given params (MISSION01-REVIEW M2). A claimed design-ts LATER than this is
+ * impossible for an honest param-freeze timestamp — no run can predate the
+ * design of its own config. Params equality is checked in JS (JSON key-order
+ * differences would break SQL string equality).
+ */
+export async function fetchEarliestRunForConfig(
+  conn: mysql.Connection,
+  strategy: string,
+  params: Record<string, unknown>,
+): Promise<{ runId: number; createdAt: string } | null> {
+  const [rows] = (await conn.query(
+    `SELECT id, params, created_at FROM backtest_runs
+      WHERE strategy = ? AND status = 'completed' ORDER BY created_at ASC`,
+    [strategy],
+  )) as [Array<Record<string, unknown>>, unknown]
+  const canon = (p: Record<string, unknown>): string =>
+    JSON.stringify(Object.fromEntries(Object.entries(p).sort(([a], [b]) => a.localeCompare(b))))
+  const want = canon(params)
+  for (const r of rows) {
+    const p = (typeof r.params === 'string' ? JSON.parse(r.params) : (r.params ?? {})) as Record<
+      string,
+      unknown
+    >
+    if (canon(p) === want) {
+      return {
+        runId: Number(r.id),
+        createdAt:
+          r.created_at instanceof Date ? r.created_at.toISOString() : String(r.created_at),
+      }
+    }
+  }
+  return null
+}
+
 export async function fetchSegments(
   conn: mysql.Connection,
   runId: number,

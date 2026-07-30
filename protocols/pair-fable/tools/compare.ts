@@ -32,6 +32,7 @@ import {
   fetchHeadline,
   fetchUnits,
   fetchMarkets,
+  fetchDistinctCommitShas,
   type RunIdentity,
   type MarketRow,
   type Units,
@@ -154,8 +155,17 @@ try {
       headline: await fetchHeadline(conn, run.runId),
       units: await fetchUnits(conn, run.runId),
       markets: await fetchMarkets(conn, run.runId),
+      commitShas: await fetchDistinctCommitShas(conn, run.runId),
     })),
   )
+
+  // MISSION01-REVIEW M4: deltas across engine versions are only trustworthy
+  // when no semantic engine drift (fill model / fees / ticks) lies between.
+  const allShas = [...new Set(perRun.flatMap((p) => p.commitShas))]
+  const shaWarning =
+    allShas.length > 1
+      ? `engine SHA differs across runs (${allShas.join(', ')}) — check for semantic engine drift before trusting deltas (M4)`
+      : null
 
   // Universe overlap.
   const slugSets = perRun.map((p) => new Set(p.markets.map((m) => m.slug)))
@@ -223,6 +233,8 @@ try {
       sameParams,
       isLatencySweep,
       strategies: [...new Set(runs.map((r) => r.strategy))],
+      engineShasByRun: Object.fromEntries(perRun.map((p) => [p.run.runId, p.commitShas])),
+      shaWarning,
     },
     universe: {
       common: common.length,
@@ -284,6 +296,7 @@ try {
     console.log(
       `universe: common=${common.length}  per-run total=${result.universe.perRunTotal.join('/')}  per-run extra=${onlyCounts.join('/')}${common.length === 0 ? '  NO OVERLAP — deltas meaningless' : ''}`,
     )
+    if (shaWarning) console.log(`WARNING: ${shaWarning}`)
     console.log('')
     console.log(
       'run    latency     markets  pnl(common)  ev/mkt    p/100    won/lost/flat  m/t trades  posDayFrac',

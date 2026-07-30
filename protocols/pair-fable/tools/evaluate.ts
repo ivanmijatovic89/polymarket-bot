@@ -10,12 +10,24 @@
  *     --screen-run 863 --screen-baseline 868 [--noise-ev 0.0008] [--json]
  *
  * Stages (evaluator.md §Stages — thresholds live THERE, this file computes):
- *   MECHANICAL  status/failures/unitsValid/latency-pinned checks on every run
+ *   MECHANICAL  status/failures/unitsValid/latency-pinned checks on every run,
+ *               PLUS (MISSION01-REVIEW M1) params identity of full/sweep/screen
+ *               runs and latency identity of the screen pair, (M4) within-run
+ *               engine-SHA consistency, (m6, --maker-only) taker share ≤ 2% on
+ *               the base-latency runs
  *   S1 SCREEN   ev delta vs baseline on slug intersection vs noise floor
  *   S2 FULL     headline + weekly walk-forward (engine computeWalkForwardForRun,
  *               partial weeks < 300 markets dropped) + monthly table
  *   S3 SWEEP    intersection EV per cmd-recorded latency + taker-share trend
- *   S4 OOS      design-ts split of the full run's market rows
+ *               (a RISING taker trend now FAILS the sweep — m6)
+ *   S4 OOS      design-ts split of the full run's market rows; CHAMPION bar is
+ *               noise-aware: OOS ev must exceed 2×SE(n), not just 0 (M3);
+ *               --design-ts is sanity-checked against the earliest completed
+ *               run of the exact config (M2 — design cannot postdate first run)
+ *
+ * Cross-run engine-SHA mismatches and M2 violations surface as WARNINGS (M4:
+ * benign launcher-level engine commits are common; a warning forces the reader
+ * to decide, a hard fail would block honest comparisons).
  *
  * Verdict = first failing stage, else highest attained state. Stages without
  * inputs report NA (never silently pass). Exit 0 when evaluable (verdicts are
@@ -32,6 +44,8 @@ import {
   fetchUnits,
   fetchMarkets,
   fetchSegments,
+  fetchDistinctCommitShas,
+  fetchEarliestRunForConfig,
   type RunIdentity,
   type MarketRow,
   type Units,
@@ -44,6 +58,9 @@ const WEEKLY_MIN_MARKETS = 300
 const OOS_MIN_MARKETS = 400
 const SWEEP_RETENTION = 0.5
 const BASE_LATENCY_MS = 140
+const OOS_SE_MULTIPLE = 2 // M3: champion bar = OOS ev > 2×SE(n)
+const MAKER_ONLY_MAX_TAKER_SHARE = 0.02 // m6: mechanical bound with --maker-only
+const SWEEP_TAKER_RISE_PP = 0.02 // m6: taker-share rise (last−first) that fails S3
 
 function fail(msg: string): never {
   console.error(`[evaluate] ERROR: ${msg}`)
@@ -57,6 +74,7 @@ type Opts = {
   screenRun?: number
   screenBaseline?: number
   noiseEv?: number
+  makerOnly: boolean
   json: boolean
 }
 
@@ -69,7 +87,7 @@ function parseIds(v: string, flag: string): number[] {
 }
 
 function parseArgs(argv: string[]): Opts {
-  const o: Opts = { json: false }
+  const o: Opts = { makerOnly: false, json: false }
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!
     const next = (): string => {
@@ -103,6 +121,9 @@ function parseArgs(argv: string[]): Opts {
         o.noiseEv = n
         break
       }
+      case '--maker-only':
+        o.makerOnly = true
+        break
       case '--json':
         o.json = true
         break
@@ -182,22 +203,56 @@ async function main(): Promise<void> {
     for (const id of allIds) if (!byId.has(id)) fail(`run ${id} not found in backtest_runs`)
 
     const full = byId.get(o.fullRun!)!
+    const warnings: string[] = []
 
     // ---- MECHANICAL --------------------------------------------------------
     const mechanicalIssues: string[] = []
     const unitsById = new Map<number, Units>()
+    const shasById = new Map<number, string[]>()
+    const canonParams = (p: Record<string, unknown>): string =>
+      JSON.stringify(Object.fromEntries(Object.entries(p).sort(([a], [b]) => a.localeCompare(b))))
+    const fullParams = canonParams(full.params)
+    // The screen BASELINE is a different variant by design (family/champion
+    // reference) — the M1 identity checks exempt it; run-health checks do not.
+    const identityExempt = new Set(o.screenBaseline !== undefined ? [o.screenBaseline] : [])
     for (const r of identities) {
       const u = await fetchUnits(conn, r.runId)
       unitsById.set(r.runId, u)
+      const shas = await fetchDistinctCommitShas(conn, r.runId)
+      shasById.set(r.runId, shas)
+      if (shas.length > 1)
+        mechanicalIssues.push(
+          `run ${r.runId}: ${shas.length} distinct engine SHAs WITHIN one run (${shas.join(', ')}) — fleet SHA gating should make this impossible`,
+        )
       if (r.status !== 'completed') mechanicalIssues.push(`run ${r.runId}: status=${r.status}`)
       if (r.failuresCount > 0) mechanicalIssues.push(`run ${r.runId}: failures=${r.failuresCount}`)
       if (!u.unitsValid) mechanicalIssues.push(`run ${r.runId}: UNITS-INVALID (split_cost != 0)`)
       if (r.latencyDelayMs === null)
         mechanicalIssues.push(`run ${r.runId}: ENV-SOURCED latency (not RULES-grade evidence)`)
+      if (identityExempt.has(r.runId)) continue
       if (r.strategy !== full.strategy)
         mechanicalIssues.push(`run ${r.runId}: strategy ${r.strategy} != full run's ${full.strategy}`)
+      else if (canonParams(r.params) !== fullParams)
+        mechanicalIssues.push(
+          `run ${r.runId}: params ${JSON.stringify(r.params)} != full run's ${JSON.stringify(full.params)} — stage verdicts must come from ONE config (M1)`,
+        )
     }
-    const mechanical: Verdict = mechanicalIssues.length === 0 ? 'PASS' : 'FAIL'
+    // M1: the screen delta is meaningless unless the pair shares one latency.
+    if (o.screenRun !== undefined) {
+      const s = byId.get(o.screenRun)!
+      const b = byId.get(o.screenBaseline!)!
+      if (s.latencyDelayMs !== b.latencyDelayMs || s.latencyJitterMs !== b.latencyJitterMs)
+        mechanicalIssues.push(
+          `screen pair latency mismatch: run ${s.runId} ${s.latencyDelayMs}/${s.latencyJitterMs}ms vs baseline ${b.runId} ${b.latencyDelayMs}/${b.latencyJitterMs}ms (M1)`,
+        )
+    }
+    // M4: cross-run engine drift is a warning, not a fail — launcher-level
+    // engine commits are common and benign; the reader decides.
+    const allShas = [...new Set([...shasById.values()].flat())]
+    if (allShas.length > 1)
+      warnings.push(
+        `engine SHA differs across compared runs (${allShas.join(', ')}) — check for semantic engine drift (fill model / fees / tick semantics) before trusting cross-run deltas (M4)`,
+      )
 
     // ---- S2 FULL + TEMPORAL ------------------------------------------------
     const fullMarkets = await fetchMarkets(conn, full.runId)
@@ -235,9 +290,11 @@ async function main(): Promise<void> {
     // ---- S1 SCREEN ---------------------------------------------------------
     let screen: Record<string, unknown> | null = null
     let screenVerdict: Verdict = 'NA'
+    let screenVariantStats: WindowStats | null = null
     if (o.screenRun !== undefined) {
       const sRows = await fetchMarkets(conn, o.screenRun)
       const bRows = await fetchMarkets(conn, o.screenBaseline!)
+      screenVariantStats = windowStats(sRows)
       const common = intersectBySlug([sRows, bRows])
       const s = windowStats(sRows.filter((r) => common.has(r.slug)))
       const b = windowStats(bRows.filter((r) => common.has(r.slug)))
@@ -272,6 +329,25 @@ async function main(): Promise<void> {
         call,
       }
     }
+
+    // m6 (--maker-only): a maker-only design showing >2% taker fills at the
+    // live base latency is mis-implemented, not unlucky (run 862 finding).
+    // Applies to base-latency runs only — sweep runs legitimately drift taker
+    // as latency grows (E-003).
+    if (o.makerOnly) {
+      const checks: Array<[string, WindowStats]> = [[`full run ${full.runId}`, fullStats]]
+      if (screenVariantStats !== null)
+        checks.push([`screen run ${o.screenRun}`, screenVariantStats])
+      for (const [what, st] of checks) {
+        const trades = st.makerTrades + st.takerTrades
+        const share = trades > 0 ? st.takerTrades / trades : 0
+        if (share > MAKER_ONLY_MAX_TAKER_SHARE)
+          mechanicalIssues.push(
+            `${what}: taker share ${round4(share)} > ${MAKER_ONLY_MAX_TAKER_SHARE} for a --maker-only design (m6)`,
+          )
+      }
+    }
+    const mechanical: Verdict = mechanicalIssues.length === 0 ? 'PASS' : 'FAIL'
 
     // ---- S3 SWEEP ----------------------------------------------------------
     let sweep: Record<string, unknown> | null = null
@@ -309,7 +385,13 @@ async function main(): Promise<void> {
         rows.length >= 2 &&
         rows[0]!.takerShare !== null &&
         rows[rows.length - 1]!.takerShare !== null &&
-        rows[rows.length - 1]!.takerShare! > rows[0]!.takerShare! + 0.02
+        rows[rows.length - 1]!.takerShare! > rows[0]!.takerShare! + SWEEP_TAKER_RISE_PP
+      // m6: a rising taker trend is latency-dependence in disguise — it now
+      // FAILS the sweep (was a print-only warning).
+      if (takerTrend)
+        reasons.push(
+          `taker share rises >${SWEEP_TAKER_RISE_PP * 100}pp from ${BASE_LATENCY_MS}ms to max latency — hidden latency-dependence (m6)`,
+        )
       sweepVerdict =
         base && base.ev !== null && base.ev > 0 ? (reasons.length === 0 ? 'PASS' : 'FAIL') : 'NA'
       sweep = {
@@ -324,14 +406,31 @@ async function main(): Promise<void> {
     let oos: Record<string, unknown> | null = null
     let oosVerdict: Verdict = 'NA'
     if (o.designTs !== undefined) {
+      // M2: an honest design-ts cannot postdate the first completed run of
+      // the exact config — a config cannot run before it was designed.
+      const first = await fetchEarliestRunForConfig(conn, full.strategy, full.params)
+      if (first && o.designTs > Date.parse(first.createdAt))
+        warnings.push(
+          `--design-ts ${new Date(o.designTs).toISOString()} is AFTER the earliest completed run of this exact config (run ${first.runId} @ ${first.createdAt}) — stale/copied design-ts? The OOS split is suspect (M2)`,
+        )
+
       const oosRows = fullMarkets.filter((m) => m.marketStartMs > o.designTs!)
       const inRows = fullMarkets.filter((m) => m.marketStartMs <= o.designTs!)
       const os = windowStats(oosRows)
       const is = windowStats(inRows)
+      // M3: bare ev>0 passes a zero-edge variant ~50% of the time at n=400.
+      // Champion bar = ev > OOS_SE_MULTIPLE × SE(n) (SE from per-market pnl sd).
+      const n = oosRows.length
+      const mean = n > 0 ? oosRows.reduce((a, m) => a + m.pnl, 0) / n : 0
+      const sd =
+        n > 1 ? Math.sqrt(oosRows.reduce((a, m) => a + (m.pnl - mean) ** 2, 0) / (n - 1)) : null
+      const se = sd !== null ? sd / Math.sqrt(n) : null
+      const championEvMin = se !== null ? round4(OOS_SE_MULTIPLE * se) : null
       const eligible =
         os.markets >= OOS_MIN_MARKETS &&
         os.evPerMarketTotal !== null &&
-        os.evPerMarketTotal > 0 &&
+        championEvMin !== null &&
+        os.evPerMarketTotal > championEvMin &&
         os.profitPer100 !== null &&
         os.profitPer100 > 0
       oosVerdict = eligible ? 'PASS' : 'FAIL'
@@ -340,10 +439,18 @@ async function main(): Promise<void> {
         inSample: is,
         outOfSample: os,
         minMarkets: OOS_MIN_MARKETS,
+        pnlSd: sd !== null ? round4(sd) : null,
+        pnlSe: se !== null ? round4(se) : null,
+        championEvMin,
         note:
           os.markets < OOS_MIN_MARKETS
             ? `OOS has ${os.markets} < ${OOS_MIN_MARKETS} markets — wait ~${Math.ceil((OOS_MIN_MARKETS - os.markets) / 96)} more days or re-run FULL later`
-            : null,
+            : os.evPerMarketTotal !== null &&
+                championEvMin !== null &&
+                os.evPerMarketTotal > 0 &&
+                os.evPerMarketTotal <= championEvMin
+              ? `OOS ev ${os.evPerMarketTotal} is positive but ≤ ${OOS_SE_MULTIPLE}×SE(${n}) = ${championEvMin} — indistinguishable from zero edge at this n (M3)`
+              : null,
       }
     }
 
@@ -394,6 +501,8 @@ async function main(): Promise<void> {
         s3Sweep: { verdict: sweepVerdict, ...(sweep ?? {}) },
         s4Oos: { verdict: oosVerdict, ...(oos ?? {}) },
       },
+      engineShasByRun: Object.fromEntries(shasById),
+      warnings,
       overall,
     }
 
@@ -435,6 +544,11 @@ async function main(): Promise<void> {
           `  S4 OOS: ${oosVerdict} — post ${String(oos.designTs)}: n=${os.markets} ev=${os.evPerMarketTotal} p/100=${os.profitPer100}${oos.note ? ' — ' + String(oos.note) : ''}`,
         )
       } else console.log('  S4 OOS: NA (no --design-ts)')
+      if (oos && oos.pnlSe !== null)
+        console.log(
+          `    OOS noise: pnl sd=${oos.pnlSd} SE=${oos.pnlSe} → champion needs ev > ${oos.championEvMin} (${OOS_SE_MULTIPLE}×SE, M3)`,
+        )
+      for (const w of warnings) console.log(`  WARNING: ${w}`)
       console.log(`  OVERALL: ${overall}`)
     }
   } finally {

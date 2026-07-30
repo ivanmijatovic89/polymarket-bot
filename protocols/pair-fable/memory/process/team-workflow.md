@@ -51,11 +51,13 @@ not deliberately re-test what another agent verified.
 4. **No duplicate heavy runs.** Before a FULL-universe run, check
    `backtest_runs` for an existing completed run with the same strategy id +
    params + latency (any protocol): `results.ts`/`sql.ts` query, ~seconds.
-   Reuse the run id instead of re-running 10.7k markets.
-   PENDING AMENDMENT (MISSION01-REVIEW M4, binding for Mission 02): reuse
-   also requires engine-version compatibility — check the run's `commit_sha`
-   against current origin/main and do not reuse across semantic engine drift
-   (fill model, fees, tick semantics).
+   Reuse the run id instead of re-running 10.7k markets — PROVIDED the run
+   is engine-compatible (MISSION01-REVIEW M4, implemented 2026-07-31): check
+   the run's `commit_sha` (evaluate.ts/compare.ts surface it and warn on
+   mismatch) against current origin/main; if engine commits landed in
+   between, verify none is semantic drift (fill model, fees, tick
+   semantics — `refresh-capabilities.ts` classifies the watched paths)
+   before reusing. Never reuse across semantic engine drift.
 5. **Fleet courtesy.** Check `fleet.ts` before submitting a FULL run; if
    another loop's large batch is active, either wait or submit anyway and
    accept queueing — never stop/drain workers or touch another loop's jobs.

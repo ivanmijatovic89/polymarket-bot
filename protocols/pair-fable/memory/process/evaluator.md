@@ -124,7 +124,10 @@ Rules:
   src/db/telonexMarkets.ts:117,276; run 864 was bitten). Cost: ~13–15 min
   fleet. [run 870 | 2026-07-30]
 - **SCREEN** = `--latest --limit 800` — the ~800 most recently settled
-  markets (≈8.3 days; eligibility lags ~3 days behind now). Cheap (~1 min
+  markets (≈8.3 days; the eligibility frontier lags real time by ~7–8 days
+  OBSERVED, not the structural 3-day min-age floor — run 870 launched
+  2026-07-30 ended at 2026-07-23 01:15. The lag also depends on the
+  producer's `data:sync` cadence — an S4/OOS dependency, m11). Cheap (~1 min
   fleet). The screen universe drifts daily; comparisons are only valid via
   compare.ts's slug-intersection, against a baseline run launched ≤7 days
   earlier (re-run the baseline when older — it is one cheap run).
@@ -135,9 +138,11 @@ Rules:
 ## Noise floor (when is a delta real?)
 
 Two identical-config runs differing only in jitter RNG (865 vs 868, N=300,
-140/20ms): Δpnl_total 0.26, Δev/mkt **0.0008**, one market moved (−0.20),
-daily corr 1.0000. The passive-maker family is nearly deterministic under
-jitter. [runs 865/868 | 2026-07-30]
+140/20ms): Δpnl_total 0.26, Δev/mkt **0.0008**, two markets moved (−0.20,
+and one flipped pnl 0 → −0.06 — jitter can flicker the played/flat
+classification, so never gate on played-derived denominators; m10), daily
+corr 1.0000. The passive-maker family is nearly deterministic under jitter.
+[runs 865/868 | 2026-07-30, corrected per MISSION01-REVIEW m10]
 
 Rules:
 - Family noise floor = measured Δev from ONE duplicate screen-size run pair,
@@ -172,10 +177,19 @@ Launch: `run-backtest.ts --strategy <id> [--param …] --latest --limit 800
   ev(variant) > 0.
 - Otherwise ITERATE (indistinguishable ⇒ the param did nothing — prefer the
   simpler variant, see §Guards).
+- Precedence (m9): ADVANCE is checked FIRST — a variant that is positive in
+  its own right advances even if a (positive) baseline beats it by more than
+  the threshold; the portfolio wants independent positives, not only the
+  single best. KILL applies only to non-advancing variants.
 
-Mechanical checks (results.ts output): unitsValid, failures=0, taker share
-consistent with the design (a "maker-only" variant showing >2% taker fills is
-mis-implemented, not unlucky — see run 862's 1/291 finding).
+Mechanical checks (evaluate.ts MECHANICAL, machine-enforced since
+MISSION01-REVIEW M1/M4/m6): unitsValid, failures=0, flag-pinned latency;
+params identity of full/sweep/screen-variant runs (the screen BASELINE is
+exempt — it is a different variant by design); latency identity of the
+screen pair; single engine SHA within each run (cross-run SHA drift is a
+WARNING); and with `--maker-only`, taker share ≤ 2% on the base-latency runs
+(a "maker-only" variant showing >2% taker fills is mis-implemented, not
+unlucky — see run 862's 1/291 finding).
 
 ### S2 — FULL + TEMPORAL (distributional evidence)
 
@@ -201,10 +215,11 @@ Launch: `run-backtest.ts --strategy <id> [--param …] --latest --limit 800
 throughout; the four runs share one label and are auto-detected by compare.ts
 as a sweep (rows latency-ordered). Comparison on the slug intersection.
 
-- PASS iff ev(λ) > 0 for every λ AND ev(λ) ≥ 0.5 × ev(140) for every λ.
-- Also report taker-share per λ: taker share RISING with latency means the
-  variant is quietly crossing the spread when late — latency-dependence in
-  disguise, investigate before promoting.
+- PASS iff ev(λ) > 0 for every λ AND ev(λ) ≥ 0.5 × ev(140) for every λ AND
+  taker share does NOT rise more than 2pp from 140ms to the max latency
+  (m6: a rising taker trend means the variant quietly crosses the spread
+  when late — latency-dependence in disguise; it now FAILS the sweep instead
+  of merely printing a warning).
 - Dry-run evidence the mechanism works: v0 swept 140/300/600/1000 →
   ev −2.35/−2.34/−2.31/−2.25 (flat; passive maker is latency-insensitive as
   expected — the sweep gate itself was NA on a negative base).
@@ -216,20 +231,46 @@ There is no frozen historical holdout: the screen universe is recent data, so
 any recent window we "held out" would leak through iteration. Instead the
 holdout is the **future**:
 
-- **design-ts** = commit timestamp of the param-freeze commit (recorded in
-  the family file + LEDGER when the variant first passes S1). Markets with
-  `market_start_ms > design-ts` did not exist during design — they are true
-  out-of-sample, and no amount of iteration can peek at them.
+- **design-ts** (M2 — machine-checkable rule, both variant kinds):
+  - *Code variants*: the commit timestamp of the param-freeze commit of the
+    strategy file (as before).
+  - *`--param` variants*: the timestamp of the commit that FIRST records the
+    frozen config in the family file. Freezing a config ⇒ committing its
+    exact params to the family file BEFORE launching the runs that will feed
+    S4; the commit is git-anchored, so the anchor is checkable by anyone.
+  - Iterating after a first S1 pass creates a NEW config ⇒ a NEW design-ts.
+    Never carry an old design-ts onto a changed config — that silently
+    converts tuning data into "OOS".
+  - Machine check: `evaluate.ts` verifies design-ts ≤ the earliest completed
+    run's `created_at` for the exact strategy+params and WARNS on violation
+    (an honest freeze cannot postdate its config's first run).
+  Markets with `market_start_ms > design-ts` did not exist during design —
+  they are true out-of-sample, and no amount of iteration can peek at them.
 - OOS evaluation = evaluate.ts `--design-ts` split over the latest FULL run
   (per-market rows carry market_start_ms; re-running FULL periodically
-  extends OOS coverage automatically at ~96 markets/day — ~4–5 days to the
-  400-market minimum).
-- **CHAMPION-ELIGIBLE** iff OOS n ≥ 400 AND OOS ev > 0 AND OOS
-  profitPer100 > 0 (plus S1–S3 already passed).
-- **Champion** = highest OOS ev among champion-eligible variants. Dethroning
-  requires beating the sitting champion on the slug INTERSECTION of their OOS
-  windows (≥400 common markets, compare.ts), not on raw numbers from
-  different windows.
+  extends OOS coverage automatically at ~96 markets/day of NEW eligibility.
+  Calendar wait to the 400-market minimum is ~4–5 days of markets PLUS the
+  observed ~7–8 day eligibility-frontier lag and the producer's `data:sync`
+  cadence (m11) — plan on ~10+ calendar days from freeze, it is structural,
+  not stalling).
+- **CHAMPION-ELIGIBLE** (M3 — noise-aware) iff OOS n ≥ 400 AND
+  OOS ev > 2×SE(n) AND OOS profitPer100 > 0 (plus S1–S3 already passed).
+  SE(n) = sd(per-market pnl over the OOS rows)/√n — evaluate.ts computes and
+  prints it. Rationale: bare ev>0 passes a ZERO-edge variant ~50% of the
+  time at n=400 (measured sd ≈ 2.49 on run 870 ⇒ SE(400) ≈ 0.124); champion
+  selection maxes over noisy positives, so the bar must scale with noise.
+- Honesty note (M3): a 400-market OOS window is ~4 calendar days — ONE
+  market regime. "Un-cheatable" ≠ "high-powered": treat first-pass champion
+  status as provisional and let n grow.
+- **Champion** = highest OOS ev among champion-eligible variants.
+  **Dethroning** (M3) requires the challenger to beat the sitting champion
+  on the slug INTERSECTION of their OOS windows (≥400 common markets,
+  compare.ts) by MORE than 2×SE(Δ), where SE(Δ) = sd(per-market pnl
+  difference on the common markets)/√n — not on raw numbers from different
+  windows, and never on a thresholdless comparison.
+- **Champion re-validation** (M3): at every fresh FULL run, re-run the S4
+  split at the grown n; a champion whose OOS ev falls to ≤ 2×SE(n) reverts
+  to CANDIDATE (record the reversion in the family file + LEDGER).
 - A candidate's stages S1–S3 are re-checked (fresh screen + sweep) if >30
   days pass before it reaches OOS eligibility — the market moves.
 
@@ -241,6 +282,14 @@ For each CANDIDATE run the screen universe at the standard grid:
 profitPer100 per level. Live capital recommendation = the highest level whose
 profitPer100 ≥ 80% of the best level's (capacity knee). Champion gets the
 grid confirmed on FULL before any live proposal.
+
+Settlement-valuation haircut (m7): backtest pnl values merge/redeem at zero
+cost and zero timing. Live, each merge/redeem is a Polygon transaction —
+relayer-sponsored (default) ≈ $0, direct-EOA gas ≈ cents — plus capital
+lock-up until it lands. Against a $2/market target the haircut is structurally
+small (<1% of target under relayer mode), but any live proposal must state it
+and the pair-completion vs directional-windfall pnl decomposition explicitly
+(evidence bar 6.4).
 
 ## Variant independence (portfolio building)
 
@@ -284,17 +333,28 @@ Rules:
    backtest may be viable live; note it in the family file rather than
    hard-killing at −0.1 > ev > 0 … but never promote on hoped-for bias
    either. The bias never justifies promoting a variant that fails S3/S4.
+7. **Fill-size optimism bound** (M5): the simulator fills the ENTIRE resting
+   size when price trades through a level, with no depth constraint — the
+   opposite bias to guard 6, and it scales the $-per-market headline with
+   increment size in a way live depth cannot honor. Binding convention:
+   every size-like strategy param carries a schema `max` (≤100 shares;
+   pair.v0 and probe-capital enforce it). Variants that want larger
+   increments must first measure displayed level depth for their price band
+   and argue the bound in the family file.
 
 ## tools/evaluate.ts (the executable form of this file)
 
 `tsx protocols/pair-fable/tools/evaluate.ts --full-run <id>
 [--design-ts <ms|ISO>] [--sweep-runs a,b,c,d] [--screen-run <id>
---screen-baseline <id>] [--noise-ev <f>] [--json]`
+--screen-baseline <id>] [--noise-ev <f>] [--maker-only] [--json]`
 
-Computes: mechanical checks, headline+units, weekly walk-forward via the
-engine's computeWalkForwardForRun (partial-week filter ≥300), monthly table,
-OOS split, sweep verdict (intersection EVs by latency + taker-share trend),
-screen verdict vs noise floor, and the overall stage verdict with reasons.
+Computes: mechanical checks (incl. M1 params/latency identity, M4 engine-SHA
+consistency, m6 `--maker-only` taker bound), headline+units, weekly
+walk-forward via the engine's computeWalkForwardForRun (partial-week filter
+≥300), monthly table, OOS split with the M3 SE-scaled champion bar and the
+M2 design-ts sanity check, sweep verdict (intersection EVs by latency +
+taker-share trend, m6 fail-on-rise), screen verdict vs noise floor, and the
+overall stage verdict with reasons and warnings.
 Exit 0 always when readable (verdicts are data, not errors); exit 2 on bad
 flags/missing runs. Dry-run evidence: pair-v0 family evaluation
 [runs 863–870 | 2026-07-30], recorded in memory/experiments/pair-v0.md.
