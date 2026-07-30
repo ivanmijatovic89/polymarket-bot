@@ -49,7 +49,7 @@ Required flags: `--name`, `--provider` (`claude` or `codex`), `--model`, `--work
 | Flag | Default | Meaning |
 | --- | --- | --- |
 | `--mission <path>` | `MISSION.md` | Mission file, relative to the workspace. |
-| `--effort <level>` | `high` | `low`–`max` for Claude; Codex also accepts `ultra`. |
+| `--effort <level>` | `high` | `low`–`max` plus `ultracode` (xhigh + workflow orchestration) for Claude; Codex accepts `low`–`ultra`. |
 | `--access <mode>` | `workspace-write` | `full-access` maps to the provider's unrestricted mode. |
 | `--auth-home <dir>` | provider default login | Sets `CLAUDE_CONFIG_DIR` / `CODEX_HOME` for a separate subscription profile. |
 | `--delay <seconds>` | `20` | Pause between sessions. |

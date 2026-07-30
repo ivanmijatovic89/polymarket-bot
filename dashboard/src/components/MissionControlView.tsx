@@ -336,7 +336,7 @@ export function MissionControlView({ examplesRoot }: { examplesRoot: string }) {
               </Field>
               <Field label="Effort">
                 <select name="effort" defaultValue="high" className={fieldClass}>
-                  {['low', 'medium', 'high', 'xhigh', 'max', 'ultra'].map((value) => (
+                  {['low', 'medium', 'high', 'xhigh', 'max', 'ultracode', 'ultra'].map((value) => (
                     <option key={value}>{value}</option>
                   ))}
                 </select>

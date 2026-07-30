@@ -506,7 +506,15 @@ export const runtimeRuns = mysqlTable(
     name: varchar('name', { length: 255 }).notNull(),
     provider: mysqlEnum('provider', ['claude', 'codex']).notNull(),
     model: varchar('model', { length: 255 }).notNull(),
-    effort: mysqlEnum('effort', ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']).notNull(),
+    effort: mysqlEnum('effort', [
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+      'max',
+      'ultra',
+      'ultracode',
+    ]).notNull(),
     accessMode: mysqlEnum('access_mode', ['workspace-write', 'full-access'])
       .notNull()
       .default('workspace-write'),
@@ -560,7 +568,15 @@ export const runtimeSessions = mysqlTable(
     sessionNumber: int('session_number').notNull(),
     provider: mysqlEnum('provider', ['claude', 'codex']).notNull(),
     model: varchar('model', { length: 255 }).notNull(),
-    effort: mysqlEnum('effort', ['low', 'medium', 'high', 'xhigh', 'max', 'ultra']).notNull(),
+    effort: mysqlEnum('effort', [
+      'low',
+      'medium',
+      'high',
+      'xhigh',
+      'max',
+      'ultra',
+      'ultracode',
+    ]).notNull(),
     status: mysqlEnum('status', [
       'running',
       'completed',

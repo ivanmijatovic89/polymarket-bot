@@ -567,6 +567,31 @@ test('stopping an already-stopped run does not rewrite its recorded end time', a
   assert.equal(stopped.endedAt?.getTime(), endedAt.getTime())
 })
 
+test('effort validation is provider-specific for ultracode and ultra', async () => {
+  const workspace = await createWorkspace()
+  const runtime = createRuntime(new MemoryRuntimeStore(), new ScriptedProvider([]))
+
+  const claudeUltracode = await runtime.createRun({
+    ...runInput(workspace, 'claude ultracode'),
+    provider: 'claude',
+    effort: 'ultracode',
+  })
+  assert.equal(claudeUltracode.effort, 'ultracode')
+
+  await assert.rejects(
+    runtime.createRun({ ...runInput(workspace, 'codex ultracode'), effort: 'ultracode' }),
+    RuntimeValidationError,
+  )
+  await assert.rejects(
+    runtime.createRun({
+      ...runInput(workspace, 'claude ultra'),
+      provider: 'claude',
+      effort: 'ultra',
+    }),
+    RuntimeValidationError,
+  )
+})
+
 test('stopping an errored run leaves its error state untouched', async () => {
   const workspace = await createWorkspace()
   const store = new MemoryRuntimeStore()

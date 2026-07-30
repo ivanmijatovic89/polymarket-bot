@@ -2,7 +2,18 @@ import { randomUUID } from 'node:crypto'
 import { z } from 'zod'
 
 export const runtimeProviders = ['claude', 'codex'] as const
-export const runtimeEfforts = ['low', 'medium', 'high', 'xhigh', 'max', 'ultra'] as const
+// 'ultra' is Codex-only; 'ultracode' is Claude-only (xhigh + workflow
+// orchestration — a valid `claude --effort` value even though the CLI help
+// text lags behind it; verified empirically on Claude Code 2.1.220).
+export const runtimeEfforts = [
+  'low',
+  'medium',
+  'high',
+  'xhigh',
+  'max',
+  'ultracode',
+  'ultra',
+] as const
 export const runtimeAccessModes = ['workspace-write', 'full-access'] as const
 export const runtimeRunStatuses = [
   'idle',
@@ -68,7 +79,14 @@ export const createRuntimeRunSchema = z
       ctx.addIssue({
         code: 'custom',
         path: ['effort'],
-        message: 'Claude Code supports effort levels through max, not ultra',
+        message: 'Claude Code supports effort levels through max plus ultracode, not ultra',
+      })
+    }
+    if (value.provider === 'codex' && value.effort === 'ultracode') {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['effort'],
+        message: 'ultracode is a Claude Code effort level; Codex supports through ultra',
       })
     }
     if (
