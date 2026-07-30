@@ -9,21 +9,33 @@
 #     no duplicate installs/downloads). Consequence: models must never run
 #     npm install/ci — deps are the human's job in the main checkout.
 #
-# Usage: protocols/pair/scripts/setup-model-worktree.sh <model> [branch]
-#   <model>  lowercase name, e.g. fable | gpt | opus
-#   [branch] base branch for the worktree (default: main)
+# Usage: protocols/pair/scripts/setup-model-worktree.sh <model> [branch] [protocol]
+#   <model>    lowercase name, e.g. fable | gpt | opus
+#   [branch]   base branch for the worktree (default: main)
+#   [protocol] protocol directory name under protocols/ (default: pair).
+#              Single-agent protocols like pair-fable get a worktree named
+#              after the protocol and write scopes rooted at their own dir.
 set -euo pipefail
 
 MODEL="${1:-}"
 BRANCH="${2:-main}"
+PROTOCOL="${3:-pair}"
 
-if [[ ! "$MODEL" =~ ^[a-z0-9-]+$ ]]; then
-  echo "usage: $0 <model> [branch]  (model: lowercase [a-z0-9-])" >&2
+if [[ ! "$MODEL" =~ ^[a-z0-9-]+$ || ! "$PROTOCOL" =~ ^[a-z0-9-]+$ ]]; then
+  echo "usage: $0 <model> [branch] [protocol]  (model/protocol: lowercase [a-z0-9-])" >&2
   exit 2
 fi
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
-WT="$(dirname "$ROOT")/polymarket-bot-pair-${MODEL}"
+if [[ ! -d "$ROOT/protocols/$PROTOCOL" ]]; then
+  echo "[pair-setup] ERROR: protocols/$PROTOCOL does not exist in $ROOT" >&2
+  exit 2
+fi
+if [[ "$PROTOCOL" == "pair" ]]; then
+  WT="$(dirname "$ROOT")/polymarket-bot-pair-${MODEL}"
+else
+  WT="$(dirname "$ROOT")/polymarket-bot-${PROTOCOL}"
+fi
 # Hooks are referenced from the MAIN checkout (this repo), not the worktree
 # copy — and the hook protects protocols/pair/scripts/** from model commits,
 # so models cannot weaken their own guardrails through the normal flow.
@@ -33,11 +45,16 @@ cd "$ROOT"
 git fetch origin "$BRANCH" --quiet
 
 # --- worktree ---------------------------------------------------------------
+if [[ "$PROTOCOL" == "pair" ]]; then
+  WT_BRANCH="wt/pair-${MODEL}"
+else
+  WT_BRANCH="wt/${PROTOCOL}"
+fi
 if [[ -d "$WT" ]]; then
   echo "[pair-setup] worktree exists: $WT (refreshing config only)"
 else
-  git worktree add -b "wt/pair-${MODEL}" "$WT" "origin/${BRANCH}"
-  echo "[pair-setup] worktree created: $WT (branch wt/pair-${MODEL} from origin/${BRANCH})"
+  git worktree add -b "$WT_BRANCH" "$WT" "origin/${BRANCH}"
+  echo "[pair-setup] worktree created: $WT (branch $WT_BRANCH from origin/${BRANCH})"
 fi
 
 # --- generated minimal .env (NEVER copy the root .env) -----------------------
@@ -67,10 +84,15 @@ echo "[pair-setup] generated $ENV_OUT ($(grep -c '=' "$ENV_OUT") vars, DRY_RUN=t
 git config extensions.worktreeConfig true
 git -C "$WT" config --worktree core.hooksPath "$HOOKS_DIR"
 git -C "$WT" config --worktree pair.model "$MODEL"
-echo "[pair-setup] pre-commit scope hook active (core.hooksPath=$HOOKS_DIR, pair.model=$MODEL)"
+git -C "$WT" config --worktree pair.protocolDir "protocols/${PROTOCOL}"
+echo "[pair-setup] pre-commit scope hook active (core.hooksPath=$HOOKS_DIR, pair.model=$MODEL, pair.protocolDir=protocols/$PROTOCOL)"
 
-# --- model home --------------------------------------------------------------
-mkdir -p "$WT/protocols/pair/models/${MODEL}"
+# --- agent home --------------------------------------------------------------
+if [[ "$PROTOCOL" == "pair" ]]; then
+  mkdir -p "$WT/protocols/pair/models/${MODEL}"
+else
+  mkdir -p "$WT/protocols/${PROTOCOL}/state" "$WT/protocols/${PROTOCOL}/memory" "$WT/protocols/${PROTOCOL}/tools"
+fi
 
 # --- shared node_modules + data (symlinks to the main checkout) --------------
 # Always-fresh deps, no duplicate installs, no duplicate parquet downloads.
@@ -84,4 +106,8 @@ done
 echo "[pair-setup] symlinked node_modules + data -> $ROOT"
 
 echo "[pair-setup] READY: $WT"
-echo "  next: launch the model with cwd $WT/protocols/pair/models/${MODEL}"
+if [[ "$PROTOCOL" == "pair" ]]; then
+  echo "  next: launch the model with cwd $WT/protocols/pair/models/${MODEL}"
+else
+  echo "  next: create the Global Runtime loop with --workspace $WT (see protocols/${PROTOCOL}/README.md)"
+fi

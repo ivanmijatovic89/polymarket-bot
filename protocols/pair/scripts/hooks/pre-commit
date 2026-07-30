@@ -17,19 +17,30 @@ if [[ -z "$MODEL" ]]; then
   exit 1
 fi
 
-PROTECTED_RE='^protocols/pair/((VISION|DECISIONS|RULES|MISSION)\.md|scripts(/|$)|missions(/|$))'
+# The protocol directory this worktree may write to (set by the setup script;
+# defaults to the original multi-model pair protocol).
+PROTO_DIR="$(git config pair.protocolDir || true)"
+[[ -z "$PROTO_DIR" ]] && PROTO_DIR='protocols/pair'
+PROTO_NAME="${PROTO_DIR#protocols/}"
+
+# Strategy implementations must live in src/strategies (the registry only
+# discovers them there, and the fleet runs committed code) — so each protocol
+# gets exactly one research namespace. Engine code stays off-limits.
+STRATEGY_DIR="src/strategies/research/${PROTO_NAME}"
+
+PROTECTED_RE="^${PROTO_DIR}/((VISION|DECISIONS|RULES|MISSION|README)\.md|scripts(/|$)|missions(/|$))"
 FAIL=0
 
 while IFS= read -r path; do
   [[ -z "$path" ]] && continue
-  if [[ "$path" != protocols/pair/* ]]; then
-    echo "pre-commit: BLOCKED — '$path' is outside protocols/pair/ (models commit only there; src/ changes go through a PR)" >&2
+  if [[ "$path" != ${PROTO_DIR}/* && "$path" != ${STRATEGY_DIR}/* ]]; then
+    echo "pre-commit: BLOCKED — '$path' is outside ${PROTO_DIR}/ and ${STRATEGY_DIR}/ (engine changes go through the human)" >&2
     FAIL=1
   elif [[ "$path" =~ $PROTECTED_RE ]]; then
     echo "pre-commit: BLOCKED — '$path' is human-authored or safety-kit (only the human edits it)" >&2
     FAIL=1
-  elif [[ "$path" == protocols/pair/models/* ]]; then
-    owner="${path#protocols/pair/models/}"
+  elif [[ "$path" == ${PROTO_DIR}/models/* ]]; then
+    owner="${path#${PROTO_DIR}/models/}"
     owner="${owner%%/*}"
     if [[ "$owner" != "$MODEL" ]]; then
       echo "pre-commit: BLOCKED — '$path' belongs to model '$owner', you are '$MODEL'" >&2
