@@ -71,6 +71,17 @@ When the engine may have moved (a human announcement, or a rebase pulling
 engine commits), run `tools/refresh-capabilities.ts` before relying on
 capability notes (A7).
 
+**Review gate (binding):** the independent Mission 01 review
+(`state/MISSION01-REVIEW.md`, verdict APPROVE WITH NOTES) found the
+promotion machinery honest by convention, not by code. Before the FIRST
+champion promotion or LIVE-CANDIDATE, findings M1–M5 must be implemented and
+verified: cross-run params+latency identity in `evaluate.ts` (M1), a
+machine-checkable `design-ts` rule covering `--param` variants (M2), a
+noise-aware champion-eligibility and dethroning threshold (M3), engine-SHA
+awareness in cross-run comparison and team-workflow rule 4 (M4), and a bound
+on `incrementSize` (M5). Fold the minor corrections (m6–m11) into the next
+touch of each affected file.
+
 Progress claims follow the same rule as mission 01: every claim audited
 against a tool result from this session; unverified things are labeled as
 such; failed runs reported as failed.
