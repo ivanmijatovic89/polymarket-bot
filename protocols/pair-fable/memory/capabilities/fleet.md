@@ -40,6 +40,7 @@ Total observed capacity: 27 market slots (22 fleet + 5 producer).
 - Worker liveness: Redis hash `backtest:worker:<machineId>#<role>` + `...:heartbeat` key (EX 60, rewritten ~5s; alive = age <30s). Ghost hashes persist — check heartbeat AGE, not key existence. Hash fields: commitSha, branchName, processedTotal, eventsTotal, lastMarket, lastFinishedAt, queues. `processedTotal` resets on worker restart (self-update) — per-batch attribution comes from DB machine_id, not this counter.
 - Active batches: aggregate jobs in [waiting-children,waiting,active,delayed] + `job.getDependenciesCount({processed,unprocessed})`; **BullMQ getJobs silently caps pages at 200 — paginate**.
 - getChildrenValues/getFailedChildrenValues return Redis-key form `bull:<queue>:<jobId>` — normalize before queue.getJob().
+- Cross-checked against Bull Board 2026-07-30: fleet.ts queue counts match Bull Board's API (`GET :3052/admin/queues/api/queues` — note the API lives UNDER the /admin/queues base path, `/api/queues` alone 404s) exactly on both queues (idle state, all zeros; active-state pipeline verified earlier via runs 854/855). 31/31 workers alive at the time. [tool output | 2026-07-30]
 
 ## Speed (RUN-VERIFIED 2026-07-30 — replaces the stale ~1.5s anchor)
 

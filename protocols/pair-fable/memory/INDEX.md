@@ -51,10 +51,19 @@ Pointers, not content.)
   (queue/worker/batch status), `tools/run-backtest.ts` (THE canonical
   launcher — RULES pins injected, unknown flags fatal, `--extend` refused
   per P-001, unique-batchUid run recovery per P-003, HEAD∈origin/main
-  pre-check for queue runs, `--sweep-latency` fan-out; run-verified run 857),
+  pre-check for queue runs, `--sweep-latency` fan-out; run-verified runs
+  857/858/859 — the sweep path live-verified 2026-07-30),
   `tools/smoke.ts` (mandatory pre-fleet gate: protocol:check +
-  sequential run + PASS/FAIL verdict; run-verified run 857). Protocol runs
-  NEVER call `npm run backtest` directly — always via these tools.
+  sequential run + PASS/FAIL verdict; run-verified runs 857/860),
+  `tools/results.ts` (run/batch summary: 'all'-segment headline + capital
+  units + profitPer100 distribution + failures; verified against direct SQL
+  on run 857), `tools/compare.ts` (fair multi-run compare on the slug
+  intersection: Δ vs baseline, movers, daily pnl + Pearson correlation,
+  latency-sweep auto-detect; verified on 856v857 identical-universe,
+  854v855 partial-overlap vs SQL join, 858v859 real latency sweep), all
+  reading through shared `tools/lib/runQueries.ts` (one code path for
+  numbers; camelCase units keys). Protocol runs NEVER call
+  `npm run backtest` directly — always via these tools.
 - **Parity boundary**: mapped in `capabilities/parity.md` (2026-07-30 @
   e96b246) — shared core (MarketEngine/StrategyRunner/OrderManager/Portfolio,
   identical risk walls), the simulated boundary per intent/event, resolved

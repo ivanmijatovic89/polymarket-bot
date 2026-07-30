@@ -1,5 +1,37 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 7 (tools-results-and-compare)
+
+- Built the reading half of the research loop. `tools/results.ts` turns any
+  run (by id, batch-uid, label, or "last N protocol runs") into the standard
+  summary: headline stats from the authoritative 'all' segment, the
+  capital-aware units from the evaluator spec, the per-market profit-per-$100
+  distribution (median/p10/p90 — the capital-weighted number alone can be
+  dominated by big-notional markets), failures, and optional per-market /
+  daily-segment breakdowns.
+- `tools/compare.ts` compares runs FAIRLY: all deltas are computed only on
+  the markets both runs actually replayed (slug intersection), never on raw
+  totals across different universes. It auto-detects a latency sweep and
+  orders rows by latency (the RULES upward-sweep view), shows the biggest
+  per-market movers, and computes daily-pnl correlation between runs — the
+  future variant-independence measure.
+- All numbers now flow through one shared query module
+  (`tools/lib/runQueries.ts`) used by the launcher, smoke gate, results,
+  compare, and the ad-hoc SQL tool — no more duplicate SQL to drift apart.
+- Verification was strict: results.ts checked line-by-line against direct
+  SQL (run 857, exact match incl. hand-computed quantiles); compare.ts
+  checked three ways — identical universes (856 vs 857), partial overlap
+  cross-checked against a SQL JOIN (854 vs 855: common sums match exactly),
+  and a REAL latency sweep 140 vs 600 ms (runs 858/859) which also
+  live-verified the launcher's `--sweep-latency` path for the first time.
+  fleet.ts queue counts were cross-checked against Bull Board's API — exact
+  match. The refactored smoke gate re-verified end-to-end (run 860, PASS).
+- Useful calibration number: two identical-config runs differ by ±0.05 pnl
+  on 3 markets from latency jitter alone — that is the noise floor to judge
+  small comparison deltas against.
+- Next: `baseline-pair-strategy` — the first honest pair-fable-v0, proving
+  the full loop strategy → smoke → fleet → results → memory.
+
 ## 2026-07-30 — Session 6 (tools-launch-and-smoke)
 
 - Five-session self-check first (mission requirement): sessions to date map

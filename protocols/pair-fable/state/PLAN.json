@@ -70,7 +70,8 @@
         "fleet.ts shows live queue/worker state matching bull-board",
         "All three emit --json output consumable by later automation"
       ],
-      "passes": false
+      "passes": true,
+      "evidence": "2026-07-30 session 6. Built tools/lib/runQueries.ts (shared read-only query module — openDb, identity/headline/units/markets/segments/failures fetchers, parseLatencyFromCmd, quantile; run-backtest.ts+sql.ts refactored onto it so all tools report through ONE code path; units keys now camelCase everywhere incl. smoke output). Step 1: results.ts on run 857 verified against direct SQL — headline (pnl 67.66, ev 22.55, 23 taker) and units (invested 117.34, profitPer100 57.6615, max 50.16, avgPlayed 39.1133, split_cost 0) match exactly; per-market profitPer100 and median/p10/p90 interpolation hand-checked (65.26/46.29/71.82). Step 2: compare.ts verified 3 ways — 856v857 identical universe (Δpnl −0.05 = jitter noise floor, movers correct vs evaluator.md table), 854v855 partial overlap (common=20, extras 0/180; common sums −20/−20 and invested 20/20 match a direct SQL JOIN), 858v859 REAL latency sweep 140v600ms launched via run-backtest --sweep-latency (previously only dry-run-verified; auto-detected [LATENCY SWEEP], rows latency-ordered). Step 3: fleet.ts counts match Bull Board API (:3052/admin/queues/api/queues) exactly on both queues (idle all-zero; active-state verified earlier runs 854/855); 31/31 workers alive. Step 4: --json validated by parsing for results/compare (fleet had it; run-backtest sweep JSON shown). Bonus: smoke re-verified end-to-end post-refactor (run 860 SMOKE PASS); tools typecheck clean under root tsconfig strict settings; probe strategy ~latency-insensitive 140→600ms (Δ −0.05 on 3 markets — expected for its +0.02 FOK crossing buffer, NOT evidence for real variants)."
     },
     {
       "id": "baseline-pair-strategy",

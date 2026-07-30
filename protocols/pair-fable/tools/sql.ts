@@ -10,7 +10,7 @@
  * dedicated tool (results.ts, compare.ts, fleet.ts).
  */
 import '../../../src/config/env.js'
-import mysql from 'mysql2/promise'
+import { openDb } from './lib/runQueries.js'
 
 const sql = process.argv[2]
 if (!sql) {
@@ -22,13 +22,7 @@ if (!/^\s*(select|show|describe|desc|explain)\b/i.test(sql)) {
   process.exit(2)
 }
 
-const conn = await mysql.createConnection({
-  host: process.env.DATABASE_HOST,
-  port: Number(process.env.DATABASE_PORT ?? 3306),
-  user: process.env.DATABASE_USERNAME,
-  password: process.env.DATABASE_PASSWORD,
-  database: process.env.DATABASE_NAME,
-})
+const conn = await openDb()
 try {
   const [rows] = await conn.query(sql)
   console.log(JSON.stringify(rows, (_k, v) => (typeof v === 'bigint' ? String(v) : v), 2))

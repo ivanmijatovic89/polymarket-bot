@@ -1,12 +1,11 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (session 6 — PLAN `tools-launch-and-smoke`)
+Updated: 2026-07-30 (session 6 — PLAN `tools-results-and-compare`)
 
 ## Current work
 
-PLAN item `tools-launch-and-smoke` DONE (passes:true with evidence, run 857).
-Five-session self-check performed this session: no drift, no plan correction
-needed. Nothing in flight.
+PLAN item `tools-results-and-compare` DONE (passes:true with evidence, runs
+857/858/859/860 + SQL cross-checks). Nothing in flight.
 
 ## Completed
 
@@ -23,22 +22,26 @@ needed. Nothing in flight.
 - `metrics-and-capital-units`: probe strategy + run 856. cost==invested
   CONFIRMED to the cent; taker fee curve verified; intent_meta dedup proven.
   Capital units in memory/process/evaluator.md; P-002 sharpened.
-- `tools-launch-and-smoke`: tools/run-backtest.ts (canonical launcher — pins
-  injected, unknown flags fatal, --extend refused per P-001, --override-floor
-  escape, HEAD∈origin/main pre-check, --sweep-latency fan-out, deterministic
-  run recovery via unique --batchUid = P-003 mitigation) + tools/smoke.ts
-  (mandatory pre-fleet gate: protocol:check + sequential run + PASS/FAIL).
-  Run-verified both ways: run 857 SMOKE PASS; nonexistent strategy → FAIL
-  exit 1. All 4 PLAN steps evidenced.
+- `tools-launch-and-smoke`: tools/run-backtest.ts (canonical launcher) +
+  tools/smoke.ts (mandatory pre-fleet gate). Run-verified run 857 + FAIL path.
+- `tools-results-and-compare`: tools/lib/runQueries.ts (shared query module —
+  run-backtest/sql/smoke refactored onto it, one code path for all numbers),
+  tools/results.ts (headline + capital units + p/100 distribution + failures;
+  verified against direct SQL on run 857), tools/compare.ts (slug-intersection
+  fair compare, Δ vs baseline, movers, daily pnl + Pearson, latency-sweep
+  auto-detect; verified on 856v857, 854v855-vs-SQL-JOIN, 858v859 real sweep).
+  fleet.ts counts match Bull Board API exactly. --sweep-latency now
+  live-verified (runs 858/859); smoke re-verified post-refactor (run 860).
+  Jitter noise floor observed: ±0.05 pnl on 3 markets for identical configs.
 
 ## Next step
 
-Take PLAN item `tools-results-and-compare`: build tools/results.ts (run/batch
-summary incl. capital units — much of the SQL already exists in
-run-backtest.ts's recovery query, factor accordingly), tools/compare.ts
-(multi-run EV deltas, per-segment stability, latency-sweep table), extend
-tools/fleet.ts only if gaps appear. Verify results.ts by hand against direct
-SQL for run 857; verify compare.ts on two real runs (e.g. 856 vs 857).
+Take PLAN item `baseline-pair-strategy`: implement pair-fable-v0 (alternating
+small-increment maker BUY accumulation both sides, fee-inclusive pair<$1 gate,
+no sells/merges, capital-cap param per evaluator.md convention, intent_meta
+stamping per convention). Gate: smoke.ts → push → small fleet batch (~50
+markets) via run-backtest.ts → read via results.ts → sanity-check behavior →
+learnings into memory/experiments/.
 
 ## Blockers
 
@@ -47,16 +50,13 @@ None.
 ## Needs human
 
 Nothing blocking. When convenient, review PROPOSALS (7 open):
-- P-001 (extend drops parent latency — launcher now REFUSES --extend until
-  fixed)
+- P-001 (extend drops parent latency — launcher REFUSES --extend until fixed)
 - P-002 (persist buy notional — sharpened; priority low)
-- P-003 (sequential runs print no run id — mitigated at tool layer via
-  unique batchUid; engine print still nice-to-have, priority low)
+- P-003 (sequential runs print no run id — mitigated at tool layer; low)
 - P-004 (producer machine unexpectedly runs 5 worker slots — needs ruling)
-- P-005 (place_batch >15 backtests fine but is rejected wholesale live)
-- P-006 (cancel_order works by clientOrderId in backtest but orderId live —
-  either-only is a silent no-op in one mode)
-- P-007 (live cancelOrder swallows API errors and always reports 'canceled')
+- P-005 (place_batch >15 fine in backtest but rejected wholesale live)
+- P-006 (cancel_order id-space mismatch backtest vs live)
+- P-007 (live cancelOrder swallows API errors, always reports 'canceled')
 
 ## Inbox processed through
 

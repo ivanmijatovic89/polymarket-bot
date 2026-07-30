@@ -120,7 +120,7 @@ if (json) {
       `SMOKE ${out.verdict} — strategy=${strategy} runId=${result?.runId ?? 'NOT-FOUND'} status=${result?.status ?? '-'}`,
       `markets=${result?.marketsPersisted ?? '-'} failures=${result?.failuresCount ?? '-'} protocolCheck=${protocolCheck}`,
       `pnl=${h.pnl_total ?? '-'} evPerMarketTotal=${h.ev_per_market_total ?? '-'} fees=${h.total_fees_paid ?? '-'} trades maker/taker=${h.trades_maker ?? '-'}/${h.trades_taker ?? '-'}`,
-      `investedTotal=${u.invested_total ?? '-'} profitPer100=${u.profit_per_100 ?? '-'}`,
+      `investedTotal=${u.investedTotal ?? '-'} profitPer100=${u.profitPer100 ?? '-'}`,
     ].join('\n'),
   )
 }

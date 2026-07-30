@@ -54,7 +54,8 @@ import '../../../src/config/env.js'
 import { spawn, spawnSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import path from 'node:path'
-import mysql from 'mysql2/promise'
+import type mysql from 'mysql2/promise'
+import { openDb, fetchRunsByBatchUid, fetchHeadline, fetchUnits, type Units } from './lib/runQueries.js'
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const TSX_BIN = path.join(ROOT, 'node_modules', '.bin', 'tsx')
@@ -72,7 +73,7 @@ const PROTOCOL = 'pair-fable'
 // ---------------------------------------------------------------------------
 
 type Opts = {
-  strategy?: string
+  strategy?: string | undefined
   params: string[]
   limit?: number
   latest: boolean
@@ -85,7 +86,7 @@ type Opts = {
   sweepLatency?: number[]
   sequential: boolean
   detach: boolean
-  comment?: string
+  comment?: string | undefined
   label: string
   model: string
   overrideFloor: boolean
@@ -369,7 +370,7 @@ type LaunchResult = {
   marketsPersisted: number | null
   failuresCount: number | null
   headline: Record<string, unknown> | null
-  units: Record<string, unknown> | null
+  units: Units | null
   cmd?: string
 }
 
@@ -403,40 +404,21 @@ async function recoverRun(
   'runId' | 'status' | 'strategy' | 'marketsPersisted' | 'failuresCount' | 'submissionUid' | 'headline' | 'units' | 'cmd'
 > | null> {
   for (let attempt = 0; attempt < 5; attempt++) {
-    const [runs] = (await conn.query(
-      `SELECT id, status, strategy, submission_uid, markets_persisted, failures_count, cmd
-         FROM backtest_runs WHERE batch_uid = ? ORDER BY id DESC`,
-      [batchUid],
-    )) as [Array<Record<string, unknown>>, unknown]
+    const runs = await fetchRunsByBatchUid(conn, batchUid)
     if (runs.length > 1) console.error(`[run-backtest] WARNING: ${runs.length} runs share batch_uid ${batchUid}; using newest`)
-    const run = runs[0]
+    const run = runs[runs.length - 1] // fetch orders by id ASC; newest last
     if (run) {
-      const runId = Number(run.id)
-      const [segs] = (await conn.query(
-        `SELECT pnl_total, total_fees_paid, ev_per_market_total, markets_total, markets_played,
-                markets_won, markets_lost, win_rate_pct, trades_total, trades_maker, trades_taker,
-                duration_wall_clock_ms
-           FROM backtest_run_segments WHERE run_id = ? AND segment_kind = 'all' LIMIT 1`,
-        [runId],
-      )) as [Array<Record<string, unknown>>, unknown]
-      const [unitRows] = (await conn.query(
-        `SELECT SUM(cost) AS invested_total,
-                100*SUM(pnl)/NULLIF(SUM(cost),0) AS profit_per_100,
-                MAX(cost) AS invested_max,
-                AVG(NULLIF(cost,0)) AS invested_avg_played
-           FROM backtest_run_markets WHERE run_id = ?`,
-        [runId],
-      )) as [Array<Record<string, unknown>>, unknown]
+      const [headline, units] = await Promise.all([fetchHeadline(conn, run.runId), fetchUnits(conn, run.runId)])
       return {
-        runId,
-        status: String(run.status),
-        strategy: String(run.strategy),
-        submissionUid: run.submission_uid ? String(run.submission_uid) : null,
-        marketsPersisted: Number(run.markets_persisted),
-        failuresCount: Number(run.failures_count),
-        headline: segs[0] ?? null,
-        units: unitRows[0] ?? null,
-        cmd: run.cmd ? String(run.cmd) : undefined,
+        runId: run.runId,
+        status: run.status,
+        strategy: run.strategy,
+        submissionUid: run.submissionUid,
+        marketsPersisted: run.marketsPersisted,
+        failuresCount: run.failuresCount,
+        headline,
+        units,
+        ...(run.cmd !== null ? { cmd: run.cmd } : {}),
       }
     }
     await new Promise((r) => setTimeout(r, 1000))
@@ -446,7 +428,7 @@ async function recoverRun(
 
 function printHuman(r: LaunchResult): void {
   const h = r.headline ?? {}
-  const u = r.units ?? {}
+  const u: Partial<Units> = r.units ?? {}
   console.log(
     [
       `runId=${r.runId ?? 'NOT-FOUND'} status=${r.status ?? '-'} exit=${r.exitCode} batchUid=${r.batchUid}`,
@@ -454,7 +436,7 @@ function printHuman(r: LaunchResult): void {
       `pnl=${h.pnl_total ?? '-'} evPerMarketTotal=${h.ev_per_market_total ?? '-'} fees=${h.total_fees_paid ?? '-'}`,
       `played=${h.markets_played ?? '-'}/${h.markets_total ?? '-'} won/lost=${h.markets_won ?? '-'}/${h.markets_lost ?? '-'} winRate%=${h.win_rate_pct ?? '-'}`,
       `trades maker/taker=${h.trades_maker ?? '-'}/${h.trades_taker ?? '-'} wallClockMs=${h.duration_wall_clock_ms ?? '-'}`,
-      `investedTotal=${u.invested_total ?? '-'} profitPer100=${u.profit_per_100 ?? '-'} investedMax=${u.invested_max ?? '-'} investedAvgPlayed=${u.invested_avg_played ?? '-'}`,
+      `investedTotal=${u.investedTotal ?? '-'} profitPer100=${u.profitPer100 ?? '-'} investedMax=${u.investedMax ?? '-'} investedAvgPlayed=${u.investedAvgPlayed ?? '-'}`,
     ].join('\n'),
   )
 }
@@ -501,13 +483,7 @@ try {
       units: null,
     }
     if (!o.detach) {
-      conn ??= await mysql.createConnection({
-        host: process.env.DATABASE_HOST,
-        port: Number(process.env.DATABASE_PORT ?? 3306),
-        user: process.env.DATABASE_USERNAME,
-        password: process.env.DATABASE_PASSWORD,
-        database: process.env.DATABASE_NAME,
-      })
+      conn ??= await openDb()
       const rec = await recoverRun(conn, l.batchUid)
       if (rec) Object.assign(r, rec)
       else console.error(`[run-backtest] WARNING: no backtest_runs row found for batch_uid=${l.batchUid} (exit=${exitCode})`)
