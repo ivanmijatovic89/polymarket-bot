@@ -193,6 +193,9 @@ export class GlobalRuntime {
       try {
         await this.launch(run, ['rate_limited'], delayMs)
       } catch (error) {
+        // A launch refused because the daemon is shutting down is not a broken
+        // run; leave it rate_limited so the next start retries it.
+        if (this.shuttingDown) return
         const message = error instanceof Error ? error.message : String(error)
         await this.store.updateRun(run.id, {
           status: 'error',
@@ -308,8 +311,9 @@ export class GlobalRuntime {
       if (run.status === 'completed') {
         throw new RuntimeConflictError('completed run cannot be stopped')
       }
-      // Stopping an already-stopped run must not rewrite its recorded endedAt.
-      if (run.status === 'stopped') return run
+      // Stopped and errored runs have already ended; stopping them again must
+      // not rewrite their recorded endedAt or erase the error status.
+      if (run.status === 'stopped' || run.status === 'error') return run
       const control = this.active.get(id)
       if (!control) {
         if (ACTIVE_STATUSES.includes(run.status)) {

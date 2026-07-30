@@ -9,16 +9,17 @@ import type { RuntimeFileView, RuntimeFilesResponse, RuntimeRun } from './types.
 const MAX_FILE_BYTES = 256 * 1024
 const JOURNAL_TAIL_BYTES = 64 * 1024
 
-// macOS and Windows default filesystems are case-insensitive, so two configured
-// paths that differ only in casing can alias one physical file. Distinctness
-// and reserved-path checks must therefore compare case-folded on those
-// platforms. This may reject a config that would be valid on a case-sensitive
-// volume — acceptable for a guard whose failure mode is corrupting the
-// session-result control channel.
+// macOS and Windows default filesystems are case-insensitive (and APFS/HFS+
+// are Unicode-normalization-insensitive as well), so two configured paths that
+// differ only in casing or normalization form can alias one physical file.
+// Distinctness and reserved-path checks must therefore compare case-folded and
+// NFC-normalized on those platforms. This may reject a config that would be
+// valid on a case-sensitive volume — acceptable for a guard whose failure mode
+// is corrupting the session-result control channel.
 const CASE_INSENSITIVE_FILESYSTEM = process.platform === 'darwin' || process.platform === 'win32'
 
 function comparablePath(value: string): string {
-  return CASE_INSENSITIVE_FILESYSTEM ? value.toLowerCase() : value
+  return CASE_INSENSITIVE_FILESYSTEM ? value.normalize('NFC').toLowerCase() : value
 }
 
 function isInside(root: string, candidate: string): boolean {

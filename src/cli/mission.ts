@@ -242,10 +242,12 @@ async function extend(argv: string[]): Promise<void> {
 
 async function inbox(argv: string[]): Promise<void> {
   // No parseArgs here: everything after the id is the literal message, so
-  // words that start with "-" must not be interpreted as options.
+  // words that start with "-" must not be interpreted as options. A single
+  // leading "--" is still treated as the conventional options terminator.
   const [idArg, ...messageParts] = argv
   const id = requireId(idArg === undefined ? [] : [idArg])
-  const message = messageParts.join(' ').trim()
+  const literalParts = messageParts[0] === '--' ? messageParts.slice(1) : messageParts
+  const message = literalParts.join(' ').trim()
   if (!message) throw new Error(`a message is required\n\n${USAGE}`)
   const entry = await request<{ id: string }>('POST', `/runs/${id}/inbox`, { message })
   console.log(`Appended inbox entry ${entry.id} to loop ${id}.`)

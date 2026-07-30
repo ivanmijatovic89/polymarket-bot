@@ -136,6 +136,7 @@ export class CliProviderAdapter implements ProviderAdapter {
     const rawLogFinished = observeStream(rawLog, 'raw log failed')
     const stderrLogFinished = observeStream(stderrLog, 'stderr log failed')
     const events: unknown[] = []
+    const authoritativeEvents = new Map<string, unknown>()
     let stderrText = ''
     let spawnError: string | null = null
 
@@ -157,8 +158,13 @@ export class CliProviderAdapter implements ProviderAdapter {
       try {
         const event: unknown = JSON.parse(line)
         if (isRelevantEvent(context.run.provider, event)) {
-          events.push(event)
-          if (events.length > 100) evictOldestExpendableEvent(events)
+          const key = authoritativeEventKey(context.run.provider, event)
+          if (key) {
+            authoritativeEvents.set(key, event)
+          } else {
+            events.push(event)
+            if (events.length > 100) events.shift()
+          }
         }
       } catch {
         // The complete line remains in the raw log; only structured summary events stay in memory.
@@ -207,10 +213,11 @@ export class CliProviderAdapter implements ProviderAdapter {
 
     if (startCallbackError) throw startCallbackError
 
+    const retainedEvents = [...events, ...authoritativeEvents.values()]
     const parsed =
       context.run.provider === 'claude'
-        ? parseClaudeEvents(events)
-        : parseCodexEvents(events, context.run.model)
+        ? parseClaudeEvents(retainedEvents)
+        : parseCodexEvents(retainedEvents, context.run.model)
     const providerErrors = [...parsed.errors, stderrText].filter(Boolean).join('\n')
     const combinedErrors = [spawnError, ...streamErrors, providerErrors].filter(Boolean).join('\n')
 
@@ -221,8 +228,10 @@ export class CliProviderAdapter implements ProviderAdapter {
       usage: parsed.usage,
       resolvedModel: parsed.resolvedModel,
       // Only a failed exit may count as rate-limited: a successful session's
-      // stderr can legitimately contain words like "quota" or "rate limit".
-      rateLimited: exit.code !== 0 && isRateLimitError(providerErrors),
+      // stderr can legitimately contain words like "quota" or "rate limit",
+      // and a signal death (exit.code === null) is never the CLI reporting a
+      // rate limit — that must surface as an error, not a silent retry loop.
+      rateLimited: exit.code !== null && exit.code !== 0 && isRateLimitError(providerErrors),
       error:
         spawnError ??
         streamErrors[0] ??
@@ -472,13 +481,18 @@ function sumNumbers(...values: unknown[]): number | null {
   return numbers.length === 0 ? null : numbers.reduce((sum, value) => sum + value, 0)
 }
 
-// Claude emits exactly one `result` event and it carries the session's usage
-// and cost, so it must survive the bounded buffer even when later events
-// (e.g. an error flood) would otherwise push it out. Codex has no such single
-// authoritative event; its parser already keeps the latest `turn.completed`.
-function evictOldestExpendableEvent(events: unknown[]): void {
-  const index = events.findIndex((event) => !(isRecord(event) && event.type === 'result'))
-  events.splice(index === -1 ? 0 : index, 1)
+// Events that carry the session's usage, cost, or final message must survive
+// an error-event flood that overflows the bounded buffer. The parsers reduce
+// each of these kinds to "the latest one wins", so keeping only the newest
+// copy per kind outside the buffer is lossless; error-shaped events stay in
+// the bounded buffer where dropping the oldest is acceptable.
+function authoritativeEventKey(provider: RuntimeRun['provider'], value: unknown): string | null {
+  if (!isRecord(value) || typeof value.type !== 'string') return null
+  if (provider === 'claude') return value.type === 'result' ? 'result' : null
+  if (value.type === 'turn.completed') return 'turn.completed'
+  // isRelevantEvent only admits item.completed events for agent messages.
+  if (value.type === 'item.completed') return 'agent_message'
+  return null
 }
 
 function isRateLimitError(text: string): boolean {

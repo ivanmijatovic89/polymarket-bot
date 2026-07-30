@@ -89,6 +89,17 @@ test(
       () => validateRunWorkspace({ ...makeRun(workspace), journalFile: 'status.MD' }),
       /overlaps/iu,
     )
+    // APFS/HFS+ are normalization-insensitive too: NFC and NFD spellings of
+    // the same name open one physical file.
+    await assert.rejects(
+      () =>
+        validateRunWorkspace({
+          ...makeRun(workspace),
+          statusFile: 'caf\u00e9.md',
+          journalFile: 'cafe\u0301.md',
+        }),
+      /overlaps/iu,
+    )
     await assert.rejects(
       () =>
         validateRunWorkspace({

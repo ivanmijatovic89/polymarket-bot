@@ -286,6 +286,28 @@ test('keeps the Claude result event when later error events flood the bounded bu
   assert.equal(result.usage.estimatedApiCostUsd, 0.5)
 })
 
+test('keeps the Codex usage and final message when error events flood the bounded buffer', async () => {
+  const workspace = await createDirectory()
+  process.env.GLOBAL_RUNTIME_CODEX_BIN = await createErrorFloodCodexCli(workspace)
+  const adapter = new CliProviderAdapter()
+
+  const result = await adapter.execute(
+    {
+      run: { ...makeRun(workspace, 'codex'), model: 'gpt-5.6-sol' },
+      sessionNumber: 13,
+      prompt: 'test prompt',
+      logDirectory: path.join(workspace, 'logs-codex-error-flood'),
+    },
+    new AbortController().signal,
+    { onStarted: () => undefined, onActivity: () => undefined },
+  )
+
+  assert.equal(result.exitCode, 0)
+  assert.deepEqual(result.finalResult, { action: 'continue', summary: 'flooded' })
+  assert.equal(result.usage.outputTokens, 7)
+  assert.equal(result.usage.cacheReadInputTokens, 2)
+})
+
 test('refuses symlinked provider artifacts without modifying their targets', async () => {
   const workspace = await createDirectory()
   const target = path.join(workspace, 'outside-artifact-target.txt')
@@ -414,6 +436,24 @@ const result = { action: 'continue', summary: 'flooded' }
 await mkdir(path.join(process.cwd(), '.global-runtime'), { recursive: true })
 await writeFile(path.join(process.cwd(), ${JSON.stringify(SESSION_RESULT_FILE)}), JSON.stringify(result))
 console.log(JSON.stringify({ type: 'result', total_cost_usd: 0.5, structured_output: result, usage: { input_tokens: 11, output_tokens: 3 } }))
+for (let index = 0; index < 150; index += 1) {
+  console.log(JSON.stringify({ type: 'error', message: 'noise ' + index }))
+}
+`,
+    'utf8',
+  )
+  await chmod(fakeCli, 0o700)
+  return fakeCli
+}
+
+async function createErrorFloodCodexCli(workspace: string): Promise<string> {
+  const fakeCli = path.join(workspace, 'error-flood-codex-cli.mjs')
+  await writeFile(
+    fakeCli,
+    `#!/usr/bin/env node
+const result = { action: 'continue', summary: 'flooded' }
+console.log(JSON.stringify({ type: 'item.completed', item: { type: 'agent_message', text: JSON.stringify(result) } }))
+console.log(JSON.stringify({ type: 'turn.completed', usage: { input_tokens: 14, cached_input_tokens: 2, cache_write_input_tokens: 3, output_tokens: 7 } }))
 for (let index = 0; index < 150; index += 1) {
   console.log(JSON.stringify({ type: 'error', message: 'noise ' + index }))
 }

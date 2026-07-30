@@ -547,6 +547,21 @@ test('stopping an already-stopped run does not rewrite its recorded end time', a
   assert.equal(stopped.endedAt?.getTime(), endedAt.getTime())
 })
 
+test('stopping an errored run leaves its error state untouched', async () => {
+  const workspace = await createWorkspace()
+  const store = new MemoryRuntimeStore()
+  const runtime = createRuntime(store, new ScriptedProvider([]))
+  const run = await runtime.createRun(runInput(workspace))
+  const endedAt = new Date(Date.now() - 60_000)
+  await store.updateRun(run.id, { status: 'error', endedAt, lastError: 'CLI exploded' })
+
+  const stopped = await runtime.stop(run.id)
+
+  assert.equal(stopped.status, 'error')
+  assert.equal(stopped.endedAt?.getTime(), endedAt.getTime())
+  assert.equal(stopped.lastError, 'CLI exploded')
+})
+
 test(
   'verifies the runtime token before terminating an interrupted process',
   { skip: process.platform === 'win32' },
