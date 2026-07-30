@@ -22,6 +22,7 @@ Built:
 | Tool | Purpose |
 | --- | --- |
 | `sql.ts` | Read-only ad-hoc SQL against the backtest MySQL (`tsx protocols/pair-fable/tools/sql.ts "SELECT ..."`); refuses non-SELECT statements. For verification queries; recurring reads become dedicated tools. |
+| `fleet.ts` | Read-only fleet/queue status (`tsx protocols/pair-fable/tools/fleet.ts [--json]`): queue counts for both BullMQ queues, worker heartbeats (alive = hb age <30s) with SHA/processed/lastMarket, active batches with child progress. Built early by `fleet-round-trip`; the `tools-results-and-compare` item may extend it. |
 
 Planned (built by PLAN items, listed here so names stay stable):
 
@@ -31,5 +32,4 @@ Planned (built by PLAN items, listed here so names stay stable):
 | `smoke.ts` | Local `--sequential` smoke run of a strategy on a few markets | `tools-launch-and-smoke` |
 | `results.ts` | Read a run/batch from DB → capital-aware summary | `tools-results-and-compare` |
 | `compare.ts` | Compare two or more runs on the same universe | `tools-results-and-compare` |
-| `fleet.ts` | Queue depth / worker / run-progress status | `tools-results-and-compare` |
 | `refresh-capabilities.ts` | Engine-change discovery vs memory SHAs | `capability-refresh-procedure` |

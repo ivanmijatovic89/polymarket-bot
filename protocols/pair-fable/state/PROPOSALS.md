@@ -69,3 +69,21 @@ Entry format:
   completes and match on cmd/batchUid (the injected `--batchUid` in cmd is
   unique enough: it equals submission_uid).
 
+## P-004: Producer machine is running 5 backtest worker slots — intended?
+- status: proposed
+- date: 2026-07-30
+- context: PLAN `fleet-round-trip` (runs 854/855). RULES says "m1-ivan is the
+  PRODUCER and live-trading machine — models never run backtest workers on
+  it" and lists fleet capacity as 22 slots.
+- proposal: Observation, needs a human ruling (I started nothing): machine
+  `8955f8d87c59` — the producer, per run 852's sequential machine_id — has 5
+  worker processes + supervisor heartbeating in Redis and took 26 of run
+  855's 200 markets. Pre-batch its workers ran commit c80bb2f, which is NOT
+  on origin/main (a pair-docs branch commit), yet they self-updated to
+  6c457e4 when jobs arrived. Questions: (a) are these workers intended (if
+  yes, the RULES fleet table is stale — real capacity is 27 slots, and they
+  will compete with live trading for cores); (b) if not intended, they should
+  be stopped. Producer-slot markets were the slowest in run 855 (avg 2.4s vs
+  1.4-1.6s fleet). No action taken by the protocol; fleet.md documents the
+  observed reality.
+

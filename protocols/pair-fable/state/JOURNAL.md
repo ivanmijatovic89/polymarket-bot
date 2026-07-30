@@ -1,5 +1,27 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 3 (fleet-round-trip)
+
+- First fleet submissions of the protocol: two canonical RULES-pinned
+  batches — 20 markets (run 854) and 200 markets (run 855), both completed
+  with zero failures and zero manual intervention.
+- The fleet is fast: 200 markets replayed in 13.8 seconds of processing —
+  about 870 markets/minute sustained across 27 worker slots. The full
+  protocol universe (~11k markets since 2026-04-02) should replay in
+  roughly 13-16 minutes, confirming the RULES planning anchor.
+- Watched the commit-SHA self-update mechanism work live: workers sat on an
+  older commit, bounced the first jobs, pulled, and every machine was on the
+  submitted SHA within ~19 seconds. Lesson recorded: small batches finish
+  before slower-updating machines join (run 854 landed on only 2 of 4
+  machines).
+- Built `tools/fleet.ts` — programmatic queue counts, worker heartbeats, and
+  active-batch progress straight from BullMQ/Redis (no dashboard needed).
+- Surprise finding for the human: the PRODUCER machine is running 5 backtest
+  worker slots (it took 26 of run 855's markets), which contradicts the
+  RULES fleet table (22 slots, producer excluded). Filed as P-004 — nothing
+  touched, awaiting a ruling.
+- Next: the live/backtest parity boundary map (parity.md).
+
 ## 2026-07-30 — Session 2 (smoke-local-backtest)
 
 - Ran the first real backtests of the protocol: the canonical RULES-pinned

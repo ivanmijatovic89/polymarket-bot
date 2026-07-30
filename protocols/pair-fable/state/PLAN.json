@@ -22,10 +22,8 @@
         "Measured markets/minute recorded in memory/capabilities/fleet.md with the run id as evidence",
         "backtest_run_markets.machine_id shows fleet machines, not this producer"
       ],
-      "passes": false
-    },
-    {
-      "id": "parity-boundary-map",
+      "passes": true,
+      "evidence": "2026-07-30 session 2. Runs 854 (20 markets, 21.9s incl. fleet self-update bounce) + 855 (200 markets, 19.0s from enqueue), both canonical RULES-pinned, EXIT=0, zero manual intervention, submissionUids 78363e30/b6b2edb3 -> run ids recovered via unique submission_uid column. Step 1: OK (run ids 854/855 recorded). Step 2: built tools/fleet.ts (BullMQ getJobCounts + Redis heartbeat scan + aggregate dependency counts); observed 31 live worker processes pre-batch and live SHA flip 2b73aac->6c457e4 during self-update; method documented in fleet.md. Batches <20s outran 5s polling — active-batch view verified structurally, not against a long-running batch. Step 3: measured sustained ~870 markets/min (run 855: duration_wall_clock_ms=13796 for 200 markets, avg 1.61s/market/slot, 27 slots) recorded in fleet.md. Step 4: run 855 machine_ids = 527674ef4858x74, da1482db09f6x64, 5a69e8aa2068x36, 8955f8d87c59x26 — fleet machines confirmed; the 26 on the producer machine revealed 5 unexpected worker slots there -> P-004. Bonus: small batches (run 854) skip machines mid-self-update (2 of 4 machines got all 20 jobs)."
       "description": "Write memory/capabilities/parity.md: the definitive live/backtest parity boundary for THIS strategy — truly shared (MarketEngine, StrategyRunner, strategy code, tick semantics), simulated (fills, fees, latency, order status), and the pair-specific implications (worst-queue maker understates fill rate = safe bias; all-or-nothing maker fill size = optimistic for large orders; no MINED status; merge trap; no cash model; hardcoded risk limits). Resolve the survey's open questions (place_batch 15-cap enforcement, FOK visible-depth semantics). Define the evidence bar a backtest result must meet before it is trusted live.",
       "steps": [
         "parity.md exists; every claim carries file:line at a stated SHA or a run id",

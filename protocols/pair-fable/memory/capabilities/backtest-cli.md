@@ -1,6 +1,6 @@
 # Capability: backtest CLI
 
-verified: 2026-07-30 @ 433647d (code-survey via parallel readers + initializer spot-checks; sequential path RUN-VERIFIED by PLAN `smoke-local-backtest` — runs 852 (5 markets) and 853 (1 market), strategy BuyLowPrice.v1, this producer. Queue/fleet path still code-only — PLAN `fleet-round-trip`)
+verified: 2026-07-30 @ 6c457e4 (code-survey via parallel readers + initializer spot-checks; sequential path RUN-VERIFIED by PLAN `smoke-local-backtest` — runs 852/853; queue/fleet path RUN-VERIFIED by PLAN `fleet-round-trip` — runs 854 (20 markets) / 855 (200 markets), details in fleet.md)
 
 ## Canonical launch (RULES-pinned)
 
@@ -15,11 +15,12 @@ npm run backtest -- --strategy <id> --input-mode telonex-delta \
 
 - The canonical RULES-pinned command works end-to-end with `--sequential --limit N`: exit code 0, one `backtest_runs` row + N market rows + segments in MySQL. [run 852 | 2026-07-30] [run 853 exit code checked exactly: EXIT=0]
 - `backtest_runs` row carries protocol='pair-fable', model='claude-fable-5', params JSON ({price:0.1,size:10} from `--param`), and `cmd` = full argv incl. both latency flags, `--from-ms`, and injected `--batchUid`. batch_uid == submission_uid when no label passed. [db backtest_runs id=852 | 2026-07-30]
-- **Sequential mode prints NO run id and NO batchUid** — nothing on stdout identifies the run (queue path prints both; sequential persists silently between replay and BATCH STATS, code src/cli/backtest.ts:1052-1096 @ 433647d). Recover the run by querying newest `backtest_runs` for protocol+model, or match `cmd`. Racy with parallel launches → PROPOSALS P-003; tools must query DB immediately after launch. [run 853 | 2026-07-30]
+- **Sequential mode prints NO run id and NO batchUid** — nothing on stdout identifies the run (sequential persists silently between replay and BATCH STATS, code src/cli/backtest.ts:1052-1096 @ 433647d). Recover the run by querying newest `backtest_runs` for protocol+model, or match `cmd`. Racy with parallel launches → PROPOSALS P-003; tools must query DB immediately after launch. [run 853 | 2026-07-30]
+- **Queue path prints batchUid + submissionUid at enqueue** (`enqueueing flow batchUid=... submissionUid=...`) but also no numeric run id; recover it deterministically via `WHERE submission_uid='<uid>'` (unique column, no race). Queue path prints progress + `aggregator done` but NOT the BATCH STATS block sequential prints. [run 854/855 | 2026-07-30]
 - Selection with `--from-ms <floor> --limit N` (no --latest/--random) = oldest-first, consecutive slugs from the floor (852 got epochs 1775088000..1775091600, 900s apart; floor epoch = exactly 2026-04-02T00:00Z). [db run 852 slugs | 2026-07-30]
 - Market rows get machine_id + commit_sha even in sequential mode; this producer's machine_id is `8955f8d87c59`, sha stamped = HEAD at launch (433647d). fleet-round-trip must show OTHER machine_ids. [db run 852 | 2026-07-30]
 - Segments written for a 5-market run: all + daily + weekly + monthly, NO last_n — last_n rows exist only when markets ≥ bucket (LAST_N_BUCKETS=[500,1000,3000,6000]). All segment values matched printed BATCH STATS exactly (pnl −5, 5/5 played, 5 maker trades, fees 0). [db run 852 segments; code src/backtest/stats/backtestSegments.ts:40,179-184 @ 433647d]
-- Speed anchor (local sequential, producer M1 Pro, warm local parquet): 5 markets in 7.7s wall ≈ 1.5 s/market — matches the RULES anchor for local; fleet speed still unmeasured. [run 852 durationWallClockMs=7712 | 2026-07-30]
+- Speed anchor (local sequential, producer M1 Pro, warm local parquet): 5 markets in 7.7s wall ≈ 1.5 s/market — matches the RULES anchor for local. [run 852 durationWallClockMs=7712 | 2026-07-30] Fleet speed now measured: ~870 markets/min sustained, avg 1.61 s/market/slot over 27 slots — see fleet.md. [run 855 | 2026-07-30]
 - Replay reality check: a 15m market ≈ 125k `price_change` + ~0.5k `book` events (623,627 events / 5 markets). [run 852 orderbook summary | 2026-07-30]
 - `[read-from] LOCAL hit` lines confirm local-or-download-from-r2-to-local reads local files when present (no R2 traffic for covered slugs). [run 852 log | 2026-07-30]
 

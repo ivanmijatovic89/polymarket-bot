@@ -44,10 +44,11 @@ Pointers, not content.)
   `capabilities/backtest-cli.md`, `capabilities/metrics-storage.md`,
   `capabilities/strategy-system.md`, `capabilities/simulator.md`,
   `capabilities/fleet.md`. Status: local sequential path RUN-VERIFIED
-  (runs 852/853, 2026-07-30 — canonical command, DB layout, maker fill
-  model, provenance columns); fleet/queue path still code-only
-  (PLAN `fleet-round-trip` next). `tools/sql.ts` exists for read-only DB
-  verification queries.
+  (runs 852/853, 2026-07-30) AND fleet path RUN-VERIFIED (runs 854/855,
+  2026-07-30 — submission mechanics, SHA self-update observed live,
+  machine attribution, sustained speed ~870 markets/min over 27 slots).
+  Tools: `tools/sql.ts` (read-only DB queries), `tools/fleet.ts`
+  (queue/worker/batch status).
 - **Parity boundary**: not yet mapped (PLAN `parity-boundary-map`).
 - **Evaluator**: not yet designed (PLAN `evaluator-design`).
 - **Experiments**: none yet (mission 02).
