@@ -49,6 +49,13 @@ Pointers, not content.)
   machine attribution, sustained speed ~870 markets/min over 27 slots).
   Tools: `tools/sql.ts` (read-only DB queries), `tools/fleet.ts`
   (queue/worker/batch status).
-- **Parity boundary**: not yet mapped (PLAN `parity-boundary-map`).
+- **Parity boundary**: mapped in `capabilities/parity.md` (2026-07-30 @
+  e96b246) — shared core (MarketEngine/StrategyRunner/OrderManager/Portfolio,
+  identical risk walls), the simulated boundary per intent/event, resolved
+  survey questions (place_batch cap live-only → P-005; FOK = visible depth,
+  exchange internals parked), 8 binding strategy conventions (cancel with both
+  ids, batches ≤15, no MINED gates, fill-chunking indifference, on-grid
+  prices, meta stamping), and the 8-point live-trust evidence bar. Proposals
+  P-005/P-006/P-007 filed from this work.
 - **Evaluator**: not yet designed (PLAN `evaluator-design`).
 - **Experiments**: none yet (mission 02).

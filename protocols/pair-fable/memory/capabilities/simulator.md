@@ -39,4 +39,10 @@ executeAt = now + delay + uniform(−jitter,+jitter), applied to placeLimit/plac
 
 ## Open questions
 
-- place_batch ≤15 enforcement unverified. FOK vs real CLOB hidden-liquidity semantics unknown (visible-depth only here).
+RESOLVED 2026-07-30 in parity.md §4 @ e96b246: place_batch ≤15 is enforced ONLY
+live (whole-batch rejection, LiveExecution.ts:155-167; no cap in backtest or
+OrderManager → P-005). FOK in backtest is all-or-nothing vs VISIBLE recorded
+depth; exchange-side matching internals are PARKED as unverifiable from code
+(parity.md §7). See parity.md for the full live/backtest boundary and the
+binding pair-fable strategy conventions (cancel with both ids, batches ≤15, no
+MINED gates, fill-chunking indifference).

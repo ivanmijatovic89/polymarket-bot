@@ -1,5 +1,34 @@
 # JOURNAL — pair-fable
 
+## 2026-07-30 — Session 4 (parity-boundary-map)
+
+- Wrote the live/backtest parity boundary map (memory/capabilities/parity.md)
+  by reading both execution adapters, the shared OrderManager/StrategyRunner,
+  the user-WS account source, and the Telonex replayer line by line.
+- The good news: the core really is shared — MarketEngine, StrategyRunner,
+  OrderManager (including the risk walls), Portfolio, and the strategy code
+  are literally the same classes in both modes.
+- Resolved both open questions from the initial survey, and both turned out
+  to be parity traps rather than curiosities:
+  - A batch of more than 15 orders backtests perfectly but is rejected
+    WHOLESALE live (the cap lives only in LiveExecution) — filed P-005.
+  - Cancels work by clientOrderId in backtest but by orderId live; setting
+    only one id makes the cancel a silent no-op in the other mode — filed
+    P-006. Convention going forward: always set both.
+- Nastiest find: live cancelOrder swallows API errors and reports 'canceled'
+  regardless, so a failed cancel leaves a resting order the bot believes is
+  gone — filed P-007. Matters for a maker strategy that reprices constantly.
+- Distilled 8 binding conventions for pair-fable strategies (batch ≤15, both
+  cancel ids, no MINED gates, indifference to fill chunking, on-grid prices,
+  meta stamping, risk-wall headroom) and an 8-point evidence bar a backtest
+  must clear before a variant is trusted live (full universe, upward latency
+  sweep, jitter reproducibility, pair-vs-windfall pnl decomposition, monthly
+  stability, rubric audit, capital realism, live dry-run gate).
+- Housekeeping: session 2's PLAN.json edit had corrupted the file (invalid
+  JSON) — repaired and re-validated.
+- Next: capital-aware units and the cost==invested verification
+  (metrics-and-capital-units).
+
 ## 2026-07-30 — Session 3 (fleet-round-trip)
 
 - First fleet submissions of the protocol: two canonical RULES-pinned

@@ -1,11 +1,11 @@
 # STATUS — pair-fable / mission 01
 
-Updated: 2026-07-30 (session 3 — PLAN `fleet-round-trip`)
+Updated: 2026-07-30 (session 4 — PLAN `parity-boundary-map`)
 
 ## Current work
 
-PLAN item `fleet-round-trip` DONE (passes:true with evidence — runs 854/855).
-Nothing in flight.
+PLAN item `parity-boundary-map` DONE (passes:true with evidence). Nothing in
+flight.
 
 ## Completed
 
@@ -13,20 +13,24 @@ Nothing in flight.
   notes seeded, proposals P-001/P-002 filed.
 - `smoke-local-backtest`: canonical sequential backtest run-verified (runs
   852/853); tools/sql.ts; P-003.
-- `fleet-round-trip`: canonical fleet batches run-verified (run 854: 20
-  markets, run 855: 200 markets, both EXIT=0, no intervention). Built
-  tools/fleet.ts (queue counts, worker heartbeats, active batches). Observed
-  SHA self-update live (2b73aac→6c457e4 across all machines in ~19s).
-  Measured sustained fleet speed ~870 markets/min (avg 1.61 s/market/slot,
-  27 slots) ⇒ full protocol universe ≈ 13-16 min. Confirmed fleet machine_ids
-  in DB. Filed P-004 (producer machine unexpectedly runs 5 worker slots).
+- `fleet-round-trip`: canonical fleet batches run-verified (runs 854/855,
+  EXIT=0, no intervention); tools/fleet.ts; ~870 markets/min over 27 slots;
+  P-004.
+- `parity-boundary-map`: memory/capabilities/parity.md written @ e96b246 —
+  shared core, per-intent simulated-boundary table, both survey open
+  questions resolved (place_batch cap live-only; FOK = visible depth,
+  exchange internals parked), 8 binding strategy conventions, 8-point
+  live-trust evidence bar. Filed P-005/P-006/P-007. Also repaired PLAN.json
+  (session 2's edit had left it invalid JSON — parity item lost its
+  id/opening brace).
 
 ## Next step
 
-Take PLAN item `parity-boundary-map`: write memory/capabilities/parity.md —
-the definitive live/backtest parity boundary for this strategy, resolve the
-survey's open questions (place_batch 15-cap, FOK visible-depth), define the
-live-trust evidence bar. Read-only code work, no fleet needed.
+Take PLAN item `metrics-and-capital-units`: design capital-aware units
+(invested/market, profit per $100, EV at capital levels), test the
+cost==invested hypothesis on a real run (needs a multi-buy run incl.
+winning-side settlement — run 852 only covered the losing-side single-buy
+case), define the intent_meta stamping convention, update P-002.
 
 ## Blockers
 
@@ -34,14 +38,17 @@ None.
 
 ## Needs human
 
-Nothing blocking. When convenient, review PROPOSALS:
+Nothing blocking. When convenient, review PROPOSALS (7 open):
 - P-001 (extend drops parent latency — latency-pinned runs non-extendable
   until fixed)
 - P-002 (persist invested capital)
 - P-003 (sequential runs print no run id)
-- P-004 (NEW: the producer machine runs 5 backtest worker slots and took 26
-  markets of run 855 — intended? RULES fleet table says 22 slots, producer
-  excluded)
+- P-004 (producer machine unexpectedly runs 5 worker slots — needs ruling)
+- P-005 (NEW: place_batch >15 backtests fine but is rejected wholesale live)
+- P-006 (NEW: cancel_order works by clientOrderId in backtest but orderId
+  live — either-only is a silent no-op in one mode)
+- P-007 (NEW: live cancelOrder swallows API errors and always reports
+  'canceled' — resting exposure can silently persist)
 
 ## Inbox processed through
 

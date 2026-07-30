@@ -87,3 +87,50 @@ Entry format:
   1.4-1.6s fleet). No action taken by the protocol; fleet.md documents the
   observed reality.
 
+## P-005: place_batch 15-order cap enforced only in LiveExecution — backtest accepts unlimited batches
+- status: proposed
+- date: 2026-07-30
+- context: PLAN `parity-boundary-map` (parity.md §3/§4), code-read @ e96b246.
+- proposal: Live rejects any `place_batch` with >15 orders wholesale — every
+  order gets `order_rejected 'batch_too_large(max_15_orders)'`
+  (src/trading/execution/LiveExecution.ts:155-167). Neither the shared
+  OrderManager (src/trading/OrderManager.ts:379-482) nor BacktestExecution
+  (BacktestExecution.ts:289-421) enforces any cap, so a strategy emitting a
+  16+ order batch backtests perfectly and is dead on arrival live — a silent
+  parity trap. Suggested fix: enforce the cap in OrderManager.handlePlaceBatch
+  (shared by both modes), either rejecting the batch identically to live or
+  splitting it into ≤15 chunks (rejecting identically is the smaller, safer
+  change). Until then pair-fable strategies cap batches at 15 by convention.
+
+## P-006: cancel_order id-space mismatch — backtest cancels by clientOrderId, live by orderId
+- status: proposed
+- date: 2026-07-30
+- context: PLAN `parity-boundary-map` (parity.md §3/§5), code-read @ e96b246.
+- proposal: BacktestExecution.cancelOrderNow uses ONLY `intent.clientOrderId`
+  and ignores `orderId` (BacktestExecution.ts:567-591); LiveExecution.cancelOrder
+  uses ONLY `intent.orderId` and treats a clientOrderId-only intent as a silent
+  no-op (LiveExecution.ts:393-413). A strategy that sets just one of the two
+  ids works in exactly one mode, with no error in the other. Portfolio already
+  maintains the clientOrderId↔orderId mapping (Portfolio.ts:41-46,126).
+  Suggested fix: OrderManager.handleCancelOrder enriches the intent with the
+  missing id from that mapping before delegating, making either id sufficient
+  in both modes. Until then pair-fable strategies always set BOTH ids by
+  convention.
+
+## P-007: LiveExecution.cancelOrder swallows API errors and always reports 'canceled'
+- status: proposed
+- date: 2026-07-30
+- context: PLAN `parity-boundary-map` (parity.md §3), code-read @ e96b246.
+- proposal: `await this.client.cancelOrder({orderID}).catch(() => undefined)`
+  then unconditionally emits `order_done` reason 'canceled'
+  (LiveExecution.ts:393-408). If the cancel HTTP call fails (network blip,
+  auth, rate limit), the strategy and Portfolio believe the order is gone
+  while it is still resting on the exchange — the clientOrderId is freed for
+  reuse and open-order bookkeeping drops the row (a later real fill still
+  books position by orderId, but against a "closed" order). For a maker
+  strategy that continuously cancels/reprices resting bids this can silently
+  accumulate live exposure. Suggested fix: inspect the cancelOrder response /
+  catch the error and emit nothing (or an explicit cancel_failed diagnostic)
+  on failure, letting the user-WS CANCELLATION message be the source of truth
+  — mirroring how placement already trusts user WS for lifecycle.
+
