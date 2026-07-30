@@ -320,6 +320,25 @@ test('parseLatencyFlagsFromCmd recovers latency flags from a recorded cmd', () =
   assert.deepEqual(parseLatencyFlagsFromCmd(undefined), {})
 })
 
+test('parseLatencyFlagsFromCmd ignores flag text inside quoted comment and param values', () => {
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --strategy x --comment "baseline vs --latency-delay-ms 250 run"',
+    ),
+    {},
+  )
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd('npm run backtest -- --param "note=--latency-jitter-ms=999"'),
+    {},
+  )
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --comment "sweep --latency-delay-ms 250" --latency-delay-ms 140',
+    ),
+    { delayMs: 140 },
+  )
+})
+
 test('resolveBacktestProvenance uses CLI values before launcher environment values', () => {
   assert.deepEqual(
     resolveBacktestProvenance(

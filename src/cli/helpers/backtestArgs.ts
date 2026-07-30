@@ -554,17 +554,29 @@ export function parseArgs(argv: string[]): BacktestArgs {
  * flags are the only durable record — env vars never reach `cmd`. Returns
  * only the flags that are actually present; absent flags stay undefined so
  * the caller can warn and fall back.
+ *
+ * The cmd is tokenized with quote awareness (matching quoteInlineArg's
+ * double-quote/backslash format) and flags match whole tokens only, so the
+ * flag text appearing INSIDE a quoted `--comment` or `--param` value can
+ * never be mistaken for the real flag.
  */
 export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
   delayMs?: number
   jitterMs?: number
 } {
   if (!cmd) return {}
+  const tokens = tokenizeRecordedCmd(cmd)
   const read = (flag: string): number | undefined => {
-    const match = new RegExp(`${flag}[=\\s]+"?(\\d+)"?(?:\\s|$)`, 'u').exec(cmd)
-    if (!match) return undefined
-    const value = Number(match[1])
-    return Number.isSafeInteger(value) && value >= 0 ? value : undefined
+    for (let i = 0; i < tokens.length; i += 1) {
+      const token = tokens[i]!
+      let raw: string | undefined
+      if (token === flag) raw = tokens[i + 1]
+      else if (token.startsWith(`${flag}=`)) raw = token.slice(flag.length + 1)
+      else continue
+      const value = Number(raw)
+      return Number.isSafeInteger(value) && value >= 0 ? value : undefined
+    }
+    return undefined
   }
   const delayMs = read('--latency-delay-ms')
   const jitterMs = read('--latency-jitter-ms')
@@ -572,6 +584,45 @@ export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
     ...(delayMs !== undefined ? { delayMs } : {}),
     ...(jitterMs !== undefined ? { jitterMs } : {}),
   }
+}
+
+/** Split a recorded cmd into shell-like tokens, honoring double quotes and backslash escapes. */
+function tokenizeRecordedCmd(cmd: string): string[] {
+  const tokens: string[] = []
+  let current = ''
+  let started = false
+  let inQuotes = false
+  for (let i = 0; i < cmd.length; i += 1) {
+    const ch = cmd[i]!
+    if (inQuotes) {
+      if (ch === '\\' && i + 1 < cmd.length) {
+        current += cmd[i + 1]
+        i += 1
+      } else if (ch === '"') {
+        inQuotes = false
+      } else {
+        current += ch
+      }
+      continue
+    }
+    if (ch === '"') {
+      inQuotes = true
+      started = true
+      continue
+    }
+    if (/\s/u.test(ch)) {
+      if (started) {
+        tokens.push(current)
+        current = ''
+        started = false
+      }
+      continue
+    }
+    current += ch
+    started = true
+  }
+  if (started) tokens.push(current)
+  return tokens
 }
 
 export const BACKTEST_PROTOCOL_MAX_LENGTH = 100

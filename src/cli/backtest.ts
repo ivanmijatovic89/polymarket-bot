@@ -586,15 +586,19 @@ async function main(): Promise<void> {
   if (isExtend) {
     const inherited: string[] = []
     const fallbacks: string[] = []
-    ;(parentLatency.delayMs !== undefined ? inherited : fallbacks).push(`delay=${latencyMs}ms`)
-    ;(parentLatency.jitterMs !== undefined ? inherited : fallbacks).push(`jitter=${jitterMs}ms`)
+    ;(parentLatency.delayMs !== undefined ? inherited : fallbacks).push('delay')
+    ;(parentLatency.jitterMs !== undefined ? inherited : fallbacks).push('jitter')
     if (inherited.length > 0) {
-      console.log(`[backtest] Extension inherits parent latency: ${inherited.join(', ')}`)
+      console.log(
+        `[backtest] Extension inherits parent latency (${inherited.join(', ')}): ` +
+          `delay=${latencyMs}ms, jitter=${jitterMs}ms`,
+      )
     }
     if (fallbacks.length > 0) {
       console.warn(
-        `[backtest] WARNING: parent cmd records no latency flag for ${fallbacks.join(', ')} — ` +
-          `falling back to the current environment, which may differ from the parent run.`,
+        `[backtest] WARNING: parent cmd records no latency flag for ${fallbacks.join(' and ')} — ` +
+          `falling back to the current environment (delay=${latencyMs}ms, jitter=${jitterMs}ms), ` +
+          `which may differ from the parent run.`,
       )
     }
   }
