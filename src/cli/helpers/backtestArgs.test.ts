@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parseArgs, resolveBacktestProvenance } from './backtestArgs.js'
+import { parseArgs, parseLatencyFlagsFromCmd, resolveBacktestProvenance } from './backtestArgs.js'
 
 test('parseArgs parses repeated --dir and --dir= forms', () => {
   const parsed = parseArgs(['--dir', '/tmp/a', '--dir=/tmp/b', 'x.parquet'])
@@ -303,6 +303,21 @@ test('parseArgs --extend rejects explicit latency flags', () => {
     () => parseArgs(['--extend', '5', '--latency-delay-ms', '140', '--latency-jitter-ms', '20']),
     /--extend 5 cannot be combined with: --latency-delay-ms, --latency-jitter-ms/,
   )
+})
+
+test('parseLatencyFlagsFromCmd recovers latency flags from a recorded cmd', () => {
+  assert.deepEqual(
+    parseLatencyFlagsFromCmd(
+      'npm run backtest -- --strategy x --latency-delay-ms 140 --latency-jitter-ms=20 --protocol pair-fable',
+    ),
+    { delayMs: 140, jitterMs: 20 },
+  )
+  assert.deepEqual(parseLatencyFlagsFromCmd('npm run backtest -- --latency-delay-ms 140'), {
+    delayMs: 140,
+  })
+  assert.deepEqual(parseLatencyFlagsFromCmd('npm run backtest -- --strategy x'), {})
+  assert.deepEqual(parseLatencyFlagsFromCmd(null), {})
+  assert.deepEqual(parseLatencyFlagsFromCmd(undefined), {})
 })
 
 test('resolveBacktestProvenance uses CLI values before launcher environment values', () => {

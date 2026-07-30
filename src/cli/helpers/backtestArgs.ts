@@ -548,6 +548,32 @@ export function parseArgs(argv: string[]): BacktestArgs {
   }
 }
 
+/**
+ * Recover explicit latency flags from a recorded launch command. Extensions
+ * use this to replay with the parent run's simulated latency (P-001): the
+ * flags are the only durable record — env vars never reach `cmd`. Returns
+ * only the flags that are actually present; absent flags stay undefined so
+ * the caller can warn and fall back.
+ */
+export function parseLatencyFlagsFromCmd(cmd: string | null | undefined): {
+  delayMs?: number
+  jitterMs?: number
+} {
+  if (!cmd) return {}
+  const read = (flag: string): number | undefined => {
+    const match = new RegExp(`${flag}[=\\s]+"?(\\d+)"?(?:\\s|$)`, 'u').exec(cmd)
+    if (!match) return undefined
+    const value = Number(match[1])
+    return Number.isSafeInteger(value) && value >= 0 ? value : undefined
+  }
+  const delayMs = read('--latency-delay-ms')
+  const jitterMs = read('--latency-jitter-ms')
+  return {
+    ...(delayMs !== undefined ? { delayMs } : {}),
+    ...(jitterMs !== undefined ? { jitterMs } : {}),
+  }
+}
+
 export const BACKTEST_PROTOCOL_MAX_LENGTH = 100
 export const BACKTEST_MODEL_MAX_LENGTH = 255
 

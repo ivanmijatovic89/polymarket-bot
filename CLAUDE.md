@@ -29,6 +29,7 @@ npm run backtest -- --strategy <id> --param key=value "data/events/btc/<slug>.pa
 npm run backtest -- --strategy <id> --symbol btc --limit 100 --random   # pull from DB
 npm run backtest -- --strategy <id> --slug <slug1>,<slug2>              # specific slugs
 # Useful flags: --latest, --dir <folder>, --order recorded|exchange_time, --time-driven
+# Without --limit, DB-driven selection runs the FULL eligible universe (no silent 1000-row cap)
 
 # Telonex mode (reads `telonex_markets` ⋈ `telonex_market_conversions`; requires --read-from)
 npm run backtest -- --strategy <id> --input-mode telonex-delta --read-from local --symbol btc --timeframe 15m --limit 50
@@ -246,7 +247,7 @@ Backtest heap-merges multiple files by `ingest_seq` (deterministic multi-asset r
 
 Backtest latency simulation (intent → exchange-visible):
 - `BACKTEST_LATENCY_DELAY` (ms, e.g. `140`) and `BACKTEST_LATENCY_JITTER` (ms symmetric).
-- CLI flags `--latency-delay-ms` / `--latency-jitter-ms` override the env vars and land in the recorded `cmd` (auditable); forbidden with `--extend` (extensions replay the parent's latency).
+- CLI flags `--latency-delay-ms` / `--latency-jitter-ms` override the env vars and land in the recorded `cmd` (auditable); forbidden with `--extend` — extensions inherit the latency recorded in the parent's `cmd` flags, and fall back to the current env with a warning when the parent recorded none.
 - Delays apply to `placeLimit`, `placeBatch`, `cancelOrder`, `cancelAll` — so an order can fill before its cancel "arrives".
 - Maker fills use a conservative "worst-queue" model (BUY @ P fills only when `bestAsk < P`).
 
