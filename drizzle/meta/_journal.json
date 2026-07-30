@@ -232,6 +232,13 @@
       "when": 1785326056000,
       "tag": "0032_runtime_session_prompt",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "5",
+      "when": 1785450479283,
+      "tag": "0033_runtime_effort_ultracode",
+      "breakpoints": true
     }
   ]
 }

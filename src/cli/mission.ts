@@ -57,7 +57,7 @@ const USAGE = `Mission CLI — thin client for the Global Runtime daemon (${BASE
 Usage:
   npm run mission -- create --name <name> --provider claude|codex --model <model> \\
       --workspace <path> --max-sessions <n> [--mission MISSION.md] \\
-      [--effort low|medium|high|xhigh|max|ultra] [--access workspace-write|full-access] \\
+      [--effort low|medium|high|xhigh|max|ultracode|ultra] [--access workspace-write|full-access] \\
       [--auth-home <dir>] [--delay <seconds>] [--isolated] [--read-only <path> ...] \\
       [--status-file <path>] [--journal-file <path>] [--inbox-file <path>] [--start]
   npm run mission -- list [--json]
