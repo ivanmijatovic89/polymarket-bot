@@ -161,4 +161,31 @@ with invested collapse and flat/worse p/100 is volume reduction, not cure.
 | v1-d | maxPairCost=0.93 | below b — expect worse if 0.95 is near-optimal |
 
 Screens `--latest --limit 800` @ 140/20ms vs baseline 874 (intersection).
-design-ts for both = the commit adding this section (M2 param-variant rule).
+design-ts for both = the commit adding this section (M2 param-variant rule)
+= `0f0f423` @ 2026-07-31T00:06:47Z.
+
+### Gate-curve results (runs 878/879, 2026-07-31 — hypothesis REFUTED)
+
+Full curve on the identical 800-market universe (all @ 140/20ms):
+
+| gate | run | ev/mkt | p/100 | invested | played | doom rate |
+| --- | --- | --- | --- | --- | --- | --- |
+| 0.98 | 872 | −1.5019 | −8.05 | 14927 | 706 | 49% |
+| 0.96 | 878 | −1.2265 | −8.28 | 11851 | 686 | 51% |
+| 0.95 | 873 | −1.0669 | −9.17 | 9304 | 618 | 52% |
+| 0.93 | 879 | −0.5537 | −8.38 | 5283 | 416 | 48% |
+
+- **No interior optimum: ev is monotone in the gate while p/100 is flat at
+  −8.0..−9.2 per $100 in EVERY config.** The whole curve is E-004's "trade
+  less, lose less": invested falls 14.9k→5.3k while the per-dollar loss
+  rate stays constant. Doom rate is gate-invariant (~50%). Tightening the
+  gate converges to ev 0 by not trading — it is NOT a path to profit.
+  [runs 872/873/878/879 | 2026-07-31]
+- 879 (0.93) posts the family's best headline ev (−0.55) purely via volume
+  (played 416/800, 384 flat). Not promoted; recorded as the curve endpoint.
+- **Axis verdict: pair-v1 mechanism tuning is exhausted** — entries (v1),
+  repair (v2, see pair-v2.md KILL), gate level (this curve) all leave the
+  per-dollar loss unchanged. Next axis: START SELECTION on market state
+  (contested vs decided windows via spot/priceToBeat feeds — pair-v3
+  direction). Stopping-rule note (guard 4): family is at 6 configs
+  (a,b,c,d + v2-a,b) without a real per-dollar improvement.

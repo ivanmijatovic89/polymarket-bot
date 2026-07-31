@@ -57,8 +57,43 @@ small deltas).
 
 ## Runs
 
-(pending)
+design-ts (both configs) = freeze commit `0f0f423` @ 2026-07-31T00:06:47Z.
+Smoke: run 875 (5 mkts, 0 failures).
 
-## Findings
+All 2026-07-31, `--latest --limit 800` @ 140/20ms, identical 800-market
+universe as 872/873/874 (common=800 in compare.ts):
 
-(pending)
+| run | config | pnl | ev/mkt | p/100 | doom mkts | pairsPnl | residuePnl | taker% |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 876 | v2-a (0.98) | −1223.11 | −1.5289 | −8.30 | 323/704 | +243.51 | −1398.22 | 14.1% |
+| 877 | v2-b (0.95) | −824.95 | −1.0312 | −8.73 | 238/618 | +170.45 | −951.67 | 15.1% |
+
+v1 references on the same universe: 872 (v1-a) ev −1.5019, doom 345/706,
+pairsPnl +382.46; 873 (v1-b) ev −1.0669, doom 320/618, pairsPnl +497.27.
+
+## Findings (2026-07-31 — S1 verdicts)
+
+- **The pre-registered prediction FAILS, twice**: Δev vs the matching v1
+  config is −0.027 (876 vs 872) and +0.036 (877 vs 873) — both under the
+  0.05 threshold ⇒ INDISTINGUISHABLE at both gate levels. Prefer the
+  simpler variant (guard 2): v1 stays, **family verdict KILL** (time-scoped
+  2026-07, latest-800 universe, runs 876/877). [2026-07-31]
+- **Mechanism result (the valuable part): repair persistence is EV-neutral
+  because chasing pays the market exactly what the doom saves.** The doom
+  rate DID drop (0.95 gate: 52%→39%; residuePnl −1301→−952, +349) but pair
+  margin gave it all back (pairsPnl 497→170, −327): chased completions
+  execute at pair costs near 0.995 with ≈0 margin, and the residue they
+  avoid was priced fairly. Empirical confirmation of the efficient-pricing
+  argument sketched in pair-v1.md §Anatomy — completing above the gate is
+  not a loss-recovery mechanism, at any chase budget. [runs 876/877 vs
+  872/873 | 2026-07-31]
+- **Fix 6 (repair quotes ≤ ask−2 ticks) did NOT cut taker share** (14.1/
+  15.1% vs v1's 13.4/15.8%): persistence re-quotes track the ask upward, and
+  fast multi-tick drops cross stale quotes regardless of a placement-time
+  guard (consistent with pair-v0's E-003). Placement-time guards cannot fix
+  the taker share of an ask-hugging repair leg. [runs 876/877 | 2026-07-31]
+- Consequence for the research plan: HOW to complete pairs is a dead axis
+  (v1 fixed entries, v2 fixed repairs — per-dollar loss sits at −8.0..−9.2
+  per $100 in every config incl. the whole v1 gate curve). The live axis is
+  WHEN to start — start selection on market state (contested vs decided
+  windows), pair-v3 direction. [runs 872–879 | 2026-07-31]

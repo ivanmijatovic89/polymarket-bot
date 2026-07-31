@@ -381,3 +381,16 @@
   v1-d (0.93). Smoke: run 875 PASS (v2 converts 1 of v1's 3 smoke dooms).
 - Launched 4 screens (latest-800 @ 140/20) vs baseline 874; evaluating
   when they land.
+- Screens landed (876 v2-a, 877 v2-b, 878 v1-c 0.96, 879 v1-d 0.93; one
+  relaunch round — the engine's dirty-tree guard refused queue submissions
+  after mid-session state edits; guard added to STATUS).
+- **pair-v2 KILLED (twice-replicated)**: repair persistence is EV-neutral —
+  doom savings repaid exactly in pair margin (efficient pricing). Taker
+  guard ineffective. E-008/E-009.
+- **Gate curve REFUTED as a profit path**: ev monotone (−1.50 → −0.55 at
+  0.93) but p/100 flat ~−8/100 everywhere — pure volume shrink; doom rate
+  gate-invariant ~50%. E-010/E-011.
+- Axis switch recorded: completion mechanics exhausted; next is START
+  SELECTION (contested vs decided windows via spot/priceToBeat feeds).
+  Session 3 first validates the hypothesis from data (dooms vs early-window
+  spot–priceToBeat distance) before any v3 code.
