@@ -192,13 +192,75 @@ Progress claims follow the same rule as mission 01: every claim audited
 against a tool result from this session; unverified things are labeled as
 such; failed runs reported as failed.
 
-## Self-check
+## Alignment control
 
-Every fifth session: audit recent work against the goals — is this still
-driving toward a live-ready profitable variant, or drifting into trivia?
-Correct the plan if so. If blocked, write what blocks you and a proposed
-solution, and if it needs the human, put it in `state/PROPOSALS.md` or
-return `wait` per the rules below.
+### Every-session alignment gate (binding)
+
+Before writing the session result, append a concise alignment gate to STATUS
+and include its verdict in the session summary. Use this fixed evidence-backed
+template:
+
+- **Classification:** `neutral-controller`, `directional-controller`,
+  `supporting-diagnostic`, or `unrelated`.
+- **Direct mission contribution:** what controller decision changed, with
+  experiment/run/commit evidence. "Useful research" alone is not a
+  contribution.
+- **Time to evidence:** minutes from session start to the first substantive
+  execution action, what that action was, and whether the 10-minute target was
+  met.
+- **Throughput:** experiments/runs/markets completed or launched, concurrency
+  used, and the written reason for any serial scan over 100 markets.
+- **Scale progress:** capital levels tested, matched-share result, and the
+  remaining gap to `$2,000` and 500–1,000 matched shares.
+- **Next-session priority:** the exact next execution and whether it advances
+  the neutral controller or its directional version.
+- **Verdict:** `GREEN`, `YELLOW`, or `RED`, using the rules below.
+
+Verdict rules:
+
+- **GREEN** — the session directly implemented or tested the neutral continuous
+  controller or the directional version of that same controller.
+- **YELLOW** — a supporting diagnostic directly informs controller math or
+  directional tilt but does not itself advance the controller. At most one
+  consecutive YELLOW session is allowed; its next step must return to GREEN.
+- **RED** — unrelated work; a second consecutive diagnostic session; market
+  selection becoming the primary strategy; a scale conclusion made before the
+  binding scale check; evidence-free planning; or another breach of the
+  binding priority. A RED session must stop that line, set a concrete GREEN
+  execution as the next step, and self-correct without returning `wait` unless
+  a genuine human/external blocker exists.
+
+The gate evaluates **priority alignment**, not whether the work was
+intellectually interesting. Missing gate fields count as RED. Persist the
+previous verdict in STATUS so consecutive-YELLOW enforcement survives fresh
+sessions.
+
+### Every-fifth-session audit (binding)
+
+At the start of every fifth session, before beginning a new experiment, audit
+the previous five completed sessions from their alignment gates and actual
+tool evidence. Record:
+
+1. counts of GREEN/YELLOW/RED sessions and classifications;
+2. time-to-evidence compliance for each session;
+3. runs, markets, and effective concurrency delivered;
+4. progress against every still-open primary requirement, especially the
+   `$2,000` and 500–1,000 matched-share checks and the directional controller;
+5. any conclusion that was declared converged/dead without satisfying the
+   mission; and
+6. a concrete next-five-session plan with at least three direct GREEN
+   controller increments and no more than one supporting diagnostic unless a
+   new human ruling changes priority.
+
+If gates are missing, fewer than three of the previous five sessions were
+GREEN, diagnostics became the main line, or a binding requirement was silently
+closed, the audit verdict is RED. Correct STATUS and the execution plan before
+starting new research. This audit is evidence accounting, not a narrative
+defense of the existing plan.
+
+If genuinely blocked, write the blocker and proposed solution; if human input
+is required, put it in `state/PROPOSALS.md` or return `wait` per the rules
+below.
 
 ## Ending states
 
