@@ -897,3 +897,61 @@ frozen §11.2 grid unchanged. FAIL (R = 0 over 200 markets) ⇒ the lever
 is quantization-dead at this operating point: record, do NOT submit the
 grid, and any rescue variant (e.g. minimum-one-tick bump at any
 deficit) needs its own frozen amendment first.
+
+
+### 11.5 Result E-032 (session 19, 2026-07-31) — runs 948–954 — VERDICT LEVER-DEAD
+
+Stage B diagnostic run 947 PASS (200 mkts, recon 0, costMax 191 ≤ 501,
+R fills 1 ≥ 1). Screen: all 7 completed, 0 failures, recon badRows = 0
+everywhere, SHA uniform 4a5982e per run, costMax ≤ 313 ≤ 501. Pinned
+800 @ 140/20:
+
+| run | cfg | γ | ev/mkt | p/$100 | M mean/med (mkts>0) | mean P | %<.98/.95 | strands | fills R / C / D |
+|---|---|---|---|---|---|---|---|---|---|
+| 948 | center | 0 | −3.27 | −5.74 | 62/50 (695) | 1.095 | 19/5 | 6 | 0 / 608 / 903 |
+| 949 | center | 0.25 | −3.24 | −5.60 | 63/50 (692) | 1.096 | 21/6 | 10 | 4 / 576 / 897 |
+| 950 | center | 0.5 | −3.17 | −5.59 | 61/50 (695) | 1.096 | 19/6 | 7 | 19 / 570 / 893 |
+| 951 | center | 1 | −3.11 | −5.40 | 63/50 (690) | 1.092 | 20/6 | 9 | 35 / 548 / 863 |
+| 952 | corner | 0 | −1.80 | −5.50 | 38/40 (650) | 1.086 | 29/20 | 6 | 0 / 297 / 730 |
+| 953 | corner | 0.5 | −1.90 | −5.99 | 37/40 (638) | 1.093 | 26/18 | 6 | 17 / 310 / 702 |
+| 954 | corner | 1 | −1.62 | −4.87 | 39/40 (647) | 1.078 | 29/22 | 7 | 21 / 388 / 693 |
+
+Findings:
+
+1. **Baseline validations passed** (cross-SHA predictions, not verdict
+   inputs): 948 = −3.27 vs predicted −3.2 ± 0.3 (929/942 equivalence
+   of the v15.3 rewrite at γ = 0) ✓; 952 = −1.80 vs predicted −1.7 ±
+   0.3 ✓. The debtCap removal is confirmed behavior-neutral at family
+   level.
+2. **The mechanism fires with clean dose–response but on a tiny
+   surface**: R fills 0/4/19/35 across center γ, 0/17/21 corner —
+   ~0.04 fills/market at max aggression vs ~1.8–2.0 taker completions
+   per played market. R dollars at center γ = 1: $385 vs $15,684
+   C+D taker spend = **2.4% interception**. Cause (mechanism, not
+   noise): the §11.3 quantization admits only a 1-tick improvement in
+   the 1–2-tick books that dominate; a worst-queue fill then needs a
+   ≥ 2-tick reversion through the improved level, and the C/D FOK
+   (which triggers on the same reversion at ANY ask ≤ its ceiling)
+   usually intercepts first and cancels the rest.
+3. **Verdict per frozen §11.2 bars: LEVER-DEAD.** Best within-grid
+   pairs: center 951 vs 948 Δev +0.16 < 0.30 (per-$100 +0.34 < 0.54);
+   corner 954 vs 952 Δev +0.18 < 0.30 (+0.63 per-$100 crosses its
+   companion bar but the ev bar governs; 953 vs 952 is NEGATIVE −0.10,
+   so the corner dose–response is non-monotone = noise-consistent). No
+   config positive ⇒ not ADVANCE.
+4. **Residual observation (not a verdict)**: center ev is monotone in γ
+   across all 4 points and every γ move is ≥ 0 there — the lever's
+   DIRECTION is likely real but its magnitude is bounded by the ~2%
+   interception surface. Any rescue needs a structurally larger R
+   surface, not a tuning: larger deficits/fills (the E-025 larger-q
+   axis mechanically raises ι per fill) or quoting inside the spread
+   beyond 1 tick (= paying most of the taker premium anyway). Carried
+   as a design note into the larger-q experiment, not iterated on
+   alone.
+
+Next mechanism from the backlog (per frozen LEVER-DEAD consequence):
+**larger q into displayed depth** (E-025 capture-vs-size; 300–450-sh
+displayed ToB measured in E-028b; ruling 93482fcb point 3 mandates the
+scale investigation). Guard-7 caveat applies: the sim fills the ENTIRE
+resting size on cross — larger-q results are depth-optimistic and must
+be read with that bias named.
