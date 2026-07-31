@@ -220,3 +220,9 @@ Entry format:
     / 15 min (lines 6–7), and its feed-coverage epochs are stated for btc-15m
     specifically — so options 2 and 3 both need a RULES amendment, not just
     data.
+- **Addendum (2026-07-31, session 8)**: human ruling (inbox 8758567d)
+  rejected the class-level kill that motivated this escalation and directed
+  research to resume in-backtest on six identity-derived axes (absolute
+  per-side price ceiling first). P-010 and P-009 remain open per the ruling
+  but are explicitly NOT blockers; the "frontier is empty" premise of this
+  proposal is withdrawn (see evaluator.md §Kill standards).

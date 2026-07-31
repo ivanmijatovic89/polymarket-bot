@@ -98,30 +98,25 @@ Pointers, not content.)
   contract enforced as ERROR). Human trigger is one command; sessions run it
   before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
-  family files pair-v0..v8. E-001..E-018 recorded (runs 861–887; E-015..18
-  are run-free book scans). State as of 2026-07-31 (mission-02 session 6):
-  **the top-of-book maker pair-accumulation class is KILLED (time-scoped
-  2026-07)** — six-run cross-section (E-014, pair-v4.md §per-start
-  invariant) shows per-start EV ≈ −0.06/share invariant to gate, cadence
-  (E-013), sides (E-014), repair policy (E-008/9), entry discipline
-  (E-006), and start-state selection (E-012). **Both instant-completion
-  routes are ALSO killed pre-code** (tools/bookscan.ts, 800-market book
-  replay, pre-reg 2e9bfef): E-015 taker pair-arb — fee-inclusive dutch
-  books exist but live sub-ms, 1/1943 episodes survives 140ms, $0.00/mkt
-  executable; E-016 maker-fill→instant-completion — complement repriced
-  before the fill instant (zero-latency C p50 1.016), free-abort bound
-  $0.04/mkt, and the hold-all directional readout is −0.029/share so no
-  abort policy rescues it. The −0.06 invariant is decomposed (pair-v6.md).
-  Every kill is pre-registered and evidence-tagged. The last two
-  inside-RULES axes died in mission-02 session 6 (scan archive
-  `experiments/data/bookscan-2026-07-31-s6-latest800.json`, δ=0 regression
-  exact vs session 4): E-017 taker-lead pair — maker completion fills
-  69–89% but best-gate total EV +$0.02/mkt vs the $0.10 bar, stranded side
-  wins 2.2%, negative even at zero latency (pair-v7.md); E-018 deep-book
-  maker δ-grid — hold-all negative at every δ (best −$0.017 @ 0.05);
-  zero-latency completion turns profitable from δ=0.02 but 140ms repricing
-  eats exactly the cushion (pair-v8.md). **Buy-only pair mechanics on
-  btc-15m are exhausted in-rules at 140ms** — P-010 (state/PROPOSALS.md)
-  asks the human where to search next; P-009 (live benign-fill share) would
-  bound the worst-queue fill-quality bias. Sibling workspaces hold no
+  family files pair-v0..v9. E-001..E-018 recorded (runs 861–887; E-015..18
+  are run-free book scans). All FAMILY kills stand, every one
+  pre-registered and evidence-tagged: v0 defaults (E-005 FULL, stationary
+  −2.2/mkt), gate curve = volume knob (E-004/10/11), repair persistence
+  EV-neutral (E-008/9 → v2 kill), start-state selection uninformative
+  (E-012), cadence fill-limited (E-013), both-sides quoting co-inflates
+  dooms (E-014), taker pair-arb sub-ms (E-015), maker→instant-completion
+  pre-repriced (E-016), taker-lead pair adverse entry (E-017), deep-book
+  maker δ-grid negative at every δ (E-018; scan archive
+  `experiments/data/bookscan-2026-07-31-s6-latest800.json`). The −0.06
+  per-start invariant (pair-v4.md) is decomposed in pair-v6.md.
+  **CLASS-level claims WITHDRAWN on human ruling 2026-07-31 (inbox
+  8758567d, LEDGER E-018b)**: the invariant bounds UNPAIRED shares only —
+  per-market identity `EV = completions·g − stranded·L_s`, and L_s (loss
+  per stranded share, ≈$0.44 measured, a policy choice) was never
+  attacked. Binding kill standard now in evaluator.md §Kill standards
+  (identity argument required for class kills; N failures kill a family
+  only). Research resumed on the ruling's six axes — priority: absolute
+  entry-price ceiling (pair-v9, E-019), then opportunistic cheap-side
+  completion + above-$1 loss-mitigating completion (shared machinery).
+  P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
   additional research memory (`siblings.md`, 2026-07-31).

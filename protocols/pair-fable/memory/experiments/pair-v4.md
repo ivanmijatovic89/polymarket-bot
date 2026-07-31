@@ -126,3 +126,28 @@ include benign lifts (level not traded through) that the sim never grants
 (parity.md §3). The class verdict is therefore "unprofitable under the
 binding evidence standard", which RULES make the promotion standard; only
 live measurement (e.g. a dry-run benign-fill-share study) could revisit it.
+
+### Class-kill WITHDRAWN on human ruling (2026-07-31, inbox 8758567d)
+
+The FAMILY kill above stands (pre-registered bars, six-run evidence). The
+CLASS-level claim ("top-of-book maker pair-accumulation class is
+structurally unprofitable") is **withdrawn**: the human ruled the inference
+unsupported. Reason (recorded verbatim in substance): the −0.06/share
+per-start invariant constrains the value of an UNPAIRED share only — a
+PAIRED share settles at exactly $1.00 regardless of fair value at either
+fill instant, and our own anatomy attributes the loss entirely to unpaired
+residue (344/345). Per-market identity:
+
+    EV = (completed increments × pair margin g) − (stranded shares × L_s)
+
+All experiments so far attacked completion rate (E-006/8/9/12/13/14) and g
+(E-004/10/11); NONE attacked **L_s, the loss per stranded share** — which
+is a policy choice, not a constant: measured ≈ $0.44/share because the
+family constrains only the JOINT gate (maxPairCost ≤ 0.999), with no
+absolute per-side price ceiling anywhere. Untested axes from the identity:
+absolute entry-price ceiling (L_s ≤ X by construction), opportunistic
+cheap-side completion decoupled from the entry gate, above-$1
+loss-mitigating completion, size laddering, time-varying policy,
+liquidity-structure market selection. Research resumed on these
+(pair-v9+). Binding standard going forward: see evaluator.md §Kill
+standards.

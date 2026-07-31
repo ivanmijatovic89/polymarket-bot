@@ -126,3 +126,16 @@ worst-queue simulator — top-of-book maker (all gates/cadences/mechanisms,
 −0.06/share invariant), taker-taker arb (sub-ms), maker→taker completion
 (pre-repriced), taker→maker (this scan's sibling, adverse entry), and
 deep-book maker at six depths. Escalated as P-010.
+
+### Class-level consequence WITHDRAWN on human ruling (2026-07-31, inbox 8758567d)
+
+The pair-v8 FAMILY kill stands (pre-registered bars, δ-grid evidence
+above). The final paragraph's class-level claim ("every inside-RULES
+buy-only pair mechanism on btc-15m exhausted") is **withdrawn** — the human
+ruled that N failed configurations kill a FAMILY, never a class; a class
+kill requires an argument on the profit identity showing no policy in the
+class can satisfy it. The identity has an unattacked term (L_s, loss per
+stranded share — see pair-v4.md §Class-kill WITHDRAWN). E-018 is re-opened
+only in the sense that its evidence no longer supports a class conclusion;
+its family verdict and all measurements remain valid. Research resumed on
+the ruling's six axes (pair-v9+).

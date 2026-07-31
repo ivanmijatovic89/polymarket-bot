@@ -342,6 +342,29 @@ Rules:
    increments must first measure displayed level depth for their price band
    and argue the bound in the family file.
 
+## Kill standards (binding — human ruling 2026-07-31, inbox 8758567d)
+
+Three distinct kill levels, each with its own evidence bar:
+
+1. **Config kill**: one launched configuration fails its pre-registered
+   bar. Evidence: the run(s). Cheapest; the sweep's normal outcome.
+2. **Family kill**: N failed configurations across the family's knobs, per
+   the pre-registered family bars. Evidence: the runs + the family file's
+   grid. This is the STRONGEST conclusion N failures can support.
+3. **Class kill**: requires an argument ON THE PROFIT IDENTITY showing that
+   NO policy in the class can satisfy it — an inequality every member must
+   violate, not an enumeration of tried members. N failures NEVER kill a
+   class. The same bar applies to the phrases "exhausted", "frontier is
+   empty", and any claim that closes a search space rather than a family.
+
+Case law: the 2026-07 "maker-accumulation class kill" was withdrawn on
+human ruling — the −0.06/share per-start invariant bounds the UNPAIRED
+share's value, one term of `EV = completions·g − stranded·L_s`, and L_s
+(a policy choice, never attacked) was free. See pair-v4.md §Class-kill
+WITHDRAWN for the full reasoning. Before writing any class-level claim:
+state the identity, show which term is bounded, and check every remaining
+term has either been attacked or is provably constrained.
+
 ## tools/evaluate.ts (the executable form of this file)
 
 `tsx protocols/pair-fable/tools/evaluate.ts --full-run <id>
