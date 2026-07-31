@@ -18,9 +18,14 @@
  *      ≤ D and ask + fee ≤ 0.99, FOK-buy the imbalance — completing at
  *      total τ loses τ−1 < h = the certain-doom loss (save ≥ 1¢/share).
  *
- * State machine: the trigger bypasses the open-order gate (cancel the
- * resting repair with both ids + FOK in the same tick) but FOK attempts
- * rate-limit through their own cooldown slot. Everything else is v1
+ * State machine: the trigger bypasses the open-order gate for a resting
+ * GTD repair (cancel with both ids + FOK in the same tick) but NOT for
+ * its own in-flight FOK — one FOK at a time, resolved via order_done,
+ * plus a tick-based cooldown as defense-in-depth. The in-flight gate is
+ * the E-020 bug fix: the first build rate-limited FOKs by ticks only,
+ * and 25 ticks can elapse inside the 140 ms fill latency, so bursts of
+ * duplicate FOKs fired against a stale portfolio (run 900: 320 vs 50
+ * shares, $159.92 invested vs capPerMarket=50). Everything else is v1
  * verbatim; ttlSec=90, cooldownTicks=25, maxImbalance=20 are demoted to
  * design constants so C and D fit the 6-param budget (guard 2).
  */
@@ -69,6 +74,8 @@ type State = {
   seq: number
   lastSide: 'UP' | 'DOWN' | null
   openCid: string | null
+  /** True while openCid refers to an in-flight FOK completion (not a GTD rest). */
+  openIsFok: boolean
   readyAtTick: number
   fokReadyAtTick: number
   windowEndMs: number | null
@@ -101,6 +108,7 @@ export function createStrategy(cfg: Config): Strategy {
   const orderGone = (clientOrderId: string | undefined): void => {
     if (!state || !clientOrderId || state.openCid !== clientOrderId) return
     state.openCid = null
+    state.openIsFok = false
     state.readyAtTick = state.tickCount + COOLDOWN_TICKS
   }
 
@@ -117,6 +125,7 @@ export function createStrategy(cfg: Config): Strategy {
         seq: 0,
         lastSide: null,
         openCid: null,
+        openIsFok: false,
         readyAtTick: 0,
         fokReadyAtTick: 0,
         windowEndMs: windowEndFromSlug(ctx?.market?.slug),
@@ -141,7 +150,11 @@ export function createStrategy(cfg: Config): Strategy {
     if (
       !balanced &&
       (cfg.completeCapTotal > 0 || cfg.doomBid > 0) &&
-      state.tickCount >= state.fokReadyAtTick
+      state.tickCount >= state.fokReadyAtTick &&
+      // One FOK in flight at a time (E-020 bug fix): a resting GTD may be
+      // canceled and superseded, but an unresolved FOK must settle first —
+      // its fill is not in the portfolio yet, so re-firing double-buys.
+      !(state.openCid && state.openIsFok)
     ) {
       const deficit: 'UP' | 'DOWN' = upQty < downQty ? 'UP' : 'DOWN'
       const deficitAssetId = deficit === 'UP' ? upAssetId : downAssetId
@@ -187,6 +200,7 @@ export function createStrategy(cfg: Config): Strategy {
           state.seq += 1
           const clientOrderId = `pf10:${marketId}:${i}`
           state.openCid = clientOrderId
+          state.openIsFok = true
           state.fokReadyAtTick = state.tickCount + COOLDOWN_TICKS
           intents.push({
             kind: 'place_limit',
@@ -280,6 +294,7 @@ export function createStrategy(cfg: Config): Strategy {
     state.lastSide = side
     const clientOrderId = `pf10:${marketId}:${i}`
     state.openCid = clientOrderId
+    state.openIsFok = false
 
     return [
       {

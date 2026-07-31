@@ -182,7 +182,7 @@ try {
           `  pnl=${h.pnl_total ?? '-'}  evPerMarketTotal=${h.ev_per_market_total ?? '-'}  fees=${h.total_fees_paid ?? '-'}  winRate%=${h.win_rate_pct ?? '-'}`,
           `  played=${h.markets_played ?? '-'}/${h.markets_total ?? '-'}  won/lost=${h.markets_won ?? '-'}/${h.markets_lost ?? '-'}  flat=${h.markets_flat_with_trades ?? '-'}  noActivity=${h.markets_no_in_window_activity ?? '-'}`,
           `  trades=${h.trades_total ?? '-'} (maker=${h.trades_maker ?? '-'} taker=${h.trades_taker ?? '-'})  wallClockMs=${h.duration_wall_clock_ms ?? '-'}`,
-          `  invested: total=${fmt(u.investedTotal)}  max=${fmt(u.investedMax)}  avgPlayed=${fmt(u.investedAvgPlayed)}  profitPer100=${fmt(u.profitPer100)}${u.unitsValid ? '' : '  UNITS-INVALID(split_cost!=0)'}`,
+          `  invested: total=${fmt(u.investedTotal)}  max=${fmt(u.investedMax)}  avgPlayed=${fmt(u.investedAvgPlayed)}  profitPer100=${fmt(u.profitPer100)}${u.unitsValid ? '' : '  UNITS-INVALID(split_cost!=0)'}${capBreach(r.params, u.investedMax)}`,
           `  profitPer100 dist (n=${u.playedMarkets}): median=${fmt(u.profitPer100Median)}  p10=${fmt(u.profitPer100P10)}  p90=${fmt(u.profitPer100P90)}`,
         ].join('\n'),
       )
@@ -215,4 +215,18 @@ try {
 function fmt(v: unknown): string {
   const n = toNum(v)
   return n === null ? '-' : n.toFixed(2)
+}
+
+/**
+ * Mechanical cap-integrity check: if the strategy exposes `capPerMarket`
+ * (binding evaluator convention) and any market invested more than the cap
+ * plus one grid-price increment step, the run is contaminated — the E-020
+ * FOK-burst bug (run 900: $159.92 vs cap 50) is the class this catches.
+ */
+function capBreach(params: unknown, investedMax: unknown): string {
+  const p = params as Record<string, unknown> | null
+  const cap = toNum(p?.capPerMarket)
+  const max = toNum(investedMax)
+  if (cap === null || max === null) return ''
+  return max > cap * 1.1 ? `  CAP-BREACH(max ${max.toFixed(2)} > cap ${cap})` : ''
 }

@@ -104,3 +104,55 @@ E-012's inverted-selection result warns against assuming that.
   promotion reads).
 
 design-ts: (this commit, 2026-07-31 session 9 — BEFORE pair.v10.ts exists)
+
+## Result E-020 (session 10, runs 897–903 @ code 2538404): IMPLEMENTATION BUG — firing configs invalid
+
+- **Regression gate PASS** (897 vs 872: ev −1.48 vs −1.50, played 704 vs
+  705) — recorded session 9. Control stays valid (module block skipped
+  entirely at C=0=D). [run 897 | 2026-07-31]
+- **C=0.90 / C=0.95 (898/899): TRIGGER-UNTESTED, and that is the
+  finding.** 3 unknown-mode (FOK) fills in 800 markets at C=0.95, ~3 at
+  C=0.90. The profit-lock region `h + ask + fee ≤ 0.95` essentially never
+  survives to the module on the v1 base: paths where the deficit side
+  gets cheap are exactly the paths where v1's maker repair (resting at
+  the gate cap) fills first — the module only sees what repair misses,
+  and at meaningful margins that is ~nothing. Cannibalization prior
+  confirmed in the strong form: not "the module cannibalizes repair" but
+  "repair pre-empts the module". C ≤ 0.95 on the v1 base is DEAD without
+  re-running. [run 898,899 + anatomy | 2026-07-31]
+- **C=0.99 / D=0.05 / D=0.10 / joint (900–903): CONTAMINATED — FOK-burst
+  bug.** The module rate-limited FOKs by TICKS (25) but fills land 140 ms
+  later; in fast tape 25 ticks pass inside the latency window, so the
+  module re-fired against a stale portfolio (it checked `fokReadyAtTick`
+  but not its own in-flight FOK; each re-fire also overwrote `openCid`,
+  orphaning the previous order's terminal event). Result: duplicate-FOK
+  bursts — run 900 worst market 320 UP vs 50 DOWN shares, $159.92
+  invested vs capPerMarket=50; cap breaches 92–160 across 900–903
+  (results.ts now flags CAP-BREACH mechanically; check added session 10).
+  Headline evs (−1.74 / −1.50 / −1.54 / −1.86 vs control −1.48) are NOT
+  evidence about the designed module. [run 900–903 + db top-cost rows |
+  2026-07-31]
+- Contaminated-but-suggestive (NOT evidence, motivation only): doom
+  salvage flips the identity — residuePnl +350/+503 (control −1,500),
+  pairsPnl −1,452/−1,587 (control +385) — and lands ≈ control ev DESPITE
+  paying burst duplicates + 1.4–2.8× fees. A single-shot version might
+  clear control; that is E-020b's question.
+- **Fix (session 10, in pair.v10.ts):** `state.openIsFok` — one FOK in
+  flight at a time (module gates on `!(openCid && openIsFok)`; GTD rests
+  still cancel+supersede same-tick; orderGone resets the flag). Smoke
+  PASS run 906 (15 mkts, C=0.99 D=0.10): max invested 49.00 ≤ cap.
+  Tick-cooldown kept as defense-in-depth.
+
+## E-020b pre-registration (session 10, BEFORE resubmission)
+
+Same design, fixed code, same pinned 800-market window + 140/20 ms.
+Grid (4 configs): C=0.99; D=0.05; D=0.10; joint C=0.99 + D=0.10 (joint
+amended from pre-registered C=0.95+D=0.10: E-020 measured C=0.95 as
+trigger-dead on this base, so the old joint collapses to plain D=0.10 —
+amendment recorded here BEFORE submission). C=0.90/0.95 not re-run
+(trigger-dead, bug cannot suppress fires — it only adds them). Control
+not re-run (897 valid: module block unreachable at C=0=D).
+Readouts and verdict bars: unchanged from E-020 §Pre-registered verdicts,
+plus mechanical CAP-BREACH must be absent for a run to be readable.
+
+design-ts (E-020b): this commit, session 10 — after fix, before submission.
