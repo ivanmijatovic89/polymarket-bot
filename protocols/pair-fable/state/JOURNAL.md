@@ -482,3 +482,25 @@
   resting orders deeper in the book. Next session measures both the same
   way (data first, code only if the data says yes), plus the scheduled
   every-fifth-session self-audit.
+
+## 2026-07-31 — mission 02, session 5 (self-audit + pre-registration)
+
+- Scheduled every-fifth-session audit. Verdict: the loop is healthy but the
+  idea space is narrowing. Five sessions produced 16 experiments, every
+  claim reproduced, and each kill now costs less than the last (yesterday's
+  two needed zero fleet time). Not drifting into trivia — but only two
+  untested in-rules ideas remain, so the honest risk is running out of
+  road, not wasting time on it.
+- The review gate (M1–M5 hardening) stays correctly parked: it binds before
+  the first promotion, and nothing is close to promotable yet. If either
+  of today's ideas survives its data scan, that hardening happens BEFORE
+  the family can be promoted.
+- Today's plan, same data-first discipline: wrote pass/fail bars for both
+  remaining ideas and committed them before the scanner code. Idea 1
+  (pair-v7): pay the taker fee on the first leg, rest the cheap second
+  leg. Idea 2 (pair-v8): rest orders deeper below the best bid — better
+  prices in crashes, but worse company.
+- If BOTH die on the data, the conclusion is that buy-only pair mechanics
+  on BTC-15m are exhausted under our simulator's pessimistic fill model,
+  and the next move is a proposal to the human: measure real fill quality
+  live (P-009) and/or widen the allowed strategy space.
