@@ -76,6 +76,10 @@ export const ConfigSchema = z
       .default(0),
     /** In-band lag-side maker aggression (v15.3): fraction of the bid→(ask−1tick) gap quoted per unit normalized deficit, knee at ι = 0. 0 = legacy knee at ι = 1. */
     lagAggr: z.coerce.number().finite().min(0).max(1).default(0),
+    /** Post-terminal (fill/cancel/expiry) per-side requote cooldown in ticks (v15.4, §15 — promoted from a design constant; FOK cooldown stays fixed). */
+    cooldownTicks: z.coerce.number().int().min(0).max(25).default(5),
+    /** GTD rest TTL in seconds (v15.4, §15 — promoted from a design constant). Floor 61: OrderManager rejects GTD expiry < now+60s (§15.3). */
+    ttlSec: z.coerce.number().finite().min(61).max(300).default(90),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -112,9 +116,7 @@ type State = {
 
 const GRID = 0.01
 const TERMINAL = new Set(['filled', 'canceled', 'rejected', 'expired', 'killed'])
-/** Design constants (pair-v15.md §8.1 — not tunables, guard 2). */
-const TTL_SEC = 90
-const COOLDOWN_TICKS = 5
+/** Design constants (pair-v15.md §8.1 — not tunables, guard 2; ttl/cooldown promoted to params in v15.4, §15). */
 const FOK_COOLDOWN_TICKS = 25
 const LEAD_STOP_MS = 180_000
 const CANCEL_ALL_MS = 60_000
@@ -146,7 +148,7 @@ export function createStrategy(cfg: Config): Strategy {
       const o = state.open[side]
       if (o && o.cid === clientOrderId) {
         state.open[side] = null
-        state.readyAtTick[side] = state.tickCount + COOLDOWN_TICKS
+        state.readyAtTick[side] = state.tickCount + cfg.cooldownTicks
         state.cancelling.delete(clientOrderId)
       }
     }
@@ -412,7 +414,7 @@ export function createStrategy(cfg: Config): Strategy {
         price: target,
         size: q,
         orderType: 'GTD',
-        expireAtMs: nowMs + TTL_SEC * 1000,
+        expireAtMs: nowMs + cfg.ttlSec * 1000,
         meta: { t: 'pf15', i, side, ot: 'GTD', p: target, s: q, ts: nowMs, m: mode },
         reason: `${mode === 'S' ? 'accumulate' : 'repair'}_${side.toLowerCase()}_band_${Ib}_target_${cfg.pairTarget}`,
       })

@@ -1399,3 +1399,24 @@ secondary; guard-7 optimism named on every claim; named pairs #1v#0,
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+### 15.3 Amendment — GTD minimum-expiry floor (FROZEN before any E-037
+### fleet submission; after smoke runs 965/966/967)
+
+Smokes with `ttlSec=15` produced 0 trades / noActivity=3 on BOTH the
+default and the pinned universe (runs 965, 966, 967). Root cause is in
+engine code, not data: `OrderManager` rejects any GTD whose
+`expireAtMs < now + minGtdOffsetMs` with default 60,000 ms
+(`src/trading/OrderManager.ts:499`) — every v15 placement at ttl 15
+was rejected wholesale. E-013 used ttlSec=61 for exactly this reason.
+
+Amendment (schema + one grid cell; predictions unchanged):
+
+- Schema `ttlSec` min raised 5 → 61 (below 61 the strategy cannot
+  place at all — the floor is an engine constraint, not a tunable).
+- Grid cell #5: ttl 15 → **61** (the minimum feasible churn), still
+  vs #1, same prediction (≈ neutral; requote-on-move dominates).
+
+Standing-guard note (STATUS "schema refines can invalidate a frozen
+grid corner") extends: ENGINE constraints (OrderManager validation)
+must be checked per cell too, not just schema refines.
