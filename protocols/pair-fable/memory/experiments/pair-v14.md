@@ -143,7 +143,79 @@ Frozen bars:
   (a market fact) is recorded either way; a policy KILL here does NOT
   kill the calibration finding, only its naive exploitation.
 
-## Result
+## Result E-028 (calibration scan) — POSITIVE-SIGNAL per frozen bars, with a measured caveat
 
-(pending — E-028 core scan complete, POSITIVE-SIGNAL per frozen bars;
-E-028b first-touch readout pending)
+Executed session 15 via `tools/calib.ts` (design-ts 276e1dd; region-search
+implementation corrected to the frozen n≥100/half filter BEFORE any verdict
+was recorded, commit ca848c0). Pinned 800, 199,542,943 events (exactly the
+bookscan volume — same universe verified by first/last slug), 93,877
+samples, 800/800 markets, 0 unknown-outcome. Archives:
+`data/calib-2026-07-31-latest800.json` (+ `.jsonl` checkpoint).
+
+**View 3 — the favorite-longshot curve (the market fact, fee-incl taker
+edge per share, cluster SE):**
+
+- Every band from 0.00 to 0.55 is NEGATIVE, most at 2–5 SE: p0.05
+  −0.0343 (z −5.1), p0.10 −0.0395 (z −3.4), p0.25 −0.0380 (z −2.4),
+  p0.40 −0.0359 (z −2.7), p0.50 −0.0252 (z −4.0). **Longshots on btc-15m
+  are systematically overpriced by ~3–4¢/share before any adverse
+  selection.** This is the unifying explanation of the whole negative
+  record: every killed family bought cheap sides by construction.
+- Favorite side: non-negative from 0.75 up, point-positive but weak —
+  p0.90 +0.0161 (z 2.08) is the only band ≥ 2 SE pooled; p0.95 +0.0054
+  (z 1.32). Executable view ≈ identical (fill survival 96–98%).
+
+**Region search (frozen bars):** 24,167 eligible rectangles (n_mkts ≥
+100/half), **12 PASS** — one coherent blob: minutes ~0–9 × ask ≥ 0.90,
+e.g. [0,9]×[0.90,1.00): edge +0.0221 ± 0.0066, halves +0.0215/+0.0227
+(each ≥ 2×half-SE), exec edge +0.0223, 428/800 markets. POSITIVE-SIGNAL
+per the frozen verdict.
+
+**Measured caveat (post-hoc diagnostic, motivated E-028b):** the frozen
+estimand is obs-weighted; markets dwelling long at 0.90+ (mostly
+winners) carry up to 40 samples. Market-equal-weighted edge on the same
+region: −0.007 ± 0.012 ([0.90,0.95): +0.004 ± 0.012; [0.95,1.00):
++0.009 ± 0.009). The calibration signal is real as a time-average of the
+book, but its naive exploitability needed the E-028b estimand.
+
+## Result E-028b (first-touch policy) — KILL the one-shot policy per frozen bars
+
+Executed session 15 via `calib.ts --first-touch` (design-ts ca848c0
+BEFORE the mode existed). Same pinned 800. Archive:
+`data/calib-ft-2026-07-31-latest800.json` (+ `.jsonl`).
+
+| Region (minutes 0–9) | fills | edge/share | SE | z | halves | days+ | ev/mkt @cap100 |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| R1 [0.90,1.00) | 428 (53.5%) | +0.0092 | 0.0125 | 0.73 | +0.016/+0.003 | 6/9 | $0.58 |
+| R2 [0.90,0.95) | 419 | +0.0096 | 0.0128 | 0.75 | +0.017/+0.003 | 6/9 | $0.60 |
+| R3 [0.95,1.00) | 276 (34.5%) | +0.0126 | 0.0101 | 1.24 | +0.012/+0.013 | 6/9 | $0.37 |
+
+No region reaches 2×SE ⇒ **KILL the naive one-shot exploitation** on
+this universe. Honest reading: the point estimates are consistently
+positive (R3: both halves +, 6/9 days) but the sample is underpowered —
+R3's 95% CI is roughly [−0.007, +0.033]/share. Even at the point
+estimate, a 100-share buy yields ~$0.4–0.6/mkt (mean displayed ask size
+at fill 342–447 shares, so ~$2/mkt would need ~400 shares ≈ $370
+invested at profitPer100 ≈ +1.3 — thin but not absurd IF the edge is
+real). Distinguishing +1¢ from 0 needs ~13× the data.
+
+## Conclusions and next step
+
+1. **Market fact recorded**: btc-15m longshot overpricing −3..−4¢/share,
+   robust (both halves, every band ≤ 0.55 negative, 2–5 SE). Any
+   strategy that buys cheap sides pays this before microstructure
+   effects. The pair family's gate-invariant −8/$100 (E-011) now has an
+   unconditional market-level explanation.
+2. **Favorite-side edge: unresolved, not dead.** Frozen-bar
+   POSITIVE-SIGNAL on the calibration estimand; frozen-bar KILL on the
+   naive policy estimand at n=800. The clean discriminator is
+   **E-029 (proposed): replicate the SAME frozen regions/policy on the
+   FULL universe** (~10.7k markets, ~9,900 of them untouched by this
+   region selection ⇒ true out-of-sample; local scan, ~5–6 h chunked
+   across sessions, no fleet cost). SE shrinks ~3.6× ⇒ decisive on
+   ±1¢. Pre-register before running (next session).
+3. Scope note (pre-declared in §Follow-ups): any EXPLOITING variant is
+   one-sided buy-and-redeem — needs a human scope ruling before strategy
+   code; the ruling question goes to PROPOSALS only if E-029 confirms.
+   In-family uses (completion pricing, start-side choice) need no
+   ruling.

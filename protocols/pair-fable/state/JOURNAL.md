@@ -687,3 +687,22 @@ family. Next session is the scheduled self-check: step back and decide
 where the search goes now. One input for that decision needs you: only
 BTC-15m data is converted for backtesting — converting ETH/SOL/XRP
 would open cross-symbol replication (proposal P-012).
+
+## Session 15 — 2026-07-31
+
+Scheduled self-check session. Verdict: we're not wasting time, but the
+old strategy family truly has nothing left — so we asked the one
+question about this market we had never asked directly: when the order
+book quotes a price, is that price actually fair?
+Answer, from 800 markets: no. Cheap sides ("longshots") are overpriced
+by 3–4 cents a share — which finally explains WHY every variant we
+killed lost money: they all bought cheap sides by design (pair-v14.md).
+The mirror of that looked like our first real edge: heavy favorites
+early in the window seemed underpriced by ~2 cents. But a careful
+re-measure — buying once per market like a real bot would, instead of
+averaging over time — shrinks it to ~1 cent, within noise at this
+sample size. Not dead, not proven: we need ~13× more markets to decide.
+Next: rerun the same frozen measurement on the full 10,700-market
+history (data already on disk, costs nothing but local compute). If the
+favorite edge is real, we'll bring you a scope question — exploiting it
+means buying one side and holding, not pairing.

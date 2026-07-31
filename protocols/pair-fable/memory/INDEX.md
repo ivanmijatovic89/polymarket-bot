@@ -186,9 +186,21 @@ Pointers, not content.)
   space after E-012/E-022); completion-vs-time bounded by E-020b —
   pair-v13.md §Result E-027. **ALL SIX ruling axes (inbox 8758567d) now
   answered-negative on the v1 family** — all family-scoped kills, no
-  class kill claimed. Session 15 self-check owes the strategic replan;
-  cross-universe fact for it: only btc-15m has converted telonex data
-  (22,335 eligible); eth/sol/xrp 15m + all 5m are cataloged but
-  UNCONVERTED (P-012).
+  class kill claimed. Cross-universe fact: only btc-15m has converted
+  telonex data (22,335 eligible); eth/sol/xrp 15m + all 5m are cataloged
+  but UNCONVERTED (P-012, re-verified s15). Session 15 delivered the
+  self-check + strategic replan (`memory/replan-2026-07-31.md`: identity
+  coverage map — the one unmeasured term was unconditional residue
+  VALUE) and executed it: E-028 (pair-v14, `tools/calib.ts`, pinned-800
+  book replay) — **first POSITIVE-SIGNAL in lab history** per frozen
+  bars (minutes 0–9 × ask ≥ 0.90, +2.2¢/sh both halves) AND the market
+  fact that longshots (≤0.55) are overpriced −3..−4¢/sh at 2–5 SE (the
+  unconditional explanation of every family's per-dollar loss); E-028b
+  first-touch policy readout: KILL naive exploitation (z ≤ 1.24,
+  dwell-weighting explained most of the raw signal) — favorite-side
+  edge UNRESOLVED at n=800 ⇒ E-029 (FULL-universe replication of the
+  frozen regions, true OOS, local chunked scan) is the proposed next
+  increment — pair-v14.md, archives
+  `experiments/data/calib{,-ft}-2026-07-31-latest800.json`.
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces
   hold no additional research memory (`siblings.md`, 2026-07-31).
