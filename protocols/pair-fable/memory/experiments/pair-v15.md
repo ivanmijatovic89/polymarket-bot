@@ -1252,3 +1252,53 @@ secondary; guard-7 whole-size fill optimism named on every claim):
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+### 14.2 Result E-036 (session 21, 2026-07-31) — runs 960–964 — VERDICT: SCALE-DEGRADING; binding scale check CLOSED (both (a) and (b))
+
+All 5 completed, 0 failures, recon badRows = 0 everywhere, SHA uniform
+32beb25 (new, post bound-raise). Pinned 800 @ 140/20:
+
+| run | cfg | ev/mkt | p/$100 | invested | invMax | M mean/med/p90 | mean P | %<.98/.95 | strands | tail min/p5 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 960 | #0 bridge q100 I160 B500 | −11.52 | −5.32 | 173,288 | 500 | 235/200/425 | 1.089 | 25/9 | 29 | −71/−47 |
+| 961 | #1 q100 I160 B2000 | −11.84 | −5.20 | 182,028 | 1,055 | 247/200/461 | 1.093 | 21/7 | 11 | −68/−44 |
+| 962 | #2 q200 I320 B2000 | −26.02 | −5.93 | 350,908 | 1,897 | 474/400/843 | 1.102 | 19/6 | 11 | −145/−94 |
+| 963 | #3 q300 I480 B2000 | −36.31 | −5.55 | 523,689 | 1,967 | 715/600/1289 | 1.098 | 21/6 | 17 | −222/−140 |
+| 964 | #4 q200 I320 B1000 | −22.19 | −5.27 | 336,868 | 1,000 | 463/400/861 | 1.091 | 25/9 | 28 | −144/−93 |
+
+Findings:
+
+1. **Bridge PASS** (|960 − 956| per-$100 = 0.43 ≤ 0.54; M/P/strand
+   readouts all within noise of 956) — the schema-only bound raise is
+   behavior-neutral; the grid counts. (ev Δ 0.63 vs secondary bar 0.30
+   noted; per-$100 governs per the frozen design.)
+2. **Verdict per frozen bars: SCALE-DEGRADING.** Named pairs: #1 vs #0
+   +0.12 (neutral); **#2 vs #1 −0.73 > 0.54 (degrading)**; #3 vs #2
+   +0.38 (neutral); **#4 vs #2 +0.66 > 0.54 — LESS cap is better at
+   q=200**. The q ≥ 200 × B=2000 region costs ≈ 0.3–0.7 per-$100 over
+   the q=100 policy. Mechanism: mean P rises ~1¢ (1.093 → 1.102) — a
+   wider absolute band (I_b 320/480) lets deficits grow deeper into
+   trends before the halt, and doom completion D-fill COUNT grows
+   superlinearly (D/S ratio 0.56 → 0.85 → 1.07 at q=100/200/300) while
+   S-count stays flat; B=1000 truncates the worst completions
+   (invMax binds) which is why #4 beats #2.
+3. **Binding mission check CLOSED — (a) reached, with (b) attached.**
+   $2,000 tested (invMax 1,967, cap effectively reached at q=300).
+   The 500–1,000 matched-share range IS reached mechanically: M
+   mean 715 / median 600 / p90 1,289 at q=300/B=2000 — E-033's S-count
+   invariance extrapolates exactly (S = 2,478–2,627 fills/800 mkts at
+   ALL q; M ∝ q: 235 → 474 → 715 ≈ 235·q/100). Guard-7 qualification
+   (the (b) evidence): q=300 rests AT the E-028b measured displayed
+   ToB depth (300–450 sh) and the sim fills whole size on cross, so
+   every scaled number is a depth-optimistic upper bound; real capture
+   at q ≥ 200 would be strictly worse than these already-degrading
+   results.
+4. **Scale does not rescue the family.** Per-dollar loss is
+   −5.2..−5.9/$100 at every capital level 500–2,000 and every q
+   100–300; absolute loss scales with invested (ev −11.5 → −36.3/mkt).
+   The E-033 SCALE-NEUTRAL qualification is now resolved: neutral at
+   q ≤ 100, degrading beyond, never improving. The scale axis is
+   ANSWERED under the mission's own disjunction — both (a) and (b)
+   are on record. Residue is ≈ 0 everywhere (pairsPnl carries the
+   whole loss): the controller pairs fine at scale; it pays the same
+   doom premium per dollar, on more dollars.

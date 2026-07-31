@@ -808,3 +808,21 @@ genuinely chase the 500–1,000 matched-share range — that test (E-036)
 is queued as the next session's first action, and each session now
 closes with the required alignment gate (this one: YELLOW —
 diagnostics, both informing the controller).
+
+## Session 21 — 2026-07-31
+
+Ran the scale test you made binding: pushed the controller to $2,000
+per market and order sizes up to 300 shares, five 800-market runs on
+the fleet, all landed within the session (pair-v15.md §14.2).
+The inventory goal is reachable: at the biggest size the controller
+matches 600–700 share pairs per market — inside your 500–1,000 range.
+But the economics do not improve with scale — they slip: the loss per
+$100 invested stays around −5 to −6 everywhere, and the step from
+100- to 200-share orders makes it measurably worse, not better.
+One caveat we attached in advance: at these sizes the simulator's
+fill assumptions are generous, so reality would be worse, not better.
+The scale question is now closed both ways you asked for — the range
+is reached, and the reason it doesn't pay is on record.
+Next: probing the very-high-activity regime you flagged (many small
+orders per window), the last untested controller axis; your P-013
+sell-side call still pending.
