@@ -24,23 +24,28 @@
  *   - CAPITAL RESERVATION: a deficit-creating buy must leave room to
  *     complete the projected deficit at current taker cost within
  *     capPerMarket.
- *   - GRADED TAKER COMPLETION (v15.1, FOK, one in flight — E-020 guard): a
- *     lag-side deficit is FOK-completed whenever the projected cumulative
- *     pair VWAP ≤ X(t, ι), the recovery-debt ceiling ramping from P_lock
- *     (derived: pairTarget − 0.01) toward debtCap with elapsed window
- *     fraction × normalized imbalance (pair-v15.md §10 — ruling amendment
- *     5's bounded recovery debt). May push the pair VWAP above $1
- *     (amendment 4). debtCap = 0 keeps the pure pair-lock trigger.
+ *   - IN-BAND LAG AGGRESSION (v15.3, §11): with lagAggr γ > 0 the lag-side
+ *     maker quote improves above bestBid as soon as ANY deficit exists
+ *     (knee at ι = 0): target = bid + min(1, γ·ι)·(ask − 1tick − bid).
+ *     Attacks the completion premium at maker prices ($0 fee) before the
+ *     winner runs away; the VWAP ceiling still caps the quote, so deep-doom
+ *     chasing stays blocked. γ = 0 keeps the legacy knee at ι = 1.
+ *   - TAKER COMPLETION (FOK, one in flight — E-020 guard): a lag-side
+ *     deficit is FOK-completed when the projected cumulative pair VWAP
+ *     ≤ P_lock (derived: pairTarget − 0.01). The v15.1 graded debt ceiling
+ *     (debtCap) was removed in v15.3 — E-031/E-031b measured it as a 1:1
+ *     substitute for the doom backstop (pair-v15.md §10.5).
  *   - DOOM BACKSTOP (v15.2, §10.3): in true doom markets the cumulative
- *     pair VWAP exceeds any reasonable debtCap, yet completing at unit cost
+ *     pair VWAP exceeds any reasonable ceiling, yet completing at unit cost
  *     ask + fee < 1 beats holding a doomed lead to zero regardless of
  *     cumulative VWAP. When the lead bid ≤ 0.20 and ask + fee ≤ doomUnitMax,
- *     the deficit is FOK-completed even where the graded rule refuses.
+ *     the deficit is FOK-completed even where the lock rule refuses. May
+ *     push the pair VWAP above $1 (ruling amendment 4).
  *
  * No sells, no merge intents; holds to settlement. Fill-mode tags (meta.m):
- * S band accumulation · R graded repair (placed beyond band) · C completion
- * with projected pair VWAP ≤ P_lock · V debt completion above P_lock ·
- * D doom backstop (graded rule refused, unit-cost bound admitted).
+ * S maker rest joined at bestBid · R maker rest placed strictly above
+ * bestBid (aggressive lag quote) · C completion with projected pair VWAP
+ * ≤ P_lock · D doom backstop (lock rule refused, unit-cost bound admitted).
  */
 import type {
   AccountEvent,
@@ -63,20 +68,17 @@ export const ConfigSchema = z
     imbalanceBand: z.coerce.number().finite().min(1).max(200).default(40),
     /** Shares per resting bid (M5-bounded: sim fills entire size on cross). */
     orderSize: z.coerce.number().finite().positive().max(100).default(25),
-    /** Recovery-debt ceiling cap: G-rule fires when projected pair VWAP ≤ X ramping P_lock→this with elapsed time × imbalance (may exceed $1). 0 = pure lock trigger. P_lock is derived: pairTarget − 0.01. */
-    debtCap: z.coerce.number().finite().min(0).max(1.15).default(0),
     /** Doom backstop (v15.2): when lead bid ≤ 0.20 and ask+fee ≤ this, FOK-complete regardless of cumulative pair VWAP. 0 disables. */
     doomUnitMax: z.coerce
       .number()
       .finite()
       .refine((v) => v === 0 || (v >= 0.5 && v <= 0.995), 'doomUnitMax must be 0 or in [0.5, 0.995]')
       .default(0),
+    /** In-band lag-side maker aggression (v15.3): fraction of the bid→(ask−1tick) gap quoted per unit normalized deficit, knee at ι = 0. 0 = legacy knee at ι = 1. */
+    lagAggr: z.coerce.number().finite().min(0).max(1).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
-  })
-  .refine((c) => c.debtCap === 0 || c.debtCap >= c.pairTarget - 0.01, {
-    message: 'debtCap must be 0 or ≥ the derived P_lock (pairTarget − 0.01)',
   })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -85,7 +87,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'pair-fable-v15',
   title: 'pair-fable v15 (continuous two-sided inventory controller)',
   description:
-    'Quotes both sides continuously with an imbalance band, graded lag-side pricing, a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, graded FOK taker completion under a recovery-debt ceiling ramping P_lock (pairTarget−0.01)→debtCap with elapsed time × imbalance (may complete above $1), and an optional doom backstop completing at unit cost ≤ doomUnitMax when the lead bid ≤ 0.20. No sells, no merges; holds to settlement.',
+    'Quotes both sides continuously with an imbalance band, in-band graded lag-side maker aggression (lagAggr: quote improves above bestBid proportionally to the deficit, knee at zero), a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, FOK taker completion at projected pair VWAP ≤ P_lock (pairTarget−0.01), and an optional doom backstop completing at unit cost ≤ doomUnitMax when the lead bid ≤ 0.20 (may complete above $1). No sells, no merges; holds to settlement.',
   schema: ConfigSchema,
   create: (cfg) => ({ strategy: createStrategy(cfg) }),
 }
@@ -116,9 +118,6 @@ const COOLDOWN_TICKS = 5
 const FOK_COOLDOWN_TICKS = 25
 const LEAD_STOP_MS = 180_000
 const CANCEL_ALL_MS = 60_000
-/** G-rule debt ramp (pair-v15.md §10.1): ρ = clamp((t̂−T0)/(T1−T0), 0, 1). */
-const RAMP_T0 = 0.25
-const RAMP_T1 = 0.8
 /** Doom proxy for the v15.2 backstop (§10.3): lead bid at/below this = doomed. */
 const DOOM_BID = 0.2
 const WINDOW_MS = 15 * 60 * 1000
@@ -127,6 +126,7 @@ const TAKER_FEE_RATE = 0.07
 const SIDES: SideName[] = ['UP', 'DOWN']
 
 const floorToGrid = (p: number): number => Math.floor(p / GRID + 1e-9) * GRID
+const roundToGrid = (p: number): number => Math.round(p / GRID) * GRID
 const round2 = (p: number): number => Math.round(p * 100) / 100
 const fee = (p: number): number => TAKER_FEE_RATE * p * (1 - p)
 
@@ -236,12 +236,9 @@ export function createStrategy(cfg: Config): Strategy {
     const q = cfg.orderSize
     const Ib = cfg.imbalanceBand
 
-    // ── Taker completion (§10.1 graded + §10.3 backstop): one FOK in flight.
+    // ── Taker completion (§11.1 lock rule + §10.3 backstop): one FOK in flight.
     const pLock = cfg.pairTarget - 0.01
     if (!state.fokCid && state.tickCount >= state.fokReadyAtTick) {
-      // Debt ramp by elapsed window fraction; unknown window end ⇒ 0 (conservative).
-      const elapsed = endMs !== null ? 1 - (endMs - nowMs) / WINDOW_MS : 0
-      const ramp = Math.min(1, Math.max(0, (elapsed - RAMP_T0) / (RAMP_T1 - RAMP_T0)))
       for (const side of SIDES) {
         const o = side === 'UP' ? 'DOWN' : 'UP'
         const deficit = qty[o] - qty[side]
@@ -255,11 +252,7 @@ export function createStrategy(cfg: Config): Strategy {
         // Projected cumulative settled pair VWAP after the completion.
         const projSelf = (cost[side] + x * unitCost) / (qty[side] + x)
         const projPair = qty[o] > 0 ? projSelf + cost[o] / qty[o] : Number.POSITIVE_INFINITY
-        // Recovery-debt ceiling X(t̂, ι) = P_lock + (debtCap − P_lock)·ρ·min(ι, 1).
-        const iota = Math.min(1, deficit / Ib)
-        const ceiling =
-          cfg.debtCap > 0 ? pLock + (cfg.debtCap - pLock) * ramp * iota : pLock
-        const gradedTrig = projPair <= ceiling + 1e-9
+        const lockTrig = projPair <= pLock + 1e-9
         // Doom backstop: completing at ask+fee < 1 beats holding a doomed lead
         // to zero regardless of cumulative pair VWAP.
         const doomTrig =
@@ -267,8 +260,8 @@ export function createStrategy(cfg: Config): Strategy {
           leadBk !== null &&
           leadBk.bid <= DOOM_BID + 1e-9 &&
           unitCost <= cfg.doomUnitMax + 1e-9
-        if (!gradedTrig && !doomTrig) continue
-        const mode = gradedTrig ? (projPair <= pLock + 1e-9 ? 'C' : 'V') : 'D'
+        if (!lockTrig && !doomTrig) continue
+        const mode = lockTrig ? 'C' : 'D'
         const price = round2(a)
         if (pos.total_cost + pendingCost + price * x > cfg.capPerMarket) continue
 
@@ -310,9 +303,7 @@ export function createStrategy(cfg: Config): Strategy {
           reason:
             mode === 'C'
               ? `fok_lock_${side.toLowerCase()}_projpair_${round2(projPair)}`
-              : mode === 'V'
-                ? `fok_debt_${side.toLowerCase()}_projpair_${round2(projPair)}_ceiling_${round2(ceiling)}`
-                : `fok_doom_${side.toLowerCase()}_unitcost_${round2(unitCost)}_leadbid_${leadBk ? leadBk.bid : 'na'}`,
+              : `fok_doom_${side.toLowerCase()}_unitcost_${round2(unitCost)}_leadbid_${leadBk ? leadBk.bid : 'na'}`,
         })
         return intents
       }
@@ -351,17 +342,18 @@ export function createStrategy(cfg: Config): Strategy {
         bk !== null && obk !== null && surplusAfter <= (leadStop ? 0 : Ib) + 1e-9
 
       let target: number | null = null
-      let mode: 'S' | 'R' = 'S'
       if (quotable && bk && obk) {
-        // 2. Graded pricing by deficit overhang.
+        // 2. Graded lag pricing (§11.1): lagAggr > 0 ⇒ knee at ι = 0 (improve
+        // above bid on ANY deficit); lagAggr = 0 ⇒ legacy knee at ι = 1.
         const deficit = Math.max(0, qty[o] - qty[side])
         const iota = deficit / Ib
-        if (iota <= 1) {
-          target = bk.bid
-        } else {
-          mode = 'R'
-          target = bk.bid + Math.min(iota - 1, 1) * (bk.ask - GRID - bk.bid)
-        }
+        const f =
+          cfg.lagAggr > 0
+            ? Math.min(1, cfg.lagAggr * iota)
+            : Math.min(Math.max(iota - 1, 0), 1)
+        // Round-to-nearest-grid (§11.3): a sub-tick graded improvement must
+        // not be floored away; the ceiling below keeps floor semantics.
+        target = roundToGrid(bk.bid + f * Math.max(0, bk.ask - GRID - bk.bid))
         // 3. VWAP ceiling with completability-conservative deficit pricing.
         const Qs2 = qty[side] + q
         const D = Math.max(0, Qs2 - qty[o])
@@ -406,6 +398,8 @@ export function createStrategy(cfg: Config): Strategy {
       if (target * q + reserve > budget) continue
       budget -= target * q
 
+      // Tag by final price (§11.1): R = placed strictly above bestBid.
+      const mode: 'S' | 'R' = target > bk.bid + 1e-9 ? 'R' : 'S'
       const i = state.seq
       state.seq += 1
       const clientOrderId = `pf15:${marketId}:${i}`
