@@ -360,3 +360,24 @@
   per-dollar improving too (win rate 21%→52%); best config ev −1.07 — still
   negative, ITERATE. New lead: repair legs cross the spread (taker share
   13–16%) — v2 will fix repair pricing.
+
+## 2026-07-31 — session 2 (mission 02)
+
+- Built `tools/anatomy.ts`: exact per-market pnl decomposition (paired vs
+  residue; recon err ≤0.01, 0 bad rows), S/R fill-mode stats, taker
+  attribution bounds, doom-hazard-by-minute. Findings on 872/873/874 in
+  pair-v1.md §Anatomy.
+- Headline finding: v1's loss is ENTIRELY unpaired residue — 344/345
+  residue markets lose (~$4.4 each, held to ~0); pairs earn +$0.54/market
+  vs doom −$2.15. Repair rate 80% vs ~94% break-even. Doom hazard is flat
+  across start minutes ⇒ start-delay variant killed before launch. Taker
+  fees are minor in pnl ($68 of −$1202) — a parity/S3 concern only.
+- Key code insight: v1's repair leg stops chasing at the START gate though
+  completion is profitable to pair cost <1.00. → pair-v2 family ("repair
+  persistence"): chase-to-breakeven (0.995 const), no repair cooldown,
+  repair quotes ≤ ask−2 ticks. Same 6 params, no new tunables.
+- Pre-registered (freeze commit 0f0f423 = design-ts 2026-07-31T00:06:47Z):
+  v2-a (defaults), v2-b (0.95), plus v1 gate-curve points v1-c (0.96) /
+  v1-d (0.93). Smoke: run 875 PASS (v2 converts 1 of v1's 3 smoke dooms).
+- Launched 4 screens (latest-800 @ 140/20) vs baseline 874; evaluating
+  when they land.

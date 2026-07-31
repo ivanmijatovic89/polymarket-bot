@@ -140,6 +140,13 @@ pays only if the surplus side wins):
   family (repair persistence), see pair-v2.md. [code + runs 872/873 |
   2026-07-31]
 
+- Movers 872 vs 874 (compare.ts, 2026-07-31): v1's four worst deltas are
+  v0 markets at ≈+$10 (v0's deep bids occasionally catch a full WINNING
+  residue — a lottery v1's join-only starts give up); its gains are many
+  −$5..−7 v0 residue losses cut to ≈+$0.5. Consistent with the anatomy:
+  v1 trades tail-lottery wins for systematic residue-loss reduction.
+  [runs 872/874 | 2026-07-31]
+
 ## Gate-curve extension (pre-registered 2026-07-31, session 2 — v1-c/v1-d)
 
 **Hypothesis**: ev(gate) has an interior optimum between 0.98 (v1-a,
