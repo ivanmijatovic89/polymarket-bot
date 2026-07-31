@@ -297,3 +297,46 @@ neutral controller's FULL backlog moves to structural mechanisms
 (P-013 sell-side ruling, time-varying τ). Mechanism metrics per
 cell: invested/played, C vs D fill counts and $, resid-mkt count,
 p/100. Failure rule: identical 96-slug outage set only.
+
+## 10. Session-29 pre-readout analysis: the g0 loss identity
+## (exploratory, run 1008; recorded BEFORE E-043/044/045 results)
+
+Per-share fill economics on run 1008 (JSON_TABLE over intent_meta;
+sql.ts, session 29):
+
+| mode | fills | shares | $ | avg $/share |
+|---|---|---|---|---|
+| S (maker start) | 34,037 | 3,403,700 | 1,545,139 | 0.454 |
+| C (cheap FOK completion) | 20,651 | 403,205 | 191,298 | 0.474 |
+| D (doom completion) | 21,440 | 892,700 | 733,908 | 0.822 |
+| R | 2 | 200 | 2 | 0.010 |
+
+Pair-type reconstruction (each C/D leg pairs an S leg at ~0.454;
+remaining pairs are S–S at ~0.908):
+
+- S–S pairs ≈ 1.05M × (1 − 0.908) ≈ **+96k**
+- C pairs ≈ 0.40M × (1 − 0.928) ≈ **+31k**
+- D pairs ≈ 0.89M × (1 − 1.276) ≈ **−246k**
+- Sum ≈ −119k ✓ (measured pairsPnl −120.2k; identity closes)
+
+**Reading.** The neutral controller is gross-profitable on 62% of its
+pairs (maker–maker and cheap-completion); the whole loss is the doom
+premium: 38% of pairs are D-completed at avg locked loss −0.276 each.
+BUT the D completion itself is ~EV-neutral vs holding the doomed
+share (complete at leading price q: locks q − 0.55; hold: expected
+0.55 − q — identical modulo fees/spread). This explains E-041
+CEIL-NULL mechanically. The loss therefore lives UPSTREAM: adverse
+selection on S inventory in trending markets — the S legs that end up
+on the doomed side were bought at 0.454 and are worth ~0.18 by doom
+time. Levers on the identity: (i) hold S legs on the WINNING side
+more often ⇒ the tilt program (E-043/E-044 in flight measure exactly
+this); (ii) more C-share of completions (C pairs profitable) ⇒
+oscillation harvesting / completion cadence; (iii) cheaper S ⇒ lower
+quotes, fill-rate tradeoff. NOT a lever: doom completion price
+policy (EV-neutral; E-041 confirmed).
+
+Also recorded (minuteev.ts on 1008, exploratory): no start-minute
+region is EV-positive for v17 either; "forbid starts before m" never
+goes positive (best −7.5 ± 4.6 at m=11, n=15). Start-timing is not a
+neutral-controller lever — matches E-027 (v1 family). Constraint for
+the time-varying-τ backlog item, not a verdict.
