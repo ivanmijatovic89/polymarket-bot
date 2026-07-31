@@ -99,3 +99,59 @@ universe (2026-07-14 → 07-22, common=800/800/800 — launched minutes apart):
   meta `m:'S'|'R'` now distinguishes start vs repair fills, so residue
   source is measurable per market; (c) only after ev approaches 0: FULL +
   sweep (S3 will be the binding gate given the taker trend).
+
+## Anatomy (tools/anatomy.ts on 872/873/874, 2026-07-31 — session 2)
+
+pnl decomposes exactly (recon err ≤ 0.01/row, 0 bad rows) into paired
+(min(up,down) shares, margin 1 − avgUp − avgDown) + residue (|up−down|,
+pays only if the surplus side wins):
+
+| run | pairsPnl | residuePnl | residue mkts won/lost | fills S/R (repair rate) | fees |
+| --- | --- | --- | --- | --- | --- |
+| 872 v1-a | +382.46 | −1515.78 | 1/344 | 1714/1374 (80.2%) | 68.30 |
+| 873 v1-b | +497.27 | −1301.11 | 1/319 | 1164/844 (72.5%) | 49.71 |
+| 874 v0 | +844.59 | −2524.68 | 5/609 | n/a (no `m` key) | — |
+
+- **The entire loss is residue, and residue is ~always adverse: 344/345
+  lose** (the unrepaired side is by construction the side price ran away
+  from; held to settlement it recovers ~0 — 1 win of $7 vs $1523 lost).
+  Residue qty median = p90 = 10: exactly ONE doomed increment per market.
+  [runs 872/873 | 2026-07-31]
+- **Per played market (872): pairs +$0.54, doom −$2.15** (49% of played
+  markets end doomed × $4.43). Break-even repair rate ≈ 94%; actual 80.2%.
+  Completed pair margin $0.28/increment (2.8c/pair — entries fill below the
+  0.98 gate). 873: margin $0.59, repair rate 72.5%, doom rate 52% — margin
+  effect wins on ev but completion drops with the tighter gate.
+  [runs 872/873 | 2026-07-31]
+- **Doom hazard is FLAT across start minutes** (~0.16–0.27 per start every
+  minute in 872; no late-window spike — the 3-min cutoff removed it, and no
+  minute-0 excess either: minute 0 dominates dooms only because 555/1714
+  starts happen there). A start-delay variant is NOT supported — killed
+  before launch. [run 872 | 2026-07-31]
+- **Taker fees are a minor pnl item**: $68.30 of −$1201.55 (872). The 13.4%
+  taker share matters for S3/live-parity, not for pnl. Attribution bound:
+  only 15/415 takers occur in all-S markets ⇒ repair legs are the dominant
+  taker source (mixed markets undecidable from stored rows but carry ~all
+  the rest). [run 872 | 2026-07-31]
+- **v1's repair leg stops chasing at the START gate** (pair.v1.ts uses
+  cfg.maxPairCost for both modes), yet completion stays profitable to pair
+  cost <1.00 — the gate blocks still-profitable repairs. Plus each failed
+  repair cycle leaves the imbalance unquoted for TTL+cooldown. → pair-v2
+  family (repair persistence), see pair-v2.md. [code + runs 872/873 |
+  2026-07-31]
+
+## Gate-curve extension (pre-registered 2026-07-31, session 2 — v1-c/v1-d)
+
+**Hypothesis**: ev(gate) has an interior optimum between 0.98 (v1-a,
+−1.50) and something below 0.95 (v1-b, −1.07): pair margin rises ~linearly
+as the gate tightens while completion rate and volume fall. Two more points
+bracket the curve. The E-004 check applies: a variant whose ev gain comes
+with invested collapse and flat/worse p/100 is volume reduction, not cure.
+
+| config | params | note |
+| --- | --- | --- |
+| v1-c | maxPairCost=0.96 | between a and b |
+| v1-d | maxPairCost=0.93 | below b — expect worse if 0.95 is near-optimal |
+
+Screens `--latest --limit 800` @ 140/20ms vs baseline 874 (intersection).
+design-ts for both = the commit adding this section (M2 param-variant rule).
