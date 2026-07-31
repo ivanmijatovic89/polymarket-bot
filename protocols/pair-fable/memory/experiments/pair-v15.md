@@ -431,3 +431,13 @@ provenance `--protocol pair-fable --model claude-fable-5`.
   all configs lose > $0.50/mkt with no localizable mechanism.
 - Deviations from this plan require a written amendment in this file
   BEFORE the affected run is submitted.
+
+**Amendment A1 (session 17, before the affected runs were submitted
+successfully):** the three I_b = 20 grid configs are invalid as frozen —
+the §8.1 schema refine `orderSize ≤ imbalanceBand` (a single fill must
+not breach the band) rejects q = 25 at I_b = 20; the grid froze an
+internally inconsistent corner and those three submissions were refused
+by the schema (the other 7 went through). Fix, frozen here first: the
+I_b = 20 column runs at `orderSize = 20` (band-tight corner stays
+testable; its q differs from the other columns' 25 — noted for readout
+comparability). No other change.
