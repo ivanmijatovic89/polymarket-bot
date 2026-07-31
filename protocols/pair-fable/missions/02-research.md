@@ -33,7 +33,8 @@ constitution; the Global Runtime contract remains the interface.
    reporting-only), so capital behavior cannot be derived retroactively
    (A2). Therefore: every variant exposes a per-market capital-cap parameter
    (binding strategy convention), and capital behavior is measured by the
-   `capPerMarket` sweep grid (25/50/100/200), one run per level. Report
+   current-program `capPerMarket` sweep grid
+   (`$100`/`$500`/`$1,000`/`$2,000`), one run per level. Report
    every result in the mission-01 units (invested per market, profit per
    $100 invested, EV per capital level). Live starts small and scales up,
    and backtest-vs-live parity is checked on the small configuration first.
@@ -89,6 +90,33 @@ with order size adapted sensibly to capital and displayed depth. The
 500–1,000 matched-share level is an aspiration to investigate, not an assumed
 result.
 
+### Binding research priority
+
+The order of work is explicit and may not be silently reordered:
+
+1. Develop the **neutral continuous controller** that accumulates both sides
+   through most of the market.
+2. Once the neutral controller's mechanics are understood, develop the
+   **directional version of that same controller** using a measured,
+   risk-bounded non-zero inventory target.
+3. Market selection, entry gating, favorite-region trades, and isolated
+   one-shot opportunities are supporting diagnostics only. They may explain
+   losses or provide a signal to the controller, but they must not replace the
+   all-market controller as the primary program without a new human ruling.
+
+Analysis of WHICH markets lose is allowed when it directly informs controller
+math or the directional tilt. It is not permission to turn the program into a
+strategy that waits for a small set of special markets. If a diagnostic points
+to selection rather than a controller improvement, record the finding and
+return to priorities 1–2.
+
+Staged screens may use less capital and smaller orders, but the scale question
+must not be declared answered, converged, or dead until the program has tested
+the `$2,000` level and has either (a) meaningfully approached the 500–1,000
+matched-share range, or (b) produced direct mechanical evidence explaining why
+that range cannot be reached safely or profitably. Linear-looking results at
+smaller scale are evidence, not a substitute for the required scale check.
+
 Maintain and test a backlog of genuinely different controller mechanisms
 derived from the accounting identity, price paths, inventory state, remaining
 time, liquidity, and failed experiments. Previous family failures are design
@@ -111,6 +139,30 @@ keep available workers useful, and use completed results to launch the next
 justified batch. More throughput must remain hypothesis-driven, with frozen
 metrics and verdict bars; never substitute blind parameter brute force or
 p-hacking for mechanism research.
+
+**Time to evidence is binding.** A fresh session recovers state; it does not
+re-derive the whole program. Within the first 10 minutes, it should normally do
+at least one substantive execution action: launch a smoke/backtest, resume or
+launch a data scan, or run a concrete implementation test. Reading, extended
+historical recap, and long design prose alone do not satisfy this rule. If code
+must be implemented before evidence can run, keep the pre-registration to the
+minimum hypothesis/config/metric/verdict contract, implement immediately, and
+record the concrete reason when the 10-minute target cannot be met.
+
+Use concurrency deliberately. Submit independent backtest grids together
+rather than one configuration at a time. Any local analysis that replays more
+than 100 markets must be deterministically sharded across safe parallel
+processes when practical. If it must remain single-process because of database,
+checkpoint, I/O, or determinism constraints, write that reason before launch;
+an idle fleet plus an unexplained long serial scan is not acceptable. A local
+analysis is real evidence and need not create a fleet backtest row, but STATUS
+must say clearly that it is analysis-only, its progress, and why no backtests
+are expected.
+
+Before closing a session, prepare the next experiment's concise hypothesis and
+execution commands when the next step is already known, so the following fresh
+session can execute promptly. Documentation supports experiments; it must not
+become the session's main product.
 
 Two hard rules from mission 01's evidence (A4, A6): never end a session
 blocked on an in-flight fleet run — record the batch/run id in the status
