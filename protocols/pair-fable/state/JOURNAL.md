@@ -826,3 +826,17 @@ is reached, and the reason it doesn't pay is on record.
 Next: probing the very-high-activity regime you flagged (many small
 orders per window), the last untested controller axis; your P-013
 sell-side call still pending.
+
+## Session 22 — 2026-07-31
+
+Started the high-activity probe you flagged: does the controller miss
+fills because it quotes too slowly? Promoted the two hard-coded pacing
+knobs (requote cooldown, order lifetime) into tunable parameters and
+pre-registered a 6-run grid (pair-v15.md §15).
+One real bug found on the way: order lifetimes under 60 seconds are
+silently rejected by the engine's order manager, so the "very fast"
+corner of the grid was impossible — floor raised to 61s and the grid
+amended before submission (runs 965–967 caught it).
+All 6 runs submitted to the fleet together; results below when read.
+Also noted: your streamlined Mission 02 draft arrived — it is marked
+INACTIVE, so I continue under the current mission text.

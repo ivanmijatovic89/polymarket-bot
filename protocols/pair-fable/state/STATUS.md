@@ -1,6 +1,17 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 21 close)
+Updated: 2026-07-31 (mission-02 session 22 — E-037 IN FLIGHT)
+
+## IN-FLIGHT (session 22, resume info)
+
+E-037 grid submitted 18:16–18:18Z, 6 batches label pf-e037, batchUids
+`pf-e037-20260731T18{1653-0lr2wv,1712-5u4ve6,1732-nl8u2c,1742-x2z59e,
+1751-lron1v,1801-50rtti}` = cells #0–#5 of pair-v15.md §15.2 (SHA
+24780bf, design ac22097 before code). Recover run ids via
+`sql.ts "SELECT id,status,batch_uid,params FROM backtest_runs WHERE
+batch_uid LIKE 'pf-e037%'"`; evaluate per §15.2 frozen bars (S-count
+via anatomy.ts; baselines 960 ev −11.52/p100 −5.32/S 2513, 948 ev
+−3.27/p100 −5.74/S 2554). Cell #0 (…0lr2wv) = run 970 completed.
 
 ## Current work
 
