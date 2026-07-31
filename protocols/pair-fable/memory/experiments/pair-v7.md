@@ -102,3 +102,56 @@ a KILL on completion economics is a fortiori, but a BUILD is NOT — a BUILD
 verdict here only licenses Phase-1 strategy code whose backtest under the
 real simulator is the confirming evidence. The taker leg has no such bias
 (true depth-walk parity, pair-v5.md §Parity note).
+
+## Phase-0 results (E-017, scanned 2026-07-31, session 6) — VERDICT: KILL
+
+Scan executed by session 6 (session 5 died mid-scan; the pre-registrations
+above were committed before any scan ran — 8513649 bars, c348f15 code).
+Archive: `memory/experiments/data/bookscan-2026-07-31-s6-latest800.json`
+(scans A–D, 800/800 pinned markets, 199.5M events; scan-A and scan-B/δ=0
+outputs reproduce the session-4 archive EXACTLY, validating the extension).
+
+**Entry frequency (confounder d fails first).** 334 entries at the loosest
+gate (1.00) across 264/800 markets (33%), 0.42/market; sane band 204
+entries. Tighter gates collapse: 56 entries at 0.99, 32 at 0.98, 23 at
+0.97 (≤7% of markets). Taker-leg depth ≥ 10 sh in 74% of entries (c OK).
+
+**FOK survival 44.6%** at gate 1.00 (below 50%, above the 30% red-flag
+line): askY reprices within 140 ms in more than half of the moments —
+the pair-v6 death mechanism, attenuated but present.
+
+**Maker completion actually works mechanically** — fill rate 69% of
+surviving entries (89% at 0.99), crossed-at-arrival only 1%, time-to-fill
+p50 28 s. This is the first family where the completion leg fills. But:
+
+**Economics fail at every gate** (per-market total EV, 10-sh increments):
+
+| gate | entries | pairs EV/mkt | residue EV/mkt | TOTAL EV/mkt (all / sane) |
+| --- | --- | --- | --- | --- |
+| 1.00 | 334 | +0.036 | −0.093 | **−0.057 / −0.048** |
+| 0.99 | 56 | +0.029 | −0.008 | **+0.020 / +0.020** |
+| 0.98 | 32 | +0.026 | −0.007 | **+0.018 / +0.018** |
+| 0.97 | 23 | +0.026 | −0.007 | **+0.018 / +0.018** |
+
+Best gate +$0.02/market vs the $0.10 kill bar — and the maker-fill proxy
+is OPTIMISTIC (fresh-quote assumption inflates fills and pairs EV), so
+these numbers are upper bounds (pre-registered bias direction, e).
+
+**The residue hypothesis is REFUTED, hard.** Pre-registration hoped the
+stranded taker side is "the side that was winning at entry". Measured:
+residue win rate **2.2%** (n=46, mean pY 0.177, −0.162/share). A cheap
+ask inside a wide combined book is cheap because it is informed — the
+unfilled-completion branch strands you on the LOSING side, same doom as
+every killed family, now from the taker side.
+
+**No latency red flag (confounder a): the family is unprofitable even at
+zero latency.** Zero-latency counterfactual at gate 1.00: −$0.19/market
+(worse than 140 ms, because FOK-dead entries at 140 ms are free aborts
+while at 0 ms they execute and strand); tighter gates +$0.004–0.007. This
+axis does not die of latency — it dies of adverse selection in the entry
+condition itself.
+
+**Verdict per pre-registered bars: KILL the family** — total EV < $0.10 at
+EVERY gate on both the full set and the sane band (max +$0.020).
+DIRECTIONAL-SIGNAL outcome not triggered (EV never ≥ $0.25). Time-scoped
+2026-07 as always.

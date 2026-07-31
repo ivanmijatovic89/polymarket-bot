@@ -73,3 +73,56 @@ backtest is the confirming evidence; (d) completion readouts inherit
 pair-v6's death by default (C was ≥ 1 at δ=0 because the COMPLEMENT
 repriced; deeper own-side placement does not obviously help the complement
 leg) — the hold-all prong is the one this family actually banks on.
+
+## Phase-0 results (E-018, scanned 2026-07-31, session 6) — VERDICT: KILL
+
+Same scan pass as pair-v7 E-017 (session 6 execution of the session-5
+pre-registration; archive
+`memory/experiments/data/bookscan-2026-07-31-s6-latest800.json`).
+
+**Binding regression check PASSED exactly.** The δ=0.00 stream reproduces
+E-016's scan B to every reported digit (moments 5039/4247, C p50
+1.0368/1.0373, hold-all −2.59/−2.84 c/share, all percentiles, per-day
+table) against the session-4 archive, and scan A + totalEvents
+(199,542,943) are identical. The scanner extension is valid; the verdicts
+below are licensed.
+
+**Hold-all prong (the one this family banked on): negative at every δ.**
+Sane band, per-market EV at 10-sh increments:
+
+| δ | moments | mkts w/ any | EV/share | EV/mkt | days >0 (of 9) |
+| --- | --- | --- | --- | --- | --- |
+| 0.00 | 4247 | 747 | −0.028 | −1.507 | 1 |
+| 0.01 | 1277 | 451 | −0.027 | −0.437 | 2 |
+| 0.02 | 610 | 275 | −0.027 | −0.205 | 2 |
+| 0.03 | 357 | 182 | −0.010 | −0.043 | 4 |
+| 0.05 | 142 | 78 | −0.009 | −0.017 | 5 |
+| 0.08 | 73 | 41 | −0.037 | −0.034 | 3 |
+
+Per-share toxicity improves with depth (−2.8c → −0.9c at δ=0.03–0.05) but
+NEVER crosses zero, day-consistency never reaches 6/9, and frequency
+collapses 30× — world (ii) of the pre-registered priors: crashes at 15 m
+scale are informed, deep fills do not buy mean-reverting panic. δ=0.08 is
+worse again (−3.7c): the far tail is the most informed.
+
+**Completion prong: dead, with a mechanistic finding.** Free-abort upper
+bound ≤ $0.043/market at every δ (bar: $0.10). At 140 ms the completion
+cost C p50 is 1.037–1.047 across the whole grid — flat in δ. But the
+ZERO-LATENCY C p50 crosses below 1 from δ=0.02 (0.996 → 0.986 → 0.965 →
+0.935 at δ=0.08): a zero-latency actor CAN complete deep-book pairs
+profitably, and 140 ms of complement repricing consumes exactly the δ
+cushion. This extends E-015's "the money exists and belongs to colocated
+speed" from taker-arb to the deep-book maker case — the same ~3–4c/140ms
+repricing wall, now measured at six depths.
+
+**Verdict per pre-registered bars: KILL the family** — every δ fails both
+prongs (hold-all EV < $0.10 AND free-abort < $0.10) on the full set and
+the sane band. Time-scoped 2026-07.
+
+**Class-level consequence** (with E-014/E-015/E-016/E-017): every
+inside-RULES buy-only pair mechanism on btc-15m now has reproduced
+Phase-0 or full-backtest evidence of losing at 140 ms under the
+worst-queue simulator — top-of-book maker (all gates/cadences/mechanisms,
+−0.06/share invariant), taker-taker arb (sub-ms), maker→taker completion
+(pre-repriced), taker→maker (this scan's sibling, adverse entry), and
+deep-book maker at six depths. Escalated as P-010.

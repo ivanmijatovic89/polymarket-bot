@@ -8,6 +8,13 @@
  * Usage (from repo root):
  *   tsx protocols/pair-fable/tools/bookscan.ts [--latest 800] [--max-markets N]
  *     [--latency-ms 140] [--refractory-ms 5000] [--to-ms <epochMs>] [--json]
+ *     [--checkpoint <file.jsonl>] [--time-budget-s N]
+ *
+ * --checkpoint persists each scanned market's aggregate as one JSONL line and
+ * resumes by slug on the next run (scan params are recorded in a header line
+ * and must match). --time-budget-s stops scanning after N seconds and exits 0
+ * with {"partial":true,...} on stdout — rerun the same command to continue.
+ * The full summary is emitted only once every target market is present.
  *
  * Scan A (pair-v5): episodes where bestAskUp+fee + bestAskDown+fee < 1
  * (fee = 0.07·p·(1−p)/share, RULES rubric 4). Survivable = duration ≥ latency.
@@ -63,6 +70,8 @@ type Opts = {
   refractoryMs: number
   toMs: number | null
   json: boolean
+  checkpoint: string | null
+  timeBudgetS: number | null
 }
 
 function parseArgs(argv: string[]): Opts {
@@ -73,6 +82,8 @@ function parseArgs(argv: string[]): Opts {
     refractoryMs: 5000,
     toMs: null,
     json: false,
+    checkpoint: null,
+    timeBudgetS: null,
   }
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!
@@ -101,6 +112,15 @@ function parseArgs(argv: string[]): Opts {
         break
       case '--json':
         o.json = true
+        break
+      case '--checkpoint': {
+        const v = argv[++i]
+        if (v === undefined) fail(`${flag} requires a value`)
+        o.checkpoint = v
+        break
+      }
+      case '--time-budget-s':
+        o.timeBudgetS = next()
         break
       default:
         fail(`unknown flag '${flag}'`)
@@ -816,16 +836,80 @@ async function main() {
     `[bookscan] universe latest=${opts.latest} rows=${rows.length} usable=${usable.length} skipped=${skipped} scanning=${target.length} latency=${opts.latencyMs}ms refractory=${opts.refractoryMs}ms`,
   )
 
+  // --checkpoint: resume per-market aggregates from a JSONL file whose header
+  // line records the scan params (mismatch = hard error; a truncated tail line
+  // from a killed run is skipped and that market re-scanned).
+  const ckptMeta = {
+    latencyMs: opts.latencyMs,
+    refractoryMs: opts.refractoryMs,
+    toMs: opts.toMs,
+    latest: opts.latest,
+  }
+  const cached = new Map<string, MarketAgg>()
+  if (opts.checkpoint && fs.existsSync(opts.checkpoint)) {
+    const lines = fs.readFileSync(opts.checkpoint, 'utf8').split('\n')
+    for (const line of lines) {
+      if (!line.trim()) continue
+      let obj: unknown
+      try {
+        obj = JSON.parse(line)
+      } catch {
+        continue // truncated tail line — market will be re-scanned
+      }
+      const rec = obj as { __meta?: typeof ckptMeta } & MarketAgg
+      if (rec.__meta) {
+        if (JSON.stringify(rec.__meta) !== JSON.stringify(ckptMeta))
+          fail(
+            `checkpoint ${opts.checkpoint} was written with different params ` +
+              `(${JSON.stringify(rec.__meta)} vs ${JSON.stringify(ckptMeta)}) — delete it or match flags`,
+          )
+        continue
+      }
+      if (rec.slug) cached.set(rec.slug, rec)
+    }
+    console.error(`[bookscan] checkpoint: ${cached.size} markets already scanned`)
+  } else if (opts.checkpoint) {
+    fs.appendFileSync(opts.checkpoint, JSON.stringify({ __meta: ckptMeta }) + '\n')
+  }
+
   const t0 = Date.now()
   const aggs: MarketAgg[] = []
+  let scannedNow = 0
+  let timedOut = false
   for (let i = 0; i < target.length; i++) {
-    aggs.push(await scanMarket(target[i]!, opts))
-    if ((i + 1) % 50 === 0 || i + 1 === target.length) {
+    const mkt = target[i]!
+    const hit = cached.get(mkt.slug)
+    if (hit) {
+      aggs.push(hit)
+      continue
+    }
+    if (opts.timeBudgetS !== null && (Date.now() - t0) / 1000 > opts.timeBudgetS) {
+      timedOut = true
+      break
+    }
+    const agg = await scanMarket(mkt, opts)
+    aggs.push(agg)
+    scannedNow += 1
+    if (opts.checkpoint) fs.appendFileSync(opts.checkpoint, JSON.stringify(agg) + '\n')
+    if (scannedNow % 50 === 0 || i + 1 === target.length) {
       const dt = (Date.now() - t0) / 1000
       console.error(
-        `[bookscan] ${i + 1}/${target.length} markets, ${dt.toFixed(0)}s elapsed (${((i + 1) / dt).toFixed(1)} mkts/s)`,
+        `[bookscan] ${aggs.length}/${target.length} markets (${scannedNow} this pass), ${dt.toFixed(0)}s elapsed (${(scannedNow / dt).toFixed(1)} mkts/s)`,
       )
     }
+  }
+
+  if (timedOut) {
+    const dt = (Date.now() - t0) / 1000
+    console.error(
+      `[bookscan] time budget ${opts.timeBudgetS}s hit: ${aggs.length}/${target.length} markets done ` +
+        `(${scannedNow} this pass, ${(scannedNow / dt).toFixed(1)} mkts/s) — rerun with the same --checkpoint to continue`,
+    )
+    console.log(
+      JSON.stringify({ partial: true, done: aggs.length, total: target.length, scannedNow }),
+    )
+    await closeDb()
+    return
   }
 
   const result = {

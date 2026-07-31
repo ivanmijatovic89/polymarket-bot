@@ -504,3 +504,28 @@
   on BTC-15m are exhausted under our simulator's pessimistic fill model,
   and the next move is a proposal to the human: measure real fill quality
   live (P-009) and/or widen the allowed strategy space.
+
+## 2026-07-31 — mission 02, session 6 (both remaining ideas killed on the data)
+
+- Re-ran the big data scan that died with session 5. First rebuilt the
+  scanner so it saves progress to disk as it goes — a killed session now
+  loses minutes, not the whole scan. The rebuilt scan reproduced every
+  session-4 number exactly before I trusted the new parts.
+- Idea 1 (pay the taker fee up front, rest the cheap second leg): the
+  entry moments are rare, and when the second leg never fills we are
+  stuck holding a side that wins only 2% of the time — the cheap price
+  was cheap for a reason. Loses money even with zero delay. Killed
+  (pair-v7.md).
+- Idea 2 (rest orders deeper below the best bid): better prices in bigger
+  crashes, but those crashes are informed — the held positions lose at
+  every depth tried. Striking detail: a zero-delay trader COULD complete
+  these pairs profitably; our 140ms eats exactly the cushion. Killed
+  (pair-v8.md).
+- That empties the in-rules idea list: every way of buying both sides of
+  BTC-15m markets now has reproduced evidence of losing at our speed.
+  Wrote the escalation asking the human to pick where we search next —
+  live fill-quality measurement, wider strategy space, other
+  timeframes/coins, or faster infrastructure (P-010).
+- Next: the promotion-machinery hardening the independent reviewer
+  required (M1–M5), and reading the sibling labs' notes for angles we
+  have not tried.

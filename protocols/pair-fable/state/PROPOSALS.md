@@ -165,3 +165,34 @@ Entry format:
 - date: 2026-07-31
 - context: Mission 02 session 3, pair-v4.md §per-start invariant (E-014). Six runs across two mechanisms and three gates show per-start EV locked at ≈ −0.06/share under the simulator's worst-queue model, killing the whole top-of-book maker pair-accumulation class UNDER THE SIM. But worst-queue grants a fill ONLY when price trades through the level — the maximally adverse subset. Live, takers also lift resting orders without the level breaking (parity.md §3), and those fills are benign for a pair strategy (RULES §fill-model note frames this as understated fill RATE; E-014 shows the bigger issue is fill COMPOSITION).
 - proposal: a small, bounded LIVE measurement to estimate what fraction of real maker fills at bestBid are benign lifts vs trade-throughs, e.g. minimum-size (~5-share) GTD bids joined at bestBid on both sides of a few dozen BTC 15m windows, recording for each fill whether bestBid still held 1s/5s later, plus book context. Cost is a few dollars of inventory risk per window at minimum size; DRY_RUN cannot measure this (no real queue position). If the benign share is materially > 0, the −0.06/share class verdict is a sim floor, not a market fact, and the class may deserve a live-calibrated revisit; if fills are overwhelmingly trade-throughs, the kill is confirmed as real. Needs the human (real orders, real key) — the protocol cannot and will not run this itself.
+
+## P-010: buy-only pair mechanics on btc-15m are exhausted at 140 ms under the worst-queue sim — ruling requested on where to search next
+
+- **Status**: proposed (2026-07-31, session 6)
+- **Evidence** (all reproduced, all pre-registered): E-005/E-014 (top-of-book
+  maker pair: −0.06/share per-start invariant across every gate, cadence and
+  both-sides mechanism, full-universe stationary loss), E-015 (taker-taker
+  arb: moments sub-ms, 1/1943 survives 140 ms), E-016 (maker→instant-taker:
+  complement repriced before the fill instant, P(C<1)=2.4%), E-017
+  (taker→maker: +$0.02/mkt best gate, stranded side wins 2.2%, negative even
+  at zero latency), E-018 (deep-book maker at six depths: hold-all negative
+  everywhere; zero-latency completion IS profitable from δ=0.02 but 140 ms
+  of repricing consumes exactly the cushion).
+- **The recurring wall**: ~3–4 c of complement repricing within 140 ms, plus
+  unconditional adverse selection on any passive fill. Two of five families
+  would be profitable at ~0 ms (E-015 $1.88/mkt; E-018 deep completion) —
+  the edge exists and belongs to colocated speed.
+- **Options that need a human ruling** (any subset):
+  1. Approve P-009 (live DRY-RUN maker fill-quality measurement) — bounds
+     the worst-queue pessimism with real data; cheap; if benign-lift share
+     is high, several KILLs weaken and E-006/E-007-class families reopen.
+  2. Widen strategy space beyond buy-only (allow sells / mid-market merges
+     per RULES amendment) — changes the residue economics that killed
+     every family.
+  3. Widen universe: other timeframes (1h/4h/1d have slower repricing
+     walls?) and/or ETH/SOL/XRP — same mechanics, different microstructure.
+  4. Revisit the 140 ms latency assumption (infrastructure ruling — is
+     sub-50 ms placement realistic for us? E-015/E-018 quantify the prize).
+- **Cost if unanswered**: after M1–M5 hardening and sibling-memory review,
+  the in-rules research frontier is empty; the loop would be reduced to
+  re-testing killed families on new data windows.
