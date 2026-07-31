@@ -511,3 +511,92 @@ no-word-split trap (STATUS standing guard violated in a helper loop;
 detach output hid the schema error). Guard reaffirmed: literal args
 only in submission commands; verify queue depth after every detached
 submit batch.
+
+## 10. v15.1 — graded completion frontier (E-031, session 18 — FROZEN)
+
+Frozen BEFORE the code change (M2: this commit's timestamp is the
+design-ts; the `pair.v15.ts` edit follows it). Motivation = E-030
+findings 3–4: the loss is the strand tax; the only per-dollar lever that
+moved beyond noise is completion policy; v15.0's policy is a binary —
+cheap pair-lock (C, rarely reachable in doomed markets) vs doom-certainty
+salvage (V, fires at winner ask ≈ 0.9+, total ≈ 1.05–1.10). The untested
+continuum between them is a graded recovery-debt ceiling — exactly ruling
+93482fcb amendment 5's "define and limit temporary recovery debt using
+remaining time, imbalance, and maximum-loss constraints".
+
+### 10.1 Specification (only §8.4 taker rules change; §8.3 maker path untouched)
+
+Tunable change (count stays 6): `salvageMax` is REPLACED by **`debtCap`**
+— schema `0 ∪ [lockTarget, 1.15]`, default 0, refine `debtCap > 0 ⇒
+lockTarget > 0`. Semantics differ from salvageMax: debtCap bounds the
+projected CUMULATIVE settled pair VWAP of a completion (cross-subsidy
+framing, same estimand as the C-trigger), not the per-share unit cost.
+
+Single graded rule **G** replaces C and V. When a lag-side deficit
+d ≥ 1 exists and displayed ask size > 0, with x = min(d, askSize),
+a = ask, projected settled pair VWAP
+`P' = (C_s + x·(a + fee(a)))/(Q_s + x) + C_o/Q_o`:
+
+- **Recovery-debt ceiling:** `X(t̂, ι) = P_lock + (debtCap − P_lock) ·
+  ρ(t̂) · min(ι, 1)`, with ι = d / I_b, t̂ = elapsed window fraction, and
+  ramp `ρ(t̂) = clamp((t̂ − 0.25)/(0.80 − 0.25), 0, 1)` (design constants
+  T0 = 0.25, T1 = 0.80 — full debt capacity exactly from the T−180 s
+  lead-stop point; unparsable slug ⇒ t̂ unknown ⇒ ρ = 0, conservative).
+- **Fire:** FOK x at a iff `P' ≤ X + 1e-9` and capital admits. One FOK
+  in flight, FOK_COOLDOWN_TICKS, cancel same-side rest in the same batch
+  — all v15.0 machinery unchanged.
+- **DOOM_BID gate REMOVED:** time × imbalance grading replaces doom
+  certainty. Intended effect: fire earlier at a cheaper winner ask
+  (E-030.3 measured doom-gated completion at ≈ 0.9+; interpolating the
+  strand tax between −$8.6 and −$4.8 per strand-market). The new risk —
+  completing markets that would have recovered — is bounded by X and is
+  what the frontier sweep measures.
+- **Tags (anatomy unchanged):** `C` when P' ≤ P_lock (a v15.0 lock would
+  fire), `V` when P_lock < P' ≤ X (a debt completion).
+- `debtCap = 0` ⇒ X ≡ P_lock ⇒ trigger identical to v15.0 with
+  salvageMax = 0 — run 925 stays the valid disabled baseline.
+
+Cross-version note: comparisons vs 925/929/931 are cross-version
+mechanism comparisons on the identical pinned universe + latency (M1
+identity tooling still pending — review gate).
+
+### 10.2 E-031 grid (FROZEN)
+
+Stages: S0 smoke (defaults + one config with debtCap on; bar = SMOKE PASS,
+no cap breach, G fires somewhere in the sample) → screen. No Stage-B
+diagnostic (change is localized to the taker trigger; E-030 Stage B
+already validated the controller shell). Screen: pinned 800
+(`--latest 800 --to-ms 1784762100000`), 140/20, submitted as one batch up
+front, each config its own command with literal args, queue depth
+verified after submission:
+
+| # | P* | I_b | q | P_lock | debtCap | purpose |
+|---|---|---|---|---|---|---|
+| 1 | 0.96 | 40 | 25 | 0.95 | 0.98 | mild debt (sub-$1 completions only) |
+| 2 | 0.96 | 40 | 25 | 0.95 | 1.02 | frontier |
+| 3 | 0.96 | 40 | 25 | 0.95 | 1.06 | frontier center |
+| 4 | 0.96 | 40 | 25 | 0.95 | 1.06 | EXACT DUPLICATE of #3 — measures the v15-family noise floor (frozen estimand: noise_v15 = \|Δev(#3, #4)\|) |
+| 5 | 0.96 | 40 | 25 | 0.95 | 1.10 | ≈ 929's realized completion range, ramp-graded |
+| 6 | 0.94 | 20 | 20 | 0.93 | 1.06 | best-neutral-corner (931) transfer |
+
+All B = 500. Schema check per cell: q ≤ I_b ✓, P_lock ∈ [0.5, 0.99] ✓,
+debtCap ∈ [lockTarget, 1.15] ✓ (E-030 A1 lesson).
+
+Frozen readouts: §3 metrics 1–8, anatomy pairs/residue decomposition,
+per-mode (S/R/C/V) fills + invested, strand count × mean strand loss,
+mean winner-ask paid on V fills (the interpolation check).
+
+Frozen verdict bars (noise bar = max(2·noise_v15, 0.05), evaluator.md):
+- **ADVANCE** iff some config has evPerMarketTotal > +noise-bar ⇒ Stage D
+  cap sweep {100, 500, 1000, 2000} + FULL + S3/S4 per evaluator pipeline.
+- **LEVER-CONFIRMED / ITERATE** iff the best graded config beats BOTH
+  925 (−3.83) and 929 (−3.23) in ev/mkt beyond the noise bar AND beats
+  929's per-$100 (−5.73) ⇒ the frontier is real; iterate on it (ramp
+  shape, debtCap refinement, or combination with the next backlog lever).
+- **LEVER-DEAD** iff no config beats 929's ev/mkt beyond the noise bar ⇒
+  the graded-cumulative form is dead; record and move to the next backlog
+  mechanism (lag-side maker aggression / larger q into depth).
+- **Family KILL** standard unchanged from §8.6 (never the class).
+
+Deviations require a written amendment here BEFORE the affected
+submission.
