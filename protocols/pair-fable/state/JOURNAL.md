@@ -866,3 +866,7 @@ Six configurations submitted together: no lean, three lean sizes
 toward the winner, one lean toward the loser (to settle the sign
 question), and one requiring a stronger leader before leaning.
 Results below when the fleet finishes.
+Session closing while the fleet works (the six runs need ~25 more
+minutes; the rule is to never sit waiting). Next session reads the
+results and gives the verdict on whether leaning toward the winner
+finally dents the one-way-market loss.
