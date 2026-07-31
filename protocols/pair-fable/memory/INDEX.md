@@ -97,11 +97,16 @@ Pointers, not content.)
   contract enforced as ERROR). Human trigger is one command; sessions run it
   before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
-  family files. E-001..E-005 recorded, all pair-v0 family
-  (`strategies/pair.v0.ts`, runs 861–870, details `experiments/pair-v0.md`):
-  loop proven end-to-end; v0 defaults time-scoped KILL @ 2026-07 — loss is
-  STATIONARY on the full 10,747-market universe (monthly ev −2.21..−2.26 all
-  4 months, 0/16 positive weeks, run 870): mechanism (unpaired residue), not
-  regime. Noise floor 0.0008 (E-002); taker share rises 1.4%→9.1% with
-  latency (E-003); maxPairCost 0.95 = direction not cure (E-004). Six
-  untested variant axes pre-registered in pair-v0.md for mission 02.
+  family files pair-v0..v4. E-001..E-014 recorded (runs 861–887). State as
+  of 2026-07-31 (mission-02 session 3): **the top-of-book maker
+  pair-accumulation class is KILLED (time-scoped 2026-07)** — six-run
+  cross-section (E-014, pair-v4.md §per-start invariant) shows per-start EV
+  ≈ −0.06/share invariant to gate (0.98/0.95/0.93), cadence (E-013:
+  S is fill-limited, inelastic to ttl/cooldown), sides (v4 both-sides: q
+  co-inflates with S), repair policy (E-008/9), entry discipline (E-006),
+  and start-state selection (E-012: doom unpredictable from spot/ptb state,
+  killed pre-code; tools/contested.ts). Every kill is pre-registered and
+  evidence-tagged in its family file. Next axes (inside RULES buy-only):
+  taker pair-arb (ask-sum < 1 − fees moments) and maker-leg +
+  immediate-taker-completion — Phase-0 data scans first. P-009 filed (live
+  benign-fill share would bound the worst-queue fill-quality bias).

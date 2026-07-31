@@ -416,3 +416,31 @@
   discrimination — the latter would kill the whole one-order pair
   mechanism at any tuning.
 - Next: commit (design-ts), smoke, launch the three screens.
+
+## 2026-07-31 — mission 02, session 3 (part 2: three kills and a law)
+
+- Cadence probe (runs 881/882/883, ttl 61 / cooldown 5 at gates
+  0.98/0.95/0.93): start rate moved <1% at every gate — S is FILL-LIMITED
+  (crossings are market-given, requoting faster captures nothing).
+  Cadence-param axis killed per pre-registered rule (E-013).
+- Built pair-v4 (both-sides start quoting — the one structural way to
+  capture more crossings at top-of-book). Pre-registered the honest
+  opposing force: every runaway now catches a resting start. Smoke 884
+  PASS, freeze 28f1f8b, screens 885/886/887: the opposing force won — q
+  co-inflated with S (×1.50 vs ×1.41 at gate 0.98), ev worse at every
+  gate despite pair margin g_sh rising ~50% from double-fill races.
+  Family killed (E-014).
+- **The law that fell out of the six-run cross-section: per-start EV ≈
+  −0.06/share, invariant to gate, cadence, sides, repair policy, entry
+  discipline, and start-state selection.** Under worst-queue every maker
+  fill is a trade-through — pure adverse selection — and no knob in the
+  maker-accumulation class touches its price. Class KILLED (time-scoped
+  2026-07). This closes v0→v4 with a mechanism-level explanation for
+  every prior kill.
+- Filed P-009: only a live benign-fill-share measurement can tell whether
+  −0.06/share is a sim floor or a market fact (needs human, real orders).
+- Session 4 axes (Phase-0 data scans BEFORE code, inside buy-only RULES):
+  taker pair-arb moment frequency; maker-leg + immediate-taker-completion
+  economics from recorded books.
+- 8 runs this session (880–887: 2 smokes, 6 screens), 3 experiments, 3
+  pre-registered kills, 0 unverified claims.
