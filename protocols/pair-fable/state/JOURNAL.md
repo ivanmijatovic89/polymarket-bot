@@ -870,3 +870,19 @@ Session closing while the fleet works (the six runs need ~25 more
 minutes; the rule is to never sit waiting). Next session reads the
 results and gives the verdict on whether leaning toward the winner
 finally dents the one-way-market loss.
+
+## Session 24 — 2026-07-31 — Leaning toward the winner works, but we pay full price for it
+
+Read the six directional runs. Leaning toward the leading side is
+clearly better than not leaning, and leaning toward the LOSING side
+is much worse — so the "who is winning" signal in the order book is
+real (run 981 vs 982). The catch: the extra shares we lean with are
+bought late, at expensive prices that already reflect how likely the
+leader is to win — so the total loss barely moves; only the
+per-dollar numbers improve. The typical market is now slightly
+profitable; the remaining damage comes from markets where the
+leader flips and the controller chases both sides at high prices.
+Next (already submitted, six new runs): only allow the lean when the
+price is still cheap, and only lean after the leader has held its
+lead for a while — attacking the expensive-purchase and flip-chasing
+problems directly.
