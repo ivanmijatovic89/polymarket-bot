@@ -118,5 +118,10 @@ Pointers, not content.)
   only). Research resumed on the ruling's six axes — priority: absolute
   entry-price ceiling (pair-v9, E-019), then opportunistic cheap-side
   completion + above-$1 loss-mitigating completion (shared machinery).
+  E-019 verdict (runs 889–895): one-rest ceiling KILLED at every X, but
+  the kill extends to persistent-rest only for X ≥ 0.20 — X=0.15 sits
+  inside noise (ev −0.03, capture× 1.06) on the grid's lower boundary ⇒
+  X<0.15 and duty-cycle-100% stay open (E-021), taker-completion module
+  (axes 2+3) is pair-v10 (E-020); details pair-v9.md §Result.
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
   additional research memory (`siblings.md`, 2026-07-31).
