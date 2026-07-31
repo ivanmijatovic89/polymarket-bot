@@ -219,3 +219,49 @@ real). Distinguishing +1¢ from 0 needs ~13× the data.
    code; the ruling question goes to PROPOSALS only if E-029 confirms.
    In-family uses (completion pricing, start-side choice) need no
    ruling.
+
+## E-035 — disjoint-history tilt-signal firm-up (session 20 — FROZEN)
+
+Purpose: the §5 (pair-v15) directional-variant gate — "tilt signal must
+show ≥ 2 SE unconditional value in a calibration readout". E-028b left
+the favorite region positive-but-underpowered (best z = 1.24 at n = 800).
+This measurement is the E-029-shaped scan run for the TILT GATE: the
+standalone one-shot exploiting variant STAYS PARKED per ruling 90d94c56 /
+93482fcb; if the signal confirms, the pre-declared scope question (v14
+§Follow-ups) goes to PROPOSALS — no exploiting strategy code without the
+human ruling. In-family use (v15 tilt I* ≠ 0) needs no ruling (§5).
+
+Design (FROZEN; this commit = design-ts, BEFORE any calib.ts change):
+
+- **Estimand/policy**: unchanged E-028b first-touch machinery
+  (`calib.ts --first-touch`), frozen regions R1 [0.90,1.00), R2
+  [0.90,0.95), R3 [0.95,1.00), minutes 0–9 (k ≤ 39), latency 140 ms,
+  edge = 1{win} − (p + fee), cluster-robust SE by slug.
+- **Universe**: eligible btc 15m STRICTLY BEFORE the pinned 800
+  (`--latest 99999 --to-ms 1784042999999`) — fully disjoint from the
+  region-selection data (true confirmation; no split needed). Preflight
+  measured this session: rows = 9947, usable = 9947, noOutcome = 0. If
+  any later preflight differs from 9947, STOP and investigate.
+- **Tool amendment (pre-registered)**: add `--offset N` to calib.ts
+  (slice `withOutcome.slice(offset, offset + maxMarkets)`), checkpoint
+  meta UNCHANGED (slicing is an execution detail; features per market
+  depend only on latency/toMs/latest/firstTouch). Execution: 6 parallel
+  shards × 1658 markets, per-shard checkpoints
+  `data/calib-oos-2026-07-31-shard{0..5}.jsonl`, foreground batches with
+  `--time-budget-s`; final analysis = concatenate shard lines under one
+  meta header and run once offset-less (all cached → straight to
+  analysis). Expected ~4 h single-process ⇒ ~45 min at 6×, resumable
+  across sessions.
+- **Bars (FROZEN, single-pass confirmation)**:
+  - **TILT-CONFIRM**: any of R1/R2/R3 with POSITIVE edge ≥ 2×SE on the
+    disjoint set ⇒ next: design §5 directional v15 (I* sized from the
+    measured edge); PROPOSALS entry for the standalone-variant scope
+    question.
+  - **TILT-REJECT**: all regions < 2 SE ⇒ record CIs; tilt stays
+    ungated; the remaining untested identity lever is WHEN
+    (entry-timing shape).
+  - Descriptive only (no bar): longshot-overpricing replication (bands
+    ≤ 0.55), full cell views.
+- **Power (honest prior)**: at E-028b point estimates (+0.009..+0.013)
+  with SE shrinking ~√12.4 ≈ 3.5× (SE_R3 ≈ 0.0029), a real edge reads
+  z ≈ 3–4.4; a null reads ~0. Decisive either way.
