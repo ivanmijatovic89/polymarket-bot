@@ -761,3 +761,24 @@ real, steady per-dollar improvement across the whole program.
 Next: stop paying market-taker prices to fix imbalance at all — make
 the lagging side's resting bid more aggressive inside the tolerance
 band, so pairs complete at maker prices before they ever strand.
+
+## Session 19 — 2026-07-31
+
+Tested the idea from last session: make the lagging side's resting bid
+more aggressive so imbalance gets fixed at cheap maker prices instead
+of expensive taker prices. It works exactly as designed but almost
+never gets the chance — the price grid only allows a one-cent
+improvement, and our own taker completion usually wins the race to the
+same dip. Killed at the measured bar (pair-v15.md §11.5).
+Then tested whether simply trading BIGGER helps — 2× and 4× larger
+orders, up to $1,000 per market. Inventory scales beautifully (we hit
+the originally-imagined ~200 matched shares per market) but the loss
+per dollar stays exactly the same: size is a volume knob, not an edge
+(§12.2).
+That closes every "HOW to accumulate" knob this family has: completion
+policy, quote aggression, and size all converged on the same ~$5–6
+lost per $100, all of it paid completing one-way markets.
+Next: stop asking HOW and start asking WHICH — measure whether
+observable market features (spread, depth, early movement) predict the
+losing markets, and firm up the one price region that ever measured
+positive, before writing any new strategy code.
