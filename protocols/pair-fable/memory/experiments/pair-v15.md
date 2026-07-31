@@ -1069,3 +1069,76 @@ Findings:
    run on existing run rows + telonex parquet before any new strategy
    code. This is a FAMILY-axes verdict, not a class kill (identity
    argument names the untested levers).
+
+## 13. E-034 — market selection by early liquidity/motion structure (session 20 — FROZEN)
+
+Motivation: the guard-4 verdict (§12.2 finding 4). The neutral v15
+per-dollar loss ≈ −5..−6/$100 is invariant to completion policy, maker
+aggression, and size/cap; the loss is the doom-completion premium of
+one-way markets. First WHICH-axis measurement (ruling 8758567d axis 6):
+do START-observable features predict v15 per-market pnl? Analysis-only —
+existing run rows + telonex parquet; NO strategy code unless a frozen
+bar passes.
+
+Relationship to E-022 (KILLED F1–F5 market selection for v1 run 872):
+the response variable differs — v1 played sparsely (starts fill-limited)
+and E-022's doom label was final imbalance; v15 plays ~every market with
+~10–40 fills and its loss concentrates in doom-completion premium, so
+per-market pnl is a much richer target. E-022's flat doom rates and
+degenerate F1/F3 are a NEGATIVE prior carried forward honestly. The
+genuinely new content: (a) v15 pnl vs the same 5 features; (b) two NEW
+early-motion features targeting one-way-ness directly — price range and
+net drift over minutes 0–3 — untested anywhere (E-022's F4 counted
+direction CHANGES not magnitude; E-012 tested spot-vs-priceToBeat, a
+different space; E-027 tested start-minute timing).
+
+### 13.1 Design (FROZEN before tool changes; this commit = design-ts)
+
+- **Tool**: `tools/mktselect.ts` v2. Changes: (1) checkpoint meta drops
+  `run` and gains `v: 2` — features are run-independent, one scan joins
+  to both reference runs; the meta change makes reuse of the v1 archive
+  impossible by construction (it lacks F6/F7). (2) New features from the
+  in-window up-side bestBid series (post-event values `cur[0].bid` at
+  events with ts ∈ [w0, w1), non-null):
+  - **F6 upRange** = max − min over the series (null if series empty);
+  - **F7 upNetDriftAbs** = |last − first| (null if empty);
+  - checkpoint additionally records `f7Signed` = last − first —
+    EXPLORATORY ONLY, excluded from every bar and from the rule search
+    this experiment (future tilt analysis may use it).
+  (3) Per-rule selected-vs-complement separation stats: sepDiff =
+  ev_in − ev_out, sepSE = sqrt(se_in² + se_out²) (Welch), per half. A
+  rule enters the report if it passes EITHER exploration filter below.
+- **Window / universe / split**: unchanged from E-022 — minutes 0–3,
+  pinned 800 (`--latest 800 --to-ms 1784762100000`), epoch-sorted
+  0-based index, ODD = exploration, EVEN = confirmation, quintile edges
+  frozen on exploration, contiguous-range rule search (select-all
+  excluded), 7 features × 14 ranges = 98 candidates per run.
+- **Reference runs**: PRIMARY **948** (v15.3 center γ=0: q=25 P*=0.96
+  I_b=40 B=500 doomUnitMax=0.99, ev −6.44-class, per-$100 ≈ −5.7);
+  SECONDARY **952** (corner γ=0: q=20 P*=0.94 I_b=20 B=500). 952 is a
+  robustness read, not an independent discovery pass.
+- **Bars (FROZEN)**:
+  - **B1 — proceed to gated variant (economics)**: some contiguous
+    quintile range with subset ev ≥ 0 on BOTH halves at ≥ 25% retention
+    per half on run 948, AND subset ev ≥ 0 at ≥ 25% retention (both
+    halves) for the SAME feature+range on 952.
+  - **B2 — avoidance signal (STATUS 2-SE bar)**: a contiguous range
+    with (ev_in − ev_out) ≥ 2·sepSE, same sign, on BOTH halves of 948,
+    retention ≥ 25% on the selected side, AND same-direction separation
+    ≥ 1·sepSE on both halves of 952. B2 alone does NOT trigger strategy
+    code (avoiding the worst quintile of a uniformly-negative family
+    still leaves ev < 0); it triggers a recorded design decision.
+  - **Integrity**: F1–F5 for slugs shared with the E-022 archive
+    (`data/mktselect-2026-07-31-latest800.jsonl`) must reproduce
+    exactly (code path unchanged); any mismatch ⇒ STOP, investigate
+    before reading any result.
+- **Outcomes**: PASS-B1 → design a gated v15 variant next session.
+  PASS-B2-only → record the separation + design decision, then proceed
+  to tilt firm-up (STATUS step 2). FAIL both → WHICH-axis
+  answered-negative for v15 on these 7 features at minutes 0–3 (scope:
+  this feature set, this universe — NOT a class kill), proceed to tilt
+  firm-up.
+- **Execution**: local foreground chunks, checkpoint
+  `memory/experiments/data/mktselect-v2-2026-07-31.jsonl`,
+  `--time-budget-s` per chunk; expected ~8–35 min total (mktselect
+  measured 0.4–1.8 mkts/s).
