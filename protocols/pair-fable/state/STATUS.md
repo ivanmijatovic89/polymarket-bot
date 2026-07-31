@@ -30,26 +30,92 @@ E-035). All local analysis — zero fleet runs. Headlines:
 The buy-at-ask toll is measured positive-nowhere across (minute × band)
 at n≈10k. The program's remaining live directions are below.
 
-## Next step
+## MID-SESSION MISSION AMENDMENTS (f8b19a4 + 08a85f4, 2026-07-31 ~18:40)
 
-1. **P-013 (NEW, needs human):** sell-side mirror program scope ruling —
-   E-035's band curve says the measured edge belongs to whoever RESTS
-   the overpriced asks; split→sell-both-sides is the mirror controller.
-   Pending the ruling, the lab may run read-only Phase-0 (fee-model
-   capability check: does the engine charge maker/resting fills 0? +
-   sell-side episode scan via bookscan machinery) as autonomous backlog
-   work. NO sell-side strategy code without the ruling.
-2. **High-activity regime probe (inbox d904e17d, unexplored):** the
-   known-profitable operator does ~700 trades/window vs our ~4–12.
-   Design question for next session: what measurable claim about the
-   100×-activity regime can the engine support, given worst-queue fill
-   conservatism (E-025 calibrated at ToB only)? Frame as analysis-first;
-   name the fill-model caveat in any design.
-3. **Cross-symbol replication:** still gated on P-012 (eth/sol/xrp
-   conversions, 0 rows).
-4. v15 family: no further HOW/WHICH/tilt spend without a new measured
-   signal (guard-4 verdict stands). Review gate M1–M5: ALL IMPLEMENTED
-   (4809a8e).
+The human amended missions/02-research.md while s20's scans ran. Binding
+changes now in force: (1) research priority order — neutral controller,
+then directional controller; selection/favorite/one-shot work is
+supporting-diagnostic ONLY and may not become the main line; (2) the
+scale question may NOT be declared answered/converged/dead until the
+**$2,000 capital level** is tested AND the 500–1,000 matched-share range
+is approached or mechanically explained — **E-033's SCALE-NEUTRAL
+verdict is hereby QUALIFIED: it covers q ≤ 100 / B ≤ 1000 / M ≈ 231
+only; the binding scale check is still open**; (3) 10-minute
+time-to-evidence target per session; (4) every-session alignment gate in
+STATUS (see below) with GREEN/YELLOW/RED and consecutive-YELLOW limit;
+(5) every-fifth-session audit replaces the old self-check (next audit
+due session 25 under the new template).
+
+## Next step (priority order per amended mission)
+
+1. **E-036 (GREEN, next session's first action): the binding scale
+   check.** Pre-register minimally (hypothesis/config/metric/verdict),
+   then run: pinned 800 @ 140/20, γ=0, doomUnitMax=0.99, grid aimed at
+   $2,000 caps and 500–1,000 matched shares, e.g. 4 configs submitted
+   together: {q=100,I_b=160,B=2000}, {q=200,I_b=320,B=2000},
+   {q=300,I_b=480,B=2000}, {q=200,I_b=320,B=1000}; band:q ratio held at
+   1.6 per E-033. **Schema bounds VERIFIED s20 (pair.v15.ts:64–78):
+   capPerMarket ≤ 2000 OK, but orderSize ≤ 100 and imbalanceBand ≤ 200
+   BLOCK the q=200/300 cells — E-036's frozen design must include a
+   deliberate bound raise (e.g. orderSize ≤ 400, imbalanceBand ≤ 800;
+   M5's spirit kept — bounds stay, raised with the depth argument
+   named) committed BEFORE submission, and cannot run while v15 jobs
+   are queued (fleet currently idle).**
+   Baselines: 948/952/956/957 (same SHA 4a5982e if unchanged; else
+   fresh same-SHA baseline). Metrics: §3 set + matched-share
+   distribution vs the 500–1,000 aspiration; verdict bars: per-$100
+   0.54 / ev 0.30 vs the E-033 trend, PLUS the mission's (a)/(b)
+   disjunction — approach the range or mechanically explain why not
+   (guard-7 depth optimism MUST be named: q ≥ 200 vs ToB depth 300–450
+   makes whole-size fills increasingly optimistic — this may BE the
+   mechanical evidence (b)).
+   Launch command shape (verify schema first):
+   `npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy
+   pair-fable-v15 --param capPerMarket=2000 --param orderSize=200
+   --param imbalanceBand=320 --param pairTarget=0.96 --param
+   doomUnitMax=0.99 --param lagAggr=0 --latest 800 --to-ms
+   1784762100000 --queue --json` (one per config).
+2. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+   Under the amended priority rules this is explicitly a program-change
+   question — no sell-side work beyond the filed proposal without the
+   ruling.
+3. **High-activity regime probe (inbox d904e17d):** design AFTER E-036;
+   frame as neutral-controller cadence work (GREEN) with the fill-model
+   caveat named (E-025 calibrated at ToB only).
+4. **Cross-symbol replication:** gated on P-012. v15 HOW/WHICH/tilt: no
+   further spend without a new measured signal (guard-4 stands, scale
+   axis EXCEPTED per the amendment). M1–M5: ALL IMPLEMENTED (4809a8e).
+
+## Alignment gate — session 20 (first gate under 08a85f4)
+
+- **Classification:** supporting-diagnostic (E-034 selection; E-035
+  directional-tilt signal gate).
+- **Direct mission contribution:** closed the §5 directional-controller
+  signal question with evidence — the only candidate tilt signal is
+  refuted OOS (E-035, 9,947 markets; commits 7154ff8→1c782a9), so the
+  directional controller has NO measured signal to build on; closed the
+  WHICH axis (E-034, d4da4e1→d524070). Both were the pre-amendment
+  STATUS plan; both directly inform controller math (what NOT to build).
+- **Time to evidence:** ~5 min (session start ≈18:08, E-034 design
+  commit 18:11:58, first scan execution ≈18:13). Target met.
+- **Throughput:** 2 experiments completed; 10,747 market-replays
+  analyzed locally (800 mktselect + 9,947 calib); E-035 sharded 6-way
+  (~3 mkts/s aggregate); E-034's 800-market scan ran single-process
+  (~13 min) — reason: launched before the amendment existed; mktselect
+  supports checkpoint but not offset-sharding yet. Zero fleet runs
+  (analysis-only session; fleet idle by design — no controller grid was
+  justified until the diagnostic verdicts landed).
+- **Scale progress:** none this session (diagnostics). Open gap: $2,000
+  untested, best matched-share M mean 231 (E-033) vs 500–1,000 target.
+  E-036 (next) attacks exactly this gap.
+- **Next-session priority:** E-036 scale-check grid (GREEN,
+  neutral-controller); commands above.
+- **Verdict:** **YELLOW** (supporting diagnostics that directly inform
+  controller/directional math; first consecutive YELLOW — s19 was GREEN
+  controller testing). Next session MUST be GREEN (E-036 satisfies
+  this).
+- Previous verdicts for consecutive-YELLOW enforcement: s19 GREEN
+  (retro-classified: E-032/E-033 controller grids), s20 YELLOW.
 
 ## Blockers
 

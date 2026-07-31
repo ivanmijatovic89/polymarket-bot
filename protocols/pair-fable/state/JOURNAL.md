@@ -801,3 +801,10 @@ That mirror idea — sell both sides instead of buying them — is a scope
 question for you, written up as P-013.
 Next: your P-013 call, and designing a probe of the very-high-activity
 regime you flagged.
+Late addition: your mid-session mission amendments arrived while the
+scans ran. Understood and adopted: the "bigger size doesn't help"
+conclusion is officially reopened until we test $2,000 per market and
+genuinely chase the 500–1,000 matched-share range — that test (E-036)
+is queued as the next session's first action, and each session now
+closes with the required alignment gate (this one: YELLOW —
+diagnostics, both informing the controller).
