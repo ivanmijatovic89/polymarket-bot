@@ -649,3 +649,52 @@ Iff #7 beats 929 but not 937 beyond noise ⇒ backstop dominates, graded
 adds nothing at 800-scale — prefer the simpler doom-only policy (guard
 2 removes debtCap's slot). Iff #7 fails to beat 929 ⇒ record and fall
 back to §10.2 verdicts on the pure grid.
+
+## 10.4 Result E-031 pure grid (session 18, 2026-07-31) — runs 935–940
+
+All 6 completed, 0 failures, recon badRows = 0 everywhere. Pinned 800 @
+140/20. Table (V-vwap = mean price paid per debt-completion share):
+
+| run | cfg (debtCap) | ev/mkt | p/$100 | M mean/med (mkts>0) | mean P | %<.98/.95 | strands × meanL | V vwap |
+|---|---|---|---|---|---|---|---|---|
+| 936 | 0.98 | −3.67 | −6.95 | 71/58 (556) | 0.952 | 95/48 | 506 × −8.74 | — |
+| 935 | 1.02 | −3.60 | −6.91 | 71/63 (543) | 0.963 | 89/18 | 486 × −7.85 | 0.518 |
+| 937 | 1.06 | −3.47 | −6.70 | 70/67 (551) | 0.973 | 64/8 | 424 × −7.74 | — |
+| 938 | 1.06 DUP | −3.32 | −6.43 | 70/65 (548) | 0.972 | 70/9 | 425 × −7.47 | — |
+| 939 | 1.10 | −3.20 | −6.13 | 70/67 (557) | 0.983 | 45/3 | 380 × −7.12 | 0.557 |
+| 940 | corner 1.06 | −1.78 | −6.05 | 42/40 (522) | 0.973 | 60/21 | 323 × −5.31 | 0.555 |
+
+Findings:
+
+1. **v15 family noise floor MEASURED: noise_v15 = 0.15 ev/mkt** (937 vs
+   938, identical configs; Δper-$100 0.27) — 3× the evaluator default
+   0.05. Real-delta bar for this family = max(2×0.15, 0.05) = **0.30**.
+   Retroactive check: E-030's salvage delta (+0.60) still exceeds the
+   corrected bar — that conclusion survives. All future v15 verdicts use
+   0.30. Root cause consistent with taker-heavy fill-timing sensitivity
+   (the evaluator's stated concern when it set the default).
+2. **The graded frontier is real vs pure lock, monotone in debtCap**:
+   −3.67 → −3.20 across 0.98/1.02/1.06/1.10 (center); best center config
+   beats 925 (−3.83) by +0.63 > 0.30. The mechanism fires exactly as
+   designed: debt completions average 0.52–0.56 per share (vs doom
+   salvage's ≈ 0.9+), and strand-markets fall 506 → 380 as the ceiling
+   widens.
+3. **But it does not beat doom salvage**: best center config 939 vs 929:
+   Δev +0.03 (≪ 0.30), per-$100 WORSE (−6.13 vs −5.73). The cumulative
+   ceiling never completes true-doom markets (cumulative P' > any
+   reasonable debtCap), leaving 380 strands × −7.12 that 929's unit-cost
+   rule clears (450 → 3). Graded-cumulative alone ≈ partial SUBSTITUTE
+   for doom salvage, not an improvement.
+4. **Corner transfer adds nothing**: 940 (−1.78) vs 931 (−1.83) = +0.05,
+   inside noise.
+5. **Verdict per frozen §10.2 bars: none fires cleanly** — not ADVANCE
+   (no positive config); not LEVER-CONFIRMED (per-$100 fails); the
+   LEVER-DEAD literal wording ("no config beats 929's ev/mkt") is
+   technically not triggered by 940 — but that comparison is a
+   volume-knob artifact (931 already sits at −1.83 with no completion
+   lever at all; E-030 finding 2's monotonicity). Process lesson
+   recorded: verdict bars must name their comparison PAIRS (like-for-like
+   configs), not "any config vs one baseline". Effective verdict:
+   **ITERATE on the pre-registered §10.3 combo** (E-031b, submitted
+   after this grid drained; prediction ev ≈ −2.9 registered before
+   results).
