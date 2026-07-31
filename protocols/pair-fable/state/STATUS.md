@@ -1,132 +1,117 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 25)
+Updated: 2026-07-31 (mission-02 session 26)
 
 ## Current work
 
-**Session 25: five-session audit (s20–s24) PASS; E-039 read and
-CLOSED (CEIL-LIVE); E-040 (fine ceiling + real-dose persistence)
-frozen (d6470a5) → v16.2 implemented (63fec11) → smoked (run 992) →
-6-cell grid submitted and queue-verified.**
+**Session 26: E-040 CLOSED (INSTRUMENT-BOUND); noise model at
+pinned-800/B500 REPLACED; E-039 re-verdicted CEIL-UNRESOLVED
+(pre-registered §9 consequence); E-041 FULL-instrument ceiling
+re-test frozen + submitted (4 × 10,747 jobs).**
 
-E-039 verdict (runs 986–991, full table pair-v16.md §8): CEIL-LIVE —
-every cell beats d0 (987) by > 0.30 ev. **Winner d1 = ceiling 0.90
-(run 986): +1.91 ev, p/100 −3.16 (family best on record), win% 60.8
-kept, median +3.85.** Dose saturates below 0.90 (+0.25/+0.05 steps,
-< bar) — removal-side confirmation of E-038's decomposition: only
-the >0.90 chases were toxic; 0.80–0.90 D completions ~fair-priced.
-Flicker persistence alone +1.37 (990); interaction at tight ceiling
-NEGATIVE (991). Best absolute state: ev −10.83 @ B=500 — still far
-from the ≥ +2 bar; lever ladder continues.
+E-040 close (runs 993–1000, full table pair-v16.md §10): the
+duplicate triplet {994, 999, 1000} (formula-identical e0) clusters
+within 0.34 ev, but paired per-market sd(Δpnl) ≈ 34 in EVERY pair
+(duplicates included) ⇒ single-run pairwise ev SE ≈ 1.2 (2σ ≈ 2.4)
+at pinned-800/B500. Run 986 (formula-identical, code/universe/feeds
+all verified identical) sits +1.4..+1.8 above all three duplicates —
+the tail is real and 3 duplicates under-sample it. e1's +1.3 has the
+same signature ⇒ CEIL-FINE unresolved; PERSIST unresolved at ev;
+structural facts stand (persist 1400 barely binds — leaders already
+~always ≥10 s persistent at gap 0.10; tilt D-spend unit-cost cliff
+between 0.85 and 0.80). **E-039 re-verdict: CEIL-LIVE →
+CEIL-UNRESOLVED** — winner +1.91 is z ≈ 1.6; winner state
+(−10.83 ev, p/100 −3.16) did NOT replicate (triplet mean −12.37,
+p/100 −3.6..−3.7). Dose-structure facts stand; ev claims withdrawn.
+E-038 TILT-LIVE not re-opened (structure, not a single pair).
 
-**IN FLIGHT (next session reads FIRST; do NOT resubmit):** E-040,
-6 runs, pinned 800 @ 140/20, SHA 63fec11 (v16.2: leadPersistTicks
-schema max 200→20000, schema-only). Queue verified: 6 aggregate
-jobs, 4,800 market jobs, 0 failed at submit, 31/31 workers on
-63fec11. Cells (center = d1: τ+160 gap.10 q100 I160 B500 P*.96
-doom.99 cool5 ttl90):
+**Binding instrument rule (pair-v16.md §10):** ev-level verdicts at
+B=500 now require FULL-universe run pairs (SE ≈ 0.33) or
+duplicate-triplet means. Pinned-800 single runs remain the
+structure/mechanism screen only.
 
-| # | tiltUnitMax | persist | batchUid | vs |
-|---|---|---|---|---|
-| e0 | 0.90 | 0 | pf-e040-e0-20260731T2001* (exact uid lost to output truncation; recover via `results.ts --last 8`; presence verified — 6 aggregates in queue) | run 986 (bridge) |
-| e1 | 0.95 | 0 | pf-e040-e1-20260731T200143-bzdc0k | e0, 987 |
-| e2 | 0.85 | 0 | pf-e040-e2-20260731T200200-2kgqmz | e0 |
-| e3 | 0.90 | 20 | pf-e040-e3-20260731T200218-cj6h4g | e0, 990 |
-| e4 | 0.90 | 1400 | pf-e040-e4-20260731T200234-334dtv | e0, e3 |
-| e5 | 1.00 | 1400 | pf-e040-e5-20260731T200306-gn57tn | 990, 987 |
+**IN FLIGHT (next session reads FIRST; do NOT resubmit):** E-041,
+4 FULL runs @ 140/20, SHA d204df35 (params-only, no code change),
+universe 10,747 identical on all cells (--to-ms 1785196800000 pin,
+from-ms floor). Queue verified 20:28Z: 4 aggregates
+(waiting-children), ~43k market jobs, 0 failed, f0a 2264/10747.
+ETA ~2–2.5 fleet-hours from 20:27Z. Center = E-040 e0 (τ+160 gap.10
+q100 I160 B500 P*.96 doom.99 cool5 ttl90 persist0):
 
-Readout: `tsx protocols/pair-fable/tools/results.ts --last 8` then
-`compare.ts --runs <e0>,<e1..e5>` (e0 baseline) + cross-SHA
-`compare.ts --runs 986,<e0>` for the bridge; anatomy.ts per run
-(D-fill $ + resid mkts + residue win-side). Frozen bars pair-v16.md
-§9 (ev governs, bar 0.30): BRIDGE-STOP |e0−986| p/100 > 0.54;
-CEIL-FINE-MOVE / PERSIST-LIVE / PERSIST-DEAD / PERSIST-HARMFUL per
-§9. Decision mapping: any LIVE ⇒ iterate winner; all dead ⇒ design
-signal (b) spot-vs-priceToBeat tilt.
+| # | tiltUnitMax | batchUid |
+|---|---|---|
+| f0a | 0.90 | pf-e041-f0a-20260731T202514-4lc2kv |
+| f0b | 0.90 | pf-e041-f0b-20260731T202554-njqzov |
+| f1 | 1.00 | pf-e041-f1-20260731T202637-hwbk83 |
+| f2 | 0.95 | pf-e041-f2-20260731T202727-4oge4h |
 
-## Five-session audit (s20–s24) — performed s25, verdict PASS
+Readout: `results.ts --last 4`; noise SE_pair from the f0a/f0b
+paired per-market sd (sql.ts paired query, see §10 for the form);
+frozen bars pair-v16.md §11: B_full = max(0.30, 2×SE_pair,
+|Δev(f0a,f0b)|); verdicts CEIL-REAL / CEIL-HARMFUL / CEIL-NULL /
+FINE-MOVE / INSTRUMENT-FAIL (B_full > 0.8). Decision mapping:
+CEIL-REAL ⇒ iterate acquisition price at FULL instrument;
+NULL/HARMFUL ⇒ ceiling closed, center reverts to 1.00, next lever =
+signal (b) spot-vs-priceToBeat tilt (v17, new file — safe to build
+while E-041 runs since it does not touch pair.v16.ts).
 
-- **Gates** (verified from committed STATUS history, commits
-  ff360c7/8c087f7/342ab49/f64a612/251a35e): s20 YELLOW (E-034 +
-  E-035 diagnostics, TtE ~5 min), s21 GREEN (E-036 binding scale
-  check, ~3 min), s22 GREEN (E-037 cadence, ~8 min), s23 GREEN
-  (E-038 build+submit, ~11 min — the only TtE miss, reason recorded:
-  new strategy code first), s24 GREEN (E-038 close + E-039 submit,
-  ~1 min). **4 GREEN / 1 YELLOW / 0 RED**; no consecutive YELLOW;
-  gate present every session.
-- **Throughput:** 23 fleet runs ≈ 18,400 market-jobs (E-036 5×800 +
-  smoke, E-037 6×800 + 5 smokes, E-038 6×800 + 2 smokes, E-039
-  6×800 + 2 smokes) plus 2 full-scale local scans (E-034 800-mkt
-  reanalysis; E-035 9,947 mkts, 6-shard parallel). Whole-grid-up-
-  front respected on every 3+ grid.
-- **Open primary requirements:** $2,000 + 500–1,000 matched-share
-  check CLOSED correctly in s21 (E-036: range reached, mechanical
-  evidence attached, guard-7 caveat carried — both mission §4.2
-  prongs). Directional controller ACTIVE and leading (correct per
-  §3: neutral axes closed E-030→E-037, each close names pairs +
-  scope). Profit target far (best ev −10.83 @ B500, per-$100 −3.16).
-  No premature closures found.
-- **M1–M5 promotion machinery: NOT implemented yet.** Not yet
-  binding (nothing near promotion — all variants negative), but it
-  gates the FIRST promotion/LIVE-CANDIDATE. Scheduled: implement in
-  the first session with fleet wait time, target ≤ s29.
-- **Next-five plan (s25–s29):** s25 E-040 grid (GREEN, done);
-  s26 read E-040, iterate winner or design signal (b) (GREEN);
-  s27 signal (b) spot-vs-priceToBeat tilt or winning-lever dose
-  (GREEN); s28–s29 continue directional + M1–M5 implementation.
-  ≥3 GREEN controller increments; ≤1 diagnostic slot reserved,
-  none planned.
+## Audit correction (s25 audit item)
+
+**M1–M5 ARE implemented and verified** — commit 4809a8e
+(2026-07-31 01:41, in main's history), per-finding verification in
+its commit message (M1 exemplar now FAILS mechanical; M2 design-ts
+sanity check live; M3 2×SE champion bar + dethroning; M4
+cross-run SHA warnings in evaluate/compare + team-workflow rule 4;
+M5 schema max). The s25 audit line "NOT implemented yet" was wrong —
+it did not check the tool code. Remains subject to "must stay
+implemented and passing" before first promotion.
 
 ## Next step (priority order)
 
-1. **Read E-040** (table above), close in pair-v16.md §10 + LEDGER +
-   JOURNAL. Any LIVE ⇒ iterate the winning lever (finer dose,
-   persistence×ceiling cross). All dead ⇒ design signal (b)
-   spot-vs-priceToBeat tilt (ExternalFeeds plumbing exists) or
-   maker-only tilt.
-2. **M1–M5 implementation** (audit item): use fleet wait time,
-   target ≤ s29.
+1. **Read E-041** (table above; bars §11). Any verdict is GREEN
+   directional-controller work.
+2. If CEIL-NULL/HARMFUL: design + implement **signal (b)
+   spot-vs-priceToBeat tilt** as pair.v17.ts (leader = sign of
+   spot − priceToBeat from ExternalFeeds; plumbing exists in
+   backtests: binanceWsSpotPrice + polymarketPriceToBeat). Target
+   effect sizes ≥ 2 ev; verdicts at FULL-pair instrument.
 3. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 4. **Cross-symbol replication:** gated on P-012.
-5. Unexplored v15 lever: price gate P* itself (corner evidence
-   952/958 points LOWER); competes with, does not block, directional.
+5. Unexplored v15 lever: price gate P* (corner evidence 952/958
+   points LOWER) — now needs the FULL instrument too.
 
-## Alignment gate — session 25
+## Alignment gate — session 26
 
-- **Classification:** directional-controller (E-039 readout + E-040
-  iteration of the same directional controller) + the mandated
-  every-fifth-session audit.
-- **Direct mission contribution:** E-039 CLOSED CEIL-LIVE (runs
-  986–991): acquisition-price ceiling 0.90 is the largest single-
-  lever ev gain on record (+1.91, family-best p/100 −3.16), dose
-  saturation mapped, persistence interaction mapped. E-040 frozen
-  (d6470a5), v16.2 implemented (63fec11), smoked (992), 6×800 grid
-  submitted + queue-verified. Audit s20–s24 PASS (4G/1Y/0R).
-- **Time to evidence:** ~1 min (E-039 d2–d5 + d4 results read as the
-  first action). Target MET.
-- **Throughput:** 1 experiment closed (6×800 read + compare + 5
-  anatomies), 1 audit, 1 experiment launched (6×800 = 4,800 jobs,
-  whole grid up front, verified, 0 failures), 1 smoke. No serial
-  scans.
-- **Scale:** closed by E-036 on record; grid runs the mechanism
-  question at $500.
-- **Next-session priority:** read E-040 (bars §9) — GREEN either way.
+- **Classification:** directional-controller (E-040 close, E-039
+  re-verdict, E-041 freeze+submit — all on the directional
+  controller's acquisition-ceiling lever).
+- **Contribution:** controller evidence standard changed (noise
+  model replaced, §10); E-039's ev claim withdrawn before it could
+  steer iteration; E-041 submitted to decide the ceiling honestly
+  (4×10,747 verified). Audit item corrected (M1–M5 done at 4809a8e).
+- **Time to evidence:** ~1 min (results.ts read of E-040 stragglers
+  as first action). PASS.
+- **Throughput:** 1 experiment closed (8×800 runs read; 11 paired
+  per-market SQL comparisons; code/universe/feed identity checks);
+  1 experiment launched whole-grid-up-front (4 FULL = 42,988 jobs,
+  queue-verified, 0 failures). No serial scans.
+- **Scale:** closed by E-036 on record; E-041 runs at B=500.
+- **Next:** read E-041 — GREEN either way.
 - **Verdict:** **GREEN.**
-- Verdict history: s23 GREEN, s24 GREEN, s25 GREEN (audit session).
-  Next audit: session 30.
+- Verdict history: s24 GREEN, s25 GREEN, s26 GREEN. Next audit: s30.
 
 ## Blockers
 
-None. E-040 grid in flight (see Current work; do NOT resubmit).
+None. E-041 in flight (~2–2.5 h; see Current work; do NOT resubmit).
 
 ## Needs human
 
 - **P-013**: sell-side mirror program scope ruling (see PROPOSALS).
 - **P-012**: convert eth/sol/xrp 15m telonex datasets — gates
   cross-symbol replication. Not blocking.
-- Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all `proposed`).
-  P-009/P-010 (fill-model realism / live probe) remain the binding
-  caveat on every scale number (guard-7).
+- Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all
+  `proposed`). P-009/P-010 remain the binding caveat on every scale
+  number (guard-7).
 
 ## Standing session guards
 
@@ -136,88 +121,62 @@ None. E-040 grid in flight (see Current work; do NOT resubmit).
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine
-  commits (s13–s25: only protocol commits moved HEAD).
+  commits (s13–s26: only protocol/harness-contract commits moved
+  HEAD; session-contract v2 landed 1b95537 — journal + summary are
+  messages to the human, plain register).
 - Queue submissions require a CLEAN tree pushed to origin/main (push
   via `git push origin HEAD:main`); commit state snapshots before
   submitting.
 - **zsh does NOT word-split unquoted variables** — submit grids as
-  one LITERAL command per config (inbox c841c329); always keep stderr.
-  run-backtest.ts: `--latest` is a BOOL; market count goes in
-  `--limit N` (s25: `--latest 800` is an unknown-flag hard error).
+  one LITERAL command per config (inbox c841c329); always keep
+  stderr. run-backtest.ts: `--latest` is a BOOL; market count goes
+  in `--limit N`. Capture the batchUid line from EVERY submit.
 - Verify with fleet.ts after every detached batch; count aggregate
-  jobs (waiting-children) or DB rows, not market-job totals. Capture
-  the batchUid line from EVERY submit (s25: e0's uid lost to output
-  truncation — recoverable, but sloppy).
+  jobs (waiting-children), not market-job totals.
 - Do not push strategy-semantics changes while that strategy's jobs
   are queued/running — workers track origin/main; serialize push →
-  submit. (E-040 jobs run on 63fec11: do not touch pair.v16.ts while
-  the grid is queued.)
-- Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
-  2026-08-06 (evaluator.md §Universes). FULL reference v1-b: run 914.
-  v15 bridge chain 970 ≡ 960 ≡ 956. v16 bridges: c0 = run 978
-  (≡ 970), d0 = run 987 (≡ 981, Δp/100 0.05). **v15 noise floor 0.15
-  ⇒ ev bar 0.30, per-$100 bar 0.54** (937v938). E-039/E-040 govern
-  on ev (§7 metric amendment).
-- JOURNAL entries are for the HUMAN: plain language, 3–6 short lines,
-  ≤ 1 evidence pointer per conclusion (inbox 330fa938, permanent).
+  submit. (E-041 jobs run on d204df35: do NOT touch pair.v16.ts
+  while the grid is queued. A NEW strategy file pair.v17.ts is safe.)
+- Screens baseline 874 (v0) and parents 872/873/879 valid ≤
+  2026-08-06 (evaluator.md §Universes). FULL reference v1-b: run
+  914. v15 bridge chain 970 ≡ 960 ≡ 956. v16 bridges: c0 = 978,
+  d0 = 987.
+- **NOISE MODEL (replaced s26, pair-v16.md §10): pinned-800/B500
+  single-run pairwise ev SE ≈ 1.2 (2σ ≈ 2.4); per-market paired
+  sd ≈ 34. The old 0.30 ev bar is void at B=500. ev verdicts need
+  FULL pairs (SE ≈ 0.33, E-041 measures it) or duplicate-triplet
+  means. p/100 bar 0.54 unchanged for structure screens at B=100;
+  duplicate sets can under-sample tails — prefer paired per-market
+  z + sign tests over max-pairwise formulas.**
+- JOURNAL entries are messages to the human (contract v2): plain
+  sentences, tried/happened/means/next, drop run ids/codes unless
+  genuinely the point.
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front
   (inbox c841c329), verify queue depth after.
 - Class kills need an identity argument (evaluator.md §Kill
   standards); N failures kill a family only. Verdict bars must name
   comparison PAIRS. Positive signals measured ON discovery data need
-  disjoint confirmation before any build decision (E-028 → E-035).
+  disjoint confirmation before any build decision (E-028 → E-035;
+  E-039 → E-040/E-041 is now the canonical in-family example).
 - Fill model: calibrated by E-025 (ToB capacity bound). Guard-7
-  whole-size fill optimism: larger-q results depth-optimistic (E-036).
-- Sibling-memory recheck at session start (`ls protocols/*/memory`) —
-  2026-07-31 s25: only pair-fable has memory (unchanged).
+  whole-size fill optimism: larger-q results depth-optimistic
+  (E-036).
+- Sibling-memory recheck at session start (`ls protocols/*/memory`)
+  — 2026-07-31 s26: only pair-fable has memory (unchanged).
 - Smoke cannot catch latency-race bugs AND cannot demonstrate RARE
   fill modes (escalate to a 200-mkt Stage B instead).
-- Schema refines AND engine constraints (OrderManager validation) can
-  invalidate a frozen grid corner — check every cell when freezing
-  (GTD expiry < now+60s rejected; ttlSec ≥ 61).
-- A completed run with 0 trades and noActivity=N can mean every order
-  was REJECTED — check OrderManager validation before blaming data.
-- The backtest sim is NOT bit-deterministic (latency jitter) — noise
-  floors come from duplicate pairs.
-- leadPersistTicks is in TICKS (~138/s on active markets) —
-  wall-clock varies with activity; 1400 ≈ 10 s at measured rate.
+- Schema refines AND engine constraints (OrderManager validation)
+  can invalidate a frozen grid corner — check every cell when
+  freezing (GTD expiry < now+60s rejected; ttlSec ≥ 61).
+- A completed run with 0 trades and noActivity=N can mean every
+  order was REJECTED — check OrderManager validation before blaming
+  data.
+- The backtest sim is NOT bit-deterministic (latency jitter) — and
+  jitter noise at B=500 is heavy-tailed at run level (s26).
+- leadPersistTicks is in TICKS (~138/s on active markets);
+  1400 ≈ 10 s. At leadGap 0.10 leaders are already ≥10 s persistent
+  (E-040 structural).
 
 ## Inbox processed through
 
-2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s25 start).
-
-## Session 25 LATE ADDENDUM (supersedes the in-flight table above)
-
-E-040 partially read in-session. Run ids: e0=994
-(pf-e040-e0-20260731T200131-j12ruf, uid recovered), e1=993, e2=995,
-e3=996, e4=997. Still in flight at close: e5 + nf1
-(pf-e040-nf1-20260731T200740-kkq28y) + nf2
-(pf-e040-nf2-20260731T200801-e4vayp) — nf runs recorded SHA 2822518;
-verified protocol-.md-only diff from 63fec11 (M4 OK, formula-identical).
-
-**CRITICAL FINDING (pair-v16.md §9 amendment, committed 2822518):**
-e0 bridge 994 vs 986 (formula-identical) shows Δev −1.42; paired
-per-market SE measured ≈ 1.2 ev at B=500/pinned-800 (994v986 mean
-−1.42 SE 1.21; 986v987 mean +1.91 SE 1.16 ⇒ E-039's winner is
-z≈1.6, suggestive not decision-grade; sign test 315/308 flat). All
-E-040 cells read so far are inside that noise vs e0=994: e1 +1.24,
-e2 −0.49, e3 −0.89, e4 +0.28. e4 note: 10-s persistence barely
-binds (invested/trades ≈ unchanged) — leads are already persistent
-at that horizon. e2 structural fact (param-driven, real): tilt
-D-spend mass executes at unit cost 0.80–0.85 (invested cliff sits
-between 0.85 and 0.80, not at 0.90).
-
-**Next session, in order:** (1) read e5/nf1/nf2 (results.ts --last 3);
-(2) compute the recalibrated bar per §9 amendment (max pairwise
-|Δev| across duplicate set {986,994,nf1,nf2}); (3) close E-040 in
-pair-v16.md §10 + LEDGER + JOURNAL under that bar — expected verdict:
-all ev deltas inside noise; (4) RE-VERDICT E-039 per the amendment
-(structural findings stand; ev-winner claim downgrades); (5) choose
-the ev instrument going forward: FULL-universe run pairs have
-SE ≈ 1.2×√(800/10747) ≈ 0.33 (~15 fleet min each) — likely the
-right tool for ev-level verdicts; pinned-800 stays the
-mechanism/structure screen; (6) then the next lever: signal (b)
-spot-vs-priceToBeat tilt (external feed leads the book by
-construction; plumbing exists) — GREEN directional either way.
-Gate s25 stands GREEN; verdict history s23/s24/s25 GREEN; next
-audit s30.
+2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s26 start).
