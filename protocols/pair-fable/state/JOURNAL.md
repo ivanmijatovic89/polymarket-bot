@@ -562,3 +562,17 @@ cents) for ANY share, so a stranded share can only lose the ceiling, and
 every completed pair earns at least 1 − 2×ceiling. Seven ceiling levels
 submitted to the fleet on the standard 800-market test window.
 Results land this session or the next one picks them up.
+
+## 2026-07-31 — session 9 (mission 02)
+
+The hard-ceiling idea failed at every level, but it failed in a very
+informative way: the cheaper we bought, the CLOSER we got to break-even,
+and at the 15-cent ceiling we were only ~3 cents per market short —
+within measurement noise (details: pair-v9.md §Result). Two doors are
+open at that edge: ceilings below 15 cents, and keeping our completion
+bid alive ~100% of the time instead of ~90% (a settings change, no new
+code). Both are now running on the fleet.
+Also built the ruling's next idea: when we're stuck holding one side, a
+new module buys the other side instantly the moment that either locks in
+a guaranteed profit, or cuts a doomed position's loss. Seven versions of
+that are running too. Next session reads all twelve results.

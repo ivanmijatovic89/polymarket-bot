@@ -1,43 +1,52 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 8, in progress)
+Updated: 2026-07-31 (mission-02 session 9)
 
 ## Current work
 
-Human ruling processed (inbox 8758567d): the class-level kill is WITHDRAWN
-(family kills stand; the −0.06 invariant bounds unpaired shares only; L_s
-was never attacked). Recorded in pair-v4.md/pair-v8.md §Withdrawn, LEDGER
-E-018b, evaluator.md §Kill standards (binding: class kills need an
-identity argument; N failures kill a family only), INDEX digest. Research
-resumed on the ruling's six axes.
+E-019 (pair-v9 ceiling grid, runs 889–895) read and recorded: KILL at
+every X, but scope split by the pre-registered capture-multiple statistic
+— kill extends to persistent-rest only for X ≥ 0.20; X=0.15 (ev −0.03,
+inside noise, capture× 1.06) leaves low-X and duty-cycle open. Details
+pair-v9.md §Result, LEDGER E-019.
 
-**In flight: pair-v9 (E-019) 7-config fleet grid**, absolute entry-price
-ceiling X ∈ {0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45}, submitted
-detached 2026-07-31 ~08:24Z on the pinned 800-market screen window
-(--from-ms 1784043000000 --to-ms 1784762100000, = runs 872/873/879
-universe), 140/20 ms. Pre-registration: pair-v9.md (design-ts 47fd391,
-code 21b5aaf, smoke PASS run 888). Batch uids (X → uid):
+**In flight: two fleet grids** (submitted detached 2026-07-31 ~08:43Z,
+pinned 800-market window --from-ms 1784043000000 --to-ms 1784762100000,
+140/20 ms, code 2538404, design-ts 3767786):
 
-- 0.15 → pf9-20260731T082326-1mmrh0
-- 0.20 → pf9-20260731T082333-16nzt1
-- 0.25 → pf9-20260731T082339-jr0oth
-- 0.30 → pf9-20260731T082346-rdqvzr
-- 0.35 → pf9-20260731T082353-kfmk0j
-- 0.40 → pf9-20260731T082404-p8ha4j
-- 0.45 → pf9-20260731T082413-3kgi2o
+E-020 — pair-v10 (v1 + taker-completion module; pair-v10.md), label pf10:
 
-**To resume if this session dies**: recover run ids via
-`tools/sql.ts` (`SELECT id, batch_uid, status FROM backtest_runs WHERE
-batch_uid LIKE 'pf9-20260731%'`), then results.ts / compare.ts (vs 872 and
-879) / anatomy.ts per pair-v9.md §Readouts, verdict per pair-v9.md
-§Pre-registered verdicts, record E-019 in LEDGER + family file.
+- control C=0 D=0 → pf10-20260731T084328-omki44 (regression gate vs 872!)
+- C=0.90 → pf10-20260731T084355-y7mmio
+- C=0.95 → pf10-20260731T084403-63t8rn
+- C=0.99 → pf10-20260731T084412-s21kwo
+- D=0.05 → pf10-20260731T084422-pt32wp
+- D=0.10 → pf10-20260731T084429-mlc18h
+- C=0.95 D=0.10 → pf10-20260731T084437-iutx50
+
+E-021 — pair-v9 low-X + duty-cycle (pair-v9.md §E-021), label pf9x:
+
+- X=0.08 → pf9x-20260731T084444-m62nua
+- X=0.10 → pf9x-20260731T084451-pshy5i
+- X=0.12 → pf9x-20260731T084458-k2ypxv
+- X=0.12 cooldown=0 → pf9x-20260731T084508-81b065
+- X=0.15 cooldown=0 → pf9x-20260731T084524-92n2kk
+
+**To resume**: recover run ids via `tools/sql.ts` (`batch_uid LIKE
+'pf10-20260731%'` / `'pf9x-20260731%'`), then results.ts / anatomy.ts /
+compare.ts per the pre-registered readouts. E-020: check the regression
+gate FIRST (control within |Δev| ≤ 0.05 of run 872, played ±2 — else the
+grid is uninterpretable). Verdict bars frozen in pair-v10.md
+§Pre-registered verdicts and pair-v9.md §E-021. Record E-020/E-021 in
+LEDGER + family files + JOURNAL.
 
 ## Next step
 
-Read the pf9 grid results, apply the pre-registered verdict bars, record
-E-019. Then per the ruling's priority: design axes 2+3 (opportunistic
-cheap-side completion decoupled from the entry gate; above-$1
-loss-mitigating completion — shared machinery), pre-register, sweep.
+Read both grids, apply frozen verdicts. Then per verdicts: promote /
+iterate / close axes. Remaining ruling axes not yet designed: size
+laddering (axis 4), time-varying policy (axis 5), liquidity-structure
+market selection (axis 6). Session 10 is a 5th-session self-check
+(mission §Self-check).
 
 ## Blockers
 
@@ -58,7 +67,7 @@ None. P-009/P-010 remain open per the ruling but are NOT blockers.
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine commits
-  (this session: origin/main == local HEAD at session start, no drift).
+  (this session: no engine changes; only protocol commits moved HEAD).
 - Queue submissions require a CLEAN tree: commit+push BEFORE launching.
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes).
@@ -67,12 +76,14 @@ None. P-009/P-010 remain open per the ruling but are NOT blockers.
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front,
   analyze as results land (inbox c841c329).
 - Class kills need an identity argument (evaluator.md §Kill standards,
-  binding per inbox 8758567d); N failures kill a family only. Same bar for
-  "exhausted" / "frontier empty".
+  binding per inbox 8758567d); N failures kill a family only. Same bar
+  for "exhausted" / "frontier empty".
 - Sibling-memory recheck is cheap (`ls protocols/*/memory`): do it at
   session start once the Codex loop launches (memory/siblings.md).
+- zsh does not word-split unquoted vars: use `setopt shwordsplit` (or
+  spell args out) when scripting multi-flag submissions — session 9 lost
+  a submission round to this.
 
 ## Inbox processed through
 
-2026-07-31T08:15:02.759Z-8758567d (the class-kill withdrawal ruling —
-processed this session).
+2026-07-31T08:15:02.759Z-8758567d (no new entries in session 9).
