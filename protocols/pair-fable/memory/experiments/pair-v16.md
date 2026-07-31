@@ -566,3 +566,47 @@ signal (b) spot-vs-priceToBeat tilt (new information source, v17,
 designed for effect sizes ≥ 2 ev) with FULL pairs as the verdict
 instrument. Deviations require a written amendment here BEFORE the
 affected submission.
+
+## 12. E-041 readout (runs 1003–1005, 1007; 2026-07-31 s27; verdict
+## CEIL-NULL — ceiling axis closed at ev; FULL instrument VALIDATED)
+
+All 4 cells completed, failures=0, 10,747 mkts each, pairwise common
+slug counts all = 10,747 (identity verified), latency 140/20 in every
+cmd, SHA d204df35 (params-only).
+
+| cell | ceil | run | ev | p/100 | win% | med | trades | invested |
+|---|---|---|---|---|---|---|---|---|
+| f0a | .90 | 1003 | −14.97 | −4.04 | 58.5 | +2.59 | 111,248 | $3.98M |
+| f0b | .90 | 1004 | −14.76 | −3.99 | 58.8 | +2.65 | 110,701 | $3.97M |
+| f1 | 1.00 | 1005 | −14.83 | −3.89 | 58.4 | +2.40 | 114,798 | $4.09M |
+| f2 | .95 | 1007 | −15.07 | −4.01 | 58.4 | +2.69 | 112,505 | $4.04M |
+
+**Instrument (frozen §11 metrics):** |Δev(f0a,f0b)| = 0.21; paired
+per-market sd(Δpnl) = 38.29 over n = 10,747 ⇒ SE_pair = 0.369;
+**B_full = max(0.30, 0.739, 0.21) = 0.74**. INSTRUMENT-FAIL bar
+(> 0.8) NOT triggered — FULL pairs are the standing ev instrument at
+B = 500, resolution 2σ ≈ 0.74 (per-market sd is 38 at FULL vs 34 on
+pinned-800: heavier tails, so slightly coarser than the predicted
+0.33/0.66).
+
+**Verdict: CEIL-NULL.** F0 = mean(f0a,f0b) = −14.865. F0 − f1 =
+−0.035 (≪ 0.74, wrong sign anyway); f2 − F0 = −0.21 (≪ 0.74).
+Per the frozen mapping: E-039's ceiling ev effect (+1.91) and
+E-040's e1 suggestion (+1.3) are REFUTED at FULL resolution — both
+were the pinned-800 jitter tail the replaced noise model predicted.
+Ceiling axis CLOSED at ev level (structural dose facts from §8/§10
+stand); center reverts to tiltUnitMax = 1.00 (parsimony). E-039
+CEIL-UNRESOLVED → CEIL-REFUTED.
+
+**Context numbers (not a frozen verdict):** the FULL-universe level
+of the τ+160 tilt config is ev ≈ −14.8..−15.1, p/100 ≈ −4.0 — worse
+than the pinned-800 triplet (−12.37/−3.6): the recent-800 window was
+a mildly favorable slice (monthly ev on 1003: Apr −15.2 / May −16.2
+/ Jun −13.6 / Jul −14.8 — stable, no regime drift). Median market
+remains positive (+2.4..+2.7 p/100) — the mean is tail-dragged, as
+on the screens.
+
+**Decision (per §11 mapping):** next lever = signal (b)
+spot-vs-priceToBeat tilt (pair.v17.ts, E-042, pair-v17.md) at the
+FULL-pair instrument with c* = 1.00 and matched reference f1 = run
+1005.

@@ -141,3 +141,31 @@ directional tilt closed at ev on both signals; program returns to the
 neutral controller's remaining FULL-instrument levers (P* corner) and the
 priority-2 backlog (time-varying τ, imbalance-adaptive tilt). Deviations
 require a written amendment here BEFORE the affected submission.
+
+## 6. Pre-submission amendments (s27, recorded BEFORE the E-042
+## submission per §5's deviation rule)
+
+1. **c\* = 1.00** — E-041 verdict CEIL-NULL (pair-v16.md §12): center
+   reverts to no ceiling; matched signal-(a) reference cell = f1 =
+   run 1005 (ev −14.83). B_full = 0.74 (measured: 2×SE_pair 0.739
+   governs; SE_pair 0.369 from f0a/f0b paired sd 38.29, n 10,747).
+2. **Strike-outage failures are EXPECTED, not integrity breaks.**
+   The 200-mkt fleet diagnostic (run 1006, batch pf-e042-diag) proved
+   worker-side feed fulfillment (198/200 ran; maker+taker fills; on
+   the same 198 slugs v16 run 1005 has 94 no-activity vs v17's 96 —
+   slice property, not v17 behavior) and surfaced the known data
+   hole: ~1.36% of markets since Apr 2026 have NO priceToBeat
+   anywhere (Polymarket outage days; the engine hard-errors those
+   markets and continues the batch). Amended integrity bar: per cell,
+   failures must be MISSING-priceToBeat outage errors ONLY (any other
+   failure class = integrity break); expected ~146/10,747; the
+   outage set is deterministic so all four v17 cells fail
+   identically. All E-042 comparisons run on the COMMON PLAYED
+   intersection: g-vs-g pairs share the same universe; g-vs-f1
+   comparisons recompute f1's ev on the intersection (drop the same
+   outage slugs from run 1005) and record the delta vs its headline.
+3. The E-042 noise reference reuses E-041's B_full = 0.74 (same
+   controller family, same universe, same caps). If the g-vs-g
+   duplicate-free grid shows any pairwise anomaly beyond it, escalate
+   per the standing instrument rule instead of re-deriving bars
+   post-hoc.
