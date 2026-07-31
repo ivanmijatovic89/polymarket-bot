@@ -28,6 +28,10 @@
  * of the FOK completion amount by acquisition unit cost (match component
  * never gated); leadPersistTicks requires a consecutive-tick leader streak
  * before T ≠ 0. Defaults (1, 0) reduce exactly to v16.0.
+ *
+ * v16.2 (E-040, pair-v16.md §9): schema-only — leadPersistTicks max raised
+ * 200 → 20000 so real persistence doses (~10 s ≈ 1400 ticks at the measured
+ * ~138 ticks/s) are reachable. No behavior change at old param values.
  */
 import type {
   AccountEvent,
@@ -69,7 +73,7 @@ export const ConfigSchema = z
     /** v16.1 (E-039): FOK completion includes the tilt component T_s only when ask+fee ≤ this; the raw match component is never gated. 1 = off (exact v16.0). */
     tiltUnitMax: z.coerce.number().finite().min(0.5).max(1).default(1),
     /** v16.1 (E-039): the same side must lead by ≥ leadGap for this many consecutive ticks before T ≠ 0; flips/no-leader reset the streak. 0 = off (exact v16.0). */
-    leadPersistTicks: z.coerce.number().int().min(0).max(200).default(0),
+    leadPersistTicks: z.coerce.number().int().min(0).max(20000).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
