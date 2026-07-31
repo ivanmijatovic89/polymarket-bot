@@ -549,3 +549,16 @@
   reproduced evidence, the hardening gate is satisfied, and the siblings
   have nothing to borrow. Pausing for your P-010 decision — any of its four
   options restarts research immediately.
+
+## 2026-07-31 — session 8 (mission 02)
+
+Your ruling landed: the "whole approach is dead" conclusion is withdrawn,
+and you pointed at the term we never attacked — how much a stranded share
+is allowed to lose. That number was our own choice all along (~$0.44).
+Recorded the correction and the new rule: killing a whole class of ideas
+now needs a mathematical argument, not a pile of failed variants.
+First new idea is in the oven: never pay more than a hard ceiling (15–45
+cents) for ANY share, so a stranded share can only lose the ceiling, and
+every completed pair earns at least 1 − 2×ceiling. Seven ceiling levels
+submitted to the fleet on the standard 800-market test window.
+Results land this session or the next one picks them up.

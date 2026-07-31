@@ -1,67 +1,52 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 7, complete)
+Updated: 2026-07-31 (mission-02 session 8, in progress)
 
 ## Current work
 
-Session 7 delivered (evidence from this session's tool runs):
+Human ruling processed (inbox 8758567d): the class-level kill is WITHDRAWN
+(family kills stand; the −0.06 invariant bounds unpaired shares only; L_s
+was never attacked). Recorded in pair-v4.md/pair-v8.md §Withdrawn, LEDGER
+E-018b, evaluator.md §Kill standards (binding: class kills need an
+identity argument; N failures kill a family only), INDEX digest. Research
+resumed on the ruling's six axes.
 
-1. **M1–M5 status corrected: they were ALREADY DONE.** Session 6's STATUS
-   listed the review-gate hardening as next-step work, but mission-02
-   session 1 implemented it (commit 4809a8e, ancestor of HEAD, journal
-   entry exists). Re-verified this session by execution: the Mission-01
-   exemplar evaluate.ts command (mixed maxPairCost 0.95/0.98) now returns
-   MECHANICAL-FAIL with the M1 params-identity message, the M4 cross-run
-   engine-SHA warning fires, m6's taker-trend note appears in S3, M2/M3
-   code paths present (design-ts sanity vs earliest run; champion bar
-   ev > 2×SE(n)), M5 `.max(100)` bound on incrementSize in pair.v0.ts:41.
-   **The champion-promotion gate is satisfied.** Only m7 (pnl-decomposition
-   column) remains, folded on the next results.ts touch.
-2. **Sibling-memory review done — nothing to mine.** Actual siblings are
-   `protocols/pair/` (the human's design template; no memory) and
-   `protocols/pair-codex/` (Codex loop, NOT started: only
-   RULES/VISION/mission-01). pair-opus/pair-sonnet (named in session-6
-   STATUS) do not exist. Findings + recheck procedure recorded in
-   memory/siblings.md; INDEX.md digest refreshed (was stale re E-017/018).
-3. **P-010 enriched with ruling-relevant data** (addendum in
-   state/PROPOSALS.md): the backtestable dataset is btc-15m ONLY (25,842
-   done conversions; 10,747 post-floor = run 870 exactly); eth/sol/xrp-15m
-   cataloged but unconverted (~24.6–25.6k each); 5m cataloged ~44k/symbol
-   unconverted; 1h/4h/1d not cataloged at all — option 3 requires
-   human-run data:sync + a RULES amendment (RULES pins btc-15m). Option 1
-   (P-009) has design precedent in the parent plan's P2.5 micro live probe.
+**In flight: pair-v9 (E-019) 7-config fleet grid**, absolute entry-price
+ceiling X ∈ {0.15, 0.20, 0.25, 0.30, 0.35, 0.40, 0.45}, submitted
+detached 2026-07-31 ~08:24Z on the pinned 800-market screen window
+(--from-ms 1784043000000 --to-ms 1784762100000, = runs 872/873/879
+universe), 140/20 ms. Pre-registration: pair-v9.md (design-ts 47fd391,
+code 21b5aaf, smoke PASS run 888). Batch uids (X → uid):
+
+- 0.15 → pf9-20260731T082326-1mmrh0
+- 0.20 → pf9-20260731T082333-16nzt1
+- 0.25 → pf9-20260731T082339-jr0oth
+- 0.30 → pf9-20260731T082346-rdqvzr
+- 0.35 → pf9-20260731T082353-kfmk0j
+- 0.40 → pf9-20260731T082404-p8ha4j
+- 0.45 → pf9-20260731T082413-3kgi2o
+
+**To resume if this session dies**: recover run ids via
+`tools/sql.ts` (`SELECT id, batch_uid, status FROM backtest_runs WHERE
+batch_uid LIKE 'pf9-20260731%'`), then results.ts / compare.ts (vs 872 and
+879) / anatomy.ts per pair-v9.md §Readouts, verdict per pair-v9.md
+§Pre-registered verdicts, record E-019 in LEDGER + family file.
 
 ## Next step
 
-**Blocked on the P-010 ruling.** The in-rules variant frontier is empty
-(E-005/014/015/016/017/018, all pre-registered and reproduced), M1–M5 are
-done, and the sibling review found nothing new. Remaining unblocked work is
-make-work (re-testing killed families on new data windows), which the
-mission's self-check forbids. When the ruling arrives in the inbox, it sets
-the research direction:
-
-- Option 1 (P-009 live probe) → human executes; loop designs the
-  measurement protocol and analyzes.
-- Option 2 (widen strategy space) → RULES amendment, then new family
-  design against the recorded residue economics.
-- Option 3 (other timeframes/symbols) → human runs data pipeline first
-  (see P-010 addendum), RULES amendment, then port the Phase-0 scan
-  discipline to the new universe.
-- Option 4 (latency ruling) → re-evaluate E-015/E-018 economics at the
-  granted latency (bookscan archives already carry zero-latency streams).
+Read the pf9 grid results, apply the pre-registered verdict bars, record
+E-019. Then per the ruling's priority: design axes 2+3 (opportunistic
+cheap-side completion decoupled from the entry gate; above-$1
+loss-mitigating completion — shared machinery), pre-register, sweep.
 
 ## Blockers
 
-Research direction requires the P-010 human ruling (see Needs human). No
-mechanical blockers.
+None. P-009/P-010 remain open per the ruling but are NOT blockers.
 
 ## Needs human
 
-- **P-010** (state/PROPOSALS.md, addendum 2026-07-31): where to search
-  next — approve P-009 live measurement / widen strategy space / other
-  timeframes-symbols (data-pipeline prerequisite documented) / latency
-  ruling. Any subset unblocks research.
-- Carried: P-002/P-003/P-005/P-006/P-007/P-009 (all `proposed`).
+- Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all `proposed`;
+  P-010's "frontier empty" premise withdrawn per ruling — see addendum).
 
 ## Standing session guards
 
@@ -73,8 +58,7 @@ mechanical blockers.
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine commits
-  (this session: origin/main == local HEAD dc29089 at session start, no
-  drift).
+  (this session: origin/main == local HEAD at session start, no drift).
 - Queue submissions require a CLEAN tree: commit+push BEFORE launching.
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes).
@@ -82,10 +66,13 @@ mechanical blockers.
   most one evidence pointer per conclusion (inbox 330fa938, permanent).
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front,
   analyze as results land (inbox c841c329).
+- Class kills need an identity argument (evaluator.md §Kill standards,
+  binding per inbox 8758567d); N failures kill a family only. Same bar for
+  "exhausted" / "frontier empty".
 - Sibling-memory recheck is cheap (`ls protocols/*/memory`): do it at
   session start once the Codex loop launches (memory/siblings.md).
 
 ## Inbox processed through
 
-2026-07-31T01:56:42.590Z-dad421a6 (no newer entries existed at session-7
-start; session 7 awaited a P-010 ruling that had not yet arrived).
+2026-07-31T08:15:02.759Z-8758567d (the class-kill withdrawal ruling —
+processed this session).
