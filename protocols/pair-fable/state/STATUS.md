@@ -1,54 +1,54 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 18, mid-session)
+Updated: 2026-07-31 (mission-02 session 18 close)
 
 ## Current work
 
-**Session 18 is executing E-031** (graded completion frontier, pair-v15.md
-§10 frozen at design-ts 57e3b86 BEFORE code 3f75b61): v15.1 G-rule
-(recovery-debt ceiling X(t̂,ι) = P_lock + (debtCap−P_lock)·ρ(t̂)·min(ι,1),
-ramp T0=0.25→T1=0.80, debtCap replaces salvageMax, DOOM_BID gate removed).
-Smoke PASS runs 933 (debt path, 7C+28V fills with expected time-ramp) and
-934 (defaults regression). **In flight: 6-config screen grid on pinned 800
-@ 140/20, label `pf15-e031`**, batchUids (submission order = grid rows §10.2
-#1–#6: debtCap 0.98 / 1.02 / 1.06 / 1.06-duplicate / 1.10 / corner
-P*=0.94,I_b=20,q=20,P_lock=0.93,debtCap=1.06):
-`pf15-e031-20260731T150314-hpiszz`, `...150323-o19kur`, `...150332-iwlly2`,
-`...150342-7k4igq`, `...150402-1rwal7`, `...150414-emt1ya`. Queue depth
-verified = 6 batches. **Resume if session dies:** recover run ids via
-`results.ts --label pf15-e031`, evaluate per §10.2 frozen bars (noise_v15 =
-|Δev(#3,#4)|; verdicts ADVANCE / LEVER-CONFIRMED / LEVER-DEAD vs baselines
-925 (−3.83), 929 (−3.23, per-$100 −5.73), 931 (−1.83)).
+**Session 18 executed E-031 + E-031b** (graded completion frontier and
+its doom-backstop combination; designs frozen BEFORE code: 57e3b86 →
+3f75b61 (v15.1), 0026a13 → 3d5934a (v15.2)). Smokes 933/934/941 PASS;
+10×800 fleet runs total (935–940 grid, 942/943 combo), 0 failures,
+recon clean everywhere. Full evidence: pair-v15.md §10.4–§10.5, LEDGER
+E-031/E-031b. Headlines:
 
-**Session 17 executed E-030**: verdict ITERATE — full evidence in
-pair-v15.md §9 + LEDGER E-030. Accumulation machine works (matched 43–139
-sh/mkt at pair VWAP 0.93–0.96), all 10 configs negative (best neutral
-−1.83, run 931), loss = strand tax; salvage lever = first per-dollar
-improvement beyond noise (929 vs 925: Δev +0.60, strands 450→3).
+- **v15 family noise floor MEASURED: 0.15 ev/mkt** (937 vs 938 exact
+  duplicate) — 3× the evaluator default; family real-delta bar = 0.30.
+  E-030's salvage conclusion survives the corrected bar.
+- **Completion-policy axis CONVERGED** (family-level, time-scoped):
+  doom-only (929), graded-1.10 (939), graded+backstop (942) all at ev
+  −3.20..−3.23 at center; graded completions substitute 1:1 for
+  backstop dollars. Family default going forward: doom backstop alone
+  (doomUnitMax=0.99, debtCap=0) — guard-2 simplicity.
+- **Corner + backstop (943) = family per-dollar best: −5.19/$100**, ev
+  −1.68. Cumulative completion-program progress 925→943: Δper-$100
+  +2.15 (~7× Δ-noise), still negative.
+- Loss now localized in the doom-completion premium; strands ≈ 0.
 
 ## Next step
 
-1. **E-031 — graded completion frontier** (the localized lever):
-   replace the C/V binary with a recovery-debt ceiling X(t, ι) rising
-   from P_lock toward salvageMax with time-elapsed and persistent
-   imbalance (ruling amendment 5's bounded-debt math). Design + exact
-   spec frozen in pair-v15.md BEFORE code changes (M2), then smoke →
-   screen grid vs baselines 925/929/931. Include a duplicate-config
-   pair to MEASURE the v15 family noise floor (taker-heavy; 0.05
-   default unverified).
-2. If E-031 finds a positive or near-positive config: Stage D cap
-   sweep {100, 500, 1000, 2000} (q scaled 10/25/50/100, I_b scaled),
-   then FULL + S3 latency sweep + S4 OOS per evaluator pipeline.
-3. Backlog (mechanism, from the identity): directional tilt I* ≠ 0
-   (needs a ≥2 SE signal first, §5); lag-side maker aggression inside
-   the band (R-path never fills — 0–2 R fills/run); larger q into
-   displayed depth (E-025 capture-vs-size); E-029 favorite replication
-   stays PARKED per ruling.
-4. Review gate M1–M4 (M5 done) before any champion/LIVE-CANDIDATE.
+1. **E-032 — in-band lag-side maker aggression** (next mechanism from
+   the identity, hypothesis in pair-v15.md §10.5.5): R fills ≈ 0 in
+   every v15 run — the lag quote joins bestBid while ι ≤ 1, so all
+   completions that matter pay taker premium. Grade the lag maker quote
+   INSIDE the band (knee at ι = 0). Design + spec frozen in pair-v15.md
+   BEFORE code (M2), smoke, then screen grid vs baselines 929/942/943
+   at the 0.30 noise bar. Also worth a corner variant (the consistent
+   family frontier).
+2. Backlog after E-032: larger q into displayed depth (E-025
+   capture-vs-size, 300–450-sh ToB exists); directional tilt I* ≠ 0
+   (still needs a ≥ 2 SE signal first — E-028 favorite region
+   unresolved); Stage D cap sweep {100,500,1000,2000} only when some
+   config goes positive (none yet).
+3. Review gate M1–M5: ALL IMPLEMENTED (commit 4809a8e; verified this
+   session — evaluate.ts/compare.ts/team-workflow/capability-refresh all
+   carry the checks; team-workflow header note fixed s18). Gate is
+   satisfied pending "verified in anger" on the first real
+   champion-promotion attempt.
+4. E-029 favorite replication stays PARKED per ruling.
 
 ## Blockers
 
-None. Fleet idle, all E-030 runs read and archived.
+None. Fleet idle (verified post-E-031b), all runs read and archived.
 
 ## Needs human
 
@@ -66,37 +66,38 @@ None. Fleet idle, all E-030 runs read and archived.
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine
-  commits (s13–s17: only protocol commits moved HEAD).
+  commits (s13–s18: only protocol commits moved HEAD).
 - Queue submissions require a CLEAN tree pushed to origin/main (push
   via `git push origin HEAD:main` from the wt/pair-fable worktree).
+- **Do not push strategy-semantics changes while that strategy's jobs
+  are queued/running** — workers track origin/main; serialize push →
+  submit (s18 practice).
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes). FULL reference v1-b: run 914.
-  v15 screen baselines: 925 (neutral center), 929 (salvage), 931
-  (best neutral corner).
+  v15 baselines: 929 (doom-only center), 939 (graded-only center),
+  942 (combo center), 943 (combo corner, per-$ best), 931/940 (neutral
+  corner). **v15 noise floor 0.15 ⇒ bar 0.30** (937v938).
 - JOURNAL entries are for the HUMAN: plain language, 3–6 short lines,
   ≤ 1 evidence pointer per conclusion (inbox 330fa938, permanent).
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front
-  (inbox c841c329), each config as its OWN command with LITERAL args —
-  **zsh does not word-split unquoted vars; a helper-loop violation of
-  this cost 3 silent submission failures in s17 (detached submissions
-  hide schema errors). After every detached submit batch, verify with
-  fleet.ts that the batch count matches.**
-- Class kills need an identity argument (evaluator.md §Kill
-  standards); N failures kill a family only. Pre-register the
-  POLICY-relevant estimand, not only the pooled one (E-028 lesson).
+  (inbox c841c329), each config its OWN command with LITERAL args (zsh
+  does not word-split unquoted vars — 3 silent failures in s17), verify
+  queue depth with fleet.ts after every detached submit batch.
+- Class kills need an identity argument (evaluator.md §Kill standards);
+  N failures kill a family only. Verdict bars must name comparison
+  PAIRS, not "any config vs one baseline" (E-031 lesson §10.4.5).
 - Fill model: calibrated by E-025 (acceptable capacity bound at ToB).
   HF ToB axis deprioritized on measured economics.
 - Sibling-memory recheck at session start (`ls protocols/*/memory`) —
-  2026-07-31 s15: still only pair-fable has memory.
+  2026-07-31 s18: still only pair-fable has memory.
 - Smoke cannot catch latency-race bugs: strategies with taker/burst
   paths need the mechanical post-run integrity check (CAP-BREACH).
-- Anatomy/results tooling understands fill modes S/R/A/C/V (C/V added
-  s17 — exact taker attribution for v15+).
-- Schema refines can invalidate a frozen grid corner (E-030 A1: q ≤
-  I_b rejected the I_b=20 × q=25 cell) — when freezing a grid, check
-  every cell against the schema refines first.
+- Anatomy/results tooling understands fill modes S/R/A/C/V/D (D added
+  s18 — doom-backstop attribution for v15.2+).
+- Schema refines can invalidate a frozen grid corner (E-030 A1) — when
+  freezing a grid, check every cell against the schema refines first.
 
 ## Inbox processed through
 
 2026-07-31T13:44:57.732Z-93482fcb (pair-v15 approval with amendments;
-executed as E-030 this session).
+executed as E-030 s17, E-031/E-031b s18).

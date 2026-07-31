@@ -698,3 +698,55 @@ Findings:
    **ITERATE on the pre-registered §10.3 combo** (E-031b, submitted
    after this grid drained; prediction ev ≈ −2.9 registered before
    results).
+
+## 10.5 Result E-031b combo (session 18, 2026-07-31) — runs 942/943 — COMPLETION AXIS CONVERGED
+
+Both completed, 0 failures, recon 0, engine+strategy SHA 3d5934a (v15.2)
+verified via backtest_run_markets.commit_sha (M4).
+
+| run | cfg | ev/mkt | p/$100 | M mean/med (mkts>0) | mean P | %<.98/.95 | strands × meanL | modes S/C/V/D |
+|---|---|---|---|---|---|---|---|---|
+| 942 | #7 center +doom | −3.20 | −5.82 | 60/50 (693) | 1.097 | 17/1 | 9 × +1.26 | 2196/306/896/800 |
+| 943 | #8 corner +doom | −1.68 | **−5.19** | 37/40 (656) | 1.074 | 25/9 | 8 × +0.47 | 1481/150/822/546 |
+
+Findings:
+
+1. **Additivity prediction (−2.9) REFUTED.** 942 = −3.20, identical to
+   both parents within noise: 929 (doom-only, −3.23, Δ +0.03), 939
+   (graded-only 1.10, −3.20, Δ 0.00); per-$100 −5.82 sits between
+   −5.73/−6.13. Anatomy shows why: 942's decomposition (strands 9, pairs
+   −2,065, residue +11) is 929's decomposition (3, −2,158, +15) — the
+   graded rule's earlier-cheaper completions substitute dollar-for-dollar
+   for what the backstop would have paid later, not in addition to it.
+2. **Frozen §10.3 bar: "#7 fails to beat 929" ⇒ fall back.** Combined
+   with §10.4: THREE structurally different completion policies
+   (doom-only unit-cost, graded cumulative 1.10, graded+backstop) all
+   land at ev −3.20..−3.23 at the center config. **The completion-policy
+   axis is CONVERGED at this operating point** (family-level negative,
+   time-scoped 2026-07, pinned-800; NOT a class kill): once strands are
+   cleared by any policy, the residual loss is the doom-completion
+   premium, and no within-axis variation moves it beyond the 0.30 bar.
+3. **Guard-2 simplicity ruling for the family default:** doom backstop
+   alone (doomUnitMax = 0.99, debtCap = 0) is the carried completion
+   policy — simplest of the converged equivalents. debtCap holds no
+   earned slot on current evidence; keep default 0 (remove only if it
+   also shows no interaction with future non-completion levers).
+4. **Corner combo 943 = family per-dollar best (−5.19/$100)** and ev
+   −1.68, but both inside the 0.30 bar vs its baselines (940 −1.78, 931
+   −1.83). Trend across E-030/E-031/E-031b: the corner (P* 0.94,
+   I_b 20, q 20) + any completion policy is consistently the family
+   frontier; per-$100 improved −8.6 (E-030 grid) → −5.19 across the
+   completion program — real cumulative progress (925→943: Δper-$100
+   +2.15, ≈ 7× the Δ noise 0.27), just not profitable.
+5. **Where the loss lives now:** with strands ≈ 0, everything is in the
+   completion premium of one-way markets — 942 pays it as negative
+   matched margin (mean P 1.097 over 693 matched markets: the doomed
+   ones complete above $1 by design). The identity says remaining
+   levers are: cheaper ACCUMULATION (lower P before doom), fewer
+   doom-exposed deficits (entry/inventory shape), or a priced signal
+   (tilt). Next mechanism from the backlog: in-band lag-side maker
+   aggression — currently the lag quote joins bestBid while ι ≤ 1 (R
+   fills ≈ 0 all runs: deficits ≤ q never exceed the band), so every
+   completion that matters is bought at taker prices; grading the lag
+   quote INSIDE the band (knee at 0, not at ι = 1) attacks the same
+   dollars at maker cost. That is E-032's hypothesis.

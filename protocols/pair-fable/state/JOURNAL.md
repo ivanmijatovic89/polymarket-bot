@@ -744,3 +744,20 @@ first knob that ever improved the per-dollar economics beyond noise
 (run 929). The fix it points to: complete stranded sides earlier and
 cheaper, on a sliding price limit that loosens as time runs out.
 Next session designs and tests exactly that.
+
+## Session 18 — 2026-07-31
+
+Tested the sliding completion price limit designed last session, then a
+version that combines it with the above-$1 doomed-market backstop. The
+sliding limit does fire earlier and cheaper exactly as intended, but
+three very different completion policies all end up losing the same
+amount — completing stranded sides differently just moves the same
+dollars around, so that knob is now exhausted (pair-v15.md §10.5).
+Two lasting gains: we finally measured this family's run-to-run noise —
+three times larger than we had assumed, so future "improvements" must
+clear a higher bar — and the small-band configuration with the backstop
+is the family's cheapest loss per dollar yet (run 943), continuing a
+real, steady per-dollar improvement across the whole program.
+Next: stop paying market-taker prices to fix imbalance at all — make
+the lagging side's resting bid more aggressive inside the tolerance
+band, so pairs complete at maker prices before they ever strand.
