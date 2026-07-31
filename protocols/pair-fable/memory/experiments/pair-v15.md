@@ -1018,3 +1018,54 @@ secondary; pairs: #1/#2 vs 948, #3 vs #2, #4 vs 952:
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+### 12.2 Result E-033 (session 19, 2026-07-31) — runs 955–958 — VERDICT SCALE-NEUTRAL
+
+All 4 completed, 0 failures, recon badRows = 0 everywhere, SHA uniform
+4a5982e. Pinned 800 @ 140/20:
+
+| run | cfg | ev/mkt | p/$100 | invested | M mean/med (mkts>0) | mean P | %<.98/.95 | strands | investedMax |
+|---|---|---|---|---|---|---|---|---|---|
+| 955 | #1 q50 I_b80 B500 | −6.36 | −5.66 | 89,952 | 122/100 (694) | 1.095 | 19/6 | 7 | 452.94 |
+| 956 | #2 q100 I_b160 B500 | −12.15 | −5.75 | 168,974 | 231/200 (688) | 1.097 | 23/8 | 26 | 500.01 |
+| 957 | #3 q100 I_b160 B1000 | −13.28 | −6.04 | 175,829 | 238/200 (691) | 1.105 | 18/6 | 16 | 999.82 |
+| 958 | #4 corner q40 I_b40 B500 | −3.27 | −5.05 | 51,909 | 77/80 (636) | 1.080 | 32/20 | 4 | 254.98 |
+
+Findings:
+
+1. **Verdict per frozen §12.1 bars: SCALE-NEUTRAL.** Every pair inside
+   the 0.54 per-$100 bar: 955 vs 948 +0.08; 956 vs 948 −0.01; 957 vs
+   956 −0.29; 958 vs 952 +0.45. Per-fill size 25 → 100 shares is a pure
+   volume knob: invested scales ≈ linearly (45.5k → 90.0k → 169.0k),
+   per-$100 loss constant ≈ −5.7 center / −5.0..−5.5 corner. Guard-7
+   note: measured under whole-size fill optimism — real large-q capture
+   can only be worse, so neutrality is an upper bound.
+2. **S-fill COUNT is size-invariant** (2554/2536/2414/2509 at q =
+   25/50/100/100) — worst-queue trigger frequency doesn't depend on
+   resting size; dollars scale ×(q/25) exactly as E-014's co-inflation
+   predicted. Matched inventory reaches the RULES-scale aspiration
+   mechanically (M mean 231, median 200 at q = 100) with mean P
+   unchanged (~1.10) — scale does NOT unlock cross-subsidy: the doom
+   premium per dollar is the same at 10× inventory.
+3. **Cap behavior:** B = 500 binds at q = 100 (investedMax 500.01);
+   doubling to B = 1000 also binds (999.82) and slightly worsens
+   per-$100 (−0.29, inside bar) — more capital feeds the same doom
+   markets. #2 vs #3 shows cap-binding is not masking a better
+   frontier.
+4. **Family-level convergence (guard 4 stopping rule TRIGGERED):** 19
+   consecutive v15 configs since E-030 (E-031 6, E-031b 2, E-032 7,
+   E-033 4) with no improvement beyond the 0.30/0.54 bars. Convergent
+   negative: the neutral controller's per-dollar loss ≈ −5..−6 per
+   $100 is INVARIANT to completion policy (§10.5), in-band maker
+   aggression (§11.5), and per-fill size/cap (this section). The loss
+   is the doom-completion premium of one-way markets, and no
+   HOW-to-accumulate/complete variation moves it. Next axes must
+   change WHICH markets are entered, WHEN entry happens, or WHICH side
+   is favored (tilt) — i.e. the untested identity levers: market
+   selection by liquidity structure (ruling 8758567d axis 6),
+   entry-timing shape, and the §5 directional tilt (needs a ≥ 2 SE
+   signal; E-028's favorite region is the only measured candidate).
+   These are ANALYSIS-first axes: the feature-vs-loss measurement can
+   run on existing run rows + telonex parquet before any new strategy
+   code. This is a FAMILY-axes verdict, not a class kill (identity
+   argument names the untested levers).
