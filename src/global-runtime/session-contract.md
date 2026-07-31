@@ -15,7 +15,8 @@ Follow Global Runtime Session Contract v{{contractVersion}}:
    - continue: useful work remains and the next fresh session should start.
    - complete: the mission is finished.
    - wait: human input or an external change is required.
-     The summary field is displayed to the human in Mission Control: one or two plain sentences on what happened and what comes next, in the same register as the journal. It is a message, not a changelog.
+
+The `summary` field of that object is displayed to the human in Mission Control: one or two plain sentences on what happened and what comes next, in the same register as the journal. It is a message, not a changelog.
 
 Additional read-only files exposed in Mission Control:
 {{extraFiles}}
