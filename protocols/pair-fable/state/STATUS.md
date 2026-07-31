@@ -1,21 +1,30 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 17)
+Updated: 2026-07-31 (mission-02 session 18, mid-session)
 
 ## Current work
 
-**Session 17 executed E-030** (the approved pair-v15 controller, per
-ruling 93482fcb): design amended + §8 spec frozen (design-ts 9935e4e)
-BEFORE code (1dcd1dd), `strategies/pair.v15.ts` implemented, staged
-validation complete — smoke 921 PASS, diagnostic 922 PASS all frozen
-bars, screen grid runs 923–932 (10 configs, pinned 800, all completed,
-0 failures). **Verdict ITERATE** — full evidence in pair-v15.md §9 +
-LEDGER E-030. Key numbers: accumulation machine works (matched 43–139
-sh/mkt at pair VWAP 0.93–0.96), all configs negative (best neutral
-−1.83 ev/mkt, run 931), loss = strand tax (pairs +2,072 vs residue
-−4,777 on run 925); salvage lever = first per-dollar improvement
-beyond noise in family history (929 vs 925: Δev +0.60, strands 450→3,
-per-$100 −5.73 family best). anatomy.ts now understands C/V fill modes.
+**Session 18 is executing E-031** (graded completion frontier, pair-v15.md
+§10 frozen at design-ts 57e3b86 BEFORE code 3f75b61): v15.1 G-rule
+(recovery-debt ceiling X(t̂,ι) = P_lock + (debtCap−P_lock)·ρ(t̂)·min(ι,1),
+ramp T0=0.25→T1=0.80, debtCap replaces salvageMax, DOOM_BID gate removed).
+Smoke PASS runs 933 (debt path, 7C+28V fills with expected time-ramp) and
+934 (defaults regression). **In flight: 6-config screen grid on pinned 800
+@ 140/20, label `pf15-e031`**, batchUids (submission order = grid rows §10.2
+#1–#6: debtCap 0.98 / 1.02 / 1.06 / 1.06-duplicate / 1.10 / corner
+P*=0.94,I_b=20,q=20,P_lock=0.93,debtCap=1.06):
+`pf15-e031-20260731T150314-hpiszz`, `...150323-o19kur`, `...150332-iwlly2`,
+`...150342-7k4igq`, `...150402-1rwal7`, `...150414-emt1ya`. Queue depth
+verified = 6 batches. **Resume if session dies:** recover run ids via
+`results.ts --label pf15-e031`, evaluate per §10.2 frozen bars (noise_v15 =
+|Δev(#3,#4)|; verdicts ADVANCE / LEVER-CONFIRMED / LEVER-DEAD vs baselines
+925 (−3.83), 929 (−3.23, per-$100 −5.73), 931 (−1.83)).
+
+**Session 17 executed E-030**: verdict ITERATE — full evidence in
+pair-v15.md §9 + LEDGER E-030. Accumulation machine works (matched 43–139
+sh/mkt at pair VWAP 0.93–0.96), all 10 configs negative (best neutral
+−1.83, run 931), loss = strand tax; salvage lever = first per-dollar
+improvement beyond noise (929 vs 925: Δev +0.60, strands 450→3).
 
 ## Next step
 
