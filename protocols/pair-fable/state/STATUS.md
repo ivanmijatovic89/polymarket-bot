@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 24, mid-session snapshot)
+Updated: 2026-07-31 (mission-02 session 24 close)
 
 ## Current work
 
@@ -18,8 +18,10 @@ win-side accuracy); per-$100 gain partly invested-denominator
 dilution. Median market at τ160 is POSITIVE (+2.79 p/100); tail =
 leader-flip chasing.
 
-**IN FLIGHT (if session ends before readout — next session's FIRST
-action):** E-039, 6 runs, batchUids `pf-e039-d0..d5-20260731T185*`,
+**IN FLIGHT (next session reads AFTER the s25 audit; do NOT
+resubmit):** d0=987 and d1=986 are COMPLETED and read (bridge PASS;
+d1 CEIL-LIVE ev +1.91 vs d0, anatomy: residue value unchanged,
+D-spend −$13.5k). Still running at close: d2/d3/d4/d5. E-039, 6 runs, batchUids `pf-e039-d0..d5-20260731T185*`,
 pinned 800 @ 140/20, SHA 9f3e9cd. Queue verified 6 aggregate +
 4,800 market jobs, 0 failed at submit. Cells (center = c3: τ+160
 gap.10 q100 I160 B500 P*.96 doom.99 cool5 ttl90):
@@ -53,11 +55,33 @@ CEIL-HARMFUL per §7.
 4. Unexplored v15 lever: price gate P* itself (corner evidence
    952/958 points LOWER); competes with, does not block, directional.
 
-## Alignment gate — session 24 (interim; finalized at close)
+## Alignment gate — session 24
 
-- Classification: directional-controller (E-038 readout + E-039
+- **Classification:** directional-controller (E-038 readout + E-039
   iteration of the same directional controller).
-- Session 25 is the every-fifth-session audit (s20–s24).
+- **Direct mission contribution:** E-038 CLOSED — TILT-LIVE (runs
+  978–983; per-$100 monotone +0.83/+1.71/+2.19 in +τ, anti-leader
+  control collapses; ev-flat decomposition names the acquisition
+  price as the binding cost). E-039 designed/frozen (0eb909f),
+  implemented v16.1 (9f3e9cd), smoked, 6-cell grid submitted; d0
+  bridge PASS (Δp/100 0.05, Δev −0.20), d1 (ceiling 0.90) CEIL-LIVE
+  with ev +1.91 vs d0 — the largest single-lever ev gain on record
+  (residue value unchanged, expensive >0.90 chases removed).
+- **Time to evidence:** ~1 min (first E-038 results read immediately
+  at session start). Target MET.
+- **Throughput:** 1 experiment closed (6×800 runs read + anatomy +
+  compare), 1 experiment launched (6×800 = 4,800 market jobs, whole
+  grid up front, queue verified, 0 failures), 2 local smokes. No
+  serial local scans.
+- **Scale progress:** closed by E-036 on record; this grid runs the
+  mechanism question at $500.
+- **Next-session priority:** session 25 runs the every-fifth-session
+  audit (s20–s24) FIRST, then reads E-039 d2–d5 (batchUids above,
+  readout commands + frozen §7 bars in Current work) — GREEN either
+  way.
+- **Verdict:** **GREEN.**
+- Verdict history: s22 GREEN, s23 GREEN, s24 GREEN. Next audit:
+  session 25 (due).
 
 ## Blockers
 
