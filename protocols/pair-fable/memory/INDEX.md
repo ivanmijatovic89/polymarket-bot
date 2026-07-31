@@ -14,6 +14,7 @@ not survive. Written for AI consumption: dense, factual, evidence-tagged.
 | `process/` | How-we-work: evaluator spec, capability-refresh procedure, team workflow. |
 | `siblings.md` | Sibling-workspace (`protocols/pair-*`) review log: what exists elsewhere, when last checked. |
 | `market-context.md` | Human-reported facts about the live market we cannot observe (e.g. the ~700-trades/window profitable operator, tilted finishes). Strong priors, not measurements. |
+| `replan-2026-07-31.md` | Session-15 self-check + strategic replan: identity coverage map (measured vs free terms), ranked decision. Read when choosing the next research direction. |
 
 ## Conventions (binding)
 
