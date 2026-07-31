@@ -1,15 +1,38 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31T23:20Z (mission-02 session 29 close)
+Updated: 2026-07-31T23:40Z (mission-02 session 30 close)
 
 ## Current work
 
-**Session 29: g0 loss-identity analysis (analysis-only; runs still in
-flight).** Session started ~5 min after s28 closed; the 7 FULL runs
-were ~12% done (verified 763 markets/min at 23:17Z ⇒ drain ≈ 00:40Z,
-2026-08-01). Used the wait for mechanism analysis on run 1008 (the
-FULL neutral baseline), recorded in pair-v17.md §10 (commits a473dc4
-+ 2 follow-ups):
+**Session 30: five-session audit s26–s30 PASS (recorded below) +
+band-toxicity prior; runs STILL in flight at close.** Session
+started 1 min after s29 closed; harness forced close at ~23:40Z with
+the queue ~56k market jobs deep (drain ETA ≈ 00:50Z 2026-08-01;
+h80 was at 10,651/10,747 = all non-outage markets done, h160 ~8,100,
+other 5 batches unstarted). NOTHING was read from E-043/E-044/E-045
+— s31's first job is the full readout per the procedure below.
+
+s30 additions (commit e91c1e5):
+
+- **S-fill toxicity is PRICE-UNIFORM** (run 1008, §10 addendum):
+  −3.0 ± 0.5 ¢/share across bands 0.2–0.8 (95% of S volume). No
+  unconditioned quote-side/price-level asymmetry lever exists;
+  side asymmetry must be signal-conditioned (= E-044's mechanism).
+  If E-044's m-cells don't move the S split, the asymmetry axis has
+  no band-level fallback.
+- **S-split engagement query VERIFIED** on run 1008 (reproduces
+  57.85/42.15, S-lose avg 0.418): JSON_TABLE over intent_meta,
+  `CONVERT(jt.side USING utf8mb4) COLLATE utf8mb4_unicode_ci =
+  brm.final_outcome`, filter jt.m='S', group win/lose. Apply as-is
+  to E-044 m-cell run ids (v17m tags maker quotes m='S'/'R'; tilt is
+  placement-side only, so the same query reads engagement directly).
+- zsh eats `$[0]` inside double quotes (arithmetic expansion) —
+  escape as `\$[*]` in sql.ts JSON paths.
+
+**Session 29 (context): g0 loss identity** — completion leverless
+(D EV-neutral vs hold ⇒ explains E-041 CEIL-NULL); whole neutral
+loss = S-flow adverse selection 58/42, −3.2¢/share; S toxicity
+grows 1.6–3× late-window (pair-v17.md §10):
 
 - **Completion policy has NO lever** — leg-vs-outcome identity: C and
   D fills are ~fair at their prices (D buys the leader at 0.823, it
@@ -148,13 +171,42 @@ the readout's decision mappings are applied.
    resubmit). Add to the frozen metrics: E-044 m-cells' S-fill
    win/lose split vs the 58/42 neutral baseline (pair-v17.md §10) as
    the tilt-engagement metric.
-2. **Five-session audit s26–s30** before any new design/submission.
+2. ~~Five-session audit s26–s30~~ DONE in s30 (PASS, see Audit
+   note). New design/submission is unblocked once the readout's
+   decision mappings are applied.
 3. Follow the frozen decision mappings (maker-tilt iteration, width
-   extension, or P* follow-up).
+   extension, or P* follow-up). Backlog after that: time-varying-τ
+   axis (late-window S-toxicity prior, §10) — remember the band
+   finding: any quote-asymmetry follow-up must be signal-conditioned.
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 29 (final)
+## Alignment gate — session 30 (final)
+
+- **Classification:** neutral-controller (mandated five-session
+  audit + band-toxicity mechanism analysis on the FULL neutral
+  baseline 1008; readout prep for the 7 in-flight runs; declared:
+  no new fleet submissions, runs still draining at forced close).
+- **Contribution:** (1) audit s26–s30 PASS recorded (binding §7.2
+  requirement); (2) quote-side asymmetry lever constrained with
+  evidence — adverse selection is price-uniform, so the lever is
+  signal-conditioned-only (commit e91c1e5, sharpens the E-044
+  readout's decision mapping); (3) E-044 engagement metric query
+  verified against the s29 baseline (58/42 reproduced exactly).
+- **Time to evidence:** ~1 min (fleet.ts verify), first substantive
+  scan (S-split verification on 1008) by ~min 8. PASS.
+- **Throughput:** audit (5 gates recovered from git history) + 4
+  read-only SQL scans on run 1008; no new runs (7 × 10,747 in
+  flight, progress verified 3×). Session cut short by harness
+  forced-close while waiting on the queue (~70 min drain remaining).
+- **Scale:** closed by E-036 on record; all in-flight runs B=500.
+- **Next:** s31 reads E-043/E-044/E-045 vs frozen bars (runs done by
+  then) — GREEN (directional + neutral controller evaluation).
+- **Verdict:** **GREEN.**
+- Verdict history: s26 GREEN, s27 GREEN, s28 GREEN, s29 GREEN,
+  s30 GREEN (audit session). Next audit: s35.
+
+## Alignment gate — session 29 (superseded)
 
 - **Classification:** neutral-controller (mechanism identity analysis
   on the FULL neutral baseline run 1008; analysis-only session, 7

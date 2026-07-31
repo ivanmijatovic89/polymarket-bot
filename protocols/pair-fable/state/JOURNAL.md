@@ -1035,3 +1035,22 @@ three times worse in the closing minutes — which prices a "quote
 tighter as the clock runs down" idea for the neutral track. Next
 session: read the seven test results against their pre-registered
 bars, plus the scheduled five-session review.
+
+## Session 30 — 2026-07-31
+
+The seven big tests are still working through the fleet (they finish
+overnight), so this session did the scheduled five-session review and
+one more piece of homework on the wait. The review passed cleanly:
+every one of the last five sessions worked directly on the
+controller, every claim traced to a run, and the one rosy number that
+appeared in that stretch was withdrawn on noise grounds before it
+could mislead us.
+The homework: we asked whether our passive buys are more toxic at
+some price levels than others — maybe quoting only cheap sides, or
+only expensive sides, would dodge the losses. Answer: no. The market
+picks us off at about the same three cents per share whether we bid
+at 25 cents or 75 cents. There is no free fix in where we price; any
+cure has to come from an outside signal saying which side to lean —
+which is precisely what the patient-hands variant now on the fleet
+uses. Next session reads all seven results against their
+pre-registered bars.
