@@ -907,3 +907,9 @@ delays the good cheap purchases.
 Next (already running on the fleet): a finer ceiling scan around 90
 cents, plus a real patience test — requiring ten seconds of
 sustained leadership, which the old parameter limit never allowed.
+Late addition, important: a run repeated with zero changes swung by
+about $1.40 per market — our yardstick was too coarse, and today's
+"best change ever" is only suggestive until re-measured. Two extra
+identical runs are already queued to size the measurement error
+properly; the structural findings (what the controller buys and
+where) are unaffected. Honest bookkeeping beats a good headline.

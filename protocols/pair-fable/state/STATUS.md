@@ -185,3 +185,39 @@ None. E-040 grid in flight (see Current work; do NOT resubmit).
 ## Inbox processed through
 
 2026-07-31T16:46:43.750Z-82e89da5 (no newer entries at s25 start).
+
+## Session 25 LATE ADDENDUM (supersedes the in-flight table above)
+
+E-040 partially read in-session. Run ids: e0=994
+(pf-e040-e0-20260731T200131-j12ruf, uid recovered), e1=993, e2=995,
+e3=996, e4=997. Still in flight at close: e5 + nf1
+(pf-e040-nf1-20260731T200740-kkq28y) + nf2
+(pf-e040-nf2-20260731T200801-e4vayp) — nf runs recorded SHA 2822518;
+verified protocol-.md-only diff from 63fec11 (M4 OK, formula-identical).
+
+**CRITICAL FINDING (pair-v16.md §9 amendment, committed 2822518):**
+e0 bridge 994 vs 986 (formula-identical) shows Δev −1.42; paired
+per-market SE measured ≈ 1.2 ev at B=500/pinned-800 (994v986 mean
+−1.42 SE 1.21; 986v987 mean +1.91 SE 1.16 ⇒ E-039's winner is
+z≈1.6, suggestive not decision-grade; sign test 315/308 flat). All
+E-040 cells read so far are inside that noise vs e0=994: e1 +1.24,
+e2 −0.49, e3 −0.89, e4 +0.28. e4 note: 10-s persistence barely
+binds (invested/trades ≈ unchanged) — leads are already persistent
+at that horizon. e2 structural fact (param-driven, real): tilt
+D-spend mass executes at unit cost 0.80–0.85 (invested cliff sits
+between 0.85 and 0.80, not at 0.90).
+
+**Next session, in order:** (1) read e5/nf1/nf2 (results.ts --last 3);
+(2) compute the recalibrated bar per §9 amendment (max pairwise
+|Δev| across duplicate set {986,994,nf1,nf2}); (3) close E-040 in
+pair-v16.md §10 + LEDGER + JOURNAL under that bar — expected verdict:
+all ev deltas inside noise; (4) RE-VERDICT E-039 per the amendment
+(structural findings stand; ev-winner claim downgrades); (5) choose
+the ev instrument going forward: FULL-universe run pairs have
+SE ≈ 1.2×√(800/10747) ≈ 0.33 (~15 fleet min each) — likely the
+right tool for ev-level verdicts; pinned-800 stays the
+mechanism/structure screen; (6) then the next lever: signal (b)
+spot-vs-priceToBeat tilt (external feed leads the book by
+construction; plumbing exists) — GREEN directional either way.
+Gate s25 stands GREEN; verdict history s23/s24/s25 GREEN; next
+audit s30.
