@@ -23,6 +23,11 @@
  * Everything else (pricing grid, ceiling math, cooldowns, TTL, FOK lock
  * threshold, doom backstop, end-of-window cancels, fill-mode tags S/R/C/D)
  * is identical to v15.4. No sells, no merges; holds to settlement.
+ *
+ * v16.1 (E-039, pair-v16.md §7): tiltUnitMax gates ONLY the tilt component
+ * of the FOK completion amount by acquisition unit cost (match component
+ * never gated); leadPersistTicks requires a consecutive-tick leader streak
+ * before T ≠ 0. Defaults (1, 0) reduce exactly to v16.0.
  */
 import type {
   AccountEvent,
@@ -61,6 +66,10 @@ export const ConfigSchema = z
     tiltShares: z.coerce.number().finite().min(-800).max(800).default(0),
     /** Min bestBid gap to declare a leader; no leader ⇒ neutral this tick (v16). */
     leadGap: z.coerce.number().finite().min(0.01).max(0.5).default(0.1),
+    /** v16.1 (E-039): FOK completion includes the tilt component T_s only when ask+fee ≤ this; the raw match component is never gated. 1 = off (exact v16.0). */
+    tiltUnitMax: z.coerce.number().finite().min(0.5).max(1).default(1),
+    /** v16.1 (E-039): the same side must lead by ≥ leadGap for this many consecutive ticks before T ≠ 0; flips/no-leader reset the streak. 0 = off (exact v16.0). */
+    leadPersistTicks: z.coerce.number().int().min(0).max(200).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -96,6 +105,9 @@ type State = {
   fokCid: string | null
   fokReadyAtTick: number
   windowEndMs: number | null
+  /** v16.1: current ≥ leadGap leader and its consecutive-tick streak. */
+  leadSide: SideName | null
+  leadStreak: number
 }
 
 const GRID = 0.01
@@ -156,6 +168,8 @@ export function createStrategy(cfg: Config): Strategy {
         fokCid: null,
         fokReadyAtTick: 0,
         windowEndMs: windowEndFromSlug(ctx?.market?.slug),
+        leadSide: null,
+        leadStreak: 0,
       }
     }
     state.tickCount += 1
@@ -215,14 +229,26 @@ export function createStrategy(cfg: Config): Strategy {
     // T[s] = +tiltShares on the side whose bestBid leads by ≥ leadGap, the
     // opposite on the other side; no leader (or tilt 0) ⇒ both 0 = exact v15.
     const T: Record<SideName, number> = { UP: 0, DOWN: 0 }
-    if (cfg.tiltShares !== 0 && book.UP !== null && book.DOWN !== null) {
-      if (book.UP.bid >= book.DOWN.bid + cfg.leadGap - 1e-9) {
-        T.UP = cfg.tiltShares
-        T.DOWN = -cfg.tiltShares
-      } else if (book.DOWN.bid >= book.UP.bid + cfg.leadGap - 1e-9) {
-        T.DOWN = cfg.tiltShares
-        T.UP = -cfg.tiltShares
+    if (book.UP !== null && book.DOWN !== null) {
+      const lead: SideName | null =
+        book.UP.bid >= book.DOWN.bid + cfg.leadGap - 1e-9
+          ? 'UP'
+          : book.DOWN.bid >= book.UP.bid + cfg.leadGap - 1e-9
+            ? 'DOWN'
+            : null
+      // v16.1: consecutive-tick leader streak; flips and no-leader ticks reset.
+      if (lead !== null && lead === state.leadSide) state.leadStreak += 1
+      else {
+        state.leadSide = lead
+        state.leadStreak = lead === null ? 0 : 1
       }
+      if (cfg.tiltShares !== 0 && lead !== null && state.leadStreak > cfg.leadPersistTicks) {
+        T[lead] = cfg.tiltShares
+        T[lead === 'UP' ? 'DOWN' : 'UP'] = -cfg.tiltShares
+      }
+    } else {
+      state.leadSide = null
+      state.leadStreak = 0
     }
 
     // Pending notional of live resting orders (cap discipline covers them).
@@ -242,14 +268,18 @@ export function createStrategy(cfg: Config): Strategy {
     if (!state.fokCid && state.tickCount >= state.fokReadyAtTick) {
       for (const side of SIDES) {
         const o = side === 'UP' ? 'DOWN' : 'UP'
-        const deficit = qty[o] - qty[side] + T[side]
         const bk = book[side]
         const leadBk = book[o]
-        if (deficit <= 0 || !bk || bk.askSize <= 0) continue
-        const x = Math.min(deficit, bk.askSize)
-        if (x < 1) continue
+        if (!bk || bk.askSize <= 0) continue
         const a = bk.ask
         const unitCost = a + fee(a)
+        // v16.1: the tilt component joins the completion amount only under the
+        // acquisition-price ceiling; the raw match component is never gated.
+        const tiltDef = unitCost <= cfg.tiltUnitMax + 1e-9 ? T[side] : 0
+        const deficit = qty[o] - qty[side] + tiltDef
+        if (deficit <= 0) continue
+        const x = Math.min(deficit, bk.askSize)
+        if (x < 1) continue
         // Projected cumulative settled pair VWAP after the completion.
         const projSelf = (cost[side] + x * unitCost) / (qty[side] + x)
         const projPair = qty[o] > 0 ? projSelf + cost[o] / qty[o] : Number.POSITIVE_INFINITY
