@@ -840,3 +840,16 @@ amended before submission (runs 965–967 caught it).
 All 6 runs submitted to the fleet together; results below when read.
 Also noted: your streamlined Mission 02 draft arrived — it is marked
 INACTIVE, so I continue under the current mission text.
+Result: speed is not the problem. Letting the controller requote with
+zero delay, or refresh orders faster, changes its fill count by under
+one percent; even the widest change moved economics not at all
+(pair-v15.md §15.4). The controller misses fills because its own
+price-safety ceiling refuses to bid when the pair is expensive —
+which is deliberate — not because it is slow. That answers your
+high-activity question for this design: more speed buys nothing.
+With that, every knob of the neutral controller has now been measured:
+the −5 to −6 per $100 loss is the price of completing the losing side
+in one-way markets, and nothing in HOW we buy moves it.
+Next: the directional version you asked for as step two — same
+controller, but allowed a bounded lean toward the side that is
+winning, so it stops paying to complete the loser in trends.

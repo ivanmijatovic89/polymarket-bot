@@ -1420,3 +1420,58 @@ Amendment (schema + one grid cell; predictions unchanged):
 Standing-guard note (STATUS "schema refines can invalidate a frozen
 grid corner") extends: ENGINE constraints (OrderManager validation)
 must be checked per cell too, not just schema refines.
+
+### 15.4 Result E-037 (session 22, 2026-07-31) — runs 970–975 — VERDICT: CADENCE-DEAD
+
+All 6 completed, 0 failures, recon badRows = 0 everywhere, SHA uniform
+24780bf per market row (verified). Pinned 800 @ 140/20; S/C/D from
+anatomy.ts (uniform readout; 960 re-measured S 2513, 948 S 2554):
+
+| run | cell | cfg | S | C | D | p/$100 | ev/mkt | M mean | invested | mk/tk | resid mkts |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| 970 | #0 | q100 I160 cool5 ttl90 | 2445 | 1170 | 1473 | −5.56 | −11.77 | 229 | 169,252 | 2100/3385 | — |
+| 971 | #1 | q100 I160 cool0 ttl90 | 2461 | 1204 | 1479 | −5.50 | −11.72 | 231 | 170,295 | 2095/3435 | 24 |
+| 972 | #2 | q100 I160 cool10 ttl90 | 2367 | 1149 | 1447 | −6.08 | −12.59 | 225 | 165,731 | 2014/3293 | 25 |
+| 973 | #3 | q25 I40 cool0 ttl90 | 2539 | 548 | 853 | −5.72 | −3.20 | 61 | 44,774 | 2088/1955 | 8 |
+| 974 | #4 | q25 I160 cool0 ttl90 | 2898 | 856 | 940 | −5.45 | −3.63 | 73 | 53,309 | 2384/2426 | 13 |
+| 975 | #5 | q100 I160 cool0 ttl61 | 2444 | 1155 | 1407 | −5.65 | −11.86 | 229 | 167,900 | 2065/3298 | 24 |
+
+Findings:
+
+1. **Bridge PASS** (#0 = 970 vs 960: Δper-$100 −0.24 ≤ 0.54, Δev −0.25,
+   ΔS −2.7%) — the v15.4 param promotion is behavior-neutral at
+   defaults; the grid counts.
+2. **Verdict per frozen §15.2 bars: CADENCE-DEAD.** Named-pair S-count
+   uplifts: #1v#0 +0.7%; #2v#0 −3.2%; #3v948 −0.6%; #4v#3 +14.1%;
+   #5v#1 −0.7% — every one < +25%. No pair moves per-$100 beyond the
+   0.54 bar in either direction (max |Δ| 0.52, #2v#0, the WORSE
+   direction).
+3. **Cooldown dose–response is monotone but tiny**: S 2367 → 2445 →
+   2461 across cool 10 → 5 → 0 at center — the whole 10-tick dead-time
+   range explains ~4% of fills. TTL 90 → 61 is noise (#5v#1 −0.7%), as
+   predicted (requote-on-move dominates).
+4. **#4 (band headroom ×4 at q25) is a band effect, not cadence** (the
+   §15.2 registered E-036-interaction guard): S +14%, M mean 61 → 73
+   (+20%), per-$100 +0.27 (inside bar) — more matched inventory per
+   market at the SAME per-dollar loss; and it does not clear the
+   mechanism bar.
+5. **Mechanism conclusion: v15's fill capture is PRICE-GATED, not
+   duty-cycle-gated.** The ~30× gap to the always-on ToB fill ceiling
+   (E-024/E-025: ~97–150 fills/mkt vs v15's ~3.1/mkt) is the VWAP
+   ceiling refusing to join the bid whenever the projected pair
+   exceeds P* — by design, not by slowness. The activity-regime
+   question (inbox d904e17d) is ANSWERED for v15 at these placements:
+   no cadence/presence change can raise capture materially while the
+   price gate stands; the only remaining fill-raising lever inside
+   v15 is the gate P* itself (a separate axis with its own freeze if
+   ever justified; corner evidence 952/958 suggests LOWER P* is the
+   better direction, not higher).
+
+**Axis scoreboard after E-037:** HOW converged (§10.5, §11.5); scale
+closed SCALE-DEGRADING (§14.2); WHICH dead (§13.2); ask-side
+WHEN/tilt dead (E-035); cadence/activity dead (this section). The
+neutral controller is UNDERSTOOD in the mission sense: every measured
+axis leaves the −5..−6/$100 doom-completion premium invariant. Per
+the binding priority order, the program moves to priority 2: the
+DIRECTIONAL version of this same controller (measured, risk-bounded
+non-zero inventory target) — design E-038.

@@ -1,115 +1,105 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 22 — E-037 IN FLIGHT)
-
-## IN-FLIGHT (session 22, resume info)
-
-E-037 grid submitted 18:16–18:18Z, 6 batches label pf-e037, batchUids
-`pf-e037-20260731T18{1653-0lr2wv,1712-5u4ve6,1732-nl8u2c,1742-x2z59e,
-1751-lron1v,1801-50rtti}` = cells #0–#5 of pair-v15.md §15.2 (SHA
-24780bf, design ac22097 before code). Recover run ids via
-`sql.ts "SELECT id,status,batch_uid,params FROM backtest_runs WHERE
-batch_uid LIKE 'pf-e037%'"`; evaluate per §15.2 frozen bars (S-count
-via anatomy.ts; baselines 960 ev −11.52/p100 −5.32/S 2513, 948 ev
-−3.27/p100 −5.74/S 2554). Cell #0 (…0lr2wv) = run 970 completed.
+Updated: 2026-07-31 (mission-02 session 22 close)
 
 ## Current work
 
-**Session 21 executed E-036 — the binding scale check (mission
-f8b19a4) — designed→frozen→bound-raise→smoke→5-run fleet grid→closed,
-all in one session.** Design 703b8dc BEFORE code 32beb25 (M2); smoke
-959; runs 960–964 on the pinned 800 @ 140/20, SHA uniform 32beb254
-(verified per-market). Verdict: **SCALE-DEGRADING; the binding scale
-question is CLOSED on both mission prongs** (pair-v15.md §14.2):
+**Session 22 executed E-037 — the quoting-presence/cadence axis (the
+pre-registered s21 next step; inbox d904e17d activity question) —
+designed→frozen→implemented→amended→smoked→6-run fleet grid→closed in
+one session.** Design ac22097 BEFORE code 24780bf (M2); §15.3
+amendment BEFORE submission (OrderManager rejects GTD expiry <
+now+60s — smokes 965–967 had ZERO trades from wholesale rejection;
+ttlSec floor raised 5→61, cell #5 15→61); smokes 968/969 PASS; runs
+970–975 pinned 800 @ 140/20, SHA uniform 24780bf (verified
+per-market-row). Verdict: **CADENCE-DEAD** (pair-v15.md §15.4):
 
-- **(a) reached:** M mean 715 / median 600 / p90 1,289 at
-  q=300/B=$2,000 — inside the 500–1,000 matched-share range. S-fill
-  count is size-invariant (2,478–2,627 per 800 mkts at ALL q), so
-  M ∝ q exactly as E-033 predicted.
-- **(b) attached:** q=300 rests AT the measured ToB depth (E-028b
-  300–450 sh) under whole-size-fill semantics — every scaled number is
-  a depth-optimistic UPPER bound; real capture would be worse.
-- **Economics:** per-$100 loss −5.2..−5.9 at every level; two named
-  pairs breach the 0.54 bar the WRONG way: q100→q200 @ B2000 −0.73
-  (degrading), and B2000→B1000 @ q200 +0.66 (LESS cap is better).
-  Mechanism: wider absolute band ⇒ deficits complete deeper into
-  trends (mean P 1.093→1.102; D/S fill ratio 0.56→1.07). Absolute
-  loss scales with invested (ev −11.5 → −36.3/mkt).
-- Bridge run 960 vs 956 PASS (Δ per-$100 0.43 ≤ 0.54): the schema
-  bound raise (orderSize→400, imbalanceBand→800, 32beb25) is
-  behavior-neutral; E-033's qualification is resolved — scale is
-  neutral ≤ q100, degrading beyond, never improving.
+- Bridge 970 ≡ 960 PASS (Δper-$100 −0.24 ≤ 0.54) — the
+  cooldownTicks/ttlSec param promotion is behavior-neutral.
+- Every named-pair S-count uplift < +25% (max +14.1% = #4's band
+  headroom, a band effect per the registered E-036-interaction guard);
+  no per-$100 move beyond the 0.54 bar; cooldown dose–response
+  10→5→0 = S 2367→2445→2461 (~4% over the whole dead-time range).
+- Mechanism: v15 capture is PRICE-GATED by the VWAP ceiling (it
+  refuses the bid when projected pair > P*), not duty-cycle-gated —
+  the ~30× gap to the E-024/E-025 always-on ToB ceiling is by design.
+  The activity axis (d904e17d) is ANSWERED for v15 at these
+  placements.
 
-**Axis scoreboard after s21:** HOW converged (E-031b/E-032); size/cap
-SCALE-DEGRADING and CLOSED per the mission disjunction (E-036); WHICH
-dead (E-034); ask-side WHEN + tilt dead (E-035). The neutral
-controller as specified pays a scale-invariant doom premium of
-−5..−6/$100. Remaining live directions: activity/cadence regime
-(inbox d904e17d — last untested controller axis), sell-side mirror
-(P-013, needs human), cross-symbol (P-012), fill-model realism
-(P-009/P-010 — now load-bearing: guard-7 optimism dominates all scale
-results).
+**Axis scoreboard after s22 — the neutral controller is UNDERSTOOD:**
+HOW converged (§10.5/§11.5); size/cap SCALE-DEGRADING, closed
+(§14.2); WHICH dead (§13.2); ask-side WHEN/tilt dead (E-035);
+cadence/activity dead (§15.4). Loss = doom-completion premium
+−5..−6/$100, invariant on every measured axis. Per the binding
+priority order the program NOW MOVES TO PRIORITY 2: the directional
+version of the same controller.
+
+A human commit 52b1ac0 added `missions/02-research-v2-draft.md` —
+explicitly marked DRAFT/INACTIVE ("do not treat as a ruling"); the
+active mission remains `missions/02-research.md`. E-037 work is
+consistent with both texts.
 
 ## Next step (priority order)
 
-1. **E-037 (GREEN, next session's first action): high-activity /
-   cadence axis on v15** (inbox d904e17d), as neutral-controller work.
-   Constraints to name in the frozen design: E-013 measured
-   ttl/cooldown cadence-DEAD on the one-rest v1 (fill-limited;
-   worst-queue crossings are market-given) — v15 is not exactly
-   equivalent (both-sides continuous quoting) but S-count invariance
-   (E-033/E-036) says the same crossing bound holds at ToB join
-   prices; E-025's trade-confirmed ceiling ≈ 97 fills/mkt vs v15's ~7
-   trades/mkt is the measured headroom; E-032 showed 1-tick quote
-   improvement intercepts only 2.4% of completion dollars. So the
-   design must attack PLACEMENT×CADENCE jointly (e.g. guard-2 swap
-   lagAggr→a requote-cadence/price-refresh knob at small q, or a
-   design-constant promotion with written justification), not ttl
-   alone. Hypothesis sketch: more, smaller, faster-refreshed quotes
-   raise matched inventory per dollar without raising doom exposure
-   (v15 mean trades/mkt ≈ 7 at q=25..100; probe toward 20–100).
-   Freeze minimally (hypothesis/config/metric/verdict), smoke
-   `--sequential --limit 3`, then submit the whole grid; command
-   shape: `npx tsx protocols/pair-fable/tools/run-backtest.ts
-   --strategy pair-fable-v15 --param ... --limit 800 --latest --to-ms
-   1784762100000 --label pf-e037 --detach --json` (one per config,
-   LITERAL args — see the zsh guard below).
+1. **E-038 (GREEN, next session's first action): directional
+   controller v16** — same v15 machinery with a measured, risk-bounded
+   non-zero inventory target (mission priority 2). Design sketch to
+   freeze: shift the band asymmetrically toward a leader signal —
+   tilt target τ(t) with |τ| ≤ tiltMax, deficit-side completion
+   pressure relaxed toward the leader (the doom premium IS the cost
+   of completing the trend-loser; a bounded lead-side tilt attacks
+   exactly that term). Signal candidates, cheapest first: (a)
+   book-implied leader (bid difference — no new plumbing, one session
+   to evidence); (b) spot-vs-priceToBeat distance (contested.ts
+   machinery exists; needs ExternalFeeds plumbing into v16). Start
+   with (a); grid must include τ=0 bridge vs 970 and a τ dose–response
+   with the frozen 0.54/0.30 bars; name the E-035 non-equivalence in
+   the freeze (E-035 killed one-shot ask-side REGION ENTRIES, not a
+   bounded tilt inside the continuous controller). Command shape per
+   cell: `npx tsx protocols/pair-fable/tools/run-backtest.ts
+   --strategy pair-fable-v16 --param ... --limit 800 --latest --to-ms
+   1784762100000 --label pf-e038 --detach --json` (LITERAL args, one
+   command per config; verify queue with fleet.ts after).
 2. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-   No sell-side work beyond the filed proposal without the ruling.
 3. **Cross-symbol replication:** gated on P-012.
-4. v15 HOW/WHICH/tilt/scale: no further spend without a new measured
-   signal (guard-4; scale exception now DISCHARGED by E-036).
+4. v15 neutral axes: ALL closed — no further spend without a new
+   measured signal (guard-4). The only unexplored v15 lever is the
+   price gate P* itself; corner evidence (952/958) points LOWER, and
+   it competes with (not blocks) E-038.
 
-## Alignment gate — session 21
+## Alignment gate — session 22
 
-- **Classification:** neutral-controller (E-036 is a direct scale test
-  of the neutral continuous controller).
-- **Direct mission contribution:** closed the binding scale
-  requirement (mission f8b19a4): $2,000 tested, 500–1,000
-  matched-share range reached (a) with the depth-optimism mechanical
-  bound (b) on record; controller decision changed — scale axis is no
-  longer open, size stays ≤ q100 for any future v15 work. Evidence:
-  design 703b8dc, code 32beb25, runs 960–964, pair-v15.md §14.2,
-  LEDGER E-036.
-- **Time to evidence:** ~3 min (session start ≈17:49; design commit
-  703b8dc 17:52; smoke run 959 launched 17:52:24, completed 17:52:44).
-  10-minute target MET.
-- **Throughput:** 1 experiment (5 pre-registered configs + 1 smoke);
-  4,003 market-replays; whole grid submitted up front (5 detached
-  submissions, verified in queue), fleet 31 workers, all 5 runs landed
-  and were analyzed in-session (~2 min/run). No serial local scans.
-- **Scale progress:** the binding check is DONE — $2,000 tested
-  (invMax 1,967), M 715/600 mean/med at q=300 vs the 500–1,000 target
-  (reached, depth-optimistic), verdict SCALE-DEGRADING.
-- **Next-session priority:** E-037 cadence/placement axis (GREEN,
-  neutral-controller); sketch + commands above.
+- **Classification:** neutral-controller (E-037 is a direct
+  presence/cadence test of the neutral continuous controller).
+- **Direct mission contribution:** closed the last open neutral-
+  controller axis (activity/cadence, inbox d904e17d): promoted
+  ttl/cooldown to params, measured S-count elasticity ≈ 0 (< +25%
+  everywhere), proved capture is price-gated; controller decision
+  changed — cadence work is dead for v15, program advances to the
+  directional controller (priority 2). Evidence: design ac22097, code
+  24780bf, runs 970–975, pair-v15.md §15.4, LEDGER E-037.
+- **Time to evidence:** ~8 min (session start ≈18:04Z; design commit
+  1fbfcec/ac22097 18:11; smoke run 965 launched 18:12:27). 10-minute
+  target MET.
+- **Throughput:** 1 experiment (6 pre-registered cells + 5 sequential
+  smoke/diagnostic runs 965–969); 4,815 market-replays; whole grid
+  submitted up front (6 detached submissions, queue verified: 6
+  aggregate jobs, 4,800 market jobs), fleet 31 workers, all 6 runs
+  landed and analyzed in-session (~1.7 min/run). No serial local
+  scans.
+- **Scale progress:** closed by E-036 (s21); this session $500 level
+  only (grid design — scale axis already answered). No remaining gap:
+  $2,000 tested, 500–1,000 range reached depth-optimistically, on
+  record.
+- **Next-session priority:** E-038 directional controller v16 (GREEN,
+  directional-controller); sketch + commands above.
 - **Verdict:** **GREEN.**
-- Verdict history: s19 GREEN, s20 YELLOW, s21 GREEN. Next audit:
+- Verdict history: s20 YELLOW, s21 GREEN, s22 GREEN. Next audit:
   session 25 (every-fifth-session template, mission §Alignment).
 
 ## Blockers
 
-None. Fleet idle after E-036 (all 5 batches completed). No in-flight
+None. Fleet idle after E-037 (all 6 batches completed). No in-flight
 work.
 
 ## Needs human
@@ -133,7 +123,8 @@ work.
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine
-  commits (s13–s21: only protocol commits moved HEAD).
+  commits (s13–s22: only protocol commits moved HEAD; s22 pulled
+  52b1ac0 = missions draft only).
 - Queue submissions require a CLEAN tree pushed to origin/main (push
   via `git push origin HEAD:main`); commit state snapshots before
   submitting.
@@ -153,8 +144,8 @@ work.
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes). FULL reference v1-b: run 914.
   v15 baselines: old-SHA (4a5982e) 948/952/956/957; **new-SHA
-  (32beb25) bridge 960 ≡ 956 verified** — future v15 runs compare
-  against 960 (center q100/I160/B500 equivalent). **v15 noise floor
+  (24780bf) bridge chain 970 ≡ 960 ≡ 956 verified** — future v15 runs
+  compare against 970 (center q100/I160/B500, explicit cool5/ttl90). **v15 noise floor
   0.15 ⇒ ev bar 0.30, per-$100 bar 0.54** (937v938).
 - JOURNAL entries are for the HUMAN: plain language, 3–6 short lines,
   ≤ 1 evidence pointer per conclusion (inbox 330fa938, permanent).
@@ -168,11 +159,16 @@ work.
   Guard-7 whole-size fill optimism: larger-q results depth-optimistic
   — at q ≥ 200 the rest is AT/ABOVE measured ToB depth (E-036).
 - Sibling-memory recheck at session start (`ls protocols/*/memory`) —
-  2026-07-31 s21: not re-checked (s20: only pair-fable has memory).
+  2026-07-31 s22: checked, only pair-fable has memory.
 - Smoke cannot catch latency-race bugs (CAP-BREACH check) AND cannot
   demonstrate RARE fill modes (escalate to a 200-mkt Stage B instead).
-- Schema refines can invalidate a frozen grid corner — check every
-  cell against the schema refines when freezing.
+- Schema refines AND engine constraints can invalidate a frozen grid
+  corner — check every cell against schema refines and OrderManager
+  validation when freezing (E-037: GTD expiry < now+60s is rejected;
+  ttlSec < 61 cannot trade at all).
+- A completed run with 0 trades and noActivity=N can mean every order
+  was REJECTED (not empty data) — check OrderManager validation
+  before blaming the dataset (runs 965–967).
 - The backtest sim is NOT bit-deterministic (latency jitter):
   identical configs differ run-to-run — noise floors come from
   duplicate pairs.
