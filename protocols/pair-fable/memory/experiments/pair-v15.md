@@ -1302,3 +1302,100 @@ Findings:
    are on record. Residue is ≈ 0 everywhere (pairsPnl carries the
    whole loss): the controller pairs fine at scale; it pays the same
    doom premium per dollar, on more dollars.
+
+## 15. v15.4 — quoting-presence / cadence axis (E-037, session 22 — FROZEN)
+
+Executes the pre-registered STATUS s21 next step and the inbox d904e17d
+activity-regime question, as neutral-controller (GREEN) work.
+
+### 15.0 Hypothesis and non-equivalence to E-013
+
+v15's S-fill capture is ~3.1–3.3 fills/mkt and size-invariant
+(E-033/E-036: 2,414–2,627 per 800 mkts at every q). The measured
+always-present ToB quote fills FAR more often under the SAME sim
+semantics: E-024 worst-queue W140 ≈ 150 fills/mkt equivalent
+(6,960 ToB-decrease events/mkt; O/W 29× at 140ms), E-025
+trade-confirmed ceiling ≈ 97 fills/mkt. The ~30–50× gap must come from
+v15's own duty cycle and/or its price gate:
+
+- **Duty cycle (cadence-reachable):** every ≥1-tick target move costs
+  cancel → wait-terminal (latency) → COOLDOWN_TICKS=5 → requote;
+  post-fill and post-TTL-expiry pay the same 5-tick cooldown. In an
+  active book the side is absent a large fraction of the window.
+- **Price gate (cadence-UNreachable):** the VWAP ceiling caps quotes
+  below bestBid whenever the projected pair exceeds P* — no cadence
+  change can make a below-bid rest fill under worst-queue.
+
+**H (registered):** removing dead time raises S-count materially; if
+instead S-count is inelastic (< +25%), capture is price-gated and the
+cadence/activity axis is answered-dead for v15 at these placements.
+
+Non-equivalence to the E-013 kill (guard-2 written justification for
+promoting the §8.1 design constants to params, same pattern as the
+E-032 debtCap→lagAggr swap): E-013 measured ttl/cooldown inelasticity
+on the ONE-REST v1 (single standing rest, always at ToB join, no
+requote-on-move churn); v15 quotes both sides continuously with
+requote-on-move — its dead time per book move is structurally new, and
+E-024/E-025 have since bounded the always-on ceiling ~30× above v15's
+realized capture. Exact equivalence is not demonstrated, so the
+constants must be tested, not inherited (mission: prior failures are
+design constraints, not dismissal grounds).
+
+### 15.1 Spec (v15.4; schema-only delta over v15.3)
+
+Two design constants become params, defaults = current constants
+(default behavior unchanged ⇒ bridge cell must PASS):
+
+- `cooldownTicks` int 0–25, default 5 — post-terminal (fill / cancel /
+  expiry) per-side requote cooldown. FOK_COOLDOWN_TICKS stays a
+  constant (completion axis CONVERGED, §10.5 — not reopened).
+- `ttlSec` 5–300, default 90 — GTD rest TTL.
+
+No pricing, band, ceiling, reservation, or completion logic changes.
+
+### 15.2 Grid (FROZEN; pinned 800 `--latest 800 --to-ms 1784762100000`,
+### launcher-pinned 140/20, P* = 0.96, γ = 0, doomUnitMax = 0.99,
+### submitted as one batch)
+
+| # | q | I_b | B | cool | ttl | vs (named pair) |
+|---|---|---|---|---|---|---|
+| 0 | 100 | 160 | 500 | 5 | 90 | 960 (SHA bridge — param promotion must be behavior-neutral) |
+| 1 | 100 | 160 | 500 | 0 | 90 | #0 (dead-time removal at center) |
+| 2 | 100 | 160 | 500 | 10 | 90 | #0 (dose–response, opposite direction) |
+| 3 | 25 | 40 | 500 | 0 | 90 | 948 (dead-time removal at small q; 948 old-SHA is valid via the 960≡956 bridge — schema-only edits don't touch q25 paths) |
+| 4 | 25 | 160 | 500 | 0 | 90 | #3 (band headroom ×4 at small q: ~6 consecutive same-side fills before the band gates; absolute band 160 already measured neutral at center, 961 vs 960) |
+| 5 | 100 | 160 | 500 | 0 | 15 | #1 (fast TTL churn; prediction: ≈ neutral, requote-on-move dominates) |
+
+Schema check per cell: q ≤ 400 ✓; q ≤ I_b ✓ (25≤40, 25≤160, 100≤160);
+I_b ≤ 800 ✓; B ≤ 2000 ✓; cool 0/5/10 ∈ [0,25] ✓; ttl 15/90 ∈ [5,300]
+✓; doomUnitMax 0.99 ✓.
+
+E-036 interaction guard (registered): #4 widens the ABSOLUTE band at
+small q — if #4 degrades vs #3 by > 0.54 per-$100 that replicates the
+E-036 wider-band doom-depth mechanism and is NOT a cadence finding.
+
+Frozen readouts: §3 metrics 1–8; **S-fill COUNT per run (primary
+mechanism readout)**; per-mode fills S/R/C/D; trades/mkt; M
+mean/median; invested; strands; tail min/p5; mean P; %<.98/.95.
+
+Frozen verdict bars (per-$100 governs, bar 0.54; ev bar 0.30
+secondary; guard-7 optimism named on every claim; named pairs #1v#0,
+#2v#0, #3v948, #4v#3, #5v#1):
+
+- **BRIDGE-STOP**: |#0 − 960| per-$100 > 0.54 ⇒ the param promotion is
+  not behavior-neutral at defaults — halt the readout, diagnose.
+- **CADENCE-LIVE** iff some named pair has S-count uplift ≥ +50% AND
+  per-$100 better by > 0.54 ⇒ iterate the presence axis (finer
+  cadence, placement×cadence combinations).
+- **PRESENCE-ONLY** iff some pair has S-count uplift ≥ +25% but no
+  pair clears the per-$100 bar ⇒ the mechanism fires but economics
+  don't move — record the remaining limiter; at most ONE bounded
+  follow-up, and only with a written mechanism argument.
+- **CADENCE-DEAD** iff every pair's S-count uplift < +25% ⇒ capture is
+  price-gated (VWAP ceiling), not duty-cycle-gated; the activity axis
+  (inbox d904e17d) is ANSWERED for v15 at these placements; the
+  remaining fill-raising lever is the price gate P* itself — a
+  separate axis needing its own freeze.
+
+Deviations require a written amendment here BEFORE the affected
+submission.
