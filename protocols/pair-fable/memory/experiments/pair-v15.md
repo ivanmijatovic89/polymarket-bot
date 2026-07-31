@@ -1,20 +1,43 @@
 # pair-v15 — continuous two-sided inventory accumulation controller
 
-Status: **DESIGN CHECKPOINT (session 16, 2026-07-31) — awaiting human
-review.** No strategy code, no runs, no frozen pre-registration yet.
-Mandated by human ruling inbox `2026-07-31T13:16:53.539Z-90d94c56`
-(strategic redirect): design a controller that operates through most of
-the 15-minute window, repeatedly buying both UP and DOWN, maximizing
-matched inventory min(Q_UP, Q_DOWN), keeping combined pair VWAP below
-$0.98 (seeking materially lower), keeping imbalance small, using later
-price movement to complete/improve earlier inventory, and controlling
-capital and losses in trending markets. Target 500–1,000 matched
-shares/market is an aspiration, not a requirement. E-029 postponed per
-the same ruling.
+Status: **APPROVED WITH AMENDMENTS (human ruling inbox
+`2026-07-31T13:44:57.732Z-93482fcb`) — implementing (E-030, session 17).**
+Original mandate: ruling inbox `2026-07-31T13:16:53.539Z-90d94c56`
+(strategic redirect): a controller that operates through most of the
+15-minute window, repeatedly buying both UP and DOWN, maximizing matched
+inventory min(Q_UP, Q_DOWN), keeping combined pair VWAP below $0.98
+(seeking materially lower), keeping imbalance small, using later price
+movement to complete/improve earlier inventory, and controlling capital
+and losses in trending markets. 500–1,000 matched shares/market is an
+aspiration, not a requirement. E-029 stays parked.
 
-This file is the deliverable for the ruling's points 1–5. The frozen
-pre-registration (design-ts, exact bars) happens AFTER the human
-approves/amends this design, per the M2 discipline.
+Ruling 93482fcb amendments (binding):
+1. NO separate Phase-0 simulator (`invscan.ts` is dropped) — implement
+   the real controller through the shared strategy/backtest path; stages:
+   smoke → ~100–200 diagnostic markets → pinned-800 screen → FULL only
+   after a promising 800 result. Small stages are correctness evidence,
+   never profitability evidence.
+2. Maker AND taker allowed, no maker-share target; verdicts fee-, latency-
+   and fill-semantics-inclusive; upward latency sweep before promotion.
+3. Capital grid at least {100, 500, 1000, 2000} $/market (replaces the
+   proposed {50,100,200,500}); order size scales with capital and depth;
+   report absolute profit, per-$100, matched shares, tail loss per level.
+4. Above-$1 completion is ALLOWED (not OFF by rule): controlled variants
+   that reduce dangerous imbalance / projected worst-case loss; never
+   unlimited loss chasing.
+5. $0.98 is a TARGET, not a per-action invariant: temporary pair VWAP
+   above $0.98 (even above $1) is allowed when later accumulation can
+   repay it; the controller bounds that recovery debt; exact math and
+   bounds are the lab's choice, from evidence.
+6. Throughput: submit whole pre-registered grids up front; stay
+   hypothesis-driven; smoke/diagnostic to kill broken ideas cheaply.
+7. Mechanism backlog explored autonomously; return `wait` only for
+   genuine scope/safety/external-data decisions.
+
+§1–§5 below are the approved design (kept verbatim for the record).
+**§8 is the frozen v15.0 implementation spec and E-030 pre-registration**
+— where §8 and §2 differ, §8 governs the code. §6's plan and §7's
+questions are superseded (answers folded into §8).
 
 ## 1. Relationship to previous work (ruling point 1)
 
@@ -225,7 +248,7 @@ AFTER the neutral controller's Phase-0/screen results exist, and its
 tilt signal must first show ≥ 2 SE unconditional value in a calibration
 readout (E-028-style), not just a plausible story.
 
-## 6. Proposed experiment plan (pending approval — nothing frozen yet)
+## 6. Proposed experiment plan (SUPERSEDED by §8 per ruling 93482fcb — kept for the record)
 
 - **E-030 (Phase 0, next session after approval): controller-geometry
   scan, no strategy code.** New read-only tool `tools/invscan.ts`
@@ -257,7 +280,11 @@ readout (E-028-style), not just a plausible story.
   Cheap local scan, still worth running later — it also gates §5's
   signal (a). Re-order at human discretion.
 
-## 7. Open design questions for the human (also in STATUS §Needs human)
+## 7. Open design questions (ANSWERED by ruling 93482fcb: 1 → no Phase-0
+## simulator, real strategy path; 2 → taker-heavier OK, no maker target;
+## 3 → grid replaced with {100,500,1000,2000}; 4 → above-$1 completion
+## allowed as a tested lever; 5 → no human-dictated hard bound, choose
+## from evidence. Kept for the record.)
 
 1. **Sequencing**: Phase-0 geometry scan before strategy code (lab
    discipline, cheap, answers the load-bearing uncertainty first) — or
@@ -275,3 +302,132 @@ readout (E-028-style), not just a plausible story.
    it as a tunable from the start.
 5. **P* hard bound**: schema max 0.98 per the ruling ("below $0.98");
    the sweep probes 0.95–0.98. Confirm 0.98 as the hard schema bound.
+
+## 8. v15.0 implementation spec + E-030 pre-registration (session 17 — FROZEN)
+
+Frozen BEFORE `strategies/pair.v15.ts` exists (M2: this commit's
+timestamp is the design-ts; the code commit follows it). Strategy id
+`pair-fable-v15`.
+
+### 8.1 Tunables (exactly 6 — guard 2)
+
+| Param | Schema | Default | Meaning |
+| --- | --- | --- | --- |
+| `capPerMarket` B | pos ≤ 2000 | 500 | per-market capital cap, $ |
+| `pairTarget` P* | 0.90–0.99 | 0.96 | target settled pair VWAP (maker ceiling reference) |
+| `imbalanceBand` I_b | 1–200 | 40 | shares of tolerated unmatched inventory |
+| `orderSize` q | pos ≤ 100 (M5), ≤ I_b (refine) | 25 | shares per maker rest |
+| `lockTarget` P_lock | 0 or 0.5–0.99 | 0.95 | taker-completion trigger on projected pair VWAP; 0 = off |
+| `salvageMax` | 0–0.995 | 0 | doom-salvage FOK: fires when ask+fee ≤ this (may push P above $1); 0 = off |
+
+Design constants (not tunable): GRID 0.01; TTL_SEC 90; COOLDOWN_TICKS 5
+(maker requote), FOK_COOLDOWN_TICKS 25 (E-020: ticks can outpace the
+140 ms fill latency); one FOK in flight at a time (E-020); requote only
+when the target moves ≥ 1 tick; lead-side/new-exposure stop at T−180 s;
+cancel-all-resting at T−60 s (FOK rules run to T); DOOM_BID 0.20 (doom
+proxy for salvage); no sells, no merge intents.
+
+### 8.2 Notation
+
+Q_s, C_s = shares / cost basis held on side s (portfolio costBasis; maker
+fills are fee-free so this is fee-inclusive for maker volume; taker fee
+terms are added explicitly at each decision point, matching v10's
+convention and the sim's fee model 0.07·p·(1−p)). o = the other side.
+bid_s, ask_s = best bid/ask; askSize_s = displayed size at ask_s.
+fee(p) = 0.07·p·(1−p). Neutral controller: I* = 0 throughout (the
+directional variant will subtract I* from every imbalance expression).
+
+### 8.3 Maker quoting (both sides, every tick until T−60 s)
+
+For each side s, target price:
+
+1. **Band guard (trending halt + overshoot guard):** quote s only if
+   `surplusAfter = Q_s + q − Q_o ≤ I_b`. From balanced this admits both
+   sides (q ≤ I_b by schema); a side more than I_b ahead is never bought.
+   From T−180 s, additionally require `surplusAfter ≤ 0` (only
+   deficit-reducing buys — no new net exposure).
+2. **Grading:** deficit d_s = max(0, Q_o − Q_s), ι = d_s / I_b.
+   ι ≤ 1 ⇒ target = bid_s (join, $0 fee, worst-queue).
+   ι > 1 ⇒ target = bid_s + min(ι − 1, 1)·((ask_s − GRID) − bid_s) —
+   v1's repair-at-cap generalized to a continuum (never keyed on own
+   VWAP, per the E-026 constraint).
+3. **VWAP ceiling:** cap target at p̂_s, the max price keeping the
+   completability-conservative projected pair VWAP ≤ P*:
+   Q_s' = Q_s + q; D' = max(0, Q_s' − Q_o); D_band = min(D', I_b) priced
+   at bid_o (a standing lag quote fills there on oscillation);
+   D_exc = D' − D_band priced at ask_o + fee(ask_o);
+   V_o_proj = (C_o + D_band·bid_o + D_exc·(ask_o + fee(ask_o))) / Q_s'
+   (or C_o/Q_o when D' = 0);
+   **p̂_s = ((P* − V_o_proj)·Q_s' − C_s) / q**.
+   Bootstrap check: Q_U = Q_D = 0 ⇒ p̂ = P* − bid_o, i.e. joining
+   requires bid_s + bid_o ≤ P* — exactly the v1/v4 start gate. The
+   band-internal deficit priced at bid_o (not taker) is the deliberate
+   optimism that lets the controller run; the band bounds its cost. This
+   is also where ruling amendment 5 lands in v15.0: realized P may drift
+   above P* (graded repair fills, salvage); the ceiling only disciplines
+   projections at decision time, and the recovery-debt bound is the band
+   itself (strand ≤ I_b + q at ceiling-admissible prices).
+4. **Maker discipline:** price = floorToGrid(min(target, p̂_s)); if
+   ≥ ask_s, price = ask_s − GRID; skip if < GRID.
+5. **Capital + reservation:** skip unless
+   `C_U + C_D + pending + price·q + R' ≤ B`, where pending = notional of
+   live resting orders and R' = max(0, Q_s + q − Q_o)·(ask_o +
+   fee(ask_o)) reserves completion of the projected deficit at current
+   taker cost (R' = 0 for deficit-reducing buys).
+6. **Requote:** if a resting order's price differs from today's target by
+   ≥ 1 tick, or its side became unquotable, cancel (once, tracked), wait
+   for terminal, requote after COOLDOWN_TICKS.
+
+### 8.4 Taker rules (FOK, one in flight, to T)
+
+- **C — pair lock (P_lock > 0):** when d_s > 0, x = min(d_s, askSize_s),
+  a = ask_s: fire iff projected settled pair VWAP
+  `(C_s + x·(a + fee(a)))/(Q_s + x) + C_o/Q_o ≤ P_lock` and capital
+  admits. Cumulative-VWAP trigger (cross-subsidy lever) — deliberately
+  NOT v10's per-pair h + ask + fee ≤ C.
+- **V — doom salvage (salvageMax > 0):** when d_s > 0, bid_o ≤ DOOM_BID
+  and ask_s + fee(ask_s) ≤ salvageMax: FOK x = min(d_s, askSize_s) at
+  ask_s. May push P above $1 (ruling amendment 4): completing at
+  a + fee < 1 beats holding a doomed lead to zero; bound = salvageMax.
+- Any resting order on the FOK's side is cancelled in the same intent
+  batch (v10 machinery).
+
+### 8.5 Fill-mode tags (meta.m — anatomy must learn these before reading decompositions)
+
+`S` maker fill placed with ι ≤ 1 (band accumulation) · `R` maker placed
+with ι > 1 (graded repair) · `C` pair-lock FOK · `V` salvage FOK.
+
+### 8.6 E-030 — staged validation of pair-fable-v15 (FROZEN)
+
+All runs: telonex-delta, btc 15m, latency 140/20 pinned by flags,
+provenance `--protocol pair-fable --model claude-fable-5`.
+
+- **Stage A (smoke):** `tools/smoke.ts --strategy pair-fable-v15`
+  (defaults), ≤ 20 mkts sequential. Bar: SMOKE PASS + no cap breach.
+- **Stage B (diagnostic, NOT profitability evidence):** one fleet run,
+  center config (defaults: B=500 P*=0.96 I_b=40 q=25 P_lock=0.95
+  salvageMax=0), `--latest 200 --to-ms 1784762100000` (the newest 200 of
+  the pinned 800). Bars (integrity/mechanism only): every market
+  invested ≤ B + $1; recon badRows = 0; ≥ 30% of markets reach M > 0;
+  fill modes S and C both occur; no FOK burst (no market with > 40
+  taker fills). FAIL ⇒ fix code, re-smoke, rerun Stage B once; the
+  Stage C grid stays frozen regardless.
+- **Stage C (screen, pinned 800):** `--latest 800 --to-ms 1784762100000`,
+  10 configs submitted up front (inbox c841c329), all at B=500, q=25,
+  P_lock = P* − 0.01:
+  P* ∈ {0.94, 0.96, 0.98} × I_b ∈ {20, 40, 80}, salvageMax = 0 (9), plus
+  the center (P* 0.96, I_b 40) with salvageMax = 0.99 (the above-$1
+  lever, amendment 4).
+  Frozen readouts: §3 metrics 1–8; screen noise floor per evaluator.md.
+  Verdict bars: **ADVANCE** iff some config has evPerMarketTotal > 0
+  beyond the screen noise floor AND mean P (over M > 0 markets) ≤ 0.98
+  ⇒ Stage D cap sweep {100, 500, 1000, 2000} on the best config
+  (q scaled to cap: 10/25/50/100 — frozen at Stage D pre-registration
+  with I_b scaling, informed by C's mechanism readouts) + FULL + S3/S4
+  per evaluator pipeline. **ITERATE** iff all configs negative but the
+  §3 mechanism readouts localize the loss in a §2.5-bounded term a
+  design change targets (next mechanism from the backlog). **KILL the
+  v15.0 FAMILY** (never the class — evaluator.md §Kill standards) iff
+  all configs lose > $0.50/mkt with no localizable mechanism.
+- Deviations from this plan require a written amendment in this file
+  BEFORE the affected run is submitted.
