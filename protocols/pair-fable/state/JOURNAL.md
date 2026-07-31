@@ -728,3 +728,19 @@ whether the market's back-and-forth actually supplies enough cheap
 two-sided flow.
 Waiting on your review — five specific questions are at the end of the
 design file.
+
+## Session 17 — 2026-07-31
+
+Built and tested the big two-sided accumulation controller you approved.
+It does what the design promised mechanically: it keeps buying both sides
+all window and ends with 5–10× more matched inventory than any earlier
+version, at pair prices comfortably below $0.98. But it loses money the
+same way the family always has: the markets that trend one way leave a
+stranded side, and those strands eat more than the pairs earn (all 10
+test configurations negative; details in pair-v15.md §9).
+One genuinely new result: letting the controller finish a doomed pair
+even above $1 cut the stranded losses roughly in half per market — the
+first knob that ever improved the per-dollar economics beyond noise
+(run 929). The fix it points to: complete stranded sides earlier and
+cheaper, on a sliding price limit that loosens as time runs out.
+Next session designs and tests exactly that.

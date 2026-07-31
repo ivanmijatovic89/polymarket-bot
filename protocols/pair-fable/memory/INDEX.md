@@ -211,6 +211,14 @@ Pointers, not content.)
   `experiments/pair-v15.md` (family comparison + no-equivalence
   statement, control math, metrics, neutral-first + directional-tilt
   designs, proposed E-030 geometry scan → E-031 strategy grid) —
-  AWAITING HUMAN REVIEW; nothing frozen or coded yet. Sibling
-  workspaces hold no additional research memory (`siblings.md`,
-  2026-07-31).
+  approved with amendments (inbox 93482fcb). **Session 17: E-030
+  executed** — pair-v15.md §8 frozen spec + `strategies/pair.v15.ts`
+  (the real controller; geometry scan dropped per the ruling), staged
+  runs 921/922/923–932 all clean, verdict **ITERATE**: accumulation
+  machine works (43–139 matched sh/mkt @ pair VWAP 0.93–0.96), all
+  configs negative on strand tax (E-011 per-$100 invariant persists),
+  BUT above-$1 salvage = first per-dollar lever beyond noise (Δev
+  +0.60, strands 450→3, −5.73/$100 family best) ⇒ E-031 graded
+  completion frontier next (pair-v15.md §9). anatomy.ts knows C/V
+  modes. Sibling workspaces hold no additional research memory
+  (`siblings.md`, 2026-07-31).

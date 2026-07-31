@@ -441,3 +441,73 @@ by the schema (the other 7 went through). Fix, frozen here first: the
 I_b = 20 column runs at `orderSize = 20` (band-tight corner stays
 testable; its q differs from the other columns' 25 — noted for readout
 comparability). No other change.
+
+## 9. Result E-030 (session 17, 2026-07-31) — verdict ITERATE
+
+Stages: **A** SMOKE PASS (run 921, 10 mkts, no cap breach). **B** PASS all
+frozen bars (run 922, latest-200: investedMax 170.73 ≤ 501; recon badRows
+0; matched-markets 80/200 = 40% ≥ 30%; modes S+C present; max taker
+fills/mkt 16 ≤ 40). **C** screen grid, pinned 800 @ 140/20, runs 923–932
+(all completed, 0 failures; per-run frozen metrics in the table below,
+recon badRows 0 on every anatomized run).
+
+| run | P* | I_b | q | slv | ev/mkt | p/$100 | M mean/med (mkts>0) | mean P | %<.98/.95/.90 | strands × meanL |
+|---|---|---|---|---|---|---|---|---|---|---|
+| 931 | 0.94 | 20 | 20 | 0 | **−1.83** | −6.55 | 43/40 (487) | 0.929 | 96/90/5 | 355 × −6.51 |
+| 930 | 0.96 | 20 | 20 | 0 | −2.81 | −7.45 | 51/42 (543) | 0.947 | 94/63/1 | 432 × −6.66 |
+| 932 | 0.98 | 20 | 20 | 0 | −4.03 | −7.12 | 73/60 (575) | 0.965 | 83/13/0 | 531 × −6.97 |
+| 923 | 0.94 | 40 | 25 | 0 | −3.02 | −8.66 | 55/50 (465) | 0.931 | 94/86/4 | 404 × −8.35 |
+| 925 | 0.96 | 40 | 25 | 0 | −3.83 | −7.34 | 72/56 (538) | 0.947 | 93/64/1 | 450 × −8.64 |
+| 927 | 0.98 | 40 | 25 | 0 | −5.92 | −7.69 | 99/77 (575) | 0.964 | 86/12/0 | 551 × −9.68 |
+| 924 | 0.94 | 80 | 25 | 0 | −3.06 | −8.02 | 60/50 (468) | 0.927 | 96/93/5 | 365 × −9.73 |
+| 926 | 0.96 | 80 | 25 | 0 | −4.46 | −6.86 | 88/75 (549) | 0.945 | 95/68/2 | 447 × −10.51 |
+| 928 | 0.98 | 80 | 25 | 0 | −7.80 | −7.24 | 139/116 (574) | 0.962 | 90/14/0 | 536 × −13.52 |
+| 929 | 0.96 | 40 | 25 | .99 | −3.23 | **−5.73** | 61/50 (692) | 1.096 | 20/6/0 | **3** × −9.39 |
+
+Findings (all from this session's tool results):
+
+1. **The accumulation machine works as designed.** Matched inventory mean
+   43–139 shares/matched-market (p90 up to 284), pair VWAP 0.93–0.96 with
+   86–96% of matched markets < $0.98 — 5–10× the v-family's standing
+   inventory, at ~100% two-sided duty cycle. No cap breaches, no FOK
+   bursts, recon clean everywhere. The C-lock has a real trigger surface
+   at scale (609–1,075 fills/run vs ~3 in E-020's v1-based module).
+2. **Economics: the strand tax still wins.** Neutral decomposition (925):
+   pairsPnl +2,072 vs residuePnl −4,777 across 527 strand-markets (98.5%
+   adverse, ≈ −$8.6 each ≈ one 25-share increment at ~0.35). Same
+   identity as the v-family, at 4× volume: per-$100 loss −6.9..−8.7 ≈
+   the E-011 invariant. ev worsens monotonically in BOTH volume knobs
+   (P*↑, I_b↑). Best neutral corner (931, −1.83) is still worse in ev/mkt
+   than v1 (−1.50 @ 0.98, run 872) on the same universe.
+3. **First measured per-dollar improvement in family history: the salvage
+   lever.** 929 vs 925 (identical but salvageMax 0.99): Δev +0.60 (6× the
+   0.10 noise bar), per-$100 −5.73 vs −7.34, strand-markets 450 → 3.
+   Salvage converts strands into above-$1 pairs (V invested $13.5k,
+   pairsPnl −2,158 but residue → +15): strand tax per affected market
+   roughly halves (−$8.6 → ≈ −$4.8). It fires at DOOM_BID 0.20, i.e.
+   buys the winner at ~0.9+; completion happens at total ~1.05–1.10.
+4. **The untested continuum is the completion frontier.** v15.0 has a
+   binary completion policy: C at ≤ P_lock (cheap, rare in doomed
+   markets) and V at doom-certainty (expensive, ~always too late).
+   Between them lies a graded ceiling X(t, ι) ∈ (P_lock, salvageMax)
+   rising with time-elapsed and persistent imbalance — precisely the
+   ruling's "recovery debt bounded by remaining time/imbalance/max-loss".
+   Direction supported by 3: earlier completion at a cheaper winner ask
+   should interpolate between −$8.6 and −$4.8 per strand.
+
+**Verdict: ITERATE** (frozen §8.6: all configs negative, loss localized
+in the §2.5 strand term, a design change targets it). Not ADVANCE (no
+config > +0.10). Not family-KILL (mechanism localizable + a lever moved
+it beyond noise). Next: **E-031 — graded completion frontier** (dynamic
+recovery-debt ceiling replacing the C/V binary), design frozen BEFORE
+code next session; include a duplicate-config pair to measure the family
+noise floor (taker-heavy family — evaluator.md default 0.05 needs
+verification).
+
+Process notes: (a) Amendment A1 — frozen grid's I_b=20 corner was
+schema-invalid (q ≤ I_b refine); re-frozen at q=20 before resubmission.
+(b) Second resubmission attempt lost 3 configs to the KNOWN zsh
+no-word-split trap (STATUS standing guard violated in a helper loop;
+detach output hid the schema error). Guard reaffirmed: literal args
+only in submission commands; verify queue depth after every detached
+submit batch.
