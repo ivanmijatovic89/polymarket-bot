@@ -955,3 +955,66 @@ displayed ToB measured in E-028b; ruling 93482fcb point 3 mandates the
 scale investigation). Guard-7 caveat applies: the sim fills the ENTIRE
 resting size on cross — larger-q results are depth-optimistic and must
 be read with that bias named.
+
+## 12. E-033 — per-fill size into displayed depth (session 19 — FROZEN)
+
+Params-only experiment (no code change; strategy SHA stays 4a5982e).
+Design frozen BEFORE submission (M2 covers --param variants).
+
+Motivation: ruling 93482fcb point 3 mandates investigating whether
+larger capital/inventory and cross-subsidy IMPROVE the mechanism rather
+than assuming linear scaling; E-011 measured per-$100 as gate-invariant
+and E-030 measured ev worsening in volume knobs at ≈ constant per-$100
+— but per-fill SIZE q has never been varied above 25 in this family
+(guard 7 / M5 bound). Depth argument (guard 7's requirement): E-028b
+measured displayed ToB sizes of 300–450 shares in these books; q ≤ 100
+stays under a third of the measured minimum. Named bias, recorded in
+advance: the sim fills the ENTIRE resting size when price trades
+through (guard 7) — larger-q results are depth-OPTIMISTIC; a
+SCALE-IMPROVING outcome is a hypothesis for deeper validation, never
+promotion evidence by itself.
+
+Geometry control: band:q ratio is held at the parent's value so ι per
+fill (and thus completion-trigger geometry) is unchanged — this
+isolates SIZE from band shape. E-032's residual note rides along for
+free: at constant ratio, deficits scale with q, so any R-surface
+enlargement shows up in the R readout.
+
+### 12.1 Grid (FROZEN; pinned 800 `--latest 800 --to-ms 1784762100000`,
+### 140/20, γ = 0, doomUnitMax = 0.99, submitted as one batch)
+
+| # | P* | I_b | q | B | vs (same SHA, same universe) |
+|---|---|---|---|---|---|
+| 1 | 0.96 | 80 | 50 | 500 | 948 (center q ×2, ratio 1.6) |
+| 2 | 0.96 | 160 | 100 | 500 | 948, #1 (q ×4) |
+| 3 | 0.96 | 160 | 100 | 1000 | #2 (cap-binding control: same policy, B ×2) |
+| 4 | 0.94 | 40 | 40 | 500 | 952 (corner q ×2, band-tight ratio 1.0) |
+
+Schema check per cell: q ≤ 100 ✓ (50, 100, 100, 40); q ≤ I_b ✓ (50 ≤
+80, 100 ≤ 160, 40 ≤ 40); I_b ≤ 200 ✓; B ≤ 2000 ✓; doomUnitMax 0.99 ✓.
+
+Frozen readouts: §3 metrics 1–8; per-mode fills + invested; invested
+mean/max vs B (does the cap bind? #2 vs #3 isolates it); S-fill COUNT
+per market vs q (worst-queue trigger is size-independent — count
+invariance with dollars ×q/25 would confirm E-014's co-inflation at
+scale); strand count × mean strand loss (does residue scale with q?).
+
+Frozen verdict bars — the estimand is PER-DOLLAR economics, so
+per-$100 governs (companion bar 0.54 = 2·0.27) with ev (bar 0.30)
+secondary; pairs: #1/#2 vs 948, #3 vs #2, #4 vs 952:
+
+- **SCALE-IMPROVING** iff some scaled config improves per-$100 vs its
+  named baseline by > 0.54 AND its tail (min market pnl, p5) does not
+  degrade beyond proportionality to invested ⇒ iterate (corner
+  transfer, cap interaction, then the evaluator pipeline) — with the
+  guard-7 optimism note attached to every claim.
+- **SCALE-NEUTRAL** iff every |Δper-$100| ≤ 0.54 ⇒ size is a pure
+  volume knob at 4×; the axis cannot rescue the family alone; next
+  mechanism from the backlog.
+- **SCALE-DEGRADING** iff some pair is worse by > 0.54 ⇒ record the
+  measured cost of size (adverse-selection/cap-binding term) and bound
+  future grids.
+- **Family KILL** standard unchanged (§8.6).
+
+Deviations require a written amendment here BEFORE the affected
+submission.
