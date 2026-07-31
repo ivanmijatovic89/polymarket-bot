@@ -663,3 +663,18 @@ make its completion cheaper — so we wrote that strategy (pair-v12),
 smoke-tested it, and put a 5-run sweep on the fleet (pair-v12.md).
 Next: read the sweep — first the sanity config that must reproduce v1
 exactly, then whether averaging down helps or just doubles the losses.
+
+## Session 14 — 2026-07-31
+
+Read the averaging-down sweep. The sanity config reproduced v1 to a
+fifth of a cent, so the code is trusted — and the answer is a clean no.
+Averaging down does what it promised: it completes more pairs and even
+rescues some stranded sides (52 saves vs 1 in the parent). But the
+trigger only fires after the held side has fallen, which is exactly the
+markets already dying — so every dollar it commits loses about 20 cents,
+across every setting we tried (pair-v12.md §Result E-026). Buying the
+dip on a doomed side is just a bigger doomed position. Killed the
+module; that closes the sizing axis on this strategy family.
+Next: the last unexplored axis from your ruling — letting the policy
+change with the clock (different rules early vs late in the 15-minute
+window). Designing that scan now, from data we already have.

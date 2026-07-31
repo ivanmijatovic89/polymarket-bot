@@ -134,3 +134,61 @@ intended; (e) same pinned screen universe as the family — regime drift
 scoped as ever, per-day view available in segments.
 
 design-ts (E-026): this commit, session 13 — before any strategy code.
+
+## Result E-026 (session 14) — VERDICT: KILL (family, time-scoped 2026-07, pinned-800 universe, v1 base)
+
+Code commit 99e3ff8 (pair.v12.ts). All 5 runs completed, 0 failures,
+engine SHA 99e3ff8 on all workers; parent 872 ran at 6a1ecde — commit
+range 6a1ecde..99e3ff8 touches ONLY `protocols/` (verified via
+`git diff --name-only`), and the regression run reproduces the parent
+empirically, so the M4 SHA warning is cleared on both grounds.
+
+**Regression gate PASS**: run 916 (δ=0.99, trigger can never fire) ev
+−1.5000 vs run 872 −1.5019 ⇒ |Δ| = 0.0019 ≤ 0.01. v12 is a faithful v1
+superset; configs 2–5 are readable.
+
+| run | δ | maxImb | ev/mkt | Δev vs 872 | pairsPnl | residuePnl | residue mkts (won) | res qty med | A fills | A invested | Δpnl per A-$ |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 916 | 0.99 | 20 | −1.5000 | +0.002 | 384 | −1,515 | 345 (1) | 10 | 0 | 0 | — |
+| 917 | 0.05 | 20 | −2.1648 | −0.66 | 858 | −2,500 | 379 (14) | 20 | 800 | $2,381 | −0.22 |
+| 918 | 0.10 | 20 | −2.0411 | −0.54 | 746 | −2,297 | 352 (6) | 20 | 636 | $1,587 | −0.27 |
+| 919 | 0.05 | 40 | −2.6169 | −1.12 | 1,684 | −3,659 | 455 (52) | 40 | 1,885 | $5,049 | −0.18 |
+| 920 | 0.10 | 40 | −2.6472 | −1.15 | 1,307 | −3,322 | 413 (34) | 40 | 1,564 | $3,410 | −0.27 |
+
+**KILL bar met**: every live config has Δev ≤ +0.05 (all in fact ≤
+−0.54). No ITERATE; the gate-0.95 follow-up sweep is not run.
+
+**Mechanism anatomy — the design worked, the economics don't.** The
+intended completion-geometry effect is real and monotone in A-exposure:
+pairsPnl 384 → 1,684 and residue WINS 1 → 52 as A-investment grows
+(avg-down does convert strands into completions and does catch
+reversions). But the trigger — price fell δ below the held average — is
+a self-selecting adverse-drift filter: it commits new capital precisely
+in markets already trending toward doom. Every dollar of A-investment
+loses −0.18..−0.27 net (Δpnl / A-invested, stable across all four
+configs), residue exposure doubles (imb20: qty median 10→20) or
+quadruples (imb40: →40), and Δ(residuePnl) ≈ −2× Δ(pairsPnl) in every
+config. Doom hazard in late start-minutes rises from ~0.2 (parent) to
+0.34–0.54 (919/920). Identity accounting: avg-down raises the completed
+term by 1 unit per ~2 units added to the stranded term — the reversion
+rate the mechanism harvests (residue win rate 3.7% at imb20, 11.4% at
+imb40) is far below the ~33% break-even implied by that ratio.
+
+Integrity: CAP-BREACH clean on all 5 runs (investedMax 50.06–50.17 vs
+cap 50, within the 1.1× tolerance; results.ts auto-check). recon badRows
+0 everywhere. anatomy.ts extended for mode 'A' (fillsA/investedA/minute
+hist; A-containing markets force 'mixed' in taker bounding) before
+reading decompositions.
+
+Independence bookkeeping: daily corr vs 872 = 0.965 (917), 0.986 (918),
+0.862 (919), 0.923 (920) on 9 common days — v12 is a correlated v1
+superset, no portfolio value.
+
+**Scope + kill standard**: per evaluator.md §Kill standards this kills
+the pair-v12 FAMILY (avg-down module on the v1 base, δ ∈ {0.05, 0.10},
+imb ∈ {20, 40}, gate 0.98) — time-scoped 2026-07, pinned-800 universe.
+It does NOT kill "state-contingent sizing" as a class; but the measured
+−0.18..−0.27 per A-dollar across a 2×2 δ×imb grid, with the loss rate
+roughly δ-invariant and imb-invariant, says the adverse-selection of the
+trigger dominates any trigger-depth tuning on this base. Ruling axis 4b
+is answered-negative on the v1 family.
