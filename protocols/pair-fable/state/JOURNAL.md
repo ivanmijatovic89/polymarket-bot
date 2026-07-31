@@ -643,3 +643,23 @@ measurement: our 36 live-recorded markets contain actual trade prints,
 which tell us how much of the optimistic bound is real trading.
 Next: run that trade-print calibration, then design the position-sizing
 experiment (the last untested lever from your ruling).
+
+## Session 13 — 2026-07-31
+
+Ran the trade-print calibration and the fill-model question is settled,
+in the opposite direction from what session 12's gap suggested: 99% of
+the "activity" the optimistic bound counted was cancellations, not
+trades. Actual trading confirms our simulator's pessimistic rule is a
+fair bound — and the 700-trades bot you mentioned almost certainly
+counts order placements, because 700 is roughly ALL the trades that
+happen in a whole window (hf-fill-probe.md §E-025). High-frequency
+quoting is now a dead end on economics: the whole top-of-book pie is
+worth about $8.5 per market before costs. The proposal for engine work
+(P-011) is withdrawn — nothing to fix.
+Also closed half of the sizing axis by argument: buying more when cheap
+just reweights price bands we already measured as losing everywhere.
+The other half is genuinely new — averaging down on a stranded side to
+make its completion cheaper — so we wrote that strategy (pair-v12),
+smoke-tested it, and put a 5-run sweep on the fleet (pair-v12.md).
+Next: read the sweep — first the sanity config that must reproduce v1
+exactly, then whether averaging down helps or just doubles the losses.

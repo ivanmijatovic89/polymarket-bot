@@ -1,55 +1,62 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 12)
+Updated: 2026-07-31 (mission-02 session 13)
 
 ## Current work
 
-Session 12 executed E-024 and pre-registered E-025:
+Session 13 executed E-025 (verdict) and launched E-026 (in flight):
 
-**E-024 VERDICT (HF fill probe, no fleet runs).** Built
-`tools/fillprobe.ts`, scanned the pinned 800 full-window (foreground
-chunks, checkpoint `memory/experiments/data/
-fillprobe-2026-07-31-latest800.jsonl`, 800/800, 0 skipped). Result:
-**FILL MODEL MATERIALLY BINDING** — optimistic front-of-queue capture
-is 235× worst-queue at 0 ms, 29× at 140 ms (frozen bar: 3×; every day
-121–385×). Raw ToB bid decrease flow ~6,960 events / ~225k shares per
-market ⇒ the 700-trades/window operator is inside observed activity.
-Maker kills STAND (guard-6 direction unchanged); "fill-limited"
-(E-013) is now model-scoped. Secondary: W-latency INVERSION (W140 =
-3.8× W0 — worst-queue fills are pure adverse selection). P-011 filed.
-hf-fill-probe.md §Result E-024.
+**E-025 VERDICT (trade-print calibration, no fleet runs).** Built
+`tools/tradeprobe.ts`, scanned the 36 recorded live-WS btc markets.
+**T140/W140 = 0.65** (frozen branch T ≤ 2×W): the trade-confirmed
+front-of-queue ceiling sits BELOW worst-queue; cancel share of ToB
+decreases = **99.1%** ⇒ E-024's O bound was cancels — verdict downgraded
+to "O-bound uninformative" (annotated in both places). Fill model =
+acceptable capacity bound; maker kills stand WITHOUT the optimism
+caveat; E-013 fill-limited restored to ~market fact (T ceiling ≈610
+sh/~97 fills per mkt); the human's 700-trades figure ≈ ALL prints/mkt
+(704–1,189 measured) ⇒ likely counts placements, not fills; HF ToB
+gross ceiling ≈$8.5/mkt ⇒ HF axis deprioritized on economics. P-011
+resolved self-served. Parity: recorded-vs-telonex O0 ratio 0.995 on 24
+common slugs. hf-fill-probe.md §Result E-025.
 
-**E-025 pre-registered (hf-fill-probe.md §E-025, design-ts session-12
-commit BEFORE any computation)**: trade-print calibration on the 36
-locally recorded live-WS btc markets (`data/events/btc/*.parquet`,
-slugs from 1784637900). `last_trade_price` carries price+size+side ⇒
-compute T (trade-confirmed front-of-queue) quoter next to W and O on
-the same stream, cancel-share of level decreases, T/W and O/T ratios,
-frozen interpretation bars (T140 ≤ 2×W140 downgrades E-024's verdict;
-≥ 3× escalates P-011). Needs a NEW small replayer over recorded parquet
-(full WS channel incl. trade prints — delta-typed telonex data has NO
-trade events; verified in src/telonex/converters/deltaTyped.ts).
+**Axis 4a (size as f(price)) answered from existing evidence** (no
+runs): E-019's ev(X) is strictly monotone declining + run-872 top band
+negative ⇒ every entry-price band ≤ 0 ⇒ a ladder is a convex
+reweighting bounded by the best band ≈ 0 from below. Deprioritized (not
+killed); reopen if any band ever measures > 0 at ≥2 SE. pair-v12.md
+§Axis 4a.
+
+**E-026 IN FLIGHT (pair-v12 averaging down, ruling axis 4b).**
+Pre-registered (design-ts 9a864a9 BEFORE code), code pair.v12.ts (commit
+99e3ff8), smoke PASS run 915 (mechanism fires: 28 A-fills / 10 mkts).
+5-run grid on pinned 800 @140/20, gate 0.98, submitted 10:42–10:43 UTC,
+batch uids:
+
+| config | batchUid |
+| --- | --- |
+| δ=0.99 imb20 (regression ≡ 872) | pf-e026-20260731T104231-itiq17 |
+| δ=0.05 imb20 | pf-e026-20260731T104256-g3fqcz |
+| δ=0.10 imb20 | pf-e026-20260731T104312-vr4g42 |
+| δ=0.05 imb40 | pf-e026-20260731T104329-6z8p5q |
+| δ=0.10 imb40 | pf-e026-20260731T104347-m21m0o |
+
+Recover run ids: `backtest_runs WHERE batch_uid LIKE 'pf-e026-%'`.
 
 ## Next step
 
-Nothing in flight (no fleet runs; all local scans completed in-session).
-
-1. **Execute E-025** (session 13): build `tools/tradeprobe.ts` reading
-   `data/events/btc/*.parquet` via the recorded-mode replay path (see
-   `src/parquet/replay/replayOrderBookForMarket.ts` — it handles
-   last_trade_price), reuse fillprobe's Quoter automaton + add the T
-   model per the frozen §E-025 design. 36 markets, fast — no chunking
-   expected. Verify SELL-side semantics on a sample first (pre-commit
-   fallback recorded in the design). Premise VERIFIED post-design
-   (session 12, no frozen readout computed): sample file
-   btc-updown-15m-1784637900 contains 1,123 last_trade_price rows
-   (2,300 book + 163,058 price_change; 166,481 total).
-2. Then axis 4 (size laddering) design + pre-registration (size as
-   f(price), multi-round accumulation; mind review-gate M5
-   incrementSize bound). Axis 4 runs on the fleet under the current
-   fill model — legitimate (maker-entry regime, guard-6 direction),
-   unlike HF work which is blocked on P-011/E-025.
-3. Axis 5 (time-varying policy) remains undesigned.
+1. **Read E-026 results** (session 14): check the regression config
+   FIRST (must ≡ run 872 within |Δev| ≤ 0.01, else INVALID → fix code);
+   then frozen bars vs parent 872 (−1.5019): KILL if all Δev ≤ +0.05;
+   ITERATE (→ gate-0.95 sweep vs 873) if any ≥ +0.05 with anatomy
+   mechanism confirmation. Run results.ts + anatomy.ts (note: 'A' fill
+   mode is new — verify anatomy handles it before reading decomposition)
+   + CAP-BREACH integrity check + daily corr vs 872.
+2. Then axis 5 (time-varying policy) design, the last undesigned ruling
+   axis. Session 15 is a self-check session (every fifth).
+3. Review gate M1–M4 (M5 handled in v1/v12 schema): required BEFORE
+   first champion promotion / LIVE-CANDIDATE — none imminent, but
+   implement early per mission if a candidate approaches the bar.
 
 ## Blockers
 
@@ -58,8 +65,8 @@ None.
 ## Needs human
 
 - Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all `proposed`).
-- New: P-011 (fill model can't pin maker capture within ~29–235×;
-  E-025 self-serve calibration first, engine work only if it escalates).
+- P-011 resolved this session (E-025 self-serve calibration; no engine
+  work needed).
 
 ## Standing session guards
 
@@ -80,13 +87,16 @@ None.
 - JOURNAL entries are for the HUMAN: plain language, 3–6 short lines, at
   most one evidence pointer per conclusion (inbox 330fa938, permanent).
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front
-  (inbox c841c329).
+  (inbox c841c329). Submit each config as its OWN command — zsh
+  word-splitting broke a submission loop this session (silent no-op).
 - Class kills need an identity argument (evaluator.md §Kill standards,
   binding per inbox 8758567d); N failures kill a family only.
-- NO HF maker strategy code against the current simulator until the
-  fill model is calibrated (E-024 frozen consequence; E-025/P-011).
+- Fill model: calibrated by E-025 (acceptable capacity bound at ToB;
+  W within 0.65–1.6× of trade-confirmed). The old "no HF maker code
+  until calibrated" guard is retired; HF ToB axis deprioritized on
+  measured economics (~$8.5/mkt gross ceiling).
 - Sibling-memory recheck at session start (`ls protocols/*/memory`) —
-  2026-07-31 s12: still only pair-fable has memory.
+  2026-07-31 s12: still only pair-fable has memory (s13: unchanged).
 - zsh does not word-split unquoted vars; spell out args in submission
   loops. Also `=word` expansion: quote bare `===` etc. in echo.
 - Smoke cannot catch latency-race bugs (≤20 quiet markets): any strategy

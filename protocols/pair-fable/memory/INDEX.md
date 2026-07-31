@@ -158,11 +158,22 @@ Pointers, not content.)
   current simulator (P-011). Secondary: W-latency INVERSION (W140 =
   3.8× W0) — worst-queue fills are pure adverse-selection events —
   hf-fill-probe.md §Result E-024, archive
-  `experiments/data/fillprobe-2026-07-31-latest800.json`. Next open
-  front: E-025 (hf-fill-probe.md §E-025, PRE-REGISTERED session 12, not
-  yet run) — trade-print calibration of the W..O interval on the 36
-  locally recorded live-WS btc markets (`last_trade_price` gives true
-  executed volume; measures the cancel-share of level decreases and
-  T/W). Then axis 4 (size laddering) design.
-  P-009/P-010/P-011 remain open but are NOT blockers. Sibling workspaces
+  `experiments/data/fillprobe-2026-07-31-latest800.json`. E-025
+  (session 13, `tools/tradeprobe.ts` on the 36 recorded live-WS
+  markets): **E-024 DOWNGRADED** — T140/W140 = 0.65 (trade-confirmed
+  ceiling BELOW worst-queue), cancel share of ToB decreases 99.1% ⇒ the
+  O bound was cancels; fill model is an acceptable capacity bound,
+  maker kills stand WITHOUT the optimism caveat, E-013 fill-limited
+  restored to ~market fact (T ceiling ≈610 sh/mkt), 700-trades figure ≈
+  ALL prints/mkt (704–1,189) ⇒ likely placements; HF ToB gross ceiling
+  ≈$8.5/mkt ⇒ HF axis deprioritized on economics; P-011 resolved;
+  recorded-vs-telonex parity 0.995 (24 slugs) — hf-fill-probe.md
+  §Result E-025, archive `experiments/data/tradeprobe-2026-07-31.json`.
+  Axis 4a (size as f(price)) answered from E-019/E-021 band
+  monotonicity: convex reweighting of nowhere-positive bands —
+  deprioritized with a reopen condition (pair-v12.md §Axis 4a). Next
+  open front: E-026 IN FLIGHT (pair-v12 averaging down, axis 4b; grid
+  batch uids in STATUS) — then axis 5 (time-varying policy), the last
+  undesigned ruling axis.
+  P-009/P-010 remain open but are NOT blockers. Sibling workspaces
   hold no additional research memory (`siblings.md`, 2026-07-31).
