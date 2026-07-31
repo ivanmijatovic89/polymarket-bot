@@ -12,8 +12,9 @@
  * reported, never silently dropped).
  *
  * Reads fill-mode from intent_meta `m` ('S' start | 'R' repair — pair-v1+;
- * 'A' avg-down — pair-v12+; 'C' pair-lock FOK + 'V' salvage FOK — pair-v15+
- * (v10 also tagged its FOKs 'C'); v0 rows have no `m` and count as
+ * 'A' avg-down — pair-v12+; 'C' pair-lock FOK + 'V' salvage/debt FOK —
+ * pair-v15+ (v10 also tagged its FOKs 'C'); 'D' doom-backstop FOK — v15.2+;
+ * v0 rows have no `m` and count as
  * 'unknown'). Taker fills are only stored as
  * per-market aggregates, so taker→mode attribution is BOUNDED by market
  * composition: takers in markets whose fills are all-S can only come from
@@ -136,12 +137,14 @@ type RunAnatomy = {
   fillsA: number
   fillsC: number
   fillsV: number
+  fillsD: number
   fillsUnknown: number
   investedS: number
   investedR: number
   investedA: number
   investedC: number
   investedV: number
+  investedD: number
   // taker bounding
   takerTotal: number
   takerPureS: number
@@ -158,6 +161,7 @@ type RunAnatomy = {
   fillsAMinuteHist: number[]
   fillsCMinuteHist: number[]
   fillsVMinuteHist: number[]
+  fillsDMinuteHist: number[]
   feesTotal: number
 }
 
@@ -186,12 +190,14 @@ function analyze(identity: RunIdentity, rows: MarketAnatomyRow[]): RunAnatomy {
     fillsA: 0,
     fillsC: 0,
     fillsV: 0,
+    fillsD: 0,
     fillsUnknown: 0,
     investedS: 0,
     investedR: 0,
     investedA: 0,
     investedC: 0,
     investedV: 0,
+    investedD: 0,
     takerTotal: 0,
     takerPureS: 0,
     takerPureR: 0,
@@ -205,6 +211,7 @@ function analyze(identity: RunIdentity, rows: MarketAnatomyRow[]): RunAnatomy {
     fillsAMinuteHist: Array.from({ length: 16 }, () => 0),
     fillsCMinuteHist: Array.from({ length: 16 }, () => 0),
     fillsVMinuteHist: Array.from({ length: 16 }, () => 0),
+    fillsDMinuteHist: Array.from({ length: 16 }, () => 0),
     feesTotal: 0,
   }
   const residueQtys: number[] = []
@@ -256,6 +263,7 @@ function analyze(identity: RunIdentity, rows: MarketAnatomyRow[]): RunAnatomy {
     let nA = 0
     let nC = 0
     let nV = 0
+    let nD = 0
     let lastStartTs: number | null = null
     const minuteBucket = (ts: number | undefined): number | null => {
       if (ts === undefined) return null
@@ -286,6 +294,10 @@ function analyze(identity: RunIdentity, rows: MarketAnatomyRow[]): RunAnatomy {
         nV += 1
         a.investedV += notional
         if (bucket !== null) a.fillsVMinuteHist[bucket]! += 1
+      } else if (m.m === 'D') {
+        nD += 1
+        a.investedD += notional
+        if (bucket !== null) a.fillsDMinuteHist[bucket]! += 1
       } else {
         a.fillsUnknown += 1
       }
@@ -295,6 +307,7 @@ function analyze(identity: RunIdentity, rows: MarketAnatomyRow[]): RunAnatomy {
     a.fillsA += nA
     a.fillsC += nC
     a.fillsV += nV
+    a.fillsD += nD
 
     // Taker bounding by market fill composition ('A' fills force 'mixed').
     a.takerTotal += r.taker
@@ -344,11 +357,11 @@ function printHuman(a: RunAnatomy): void {
   console.log(
     `fills: S ${a.fillsS} ($${f(a.investedS)})  R ${a.fillsR} ($${f(a.investedR)})  ` +
       `A ${a.fillsA} ($${f(a.investedA)})  C ${a.fillsC} ($${f(a.investedC)})  ` +
-      `V ${a.fillsV} ($${f(a.investedV)})  unknown ${a.fillsUnknown}`,
+      `V ${a.fillsV} ($${f(a.investedV)})  D ${a.fillsD} ($${f(a.investedD)})  unknown ${a.fillsUnknown}`,
   )
-  if (a.fillsC + a.fillsV > 0)
+  if (a.fillsC + a.fillsV + a.fillsD > 0)
     console.log(
-      `taker (tagged, exact): C+V fills ${a.fillsC + a.fillsV} of taker total ${a.takerTotal}`,
+      `taker (tagged, exact): C+V+D fills ${a.fillsC + a.fillsV + a.fillsD} of taker total ${a.takerTotal}`,
     )
   console.log(
     `taker: total ${a.takerTotal} — in all-S markets ${a.takerPureS}, all-R ${a.takerPureR}, ` +
@@ -367,6 +380,8 @@ function printHuman(a: RunAnatomy): void {
     console.log(`all-C-fills minute hist  [0..14,+]: ${a.fillsCMinuteHist.join(' ')}`)
   if (a.fillsV > 0)
     console.log(`all-V-fills minute hist  [0..14,+]: ${a.fillsVMinuteHist.join(' ')}`)
+  if (a.fillsD > 0)
+    console.log(`all-D-fills minute hist  [0..14,+]: ${a.fillsDMinuteHist.join(' ')}`)
   const hazard = a.unrepairedStartMinuteHist.map((u, i) => {
     const s = a.fillsSMinuteHist[i]!
     return s > 0 ? (u / s).toFixed(2) : '-'

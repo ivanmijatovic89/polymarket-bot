@@ -26,16 +26,21 @@
  *     capPerMarket.
  *   - GRADED TAKER COMPLETION (v15.1, FOK, one in flight — E-020 guard): a
  *     lag-side deficit is FOK-completed whenever the projected cumulative
- *     pair VWAP ≤ X(t, ι), the recovery-debt ceiling ramping from lockTarget
- *     toward debtCap with elapsed window fraction × normalized imbalance
- *     (pair-v15.md §10 — ruling amendment 5's bounded recovery debt). May
- *     push the pair VWAP above $1 (amendment 4: completing a doomed lead at
- *     total < 1 + strand VWAP beats holding it to zero). debtCap = 0 keeps
- *     the pure v15.0 pair-lock trigger.
+ *     pair VWAP ≤ X(t, ι), the recovery-debt ceiling ramping from P_lock
+ *     (derived: pairTarget − 0.01) toward debtCap with elapsed window
+ *     fraction × normalized imbalance (pair-v15.md §10 — ruling amendment
+ *     5's bounded recovery debt). May push the pair VWAP above $1
+ *     (amendment 4). debtCap = 0 keeps the pure pair-lock trigger.
+ *   - DOOM BACKSTOP (v15.2, §10.3): in true doom markets the cumulative
+ *     pair VWAP exceeds any reasonable debtCap, yet completing at unit cost
+ *     ask + fee < 1 beats holding a doomed lead to zero regardless of
+ *     cumulative VWAP. When the lead bid ≤ 0.20 and ask + fee ≤ doomUnitMax,
+ *     the deficit is FOK-completed even where the graded rule refuses.
  *
  * No sells, no merge intents; holds to settlement. Fill-mode tags (meta.m):
  * S band accumulation · R graded repair (placed beyond band) · C completion
- * with projected pair VWAP ≤ lockTarget · V debt completion above lockTarget.
+ * with projected pair VWAP ≤ P_lock · V debt completion above P_lock ·
+ * D doom backstop (graded rule refused, unit-cost bound admitted).
  */
 import type {
   AccountEvent,
@@ -58,20 +63,20 @@ export const ConfigSchema = z
     imbalanceBand: z.coerce.number().finite().min(1).max(200).default(40),
     /** Shares per resting bid (M5-bounded: sim fills entire size on cross). */
     orderSize: z.coerce.number().finite().positive().max(100).default(25),
-    /** C-rule: FOK-complete a deficit when projected pair VWAP ≤ this. 0 disables. */
-    lockTarget: z.coerce
+    /** Recovery-debt ceiling cap: G-rule fires when projected pair VWAP ≤ X ramping P_lock→this with elapsed time × imbalance (may exceed $1). 0 = pure lock trigger. P_lock is derived: pairTarget − 0.01. */
+    debtCap: z.coerce.number().finite().min(0).max(1.15).default(0),
+    /** Doom backstop (v15.2): when lead bid ≤ 0.20 and ask+fee ≤ this, FOK-complete regardless of cumulative pair VWAP. 0 disables. */
+    doomUnitMax: z.coerce
       .number()
       .finite()
-      .refine((v) => v === 0 || (v >= 0.5 && v <= 0.99), 'lockTarget must be 0 or in [0.5, 0.99]')
-      .default(0.95),
-    /** Recovery-debt ceiling cap: G-rule fires when projected pair VWAP ≤ X ramping lockTarget→this with elapsed time × imbalance (may exceed $1). 0 = pure lock trigger. */
-    debtCap: z.coerce.number().finite().min(0).max(1.15).default(0),
+      .refine((v) => v === 0 || (v >= 0.5 && v <= 0.995), 'doomUnitMax must be 0 or in [0.5, 0.995]')
+      .default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
   })
-  .refine((c) => c.debtCap === 0 || (c.lockTarget > 0 && c.debtCap >= c.lockTarget), {
-    message: 'debtCap requires lockTarget > 0 and debtCap ≥ lockTarget',
+  .refine((c) => c.debtCap === 0 || c.debtCap >= c.pairTarget - 0.01, {
+    message: 'debtCap must be 0 or ≥ the derived P_lock (pairTarget − 0.01)',
   })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -80,7 +85,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'pair-fable-v15',
   title: 'pair-fable v15 (continuous two-sided inventory controller)',
   description:
-    'Quotes both sides continuously with an imbalance band, graded lag-side pricing, a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, and graded FOK taker completion under a recovery-debt ceiling ramping lockTarget→debtCap with elapsed time × imbalance (may complete above $1). No sells, no merges; holds to settlement.',
+    'Quotes both sides continuously with an imbalance band, graded lag-side pricing, a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, graded FOK taker completion under a recovery-debt ceiling ramping P_lock (pairTarget−0.01)→debtCap with elapsed time × imbalance (may complete above $1), and an optional doom backstop completing at unit cost ≤ doomUnitMax when the lead bid ≤ 0.20. No sells, no merges; holds to settlement.',
   schema: ConfigSchema,
   create: (cfg) => ({ strategy: createStrategy(cfg) }),
 }
@@ -114,6 +119,8 @@ const CANCEL_ALL_MS = 60_000
 /** G-rule debt ramp (pair-v15.md §10.1): ρ = clamp((t̂−T0)/(T1−T0), 0, 1). */
 const RAMP_T0 = 0.25
 const RAMP_T1 = 0.8
+/** Doom proxy for the v15.2 backstop (§10.3): lead bid at/below this = doomed. */
+const DOOM_BID = 0.2
 const WINDOW_MS = 15 * 60 * 1000
 /** Taker fee model matching the simulator (700 bps · p · (1−p)). */
 const TAKER_FEE_RATE = 0.07
@@ -229,8 +236,9 @@ export function createStrategy(cfg: Config): Strategy {
     const q = cfg.orderSize
     const Ib = cfg.imbalanceBand
 
-    // ── Graded taker completion (§10.1): one FOK in flight, cooldown, to T.
-    if (!state.fokCid && state.tickCount >= state.fokReadyAtTick && cfg.lockTarget > 0) {
+    // ── Taker completion (§10.1 graded + §10.3 backstop): one FOK in flight.
+    const pLock = cfg.pairTarget - 0.01
+    if (!state.fokCid && state.tickCount >= state.fokReadyAtTick) {
       // Debt ramp by elapsed window fraction; unknown window end ⇒ 0 (conservative).
       const elapsed = endMs !== null ? 1 - (endMs - nowMs) / WINDOW_MS : 0
       const ramp = Math.min(1, Math.max(0, (elapsed - RAMP_T0) / (RAMP_T1 - RAMP_T0)))
@@ -238,6 +246,7 @@ export function createStrategy(cfg: Config): Strategy {
         const o = side === 'UP' ? 'DOWN' : 'UP'
         const deficit = qty[o] - qty[side]
         const bk = book[side]
+        const leadBk = book[o]
         if (deficit <= 0 || !bk || bk.askSize <= 0) continue
         const x = Math.min(deficit, bk.askSize)
         if (x < 1) continue
@@ -249,11 +258,17 @@ export function createStrategy(cfg: Config): Strategy {
         // Recovery-debt ceiling X(t̂, ι) = P_lock + (debtCap − P_lock)·ρ·min(ι, 1).
         const iota = Math.min(1, deficit / Ib)
         const ceiling =
-          cfg.debtCap > 0
-            ? cfg.lockTarget + (cfg.debtCap - cfg.lockTarget) * ramp * iota
-            : cfg.lockTarget
-        if (projPair > ceiling + 1e-9) continue
-        const lockTrig = projPair <= cfg.lockTarget + 1e-9
+          cfg.debtCap > 0 ? pLock + (cfg.debtCap - pLock) * ramp * iota : pLock
+        const gradedTrig = projPair <= ceiling + 1e-9
+        // Doom backstop: completing at ask+fee < 1 beats holding a doomed lead
+        // to zero regardless of cumulative pair VWAP.
+        const doomTrig =
+          cfg.doomUnitMax > 0 &&
+          leadBk !== null &&
+          leadBk.bid <= DOOM_BID + 1e-9 &&
+          unitCost <= cfg.doomUnitMax + 1e-9
+        if (!gradedTrig && !doomTrig) continue
+        const mode = gradedTrig ? (projPair <= pLock + 1e-9 ? 'C' : 'V') : 'D'
         const price = round2(a)
         if (pos.total_cost + pendingCost + price * x > cfg.capPerMarket) continue
 
@@ -290,11 +305,14 @@ export function createStrategy(cfg: Config): Strategy {
             p: price,
             s: x,
             ts: nowMs,
-            m: lockTrig ? 'C' : 'V',
+            m: mode,
           },
-          reason: lockTrig
-            ? `fok_lock_${side.toLowerCase()}_projpair_${round2(projPair)}`
-            : `fok_debt_${side.toLowerCase()}_projpair_${round2(projPair)}_ceiling_${round2(ceiling)}`,
+          reason:
+            mode === 'C'
+              ? `fok_lock_${side.toLowerCase()}_projpair_${round2(projPair)}`
+              : mode === 'V'
+                ? `fok_debt_${side.toLowerCase()}_projpair_${round2(projPair)}_ceiling_${round2(ceiling)}`
+                : `fok_doom_${side.toLowerCase()}_unitcost_${round2(unitCost)}_leadbid_${leadBk ? leadBk.bid : 'na'}`,
         })
         return intents
       }
