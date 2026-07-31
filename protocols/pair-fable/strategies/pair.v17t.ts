@@ -4,12 +4,13 @@
  *
  * Delta over pair.v17.ts (at f107234) — ONE substitution + ONE schema add:
  *
- *   - The maker VWAP-ceiling projection uses an age-tightened target
- *     `pTgt = pairTarget − lateTighten · frac(window elapsed)` instead of the
- *     flat `pairTarget`. Mechanism prior: S-fill adverse selection grows
- *     ~1.6–3× with window age (pair-v17.md §10, run 1008) while being
- *     price-band-uniform; the concession demanded per share therefore grows
- *     with age. lateTighten = 0 ⇒ exact v17.
+ *   - The maker quote cap pHat gets an age-growing PER-SHARE concession:
+ *     `pHat = <v17 projection> − lateTighten · frac(window elapsed)`.
+ *     Mechanism prior: S-fill adverse selection grows ~1.6–3× with window
+ *     age (pair-v17.md §10, run 1008) while being price-band-uniform; the
+ *     concession demanded per share therefore grows with age. Applied after
+ *     the projection, not through pairTarget (that would amplify the dose
+ *     by Qs2/q — pair-v17t.md §2). lateTighten = 0 ⇒ exact v17.
  *   - `pLock` (C-lock trigger) and the doom backstop stay on the BASE
  *     pairTarget: completions are ~fair (§10 leg-vs-outcome identity); the
  *     delta touches only the S/R maker quote price cap.
@@ -61,7 +62,7 @@ export const ConfigSchema = z
     tiltUnitMax: z.coerce.number().finite().min(0.5).max(1).default(1),
     /** v16.1 (E-039): the same side must lead for this many consecutive ticks before T ≠ 0; flips/no-leader reset the streak. 0 = off. */
     leadPersistTicks: z.coerce.number().int().min(0).max(20000).default(0),
-    /** v17t: maker-ceiling tightening in $ over the full window — effective target = pairTarget − lateTighten·(elapsed/15m). Applies ONLY to the maker quote cap; pLock/doom stay on base pairTarget. 0 = exact v17. */
+    /** v17t: per-share maker quote-cap concession in $ at full window age — pHat is lowered by lateTighten·(elapsed/15m). Applies ONLY to the maker quote cap; pLock/doom stay on base pairTarget. 0 = exact v17. */
     lateTighten: z.coerce.number().finite().min(0).max(0.2).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
@@ -77,7 +78,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'pair-fable-v17t',
   title: 'pair-fable v17t (time-varying maker quote ceiling)',
   description:
-    'pair.v17 with the maker VWAP-ceiling target tightened linearly with window age: effective target = pairTarget − lateTighten·(elapsed/15m), applied only to the maker quote price cap (pLock and doom backstop stay on base pairTarget — completions are ~fair per the run-1008 leg-vs-outcome identity). Mechanism: S-fill adverse selection grows 1.6–3× late-window while price-band-uniform, so late fills must pay a larger concession. lateTighten=0 is exactly v17; with tiltShares=0 that is exactly v15.4 neutral. No sells, no merges; holds to settlement.',
+    'pair.v17 with an age-growing per-share concession on the maker quote cap: pHat is lowered by lateTighten·(elapsed/15m) dollars, applied after the VWAP projection and only to the maker quote price cap (pLock and doom backstop stay on base pairTarget — completions are ~fair per the run-1008 leg-vs-outcome identity). Mechanism: S-fill adverse selection grows 1.6–3× late-window while price-band-uniform, so late fills must pay a larger concession. lateTighten=0 is exactly v17; with tiltShares=0 that is exactly v15.4 neutral. No sells, no merges; holds to settlement.',
   schema: ConfigSchema,
   create: (cfg) => createStrategy(cfg),
 }
@@ -398,12 +399,15 @@ export function createStrategy(cfg: Config): {
           D > 0
             ? (cost[o] + Dband * obk.bid + Dexc * (obk.ask + fee(obk.ask))) / Qs2
             : cost[o] / qty[o]
-        // v17t: age-tightened ceiling target (S-quote cap only; pLock/doom
-        // stay on base pairTarget — see header).
+        // v17t: age-growing per-share concession on the maker quote cap
+        // (S-quote only; pLock/doom stay on base pairTarget — see header).
+        // Applied AFTER the projection: routing it through pairTarget would
+        // amplify the dose by Qs2/q (d pHat/d pTgt = Qs2/q), decoupling the
+        // knob from the measured per-share toxicity it prices.
         const frac =
           endMs !== null ? Math.min(1, Math.max(0, 1 - (endMs - nowMs) / WINDOW_MS)) : 0
-        const pTgt = cfg.pairTarget - cfg.lateTighten * frac
-        const pHat = ((pTgt - vOProj) * Qs2 - cost[side]) / q
+        const pHat =
+          ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q - cfg.lateTighten * frac
         if (!Number.isFinite(pHat)) target = null
         else {
           // 4. Maker discipline: on-grid, strictly below the ask.

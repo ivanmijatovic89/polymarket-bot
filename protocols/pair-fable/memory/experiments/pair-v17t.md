@@ -24,23 +24,28 @@ suppressing those fills — this experiment measures the net).
 
 ## 2. Exact delta over pair.v17.ts (one substitution + one schema add)
 
-New param `lateTighten` (dollars, `z.coerce.number().min(0).max(0.20)`,
-default 0 ⇒ exact v17). In the quote-pricing block:
+New param `lateTighten` (dollars per share, `min(0).max(0.20)`, default 0
+⇒ exact v17). In the quote-pricing block:
 
 ```ts
 const frac = endMs !== null ? Math.min(1, Math.max(0, 1 - (endMs - nowMs) / WINDOW_MS)) : 0
-const pTgt = cfg.pairTarget - cfg.lateTighten * frac
-const pHat = ((pTgt - vOProj) * Qs2 - cost[side]) / q
+const pHat = ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q - cfg.lateTighten * frac
 ```
 
-`WINDOW_MS = 900_000`. Everything else untouched — in particular
-`pLock = pairTarget − 0.01` (C-lock trigger) stays on the BASE P*: C/D
-completions are ~fair (§10), so the delta touches only the S-quote price
-cap, the identified loss term. τ = 0 (neutral; priority-1 axis).
+`WINDOW_MS = 900_000`. The concession is applied to `pHat` AFTER the
+VWAP projection, NOT by tightening `pairTarget` inside it: through the
+target the dose is amplified by `Qs2/q` (d pHat/d pTgt = Qs2/q — with 300
+held shares and q=100 a 1¢ target shift moves the cap 4¢), decoupling the
+knob from the per-share toxicity it prices (verified on the first
+implementation: runs 1015 vs 1016, k=0.12-via-target suppressed S fills
+hard from minute 1). Per-share form: quote cap at minute m is lowered by
+exactly k·(m/15) $ per share — k=0.06 ⇒ −2¢ at m 5, −4¢ at m 10, −5.6¢
+at m 14, the shape and scale of the measured toxicity ramp.
 
-At lateTighten = k, the effective ceiling at minute m is P* − k·(m/15):
-k = 0.06 ⇒ −2¢ at m 5, −4¢ at m 10, −5.6¢ at m 14 — the shape of the
-measured toxicity ramp.
+Everything else untouched — in particular `pLock = pairTarget − 0.01`
+(C-lock trigger) stays on the BASE P*: C/D completions are ~fair (§10),
+so the delta touches only the S-quote price cap, the identified loss
+term. τ = 0 (neutral; priority-1 axis).
 
 ## 3. Non-equivalence vs prior kills
 

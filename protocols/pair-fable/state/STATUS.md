@@ -1,16 +1,39 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31T23:40Z (mission-02 session 30 close)
+Updated: 2026-07-31T23:47Z (mission-02 session 31 close)
 
 ## Current work
 
-**Session 30: five-session audit s26–s30 PASS (recorded below) +
-band-toxicity prior; runs STILL in flight at close.** Session
-started 1 min after s29 closed; harness forced close at ~23:40Z with
-the queue ~56k market jobs deep (drain ETA ≈ 00:50Z 2026-08-01;
-h80 was at 10,651/10,747 = all non-outage markets done, h160 ~8,100,
-other 5 batches unstarted). NOTHING was read from E-043/E-044/E-045
-— s31's first job is the full readout per the procedure below.
+**Session 31: E-043/E-044/E-045 STILL not readable (no run rows yet —
+aggregates wait on the 96 outage-failure retries; E-042 precedent says
+rows land ~65 min after submit ⇒ ≈00:00–00:15Z for E-043, after drain
+~00:47Z for the rest). Wait time used to build pair.v17t (time-varying
+maker quote ceiling) — the backlog neutral axis.** Session started
+23:31Z, harness forced close 23:46Z.
+
+s31 additions:
+
+- **pair.v17t built + smoked** (design pair-v17t.md, DRAFT — grid
+  freeze pending E-045): maker quote cap pHat gets an age-growing
+  PER-SHARE concession `− lateTighten·(elapsed/15m)`, pricing the
+  measured late-window S-toxicity ramp (§10). pLock/doom stay on base
+  P*. lateTighten=0 ≡ v17 by code identity.
+- **Dose-form defect found via activation check**: routing the
+  tightening through pairTarget amplifies it by Qs2/q (d pHat/d pTgt
+  = Qs2/q) — runs 1015 (k=0) vs 1016 (k=0.12-via-target, same 20
+  mkts): maker fills 64→34, suppression already hard at minute 1–5.
+  Fixed to per-share form (applied after the projection). Smokes:
+  1014 (5 mkts, PASS), 1015/1016 (20 mkts, activation evidence).
+- **Per-share form ACTIVATION PASS** (run 1017, k=0.06, same 20 mkts
+  vs 1015 k=0): minutes 0–2 activity ≈ identical (16/8/10 vs 17/10/6
+  S fills), late-window (m≥5) S shares 2,100 vs 2,700 — mild late
+  suppression, no early collapse (contrast 1016). protocol:check +
+  smoke + activation all PASS ⇒ v17t is submit-ready once its grid
+  is frozen (do that AFTER the E-045 verdict — §3 of pair-v17t.md:
+  P*-LIVE would re-center base P* first). 20-mkt ev numbers are noise
+  — do not cite them.
+- v17t references: k=0-run ≡ v17 τ0 ⇒ reuse g0(1008) as the FULL
+  baseline; no k=0 re-run needed.
 
 s30 additions (commit e91c1e5):
 
@@ -166,22 +189,51 @@ the readout's decision mappings are applied.
 
 ## Next step (priority order)
 
-1. **Read E-043/E-044/E-045** per procedure above (runs should be
-   done ≈ 00:40Z 2026-08-01; verify with fleet.ts first — do NOT
-   resubmit). Add to the frozen metrics: E-044 m-cells' S-fill
-   win/lose split vs the 58/42 neutral baseline (pair-v17.md §10) as
-   the tilt-engagement metric.
-2. ~~Five-session audit s26–s30~~ DONE in s30 (PASS, see Audit
-   note). New design/submission is unblocked once the readout's
-   decision mappings are applied.
-3. Follow the frozen decision mappings (maker-tilt iteration, width
-   extension, or P* follow-up). Backlog after that: time-varying-τ
-   axis (late-window S-toxicity prior, §10) — remember the band
-   finding: any quote-asymmetry follow-up must be signal-conditioned.
+1. **Read E-043/E-044/E-045** per procedure above (s31 verified at
+   23:44Z: NO run rows yet; queue full drain ≈ 00:47Z; E-043 rows
+   expected ≈ 00:00–00:15Z by the E-042 precedent of ~65 min
+   submit→row. Verify with fleet.ts first — do NOT resubmit). Add to
+   the frozen metrics: E-044 m-cells' S-fill win/lose split vs the
+   58/42 neutral baseline (pair-v17.md §10) as the tilt-engagement
+   metric.
+2. Follow the frozen decision mappings (maker-tilt iteration, width
+   extension, or P* follow-up).
+3. **Freeze + submit the v17t grid** (pair-v17t.md §4: k ∈ {0.03,
+   0.06, 0.12} vs g0=1008, FULL, B_full 0.74) — AFTER applying
+   E-045's verdict (P*-LIVE re-centers base P* first; P*-FLAT-FULL
+   ⇒ submit at P* 0.96 as drafted). Strategy is smoked +
+   activation-verified (runs 1014/1015/1016/1017); code at commit
+   9ef75e4 + the per-share fix commit. Push to origin/main before
+   submitting.
 4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
 5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 30 (final)
+## Alignment gate — session 31 (final)
+
+- **Classification:** neutral-controller (built + verified pair.v17t,
+  the priority-1 backlog axis; E-043/E-044/E-045 readout attempted
+  but rows had not landed by forced close — declared: no new fleet
+  submissions, 7 FULL runs still draining).
+- **Contribution:** the time-varying-quote neutral axis moved from
+  backlog prior to submit-ready strategy: pair.v17t implemented
+  (commit 9ef75e4 + per-share fix), design pair-v17t.md, smoke 1014,
+  activation evidence 1015/1016/1017. Found + fixed a real dosing
+  defect (target-routed tightening amplified by Qs2/q — the
+  activation check caught it, which is what it is for).
+- **Time to evidence:** ~1 min (fleet verify), first substantive scan
+  min 2, smoke launched min ~8. PASS.
+- **Throughput:** 4 local sequential runs (5+20+20+20 mkts) + 3
+  read-only SQL scans; 7 × 10,747 FULL in flight (progress verified
+  3×, no resubmission). No serial-scan issue.
+- **Scale:** closed by E-036 on record; all cells B=500.
+- **Next:** s32 reads E-043/E-044/E-045 (rows land ≈00:15–00:50Z),
+  applies frozen mappings, then freezes + submits the v17t grid —
+  GREEN (neutral + directional controller evaluation).
+- **Verdict:** **GREEN.**
+- Verdict history: s27 GREEN, s28 GREEN, s29 GREEN, s30 GREEN,
+  s31 GREEN. Next audit: s35.
+
+## Alignment gate — session 30 (superseded)
 
 - **Classification:** neutral-controller (mandated five-session
   audit + band-toxicity mechanism analysis on the FULL neutral

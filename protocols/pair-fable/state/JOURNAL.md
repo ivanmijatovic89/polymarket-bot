@@ -1054,3 +1054,19 @@ cure has to come from an outside signal saying which side to lean —
 which is precisely what the patient-hands variant now on the fleet
 uses. Next session reads all seven results against their
 pre-registered bars.
+
+## Session 31 — 2026-07-31 (late)
+
+The seven big overnight runs were still grinding through the fleet when
+this session started, so their verdicts wait one more session — the last
+of them should finish within the hour. Instead of idling, I built the
+next idea for the neutral strategy: our resting quotes should demand a
+bigger discount as the 15-minute window ages, because we measured last
+session that fills late in the window are two-to-three times more likely
+to be on the losing side. Implemented it, and the small-sample check did
+its job: the first version's discount was accidentally multiplied by how
+much inventory we already held, choking off buying almost from the start.
+Fixed it so the discount is a clean per-share concession that ramps with
+age; verified early behavior stays identical and only late buying gets
+choosier. Next session: read the seven verdicts first, then send this
+new variant to the fleet.
