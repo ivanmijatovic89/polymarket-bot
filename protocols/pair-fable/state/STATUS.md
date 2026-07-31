@@ -40,7 +40,10 @@ Nothing in flight (no fleet runs; all local scans completed in-session).
    last_trade_price), reuse fillprobe's Quoter automaton + add the T
    model per the frozen §E-025 design. 36 markets, fast — no chunking
    expected. Verify SELL-side semantics on a sample first (pre-commit
-   fallback recorded in the design).
+   fallback recorded in the design). Premise VERIFIED post-design
+   (session 12, no frozen readout computed): sample file
+   btc-updown-15m-1784637900 contains 1,123 last_trade_price rows
+   (2,300 book + 163,058 price_change; 166,481 total).
 2. Then axis 4 (size laddering) design + pre-registration (size as
    f(price), multi-round accumulation; mind review-gate M5
    incrementSize bound). Axis 4 runs on the fleet under the current
