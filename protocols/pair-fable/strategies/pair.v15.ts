@@ -65,9 +65,9 @@ export const ConfigSchema = z
     /** Target settled pair VWAP; every maker price is ceiling-capped to project ≤ this. */
     pairTarget: z.coerce.number().finite().min(0.9).max(0.99).default(0.96),
     /** Shares of tolerated unmatched inventory (the band; hard trending halt). */
-    imbalanceBand: z.coerce.number().finite().min(1).max(200).default(40),
-    /** Shares per resting bid (M5-bounded: sim fills entire size on cross). */
-    orderSize: z.coerce.number().finite().positive().max(100).default(25),
+    imbalanceBand: z.coerce.number().finite().min(1).max(800).default(40),
+    /** Shares per resting bid (M5-bounded: sim fills entire size on cross; max 400 ≈ the E-028b measured ToB depth ceiling 300–450 — beyond it whole-size fills stop being a defensible approximation). */
+    orderSize: z.coerce.number().finite().positive().max(400).default(25),
     /** Doom backstop (v15.2): when lead bid ≤ 0.20 and ask+fee ≤ this, FOK-complete regardless of cumulative pair VWAP. 0 disables. */
     doomUnitMax: z.coerce
       .number()
