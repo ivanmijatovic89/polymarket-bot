@@ -340,3 +340,32 @@ region is EV-positive for v17 either; "forbid starts before m" never
 goes positive (best −7.5 ± 4.6 at m=11, n=15). Start-timing is not a
 neutral-controller lever — matches E-027 (v1 family). Constraint for
 the time-varying-τ backlog item, not a verdict.
+
+**Sharper identity (same session, leg-vs-outcome instead of pair
+type; JSON_TABLE join on final_outcome, run 1008):**
+
+| mode | outcome | shares | avg $ | net value |
+|---|---|---|---|---|
+| S | lose | 1,969,100 | 0.418 | −823k |
+| S | win | 1,434,600 | 0.503 | +713k |
+| C | lose | 223,350 | 0.403 | −90k |
+| C | win | 179,855 | 0.564 | +79k |
+| D | lose | 168,312 | 0.818 | −138k |
+| D | win | 724,388 | 0.823 | +128k |
+
+Net by mechanism: **S −110k**, C −11k, D −9.5k, fees −22k (sum ≈
+−153k vs measured −143.9k; residual ≈ rounding + R + flat rows).
+
+**Reading (supersedes the pair-type frame above as the causal
+story).** C and D fills are ~fair at their prices (D buys the leader
+at 0.823 and it wins 81.1% — EV ≈ fees). The ONLY structurally
+biased flow is S: maker starts fill 58/42 toward the eventual LOSER
+at −3.2¢/share adverse selection, ≈ the entire strategy loss. The
+neutral controller has no completion-side lever (efficient market at
+completion time); the loss is decided when the passive quote is
+lifted. Levers, restated: (i) steer the S split — the tilt program
+(E-043/E-044 measure exactly this; baseline S split 58/42 is the
+engagement metric for E-044's m-cells); (ii) quote so the fills are
+less adversely selected (price/persistence/side-asymmetry of maker
+quotes); (iii) sell-side mirror (P-013, needs human). Start-timing
+is measured NOT a lever (minuteev above).
