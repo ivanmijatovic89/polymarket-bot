@@ -13,6 +13,7 @@ not survive. Written for AI consumption: dense, factual, evidence-tagged.
 | `experiments/` | Mission-02 land: `LEDGER.md` (one line per experiment) + one file per variant family. |
 | `process/` | How-we-work: evaluator spec, capability-refresh procedure, team workflow. |
 | `siblings.md` | Sibling-workspace (`protocols/pair-*`) review log: what exists elsewhere, when last checked. |
+| `market-context.md` | Human-reported facts about the live market we cannot observe (e.g. the ~700-trades/window profitable operator, tilted finishes). Strong priors, not measurements. |
 
 ## Conventions (binding)
 
@@ -123,5 +124,15 @@ Pointers, not content.)
   inside noise (ev −0.03, capture× 1.06) on the grid's lower boundary ⇒
   X<0.15 and duty-cycle-100% stay open (E-021), taker-completion module
   (axes 2+3) is pair-v10 (E-020); details pair-v9.md §Result.
+  E-021 (runs 904–909): low-X all ≤ 0, doom-vs-d* gap never crosses zero
+  (ev→0 only because activity vanishes), duty cycle measured a
+  nothing-burger (cd0 ≡ cd25) — axis 1 closes (pair-v9.md §Result
+  E-021). E-020 (runs 897–903): PARTIAL-INVALID — FOK-burst bug (tick
+  cooldown < fill latency; cap breach; fixed eaf8038, CAP-BREACH check
+  now in results.ts); clean findings: C ≤ 0.95 trigger-dead on v1 base
+  (repair pre-empts profit-lock); resubmitted as E-020b (pf10b batch,
+  pair-v10.md §E-020b). Human market context in `market-context.md`
+  (700-trades/window operator — HF regime unexplored, E-013 scope
+  limited to few-orders regime).
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
   additional research memory (`siblings.md`, 2026-07-31).

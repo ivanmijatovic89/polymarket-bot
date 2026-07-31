@@ -1,96 +1,119 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 9)
+Updated: 2026-07-31 (mission-02 session 10)
 
 ## Current work
 
-E-019 (pair-v9 ceiling grid, runs 889–895) read and recorded: KILL at
-every X, but scope split by the pre-registered capture-multiple statistic
-— kill extends to persistent-rest only for X ≥ 0.20; X=0.15 (ev −0.03,
-inside noise, capture× 1.06) leaves low-X and duty-cycle open. Details
-pair-v9.md §Result, LEDGER E-019.
+Session 10 read both session-9 grids and found an implementation bug:
 
-**In flight: two fleet grids** (submitted detached 2026-07-31 ~08:43Z,
-pinned 800-market window --from-ms 1784043000000 --to-ms 1784762100000,
-140/20 ms, code 2538404, design-ts 3767786):
+**E-020 (pair-v10 taker-completion, runs 897–903): partially INVALID.**
+The FOK cooldown was tick-denominated; 25 ticks pass inside the 140 ms
+fill latency in fast tape, so the module burst duplicate FOKs against a
+stale portfolio — cap breaches $92–160 vs capPerMarket=50 (worst: 320
+UP vs 50 DOWN shares). Runs 900–903 (C=0.99, D=0.05, D=0.10, joint)
+are contaminated; NOT evidence about the module. Two clean findings
+stand: regression gate PASS (897), and C ≤ 0.95 is TRIGGER-DEAD on the
+v1 base (~3 firings/800 mkts — v1's own repair rest pre-empts the
+profit-lock region). Details pair-v10.md §Result E-020.
 
-E-020 — pair-v10 (v1 + taker-completion module; pair-v10.md), label pf10:
+**Fix shipped** (commit eaf8038, pushed to main; workers self-updated):
+one-FOK-in-flight gate (`state.openIsFok`), smoke PASS run 906 (max
+invested 49.00 ≤ cap with both triggers). results.ts now flags
+CAP-BREACH mechanically (invested_max > 1.1×capPerMarket param).
 
-- control C=0 D=0 → pf10-20260731T084328-omki44 (regression gate vs 872!)
-- C=0.90 → pf10-20260731T084355-y7mmio
-- C=0.95 → pf10-20260731T084403-63t8rn
-- C=0.99 → pf10-20260731T084412-s21kwo
-- D=0.05 → pf10-20260731T084422-pt32wp
-- D=0.10 → pf10-20260731T084429-mlc18h
-- C=0.95 D=0.10 → pf10-20260731T084437-iutx50
+**In flight: E-020b** (fixed code, same pinned 800-market window
+--from-ms 1784043000000 --to-ms 1784762100000, 140/20 ms, code eaf8038,
+design-ts in pair-v10.md §E-020b, submitted ~09:01Z):
 
-E-021 — pair-v9 low-X + duty-cycle (pair-v9.md §E-021), label pf9x:
+- C=0.99 → pf10b-20260731T090107-pr10ey
+- D=0.05 → pf10b-20260731T090117-3p3mv1
+- D=0.10 → pf10b-20260731T090125-rhvl6c
+- C=0.99 D=0.10 (joint, amended from C=0.95+D=0.10 — C=0.95 measured
+  trigger-dead) → pf10b-20260731T090133-x0bj36
 
-- X=0.08 → pf9x-20260731T084444-m62nua
-- X=0.10 → pf9x-20260731T084451-pshy5i
-- X=0.12 → pf9x-20260731T084458-k2ypxv
-- X=0.12 cooldown=0 → pf9x-20260731T084508-81b065
-- X=0.15 cooldown=0 → pf9x-20260731T084524-92n2kk
+**To resume**: run ids via `batch_uid LIKE 'pf10b-20260731%'`; readouts
++ verdict bars unchanged from pair-v10.md §Pre-registered verdicts, plus
+CAP-BREACH must be absent for a run to be readable.
 
-**To resume**: recover run ids via `tools/sql.ts` (`batch_uid LIKE
-'pf10-20260731%'` / `'pf9x-20260731%'`), then results.ts / anatomy.ts /
-compare.ts per the pre-registered readouts. Verdict bars frozen in
-pair-v10.md §Pre-registered verdicts and pair-v9.md §E-021. Record
-E-020/E-021 in LEDGER + family files + JOURNAL.
-
-Already read in session 9 (do not redo): **E-020 regression gate PASS**
-(run 897 control vs 872: Δev +0.024 ≤ 0.05, played 704 vs 705 — grid
-interpretable). Partial: run 898 (C=0.90) ev −1.49 ≈ control, but the
-module fired only ~3× in 800 mkts ('unknown' fills in anatomy = FOK
-completions) ⇒ per confounder (a) that config is TRIGGER-UNTESTED, not
-killed — read C=0.95/0.99 and the D configs for the real test, and count
-their 'unknown'-mode fills (anatomy.ts labels FOK 'C'-meta fills as
-unknown; treat unknown-count as completion-count proxy).
+**E-021 (pair-v9 low-X + duty, runs 904/905/907/908/909): read, one run
+pending at session end.** X=0.08/0.10/0.12 all ≤ 0 (−0.02/−0.02/−0.04);
+doom-vs-d* gap stays +1.1..+1.8pp at every X (does not cross zero — ev
+approaches 0 only because activity vanishes); duty cycle measured a
+nothing-burger (X=0.12 cd0 ≡ cd25, 29 completions both). Run 909
+(X=0.15 cd0, batch pf9x-20260731T084524-92n2kk) was still aggregating —
+if its ev ≤ 0 (expected: 908 showed duty adds nothing), the
+pre-registered verdict closes BOTH E-019 carve-outs and axis 1
+(absolute-ceiling, maker-rest) dies on this universe. Read it, fill the
+PENDING row in pair-v9.md §Result E-021, update LEDGER E-021 scope.
 
 ## Next step
 
-Read both grids, apply frozen verdicts. Then per verdicts: promote /
-iterate / close axes. Remaining ruling axes not yet designed: size
-laddering (axis 4), time-varying policy (axis 5), liquidity-structure
-market selection (axis 6). Session 10 is a 5th-session self-check
-(mission §Self-check).
+1. Read run 909 → finalize E-021 verdict in pair-v9.md + LEDGER.
+2. Read E-020b (4 pf10b runs) → apply frozen verdicts: doom salvage is
+   the live question (contaminated E-020 hint: residue term flipped
+   +350/+503 while landing ≈ control ev DESPITE burst waste — a clean
+   single-shot version might clear control).
+3. Then: design the remaining ruling axes — priority per session-10
+   self-check: axis 6 (liquidity-structure market selection) has a cheap
+   Phase-0 (reanalysis: per-market book features from parquet vs
+   per-market pnl on run 872 — NOTE this is market-level selection, NOT
+   E-012's per-start doom prediction, different claim); then axis 4
+   (size laddering). Also cheap: HF Phase-0 bookscan probe for the
+   d904e17d question (how much maker volume could a high-frequency
+   quoter capture vs what worst-queue says — measurement before any
+   strategy code).
+
+## Self-check (session 10, every-5th per mission)
+
+On track, no trivia drift: sessions 6–10 executed the human ruling's
+priority order exactly (axis 1 → E-019/E-021 dead; axes 2+3 → E-020/b in
+flight), all grids pre-registered, every verdict tool-audited. One
+process failure: the E-020 bug shipped because smoke (≤20 mkts) cannot
+surface fast-tape latency races — mitigated mechanically (CAP-BREACH
+check) and by pattern (any future taker module must gate on its own
+in-flight order). Goal-1 distance: best known config remains ev ≈ −1.1
+(v1-b); the ceiling family converges to no-trade, not profit — the
+identity's completion term (doom salvage) and the undesigned axes 4/6
+are the remaining in-rules levers, plus the unexplored HF regime
+(market-context.md). Session budget: 10/50 used, burn rate fine.
 
 ## Blockers
 
-None. P-009/P-010 remain open per the ruling but are NOT blockers.
+None.
 
 ## Needs human
 
-- Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all `proposed`;
-  P-010's "frontier empty" premise withdrawn per ruling — see addendum).
+- Carried: P-002/P-003/P-005/P-006/P-007/P-009/P-010 (all `proposed`).
 
 ## Standing session guards
 
 - Never end a session waiting on ANY in-flight work (fleet, local scan,
   background task, monitor) — record how to resume in STATUS, return
-  `continue` (inbox dad421a6, generalizes A4/A6). Long local jobs: use
-  bookscan-style `--checkpoint`/`--time-budget-s` foreground chunking.
+  `continue` (inbox dad421a6). Long local jobs: bookscan-style
+  `--checkpoint`/`--time-budget-s` foreground chunking.
 - Write .global-runtime/session-result.json BEFORE the final message,
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine commits
-  (this session: no engine changes; only protocol commits moved HEAD).
-- Queue submissions require a CLEAN tree: commit+push BEFORE launching.
+  (this session: only protocol commits moved HEAD).
+- Queue submissions require a CLEAN tree pushed to origin/main (push via
+  `git push origin HEAD:main` from the wt/pair-fable worktree).
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes).
 - JOURNAL entries are for the HUMAN: plain language, 3–6 short lines, at
   most one evidence pointer per conclusion (inbox 330fa938, permanent).
-- Pre-registered grids of 3+ configs: submit the WHOLE grid up front,
-  analyze as results land (inbox c841c329).
+- Pre-registered grids of 3+ configs: submit the WHOLE grid up front
+  (inbox c841c329).
 - Class kills need an identity argument (evaluator.md §Kill standards,
-  binding per inbox 8758567d); N failures kill a family only. Same bar
-  for "exhausted" / "frontier empty".
-- Sibling-memory recheck is cheap (`ls protocols/*/memory`): do it at
-  session start once the Codex loop launches (memory/siblings.md).
-- zsh does not word-split unquoted vars: use `setopt shwordsplit` (or
-  spell args out) when scripting multi-flag submissions — session 9 lost
-  a submission round to this.
+  binding per inbox 8758567d); N failures kill a family only.
+- Sibling-memory recheck at session start (`ls protocols/*/memory`) —
+  2026-07-31 s10: still only pair-fable has memory.
+- zsh does not word-split unquoted vars; spell out args in submission
+  loops.
+- Smoke cannot catch latency-race bugs (≤20 quiet markets): any strategy
+  with taker/burst-capable paths needs a mechanical post-run integrity
+  check (CAP-BREACH is the template).
 
 ## Inbox processed through
 
-2026-07-31T08:15:02.759Z-8758567d (no new entries in session 9).
+2026-07-31T08:30:52.409Z-d904e17d (recorded in memory/market-context.md).

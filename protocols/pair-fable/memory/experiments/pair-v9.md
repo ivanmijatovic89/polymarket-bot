@@ -191,3 +191,50 @@ duty-cycle gain.
   reported if seen; (c) guard 6 worst-queue direction unchanged.
 
 design-ts (E-021): this commit, session 9, before submission.
+
+## Result (E-021, session 10, 2026-07-31)
+
+Runs 904/905/907/908/909 (`batch_uid LIKE 'pf9x-20260731%'`), 800/800
+each, 0 failures, 140/20 ms, code 2538404 (pair.v9.ts unchanged from
+E-019).
+
+| X | cd | run | ev/mkt | played | compl | doom% | d* | gap | ḡ/mkt | L̄/mkt | capture× |
+|------|----|-----|--------|-----|-----|------|------|--------|------|------|------|
+| 0.08 | 25 | 904 | −0.020 | 199 | 15 | 92.5 | 91.3 | +1.2pp | 8.43 | 0.77 | 1.12 |
+| 0.10 | 25 | 905 | −0.024 | 230 | 23 | 90.0 | 88.9 | +1.1pp | 8.02 | 0.98 | 1.09 |
+| 0.12 | 25 | 907 | −0.043 | 244 | 29 | 88.1 | 86.4 | +1.7pp | 7.63 | 1.17 | 1.14 |
+| 0.12 | 0  | 908 | −0.045 | 245 | 29 | 88.2 | 86.4 | +1.8pp | 7.62 | 1.17 | 1.14 |
+| 0.15 | 0  | 909 | −0.029 | 302 | 50 | 83.8 | 82.4 | +1.4pp | 7.03 | 1.46 | 1.06 |
+
+(columns as E-019; cd = cooldownTicks.)
+
+**Key measurements:**
+
+- **Duty cycle is a nothing-burger**: X=0.12 at cooldown 0 vs 25 is
+  IDENTICAL (29 completions both, 245 vs 244 played, ev −0.045 vs
+  −0.043). The "missed crossings during cooldown/ttl gaps" hypothesized
+  as ~1.1× gain do not exist — the rest is effectively always present
+  already where it matters. [run 907 vs 908 | 2026-07-31]
+- **The doom-vs-d* gap does NOT shrink through zero at low X**: +1.2pp /
+  +1.1pp / +1.7pp at X=0.08/0.10/0.12 (vs +1.8pp at 0.15). The
+  "two worlds" question resolves to: entries stay slightly worse than
+  break-even at EVERY X; ev approaches 0 from below only because
+  activity vanishes (played 199, invested $0.84/played-market at 0.08 —
+  the mechanism converges to "don't trade", not to profit).
+- Required capture multiples 1.09–1.14 vs measured duty gain ≈ 1.00
+  (the only candidate mechanism, now measured, not plausible-argued).
+- **Config 5 (X=0.15, cd0, run 909): ev −0.029, 50 completions, played
+  302 — IDENTICAL to run 891 (X=0.15, cd25: −0.031, 50, 303).** The
+  E-019 X=0.15 carve-out ("capture× 1.06 < plausible duty gain") is
+  answered: the duty gain is zero. [run 909 vs 891 | 2026-07-31]
+
+**Verdict (pre-registered bars, E-021): KILL — both E-019 carve-outs
+CLOSED; ruling axis 1 (absolute entry-price ceiling, maker-rest
+implementations) is DONE on this universe** (time-scoped 2026-07, pinned
+800), absent a new identity argument (§Kill standards). Configs 1–3 all
+≤ 0 with capture multiples above every measured gain; config 5 ≤ 0 with
+duty measured a no-op ⇒ one-rest + persistent-rest die at every tested
+X ∈ {0.08..0.45}. Family-scope note: this kills maker-REST ceilings;
+an absolute per-side ceiling as a CONSTRAINT inside other mechanisms
+(e.g. bounding L_s in a taker-completion family) is untested and remains
+a legitimate design element.

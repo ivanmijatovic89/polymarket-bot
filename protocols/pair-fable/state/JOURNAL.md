@@ -576,3 +576,22 @@ Also built the ruling's next idea: when we're stuck holding one side, a
 new module buys the other side instantly the moment that either locks in
 a guaranteed profit, or cuts a doomed position's loss. Seven versions of
 that are running too. Next session reads all twelve results.
+
+## 2026-07-31 — session 10 (mission 02)
+
+Caught our own bug before it could mislead us: the new "complete the pair
+instantly" module could fire the same buy several times before the first
+one finished, so it sometimes spent triple the per-market budget. The
+affected results were discarded, the fix is in, and the results reader
+now raises an automatic alarm whenever any run overspends its cap. The
+four affected tests were resent to the fleet (run ids in STATUS).
+One finding survived the bug: the module's "lock in a profit early"
+trigger almost never fires at profitable prices — our existing repair
+order already captures those moments first.
+The cheap-ceiling idea is now fully closed: ceilings below 15 cents just
+trade less and still lose slightly, and keeping the completion bid alive
+100% of the time (instead of ~90%) changed nothing at all (pair-v9.md).
+You told us a profitable bot does ~700 trades per window versus our ~4 —
+recorded in memory/market-context.md; that whole regime is unexplored.
+Next: read the resent module tests, then two fresh fronts — choosing
+markets by order-book character, and varying order size with price.
