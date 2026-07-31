@@ -750,3 +750,99 @@ Findings:
    completion that matters is bought at taker prices; grading the lag
    quote INSIDE the band (knee at 0, not at ι = 1) attacks the same
    dollars at maker cost. That is E-032's hypothesis.
+
+## 11. v15.3 — in-band lag-side maker aggression (E-032, session 19 — FROZEN)
+
+Frozen BEFORE the code change (M2: this commit's timestamp is the
+design-ts; the `pair.v15.ts` edit follows it). Motivation = §10.5
+finding 5: with strands ≈ 0 under the doom backstop, the residual loss
+is the doom-completion premium. Mechanism gap: R fills ≈ 0 in EVERY v15
+run — the band guard keeps lag deficits ≤ I_b, so ι ≤ 1 and the lag
+quote always joins bestBid; under worst-queue a join fills only when the
+ask crosses BELOW the standing bid, which a trending market never does.
+Every deficit that matters is therefore completed by taker rules (C/V/D)
+at ask + fee. Hypothesis: grading the lag maker quote INSIDE the band
+(knee at ι = 0) intercepts part of those completion dollars at maker
+prices (≤ ask − 1 tick, $0 fee) and EARLIER — before the winner runs to
+0.9+ — attacking the doom-completion premium directly and cheapening
+pairing in oscillating markets.
+
+### 11.1 Spec (v15.3; delta over v15.2)
+
+- **Guard-2 swap** (evaluator.md overfitting guard 2; precedent: v15.2's
+  lockTarget removal): `debtCap` is REMOVED as a tunable. E-031/E-031b
+  measured graded-debt completions as a 1:1 substitute for backstop
+  dollars (§10.5 findings 1–3) — indistinguishable from its disabled
+  default at family level ⇒ removed. The taker ceiling reduces to
+  derived P_lock = pairTarget − 0.01 (mode C) plus the doom backstop
+  (mode D); tag V retires with it. Interaction caveat recorded (§10.5
+  finding 3's reservation): if lagAggr earns a slot, one follow-up cell
+  re-tests debtCap × lagAggr before debtCap's removal is final.
+- **New tunable `lagAggr` γ** — schema [0, 1], default 0: lag-side
+  maker grading fraction with knee at ι = 0. §8.3 rule 2 becomes:
+  `f = γ > 0 ? min(1, γ·ι) : min(max(ι − 1, 0), 1)` (legacy knee at
+  ι = 1 when γ = 0), `target = bid + f · max(0, ask − GRID − bid)`.
+  γ = 0 is bit-identical to v15.2 at debtCap = 0. γ = 1 reaches
+  ask − 1 tick at a full-band deficit; γ = 0.5 quotes half the gap.
+  VWAP ceiling p̂, maker discipline, band guard, capital reservation
+  all unchanged and still cap the quote — in deep doom the ceiling
+  blocks aggression exactly where projected pair VWAP > P*, so the
+  lever fires in the early/middle drift phase and in oscillation (buy
+  the eventual winner cheap and early; never chase it at 0.9+).
+- **Tag semantics sharpened** (recorded for anatomy comparability):
+  R = maker rest placed strictly above bestBid (aggressive lag quote),
+  S = joined bestBid. Old code tagged R by ι > 1 at target time even if
+  the ceiling capped the price back to bid; R ≈ 0 historically, so no
+  comparability loss.
+- Tunables (6): capPerMarket, pairTarget, imbalanceBand, orderSize,
+  doomUnitMax, lagAggr.
+
+### 11.2 E-032 grid (FROZEN)
+
+Stage S0 smoke: center defaults + `lagAggr=1 doomUnitMax=0.99`; bar =
+SMOKE PASS, no cap breach, ≥ 1 R fill somewhere in the sample (the
+mechanism must demonstrably fire). Then screen: pinned 800
+(`--latest 800 --to-ms 1784762100000`), 140/20, all B = 500,
+doomUnitMax = 0.99, whole grid submitted up front, each config its own
+command with literal args, queue depth verified after submission:
+
+| # | P* | I_b | q | lagAggr | purpose |
+|---|---|---|---|---|---|
+| 1 | 0.96 | 40 | 25 | 0 | center doom-only baseline at v15.3 SHA — like-for-like anchor; validation prediction ev ≈ −3.2 ± 0.3 (929/942 equivalence) |
+| 2 | 0.96 | 40 | 25 | 0.25 | dose–response |
+| 3 | 0.96 | 40 | 25 | 0.5 | dose–response |
+| 4 | 0.96 | 40 | 25 | 1.0 | max aggression |
+| 5 | 0.94 | 20 | 20 | 0 | corner doom-only baseline (missing cell; validation prediction ≈ −1.7 ± 0.3 — 943 equivalence via graded≡backstop) |
+| 6 | 0.94 | 20 | 20 | 0.5 | corner transfer |
+| 7 | 0.94 | 20 | 20 | 1.0 | corner max |
+
+Schema check per cell (E-030 A1 lesson): q ≤ I_b ✓ (25 ≤ 40, 20 ≤ 20);
+lagAggr ∈ [0, 1] ✓; doomUnitMax 0.99 ∈ [0.5, 0.995] ✓; no debtCap
+params anywhere (tunable removed) ✓.
+
+Frozen readouts: §3 metrics 1–8; anatomy pairs/residue decomposition;
+per-mode S/R/C/D fills + invested + price VWAP; substitution check
+(R invested up ⇔ C+D invested down at matched corner); strand count ×
+mean strand loss.
+
+Frozen verdict bars (family noise bar 0.30 ev/mkt = 2·noise_v15;
+per-$100 companion bar 0.54 = 2·0.27) — comparison PAIRS named per the
+E-031 §10.4.5 lesson:
+
+- **ADVANCE** iff any config ev > +0.30 ⇒ Stage D cap sweep
+  {100, 500, 1000, 2000} + FULL + S3/S4 per evaluator pipeline.
+- **LEVER-CONFIRMED** iff a γ > 0 config beats its SAME-corner γ = 0
+  pair (#2/#3/#4 vs #1; #6/#7 vs #5) by > 0.30 ev/mkt AND improves
+  per-$100 ⇒ iterate on the lever (grading shape; interaction with the
+  larger-q depth axis).
+- **LEVER-DEAD** iff no γ > 0 config beats its γ = 0 pair beyond 0.30
+  ⇒ record; next backlog mechanism (larger q into displayed depth —
+  E-025 capture-vs-size).
+- **Family KILL** standard unchanged (§8.6; never the class).
+
+Baseline-integrity note (M4): #1 vs 929/942 and #5 vs 943 are cross-SHA
+comparisons — reported as validation predictions only, never verdict
+inputs; all verdict pairs are within-grid at one SHA.
+
+Deviations require a written amendment here BEFORE the affected
+submission.
