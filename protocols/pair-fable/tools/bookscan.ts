@@ -7,7 +7,7 @@
  *
  * Usage (from repo root):
  *   tsx protocols/pair-fable/tools/bookscan.ts [--latest 800] [--max-markets N]
- *     [--latency-ms 140] [--refractory-ms 5000] [--json]
+ *     [--latency-ms 140] [--refractory-ms 5000] [--to-ms <epochMs>] [--json]
  *
  * Scan A (pair-v5): episodes where bestAskUp+fee + bestAskDown+fee < 1
  * (fee = 0.07·p·(1−p)/share, RULES rubric 4). Survivable = duration ≥ latency.
@@ -17,6 +17,21 @@
  * bestBid_X ⇒ a joiner bid at prior bestBid filled at P). Completion cost
  * C = P + askY(t+latency) + fee(askY). Residue EV if not completed =
  * 1{X wins} − P per share. 5s per-side refractory ≈ one resting bid + requote.
+ *
+ * Scan C (pair-v7, pre-reg memory/experiments/pair-v7.md): taker-lead pair.
+ * Entry when askY + fee(askY) + bidX ≤ 1.00 (post-apply state, both
+ * directions, 5s refractory per direction). Taker leg = marketable limit at
+ * askY(t): survives iff askY(t+latency) ≤ askY(t), fills at pY =
+ * askY(t+latency). Maker leg = bid at bX = bidX(t), active from t+latency,
+ * worst-queue fill (bestAskX < bX); crossed-at-arrival fills charge fee(bX).
+ * Unfilled ⇒ hold Y: residue = 1{Y wins} − (pY + fee(pY)). Zero-latency
+ * counterfactual stream tracked on the same detection moments.
+ *
+ * Scan D (pair-v8, pre-reg memory/experiments/pair-v8.md): scan-B moments at
+ * depth δ — a joiner bid at prevBid − δ, δ-grid below; fill when new
+ * bestAsk_X < prevBid_X − δ (P = prevBid−δ ≥ 0.01). δ=0 IS scan B (binding
+ * regression check against the session-4 JSON). Same completion + hold-all
+ * readouts per δ.
  */
 import '../../../src/config/env.js'
 import fs from 'node:fs'
@@ -31,6 +46,10 @@ const INCREMENT_SHARES = 10 // scan-B increment size (RULES-style)
 const EXTREME_ASK = 0.05 // scan-A extreme-price stratum bound
 const SANE_P_LO = 0.1 // scan-B sane fill-price band
 const SANE_P_HI = 0.9
+const DELTA_GRID = [0, 0.01, 0.02, 0.03, 0.05, 0.08] // scan-D depth grid (pre-registered)
+const MIN_PRICE = 0.01 // scan-D: bids below this are not valid orders
+const ENTRY_GATES = [1.0, 0.99, 0.98, 0.97] // scan-C gate grid (pre-registered)
+const ENTRY_GATE_MAX = 1.0 // scan-C detection gate (loosest)
 
 function fail(msg: string): never {
   console.error(`[bookscan] ERROR: ${msg}`)
@@ -42,11 +61,19 @@ type Opts = {
   maxMarkets: number | null
   latencyMs: number
   refractoryMs: number
+  toMs: number | null
   json: boolean
 }
 
 function parseArgs(argv: string[]): Opts {
-  const o: Opts = { latest: 800, maxMarkets: null, latencyMs: 140, refractoryMs: 5000, json: false }
+  const o: Opts = {
+    latest: 800,
+    maxMarkets: null,
+    latencyMs: 140,
+    refractoryMs: 5000,
+    toMs: null,
+    json: false,
+  }
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!
     const next = () => {
@@ -68,6 +95,9 @@ function parseArgs(argv: string[]): Opts {
         break
       case '--refractory-ms':
         o.refractoryMs = next()
+        break
+      case '--to-ms':
+        o.toMs = next()
         break
       case '--json':
         o.json = true
@@ -96,6 +126,7 @@ type Episode = {
 type Moment = {
   slug: string
   sideX: 0 | 1
+  delta: number // scan-D depth below prevBid; 0 = scan B (top-of-book)
   ts: number
   P: number
   askYAtFill: number | null
@@ -106,6 +137,26 @@ type Moment = {
   xWon: boolean | null // null = market outcome unknown
 }
 
+// scan-C taker-lead entry: Y = taker side (d), X = maker side (1−d)
+type Entry = {
+  slug: string
+  d: 0 | 1
+  ts: number
+  askYAtT: number // askY at detection (zero-latency taker price, FOK limit)
+  askYSizeAtT: number
+  bX: number // maker bid price = bidX at detection
+  entryCost: number // askYAtT + fee(askYAtT) + bX (gate filter key)
+  resolvedArrival: boolean
+  fokAlive: boolean // askY(t+latency) ≤ askYAtT
+  pY: number | null // executed taker price at arrival (null until resolved / if dead)
+  crossed: boolean // bestAskX < bX already at arrival ⇒ taker fee on maker leg
+  filled: boolean
+  fillTs: number | null
+  zFilled: boolean // zero-latency stream: bid active from t
+  zFillTs: number | null
+  yWon: boolean | null
+}
+
 type MarketAgg = {
   slug: string
   events: number
@@ -114,6 +165,7 @@ type MarketAgg = {
   feeExclDurationMs: number
   momentsRawBySide: [number, number]
   moments: Moment[]
+  entries: Entry[]
 }
 
 async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
@@ -130,6 +182,7 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
     feeExclDurationMs: 0,
     momentsRawBySide: [0, 0],
     moments: [],
+    entries: [],
   }
 
   // pre-apply state (updated at the end of every callback)
@@ -149,9 +202,19 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
   let feOn = false // fee-exclusive condition, counts only
   let feTsOn = 0
 
-  // scan-B state
+  // scan-B/D state: per (side, δ) refractory; δ=0 is scan B
   const pendings: Moment[] = []
-  const lastCounted: [number, number] = [-Infinity, -Infinity]
+  const lastCounted: [number[], number[]] = [
+    DELTA_GRID.map(() => -Infinity),
+    DELTA_GRID.map(() => -Infinity),
+  ]
+
+  // scan-C state
+  const entryLastCounted: [number, number] = [-Infinity, -Infinity] // per direction d
+  const entryPendingArrival: Entry[] = []
+  const watchers: [Entry[], Entry[]] = [[], []] // keyed by maker side x = 1−d
+  const watcherMaxBx: [number, number] = [-Infinity, -Infinity] // lazy upper bound
+  const entryDone = (e: Entry) => e.zFilled && (e.filled || (e.resolvedArrival && !e.fokAlive))
 
   const closeEpisode = (ts: number) => {
     agg.episodes.push({
@@ -173,7 +236,7 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
       const ts = Math.max(lastTs, snapshot.timestamp)
       lastTs = ts
 
-      // 1) resolve scan-B pendings due strictly before this event, with the
+      // 1) resolve scan-B/D pendings due strictly before this event, with the
       // pre-apply state (= book as-of all events with ts ≤ target)
       for (let i = pendings.length - 1; i >= 0; i--) {
         const p = pendings[i]!
@@ -187,6 +250,27 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
         }
       }
 
+      // 1b) resolve scan-C entry arrivals due strictly before this event,
+      // with the same as-of semantics: FOK check + crossed-at-arrival check
+      for (let i = entryPendingArrival.length - 1; i >= 0; i--) {
+        const e = entryPendingArrival[i]!
+        if (e.ts + opts.latencyMs < ts) {
+          const yState = prev[e.d]
+          e.resolvedArrival = true
+          if (yState.ask !== null && yState.ask <= e.askYAtT) {
+            e.fokAlive = true
+            e.pY = yState.ask
+            const xState = prev[e.d === 0 ? 1 : 0]
+            if (xState.ask !== null && xState.ask < e.bX) {
+              e.crossed = true
+              e.filled = true
+              e.fillTs = e.ts + opts.latencyMs
+            }
+          }
+          entryPendingArrival.splice(i, 1)
+        }
+      }
+
       const s0 = snapshot.byAssetId[a0]
       const s1 = snapshot.byAssetId[a1]
       const cur: [Best, Best] = [
@@ -194,29 +278,101 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
         { bid: s1?.bestBid ?? null, ask: s1?.bestAsk ?? null, askSize: s1?.asks[0]?.size ?? 0 },
       ]
 
-      // 2) scan-B trade-through detection: new bestAsk_X < pre-event bestBid_X
+      // 2) scan-B/D trade-through detection at each depth δ:
+      // new bestAsk_X < pre-event bestBid_X − δ (δ=0 reproduces scan B exactly)
       for (const sideX of [0, 1] as const) {
         const newAsk = cur[sideX].ask
         const prevBid = prev[sideX].bid
-        if (newAsk === null || prevBid === null || !(newAsk < prevBid)) continue
-        agg.momentsRawBySide[sideX] += 1
-        if (ts - lastCounted[sideX] < opts.refractoryMs) continue
-        lastCounted[sideX] = ts
-        const y = cur[sideX === 0 ? 1 : 0]
-        const xWon =
-          outcome === null ? null : (outcome === 'UP') === (sideX === 0) ? true : false
-        pendings.push({
+        if (newAsk === null || prevBid === null) continue
+        for (let di = 0; di < DELTA_GRID.length; di++) {
+          const delta = DELTA_GRID[di]!
+          const P = prevBid - delta
+          if (!(newAsk < P)) continue
+          if (delta > 0 && P < MIN_PRICE) continue
+          if (delta === 0) agg.momentsRawBySide[sideX] += 1
+          if (ts - lastCounted[sideX][di]! < opts.refractoryMs) continue
+          lastCounted[sideX][di] = ts
+          const y = cur[sideX === 0 ? 1 : 0]
+          const xWon =
+            outcome === null ? null : (outcome === 'UP') === (sideX === 0) ? true : false
+          pendings.push({
+            slug: m.slug,
+            sideX,
+            delta,
+            ts,
+            P,
+            askYAtFill: y.ask,
+            askYSizeAtFill: y.askSize,
+            askY140: null,
+            askY140Size: 0,
+            resolved: false,
+            xWon,
+          })
+        }
+      }
+
+      // 2b) scan-C entry detection on the post-apply state: for direction d
+      // (Y = taker side d, X = maker side 1−d), askY + fee(askY) + bidX ≤ gate
+      for (const d of [0, 1] as const) {
+        if (ts - entryLastCounted[d] < opts.refractoryMs) continue
+        const askY = cur[d].ask
+        const bidX = cur[d === 0 ? 1 : 0].bid
+        if (askY === null || bidX === null) continue
+        const entryCost = askY + fee(askY) + bidX
+        if (entryCost > ENTRY_GATE_MAX) continue
+        entryLastCounted[d] = ts
+        const yWon = outcome === null ? null : (outcome === 'UP') === (d === 0) ? true : false
+        const e: Entry = {
           slug: m.slug,
-          sideX,
+          d,
           ts,
-          P: prevBid,
-          askYAtFill: y.ask,
-          askYSizeAtFill: y.askSize,
-          askY140: null,
-          askY140Size: 0,
-          resolved: false,
-          xWon,
-        })
+          askYAtT: askY,
+          askYSizeAtT: cur[d].askSize,
+          bX: bidX,
+          entryCost,
+          resolvedArrival: false,
+          fokAlive: false,
+          pY: null,
+          crossed: false,
+          filled: false,
+          fillTs: null,
+          zFilled: false,
+          zFillTs: null,
+          yWon,
+        }
+        agg.entries.push(e)
+        entryPendingArrival.push(e)
+        const x = d === 0 ? 1 : 0
+        watchers[x].push(e)
+        if (e.bX > watcherMaxBx[x]) watcherMaxBx[x] = e.bX
+      }
+
+      // 2c) scan-C maker-leg fill watch: worst-queue — the resting bid at bX
+      // fills when bestAsk_X drops below it (zero-latency stream from t; the
+      // 140ms stream only after arrival resolution, and only if FOK survived)
+      for (const x of [0, 1] as const) {
+        const askX = cur[x].ask
+        if (askX === null || watchers[x].length === 0 || askX >= watcherMaxBx[x]) continue
+        const keep: Entry[] = []
+        let maxBx = -Infinity
+        for (const e of watchers[x]) {
+          if (askX < e.bX) {
+            if (!e.zFilled) {
+              e.zFilled = true
+              e.zFillTs = ts
+            }
+            if (e.resolvedArrival && e.fokAlive && !e.filled) {
+              e.filled = true
+              e.fillTs = ts
+            }
+          }
+          if (!entryDone(e)) {
+            keep.push(e)
+            if (e.bX > maxBx) maxBx = e.bX
+          }
+        }
+        watchers[x] = keep
+        watcherMaxBx[x] = maxBx
       }
 
       // 3) scan-A arb condition on post-apply state
@@ -272,6 +428,21 @@ async function scanMarket(m: Market, opts: Opts): Promise<MarketAgg> {
     p.askY140Size = y.askSize
     p.resolved = true
     agg.moments.push(p)
+  }
+  // scan-C entries whose arrival lies beyond the recording: same convention
+  for (const e of entryPendingArrival) {
+    const yState = prev[e.d]
+    e.resolvedArrival = true
+    if (yState.ask !== null && yState.ask <= e.askYAtT) {
+      e.fokAlive = true
+      e.pY = yState.ask
+      const xState = prev[e.d === 0 ? 1 : 0]
+      if (xState.ask !== null && xState.ask < e.bX) {
+        e.crossed = true
+        e.filled = true
+        e.fillTs = e.ts + opts.latencyMs
+      }
+    }
   }
   return agg
 }
@@ -462,7 +633,7 @@ function summarizeBSubset(moments: Moment[], markets: MarketAgg[], gates: number
 }
 
 function summarizeB(markets: MarketAgg[]) {
-  const all = markets.flatMap((m) => m.moments)
+  const all = markets.flatMap((m) => m.moments.filter((mo) => mo.delta === 0))
   const gates = [1.0, 0.99, 0.98]
   return {
     marketsScanned: markets.length,
@@ -476,6 +647,154 @@ function summarizeB(markets: MarketAgg[]) {
   }
 }
 
+function summarizeD(markets: MarketAgg[]) {
+  const gates = [1.0, 0.99, 0.98]
+  const byDelta: Record<string, unknown> = {}
+  for (const delta of DELTA_GRID) {
+    const ms = markets.flatMap((m) => m.moments.filter((mo) => mo.delta === delta))
+    byDelta[delta.toFixed(2)] = {
+      all: summarizeBSubset(ms, markets, gates),
+      sane: summarizeBSubset(
+        ms.filter((mo) => mo.P >= SANE_P_LO && mo.P <= SANE_P_HI),
+        markets,
+        gates,
+      ),
+    }
+  }
+  return { marketsScanned: markets.length, deltaGrid: DELTA_GRID, byDelta }
+}
+
+function byDayEv(perMarketEv: Map<string, number>) {
+  const byDay = new Map<string, { markets: number; ev: number }>()
+  for (const [slug, ev] of perMarketEv) {
+    const epoch = Number(slug.split('-').pop())
+    const day = Number.isFinite(epoch) ? new Date(epoch * 1000).toISOString().slice(0, 10) : '?'
+    const d = byDay.get(day) ?? { markets: 0, ev: 0 }
+    d.markets += 1
+    d.ev += ev
+    byDay.set(day, d)
+  }
+  return Object.fromEntries(
+    [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, d]) => [day, { markets: d.markets, evPerMarket: r4(d.ev / d.markets) }]),
+  )
+}
+
+function summarizeCSubset(entries: Entry[], markets: MarketAgg[]) {
+  const survived = entries.filter((e) => e.fokAlive && e.pY !== null)
+  const filled = survived.filter((e) => e.filled)
+  const makerFills = filled.filter((e) => !e.crossed)
+  const unfilled = survived.filter((e) => !e.filled)
+  const unfilledKnown = unfilled.filter((e) => e.yWon !== null)
+
+  const pairPnl = (e: Entry) => 1 - (e.pY! + fee(e.pY!) + e.bX + (e.crossed ? fee(e.bX) : 0))
+  const residuePnl = (e: Entry) => (e.yWon ? 1 : 0) - (e.pY! + fee(e.pY!))
+
+  const evPair = new Map<string, number>()
+  const evResidue = new Map<string, number>()
+  const evTotal = new Map<string, number>()
+  for (const m of markets) {
+    evPair.set(m.slug, 0)
+    evResidue.set(m.slug, 0)
+    evTotal.set(m.slug, 0)
+  }
+  for (const e of filled) {
+    const v = pairPnl(e) * INCREMENT_SHARES
+    evPair.set(e.slug, (evPair.get(e.slug) ?? 0) + v)
+    evTotal.set(e.slug, (evTotal.get(e.slug) ?? 0) + v)
+  }
+  for (const e of unfilledKnown) {
+    const v = residuePnl(e) * INCREMENT_SHARES
+    evResidue.set(e.slug, (evResidue.get(e.slug) ?? 0) + v)
+    evTotal.set(e.slug, (evTotal.get(e.slug) ?? 0) + v)
+  }
+  const totVals = [...evTotal.values()].sort((a, b) => a - b)
+  const mean = (vals: number[]) => vals.reduce((s, v) => s + v, 0) / (vals.length || 1)
+  const ttf = makerFills.map((e) => e.fillTs! - e.ts).sort((a, b) => a - b)
+
+  // zero-latency counterfactual: taker at askY(t), maker bid live from t
+  const zPairPnl = (e: Entry) => 1 - (e.askYAtT + fee(e.askYAtT) + e.bX)
+  const zResiduePnl = (e: Entry) => (e.yWon ? 1 : 0) - (e.askYAtT + fee(e.askYAtT))
+  const zEvTotal = new Map<string, number>()
+  let zPairSum = 0
+  let zResidueSum = 0
+  for (const m of markets) zEvTotal.set(m.slug, 0)
+  for (const e of entries) {
+    let v: number | null = null
+    if (e.zFilled) {
+      v = zPairPnl(e) * INCREMENT_SHARES
+      zPairSum += v
+    } else if (e.yWon !== null) {
+      v = zResiduePnl(e) * INCREMENT_SHARES
+      zResidueSum += v
+    }
+    if (v !== null) zEvTotal.set(e.slug, (zEvTotal.get(e.slug) ?? 0) + v)
+  }
+  const n = markets.length || 1
+
+  return {
+    entries: entries.length,
+    marketsWithAny: new Set(entries.map((e) => e.slug)).size,
+    entriesPerMarketMean: r4(entries.length / n),
+    takerDepthGe10: r4(
+      entries.filter((e) => e.askYSizeAtT >= INCREMENT_SHARES).length / (entries.length || 1),
+    ),
+    fokSurvivalRate: r4(survived.length / (entries.length || 1)),
+    fillRate: r4(filled.length / (survived.length || 1)),
+    crossedFracOfFills: r4(filled.filter((e) => e.crossed).length / (filled.length || 1)),
+    timeToMakerFillSecP50: ttf.length ? r4(quantile(ttf, 0.5)! / 1000) : null,
+    timeToMakerFillSecP90: ttf.length ? r4(quantile(ttf, 0.9)! / 1000) : null,
+    pairs: {
+      n: filled.length,
+      pnlShareMean: r4(filled.length ? mean(filled.map(pairPnl)) : null),
+      evPerMarketMean: r4(mean([...evPair.values()])),
+    },
+    residue: {
+      n: unfilledKnown.length,
+      unknownOutcome: unfilled.length - unfilledKnown.length,
+      winRate: r4(
+        unfilledKnown.length
+          ? unfilledKnown.filter((e) => e.yWon).length / unfilledKnown.length
+          : null,
+      ),
+      meanPY: r4(unfilledKnown.length ? mean(unfilledKnown.map((e) => e.pY!)) : null),
+      pnlShareMean: r4(unfilledKnown.length ? mean(unfilledKnown.map(residuePnl)) : null),
+      evPerMarketMean: r4(mean([...evResidue.values()])),
+    },
+    evPerMarketMean: r4(mean(totVals)),
+    evPerMarketP50: r4(quantile(totVals, 0.5)),
+    pctMarketsPositive: r4(totVals.filter((v) => v > 0).length / (totVals.length || 1)),
+    byDay: byDayEv(evTotal),
+    zeroLatency: {
+      fillRate: r4(entries.filter((e) => e.zFilled).length / (entries.length || 1)),
+      evPerMarketMean: r4(mean([...zEvTotal.values()])),
+      pairsEvPerMarketMean: r4(zPairSum / n),
+      residueEvPerMarketMean: r4(zResidueSum / n),
+    },
+  }
+}
+
+function summarizeC(markets: MarketAgg[]) {
+  const all = markets.flatMap((m) => m.entries)
+  const bands: Record<string, Entry[]> = {
+    all,
+    sane: all.filter((e) => e.askYAtT >= SANE_P_LO && e.askYAtT <= SANE_P_HI),
+  }
+  const out: Record<string, unknown> = { marketsScanned: markets.length, gateGrid: ENTRY_GATES }
+  for (const [name, es] of Object.entries(bands)) {
+    const byGate: Record<string, unknown> = {}
+    for (const g of ENTRY_GATES) {
+      byGate[g.toFixed(2)] = summarizeCSubset(
+        es.filter((e) => e.entryCost <= g),
+        markets,
+      )
+    }
+    out[name] = byGate
+  }
+  return out
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
   const rows = await listEligibleTelonexMarkets({
@@ -484,6 +803,7 @@ async function main() {
     converter: 'delta-typed',
     readFrom: 'local',
     fromMs: PROTOCOL_FLOOR_MS,
+    ...(opts.toMs !== null ? { toMs: opts.toMs } : {}),
     limit: opts.latest,
     latest: true,
   })
@@ -517,10 +837,12 @@ async function main() {
       firstSlug: target[0]?.slug ?? null,
       lastSlug: target[target.length - 1]?.slug ?? null,
     },
-    params: { latencyMs: opts.latencyMs, refractoryMs: opts.refractoryMs },
+    params: { latencyMs: opts.latencyMs, refractoryMs: opts.refractoryMs, toMs: opts.toMs },
     totalEvents: aggs.reduce((s, m) => s + m.events, 0),
     scanA_takerArb: summarizeA(aggs, opts.latencyMs),
     scanB_instantCompletion: summarizeB(aggs),
+    scanC_takerLead: summarizeC(aggs),
+    scanD_deepBook: summarizeD(aggs),
   }
 
   if (opts.json) {
