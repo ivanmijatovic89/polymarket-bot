@@ -135,11 +135,23 @@ Pointers, not content.)
   base, ruling axes 2+3 ANSWERED — doom salvage cuts stranding 341→29
   residue markets but dollars transfer to pairsPnl (save ≈ 1¢/share at
   doom-certainty; E-012 blocks acting earlier); C=0.99 fees eat the
-  ≤1¢ locked margin — pair-v10.md §Result E-020b. Next open front:
-  E-022 (pair-v11.md, PRE-REGISTERED, not yet run — axis 6
-  liquidity-structure market selection, 5 frozen features, split-half).
-  Human market context in `market-context.md` (700-trades/window
-  operator — HF regime unexplored, E-013 scope limited to few-orders
-  regime).
+  ≤1¢ locked margin — pair-v10.md §Result E-020b. E-022 (session 11,
+  run-872 reanalysis via new `tools/mktselect.ts`): KILL axis 6 — no
+  early-book feature trend reproduces across frozen split-halves, zero
+  selection rules reach ev ≥ 0 even on exploration, doom rate flat
+  43–56% in every bucket; F1 spread + F3 book-sum are DEGENERATE at
+  window start (book is tick-constrained ~always) — pair-v11.md §Result
+  E-022, archive `experiments/data/mktselect-2026-07-31-latest800.json`.
+  E-023 (run 914): v1-b FULL reference — ev −1.0700 ≡ screen (−1.0669),
+  monthly −0.96..−1.12, 0/16 positive weeks ⇒ loss stationary in time
+  AND scale; the S2 baseline for any future v1-family overlay
+  (pair-v1.md §FULL run 914). Ruling axes 1/2/3/6 all answered-negative
+  on the v1 family; remaining levers: axis 4 (size laddering), axis 5
+  (time-varying policy), and the HF regime. Next open front: E-024
+  (`experiments/hf-fill-probe.md`, PRE-REGISTERED session 11, not yet
+  run — measures worst-queue vs optimistic-queue maker capture ceiling
+  on the pinned 800; answers whether "fill-limited" (E-013) is a market
+  fact or a fill-model fact, per the human's 700-trades/window operator
+  context in `market-context.md`).
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
   additional research memory (`siblings.md`, 2026-07-31).

@@ -606,3 +606,23 @@ forward: the fixable waste is not in how we exit a bad position, it is
 in which markets we enter at all — that test (judging markets by their
 order-book character in the first 3 minutes) is designed, frozen, and
 ready to run next session.
+
+## 2026-07-31 — session 11 (mission 02)
+
+Tested the "pick better markets" idea: we measured five order-book
+characteristics (spread, depth, activity, choppiness, price richness) in
+each market's first 3 minutes and asked whether any of them predicts
+which markets our strategy wins in. Answer: no — none of the patterns
+held up on the held-out half of the data, and no market subset was even
+break-even (details: pair-v11.md). Interesting side-fact: the book looks
+almost identical at the start of every market, so "spread" carries no
+information here at all.
+We also ran our best variant over the full four months of history as a
+permanent baseline: it loses $1.07 per market with remarkable
+consistency — every month, every week (run 914). Whatever fixes this, it
+won't be a lucky time window.
+Next: you told us a profitable bot does ~700 trades per window; before
+chasing that, we designed a measurement (frozen today) of how much maker
+volume our simulator's pessimistic fill rule may be hiding — that
+decides whether "the market gives us so few fills" is real or an
+artifact of our model.

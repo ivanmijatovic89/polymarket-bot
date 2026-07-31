@@ -293,3 +293,27 @@ protocols/ files). All @ 140/20ms:
   (both-sides start quoting), new code, own file. Guard-4 count: family at
   9 configs without a per-dollar cure; pair-v4 is a mechanism change, not
   an escalation of this grid.
+
+## FULL run 914 (v1-b, E-023 reference — session 11, 2026-07-31)
+
+`pair-fable-v1 maxPairCost=0.95` (the family best) over the FULL universe,
+10,747 markets 2026-04-02→07-23 @ 140/20ms flag-pinned, batchUid
+`pf-v1b-full-20260731T091803-g9sfss`, failures 0. Purpose: the S2
+walk-forward reference any future overlay (selection, sizing, timing) on
+the v1 family is measured against — the only prior FULL was 870 (v0).
+
+| metric | value |
+| --- | --- |
+| evPerMarketTotal | **−1.0700** (screen 873 on latest-800: −1.0669 — stationary at full scale) |
+| pnl / invested / p100 | −11,495.33 / 139,426.09 / **−8.24** (matches screen −9.17 within day-mix) |
+| played / won / lost / flat | 9,322 / 4,871 / 4,451 / 13 (noActivity 1,412) |
+| trades (maker/taker) | 30,264 (26,614 / 3,650 = 12.1% taker) |
+| monthly ev | 2026-04 −0.96, 05 −1.12, 06 −1.11, 07 −1.09 |
+| weekly walk-forward | 16 segments, mean −1.145, min −1.31, **0 positive** |
+| invested max / avgPlayed | 50.13 / 14.94 |
+
+Reading: v1-b's loss is stationary in time (4 months within ±0.08 of each
+other) and in scale (FULL ≡ screen) — same structural shape as v0's E-005
+but at half the magnitude. Nothing about the 9-day pinned screen window was
+unrepresentative. evaluate.ts: MECHANICAL PASS, S2 FAIL (FAILS-S2-FULL).
+[run 914 | 2026-07-31]

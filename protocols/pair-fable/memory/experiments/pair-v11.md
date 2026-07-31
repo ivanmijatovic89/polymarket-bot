@@ -53,3 +53,54 @@ a selection gate would act before entering).
   data invalidates this pre-registration (write E-022b instead).
 
 design-ts (E-022): this commit, session 10 — before any feature is computed.
+
+## Result E-022 (session 11, 2026-07-31): KILL axis-6 Phase-0
+
+Tool: `tools/mktselect.ts` (new; replays minutes 0–3 only via `shouldStop`,
+time-weighted feature means — weighting chosen in code BEFORE any data was
+seen, since the pre-registration did not freeze it). Universe: the pinned
+800 (`--to-ms 1784762100000`, slugs 1784043000→1784762100), all 800 scanned,
+799/800 with full 3-min coverage (1 market's recording missed the window —
+its features are null and excluded). Join to run 872: 800/800 joined,
+`evAllJoined = −1.5019` — exactly run 872's recorded headline ev, join
+integrity confirmed. Archives:
+`data/mktselect-2026-07-31-latest800.json` (analysis) + `.jsonl`
+(per-market raw features). [run 872 reanalysis | 2026-07-31]
+
+**Verdict per the frozen criteria: KILL.**
+
+- **No feature reproduces**: every `trendReproduces = false`. Exploration
+  trends were single-peak (F1/F3) or non-monotone (F2/F4/F5); none
+  reproduced in shape or sign on the confirmation half.
+- **Zero rules pass even exploration**: no contiguous quintile range on any
+  feature reached ev ≥ 0 at ≥ 25% retention on the exploration half — the
+  best single bucket anywhere is ev −1.02 (F5 Q3 exploration), ~4 SE below
+  zero. The economics bar is unreachable on this universe: v1-a loses
+  −1.42/−1.58 per market on the two halves and no early-book stratum
+  escapes it.
+- **Doom rate is flat across all book character**: 43–56% of played in
+  every bucket of every feature, both halves — the market-level replication
+  of E-012's start-level finding: doom is not predictable from observable
+  liquidity state, early-window edition.
+- **Feature degeneracy finding (transferable)**: F1 (spread) and F3
+  (book-sum) are nearly constant across markets — quintile edges span
+  0.0100–0.0102 / 1.0100–1.0102. The btc-15m book sits at 1-tick spread
+  and ask-sum ≈ 1.01 essentially always in minutes 0–3, so spread/richness
+  carry ~no cross-market information on this universe; F2 (depth,
+  510–1375+ shares) and F5 (intensity, 178–277+ ev/s) DO vary and still
+  showed nothing. Any future selection idea should not spend features on
+  spread/book-sum at window start.
+
+Scope of the kill (as pre-registered): these 5 features, this universe
+(pinned 800, 2026-07-14→22), v1-family pnl as the target. A different
+feature family (cross-market, time-of-day, spot-side features) would need
+its own pre-registration (E-022b+). Confounders as pre-committed: per-day
+ev reported in the archive (all 9 days negative, −0.09..−2.05, no day
+carried by regime); guard-6 fill-model effects inherited symmetrically.
+
+Consequence for the identity (`EV = completions·g − stranded·L_s`): axis 6
+joins axes 1/2/3 as answered-negative on the v1 family — neither exit
+policy (E-020b), nor price ceiling (E-019/E-021), nor market selection
+(E-022) moves the doom term. Remaining in-rules levers: axis 4 (size
+laddering), axis 5 (time-varying policy), and the unexplored HF regime
+(market-context.md).
