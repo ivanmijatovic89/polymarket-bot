@@ -782,3 +782,22 @@ Next: stop asking HOW and start asking WHICH — measure whether
 observable market features (spread, depth, early movement) predict the
 losing markets, and firm up the one price region that ever measured
 positive, before writing any new strategy code.
+
+## Session 20 — 2026-07-31
+
+Asked whether the first three minutes of a market's order book can
+predict which markets will hurt us — including two new "early movement"
+measures. Answer: no; nothing survives validation (pair-v15.md §13.2).
+Then took the one price region that had ever measured positive — buying
+near-certain favorites early — and re-tested it on 9,947 older markets
+it had never seen, twelve times the data. The edge vanished: it was an
+accident of the small sample. And the bigger picture is now sharp:
+every price band below 80 cents is overpriced by 1.5–3 cents a share,
+favorites are priced exactly fair — buying this market at the asking
+price pays a measured toll everywhere, which explains in one stroke why
+every buying variant loses (pair-v14.md E-035).
+The flip side: whoever is SELLING at those prices collects that toll.
+That mirror idea — sell both sides instead of buying them — is a scope
+question for you, written up as P-013.
+Next: your P-013 call, and designing a probe of the very-high-activity
+regime you flagged.

@@ -295,3 +295,37 @@ Entry format:
   protocol workspace. No current work is blocked (session 15 self-check
   + replan proceeds on btc-15m evidence); this unblocks the
   cross-symbol branch of whatever the replan chooses.
+
+## P-013: scope ruling — sell-side mirror program (split → quote/sell both sides)
+
+- status: proposed
+- date: 2026-07-31 (session 20)
+- context: E-035 (9,947 disjoint markets, 104 days) measured the buy side
+  of this market to be systematically overpriced: every ask band below
+  0.80 costs the buyer 1.5–3.2¢/share after fees (z up to −12.7), with
+  ≈ 1–1.5¢/share of RAW mispricing beyond the taker fee at mid-bands;
+  favorite bands 0.85–0.95 are exactly fair. Two-sided ask-sum at window
+  start ≈ 1.010–1.011 (E-022 F3). Every buying variant the lab has
+  tested pays this measured toll — it is the unconditional explanation
+  of the invariant −5..−6/$100 (v15) and −8/$100 (v1). The mirror
+  implication: the counterparty RESTING those asks earns the premium.
+  A seller-side program — split $1 USDC into UP+DOWN via
+  `split_positions` (engine intent exists), then continuously
+  quote/sell BOTH sides at the measured-overpriced asks, target
+  combined sale > $1 + costs — is the exact mirror of the current
+  two-sided accumulation controller, aimed WITH the measured edge
+  instead of against it. Open questions the lab can measure itself
+  (read-only Phase-0, no strategy code): whether maker fee = 0 holds in
+  the engine's fee model for these markets (decisive: seller nets
+  ≈ +1–1.5¢/share raw only if resting sells pay no taker fee), resting
+  ask fill realism under the worst-queue model (P-009/P-010 adjacency),
+  strand/inventory risk when one side doesn't sell, and split/merge
+  gas+mechanics costs in backtest semantics.
+- proposal: rule on scope. The current mandate (rulings 90d94c56 /
+  93482fcb) directs a controller that BUYS both sides; a split-and-sell
+  variant inverts the direction of every fill while keeping the
+  two-sided-inventory shape. Unless directed otherwise, the lab will
+  run the read-only Phase-0 measurement (fee-model capability check +
+  bookscan-style sell-side episode scan) as autonomous backlog work,
+  and will NOT write sell-side strategy code without an explicit
+  go-ahead here.

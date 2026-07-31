@@ -265,3 +265,60 @@ Design (FROZEN; this commit = design-ts, BEFORE any calib.ts change):
 - **Power (honest prior)**: at E-028b point estimates (+0.009..+0.013)
   with SE shrinking ~√12.4 ≈ 3.5× (SE_R3 ≈ 0.0029), a real edge reads
   z ≈ 3–4.4; a null reads ~0. Decisive either way.
+
+## Result E-035 (session 20, 2026-07-31) — VERDICT: TILT-REJECT — favorite-region edge REFUTED out-of-sample; NO positive region anywhere
+
+Executed as pre-registered (design-ts 7154ff8; calib.ts --offset amendment
+79cb722). 9,947/9,947 disjoint pre-pinned markets scanned (preflight
+matched the frozen count exactly; noOutcome 0), 6-shard parallel
+foreground batches, ~55 min wall. Archive:
+`data/calib-oos-2026-07-31-{merged.jsonl,analysis.json}` (shard
+checkpoints alongside).
+
+Frozen first-touch regions on the disjoint set (buyer-at-ask, 140 ms,
+cluster-robust):
+
+| Region (min 0–9) | fills | edge/share | SE | z | halves | days+ |
+| --- | --- | --- | --- | --- | --- | --- |
+| R1 [0.90,1.00) | 5208 (52.4%) | −0.0055 | 0.0039 | −1.41 | −0.004/−0.007 | 49/104 |
+| R2 [0.90,0.95) | 5113 | −0.0050 | 0.0039 | −1.27 | −0.003/−0.007 | 50/104 |
+| R3 [0.95,1.00) | 3327 (33.5%) | −0.0035 | 0.0036 | −0.98 | −0.003/−0.005 | 57/104 |
+
+**TILT-REJECT, and stronger:** R3's disjoint 95% CI [−0.011, +0.004]
+EXCLUDES E-028b's +0.0126 point estimate — the pinned-800 positive read
+was selection noise on the discovery data, not an underpowered truth.
+Region search on the disjoint set: 25,135 eligible (minute × band)
+rectangles, **ZERO** POSITIVE_SIGNAL passes (top rectangle min 5 ×
+[0.95,1.00) fails the both-halves bar: +0.024 vs +0.006). E-028's
+12-rectangle blob does not exist in prior history.
+
+**Market fact, upgraded (descriptive view, n up to 110k samples/band):**
+EVERY ask band below 0.80 is overpriced for the buyer — edge −0.015 to
+−0.032/share, z from −3.4 to −12.7; bands 0.85–0.95 are exactly FAIR
+(z +0.11/+0.74/−0.70). Decomposition at mid-bands: raw mispricing
+≈ −1..−1.5¢/share beyond the ~1.5¢ taker fee. There is no positive
+buy-at-ask region anywhere in (minute × price) space at this
+latency/fill model, and no free tilt at the favorite end.
+
+Consequences:
+1. **pair-v15 §5 directional gate: CLOSED-NEGATIVE.** No measured tilt
+   signal exists; candidate (a) is refuted, (b) had no positive
+   evidence. Directional v15 stays unbuilt.
+2. **E-029 (parked): RESOLVED-NEGATIVE by this measurement** — the
+   replication it proposed has been run on its out-of-sample portion
+   and refuted the premise. No longer parked-pending; dead on evidence.
+3. **WHEN axis (ask-side): answered-negative** — the region search is
+   minute-resolved; no entry-timing window rescues buy-at-ask value.
+4. **Program-level identity note:** the band curve prices the g-term of
+   the accumulation identity: both-sides-at-ask systematically costs
+   > $1/pair (E-022's F3 book-sum ≈ 1.010–1.011 at window start is the
+   same fact seen from the book). The buyer-side toll is measured in
+   every usable band; the mirror seller-side premium motivates P-013
+   (scope question — sell-side program is outside the current buy-side
+   mandate).
+
+Caveats (named): disjoint set is OLDER history (2026-04-02 → 07-15) —
+regime drift between it and the recent 800 cannot be excluded, but the
+sign is uniform across 104 days (49–57 days positive ≈ coin-flip).
+Estimand is buyer-at-ask first-touch (the policy estimand); maker-side
+economics are NOT measured here (worst-queue capability notes apply).
