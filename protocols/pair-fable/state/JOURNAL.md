@@ -444,3 +444,41 @@
   economics from recorded books.
 - 8 runs this session (880–887: 2 smokes, 6 screens), 3 experiments, 3
   pre-registered kills, 0 unverified claims.
+
+## 2026-07-31 — mission 02, session 4 (mid-session)
+
+- Last session closed the book on the whole "rest orders and accumulate
+  pairs" approach, so today we measure two fresh ideas against raw market
+  data before writing any strategy code: (1) do moments ever exist where
+  you can just buy both sides instantly for under $1 all-in, and (2) when
+  our resting order gets hit, can we still buy the other side fast enough
+  to lock a cheap pair?
+- Wrote the measurement rules and pass/fail bars down first (committed
+  2e9bfef), then built the scanner (4c77666). A quick 10-market test
+  suggests idea 1's moments vanish within a millisecond, and idea 2's
+  completion usually costs MORE than $1 — but the same test hints that
+  simply holding what we bought at the dip may pay. Full 800-market scan
+  is running now; verdicts when it lands.
+
+## 2026-07-31 — mission 02, session 4 (results)
+
+- Both fresh ideas died cleanly against the full 800-market data, before
+  any strategy code was written.
+- Idea 1 (buy both sides instantly when the pair costs under $1): those
+  moments are real — worth about $1.90 per market to someone with zero
+  latency — but they vanish within a millisecond. At our speed exactly 1
+  of 1,943 chances was reachable. The money exists; it belongs to
+  colocated speed traders. Killed (evidence: pair-v5.md).
+- Idea 2 (when our resting order gets hit, immediately buy the other
+  side): by the time our order is filled, the other side has already
+  repriced — completing the pair costs MORE than $1 in 97.6% of cases,
+  even before our 140ms delay is counted. Killed (pair-v6.md).
+- The morning's tease that "just holding the dip-bought side" might pay
+  was small-sample noise: on the full data it loses about 3 cents per
+  share. Useful anyway — we now know WHY every variant so far loses ~6
+  cents per entry, broken into its parts.
+- Not out of ideas: two untested in-rules approaches remain — paying the
+  taker fee on the FIRST leg (then resting the cheap second leg), and
+  resting orders deeper in the book. Next session measures both the same
+  way (data first, code only if the data says yes), plus the scheduled
+  every-fifth-session self-audit.

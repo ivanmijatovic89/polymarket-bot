@@ -97,16 +97,23 @@ Pointers, not content.)
   contract enforced as ERROR). Human trigger is one command; sessions run it
   before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
-  family files pair-v0..v4. E-001..E-014 recorded (runs 861–887). State as
-  of 2026-07-31 (mission-02 session 3): **the top-of-book maker
-  pair-accumulation class is KILLED (time-scoped 2026-07)** — six-run
-  cross-section (E-014, pair-v4.md §per-start invariant) shows per-start EV
-  ≈ −0.06/share invariant to gate (0.98/0.95/0.93), cadence (E-013:
-  S is fill-limited, inelastic to ttl/cooldown), sides (v4 both-sides: q
-  co-inflates with S), repair policy (E-008/9), entry discipline (E-006),
-  and start-state selection (E-012: doom unpredictable from spot/ptb state,
-  killed pre-code; tools/contested.ts). Every kill is pre-registered and
-  evidence-tagged in its family file. Next axes (inside RULES buy-only):
-  taker pair-arb (ask-sum < 1 − fees moments) and maker-leg +
-  immediate-taker-completion — Phase-0 data scans first. P-009 filed (live
-  benign-fill share would bound the worst-queue fill-quality bias).
+  family files pair-v0..v6. E-001..E-016 recorded (runs 861–887; E-015/16
+  are run-free book scans). State as of 2026-07-31 (mission-02 session 4):
+  **the top-of-book maker pair-accumulation class is KILLED (time-scoped
+  2026-07)** — six-run cross-section (E-014, pair-v4.md §per-start
+  invariant) shows per-start EV ≈ −0.06/share invariant to gate, cadence
+  (E-013), sides (E-014), repair policy (E-008/9), entry discipline
+  (E-006), and start-state selection (E-012). **Both instant-completion
+  routes are ALSO killed pre-code** (tools/bookscan.ts, 800-market book
+  replay, pre-reg 2e9bfef): E-015 taker pair-arb — fee-inclusive dutch
+  books exist but live sub-ms, 1/1943 episodes survives 140ms, $0.00/mkt
+  executable; E-016 maker-fill→instant-completion — complement repriced
+  before the fill instant (zero-latency C p50 1.016), free-abort bound
+  $0.04/mkt, and the hold-all directional readout is −0.029/share so no
+  abort policy rescues it. The −0.06 invariant is decomposed (pair-v6.md).
+  Every kill is pre-registered and evidence-tagged. Remaining inside-RULES
+  untested axes (session-5 scan targets): taker-lead pair (buy one side at
+  ask, maker-complete the other; entry condition ask+bid+fee < gate is
+  common) and deep-book maker placement (rest below bestBid; per-start
+  invariant only measured at top-of-book). P-009 filed (live benign-fill
+  share would bound the worst-queue fill-quality bias).

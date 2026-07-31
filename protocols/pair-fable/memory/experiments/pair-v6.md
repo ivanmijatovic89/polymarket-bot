@@ -77,6 +77,45 @@ with askY size ≥ 10 shares (increment size); (c) moments per market
 distribution — a family that only fires in 3% of markets cannot carry
 goal 1 alone regardless of margin.
 
-## Phase 0 results
+## Phase 0 results (2026-07-31, session 4) — VERDICT: KILL the family
 
-(to be filled by the scan — tools/bookscan.ts)
+Tool: `tools/bookscan.ts` (one pass shared with pair-v5 Phase 0; 800/800
+markets, 199.5M events). Evidence JSON:
+`data/bookscan-2026-07-31-latest800.json`. Pre-registration committed at
+2e9bfef BEFORE the scan. Numbers below are the sane band (P ∈ [0.10,0.90],
+4,247 refractory moments in 747/800 markets, ≈5.3/market); the full set
+(5,039 moments) agrees on every verdict-relevant number.
+
+- **The complement has ALREADY repriced at the fill instant.** Zero-latency
+  completion cost C p50 = 1.0159 — before our completion order even
+  leaves. By +140 ms, C p50 = 1.0373 (askY drifts a further +0.0285 mean).
+  Distribution: p10 1.0167, p90 1.0675. Depth was never the binding issue
+  (91% of moments have ≥10 shares at askY) — price is.
+- **P(C < 1) = 2.4%** (mean margin when below: 0.032); tighter gates are
+  rarer still (P(C<0.98) = 1.1%). Free-abort upper bound = **$0.041/market**
+  vs the $0.10 kill bar → KILL fires. The WEAK prong (abort-policy design)
+  is ALSO closed: residue EV is −0.031/share (see below), so no abort
+  policy can rescue completion economics this thin.
+- **Hold-all readout (the "never complete, hold the dip" directional
+  variant): NEGATIVE.** Win rate 47.5% vs mean fill price 0.504 ⇒
+  −0.029/share; per-market EV −$1.51 (p50 −$1.10); only 36% of markets
+  positive; negative on 8 of 9 scan days — the sole positive day is the
+  34-market partial day 07-14, which is exactly what the 10-market smoke
+  sample saw and mistook for signal (+0.04/share tease, refuted at n=800).
+  Abort-corrected family EV: −$1.55/market.
+- **The −0.06/share per-start invariant now has a decomposition**: ≈1.6c
+  of instant complement repricing + ≈2.9c more within 140 ms on the
+  completion leg, and −2.9c of unconditional directional adverse selection
+  on the filled leg itself. Trade-through fills are adversely selected
+  unconditionally — not merely conditionally on repair failure (closes the
+  question pair-v4's parity caveat left open, within sim evidence).
+- Bias direction (pre-registered): the fresh-quote fill proxy overstates
+  opportunity; a real resting bid is staler and fills worse — every number
+  above is an upper bound, so KILL a fortiori.
+
+**Interpretation**: at 140 ms there is no moment after a maker fill where
+the pair can be completed below $1 often enough to matter, and the fill
+itself carries negative directional value. Together with pair-v5's Phase 0
+(no takeable two-sided arb) this closes BOTH instant-completion routes.
+Time-scoped 2026-07, latest-800.
+[tools/bookscan.ts | data/bookscan-2026-07-31-latest800.json | 2026-07-31]

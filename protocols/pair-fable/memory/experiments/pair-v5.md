@@ -71,6 +71,34 @@ quotes; the verdict is computed on the full set AND the sane-band subset,
 kill applies only if both fail; (c) depth walk below best level is ignored
 (conservative — deeper levels could only add value).
 
-## Phase 0 results
+## Phase 0 results (2026-07-31, session 4) — VERDICT: KILL the family
 
-(to be filled by the scan — tools/bookscan.ts)
+Tool: `tools/bookscan.ts` (one pass shared with pair-v6 Phase 0). 800/800
+markets scanned locally, 199.5M book events, slugs 1784043000→1784762100.
+Evidence JSON: `data/bookscan-2026-07-31-latest800.json`. Pre-registration
+committed at 2e9bfef BEFORE the scan ran.
+
+- **Fee-inclusive dutch books DO occur — but live sub-millisecond.** 1,943
+  episodes across 459/800 markets; duration p50 = 0 ms, p90 = 1 ms, max
+  1,347 ms (sane band: 1,511 episodes, max 25 ms). The condition appears
+  for one event-cascade frame and is gone.
+- **Survivable at 140 ms: 1 episode out of 1,943** (sane band: 0). Markets
+  with any survivable episode: 1/800 = 0.125% vs the pre-registered 5%
+  kill bar. Executable value per market: mean $0.0000, max $0.0207 vs the
+  $0.10 kill bar. KILL fires on both the full set and the sane band
+  (confounder b satisfied).
+- **Zero-latency counterfactual (confounder a)**: $1.88/market (sane
+  $1.65) of conservative executable value exists for an actor with ~0 ms
+  latency — real money, harvested by colocated snipers within the same
+  millisecond it appears. No latency budget we can reach changes the
+  verdict (140 ms vs sub-1 ms is 2+ orders of magnitude), and a
+  latency-race strategy would violate the RULES latency-independence
+  rubric anyway.
+- Fee-exclusive context: ask-sum < 1 (ignoring fees) holds for 609 s total
+  across all 800 windows (~0.08% of market time; 6,440 episodes) — fees
+  alone kill most of even the instantaneous opportunity.
+
+**Interpretation**: the visible book is arbitrage-free at every horizon a
+non-colocated taker can reach. Time-scoped as always (2026-07,
+latest-800), but the mechanism (speed competition) is structural.
+[tools/bookscan.ts | data/bookscan-2026-07-31-latest800.json | 2026-07-31]
