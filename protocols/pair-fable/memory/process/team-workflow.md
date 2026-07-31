@@ -4,9 +4,9 @@ Status: BINDING for this loop. Rule 1 (cross-protocol read) was explicitly
 accepted by human ruling [inbox 2026-07-30T22:20:52.239Z-c68ea4ce], and the
 whole document became binding when READY was accepted
 [inbox 2026-07-30T23:20:47.483Z-0e6fde8b]. Other loops adopt it via their
-own protocols' process docs. Note the review-mandated amendment to rule 4
-below (engine-SHA condition, per MISSION01-REVIEW M4 — to be implemented
-early in Mission 02).
+own protocols' process docs. The review-mandated amendment to rule 4 below
+(engine-SHA condition, per MISSION01-REVIEW M4) was implemented 2026-07-31
+(commit 4809a8e, together with gate items M1–M3/M5).
 
 Context: later, parallel agent loops (other models) run the same research
 mission in sibling workspaces (`protocols/pair-<model>/`), sharing the engine,
