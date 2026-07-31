@@ -369,3 +369,14 @@ engagement metric for E-044's m-cells); (ii) quote so the fills are
 less adversely selected (price/persistence/side-asymmetry of maker
 quotes); (iii) sell-side mirror (P-013, needs human). Start-timing
 is measured NOT a lever (minuteev above).
+
+**S-fill toxicity by minute-of-fill (run 1008, same method):**
+evPerShare ≈ −0.022..−0.033 in minutes 0–4 (2.17M shares, ≈ −59k),
+−0.026..−0.050 in minutes 5–11 (1.11M shares, ≈ −47k), −0.064..−0.097
+in minutes 12–13 (26k shares). Maker fills grow ~1.6–3× more
+adversely selected as the window ages. Measured prior for the
+time-varying-quote axis (tighten/stop S accumulation late) — distinct
+from start-minute gating, which minuteev measured dead. Any experiment
+here must account for the completion/pairing value the late S fills
+also carry; the −47k after minute 5 is gross toxicity, not the net
+value of suppressing those fills.
