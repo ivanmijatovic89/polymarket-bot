@@ -98,10 +98,48 @@ absent on v17m).
 ## Audit note
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
-**Session 30 = five-session audit (s26–s30) BEFORE new research.**
+
+### Five-session audit s26–s30 (done in s30, 2026-07-31T23:30Z) — PASS
+
+- **Gates:** s26 GREEN (directional: E-040 close, E-039 re-verdict,
+  E-041 submit), s27 GREEN (directional: E-041 close CEIL-NULL, v17
+  built, E-042 submit), s28 GREEN (directional+neutral: E-042 close,
+  v17m built, E-043/E-044/E-045 submit), s29 GREEN (neutral: g0 loss
+  identity, analysis-only, declared). 4 GREEN / 0 YELLOW / 0 RED;
+  s30 = readout + this audit. All gates present with evidence.
+- **Time to evidence:** 1 / 2 / 3 / 5 min — all PASS (s30: fleet
+  verify at min 2).
+- **Throughput:** 3 experiments closed (E-040, E-041, E-042), 3
+  frozen+submitted (E-043/E-044/E-045), 2 strategies built+smoked
+  (v17, v17m). Fleet runs read: 8×800 + 8×10,747; submitted:
+  15×10,747 (~161k market jobs), all whole-grid-up-front,
+  queue-verified. One declared analysis-only session (s29, runs in
+  flight, 4 read-only scans). No unexplained serial scans.
+- **Binding requirements:** $2,000 + 500–1,000 matched-share check
+  CLOSED by E-036 (s21, on record; unchanged — no new scale claims
+  made since). Directional controller = the active leading program
+  (E-042→E-044 chain). M1–M5 verified 4809a8e. No silently closed
+  requirements found; the one positive claim in the window (E-039
+  +1.91) was actively withdrawn on noise evidence before steering
+  anything — the instrument upgrade (B_full 0.74 at FULL) is the
+  window's main methodological gain.
+- **Premature conclusions check:** completion-axis "no lever" (s29)
+  is an analysis finding recorded as mechanism explanation of the
+  E-041 verdict, not a new class kill; start-minute gating recorded
+  as constraint matching E-027. OK.
+- **Next-five plan (s31–s35):** (1) E-043/E-044/E-045 verdicts →
+  frozen decision mappings (GREEN, directional+neutral); (2) the
+  mapped follow-up — maker-tilt iteration OR width extension OR P*
+  follow-up (GREEN); (3) time-varying-quote neutral axis (late-window
+  S-toxicity prior measured in s29) design+run (GREEN); (4) at most
+  one supporting diagnostic if a verdict demands mechanism digging
+  (YELLOW cap 1); (5) s35 = next audit. ≥3 direct controller
+  increments guaranteed.
+
 Reading the already-frozen E-043/E-044/E-045 results is evaluation of
-completed work (§6.3), not new research — do the readout when runs
-are done; run the audit before designing/submitting anything NEW.
+completed work (§6.3), not new research — audit done; readout may
+proceed, and new design (backlog: time-varying τ) is unblocked after
+the readout's decision mappings are applied.
 
 ## Next step (priority order)
 

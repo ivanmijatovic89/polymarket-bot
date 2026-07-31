@@ -380,3 +380,31 @@ from start-minute gating, which minuteev measured dead. Any experiment
 here must account for the completion/pairing value the late S fills
 also carry; the −47k after minute 5 is gross toxicity, not the net
 value of suppressing those fills.
+
+**S-fill toxicity by price band (run 1008, session 30, same
+JSON_TABLE method; ev/share = shares-weighted win_rate − avg fill
+price):**
+
+| band | shares | avg p | win rate | ev/share |
+|---|---|---|---|---|
+| 0.0x | 30,900 | 0.065 | 0.045 | −0.020 |
+| 0.1x | 129,400 | 0.151 | 0.136 | −0.015 |
+| 0.2x | 281,600 | 0.251 | 0.221 | −0.030 |
+| 0.3x | 605,900 | 0.352 | 0.313 | −0.038 |
+| 0.4x | 1,085,500 | 0.447 | 0.414 | −0.033 |
+| 0.5x | 785,400 | 0.538 | 0.508 | −0.031 |
+| 0.6x | 318,700 | 0.637 | 0.607 | −0.030 |
+| 0.7x | 114,200 | 0.737 | 0.699 | −0.038 |
+| 0.8x | 42,800 | 0.837 | 0.808 | −0.028 |
+| 0.9x | 9,300 | 0.923 | 0.839 | −0.085 |
+
+**Reading.** Maker adverse selection is PRICE-UNIFORM: −3.0 ± 0.5
+¢/share across bands 0.2–0.8 (95% of S volume). Neither the cheap
+(book-laggard) side nor the expensive (book-leader) side is
+systematically less toxic at the band level. Constraint for lever
+(ii): an UNCONDITIONED quote-side/price-level asymmetry has no edge
+to harvest — side asymmetry must be conditioned on an external
+signal (spot-vs-strike lead = exactly E-044's mechanism). If E-044's
+m-cells fail to move the S split, there is no band-level fallback
+for the asymmetry axis. (Bands ≤0.1 look ~1.5¢ milder but carry 5%
+of volume and sit at fee scale; 0.9x is a 9,300-share tail.)
