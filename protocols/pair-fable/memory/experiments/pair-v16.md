@@ -389,3 +389,44 @@ Decision mapping: any LIVE ⇒ next session iterates the winning
 lever. CEIL saturated + PERSIST dead/harmful ⇒ next session designs
 signal (b). Deviations require a written amendment here BEFORE the
 affected submission.
+
+### §9 amendment (recorded s25 AFTER the e-grid submission, BEFORE
+### the nf submission and BEFORE reading e2–e5): noise recalibration
+
+The e0 bridge (994 vs 986 — formula-identical, schema-only SHA
+delta, persist 0) PASSES the governing p/100 bar (Δ 0.45 ≤ 0.54) but
+shows **Δev −1.42** — ~9× the v15-derived 0.15 floor the 0.30 ev bar
+was built on. compare.ts anatomy: the delta is per-market jitter
+flips (largest movers ±$160–190, daily corr 0.85, both signs) —
+taker-FOK races under 140±20 ms jitter at B = 500 caps produce
+discrete per-market outcome flips. The three formula-identical v16
+pairs observed so far: 978v970 Δev −0.53, 987v981 −0.20, 994v986
+−1.42 (p/100: 0.21 / 0.05 / 0.45).
+
+**Action (pre-registered here):** submit TWO additional duplicate
+center runs (e0 params, SHA 63fec11, labels pf-e040-nf1/nf2). The
+same-SHA duplicate set {994, nf1, nf2} gives three pairwise |Δev|;
+the recalibrated v16-B500 ev bar = max(0.30, max pairwise |Δev| of
+that set), and the p/100 bar is re-checked the same way (currently
+0.54, worst observed duplicate 0.45).
+
+**Consequences, recorded in advance:**
+- E-040 verdicts (§9 bars) are evaluated against the RECALIBRATED
+  bar, not 0.30.
+- E-039's CEIL-LIVE margin (+1.91 d1 v d0, same-SHA) is RE-VERDICTED
+  under the recalibrated bar next session: if bar > 1.91 the ceiling
+  lever downgrades to unproven-at-this-noise (its structural
+  findings — win%/median/resid-mkt collapse below 0.90, which are
+  param-driven and far beyond jitter — stand regardless). d4's +1.37
+  and d5's +0.47 are already suspect; d2/d3's +2.16/+2.20 likely
+  survive.
+- E-038's TILT-LIVE rests on a monotone per-$100 dose–response with
+  a sign-flipped control, not a single pairwise delta; it is not
+  re-opened by this finding, but its per-$100 bar inherits the
+  duplicate re-check.
+- If the recalibrated bar lands near ±1.4, single-run pairwise ev
+  deltas at B = 500 are no longer decision-grade; subsequent v16
+  experiments must either (a) run duplicate pairs per cell and
+  compare means, or (b) evaluate on paired per-market deltas
+  (common-universe median/mean Δ with a sign test), which compare.ts
+  already supports. Choice frozen next session with the nf data.
