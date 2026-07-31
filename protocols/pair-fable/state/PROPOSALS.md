@@ -265,3 +265,33 @@ Entry format:
   reanalysis); a ruling is needed only if (2)'s engine work should be
   scheduled, or if HF maker strategy work should be prioritized after
   E-025 reports.
+
+## P-012: convert sibling telonex universes (eth/sol/xrp 15m; optionally 5m) to enable cross-symbol research
+
+- status: proposed
+- date: 2026-07-31 (session 14)
+- context: all six ruling axes (inbox 8758567d) are now answered-negative
+  on the v1 family, on the ONLY backtestable universe: btc-15m is the
+  sole converted telonex dataset (22,335 eligible markets via R2).
+  eth/sol/xrp 15m (~24,600–25,600 cataloged each) and all four 5m
+  universes (~44,000–46,000 each) exist in `telonex_markets` but have
+  ZERO converted rows — `countEligibleTelonexMarkets` returns 0 for
+  every converter/readFrom combination. Every conclusion the lab has
+  produced is therefore conditional on btc-15m microstructure (the most
+  liquid, most tick-constrained instance — E-022 measured its book
+  pinned at 0.01/1.01 edges at window start ~always). Thinner sibling
+  books may price pairs differently; replicating the v1 family + the
+  measured invariants (−0.06/share per-start adverse selection, doom
+  unpredictability) on eth/sol/xrp is the cheapest genuinely-new
+  evidence direction now open, and any future profitable variant should
+  be portfolio-tested across symbols anyway.
+- proposal: run the conversion pipeline for eth:15m, sol:15m, xrp:15m
+  (producer machine: `npm run data:sync:main -- --market eth:15m` etc.,
+  or the convert step alone if raw files are already downloaded), then
+  `fleet:data:sync` to distribute. 5m universes are second priority
+  (2× market count, different window dynamics — a separate research
+  question). The loop cannot run this itself: it is producer-machine
+  ops (disk, R2 egress/storage, hours of convert time) outside the
+  protocol workspace. No current work is blocked (session 15 self-check
+  + replan proceeds on btc-15m evidence); this unblocks the
+  cross-symbol branch of whatever the replan chooses.

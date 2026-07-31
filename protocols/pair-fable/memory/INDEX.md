@@ -171,9 +171,23 @@ Pointers, not content.)
   §Result E-025, archive `experiments/data/tradeprobe-2026-07-31.json`.
   Axis 4a (size as f(price)) answered from E-019/E-021 band
   monotonicity: convex reweighting of nowhere-positive bands —
-  deprioritized with a reopen condition (pair-v12.md §Axis 4a). Next
-  open front: E-026 IN FLIGHT (pair-v12 averaging down, axis 4b; grid
-  batch uids in STATUS) — then axis 5 (time-varying policy), the last
-  undesigned ruling axis.
+  deprioritized with a reopen condition (pair-v12.md §Axis 4a).
+  E-026 (session 14, runs 916–920): KILL pair-v12 averaging-down family
+  — regression gate PASS (916 ≡ 872, Δ 0.0019); all live configs Δev ≤
+  −0.54; the mechanism WORKS (pairsPnl and residue-wins monotone in
+  A-exposure) but the trigger self-selects adverse drift — every
+  A-dollar loses −0.18..−0.27 (δ- and imb-invariant), Δresidue ≈
+  −2×Δpairs; axis 4b answered-negative — pair-v12.md §Result E-026.
+  E-027 (session 14, `tools/minuteev.ts` on runs 872+873): KILL axis-5
+  start-timing + size-vs-time — no minute bucket or contiguous region
+  ≥ 2 SE above 0 in either run; cumulative "forbid starts before m"
+  never positive; doom-by-minute structureless (3rd unpredictability
+  space after E-012/E-022); completion-vs-time bounded by E-020b —
+  pair-v13.md §Result E-027. **ALL SIX ruling axes (inbox 8758567d) now
+  answered-negative on the v1 family** — all family-scoped kills, no
+  class kill claimed. Session 15 self-check owes the strategic replan;
+  cross-universe fact for it: only btc-15m has converted telonex data
+  (22,335 eligible); eth/sol/xrp 15m + all 5m are cataloged but
+  UNCONVERTED (P-012).
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces
   hold no additional research memory (`siblings.md`, 2026-07-31).

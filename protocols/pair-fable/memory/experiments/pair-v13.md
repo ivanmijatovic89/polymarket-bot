@@ -85,3 +85,43 @@ positive" is a robust negative even with wide SEs if point estimates
 are uniformly < 0.
 
 design-ts (E-027): this commit, session 14 — before any tool code.
+
+## Result E-027 (session 14) — VERDICT: KILL (start-timing + size-vs-time sub-axes; time-scoped 2026-07, pinned-800, v1 family, gates {0.95, 0.98})
+
+Tool `tools/minuteev.ts` (written after design commit 743d0be), runs
+872 + 873, no new backtest runs. 0 markets with S-fills missing ts.
+
+**KILL condition met on the full sample in BOTH runs**: no minute
+bucket and no contiguous minute region reaches mean ≥ 2·SE ≥ 0 in
+View 1 (single-S markets — 247 mkts in 872, 296 in 873). Split-half
+reproduction was not reached (no candidate regions exist).
+
+The negative is not marginal — per-minute EV is uniformly negative:
+
+- Run 872 (gate 0.98): View-1 buckets minute 0–3 (n=182/41/5/15) sit at
+  −2.1..−3.3; the only non-negative cells are n=1 singletons (+0.20 ≈ a
+  single completed pair's margin). Starts barely exist past minute 3 at
+  this gate (join-only + 3-min-cutoff scaffolding fills early).
+- Run 873 (gate 0.95): activity spreads across minutes 0–11 (n=7..99
+  per bucket); every bucket ≤ 0; best cells minute 7 (0.000 ± 0.50,
+  n=7) and minute 11 (−0.56 ± 0.38, n=10) — nowhere near +2 SE.
+- Cumulative "forbid starts before minute m": never positive at any m
+  in either run (872: −1.70 → −1.00 for m 0→5; 873: −1.38 → −0.56 for
+  m 0→11, with the m=7 point −0.79 ± 0.23 still clearly negative).
+- Doom fraction by start minute: 46–100% (872), 14–79% (873) with no
+  usable structure — consistent with E-012/E-022's "doom is
+  unpredictable" across a third signal space (time-of-window).
+
+By the pre-registered reweighting argument, size-vs-time is answered by
+the same evidence (all minute buckets ≤ 0 ⇒ any minute-weighted sizing
+is bounded by the best bucket ≈ 0 from below). Completion-vs-time stays
+bounded by E-020b as scoped in the design. A minute-varying gate
+interpolating {0.95, 0.98} has no positive cell at either measured
+endpoint.
+
+**Ruling-axis bookkeeping**: axis 5 is the LAST of the six axes from
+inbox 8758567d. All six are now answered on the v1 family, all
+negative: 1 (E-019/E-021), 2+3 (E-020/E-020b), 4a (reweighting
+argument)/4b (E-026), 5 (E-027), 6 (E-022). Per §Kill standards these
+are family-scoped kills; no class kill is claimed. Session 15
+(self-check) owes the strategic replan.

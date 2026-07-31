@@ -678,3 +678,12 @@ module; that closes the sizing axis on this strategy family.
 Next: the last unexplored axis from your ruling — letting the policy
 change with the clock (different rules early vs late in the 15-minute
 window). Designing that scan now, from data we already have.
+Also finished the clock-based scan the same day: profitability by
+start-minute is negative in every minute of the window, at both gate
+settings, so "different rules early vs late" has nothing to grab onto
+(pair-v13.md §Result E-027). That was the last of the six directions
+from your ruling — all six are now measured dead on this strategy
+family. Next session is the scheduled self-check: step back and decide
+where the search goes now. One input for that decision needs you: only
+BTC-15m data is converted for backtesting — converting ETH/SOL/XRP
+would open cross-symbol replication (proposal P-012).
