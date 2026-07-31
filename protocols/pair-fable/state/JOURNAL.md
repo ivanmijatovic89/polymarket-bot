@@ -853,3 +853,16 @@ in one-way markets, and nothing in HOW we buy moves it.
 Next: the directional version you asked for as step two — same
 controller, but allowed a bounded lean toward the side that is
 winning, so it stops paying to complete the loser in trends.
+
+## Session 23 — 2026-07-31 — E-038: the directional controller (in flight)
+
+Started step two of your priority order: the same controller, now
+allowed a bounded lean. When one side's price clearly leads, the
+controller may hold up to a chosen number of extra shares on that
+side instead of paying to complete the loser (commit ceae123).
+A lean of zero reproduces the neutral controller exactly — that is
+the built-in honesty check against the last neutral run.
+Six configurations submitted together: no lean, three lean sizes
+toward the winner, one lean toward the loser (to settle the sign
+question), and one requiring a stronger leader before leaning.
+Results below when the fleet finishes.
