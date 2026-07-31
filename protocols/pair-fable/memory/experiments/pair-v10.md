@@ -156,3 +156,65 @@ Readouts and verdict bars: unchanged from E-020 §Pre-registered verdicts,
 plus mechanical CAP-BREACH must be absent for a run to be readable.
 
 design-ts (E-020b): this commit, session 10 — after fix, before submission.
+
+## Result E-020b (session 10, runs 910/911 read; 912/913 pending at write time)
+
+Fixed code eaf8038, pinned 800, 140/20 ms.
+
+| config | run | ev/mkt | Δ vs 897 | takers | module fires | residue mkts | pairsPnl | residuePnl | cap max |
+|--------|-----|--------|----------|--------|--------------|--------------|----------|------------|---------|
+| control (897, for ref) | 897 | −1.48 | — | 412 | 0 | 341 | +385 | −1,500 | 50.06 |
+| D=0.05 | 910 | −1.46 | +0.02 | 773 | 353 | 29 | −974 | −114 | 50.06 |
+| D=0.10 | 911 | −1.46 | +0.02 | 808 | 401 | 30 | −948 | −128 | 56.47* |
+| C=0.99 | 912 | −1.51 | −0.03 | 528 | 124 | 346 | +400 | −1,520 | 54.25 |
+| C=0.99 D=0.10 | 913 | −1.46 | +0.02 | 922 | 520 | 31 | −951 | −108 | 56.49* |
+
+M4 note: compare.ts flags SHA drift 2538404→eaf8038; verified `git diff
+--name-only` = 0 non-protocol files (engine identical). Control 897 (old
+SHA) stays valid: at C=0=D the module block is unreachable and the fix
+touches only module-path state. Per-day (compare 897/910/911): salvage
+adds nothing on any of 9 days; daily corr vs control 0.99 — same
+exposure, penny-level transfer between identity terms.
+
+*run 911 CAP-BREACH flag: max 56.47 = ONE bounded cancel-race
+double-fill (GTD canceled + FOK same tick, both fill — the
+pre-accepted confounder (c)), NOT the burst class ($92–160); reported
+per pre-commitment, not contamination-grade.
+
+**Doom-salvage finding (the real E-020b result):** the mechanism works
+exactly as designed and earns exactly what the arithmetic bounds it to
+— pennies. Stranding is nearly ELIMINATED (residue 341 → 29/30 markets;
+L_s term cut from −$1,500 to ≈ −$120) but pairsPnl absorbs almost the
+whole amount (+385 → −974/−948): completing a doomed pair at total
+τ ≈ h + 0.95..0.99 + fee locks a pair loss ≈ the doom loss. Net save =
+353–401 fills × 10 sh × (1 − ask − fee) ≈ +$25–35 per 800 markets
+(+0.02 ev), inside the ±0.05 noise band. The trigger IS a near-perfect
+doom verdict (residue wins after salvage: 1/29, 0/30 — E-012's recovery
+warning measured ≈ nil at these D levels), but that certainty is the
+problem: by the time heldBid ≤ 0.10 confirms doom, the complement ask
+has already risen to ≈ 1 − heldBid, so there is nothing left to save.
+Earning from the doom leg requires completing EARLIER, where E-012
+showed the verdict is unpredictable — the axis is squeezed between
+certainty (no money left) and uncertainty (no signal). [runs 897, 910,
+911 + anatomy | 2026-07-31]
+
+**C=0.99 clean (912):** 124 single-shot fires, residue essentially
+unchanged (346 vs control 341), ev −1.51 (Δ −0.03) — the ≤1¢ locked
+margin is eaten by the taker fee; profit-lock adds nothing even where
+it fires. Joint (913) ≡ D=0.10 alone (ev −1.46, residue 31) — C
+contributes nothing on top of D.
+
+**VERDICT (frozen bar): KILL the taker-completion module on the v1 base**
+— every C/D config within +0.05 of control or below (Δ = −0.03 / +0.02 /
++0.02 / +0.02), time-scoped 2026-07, pinned 800. Scope per
+pre-registration: this base only; but note the two mechanisms' failure
+modes are structural, not parametric — (1) profit-lock is pre-empted by
+v1's own repair rest at any margin worth locking, (2) doom salvage is
+squeezed between doom-certainty (complement ask ≈ 1 − heldBid ⇒ save ≈
+1¢) and doom-uncertainty (E-012: unpredictable early). Ruling axes 2+3
+are hereby answered on the v1 family: L_s CAN be cut to ≈0
+mechanically, but its dollar value transfers into pairsPnl rather than
+vanishing. The identity's exploitable slack is not in the completion
+policy of an already-adverse book position — it is upstream, in which
+markets/regimes get entered at all (→ axis 6, E-022) and in size policy
+(axis 4). [runs 910–913 | 2026-07-31]

@@ -124,15 +124,22 @@ Pointers, not content.)
   inside noise (ev −0.03, capture× 1.06) on the grid's lower boundary ⇒
   X<0.15 and duty-cycle-100% stay open (E-021), taker-completion module
   (axes 2+3) is pair-v10 (E-020); details pair-v9.md §Result.
-  E-021 (runs 904–909): low-X all ≤ 0, doom-vs-d* gap never crosses zero
-  (ev→0 only because activity vanishes), duty cycle measured a
-  nothing-burger (cd0 ≡ cd25) — axis 1 closes (pair-v9.md §Result
-  E-021). E-020 (runs 897–903): PARTIAL-INVALID — FOK-burst bug (tick
-  cooldown < fill latency; cap breach; fixed eaf8038, CAP-BREACH check
-  now in results.ts); clean findings: C ≤ 0.95 trigger-dead on v1 base
-  (repair pre-empts profit-lock); resubmitted as E-020b (pf10b batch,
-  pair-v10.md §E-020b). Human market context in `market-context.md`
-  (700-trades/window operator — HF regime unexplored, E-013 scope
-  limited to few-orders regime).
+  E-021 (runs 904–909): KILL, ruling axis 1 CLOSED — low-X all ≤ 0,
+  doom-vs-d* gap never crosses zero (ev→0 only because activity
+  vanishes), duty-cycle gain measured ZERO (cd0 ≡ cd25 at X=0.12 and
+  0.15) — pair-v9.md §Result E-021. E-020 (runs 897–903):
+  PARTIAL-INVALID — FOK-burst bug (tick cooldown < fill latency; cap
+  breach; fixed eaf8038, CAP-BREACH check now in results.ts); clean
+  finding: C ≤ 0.95 trigger-dead on v1 base (repair pre-empts
+  profit-lock). E-020b (runs 910–913, fixed code): KILL module on v1
+  base, ruling axes 2+3 ANSWERED — doom salvage cuts stranding 341→29
+  residue markets but dollars transfer to pairsPnl (save ≈ 1¢/share at
+  doom-certainty; E-012 blocks acting earlier); C=0.99 fees eat the
+  ≤1¢ locked margin — pair-v10.md §Result E-020b. Next open front:
+  E-022 (pair-v11.md, PRE-REGISTERED, not yet run — axis 6
+  liquidity-structure market selection, 5 frozen features, split-half).
+  Human market context in `market-context.md` (700-trades/window
+  operator — HF regime unexplored, E-013 scope limited to few-orders
+  regime).
   P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
   additional research memory (`siblings.md`, 2026-07-31).

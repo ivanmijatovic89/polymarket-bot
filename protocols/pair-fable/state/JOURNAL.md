@@ -595,3 +595,14 @@ You told us a profitable bot does ~700 trades per window versus our ~4 —
 recorded in memory/market-context.md; that whole regime is unexplored.
 Next: read the resent module tests, then two fresh fronts — choosing
 markets by order-book character, and varying order size with price.
+Late-session update: the fleet was fast enough to answer everything
+today. The resent module tests came back clean and the verdict is in:
+cutting a doomed position's loss WORKS mechanically (stranded losses
+nearly vanish) but the money just moves — by the time a side is
+provably doomed, completing the pair costs almost exactly what the doom
+would have lost (details: pair-v10.md). Both of the ruling's completion
+ideas are now answered on this strategy family. The lesson we take
+forward: the fixable waste is not in how we exit a bad position, it is
+in which markets we enter at all — that test (judging markets by their
+order-book character in the first 3 minutes) is designed, frozen, and
+ready to run next session.
