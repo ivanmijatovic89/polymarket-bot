@@ -110,6 +110,17 @@ only; pairwise common = 10,651 vs all E-042 cells.
   fills too few to matter; report maker-tilt fill counts and record
   as capacity-bound).
 
+## 5. Integrity evidence (session 28, before submission)
+
+- protocol:check PASS (typecheck + eslint).
+- Smoke run 1012 (τ160, bps 10, center): PASS, 5/5, 0 failures,
+  maker/taker 17/16.
+- Activation check run 1013 (τ0, same 5 markets): maker placement
+  differs materially per market (e.g. slug ...089800: m6/t0 vs
+  m1/t2); τ160 taker count ≤ τ0 taker count on EVERY market
+  (16 vs 24 total) — frozen §4 stage check PASS: the taker path does
+  not chase tilt.
+
 Decision mapping: BETTER/REAL ⇒ iterate maker-tilt levers at FULL
 (τ dose, leadPersistTicks, laggard-side quoting asymmetry).
 DEAD ⇒ directional acquisition axes (taker E-038/E-041, maker E-044)
