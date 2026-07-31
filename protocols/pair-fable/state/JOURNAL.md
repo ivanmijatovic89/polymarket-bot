@@ -980,3 +980,36 @@ They answer two questions at once: is the physical price signal
 better than the crowd's odds, and — for the first time decisively —
 does leaning toward a winner add any money at all versus staying
 neutral.
+
+## Session 28 — 2026-08-01
+
+The four full-history runs came back and answered both questions.
+First: yes, the physical signal (Bitcoin's live price versus the
+strike) is better than the crowd's odds at picking which side to lean
+toward — but mostly because the crowd-based lean was actively losing
+money, about $1.30 per market, which the new signal avoids by leaning
+less often and less wrongly. Second: leaning still does not add
+confirmed profit over staying neutral.
+
+The autopsy found something more interesting than either headline:
+when the new signal does lean, the leaned side goes on to WIN in
+88–90% of markets. The signal genuinely sees the future a little. We
+lose anyway because of HOW we buy the lean — the controller chases
+the winning side with aggressive market orders at rising prices, and
+that chasing costs slightly more than the winnings. Good eyes,
+expensive hands.
+
+So this session built a variant with patient hands: it only acquires
+the lean through resting quotes, never by chasing. The known risk —
+registered in advance as the kill condition — is that patient orders
+on a winning side mostly get filled when the price briefly turns
+against it, which could poison the 88% hit rate. Seven full-history
+runs are now on the fleet: two testing the patient-hands variant, two
+probing how rare a decisive price move should be before we lean, and
+three sweeping the core price-discipline knob of the neutral
+controller, which had never been tested at the decisive instrument.
+
+Also of note: a second, independent lab ("pair-opus") was started by
+the human on the same problem with a clean slate. We can read each
+other's notes; it will be interesting to see where they diverge from
+us. Next session reads the seven runs.
