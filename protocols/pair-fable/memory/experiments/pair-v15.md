@@ -846,3 +846,27 @@ inputs; all verdict pairs are within-grid at one SHA.
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+### 11.3 Amendment — grid quantization of the graded target (FROZEN
+### before any E-032 fleet submission; after smoke runs 944/945)
+
+The frozen S0 smoke FAILED its ≥ 1 R-fill bar (runs 944/945: R = 0,
+S 36 / C 3 / D 13). Root cause is arithmetic, not market behavior: the
+band guard bounds the lag deficit at I_b, so ι ≤ 1 always, and at the
+center config ι ≤ q/I_b = 0.625; the graded improvement f·(ask − GRID −
+bid) is then sub-tick in the 1–2-tick books that dominate BTC 15m (e.g.
+γ = 1, ι = 0.625, 2-tick spread ⇒ 0.00625), and §8.3.4's floorToGrid
+quantizes the target back to the bid — the knee-at-0 design is silently
+floored away.
+
+Fix (one line, semantics-preserving): the maker TARGET is quantized
+round-to-nearest-grid (`roundToGrid`) instead of inheriting the ceiling
+floor; the VWAP ceiling p̂ keeps floor semantics (price =
+floorToGrid(min(target, p̂)) is unchanged — an on-grid target passes
+through, so the ceiling can only lower it). Consequences, recorded in
+advance: γ = 0 stays bit-identical on the live path (f = 0 ⇒ target =
+bid exactly; the legacy ι > 1 branch is unreachable under the band
+guard — that unreachability IS the E-032 observation); γ = 1 expresses
+1 tick above bid from 2-tick spreads at center ι; γ = 0.25 expresses
+only in wide books (~5+ ticks at center) — the dose–response low end is
+deliberately weak. Smoke bar unchanged; re-smoke required.
