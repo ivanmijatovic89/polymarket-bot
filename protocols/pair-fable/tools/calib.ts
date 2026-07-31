@@ -36,6 +36,13 @@ const SAMPLES = 60 // k = 0..59 (full 15m window)
 const N_MIN = 15 // minute buckets
 const N_BAND = 20 // 0.05-wide price bands
 const MIN_REGION_MARKETS = 100 // frozen: per-half pooled n_markets floor
+// E-028b frozen first-touch regions (minutes 0–9, i.e. k ≤ 39): [X1, X2)
+const FT_REGIONS: Array<[string, number, number]> = [
+  ['R1_0.90-1.00', 0.9, 1.0],
+  ['R2_0.90-0.95', 0.9, 0.95],
+  ['R3_0.95-1.00', 0.95, 1.0],
+]
+const FT_MAX_K = 39 // minutes 0–9
 
 function fail(msg: string): never {
   console.error(`[calib] ERROR: ${msg}`)
@@ -50,6 +57,7 @@ type Opts = {
   checkpoint: string | null
   timeBudgetS: number | null
   json: boolean
+  firstTouch: boolean
 }
 
 function parseArgs(argv: string[]): Opts {
@@ -61,6 +69,7 @@ function parseArgs(argv: string[]): Opts {
     checkpoint: null,
     timeBudgetS: null,
     json: false,
+    firstTouch: false,
   }
   for (let i = 0; i < argv.length; i++) {
     const flag = argv[i]!
@@ -96,6 +105,9 @@ function parseArgs(argv: string[]): Opts {
       case '--json':
         o.json = true
         break
+      case '--first-touch':
+        o.firstTouch = true
+        break
       default:
         fail(`unknown flag '${flag}'`)
     }
@@ -111,12 +123,15 @@ const cellOf = (minute: number, p: number) =>
 // n/wins/costSum = View 1 (calibration, cost at sample-time ask);
 // n2/wins2/cost2Sum = View 2 (executable: arrival ask ≤ sample ask, cost at
 // arrival ask). sizeSum = displayed ask size at sample time (descriptive).
+type FtFill = { k: number; side: 0 | 1; win: boolean; cost: number; size: number }
+
 type MarketAgg = {
   slug: string
   marketStartMs: number
   events: number
   samplesTaken: number
   cells: Record<string, [number, number, number, number, number, number, number]>
+  ft?: Record<string, FtFill | null> // E-028b first-touch fills per frozen region
 }
 
 type PendingSample = {
@@ -172,6 +187,12 @@ async function scanMarket(m: Market, opts: Opts, won0: boolean): Promise<MarketA
   let k0 = 0 // next base-sample index
   const pendings: PendingSample[] = []
 
+  // E-028b first-touch state (only when --first-touch): at most one pending
+  // attempt per region; retry on later samples until the first FILL.
+  type FtPending = { side: 0 | 1; k: number; trigAsk: number; resolveTs: number }
+  const ftFilled: Array<FtFill | null> = FT_REGIONS.map(() => null)
+  const ftPending: Array<FtPending | null> = FT_REGIONS.map(() => null)
+
   const takeBase = (k: number) => {
     const minute = Math.min(N_MIN - 1, Math.floor((k * SAMPLE_STEP_MS) / 60_000))
     for (const side of [0, 1] as const) {
@@ -185,10 +206,41 @@ async function scanMarket(m: Market, opts: Opts, won0: boolean): Promise<MarketA
         askAtT: p,
         resolveTs: m.marketStartMs + k * SAMPLE_STEP_MS + opts.latencyMs,
       })
+      if (opts.firstTouch && k <= FT_MAX_K) {
+        for (let ri = 0; ri < FT_REGIONS.length; ri++) {
+          const [, x1, x2] = FT_REGIONS[ri]!
+          if (p >= x1 && p < x2 && ftFilled[ri] === null && ftPending[ri] === null) {
+            ftPending[ri] = {
+              side,
+              k,
+              trigAsk: p,
+              resolveTs: m.marketStartMs + k * SAMPLE_STEP_MS + opts.latencyMs,
+            }
+          }
+        }
+      }
     }
   }
 
   const resolvePendingsBefore = (ts: number) => {
+    // first-touch attempts resolve BEFORE new base samples are taken (both
+    // use the same pre-apply state; order only affects retry bookkeeping)
+    for (let ri = 0; ri < FT_REGIONS.length; ri++) {
+      const pd = ftPending[ri]
+      if (pd && pd.resolveTs < ts) {
+        const ask = prev[pd.side].ask
+        if (ask !== null && ask <= pd.trigAsk) {
+          ftFilled[ri] = {
+            k: pd.k,
+            side: pd.side,
+            win: won[pd.side],
+            cost: ask + fee(ask),
+            size: prev[pd.side].askSize,
+          }
+        }
+        ftPending[ri] = null
+      }
+    }
     for (let i = pendings.length - 1; i >= 0; i--) {
       const pd = pendings[i]!
       if (pd.resolveTs < ts) {
@@ -208,8 +260,11 @@ async function scanMarket(m: Market, opts: Opts, won0: boolean): Promise<MarketA
       const ts = Math.max(lastTs, snapshot.timestamp)
       lastTs = ts
       // capture every base sample due strictly before this event, with the
-      // pre-apply state (= book as-of all events with event ts ≤ t_k)
+      // pre-apply state (= book as-of all events with event ts ≤ t_k).
+      // Pendings due before a sample time resolve first (latency 140ms <
+      // step 15s, so an attempt from sample k settles before sample k+1).
       while (k0 < SAMPLES && m.marketStartMs + k0 * SAMPLE_STEP_MS < ts) {
+        resolvePendingsBefore(m.marketStartMs + k0 * SAMPLE_STEP_MS + 1)
         takeBase(k0)
         k0 += 1
       }
@@ -223,10 +278,15 @@ async function scanMarket(m: Market, opts: Opts, won0: boolean): Promise<MarketA
   // end-of-stream flush: the final book IS the as-of state for any later t_k
   // inside the window (frozen in the design)
   while (k0 < SAMPLES) {
+    resolvePendingsBefore(m.marketStartMs + k0 * SAMPLE_STEP_MS + 1)
     takeBase(k0)
     k0 += 1
   }
   resolvePendingsBefore(Infinity)
+  if (opts.firstTouch) {
+    agg.ft = {}
+    for (let ri = 0; ri < FT_REGIONS.length; ri++) agg.ft[FT_REGIONS[ri]![0]] = ftFilled[ri]
+  }
   return agg
 }
 
@@ -412,6 +472,78 @@ function regionSearch(all: Prefixed[], h1: Prefixed[], h2: Prefixed[]) {
   }
 }
 
+// E-028b first-touch summary: one obs per FILLED market; frozen bars =
+// full-sample edge ≥ 2×SE AND edge > 0 in both halves AND ≥6/9 daily > 0.
+function firstTouchSummary(sorted: MarketAgg[]) {
+  const out: Record<string, unknown> = {}
+  const mid = Math.floor(sorted.length / 2)
+  for (const [name] of FT_REGIONS) {
+    const fills: Array<{ marketStartMs: number; edge: number; size: number; k: number }> = []
+    for (const m of sorted) {
+      const f = m.ft?.[name]
+      if (f) {
+        fills.push({
+          marketStartMs: m.marketStartMs,
+          edge: (f.win ? 1 : 0) - f.cost,
+          size: f.size,
+          k: f.k,
+        })
+      }
+    }
+    const n = fills.length
+    if (n === 0) {
+      out[name] = { fills: 0 }
+      continue
+    }
+    const mean = fills.reduce((s, f) => s + f.edge, 0) / n
+    const sd = Math.sqrt(fills.reduce((s, f) => s + (f.edge - mean) ** 2, 0) / Math.max(1, n - 1))
+    const se = sd / Math.sqrt(n)
+    const idxOf = (ms: number) => sorted.findIndex((m) => m.marketStartMs === ms)
+    const h1 = fills.filter((f) => idxOf(f.marketStartMs) < mid)
+    const h2 = fills.filter((f) => idxOf(f.marketStartMs) >= mid)
+    const hMean = (a: typeof fills) =>
+      a.length ? a.reduce((s, f) => s + f.edge, 0) / a.length : null
+    const daily = new Map<string, { n: number; sum: number }>()
+    for (const f of fills) {
+      const day = new Date(f.marketStartMs).toISOString().slice(5, 10)
+      const d = daily.get(day) ?? { n: 0, sum: 0 }
+      d.n += 1
+      d.sum += f.edge
+      daily.set(day, d)
+    }
+    const dailyTable: Record<string, unknown> = {}
+    let daysPos = 0
+    for (const [day, d] of [...daily.entries()].sort()) {
+      const e = d.sum / d.n
+      if (e > 0) daysPos += 1
+      dailyTable[day] = { n: d.n, edge: r4(e) }
+    }
+    const evPerMkt1sh = fills.reduce((s, f) => s + f.edge, 0) / sorted.length
+    const evPerMktCap100 = fills.reduce((s, f) => s + f.edge * Math.min(f.size, 100), 0) / sorted.length
+    const h1m = hMean(h1)
+    const h2m = hMean(h2)
+    out[name] = {
+      markets: sorted.length,
+      fills: n,
+      fillFrac: r4(n / sorted.length),
+      edge: r4(mean),
+      se: r4(se),
+      z: r4(mean / se),
+      half1: { n: h1.length, edge: r4(h1m) },
+      half2: { n: h2.length, edge: r4(h2m) },
+      daysPositive: `${daysPos}/${daily.size}`,
+      daily: dailyTable,
+      meanFillAskSize: r4(fills.reduce((s, f) => s + f.size, 0) / n),
+      meanTriggerK: r4(fills.reduce((s, f) => s + f.k, 0) / n),
+      evPerMkt_1sh: r4(evPerMkt1sh),
+      evPerMkt_cap100sh: r4(evPerMktCap100),
+      POSITIVE_POLICY:
+        mean >= 2 * se && h1m !== null && h1m > 0 && h2m !== null && h2m > 0 && daysPos >= 6,
+    }
+  }
+  return out
+}
+
 async function main() {
   const opts = parseArgs(process.argv.slice(2))
   const rows = await listEligibleTelonexMarkets({
@@ -441,7 +573,12 @@ async function main() {
     `[calib] universe latest=${opts.latest} rows=${rows.length} usable=${usable.length} skipped=${skipped} noOutcome=${noOutcome} scanning=${target.length} latency=${opts.latencyMs}ms`,
   )
 
-  const ckptMeta = { latencyMs: opts.latencyMs, toMs: opts.toMs, latest: opts.latest }
+  const ckptMeta = {
+    latencyMs: opts.latencyMs,
+    toMs: opts.toMs,
+    latest: opts.latest,
+    firstTouch: opts.firstTouch,
+  }
   const cached = new Map<string, MarketAgg>()
   if (opts.checkpoint && fs.existsSync(opts.checkpoint)) {
     for (const line of fs.readFileSync(opts.checkpoint, 'utf8').split('\n')) {
@@ -532,6 +669,7 @@ async function main() {
       half2: { n: h2.length, cells: cellTable(h2, 1) },
     },
     view5_regionSearch: regionSearch(prefixed, h1, h2),
+    ...(opts.firstTouch ? { firstTouch: firstTouchSummary(sorted) } : {}),
   }
   console.log(JSON.stringify(result, null, 2))
   await closeDb()
