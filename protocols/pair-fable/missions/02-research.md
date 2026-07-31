@@ -63,8 +63,8 @@ Work in this order unless the human explicitly changes it:
 Priority 1 leads only while the neutral controller has genuinely untested
 mechanisms. An axis measured closed under a frozen bar does not reopen without
 new evidence, and once the neutral controller's remaining axes are closed,
-priority 2 becomes the leading program. Exhausted neutral axes are never
-grounds for re-testing the neutral controller ahead of priority 2.
+priority 2 becomes the leading program. Exhausted neutral axes are never grounds
+for re-testing the neutral controller ahead of priority 2.
 
 A diagnostic that suggests a selective standalone strategy is a finding, not
 permission to pivot. Record it and return to priorities 1–2 unless the human
@@ -83,9 +83,9 @@ state, price paths, remaining time, liquidity, and measured failure modes.
 The first live-candidate target is:
 
 - `evPerMarketTotal >= 2`, calculated as `SUM(pnl) / COUNT(*)` over every market
-  in the universe, including flat markets (the engine reports `pnl == 0`
-  markets as "skipped"; a played-only denominator flatters selective variants
-  and is not the target metric);
+  in the universe, including flat markets (the engine reports `pnl == 0` markets
+  as "skipped"; a played-only denominator flatters selective variants and is not
+  the target metric);
 - achieved on the FULL protocol universe and the required S4 out-of-sample
   window, not only on a screen; and
 - reported at an explicit `capPerMarket` with capital actually used and profit
@@ -95,16 +95,15 @@ A screen-only $2 is not the target. Optimization and scaling come after.
 
 ### 4.2 Capital and scale target
 
-Binding strategy convention: every variant must expose a per-market capital-cap
-parameter that genuinely constrains per-market capital usage; reporting capital
-after the fact is not a substitute for enforcing the cap. The simulator has no
-cash model — `INITIAL_CAPITAL` is reporting-only — so capital behavior cannot be
-derived retroactively from a run that did not cap capital. A variant without
-that parameter cannot produce valid capital evidence.
+**Binding strategy convention:** every variant must expose a per-market
+capital-cap parameter. The simulator has no cash model — `INITIAL_CAPITAL` is
+reporting-only — so capital behavior cannot be derived retroactively from a run
+that did not cap capital. A variant without that parameter cannot produce valid
+capital evidence.
 
 Capital must be measured by the sweep grid `$100` / `$500` / `$1,000` /
-`$2,000` per market, one run per level, with order size adapted to capital and
-displayed depth. Report every result in the mission-01 capital-aware units:
+`$2,000` per market, **one run per level**, with order size adapted to capital
+and displayed depth. Report every result in the mission-01 capital-aware units:
 invested per market, profit per `$100` invested, and EV per capital level.
 
 Staged screens may use less capital and smaller orders, but the scale question
@@ -115,12 +114,12 @@ cannot be declared answered, converged, or dead until:
   direct mechanical evidence explaining why that range cannot be reached safely
   or profitably.
 
-Smaller-scale linearity is evidence but does not replace the required check. The
-500–1,000 matched-share level is an aspiration to investigate, not an assumed
-result.
+Smaller-scale linearity is evidence but does not replace the required check.
+The 500–1,000 matched-share level is an aspiration to investigate, not an
+assumed result.
 
-Live starts small and scales up; backtest-vs-live parity is checked on the small
-configuration first.
+Live starts small and scales up; backtest-vs-live parity is checked on the
+small configuration first.
 
 ### 4.3 Portfolio target
 
@@ -171,10 +170,10 @@ it; unverified things are labeled as such, and failed runs are reported as
 failures. Comparisons must respect parameter, latency, engine-SHA, and
 strategy-SHA identity rules.
 
-Never use backtest `--extend` to accumulate results. Extensions silently drop
-the parent run's simulated latency (P-001), poisoning latency-pinned evidence.
-Out-of-sample coverage grows through periodic fresh FULL runs instead (~15 fleet
-minutes, cheap).
+**Never use backtest `--extend` to accumulate results.** Extensions silently
+drop the parent run's simulated latency (P-001), poisoning latency-pinned
+evidence. Out-of-sample coverage grows through periodic fresh FULL runs instead
+(~15 fleet minutes, cheap).
 
 When the engine may have moved — a human announcement, or a rebase pulling
 engine commits — run `tools/refresh-capabilities.ts` before relying on
@@ -193,8 +192,8 @@ each affected file. Once implemented, they must remain implemented and passing.
 
 ## 6. Session operating contract
 
-One session is one coherent research increment. Recover state; do not narrate or
-re-derive the entire program.
+One session is one coherent research increment. Recover state; do not narrate
+or re-derive the entire program.
 
 ### 6.1 Time to evidence
 
@@ -231,8 +230,8 @@ Before returning:
 - commit and push protocol work; and
 - write the required structured session result.
 
-Never end a session blocked on an in-flight fleet run. Record the ids and return
-`continue`; the next fresh session reads the finished run. Headless task
+**Never end a session blocked on an in-flight fleet run.** Record the ids and
+return `continue`; the next fresh session reads the finished run. Headless task
 notifications cannot re-invoke the loop, and `wait` parks it for a human.
 Documentation supports experiments; it must not become the session's main
 product.
@@ -259,8 +258,8 @@ Verdicts:
 
 - **GREEN:** directly implemented or tested the neutral or directional
   controller.
-- **YELLOW:** one supporting diagnostic that directly informs controller math or
-  tilt. The next session must return to GREEN.
+- **YELLOW:** one supporting diagnostic that directly informs controller math
+  or tilt. The next session must return to GREEN.
 - **RED:** unrelated work, a second consecutive diagnostic, selection becoming
   the primary strategy, premature closure of a binding requirement,
   evidence-free planning, or a missing gate field.
@@ -303,8 +302,8 @@ Use `wait` only when:
 - a variant meets the §4.1 profit target and the 8-point live-trust evidence bar
   in `memory/capabilities/parity.md` §6, including the S4 out-of-sample verdict
   on at least 400 markets created AFTER the variant's parameter-freeze commit
-  (A5 — structurally ~4–5 calendar days of new markets; that latency is
-  expected, not stalling).
+  (A5 — structurally ~4–5 calendar days of new markets; that latency is expected,
+  not stalling).
 
 For a live candidate, write `state/LIVE-CANDIDATE.md` with the variant,
 capital-aware results, risks, and proposed live configuration, then return
@@ -312,5 +311,5 @@ capital-aware results, risks, and proposed live configuration, then return
 begin only after human review. After the human's decision arrives in the inbox,
 research continues.
 
-This mission has no natural `complete`. The session limit is a budget guard, not
-a research plan — the human extends it as long as the loop earns its keep.
+This mission has no natural `complete`. The session limit is a budget guard,
+not a research plan — the human extends it as long as the loop earns its keep.
