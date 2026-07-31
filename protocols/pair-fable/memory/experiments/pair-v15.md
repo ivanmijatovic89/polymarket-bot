@@ -870,3 +870,30 @@ guard — that unreachability IS the E-032 observation); γ = 1 expresses
 1 tick above bid from 2-tick spreads at center ι; γ = 0.25 expresses
 only in wide books (~5+ ticks at center) — the dose–response low end is
 deliberately weak. Smoke bar unchanged; re-smoke required.
+
+### 11.4 Amendment — S0 R-fill bar escalated to a Stage B diagnostic
+### (FROZEN before any E-032 fleet submission; after re-smoke run 946)
+
+Re-smoke post-§11.3 (run 946): SMOKE PASS mechanics (10 mkts, 0
+failures, recon 0, invested ≤ cap) but R fills still 0 (S 50 / C 17 /
+D 14). Placement logic then verified directly by a synthetic-tick probe
+(local, createStrategy with lagAggr=1): with a 25-share deficit
+(ι = 0.625) the lag side rests at 0.41 tagged R in both a 4-tick book
+(graded target 0.42, ceiling-capped to p̂ = 0.41) and a 2-tick book
+(0.40625 rounds to 0.41), and the lead side is correctly withdrawn
+(surplusAfter 50 > band 40). Conclusion: the mechanism PLACES correctly;
+an R FILL additionally requires the lag ask to cross strictly below the
+improved level while a deficit is open and before a C/D FOK intercepts
+the same reversion — plausibly a ≲ 1-in-10-markets event, so a 10-market
+smoke cannot demonstrate it and a 0 there is uninformative.
+
+Amendment: the S0 "≥ 1 R fill" bar is replaced by a **Stage B
+diagnostic** (mission staging: smoke → 100–200 diagnostic → screen):
+center config `pairTarget=0.96 imbalanceBand=40 orderSize=25
+doomUnitMax=0.99 lagAggr=1`, `--latest 200 --to-ms 1784762100000`,
+140/20, fleet. Bars (mechanism/integrity only, NOT profitability):
+recon badRows = 0; no cap breach; **R fills ≥ 1**. PASS ⇒ submit the
+frozen §11.2 grid unchanged. FAIL (R = 0 over 200 markets) ⇒ the lever
+is quantization-dead at this operating point: record, do NOT submit the
+grid, and any rescue variant (e.g. minimum-one-tick bump at any
+deficit) needs its own frozen amendment first.
