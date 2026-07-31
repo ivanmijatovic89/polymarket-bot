@@ -358,37 +358,58 @@ type Region = {
 }
 
 function regionSearch(all: Prefixed[], h1: Prefixed[], h2: Prefixed[]) {
-  const regions: Region[] = []
+  // Frozen design: the search space is rectangles with pooled n_markets ≥ 100
+  // in EACH split half; rank those by full-sample edge/SE. (Tiny-n rectangles
+  // have degenerate cluster SEs and are excluded by construction, not by z.)
+  type Cand = Region & { sH1: CellStat; sH2: CellStat }
+  const regions: Cand[] = []
+  let evaluated = 0
   for (let m1 = 0; m1 < N_MIN; m1++)
     for (let m2 = m1; m2 < N_MIN; m2++)
       for (let b1 = 0; b1 < N_BAND; b1++)
         for (let b2 = b1; b2 < N_BAND; b2++) {
+          evaluated += 1
+          const sH1 = pool(h1, m1, m2, b1, b2, 1)
+          if (sH1.nMkts < MIN_REGION_MARKETS) continue
+          const sH2 = pool(h2, m1, m2, b1, b2, 1)
+          if (sH2.nMkts < MIN_REGION_MARKETS) continue
           const s = pool(all, m1, m2, b1, b2, 1)
           if (s.n === 0 || s.se === null || s.edge === null) continue
-          regions.push({ m1, m2, b1, b2, full: s, z: s.edge / s.se })
+          regions.push({ m1, m2, b1, b2, full: s, z: s.edge / s.se, sH1, sH2 })
         }
   regions.sort((a, b) => b.z - a.z)
-  const top = regions.slice(0, 20).map((r) => {
-    const sH1 = pool(h1, r.m1, r.m2, r.b1, r.b2, 1)
-    const sH2 = pool(h2, r.m1, r.m2, r.b1, r.b2, 1)
-    const exec = pool(all, r.m1, r.m2, r.b1, r.b2, 2)
+  const positive = regions.filter((r) => {
     const passFull = r.full.edge! >= 2 * r.full.se!
-    const passH1 =
-      sH1.nMkts >= MIN_REGION_MARKETS && sH1.se !== null && sH1.edge !== null && sH1.edge >= 2 * sH1.se
-    const passH2 =
-      sH2.nMkts >= MIN_REGION_MARKETS && sH2.se !== null && sH2.edge !== null && sH2.edge >= 2 * sH2.se
+    const passH1 = r.sH1.se !== null && r.sH1.edge !== null && r.sH1.edge >= 2 * r.sH1.se
+    const passH2 = r.sH2.se !== null && r.sH2.edge !== null && r.sH2.edge >= 2 * r.sH2.se
+    return passFull && passH1 && passH2
+  })
+  const fmt = (r: Cand) => {
+    const exec = pool(all, r.m1, r.m2, r.b1, r.b2, 2)
     const passExec = exec.edge !== null && exec.edge > 0
     return {
       minutes: [r.m1, r.m2],
       bands: [r4(r.b1 * 0.05), r4((r.b2 + 1) * 0.05)],
       full: { n: r.full.n, nMkts: r.full.nMkts, edge: r4(r.full.edge), se: r4(r.full.se), z: r4(r.z) },
-      half1: { n: sH1.n, nMkts: sH1.nMkts, edge: r4(sH1.edge), se: r4(sH1.se) },
-      half2: { n: sH2.n, nMkts: sH2.nMkts, edge: r4(sH2.edge), se: r4(sH2.se) },
+      half1: { n: r.sH1.n, nMkts: r.sH1.nMkts, edge: r4(r.sH1.edge), se: r4(r.sH1.se) },
+      half2: { n: r.sH2.n, nMkts: r.sH2.nMkts, edge: r4(r.sH2.edge), se: r4(r.sH2.se) },
       exec: { n: exec.n, edge: r4(exec.edge), se: r4(exec.se) },
-      POSITIVE_SIGNAL: passFull && passH1 && passH2 && passExec,
+      POSITIVE_SIGNAL:
+        r.full.edge! >= 2 * r.full.se! &&
+        r.sH1.se !== null &&
+        r.sH1.edge! >= 2 * r.sH1.se &&
+        r.sH2.se !== null &&
+        r.sH2.edge! >= 2 * r.sH2.se &&
+        passExec,
     }
-  })
-  return { rectanglesEvaluated: regions.length, top }
+  }
+  return {
+    rectanglesEvaluated: evaluated,
+    eligible: regions.length,
+    positiveCount: positive.length,
+    positiveRegions: positive.slice(0, 20).map(fmt),
+    top: regions.slice(0, 20).map(fmt),
+  }
 }
 
 async function main() {

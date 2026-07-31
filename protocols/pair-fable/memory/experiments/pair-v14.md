@@ -105,6 +105,45 @@ E-015..E-018). Run in foreground time-budget chunks with checkpoint;
 if the session budget ends first, STATUS records the exact resume
 command (standing guard dad421a6).
 
+## E-028b amendment — first-touch policy readout (pre-registered)
+
+Written AFTER E-028's scan completed and BEFORE any first-touch code
+exists (design-ts = the commit adding this section). Motivation, honestly
+stated: E-028 returned POSITIVE-SIGNAL per the frozen bars (12 passing
+rectangles, all one blob around minutes 0–9 × ask ≥ 0.90), but a
+post-hoc diagnostic showed the frozen estimand (obs-weighted pooled
+edge) is DWELL-TIME weighted: markets that sit long at 0.90+ (mostly
+winners) contribute up to 40 samples, while brief touches (more often
+losers) contribute few. Market-equal-weighted edge on the headline
+region is −0.007 ± 0.012 — consistent with zero. A real policy decides
+roughly once per market, so exploitability must be measured with a
+one-decision-per-market estimand. The frozen POSITIVE-SIGNAL stands as
+a bar outcome; whether it is exploitable is THIS amendment's question.
+
+Frozen policy ("first-touch"), per region, per market:
+- Watch the same samples t_k (15s grid), k = 0..39 only (minutes 0–9).
+- Trigger: a side's best ask ∈ [X1, X2) at t_k. Attempt a marketable
+  limit at that ask; it FILLS iff ask(t_k+140ms) ≤ ask(t_k), at cost
+  ask(t_k+140) + fee. If it does not fill, keep watching; the market's
+  readout uses the FIRST FILL only (at most one, one side, per region).
+- Regions frozen from E-028's passing blob (no further tuning):
+  R1 = [0.90, 1.00), R2 = [0.90, 0.95), R3 = [0.95, 1.00).
+- Same pinned 800, same universe pin, same fee formula.
+
+Frozen readouts per region: fills (markets), first-fill edge =
+1{win} − cost, mean ± SE over FILLED markets (one obs per market — no
+clustering needed), split halves (same sort), daily table (9 days),
+mean displayed ask size at fill, and EV/mkt over ALL 800 (mission
+unit) at 1 share and at min(askSize, 100) shares.
+
+Frozen bars:
+- **POSITIVE (policy-grade)** iff full-sample first-fill edge ≥ 2×SE
+  AND edge > 0 in BOTH halves AND daily edge > 0 in ≥ 6 of 9 days.
+- **KILL the one-shot policy** otherwise. The View-3 calibration curve
+  (a market fact) is recorded either way; a policy KILL here does NOT
+  kill the calibration finding, only its naive exploitation.
+
 ## Result
 
-(pending)
+(pending — E-028 core scan complete, POSITIVE-SIGNAL per frozen bars;
+E-028b first-touch readout pending)
