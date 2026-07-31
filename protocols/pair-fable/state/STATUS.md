@@ -34,11 +34,18 @@ E-021 — pair-v9 low-X + duty-cycle (pair-v9.md §E-021), label pf9x:
 
 **To resume**: recover run ids via `tools/sql.ts` (`batch_uid LIKE
 'pf10-20260731%'` / `'pf9x-20260731%'`), then results.ts / anatomy.ts /
-compare.ts per the pre-registered readouts. E-020: check the regression
-gate FIRST (control within |Δev| ≤ 0.05 of run 872, played ±2 — else the
-grid is uninterpretable). Verdict bars frozen in pair-v10.md
-§Pre-registered verdicts and pair-v9.md §E-021. Record E-020/E-021 in
-LEDGER + family files + JOURNAL.
+compare.ts per the pre-registered readouts. Verdict bars frozen in
+pair-v10.md §Pre-registered verdicts and pair-v9.md §E-021. Record
+E-020/E-021 in LEDGER + family files + JOURNAL.
+
+Already read in session 9 (do not redo): **E-020 regression gate PASS**
+(run 897 control vs 872: Δev +0.024 ≤ 0.05, played 704 vs 705 — grid
+interpretable). Partial: run 898 (C=0.90) ev −1.49 ≈ control, but the
+module fired only ~3× in 800 mkts ('unknown' fills in anatomy = FOK
+completions) ⇒ per confounder (a) that config is TRIGGER-UNTESTED, not
+killed — read C=0.95/0.99 and the D configs for the real test, and count
+their 'unknown'-mode fills (anatomy.ts labels FOK 'C'-meta fills as
+unknown; treat unknown-count as completion-count proxy).
 
 ## Next step
 
