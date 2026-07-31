@@ -169,3 +169,131 @@ require a written amendment here BEFORE the affected submission.
    duplicate-free grid shows any pairwise anomaly beyond it, escalate
    per the standing instrument rule instead of re-deriving bars
    post-hoc.
+
+## 7. Result E-042 (session 28 readout; runs g0=1008, g1=1011, g2=1010,
+## g3=1009; reference f1=1005)
+
+**Integrity (all PASS).** Failures 96/cell, slug sets identical across
+all four cells (96 common), reason class 100% MISSING-priceToBeat
+(outage set; amendment §6.2 — the ~146 estimate was the since-Apr rate
+applied to the whole universe; the true universe-wide outage count is
+96/10,747 = 0.89%). Pairwise common universe = 10,651 on every g-pair
+and on every g-vs-1005 pair. Cross-SHA identity (M4): `git diff --stat
+d204df35..4b5047c4` touches protocols/ only (pair.v17.ts added; src/
+and pair.v16.ts byte-identical) — verified session 28. 140/20 in every
+cmd (results.ts header). All numbers below on the 10,651 intersection;
+f1's intersection ev −14.841 vs headline −14.825 (delta +0.016,
+recorded per amendment 2).
+
+**Paired deltas (SQL, per-market join; bar B_full = 0.74):**
+
+| pair | Δev | paired sd | 2×SE |
+|---|---|---|---|
+| g3 − f1 | **+1.869** | 65.3 | 1.27 |
+| g2 − f1 | +1.216 | 59.7 | 1.16 |
+| g0 − f1 | **+1.333** | 66.3 | 1.28 |
+| g1 − f1 | +0.552 | 56.1 | 1.09 |
+| g1 − g0 | −0.781 | 52.8 | 1.02 |
+| g2 − g0 | −0.117 | 35.4 | 0.69 |
+| g3 − g0 | +0.535 | 21.9 | 0.42 |
+
+**Verdicts (frozen §5 bars):**
+
+- **SIGB-BETTER** — best signal-(b) cell g3 beats the matched
+  signal-(a) cell f1 by +1.87 > 0.74 (also > its own 2×SE 1.27).
+  The spot-vs-strike leader outperforms the book leader at equal τ.
+  Honest decomposition: most of the gap is HARM AVOIDANCE — pure
+  neutral g0 also beats f1 by +1.33 > 0.74, i.e. the signal-(a)
+  book-leader tilt was actively COSTING ~1.3 ev at FULL; signal (b)
+  at wide dead zone wins mainly by tilting rarely and less wrongly.
+- **TILT-EV-NULL** — best tilt cell vs neutral: g3 − g0 = +0.54
+  < 0.74 (not REAL); g0 does not beat g2 (+0.12) or g3 (−0.54) by
+  the bar (not NEGATIVE). E-038's flat-ev finding stands at FULL.
+  Note: g3 − g0 = +0.54 with paired 2×SE 0.42 is 2.5σ by its OWN
+  pair noise — suggestive, below the frozen instrument bar; treated
+  as motivation for E-043's dose extension, not as a verdict.
+- **Dose: monotone in dead-zone width** — g1 −14.29 → g2 −13.63 →
+  g3 −12.97; end-to-end g3 − g1 = +1.32 > 0.74. False-flip cost is
+  real; wider = better throughout the tested range.
+
+**Mechanism anatomy (anatomy.ts, per cell):**
+
+| cell | resid mkts | resid win% | resid PnL | pairs PnL | D fills | D $ |
+|---|---|---|---|---|---|---|
+| g0 | 339 | 30% | −1.4k | −120.2k | 21,440 | 734k |
+| g1 | 6,980 | **88%** | +161.9k | −281.0k | 45,695 | 1,868k |
+| g2 | 3,844 | **90%** | +92.1k | −209.7k | 33,721 | 1,360k |
+| g3 | 1,152 | 79% | +19.3k | −134.6k | 23,185 | 858k |
+
+THE SIGNAL IS PREDICTIVE — tilted residue wins 88–90% of markets at
+bps 10–20 (base-rate 30% for neutral accidental residue) — but the
+ACQUISITION SPENDS MORE THAN THE RESIDUE EARNS: g1 gains +163k
+residue vs g0 while losing −161k more on pairs (doom-FOK + taker
+completion chasing the signed target; D-spend 734k → 1,868k) plus
++11k fees. Net ≈ wash. The lever is not the signal, it is the cost
+of buying the tilt ⇒ E-044 (maker-only tilt acquisition).
+
+**Decision (frozen mapping):** SIGB-BETTER ⇒ iterate signal (b) at
+FULL. Combined with the anatomy, the follow-ups are: E-043 (dose
+extension — where does the width curve peak), E-044 (maker-only tilt
+acquisition — the cost side; new §, own file pair-v17m.md), E-045
+(neutral P* sweep at FULL — priority-1 lever, runs in parallel).
+Standing references: g0 = run 1008 is the FIRST FULL neutral at the
+E-040 e0 center (ev −13.51, p/100 −5.93) — the standing neutral
+baseline; g3 = run 1009 the best directional cell on record at FULL.
+
+## 8. E-043 — dead-zone dose extension (FROZEN before submission,
+## session 28)
+
+Params-only on pair.v17.ts (unchanged since 4b5047c4). Same
+instrument, pin, latency, center as E-042 (§5); τ = +160, c* = 1.00.
+Reuse B_full = 0.74 (amendment §6.3 grounds).
+
+| # | spotLeadBps | batch label | question |
+|---|---|---|---|
+| h80 | 80 | pf-e043-h80 | does the width curve keep rising past 40? |
+| h160 | 160 | pf-e043-h160 | asymptote check: near-never tilt ⇒ ev → g0? |
+
+Schema: 80/160 ∈ [0, 200] ✓. Named comparisons and bars:
+
+- **DOSE-CONT** iff ev(h80) − ev(g3) > 0.74 ⇒ threshold still
+  improving; extend further / add persistence at the best width.
+- **DOSE-PEAKED** iff ev(g3) − ev(h80) > 0.74 ⇒ interior max ≈ 40 bps.
+- **DOSE-FLAT** otherwise.
+- **TILT-EV-REAL (retest)** iff ev(h80) − ev(g0) > 0.74 or
+  ev(h160) − ev(g0) > 0.74 ⇒ first ev-real tilt, at rare-decisive
+  doses.
+- h160 vs g0 expected |Δ| < 0.74 (tilt near-never engages at 160 bps
+  ≈ 5–8σ of a 15-min window); a breach either way = anomaly, escalate
+  per instrument rule.
+
+Decision mapping: DOSE-CONT ⇒ extend dose + persistence cell at best
+width. DOSE-PEAKED/FLAT and no TILT-EV-REAL ⇒ width axis closed at
+ev; signal-(b) taker-acquired tilt value rests on E-044's outcome.
+
+## 9. E-045 — neutral P* price-gate sweep at FULL (FROZEN before
+## submission, session 28)
+
+Priority-1 (neutral controller) work, running concurrently with the
+directional follow-ups. P* (pairTarget) is the core price gate: it
+caps every maker quote via the VWAP-ceiling projection AND sets the
+C-lock trigger pLock = P* − 0.01. E-030 swept it {0.94, 0.96, 0.98}
+at pinned-800 where SE ≈ 1.2 resolved nothing; STATUS has carried
+"P* needs the FULL instrument" since. Params-only on pair.v17.ts at
+τ = 0 (exact v15.4-neutral semantics), bps 10 (inert at τ 0),
+otherwise the E-042 center; reference = g0 (run 1008, P* 0.96).
+
+| # | pairTarget | batch label |
+|---|---|---|
+| p92 | 0.92 | pf-e045-p92 |
+| p94 | 0.94 | pf-e045-p94 |
+| p98 | 0.98 | pf-e045-p98 |
+
+Schema: all ∈ [0.90, 0.99] ✓. Bars (B_full = 0.74): **P*-LIVE** iff
+any cell − g0 beyond ±0.74 (direction recorded; monotonicity across
+0.92→0.94→0.96→0.98 read alongside); **P*-FLAT-FULL** otherwise ⇒
+the P* axis closes at ev in [0.92, 0.98] at this center and the
+neutral controller's FULL backlog moves to structural mechanisms
+(P-013 sell-side ruling, time-varying τ). Mechanism metrics per
+cell: invested/played, C vs D fill counts and $, resid-mkt count,
+p/100. Failure rule: identical 96-slug outage set only.
