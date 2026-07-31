@@ -1142,3 +1142,36 @@ different space; E-027 tested start-minute timing).
   `memory/experiments/data/mktselect-v2-2026-07-31.jsonl`,
   `--time-budget-s` per chunk; expected ~8–35 min total (mktselect
   measured 0.4–1.8 mkts/s).
+
+### 13.2 Result E-034 (session 20, 2026-07-31) — VERDICT: FAIL both bars — WHICH-axis (early book/motion features) answered-negative for v15
+
+Scan: 800/800 pinned markets, mktselect v2 (commit after design d4da4e1),
+checkpoint + analyses archived at
+`data/mktselect-v2-2026-07-31{.jsonl,-run948.json,-run952.json}`.
+
+- **Integrity PASS**: F1–F5 reproduce the E-022 archive EXACTLY on all
+  800 common slugs (0 mismatches at 1e-9) — feature code path unchanged,
+  additions only.
+- **Run 948 (primary)**: joined 800, played 695, evAll −3.266 (halves
+  −3.15/−3.39). NO rule passes B1 or B2. Exploration-side separations
+  exist (f2 depth ±2 SE, f6 range +1.30±0.52) but ALL collapse on the
+  confirmation half (f6 conf sep +0.12±0.54 — pure selection noise).
+- **Run 952 (secondary)**: B2 fires on f1 spread / f3 book-sum Q1..Q4
+  (drop the widest-spread quintile: sep ≈ +0.97..+1.00 ± 0.45..0.49 both
+  halves, ≈ 2.05 SE) — but the frozen design requires the PRIMARY run to
+  pass, and 948 shows no such separation (f1 not even
+  exploration-eligible). Config-specific; not signal. No B1 anywhere
+  (every subset ev deeply < 0 — retention-75% best is −1.46/mkt).
+- **New motion features F6/F7 are dead**: early range/net-drift do not
+  predict v15 per-market pnl. One-way-ness is not visible in minutes 0–3
+  book motion at any separation the data can confirm.
+- **Structural note**: v15 doomed (final |up−down| > 1e-6) = 6/800
+  markets (vs ~43–56% in v1's E-022 read) — doom completion has moved
+  the loss from residue into completion pnl, as designed; per-market pnl
+  is the correct (and here fully measured) response variable.
+
+**Verdict (frozen §13.1 outcomes): FAIL both** → market selection by
+these 7 START-observable features at minutes 0–3 is answered-negative
+for v15 (scope: this feature set, this window, this universe — NOT a
+class kill of market selection). Per the frozen outcome table: proceed
+to tilt firm-up (STATUS step 2, §5 signal gate).

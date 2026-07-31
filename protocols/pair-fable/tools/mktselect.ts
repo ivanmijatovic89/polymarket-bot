@@ -1,7 +1,11 @@
 /**
- * mktselect.ts — E-022 Phase-0: liquidity-structure MARKET selection scan
- * (pair-v11, ruling axis 6). Pre-registered BEFORE this tool existed:
- * memory/experiments/pair-v11.md (session 10, commit 0187972). Read-only.
+ * mktselect.ts — liquidity-structure MARKET selection scan (ruling axis 6).
+ * v1: E-022 (pair-v11, pre-registered at commit 0187972, session 10).
+ * v2: E-034 (pair-v15 §13, pre-registered at commit d4da4e1, session 20):
+ * adds F6 upRange + F7 upNetDriftAbs (+ exploratory f7Signed, excluded from
+ * analysis), drops `run` from the checkpoint meta (features are
+ * run-independent — one scan joins to any reference run), and reports
+ * selected-vs-complement separation (Welch SE) per rule. Read-only.
  *
  * Per pinned market, replays the delta-typed parquet through the engine's own
  * replayTelonexDeltaParquetForMarket and computes the FROZEN feature set over
@@ -125,6 +129,9 @@ type Features = {
   f3BookSumMean: number | null
   f4Oscillations: number
   f5EventsPerSec: number
+  f6UpRange: number | null
+  f7UpNetDriftAbs: number | null
+  f7Signed: number | null // exploratory only — never analyzed in E-034
   f1DefinedMs: number
   f3DefinedMs: number
   coveredMs: number // last integrated point − window start (recording coverage)
@@ -158,6 +165,11 @@ async function scanMarket(m: Market): Promise<Features> {
   let osc = 0
   let lastDir = 0
   let coveredTo = w0
+  // F6/F7: in-window up-side bestBid series (post-event values, non-null)
+  let bidFirst: number | null = null
+  let bidLast: number | null = null
+  let bidMin = Infinity
+  let bidMax = -Infinity
 
   await replayTelonexDeltaParquetForMarket({
     filePath: m.dataset!,
@@ -214,6 +226,13 @@ async function scanMarket(m: Market): Promise<Features> {
           if (lastDir !== 0 && dir !== lastDir) osc += 1
           lastDir = dir
         }
+        // F6/F7 series
+        if (cb !== null) {
+          if (bidFirst === null) bidFirst = cb
+          bidLast = cb
+          if (cb < bidMin) bidMin = cb
+          if (cb > bidMax) bidMax = cb
+        }
       }
 
       prev[0] = cur[0]
@@ -230,6 +249,9 @@ async function scanMarket(m: Market): Promise<Features> {
     f3BookSumMean: f3Ms > 0 ? f3Int / f3Ms : null,
     f4Oscillations: osc,
     f5EventsPerSec: events / (WINDOW_MS / 1000),
+    f6UpRange: bidFirst === null ? null : bidMax - bidMin,
+    f7UpNetDriftAbs: bidFirst === null || bidLast === null ? null : Math.abs(bidLast - bidFirst),
+    f7Signed: bidFirst === null || bidLast === null ? null : bidLast - bidFirst,
     f1DefinedMs: Math.round(f1Ms),
     f3DefinedMs: Math.round(f3Ms),
     coveredMs: Math.round(coveredTo - w0),
@@ -246,6 +268,9 @@ const FEATURE_KEYS = [
   'f3BookSumMean',
   'f4Oscillations',
   'f5EventsPerSec',
+  'f6UpRange',
+  'f7UpNetDriftAbs',
+  // f7Signed deliberately excluded (E-034 §13.1: exploratory only)
 ] as const
 type FeatureKey = (typeof FEATURE_KEYS)[number]
 
@@ -363,31 +388,62 @@ function analyze(features: Features[], runRows: MarketRow[]) {
     const eTrend = trendLabel(eBuckets.map((b) => b.ev))
     const cTrend = trendLabel(cBuckets.map((b) => b.ev))
 
-    // rule search: contiguous quintile ranges passing the frozen bar on the
-    // exploration half; each is then evaluated UNCHANGED on confirmation
+    // rule search: contiguous quintile ranges. A rule is reported when the
+    // exploration half passes EITHER frozen filter (E-034 §13.1):
+    //   B1 economics — subset ev ≥ 0 at ≥ 25% retention
+    //   B2 separation — (ev_in − ev_out) ≥ 2·sepSE (Welch) at ≥ 25% retention
+    // Each reported rule is then evaluated UNCHANGED on confirmation.
     const rules: unknown[] = []
     for (let lo = 0; lo < QUINTILES; lo++) {
       for (let hi = lo; hi < QUINTILES; hi++) {
         if (lo === 0 && hi === QUINTILES - 1) continue // select-all is not a rule
-        const pick = (ms: Joined[]) =>
-          ms.filter((m) => {
-            const v = m[key]
-            if (v === null) return false
-            const b = bucketOf(v, edges)
-            return b >= lo && b <= hi
-          })
-        const eSub = subsetStats(pick(explore), explore.length)
-        if (eSub.ev === null || eSub.ev < 0 || (eSub.retention ?? 0) < RETENTION_BAR) continue
-        const cPicked = pick(confirm)
-        const cSub = subsetStats(cPicked, confirm.length)
-        const pass =
-          cSub.ev !== null && cSub.ev >= 0 && (cSub.retention ?? 0) >= RETENTION_BAR
+        const inRange = (m: Joined) => {
+          const v = m[key]
+          if (v === null) return false
+          const b = bucketOf(v, edges)
+          return b >= lo && b <= hi
+        }
+        const sep = (ms: Joined[]) => {
+          const inn = ms.filter(inRange)
+          const out = ms.filter((m) => m[key] !== null && !inRange(m))
+          const inSub = subsetStats(inn, ms.length)
+          const outSub = subsetStats(out, ms.length)
+          const seIn = inn.length >= 2 ? se(inn.map((m) => m.pnl)) : null
+          const seOut = out.length >= 2 ? se(out.map((m) => m.pnl)) : null
+          const sepSE =
+            seIn !== null && seOut !== null ? Math.sqrt(seIn * seIn + seOut * seOut) : null
+          const sepDiff =
+            inSub.ev !== null && outSub.ev !== null ? r4(inSub.ev - outSub.ev) : null
+          return { inSub, outSub, sepDiff, sepSE: r4(sepSE), picked: inn }
+        }
+        const e = sep(explore)
+        const eB1 =
+          e.inSub.ev !== null && e.inSub.ev >= 0 && (e.inSub.retention ?? 0) >= RETENTION_BAR
+        const eB2 =
+          e.sepDiff !== null &&
+          e.sepSE !== null &&
+          Math.abs(e.sepDiff) >= 2 * e.sepSE &&
+          (e.inSub.retention ?? 0) >= RETENTION_BAR
+        if (!eB1 && !eB2) continue
+        const c = sep(confirm)
+        const cB1 =
+          c.inSub.ev !== null && c.inSub.ev >= 0 && (c.inSub.retention ?? 0) >= RETENTION_BAR
+        const cB2 =
+          c.sepDiff !== null &&
+          c.sepSE !== null &&
+          e.sepDiff !== null &&
+          Math.sign(c.sepDiff) === Math.sign(e.sepDiff) &&
+          Math.abs(c.sepDiff) >= 2 * c.sepSE &&
+          (c.inSub.retention ?? 0) >= RETENTION_BAR
         rules.push({
           quintiles: `Q${lo + 1}..Q${hi + 1}`,
-          exploration: eSub,
-          confirmation: cSub,
-          PASS: pass,
-          byDay: byDayEv([...pick(explore), ...cPicked]),
+          exploration: { ...e.inSub, evOut: e.outSub.ev, sepDiff: e.sepDiff, sepSE: e.sepSE },
+          confirmation: { ...c.inSub, evOut: c.outSub.ev, sepDiff: c.sepDiff, sepSE: c.sepSE },
+          B1_exploration: eB1,
+          B1_PASS: eB1 && cB1,
+          B2_exploration: eB2,
+          B2_PASS: eB2 && cB2,
+          byDay: byDayEv([...e.picked, ...c.picked]),
         })
       }
     }
@@ -405,10 +461,15 @@ function analyze(features: Features[], runRows: MarketRow[]) {
     }
   }
 
-  const anyPass = FEATURE_KEYS.some((k) => {
-    const f = perFeature[k] as { rulesPassingExploration: Array<{ PASS: boolean }> }
-    return f.rulesPassingExploration.some((r) => r.PASS)
-  })
+  const passes = (flag: 'B1_PASS' | 'B2_PASS') =>
+    FEATURE_KEYS.some((k) => {
+      const f = perFeature[k] as {
+        rulesPassingExploration: Array<{ B1_PASS: boolean; B2_PASS: boolean }>
+      }
+      return f.rulesPassingExploration.some((r) => r[flag])
+    })
+  const anyB1Pass = passes('B1_PASS')
+  const anyB2Pass = passes('B2_PASS')
 
   return {
     joined: joined.length,
@@ -423,7 +484,8 @@ function analyze(features: Features[], runRows: MarketRow[]) {
     byDayAllJoined: byDayEv(joined),
     retentionBar: RETENTION_BAR,
     perFeature,
-    economicsBarMetByAnyRule: anyPass,
+    economicsBarMetByAnyRule: anyB1Pass,
+    separationBarMetByAnyRule: anyB2Pass,
   }
 }
 
@@ -450,7 +512,7 @@ async function main() {
     `[mktselect] universe latest=${opts.latest} toMs=${opts.toMs} rows=${rows.length} usable=${usable.length} skipped=${skipped} scanning=${target.length} run=${opts.run}`,
   )
 
-  const ckptMeta = { toMs: opts.toMs, latest: opts.latest, windowMs: WINDOW_MS, run: opts.run }
+  const ckptMeta = { v: 2, toMs: opts.toMs, latest: opts.latest, windowMs: WINDOW_MS }
   const cached = new Map<string, Features>()
   if (opts.checkpoint && fs.existsSync(opts.checkpoint)) {
     for (const line of fs.readFileSync(opts.checkpoint, 'utf8').split('\n')) {
