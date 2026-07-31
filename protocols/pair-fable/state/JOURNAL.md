@@ -916,20 +916,23 @@ where) are unaffected. Honest bookkeeping beats a good headline.
 
 ## Session 26 — 2026-07-31
 
-The noise check we pre-registered last session came back and it
-changes how we read everything at this capital level. Three
-identical re-runs of the same configuration landed within a hair of
-each other, but a fourth identical run (yesterday's "winner") sits
-far outside that cluster — and per-market analysis shows why: at
-$500 caps, single markets flip by ±$200 on timing luck alone, so an
-800-market run's average wobbles by more than the effects we've been
-chasing (run 994 vs 986).
-Consequence: yesterday's "price ceiling wins +1.9" is withdrawn — it
-was most likely luck, and today's fine-dose grid can't be read
-either. The real structural facts (what the ceiling does to fills
-and spend) still hold.
-Fix: run verdicts on the FULL ~11,000-market history instead of 800
-markets — noise shrinks ~4×, big enough to trust. Submitted a
-4-run FULL grid re-asking the ceiling question properly (pf-e041).
-Also corrected the audit: the M1–M5 review gate was already
-implemented and verified earlier (commit 4809a8e), not outstanding.
+The noise check we set up last session came back, and it changes how
+we read results at this capital level. We re-ran the exact same
+configuration three times and got nearly identical numbers — but
+yesterday's "winner", also the exact same configuration, sits far
+outside that cluster. Digging into individual markets shows why: at
+$500 per market, a single market's outcome can flip by ±$200 on
+order-timing luck alone, so an 800-market average wobbles by more
+than the effects we have been chasing.
+So yesterday's headline — that capping the price we pay for the
+tilted side earns about +$1.9 per market — is withdrawn: it was most
+likely luck. Today's finer price-cap grid is unreadable for the same
+reason. What the cap mechanically does to fills and spending is
+still true; whether it makes money is simply not answerable on 800
+markets.
+The fix: judge money questions on the full ~11,000-market history,
+where this noise shrinks about fourfold. A four-run full-history
+batch re-asking the price-cap question properly is now on the fleet;
+next session reads it.
+One bookkeeping correction: the review-gate fixes the last audit
+listed as outstanding were in fact implemented and verified days ago.
