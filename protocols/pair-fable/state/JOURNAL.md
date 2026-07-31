@@ -913,3 +913,23 @@ about $1.40 per market — our yardstick was too coarse, and today's
 identical runs are already queued to size the measurement error
 properly; the structural findings (what the controller buys and
 where) are unaffected. Honest bookkeeping beats a good headline.
+
+## Session 26 — 2026-07-31
+
+The noise check we pre-registered last session came back and it
+changes how we read everything at this capital level. Three
+identical re-runs of the same configuration landed within a hair of
+each other, but a fourth identical run (yesterday's "winner") sits
+far outside that cluster — and per-market analysis shows why: at
+$500 caps, single markets flip by ±$200 on timing luck alone, so an
+800-market run's average wobbles by more than the effects we've been
+chasing (run 994 vs 986).
+Consequence: yesterday's "price ceiling wins +1.9" is withdrawn — it
+was most likely luck, and today's fine-dose grid can't be read
+either. The real structural facts (what the ceiling does to fills
+and spend) still hold.
+Fix: run verdicts on the FULL ~11,000-market history instead of 800
+markets — noise shrinks ~4×, big enough to trust. Submitted a
+4-run FULL grid re-asking the ceiling question properly (pf-e041).
+Also corrected the audit: the M1–M5 review gate was already
+implemented and verified earlier (commit 4809a8e), not outstanding.

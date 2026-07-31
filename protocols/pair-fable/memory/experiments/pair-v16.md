@@ -430,3 +430,139 @@ that set), and the p/100 bar is re-checked the same way (currently
   compare means, or (b) evaluate on paired per-market deltas
   (common-universe median/mean Δ with a sign test), which compare.ts
   already supports. Choice frozen next session with the nf data.
+
+## 10. E-040 readout (runs 993–1000, 2026-07-31; verdict
+## INSTRUMENT-BOUND — no lever resolved; noise model replaced)
+
+Runs: e0=994, e1=993, e2=995, e3=996, e4=997, e5=998, nf1=999,
+nf2=1000. All completed, failures=0, 800/800 universe identity
+verified (994v986 common=800), latency 140/20 in every cmd, strategy
+diff 9f3e9cd→63fec11 verified schema-only (one `max` bound + comment,
+no src/ change), v16 uses no external feeds.
+
+| cell | ceil | persist | run | ev | p/100 | win% | med |
+|---|---|---|---|---|---|---|---|
+| e0 | .90 | 0 | 994 | −12.25 | −3.60 | 59.3 | +2.80 |
+| nf1 | .90 | 0 | 999 | −12.59 | −3.71 | 58.8 | +2.61 |
+| nf2 | .90 | 0 | 1000 | −12.28 | −3.62 | 60.4 | +3.18 |
+| e1 | .95 | 0 | 993 | −11.01 | −3.15 | 60.4 | +3.15 |
+| e2 | .85 | 0 | 995 | −12.74 | −3.78 | 58.0 | +2.38 |
+| e3 | .90 | 20 | 996 | −13.14 | −3.86 | 59.6 | +2.34 |
+| e4 | .90 | 1400 | 997 | −11.97 | −3.52 | 59.5 | +2.38 |
+| e5 | 1.00 | 1400 | 998 | −12.17 | −3.42 | 60.3 | +2.63 |
+
+**§9-amendment recalibration (the headline result).** Duplicate set
+{994, 999, 1000} pairwise |Δev|: 0.34 / 0.03 / 0.31 ⇒ the literal
+frozen formula gives bar = max(0.30, 0.34) = 0.34. But the paired
+per-market measurements refute that bar as a decision instrument:
+
+- Paired per-market sd(Δpnl) ≈ 32–36 in EVERY pair — duplicates
+  included ⇒ run-mean SE at n=800 is ≈ 1.2 ev.
+- 986 (formula-identical to the triplet) sits +1.42/+1.76/+1.45
+  above ALL THREE duplicates (z 1.18/1.45/1.27, sign tests flat
+  296/285, 301/296, 296/295): a plausible 1–1.5σ draw under SE 1.2,
+  a ≥5σ impossibility under the 0.34 bar. Code, universe, feeds all
+  verified identical — the excursion is jitter-tail, not drift.
+- e1 sits +1.24/+1.58/+1.27 above the same triplet (z 1.01/1.37/
+  1.04, signs 326/290, 309/295, 300/305) — the SAME signature as the
+  986 excursion. Indistinguishable from tail noise.
+
+**Replaced noise model (binding for v16-family evidence):** at
+pinned-800 / B=500, a single-run pairwise ev delta has SE ≈ 1.2
+(2σ ≈ 2.4). Small duplicate sets under-sample the tail (three
+duplicates clustered at ≤0.34 while a fourth formula-identical run
+sat 1.4–1.8 away). Per §9's pre-registered instrument clause, ev
+verdicts now require (a) FULL-universe run pairs (SE ≈ 34/√10747 ≈
+0.33) or (b) duplicate-triplet means per cell. Pinned-800 single
+runs remain the STRUCTURE screen (param-driven signatures ≫ jitter:
+trades, invested, fills, resid-market counts, win% at big doses).
+
+**Cell verdicts under the replaced model:**
+- BRIDGE: p/100 |Δ| 0.44 ≤ 0.54 PASS; ev bridge void (1.42 ≈ 1.2σ —
+  single-pair ev bridges are no longer meaningful at this scale).
+- CEIL-FINE: UNRESOLVED. e1's +1.3 is exactly the demonstrated tail
+  magnitude; mechanical FINE-MOVE under the 0.34 bar would repeat
+  the E-039 mistake. → E-041 f2 (FULL) decides.
+- PERSIST: UNRESOLVED at ev level (e3 −0.89, e4 +0.29, e5 v 990
+  −0.80: all ≪ 2.4). Structural fact (real, param-driven): persist
+  1400 (~10 s) barely binds — invested/trades ≈ unchanged vs
+  persist 0 (997: 7,585 trades, $272k vs 994: 7,194, $272k) ⇒
+  leaders at leadGap 0.10 are already ~always ≥10 s persistent when
+  the tilt wants to fire. The flicker-filter hypothesis space is
+  empty at this gap; deprioritized, not ceiling-dependent.
+- e2 structural fact (param-driven, stands): tilt D-spend mass
+  executes at unit cost 0.80–0.85 (invested cliff sits between 0.85
+  and 0.80, not at 0.90).
+
+**E-039 RE-VERDICT (pre-registered §9 consequence): CEIL-LIVE →
+CEIL-UNRESOLVED.** The +1.91 winner margin (986 v 987) is z ≈ 1.6
+under the replaced model; the E-039-era triplet-mean of the same
+config is −12.37 (994/999/1000) — the "winner" absolute state
+−10.83 and family-best p/100 −3.16 did NOT replicate (triplet p/100
+−3.60/−3.71/−3.62). d2/d3's +2.16/+2.20 are z ≈ 1.8 — suggestive
+only. What STANDS from E-039 (param-driven, ≫ jitter): dose
+structure — win% collapse 61→45 and median flip below ceiling 0.90,
+resid-mkt collapse 700→233, D-spend collapse $142k→$35k at 0.80.
+What is WITHDRAWN: any ev-level ceiling benefit claim, "family-best"
+label, and the E-039 LEDGER verdict line's ev numbers as evidence.
+E-038's TILT-LIVE is NOT re-opened (monotone dose–response + sign-
+flipped control, structure not a single pair), but its flat-ev
+reading gains a caveat: ±1–2 ev differences among tilt doses were
+never resolvable.
+
+## 11. E-041: FULL-universe instrument + ceiling re-test (FROZEN
+## before submission, M2; design-ts = this commit)
+
+**Hypothesis.** (a) FULL-universe (~10.9k mkts) run pairs at B=500
+have SE ≈ 0.33 (√n scaling of the measured per-market sd ≈ 34),
+making 1-ev-scale lever effects decidable with single pairs. (b)
+E-039/E-040's ceiling question — does gating the tilt FOK at
+acquisition price ≤ 0.90/0.95 improve ev over no ceiling — is
+answerable at that resolution: the D-fill price mix shifts are large
+(structural), so a real effect of the size E-039 claimed (+1.9)
+would be ≈ 4–6σ at FULL; a null localizes the E-039 signal as tail
+noise.
+
+**Cells (label pf-e041; FULL universe: from-ms floor 1775088000000,
+--to-ms 1785196800000 (2026-07-28T00:00Z) pinned identically on all
+four cells, submitted back-to-back; latency 140/20; SHA = this
+commit; center params = E-040 e0 except tiltUnitMax):**
+
+| # | tiltUnitMax | role |
+|---|---|---|
+| f0a | 0.90 | duplicate pair member A (noise + reference) |
+| f0b | 0.90 | duplicate pair member B |
+| f1 | 1.00 | ceiling OFF (v16.0 tilt center) |
+| f2 | 0.95 | fine dose; e1 confirmation |
+
+Schema/engine check: ceil values ∈ [0.5,1] ✓, persist 0 ✓, ttl 90 ≥
+61 ✓; params-only, no code change, no OrderManager interaction.
+
+**Frozen metrics.** Per cell: ev (governs), p/100, win%, median,
+invested, trades, D-fill $; noise: |Δev(f0a,f0b)| AND paired
+per-market sd → SE_pair = sd/√n; integrity: failures=0, identical
+slug sets across all four cells (pairwise common = total; if a sync
+grew the universe mid-submission, compare on the common intersection
+and record the delta), 140/20 in cmd, within-run SHA consistency.
+
+**Frozen bars.** ev bar B_full = max(0.30, 2×SE_pair,
+|Δev(f0a,f0b)|). Reference F0 = mean(f0a, f0b).
+- **CEIL-REAL** iff F0 − f1 > B_full (ceiling 0.90 beats OFF) ⇒
+  ceiling lever confirmed; fine dose read from f2 vs F0 by the same
+  bar; iterate ceiling/dose at the FULL instrument.
+- **CEIL-HARMFUL** iff f1 − F0 > B_full ⇒ ceiling hurts at FULL;
+  remove (center reverts to 1.00).
+- **CEIL-NULL** otherwise ⇒ E-039's ceiling ev effect refuted at
+  FULL resolution; center reverts to tiltUnitMax 1.00 (parsimony);
+  ceiling axis closed at ev level (structural dose facts stand).
+- **FINE-MOVE** iff CEIL-REAL AND f2 − F0 > B_full ⇒ center 0.95.
+- **INSTRUMENT-FAIL** iff B_full > 0.8 (FULL pairs no better than
+  ~2× pinned-800) ⇒ duplicate-triplet means become the standing
+  instrument; record and re-plan.
+
+**Decision mapping.** CEIL-REAL ⇒ next lever iterates acquisition
+price at FULL. CEIL-NULL/HARMFUL ⇒ ceiling closed; next lever =
+signal (b) spot-vs-priceToBeat tilt (new information source, v17,
+designed for effect sizes ≥ 2 ev) with FULL pairs as the verdict
+instrument. Deviations require a written amendment here BEFORE the
+affected submission.
