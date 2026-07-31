@@ -600,3 +600,52 @@ Frozen verdict bars (noise bar = max(2·noise_v15, 0.05), evaluator.md):
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+### 10.3 Amendment — E-031b doom-backstop combination (v15.2; FROZEN
+### before submission, written while E-031 runs #4–#6 were still in flight)
+
+Registered after reading runs 935/936/937 (E-031 #1–#3) but BEFORE
+submitting any E-031b run. Mechanism evidence so far: the graded ceiling
+fires early and cheap (937: 1,713 V fills at price VWAP ≈ 0.52 vs E-030
+doom salvage's ≈ 0.9+) and improves monotonically with debtCap (−3.67 →
+−3.60 → −3.47 at 0.98/1.02/1.06), but leaves 424 strand-markets at −7.74
+mean: in TRUE doom markets the cumulative pair VWAP exceeds any
+reasonable debtCap, so the G-rule never completes them — while at doom
+certainty completion at unit cost a + fee < 1 beats holding regardless
+of cumulative VWAP (that is 929's whole edge: strands 450 → 3). The two
+levers act on DISJOINT market sets ⇒ pre-registered hypothesis: they are
+≈ additive. Prediction (recorded in advance): center combo ev ≈ −2.9 ±
+noise (929's −3.23 + 937's increment over 925 of +0.36).
+
+**v15.2 spec (delta over §10.1):**
+- `lockTarget` is REMOVED as a tunable and becomes derived: P_lock =
+  pairTarget − 0.01 (the value every E-030/E-031 config used; it never
+  earned independent variation — guard 2 swap, keeping 6 tunables).
+- New tunable `doomUnitMax` (0 = off; else [0.5, 0.995]): doom backstop
+  restoring v15.0's V-rule as a backstop UNDER the graded rule — when
+  lead bid ≤ DOOM_BID (0.20) and ask + fee ≤ doomUnitMax, FOK the
+  deficit at ask regardless of cumulative pair VWAP.
+- Fill-mode tags: backstop fires tag **`D`** (anatomy taught before
+  reading); graded-rule tags C/V unchanged. With doomUnitMax = 0 the
+  strategy is BEHAVIORALLY IDENTICAL to v15.1 at P_lock = P* − 0.01
+  (all E-031 configs satisfy this).
+- Tunables (6): capPerMarket, pairTarget, imbalanceBand, orderSize,
+  debtCap, doomUnitMax.
+
+**E-031b grid (2 configs, pinned 800, 140/20, B = 500, submitted only
+after the E-031 batches drain — mid-queue pushes must not change running
+jobs' code):**
+
+| # | P* | I_b | q | debtCap | doomUnitMax | vs |
+|---|---|---|---|---|---|---|
+| 7 | 0.96 | 40 | 25 | 1.06 | 0.99 | 937 (isolates backstop), 929 (isolates graded) |
+| 8 | 0.94 | 20 | 20 | 1.06 | 0.99 | 931/938-corner transfer |
+
+Frozen bars for the combo: **COMPLEMENTARY-CONFIRMED** iff #7 beats BOTH
+929 (−3.23) and 937 (−3.47) beyond the noise bar (max(2·noise_v15,
+0.05), noise_v15 from the #3/#4 duplicate) — then the completion
+frontier + backstop is the family's completion policy going forward.
+Iff #7 beats 929 but not 937 beyond noise ⇒ backstop dominates, graded
+adds nothing at 800-scale — prefer the simpler doom-only policy (guard
+2 removes debtCap's slot). Iff #7 fails to beat 929 ⇒ record and fall
+back to §10.2 verdicts on the pure grid.
