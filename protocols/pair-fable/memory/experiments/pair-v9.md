@@ -101,4 +101,4 @@ oscillation candidate). The sweep measures all of it.
   worst-queue understates maker fill rate AND quality (guard 6 — safe
   direction for a kill, never grounds for promotion).
 
-design-ts: (commit sha of this pre-registration; filled on commit)
+design-ts: 47fd391 (pre-registration commit, 2026-07-31 session 8)
