@@ -1,79 +1,73 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 27, mid-session checkpoint)
+Updated: 2026-07-31 (mission-02 session 27 close)
 
 ## Current work
 
-**Session 27: pair.v17 (signal (b) spot-vs-priceToBeat leader) BUILT,
-SMOKED, E-042 FROZEN (pair-v17.md, commit a8b1f98); E-041 partially
-read (f0a done = run 1003); waiting on f0b/f1/f2 + a 200-mkt v17
-fleet diagnostic.**
+**Session 27: E-041 CLOSED (CEIL-NULL; FULL instrument VALIDATED,
+B_full = 0.74); pair.v17 (signal (b) spot-vs-priceToBeat leader)
+built + smoked + fleet-proven; E-042 (4 × FULL) SUBMITTED.**
 
-Done this session:
-- pair.v17.ts implemented: v16.2 with the leader signal replaced by
-  binance spot vs priceToBeat (dead zone `spotLeadBps` bps of strike;
-  feeds via ExternalFeedsRequestPlugin; absent feeds ⇒ neutral).
-  protocol:check PASS. Smoke 1001 (τ160 bps10) PASS 5/5, 0 failures;
-  activation check 1002 (τ0, same markets): taker 39 vs 23, invested
-  2228 vs 1284 ⇒ feed-driven tilt provably live.
-- E-042 grid FROZEN in pair-v17.md §5 BEFORE submission: FULL pairs,
-  cells g0 (τ0 neutral FULL reference) / g1 bps10 / g2 bps20 / g3
-  bps40 at τ+160, ceil c* fixed by E-041 verdict (NULL/HARMFUL⇒1.00,
-  REAL⇒0.90, FINE-MOVE⇒0.95); bars = E-041's B_full; verdicts
-  SIGB-BETTER/WORSE/NULL + TILT-EV-REAL/NEGATIVE/NULL.
-- Cross-SHA identity for E-042 vs E-041 cells verified: diff
-  d204df3..a8b1f98 is additive-only (pair.v17.ts, pair-v17.md,
-  STATUS) — no src/, no pair.v16.ts change.
-- E-041 f0a = **run 1003**: 10,747 mkts, 0 failures, ev −14.97,
-  p/100 −4.04, win 58.5%, median +2.59, trades 111k (29.7k maker /
-  81.5k taker), invested $3.98M. Monthly ev −15.2/−16.2/−13.6/−14.8
-  (Apr–Jul) — stable; pinned-800 triplet (−12.37) was a mildly
-  favorable recent slice, not regime drift.
+E-041 readout (pair-v16.md §12; runs f0a=1003, f0b=1004, f1=1005,
+f2=1007; all 10,747 mkts, failures 0, pairwise common = 10,747):
+- Instrument: paired per-market sd 38.29 ⇒ SE_pair 0.369 ⇒
+  **B_full = max(0.30, 0.739, |Δev| 0.21) = 0.74** (< 0.8 fail bar).
+  FULL pairs are the standing ev instrument at B=500 (2σ ≈ 0.74).
+- **CEIL-NULL**: F0 −14.865 vs f1 (no ceiling) −14.83, f2 (0.95)
+  −15.07 — all Δ ≪ 0.74. E-039's +1.91 and E-040 e1's +1.3 REFUTED
+  as pinned-800 jitter tail. Ceiling axis CLOSED at ev; center
+  reverts to tiltUnitMax 1.00. E-039: CEIL-UNRESOLVED → REFUTED.
+- Context: FULL level of the τ+160 tilt config is ev ≈ −14.8..−15.1,
+  p/100 ≈ −4.0 (recent-800 was a friendly slice; monthly ev stable).
 
-**IN FLIGHT (do NOT resubmit):**
-- E-041 f0b/f1/f2 (batchUids in table below, all 10,747 mkts,
-  SHA d204df35): f0b running, f1/f2 queued. ETA ~1h from 20:50Z.
-- pf-e042-diag-20260731T204318-bnxhm4: 200-mkt v17 fleet diagnostic
-  (τ160 bps10 ceil1.00 doom.99 B500 q100 I160) — purpose: prove
-  worker-side feed fulfillment (binance aggTrades local files) before
-  the 4×FULL E-042 grid. Queued behind f2.
+pair.v17 (commit a8b1f98; design+grid pair-v17.md, amendments §6 at
+4b5047c): v16.2 with leader = binance spot vs priceToBeat (dead zone
+spotLeadBps bps of strike; ExternalFeeds plumbing; absent feeds ⇒
+neutral). protocol:check PASS; smoke 1001 PASS; activation proven
+(1002: τ0 vs τ160 differ materially on identical markets). Fleet
+diag run 1006 (198/200): workers fulfill both feeds; 2 failures =
+known strike-outage markets (~1.36% of universe, data never existed)
+— amended integrity rule: outage failures expected, compare on
+common played intersection (pair-v17.md §6.2).
 
-| # | tiltUnitMax | batchUid | run |
+**IN FLIGHT (next session reads FIRST; do NOT resubmit):** E-042,
+4 FULL v17 runs @ 140/20, SHA 4b5047c4, universe 10,747 (same
+--to-ms 1785196800000 pin as E-041). Queue verified 21:35Z: 4
+aggregates (waiting-children), g0 at 2049/10747. ETA ~75 min from
+21:35Z. Center: τ per cell, q100 I160 B500 P*.96 doom.99 cool5
+ttl90 persist0, tiltUnitMax 1 (c* per E-041 CEIL-NULL):
+
+| # | tiltShares | spotLeadBps | batchUid |
 |---|---|---|---|
-| f0a | 0.90 | pf-e041-f0a-20260731T202514-4lc2kv | **1003 ✓** |
-| f0b | 0.90 | pf-e041-f0b-20260731T202554-njqzov | pending |
-| f1 | 1.00 | pf-e041-f1-20260731T202637-hwbk83 | pending |
-| f2 | 0.95 | pf-e041-f2-20260731T202727-4oge4h | pending |
+| g0 | 0 | 10 | pf-e042-g0-20260731T213324-yexm1q |
+| g1 | 160 | 10 | pf-e042-g1-20260731T213358-wru9xw |
+| g2 | 160 | 20 | pf-e042-g2-20260731T213440-oyquqe |
+| g3 | 160 | 40 | pf-e042-g3-20260731T213529-z3r2k6 |
 
-## E-041 readout procedure (this session or next; bars pair-v16.md §11)
+## E-042 readout procedure (bars pair-v17.md §5 + amendments §6)
 
-1. `results.ts --last 5` → runs for f0b/f1/f2 + diag; failures must be 0.
-2. Universe identity: pairwise common slug counts = 10747, e.g.
-   `sql.ts "SELECT COUNT(*) n FROM backtest_run_markets a JOIN
-   backtest_run_markets b ON a.slug=b.slug WHERE a.run_id=1003 AND
-   b.run_id=<f0b>"`.
-3. Noise: `sql.ts "SELECT COUNT(*) n, AVG(a.pnl-b.pnl) meanD,
-   STDDEV_SAMP(a.pnl-b.pnl) sd, SUM(a.pnl>b.pnl) aw, SUM(b.pnl>a.pnl)
-   bw FROM backtest_run_markets a JOIN backtest_run_markets b ON
-   a.slug=b.slug WHERE a.run_id=1003 AND b.run_id=<f0b>"` →
-   SE_pair = sd/√n; B_full = max(0.30, 2×SE_pair, |Δev(f0a,f0b)|).
-4. Verdict per §11 (CEIL-REAL/HARMFUL/NULL, FINE-MOVE,
-   INSTRUMENT-FAIL if B_full > 0.8). F0 = mean(f0a,f0b) vs f1 (1.00)
-   and f2 (0.95).
-5. Then E-042: check diag (failures=0 proves worker feeds), set c*
-   per verdict, submit 4 FULL cells with the SAME pins — one literal
-   command per cell, label pf-e042-g0/g1/g2/g3:
-   `tsx protocols/pair-fable/tools/run-backtest.ts --strategy
-   pair-fable-v17 --param capPerMarket=500 --param pairTarget=0.96
-   --param imbalanceBand=160 --param orderSize=100 --param
-   doomUnitMax=0.99 --param cooldownTicks=5 --param ttlSec=90
-   --param tiltShares=<0|160> --param spotLeadBps=<10|20|40> --param
-   tiltUnitMax=<c*> --to-ms 1785196800000 --label pf-e042-gN
-   --detach` (g0: tiltShares=0, spotLeadBps=10; g1/g2/g3:
-   tiltShares=160, bps 10/20/40). No --limit ⇒ FULL universe.
-   Universe may have grown past 10,747 since the E-041 sync — frozen
-   contract says compare on the common intersection and record the
-   delta.
+1. `results.ts --last 4` → g0–g3 runs. Failures must be
+   MISSING-priceToBeat outage errors ONLY (expect ~146/cell,
+   identical slug sets across cells; any other class = integrity
+   break).
+2. Universe identity: pairwise common counts across g-cells equal;
+   g-vs-1005 (f1) common = g played universe + record delta.
+3. Comparisons ON COMMON PLAYED INTERSECTION, B_full = 0.74:
+   - Recompute f1 ev on the intersection: `sql.ts "SELECT
+     AVG(b.pnl) FROM backtest_run_markets a JOIN
+     backtest_run_markets b ON a.slug=b.slug WHERE a.run_id=<g1> AND
+     b.run_id=1005"` (and same form for g-cell evs / paired sd).
+   - SIGB-BETTER / SIGB-WORSE / SIGB-NULL: best g1–g3 vs f1.
+   - TILT-EV-REAL / NEGATIVE / NULL: tilt cells vs g0 (neutral FULL
+     reference — first ev-decisive tilt-vs-neutral comparison).
+   - Dose read g1→g2→g3.
+4. Decision mapping (pair-v17.md §5): SIGB-BETTER ⇒ iterate
+   signal (b) levers (threshold, feed-leader persistence, σ√t dead
+   zone) at FULL. SIGB-NULL/WORSE + TILT-EV-REAL ⇒ keep signal (a),
+   iterate acquisition (maker-only tilt). SIGB-NULL/WORSE +
+   TILT-EV-NEGATIVE ⇒ tilt closed at ev on both signals; return to
+   neutral FULL levers (P* gate) + priority-2 backlog (time-varying
+   τ, imbalance-adaptive tilt).
 
 ## Audit note
 
@@ -81,35 +75,43 @@ M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 
 ## Next step (priority order)
 
-1. Read E-041 per procedure above (GREEN either way).
-2. Check pf-e042-diag (worker feed fulfillment), then submit E-042
-   (4 FULL v17 cells) with c* from the E-041 verdict.
-3. Read E-042 (bars pair-v17.md §5) — decides signal (b) vs
-   signal (a) AND tilt-vs-neutral absolute ev at FULL.
-4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-5. Cross-symbol replication: gated on P-012.
-6. Unexplored v15 lever: price gate P* — needs the FULL instrument.
+1. **Read E-042** (procedure above) — GREEN directional-controller
+   work under any verdict.
+2. Per decision mapping, design + submit the follow-up (signal-b
+   iteration, maker-only tilt, or neutral P* at FULL).
+3. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+4. Cross-symbol replication: gated on P-012.
+5. Unexplored v15 lever: price gate P* — needs the FULL instrument.
 
-## Alignment gate — session 27 (checkpoint; finalized at close)
+## Alignment gate — session 27 (final)
 
-- **Classification:** directional-controller (v17 = the directional
-  controller's signal axis; E-041 = its ceiling axis).
-- **Contribution:** new controller variant implemented + smoked
-  (a8b1f98, runs 1001/1002); E-042 frozen; E-041 f0a read (run 1003).
-- **Time to evidence:** ~2 min (fleet.ts E-041 queue verify), smoke
-  running by ~min 8. PASS.
-- **Throughput:** 2 smokes + 1 fleet diag submitted + 4 FULL runs in
-  flight from s26; f0a (10,747 mkts) evaluated; no serial scans.
+- **Classification:** directional-controller (E-041 close, v17
+  implementation, E-042 freeze+submit — all on the directional
+  controller's signal/ceiling axes).
+- **Contribution:** controller decision changed twice with evidence:
+  (1) ceiling lever REMOVED from the center (E-041 CEIL-NULL, runs
+  1003–1007) — E-039's iteration path formally refuted; (2) the
+  FULL-pair instrument validated as decision-grade (B_full 0.74,
+  measured). New variant pair.v17 delivered live-equivalent evidence
+  path (a8b1f98, runs 1001/1002/1006) and E-042 submitted (43k jobs
+  verified in queue).
+- **Time to evidence:** ~2 min (fleet.ts verify of in-flight E-041);
+  first new run (smoke 1001) by ~min 8. PASS.
+- **Throughput:** 1 experiment closed (4 × 10,747 evaluated with
+  paired-noise SQL + identity checks); 1 strategy implemented,
+  smoked (2 runs), fleet-diagnosed (200 mkts); 1 experiment
+  submitted whole-grid-up-front (4 × 10,747, queue-verified). No
+  serial scans; waits were fleet-bound with analysis interleaved.
 - **Scale:** closed by E-036 on record; all runs B=500.
-- **Next:** E-041 readout + E-042 submission — GREEN.
-- **Verdict:** **GREEN** (provisional at checkpoint).
+- **Next:** read E-042 — GREEN either way.
+- **Verdict:** **GREEN.**
 - Verdict history: s24 GREEN, s25 GREEN, s26 GREEN, s27 GREEN.
-  Next audit: s30.
+  Next audit: s30 (before new research).
 
 ## Blockers
 
-None. E-041 f0b/f1/f2 + diag in flight (~1h); if the session ends
-before they finish, next session starts at "E-041 readout procedure".
+None. E-042 in flight (~75 min from 21:35Z; do NOT resubmit — read
+per procedure above).
 
 ## Needs human
 
@@ -141,18 +143,17 @@ before they finish, next session starts at "E-041 readout procedure".
   jobs (waiting-children), not market-job totals.
 - Do not push strategy-semantics changes while that strategy's jobs
   are queued/running — workers track origin/main; serialize push →
-  submit. (E-041 + diag jobs pinned ≤ a8b1f98: do NOT touch
-  pair.v16.ts or pair.v17.ts while queued. E-042 submissions must
-  come AFTER any further commits are pushed.)
+  submit. (E-042 jobs pinned at 4b5047c4: do NOT touch pair.v17.ts
+  or pair.v16.ts while the grid is queued.)
 - Screens baseline 874 (v0) and parents 872/873/879 valid ≤
-  2026-08-06 (evaluator.md §Universes). FULL reference v1-b: run
-  914. v15 bridge chain 970 ≡ 960 ≡ 956. v16 bridges: c0 = 978,
-  d0 = 987. v16 FULL: f0a = 1003.
-- **NOISE MODEL (pair-v16.md §10): pinned-800/B500 single-run
-  pairwise ev SE ≈ 1.2 (2σ ≈ 2.4); per-market paired sd ≈ 34. ev
-  verdicts need FULL pairs (SE ≈ 0.33 expected, E-041 measures it)
-  or duplicate-triplet means. p/100 bar 0.54 unchanged for structure
-  screens.**
+  2026-08-06 (evaluator.md §Universes). FULL references: v1-b = 914;
+  v16 τ+160 no-ceiling = 1005 (f1); v16 dup pair 1003/1004. v15
+  bridge chain 970 ≡ 960 ≡ 956. v16 bridges: c0 = 978, d0 = 987.
+- **NOISE MODEL (validated s27): FULL-pair instrument at B=500 —
+  paired per-market sd 38.29, SE_pair 0.369, ev bar B_full = 0.74.
+  Pinned-800/B500 single-run ev SE ≈ 1.2 (2σ ≈ 2.4) — structure
+  screens only. p/100 bar 0.54 for structure screens. Duplicate sets
+  under-sample tails.**
 - JOURNAL entries are messages to the human (contract v2): plain
   sentences, tried/happened/means/next, drop run ids/codes unless
   genuinely the point.
@@ -161,7 +162,8 @@ before they finish, next session starts at "E-041 readout procedure".
 - Class kills need an identity argument (evaluator.md §Kill
   standards); N failures kill a family only. Verdict bars must name
   comparison PAIRS. Positive signals measured ON discovery data need
-  disjoint confirmation before any build decision.
+  disjoint confirmation before any build decision (E-039 → E-041 now
+  the canonical example: +1.91 at pinned-800 → 0.04 at FULL).
 - Fill model: calibrated by E-025 (ToB capacity bound). Guard-7
   whole-size fill optimism: larger-q results depth-optimistic
   (E-036).
@@ -174,17 +176,16 @@ before they finish, next session starts at "E-041 readout procedure".
   freezing (GTD expiry < now+60s rejected; ttlSec ≥ 61).
 - A completed run with 0 trades and noActivity=N can mean every
   order was REJECTED — check OrderManager validation before blaming
-  data.
-- The backtest sim is NOT bit-deterministic (latency jitter) — and
-  jitter noise at B=500 is heavy-tailed at run level (s26).
-- leadPersistTicks is in TICKS (~138/s on active markets);
-  1400 ≈ 10 s. At leadGap 0.10 leaders are already ≥10 s persistent
-  (E-040 structural).
-- Feed-declaring strategies: RULES guarantees full coverage from the
-  universe floor (binance from 2025-11-29, priceToBeat from
-  2026-02-18); missing worker-side day files are a HARD per-job
-  error, not silent neutrality — the pf-e042-diag batch is the
-  worker-side proof.
+  data. High noActivity can also be the market slice: latest-200
+  before the 07-28 pin has ~48% quiet markets in BOTH v16 and v17.
+- The backtest sim is NOT bit-deterministic (latency jitter); jitter
+  noise at B=500 is heavy-tailed at run level.
+- leadPersistTicks is in TICKS (~138/s on active markets).
+- Feed-declaring strategies: RULES guarantees coverage from the
+  universe floor; workers fulfill binance+priceToBeat (diag 1006).
+  ~1.36% of markets have NO strike anywhere (Polymarket outage days)
+  — hard per-market failures, deterministic set, compare on common
+  played intersection (pair-v17.md §6.2).
 
 ## Inbox processed through
 

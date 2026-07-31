@@ -960,3 +960,23 @@ worse than the recent-weeks screens suggested, and steady across
 every month. The recent window was a slightly friendly slice, not a
 trend change. This is exactly why money verdicts now happen on full
 history.
+Late in the session the full-history batch finished and gave a clean
+answer: capping the price we pay when chasing the leading side makes
+no difference to profit — none at all at the resolution the full
+history provides. Last session's suspicion is now confirmed twice
+over: the "+$1.9 per market" cap benefit we briefly believed was
+order-timing luck on a small sample. The cap is removed. The good
+news is methodological: two identical full-history runs landed
+within $0.21 per market of each other, so this instrument can now
+tell a real $0.75 effect from luck — the 800-market screens never
+could.
+With that settled, the new spot-price-versus-strike controller went
+straight to the fleet: four full-history runs — no lean at all, and
+three lean-trigger strengths. A small pilot batch on the fleet also
+uncovered that about 1% of markets are missing their strike price on
+Polymarket's side (an outage in their records, not ours); those
+markets are excluded and bookkept. Next session reads the four runs.
+They answer two questions at once: is the physical price signal
+better than the crowd's odds, and — for the first time decisively —
+does leaning toward a winner add any money at all versus staying
+neutral.
