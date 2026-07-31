@@ -264,5 +264,16 @@ Frozen verdict bars (ev governs, bar 0.30; p/100 bridge bar 0.54):
   completions (accuracy premium dominates price); record, close the
   ceiling lever, pivot to signal (b).
 
+Interpretive note recorded AFTER submission, BEFORE readout (not a
+grid deviation): the engine tick rate is ~138/s (623,627 events / 5
+markets / 900 s, smoke 984), so persist = 20 ticks ≈ 0.15 s — d4/d5
+measure FLICKER suppression (single-tick leader flaps), not
+minutes-scale persistence. If d4 ≡ d0, the verdict is "flicker
+margin ≈ 0", NOT "persistence dead"; a real persistence dose needs
+~10³–10⁴ ticks. Also: c3's D fills are spread across ALL minutes
+(anatomy 981: 79/182/330/…/278 per minute), so tiltUnitMax filters
+by leader PRICE level, not by time — the cells measure
+price-conditional accuracy as intended.
+
 Deviations require a written amendment here BEFORE the affected
 submission.
