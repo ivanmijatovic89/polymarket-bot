@@ -53,6 +53,7 @@ type Opts = {
   latest: number
   toMs: number | null
   maxMarkets: number | null
+  offset: number
   latencyMs: number
   checkpoint: string | null
   timeBudgetS: number | null
@@ -65,6 +66,7 @@ function parseArgs(argv: string[]): Opts {
     latest: 800,
     toMs: null,
     maxMarkets: null,
+    offset: 0,
     latencyMs: 140,
     checkpoint: null,
     timeBudgetS: null,
@@ -90,6 +92,18 @@ function parseArgs(argv: string[]): Opts {
       case '--max-markets':
         o.maxMarkets = next()
         break
+      case '--offset': {
+        // E-035 sharding: start index into the epoch-ordered withOutcome
+        // list. NOT part of the checkpoint meta — slicing is an execution
+        // detail; per-market results are slice-invariant. Unlike next(),
+        // zero is valid here.
+        const v = argv[++i]
+        if (v === undefined) fail(`${flag} requires a value`)
+        const n = Number(v)
+        if (!Number.isInteger(n) || n < 0) fail(`${flag} expects an integer ≥ 0, got '${v}'`)
+        o.offset = n
+        break
+      }
       case '--latency-ms':
         o.latencyMs = next()
         break
@@ -568,7 +582,10 @@ async function main() {
     if (outcome === 'UP' || outcome === 'DOWN') withOutcome.push({ m, won0: outcome === 'UP' })
     else noOutcome += 1
   }
-  const target = opts.maxMarkets ? withOutcome.slice(0, opts.maxMarkets) : withOutcome
+  const target = withOutcome.slice(
+    opts.offset,
+    opts.maxMarkets ? opts.offset + opts.maxMarkets : undefined,
+  )
   console.error(
     `[calib] universe latest=${opts.latest} rows=${rows.length} usable=${usable.length} skipped=${skipped} noOutcome=${noOutcome} scanning=${target.length} latency=${opts.latencyMs}ms`,
   )
