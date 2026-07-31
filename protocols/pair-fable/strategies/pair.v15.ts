@@ -24,16 +24,18 @@
  *   - CAPITAL RESERVATION: a deficit-creating buy must leave room to
  *     complete the projected deficit at current taker cost within
  *     capPerMarket.
- *   - TAKER RULES (FOK, one in flight — E-020 guard): C pair-lock completes
- *     a deficit when the projected cumulative pair VWAP ≤ lockTarget (the
- *     cross-subsidy lever; deliberately NOT v10's per-pair trigger); V doom
- *     salvage completes when the lead side looks doomed (bid ≤ 0.20) and
- *     ask+fee ≤ salvageMax — may push the pair VWAP above $1 (ruling
- *     amendment 4: beats holding a doomed lead to zero).
+ *   - GRADED TAKER COMPLETION (v15.1, FOK, one in flight — E-020 guard): a
+ *     lag-side deficit is FOK-completed whenever the projected cumulative
+ *     pair VWAP ≤ X(t, ι), the recovery-debt ceiling ramping from lockTarget
+ *     toward debtCap with elapsed window fraction × normalized imbalance
+ *     (pair-v15.md §10 — ruling amendment 5's bounded recovery debt). May
+ *     push the pair VWAP above $1 (amendment 4: completing a doomed lead at
+ *     total < 1 + strand VWAP beats holding it to zero). debtCap = 0 keeps
+ *     the pure v15.0 pair-lock trigger.
  *
  * No sells, no merge intents; holds to settlement. Fill-mode tags (meta.m):
- * S band accumulation · R graded repair (placed beyond band) · C pair-lock
- * FOK · V salvage FOK.
+ * S band accumulation · R graded repair (placed beyond band) · C completion
+ * with projected pair VWAP ≤ lockTarget · V debt completion above lockTarget.
  */
 import type {
   AccountEvent,
@@ -62,11 +64,14 @@ export const ConfigSchema = z
       .finite()
       .refine((v) => v === 0 || (v >= 0.5 && v <= 0.99), 'lockTarget must be 0 or in [0.5, 0.99]')
       .default(0.95),
-    /** V-rule: doom-salvage FOK when lead bid ≤ 0.20 and ask+fee ≤ this (may push pair VWAP above $1). 0 disables. */
-    salvageMax: z.coerce.number().finite().min(0).max(0.995).default(0),
+    /** Recovery-debt ceiling cap: G-rule fires when projected pair VWAP ≤ X ramping lockTarget→this with elapsed time × imbalance (may exceed $1). 0 = pure lock trigger. */
+    debtCap: z.coerce.number().finite().min(0).max(1.15).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
+  })
+  .refine((c) => c.debtCap === 0 || (c.lockTarget > 0 && c.debtCap >= c.lockTarget), {
+    message: 'debtCap requires lockTarget > 0 and debtCap ≥ lockTarget',
   })
 
 export type Config = z.infer<typeof ConfigSchema>
@@ -75,7 +80,7 @@ export const definition: StrategyDefinition<Config> = {
   id: 'pair-fable-v15',
   title: 'pair-fable v15 (continuous two-sided inventory controller)',
   description:
-    'Quotes both sides continuously with an imbalance band, graded lag-side pricing, a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, and FOK taker completion (pair-lock + optional above-$1 doom salvage). No sells, no merges; holds to settlement.',
+    'Quotes both sides continuously with an imbalance band, graded lag-side pricing, a cumulative pair-VWAP ceiling with completability-conservative deficit pricing, capital reservation, and graded FOK taker completion under a recovery-debt ceiling ramping lockTarget→debtCap with elapsed time × imbalance (may complete above $1). No sells, no merges; holds to settlement.',
   schema: ConfigSchema,
   create: (cfg) => ({ strategy: createStrategy(cfg) }),
 }
@@ -106,7 +111,9 @@ const COOLDOWN_TICKS = 5
 const FOK_COOLDOWN_TICKS = 25
 const LEAD_STOP_MS = 180_000
 const CANCEL_ALL_MS = 60_000
-const DOOM_BID = 0.2
+/** G-rule debt ramp (pair-v15.md §10.1): ρ = clamp((t̂−T0)/(T1−T0), 0, 1). */
+const RAMP_T0 = 0.25
+const RAMP_T1 = 0.8
 const WINDOW_MS = 15 * 60 * 1000
 /** Taker fee model matching the simulator (700 bps · p · (1−p)). */
 const TAKER_FEE_RATE = 0.07
@@ -222,33 +229,31 @@ export function createStrategy(cfg: Config): Strategy {
     const q = cfg.orderSize
     const Ib = cfg.imbalanceBand
 
-    // ── Taker rules (§8.4): one FOK in flight, tick cooldown, run to T.
-    if (
-      !state.fokCid &&
-      state.tickCount >= state.fokReadyAtTick &&
-      (cfg.lockTarget > 0 || cfg.salvageMax > 0)
-    ) {
+    // ── Graded taker completion (§10.1): one FOK in flight, cooldown, to T.
+    if (!state.fokCid && state.tickCount >= state.fokReadyAtTick && cfg.lockTarget > 0) {
+      // Debt ramp by elapsed window fraction; unknown window end ⇒ 0 (conservative).
+      const elapsed = endMs !== null ? 1 - (endMs - nowMs) / WINDOW_MS : 0
+      const ramp = Math.min(1, Math.max(0, (elapsed - RAMP_T0) / (RAMP_T1 - RAMP_T0)))
       for (const side of SIDES) {
         const o = side === 'UP' ? 'DOWN' : 'UP'
         const deficit = qty[o] - qty[side]
         const bk = book[side]
-        const leadBk = book[o]
         if (deficit <= 0 || !bk || bk.askSize <= 0) continue
         const x = Math.min(deficit, bk.askSize)
         if (x < 1) continue
         const a = bk.ask
         const unitCost = a + fee(a)
-        // C — pair lock: projected cumulative pair VWAP ≤ lockTarget.
+        // Projected cumulative settled pair VWAP after the completion.
         const projSelf = (cost[side] + x * unitCost) / (qty[side] + x)
         const projPair = qty[o] > 0 ? projSelf + cost[o] / qty[o] : Number.POSITIVE_INFINITY
-        const lockTrig = cfg.lockTarget > 0 && projPair <= cfg.lockTarget + 1e-9
-        // V — doom salvage: lead side looks doomed, completing beats holding to zero.
-        const doomTrig =
-          cfg.salvageMax > 0 &&
-          leadBk !== null &&
-          leadBk.bid <= DOOM_BID + 1e-9 &&
-          unitCost <= cfg.salvageMax + 1e-9
-        if (!lockTrig && !doomTrig) continue
+        // Recovery-debt ceiling X(t̂, ι) = P_lock + (debtCap − P_lock)·ρ·min(ι, 1).
+        const iota = Math.min(1, deficit / Ib)
+        const ceiling =
+          cfg.debtCap > 0
+            ? cfg.lockTarget + (cfg.debtCap - cfg.lockTarget) * ramp * iota
+            : cfg.lockTarget
+        if (projPair > ceiling + 1e-9) continue
+        const lockTrig = projPair <= cfg.lockTarget + 1e-9
         const price = round2(a)
         if (pos.total_cost + pendingCost + price * x > cfg.capPerMarket) continue
 
@@ -289,7 +294,7 @@ export function createStrategy(cfg: Config): Strategy {
           },
           reason: lockTrig
             ? `fok_lock_${side.toLowerCase()}_projpair_${round2(projPair)}`
-            : `fok_salvage_${side.toLowerCase()}_leadbid_${leadBk ? leadBk.bid : 'na'}`,
+            : `fok_debt_${side.toLowerCase()}_projpair_${round2(projPair)}_ceiling_${round2(ceiling)}`,
         })
         return intents
       }
