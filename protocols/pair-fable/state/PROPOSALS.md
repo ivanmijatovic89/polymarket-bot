@@ -228,7 +228,13 @@ Entry format:
   proposal is withdrawn (see evaluator.md §Kill standards).
 
 ## P-011: fill model cannot pin maker capture within a factor of ~29–235 — queue-aware fill model / trade-print calibration needed before any HF maker work
-- status: proposed
+- status: resolved 2026-07-31 (session 13, self-served) — option 1 (E-025
+  trade-print calibration) executed: T140/W140 = 0.65, cancel share of
+  ToB decreases 99.1% ⇒ the W..O interval was cancels; the worst-queue
+  model is an acceptable capacity bound. Options 2 (engine queue-aware
+  fill model) and 3 (P-009 as calibration) NOT needed — no ruling
+  required. Evidence: hf-fill-probe.md §Result E-025.
+- status-history: proposed
 - date: 2026-07-31
 - context: E-024 (pre-registered hf-fill-probe.md, executed session 12 via
   tools/fillprobe.ts on the pinned 800): an always-quoting top-of-book

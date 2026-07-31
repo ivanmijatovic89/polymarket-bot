@@ -77,6 +77,14 @@ design-ts (E-024): this commit, session 11 — before any computation.
 
 ## Result E-024 (session 12, tools/fillprobe.ts, pinned 800, 0 skipped)
 
+> **DOWNGRADED by E-025 (session 13), per E-025's frozen rule**: the O
+> bound is **uninformative** — trade-print calibration measured the
+> cancel share of ToB level decreases at **99.1%**, and the
+> trade-confirmed ceiling T sits BELOW worst-queue (T140/W140 = 0.65).
+> "Materially binding" described the [W, O] interval, and that interval
+> was almost entirely cancels. The engine's worst-queue rule is an
+> acceptable capacity bound for ToB maker capture. See §Result E-025.
+
 **VERDICT: FILL MODEL MATERIALLY BINDING** — O/W on shares = **235.4×** at
 0 ms (frozen bar: ≥ 3×) and **29.2×** at the deployable 140 ms bound.
 Every one of the 9 days is far above 3× (range 120.7–385.0). Archive:
@@ -187,3 +195,90 @@ prints may undercount (WS drops) — treat T as a lower bound on true
 flow when reading the cancel share.
 
 design-ts (E-025): this commit, session 12 — before any computation.
+
+## Result E-025 (session 13, tools/tradeprobe.ts, 36 recorded markets)
+
+**VERDICT (frozen branch 1): T140 ≤ 2× W140** — the trade-confirmed
+front-of-queue ceiling is not above worst-queue, it is BELOW it:
+**T140/W140 = 0.646** (609.7 vs 944.2 shares/mkt), T0/W0 = 0.797. Zero
+of 36 markets reach the 3× escalation bar (per-market p10/p50/p90 =
+0.41/0.63/1.08, max 1.72); both days agree (0.69 on 07-21 n=24, 0.52 on
+07-25 n=12). Archive: `data/tradeprobe-2026-07-31.json` (per-market rows
+included).
+
+**Cancel share of ToB bid-level decrease volume = 99.13%** (per-market
+p10/p50/p90 = 98.5/99.1/99.6%). E-024's O bound was almost entirely
+cancels ⇒ E-024's "materially binding" verdict is downgraded to
+**"O-bound uninformative"** (annotated in §Result E-024, per the frozen
+rule "record in both places").
+
+Headline numbers (shares/mkt, both sides summed, 10-share unit):
+
+| variant | shares/mkt | fills/mkt | p10 / p50 / p90 |
+| --- | --- | --- | --- |
+| W 0ms | 755.6 | 75.6 | 20 / 100 / 2,790 |
+| W 140ms | 944.2 | 94.4 | 340 / 930 / 1,510 |
+| T 0ms | 602.0 | 95.9 | 252 / 580 / 1,016 |
+| T 140ms | 609.7 | 97.3 | 282 / 568 / 1,082 |
+| O 0ms | 52,135 | 6,297 | 19,540 / 53,335 / 87,356 |
+| O 140ms | 22,293 | 2,781 | 10,665 / 24,030 / 33,872 |
+
+(W levels here are higher than E-024's pinned-800 averages — the 36
+recorded markets skew to an active regime; per-slug parity below shows
+the pipelines agree, so it is composition, not measurement.)
+
+Raw flows per market: **1,027 trade prints / 34.0k shares total** (both
+sides, all price levels); taker-SELL prints at the pre-event bestBid
+(the T ceiling flow): **95.7 prints / 2,187 shares**; decrease flow at
+bestBid: 6,226 events / 252.6k shares (the O ceiling — 99% cancels).
+
+Side-semantics pre-commit executed (4-file sample, `--verify-side`):
+SELL prints at pre-event bestBid 455 vs 100 at ask; BUY at ask 3,200 vs
+663 at bid — **taker-side semantics CONFIRMED** (~72% clean in both
+classes, symmetric; the crossings are book-state lag during fast moves —
+classification is against the pre-event book). Primary side-based
+attribution used; the price-based fallback was not needed.
+
+Dataset-parity note (24 slugs common with the E-024 archive): mean
+recorded/telonex O0 ratio **0.995**; W0 near-identical per slug (e.g.
+4350 vs 4340, 80 vs 80, 12900 vs 12720). The recorded-WS and telonex
+delta pipelines agree on book dynamics — strong cross-validation of
+both.
+
+Consequences:
+- **The current worst-queue fill model is an acceptable capacity bound
+  for ToB maker capture** (W within 0.65–1.6× of trade-confirmed T at
+  both latencies, on the generous side). The E-024 consequence "no HF
+  maker strategy code against the current sim" lifts as a MODEL
+  constraint. All maker-family kills stand, now without the 29–235×
+  optimism caveat.
+- **E-013 "fill-limited" is restored to (approximately) a market fact**
+  at ToB/10-share unit: trade-confirmed capture ceiling ≈ 610 shares /
+  ~97 fills per market — an order of magnitude below the 700-trade
+  regime, even for a front-of-queue quoter with no budget.
+- **The 700-trades figure reinterpreted**: TOTAL trade prints per market
+  measured 704 (quiet day) and 1,189 (busy day). A 700-trade operator
+  would be ~all executed trades in the window — the figure almost surely
+  counts order placements/replacements (consistent with 6,226 ToB
+  decrease events/mkt of cancel-dominated quoting), not fills. Recorded
+  in market-context.md.
+- **HF ToB maker economics measured modest**: T140 ceiling ≈ 610 sh/mkt
+  ⇒ ~305 paired shares × ~2.8¢ measured pair margin ≈ **$8.5/mkt gross
+  ceiling** (before adverse selection, stranding, and queue position —
+  T assumes front-of-queue). The HF maker axis is deprioritized on
+  measured economics, not on model uncertainty. P-011 resolved
+  (self-served); engine work (queue-aware fill model) NOT needed.
+
+Caveats (pre-committed): n=36, ~2 days, one regime — a calibration
+factor, not a universe claim; T assumes front-of-queue (upper bound for
+a joiner); 10-share unit; trade prints may undercount (WS drops) ⇒ T is
+a lower bound on true flow; 4 `-terminated` files with partial coverage
+(385–785 s of 900) included — levels biased down slightly, within-market
+ratios unaffected (T and W measured on the same truncated stream).
+
+Implementation notes (recorded for exactness, within pre-reg intent):
+T capture is trade-only — no W-rule fills — reading the frozen "capture
+= min(executed trade volume at our level while quote rests there,
+remaining)" literally; T's 0 ms variant re-arms at the standing quote
+level on full consumption (a trade print does not mutate the book; the
+next book event reprices if bestBid moved).

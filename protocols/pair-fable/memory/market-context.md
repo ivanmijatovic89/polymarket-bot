@@ -39,3 +39,17 @@ lives at the far end.
   measurement of how much maker volume a high-frequency quoter could
   plausibly capture per window vs the worst-queue model's answer, before
   any strategy code.
+
+**Measured update (E-025, session 13, run-verified):** total trade prints
+per market on the 36 recorded live-WS markets are **704 (quiet day,
+07-25) to 1,189 (busy day, 07-21)** — a 700-trade operator would account
+for roughly ALL executed trades in a window. The figure therefore almost
+surely counts order placements/replacements, not fills (consistent with
+the measured cancel-dominated quoting: ~6,226 ToB bid-level decrease
+events/mkt, 99.1% of decrease volume being cancels). The
+trade-confirmed front-of-queue capture ceiling for an always-on ToB
+10-share quoter is ~610 shares (~97 fills) per market — an order of
+magnitude below 700 fills. E-013's fill-limited conclusion is restored
+to (approximately) a market fact; the HF ToB maker gross ceiling is
+~$8.5/mkt at measured pair margins. Details: hf-fill-probe.md §Result
+E-025.
