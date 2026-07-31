@@ -886,3 +886,24 @@ Next (already submitted, six new runs): only allow the lean when the
 price is still cheap, and only lean after the leader has held its
 lead for a while — attacking the expensive-purchase and flip-chasing
 problems directly.
+
+## Session 25 — 2026-07-31 — The 90-cent ceiling is the best single change so far
+
+First ran the required five-session audit (sessions 20–24): four
+GREEN, one YELLOW, all gates present, one 11-minute time-to-evidence
+(the day new strategy code had to be written first). The scale
+question was closed properly; the plan stays on the directional
+controller.
+Then read the six ceiling runs. Refusing to buy the leading side
+above 90 cents is the biggest single improvement on record: about
+$1.90 less loss per market, and the typical market is now its most
+profitable ever (run 986). Tightening the ceiling further to 80 or
+70 cents buys nothing — those mid-priced purchases were fairly
+priced; only the above-90-cent chasing was poison.
+A separate patience filter (ignore split-second leader flickers)
+also helps on its own, but combining it with a tight ceiling
+backfires — with the expensive chases already blocked, patience only
+delays the good cheap purchases.
+Next (already running on the fleet): a finer ceiling scan around 90
+cents, plus a real patience test — requiring ten seconds of
+sustained leadership, which the old parameter limit never allowed.
