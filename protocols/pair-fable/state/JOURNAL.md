@@ -1013,3 +1013,25 @@ Also of note: a second, independent lab ("pair-opus") was started by
 the human on the same problem with a clean slate. We can read each
 other's notes; it will be interesting to see where they diverge from
 us. Next session reads the seven runs.
+
+## Session 29 — 2026-07-31
+
+The seven big overnight tests from last session are still grinding
+through the fleet (about ninety minutes to go at close), so instead of
+idling I dissected where the current neutral strategy actually loses
+its money, using yesterday's full-history baseline run. Three findings,
+all on file. First, our completions are priced fairly by the market:
+paying up to finish a doomed pair costs the same, in expectation, as
+holding the stranded side to the end — which finally explains why the
+earlier price-ceiling experiment changed nothing; there was never an
+edge to find in HOW we finish pairs. Second, the entire loss traces to
+one flow: our passive buy orders get picked off. Fifty-eight percent
+of the shares the market gives us end up on the side that loses, about
+three cents lost per share — and that is precisely the term the
+in-flight tilt experiments are trying to fix, so we now know exactly
+which number to watch when they land. Third, the later in the
+15-minute window a passive fill happens, the more toxic it is — two to
+three times worse in the closing minutes — which prices a "quote
+tighter as the clock runs down" idea for the neutral track. Next
+session: read the seven test results against their pre-registered
+bars, plus the scheduled five-session review.

@@ -1,12 +1,37 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01 (mission-02 session 28 close)
+Updated: 2026-07-31T23:20Z (mission-02 session 29 close)
 
 ## Current work
 
-**Session 28: E-042 CLOSED (SIGB-BETTER + TILT-EV-NULL + dose
-monotone); pair.v17m (maker-only tilt) built + smoked; E-043 + E-044 +
-E-045 (7 × FULL) SUBMITTED.**
+**Session 29: g0 loss-identity analysis (analysis-only; runs still in
+flight).** Session started ~5 min after s28 closed; the 7 FULL runs
+were ~12% done (verified 763 markets/min at 23:17Z ⇒ drain ≈ 00:40Z,
+2026-08-01). Used the wait for mechanism analysis on run 1008 (the
+FULL neutral baseline), recorded in pair-v17.md §10 (commits a473dc4
++ 2 follow-ups):
+
+- **Completion policy has NO lever** — leg-vs-outcome identity: C and
+  D fills are ~fair at their prices (D buys the leader at 0.823, it
+  wins 81.1% ⇒ EV ≈ fees; doom-completing ≈ EV-equal to holding).
+  Mechanically explains E-041 CEIL-NULL.
+- **The whole neutral loss is S-flow adverse selection**: maker
+  starts fill 58/42 toward the eventual loser, −3.2¢/share ≈ −110k
+  of the −144k. The tilt program (E-043/E-044 in flight) attacks
+  exactly this term; **baseline S split 58/42 is the engagement
+  metric to read on E-044's m-cells.**
+- **S-fill toxicity grows with window age** (−2.2..−3.3¢/sh min 0–4 →
+  −6..−10¢/sh min 12–13): measured prior for a time-varying-quote
+  neutral axis. Start-minute gating separately re-measured dead for
+  v17 (minuteev on 1008; matches E-027).
+
+Sibling lab pair-opus: clean start, no results yet (memory/ has only
+PRIOR-WORK.md — an accurate digest of our findings — and
+capabilities).
+
+**Session 28 (context): E-042 CLOSED (SIGB-BETTER + TILT-EV-NULL +
+dose monotone); pair.v17m (maker-only tilt) built + smoked; E-043 +
+E-044 + E-045 (7 × FULL) SUBMITTED.**
 
 E-042 readout (pair-v17.md §7; g0=1008, g1=1011, g2=1010, g3=1009 vs
 f1=1005; 10,651 common intersection; B_full = 0.74):
@@ -74,43 +99,53 @@ absent on v17m).
 
 M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 **Session 30 = five-session audit (s26–s30) BEFORE new research.**
+Reading the already-frozen E-043/E-044/E-045 results is evaluation of
+completed work (§6.3), not new research — do the readout when runs
+are done; run the audit before designing/submitting anything NEW.
 
 ## Next step (priority order)
 
-1. **Read E-043/E-044/E-045** per procedure above — GREEN under any
-   verdict (directional + neutral controller).
-2. Follow the frozen decision mappings (maker-tilt iteration, width
+1. **Read E-043/E-044/E-045** per procedure above (runs should be
+   done ≈ 00:40Z 2026-08-01; verify with fleet.ts first — do NOT
+   resubmit). Add to the frozen metrics: E-044 m-cells' S-fill
+   win/lose split vs the 58/42 neutral baseline (pair-v17.md §10) as
+   the tilt-engagement metric.
+2. **Five-session audit s26–s30** before any new design/submission.
+3. Follow the frozen decision mappings (maker-tilt iteration, width
    extension, or P* follow-up).
-3. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-4. Cross-symbol replication: gated on P-012.
+4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 28 (final)
+## Alignment gate — session 29 (final)
 
-- **Classification:** directional-controller (E-042 readout, E-043/
-  E-044 design+submission, v17m implementation) + one concurrent
-  neutral-controller increment (E-045 P* sweep).
-- **Contribution:** controller decision changed with evidence:
-  (1) leader signal source switched to spot-vs-priceToBeat (SIGB-
-  BETTER +1.87 > 0.74, runs 1008–1011 vs 1005); (2) book-leader tilt
-  shown to COST 1.33 ev vs neutral at FULL; (3) mechanism finding —
-  signal predictive (88–90% residue win) but acquisition burns it —
-  turned into a new testable variant pair.v17m (18ce0a4) with
-  verified no-chase semantics, plus 7 FULL runs submitted.
-- **Time to evidence:** ~3 min (results.ts readout of completed
-  E-042 FULL runs). PASS.
-- **Throughput:** 1 experiment closed (4 × 10,747 evaluated, paired
-  SQL + anatomy on every cell); 3 experiments frozen; 1 strategy
-  implemented + smoked (runs 1012/1013); 7 FULL runs (75,229 jobs)
-  submitted whole-grid-up-front, queue verified. No serial scans.
-- **Scale:** closed by E-036 on record; all runs B=500.
-- **Next:** read E-043/E-044/E-045 — GREEN either way.
+- **Classification:** neutral-controller (mechanism identity analysis
+  on the FULL neutral baseline run 1008; analysis-only session, 7
+  FULL runs in flight from s28 — declared: no new fleet submissions).
+- **Contribution:** controller decision frame changed with evidence
+  (commits a473dc4, 26362a0, 6c55e3a): completion-price policy
+  shown mechanically leverless (D EV-neutral vs hold; explains E-041
+  CEIL-NULL, closes that axis's WHY); neutral loss localized to
+  S-flow adverse selection 58/42 / −3.2¢ per share (the tilt
+  program's exact target term, now with a baseline engagement metric
+  for the E-044 readout); time-varying-quote axis given a measured
+  prior (toxicity ×2–3 late-window).
+- **Time to evidence:** ~5 min (fleet queue verification + minuteev
+  scan on run 1008 launched 23:10–23:14Z). PASS.
+- **Throughput:** analysis-only (declared): 4 read-only scans over
+  the 10,651-market run 1008 (minuteev, anatomy, 2 × JSON_TABLE
+  identity queries); no new runs (7 × 10,747 already in flight,
+  progress verified twice, 763 markets/min). No serial-scan issue.
+- **Scale:** closed by E-036 on record; all in-flight runs B=500.
+- **Next:** read E-043/E-044/E-045 vs frozen bars + s30 audit —
+  GREEN (directional + neutral controller evaluation).
 - **Verdict:** **GREEN.**
-- Verdict history: s24 GREEN, s25 GREEN, s26 GREEN, s27 GREEN,
-  s28 GREEN. Next audit: s30 (before new research).
+- Verdict history: s25 GREEN, s26 GREEN, s27 GREEN, s28 GREEN,
+  s29 GREEN. Next audit: s30 (before new research).
 
 ## Blockers
 
-None. 7 FULL runs in flight (~2h from 23:04Z; do NOT resubmit).
+None. 7 FULL runs in flight (drain ≈ 00:40Z 2026-08-01; do NOT
+resubmit — verify with fleet.ts, then results.ts --last 8).
 
 ## Needs human
 
