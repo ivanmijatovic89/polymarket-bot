@@ -277,3 +277,115 @@ price-conditional accuracy as intended.
 
 Deviations require a written amendment here BEFORE the affected
 submission.
+
+## 8. E-039 readout (runs 986–991, 2026-07-31; verdict CEIL-LIVE)
+
+All 6 cells completed, 0 failures, pinned 800 @ 140/20, SHA 9f3e9cd.
+Read across sessions 24 (d0/d1) and 25 (d2–d5).
+
+| cell | run | ceil | persist | ev/mkt | p/100 | win% | med p/100 | pairsPnl | residuePnl | resid win-side | D fills / $ |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| d0 | 987 | 1.00 | 0 | −12.74 | −3.63 | 61.4 | +3.56 | −24,896 | +17,149 | 616/705 = 87.4% | 3,817 / $155.6k |
+| d1 | 986 | 0.90 | 0 | −10.83 | −3.16 | 60.8 | +3.85 | −23,539 | +17,289 | 615/700 = 87.9% | 3,534 / $142.2k |
+| d2 | 988 | 0.80 | 0 | −10.58 | −4.65 | 44.9 | −7.70 | −11,390 | +4,146 | 195/233 = 83.7% | 1,097 / $34.9k |
+| d3 | 989 | 0.70 | 0 | −10.53 | −4.88 | 44.6 | −8.57 | −11,953 | +4,648 | 177/201 = 88.1% | 1,030 / $34.8k |
+| d4 | 990 | 1.00 | 20 | −11.37 | −3.20 | 59.4 | +3.05 | −21,074 | +14,423 | 595/677 = 87.9% | 3,808 / $156.0k |
+| d5 | 991 | 0.80 | 20 | −12.27 | −5.47 | 43.1 | −9.29 | −11,330 | +2,782 | 141/180 = 78.3% | 1,145 / $37.1k |
+
+Δev vs d0 (common 800, compare.ts): d1 +1.91, d2 +2.16, d3 +2.20,
+d4 +1.37, d5 +0.47.
+
+- **BRIDGE PASS** (read s24): |d0 − 981| p/100 = 0.05 ≤ 0.54; ev
+  Δ −0.20 within 0.30. v16.1 defaults ≡ v16.0.
+- **CEIL-LIVE** (governing ev bar 0.30): every cell beats d0 by
+  > 0.30. **Winner: d1 (ceiling 0.90).** The dose SATURATES at 0.90:
+  0.90→0.80 adds +0.25 (< bar), 0.80→0.70 adds +0.05. d1 keeps the
+  whole residue program (700 resid mkts, D-spend −9% vs d0) — the
+  +1.91 ev comes from removing ONLY the >0.90 chases. On secondary
+  metrics d1 dominates the tighter cells outright: p/100 −3.16
+  (family best on record), win% 60.8 vs 44.9, median +3.85 vs −7.70.
+- **Structural confirmation of the E-038 decomposition, from the
+  removal side:** below ceiling 0.90 the tilt program collapses
+  (resid mkts 700→233, D-spend $142k→$35k, residuePnl +17.3k→+4.1k)
+  yet ev barely moves — the 0.80–0.90 D completions were ~fair-priced
+  for their accuracy, exactly as E-038 inferred. The >0.90 slice was
+  the only outright-toxic slice.
+- **Persistence (flicker scale):** d4 vs d0 = +1.37 > bar —
+  suppressing single-tick leader flaps (~0.15 s) has real value when
+  expensive chases exist. Interaction is NEGATIVE at a tight ceiling:
+  d5 is −1.69 vs d2 and −0.90 vs d4 — with the >0.80 completions
+  already blocked, the persist filter only delays/kills the remaining
+  cheap tilt (resid mkts 233→180). Flicker persist at the WINNER
+  ceiling 0.90 is untested (d5's confound); real-dose persistence
+  (10³–10⁴ ticks, §7 note) untested — schema bound was 200.
+- Guard-7 carried: all D/C fills whole-size at ToB; depth optimism
+  unquantified at q = 100.
+
+Best absolute state after E-039: d1 ev −10.83 at B = 500
+(p/100 −3.16, up from neutral best −5.19); still far below the ≥ +2
+mission bar. The lever ladder continues: fine ceiling + persistence
+at the winner ceiling ⇒ E-040.
+
+## 9. E-040 (v16.2): fine ceiling dose + persistence at the winner
+## ceiling (FROZEN before code, M2)
+
+**Hypothesis.** (a) E-039's ceiling step 1.00→0.90 is coarse; if the
+toxic slice is concentrated above 0.95, ceiling 0.95 keeps more
+fair-priced accurate completions and beats 0.90. (b) Leader
+persistence adds ev when it can veto expensive flip-chasing (d4), and
+harms when it vetoes cheap tilt (d5 at ceil 0.80); at the winner
+ceiling 0.90 the flicker dose is untested and the real dose
+(~10 s of sustained leadership — genuinely different information
+than a 0.15-s flap filter) has never been reachable (schema cap
+200 ticks). A leader that has held ≥ leadGap for ~10 s should have
+higher win-side accuracy at the SAME acquisition price, making the
+gated completions positive-ev rather than fair.
+
+**v16.2 delta (schema-only; no behavior change at old param
+values):** `leadPersistTicks` max 200 → 20000. Defaults unchanged
+(persist 0 = off). Tick-rate caveat FROZEN: persist is in ticks
+(~138/s measured on active markets, §7 note) — wall-clock varies
+with market activity; 1400 ticks ≈ 10 s at the measured rate.
+
+**Grid (center = d1: τ +160, gap .10, q100 I160 B500 P*.96 γ0
+doom.99 cool5 ttl90, ceil .90; pinned 800 @ 140/20; label pf-e040):**
+
+| # | tiltUnitMax | persist | vs | question |
+|---|---|---|---|---|
+| e0 | 0.90 | 0 | run 986 | v16.2 code bridge (≡ d1) + duplicate noise point |
+| e1 | 0.95 | 0 | e0, 987 | fine dose: toxicity concentrated above 0.95? |
+| e2 | 0.85 | 0 | e0 | fine dose below the winner |
+| e3 | 0.90 | 20 | e0, 990 | flicker persist at winner ceiling (fixes d5 confound) |
+| e4 | 0.90 | 1400 | e0, e3 | real persistence (~10 s) at winner ceiling |
+| e5 | 1.00 | 1400 | 990, 987 | real dose vs flicker dose, no ceiling |
+
+Schema check: ceil 0.85/0.90/0.95/1.00 ∈ [0.5, 1] ✓; persist
+0/20/1400 ∈ [0, 20000] (new bound) ✓; ttl 90 ≥ 61 ✓. Engine check:
+no new order types; persist only delays the FOK tilt component — no
+OrderManager interaction.
+
+Frozen readouts: §8 table columns + D-fill count/$ + resid-mkt count
++ residue win-side per cell.
+
+Frozen verdict bars (ev GOVERNS, bar 0.30, per §7 metric amendment;
+p/100 bridge bar 0.54; cross-SHA comparisons to 986/987/990 valid
+only if the bridge passes):
+
+- **BRIDGE-STOP**: |e0 − 986| p/100 > 0.54 (ev reported as
+  secondary).
+- **CEIL-FINE-MOVE** iff e1 or e2 beats e0 ev by > 0.30 ⇒ center
+  moves to the better ceiling; else the ceiling lever is saturated
+  at 0.90 (closed at this resolution).
+- **PERSIST-LIVE** iff e3 or e4 beats e0 by > 0.30, or e5 beats run
+  990 by > 0.30 ⇒ iterate the persistence dose around the winner.
+- **PERSIST-DEAD** iff e3 and e4 are within ±0.30 of e0 AND e5 is
+  within ±0.30 of 990 ⇒ persistence closed at both ceilings; next
+  lever = signal (b) spot-vs-priceToBeat tilt (ExternalFeeds
+  plumbing exists) or maker-only tilt.
+- **PERSIST-HARMFUL** iff e4 < e0 − 0.30 ⇒ tilt-onset delay cost
+  dominates at the winner ceiling; close the lever, same pivot.
+
+Decision mapping: any LIVE ⇒ next session iterates the winning
+lever. CEIL saturated + PERSIST dead/harmful ⇒ next session designs
+signal (b). Deviations require a written amendment here BEFORE the
+affected submission.
