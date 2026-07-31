@@ -256,4 +256,40 @@ Watch taker% (S3 concern): faster requoting must not push taker share
 materially above the ~13–16% of the parents.
 
 Baselines: same-gate parents 872/873/879 via compare.ts intersection.
-design-ts (M2 param-variant rule) = the commit adding this section.
+design-ts (M2 param-variant rule) = the commit adding this section
+(`f938160` @ 2026-07-31T00:34:09Z). Smoke: run 880 (5 mkts, 0 failures).
+
+### Cadence-extension results (runs 881/882/883, 2026-07-31 — KILL)
+
+Identical 800-market universe as the parents (common=800/800 all pairs;
+cross-run SHA warnings benign — every commit 6a1ecde→f938160 touches only
+protocols/ files). All @ 140/20ms:
+
+| config | run | ev/mkt | Δev vs parent | S/played (parent) | q (parent) |
+| --- | --- | --- | --- | --- | --- |
+| v1-e 0.98 ttl61/cd5 | 881 | −1.4920 | +0.0099 | 2.41 (2.42) | 0.484 (0.489) |
+| v1-f 0.95 ttl61/cd5 | 882 | −1.0033 | +0.0635 | 1.87 (1.88) | 0.495 (0.518) |
+| v1-g 0.93 ttl61/cd5 | 883 | −0.4601 | +0.0937 | 1.63 (1.64) | 0.436 (0.476) |
+
+- **S is COMPLETELY inelastic to ttl/cooldown: 2.41/1.87/1.63 vs
+  2.42/1.88/1.64** — a 32% shorter TTL and 5× shorter cooldown changed the
+  start rate by <1%. The pre-registered KILL rule fires: cadence is
+  FILL-LIMITED, not TTL-limited — fills happen when price trades through
+  bestBid, and the frequency of those crossings is market-given. More
+  requoting cannot raise S. [runs 881–883 vs 872/873/879 | 2026-07-31]
+- The small positive Δev at tighter gates (+0.06/+0.09, at/under 2× noise)
+  comes from slightly fewer dooms (883: q 0.436 vs 0.476, played 401 vs
+  416) — shorter exposure per order, not more starts. Not a mechanism gain.
+- **The q-terminal vs per-start-hazard discrimination DID NOT HAPPEN** (S
+  never moved, so q-elasticity w.r.t. S is still unmeasured). It transfers
+  to the pair-v4 test below.
+- **Consequence**: within one-order-at-a-time quoting, S is capped at the
+  one-sided crossing rate ⇒ S* is unreachable at every gate by parameter
+  tuning. The one structural way to raise S without leaving top-of-book:
+  quote BOTH sides simultaneously when balanced (v1 misses every crossing
+  on its unquoted side; symmetric crossings ⇒ S up to ~2×, and a
+  double-fill race = instant pair at bid-sum cost). At gate 0.93 that
+  projects S ≈ 3.3 > S* ≈ 2.7 ⇒ positive ev IF q holds. → family pair-v4
+  (both-sides start quoting), new code, own file. Guard-4 count: family at
+  9 configs without a per-dollar cure; pair-v4 is a mechanism change, not
+  an escalation of this grid.
