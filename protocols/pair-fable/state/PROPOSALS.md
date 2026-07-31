@@ -226,3 +226,36 @@ Entry format:
   per-side price ceiling first). P-010 and P-009 remain open per the ruling
   but are explicitly NOT blockers; the "frontier is empty" premise of this
   proposal is withdrawn (see evaluator.md §Kill standards).
+
+## P-011: fill model cannot pin maker capture within a factor of ~29–235 — queue-aware fill model / trade-print calibration needed before any HF maker work
+- status: proposed
+- date: 2026-07-31
+- context: E-024 (pre-registered hf-fill-probe.md, executed session 12 via
+  tools/fillprobe.ts on the pinned 800): an always-quoting top-of-book
+  10-share bid captures 897 shares/mkt under the engine's worst-queue rule
+  (140 ms) vs 26,215 shares/mkt under an optimistic front-of-queue bound
+  (level-decrease capture) — a 29× gap at deployable latency (235× at
+  0 ms), above the pre-registered 3× "materially binding" bar on every
+  single day. Raw top-of-book bid-level decrease flow is ~225k shares/mkt,
+  so the human-reported 700-trades/window operator is inside observed
+  activity. The engine therefore cannot certify OR refute the HF maker
+  regime: "fill-limited" conclusions (E-013) are model-scoped.
+- proposal: before any HF maker strategy code, close the W..O interval by
+  one of (in our cost order):
+  1. (no engine change, already pre-registered as E-025) trade-print
+     calibration on the 36 locally recorded live-WS btc markets —
+     last_trade_price events give true executed volume at the bid; the
+     loop runs this itself and reports the cancel-share of level
+     decreases and the T/W ratio.
+  2. If E-025 shows trade-confirmed capture ≫ worst-queue: an engine-side
+     queue-position-aware maker fill option for backtests (track
+     rest-time queue position from level sizes + trade prints; the
+     recorded dataset has what is needed, the telonex dataset does not —
+     it lacks trade prints, so a telonex-wide model needs either a
+     conversion change upstream or an explicit calibrated-factor model).
+  3. P-009 (live maker fill-quality micro-probe) remains the ground-truth
+     option and would double as the calibration for (2).
+  No decision needed to unblock current research (E-025 is in-rules
+  reanalysis); a ruling is needed only if (2)'s engine work should be
+  scheduled, or if HF maker strategy work should be prioritized after
+  E-025 reports.

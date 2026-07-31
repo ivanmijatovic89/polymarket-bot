@@ -626,3 +626,20 @@ chasing that, we designed a measurement (frozen today) of how much maker
 volume our simulator's pessimistic fill rule may be hiding — that
 decides whether "the market gives us so few fills" is real or an
 artifact of our model.
+
+## Session 12 — 2026-07-31
+
+Ran the measurement we froze last session: how many fills would a bot
+that always keeps a bid at the top of the book actually get — under our
+simulator's pessimistic rule vs. an optimistic upper bound. The gap is
+enormous: about 29× at realistic latency (and the optimistic bound
+counts cancellations as trades, so truth is somewhere in between). So
+"the market gives us very few fills" is a fact about our fill model,
+not necessarily about the market — the 700-trades bot you mentioned is
+plausible within the raw book activity we see (hf-fill-probe.md).
+Practical rule adopted: no high-frequency strategy code until the fill
+model is calibrated — we filed a proposal (P-011) and froze the next
+measurement: our 36 live-recorded markets contain actual trade prints,
+which tell us how much of the optimistic bound is real trading.
+Next: run that trade-print calibration, then design the position-sizing
+experiment (the last untested lever from your ruling).

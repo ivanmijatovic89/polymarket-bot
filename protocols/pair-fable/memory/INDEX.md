@@ -147,11 +147,22 @@ Pointers, not content.)
   AND scale; the S2 baseline for any future v1-family overlay
   (pair-v1.md §FULL run 914). Ruling axes 1/2/3/6 all answered-negative
   on the v1 family; remaining levers: axis 4 (size laddering), axis 5
-  (time-varying policy), and the HF regime. Next open front: E-024
-  (`experiments/hf-fill-probe.md`, PRE-REGISTERED session 11, not yet
-  run — measures worst-queue vs optimistic-queue maker capture ceiling
-  on the pinned 800; answers whether "fill-limited" (E-013) is a market
-  fact or a fill-model fact, per the human's 700-trades/window operator
-  context in `market-context.md`).
-  P-009/P-010 remain open but are NOT blockers. Sibling workspaces hold no
-  additional research memory (`siblings.md`, 2026-07-31).
+  (time-varying policy), and the HF regime. E-024 (session 12,
+  `tools/fillprobe.ts` on the pinned 800): **FILL MODEL MATERIALLY
+  BINDING** — optimistic front-of-queue capture is 235× worst-queue at
+  0 ms and 29× at 140 ms (frozen bar 3×, all 9 days above); raw
+  top-of-book bid decrease flow ~225k shares/mkt puts the
+  700-trades/window operator inside observed activity; maker-family
+  kills STAND (guard-6 direction) but every "fill-limited" claim
+  (E-013) is now model-scoped; NO HF maker strategy code against the
+  current simulator (P-011). Secondary: W-latency INVERSION (W140 =
+  3.8× W0) — worst-queue fills are pure adverse-selection events —
+  hf-fill-probe.md §Result E-024, archive
+  `experiments/data/fillprobe-2026-07-31-latest800.json`. Next open
+  front: E-025 (hf-fill-probe.md §E-025, PRE-REGISTERED session 12, not
+  yet run) — trade-print calibration of the W..O interval on the 36
+  locally recorded live-WS btc markets (`last_trade_price` gives true
+  executed volume; measures the cancel-share of level decreases and
+  T/W). Then axis 4 (size laddering) design.
+  P-009/P-010/P-011 remain open but are NOT blockers. Sibling workspaces
+  hold no additional research memory (`siblings.md`, 2026-07-31).

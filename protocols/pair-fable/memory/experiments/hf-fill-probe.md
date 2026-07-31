@@ -74,3 +74,116 @@ unreachable — the 140 ms variant is the deployable bound; (e) same 9-day
 pinned window as E-022 — regime drift folded in, per-day reported.
 
 design-ts (E-024): this commit, session 11 — before any computation.
+
+## Result E-024 (session 12, tools/fillprobe.ts, pinned 800, 0 skipped)
+
+**VERDICT: FILL MODEL MATERIALLY BINDING** — O/W on shares = **235.4×** at
+0 ms (frozen bar: ≥ 3×) and **29.2×** at the deployable 140 ms bound.
+Every one of the 9 days is far above 3× (range 120.7–385.0). Archive:
+`data/fillprobe-2026-07-31-latest800.{json,jsonl}` (checkpoint has
+per-market rows). Universe: latest-800 ≤ 1784762100000, slugs
+1784043000–1784762100 (2026-07-14→07-22), full 15-min windows,
+~178k book events/market.
+
+Headline numbers (shares/market, both sides summed, 10-share unit):
+
+| variant | shares/mkt | fills/mkt | p10 / p50 / p90 |
+| --- | --- | --- | --- |
+| W 0ms | 235.4 | 23.5 | 40 / 120 / 340 |
+| W 140ms | 897.5 | 89.8 | 370 / 810 / 1550 |
+| O 0ms | 55,413.9 | 6,976.6 | 27,177 / 52,056 / 87,416 |
+| O 140ms | 26,214.9 | 3,396.7 | 16,024 / 25,885 / 36,970 |
+
+Raw top-of-book maker flow (pre-event bestBid level decreases, cancels
+included by design): **6,960 events/market, 225,146 shares/market**
+(p10 77k, p50 192k, p90 426k). The 700-trades/window operator
+(market-context.md) is comfortably inside observed top-of-book activity
+even if only a few percent of level decreases are true trades.
+
+Consequences (frozen in the pre-registration):
+- All maker-family kills (E-014/E-016/E-017/E-018/E-019/E-021) STAND —
+  guard 6 optimism direction unchanged (real strategies fill more, not
+  less). But every "no volume available / fill-limited" conclusion
+  (E-013 chiefly) is now **model-scoped**: the engine cannot pin maker
+  capture within a factor of ~29–235, so it cannot certify that the
+  700-trade regime is unreachable.
+- **Do NOT write HF maker strategy code against the current simulator.**
+  Filed P-011 (queue-aware fill model / trade-print calibration).
+
+Secondary findings (not verdict criteria, recorded for reuse):
+- **W-latency inversion**: W140 = 3.8× W0 (897.5 vs 235.4 shares/mkt).
+  Under worst-queue, ADDING latency multiplies fills — a lagged quote
+  rests at stale (too-high) prices and is picked off when the book
+  falls through it. Worst-queue fills are adverse-selection events by
+  construction; W fill counts must never be read as benign capture.
+  Consistent with the E-014 −0.06/share per-start invariant.
+- O captures on essentially every decrease event at 0 ms (6,977
+  fills/mkt vs 6,960 decrease events/mkt) — the O ceiling is the
+  decrease flow itself, clipped at 10/event.
+- Economics side-note (context only, per pre-reg): at run-872's measured
+  completed-pair margin (~2.8¢/paired share, gate 0.98), and pairing
+  probe shares across sides (÷2): W140 ≈ $12.6/mkt, O140 ≈ $367/mkt of
+  gross margin ceiling — the 140 ms capture gap is worth ~$354/mkt
+  BEFORE adverse selection, stranding, and the cancel-share of O. Not
+  an EV claim; it sizes why the model gap matters.
+- Implementation note (within pre-reg intent, recorded for exactness):
+  O capture per event is min(decrease, remaining-of-10) with the order
+  re-armed instantly (0 ms) / after 140 ms on consumption or reprice —
+  i.e. an honest 10-share order lifecycle, marginally tighter than a
+  literal per-event min(decrease, 10).
+
+## E-025 pre-registration (session 12, BEFORE any computation) — trade-print calibration
+
+E-024 leaves a factor-~29–235 interval between W and O because level
+decreases conflate cancels with trades. The recorded live-WS dataset
+(`data/events/btc/*.parquet`, 36 local files, slugs from 1784637900 =
+2026-07-21, overlapping the pinned window's tail) carries
+`last_trade_price` events with price, size, AND taker side — true
+executed volume. This calibrates where reality sits in [W, O].
+
+**Method** (reanalysis, no strategy code, no fleet): replay each recorded
+btc file's market channel (book + price_change + last_trade_price; the
+recorded stream is self-contained), maintain per-asset book state, and
+compute on the SAME stream:
+1. **W and O quoters exactly as E-024** (same automaton, 0/140 ms) — and
+   for slugs common with the E-024 archive, report per-slug W0/O0 both
+   ways as a dataset-parity note (approximate agreement expected; no
+   verdict — different capture paths).
+2. **T (trade-confirmed front-of-queue) quoter**: same automaton, but
+   capture = min(executed trade volume at our level while quote rests
+   there, remaining), counting only trades whose maker side is the bid —
+   taker side SELL at price ≤ pre-event bestBid... precisely: side ==
+   SELL and |price − quote| < ε. Pre-commit on side semantics: verify on
+   a sample that SELL means taker-sell (trade prints at bestBid, not
+   bestAsk); if ambiguous, fall back to price-based attribution
+   (trade at price ≤ pre-event mid ⇒ bid-side execution) and say so.
+3. **Raw flows per market**: total trade count/volume; trade volume at
+   pre-event bestBid (bid-side maker flow, the T ceiling); decrease
+   events/volume at bestBid (the O ceiling) ⇒ **cancel share of
+   decreases** = 1 − tradeVol/decreaseVol at bestBid.
+
+**Frozen readouts**: T0/T140 shares+fills per market; ratios T/W and O/T
+(both latencies); cancel share of decrease volume; per-market
+p10/p50/p90; trades/market (count) vs the 700 figure.
+
+**Frozen interpretation** (calibration, NOT a family verdict — n≈36,
+~2 days, one regime):
+- T140 ≤ 2× W140 ⇒ the trade-confirmed ceiling is near worst-queue: the
+  E-024 gap is mostly cancels; the current fill model is an acceptable
+  bound for maker capture, and E-024's "materially binding" is
+  downgraded to "O-bound uninformative" (record in both places).
+- T140 ≥ 3× W140 ⇒ the engine materially understates trade-confirmed
+  capture ⇒ P-011 escalates: queue-aware fill model calibrated by T (or
+  live micro-probe P-009) becomes a prerequisite for ANY maker-capture
+  claim, not just HF.
+- Between ⇒ report; carry both bounds in all future maker reasoning.
+
+**Confounders pre-committed**: (a) n≈36 markets from ~2 days — a
+calibration factor, not a universe claim; (b) recording-path latency
+and event ordering differ from the telonex stream (hence the parity
+note); (c) T assumes front-of-queue — still an upper bound on a joiner,
+but a far tighter one than O; (d) 10-share unit as E-024; (e) trade
+prints may undercount (WS drops) — treat T as a lower bound on true
+flow when reading the cancel share.
+
+design-ts (E-025): this commit, session 12 — before any computation.
