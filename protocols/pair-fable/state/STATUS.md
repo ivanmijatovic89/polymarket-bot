@@ -1,69 +1,66 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-07-31 (mission-02 session 6, complete)
+Updated: 2026-07-31 (mission-02 session 7, complete)
 
 ## Current work
 
-Session 6 delivered (all evidence from this session's tool runs; session 5
-died mid-scan and its 0-byte archive was regenerated from scratch):
+Session 7 delivered (evidence from this session's tool runs):
 
-1. **Scanner made session-death-proof.** `tools/bookscan.ts` gained
-   `--checkpoint` (per-market JSONL persist + resume-by-slug, params
-   enforced via header line) and `--time-budget-s` (clean partial exit).
-   The 800-market scan ran as 4 foreground ~450s passes — the pattern for
-   any long local job from now on (never background + wait; inbox
-   dad421a6).
-2. **Binding regression check PASSED exactly**: new scan's A stream and
-   D's δ=0 stream reproduce the session-4 archive to every digit
-   (199,542,943 events, moments 5039/4247, C p50 1.0368/1.0373, all
-   percentiles/day tables). Archive:
-   memory/experiments/data/bookscan-2026-07-31-s6-latest800.json.
-3. **E-017 — pair-v7 (taker-lead pair) KILLED at Phase 0.** Maker
-   completion leg fills fine (69–89%) — first family where it does — but
-   best-gate total EV is +$0.02/mkt vs the $0.10 bar (optimistic proxy),
-   entries rare, and the stranded-residue hypothesis refuted hard: the
-   held side wins 2.2% (−0.16/share). Negative even at zero latency —
-   adverse selection, not latency. pair-v7.md.
-4. **E-018 — pair-v8 (deep-book maker δ-grid) KILLED at Phase 0.**
-   Hold-all EV negative at every δ (best −$0.017 @ δ=0.05, ≤5/9 days
-   positive); free-abort ≤ $0.043 everywhere. Mechanistic finding:
-   zero-latency completion C p50 < 1 from δ=0.02 (down to 0.935 at 0.08)
-   while 140ms C stays ~1.04 — the repricing wall eats exactly the δ
-   cushion. pair-v8.md.
-5. **P-010 filed**: buy-only pair mechanics on btc-15m are exhausted
-   in-rules at 140ms (E-005/014/015/016/017/018); ruling requested —
-   approve P-009 live fill-quality measurement, and/or widen strategy
-   space / timeframes / symbols, and/or revisit the latency assumption.
+1. **M1–M5 status corrected: they were ALREADY DONE.** Session 6's STATUS
+   listed the review-gate hardening as next-step work, but mission-02
+   session 1 implemented it (commit 4809a8e, ancestor of HEAD, journal
+   entry exists). Re-verified this session by execution: the Mission-01
+   exemplar evaluate.ts command (mixed maxPairCost 0.95/0.98) now returns
+   MECHANICAL-FAIL with the M1 params-identity message, the M4 cross-run
+   engine-SHA warning fires, m6's taker-trend note appears in S3, M2/M3
+   code paths present (design-ts sanity vs earliest run; champion bar
+   ev > 2×SE(n)), M5 `.max(100)` bound on incrementSize in pair.v0.ts:41.
+   **The champion-promotion gate is satisfied.** Only m7 (pnl-decomposition
+   column) remains, folded on the next results.ts touch.
+2. **Sibling-memory review done — nothing to mine.** Actual siblings are
+   `protocols/pair/` (the human's design template; no memory) and
+   `protocols/pair-codex/` (Codex loop, NOT started: only
+   RULES/VISION/mission-01). pair-opus/pair-sonnet (named in session-6
+   STATUS) do not exist. Findings + recheck procedure recorded in
+   memory/siblings.md; INDEX.md digest refreshed (was stale re E-017/018).
+3. **P-010 enriched with ruling-relevant data** (addendum in
+   state/PROPOSALS.md): the backtestable dataset is btc-15m ONLY (25,842
+   done conversions; 10,747 post-floor = run 870 exactly); eth/sol/xrp-15m
+   cataloged but unconverted (~24.6–25.6k each); 5m cataloged ~44k/symbol
+   unconverted; 1h/4h/1d not cataloged at all — option 3 requires
+   human-run data:sync + a RULES amendment (RULES pins btc-15m). Option 1
+   (P-009) has design precedent in the parent plan's P2.5 micro live probe.
 
-## Next step (session 7)
+## Next step
 
-The in-rules variant frontier is empty pending the P-010 ruling. Useful
-non-blocked work, in order:
+**Blocked on the P-010 ruling.** The in-rules variant frontier is empty
+(E-005/014/015/016/017/018, all pre-registered and reproduced), M1–M5 are
+done, and the sibling review found nothing new. Remaining unblocked work is
+make-work (re-testing killed families on new data windows), which the
+mission's self-check forbids. When the ruling arrives in the inbox, it sets
+the research direction:
 
-1. **M1–M5 hardening** (binding review gate, must land before any future
-   promotion; findings in state/MISSION01-REVIEW.md): M1 cross-run
-   params+latency identity in evaluate.ts, M2 machine-checkable design-ts
-   rule for --param variants, M3 noise-aware champion/dethroning
-   threshold, M4 engine-SHA awareness in cross-run comparison +
-   team-workflow rule 4, M5 bound incrementSize. Fold m6–m11 into files
-   as touched (m7 pnl-decomposition column on next results.ts touch).
-2. **Sibling-memory review** (allowed per inbox c68ea4ce): read
-   pair-opus/pair-sonnet memory/ + PROPOSALS for mechanisms or evidence
-   we have not tried; record a comparison note in memory/.
-3. Check INBOX for a P-010 ruling; if one arrives, it sets the research
-   direction and supersedes 1–2 in priority.
+- Option 1 (P-009 live probe) → human executes; loop designs the
+  measurement protocol and analyzes.
+- Option 2 (widen strategy space) → RULES amendment, then new family
+  design against the recorded residue economics.
+- Option 3 (other timeframes/symbols) → human runs data pipeline first
+  (see P-010 addendum), RULES amendment, then port the Phase-0 scan
+  discipline to the new universe.
+- Option 4 (latency ruling) → re-evaluate E-015/E-018 economics at the
+  granted latency (bookscan archives already carry zero-latency streams).
 
 ## Blockers
 
-None mechanical. Strategically: new in-rules variant work is blocked on
-the P-010 ruling (M1–M5 + sibling review remain productive meanwhile).
+Research direction requires the P-010 human ruling (see Needs human). No
+mechanical blockers.
 
 ## Needs human
 
-- **P-010** (state/PROPOSALS.md): where to search next, now that buy-only
-  pair mechanics on btc-15m are exhausted at 140ms with reproduced
-  evidence. Options: approve P-009 live measurement / widen strategy
-  space / other timeframes-symbols / latency-infrastructure ruling.
+- **P-010** (state/PROPOSALS.md, addendum 2026-07-31): where to search
+  next — approve P-009 live measurement / widen strategy space / other
+  timeframes-symbols (data-pipeline prerequisite documented) / latency
+  ruling. Any subset unblocks research.
 - Carried: P-002/P-003/P-005/P-006/P-007/P-009 (all `proposed`).
 
 ## Standing session guards
@@ -76,7 +73,8 @@ the P-010 ruling (M1–M5 + sibling review remain productive meanwhile).
   every session, no exceptions.
 - Never `--extend` (P-001). Fresh FULL runs for OOS growth.
 - Run `tools/refresh-capabilities.ts` when a rebase pulls engine commits
-  (this session: origin/main had no new commits at session start).
+  (this session: origin/main == local HEAD dc29089 at session start, no
+  drift).
 - Queue submissions require a CLEAN tree: commit+push BEFORE launching.
 - Screens baseline 874 (v0) and parents 872/873/879 remain valid ≤
   2026-08-06 (evaluator.md §Universes).
@@ -84,10 +82,10 @@ the P-010 ruling (M1–M5 + sibling review remain productive meanwhile).
   most one evidence pointer per conclusion (inbox 330fa938, permanent).
 - Pre-registered grids of 3+ configs: submit the WHOLE grid up front,
   analyze as results land (inbox c841c329).
+- Sibling-memory recheck is cheap (`ls protocols/*/memory`): do it at
+  session start once the Codex loop launches (memory/siblings.md).
 
 ## Inbox processed through
 
-2026-07-31T01:56:42.590Z-dad421a6 (session 6 processed dad421a6 — the
-generalized never-wait rule and the session-result.json mandate — by
-building checkpoint/resume into bookscan.ts, running the scan as
-foreground chunks, and adding both as standing guards above).
+2026-07-31T01:56:42.590Z-dad421a6 (no newer entries existed at session-7
+start; session 7 awaited a P-010 ruling that had not yet arrived).

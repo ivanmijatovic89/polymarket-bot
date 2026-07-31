@@ -196,3 +196,27 @@ Entry format:
 - **Cost if unanswered**: after M1–M5 hardening and sibling-memory review,
   the in-rules research frontier is empty; the loop would be reduced to
   re-testing killed families on new data windows.
+- **Addendum (2026-07-31, session 7) — data facts to inform the ruling**:
+  - Option 3 (widen universe) has a data-pipeline prerequisite the loop
+    cannot fulfil itself: the converted (backtestable) dataset is
+    **btc-15m only** — 25,842 done delta-typed conversions (10,747 post
+    protocol floor, matching run 870 exactly) plus 6 stray btc-5m markets.
+    ETH/SOL/XRP-15m are cataloged but unconverted (25,593 / 24,633 / 24,663
+    markets since 2025-10); 5m is cataloged in volume (~44k per symbol since
+    2026-02, incl. btc); **1h/4h/1d are not cataloged at all** (a
+    telonex:sync scope change, before any conversion). Choosing option 3
+    therefore means the human (producer machine) runs
+    `data:sync:main --market <sym>:<tf>` (+ priceToBeat backfill; chainlink
+    crypto_prices coverage is symbol-independent but feed parity for
+    non-BTC symbols is unverified) before any backtest can run. [db
+    telonex_markets ⋈ telonex_market_conversions GROUP BY symbol,timeframe |
+    2026-07-31]
+  - Option 1 (P-009 live fill-quality probe) has design-level precedent:
+    the parent workspace's plan (`protocols/pair/VISION_AI.md`, phase P2.5)
+    already schedules a ~$50 micro live probe as "the one question no
+    backtest can answer", explicitly for calibrating the simulator's fill
+    model. P-009 is a narrower, cheaper version of that planned phase.
+  - Also on option 3: our RULES.md pins the market to btc `btc-updown-15m-*`
+    / 15 min (lines 6–7), and its feed-coverage epochs are stated for btc-15m
+    specifically — so options 2 and 3 both need a RULES amendment, not just
+    data.

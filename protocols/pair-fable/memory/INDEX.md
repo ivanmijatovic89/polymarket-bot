@@ -12,6 +12,7 @@ not survive. Written for AI consumption: dense, factual, evidence-tagged.
 | `capabilities/` | Engine knowledge, one file per subsystem. What the engine can do, verified. |
 | `experiments/` | Mission-02 land: `LEDGER.md` (one line per experiment) + one file per variant family. |
 | `process/` | How-we-work: evaluator spec, capability-refresh procedure, team workflow. |
+| `siblings.md` | Sibling-workspace (`protocols/pair-*`) review log: what exists elsewhere, when last checked. |
 
 ## Conventions (binding)
 
@@ -97,8 +98,8 @@ Pointers, not content.)
   contract enforced as ERROR). Human trigger is one command; sessions run it
   before relying on capability notes for new work.
 - **Experiments**: `experiments/LEDGER.md` (one line per experiment) +
-  family files pair-v0..v6. E-001..E-016 recorded (runs 861–887; E-015/16
-  are run-free book scans). State as of 2026-07-31 (mission-02 session 4):
+  family files pair-v0..v8. E-001..E-018 recorded (runs 861–887; E-015..18
+  are run-free book scans). State as of 2026-07-31 (mission-02 session 6):
   **the top-of-book maker pair-accumulation class is KILLED (time-scoped
   2026-07)** — six-run cross-section (E-014, pair-v4.md §per-start
   invariant) shows per-start EV ≈ −0.06/share invariant to gate, cadence
@@ -111,9 +112,16 @@ Pointers, not content.)
   before the fill instant (zero-latency C p50 1.016), free-abort bound
   $0.04/mkt, and the hold-all directional readout is −0.029/share so no
   abort policy rescues it. The −0.06 invariant is decomposed (pair-v6.md).
-  Every kill is pre-registered and evidence-tagged. Remaining inside-RULES
-  untested axes (session-5 scan targets): taker-lead pair (buy one side at
-  ask, maker-complete the other; entry condition ask+bid+fee < gate is
-  common) and deep-book maker placement (rest below bestBid; per-start
-  invariant only measured at top-of-book). P-009 filed (live benign-fill
-  share would bound the worst-queue fill-quality bias).
+  Every kill is pre-registered and evidence-tagged. The last two
+  inside-RULES axes died in mission-02 session 6 (scan archive
+  `experiments/data/bookscan-2026-07-31-s6-latest800.json`, δ=0 regression
+  exact vs session 4): E-017 taker-lead pair — maker completion fills
+  69–89% but best-gate total EV +$0.02/mkt vs the $0.10 bar, stranded side
+  wins 2.2%, negative even at zero latency (pair-v7.md); E-018 deep-book
+  maker δ-grid — hold-all negative at every δ (best −$0.017 @ 0.05);
+  zero-latency completion turns profitable from δ=0.02 but 140ms repricing
+  eats exactly the cushion (pair-v8.md). **Buy-only pair mechanics on
+  btc-15m are exhausted in-rules at 140ms** — P-010 (state/PROPOSALS.md)
+  asks the human where to search next; P-009 (live benign-fill share) would
+  bound the worst-queue fill-quality bias. Sibling workspaces hold no
+  additional research memory (`siblings.md`, 2026-07-31).

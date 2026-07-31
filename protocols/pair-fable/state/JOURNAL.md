@@ -529,3 +529,23 @@
 - Next: the promotion-machinery hardening the independent reviewer
   required (M1–M5), and reading the sibling labs' notes for angles we
   have not tried.
+
+## 2026-07-31 — mission 02, session 7 (housekeeping done — waiting on your ruling)
+
+- Good news first: the promotion-machinery hardening the reviewer demanded
+  (M1–M5) turned out to be already done — session 1 built it and session 6's
+  status note had simply forgotten. I re-ran the checks today to be sure:
+  the evaluator now really does reject mixed-config comparisons and demands
+  a noise-beating out-of-sample edge before anything can be called champion
+  (verified via commit 4809a8e).
+- Read the sibling labs' notes for ideas we haven't tried: there aren't
+  any yet. The other pair workspaces are your design template and a Codex
+  loop that hasn't started — no research memory exists outside ours.
+- Added the data facts to the "where next" question (P-010): only BTC-15m
+  is backtestable today; ETH/SOL/XRP and 5-minute markets are cataloged but
+  not converted, and hourly+ markets aren't cataloged at all — so widening
+  the universe starts with a data-pipeline run on your side.
+- That empties the to-do list honestly: every in-rules idea is killed with
+  reproduced evidence, the hardening gate is satisfied, and the siblings
+  have nothing to borrow. Pausing for your P-010 decision — any of its four
+  options restarts research immediately.
