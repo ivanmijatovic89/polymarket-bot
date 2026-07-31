@@ -3,6 +3,9 @@
 > Amended per Mission 01's READY review (A1–A7, all accepted by the human on
 > 2026-07-30). Evidence and definitions referenced below live in
 > `memory/process/evaluator.md` and `memory/capabilities/parity.md`.
+> Amended again by the human on 2026-07-31 (inbox rulings `90d94c56` and
+> `93482fcb`) to make continuous two-sided inventory accumulation the current
+> primary research program.
 
 ## Why
 
@@ -47,6 +50,52 @@ constitution; the Global Runtime contract remains the interface.
    survive regime changes — bull, bear, quiet, frantic. Regime adaptivity is
    a long-term goal, not a v1 gate: the near-term bar is goal 1.
 
+## Current primary program: continuous two-sided accumulation
+
+Until the human repoints the lab, the main research program is a stateful
+controller that operates through most of each BTC 15-minute market and keeps
+buying both UP and DOWN. It is not primarily a search for one isolated pair
+opportunity or a one-sided favorite trade. The controller must:
+
+- maximize matched inventory, `min(UP shares, DOWN shares)`;
+- use cumulative inventory and later price oscillation to improve earlier
+  purchases;
+- keep imbalance controlled and explicitly survive one-way markets;
+- target a final aggregate pair VWAP below `$0.98`, while also reporting the
+  fractions below `$0.95` and `$0.90`; and
+- measure absolute profit, profit per `$100`, capital actually used, matched
+  shares, final and maximum imbalance, and tail loss.
+
+The `$0.98` target is not a hard invariant after every action. Temporary pair
+VWAP above `$0.98`, including controlled completion above `$1`, is allowed
+when it reduces dangerous residue or when later accumulation can repay the
+temporary recovery debt. The controller must bound that debt using remaining
+time, capital, imbalance, observed opportunity, and maximum-loss constraints,
+and tighten risk near the end of the window. Unlimited loss chasing is never
+allowed.
+
+Maker and taker orders are both valid. Choose between them from expected net
+outcome, including the real fee, latency, fill, OrderManager, and portfolio
+semantics. Do not optimize for a maker/taker percentage. The neutral
+controller comes first; after it is understood, the directional version is
+the same controller with a measured and controlled non-zero inventory target.
+
+Implement and evaluate this program through the real shared strategy and
+backtest path; do not replace it with a separate approximate simulator. Work
+in stages: a small smoke/integrity sample, roughly 100–200 diagnostic markets,
+the pinned 800-market screen, then fresh FULL/OOS evidence only for survivors.
+For scale, test at least `$100`, `$500`, `$1,000`, and `$2,000` per market,
+with order size adapted sensibly to capital and displayed depth. The
+500–1,000 matched-share level is an aspiration to investigate, not an assumed
+result.
+
+Maintain and test a backlog of genuinely different controller mechanisms
+derived from the accounting identity, price paths, inventory state, remaining
+time, liquidity, and failed experiments. Previous family failures are design
+constraints, not dismissal grounds, unless exact equivalence to the new
+controller is demonstrated. The parked E-029 favorite-side replication is
+secondary to this program.
+
 ## Unit of work
 
 One session = one coherent research increment: design the next experiments
@@ -56,7 +105,12 @@ record conclusions with evidence in memory, update the research plan, commit
 and push, return `continue`. Batch what you can: launching several
 well-chosen experiments per session costs almost the same context as one —
 decide the batch size yourself, and use fleet wait time to analyze earlier
-results.
+results. Five 800-market runs in a long session are not a target or ceiling:
+pre-register informative grids, submit the whole independent grid up front,
+keep available workers useful, and use completed results to launch the next
+justified batch. More throughput must remain hypothesis-driven, with frozen
+metrics and verdict bars; never substitute blind parameter brute force or
+p-hacking for mechanism research.
 
 Two hard rules from mission 01's evidence (A4, A6): never end a session
 blocked on an in-flight fleet run — record the batch/run id in the status
