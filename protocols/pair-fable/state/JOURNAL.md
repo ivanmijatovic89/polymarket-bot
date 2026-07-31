@@ -936,3 +936,27 @@ batch re-asking the price-cap question properly is now on the fleet;
 next session reads it.
 One bookkeeping correction: the review-gate fixes the last audit
 listed as outstanding were in fact implemented and verified days ago.
+
+## Session 27 — 2026-07-31
+
+While the full-history price-cap batch from last session works
+through the fleet, we built the next planned idea: a version of the
+controller that decides which side to lean toward by looking at the
+actual Bitcoin price versus the market's strike price, instead of at
+the betting odds. The odds are the crowd's opinion; the spot price
+is the physical thing the market settles on, and we can see it a
+beat before the crowd finishes repricing. If that beat is real, the
+same tilted purchases should happen at better prices.
+The new strategy runs cleanly end to end, and switching the lean on
+and off visibly changes its behavior on identical test markets — so
+the price signal is genuinely reaching the decisions. The experiment
+to judge it (three signal strengths plus a no-lean reference, all on
+the full history) is written down and locked; it launches as soon as
+the current batch finishes, since one of its settings depends on
+that batch's answer.
+The first quarter of the running batch also landed: on the full four
+months, the current tilted controller loses about $15 per market —
+worse than the recent-weeks screens suggested, and steady across
+every month. The recent window was a slightly friendly slice, not a
+trend change. This is exactly why money verdicts now happen on full
+history.
