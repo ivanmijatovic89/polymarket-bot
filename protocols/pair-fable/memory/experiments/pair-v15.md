@@ -1175,3 +1175,80 @@ these 7 START-observable features at minutes 0–3 is answered-negative
 for v15 (scope: this feature set, this window, this universe — NOT a
 class kill of market selection). Per the frozen outcome table: proceed
 to tilt firm-up (STATUS step 2, §5 signal gate).
+
+## 14. E-036 — the binding scale check: $2,000 cap toward 500–1,000 matched shares (session 21 — FROZEN)
+
+Motivation: mission amendment f8b19a4 (binding). The scale question may
+not be declared answered/converged/dead until capPerMarket $2,000 is
+tested AND the 500–1,000 matched-share range is approached or
+mechanically explained. E-033's SCALE-NEUTRAL is QUALIFIED to
+q ≤ 100 / B ≤ 1000 / M ≈ 231 (STATUS s20); this experiment is the
+required extension. GREEN neutral-controller classification.
+
+Hypothesis: per-dollar economics stay inside the ±0.54 bar through
+q = 300 / B = 2000 (doom-premium invariance extends), and matched
+inventory reaches the 500–1,000 range mechanically — E-033's S-count
+invariance (2,414–2,554 S-fills per 800 mkts, size-independent)
+predicts M ≈ 231 × (q/100) ≈ 700 at q = 300 — while guard-7 fill
+optimism escalates from "q under a third of ToB depth" to "q at the
+measured ToB minimum", which is itself candidate (b) mechanical
+evidence about real-world reachability.
+
+Required code change (committed AFTER this design, BEFORE submission —
+schema-only, no strategy-semantics change): raise `orderSize` max
+100 → 400 and `imbalanceBand` max 200 → 800 in pair.v15.ts. M5's
+spirit kept: bounds stay, raised with the depth argument named —
+E-028b measured displayed ToB sizes of 300–450 shares in these books;
+q ≤ 400 caps one resting order at ≈ the measured maximum, beyond which
+even whole-size fill semantics stop being a defensible approximation.
+Because the strategy file SHA moves, run #0 is a same-config bridge to
+run 956 (old SHA 4a5982e): a schema-only edit must reproduce inside
+the noise floor.
+
+### 14.1 Grid (FROZEN; pinned 800 `--latest 800 --to-ms 1784762100000`,
+### launcher-pinned 140/20, P* = 0.96, γ = 0, doomUnitMax = 0.99,
+### band:q ratio 1.6 per E-033, submitted as one batch)
+
+| # | q | I_b | B | vs (pair) |
+|---|---|---|---|---|
+| 0 | 100 | 160 | 500 | 956 (SHA bridge — integrity, not scale) |
+| 1 | 100 | 160 | 2000 | #0 (B ×4 at fixed policy; 957 secondary: B ×2 old-SHA) |
+| 2 | 200 | 320 | 2000 | #1 (q ×2 at open cap) |
+| 3 | 300 | 480 | 2000 | #2 (q ×1.5; the matched-share aspiration cell) |
+| 4 | 200 | 320 | 1000 | #2 (cap-binding control at q = 200) |
+
+Schema check per cell (post-raise): q ≤ 400 ✓ (100/200/300); q ≤ I_b ✓
+(ratio 1.6); I_b ≤ 800 ✓ (≤ 480); B ≤ 2000 ✓; doomUnitMax 0.99 ✓;
+refine orderSize ≤ imbalanceBand ✓ every cell.
+
+Frozen readouts: §3 metrics 1–8; matched-share distribution M
+mean/median/p90/max vs the 500–1,000 range; invested mean/max vs B
+(does $2,000 bind, and where); S-fill COUNT per run vs q (does E-033's
+invariance extrapolate to q = 300); strand count × mean strand loss;
+per-mode fills (S/R/C/D).
+
+Frozen verdict bars (per-$100 governs, bar 0.54 = 2·0.27; ev bar 0.30
+secondary; guard-7 whole-size fill optimism named on every claim):
+
+- **BRIDGE-STOP**: |#0 − 956| per-$100 > 0.54 ⇒ the schema edit is NOT
+  behavior-neutral — halt the scale readout, diagnose before any
+  verdict. (#0 inside the bar validates the grid.)
+- **SCALE-IMPROVING** iff some scaled config beats its named pair by
+  > 0.54 per-$100 AND tail (min pnl, p5) degrades no worse than
+  proportionally to invested ⇒ iterate deeper (then evaluator
+  pipeline), guard-7 note attached.
+- **SCALE-NEUTRAL-AT-2000** iff every named pair |Δper-$100| ≤ 0.54 ⇒
+  the doom premium is invariant through q = 300 / B = 2000. The
+  binding mission check then closes via the M readout: if M reaches
+  500–1,000, report (a) approached WITH the guard-7 qualification —
+  q ≥ 200 rests into ToB depth measured 300–450, so whole-size fills
+  are at/above the displayed minimum and the optimism itself is the
+  (b) mechanical evidence bounding real reachability; if M stalls
+  < 500, name the broken link (S-count invariance or cap binding) as
+  the (b) mechanical explanation.
+- **SCALE-DEGRADING** iff some named pair is worse by > 0.54 ⇒ the
+  measured cost of size at depth — direct (b) evidence; bound future
+  grids.
+
+Deviations require a written amendment here BEFORE the affected
+submission.
