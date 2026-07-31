@@ -9,7 +9,8 @@ main** — nothing accumulates on private branches.
 
 | Protocol | Directory | Status | Notes |
 |----------|-----------|--------|-------|
-| pair-fable | `protocols/pair-fable/` | pre-launch | Global Runtime-managed (see below); launch guide in its README. |
+| pair-fable | `protocols/pair-fable/` | active | Global Runtime-managed (see below); launch guide in its README. |
+| pair-opus | `protocols/pair-opus/` | pre-launch | Second independent lab on the same strategy, clean start; Global Runtime-managed. |
 
 Legacy protocols predate this structure and are NOT migrated:
 `strategy-research-protocol/` (main), `gabagool-knowledge-and-lab/` (pointer on
