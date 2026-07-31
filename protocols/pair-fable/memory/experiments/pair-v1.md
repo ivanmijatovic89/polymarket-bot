@@ -189,3 +189,71 @@ Full curve on the identical 800-market universe (all @ 140/20ms):
   (contested vs decided windows via spot/priceToBeat feeds — pair-v3
   direction). Stopping-rule note (guard 4): family is at 6 configs
   (a,b,c,d + v2-a,b) without a real per-dollar improvement.
+- **2026-07-31 session-3 update**: the start-selection axis was killed at
+  Phase 0 (pair-v3.md — spot/ptb state carries zero doom signal). The next
+  axis is the §Cadence model below.
+
+## Cadence model (session 3, 2026-07-31) — the family's exact P&L algebra
+
+pair.v1.ts is one-resting-order-at-a-time, and while imbalanced it only
+quotes repair ⇒ residue is structurally EXACTLY one increment (matches
+anatomy: residue qty median = p90 = 10 in every run). Per played market with
+S start-fills and doom probability q (window ends imbalanced):
+
+    pnl/played = inc × [ g_sh·(S − q) − avgE·q ]
+
+where g_sh = pair margin per paired share and avgE = avg entry price of the
+doomed increment. **inc multiplies but never flips the sign** — the
+residue-quantum idea (smaller incrementSize) is dead by arithmetic, no runs
+needed. The only levers: S (start cadence), g_sh (gate), q (unpredictable —
+pair-v3.md). Break-even start rate S* = q·(1 + avgE/g_sh), from anatomy runs:
+
+| gate | run | g_sh | avgE | q | S* (break-even) | S (actual) | gap |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| 0.98 | 872 | 0.0279 | 0.439 | 0.489 | 8.18 | 2.42 | 3.4× |
+| 0.95 | 873 | 0.0589 | 0.407 | 0.518 | 4.10 | 1.88 | 2.2× |
+| 0.93 | 879 | 0.0799 | 0.404 | 0.476 | 2.88 | 1.64 | 1.8× |
+
+(879: paired increments = R fills = 484 ⇒ g_sh = 386.47/4840; avgE =
+799.77/198/10; q = 198/416.) The tighter the gate, the SMALLER the cadence
+gap to profitability — the gate curve killed gate-tightening at FIXED
+cadence, but gate × cadence is untested. Current cadence is TTL-bound:
+cycle ≈ (fill wait or ttlSec 90s) + cooldownTicks 25.
+
+## Cadence extension (pre-registered 2026-07-31 session 3 — v1-e/f/g)
+
+**Hypothesis**: S is elastic in ttl/cooldown (unfilled orders requote at a
+fresh bestBid sooner), and q is a per-market terminal event roughly
+invariant to S (the strategy is already exposed most of the window, so more
+starts do not proportionally raise the chance the window ends imbalanced).
+If both hold, ev and p/100 improve together as S rises, and gate 0.93 needs
+only S ≈ 2.9 to cross zero.
+
+**Decisive discrimination**: if instead q rises ∝ S (per-start hazard
+world, each start an independent ~20% coin), then pnl/played =
+inc·S·[g_sh(1−p) − avgE·p] < 0 at EVERY gate and EVERY cadence
+(0.98: 10S·(0.0279·0.8 − 0.439·0.2) = −0.65·S; 0.93: −0.13·S) — the whole
+one-order-at-a-time pair mechanism is unprofitable regardless of tuning,
+and the family moves to KILL/redesign. One cheap batch decides this.
+
+Grid (screens `--latest --limit 800` @ 140/20ms; ttlSec=61 is the engine
+minimum, cooldownTicks=5 near-minimum; all else defaults):
+
+| config | params | prediction if q-terminal holds |
+| --- | --- | --- |
+| v1-e | ttlSec=61 cooldownTicks=5 (gate 0.98) | S 2.4→≥3.2, p/100 improves from −8.05, ev still <0 (S* 8.2 unreachable) |
+| v1-f | ttlSec=61 cooldownTicks=5 maxPairCost=0.95 | S 1.9→≥2.6, ev −1.07→≥−0.6 |
+| v1-g | ttlSec=61 cooldownTicks=5 maxPairCost=0.93 | S 1.6→≥2.2, ev −0.55→≥−0.25; if S ≥ 2.9 with q,g_sh held: ev ≥ 0 |
+
+**Falsifiable kill/advance rules (BEFORE launch)**: ADVANCE the cadence axis
+iff S rises ≥1.3× at some gate AND p/100 improves beyond noise with q rising
+by less than half the relative rise of S. KILL the cadence axis if S barely
+moves (<1.3× everywhere — cadence is fill-limited, not TTL-limited) or if
+p/100 stays flat while S rises (per-start-hazard world confirmed) — in that
+world the next step is mechanism redesign (both-sides start quoting /
+requote-on-book-move as code, or family KILL per guard 4), not more params.
+Watch taker% (S3 concern): faster requoting must not push taker share
+materially above the ~13–16% of the parents.
+
+Baselines: same-gate parents 872/873/879 via compare.ts intersection.
+design-ts (M2 param-variant rule) = the commit adding this section.

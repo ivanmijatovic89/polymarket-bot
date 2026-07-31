@@ -394,3 +394,25 @@
   SELECTION (contested vs decided windows via spot/priceToBeat feeds).
   Session 3 first validates the hypothesis from data (dooms vs early-window
   spot–priceToBeat distance) before any v3 code.
+
+## 2026-07-31 — mission 02, session 3 (part 1: contested axis killed, cadence model found)
+
+- Built `tools/contested.ts`: joins every start fill to Binance aggTrades
+  spot + priceToBeat, per-start doom analysis with pre-registered verdicts
+  (pair-v3.md written BEFORE running).
+- **pair-v3 (contested-start gate) KILLED at Phase 0**: doom rate is flat
+  (~17–35%) across the entire |spot−ptb| and drift range on runs 872 AND
+  873, including the last-start-only view; market-level correlation is
+  INVERTED (contested quartile dooms 61% vs 38% for decided). Doom is
+  unpredictable from start-time market state. No strategy code was written
+  (guard 2 upheld). LEDGER E-012.
+- **Cadence model**: derived the family's exact P&L algebra
+  (pnl/played = inc·[g_sh(S−q) − avgE·q]). incrementSize provably cancels
+  (residue-quantum idea killed without runs). Break-even start rate S* =
+  q(1+avgE/g_sh): 8.2 @ gate 0.98 but only 2.88 @ 0.93 vs actual 1.64 —
+  the cadence gap at tight gates is only ~1.8×. Gate×cadence is the one
+  untested combination; pre-registered v1-e/f/g (ttl 61, cooldown 5 at
+  gates 0.98/0.95/0.93) with a decisive q-terminal vs per-start-hazard
+  discrimination — the latter would kill the whole one-order pair
+  mechanism at any tuning.
+- Next: commit (design-ts), smoke, launch the three screens.
