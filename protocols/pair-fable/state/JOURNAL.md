@@ -706,3 +706,25 @@ Next: rerun the same frozen measurement on the full 10,700-market
 history (data already on disk, costs nothing but local compute). If the
 favorite edge is real, we'll bring you a scope question — exploiting it
 means buying one side and holding, not pairing.
+
+## Session 16 — 2026-07-31
+
+You redirected us: pause the favorite-edge follow-up, and instead design
+a controller that buys BOTH sides all through the window, building a big
+matched stack of UP+DOWN below $0.98 combined, with the imbalance kept
+small at every moment. This session is the design, on paper only, as
+ordered — no code, no experiments.
+The design is written (pair-v15.md): why none of our fifteen dead
+variants actually was this controller (they all held ~10 shares at a
+time; this holds hundreds and lets early cheap buys pay for later
+completions), the exact buying/price/imbalance/capital rules, what
+"success" will be measured as, and the worst-case loss in a market that
+trends and never comes back.
+One hard fact to keep in view: our fill measurements say ~610 shares per
+market is what top-of-book patience realistically captures (hf-fill-probe.md),
+so the 500–1,000 matched aspiration needs bigger orders and some paying
+of the spread — the design says how, and the first experiment measures
+whether the market's back-and-forth actually supplies enough cheap
+two-sided flow.
+Waiting on your review — five specific questions are at the end of the
+design file.

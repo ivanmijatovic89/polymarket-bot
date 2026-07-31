@@ -202,5 +202,15 @@ Pointers, not content.)
   frozen regions, true OOS, local chunked scan) is the proposed next
   increment — pair-v14.md, archives
   `experiments/data/calib{,-ft}-2026-07-31-latest800.json`.
-  P-009/P-010 remain open but are NOT blockers. Sibling workspaces
-  hold no additional research memory (`siblings.md`, 2026-07-31).
+  P-009/P-010 remain open but are NOT blockers. **Session 16: human
+  strategic redirect (inbox 90d94c56)** — E-029 PARKED; the lab's
+  primary objective is now a continuous two-sided inventory
+  accumulation controller (maximize matched min(Q_UP,Q_DOWN), pair
+  VWAP < 0.98, small imbalance, trending-loss control; 500–1,000
+  matched aspirational). Design checkpoint delivered in
+  `experiments/pair-v15.md` (family comparison + no-equivalence
+  statement, control math, metrics, neutral-first + directional-tilt
+  designs, proposed E-030 geometry scan → E-031 strategy grid) —
+  AWAITING HUMAN REVIEW; nothing frozen or coded yet. Sibling
+  workspaces hold no additional research memory (`siblings.md`,
+  2026-07-31).
