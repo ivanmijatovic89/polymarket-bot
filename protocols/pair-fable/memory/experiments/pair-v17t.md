@@ -549,3 +549,122 @@ grid if fleet capacity allows, bars frozen at design time; (3) P*
 floor below 0.85 and k above 0.28 stay open but unscheduled (both
 at/below bar per step). Loss identity on 1052 owed at its first use
 as a reference (§8 rule).
+
+## 14. E-051 — earlyTighten: entry-window maker concession
+## (FROZEN s41, 2026-08-01, BEFORE implementation/submission)
+
+### Hypothesis and causal mechanism
+
+The §12 anatomy on 1046 localizes 57% of residual gross S loss to
+minutes 0–4 (m0 alone −$10.1k at −3.5¢/sh on 29% of S volume;
+m1–m4 −2.7..−3.9¢/sh), while §10 showed the lateTighten ramp already
+prices toxicity from ~minute 5 onward. Neither live lever touches the
+entry window: lateTighten·frac ≈ 0 there, and P* lowers the cap
+uniformly at all ages. Mechanism: demand an extra per-share concession
+on maker quotes near the open, where informed flow against a fresh
+book is most adverse, decaying to zero as the book matures.
+
+**Shape decision (deviation from the §12 sketch, with reason):** §12
+sketched a full-window mirror k_e·(1 − elapsed/15m). Rejected at
+design: two linear terms sum to a LINE from k_e to k_l — no interior
+minimum — which overcharges the measured least-toxic mid-window
+(m3–6) by several cents and prices out exactly the fills that are
+fine. Frozen shape instead: concession = earlyTighten · max(0, 1 −
+elapsed/EARLY_MS) with EARLY_MS = 5 min, a measurement-pinned design
+constant (m0–4 carry 57% of the loss; the §10 ramp covers ~m5+).
+Composed total concession is then genuinely V-shaped: k_e at open → ~0
+at m5 → k·frac late, matching the §12 U-shaped conditional toxicity
+curve. EARLY_MS is a design constant, not a tunable (M5 discipline —
+no second free knob).
+
+### Exact code delta (pair.v17t.ts, one param + one term)
+
+- Schema add: `earlyTighten` ∈ [0, 0.12] default 0 (max = one step of
+  headroom above the largest frozen dose 0.09, M5 bound).
+- In the §8.3 maker-cap computation, alongside the late term:
+  `fracEarly = clamp(1 − (nowMs − (endMs − 15m))/EARLY_MS, 0, 1)`
+  (0 when endMs unknown, same convention as the late term), and
+  `pHat −= earlyTighten · fracEarly`. Applies ONLY to the maker
+  quote cap; pLock and the doom backstop stay on base pairTarget
+  (completions are ~fair — §10 identity, unchanged).
+- earlyTighten = 0 ⇒ bit-identical behavior to current v17t.
+
+### Non-equivalence (required at freeze)
+
+1. **vs E-027 (start-minute participation gating, pair-v13.md):**
+   price rule, not a participation rule — quotes stay live in m0–4 at
+   a lower cap; a fill at any minute remains allowed when the
+   counterparty crosses carrying the concession; participation is
+   never keyed on minute. Same §10 structure. The degeneracy boundary
+   is frozen below: if the dose extinguishes the early window instead
+   of repricing it, the axis closes.
+2. **vs P* (uniform floor):** time-shaped and entry-local vs uniform
+   at all ages; P* moves played-count strongly through the projection
+   cap at every minute, earlyTighten leaves mid/late quotes untouched
+   by construction.
+3. **vs lateTighten:** opposite slope AND disjoint support (late term
+   ≈ 0 in m0–5; early term = 0 from m5) — it prices the entry-window
+   term the ramp leaves unpriced by design.
+4. **vs v1-family entry-discipline kills (E-018 axes):** those were
+   absolute price ceilings / relative-to-bid placement on a different
+   family with no VWAP projection cap; the human ruling 8758567d
+   withdrew the class kill regardless. No exact-equivalence claim
+   exists.
+
+### Cells (center = best cell 1052: orderSize 100, imbalanceBand 160,
+### doomUnitMax 0.99, P* 0.86, k012; FULL --to-ms 1785196800000,
+### 140/20, B=500; integrity: identical 96-slug failure set, pairs on
+### 10,651 common)
+
+| # | cell | params (rest = center) | label | question |
+|---|---|---|---|---|
+| 1 | e03 | earlyTighten 0.03 | pf-e051-e03 | dose 1 ≈ mean m0–4 toxicity (−3¢/sh) at m0, half at m2.5 |
+| 2 | e06 | earlyTighten 0.06 | pf-e051-e06 | dose 2 — mean concession over m0–5 ≈ 3¢/sh |
+| 3 | e09 | earlyTighten 0.09 | pf-e051-e09 | dose 3 — locates peak/saturation in one batch |
+| 4 | p86k020 | lateTighten 0.20, earlyTighten 0 | pf-e051-p86k020 | s40 decision 2 ride-along: does the k step still add at the deeper floor? |
+
+### Frozen bars (B_full = 0.74, paired on the 10,651 common set)
+
+- **EARLY-CONT** iff e03 − 1052 > +0.74; curve read with e06 − e03 and
+  e09 − e06 alongside (decay/peak location).
+- **EARLY-NULL** iff |e03 − 1052| ≤ 0.74 AND |e06 − 1052| ≤ 0.74 ⇒
+  the entry-window concession does not move ev at this center; axis
+  closed at this shape (a different shape needs its own freeze).
+- **EARLY-OVER** iff e03 − 1052 < −0.74 ⇒ the concession is harmful
+  (early fills at current caps were net-acceptable or the
+  participation cost dominates); axis closed downward.
+- **DEGENERATE (overrides ev on this axis, §10 precedent):** at the
+  highest dose read, m0–4 S fills must remain ≥ 25% of the 1052
+  (earlyTighten=0) level; below that the concession has become a
+  de facto delayed start — behaviorally the E-027 object — and the
+  axis closes at the largest non-degenerate dose regardless of ev.
+- **K-AT-FLOOR-ADD** iff p86k020 − 1052 > +0.74 (k extension still
+  adds at P* 0.86; composed corner becomes a candidate);
+  **K-AT-FLOOR-REDUNDANT** iff ≤ +0.74 (levers overlap at the deeper
+  floor — consistent with E-050's p90k020 cross-read).
+- Watch metrics (frozen): S-minute histogram m0–4 vs 1052, noActivity
+  (1052 already 5,308), C+D $ vs $687.3k, fees, per-cell anatomy.
+
+### Decision map
+
+EARLY-CONT ⇒ the V-shape mechanism is real; next increment composes
+the winning dose with the open P*/k reads. EARLY-NULL/OVER ⇒ the
+entry-window loss is not maker-cap-priceable at this center; next
+mechanism from the §12 secondary candidate (quote-price-conditioned
+concession) with its own freeze. DEGENERATE ⇒ record per §10 and cap
+the axis. K-AT-FLOOR-ADD ⇒ p86k020-class corner joins the operating
+set; REDUNDANT ⇒ k stays at 0.12 with the P* floor.
+
+### Submit literals (whole grid up front, one per config, zsh guard)
+
+```
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param earlyTighten=0.03 --to-ms 1785196800000 --label pf-e051-e03 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param earlyTighten=0.06 --to-ms 1785196800000 --label pf-e051-e06 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.12 --param earlyTighten=0.09 --to-ms 1785196800000 --label pf-e051-e09 --detach
+npx tsx protocols/pair-fable/tools/run-backtest.ts --strategy pair-fable-v17t --param pairTarget=0.86 --param orderSize=100 --param imbalanceBand=160 --param doomUnitMax=0.99 --param lateTighten=0.20 --to-ms 1785196800000 --label pf-e051-p86k020 --detach
+```
+
+Pre-submit checklist: protocol:check PASS, smoke + activation PASS
+(earlyTighten=0.06 must be ACCEPTED and trade; earlyTighten absent ⇒
+behavior-identical), tree clean + pushed to origin/main, queue empty
+verified, batchUid captured per submit, fleet.ts verification after.

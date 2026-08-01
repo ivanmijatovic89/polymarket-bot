@@ -64,6 +64,8 @@ export const ConfigSchema = z
     leadPersistTicks: z.coerce.number().int().min(0).max(20000).default(0),
     /** v17t: per-share maker quote-cap concession in $ at full window age — pHat is lowered by lateTighten·(elapsed/15m). Applies ONLY to the maker quote cap; pLock/doom stay on base pairTarget. 0 = exact v17. */
     lateTighten: z.coerce.number().finite().min(0).max(0.32).default(0),
+    /** v17t E-051: per-share maker quote-cap concession in $ at window OPEN, decaying to 0 at minute 5 (EARLY_MS design constant) — pHat is lowered by earlyTighten·max(0, 1 − elapsed/5m). Entry-window mirror of lateTighten (disjoint support); maker cap only, pLock/doom untouched. 0 = exact prior v17t. */
+    earlyTighten: z.coerce.number().finite().min(0).max(0.12).default(0),
   })
   .refine((c) => c.orderSize <= c.imbalanceBand, {
     message: 'orderSize must be ≤ imbalanceBand (a single fill may not breach the band)',
@@ -113,6 +115,10 @@ const CANCEL_ALL_MS = 60_000
 /** Doom proxy for the v15.2 backstop (§10.3): lead bid at/below this = doomed. */
 const DOOM_BID = 0.2
 const WINDOW_MS = 15 * 60 * 1000
+/** E-051 design constant (pair-v17t.md §14, measurement-pinned): the early
+ * concession decays to zero at minute 5 — m0–4 carry 57% of residual S loss
+ * and the lateTighten ramp prices toxicity from ~m5. Not a tunable. */
+const EARLY_MS = 5 * 60 * 1000
 /** Taker fee model matching the simulator (700 bps · p · (1−p)). */
 const TAKER_FEE_RATE = 0.07
 const SIDES: SideName[] = ['UP', 'DOWN']
@@ -406,8 +412,16 @@ export function createStrategy(cfg: Config): {
         // knob from the measured per-share toxicity it prices.
         const frac =
           endMs !== null ? Math.min(1, Math.max(0, 1 - (endMs - nowMs) / WINDOW_MS)) : 0
+        // E-051: entry-window concession, decaying to 0 at EARLY_MS (§14) —
+        // disjoint support with the late ramp; V-shaped composed concession.
+        const fracEarly =
+          endMs !== null
+            ? Math.min(1, Math.max(0, 1 - (nowMs - (endMs - WINDOW_MS)) / EARLY_MS))
+            : 0
         const pHat =
-          ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q - cfg.lateTighten * frac
+          ((cfg.pairTarget - vOProj) * Qs2 - cost[side]) / q -
+          cfg.lateTighten * frac -
+          cfg.earlyTighten * fracEarly
         if (!Number.isFinite(pHat)) target = null
         else {
           // 4. Maker discipline: on-grid, strictly below the ask.
