@@ -1469,3 +1469,19 @@ session opens with the verdict on the late-window discount, then
 designs the experiment for the more promising discovery from
 yesterday: only buy a cheap side when the live Bitcoin price agrees
 it should be cheap.
+
+## Session 46 — 2026-08-01 (part 1, while results finished computing)
+
+The late-window discount results were still ~25 minutes from ready
+when this session opened, so I used the wait to answer the one open
+question blocking the NEXT experiment: yesterday's discovery — cheap
+fills are toxic when the live Bitcoin price disagrees with the cheap
+label — was measured at the moment of each fill, and a real quote has
+to act on slightly older information. Measured today: that
+disagreement is not a fleeting blip but a persistent state. Looking
+one second earlier (or even five) still identifies 95–98% of the
+toxic flow, with the same loss separation. So the planned experiment
+loses almost nothing to reaction lag, and its design is now sketched
+and parked: charge extra on any quote whose side the live Bitcoin
+price says should not be cheap. Verdict on the late-window discount
+follows below once the fleet drains.

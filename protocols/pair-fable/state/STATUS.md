@@ -1,6 +1,6 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T10:05Z (mission-02 session 45 close — audit PASS, readout machinery verified, grid still draining)
+Updated: 2026-08-01T10:13Z (mission-02 session 46 mid-session checkpoint — grid still draining at s46 start, ETA ~10:31Z; §21.4 quote-time capture DONE (flag persists 97.6% at 1s — E-053 needs only ~5% haircut); §21.5 E-053 pre-freeze skeleton written (threshold −5 locked); kept-flow SQL re-validated this session (1057 vs 1052 exact). If this session was cut before the readout: everything in IN FLIGHT below still applies verbatim to the next session.)
 
 ## IN FLIGHT (read first — s46 owes this readout, ~minutes after start)
 
