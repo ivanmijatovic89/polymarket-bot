@@ -243,3 +243,27 @@ Known cost of submitting behind the s34 grid: the 8 in-flight
 aggregates land only at FULL queue drain, so these 4 runs push ALL 12
 rows to ≈04:30–05:00Z. Accepted — total evidence throughput is higher
 (inbox c841c329) and no session blocks on drain.
+
+### Submission record (s35, 01:18–01:22Z, commitSha 8c287bc4)
+
+**Amendment recorded at submission: t40 was accidentally submitted
+TWICE** (the first invocation's batchUid line was filtered out of the
+visible output, so it was re-run). No safe single-batch cancel exists
+while 10 other batches share the queue, so both stay. Designation,
+fixed here BEFORE any results: **primary t40 = the FIRST submission
+(…011803-2irtuw); the second (…011853-xaiyd1) = `t40dup`, read ONLY as
+a same-config duplicate pair** re-validating the FULL noise model
+(E-041 precedent: dup |Δev| 0.21, sd 38.29). t40dup takes no part in
+verdict bars.
+
+| cell | batchUid |
+|---|---|
+| t40 (primary) | pf-e046-t40-20260801T011803-2irtuw |
+| t40dup | pf-e046-t40-20260801T011853-xaiyd1 |
+| t80 | pf-e046-t80-20260801T012053-gnmn1l |
+| t160 | pf-e046-t160-20260801T012138-ozzx0m |
+| t160p | pf-e046-t160p-20260801T012224-hyw1rz |
+
+Queue verified 01:23Z: 13 aggregates waiting-children (8 s34 + these
+5), ~126k market jobs remaining at ~620/min ⇒ full drain ≈04:45–05:00Z
+— ALL 13 rows land together then.

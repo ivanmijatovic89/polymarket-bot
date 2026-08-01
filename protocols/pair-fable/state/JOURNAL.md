@@ -1162,3 +1162,26 @@ tonight is already back in the fleet: eight full-history runs — the two
 new throttle variants rebuilt around the winning price target, plus the
 tighter-target probe — should report around 3am. Next session audits
 the last five sessions, then reads them.
+
+## Session 35 — 2026-08-01
+
+Started with the scheduled every-fifth-session review of our own work:
+the last five sessions all stayed on the assigned program, three
+experiments were closed with the agreed rules, nothing was declared
+finished without evidence, and the promotion safeguards are still in
+place. Clean bill of health.
+
+Last night's eight full-history runs were still about two hours from
+finishing, so instead of waiting we designed and launched the next
+experiment. It tests the one promising thread from yesterday: leaning
+our inventory gently toward the side our price signal favors — but only
+buying that lean patiently, never chasing it — now combined with the
+tighter buying discipline that produced our best result so far. Four
+runs ask how strong the lean should be and whether waiting a few
+seconds for the signal to prove itself helps. One run got submitted
+twice by accident; the duplicate stays in as a free measurement of
+run-to-run noise and won't influence any verdict.
+
+All thirteen runs (yesterday's eight plus these five) finish together
+around 05:00 UTC. Next session reads them all and follows the
+pre-agreed decision rules.
