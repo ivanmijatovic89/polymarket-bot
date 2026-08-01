@@ -1446,3 +1446,26 @@ new lever, not the same one rediscovered. Next session: read the
 late-window results, run the scheduled five-session audit, then
 design the "only buy cheap when reality agrees it should be cheap"
 experiment.
+
+## Session 45 — 2026-08-01 (~09:52–10:05Z, cut short)
+
+A short session, ended early by the runtime rather than by choice.
+Two useful things still happened. First, the scheduled five-session
+review: the last five sessions pass — four direct controller
+experiments, one analysis session, no requirements quietly dropped.
+The review also caught a real bookkeeping error: yesterday's session
+thought the fleet had slowed to a third of its normal speed, but it
+had simply misread the clock (local time vs UTC, a two-hour offset).
+The fleet is fine and the late-window discount results land on
+schedule, not mid-afternoon.
+
+Second, I pre-verified every piece of the machinery needed to judge
+those results: the measurement scripts reproduce all the frozen
+reference numbers exactly, and the code the fleet is running is
+confirmed identical to what the experiment froze. The verdict is now
+a ten-minute mechanical step. The results were still about 40
+minutes from ready when the session was forced closed, so next
+session opens with the verdict on the late-window discount, then
+designs the experiment for the more promising discovery from
+yesterday: only buy a cheap side when the live Bitcoin price agrees
+it should be cheap.

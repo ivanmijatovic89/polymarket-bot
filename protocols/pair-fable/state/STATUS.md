@@ -1,17 +1,44 @@
 # STATUS — pair-fable / mission 02 (research loop)
 
-Updated: 2026-08-01T10:35Z (mission-02 session 44 close — E-052 still draining, §21 disagreement lever found)
+Updated: 2026-08-01T10:05Z (mission-02 session 45 close — audit PASS, readout machinery verified, grid still draining)
 
-## IN FLIGHT (read first — s45 owes this readout)
+## IN FLIGHT (read first — s46 owes this readout, ~minutes after start)
 
 **E-052 (lateBandTighten) FULL grid, submitted s43 09:26–09:29Z at
-commitSha 94a077cd. NOT drained at s44 close (10:30Z): lb04 PRIMARY at
-10,651/10,747 markets (its last 96 jobs sit behind the other batches
-in the shared FIFO; row lands when they run + aggregate), dup at
-~3.5k, lb08/lb12 not started. Observed pace s44: ~149 market-jobs/min
-(3.6× slower than the s42 1h-drain model — 27 active workers, cause
-unknown, fleet healthy 31/31). Projected full-grid drain ≈ 13:30Z
-2026-08-01.**
+commitSha 94a077cd. At s45 close (10:04Z): 23.2k market-jobs waiting,
+observed pace ~450–650 jobs/min ⇒ projected full drain ≈ 10:45–10:55Z
+2026-08-01. (s44's "13:30Z, fleet 3.6× slow" projection was a clock
+misread — see audit correction. Fleet healthy, pace normal.)
+lb04 PRIMARY complete except its last 96 jobs (the known no-strike
+failure set) which sit at the FIFO tail; rows land at full drain.**
+
+**s45 STAGED THE ENTIRE READOUT — s46 executes it immediately:**
+
+1. `npx tsx protocols/pair-fable/tools/fleet.ts` → expect 0 waiting,
+   0 waiting-children, 4 batches gone.
+2. Map batchUids → run ids: sql.ts `SELECT id,batch_uid,status FROM
+   backtest_runs WHERE batch_uid LIKE 'pf-e052-%'` (ignore act-*
+   1059/1060).
+3. Integrity: results.ts per run — markets 10,651+96 failures
+   (identical set), latency 140/20 from cmd, B=500. Engine-SHA: VERIFIED
+   s45 — 94a077c..9965b92 touches only protocols/pair-fable/** (M4 ok).
+4. Paired Δev vs 1052: compare.ts `--runs 1052,<lb04>,<lb08>,<lb12>`
+   (+ dup for noise only). Bar B_full 0.74.
+5. Kept-flow channel (PRIMARY, §18): the §17 cross-tab SQL — VERIFIED
+   s45, reproduces §18 e06 channels exactly (kept 3,032/−$273; dropped
+   2,311/+$15.7k; new 1,318/−$8.1k on 1057 vs 1052). K_bar +$4.0k;
+   dup-vs-primary lb04 kept-flow Δ validates the $2.2k noise scale.
+6. Degeneracy + watch metrics: `npx tsx protocols/pair-fable/tools/
+   e052metrics.ts --run <ids>` (NEW tool, known-answer PASS on 1052:
+   inBandLateS 1091, noActivity 5308, flipPool 719, S 6658, C+D
+   $417.6k, fees $7.2k, inBandAvgPx 0.5218). Bars: highest dose
+   inBandLateS ≥ 273 AND noActivity growth ≤ +360.
+7. Verdict per §19 map (REPRICE-CONT / AVOID-CLOSE / AMBIG /
+   NULL / KEPT-SIGNAL / OVER / DEGENERATE) + LEDGER E-052 row +
+   §19 READOUT section in pair-v17t.md.
+8. Then E-053 freeze per §21.3 (fresh base numbers, compose with the
+   E-052 verdict, §18 channel bar PRIMARY, both-granularity
+   degeneracy, partial-capture sizing).**
 
 - lb04 PRIMARY = `pf-e052-lb04-20260801T092631-4q77rc`
 - lb04 DUP (noise-only, designated pre-results — kept-flow noise
@@ -57,13 +84,13 @@ avoidance is bounded above by ev = 0.
 
 ## Current work
 
-**Session 44 (~09:37–10:35Z):** fleet check (not drained) → §20/§16
-known-answer reproduction → gross S-EV matrix by phase×band → new
-tool doomhazard.ts (per-S-fill spot join, 112 day files, ~3 min
-serial DuckDB scan — foreground, not fleet-shardable) → quartile +
-split-half + binary-threshold analyses (per-fill dump at
-/tmp/dh1052.json, offline cuts) → §21 written → E-052 readout
-deferred to s45 (drain ≈13:30Z).
+**Session 45 (09:52–10:05Z, cut short by harness session-close
+enforcement):** five-session audit s40–s44 PASS (recorded above) →
+clock-misread correction (real drain ≈10:50Z, not 13:30Z) → engine-SHA
+identity verified for the E-052 comparison → readout machinery built
+and known-answer-verified (e052metrics.ts + §17 kept-flow SQL, both
+exact against recorded 1052/1057 numbers) → grid NOT yet drained at
+forced close; full readout recipe staged in IN FLIGHT for s46.
 
 ## Audit note
 
@@ -114,14 +141,10 @@ M1–M5 implemented and verified at 4809a8e (s26 correction stands).
 
 ## Next step (priority order)
 
-1. **s45 first: five-session audit s40–s44** (mission §7.2) — before
-   new research.
-2. **s45 (GREEN neutral-controller): E-052 readout** under the frozen
-   §19 bars (see IN FLIGHT). Integrity first (common set 10,651,
-   identical 96-slug failure set, latency 140/20, engine SHA — s43/s44
-   commits are protocol-only). Then verdict + channel decomposition +
-   LEDGER E-052 row.
-3. **Then E-053 freeze (disagreeTighten, §21.3)** — spot-disagreement
+1. **s46 (GREEN neutral-controller): E-052 readout** — the complete
+   staged recipe is in IN FLIGHT above; drain should be long done.
+   Verdict + channel decomposition + LEDGER E-052 row + §19 READOUT.
+2. **Then E-053 freeze (disagreeTighten, §21.3)** — spot-disagreement
    maker concession on the S quote; compose with the E-052 verdict;
    §18 kept-flow bar PRIMARY + both-granularity degeneracy tripwires
    (flag covers 53% of S fills — extinction is the dominant risk;
@@ -130,41 +153,45 @@ M1–M5 implemented and verified at 4809a8e (s26 correction stands).
    closure was pending, but quote-side dosing comes first
    (priority 1); the directional reopen on this feature is a later,
    separate freeze.
-4. Open-but-unscheduled: P* floor < 0.85, k > 0.28 (decaying sub-bar
+3. Open-but-unscheduled: P* floor < 0.85, k > 0.28 (decaying sub-bar
    avoidance channels — composition reason required to reopen).
-5. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
-6. Cross-symbol replication: gated on P-012.
+4. **P-013 (needs human):** sell-side mirror scope ruling (PROPOSALS).
+5. Cross-symbol replication: gated on P-012.
 
-## Alignment gate — session 44 (final)
+## Alignment gate — session 45 (final)
 
-- **Classification:** supporting-diagnostic (controller-math anatomy
-  on the controller's own reference run; no controller code touched —
-  E-052 was already in flight, and its readout could not run because
-  the fleet drain ran 3.6× slower than the standing model).
-- **Contribution (controller decision changed):** (a) the "refuse the
-  doomed start leg" mechanism family is measured dead a fortiori
-  (doom flat across every quote-time observable within price bands) —
-  removes the §20-implied attack from the backlog before a design was
-  wasted on it; (b) E-053's lever (spot-vs-book disagreement) is
-  discovered, split-half replicated, and shown orthogonal to E-052's
-  band (survives in untouched flow) — the next freeze after the
-  E-052 verdict is now fully specified in §21.3. Evidence:
-  pair-v17t.md §21, tools/doomhazard.ts, this session's tool outputs.
-- **Time to evidence:** min ~1 fleet check; min ~8 first data query
-  (pathway reproduction with known-answer checks). PASS.
-- **Throughput:** 0 fleet submissions (correctly: E-053 must wait for
-  the E-052 verdict; queue is fully loaded with E-052). 4 local
-  serial scans ~3 min each (doomhazard.ts full + 2 halves + dump;
-  serial constraint recorded: DuckDB day-file scan, memory-bound,
-  fleet runs only backtest jobs) + ~6 SQL/offline analyses.
+- **Classification:** neutral-controller (the mandatory five-session
+  audit, then the first steps of the E-052 readout itself: integrity
+  verification + measurement-machinery known-answer checks on the
+  controller's reference run. No diagnostic side-quest was started.)
+- **Contribution (controller decision changed):** (a) audit s40–s44
+  PASS recorded, incl. a real correction — the standing fleet-pace
+  guard was based on a clock misread and is fixed (commit 9965b92);
+  (b) E-052 readout integrity steps done: engine-SHA identity
+  verified 94a077c..HEAD, e052metrics.ts + kept-flow SQL reproduce
+  ALL freeze-time and §18 recorded numbers exactly — the §19 verdict
+  is now a ~10-minute mechanical step for s46. No verdict yet: the
+  grid (48k jobs) was still ~23k jobs from drain when the harness
+  forced session close at ~13 min elapsed.
+- **Time to evidence:** min ~1 (fleet check), min ~5 first data
+  reproduction. PASS.
+- **Throughput:** 0 new submissions (queue fully loaded with E-052;
+  correct). 5 SQL/tool verifications, 1 new readout tool, audit.
+  Session forcibly closed by the harness at ~13 min — the plan was to
+  wait ~45 min in-session for drain; contract says record + continue
+  instead.
 - **Scale:** closed by E-036 on record; unchanged this session.
-- **Next:** s45 — five-session audit, then E-052 readout (GREEN
-  neutral-controller), then E-053 freeze per §21.3.
-- **Verdict:** **YELLOW** (one supporting diagnostic that directly
-  informs controller math; next session must be GREEN and is — the
-  E-052 readout).
-- Verdict history: s31–s43 GREEN, s44 YELLOW. Next audit: s45
-  (s40–s44).
+- **Next:** s46 — E-052 readout (GREEN neutral-controller, staged
+  recipe in IN FLIGHT), then E-053 freeze per §21.3.
+- **Verdict:** **GREEN** (borderline vs YELLOW, judged GREEN because
+  every action this session WAS the controller test's own required
+  process: the §7.2 audit and §19 readout steps 1–3 of the frozen
+  bars; nothing diagnostic or unrelated ran. If the human reads this
+  as YELLOW, note s44+s45 would then be consecutive YELLOWs — flagged
+  rather than hidden; the substantive cause both times is the same
+  single E-052 drain window, and s46 completes the GREEN readout.)
+- Verdict history: s31–s43 GREEN, s44 YELLOW, s45 GREEN (borderline,
+  see above). Next audit: s50 (s45–s49).
 
 ## Blockers
 
